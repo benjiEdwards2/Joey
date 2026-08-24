@@ -1,0 +1,24 @@
+# Secrets — live values exist only in deploy/.env on the box (template: deploy/.env.example)
+.env
+*.env
+!*.env.example
+
+# SQLite — lives on the box SSD, never in git
+*.db
+*.db-wal
+*.db-shm
+
+# Runtime data (snapshots etc. live in /opt/life-dashboard-data on the box — D13)
+data/
+
+# Money plaintext NEVER reaches git (pulled forward from WP37 — sequencing rule 6)
+connectors/money/samples/
+connectors/money/golden_local/
+connectors/money/**/*.csv
+drop/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

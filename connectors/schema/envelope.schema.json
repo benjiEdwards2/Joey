@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/envelope.schema.json",
+  "title": "Snapshot envelope v1",
+  "description": "FROZEN at WP0 (D13, 2026-08-25) — the hub<->connector contract. Every connector writes exactly one envelope per run to the snapshot store; the hub renders tiles from envelopes only. Any change after this commit is a dated DECISIONS.md entry plus a full hub-test-suite re-run. Frozen connector id namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money. Owner rule (R12): any person-scoped list inside `data` carries an `owner` field valued you|her|shared on every record. `fetched_at` is the last fetch ATTEMPT; `updated_at` is the last SUCCESS and is what the hub's stale badge reads.",
+  "type": "object",
+  "required": [
+    "connector",
+    "schema_version",
+    "fetched_at",
+    "updated_at",
+    "status",
+    "consecutive_failures",
+    "error",
+    "data"
+  ],
+  "properties": {
+    "connector": {
+      "type": "string",
+      "enum": [
+        "open_meteo",
+        "gcal",
+        "clickup",
+        "macromates",
+        "home_assistant",
+        "jellyfin",
+        "nas_stats",
+        "money"
+      ],
+      "description": "Frozen id namespace. clickup is reserved (WP26 removed from v1, 2026-08-25) — the id stays frozen so a future connector needs no schema change."
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of the last fetch ATTEMPT, success or not."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of the last SUCCESSFUL fetch — the hub's stale badge reads this."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "error"]
+    },
+    "consecutive_failures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "Human-readable failure reason when status=error; null when ok."
+    },
+    "data": {
+      "type": "object",
+      "description": "Connector-specific payload. Per-feed data schemas are authored in WP23. Any person-scoped list herein carries owner: you|her|shared on every record (R12)."
+    }
+  },
+  "additionalProperties": false
+}

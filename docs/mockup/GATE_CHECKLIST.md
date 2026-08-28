@@ -33,8 +33,8 @@ and **desktop**. Every line is a yes/no. Sign-off = a dated "Mockup gate passed"
 | 10 | **Notion LINK tile**: launch button reads as "opens the real app", clearly different from data tiles | Desk page | |
 | 11 | **SVG line icons** approved as the v1 icon set (consistent across Windows/Android/iOS) | rail + tiles, phone vs desktop | |
 | 12 | **Phone layout**: bento goes 2-up, Money hero spans full width, no horizontal page scroll (the status strip scrolls within itself by design) | phone | |
-| 13 | **Name**: "Hearth" is a placeholder — keep, or pick another (Homebase / Waypoint / Daybreak / Mission Control / your own) | header | |
-| 14 | **TBD sixth module**: countdown joined as an essential; the remaining TBD slot (house temps? chores? photo of the day?) — name it or park it | — | |
+| 13 | **Name**: ~~Hearth~~ **Jarvis** — chosen by B. 2026-08-28 | header | ✔ |
+| 14 | **TBD sixth module**: parked by B. 2026-08-28 — stays TBD until a later decision | — | ✔ |
 
 ## 3. On sign-off
 

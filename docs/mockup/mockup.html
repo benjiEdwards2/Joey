@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Life Dashboard — Control Surface mockup (WP0 gate)</title>
+<title>Hearth — Control Surface mockup v3, Cockpit × Bento (WP0 gate)</title>
 <style>
-  /* ---- Palette per DECISIONS 2026-08-17/25 — dark Control Surface ---- */
+  /* ---- Palette per DECISIONS 2026-08-17/25 · layout per 2026-08-26 (Cockpit × Bento) ---- */
   :root {
     --bg: #08090D;
     --card: #101219;
@@ -25,18 +25,39 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
+  svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
+           stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
-  /* ---- Layout: header, tab bar, page area ---- */
+  /* ---- Cockpit frame: icon rail (desktop) + main column ---- */
+  .app { display: flex; min-height: 100vh; }
+  nav.rail {
+    width: 64px; flex: none;
+    background: #0C0E14; border-right: 1px solid var(--border);
+    padding: 14px 0; display: flex; flex-direction: column; gap: 4px; align-items: center;
+    position: sticky; top: 0; height: 100vh;
+  }
+  nav.rail button {
+    appearance: none; border: 0; cursor: pointer; font: inherit;
+    width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+    background: transparent; color: var(--text-faint);
+  }
+  nav.rail button svg.ic { width: 19px; height: 19px; }
+  nav.rail button[aria-current="true"] {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent);
+  }
+  nav.rail button:hover { color: var(--accent); }
+
+  .main { flex: 1; min-width: 0; padding: 18px 22px 90px; max-width: 1160px; margin: 0 auto; }
+
   header {
     display: flex; align-items: baseline; justify-content: space-between;
-    gap: 12px; flex-wrap: wrap;
-    padding: 20px 24px 8px;
-    max-width: 1180px; margin: 0 auto;
+    gap: 12px; flex-wrap: wrap; padding: 4px 2px 12px;
   }
-  header h1 { font-size: 20px; font-weight: 650; letter-spacing: .2px; }
-  header .date { color: var(--text-dim); font-size: 13px; }
+  header h1 { font-size: 21px; font-weight: 700; letter-spacing: .3px; }
+  header h1 span { color: var(--text-faint); font-weight: 500; }
+  header .date { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
 
-  /* Owner switcher — segmented Both / You / Her */
   .switcher {
     display: inline-flex; border: 1px solid var(--border); border-radius: 10px;
     overflow: hidden; background: var(--card);
@@ -47,91 +68,92 @@
   }
   .switcher button[aria-pressed="true"] { background: var(--border); color: var(--text); font-weight: 600; }
 
-  /* Tab bar — the room registry rendered. Desktop: horizontal under the header. */
-  nav.tabs {
-    display: flex; gap: 4px; flex-wrap: nowrap;
-    padding: 8px 24px 14px;
-    max-width: 1180px; margin: 0 auto;
+  /* ---- Cockpit status strip ---- */
+  .status {
+    display: flex; gap: 20px; align-items: center; overflow-x: auto; white-space: nowrap;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 14px; margin-bottom: 14px;
+    font-size: 12px; color: var(--text-dim); scrollbar-width: none;
   }
-  nav.tabs button {
-    appearance: none; font: inherit; cursor: pointer;
-    display: flex; align-items: center; gap: 7px;
-    background: var(--card); color: var(--text-dim);
-    border: 1px solid var(--border); border-radius: 12px;
-    padding: 9px 14px; font-size: 13px; white-space: nowrap;
-  }
-  nav.tabs button .em { font-size: 15px; }
-  nav.tabs button[aria-current="true"] {
-    color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent);
-  }
-  nav.tabs button.more-btn { display: none; }
+  .status b { color: var(--text); font-weight: 650; }
+  .status .warn b { color: var(--stale); }
+  .status .sep { color: #232735; }
 
-  main { max-width: 1180px; margin: 0 auto; padding: 4px 24px 90px; }
   .page { display: none; }
   .page.active { display: block; }
-  .page h2 { font-size: 16px; font-weight: 650; margin: 10px 0 14px; display: flex; align-items: center; gap: 8px; }
-  .page h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .page h2 { font-size: 16px; font-weight: 650; margin: 4px 0 14px; display: flex; align-items: center; gap: 9px; }
+  .page h2 svg.ic { color: var(--accent); }
   .page .pagenote { color: var(--text-faint); font-size: 12px; margin: -8px 0 14px; }
 
-  /* Card grid — wraps by available width; multi-column at 1280, 1–2 cols at 375 */
-  .grid {
+  /* ---- Bento grid: weighted, mixed-size modules ---- */
+  .bento {
     display: grid; gap: 14px;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: minmax(118px, auto);
+    grid-auto-flow: dense;
   }
+  .s22 { grid-column: span 2; grid-row: span 2; }
+  .s21 { grid-column: span 2; }
+  .full { grid-column: 1 / -1; }
 
-  /* ---- Tile anatomy ---- */
   .tile {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
-    display: flex; flex-direction: column; gap: 8px;
-    min-height: 128px;
-    position: relative;
+    border-radius: 20px; padding: 18px;
+    display: flex; flex-direction: column; gap: 7px;
+    border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    background: linear-gradient(155deg, color-mix(in srgb, var(--accent) 13%, var(--card)), var(--card) 62%);
+    min-width: 0; cursor: default;
   }
-  .tile .head { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-dim); }
-  .tile .head .em { font-size: 16px; }
-  .tile .head .area-name { color: var(--accent); font-weight: 600; letter-spacing: .3px; }
-  .tile .value { font-size: 24px; font-weight: 650; letter-spacing: .2px; line-height: 1.2; }
+  .tile .head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim);
+                text-transform: uppercase; letter-spacing: .8px; font-weight: 700; }
+  .tile .head svg.ic { width: 16px; height: 16px; color: var(--accent); }
+  .tile .head .area-name { color: var(--accent); }
+  .tile .value { font-size: 24px; font-weight: 750; letter-spacing: -.2px; line-height: 1.15; margin-top: auto; }
+  .tile .value.hero { font-size: 34px; }
   .tile .value.dim { color: var(--text-dim); font-size: 16px; font-weight: 500; }
+  .tile .bignum { font-size: 56px; font-weight: 850; letter-spacing: -2px; line-height: 1; margin-top: auto; }
   .tile .sub { font-size: 13px; color: var(--text-dim); }
-  .tile .foot { margin-top: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tile .foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .tile .ago { font-size: 11px; color: var(--text-faint); margin-left: auto; }
 
-  /* Ownership chips — text, never colour-only, never the accent slot */
   .chip {
-    font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase;
-    color: var(--text-dim); background: var(--bg);
+    font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    color: var(--text-dim); background: rgba(0,0,0,.35);
     border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px;
   }
-
-  /* State badges — coloured AND written in words */
   .badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 3px 9px; letter-spacing: .3px; }
-  .badge.fresh { color: var(--kitchen); border: 1px solid var(--kitchen); }
   .badge.stale { color: var(--stale); border: 1px solid var(--stale); }
   .badge.off   { color: var(--text-faint); border: 1px solid var(--border); }
 
-  /* LINK-tier launch button */
   a.launch {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--bg); color: var(--text);
+    display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+    background: rgba(0,0,0,.35); color: var(--text);
     border: 1px solid var(--accent); border-radius: 10px;
     padding: 9px 16px; font-size: 14px; font-weight: 600; text-decoration: none;
   }
   a.setup { color: var(--text-dim); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
 
-  /* Progress bar (aimed vs actual) — value also written in words beside it */
-  .bar { height: 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
-  .bar > span { display: block; height: 100%; background: var(--accent); }
+  .pace { display: grid; gap: 5px; }
+  .pace .bar { height: 6px; background: rgba(0,0,0,.4); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+  .pace .bar > span { display: block; height: 100%; background: var(--accent); }
+  .pace .bar.month > span { background: var(--text-faint); }
+  .pace .lbl { font-size: 12px; color: var(--text-dim); }
 
-  /* Accent swatch table (gate checklist aid, on Desk of the mockup only) */
-  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 10px; }
+  .setup-row {
+    border: 1px dashed var(--border); border-radius: 16px; background: var(--card);
+    padding: 12px 16px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    font-size: 13px; color: var(--text-dim);
+  }
+  .setup-row .s-item { display: flex; align-items: center; gap: 8px; }
+  .setup-row svg.ic { width: 16px; height: 16px; color: var(--accent); }
+
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
   .swatch { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
   .swatch i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
 
-  /* States demo strip */
   .demo-label { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .6px; margin: 22px 0 10px; }
 
-  /* "More" sheet (phone) */
+  /* Phone bottom bar + More sheet */
+  nav.tabs { display: none; }
   .sheet {
     display: none; position: fixed; left: 0; right: 0; bottom: 64px;
     background: var(--card); border-top: 1px solid var(--border);
@@ -144,169 +166,230 @@
     background: var(--bg); color: var(--text-dim);
     border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px;
   }
+  .sheet button svg.ic { width: 15px; height: 15px; color: var(--accent); }
   .sheet button[aria-current="true"] { color: var(--text); border-color: var(--accent); }
 
-  /* ---- Phone: <=640px — bottom tab bar, 4 areas + More ---- */
+  /* ---- Phone <=640px: rail hides, bottom bar appears, bento goes 2-up ---- */
   @media (max-width: 640px) {
-    header { padding: 16px 16px 6px; }
-    main { padding: 2px 16px 96px; }
-    .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    nav.rail { display: none; }
+    .main { padding: 14px 16px 96px; }
+    header > div:first-child { width: 100%; }
+    .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(108px, auto); }
+    .s22 { grid-column: span 2; grid-row: span 2; }
+    .s21 { grid-column: span 2; }
+    .tile .value.hero { font-size: 27px; }
+    .tile .bignum { font-size: 44px; }
     nav.tabs {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+      display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
       background: var(--card); border-top: 1px solid var(--border);
       padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-      max-width: none; justify-content: space-between; gap: 2px;
+      justify-content: space-between; gap: 2px;
     }
-    nav.tabs button { border: 0; background: transparent; flex-direction: column; gap: 2px; padding: 4px 8px; font-size: 10px; }
-    nav.tabs button .em { font-size: 20px; }
-    nav.tabs button[aria-current="true"] { box-shadow: none; color: var(--accent); }
-    nav.tabs button.overflow { display: none; }      /* areas 5–8 fold away */
-    nav.tabs button.more-btn { display: flex; }       /* ...into More */
+    nav.tabs button {
+      appearance: none; border: 0; background: transparent; cursor: pointer; font: inherit;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      color: var(--text-dim); padding: 4px 8px; font-size: 10px;
+    }
+    nav.tabs button svg.ic { width: 20px; height: 20px; }
+    nav.tabs button[aria-current="true"] { color: var(--accent); }
+    nav.tabs button.overflow { display: none; }
   }
 </style>
 </head>
 <body>
 
-<header>
-  <div>
-    <h1 id="greeting">Edwards House</h1>
-    <div class="date">Tuesday 25 August · mockup — static data</div>
-  </div>
-  <div class="switcher" role="group" aria-label="Who's looking">
-    <button data-view="both" aria-pressed="true">Both</button>
-    <button data-view="you" aria-pressed="false">You</button>
-    <button data-view="her" aria-pressed="false">Her</button>
-  </div>
-</header>
+<div class="app">
+  <nav class="rail" id="rail" aria-label="Areas"></nav>
+  <div class="main">
+    <header>
+      <div>
+        <h1>Hearth <span>· Edwards</span></h1>
+        <div class="date">Wednesday 26 August · mockup v3 — static data</div>
+      </div>
+      <div class="switcher" role="group" aria-label="Who's looking">
+        <button data-view="both" aria-pressed="true">Both</button>
+        <button data-view="you" aria-pressed="false">You</button>
+        <button data-view="her" aria-pressed="false">Her</button>
+      </div>
+    </header>
 
-<nav class="tabs" id="tabbar" aria-label="Areas"></nav>
+    <div class="status">
+      <span>SYS <b>OK</b></span><span class="sep">|</span>
+      <span>FEEDS <b>6/7</b></span><span class="sep">|</span>
+      <span class="warn">HOUSE <b>stale 5 h</b></span><span class="sep">|</span>
+      <span>NEXT UP <b>Physio 3:30 pm</b></span><span class="sep">|</span>
+      <span>NEXT BILL <b>Electricity $184 — Fri</b></span><span class="sep">|</span>
+      <span>HOLIDAY <b>T-47d</b></span>
+    </div>
+
+    <div id="pages"></div>
+  </div>
+</div>
+
+<nav class="tabs" id="tabbar" aria-label="Areas (phone)"></nav>
 <div class="sheet" id="moreSheet"></div>
-
-<main id="pages"></main>
 
 <script>
 /* =========================================================================
-   The registry. In the real build this is config/areas.yaml (WP16) —
-   the tab bar, hub grid, and pages below all render from this one array.
+   The registry — in the real build this is config/areas.yaml (WP16).
+   Icons are embedded SVG line icons (zero network), tinted by area accent.
    ========================================================================= */
+const ICONS = {
+  hub:      '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  kitchen:  '<circle cx="10.5" cy="13.5" r="6"/><path d="M16.5 13.5h5M13 4.5c-1 1-1 2 0 3M9.5 4.5c-1 1-1 2 0 3"/>',
+  money:    '<path d="M12 5.5v13M15.5 8c0-1.2-1.5-2-3.5-2s-3.5.8-3.5 2 1.3 1.9 3.5 2.2 3.5 1 3.5 2.3-1.5 2-3.5 2-3.5-.8-3.5-2"/>',
+  desk:     '<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6M12 16.5V20"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>',
+  media:    '<circle cx="12" cy="12" r="8.5"/><path d="M10 8.8l5.4 3.2-5.4 3.2z"/>',
+  house:    '<path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/>',
+  car:      '<path d="M4.5 14.5l1.4-4.2A2 2 0 0 1 7.8 9h8.4a2 2 0 0 1 1.9 1.3l1.4 4.2"/><rect x="3.5" y="14.5" width="17" height="4" rx="1"/><circle cx="7.5" cy="19.5" r="1.4"/><circle cx="16.5" cy="19.5" r="1.4"/>',
+  garden:   '<path d="M12 21v-8.5"/><path d="M12 12.5c0-4.2 3.1-7 7-7 0 4.2-3.1 7-7 7z"/><path d="M12 12.5c0-3.2-2.4-5-5.5-5 0 3.2 2.4 5 5.5 5z"/>',
+};
+const ic = id => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[id]}</svg>`;
+
 const AREAS = [
-  { id:"hub",      name:"Hub",      emoji:"⌂",  accent:"#8A90A0" },
-  { id:"kitchen",  name:"Kitchen",  emoji:"🍳", accent:"#5BE08C" },
-  { id:"money",    name:"Money",    emoji:"💰", accent:"#3FD9C0" },
-  { id:"desk",     name:"Desk",     emoji:"🖥️", accent:"#5B9CF6" },
-  { id:"calendar", name:"Calendar", emoji:"📅", accent:"#A78BFA" },
-  { id:"media",    name:"Media",    emoji:"🎬", accent:"#FF5CA8" },
-  { id:"house",    name:"House",    emoji:"🏠", accent:"#FFB454" },
-  { id:"car",      name:"Car",      emoji:"🚗", accent:"#F87171" },
-  { id:"garden",   name:"Garden",   emoji:"🌱", accent:"#22D3EE" },
+  { id:"hub",      name:"Hub",      accent:"#8A90A0" },
+  { id:"kitchen",  name:"Kitchen",  accent:"#5BE08C" },
+  { id:"money",    name:"Money",    accent:"#3FD9C0" },
+  { id:"desk",     name:"Desk",     accent:"#5B9CF6" },
+  { id:"calendar", name:"Calendar", accent:"#A78BFA" },
+  { id:"media",    name:"Media",    accent:"#FF5CA8" },
+  { id:"house",    name:"House",    accent:"#FFB454" },
+  { id:"car",      name:"Car",      accent:"#F87171" },
+  { id:"garden",   name:"Garden",   accent:"#22D3EE" },
 ];
 const area = id => AREAS.find(a => a.id === id);
 
-/* Tile factory: state = fresh | stale | off (not connected) */
-function tile({areaId, owner, value, valueDim, sub, state, stateText, secondary, body, minH}) {
+/* Bento tile factory. Quiet freshness: "fresh" renders no badge, only a faint
+   timestamp; badges exist only for stale / not-connected. size: s22|s21|"" */
+function tile({areaId, owner, size, value, hero, bignum, valueDim, sub, secondary, state, stateText, ago, body}) {
   const a = area(areaId);
-  const badge = state === "fresh" ? `<span class="badge fresh">fresh</span>`
-              : state === "stale" ? `<span class="badge stale">stale ${stateText}</span>`
+  const badge = state === "stale" ? `<span class="badge stale">stale ${stateText}</span>`
               : state === "off"   ? `<span class="badge off">not connected</span>` : "";
-  return `<div class="tile" data-owner="${owner}" style="--accent:${a.accent}">
-    <div class="head"><span class="em">${a.emoji}</span><span class="area-name">${a.name}</span></div>
-    ${value ? `<div class="value${valueDim ? " dim" : ""}">${value}</div>` : ""}
+  return `<div class="tile ${size || ""}" data-owner="${owner}" data-goto="${areaId}" style="--accent:${a.accent}">
+    <div class="head">${ic(a.id)}<span class="area-name">${a.name}</span></div>
+    ${bignum ? `<div class="bignum">${bignum}</div>` : ""}
+    ${value ? `<div class="value${hero ? " hero" : ""}${valueDim ? " dim" : ""}">${value}</div>` : ""}
     ${secondary ? `<div class="sub">${secondary}</div>` : ""}
     ${sub ? `<div class="sub">${sub}</div>` : ""}
     ${body || ""}
-    <div class="foot"><span class="chip">${owner === "you" ? "You" : owner === "her" ? "Her" : "Shared"}</span>${badge}</div>
+    <div class="foot"><span class="chip">${owner === "you" ? "You" : owner === "her" ? "Her" : "Shared"}</span>${badge}${ago ? `<span class="ago">${ago}</span>` : ""}</div>
   </div>`;
 }
 
-/* ---- Hub: one summary tile per area (Money shows the one allowed secondary line, D17) ---- */
+/* ---- Hub: weighted bento. Money 2×2, Calendar 2×1; Car/Garden fold to a setup row ---- */
+const paceBars = `
+  <div class="pace">
+    <div class="bar"><span style="width:82%"></span></div>
+    <div class="bar month"><span style="width:84%"></span></div>
+    <div class="lbl">82% of aim used · 84% of month gone — tracking $110 ahead</div>
+  </div>`;
 const hubTiles = [
-  tile({areaId:"kitchen", owner:"shared", value:"Tacos tonight", sub:"MacroMates · 4 items on the list", state:"fresh"}),
-  tile({areaId:"money", owner:"shared", value:"$1,240 left", secondary:"Next bill: Electricity — Fri 29th", sub:"of $6,800 aimed this month", state:"fresh"}),
-  tile({areaId:"desk", owner:"you", value:"3 files this week", sub:"NAS drop folder", state:"fresh"}),
-  tile({areaId:"calendar", owner:"her", value:"Physio 3:30 pm", sub:"today · 2 more this week", state:"fresh"}),
-  tile({areaId:"media", owner:"shared", value:"2 new episodes", sub:"Jellyfin · continue watching", state:"fresh"}),
+  tile({areaId:"money", owner:"shared", size:"s22", value:"$1,240 left", hero:true,
+        secondary:"of $6,800 aimed · next bill: Electricity $184 — Fri 29th", body:paceBars,
+        state:"fresh", ago:"12 min ago"}),
+  tile({areaId:"calendar", owner:"her", size:"s21", value:"Physio 3:30 pm",
+        sub:"then: B. site visit tomorrow 9:00 · Fiji in 47 days", state:"fresh", ago:"8 min ago"}),
+  tile({areaId:"kitchen", owner:"shared", value:"Burrito bowls", sub:"4 items on the list", state:"fresh", ago:"25 min ago"}),
+  tile({areaId:"media", owner:"shared", value:"Slow Horses S4E3", sub:"34 min left · 2 new", state:"fresh", ago:"1 h ago"}),
+  tile({areaId:"desk", owner:"you", value:"3 files this week", sub:"NAS drop · P58473 drawings Tue", state:"fresh", ago:"31 min ago"}),
   tile({areaId:"house", owner:"shared", value:"21.5 °C inside", sub:"heating off · last read 9:04 am", state:"stale", stateText:"5 h"}),
-  tile({areaId:"car", owner:"you", value:"Not connected", valueDim:true, body:`<a class="setup" href="#" onclick="return false">Set up →</a>`, state:"off"}),
-  tile({areaId:"garden", owner:"shared", value:"Not connected", valueDim:true, body:`<a class="setup" href="#" onclick="return false">Set up →</a>`, state:"off"}),
+  `<div class="setup-row full" data-owner="shared">
+     <span class="s-item" style="--accent:#F87171">${ic("car")} Car</span>
+     <span class="s-item" style="--accent:#22D3EE">${ic("garden")} Garden</span>
+     <span>aren't set up yet — they'll appear here when connected</span>
+     <a class="setup" href="#" onclick="return false" style="margin-left:auto">Set up →</a>
+   </div>`,
 ];
 
-/* ---- Money area page: aimed-vs-actual leads (DECISIONS 2026-08-25) ---- */
-function barTile(areaId, owner, label, actual, aimed, pct) {
-  return tile({areaId, owner, value: label, valueDim:true,
+/* ---- Money page: aimed-vs-actual per category leads (Q22 emphasis) ---- */
+function catTile(owner, size, label, actual, aimed, pct, note) {
+  return tile({areaId:"money", owner, size, value: label, valueDim:true,
     body: `<div class="value">$${actual} <span style="font-size:14px;color:var(--text-dim);font-weight:500">of $${aimed} aimed</span></div>
-           <div class="bar"><span style="width:${pct}%"></span></div>
-           <div class="sub">${pct}% of aim used — in words, not just the bar</div>`,
-    state:"fresh"});
+           <div class="pace"><div class="bar"><span style="width:${pct}%"></span></div>
+           <div class="lbl">${note}</div></div>`,
+    state:"fresh", ago:"12 min ago"});
 }
 const moneyTiles = [
-  barTile("money","shared","This month — all categories", "5,560", "6,800", 82),
-  barTile("money","shared","Groceries", "684", "900", 76),
-  barTile("money","you","Fuel — you", "112", "160", 70),
-  tile({areaId:"money", owner:"shared", value:"Electricity — Fri 29th", sub:"then: Internet 1st · Mortgage 1st", state:"fresh"}),
+  catTile("shared","s22","This month — all categories","5,560","6,800",82,"82% used with 5 days left — in words, not just the bar"),
+  catTile("shared","s21","Groceries","684","900",76,"76% used — on pace"),
+  catTile("shared","","Eating out","228","300",76,"76% used — one dinner in hand"),
+  catTile("you","","Fuel — you","112","160",70,"70% used — one tank in hand"),
+  tile({areaId:"money", owner:"shared", size:"s21", value:"Electricity $184 — Fri 29th",
+        sub:"then: Internet $99 — 1st · Mortgage $3,800 — 1st", state:"fresh", ago:"12 min ago"}),
 ];
-
-/* Three tile states side by side (gate item c) */
 const statesDemo = `
-  <div class="demo-label">Tile states — the three the hub can render</div>
-  <div class="grid">
-    ${tile({areaId:"money", owner:"shared", value:"$1,240 left", sub:"updated 12 min ago", state:"fresh"})}
+  <div class="demo-label">Tile states — quiet when healthy, loud when not</div>
+  <div class="bento">
+    ${tile({areaId:"money", owner:"shared", value:"$1,240 left", sub:"healthy: no badge, just the timestamp", state:"fresh", ago:"12 min ago"})}
     ${tile({areaId:"money", owner:"shared", value:"$1,240 left", sub:"showing last known value", state:"stale", stateText:"5 h"})}
     ${tile({areaId:"money", owner:"shared", value:"Not connected", valueDim:true, body:`<a class="setup" href="#" onclick="return false">Set up →</a>`, state:"off"})}
   </div>`;
 
-/* ---- Calendar page: weather is an EMBED tile HERE, not a hub pill (D18) ---- */
+/* ---- Calendar page: weather EMBED tile lives HERE (D18) + the holiday countdown ---- */
 const calendarTiles = [
-  tile({areaId:"calendar", owner:"shared", value:"18 °C · light rain", sub:"Open-Meteo · today 14–19 °C · EMBED tier", state:"fresh"}),
-  tile({areaId:"calendar", owner:"her", value:"Physio 3:30 pm", sub:"today", state:"fresh"}),
-  tile({areaId:"calendar", owner:"you", value:"Site visit 9:00 am", sub:"tomorrow", state:"fresh"}),
-  tile({areaId:"calendar", owner:"shared", value:"Dinner @ Mum's", sub:"Saturday 6:00 pm", state:"fresh"}),
+  tile({areaId:"calendar", owner:"shared", size:"s22", bignum:"47",
+        value:"days until Fiji", sub:"12 October · placeholder trip", state:"fresh", ago:"today"}),
+  tile({areaId:"calendar", owner:"shared", size:"s21", value:"18 °C · light rain",
+        sub:"Penrith · today 14–19 °C · rain easing 4 pm · Open-Meteo EMBED", state:"fresh", ago:"18 min ago"}),
+  tile({areaId:"calendar", owner:"her", value:"Physio 3:30 pm", sub:"today · Kingswood clinic", state:"fresh", ago:"8 min ago"}),
+  tile({areaId:"calendar", owner:"you", value:"Site visit 9:00 am", sub:"tomorrow · P58473", state:"fresh", ago:"8 min ago"}),
+  tile({areaId:"calendar", owner:"shared", size:"s21", value:"Dinner at Mum's", sub:"Saturday 6:00 pm", state:"fresh", ago:"8 min ago"}),
 ];
 
-/* ---- Desk page: the Notion LINK tile (gate item d) + accent swatch table ---- */
+/* ---- Desk page: Notion LINK tile + swatch table ---- */
 const deskTiles = [
-  tile({areaId:"desk", owner:"shared", value:"Notes", valueDim:true,
+  tile({areaId:"desk", owner:"shared", size:"s21", value:"Notes", valueDim:true,
     body:`<a class="launch" href="#" onclick="return false">Open Notion ↗</a>
           <div class="sub" style="margin-top:6px">LINK tier — opens the real app, nothing ingested</div>`, state:"fresh"}),
-  tile({areaId:"desk", owner:"you", value:"3 files this week", sub:"NAS drop folder", state:"fresh"}),
+  tile({areaId:"desk", owner:"you", size:"s21", value:"3 files this week", sub:"NAS drop · P58473 drawings Tue", state:"fresh", ago:"31 min ago"}),
 ];
 const swatchTable = `
   <div class="demo-label">Proposed accent hues (gate item — approve or adjust)</div>
   <div class="tile" data-owner="shared" style="--accent:#5B9CF6">
     <div class="swatches">
-      ${AREAS.filter(a=>a.id!=="hub").map(a=>`<span class="swatch"><i style="background:${a.accent}"></i>${a.emoji} ${a.name} <code>${a.accent}</code></span>`).join("")}
+      ${AREAS.filter(a=>a.id!=="hub").map(a=>`<span class="swatch" style="--accent:${a.accent}"><i style="background:${a.accent}"></i>${ic(a.id)} ${a.name} <code>${a.accent}</code></span>`).join("")}
     </div>
     <div class="foot"><span class="chip">Shared</span></div>
   </div>`;
 
-/* ---- Stub pages for the remaining areas ---- */
-const stub = id => `<div class="grid">${tile({areaId:id, owner:"shared", value:"Not connected", valueDim:true,
+const stub = id => `<div class="bento">${tile({areaId:id, owner:"shared", size:"s21", value:"Not connected", valueDim:true,
   body:`<a class="setup" href="#" onclick="return false">Set up →</a>`, state:"off"})}</div>
   <p class="pagenote" style="margin-top:12px">Area page arrives with its connector — the tab exists from day one because rooms are config, not code.</p>`;
 
 const PAGES = {
-  hub: `<div class="grid">${hubTiles.join("")}</div>`,
-  money: `<div class="grid">${moneyTiles.join("")}</div>${statesDemo}`,
-  calendar: `<div class="grid">${calendarTiles.join("")}</div>`,
-  desk: `<div class="grid">${deskTiles.join("")}</div>${swatchTable}`,
+  hub: `<div class="bento">${hubTiles.join("")}</div>`,
+  money: `<div class="bento">${moneyTiles.join("")}</div>${statesDemo}`,
+  calendar: `<div class="bento">${calendarTiles.join("")}</div>`,
+  desk: `<div class="bento">${deskTiles.join("")}</div>${swatchTable}`,
   kitchen: stub("kitchen"), media: stub("media"), house: stub("house"), car: stub("car"), garden: stub("garden"),
 };
 
-/* ---- Render tab bar + pages from the registry ---- */
+/* ---- Render rail (desktop), bottom bar (phone), sheet, pages — all from the registry ---- */
+const rail = document.getElementById("rail");
 const tabbar = document.getElementById("tabbar");
 const sheet = document.getElementById("moreSheet");
 const pagesEl = document.getElementById("pages");
 
 AREAS.forEach((a, i) => {
+  const r = document.createElement("button");
+  r.innerHTML = ic(a.id);
+  r.title = a.name;
+  r.style.setProperty("--accent", a.accent);
+  r.dataset.page = a.id;
+  r.addEventListener("click", () => show(a.id));
+  rail.appendChild(r);
+
   const b = document.createElement("button");
-  b.innerHTML = `<span class="em">${a.emoji}</span><span>${a.name}</span>`;
+  b.innerHTML = `${ic(a.id)}<span>${a.name}</span>`;
   b.style.setProperty("--accent", a.accent);
   b.dataset.page = a.id;
-  if (i >= 4) b.classList.add("overflow");            /* phone: areas 5+ fold into More */
+  if (i >= 4) b.classList.add("overflow");
   b.addEventListener("click", () => show(a.id));
   tabbar.appendChild(b);
 
   const s = document.createElement("button");
-  s.innerHTML = `<span class="em">${a.emoji}</span><span>${a.name}</span>`;
+  s.innerHTML = `${ic(a.id)}<span>${a.name}</span>`;
   s.style.setProperty("--accent", a.accent);
   s.dataset.page = a.id;
   s.addEventListener("click", () => { show(a.id); sheet.classList.remove("open"); });
@@ -315,21 +398,26 @@ AREAS.forEach((a, i) => {
   const pg = document.createElement("section");
   pg.className = "page"; pg.id = "page-" + a.id;
   pg.style.setProperty("--accent", a.accent);
-  pg.innerHTML = (a.id === "hub" ? "" : `<h2><span class="dot"></span>${a.name}</h2>`) + PAGES[a.id];
+  pg.innerHTML = (a.id === "hub" ? "" : `<h2>${ic(a.id)}${a.name}</h2>`) + PAGES[a.id];
   pagesEl.appendChild(pg);
 });
 
 const more = document.createElement("button");
 more.className = "more-btn";
-more.innerHTML = `<span class="em">⋯</span><span>More</span>`;
+more.innerHTML = `<svg class="ic" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg><span>More</span>`;
 more.addEventListener("click", () => sheet.classList.toggle("open"));
 tabbar.appendChild(more);
 
 function show(id) {
   document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + id));
   document.querySelectorAll("[data-page]").forEach(b => b.setAttribute("aria-current", b.dataset.page === id ? "true" : "false"));
+  window.scrollTo(0, 0);
 }
 show("hub");
+
+/* Hub tiles link down into their area (bento modules are tappable) */
+document.querySelectorAll("#page-hub [data-goto]").forEach(el =>
+  el.addEventListener("click", () => show(el.dataset.goto)));
 
 /* ---- Owner switcher: You = you+shared, Her = her+shared, Both = all (Q9) ---- */
 document.querySelectorAll(".switcher button").forEach(btn => {

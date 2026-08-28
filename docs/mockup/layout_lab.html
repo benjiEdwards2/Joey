@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Layout Lab — 10 looks, same life (WP0 gate exploration)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0a0b10; }
+  body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; font-variant-numeric: tabular-nums; overflow-x: hidden; }
+
+  /* ---- Lab chrome: the picker ---- */
+  .lab-bar {
+    position: sticky; top: 0; z-index: 100;
+    background: #14161d; border-bottom: 1px solid #262a36;
+    padding: 10px 14px; color: #cfd3de;
+    display: flex; gap: 8px; align-items: center; overflow-x: auto;
+    -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+  }
+  .lab-bar .lab-title { font-size: 12px; color: #7a8093; white-space: nowrap; margin-right: 4px; }
+  .lab-bar button {
+    appearance: none; font: inherit; cursor: pointer; white-space: nowrap;
+    background: #0a0b10; color: #9aa0b2; border: 1px solid #262a36;
+    border-radius: 999px; padding: 6px 13px; font-size: 12.5px;
+  }
+  .lab-bar button[aria-current="true"] { color: #fff; border-color: #6ea8fe; background: #1a2233; }
+  .variant { display: none; min-height: calc(100vh - 50px); }
+  .variant.active { display: block; }
+
+  /* Shared bits */
+  .ic { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 1.8;
+        stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.12em; }
+
+  /* ============ V1 — Control Surface (current direction) ============ */
+  .v1 { background: #08090D; color: #E8EAF0; padding: 22px; }
+  .v1 .wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 14px;
+              grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .v1 .card { background: #101219; border: 1px solid #1D212B; border-radius: 14px; padding: 16px; min-height: 120px; }
+  .v1 .card.wide { grid-column: span 2; }
+  .v1 .k { font-size: 12px; font-weight: 600; letter-spacing: .4px; margin-bottom: 8px; }
+  .v1 .big { font-size: 24px; font-weight: 650; line-height: 1.2; }
+  .v1 .sub { font-size: 13px; color: #8A90A0; margin-top: 5px; }
+  .v1 .bar { height: 6px; background: #08090D; border: 1px solid #1D212B; border-radius: 99px; margin-top: 10px; overflow: hidden; }
+  .v1 .bar span { display: block; height: 100%; }
+  @media (max-width: 640px) { .v1 .card.wide { grid-column: 1 / -1; } }
+
+  /* ============ V2 — Day Timeline ============ */
+  .v2 { background: #0B0D12; color: #E8EAF0; padding: 24px; }
+  .v2 .wrap { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1.4fr 1fr; gap: 28px; }
+  .v2 h3 { font-size: 13px; color: #7a8093; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+  .v2 .tl { border-left: 2px solid #232735; padding-left: 20px; display: grid; gap: 22px; }
+  .v2 .slot { position: relative; }
+  .v2 .slot::before { content: ""; position: absolute; left: -25.5px; top: 6px; width: 9px; height: 9px;
+                      border-radius: 50%; background: var(--c, #6ea8fe); }
+  .v2 .t { font-size: 12px; color: #7a8093; }
+  .v2 .e { font-size: 17px; font-weight: 650; margin-top: 2px; }
+  .v2 .d { font-size: 13px; color: #8A90A0; margin-top: 2px; }
+  .v2 .rail { display: grid; gap: 14px; align-content: start; }
+  .v2 .rcard { background: #12141c; border: 1px solid #232735; border-radius: 12px; padding: 14px 16px; }
+  .v2 .rk { font-size: 11px; color: #7a8093; text-transform: uppercase; letter-spacing: .8px; }
+  .v2 .rv { font-size: 20px; font-weight: 650; margin-top: 3px; }
+  .v2 .rs { font-size: 12.5px; color: #8A90A0; margin-top: 2px; }
+  @media (max-width: 700px) { .v2 .wrap { grid-template-columns: 1fr; } }
+
+  /* ============ V3 — Wall Panel (big tappable tiles) ============ */
+  .v3 { background: #06070a; color: #fff; padding: 18px; min-height: 100vh; }
+  .v3 .wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px;
+              grid-template-columns: repeat(3, 1fr); }
+  .v3 .tile { border-radius: 22px; padding: 26px 24px; min-height: 210px; display: flex; flex-direction: column;
+              background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.015)); border: 1px solid rgba(255,255,255,.09); }
+  .v3 .lab { font-size: 14px; font-weight: 600; opacity: .75; display: flex; gap: 8px; align-items: center; }
+  .v3 .lab .ic { font-size: 18px; color: var(--c); }
+  .v3 .huge { font-size: 42px; font-weight: 750; letter-spacing: -.5px; margin-top: auto; line-height: 1.05; }
+  .v3 .mini { font-size: 15px; opacity: .65; margin-top: 6px; }
+  @media (max-width: 900px) { .v3 .wrap { grid-template-columns: repeat(2, 1fr); } .v3 .huge { font-size: 32px; } }
+  @media (max-width: 520px) { .v3 .wrap { grid-template-columns: 1fr; } .v3 .tile { min-height: 150px; } }
+
+  /* ============ V4 — Editorial / front page ============ */
+  .v4 { background: #F4F0E8; color: #1a1712; padding: 30px 24px 60px; font-family: Georgia, "Times New Roman", serif; }
+  .v4 .wrap { max-width: 900px; margin: 0 auto; }
+  .v4 .mast { text-align: center; border-bottom: 3px double #1a1712; padding-bottom: 14px; margin-bottom: 4px; }
+  .v4 .mast h1 { font-size: 34px; letter-spacing: 1px; }
+  .v4 .mast .dt { font-size: 13px; margin-top: 4px; font-style: italic; }
+  .v4 .ticker { font-family: system-ui, sans-serif; font-size: 12.5px; border-bottom: 1px solid #1a1712;
+                padding: 8px 0; display: flex; gap: 26px; overflow-x: auto; white-space: nowrap; }
+  .v4 .cols { display: grid; grid-template-columns: 1.6fr 1fr; gap: 30px; margin-top: 24px; }
+  .v4 .lead h2 { font-size: 30px; line-height: 1.15; }
+  .v4 .lead .standfirst { font-size: 16px; font-style: italic; color: #4a4438; margin-top: 8px; }
+  .v4 .lead .body { font-size: 14.5px; line-height: 1.55; margin-top: 12px; column-gap: 22px; }
+  .v4 .side { border-left: 1px solid #1a1712; padding-left: 22px; display: grid; gap: 18px; align-content: start; }
+  .v4 .side h4 { font-size: 12px; font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 1.2px; }
+  .v4 .side .item { font-size: 15px; }
+  .v4 .side .item b { font-size: 17px; }
+  .v4 .count { font-size: 52px; font-weight: 700; line-height: 1; }
+  @media (max-width: 700px) { .v4 .cols { grid-template-columns: 1fr; } .v4 .side { border-left: 0; padding-left: 0; border-top: 1px solid #1a1712; padding-top: 18px; } }
+
+  /* ============ V5 — Terminal ============ */
+  .v5 { background: #050705; color: #9fe870; padding: 26px 20px; font-family: Consolas, "Cascadia Mono", monospace; font-size: 14px; }
+  .v5 .wrap { max-width: 860px; margin: 0 auto; }
+  .v5 .hd { color: #5a7a4a; margin-bottom: 16px; }
+  .v5 .row { display: grid; grid-template-columns: 110px 1fr; gap: 14px; padding: 7px 0; border-bottom: 1px dashed #1c2a18; }
+  .v5 .tag { color: #ffd166; }
+  .v5 .dim { color: #5a7a4a; }
+  .v5 .warn { color: #ff8f5c; }
+  .v5 .bar { letter-spacing: 1px; }
+  .v5 .cur { animation: v5blink 1.1s steps(1) infinite; }
+  @keyframes v5blink { 50% { opacity: 0; } }
+  @media (max-width: 520px) { .v5 .row { grid-template-columns: 84px 1fr; } .v5 { font-size: 12.5px; } }
+
+  /* ============ V6 — Stories (snap scroll) ============ */
+  .v6 { background: #0B0D12; color: #fff; }
+  .v6 .snapper { height: calc(100vh - 50px); overflow-y: auto; scroll-snap-type: y mandatory; }
+  .v6 .story { height: calc(100vh - 50px); scroll-snap-align: start; display: flex; flex-direction: column;
+               justify-content: center; align-items: center; text-align: center; padding: 30px;
+               background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--c) 18%, transparent), transparent 60%); }
+  .v6 .sk { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: var(--c); font-weight: 700; }
+  .v6 .sv { font-size: clamp(34px, 7vw, 58px); font-weight: 800; letter-spacing: -1px; margin-top: 14px; line-height: 1.05; max-width: 700px; }
+  .v6 .ss { font-size: 17px; color: #9aa0b2; margin-top: 14px; max-width: 520px; }
+  .v6 .hint { font-size: 12px; color: #565c6b; margin-top: 40px; }
+
+  /* ============ V7 — Cockpit (sidebar + dense panels) ============ */
+  .v7 { background: #0e1015; color: #d7dae3; min-height: calc(100vh - 50px); }
+  .variant.v7.active { display: flex; }
+  .v7 .side { width: 60px; background: #12141b; border-right: 1px solid #232735; padding: 16px 0;
+              display: flex; flex-direction: column; gap: 6px; align-items: center; flex: none; }
+  .v7 .side .si { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+                  color: #7a8093; font-size: 17px; }
+  .v7 .side .si.on { background: #1a2233; color: #6ea8fe; }
+  .v7 .main { flex: 1; padding: 18px; min-width: 0; }
+  .v7 .status { display: flex; gap: 20px; font-size: 12px; color: #7a8093; border: 1px solid #232735;
+                background: #12141b; border-radius: 8px; padding: 8px 14px; margin-bottom: 14px; overflow-x: auto; white-space: nowrap; }
+  .v7 .status b { color: #d7dae3; }
+  .v7 .panels { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .v7 .panel { background: #12141b; border: 1px solid #232735; border-radius: 8px; padding: 13px 15px; }
+  .v7 .ph { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: #7a8093;
+            border-bottom: 1px solid #232735; padding-bottom: 7px; margin-bottom: 9px; display: flex; justify-content: space-between; }
+  .v7 .pv { font-size: 22px; font-weight: 650; }
+  .v7 .ps { font-size: 12px; color: #8A90A0; margin-top: 3px; }
+  .v7 .spark { display: flex; align-items: flex-end; gap: 3px; height: 30px; margin-top: 9px; }
+  .v7 .spark i { flex: 1; background: #2b5f8f; border-radius: 2px 2px 0 0; display: block; }
+
+  /* ============ V8 — Zen focus ============ */
+  .v8 { background: #FAFAF7; color: #22252b; min-height: calc(100vh - 50px); flex-direction: column;
+        align-items: center; justify-content: center; text-align: center; padding: 48px 24px; }
+  .variant.v8.active { display: flex; }
+  .v8 .k { font-size: 13px; text-transform: uppercase; letter-spacing: 3px; color: #9a9e90; }
+  .v8 .n { font-size: clamp(84px, 18vw, 150px); font-weight: 250; line-height: 1; letter-spacing: -3px; margin: 8px 0 2px; }
+  .v8 .w { font-size: 19px; color: #6b6f60; }
+  .v8 .list { margin-top: 54px; display: grid; gap: 14px; font-size: 16px; color: #44483c; }
+  .v8 .list span { color: #a0a494; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin-right: 10px; }
+
+  /* ============ V9 — E-ink family board ============ */
+  .v9 { background: #EFEDE6; color: #111; padding: 26px 20px; font-family: "Segoe UI", system-ui, sans-serif; }
+  .v9 .frame { max-width: 940px; margin: 0 auto; border: 3px solid #111; background: #F7F5EF; }
+  .v9 .head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 3px solid #111; padding: 14px 20px; }
+  .v9 .head h1 { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+  .v9 .head .d { font-size: 14px; font-weight: 600; }
+  .v9 .grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .v9 .cell { border-right: 2px solid #111; border-bottom: 2px solid #111; padding: 16px 18px; min-height: 150px; }
+  .v9 .cell:nth-child(3n) { border-right: 0; }
+  .v9 .ck { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+            border-bottom: 1px solid #111; padding-bottom: 5px; margin-bottom: 9px; }
+  .v9 .cv { font-size: 21px; font-weight: 750; line-height: 1.2; }
+  .v9 .cs { font-size: 13px; margin-top: 5px; color: #333; }
+  .v9 .seg { font-family: Consolas, monospace; font-size: 44px; font-weight: 700; letter-spacing: 2px; }
+  @media (max-width: 700px) { .v9 .grid { grid-template-columns: 1fr; } .v9 .cell { border-right: 0; } }
+
+  /* ============ V10 — Bento ============ */
+  .v10 { background: #0c0d13; color: #fff; padding: 22px; }
+  .v10 .wrap { max-width: 1000px; margin: 0 auto; display: grid; gap: 14px;
+               grid-template-columns: repeat(4, 1fr); grid-auto-rows: 128px; }
+  .v10 .b { border-radius: 24px; padding: 20px; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+  .v10 .bk { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; opacity: .8; }
+  .v10 .bv { font-size: 26px; font-weight: 800; letter-spacing: -.4px; margin-top: auto; line-height: 1.1; }
+  .v10 .bs { font-size: 13px; opacity: .75; margin-top: 4px; }
+  .v10 .s22 { grid-column: span 2; grid-row: span 2; }
+  .v10 .s21 { grid-column: span 2; }
+  .v10 .s12 { grid-row: span 2; }
+  .v10 .g-food  { background: linear-gradient(150deg, #1d4030, #0f2019); }
+  .v10 .g-media { background: linear-gradient(150deg, #47163a, #1c0a17); }
+  .v10 .g-money { background: linear-gradient(150deg, #103b38, #081a18); }
+  .v10 .g-cal   { background: linear-gradient(150deg, #2c2456, #131028); }
+  .v10 .g-holi  { background: linear-gradient(150deg, #4a3413, #1e1508); }
+  .v10 .g-tbd   { background: #14161d; border: 2px dashed #2b2f3d; }
+  .v10 .bignum { font-size: 64px; font-weight: 850; letter-spacing: -2px; line-height: 1; }
+  @media (max-width: 700px) { .v10 .wrap { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="lab-bar" id="labBar">
+  <span class="lab-title">LAYOUT LAB — same life, 10 looks:</span>
+</div>
+<div id="stage"></div>
+
+<script>
+/* One shared life, rendered ten ways. */
+const D = {
+  date: "Wednesday 26 August",
+  food:  { tonight: "Chicken burrito bowls", tomorrow: "Salmon + greens", note: "4 items still on the shopping list" },
+  media: { next: "Slow Horses S4E3", sub: "34 min left · then 2 new episodes", movie: "Saturday pick: Dune Part Two" },
+  money: { left: "$1,240", aimed: "$6,800", pct: 82, month: 84, note: "tracking $110 ahead", bill: "Electricity $184 — Fri" },
+  cal:   { next: "Physio 3:30 pm", who: "Georgina", later: "B. site visit tomorrow 9:00 · dinner at Mum's Sat" },
+  holi:  { name: "Fiji (placeholder)", days: 47, date: "12 October" },
+  tbd:   { hint: "TBD — house temps? chores? photo of the day?" },
+};
+const IC = {
+  food:'<circle cx="10.5" cy="13.5" r="6"/><path d="M16.5 13.5h5M13 4.5c-1 1-1 2 0 3M9.5 4.5c-1 1-1 2 0 3"/>',
+  media:'<circle cx="12" cy="12" r="8.5"/><path d="M10 8.8l5.4 3.2-5.4 3.2z"/>',
+  money:'<path d="M12 5.5v13M15.5 8c0-1.2-1.5-2-3.5-2s-3.5.8-3.5 2 1.3 1.9 3.5 2.2 3.5 1 3.5 2.3-1.5 2-3.5 2-3.5-.8-3.5-2"/>',
+  cal:'<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8.5 3v4M15.5 3v4"/>',
+  holi:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.3 2.5 14.7 0 17M12 3.5c-2.5 2.3-2.5 14.7 0 17"/>',
+  tbd:'<circle cx="12" cy="12" r="8.5"/><path d="M9.5 9.5c0-1.4 1.1-2.5 2.5-2.5s2.5 1 2.5 2.4c0 2-2.5 2.1-2.5 4.1M12 17.5v.1"/>',
+};
+const ic = k => `<svg class="ic" viewBox="0 0 24 24">${IC[k]}</svg>`;
+
+const VARIANTS = [
+{ name: "1 · Control Surface", cls: "v1", html: `
+  <div class="wrap">
+    <div class="card wide" style="--c:#3FD9C0"><div class="k" style="color:#3FD9C0">${ic("money")} MONEY</div>
+      <div class="big">${D.money.left} left of ${D.money.aimed}</div>
+      <div class="sub">Next bill: ${D.money.bill} · ${D.money.note}</div>
+      <div class="bar"><span style="width:${D.money.pct}%;background:#3FD9C0"></span></div></div>
+    <div class="card wide" style="--c:#A78BFA"><div class="k" style="color:#A78BFA">${ic("cal")} CALENDAR</div>
+      <div class="big">${D.cal.next}</div><div class="sub">${D.cal.who} · then: ${D.cal.later}</div></div>
+    <div class="card"><div class="k" style="color:#5BE08C">${ic("food")} FOOD</div>
+      <div class="big" style="font-size:19px">${D.food.tonight}</div><div class="sub">${D.food.note}</div></div>
+    <div class="card"><div class="k" style="color:#FF5CA8">${ic("media")} MEDIA</div>
+      <div class="big" style="font-size:19px">${D.media.next}</div><div class="sub">${D.media.sub}</div></div>
+    <div class="card"><div class="k" style="color:#FFB454">${ic("holi")} HOLIDAY</div>
+      <div class="big">${D.holi.days} days</div><div class="sub">${D.holi.name} · ${D.holi.date}</div></div>
+    <div class="card"><div class="k" style="color:#565C6B">${ic("tbd")} TBD</div>
+      <div class="big" style="font-size:17px;color:#8A90A0">Your call</div><div class="sub">${D.tbd.hint}</div></div>
+  </div>`},
+
+{ name: "2 · Day Timeline", cls: "v2", html: `
+  <div class="wrap">
+    <div><h3>Today — ${D.date}</h3>
+      <div class="tl">
+        <div class="slot" style="--c:#A78BFA"><div class="t">3:30 PM</div><div class="e">${D.cal.next.replace(" 3:30 pm","")}</div><div class="d">${D.cal.who} · Kingswood clinic</div></div>
+        <div class="slot" style="--c:#5BE08C"><div class="t">6:30 PM</div><div class="e">${D.food.tonight}</div><div class="d">${D.food.note}</div></div>
+        <div class="slot" style="--c:#FF5CA8"><div class="t">8:30 PM</div><div class="e">${D.media.next}</div><div class="d">${D.media.sub}</div></div>
+        <div class="slot" style="--c:#565c6b"><div class="t">TOMORROW</div><div class="e" style="font-size:14px;color:#8A90A0">${D.cal.later}</div></div>
+      </div></div>
+    <div class="rail"><h3>Standing</h3>
+      <div class="rcard"><div class="rk">Money</div><div class="rv">${D.money.left} left</div><div class="rs">${D.money.pct}% of aim · ${D.money.month}% of month · ${D.money.bill}</div></div>
+      <div class="rcard"><div class="rk">Holiday</div><div class="rv">${D.holi.days} days to go</div><div class="rs">${D.holi.name} · ${D.holi.date}</div></div>
+      <div class="rcard"><div class="rk">Saturday movie</div><div class="rv" style="font-size:16px">${D.media.movie}</div></div>
+      <div class="rcard" style="border-style:dashed"><div class="rk">TBD</div><div class="rs">${D.tbd.hint}</div></div>
+    </div>
+  </div>`},
+
+{ name: "3 · Wall Panel", cls: "v3", html: `
+  <div class="wrap">
+    <div class="tile" style="--c:#5BE08C"><div class="lab">${ic("food")} DINNER</div><div class="huge">Burrito bowls</div><div class="mini">${D.food.note}</div></div>
+    <div class="tile" style="--c:#A78BFA"><div class="lab">${ic("cal")} NEXT</div><div class="huge">3:30 Physio</div><div class="mini">${D.cal.who}</div></div>
+    <div class="tile" style="--c:#3FD9C0"><div class="lab">${ic("money")} LEFT</div><div class="huge">${D.money.left}</div><div class="mini">${D.money.pct}% of aim used</div></div>
+    <div class="tile" style="--c:#FF5CA8"><div class="lab">${ic("media")} WATCH</div><div class="huge">Slow Horses</div><div class="mini">S4E3 · ${D.media.sub}</div></div>
+    <div class="tile" style="--c:#FFB454"><div class="lab">${ic("holi")} HOLIDAY</div><div class="huge">${D.holi.days} days</div><div class="mini">${D.holi.name}</div></div>
+    <div class="tile" style="--c:#565c6b;border-style:dashed"><div class="lab">${ic("tbd")} TBD</div><div class="huge" style="opacity:.35">?</div><div class="mini">${D.tbd.hint}</div></div>
+  </div>`},
+
+{ name: "4 · Front Page", cls: "v4", html: `
+  <div class="wrap">
+    <div class="mast"><h1>The Edwards Daily</h1><div class="dt">${D.date} · late edition · fine, 18°</div></div>
+    <div class="ticker"><span><b>MONEY</b> ${D.money.left} left (${D.money.pct}% of aim, ${D.money.note})</span><span><b>NEXT BILL</b> ${D.money.bill}</span><span><b>HOLIDAY</b> ${D.holi.days} days to ${D.holi.name}</span></div>
+    <div class="cols">
+      <div class="lead">
+        <h2>Burrito bowls confirmed for tonight's dinner service</h2>
+        <div class="standfirst">${D.food.note} — sources close to the fridge report tomorrow will bring ${D.food.tomorrow.toLowerCase()}.</div>
+        <div class="body">In the evening schedule, ${D.cal.who} attends physio at 3:30 pm at the Kingswood clinic. The household then reconvenes for the main event before settling in for <i>${D.media.next}</i> — ${D.media.sub}. Looking ahead: ${D.cal.later}.</div>
+      </div>
+      <div class="side">
+        <div><h4>Countdown</h4><div class="count">${D.holi.days}</div><div class="item">days until ${D.holi.name}, departing ${D.holi.date}</div></div>
+        <div><h4>Tonight's viewing</h4><div class="item"><b>${D.media.next}</b><br>${D.media.sub}<br><i>${D.media.movie}</i></div></div>
+        <div><h4>Classifieds (TBD)</h4><div class="item" style="color:#8a8271">${D.tbd.hint}</div></div>
+      </div>
+    </div>
+  </div>`},
+
+{ name: "5 · Terminal", cls: "v5", html: `
+  <div class="wrap">
+    <div class="hd">hearth v0.1 — ${D.date.toLowerCase()} · all systems nominal_</div>
+    <div class="row"><span class="tag">FOOD</span><span>${D.food.tonight} <span class="dim">// tomorrow: ${D.food.tomorrow} // ${D.food.note}</span></span></div>
+    <div class="row"><span class="tag">MEDIA</span><span>${D.media.next} <span class="dim">// ${D.media.sub}</span></span></div>
+    <div class="row"><span class="tag">MONEY</span><span>${D.money.left} left <span class="bar">[███████████████░░░] ${D.money.pct}%</span> <span class="dim">// month at ${D.money.month}% // ${D.money.note}</span></span></div>
+    <div class="row"><span class="tag">BILL</span><span class="warn">${D.money.bill} <span class="dim">// then mortgage $3,800 — 1st</span></span></div>
+    <div class="row"><span class="tag">CAL</span><span>15:30 ${D.cal.next.replace(" 3:30 pm","")} (${D.cal.who}) <span class="dim">// ${D.cal.later}</span></span></div>
+    <div class="row"><span class="tag">HOLIDAY</span><span>T-minus ${D.holi.days} days <span class="dim">// ${D.holi.name} // ${D.holi.date}</span></span></div>
+    <div class="row"><span class="tag">TBD</span><span class="dim">${D.tbd.hint}</span></div>
+    <div style="margin-top:14px">&gt; <span class="cur">█</span></div>
+  </div>`},
+
+{ name: "6 · Stories", cls: "v6", html: `
+  <div class="snapper">
+    <div class="story" style="--c:#A78BFA"><div class="sk">Next up</div><div class="sv">${D.cal.next}</div><div class="ss">${D.cal.who} · then ${D.cal.later}</div><div class="hint">scroll ↓</div></div>
+    <div class="story" style="--c:#5BE08C"><div class="sk">Dinner tonight</div><div class="sv">${D.food.tonight}</div><div class="ss">${D.food.note} · tomorrow: ${D.food.tomorrow}</div></div>
+    <div class="story" style="--c:#3FD9C0"><div class="sk">Money</div><div class="sv">${D.money.left} left</div><div class="ss">${D.money.pct}% of aim used, ${D.money.month}% of month gone — ${D.money.note}. ${D.money.bill}.</div></div>
+    <div class="story" style="--c:#FF5CA8"><div class="sk">Tonight's watch</div><div class="sv">${D.media.next}</div><div class="ss">${D.media.sub} · ${D.media.movie}</div></div>
+    <div class="story" style="--c:#FFB454"><div class="sk">Holiday</div><div class="sv">${D.holi.days} days</div><div class="ss">${D.holi.name} · departing ${D.holi.date}</div></div>
+    <div class="story" style="--c:#565c6b"><div class="sk">TBD</div><div class="sv" style="opacity:.4">Your slot</div><div class="ss">${D.tbd.hint}</div></div>
+  </div>`},
+
+{ name: "7 · Cockpit", cls: "v7", html: `
+  <div class="side">
+    <div class="si on">${ic("cal")}</div><div class="si">${ic("food")}</div><div class="si">${ic("money")}</div>
+    <div class="si">${ic("media")}</div><div class="si">${ic("holi")}</div><div class="si">${ic("tbd")}</div>
+  </div>
+  <div class="main">
+    <div class="status"><span>SYS <b>OK</b></span><span>FEEDS <b>6/7</b></span><span>LAST SYNC <b>12 min</b></span><span>NEXT BILL <b>${D.money.bill}</b></span><span>HOLIDAY <b>T-${D.holi.days}d</b></span></div>
+    <div class="panels">
+      <div class="panel"><div class="ph"><span>MONEY / AIM</span><span>82%</span></div><div class="pv">${D.money.left} left</div><div class="ps">${D.money.note}</div>
+        <div class="spark"><i style="height:40%"></i><i style="height:55%"></i><i style="height:45%"></i><i style="height:70%"></i><i style="height:62%"></i><i style="height:78%"></i><i style="height:82%;background:#3FD9C0"></i></div></div>
+      <div class="panel"><div class="ph"><span>CALENDAR</span><span>2 today</span></div><div class="pv">${D.cal.next}</div><div class="ps">${D.cal.who} · ${D.cal.later}</div></div>
+      <div class="panel"><div class="ph"><span>FOOD</span><span>planned</span></div><div class="pv" style="font-size:18px">${D.food.tonight}</div><div class="ps">${D.food.note}</div></div>
+      <div class="panel"><div class="ph"><span>MEDIA / JELLYFIN</span><span>2 new</span></div><div class="pv" style="font-size:18px">${D.media.next}</div><div class="ps">${D.media.sub}</div></div>
+      <div class="panel"><div class="ph"><span>HOLIDAY</span><span>${D.holi.date}</span></div><div class="pv">${D.holi.days} days</div><div class="ps">${D.holi.name}</div></div>
+      <div class="panel" style="border-style:dashed"><div class="ph"><span>TBD</span><span>—</span></div><div class="ps">${D.tbd.hint}</div></div>
+    </div>
+  </div>`},
+
+{ name: "8 · Zen", cls: "v8", html: `
+  <div class="k">days until ${D.holi.name.replace(" (placeholder)","")}</div>
+  <div class="n">${D.holi.days}</div>
+  <div class="w">${D.holi.date}</div>
+  <div class="list">
+    <div><span>next</span>${D.cal.next} — ${D.cal.who}</div>
+    <div><span>dinner</span>${D.food.tonight}</div>
+    <div><span>money</span>${D.money.left} left · ${D.money.note}</div>
+    <div><span>watch</span>${D.media.next}</div>
+    <div><span>tbd</span><i style="color:#a0a494">${D.tbd.hint}</i></div>
+  </div>`},
+
+{ name: "9 · E-ink Board", cls: "v9", html: `
+  <div class="frame">
+    <div class="head"><h1>Edwards</h1><div class="d">${D.date}</div></div>
+    <div class="grid">
+      <div class="cell"><div class="ck">Dinner</div><div class="cv">${D.food.tonight}</div><div class="cs">${D.food.note}</div></div>
+      <div class="cell"><div class="ck">Calendar</div><div class="cv">${D.cal.next}</div><div class="cs">${D.cal.who} · ${D.cal.later}</div></div>
+      <div class="cell"><div class="ck">Holiday</div><div class="seg">${D.holi.days}d</div><div class="cs">${D.holi.name} · ${D.holi.date}</div></div>
+      <div class="cell"><div class="ck">Money</div><div class="seg" style="font-size:30px">${D.money.left}</div><div class="cs">left of ${D.money.aimed} · ${D.money.bill}</div></div>
+      <div class="cell"><div class="ck">Watch tonight</div><div class="cv" style="font-size:17px">${D.media.next}</div><div class="cs">${D.media.sub}</div></div>
+      <div class="cell"><div class="ck">TBD</div><div class="cs">${D.tbd.hint}</div></div>
+    </div>
+  </div>`},
+
+{ name: "10 · Bento", cls: "v10", html: `
+  <div class="wrap">
+    <div class="b s22 g-holi"><div class="bk">Holiday</div><div class="bignum">${D.holi.days}</div><div class="bv" style="margin-top:0;font-size:18px">days to ${D.holi.name.replace(" (placeholder)","")}</div><div class="bs">${D.holi.date}</div></div>
+    <div class="b s21 g-cal"><div class="bk">Next</div><div class="bv">${D.cal.next}</div><div class="bs">${D.cal.who}</div></div>
+    <div class="b g-food"><div class="bk">Dinner</div><div class="bv" style="font-size:17px">${D.food.tonight}</div></div>
+    <div class="b g-money"><div class="bk">Money</div><div class="bv">${D.money.left}</div><div class="bs">${D.money.pct}% of aim</div></div>
+    <div class="b s21 g-media"><div class="bk">Continue watching</div><div class="bv" style="font-size:19px">${D.media.next}</div><div class="bs">${D.media.sub}</div></div>
+    <div class="b s21 g-tbd"><div class="bk">TBD</div><div class="bs" style="margin-top:auto">${D.tbd.hint}</div></div>
+  </div>`},
+];
+
+const bar = document.getElementById("labBar");
+const stage = document.getElementById("stage");
+VARIANTS.forEach((v, i) => {
+  const b = document.createElement("button");
+  b.textContent = v.name;
+  b.addEventListener("click", () => pick(i));
+  bar.appendChild(b);
+  const s = document.createElement("section");
+  s.className = `variant ${v.cls}`; s.id = `var-${i}`;
+  s.innerHTML = v.html;
+  stage.appendChild(s);
+});
+function pick(i) {
+  document.querySelectorAll(".variant").forEach((s, j) => s.classList.toggle("active", i === j));
+  [...bar.querySelectorAll("button")].forEach((b, j) => b.setAttribute("aria-current", i === j ? "true" : "false"));
+  history.replaceState(null, "", "#" + (i + 1));
+  window.scrollTo(0, 0);
+}
+const h = parseInt(location.hash.slice(1), 10);
+pick(h >= 1 && h <= VARIANTS.length ? h - 1 : 0);
+</script>
+</body>
+</html>

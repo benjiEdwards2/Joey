@@ -1,4 +1,4 @@
-# Jarvis stack. AUTHORED BLIND at WP22 — the dev machine has no container
+# Joey stack. AUTHORED BLIND at WP22 — the dev machine has no container
 # engine, so nothing here has been run yet: first engine-verify: WP24 step 1.
 # WP5 owns the box-side clone and any path remap if the WP2 OS call lands on
 # Windows (D10: /opt/life-dashboard-data -> C:\life-dashboard-data equivalents).
@@ -14,7 +14,7 @@ services:
     build:
       context: ..
       dockerfile: hub/Dockerfile
-    container_name: jarvis-hub
+    container_name: joey-hub
     restart: unless-stopped
     environment:
       SNAPSHOT_DIR: /data/snapshots
@@ -32,7 +32,7 @@ services:
     build:
       context: ..
       dockerfile: connectors/Dockerfile
-    container_name: jarvis-connectors
+    container_name: joey-connectors
     restart: unless-stopped
     env_file:
       - .env

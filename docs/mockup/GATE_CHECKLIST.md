@@ -33,7 +33,7 @@ and **desktop**. Every line is a yes/no. Sign-off = a dated "Mockup gate passed"
 | 10 | **Notion LINK tile**: launch button reads as "opens the real app", clearly different from data tiles | Desk page | |
 | 11 | **SVG line icons** approved as the v1 icon set (consistent across Windows/Android/iOS) | rail + tiles, phone vs desktop | |
 | 12 | **Phone layout**: bento goes 2-up, Money hero spans full width, no horizontal page scroll (the status strip scrolls within itself by design) | phone | |
-| 13 | **Name**: ~~Hearth~~ **Jarvis** — chosen by B. 2026-08-28 | header | ✔ |
+| 13 | **Name**: ~~Hearth~~ ~~Jarvis~~ **Joey** — renamed by B. 2026-08-31 with the joeyhome.net purchase | header | ✔ |
 | 14 | **TBD sixth module**: parked by B. 2026-08-28 — stays TBD until a later decision | — | ✔ |
 
 ## 3. On sign-off

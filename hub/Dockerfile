@@ -1,9 +1,9 @@
-# Jarvis hub. Build context is the REPO ROOT (config/ must be inside it):
+# Joey hub. Build context is the REPO ROOT (config/ must be inside it):
 #   docker build -f hub/Dockerfile -t life-hub .
 # Never build with context ./hub — Docker would refuse COPY config/.
 FROM python:3.12-slim
 
-RUN useradd --create-home --uid 1000 jarvis
+RUN useradd --create-home --uid 1000 joey
 WORKDIR /app
 
 COPY hub/requirements.txt hub/requirements.txt
@@ -16,7 +16,7 @@ COPY config/ config/
 COPY connectors/schema/ connectors/schema/
 COPY tests/ tests/
 
-USER jarvis
+USER joey
 ENV SNAPSHOT_DIR=/data/snapshots
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

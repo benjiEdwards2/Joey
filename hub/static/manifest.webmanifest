@@ -1,7 +1,7 @@
 {
-  "name": "Jarvis",
-  "short_name": "Jarvis",
-  "description": "The Edwards life dashboard",
+  "name": "Joey",
+  "short_name": "Joey",
+  "description": "The Joey life dashboard",
   "display": "standalone",
   "start_url": "/",
   "background_color": "#08090D",

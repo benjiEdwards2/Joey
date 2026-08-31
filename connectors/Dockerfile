@@ -1,9 +1,9 @@
-# Jarvis connectors. Build context is the REPO ROOT (config/ + tests/ must be
+# Joey connectors. Build context is the REPO ROOT (config/ + tests/ must be
 # inside it), same rule as hub/Dockerfile:
 #   docker build -f connectors/Dockerfile -t life-connectors .
 FROM python:3.12-slim
 
-RUN useradd --create-home --uid 1000 jarvis
+RUN useradd --create-home --uid 1000 joey
 WORKDIR /app
 
 COPY connectors/requirements.txt connectors/requirements.txt
@@ -14,7 +14,7 @@ COPY connectors/ connectors/
 COPY config/ config/
 COPY tests/ tests/
 
-USER jarvis
+USER joey
 ENV SNAPSHOT_DIR=/data/snapshots \
     CONNECTOR_MODE=live \
     PYTHONUNBUFFERED=1

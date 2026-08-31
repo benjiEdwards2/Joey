@@ -34,3 +34,20 @@ def test_bank_row_heuristic():
 
 def test_is_allowlisted_never_passes_raw_csv():
     assert not is_allowlisted("connectors/money/samples/aug.csv")
+
+
+def test_guard_survives_utf8_content_in_staged_files(tmp_path):
+    """Regression (2026-08-31): UTF-8 '·'/'—' in staged HTML crashed the guard —
+    subprocess decoded `git show` as cp1252 and returned None."""
+    import subprocess
+    repo = tmp_path / "r"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", repo], check=True)
+    subprocess.run(["git", "-C", repo, "config", "user.email", "t@t"], check=True)
+    subprocess.run(["git", "-C", repo, "config", "user.name", "t"], check=True)
+    (repo / "page.html").write_text("<h1>Joey · joeyhome.net — “fancy”</h1>", encoding="utf-8")
+    subprocess.run(["git", "-C", repo, "add", "page.html"], check=True)
+    guard = REPO_ROOT / "scripts" / "precommit_money_guard.py"
+    r = subprocess.run([sys.executable, str(guard)], cwd=repo,
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    assert r.returncode == 0, r.stdout + r.stderr

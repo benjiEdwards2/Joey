@@ -37,8 +37,10 @@ def staged_files() -> list[str]:
 
 
 def staged_content(path: str) -> str:
-    r = subprocess.run(["git", "show", f":{path}"], capture_output=True, text=True)
-    return r.stdout if r.returncode == 0 else ""
+    # encoding pinned: Windows would otherwise decode as cp1252 and crash on UTF-8
+    r = subprocess.run(["git", "show", f":{path}"], capture_output=True,
+                       text=True, encoding="utf-8", errors="replace")
+    return r.stdout if r.returncode == 0 and r.stdout else ""
 
 
 def is_allowlisted(path: str) -> bool:

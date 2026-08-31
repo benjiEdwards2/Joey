@@ -45,6 +45,6 @@ def test_connectors_service_matches_the_D16_cadence_contract():
 def test_connectors_dockerfile_follows_the_hub_pattern():
     text = DOCKERFILE.read_text(encoding="utf-8")
     assert "FROM python:3.12-slim" in text
-    assert "USER jarvis" in text                       # non-root
+    assert "USER joey" in text                       # non-root
     assert "COPY tests/ tests/" in text                # suite ships in the image
     assert "connectors/requirements.txt" in text

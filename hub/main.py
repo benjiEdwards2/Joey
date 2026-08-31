@@ -1,4 +1,4 @@
-"""Jarvis hub — FastAPI skeleton. Every route and the tab bar render from
+"""Joey hub — FastAPI skeleton. Every route and the tab bar render from
 areas.yaml; no area name appears in this code (WP17 verify greps for that).
 """
 
@@ -41,7 +41,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Jarvis hub", lifespan=lifespan)
+app = FastAPI(title="Joey hub", lifespan=lifespan)
 
 
 @app.middleware("http")

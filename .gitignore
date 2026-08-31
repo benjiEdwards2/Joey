@@ -8,8 +8,10 @@
 *.db-wal
 *.db-shm
 
-# Runtime data (snapshots etc. live in /opt/life-dashboard-data on the box — D13)
-data/
+# Runtime data lives outside the repo (NAS: /volume1/Docker/joey/data — D10 remap).
+# Root-anchored: an unanchored data/ silently swallowed connectors/schema/data/
+# (found at the 2026-08-31 NAS bring-up).
+/data/
 
 # Money plaintext NEVER reaches git (pulled forward from WP37 — sequencing rule 6)
 connectors/money/samples/

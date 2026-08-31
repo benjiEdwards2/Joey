@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/home_assistant.schema.json",
+  "title": "home_assistant data block",
+  "description": "One connector feeds THREE areas (House, Car, Garden), so the payload is keyed by area — that keying is what lets each tile slice its own entities instead of all three showing the same summary (WP18 known limit). `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "areas"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "areas": {
+      "type": "object",
+      "required": ["house", "car", "garden"],
+      "additionalProperties": false,
+      "properties": {
+        "house": {"$ref": "#/$defs/entity_list"},
+        "car": {"$ref": "#/$defs/entity_list"},
+        "garden": {"$ref": "#/$defs/entity_list"}
+      }
+    }
+  },
+  "$defs": {
+    "entity_list": {
+      "description": "Empty is legitimate — the tile then reads 'TBD', never fabricated (Q16).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["entity_id", "label", "state", "unit", "owner"],
+        "additionalProperties": false,
+        "properties": {
+          "entity_id": {"type": "string"},
+          "label": {"type": "string"},
+          "state": {"type": "string"},
+          "unit": {"type": ["string", "null"]},
+          "owner": {"type": "string", "enum": ["you", "her", "shared"]}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/jellyfin.schema.json",
+  "title": "jellyfin data block",
+  "description": "Media area tile. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "now_playing", "latest", "library"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "now_playing": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "user", "progress_pct"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "user": {"type": "string"},
+          "progress_pct": {"type": "integer", "minimum": 0, "maximum": 100}
+        }
+      }
+    },
+    "latest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "added_at", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "added_at": {"type": "string"},
+          "type": {"type": "string"}
+        }
+      }
+    },
+    "library": {
+      "type": "object",
+      "required": ["movies", "episodes"],
+      "additionalProperties": false,
+      "properties": {
+        "movies": {"type": "integer", "minimum": 0},
+        "episodes": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

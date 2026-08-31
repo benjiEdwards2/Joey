@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/macromates.schema.json",
+  "title": "macromates data block",
+  "description": "Read-only EMBED of the MacroMates meal plan. The plan is shared by definition. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "tonight", "week", "owner"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "tonight": {
+      "description": "null when nothing is planned for tonight — a connected-but-empty tile, not an error.",
+      "type": ["object", "null"],
+      "required": ["meal", "serves"],
+      "additionalProperties": false,
+      "properties": {
+        "meal": {"type": "string"},
+        "serves": {"type": "integer", "minimum": 1}
+      }
+    },
+    "week": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["day", "meal"],
+        "additionalProperties": false,
+        "properties": {
+          "day": {"type": "string"},
+          "meal": {"type": "string"}
+        }
+      }
+    },
+    "owner": {"type": "string", "const": "shared"}
+  }
+}

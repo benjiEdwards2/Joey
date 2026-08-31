@@ -1,6 +1,7 @@
 .git/
-data/
-docs/
+/data/
+docs/*
+!docs/connector-contract.md
 __pycache__/
 *.pyc
 .pytest_cache/

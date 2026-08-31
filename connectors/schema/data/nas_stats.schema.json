@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/nas_stats.schema.json",
+  "title": "nas_stats data block",
+  "description": "Desk area file stats. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "shares"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "shares": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "total_gb", "free_gb", "files_added_7d"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string"},
+          "total_gb": {"type": "number", "minimum": 0},
+          "free_gb": {"type": "number", "minimum": 0},
+          "files_added_7d": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  }
+}

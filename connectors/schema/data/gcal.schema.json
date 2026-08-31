@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/gcal.schema.json",
+  "title": "gcal data block",
+  "description": "Merged Google (B.) + Outlook (Georgina) ICS feeds. Every event carries owner (R12). `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "start", "end", "all_day", "owner"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "start": {"type": "string", "minLength": 1},
+          "end": {"type": "string", "minLength": 1},
+          "all_day": {"type": "boolean"},
+          "owner": {"type": "string", "enum": ["you", "her", "shared"]}
+        }
+      }
+    }
+  }
+}

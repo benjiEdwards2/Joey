@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/open_meteo.schema.json",
+  "title": "open_meteo data block",
+  "description": "Exactly what the hub may rely on inside envelope.data (WP23). `summary` and optional `secondary` are the hub's display convention (D17, WP18) and are required of EVERY feed.",
+  "type": "object",
+  "required": ["summary", "now_c", "condition_text", "today_min_c", "today_max_c", "rain_prob_pct"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "now_c": {"type": "number"},
+    "condition_text": {"type": "string", "minLength": 1},
+    "today_min_c": {"type": "number"},
+    "today_max_c": {"type": "number"},
+    "rain_prob_pct": {"type": "integer", "minimum": 0, "maximum": 100}
+  }
+}

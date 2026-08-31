@@ -1,0 +1,9 @@
+{
+  "_note": "Disk capacity comes from the NAS, file counts come from walking tree/ next to this file. In fixture mode the 'recent' window is open-ended, so files_added_7d equals every file in the tree (byte-reproducible; real mtimes are a WP30 concern).",
+  "window_days": 7,
+  "shares": [
+    {"name": "media", "total_gb": 8000, "free_gb": 3120},
+    {"name": "documents", "total_gb": 1000, "free_gb": 812},
+    {"name": "photos", "total_gb": 2000, "free_gb": 1444}
+  ]
+}

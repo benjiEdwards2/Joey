@@ -1,0 +1,18 @@
+{
+  "connector": "open_meteo",
+  "consecutive_failures": 0,
+  "data": {
+    "condition_text": "light rain",
+    "now_c": 18.3,
+    "rain_prob_pct": 55,
+    "secondary": "12.7\u201324.1 \u00b0C \u00b7 55% rain",
+    "summary": "18.3 \u00b0C \u00b7 light rain",
+    "today_max_c": 24.1,
+    "today_min_c": 12.7
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

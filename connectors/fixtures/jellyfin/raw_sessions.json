@@ -1,0 +1,27 @@
+[
+  {
+    "Id": "session-fixture-1",
+    "UserName": "Sample Person",
+    "NowPlayingItem": {
+      "Name": "The Long Road Home",
+      "Type": "Movie",
+      "RunTimeTicks": 68400000000
+    },
+    "PlayState": {"PositionTicks": 17100000000, "IsPaused": false}
+  },
+  {
+    "Id": "session-fixture-2",
+    "UserName": "Sample Partner",
+    "NowPlayingItem": {
+      "Name": "Quiet Coast - S02E04",
+      "Type": "Episode",
+      "RunTimeTicks": 26400000000
+    },
+    "PlayState": {"PositionTicks": 19800000000, "IsPaused": true}
+  },
+  {
+    "Id": "session-fixture-3",
+    "UserName": "Sample Person",
+    "PlayState": {"PositionTicks": 0, "IsPaused": false}
+  }
+]

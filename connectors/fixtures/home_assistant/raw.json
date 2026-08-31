@@ -1,0 +1,35 @@
+{
+  "_note": "Trimmed /api/states response. Six entities across the three HA-fed areas.",
+  "states": [
+    {
+      "entity_id": "sensor.living_room_temperature",
+      "state": "22.4",
+      "attributes": {"friendly_name": "Living room", "unit_of_measurement": "°C", "device_class": "temperature"}
+    },
+    {
+      "entity_id": "binary_sensor.front_door",
+      "state": "off",
+      "attributes": {"friendly_name": "Front door", "device_class": "door"}
+    },
+    {
+      "entity_id": "sensor.car_battery_level",
+      "state": "78",
+      "attributes": {"friendly_name": "Car battery", "unit_of_measurement": "%", "device_class": "battery"}
+    },
+    {
+      "entity_id": "binary_sensor.car_plugged_in",
+      "state": "on",
+      "attributes": {"friendly_name": "Car charging", "device_class": "plug"}
+    },
+    {
+      "entity_id": "sensor.garden_soil_moisture",
+      "state": "31",
+      "attributes": {"friendly_name": "Soil moisture", "unit_of_measurement": "%", "device_class": "humidity"}
+    },
+    {
+      "entity_id": "switch.garden_irrigation",
+      "state": "off",
+      "attributes": {"friendly_name": "Irrigation"}
+    }
+  ]
+}

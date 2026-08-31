@@ -1,0 +1,63 @@
+{
+  "connector": "home_assistant",
+  "consecutive_failures": 0,
+  "data": {
+    "areas": {
+      "car": [
+        {
+          "entity_id": "sensor.car_battery_level",
+          "label": "Car battery",
+          "owner": "you",
+          "state": "78",
+          "unit": "%"
+        },
+        {
+          "entity_id": "binary_sensor.car_plugged_in",
+          "label": "Car charging",
+          "owner": "you",
+          "state": "on",
+          "unit": null
+        }
+      ],
+      "garden": [
+        {
+          "entity_id": "sensor.garden_soil_moisture",
+          "label": "Soil moisture",
+          "owner": "shared",
+          "state": "31",
+          "unit": "%"
+        },
+        {
+          "entity_id": "switch.garden_irrigation",
+          "label": "Irrigation",
+          "owner": "shared",
+          "state": "off",
+          "unit": null
+        }
+      ],
+      "house": [
+        {
+          "entity_id": "sensor.living_room_temperature",
+          "label": "Living room",
+          "owner": "shared",
+          "state": "22.4",
+          "unit": "\u00b0C"
+        },
+        {
+          "entity_id": "binary_sensor.front_door",
+          "label": "Front door",
+          "owner": "shared",
+          "state": "off",
+          "unit": null
+        }
+      ]
+    },
+    "secondary": "2 house, 2 car, 2 garden",
+    "summary": "Living room 22.4 \u00b0C"
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

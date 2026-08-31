@@ -1,0 +1,38 @@
+{
+  "_note": "Anonymised MacroMates Supabase read (EMBED, read-only). Fake names only.",
+  "plan_weeks": [
+    {
+      "id": "week-fixture-1",
+      "starts_on": "2025-12-29",
+      "label": "Week of 29 Dec"
+    }
+  ],
+  "plan_slots": [
+    {"id": "slot-1", "week_id": "week-fixture-1", "day": "Mon", "meal_time": "dinner"},
+    {"id": "slot-2", "week_id": "week-fixture-1", "day": "Tue", "meal_time": "dinner"},
+    {"id": "slot-3", "week_id": "week-fixture-1", "day": "Wed", "meal_time": "dinner"},
+    {"id": "slot-4", "week_id": "week-fixture-1", "day": "Thu", "meal_time": "dinner"},
+    {"id": "slot-5", "week_id": "week-fixture-1", "day": "Fri", "meal_time": "dinner"},
+    {"id": "slot-6", "week_id": "week-fixture-1", "day": "Sat", "meal_time": "dinner"},
+    {"id": "slot-7", "week_id": "week-fixture-1", "day": "Sun", "meal_time": "dinner"}
+  ],
+  "plan_entries": [
+    {"slot_id": "slot-1", "meal_id": "meal-1", "serves": 2},
+    {"slot_id": "slot-2", "meal_id": "meal-2", "serves": 2},
+    {"slot_id": "slot-3", "meal_id": "meal-3", "serves": 4},
+    {"slot_id": "slot-4", "meal_id": "meal-4", "serves": 2},
+    {"slot_id": "slot-5", "meal_id": "meal-5", "serves": 2},
+    {"slot_id": "slot-6", "meal_id": "meal-6", "serves": 4},
+    {"slot_id": "slot-7", "meal_id": "meal-7", "serves": 2}
+  ],
+  "meals": [
+    {"id": "meal-1", "name": "Chicken burrito bowls"},
+    {"id": "meal-2", "name": "Thai green curry"},
+    {"id": "meal-3", "name": "Slow-cooked beef ragu"},
+    {"id": "meal-4", "name": "Salmon and greens"},
+    {"id": "meal-5", "name": "Homemade pizza"},
+    {"id": "meal-6", "name": "Roast lamb"},
+    {"id": "meal-7", "name": "Leftovers night"}
+  ],
+  "today": {"day": "Thu", "meal_time": "dinner"}
+}

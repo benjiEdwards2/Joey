@@ -1,0 +1,48 @@
+{
+  "connector": "macromates",
+  "consecutive_failures": 0,
+  "data": {
+    "owner": "shared",
+    "secondary": "Serves 2 \u00b7 7 nights planned",
+    "summary": "Tonight: Salmon and greens",
+    "tonight": {
+      "meal": "Salmon and greens",
+      "serves": 2
+    },
+    "week": [
+      {
+        "day": "Mon",
+        "meal": "Chicken burrito bowls"
+      },
+      {
+        "day": "Tue",
+        "meal": "Thai green curry"
+      },
+      {
+        "day": "Wed",
+        "meal": "Slow-cooked beef ragu"
+      },
+      {
+        "day": "Thu",
+        "meal": "Salmon and greens"
+      },
+      {
+        "day": "Fri",
+        "meal": "Homemade pizza"
+      },
+      {
+        "day": "Sat",
+        "meal": "Roast lamb"
+      },
+      {
+        "day": "Sun",
+        "meal": "Leftovers night"
+      }
+    ]
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

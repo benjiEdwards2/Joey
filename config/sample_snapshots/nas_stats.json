@@ -1,0 +1,33 @@
+{
+  "connector": "nas_stats",
+  "consecutive_failures": 0,
+  "data": {
+    "secondary": "6 files added in 7 days",
+    "shares": [
+      {
+        "files_added_7d": 3,
+        "free_gb": 3120,
+        "name": "media",
+        "total_gb": 8000
+      },
+      {
+        "files_added_7d": 2,
+        "free_gb": 812,
+        "name": "documents",
+        "total_gb": 1000
+      },
+      {
+        "files_added_7d": 1,
+        "free_gb": 1444,
+        "name": "photos",
+        "total_gb": 2000
+      }
+    ],
+    "summary": "5,376 GB free across 3 shares"
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

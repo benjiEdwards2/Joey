@@ -1,0 +1,35 @@
+{
+  "ran_at": "2026-01-01T00:00:00+00:00",
+  "results": {
+    "gcal": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
+    "home_assistant": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
+    "jellyfin": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
+    "macromates": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
+    "nas_stats": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
+    "open_meteo": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    }
+  }
+}

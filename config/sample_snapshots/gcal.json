@@ -1,0 +1,64 @@
+{
+  "connector": "gcal",
+  "consecutive_failures": 0,
+  "data": {
+    "events": [
+      {
+        "all_day": false,
+        "end": "2026-01-05T09:30+08:00",
+        "owner": "you",
+        "start": "2026-01-05T09:00+08:00",
+        "title": "Weekly standup"
+      },
+      {
+        "all_day": false,
+        "end": "2026-01-06T01:15+00:00",
+        "owner": "her",
+        "start": "2026-01-06T00:30+00:00",
+        "title": "Dentist"
+      },
+      {
+        "all_day": false,
+        "end": "2026-01-07T19:00+08:00",
+        "owner": "her",
+        "start": "2026-01-07T18:00+08:00",
+        "title": "Pilates class"
+      },
+      {
+        "all_day": false,
+        "end": "2026-01-08T08:30+08:00",
+        "owner": "you",
+        "start": "2026-01-08T07:30+08:00",
+        "title": "Overseas supplier call"
+      },
+      {
+        "all_day": true,
+        "end": "2026-01-10",
+        "owner": "you",
+        "start": "2026-01-09",
+        "title": "Annual leave"
+      },
+      {
+        "all_day": false,
+        "end": "2026-01-12T09:30+08:00",
+        "owner": "you",
+        "start": "2026-01-12T09:00+08:00",
+        "title": "Weekly standup"
+      },
+      {
+        "all_day": false,
+        "end": "2026-01-14T19:00+08:00",
+        "owner": "her",
+        "start": "2026-01-14T18:00+08:00",
+        "title": "Pilates class"
+      }
+    ],
+    "secondary": "7 events in 14 days",
+    "summary": "Weekly standup \u00b7 Mon 05 Jan 09:00"
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

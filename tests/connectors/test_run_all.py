@@ -1,0 +1,59 @@
+"""WP22 step 5 — the sweep: isolation, heartbeat, append-only history."""
+
+import json
+
+from connectors.base import Connector
+from connectors.run_all import HEARTBEAT_NAME, HISTORY_NAME, run_sweep
+
+
+class Good(Connector):
+    id = "open_meteo"
+
+    def fetch_fixture(self):
+        return {"summary": "18 °C · light rain"}
+
+    def transform(self, raw):
+        return raw
+
+
+class Raiser(Connector):
+    """Worst case: even run() blows up (a broken subclass), not just fetch()."""
+
+    id = "nas_stats"
+
+    def run(self):
+        raise RuntimeError("connector exploded")
+
+
+def test_one_crash_never_blocks_the_rest(snapshots, validate_envelope):
+    sweep = run_sweep([Raiser(), Good()])
+
+    good_path = snapshots / "open_meteo.json"
+    assert good_path.exists(), "a crashing connector stopped a healthy one"
+    validate_envelope(json.loads(good_path.read_text(encoding="utf-8")))
+    assert sweep["results"]["open_meteo"]["status"] == "ok"
+    assert sweep["results"]["nas_stats"]["status"] == "error"
+    assert "connector exploded" in sweep["results"]["nas_stats"]["error"]
+
+
+def test_heartbeat_lists_every_connector(snapshots):
+    run_sweep([Raiser(), Good()])
+    beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
+    assert set(beat["results"]) == {"open_meteo", "nas_stats"}
+    assert beat["ran_at"]
+
+
+def test_history_gains_exactly_one_line_per_sweep(snapshots):
+    history = snapshots / HISTORY_NAME
+    for expected in (1, 2, 3):
+        run_sweep([Good()])
+        lines = history.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) == expected
+        assert json.loads(lines[-1])["results"]["open_meteo"]["status"] == "ok"
+
+
+def test_main_exits_zero_even_with_a_failing_feed(snapshots, monkeypatch):
+    from connectors import registry, run_all
+
+    monkeypatch.setattr(registry, "build_all", lambda: [Raiser(), Good()])
+    assert run_all.main() == 0

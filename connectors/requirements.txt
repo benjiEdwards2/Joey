@@ -1,0 +1,9 @@
+# Connectors container runtime deps. Pins match the dev machine the suite is
+# green on (WP22, 2026-08-31).
+# ClickUp deps deliberately absent — ClickUp removed from v1 (DECISIONS 2026-08-25).
+requests==2.34.2
+jsonschema==4.26.0
+PyYAML==6.0.2
+icalendar==7.3.0
+recurring-ical-events==3.8.2
+pytest==9.1.1

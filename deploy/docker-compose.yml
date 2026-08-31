@@ -1,0 +1,44 @@
+# Jarvis stack. AUTHORED BLIND at WP22 — the dev machine has no container
+# engine, so nothing here has been run yet: first engine-verify: WP24 step 1.
+# WP5 owns the box-side clone and any path remap if the WP2 OS call lands on
+# Windows (D10: /opt/life-dashboard-data -> C:\life-dashboard-data equivalents).
+#
+# Build context is the repo root for BOTH images (each Dockerfile COPYs config/
+# and tests/, which live above their own directory).
+
+services:
+  hub:
+    # The FastAPI hub (WP17-WP21). Reads snapshots READ-ONLY — tiles never
+    # call a live API (the /money page's SQLite read is the one exception, D14).
+    image: life-hub
+    build:
+      context: ..
+      dockerfile: hub/Dockerfile
+    container_name: jarvis-hub
+    restart: unless-stopped
+    environment:
+      SNAPSHOT_DIR: /data/snapshots
+    volumes:
+      - /opt/life-dashboard-data/snapshots:/data/snapshots:ro
+    # NO public ports. The hub is reached only through the Cloudflare tunnel
+    # container, which WP11 fronts it with on the compose network.
+    expose:
+      - "8000"
+
+  connectors:
+    # Hourly sweep. sleep-3600 loop, NOT crond (D16) — phase drift after a
+    # restart is accepted. Writes the snapshot envelopes the hub reads.
+    image: life-connectors
+    build:
+      context: ..
+      dockerfile: connectors/Dockerfile
+    container_name: jarvis-connectors
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SNAPSHOT_DIR: /data/snapshots
+      CONNECTOR_MODE: live
+    volumes:
+      - /opt/life-dashboard-data/snapshots:/data/snapshots
+    entrypoint: ["sh", "-c", "while true; do python -m connectors.run_all; sleep 3600; done"]

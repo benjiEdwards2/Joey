@@ -18,6 +18,13 @@
   <main class="main">
     <header class="top">
       <h1>Jarvis <span>· Edwards</span></h1>
+      <nav class="switcher" aria-label="Who's looking">
+        {% set here = "/a/" ~ active_id if active_id else "/" %}
+        {% for v, label in [("both", "Both"), ("you", "You"), ("her", "Her")] %}
+        <a href="{{ here }}?owner_view={{ v }}"
+           {% if owner_view == v %}aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </nav>
     </header>
     <nav class="tabs" aria-label="Areas">
       <a href="/" {% if active_id is none %}aria-current="page"{% endif %}>Hub</a>

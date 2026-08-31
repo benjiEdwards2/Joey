@@ -1,0 +1,16 @@
+.git/
+data/
+docs/
+deploy/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.db
+*.db-wal
+*.db-shm
+.env
+*.env
+drop/
+connectors/money/samples/
+connectors/money/golden_local/

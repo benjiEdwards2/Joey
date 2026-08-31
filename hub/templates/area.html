@@ -3,18 +3,10 @@
 {% block content %}
 <h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
 <div class="grid">
-  {% for t in area.tiles %}
-  <div class="card" style="--accent: {{ area.accent }}">
-    <div class="head">{{ t.label }}</div>
-    {% if t.tier.value == "link" %}
-    <a class="launch" href="{{ t.href }}" target="_blank" rel="noopener">Open {{ t.label }} ↗</a>
-    <div class="sub">LINK tier — opens the real app</div>
-    {% else %}
-    <div class="value dim">Not connected</div>
-    <div class="sub">{{ t.setup_note }}</div>
-    {% endif %}
-    <div class="foot"><span class="chip">{{ t.owner.value | title }}</span></div>
-  </div>
+  {% for row in tiles %}
+    {% with tile = row.tile, st = row.st, accent = area.accent, heading = row.tile.label %}
+      {% include "_tile.html" %}
+    {% endwith %}
   {% endfor %}
 </div>
 {% endblock %}

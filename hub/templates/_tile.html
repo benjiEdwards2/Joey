@@ -1,0 +1,21 @@
+{# One tile, any state. Expects: tile, st (from hub.store.tile_state), accent. #}
+<div class="card{% if extra_class %} {{ extra_class }}{% endif %}" style="--accent: {{ accent }}"
+     data-owner="{{ tile.owner.value }}">
+  <div class="head">{{ heading }}</div>
+  {% if st.state == "link" %}
+    <a class="launch" href="{{ st.href }}" target="_blank" rel="noopener">Open {{ tile.label }} ↗</a>
+    <div class="sub">LINK tier — opens the real app</div>
+  {% elif st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if st.note %}<div class="sub">{{ st.note }}</div>{% endif %}
+  {% else %}
+    <div class="value">{{ st.value }}</div>
+    {% if st.secondary %}<div class="sub">{{ st.secondary }}</div>{% endif %}
+  {% endif %}
+  <div class="foot">
+    <span class="chip">{{ tile.owner.value | title }}</span>
+    {% if st.state == "stale" %}<span class="badge stale">{{ st.age_text }}</span>
+    {% elif st.state == "off" %}<span class="badge off">not connected</span>{% endif %}
+    {% if st.state == "fresh" and st.age_text %}<span class="ago">{{ st.age_text }}</span>{% endif %}
+  </div>
+</div>

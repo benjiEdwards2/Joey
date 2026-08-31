@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from hub.registry import Registry, load_registry
+from hub.store import get_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -57,8 +58,13 @@ templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
+    snaps = get_snapshots()
+    cards = []
+    for a in registry.areas:
+        summary = next(t for t in a.tiles if t.id == a.summary_tile)
+        cards.append({"area": a, "tile": summary, "st": tile_state(summary, snaps)})
     return templates.TemplateResponse(request, "hub.html", {
-        "areas": registry.areas, "active_id": None,
+        "areas": registry.areas, "active_id": None, "cards": cards,
     })
 
 
@@ -69,8 +75,10 @@ def area_page(request: Request, area_id: str):
         return templates.TemplateResponse(request, "404.html", {
             "areas": registry.areas, "active_id": None, "missing_id": area_id,
         }, status_code=404)
+    snaps = get_snapshots()
+    tiles = [{"tile": t, "st": tile_state(t, snaps)} for t in area.tiles]
     return templates.TemplateResponse(request, "area.html", {
-        "areas": registry.areas, "active_id": area.id, "area": area,
+        "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
     })
 
 

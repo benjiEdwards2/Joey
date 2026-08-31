@@ -4,20 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Jarvis{% endblock %}</title>
-<link rel="stylesheet" href="/static/skeleton.css">
+<link rel="stylesheet" href="/static/control-surface.css">
 </head>
 <body>
+{% import "_icons.html" as ic %}
 <div class="app">
   <nav class="rail" aria-label="Areas">
-    <a href="/" class="rail-item{% if active_id is none %} on{% endif %}" title="Hub">⌂</a>
+    <a href="/" class="rail-item{% if active_id is none %} on{% endif %}" title="Hub">{{ ic.icon("hub") }}</a>
     {% for a in areas %}
     <a href="/a/{{ a.id }}" class="rail-item{% if active_id == a.id %} on{% endif %}"
-       style="--accent: {{ a.accent }}" title="{{ a.name }}">{{ a.name[0] }}</a>
+       style="--accent: {{ a.accent }}" title="{{ a.name }}">{{ ic.icon(a.icon) }}</a>
     {% endfor %}
   </nav>
+
   <main class="main">
     <header class="top">
-      <h1>Jarvis <span>· Edwards</span></h1>
+      <div>
+        <h1>Jarvis <span>· Edwards</span></h1>
+      </div>
       <nav class="switcher" aria-label="Who's looking">
         {% set here = "/a/" ~ active_id if active_id else "/" %}
         {% for v, label in [("both", "Both"), ("you", "You"), ("her", "Her")] %}
@@ -26,15 +30,36 @@
         {% endfor %}
       </nav>
     </header>
-    <nav class="tabs" aria-label="Areas">
-      <a href="/" {% if active_id is none %}aria-current="page"{% endif %}>Hub</a>
-      {% for a in areas %}
-      <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"
-         {% if active_id == a.id %}aria-current="page"{% endif %}>{{ a.name }}</a>
+
+    {% if status %}
+    <div class="status" role="status">
+      <span>SYS <b>OK</b></span><span class="sep">|</span>
+      <span>FEEDS <b>{{ status.feeds_ok }}/{{ status.feeds_total }}</b></span>
+      {% for name in status.stale %}
+      <span class="sep">|</span><span class="warn">{{ name | upper }} <b>stale</b></span>
       {% endfor %}
-    </nav>
+    </div>
+    {% endif %}
+
     {% block content %}{% endblock %}
   </main>
 </div>
+
+<nav class="tabs" aria-label="Areas (phone)">
+  <a href="/" {% if active_id is none %}aria-current="page"{% endif %}>{{ ic.icon("hub") }}<span>Hub</span></a>
+  {% for a in areas[:3] %}
+  <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"
+     {% if active_id == a.id %}aria-current="page"{% endif %}>{{ ic.icon(a.icon) }}<span>{{ a.name }}</span></a>
+  {% endfor %}
+  <details class="more">
+    <summary>{{ ic.icon("more") }}<span>More</span></summary>
+    <div class="sheet">
+      {% for a in areas[3:] %}
+      <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"
+         {% if active_id == a.id %}aria-current="page"{% endif %}>{{ ic.icon(a.icon) }}<span>{{ a.name }}</span></a>
+      {% endfor %}
+    </div>
+  </details>
+</nav>
 </body>
 </html>

@@ -84,6 +84,26 @@ def _maybe_set_cookie(response, view: str, from_query: bool):
     return response
 
 
+def build_status(snaps) -> dict:
+    """Cockpit status strip: feed health computed from registry vs snapshots."""
+    wanted: dict[str, str] = {}   # connector id -> first area name using it
+    for a in registry.areas:
+        for t in a.tiles:
+            if t.snapshot and t.snapshot not in wanted:
+                wanted[t.snapshot] = a.name
+    stale = sorted({
+        wanted[cid] for cid, s in snaps.items()
+        if cid in wanted and any(
+            t.snapshot == cid and t.stale_after_minutes and s.age_minutes > t.stale_after_minutes
+            for a in registry.areas for t in a.tiles)
+    })
+    return {
+        "feeds_total": len(wanted),
+        "feeds_ok": sum(1 for cid in wanted if cid in snaps),
+        "stale": stale,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
@@ -96,6 +116,7 @@ def hub_page(request: Request):
         cards.append({"area": a, "tile": summary, "st": tile_state(summary, snaps)})
     resp = templates.TemplateResponse(request, "hub.html", {
         "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
+        "status": build_status(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
 
@@ -114,7 +135,7 @@ def area_page(request: Request, area_id: str):
              for t in area.tiles if owner_visible(t, view)]
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
-        "owner_view": view,
+        "owner_view": view, "status": build_status(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

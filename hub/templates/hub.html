@@ -3,7 +3,7 @@
 {% block content %}
 <div class="grid">
   {% for c in cards %}
-  <a class="cardlink" href="/a/{{ c.area.id }}">
+  <a class="cardlink {{ c.area.hub_size.value }}" href="/a/{{ c.area.id }}">
     {% with tile = c.tile, st = c.st, accent = c.area.accent, heading = c.area.name %}
       {% include "_tile.html" %}
     {% endwith %}

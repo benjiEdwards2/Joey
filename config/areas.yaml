@@ -30,6 +30,7 @@ areas:
     name: Money
     accent: "#3FD9C0"
     icon: money
+    hub_size: s22        # the bento hero (gate 2026-08-28)
     summary_tile: month
     tiles:
       - id: month
@@ -68,6 +69,7 @@ areas:
     name: Calendar
     accent: "#A78BFA"
     icon: calendar
+    hub_size: s21        # double-width (gate 2026-08-28)
     summary_tile: next-event
     tiles:
       - id: next-event

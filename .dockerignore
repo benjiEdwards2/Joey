@@ -1,7 +1,6 @@
 .git/
 data/
 docs/
-deploy/
 __pycache__/
 *.pyc
 .pytest_cache/

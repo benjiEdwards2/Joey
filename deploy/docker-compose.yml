@@ -1,7 +1,7 @@
-# Joey stack. AUTHORED BLIND at WP22 — the dev machine has no container
-# engine, so nothing here has been run yet: first engine-verify: WP24 step 1.
-# WP5 owns the box-side clone and any path remap if the WP2 OS call lands on
-# Windows (D10: /opt/life-dashboard-data -> C:\life-dashboard-data equivalents).
+# Joey stack. Host is the Asustor AS5304T NAS at 192.168.68.59 (DECISIONS
+# 2026-08-31 D10 remap): repo /volume1/Docker/joey/life-dashboard, runtime
+# data /volume1/Docker/joey/data. First engine-verify happened at the NAS
+# bring-up (2026-08-31), superseding the WP24-step-1 note.
 #
 # Build context is the repo root for BOTH images (each Dockerfile COPYs config/
 # and tests/, which live above their own directory).
@@ -19,7 +19,7 @@ services:
     environment:
       SNAPSHOT_DIR: /data/snapshots
     volumes:
-      - /opt/life-dashboard-data/snapshots:/data/snapshots:ro
+      - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
     # NO public ports. The hub is reached only through the Cloudflare tunnel
     # container, which WP11 fronts it with on the compose network.
     expose:
@@ -40,5 +40,5 @@ services:
       SNAPSHOT_DIR: /data/snapshots
       CONNECTOR_MODE: live
     volumes:
-      - /opt/life-dashboard-data/snapshots:/data/snapshots
+      - /volume1/Docker/joey/data/snapshots:/data/snapshots
     entrypoint: ["sh", "-c", "while true; do python -m connectors.run_all; sleep 3600; done"]

@@ -24,3 +24,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# NAS-side deploy log (deploy.sh appends; never committed)
+/deploy/history.log

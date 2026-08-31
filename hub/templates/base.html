@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Jarvis{% endblock %}</title>
+<link rel="stylesheet" href="/static/skeleton.css">
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Areas">
+    <a href="/" class="rail-item{% if active_id is none %} on{% endif %}" title="Hub">⌂</a>
+    {% for a in areas %}
+    <a href="/a/{{ a.id }}" class="rail-item{% if active_id == a.id %} on{% endif %}"
+       style="--accent: {{ a.accent }}" title="{{ a.name }}">{{ a.name[0] }}</a>
+    {% endfor %}
+  </nav>
+  <main class="main">
+    <header class="top">
+      <h1>Jarvis <span>· Edwards</span></h1>
+    </header>
+    <nav class="tabs" aria-label="Areas">
+      <a href="/" {% if active_id is none %}aria-current="page"{% endif %}>Hub</a>
+      {% for a in areas %}
+      <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"
+         {% if active_id == a.id %}aria-current="page"{% endif %}>{{ a.name }}</a>
+      {% endfor %}
+    </nav>
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

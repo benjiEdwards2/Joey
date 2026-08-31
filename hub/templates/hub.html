@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Jarvis{% endblock %}
+{% block content %}
+<div class="grid">
+  {% for a in areas %}
+  {% set summary = (a.tiles | selectattr("id", "equalto", a.summary_tile) | first) %}
+  <a class="card" href="/a/{{ a.id }}" style="--accent: {{ a.accent }}">
+    <div class="head">{{ a.name }}</div>
+    <div class="value">{{ summary.label }}</div>
+    <div class="sub">Not connected — tile data arrives with its connector (WP18+)</div>
+    <div class="foot"><span class="chip">{{ summary.owner.value | title }}</span></div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

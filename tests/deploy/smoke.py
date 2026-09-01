@@ -10,9 +10,7 @@ any non-zero aborts the deploy and triggers the rollback tail.
 import sys
 import urllib.request
 
-# WP9 drill (c): dead port — the real base is http://127.0.0.1:8000 (reverted
-# right after the drill; the rollback tail must fire and restore PREV_SHA).
-BASE = "http://127.0.0.1:9999"
+BASE = "http://127.0.0.1:8000"
 CHECKS = ["/healthz", "/"]
 
 

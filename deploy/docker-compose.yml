@@ -42,9 +42,3 @@ services:
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
     entrypoint: ["sh", "-c", "while true; do python -m connectors.run_all; sleep 3600; done"]
-
-# WP9 drill (a): deliberately invalid service — proves deploy.sh aborts at
-# `docker compose config` with the live stack untouched. Reverted right after.
-  drill-a-broken:
-    image: [this is not a valid image value
-

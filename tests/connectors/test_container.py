@@ -18,8 +18,9 @@ def compose() -> dict:
     return yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
 
 
-def test_compose_parses_and_defines_both_services():
-    assert set(compose()["services"]) == {"hub", "connectors"}
+def test_compose_parses_and_defines_the_stack_services():
+    # grew from {hub, connectors} at WP11 (cloudflared tunnel added)
+    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared"}
 
 
 def test_compose_records_the_nas_host_decision():

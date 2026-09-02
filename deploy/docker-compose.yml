@@ -25,6 +25,18 @@ services:
     expose:
       - "8000"
 
+  cloudflared:
+    # WP11 — remotely-managed Cloudflare tunnel (`joey-nas` in Zero Trust).
+    # Fronts the hub over the compose network as http://hub:8000; the token
+    # lives ONLY in the NAS-side .env (rule 11). No public hostnames until
+    # WP12 puts Access in front.
+    image: cloudflare/cloudflared:latest
+    container_name: joey-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+
   connectors:
     # Hourly sweep. sleep-3600 loop, NOT crond (D16) — phase drift after a
     # restart is accepted. Writes the snapshot envelopes the hub reads.

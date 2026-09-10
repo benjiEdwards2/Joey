@@ -13,6 +13,7 @@ importer, not a Connector (D14).
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -36,18 +37,58 @@ class OpenMeteo(Connector):
     id = "open_meteo"
     requires_env = ("WEATHER_LAT", "WEATHER_LON")
 
-    # WMO weather codes, trimmed to the ones Perth actually produces.
+    FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+
+    # Every WMO code Open-Meteo documents. The condition must always be a
+    # word — colour is never the only encoding (WP24 step 3).
     CONDITIONS = {
         0: "clear", 1: "mostly clear", 2: "partly cloudy", 3: "overcast",
-        45: "fog", 51: "light drizzle", 61: "light rain", 63: "rain",
-        65: "heavy rain", 80: "showers", 95: "thunderstorms",
+        45: "fog", 48: "freezing fog",
+        51: "light drizzle", 53: "drizzle", 55: "heavy drizzle",
+        56: "freezing drizzle", 57: "heavy freezing drizzle",
+        61: "light rain", 63: "rain", 65: "heavy rain",
+        66: "freezing rain", 67: "heavy freezing rain",
+        71: "light snow", 73: "snow", 75: "heavy snow", 77: "snow grains",
+        80: "showers", 81: "heavy showers", 82: "violent showers",
+        85: "snow showers", 86: "heavy snow showers",
+        95: "thunderstorms", 96: "thunderstorms with hail",
+        99: "thunderstorms with heavy hail",
     }
+
+    # Undocumented codes still land on a readable word for their WMO decade.
+    CONDITION_GROUPS = {
+        0: "hazy", 1: "mist", 2: "recent precipitation", 3: "dust",
+        4: "fog", 5: "drizzle", 6: "rain", 7: "snow", 8: "showers",
+        9: "thunderstorms",
+    }
+
+    @classmethod
+    def condition(cls, code: int) -> str:
+        return cls.CONDITIONS.get(code) or cls.CONDITION_GROUPS.get(code // 10, "unknown")
+
+    def fetch(self) -> dict:
+        import requests
+
+        response = requests.get(
+            self.FORECAST_URL,
+            params={
+                "latitude": os.environ["WEATHER_LAT"],
+                "longitude": os.environ["WEATHER_LON"],
+                "current": "temperature_2m,weather_code",
+                "daily": "temperature_2m_min,temperature_2m_max,precipitation_probability_max",
+                "timezone": os.environ.get("TZ", "auto"),
+                "forecast_days": 1,
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def transform(self, raw: dict) -> dict:
         current = raw["current"]
         daily = raw["daily"]
         now_c = float(current["temperature_2m"])
-        condition = self.CONDITIONS.get(int(current["weather_code"]), "unknown")
+        condition = self.condition(int(current["weather_code"]))
         low = float(daily["temperature_2m_min"][0])
         high = float(daily["temperature_2m_max"][0])
         rain = int(daily["precipitation_probability_max"][0])

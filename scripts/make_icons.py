@@ -1,4 +1,7 @@
-"""Generate the PWA icons reproducibly — accent-on-dark "J" glyph, no external assets.
+"""Generate the PWA icons reproducibly — from the committed joey photo.
+
+Source: hub/static/icon_source.jpg (B.'s joey kangaroo photo, 2026-09-11 —
+supersedes the drawn "J" glyph). Square crop keeps the face centred.
 
 Run from the repo root:  python scripts/make_icons.py
 Writes hub/static/icon-192.png and hub/static/icon-512.png.
@@ -6,38 +9,28 @@ Writes hub/static/icon-192.png and hub/static/icon-512.png.
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
-BG = (8, 9, 13)          # --bg  #08090D
-ACCENT = (63, 217, 192)  # Money teal #3FD9C0 — the hero accent
-OUT = Path(__file__).resolve().parent.parent / "hub" / "static"
+STATIC = Path(__file__).resolve().parent.parent / "hub" / "static"
+SOURCE = STATIC / "icon_source.jpg"
+
+# Face-centred square crop of the 399x501 source: full width, top offset
+# tuned so the face sits in the upper-middle of the icon.
+CROP_TOP = 40
 
 
 def make(size: int) -> Image.Image:
-    img = Image.new("RGB", (size, size), BG)
-    d = ImageDraw.Draw(img)
-    u = size / 512  # design units on a 512 grid
-
-    # Rounded-square card face
-    pad = int(56 * u)
-    d.rounded_rectangle([pad, pad, size - pad, size - pad],
-                        radius=int(96 * u), outline=ACCENT, width=int(18 * u))
-
-    # "J" glyph drawn as strokes (no font dependency = reproducible everywhere)
-    w = int(34 * u)
-    top_y = int(168 * u)
-    d.line([int(196 * u), top_y, int(340 * u), top_y], fill=ACCENT, width=w)   # top bar
-    d.line([int(300 * u), top_y, int(300 * u), int(310 * u)], fill=ACCENT, width=w)  # stem
-    d.arc([int(172 * u), int(250 * u), int(316 * u), int(370 * u)],
-          start=20, end=180, fill=ACCENT, width=w)                              # hook
-
-    return img
+    img = Image.open(SOURCE).convert("RGB")
+    w, h = img.size
+    top = min(CROP_TOP, h - w)
+    img = img.crop((0, top, w, top + w))
+    return img.resize((size, size), Image.LANCZOS)
 
 
 def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
+    STATIC.mkdir(parents=True, exist_ok=True)
     for size in (192, 512):
-        path = OUT / f"icon-{size}.png"
+        path = STATIC / f"icon-{size}.png"
         make(size).save(path, "PNG")
         print(f"wrote {path}")
 

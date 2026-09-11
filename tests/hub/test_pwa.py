@@ -33,3 +33,15 @@ def test_base_page_links_manifest_and_htmx(monkeypatch):
         assert 'name="theme-color"' in html
         assert "htmx.min.js" in html
         assert c.get("/static/manifest.webmanifest").status_code == 200
+
+
+def test_icons_are_square_at_declared_sizes_from_committed_source():
+    """2026-09-11: icons come from the committed joey photo, face-centred.
+    Dimensions read straight from the PNG IHDR chunk — no Pillow in the test image."""
+    import struct
+
+    assert (REPO_ROOT / "hub/static/icon_source.jpg").is_file()
+    for size in (192, 512):
+        head = (REPO_ROOT / f"hub/static/icon-{size}.png").read_bytes()[:24]
+        w, h = struct.unpack(">II", head[16:24])
+        assert (w, h) == (size, size)

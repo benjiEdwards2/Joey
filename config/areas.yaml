@@ -58,7 +58,7 @@ areas:
         label: Notion
         tier: link
         owner: shared
-        href: "https://www.notion.so/PLACEHOLDER"   # Q12 — real URL before WP21 sign-off
+        href: "https://www.notion.so"               # Q12 answered at WP21 sign-off (2026-09-11)
       - id: nas-home
         label: NAS Homepage
         tier: link
@@ -104,7 +104,7 @@ areas:
         label: Open Jellyfin
         tier: link
         owner: shared
-        href: "#"                                    # confirm Jellyfin URL at WP6 (migrating to NAS)
+        href: "http://192.168.68.59:8096"            # Jellyfin on the NAS, LAN-only (WP6 adopt-in-place, 2026-09-11)
 
   - id: house
     name: House

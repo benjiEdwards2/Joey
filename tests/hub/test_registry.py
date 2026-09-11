@@ -123,3 +123,15 @@ def test_all_violations_reported_together(tmp_path):
     assert "not #RRGGBB" in msg
     assert "requires a snapshot id" in msg
     assert "summary_tile 'ghost'" in msg
+
+
+def test_wp21_signoff_link_hrefs_are_real_urls():
+    """WP21 sign-off (2026-09-11): no LINK tile ships a placeholder href —
+    every href is a real http(s) URL (Q12 Notion answered, Jellyfin WP6 fix)."""
+    config = yaml.safe_load(AREAS_YAML.read_text(encoding="utf-8"))
+    link_tiles = [t for a in config["areas"] for t in a["tiles"] if t["tier"] == "link"]
+    assert link_tiles, "the Notion/NAS/Jellyfin LINK tiles vanished"
+    for tile in link_tiles:
+        href = tile["href"]
+        assert href.startswith(("http://", "https://")), f"{tile['id']}: href {href!r} is not a URL"
+        assert "PLACEHOLDER" not in href, f"{tile['id']}: placeholder href survived sign-off"

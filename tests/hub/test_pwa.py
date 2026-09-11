@@ -45,3 +45,12 @@ def test_icons_are_square_at_declared_sizes_from_committed_source():
         head = (REPO_ROOT / f"hub/static/icon-{size}.png").read_bytes()[:24]
         w, h = struct.unpack(">II", head[16:24])
         assert (w, h) == (size, size)
+
+
+def test_icon_urls_are_cache_busted():
+    """2026-09-11: Chrome caches manifest icons by URL — a version query forces
+    the new kangaroo icon to be fetched on re-install."""
+    m = json.loads((REPO_ROOT / "hub/static/manifest.webmanifest").read_text(encoding="utf-8"))
+    assert all("?v=" in i["src"] for i in m["icons"])
+    base = (REPO_ROOT / "hub/templates/base.html").read_text(encoding="utf-8")
+    assert 'rel="apple-touch-icon" href="/static/icon-192.png?v=' in base

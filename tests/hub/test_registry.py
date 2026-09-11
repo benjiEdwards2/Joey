@@ -9,7 +9,7 @@ from hub.registry import load_registry
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AREAS_YAML = REPO_ROOT / "config" / "areas.yaml"
 
-LOCKED_ORDER = ["kitchen", "money", "desk", "calendar", "media", "house", "car", "garden"]
+LOCKED_ORDER = ["kitchen", "money", "desk", "calendar", "media", "house", "car"]  # garden removed (B., 2026-09-11)
 
 
 def make_tile(tid: str, **over) -> dict:
@@ -135,3 +135,10 @@ def test_wp21_signoff_link_hrefs_are_real_urls():
         href = tile["href"]
         assert href.startswith(("http://", "https://")), f"{tile['id']}: href {href!r} is not a URL"
         assert "PLACEHOLDER" not in href, f"{tile['id']}: placeholder href survived sign-off"
+
+
+def test_kitchen_area_renamed_to_food():
+    """B.'s WP21 punch-list (2026-09-11): display name Food, id stays 'kitchen'."""
+    reg = load_registry(AREAS_YAML)
+    kitchen = next(a for a in reg.areas if a.id == "kitchen")
+    assert kitchen.name == "Food"

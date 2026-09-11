@@ -13,7 +13,7 @@
 
 areas:
   - id: kitchen
-    name: Kitchen
+    name: Food                                       # renamed from Kitchen (B., 2026-09-11); id stays 'kitchen'
     accent: "#5BE08C"
     icon: kitchen
     summary_tile: meals
@@ -133,17 +133,3 @@ areas:
         snapshot: home_assistant
         stale_after_minutes: 240
         setup_note: "Renders 'Not connected' until HA has car entities (Q16 — never fabricated)."
-
-  - id: garden
-    name: Garden
-    accent: "#22D3EE"
-    icon: garden
-    summary_tile: garden-status
-    tiles:
-      - id: garden-status
-        label: Garden
-        tier: embed
-        owner: shared
-        snapshot: home_assistant
-        stale_after_minutes: 240
-        setup_note: "Renders 'Not connected' until HA has garden entities (Q16)."

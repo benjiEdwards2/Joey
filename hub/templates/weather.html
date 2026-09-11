@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Weather — Joey{% endblock %}
+{% block content %}
+{# Detail behind the hub glimpse (2026-09-11). Today-only by decision; a
+   multi-day forecast is a future connector/schema change, never a hub hack. #}
+{% if w %}
+<section class="card wxpage" style="--accent: {{ w.accent }}">
+  <div class="head">Weather</div>
+  {% if w.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if w.st.note %}<div class="sub">{{ w.st.note }}</div>{% endif %}
+  {% else %}
+    <div class="wxhero">
+      {{ ic.icon(w.glyph) }}
+      <div>
+        <div class="value big">{{ w.data.get("now_c", "—") }} °C</div>
+        <div class="sub">{{ w.data.get("condition_text", "—") }}</div>
+      </div>
+    </div>
+    <dl class="wxfacts">
+      <div><dt>Today low</dt><dd>{{ w.data.get("today_min_c", "—") }} °C</dd></div>
+      <div><dt>Today high</dt><dd>{{ w.data.get("today_max_c", "—") }} °C</dd></div>
+      <div><dt>Rain chance</dt><dd>{{ w.data.get("rain_prob_pct", "—") }}%</dd></div>
+    </dl>
+  {% endif %}
+  <div class="foot">
+    <span class="chip">{{ w.tile.owner.value | title }}</span>
+    {% if w.st.state == "stale" %}<span class="badge stale">{{ w.st.age_text }}</span>
+    {% elif w.st.state == "off" %}<span class="badge off">not connected</span>
+    {% elif w.st.age_text %}<span class="ago">updated {{ w.st.age_text }}</span>{% endif %}
+  </div>
+  <div class="sub">Open-Meteo · refreshed hourly</div>
+</section>
+{% else %}
+<section class="card wxpage">
+  <div class="head">Weather</div>
+  <div class="value dim">Not connected</div>
+</section>
+{% endif %}
+{% endblock %}

@@ -2,6 +2,14 @@
 {% block title %}Joey{% endblock %}
 {% block content %}
 <div class="grid">
+  {% if weather %}
+  <a class="cardlink wx" href="/weather">
+    {% with tile = weather.tile, st = weather.st, accent = weather.accent, heading = "Weather",
+            glyph = (weather.glyph if weather.st.state != "off" else None) %}
+      {% include "_tile.html" %}
+    {% endwith %}
+  </a>
+  {% endif %}
   {% for c in cards %}
   <a class="cardlink {{ c.area.hub_size.value }}" href="/a/{{ c.area.id }}">
     {% with tile = c.tile, st = c.st, accent = c.area.accent, heading = c.area.name %}

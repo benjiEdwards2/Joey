@@ -84,6 +84,43 @@ def _maybe_set_cookie(response, view: str, from_query: bool):
     return response
 
 
+# Hub weather glimpse (2026-09-11 decision — supersedes D18). The glimpse reuses
+# the registry tile that reads this snapshot (Calendar's weather tile), so its
+# stale_after/owner/states stay single-sourced in areas.yaml. Connector id, not
+# an area name (WP17 grep exception, as in registry.py).
+WEATHER_SNAPSHOT_ID = "open_meteo"
+
+# Keyword -> wx-* glyph id, first match wins ("snow showers" must hit snow
+# before shower). The condition word always renders beside the glyph.
+_WEATHER_GLYPHS = (
+    ("thunder", "wx-thunder"),
+    ("snow", "wx-snow"), ("sleet", "wx-snow"), ("ice", "wx-snow"), ("freezing", "wx-snow"),
+    ("rain", "wx-rain"), ("drizzle", "wx-rain"), ("shower", "wx-rain"),
+    ("fog", "wx-fog"), ("mist", "wx-fog"),
+    ("clear", "wx-sun"), ("sun", "wx-sun"),
+)
+
+
+def weather_glyph(condition_text) -> str:
+    text = (condition_text or "").lower()
+    for word, glyph in _WEATHER_GLYPHS:
+        if word in text:
+            return glyph
+    return "wx-cloud"
+
+
+def find_weather(snaps) -> dict | None:
+    """The hub glimpse card: first registry tile reading the weather snapshot."""
+    for a in registry.areas:
+        for t in a.tiles:
+            if t.snapshot == WEATHER_SNAPSHOT_ID:
+                snap = snaps.get(WEATHER_SNAPSHOT_ID)
+                data = snap.data if snap else {}
+                return {"tile": t, "st": tile_state(t, snaps), "accent": a.accent,
+                        "glyph": weather_glyph(data.get("condition_text")), "data": data}
+    return None
+
+
 def build_status(snaps) -> dict:
     """Cockpit status strip: feed health computed from registry vs snapshots."""
     wanted: dict[str, str] = {}   # connector id -> first area name using it
@@ -116,7 +153,19 @@ def hub_page(request: Request):
         cards.append({"area": a, "tile": summary, "st": tile_state(summary, snaps)})
     resp = templates.TemplateResponse(request, "hub.html", {
         "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
-        "status": build_status(snaps),
+        "status": build_status(snaps), "weather": find_weather(snaps),
+    })
+    return _maybe_set_cookie(resp, view, from_query)
+
+
+@app.get("/weather", response_class=HTMLResponse)
+def weather_page(request: Request):
+    """Detail behind the hub glimpse (2026-09-11). Reads the same snapshot; today only."""
+    view, from_query = resolve_owner_view(request)
+    snaps = get_snapshots()
+    resp = templates.TemplateResponse(request, "weather.html", {
+        "areas": registry.areas, "active_id": None, "owner_view": view,
+        "status": build_status(snaps), "w": find_weather(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

@@ -45,6 +45,8 @@ SEEDS = [
     envelope("open_meteo", {
         "summary": "18 °C · light rain",
         "secondary": "today 14–19 °C · rain easing 4 pm",
+        "now_c": 18.0, "condition_text": "light rain",
+        "today_min_c": 14.0, "today_max_c": 19.0, "rain_prob_pct": 55,
     }, age_minutes=18),
     envelope("jellyfin", {
         "summary": "Slow Horses S4E3",

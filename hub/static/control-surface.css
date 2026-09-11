@@ -79,6 +79,7 @@ nav.rail {
 .cardlink .card { height: 100%; }
 .cardlink.s22 { grid-column: span 2; grid-row: span 2; }
 .cardlink.s21 { grid-column: span 2; }
+.cardlink.wx { grid-column: -2 / -1; grid-row: 1 / span 2; } /* hub weather glimpse: pinned right, tall */
 
 h2 { font-size: 16px; font-weight: 650; margin: 4px 0 14px; display: flex; align-items: center; gap: 8px; }
 h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
@@ -111,6 +112,21 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent)
 .badge.off   { color: var(--text-dim); border: 1px solid var(--border); }
 .ago { font-size: 11px; color: var(--text-faint); margin-left: auto; }
 
+/* ---- Weather: glimpse glyph + /weather detail page ---- */
+.card .glyph { color: var(--accent, var(--text-dim)); margin-top: 2px; }
+.card .glyph svg.ic { width: 38px; height: 38px; stroke-width: 1.4; }
+.wxpage { max-width: 520px; }
+.wxpage .wxhero { display: flex; align-items: center; gap: 14px; margin: 6px 0 2px; }
+.wxpage .wxhero > svg.ic { width: 56px; height: 56px; stroke-width: 1.2;
+                           color: var(--accent, var(--text-dim)); }
+.wxpage .value.big { font-size: 34px; margin-top: 0; }
+.wxfacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+           gap: 10px; margin: 10px 0 4px; }
+.wxfacts div { margin: 0; }
+.wxfacts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+              color: var(--text-dim); }
+.wxfacts dd { margin: 2px 0 0; font-size: 18px; font-weight: 700; }
+
 .launch {
   display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
   background: rgba(0,0,0,.35); color: var(--text);
@@ -129,6 +145,7 @@ nav.tabs { display: none; }
   .top > div { width: 100%; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(108px, auto); }
   .cardlink.s22, .cardlink.s21 { grid-column: 1 / -1; grid-row: auto; }
+  .cardlink.wx { grid-column: 1 / -1; grid-row: auto; } /* phone: glimpse flows full-width at the top */
   .card .value { font-size: 20px; }
 
   nav.tabs {

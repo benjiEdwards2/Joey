@@ -112,6 +112,32 @@ class Gcal(Connector):
     id = "gcal"
     requires_env = ("ICS_URL_YOU", "ICS_URL_HER")
 
+    FEEDS = (("raw_you", "ICS_URL_YOU", "you"), ("raw_her", "ICS_URL_HER", "her"))
+
+    def fetch(self) -> dict:
+        import requests
+
+        raw: dict[str, Any] = {}
+        errors: dict[str, str] = {}
+        for key, var, owner in self.FEEDS:
+            try:
+                response = requests.get(os.environ[var], timeout=10)
+                response.raise_for_status()
+                raw[key] = response.text
+            except Exception as exc:
+                # Reason is type/status ONLY — requests exception text embeds the
+                # secret URL, and this string ends up in envelopes and logs.
+                errors[owner] = _safe_reason(exc)
+        if not raw:
+            raise RuntimeError(
+                "both calendar feeds failed ("
+                + ", ".join(f"{o}: {r}" for o, r in sorted(errors.items()))
+                + ")"
+            )
+        if errors:
+            raw["errors"] = errors
+        return raw
+
     def transform(self, raw: dict) -> dict:
         import icalendar
         import recurring_ical_events
@@ -120,21 +146,36 @@ class Gcal(Connector):
         end = start + timedelta(days=CALENDAR_WINDOW_DAYS)
 
         events: list[dict] = []
-        for key, owner in (("raw_you", "you"), ("raw_her", "her")):
+        for key, _var, owner in self.FEEDS:
+            if key not in raw:
+                continue
             calendar = icalendar.Calendar.from_ical(raw[key])
             for component in recurring_ical_events.of(calendar).between(start, end):
                 events.append(_event(component, owner))
 
         events.sort(key=lambda e: (e["start"], e["title"]))
         first = events[0] if events else None
-        return {
+        errors = raw.get("errors") or {}
+        secondary = f"{len(events)} events in {CALENDAR_WINDOW_DAYS} days"
+        if errors:
+            secondary += " · " + ", ".join(f"{o} feed down" for o in sorted(errors))
+        data = {
             "summary": (
                 f"{first['title']} · {_when(first)}" if first
                 else f"Nothing in the next {CALENDAR_WINDOW_DAYS} days"
             ),
-            "secondary": f"{len(events)} events in {CALENDAR_WINDOW_DAYS} days",
+            "secondary": secondary,
             "events": events,
         }
+        if errors:
+            data["feed_errors"] = errors
+        return data
+
+
+def _safe_reason(exc: Exception) -> str:
+    """A failure reason that can never contain the secret URL."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return f"HTTP {status}" if status else type(exc).__name__
 
 
 def _event(component, owner: str) -> dict:

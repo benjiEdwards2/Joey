@@ -9,6 +9,15 @@
   "properties": {
     "summary": {"type": "string", "minLength": 1},
     "secondary": {"type": "string"},
+    "feed_errors": {
+      "type": "object",
+      "description": "Present only on a partial result: per-owner sanitized reason (type/status only, never the URL) for the feed that failed this sweep.",
+      "additionalProperties": false,
+      "properties": {
+        "you": {"type": "string", "minLength": 1},
+        "her": {"type": "string", "minLength": 1}
+      }
+    },
     "events": {
       "type": "array",
       "items": {

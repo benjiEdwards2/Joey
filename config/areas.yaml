@@ -86,6 +86,11 @@ areas:
         snapshot: open_meteo
         stale_after_minutes: 180
         setup_note: "Open-Meteo connector arrives at WP24."   # D18: lives here, never on the hub
+      - id: gcal-app
+        label: Google Calendar
+        tier: link
+        owner: shared
+        href: "https://calendar.google.com"          # link-out beside the upcoming list (B., 2026-09-11)
 
   - id: media
     name: Media

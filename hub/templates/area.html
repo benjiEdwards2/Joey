@@ -9,4 +9,29 @@
     {% endwith %}
   {% endfor %}
 </div>
+{% if upcoming %}
+{# Upcoming-events list (2026-09-11): renders on any area whose tiles read the
+   gcal snapshot. Owner chips are text — colour never the only encoding. #}
+<section class="card uplist" style="--accent: {{ area.accent }}">
+  <div class="head">Next {{ upcoming.days }} days</div>
+  {% if upcoming.groups %}
+    {% for g in upcoming.groups %}
+    <div class="upday">{{ g.label }}</div>
+    {% for e in g.events %}
+    <div class="uprow">
+      <span class="uptime">{{ e.time_text }}</span>
+      <span class="uptitle">{{ e.title }}</span>
+      <span class="chip">{{ e.owner | title }}</span>
+    </div>
+    {% endfor %}
+    {% endfor %}
+  {% else %}
+    <div class="value dim">Nothing in the next {{ upcoming.days }} days</div>
+  {% endif %}
+  <div class="foot">
+    {% if upcoming.st.state == "stale" %}<span class="badge stale">{{ upcoming.st.age_text }}</span>
+    {% elif upcoming.st.age_text %}<span class="ago">updated {{ upcoming.st.age_text }}</span>{% endif %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

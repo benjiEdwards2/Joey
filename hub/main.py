@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from contextlib import asynccontextmanager
@@ -121,6 +121,82 @@ def find_weather(snaps) -> dict | None:
     return None
 
 
+# Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
+# Rendered on any area page whose tiles read this snapshot — keyed by connector
+# id like the weather glimpse, never an area name (WP17 grep exception).
+GCAL_SNAPSHOT_ID = "gcal"
+UPCOMING_DAYS = 7
+
+
+def _event_dt(value: str, tz) -> datetime:
+    """Parse an event timestamp (ISO with offset, or bare date for all-day)."""
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=tz)
+    return dt.astimezone(tz)
+
+
+def _day_label(d: date, today: date) -> str:
+    if d == today:
+        return "Today"
+    if d == today + timedelta(days=1):
+        return "Tomorrow"
+    return d.strftime("%a %d %b")
+
+
+def build_upcoming(events, view: str, now: datetime, days: int = UPCOMING_DAYS) -> list[dict]:
+    """Day-grouped event rows for the coming week, honouring the owner view (Q9).
+
+    All-day events carry an ICS-style exclusive end date. An event already in
+    progress groups under Today. A malformed event is skipped, never a crash.
+    """
+    tz = now.tzinfo
+    today = now.date()
+    window_end = today + timedelta(days=days)
+    rows: list[tuple[date, datetime, dict]] = []
+    for ev in events:
+        try:
+            owner = ev["owner"]
+            if not (view == "both" or owner == "shared" or owner == view):
+                continue
+            start = _event_dt(ev["start"], tz)
+            end = _event_dt(ev["end"], tz)
+            if ev["all_day"]:
+                if end <= start:
+                    end = start + timedelta(days=1)
+                still_on = end.date() > today  # exclusive end
+                time_text = "All day"
+            else:
+                still_on = end > now
+                time_text = f"{start:%H:%M} – {end:%H:%M}"
+            if not still_on or start.date() >= window_end:
+                continue
+            rows.append((max(start.date(), today),
+                         start, {"title": str(ev["title"]), "time_text": time_text,
+                                 "owner": owner}))
+        except Exception:
+            continue
+    rows.sort(key=lambda r: (r[0], r[1]))
+    groups: list[dict] = []
+    for day, _, event in rows:
+        if not groups or groups[-1]["day"] != day:
+            groups.append({"day": day, "label": _day_label(day, today), "events": []})
+        groups[-1]["events"].append(event)
+    return groups
+
+
+def find_upcoming(tiles, snaps, view: str):
+    """The area's upcoming list: present when a visible tile reads the gcal
+    snapshot and that snapshot holds data (fresh or stale — never fabricated)."""
+    for row in tiles:
+        if row["tile"].snapshot == GCAL_SNAPSHOT_ID and row["st"]["state"] in ("fresh", "stale"):
+            snap = snaps.get(GCAL_SNAPSHOT_ID)
+            return {"groups": build_upcoming(snap.data.get("events", []), view,
+                                             datetime.now().astimezone()),
+                    "st": row["st"], "days": UPCOMING_DAYS}
+    return None
+
+
 def build_status(snaps) -> dict:
     """Cockpit status strip: feed health computed from registry vs snapshots."""
     wanted: dict[str, str] = {}   # connector id -> first area name using it
@@ -185,6 +261,7 @@ def area_page(request: Request, area_id: str):
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
+        "upcoming": find_upcoming(tiles, snaps, view),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

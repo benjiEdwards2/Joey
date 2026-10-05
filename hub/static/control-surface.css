@@ -548,3 +548,23 @@ table { width: 100%; border-collapse: collapse; }
 .wxpage .glyph svg.ic { width: 56px; height: 56px; stroke-width: 1.2; }
 .wxpage .wxtemp { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
 .wxpage .wxword { font-size: 13px; color: var(--muted); }
+
+
+/* ---- Watchlist (F6) ---- */
+.shelf-cell { flex: 0 0 120px; width: 120px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  scroll-snap-align: start; position: relative; }
+.shelf-cell .shelf-item { flex: none; width: 100%; }
+.poster-grid .shelf-cell { width: auto; flex: none; }
+@media (max-width: 640px) { .shelf-cell { flex-basis: 96px; width: 96px; } .poster-grid .shelf-cell { width: auto; } }
+.wlbtn form { display: inline; margin: 0; }
+.wlbtn.compact { align-self: flex-start; }
+.wlplus, .wlx { font: inherit; font-size: 14px; line-height: 1; color: var(--muted); background: none;
+  border: 1px solid var(--border); border-radius: 999px; min-width: 26px; height: 26px; padding: 0 8px; cursor: pointer; }
+.wlplus:hover, .wlx:hover { color: var(--fg); border-color: var(--muted); }
+.wlon { color: var(--fg); }
+.wlgrid .wlcell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.wlgrid .poster { width: 100%; height: auto; }
+.wlgrid .wltitle { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+.wlgrid .wltitle form { margin: 0; flex: 0 0 auto; }
+.wlgrid .pgtitle { font-size: 12px; font-weight: 600; color: var(--fg); text-decoration: none; }
+.wlgrid .chip { align-self: flex-start; }

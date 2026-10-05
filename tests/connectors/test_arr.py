@@ -136,7 +136,7 @@ def test_this_week_labels_and_on_disk_disc_releases_are_skipped(data):
     assert rows["Far Shore"]["label"] == "Cinemas"
     assert rows["Night Ferry · S02E01 · New Moorings"]["label"] == "Premiere"
     assert rows["Harbour Watch · S01E08 · Landfall"]["label"] == "Finale"
-    assert rows["Quiet Coast · S02E04 · Late Tide"]["label"] == ""
+    assert "Quiet Coast · S02E04 · Late Tide" not in rows   # imported this week: only under Just arrived
     assert "Desert Crossing" not in rows                    # disc release already on disk
     assert not any("Far Too Early" in t for t in rows)      # outside the 7-day window
     assert [r["date"] for r in data["this_week"]] == sorted(r["date"] for r in data["this_week"])
@@ -267,3 +267,22 @@ def test_item_key_is_tmdb_for_radarr_and_tvdb_for_sonarr(data):
     assert keys and all(k.startswith(("tmdb:", "tvdb:")) for k in keys.values())
     assert all(v == f"tmdb:{1000 + int(p.split(':')[1])}" for p, v in keys.items() if p.startswith("radarr:"))
     assert all(v == f"tvdb:{2000 + int(p.split(':')[1])}" for p, v in keys.items() if p.startswith("sonarr:"))
+
+
+def test_this_week_drops_rows_already_in_just_arrived(data):
+    assert "tvdb:2001" in {r["item_key"] for r in data["arrived"]}                     # Quiet Coast S02 arrived this week...
+    titles = [r["title"] for r in data["this_week"]]
+    assert "Quiet Coast · S02E04 · Late Tide" not in titles  # ...so its airing is not listed twice
+    assert "Night Ferry · S02E01 · New Moorings" in titles  # same series, different episode: kept
+    assert "Midnight Harbour" in titles                     # unrelated rows stay
+
+
+def test_one_volume_under_three_mount_paths_is_listed_once(raw):
+    raw = copy.deepcopy(raw)
+    same = {"label": "", "freeSpace": 500_000_000_000, "totalSpace": 2_000_000_000_000}
+    raw["raw_radarr_diskspace"] = [{"path": "/", **same}, {"path": "/config", **same}]
+    raw["raw_sonarr_diskspace"] = [{"path": "/data", **same}]
+    disk = Arr().transform(raw)["disk"]
+    assert [d["path"] for d in disk] == ["/"]               # first path seen wins
+    raw["raw_sonarr_diskspace"].append({"path": "/other", **{**same, "freeSpace": 100_000_000_000}})
+    assert [d["path"] for d in Arr().transform(raw)["disk"]] == ["/", "/other"]

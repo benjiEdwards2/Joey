@@ -434,7 +434,8 @@ class Jellyfin(Connector):
         return {
             "recent": [{"title": _media_title(item), "kind": _item_kind(item),
                         "watched_at": item["UserData"]["LastPlayedDate"], "when": _ago(dt, now),
-                        "poster": _jf_ref("jf", item), "item_key": _jf_key(item)}
+                        "poster": _jf_ref("jf", item), "item_key": _jf_key(item),
+                        "jf_id": item.get("Id")}
                        for item, dt, _, _ in played[:HISTORY_RECENT]],
             "week_count": sum(1 for _, dt, _, _ in played if dt >= week),
             "month_count": sum(1 for _, dt, _, _ in played if dt >= month),
@@ -444,7 +445,8 @@ class Jellyfin(Connector):
                 shows.values(), key=lambda s: (-s["episodes"], s["title"]))[:HISTORY_TOP]],
             "most_played_movies": movies[:HISTORY_TOP],
             "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": now.year - dt.year,
-                             "poster": _jf_ref("jf", item), "item_key": _jf_key(item)}
+                             "poster": _jf_ref("jf", item), "item_key": _jf_key(item),
+                             "jf_id": item.get("Id")}
                             for item, dt, _, _ in played
                             if (dt.month, dt.day) == (now.month, now.day) and dt.year < now.year][:HISTORY_TOP],
         }
@@ -858,17 +860,26 @@ class Arr(Connector):
         arrived_rows = [row for _, row in sorted(arrived, key=lambda p: p[0], reverse=True)]
         updated_rows = [row for _, row in sorted(updated, key=lambda p: p[0], reverse=True)]
 
-        this_week = self._this_week(_records(raw.get("raw_radarr_calendar")),
-                                    _records(raw.get("raw_sonarr_calendar")), now)
+        # Already arrived this week -> not also listed under "This week". Sonarr keys are
+        # per series, so a row only counts as arrived when its title starts with the arrived
+        # row's (a season group "Show · S02 · 3 episodes" matches its S02 episodes only).
+        arrived_prefix = [(r["item_key"], re.sub(r" · \d+ episodes$", "", r["title"]))
+                          for r in arrived_rows if r.get("item_key")]
+        this_week = [r for r in self._this_week(_records(raw.get("raw_radarr_calendar")),
+                                                _records(raw.get("raw_sonarr_calendar")), now)
+                     if not any(r["item_key"] == k and r["title"].startswith(pre)
+                                for k, pre in arrived_prefix)]
         downloading = (self._queue("radarr", _records(raw.get("raw_radarr_queue")))
                        + self._queue("sonarr", _records(raw.get("raw_sonarr_queue"))))
 
         disk, seen = [], set()
         for d in _records(raw.get("raw_radarr_diskspace")) + _records(raw.get("raw_sonarr_diskspace")):
             total, free = int(d.get("totalSpace") or 0), int(d.get("freeSpace") or 0)
-            if d["path"] in seen or not total:
+            # One NAS volume shows up under several mount paths: dedupe on the sizes (to the GiB).
+            volume = (round(total / GIB), round(free / GIB))
+            if volume in seen or not total:
                 continue
-            seen.add(d["path"])
+            seen.add(volume)
             disk.append({"path": d["path"], "free_gb": round(free / GIB, 1),
                          "total_gb": round(total / GIB, 1),
                          "pct_used": round((total - free) / total * 100)})

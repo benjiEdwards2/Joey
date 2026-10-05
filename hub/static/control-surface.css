@@ -372,3 +372,11 @@ nav.tabs { display: none; }
 .reqdone { font-size: 15px; font-weight: 600; }
 .requestblock button.launch { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
 @media (max-width: 640px) { .hero .heroposter { height: 120px; } }
+
+/* ---- "Waiting on you" chips: amber, word-led, never dismissible ---- */
+.waitchips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.waitchip {
+  font-size: 11px; font-weight: 700; letter-spacing: .3px; color: #F5A524;
+  background: rgba(245,165,36,.14); border: 1px solid rgba(245,165,36,.45);
+  border-radius: 999px; padding: 3px 10px;
+}

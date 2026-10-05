@@ -1,0 +1,5 @@
+{# "Waiting on you" chips (2026-10-05): the words carry the meaning; shown only when > 0. #}
+{% macro waitchips(w) %}{% if w and (w.to_rate or w.to_place) %}<span class="waitchips">
+  {% if w.to_rate %}<span class="waitchip">{{ w.to_rate }} to rate</span>{% endif %}
+  {% if w.to_place %}<span class="waitchip">{{ w.to_place }} to place</span>{% endif %}
+</span>{% endif %}{% endmacro %}

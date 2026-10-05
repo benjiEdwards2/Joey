@@ -71,7 +71,7 @@ def test_real_registry_media_leads_the_hub():
     reg = load_registry(AREAS_YAML)
     by = {a.id: a for a in reg.areas}
     assert by["media"].hub_rank == 1 and by["media"].hub_size.value == "s22"
-    assert by["money"].hub_size.value == "s21"
+    assert by["money"].hub_size.value == "s22"  # B. kept Money as a second hero (2026-10-06)
     assert all(a.hub_rank == 100 for a in reg.areas if a.id != "media")
 
 

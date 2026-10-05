@@ -67,3 +67,25 @@ def test_stylesheet_link_is_content_versioned(monkeypatch):
     m = re.search(r'href="/static/control-surface\.css\?v=([0-9a-f]{8})"', html)
     assert m, html[:400]
     assert m.group(1) == hub.main._static_version()
+
+
+def test_asset_version_meta_and_boost_reload_guard(monkeypatch):
+    """A tab open across a deploy must not boost new markup under the old stylesheet (2026-10-06):
+    the page carries its asset version in a meta tag and reloads fully when a boosted response
+    carries a different one."""
+    import importlib
+    from fastapi.testclient import TestClient
+    import hub.main
+    importlib.reload(hub.main)
+    with TestClient(hub.main.app) as c:
+        html = c.get("/").text
+    v = hub.main.templates.env.globals["static_v"]
+    assert f'<meta name="joey-asset-v" content="{v}">' in html
+    assert "htmx:beforeSwap" in html and "joey-asset-v" in html.split("</nav>")[-1]
+    assert "shouldSwap = false" in html and "window.location.href" in html
+
+
+def test_links_never_use_browser_default_colours():
+    css = (REPO_ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    assert "\na { color: inherit; }" in css
+    assert "main a:not([class]) { color: var(--accent" in css

@@ -382,3 +382,7 @@ nav.tabs { display: none; }
   background: rgba(245,165,36,.14); border: 1px solid rgba(245,165,36,.45);
   border-radius: 999px; padding: 3px 10px;
 }
+
+/* ---- Links (B., 2026-10-06): never the browser's purple/blue — inherit, accent for bare links ---- */
+a { color: inherit; }
+main a:not([class]) { color: var(--accent, var(--text)); text-decoration-color: var(--text-faint); }

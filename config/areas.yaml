@@ -37,7 +37,7 @@ areas:
     name: Money
     accent: "#3FD9C0"
     icon: money
-    hub_size: s21        # was s22 (bento hero, gate 2026-08-28); Media took the hero slot 2026-10-05
+    hub_size: s22        # second bento hero beside Media (B., 2026-10-06; was s21 for a day)
     summary_tile: month
     tiles:
       - id: month

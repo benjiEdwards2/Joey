@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import parse_qs, quote
@@ -289,6 +290,53 @@ def request_step(request: Request, kind: str, tmdb_id: int, step: str = ""):
     if t is None:
         return _partial(request, "_request_block.html", **_block(_stub(kind, tmdb_id), "error", "Title unavailable"))
     return _partial(request, "_request_block.html", **_block(t, "confirm" if step == "confirm" else "idle"))
+
+
+# ---- Season episodes (lazy, TV only) ----
+
+EPISODES_DOWN = "Episodes unavailable right now"
+
+
+def _date_words(value) -> tuple[str | None, bool]:
+    """'2026-03-14' -> ('14 Mar 2026', is_future); junk -> (None, False)."""
+    try:
+        d = date.fromisoformat(str(value or "")[:10])
+    except ValueError:
+        return None, False
+    return f"{d.day} {d.strftime('%b')} {d.year}", d > date.today()
+
+
+def _episodes(tmdb_id: int, n: int) -> list[dict] | None:
+    path = f"/api/v1/tv/{tmdb_id}/season/{n}"
+    hit = _cache.get(path)
+    if hit and time.time() - hit[0] < CACHE_TTL:
+        return hit[1]
+    body = _get(path)
+    if not isinstance(body, dict) or not isinstance(body.get("episodes"), list):
+        return None  # a failed fetch is not cached
+    out = []
+    for e in body["episodes"]:
+        num = e.get("episodeNumber") if isinstance(e, dict) else None
+        if not isinstance(num, int):
+            continue
+        text, future = _date_words(e.get("airDate"))
+        out.append({"number": num, "name": str(e.get("name") or f"Episode {num}")[:200],
+                    "date_text": text, "future": future, "overview": str(e.get("overview") or "")[:600],
+                    "still": _ref(e.get("stillPath"))})
+    out.sort(key=lambda e: e["number"])
+    _cache[path] = (time.time(), out)
+    return out
+
+
+@router.get("/media/title/tv/{tmdb_id}/season/{n}", response_class=HTMLResponse)
+def season_episodes(request: Request, tmdb_id: int, n: int):
+    eps = _episodes(tmdb_id, n) if n >= 0 else None
+    if eps is None:
+        return _partial(request, "_season_episodes.html", episodes=[], note=EPISODES_DOWN)
+    files = media_files.file_summary("tv", tmdb_id)
+    have = {tuple(k) for k in (files or {}).get("episode_keys") or []}
+    rows = [{**e, "on_disk": (n, e["number"]) in have} for e in eps]
+    return _partial(request, "_season_episodes.html", episodes=rows, note=None if rows else "No episodes listed")
 
 
 async def _seasons_of(request: Request) -> list[int]:

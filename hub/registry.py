@@ -70,6 +70,7 @@ class Area(BaseModel):
     hub_size: HubSize = HubSize.s11
     hub_rank: int = 100  # hub card order only (lower first); areas.yaml order drives rail/tabs (2026-10-05)
     layout: Literal["grid", "shelves"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05)
+    rail_section: Literal["home", "areas"] = "areas"  # "home" lifts the area into the rail's Home group (2026-10-06)
     tiles: list[Tile]
 
 

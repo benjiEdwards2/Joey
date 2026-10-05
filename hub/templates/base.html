@@ -48,15 +48,19 @@ document.addEventListener('htmx:beforeSwap', function (e) {
 {% set path = request.url.path if request else "" %}
 <div class="app">
   <aside class="rail" aria-label="Areas">
-    <div class="brand"><div class="mark">J</div><div><b>Joey</b><small>joeyhome.net</small></div></div>
+    <a class="brand" href="/" aria-label="Joey home"><img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="34" height="34"><div><b>Joey</b><small>joeyhome.net</small></div></a>
     <div class="railsec">Home</div>
     <nav class="nav" aria-label="Home">
       <a href="/"{% if path == "/" %} class="on" aria-current="page"{% endif %}><span class="ico">{{ ic.icon("hub") }}</span>Hub</a>
+      {% for a in areas if a.rail_section == "home" %}
+      {% set on = active_id == a.id or (a.layout == "shelves" and path.startswith("/media/")) %}
+      <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"{% if on %} class="on" aria-current="page"{% endif %}><span class="ico">{{ ic.icon(a.icon) }}</span>{{ a.name }}</a>
+      {% endfor %}
       <a href="/weather"{% if path == "/weather" %} class="on" aria-current="page"{% endif %}><span class="ico">{{ ic.icon("wx-cloud") }}</span>Weather</a>
     </nav>
     <div class="railsec">Areas</div>
     <nav class="nav" aria-label="Areas list">
-      {% for a in areas %}
+      {% for a in areas if a.rail_section != "home" %}
       {% set on = active_id == a.id or (a.layout == "shelves" and path.startswith("/media/")) %}
       <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"{% if on %} class="on" aria-current="page"{% endif %}><span class="ico">{{ ic.icon(a.icon) }}</span>{{ a.name }}</a>
       {% endfor %}

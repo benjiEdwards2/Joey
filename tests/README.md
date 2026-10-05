@@ -25,3 +25,5 @@ and aborts on any failure.
 
 Media suites live in `tests/hub/` (`test_media_*.py`: shelves, discover, her view, backup, frame) and
 `tests/connectors/` (`test_jellyfin.py`, `test_arr.py`).
+
+Rail section + brand link (2026-10-06): `test_registry.py` covers `rail_section`; `test_apex_shell.py` covers Home-group rendering and the brand home link.

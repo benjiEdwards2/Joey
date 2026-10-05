@@ -1,25 +1,44 @@
-﻿# hub
+# hub
 
 FastAPI + Jinja/HTMX dashboard shell. Areas are config, not code — see `config/areas.yaml` (WP16).
 
-**Media app frame (2026-10-06).** Every `/media/*` page and the Media shelves page render in
-`templates/media_base.html` — no rail; a "← Return to Joey" bar, sections
-**Home · Movies · TV Shows · Diary · Server · Discover** with sub-tabs, the You/Her switcher, a
-phone bottom bar and amber waiting counts. The section map is one module, `media_nav.py`; Home is
+**Apex shell (2026-10-06).** `templates/base.html` is the one frame: 260 px labelled rail (brand = kangaroo photo
+`static/brand-joey.jpg`, the whole block links to `/`; Home group = Hub, any area with `rail_section: home`, Weather;
+Areas group = the rest, in `areas.yaml` order), sticky top bar (theme toggle → `data-theme` on `<html>`, saved in
+localStorage `joey-theme`, applied by a pre-paint script; You/Her switcher), page heading block, phone bottom bar.
+`static/control-surface.css` keeps its filename but is the Apex port: light values on `:root`, the two dark blocks
+redefine tokens only, no literal colour outside the token blocks (a test enforces it); `--brand` is the red, per-area
+`--accent` is injected by templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
+row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
+card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
+table + Weather band; `/weather` is one card. Greeting clock: `_now_home()` (Australia/Melbourne).
+
+**Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
+`templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame
+was retired the same day) and adds an in-content sections nav
+**Home · Movies · TV Shows · Diary · Server · Discover** with sub-tabs, a phone bottom bar and amber waiting counts. The section map is one module, `media_nav.py`; Home is
 the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonight" went live in F3 (below).
 
 **Media library pages (F3, 2026-10-06).** `/media/movies`, `/media/movies/tonight`, `/media/tv`, `/media/tv/tonight` and `/media/years?kind=movie|tv`, built from the jellyfin `movies`/`shows` arrays by `media_library.py` (`film_rows`, `show_rows`, `deal_tonight`); "New this week" uses the arr `at` field. Absent arrays render "Library list not available yet".
 
+**Downloads (2026-10-06).** `/media/downloads` (Server sub-tab after Library) lists the live qBittorrent torrents. `media_downloads.py` joins the arr queue to qBittorrent (`download_id` == torrent hash) for live progress on the Home Downloading shelf, Library "This week" badges and title-page badges; a Sonarr season pack (one queue row per episode, one `download_id`) collapses to one row, e.g. "Show · S01 · 13 episodes".
+
 Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages, Request),
 `media_db.py` (ratings + diary, per owner), `media_backup.py` (nightly `media.db` dump),
-`media_write.py` (same-origin write guard). The hub's Media card is the hero (`hub_rank: 1`,
-`media_hero()`, `_hub_hero.html`) with a Jellyfin "Jump back in" deep link. A hx-boosted page that
+`media_write.py` (same-origin write guard). The hub's Media KPI card is first (`hub_rank: 1`,
+`media_hero()` inside `_kpi.html`) with a sibling Jellyfin "Jump back in" deep link. A hx-boosted page that
 carries a new `joey-asset-v` meta forces a full reload so new CSS is never mixed with old pages.
 
 File-quality strip (2026-10-06, `media_files.py`): a Movie or TV title page that is Available / Partly
 available shows plain-word badges read live from Jellyfin: video (resolution, HDR, codec, container) and audio
-(format, channels, Atmos), each with a generic icon id and never a brand logo. It is cached for 10 minutes and
+(format, channels, Atmos). Dolby and DTS audio formats render as a black badge with the name written out —
+Dolby ones carry a small double-D glyph (`brand_badge()` in `media_files.py`); the word is always present. It is cached for 10 minutes and
 simply absent when Jellyfin is unreachable or the title is not on disk.
+
+Title pages (2026-10-06): each season is a `<details>`; episodes load on first open from
+`GET /media/title/tv/{tmdb_id}/season/{n}` (Jellyseerr, cached 10 min, "Episodes unavailable right now" on failure)
+with an "On disk" word chip for episodes Jellyfin has. To-rate and diary rows wrap (`rateable`) so the 1–10 picker sits
+under the title.
 
 Rating level (2026-10-06): each owner chooses Show / Season / Episode with the chips on To rate
 (`POST /media/settings/rating_level`, stored per owner in `media.db` `setting`). The To rate inbox, the rate

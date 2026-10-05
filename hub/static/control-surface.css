@@ -19,6 +19,7 @@
   --rail-active: #262626; --rail-border: #262626; --rail-strong: #ffffff;
   --scrim: rgba(247, 247, 246, .9); --scrim-soft: rgba(247, 247, 246, .62);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
+  --badge-ink: #000000; --badge-fg: #ffffff;
   --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px -1px rgba(0, 0, 0, .06);
   --ic-moon: inline-block; --ic-sun: none;
 }
@@ -35,6 +36,7 @@
   --rail-active: #222222; --rail-border: #232323; --rail-strong: #ffffff;
   --scrim: rgba(15, 15, 15, .84); --scrim-soft: rgba(15, 15, 15, .58);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
+  --badge-ink: #000000; --badge-fg: #ffffff;
   --shadow: none;
   --ic-moon: none; --ic-sun: inline-block;
 } }
@@ -51,6 +53,7 @@
   --rail-active: #222222; --rail-border: #232323; --rail-strong: #ffffff;
   --scrim: rgba(15, 15, 15, .84); --scrim-soft: rgba(15, 15, 15, .58);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
+  --badge-ink: #000000; --badge-fg: #ffffff;
   --shadow: none;
   --ic-moon: none; --ic-sun: inline-block;
 }
@@ -80,8 +83,9 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
   position: sticky; top: 0; height: 100vh; overflow: auto;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--rail-border); }
-.brand .mark { width: 34px; height: 34px; border-radius: 9px; background: var(--brand); color: var(--rail-strong);
-  display: grid; place-items: center; font-weight: 700; font-size: 17px; }
+.brand { text-decoration: none; }
+.brand .mark { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--rail-border); flex: none; }
+.brand:hover b { color: var(--rail-fg); }
 .brand b { display: block; font-size: 15px; color: var(--rail-strong); line-height: 1.1; }
 .brand small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
 .railsec { padding: 14px 24px 4px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
@@ -176,6 +180,10 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .uplist .uptime { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 96px; }
 .uplist .uptitle { font-size: 13px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; flex: 1; }
 .uplist .uprow .chip { flex: 0 0 auto; }
+/* Rows holding a 1-10 picker wrap: the picker (flex-basis 100%) drops under poster + title + when
+   instead of squeezing the title to one character per line (to-rate + diary rows, 2026-10-06). */
+.uplist .uprow.rateable { flex-wrap: wrap; }
+.uplist .uprow.rateable .uptitle { flex: 1 1 140px; }
 
 /* ---- Media: apps health + now playing / up next ---- */
 .mediacols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
@@ -399,9 +407,23 @@ nav.tabs { display: none; }
   border-radius: 6px; padding: 2px 8px;
 }
 .fbadge svg.ic { width: 14px; height: 14px; color: var(--muted); }
+/* Dolby / DTS: black pill, white bold label in BOTH themes; the double-D glyph is extra. */
+.fbadge.brandbadge { color: var(--badge-fg); background: var(--badge-ink); border-color: var(--badge-ink); font-weight: 700; }
+.fbadge svg.dd { width: 18px; height: 12px; fill: currentColor; flex: none; }
 .seasons h3 { margin: 6px 0; font-size: 15px; }
 .seasonrow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--border); }
 .seasonrow .uptitle { flex: 1 1 140px; }
+/* Season episodes (2026-10-06): <details> per season, episodes loaded on first open. */
+.seasonbox > summary { list-style: none; cursor: pointer; }
+.seasonbox > summary::-webkit-details-marker { display: none; }
+.seasonbox > summary .uptitle::before { content: "+ "; color: var(--muted); }
+.seasonbox[open] > summary .uptitle::before { content: "- "; }
+.episodes { padding: 0 0 8px 14px; }
+.eprow { padding: 6px 0; border-top: 1px solid var(--border); }
+.eprow .ephead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; }
+.eprow .epname { font-weight: 600; flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.eprow .epover { font-size: 12px; color: var(--muted); margin: 2px 0 0; display: -webkit-box;
+  -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .requestblock { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
 .requestblock form { display: flex; flex-direction: column; gap: 8px; }
 .seasonpick { display: flex; flex-direction: column; gap: 4px; }

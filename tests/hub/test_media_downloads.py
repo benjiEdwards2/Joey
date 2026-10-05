@@ -149,6 +149,42 @@ def test_badge_for_title_ignores_year_and_episode_suffix():
     assert badge_for_title(merged, "Other") is None and badge_for_title(merged, "") is None
 
 
+
+EPISODES = ["3AM", "Two Dead Men", "Kandahar", "Resupply", "Gunner", "The Judas Goat", "Crosshairs",
+            "Cold Steel", "Front Toward Enemy", "Virtue of the Vicious", "Danger Close", "Home", "Memento Mori"]
+PACK = [{"title": f"Marvel's The Punisher · S01E{i:02d} · {name}", "kind": "episode", "pct": 20,
+         "status_text": "Downloading", "time_left": "1 h", "poster": "/p.jpg", "item_key": "tvdb:331980",
+         "download_id": H2.upper()} for i, name in enumerate(EPISODES, 1)]
+
+
+def test_merge_collapses_a_season_pack_into_one_row():
+    out = merge_downloading(PACK, {"active": [QB["active"][1]]})
+    assert len(out) == 1
+    assert out[0]["title"] == "Marvel's The Punisher · S01 · 13 episodes" and out[0]["kind"] == "season"
+    assert out[0]["item_key"] == "tvdb:331980" and out[0]["poster"] == "/p.jpg"
+    assert out[0]["pct"] == 10 and out[0]["caption"] == "Stalled · 10%"
+
+
+def test_merge_keeps_different_hashes_and_null_ids_apart_in_order():
+    other = [{**r, "download_id": "e" * 40} for r in PACK[3:5]]
+    loose = [{**r, "download_id": None} for r in PACK[5:7]]
+    out = merge_downloading([loose[0], *PACK[:3], ROW, *other, loose[1]], None)
+    assert [r["title"] for r in out] == [loose[0]["title"], "Marvel's The Punisher · S01 · 3 episodes",
+                                         "Midnight Harbour", "Marvel's The Punisher · S01 · 2 episodes",
+                                         loose[1]["title"]]
+    assert out[0]["kind"] == "episode" and out[2]["kind"] == "movie"
+
+
+def test_merge_pack_title_falls_back_when_unparseable():
+    rows = [{"title": "Odd Release", "kind": "episode", "download_id": H1}] * 2
+    assert merge_downloading(rows, None)[0]["title"] == "Odd Release · 2 episodes"
+
+
+def test_collapsed_pack_gives_one_badge_per_item_key():
+    from hub.media_downloads import badges_by_item_key
+    assert badges_by_item_key(merge_downloading(PACK, None)) == {"tvdb:331980": "Downloading · 20%"}
+
+
 # shelf, library, badges, hero ---------------------------------------------------
 def test_shelf_and_library_use_the_merged_rows(env):
     with env(arr=ARR, qbittorrent=QB, jellyfin={"summary": "x"}) as client:

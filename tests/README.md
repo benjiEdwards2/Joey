@@ -22,3 +22,6 @@ and aborts on any failure.
 | `tests/connectors/` | envelope + per-feed schemas, fixture tests, read-only greps |
 | `tests/money/` | importer, rules, golden month, plaintext-never-in-git guard |
 | `tests/deploy/` | smoke.py and deploy-gate checks |
+
+Media suites live in `tests/hub/` (`test_media_*.py`: shelves, discover, her view, backup, frame) and
+`tests/connectors/` (`test_jellyfin.py`, `test_arr.py`).

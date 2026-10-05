@@ -31,6 +31,26 @@ episode uses its SERIES (`jf:<SeriesId>`, as its payload carries no series provi
 Grammar `^(tmdb|tvdb|jf):[A-Za-z0-9-]+$`. The hub also proxies one live Jellyseerr search
 for the diary's "Log a watch" form; with no keys it says "Search unavailable".
 
+**Fourth exception (2026-10-05): Discover & Search (`hub/media_discover.py`)** — the third
+live call path, after `/money` SQLite and `/img`. Routes `/media/discover`,
+`/media/discover/search`, `/media/title/{kind}/{tmdb_id}` and its `/request` (GET `?step=confirm`,
+POST behind the `same_origin` guard) call Jellyseerr live with `JELLYSEERR_URL` +
+`JELLYSEERR_API_KEY`, server-side only. Results are cached in-process for 10 minutes; Jellyseerr's
+status codes map to one set of words (Available · Partly available · Processing · Requested ·
+Not in library); any failure logs the exception type only and degrades to words, never a 500.
+The registry tile `discover` rides the `jellyseerr` snapshot for its stale badge.
+
+**Fifth exception (2026-10-05): her view.** `media.db` ratings and diary are per owner —
+primary key `(item_key, owner)`, owner `you` or `her` — and an older single-owner file is
+migrated on connect with every row kept as `you`. Her data comes from a second Jellyfin user
+(`JELLYFIN_USER_HER`, the exact display name; created by B. in Jellyfin, no fallback to the admin
+account) read into the jellyfin `her` block below.
+
+**Backups.** The hub dumps `media.db` nightly (`hub/media_backup.py`, gzip, integrity-checked,
+30 daily + monthly kept) to `MEDIA_BACKUP_DIR`, mounted from
+`/volume1/Docker/joey/backups/media`, and warns on the Media area only when the newest dump is
+over 36 h old.
+
 **Notion is LINK tier.** A URL in `areas.yaml` and nothing else — no connector,
 no snapshot, no expectation of one anywhere in the hub.
 
@@ -86,6 +106,14 @@ never a stored value — the schemas reject it.
 connector feeds three tiles; that keying is what lets each tile slice its own
 entities instead of all three repeating the same summary.
 
+**Jellyfin media rows (2026-10-05/06).** Rows in `now_playing`, `up_next`, `recent` and the
+resume/history lists carry `jf_id` (the Jellyfin ItemId) and `data` carries `server_id` (from
+`/System/Info`); together they build the deep link `/web/#/details?id={jf_id}&serverId={server_id}`
+used by the hub hero and every shelf row. Snapshots written before this have neither field — the
+hub falls back to the bare server link, so an older snapshot still renders. The optional `her`
+block (`user`, `up_next`, `history`) is Georgina's view and is `null` when `JELLYFIN_USER_HER`
+is unset or names no user.
+
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a
 runner-registered task rather than a `Connector` subclass (D14), and an empty
@@ -130,7 +158,8 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`
    in `hub/registry.py`; `media_status`, `arr` and `jellyseerr` were added to both on 2026-10-05).
-   Two tiles may share one snapshot (`jellyfin` feeds now-playing and watch history); each
+   An area may carry `hub_rank` (its place among the hub cards; Media is 1) and `hub_size`
+   (`s22` is the hero card). Two tiles may share one snapshot (`jellyfin` feeds now-playing and watch history); each
    page is then picked by its tile's `detail` route.
 5. `config/sample_snapshots/{id}.json` — regenerate the sweep per that folder's
    README and commit the result.

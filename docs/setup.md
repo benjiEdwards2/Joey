@@ -27,3 +27,13 @@ Dev hub with demo data:
 python -m hub.seed_demo
 set SNAPSHOT_DIR=data/demo-snapshots && python -m uvicorn hub.main:app --port 8800
 ```
+
+## Media env (deploy/.env, on the NAS only)
+
+`JELLYFIN_URL` + `JELLYFIN_API_KEY` feed the connectors and the hub's `/img` proxy;
+`JELLYFIN_USER` (optional) picks whose "up next" shows, default the first administrator.
+`JELLYFIN_USER_HER` (2026-10-05, optional) is the exact display name of Georgina's Jellyfin user —
+B. creates that account in Jellyfin; unset, her view shows a quiet word and never falls back to the
+admin. Radarr/Sonarr/Jellyseerr URL + key pairs are in `deploy/.env.example`; the hub also uses the
+Jellyseerr pair live for Discover & Search. `media.db` is backed up nightly into
+`/volume1/Docker/joey/backups/media` (the host dir must be owned by uid 1000).

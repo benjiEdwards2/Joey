@@ -23,7 +23,7 @@ from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
 from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
-from hub import media_library
+from hub import media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
@@ -64,7 +64,12 @@ async def lifespan(_: FastAPI):
     registry_loaded_at = datetime.now(timezone.utc).isoformat()
     log.info("registry loaded from %s: %d areas", areas_path, len(registry.areas))
     backup_task = None if media_backup.disabled() else asyncio.create_task(_backup_loop())
+    plays_task = media_plays.start_recorder()  # F7 play recorder; None when off
     yield
+    if plays_task is not None:
+        plays_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await plays_task
     if backup_task is not None:
         backup_task.cancel()
         with suppress(asyncio.CancelledError):
@@ -85,6 +90,7 @@ async def log_identity(request: Request, call_next):
 app.include_router(images_router)
 app.include_router(media_write_router)
 app.include_router(media_discover_router)
+app.include_router(media_plays.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
@@ -252,6 +258,7 @@ ARR_SNAPSHOT_ID = "arr"
 JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
 QBIT_SNAPSHOT_ID = media_downloads.QB_SNAPSHOT_ID
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
+HISTORY_PLAYS = "/media/server/history"  # F7 play history (Server > History)
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
 YEARS_DETAIL = "/media/years"      # the tile reading it as the year rankings
 LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
@@ -557,6 +564,16 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     add("watched", "Recently watched", DIARY_DETAIL,
         [jf_item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows],
         unset_text if her_unset else "Nothing watched yet")
+    most_shows, most_films = media_plays_db.most_played_30({"you": "you", "her": "her"}.get(view))
+    most = ([item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
+                  f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", HISTORY_PLAYS)
+             for e in most_shows]
+            + [item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
+                    f"{e['plays']} play{'' if e['plays'] == 1 else 's'} · {e['hours']} h", HISTORY_PLAYS)
+               for e in most_films])
+    if most:  # F7: not behind a registry tile, so it skips add()'s detail gate
+        shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
+                        "items": most, "quiet_text": ""})
     for sh in shelves:
         for it in sh["items"]:
             it["score"] = score_for(it, ratings)

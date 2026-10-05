@@ -31,8 +31,12 @@ JELLY = {
                 "added_at": (NOW - timedelta(days=1)).isoformat()}],
     "history": {"recent": RECENT},
 }
+TODAY = NOW.date().isoformat()
 ARR = {"summary": "x", "arrived": [{"title": "Fresh Film", "item_key": "dup", "when": "today"},
-                                   {"title": "Arr Only", "item_key": "a1", "when": "today"}]}
+                                   {"title": "Arr Only", "item_key": "a1", "when": "today"}],
+       "this_week": [{"title": "Due Show", "kind": "episode", "date": TODAY, "label": "Premiere", "item_key": "tvdb:9"}],
+       "downloading": [{"title": "Fetching Film", "kind": "movie", "pct": 40, "status_text": "Downloading",
+                        "time_left": "12 min", "item_key": None}]}
 SEERR = {"summary": "x", "requests": [{"title": "Wanted", "item_key": "r1", "status_text": "Pending",
                                        "href": "http://x.invalid"}]}
 APPS = [{"id": "j", "name": "Jellyfin", "href": "http://a.invalid", "up": True, "status_text": "Up", "note": None},
@@ -106,52 +110,49 @@ def test_hero_prefers_now_playing_then_up_next_then_none(env):
     assert sh["hero"] is None and sh["kind_word"] == "Nothing playing"
 
 
-def test_shelf_order_dedupe_and_torate(env):
+def test_shelf_order_dedupe_and_new_shelves(env):
     main = env(jellyfin=JELLY, arr=ARR, jellyseerr=SEERR)
     from hub import media_db
     media_db.set_rating("m2", 8, "movie", "Rated One")
     sh = shelves_for(main)
-    assert ids(sh) == ["continue", "added", "watched", "torate", "requests", "years"]  # a rating makes a year tile
+    assert ids(sh) == ["continue", "added", "thisweek", "downloading", "watched"]  # F1: trimmed Home
     by = {s["id"]: s for s in sh["shelves"]}
     assert [i["title"] for i in by["added"]["items"]] == ["Fresh Film", "Arr Only"]  # deduped by key
-    assert [i["title"] for i in by["torate"]["items"]] == ["Harbour Lights"]  # rated + >30d excluded
-    assert by["torate"]["items"][0]["sub"].startswith("Rate")
+    assert by["thisweek"]["items"][0]["title"] == "Due Show" and by["thisweek"]["items"][0]["sub"] == "Today · Premiere"
+    assert by["downloading"]["items"][0]["sub"] == "Downloading · 12 min"
     assert by["watched"]["items"][1]["score"] == 8
-    assert by["requests"]["items"][0]["sub"] == "Pending"
     assert by["continue"]["see_all_href"] == "/media/playing"
 
 
-def test_years_shelf_when_ranked(env):
-    main = env(jellyfin=JELLY)
-    from hub import media_db
-    media_db.set_rating("m2", 8, "movie", "Rated One", year=2024)
-    sh = shelves_for(main)
-    years = next(s for s in sh["shelves"] if s["id"] == "years")
-    assert years["items"][0]["title"] == "2024" and "to place" in years["items"][0]["sub"]
+def test_downloading_shelf_omitted_when_empty_this_week_quiet(env):
+    sh = shelves_for(env(jellyfin=JELLY, arr={**ARR, "downloading": [], "this_week": []}))
+    assert "downloading" not in ids(sh)
+    assert {s["id"]: s["quiet_text"] for s in sh["shelves"]}["thisweek"] == "Nothing due this week"
 
 
 def test_her_view_drops_owner_you_shelves(env):
     sh = shelves_for(env(jellyfin=JELLY, arr=ARR, jellyseerr=SEERR), view="her")
-    assert ids(sh) == ["continue", "added", "requests"]
+    assert ids(sh) == ["continue", "added", "thisweek", "downloading"]
     assert sh["hero"] is not None
 
 
 def test_quiet_words_without_data(env):
     sh = shelves_for(env())
-    assert ids(sh) == ["continue", "added", "watched", "requests"]
+    assert ids(sh) == ["continue", "added", "thisweek", "watched"]
     assert {s["id"]: s["quiet_text"] for s in sh["shelves"]}["continue"] == "Nothing up next"
     assert all(not s["items"] for s in sh["shelves"]) and sh["hero"] is None
-    assert sh["freshness"]["state"] == "off" and not sh["has_apps"]
+    assert sh["freshness"]["state"] == "off"
 
 
-def test_route_renders_hero_shelves_and_apps(env):
+def test_route_renders_hero_and_trimmed_shelves(env):
     main = env(jellyfin=JELLY, arr=ARR, jellyseerr=SEERR, media_status={"summary": "x", "apps": APPS})
     with TestClient(main.app) as client:
         html = main_html(client.get("/a/alpha").text)
     assert 'class="hero hasbackdrop"' in html and "Playing now" in html and "Playing Now Title" in html
-    assert html.count('<section class="shelf"') == 5
+    assert html.count('<section class="shelf"') == 5   # continue, added, this week, downloading, watched
     assert 'href="/media/library">See all' in html
-    assert "Media apps — 1 of 2 up" in html and "Down Prowlarr" in html
+    assert "Due Show" in html and "Fetching Film" in html
+    assert "Media apps" not in html and "Requests</h3>" not in html and "By year</h3>" not in html
     assert 'class="grid"' not in html
     assert f'href="{LINK}" target="_blank" rel="noopener"' in html
 
@@ -161,8 +162,8 @@ def test_route_no_snapshots_is_quiet(env):
         r = client.get("/a/alpha")
     html = main_html(r.text)
     assert r.status_code == 200
-    assert "Nothing is playing or queued" in html and "Nothing up next" in html and "No requests" in html
-    assert "Media apps — Not connected" in html and "Not connected" in html
+    assert "Nothing is playing or queued" in html and "Nothing up next" in html and "Nothing due this week" in html
+    assert "Not connected" in html
     assert "hasbackdrop" not in html
 
 

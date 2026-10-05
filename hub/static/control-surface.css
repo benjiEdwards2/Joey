@@ -12,6 +12,7 @@
   --text-dim: #9A9A9A;      /* 5.6:1 on --card — body-secondary, AA */
   --text-faint: #666666;    /* decorative/inactive only */
   --stale: #FFB454;
+  --amber: #FFB454;
   --rail-bg: #181818;
 }
 
@@ -386,3 +387,28 @@ nav.tabs { display: none; }
 /* ---- Links (B., 2026-10-06): never the browser's purple/blue — inherit, accent for bare links ---- */
 a { color: inherit; }
 main a:not([class]) { color: var(--accent, var(--text)); text-decoration-color: var(--text-faint); }
+
+/* ---- Media app frame (F1, 2026-10-06): own bar, no Joey rail; --accent comes from the shelves area ---- */
+.app.norail { display: block; }
+.mediabar { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+.returnjoey { font-size: 13px; font-weight: 600; color: var(--text-dim); text-decoration: none; white-space: nowrap; }
+.returnjoey:hover { color: var(--text); }
+.sections, .subtabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.sections { flex: 1; justify-content: center; }
+.sections a, .subtabs a { font-size: 13px; font-weight: 600; color: var(--text-dim); text-decoration: none;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; }
+.sections a:hover, .subtabs a:hover { color: var(--text); }
+.sections a[aria-current="page"], .subtabs a[aria-current="page"] { color: var(--accent, var(--text)); background: var(--card);
+  border-color: color-mix(in srgb, var(--accent, var(--text-dim)) 45%, var(--border)); }
+.subtabs { margin: 0 0 14px; }
+.subtabs a { font-size: 12px; padding: 4px 11px; }
+.waitcount { display: inline-block; min-width: 18px; text-align: center; font-size: 11px; font-weight: 700; line-height: 16px;
+  color: var(--amber); border: 1px solid var(--amber); border-radius: 999px; padding: 0 5px; margin-left: 3px; }
+nav.mediatabs { display: none; }
+@media (max-width: 640px) {
+  .mediabar .sections { display: none; }
+  .mediabar { justify-content: space-between; }
+  nav.tabs.mediatabs { display: flex; padding-left: 4px; padding-right: 4px; }
+  nav.mediatabs > a { flex: 1; text-align: center; font-size: 10px; padding: 6px 2px; color: var(--text-dim); text-decoration: none; }
+  nav.mediatabs .waitcount { font-size: 9px; min-width: 14px; line-height: 13px; padding: 0 3px; margin-left: 1px; }
+}

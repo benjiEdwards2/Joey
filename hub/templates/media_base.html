@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{# Media app frame (F1, 2026-10-06): no Joey rail or area tabs; only "Return to Joey" leads out.
+   Sections/tabs come from hub/media_nav.py via the `media_nav(request)` global. #}
+{% block appclass %} norail{% endblock %}
+{% block rail %}{% endblock %}
+{% block status %}{% endblock %}
+{% block topbar %}
+{% set nav = media_nav(request) %}
+<header class="top mediabar"{% if nav.accent %} style="--accent: {{ nav.accent }}"{% endif %}>
+  <a class="returnjoey" href="/">← Return to Joey</a>
+  <nav class="sections" aria-label="Media sections">
+    {% for s in nav.sections %}
+    <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}</span>{% endif %}</a>
+    {% endfor %}
+  </nav>
+  <nav class="switcher" aria-label="Who's looking">
+    {% for v, label in [("both", "Both"), ("you", "You"), ("her", "Her")] %}
+    <a href="{{ nav.here }}{{ '&' if '?' in nav.here else '?' }}owner_view={{ v }}"
+       {% if owner_view == v %}aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+</header>
+{% if nav.tabs %}
+<nav class="subtabs" aria-label="{{ nav.section.label }}"{% if nav.accent %} style="--accent: {{ nav.accent }}"{% endif %}>
+  {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}
+</nav>
+{% endif %}
+{% endblock %}
+{% block tabs %}
+{% set nav = media_nav(request) %}
+<nav class="tabs mediatabs" aria-label="Media sections (phone)"{% if nav.accent %} style="--accent: {{ nav.accent }}"{% endif %}>
+  {% for s in nav.sections %}
+  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+{% endblock %}

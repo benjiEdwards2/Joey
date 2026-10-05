@@ -66,7 +66,7 @@ def test_her_view_shelves_show_hers_not_b(env):
         html = main_html(client.get("/a/alpha?owner_view=her").text)
     assert "Cold Harbour" in html and "Up next" in html
     assert "First Frost" in html and "Paper Lanterns" in html
-    assert "Continue watching" in html and "Recently watched" in html and "To rate" in html
+    assert "Continue watching" in html and "Recently watched" in html
     for title in B_ONLY:
         assert title not in html, title
 

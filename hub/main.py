@@ -18,8 +18,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from hub import media_backup, media_db
+from hub import media_backup, media_db, media_nav
 from hub.images import router as images_router
+from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub.media_write import router as media_write_router, year_ctx
 from hub.registry import Registry, load_registry
@@ -403,6 +404,29 @@ def waiting_counts(recent, ratings, details) -> dict:
     return {"to_rate": to_rate, "to_place": to_place}
 
 
+def area_waiting(area, snaps, view: str) -> dict:
+    """waiting_counts for an area straight from snapshots + owner view (hub card, Media frame)."""
+    jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
+    recent = (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
+    return waiting_counts(recent, _ratings(view, recent),
+                          {t.detail for t in area.tiles if t.detail and owner_visible(t, view)})
+
+
+def media_frame(request: Request) -> dict:
+    """Template global `media_nav(request)`: the Media bar/tabs context (cached per request)."""
+    cached = getattr(request.state, "media_nav", None)
+    if cached is None:
+        view, _ = resolve_owner_view(request)
+        area = media_nav.shelves_area(registry)
+        waiting = area_waiting(area, get_snapshots(), view) if area else {}
+        cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)
+    return cached
+
+
+for _t in (templates, _media_write.templates, _media_discover.templates):
+    _t.env.globals["media_nav"] = media_frame
+
+
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
     """The one item the Media hero shows: playing now, else first resume item, else the
     newest arrival. Pure; shared by the area page (build_shelves) and the hub card."""
@@ -483,48 +507,33 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         seen.add(key)
         added.append(jf_item(r, sub, LIBRARY_DETAIL) if from_jf else item(r, sub, LIBRARY_DETAIL))
     added = added[:SHELF_MAX]
-    requests = [item(r, r.get("status_text", ""), REQUESTS_DETAIL)
-                for r in (data_of(JELLYSEERR_SNAPSHOT_ID).get("requests") or [])][:SHELF_MAX]
-    years = []
-    if YEARS_DETAIL in by_detail:
-        for y in media_db.years_overview():
-            top = y["top"] or {}
-            label = str(y["year"] or "Unknown year")
-            sub = (f"#1 — {top['title']}" if top.get("title")
-                   else f"{y['unranked_count']} to place")
-            years.append({"title": label, "sub": sub, "poster": top.get("poster"),
-                          "href": f"/media/years/{y['year'] or 'unknown'}"})
-        years = years[:SHELF_MAX]
+    arr = data_of(ARR_SNAPSHOT_ID)
+    this_week = [item(r, " · ".join(x for x in (_day_label(date.fromisoformat(r["date"]), now.date()), r.get("label")) if x),
+                      LIBRARY_DETAIL) for r in (arr.get("this_week") or [])][:SHELF_MAX]
+    downloading = [item(r, f"{r.get('status_text')} · {r.get('time_left')}".strip(" ·"), LIBRARY_DETAIL)
+                   for r in (arr.get("downloading") or [])][:SHELF_MAX]
 
     watched_rows = recent[:SHELF_MAX]
-    ratings = _ratings(view, up_next, added, recent, requests)  # ONE query for every shelf
-    to_rate = [item(r, "Rate →", HISTORY_DETAIL)
-               for r in _to_rate(recent, ratings)][:TO_RATE_SHELF_MAX]         if HISTORY_DETAIL in by_detail else []
+    ratings = _ratings(view, up_next, added, recent, this_week, downloading)  # ONE query for every shelf
 
     unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
     add("continue", "Continue watching", PLAYING_DETAIL,
         [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
+    add("thisweek", "This week", LIBRARY_DETAIL, this_week, "Nothing due this week")
+    add("downloading", "Downloading", LIBRARY_DETAIL, downloading, "", omit_empty=True)
     add("watched", "Recently watched", DIARY_DETAIL,
         [jf_item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows],
         unset_text if her_unset else "Nothing watched yet")
-    add("torate", "To rate", HISTORY_DETAIL, to_rate, "", omit_empty=True)
-    add("requests", "Requests", REQUESTS_DETAIL, requests, "No requests")
-    add("years", "By year", YEARS_DETAIL, years, "", omit_empty=True)
     for sh in shelves:
         for it in sh["items"]:
-            it["score"] = ratings.get(it.pop("item_key", None))  # years carry none
+            it["score"] = ratings.get(it.pop("item_key", None))
 
-    apps_row = next((r for r in tiles if r["tile"].snapshot == MEDIA_STATUS_SNAPSHOT_ID), None)
-    apps = data_of(MEDIA_STATUS_SNAPSHOT_ID).get("apps") if apps_row and apps_row["st"]["state"] in ("fresh", "stale") else None
     return {
         "hero": hero, "kind_word": kind_word, "shelves": shelves,
         "waiting": waiting_counts(recent, ratings, set(by_detail)),
-        "apps": apps or [], "apps_up": sum(1 for a in apps or [] if a.get("up")),
-        "apps_st": apps_row["st"] if apps_row else None, "has_apps": bool(apps),
         "open_href": link,
-        "discover_href": DISCOVER_DETAIL if DISCOVER_DETAIL in by_detail else None,
         "freshness": jelly_row["st"] if jelly_row else None,
     }
 
@@ -545,10 +554,7 @@ def hub_page(request: Request):
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             jdata = view_jelly(jelly.data if jelly else {}, view)
             card["hero"] = media_hero(jdata, link)
-            recent = (jdata.get("history") or {}).get("recent") or []
-            card["waiting"] = waiting_counts(
-                recent, _ratings(view, recent),
-                {t.detail for t in a.tiles if t.detail and owner_visible(t, view)})
+            card["waiting"] = area_waiting(a, snaps, view)
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
@@ -732,9 +738,39 @@ def media_diary_page(request: Request):
 def media_years_page(request: Request):
     """Year rankings (2026-10-05): one tile per rating year. Pure media.db — no snapshot data needed."""
     def build(data, view):
-        return {"years": [] if view == "her" else media_db.years_overview()}
+        kind = request.query_params.get("kind")  # accepted + shown; filtering by kind is F3
+        return {"years": [] if view == "her" else media_db.years_overview(),
+                "kind": kind if kind in ("movie", "tv") else None}
     return _detail_page(request, "media_years.html", JELLYFIN_SNAPSHOT_ID, build,
                         detail=YEARS_DETAIL, always_build=True)
+
+
+def _stub_page(request: Request, heading: str):
+    """Framed placeholder for a tab a later phase fills (F3)."""
+    view, from_query = resolve_owner_view(request)
+    resp = templates.TemplateResponse(request, "media_stub.html", {
+        "areas": registry.areas, "active_id": None, "owner_view": view, "heading": heading})
+    return _maybe_set_cookie(resp, view, from_query)
+
+
+@app.get("/media/movies", response_class=HTMLResponse)
+def media_movies_page(request: Request):
+    return _stub_page(request, "My films")
+
+
+@app.get("/media/movies/tonight", response_class=HTMLResponse)
+def media_movies_tonight_page(request: Request):
+    return _stub_page(request, "Tonight — films")
+
+
+@app.get("/media/tv", response_class=HTMLResponse)
+def media_tv_page(request: Request):
+    return _stub_page(request, "My shows")
+
+
+@app.get("/media/tv/tonight", response_class=HTMLResponse)
+def media_tv_tonight_page(request: Request):
+    return _stub_page(request, "Tonight — TV")
 
 
 def _year_page(request: Request, slug: str, template: str):

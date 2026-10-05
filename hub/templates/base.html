@@ -13,17 +13,17 @@
 </head>
 <body hx-boost="true">
 {% import "_icons.html" as ic %}
-<div class="app">
-  <nav class="rail" aria-label="Areas">
+<div class="app{% block appclass %}{% endblock %}">
+  {% block rail %}<nav class="rail" aria-label="Areas">
     <a href="/" class="rail-item{% if active_id is none %} on{% endif %}" title="Hub">{{ ic.icon("hub") }}</a>
     {% for a in areas %}
     <a href="/a/{{ a.id }}" class="rail-item{% if active_id == a.id %} on{% endif %}"
        style="--accent: {{ a.accent }}" title="{{ a.name }}">{{ ic.icon(a.icon) }}</a>
     {% endfor %}
-  </nav>
+  </nav>{% endblock %}
 
   <main class="main">
-    <header class="top">
+    {% block topbar %}<header class="top">
       <div>
         <h1>Joey</h1>
       </div>
@@ -34,9 +34,9 @@
            {% if owner_view == v %}aria-current="true"{% endif %}>{{ label }}</a>
         {% endfor %}
       </nav>
-    </header>
+    </header>{% endblock %}
 
-    {% if status %}
+    {% block status %}{% if status %}
     <div class="status" role="status">
       <span>SYS <b>OK</b></span><span class="sep">|</span>
       <span>FEEDS <b>{{ status.feeds_ok }}/{{ status.feeds_total }}</b></span>
@@ -44,13 +44,13 @@
       <span class="sep">|</span><span class="warn">{{ name | upper }} <b>stale</b></span>
       {% endfor %}
     </div>
-    {% endif %}
+    {% endif %}{% endblock %}
 
     {% block content %}{% endblock %}
   </main>
 </div>
 
-<nav class="tabs" aria-label="Areas (phone)">
+{% block tabs %}<nav class="tabs" aria-label="Areas (phone)">
   <a href="/" {% if active_id is none %}aria-current="page"{% endif %}>{{ ic.icon("hub") }}<span>Hub</span></a>
   {% for a in areas[:3] %}
   <a href="/a/{{ a.id }}" style="--accent: {{ a.accent }}"
@@ -65,7 +65,7 @@
       {% endfor %}
     </div>
   </details>
-</nav>
+</nav>{% endblock %}
 <script>
 /* A tab kept open across a deploy would boost into new markup with the OLD stylesheet
    (2026-10-06): when a boosted response carries a different asset version, load it fully. */

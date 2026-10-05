@@ -1,11 +1,11 @@
-{% extends "base.html" %}
+{% extends "media_base.html" %}
 {% block title %}By year — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {# Year rankings (2026-10-05): a tile per rating year, newest first. The #1 is named in
    words and counts are numbers — colour is never the only encoding. #}
 <section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">By year</div>
+  <div class="head">By year{% if kind == "movie" %} — films{% elif kind == "tv" %} — TV{% endif %}</div>
   {% if years %}
   <div class="poster-grid yeargrid">
     {% for y in years %}

@@ -324,14 +324,9 @@ def test_origin_guard_and_plain_form_redirects(env):
     assert_no_secrets(done.text + err.text, link_ok=True)
 
 
-def test_discover_button_only_when_tile_exists(env):
+def test_discover_is_a_section_not_a_home_button(env):
     client, _ = env()
     with client:
-        with_tile = client.get("/a/alpha").text
-    plain = make_area("alpha", "play-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/playing")
-    plain["layout"] = "shelves"
-    client2, _ = env(areas=[plain])
-    with client2:
-        without = client2.get("/a/alpha").text
-    assert 'href="/media/discover">Discover &amp; Search</a>' in main_of(with_tile)
-    assert "/media/discover" not in without
+        html = client.get("/a/alpha").text
+    assert "Discover &amp; Search" not in html            # F1: the header button is gone
+    assert '<a href="/media/discover">Discover</a>' in html  # Discover is a Media section now

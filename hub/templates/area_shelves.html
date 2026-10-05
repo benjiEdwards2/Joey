@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "media_base.html" %}
 {% block title %}{{ area.name }} · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
@@ -8,7 +8,6 @@
   <h2><span class="dot"></span>{{ area.name }}</h2>
   {% from "_waiting.html" import waitchips %}{{ waitchips(sh.waiting) }}
   <span class="shelfbtns">
-    {% if sh.discover_href %}<a class="glassbtn" href="{{ sh.discover_href }}">Discover &amp; Search</a>{% endif %}
     {% if sh.open_href %}<a class="glassbtn" href="{{ sh.open_href }}" target="_blank" rel="noopener">Open Jellyfin ↗</a>{% endif %}
   </span>
 </div>
@@ -58,18 +57,4 @@
   {% endif %}
 </section>
 {% endfor %}
-
-<section class="appstrip" style="--accent: {{ area.accent }}">
-  {% if sh.has_apps %}
-    <span class="appsum">Media apps — {{ sh.apps_up }} of {{ sh.apps|length }} up</span>
-    {% for a in sh.apps %}
-    <a class="chip appchip" href="{{ a.href }}" target="_blank" rel="noopener">
-      <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>{{ a.status_text }} {{ a.name }}</a>
-    {% endfor %}
-    {% if sh.apps_st.state == "stale" %}<span class="badge stale">{{ sh.apps_st.age_text }}</span>
-    {% elif sh.apps_st.age_text %}<span class="ago">updated {{ sh.apps_st.age_text }}</span>{% endif %}
-  {% else %}
-    <span class="appsum">Media apps — Not connected</span>
-  {% endif %}
-</section>
 {% endblock %}

@@ -1,0 +1,171 @@
+"""F1 (2026-10-06) — the Media app frame: own bar, no Joey rail, six sections, per-section sub-tabs.
+Bar and tabs are asserted on the whole body (they are chrome, not content)."""
+import importlib
+import re
+from types import SimpleNamespace
+
+import pytest
+from fastapi.testclient import TestClient
+
+from hub import media_nav
+from tests.hub.test_media_shelves import JELLY, ARR, shelf_area
+from tests.hub.test_registry import make_area, make_tile, write_registry
+from tests.hub.test_store import write_envelope
+
+
+@pytest.fixture()
+def env(tmp_path, monkeypatch):
+    area = shelf_area()
+    area["tiles"].append(make_tile("disc-t", snapshot="jellyseerr", stale_after_minutes=180, detail="/media/discover"))
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, area, make_area("beta"))))
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    monkeypatch.delenv("JELLYSEERR_URL", raising=False)   # discover/title stay "Not connected": no network
+    monkeypatch.delenv("JELLYSEERR_API_KEY", raising=False)
+
+    def build(**data):
+        for cid, d in data.items():
+            write_envelope(tmp_path / "snaps", cid, age_minutes=1, data=d)
+        import hub.main
+        importlib.reload(hub.main)
+        return hub.main
+    return build
+
+
+# route -> (section id, sub-tab label that is current or None)
+ROUTES = {
+    "/a/alpha": ("home", None),
+    "/media/movies": ("movies", "My films"),
+    "/media/movies/tonight": ("movies", "Tonight"),
+    "/media/tv": ("tv", "My shows"),
+    "/media/tv/tonight": ("tv", "Tonight"),
+    "/media/years": ("movies", "By year"),
+    "/media/years?kind=movie": ("movies", "By year"),
+    "/media/years?kind=tv": ("tv", "By year"),
+    "/media/diary": ("diary", "Diary"),
+    "/media/history": ("diary", "To rate"),
+    "/media/playing": ("server", "Live"),
+    "/media/library": ("server", "Library"),
+    "/media/requests": ("server", "Requests"),
+    "/media/apps": ("server", "Health"),
+    "/media/discover": ("discover", None),
+    "/media/title/movie/1": ("discover", None),
+}
+LABELS = {"home": "Home", "movies": "Movies", "tv": "TV Shows", "diary": "Diary", "server": "Server", "discover": "Discover"}
+
+
+def nav_html(html, cls):
+    return re.search(rf'<nav class="{cls}".*?</nav>', html, re.S).group(0)
+
+
+def current(html, cls):
+    return re.findall(r'aria-current="page">([^<]*?)(?: <span|</a>)', nav_html(html, cls))
+
+
+@pytest.mark.parametrize("route", list(ROUTES))
+def test_media_pages_use_the_frame(env, route):
+    main = env(jellyfin=JELLY, arr=ARR)
+    section, tab = ROUTES[route]
+    with TestClient(main.app) as client:
+        r = client.get(route)
+    html = r.text
+    assert r.status_code == 200
+    assert 'class="rail"' not in html
+    tabs_bar = re.search(r'<nav class="tabs[^"]*".*?</nav>', html, re.S).group(0)
+    assert "/a/beta" not in tabs_bar and "Hub" not in tabs_bar and "Areas (phone)" not in html
+    assert '<a class="returnjoey" href="/">← Return to Joey</a>' in html
+    sections = nav_html(html, "sections")
+    for label in LABELS.values():
+        assert f">{label}" in sections
+    assert sections.count('aria-current="page"') == 1
+    assert current(html, "sections") == [LABELS[section]]
+    if tab:
+        assert current(html, "subtabs") == [tab]
+    else:
+        assert 'class="subtabs"' not in html
+    assert 'class="status"' not in html
+
+
+def test_six_sections_and_home_resolves_via_registry(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as client:
+        html = client.get("/media/movies").text
+    assert len(re.findall(r"<a href=", nav_html(html, "sections"))) == 6
+    assert '<a href="/a/alpha">Home</a>' in html
+
+
+@pytest.mark.parametrize("route", ["/", "/weather", "/a/beta"])
+def test_non_media_pages_keep_rail_and_joey_tabs(env, route):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as client:
+        html = client.get(route).text
+    assert 'class="rail"' in html and 'aria-label="Areas (phone)"' in html
+    assert "mediabar" not in html and "returnjoey" not in html
+
+
+def test_waiting_counts_are_text_and_absent_at_zero(env):
+    main = env(jellyfin={**JELLY, "history": {"recent": []}}, arr=ARR)
+    from hub import media_db
+    with TestClient(main.app) as client:
+        assert 'class="waitcount"' not in client.get("/media/movies").text
+        media_db.set_rating("m2", 8, "movie", "Rated One", year=2024)
+        media_db.set_rating("m3", 7, "movie", "Old One")
+        html = client.get("/media/movies").text
+    bar = nav_html(html, "sections")
+    assert "waitcount" not in bar.split("Diary")[1].split("Server")[0]   # nothing to rate: Diary has no count
+    assert re.search(r'Movies <span class="waitcount">\d+</span>', bar)
+    assert re.search(r'TV Shows <span class="waitcount">\d+</span>', bar)
+
+
+def test_switcher_links_to_current_media_path(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as client:
+        html = client.get("/media/diary").text
+        years = client.get("/media/years?kind=tv").text
+    assert 'href="/media/diary?owner_view=her"' in html
+    assert 'href="/media/years?kind=tv&amp;owner_view=her"' in years
+
+
+def test_stub_pages_and_years_heading(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as client:
+        for path in ("/media/movies", "/media/movies/tonight", "/media/tv", "/media/tv/tonight"):
+            assert "Coming in the next phase" in client.get(path).text
+        def body(p):
+            return client.get(p).text.split("<main", 1)[1]
+        assert "By year — films" in body("/media/years?kind=movie")
+        assert "By year — TV" in body("/media/years?kind=tv")
+        assert "By year — " not in body("/media/years")
+
+
+def test_home_shelf_set_is_trimmed(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as client:
+        html = client.get("/a/alpha").text.split("<main", 1)[1]
+    titles = re.findall(r"<h3>([^<]*)</h3>", html)
+    assert titles == ["Continue watching", "Recently added", "This week", "Downloading", "Recently watched"]
+    assert "appstrip" not in html and "Discover &amp; Search" not in html
+
+
+def test_active_section_unit():
+    def s(*a, **k):
+        return (media_nav.active_section(*a, **k) or {}).get("id")
+    assert s("/media/movies") == "movies" and s("/media/movies/tonight") == "movies"
+    assert s("/media/tv/tonight") == "tv"
+    assert s("/media/years", "kind=tv") == "tv" and s("/media/years", {"kind": "movie"}) == "movies"
+    assert s("/media/years") == "movies" and s("/media/years", "kind=junk") == "movies"
+    assert s("/media/years/2024", "kind=tv") == "tv"
+    assert s("/media/history") == "diary" and s("/media/diary") == "diary"
+    assert s("/media/apps") == "server" and s("/media/requests") == "server"
+    assert s("/media/title/tv/9") == "discover" and s("/media/discover/search") == "discover"
+    assert s("/a/media", home_href="/a/media") == "home"
+    assert s("/weather") is None and s("/media/moviesx") is None
+
+
+def test_nav_context_without_a_shelves_area():
+    req = SimpleNamespace(url=SimpleNamespace(path="/media/tv", query=""))
+    reg = SimpleNamespace(areas=[SimpleNamespace(layout="grid", id="x", accent="#000")])
+    ctx = media_nav.nav_context(req, reg, {"to_rate": 0, "to_place": 3})
+    assert ctx["home_href"] == "/" and ctx["accent"] is None
+    assert [s["count"] for s in ctx["sections"]] == [0, 3, 3, 0, 0, 0]
+    assert [t["on"] for t in ctx["tabs"]] == [True, False, False]

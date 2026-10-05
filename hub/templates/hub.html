@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Joey{% endblock %}
 {% block content %}
+{% if backup_warn %}<div class="backupwarn"><span class="badge stale">{{ backup_warn }}</span></div>{% endif %}
 <div class="grid">
   {% if weather %}
   <a class="cardlink wx" href="/weather">

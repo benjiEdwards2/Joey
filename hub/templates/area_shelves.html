@@ -19,6 +19,7 @@
     {% if sh.freshness and sh.freshness.state == "stale" %}<span class="badge stale">{{ sh.freshness.age_text }}</span>
     {% elif sh.freshness and sh.freshness.state == "fresh" %}<span class="ago">updated {{ sh.freshness.age_text }}</span>
     {% else %}<span class="badge off">Not connected</span>{% endif %}
+    {% if backup_warn %}<span class="badge stale">{{ backup_warn }}</span>{% endif %}
   </div>
   {% if h %}{{ poster(h.poster, h.title, 240, "heroposter") }}{% endif %}
   <div class="herotext">

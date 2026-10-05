@@ -4,20 +4,21 @@ areas.yaml; no area name appears in this code (WP17 verify greps for that).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from hub import media_db
+from hub import media_backup, media_db
 from hub.images import router as images_router
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub.media_write import router as media_write_router, year_ctx
@@ -34,6 +35,22 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s
 registry: Registry | None = None
 registry_loaded_at: str | None = None
 
+# media.db backups (2026-10-05): first check ~30 s after startup (the NAS is off
+# overnight, so this is what gives one a day), then hourly; maybe_backup skips
+# while a backup under 20 h old exists. MEDIA_BACKUP=off disables the task.
+BACKUP_FIRST_DELAY_S = 30
+BACKUP_EVERY_S = 3600
+
+
+async def _backup_loop():
+    await asyncio.sleep(BACKUP_FIRST_DELAY_S)
+    while True:
+        try:
+            await asyncio.to_thread(media_backup.maybe_backup)
+        except Exception as exc:  # never let a backup take the hub down
+            log.warning("media backup task error: %s: %s", type(exc).__name__, exc)
+        await asyncio.sleep(BACKUP_EVERY_S)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -43,7 +60,12 @@ async def lifespan(_: FastAPI):
     registry = load_registry(areas_path)  # ValueError here aborts startup by design
     registry_loaded_at = datetime.now(timezone.utc).isoformat()
     log.info("registry loaded from %s: %d areas", areas_path, len(registry.areas))
+    backup_task = None if media_backup.disabled() else asyncio.create_task(_backup_loop())
     yield
+    if backup_task is not None:
+        backup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await backup_task
 
 
 app = FastAPI(title="Joey hub", lifespan=lifespan)
@@ -532,6 +554,7 @@ def hub_page(request: Request):
     resp = templates.TemplateResponse(request, "hub.html", {
         "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
         "status": build_status(snaps), "weather": find_weather(snaps),
+        "backup_warn": media_backup.current_status()["warning"],
     })
     return _maybe_set_cookie(resp, view, from_query)
 
@@ -573,7 +596,8 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
 
 @app.get("/media/apps", response_class=HTMLResponse)
 def media_apps_page(request: Request):
-    return _detail_page(request, "media_apps.html", MEDIA_STATUS_SNAPSHOT_ID)
+    return _detail_page(request, "media_apps.html", MEDIA_STATUS_SNAPSHOT_ID, always_build=True,
+                        build=lambda data, view: {"backup": media_backup.current_status()})
 
 
 @app.get("/media/playing", response_class=HTMLResponse)
@@ -762,6 +786,7 @@ def area_page(request: Request, area_id: str):
         resp = templates.TemplateResponse(request, "area_shelves.html", {
             "areas": registry.areas, "active_id": area.id, "area": area, "owner_view": view,
             "status": build_status(snaps), "sh": build_shelves(area, tiles, snaps, view),
+            "backup_warn": media_backup.current_status()["warning"],
         })
         return _maybe_set_cookie(resp, view, from_query)
     media = find_media(tiles, snaps)

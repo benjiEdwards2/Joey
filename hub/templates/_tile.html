@@ -2,14 +2,16 @@
    A tile with `detail` wraps in a cardlink to that route, unless the caller is
    already inside a link (hub summary cards pass no_detail_link). #}
 {% set wrap = tile.detail and not no_detail_link %}
-{% if wrap %}<a class="cardlink" href="{{ tile.detail }}">{% endif %}
+{# LINK tiles: the WHOLE card is the link to the real app (B., 2026-10-05). #}
+{% set applink = st.state == "link" and not no_detail_link %}
+{% if wrap %}<a class="cardlink" href="{{ tile.detail }}">{% elif applink %}<a class="cardlink" href="{{ st.href }}" target="_blank" rel="noopener">{% endif %}
 <div class="card{% if extra_class %} {{ extra_class }}{% endif %}" style="--accent: {{ accent }}"
      data-owner="{{ tile.owner.value }}">
   <div class="head">{{ heading }}</div>
   {% if glyph %}<div class="glyph">{{ ic.icon(glyph) }}</div>{% endif %}
   {% if st.state == "link" %}
-    <a class="launch" href="{{ st.href }}" target="_blank" rel="noopener">Open {{ tile.label }} ↗</a>
-    <div class="sub">LINK tier — opens the real app</div>
+    <div class="value">Open ↗</div>
+    <div class="sub">Opens the app in a new tab</div>
   {% elif st.state == "off" %}
     <div class="value dim">Not connected</div>
     {% if st.note %}<div class="sub">{{ st.note }}</div>{% endif %}
@@ -25,4 +27,4 @@
     {% if st.state == "fresh" and st.age_text %}<span class="ago">{{ st.age_text }}</span>{% endif %}
   </div>
 </div>
-{% if wrap %}</a>{% endif %}
+{% if wrap or applink %}</a>{% endif %}

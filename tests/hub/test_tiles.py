@@ -78,3 +78,15 @@ def test_demo_seed_validates_against_frozen_schema(tmp_path, monkeypatch):
         jsonschema.validate(json.loads(f.read_text(encoding="utf-8")), schema)
     names = {f.stem for f in files}
     assert "gcal" not in names and "nas_stats" not in names  # deliberately absent
+
+
+def test_link_tile_is_one_whole_card_link(app_factory):
+    """2026-10-05: the whole LINK tile opens the app — no inner button, no
+    doubled 'Open Open X' label."""
+    build, tmp_path = app_factory
+    with build(tmp_path / "none") as client:
+        html = client.get("/a/delta").text
+    body = html.split("<main", 1)[1]
+    assert 'class="cardlink" href="https://notes.test" target="_blank" rel="noopener"' in body
+    assert 'class="launch"' not in body
+    assert "Open Open" not in body

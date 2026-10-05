@@ -137,6 +137,17 @@ def test_wp21_signoff_link_hrefs_are_real_urls():
         assert "PLACEHOLDER" not in href, f"{tile['id']}: placeholder href survived sign-off"
 
 
+def test_food_area_links_to_macromates():
+    """MacroMates self-hosted behind the same Access gate (2026-10-05): the Food
+    area carries a whole-card LINK tile into the app — without it there is no
+    way into MacroMates from Joey (B.: 'it doesnt let me in')."""
+    config = yaml.safe_load(AREAS_YAML.read_text(encoding="utf-8"))
+    kitchen = next(a for a in config["areas"] if a["id"] == "kitchen")
+    mm = next(t for t in kitchen["tiles"] if t["id"] == "macromates-app")
+    assert mm["tier"] == "link"
+    assert mm["href"] == "https://macromates.joeyhome.net"
+
+
 def test_kitchen_area_renamed_to_food():
     """B.'s WP21 punch-list (2026-09-11): display name Food, id stays 'kitchen'."""
     reg = load_registry(AREAS_YAML)

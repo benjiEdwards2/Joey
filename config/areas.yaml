@@ -27,6 +27,11 @@ areas:
         snapshot: macromates
         stale_after_minutes: 120
         setup_note: "MacroMates read-only connector arrives at WP27."
+      - id: macromates-app
+        label: Open MacroMates
+        tier: link
+        owner: shared
+        href: "https://macromates.joeyhome.net"      # self-hosted behind the same Access gate (2026-10-05)
 
   - id: money
     name: Money

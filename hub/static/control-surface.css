@@ -335,3 +335,17 @@ nav.tabs { display: none; }
   .herotitle { font-size: 22px; }
   .shelf-item { flex-basis: 96px; width: 96px; }
 }
+
+/* ---- Hub hero card (2026-10-05): poster left, text right; Jump-back-in is a sibling link. ---- */
+.cardlink.herocard { display: flex; flex-direction: column; }
+.herocard .card { flex: 1; display: flex; flex-direction: column; }
+.herocard .hubhero { display: flex; gap: 16px; align-items: flex-start; flex: 1; min-width: 0; }
+.herocard .hubhero .poster { height: 150px; width: auto; flex: none; border-radius: 6px; }
+.herocard .hubhero > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.herocard .herokind { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--accent, var(--text-dim)); }
+.herocard .herotitle { font-size: 20px; font-weight: 750; line-height: 1.2; overflow-wrap: anywhere; }
+.herocard .herosub { font-size: 13px; color: var(--text-dim); }
+.herocard .jumpback { align-self: flex-start; margin-top: 8px; font-weight: 700; color: var(--accent, var(--text)); text-decoration: none; }
+.herocard .jumpback:hover { text-decoration: underline; }
+.herocard a.herolink { color: inherit; text-decoration: none; display: block; flex: 1; }
+@media (max-width: 640px) { .herocard .hubhero .poster { height: 120px; } }

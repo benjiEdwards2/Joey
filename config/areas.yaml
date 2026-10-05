@@ -32,7 +32,7 @@ areas:
     name: Money
     accent: "#3FD9C0"
     icon: money
-    hub_size: s22        # the bento hero (gate 2026-08-28)
+    hub_size: s21        # was s22 (bento hero, gate 2026-08-28); Media took the hero slot 2026-10-05
     summary_tile: month
     tiles:
       - id: month
@@ -99,6 +99,8 @@ areas:
     accent: "#E50914"          # Netflix red — Media Layout Lab pick, 2026-10-05 (was #FF5CA8)
     icon: media
     summary_tile: watching
+    hub_rank: 1                                      # first hub card (2026-10-05)
+    hub_size: s22                                    # largest hub card, hero (2026-10-05)
     layout: shelves                                  # hero + poster shelves instead of tile cards (2026-10-05)
     tiles:
       - id: watching

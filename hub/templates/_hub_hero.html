@@ -1,0 +1,27 @@
+{# Hub summary card for a `layout: shelves` area (2026-10-05). The card is a div holding
+   sibling anchors (never nested): the poster/title area links to the area page, the
+   Jump-back-in link opens the item in the app. Expects: c (card with .hero), poster macro. #}
+{% from "_poster.html" import poster %}
+{% set h = c.hero %}{% set st = c.st %}
+<div class="cardlink herocard {{ c.area.hub_size.value }}">
+  <div class="card" style="--accent: {{ c.area.accent }}" data-owner="{{ c.tile.owner.value }}">
+    <div class="head">{{ c.area.name }}</div>
+    <a class="herolink" href="/a/{{ c.area.id }}">
+      <div class="hubhero">
+        {{ poster(h.poster, h.title, 240) }}
+        <div>
+          <div class="herokind">{{ h.kind_word }}</div>
+          <div class="herotitle">{{ h.title }}</div>
+          {% if h.sub %}<div class="herosub">{{ h.sub }}</div>{% endif %}
+          <div class="sub">{{ st.value }}</div>
+        </div>
+      </div>
+    </a>
+    {% if h.href %}<a class="jumpback" href="{{ h.href }}" target="_blank" rel="noopener">Jump back in ↗</a>{% endif %}
+    <div class="foot">
+      <span class="chip">{{ c.tile.owner.value | title }}</span>
+      {% if st.state == "stale" %}<span class="badge stale">{{ st.age_text }}</span>{% endif %}
+      {% if st.state == "fresh" and st.age_text %}<span class="ago">{{ st.age_text }}</span>{% endif %}
+    </div>
+  </div>
+</div>

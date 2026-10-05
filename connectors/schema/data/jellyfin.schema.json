@@ -9,6 +9,7 @@
   "properties": {
     "summary": {"type": "string", "minLength": 1},
     "secondary": {"type": "string"},
+    "server_id": {"type": ["string", "null"]},
     "now_playing": {
       "type": "array",
       "items": {
@@ -19,6 +20,7 @@
           "title": {"type": "string"},
           "poster": {"type": ["string", "null"]},
           "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
+          "jf_id": {"type": ["string", "null"]},
           "backdrop": {"type": ["string", "null"]},
           "user": {"type": "string"},
           "progress_pct": {"type": "integer", "minimum": 0, "maximum": 100},
@@ -36,6 +38,7 @@
           "title": {"type": "string"},
           "poster": {"type": ["string", "null"]},
           "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
+          "jf_id": {"type": ["string", "null"]},
           "backdrop": {"type": ["string", "null"]},
           "kind": {"enum": ["movie", "episode"]},
           "remaining_text": {"type": "string"}
@@ -52,6 +55,7 @@
           "title": {"type": "string"},
           "poster": {"type": ["string", "null"]},
           "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
+          "jf_id": {"type": ["string", "null"]},
           "added_at": {"type": "string"},
           "type": {"type": "string"}
         }

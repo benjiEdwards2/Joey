@@ -351,6 +351,39 @@ PLAYING_DETAIL = "/media/playing"
 REQUESTS_DETAIL = "/media/requests"
 
 
+def _deep_link(link, jf_id, server_id) -> str | None:
+    """Jellyfin item page for a row; None rather than a fabricated link."""
+    if not link or not jf_id:
+        return None
+    url = f"{link.rstrip('/')}/web/#/details?id={jf_id}"
+    return url + (f"&serverId={server_id}" if server_id else "")
+
+
+def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
+    """The one item the Media hero shows: playing now, else first resume item, else the
+    newest arrival. Pure; shared by the area page (build_shelves) and the hub card."""
+    server_id = jelly.get("server_id")
+
+    def hero(row, kind_word, sub, **extra):
+        return {"kind_word": kind_word, "title": row.get("title"), "poster": row.get("poster"),
+                "backdrop": row.get("backdrop"), "sub": sub,
+                "href": _deep_link(link, row.get("jf_id"), server_id),
+                "progress_pct": None, "user": None, "play_method": None, **extra}
+
+    playing = jelly.get("now_playing") or []
+    if playing:
+        p = playing[0]
+        return hero(p, "Playing now", f"{p.get('user')} · {p.get('play_method')} · {p.get('progress_pct')}%",
+                    user=p.get("user"), play_method=p.get("play_method"), progress_pct=p.get("progress_pct"))
+    up_next = jelly.get("up_next") or []
+    if up_next:
+        return hero(up_next[0], "Jump back in", up_next[0].get("remaining_text"))
+    latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
+    if allow_newest and latest:
+        return hero(latest[0], "Newest arrival", f"Added {_ago_text(latest[0].get('added_at'), datetime.now(timezone.utc))}")
+    return None
+
+
 def build_shelves(area, tiles, snaps, view: str) -> dict:
     """Hero + poster shelves for a `layout: shelves` area. Pure over its inputs (plus the
     ratings DB). A shelf renders only when the registry tile it stands for is visible in
@@ -366,20 +399,12 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     jelly_row = next((r for r in tiles if r["tile"].snapshot == JELLYFIN_SNAPSHOT_ID), None)
     now = datetime.now(timezone.utc)
 
-    hero = None
-    playing = (jelly.get("now_playing") or [])
     up_next = (jelly.get("up_next") or [])
-    if playing:
-        p = playing[0]
-        hero = {"kind_word": "Playing now", "title": p.get("title"), "poster": p.get("poster"),
-                "backdrop": p.get("backdrop"), "user": p.get("user"),
-                "play_method": p.get("play_method"), "progress_pct": p.get("progress_pct"),
-                "sub": None, "href": link}
-    elif up_next:
-        n = up_next[0]
-        hero = {"kind_word": "Up next", "title": n.get("title"), "poster": n.get("poster"),
-                "backdrop": n.get("backdrop"), "user": None, "play_method": None,
-                "progress_pct": None, "sub": n.get("remaining_text"), "href": link}
+    hero = media_hero(jelly, link, allow_newest=False)
+    if hero and hero["href"] is None:
+        hero["href"] = link  # no deep link for the row: fall back to the Jellyfin launcher
+    if hero and hero["kind_word"] == "Jump back in":
+        hero["kind_word"] = "Up next"  # the area page keeps its original word
     kind_word = hero["kind_word"] if hero else "Nothing playing"
 
     def item(r, sub, href, **extra):
@@ -456,7 +481,14 @@ def hub_page(request: Request):
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not owner_visible(summary, view):
             continue  # hub summary cards respect the filter (Q24 assumption)
-        cards.append({"area": a, "tile": summary, "st": tile_state(summary, snaps)})
+        card = {"area": a, "tile": summary, "st": tile_state(summary, snaps), "hero": None}
+        if a.layout == "shelves":  # hero content keyed by layout, never by area name
+            link = next((st["href"] for t in a.tiles if owner_visible(t, view)
+                         for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
+            jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
+            card["hero"] = media_hero(jelly.data if jelly else {}, link)
+        cards.append(card)
+    cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
         "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
         "status": build_status(snaps), "weather": find_weather(snaps),

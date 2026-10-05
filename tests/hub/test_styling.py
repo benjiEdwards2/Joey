@@ -12,7 +12,8 @@ from tests.hub.test_store import write_envelope
 def test_real_registry_hub_sizes():
     reg = load_registry(AREAS_YAML)
     sizes = {a.id: a.hub_size.value for a in reg.areas}
-    assert sizes["money"] == "s22"      # bento hero
+    assert sizes["money"] == "s21"      # was s22; Media took the hero slot (2026-10-05)
+    assert sizes["media"] == "s22"      # bento hero
     assert sizes["calendar"] == "s21"   # double width
     assert sizes["kitchen"] == "s11"    # default
 

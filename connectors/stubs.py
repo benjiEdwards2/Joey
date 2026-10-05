@@ -392,6 +392,7 @@ class Jellyfin(Connector):
         fields = {"Fields": self.ITEM_FIELDS}
         return {
             "raw_users": users,
+            "raw_system": get("system", "/System/Info/Public"),
             "raw_sessions": get("sessions", "/Sessions"),
             "raw_resume": get("resume", f"/Users/{uid}/Items/Resume",
                               {"Limit": 10, "MediaTypes": "Video", **fields}),
@@ -464,6 +465,7 @@ class Jellyfin(Connector):
                 "poster": _jf_ref("jf", item),
                 "backdrop": _jf_ref("jfb", item),
                 "item_key": _jf_key(item),
+                "jf_id": item.get("Id"),
             })
 
         up_next, seen = [], set()
@@ -477,7 +479,7 @@ class Jellyfin(Connector):
                 "kind": "episode" if item.get("Type") == "Episode" else "movie",
                 "remaining_text": f"{left} min left",
                 "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
-                "item_key": _jf_key(item),
+                "item_key": _jf_key(item), "jf_id": item.get("Id"),
             })
         for item in raw["raw_nextup"]["Items"]:
             if item.get("Id") in seen:  # already resumable — don't list twice
@@ -485,12 +487,12 @@ class Jellyfin(Connector):
             up_next.append({"title": _media_title(item), "kind": "episode",
                             "remaining_text": "Next episode",
                             "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
-                            "item_key": _jf_key(item)})
+                            "item_key": _jf_key(item), "jf_id": item.get("Id")})
         up_next = up_next[:UP_NEXT_LIMIT]
 
         latest = [
             {"title": i["Name"], "added_at": i["DateCreated"], "type": i["Type"], "poster": _jf_ref("jf", i),
-             "item_key": _jf_key(i)}
+             "item_key": _jf_key(i), "jf_id": i.get("Id")}
             for i in raw["raw_latest"]
         ]
         counts = raw["raw_counts"]
@@ -508,6 +510,7 @@ class Jellyfin(Connector):
             "now_playing": now_playing,
             "up_next": up_next,
             "latest": latest,
+            "server_id": (raw.get("raw_system") or {}).get("Id"),  # older fixtures carry none
             "library": {
                 "movies": int(counts["MovieCount"]),
                 "episodes": int(counts["EpisodeCount"]),

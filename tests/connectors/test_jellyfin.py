@@ -32,7 +32,7 @@ def test_requires_the_url_and_api_key_names():
 
 
 def test_fixture_dir_is_one_file_per_fetch_key(raw):
-    assert set(raw) == {"raw_users", "raw_sessions", "raw_resume", "raw_nextup",
+    assert set(raw) == {"raw_users", "raw_system", "raw_sessions", "raw_resume", "raw_nextup",
                         "raw_latest", "raw_counts", "raw_history"}
 
 
@@ -118,7 +118,7 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
     def fake_get(url, headers=None, params=None, timeout=None):
         calls.append((url, headers, params, timeout))
         path = url[len(URL):]
-        key = {"/Users": "raw_users", "/Sessions": "raw_sessions",
+        key = {"/Users": "raw_users", "/System/Info/Public": "raw_system", "/Sessions": "raw_sessions",
                "/Shows/NextUp": "raw_nextup", "/Items/Counts": "raw_counts"}.get(path)
         if key is None:
             key = ("raw_resume" if path.endswith("/Items/Resume")
@@ -130,13 +130,13 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
 
     assert envelope["status"] == "ok", envelope["error"]
     paths = [c[0][len(URL):] for c in calls]
-    assert paths == ["/Users", "/Sessions", "/Users/user-fixture-2/Items/Resume",
+    assert paths == ["/Users", "/System/Info/Public", "/Sessions", "/Users/user-fixture-2/Items/Resume",
                      "/Shows/NextUp", "/Users/user-fixture-2/Items/Latest", "/Items/Counts",
                      "/Users/user-fixture-2/Items"]
     assert all(c[3] == 10 for c in calls)
     assert all(c[1]["Authorization"] == f"MediaBrowser Token={KEY}" for c in calls)
-    assert calls[3][2]["UserId"] == "user-fixture-2"
-    hist = calls[6][2]
+    assert calls[4][2]["UserId"] == "user-fixture-2"
+    hist = calls[7][2]
     assert hist["Filters"] == "IsPlayed" and hist["SortBy"] == "DatePlayed" and hist["Limit"] == 500
     assert hist["IncludeItemTypes"] == "Movie,Episode" and "UserData" in hist["Fields"]
     assert envelope["data"]["history"]["recent"][0]["title"].startswith("Quiet Coast")
@@ -263,3 +263,25 @@ def test_item_key_is_tmdb_for_movies_and_the_series_for_episodes(raw):
     latest = {r["title"]: r["item_key"] for r in data["latest"]}
     assert latest["Desert Crossing"] == "jf:item-fixture-8"       # movie without a Tmdb id
     assert all(r["item_key"] for r in data["history"]["recent"] + data["up_next"])
+
+
+# ---- deep-link ids (2026-10-05) ----
+
+def test_rows_carry_their_own_jf_id_and_the_data_a_server_id(raw):
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["server_id"] == "server-fixture-1"
+    episode = next(p for p in data["now_playing"] if "Quiet Coast" in p["title"])
+    assert episode["poster"] == "jf:series-fixture-1"           # art uses the series...
+    assert episode["jf_id"] == raw["raw_sessions"][1]["NowPlayingItem"]["Id"]  # ...the link the episode
+    assert episode["jf_id"] != "series-fixture-1"
+    assert data["up_next"][1]["jf_id"] == "item-fixture-4"
+    assert all(r["jf_id"] for r in data["latest"])
+
+
+def test_absent_raw_system_gives_a_null_server_id(raw):
+    raw = copy.deepcopy(raw)
+    del raw["raw_system"]
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["server_id"] is None

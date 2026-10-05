@@ -282,6 +282,7 @@
       {
         "added_at": "2025-12-30T09:12:00.0000000Z",
         "item_key": "tmdb:116",
+        "jf_id": "item-fixture-6",
         "poster": "jf:item-fixture-6",
         "title": "Harbour Lights",
         "type": "Movie"
@@ -289,6 +290,7 @@
       {
         "added_at": "2025-12-29T20:41:00.0000000Z",
         "item_key": "jf:series-fixture-1",
+        "jf_id": "item-fixture-7",
         "poster": "jf:series-fixture-1",
         "title": "Quiet Coast - S02E05",
         "type": "Episode"
@@ -296,6 +298,7 @@
       {
         "added_at": "2025-12-28T18:05:00.0000000Z",
         "item_key": "jf:item-fixture-8",
+        "jf_id": "item-fixture-8",
         "poster": "jf:item-fixture-8",
         "title": "Desert Crossing",
         "type": "Movie"
@@ -309,6 +312,7 @@
       {
         "backdrop": "jfb:item-fixture-1",
         "item_key": "tmdb:101",
+        "jf_id": "item-fixture-1",
         "play_method": "Direct play",
         "poster": "jf:item-fixture-1",
         "progress_pct": 25,
@@ -318,6 +322,7 @@
       {
         "backdrop": "jfb:series-fixture-1",
         "item_key": "jf:series-fixture-1",
+        "jf_id": "item-fixture-2",
         "play_method": "Transcoding",
         "poster": "jf:series-fixture-1",
         "progress_pct": 75,
@@ -326,11 +331,13 @@
       }
     ],
     "secondary": "The Long Road Home \u00b7 Sample Person \u00b7 Direct play",
+    "server_id": "server-fixture-1",
     "summary": "2 playing now",
     "up_next": [
       {
         "backdrop": "jfb:item-fixture-3",
         "item_key": "tmdb:102",
+        "jf_id": "item-fixture-3",
         "kind": "movie",
         "poster": "jf:item-fixture-3",
         "remaining_text": "31 min left",
@@ -339,6 +346,7 @@
       {
         "backdrop": "jfb:series-fixture-1",
         "item_key": "jf:series-fixture-1",
+        "jf_id": "item-fixture-4",
         "kind": "episode",
         "poster": "jf:series-fixture-1",
         "remaining_text": "30 min left",
@@ -347,6 +355,7 @@
       {
         "backdrop": "jfb:series-fixture-2",
         "item_key": "jf:series-fixture-2",
+        "jf_id": "item-fixture-5",
         "kind": "episode",
         "poster": "jf:series-fixture-2",
         "remaining_text": "Next episode",

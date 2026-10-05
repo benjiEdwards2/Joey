@@ -11,11 +11,15 @@
   </a>
   {% endif %}
   {% for c in cards %}
+  {% if c.area.layout == "shelves" and c.hero %}
+    {% include "_hub_hero.html" %}
+  {% else %}
   <a class="cardlink {{ c.area.hub_size.value }}" href="/a/{{ c.area.id }}">
     {% with tile = c.tile, st = c.st, accent = c.area.accent, heading = c.area.name, no_detail_link = true %}
       {% include "_tile.html" %}
     {% endwith %}
   </a>
+  {% endif %}
   {% endfor %}
 </div>
 {% endblock %}

@@ -371,6 +371,16 @@ def _deep_link(link, jf_id, server_id) -> str | None:
     return url + (f"&serverId={server_id}" if server_id else "")
 
 
+def waiting_counts(recent, ratings, details) -> dict:
+    """What waits on the owner: titles to rate (full, uncapped inbox) and years to place.
+    `details` = the detail paths of the tiles visible in this owner view; a count whose
+    tile is hidden is 0. Shared by the area page and the hub card."""
+    to_rate = len(_to_rate(recent, ratings)) if HISTORY_DETAIL in details else 0
+    to_place = (sum(y["unranked_count"] for y in media_db.years_overview())
+                if YEARS_DETAIL in details else 0)
+    return {"to_rate": to_rate, "to_place": to_place}
+
+
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
     """The one item the Media hero shows: playing now, else first resume item, else the
     newest arrival. Pure; shared by the area page (build_shelves) and the hub card."""
@@ -420,9 +430,16 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         hero["kind_word"] = "Up next"  # the area page keeps its original word
     kind_word = hero["kind_word"] if hero else "Nothing playing"
 
+    server_id = jelly.get("server_id")
+
     def item(r, sub, href, **extra):
         return {"title": r.get("title"), "sub": sub, "poster": r.get("poster"),
                 "href": href, "item_key": r.get("item_key"), **extra}
+
+    def jf_item(r, sub, fallback):
+        """Row that opens in Jellyfin when it carries a jf_id (new tab), else a Joey page."""
+        url = _deep_link(link, r.get("jf_id"), server_id)
+        return item(r, sub, url or fallback, **({"external": True} if url else {}))
 
     shelves: list[dict] = []
 
@@ -436,13 +453,13 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     arrived = list(data_of(ARR_SNAPSHOT_ID).get("arrived") or [])
     latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
     added, seen = [], set()
-    for r, sub in ([(r, _ago_text(r.get("added_at"), now)) for r in latest]
-                   + [(r, r.get("when", "")) for r in arrived]):
+    for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
+                            + [(r, r.get("when", ""), False) for r in arrived]):
         key = r.get("item_key") or r.get("title")
         if key in seen:
             continue
         seen.add(key)
-        added.append(item(r, sub, LIBRARY_DETAIL))
+        added.append(jf_item(r, sub, LIBRARY_DETAIL) if from_jf else item(r, sub, LIBRARY_DETAIL))
     added = added[:SHELF_MAX]
     requests = [item(r, r.get("status_text", ""), REQUESTS_DETAIL)
                 for r in (data_of(JELLYSEERR_SNAPSHOT_ID).get("requests") or [])][:SHELF_MAX]
@@ -464,11 +481,11 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 
     unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
     add("continue", "Continue watching", PLAYING_DETAIL,
-        [item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]],
+        [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
     add("watched", "Recently watched", DIARY_DETAIL,
-        [item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows],
+        [jf_item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows],
         unset_text if her_unset else "Nothing watched yet")
     add("torate", "To rate", HISTORY_DETAIL, to_rate, "", omit_empty=True)
     add("requests", "Requests", REQUESTS_DETAIL, requests, "No requests")
@@ -481,6 +498,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     apps = data_of(MEDIA_STATUS_SNAPSHOT_ID).get("apps") if apps_row and apps_row["st"]["state"] in ("fresh", "stale") else None
     return {
         "hero": hero, "kind_word": kind_word, "shelves": shelves,
+        "waiting": waiting_counts(recent, ratings, set(by_detail)),
         "apps": apps or [], "apps_up": sum(1 for a in apps or [] if a.get("up")),
         "apps_st": apps_row["st"] if apps_row else None, "has_apps": bool(apps),
         "open_href": link,
@@ -503,7 +521,12 @@ def hub_page(request: Request):
             link = next((st["href"] for t in a.tiles if owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
-            card["hero"] = media_hero(view_jelly(jelly.data if jelly else {}, view), link)
+            jdata = view_jelly(jelly.data if jelly else {}, view)
+            card["hero"] = media_hero(jdata, link)
+            recent = (jdata.get("history") or {}).get("recent") or []
+            card["waiting"] = waiting_counts(
+                recent, _ratings(view, recent),
+                {t.detail for t in a.tiles if t.detail and owner_visible(t, view)})
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {

@@ -87,6 +87,7 @@
               "title": {"type": "string"},
               "poster": {"type": ["string", "null"]},
               "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
+              "jf_id": {"type": ["string", "null"]},
               "kind": {"enum": ["movie", "episode"]},
               "watched_at": {"type": "string"},
               "when": {"type": "string"}
@@ -139,6 +140,7 @@
               "title": {"type": "string"},
               "poster": {"type": ["string", "null"]},
               "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
+              "jf_id": {"type": ["string", "null"]},
               "kind": {"enum": ["movie", "episode"]},
               "years_ago": {"type": "integer", "minimum": 1}
             }

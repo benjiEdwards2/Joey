@@ -194,7 +194,7 @@ def test_history_windows_and_hours(history):
 def test_recent_is_newest_first_capped_and_episode_titles_carry_the_show(history):
     recent = history["recent"]
     assert len(recent) == 20
-    assert recent[0] == {"title": "Quiet Coast · S02E04 · Late Tide", "kind": "episode",
+    assert recent[0] == {"title": "Quiet Coast · S02E04 · Late Tide", "kind": "episode", "jf_id": "hist-fixture-1",
                          "watched_at": "2025-12-31T21:10:00.0000000Z", "when": "2 hours ago",
                          "poster": "jf:series-fixture-1", "item_key": "jf:series-fixture-1"}
     assert recent[3]["title"] == "Harbour Lights" and recent[3]["kind"] == "movie"
@@ -374,3 +374,10 @@ def test_live_fetch_with_unknown_her_name_is_not_an_error_and_never_uses_the_adm
     assert envelope["status"] == "ok" and envelope["data"]["her"] is None
     assert len(calls) == 8  # exactly B.'s calls, nothing extra
     assert "Nobody" not in json.dumps(envelope)
+
+
+def test_history_rows_carry_jf_id_for_deep_links(raw):
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["history"]["recent"][0]["jf_id"] == "hist-fixture-1"
+    assert all(r["jf_id"] for r in data["history"]["recent"] + data["history"]["on_this_day"])

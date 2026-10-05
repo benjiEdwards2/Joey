@@ -176,3 +176,79 @@ def test_grid_area_unaffected(env):
     with TestClient(env().app) as client:
         html = main_html(client.get("/a/beta").text)
     assert 'class="grid"' in html and 'class="hero' not in html
+
+
+# ---- deep-linked rows + "waiting on you" chips (2026-10-05) ----
+
+def deep(jf_id, server="srv-1"):
+    return f"{LINK}/web/#/details?id={jf_id}&serverId={server}"
+
+
+def linked_jelly():
+    return {**JELLY, "server_id": "srv-1",
+            "up_next": [{**JELLY["up_next"][0], "jf_id": "resume-id"}],
+            "latest": [{**JELLY["latest"][0], "jf_id": "new-id"}],
+            "history": {"recent": [{**RECENT[0], "jf_id": "hist-id"}, *RECENT[1:]]}}
+
+
+def test_rows_deep_link_into_jellyfin_when_they_carry_a_jf_id(env):
+    by = {s["id"]: s["items"] for s in shelves_for(env(jellyfin=linked_jelly(), arr=ARR))["shelves"]}
+    assert by["continue"][0]["href"] == deep("resume-id") and by["continue"][0]["external"] is True
+    assert by["added"][0]["href"] == deep("new-id") and by["added"][0]["external"] is True
+    assert by["watched"][0]["href"] == deep("hist-id") and by["watched"][0]["external"] is True
+    # no jf_id on the row -> Joey page, no external flag
+    assert by["watched"][1]["href"] == "/media/diary" and "external" not in by["watched"][1]
+    # arr-only arrivals keep the library page
+    arr_only = next(i for i in by["added"] if i["title"] == "Arr Only")
+    assert arr_only["href"] == "/media/library" and "external" not in arr_only
+
+
+def test_rows_fall_back_to_joey_pages_without_ids_or_a_jellyfin_link(env):
+    by = {s["id"]: s["items"] for s in shelves_for(env(jellyfin=JELLY, arr=ARR))["shelves"]}
+    assert by["continue"][0]["href"] == "/media/playing"
+    assert by["added"][0]["href"] == "/media/library"
+    assert by["watched"][0]["href"] == "/media/diary"
+    assert not any("external" in i for items in by.values() for i in items)
+
+
+def test_no_jellyfin_link_tile_means_no_external_rows(env, tmp_path):
+    main = env(jellyfin=linked_jelly())
+    with TestClient(main.app):
+        area = next(a for a in main.registry.areas if a.id == "alpha")
+        snaps = main.get_snapshots()
+        tiles = [{"tile": t, "st": main.tile_state(t, snaps)} for t in area.tiles if t.tier != "link"]
+        sh = main.build_shelves(area, tiles, snaps, "you")
+    assert not any("external" in i for s in sh["shelves"] for i in s["items"])
+
+
+def test_external_rows_open_in_a_new_tab_only_in_the_html(env):
+    main = env(jellyfin=linked_jelly(), arr=ARR)
+    with TestClient(main.app) as client:
+        html = main_html(client.get("/a/alpha").text)
+    assert f'href="{deep("resume-id").replace("&", "&amp;")}" target="_blank" rel="noopener"' in html
+    assert '<a class="shelf-item" href="/media/diary">' in html          # internal rows: no target
+
+
+def test_waiting_counts_and_chips_on_the_area_page_and_hub(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    from hub import media_db
+    media_db.set_rating("m2", 8, "movie", "Rated One", year=2024)
+    media_db.set_rating("m3", 7, "movie", "Old One")   # no year -> unranked in the Unknown year
+    sh = shelves_for(main)
+    assert sh["waiting"]["to_rate"] == 1
+    assert sh["waiting"]["to_place"] == sum(y["unranked_count"] for y in media_db.years_overview())
+    with TestClient(main.app) as client:
+        area_html = main_html(client.get("/a/alpha").text)
+        hub_html = main_html(client.get("/").text)
+    assert '<span class="waitchip">1 to rate</span>' in area_html
+    assert "to place</span>" in area_html
+    assert '<span class="waitchip">1 to rate</span>' in hub_html
+
+
+def test_waiting_chips_absent_at_zero_and_for_hidden_tiles(env):
+    main = env(jellyfin={**JELLY, "history": {"recent": []}})
+    assert shelves_for(main)["waiting"] == {"to_rate": 0, "to_place": 0}
+    with TestClient(main.app) as client:
+        assert "waitchip" not in main_html(client.get("/a/alpha").text)
+    main = env(jellyfin=JELLY)
+    assert shelves_for(main, view="her")["waiting"] == {"to_rate": 0, "to_place": 0}

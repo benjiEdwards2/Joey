@@ -76,14 +76,6 @@
     "summary": "4 arrived this week \u00b7 2 downloading",
     "this_week": [
       {
-        "date": "2026-01-02",
-        "item_key": "tvdb:2001",
-        "kind": "episode",
-        "label": "",
-        "poster": "sonarr:1",
-        "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide"
-      },
-      {
         "date": "2026-01-03",
         "item_key": "tmdb:1021",
         "kind": "movie",

@@ -14,6 +14,7 @@
           <div class="herotitle">{{ h.title }}</div>
           {% if h.sub %}<div class="herosub">{{ h.sub }}</div>{% endif %}
           <div class="sub">{{ st.value }}</div>
+          {% from "_waiting.html" import waitchips %}{{ waitchips(c.waiting) }}
         </div>
       </div>
     </a>

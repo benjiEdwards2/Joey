@@ -12,13 +12,45 @@ def caption(state_text, pct, eta_text) -> str:
     return " · ".join(str(x) for x in (state_text, f"{pct}%" if pct is not None else "", eta_text) if x)
 
 
+def _pack_title(group) -> str:
+    """'Marvel's The Punisher · S01 · 13 episodes' from a season pack's episode rows; falls back
+    to the first row's title + ' · N episodes' when series/season cannot be parsed."""
+    first = str(group[0].get("title") or "")
+    parts = first.split(" · ")
+    m = re.match(r"(S\d+)E\d+", parts[1]) if len(parts) > 1 else None
+    if parts[0] and m:
+        return f"{parts[0]} · {m.group(1)} · {len(group)} episodes"
+    return f"{first} · {len(group)} episodes"
+
+
+def collapse_packs(arr_rows) -> list[dict]:
+    """Sonarr reports a season pack as one queue row per episode, all sharing a download_id:
+    those become ONE 'season' row (first row's poster/item_key), at the first row's position.
+    Rows without a download_id and single-row groups pass through unchanged."""
+    groups: dict[str, list[dict]] = {}
+    for r in arr_rows or []:
+        key = str(r.get("download_id") or "").lower()
+        if key:
+            groups.setdefault(key, []).append(r)
+    rows: list[dict] = []
+    for r in arr_rows or []:
+        key = str(r.get("download_id") or "").lower()
+        group = groups.get(key) if key else None
+        if not group or len(group) == 1:
+            rows.append(r)
+        elif group[0] is r:
+            rows.append({**r, "title": _pack_title(group), "kind": "season"})
+    return rows
+
+
 def merge_downloading(arr_rows, qb_data) -> list[dict]:
-    """Arr queue rows with live qBittorrent progress overlaid (hash == download_id), then the
-    torrents no arr row claims. Every row carries a `caption`; rows keep the arr keys."""
+    """Arr queue rows (season packs collapsed) with live qBittorrent progress overlaid
+    (hash == download_id), then the torrents no arr row claims. Every row carries a `caption`;
+    rows keep the arr keys."""
     active = {str(t.get("hash") or "").lower(): t for t in ((qb_data or {}).get("active") or [])}
     claimed: set[str] = set()
     rows: list[dict] = []
-    for r in arr_rows or []:
+    for r in collapse_packs(arr_rows):
         key = str(r.get("download_id") or "").lower()
         t = active.get(key) if key else None
         if t is None:

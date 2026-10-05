@@ -299,6 +299,7 @@ FIXTURE_HER_USER = "georgina"  # fixture mode never reads JELLYFIN_USER_HER
 HISTORY_RECENT = 20
 HISTORY_TOP = 10           # rows in each most-played / on-this-day list
 UP_NEXT_LIMIT = 8
+LIBRARY_FETCH_LIMIT = 2000  # whole-library movie/series lists (F3a)
 
 # Jellyfin's PlayState.PlayMethod -> a word, never a colour.
 PLAY_METHODS = {"DirectPlay": "Direct play", "DirectStream": "Direct stream", "Transcode": "Transcoding"}
@@ -355,6 +356,14 @@ class Jellyfin(Connector):
     requires_env = ("JELLYFIN_URL", "JELLYFIN_API_KEY")  # JELLYFIN_USER is optional
 
     ITEM_FIELDS = "DateCreated,SeriesName,SeriesId,ProviderIds"
+    MOVIE_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Overview"
+    SHOW_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Status,RecursiveItemCount,Overview"
+
+    @classmethod
+    def _library_params(cls, kind: str) -> dict:
+        return {"IncludeItemTypes": kind, "Recursive": "true", "SortBy": "SortName",
+                "SortOrder": "Ascending", "Limit": LIBRARY_FETCH_LIMIT,
+                "Fields": cls.MOVIE_FIELDS if kind == "Movie" else cls.SHOW_FIELDS}
 
     @staticmethod
     def pick_user(users: list[dict], preferred: str | None) -> dict:
@@ -421,6 +430,10 @@ class Jellyfin(Connector):
             "raw_latest": get("latest", f"/Users/{uid}/Items/Latest", {"Limit": 5, **fields}),
             "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
             "raw_history": get("history", f"/Users/{uid}/Items", history_params),
+            # Library lists (F3a). Two extra GETs (four with her) ride the 2-minute sweep;
+            # acceptable for a 42-film library; a split sweep is a later decision.
+            "raw_movies": get("movies", f"/Users/{uid}/Items", self._library_params("Movie")),
+            "raw_shows": get("shows", f"/Users/{uid}/Items", self._library_params("Series")),
         }
         # Georgina's view (2026-10-05): only when JELLYFIN_USER_HER names an existing user.
         her = self.pick_her_user(users, self._her_name())
@@ -431,9 +444,51 @@ class Jellyfin(Connector):
             raw["raw_her_nextup"] = get("her next up", "/Shows/NextUp",
                                         {"UserId": hid, "Limit": 10, **fields})
             raw["raw_her_history"] = get("her history", f"/Users/{hid}/Items", history_params)
+            raw["raw_her_movies"] = get("her movies", f"/Users/{hid}/Items", self._library_params("Movie"))
+            raw["raw_her_shows"] = get("her shows", f"/Users/{hid}/Items", self._library_params("Series"))
         elif os.environ.get("JELLYFIN_USER_HER"):
             log.info("jellyfin: her user not found")
         return raw
+
+    @staticmethod
+    def _library_row(item: dict) -> dict:
+        """Fields shared by movie and show library rows."""
+        user = item.get("UserData") or {}
+        rating = item.get("CommunityRating")
+        return {
+            "title": item["Name"],
+            "year": item.get("ProductionYear"),
+            "jf_id": item["Id"],
+            "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
+            "played": bool(user.get("Played")),
+            "last_played_at": user.get("LastPlayedDate"),
+            "added_at": item.get("DateCreated"),
+            "community_rating": round(float(rating), 1) if rating is not None else None,
+            "genres": list(item.get("Genres") or [])[:3],
+        }
+
+    @classmethod
+    def _movies(cls, payload: dict) -> list[dict]:
+        rows = []
+        for item in (payload or {}).get("Items", []):
+            ticks = item.get("RunTimeTicks")
+            rows.append({**cls._library_row(item), "item_key": _jf_key(item),
+                         "runtime_min": int(ticks) // TICKS_PER_MINUTE if ticks else None})
+        return rows
+
+    @classmethod
+    def _shows(cls, payload: dict) -> list[dict]:
+        rows = []
+        for item in (payload or {}).get("Items", []):
+            ids = item.get("ProviderIds") or {}
+            key = (f"tmdb:{ids['Tmdb']}" if ids.get("Tmdb")
+                   else f"tvdb:{ids['Tvdb']}" if ids.get("Tvdb") else f"jf:{item['Id']}")
+            rows.append({**cls._library_row(item), "item_key": key,
+                         "status_word": {"Continuing": "Continuing", "Ended": "Ended"}.get(
+                             item.get("Status"), "Unknown"),
+                         "episodes": int(item.get("RecursiveItemCount") or 0),
+                         "unplayed": int((item.get("UserData") or {}).get("UnplayedItemCount") or 0)})
+        return rows
 
     @staticmethod
     def _history(items: list[dict], now: datetime) -> dict:
@@ -510,9 +565,14 @@ class Jellyfin(Connector):
         if not all(k in raw for k in ("raw_her_resume", "raw_her_nextup", "raw_her_history")):
             return None
         user = self.pick_her_user(raw.get("raw_users") or [], self._her_name())
-        return {"user": (user or {}).get("Name") or "her",
-                "up_next": self._up_next(raw["raw_her_resume"], raw["raw_her_nextup"]),
-                "history": self._history(raw["raw_her_history"].get("Items", []), _now())}
+        block = {"user": (user or {}).get("Name") or "her",
+                 "up_next": self._up_next(raw["raw_her_resume"], raw["raw_her_nextup"]),
+                 "history": self._history(raw["raw_her_history"].get("Items", []), _now())}
+        if "raw_her_movies" in raw:
+            block["movies"] = self._movies(raw["raw_her_movies"])
+        if "raw_her_shows" in raw:
+            block["shows"] = self._shows(raw["raw_her_shows"])
+        return block
 
     def transform(self, raw: dict) -> dict:
         now_playing = []
@@ -546,7 +606,13 @@ class Jellyfin(Connector):
             secondary = f"{first['title']} · {first['user']} · {first['play_method']}"
         else:
             secondary = up_next[0]["title"] if up_next else "Nothing up next"
+        library_lists = {}
+        if "raw_movies" in raw:  # older fixtures/snapshots carry none - the keys stay absent
+            library_lists["movies"] = self._movies(raw["raw_movies"])
+        if "raw_shows" in raw:
+            library_lists["shows"] = self._shows(raw["raw_shows"])
         return {
+            **library_lists,
             "summary": (
                 f"{len(now_playing)} playing now" if now_playing
                 else f"Nothing playing · {len(up_next)} up next"

@@ -47,6 +47,91 @@
         ],
         "week_count": 2
       },
+      "movies": [
+        {
+          "added_at": "2025-12-30T09:12:00.0000000Z",
+          "backdrop": "jfb:item-fixture-6",
+          "community_rating": null,
+          "genres": [
+            "Drama"
+          ],
+          "item_key": "tmdb:116",
+          "jf_id": "item-fixture-6",
+          "last_played_at": "2025-12-31T18:30:00.0000000Z",
+          "played": true,
+          "poster": "jf:item-fixture-6",
+          "runtime_min": 104,
+          "title": "Harbour Lights",
+          "year": 2021
+        },
+        {
+          "added_at": "2025-12-28T18:05:00.0000000Z",
+          "backdrop": "jfb:item-fixture-8",
+          "community_rating": 6.5,
+          "genres": [
+            "Adventure",
+            "Thriller"
+          ],
+          "item_key": "jf:item-fixture-8",
+          "jf_id": "item-fixture-8",
+          "last_played_at": "2025-12-29T19:00:00.0000000Z",
+          "played": true,
+          "poster": "jf:item-fixture-8",
+          "runtime_min": 127,
+          "title": "Desert Crossing",
+          "year": 2023
+        },
+        {
+          "added_at": "2025-06-11T08:00:00.0000000Z",
+          "backdrop": "jfb:item-fixture-9",
+          "community_rating": 7.0,
+          "genres": [],
+          "item_key": "tmdb:142",
+          "jf_id": "item-fixture-9",
+          "last_played_at": null,
+          "played": false,
+          "poster": "jf:item-fixture-9",
+          "runtime_min": 96,
+          "title": "Salt Flats",
+          "year": 2020
+        }
+      ],
+      "shows": [
+        {
+          "added_at": "2025-12-27T10:00:00.0000000Z",
+          "backdrop": "jfb:series-fixture-3",
+          "community_rating": null,
+          "episodes": 6,
+          "genres": [],
+          "item_key": "jf:series-fixture-3",
+          "jf_id": "series-fixture-3",
+          "last_played_at": "2025-12-30T20:00:00.0000000Z",
+          "played": false,
+          "poster": "jf:series-fixture-3",
+          "status_word": "Continuing",
+          "title": "Garden Lane",
+          "unplayed": 5,
+          "year": 2022
+        },
+        {
+          "added_at": "2024-01-15T10:00:00.0000000Z",
+          "backdrop": "jfb:series-fixture-2",
+          "community_rating": 7.6,
+          "episodes": 24,
+          "genres": [
+            "Crime"
+          ],
+          "item_key": "tvdb:7002",
+          "jf_id": "series-fixture-2",
+          "last_played_at": null,
+          "played": false,
+          "poster": "jf:series-fixture-2",
+          "status_word": "Ended",
+          "title": "Night Ferry",
+          "unplayed": 24,
+          "year": 2015
+        }
+      ],
       "up_next": [
         {
           "backdrop": "jfb:her-fixture-1",
@@ -397,6 +482,73 @@
       "episodes": 2317,
       "movies": 184
     },
+    "movies": [
+      {
+        "added_at": "2024-03-02T10:00:00.0000000Z",
+        "backdrop": "jfb:item-fixture-1",
+        "community_rating": 7.8,
+        "genres": [
+          "Drama",
+          "Road Movie",
+          "Adventure"
+        ],
+        "item_key": "tmdb:101",
+        "jf_id": "item-fixture-1",
+        "last_played_at": "2025-12-20T20:00:00.0000000Z",
+        "played": true,
+        "poster": "jf:item-fixture-1",
+        "runtime_min": 118,
+        "title": "The Long Road Home",
+        "year": 2019
+      },
+      {
+        "added_at": "2025-12-30T09:12:00.0000000Z",
+        "backdrop": "jfb:item-fixture-6",
+        "community_rating": null,
+        "genres": [
+          "Drama"
+        ],
+        "item_key": "tmdb:116",
+        "jf_id": "item-fixture-6",
+        "last_played_at": "2025-12-31T18:30:00.0000000Z",
+        "played": true,
+        "poster": "jf:item-fixture-6",
+        "runtime_min": 104,
+        "title": "Harbour Lights",
+        "year": 2021
+      },
+      {
+        "added_at": "2025-12-28T18:05:00.0000000Z",
+        "backdrop": "jfb:item-fixture-8",
+        "community_rating": 6.5,
+        "genres": [
+          "Adventure",
+          "Thriller"
+        ],
+        "item_key": "jf:item-fixture-8",
+        "jf_id": "item-fixture-8",
+        "last_played_at": null,
+        "played": false,
+        "poster": "jf:item-fixture-8",
+        "runtime_min": 127,
+        "title": "Desert Crossing",
+        "year": 2023
+      },
+      {
+        "added_at": "2025-06-11T08:00:00.0000000Z",
+        "backdrop": "jfb:item-fixture-9",
+        "community_rating": 7.0,
+        "genres": [],
+        "item_key": "tmdb:142",
+        "jf_id": "item-fixture-9",
+        "last_played_at": null,
+        "played": false,
+        "poster": "jf:item-fixture-9",
+        "runtime_min": 96,
+        "title": "Salt Flats",
+        "year": 2020
+      }
+    ],
     "now_playing": [
       {
         "backdrop": "jfb:item-fixture-1",
@@ -421,6 +573,61 @@
     ],
     "secondary": "The Long Road Home \u00b7 Sample Person \u00b7 Direct play",
     "server_id": "server-fixture-1",
+    "shows": [
+      {
+        "added_at": "2024-05-01T10:00:00.0000000Z",
+        "backdrop": "jfb:series-fixture-1",
+        "community_rating": 8.2,
+        "episodes": 18,
+        "genres": [
+          "Drama",
+          "Mystery"
+        ],
+        "item_key": "tmdb:2201",
+        "jf_id": "series-fixture-1",
+        "last_played_at": "2025-12-31T21:10:00.0000000Z",
+        "played": false,
+        "poster": "jf:series-fixture-1",
+        "status_word": "Continuing",
+        "title": "Quiet Coast",
+        "unplayed": 7,
+        "year": 2018
+      },
+      {
+        "added_at": "2024-01-15T10:00:00.0000000Z",
+        "backdrop": "jfb:series-fixture-2",
+        "community_rating": 7.6,
+        "episodes": 24,
+        "genres": [
+          "Crime"
+        ],
+        "item_key": "tvdb:7002",
+        "jf_id": "series-fixture-2",
+        "last_played_at": "2025-11-02T20:00:00.0000000Z",
+        "played": true,
+        "poster": "jf:series-fixture-2",
+        "status_word": "Ended",
+        "title": "Night Ferry",
+        "unplayed": 0,
+        "year": 2015
+      },
+      {
+        "added_at": "2025-12-27T10:00:00.0000000Z",
+        "backdrop": "jfb:series-fixture-3",
+        "community_rating": null,
+        "episodes": 0,
+        "genres": [],
+        "item_key": "jf:series-fixture-3",
+        "jf_id": "series-fixture-3",
+        "last_played_at": null,
+        "played": false,
+        "poster": "jf:series-fixture-3",
+        "status_word": "Unknown",
+        "title": "Garden Lane",
+        "unplayed": 0,
+        "year": 2022
+      }
+    ],
     "summary": "2 playing now",
     "up_next": [
       {

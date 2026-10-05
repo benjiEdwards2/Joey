@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/jellyfin.schema.json",
   "title": "jellyfin data block",
-  "description": "Media area tiles (now playing + watch history). `summary`/`secondary` are the hub display convention (D17, WP18). `history` is optional so snapshots written before it existed still validate.",
+  "description": "Media area tiles (now playing + watch history). `summary`/`secondary` are the hub display convention (D17, WP18). `history` is optional so snapshots written before it existed still validate. `movies`/`shows` (F3a) are the whole-library lists, optional like `history`.",
   "type": "object",
   "required": ["summary", "now_playing", "up_next", "latest", "library"],
   "additionalProperties": false,
@@ -148,6 +148,194 @@
         }
       }
     },
+    "movies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "year",
+          "jf_id",
+          "item_key",
+          "poster",
+          "backdrop",
+          "played",
+          "last_played_at",
+          "added_at",
+          "community_rating",
+          "genres",
+          "runtime_min"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "jf_id": {
+            "type": "string"
+          },
+          "item_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"
+          },
+          "poster": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "backdrop": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "played": {
+            "type": "boolean"
+          },
+          "last_played_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "added_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "community_rating": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "genres": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "string"
+            }
+          },
+          "runtime_min": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "shows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "year",
+          "jf_id",
+          "item_key",
+          "poster",
+          "backdrop",
+          "played",
+          "last_played_at",
+          "added_at",
+          "community_rating",
+          "genres",
+          "status_word",
+          "episodes",
+          "unplayed"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "jf_id": {
+            "type": "string"
+          },
+          "item_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"
+          },
+          "poster": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "backdrop": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "played": {
+            "type": "boolean"
+          },
+          "last_played_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "added_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "community_rating": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "genres": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "string"
+            }
+          },
+          "status_word": {
+            "enum": [
+              "Continuing",
+              "Ended",
+              "Unknown"
+            ]
+          },
+          "episodes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unplayed": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
     "her": {
       "description": "Georgina's up next + history (2026-10-05); null when JELLYFIN_USER_HER is unset or no such user. Same row shapes as the top-level fields.",
       "type": ["object", "null"],
@@ -156,7 +344,9 @@
       "properties": {
         "user": {"type": "string"},
         "up_next": {"$ref": "#/properties/up_next"},
-        "history": {"$ref": "#/properties/history"}
+        "history": {"$ref": "#/properties/history"},
+        "movies": {"$ref": "#/properties/movies"},
+        "shows": {"$ref": "#/properties/shows"}
       }
     }
   }

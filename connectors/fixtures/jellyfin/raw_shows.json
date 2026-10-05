@@ -1,0 +1,62 @@
+{
+  "Items": [
+    {
+      "Id": "series-fixture-1",
+      "Name": "Quiet Coast",
+      "Type": "Series",
+      "ProductionYear": 2018,
+      "DateCreated": "2024-05-01T10:00:00.0000000Z",
+      "Genres": [
+        "Drama",
+        "Mystery"
+      ],
+      "RecursiveItemCount": 18,
+      "UserData": {
+        "Played": false,
+        "UnplayedItemCount": 7,
+        "LastPlayedDate": "2025-12-31T21:10:00.0000000Z"
+      },
+      "ProviderIds": {
+        "Tmdb": "2201",
+        "Tvdb": "7001"
+      },
+      "Status": "Continuing",
+      "CommunityRating": 8.2
+    },
+    {
+      "Id": "series-fixture-2",
+      "Name": "Night Ferry",
+      "Type": "Series",
+      "ProductionYear": 2015,
+      "DateCreated": "2024-01-15T10:00:00.0000000Z",
+      "Genres": [
+        "Crime"
+      ],
+      "RecursiveItemCount": 24,
+      "UserData": {
+        "Played": true,
+        "UnplayedItemCount": 0,
+        "LastPlayedDate": "2025-11-02T20:00:00.0000000Z"
+      },
+      "ProviderIds": {
+        "Tvdb": "7002"
+      },
+      "Status": "Ended",
+      "CommunityRating": 7.6
+    },
+    {
+      "Id": "series-fixture-3",
+      "Name": "Garden Lane",
+      "Type": "Series",
+      "ProductionYear": 2022,
+      "DateCreated": "2025-12-27T10:00:00.0000000Z",
+      "Genres": [],
+      "RecursiveItemCount": 0,
+      "UserData": {
+        "Played": false,
+        "UnplayedItemCount": 0
+      }
+    }
+  ],
+  "TotalRecordCount": 3
+}

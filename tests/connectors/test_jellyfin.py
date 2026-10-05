@@ -33,8 +33,9 @@ def test_requires_the_url_and_api_key_names():
 
 def test_fixture_dir_is_one_file_per_fetch_key(raw):
     assert set(raw) == {"raw_users", "raw_system", "raw_sessions", "raw_resume", "raw_nextup",
-                        "raw_latest", "raw_counts", "raw_history",
-                        "raw_her_resume", "raw_her_nextup", "raw_her_history"}
+                        "raw_latest", "raw_counts", "raw_history", "raw_movies", "raw_shows",
+                        "raw_her_resume", "raw_her_nextup", "raw_her_history",
+                        "raw_her_movies", "raw_her_shows"}
 
 
 def test_now_playing_rows_carry_a_play_method_word(raw):
@@ -122,7 +123,10 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
         key = {"/Users": "raw_users", "/System/Info/Public": "raw_system", "/Sessions": "raw_sessions",
                "/Shows/NextUp": "raw_nextup", "/Items/Counts": "raw_counts"}.get(path)
         if key is None:
+            kind = (params or {}).get("IncludeItemTypes")
             key = ("raw_resume" if path.endswith("/Items/Resume")
+                   else "raw_movies" if path.endswith("/Items") and kind == "Movie"
+                   else "raw_shows" if path.endswith("/Items") and kind == "Series"
                    else "raw_history" if path.endswith("/Items") else "raw_latest")
         return FakeResponse(raw[key])
 
@@ -133,6 +137,7 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
     paths = [c[0][len(URL):] for c in calls]
     assert paths == ["/Users", "/System/Info/Public", "/Sessions", "/Users/user-fixture-2/Items/Resume",
                      "/Shows/NextUp", "/Users/user-fixture-2/Items/Latest", "/Items/Counts",
+                     "/Users/user-fixture-2/Items", "/Users/user-fixture-2/Items",
                      "/Users/user-fixture-2/Items"]
     assert all(c[3] == 10 for c in calls)
     assert all(c[1]["Authorization"] == f"MediaBrowser Token={KEY}" for c in calls)
@@ -141,6 +146,14 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
     assert hist["Filters"] == "IsPlayed" and hist["SortBy"] == "DatePlayed" and hist["Limit"] == 500
     assert hist["IncludeItemTypes"] == "Movie,Episode" and "UserData" in hist["Fields"]
     assert envelope["data"]["history"]["recent"][0]["title"].startswith("Quiet Coast")
+    assert calls[8][2] == {"IncludeItemTypes": "Movie", "Recursive": "true", "SortBy": "SortName",
+                           "SortOrder": "Ascending", "Limit": 2000,
+                           "Fields": "DateCreated,ProviderIds,Genres,ProductionYear,Overview"}
+    assert calls[9][2] == {"IncludeItemTypes": "Series", "Recursive": "true", "SortBy": "SortName",
+                           "SortOrder": "Ascending", "Limit": 2000,
+                           "Fields": "DateCreated,ProviderIds,Genres,ProductionYear,Status,"
+                                     "RecursiveItemCount,Overview"}
+    assert [m["title"] for m in envelope["data"]["movies"]][0] == "The Long Road Home"
     jsonschema.validate(envelope["data"], SCHEMA)
 
 
@@ -336,8 +349,12 @@ def _live_calls(monkeypatch, raw):
             key = "raw_her_nextup" if (params or {}).get("UserId") == "user-fixture-3" else "raw_nextup"
         if key is None:
             her = "user-fixture-3" in path
-            key = ("raw_her_resume" if her else "raw_resume") if path.endswith("/Items/Resume") else (
-                "raw_her_history" if her else "raw_history") if path.endswith("/Items") else "raw_latest"
+            kind = (params or {}).get("IncludeItemTypes")
+            if path.endswith("/Items") and kind in ("Movie", "Series"):
+                key = f"raw_{'her_' if her else ''}{'movies' if kind == 'Movie' else 'shows'}"
+            else:
+                key = ("raw_her_resume" if her else "raw_resume") if path.endswith("/Items/Resume") else (
+                    "raw_her_history" if her else "raw_history") if path.endswith("/Items") else "raw_latest"
         return FakeResponse(raw[key])
 
     monkeypatch.setattr(requests, "get", fake_get)
@@ -350,10 +367,15 @@ def test_live_fetch_calls_her_endpoints_only_when_set_and_found(live, monkeypatc
     envelope = Jellyfin().run()
     assert envelope["status"] == "ok", envelope["error"]
     paths = [c[0] for c in calls]
-    assert paths[-3:] == ["/Users/user-fixture-3/Items/Resume", "/Shows/NextUp", "/Users/user-fixture-3/Items"]
-    assert calls[-3][1]["Limit"] == 10 and calls[-3][1]["MediaTypes"] == "Video"
-    assert calls[-2][1]["UserId"] == "user-fixture-3" and calls[-2][1]["Limit"] == 10
-    assert calls[-1][1]["Filters"] == "IsPlayed" and calls[-1][1]["Limit"] == 500
+    assert paths[-5:] == ["/Users/user-fixture-3/Items/Resume", "/Shows/NextUp", "/Users/user-fixture-3/Items",
+                          "/Users/user-fixture-3/Items", "/Users/user-fixture-3/Items"]
+    assert calls[-5][1]["Limit"] == 10 and calls[-5][1]["MediaTypes"] == "Video"
+    assert calls[-4][1]["UserId"] == "user-fixture-3" and calls[-4][1]["Limit"] == 10
+    assert calls[-3][1]["Filters"] == "IsPlayed" and calls[-3][1]["Limit"] == 500
+    assert calls[-2][1]["IncludeItemTypes"] == "Movie" and calls[-2][1]["Limit"] == 2000
+    assert calls[-1][1]["IncludeItemTypes"] == "Series" and "Status" in calls[-1][1]["Fields"]
+    assert [m["title"] for m in envelope["data"]["her"]["movies"]][0] == "Harbour Lights"
+    assert len(envelope["data"]["her"]["shows"]) == 2
     assert envelope["data"]["her"]["user"] == "georgina"
     assert envelope["data"]["up_next"][0]["title"] == "Dust and Daylight"  # B.'s side still the admin's
     jsonschema.validate(envelope["data"], SCHEMA)
@@ -372,7 +394,7 @@ def test_live_fetch_with_unknown_her_name_is_not_an_error_and_never_uses_the_adm
     calls = _live_calls(monkeypatch, raw)
     envelope = Jellyfin().run()
     assert envelope["status"] == "ok" and envelope["data"]["her"] is None
-    assert len(calls) == 8  # exactly B.'s calls, nothing extra
+    assert len(calls) == 10  # exactly B.'s calls, nothing extra
     assert "Nobody" not in json.dumps(envelope)
 
 

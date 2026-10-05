@@ -1,0 +1,40 @@
+{
+  "Items": [
+    {
+      "Id": "series-fixture-3",
+      "Name": "Garden Lane",
+      "Type": "Series",
+      "ProductionYear": 2022,
+      "DateCreated": "2025-12-27T10:00:00.0000000Z",
+      "Genres": [],
+      "RecursiveItemCount": 6,
+      "UserData": {
+        "Played": false,
+        "UnplayedItemCount": 5,
+        "LastPlayedDate": "2025-12-30T20:00:00.0000000Z"
+      },
+      "Status": "Continuing"
+    },
+    {
+      "Id": "series-fixture-2",
+      "Name": "Night Ferry",
+      "Type": "Series",
+      "ProductionYear": 2015,
+      "DateCreated": "2024-01-15T10:00:00.0000000Z",
+      "Genres": [
+        "Crime"
+      ],
+      "RecursiveItemCount": 24,
+      "UserData": {
+        "Played": false,
+        "UnplayedItemCount": 24
+      },
+      "ProviderIds": {
+        "Tvdb": "7002"
+      },
+      "Status": "Ended",
+      "CommunityRating": 7.6
+    }
+  ],
+  "TotalRecordCount": 2
+}

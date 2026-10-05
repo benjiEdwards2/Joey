@@ -1,0 +1,56 @@
+{
+  "Items": [
+    {
+      "Id": "item-fixture-6",
+      "Name": "Harbour Lights",
+      "Type": "Movie",
+      "ProductionYear": 2021,
+      "RunTimeTicks": 62400000000,
+      "DateCreated": "2025-12-30T09:12:00.0000000Z",
+      "Genres": [
+        "Drama"
+      ],
+      "UserData": {
+        "Played": true,
+        "LastPlayedDate": "2025-12-31T18:30:00.0000000Z"
+      },
+      "ProviderIds": {
+        "Tmdb": "116"
+      }
+    },
+    {
+      "Id": "item-fixture-8",
+      "Name": "Desert Crossing",
+      "Type": "Movie",
+      "ProductionYear": 2023,
+      "RunTimeTicks": 76200000000,
+      "DateCreated": "2025-12-28T18:05:00.0000000Z",
+      "Genres": [
+        "Adventure",
+        "Thriller"
+      ],
+      "UserData": {
+        "Played": true,
+        "LastPlayedDate": "2025-12-29T19:00:00.0000000Z"
+      },
+      "CommunityRating": 6.5
+    },
+    {
+      "Id": "item-fixture-9",
+      "Name": "Salt Flats",
+      "Type": "Movie",
+      "ProductionYear": 2020,
+      "RunTimeTicks": 57600000000,
+      "DateCreated": "2025-06-11T08:00:00.0000000Z",
+      "Genres": [],
+      "UserData": {
+        "Played": false
+      },
+      "ProviderIds": {
+        "Tmdb": "142"
+      },
+      "CommunityRating": 7.0
+    }
+  ],
+  "TotalRecordCount": 3
+}

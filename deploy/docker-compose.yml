@@ -27,10 +27,13 @@ services:
       SNAPSHOT_DIR: /data/snapshots
       IMG_CACHE_DIR: /data/cache/img
       MEDIA_DB_PATH: /data/sqlite/media.db
+      MEDIA_BACKUP_DIR: /data/backups/media
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
       - /volume1/Docker/joey/data/cache/img:/data/cache/img
       - /volume1/Docker/joey/data/sqlite:/data/sqlite
+      # media.db backups (2026-10-05): daily gzip dumps from the hub; host dir owned by uid 1000.
+      - /volume1/Docker/joey/backups/media:/data/backups/media
     # NO public ports. The hub is reached only through the Cloudflare tunnel
     # container, which WP11 fronts it with on the compose network.
     expose:

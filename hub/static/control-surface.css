@@ -152,6 +152,8 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent)
 .appdot.down { background: #FF6B6B; }
 .appstate { font-size: 12px; font-weight: 700; flex: 0 0 40px; }  /* the WORD: Up / Down */
 .appnote { font-size: 11px; color: var(--text-dim); }
+.backuprow .appstate { flex: 0 0 auto; }  /* 'Backed up' / 'None yet' are wider than Up/Down */
+.backupwarn { margin: 0 0 12px; }
 .pbar { flex: 0 0 100%; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .pbar > span { display: block; height: 100%; background: var(--accent, var(--text-dim)); }
 .nextleft { flex: 0 0 auto; text-align: right; }

@@ -17,6 +17,17 @@
     </a>
     {% endfor %}
   {% endif %}
+  {# media.db backup (2026-10-05): not a link; nothing while there is no DB to protect. #}
+  {% set b = backup %}
+  {% if b and b.state != "nodb" %}
+    <div class="uprow approw backuprow">
+      <span class="appdot {{ 'up' if b.state == 'ok' else ('down' if b.state in ('stale', 'none') else '') }}" aria-hidden="true"></span>
+      <span class="appstate">{{ {"ok": "Backed up", "stale": "Stale", "none": "None yet", "off": "Off"}[b.state] }}</span>
+      <span class="uptitle">Joey media backup</span>
+      {% if b.state in ("ok", "stale") %}<span class="appnote">{{ b.age_text }} · {{ b.size_text }}</span>
+      {% elif b.state == "off" and b.note %}<span class="appnote">{{ b.note }}</span>{% endif %}
+    </div>
+  {% endif %}
   {% include "_detail_foot.html" %}
 </section>
 {% endblock %}

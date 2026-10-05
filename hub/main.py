@@ -25,6 +25,8 @@ from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
+from hub import media_watchlist
+from hub.media_watchlist import router as media_watchlist_router
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
 
@@ -91,6 +93,7 @@ app.include_router(images_router)
 app.include_router(media_write_router)
 app.include_router(media_discover_router)
 app.include_router(media_plays.router)
+app.include_router(media_watchlist_router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
@@ -457,6 +460,11 @@ def media_frame(request: Request) -> dict:
         view, _ = resolve_owner_view(request)
         area = media_nav.shelves_area(registry)
         waiting = area_waiting(area, get_snapshots(), view) if area else {}
+        try:
+            jelly = get_snapshots().get(JELLYFIN_SNAPSHOT_ID)
+            waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
+        except Exception as exc:  # the Watchlist count is a nicety: never break the frame
+            log.warning("watchlist count skipped: %s", type(exc).__name__)
         cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)
     return cached
 

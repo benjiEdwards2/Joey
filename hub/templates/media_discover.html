@@ -28,7 +28,7 @@
   {% if s.rows is none %}
   <div class="value dim">Discover unavailable</div>
   {% elif s.rows %}
-  <div class="shelf-row">{% for r in s.rows %}{{ item(r) }}{% endfor %}</div>
+  <div class="shelf-row">{% for r in s.rows %}{{ item(r, wl_keys) }}{% endfor %}</div>
   {% else %}
   <div class="value dim">Nothing to show</div>
   {% endif %}

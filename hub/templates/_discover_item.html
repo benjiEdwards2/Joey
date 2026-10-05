@@ -1,10 +1,21 @@
-{# One Discover/search result (2026-10-05): poster, title, year and the status WORD. #}
+{# One Discover/search result (2026-10-05): poster, title, year and the status WORD.
+   F6: a small "+" (htmx, plain-form fallback) adds it to the watchlist; hidden once it is on the list. #}
 {% from "_poster.html" import poster %}
-{% macro item(i) -%}
+{% macro item(i, wl_keys=none) -%}
+<div class="shelf-cell">
 <a class="shelf-item" href="{{ i.href }}">
   {{ poster(i.poster, i.title, 240) }}
   <span class="pgtitle">{{ i.title }}</span>
   <span class="pgsub">{{ i.year or "" }}{{ " · " if i.year }}{{ "TV" if i.kind == "tv" else "Film" }}</span>
   <span class="chip st-{{ i.status_word|lower|replace(' ', '-') }}">{{ i.status_word }}</span>
 </a>
+{%- if wl_keys is not none and ("tmdb:" ~ i.tmdb_id) not in wl_keys %}
+<span class="wlbtn compact">
+  <form method="post" action="/media/watchlist/add" hx-post="/media/watchlist/add" hx-target="closest .wlbtn" hx-swap="outerHTML">
+    <input type="hidden" name="tmdb_id" value="{{ i.tmdb_id }}"><input type="hidden" name="kind" value="{{ i.kind }}"><input type="hidden" name="title" value="{{ i.title }}"><input type="hidden" name="year" value="{{ i.year or '' }}"><input type="hidden" name="poster" value="{{ i.poster or '' }}"><input type="hidden" name="compact" value="1">
+    <button type="submit" class="wlplus" title="Add to watchlist" aria-label="Add {{ i.title }} to watchlist">+</button>
+  </form>
+</span>
+{%- endif %}
+</div>
 {%- endmacro %}

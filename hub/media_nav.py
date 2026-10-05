@@ -10,10 +10,12 @@ HOME_ID = "home"
 SECTIONS: list[dict] = [
     {"id": "home", "label": "Home", "href": None, "prefixes": [], "tabs": []},
     {"id": "movies", "label": "Movies", "href": "/media/movies", "prefixes": ["/media/movies"],
-     "tabs": [("My films", "/media/movies"), ("By year", "/media/years?kind=movie"),
+     "tabs": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
+              ("By year", "/media/years?kind=movie"),
               ("Tonight", "/media/movies/tonight")]},
     {"id": "tv", "label": "TV Shows", "href": "/media/tv", "prefixes": ["/media/tv"],
-     "tabs": [("My shows", "/media/tv"), ("By year", "/media/years?kind=tv"),
+     "tabs": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"),
+              ("By year", "/media/years?kind=tv"),
               ("Tonight", "/media/tv/tonight")]},
     {"id": "diary", "label": "Diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
      "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]},
@@ -81,7 +83,9 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
     if section:
         scores = [_tab_on(h, path, kind) for _, h in section["tabs"]]
         top = max(scores, default=0)
-        tabs = [{"label": label, "href": h, "on": bool(top) and sc == top}
+        tab_counts = {"/media/movies/watchlist": waiting.get("wl_movie", 0),
+                      "/media/tv/watchlist": waiting.get("wl_tv", 0)}
+        tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0}
                 for (label, h), sc in zip(section["tabs"], scores)]
     keep = [(k, v) for k, v in parse_qsl(request.url.query, keep_blank_values=True) if k != "owner_view"]
     here = path + (f"?{urlencode(keep, doseq=True)}" if keep else "")

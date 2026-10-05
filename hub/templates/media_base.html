@@ -23,7 +23,7 @@
   </nav>
   {% if nav.tabs %}
   <nav class="subtabs" aria-label="{{ nav.section.label }}">
-    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}</a>{% endfor %}
+    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> to get</span></span>{% endif %}</a>{% endfor %}
   </nav>
   {% endif %}
 </div>

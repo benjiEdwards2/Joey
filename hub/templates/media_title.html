@@ -43,6 +43,7 @@
   </div>
   {% endif %}
   {% include "_request_block.html" %}
+  {% with w = {"tmdb_id": t.tmdb_id, "kind": t.kind, "title": t.title, "year": t.year, "poster": t.poster}, on = on_watchlist, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}
 </section>
 {% endif %}
 {% endblock %}

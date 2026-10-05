@@ -23,6 +23,7 @@ from fastapi.templating import Jinja2Templates
 
 from hub import media_files
 from hub.images import REF_RE
+from hub.media_watchlist import keys_for
 from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
 
 log = logging.getLogger("hub.media_discover")
@@ -163,7 +164,7 @@ def discover_page(request: Request, q: str = ""):
     q = q.strip()[:100]
 
     def build():
-        ctx = {"q": q, "shelves": [], "rows": [], "note": None}
+        ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set()}
         if _creds():
             if q:
                 ctx["rows"], ctx["note"] = _search_outcome(q)
@@ -171,6 +172,8 @@ def discover_page(request: Request, q: str = ""):
                 with ThreadPoolExecutor(max_workers=len(SHELVES)) as pool:
                     got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), SHELVES))
                 ctx["shelves"] = [{"id": s[0], "title": s[1], "rows": rows} for s, rows in zip(SHELVES, got)]
+        ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in ctx["rows"]
+                                            + [r for s in ctx["shelves"] for r in s["rows"] or []]])
         return ctx
 
     return _page(request, "media_discover.html", build)
@@ -179,7 +182,8 @@ def discover_page(request: Request, q: str = ""):
 @router.get("/media/discover/search", response_class=HTMLResponse)
 def discover_search(request: Request, q: str = ""):
     rows, note = _search_outcome(q.strip()[:100])
-    return _partial(request, "_discover_results.html", rows=rows, note=note)
+    return _partial(request, "_discover_results.html", rows=rows, note=note,
+                    wl_keys=keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in rows]))
 
 
 # ---- Title page + request ----
@@ -272,7 +276,8 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
         else:
             block = _block(t, "confirm" if step == "confirm" else "idle")
         files = media_files.file_summary(kind, tmdb_id) if t["status_word"] in ON_DISK else None
-        return {"note": None, "dl_badge": _dl_badge(t["title"]), "files": files, **block}
+        return {"note": None, "dl_badge": _dl_badge(t["title"]), "files": files,
+                "on_watchlist": bool(keys_for(request, [f"tmdb:{tmdb_id}"])), **block}
 
     return _page(request, "media_title.html", build)
 

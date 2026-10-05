@@ -114,6 +114,27 @@ hub falls back to the bare server link, so an older snapshot still renders. The 
 block (`user`, `up_next`, `history`) is Georgina's view and is `null` when `JELLYFIN_USER_HER`
 is unset or names no user.
 
+**Jellyfin library lists (2026-10-06, F3a).** `jellyfin` data gains optional top-level arrays
+`movies` and `shows`, and the same two inside `her` (read as Georgina). Row shape (schema:
+`connectors/schema/data/jellyfin.schema.json`, `additionalProperties: false`):
+
+- movies: `title`, `year` (int|null), `jf_id`, `item_key` (`tmdb|tvdb|jf:`…|null), `poster`,
+  `backdrop` (refs, nullable), `runtime_min` (int|null), `played` (bool), `last_played_at`,
+  `added_at` (ISO|null), `community_rating` (number|null), `genres` (≤ 3 strings).
+- shows: the same fields plus `status_word` (`Continuing` | `Ended` | `Unknown`), `episodes`
+  (int ≥ 0) and `unplayed` (int ≥ 0).
+
+Fetched in `connectors/stubs.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
+`IncludeItemTypes=Movie` / `Series`, `Recursive=true`, `SortBy=SortName`, `Limit=2000`
+(`LIBRARY_FETCH_LIMIT`) and `Fields` of `DateCreated,ProviderIds,Genres,ProductionYear` plus
+`Overview` (and `Status,RecursiveItemCount` for series). That is two extra GETs on the 2-minute
+sweep, four with `JELLYFIN_USER_HER`. Snapshots written before this have neither array and stay
+valid; the hub library pages then say "Library list not available yet".
+
+**Arr `at` (2026-10-06).** `arrived` and `updated` rows gain an optional `at` — the ISO timestamp
+of the newest import. "New this week" on My films / My shows filters on it and falls back to
+parsing the `when` text for older snapshots.
+
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a
 runner-registered task rather than a `Connector` subclass (D14), and an empty

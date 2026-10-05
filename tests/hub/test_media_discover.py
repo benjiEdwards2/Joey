@@ -345,7 +345,7 @@ def _jf(monkeypatch, fake, down=False):
     monkeypatch.setenv("JELLYFIN_URL", JF_URL)
     monkeypatch.setenv("JELLYFIN_API_KEY", JF_KEY)
     calls = []
-    file_item = {"MediaSources": [{"Container": "mkv", "Size": 2 * 1024 ** 3, "MediaStreams": [
+    file_item = {"ProviderIds": {"Tmdb": "603"}, "MediaSources": [{"Container": "mkv", "Size": 2 * 1024 ** 3, "MediaStreams": [
         {"Type": "Video", "Codec": "hevc", "Height": 2160, "Width": 3840, "VideoRangeType": "HDR10"},
         {"Type": "Audio", "Codec": "eac3", "Channels": 6, "IsDefault": True}]}]}
     seerr_get = fake.get
@@ -359,7 +359,7 @@ def _jf(monkeypatch, fake, down=False):
         if url.endswith("/Users"):
             return Resp([{"Id": "u1", "Name": "B", "Policy": {"IsAdministrator": True}}])
         kind = (params or {}).get("IncludeItemTypes")
-        return Resp({"Items": [{"Id": "s1"}] if kind == "Series" else [file_item]})
+        return Resp({"Items": [{"Id": "s1", "ProviderIds": {"Tmdb": "100"}}] if kind == "Series" else [file_item]})
 
     monkeypatch.setattr(requests, "get", get)
     return calls

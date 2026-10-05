@@ -19,8 +19,8 @@ def astream(codec="aac", ch=2, profile="LC", default=True):
     return {"Type": "Audio", "Codec": codec, "Channels": ch, "Profile": profile, "IsDefault": default}
 
 
-def item(streams, container="mkv", size=12.4 * 1024 ** 3):
-    return {"MediaSources": [{"Container": container, "Size": int(size), "MediaStreams": streams}]}
+def item(streams, container="mkv", size=12.4 * 1024 ** 3, tmdb="1", **extra):
+    return {"ProviderIds": {"Tmdb": tmdb}, **extra, "MediaSources": [{"Container": container, "Size": int(size), "MediaStreams": streams}]}
 
 
 class R:
@@ -88,7 +88,7 @@ def test_uid_cached_across_titles(fake):
 
 def test_movie_4k_dv_truehd_atmos(fake):
     fake.movies = [item([vstream(2160, 3840, "hevc", "DOVIWithHDR10"),
-                         astream("truehd", 8, "Dolby TrueHD + Dolby Atmos")])]
+                         astream("truehd", 8, "Dolby TrueHD + Dolby Atmos")], tmdb="603")]
     s = media_files.file_summary("movie", 603)
     params = fake.calls[1][1]
     assert params["AnyProviderIdEquals"] == "Tmdb.603" and params["IncludeItemTypes"] == "Movie"
@@ -104,7 +104,8 @@ def test_movie_1080p_h264_aac_stereo_mp4(fake):
     assert s["size_text"] == "700 MB"
 
 
-@pytest.mark.parametrize("rng,word", [("HDR10", "HDR10"), ("HDR10Plus", "HDR10+"), ("HLG", "HLG")])
+@pytest.mark.parametrize("rng,word", [("HDR10", "HDR10"), ("HDR10Plus", "HDR10+"), ("HLG", "HLG"),
+                                      ("DOVIInvalid", "HDR10"), ("DOVIWithHDR10Plus", "Dolby Vision")])
 def test_hdr_words(fake, rng, word):
     fake.movies = [item([vstream(2160, 3840, "hevc", rng), astream()])]
     assert word in words(media_files.file_summary("movie", 1)["video"])
@@ -121,6 +122,7 @@ def test_audio_words(fake):
 
 
 def test_show_mixed_resolutions(fake):
+    fake.series = [{"Id": "other", "ProviderIds": {"Tmdb": "5"}}, {"Id": "ser1", "ProviderIds": {"tmdb": "100"}}]
     fake.episodes = [item([vstream(), astream()], size=1024 ** 3),
                      item([vstream(2160, 3840, "hevc", "HDR10"), astream()], size=2 * 1024 ** 3)]
     s = media_files.file_summary("tv", 100)
@@ -133,6 +135,8 @@ def test_show_mixed_resolutions(fake):
 
 def test_show_not_in_jellyfin_or_empty(fake):
     fake.series = []
+    assert media_files.file_summary("tv", 100) is None
+    fake.series = [{"Id": "x", "ProviderIds": {"Tmdb": "5"}}]
     assert media_files.file_summary("tv", 100) is None
     fake.movies = []
     assert media_files.file_summary("movie", 1) is None
@@ -163,3 +167,10 @@ def test_cache_hit_and_expiry(fake, monkeypatch):
     monkeypatch.setattr(media_files.time, "time", lambda: now + media_files.CACHE_TTL + 1)
     media_files.file_summary("movie", 1)
     assert len(fake.calls) > n
+
+
+def test_movie_filtered_client_side(fake):
+    fake.movies = [item([vstream(), astream()], tmdb="1"), item([vstream(2160, 3840, "hevc", "HDR10"), astream()], tmdb="2")]
+    assert "4K" in words(media_files.file_summary("movie", 2)["video"])
+    media_files.clear_cache()
+    assert media_files.file_summary("movie", 3) is None

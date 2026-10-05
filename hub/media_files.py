@@ -85,6 +85,8 @@ def _resolution(stream: dict, source: dict) -> str:
 
 def _hdr(stream: dict) -> str | None:
     rng = str(stream.get("VideoRangeType") or stream.get("VideoRange") or "").lower().replace(" ", "")
+    if rng == "doviinvalid":  # broken DV layer: playback falls back to the HDR10 base
+        return "HDR10"
     if rng.startswith("dovi"):
         return "Dolby Vision"
     for key, word in (("hdr10plus", "HDR10+"), ("hdr10", "HDR10"), ("hlg", "HLG")):
@@ -161,20 +163,32 @@ def _summarise(kind: str, items: list) -> dict | None:
             "episodes_on_disk": len(files) if kind == "tv" else None}
 
 
+def _tmdb_match(items, tmdb_id: int) -> list[dict]:
+    """Jellyfin 12.x ignores AnyProviderIdEquals, so filter on ProviderIds.Tmdb ourselves."""
+    out = []
+    for i in items or []:
+        ids = i.get("ProviderIds") if isinstance(i, dict) else None
+        if isinstance(ids, dict) and any(str(k).lower() == "tmdb" and str(v) == str(tmdb_id) for k, v in ids.items()):
+            out.append(i)
+    return out
+
+
 def _items(base: str, headers: dict, uid: str, kind: str, tmdb_id: int):
     path = f"/Users/{uid}/Items"
     common = {"Recursive": "true", "Fields": ITEM_FIELDS, "Limit": ITEM_LIMIT}
+    wanted = {"AnyProviderIdEquals": f"Tmdb.{tmdb_id}"}
     if kind == "movie":
-        body = _get(base, headers, path, {"AnyProviderIdEquals": f"Tmdb.{tmdb_id}",
-                                          "IncludeItemTypes": "Movie", **common})
-    else:
-        # Episodes don't carry the show's TMDB id: find the Series first, then its episodes.
-        series = _get(base, headers, path, {"AnyProviderIdEquals": f"Tmdb.{tmdb_id}",
-                                            "IncludeItemTypes": "Series", "Recursive": "true", "Limit": 1})
-        first = (series.get("Items") or [None])[0] if isinstance(series, dict) else None
-        if not isinstance(first, dict) or not first.get("Id"):
-            return None
-        body = _get(base, headers, path, {"ParentId": first["Id"], "IncludeItemTypes": "Episode", **common})
+        body = _get(base, headers, path, {**wanted, "IncludeItemTypes": "Movie", **common,
+                                          "Fields": ITEM_FIELDS + ",ProviderIds"})
+        items = body.get("Items") if isinstance(body, dict) else None
+        return _tmdb_match(items, tmdb_id)
+    # Episodes don't carry the show's TMDB id: find the Series first, then its episodes.
+    series = _get(base, headers, path, {**wanted, "IncludeItemTypes": "Series", "Recursive": "true",
+                                        "Fields": "ProviderIds", "Limit": ITEM_LIMIT})
+    found = _tmdb_match(series.get("Items") if isinstance(series, dict) else None, tmdb_id)
+    if not found or not found[0].get("Id"):
+        return None
+    body = _get(base, headers, path, {"ParentId": found[0]["Id"], "IncludeItemTypes": "Episode", **common})
     items = body.get("Items") if isinstance(body, dict) else None
     return items if isinstance(items, list) else None
 

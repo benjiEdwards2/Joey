@@ -1062,7 +1062,7 @@ def area_page(request: Request, area_id: str):
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
-        "upcoming": find_upcoming(tiles, snaps, view),
+        "upcoming": find_upcoming(tiles, snaps, view), "weather": find_weather(snaps),
         "media": media,
         "ratings": _ratings(view, *_media_rows(media)),
     })

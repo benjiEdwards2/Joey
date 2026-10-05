@@ -6,7 +6,7 @@
 {% import "_icons.html" as ic %}
 {% from "_waiting.html" import waitchips %}
 {% macro kpi(href, label, area_name, icon, st, owner, value=none, sub=none, brand_icon=false,
-             cls="", extra=none, waiting=none, jump=none, bars=none, pct=none) -%}
+             cls="", extra=none, waiting=none, jump=none, bars=none, pct=none, new_tab=false, open_word=none) -%}
 {% set off = st.state == "off" %}
 {% set val = "Not connected" if off else (value if value is not none else st.value) %}
 {% set subline = st.note if off else (sub if sub is not none else st.secondary) %}
@@ -25,6 +25,7 @@
     {% if st.state == "stale" %}<span class="badge stale">{{ st.age_text }}</span>
     {% elif off %}<span class="badge off">not connected</span>{% endif %}
     {{ waitchips(waiting) }}
+    {% if open_word %}<span class="open">{{ open_word }}</span>{% endif %}
     {% if jump %}<a class="jumpback" href="{{ jump }}" target="_blank" rel="noopener">Jump back in ↗</a>{% endif %}
     {% if st.state == "fresh" and st.age_text %}<span class="ago">{{ st.age_text }}</span>{% endif %}
   </div>
@@ -39,14 +40,16 @@
   <div class="sparkbar" role="img" aria-label="{{ pct }}% watched"><span style="width: {{ pct }}%"></span></div>
   {% endif %}
 {% endset %}
-{% if jump %}
-<div class="card kpi split{% if cls %} {{ cls }}{% endif %}">
+{% if href is none %}
+<div class="card kpi{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">{{ body }}{{ foot }}{{ spark }}</div>
+{% elif jump %}
+<div class="card kpi split{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">
   <a class="kpibody" href="{{ href }}">{{ body }}</a>
   {{ foot }}{{ spark }}
 </div>
 {% else %}
-<a class="cardlink{% if cls %} {{ cls }}{% endif %}" href="{{ href }}">
-  <div class="card kpi">{{ body }}{{ foot }}{{ spark }}</div>
+<a class="cardlink{% if cls %} {{ cls }}{% endif %}" href="{{ href }}"{% if new_tab %} target="_blank" rel="noopener"{% endif %}>
+  <div class="card kpi" data-owner="{{ owner }}">{{ body }}{{ foot }}{{ spark }}</div>
 </a>
 {% endif %}
 {%- endmacro %}

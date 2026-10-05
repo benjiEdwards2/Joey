@@ -3,7 +3,7 @@
 <article class="card panel">
   <div class="hd">
     <div><h2>Next {{ upcoming.days }} days</h2><p>Both calendars, merged</p></div>
-    <a class="right seeall" href="{{ upcoming.href }}">View all ›</a>
+    {% if upcoming.href %}<a class="right seeall" href="{{ upcoming.href }}">View all ›</a>{% endif %}
   </div>
   <div class="bd">
     {% if upcoming.st.state == "off" %}

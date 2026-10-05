@@ -114,7 +114,7 @@ def test_area_strip_shows_five_recent_items_with_a_you_chip(app_factory):
     with build(snaps) as client:
         body = main_of(client.get("/a/alpha").text)
     strip = body.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
-    assert body.index('class="grid"') < body.index(">Recently watched<")
+    assert body.index('class="kpis areakpis"') < body.index(">Recently watched<")
     assert strip.count('class="uprow playrow hasposter"') == 5 and 'href="/media/diary"' in strip
     assert "Harbour Lights" in strip and "Desert Crossing" not in strip  # 4th kept, 6th cut
     assert '<span class="chip">You</span>' in strip

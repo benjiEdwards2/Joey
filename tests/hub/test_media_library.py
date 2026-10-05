@@ -108,7 +108,7 @@ def test_area_strip_present_only_with_the_snapshot(app_factory):
     write_envelope(snaps, "arr", age_minutes=1, data=data)
     with build(snaps) as client:
         body = main_of(client.get("/a/alpha").text)
-    assert body.index('class="grid"') < body.index(">Just arrived<")
+    assert body.index('class="kpis areakpis"') < body.index(">Just arrived<")
     assert "Item 4" in body and "Item 5" not in body  # capped at 5
     with build(tmp_path / "empty") as client:
         assert "Just arrived" not in main_of(client.get("/a/alpha").text)

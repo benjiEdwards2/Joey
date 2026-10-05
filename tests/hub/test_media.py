@@ -123,7 +123,7 @@ def test_media_sections_render_in_the_page_body_not_the_title(app_factory):
     title = html.split("<title>", 1)[1].split("</title>", 1)[0]
     assert "<" not in title and "Apps" not in title
     body = html.split("<main", 1)[1]
-    assert body.index('class="grid"') < body.index(">Apps<")
+    assert body.index('class="kpis areakpis"') < body.index(">Apps<")
     assert ">Now playing</div>" in body and ">Up next</div>" in body
 
 

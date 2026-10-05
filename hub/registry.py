@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -67,6 +67,7 @@ class Area(BaseModel):
     icon: str
     summary_tile: str
     hub_size: HubSize = HubSize.s11
+    layout: Literal["grid", "shelves"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05)
     tiles: list[Tile]
 
 

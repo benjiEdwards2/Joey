@@ -291,3 +291,46 @@ nav.tabs { display: none; }
 @media (max-width: 400px) {
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---- Media shelves layout (2026-10-05): hero + horizontal poster shelves. Existing tokens only. ---- */
+.shelfhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.glassbtn { display: inline-block; font-size: 13px; font-weight: 600; color: var(--text); text-decoration: none;
+  background: rgba(0,0,0,.35); border: 1px solid var(--accent, var(--text-dim)); border-radius: 10px; padding: 7px 14px; }
+.glassbtn:hover { background: rgba(255,255,255,.06); }
+.hero { position: relative; display: flex; gap: 20px; align-items: flex-end; min-height: 220px; padding: 20px;
+  margin: 12px 0 22px; border: 1px solid color-mix(in srgb, var(--accent, var(--text-faint)) 22%, var(--border));
+  border-radius: 14px; overflow: hidden;
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent, var(--text-faint)) 22%, var(--card)), var(--card) 70%); }
+.hero.hasbackdrop { background-image: linear-gradient(90deg, rgba(16,18,25,.92), rgba(16,18,25,.6)), var(--bd);
+  background-size: cover; background-position: center; }
+.herocorner { position: absolute; top: 12px; right: 14px; }
+.heroposter { height: 180px; width: auto; }
+.herotext { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
+.herokind { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--accent, var(--text-dim)); }
+.herotitle { font-size: 28px; font-weight: 700; line-height: 1.15; }
+.herosub { font-size: 14px; color: var(--text-dim); }
+.herotext .pbar { flex: none; width: 100%; max-width: 360px; }
+.shelf { margin: 0 0 22px; }
+.shelftop { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.shelftop h3 { margin: 0; font-size: 15px; }
+.seeall { font-size: 12px; font-weight: 600; color: var(--accent, var(--text-dim)); text-decoration: none; }
+.shelf-row { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px;
+  scrollbar-width: none; }
+.shelf-row::-webkit-scrollbar { display: none; }
+.shelf-item { flex: 0 0 120px; width: 120px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  scroll-snap-align: start; color: var(--text); text-decoration: none; }
+.shelf-item .poster { width: 100%; height: auto; }
+.shelf-item:hover .poster { border-color: var(--accent, var(--text-dim)); }
+.shelf-item .pgtitle { font-size: 13px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.shelf-item .chip { align-self: flex-start; }
+.appstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px;
+  padding-top: 14px; border-top: 1px solid var(--border); }
+.appsum { font-size: 12px; color: var(--text-dim); margin-right: 4px; }
+.appchip { text-decoration: none; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) {
+  .hero { flex-direction: column; align-items: flex-start; padding: 16px; }
+  .heroposter { height: 140px; }
+  .herotitle { font-size: 22px; }
+  .shelf-item { flex-basis: 96px; width: 96px; }
+}

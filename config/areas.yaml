@@ -99,6 +99,7 @@ areas:
     accent: "#FF5CA8"
     icon: media
     summary_tile: watching
+    layout: shelves                                  # hero + poster shelves instead of tile cards (2026-10-05)
     tiles:
       - id: watching
         label: Now playing

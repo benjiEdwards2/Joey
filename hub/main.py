@@ -330,6 +330,109 @@ def build_status(snaps) -> dict:
     }
 
 
+SHELF_MAX = 15         # items per poster shelf
+TO_RATE_SHELF_MAX = 10
+LIBRARY_DETAIL = "/media/library"
+PLAYING_DETAIL = "/media/playing"
+REQUESTS_DETAIL = "/media/requests"
+
+
+def build_shelves(area, tiles, snaps, view: str) -> dict:
+    """Hero + poster shelves for a `layout: shelves` area. Pure over its inputs (plus the
+    ratings DB). A shelf renders only when the registry tile it stands for is visible in
+    the owner view; snapshots/DB missing just leave quiet words (years/torate: omitted)."""
+    by_detail = {r["tile"].detail: r for r in tiles if r["tile"].detail}
+    link = next((r["st"]["href"] for r in tiles if r["st"]["state"] == "link"), None)
+
+    def data_of(snapshot_id):
+        snap = snaps.get(snapshot_id)
+        return snap.data if snap else {}
+
+    jelly = data_of(JELLYFIN_SNAPSHOT_ID)
+    jelly_row = next((r for r in tiles if r["tile"].snapshot == JELLYFIN_SNAPSHOT_ID), None)
+    now = datetime.now(timezone.utc)
+
+    hero = None
+    playing = (jelly.get("now_playing") or [])
+    up_next = (jelly.get("up_next") or [])
+    if playing:
+        p = playing[0]
+        hero = {"kind_word": "Playing now", "title": p.get("title"), "poster": p.get("poster"),
+                "backdrop": p.get("backdrop"), "user": p.get("user"),
+                "play_method": p.get("play_method"), "progress_pct": p.get("progress_pct"),
+                "sub": None, "href": link}
+    elif up_next:
+        n = up_next[0]
+        hero = {"kind_word": "Up next", "title": n.get("title"), "poster": n.get("poster"),
+                "backdrop": n.get("backdrop"), "user": None, "play_method": None,
+                "progress_pct": None, "sub": n.get("remaining_text"), "href": link}
+    kind_word = hero["kind_word"] if hero else "Nothing playing"
+
+    def item(r, sub, href, **extra):
+        return {"title": r.get("title"), "sub": sub, "poster": r.get("poster"),
+                "href": href, "item_key": r.get("item_key"), **extra}
+
+    shelves: list[dict] = []
+
+    def add(sid, title, detail, items, quiet, omit_empty=False):
+        if detail not in by_detail or (omit_empty and not items):
+            return
+        shelves.append({"id": sid, "title": title, "see_all_href": detail,
+                        "items": items, "quiet_text": quiet})
+
+    recent = ((jelly.get("history") or {}).get("recent") or [])
+    arrived = list(data_of(ARR_SNAPSHOT_ID).get("arrived") or [])
+    latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
+    added, seen = [], set()
+    for r, sub in ([(r, _ago_text(r.get("added_at"), now)) for r in latest]
+                   + [(r, r.get("when", "")) for r in arrived]):
+        key = r.get("item_key") or r.get("title")
+        if key in seen:
+            continue
+        seen.add(key)
+        added.append(item(r, sub, LIBRARY_DETAIL))
+    added = added[:SHELF_MAX]
+    requests = [item(r, r.get("status_text", ""), REQUESTS_DETAIL)
+                for r in (data_of(JELLYSEERR_SNAPSHOT_ID).get("requests") or [])][:SHELF_MAX]
+    years = []
+    if YEARS_DETAIL in by_detail:
+        for y in media_db.years_overview():
+            top = y["top"] or {}
+            label = str(y["year"] or "Unknown year")
+            sub = (f"#1 — {top['title']}" if top.get("title")
+                   else f"{y['unranked_count']} to place")
+            years.append({"title": label, "sub": sub, "poster": top.get("poster"),
+                          "href": f"/media/years/{y['year'] or 'unknown'}"})
+        years = years[:SHELF_MAX]
+
+    watched_rows = recent[:SHELF_MAX]
+    ratings = _ratings(view, up_next, added, recent, requests)  # ONE query for every shelf
+    to_rate = [item(r, "Rate →", HISTORY_DETAIL)
+               for r in _to_rate(recent, ratings)][:TO_RATE_SHELF_MAX]         if HISTORY_DETAIL in by_detail else []
+
+    add("continue", "Continue watching", PLAYING_DETAIL,
+        [item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]], "Nothing up next")
+    add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
+    add("watched", "Recently watched", DIARY_DETAIL,
+        [item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows], "Nothing watched yet")
+    add("torate", "To rate", HISTORY_DETAIL, to_rate, "", omit_empty=True)
+    add("requests", "Requests", REQUESTS_DETAIL, requests, "No requests")
+    add("years", "By year", YEARS_DETAIL, years, "", omit_empty=True)
+    for sh in shelves:
+        for it in sh["items"]:
+            it["score"] = ratings.get(it.pop("item_key", None))  # years carry none
+
+    apps_row = next((r for r in tiles if r["tile"].snapshot == MEDIA_STATUS_SNAPSHOT_ID), None)
+    apps = data_of(MEDIA_STATUS_SNAPSHOT_ID).get("apps") if apps_row and apps_row["st"]["state"] in ("fresh", "stale") else None
+    return {
+        "hero": hero, "kind_word": kind_word, "shelves": shelves,
+        "apps": apps or [], "apps_up": sum(1 for a in apps or [] if a.get("up")),
+        "apps_st": apps_row["st"] if apps_row else None, "has_apps": bool(apps),
+        "open_href": link,
+        "freshness": jelly_row["st"] if jelly_row else None,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
@@ -566,6 +669,12 @@ def area_page(request: Request, area_id: str):
     snaps = get_snapshots()
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
              for t in area.tiles if owner_visible(t, view)]
+    if area.layout == "shelves":
+        resp = templates.TemplateResponse(request, "area_shelves.html", {
+            "areas": registry.areas, "active_id": area.id, "area": area, "owner_view": view,
+            "status": build_status(snaps), "sh": build_shelves(area, tiles, snaps, view),
+        })
+        return _maybe_set_cookie(resp, view, from_query)
     media = find_media(tiles, snaps)
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,

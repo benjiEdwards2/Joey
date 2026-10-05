@@ -68,7 +68,7 @@ services:
 
   connectors:
     # Hourly full sweep plus a 2-minute fast loop for the live Media feeds
-    # (D16 amended 2026-10-05). sleep loops, NOT crond (D16) — phase drift
+    # (jellyfin, media_status, qbittorrent; D16 amended 2026-10-05, qbittorrent 2026-10-06). sleep loops, NOT crond (D16) — phase drift
     # after a restart is accepted. Writes the snapshot envelopes the hub reads.
     image: life-connectors
     build:
@@ -83,4 +83,4 @@ services:
       CONNECTOR_MODE: live
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
-    entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]
+    entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]

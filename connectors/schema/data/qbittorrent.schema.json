@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/qbittorrent.schema.json",
+  "title": "qbittorrent data block",
+  "description": "qBittorrent, read only: active downloads, torrents finished in the last 24 h, the seeding count and global transfer speeds. The shape is a contract with the hub's Media downloads view (2026-10-06). `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "secondary", "active", "finished", "seeding", "totals"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "active": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["hash", "name", "kind", "category", "pct", "state_text", "speed_text", "eta_text", "size_text", "added"],
+        "additionalProperties": false,
+        "properties": {
+          "hash": {"type": "string", "pattern": "^[0-9a-f]*$"},
+          "name": {"type": "string"},
+          "kind": {"enum": ["movie", "tv", "other"]},
+          "category": {"type": "string"},
+          "pct": {"type": "integer", "minimum": 0, "maximum": 100},
+          "state_text": {"enum": ["Downloading", "Stalled", "Paused", "Queued", "Checking", "Fetching metadata", "Allocating"]},
+          "speed_text": {"type": "string"},
+          "eta_text": {"type": "string"},
+          "size_text": {"type": "string"},
+          "added": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "finished": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["hash", "name", "kind", "size_text", "when"],
+        "additionalProperties": false,
+        "properties": {
+          "hash": {"type": "string", "pattern": "^[0-9a-f]*$"},
+          "name": {"type": "string"},
+          "kind": {"enum": ["movie", "tv", "other"]},
+          "size_text": {"type": "string"},
+          "when": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "seeding": {"type": "integer", "minimum": 0},
+    "totals": {
+      "type": "object",
+      "required": ["dl_bps", "up_bps", "dl_text", "up_text"],
+      "additionalProperties": false,
+      "properties": {
+        "dl_bps": {"type": "integer", "minimum": 0},
+        "up_bps": {"type": "integer", "minimum": 0},
+        "dl_text": {"type": "string"},
+        "up_text": {"type": "string"}
+      }
+    }
+  }
+}

@@ -110,7 +110,7 @@ The connectors container runs `while true; do python -m connectors.run_all; slee
 connector crashing never stops the sweep.
 
 D16 amended 2026-10-05: a second background loop runs
-`python -m connectors.run_all --only jellyfin,media_status; sleep 120` for the live Media
+`python -m connectors.run_all --only jellyfin,media_status,qbittorrent; sleep 120` for the live Media
 feeds. `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
 `"only": [...]` so full hourly sweeps can be told apart from fast partial ones.
 

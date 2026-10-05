@@ -45,6 +45,11 @@
       "consecutive_failures": 0,
       "error": null,
       "status": "ok"
+    },
+    "qbittorrent": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
     }
   }
 }

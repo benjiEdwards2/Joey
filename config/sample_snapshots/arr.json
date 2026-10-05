@@ -54,6 +54,7 @@
     ],
     "downloading": [
       {
+        "download_id": "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
         "item_key": "tmdb:1021",
         "kind": "movie",
         "pct": 75,
@@ -63,6 +64,7 @@
         "title": "Midnight Harbour"
       },
       {
+        "download_id": "fedcbafedcbafedcbafedcbafedcbafedcbafedc",
         "item_key": "tvdb:2001",
         "kind": "episode",
         "pct": 25,

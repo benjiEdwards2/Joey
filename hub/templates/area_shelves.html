@@ -6,7 +6,10 @@
 {# Shelves layout (2026-10-05): hero + horizontal poster shelves. State is always a WORD. #}
 <div class="shelfhead" style="--accent: {{ area.accent }}">
   <h2><span class="dot"></span>{{ area.name }}</h2>
-  {% if sh.open_href %}<a class="glassbtn" href="{{ sh.open_href }}" target="_blank" rel="noopener">Open Jellyfin ↗</a>{% endif %}
+  <span class="shelfbtns">
+    {% if sh.discover_href %}<a class="glassbtn" href="{{ sh.discover_href }}">Discover &amp; Search</a>{% endif %}
+    {% if sh.open_href %}<a class="glassbtn" href="{{ sh.open_href }}" target="_blank" rel="noopener">Open Jellyfin ↗</a>{% endif %}
+  </span>
 </div>
 
 {% set h = sh.hero %}

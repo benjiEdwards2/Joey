@@ -135,6 +135,15 @@ areas:
         detail: /media/requests
         stale_after_minutes: 180
         setup_note: "Set JELLYSEERR_URL/JELLYSEERR_API_KEY in deploy/.env."
+      # 2026-10-05: Discover & Search (search + shelves + Request) - live Jellyseerr call path.
+      - id: discover
+        label: Discover
+        tier: embed
+        owner: shared
+        snapshot: jellyseerr
+        detail: /media/discover
+        stale_after_minutes: 180
+        setup_note: "Set JELLYSEERR_URL/JELLYSEERR_API_KEY in deploy/.env."
       - id: history
         label: Watched
         tier: embed

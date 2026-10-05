@@ -1,0 +1,10 @@
+{# One Discover/search result (2026-10-05): poster, title, year and the status WORD. #}
+{% from "_poster.html" import poster %}
+{% macro item(i) -%}
+<a class="shelf-item" href="{{ i.href }}">
+  {{ poster(i.poster, i.title, 240) }}
+  <span class="pgtitle">{{ i.title }}</span>
+  <span class="pgsub">{{ i.year or "" }}{{ " · " if i.year }}{{ "TV" if i.kind == "tv" else "Film" }}</span>
+  <span class="chip st-{{ i.status_word|lower|replace(' ', '-') }}">{{ i.status_word }}</span>
+</a>
+{%- endmacro %}

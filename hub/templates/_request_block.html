@@ -1,0 +1,33 @@
+{# Request block (2026-10-05): idle -> confirm -> done, two steps and no confirm().
+   Every form/link also works without JS; the hx- attributes upgrade it. #}
+{% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
+<div id="request-block" class="requestblock">
+{% if state == "done" %}
+  <div class="reqdone">Requested ✓ — shows in Requests within the hour</div>
+{% elif state == "error" %}
+  <div class="reqdone">{{ msg }}</div>
+  <a class="launch" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Try again</a>
+{% elif state == "confirm" %}
+  <form method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#request-block" hx-swap="outerHTML">
+    {% if t.kind == "tv" %}
+    <div class="sub">Request which seasons of {{ t.title }}?</div>
+    <div class="seasonpick">
+      {% for s in t.seasons %}
+      <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " checked" if s.ticked }}{{ " disabled" if s.disabled }}>
+        {{ s.name }} <span class="chip st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span></label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="sub">Request {{ t.title }}{% if t.year %} ({{ t.year }}){% endif %}?</div>
+    {% endif %}
+    <div class="reqbtns">
+      <button class="launch" type="submit">Confirm request</button>
+      <a class="glassbtn" href="{{ base }}" hx-get="{{ base }}/request?step=idle" hx-target="#request-block" hx-swap="outerHTML">Cancel</a>
+    </div>
+  </form>
+{% elif t.code == 5 %}
+  <div class="sub">Available — nothing to request</div>
+{% else %}
+  <a class="launch" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Request</a>
+{% endif %}
+</div>

@@ -349,3 +349,26 @@ nav.tabs { display: none; }
 .herocard .jumpback:hover { text-decoration: underline; }
 .herocard a.herolink { color: inherit; text-decoration: none; display: block; flex: 1; }
 @media (max-width: 640px) { .herocard .hubhero .poster { height: 120px; } }
+
+/* ---- Discover & Search (2026-10-05): the word is always present; the colour only echoes it ---- */
+.shelfbtns { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.discover-search { max-width: 480px; margin: 10px 0 14px; }
+.discover-search input[type=search] { font: inherit; font-size: 14px; color: var(--text); background: rgba(0,0,0,.35);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.chip.st-available { color: #7BD88F; border-color: #7BD88F; }
+.chip.st-partly-available, .chip.st-processing { color: var(--stale); border-color: var(--stale); }
+.chip.st-requested { color: var(--text); border-color: var(--text-dim); }
+.poster-grid .shelf-item { width: auto; flex: none; text-decoration: none; color: inherit; }
+.titlepage { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; max-width: 760px; }
+.titlepage p { margin: 0; line-height: 1.5; }
+.seasons h3 { margin: 6px 0; font-size: 15px; }
+.seasonrow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--border); }
+.seasonrow .uptitle { flex: 1 1 140px; }
+.requestblock { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+.requestblock form { display: flex; flex-direction: column; gap: 8px; }
+.seasonpick { display: flex; flex-direction: column; gap: 4px; }
+.seasonpick label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.reqbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.reqdone { font-size: 15px; font-weight: 600; }
+.requestblock button.launch { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+@media (max-width: 640px) { .hero .heroposter { height: 120px; } }

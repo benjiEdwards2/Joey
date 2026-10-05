@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 
 from hub import media_db
 from hub.images import router as images_router
+from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub.media_write import router as media_write_router, year_ctx
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
@@ -58,6 +59,7 @@ async def log_identity(request: Request, call_next):
 
 app.include_router(images_router)
 app.include_router(media_write_router)
+app.include_router(media_discover_router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
@@ -468,6 +470,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         "apps": apps or [], "apps_up": sum(1 for a in apps or [] if a.get("up")),
         "apps_st": apps_row["st"] if apps_row else None, "has_apps": bool(apps),
         "open_href": link,
+        "discover_href": DISCOVER_DETAIL if DISCOVER_DETAIL in by_detail else None,
         "freshness": jelly_row["st"] if jelly_row else None,
     }
 

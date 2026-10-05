@@ -1,0 +1,37 @@
+{# Hub "Next 7 days" (Apex hub, 2026-10-06): build_upcoming's groups as a table. Owner chips
+   are TEXT (You / Her / Shared) — colour only echoes the word. Expects: upcoming. #}
+<article class="card panel">
+  <div class="hd">
+    <div><h2>Next {{ upcoming.days }} days</h2><p>Both calendars, merged</p></div>
+    <a class="right seeall" href="{{ upcoming.href }}">View all ›</a>
+  </div>
+  <div class="bd">
+    {% if upcoming.st.state == "off" %}
+      <div class="value dim">Not connected</div>
+      {% if upcoming.st.note %}<div class="sub">{{ upcoming.st.note }}</div>{% endif %}
+    {% else %}
+    <div class="tablewrap">
+      <table class="uptable">
+        <thead><tr><th>When</th><th>Event</th><th>Owner</th></tr></thead>
+        <tbody>
+        {% for g in upcoming.groups %}{% for e in g.events %}
+          <tr>
+            <td class="when"><span class="day">{{ g.label }}</span><small>{{ e.time_text }}</small></td>
+            <td class="event">{{ e.title }}</td>
+            <td><span class="owner {{ e.owner }}">{{ e.owner | title }}</span></td>
+          </tr>
+        {% endfor %}{% else %}
+          <tr><td class="empty" colspan="3">Nothing in the next {{ upcoming.days }} days</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% if upcoming.st.state != "fresh" %}
+    <div class="foot">
+      {% if upcoming.st.state == "stale" %}<span class="badge stale">{{ upcoming.st.age_text }}</span>
+      {% else %}<span class="badge off">not connected</span>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</article>

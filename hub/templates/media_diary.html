@@ -37,7 +37,7 @@
   {% for d in on_this_day %}
   <div class="uprow hasposter">
     {{ poster(d.poster, d.title, 120, "sm" ~ rate.pcls(d.item_key, ratings)) }}
-    <span class="uptitle">{{ d.title }}</span>
+    <span class="uptitle">{{ d.title }}{% if d.sub %} <span class="dim">· {{ d.sub }}</span>{% endif %}</span>
     <span class="chip">{{ d.kind }}</span>
     {{ rate.chip(d.item_key, ratings) }}
     <span class="uptime nextleft">{{ d.years_ago }} year{{ "" if d.years_ago == 1 else "s" }} ago</span>
@@ -49,7 +49,7 @@
   {% for g in months %}
   <div class="upday">{{ g.label }}</div>
   {% for row in g.rows %}
-  {% with score = ratings.get(row.item_key) %}{% include "_diary_row.html" %}{% endwith %}
+  {% with score = score_for(row, ratings) %}{% include "_diary_row.html" %}{% endwith %}
   {% endfor %}
   {% else %}
   <div class="value dim">Nothing in the diary yet</div>

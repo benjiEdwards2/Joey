@@ -201,7 +201,9 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 /* ---- Media posters: /img proxy thumbnails, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;
           background: var(--soft); border: 1px solid var(--border); }
-.poster.sm { height: 44px; width: auto; border-radius: 5px; }
+.poster.sm { height: 56px; width: auto; border-radius: 5px; }
+.uprow .uptitle .dim { color: var(--muted); font-weight: 500; }
+.uprow .epnames { display: block; font-weight: 400; opacity: .8; }
 .uplist .uprow.hasposter { align-items: center; }
 .uplist .uprow.hasbackdrop { padding: 8px 10px; border-radius: 8px; border-bottom: 0; margin-bottom: 6px;
   background-image: linear-gradient(var(--scrim), var(--scrim)), var(--bd);
@@ -360,7 +362,7 @@ nav.tabs { display: none; }
 .shelf-row { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px;
   scrollbar-width: none; }
 .shelf-row::-webkit-scrollbar { display: none; }
-.shelf-item { flex: 0 0 120px; width: 120px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+.shelf-item { flex: 0 0 144px; width: 144px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
   scroll-snap-align: start; color: var(--fg); text-decoration: none; }
 .shelf-item .poster { width: 100%; height: auto; }
 .shelf-item:hover .poster { border-color: var(--accent, var(--muted)); }
@@ -375,7 +377,7 @@ nav.tabs { display: none; }
   .hero { flex-direction: column; align-items: flex-start; padding: 16px; }
   .heroposter { height: 140px; }
   .herotitle { font-size: 22px; }
-  .shelf-item { flex-basis: 96px; width: 96px; }
+  .shelf-item { flex-basis: 116px; width: 116px; }
 }
 
 /* ---- Discover and Search: the word is always present; the colour only echoes it ---- */

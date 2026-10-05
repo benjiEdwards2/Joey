@@ -30,7 +30,10 @@ LEVELS = ("show", "season", "episode")  # what a rating covers; movies record 's
 DIARY_DDL = """CREATE TABLE diary(
   id INTEGER PRIMARY KEY, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
   watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT NOT NULL DEFAULT 'you', created_at TEXT,
+  show_key TEXT, season_key TEXT, season INT, episode INT, show_title TEXT, episode_title TEXT,
   UNIQUE(item_key, watched_on, source, owner))"""
+DIARY_EXTRA = (("show_key", "TEXT"), ("season_key", "TEXT"), ("season", "INT"), ("episode", "INT"),
+               ("show_title", "TEXT"), ("episode_title", "TEXT"))  # per-episode diary rows (F8)
 RATING_COLS = "item_key, kind, title, year, poster, score, rated_at"
 DIARY_COLS = "id, item_key, kind, title, year, poster, watched_on, source, place, note, created_at"
 SCHEMA = RATING_DDL.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS") + """;
@@ -74,10 +77,28 @@ def _add_level_column(db) -> None:
                 raise
 
 
+def _add_diary_columns(db) -> None:
+    """The diary went per-episode (F8, 2026-10-06): ALTER an existing table that lacks the
+    episode columns; old rows keep NULLs and render as show-level lines. Race-safe like
+    _add_level_column. A missing table is left for SCHEMA to create."""
+    cols = [r["name"] for r in db.execute("PRAGMA table_info(diary)")]
+    if not cols:
+        return
+    for name, typ in DIARY_EXTRA:
+        if name not in cols:
+            try:
+                db.execute(f"ALTER TABLE diary ADD COLUMN {name} {typ}")
+                db.commit()
+            except sqlite3.OperationalError as exc:
+                if "duplicate column" not in str(exc):
+                    raise
+
+
 def _migrate(db) -> None:
     """Idempotent, run on every connect: rebuild a pre-owner rating/diary table in the new
     shape, every row kept as owner 'you'. Cheap no-op once migrated; one transaction."""
     _add_level_column(db)
+    _add_diary_columns(db)
     if not any(_old_shapes(db)):
         return
     db.execute("BEGIN IMMEDIATE")
@@ -217,9 +238,17 @@ def _local_date(stamp: str) -> str:
     return dt.astimezone().date().isoformat()
 
 
+def _episode_name(title: str) -> str | None:
+    """'Show · S02E04 · Episode' -> 'Episode' (None when the title has no third part)."""
+    parts = str(title).split(" · ", 2)
+    return parts[2] if len(parts) == 3 and parts[2] else None
+
+
 def sync_diary_from_history(recent_rows, owner: str = "you") -> int:
-    """Insert Jellyfin history rows not yet in the diary (idempotent via UNIQUE:
-    one entry per item_key per day, so a binge of one show is one line).
+    """Insert Jellyfin history rows not yet in the diary (idempotent via UNIQUE).
+    An episode row is keyed by its episode_key (one row per episode per day, F8) and
+    carries show/season/episode columns; without an episode key it falls back to the
+    show key (one row per show per day). Films are unchanged.
     Returns the number inserted; never raises — a bad row or DB just inserts less."""
     rows = []
     for r in recent_rows or []:
@@ -227,8 +256,17 @@ def sync_diary_from_history(recent_rows, owner: str = "you") -> int:
             if not (r.get("item_key") and KEY_RE.match(r["item_key"])):
                 continue
             kind = norm_kind(r.get("kind"))
-            rows.append((r["item_key"], kind, base_title(r["title"], kind), None, r.get("poster"),
-                         _local_date(r["watched_at"])))
+            key = r["item_key"]
+            show_key = season_key = season = episode = show_title = ep_title = None
+            ek = r.get("episode_key")
+            if kind == "tv" and ek and KEY_RE.match(ek):
+                key, show_key = ek, r.get("show_key") or r["item_key"]
+                season_key, season, episode = r.get("season_key"), r.get("season"), r.get("episode")
+                show_title = r.get("show_title") or base_title(r["title"], kind)
+                ep_title = _episode_name(r["title"])
+            rows.append((key, kind, base_title(r["title"], kind), None, r.get("poster"),
+                         _local_date(r["watched_at"]), show_key, season_key, season, episode,
+                         show_title, ep_title))
         except Exception:
             continue
     if not rows:
@@ -237,8 +275,9 @@ def sync_diary_from_history(recent_rows, owner: str = "you") -> int:
         with closing(connect()) as db, db:
             before = db.total_changes
             db.executemany(
-                "INSERT OR IGNORE INTO diary(item_key, kind, title, year, poster, watched_on, source, "
-                "created_at, owner) VALUES(?,?,?,?,?,?, 'jellyfin', ?, ?)",
+                "INSERT OR IGNORE INTO diary(item_key, kind, title, year, poster, watched_on, "
+                "show_key, season_key, season, episode, show_title, episode_title, source, "
+                "created_at, owner) VALUES(?,?,?,?,?,?,?,?,?,?,?,?, 'jellyfin', ?, ?)",
                 [(*r, _now().isoformat(), owner) for r in rows])
             return db.total_changes - before
     except (sqlite3.Error, OSError) as exc:
@@ -268,31 +307,81 @@ def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
     db = _read()
     if db is None:
         return []
-    where, args = (("WHERE owner = ? AND kind = ?", [owner, kind]) if kind in ("movie", "tv")
-                   else ("WHERE owner = ?", [owner]))
+    where, args = (("WHERE d.owner = ? AND d.kind = ?", [owner, kind]) if kind in ("movie", "tv")
+                   else ("WHERE d.owner = ?", [owner]))
     try:
         with closing(db):
             return [dict(r) for r in db.execute(
-                f"SELECT * FROM diary {where} ORDER BY watched_on DESC, id DESC LIMIT ? OFFSET ?",
+                f"SELECT d.*, CASE WHEN (d.kind = 'movie' OR d.season IS NOT NULL) AND EXISTS("
+                f"SELECT 1 FROM diary p WHERE p.owner = d.owner AND p.item_key = d.item_key "
+                f"AND p.watched_on < d.watched_on) THEN 1 ELSE 0 END AS rewatch "
+                f"FROM diary d {where} ORDER BY d.watched_on DESC, d.id DESC LIMIT ? OFFSET ?",
                 [*args, limit, offset])]
     except sqlite3.Error as exc:
         log.warning("list_diary failed: %s", type(exc).__name__)
         return []
 
 
+def _episode_runs(numbers) -> str:
+    """[1, 2, 3, 7] -> 'E1–E3, E7' (runs of consecutive numbers collapse)."""
+    nums = sorted(set(numbers))
+    parts, i = [], 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        parts.append(f"E{nums[i]}" if j == i else f"E{nums[i]}–E{nums[j]}")
+        i = j + 1
+    return ", ".join(parts)
+
+
+def group_diary(rows) -> list[dict]:
+    """Fold a day's episode rows of one (show, season) into one line (F8). Films and
+    show-level / hand-logged rows stay one line each. Order follows the first row of each
+    line. A line carries item_key/show_key/season_key so score_for can pick its chip."""
+    lines: dict = {}
+    for r in rows:
+        ep = r.get("season") is not None and bool(r.get("show_key"))
+        gk = (r["watched_on"], r["show_key"], r["season"], r.get("owner")) if ep else ("row", r["id"])
+        line = lines.get(gk)
+        if line is None:
+            line = lines[gk] = {
+                "title": (r.get("show_title") or r["title"]) if ep else r["title"],
+                "kind": r["kind"], "watched_on": r["watched_on"], "poster": r.get("poster"),
+                "year": r.get("year"), "source": r.get("source"), "place": r.get("place"),
+                "item_key": r["show_key"] if ep else r["item_key"],
+                "show_key": r["show_key"] if ep else None, "season_key": r.get("season_key") if ep else None,
+                "season": r.get("season"), "numbers": [], "episodes": [], "count": 0, "rewatch": False,
+                "sub": ""}
+        line["count"] += 1
+        line["rewatch"] = line["rewatch"] or bool(r.get("rewatch"))
+        if r.get("episode") is not None:
+            line["numbers"].append(r["episode"])
+        if r.get("episode_title"):
+            line["episodes"].append((r.get("episode") or 0, r["episode_title"]))
+    for line in lines.values():
+        nums = line.pop("numbers")
+        line["episodes"] = [name for _, name in sorted(line["episodes"])]
+        if line["season"] is not None:
+            line["sub"] = f"S{line['season']} {_episode_runs(nums)}" if nums else f"S{line['season']}"
+    return list(lines.values())
+
+
 def diary_stats(now: datetime | None = None, owner: str = "you") -> dict:
     """{this_week, this_month, total, streak_days, milestones}. Week/month are the
     last 7/30 days; the streak is consecutive days with a watch, ending today or
     yesterday; milestones are every 100th watch and the first watch of each year."""
-    empty = {"this_week": 0, "this_month": 0, "total": 0, "streak_days": 0, "milestones": []}
+    empty = {"this_week": 0, "this_month": 0, "total": 0, "streak_days": 0, "milestones": [],
+             "year_films": 0, "year_episodes": 0}
     db = _read()
     if db is None:
         return empty
     today = (now or datetime.now().astimezone()).date()
     try:
         with closing(db):
-            rows = [(r["watched_on"], r["title"]) for r in
-                    db.execute("SELECT watched_on, title FROM diary WHERE owner = ? ORDER BY watched_on, id", (owner,))]
+            full = db.execute("SELECT watched_on, title, kind FROM diary WHERE owner = ? ORDER BY watched_on, id",
+                              (owner,)).fetchall()
+            rows = [(r["watched_on"], r["title"]) for r in full]
     except sqlite3.Error as exc:
         log.warning("diary_stats failed: %s", type(exc).__name__)
         return empty
@@ -310,7 +399,10 @@ def diary_stats(now: datetime | None = None, owner: str = "you") -> dict:
             milestones.append(f"First watch of {watched_on[:4]}: {title}")
         if n % 100 == 0:
             milestones.append(f"Watch number {n}: {title}")
-    return {"this_week": sum(1 for d, _ in rows if d > week),
+    year = str(today.year)
+    return {"year_films": sum(1 for r in full if r["kind"] == "movie" and r["watched_on"][:4] == year),
+            "year_episodes": sum(1 for r in full if r["kind"] == "tv" and r["watched_on"][:4] == year),
+            "this_week": sum(1 for d, _ in rows if d > week),
             "this_month": sum(1 for d, _ in rows if d > month),
             "total": len(rows), "streak_days": streak, "milestones": milestones[::-1]}
 

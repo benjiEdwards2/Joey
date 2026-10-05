@@ -863,6 +863,17 @@ def media_history_page(request: Request):
     return _detail_page(request, "media_history.html", JELLYFIN_SNAPSHOT_ID, build, detail=HISTORY_DETAIL)
 
 
+def _group_on_this_day(items) -> list[dict]:
+    """Same folding as the diary: several episodes of one show a year ago are one line."""
+    lines: dict = {}
+    for d in items or []:
+        line = lines.setdefault((d.get("item_key"), d.get("years_ago"), d.get("kind")),
+                                {**d, "title": media_db.base_title(d["title"], "tv" if d.get("kind") == "episode" else d.get("kind")),
+                                 "count": 0})
+        line["count"] += 1
+    return [{**l, "sub": f"{l['count']} episodes" if l["count"] > 1 else ""} for l in lines.values()]
+
+
 @app.get("/media/diary", response_class=HTMLResponse)
 def media_diary_page(request: Request):
     """Watch diary (2026-10-05): sync Jellyfin's recent history in (a silent no-op
@@ -883,24 +894,27 @@ def media_diary_page(request: Request):
         rows = rows[:DIARY_PAGE]
         stats = media_db.diary_stats(owner=owner)
         months: list[dict] = []
-        for row in rows:
+        lines = media_db.group_diary(rows)
+        for row in lines:
             label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")
             if not months or months[-1]["label"] != label:
                 months.append({"label": label, "rows": []})
             months[-1]["rows"].append(row)
-        on_this_day = history.get("on_this_day", [])
+        on_this_day = _group_on_this_day(history.get("on_this_day", []))
         streak = stats["streak_days"]
         return {
             "stats_text": " · ".join([
                 f"{stats['this_week']} this week", f"{stats['this_month']} this month",
                 f"{stats['total']} all time",
+                f"{stats['year_films']} film{'' if stats['year_films'] == 1 else 's'} · "
+                f"{stats['year_episodes']} episode{'' if stats['year_episodes'] == 1 else 's'} this year",
                 f"{streak}-day streak" if streak else "no current streak"]),
             "milestones": stats["milestones"][:MILESTONES_MAX],
             "months": months, "kind": kind or "", "today": date.today().isoformat(),
             "on_this_day": on_this_day,
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,
-            "ratings": _ratings(view, rows, on_this_day),
+            "ratings": _ratings(view, lines, on_this_day),
         }
     return _detail_page(request, "media_diary.html", JELLYFIN_SNAPSHOT_ID, build,
                         detail=DIARY_DETAIL, always_build=True)

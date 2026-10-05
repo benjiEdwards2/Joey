@@ -205,3 +205,104 @@ def test_rankings_ignore_episode_level_ratings(path):
     assert [y["unranked_count"] for y in db.years_overview()] == [2]
     assert {r["item_key"] for r in db.year_list(2020)["unranked"]} == {"tmdb:1", "jf:season1"}
     assert db.place(2020, "jf:ep1") is False and db.place(2020, "jf:season1") is True
+
+
+# ---- Per-episode diary (F8, 2026-10-06) ----
+
+def ep(n, season=4, day="2026-10-02", show="jf:s1", title="Slow Horses", name=None):
+    return {"item_key": show, "show_key": show, "episode_key": f"jf:e{season}{n}", "season_key": f"jf:se{season}",
+            "season": season, "episode": n, "show_title": title, "kind": "episode", "poster": "jf:s1",
+            "title": f"{title} · S{season:02d}E{n:02d} · {name or 'Ep' + str(n)}",
+            "watched_at": f"{day}T12:00:00Z"}
+
+
+def test_migration_adds_episode_columns_and_keeps_rows(path, monkeypatch):
+    _old_shape_db(path)
+    db.list_diary()
+    with db.connect() as c:
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(diary)")}
+    assert {"show_key", "season_key", "season", "episode", "show_title"} <= cols
+    assert len(db.list_diary()) == 2
+    # an owner-shaped table that merely lacks the columns is ALTERed in place; a re-run is a no-op
+    import sqlite3
+    p2 = path.parent / "b.db"
+    c = sqlite3.connect(p2)
+    c.execute("CREATE TABLE diary(id INTEGER PRIMARY KEY, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT, "
+              "watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT NOT NULL DEFAULT 'you', created_at TEXT, "
+              "UNIQUE(item_key, watched_on, source, owner))")
+    c.execute("INSERT INTO diary(item_key, kind, title, watched_on, source) VALUES('tmdb:1','movie','Heat','2026-01-01','manual')")
+    c.commit()
+    c.close()
+    monkeypatch.setenv("MEDIA_DB_PATH", str(p2))
+    assert [r["title"] for r in db.list_diary()] == ["Heat"]
+    db.connect().close()
+    with db.connect() as c2:
+        assert "show_title" in {r["name"] for r in c2.execute("PRAGMA table_info(diary)")}
+
+
+def test_sync_writes_one_row_per_episode_and_leaves_films_alone(path):
+    rows = [ep(1), ep(2), hist("tmdb:1", "Heat", "2026-10-02T12:00:00Z")]
+    assert db.sync_diary_from_history(rows) == 3
+    assert db.sync_diary_from_history(rows) == 0
+    got = {r["item_key"]: r for r in db.list_diary()}
+    assert set(got) == {"jf:e41", "jf:e42", "tmdb:1"}
+    e = got["jf:e42"]
+    assert (e["show_key"], e["season_key"], e["season"], e["episode"], e["show_title"], e["episode_title"]) == (
+        "jf:s1", "jf:se4", 4, 2, "Slow Horses", "Ep2")
+    assert got["tmdb:1"]["show_key"] is None and got["tmdb:1"]["season"] is None
+
+
+def test_sync_without_episode_key_keeps_show_level_row(path):
+    old = hist("jf:s1", "Show · S01E01 · A", "2026-10-02T12:00:00Z", "episode")
+    assert db.sync_diary_from_history([old, {**old, "title": "Show · S01E02 · B"}]) == 1
+    assert db.list_diary()[0]["item_key"] == "jf:s1"
+
+
+def subs(rows=None):
+    return {l["watched_on"]: l["sub"] for l in db.group_diary(rows or db.list_diary())}
+
+
+def test_group_contiguous_range_and_gaps_and_names(path):
+    db.sync_diary_from_history([ep(1), ep(2), ep(3)])
+    (line,) = db.group_diary(db.list_diary())
+    assert (line["title"], line["sub"], line["count"], line["item_key"]) == ("Slow Horses", "S4 E1–E3", 3, "jf:s1")
+    assert sorted(line["episodes"]) == ["Ep1", "Ep2", "Ep3"] and line["kind"] == "tv"
+    db.sync_diary_from_history([ep(n, day="2026-10-03") for n in (1, 2, 3, 5, 7, 8)])
+    db.sync_diary_from_history([ep(n, day="2026-10-04") for n in (1, 3, 7)])
+    db.sync_diary_from_history([ep(1, day="2026-10-05")])
+    assert subs() == {"2026-10-02": "S4 E1–E3", "2026-10-03": "S4 E1–E3, E5, E7–E8",
+                      "2026-10-04": "S4 E1, E3, E7", "2026-10-05": "S4 E1"}
+
+
+def test_group_cross_season_same_day_film_and_hand_logged_season(path):
+    db.sync_diary_from_history([ep(1), ep(1, season=5), hist("tmdb:1", "Heat", "2026-10-02T12:00:00Z")])
+    db.add_manual_watch("tmdb:9", "tv", "Severance · Season 2", watched_on="2026-10-02")
+    lines = db.group_diary(db.list_diary())
+    assert len(lines) == 4
+    assert sorted(l["sub"] for l in lines) == ["", "", "S4 E1", "S5 E1"]
+    assert any(l["title"] == "Severance · Season 2" and l["count"] == 1 for l in lines)
+    assert any(l["title"] == "Heat" and l["kind"] == "movie" for l in lines)
+
+
+def test_rewatch_flag_only_for_an_earlier_row_of_the_same_item(path):
+    db.sync_diary_from_history([ep(1, day="2026-10-01"), hist("tmdb:1", "Heat", "2026-10-01T12:00:00Z")])
+    assert [l["rewatch"] for l in db.group_diary(db.list_diary())] == [False, False]
+    db.sync_diary_from_history([ep(1, day="2026-10-05"), ep(2, day="2026-10-05"),
+                                hist("tmdb:1", "Heat", "2026-10-05T12:00:00Z")])
+    lines = {(l["title"], l["watched_on"]): l["rewatch"] for l in db.group_diary(db.list_diary())}
+    assert lines[("Slow Horses", "2026-10-05")] and lines[("Heat", "2026-10-05")]
+    assert not lines[("Slow Horses", "2026-10-01")]
+    db.sync_diary_from_history([ep(3, day="2026-10-06")])  # a new episode on a new day is not a rewatch
+    assert not [l for l in db.group_diary(db.list_diary()) if l["watched_on"] == "2026-10-06"][0]["rewatch"]
+
+
+def test_stats_count_films_and_episodes_this_year_per_owner(path):
+    now = datetime(2026, 10, 6, 12, tzinfo=timezone.utc)
+    db.sync_diary_from_history([ep(1), ep(2), hist("tmdb:1", "Heat", "2026-10-02T12:00:00Z"),
+                                hist("tmdb:2", "Old", "2025-10-02T12:00:00Z")])
+    db.sync_diary_from_history([ep(1)], "her")
+    s = db.diary_stats(now)
+    assert (s["year_films"], s["year_episodes"], s["total"]) == (1, 2, 4)
+    h = db.diary_stats(now, "her")
+    assert (h["year_films"], h["year_episodes"]) == (0, 1)
+    assert [l["title"] for l in db.group_diary(db.list_diary(owner="her"))] == ["Slow Horses"]

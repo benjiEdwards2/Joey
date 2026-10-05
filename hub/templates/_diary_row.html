@@ -1,10 +1,14 @@
-{# One diary entry (2026-10-05). Expects: row (diary record), score (int|None). #}
+{# One diary line (2026-10-05, grouped per episode run 2026-10-06 F8). Expects: row (a group_diary line),
+   score (int|None). Episode names ride in a title= tooltip and show as a faint line when there are <= 3. #}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
 <div class="uprow hasposter diaryrow">
   {{ poster(row.poster, row.title, 120, "sm" ~ (" gold-glow" if score == 10 else "")) }}
-  <span class="uptitle">{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}</span>
+  <span class="uptitle"{% if row.episodes %} title="{{ row.episodes | join(' · ') }}"{% endif %}>{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}{% if row.sub %} <span class="dim">· {{ row.sub }}</span>{% endif %}{% if row.episodes and row.episodes|length <= 3 %}<span class="sub epnames">{{ row.episodes | join(" · ") }}</span>{% endif %}</span>
   <span class="chip">{{ "Film" if row.kind == "movie" else "TV" }}</span>
+  {% if row.rewatch %}<span class="chip rewatch" title="Watched before">↻ rewatch</span>{% endif %}
   <span class="uptime nextleft">{{ row.watched_on }} · {% if row.source == "jellyfin" %}Jellyfin{% else %}Logged{% if row.place %} · {{ row.place }}{% endif %}{% endif %}</span>
-  {% if score %}{{ rate.scorechip(score) }}{% else %}{{ rate.picker(row) }}{% endif %}
+  {% if score %}{{ rate.scorechip(score) }}
+  {% elif ratings is defined and ratings.level == "season" and row.season_key %}{{ rate.picker({"item_key": row.season_key, "kind": row.kind, "level": "season", "title": row.title, "year": row.year, "poster": row.poster}) }}
+  {% else %}{{ rate.picker(row) }}{% endif %}
 </div>

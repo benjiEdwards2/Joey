@@ -185,3 +185,43 @@ def test_search_failure_is_words_never_the_url_or_key(env, monkeypatch, caplog):
         resp = client.get("/media/search?q=matrix")
     assert "Search unavailable" in resp.text
     assert "seerr.example" not in resp.text + caplog.text and "SECRETkey" not in resp.text + caplog.text
+
+
+# ---- Per-episode diary lines + larger posters (F8, 2026-10-06) ----
+
+from pathlib import Path  # noqa: E402
+
+from tests.hub.test_media_rate import ago  # noqa: E402
+
+CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+
+
+def ep_row(n, days, season=4, show="jf:sh1"):
+    return {"title": f"Slow Horses · S{season:02d}E{n:02d} · Name{n}", "kind": "episode", "watched_at": ago(days),
+            "when": "x", "poster": "jf:sh1", "item_key": show, "show_key": show, "episode_key": f"jf:ep{season}{n}",
+            "season_key": f"jf:ses{season}", "season": season, "episode": n, "show_title": "Slow Horses"}
+
+
+def test_diary_page_folds_episodes_into_one_line_with_names(env):
+    build, _ = env
+    with build(jelly_data([ep_row(1, 2), ep_row(2, 2), ep_row(3, 2)])) as client:
+        body = main_of(client.get("/media/diary").text)
+    assert body.count("diaryrow") == 1
+    assert "S4 E1–E3" in body and "Name1 · Name2 · Name3" in body
+    assert "↻ rewatch" not in body
+    assert "3 episodes this year" in body and "0 films" in body
+
+
+def test_diary_page_shows_rewatch_chip_and_keeps_owners_apart(env):
+    build, _ = env
+    media_db.sync_diary_from_history([ep_row(1, 10)])
+    with build(jelly_data([ep_row(1, 1)])) as client:
+        body = main_of(client.get("/media/diary").text)
+    assert "↻ rewatch" in body and "S4 E1" in body
+    assert media_db.list_diary(owner="her") == []  # B.'s sync never lands in her diary
+
+
+def test_poster_sizes_are_pinned_in_css():
+    assert ".poster.sm { height: 56px" in CSS
+    assert ".shelf-item { flex: 0 0 144px; width: 144px;" in CSS
+    assert ".shelf-item { flex-basis: 116px; width: 116px; }" in CSS

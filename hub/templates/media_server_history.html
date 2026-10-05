@@ -1,0 +1,48 @@
+{% extends "media_base.html" %}
+{% block title %}History — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{# Play history (F7, 2026-10-06): what was actually watched, from the recorder. Every number is text;
+   the hour bars carry their count beside them. #}
+<section class="card uplist wide playhist">
+  <div class="head">History</div>
+  <nav class="filters" aria-label="Time window">
+    {% for c in chips %}<a class="chip{{ ' on' if c.on }}" href="{{ c.href }}"{% if c.on %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
+  </nav>
+  {% if empty %}
+    <div class="value dim">No plays recorded yet — the recorder started on {{ since }}</div>
+  {% else %}
+    <div class="sub libline">{{ stats.plays }} play{{ '' if stats.plays == 1 else 's' }} · {{ stats.hours_text }}</div>
+    {% if stats.busiest_day %}<div class="sub">Busiest day: {{ stats.busiest_day.text }} · {{ stats.busiest_day.plays }} play{{ '' if stats.busiest_day.plays == 1 else 's' }}</div>{% endif %}
+
+    <div class="upday">Top shows</div>
+    {% for e in stats.top_shows %}
+    <div class="uprow hasposter">
+      {{ poster(e.poster, e.title, 120, "sm") }}
+      <span class="uptitle">{{ e.title }}</span>
+      <span class="uptime nextleft">{{ e.episodes }} episode{{ '' if e.episodes == 1 else 's' }} · {{ e.hours }} h</span>
+    </div>
+    {% else %}
+    <div class="value dim">No shows in this window</div>
+    {% endfor %}
+
+    <div class="upday">Top films</div>
+    {% for e in stats.top_movies %}
+    <div class="uprow hasposter">
+      {{ poster(e.poster, e.title, 120, "sm") }}
+      <span class="uptitle">{{ e.title }}</span>
+      <span class="uptime nextleft">{{ e.plays }} play{{ '' if e.plays == 1 else 's' }} · {{ e.hours }} h</span>
+    </div>
+    {% else %}
+    <div class="value dim">No films in this window</div>
+    {% endfor %}
+
+    <div class="upday">By hour of day</div>
+    <div class="hourbars" role="list">
+      {% for b in by_hour %}
+      <div class="hourbar" role="listitem"><span class="hnum">{{ b.count }}</span><span class="hbar" aria-hidden="true"><span style="height: {{ b.pct }}%"></span></span><span class="hlab">{{ b.label }}</span></div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

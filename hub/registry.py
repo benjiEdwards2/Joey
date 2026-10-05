@@ -22,6 +22,7 @@ FROZEN_SNAPSHOT_IDS = {
     "media_status",  # added 2026-10-05 (Media area Phase 1)
     "arr",           # added 2026-10-05 (Media area Phase 2: Radarr + Sonarr)
     "jellyseerr",    # added 2026-10-05 (Media area Phase 3: request queue)
+    "qbittorrent",   # added 2026-10-06 (Media area: downloads)
 }
 
 MAX_AREAS = 9  # hard ceiling (DECISIONS 2026-08-17); "locked at 8" is yaml content

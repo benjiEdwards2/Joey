@@ -44,8 +44,8 @@ def test_every_connector_backed_tile_resolves_to_real_content(sample_snapshots):
             assert resolved["value"] and resolved["value"] != "—"
             assert resolved["secondary"], "D17's secondary line is missing"
             checked += 1
-    # meals, files, next-event, weather, watching, media status, library, requests, watched, diary, by year, discover, climate, car-status (garden removed 2026-09-11)
-    assert checked == 14
+    # meals, files, next-event, weather, watching, media status, library, requests, watched, diary, by year, discover, downloads, climate, car-status (garden removed 2026-09-11)
+    assert checked == 15
 
 
 def test_weather_tile_shows_the_composed_summary(sample_snapshots):

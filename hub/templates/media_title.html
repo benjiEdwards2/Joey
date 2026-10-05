@@ -18,6 +18,7 @@
     <div class="herotitle">{{ t.title }}{% if t.year %} ({{ t.year }}){% endif %}</div>
     {% if t.tagline %}<div class="herosub">{{ t.tagline }}</div>{% endif %}
     <span class="chip st-{{ t.status_word|lower|replace(' ', '-') }}">{{ t.status_word }}</span>
+    {% if dl_badge %}<div class="sub">{{ dl_badge }}</div>{% endif %}
   </div>
 </section>
 <section class="titlepage" style="--accent: {{ src.accent }}">

@@ -46,6 +46,13 @@ migrated on connect with every row kept as `you`. Her data comes from a second J
 (`JELLYFIN_USER_HER`, the exact display name; created by B. in Jellyfin, no fallback to the admin
 account) read into the jellyfin `her` block below.
 
+**Sixth exception (2026-10-06): the title-page file strip (`hub/media_files.py`).** A fifth live
+call path: Jellyfin `/Users` (uid cached 1 h) then `/Users/{uid}/Items` with MediaStreams/MediaSources, using
+`JELLYFIN_URL` + `JELLYFIN_API_KEY` server-side. Matching is a client-side `ProviderIds.Tmdb` filter, because
+Jellyfin 12 ignores `AnyProviderIdEquals`. Cached 10 minutes; shown only for Available / Partly available titles;
+any failure degrades to no strip. `media.db` also gained `setting(owner, key, value)` and `rating.level`
+(`show` | `season` | `episode`, default `show`); rankings and by-year counts use show + season ratings only.
+
 **Backups.** The hub dumps `media.db` nightly (`hub/media_backup.py`, gzip, integrity-checked,
 30 daily + monthly kept) to `MEDIA_BACKUP_DIR`, mounted from
 `/volume1/Docker/joey/backups/media`, and warns on the Media area only when the newest dump is
@@ -113,6 +120,10 @@ used by the hub hero and every shelf row. Snapshots written before this have nei
 hub falls back to the bare server link, so an older snapshot still renders. The optional `her`
 block (`user`, `up_next`, `history`) is Georgina's view and is `null` when `JELLYFIN_USER_HER`
 is unset or names no user.
+
+**Episode keys (2026-10-06, F5).** Jellyfin episode rows (`history.recent`, `up_next`, `now_playing`, and the
+`her` block) carry optional `show_key`, `season_key`, `episode_key` (`jf:<id>` or null), `season`, `episode` and
+`show_title`; `item_key` is unchanged (the show). Rows without them still render at show level.
 
 **Jellyfin library lists (2026-10-06, F3a).** `jellyfin` data gains optional top-level arrays
 `movies` and `shows`, and the same two inside `her` (read as Georgina). Row shape (schema:

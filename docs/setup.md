@@ -37,3 +37,7 @@ B. creates that account in Jellyfin; unset, her view shows a quiet word and neve
 admin. Radarr/Sonarr/Jellyseerr URL + key pairs are in `deploy/.env.example`; the hub also uses the
 Jellyseerr pair live for Discover & Search. `media.db` is backed up nightly into
 `/volume1/Docker/joey/backups/media` (the host dir must be owned by uid 1000).
+
+Play recorder (2026-10-06): the hub polls Jellyfin `/Sessions` every `PLAY_POLL_SECONDS` (default 60) into `media.db`;
+set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN_API_KEY`. Neither knob is listed in
+`deploy/.env.example` yet, so add them there by hand only if you want to change the defaults.

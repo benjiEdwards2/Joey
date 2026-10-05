@@ -27,3 +27,5 @@ Media suites live in `tests/hub/` (`test_media_*.py`: shelves, discover, her vie
 `tests/connectors/` (`test_jellyfin.py`, `test_arr.py`).
 
 Rail section + brand link (2026-10-06): `test_registry.py` covers `rail_section`; `test_apex_shell.py` covers Home-group rendering and the brand home link.
+
+`tests/conftest.py` has an autouse fixture that points `MEDIA_DB_PATH`, `MEDIA_BACKUP_DIR` and `SNAPSHOT_DIR` at per-test temp paths and sets `PLAY_RECORDER=off` and `MEDIA_BACKUP=off`; without it the default `/data/...` resolves to `C:\data\...` on Windows and tests touch a real directory.

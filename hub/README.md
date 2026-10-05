@@ -44,3 +44,20 @@ Rating level (2026-10-06): each owner chooses Show / Season / Episode with the c
 (`POST /media/settings/rating_level`, stored per owner in `media.db` `setting`). The To rate inbox, the rate
 picker and the score shown on rows follow it; a row lacking that level's key falls back to its show, and
 rankings count show + season ratings only.
+
+Watchlist (F6, 2026-10-06): `media_watchlist.py` + `media_watchlist_db.py`. A "Watchlist" tab under Movies and TV Shows
+(`/media/movies/watchlist`, `/media/tv/watchlist`); add from a title page ("+ Watchlist") or the small "+" on a Discover
+result. Each row carries a status word: On disk, Requested, Processing, Partly available or Not on server. A title the owner has
+watched leaves the list by itself when the page renders.
+
+Play recorder + History (F7, 2026-10-06): `media_plays.py` / `media_plays_db.py` record every watch (see
+`docs/connector-contract.md`, seventh exception). Server tabs are Live · History · Library · Downloads · Requests · Health;
+History shows plays, hours, top ten, busiest day and plays by hour over 7 / 30 / 90 days, this year or all time. Home gains a
+"Most played · 30 days" shelf (`build_shelves` in `main.py`).
+
+Diary per episode (F8, 2026-10-06): jellyfin-synced diary rows are one per episode; `media_db.group_diary` folds a day's
+episodes of one show season into a single line ("S2 E3-5"), and a rewatch mark shows when the title was logged on an
+earlier day. The "where" filter is not built. Older show-level rows still render.
+
+Poster sizes: list rows use `.poster.sm` (56 px tall); shelf cards are 144 px wide (`.shelf-item`, `.shelf-cell`), both in
+`static/control-surface.css`.

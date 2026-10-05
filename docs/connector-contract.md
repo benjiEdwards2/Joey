@@ -53,6 +53,18 @@ Jellyfin 12 ignores `AnyProviderIdEquals`. Cached 10 minutes; shown only for Ava
 any failure degrades to no strip. `media.db` also gained `setting(owner, key, value)` and `rating.level`
 (`show` | `season` | `episode`, default `show`); rankings and by-year counts use show + season ratings only.
 
+**Seventh exception (2026-10-06): the play recorder (`hub/media_plays.py`).** A sixth live call path, and the hub's
+first background writer: every `PLAY_POLL_SECONDS` (60) it polls Jellyfin `/Sessions` (`JELLYFIN_URL` + `JELLYFIN_API_KEY`,
+server-side only) and records each Movie/Episode being played into `media.db` table `play`. Off with `PLAY_RECORDER=off`
+(or when the Jellyfin keys are missing). "A watch, not a sitting": the same user + item continues an open play unless it
+reached >= 90 % or the gap is > 2 h, in which case a new play starts. Failures log the exception type only.
+
+**`media.db` additions (2026-10-06).** `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key
+`(owner, item_key)` (F6); `play(...)` per watch, with user, item/show/season/episode keys, runtime, `started_at`,
+`last_seen_at`, `position_pct`, `finished` (F7); and diary columns `show_key, season_key, season, episode, show_title,
+episode_title` (F8, added by `ALTER` on connect). jellyfin-synced diary rows are now per episode; older show-level rows
+are kept and render as before.
+
 **Backups.** The hub dumps `media.db` nightly (`hub/media_backup.py`, gzip, integrity-checked,
 30 daily + monthly kept) to `MEDIA_BACKUP_DIR`, mounted from
 `/volume1/Docker/joey/backups/media`, and warns on the Media area only when the newest dump is

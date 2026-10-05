@@ -153,3 +153,21 @@ def test_kitchen_area_renamed_to_food():
     reg = load_registry(AREAS_YAML)
     kitchen = next(a for a in reg.areas if a.id == "kitchen")
     assert kitchen.name == "Food"
+
+
+# rail_section (B., 2026-10-06)
+def test_rail_section_accepts_home_and_areas_and_defaults_to_areas(tmp_path):
+    reg = load_registry(write_registry(
+        tmp_path, make_area("a1"), make_area("a2", ), {**make_area("a3"), "rail_section": "home"},
+        {**make_area("a4"), "rail_section": "areas"}))
+    assert [a.rail_section for a in reg.areas] == ["areas", "areas", "home", "areas"]
+
+
+def test_rail_section_rejects_other_values(tmp_path):
+    with pytest.raises(ValueError, match="rail_section"):
+        load_registry(write_registry(tmp_path, {**make_area("a1"), "rail_section": "footer"}))
+
+
+def test_real_registry_puts_media_in_home_rail_section():
+    reg = load_registry(AREAS_YAML)
+    assert [a.id for a in reg.areas if a.rail_section == "home"] == ["media"]

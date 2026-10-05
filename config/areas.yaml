@@ -14,6 +14,7 @@
 # =============================================================================
 
 areas:
+  # Rail / tab order = the order of this list; `rail_section: home` lifts an area into the Home group.
   - id: kitchen
     name: Food                                       # renamed from Kitchen (B., 2026-09-11); id stays 'kitchen'
     accent: "#5BE08C"
@@ -104,6 +105,7 @@ areas:
     accent: "#E50914"          # Netflix red — Media Layout Lab pick, 2026-10-05 (was #FF5CA8)
     icon: media
     summary_tile: watching
+    rail_section: home                               # rail: Home group, between Hub and Weather (B., 2026-10-06)
     hub_rank: 1                                      # first hub card (2026-10-05)
     hub_size: s22                                    # largest hub card, hero (2026-10-05)
     layout: shelves                                  # hero + poster shelves instead of tile cards (2026-10-05)

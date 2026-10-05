@@ -83,8 +83,9 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
   position: sticky; top: 0; height: 100vh; overflow: auto;
 }
 .brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--rail-border); }
-.brand .mark { width: 34px; height: 34px; border-radius: 9px; background: var(--brand); color: var(--rail-strong);
-  display: grid; place-items: center; font-weight: 700; font-size: 17px; }
+.brand { text-decoration: none; }
+.brand .mark { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--rail-border); flex: none; }
+.brand:hover b { color: var(--rail-fg); }
 .brand b { display: block; font-size: 15px; color: var(--rail-strong); line-height: 1.1; }
 .brand small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
 .railsec { padding: 14px 24px 4px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }

@@ -6,6 +6,7 @@
       "Id": "item-fixture-1",
       "Name": "The Long Road Home",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "101"},
       "RunTimeTicks": 68400000000
     },
     "PlayState": {"PositionTicks": 17100000000, "IsPaused": false, "PlayMethod": "DirectPlay"}

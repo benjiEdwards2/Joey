@@ -2,7 +2,9 @@
 {% block title %}Watched — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
-{# Detail behind the watched tile (2026-10-05): B.'s Jellyfin watch history. Counts are
+{% import "_rate.html" as rate %}
+{# Detail behind the watched tile (2026-10-05): B.'s Jellyfin watch history, with the
+   rating inbox on top (last 30 days, unrated). The diary page holds on-this-day now. Counts are
    words and numbers beside every bar — colour is never the only encoding. #}
 <section class="card uplist wide" style="--accent: {{ src.accent }}">
   <div class="head">Watched</div>
@@ -12,11 +14,24 @@
   {% else %}
     <div class="sub libline">{{ numbers }}</div>
 
-    <div class="upday">Recently watched</div>
-    {% for r in history.get("recent", []) %}
+    <div class="upday">To rate</div>
+    {% for r in to_rate %}
     <div class="uprow hasposter">
       {{ poster(r.poster, r.title, 120, "sm") }}
       <span class="uptitle">{{ r.title }}</span>
+      <span class="uptime nextleft">{{ r.when }}</span>
+      {{ rate.picker(r) }}
+    </div>
+    {% else %}
+    <div class="value dim">Nothing waiting to be rated</div>
+    {% endfor %}
+
+    <div class="upday">Recently watched</div>
+    {% for r in history.get("recent", []) %}
+    <div class="uprow hasposter">
+      {{ poster(r.poster, r.title, 120, "sm" ~ rate.pcls(r.item_key, ratings)) }}
+      <span class="uptitle">{{ r.title }}</span>
+    {{ rate.chip(r.item_key, ratings) }}
       <span class="chip">{{ r.kind }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>
     </div>
@@ -29,8 +44,8 @@
     <div class="poster-grid">
       {% for s in shows %}
       <div class="pgitem">
-        {{ poster(s.poster, s.title, 240) }}
-        <div class="pgtitle">{{ s.title }}</div>
+        {{ poster(s.poster, s.title, 240, rate.pcls(s.item_key, ratings)) }}
+        <div class="pgtitle">{{ s.title }} {{ rate.chip(s.item_key, ratings) }}</div>
         <div class="pgsub">{{ s.episodes }} episode{{ "" if s.episodes == 1 else "s" }} · {{ s.hours }} h</div>
       </div>
       {% endfor %}
@@ -44,8 +59,8 @@
     <div class="poster-grid">
       {% for m in history.most_played_movies %}
       <div class="pgitem">
-        {{ poster(m.poster, m.title, 240) }}
-        <div class="pgtitle">{{ m.title }}</div>
+        {{ poster(m.poster, m.title, 240, rate.pcls(m.item_key, ratings)) }}
+        <div class="pgtitle">{{ m.title }} {{ rate.chip(m.item_key, ratings) }}</div>
         <div class="pgsub">{{ m.plays }} play{{ "" if m.plays == 1 else "s" }}</div>
       </div>
       {% endfor %}
@@ -53,18 +68,6 @@
     {% else %}
     <div class="value dim">No movies watched yet</div>
     {% endif %}
-
-    <div class="upday">On this day</div>
-    {% for d in history.get("on_this_day", []) %}
-    <div class="uprow hasposter">
-      {{ poster(d.poster, d.title, 120, "sm") }}
-      <span class="uptitle">{{ d.title }}</span>
-      <span class="chip">{{ d.kind }}</span>
-      <span class="uptime nextleft">{{ d.years_ago }} year{{ "" if d.years_ago == 1 else "s" }} ago</span>
-    </div>
-    {% else %}
-    <div class="value dim">Nothing on this day</div>
-    {% endfor %}
   {% endif %}
   {% include "_detail_foot.html" %}
 </section>

@@ -2,6 +2,7 @@
 {% block title %}{{ area.name }} · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{% import "_rate.html" as rate %}
 <h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
 <div class="grid">
   {% for row in tiles %}
@@ -37,8 +38,9 @@
   {% if media.play.now_playing %}
     {% for p in media.play.now_playing %}
     {% if media.play.href %}<a class="uprow playrow hasposter" href="{{ media.play.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow hasposter">{% endif %}
-      {{ poster(p.poster, p.title, 120, "sm") }}
+      {{ poster(p.poster, p.title, 120, "sm" ~ rate.pcls(p.item_key, ratings)) }}
       <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
+    {{ rate.chip(p.item_key, ratings) }}
       <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
     {% if media.play.href %}</a>{% else %}</div>{% endif %}
     {% endfor %}
@@ -49,8 +51,9 @@
   {% if media.play.up_next %}
     {% for n in media.play.up_next %}
     <div class="uprow hasposter">
-      {{ poster(n.poster, n.title, 120, "sm") }}
+      {{ poster(n.poster, n.title, 120, "sm" ~ rate.pcls(n.item_key, ratings)) }}
       <span class="uptitle">{{ n.title }}</span>
+    {{ rate.chip(n.item_key, ratings) }}
       <span class="uptime nextleft">{{ n.remaining_text }}</span>
     </div>
     {% endfor %}
@@ -68,8 +71,9 @@
   <div class="head">Just arrived</div>
   {% for r in media.library["items"] %}
   <div class="uprow hasposter">
-    {{ poster(r.poster, r.title, 120, "sm") }}
+    {{ poster(r.poster, r.title, 120, "sm" ~ rate.pcls(r.item_key, ratings)) }}
     <span class="uptitle">{{ r.title }}</span>
+    {{ rate.chip(r.item_key, ratings) }}
     <span class="uptime nextleft">{{ r.when }}</span>
   </div>
   {% else %}
@@ -85,11 +89,12 @@
 <section class="card uplist medialist" style="--accent: {{ area.accent }}">
   <div class="head">Recently watched</div>
   {% for r in media.history["items"] %}
-  <div class="uprow hasposter">
-    {{ poster(r.poster, r.title, 120, "sm") }}
+  <a class="uprow playrow hasposter" href="/media/diary">
+    {{ poster(r.poster, r.title, 120, "sm" ~ rate.pcls(r.item_key, ratings)) }}
     <span class="uptitle">{{ r.title }}</span>
+    {{ rate.chip(r.item_key, ratings) }}
     <span class="uptime nextleft">{{ r.when }}</span>
-  </div>
+  </a>
   {% endfor %}
   <div class="foot">
     <span class="chip">You</span>

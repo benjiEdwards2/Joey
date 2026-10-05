@@ -259,3 +259,11 @@ def test_rows_carry_poster_refs(data):
     week = {r["title"]: r["poster"] for r in data["this_week"]}
     assert week["Glass Orchard"] == "radarr:22"
     assert week["Night Ferry · S02E01 · New Moorings"] == "sonarr:2"
+
+
+def test_item_key_is_tmdb_for_radarr_and_tvdb_for_sonarr(data):
+    keys = {r["poster"]: r["item_key"] for section in ("arrived", "updated", "this_week", "downloading")
+            for r in data[section]}
+    assert keys and all(k.startswith(("tmdb:", "tvdb:")) for k in keys.values())
+    assert all(v == f"tmdb:{1000 + int(p.split(':')[1])}" for p, v in keys.items() if p.startswith("radarr:"))
+    assert all(v == f"tvdb:{2000 + int(p.split(':')[1])}" for p, v in keys.items() if p.startswith("sonarr:"))

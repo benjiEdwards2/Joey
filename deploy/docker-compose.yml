@@ -12,6 +12,9 @@ services:
     # call a live API (the /money page's SQLite read is the one exception, D14;
     # the /img poster proxy is the second live-call exception, dated 2026-10-05 —
     # it reads the media keys from .env and caches art in the read-write img volume).
+    # FIRST WRITE PATH (2026-10-05): ratings + watch diary live in media.db, a small
+    # SQLite file in the read-write sqlite volume (dir owned by uid 1000, created on
+    # first write). Snapshots stay read-only.
     image: life-hub
     build:
       context: ..
@@ -23,9 +26,11 @@ services:
     environment:
       SNAPSHOT_DIR: /data/snapshots
       IMG_CACHE_DIR: /data/cache/img
+      MEDIA_DB_PATH: /data/sqlite/media.db
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
       - /volume1/Docker/joey/data/cache/img:/data/cache/img
+      - /volume1/Docker/joey/data/sqlite:/data/sqlite
     # NO public ports. The hub is reached only through the Cloudflare tunnel
     # container, which WP11 fronts it with on the compose network.
     expose:

@@ -17,7 +17,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from hub import media_db
 from hub.images import router as images_router
+from hub.media_write import router as media_write_router
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
 
@@ -55,6 +57,7 @@ async def log_identity(request: Request, call_next):
 
 
 app.include_router(images_router)
+app.include_router(media_write_router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
@@ -207,8 +210,12 @@ MEDIA_STATUS_SNAPSHOT_ID = "media_status"
 ARR_SNAPSHOT_ID = "arr"
 JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
+DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
 LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
 HISTORY_STRIP_MAX = 5  # "Recently watched" strip on the area page
+TO_RATE_DAYS = 30      # rating inbox window on /media/history
+DIARY_PAGE = 50
+MILESTONES_MAX = 5
 
 
 def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
@@ -226,14 +233,24 @@ def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
     return None
 
 
+def _parse_ts(value) -> datetime:
+    """ISO timestamp -> aware datetime (Jellyfin's 7-digit fractions tolerated)."""
+    text = re.sub(r"(\.\d{6})\d+", r"\1", str(value).replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(text)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _ratings(view: str, *row_lists) -> dict:
+    """ONE get_ratings() per page render. Ratings are B.'s own, so a her view sees none."""
+    if view == "her":
+        return {}
+    return media_db.get_ratings(r.get("item_key") for rows in row_lists for r in rows or [])
+
+
 def _ago_text(value, now: datetime) -> str:
     """'3 days ago' for an ISO timestamp (Jellyfin's 7-digit fractions tolerated)."""
     try:
-        text = re.sub(r"(\.\d{6})\d+", r"\1", str(value).replace("Z", "+00:00"))
-        dt = datetime.fromisoformat(text)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        seconds = (now - dt).total_seconds()
+        seconds = (now - _parse_ts(value)).total_seconds()
     except Exception:
         return ""
     if seconds < 3600:
@@ -282,6 +299,14 @@ def find_media(tiles, snaps) -> dict | None:
                    if library else None,
         "history": {"st": watched[0], "items": recent} if recent else None,
     }
+
+
+def _media_rows(media) -> list:
+    """Every row list on the area's media sections, for the page's one ratings lookup."""
+    if not media:
+        return []
+    play, library, history = media["play"] or {}, media["library"] or {}, media["history"] or {}
+    return [play.get("now_playing"), play.get("up_next"), library.get("items"), history.get("items")]
 
 
 def build_status(snaps) -> dict:
@@ -333,9 +358,11 @@ def weather_page(request: Request):
     return _maybe_set_cookie(resp, view, from_query)
 
 
-def _detail_page(request: Request, template: str, snapshot_id: str, build=None, detail=None):
+def _detail_page(request: Request, template: str, snapshot_id: str, build=None, detail=None,
+                 always_build=False):
     """Detail page behind a `detail` tile (2026-10-05). Keyed by connector id —
-    404 when no registry tile reads that snapshot; 'Not connected' when it has no data."""
+    404 when no registry tile reads that snapshot; 'Not connected' when it has no data
+    (`always_build` still runs `build` then — the diary has data of its own)."""
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
     src = find_detail_source(snapshot_id, snaps, detail)
@@ -344,10 +371,10 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
             "areas": registry.areas, "active_id": None, "owner_view": view,
             "missing_text": "No page here",
         }, status_code=404)
-    extra = build(src["data"]) if build and src["st"]["state"] != "off" else {}
+    extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
     resp = templates.TemplateResponse(request, template, {
         "areas": registry.areas, "active_id": None, "owner_view": view,
-        "status": build_status(snaps), "src": src, **extra,
+        "status": build_status(snaps), "src": src, "ratings": {}, **extra,
     })
     return _maybe_set_cookie(resp, view, from_query)
 
@@ -359,19 +386,20 @@ def media_apps_page(request: Request):
 
 @app.get("/media/playing", response_class=HTMLResponse)
 def media_playing_page(request: Request):
-    def build(data):
+    def build(data, view):
         now = datetime.now(timezone.utc)
         return {
             "latest": [{**i, "added_text": _ago_text(i.get("added_at"), now)}
                        for i in data.get("latest", [])],
             "library_text": _library_text(data.get("library") or {}),
+            "ratings": _ratings(view, data.get("now_playing"), data.get("up_next"), data.get("latest")),
         }
     return _detail_page(request, "media_playing.html", JELLYFIN_SNAPSHOT_ID, build)
 
 
 @app.get("/media/library", response_class=HTMLResponse)
 def media_library_page(request: Request):
-    def build(data):
+    def build(data, view):
         today = datetime.now().astimezone().date()
         groups: list[dict] = []
         for row in sorted(data.get("this_week", []), key=lambda r: (r["date"], r["title"])):
@@ -383,27 +411,54 @@ def media_library_page(request: Request):
             "week": groups,
             "app_notes": [f"{app.title()} not answering: {reason}"
                           for app, reason in sorted((data.get("app_errors") or {}).items())],
+            "ratings": _ratings(view, *(data.get(k) for k in ("arrived", "updated", "this_week", "downloading"))),
         }
     return _detail_page(request, "media_library.html", ARR_SNAPSHOT_ID, build)
 
 
 @app.get("/media/requests", response_class=HTMLResponse)
 def media_requests_page(request: Request):
-    def build(data):
+    def build(data, view):
         c = data.get("counts") or {}
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
-                                          for k in ("pending", "approved", "available", "declined"))}
+                                          for k in ("pending", "approved", "available", "declined")),
+                "ratings": _ratings(view, data.get("requests"))}
     return _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
+
+
+def _to_rate(recent, ratings) -> list[dict]:
+    """The rating inbox: unrated titles watched in the last TO_RATE_DAYS, one per item_key
+    (a show's episodes collapse to the show, which is what gets rated)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=TO_RATE_DAYS)
+    seen, rows = set(), []
+    for r in recent:
+        key = r.get("item_key")
+        try:
+            fresh = _parse_ts(r["watched_at"]) >= cutoff
+        except Exception:
+            continue
+        if not key or key in ratings or key in seen or not fresh:
+            continue
+        seen.add(key)
+        kind = media_db.norm_kind(r.get("kind"))
+        rows.append({"item_key": key, "kind": kind, "year": None,
+                     "title": media_db.base_title(r["title"], kind),
+                     "poster": r.get("poster"), "when": r.get("when", "")})
+    return rows
 
 
 @app.get("/media/history", response_class=HTMLResponse)
 def media_history_page(request: Request):
-    def build(data):
+    def build(data, view):
         history = data.get("history") or {}
         shows = history.get("most_played_shows", [])
         top = max((s["episodes"] for s in shows), default=0)
+        recent = history.get("recent", [])
+        ratings = _ratings(view, recent, shows, history.get("most_played_movies"))
         return {
             "history": history,
+            "ratings": ratings,
+            "to_rate": [] if view == "her" else _to_rate(recent, ratings),
             "shows": [{**s, "pct": round(s["episodes"] / top * 100)} for s in shows],
             "numbers": " · ".join([
                 f"{history.get('week_count', 0)} this week",
@@ -412,6 +467,48 @@ def media_history_page(request: Request):
                 f"{history.get('hours_total', 0)} h all time"]),
         }
     return _detail_page(request, "media_history.html", JELLYFIN_SNAPSHOT_ID, build, detail=HISTORY_DETAIL)
+
+
+@app.get("/media/diary", response_class=HTMLResponse)
+def media_diary_page(request: Request):
+    """Watch diary (2026-10-05): sync Jellyfin's recent history in (a silent no-op
+    without a snapshot), then list month-grouped, newest first."""
+    kind = request.query_params.get("kind")
+    kind = kind if kind in ("movie", "tv") else None
+    try:
+        offset = max(0, int(request.query_params.get("offset", "0")))
+    except ValueError:
+        offset = 0
+
+    def build(data, view):
+        history = data.get("history") or {}
+        media_db.sync_diary_from_history(history.get("recent"))
+        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind)
+        more = len(rows) > DIARY_PAGE
+        rows = rows[:DIARY_PAGE]
+        stats = media_db.diary_stats()
+        months: list[dict] = []
+        for row in rows:
+            label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")
+            if not months or months[-1]["label"] != label:
+                months.append({"label": label, "rows": []})
+            months[-1]["rows"].append(row)
+        on_this_day = history.get("on_this_day", [])
+        streak = stats["streak_days"]
+        return {
+            "stats_text": " · ".join([
+                f"{stats['this_week']} this week", f"{stats['this_month']} this month",
+                f"{stats['total']} all time",
+                f"{streak}-day streak" if streak else "no current streak"]),
+            "milestones": stats["milestones"][:MILESTONES_MAX],
+            "months": months, "kind": kind or "", "today": date.today().isoformat(),
+            "on_this_day": on_this_day,
+            "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
+                     if more else None,
+            "ratings": _ratings(view, rows, on_this_day),
+        }
+    return _detail_page(request, "media_diary.html", JELLYFIN_SNAPSHOT_ID, build,
+                        detail=DIARY_DETAIL, always_build=True)
 
 
 @app.get("/a/{area_id}", response_class=HTMLResponse)
@@ -426,11 +523,13 @@ def area_page(request: Request, area_id: str):
     snaps = get_snapshots()
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
              for t in area.tiles if owner_visible(t, view)]
+    media = find_media(tiles, snaps)
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
         "upcoming": find_upcoming(tiles, snaps, view),
-        "media": find_media(tiles, snaps),
+        "media": media,
+        "ratings": _ratings(view, *_media_rows(media)),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

@@ -51,14 +51,12 @@ def test_history_page_renders_every_section_in_main(app_factory):
     body = main_of(resp.text)
     assert "8 this week · 16 this month · 18.7 h this month · 45.1 h all time" in body
     order = [body.index(f">{h}</div>") for h in
-             ("Recently watched", "Most played shows", "Most played movies", "On this day")]
+             ("To rate", "Recently watched", "Most played shows", "Most played movies")]
     assert order == sorted(order)
     assert "Quiet Coast · S02E04 · Late Tide" in body and "2 hours ago" in body
     assert "6 episodes · 4.5 h" in body and "2 episodes · 1.6 h" in body  # words under each grid poster
     assert "The Long Road Home" in body and "3 plays" in body and "1 play<" in body
-    on_day = body.split(">On this day</div>", 1)[1]
-    assert "Salt Flats" in on_day and "1 year ago" in on_day and "2 years ago" in on_day
-    assert "Nothing on this day" not in body
+    assert "On this day" not in body  # moved to the diary page (2026-10-05)
 
 
 def test_page_carries_the_you_chip_from_the_history_tile(app_factory):
@@ -81,7 +79,7 @@ def test_quiet_words_when_history_is_empty_or_absent(app_factory):
         body = main_of(resp.text)
         assert "0 this week · 0 this month · 0 h this month · 0 h all time" in body
         for words in ("Nothing watched yet", "No shows watched yet", "No movies watched yet",
-                      "Nothing on this day"):
+                      "Nothing waiting to be rated"):
             assert words in body
         assert "Recently watched" not in main_of(client.get("/a/alpha").text)
 
@@ -117,7 +115,7 @@ def test_area_strip_shows_five_recent_items_with_a_you_chip(app_factory):
         body = main_of(client.get("/a/alpha").text)
     strip = body.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
     assert body.index('class="grid"') < body.index(">Recently watched<")
-    assert strip.count('class="uprow hasposter"') == 5
+    assert strip.count('class="uprow playrow hasposter"') == 5 and 'href="/media/diary"' in strip
     assert "Harbour Lights" in strip and "Desert Crossing" not in strip  # 4th kept, 6th cut
     assert '<span class="chip">You</span>' in strip
 

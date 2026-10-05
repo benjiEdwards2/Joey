@@ -8,7 +8,8 @@
     "hasFile": false,
     "series": {
       "id": 1,
-      "title": "Quiet Coast"
+      "title": "Quiet Coast",
+      "tvdbId": 2001
     }
   },
   {
@@ -20,7 +21,8 @@
     "hasFile": false,
     "series": {
       "id": 2,
-      "title": "Night Ferry"
+      "title": "Night Ferry",
+      "tvdbId": 2002
     }
   },
   {
@@ -32,7 +34,8 @@
     "hasFile": false,
     "series": {
       "id": 3,
-      "title": "Harbour Watch"
+      "title": "Harbour Watch",
+      "tvdbId": 2003
     },
     "finaleType": "season"
   },
@@ -45,7 +48,8 @@
     "hasFile": false,
     "series": {
       "id": 3,
-      "title": "Harbour Watch"
+      "title": "Harbour Watch",
+      "tvdbId": 2003
     }
   }
 ]

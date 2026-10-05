@@ -195,7 +195,7 @@ def test_recent_is_newest_first_capped_and_episode_titles_carry_the_show(history
     assert len(recent) == 20
     assert recent[0] == {"title": "Quiet Coast · S02E04 · Late Tide", "kind": "episode",
                          "watched_at": "2025-12-31T21:10:00.0000000Z", "when": "2 hours ago",
-                         "poster": "jf:series-fixture-1"}
+                         "poster": "jf:series-fixture-1", "item_key": "jf:series-fixture-1"}
     assert recent[3]["title"] == "Harbour Lights" and recent[3]["kind"] == "movie"
     stamps = [r["watched_at"] for r in recent]
     assert stamps == sorted(stamps, reverse=True)
@@ -203,7 +203,8 @@ def test_recent_is_newest_first_capped_and_episode_titles_carry_the_show(history
 
 def test_most_played_groups_episodes_by_show_and_sorts_movies_by_plays(history):
     assert history["most_played_shows"][0] == {"title": "Quiet Coast", "episodes": 6, "hours": 4.5,
-                                               "poster": "jf:series-fixture-1"}
+                                               "poster": "jf:series-fixture-1",
+                                               "item_key": "jf:series-fixture-1"}
     assert [s["title"] for s in history["most_played_shows"]] == [
         "Quiet Coast", "Night Ferry", "Northern Lines", "Harbour Watch"]
     movies = history["most_played_movies"]
@@ -251,3 +252,14 @@ def test_episode_without_a_series_id_falls_back_to_its_own_id(raw):
     raw = copy.deepcopy(raw)
     del raw["raw_sessions"][1]["NowPlayingItem"]["SeriesId"]
     assert Jellyfin().transform(raw)["now_playing"][1]["poster"] == "jf:item-fixture-2"
+
+
+def test_item_key_is_tmdb_for_movies_and_the_series_for_episodes(raw):
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    playing = {p["title"]: p["item_key"] for p in data["now_playing"]}
+    assert playing["The Long Road Home"] == "tmdb:101"            # ProviderIds.Tmdb present
+    assert playing["Quiet Coast · S02E04 · Late Tide"] == "jf:series-fixture-1"  # episode -> series
+    latest = {r["title"]: r["item_key"] for r in data["latest"]}
+    assert latest["Desert Crossing"] == "jf:item-fixture-8"       # movie without a Tmdb id
+    assert all(r["item_key"] for r in data["history"]["recent"] + data["up_next"])

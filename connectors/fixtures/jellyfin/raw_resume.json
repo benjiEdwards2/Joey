@@ -4,6 +4,7 @@
       "Id": "item-fixture-3",
       "Name": "Dust and Daylight",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "102"},
       "RunTimeTicks": 72000000000,
       "UserData": {"PlaybackPositionTicks": 53400000000}
     },

@@ -47,3 +47,6 @@ def test_hub_reads_the_env_file_and_mounts_the_poster_cache_read_write():
     assert hub["environment"]["IMG_CACHE_DIR"] == "/data/cache/img"
     assert "/volume1/Docker/joey/data/cache/img:/data/cache/img" in hub["volumes"]
     assert "/volume1/Docker/joey/data/snapshots:/data/snapshots:ro" in hub["volumes"]  # still read-only
+    # first write path (2026-10-05): ratings + diary DB in its own read-write volume
+    assert hub["environment"]["MEDIA_DB_PATH"] == "/data/sqlite/media.db"
+    assert "/volume1/Docker/joey/data/sqlite:/data/sqlite" in hub["volumes"]

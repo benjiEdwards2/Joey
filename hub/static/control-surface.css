@@ -173,6 +173,29 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent)
 .pgtitle { font-size: 13px; font-weight: 600; margin-top: 6px; overflow-wrap: anywhere; }
 .pgsub { font-size: 11px; color: var(--text-dim); }
 
+/* ---- Ratings + diary (2026-10-05): the score is always a number; gold at 10 is extra ---- */
+.chip.score { color: var(--text); border-color: var(--text-dim); }
+.chip.score-10 { color: #FFD76A; border-color: #FFD76A; }
+.poster.gold-glow { border-color: #FFD76A; box-shadow: 0 0 10px 1px rgba(255,215,106,.55); }
+.ratebox { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 0 100%; margin: 0; }
+.ratebox .rlabel { font-size: 11px; color: var(--text-dim); margin-right: 4px; }
+.ratebox button { font: inherit; font-size: 12px; font-weight: 700; min-width: 28px; padding: 4px 0;
+  color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.ratebox button:hover { border-color: var(--accent, var(--text-dim)); }
+.ratebox button.undo { min-width: 0; padding: 4px 8px; color: var(--text-dim); }
+.logwatch { margin: 12px 0 4px; }
+.logwatch summary { cursor: pointer; list-style: none; }
+.logform { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-width: 480px; }
+.logform label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--text-dim); }
+.logform input[type=search], .logform input[type=text], .logform input[type=date] {
+  font: inherit; font-size: 14px; color: var(--text); background: rgba(0,0,0,.35);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.pickrow { cursor: pointer; }
+.filters { display: flex; gap: 6px; margin-top: 12px; }
+.filters .chip { text-decoration: none; }
+.filters .chip.on { color: var(--text); border-color: var(--accent, var(--text-dim)); text-decoration: underline; }
+.older { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--accent, var(--text-dim)); }
+
 /* ---- Tiles that open a detail page (2026-10-05) ---- */
 .card .foot .open { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--accent, var(--text-dim)); }
 .card .foot .open + .ago { margin-left: 8px; }

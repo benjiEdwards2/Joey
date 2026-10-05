@@ -8,51 +8,61 @@
       "month_count": 16,
       "most_played_movies": [
         {
+          "item_key": "tmdb:105",
           "plays": 3,
           "poster": "jf:hist-fixture-7",
           "title": "The Long Road Home"
         },
         {
+          "item_key": "tmdb:103",
           "plays": 2,
           "poster": "jf:hist-fixture-4",
           "title": "Harbour Lights"
         },
         {
+          "item_key": "tmdb:114",
           "plays": 2,
           "poster": "jf:hist-fixture-17",
           "title": "Salt Flats"
         },
         {
+          "item_key": "tmdb:111",
           "plays": 2,
           "poster": "jf:hist-fixture-21",
           "title": "Silver Lake"
         },
         {
+          "item_key": "tmdb:115",
           "plays": 1,
           "poster": "jf:hist-fixture-18",
           "title": "Copper Hills"
         },
         {
+          "item_key": "tmdb:104",
           "plays": 1,
           "poster": "jf:hist-fixture-6",
           "title": "Desert Crossing"
         },
         {
+          "item_key": "tmdb:106",
           "plays": 1,
           "poster": "jf:hist-fixture-9",
           "title": "Dust and Daylight"
         },
         {
+          "item_key": "tmdb:109",
           "plays": 1,
           "poster": "jf:hist-fixture-19",
           "title": "Far Shore"
         },
         {
+          "item_key": "tmdb:113",
           "plays": 1,
           "poster": "jf:hist-fixture-27",
           "title": "Glass Harbour"
         },
         {
+          "item_key": "tmdb:108",
           "plays": 1,
           "poster": "jf:hist-fixture-15",
           "title": "Glass Orchard"
@@ -62,36 +72,42 @@
         {
           "episodes": 6,
           "hours": 4.5,
+          "item_key": "jf:series-fixture-1",
           "poster": "jf:series-fixture-1",
           "title": "Quiet Coast"
         },
         {
           "episodes": 4,
           "hours": 3.5,
+          "item_key": "jf:series-fixture-3",
           "poster": "jf:series-fixture-3",
           "title": "Night Ferry"
         },
         {
           "episodes": 3,
           "hours": 2.5,
+          "item_key": "jf:series-fixture-2",
           "poster": "jf:series-fixture-2",
           "title": "Northern Lines"
         },
         {
           "episodes": 2,
           "hours": 1.6,
+          "item_key": "jf:series-fixture-4",
           "poster": "jf:series-fixture-4",
           "title": "Harbour Watch"
         }
       ],
       "on_this_day": [
         {
+          "item_key": "tmdb:114",
           "kind": "movie",
           "poster": "jf:hist-fixture-17",
           "title": "Salt Flats",
           "years_ago": 1
         },
         {
+          "item_key": "tmdb:115",
           "kind": "movie",
           "poster": "jf:hist-fixture-18",
           "title": "Copper Hills",
@@ -100,6 +116,7 @@
       ],
       "recent": [
         {
+          "item_key": "jf:series-fixture-1",
           "kind": "episode",
           "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide",
@@ -107,6 +124,7 @@
           "when": "2 hours ago"
         },
         {
+          "item_key": "jf:series-fixture-1",
           "kind": "episode",
           "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E05 \u00b7 Break of Dawn",
@@ -114,6 +132,7 @@
           "when": "yesterday"
         },
         {
+          "item_key": "jf:series-fixture-2",
           "kind": "episode",
           "poster": "jf:series-fixture-2",
           "title": "Northern Lines \u00b7 S01E03 \u00b7 The Understudy",
@@ -121,6 +140,7 @@
           "when": "2 days ago"
         },
         {
+          "item_key": "tmdb:103",
           "kind": "movie",
           "poster": "jf:hist-fixture-4",
           "title": "Harbour Lights",
@@ -128,6 +148,7 @@
           "when": "3 days ago"
         },
         {
+          "item_key": "jf:series-fixture-3",
           "kind": "episode",
           "poster": "jf:series-fixture-3",
           "title": "Night Ferry \u00b7 S01E04 \u00b7 Last Crossing",
@@ -135,6 +156,7 @@
           "when": "4 days ago"
         },
         {
+          "item_key": "tmdb:104",
           "kind": "movie",
           "poster": "jf:hist-fixture-6",
           "title": "Desert Crossing",
@@ -142,6 +164,7 @@
           "when": "5 days ago"
         },
         {
+          "item_key": "tmdb:105",
           "kind": "movie",
           "poster": "jf:hist-fixture-7",
           "title": "The Long Road Home",
@@ -149,6 +172,7 @@
           "when": "6 days ago"
         },
         {
+          "item_key": "jf:series-fixture-4",
           "kind": "episode",
           "poster": "jf:series-fixture-4",
           "title": "Harbour Watch \u00b7 S01E02 \u00b7 Landfall",
@@ -156,6 +180,7 @@
           "when": "6 days ago"
         },
         {
+          "item_key": "tmdb:106",
           "kind": "movie",
           "poster": "jf:hist-fixture-9",
           "title": "Dust and Daylight",
@@ -163,6 +188,7 @@
           "when": "11 days ago"
         },
         {
+          "item_key": "jf:series-fixture-1",
           "kind": "episode",
           "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E03 \u00b7 Third Light",
@@ -170,6 +196,7 @@
           "when": "12 days ago"
         },
         {
+          "item_key": "jf:series-fixture-1",
           "kind": "episode",
           "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E02 \u00b7 Second Wind",
@@ -177,6 +204,7 @@
           "when": "13 days ago"
         },
         {
+          "item_key": "jf:series-fixture-1",
           "kind": "episode",
           "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E01 \u00b7 First Light",
@@ -184,6 +212,7 @@
           "when": "14 days ago"
         },
         {
+          "item_key": "jf:series-fixture-2",
           "kind": "episode",
           "poster": "jf:series-fixture-2",
           "title": "Northern Lines \u00b7 S01E02 \u00b7 Opening Night",
@@ -191,6 +220,7 @@
           "when": "16 days ago"
         },
         {
+          "item_key": "tmdb:107",
           "kind": "movie",
           "poster": "jf:hist-fixture-14",
           "title": "Paper Lanterns",
@@ -198,6 +228,7 @@
           "when": "19 days ago"
         },
         {
+          "item_key": "tmdb:108",
           "kind": "movie",
           "poster": "jf:hist-fixture-15",
           "title": "Glass Orchard",
@@ -205,6 +236,7 @@
           "when": "22 days ago"
         },
         {
+          "item_key": "jf:series-fixture-3",
           "kind": "episode",
           "poster": "jf:series-fixture-3",
           "title": "Night Ferry \u00b7 S01E03 \u00b7 New Moorings",
@@ -212,6 +244,7 @@
           "when": "27 days ago"
         },
         {
+          "item_key": "tmdb:109",
           "kind": "movie",
           "poster": "jf:hist-fixture-19",
           "title": "Far Shore",
@@ -219,6 +252,7 @@
           "when": "39 days ago"
         },
         {
+          "item_key": "tmdb:110",
           "kind": "movie",
           "poster": "jf:hist-fixture-20",
           "title": "Stone Garden",
@@ -226,6 +260,7 @@
           "when": "53 days ago"
         },
         {
+          "item_key": "tmdb:111",
           "kind": "movie",
           "poster": "jf:hist-fixture-21",
           "title": "Silver Lake",
@@ -233,6 +268,7 @@
           "when": "73 days ago"
         },
         {
+          "item_key": "jf:series-fixture-2",
           "kind": "episode",
           "poster": "jf:series-fixture-2",
           "title": "Northern Lines \u00b7 S01E01 \u00b7 Pilot",
@@ -245,18 +281,21 @@
     "latest": [
       {
         "added_at": "2025-12-30T09:12:00.0000000Z",
+        "item_key": "tmdb:116",
         "poster": "jf:item-fixture-6",
         "title": "Harbour Lights",
         "type": "Movie"
       },
       {
         "added_at": "2025-12-29T20:41:00.0000000Z",
+        "item_key": "jf:series-fixture-1",
         "poster": "jf:series-fixture-1",
         "title": "Quiet Coast - S02E05",
         "type": "Episode"
       },
       {
         "added_at": "2025-12-28T18:05:00.0000000Z",
+        "item_key": "jf:item-fixture-8",
         "poster": "jf:item-fixture-8",
         "title": "Desert Crossing",
         "type": "Movie"
@@ -269,6 +308,7 @@
     "now_playing": [
       {
         "backdrop": "jfb:item-fixture-1",
+        "item_key": "tmdb:101",
         "play_method": "Direct play",
         "poster": "jf:item-fixture-1",
         "progress_pct": 25,
@@ -277,6 +317,7 @@
       },
       {
         "backdrop": "jfb:series-fixture-1",
+        "item_key": "jf:series-fixture-1",
         "play_method": "Transcoding",
         "poster": "jf:series-fixture-1",
         "progress_pct": 75,
@@ -289,6 +330,7 @@
     "up_next": [
       {
         "backdrop": "jfb:item-fixture-3",
+        "item_key": "tmdb:102",
         "kind": "movie",
         "poster": "jf:item-fixture-3",
         "remaining_text": "31 min left",
@@ -296,6 +338,7 @@
       },
       {
         "backdrop": "jfb:series-fixture-1",
+        "item_key": "jf:series-fixture-1",
         "kind": "episode",
         "poster": "jf:series-fixture-1",
         "remaining_text": "30 min left",
@@ -303,6 +346,7 @@
       },
       {
         "backdrop": "jfb:series-fixture-2",
+        "item_key": "jf:series-fixture-2",
         "kind": "episode",
         "poster": "jf:series-fixture-2",
         "remaining_text": "Next episode",

@@ -13,6 +13,7 @@
       {
         "href": "http://nas.local:5055/movie/1001",
         "id": 13,
+        "item_key": "tmdb:1001",
         "kind": "movie",
         "poster": "tmdb:/fixture1001.jpg",
         "requested_by": "Sample Person",
@@ -25,6 +26,7 @@
       {
         "href": "http://nas.local:5055/tv/2002",
         "id": 14,
+        "item_key": "tmdb:2002",
         "kind": "tv",
         "poster": "tmdb:/fixture2002.jpg",
         "requested_by": "Sample Partner",
@@ -37,6 +39,7 @@
       {
         "href": "http://nas.local:5055/movie/1003",
         "id": 12,
+        "item_key": "tmdb:1003",
         "kind": "movie",
         "poster": "tmdb:/fixture1003.jpg",
         "requested_by": "Sample Person",
@@ -49,6 +52,7 @@
       {
         "href": "http://nas.local:5055/tv/2004",
         "id": 11,
+        "item_key": "tmdb:2004",
         "kind": "tv",
         "poster": null,
         "requested_by": "Sample Partner",

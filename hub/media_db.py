@@ -1,0 +1,222 @@
+"""Ratings + watch diary (2026-10-05) — the hub's FIRST write path, one small SQLite
+file (`MEDIA_DB_PATH`, default /data/sqlite/media.db). Everything is owner `you`.
+
+Reads never create the file: with no DB present the pages render empty and
+`get_ratings` answers {}. Only a write (rating, manual log, diary sync with rows
+to insert) creates the directory and schema, on first use.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import re
+import sqlite3
+from contextlib import closing
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+log = logging.getLogger("hub.media_db")
+
+DEFAULT_DB_PATH = "/data/sqlite/media.db"
+KEY_RE = re.compile(r"^(tmdb|tvdb|jf):[A-Za-z0-9-]+$")
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS rating(
+  item_key TEXT PRIMARY KEY, kind TEXT, title TEXT, year INT, poster TEXT,
+  score INT CHECK(score BETWEEN 1 AND 10), rated_at TEXT, owner TEXT DEFAULT 'you');
+CREATE TABLE IF NOT EXISTS diary(
+  id INTEGER PRIMARY KEY, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
+  watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT DEFAULT 'you', created_at TEXT,
+  UNIQUE(item_key, watched_on, source));
+"""
+
+
+def db_path() -> Path:
+    return Path(os.environ.get("MEDIA_DB_PATH", DEFAULT_DB_PATH))
+
+
+def connect() -> sqlite3.Connection:
+    """Open the DB, creating the parent dir and schema if missing."""
+    path = db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(path, timeout=5)
+    db.row_factory = sqlite3.Row
+    db.execute("PRAGMA journal_mode=WAL")
+    db.execute("PRAGMA busy_timeout=5000")
+    db.executescript(SCHEMA)
+    return db
+
+
+def _read():
+    """A connection for reading, or None when there is no DB yet / it can't be opened."""
+    if not db_path().is_file():
+        return None
+    try:
+        return connect()
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("media db unreadable: %s", type(exc).__name__)
+        return None
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def norm_kind(kind) -> str:
+    """Two kinds only: Jellyfin's 'episode' and Jellyseerr's 'tv' both mean TV."""
+    return "movie" if kind == "movie" else "tv"
+
+
+def get_ratings(keys) -> dict[str, int]:
+    keys = sorted({k for k in keys if k})
+    db = _read() if keys else None
+    if db is None:
+        return {}
+    try:
+        with closing(db):
+            marks = ",".join("?" * len(keys))
+            return {r["item_key"]: r["score"] for r in
+                    db.execute(f"SELECT item_key, score FROM rating WHERE item_key IN ({marks})", keys)}
+    except sqlite3.Error as exc:
+        log.warning("get_ratings failed: %s", type(exc).__name__)
+        return {}
+
+
+def get_rating(item_key: str) -> dict | None:
+    db = _read()
+    if db is None:
+        return None
+    try:
+        with closing(db):
+            row = db.execute("SELECT * FROM rating WHERE item_key = ?", (item_key,)).fetchone()
+            return dict(row) if row else None
+    except sqlite3.Error as exc:
+        log.warning("get_rating failed: %s", type(exc).__name__)
+        return None
+
+
+def set_rating(item_key: str, score: int, kind: str, title: str, year=None, poster=None) -> None:
+    with closing(connect()) as db, db:
+        db.execute(
+            "INSERT INTO rating(item_key, kind, title, year, poster, score, rated_at, owner) "
+            "VALUES(?,?,?,?,?,?,?, 'you') ON CONFLICT(item_key) DO UPDATE SET "
+            "kind=excluded.kind, title=excluded.title, year=excluded.year, poster=excluded.poster, "
+            "score=excluded.score, rated_at=excluded.rated_at",
+            (item_key, norm_kind(kind), title, year, poster, score, _now().isoformat()))
+
+
+def delete_rating(item_key: str) -> None:
+    if not db_path().is_file():
+        return
+    with closing(connect()) as db, db:
+        db.execute("DELETE FROM rating WHERE item_key = ?", (item_key,))
+
+
+def base_title(title: str, kind: str) -> str:
+    """A history row title is 'Show · S02E04 · Episode'; the diary is per show."""
+    return title.split(" · ")[0] if kind == "tv" else title
+
+
+def _local_date(stamp: str) -> str:
+    text = re.sub(r"(\.\d{6})\d+", r"\1", str(stamp).replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(text)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone().date().isoformat()
+
+
+def sync_diary_from_history(recent_rows) -> int:
+    """Insert Jellyfin history rows not yet in the diary (idempotent via UNIQUE:
+    one entry per item_key per day, so a binge of one show is one line).
+    Returns the number inserted; never raises — a bad row or DB just inserts less."""
+    rows = []
+    for r in recent_rows or []:
+        try:
+            if not (r.get("item_key") and KEY_RE.match(r["item_key"])):
+                continue
+            kind = norm_kind(r.get("kind"))
+            rows.append((r["item_key"], kind, base_title(r["title"], kind), None, r.get("poster"),
+                         _local_date(r["watched_at"])))
+        except Exception:
+            continue
+    if not rows:
+        return 0
+    try:
+        with closing(connect()) as db, db:
+            before = db.total_changes
+            db.executemany(
+                "INSERT OR IGNORE INTO diary(item_key, kind, title, year, poster, watched_on, source, "
+                "created_at, owner) VALUES(?,?,?,?,?,?, 'jellyfin', ?, 'you')",
+                [(*r, _now().isoformat()) for r in rows])
+            return db.total_changes - before
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("diary sync failed: %s", type(exc).__name__)
+        return 0
+
+
+def add_manual_watch(item_key: str, kind: str, title: str, year=None, poster=None,
+                     watched_on: str | None = None, place: str | None = None,
+                     note: str | None = None) -> dict | None:
+    """Log a watch by hand. Returns the stored row, or None when it was already logged."""
+    watched_on = watched_on or date.today().isoformat()
+    with closing(connect()) as db, db:
+        cur = db.execute(
+            "INSERT OR IGNORE INTO diary(item_key, kind, title, year, poster, watched_on, source, place, "
+            "note, created_at, owner) VALUES(?,?,?,?,?,?, 'manual', ?,?,?, 'you')",
+            (item_key, norm_kind(kind), title, year, poster, watched_on, place or None, note or None,
+             _now().isoformat()))
+        if not cur.rowcount:
+            return None
+        return dict(db.execute("SELECT * FROM diary WHERE id = ?", (cur.lastrowid,)).fetchone())
+
+
+def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None) -> list[dict]:
+    """Newest first. `kind` is 'movie' or 'tv' (anything else = all)."""
+    db = _read()
+    if db is None:
+        return []
+    where, args = ("WHERE kind = ?", [kind]) if kind in ("movie", "tv") else ("", [])
+    try:
+        with closing(db):
+            return [dict(r) for r in db.execute(
+                f"SELECT * FROM diary {where} ORDER BY watched_on DESC, id DESC LIMIT ? OFFSET ?",
+                [*args, limit, offset])]
+    except sqlite3.Error as exc:
+        log.warning("list_diary failed: %s", type(exc).__name__)
+        return []
+
+
+def diary_stats(now: datetime | None = None) -> dict:
+    """{this_week, this_month, total, streak_days, milestones}. Week/month are the
+    last 7/30 days; the streak is consecutive days with a watch, ending today or
+    yesterday; milestones are every 100th watch and the first watch of each year."""
+    empty = {"this_week": 0, "this_month": 0, "total": 0, "streak_days": 0, "milestones": []}
+    db = _read()
+    if db is None:
+        return empty
+    today = (now or datetime.now().astimezone()).date()
+    try:
+        with closing(db):
+            rows = [(r["watched_on"], r["title"]) for r in
+                    db.execute("SELECT watched_on, title FROM diary ORDER BY watched_on, id")]
+    except sqlite3.Error as exc:
+        log.warning("diary_stats failed: %s", type(exc).__name__)
+        return empty
+    days = {d for d, _ in rows}
+    week, month = (today - timedelta(days=7)).isoformat(), (today - timedelta(days=30)).isoformat()
+    day = today if today.isoformat() in days else today - timedelta(days=1)
+    streak = 0
+    while day.isoformat() in days:
+        streak += 1
+        day -= timedelta(days=1)
+    milestones, years = [], set()
+    for n, (watched_on, title) in enumerate(rows, 1):
+        if watched_on[:4] not in years:
+            years.add(watched_on[:4])
+            milestones.append(f"First watch of {watched_on[:4]}: {title}")
+        if n % 100 == 0:
+            milestones.append(f"Watch number {n}: {title}")
+    return {"this_week": sum(1 for d, _ in rows if d > week),
+            "this_month": sum(1 for d, _ in rows if d > month),
+            "total": len(rows), "streak_days": streak, "milestones": milestones[::-1]}

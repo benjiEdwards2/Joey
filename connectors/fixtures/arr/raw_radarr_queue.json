@@ -8,7 +8,8 @@
       "title": "Midnight.Harbour.2025.1080p.WEB-DL",
       "movie": {
         "id": 21,
-        "title": "Midnight Harbour"
+        "title": "Midnight Harbour",
+        "tmdbId": 1021
       },
       "size": 8000000000,
       "sizeleft": 2000000000,

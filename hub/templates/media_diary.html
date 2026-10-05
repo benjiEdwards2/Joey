@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Diary — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% import "_rate.html" as rate %}
+{# Watch diary (2026-10-05): Jellyfin history synced in + watches logged by hand.
+   Source and kind are words on every row — colour is never the only encoding. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">Diary</div>
+  <div class="sub libline">{{ stats_text }}</div>
+  {% if milestones %}<div class="sub">Milestones: {{ milestones | join(" · ") }}</div>{% endif %}
+  {% if src.st.state == "off" %}<div class="sub appnote">Jellyfin not connected — only watches you log appear here.</div>{% endif %}
+
+  <details class="logwatch">
+    <summary class="launch">Log a watch</summary>
+    <form class="logform" method="post" action="/media/log" hx-post="/media/log" hx-target="#diary-new" hx-swap="afterbegin"
+          hx-on::after-request="if (event.detail.successful) { this.reset(); document.getElementById('search-results').innerHTML = ''; }">
+      <input type="search" name="q" placeholder="Search for a title" autocomplete="off"
+             hx-get="/media/search" hx-trigger="keyup changed delay:400ms" hx-target="#search-results">
+      <div id="search-results"></div>
+      <label>Date <input type="date" name="watched_on" value="{{ today }}" max="{{ today }}"></label>
+      <label>Where <input type="text" name="place" list="places" placeholder="Cinema, Netflix, Friend's…" maxlength="60"></label>
+      <datalist id="places"><option value="Cinema"><option value="Netflix"><option value="Friend's"><option value="Other"></datalist>
+      <label>Note <input type="text" name="note" maxlength="500"></label>
+      <button type="submit" class="launch">Add to diary</button>
+    </form>
+  </details>
+
+  <nav class="filters" aria-label="Filter diary">
+    {% for label, k in (("All", ""), ("Films", "movie"), ("TV", "tv")) %}
+    <a class="chip{{ ' on' if kind == k }}" href="/media/diary{{ '?kind=' ~ k if k }}"{% if kind == k %} aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if on_this_day %}
+  <div class="upday">On this day</div>
+  {% for d in on_this_day %}
+  <div class="uprow hasposter">
+    {{ poster(d.poster, d.title, 120, "sm" ~ rate.pcls(d.item_key, ratings)) }}
+    <span class="uptitle">{{ d.title }}</span>
+    <span class="chip">{{ d.kind }}</span>
+    {{ rate.chip(d.item_key, ratings) }}
+    <span class="uptime nextleft">{{ d.years_ago }} year{{ "" if d.years_ago == 1 else "s" }} ago</span>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <div id="diary-new"></div>
+  {% for g in months %}
+  <div class="upday">{{ g.label }}</div>
+  {% for row in g.rows %}
+  {% with score = ratings.get(row.item_key) %}{% include "_diary_row.html" %}{% endwith %}
+  {% endfor %}
+  {% else %}
+  <div class="value dim">Nothing in the diary yet</div>
+  {% endfor %}
+  {% if older %}<a class="older" href="{{ older }}">Older</a>{% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

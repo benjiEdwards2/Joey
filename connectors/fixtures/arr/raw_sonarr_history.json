@@ -22,7 +22,8 @@
       "data": {},
       "series": {
         "id": 1,
-        "title": "Quiet Coast"
+        "title": "Quiet Coast",
+        "tvdbId": 2001
       },
       "episode": {
         "id": 101,
@@ -50,7 +51,8 @@
       "data": {},
       "series": {
         "id": 1,
-        "title": "Quiet Coast"
+        "title": "Quiet Coast",
+        "tvdbId": 2001
       },
       "episode": {
         "id": 102,
@@ -78,7 +80,8 @@
       "data": {},
       "series": {
         "id": 1,
-        "title": "Quiet Coast"
+        "title": "Quiet Coast",
+        "tvdbId": 2001
       },
       "episode": {
         "id": 103,
@@ -106,7 +109,8 @@
       "data": {},
       "series": {
         "id": 2,
-        "title": "Night Ferry"
+        "title": "Night Ferry",
+        "tvdbId": 2002
       },
       "episode": {
         "id": 120,
@@ -134,7 +138,8 @@
       "data": {},
       "series": {
         "id": 1,
-        "title": "Quiet Coast"
+        "title": "Quiet Coast",
+        "tvdbId": 2001
       },
       "episode": {
         "id": 130,
@@ -164,7 +169,8 @@
       },
       "series": {
         "id": 1,
-        "title": "Quiet Coast"
+        "title": "Quiet Coast",
+        "tvdbId": 2001
       },
       "episode": {
         "id": 130,
@@ -192,7 +198,8 @@
       "data": {},
       "series": {
         "id": 2,
-        "title": "Night Ferry"
+        "title": "Night Ferry",
+        "tvdbId": 2002
       },
       "episode": {
         "id": 140,

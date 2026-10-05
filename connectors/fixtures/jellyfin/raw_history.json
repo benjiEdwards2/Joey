@@ -49,6 +49,7 @@
       "Id": "hist-fixture-4",
       "Name": "Harbour Lights",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "103"},
       "RunTimeTicks": 67200000000,
       "ProductionYear": 2022,
       "UserData": {
@@ -76,6 +77,7 @@
       "Id": "hist-fixture-6",
       "Name": "Desert Crossing",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "104"},
       "RunTimeTicks": 58800000000,
       "ProductionYear": 2019,
       "UserData": {
@@ -88,6 +90,7 @@
       "Id": "hist-fixture-7",
       "Name": "The Long Road Home",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "105"},
       "RunTimeTicks": 75600000000,
       "ProductionYear": 2017,
       "UserData": {
@@ -115,6 +118,7 @@
       "Id": "hist-fixture-9",
       "Name": "Dust and Daylight",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "106"},
       "RunTimeTicks": 62400000000,
       "ProductionYear": 2021,
       "UserData": {
@@ -187,6 +191,7 @@
       "Id": "hist-fixture-14",
       "Name": "Paper Lanterns",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "107"},
       "RunTimeTicks": 54600000000,
       "ProductionYear": 2020,
       "UserData": {
@@ -199,6 +204,7 @@
       "Id": "hist-fixture-15",
       "Name": "Glass Orchard",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "108"},
       "RunTimeTicks": 70200000000,
       "ProductionYear": 2023,
       "UserData": {
@@ -226,6 +232,7 @@
       "Id": "hist-fixture-19",
       "Name": "Far Shore",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "109"},
       "RunTimeTicks": 60600000000,
       "ProductionYear": 2024,
       "UserData": {
@@ -238,6 +245,7 @@
       "Id": "hist-fixture-20",
       "Name": "Stone Garden",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "110"},
       "RunTimeTicks": 52800000000,
       "ProductionYear": 2015,
       "UserData": {
@@ -250,6 +258,7 @@
       "Id": "hist-fixture-21",
       "Name": "Silver Lake",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "111"},
       "RunTimeTicks": 79800000000,
       "ProductionYear": 2014,
       "UserData": {
@@ -322,6 +331,7 @@
       "Id": "hist-fixture-26",
       "Name": "Midnight Harbour",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "112"},
       "RunTimeTicks": 59400000000,
       "ProductionYear": 2025,
       "UserData": {
@@ -334,6 +344,7 @@
       "Id": "hist-fixture-27",
       "Name": "Glass Harbour",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "113"},
       "RunTimeTicks": 66000000000,
       "ProductionYear": 2013,
       "UserData": {
@@ -361,6 +372,7 @@
       "Id": "hist-fixture-17",
       "Name": "Salt Flats",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "114"},
       "RunTimeTicks": 64800000000,
       "ProductionYear": 2018,
       "UserData": {
@@ -373,6 +385,7 @@
       "Id": "hist-fixture-18",
       "Name": "Copper Hills",
       "Type": "Movie",
+      "ProviderIds": {"Tmdb": "115"},
       "RunTimeTicks": 57000000000,
       "ProductionYear": 2016,
       "UserData": {

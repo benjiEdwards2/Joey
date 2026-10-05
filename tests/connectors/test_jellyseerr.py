@@ -95,7 +95,7 @@ def test_rows_are_pending_first_then_newest_with_a_status_word(data):
     assert rows[0] == {"id": 13, "kind": "movie", "tmdb_id": 1001, "title": "Midnight Harbour",
                        "year": 2025, "requested_by": "Sample Person", "status_text": "Pending",
                        "when": "1 hour ago", "href": "http://nas.local:5055/movie/1001",
-                       "poster": "tmdb:/fixture1001.jpg"}
+                       "poster": "tmdb:/fixture1001.jpg", "item_key": "tmdb:1001"}
     assert rows[1]["kind"] == "tv" and rows[1]["year"] == 2023
     assert rows[1]["href"] == "http://nas.local:5055/tv/2002"
     assert data["counts"] == {"pending": 1, "approved": 2, "available": 1, "declined": 1, "total": 4}
@@ -247,3 +247,7 @@ def test_poster_is_the_lookup_poster_path_or_null(data):
     posters = {r["title"]: r["poster"] for r in data["requests"]}
     assert posters["Night Ferry"] == "tmdb:/fixture2002.jpg"
     assert posters["Harbour Watch"] is None  # the lookup carried no posterPath
+
+
+def test_item_key_is_the_tmdb_id(data):
+    assert all(r["item_key"] == f"tmdb:{r['tmdb_id']}" for r in data["requests"])

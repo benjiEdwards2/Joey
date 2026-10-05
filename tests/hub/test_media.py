@@ -107,7 +107,7 @@ def test_absent_snapshots_render_no_media_section(app_factory):
 def test_hub_main_names_no_area_for_media():
     text = (Path(__file__).resolve().parents[2] / "hub" / "main.py").read_text(encoding="utf-8")
     assert "JELLYFIN_SNAPSHOT_ID" in text and "MEDIA_STATUS_SNAPSHOT_ID" in text
-    assert '"media"' not in text.replace('"media": find_media', "")
+    assert '"media"' not in text.replace('"media": media', "")
 
 
 def test_media_sections_render_in_the_page_body_not_the_title(app_factory):

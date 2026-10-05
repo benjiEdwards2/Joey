@@ -1,0 +1,10 @@
+{# One diary entry (2026-10-05). Expects: row (diary record), score (int|None). #}
+{% from "_poster.html" import poster %}
+{% import "_rate.html" as rate %}
+<div class="uprow hasposter diaryrow">
+  {{ poster(row.poster, row.title, 120, "sm" ~ (" gold-glow" if score == 10 else "")) }}
+  <span class="uptitle">{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}</span>
+  <span class="chip">{{ "Film" if row.kind == "movie" else "TV" }}</span>
+  <span class="uptime nextleft">{{ row.watched_on }} · {% if row.source == "jellyfin" %}Jellyfin{% else %}Logged{% if row.place %} · {{ row.place }}{% endif %}{% endif %}</span>
+  {% if score %}{{ rate.scorechip(score) }}{% else %}{{ rate.picker(row) }}{% endif %}
+</div>

@@ -21,6 +21,16 @@ its series id), `radarr:<movieId>` / `sonarr:<seriesId>`, `tmdb:<posterPath>`. T
 resolves it live with the same media env keys, caches to `IMG_CACHE_DIR` for 30 days and
 serves a generated fallback card on any miss — so a down upstream never breaks a page.
 
+**Third exception (2026-10-05): ratings + watch diary (`hub/media_db.py`).** The hub's
+first WRITE path: `MEDIA_DB_PATH` (default `/data/sqlite/media.db`), a small SQLite file,
+owner `you` on every row, created on first write (the pages render with no file). Media
+rows therefore carry an optional `item_key` (string or null) — the stable identity ratings
+and diary entries hang off: `tmdb:<id>` (Jellyfin movies with a Tmdb provider id, Radarr
+movies, Jellyseerr requests), `tvdb:<id>` (Sonarr series), or `jf:<ItemId>`; a Jellyfin
+episode uses its SERIES (`jf:<SeriesId>`, as its payload carries no series provider id).
+Grammar `^(tmdb|tvdb|jf):[A-Za-z0-9-]+$`. The hub also proxies one live Jellyseerr search
+for the diary's "Log a watch" form; with no keys it says "Search unavailable".
+
 **Notion is LINK tier.** A URL in `areas.yaml` and nothing else — no connector,
 no snapshot, no expectation of one anywhere in the hub.
 

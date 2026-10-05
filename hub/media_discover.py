@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from hub import media_files
 from hub.images import REF_RE
 from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
 
@@ -32,6 +33,7 @@ DISCOVER_DETAIL = "/media/discover"
 TIMEOUT = 8
 CACHE_TTL = 600
 ROW_MAX = 20
+ON_DISK = ("Available", "Partly available")
 SHELVES = (
     ("trending", "Trending", "/api/v1/discover/trending", None),
     ("movies", "Popular films", "/api/v1/discover/movies", "movie"),
@@ -269,7 +271,8 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
             block = _block(t, "error", ERRORS[error])
         else:
             block = _block(t, "confirm" if step == "confirm" else "idle")
-        return {"note": None, "dl_badge": _dl_badge(t["title"]), **block}
+        files = media_files.file_summary(kind, tmdb_id) if t["status_word"] in ON_DISK else None
+        return {"note": None, "dl_badge": _dl_badge(t["title"]), "files": files, **block}
 
     return _page(request, "media_title.html", build)
 

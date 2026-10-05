@@ -201,3 +201,63 @@ def search(request: Request, q: str = ""):
     if rows is None:
         return render(request, "_search_results.html", rows=[], note="Search unavailable")
     return render(request, "_search_results.html", rows=rows, note=None if rows else "No matches")
+
+
+# ---- Year rankings (2026-10-05): place / move / unplace / reset on /media/years/{year} ----
+
+def parse_year(slug: str):
+    """'2020' -> 2020, 'unknown' -> None (items rated with no year); anything else 404s."""
+    if slug == "unknown":
+        return None
+    if re.fullmatch(r"(18|19|20|21)\d\d", slug):
+        return int(slug)
+    raise HTTPException(404, "No such year")
+
+
+def year_ctx(slug: str, mode: str = "") -> dict:
+    """Context for _year_list.html (shared by the page and the write routes)."""
+    year = parse_year(slug)
+    return {"year": year, "slug": slug, "mode": "rank" if mode == "rank" else "",
+            **media_db.year_list(year)}
+
+
+async def _ranking_write(request: Request, slug: str, action):
+    f = await form_of(request)
+    year = parse_year(slug)
+    try:
+        action(year, f)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("ranking not saved: %s", type(exc).__name__)
+        raise HTTPException(503, "Couldn't save the ranking") from None
+    mode = "rank" if f.get("mode") == "rank" else ""
+    if is_htmx(request):
+        return render(request, "_year_list.html", **year_ctx(slug, mode))
+    return RedirectResponse(f"/media/years/{slug}" + ("?mode=rank" if mode else ""), status_code=303)
+
+
+@router.post("/media/years/{slug}/place", dependencies=[Depends(same_origin)])
+async def year_place(request: Request, slug: str):
+    def act(year, f):
+        if not media_db.place(year, valid_key(f.get("item_key", ""))):
+            raise bad("Rate it in that year first")
+    return await _ranking_write(request, slug, act)
+
+
+@router.post("/media/years/{slug}/move", dependencies=[Depends(same_origin)])
+async def year_move(request: Request, slug: str):
+    def act(year, f):
+        if f.get("delta") not in ("1", "-1"):
+            raise bad("Invalid move")
+        media_db.move(year, valid_key(f.get("item_key", "")), int(f["delta"]))
+    return await _ranking_write(request, slug, act)
+
+
+@router.post("/media/years/{slug}/unplace", dependencies=[Depends(same_origin)])
+async def year_unplace(request: Request, slug: str):
+    return await _ranking_write(request, slug,
+                                lambda year, f: media_db.unplace(year, valid_key(f.get("item_key", ""))))
+
+
+@router.post("/media/years/{slug}/reset", dependencies=[Depends(same_origin)])
+async def year_reset(request: Request, slug: str):
+    return await _ranking_write(request, slug, lambda year, f: media_db.reset_year(year))

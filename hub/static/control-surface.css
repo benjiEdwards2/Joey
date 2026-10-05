@@ -196,6 +196,37 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent)
 .filters .chip.on { color: var(--text); border-color: var(--accent, var(--text-dim)); text-decoration: underline; }
 .older { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--accent, var(--text-dim)); }
 
+/* ---- Year rankings (2026-10-05): positions are always written numbers ---- */
+.yeargrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.yeartile { display: block; min-width: 0; text-decoration: none; color: inherit; }
+.yeartile .poster { width: 100%; height: auto; }
+.yearnum { font-size: 28px; font-weight: 700; margin-top: 6px; }
+.toplace { color: #FFB454; }
+.yearbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.yearbtns .launch { align-self: auto; }
+form.inl { display: inline-block; margin: 0; }
+.actbtn { font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; cursor: pointer; color: var(--text);
+  background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 6px; }
+.actbtn:hover { border-color: var(--accent, var(--text-dim)); }
+.rankno { font-weight: 700; min-width: 2.2em; }
+.rankno.big { font-size: 26px; margin-top: 6px; }
+.podium { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 14px; align-items: end; margin-top: 10px; }
+.podiumitem { min-width: 0; }
+.podiumitem .poster { width: 100%; height: auto; }
+.podiumitem.p1 { order: 2; }
+.podiumitem.p2 { order: 1; }
+.podiumitem.p3 { order: 3; }
+.countdown { position: fixed; inset: 0; z-index: 100; background: #000; color: #fff; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; overflow: auto; }
+.countdown .cdstage { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+.countdown .poster { height: 60vh; width: auto; max-width: 90vw; }
+.cdpos { font-size: 64px; font-weight: 800; line-height: 1; }
+.cdtitle { font-size: 22px; font-weight: 600; }
+.cdscore, .cdcount { font-size: 14px; color: var(--text-dim); }
+.cdnav button { font: inherit; padding: 8px 16px; margin: 4px; color: #fff; background: #222; border: 1px solid #555; border-radius: 8px; }
+.cdexit { position: absolute; top: 12px; left: 16px; font-size: 13px; color: var(--text-dim); }
+.cdlist { text-align: left; font-size: 18px; }
+
 /* ---- Tiles that open a detail page (2026-10-05) ---- */
 .card .foot .open { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--accent, var(--text-dim)); }
 .card .foot .open + .ago { margin-left: 8px; }
@@ -222,6 +253,11 @@ nav.tabs { display: none; }
   .cardlink.wx { grid-column: 1 / -1; grid-row: auto; } /* phone: glimpse flows full-width at the top */
   .card .value { font-size: 20px; }
   .poster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .yeargrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .podium { grid-template-columns: 1fr; }
+  .podiumitem.p1, .podiumitem.p2, .podiumitem.p3 { order: 0; }
+  .podiumitem .poster { max-width: 260px; }
+  .cdpos { font-size: 48px; }
 
   nav.tabs {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;

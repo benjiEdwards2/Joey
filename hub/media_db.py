@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS diary(
   id INTEGER PRIMARY KEY, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
   watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT DEFAULT 'you', created_at TEXT,
   UNIQUE(item_key, watched_on, source));
+CREATE TABLE IF NOT EXISTS ranking(
+  year INTEGER, item_key TEXT, position INTEGER, kind TEXT, title TEXT, poster TEXT,
+  owner TEXT DEFAULT 'you', PRIMARY KEY(year, item_key), UNIQUE(year, position));
 """
 
 
@@ -220,3 +223,120 @@ def diary_stats(now: datetime | None = None) -> dict:
     return {"this_week": sum(1 for d, _ in rows if d > week),
             "this_month": sum(1 for d, _ in rows if d > month),
             "total": len(rows), "streak_days": streak, "milestones": milestones[::-1]}
+
+
+
+# ---- Year rankings (2026-10-05): B.'s own order per rating year. Positions stay
+# contiguous from 1. A rating with no year lives in the year-0 bucket here and is
+# reported as year None ("Unknown year") everywhere outside this block.
+
+def _yk(year) -> int:
+    return year or 0
+
+
+def _renumber(db, year: int, keys: list[str]) -> None:
+    """Rewrite positions 1..n for `keys` (two passes: the UNIQUE(year, position) can't swap in place)."""
+    db.execute("UPDATE ranking SET position = -position WHERE year = ?", (year,))
+    db.executemany("UPDATE ranking SET position = ? WHERE year = ? AND item_key = ?",
+                   [(n, year, k) for n, k in enumerate(keys, 1)])
+
+
+def _order(db, year: int) -> list[str]:
+    return [r["item_key"] for r in db.execute(
+        "SELECT item_key FROM ranking WHERE year = ? ORDER BY position", (year,))]
+
+
+def years_overview() -> list[dict]:
+    """[{year, ranked_count, unranked_count, top}] newest first, year None (unknown) last."""
+    db = _read()
+    if db is None:
+        return []
+    try:
+        with closing(db):
+            rated = {_yk(r["y"]): r["n"] for r in db.execute(
+                "SELECT year AS y, COUNT(*) AS n FROM rating GROUP BY year")}
+            unranked = {_yk(r["y"]): r["n"] for r in db.execute(
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE item_key NOT IN "
+                "(SELECT item_key FROM ranking WHERE ranking.year = COALESCE(rating.year, 0)) GROUP BY year")}
+            ranked = {r["year"]: r["n"] for r in db.execute(
+                "SELECT year, COUNT(*) AS n FROM ranking GROUP BY year")}
+            tops = {r["year"]: {"title": r["title"], "poster": r["poster"], "item_key": r["item_key"]}
+                    for r in db.execute("SELECT year, title, poster, item_key FROM ranking WHERE position = 1")}
+    except sqlite3.Error as exc:
+        log.warning("years_overview failed: %s", type(exc).__name__)
+        return []
+    years = sorted(set(rated) | set(ranked), key=lambda y: (y == 0, -y))
+    return [{"year": y or None, "ranked_count": ranked.get(y, 0), "unranked_count": unranked.get(y, 0),
+             "top": tops.get(y)} for y in years]
+
+
+def year_list(year) -> dict:
+    """{ranked: by position, unranked: the year's rated-but-unplaced, best score first}."""
+    empty = {"ranked": [], "unranked": []}
+    db = _read()
+    if db is None:
+        return empty
+    y = _yk(year)
+    try:
+        with closing(db):
+            ranked = [dict(r) for r in db.execute(
+                "SELECT r.item_key, r.kind, r.title, r.poster, r.position, g.score FROM ranking r "
+                "LEFT JOIN rating g ON g.item_key = r.item_key WHERE r.year = ? ORDER BY r.position", (y,))]
+            unranked = [dict(r) for r in db.execute(
+                "SELECT item_key, kind, title, poster, score FROM rating WHERE year IS ? AND item_key NOT IN "
+                "(SELECT item_key FROM ranking WHERE year = ?) ORDER BY score DESC, title", (year, y))]
+            return {"ranked": ranked, "unranked": unranked}
+    except sqlite3.Error as exc:
+        log.warning("year_list failed: %s", type(exc).__name__)
+        return empty
+
+
+def place(year, item_key: str, position: int | None = None) -> bool:
+    """Rank a rated item of `year` (append, or insert at `position` shifting the rest down).
+    False when the item isn't rated in that year; already-placed items are left alone."""
+    y = _yk(year)
+    with closing(connect()) as db, db:
+        row = db.execute("SELECT kind, title, poster FROM rating WHERE item_key = ? AND year IS ?",
+                         (item_key, year)).fetchone()
+        if row is None:
+            return False
+        keys = _order(db, y)
+        if item_key in keys:
+            return True
+        at = len(keys) if position is None else max(0, min(position - 1, len(keys)))
+        db.execute("INSERT INTO ranking(year, item_key, position, kind, title, poster, owner) "
+                   "VALUES(?,?,?,?,?,?, 'you')", (y, item_key, -10**9, row["kind"], row["title"], row["poster"]))
+        keys.insert(at, item_key)
+        _renumber(db, y, keys)
+        return True
+
+
+def move(year, item_key: str, delta: int) -> None:
+    """Swap with the neighbour above (delta<0) or below (delta>0); clamped at the ends."""
+    if not db_path().is_file():
+        return
+    y = _yk(year)
+    with closing(connect()) as db, db:
+        keys = _order(db, y)
+        if item_key not in keys:
+            return
+        i = keys.index(item_key)
+        j = max(0, min(len(keys) - 1, i + (1 if delta > 0 else -1)))
+        keys[i], keys[j] = keys[j], keys[i]
+        _renumber(db, y, keys)
+
+
+def unplace(year, item_key: str) -> None:
+    if not db_path().is_file():
+        return
+    y = _yk(year)
+    with closing(connect()) as db, db:
+        db.execute("DELETE FROM ranking WHERE year = ? AND item_key = ?", (y, item_key))
+        _renumber(db, y, _order(db, y))
+
+
+def reset_year(year) -> None:
+    if not db_path().is_file():
+        return
+    with closing(connect()) as db, db:
+        db.execute("DELETE FROM ranking WHERE year = ?", (_yk(year),))

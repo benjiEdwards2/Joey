@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ year or "Unknown year" }} — Joey{% endblock %}
+{% block content %}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">{{ year or "Unknown year" }}</div>
+  <div class="sub libline">{{ ranked|length }} ranked · {{ unranked|length }} to place</div>
+  <div class="yearbtns">
+    <a class="launch" href="/media/years/{{ slug }}{{ '' if mode else '?mode=rank' }}">{{ "Done" if mode else "Rank" }}</a>
+    {% if ranked %}<a class="launch" href="/media/years/{{ slug }}/countdown">Countdown</a>
+    <form class="inl" method="post" action="/media/years/{{ slug }}/reset" onsubmit="return confirm('Clear the whole {{ year or 'unknown-year' }} ranking?')">
+      {% if mode %}<input type="hidden" name="mode" value="rank">{% endif %}
+      <button type="submit" class="launch">Reset</button>
+    </form>{% endif %}
+    <a class="launch" href="/media/years">All years</a>
+  </div>
+  {% include "_year_list.html" %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

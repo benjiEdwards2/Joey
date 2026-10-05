@@ -1,0 +1,62 @@
+{% from "_poster.html" import poster %}
+{% import "_rate.html" as rate %}
+{# One year's list (2026-10-05) — the whole section htmx swaps. Positions are always
+   written numbers. Rank mode: every ranked item is a plain numbered row with ▲ ▼ ✕. #}
+{% macro act(path, key, label, text, delta="") %}
+<form class="inl" method="post" action="/media/years/{{ slug }}/{{ path }}" hx-post="/media/years/{{ slug }}/{{ path }}" hx-target="#yearlist" hx-swap="outerHTML">
+  <input type="hidden" name="item_key" value="{{ key }}">{% if delta %}<input type="hidden" name="delta" value="{{ delta }}">{% endif %}
+  {% if mode %}<input type="hidden" name="mode" value="rank">{% endif %}
+  <button type="submit" class="actbtn" aria-label="{{ label }}">{{ text }}</button>
+</form>
+{% endmacro %}
+{% macro row(r, n) %}
+<div class="uprow hasposter">
+  <span class="rankno">#{{ n }}</span>
+  {{ poster(r.poster, r.title, 120, "sm" ~ (" gold-glow" if r.score == 10)) }}
+  <span class="uptitle">{{ r.title }}</span>
+  {{ rate.scorechip(r.score) }}
+  {% if mode %}
+  {{ act("move", r.item_key, "Move " ~ r.title ~ " up", "▲", "-1") }}
+  {{ act("move", r.item_key, "Move " ~ r.title ~ " down", "▼", "1") }}
+  {{ act("unplace", r.item_key, "Unplace " ~ r.title, "✕ Unplace") }}
+  {% endif %}
+</div>
+{% endmacro %}
+<div id="yearlist">
+  {% if ranked %}
+  {% if mode %}
+  <div class="upday">Ranking — {{ ranked|length }} item{{ "" if ranked|length == 1 else "s" }}</div>
+  {% for r in ranked %}{{ row(r, loop.index) }}{% endfor %}
+  {% else %}
+  <div class="podium">
+    {% for r in ranked[:3] %}
+    <div class="podiumitem p{{ loop.index }}">
+      {{ poster(r.poster, r.title, 400, "gold-glow" if r.score == 10) }}
+      <div class="rankno big">#{{ loop.index }}</div>
+      <div class="pgtitle">{{ r.title }}</div>
+      <div class="pgsub">{{ "Film" if r.kind == "movie" else "TV" }} {{ rate.scorechip(r.score) }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if ranked|length > 3 %}
+  <div class="upday">The rest</div>
+  {% for r in ranked[3:] %}{{ row(r, loop.index + 3) }}{% endfor %}
+  {% endif %}
+  {% endif %}
+  {% else %}
+  <div class="value dim">Nothing ranked yet — place items from the list below</div>
+  {% endif %}
+
+  <div class="upday">To place</div>
+  {% for r in unranked %}
+  <div class="uprow hasposter">
+    {{ poster(r.poster, r.title, 120, "sm" ~ (" gold-glow" if r.score == 10)) }}
+    <span class="uptitle">{{ r.title }}</span>
+    {{ rate.scorechip(r.score) }}
+    <span class="chip">{{ "Film" if r.kind == "movie" else "TV" }}</span>
+    {{ act("place", r.item_key, "Place " ~ r.title, "Place") }}
+  </div>
+  {% else %}
+  <div class="value dim">Everything rated this year is placed</div>
+  {% endfor %}
+</div>

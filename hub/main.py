@@ -12,14 +12,14 @@ from pathlib import Path
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from hub import media_db
 from hub.images import router as images_router
-from hub.media_write import router as media_write_router
+from hub.media_write import router as media_write_router, year_ctx
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
 
@@ -211,6 +211,7 @@ ARR_SNAPSHOT_ID = "arr"
 JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
+YEARS_DETAIL = "/media/years"      # the tile reading it as the year rankings
 LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
 HISTORY_STRIP_MAX = 5  # "Recently watched" strip on the area page
 TO_RATE_DAYS = 30      # rating inbox window on /media/history
@@ -509,6 +510,48 @@ def media_diary_page(request: Request):
         }
     return _detail_page(request, "media_diary.html", JELLYFIN_SNAPSHOT_ID, build,
                         detail=DIARY_DETAIL, always_build=True)
+
+
+@app.get("/media/years", response_class=HTMLResponse)
+def media_years_page(request: Request):
+    """Year rankings (2026-10-05): one tile per rating year. Pure media.db — no snapshot data needed."""
+    def build(data, view):
+        return {"years": [] if view == "her" else media_db.years_overview()}
+    return _detail_page(request, "media_years.html", JELLYFIN_SNAPSHOT_ID, build,
+                        detail=YEARS_DETAIL, always_build=True)
+
+
+def _year_page(request: Request, slug: str, template: str):
+    """Year page / countdown: 404 for a bad slug or a year with nothing rated or ranked."""
+    def build(data, view):
+        ctx = year_ctx(slug, request.query_params.get("mode", ""))
+        if view == "her":
+            ctx["ranked"] = ctx["unranked"] = []
+        return {**ctx, "count": len(ctx["ranked"])}
+    try:
+        resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build,
+                            detail=YEARS_DETAIL, always_build=True)
+    except HTTPException:
+        resp = None
+    ctx_ok = resp is not None and resp.status_code == 200 and (
+        resp.context.get("ranked") or resp.context.get("unranked"))
+    if not ctx_ok:
+        view, _ = resolve_owner_view(request)
+        return templates.TemplateResponse(request, "404.html", {
+            "areas": registry.areas, "active_id": None, "owner_view": view,
+            "missing_text": "No rankings here",
+        }, status_code=404)
+    return resp
+
+
+@app.get("/media/years/{slug}", response_class=HTMLResponse)
+def media_year_page(request: Request, slug: str):
+    return _year_page(request, slug, "media_year.html")
+
+
+@app.get("/media/years/{slug}/countdown", response_class=HTMLResponse)
+def media_year_countdown(request: Request, slug: str):
+    return _year_page(request, slug, "media_countdown.html")
 
 
 @app.get("/a/{area_id}", response_class=HTMLResponse)

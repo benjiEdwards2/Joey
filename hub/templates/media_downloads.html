@@ -1,0 +1,39 @@
+{% extends "media_base.html" %}
+{% block title %}Downloads — Joey{% endblock %}
+{% block content %}
+{# Downloads (2026-10-06): qBittorrent, read-only. State and percentage are WORDS beside the
+   thin bar — colour is never the only encoding. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">Downloads</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
+  {% else %}
+    <div class="sub">{{ totals_text }}</div>
+    {% for g in groups %}
+    <div class="upday">{{ g.label }}</div>
+    {% for r in g.rows %}
+    <div class="uprow">
+      <span class="uptitle">{{ r.name }}</span>
+      <span class="chip">{{ r.state_text }}</span>
+      <span class="uptime nextleft">{{ r.pct }}% done{% if r.speed_text %} · {{ r.speed_text }}{% endif %}{% if r.eta_text %} · {{ r.eta_text }} left{% endif %} · {{ r.size_text }}</span>
+      <span class="pbar" aria-hidden="true"><span style="width: {{ r.pct }}%"></span></span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="value dim">Nothing downloading</div>
+    {% endfor %}
+
+    <div class="upday">Finished today</div>
+    {% for r in src.data.get("finished", []) %}
+    <div class="uprow">
+      <span class="uptitle">{{ r.name }}</span>
+      <span class="uptime nextleft">{{ r.size_text }}</span>
+    </div>
+    {% else %}
+    <div class="value dim">Nothing finished today</div>
+    {% endfor %}
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

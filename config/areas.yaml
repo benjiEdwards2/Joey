@@ -132,6 +132,14 @@ areas:
         detail: /media/library
         stale_after_minutes: 180
         setup_note: "Set RADARR_URL/RADARR_API_KEY/SONARR_URL/SONARR_API_KEY in deploy/.env."
+      - id: downloads
+        label: Downloads
+        tier: embed
+        owner: shared
+        snapshot: qbittorrent
+        detail: /media/downloads
+        stale_after_minutes: 10
+        setup_note: "Set QBIT_URL/QBIT_USER/QBIT_PASS in deploy/.env."
       - id: requests
         label: Requests
         tier: embed

@@ -237,6 +237,22 @@ def _stub(kind: str, tmdb_id: int) -> dict:
     return {"kind": kind, "tmdb_id": tmdb_id, "title": "", "year": None, "seasons": [], "code": None}
 
 
+def _dl_badge(title) -> str | None:
+    """'Downloading · 43%' when the arr queue / qBittorrent holds this title; never raises."""
+    from hub import main as hub  # late: hub.main includes this router
+    from hub import media_downloads
+
+    try:
+        snaps = hub.get_snapshots()
+        arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(media_downloads.QB_SNAPSHOT_ID)
+        merged = media_downloads.merge_downloading((arr.data if arr else {}).get("downloading"),
+                                                   qb.data if qb else {})
+        return media_downloads.badge_for_title(merged, title)
+    except Exception:
+        log.warning("downloading badge skipped", exc_info=True)
+        return None
+
+
 @router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
 def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "",
                error: str = ""):
@@ -253,7 +269,7 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
             block = _block(t, "error", ERRORS[error])
         else:
             block = _block(t, "confirm" if step == "confirm" else "idle")
-        return {"note": None, **block}
+        return {"note": None, "dl_badge": _dl_badge(t["title"]), **block}
 
     return _page(request, "media_title.html", build)
 

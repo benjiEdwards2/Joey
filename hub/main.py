@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from hub import media_backup, media_db, media_nav
+from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
 from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
@@ -250,6 +250,7 @@ JELLYFIN_SNAPSHOT_ID = "jellyfin"
 MEDIA_STATUS_SNAPSHOT_ID = "media_status"
 ARR_SNAPSHOT_ID = "arr"
 JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
+QBIT_SNAPSHOT_ID = media_downloads.QB_SNAPSHOT_ID
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
 YEARS_DETAIL = "/media/years"      # the tile reading it as the year rankings
@@ -512,8 +513,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     arr = data_of(ARR_SNAPSHOT_ID)
     this_week = [item(r, " · ".join(x for x in (_day_label(date.fromisoformat(r["date"]), now.date()), r.get("label")) if x),
                       LIBRARY_DETAIL) for r in (arr.get("this_week") or [])][:SHELF_MAX]
-    downloading = [item(r, f"{r.get('status_text')} · {r.get('time_left')}".strip(" ·"), LIBRARY_DETAIL)
-                   for r in (arr.get("downloading") or [])][:SHELF_MAX]
+    downloading = [item(r, r["caption"], LIBRARY_DETAIL) for r in
+                   media_downloads.merge_downloading(arr.get("downloading"), data_of(QBIT_SNAPSHOT_ID))][:SHELF_MAX]
 
     watched_rows = recent[:SHELF_MAX]
     ratings = _ratings(view, up_next, added, recent, this_week, downloading)  # ONE query for every shelf
@@ -556,6 +557,8 @@ def hub_page(request: Request):
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             jdata = view_jelly(jelly.data if jelly else {}, view)
             card["hero"] = media_hero(jdata, link)
+            qb = snaps.get(QBIT_SNAPSHOT_ID)
+            card["downloading"] = (qb.data.get("summary") if qb and qb.data.get("active") else None)
             card["waiting"] = area_waiting(a, snaps, view)
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
@@ -621,6 +624,25 @@ def media_playing_page(request: Request):
     return _detail_page(request, "media_playing.html", JELLYFIN_SNAPSHOT_ID, build)
 
 
+def _qb_data() -> dict:
+    snap = get_snapshots().get(QBIT_SNAPSHOT_ID)
+    return snap.data if snap else {}
+
+
+@app.get("/media/downloads", response_class=HTMLResponse)
+def media_downloads_page(request: Request):
+    def build(data, view):
+        groups = [{"label": label, "rows": [r for r in data.get("active") or [] if r.get("kind") == kind]}
+                  for kind, label in (("movie", "Movies"), ("tv", "TV"))]
+        groups.append({"label": "Other", "rows": [r for r in data.get("active") or []
+                                                  if r.get("kind") not in ("movie", "tv")]})
+        totals = data.get("totals") or {}
+        return {"groups": [g for g in groups if g["rows"]],
+                "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
+                               f" · {data.get('seeding', 0)} seeding"}
+    return _detail_page(request, "media_downloads.html", QBIT_SNAPSHOT_ID, build)
+
+
 @app.get("/media/library", response_class=HTMLResponse)
 def media_library_page(request: Request):
     def build(data, view):
@@ -631,11 +653,14 @@ def media_library_page(request: Request):
             if not groups or groups[-1]["day"] != day:
                 groups.append({"day": day, "label": _day_label(day, today), "rows": []})
             groups[-1]["rows"].append(row)
+        merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data())
         return {
             "week": groups,
+            "downloading": merged,
+            "dl_badges": media_downloads.badges_by_item_key(merged),
             "app_notes": [f"{app.title()} not answering: {reason}"
                           for app, reason in sorted((data.get("app_errors") or {}).items())],
-            "ratings": _ratings(view, *(data.get(k) for k in ("arrived", "updated", "this_week", "downloading"))),
+            "ratings": _ratings(view, *(data.get(k) for k in ("arrived", "updated", "this_week")), merged),
         }
     return _detail_page(request, "media_library.html", ARR_SNAPSHOT_ID, build)
 

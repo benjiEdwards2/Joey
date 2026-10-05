@@ -28,6 +28,7 @@
         "recent": [
           {
             "item_key": "jf:her-series-1",
+            "jf_id": "her-hist-1",
             "kind": "episode",
             "poster": "jf:her-series-1",
             "title": "Garden Lane \u00b7 S01E01 \u00b7 First Frost",
@@ -36,6 +37,7 @@
           },
           {
             "item_key": "tmdb:202",
+            "jf_id": "her-hist-2",
             "kind": "movie",
             "poster": "jf:her-hist-2",
             "title": "Paper Lanterns",

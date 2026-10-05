@@ -20,7 +20,7 @@ def compose() -> dict:
 
 def test_compose_parses_and_defines_the_stack_services():
     # grew from {hub, connectors} at WP11 (cloudflared tunnel added)
-    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared"}
+    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared", "macromates"}
 
 
 def test_compose_records_the_nas_host_decision():

@@ -12,19 +12,22 @@ import urllib.request
 
 BASE = "http://127.0.0.1:8000"
 CHECKS = ["/healthz", "/"]
+# MacroMates static server on the same compose network (2026-10-05) — part of
+# the stack, so a deploy that leaves it unservable rolls back like any other.
+EXTRA = ["http://macromates/"]
 
 
 def main() -> int:
-    for path in CHECKS:
+    for url in [BASE + path for path in CHECKS] + EXTRA:
         try:
-            with urllib.request.urlopen(BASE + path, timeout=5) as r:
+            with urllib.request.urlopen(url, timeout=5) as r:
                 if r.status != 200:
-                    print(f"SMOKE FAIL {path}: HTTP {r.status}")
+                    print(f"SMOKE FAIL {url}: HTTP {r.status}")
                     return 1
         except Exception as exc:  # noqa: BLE001 — any failure fails the smoke
-            print(f"SMOKE FAIL {path}: {exc}")
+            print(f"SMOKE FAIL {url}: {exc}")
             return 1
-        print(f"smoke ok {path}")
+        print(f"smoke ok {url}")
     return 0
 
 

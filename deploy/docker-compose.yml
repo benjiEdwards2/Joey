@@ -48,6 +48,21 @@ services:
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
 
+  macromates:
+    # MacroMates PWA (2026-10-05 Gate 1): static nginx serving the built bundle
+    # cloned at /volume1/Docker/joey/macromates-app (benjiEdwards2/macromates-app,
+    # read-only deploy key /root/.ssh/macromates_deploy). Reached ONLY through the
+    # joey-nas tunnel at https://macromates.joeyhome.net behind the family-allowlist
+    # Access policy — no published ports. Supabase backend unchanged.
+    image: nginx:alpine
+    container_name: joey-macromates
+    restart: unless-stopped
+    volumes:
+      - /volume1/Docker/joey/macromates-app:/usr/share/nginx/html:ro
+      - ./macromates.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    expose:
+      - "80"
+
   connectors:
     # Hourly full sweep plus a 2-minute fast loop for the live Media feeds
     # (D16 amended 2026-10-05). sleep loops, NOT crond (D16) — phase drift

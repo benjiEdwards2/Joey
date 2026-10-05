@@ -100,7 +100,10 @@ def app_factory(tmp_path, monkeypatch):
 def _live_events():
     """Events relative to the real clock, since the route uses datetime.now()."""
     now = datetime.now().astimezone()
-    t1 = now + timedelta(hours=2)
+    # In progress (started 30 min ago) so it groups under Today whatever the hour: a
+    # "now + 2 h" start crossed midnight in the UTC gate container between 22:00 and
+    # 24:00 UTC and turned this test red for two hours a day (2026-10-06).
+    t1 = now - timedelta(minutes=30)
     d2 = (now + timedelta(days=1)).date()
     return [
         ev("Timed today", t1.isoformat(), (t1 + timedelta(hours=1)).isoformat(), owner="you"),

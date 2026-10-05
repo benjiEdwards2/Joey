@@ -126,11 +126,12 @@ def test_switcher_links_to_current_media_path(env):
     assert 'href="/media/years?kind=tv&amp;owner_view=her"' in years
 
 
-def test_stub_pages_and_years_heading(env):
-    main = env(jellyfin=JELLY, arr=ARR)
+def test_library_pages_quiet_without_lists_and_years_heading(env):
+    main = env(jellyfin=JELLY, arr=ARR)   # the fixture snapshot carries no movies/shows arrays
     with TestClient(main.app) as client:
         for path in ("/media/movies", "/media/movies/tonight", "/media/tv", "/media/tv/tonight"):
-            assert "Coming in the next phase" in client.get(path).text
+            assert "Library list not available yet" in client.get(path).text
+            assert "Coming in the next phase" not in client.get(path).text
         def body(p):
             return client.get(p).text.split("<main", 1)[1]
         assert "By year — films" in body("/media/years?kind=movie")

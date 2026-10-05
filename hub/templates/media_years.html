@@ -9,7 +9,7 @@
   {% if years %}
   <div class="poster-grid yeargrid">
     {% for y in years %}
-    <a class="yeartile" href="/media/years/{{ y.year or 'unknown' }}">
+    <a class="yeartile" href="/media/years/{{ y.year or 'unknown' }}{{ '?kind=' ~ kind if kind }}">
       {{ poster(y.top.poster if y.top else none, y.top.title if y.top else "", 400) }}
       <div class="yearnum">{{ y.year or "Unknown year" }}</div>
       <div class="pgtitle">{% if y.top %}#1 — {{ y.top.title }}{% else %}Nothing ranked yet{% endif %}</div>

@@ -412,3 +412,20 @@ nav.mediatabs { display: none; }
   nav.mediatabs > a { flex: 1; text-align: center; font-size: 10px; padding: 6px 2px; color: var(--text-dim); text-decoration: none; }
   nav.mediatabs .waitcount { font-size: 9px; min-width: 14px; line-height: 13px; padding: 0 3px; margin-left: 1px; }
 }
+
+/* ---- Movies + TV hub (F3b, 2026-10-06) ---- */
+.libctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 4px; }
+.libctl input[type=search], .libctl select { font: inherit; font-size: 14px; color: var(--text);
+  background: rgba(0,0,0,.35); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.libctl input[type=search] { flex: 1 1 180px; min-width: 0; }
+.libctl label { font-size: 13px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
+.libraryrow .uptitle a, .tcard a { color: inherit; text-decoration: none; }
+.libraryrow .uptitle a:hover, .tcard .pgtitle a:hover { text-decoration: underline; }
+.libmeta { display: block; font-size: 12px; font-weight: 400; color: var(--text-dim); }
+.libmeta .faint { color: var(--text-faint); }
+.libcomm { flex: 0 0 auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+.libcomm small { font-size: 10px; color: var(--text-dim); }
+.tonight { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 8px 0 14px; }
+.tonight .poster { width: 100%; height: auto; }
+.tpile { text-transform: uppercase; letter-spacing: .5px; }
+@media (max-width: 640px) { .tonight { grid-template-columns: 1fr; } .tonight .tcard { max-width: 260px; } }

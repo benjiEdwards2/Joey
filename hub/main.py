@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import random
 import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -22,6 +23,7 @@ from hub import media_backup, media_db, media_nav
 from hub.images import router as images_router
 from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
+from hub import media_library
 from hub.media_write import router as media_write_router, year_ctx
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
@@ -738,45 +740,106 @@ def media_diary_page(request: Request):
 def media_years_page(request: Request):
     """Year rankings (2026-10-05): one tile per rating year. Pure media.db — no snapshot data needed."""
     def build(data, view):
-        kind = request.query_params.get("kind")  # accepted + shown; filtering by kind is F3
-        return {"years": [] if view == "her" else media_db.years_overview(),
-                "kind": kind if kind in ("movie", "tv") else None}
+        kind = _kind_of(request)
+        return {"years": [] if view == "her" else media_db.years_overview(kind), "kind": kind}
     return _detail_page(request, "media_years.html", JELLYFIN_SNAPSHOT_ID, build,
                         detail=YEARS_DETAIL, always_build=True)
 
 
-def _stub_page(request: Request, heading: str):
-    """Framed placeholder for a tab a later phase fills (F3)."""
-    view, from_query = resolve_owner_view(request)
-    resp = templates.TemplateResponse(request, "media_stub.html", {
-        "areas": registry.areas, "active_id": None, "owner_view": view, "heading": heading})
-    return _maybe_set_cookie(resp, view, from_query)
+def _kind_of(request: Request) -> str | None:
+    kind = request.query_params.get("kind")
+    return kind if kind in ("movie", "tv") else None
+
+
+def _lib_href(link, server_id):
+    """href_of for media_library rows: Joey title page for a tmdb key, else the Jellyfin deep link."""
+    def href_of(row, kind):
+        key = str(row.get("item_key") or "")
+        if key.startswith("tmdb:") and key[5:].isdigit():
+            return f"/media/title/{kind}/{key[5:]}", False
+        url = _deep_link(link, row.get("jf_id"), server_id)
+        return url, bool(url)
+    return href_of
+
+
+def _library_lists(data: dict, view: str, kind: str):
+    """(items | None, marks): her view reads her own list; without it the shared list has no marks."""
+    field = "movies" if kind == "movie" else "shows"
+    if view == "her":
+        mine = (data.get("her") or {}).get(field)
+        if mine is not None:
+            return mine, True
+        return data.get(field), False
+    return data.get(field), True
+
+
+def _library_rows(data: dict, view: str, kind: str):
+    """(items | None, marks, rows | None) for the view's owner."""
+    now = datetime.now(timezone.utc)
+    items, marks = _library_lists(data, view, kind)
+    if items is None:
+        return None, marks, None
+    link = (find_detail_source(JELLYFIN_SNAPSHOT_ID, get_snapshots()) or {}).get("href")
+    maker = media_library.film_rows if kind == "movie" else media_library.show_rows
+    return items, marks, maker(items, _ratings(view, items), lambda v: _ago_text(v, now),
+                               _lib_href(link, data.get("server_id")), marks)
+
+
+def _library_page(request: Request, kind: str):
+    template = "media_movies.html" if kind == "movie" else "media_tv.html"
+
+    def build(data, view):
+        items, marks, rows = _library_rows(data, view, kind)
+        arr = get_snapshots().get(ARR_SNAPSHOT_ID)
+        arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
+        q = request.query_params.get("q", "")
+        sort = request.query_params.get("sort", "score")
+        sort = sort if sort in media_library.SORTS else "score"
+        group = (request.query_params.getlist("group") or ["1"])[-1] != "0"
+        return {
+            "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "group": group,
+            "sorts": media_library.SORT_LABELS, "new_week": arrived,
+            "head_line": media_library.head_line(rows or [], kind, marks),
+            "groups": media_library.arrange(rows or [], q, sort, group, kind, marks),
+            "ratings": _ratings(view, arrived),
+        }
+    return _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
+
+
+def _tonight_page(request: Request, kind: str):
+    def build(data, view):
+        items, marks, rows = _library_rows(data, view, kind)
+        ratings = _ratings(view, items or [])
+        cards = media_library.deal_tonight(rows or [], ratings, kind, random.Random()) if marks else []
+        return {"kind": kind, "marks": marks, "available": rows is not None, "cards": cards,
+                "ratings": ratings, "heading": "Three for tonight"}
+    return _detail_page(request, "media_tonight.html", JELLYFIN_SNAPSHOT_ID, build)
 
 
 @app.get("/media/movies", response_class=HTMLResponse)
 def media_movies_page(request: Request):
-    return _stub_page(request, "My films")
+    return _library_page(request, "movie")
 
 
 @app.get("/media/movies/tonight", response_class=HTMLResponse)
 def media_movies_tonight_page(request: Request):
-    return _stub_page(request, "Tonight — films")
+    return _tonight_page(request, "movie")
 
 
 @app.get("/media/tv", response_class=HTMLResponse)
 def media_tv_page(request: Request):
-    return _stub_page(request, "My shows")
+    return _library_page(request, "tv")
 
 
 @app.get("/media/tv/tonight", response_class=HTMLResponse)
 def media_tv_tonight_page(request: Request):
-    return _stub_page(request, "Tonight — TV")
+    return _tonight_page(request, "tv")
 
 
 def _year_page(request: Request, slug: str, template: str):
     """Year page / countdown: 404 for a bad slug or a year with nothing rated or ranked."""
     def build(data, view):
-        ctx = year_ctx(slug, request.query_params.get("mode", ""))
+        ctx = year_ctx(slug, request.query_params.get("mode", ""), _kind_of(request))
         if view == "her":
             ctx["ranked"] = ctx["unranked"] = []
         return {**ctx, "count": len(ctx["ranked"])}

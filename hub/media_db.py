@@ -292,22 +292,31 @@ def _order(db, year: int) -> list[str]:
         "SELECT item_key FROM ranking WHERE year = ? ORDER BY position", (year,))]
 
 
-def years_overview() -> list[dict]:
-    """[{year, ranked_count, unranked_count, top}] newest first, year None (unknown) last."""
+def _kind_arg(kind) -> str | None:
+    return kind if kind in ("movie", "tv") else None
+
+
+def years_overview(kind: str | None = None) -> list[dict]:
+    """[{year, ranked_count, unranked_count, top}] newest first, year None (unknown) last.
+    `kind` ('movie' | 'tv') limits every count and the #1 to that kind."""
     db = _read()
     if db is None:
         return []
+    kind = _kind_arg(kind)
+    kf, ka = (" AND kind = ?", [kind]) if kind else ("", [])
     try:
         with closing(db):
             rated = {_yk(r["y"]): r["n"] for r in db.execute(
-                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you' GROUP BY year")}
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you'" + kf + " GROUP BY year", ka)}
             unranked = {_yk(r["y"]): r["n"] for r in db.execute(
-                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you' AND item_key NOT IN "
-                "(SELECT item_key FROM ranking WHERE ranking.year = COALESCE(rating.year, 0)) GROUP BY year")}
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you'" + kf + " AND item_key NOT IN "
+                "(SELECT item_key FROM ranking WHERE ranking.year = COALESCE(rating.year, 0)) GROUP BY year", ka)}
             ranked = {r["year"]: r["n"] for r in db.execute(
-                "SELECT year, COUNT(*) AS n FROM ranking GROUP BY year")}
-            tops = {r["year"]: {"title": r["title"], "poster": r["poster"], "item_key": r["item_key"]}
-                    for r in db.execute("SELECT year, title, poster, item_key FROM ranking WHERE position = 1")}
+                "SELECT year, COUNT(*) AS n FROM ranking WHERE 1 = 1" + kf + " GROUP BY year", ka)}
+            tops: dict = {}
+            for r in db.execute("SELECT year, title, poster, item_key FROM ranking WHERE 1 = 1" + kf
+                                + " ORDER BY position", ka):
+                tops.setdefault(r["year"], {"title": r["title"], "poster": r["poster"], "item_key": r["item_key"]})
     except sqlite3.Error as exc:
         log.warning("years_overview failed: %s", type(exc).__name__)
         return []
@@ -316,22 +325,26 @@ def years_overview() -> list[dict]:
              "top": tops.get(y)} for y in years]
 
 
-def year_list(year) -> dict:
-    """{ranked: by position, unranked: the year's rated-but-unplaced, best score first}."""
+def year_list(year, kind: str | None = None) -> dict:
+    """{ranked: by position, unranked: the year's rated-but-unplaced, best score first}; `kind` filters both."""
     empty = {"ranked": [], "unranked": []}
     db = _read()
     if db is None:
         return empty
     y = _yk(year)
+    kind = _kind_arg(kind)
     try:
         with closing(db):
             ranked = [dict(r) for r in db.execute(
                 "SELECT r.item_key, r.kind, r.title, r.poster, r.position, g.score FROM ranking r "
                 "LEFT JOIN rating g ON g.item_key = r.item_key AND g.owner = 'you' "
-                "WHERE r.year = ? ORDER BY r.position", (y,))]
+                "WHERE r.year = ?" + (" AND r.kind = ?" if kind else "") + " ORDER BY r.position",
+                [y] + ([kind] if kind else []))]
             unranked = [dict(r) for r in db.execute(
-                "SELECT item_key, kind, title, poster, score FROM rating WHERE owner = 'you' AND year IS ? AND item_key NOT IN "
-                "(SELECT item_key FROM ranking WHERE year = ?) ORDER BY score DESC, title", (year, y))]
+                "SELECT item_key, kind, title, poster, score FROM rating WHERE owner = 'you' AND year IS ?"
+                + (" AND kind = ?" if kind else "") + " AND item_key NOT IN "
+                "(SELECT item_key FROM ranking WHERE year = ?) ORDER BY score DESC, title",
+                [year] + ([kind] if kind else []) + [y])]
             return {"ranked": ranked, "unranked": unranked}
     except sqlite3.Error as exc:
         log.warning("year_list failed: %s", type(exc).__name__)

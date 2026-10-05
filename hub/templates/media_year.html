@@ -11,7 +11,7 @@
       {% if mode %}<input type="hidden" name="mode" value="rank">{% endif %}
       <button type="submit" class="launch">Reset</button>
     </form>{% endif %}
-    <a class="launch" href="/media/years">All years</a>
+    <a class="launch" href="/media/years{{ '?kind=' ~ request.query_params.get('kind') if request.query_params.get('kind') in ('movie', 'tv') }}">All years</a>
   </div>
   {% include "_year_list.html" %}
   {% include "_detail_foot.html" %}

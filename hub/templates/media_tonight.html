@@ -1,0 +1,32 @@
+{% extends "media_base.html" %}
+{% block title %}Three for tonight — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% import "_rate.html" as rate %}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">{{ heading }}</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+  {% elif not available %}
+    <div class="value dim">Library list not available yet</div>
+  {% elif not marks %}
+    <div class="value dim">Her watch marks aren't available yet, so there is nothing to deal</div>
+  {% else %}
+    <div class="tonight">
+      {% for c in cards %}
+      {% set r = c.row %}
+      <div class="pgitem tcard">
+        {% if r.href %}<a href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}>{{ poster(r.poster, r.title, 240, "gold-glow" if r.score == 10 else "") }}</a>
+        {% else %}{{ poster(r.poster, r.title, 240) }}{% endif %}
+        <div class="pgtitle">{% if r.href %}<a href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}>{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}{% if r.year %} ({{ r.year }}){% endif %} {{ rate.scorechip(r.score) }}</div>
+        <div class="pgsub">{{ r.runtime if r.kind == "movie" else r.eps_text }}</div>
+        <div class="pgsub tpile">{{ c.pile }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if cards|length < 3 %}<div class="value dim">Nothing else to deal</div>{% endif %}
+    <a class="launch" href="{{ request.url.path }}">Deal again</a>
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

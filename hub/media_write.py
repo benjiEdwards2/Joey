@@ -222,11 +222,11 @@ def parse_year(slug: str):
     raise HTTPException(404, "No such year")
 
 
-def year_ctx(slug: str, mode: str = "") -> dict:
+def year_ctx(slug: str, mode: str = "", kind: str | None = None) -> dict:
     """Context for _year_list.html (shared by the page and the write routes)."""
     year = parse_year(slug)
     return {"year": year, "slug": slug, "mode": "rank" if mode == "rank" else "",
-            **media_db.year_list(year)}
+            **media_db.year_list(year, kind)}
 
 
 async def _ranking_write(request: Request, slug: str, action):

@@ -1,0 +1,39 @@
+{% from "_poster.html" import poster %}
+{% from "_library_row.html" import row %}
+{# Shared body of /media/movies and /media/tv. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">{{ "My films" if kind == "movie" else "My shows" }}</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+  {% elif rows is none %}
+    <div class="value dim">Library list not available yet</div>
+  {% else %}
+    <div class="sub libline">{{ head_line }}</div>
+    {% if not marks %}<div class="sub">Her watch marks and scores aren't available yet</div>{% endif %}
+    {% if new_week %}
+    <div class="upday">New this week</div>
+    {% for r in new_week %}
+    <div class="uprow hasposter">
+      {{ poster(r.poster, r.title, 120, "sm") }}
+      <span class="uptitle">{{ r.title }}</span>
+      <span class="uptime nextleft">{{ r.when }}</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+    <form class="libctl" method="get">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles">
+      <select name="sort" aria-label="Sort by">
+        {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      {% if marks %}<label><input type="hidden" name="group" value="0"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %}> Grouped</label>{% endif %}
+      <button type="submit" class="launch">Apply</button>
+    </form>
+    {% for g in groups %}
+    {% if g.label %}<div class="upday">{{ g.label }} · {{ g.rows|length }}</div>{% endif %}
+    {% for r in g.rows %}{{ row(r) }}{% endfor %}
+    {% else %}
+    <div class="value dim">{{ "Nothing matches that search" if q else "Nothing in the library yet" }}</div>
+    {% endfor %}
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>

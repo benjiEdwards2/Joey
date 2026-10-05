@@ -96,7 +96,7 @@ areas:
 
   - id: media
     name: Media
-    accent: "#FF5CA8"
+    accent: "#E50914"          # Netflix red — Media Layout Lab pick, 2026-10-05 (was #FF5CA8)
     icon: media
     summary_tile: watching
     layout: shelves                                  # hero + poster shelves instead of tile cards (2026-10-05)

@@ -1,17 +1,18 @@
 /* Control Surface — port of the gated Joey mockup v3 (Cockpit × Bento).
-   Dark only by dated decision (2026-08-25). Tokens here; per-area --accent is
+   Dark only by dated decision (2026-08-25). Palette = "Netflix" from the Media
+   Layout Lab (B., 2026-10-05): neutral black and greys, no blue cast. Tokens here; per-area --accent is
    injected by templates from the registry — NO area-specific colour lives in
    this file. Golden reference: docs/mockup/golden_1280.png / golden_375.png. */
 
 :root {
-  --bg: #08090D;
-  --card: #101219;
-  --border: #1D212B;
-  --text: #E8EAF0;
-  --text-dim: #8A90A0;      /* 5.9:1 on --card — body-secondary, AA */
-  --text-faint: #565C6B;    /* decorative/inactive only */
+  --bg: #141414;
+  --card: #1F1F1F;
+  --border: #2E2E2E;
+  --text: #F0F0F0;
+  --text-dim: #9A9A9A;      /* 5.6:1 on --card — body-secondary, AA */
+  --text-faint: #666666;    /* decorative/inactive only */
   --stale: #FFB454;
-  --rail-bg: #0C0E14;
+  --rail-bg: #181818;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

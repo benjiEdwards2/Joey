@@ -12,7 +12,7 @@ def test_manifest_is_valid_and_dark():
     m = json.loads((REPO_ROOT / "hub/static/manifest.webmanifest").read_text(encoding="utf-8"))
     assert m["name"] == "Joey"
     assert m["display"] == "standalone"
-    assert m["background_color"] == "#08090D" and m["theme_color"] == "#08090D"
+    assert m["background_color"] == "#141414" and m["theme_color"] == "#141414"
     assert {i["sizes"] for i in m["icons"]} == {"192x192", "512x512"}
 
 

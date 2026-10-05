@@ -107,3 +107,20 @@ def test_hub_main_names_no_area_for_media():
     text = (Path(__file__).resolve().parents[2] / "hub" / "main.py").read_text(encoding="utf-8")
     assert "JELLYFIN_SNAPSHOT_ID" in text and "MEDIA_STATUS_SNAPSHOT_ID" in text
     assert '"media"' not in text.replace('"media": find_media', "")
+
+
+def test_media_sections_render_in_the_page_body_not_the_title(app_factory):
+    """2026-10-05 regression: the sections were emitted inside {% block title %}
+    and vanished into the browser tab. Pin them to the body, after the grid."""
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "media_status", age_minutes=1,
+                   data={"summary": "1 of 2 up", "apps": APPS})
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
+    with build(snaps) as client:
+        html = client.get("/a/alpha").text
+    title = html.split("<title>", 1)[1].split("</title>", 1)[0]
+    assert "<" not in title and "Apps" not in title
+    body = html.split("<main", 1)[1]
+    assert body.index('class="grid"') < body.index(">Apps<")
+    assert ">Now playing</div>" in body and ">Up next</div>" in body

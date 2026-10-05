@@ -1,5 +1,15 @@
 {% extends "base.html" %}
-{% block title %}{{ area.name }} · Joey{% if media %}
+{% block title %}{{ area.name }} · Joey{% endblock %}
+{% block content %}
+<h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
+<div class="grid">
+  {% for row in tiles %}
+    {% with tile = row.tile, st = row.st, accent = area.accent, heading = row.tile.label %}
+      {% include "_tile.html" %}
+    {% endwith %}
+  {% endfor %}
+</div>
+{% if media %}
 {# Media sections (2026-10-05): rendered when the area's tiles read the
    jellyfin / media_status snapshots. Up/Down is a WORD beside the dot. #}
 <div class="mediacols">
@@ -52,16 +62,6 @@
 {% endif %}
 </div>
 {% endif %}
-{% endblock %}
-{% block content %}
-<h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
-<div class="grid">
-  {% for row in tiles %}
-    {% with tile = row.tile, st = row.st, accent = area.accent, heading = row.tile.label %}
-      {% include "_tile.html" %}
-    {% endwith %}
-  {% endfor %}
-</div>
 {% if upcoming %}
 {# Upcoming-events list (2026-09-11): renders on any area whose tiles read the
    gcal snapshot. Owner chips are text — colour never the only encoding. #}

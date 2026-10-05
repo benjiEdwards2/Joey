@@ -33,7 +33,8 @@ def test_requires_the_url_and_api_key_names():
 
 def test_fixture_dir_is_one_file_per_fetch_key(raw):
     assert set(raw) == {"raw_users", "raw_system", "raw_sessions", "raw_resume", "raw_nextup",
-                        "raw_latest", "raw_counts", "raw_history"}
+                        "raw_latest", "raw_counts", "raw_history",
+                        "raw_her_resume", "raw_her_nextup", "raw_her_history"}
 
 
 def test_now_playing_rows_carry_a_play_method_word(raw):
@@ -285,3 +286,91 @@ def test_absent_raw_system_gives_a_null_server_id(raw):
     data = Jellyfin().transform(raw)
     jsonschema.validate(data, SCHEMA)
     assert data["server_id"] is None
+
+
+# ---- Georgina's view (2026-10-05): JELLYFIN_USER_HER, exact name, never the admin ----
+
+def test_pick_her_user_is_exact_match_or_none():
+    assert Jellyfin.pick_her_user(USERS, "Other")["Id"] == "u3"
+    assert Jellyfin.pick_her_user(USERS, "other") is None      # exact, case included
+    assert Jellyfin.pick_her_user(USERS, "Nobody") is None     # never falls back to the admin
+    assert Jellyfin.pick_her_user(USERS, None) is None and Jellyfin.pick_her_user(USERS, "") is None
+    assert Jellyfin.pick_her_user([], "Other") is None
+
+
+def test_fixture_mode_always_carries_her_block_from_the_georgina_user(snapshots, raw, monkeypatch):
+    monkeypatch.setenv("JELLYFIN_USER_HER", "someone else")  # fixture mode never reads the real env
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["her"]["user"] == "georgina"
+    assert [u["title"] for u in data["her"]["up_next"]] == [
+        "Cold Harbour", "Garden Lane · S01E02 · Hedgerow"]
+    assert data["her"]["history"]["recent"][0]["title"] == "Garden Lane · S01E01 · First Frost"
+    assert all("Quiet Coast" not in r["title"] for r in data["her"]["history"]["recent"])
+    assert data["up_next"][0]["title"] == "Dust and Daylight"  # B.'s top-level fields unchanged
+
+
+def test_transform_emits_null_her_when_the_keys_are_absent(raw):
+    raw = {k: v for k, v in raw.items() if not k.startswith("raw_her_")}
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["her"] is None
+
+
+def test_schema_rejects_a_malformed_her_block(raw):
+    data = Jellyfin().transform(raw)
+    data["her"] = {"user": "georgina", "up_next": [], "history": {}}
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(data, SCHEMA)
+
+
+def _live_calls(monkeypatch, raw):
+    calls = []
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        calls.append((url[len(URL):], params))
+        path = url[len(URL):]
+        key = {"/Users": "raw_users", "/System/Info/Public": "raw_system", "/Sessions": "raw_sessions",
+               "/Items/Counts": "raw_counts"}.get(path)
+        if key is None and path == "/Shows/NextUp":
+            key = "raw_her_nextup" if (params or {}).get("UserId") == "user-fixture-3" else "raw_nextup"
+        if key is None:
+            her = "user-fixture-3" in path
+            key = ("raw_her_resume" if her else "raw_resume") if path.endswith("/Items/Resume") else (
+                "raw_her_history" if her else "raw_history") if path.endswith("/Items") else "raw_latest"
+        return FakeResponse(raw[key])
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    return calls
+
+
+def test_live_fetch_calls_her_endpoints_only_when_set_and_found(live, monkeypatch, raw):
+    monkeypatch.setenv("JELLYFIN_USER_HER", "georgina")
+    calls = _live_calls(monkeypatch, raw)
+    envelope = Jellyfin().run()
+    assert envelope["status"] == "ok", envelope["error"]
+    paths = [c[0] for c in calls]
+    assert paths[-3:] == ["/Users/user-fixture-3/Items/Resume", "/Shows/NextUp", "/Users/user-fixture-3/Items"]
+    assert calls[-3][1]["Limit"] == 10 and calls[-3][1]["MediaTypes"] == "Video"
+    assert calls[-2][1]["UserId"] == "user-fixture-3" and calls[-2][1]["Limit"] == 10
+    assert calls[-1][1]["Filters"] == "IsPlayed" and calls[-1][1]["Limit"] == 500
+    assert envelope["data"]["her"]["user"] == "georgina"
+    assert envelope["data"]["up_next"][0]["title"] == "Dust and Daylight"  # B.'s side still the admin's
+    jsonschema.validate(envelope["data"], SCHEMA)
+
+
+def test_live_fetch_skips_her_when_env_unset(live, monkeypatch, raw):
+    monkeypatch.delenv("JELLYFIN_USER_HER", raising=False)
+    calls = _live_calls(monkeypatch, raw)
+    envelope = Jellyfin().run()
+    assert envelope["status"] == "ok" and envelope["data"]["her"] is None
+    assert not any("user-fixture-3" in c[0] or (c[1] or {}).get("UserId") == "user-fixture-3" for c in calls)
+
+
+def test_live_fetch_with_unknown_her_name_is_not_an_error_and_never_uses_the_admin(live, monkeypatch, raw):
+    monkeypatch.setenv("JELLYFIN_USER_HER", "Nobody")
+    calls = _live_calls(monkeypatch, raw)
+    envelope = Jellyfin().run()
+    assert envelope["status"] == "ok" and envelope["data"]["her"] is None
+    assert len(calls) == 8  # exactly B.'s calls, nothing extra
+    assert "Nobody" not in json.dumps(envelope)

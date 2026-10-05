@@ -1,0 +1,25 @@
+{
+  "Items": [
+    {
+      "Id": "her-hist-1",
+      "Name": "First Frost",
+      "Type": "Episode",
+      "RunTimeTicks": 27000000000,
+      "SeriesName": "Garden Lane",
+      "SeriesId": "her-series-1",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 1,
+      "UserData": {"PlayCount": 1, "Played": true, "LastPlayedDate": "2025-12-31T20:00:00.0000000Z"}
+    },
+    {
+      "Id": "her-hist-2",
+      "Name": "Paper Lanterns",
+      "Type": "Movie",
+      "ProviderIds": {"Tmdb": "202"},
+      "RunTimeTicks": 60000000000,
+      "UserData": {"PlayCount": 1, "Played": true, "LastPlayedDate": "2025-12-29T21:30:00.0000000Z"}
+    }
+  ],
+  "TotalRecordCount": 2,
+  "StartIndex": 0
+}

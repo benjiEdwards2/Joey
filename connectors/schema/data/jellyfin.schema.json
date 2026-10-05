@@ -145,6 +145,17 @@
           }
         }
       }
+    },
+    "her": {
+      "description": "Georgina's up next + history (2026-10-05); null when JELLYFIN_USER_HER is unset or no such user. Same row shapes as the top-level fields.",
+      "type": ["object", "null"],
+      "required": ["user", "up_next", "history"],
+      "additionalProperties": false,
+      "properties": {
+        "user": {"type": "string"},
+        "up_next": {"$ref": "#/properties/up_next"},
+        "history": {"$ref": "#/properties/history"}
+      }
     }
   }
 }

@@ -1,5 +1,6 @@
 """Ratings + watch diary (2026-10-05) — the hub's FIRST write path, one small SQLite
-file (`MEDIA_DB_PATH`, default /data/sqlite/media.db). Everything is owner `you`.
+file (`MEDIA_DB_PATH`, default /data/sqlite/media.db). Ratings and the diary carry an
+owner: `you` (B.) or `her` (Georgina's Jellyfin user, 2026-10-05); rankings stay B.'s only.
 
 Reads never create the file: with no DB present the pages render empty and
 `get_ratings` answers {}. Only a write (rating, manual log, diary sync with rows
@@ -21,14 +22,18 @@ log = logging.getLogger("hub.media_db")
 DEFAULT_DB_PATH = "/data/sqlite/media.db"
 KEY_RE = re.compile(r"^(tmdb|tvdb|jf):[A-Za-z0-9-]+$")
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS rating(
-  item_key TEXT PRIMARY KEY, kind TEXT, title TEXT, year INT, poster TEXT,
-  score INT CHECK(score BETWEEN 1 AND 10), rated_at TEXT, owner TEXT DEFAULT 'you');
-CREATE TABLE IF NOT EXISTS diary(
+RATING_DDL = """CREATE TABLE rating(
+  item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
+  score INT CHECK(score BETWEEN 1 AND 10), rated_at TEXT, owner TEXT NOT NULL DEFAULT 'you',
+  PRIMARY KEY(item_key, owner))"""
+DIARY_DDL = """CREATE TABLE diary(
   id INTEGER PRIMARY KEY, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
-  watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT DEFAULT 'you', created_at TEXT,
-  UNIQUE(item_key, watched_on, source));
+  watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT NOT NULL DEFAULT 'you', created_at TEXT,
+  UNIQUE(item_key, watched_on, source, owner))"""
+RATING_COLS = "item_key, kind, title, year, poster, score, rated_at"
+DIARY_COLS = "id, item_key, kind, title, year, poster, watched_on, source, place, note, created_at"
+SCHEMA = RATING_DDL.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS") + """;
+""" + DIARY_DDL.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS") + """;
 CREATE TABLE IF NOT EXISTS ranking(
   year INTEGER, item_key TEXT, position INTEGER, kind TEXT, title TEXT, poster TEXT,
   owner TEXT DEFAULT 'you', PRIMARY KEY(year, item_key), UNIQUE(year, position));
@@ -39,6 +44,41 @@ def db_path() -> Path:
     return Path(os.environ.get("MEDIA_DB_PATH", DEFAULT_DB_PATH))
 
 
+def owner_of(view: str) -> str:
+    """The data owner behind an owner view: 'her' sees her own rows, anything else is B.'s."""
+    return "her" if view == "her" else "you"
+
+
+def _old_shapes(db) -> tuple[bool, bool]:
+    """(rating, diary) still in the pre-owner shape: rating keyed by item_key alone,
+    diary UNIQUE without owner. Absent tables count as new."""
+    pk = [r["name"] for r in db.execute("PRAGMA table_info(rating)") if r["pk"]]
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'diary'").fetchone()
+    return pk == ["item_key"], bool(row) and "source, owner)" not in row["sql"]
+
+
+def _migrate(db) -> None:
+    """Idempotent, run on every connect: rebuild a pre-owner rating/diary table in the new
+    shape, every row kept as owner 'you'. Cheap no-op once migrated; one transaction."""
+    if not any(_old_shapes(db)):
+        return
+    db.execute("BEGIN IMMEDIATE")
+    try:
+        old_rating, old_diary = _old_shapes(db)  # re-check under the lock (another process may have won)
+        for old, table, ddl, cols in ((old_rating, "rating", RATING_DDL, RATING_COLS),
+                                      (old_diary, "diary", DIARY_DDL, DIARY_COLS)):
+            if old:
+                db.execute(f"ALTER TABLE {table} RENAME TO {table}_old")
+                db.execute(ddl)
+                db.execute(f"INSERT INTO {table}({cols}, owner) "
+                           f"SELECT {cols}, COALESCE(owner, 'you') FROM {table}_old")
+                db.execute(f"DROP TABLE {table}_old")
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
 def connect() -> sqlite3.Connection:
     """Open the DB, creating the parent dir and schema if missing."""
     path = db_path()
@@ -47,6 +87,7 @@ def connect() -> sqlite3.Connection:
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA busy_timeout=5000")
+    _migrate(db)
     db.executescript(SCHEMA)
     return db
 
@@ -71,7 +112,7 @@ def norm_kind(kind) -> str:
     return "movie" if kind == "movie" else "tv"
 
 
-def get_ratings(keys) -> dict[str, int]:
+def get_ratings(keys, owner: str = "you") -> dict[str, int]:
     keys = sorted({k for k in keys if k})
     db = _read() if keys else None
     if db is None:
@@ -80,40 +121,43 @@ def get_ratings(keys) -> dict[str, int]:
         with closing(db):
             marks = ",".join("?" * len(keys))
             return {r["item_key"]: r["score"] for r in
-                    db.execute(f"SELECT item_key, score FROM rating WHERE item_key IN ({marks})", keys)}
+                    db.execute(f"SELECT item_key, score FROM rating WHERE owner = ? AND item_key IN ({marks})",
+                               [owner, *keys])}
     except sqlite3.Error as exc:
         log.warning("get_ratings failed: %s", type(exc).__name__)
         return {}
 
 
-def get_rating(item_key: str) -> dict | None:
+def get_rating(item_key: str, owner: str = "you") -> dict | None:
     db = _read()
     if db is None:
         return None
     try:
         with closing(db):
-            row = db.execute("SELECT * FROM rating WHERE item_key = ?", (item_key,)).fetchone()
+            row = db.execute("SELECT * FROM rating WHERE item_key = ? AND owner = ?",
+                             (item_key, owner)).fetchone()
             return dict(row) if row else None
     except sqlite3.Error as exc:
         log.warning("get_rating failed: %s", type(exc).__name__)
         return None
 
 
-def set_rating(item_key: str, score: int, kind: str, title: str, year=None, poster=None) -> None:
+def set_rating(item_key: str, score: int, kind: str, title: str, year=None, poster=None,
+               owner: str = "you") -> None:
     with closing(connect()) as db, db:
         db.execute(
             "INSERT INTO rating(item_key, kind, title, year, poster, score, rated_at, owner) "
-            "VALUES(?,?,?,?,?,?,?, 'you') ON CONFLICT(item_key) DO UPDATE SET "
+            "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(item_key, owner) DO UPDATE SET "
             "kind=excluded.kind, title=excluded.title, year=excluded.year, poster=excluded.poster, "
             "score=excluded.score, rated_at=excluded.rated_at",
-            (item_key, norm_kind(kind), title, year, poster, score, _now().isoformat()))
+            (item_key, norm_kind(kind), title, year, poster, score, _now().isoformat(), owner))
 
 
-def delete_rating(item_key: str) -> None:
+def delete_rating(item_key: str, owner: str = "you") -> None:
     if not db_path().is_file():
         return
     with closing(connect()) as db, db:
-        db.execute("DELETE FROM rating WHERE item_key = ?", (item_key,))
+        db.execute("DELETE FROM rating WHERE item_key = ? AND owner = ?", (item_key, owner))
 
 
 def base_title(title: str, kind: str) -> str:
@@ -129,7 +173,7 @@ def _local_date(stamp: str) -> str:
     return dt.astimezone().date().isoformat()
 
 
-def sync_diary_from_history(recent_rows) -> int:
+def sync_diary_from_history(recent_rows, owner: str = "you") -> int:
     """Insert Jellyfin history rows not yet in the diary (idempotent via UNIQUE:
     one entry per item_key per day, so a binge of one show is one line).
     Returns the number inserted; never raises — a bad row or DB just inserts less."""
@@ -150,8 +194,8 @@ def sync_diary_from_history(recent_rows) -> int:
             before = db.total_changes
             db.executemany(
                 "INSERT OR IGNORE INTO diary(item_key, kind, title, year, poster, watched_on, source, "
-                "created_at, owner) VALUES(?,?,?,?,?,?, 'jellyfin', ?, 'you')",
-                [(*r, _now().isoformat()) for r in rows])
+                "created_at, owner) VALUES(?,?,?,?,?,?, 'jellyfin', ?, ?)",
+                [(*r, _now().isoformat(), owner) for r in rows])
             return db.total_changes - before
     except (sqlite3.Error, OSError) as exc:
         log.warning("diary sync failed: %s", type(exc).__name__)
@@ -160,26 +204,28 @@ def sync_diary_from_history(recent_rows) -> int:
 
 def add_manual_watch(item_key: str, kind: str, title: str, year=None, poster=None,
                      watched_on: str | None = None, place: str | None = None,
-                     note: str | None = None) -> dict | None:
+                     note: str | None = None, owner: str = "you") -> dict | None:
     """Log a watch by hand. Returns the stored row, or None when it was already logged."""
     watched_on = watched_on or date.today().isoformat()
     with closing(connect()) as db, db:
         cur = db.execute(
             "INSERT OR IGNORE INTO diary(item_key, kind, title, year, poster, watched_on, source, place, "
-            "note, created_at, owner) VALUES(?,?,?,?,?,?, 'manual', ?,?,?, 'you')",
+            "note, created_at, owner) VALUES(?,?,?,?,?,?, 'manual', ?,?,?,?)",
             (item_key, norm_kind(kind), title, year, poster, watched_on, place or None, note or None,
-             _now().isoformat()))
+             _now().isoformat(), owner))
         if not cur.rowcount:
             return None
         return dict(db.execute("SELECT * FROM diary WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
-def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None) -> list[dict]:
+def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
+               owner: str = "you") -> list[dict]:
     """Newest first. `kind` is 'movie' or 'tv' (anything else = all)."""
     db = _read()
     if db is None:
         return []
-    where, args = ("WHERE kind = ?", [kind]) if kind in ("movie", "tv") else ("", [])
+    where, args = (("WHERE owner = ? AND kind = ?", [owner, kind]) if kind in ("movie", "tv")
+                   else ("WHERE owner = ?", [owner]))
     try:
         with closing(db):
             return [dict(r) for r in db.execute(
@@ -190,7 +236,7 @@ def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None) -> lis
         return []
 
 
-def diary_stats(now: datetime | None = None) -> dict:
+def diary_stats(now: datetime | None = None, owner: str = "you") -> dict:
     """{this_week, this_month, total, streak_days, milestones}. Week/month are the
     last 7/30 days; the streak is consecutive days with a watch, ending today or
     yesterday; milestones are every 100th watch and the first watch of each year."""
@@ -202,7 +248,7 @@ def diary_stats(now: datetime | None = None) -> dict:
     try:
         with closing(db):
             rows = [(r["watched_on"], r["title"]) for r in
-                    db.execute("SELECT watched_on, title FROM diary ORDER BY watched_on, id")]
+                    db.execute("SELECT watched_on, title FROM diary WHERE owner = ? ORDER BY watched_on, id", (owner,))]
     except sqlite3.Error as exc:
         log.warning("diary_stats failed: %s", type(exc).__name__)
         return empty
@@ -254,9 +300,9 @@ def years_overview() -> list[dict]:
     try:
         with closing(db):
             rated = {_yk(r["y"]): r["n"] for r in db.execute(
-                "SELECT year AS y, COUNT(*) AS n FROM rating GROUP BY year")}
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you' GROUP BY year")}
             unranked = {_yk(r["y"]): r["n"] for r in db.execute(
-                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE item_key NOT IN "
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you' AND item_key NOT IN "
                 "(SELECT item_key FROM ranking WHERE ranking.year = COALESCE(rating.year, 0)) GROUP BY year")}
             ranked = {r["year"]: r["n"] for r in db.execute(
                 "SELECT year, COUNT(*) AS n FROM ranking GROUP BY year")}
@@ -281,9 +327,10 @@ def year_list(year) -> dict:
         with closing(db):
             ranked = [dict(r) for r in db.execute(
                 "SELECT r.item_key, r.kind, r.title, r.poster, r.position, g.score FROM ranking r "
-                "LEFT JOIN rating g ON g.item_key = r.item_key WHERE r.year = ? ORDER BY r.position", (y,))]
+                "LEFT JOIN rating g ON g.item_key = r.item_key AND g.owner = 'you' "
+                "WHERE r.year = ? ORDER BY r.position", (y,))]
             unranked = [dict(r) for r in db.execute(
-                "SELECT item_key, kind, title, poster, score FROM rating WHERE year IS ? AND item_key NOT IN "
+                "SELECT item_key, kind, title, poster, score FROM rating WHERE owner = 'you' AND year IS ? AND item_key NOT IN "
                 "(SELECT item_key FROM ranking WHERE year = ?) ORDER BY score DESC, title", (year, y))]
             return {"ranked": ranked, "unranked": unranked}
     except sqlite3.Error as exc:
@@ -296,7 +343,7 @@ def place(year, item_key: str, position: int | None = None) -> bool:
     False when the item isn't rated in that year; already-placed items are left alone."""
     y = _yk(year)
     with closing(connect()) as db, db:
-        row = db.execute("SELECT kind, title, poster FROM rating WHERE item_key = ? AND year IS ?",
+        row = db.execute("SELECT kind, title, poster FROM rating WHERE item_key = ? AND owner = 'you' AND year IS ?",
                          (item_key, year)).fetchone()
         if row is None:
             return False

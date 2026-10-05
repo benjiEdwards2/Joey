@@ -2,6 +2,71 @@
   "connector": "jellyfin",
   "consecutive_failures": 0,
   "data": {
+    "her": {
+      "history": {
+        "hours_month": 2.4,
+        "hours_total": 2.4,
+        "month_count": 2,
+        "most_played_movies": [
+          {
+            "item_key": "tmdb:202",
+            "plays": 1,
+            "poster": "jf:her-hist-2",
+            "title": "Paper Lanterns"
+          }
+        ],
+        "most_played_shows": [
+          {
+            "episodes": 1,
+            "hours": 0.8,
+            "item_key": "jf:her-series-1",
+            "poster": "jf:her-series-1",
+            "title": "Garden Lane"
+          }
+        ],
+        "on_this_day": [],
+        "recent": [
+          {
+            "item_key": "jf:her-series-1",
+            "kind": "episode",
+            "poster": "jf:her-series-1",
+            "title": "Garden Lane \u00b7 S01E01 \u00b7 First Frost",
+            "watched_at": "2025-12-31T20:00:00.0000000Z",
+            "when": "4 hours ago"
+          },
+          {
+            "item_key": "tmdb:202",
+            "kind": "movie",
+            "poster": "jf:her-hist-2",
+            "title": "Paper Lanterns",
+            "watched_at": "2025-12-29T21:30:00.0000000Z",
+            "when": "2 days ago"
+          }
+        ],
+        "week_count": 2
+      },
+      "up_next": [
+        {
+          "backdrop": "jfb:her-fixture-1",
+          "item_key": "tmdb:201",
+          "jf_id": "her-fixture-1",
+          "kind": "movie",
+          "poster": "jf:her-fixture-1",
+          "remaining_text": "60 min left",
+          "title": "Cold Harbour"
+        },
+        {
+          "backdrop": "jfb:her-series-1",
+          "item_key": "jf:her-series-1",
+          "jf_id": "her-fixture-2",
+          "kind": "episode",
+          "poster": "jf:her-series-1",
+          "remaining_text": "Next episode",
+          "title": "Garden Lane \u00b7 S01E02 \u00b7 Hedgerow"
+        }
+      ],
+      "user": "georgina"
+    },
     "history": {
       "hours_month": 18.7,
       "hours_total": 45.1,

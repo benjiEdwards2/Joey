@@ -152,7 +152,7 @@ areas:
       - id: history
         label: Watched
         tier: embed
-        owner: you
+        owner: shared                                # was you; her Jellyfin user has history/diary too (2026-10-05)
         snapshot: jellyfin
         detail: /media/history
         stale_after_minutes: 10
@@ -160,7 +160,7 @@ areas:
       - id: diary
         label: Diary
         tier: embed
-        owner: you
+        owner: shared                                # was you; her Jellyfin user has history/diary too (2026-10-05)
         snapshot: jellyfin
         detail: /media/diary                         # watch diary: Jellyfin history + hand-logged watches (2026-10-05)
         stale_after_minutes: 10

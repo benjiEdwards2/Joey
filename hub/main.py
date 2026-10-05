@@ -258,10 +258,20 @@ def _parse_ts(value) -> datetime:
 
 
 def _ratings(view: str, *row_lists) -> dict:
-    """ONE get_ratings() per page render. Ratings are B.'s own, so a her view sees none."""
-    if view == "her":
-        return {}
-    return media_db.get_ratings(r.get("item_key") for rows in row_lists for r in rows or [])
+    """ONE get_ratings() per page render, for the view's owner (her view = her own ratings)."""
+    return media_db.get_ratings((r.get("item_key") for rows in row_lists for r in rows or []),
+                                media_db.owner_of(view))
+
+
+def view_jelly(jelly: dict, view: str) -> dict:
+    """The Jellyfin data as the owner view sees it. In the her view up_next/history are
+    Georgina's own (empty when her block is null — never B.'s), `her_missing` says so;
+    sessions, latest and library stay server-wide. Other views are returned untouched."""
+    if view != "her" or not jelly:
+        return jelly
+    her = jelly.get("her")
+    return {**jelly, "up_next": (her or {}).get("up_next") or [],
+            "history": (her or {}).get("history") or {}, "her_missing": her is None}
 
 
 def _ago_text(value, now: datetime) -> str:
@@ -397,7 +407,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         snap = snaps.get(snapshot_id)
         return snap.data if snap else {}
 
-    jelly = data_of(JELLYFIN_SNAPSHOT_ID)
+    jelly = view_jelly(data_of(JELLYFIN_SNAPSHOT_ID), view)
+    her_unset = bool(jelly.get("her_missing"))  # her view, no Georgina user wired yet
     jelly_row = next((r for r in tiles if r["tile"].snapshot == JELLYFIN_SNAPSHOT_ID), None)
     now = datetime.now(timezone.utc)
 
@@ -451,11 +462,14 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     to_rate = [item(r, "Rate →", HISTORY_DETAIL)
                for r in _to_rate(recent, ratings)][:TO_RATE_SHELF_MAX]         if HISTORY_DETAIL in by_detail else []
 
+    unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
     add("continue", "Continue watching", PLAYING_DETAIL,
-        [item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]], "Nothing up next")
+        [item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]],
+        unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
     add("watched", "Recently watched", DIARY_DETAIL,
-        [item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows], "Nothing watched yet")
+        [item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows],
+        unset_text if her_unset else "Nothing watched yet")
     add("torate", "To rate", HISTORY_DETAIL, to_rate, "", omit_empty=True)
     add("requests", "Requests", REQUESTS_DETAIL, requests, "No requests")
     add("years", "By year", YEARS_DETAIL, years, "", omit_empty=True)
@@ -489,7 +503,7 @@ def hub_page(request: Request):
             link = next((st["href"] for t in a.tiles if owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
-            card["hero"] = media_hero(jelly.data if jelly else {}, link)
+            card["hero"] = media_hero(view_jelly(jelly.data if jelly else {}, view), link)
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
@@ -524,6 +538,8 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
             "areas": registry.areas, "active_id": None, "owner_view": view,
             "missing_text": "No page here",
         }, status_code=404)
+    if snapshot_id == JELLYFIN_SNAPSHOT_ID:
+        src = {**src, "data": view_jelly(src["data"], view)}  # her view reads Georgina's up next/history
     extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
     resp = templates.TemplateResponse(request, template, {
         "areas": registry.areas, "active_id": None, "owner_view": view,
@@ -611,7 +627,7 @@ def media_history_page(request: Request):
         return {
             "history": history,
             "ratings": ratings,
-            "to_rate": [] if view == "her" else _to_rate(recent, ratings),
+            "to_rate": _to_rate(recent, ratings),
             "shows": [{**s, "pct": round(s["episodes"] / top * 100)} for s in shows],
             "numbers": " · ".join([
                 f"{history.get('week_count', 0)} this week",
@@ -635,11 +651,12 @@ def media_diary_page(request: Request):
 
     def build(data, view):
         history = data.get("history") or {}
-        media_db.sync_diary_from_history(history.get("recent"))
-        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind)
+        owner = media_db.owner_of(view)
+        media_db.sync_diary_from_history(history.get("recent"), owner)
+        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, owner)
         more = len(rows) > DIARY_PAGE
         rows = rows[:DIARY_PAGE]
-        stats = media_db.diary_stats()
+        stats = media_db.diary_stats(owner=owner)
         months: list[dict] = []
         for row in rows:
             label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from connectors import registry
-from connectors.base import Connector, _now_iso, mode
+from connectors.base import Connector, _now_iso, log, mode
 
 CALENDAR_WINDOW_DAYS = 14
 NAS_RECENT_DAYS = 7
@@ -295,6 +295,7 @@ def _unit(entity: dict) -> str:
 TICKS_PER_MINUTE = 600_000_000  # Jellyfin runtime/position ticks are 100 ns units
 TICKS_PER_HOUR = TICKS_PER_MINUTE * 60
 HISTORY_FETCH_LIMIT = 500  # watched items pulled per sweep
+FIXTURE_HER_USER = "georgina"  # fixture mode never reads JELLYFIN_USER_HER
 HISTORY_RECENT = 20
 HISTORY_TOP = 10           # rows in each most-played / on-this-day list
 UP_NEXT_LIMIT = 8
@@ -369,6 +370,21 @@ class Jellyfin(Connector):
                 return user
         return users[0]
 
+    @staticmethod
+    def pick_her_user(users: list[dict], name: str | None) -> dict | None:
+        """Georgina's account by EXACT display name, else None. Never falls back to
+        the administrator: her view must not show B.'s data by accident."""
+        if not name:
+            return None
+        return next((u for u in users if u.get("Name") == name and u.get("Id")), None)
+
+    @staticmethod
+    def _her_name() -> str | None:
+        """JELLYFIN_USER_HER in live mode; fixture mode never reads the real env."""
+        if mode() == "fixture":
+            return FIXTURE_HER_USER
+        return os.environ.get("JELLYFIN_USER_HER") or None
+
     def fetch(self) -> dict:
         import requests
 
@@ -390,7 +406,12 @@ class Jellyfin(Connector):
         if not uid:
             raise RuntimeError("Jellyfin user has no Id")
         fields = {"Fields": self.ITEM_FIELDS}
-        return {
+        history_params = {
+            "Filters": "IsPlayed", "SortBy": "DatePlayed", "SortOrder": "Descending",
+            "Recursive": "true", "IncludeItemTypes": "Movie,Episode",
+            "Fields": "UserData,RunTimeTicks,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ProductionYear,ProviderIds",
+            "Limit": HISTORY_FETCH_LIMIT}
+        raw = {
             "raw_users": users,
             "raw_system": get("system", "/System/Info/Public"),
             "raw_sessions": get("sessions", "/Sessions"),
@@ -399,12 +420,20 @@ class Jellyfin(Connector):
             "raw_nextup": get("next up", "/Shows/NextUp", {"UserId": uid, "Limit": 10, **fields}),
             "raw_latest": get("latest", f"/Users/{uid}/Items/Latest", {"Limit": 5, **fields}),
             "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
-            "raw_history": get("history", f"/Users/{uid}/Items", {
-                "Filters": "IsPlayed", "SortBy": "DatePlayed", "SortOrder": "Descending",
-                "Recursive": "true", "IncludeItemTypes": "Movie,Episode",
-                "Fields": "UserData,RunTimeTicks,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ProductionYear,ProviderIds",
-                "Limit": HISTORY_FETCH_LIMIT}),
+            "raw_history": get("history", f"/Users/{uid}/Items", history_params),
         }
+        # Georgina's view (2026-10-05): only when JELLYFIN_USER_HER names an existing user.
+        her = self.pick_her_user(users, self._her_name())
+        if her:
+            hid = her["Id"]
+            raw["raw_her_resume"] = get("her resume", f"/Users/{hid}/Items/Resume",
+                                        {"Limit": 10, "MediaTypes": "Video", **fields})
+            raw["raw_her_nextup"] = get("her next up", "/Shows/NextUp",
+                                        {"UserId": hid, "Limit": 10, **fields})
+            raw["raw_her_history"] = get("her history", f"/Users/{hid}/Items", history_params)
+        elif os.environ.get("JELLYFIN_USER_HER"):
+            log.info("jellyfin: her user not found")
+        return raw
 
     @staticmethod
     def _history(items: list[dict], now: datetime) -> dict:
@@ -449,6 +478,40 @@ class Jellyfin(Connector):
                             if (dt.month, dt.day) == (now.month, now.day) and dt.year < now.year][:HISTORY_TOP],
         }
 
+    @staticmethod
+    def _up_next(resume: dict, nextup: dict) -> list[dict]:
+        """Resume items first, then next-episode suggestions not already resumable."""
+        up_next, seen = [], set()
+        for item in resume["Items"]:
+            runtime = int(item.get("RunTimeTicks") or 0)
+            position = int(item.get("UserData", {}).get("PlaybackPositionTicks") or 0)
+            left = max(0, runtime - position) // TICKS_PER_MINUTE
+            seen.add(item.get("Id"))
+            up_next.append({
+                "title": _media_title(item),
+                "kind": "episode" if item.get("Type") == "Episode" else "movie",
+                "remaining_text": f"{left} min left",
+                "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
+                "item_key": _jf_key(item), "jf_id": item.get("Id"),
+            })
+        for item in nextup["Items"]:
+            if item.get("Id") in seen:  # already resumable — don't list twice
+                continue
+            up_next.append({"title": _media_title(item), "kind": "episode",
+                            "remaining_text": "Next episode",
+                            "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
+                            "item_key": _jf_key(item), "jf_id": item.get("Id")})
+        return up_next[:UP_NEXT_LIMIT]
+
+    def _her_block(self, raw: dict) -> dict | None:
+        """Georgina's up next + history, or None when her keys are absent."""
+        if not all(k in raw for k in ("raw_her_resume", "raw_her_nextup", "raw_her_history")):
+            return None
+        user = self.pick_her_user(raw.get("raw_users") or [], self._her_name())
+        return {"user": (user or {}).get("Name") or "her",
+                "up_next": self._up_next(raw["raw_her_resume"], raw["raw_her_nextup"]),
+                "history": self._history(raw["raw_her_history"].get("Items", []), _now())}
+
     def transform(self, raw: dict) -> dict:
         now_playing = []
         for session in raw["raw_sessions"]:
@@ -468,27 +531,7 @@ class Jellyfin(Connector):
                 "jf_id": item.get("Id"),
             })
 
-        up_next, seen = [], set()
-        for item in raw["raw_resume"]["Items"]:
-            runtime = int(item.get("RunTimeTicks") or 0)
-            position = int(item.get("UserData", {}).get("PlaybackPositionTicks") or 0)
-            left = max(0, runtime - position) // TICKS_PER_MINUTE
-            seen.add(item.get("Id"))
-            up_next.append({
-                "title": _media_title(item),
-                "kind": "episode" if item.get("Type") == "Episode" else "movie",
-                "remaining_text": f"{left} min left",
-                "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
-                "item_key": _jf_key(item), "jf_id": item.get("Id"),
-            })
-        for item in raw["raw_nextup"]["Items"]:
-            if item.get("Id") in seen:  # already resumable — don't list twice
-                continue
-            up_next.append({"title": _media_title(item), "kind": "episode",
-                            "remaining_text": "Next episode",
-                            "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
-                            "item_key": _jf_key(item), "jf_id": item.get("Id")})
-        up_next = up_next[:UP_NEXT_LIMIT]
+        up_next = self._up_next(raw["raw_resume"], raw["raw_nextup"])
 
         latest = [
             {"title": i["Name"], "added_at": i["DateCreated"], "type": i["Type"], "poster": _jf_ref("jf", i),
@@ -517,6 +560,7 @@ class Jellyfin(Connector):
             },
             # older fixtures/snapshots carry no raw_history — an empty block, never a failure
             "history": self._history((raw.get("raw_history") or {}).get("Items", []), _now()),
+            "her": self._her_block(raw),
         }
 
 

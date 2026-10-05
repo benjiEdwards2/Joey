@@ -1,4 +1,5 @@
 [
   {"Id": "user-fixture-1", "Name": "Sample Person", "Policy": {"IsAdministrator": true}},
-  {"Id": "user-fixture-2", "Name": "Sample Partner", "Policy": {"IsAdministrator": false}}
+  {"Id": "user-fixture-2", "Name": "Sample Partner", "Policy": {"IsAdministrator": false}},
+  {"Id": "user-fixture-3", "Name": "georgina", "Policy": {"IsAdministrator": false}}
 ]

@@ -86,6 +86,13 @@ async def form_of(request: Request) -> dict:
     return {k: v[-1] for k, v in parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True).items()}
 
 
+def owner_for(request: Request) -> str:
+    """Data owner of a write: 'her' in the her view, else 'you'. Lazy import — hub.main
+    imports this module for its router."""
+    from hub.main import resolve_owner_view
+    return media_db.owner_of(resolve_owner_view(request)[0])
+
+
 def render(request: Request, name: str, **ctx) -> HTMLResponse:
     return templates.TemplateResponse(request, name, ctx)
 
@@ -101,7 +108,7 @@ async def rate(request: Request):
     if not 1 <= score <= 10:
         raise bad("Score must be 1 to 10")
     try:
-        media_db.set_rating(score=score, **item)
+        media_db.set_rating(score=score, owner=owner_for(request), **item)
     except (sqlite3.Error, OSError) as exc:
         log.warning("rating not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the rating") from None
@@ -110,12 +117,12 @@ async def rate(request: Request):
     return RedirectResponse("/media/history", status_code=303)
 
 
-def _unrate(item_key: str) -> dict | None:
+def _unrate(item_key: str, owner: str) -> dict | None:
     """Delete the rating; return its identity fields so undo can show the picker again."""
     valid_key(item_key)
     try:
-        row = media_db.get_rating(item_key)
-        media_db.delete_rating(item_key)
+        row = media_db.get_rating(item_key, owner)
+        media_db.delete_rating(item_key, owner)
     except (sqlite3.Error, OSError) as exc:
         log.warning("rating not removed: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't remove the rating") from None
@@ -124,15 +131,15 @@ def _unrate(item_key: str) -> dict | None:
 
 @router.delete("/media/rate/{item_key}", dependencies=[Depends(same_origin)])
 def unrate(request: Request, item_key: str):
-    row = _unrate(item_key)
+    row = _unrate(item_key, owner_for(request))
     if row is None:
         return Response(status_code=200)  # nothing to restore: the swap just empties the box
     return render(request, "_rate_picker.html", r=row)
 
 
 @router.post("/media/rate/{item_key}/delete", dependencies=[Depends(same_origin)])
-def unrate_form(item_key: str):
-    _unrate(item_key)
+def unrate_form(request: Request, item_key: str):
+    _unrate(item_key, owner_for(request))
     return RedirectResponse("/media/history", status_code=303)
 
 
@@ -155,7 +162,8 @@ async def log_watch(request: Request):
     try:
         row = media_db.add_manual_watch(**item, watched_on=watched_on.isoformat(),
                                         place=(f.get("place") or "").strip()[:60] or None,
-                                        note=(f.get("note") or "").strip()[:500] or None)
+                                        note=(f.get("note") or "").strip()[:500] or None,
+                                        owner=owner_for(request))
     except (sqlite3.Error, OSError) as exc:
         log.warning("watch not logged: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't log the watch") from None

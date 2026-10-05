@@ -1,0 +1,14 @@
+{
+  "Items": [
+    {
+      "Id": "her-fixture-1",
+      "Name": "Cold Harbour",
+      "Type": "Movie",
+      "ProviderIds": {"Tmdb": "201"},
+      "RunTimeTicks": 66000000000,
+      "UserData": {"PlaybackPositionTicks": 30000000000}
+    }
+  ],
+  "TotalRecordCount": 1,
+  "StartIndex": 0
+}

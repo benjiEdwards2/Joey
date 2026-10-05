@@ -286,3 +286,14 @@ def test_one_volume_under_three_mount_paths_is_listed_once(raw):
     assert [d["path"] for d in disk] == ["/"]               # first path seen wins
     raw["raw_sonarr_diskspace"].append({"path": "/other", **{**same, "freeSpace": 100_000_000_000}})
     assert [d["path"] for d in Arr().transform(raw)["disk"]] == ["/", "/other"]
+
+
+def test_queue_rows_carry_the_lower_cased_download_id(data, raw):
+    movie, episode = data["downloading"]
+    assert movie["download_id"] == "abcdefabcdefabcdefabcdefabcdefabcdefabcd"  # fixture is upper-case
+    assert episode["download_id"] == "fedcbafedcbafedcbafedcbafedcbafedcbafedc"
+    bare = copy.deepcopy(raw)
+    for key in ("raw_radarr_queue", "raw_sonarr_queue"):
+        for record in bare[key]["records"]:
+            record.pop("downloadId")
+    assert all(r["download_id"] is None for r in Arr().transform(bare)["downloading"])

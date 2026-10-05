@@ -20,7 +20,8 @@
       "size": 2000000000,
       "sizeleft": 1500000000,
       "status": "downloading",
-      "timeleft": "01:05:00"
+      "timeleft": "01:05:00",
+      "downloadId": "fedcbafedcbafedcbafedcbafedcbafedcbafedc"
     }
   ]
 }

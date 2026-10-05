@@ -18,7 +18,7 @@ from connectors import registry, stubs  # noqa: F401  (import registers the stub
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_SCHEMA_DIR = REPO_ROOT / "connectors" / "schema" / "data"
 
-FEEDS = ["arr", "gcal", "home_assistant", "jellyfin", "jellyseerr", "macromates", "media_status", "nas_stats", "open_meteo"]
+FEEDS = ["arr", "gcal", "home_assistant", "jellyfin", "jellyseerr", "macromates", "media_status", "nas_stats", "open_meteo", "qbittorrent"]
 
 
 def data_schema(connector_id: str) -> dict:

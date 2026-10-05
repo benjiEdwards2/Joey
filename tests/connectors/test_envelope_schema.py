@@ -22,6 +22,7 @@ FROZEN_IDS = [
     "media_status",  # added 2026-10-05 (authorised dated decision)
     "arr",  # added 2026-10-05 (authorised dated decision, Media Phase 2)
     "jellyseerr",  # added 2026-10-05 (authorised dated decision, Media Phase 3)
+    "qbittorrent",  # added 2026-10-06 (authorised dated decision, Media downloads)
 ]
 
 REQUIRED_FIELDS = [

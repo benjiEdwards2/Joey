@@ -1,0 +1,79 @@
+{
+  "connector": "qbittorrent",
+  "consecutive_failures": 0,
+  "data": {
+    "active": [
+      {
+        "added": "2025-12-31T22:00:00+00:00",
+        "category": "tv-sonarr",
+        "eta_text": "2 h 05 min",
+        "hash": "fedcbafedcbafedcbafedcbafedcbafedcbafedc",
+        "kind": "tv",
+        "name": "Example.Show.S02E03.1080p",
+        "pct": 81,
+        "size_text": "1.5 GB",
+        "speed_text": "230 kB/s",
+        "state_text": "Downloading"
+      },
+      {
+        "added": "2025-12-31T23:00:00+00:00",
+        "category": "radarr",
+        "eta_text": "12 min",
+        "hash": "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
+        "kind": "movie",
+        "name": "Example.Movie.2024.2160p.WEB-DL",
+        "pct": 42,
+        "size_text": "4.2 GB",
+        "speed_text": "1.4 MB/s",
+        "state_text": "Downloading"
+      },
+      {
+        "added": "2025-12-30T00:00:00+00:00",
+        "category": "",
+        "eta_text": "",
+        "hash": "acebdfacebdfacebdfacebdfacebdfacebdfaceb",
+        "kind": "other",
+        "name": "Fixture.Distro.Image.x64",
+        "pct": 55,
+        "size_text": "3.1 GB",
+        "speed_text": "",
+        "state_text": "Paused"
+      },
+      {
+        "added": "2025-12-31T00:00:00+00:00",
+        "category": "tv-sonarr",
+        "eta_text": "",
+        "hash": "1234567890123456789012345678901234567890",
+        "kind": "tv",
+        "name": "Sample.Series.S01E07.720p",
+        "pct": 12,
+        "size_text": "900 MB",
+        "speed_text": "",
+        "state_text": "Stalled"
+      }
+    ],
+    "finished": [
+      {
+        "hash": "0987654321098765432109876543210987654321",
+        "kind": "movie",
+        "name": "Placeholder.Film.2023.1080p.BluRay",
+        "size_text": "9.8 GB",
+        "when": "2025-12-31T22:00:00+00:00"
+      }
+    ],
+    "secondary": "2 seeding \u00b7 1 finished today",
+    "seeding": 2,
+    "summary": "4 downloading \u00b7 1.6 MB/s",
+    "totals": {
+      "dl_bps": 1630000,
+      "dl_text": "1.6 MB/s",
+      "up_bps": 230000,
+      "up_text": "230 kB/s"
+    }
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

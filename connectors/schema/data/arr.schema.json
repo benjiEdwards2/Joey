@@ -73,7 +73,8 @@
           "kind": {"enum": ["movie", "season", "episode"]},
           "pct": {"type": "integer", "minimum": 0, "maximum": 100},
           "status_text": {"type": "string"},
-          "time_left": {"type": "string"}
+          "time_left": {"type": "string"},
+          "download_id": {"type": ["string", "null"], "pattern": "^[0-9a-f]+$"}
         }
       }
     },

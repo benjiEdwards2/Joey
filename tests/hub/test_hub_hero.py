@@ -1,6 +1,7 @@
 """Hub hero card (2026-10-05): hub_rank orders summary cards; a `layout: shelves` area's
 card shows the media hero (poster, kind word, title, Jump-back-in deep link). Placement is
-asserted inside <main>."""
+asserted inside <main>. Since the Apex hub (2026-10-06) the hero lives in the Media KPI card
+(kind word as its label, title as its value) and the poster in the Continue watching shelf."""
 import importlib
 import re
 from datetime import datetime, timedelta, timezone
@@ -101,12 +102,13 @@ def test_deep_link_omits_server_id_when_unknown(env):
 def test_hub_card_falls_back_to_plain_tile_without_snapshot(env):
     html = hub_main(env())
     assert "herocard" not in html and "Jump back in" not in html
-    assert '<a class="cardlink s11" href="/a/alpha">' in html
+    # Apex hub (2026-10-06): the bento size class is gone; no hero -> a plain whole-card KPI link
+    assert '<a class="cardlink" href="/a/alpha">' in html
 
 
 def test_no_nested_anchors_on_the_hub(env):
     html = hub_main(env(jellyfin=with_ids()))
-    assert "herocard" in html
+    assert "Jump back in ↗" in html  # Apex hub (2026-10-06): the split Media KPI replaced .herocard
     for chunk in re.findall(r"<a\b.*?</a>", html, flags=re.S):
         assert chunk.count("<a ") == 1, chunk
 

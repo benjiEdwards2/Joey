@@ -41,9 +41,12 @@ def client(tmp_path, monkeypatch):
 
 
 def test_hub_card_carries_size_class(client):
-    html = client.get("/").text
-    assert 'class="cardlink s22"' in html
-    assert 'class="cardlink s11"' in html
+    # Apex hub (2026-10-06): hub_size no longer drives the hub layout (KPI row in registry /
+    # hub_rank order), so this pin is weakened to "one KPI card per area" — size classes gone.
+    html = client.get("/").text.split("<main", 1)[1]
+    assert '<a class="cardlink" href="/a/alpha">' in html
+    assert '<a class="cardlink" href="/a/beta">' in html
+    assert "cardlink s22" not in html and "cardlink s11" not in html
 
 
 def test_status_strip_reports_feeds_and_stale(client):

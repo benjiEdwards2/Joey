@@ -589,16 +589,95 @@ def hub_greeting(now: datetime) -> str:
             f"{now:%A} {now.day} {now:%B}.")
 
 
+def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
+    """Events per day for today + the next days-1, from build_upcoming's groups (Calendar KPI bars)."""
+    by_day = {g["day"]: len(g["events"]) for g in groups}
+    return [by_day.get(today + timedelta(days=i), 0) for i in range(days)]
+
+
+def hub_upcoming(snaps, view: str) -> dict | None:
+    """Hub "Next 7 days" card: the first visible tile reading the gcal snapshot, its area's
+    page for "View all", and find_upcoming's groups (None data = not connected)."""
+    for a in registry.areas:
+        rows = [{"tile": t, "st": tile_state(t, snaps)} for t in a.tiles if owner_visible(t, view)]
+        row = next((r for r in rows if r["tile"].snapshot == GCAL_SNAPSHOT_ID), None)
+        if row:
+            up = find_upcoming(rows, snaps, view)
+            today = datetime.now().astimezone().date()  # the clock find_upcoming groups on
+            return {"href": f"/a/{a.id}", "st": row["st"], "days": UPCOMING_DAYS,
+                    "groups": up["groups"] if up else [],
+                    "per_day": per_day_counts(up["groups"], today) if up else None}
+    return None
+
+
+def _profile_rows(jelly: dict, view: str, pick) -> list[tuple[dict, str]]:
+    """(row, owner) pairs from B.'s and Georgina's Jellyfin profiles as the owner view sees
+    them: you = B.'s, her = hers, both = B.'s then hers. `pick(profile_dict)` -> rows."""
+    mine = [(r, "you") for r in pick(jelly)]
+    hers = [(r, "her") for r in pick(jelly.get("her") or {})]
+    return {"you": mine, "her": hers}.get(view, mine + hers)
+
+
+def _split_title(row) -> tuple[str, str]:
+    """'Show · S02E05 · Name' -> ('Show', 'S02E05 · Name'); a film keeps its title + 'Film'."""
+    head, _, rest = str(row.get("title") or "").partition(" · ")
+    return head, rest or ("Film" if row.get("kind") == "movie" else "")
+
+
+def hub_shelf(area, snaps, view: str, link) -> dict | None:
+    """Hub "Continue watching" (+ "Recently watched") band for a `layout: shelves` area.
+    Present when that area's jellyfin tile is visible; rows only from the snapshot."""
+    tiles = [t for t in area.tiles if owner_visible(t, view)]
+    jtile = next((t for t in tiles if t.snapshot == JELLYFIN_SNAPSHOT_ID), None)
+    if jtile is None:
+        return None
+    st = tile_state(jtile, snaps)
+    snap = snaps.get(JELLYFIN_SNAPSHOT_ID)
+    jelly = snap.data if snap and st["state"] != "off" else {}
+    server_id = jelly.get("server_id")
+
+    def item(row, owner, when, fallback):
+        title, sub = _split_title(row)
+        url = _deep_link(link, row.get("jf_id"), server_id)
+        return {"title": title, "sub": " · ".join(x for x in (owner.title(), sub) if x),  # owner first: never ellipsised
+                "when": when, "poster": row.get("poster"), "href": url or fallback,
+                "external": bool(url), "pct": row.get("progress_pct")}
+
+    up_next = [item(r, o, r.get("remaining_text"), PLAYING_DETAIL)
+               for r, o in _profile_rows(jelly, view, lambda p: p.get("up_next") or [])][:SHELF_MAX]
+    watched = None
+    if any(t.detail == DIARY_DETAIL for t in tiles):
+        rows = _profile_rows(jelly, view, lambda p: (p.get("history") or {}).get("recent") or [])
+        if view == "both":
+            def when(pair):
+                try:
+                    return _parse_ts(pair[0].get("watched_at")).timestamp()
+                except Exception:
+                    return 0.0
+            rows = sorted(rows, key=when, reverse=True)
+        watched = [item(r, o, r.get("when"), DIARY_DETAIL) for r, o in rows][:SHELF_MAX]
+    her_unset = view == "her" and bool(jelly) and jelly.get("her") is None
+    return {
+        "href": f"/a/{area.id}", "st": st, "up_next": up_next, "watched": watched,
+        "profiles": {"both": "both profiles", "you": "your profile", "her": "her profile"}[view],
+        "quiet": "Set JELLYFIN_USER_HER in deploy/.env" if her_unset else "Nothing up next",
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
-    cards = []
+    cards, shelf = [], None
+    upcoming = hub_upcoming(snaps, view)
     for a in registry.areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not owner_visible(summary, view):
             continue  # hub summary cards respect the filter (Q24 assumption)
-        card = {"area": a, "tile": summary, "st": tile_state(summary, snaps), "hero": None}
+        card = {"area": a, "tile": summary, "st": tile_state(summary, snaps), "hero": None,
+                "per_day": None}
+        if summary.snapshot == GCAL_SNAPSHOT_ID and upcoming:  # keyed by connector id, never area name
+            card["per_day"] = upcoming["per_day"]
         if a.layout == "shelves":  # hero content keyed by layout, never by area name
             link = next((st["href"] for t in a.tiles if owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
@@ -608,11 +687,14 @@ def hub_page(request: Request):
             qb = snaps.get(QBIT_SNAPSHOT_ID)
             card["downloading"] = (qb.data.get("summary") if qb and qb.data.get("active") else None)
             card["waiting"] = area_waiting(a, snaps, view)
+            if shelf is None:
+                shelf = hub_shelf(a, snaps, view, link)
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
         "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
         "status": build_status(snaps), "weather": find_weather(snaps),
+        "upcoming": upcoming, "shelf": shelf,
         "backup_warn": media_backup.current_status()["warning"],
         "greeting": hub_greeting(_now_home()),
     })
@@ -980,7 +1062,7 @@ def area_page(request: Request, area_id: str):
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
-        "upcoming": find_upcoming(tiles, snaps, view),
+        "upcoming": find_upcoming(tiles, snaps, view), "weather": find_weather(snaps),
         "media": media,
         "ratings": _ratings(view, *_media_rows(media)),
     })

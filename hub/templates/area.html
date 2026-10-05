@@ -10,13 +10,62 @@
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
-<div class="grid">
+{% from "_kpi.html" import kpi %}
+<section class="kpis areakpis" aria-label="{{ area.name }} tiles">
   {% for row in tiles %}
-    {% with tile = row.tile, st = row.st, accent = area.accent, heading = row.tile.label %}
-      {% include "_tile.html" %}
-    {% endwith %}
+    {% set t = row.tile %}{% set st = row.st %}
+    {% if st.state == "link" %}
+      {{ kpi(st.href, t.label, t.owner.value | title, area.icon, st, t.owner.value,
+             value="Open ↗", sub="Opens the app in a new tab", new_tab=true) }}
+    {% elif t.detail %}
+      {{ kpi(t.detail, t.label, t.owner.value | title, area.icon, st, t.owner.value, open_word="Open →") }}
+    {% else %}
+      {{ kpi(none, t.label, t.owner.value | title, area.icon, st, t.owner.value) }}
+    {% endif %}
   {% endfor %}
-</div>
+</section>
+{% set connected = tiles | rejectattr("st.state", "equalto", "off") | list %}
+{% if tiles and not connected %}
+<p class="quiet areaquiet">Nothing is connected here yet. {{ tiles[0].tile.setup_note }}</p>
+{% endif %}
+{% if upcoming %}
+<section class="band a">
+  {% include "_upcoming_table.html" %}
+  {% set w = weather %}
+  {% if w %}
+  <a class="cardlink" href="/weather">
+    <article class="card panel wxcard">
+      <div class="hd"><div><h2>Weather</h2><p>Newport VIC</p></div><span class="right seeall">Details ›</span></div>
+      <div class="bd">
+        {% if w.st.state == "off" %}
+          <div class="value dim">Not connected</div>
+          {% if w.st.note %}<div class="sub">{{ w.st.note }}</div>{% endif %}
+        {% else %}
+          <div class="wxnow">
+            <div class="glyph">{{ ic.icon(w.glyph) }}</div>
+            <div>
+              <div class="wxtemp">{{ w.data.get("now_c", "—") }} °C</div>
+              <div class="wxword">{{ w.data.get("condition_text", "—") }}</div>
+            </div>
+          </div>
+          <dl class="wxfacts">
+            <div><dt>Today low</dt><dd>{{ w.data.get("today_min_c", "—") }} °C</dd></div>
+            <div><dt>Today high</dt><dd>{{ w.data.get("today_max_c", "—") }} °C</dd></div>
+            {% if w.data.get("rain_prob_pct") is not none %}<div><dt>Rain chance</dt><dd>{{ w.data.rain_prob_pct }}%</dd></div>{% endif %}
+          </dl>
+        {% endif %}
+        <div class="foot">
+          <span class="chip">{{ w.tile.owner.value | title }}</span>
+          {% if w.st.state == "stale" %}<span class="badge stale">{{ w.st.age_text }}</span>
+          {% elif w.st.state == "off" %}<span class="badge off">not connected</span>
+          {% elif w.st.age_text %}<span class="ago">updated {{ w.st.age_text }}</span>{% endif %}
+        </div>
+      </div>
+    </article>
+  </a>
+  {% endif %}
+</section>
+{% endif %}
 {% if media %}
 {# Media sections (2026-10-05): rendered when the area's tiles read the
    jellyfin / media_status snapshots. Up/Down is a WORD beside the dot. #}
@@ -110,30 +159,5 @@
 </section>
 {% endif %}
 </div>
-{% endif %}
-{% if upcoming %}
-{# Upcoming-events list (2026-09-11): renders on any area whose tiles read the
-   gcal snapshot. Owner chips are text — colour never the only encoding. #}
-<section class="card uplist" style="--accent: {{ area.accent }}">
-  <div class="head">Next {{ upcoming.days }} days</div>
-  {% if upcoming.groups %}
-    {% for g in upcoming.groups %}
-    <div class="upday">{{ g.label }}</div>
-    {% for e in g.events %}
-    <div class="uprow">
-      <span class="uptime">{{ e.time_text }}</span>
-      <span class="uptitle">{{ e.title }}</span>
-      <span class="chip">{{ e.owner | title }}</span>
-    </div>
-    {% endfor %}
-    {% endfor %}
-  {% else %}
-    <div class="value dim">Nothing in the next {{ upcoming.days }} days</div>
-  {% endif %}
-  <div class="foot">
-    {% if upcoming.st.state == "stale" %}<span class="badge stale">{{ upcoming.st.age_text }}</span>
-    {% elif upcoming.st.age_text %}<span class="ago">updated {{ upcoming.st.age_text }}</span>{% endif %}
-  </div>
-</section>
 {% endif %}
 {% endblock %}

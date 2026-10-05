@@ -544,6 +544,24 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     }
 
 
+# Hub greeting (Apex shell, 2026-10-06): wall-clock at home, not the container's zone.
+HOME_TZ_NAME = "Australia/Melbourne"
+
+
+def _now_home() -> datetime:
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo(HOME_TZ_NAME))
+    except Exception:  # no tz database in the image: fall back to the container's local time
+        return datetime.now().astimezone()
+
+
+def hub_greeting(now: datetime) -> str:
+    part = "morning" if now.hour < 12 else "afternoon" if now.hour < 17 else "evening"
+    return (f"Good {part}, Benji. Here's what's happening at home today, "
+            f"{now:%A} {now.day} {now:%B}.")
+
+
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
@@ -569,6 +587,7 @@ def hub_page(request: Request):
         "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
         "status": build_status(snaps), "weather": find_weather(snaps),
         "backup_warn": media_backup.current_status()["warning"],
+        "greeting": hub_greeting(_now_home()),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

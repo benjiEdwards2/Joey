@@ -1,4 +1,6 @@
-"""F1 (2026-10-06) — the Media app frame: own bar, no Joey rail, six sections, per-section sub-tabs.
+"""F1 (2026-10-06) — the Media app frame: six sections, per-section sub-tabs.
+Apex shell (2026-10-06): Media pages now sit inside the Joey shell WITH the rail and top bar;
+"Return to Joey" is gone and the sections are an in-content segmented nav under the heading.
 Bar and tabs are asserted on the whole body (they are chrome, not content)."""
 import importlib
 import re
@@ -70,10 +72,10 @@ def test_media_pages_use_the_frame(env, route):
         r = client.get(route)
     html = r.text
     assert r.status_code == 200
-    assert 'class="rail"' not in html
+    assert 'class="rail"' in html                       # Apex shell: the rail stays on Media pages
     tabs_bar = re.search(r'<nav class="tabs[^"]*".*?</nav>', html, re.S).group(0)
     assert "/a/beta" not in tabs_bar and "Hub" not in tabs_bar and "Areas (phone)" not in html
-    assert '<a class="returnjoey" href="/">← Return to Joey</a>' in html
+    assert "Return to Joey" not in html and "returnjoey" not in html
     sections = nav_html(html, "sections")
     for label in LABELS.values():
         assert f">{label}" in sections
@@ -247,7 +249,22 @@ def test_waitcount_has_hidden_words(env):
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
     assert ".vh {" in css and "clip" in css.split(".vh {")[1].split("}")[0]
     assert "#F5A524" not in css.split(".waitchip {")[1].split("}")[0]
-    assert "var(--amber)" in css.split(".waitchip {")[1].split("}")[0]
+    assert "var(--warn)" in css.split(".waitchip {")[1].split("}")[0]   # Apex shell: amber is the --warn token
     with TestClient(main.app) as client:
         diary = client.get("/media/history").text
     assert '<span class="vh"> to rate</span>' in diary or "to rate" not in diary
+
+
+@pytest.mark.parametrize("route", ["/a/alpha", "/media/diary", "/media/playing", "/media/discover"])
+def test_media_pages_in_shell_carry_six_labels_and_no_return_link(env, route):
+    """Apex shell: rail + theme toggle present, six section labels in content, no way-out bar."""
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as client:
+        html = client.get(route).text
+    body = html.split("<main", 1)[1]
+    sections = nav_html(body, "sections")                 # in-content, under the page heading
+    labels = [x.strip() for x in re.findall(r'<a href="[^"]*"[^>]*>([^<]*)', sections)]
+    assert labels == list(LABELS.values())
+    assert body.index("<h1>") < body.index('<nav class="sections"')
+    assert "Return to Joey" not in html and "mediabar" not in html
+    assert 'href="/a/alpha" style="--accent: #3FD9C0" class="on" aria-current="page"' in html  # rail marks Media

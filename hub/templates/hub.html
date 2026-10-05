@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Joey{% endblock %}
+{% block pagehead %}
+<div class="pagehead">
+  <h1>Hub</h1>
+  <p>{{ greeting }}</p>
+  {% if status %}<p class="feedline" role="status">FEEDS {{ status.feeds_ok }}/{{ status.feeds_total }} live{% for name in status.stale %} · {{ name }} stale{% endfor %}</p>{% endif %}
+</div>
+{% endblock %}
 {% block content %}
 {% if backup_warn %}<div class="backupwarn"><span class="badge stale">{{ backup_warn }}</span></div>{% endif %}
 <div class="grid">

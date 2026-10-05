@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Weather — Joey{% endblock %}
+{% block pagehead %}
+<div class="pagehead">
+  <h1>Weather</h1>
+  <p>Today at home</p>
+</div>
+{% endblock %}
 {% block content %}
 {# Detail behind the hub glimpse (2026-09-11). Today-only by decision; a
    multi-day forecast is a future connector/schema change, never a hub hack. #}

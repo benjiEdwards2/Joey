@@ -5,7 +5,6 @@
 {% import "_rate.html" as rate %}
 {# Shelves layout (2026-10-05): hero + horizontal poster shelves. State is always a WORD. #}
 <div class="shelfhead" style="--accent: {{ area.accent }}">
-  <h2><span class="dot"></span>{{ area.name }}</h2>
   {% from "_waiting.html" import waitchips %}{{ waitchips(sh.waiting) }}
   <span class="shelfbtns">
     {% if sh.open_href %}<a class="glassbtn" href="{{ sh.open_href }}" target="_blank" rel="noopener">Open Jellyfin ↗</a>{% endif %}

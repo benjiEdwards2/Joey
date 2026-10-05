@@ -1,9 +1,15 @@
 {% extends "base.html" %}
 {% block title %}{{ area.name }} · Joey{% endblock %}
+{% block pagehead %}
+{% set nstale = tiles | selectattr("st.state", "equalto", "stale") | list | length %}
+<div class="pagehead">
+  <h1>{{ area.name }}</h1>
+  <p>{{ tiles | length }} tile{{ "" if tiles | length == 1 else "s" }}{% if nstale %} · {{ nstale }} stale{% endif %}</p>
+</div>
+{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
-<h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
 <div class="grid">
   {% for row in tiles %}
     {% with tile = row.tile, st = row.st, accent = area.accent, heading = row.tile.label %}

@@ -1,0 +1,159 @@
+"""Poster proxy `GET /img/{ref}` (2026-10-05) — the hub's second live-call exception
+(the first is none: everything else reads snapshots). Connectors emit opaque refs
+(`jf:<id>`, `jfb:<id>`, `radarr:<id>`, `sonarr:<id>`, `tmdb:<path>`); this fetches the
+art with the same env keys the connectors use, caches it on disk and never lets an
+upstream problem surface: any failure serves a generated fallback card instead.
+Warnings name the ref kind and a status/type only — never a URL or key.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import html
+import logging
+import os
+import re
+import time
+from pathlib import Path
+
+import requests
+from fastapi import APIRouter, Response
+
+log = logging.getLogger("hub.images")
+router = APIRouter()
+
+SIZES = (120, 240, 400, 600, 1280)
+DEFAULT_SIZE = 400
+TMDB_WIDTH = {120: "w185", 240: "w342", 400: "w500", 600: "w780", 1280: "original"}
+TIMEOUT = 8
+MAX_BYTES = 5 * 1024 * 1024
+CACHE_TTL = 30 * 24 * 3600
+HIT_CACHE = "public, max-age=2592000, immutable"
+FALLBACK_CACHE = "public, max-age=3600"
+EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+       "image/gif": ".gif"}
+MIME = {ext: mime for mime, ext in EXT.items() if mime != "image/jpg"}
+
+REF_RE = re.compile(r"^(?:(jf|jfb|radarr|sonarr):([A-Za-z0-9-]+)|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
+
+
+def cache_dir() -> Path:
+    return Path(os.environ.get("IMG_CACHE_DIR", "/data/cache/img"))
+
+
+def fallback_svg(title: str = "") -> bytes:
+    """Area-neutral dark 2:3 card with the title's first two letters; no external request."""
+    letters = "".join(c for c in title if c.isalnum())[:2].upper() or "·"
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" role="img">'
+        '<rect width="200" height="300" fill="#1c1f26"/>'
+        '<text x="100" y="168" text-anchor="middle" font-family="sans-serif" font-size="64" '
+        f'font-weight="600" fill="#6b7280">{html.escape(letters)}</text></svg>'
+    ).encode("utf-8")
+
+
+def _fallback(title: str) -> Response:
+    return Response(fallback_svg(title), media_type="image/svg+xml",
+                    headers={"Cache-Control": FALLBACK_CACHE})
+
+
+def _env(*names: str) -> list[str] | None:
+    values = [os.environ.get(n, "").strip() for n in names]
+    return values if all(values) else None
+
+
+def _upstreams(kind: str, ident: str, h: int) -> list[tuple[str, dict, dict]] | None:
+    """(url, params, headers) candidates in order, or None when the env isn't set."""
+    if kind in ("jf", "jfb"):
+        env = _env("JELLYFIN_URL", "JELLYFIN_API_KEY")
+        if not env:
+            return None
+        url, key = env[0].rstrip("/"), env[1]
+        headers = {"Authorization": f"MediaBrowser Token={key}"}
+        if kind == "jf":
+            return [(f"{url}/Items/{ident}/Images/Primary", {"maxHeight": h, "quality": 90}, headers)]
+        return [(f"{url}/Items/{ident}/Images/Backdrop/0", {"maxWidth": 1280, "quality": 85}, headers)]
+    if kind in ("radarr", "sonarr"):
+        env = _env(f"{kind.upper()}_URL", f"{kind.upper()}_API_KEY")
+        if not env:
+            return None
+        base = f"{env[0].rstrip('/')}/api/v3/mediacover/{ident}"
+        return [(f"{base}/{name}", {"apikey": env[1]}, {}) for name in ("poster-500.jpg", "poster.jpg")]
+    return [(f"https://image.tmdb.org/t/p/{TMDB_WIDTH[h]}{ident}", {}, {})]  # tmdb: no key
+
+
+def _reason(exc: Exception) -> str:
+    return type(exc).__name__  # requests exception text embeds the URL — never use it
+
+
+def _fetch(kind: str, ident: str, h: int) -> tuple[bytes, str] | None:
+    candidates = _upstreams(kind, ident, h)
+    if candidates is None:
+        return None
+    reason = "no answer"
+    for url, params, headers in candidates:
+        try:
+            resp = requests.get(url, params=params or None, headers=headers or None, timeout=TIMEOUT)
+        except Exception as exc:
+            reason = _reason(exc)
+            break  # an unreachable app won't answer the second candidate either
+        ctype = str(resp.headers.get("content-type", "")).split(";")[0].strip().lower()
+        if resp.status_code != 200:
+            reason = f"HTTP {resp.status_code}"
+            continue  # radarr/sonarr: poster-500.jpg missing -> try poster.jpg
+        if ctype not in EXT:
+            reason = "not an image"
+            break
+        if len(resp.content) > MAX_BYTES:
+            reason = "image too large"
+            break
+        return resp.content, EXT[ctype]
+    log.warning("image upstream failed (%s: %s)", kind, reason)
+    return None
+
+
+def _cached(stem: str) -> tuple[bytes, str] | None:
+    folder = cache_dir()
+    for ext in MIME:
+        path = folder / (stem + ext)
+        try:
+            if time.time() - path.stat().st_mtime < CACHE_TTL:
+                return path.read_bytes(), ext
+        except OSError:
+            continue
+    return None
+
+
+def _store(stem: str, ext: str, body: bytes) -> None:
+    folder = cache_dir()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / (stem + ext)
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_bytes(body)
+        os.replace(tmp, path)  # atomic — a reader never sees a half-written image
+    except OSError as exc:
+        log.warning("image cache write failed (%s)", _reason(exc))
+
+
+@router.get("/img/{ref:path}")
+def image(ref: str, h: str = "", t: str = ""):
+    title = t[:80]
+    if ref == "none":
+        return _fallback(title)
+    match = REF_RE.match(ref)
+    if not match:
+        return Response("Not found", status_code=404, media_type="text/plain")
+    kind = match.group(1) or match.group(3)
+    ident = match.group(2) or match.group(4)
+    size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
+
+    stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
+    hit = _cached(stem)
+    if hit is None:
+        got = _fetch(kind, ident, size)
+        if got is None:
+            return _fallback(title)
+        _store(stem, got[1], got[0])
+        hit = got
+    return Response(hit[0], media_type=MIME[hit[1]], headers={"Cache-Control": HIT_CACHE})

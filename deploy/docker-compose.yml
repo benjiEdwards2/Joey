@@ -9,17 +9,23 @@
 services:
   hub:
     # The FastAPI hub (WP17-WP21). Reads snapshots READ-ONLY — tiles never
-    # call a live API (the /money page's SQLite read is the one exception, D14).
+    # call a live API (the /money page's SQLite read is the one exception, D14;
+    # the /img poster proxy is the second live-call exception, dated 2026-10-05 —
+    # it reads the media keys from .env and caches art in the read-write img volume).
     image: life-hub
     build:
       context: ..
       dockerfile: hub/Dockerfile
     container_name: joey-hub
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       SNAPSHOT_DIR: /data/snapshots
+      IMG_CACHE_DIR: /data/cache/img
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
+      - /volume1/Docker/joey/data/cache/img:/data/cache/img
     # NO public ports. The hub is reached only through the Cloudflare tunnel
     # container, which WP11 fronts it with on the compose network.
     expose:

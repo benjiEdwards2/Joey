@@ -18,6 +18,7 @@
       "Name": "Late Tide",
       "Type": "Episode",
       "SeriesName": "Quiet Coast",
+      "SeriesId": "series-fixture-1",
       "ParentIndexNumber": 2,
       "IndexNumber": 4,
       "RunTimeTicks": 26400000000

@@ -14,6 +14,13 @@ if there is none. This is why the dashboard still loads when an upstream is down
 The single sanctioned exception is the **/money room page**, which reads SQLite
 directly (D14). It is a room page, not a tile.
 
+**Second exception (2026-10-05): the `/img/{ref}` poster proxy.** Media rows carry an
+optional `poster` ref (string or null; `backdrop` too on Jellyfin now_playing/up_next),
+an opaque pointer to art, never a URL: `jf:<id>` / `jfb:<id>` (Jellyfin; an episode uses
+its series id), `radarr:<movieId>` / `sonarr:<seriesId>`, `tmdb:<posterPath>`. The hub
+resolves it live with the same media env keys, caches to `IMG_CACHE_DIR` for 30 days and
+serves a generated fallback card on any miss — so a down upstream never breaks a page.
+
 **Notion is LINK tier.** A URL in `areas.yaml` and nothing else — no connector,
 no snapshot, no expectation of one anywhere in the hub.
 

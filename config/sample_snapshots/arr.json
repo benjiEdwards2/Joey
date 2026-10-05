@@ -5,21 +5,25 @@
     "arrived": [
       {
         "kind": "season",
+        "poster": "sonarr:1",
         "title": "Quiet Coast \u00b7 S02 \u00b7 3 episodes",
         "when": "3 hours ago"
       },
       {
         "kind": "movie",
+        "poster": "radarr:1",
         "title": "Harbour Lights",
         "when": "yesterday"
       },
       {
         "kind": "episode",
+        "poster": "sonarr:2",
         "title": "Night Ferry \u00b7 S01E04 \u00b7 Last Crossing",
         "when": "2 days ago"
       },
       {
         "kind": "movie",
+        "poster": "radarr:2",
         "title": "Desert Crossing",
         "when": "3 days ago"
       }
@@ -48,6 +52,7 @@
       {
         "kind": "movie",
         "pct": 75,
+        "poster": "radarr:21",
         "status_text": "Downloading",
         "time_left": "14 min",
         "title": "Midnight Harbour"
@@ -55,6 +60,7 @@
       {
         "kind": "episode",
         "pct": 25,
+        "poster": "sonarr:1",
         "status_text": "Downloading",
         "time_left": "1h 05m",
         "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide"
@@ -67,54 +73,63 @@
         "date": "2026-01-02",
         "kind": "episode",
         "label": "",
+        "poster": "sonarr:1",
         "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide"
       },
       {
         "date": "2026-01-03",
         "kind": "movie",
         "label": "Digital",
+        "poster": "radarr:21",
         "title": "Midnight Harbour"
       },
       {
         "date": "2026-01-04",
         "kind": "episode",
         "label": "Premiere",
+        "poster": "sonarr:2",
         "title": "Night Ferry \u00b7 S02E01 \u00b7 New Moorings"
       },
       {
         "date": "2026-01-05",
         "kind": "movie",
         "label": "Disc",
+        "poster": "radarr:22",
         "title": "Glass Orchard"
       },
       {
         "date": "2026-01-06",
         "kind": "movie",
         "label": "Cinemas",
+        "poster": "radarr:23",
         "title": "Far Shore"
       },
       {
         "date": "2026-01-06",
         "kind": "episode",
         "label": "Finale",
+        "poster": "sonarr:3",
         "title": "Harbour Watch \u00b7 S01E08 \u00b7 Landfall"
       }
     ],
     "updated": [
       {
         "kind": "movie",
+        "poster": "radarr:3",
         "title": "Salt Flats",
         "what": "Upgraded to 4K",
         "when": "2 days ago"
       },
       {
         "kind": "episode",
+        "poster": "sonarr:1",
         "title": "Quiet Coast \u00b7 S01E01 \u00b7 Pilot",
         "what": "Upgraded to 4K",
         "when": "3 days ago"
       },
       {
         "kind": "movie",
+        "poster": "radarr:4",
         "title": "Paper Lanterns",
         "what": "Upgraded to Blu-ray",
         "when": "4 days ago"

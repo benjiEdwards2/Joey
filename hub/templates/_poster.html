@@ -1,0 +1,6 @@
+{# Poster thumbnail (2026-10-05). `ref` is a connector poster ref (jf:/radarr:/sonarr:/tmdb:);
+   null points at /img/none, the proxy fallback card. `h` is the fetch size (an allowed
+   /img height); display size comes from CSS (.poster.sm, .poster-grid). #}
+{% macro poster(ref, title, h=120, cls="") -%}
+<img class="poster {{ cls }}" src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ (title or '')|urlencode }}" alt="" loading="lazy" width="{{ (h * 2 / 3)|round|int }}" height="{{ h }}">
+{%- endmacro %}

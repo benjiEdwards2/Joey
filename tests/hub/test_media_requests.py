@@ -100,3 +100,14 @@ def test_404_when_no_tile_reads_the_snapshot(tmp_path, monkeypatch):
     with TestClient(hub.main.app) as client:
         resp = client.get("/media/requests")
     assert resp.status_code == 404 and "No page here" in resp.text
+
+
+def test_request_rows_carry_tmdb_posters_and_null_falls_back(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyseerr", age_minutes=1, data=SAMPLE)
+    with build(snaps) as client:
+        body = main_of(client.get("/media/requests").text)
+    assert '<img class="poster sm' in body
+    assert 'src="/img/tmdb:/fixture1001.jpg?h=120&amp;t=Midnight%20Harbour' in body
+    assert 'src="/img/none?h=120&amp;t=Harbour%20Watch' in body  # lookup had no posterPath

@@ -1,6 +1,6 @@
 {
-  "movie:1001": {"id": 1001, "title": "Midnight Harbour", "releaseDate": "2025-11-14"},
-  "movie:1003": {"id": 1003, "title": "Desert Crossing", "releaseDate": "2019-06-07"},
-  "tv:2002": {"id": 2002, "name": "Night Ferry", "firstAirDate": "2023-09-01"},
+  "movie:1001": {"id": 1001, "title": "Midnight Harbour", "releaseDate": "2025-11-14", "posterPath": "/fixture1001.jpg"},
+  "movie:1003": {"id": 1003, "title": "Desert Crossing", "releaseDate": "2019-06-07", "posterPath": "/fixture1003.jpg"},
+  "tv:2002": {"id": 2002, "name": "Night Ferry", "firstAirDate": "2023-09-01", "posterPath": "/fixture2002.jpg"},
   "tv:2004": {"id": 2004, "name": "Harbour Watch", "firstAirDate": "2021-03-12"}
 }

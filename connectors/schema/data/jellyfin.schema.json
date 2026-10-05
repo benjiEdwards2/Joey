@@ -17,6 +17,8 @@
         "additionalProperties": false,
         "properties": {
           "title": {"type": "string"},
+          "poster": {"type": ["string", "null"]},
+          "backdrop": {"type": ["string", "null"]},
           "user": {"type": "string"},
           "progress_pct": {"type": "integer", "minimum": 0, "maximum": 100},
           "play_method": {"enum": ["Direct play", "Direct stream", "Transcoding"]}
@@ -31,6 +33,8 @@
         "additionalProperties": false,
         "properties": {
           "title": {"type": "string"},
+          "poster": {"type": ["string", "null"]},
+          "backdrop": {"type": ["string", "null"]},
           "kind": {"enum": ["movie", "episode"]},
           "remaining_text": {"type": "string"}
         }
@@ -44,6 +48,7 @@
         "additionalProperties": false,
         "properties": {
           "title": {"type": "string"},
+          "poster": {"type": ["string", "null"]},
           "added_at": {"type": "string"},
           "type": {"type": "string"}
         }
@@ -73,6 +78,7 @@
             "additionalProperties": false,
             "properties": {
               "title": {"type": "string"},
+              "poster": {"type": ["string", "null"]},
               "kind": {"enum": ["movie", "episode"]},
               "watched_at": {"type": "string"},
               "when": {"type": "string"}
@@ -92,6 +98,7 @@
             "additionalProperties": false,
             "properties": {
               "title": {"type": "string"},
+              "poster": {"type": ["string", "null"]},
               "episodes": {"type": "integer", "minimum": 0},
               "hours": {"type": "number", "minimum": 0}
             }
@@ -106,6 +113,7 @@
             "additionalProperties": false,
             "properties": {
               "title": {"type": "string"},
+              "poster": {"type": ["string", "null"]},
               "plays": {"type": "integer", "minimum": 1}
             }
           }
@@ -119,6 +127,7 @@
             "additionalProperties": false,
             "properties": {
               "title": {"type": "string"},
+              "poster": {"type": ["string", "null"]},
               "kind": {"enum": ["movie", "episode"]},
               "years_ago": {"type": "integer", "minimum": 1}
             }

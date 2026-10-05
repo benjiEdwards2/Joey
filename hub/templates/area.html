@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ area.name }} · Joey{% endblock %}
 {% block content %}
+{% from "_poster.html" import poster %}
 <h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
 <div class="grid">
   {% for row in tiles %}
@@ -35,7 +36,8 @@
   <div class="head">Now playing</div>
   {% if media.play.now_playing %}
     {% for p in media.play.now_playing %}
-    {% if media.play.href %}<a class="uprow playrow" href="{{ media.play.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow">{% endif %}
+    {% if media.play.href %}<a class="uprow playrow hasposter" href="{{ media.play.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow hasposter">{% endif %}
+      {{ poster(p.poster, p.title, 120, "sm") }}
       <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
       <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
     {% if media.play.href %}</a>{% else %}</div>{% endif %}
@@ -46,7 +48,8 @@
   <div class="upday">Up next</div>
   {% if media.play.up_next %}
     {% for n in media.play.up_next %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(n.poster, n.title, 120, "sm") }}
       <span class="uptitle">{{ n.title }}</span>
       <span class="uptime nextleft">{{ n.remaining_text }}</span>
     </div>
@@ -64,7 +67,8 @@
 <section class="card uplist medialist" style="--accent: {{ area.accent }}">
   <div class="head">Just arrived</div>
   {% for r in media.library["items"] %}
-  <div class="uprow">
+  <div class="uprow hasposter">
+    {{ poster(r.poster, r.title, 120, "sm") }}
     <span class="uptitle">{{ r.title }}</span>
     <span class="uptime nextleft">{{ r.when }}</span>
   </div>
@@ -81,7 +85,8 @@
 <section class="card uplist medialist" style="--accent: {{ area.accent }}">
   <div class="head">Recently watched</div>
   {% for r in media.history["items"] %}
-  <div class="uprow">
+  <div class="uprow hasposter">
+    {{ poster(r.poster, r.title, 120, "sm") }}
     <span class="uptitle">{{ r.title }}</span>
     <span class="uptime nextleft">{{ r.when }}</span>
   </div>

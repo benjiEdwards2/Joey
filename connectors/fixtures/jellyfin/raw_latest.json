@@ -1,5 +1,5 @@
 [
   {"Id": "item-fixture-6", "Name": "Harbour Lights", "Type": "Movie", "DateCreated": "2025-12-30T09:12:00.0000000Z"},
-  {"Id": "item-fixture-7", "Name": "Quiet Coast - S02E05", "Type": "Episode", "DateCreated": "2025-12-29T20:41:00.0000000Z"},
+  {"Id": "item-fixture-7", "Name": "Quiet Coast - S02E05", "Type": "Episode", "SeriesName": "Quiet Coast", "SeriesId": "series-fixture-1", "DateCreated": "2025-12-29T20:41:00.0000000Z"},
   {"Id": "item-fixture-8", "Name": "Desert Crossing", "Type": "Movie", "DateCreated": "2025-12-28T18:05:00.0000000Z"}
 ]

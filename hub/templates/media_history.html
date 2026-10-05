@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Watched — Joey{% endblock %}
 {% block content %}
+{% from "_poster.html" import poster %}
 {# Detail behind the watched tile (2026-10-05): B.'s Jellyfin watch history. Counts are
    words and numbers beside every bar — colour is never the only encoding. #}
 <section class="card uplist wide" style="--accent: {{ src.accent }}">
@@ -13,7 +14,8 @@
 
     <div class="upday">Recently watched</div>
     {% for r in history.get("recent", []) %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(r.poster, r.title, 120, "sm") }}
       <span class="uptitle">{{ r.title }}</span>
       <span class="chip">{{ r.kind }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>
@@ -23,28 +25,39 @@
     {% endfor %}
 
     <div class="upday">Most played shows</div>
-    {% for s in shows %}
-    <div class="uprow">
-      <span class="uptitle">{{ s.title }} · {{ s.episodes }} episode{{ "" if s.episodes == 1 else "s" }} · {{ s.hours }} h</span>
-      <span class="pbar" aria-hidden="true"><span style="width: {{ s.pct }}%"></span></span>
+    {% if shows %}
+    <div class="poster-grid">
+      {% for s in shows %}
+      <div class="pgitem">
+        {{ poster(s.poster, s.title, 240) }}
+        <div class="pgtitle">{{ s.title }}</div>
+        <div class="pgsub">{{ s.episodes }} episode{{ "" if s.episodes == 1 else "s" }} · {{ s.hours }} h</div>
+      </div>
+      {% endfor %}
     </div>
     {% else %}
     <div class="value dim">No shows watched yet</div>
-    {% endfor %}
+    {% endif %}
 
     <div class="upday">Most played movies</div>
-    {% for m in history.get("most_played_movies", []) %}
-    <div class="uprow">
-      <span class="uptitle">{{ m.title }}</span>
-      <span class="uptime nextleft">{{ m.plays }} play{{ "" if m.plays == 1 else "s" }}</span>
+    {% if history.get("most_played_movies") %}
+    <div class="poster-grid">
+      {% for m in history.most_played_movies %}
+      <div class="pgitem">
+        {{ poster(m.poster, m.title, 240) }}
+        <div class="pgtitle">{{ m.title }}</div>
+        <div class="pgsub">{{ m.plays }} play{{ "" if m.plays == 1 else "s" }}</div>
+      </div>
+      {% endfor %}
     </div>
     {% else %}
     <div class="value dim">No movies watched yet</div>
-    {% endfor %}
+    {% endif %}
 
     <div class="upday">On this day</div>
     {% for d in history.get("on_this_day", []) %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(d.poster, d.title, 120, "sm") }}
       <span class="uptitle">{{ d.title }}</span>
       <span class="chip">{{ d.kind }}</span>
       <span class="uptime nextleft">{{ d.years_ago }} year{{ "" if d.years_ago == 1 else "s" }} ago</span>

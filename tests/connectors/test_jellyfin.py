@@ -59,12 +59,10 @@ def test_play_method_falls_back_to_transcoding_info(raw):
 
 def test_up_next_merges_resume_then_nextup_without_duplicates(raw):
     up = Jellyfin().transform(raw)["up_next"]
-    assert up == [
-        {"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 min left"},
-        {"title": "Quiet Coast · S02E05 · Break of Dawn", "kind": "episode",
-         "remaining_text": "30 min left"},
-        {"title": "Northern Lines · S01E03 · The Understudy", "kind": "episode",
-         "remaining_text": "Next episode"},
+    assert [(u["title"], u["kind"], u["remaining_text"]) for u in up] == [
+        ("Dust and Daylight", "movie", "31 min left"),
+        ("Quiet Coast · S02E05 · Break of Dawn", "episode", "30 min left"),
+        ("Northern Lines · S01E03 · The Understudy", "episode", "Next episode"),
     ]
 
 
@@ -196,25 +194,26 @@ def test_recent_is_newest_first_capped_and_episode_titles_carry_the_show(history
     recent = history["recent"]
     assert len(recent) == 20
     assert recent[0] == {"title": "Quiet Coast · S02E04 · Late Tide", "kind": "episode",
-                         "watched_at": "2025-12-31T21:10:00.0000000Z", "when": "2 hours ago"}
+                         "watched_at": "2025-12-31T21:10:00.0000000Z", "when": "2 hours ago",
+                         "poster": "jf:series-fixture-1"}
     assert recent[3]["title"] == "Harbour Lights" and recent[3]["kind"] == "movie"
     stamps = [r["watched_at"] for r in recent]
     assert stamps == sorted(stamps, reverse=True)
 
 
 def test_most_played_groups_episodes_by_show_and_sorts_movies_by_plays(history):
-    assert history["most_played_shows"][0] == {"title": "Quiet Coast", "episodes": 6, "hours": 4.5}
+    assert history["most_played_shows"][0] == {"title": "Quiet Coast", "episodes": 6, "hours": 4.5,
+                                               "poster": "jf:series-fixture-1"}
     assert [s["title"] for s in history["most_played_shows"]] == [
         "Quiet Coast", "Night Ferry", "Northern Lines", "Harbour Watch"]
     movies = history["most_played_movies"]
-    assert movies[0] == {"title": "The Long Road Home", "plays": 3}
+    assert movies[0]["title"] == "The Long Road Home" and movies[0]["plays"] == 3
     assert len(movies) == 10 and all(m["plays"] >= 1 for m in movies)
 
 
 def test_on_this_day_lists_earlier_years_only(history):
-    assert history["on_this_day"] == [
-        {"title": "Salt Flats", "kind": "movie", "years_ago": 1},
-        {"title": "Copper Hills", "kind": "movie", "years_ago": 2}]
+    assert [(d["title"], d["kind"], d["years_ago"]) for d in history["on_this_day"]] == [
+        ("Salt Flats", "movie", 1), ("Copper Hills", "movie", 2)]
 
 
 def test_absent_raw_history_gives_an_empty_block(snapshots, raw):
@@ -234,3 +233,21 @@ def test_history_older_than_a_month_counts_only_toward_all_time(snapshots, raw):
     h = Jellyfin().transform(raw)["history"]
     assert h["week_count"] == h["month_count"] == 0 and h["hours_month"] == 0
     assert h["hours_total"] > 0
+
+
+# ---- poster refs: the hub's /img proxy turns these into art
+
+def test_poster_refs_prefer_the_series_for_episodes(raw):
+    data = Jellyfin().transform(raw)
+    movie, episode = data["now_playing"]
+    assert (movie["poster"], movie["backdrop"]) == ("jf:item-fixture-1", "jfb:item-fixture-1")
+    assert (episode["poster"], episode["backdrop"]) == ("jf:series-fixture-1", "jfb:series-fixture-1")
+    assert data["up_next"][1]["poster"] == "jf:series-fixture-1"
+    assert data["latest"][0]["poster"] == "jf:item-fixture-6"
+    assert data["latest"][1]["poster"] == "jf:series-fixture-1"
+
+
+def test_episode_without_a_series_id_falls_back_to_its_own_id(raw):
+    raw = copy.deepcopy(raw)
+    del raw["raw_sessions"][1]["NowPlayingItem"]["SeriesId"]
+    assert Jellyfin().transform(raw)["now_playing"][1]["poster"] == "jf:item-fixture-2"

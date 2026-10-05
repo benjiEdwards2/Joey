@@ -54,8 +54,7 @@ def test_history_page_renders_every_section_in_main(app_factory):
              ("Recently watched", "Most played shows", "Most played movies", "On this day")]
     assert order == sorted(order)
     assert "Quiet Coast · S02E04 · Late Tide" in body and "2 hours ago" in body
-    assert "Quiet Coast · 6 episodes · 4.5 h" in body and "width: 100%" in body
-    assert "Harbour Watch · 2 episodes · 1.6 h" in body and "width: 33%" in body
+    assert "6 episodes · 4.5 h" in body and "2 episodes · 1.6 h" in body  # words under each grid poster
     assert "The Long Road Home" in body and "3 plays" in body and "1 play<" in body
     on_day = body.split(">On this day</div>", 1)[1]
     assert "Salt Flats" in on_day and "1 year ago" in on_day and "2 years ago" in on_day
@@ -118,7 +117,7 @@ def test_area_strip_shows_five_recent_items_with_a_you_chip(app_factory):
         body = main_of(client.get("/a/alpha").text)
     strip = body.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
     assert body.index('class="grid"') < body.index(">Recently watched<")
-    assert strip.count('class="uprow"') == 5
+    assert strip.count('class="uprow hasposter"') == 5
     assert "Harbour Lights" in strip and "Desert Crossing" not in strip  # 4th kept, 6th cut
     assert '<span class="chip">You</span>' in strip
 
@@ -130,3 +129,28 @@ def test_her_view_never_shows_the_strip(app_factory):
     with build(snaps) as client:
         body = main_of(client.get("/a/alpha?owner_view=her").text)
     assert "Recently watched" not in body and "Now playing" in body
+
+
+def test_history_posters_in_main_with_the_most_played_grids(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
+    with build(snaps) as client:
+        body = main_of(client.get("/media/history").text)
+    assert '<img class="poster sm' in body and 'src="/img/jf:series-fixture-1?h=120&amp;t=Quiet%20Coast' in body
+    shows = body.split(">Most played shows</div>", 1)[1].split(">Most played movies</div>", 1)[0]
+    assert shows.count('class="poster ') == 4 and 'class="poster-grid"' in shows
+    assert 'src="/img/jf:series-fixture-1?h=240' in shows
+    movies = body.split(">Most played movies</div>", 1)[1].split(">On this day</div>", 1)[0]
+    assert 'class="poster-grid"' in movies and "/img/jf:" in movies
+
+
+def test_a_row_without_a_ref_points_at_the_fallback(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    data = json.loads(json.dumps(SAMPLE))
+    data["history"]["recent"][0]["poster"] = None
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=data)
+    with build(snaps) as client:
+        body = main_of(client.get("/media/history").text)
+    assert 'src="/img/none?h=120&amp;t=Quiet%20Coast' in body

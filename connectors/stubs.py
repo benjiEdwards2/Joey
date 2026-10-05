@@ -316,6 +316,19 @@ def _item_kind(item: dict) -> str:
     return "episode" if item.get("Type") == "Episode" else "movie"
 
 
+def _jf_art(item: dict) -> str | None:
+    """Jellyfin item id whose art represents this item: an episode shows its series'
+    poster (fallback its own id). Refs are `jf:<id>` / `jfb:<id>` — the hub's /img proxy."""
+    if item.get("Type") == "Episode" and item.get("SeriesId"):
+        return item["SeriesId"]
+    return item.get("Id")
+
+
+def _jf_ref(prefix: str, item: dict) -> str | None:
+    art = _jf_art(item)
+    return f"{prefix}:{art}" if art else None
+
+
 def _play_method(session: dict) -> str:
     method = PLAY_METHODS.get(session.get("PlayState", {}).get("PlayMethod"))
     if method:
@@ -328,7 +341,7 @@ class Jellyfin(Connector):
     id = "jellyfin"
     requires_env = ("JELLYFIN_URL", "JELLYFIN_API_KEY")  # JELLYFIN_USER is optional
 
-    ITEM_FIELDS = "DateCreated,SeriesName"
+    ITEM_FIELDS = "DateCreated,SeriesName,SeriesId"
 
     @staticmethod
     def pick_user(users: list[dict], preferred: str | None) -> dict:
@@ -376,7 +389,7 @@ class Jellyfin(Connector):
             "raw_history": get("history", f"/Users/{uid}/Items", {
                 "Filters": "IsPlayed", "SortBy": "DatePlayed", "SortOrder": "Descending",
                 "Recursive": "true", "IncludeItemTypes": "Movie,Episode",
-                "Fields": "UserData,RunTimeTicks,SeriesName,ParentIndexNumber,IndexNumber,ProductionYear",
+                "Fields": "UserData,RunTimeTicks,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ProductionYear",
                 "Limit": HISTORY_FETCH_LIMIT}),
         }
 
@@ -396,15 +409,17 @@ class Jellyfin(Connector):
         shows: dict[str, dict] = {}
         for item, _, hours, plays in played:
             if _item_kind(item) == "episode" and item.get("SeriesName"):
-                show = shows.setdefault(item["SeriesName"], {"title": item["SeriesName"], "episodes": 0, "hours": 0.0})
+                show = shows.setdefault(item["SeriesName"], {"title": item["SeriesName"], "episodes": 0, "hours": 0.0,
+                                                             "poster": _jf_ref("jf", item)})
                 show["episodes"] += 1
                 show["hours"] += hours * plays
-        movies = sorted(({"title": item["Name"], "plays": plays} for item, _, _, plays in played
+        movies = sorted(({"title": item["Name"], "plays": plays, "poster": _jf_ref("jf", item)} for item, _, _, plays in played
                          if _item_kind(item) == "movie" and plays >= 1),
                         key=lambda m: (-m["plays"], m["title"]))
         return {
             "recent": [{"title": _media_title(item), "kind": _item_kind(item),
-                        "watched_at": item["UserData"]["LastPlayedDate"], "when": _ago(dt, now)}
+                        "watched_at": item["UserData"]["LastPlayedDate"], "when": _ago(dt, now),
+                        "poster": _jf_ref("jf", item)}
                        for item, dt, _, _ in played[:HISTORY_RECENT]],
             "week_count": sum(1 for _, dt, _, _ in played if dt >= week),
             "month_count": sum(1 for _, dt, _, _ in played if dt >= month),
@@ -413,7 +428,8 @@ class Jellyfin(Connector):
             "most_played_shows": [{**s, "hours": round(s["hours"], 1)} for s in sorted(
                 shows.values(), key=lambda s: (-s["episodes"], s["title"]))[:HISTORY_TOP]],
             "most_played_movies": movies[:HISTORY_TOP],
-            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": now.year - dt.year}
+            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": now.year - dt.year,
+                             "poster": _jf_ref("jf", item)}
                             for item, dt, _, _ in played
                             if (dt.month, dt.day) == (now.month, now.day) and dt.year < now.year][:HISTORY_TOP],
         }
@@ -431,6 +447,8 @@ class Jellyfin(Connector):
                 "user": session.get("UserName", "someone"),
                 "progress_pct": min(100, round(position / runtime * 100)) if runtime else 0,
                 "play_method": _play_method(session),
+                "poster": _jf_ref("jf", item),
+                "backdrop": _jf_ref("jfb", item),
             })
 
         up_next, seen = [], set()
@@ -443,16 +461,18 @@ class Jellyfin(Connector):
                 "title": _media_title(item),
                 "kind": "episode" if item.get("Type") == "Episode" else "movie",
                 "remaining_text": f"{left} min left",
+                "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
             })
         for item in raw["raw_nextup"]["Items"]:
             if item.get("Id") in seen:  # already resumable — don't list twice
                 continue
             up_next.append({"title": _media_title(item), "kind": "episode",
-                            "remaining_text": "Next episode"})
+                            "remaining_text": "Next episode",
+                            "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item)})
         up_next = up_next[:UP_NEXT_LIMIT]
 
         latest = [
-            {"title": i["Name"], "added_at": i["DateCreated"], "type": i["Type"]}
+            {"title": i["Name"], "added_at": i["DateCreated"], "type": i["Type"], "poster": _jf_ref("jf", i)}
             for i in raw["raw_latest"]
         ]
         counts = raw["raw_counts"]
@@ -611,6 +631,17 @@ def _episode_title(series: str, episode: dict) -> str:
     return " · ".join(p for p in (series, code, episode.get("title")) if p)
 
 
+def _arr_ref(app: str, record: dict, movie: bool = False) -> str | None:
+    """`radarr:<movieId>` / `sonarr:<seriesId>` for the hub's /img proxy (episode and
+    season rows use the series id). Nested movie/series wins, the flat id is the
+    fallback; `movie=True` marks a Radarr calendar row, whose own id is the movie id."""
+    if app == "radarr":
+        art = (record.get("movie") or {}).get("id") or record.get("movieId") or (record.get("id") if movie else None)
+    else:
+        art = (record.get("series") or {}).get("id") or record.get("seriesId")
+    return f"{app}:{art}" if art else None
+
+
 def _timeleft(text) -> str:
     """Servarr 'd.hh:mm:ss' / 'hh:mm:ss' -> '12 min' / '1h 05m' (blank when unknown)."""
     try:
@@ -718,7 +749,8 @@ class Arr(Connector):
             else:
                 title = (newest.get("movie") or {}).get("title") or newest.get("sourceTitle") or "Unknown"
                 kind = "movie"
-            row = {"title": title, "kind": kind, "when": _ago(when, now)}
+            row = {"title": title, "kind": kind, "when": _ago(when, now),
+                   "poster": _arr_ref("sonarr" if grouped else "radarr", newest)}
             if upgrade:
                 row["what"] = _upgrade_text(newest)
             return when, row
@@ -738,7 +770,8 @@ class Arr(Connector):
                 day = _dt(m[field]).date()
                 if not today <= day <= end or (label == "Disc" and m.get("hasFile")):
                     continue  # a disc release already on disk is not news
-                rows.append({"title": m["title"], "kind": "movie", "date": day.isoformat(), "label": label})
+                rows.append({"title": m["title"], "kind": "movie", "date": day.isoformat(), "label": label,
+                             "poster": _arr_ref("radarr", m, movie=True)})
         for e in sonarr:
             stamp = e.get("airDateUtc") or e.get("airDate")
             if not stamp:
@@ -753,7 +786,8 @@ class Arr(Connector):
             else:
                 label = ""
             rows.append({"title": _episode_title((e.get("series") or {}).get("title", "Unknown"), e),
-                         "kind": "episode", "date": day.isoformat(), "label": label})
+                         "kind": "episode", "date": day.isoformat(), "label": label,
+                         "poster": _arr_ref("sonarr", e)})
         return sorted(rows, key=lambda r: (r["date"], r["title"]))
 
     @staticmethod
@@ -775,6 +809,7 @@ class Arr(Connector):
                 "pct": min(100, max(0, round((size - left) / size * 100))) if size else 0,
                 "status_text": str(r.get("status") or "queued").capitalize(),
                 "time_left": _timeleft(r.get("timeleft")),
+                "poster": _arr_ref(app, r),
             })
         return rows
 
@@ -879,10 +914,12 @@ class Jellyseerr(Connector):
         # Titles already resolved last sweep are reused, so repeats cost no calls.
         known: dict[str, dict] = {}
         for row in ((self._previous() or {}).get("data") or {}).get("requests", []):
-            if row.get("tmdb_id") and not str(row.get("title", "")).startswith("TMDB #"):
+            if (row.get("tmdb_id") and "poster" in row  # pre-poster rows are looked up again
+                    and not str(row.get("title", "")).startswith("TMDB #")):
                 known[f"{row['kind']}:{row['tmdb_id']}"] = {
                     "title": row["title"], "name": row["title"],
-                    "releaseDate": str(row["year"]) if row.get("year") else None}
+                    "releaseDate": str(row["year"]) if row.get("year") else None,
+                    "posterPath": (row.get("poster") or "").removeprefix("tmdb:") or None}
         titles, lookups = {}, 0
         for request in raw_requests.get("results", []):
             tmdb = (request.get("media") or {}).get("tmdbId")
@@ -926,6 +963,7 @@ class Jellyseerr(Connector):
                 "status_text": _seerr_status_text(request),
                 "when": _ago(created, now),
                 "href": f"{host}/{kind}/{tmdb}",
+                "poster": f"tmdb:{info['posterPath']}" if info.get("posterPath") else None,
             }))
         rows.sort(key=lambda r: r[1], reverse=True)    # newest first ...
         rows.sort(key=lambda r: not r[0])              # ... then pending first (stable)

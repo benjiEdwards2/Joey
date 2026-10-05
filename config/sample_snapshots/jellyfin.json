@@ -9,42 +9,52 @@
       "most_played_movies": [
         {
           "plays": 3,
+          "poster": "jf:hist-fixture-7",
           "title": "The Long Road Home"
         },
         {
           "plays": 2,
+          "poster": "jf:hist-fixture-4",
           "title": "Harbour Lights"
         },
         {
           "plays": 2,
+          "poster": "jf:hist-fixture-17",
           "title": "Salt Flats"
         },
         {
           "plays": 2,
+          "poster": "jf:hist-fixture-21",
           "title": "Silver Lake"
         },
         {
           "plays": 1,
+          "poster": "jf:hist-fixture-18",
           "title": "Copper Hills"
         },
         {
           "plays": 1,
+          "poster": "jf:hist-fixture-6",
           "title": "Desert Crossing"
         },
         {
           "plays": 1,
+          "poster": "jf:hist-fixture-9",
           "title": "Dust and Daylight"
         },
         {
           "plays": 1,
+          "poster": "jf:hist-fixture-19",
           "title": "Far Shore"
         },
         {
           "plays": 1,
+          "poster": "jf:hist-fixture-27",
           "title": "Glass Harbour"
         },
         {
           "plays": 1,
+          "poster": "jf:hist-fixture-15",
           "title": "Glass Orchard"
         }
       ],
@@ -52,32 +62,38 @@
         {
           "episodes": 6,
           "hours": 4.5,
+          "poster": "jf:series-fixture-1",
           "title": "Quiet Coast"
         },
         {
           "episodes": 4,
           "hours": 3.5,
+          "poster": "jf:series-fixture-3",
           "title": "Night Ferry"
         },
         {
           "episodes": 3,
           "hours": 2.5,
+          "poster": "jf:series-fixture-2",
           "title": "Northern Lines"
         },
         {
           "episodes": 2,
           "hours": 1.6,
+          "poster": "jf:series-fixture-4",
           "title": "Harbour Watch"
         }
       ],
       "on_this_day": [
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-17",
           "title": "Salt Flats",
           "years_ago": 1
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-18",
           "title": "Copper Hills",
           "years_ago": 2
         }
@@ -85,120 +101,140 @@
       "recent": [
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide",
           "watched_at": "2025-12-31T21:10:00.0000000Z",
           "when": "2 hours ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E05 \u00b7 Break of Dawn",
           "watched_at": "2025-12-30T20:05:00.0000000Z",
           "when": "yesterday"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-2",
           "title": "Northern Lines \u00b7 S01E03 \u00b7 The Understudy",
           "watched_at": "2025-12-29T19:30:00.0000000Z",
           "when": "2 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-4",
           "title": "Harbour Lights",
           "watched_at": "2025-12-28T20:00:00.0000000Z",
           "when": "3 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-3",
           "title": "Night Ferry \u00b7 S01E04 \u00b7 Last Crossing",
           "watched_at": "2025-12-27T21:00:00.0000000Z",
           "when": "4 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-6",
           "title": "Desert Crossing",
           "watched_at": "2025-12-26T19:15:00.0000000Z",
           "when": "5 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-7",
           "title": "The Long Road Home",
           "watched_at": "2025-12-25T18:40:00.0000000Z",
           "when": "6 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-4",
           "title": "Harbour Watch \u00b7 S01E02 \u00b7 Landfall",
           "watched_at": "2025-12-25T10:05:00.0000000Z",
           "when": "6 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-9",
           "title": "Dust and Daylight",
           "watched_at": "2025-12-20T20:30:00.0000000Z",
           "when": "11 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E03 \u00b7 Third Light",
           "watched_at": "2025-12-19T21:00:00.0000000Z",
           "when": "12 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E02 \u00b7 Second Wind",
           "watched_at": "2025-12-18T21:00:00.0000000Z",
           "when": "13 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-1",
           "title": "Quiet Coast \u00b7 S02E01 \u00b7 First Light",
           "watched_at": "2025-12-17T21:00:00.0000000Z",
           "when": "14 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-2",
           "title": "Northern Lines \u00b7 S01E02 \u00b7 Opening Night",
           "watched_at": "2025-12-15T19:00:00.0000000Z",
           "when": "16 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-14",
           "title": "Paper Lanterns",
           "watched_at": "2025-12-12T20:00:00.0000000Z",
           "when": "19 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-15",
           "title": "Glass Orchard",
           "watched_at": "2025-12-09T19:45:00.0000000Z",
           "when": "22 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-3",
           "title": "Night Ferry \u00b7 S01E03 \u00b7 New Moorings",
           "watched_at": "2025-12-04T20:10:00.0000000Z",
           "when": "27 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-19",
           "title": "Far Shore",
           "watched_at": "2025-11-22T20:00:00.0000000Z",
           "when": "39 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-20",
           "title": "Stone Garden",
           "watched_at": "2025-11-08T20:00:00.0000000Z",
           "when": "53 days ago"
         },
         {
           "kind": "movie",
+          "poster": "jf:hist-fixture-21",
           "title": "Silver Lake",
           "watched_at": "2025-10-19T20:00:00.0000000Z",
           "when": "73 days ago"
         },
         {
           "kind": "episode",
+          "poster": "jf:series-fixture-2",
           "title": "Northern Lines \u00b7 S01E01 \u00b7 Pilot",
           "watched_at": "2025-10-05T20:00:00.0000000Z",
           "when": "87 days ago"
@@ -209,16 +245,19 @@
     "latest": [
       {
         "added_at": "2025-12-30T09:12:00.0000000Z",
+        "poster": "jf:item-fixture-6",
         "title": "Harbour Lights",
         "type": "Movie"
       },
       {
         "added_at": "2025-12-29T20:41:00.0000000Z",
+        "poster": "jf:series-fixture-1",
         "title": "Quiet Coast - S02E05",
         "type": "Episode"
       },
       {
         "added_at": "2025-12-28T18:05:00.0000000Z",
+        "poster": "jf:item-fixture-8",
         "title": "Desert Crossing",
         "type": "Movie"
       }
@@ -229,13 +268,17 @@
     },
     "now_playing": [
       {
+        "backdrop": "jfb:item-fixture-1",
         "play_method": "Direct play",
+        "poster": "jf:item-fixture-1",
         "progress_pct": 25,
         "title": "The Long Road Home",
         "user": "Sample Person"
       },
       {
+        "backdrop": "jfb:series-fixture-1",
         "play_method": "Transcoding",
+        "poster": "jf:series-fixture-1",
         "progress_pct": 75,
         "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide",
         "user": "Sample Partner"
@@ -245,17 +288,23 @@
     "summary": "2 playing now",
     "up_next": [
       {
+        "backdrop": "jfb:item-fixture-3",
         "kind": "movie",
+        "poster": "jf:item-fixture-3",
         "remaining_text": "31 min left",
         "title": "Dust and Daylight"
       },
       {
+        "backdrop": "jfb:series-fixture-1",
         "kind": "episode",
+        "poster": "jf:series-fixture-1",
         "remaining_text": "30 min left",
         "title": "Quiet Coast \u00b7 S02E05 \u00b7 Break of Dawn"
       },
       {
+        "backdrop": "jfb:series-fixture-2",
         "kind": "episode",
+        "poster": "jf:series-fixture-2",
         "remaining_text": "Next episode",
         "title": "Northern Lines \u00b7 S01E03 \u00b7 The Understudy"
       }

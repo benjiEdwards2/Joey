@@ -5,6 +5,7 @@
       "Name": "Break of Dawn",
       "Type": "Episode",
       "SeriesName": "Quiet Coast",
+      "SeriesId": "series-fixture-1",
       "ParentIndexNumber": 2,
       "IndexNumber": 5
     },
@@ -13,6 +14,7 @@
       "Name": "The Understudy",
       "Type": "Episode",
       "SeriesName": "Northern Lines",
+      "SeriesId": "series-fixture-2",
       "ParentIndexNumber": 1,
       "IndexNumber": 3
     }

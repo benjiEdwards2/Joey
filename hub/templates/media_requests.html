@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Requests — Joey{% endblock %}
 {% block content %}
+{% from "_poster.html" import poster %}
 {# Detail behind the requests tile (2026-10-05): Jellyseerr's queue. The status is a
    WORD on every row — colour is never the only encoding. #}
 <section class="card uplist wide" style="--accent: {{ src.accent }}">
@@ -12,7 +13,8 @@
     {% if src.data.get("requests") %}
     <div class="sub libline">{{ counts_text }}</div>
     {% for r in src.data.requests %}
-    <a class="uprow reqrow" href="{{ r.href }}" target="_blank" rel="noopener">
+    <a class="uprow reqrow hasposter" href="{{ r.href }}" target="_blank" rel="noopener">
+      {{ poster(r.poster, r.title, 120, "sm") }}
       <span class="chip">{{ r.status_text }}</span>
       <span class="uptitle">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %} · {{ "TV" if r.kind == "tv" else "Movie" }} · {{ r.requested_by }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>

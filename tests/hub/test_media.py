@@ -23,8 +23,9 @@ APPS = [
 PLAY = {
     "summary": "1 playing now",
     "now_playing": [{"title": "Harbour Lights", "user": "Sample Person",
-                     "progress_pct": 42, "play_method": "Transcoding"}],
-    "up_next": [{"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 min left"}],
+                     "progress_pct": 42, "play_method": "Transcoding", "poster": "jf:abc123"}],
+    "up_next": [{"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 min left",
+                 "poster": None}],
     "latest": [], "library": {"movies": 1, "episodes": 1},
 }
 
@@ -124,3 +125,14 @@ def test_media_sections_render_in_the_page_body_not_the_title(app_factory):
     body = html.split("<main", 1)[1]
     assert body.index('class="grid"') < body.index(">Apps<")
     assert ">Now playing</div>" in body and ">Up next</div>" in body
+
+
+def test_area_media_rows_carry_posters_inside_main(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
+    with build(snaps) as client:
+        body = client.get("/a/alpha").text.split("<main", 1)[1]
+    assert '<img class="poster sm' in body
+    assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
+    assert 'src="/img/none?h=120&amp;t=Dust%20and%20Daylight' in body  # null ref -> fallback card

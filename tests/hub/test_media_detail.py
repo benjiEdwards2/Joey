@@ -25,10 +25,12 @@ ADDED = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
 PLAY = {
     "summary": "1 playing now",
     "now_playing": [{"title": "Harbour Lights", "user": "Sample Person",
-                     "progress_pct": 42, "play_method": "Transcoding"}],
-    "up_next": [{"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 min left"},
+                     "progress_pct": 42, "play_method": "Transcoding",
+                     "poster": "jf:abc123", "backdrop": "jfb:abc123"}],
+    "up_next": [{"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 min left",
+                 "poster": "jf:def456", "backdrop": "jfb:def456"},
                 {"title": "Quiet Coast · S02E05", "kind": "episode", "remaining_text": "Next episode"}],
-    "latest": [{"title": "Desert Crossing", "added_at": ADDED, "type": "Movie"}],
+    "latest": [{"title": "Desert Crossing", "added_at": ADDED, "type": "Movie", "poster": None}],
     "library": {"movies": 42, "episodes": 237},
 }
 
@@ -152,3 +154,16 @@ def test_registry_rejects_a_detail_not_starting_with_a_single_slash(tmp_path, ba
 def test_registry_accepts_a_hub_route_detail(tmp_path):
     reg = load_registry(write_registry(tmp_path, make_area("alpha", detail="/media/apps")))
     assert reg.areas[0].tiles[0].detail == "/media/apps"
+
+
+def test_playing_page_has_posters_and_a_backdrop_behind_now_playing(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
+    with build(snaps) as client:
+        body = main_of(client.get("/media/playing").text)
+    assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
+    assert 'src="/img/jf:def456?h=120' in body
+    assert "hasbackdrop" in body and "--bd: url(" in body and "/img/jfb%3Aabc123?h=1280" in body
+    assert 'src="/img/none?h=120&amp;t=Desert%20Crossing' in body  # null ref -> fallback card
+    assert "jfb:def456" not in body.split(">Up next</div>", 1)[1]  # backdrop only behind now playing

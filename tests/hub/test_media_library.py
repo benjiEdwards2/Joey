@@ -112,3 +112,14 @@ def test_area_strip_present_only_with_the_snapshot(app_factory):
     assert "Item 4" in body and "Item 5" not in body  # capped at 5
     with build(tmp_path / "empty") as client:
         assert "Just arrived" not in main_of(client.get("/a/alpha").text)
+
+
+def test_library_rows_carry_radarr_and_sonarr_posters_in_main(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "arr", age_minutes=1, data=data_for_today())
+    with build(snaps) as client:
+        body = main_of(client.get("/media/library").text)
+    assert '<img class="poster sm' in body
+    assert "/img/radarr:" in body and "/img/sonarr:" in body
+    assert 'src="/img/radarr:21?h=120&amp;t=Midnight%20Harbour' in body  # downloading row

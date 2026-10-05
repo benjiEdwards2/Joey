@@ -12,6 +12,7 @@
       "Name": "Break of Dawn",
       "Type": "Episode",
       "SeriesName": "Quiet Coast",
+      "SeriesId": "series-fixture-1",
       "ParentIndexNumber": 2,
       "IndexNumber": 5,
       "RunTimeTicks": 27000000000,

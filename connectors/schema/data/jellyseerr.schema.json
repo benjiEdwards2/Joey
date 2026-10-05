@@ -32,6 +32,7 @@
           "id": {"type": "integer"},
           "kind": {"enum": ["movie", "tv"]},
           "tmdb_id": {"type": "integer"},
+          "poster": {"type": ["string", "null"]},
           "title": {"type": "string"},
           "year": {"type": ["integer", "null"]},
           "requested_by": {"type": "string"},

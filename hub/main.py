@@ -17,6 +17,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from hub.images import router as images_router
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
 
@@ -53,6 +54,7 @@ async def log_identity(request: Request, call_next):
     return response
 
 
+app.include_router(images_router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 

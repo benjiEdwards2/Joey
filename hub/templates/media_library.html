@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Library — Joey{% endblock %}
 {% block content %}
+{% from "_poster.html" import poster %}
 {# Detail behind the library tile (2026-10-05): Radarr + Sonarr. Every state is a
    word beside its bar/dot — colour is never the only encoding. #}
 <section class="card uplist wide" style="--accent: {{ src.accent }}">
@@ -13,7 +14,8 @@
 
     <div class="upday">Just arrived</div>
     {% for r in src.data.get("arrived", []) %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(r.poster, r.title, 120, "sm") }}
       <span class="uptitle">{{ r.title }}</span>
       <span class="chip">{{ r.kind }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>
@@ -24,7 +26,8 @@
 
     <div class="upday">Just updated</div>
     {% for r in src.data.get("updated", []) %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(r.poster, r.title, 120, "sm") }}
       <span class="uptitle">{{ r.title }} · {{ r.what }}</span>
       <span class="chip">{{ r.kind }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>
@@ -37,7 +40,8 @@
     {% for g in week %}
     <div class="upday sub">{{ g.label }}</div>
     {% for r in g.rows %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(r.poster, r.title, 120, "sm") }}
       <span class="uptitle">{{ r.title }}</span>
       {% if r.label %}<span class="chip">{{ r.label }}</span>{% endif %}
     </div>
@@ -48,7 +52,8 @@
 
     <div class="upday">Downloading</div>
     {% for d in src.data.get("downloading", []) %}
-    <div class="uprow">
+    <div class="uprow hasposter">
+      {{ poster(d.poster, d.title, 120, "sm") }}
       <span class="uptitle">{{ d.title }} · {{ d.status_text }} · {{ d.pct }}%{% if d.time_left %} · {{ d.time_left }} left{% endif %}</span>
       <span class="pbar" aria-hidden="true"><span style="width: {{ d.pct }}%"></span></span>
     </div>

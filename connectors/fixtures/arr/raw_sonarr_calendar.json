@@ -19,7 +19,7 @@
     "airDateUtc": "2026-01-04T09:00:00Z",
     "hasFile": false,
     "series": {
-      "id": 1,
+      "id": 2,
       "title": "Night Ferry"
     }
   },
@@ -31,7 +31,7 @@
     "airDateUtc": "2026-01-06T09:00:00Z",
     "hasFile": false,
     "series": {
-      "id": 1,
+      "id": 3,
       "title": "Harbour Watch"
     },
     "finaleType": "season"
@@ -44,7 +44,7 @@
     "airDateUtc": "2026-02-20T09:00:00Z",
     "hasFile": false,
     "series": {
-      "id": 1,
+      "id": 3,
       "title": "Harbour Watch"
     }
   }

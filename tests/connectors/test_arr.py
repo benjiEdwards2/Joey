@@ -247,3 +247,15 @@ def test_live_mode_fails_fast_naming_the_missing_variable(snapshots, monkeypatch
         monkeypatch.delenv(var, raising=False)
     envelope = Arr().run()
     assert envelope["status"] == "error" and "RADARR_URL" in envelope["error"]
+
+
+def test_rows_carry_poster_refs(data):
+    assert data["arrived"][0]["poster"] in ("radarr:1", "sonarr:1")  # movie id / series id
+    assert all(r["poster"].split(":")[0] in ("radarr", "sonarr")
+               for rows in (data["arrived"], data["updated"], data["this_week"], data["downloading"])
+               for r in rows)
+    assert {r["title"]: r["poster"] for r in data["downloading"]} == {
+        "Midnight Harbour": "radarr:21", "Quiet Coast · S02E04 · Late Tide": "sonarr:1"}
+    week = {r["title"]: r["poster"] for r in data["this_week"]}
+    assert week["Glass Orchard"] == "radarr:22"
+    assert week["Night Ferry · S02E01 · New Moorings"] == "sonarr:2"

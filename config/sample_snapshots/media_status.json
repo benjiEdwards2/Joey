@@ -1,0 +1,79 @@
+{
+  "connector": "media_status",
+  "consecutive_failures": 0,
+  "data": {
+    "apps": [
+      {
+        "href": "http://nas.local:8096",
+        "id": "jellyfin",
+        "name": "Jellyfin",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:7878",
+        "id": "radarr",
+        "name": "Radarr",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:8989",
+        "id": "sonarr",
+        "name": "Sonarr",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:5055",
+        "id": "jellyseerr",
+        "name": "Jellyseerr",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:9696",
+        "id": "prowlarr",
+        "name": "Prowlarr",
+        "note": "timeout",
+        "status_text": "Down",
+        "up": false
+      },
+      {
+        "href": "http://nas.local:8080",
+        "id": "qbittorrent",
+        "name": "qBittorrent",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:3001",
+        "id": "uptime_kuma",
+        "name": "Uptime Kuma",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:9000",
+        "id": "portainer",
+        "name": "Portainer",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      }
+    ],
+    "secondary": "Down: Prowlarr",
+    "summary": "7 of 8 up"
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

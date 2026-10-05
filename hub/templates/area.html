@@ -1,5 +1,58 @@
 {% extends "base.html" %}
-{% block title %}{{ area.name }} · Joey{% endblock %}
+{% block title %}{{ area.name }} · Joey{% if media %}
+{# Media sections (2026-10-05): rendered when the area's tiles read the
+   jellyfin / media_status snapshots. Up/Down is a WORD beside the dot. #}
+<div class="mediacols">
+{% if media.apps %}
+<section class="card uplist medialist" style="--accent: {{ area.accent }}">
+  <div class="head">Apps</div>
+  {% for a in media.apps["items"] %}
+  <a class="uprow approw" href="{{ a.href }}" target="_blank" rel="noopener">
+    <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>
+    <span class="appstate">{{ a.status_text }}</span>
+    <span class="uptitle">{{ a.name }}</span>
+    {% if not a.up and a.note %}<span class="appnote">{{ a.note }}</span>{% endif %}
+  </a>
+  {% endfor %}
+  <div class="foot">
+    {% if media.apps.st.state == "stale" %}<span class="badge stale">{{ media.apps.st.age_text }}</span>
+    {% elif media.apps.st.age_text %}<span class="ago">updated {{ media.apps.st.age_text }}</span>{% endif %}
+  </div>
+</section>
+{% endif %}
+{% if media.play %}
+<section class="card uplist medialist" style="--accent: {{ area.accent }}">
+  <div class="head">Now playing</div>
+  {% if media.play.now_playing %}
+    {% for p in media.play.now_playing %}
+    {% if media.play.href %}<a class="uprow playrow" href="{{ media.play.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow">{% endif %}
+      <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
+      <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
+    {% if media.play.href %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  {% else %}
+    <div class="value dim">Nothing playing</div>
+  {% endif %}
+  <div class="upday">Up next</div>
+  {% if media.play.up_next %}
+    {% for n in media.play.up_next %}
+    <div class="uprow">
+      <span class="uptitle">{{ n.title }}</span>
+      <span class="uptime nextleft">{{ n.remaining_text }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="value dim">Nothing up next</div>
+  {% endif %}
+  <div class="foot">
+    {% if media.play.st.state == "stale" %}<span class="badge stale">{{ media.play.st.age_text }}</span>
+    {% elif media.play.st.age_text %}<span class="ago">updated {{ media.play.st.age_text }}</span>{% endif %}
+  </div>
+</section>
+{% endif %}
+</div>
+{% endif %}
+{% endblock %}
 {% block content %}
 <h2 style="--accent: {{ area.accent }}"><span class="dot"></span>{{ area.name }}</h2>
 <div class="grid">

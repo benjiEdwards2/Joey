@@ -18,7 +18,7 @@ from connectors import registry, stubs  # noqa: F401  (import registers the stub
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATA_SCHEMA_DIR = REPO_ROOT / "connectors" / "schema" / "data"
 
-FEEDS = ["gcal", "home_assistant", "jellyfin", "macromates", "nas_stats", "open_meteo"]
+FEEDS = ["gcal", "home_assistant", "jellyfin", "macromates", "media_status", "nas_stats", "open_meteo"]
 
 
 def data_schema(connector_id: str) -> dict:
@@ -30,7 +30,7 @@ def run_stub(connector_id: str) -> dict:
     return connector.run()
 
 
-def test_registry_holds_exactly_the_six_v1_connectors():
+def test_registry_holds_exactly_the_v1_connectors():
     assert registry.connector_ids() == FEEDS
     assert "clickup" not in registry.connector_ids()  # removed from v1 (2026-08-25)
     assert "money" not in registry.connector_ids()    # Track E importer, not a Connector (D14)

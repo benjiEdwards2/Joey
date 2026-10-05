@@ -21,6 +21,11 @@
       "error": null,
       "status": "ok"
     },
+    "media_status": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
     "nas_stats": {
       "consecutive_failures": 0,
       "error": null,

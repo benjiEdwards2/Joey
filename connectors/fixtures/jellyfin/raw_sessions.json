@@ -3,21 +3,27 @@
     "Id": "session-fixture-1",
     "UserName": "Sample Person",
     "NowPlayingItem": {
+      "Id": "item-fixture-1",
       "Name": "The Long Road Home",
       "Type": "Movie",
       "RunTimeTicks": 68400000000
     },
-    "PlayState": {"PositionTicks": 17100000000, "IsPaused": false}
+    "PlayState": {"PositionTicks": 17100000000, "IsPaused": false, "PlayMethod": "DirectPlay"}
   },
   {
     "Id": "session-fixture-2",
     "UserName": "Sample Partner",
     "NowPlayingItem": {
-      "Name": "Quiet Coast - S02E04",
+      "Id": "item-fixture-2",
+      "Name": "Late Tide",
       "Type": "Episode",
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 4,
       "RunTimeTicks": 26400000000
     },
-    "PlayState": {"PositionTicks": 19800000000, "IsPaused": true}
+    "PlayState": {"PositionTicks": 19800000000, "IsPaused": true, "PlayMethod": "Transcode"},
+    "TranscodingInfo": {"IsVideoDirect": false}
   },
   {
     "Id": "session-fixture-3",

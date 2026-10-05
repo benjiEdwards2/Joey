@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = REPO_ROOT / "config" / "sample_snapshots"
 DATA_SCHEMA_DIR = REPO_ROOT / "connectors" / "schema" / "data"
 
-FEEDS = ["gcal", "home_assistant", "jellyfin", "macromates", "nas_stats", "open_meteo"]
+FEEDS = ["gcal", "home_assistant", "jellyfin", "macromates", "media_status", "nas_stats", "open_meteo"]
 
 
 def test_fixture_sweep_produces_every_feed_plus_runner_evidence(snapshots, validate_envelope):

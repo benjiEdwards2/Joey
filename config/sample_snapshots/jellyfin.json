@@ -25,18 +25,37 @@
     },
     "now_playing": [
       {
+        "play_method": "Direct play",
         "progress_pct": 25,
         "title": "The Long Road Home",
         "user": "Sample Person"
       },
       {
+        "play_method": "Transcoding",
         "progress_pct": 75,
-        "title": "Quiet Coast - S02E04",
+        "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide",
         "user": "Sample Partner"
       }
     ],
-    "secondary": "Latest: Harbour Lights",
-    "summary": "2 playing now"
+    "secondary": "The Long Road Home \u00b7 Sample Person \u00b7 Direct play",
+    "summary": "2 playing now",
+    "up_next": [
+      {
+        "kind": "movie",
+        "remaining_text": "31 min left",
+        "title": "Dust and Daylight"
+      },
+      {
+        "kind": "episode",
+        "remaining_text": "30 min left",
+        "title": "Quiet Coast \u00b7 S02E05 \u00b7 Break of Dawn"
+      },
+      {
+        "kind": "episode",
+        "remaining_text": "Next episode",
+        "title": "Northern Lines \u00b7 S01E03 \u00b7 The Understudy"
+      }
+    ]
   },
   "error": null,
   "fetched_at": "2026-01-01T00:00:00+00:00",

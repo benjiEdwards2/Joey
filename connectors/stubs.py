@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from connectors import registry
-from connectors.base import Connector, _now_iso
+from connectors.base import Connector, _now_iso, mode
 
 CALENDAR_WINDOW_DAYS = 14
 NAS_RECENT_DAYS = 7
@@ -291,45 +291,210 @@ def _unit(entity: dict) -> str:
 
 # ------------------------------------------------------------------ jellyfin
 
+TICKS_PER_MINUTE = 600_000_000  # Jellyfin runtime/position ticks are 100 ns units
+UP_NEXT_LIMIT = 8
+
+# Jellyfin's PlayState.PlayMethod -> a word, never a colour.
+PLAY_METHODS = {"DirectPlay": "Direct play", "DirectStream": "Direct stream", "Transcode": "Transcoding"}
+
+
+def _media_title(item: dict) -> str:
+    """'Show · S02E05 · Episode name' for an episode; the plain name otherwise."""
+    if item.get("Type") == "Episode" and item.get("SeriesName"):
+        season, number = item.get("ParentIndexNumber"), item.get("IndexNumber")
+        code = f"S{int(season):02d}E{int(number):02d}" if season is not None and number is not None else None
+        return " · ".join(p for p in (item["SeriesName"], code, item["Name"]) if p)
+    return item["Name"]
+
+
+def _play_method(session: dict) -> str:
+    method = PLAY_METHODS.get(session.get("PlayState", {}).get("PlayMethod"))
+    if method:
+        return method
+    # Older servers omit PlayMethod; a TranscodingInfo block still says it.
+    return "Transcoding" if session.get("TranscodingInfo") else "Direct play"
+
 
 class Jellyfin(Connector):
     id = "jellyfin"
-    requires_env = ("JELLYFIN_URL", "JELLYFIN_TOKEN")
+    requires_env = ("JELLYFIN_URL", "JELLYFIN_API_KEY")  # JELLYFIN_USER is optional
+
+    ITEM_FIELDS = "DateCreated,SeriesName"
+
+    @staticmethod
+    def pick_user(users: list[dict], preferred: str | None) -> dict:
+        """JELLYFIN_USER by name, else the first administrator, else the first user."""
+        if not users:
+            raise RuntimeError("Jellyfin returned no users")
+        if preferred:
+            for user in users:
+                if user.get("Name") == preferred:
+                    return user
+        for user in users:
+            if user.get("Policy", {}).get("IsAdministrator"):
+                return user
+        return users[0]
+
+    def fetch(self) -> dict:
+        import requests
+
+        base = os.environ["JELLYFIN_URL"].rstrip("/")
+        headers = {"Authorization": f"MediaBrowser Token={os.environ['JELLYFIN_API_KEY']}"}
+
+        def get(label: str, path: str, params: dict | None = None):
+            try:
+                response = requests.get(base + path, headers=headers, params=params, timeout=10)
+                response.raise_for_status()
+                return response.json()
+            except Exception as exc:
+                # Reason is type/status ONLY — requests exception text embeds the
+                # server URL, and this string ends up in envelopes and logs.
+                raise RuntimeError(f"Jellyfin {label} failed ({_safe_reason(exc)})") from None
+
+        users = get("users", "/Users")
+        uid = self.pick_user(users, os.environ.get("JELLYFIN_USER")).get("Id")
+        if not uid:
+            raise RuntimeError("Jellyfin user has no Id")
+        fields = {"Fields": self.ITEM_FIELDS}
+        return {
+            "raw_users": users,
+            "raw_sessions": get("sessions", "/Sessions"),
+            "raw_resume": get("resume", f"/Users/{uid}/Items/Resume",
+                              {"Limit": 10, "MediaTypes": "Video", **fields}),
+            "raw_nextup": get("next up", "/Shows/NextUp", {"UserId": uid, "Limit": 10, **fields}),
+            "raw_latest": get("latest", f"/Users/{uid}/Items/Latest", {"Limit": 5, **fields}),
+            "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
+        }
 
     def transform(self, raw: dict) -> dict:
-        sessions = raw["raw_sessions"]
-        latest_raw = raw["raw_latest"]
-
         now_playing = []
-        for session in sessions:
+        for session in raw["raw_sessions"]:
             item = session.get("NowPlayingItem")
             if not item:
                 continue
             runtime = int(item.get("RunTimeTicks") or 0)
             position = int(session.get("PlayState", {}).get("PositionTicks") or 0)
             now_playing.append({
-                "title": item["Name"],
+                "title": _media_title(item),
                 "user": session.get("UserName", "someone"),
-                "progress_pct": round(position / runtime * 100) if runtime else 0,
+                "progress_pct": min(100, round(position / runtime * 100)) if runtime else 0,
+                "play_method": _play_method(session),
             })
+
+        up_next, seen = [], set()
+        for item in raw["raw_resume"]["Items"]:
+            runtime = int(item.get("RunTimeTicks") or 0)
+            position = int(item.get("UserData", {}).get("PlaybackPositionTicks") or 0)
+            left = max(0, runtime - position) // TICKS_PER_MINUTE
+            seen.add(item.get("Id"))
+            up_next.append({
+                "title": _media_title(item),
+                "kind": "episode" if item.get("Type") == "Episode" else "movie",
+                "remaining_text": f"{left} min left",
+            })
+        for item in raw["raw_nextup"]["Items"]:
+            if item.get("Id") in seen:  # already resumable — don't list twice
+                continue
+            up_next.append({"title": _media_title(item), "kind": "episode",
+                            "remaining_text": "Next episode"})
+        up_next = up_next[:UP_NEXT_LIMIT]
 
         latest = [
             {"title": i["Name"], "added_at": i["DateCreated"], "type": i["Type"]}
-            for i in latest_raw["Items"]
+            for i in raw["raw_latest"]
         ]
-        counts = latest_raw["Counts"]
+        counts = raw["raw_counts"]
+        first = now_playing[0] if now_playing else None
+        if first:
+            secondary = f"{first['title']} · {first['user']} · {first['play_method']}"
+        else:
+            secondary = up_next[0]["title"] if up_next else "Nothing up next"
         return {
             "summary": (
                 f"{len(now_playing)} playing now" if now_playing
-                else f"Nothing playing · {len(latest)} new"
+                else f"Nothing playing · {len(up_next)} up next"
             ),
-            "secondary": f"Latest: {latest[0]['title']}" if latest else "No new titles",
+            "secondary": secondary,
             "now_playing": now_playing,
+            "up_next": up_next,
             "latest": latest,
             "library": {
                 "movies": int(counts["MovieCount"]),
                 "episodes": int(counts["EpisodeCount"]),
             },
+        }
+
+
+# -------------------------------------------------------------- media_status
+
+# The Media area's app list (hard-coded by decision 2026-10-05): id, display
+# name, port, health path. Any HTTP answer counts as up — a 401 still means the
+# app is alive (qBittorrent); only no answer or a 5xx is down.
+MEDIA_APPS = (
+    {"id": "jellyfin", "name": "Jellyfin", "port": 8096, "path": "/health"},
+    {"id": "radarr", "name": "Radarr", "port": 7878, "path": "/ping"},
+    {"id": "sonarr", "name": "Sonarr", "port": 8989, "path": "/ping"},
+    {"id": "jellyseerr", "name": "Jellyseerr", "port": 5055, "path": "/api/v1/status"},
+    {"id": "prowlarr", "name": "Prowlarr", "port": 9696, "path": "/ping"},
+    {"id": "qbittorrent", "name": "qBittorrent", "port": 8080, "path": "/api/v2/app/version"},
+    {"id": "uptime_kuma", "name": "Uptime Kuma", "port": 3001, "path": "/"},
+    {"id": "portainer", "name": "Portainer", "port": 9000, "path": "/api/status"},
+)
+FIXTURE_MEDIA_HOST = "nas.local"  # fixture mode never reads the real host
+
+
+def _probe_note(exc: Exception) -> str:
+    """Why an app is down, in words — never the URL a requests error embeds."""
+    import requests
+
+    if isinstance(exc, requests.Timeout):  # before ConnectionError: ConnectTimeout is both
+        return "timeout"
+    if isinstance(exc, requests.ConnectionError):
+        return "connection refused"
+    return type(exc).__name__
+
+
+class MediaStatus(Connector):
+    id = "media_status"
+    requires_env = ("MEDIA_STATUS_HOST",)
+
+    def fetch(self) -> list[dict]:
+        import requests
+
+        host = os.environ["MEDIA_STATUS_HOST"]
+        results = []
+        for app in MEDIA_APPS:
+            up, note = False, None
+            try:
+                response = requests.get(f"http://{host}:{app['port']}{app['path']}",
+                                        timeout=5, allow_redirects=False)
+                up = response.status_code < 500
+                if not up:
+                    note = f"HTTP {response.status_code}"
+            except Exception as exc:  # one app failing never fails the run
+                note = _probe_note(exc)
+            results.append({"id": app["id"], "up": up, "note": note})
+        return results
+
+    def transform(self, raw: list[dict]) -> dict:
+        host = FIXTURE_MEDIA_HOST if mode() == "fixture" else os.environ["MEDIA_STATUS_HOST"]
+        probes = {p["id"]: p for p in raw}
+        apps = []
+        for app in MEDIA_APPS:
+            probe = probes.get(app["id"], {"up": False, "note": "no result"})
+            apps.append({
+                "id": app["id"],
+                "name": app["name"],
+                "href": f"http://{host}:{app['port']}",
+                "up": bool(probe["up"]),
+                "status_text": "Up" if probe["up"] else "Down",
+                "note": None if probe["up"] else probe.get("note"),
+            })
+        down = [a["name"] for a in apps if not a["up"]]
+        return {
+            "summary": f"{len(apps) - len(down)} of {len(apps)} up",
+            "secondary": f"Down: {', '.join(down)}" if down else "All apps up",
+            "apps": apps,
         }
 
 
@@ -383,7 +548,7 @@ def count_files(share_root: Path, since_ts: float) -> int:
 # ------------------------------------------------------------------ register
 
 STUBS: tuple[type[Connector], ...] = (
-    OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, NasStats,
+    OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, MediaStatus, NasStats,
 )
 
 for _cls in STUBS:

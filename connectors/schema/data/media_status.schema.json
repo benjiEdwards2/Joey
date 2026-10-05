@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/media_status.schema.json",
+  "title": "media_status data block",
+  "description": "Media area app-health list. An app being down is DATA, not a failed run. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "secondary", "apps"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "href", "up", "status_text", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "href": {"type": "string"},
+          "up": {"type": "boolean"},
+          "status_text": {"enum": ["Up", "Down"]},
+          "note": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

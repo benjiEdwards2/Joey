@@ -43,6 +43,8 @@ def test_connectors_service_matches_the_D16_cadence_contract():
     entrypoint = " ".join(svc["entrypoint"])
     assert "python -m connectors.run_all" in entrypoint
     assert "sleep 3600" in entrypoint
+    # fast 2-minute loop for the live Media feeds (D16 amended 2026-10-05)
+    assert "python -m connectors.run_all --only jellyfin,media_status; sleep 120" in entrypoint
     assert "cron" not in entrypoint  # D16: sleep loop, never crond
 
 

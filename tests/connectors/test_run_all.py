@@ -57,3 +57,26 @@ def test_main_exits_zero_even_with_a_failing_feed(snapshots, monkeypatch):
 
     monkeypatch.setattr(registry, "build_all", lambda: [Raiser(), Good()])
     assert run_all.main() == 0
+
+
+def test_only_filters_and_tags_the_history_line(snapshots):
+    sweep = run_sweep([Raiser(), Good()], only=["open_meteo"])
+    assert set(sweep["results"]) == {"open_meteo"}
+    assert sweep["only"] == ["open_meteo"]
+    line = json.loads((snapshots / HISTORY_NAME).read_text(encoding="utf-8").splitlines()[-1])
+    assert line["only"] == ["open_meteo"]
+
+
+def test_full_sweep_history_line_has_no_only_tag(snapshots):
+    run_sweep([Good()])
+    line = json.loads((snapshots / HISTORY_NAME).read_text(encoding="utf-8").splitlines()[-1])
+    assert "only" not in line
+
+
+def test_main_parses_only_argument(snapshots, monkeypatch):
+    from connectors import registry, run_all
+
+    monkeypatch.setattr(registry, "build_all", lambda: [Raiser(), Good()])
+    assert run_all.main(["--only", "open_meteo, nas_stats"]) == 0
+    beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
+    assert beat["only"] == ["open_meteo", "nas_stats"]

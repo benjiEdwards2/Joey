@@ -92,6 +92,11 @@ The connectors container runs `while true; do python -m connectors.run_all; slee
 (D16 — a sleep loop, not crond; phase drift after a restart is accepted). One
 connector crashing never stops the sweep.
 
+D16 amended 2026-10-05: a second background loop runs
+`python -m connectors.run_all --only jellyfin,media_status; sleep 120` for the live Media
+feeds. `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
+`"only": [...]` so full hourly sweeps can be told apart from fast partial ones.
+
 ## Add-a-connector checklist
 
 Every file a new feed touches. Nothing here needs knowledge outside the repo.
@@ -105,7 +110,8 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
    `transform(raw)`, and its live `fetch()`; append it to `STUBS` so it registers.
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
-   namespace in `connectors/schema/envelope.schema.json`.
+   namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`
+   in `hub/registry.py`; `media_status` was added to both on 2026-10-05).
 5. `config/sample_snapshots/{id}.json` — regenerate the sweep per that folder's
    README and commit the result.
 6. `deploy/.env.example` — name any new credential (never its value).

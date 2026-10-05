@@ -4,7 +4,7 @@
   "title": "jellyfin data block",
   "description": "Media area tile. `summary`/`secondary` are the hub display convention (D17, WP18).",
   "type": "object",
-  "required": ["summary", "now_playing", "latest", "library"],
+  "required": ["summary", "now_playing", "up_next", "latest", "library"],
   "additionalProperties": false,
   "properties": {
     "summary": {"type": "string", "minLength": 1},
@@ -13,12 +13,26 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["title", "user", "progress_pct"],
+        "required": ["title", "user", "progress_pct", "play_method"],
         "additionalProperties": false,
         "properties": {
           "title": {"type": "string"},
           "user": {"type": "string"},
-          "progress_pct": {"type": "integer", "minimum": 0, "maximum": 100}
+          "progress_pct": {"type": "integer", "minimum": 0, "maximum": 100},
+          "play_method": {"enum": ["Direct play", "Direct stream", "Transcoding"]}
+        }
+      }
+    },
+    "up_next": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "kind", "remaining_text"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "kind": {"enum": ["movie", "episode"]},
+          "remaining_text": {"type": "string"}
         }
       }
     },

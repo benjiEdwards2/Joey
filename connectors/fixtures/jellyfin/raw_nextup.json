@@ -1,0 +1,22 @@
+{
+  "Items": [
+    {
+      "Id": "item-fixture-4",
+      "Name": "Break of Dawn",
+      "Type": "Episode",
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 5
+    },
+    {
+      "Id": "item-fixture-5",
+      "Name": "The Understudy",
+      "Type": "Episode",
+      "SeriesName": "Northern Lines",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 3
+    }
+  ],
+  "TotalRecordCount": 2,
+  "StartIndex": 0
+}

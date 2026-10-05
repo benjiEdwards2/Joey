@@ -19,6 +19,7 @@ FROZEN_IDS = [
     "jellyfin",
     "nas_stats",
     "money",
+    "media_status",  # added 2026-10-05 (authorised dated decision)
 ]
 
 REQUIRED_FIELDS = [

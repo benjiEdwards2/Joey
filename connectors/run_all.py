@@ -6,11 +6,15 @@ sweep the runner writes `_runner.json` (the heartbeat, last sweep only) and
 appends one JSON line to `_runner_history.jsonl` — the append-only evidence
 WP38's 24 h soak counts beats from.
 
-Driven by the container entrypoint's `sleep 3600` loop, not crond (D16).
+Driven by the container entrypoint's `sleep 3600` loop, not crond (D16). Since
+2026-10-05 (D16 amended) a second 120 s loop runs `--only jellyfin,media_status`;
+those sweeps are tagged `{"only": [...]}` so a soak counter can tell the
+hourly full sweeps from the fast partial ones.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import sys
@@ -24,11 +28,14 @@ HEARTBEAT_NAME = "_runner.json"
 HISTORY_NAME = "_runner_history.jsonl"
 
 
-def run_sweep(connectors: Iterable[Connector] | None = None) -> dict:
+def run_sweep(connectors: Iterable[Connector] | None = None,
+              only: list[str] | None = None) -> dict:
     if connectors is None:
         from connectors import registry
 
         connectors = registry.build_all()
+    if only:
+        connectors = [c for c in connectors if getattr(c, "id", None) in only]
 
     results: dict[str, dict] = {}
     for connector in connectors:
@@ -52,6 +59,8 @@ def run_sweep(connectors: Iterable[Connector] | None = None) -> dict:
               + (f" ({results[cid]['error']})" if results[cid]["error"] else ""))
 
     sweep = {"ran_at": _now_iso(), "results": results}
+    if only:
+        sweep["only"] = list(only)
     _write_heartbeat(sweep)
     return sweep
 
@@ -66,11 +75,15 @@ def _write_heartbeat(sweep: dict) -> None:
         fh.write(json.dumps(sweep, sort_keys=True) + "\n")
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run the connector sweep.")
+    parser.add_argument("--only", help="comma-separated connector ids to run (default: all)")
+    args = parser.parse_args(argv or [])
+    only = [i.strip() for i in args.only.split(",") if i.strip()] if args.only else None
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    run_sweep()
+    run_sweep(only=only)
     return 0  # a failed feed is data, not a runner failure — the loop keeps going
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

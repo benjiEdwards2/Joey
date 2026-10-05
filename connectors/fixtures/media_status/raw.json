@@ -1,0 +1,10 @@
+[
+  {"id": "jellyfin", "up": true, "note": null},
+  {"id": "radarr", "up": true, "note": null},
+  {"id": "sonarr", "up": true, "note": null},
+  {"id": "jellyseerr", "up": true, "note": null},
+  {"id": "prowlarr", "up": false, "note": "timeout"},
+  {"id": "qbittorrent", "up": true, "note": null},
+  {"id": "uptime_kuma", "up": true, "note": null},
+  {"id": "portainer", "up": true, "note": null}
+]

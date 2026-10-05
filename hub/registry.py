@@ -19,6 +19,7 @@ from pydantic import BaseModel, ValidationError
 FROZEN_SNAPSHOT_IDS = {
     "open_meteo", "gcal", "clickup", "macromates",
     "home_assistant", "jellyfin", "nas_stats", "money",
+    "media_status",  # added 2026-10-05 (Media area Phase 1)
 }
 
 MAX_AREAS = 9  # hard ceiling (DECISIONS 2026-08-17); "locked at 8" is yaml content

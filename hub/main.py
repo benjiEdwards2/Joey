@@ -197,6 +197,33 @@ def find_upcoming(tiles, snaps, view: str):
     return None
 
 
+# Media sections (2026-10-05): apps health + now playing + up next. Keyed by
+# connector id like the upcoming list — never an area name (WP17 grep exception).
+JELLYFIN_SNAPSHOT_ID = "jellyfin"
+MEDIA_STATUS_SNAPSHOT_ID = "media_status"
+
+
+def find_media(tiles, snaps) -> dict | None:
+    """Media sections for an area: each present when a visible tile reads that
+    snapshot and it holds data (fresh or stale — never fabricated). Now-playing
+    rows link to the first LINK tile in the same area (the Jellyfin launcher)."""
+    def reading(snapshot_id):
+        for row in tiles:
+            if row["tile"].snapshot == snapshot_id and row["st"]["state"] in ("fresh", "stale"):
+                return row["st"], snaps[snapshot_id].data
+        return None
+
+    play, apps = reading(JELLYFIN_SNAPSHOT_ID), reading(MEDIA_STATUS_SNAPSHOT_ID)
+    if not (play or apps):
+        return None
+    link = next((r["st"]["href"] for r in tiles if r["st"]["state"] == "link"), None)
+    return {
+        "apps": {"st": apps[0], "items": apps[1].get("apps", [])} if apps else None,
+        "play": {"st": play[0], "now_playing": play[1].get("now_playing", []),
+                 "up_next": play[1].get("up_next", []), "href": link} if play else None,
+    }
+
+
 def build_status(snaps) -> dict:
     """Cockpit status strip: feed health computed from registry vs snapshots."""
     wanted: dict[str, str] = {}   # connector id -> first area name using it
@@ -262,6 +289,7 @@ def area_page(request: Request, area_id: str):
         "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
         "upcoming": find_upcoming(tiles, snaps, view),
+        "media": find_media(tiles, snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

@@ -396,3 +396,92 @@ def test_title_page_degrades_when_jellyfin_down(env, monkeypatch):
     with client:
         resp = client.get("/media/title/movie/603")
     assert resp.status_code == 200 and "The Matrix (1999)" in resp.text and 'class="filestrip"' not in resp.text
+
+
+# ---- Season episodes, lazy-loaded (2026-10-06) ----
+SEASON = {"seasonNumber": 1, "episodes": [
+    {"episodeNumber": 2, "name": "The Second", "airDate": "2018-01-08", "overview": "Things escalate.", "stillPath": "/e2.jpg"},
+    {"episodeNumber": 1, "name": "Pilot", "airDate": "2018-01-01", "overview": "It begins.", "stillPath": "/e1.jpg"},
+    {"episodeNumber": 3, "name": "Yet To Come", "airDate": "2999-03-14", "overview": ""}]}
+
+
+def test_title_page_lazy_hooks_per_season_and_no_episodes_inline(env):
+    client, fake = env()
+    with client:
+        body = main_of(client.get("/media/title/tv/100").text)
+    assert fake.gets == ["/api/v1/tv/100"]                       # no season call from the page itself
+    for n in (0, 1, 2, 3, 4):
+        assert f'hx-get="/media/title/tv/100/season/{n}" hx-trigger="toggle once"' in body
+        assert f'href="/media/title/tv/100/season/{n}">Show episodes</a>' in body
+    assert body.count('<details class="seasonbox"') == 5 and 'class="eprow"' not in body
+    assert '<summary class="seasonrow">' in body
+
+
+def test_season_partial_lists_episodes_with_words(env, monkeypatch):
+    monkeypatch.delenv("JELLYFIN_URL", raising=False)
+    client, fake = env()
+    fake.table["/api/v1/tv/100/season/1"] = SEASON
+    with client:
+        resp = client.get("/media/title/tv/100/season/1", headers=HX)
+        again = client.get("/media/title/tv/100/season/1", headers=HX)
+    html = resp.text
+    assert resp.status_code == 200 and "<main" not in html and again.text == html
+    assert fake.gets.count("/api/v1/tv/100/season/1") == 1      # cached like the title
+    assert html.index(">E1</span>") < html.index(">E2</span>") < html.index(">E3</span>")
+    assert ">Pilot</span>" in html and ">1 Jan 2018</span>" in html and ">8 Jan 2018</span>" in html
+    assert ">airs 14 Mar 2999</span>" in html and 'class="epover">It begins.</p>' in html
+    assert "On disk" not in html and FAKE_KEY not in html and "secret-host" not in html
+
+
+def test_season_partial_marks_on_disk_episodes(env, monkeypatch):
+    client, fake = env()
+    fake.table["/api/v1/tv/100/season/1"] = SEASON
+    from hub import media_files
+    monkeypatch.setattr(media_files, "file_summary",
+                        lambda kind, tmdb_id: {"episode_keys": [(1, 2), (2, 1)]} if (kind, tmdb_id) == ("tv", 100) else None)
+    with client:
+        html = client.get("/media/title/tv/100/season/1", headers=HX).text
+    rows = html.split('class="eprow"')[1:]
+    assert ["On disk" in r for r in rows] == [False, True, False]
+    assert '<span class="chip st-available">On disk</span>' in rows[1]
+
+
+@pytest.mark.parametrize("mode", ["down", "missing", "junk"])
+def test_season_partial_degrades_to_words(env, mode):
+    client, fake = env()
+    if mode == "down":
+        fake.fail = True
+    elif mode == "junk":
+        fake.table["/api/v1/tv/100/season/1"] = {"episodes": "nope"}
+    with client:
+        resp = client.get("/media/title/tv/100/season/1", headers=HX)
+    assert resp.status_code == 200 and "Episodes unavailable right now" in resp.text
+    assert 'class="eprow"' not in resp.text and FAKE_KEY not in resp.text
+
+
+def test_season_partial_not_connected_says_words(env):
+    client, fake = env(connected=False)
+    with client:
+        resp = client.get("/media/title/tv/100/season/1")
+    assert resp.status_code == 200 and "Episodes unavailable right now" in resp.text and not fake.gets
+
+
+def test_dolby_badge_in_the_file_strip(env, monkeypatch):
+    client, fake = env()
+    fake.table["/api/v1/movie/603"] = {**MOVIE, "mediaInfo": {"status": 5}}
+    _jf(monkeypatch, fake)
+    with client:
+        body = client.get("/media/title/movie/603").text
+    strip = body.split('class="filestrip"', 1)[1].split("</div>", 1)[0]
+    badge = strip.split('class="fbadge brandbadge"', 1)[1].split("</span></span>", 1)[0]
+    assert '<svg class="dd"' in badge and "<span>Dolby Digital Plus" in badge   # glyph AND the word
+    assert strip.count("brandbadge") == 1                                      # 5.1 / HEVC / 4K stay plain
+    assert ">5.1</span>" in strip and ">HEVC</span>" in strip
+
+
+def test_badge_tokens_in_all_three_blocks_and_rule_is_token_only():
+    from pathlib import Path
+    css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    assert css.count("--badge-ink: #000000; --badge-fg: #ffffff;") == 3
+    rule = css.split(".fbadge.brandbadge {", 1)[1].split("}", 1)[0]
+    assert "var(--badge-fg)" in rule and "var(--badge-ink)" in rule and "#" not in rule

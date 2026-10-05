@@ -1,7 +1,7 @@
 {# One diary entry (2026-10-05). Expects: row (diary record), score (int|None). #}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
-<div class="uprow hasposter diaryrow">
+<div class="uprow hasposter diaryrow rateable">
   {{ poster(row.poster, row.title, 120, "sm" ~ (" gold-glow" if score == 10 else "")) }}
   <span class="uptitle">{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}</span>
   <span class="chip">{{ "Film" if row.kind == "movie" else "TV" }}</span>

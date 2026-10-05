@@ -102,6 +102,25 @@ def _audio_word(stream: dict) -> str:
     return AUDIO_WORDS.get(codec) or codec.upper() or "Audio"
 
 
+# Dolby / DTS badge (2026-10-06): the ONE mapping from an audio word or raw codec string to a
+# brand badge. The label is always written out — the double-D glyph is extra, never the only encoding.
+BRAND_BADGES = {
+    "atmos": ("Dolby Atmos", True), "dolbyatmos": ("Dolby Atmos", True),
+    "eac3": ("Dolby Digital Plus", True), "ddp": ("Dolby Digital Plus", True),
+    "dolbydigitalplus": ("Dolby Digital Plus", True),
+    "ac3": ("Dolby Digital", True), "dolbydigital": ("Dolby Digital", True),
+    "truehd": ("Dolby TrueHD", True), "dolbytruehd": ("Dolby TrueHD", True),
+    "dts": ("DTS", False), "dtshd": ("DTS-HD", False), "dtshdma": ("DTS-HD MA", False), "dtsx": ("DTS:X", False),
+}
+
+
+def brand_badge(text) -> dict | None:
+    """'E-AC-3' / 'Dolby Digital Plus' -> {'label': 'Dolby Digital Plus', 'glyph': True}; unknown -> None."""
+    key = "".join(ch for ch in str(text or "").lower() if ch.isalnum())
+    hit = BRAND_BADGES.get(key)
+    return {"label": hit[0], "glyph": hit[1]} if hit else None
+
+
 def _size_text(n) -> str | None:
     if not isinstance(n, (int, float)) or n <= 0:
         return None
@@ -147,11 +166,14 @@ def _badges(files: list[dict]) -> tuple[list[dict], list[dict]]:
     audio += [{"word": w, "icon": "channels"} for w in _ordered(col("channels"), ("Mono", "Stereo", "5.1", "7.1"))]
     if any(f.get("atmos") for f in files):
         audio.append({"word": "Atmos", "icon": "atmos"})
+    for b in audio:
+        b["brand"] = brand_badge(b["word"]) if b["icon"] in ("audio", "atmos") else None
     return video, audio
 
 
 def _summarise(kind: str, items: list) -> dict | None:
-    files = [f for f in (_facts(i) for i in items if isinstance(i, dict)) if f]
+    pairs = [(i, f) for i in items if isinstance(i, dict) for f in (_facts(i),) if f]
+    files = [f for _, f in pairs]
     if kind == "movie":
         files = files[:1]
     if not files:
@@ -160,7 +182,14 @@ def _summarise(kind: str, items: list) -> dict | None:
     note = " · ".join(b["word"] for b in video if b["icon"] == "res") if len(files) > 1 else None
     return {"kind": kind, "files": len(files), "video": video, "audio": audio,
             "size_text": _size_text(sum(f["size"] for f in files)), "note": note,
-            "episodes_on_disk": len(files) if kind == "tv" else None}
+            "episodes_on_disk": len(files) if kind == "tv" else None,
+            "episode_keys": _episode_keys(pairs) if kind == "tv" else None}
+
+
+def _episode_keys(pairs) -> list[tuple[int, int]]:
+    """(season, episode) for every episode file on disk — from Jellyfin's ParentIndexNumber/IndexNumber."""
+    keys = {(i.get("ParentIndexNumber"), i.get("IndexNumber")) for i, _ in pairs}
+    return sorted(k for k in keys if all(isinstance(n, int) for n in k))
 
 
 def _tmdb_match(items, tmdb_id: int) -> list[dict]:

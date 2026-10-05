@@ -1,0 +1,15 @@
+{# Episodes of one season (2026-10-06), lazy-loaded into the title page's <details>.
+   Expects: episodes (list|None), note (str|None). Every state is a WORD; "On disk" only when
+   Jellyfin says that episode's file exists. #}
+{% if note %}<div class="sub">{{ note }}</div>{% endif %}
+{% for e in episodes or [] %}
+<div class="eprow">
+  <div class="ephead">
+    <span class="epnum">E{{ e.number }}</span>
+    <span class="epname">{{ e.name }}</span>
+    {% if e.date_text %}<span class="sub">{{ "airs " if e.future }}{{ e.date_text }}</span>{% endif %}
+    {% if e.on_disk %}<span class="chip st-available">On disk</span>{% endif %}
+  </div>
+  {% if e.overview %}<p class="epover">{{ e.overview }}</p>{% endif %}
+</div>
+{% endfor %}

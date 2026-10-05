@@ -36,9 +36,14 @@
   <div class="seasons">
     <h3>Seasons</h3>
     {% for s in t.seasons %}
-    <div class="seasonrow"><span class="uptitle">{{ s.name }}</span>
+    {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
+    {% set ep_href = "/media/title/tv/" ~ t.tmdb_id ~ "/season/" ~ s.number %}
+    <details class="seasonbox" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
+    <summary class="seasonrow"><span class="uptitle">{{ s.name }}</span>
       <span class="sub">{{ s.episodes }} episode{{ "s" if s.episodes != 1 }}{% if s.year %} · {{ s.year }}{% endif %}</span>
-      <span class="chip st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span></div>
+      <span class="chip st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span></summary>
+      <div class="episodes"><a class="older" href="{{ ep_href }}">Show episodes</a></div>
+    </details>
     {% endfor %}
   </div>
   {% endif %}

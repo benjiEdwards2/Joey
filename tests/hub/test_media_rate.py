@@ -307,3 +307,26 @@ def test_show_score_stays_on_shelf_rows_while_episode_score_wins_on_an_episode_r
     assert recent(show_level).count('title="Your rating: 6 out of 10"') == 3  # each episode row shows the show score
     r = recent(ep_level)
     assert r.count('title="Your rating: 9 out of 10"') == 1 and r.count('title="Your rating: 6 out of 10"') == 2
+
+
+# ---- 2026-10-06 regression: to-rate titles rendered one character per line ----
+CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+
+
+def test_to_rate_rows_wrap_so_the_title_keeps_its_width(env):
+    build, db_file = env
+    with build() as client:
+        body = main_of(client.get("/media/history").text)
+    inbox = body.split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
+    rows = inbox.split('<div class="uprow')[1:]
+    assert len(rows) == 3 and all(r.startswith(' hasposter rateable"') for r in rows)
+    assert all('class="ratebox ratepick"' in r for r in rows)
+    flat = " ".join(CSS.split())
+    assert ".uplist .uprow.rateable { flex-wrap: wrap; }" in flat
+    assert ".uplist .uprow.rateable .uptitle { flex: 1 1 140px; }" in flat
+    assert ".ratebox { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 0 100%;" in flat
+
+
+def test_diary_rows_with_a_picker_wrap_too():
+    tpl = (Path(__file__).resolve().parents[2] / "hub" / "templates" / "_diary_row.html").read_text(encoding="utf-8")
+    assert 'class="uprow hasposter diaryrow rateable"' in tpl

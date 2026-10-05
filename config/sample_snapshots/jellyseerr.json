@@ -1,0 +1,66 @@
+{
+  "connector": "jellyseerr",
+  "consecutive_failures": 0,
+  "data": {
+    "counts": {
+      "approved": 2,
+      "available": 1,
+      "declined": 1,
+      "pending": 1,
+      "total": 4
+    },
+    "requests": [
+      {
+        "href": "http://nas.local:5055/movie/1001",
+        "id": 13,
+        "kind": "movie",
+        "requested_by": "Sample Person",
+        "status_text": "Pending",
+        "title": "Midnight Harbour",
+        "tmdb_id": 1001,
+        "when": "1 hour ago",
+        "year": 2025
+      },
+      {
+        "href": "http://nas.local:5055/tv/2002",
+        "id": 14,
+        "kind": "tv",
+        "requested_by": "Sample Partner",
+        "status_text": "Approved",
+        "title": "Night Ferry",
+        "tmdb_id": 2002,
+        "when": "3 hours ago",
+        "year": 2023
+      },
+      {
+        "href": "http://nas.local:5055/movie/1003",
+        "id": 12,
+        "kind": "movie",
+        "requested_by": "Sample Person",
+        "status_text": "Available",
+        "title": "Desert Crossing",
+        "tmdb_id": 1003,
+        "when": "yesterday",
+        "year": 2019
+      },
+      {
+        "href": "http://nas.local:5055/tv/2004",
+        "id": 11,
+        "kind": "tv",
+        "requested_by": "Sample Partner",
+        "status_text": "Declined",
+        "title": "Harbour Watch",
+        "tmdb_id": 2004,
+        "when": "4 days ago",
+        "year": 2021
+      }
+    ],
+    "secondary": "Midnight Harbour",
+    "summary": "1 pending \u00b7 2 approved"
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

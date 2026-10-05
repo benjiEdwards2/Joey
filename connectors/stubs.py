@@ -293,6 +293,10 @@ def _unit(entity: dict) -> str:
 # ------------------------------------------------------------------ jellyfin
 
 TICKS_PER_MINUTE = 600_000_000  # Jellyfin runtime/position ticks are 100 ns units
+TICKS_PER_HOUR = TICKS_PER_MINUTE * 60
+HISTORY_FETCH_LIMIT = 500  # watched items pulled per sweep
+HISTORY_RECENT = 20
+HISTORY_TOP = 10           # rows in each most-played / on-this-day list
 UP_NEXT_LIMIT = 8
 
 # Jellyfin's PlayState.PlayMethod -> a word, never a colour.
@@ -306,6 +310,10 @@ def _media_title(item: dict) -> str:
         code = f"S{int(season):02d}E{int(number):02d}" if season is not None and number is not None else None
         return " · ".join(p for p in (item["SeriesName"], code, item["Name"]) if p)
     return item["Name"]
+
+
+def _item_kind(item: dict) -> str:
+    return "episode" if item.get("Type") == "Episode" else "movie"
 
 
 def _play_method(session: dict) -> str:
@@ -365,6 +373,49 @@ class Jellyfin(Connector):
             "raw_nextup": get("next up", "/Shows/NextUp", {"UserId": uid, "Limit": 10, **fields}),
             "raw_latest": get("latest", f"/Users/{uid}/Items/Latest", {"Limit": 5, **fields}),
             "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
+            "raw_history": get("history", f"/Users/{uid}/Items", {
+                "Filters": "IsPlayed", "SortBy": "DatePlayed", "SortOrder": "Descending",
+                "Recursive": "true", "IncludeItemTypes": "Movie,Episode",
+                "Fields": "UserData,RunTimeTicks,SeriesName,ParentIndexNumber,IndexNumber,ProductionYear",
+                "Limit": HISTORY_FETCH_LIMIT}),
+        }
+
+    @staticmethod
+    def _history(items: list[dict], now: datetime) -> dict:
+        """Watch history for the history page: windows, hours, top shows/movies, on-this-day."""
+        week, month = now - timedelta(days=7), now - timedelta(days=30)
+        played = []  # (item, last-played datetime, runtime hours, plays)
+        for item in items:
+            stamp = (item.get("UserData") or {}).get("LastPlayedDate")
+            if not stamp:
+                continue
+            plays = int((item.get("UserData") or {}).get("PlayCount") or 1)
+            played.append((item, _dt(stamp), int(item.get("RunTimeTicks") or 0) / TICKS_PER_HOUR, plays))
+        played.sort(key=lambda p: p[1], reverse=True)
+
+        shows: dict[str, dict] = {}
+        for item, _, hours, plays in played:
+            if _item_kind(item) == "episode" and item.get("SeriesName"):
+                show = shows.setdefault(item["SeriesName"], {"title": item["SeriesName"], "episodes": 0, "hours": 0.0})
+                show["episodes"] += 1
+                show["hours"] += hours * plays
+        movies = sorted(({"title": item["Name"], "plays": plays} for item, _, _, plays in played
+                         if _item_kind(item) == "movie" and plays >= 1),
+                        key=lambda m: (-m["plays"], m["title"]))
+        return {
+            "recent": [{"title": _media_title(item), "kind": _item_kind(item),
+                        "watched_at": item["UserData"]["LastPlayedDate"], "when": _ago(dt, now)}
+                       for item, dt, _, _ in played[:HISTORY_RECENT]],
+            "week_count": sum(1 for _, dt, _, _ in played if dt >= week),
+            "month_count": sum(1 for _, dt, _, _ in played if dt >= month),
+            "hours_total": round(sum(h * plays for _, _, h, plays in played), 1),
+            "hours_month": round(sum(h for _, dt, h, _ in played if dt >= month), 1),
+            "most_played_shows": [{**s, "hours": round(s["hours"], 1)} for s in sorted(
+                shows.values(), key=lambda s: (-s["episodes"], s["title"]))[:HISTORY_TOP]],
+            "most_played_movies": movies[:HISTORY_TOP],
+            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": now.year - dt.year}
+                            for item, dt, _, _ in played
+                            if (dt.month, dt.day) == (now.month, now.day) and dt.year < now.year][:HISTORY_TOP],
         }
 
     def transform(self, raw: dict) -> dict:
@@ -423,6 +474,8 @@ class Jellyfin(Connector):
                 "movies": int(counts["MovieCount"]),
                 "episodes": int(counts["EpisodeCount"]),
             },
+            # older fixtures/snapshots carry no raw_history — an empty block, never a failure
+            "history": self._history((raw.get("raw_history") or {}).get("Items", []), _now()),
         }
 
 
@@ -768,6 +821,130 @@ class Arr(Connector):
         return data
 
 
+# ---------------------------------------------------------------- jellyseerr
+
+SEERR_LIST_TAKE = 50       # requests fetched per sweep
+SEERR_ROW_LIMIT = 30       # rows kept in the data block
+SEERR_LOOKUP_CAP = 20      # new TMDB title lookups per sweep (the rest keep "TMDB #id")
+# Jellyseerr request.status / media.status -> a word, never a colour.
+SEERR_REQUEST_STATUS = {1: "Pending", 2: "Approved", 3: "Declined"}
+SEERR_MEDIA_STATUS = {5: "Available", 4: "Partly available", 3: "Processing"}
+
+
+def _seerr_kind(request: dict) -> str:
+    kind = request.get("type") or (request.get("media") or {}).get("mediaType")
+    return "tv" if kind == "tv" else "movie"
+
+
+def _seerr_status_text(request: dict) -> str:
+    text = SEERR_REQUEST_STATUS.get(request.get("status"), "Pending")
+    if text == "Approved":  # an approved request reports how far the download got
+        text = SEERR_MEDIA_STATUS.get((request.get("media") or {}).get("status"), text)
+    return text
+
+
+def _seerr_year(value) -> int | None:
+    match = re.match(r"(\d{4})", str(value or ""))
+    return int(match.group(1)) if match else None
+
+
+class Jellyseerr(Connector):
+    """Jellyseerr's request queue. Titles come from per-request TMDB lookups,
+    capped per sweep and reused from the previous envelope; one failed lookup
+    leaves that row as 'TMDB #id' and never fails the run."""
+
+    id = "jellyseerr"
+    requires_env = ("JELLYSEERR_URL", "JELLYSEERR_API_KEY")
+
+    def fetch(self) -> dict:
+        import requests
+
+        base = os.environ["JELLYSEERR_URL"].rstrip("/")
+        headers = {"X-Api-Key": os.environ["JELLYSEERR_API_KEY"]}
+
+        def get(label: str, path: str, params: dict | None = None):
+            try:
+                response = requests.get(base + path, headers=headers, params=params, timeout=10)
+                response.raise_for_status()
+                return response.json()
+            except Exception as exc:
+                # Reason is type/status ONLY — requests exception text embeds the
+                # server URL, and this string ends up in envelopes and logs.
+                raise RuntimeError(f"Jellyseerr {label} failed ({_safe_reason(exc)})") from None
+
+        raw_count = get("count", "/api/v1/request/count")
+        raw_requests = get("requests", "/api/v1/request",
+                           {"take": SEERR_LIST_TAKE, "skip": 0, "sort": "added", "filter": "all"})
+
+        # Titles already resolved last sweep are reused, so repeats cost no calls.
+        known: dict[str, dict] = {}
+        for row in ((self._previous() or {}).get("data") or {}).get("requests", []):
+            if row.get("tmdb_id") and not str(row.get("title", "")).startswith("TMDB #"):
+                known[f"{row['kind']}:{row['tmdb_id']}"] = {
+                    "title": row["title"], "name": row["title"],
+                    "releaseDate": str(row["year"]) if row.get("year") else None}
+        titles, lookups = {}, 0
+        for request in raw_requests.get("results", []):
+            tmdb = (request.get("media") or {}).get("tmdbId")
+            if not tmdb:
+                continue
+            kind = _seerr_kind(request)
+            key = f"{kind}:{tmdb}"
+            if key in titles:
+                continue
+            if key in known:
+                titles[key] = known[key]
+            elif lookups < SEERR_LOOKUP_CAP:
+                lookups += 1
+                try:
+                    titles[key] = get("title lookup", f"/api/v1/{kind}/{tmdb}")
+                except Exception:  # row stays "TMDB #id"
+                    pass
+        return {"raw_count": raw_count, "raw_requests": raw_requests, "raw_titles": titles}
+
+    def transform(self, raw: dict) -> dict:
+        now = _now()
+        host = (f"http://{FIXTURE_MEDIA_HOST}:5055" if mode() == "fixture"
+                else os.environ["JELLYSEERR_URL"].rstrip("/"))
+        titles = raw.get("raw_titles") or {}
+        rows: list[tuple[bool, datetime, dict]] = []
+        for request in (raw.get("raw_requests") or {}).get("results", []):
+            media = request.get("media") or {}
+            tmdb = media.get("tmdbId")
+            kind = _seerr_kind(request)
+            info = titles.get(f"{kind}:{tmdb}") or {}
+            title = info.get("title") or info.get("name") or f"TMDB #{tmdb}"
+            created = _dt(request["createdAt"])
+            by = request.get("requestedBy") or {}
+            rows.append((request.get("status") == 1, created, {
+                "id": int(request["id"]),
+                "kind": kind,
+                "tmdb_id": int(tmdb) if tmdb else 0,
+                "title": title,
+                "year": _seerr_year(info.get("releaseDate") or info.get("firstAirDate")),
+                "requested_by": by.get("displayName") or by.get("username") or "someone",
+                "status_text": _seerr_status_text(request),
+                "when": _ago(created, now),
+                "href": f"{host}/{kind}/{tmdb}",
+            }))
+        rows.sort(key=lambda r: r[1], reverse=True)    # newest first ...
+        rows.sort(key=lambda r: not r[0])              # ... then pending first (stable)
+        requests_out = [r[2] for r in rows][:SEERR_ROW_LIMIT]
+
+        count = raw.get("raw_count") or {}
+        counts = {k: int(count.get(k) or 0)
+                  for k in ("pending", "approved", "available", "declined", "total")}
+        pending = [r for r in requests_out if r["status_text"] == "Pending"]
+        open_requests = counts["pending"] or counts["approved"]
+        return {
+            "summary": (f"{counts['pending']} pending · {counts['approved']} approved"
+                        if open_requests else "No open requests"),
+            "secondary": pending[0]["title"] if pending else "",
+            "counts": counts,
+            "requests": requests_out,
+        }
+
+
 # ----------------------------------------------------------------- nas_stats
 
 
@@ -818,7 +995,7 @@ def count_files(share_root: Path, since_ts: float) -> int:
 # ------------------------------------------------------------------ register
 
 STUBS: tuple[type[Connector], ...] = (
-    OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, MediaStatus, Arr, NasStats,
+    OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, MediaStatus, Arr, Jellyseerr, NasStats,
 )
 
 for _cls in STUBS:

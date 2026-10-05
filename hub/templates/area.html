@@ -77,6 +77,22 @@
   </div>
 </section>
 {% endif %}
+{% if media.history %}
+<section class="card uplist medialist" style="--accent: {{ area.accent }}">
+  <div class="head">Recently watched</div>
+  {% for r in media.history["items"] %}
+  <div class="uprow">
+    <span class="uptitle">{{ r.title }}</span>
+    <span class="uptime nextleft">{{ r.when }}</span>
+  </div>
+  {% endfor %}
+  <div class="foot">
+    <span class="chip">You</span>
+    {% if media.history.st.state == "stale" %}<span class="badge stale">{{ media.history.st.age_text }}</span>
+    {% elif media.history.st.age_text %}<span class="ago">updated {{ media.history.st.age_text }}</span>{% endif %}
+  </div>
+</section>
+{% endif %}
 </div>
 {% endif %}
 {% if upcoming %}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/jellyfin.schema.json",
   "title": "jellyfin data block",
-  "description": "Media area tile. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "description": "Media area tiles (now playing + watch history). `summary`/`secondary` are the hub display convention (D17, WP18). `history` is optional so snapshots written before it existed still validate.",
   "type": "object",
   "required": ["summary", "now_playing", "up_next", "latest", "library"],
   "additionalProperties": false,
@@ -56,6 +56,74 @@
       "properties": {
         "movies": {"type": "integer", "minimum": 0},
         "episodes": {"type": "integer", "minimum": 0}
+      }
+    },
+    "history": {
+      "type": "object",
+      "required": ["recent", "week_count", "month_count", "hours_total", "hours_month",
+                   "most_played_shows", "most_played_movies", "on_this_day"],
+      "additionalProperties": false,
+      "properties": {
+        "recent": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "required": ["title", "kind", "watched_at", "when"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {"type": "string"},
+              "kind": {"enum": ["movie", "episode"]},
+              "watched_at": {"type": "string"},
+              "when": {"type": "string"}
+            }
+          }
+        },
+        "week_count": {"type": "integer", "minimum": 0},
+        "month_count": {"type": "integer", "minimum": 0},
+        "hours_total": {"type": "number", "minimum": 0},
+        "hours_month": {"type": "number", "minimum": 0},
+        "most_played_shows": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["title", "episodes", "hours"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {"type": "string"},
+              "episodes": {"type": "integer", "minimum": 0},
+              "hours": {"type": "number", "minimum": 0}
+            }
+          }
+        },
+        "most_played_movies": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["title", "plays"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {"type": "string"},
+              "plays": {"type": "integer", "minimum": 1}
+            }
+          }
+        },
+        "on_this_day": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["title", "kind", "years_ago"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {"type": "string"},
+              "kind": {"enum": ["movie", "episode"]},
+              "years_ago": {"type": "integer", "minimum": 1}
+            }
+          }
+        }
       }
     }
   }

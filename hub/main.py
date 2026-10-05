@@ -203,16 +203,20 @@ def find_upcoming(tiles, snaps, view: str):
 JELLYFIN_SNAPSHOT_ID = "jellyfin"
 MEDIA_STATUS_SNAPSHOT_ID = "media_status"
 ARR_SNAPSHOT_ID = "arr"
+JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
+HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
 LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
+HISTORY_STRIP_MAX = 5  # "Recently watched" strip on the area page
 
 
-def find_detail_source(snapshot_id, snaps) -> dict | None:
+def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
     """The page behind a `detail` tile: the first registry tile reading the
-    snapshot, its area (for the accent), and the area's first LINK tile (the app
+    snapshot (the one whose `detail` route matches, when several tiles share a
+    snapshot), its area (for the accent), and the area's first LINK tile (the app
     launcher, as find_media resolves it). None when no tile reads the snapshot."""
     for a in registry.areas:
         for t in a.tiles:
-            if t.snapshot == snapshot_id:
+            if t.snapshot == snapshot_id and (detail is None or t.detail == detail):
                 snap = snaps.get(snapshot_id)
                 href = next((x.href for x in a.tiles if x.tier.value == "link"), None)
                 return {"tile": t, "st": tile_state(t, snaps), "accent": a.accent,
@@ -254,15 +258,18 @@ def find_media(tiles, snaps) -> dict | None:
     """Media sections for an area: each present when a visible tile reads that
     snapshot and it holds data (fresh or stale — never fabricated). Now-playing
     rows link to the first LINK tile in the same area (the Jellyfin launcher)."""
-    def reading(snapshot_id):
+    def reading(snapshot_id, detail=None):
         for row in tiles:
-            if row["tile"].snapshot == snapshot_id and row["st"]["state"] in ("fresh", "stale"):
+            if (row["tile"].snapshot == snapshot_id and (detail is None or row["tile"].detail == detail)
+                    and row["st"]["state"] in ("fresh", "stale")):
                 return row["st"], snaps[snapshot_id].data
         return None
 
     play, apps = reading(JELLYFIN_SNAPSHOT_ID), reading(MEDIA_STATUS_SNAPSHOT_ID)
     library = reading(ARR_SNAPSHOT_ID)
-    if not (play or apps or library):
+    watched = reading(JELLYFIN_SNAPSHOT_ID, HISTORY_DETAIL)  # B.'s own tile, so a her view never sees it
+    recent = ((watched[1].get("history") or {}).get("recent") or [])[:HISTORY_STRIP_MAX] if watched else []
+    if not (play or apps or library or recent):
         return None
     link = next((r["st"]["href"] for r in tiles if r["st"]["state"] == "link"), None)
     return {
@@ -271,6 +278,7 @@ def find_media(tiles, snaps) -> dict | None:
                  "up_next": play[1].get("up_next", []), "href": link} if play else None,
         "library": {"st": library[0], "items": library[1].get("arrived", [])[:LIBRARY_STRIP_MAX]}
                    if library else None,
+        "history": {"st": watched[0], "items": recent} if recent else None,
     }
 
 
@@ -323,12 +331,12 @@ def weather_page(request: Request):
     return _maybe_set_cookie(resp, view, from_query)
 
 
-def _detail_page(request: Request, template: str, snapshot_id: str, build=None):
+def _detail_page(request: Request, template: str, snapshot_id: str, build=None, detail=None):
     """Detail page behind a `detail` tile (2026-10-05). Keyed by connector id —
     404 when no registry tile reads that snapshot; 'Not connected' when it has no data."""
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
-    src = find_detail_source(snapshot_id, snaps)
+    src = find_detail_source(snapshot_id, snaps, detail)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
             "areas": registry.areas, "active_id": None, "owner_view": view,
@@ -375,6 +383,33 @@ def media_library_page(request: Request):
                           for app, reason in sorted((data.get("app_errors") or {}).items())],
         }
     return _detail_page(request, "media_library.html", ARR_SNAPSHOT_ID, build)
+
+
+@app.get("/media/requests", response_class=HTMLResponse)
+def media_requests_page(request: Request):
+    def build(data):
+        c = data.get("counts") or {}
+        return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
+                                          for k in ("pending", "approved", "available", "declined"))}
+    return _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
+
+
+@app.get("/media/history", response_class=HTMLResponse)
+def media_history_page(request: Request):
+    def build(data):
+        history = data.get("history") or {}
+        shows = history.get("most_played_shows", [])
+        top = max((s["episodes"] for s in shows), default=0)
+        return {
+            "history": history,
+            "shows": [{**s, "pct": round(s["episodes"] / top * 100)} for s in shows],
+            "numbers": " · ".join([
+                f"{history.get('week_count', 0)} this week",
+                f"{history.get('month_count', 0)} this month",
+                f"{history.get('hours_month', 0)} h this month",
+                f"{history.get('hours_total', 0)} h all time"]),
+        }
+    return _detail_page(request, "media_history.html", JELLYFIN_SNAPSHOT_ID, build, detail=HISTORY_DETAIL)
 
 
 @app.get("/a/{area_id}", response_class=HTMLResponse)

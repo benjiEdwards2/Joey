@@ -80,6 +80,8 @@ def check_lines(path: str) -> str | None:
 
 
 def main() -> int:
+    # Windows consoles default to cp1252 and choke on the ✗ below (2026-10-05)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     problems: list[str] = []
     for path in staged_files():
         for check in (check_path, check_lines):

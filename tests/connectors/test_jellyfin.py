@@ -33,7 +33,7 @@ def test_requires_the_url_and_api_key_names():
 
 def test_fixture_dir_is_one_file_per_fetch_key(raw):
     assert set(raw) == {"raw_users", "raw_sessions", "raw_resume", "raw_nextup",
-                        "raw_latest", "raw_counts"}
+                        "raw_latest", "raw_counts", "raw_history"}
 
 
 def test_now_playing_rows_carry_a_play_method_word(raw):
@@ -123,7 +123,8 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
         key = {"/Users": "raw_users", "/Sessions": "raw_sessions",
                "/Shows/NextUp": "raw_nextup", "/Items/Counts": "raw_counts"}.get(path)
         if key is None:
-            key = "raw_resume" if path.endswith("/Items/Resume") else "raw_latest"
+            key = ("raw_resume" if path.endswith("/Items/Resume")
+                   else "raw_history" if path.endswith("/Items") else "raw_latest")
         return FakeResponse(raw[key])
 
     monkeypatch.setattr(requests, "get", fake_get)
@@ -132,10 +133,15 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
     assert envelope["status"] == "ok", envelope["error"]
     paths = [c[0][len(URL):] for c in calls]
     assert paths == ["/Users", "/Sessions", "/Users/user-fixture-2/Items/Resume",
-                     "/Shows/NextUp", "/Users/user-fixture-2/Items/Latest", "/Items/Counts"]
+                     "/Shows/NextUp", "/Users/user-fixture-2/Items/Latest", "/Items/Counts",
+                     "/Users/user-fixture-2/Items"]
     assert all(c[3] == 10 for c in calls)
     assert all(c[1]["Authorization"] == f"MediaBrowser Token={KEY}" for c in calls)
     assert calls[3][2]["UserId"] == "user-fixture-2"
+    hist = calls[6][2]
+    assert hist["Filters"] == "IsPlayed" and hist["SortBy"] == "DatePlayed" and hist["Limit"] == 500
+    assert hist["IncludeItemTypes"] == "Movie,Episode" and "UserData" in hist["Fields"]
+    assert envelope["data"]["history"]["recent"][0]["title"].startswith("Quiet Coast")
     jsonschema.validate(envelope["data"], SCHEMA)
 
 
@@ -169,3 +175,62 @@ def test_live_mode_without_key_fails_naming_the_variable(snapshots, monkeypatch)
     monkeypatch.delenv("JELLYFIN_API_KEY", raising=False)
     envelope = Jellyfin().run()
     assert envelope["status"] == "error" and "JELLYFIN_API_KEY" in envelope["error"]
+
+
+# ---- watch history (Phase 4a) — the fixture's pinned "now" is 2026-01-01T00:00Z
+
+@pytest.fixture()
+def history(snapshots, raw):
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    return data["history"]
+
+
+def test_history_windows_and_hours(history):
+    assert (history["week_count"], history["month_count"]) == (8, 16)
+    assert history["hours_month"] == 18.7
+    assert history["hours_total"] == 45.1  # PlayCount x runtime, summed
+
+
+def test_recent_is_newest_first_capped_and_episode_titles_carry_the_show(history):
+    recent = history["recent"]
+    assert len(recent) == 20
+    assert recent[0] == {"title": "Quiet Coast · S02E04 · Late Tide", "kind": "episode",
+                         "watched_at": "2025-12-31T21:10:00.0000000Z", "when": "2 hours ago"}
+    assert recent[3]["title"] == "Harbour Lights" and recent[3]["kind"] == "movie"
+    stamps = [r["watched_at"] for r in recent]
+    assert stamps == sorted(stamps, reverse=True)
+
+
+def test_most_played_groups_episodes_by_show_and_sorts_movies_by_plays(history):
+    assert history["most_played_shows"][0] == {"title": "Quiet Coast", "episodes": 6, "hours": 4.5}
+    assert [s["title"] for s in history["most_played_shows"]] == [
+        "Quiet Coast", "Night Ferry", "Northern Lines", "Harbour Watch"]
+    movies = history["most_played_movies"]
+    assert movies[0] == {"title": "The Long Road Home", "plays": 3}
+    assert len(movies) == 10 and all(m["plays"] >= 1 for m in movies)
+
+
+def test_on_this_day_lists_earlier_years_only(history):
+    assert history["on_this_day"] == [
+        {"title": "Salt Flats", "kind": "movie", "years_ago": 1},
+        {"title": "Copper Hills", "kind": "movie", "years_ago": 2}]
+
+
+def test_absent_raw_history_gives_an_empty_block(snapshots, raw):
+    raw = copy.deepcopy(raw)
+    del raw["raw_history"]
+    data = Jellyfin().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["history"] == {
+        "recent": [], "week_count": 0, "month_count": 0, "hours_total": 0.0, "hours_month": 0.0,
+        "most_played_shows": [], "most_played_movies": [], "on_this_day": []}
+
+
+def test_history_older_than_a_month_counts_only_toward_all_time(snapshots, raw):
+    raw = copy.deepcopy(raw)
+    raw["raw_history"]["Items"] = [i for i in raw["raw_history"]["Items"]
+                                   if i["UserData"]["LastPlayedDate"] < "2025-11-01"]
+    h = Jellyfin().transform(raw)["history"]
+    assert h["week_count"] == h["month_count"] == 0 and h["hours_month"] == 0
+    assert h["hours_total"] > 0

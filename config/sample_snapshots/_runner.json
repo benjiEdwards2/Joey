@@ -21,6 +21,11 @@
       "error": null,
       "status": "ok"
     },
+    "jellyseerr": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
     "macromates": {
       "consecutive_failures": 0,
       "error": null,

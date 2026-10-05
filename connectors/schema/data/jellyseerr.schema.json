@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/jellyseerr.schema.json",
+  "title": "jellyseerr data block",
+  "description": "Media area request queue. Rows are pending first, then newest; capped at 30. A title that could not be looked up reads 'TMDB #<id>'. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "secondary", "counts", "requests"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "counts": {
+      "type": "object",
+      "required": ["pending", "approved", "available", "declined", "total"],
+      "additionalProperties": false,
+      "properties": {
+        "pending": {"type": "integer", "minimum": 0},
+        "approved": {"type": "integer", "minimum": 0},
+        "available": {"type": "integer", "minimum": 0},
+        "declined": {"type": "integer", "minimum": 0},
+        "total": {"type": "integer", "minimum": 0}
+      }
+    },
+    "requests": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "tmdb_id", "title", "year", "requested_by", "status_text", "when", "href"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "integer"},
+          "kind": {"enum": ["movie", "tv"]},
+          "tmdb_id": {"type": "integer"},
+          "title": {"type": "string"},
+          "year": {"type": ["integer", "null"]},
+          "requested_by": {"type": "string"},
+          "status_text": {"enum": ["Pending", "Approved", "Declined", "Available", "Partly available", "Processing"]},
+          "when": {"type": "string"},
+          "href": {"type": "string"}
+        }
+      }
+    }
+  }
+}

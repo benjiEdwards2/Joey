@@ -1,0 +1,371 @@
+{
+  "Items": [
+    {
+      "Id": "hist-fixture-1",
+      "Name": "Late Tide",
+      "Type": "Episode",
+      "RunTimeTicks": 26400000000,
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 4,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-31T21:10:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-2",
+      "Name": "Break of Dawn",
+      "Type": "Episode",
+      "RunTimeTicks": 27600000000,
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 5,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-30T20:05:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-3",
+      "Name": "The Understudy",
+      "Type": "Episode",
+      "RunTimeTicks": 30000000000,
+      "SeriesName": "Northern Lines",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 3,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-29T19:30:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-4",
+      "Name": "Harbour Lights",
+      "Type": "Movie",
+      "RunTimeTicks": 67200000000,
+      "ProductionYear": 2022,
+      "UserData": {
+        "PlayCount": 2,
+        "Played": true,
+        "LastPlayedDate": "2025-12-28T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-5",
+      "Name": "Last Crossing",
+      "Type": "Episode",
+      "RunTimeTicks": 31200000000,
+      "SeriesName": "Night Ferry",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 4,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-27T21:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-6",
+      "Name": "Desert Crossing",
+      "Type": "Movie",
+      "RunTimeTicks": 58800000000,
+      "ProductionYear": 2019,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-26T19:15:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-7",
+      "Name": "The Long Road Home",
+      "Type": "Movie",
+      "RunTimeTicks": 75600000000,
+      "ProductionYear": 2017,
+      "UserData": {
+        "PlayCount": 3,
+        "Played": true,
+        "LastPlayedDate": "2025-12-25T18:40:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-8",
+      "Name": "Landfall",
+      "Type": "Episode",
+      "RunTimeTicks": 28800000000,
+      "SeriesName": "Harbour Watch",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 2,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-25T10:05:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-9",
+      "Name": "Dust and Daylight",
+      "Type": "Movie",
+      "RunTimeTicks": 62400000000,
+      "ProductionYear": 2021,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-20T20:30:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-10",
+      "Name": "Third Light",
+      "Type": "Episode",
+      "RunTimeTicks": 27000000000,
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 3,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-19T21:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-11",
+      "Name": "Second Wind",
+      "Type": "Episode",
+      "RunTimeTicks": 27000000000,
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 2,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-18T21:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-12",
+      "Name": "First Light",
+      "Type": "Episode",
+      "RunTimeTicks": 27000000000,
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 2,
+      "IndexNumber": 1,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-17T21:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-13",
+      "Name": "Opening Night",
+      "Type": "Episode",
+      "RunTimeTicks": 30000000000,
+      "SeriesName": "Northern Lines",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 2,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-15T19:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-14",
+      "Name": "Paper Lanterns",
+      "Type": "Movie",
+      "RunTimeTicks": 54600000000,
+      "ProductionYear": 2020,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-12T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-15",
+      "Name": "Glass Orchard",
+      "Type": "Movie",
+      "RunTimeTicks": 70200000000,
+      "ProductionYear": 2023,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-09T19:45:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-16",
+      "Name": "New Moorings",
+      "Type": "Episode",
+      "RunTimeTicks": 30600000000,
+      "SeriesName": "Night Ferry",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 3,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-12-04T20:10:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-19",
+      "Name": "Far Shore",
+      "Type": "Movie",
+      "RunTimeTicks": 60600000000,
+      "ProductionYear": 2024,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-11-22T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-20",
+      "Name": "Stone Garden",
+      "Type": "Movie",
+      "RunTimeTicks": 52800000000,
+      "ProductionYear": 2015,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-11-08T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-21",
+      "Name": "Silver Lake",
+      "Type": "Movie",
+      "RunTimeTicks": 79800000000,
+      "ProductionYear": 2014,
+      "UserData": {
+        "PlayCount": 2,
+        "Played": true,
+        "LastPlayedDate": "2025-10-19T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-22",
+      "Name": "Pilot",
+      "Type": "Episode",
+      "RunTimeTicks": 28200000000,
+      "SeriesName": "Northern Lines",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 1,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-10-05T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-23",
+      "Name": "Departures",
+      "Type": "Episode",
+      "RunTimeTicks": 31200000000,
+      "SeriesName": "Night Ferry",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 2,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-09-28T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-24",
+      "Name": "Arrivals",
+      "Type": "Episode",
+      "RunTimeTicks": 31200000000,
+      "SeriesName": "Night Ferry",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 1,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-09-27T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-25",
+      "Name": "Pilot",
+      "Type": "Episode",
+      "RunTimeTicks": 29400000000,
+      "SeriesName": "Harbour Watch",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 1,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-09-14T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-26",
+      "Name": "Midnight Harbour",
+      "Type": "Movie",
+      "RunTimeTicks": 59400000000,
+      "ProductionYear": 2025,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-08-30T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-27",
+      "Name": "Glass Harbour",
+      "Type": "Movie",
+      "RunTimeTicks": 66000000000,
+      "ProductionYear": 2013,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-07-12T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-28",
+      "Name": "Pilot",
+      "Type": "Episode",
+      "RunTimeTicks": 27600000000,
+      "SeriesName": "Quiet Coast",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 1,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2025-06-01T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-17",
+      "Name": "Salt Flats",
+      "Type": "Movie",
+      "RunTimeTicks": 64800000000,
+      "ProductionYear": 2018,
+      "UserData": {
+        "PlayCount": 2,
+        "Played": true,
+        "LastPlayedDate": "2025-01-01T20:00:00.0000000Z"
+      }
+    },
+    {
+      "Id": "hist-fixture-18",
+      "Name": "Copper Hills",
+      "Type": "Movie",
+      "RunTimeTicks": 57000000000,
+      "ProductionYear": 2016,
+      "UserData": {
+        "PlayCount": 1,
+        "Played": true,
+        "LastPlayedDate": "2024-01-01T19:30:00.0000000Z"
+      }
+    }
+  ],
+  "TotalRecordCount": 28
+}

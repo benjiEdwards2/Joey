@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Requests — Joey{% endblock %}
+{% block content %}
+{# Detail behind the requests tile (2026-10-05): Jellyseerr's queue. The status is a
+   WORD on every row — colour is never the only encoding. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">Requests</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
+  {% else %}
+    {% if src.data.get("requests") %}
+    <div class="sub libline">{{ counts_text }}</div>
+    {% for r in src.data.requests %}
+    <a class="uprow reqrow" href="{{ r.href }}" target="_blank" rel="noopener">
+      <span class="chip">{{ r.status_text }}</span>
+      <span class="uptitle">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %} · {{ "TV" if r.kind == "tv" else "Movie" }} · {{ r.requested_by }}</span>
+      <span class="uptime nextleft">{{ r.when }}</span>
+    </a>
+    {% endfor %}
+    {% else %}
+    <div class="value dim">No open requests</div>
+    {% endif %}
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

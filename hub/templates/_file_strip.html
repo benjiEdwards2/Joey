@@ -1,0 +1,10 @@
+{% from "_icons.html" import icon %}
+{# File-quality strip (2026-10-06): what is on disk — generic icon + word per badge. Renders nothing without `files`. #}
+{% if files %}
+<div class="filestrip">
+  {% if files.kind == "tv" %}<span class="fbadge">{{ icon("disk") }}<span>{{ files.episodes_on_disk }} episode{{ "s" if files.episodes_on_disk != 1 }} on disk</span></span>{% endif %}
+  {% for b in files.video %}<span class="fbadge">{{ icon(b.icon) }}<span>{{ b.word }}</span></span>{% endfor %}
+  {% for b in files.audio %}<span class="fbadge">{{ icon(b.icon) }}<span>{{ b.word }}</span></span>{% endfor %}
+  {% if files.size_text %}<span class="fbadge">{{ icon("disk") }}<span>{{ files.size_text }}</span></span>{% endif %}
+</div>
+{% endif %}

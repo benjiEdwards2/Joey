@@ -23,6 +23,7 @@
 </section>
 <section class="titlepage" style="--accent: {{ src.accent }}">
   {% if t.overview %}<p>{{ t.overview }}</p>{% endif %}
+  {% include "_file_strip.html" %}
   <div class="sub">
     {% if t.genres %}{{ t.genres|join(", ") }}{% endif %}
     {% if t.runtime %} · {{ t.runtime }} min{% endif %}

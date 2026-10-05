@@ -330,3 +330,69 @@ def test_discover_is_a_section_not_a_home_button(env):
         html = client.get("/a/alpha").text
     assert "Discover &amp; Search" not in html            # F1: the header button is gone
     assert '<a href="/media/discover">Discover</a>' in html  # Discover is a Media section now
+
+
+# ---- File-quality strip (2026-10-06) ----
+
+JF_URL = "http://jf.secret-host.invalid:8096"
+JF_KEY = "jf-SECRET-key-123"
+
+
+def _jf(monkeypatch, fake, down=False):
+    """Route Jellyfin URLs to a fake and everything else to the Jellyseerr fake; -> list of Jellyfin calls."""
+    from hub import media_files
+    media_files.clear_cache()
+    monkeypatch.setenv("JELLYFIN_URL", JF_URL)
+    monkeypatch.setenv("JELLYFIN_API_KEY", JF_KEY)
+    calls = []
+    file_item = {"ProviderIds": {"Tmdb": "603"}, "MediaSources": [{"Container": "mkv", "Size": 2 * 1024 ** 3, "MediaStreams": [
+        {"Type": "Video", "Codec": "hevc", "Height": 2160, "Width": 3840, "VideoRangeType": "HDR10"},
+        {"Type": "Audio", "Codec": "eac3", "Channels": 6, "IsDefault": True}]}]}
+    seerr_get = fake.get
+
+    def get(url, params=None, headers=None, timeout=None, **kw):
+        if not url.startswith(JF_URL):
+            return seerr_get(url, headers=headers, timeout=timeout)
+        calls.append(url)
+        if down:
+            raise requests.ConnectionError(url)
+        if url.endswith("/Users"):
+            return Resp([{"Id": "u1", "Name": "B", "Policy": {"IsAdministrator": True}}])
+        kind = (params or {}).get("IncludeItemTypes")
+        return Resp({"Items": [{"Id": "s1", "ProviderIds": {"Tmdb": "100"}}] if kind == "Series" else [file_item]})
+
+    monkeypatch.setattr(requests, "get", get)
+    return calls
+
+
+def test_title_page_file_strip_available_only(env, monkeypatch):
+    client, fake = env()
+    fake.table["/api/v1/movie/603"] = {**MOVIE, "mediaInfo": {"status": 5}}
+    calls = _jf(monkeypatch, fake)
+    with client:
+        body = client.get("/media/title/movie/603").text
+        assert 'class="filestrip"' in body and ">4K</span>" in body and ">HDR10</span>" in body
+        assert ">Dolby Digital Plus</span>" in body and ">5.1</span>" in body and ">2.0 GB</span>" in body
+        assert "<svg" in body.split('class="filestrip"', 1)[1].split("</div>", 1)[0]
+        assert JF_KEY not in body and "jf.secret-host" not in body
+        calls.clear()
+        fake.table["/api/v1/movie/603"] = MOVIE  # Not in library
+        body = client.get("/media/title/movie/603").text
+        assert 'class="filestrip"' not in body and not calls
+
+
+def test_title_page_partly_available_show_has_episode_badge(env, monkeypatch):
+    client, fake = env()
+    _jf(monkeypatch, fake)
+    with client:
+        body = client.get("/media/title/tv/100").text
+    assert "1 episode on disk" in body
+
+
+def test_title_page_degrades_when_jellyfin_down(env, monkeypatch):
+    client, fake = env()
+    fake.table["/api/v1/movie/603"] = {**MOVIE, "mediaInfo": {"status": 5}}
+    _jf(monkeypatch, fake, down=True)
+    with client:
+        resp = client.get("/media/title/movie/603")
+    assert resp.status_code == 200 and "The Matrix (1999)" in resp.text and 'class="filestrip"' not in resp.text

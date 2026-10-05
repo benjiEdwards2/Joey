@@ -62,6 +62,20 @@ app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="stati
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
 
+def _static_version() -> str:
+    """Content hash of the stylesheet, appended as ?v= so a deploy that changes
+    CSS is never painted with a browser's stale copy (StaticFiles sends no
+    Cache-Control; field note 2026-09-11, bit us 2026-10-05)."""
+    import hashlib
+    try:
+        return hashlib.sha1((HUB_DIR / "static" / "control-surface.css").read_bytes()).hexdigest()[:8]
+    except OSError:
+        return "0"
+
+
+templates.env.globals["static_v"] = _static_version()
+
+
 OWNER_VIEWS = ("both", "you", "her")
 OWNER_COOKIE = "owner_view"
 OWNER_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days, per device (WP19)

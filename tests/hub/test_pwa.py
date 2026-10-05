@@ -54,3 +54,16 @@ def test_icon_urls_are_cache_busted():
     assert all("?v=" in i["src"] for i in m["icons"])
     base = (REPO_ROOT / "hub/templates/base.html").read_text(encoding="utf-8")
     assert 'rel="apple-touch-icon" href="/static/icon-192.png?v=' in base
+
+
+def test_stylesheet_link_is_content_versioned(monkeypatch):
+    """2026-10-05: a deploy changed the CSS and browsers kept the stale copy
+    (no Cache-Control on StaticFiles) — the link now carries a content hash."""
+    import re
+    import hub.main
+    from fastapi.testclient import TestClient
+    with TestClient(hub.main.app) as client:
+        html = client.get("/").text
+    m = re.search(r'href="/static/control-surface\.css\?v=([0-9a-f]{8})"', html)
+    assert m, html[:400]
+    assert m.group(1) == hub.main._static_version()

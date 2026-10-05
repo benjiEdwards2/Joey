@@ -157,14 +157,6 @@ areas:
         detail: /media/discover
         stale_after_minutes: 180
         setup_note: "Set JELLYSEERR_URL/JELLYSEERR_API_KEY in deploy/.env."
-      # 2026-10-06: qBittorrent downloads (read only) - active, finished today, seeding.
-      - id: downloads
-        label: Downloads
-        tier: embed
-        owner: shared
-        snapshot: qbittorrent
-        stale_after_minutes: 10                      # 2-minute fast sweep
-        setup_note: "Set QBIT_URL/QBIT_USER/QBIT_PASS in deploy/.env."
       - id: history
         label: Watched
         tier: embed

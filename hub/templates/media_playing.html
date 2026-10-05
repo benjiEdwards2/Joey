@@ -12,9 +12,9 @@
   {% else %}
     {% for p in src.data.get("now_playing", []) %}
     {% if src.href %}<a class="uprow playrow hasposter{{ ' hasbackdrop' if p.backdrop }}"{% if p.backdrop %} style="--bd: url('/img/{{ p.backdrop|urlencode }}?h=1280')"{% endif %} href="{{ src.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow hasposter{{ ' hasbackdrop' if p.backdrop }}"{% if p.backdrop %} style="--bd: url('/img/{{ p.backdrop|urlencode }}?h=1280')"{% endif %}>{% endif %}
-      {{ poster(p.poster, p.title, 120, "sm" ~ rate.pcls(p.item_key, ratings)) }}
+      {{ poster(p.poster, p.title, 120, "sm" ~ rate.rowpcls(p, ratings)) }}
       <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
-    {{ rate.chip(p.item_key, ratings) }}
+    {{ rate.rowchip(p, ratings) }}
       <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
     {% if src.href %}</a>{% else %}</div>{% endif %}
     {% else %}
@@ -24,9 +24,9 @@
     <div class="upday">Up next</div>
     {% for n in src.data.get("up_next", []) %}
     <div class="uprow hasposter">
-      {{ poster(n.poster, n.title, 120, "sm" ~ rate.pcls(n.item_key, ratings)) }}
+      {{ poster(n.poster, n.title, 120, "sm" ~ rate.rowpcls(n, ratings)) }}
       <span class="uptitle">{{ n.title }}</span>
-    {{ rate.chip(n.item_key, ratings) }}
+    {{ rate.rowchip(n, ratings) }}
       <span class="uptime nextleft">{{ n.remaining_text }}</span>
     </div>
     {% else %}
@@ -36,9 +36,9 @@
     <div class="upday">Latest additions</div>
     {% for i in latest %}
     <div class="uprow hasposter">
-      {{ poster(i.poster, i.title, 120, "sm" ~ rate.pcls(i.item_key, ratings)) }}
+      {{ poster(i.poster, i.title, 120, "sm" ~ rate.rowpcls(i, ratings)) }}
       <span class="uptitle">{{ i.title }}</span>
-    {{ rate.chip(i.item_key, ratings) }}
+    {{ rate.rowchip(i, ratings) }}
       <span class="chip">{{ i.type }}</span>
       <span class="uptime nextleft">{{ i.added_text }}</span>
     </div>

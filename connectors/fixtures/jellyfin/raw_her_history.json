@@ -7,6 +7,7 @@
       "RunTimeTicks": 27000000000,
       "SeriesName": "Garden Lane",
       "SeriesId": "her-series-1",
+      "SeasonId": "season-her-1-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 1,
       "UserData": {"PlayCount": 1, "Played": true, "LastPlayedDate": "2025-12-31T20:00:00.0000000Z"}

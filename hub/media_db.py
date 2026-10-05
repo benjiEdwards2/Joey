@@ -25,7 +25,8 @@ KEY_RE = re.compile(r"^(tmdb|tvdb|jf):[A-Za-z0-9-]+$")
 RATING_DDL = """CREATE TABLE rating(
   item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
   score INT CHECK(score BETWEEN 1 AND 10), rated_at TEXT, owner TEXT NOT NULL DEFAULT 'you',
-  PRIMARY KEY(item_key, owner))"""
+  level TEXT NOT NULL DEFAULT 'show', PRIMARY KEY(item_key, owner))"""
+LEVELS = ("show", "season", "episode")  # what a rating covers; movies record 'show' = the whole title
 DIARY_DDL = """CREATE TABLE diary(
   id INTEGER PRIMARY KEY, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
   watched_on TEXT, source TEXT, place TEXT, note TEXT, owner TEXT NOT NULL DEFAULT 'you', created_at TEXT,
@@ -34,6 +35,8 @@ RATING_COLS = "item_key, kind, title, year, poster, score, rated_at"
 DIARY_COLS = "id, item_key, kind, title, year, poster, watched_on, source, place, note, created_at"
 SCHEMA = RATING_DDL.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS") + """;
 """ + DIARY_DDL.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS") + """;
+CREATE TABLE IF NOT EXISTS setting(
+  owner TEXT, key TEXT, value TEXT, PRIMARY KEY(owner, key));
 CREATE TABLE IF NOT EXISTS ranking(
   year INTEGER, item_key TEXT, position INTEGER, kind TEXT, title TEXT, poster TEXT,
   owner TEXT DEFAULT 'you', PRIMARY KEY(year, item_key), UNIQUE(year, position));
@@ -57,9 +60,24 @@ def _old_shapes(db) -> tuple[bool, bool]:
     return pk == ["item_key"], bool(row) and "source, owner)" not in row["sql"]
 
 
+def _add_level_column(db) -> None:
+    """Rating gained `level` (2026-10-06): ALTER an existing table that lacks it; existing
+    rows read 'show'. A missing table is left for SCHEMA to create. Safe to race: a lost
+    race raises 'duplicate column', which is swallowed."""
+    cols = [r["name"] for r in db.execute("PRAGMA table_info(rating)")]
+    if cols and "level" not in cols:
+        try:
+            db.execute("ALTER TABLE rating ADD COLUMN level TEXT NOT NULL DEFAULT 'show'")
+            db.commit()
+        except sqlite3.OperationalError as exc:
+            if "duplicate column" not in str(exc):
+                raise
+
+
 def _migrate(db) -> None:
     """Idempotent, run on every connect: rebuild a pre-owner rating/diary table in the new
     shape, every row kept as owner 'you'. Cheap no-op once migrated; one transaction."""
+    _add_level_column(db)
     if not any(_old_shapes(db)):
         return
     db.execute("BEGIN IMMEDIATE")
@@ -143,14 +161,40 @@ def get_rating(item_key: str, owner: str = "you") -> dict | None:
 
 
 def set_rating(item_key: str, score: int, kind: str, title: str, year=None, poster=None,
-               owner: str = "you") -> None:
+               owner: str = "you", level: str = "show") -> None:
+    level = level if level in LEVELS else "show"
     with closing(connect()) as db, db:
         db.execute(
-            "INSERT INTO rating(item_key, kind, title, year, poster, score, rated_at, owner) "
-            "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(item_key, owner) DO UPDATE SET "
+            "INSERT INTO rating(item_key, kind, title, year, poster, score, rated_at, owner, level) "
+            "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(item_key, owner) DO UPDATE SET "
             "kind=excluded.kind, title=excluded.title, year=excluded.year, poster=excluded.poster, "
-            "score=excluded.score, rated_at=excluded.rated_at",
-            (item_key, norm_kind(kind), title, year, poster, score, _now().isoformat(), owner))
+            "score=excluded.score, rated_at=excluded.rated_at, level=excluded.level",
+            (item_key, norm_kind(kind), title, year, poster, score, _now().isoformat(), owner, level))
+
+
+def get_setting(owner: str, key: str, default=None):
+    db = _read()
+    if db is None:
+        return default
+    try:
+        with closing(db):
+            row = db.execute("SELECT value FROM setting WHERE owner = ? AND key = ?", (owner, key)).fetchone()
+            return row["value"] if row else default
+    except sqlite3.Error as exc:
+        log.warning("get_setting failed: %s", type(exc).__name__)
+        return default
+
+
+def set_setting(owner: str, key: str, value: str) -> None:
+    with closing(connect()) as db, db:
+        db.execute("INSERT INTO setting(owner, key, value) VALUES(?,?,?) "
+                   "ON CONFLICT(owner, key) DO UPDATE SET value = excluded.value", (owner, key, value))
+
+
+def rating_level(owner: str) -> str:
+    """The owner's 'Rate TV by' choice; show unless set to season or episode."""
+    value = get_setting(owner, "rating_level", "show")
+    return value if value in LEVELS else "show"
 
 
 def delete_rating(item_key: str, owner: str = "you") -> None:
@@ -307,9 +351,9 @@ def years_overview(kind: str | None = None) -> list[dict]:
     try:
         with closing(db):
             rated = {_yk(r["y"]): r["n"] for r in db.execute(
-                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you'" + kf + " GROUP BY year", ka)}
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you' AND level IN ('show', 'season')" + kf + " GROUP BY year", ka)}
             unranked = {_yk(r["y"]): r["n"] for r in db.execute(
-                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you'" + kf + " AND item_key NOT IN "
+                "SELECT year AS y, COUNT(*) AS n FROM rating WHERE owner = 'you' AND level IN ('show', 'season')" + kf + " AND item_key NOT IN "
                 "(SELECT item_key FROM ranking WHERE ranking.year = COALESCE(rating.year, 0)) GROUP BY year", ka)}
             ranked = {r["year"]: r["n"] for r in db.execute(
                 "SELECT year, COUNT(*) AS n FROM ranking WHERE 1 = 1" + kf + " GROUP BY year", ka)}
@@ -341,7 +385,7 @@ def year_list(year, kind: str | None = None) -> dict:
                 "WHERE r.year = ?" + (" AND r.kind = ?" if kind else "") + " ORDER BY r.position",
                 [y] + ([kind] if kind else []))]
             unranked = [dict(r) for r in db.execute(
-                "SELECT item_key, kind, title, poster, score FROM rating WHERE owner = 'you' AND year IS ?"
+                "SELECT item_key, kind, title, poster, score FROM rating WHERE owner = 'you' AND level IN ('show', 'season') AND year IS ?"
                 + (" AND kind = ?" if kind else "") + " AND item_key NOT IN "
                 "(SELECT item_key FROM ranking WHERE year = ?) ORDER BY score DESC, title",
                 [year] + ([kind] if kind else []) + [y])]
@@ -356,7 +400,7 @@ def place(year, item_key: str, position: int | None = None) -> bool:
     False when the item isn't rated in that year; already-placed items are left alone."""
     y = _yk(year)
     with closing(connect()) as db, db:
-        row = db.execute("SELECT kind, title, poster FROM rating WHERE item_key = ? AND owner = 'you' AND year IS ?",
+        row = db.execute("SELECT kind, title, poster FROM rating WHERE item_key = ? AND owner = 'you' AND level IN ('show', 'season') AND year IS ?",
                          (item_key, year)).fetchone()
         if row is None:
             return False

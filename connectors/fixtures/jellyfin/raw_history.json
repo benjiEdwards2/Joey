@@ -7,6 +7,7 @@
       "RunTimeTicks": 26400000000,
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 4,
       "UserData": {
@@ -22,6 +23,7 @@
       "RunTimeTicks": 27600000000,
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 5,
       "UserData": {
@@ -37,6 +39,7 @@
       "RunTimeTicks": 30000000000,
       "SeriesName": "Northern Lines",
       "SeriesId": "series-fixture-2",
+      "SeasonId": "season-2-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 3,
       "UserData": {
@@ -65,6 +68,7 @@
       "RunTimeTicks": 31200000000,
       "SeriesName": "Night Ferry",
       "SeriesId": "series-fixture-3",
+      "SeasonId": "season-3-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 4,
       "UserData": {
@@ -106,6 +110,7 @@
       "RunTimeTicks": 28800000000,
       "SeriesName": "Harbour Watch",
       "SeriesId": "series-fixture-4",
+      "SeasonId": "season-4-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 2,
       "UserData": {
@@ -134,6 +139,7 @@
       "RunTimeTicks": 27000000000,
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 3,
       "UserData": {
@@ -149,6 +155,7 @@
       "RunTimeTicks": 27000000000,
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 2,
       "UserData": {
@@ -164,6 +171,7 @@
       "RunTimeTicks": 27000000000,
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 1,
       "UserData": {
@@ -179,6 +187,7 @@
       "RunTimeTicks": 30000000000,
       "SeriesName": "Northern Lines",
       "SeriesId": "series-fixture-2",
+      "SeasonId": "season-2-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 2,
       "UserData": {
@@ -220,6 +229,7 @@
       "RunTimeTicks": 30600000000,
       "SeriesName": "Night Ferry",
       "SeriesId": "series-fixture-3",
+      "SeasonId": "season-3-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 3,
       "UserData": {
@@ -274,6 +284,7 @@
       "RunTimeTicks": 28200000000,
       "SeriesName": "Northern Lines",
       "SeriesId": "series-fixture-2",
+      "SeasonId": "season-2-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 1,
       "UserData": {
@@ -289,6 +300,7 @@
       "RunTimeTicks": 31200000000,
       "SeriesName": "Night Ferry",
       "SeriesId": "series-fixture-3",
+      "SeasonId": "season-3-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 2,
       "UserData": {
@@ -304,6 +316,7 @@
       "RunTimeTicks": 31200000000,
       "SeriesName": "Night Ferry",
       "SeriesId": "series-fixture-3",
+      "SeasonId": "season-3-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 1,
       "UserData": {
@@ -319,6 +332,7 @@
       "RunTimeTicks": 29400000000,
       "SeriesName": "Harbour Watch",
       "SeriesId": "series-fixture-4",
+      "SeasonId": "season-4-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 1,
       "UserData": {
@@ -360,6 +374,7 @@
       "RunTimeTicks": 27600000000,
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 1,
       "UserData": {

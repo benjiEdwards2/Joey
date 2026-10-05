@@ -6,6 +6,7 @@
       "Type": "Episode",
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 5
     },
@@ -15,6 +16,7 @@
       "Type": "Episode",
       "SeriesName": "Northern Lines",
       "SeriesId": "series-fixture-2",
+      "SeasonId": "season-2-1",
       "ParentIndexNumber": 1,
       "IndexNumber": 3
     }

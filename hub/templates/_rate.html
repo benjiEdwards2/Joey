@@ -6,6 +6,13 @@
 {% macro chip(key, ratings) -%}
 {{ scorechip(ratings.get(key) if key else none) }}
 {%- endmacro %}
+{# Rows that may be episodes: the score follows the owner's rating level (score_for global). #}
+{% macro rowchip(row, ratings) -%}
+{{ scorechip(score_for(row, ratings)) }}
+{%- endmacro %}
+{% macro rowpcls(row, ratings) -%}
+{{ " gold-glow" if score_for(row, ratings) == 10 }}
+{%- endmacro %}
 {% macro pcls(key, ratings) -%}
 {{ " gold-glow" if key and ratings.get(key) == 10 }}
 {%- endmacro %}
@@ -15,6 +22,7 @@
 <form class="ratebox ratepick" method="post" action="/media/rate" hx-post="/media/rate" hx-target="this" hx-swap="outerHTML">
   <input type="hidden" name="item_key" value="{{ r.item_key }}">
   <input type="hidden" name="kind" value="{{ r.kind }}">
+  <input type="hidden" name="level" value="{{ r.level or 'show' }}">
   <input type="hidden" name="title" value="{{ r.title }}">
   <input type="hidden" name="year" value="{{ r.year or '' }}">
   <input type="hidden" name="poster" value="{{ r.poster or '' }}">

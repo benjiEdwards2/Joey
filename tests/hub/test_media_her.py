@@ -154,3 +154,11 @@ def test_real_registry_history_and_diary_are_shared_years_stays_you():
     media = next(a for a in load_registry("config/areas.yaml").areas if a.id == "media")
     owners = {t.id: t.owner.value for t in media.tiles}
     assert owners["history"] == owners["diary"] == "shared" and owners["years"] == "you"
+
+
+def test_rating_level_setting_is_per_owner(env):
+    with env() as client:
+        client.get("/media/history?owner_view=her")  # her cookie
+        assert client.post("/media/settings/rating_level", data={"value": "episode"},
+                           follow_redirects=False).status_code == 303
+    assert media_db.rating_level("her") == "episode" and media_db.rating_level("you") == "show"

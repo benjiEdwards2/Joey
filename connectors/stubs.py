@@ -343,6 +343,22 @@ def _jf_key(item: dict) -> str | None:
     return f"jf:{item['Id']}" if item.get("Id") else None
 
 
+def _jf_levels(item: dict) -> dict:
+    """Per-level rating keys + numbers for a row (F5). `item_key` stays the show key for
+    episodes; these let the hub rate at show / season / episode level. Movies: all null."""
+    if item.get("Type") != "Episode":
+        return {"show_key": None, "season_key": None, "episode_key": None,
+                "season": None, "episode": None, "show_title": None}
+
+    def num(v):
+        return v if isinstance(v, int) and not isinstance(v, bool) else None
+    return {"show_key": f"jf:{item['SeriesId']}" if item.get("SeriesId") else None,
+            "season_key": f"jf:{item['SeasonId']}" if item.get("SeasonId") else None,
+            "episode_key": f"jf:{item['Id']}" if item.get("Id") else None,
+            "season": num(item.get("ParentIndexNumber")), "episode": num(item.get("IndexNumber")),
+            "show_title": item.get("SeriesName")}
+
+
 def _play_method(session: dict) -> str:
     method = PLAY_METHODS.get(session.get("PlayState", {}).get("PlayMethod"))
     if method:
@@ -355,7 +371,7 @@ class Jellyfin(Connector):
     id = "jellyfin"
     requires_env = ("JELLYFIN_URL", "JELLYFIN_API_KEY")  # JELLYFIN_USER is optional
 
-    ITEM_FIELDS = "DateCreated,SeriesName,SeriesId,ProviderIds"
+    ITEM_FIELDS = "DateCreated,SeriesName,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,ProviderIds"
     MOVIE_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Overview"
     SHOW_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Status,RecursiveItemCount,Overview"
 
@@ -418,7 +434,7 @@ class Jellyfin(Connector):
         history_params = {
             "Filters": "IsPlayed", "SortBy": "DatePlayed", "SortOrder": "Descending",
             "Recursive": "true", "IncludeItemTypes": "Movie,Episode",
-            "Fields": "UserData,RunTimeTicks,SeriesName,SeriesId,ParentIndexNumber,IndexNumber,ProductionYear,ProviderIds",
+            "Fields": "UserData,RunTimeTicks,SeriesName,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,ProductionYear,ProviderIds",
             "Limit": HISTORY_FETCH_LIMIT}
         raw = {
             "raw_users": users,
@@ -519,7 +535,7 @@ class Jellyfin(Connector):
             "recent": [{"title": _media_title(item), "kind": _item_kind(item),
                         "watched_at": item["UserData"]["LastPlayedDate"], "when": _ago(dt, now),
                         "poster": _jf_ref("jf", item), "item_key": _jf_key(item),
-                        "jf_id": item.get("Id")}
+                        "jf_id": item.get("Id"), **_jf_levels(item)}
                        for item, dt, _, _ in played[:HISTORY_RECENT]],
             "week_count": sum(1 for _, dt, _, _ in played if dt >= week),
             "month_count": sum(1 for _, dt, _, _ in played if dt >= month),
@@ -549,7 +565,7 @@ class Jellyfin(Connector):
                 "kind": "episode" if item.get("Type") == "Episode" else "movie",
                 "remaining_text": f"{left} min left",
                 "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
-                "item_key": _jf_key(item), "jf_id": item.get("Id"),
+                "item_key": _jf_key(item), "jf_id": item.get("Id"), **_jf_levels(item),
             })
         for item in nextup["Items"]:
             if item.get("Id") in seen:  # already resumable — don't list twice
@@ -557,7 +573,7 @@ class Jellyfin(Connector):
             up_next.append({"title": _media_title(item), "kind": "episode",
                             "remaining_text": "Next episode",
                             "poster": _jf_ref("jf", item), "backdrop": _jf_ref("jfb", item),
-                            "item_key": _jf_key(item), "jf_id": item.get("Id")})
+                            "item_key": _jf_key(item), "jf_id": item.get("Id"), **_jf_levels(item)})
         return up_next[:UP_NEXT_LIMIT]
 
     def _her_block(self, raw: dict) -> dict | None:
@@ -591,6 +607,7 @@ class Jellyfin(Connector):
                 "backdrop": _jf_ref("jfb", item),
                 "item_key": _jf_key(item),
                 "jf_id": item.get("Id"),
+                **_jf_levels(item),
             })
 
         up_next = self._up_next(raw["raw_resume"], raw["raw_nextup"])

@@ -209,7 +209,10 @@ def test_recent_is_newest_first_capped_and_episode_titles_carry_the_show(history
     assert len(recent) == 20
     assert recent[0] == {"title": "Quiet Coast · S02E04 · Late Tide", "kind": "episode", "jf_id": "hist-fixture-1",
                          "watched_at": "2025-12-31T21:10:00.0000000Z", "when": "2 hours ago",
-                         "poster": "jf:series-fixture-1", "item_key": "jf:series-fixture-1"}
+                         "poster": "jf:series-fixture-1", "item_key": "jf:series-fixture-1",
+                         "show_key": "jf:series-fixture-1", "season_key": "jf:season-1-2",
+                         "episode_key": "jf:hist-fixture-1", "season": 2, "episode": 4,
+                         "show_title": "Quiet Coast"}
     assert recent[3]["title"] == "Harbour Lights" and recent[3]["kind"] == "movie"
     stamps = [r["watched_at"] for r in recent]
     assert stamps == sorted(stamps, reverse=True)
@@ -403,3 +406,29 @@ def test_history_rows_carry_jf_id_for_deep_links(raw):
     jsonschema.validate(data, SCHEMA)
     assert data["history"]["recent"][0]["jf_id"] == "hist-fixture-1"
     assert all(r["jf_id"] for r in data["history"]["recent"] + data["history"]["on_this_day"])
+
+
+def test_episode_rows_carry_show_season_episode_keys_and_movies_carry_none(history):
+    ep = history["recent"][0]
+    assert (ep["show_key"], ep["season_key"], ep["episode_key"]) == (
+        "jf:series-fixture-1", "jf:season-1-2", "jf:hist-fixture-1")
+    movie = history["recent"][3]
+    assert movie["show_key"] is movie["season_key"] is movie["episode_key"] is None
+    assert movie["season"] is movie["episode"] is movie["show_title"] is None
+
+
+def test_episode_without_season_id_has_null_season_key():
+    from connectors.stubs import _jf_levels
+    levels = _jf_levels({"Id": "e1", "Type": "Episode", "SeriesId": "s1", "SeriesName": "Show",
+                         "ParentIndexNumber": 1, "IndexNumber": 2})
+    assert levels["season_key"] is None and levels["show_key"] == "jf:s1"
+    assert levels["episode_key"] == "jf:e1" and (levels["season"], levels["episode"]) == (1, 2)
+
+
+def test_up_next_and_now_playing_episode_rows_carry_level_keys(snapshots, raw):
+    data = Jellyfin().transform(raw)
+    ep = next(r for r in data["up_next"] if r["kind"] == "episode")
+    assert ep["show_key"] == ep["item_key"] and ep["episode_key"] == "jf:" + ep["jf_id"]
+    assert ep["season_key"].startswith("jf:season-")
+    playing = next(r for r in data["now_playing"] if r["item_key"] and r["item_key"].startswith("jf:series"))
+    assert playing["show_key"] == playing["item_key"] and playing["season"] is not None

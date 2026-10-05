@@ -211,3 +211,99 @@ def test_pages_render_with_no_db_file(env):
         for url in ("/media/history", "/media/playing", "/media/library", "/media/requests", "/a/alpha"):
             assert client.get(url).status_code == 200, url
     assert not db_file.exists()
+
+
+# ---- Rating level: Show / Season / Episode (2026-10-06) ----
+
+def tv_row(show, season_id, season, ep_id, ep, title, days):
+    return {"title": f"Colin from Accounts · S{season:02d}E{ep:02d} · {title}", "kind": "episode",
+            "watched_at": ago(days), "when": f"{days} days ago", "poster": "jf:p-" + show,
+            "item_key": f"jf:{show}", "show_key": f"jf:{show}", "season_key": f"jf:{season_id}",
+            "episode_key": f"jf:{ep_id}", "season": season, "episode": ep,
+            "show_title": "Colin from Accounts", "jf_id": ep_id}
+
+
+TV = [
+    tv_row("cfa", "cfas1", 1, "cfae8", 8, "High Needs People", 1),
+    tv_row("cfa", "cfas1", 1, "cfae7", 7, "Other", 2),
+    tv_row("cfa", "cfas2", 2, "cfae9", 1, "Again", 3),
+    recent_row("tmdb:1", "Heat", 4),
+]
+
+
+def inbox_of(html):
+    return main_of(html).split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
+
+
+@pytest.mark.parametrize("level, count, titles, key", [
+    ("show", 2, ["Colin from Accounts<"], "jf:cfa"),
+    ("season", 3, ["Colin from Accounts · Season 1<", "Colin from Accounts · Season 2<"], "jf:cfas1"),
+    ("episode", 4, ["Colin from Accounts · S01E08 · High Needs People<"], "jf:cfae8"),
+])
+def test_inbox_at_each_level_counts_titles_and_keys(env, level, count, titles, key):
+    build, db_file = env
+    media_db.set_setting("you", "rating_level", level)
+    with build(jelly_data(TV)) as client:
+        inbox = inbox_of(client.get("/media/history").text)
+    assert inbox.count('class="ratebox ratepick"') == count
+    assert all(t in inbox for t in titles) and f'name="item_key" value="{key}"' in inbox
+    assert f'name="level" value="{level}"' in inbox and "Heat" in inbox
+
+
+def test_inbox_skips_what_is_already_rated_at_the_level(env):
+    build, db_file = env
+    media_db.set_setting("you", "rating_level", "season")
+    media_db.set_rating("jf:cfas1", 7, "tv", "x", level="season")
+    with build(jelly_data(TV)) as client:
+        inbox = inbox_of(client.get("/media/history").text)
+    assert "Season 1<" not in inbox and "Season 2<" in inbox
+
+
+def test_level_chips_mark_the_active_one_and_post_sets_it(env):
+    build, db_file = env
+    with build(jelly_data(TV)) as client:
+        html = main_of(client.get("/media/history").text)
+        assert 'value="show" class="chip on" aria-current="true"' in html
+        resp = client.post("/media/settings/rating_level", data={"value": "episode"}, follow_redirects=False)
+        assert resp.status_code == 303 and resp.headers["location"] == "/media/history"
+        html = main_of(client.get("/media/history").text)
+        assert 'value="episode" class="chip on" aria-current="true"' in html
+        assert 'value="show" class="chip"' in html
+    assert media_db.rating_level("you") == "episode"
+
+
+def test_level_post_refuses_foreign_origin_and_bad_values(env):
+    build, db_file = env
+    with build(jelly_data(TV)) as client:
+        assert client.post("/media/settings/rating_level", data={"value": "season"},
+                           headers={"Origin": "https://evil.example"}).status_code == 403
+        assert client.post("/media/settings/rating_level", data={"value": "nope"}).status_code == 422
+    assert media_db.rating_level("you") == "show"
+
+
+def test_rate_post_at_season_level_stores_level_under_the_season_key(env):
+    build, db_file = env
+    with build(jelly_data(TV)) as client:
+        resp = client.post("/media/rate", data=rate_form("jf:cfas1", 9, kind="tv", level="season",
+                                                        title="Colin from Accounts · Season 1"), headers=HX)
+        assert resp.status_code == 200
+        assert client.post("/media/rate", data=rate_form("jf:x1", 5, level="weird"), headers=HX).status_code == 422
+    row = media_db.get_rating("jf:cfas1")
+    assert row["score"] == 9 and row["level"] == "season"
+    assert media_db.get_rating("jf:cfa") is None
+
+
+def test_show_score_stays_on_shelf_rows_while_episode_score_wins_on_an_episode_row(env):
+    build, db_file = env
+    media_db.set_rating("jf:cfa", 6, "tv", "Colin from Accounts")
+    with build(jelly_data(TV)) as client:
+        show_level = main_of(client.get("/media/history").text)
+        media_db.set_setting("you", "rating_level", "episode")
+        media_db.set_rating("jf:cfae8", 9, "tv", "Colin ep", level="episode")
+        ep_level = main_of(client.get("/media/history").text)
+
+    def recent(h):
+        return h.split(">Recently watched</div>", 1)[1].split(">Most played shows</div>", 1)[0]
+    assert recent(show_level).count('title="Your rating: 6 out of 10"') == 3  # each episode row shows the show score
+    r = recent(ep_level)
+    assert r.count('title="Your rating: 9 out of 10"') == 1 and r.count('title="Your rating: 6 out of 10"') == 2

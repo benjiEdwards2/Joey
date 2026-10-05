@@ -246,6 +246,7 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .pickrow { cursor: pointer; }
 .filters { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
 .filters .chip { text-decoration: none; }
+.filters button.chip { font: inherit; background: none; cursor: pointer; }
 .filters .chip.on { color: var(--fg); border-color: var(--accent, var(--muted)); text-decoration: underline; }
 .older { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--accent, var(--muted)); }
 

@@ -163,3 +163,45 @@ def test_migration_rebuilds_old_shape_keeping_every_row_as_you(path):
     assert db.get_rating("tmdb:1")["score"] == 8 and db.get_rating("tmdb:1", "her")["score"] == 5
     assert db.get_ratings(["tmdb:1", "tmdb:2"]) == {"tmdb:1": 8, "tmdb:2": 6}
     assert len(db.list_diary()) == 2 and db.list_diary(owner="her") == []
+
+
+# ---- Rating level + settings (2026-10-06) ----
+
+def test_setting_get_set_per_owner_with_default(path):
+    assert db.get_setting("you", "rating_level", "show") == "show" and not path.exists()
+    db.set_setting("you", "rating_level", "episode")
+    db.set_setting("you", "rating_level", "season")
+    assert db.get_setting("you", "rating_level") == "season"
+    assert db.get_setting("her", "rating_level", "show") == "show"
+    assert db.rating_level("you") == "season" and db.rating_level("her") == "show"
+
+
+def test_rating_level_defaults_show_and_is_stored(path):
+    db.set_rating("tmdb:1", 8, "movie", "Heat")
+    db.set_rating("jf:season1", 6, "tv", "Show · Season 1", level="season")
+    db.set_rating("jf:ep1", 5, "tv", "Show", level="bogus")  # unknown level -> show
+    levels = {k: db.get_rating(k)["level"] for k in ("tmdb:1", "jf:season1", "jf:ep1")}
+    assert levels == {"tmdb:1": "show", "jf:season1": "season", "jf:ep1": "show"}
+
+
+def test_migration_adds_level_to_a_pre_level_rating_table(path):
+    import sqlite3
+    path.parent.mkdir(parents=True)
+    c = sqlite3.connect(path)
+    c.execute("""CREATE TABLE rating(item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT,
+      score INT, rated_at TEXT, owner TEXT NOT NULL DEFAULT 'you', PRIMARY KEY(item_key, owner))""")
+    c.execute("INSERT INTO rating VALUES('tmdb:1','movie','Heat',1995,NULL,9,'2026-01-01','you')")
+    c.commit()
+    c.close()
+    assert db.get_rating("tmdb:1")["level"] == "show" and db.get_ratings(["tmdb:1"]) == {"tmdb:1": 9}
+    db.set_rating("jf:e", 4, "tv", "S", level="episode")  # second connect: idempotent
+    assert db.get_rating("jf:e")["level"] == "episode"
+
+
+def test_rankings_ignore_episode_level_ratings(path):
+    db.set_rating("tmdb:1", 8, "movie", "Heat", 2020)
+    db.set_rating("jf:season1", 7, "tv", "Show · Season 1", 2020, level="season")
+    db.set_rating("jf:ep1", 9, "tv", "Show · S01E01", 2020, level="episode")
+    assert [y["unranked_count"] for y in db.years_overview()] == [2]
+    assert {r["item_key"] for r in db.year_list(2020)["unranked"]} == {"tmdb:1", "jf:season1"}
+    assert db.place(2020, "jf:ep1") is False and db.place(2020, "jf:season1") is True

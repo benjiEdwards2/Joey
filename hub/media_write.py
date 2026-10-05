@@ -97,6 +97,21 @@ def render(request: Request, name: str, **ctx) -> HTMLResponse:
     return templates.TemplateResponse(request, name, ctx)
 
 
+@router.post("/media/settings/rating_level", dependencies=[Depends(same_origin)])
+async def set_rating_level(request: Request):
+    """'Rate TV by' choice for the owner; back to the To rate inbox it reshapes."""
+    f = await form_of(request)
+    value = f.get("value") or ""
+    if value not in media_db.LEVELS:
+        raise bad("Invalid rating level")
+    try:
+        media_db.set_setting(owner_for(request), "rating_level", value)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("setting not saved: %s", type(exc).__name__)
+        raise HTTPException(503, "Couldn't save the setting") from None
+    return RedirectResponse("/media/history", status_code=303)
+
+
 @router.post("/media/rate", dependencies=[Depends(same_origin)])
 async def rate(request: Request):
     f = await form_of(request)
@@ -107,8 +122,11 @@ async def rate(request: Request):
         raise bad("Score must be 1 to 10") from None
     if not 1 <= score <= 10:
         raise bad("Score must be 1 to 10")
+    level = f.get("level") or "show"
+    if level not in media_db.LEVELS:
+        raise bad("Invalid rating level")
     try:
-        media_db.set_rating(score=score, owner=owner_for(request), **item)
+        media_db.set_rating(score=score, owner=owner_for(request), level=level, **item)
     except (sqlite3.Error, OSError) as exc:
         log.warning("rating not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the rating") from None

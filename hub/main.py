@@ -283,10 +283,35 @@ def _parse_ts(value) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def _ratings(view: str, *row_lists) -> dict:
-    """ONE get_ratings() per page render, for the view's owner (her view = her own ratings)."""
-    return media_db.get_ratings((r.get("item_key") for rows in row_lists for r in rows or []),
-                                media_db.owner_of(view))
+LEVEL_KEYS = ("item_key", "show_key", "season_key", "episode_key")
+
+
+class Ratings(dict):
+    """{key: score} plus the owner's rating level, so templates can call score_for(row, ratings)."""
+    level = "show"
+
+
+def _ratings(view: str, *row_lists) -> Ratings:
+    """ONE get_ratings() per page render, for the view's owner (her view = her own ratings).
+    Fetches every key kind a row carries (show / season / episode) so score_for can pick."""
+    owner = media_db.owner_of(view)
+    out = Ratings(media_db.get_ratings((r.get(k) for rows in row_lists for r in rows or [] for k in LEVEL_KEYS),
+                                       owner))
+    out.level = media_db.rating_level(owner)
+    return out
+
+
+def score_for(row, ratings, level=None):
+    """A row's score: the current level's key when it has one that is rated, else the show's
+    (item_key). Movies and rows without level keys read item_key as ever."""
+    level = level or getattr(ratings, "level", "show")
+    key = row.get(level + "_key") if level in media_db.LEVELS else None
+    if key and key in ratings:
+        return ratings[key]
+    return ratings.get(row.get("item_key")) if row.get("item_key") else None
+
+
+templates.env.globals["score_for"] = score_for
 
 
 def view_jelly(jelly: dict, view: str) -> dict:
@@ -486,7 +511,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 
     def item(r, sub, href, **extra):
         return {"title": r.get("title"), "sub": sub, "poster": r.get("poster"),
-                "href": href, "item_key": r.get("item_key"), **extra}
+                "href": href, **{k: r.get(k) for k in LEVEL_KEYS}, **extra}
 
     def jf_item(r, sub, fallback):
         """Row that opens in Jellyfin when it carries a jf_id (new tab), else a Joey page."""
@@ -534,7 +559,9 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         unset_text if her_unset else "Nothing watched yet")
     for sh in shelves:
         for it in sh["items"]:
-            it["score"] = ratings.get(it.pop("item_key", None))
+            it["score"] = score_for(it, ratings)
+            for k in LEVEL_KEYS:
+                it.pop(k, None)
 
     return {
         "hero": hero, "kind_word": kind_word, "shelves": shelves,
@@ -697,13 +724,26 @@ def media_requests_page(request: Request):
     return _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
 
 
+def _to_rate_title(r: dict, kind: str, level: str) -> str:
+    """Inbox title for a TV row at its rating level; a row missing the numbers falls back."""
+    if level == "season" and r.get("show_title") and r.get("season") is not None:
+        return f"{r['show_title']} · Season {r['season']}"
+    if level == "episode":
+        return r["title"]
+    return media_db.base_title(r["title"], kind)
+
+
 def _to_rate(recent, ratings) -> list[dict]:
-    """The rating inbox: unrated titles watched in the last TO_RATE_DAYS, one per item_key
-    (a show's episodes collapse to the show, which is what gets rated)."""
+    """The rating inbox: unrated titles watched in the last TO_RATE_DAYS, one per rating key.
+    TV rows follow the owner's level (ratings.level): one entry per show / season / episode
+    (a row without that level's key falls back to its show); movies are always one title."""
+    level = getattr(ratings, "level", "show")
     cutoff = datetime.now(timezone.utc) - timedelta(days=TO_RATE_DAYS)
     seen, rows = set(), []
     for r in recent:
-        key = r.get("item_key")
+        kind = media_db.norm_kind(r.get("kind"))
+        row_level = level if kind == "tv" and r.get(level + "_key") else "show"
+        key = r.get(row_level + "_key") if row_level != "show" else r.get("item_key")
         try:
             fresh = _parse_ts(r["watched_at"]) >= cutoff
         except Exception:
@@ -711,9 +751,8 @@ def _to_rate(recent, ratings) -> list[dict]:
         if not key or key in ratings or key in seen or not fresh:
             continue
         seen.add(key)
-        kind = media_db.norm_kind(r.get("kind"))
-        rows.append({"item_key": key, "kind": kind, "year": None,
-                     "title": media_db.base_title(r["title"], kind),
+        rows.append({"item_key": key, "kind": kind, "year": None, "level": row_level,
+                     "title": _to_rate_title(r, kind, row_level),
                      "poster": r.get("poster"), "when": r.get("when", "")})
     return rows
 
@@ -730,6 +769,8 @@ def media_history_page(request: Request):
             "history": history,
             "ratings": ratings,
             "to_rate": _to_rate(recent, ratings),
+            "rating_levels": media_db.LEVELS,
+            "rating_level": ratings.level,
             "shows": [{**s, "pct": round(s["episodes"] / top * 100)} for s in shows],
             "numbers": " · ".join([
                 f"{history.get('week_count', 0)} this week",

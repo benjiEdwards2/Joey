@@ -14,6 +14,7 @@
       "Type": "Episode",
       "SeriesName": "Quiet Coast",
       "SeriesId": "series-fixture-1",
+      "SeasonId": "season-1-2",
       "ParentIndexNumber": 2,
       "IndexNumber": 5,
       "RunTimeTicks": 27000000000,

@@ -1,0 +1,205 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "totalRecords": 7,
+  "records": [
+    {
+      "id": 41,
+      "episodeId": 101,
+      "sourceTitle": "Quiet.Coast.S02E01.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-30T20:41:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "series": {
+        "id": 1,
+        "title": "Quiet Coast"
+      },
+      "episode": {
+        "id": 101,
+        "seasonNumber": 2,
+        "episodeNumber": 1,
+        "title": "First Light"
+      }
+    },
+    {
+      "id": 42,
+      "episodeId": 102,
+      "sourceTitle": "Quiet.Coast.S02E02.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-31T20:42:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "series": {
+        "id": 1,
+        "title": "Quiet Coast"
+      },
+      "episode": {
+        "id": 102,
+        "seasonNumber": 2,
+        "episodeNumber": 2,
+        "title": "Open Water"
+      }
+    },
+    {
+      "id": 43,
+      "episodeId": 103,
+      "sourceTitle": "Quiet.Coast.S02E03.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-31T20:43:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "series": {
+        "id": 1,
+        "title": "Quiet Coast"
+      },
+      "episode": {
+        "id": 103,
+        "seasonNumber": 2,
+        "episodeNumber": 3,
+        "title": "Slack Tide"
+      }
+    },
+    {
+      "id": 50,
+      "episodeId": 120,
+      "sourceTitle": "Night.Ferry.S01E04.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-29T07:30:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "series": {
+        "id": 2,
+        "title": "Night Ferry"
+      },
+      "episode": {
+        "id": 120,
+        "seasonNumber": 1,
+        "episodeNumber": 4,
+        "title": "Last Crossing"
+      }
+    },
+    {
+      "id": 51,
+      "episodeId": 130,
+      "sourceTitle": "Quiet.Coast.S01E01.2160p.BluRay",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "Bluray-2160p",
+          "resolution": 2160
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-28T12:10:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "series": {
+        "id": 1,
+        "title": "Quiet Coast"
+      },
+      "episode": {
+        "id": 130,
+        "seasonNumber": 1,
+        "episodeNumber": 1,
+        "title": "Pilot"
+      }
+    },
+    {
+      "id": 52,
+      "episodeId": 130,
+      "sourceTitle": "Quiet.Coast.S01E01.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-28T12:05:00Z",
+      "eventType": "episodeFileDeleted",
+      "data": {
+        "reason": "Upgrade"
+      },
+      "series": {
+        "id": 1,
+        "title": "Quiet Coast"
+      },
+      "episode": {
+        "id": 130,
+        "seasonNumber": 1,
+        "episodeNumber": 1,
+        "title": "Pilot"
+      }
+    },
+    {
+      "id": 53,
+      "episodeId": 140,
+      "sourceTitle": "Night.Ferry.S01E03.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-15T07:30:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "series": {
+        "id": 2,
+        "title": "Night Ferry"
+      },
+      "episode": {
+        "id": 140,
+        "seasonNumber": 1,
+        "episodeNumber": 3,
+        "title": "Rising Fog"
+      }
+    }
+  ]
+}

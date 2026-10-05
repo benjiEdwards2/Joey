@@ -1,0 +1,154 @@
+"""Tiles that open a detail page (2026-10-05): the registry `detail` field, the
+cardlink wrapper, and the /media/apps + /media/playing pages behind them.
+Placement is asserted inside <main> — never by substring counts over the whole
+HTML (a block once landed in {% block title %} and passed such a count).
+"""
+import importlib
+from datetime import datetime, timedelta, timezone
+
+import pytest
+import yaml
+from fastapi.testclient import TestClient
+
+from hub.registry import load_registry
+from tests.hub.test_registry import make_area, make_tile, write_registry
+from tests.hub.test_store import write_envelope
+
+JELLY_HREF = "http://nas.example.invalid:8096"
+APPS = [
+    {"id": "jellyfin", "name": "Jellyfin", "href": "http://nas.example.invalid:8096",
+     "up": True, "status_text": "Up", "note": None},
+    {"id": "prowlarr", "name": "Prowlarr", "href": "http://nas.example.invalid:9696",
+     "up": False, "status_text": "Down", "note": "timeout"},
+]
+ADDED = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+PLAY = {
+    "summary": "1 playing now",
+    "now_playing": [{"title": "Harbour Lights", "user": "Sample Person",
+                     "progress_pct": 42, "play_method": "Transcoding"}],
+    "up_next": [{"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 min left"},
+                {"title": "Quiet Coast · S02E05", "kind": "episode", "remaining_text": "Next episode"}],
+    "latest": [{"title": "Desert Crossing", "added_at": ADDED, "type": "Movie"}],
+    "library": {"movies": 42, "episodes": 237},
+}
+
+
+@pytest.fixture()
+def app_factory(tmp_path, monkeypatch):
+    area = make_area("alpha", "play-t", snapshot="jellyfin", stale_after_minutes=10,
+                     detail="/media/playing", owner="her")
+    area["tiles"].append(make_tile("apps-t", snapshot="media_status", stale_after_minutes=10,
+                                   detail="/media/apps"))
+    area["tiles"].append({"id": "open-t", "label": "Open Jellyfin", "tier": "link",
+                          "owner": "shared", "href": JELLY_HREF})
+    path = tmp_path / "areas.yaml"
+    path.write_text(yaml.safe_dump({"areas": [area]}), encoding="utf-8")
+    monkeypatch.setenv("AREAS_PATH", str(path))
+
+    def build(snapshot_dir):
+        monkeypatch.setenv("SNAPSHOT_DIR", str(snapshot_dir))
+        import hub.main
+        importlib.reload(hub.main)
+        return TestClient(hub.main.app)
+
+    return build, tmp_path
+
+
+def main_of(html: str) -> str:
+    return html.split("<main", 1)[1]
+
+
+def test_apps_page_lists_every_app_with_words_and_links(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "1 of 2 up", "apps": APPS})
+    with build(snaps) as client:
+        resp = client.get("/media/apps")
+    assert resp.status_code == 200
+    assert "<title>Media apps" in resp.text
+    body = main_of(resp.text)
+    assert 'class="head">Media apps<' in body
+    assert body.count('<span class="appstate">') == 2
+    assert '<span class="appstate">Up</span>' in body and '<span class="appstate">Down</span>' in body
+    assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body
+    assert "timeout" in body and "updated 1m ago" in body
+    assert "--accent: #3FD9C0" in body
+
+
+def test_playing_page_sections_render_in_main(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
+    with build(snaps) as client:
+        resp = client.get("/media/playing")
+    assert resp.status_code == 200
+    title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
+    assert title.startswith("Now playing") and "<" not in title
+    body = main_of(resp.text)
+    assert "Harbour Lights · Sample Person · Transcoding · 42%" in body
+    assert "width: 42%" in body
+    assert f'href="{JELLY_HREF}"' in body                      # resolved like find_media
+    assert ">Up next</div>" in body and "Dust and Daylight" in body and "Next episode" in body
+    assert ">Latest additions</div>" in body
+    assert body.index("Desert Crossing") > body.index(">Latest additions</div>")
+    assert "3 days ago" in body and ">Movie</span>" in body
+    assert "Library: 42 movies · 237 episodes" in body
+
+
+def test_pages_say_not_connected_without_snapshots(app_factory):
+    build, tmp_path = app_factory
+    with build(tmp_path / "empty") as client:
+        for path in ("/media/apps", "/media/playing"):
+            resp = client.get(path)
+            assert resp.status_code == 200
+            body = main_of(resp.text)
+            assert "Not connected" in body and "appstate" not in body and "Up next" not in body
+
+
+def test_pages_404_when_no_tile_reads_the_snapshot(tmp_path, monkeypatch):
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, make_area("alpha", snapshot="nas_stats"))))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    import hub.main
+    importlib.reload(hub.main)
+    with TestClient(hub.main.app) as client:
+        for path in ("/media/apps", "/media/playing", "/media/library"):
+            resp = client.get(path)
+            assert resp.status_code == 404 and "No page here" in resp.text
+
+
+def test_detail_tile_is_a_cardlink_and_keeps_its_owner(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
+    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "1 of 2 up", "apps": APPS})
+    with build(snaps) as client:
+        body = main_of(client.get("/a/alpha").text)
+        assert '<a class="cardlink" href="/media/playing">' in body
+        assert '<a class="cardlink" href="/media/apps">' in body
+        assert body.count("Open →") == 2
+        card = body.split('<a class="cardlink" href="/media/playing">', 1)[1].split("</a>", 1)[0]
+        assert 'data-owner="her"' in card and "1 playing now" in card
+        # owner filtering still hides the her-owned detail card from "you"
+        you = main_of(client.get("/a/alpha?owner_view=you").text)
+        assert "/media/playing" not in you and "/media/apps" in you
+
+
+def test_hub_summary_card_never_nests_a_second_link(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
+    with build(snaps) as client:
+        body = main_of(client.get("/").text)
+    assert 'href="/a/alpha"' in body and "/media/playing" not in body
+
+
+@pytest.mark.parametrize("bad", ["media/apps", "https://evil.example.invalid/x", "//evil.example.invalid"])
+def test_registry_rejects_a_detail_not_starting_with_a_single_slash(tmp_path, bad):
+    path = write_registry(tmp_path, make_area("alpha", detail=bad))
+    with pytest.raises(ValueError, match="detail"):
+        load_registry(path)
+
+
+def test_registry_accepts_a_hub_route_detail(tmp_path):
+    reg = load_registry(write_registry(tmp_path, make_area("alpha", detail="/media/apps")))
+    assert reg.areas[0].tiles[0].detail == "/media/apps"

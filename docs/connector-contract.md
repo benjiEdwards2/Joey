@@ -38,7 +38,7 @@ never see half a snapshot.
 
 | Field | Meaning |
 |---|---|
-| `connector` | id from the frozen namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money. `clickup` is reserved-but-unused (removed from v1, 2026-08-25). |
+| `connector` | id from the frozen namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money, media_status, arr. `clickup` is reserved-but-unused (removed from v1, 2026-08-25). |
 | `schema_version` | always `1` |
 | `fetched_at` | last fetch **attempt** |
 | `updated_at` | last **success** — this is what the hub's stale badge reads |
@@ -111,7 +111,7 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`
-   in `hub/registry.py`; `media_status` was added to both on 2026-10-05).
+   in `hub/registry.py`; `media_status` and `arr` were added to both on 2026-10-05).
 5. `config/sample_snapshots/{id}.json` — regenerate the sweep per that folder's
    README and commit the result.
 6. `deploy/.env.example` — name any new credential (never its value).

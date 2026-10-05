@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Media apps — Joey{% endblock %}
+{% block content %}
+{# Detail behind the apps tile (2026-10-05). Up/Down is a WORD beside the dot. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">Media apps</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
+  {% else %}
+    {% for a in src.data.get("apps", []) %}
+    <a class="uprow approw" href="{{ a.href }}" target="_blank" rel="noopener">
+      <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>
+      <span class="appstate">{{ a.status_text }}</span>
+      <span class="uptitle">{{ a.name }}</span>
+      {% if not a.up and a.note %}<span class="appnote">{{ a.note }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

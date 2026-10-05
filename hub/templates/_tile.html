@@ -1,4 +1,8 @@
-{# One tile, any state. Expects: tile, st (from hub.store.tile_state), accent. #}
+{# One tile, any state. Expects: tile, st (from hub.store.tile_state), accent.
+   A tile with `detail` wraps in a cardlink to that route, unless the caller is
+   already inside a link (hub summary cards pass no_detail_link). #}
+{% set wrap = tile.detail and not no_detail_link %}
+{% if wrap %}<a class="cardlink" href="{{ tile.detail }}">{% endif %}
 <div class="card{% if extra_class %} {{ extra_class }}{% endif %}" style="--accent: {{ accent }}"
      data-owner="{{ tile.owner.value }}">
   <div class="head">{{ heading }}</div>
@@ -17,6 +21,8 @@
     <span class="chip">{{ tile.owner.value | title }}</span>
     {% if st.state == "stale" %}<span class="badge stale">{{ st.age_text }}</span>
     {% elif st.state == "off" %}<span class="badge off">not connected</span>{% endif %}
+    {% if wrap %}<span class="open">Open →</span>{% endif %}
     {% if st.state == "fresh" and st.age_text %}<span class="ago">{{ st.age_text }}</span>{% endif %}
   </div>
 </div>
+{% if wrap %}</a>{% endif %}

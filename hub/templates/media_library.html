@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Library — Joey{% endblock %}
+{% block content %}
+{# Detail behind the library tile (2026-10-05): Radarr + Sonarr. Every state is a
+   word beside its bar/dot — colour is never the only encoding. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">Library</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
+  {% else %}
+    {% for note in app_notes %}<div class="sub appnote">{{ note }}</div>{% endfor %}
+
+    <div class="upday">Just arrived</div>
+    {% for r in src.data.get("arrived", []) %}
+    <div class="uprow">
+      <span class="uptitle">{{ r.title }}</span>
+      <span class="chip">{{ r.kind }}</span>
+      <span class="uptime nextleft">{{ r.when }}</span>
+    </div>
+    {% else %}
+    <div class="value dim">Nothing arrived this week</div>
+    {% endfor %}
+
+    <div class="upday">Just updated</div>
+    {% for r in src.data.get("updated", []) %}
+    <div class="uprow">
+      <span class="uptitle">{{ r.title }} · {{ r.what }}</span>
+      <span class="chip">{{ r.kind }}</span>
+      <span class="uptime nextleft">{{ r.when }}</span>
+    </div>
+    {% else %}
+    <div class="value dim">Nothing upgraded this week</div>
+    {% endfor %}
+
+    <div class="upday">This week</div>
+    {% for g in week %}
+    <div class="upday sub">{{ g.label }}</div>
+    {% for r in g.rows %}
+    <div class="uprow">
+      <span class="uptitle">{{ r.title }}</span>
+      {% if r.label %}<span class="chip">{{ r.label }}</span>{% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="value dim">Nothing due this week</div>
+    {% endfor %}
+
+    <div class="upday">Downloading</div>
+    {% for d in src.data.get("downloading", []) %}
+    <div class="uprow">
+      <span class="uptitle">{{ d.title }} · {{ d.status_text }} · {{ d.pct }}%{% if d.time_left %} · {{ d.time_left }} left{% endif %}</span>
+      <span class="pbar" aria-hidden="true"><span style="width: {{ d.pct }}%"></span></span>
+    </div>
+    {% else %}
+    <div class="value dim">Nothing downloading</div>
+    {% endfor %}
+
+    <div class="upday">Disk</div>
+    {% for d in src.data.get("disk", []) %}
+    <div class="uprow">
+      <span class="uptitle">{{ d.path }} · {{ d.free_gb }} of {{ d.total_gb }} GB free · {{ d.pct_used }}% used</span>
+      <span class="pbar" aria-hidden="true"><span style="width: {{ d.pct_used }}%"></span></span>
+    </div>
+    {% else %}
+    <div class="value dim">No disk information</div>
+    {% endfor %}
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

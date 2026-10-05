@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/arr.schema.json",
+  "title": "arr data block",
+  "description": "Media area library feed (Radarr + Sonarr). One app being down is DATA (`app_errors`), not a failed run. Lists are capped at 20. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "secondary", "arrived", "updated", "this_week", "downloading", "disk"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "arrived": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["title", "kind", "when"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "kind": {"enum": ["movie", "season", "episode"]},
+          "when": {"type": "string"}
+        }
+      }
+    },
+    "updated": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["title", "kind", "when", "what"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "kind": {"enum": ["movie", "season", "episode"]},
+          "when": {"type": "string"},
+          "what": {"type": "string"}
+        }
+      }
+    },
+    "this_week": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["title", "kind", "date", "label"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "kind": {"enum": ["movie", "season", "episode"]},
+          "date": {"type": "string", "format": "date"},
+          "label": {"enum": ["Premiere", "Finale", "Digital", "Disc", "Cinemas", ""]}
+        }
+      }
+    },
+    "downloading": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["title", "kind", "pct", "status_text", "time_left"],
+        "additionalProperties": false,
+        "properties": {
+          "title": {"type": "string"},
+          "kind": {"enum": ["movie", "season", "episode"]},
+          "pct": {"type": "integer", "minimum": 0, "maximum": 100},
+          "status_text": {"type": "string"},
+          "time_left": {"type": "string"}
+        }
+      }
+    },
+    "disk": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["path", "free_gb", "total_gb", "pct_used"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"type": "string"},
+          "free_gb": {"type": "number", "minimum": 0},
+          "total_gb": {"type": "number", "minimum": 0},
+          "pct_used": {"type": "integer", "minimum": 0, "maximum": 100}
+        }
+      }
+    },
+    "app_errors": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "radarr": {"type": "string"},
+        "sonarr": {"type": "string"}
+      }
+    }
+  }
+}

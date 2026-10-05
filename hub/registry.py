@@ -20,6 +20,7 @@ FROZEN_SNAPSHOT_IDS = {
     "open_meteo", "gcal", "clickup", "macromates",
     "home_assistant", "jellyfin", "nas_stats", "money",
     "media_status",  # added 2026-10-05 (Media area Phase 1)
+    "arr",           # added 2026-10-05 (Media area Phase 2: Radarr + Sonarr)
 }
 
 MAX_AREAS = 9  # hard ceiling (DECISIONS 2026-08-17); "locked at 8" is yaml content
@@ -45,6 +46,7 @@ class Tile(BaseModel):
     tier: Tier
     owner: Owner
     href: Optional[str] = None
+    detail: Optional[str] = None  # a hub route; the whole card links there (2026-10-05)
     snapshot: Optional[str] = None
     stale_after_minutes: Optional[int] = None
     setup_note: Optional[str] = None
@@ -104,6 +106,11 @@ def _cross_checks(reg: Registry) -> list[str]:
             if tile.id in seen_tiles:
                 errors.append(f"duplicate tile id '{tile.id}' (tile ids are global)")
             seen_tiles.add(tile.id)
+
+            if tile.detail is not None and (
+                not tile.detail.startswith("/") or tile.detail.startswith("//")
+            ):
+                errors.append(f"{where}: detail '{tile.detail}' must be a hub route starting with '/'")
 
             if tile.tier is Tier.link:
                 if not tile.href:

@@ -1,0 +1,51 @@
+[
+  {
+    "id": 61,
+    "seasonNumber": 2,
+    "episodeNumber": 4,
+    "title": "Late Tide",
+    "airDateUtc": "2026-01-02T09:00:00Z",
+    "hasFile": false,
+    "series": {
+      "id": 1,
+      "title": "Quiet Coast"
+    }
+  },
+  {
+    "id": 62,
+    "seasonNumber": 2,
+    "episodeNumber": 1,
+    "title": "New Moorings",
+    "airDateUtc": "2026-01-04T09:00:00Z",
+    "hasFile": false,
+    "series": {
+      "id": 1,
+      "title": "Night Ferry"
+    }
+  },
+  {
+    "id": 63,
+    "seasonNumber": 1,
+    "episodeNumber": 8,
+    "title": "Landfall",
+    "airDateUtc": "2026-01-06T09:00:00Z",
+    "hasFile": false,
+    "series": {
+      "id": 1,
+      "title": "Harbour Watch"
+    },
+    "finaleType": "season"
+  },
+  {
+    "id": 64,
+    "seasonNumber": 1,
+    "episodeNumber": 2,
+    "title": "Far Too Early",
+    "airDateUtc": "2026-02-20T09:00:00Z",
+    "hasFile": false,
+    "series": {
+      "id": 1,
+      "title": "Harbour Watch"
+    }
+  }
+]

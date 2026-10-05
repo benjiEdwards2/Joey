@@ -1,0 +1,14 @@
+[
+  {
+    "path": "/tv",
+    "label": "",
+    "freeSpace": 900000000000,
+    "totalSpace": 4000000000000
+  },
+  {
+    "path": "/data",
+    "label": "",
+    "freeSpace": 500000000000,
+    "totalSpace": 2000000000000
+  }
+]

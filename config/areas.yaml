@@ -8,6 +8,8 @@
 #       ingest= data in our own store    (snapshot + stale_after_minutes required)
 # snapshot ids come from the FROZEN D13 namespace:
 #   open_meteo gcal clickup macromates home_assistant jellyfin nas_stats money
+#   media_status arr
+# detail: optional hub route (starts with /) — the whole embed card links to it.
 # Tiles for sources not yet built still render — as "Not connected" (by design).
 # =============================================================================
 
@@ -103,6 +105,7 @@ areas:
         tier: embed
         owner: shared
         snapshot: jellyfin
+        detail: /media/playing                       # whole card opens the Now playing page
         stale_after_minutes: 10                      # 2-minute fast sweep since 2026-10-05
         setup_note: "Jellyfin connector arrives at WP29."
       - id: status
@@ -110,8 +113,17 @@ areas:
         tier: embed
         owner: shared
         snapshot: media_status
+        detail: /media/apps
         stale_after_minutes: 10
         setup_note: "Set MEDIA_STATUS_HOST in deploy/.env."
+      - id: arrivals
+        label: Library
+        tier: embed
+        owner: shared
+        snapshot: arr
+        detail: /media/library
+        stale_after_minutes: 180
+        setup_note: "Set RADARR_URL/RADARR_API_KEY/SONARR_URL/SONARR_API_KEY in deploy/.env."
       - id: jellyfin-app
         label: Open Jellyfin
         tier: link

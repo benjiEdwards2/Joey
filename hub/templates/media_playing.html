@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Now playing — Joey{% endblock %}
+{% block content %}
+{# Detail behind the now-playing tile (2026-10-05): sessions, up next, latest additions. #}
+<section class="card uplist wide" style="--accent: {{ src.accent }}">
+  <div class="head">Now playing</div>
+  {% if src.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
+  {% else %}
+    {% for p in src.data.get("now_playing", []) %}
+    {% if src.href %}<a class="uprow playrow" href="{{ src.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow">{% endif %}
+      <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
+      <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
+    {% if src.href %}</a>{% else %}</div>{% endif %}
+    {% else %}
+    <div class="value dim">Nothing playing</div>
+    {% endfor %}
+
+    <div class="upday">Up next</div>
+    {% for n in src.data.get("up_next", []) %}
+    <div class="uprow">
+      <span class="uptitle">{{ n.title }}</span>
+      <span class="uptime nextleft">{{ n.remaining_text }}</span>
+    </div>
+    {% else %}
+    <div class="value dim">Nothing up next</div>
+    {% endfor %}
+
+    <div class="upday">Latest additions</div>
+    {% for i in latest %}
+    <div class="uprow">
+      <span class="uptitle">{{ i.title }}</span>
+      <span class="chip">{{ i.type }}</span>
+      <span class="uptime nextleft">{{ i.added_text }}</span>
+    </div>
+    {% else %}
+    <div class="value dim">Nothing added recently</div>
+    {% endfor %}
+
+    {% if library_text %}<div class="sub libline">Library: {{ library_text }}</div>{% endif %}
+  {% endif %}
+  {% include "_detail_foot.html" %}
+</section>
+{% endblock %}

@@ -60,6 +60,23 @@
   </div>
 </section>
 {% endif %}
+{% if media.library %}
+<section class="card uplist medialist" style="--accent: {{ area.accent }}">
+  <div class="head">Just arrived</div>
+  {% for r in media.library["items"] %}
+  <div class="uprow">
+    <span class="uptitle">{{ r.title }}</span>
+    <span class="uptime nextleft">{{ r.when }}</span>
+  </div>
+  {% else %}
+  <div class="value dim">Nothing arrived this week</div>
+  {% endfor %}
+  <div class="foot">
+    {% if media.library.st.state == "stale" %}<span class="badge stale">{{ media.library.st.age_text }}</span>
+    {% elif media.library.st.age_text %}<span class="ago">updated {{ media.library.st.age_text }}</span>{% endif %}
+  </div>
+</section>
+{% endif %}
 </div>
 {% endif %}
 {% if upcoming %}

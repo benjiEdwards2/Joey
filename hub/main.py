@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -201,6 +202,52 @@ def find_upcoming(tiles, snaps, view: str):
 # connector id like the upcoming list — never an area name (WP17 grep exception).
 JELLYFIN_SNAPSHOT_ID = "jellyfin"
 MEDIA_STATUS_SNAPSHOT_ID = "media_status"
+ARR_SNAPSHOT_ID = "arr"
+LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
+
+
+def find_detail_source(snapshot_id, snaps) -> dict | None:
+    """The page behind a `detail` tile: the first registry tile reading the
+    snapshot, its area (for the accent), and the area's first LINK tile (the app
+    launcher, as find_media resolves it). None when no tile reads the snapshot."""
+    for a in registry.areas:
+        for t in a.tiles:
+            if t.snapshot == snapshot_id:
+                snap = snaps.get(snapshot_id)
+                href = next((x.href for x in a.tiles if x.tier.value == "link"), None)
+                return {"tile": t, "st": tile_state(t, snaps), "accent": a.accent,
+                        "data": snap.data if snap else {}, "href": href}
+    return None
+
+
+def _ago_text(value, now: datetime) -> str:
+    """'3 days ago' for an ISO timestamp (Jellyfin's 7-digit fractions tolerated)."""
+    try:
+        text = re.sub(r"(\.\d{6})\d+", r"\1", str(value).replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        seconds = (now - dt).total_seconds()
+    except Exception:
+        return ""
+    if seconds < 3600:
+        return "just now"
+    if seconds < 86400:
+        hours = int(seconds // 3600)
+        return f"{hours} hour{'' if hours == 1 else 's'} ago"
+    days = int(seconds // 86400)
+    return "yesterday" if days == 1 else f"{days} days ago"
+
+
+def _count_text(n, singular: str, plural: str) -> str:
+    return f"{n} {singular if n == 1 else plural}"
+
+
+def _library_text(library: dict) -> str:
+    parts = [_count_text(library[k], s, p)
+             for k, s, p in (("movies", "movie", "movies"), ("episodes", "episode", "episodes"))
+             if isinstance(library.get(k), int)]
+    return " · ".join(parts)
 
 
 def find_media(tiles, snaps) -> dict | None:
@@ -214,13 +261,16 @@ def find_media(tiles, snaps) -> dict | None:
         return None
 
     play, apps = reading(JELLYFIN_SNAPSHOT_ID), reading(MEDIA_STATUS_SNAPSHOT_ID)
-    if not (play or apps):
+    library = reading(ARR_SNAPSHOT_ID)
+    if not (play or apps or library):
         return None
     link = next((r["st"]["href"] for r in tiles if r["st"]["state"] == "link"), None)
     return {
         "apps": {"st": apps[0], "items": apps[1].get("apps", [])} if apps else None,
         "play": {"st": play[0], "now_playing": play[1].get("now_playing", []),
                  "up_next": play[1].get("up_next", []), "href": link} if play else None,
+        "library": {"st": library[0], "items": library[1].get("arrived", [])[:LIBRARY_STRIP_MAX]}
+                   if library else None,
     }
 
 
@@ -271,6 +321,60 @@ def weather_page(request: Request):
         "status": build_status(snaps), "w": find_weather(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
+
+
+def _detail_page(request: Request, template: str, snapshot_id: str, build=None):
+    """Detail page behind a `detail` tile (2026-10-05). Keyed by connector id —
+    404 when no registry tile reads that snapshot; 'Not connected' when it has no data."""
+    view, from_query = resolve_owner_view(request)
+    snaps = get_snapshots()
+    src = find_detail_source(snapshot_id, snaps)
+    if src is None:
+        return templates.TemplateResponse(request, "404.html", {
+            "areas": registry.areas, "active_id": None, "owner_view": view,
+            "missing_text": "No page here",
+        }, status_code=404)
+    extra = build(src["data"]) if build and src["st"]["state"] != "off" else {}
+    resp = templates.TemplateResponse(request, template, {
+        "areas": registry.areas, "active_id": None, "owner_view": view,
+        "status": build_status(snaps), "src": src, **extra,
+    })
+    return _maybe_set_cookie(resp, view, from_query)
+
+
+@app.get("/media/apps", response_class=HTMLResponse)
+def media_apps_page(request: Request):
+    return _detail_page(request, "media_apps.html", MEDIA_STATUS_SNAPSHOT_ID)
+
+
+@app.get("/media/playing", response_class=HTMLResponse)
+def media_playing_page(request: Request):
+    def build(data):
+        now = datetime.now(timezone.utc)
+        return {
+            "latest": [{**i, "added_text": _ago_text(i.get("added_at"), now)}
+                       for i in data.get("latest", [])],
+            "library_text": _library_text(data.get("library") or {}),
+        }
+    return _detail_page(request, "media_playing.html", JELLYFIN_SNAPSHOT_ID, build)
+
+
+@app.get("/media/library", response_class=HTMLResponse)
+def media_library_page(request: Request):
+    def build(data):
+        today = datetime.now().astimezone().date()
+        groups: list[dict] = []
+        for row in sorted(data.get("this_week", []), key=lambda r: (r["date"], r["title"])):
+            day = date.fromisoformat(row["date"])
+            if not groups or groups[-1]["day"] != day:
+                groups.append({"day": day, "label": _day_label(day, today), "rows": []})
+            groups[-1]["rows"].append(row)
+        return {
+            "week": groups,
+            "app_notes": [f"{app.title()} not answering: {reason}"
+                          for app, reason in sorted((data.get("app_errors") or {}).items())],
+        }
+    return _detail_page(request, "media_library.html", ARR_SNAPSHOT_ID, build)
 
 
 @app.get("/a/{area_id}", response_class=HTMLResponse)

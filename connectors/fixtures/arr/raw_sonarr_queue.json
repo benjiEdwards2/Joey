@@ -1,0 +1,25 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "totalRecords": 1,
+  "records": [
+    {
+      "id": 71,
+      "title": "Quiet.Coast.S02E04.1080p.WEB-DL",
+      "series": {
+        "id": 1,
+        "title": "Quiet Coast"
+      },
+      "episode": {
+        "id": 104,
+        "seasonNumber": 2,
+        "episodeNumber": 4,
+        "title": "Late Tide"
+      },
+      "size": 2000000000,
+      "sizeleft": 1500000000,
+      "status": "downloading",
+      "timeleft": "01:05:00"
+    }
+  ]
+}

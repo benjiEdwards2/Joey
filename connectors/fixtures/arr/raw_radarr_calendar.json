@@ -1,0 +1,26 @@
+[
+  {
+    "id": 21,
+    "title": "Midnight Harbour",
+    "digitalRelease": "2026-01-03T00:00:00Z",
+    "hasFile": false
+  },
+  {
+    "id": 22,
+    "title": "Glass Orchard",
+    "physicalRelease": "2026-01-05T00:00:00Z",
+    "hasFile": false
+  },
+  {
+    "id": 2,
+    "title": "Desert Crossing",
+    "physicalRelease": "2026-01-02T00:00:00Z",
+    "hasFile": true
+  },
+  {
+    "id": 23,
+    "title": "Far Shore",
+    "inCinemas": "2026-01-06T00:00:00Z",
+    "hasFile": false
+  }
+]

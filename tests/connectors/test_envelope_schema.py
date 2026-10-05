@@ -20,6 +20,7 @@ FROZEN_IDS = [
     "nas_stats",
     "money",
     "media_status",  # added 2026-10-05 (authorised dated decision)
+    "arr",  # added 2026-10-05 (authorised dated decision, Media Phase 2)
 ]
 
 REQUIRED_FIELDS = [

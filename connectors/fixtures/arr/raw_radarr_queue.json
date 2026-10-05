@@ -1,0 +1,19 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "totalRecords": 1,
+  "records": [
+    {
+      "id": 31,
+      "title": "Midnight.Harbour.2025.1080p.WEB-DL",
+      "movie": {
+        "id": 21,
+        "title": "Midnight Harbour"
+      },
+      "size": 8000000000,
+      "sizeleft": 2000000000,
+      "status": "downloading",
+      "timeleft": "00:14:20"
+    }
+  ]
+}

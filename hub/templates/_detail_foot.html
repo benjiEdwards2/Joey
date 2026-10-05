@@ -1,0 +1,7 @@
+{# Freshness foot shared by the /media/* detail pages. Expects: src (find_detail_source). #}
+<div class="foot">
+  <span class="chip">{{ src.tile.owner.value | title }}</span>
+  {% if src.st.state == "stale" %}<span class="badge stale">{{ src.st.age_text }}</span>
+  {% elif src.st.state == "off" %}<span class="badge off">not connected</span>
+  {% elif src.st.age_text %}<span class="ago">updated {{ src.st.age_text }}</span>{% endif %}
+</div>

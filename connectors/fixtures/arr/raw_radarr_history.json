@@ -1,0 +1,165 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "totalRecords": 7,
+  "records": [
+    {
+      "id": 11,
+      "movieId": 1,
+      "sourceTitle": "Harbour.Lights.2025.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-30T09:12:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "movie": {
+        "id": 1,
+        "title": "Harbour Lights"
+      }
+    },
+    {
+      "id": 10,
+      "movieId": 1,
+      "sourceTitle": "Harbour.Lights.2025.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-30T09:02:00Z",
+      "eventType": "grabbed",
+      "data": {},
+      "movie": {
+        "id": 1,
+        "title": "Harbour Lights"
+      }
+    },
+    {
+      "id": 9,
+      "movieId": 2,
+      "sourceTitle": "Desert.Crossing.2025.2160p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-2160p",
+          "resolution": 2160
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-28T18:05:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "movie": {
+        "id": 2,
+        "title": "Desert Crossing"
+      }
+    },
+    {
+      "id": 8,
+      "movieId": 3,
+      "sourceTitle": "Salt.Flats.2024.2160p.BluRay",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "Bluray-2160p",
+          "resolution": 2160
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-29T10:05:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "movie": {
+        "id": 3,
+        "title": "Salt Flats"
+      }
+    },
+    {
+      "id": 7,
+      "movieId": 3,
+      "sourceTitle": "Salt.Flats.2024.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-29T10:00:00Z",
+      "eventType": "movieFileDeleted",
+      "data": {
+        "reason": "Upgrade"
+      },
+      "movie": {
+        "id": 3,
+        "title": "Salt Flats"
+      }
+    },
+    {
+      "id": 6,
+      "movieId": 4,
+      "sourceTitle": "Paper.Lanterns.2023.1080p.BluRay",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "Bluray-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-27T21:30:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {
+        "isUpgrade": "True"
+      },
+      "movie": {
+        "id": 4,
+        "title": "Paper Lanterns"
+      }
+    },
+    {
+      "id": 5,
+      "movieId": 3,
+      "sourceTitle": "Salt.Flats.2024.1080p.WEB-DL",
+      "quality": {
+        "quality": {
+          "id": 1,
+          "name": "WEBDL-1080p",
+          "resolution": 1080
+        },
+        "revision": {
+          "version": 1
+        }
+      },
+      "date": "2025-12-20T08:00:00Z",
+      "eventType": "downloadFolderImported",
+      "data": {},
+      "movie": {
+        "id": 3,
+        "title": "Salt Flats"
+      }
+    }
+  ]
+}

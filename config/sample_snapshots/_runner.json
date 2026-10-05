@@ -1,6 +1,11 @@
 {
   "ran_at": "2026-01-01T00:00:00+00:00",
   "results": {
+    "arr": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
     "gcal": {
       "consecutive_failures": 0,
       "error": null,

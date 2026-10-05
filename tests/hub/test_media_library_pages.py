@@ -285,3 +285,16 @@ def test_years_routes_kind_filter(env):
     assert "Film A" in y_mv and "Show A" not in y_mv and "Film B" in y_mv
     assert "Show A" in y_tv and "Film A" not in y_tv
     assert "Film A" in y_all and "Show A" in y_all
+
+
+def test_arrived_this_week_prefers_the_timestamp_over_the_text():
+    from datetime import datetime, timedelta, timezone
+    from hub import media_library as ml
+    now = datetime.now(timezone.utc)
+    iso = lambda d: (now - timedelta(days=d)).isoformat()
+    rows = [{"title": "Fresh", "kind": "movie", "when": "9 days ago", "at": iso(1)},   # at wins over text
+            {"title": "Stale", "kind": "movie", "when": "yesterday", "at": iso(8)},
+            {"title": "Old text", "kind": "movie", "when": "9 days ago"},               # no `at`: text rule
+            {"title": "New text", "kind": "movie", "when": "3 days ago"},
+            {"title": "Show", "kind": "season", "when": "yesterday", "at": iso(1)}]
+    assert [r["title"] for r in ml.arrived_this_week(rows, "movie")] == ["Fresh", "New text"]

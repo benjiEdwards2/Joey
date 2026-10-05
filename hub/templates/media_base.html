@@ -10,7 +10,7 @@
   <a class="returnjoey" href="/">← Return to Joey</a>
   <nav class="sections" aria-label="Media sections">
     {% for s in nav.sections %}
-    <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}</span>{% endif %}</a>
+    <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>
     {% endfor %}
   </nav>
   <nav class="switcher" aria-label="Who's looking">
@@ -30,7 +30,7 @@
 {% set nav = media_nav(request) %}
 <nav class="tabs mediatabs" aria-label="Media sections (phone)"{% if nav.accent %} style="--accent: {{ nav.accent }}"{% endif %}>
   {% for s in nav.sections %}
-  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}</span>{% endif %}</a>
+  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>
   {% endfor %}
 </nav>
 {% endblock %}

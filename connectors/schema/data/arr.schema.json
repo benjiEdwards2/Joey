@@ -21,7 +21,8 @@
           "poster": {"type": ["string", "null"]},
           "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
           "kind": {"enum": ["movie", "season", "episode"]},
-          "when": {"type": "string"}
+          "when": {"type": "string"},
+          "at": {"type": "string"}
         }
       }
     },
@@ -38,6 +39,7 @@
           "item_key": {"type": ["string", "null"], "pattern": "^(tmdb|tvdb|jf):[A-Za-z0-9-]+$"},
           "kind": {"enum": ["movie", "season", "episode"]},
           "when": {"type": "string"},
+          "at": {"type": "string"},
           "what": {"type": "string"}
         }
       }

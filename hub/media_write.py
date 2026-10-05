@@ -15,7 +15,7 @@ import re
 import sqlite3
 from datetime import date
 from pathlib import Path
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -226,6 +226,7 @@ def year_ctx(slug: str, mode: str = "", kind: str | None = None) -> dict:
     """Context for _year_list.html (shared by the page and the write routes)."""
     year = parse_year(slug)
     return {"year": year, "slug": slug, "mode": "rank" if mode == "rank" else "",
+            "kind": kind if kind in ("movie", "tv") else "",
             **media_db.year_list(year, kind)}
 
 
@@ -238,9 +239,11 @@ async def _ranking_write(request: Request, slug: str, action):
         log.warning("ranking not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the ranking") from None
     mode = "rank" if f.get("mode") == "rank" else ""
+    kind = f.get("kind") if f.get("kind") in ("movie", "tv") else None
     if is_htmx(request):
-        return render(request, "_year_list.html", **year_ctx(slug, mode))
-    return RedirectResponse(f"/media/years/{slug}" + ("?mode=rank" if mode else ""), status_code=303)
+        return render(request, "_year_list.html", **year_ctx(slug, mode, kind))
+    query = urlencode(([("mode", "rank")] if mode else []) + ([("kind", kind)] if kind else []))
+    return RedirectResponse(f"/media/years/{slug}" + (f"?{query}" if query else ""), status_code=303)
 
 
 @router.post("/media/years/{slug}/place", dependencies=[Depends(same_origin)])

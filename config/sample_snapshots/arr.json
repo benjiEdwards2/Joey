@@ -4,6 +4,7 @@
   "data": {
     "arrived": [
       {
+        "at": "2025-12-31T20:43:00+00:00",
         "item_key": "tvdb:2001",
         "kind": "season",
         "poster": "sonarr:1",
@@ -11,6 +12,7 @@
         "when": "3 hours ago"
       },
       {
+        "at": "2025-12-30T09:12:00+00:00",
         "item_key": "tmdb:1001",
         "kind": "movie",
         "poster": "radarr:1",
@@ -18,6 +20,7 @@
         "when": "yesterday"
       },
       {
+        "at": "2025-12-29T07:30:00+00:00",
         "item_key": "tvdb:2002",
         "kind": "episode",
         "poster": "sonarr:2",
@@ -25,6 +28,7 @@
         "when": "2 days ago"
       },
       {
+        "at": "2025-12-28T18:05:00+00:00",
         "item_key": "tmdb:1002",
         "kind": "movie",
         "poster": "radarr:2",
@@ -120,6 +124,7 @@
     ],
     "updated": [
       {
+        "at": "2025-12-29T10:05:00+00:00",
         "item_key": "tmdb:1003",
         "kind": "movie",
         "poster": "radarr:3",
@@ -128,6 +133,7 @@
         "when": "2 days ago"
       },
       {
+        "at": "2025-12-28T12:10:00+00:00",
         "item_key": "tvdb:2001",
         "kind": "episode",
         "poster": "sonarr:1",
@@ -136,6 +142,7 @@
         "when": "3 days ago"
       },
       {
+        "at": "2025-12-27T21:30:00+00:00",
         "item_key": "tmdb:1004",
         "kind": "movie",
         "poster": "radarr:4",

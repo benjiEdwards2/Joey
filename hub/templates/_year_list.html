@@ -5,7 +5,7 @@
 {% macro act(path, key, label, text, delta="") %}
 <form class="inl" method="post" action="/media/years/{{ slug }}/{{ path }}" hx-post="/media/years/{{ slug }}/{{ path }}" hx-target="#yearlist" hx-swap="outerHTML">
   <input type="hidden" name="item_key" value="{{ key }}">{% if delta %}<input type="hidden" name="delta" value="{{ delta }}">{% endif %}
-  {% if mode %}<input type="hidden" name="mode" value="rank">{% endif %}
+  {% if mode %}<input type="hidden" name="mode" value="rank">{% endif %}{% if kind %}<input type="hidden" name="kind" value="{{ kind }}">{% endif %}
   <button type="submit" class="actbtn" aria-label="{{ label }}">{{ text }}</button>
 </form>
 {% endmacro %}

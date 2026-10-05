@@ -81,7 +81,7 @@ def test_asset_version_meta_and_boost_reload_guard(monkeypatch):
         html = c.get("/").text
     v = hub.main.templates.env.globals["static_v"]
     assert f'<meta name="joey-asset-v" content="{v}">' in html
-    assert "htmx:beforeSwap" in html and "joey-asset-v" in html.split("</nav>")[-1]
+    assert "htmx:beforeSwap" in html and "joey-asset-v" in html.split("</head>")[0].split("htmx.min.js")[-1]
     assert "shouldSwap = false" in html and "window.location.href" in html
 
 

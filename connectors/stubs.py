@@ -892,7 +892,7 @@ class Arr(Connector):
             else:
                 title = (newest.get("movie") or {}).get("title") or newest.get("sourceTitle") or "Unknown"
                 kind = "movie"
-            row = {"title": title, "kind": kind, "when": _ago(when, now),
+            row = {"title": title, "kind": kind, "when": _ago(when, now), "at": when.isoformat(),
                    "poster": _arr_ref("sonarr" if grouped else "radarr", newest),
                    "item_key": _arr_key("sonarr" if grouped else "radarr", newest)}
             if upgrade:

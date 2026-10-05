@@ -3,8 +3,8 @@
 {% block content %}
 {# Countdown (2026-10-05): one poster at a time from the LAST position up to #1. Tap, → or
    space steps toward #1, ← steps back, Esc leaves. Without JS the full list is numbered. #}
-<div class="countdown" id="cd" data-back="/media/years/{{ slug }}">
-  <a class="cdexit" href="/media/years/{{ slug }}">Back to {{ year or "Unknown year" }}</a>
+<div class="countdown" id="cd" data-back="/media/years/{{ slug }}{{ '?kind=' ~ kind if kind }}">
+  <a class="cdexit" href="/media/years/{{ slug }}{{ '?kind=' ~ kind if kind }}">Back to {{ year or "Unknown year" }}</a>
   <noscript><ol class="cdlist">
     {% for r in ranked %}<li value="{{ loop.index }}">#{{ loop.index }} — {{ r.title }}{% if r.score %} ({{ r.score }} out of 10){% endif %}</li>{% endfor %}
   </ol></noscript>

@@ -411,8 +411,11 @@ def area_waiting(area, snaps, view: str) -> dict:
     """waiting_counts for an area straight from snapshots + owner view (hub card, Media frame)."""
     jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
     recent = (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
-    return waiting_counts(recent, _ratings(view, recent),
-                          {t.detail for t in area.tiles if t.detail and owner_visible(t, view)})
+    counts = waiting_counts(recent, _ratings(view, recent),
+                            {t.detail for t in area.tiles if t.detail and owner_visible(t, view)})
+    if view == "her":
+        counts["to_place"] = 0  # rankings are B.'s only
+    return counts
 
 
 def media_frame(request: Request) -> dict:

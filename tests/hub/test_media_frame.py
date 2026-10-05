@@ -113,8 +113,8 @@ def test_waiting_counts_are_text_and_absent_at_zero(env):
         html = client.get("/media/movies").text
     bar = nav_html(html, "sections")
     assert "waitcount" not in bar.split("Diary")[1].split("Server")[0]   # nothing to rate: Diary has no count
-    assert re.search(r'Movies <span class="waitcount">\d+</span>', bar)
-    assert re.search(r'TV Shows <span class="waitcount">\d+</span>', bar)
+    assert re.search(r'Movies <span class="waitcount">\d+<span class="vh"> to place</span></span>', bar)
+    assert re.search(r'TV Shows <span class="waitcount">\d+<span class="vh"> to place</span></span>', bar)
 
 
 def test_switcher_links_to_current_media_path(env):
@@ -170,3 +170,84 @@ def test_nav_context_without_a_shelves_area():
     assert ctx["home_href"] == "/" and ctx["accent"] is None
     assert [s["count"] for s in ctx["sections"]] == [0, 3, 3, 0, 0, 0]
     assert [t["on"] for t in ctx["tabs"]] == [True, False, False]
+
+
+# ---- review fixes (2026-10-06) ----
+
+def test_switcher_keeps_the_query_string(env):
+    from hub import media_db
+    main = env(jellyfin=JELLY, arr=ARR)
+    media_db.set_rating("tmdb:9", 8, "tv", "Show Nine", year=2020)
+    with TestClient(main.app) as client:
+        disc = client.get("/media/discover?q=foo").text
+        rank = client.get("/media/years/2020?mode=rank&kind=tv&owner_view=you").text
+    assert 'href="/media/discover?q=foo&amp;owner_view=her"' in disc
+    sw = nav_html(rank, "switcher")
+    assert 'href="/media/years/2020?mode=rank&amp;kind=tv&amp;owner_view=her"' in sw
+    assert sw.count("owner_view=") == 3
+
+
+def test_year_pages_carry_kind_and_light_the_right_section(env):
+    from hub import media_db
+    main = env(jellyfin=JELLY, arr=ARR)
+    media_db.set_rating("tmdb:9", 8, "tv", "Show Nine", year=2020)
+    media_db.place(2020, "tmdb:9")
+    with TestClient(main.app) as client:
+        tiles = client.get("/media/years?kind=tv").text
+        page = client.get("/media/years/2020?kind=tv").text
+        rank = client.get("/media/years/2020?kind=tv&mode=rank").text
+        cd = client.get("/media/years/2020/countdown?kind=tv").text
+    assert 'href="/media/years/2020?kind=tv"' in tiles
+    for html in (page, rank, cd):
+        assert current(html, "sections") == ["TV Shows"]
+    assert 'href="/media/years?kind=tv"' in page
+    assert 'href="/media/years/2020?mode=rank&amp;kind=tv"' in page
+    assert 'href="/media/years/2020/countdown?kind=tv"' in page
+    assert 'name="kind" value="tv"' in page
+    assert 'href="/media/years/2020?kind=tv"' in rank          # Done
+    assert 'href="/media/years/2020?kind=tv"' in cd and 'data-back="/media/years/2020?kind=tv"' in cd
+
+
+def test_year_write_routes_preserve_kind(env):
+    from hub import media_db
+    main = env(jellyfin=JELLY, arr=ARR)
+    media_db.set_rating("tmdb:9", 8, "tv", "Show Nine", year=2020)
+    media_db.set_rating("tmdb:8", 7, "movie", "Film Eight", year=2020)
+    HX = {"HX-Request": "true"}
+    with TestClient(main.app) as client:
+        r = client.post("/media/years/2020/place", content="item_key=tmdb%3A9&kind=tv&mode=rank",
+                        headers=HX)
+        assert 'name="kind" value="tv"' in r.text and "Film Eight" not in r.text
+        r = client.post("/media/years/2020/move", content="item_key=tmdb%3A9&delta=1&kind=tv",
+                        follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/media/years/2020?kind=tv"
+        r = client.post("/media/years/2020/unplace", content="item_key=tmdb%3A9&mode=rank&kind=tv",
+                        follow_redirects=False)
+        assert r.headers["location"] == "/media/years/2020?mode=rank&kind=tv"
+        r = client.post("/media/years/2020/reset", content="kind=tv", follow_redirects=False)
+        assert r.headers["location"] == "/media/years/2020?kind=tv"
+        r = client.post("/media/years/2020/reset", content="kind=junk", follow_redirects=False)
+        assert r.headers["location"] == "/media/years/2020"
+
+
+def test_her_view_has_no_to_place_count(env):
+    from hub import media_db
+    main = env(jellyfin=JELLY, arr=ARR)
+    media_db.set_rating("tmdb:9", 8, "movie", "Film Nine", year=2020)
+    with TestClient(main.app) as client:
+        you = nav_html(client.get("/media/movies?owner_view=you").text, "sections")
+        her = nav_html(client.get("/media/movies?owner_view=her").text, "sections")
+    assert "to place" in you
+    assert "to place" not in her
+
+
+def test_waitcount_has_hidden_words(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    from pathlib import Path
+    css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    assert ".vh {" in css and "clip" in css.split(".vh {")[1].split("}")[0]
+    assert "#F5A524" not in css.split(".waitchip {")[1].split("}")[0]
+    assert "var(--amber)" in css.split(".waitchip {")[1].split("}")[0]
+    with TestClient(main.app) as client:
+        diary = client.get("/media/history").text
+    assert '<span class="vh"> to rate</span>' in diary or "to rate" not in diary

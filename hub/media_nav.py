@@ -3,7 +3,7 @@ Pure: no area name lives here — Home resolves to the registry's first `layout:
 """
 from __future__ import annotations
 
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlsplit
 
 HOME_ID = "home"
 
@@ -83,6 +83,7 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
         top = max(scores, default=0)
         tabs = [{"label": label, "href": h, "on": bool(top) and sc == top}
                 for (label, h), sc in zip(section["tabs"], scores)]
-    here = path + (f"?kind={kind}" if kind and _under(path, YEARS) else "")
+    keep = [(k, v) for k, v in parse_qsl(request.url.query, keep_blank_values=True) if k != "owner_view"]
+    here = path + (f"?{urlencode(keep, doseq=True)}" if keep else "")
     return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href,
             "accent": area.accent if area else None, "here": here}

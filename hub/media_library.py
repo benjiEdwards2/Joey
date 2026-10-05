@@ -124,14 +124,21 @@ def head_line(rows, kind: str, marks: bool = True) -> str:
 
 
 def arrived_this_week(arrived, kind: str) -> list[dict]:
-    """Arr `arrived` rows of this kind whose `when` isn't older than a week."""
+    """Arr `arrived` rows of this kind from the last week: by the `at` timestamp when the row
+    has one, else by its `when` text (older snapshots)."""
     out = []
+    now = datetime.now(timezone.utc)
     for r in arrived or []:
         if (r.get("kind") == "movie") != (kind == "movie"):
             continue
-        m = re.match(r"(\d+) days? ago", str(r.get("when") or ""))
-        if m and int(m.group(1)) > ARRIVED_DAYS:
-            continue
+        at = parse_ts(r["at"]) if r.get("at") else None
+        if at:
+            if now - at > timedelta(days=ARRIVED_DAYS):
+                continue
+        else:
+            m = re.match(r"(\d+) days? ago", str(r.get("when") or ""))
+            if m and int(m.group(1)) > ARRIVED_DAYS:
+                continue
         out.append(r)
     return out
 

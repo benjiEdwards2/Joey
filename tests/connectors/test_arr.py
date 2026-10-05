@@ -297,3 +297,9 @@ def test_queue_rows_carry_the_lower_cased_download_id(data, raw):
         for record in bare[key]["records"]:
             record.pop("downloadId")
     assert all(r["download_id"] is None for r in Arr().transform(bare)["downloading"])
+
+
+def test_arrived_and_updated_rows_carry_an_iso_import_timestamp(data):
+    for row in data["arrived"] + data["updated"]:
+        assert datetime.fromisoformat(row["at"]).tzinfo is not None
+    assert [r["at"] for r in data["arrived"]][0] > [r["at"] for r in data["arrived"]][-1]

@@ -1,0 +1,31 @@
+{% extends "media_base.html" %}
+{% block title %}{{ person.name }} — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{# Person page (F11): header, then "On your server" shelf first, then Films / TV grids. Words, not colours. #}
+{% macro card(r, href, word) %}<a class="shelf-item" href="{{ href }}">{{ poster(r.poster, r.title, 240) }}<span class="pgtitle">{{ r.title }}</span><span class="pgsub">{{ r.year or "" }}</span>{% if r.role %}<span class="sub credit-role">{{ r.role }}</span>{% endif %}{% if word %}<span class="chip{{ ' st-available' if r.on_server }}">{{ r.word }}</span>{% endif %}</a>{% endmacro %}
+<div class="personpage" style="--accent: {{ src.accent }}">
+{% if person.down %}<div class="value dim">{{ person.note }}</div>{% else %}
+<header class="personhead">
+  {% if person.ref %}<img class="personpic" src="/img/{{ person.ref }}?h=240" alt="" width="160" height="160">{% else %}<span class="personpic initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+  <div class="personinfo">
+    <h2 class="herotitle">{{ person.name }}</h2>
+    {% if person.dept %}<div class="sub">{{ person.dept }}</div>{% endif %}
+    {% if person.life %}<div class="sub">{{ person.life }}</div>{% endif %}
+    {% if person.bio %}<p class="overview">{{ person.bio.lead }}</p>{% if person.bio.more %}<details class="biomore"><summary>More</summary><p class="overview">{{ person.bio.more }}</p></details>{% endif %}{% endif %}
+  </div>
+</header>
+<p class="statusline" id="status-line">{{ person.head }}</p>
+{% if person.shelf %}
+<section class="shelf"><div class="shelftop"><h3>On your server</h3></div>
+  <div class="shelf-row">{% for r in person.shelf %}{{ card(r, r.item_href, false) }}{% endfor %}</div>
+</section>
+{% endif %}
+{% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
+<section class="shelf"><div class="shelftop"><h3>{{ "Everything else — " if person.shelf }}{{ label }}</h3></div>
+  <div class="poster-grid">{% for r in rows %}{{ card(r, r.href, true) }}{% endfor %}</div>
+</section>
+{% endif %}{% endfor %}
+{% endif %}
+</div>
+{% endblock %}

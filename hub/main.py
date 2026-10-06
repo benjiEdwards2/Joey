@@ -23,7 +23,7 @@ from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
 from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
-from hub import media_film, media_item, media_library, media_plays, media_plays_db
+from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub import server as server_area
@@ -95,6 +95,7 @@ app.include_router(media_write_router)
 app.include_router(media_discover_router)
 app.include_router(media_plays.router)
 app.include_router(media_film.router)
+app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))

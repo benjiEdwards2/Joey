@@ -740,3 +740,14 @@ table { width: 100%; border-collapse: collapse; }
 @media (max-width: 760px) { .filmbody { grid-template-columns: minmax(0, 1fr); } .filmposter { max-width: 160px; } .num { min-width: 72px; } }
 /* Library rows: the whole row is the link (anchor keeps the flex row layout) */
 .uplist a.librow { display: flex; color: inherit; text-decoration: none; }
+/* ---- Person page (F11) ---- */
+a.castcard { color: inherit; text-decoration: none; }
+a.castcard:hover .castname { text-decoration: underline; }
+.personhead { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 8px; }
+.personpic { width: 160px; height: 160px; flex: none; border-radius: 50%; object-fit: cover; background: var(--card); border: 1px solid var(--border); }
+.personpic.initials { display: inline-flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 700; color: var(--muted); }
+.personinfo { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.biomore summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.credit-role { font-size: 12px; overflow-wrap: anywhere; }
+.personpage .poster-grid .shelf-item { display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 640px) { .personhead { flex-direction: column; } .personpic { width: 112px; height: 112px; } }

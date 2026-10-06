@@ -24,7 +24,7 @@ SECTIONS: list[dict] = [
      "tabs": [("Live", "/media/playing"), ("History", "/media/server/history"), ("Library", "/media/library"), ("Downloads", "/media/downloads"),
               ("Requests", "/media/requests"), ("Health", "/media/apps")]},
     {"id": "discover", "label": "Discover", "href": "/media/discover",
-     "prefixes": ["/media/discover", "/media/title"], "tabs": []},
+     "prefixes": ["/media/discover", "/media/title", "/media/person"], "tabs": []},
 ]
 YEARS = "/media/years"
 

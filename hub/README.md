@@ -48,7 +48,7 @@ Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages
 `media_hero()` inside `_kpi.html`) with a sibling Jellyfin "Jump back in" deep link. A hx-boosted page that
 carries a new `joey-asset-v` meta forces a full reload so new CSS is never mixed with old pages.
 
-**Film page (F9 + F10, 2026-10-06).** `media_film.py` + `media_item.py` + `media_files.py` render ONE Cinema-layout page for
+**Film page (F9 + F10, 2026-10-06).** Cast and director names open `/media/person/{tmdb}` (F11, `media_person.py`: portrait, bio, "On your server" shelf, every credit with status words). Library rows are whole-row links; New this week items open the film page (item page when on the server, title page by TMDB id, title-match fallback for Sonarr's tvdb keys). `media_film.py` + `media_item.py` + `media_files.py` render ONE Cinema-layout page for
 every title, on the server or not: `/media/title/{kind}/{tmdb}` and `/media/item/{jf_id}` build the same page (live reads:
 `docs/connector-contract.md`, eighth exception; each section degrades to words when its source is down). Top to bottom: a
 status line in words ("On your server · 4K · HDR · watched 3 Oct · you rated 8", or "Not on your server · Requested ...");

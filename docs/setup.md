@@ -33,8 +33,9 @@ set SNAPSHOT_DIR=data/demo-snapshots && python -m uvicorn hub.main:app --port 88
 Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`
 header, and that person's view (you / her) is authoritative — the Both / You / Her switcher is gone.
 `OWNER_EMAIL_YOU` is B.'s own Access login address, set only in the NAS `.env` (the example file holds a placeholder);
-that address is "you", any other address Access admits is "her".
-`OWNER_NAME_YOU` (default Benji) and `OWNER_NAME_HER` (default Georgina) are the display names.
+that address is "you", any other address Access admits is "her". It must be the real Access email, not the example value:
+left at the placeholder, every signed-in person is treated as "her" (this happened 2026-10-06).
+`OWNER_NAME_YOU` (default Benji) and `OWNER_NAME_HER` (default Georgina) are the display names (both optional).
 The other person's email address is never recorded — not in `.env`, the repo, tests or docs.
 Without the header (local dev on port 8800, tests) the page shows "Not signed in" and the old
 `?owner_view=` query + cookie still pick the view; send the header with curl to preview the signed-in state.

@@ -205,20 +205,30 @@ def _cast(raw: dict, people: list[dict]) -> list[dict]:
     for c in ((raw.get("credits") or {}).get("cast") or []):
         if isinstance(c, dict) and c.get("name") and len(out) < CAST_MAX:
             out.append({"name": str(c["name"])[:80], "role": str(c.get("character") or "")[:80],
-                        "ref": md._ref(c.get("profilePath"))})
+                        "ref": md._ref(c.get("profilePath")), "id": _pid(c.get("id"))})
     if out:
         return out
-    return [{"name": p["name"], "role": p["role"], "ref": p["ref"]} for p in people if p["type"] == "Actor"][:CAST_MAX]
+    return [{"name": p["name"], "role": p["role"], "ref": p["ref"], "id": None} for p in people if p["type"] == "Actor"][:CAST_MAX]
 
 
-def _makers(raw: dict, people: list[dict], kind: str) -> list[str]:
+def _pid(value) -> int | None:
+    """A TMDB person id for the /media/person link, else None (plain text / search fallback)."""
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def _makers(raw: dict, people: list[dict], kind: str) -> list[dict]:
     if kind == "tv":
-        names = [c.get("name") for c in raw.get("createdBy") or [] if isinstance(c, dict)]
+        found = [c for c in raw.get("createdBy") or [] if isinstance(c, dict)]
     else:
-        names = [c.get("name") for c in ((raw.get("credits") or {}).get("crew") or [])
+        found = [c for c in ((raw.get("credits") or {}).get("crew") or [])
                  if isinstance(c, dict) and c.get("job") == "Director"]
-    names = [str(n)[:80] for n in names if n] or [p["name"] for p in people if p["type"] == "Director"]
-    return list(dict.fromkeys(names))[:4]
+    out: dict[str, dict] = {}
+    for c in found:
+        if c.get("name"):
+            out.setdefault(str(c["name"])[:80], {"name": str(c["name"])[:80], "id": _pid(c.get("id"))})
+    if not out:
+        out = {p["name"]: {"name": p["name"], "id": None} for p in people if p["type"] == "Director"}
+    return list(out.values())[:4]
 
 
 def _providers(raw: dict, title: str) -> list[dict]:

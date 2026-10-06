@@ -132,6 +132,19 @@ entities instead of all three repeating the same summary.
 `secondary` and the today fields are unchanged. Snapshots written before this lack both arrays — `/weather` then
 renders today only.
 
+**BOM radar loop (2026-10-06, Option 1 approved by B.).** Radar rides the existing `open_meteo` connector —
+no new id (D13). After the forecast GET succeeds, `fetch()` pulls Melbourne 128 km (`IDR023`; `IDR022` is the
+256 km view) from BOM anonymous FTP (`ftp.bom.gov.au`, passive, 10 s timeout): the latest 6 rain frames
+`/anon/gen/radar/IDR023.T.<YYYYMMDDHHMM UTC>.png` (5-minutely as found 2026-10-06) and the static layers
+`/anon/gen/radar_transparencies/IDR023.{background,topography,locations,range}.png`. **File-sidecar pattern:**
+the PNGs are stored raw (no compositing) under `SNAPSHOT_DIR/radar/` as `layer_<name>.png` and
+`frame_<stamp>.png`, each written atomically (tmp + `os.replace`), only after every file downloaded; files
+named by neither the new set nor the current envelope are pruned. `open_meteo` data gains optional `radar`
+`{station, fetched_ok, layers: [file], frames: [{file, time_iso (UTC)}] (oldest first, ≤ 6)}`. A radar failure
+never fails the envelope: status stays `ok`, `radar` is the previous block with `fetched_ok: false` (its files are
+still on disk) or absent if there never was one. Fixture mode never runs the step, so the committed sample has no
+`radar`. The hub serves the files read-only at `/weather/radar/{name}` behind a filename allowlist.
+
 **Jellyfin media rows (2026-10-05/06).** Rows in `now_playing`, `up_next`, `recent` and the
 resume/history lists carry `jf_id` (the Jellyfin ItemId) and `data` carries `server_id` (from
 `/System/Info`); together they build the deep link `/web/#/details?id={jf_id}&serverId={server_id}`

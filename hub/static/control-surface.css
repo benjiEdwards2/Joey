@@ -20,6 +20,9 @@
   --scrim: rgba(247, 247, 246, .9); --scrim-soft: rgba(247, 247, 246, .62);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
+  --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
+  --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
+  --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
   --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px -1px rgba(0, 0, 0, .06);
   --ic-moon: inline-block; --ic-sun: none;
 }
@@ -37,6 +40,9 @@
   --scrim: rgba(15, 15, 15, .84); --scrim-soft: rgba(15, 15, 15, .58);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
+  --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
+  --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
+  --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
   --shadow: none;
   --ic-moon: none; --ic-sun: inline-block;
 } }
@@ -54,6 +60,9 @@
   --scrim: rgba(15, 15, 15, .84); --scrim-soft: rgba(15, 15, 15, .58);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
+  --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
+  --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
+  --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
   --shadow: none;
   --ic-moon: none; --ic-sun: inline-block;
 }
@@ -87,7 +96,6 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .brand .mark { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--rail-border); flex: none; }
 .brand:hover b { color: var(--rail-fg); }
 .brand b { display: block; font-size: 15px; color: var(--rail-strong); line-height: 1.1; }
-.brand small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
 .railsec { padding: 14px 24px 4px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
 .nav { padding: 4px 10px; display: grid; gap: 2px; }
 .nav a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px;
@@ -111,14 +119,20 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .iconbtn:hover { background: var(--soft); color: var(--fg); }
 .themetoggle .moon { display: var(--ic-moon); }
 .themetoggle .sun { display: var(--ic-sun); }
+/* Signed-in user chip (2026-10-06): avatar letter + name; email only at wide widths */
+.userchip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.userchip .avatar { width: 28px; height: 28px; background: var(--soft); color: var(--fg); flex: none; }
+.userchip .uname { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; }
+.userchip small { display: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
+@media (min-width: 1001px) { .userchip small { display: inline; } }
 
-/* Segmented control (.seg): owner switcher, Media sections and sub-tabs share the look */
-.seg, .switcher, .sections, .subtabs { display: inline-flex; flex-wrap: wrap; align-self: flex-start;
+/* Segmented control (.seg): Media sections and sub-tabs share the look */
+.seg, .sections, .subtabs { display: inline-flex; flex-wrap: wrap; align-self: flex-start;
   background: var(--soft); border-radius: 9px; padding: 3px; gap: 2px; }
-.seg a, .switcher a, .page .sections a, .page .subtabs a { padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 500;
+.seg a, .page .sections a, .page .subtabs a { padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 500;
   color: var(--muted); text-decoration: none; white-space: nowrap; }
-.seg a:hover, .switcher a:hover, .page .sections a:hover, .page .subtabs a:hover { color: var(--fg); }
-.seg a[aria-current], .switcher a[aria-current], .page .sections a[aria-current], .page .subtabs a[aria-current] {
+.seg a:hover, .page .sections a:hover, .page .subtabs a:hover { color: var(--fg); }
+.seg a[aria-current], .page .sections a[aria-current], .page .subtabs a[aria-current] {
   background: var(--card); color: var(--fg); box-shadow: var(--shadow); font-weight: 600; }
 
 /* ---- Page content ---- */
@@ -608,6 +622,45 @@ table { width: 100%; border-collapse: collapse; }
   .wxapp { grid-template-columns: minmax(0, 1fr); }
   .wxdays { display: flex; overflow-x: auto; padding-bottom: 4px; }
   .wxdays li { flex: 0 0 104px; }
+}
+
+/* ---- /weather rain radar (2026-10-06): stored BOM PNGs stacked as <img> layers; 6 frame slots
+   cycled by keyframes (7 x .6s — the latest frame holds for two slots). No JS. Reduced motion:
+   latest frame only. Big by request: own column beside everything at wide widths, full row
+   below that, capped to the viewport height so the square never scrolls off. ---- */
+.wxapp > .wxradar { grid-column: 1 / -1; }
+.wxradarbox { position: relative; width: min(100%, 78vh); aspect-ratio: 1; margin: 0 auto;
+  overflow: hidden; border-radius: 10px; background: var(--soft); }
+.wxradarbox img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wxradarbox .wxrframe, .wxradarbox .wxrclock { opacity: 0; animation: wxr 4.2s linear infinite; }
+.wxradarbox .f1 { animation-delay: .6s; }
+.wxradarbox .f2 { animation-delay: 1.2s; }
+.wxradarbox .f3 { animation-delay: 1.8s; }
+.wxradarbox .f4 { animation-delay: 2.4s; }
+.wxradarbox .f5 { animation-name: wxrlast; animation-delay: 3s; }
+@keyframes wxr { 0%, 14.28% { opacity: 1; } 14.29%, 100% { opacity: 0; } }
+@keyframes wxrlast { 0%, 28.56% { opacity: 1; } 28.57%, 100% { opacity: 0; } }
+.wxrclock { position: absolute; top: 6%; left: 8px; padding: 2px 8px; border-radius: 6px;
+  background: var(--card); color: var(--fg); font-size: 13px; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .wxradarbox .wxrframe, .wxradarbox .wxrclock { animation: none; }
+  .wxradarbox .f5 { opacity: 1; }
+}
+.wxradartime { margin-top: 10px; font-size: 13px; text-align: center; }
+.wxlegend { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px;
+  margin-top: 8px; font-size: 12px; }
+.wxlegend li { display: flex; align-items: center; gap: 6px; }
+.wxlegend small { color: var(--muted); font-size: 11px; }
+.wxlegend i { display: inline-block; width: 30px; height: 10px; border-radius: 3px; border: 1px solid var(--border); }
+.wxlegend .rl1 { background: linear-gradient(90deg, var(--rad-1), var(--rad-2)); }
+.wxlegend .rl2 { background: linear-gradient(90deg, var(--rad-3), var(--rad-4), var(--rad-5), var(--rad-6)); }
+.wxlegend .rl3 { background: linear-gradient(90deg, var(--rad-7), var(--rad-8), var(--rad-9)); }
+.wxlegend .rl4 { background: linear-gradient(90deg, var(--rad-10), var(--rad-11), var(--rad-12)); }
+.wxlegend .rl5 { background: linear-gradient(90deg, var(--rad-13), var(--rad-14), var(--rad-15)); }
+@media (min-width: 1440px) {
+  .wxapp { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .wxapp > .wxpage, .wxapp > .wxhourly, .wxapp > .wxweek, .wxapp > .areaquiet { grid-column: 1; }
+  .wxapp > .wxradar { grid-column: 2; grid-row: 1 / span 3; }
 }
 
 /* ---- Plays / History (F7) ---- */

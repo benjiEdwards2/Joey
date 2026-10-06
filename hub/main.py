@@ -27,12 +27,12 @@ from hub import media_film, media_item, media_library, media_plays, media_plays_
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub.media_watchlist import router as media_watchlist_router
+from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
-IDENTITY_HEADER = "Cf-Access-Authenticated-User-Email"
 
 log = logging.getLogger("hub")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -113,17 +113,33 @@ def _static_version() -> str:
 templates.env.globals["static_v"] = _static_version()
 
 
+def identity_of(request) -> Identity:
+    """Template global `identity(request)`: the signed-in user (name/email/owner), cached per request."""
+    state = getattr(request, "state", None)
+    cached = getattr(state, "identity", None) if state is not None else None
+    if cached is None:
+        cached = resolve_identity(request)
+        if state is not None:
+            state.identity = cached
+    return cached
+
+
 OWNER_VIEWS = ("both", "you", "her")
 OWNER_COOKIE = "owner_view"
 OWNER_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days, per device (WP19)
 
 
 def resolve_owner_view(request: Request) -> tuple[str, bool]:
-    """Query param wins (and sets the cookie); else cookie; else 'both'.
+    """Signed in (Access header): the view IS the signed-in owner — query and cookie are
+    ignored and no cookie is set (2026-10-06). Not signed in (local dev, tests): query param
+    wins (and sets the cookie); else cookie; else 'both'.
 
     Semantics per Q9 (answered 2026-08-25): you = you+shared, her = her+shared.
     Returns (view, came_from_query).
     """
+    who = resolve_identity(request)
+    if who.owner:
+        return who.owner, False
     q = request.query_params.get(OWNER_COOKIE)
     if q in OWNER_VIEWS:
         return q, True
@@ -269,6 +285,75 @@ def weather_forecast(snaps) -> dict | None:
                   "rain": d.get("rain_prob_pct")}
                  for i, d in enumerate(days)],
     }
+
+
+# BOM radar loop (2026-10-06, Option 1 approved by B.): the open_meteo connector stores
+# raw PNG layers + up to 6 rain frames under SNAPSHOT_DIR/radar/ and names them in
+# data.radar. The page stacks <img> layers and cycles the frames with CSS keyframes (no
+# JS); the route below serves ONLY names matching this allowlist, never arbitrary paths.
+RADAR_FILE_RE = re.compile(r"^(?:layer_(?:background|topography|locations|range)|frame_\d{12})\.png$")
+RADAR_UNDER = ("background", "topography")   # below the rain
+RADAR_OVER = ("range", "locations")          # above it, so town names stay readable
+RADAR_SLOTS = 6                              # the CSS cycle is built for 6 frame slots
+
+
+def _radar_dir() -> Path:
+    from hub.store import DEFAULT_SNAPSHOT_DIR
+    return Path(os.environ.get("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR)) / "radar"
+
+
+def _radar_clock(iso: str) -> str | None:
+    try:
+        t = datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        t = t.astimezone(ZoneInfo(HOME_TZ_NAME))
+    except Exception:
+        t = t.astimezone()
+    return f"{t:%H:%M}"
+
+
+def weather_radar(snaps) -> dict | None:
+    """Template context for the radar panel; None when the snapshot carries no usable radar."""
+    snap = snaps.get(WEATHER_SNAPSHOT_ID)
+    data = snap.data if snap else None
+    radar = data.get("radar") if isinstance(data, dict) else None
+    if not isinstance(radar, dict):
+        return None
+    frames = []
+    for f in radar.get("frames") or []:
+        name = f.get("file") if isinstance(f, dict) else None
+        clock = _radar_clock(f.get("time_iso")) if name else None
+        if isinstance(name, str) and RADAR_FILE_RE.match(name) and clock:
+            frames.append({"src": f"/weather/radar/{name}", "time": clock})
+    if not frames:
+        return None
+    layers = {n for n in radar.get("layers") or [] if isinstance(n, str) and RADAR_FILE_RE.match(n)}
+
+    def urls(names):
+        return [f"/weather/radar/layer_{n}.png" for n in names if f"layer_{n}.png" in layers]
+
+    # Always RADAR_SLOTS slots so one fixed CSS cycle fits: pad by repeating the oldest frame.
+    slots = [frames[0]] * (RADAR_SLOTS - len(frames)) + frames[-RADAR_SLOTS:]
+    steps = sorted({_frame_minutes(a, b) for a, b in zip(frames, frames[1:])} - {None})
+    return {
+        "under": urls(RADAR_UNDER), "over": urls(RADAR_OVER), "slots": slots,
+        "count": len(frames), "first": frames[0]["time"], "last": frames[-1]["time"],
+        "step": steps[0] if len(steps) == 1 else None,
+        "stale": radar.get("fetched_ok") is False,
+        "station": radar.get("station") or "",
+    }
+
+
+def _frame_minutes(a: dict, b: dict) -> int | None:
+    try:
+        ha, ma = map(int, a["time"].split(":"))
+        hb, mb = map(int, b["time"].split(":"))
+    except (KeyError, ValueError):
+        return None
+    return ((hb * 60 + mb) - (ha * 60 + ma)) % 1440 or None
 
 
 # Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
@@ -573,6 +658,7 @@ def media_frame(request: Request) -> dict:
 for _t in (templates, _media_write.templates, _media_discover.templates):
     _t.env.globals["media_nav"] = media_frame
     _t.env.globals["item_href"] = item_href
+    _t.env.globals["identity"] = identity_of
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
@@ -709,10 +795,10 @@ def _now_home() -> datetime:
         return datetime.now().astimezone()
 
 
-def hub_greeting(now: datetime) -> str:
+def hub_greeting(now: datetime, name: str | None = None) -> str:
     part = "morning" if now.hour < 12 else "afternoon" if now.hour < 17 else "evening"
-    return (f"Good {part}, Benji. Here's what's happening at home today, "
-            f"{now:%A} {now.day} {now:%B}.")
+    hello = f"Good {part}, {name}." if name else f"Good {part}."
+    return f"{hello} Here's what's happening at home today, {now:%A} {now.day} {now:%B}."
 
 
 def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
@@ -822,7 +908,7 @@ def hub_page(request: Request):
         "status": build_status(snaps), "weather": find_weather(snaps),
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": media_backup.current_status()["warning"],
-        "greeting": hub_greeting(_now_home()),
+        "greeting": hub_greeting(_now_home(), identity_of(request).owner and identity_of(request).name),
     })
     return _maybe_set_cookie(resp, view, from_query)
 
@@ -836,9 +922,25 @@ def weather_page(request: Request):
     resp = templates.TemplateResponse(request, "weather.html", {
         "areas": registry.visible_areas, "active_id": None, "owner_view": view,
         "status": build_status(snaps), "w": find_weather(snaps),
-        "fc": weather_forecast(snaps),
+        "fc": weather_forecast(snaps), "radar": weather_radar(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
+
+
+@app.get("/weather/radar/{name}")
+def weather_radar_file(name: str):
+    """One stored BOM radar PNG (2026-10-06). Allowlisted names only — anything else,
+    traversal attempts included, is a 404; so is a name the connector has pruned."""
+    from fastapi.responses import FileResponse
+
+    if not RADAR_FILE_RE.match(name):
+        raise HTTPException(status_code=404)
+    path = _radar_dir() / name
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    # frames are immutable (timestamped names); layers are rewritten in place — revalidate
+    cache = "public, max-age=86400, immutable" if name.startswith("frame_") else "no-cache"
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": cache})
 
 
 def _detail_page(request: Request, template: str, snapshot_id: str, build=None, detail=None,

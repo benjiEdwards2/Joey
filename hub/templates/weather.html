@@ -79,6 +79,37 @@
 </section>
 {% endif %}
 
+{# BOM radar loop (2026-10-06): stored PNG layers stacked as <img>, the 6 frame slots cycled
+   by CSS keyframes (no JS); reduced motion shows the latest frame only. The time range and the
+   legend words are text, so colour is never the only encoding. #}
+{% set radar = radar or none %}
+{% if w and w.st.state != "off" %}
+<section class="card panel wxradar{% if not radar %} wxradar-off{% endif %}">
+  <div class="hd"><div><h2>Rain radar</h2><p>Melbourne 128 km · Bureau of Meteorology</p></div></div>
+  <div class="bd">
+  {% if radar %}
+    <div class="wxradarbox" role="img" aria-label="Rain radar loop, {{ radar.count }} frames from {{ radar.first }} to {{ radar.last }}">
+      {% for src in radar.under %}<img class="wxrlayer" src="{{ src }}" alt="" width="512" height="512">{% endfor %}
+      {% for f in radar.slots %}<img class="wxrframe f{{ loop.index0 }}" src="{{ f.src }}" alt="" width="512" height="512">{% endfor %}
+      {% for src in radar.over %}<img class="wxrlayer" src="{{ src }}" alt="" width="512" height="512">{% endfor %}
+      {% for f in radar.slots %}<span class="wxrclock f{{ loop.index0 }}" aria-hidden="true">{{ f.time }}</span>{% endfor %}
+    </div>
+    <p class="wxradartime">{% if radar.stale %}<b>Radar unavailable</b> — showing the last stored frames, {% endif %}{{ radar.first }}–{{ radar.last }}{% if radar.step %}, {{ radar.step }}-min frames{% endif %} · {{ radar.count }} frame{{ "s" if radar.count != 1 }}, latest held</p>
+    <ul class="wxlegend" aria-label="Rain intensity legend">
+      <li><i class="rl1"></i>Light <small>under 1.5 mm/h</small></li>
+      <li><i class="rl2"></i>Moderate <small>1.5–10 mm/h</small></li>
+      <li><i class="rl3"></i>Heavy <small>10–35 mm/h</small></li>
+      <li><i class="rl4"></i>Very heavy <small>35–120 mm/h</small></li>
+      <li><i class="rl5"></i>Extreme, possible hail <small>over 120 mm/h</small></li>
+    </ul>
+  {% else %}
+    <p class="areaquiet">Radar unavailable — the loop appears after the next successful radar fetch.</p>
+  {% endif %}
+  <div class="sub">Radar © Commonwealth of Australia, Bureau of Meteorology · refreshed with the forecast</div>
+  </div>
+</section>
+{% endif %}
+
 {% if fc and fc.days %}
 <section class="card panel wxweek">
   <div class="hd"><div><h2>Next 7 days</h2><p>Low – high °C · chance of rain</p></div></div>

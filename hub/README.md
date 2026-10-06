@@ -5,14 +5,18 @@ FastAPI + Jinja/HTMX dashboard shell. Areas are config, not code — see `config
 **Apex shell (2026-10-06).** `templates/base.html` is the one frame: 260 px labelled rail (brand = kangaroo photo
 `static/brand-joey.jpg`, the whole block links to `/`; Home group = Hub, any area with `rail_section: home`, Weather;
 Areas group = the rest, in `areas.yaml` order), sticky top bar (theme toggle → `data-theme` on `<html>`, saved in
-localStorage `joey-theme`, applied by a pre-paint script; You/Her switcher), page heading block, phone bottom bar.
+localStorage `joey-theme`, applied by a pre-paint script; user chip from `identity.py` — the Access header decides the owner view, `?owner_view=` only works locally), page heading block, phone bottom bar. Areas with `hidden: true` are parked: no rail entry, phone tab or hub card, page still serves.
 `static/control-surface.css` keeps its filename but is the Apex port: light values on `:root`, the two dark blocks
 redefine tokens only, no literal colour outside the token blocks (a test enforces it); `--brand` is the red, per-area
 `--accent` is injected by templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
 row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
 card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
 table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart + hour list,
-`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Greeting clock: `_now_home()` (Australia/Melbourne).
+`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Rain radar panel
+(2026-10-06, `weather_radar()`): stored BOM PNGs stacked as `<img>` layers, 6 frame slots cycled by CSS keyframes
+(no JS; reduced motion = latest frame), time-range text + worded intensity legend; its own column beside the rest
+at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapshot has no `radar`. Files served by
+`GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting clock: `_now_home()` (Australia/Melbourne).
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame

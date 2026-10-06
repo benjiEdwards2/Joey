@@ -67,6 +67,11 @@ the sixth exception's file strip) and Jellyseerr title (`/api/v1/{movie|tv}/{tmd
 on Request) clears these too. Every call degrades per section to words, never a 500; Jellyseerr not connected makes none.
 Logs carry exception types only; the page carries no key or upstream URL beyond the Play deep link and "Open in Jellyseerr".
 
+**Ninth exception (2026-10-06): the person page (`hub/media_person.py`, F11).** `/media/person/{tmdb}` reads Jellyseerr
+`/api/v1/person/{id}` and `/api/v1/person/{id}/combined_credits` live, server-side, cached 10 minutes via the film page's
+cache (a failed fetch is not cached). "On your server" is built from the jellyfin snapshot library lists, not a Jellyfin
+call. A non-numeric id 404s before any call is made; Jellyseerr down degrades to words, never a 500. Logs carry exception types only.
+
 **`media.db` additions (2026-10-06).** `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key
 `(owner, item_key)` (F6); `play(...)` per watch, with user, item/show/season/episode keys, runtime, `started_at`,
 `last_seen_at`, `position_pct`, `finished` (F7); and diary columns `show_key, season_key, season, episode, show_title,

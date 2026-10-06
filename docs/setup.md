@@ -35,7 +35,9 @@ set SNAPSHOT_DIR=data/demo-snapshots && python -m uvicorn hub.main:app --port 88
 `JELLYFIN_USER_HER` (2026-10-05, optional) is the exact display name of Georgina's Jellyfin user —
 B. creates that account in Jellyfin; unset, her view shows a quiet word and never falls back to the
 admin. Radarr/Sonarr/Jellyseerr URL + key pairs are in `deploy/.env.example`; the hub also uses the
-Jellyseerr pair live for Discover & Search. `media.db` is backed up nightly into
+Jellyseerr pair live for Discover & Search. `QBIT_URL` + `QBIT_USER` + `QBIT_PASS` (2026-10-06) are the
+qBittorrent Web UI LAN address (NAS IP, port 8080) and a permanent Web UI login set in qBittorrent → Options → Web UI
+(the linuxserver image otherwise prints a throwaway password each start); read-only, on the 2-min loop. `media.db` is backed up nightly into
 `/volume1/Docker/joey/backups/media` (the host dir must be owned by uid 1000).
 
 Play recorder (2026-10-06): the hub polls Jellyfin `/Sessions` every `PLAY_POLL_SECONDS` (default 60) into `media.db`;

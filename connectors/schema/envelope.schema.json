@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/envelope.schema.json",
   "title": "Snapshot envelope v1",
-  "description": "FROZEN at WP0 (D13, 2026-08-25) — the hub<->connector contract. Every connector writes exactly one envelope per run to the snapshot store; the hub renders tiles from envelopes only. Any change after this commit is a dated DECISIONS.md entry plus a full hub-test-suite re-run. Frozen connector id namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money. Changelog: media_status added 2026-10-05 (authorised dated decision, Media area Phase 1); arr added 2026-10-05 (authorised dated decision, Media area Phase 2); jellyseerr added 2026-10-05 (authorised dated decision, Media area Phase 3); qbittorrent added 2026-10-06 (authorised dated decision, Media area downloads). Owner rule (R12): any person-scoped list inside `data` carries an `owner` field valued you|her|shared on every record. `fetched_at` is the last fetch ATTEMPT; `updated_at` is the last SUCCESS and is what the hub's stale badge reads.",
+  "description": "FROZEN at WP0 (D13, 2026-08-25) — the hub<->connector contract. Every connector writes exactly one envelope per run to the snapshot store; the hub renders tiles from envelopes only. Any change after this commit is a dated DECISIONS.md entry plus a full hub-test-suite re-run. Frozen connector id namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money. Changelog: media_status added 2026-10-05 (authorised dated decision, Media area Phase 1); arr added 2026-10-05 (authorised dated decision, Media area Phase 2); jellyseerr added 2026-10-05 (authorised dated decision, Media area Phase 3); qbittorrent added 2026-10-06 (authorised dated decision, Media area downloads); system, wud added 2026-10-06 (authorised dated decision, Server area). Owner rule (R12): any person-scoped list inside `data` carries an `owner` field valued you|her|shared on every record. `fetched_at` is the last fetch ATTEMPT; `updated_at` is the last SUCCESS and is what the hub's stale badge reads.",
   "type": "object",
   "required": [
     "connector",
@@ -29,7 +29,9 @@
         "media_status",
         "arr",
         "jellyseerr",
-        "qbittorrent"
+        "qbittorrent",
+        "system",
+        "wud"
       ],
       "description": "Frozen id namespace. clickup is reserved (WP26 removed from v1, 2026-08-25) — the id stays frozen so a future connector needs no schema change."
     },

@@ -1,0 +1,12 @@
+{
+  "cpu_pct": 16.2,
+  "mem_total_bytes": 8267055104,
+  "mem_available_bytes": 2040109466,
+  "uptime_s": 1052400,
+  "load_1m": 0.42,
+  "volumes": [
+    {"path": "/volume1", "total_bytes": 7998365360128, "free_bytes": 2287828287488},
+    {"path": "/volume2", "total_bytes": 3998614740992, "free_bytes": 1340029796352},
+    {"path": "/volume1/Docker", "total_bytes": 499963174912, "free_bytes": 128849018880}
+  ]
+}

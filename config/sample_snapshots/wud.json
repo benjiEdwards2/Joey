@@ -1,0 +1,145 @@
+{
+  "connector": "wud",
+  "consecutive_failures": 0,
+  "data": {
+    "containers": [
+      {
+        "current_tag": "1.23.16",
+        "image": "louislam/uptime-kuma",
+        "kind": "tag",
+        "name": "uptime-kuma",
+        "new_tag": "2.0.2",
+        "update_available": true
+      },
+      {
+        "current_tag": "2025.8.1",
+        "image": "cloudflare/cloudflared",
+        "kind": null,
+        "name": "cloudflared",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "v3.3.25",
+        "image": "flaresolverr/flaresolverr",
+        "kind": null,
+        "name": "flaresolverr",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "v3.40.0",
+        "image": "qmcgaw/gluetun",
+        "kind": null,
+        "name": "gluetun",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "v1.4.0",
+        "image": "gethomepage/homepage",
+        "kind": null,
+        "name": "homepage",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "10.10.7",
+        "image": "jellyfin/jellyfin",
+        "kind": null,
+        "name": "jellyfin",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "2.7.3",
+        "image": "fallenbagel/jellyseerr",
+        "kind": null,
+        "name": "jellyseerr",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "latest",
+        "image": "life-connectors",
+        "kind": null,
+        "name": "joey-connectors",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "latest",
+        "image": "life-hub",
+        "kind": null,
+        "name": "joey-hub",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "alpine",
+        "image": "nginx",
+        "kind": null,
+        "name": "macromates",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "2.27.9",
+        "image": "portainer/portainer-ce",
+        "kind": null,
+        "name": "portainer",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "1.37.0",
+        "image": "linuxserver/prowlarr",
+        "kind": null,
+        "name": "prowlarr",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "5.1.2",
+        "image": "linuxserver/qbittorrent",
+        "kind": null,
+        "name": "qbittorrent",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "5.26.2",
+        "image": "linuxserver/radarr",
+        "kind": null,
+        "name": "radarr",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "4.0.15",
+        "image": "linuxserver/sonarr",
+        "kind": null,
+        "name": "sonarr",
+        "new_tag": null,
+        "update_available": false
+      },
+      {
+        "current_tag": "8.1.1",
+        "image": "getwud/wud",
+        "kind": null,
+        "name": "wud",
+        "new_tag": null,
+        "update_available": false
+      }
+    ],
+    "monitoring": 16,
+    "secondary": "uptime-kuma 1.23.16 \u2192 2.0.2",
+    "summary": "1 update available",
+    "updates": 1
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

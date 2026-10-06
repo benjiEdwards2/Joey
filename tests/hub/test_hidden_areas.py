@@ -31,7 +31,7 @@ def test_hidden_area_is_still_validated(tmp_path):
 def test_real_registry_parks_exactly_five():
     reg = load_registry(AREAS_YAML)
     assert {a.id for a in reg.areas if a.hidden} == PARKED
-    assert [a.id for a in reg.visible_areas] == ["calendar", "media"]
+    assert [a.id for a in reg.visible_areas] == ["calendar", "media", "server"]  # server added 2026-10-06
 
 
 def _client(monkeypatch, tmp_path, registry=None, drop=()):
@@ -72,11 +72,12 @@ def test_hub_row_is_media_weather_calendar_and_spans_calendar(monkeypatch, tmp_p
     with _client(monkeypatch, tmp_path) as c:
         body = c.get("/").text.split("<main", 1)[1]
     row = re.search(r'<section class="kpis[^"]*".*?</section>', body, re.S).group(0)
-    assert re.match(r'<section class="kpis few"', row)
+    # Server area (2026-10-06) makes it four cards: a full row, so no `few` / span2 any more
+    assert re.match(r'<section class="kpis"', row)
     names = re.findall(r'<div class="kpiarea">([^<]+)</div>', row)
-    assert names == ["Media", "Weather", "Calendar"]
-    assert re.search(r'<a class="cardlink span2" href="/a/calendar">', row)
-    assert row.count("span2") == 1
+    assert names == ["Media", "Calendar", "Weather", "Server"]  # Weather sits before the last card
+    assert re.search(r'<a class="cardlink" href="/a/server">', row)
+    assert row.count("span2") == 0
     for name in ("Food", "Money", "Desk", "House", "Car"):
         assert f'<div class="kpiarea">{name}</div>' not in body
 

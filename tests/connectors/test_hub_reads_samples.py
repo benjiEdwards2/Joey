@@ -27,7 +27,7 @@ def sample_snapshots():
 def test_hub_parses_every_committed_sample(sample_snapshots):
     assert set(sample_snapshots) == {
         "arr", "gcal", "home_assistant", "jellyfin", "jellyseerr", "macromates", "media_status", "nas_stats",
-        "open_meteo", "qbittorrent",
+        "open_meteo", "qbittorrent", "system", "wud",
     }
     assert all(s.status == "ok" for s in sample_snapshots.values())
 
@@ -45,7 +45,8 @@ def test_every_connector_backed_tile_resolves_to_real_content(sample_snapshots):
             assert resolved["secondary"], "D17's secondary line is missing"
             checked += 1
     # meals, files, next-event, weather, watching, media status, library, requests, watched, diary, by year, discover, downloads, climate, car-status (garden removed 2026-09-11)
-    assert checked == 15
+    # + Server area services, system, updates (2026-10-06)
+    assert checked == 18
 
 
 def test_weather_tile_shows_the_composed_summary(sample_snapshots):

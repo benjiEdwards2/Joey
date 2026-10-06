@@ -7,7 +7,7 @@ appends one JSON line to `_runner_history.jsonl` — the append-only evidence
 WP38's 24 h soak counts beats from.
 
 Driven by the container entrypoint's `sleep 3600` loop, not crond (D16). Since
-2026-10-05 (D16 amended) a second 120 s loop runs `--only jellyfin,media_status,qbittorrent,arr`;
+2026-10-05 (D16 amended) a second 120 s loop runs `--only jellyfin,media_status,qbittorrent,arr,system`;
 those sweeps are tagged `{"only": [...]}` so a soak counter can tell the
 hourly full sweeps from the fast partial ones.
 """

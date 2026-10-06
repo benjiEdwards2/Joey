@@ -84,4 +84,4 @@ services:
       CONNECTOR_MODE: live
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
-    entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]
+    entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]

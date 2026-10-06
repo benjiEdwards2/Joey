@@ -23,6 +23,8 @@ FROZEN_SNAPSHOT_IDS = {
     "arr",           # added 2026-10-05 (Media area Phase 2: Radarr + Sonarr)
     "jellyseerr",    # added 2026-10-05 (Media area Phase 3: request queue)
     "qbittorrent",   # added 2026-10-06 (Media area: downloads)
+    "system",        # added 2026-10-06 (Server area: NAS host health)
+    "wud",           # added 2026-10-06 (Server area: container updates)
 }
 
 MAX_AREAS = 9  # hard ceiling (DECISIONS 2026-08-17); "locked at 8" is yaml content
@@ -69,7 +71,8 @@ class Area(BaseModel):
     summary_tile: str
     hub_size: HubSize = HubSize.s11
     hub_rank: int = 100  # hub card order only (lower first); areas.yaml order drives rail/tabs (2026-10-05)
-    layout: Literal["grid", "shelves"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05)
+    layout: Literal["grid", "shelves", "server"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05);
+    # "server" = the /server bands page instead of tile cards (2026-10-06)
     rail_section: Literal["home", "areas"] = "areas"  # "home" lifts the area into the rail's Home group (2026-10-06)
     hidden: bool = False  # parked: no rail, tab or hub card; /a/<id> still serves (2026-10-06)
     tiles: list[Tile]

@@ -9,7 +9,7 @@ from hub.registry import load_registry
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AREAS_YAML = REPO_ROOT / "config" / "areas.yaml"
 
-LOCKED_ORDER = ["kitchen", "money", "desk", "calendar", "media", "house", "car"]  # garden removed (B., 2026-09-11)
+LOCKED_ORDER = ["kitchen", "money", "desk", "calendar", "media", "house", "car", "server"]  # garden removed (B., 2026-09-11); server added last (2026-10-06)
 
 
 def make_tile(tid: str, **over) -> dict:

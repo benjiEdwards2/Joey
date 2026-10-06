@@ -1,0 +1,39 @@
+{
+  "connector": "system",
+  "consecutive_failures": 0,
+  "data": {
+    "cpu_pct": 16.2,
+    "load_1m": 0.42,
+    "ram_free_gb": 1.9,
+    "ram_pct_used": 75,
+    "ram_total_gb": 7.7,
+    "secondary": "Up 12 days \u00b7 /volume1/Docker 74% used",
+    "summary": "CPU 16% \u00b7 1.9 GB RAM free",
+    "uptime_s": 1052400,
+    "volumes": [
+      {
+        "free_gb": 2130.7,
+        "path": "/volume1",
+        "pct_used": 71,
+        "total_gb": 7449.1
+      },
+      {
+        "free_gb": 1248.0,
+        "path": "/volume2",
+        "pct_used": 66,
+        "total_gb": 3724.0
+      },
+      {
+        "free_gb": 120.0,
+        "path": "/volume1/Docker",
+        "pct_used": 74,
+        "total_gb": 465.6
+      }
+    ]
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

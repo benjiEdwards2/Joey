@@ -24,6 +24,17 @@ the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonig
 
 **Downloads (2026-10-06).** `/media/downloads` (Server sub-tab after Library) lists the live qBittorrent torrents. `media_downloads.py` joins the arr queue to qBittorrent (`download_id` == torrent hash) for live progress on the Home Downloading shelf, Library "This week" badges and title-page badges; a Sonarr season pack (one queue row per episode, one `download_id`) collapses to one row, e.g. "Show · S01 · 13 episodes".
 
+**Server area (WP-S1, 2026-10-06).** Registry area `server` (`layout: server`, last in the Areas rail, accent `#9AA4B2`,
+icon `server`) renders `server.html` at `/server` and `/a/server` — not to be confused with the Media "Server" sub-section.
+`server.py` (pure) builds, top to bottom: KPI row per tile (Services = `media_status`, System = `system`, Updates = `wud`,
+Homepage + Portainer links), System band (CPU, RAM free/total, uptime, each volume with a hairline bar and % used),
+Services grouped Media / Downloads / System by app id (unknown ids → System; Up/Down word beside the dot), Updates
+(`N monitored · N updates` + a row per pending update), Attention (any service Down, any volume ≥ 85 % used, the
+`media_backup` warning — none / older than 36 h) and Counts (Jellyseerr pending/approved/available, qBittorrent
+downloading/seeding/speeds, arr downloading / this week / disk rows). Each band says "Not connected" on its own when its
+snapshot is missing. Tile `detail` links are anchors (`/server#services`, `/server#updates`). Not yet: "Last sweep" and
+connector-error attention items (the hub does not read `_runner.json`; TODO for WP-S4).
+
 Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages, Request),
 `media_db.py` (ratings + diary, per owner), `media_backup.py` (nightly `media.db` dump),
 `media_write.py` (same-origin write guard). The hub's Media KPI card is first (`hub_rank: 1`,

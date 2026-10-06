@@ -1369,6 +1369,119 @@ class QBittorrent(Connector):
         }
 
 
+# -------------------------------------------------------------------- system
+
+# Server area (2026-10-06, WP-S1): host health of the NAS itself. The transform is
+# real; the live `fetch()` arrives in WP-S2 and must return the fixture's raw shape:
+# {cpu_pct, mem_total_bytes, mem_available_bytes, uptime_s, load_1m|null,
+#  volumes: [{path, total_bytes, free_bytes}]}. Sizes are binary GiB, shown as "GB".
+
+
+def _gib(n) -> float:
+    return round(float(n or 0) / GIB, 1)
+
+
+def _uptime_words(seconds) -> str:
+    """'12 days' / '5 h 20 min' / '40 min' — the NAS uptime, as a person says it."""
+    seconds = max(0, int(seconds or 0))
+    days, rest = divmod(seconds, 86400)
+    if days:
+        return f"{days} day{'' if days == 1 else 's'}"
+    hours, minutes = rest // 3600, (rest % 3600) // 60
+    return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+
+
+class System(Connector):
+    """NAS host health: CPU, RAM, uptime and per-volume space (Server area)."""
+
+    id = "system"
+
+    def fetch(self) -> dict:
+        raise NotImplementedError("live system fetch arrives in WP-S2")
+
+    def transform(self, raw: dict) -> dict:
+        total, free = _gib(raw.get("mem_total_bytes")), _gib(raw.get("mem_available_bytes"))
+        ram_pct = round((1 - free / total) * 100) if total else 0
+        volumes = []
+        for v in raw.get("volumes") or []:
+            vt, vf = _gib(v.get("total_bytes")), _gib(v.get("free_bytes"))
+            volumes.append({
+                "path": str(v.get("path") or "?"),
+                "total_gb": vt,
+                "free_gb": vf,
+                "pct_used": min(100, max(0, round((1 - vf / vt) * 100))) if vt else 0,
+            })
+        cpu = round(float(raw.get("cpu_pct") or 0), 1)
+        load = raw.get("load_1m")
+        fullest = max(volumes, key=lambda v: v["pct_used"], default=None)
+        secondary = f"Up {_uptime_words(raw.get('uptime_s'))}"
+        if fullest:
+            secondary += f" · {fullest['path']} {fullest['pct_used']}% used"
+        return {
+            "summary": f"CPU {cpu:.0f}% · {free:.1f} GB RAM free",
+            "secondary": secondary,
+            "cpu_pct": cpu,
+            "ram_total_gb": total,
+            "ram_free_gb": free,
+            "ram_pct_used": min(100, max(0, ram_pct)),
+            "uptime_s": max(0, int(raw.get("uptime_s") or 0)),
+            "volumes": volumes,
+            "load_1m": None if load is None else round(float(load), 2),
+        }
+
+
+# ----------------------------------------------------------------------- wud
+
+# What's Up Docker (2026-10-06, WP-S1). The raw shape IS WUD's GET /api/containers
+# list (subset: name, image.name, image.tag.value, updateAvailable, updateKind.kind,
+# result.tag), so WP-S3's live fetch can return the response JSON unchanged.
+
+
+class Wud(Connector):
+    """Container image updates as WUD sees them (Server area)."""
+
+    id = "wud"
+
+    def fetch(self) -> list:
+        raise NotImplementedError("live wud fetch arrives in WP-S3")
+
+    def transform(self, raw: list) -> dict:
+        containers = []
+        for c in raw or []:
+            image = c.get("image") or {}
+            update = bool(c.get("updateAvailable"))
+            kind = (c.get("updateKind") or {}).get("kind")
+            kind = kind if update and kind in ("tag", "digest") else None
+            new_tag = (c.get("result") or {}).get("tag") if kind == "tag" else None
+            containers.append({
+                "name": str(c.get("name") or "?"),
+                "image": str(image.get("name") or ""),
+                "current_tag": str((image.get("tag") or {}).get("value") or ""),
+                "new_tag": None if new_tag is None else str(new_tag),
+                "update_available": update,
+                "kind": kind,
+            })
+        containers.sort(key=lambda c: (not c["update_available"], c["name"]))
+        updates = [c for c in containers if c["update_available"]]
+        if updates:
+            first = updates[0]
+            change = (f"{first['current_tag']} → {first['new_tag']}" if first["new_tag"]
+                      else "new image digest")
+            secondary = f"{first['name']} {change}"
+            if len(updates) > 1:
+                secondary += f" (+{len(updates) - 1} more)"
+        else:
+            secondary = f"{len(containers)} containers monitored"
+        return {
+            "summary": (f"{len(updates)} update{'' if len(updates) == 1 else 's'} available"
+                        if updates else "All up to date"),
+            "secondary": secondary,
+            "monitoring": len(containers),
+            "updates": len(updates),
+            "containers": containers,
+        }
+
+
 # ----------------------------------------------------------------- nas_stats
 
 
@@ -1420,6 +1533,7 @@ def count_files(share_root: Path, since_ts: float) -> int:
 
 STUBS: tuple[type[Connector], ...] = (
     OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, MediaStatus, Arr, Jellyseerr, QBittorrent, NasStats,
+    System, Wud,  # Server area (2026-10-06)
 )
 
 for _cls in STUBS:

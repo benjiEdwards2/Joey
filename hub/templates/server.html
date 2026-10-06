@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{{ area.name }} · Joey{% endblock %}
+{% block pagehead %}
+<div class="pagehead">
+  <h1>{{ area.name }}</h1>
+  <p>{% if sv.attention %}{{ sv.attention | length }} need{{ "s" if sv.attention | length == 1 else "" }} attention{% else %}All clear{% endif %}</p>
+</div>
+{% endblock %}
+{% block content %}
+{# Server area (WP-S1, 2026-10-06): the NAS Homepage, natively. Bands, top to bottom:
+   System, Services, Updates, Attention, Counts. Each band degrades to "Not connected" on
+   its own. Up/Down and states are WORDS beside the dot/bar — colour is never the only encoding. #}
+{% from "_kpi.html" import kpi %}
+{# KPI row: one card per registry tile, as on every grid area page. #}
+<section class="kpis areakpis" aria-label="{{ area.name }} tiles">
+  {% for row in sv.tiles %}
+    {% set t = row.tile %}{% set st = row.st %}
+    {% if st.state == "link" %}
+      {{ kpi(st.href, t.label, t.owner.value | title, area.icon, st, t.owner.value,
+             value="Open ↗", sub="Opens the app in a new tab", new_tab=true) }}
+    {% else %}
+      {{ kpi(t.detail, t.label, t.owner.value | title, area.icon, st, t.owner.value, open_word="Open →") }}
+    {% endif %}
+  {% endfor %}
+</section>
+
+{% set sys = sv.system %}
+<div class="mediacols">
+<section class="card uplist medialist" id="system" style="--accent: {{ area.accent }}" aria-label="System">
+  <div class="head">System</div>
+  {% if sys.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if sys.st.note %}<div class="sub">{{ sys.st.note }}</div>{% endif %}
+  {% else %}
+    <div class="uprow"><span class="uptitle">CPU</span><span class="uptime nextleft">{{ sys.cpu_text }}{% if sys.load_text %} · {{ sys.load_text }}{% endif %}</span></div>
+    <div class="uprow"><span class="uptitle">RAM</span><span class="uptime nextleft">{{ sys.ram_text }}{% if sys.ram_sub %} {{ sys.ram_sub }}{% endif %}</span></div>
+    <div class="uprow"><span class="uptitle">Uptime</span><span class="uptime nextleft">{{ sys.uptime_text }}</span></div>
+    <div class="upday">Volumes</div>
+    {% for v in sys.volumes %}
+    <div class="uprow playrow">
+      <span class="uptitle">{{ v.path }}</span>
+      <span class="uptime nextleft">{{ v.free_text }} free of {{ v.total_text }} · {{ v.pct_used }}% used</span>
+      <span class="pbar" aria-hidden="true"><span style="width: {{ v.pct_used }}%"></span></span>
+    </div>
+    {% else %}
+    <div class="value dim">No volumes reported</div>
+    {% endfor %}
+    <div class="foot">
+      {% if sys.st.state == "stale" %}<span class="badge stale">{{ sys.st.age_text }}</span>
+      {% elif sys.st.age_text %}<span class="ago">updated {{ sys.st.age_text }}</span>{% endif %}
+    </div>
+  {% endif %}
+</section>
+</div>
+
+{% set svc = sv.services %}
+<div class="mediacols" id="services" aria-label="Services">
+{% if svc.st.state == "off" %}
+<section class="card uplist medialist" style="--accent: {{ area.accent }}">
+  <div class="head">Services</div>
+  <div class="value dim">Not connected</div>
+  {% if svc.st.note %}<div class="sub">{{ svc.st.note }}</div>{% endif %}
+</section>
+{% else %}
+{% for g in svc.groups %}
+<section class="card uplist medialist" style="--accent: {{ area.accent }}">
+  <div class="head">{{ g.label }}</div>
+  {% for a in g.apps %}
+  <a class="uprow approw" href="{{ a.href }}" target="_blank" rel="noopener">
+    <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>
+    <span class="appstate">{{ a.status_text or ("Up" if a.up else "Down") }}</span>
+    <span class="uptitle">{{ a.name }}</span>
+    {% if not a.up and a.note %}<span class="appnote">{{ a.note }}</span>{% endif %}
+  </a>
+  {% endfor %}
+  <div class="foot">
+    {% if svc.st.state == "stale" %}<span class="badge stale">{{ svc.st.age_text }}</span>
+    {% elif svc.st.age_text %}<span class="ago">updated {{ svc.st.age_text }}</span>{% endif %}
+  </div>
+</section>
+{% endfor %}
+{% endif %}
+</div>
+
+{% set up = sv.updates %}
+<div class="mediacols">
+<section class="card uplist medialist" id="updates" style="--accent: {{ area.accent }}" aria-label="Updates">
+  <div class="head">Updates</div>
+  {% if up.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if up.st.note %}<div class="sub">{{ up.st.note }}</div>{% endif %}
+  {% else %}
+    <div class="sub">{{ up.data.get("monitoring", 0) }} monitored · {{ up.data.get("updates", 0) }} update{{ "" if up.data.get("updates", 0) == 1 else "s" }}</div>
+    {% for c in up.pending %}
+    <div class="uprow">
+      <span class="uptitle">{{ c.name }}</span>
+      <span class="chip">{{ {"tag": "New version", "digest": "New build"}.get(c.kind, "Update") }}</span>
+      <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}</span>
+    </div>
+    {% else %}
+    <div class="value dim">All up to date</div>
+    {% endfor %}
+    <div class="foot">
+      {% if up.st.state == "stale" %}<span class="badge stale">{{ up.st.age_text }}</span>
+      {% elif up.st.age_text %}<span class="ago">updated {{ up.st.age_text }}</span>{% endif %}
+    </div>
+  {% endif %}
+</section>
+
+<section class="card uplist medialist" id="attention" style="--accent: {{ area.accent }}" aria-label="Attention">
+  <div class="head">Attention</div>
+  {% for item in sv.attention %}
+  <div class="uprow approw">
+    <span class="appdot down" aria-hidden="true"></span>
+    <span class="appstate">Check</span>
+    <span class="uptitle">{{ item }}</span>
+  </div>
+  {% else %}
+  <div class="uprow approw">
+    <span class="appdot up" aria-hidden="true"></span>
+    <span class="appstate">OK</span>
+    <span class="uptitle">All clear</span>
+  </div>
+  {% endfor %}
+</section>
+</div>
+
+<div class="mediacols">
+{% set n = sv.counts %}
+<section class="card uplist medialist" id="counts" style="--accent: {{ area.accent }}" aria-label="Counts">
+  <div class="head">Counts</div>
+  <div class="upday">Requests</div>
+  {% if n.requests %}
+  <div class="uprow"><span class="uptitle">Pending</span><span class="uptime nextleft">{{ n.requests.pending }}</span></div>
+  <div class="uprow"><span class="uptitle">Approved</span><span class="uptime nextleft">{{ n.requests.approved }}</span></div>
+  <div class="uprow"><span class="uptitle">Available</span><span class="uptime nextleft">{{ n.requests.available }}</span></div>
+  {% else %}<div class="value dim">Not connected</div>{% endif %}
+  <div class="upday">Torrents</div>
+  {% if n.torrents %}
+  <div class="uprow"><span class="uptitle">Downloading</span><span class="uptime nextleft">{{ n.torrents.downloading }}</span></div>
+  <div class="uprow"><span class="uptitle">Seeding</span><span class="uptime nextleft">{{ n.torrents.seeding }}</span></div>
+  <div class="uprow"><span class="uptitle">Speed</span><span class="uptime nextleft">↓ {{ n.torrents.dl_text }} · ↑ {{ n.torrents.up_text }}</span></div>
+  {% else %}<div class="value dim">Not connected</div>{% endif %}
+  <div class="upday">Radarr / Sonarr</div>
+  {% if n.arr %}
+  <div class="uprow"><span class="uptitle">Downloading</span><span class="uptime nextleft">{{ n.arr.downloading }}</span></div>
+  <div class="uprow"><span class="uptitle">This week</span><span class="uptime nextleft">{{ n.arr.this_week }}</span></div>
+  {% for d in n.arr.disk %}
+  <div class="uprow playrow">
+    <span class="uptitle">{{ d.path }}</span>
+    <span class="uptime nextleft">{{ d.free_text }} free · {{ d.pct_used }}% used</span>
+    <span class="pbar" aria-hidden="true"><span style="width: {{ d.pct_used }}%"></span></span>
+  </div>
+  {% endfor %}
+  {% else %}<div class="value dim">Not connected</div>{% endif %}
+</section>
+</div>
+{% endblock %}

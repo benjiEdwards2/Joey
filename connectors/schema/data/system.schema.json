@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/system.schema.json",
+  "title": "system data block",
+  "description": "Server area NAS host health (2026-10-06): CPU, RAM, uptime, per-volume space. Sizes are binary GiB labelled GB. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "cpu_pct", "ram_total_gb", "ram_free_gb", "ram_pct_used", "uptime_s", "volumes", "load_1m"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "cpu_pct": {"type": "number", "minimum": 0, "maximum": 100},
+    "ram_total_gb": {"type": "number", "minimum": 0},
+    "ram_free_gb": {"type": "number", "minimum": 0},
+    "ram_pct_used": {"type": "integer", "minimum": 0, "maximum": 100},
+    "uptime_s": {"type": "integer", "minimum": 0},
+    "load_1m": {"type": ["number", "null"], "minimum": 0},
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "total_gb", "free_gb", "pct_used"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"type": "string"},
+          "total_gb": {"type": "number", "minimum": 0},
+          "free_gb": {"type": "number", "minimum": 0},
+          "pct_used": {"type": "integer", "minimum": 0, "maximum": 100}
+        }
+      }
+    }
+  }
+}

@@ -50,6 +50,16 @@
       "consecutive_failures": 0,
       "error": null,
       "status": "ok"
+    },
+    "system": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
+    "wud": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
     }
   }
 }

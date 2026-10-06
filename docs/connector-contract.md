@@ -94,7 +94,7 @@ never see half a snapshot.
 
 | Field | Meaning |
 |---|---|
-| `connector` | id from the frozen namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money, media_status, arr, jellyseerr. `clickup` is reserved-but-unused (removed from v1, 2026-08-25). |
+| `connector` | id from the frozen namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money, media_status, arr, jellyseerr, qbittorrent, system, wud. `clickup` is reserved-but-unused (removed from v1, 2026-08-25). |
 | `schema_version` | always `1` |
 | `fetched_at` | last fetch **attempt** |
 | `updated_at` | last **success** — this is what the hub's stale badge reads |
@@ -189,8 +189,8 @@ The connectors container runs `while true; do python -m connectors.run_all; slee
 connector crashing never stops the sweep.
 
 D16 amended 2026-10-05: a second background loop runs
-`python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr; sleep 120` for the live Media
-feeds. `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
+`python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system; sleep 120` for the live Media
+feeds (and, since 2026-10-06, the Server area's `system` host-health feed). `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
 `"only": [...]` so full hourly sweeps can be told apart from fast partial ones.
 
 ## Add-a-connector checklist
@@ -208,7 +208,7 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`
-   in `hub/registry.py`; `media_status`, `arr` and `jellyseerr` were added to both on 2026-10-05, `qbittorrent` on 2026-10-06).
+   in `hub/registry.py`; `media_status`, `arr` and `jellyseerr` were added to both on 2026-10-05, `qbittorrent` on 2026-10-06, `system` and `wud` on 2026-10-06 for the Server area).
    An area may carry `hub_rank` (its place among the hub cards; Media is 1) and `hub_size`
    (`s22` is the hero card). Two tiles may share one snapshot (`jellyfin` feeds now-playing and watch history); each
    page is then picked by its tile's `detail` route.

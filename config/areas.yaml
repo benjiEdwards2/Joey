@@ -1,6 +1,6 @@
 # =============================================================================
 # areas.yaml — THE dashboard. Rooms are config, not code (DECISIONS 2026-08-17).
-# 8 areas locked (2026-08-24); hard cap of 9 is enforced by hub/registry.py.
+# 8 areas in the list incl. hidden (Server added 2026-10-06); hard cap of 9 is enforced by hub/registry.py.
 # Accent hexes approved at the WP0 mockup gate (2026-08-28).
 # icon: id of an embedded SVG line icon (gate decision 2026-08-28 replaced emoji).
 # tier: link  = button that opens the real app (href required)
@@ -8,9 +8,10 @@
 #       ingest= data in our own store    (snapshot + stale_after_minutes required)
 # snapshot ids come from the FROZEN D13 namespace:
 #   open_meteo gcal clickup macromates home_assistant jellyfin nas_stats money
-#   media_status arr jellyseerr qbittorrent
+#   media_status arr jellyseerr qbittorrent system wud
 # detail: optional hub route (starts with /) — the whole embed card links to it.
 # `hidden: true` parks an area: no rail, tab or hub card; its page still serves.
+# `layout: server` renders /a/<id> as the /server bands page (2026-10-06).
 # Tiles for sources not yet built still render — as "Not connected" (by design).
 # =============================================================================
 
@@ -222,3 +223,47 @@ areas:
         snapshot: home_assistant
         stale_after_minutes: 240
         setup_note: "Renders 'Not connected' until HA has car entities (Q16 — never fabricated)."
+
+  # Server (B. approved scope 2026-10-06): replaces the NAS "Homepage" dashboard natively.
+  # Thresholds: disk 85 %, media.db backup 36 h, any service Down = attention.
+  - id: server
+    name: Server
+    accent: "#9AA4B2"
+    icon: server
+    summary_tile: services
+    layout: server                                   # /a/server renders the /server bands page
+    tiles:
+      - id: services
+        label: Services
+        tier: embed
+        owner: shared
+        snapshot: media_status
+        detail: "/server#services"
+        stale_after_minutes: 10
+        setup_note: "Set MEDIA_STATUS_HOST in deploy/.env."
+      - id: system
+        label: System
+        tier: embed
+        owner: shared
+        snapshot: system
+        detail: /server
+        stale_after_minutes: 10
+        setup_note: "System connector live fetch arrives in WP-S2."
+      - id: updates
+        label: Updates
+        tier: embed
+        owner: shared
+        snapshot: wud
+        detail: "/server#updates"
+        stale_after_minutes: 180
+        setup_note: "WUD connector live fetch arrives in WP-S3."
+      - id: homepage
+        label: Homepage
+        tier: link
+        owner: shared
+        href: "https://homepage.joeyhome.net"
+      - id: portainer
+        label: Portainer
+        tier: link
+        owner: shared
+        href: "http://192.168.68.59:9000"

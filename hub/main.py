@@ -26,6 +26,7 @@ from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_item, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
+from hub import server as server_area
 from hub.media_watchlist import router as media_watchlist_router
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
@@ -1182,6 +1183,29 @@ def media_year_countdown(request: Request, slug: str):
     return _year_page(request, slug, "media_countdown.html")
 
 
+def _server_response(request: Request, area, view: str, from_query: bool):
+    """The `layout: server` page (WP-S1, 2026-10-06): bands built by hub/server.py."""
+    snaps = get_snapshots()
+    resp = templates.TemplateResponse(request, "server.html", {
+        "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
+        "status": build_status(snaps),
+        "sv": server_area.build_server(area, snaps, media_backup.current_status()),
+    })
+    return _maybe_set_cookie(resp, view, from_query)
+
+
+@app.get("/server", response_class=HTMLResponse)
+def server_page(request: Request):
+    view, from_query = resolve_owner_view(request)
+    area = next((a for a in registry.areas if a.layout == server_area.SERVER_LAYOUT), None)
+    if area is None:
+        return templates.TemplateResponse(request, "404.html", {
+            "areas": registry.visible_areas, "active_id": None, "owner_view": view,
+            "missing_text": "No page here",
+        }, status_code=404)
+    return _server_response(request, area, view, from_query)
+
+
 @app.get("/a/{area_id}", response_class=HTMLResponse)
 def area_page(request: Request, area_id: str):
     view, from_query = resolve_owner_view(request)
@@ -1191,6 +1215,8 @@ def area_page(request: Request, area_id: str):
             "areas": registry.visible_areas, "active_id": None, "missing_id": area_id,
             "owner_view": view,
         }, status_code=404)
+    if area.layout == server_area.SERVER_LAYOUT:  # keyed by layout, never by area name
+        return _server_response(request, area, view, from_query)
     snaps = get_snapshots()
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
              for t in area.tiles if owner_visible(t, view)]

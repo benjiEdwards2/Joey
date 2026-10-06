@@ -646,3 +646,39 @@ table { width: 100%; border-collapse: collapse; }
 .epmap .ep.progress { border: 2px solid var(--accent, var(--fg)); border-style: dashed; }
 .epmap .ep.unaired { border-style: dotted; opacity: .55; }
 .epmap .ep:hover { border-color: var(--fg); }
+
+/* ---- Film page (F10, Cinema) ---- */
+.filmpage { display: flex; flex-direction: column; gap: 20px; }
+.statusline { margin: 0; font-size: 15px; font-weight: 600; }
+.filmhero { min-height: clamp(300px, 42vw, 480px); align-items: flex-end; }
+.filmhero .herotext { width: 100%; }
+.numbers { display: flex; flex-wrap: wrap; gap: 8px; }
+.num { display: flex; flex-direction: column; gap: 2px; padding: 6px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+.numlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.numval { font-size: 15px; font-weight: 600; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; }
+.btnrow .requestblock { margin-top: 0; }
+.filmbody { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; }
+.filmleft, .filmright { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.filmposter { width: 100%; max-width: 260px; height: auto; }
+.filmright h3 { margin: 0 0 8px; font-size: 15px; }
+.overview { margin: 0; line-height: 1.55; max-width: 70ch; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--fg);
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
+.pill svg.ic { width: 14px; height: 14px; color: var(--muted); }
+.pill.dolby, .pill.dts { color: var(--badge-fg); background: var(--badge-ink); border-color: var(--badge-ink); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.pill.hdr { color: var(--badge-fg); background: color-mix(in srgb, var(--badge-ink), var(--badge-fg) 16%); border-color: transparent; font-weight: 700; }
+.pill svg.dd { width: 18px; height: 12px; fill: currentColor; flex: none; }
+.pillimg { height: 22px; width: auto; }
+.castrow { display: flex; flex-wrap: wrap; gap: 14px; }
+.castcard { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 84px; text-align: center; font-size: 12px; }
+.castpic { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--card); border: 1px solid var(--border); }
+.castpic.initials { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--muted); }
+.castname { font-weight: 600; }
+.makers, .provrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.chip.provider, .makers .chip { text-decoration: none; color: var(--fg); }
+.epheader { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+@media (max-width: 760px) { .filmbody { grid-template-columns: minmax(0, 1fr); } .filmposter { max-width: 160px; } .num { min-width: 72px; } }

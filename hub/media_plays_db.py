@@ -141,6 +141,21 @@ def _rows(window, owner, now):
         return db.execute(sql, args).fetchall()
 
 
+def watch_count(jf_id: str, owner: str | None = None) -> int:
+    """Finished watches of one Jellyfin item (a film); 0 on any DB problem."""
+    db = _read()
+    if db is None:
+        return 0
+    sql, args = "SELECT COUNT(*) FROM play WHERE jf_id = ? AND finished = 1", [jf_id]
+    if owner in ("you", "her"):
+        sql, args = sql + " AND owner = ?", [*args, owner]
+    try:
+        with closing(db):
+            return int(db.execute(sql, args).fetchone()[0])
+    except sqlite3.Error:
+        return 0
+
+
 def stats(window=30, owner=None, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     rows = _rows(window, owner, now)

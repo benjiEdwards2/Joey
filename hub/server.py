@@ -7,6 +7,9 @@ Thresholds (B., 2026-10-06): disk >= 85 % used, media.db backup older than 36 h
 (hub/media_backup.py's own STALE_AFTER), any service Down.
 WP-S4 (2026-10-06): Uptime Kuma monitors down/pending, connectors whose last sweep
 errored (`_runner.json`), and a "Last sweep" line (stale past 90 min) in System.
+WP-U1 (2026-10-06): pending updates split into shown and ignored (media.db ignores keyed
+on container + new tag, or current tag for a digest update), each shown row carrying
+"Requested N min ago" while its last requested run still matches the snapshot.
 """
 
 from __future__ import annotations
@@ -152,7 +155,37 @@ def _counts(snaps) -> dict:
     }
 
 
-def build_server(area, snaps, backup: dict, runner: dict | None = None) -> dict:
+def _key_tag(row: dict) -> str:
+    """Same key as hub/server_updates.key_tag (kept here so this module stays pure)."""
+    return str(row.get("new_tag") or row.get("current_tag") or "")
+
+
+def _requested_text(run, row, now: datetime) -> str | None:
+    if not run or run.get("tag") != _key_tag(row):
+        return None
+    try:
+        at = datetime.fromisoformat(str(run["requested_at"]).replace("Z", "+00:00"))
+        at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+    except (KeyError, ValueError):
+        return None
+    return "Requested " + ago_text((now - at).total_seconds() / 60.0)
+
+
+def split_updates(rows, ignores=None, requested=None, now: datetime | None = None) -> tuple[list, list]:
+    """(shown, ignored) pending update rows; shown rows gain `requested_text`."""
+    ignores, requested = ignores or set(), requested or {}
+    now = now or datetime.now(timezone.utc)
+    shown, ignored = [], []
+    for c in rows:
+        if (c.get("name"), _key_tag(c)) in ignores:
+            ignored.append(c)
+        else:
+            shown.append({**c, "requested_text": _requested_text(requested.get(c.get("name")), c, now)})
+    return shown, ignored
+
+
+def build_server(area, snaps, backup: dict, runner: dict | None = None,
+                 ignores=None, requested=None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     monitors = _band(area, snaps, UPTIME_KUMA_SNAPSHOT_ID)
@@ -178,7 +211,9 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None) -> dict:
     monitors["rows"] = [m for m in monitors["data"].get("monitors") or [] if isinstance(m, dict)]
 
     ud = updates["data"]
-    updates["pending"] = [c for c in ud.get("containers") or [] if c.get("update_available")]
+    updates["pending"], updates["ignored"] = split_updates(
+        [c for c in ud.get("containers") or [] if isinstance(c, dict) and c.get("update_available")],
+        ignores, requested)
 
     attention: list[str] = []
     for a in apps:

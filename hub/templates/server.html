@@ -120,16 +120,37 @@
     <div class="value dim">Not connected</div>
     {% if up.st.note %}<div class="sub">{{ up.st.note }}</div>{% endif %}
   {% else %}
-    <div class="sub">{{ up.data.get("monitoring", 0) }} monitored · {{ up.data.get("updates", 0) }} update{{ "" if up.data.get("updates", 0) == 1 else "s" }}</div>
+    {% if flash %}<div class="sub flash" role="status">{{ flash }}</div>{% endif %}
+    {% set n_up = up.pending | length %}
+    <div class="sub">{{ up.data.get("monitoring", 0) }} monitored · {{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %} · {{ up.ignored | length }} ignored{% endif %}</div>
+    {# WP-U1: Update now only on rows WUD's dockercompose.local trigger applies to (`auto`);
+       excluded rows say so in words. Ignore/Unignore are same-origin POSTs. #}
     {% for c in up.pending %}
     <div class="uprow">
       <span class="uptitle">{{ c.name }}</span>
       <span class="chip">{{ {"tag": "New version", "digest": "New build"}.get(c.kind, "Update") }}</span>
-      <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}</span>
+      <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}{% if c.requested_text %} · {{ c.requested_text }}{% endif %}</span>
+      <span class="upact">
+        {% if c.auto %}<a class="glassbtn" href="/server/updates/{{ c.name }}/run?step=confirm">Update now</a>
+        {% else %}<span class="chip">Manual · excluded</span>{% endif %}
+        <form method="post" action="/server/updates/{{ c.name }}/ignore"><button class="linkbtn" type="submit">Ignore</button></form>
+      </span>
     </div>
     {% else %}
     <div class="value dim">All up to date</div>
     {% endfor %}
+    {% if up.ignored %}
+    <details class="ignored">
+      <summary>Ignored ({{ up.ignored | length }})</summary>
+      {% for c in up.ignored %}
+      <div class="uprow">
+        <span class="uptitle">{{ c.name }}</span>
+        <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}</span>
+        <span class="upact"><form method="post" action="/server/updates/{{ c.name }}/unignore"><button class="linkbtn" type="submit">Unignore</button></form></span>
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
     <div class="foot">
       {% if up.st.state == "stale" %}<span class="badge stale">{{ up.st.age_text }}</span>
       {% elif up.st.age_text %}<span class="ago">updated {{ up.st.age_text }}</span>{% endif %}

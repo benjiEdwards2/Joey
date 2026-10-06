@@ -919,3 +919,11 @@ a.castcard:hover .castname { text-decoration: underline; }
 .credit-role { font-size: 12px; overflow-wrap: anywhere; }
 .personpage .poster-grid .shelf-item { display: flex; flex-direction: column; gap: 2px; }
 @media (max-width: 640px) { .personhead { flex-direction: column; } .personpic { width: 112px; height: 112px; } }
+
+/* Server → Updates actions (WP-U1, 2026-10-06): Update now / Ignore per row, Ignored (N) fold. */
+.uplist .upact { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+.uplist .upact form { display: inline; margin: 0; }
+.linkbtn { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.linkbtn:hover { color: var(--fg); }
+.uplist details.ignored > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
+.uplist .flash { color: var(--fg); }

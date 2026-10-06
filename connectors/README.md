@@ -24,6 +24,9 @@ published): it is Up iff `prowlarr` or `qbittorrent` answers, since both route t
 
 `wud` live (WP-S3): one HTTP Basic `GET {WUD_URL}/api/containers` (10 s), the list returned unchanged; env `WUD_URL`,
 `WUD_USER`, `WUD_PASS`. A digest-only update reads `kind: "digest"`, `new_tag: null`.
+WP-U1 (2026-10-06): each container also carries `id` (WUD container id; null if absent) and `auto` (true when the
+`dockercompose.local` trigger applies, from WUD 9.3's `triggerInclude`/`triggerExclude`, labels as fallback) — the
+hub's Update now button is offered only on `auto` rows. Both optional in the schema.
 `arr` counts (WP-S3): optional `radarr {movies, wanted, missing, queued}`, `sonarr {series, wanted, queued}` and
 `prowlarr {grabs, queries, failed_grabs, failed_queries, indexers}` (optional env `PROWLARR_URL`, `PROWLARR_API_KEY`).
 Each is partial-ok — null when its call fails or (Prowlarr) its env is unset; the rest of `arr` stays `ok`.

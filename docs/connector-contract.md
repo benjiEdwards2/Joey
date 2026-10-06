@@ -72,7 +72,17 @@ Logs carry exception types only; the page carries no key or upstream URL beyond 
 cache (a failed fetch is not cached). "On your server" is built from the jellyfin snapshot library lists, not a Jellyfin
 call. A non-numeric id 404s before any call is made; Jellyseerr down degrades to words, never a 500. Logs carry exception types only.
 
-**`media.db` additions (2026-10-06).** `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key
+**Tenth exception (2026-10-06): Server → Update now (`hub/server_updates.py`, WP-U1).** The hub's first live WRITE to
+another app. `GET /server/updates/{name}/run?step=confirm` shows the facts; the `same_origin`-guarded POST calls What's Up
+Docker 9.3 `POST {WUD_URL}/api/containers/{id}/triggers/dockercompose/local` (no body; HTTP Basic `WUD_USER`/`WUD_PASS`;
+10 s), server-side only. WUD does not apply include/exclude on that endpoint, so the hub refuses — no call — unless the
+current `wud` snapshot holds the container with `update_available` and `auto: true`, it has an `id`, and the WUD env is
+set. Each call writes a `server_update_runs` row (outcome `requested` / `refused` / `unreachable`, note = status or
+exception type only) and redirects to `/server#updates` with a flash word. Ignore/Unignore write only `media.db`.
+
+**`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
+(tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
+note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key
 `(owner, item_key)` (F6); `play(...)` per watch, with user, item/show/season/episode keys, runtime, `started_at`,
 `last_seen_at`, `position_pct`, `finished` (F7); and diary columns `show_key, season_key, season, episode, show_title,
 episode_title` (F8, added by `ALTER` on connect). jellyfin-synced diary rows are now per episode; older show-level rows
@@ -212,7 +222,10 @@ the run. These calls ride the 120 s fast loop with `arr`. Older envelopes lack a
 **WUD live (WP-S3, 2026-10-06).** `wud` reads `GET {WUD_URL}/api/containers` with HTTP Basic
 (`WUD_USER`/`WUD_PASS`), hourly only (WUD itself checks daily). The list is returned unchanged; a WUD 9
 digest-only update (`updateKind.kind == "digest"`, `result.tag` = current tag) gives `kind: "digest"`,
-`new_tag: null`. Failure reasons are status/type only, never the URL or login.
+`new_tag: null`. Failure reasons are status/type only, never the URL or login. WP-U1 (2026-10-06) adds two
+optional fields per container: `id` (WUD's container id, null when absent) and `auto` (true when WUD's
+`dockercompose.local` trigger applies — not in `triggerExclude` and, when `triggerInclude` is set, listed there;
+the `wud.trigger.exclude` / `wud.trigger.include` labels are the fallback). Older envelopes without them stay valid.
 
 **Uptime Kuma (WP-S4, 2026-10-06).** `uptime_kuma` (frozen id added 2026-10-06, authorised dated
 decision) reads Uptime Kuma 1.23's Prometheus `GET {UPTIME_KUMA_URL}/metrics` with HTTP Basic where the

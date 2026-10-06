@@ -27,6 +27,7 @@ from hub import media_film, media_item, media_person, media_library, media_plays
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub import server as server_area
+from hub import server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
@@ -97,6 +98,7 @@ app.include_router(media_plays.router)
 app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
+app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
@@ -1334,7 +1336,9 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     resp = templates.TemplateResponse(request, "server.html", {
         "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
         "status": build_status(snaps),
-        "sv": server_area.build_server(area, snaps, media_backup.current_status(), get_runner()),
+        "sv": server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
+                                       server_updates.get_ignores(), server_updates.last_requested()),
+        "flash": server_updates.flash_text(request.query_params),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

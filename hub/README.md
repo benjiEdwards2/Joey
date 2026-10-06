@@ -49,6 +49,18 @@ downloading/seeding/speeds, arr downloading / this week / disk rows). Each band 
 snapshot is missing. Tile `detail` links are anchors (`/server#services`, `/server#monitors`, `/server#updates`). `_runner.json` is read by
 `store.get_runner()` from the snapshot dir (WP-S4); missing or malformed simply omits Last sweep and runner errors.
 
+**Server → Update now / Ignore (WP-U1, 2026-10-06).** `server_updates.py`. Each pending update row in the Updates band shows
+"Update now" when the `wud` row is `auto` (WUD's `dockercompose.local` trigger applies), else the chip "Manual · excluded"
+(gluetun, qbittorrent, prowlarr, uptime-kuma, wud are notify-only), plus an Ignore button. Update now opens
+`/server/updates/{name}/run?step=confirm` (container, image, current → new, kind, the "about a minute" warning); its
+same-origin POST asks WUD to run the trigger (contract doc, tenth exception), records a `server_update_runs` row and
+redirects to `/server#updates` with "Update requested for X" / "WUD refused (HTTP n)" / "WUD unreachable". Ineligible rows,
+a missing WUD env or a container not pending in the snapshot get an explanatory page (409), never a call. The row shows
+"Requested N min ago" until the snapshot's tag moves on. Ignore keys on (container, new tag — or current tag for a digest
+update) in `server_update_ignores`; ignored rows fold into "Ignored (N)" with Unignore, and the band reads
+`N monitored · N updates · M ignored` (the connector's own tile summary is unchanged). Live check after deploy:
+`docs/server-updates-live-check.md`.
+
 Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages, Request),
 `media_db.py` (ratings + diary, per owner), `media_backup.py` (nightly `media.db` dump),
 `media_write.py` (same-origin write guard). The hub's Media KPI card is first (`hub_rank: 1`,

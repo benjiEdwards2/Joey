@@ -27,12 +27,12 @@ from hub import media_item, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub.media_watchlist import router as media_watchlist_router
+from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
-IDENTITY_HEADER = "Cf-Access-Authenticated-User-Email"
 
 log = logging.getLogger("hub")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -113,17 +113,33 @@ def _static_version() -> str:
 templates.env.globals["static_v"] = _static_version()
 
 
+def identity_of(request) -> Identity:
+    """Template global `identity(request)`: the signed-in user (name/email/owner), cached per request."""
+    state = getattr(request, "state", None)
+    cached = getattr(state, "identity", None) if state is not None else None
+    if cached is None:
+        cached = resolve_identity(request)
+        if state is not None:
+            state.identity = cached
+    return cached
+
+
 OWNER_VIEWS = ("both", "you", "her")
 OWNER_COOKIE = "owner_view"
 OWNER_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days, per device (WP19)
 
 
 def resolve_owner_view(request: Request) -> tuple[str, bool]:
-    """Query param wins (and sets the cookie); else cookie; else 'both'.
+    """Signed in (Access header): the view IS the signed-in owner — query and cookie are
+    ignored and no cookie is set (2026-10-06). Not signed in (local dev, tests): query param
+    wins (and sets the cookie); else cookie; else 'both'.
 
     Semantics per Q9 (answered 2026-08-25): you = you+shared, her = her+shared.
     Returns (view, came_from_query).
     """
+    who = resolve_identity(request)
+    if who.owner:
+        return who.owner, False
     q = request.query_params.get(OWNER_COOKIE)
     if q in OWNER_VIEWS:
         return q, True
@@ -573,6 +589,7 @@ def media_frame(request: Request) -> dict:
 for _t in (templates, _media_write.templates, _media_discover.templates):
     _t.env.globals["media_nav"] = media_frame
     _t.env.globals["item_href"] = item_href
+    _t.env.globals["identity"] = identity_of
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
@@ -709,10 +726,10 @@ def _now_home() -> datetime:
         return datetime.now().astimezone()
 
 
-def hub_greeting(now: datetime) -> str:
+def hub_greeting(now: datetime, name: str | None = None) -> str:
     part = "morning" if now.hour < 12 else "afternoon" if now.hour < 17 else "evening"
-    return (f"Good {part}, Benji. Here's what's happening at home today, "
-            f"{now:%A} {now.day} {now:%B}.")
+    hello = f"Good {part}, {name}." if name else f"Good {part}."
+    return f"{hello} Here's what's happening at home today, {now:%A} {now.day} {now:%B}."
 
 
 def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
@@ -822,7 +839,7 @@ def hub_page(request: Request):
         "status": build_status(snaps), "weather": find_weather(snaps),
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": media_backup.current_status()["warning"],
-        "greeting": hub_greeting(_now_home()),
+        "greeting": hub_greeting(_now_home(), identity_of(request).owner and identity_of(request).name),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

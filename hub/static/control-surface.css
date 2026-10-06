@@ -87,7 +87,6 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .brand .mark { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--rail-border); flex: none; }
 .brand:hover b { color: var(--rail-fg); }
 .brand b { display: block; font-size: 15px; color: var(--rail-strong); line-height: 1.1; }
-.brand small { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
 .railsec { padding: 14px 24px 4px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
 .nav { padding: 4px 10px; display: grid; gap: 2px; }
 .nav a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px;
@@ -111,14 +110,20 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .iconbtn:hover { background: var(--soft); color: var(--fg); }
 .themetoggle .moon { display: var(--ic-moon); }
 .themetoggle .sun { display: var(--ic-sun); }
+/* Signed-in user chip (2026-10-06): avatar letter + name; email only at wide widths */
+.userchip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.userchip .avatar { width: 28px; height: 28px; background: var(--soft); color: var(--fg); flex: none; }
+.userchip .uname { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; }
+.userchip small { display: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
+@media (min-width: 1001px) { .userchip small { display: inline; } }
 
-/* Segmented control (.seg): owner switcher, Media sections and sub-tabs share the look */
-.seg, .switcher, .sections, .subtabs { display: inline-flex; flex-wrap: wrap; align-self: flex-start;
+/* Segmented control (.seg): Media sections and sub-tabs share the look */
+.seg, .sections, .subtabs { display: inline-flex; flex-wrap: wrap; align-self: flex-start;
   background: var(--soft); border-radius: 9px; padding: 3px; gap: 2px; }
-.seg a, .switcher a, .page .sections a, .page .subtabs a { padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 500;
+.seg a, .page .sections a, .page .subtabs a { padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 500;
   color: var(--muted); text-decoration: none; white-space: nowrap; }
-.seg a:hover, .switcher a:hover, .page .sections a:hover, .page .subtabs a:hover { color: var(--fg); }
-.seg a[aria-current], .switcher a[aria-current], .page .sections a[aria-current], .page .subtabs a[aria-current] {
+.seg a:hover, .page .sections a:hover, .page .subtabs a:hover { color: var(--fg); }
+.seg a[aria-current], .page .sections a[aria-current], .page .subtabs a[aria-current] {
   background: var(--card); color: var(--fg); box-shadow: var(--shadow); font-weight: 600; }
 
 /* ---- Page content ---- */

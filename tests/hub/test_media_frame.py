@@ -120,12 +120,15 @@ def test_waiting_counts_are_text_and_absent_at_zero(env):
 
 
 def test_switcher_links_to_current_media_path(env):
+    """2026-10-06: the switcher is gone (the signed-in user picks the view); locally the
+    owner view still follows the query on a Media path and is remembered in the cookie."""
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
-        html = client.get("/media/diary").text
+        html = client.get("/media/diary?owner_view=her").text
+        assert client.cookies.get("owner_view") == "her"
         years = client.get("/media/years?kind=tv").text
-    assert 'href="/media/diary?owner_view=her"' in html
-    assert 'href="/media/years?kind=tv&amp;owner_view=her"' in years
+    assert 'class="switcher"' not in html and "owner_view=" not in html
+    assert 'class="switcher"' not in years and "owner_view=" not in years
 
 
 def test_library_pages_quiet_without_lists_and_years_heading(env):
@@ -183,10 +186,9 @@ def test_switcher_keeps_the_query_string(env):
     with TestClient(main.app) as client:
         disc = client.get("/media/discover?q=foo").text
         rank = client.get("/media/years/2020?mode=rank&kind=tv&owner_view=you").text
-    assert 'href="/media/discover?q=foo&amp;owner_view=her"' in disc
-    sw = nav_html(rank, "switcher")
-    assert 'href="/media/years/2020?mode=rank&amp;kind=tv&amp;owner_view=her"' in sw
-    assert sw.count("owner_view=") == 3
+    # 2026-10-06: no switcher to carry the query any more; the pages still render their nav
+    assert "owner_view=" not in disc and "owner_view=" not in rank
+    assert current(disc, "sections") == ["Discover"] and current(rank, "sections") == ["TV Shows"]
 
 
 def test_year_pages_carry_kind_and_light_the_right_section(env):

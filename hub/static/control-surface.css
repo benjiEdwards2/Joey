@@ -738,3 +738,5 @@ table { width: 100%; border-collapse: collapse; }
 .chip.provider, .makers .chip { text-decoration: none; color: var(--fg); }
 .epheader { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 @media (max-width: 760px) { .filmbody { grid-template-columns: minmax(0, 1fr); } .filmposter { max-width: 160px; } .num { min-width: 72px; } }
+/* Library rows: the whole row is the link (anchor keeps the flex row layout) */
+.uplist a.librow { display: flex; color: inherit; text-decoration: none; }

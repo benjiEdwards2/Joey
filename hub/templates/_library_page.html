@@ -12,13 +12,15 @@
     {% if not marks %}<div class="sub">Her watch marks and scores aren't available yet</div>{% endif %}
     {% if new_week %}
     <div class="upday">New this week</div>
+    <div class="shelf-row">
     {% for r in new_week %}
-    <div class="uprow hasposter">
-      {{ poster(r.poster, r.title, 120, "sm") }}
-      <span class="uptitle">{{ r.title }}</span>
-      <span class="uptime nextleft">{{ r.when }}</span>
-    </div>
+    {% if r.href %}<a class="shelf-item" href="{{ r.href }}">{% else %}<div class="shelf-item">{% endif %}
+      {{ poster(r.poster, r.title, 240) }}
+      <span class="pgtitle">{{ r.title }}</span>
+      {% if r.when %}<span class="pgsub">{{ r.when }}</span>{% endif %}
+    {% if r.href %}</a>{% else %}</div>{% endif %}
     {% endfor %}
+    </div>
     {% endif %}
     <form class="libctl" method="get">
       <input type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles">

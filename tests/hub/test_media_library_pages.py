@@ -62,7 +62,7 @@ def body(client, path):
 def row_titles(main_html):
     """Titles of the library rows only (after the controls form)."""
     rows = main_html.split("</form>", 1)[1]
-    return re.findall(r'class="uptitle">(?:<a [^>]*>)?([^<]+)', rows)
+    return re.findall(r'class="uptitle">([^<(\n]+?)\s*(?:\(|\n|<)', rows)
 
 
 def test_movies_page_in_frame_with_head_groups_and_words(env):
@@ -297,3 +297,67 @@ def test_arrived_this_week_prefers_the_timestamp_over_the_text():
             {"title": "New text", "kind": "movie", "when": "3 days ago"},
             {"title": "Show", "kind": "season", "when": "yesterday", "at": iso(1)}]
     assert [r["title"] for r in ml.arrived_this_week(rows, "movie")] == ["Fresh", "New text"]
+
+
+def test_whole_row_is_one_anchor_wrapping_the_title(env):
+    main = env(jellyfin=jelly(), arr=ARRV)
+    with TestClient(main.app) as c:
+        _, m = body(c, "/media/movies?group=0")
+        _, t = body(c, "/media/tv?group=0")
+    for b, jf, title in ((m, "jtmdb-11", "Alpha Film"), (t, "jtmdb-21", "Echo Show")):
+        anchors = re.findall(r'<a class="uprow[^"]*librow[^"]*" href="/media/item/%s">(.*?)</a>' % jf, b, re.S)
+        assert len(anchors) == 1 and title in anchors[0] and "<a" not in anchors[0]
+        assert "reqrow" in b
+    assert 'class="chip score' not in m  # no rating set: chip absent, row still a link
+
+
+ARRL = {"summary": "x", "arrived": [
+    {"title": "In Library", "item_key": "tmdb:11", "kind": "movie", "poster": "radarr:1", "when": "today"},
+    {"title": "Title Only", "item_key": "tmdb:77", "kind": "movie", "poster": "radarr:2", "when": "today"},
+    {"title": "No Link", "item_key": "jf:abc", "kind": "movie", "poster": None, "when": "today"},
+    {"title": "Show In Lib", "item_key": "tmdb:21", "kind": "season", "poster": "sonarr:1", "when": "today"},
+    {"title": "Show Tvdb Only", "item_key": "tvdb:41", "kind": "season", "poster": "sonarr:2", "when": "today"},
+    {"title": "Show Tmdb Only", "item_key": "tmdb:88", "kind": "season", "poster": "sonarr:3", "when": "today"}]}
+
+
+def strip(b):
+    return b.split('<div class="shelf-row">', 1)[1].split("</form>", 1)[0] if "New this week" in b else ""
+
+
+def test_new_this_week_items_link_item_title_or_nothing(env):
+    main = env(jellyfin=jelly(), arr=ARRL)
+    with TestClient(main.app) as c:
+        _, m = body(c, "/media/movies")
+        _, t = body(c, "/media/tv")
+    s = strip(m)
+    assert re.search(r'<a class="shelf-item" href="/media/item/jtmdb-11">.*?In Library', s, re.S)
+    assert re.search(r'<a class="shelf-item" href="/media/title/movie/77">.*?Title Only', s, re.S)
+    assert re.search(r'<div class="shelf-item">\s*<[^>]*>\s*(?:<[^>]*>\s*)*<span class="pgtitle">No Link', s) or \
+        ('<div class="shelf-item">' in s and "No Link" in s)
+    assert "href" not in s.split("No Link")[1].split("</div>")[0] and "<a" not in s.split('<div class="shelf-item">', 1)[1].split("</div>")[0]
+    s = strip(t)
+    assert 'href="/media/item/jtmdb-21"' in s and 'href="/media/title/tv/88"' in s
+    assert "Show Tvdb Only" in s and s.count("<a ") == 2
+    assert 'class="pgsub">today' in s
+
+
+def test_link_arrivals_is_pure():
+    from hub import media_library as ml
+    rows = [{"item_key": "tmdb:5"}, {"item_key": "tvdb:9"}, {"item_key": "tmdb:6"}]
+    items = [{"item_key": "tmdb:5", "jf_id": "J5"}]
+    got = ml.link_arrivals(rows, items, "movie", lambda jf: f"/media/item/{jf}")
+    assert [r["href"] for r in got] == ["/media/item/J5", None, "/media/title/movie/6"]
+    assert ml.link_arrivals(rows[2:], None, "tv", lambda jf: None)[0]["href"] == "/media/title/tv/6"
+
+
+def test_link_arrivals_title_fallback():
+    from hub import media_library as ml
+    items = [{"title": "The Watchmen", "year": 2019, "item_key": "tmdb:1", "jf_id": "J1"},
+             {"title": "Twin", "year": 1990, "item_key": "tmdb:2", "jf_id": "J2"},
+             {"title": "Twin", "year": 2020, "item_key": "tmdb:3", "jf_id": "J3"}]
+    rows = [{"title": "Watchmen · S01 · 9 episodes", "item_key": "tvdb:9"},
+            {"title": "Twin · S01 · 2 episodes", "item_key": "tvdb:8", "year": 2020},
+            {"title": "Twin · S01 · 2 episodes", "item_key": "tvdb:7"},
+            {"title": "Nothing Here · S01", "item_key": "tvdb:6"}]
+    got = ml.link_arrivals(rows, items, "tv", lambda jf: f"/media/item/{jf}")
+    assert [r["href"] for r in got] == ["/media/item/J1", "/media/item/J3", "/media/item/J2", None]

@@ -12,7 +12,11 @@ redefine tokens only, no literal colour outside the token blocks (a test enforce
 row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
 card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
 table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart + hour list,
-`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Greeting clock: `_now_home()` (Australia/Melbourne).
+`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Rain radar panel
+(2026-10-06, `weather_radar()`): stored BOM PNGs stacked as `<img>` layers, 6 frame slots cycled by CSS keyframes
+(no JS; reduced motion = latest frame), time-range text + worded intensity legend; its own column beside the rest
+at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapshot has no `radar`. Files served by
+`GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting clock: `_now_home()` (Australia/Melbourne).
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame

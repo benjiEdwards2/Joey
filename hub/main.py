@@ -287,6 +287,75 @@ def weather_forecast(snaps) -> dict | None:
     }
 
 
+# BOM radar loop (2026-10-06, Option 1 approved by B.): the open_meteo connector stores
+# raw PNG layers + up to 6 rain frames under SNAPSHOT_DIR/radar/ and names them in
+# data.radar. The page stacks <img> layers and cycles the frames with CSS keyframes (no
+# JS); the route below serves ONLY names matching this allowlist, never arbitrary paths.
+RADAR_FILE_RE = re.compile(r"^(?:layer_(?:background|topography|locations|range)|frame_\d{12})\.png$")
+RADAR_UNDER = ("background", "topography")   # below the rain
+RADAR_OVER = ("range", "locations")          # above it, so town names stay readable
+RADAR_SLOTS = 6                              # the CSS cycle is built for 6 frame slots
+
+
+def _radar_dir() -> Path:
+    from hub.store import DEFAULT_SNAPSHOT_DIR
+    return Path(os.environ.get("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR)) / "radar"
+
+
+def _radar_clock(iso: str) -> str | None:
+    try:
+        t = datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        t = t.astimezone(ZoneInfo(HOME_TZ_NAME))
+    except Exception:
+        t = t.astimezone()
+    return f"{t:%H:%M}"
+
+
+def weather_radar(snaps) -> dict | None:
+    """Template context for the radar panel; None when the snapshot carries no usable radar."""
+    snap = snaps.get(WEATHER_SNAPSHOT_ID)
+    data = snap.data if snap else None
+    radar = data.get("radar") if isinstance(data, dict) else None
+    if not isinstance(radar, dict):
+        return None
+    frames = []
+    for f in radar.get("frames") or []:
+        name = f.get("file") if isinstance(f, dict) else None
+        clock = _radar_clock(f.get("time_iso")) if name else None
+        if isinstance(name, str) and RADAR_FILE_RE.match(name) and clock:
+            frames.append({"src": f"/weather/radar/{name}", "time": clock})
+    if not frames:
+        return None
+    layers = {n for n in radar.get("layers") or [] if isinstance(n, str) and RADAR_FILE_RE.match(n)}
+
+    def urls(names):
+        return [f"/weather/radar/layer_{n}.png" for n in names if f"layer_{n}.png" in layers]
+
+    # Always RADAR_SLOTS slots so one fixed CSS cycle fits: pad by repeating the oldest frame.
+    slots = [frames[0]] * (RADAR_SLOTS - len(frames)) + frames[-RADAR_SLOTS:]
+    steps = sorted({_frame_minutes(a, b) for a, b in zip(frames, frames[1:])} - {None})
+    return {
+        "under": urls(RADAR_UNDER), "over": urls(RADAR_OVER), "slots": slots,
+        "count": len(frames), "first": frames[0]["time"], "last": frames[-1]["time"],
+        "step": steps[0] if len(steps) == 1 else None,
+        "stale": radar.get("fetched_ok") is False,
+        "station": radar.get("station") or "",
+    }
+
+
+def _frame_minutes(a: dict, b: dict) -> int | None:
+    try:
+        ha, ma = map(int, a["time"].split(":"))
+        hb, mb = map(int, b["time"].split(":"))
+    except (KeyError, ValueError):
+        return None
+    return ((hb * 60 + mb) - (ha * 60 + ma)) % 1440 or None
+
+
 # Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
 # Rendered on any area page whose tiles read this snapshot — keyed by connector
 # id like the weather glimpse, never an area name (WP17 grep exception).
@@ -853,9 +922,25 @@ def weather_page(request: Request):
     resp = templates.TemplateResponse(request, "weather.html", {
         "areas": registry.visible_areas, "active_id": None, "owner_view": view,
         "status": build_status(snaps), "w": find_weather(snaps),
-        "fc": weather_forecast(snaps),
+        "fc": weather_forecast(snaps), "radar": weather_radar(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
+
+
+@app.get("/weather/radar/{name}")
+def weather_radar_file(name: str):
+    """One stored BOM radar PNG (2026-10-06). Allowlisted names only — anything else,
+    traversal attempts included, is a 404; so is a name the connector has pruned."""
+    from fastapi.responses import FileResponse
+
+    if not RADAR_FILE_RE.match(name):
+        raise HTTPException(status_code=404)
+    path = _radar_dir() / name
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    # frames are immutable (timestamped names); layers are rewritten in place — revalidate
+    cache = "public, max-age=86400, immutable" if name.startswith("frame_") else "no-cache"
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": cache})
 
 
 def _detail_page(request: Request, template: str, snapshot_id: str, build=None, detail=None,

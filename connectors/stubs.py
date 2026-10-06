@@ -788,6 +788,17 @@ ARR_LIMIT = 20
 GIB = 1024 ** 3
 # (app, url var, key var) — each app is fetched independently
 ARR_APPS = (("radarr", "RADARR_URL", "RADARR_API_KEY"), ("sonarr", "SONARR_URL", "SONARR_API_KEY"))
+# Library counts (WP-S3, 2026-10-06): fetched after an app's main calls succeed; a failed
+# count call nulls only that app's counts object. Queued reuses the queue already fetched.
+ARR_COUNT_ENDPOINTS = {
+    "radarr": (("raw_radarr_movie", "/api/v3/movie", {}),),
+    "sonarr": (("raw_sonarr_series", "/api/v3/series", {}),
+               ("raw_sonarr_missing", "/api/v3/wanted/missing", {"pageSize": 1, "monitored": "true"})),
+}
+# Prowlarr is optional: env unset or the call failing -> `prowlarr: null`, the run stays ok.
+PROWLARR_ENV = ("PROWLARR_URL", "PROWLARR_API_KEY")
+PROWLARR_STATS = (("grabs", "numberOfGrabs"), ("queries", "numberOfQueries"),
+                  ("failed_grabs", "numberOfFailedGrabs"), ("failed_queries", "numberOfFailedQueries"))
 
 
 def _arr_reason(exc: Exception) -> str:
@@ -917,13 +928,58 @@ class Arr(Connector):
                 # Reason is type/status ONLY — requests exception text embeds the
                 # app URL, and this string ends up in envelopes and logs.
                 errors[app] = _arr_reason(exc)
+                continue
+            try:  # counts are partial-ok: a failure here leaves `{app}: null`, nothing else
+                for key, path, params in ARR_COUNT_ENDPOINTS[app]:
+                    response = requests.get(base + path, headers=headers, params=params, timeout=10)
+                    response.raise_for_status()
+                    raw[key] = response.json()
+            except Exception as exc:
+                log.warning("arr: %s counts failed (%s)", app, _arr_reason(exc))
         if len(errors) == len(ARR_APPS):
             raise RuntimeError(
                 "both apps failed (" + ", ".join(f"{a}: {r}" for a, r in sorted(errors.items())) + ")"
             )
         if errors:
             raw["app_errors"] = errors
+        if all(os.environ.get(v) for v in PROWLARR_ENV):
+            try:
+                response = requests.get(os.environ["PROWLARR_URL"].rstrip("/") + "/api/v1/indexerstats",
+                                        headers={"X-Api-Key": os.environ["PROWLARR_API_KEY"]}, timeout=10)
+                response.raise_for_status()
+                raw["raw_prowlarr_indexerstats"] = response.json()
+            except Exception as exc:
+                log.warning("arr: prowlarr stats failed (%s)", _arr_reason(exc))
         return raw
+
+    # ---- counts (WP-S3) ----------------------------------------------------
+
+    @staticmethod
+    def _total(payload) -> int:
+        """A paged v3 payload's totalRecords (a bare list counts its length)."""
+        if isinstance(payload, dict):
+            return int(payload.get("totalRecords") or len(payload.get("records") or []))
+        return len(payload or [])
+
+    @classmethod
+    def _counts(cls, raw: dict) -> tuple[dict | None, dict | None, dict | None]:
+        radarr = sonarr = prowlarr = None
+        movies = raw.get("raw_radarr_movie")
+        if isinstance(movies, list) and "raw_radarr_queue" in raw:
+            wanted = [m for m in movies if m.get("monitored") and not m.get("hasFile")]
+            radarr = {"movies": len(movies), "wanted": len(wanted),
+                      "missing": sum(1 for m in wanted if m.get("isAvailable")),
+                      "queued": cls._total(raw["raw_radarr_queue"])}
+        series = raw.get("raw_sonarr_series")
+        if isinstance(series, list) and "raw_sonarr_missing" in raw and "raw_sonarr_queue" in raw:
+            sonarr = {"series": len(series), "wanted": cls._total(raw["raw_sonarr_missing"]),
+                      "queued": cls._total(raw["raw_sonarr_queue"])}
+        stats = raw.get("raw_prowlarr_indexerstats")
+        if isinstance(stats, dict):
+            indexers = stats.get("indexers") or []
+            prowlarr = {out: sum(int(i.get(src) or 0) for i in indexers) for out, src in PROWLARR_STATS}
+            prowlarr["indexers"] = len(indexers)
+        return radarr, sonarr, prowlarr
 
     # ---- transform ---------------------------------------------------------
 
@@ -1083,6 +1139,7 @@ class Arr(Connector):
             "downloading": downloading[:ARR_LIMIT],
             "disk": disk[:ARR_LIMIT],
         }
+        data["radarr"], data["sonarr"], data["prowlarr"] = self._counts(raw)
         if raw.get("app_errors"):
             data["app_errors"] = dict(raw["app_errors"])
         return data
@@ -1434,16 +1491,32 @@ class System(Connector):
 
 # What's Up Docker (2026-10-06, WP-S1). The raw shape IS WUD's GET /api/containers
 # list (subset: name, image.name, image.tag.value, updateAvailable, updateKind.kind,
-# result.tag), so WP-S3's live fetch can return the response JSON unchanged.
+# result.tag), so the live fetch (WP-S3) returns the response JSON unchanged.
+# WUD 9: `updateKind` is only meaningful when an update exists; a digest-only update has
+# kind "digest" and `result.tag` == the current tag, so `new_tag` is null for it.
 
 
 class Wud(Connector):
     """Container image updates as WUD sees them (Server area)."""
 
     id = "wud"
+    requires_env = ("WUD_URL", "WUD_USER", "WUD_PASS")
 
     def fetch(self) -> list:
-        raise NotImplementedError("live wud fetch arrives in WP-S3")
+        import requests
+
+        try:
+            response = requests.get(os.environ["WUD_URL"].rstrip("/") + "/api/containers",
+                                    auth=(os.environ["WUD_USER"], os.environ["WUD_PASS"]), timeout=10)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            # Reason is type/status ONLY — requests exception text embeds the
+            # server URL, and this string ends up in envelopes and logs.
+            raise RuntimeError(f"WUD containers failed ({_arr_reason(exc)})") from None
+        if not isinstance(payload, list):
+            raise RuntimeError("WUD containers failed (unexpected payload)")
+        return payload
 
     def transform(self, raw: list) -> dict:
         containers = []

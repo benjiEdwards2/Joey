@@ -78,7 +78,25 @@
         "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide"
       }
     ],
+    "prowlarr": {
+      "failed_grabs": 3,
+      "failed_queries": 52,
+      "grabs": 40,
+      "indexers": 3,
+      "queries": 1325
+    },
+    "radarr": {
+      "missing": 2,
+      "movies": 6,
+      "queued": 1,
+      "wanted": 3
+    },
     "secondary": "Quiet Coast \u00b7 S02 \u00b7 3 episodes",
+    "sonarr": {
+      "queued": 1,
+      "series": 3,
+      "wanted": 7
+    },
     "summary": "4 arrived this week \u00b7 2 downloading",
     "this_week": [
       {

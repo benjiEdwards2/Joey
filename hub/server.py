@@ -71,8 +71,9 @@ def group_services(apps: list[dict]) -> list[dict]:
 
 
 def _counts(snaps) -> dict:
-    """Jellyseerr / qBittorrent / arr counts — only fields the snapshots carry today
-    (wanted/missing and prowlarr stats arrive in WP-S3). None per source when absent."""
+    """Jellyseerr / qBittorrent / arr counts. None per source when absent; the arr
+    library/indexer objects (`radarr`, `sonarr`, `prowlarr`, WP-S3) are None when the
+    snapshot predates them or the connector nulled them (partial-ok)."""
     def data(cid):
         snap = snaps.get(cid)
         return snap.data if snap and snap.data else None
@@ -93,6 +94,9 @@ def _counts(snaps) -> dict:
             "disk": [{**d, "free_text": _gb(d.get("free_gb")), "total_text": _gb(d.get("total_gb"))}
                      for d in arr.get("disk") or []],
         } if arr else None,
+        "radarr": (arr or {}).get("radarr") or None,
+        "sonarr": (arr or {}).get("sonarr") or None,
+        "prowlarr": (arr or {}).get("prowlarr") or None,
     }
 
 

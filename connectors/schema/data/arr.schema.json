@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/arr.schema.json",
   "title": "arr data block",
-  "description": "Media area library feed (Radarr + Sonarr). One app being down is DATA (`app_errors`), not a failed run. Lists are capped at 20. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "description": "Media area library feed (Radarr + Sonarr). One app being down is DATA (`app_errors`), not a failed run. Optional `radarr`/`sonarr`/`prowlarr` count objects (WP-S3) are partial-ok: null on failure. Lists are capped at 20. `summary`/`secondary` are the hub display convention (D17, WP18).",
   "type": "object",
   "required": ["summary", "secondary", "arrived", "updated", "this_week", "downloading", "disk"],
   "additionalProperties": false,
@@ -94,6 +94,27 @@
           "pct_used": {"type": "integer", "minimum": 0, "maximum": 100}
         }
       }
+    },
+    "radarr": {
+      "description": "Library counts (WP-S3, 2026-10-06). null when the count call failed or Radarr is down; absent in older envelopes.",
+      "type": ["object", "null"],
+      "required": ["movies", "wanted", "missing", "queued"],
+      "additionalProperties": false,
+      "properties": {"movies": {"type": "integer", "minimum": 0}, "wanted": {"type": "integer", "minimum": 0}, "missing": {"type": "integer", "minimum": 0}, "queued": {"type": "integer", "minimum": 0}}
+    },
+    "sonarr": {
+      "description": "Library counts (WP-S3, 2026-10-06). null when a count call failed or Sonarr is down; absent in older envelopes.",
+      "type": ["object", "null"],
+      "required": ["series", "wanted", "queued"],
+      "additionalProperties": false,
+      "properties": {"series": {"type": "integer", "minimum": 0}, "wanted": {"type": "integer", "minimum": 0}, "queued": {"type": "integer", "minimum": 0}}
+    },
+    "prowlarr": {
+      "description": "Indexer stats summed across indexers (WP-S3, 2026-10-06). null when PROWLARR_URL/PROWLARR_API_KEY are unset or the call failed; absent in older envelopes.",
+      "type": ["object", "null"],
+      "required": ["grabs", "queries", "failed_grabs", "failed_queries", "indexers"],
+      "additionalProperties": false,
+      "properties": {"grabs": {"type": "integer", "minimum": 0}, "queries": {"type": "integer", "minimum": 0}, "failed_grabs": {"type": "integer", "minimum": 0}, "failed_queries": {"type": "integer", "minimum": 0}, "indexers": {"type": "integer", "minimum": 0}}
     },
     "app_errors": {
       "type": "object",

@@ -88,8 +88,10 @@ def test_requires_env_names_all_four_variables():
 
 
 def test_fixture_dir_is_eight_raw_files(raw):
+    # WP-S3 (2026-10-06): + the radarr/sonarr count payloads and prowlarr indexer stats
     assert set(raw) == {f"raw_{a}_{e}" for a in ("radarr", "sonarr")
-                        for e in ("history", "calendar", "queue", "diskspace")}
+                        for e in ("history", "calendar", "queue", "diskspace")} | {
+        "raw_radarr_movie", "raw_sonarr_series", "raw_sonarr_missing", "raw_prowlarr_indexerstats"}
 
 
 def test_arrivals_exclude_upgrades_and_old_imports(data):
@@ -191,7 +193,8 @@ def test_live_run_calls_all_eight_endpoints_with_key_and_timeout(live, monkeypat
     calls = fake_requests(monkeypatch, raw)
     envelope = Arr().run()
     assert envelope["status"] == "ok" and "app_errors" not in envelope["data"]
-    assert len(calls) == 8 and all(c["timeout"] == 10 for c in calls)
+    # 8 feed calls + 3 count calls (radarr movie, sonarr series + wanted/missing; WP-S3)
+    assert len(calls) == 11 and all(c["timeout"] == 10 for c in calls)
     radarr = [c for c in calls if c["app"] == "radarr"]
     assert all(c["headers"] == {"X-Api-Key": RKEY} for c in radarr)
     assert all(c["headers"] == {"X-Api-Key": SKEY} for c in calls if c["app"] == "sonarr")

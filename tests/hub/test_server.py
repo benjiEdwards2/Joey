@@ -78,7 +78,7 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert ">Down</span>" in body and ">Up</span>" in body
     assert 'href="http://nas.local:8096"' in body
     # 3 Updates
-    assert "16 monitored · 1 update" in body and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
+    assert "17 monitored · 2 updates" in body and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Counts

@@ -1,0 +1,10 @@
+{
+  "id": 1,
+  "indexers": [
+    {"indexerId": 1, "indexerName": "Indexer One", "averageResponseTime": 412, "numberOfQueries": 820, "numberOfGrabs": 31, "numberOfRssQueries": 600, "numberOfAuthQueries": 0, "numberOfFailedQueries": 12, "numberOfFailedGrabs": 1, "numberOfFailedRssQueries": 3, "numberOfFailedAuthQueries": 0},
+    {"indexerId": 2, "indexerName": "Indexer Two", "averageResponseTime": 950, "numberOfQueries": 410, "numberOfGrabs": 9, "numberOfRssQueries": 300, "numberOfAuthQueries": 0, "numberOfFailedQueries": 40, "numberOfFailedGrabs": 2, "numberOfFailedRssQueries": 10, "numberOfFailedAuthQueries": 0},
+    {"indexerId": 3, "indexerName": "Indexer Three", "averageResponseTime": 230, "numberOfQueries": 95, "numberOfGrabs": 0, "numberOfRssQueries": 80, "numberOfAuthQueries": 0, "numberOfFailedQueries": 0, "numberOfFailedGrabs": 0, "numberOfFailedRssQueries": 0, "numberOfFailedAuthQueries": 0}
+  ],
+  "userAgents": [],
+  "hosts": []
+}

@@ -12,3 +12,8 @@ Server feeds (2026-10-06, WP-S1): `system` (NAS CPU, RAM, uptime, per-volume spa
 `wud` (What's Up Docker container image updates; hourly). WP-S1 ships ids, schemas, fixtures and transforms only — the
 live `fetch()` of each raises `NotImplementedError` (an error envelope, "Not connected" in the hub) until WP-S2 (`system`)
 and WP-S3 (`wud`) land. Raw shapes they must return are documented above each class in `stubs.py`.
+`wud` live (WP-S3): one HTTP Basic `GET {WUD_URL}/api/containers` (10 s), the list returned unchanged; env `WUD_URL`,
+`WUD_USER`, `WUD_PASS`. A digest-only update reads `kind: "digest"`, `new_tag: null`.
+`arr` counts (WP-S3): optional `radarr {movies, wanted, missing, queued}`, `sonarr {series, wanted, queued}` and
+`prowlarr {grabs, queries, failed_grabs, failed_queries, indexers}` (optional env `PROWLARR_URL`, `PROWLARR_API_KEY`).
+Each is partial-ok — null when its call fails or (Prowlarr) its env is unset; the rest of `arr` stays `ok`.

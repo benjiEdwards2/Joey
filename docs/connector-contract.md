@@ -161,6 +161,21 @@ Fetched in `connectors/stubs.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
 sweep, four with `JELLYFIN_USER_HER`. Snapshots written before this have neither array and stay
 valid; the hub library pages then say "Library list not available yet".
 
+**Arr counts (WP-S3, 2026-10-06).** `arr` data gains three optional objects, each `null` on failure:
+`radarr` (`movies` = all, `wanted` = monitored without a file, `missing` = those also available, `queued` =
+the queue's `totalRecords`) from `GET /api/v3/movie`; `sonarr` (`series`, `wanted` = `/api/v3/wanted/missing`
+`totalRecords`, `queued`) from `GET /api/v3/series` + that paged call; and `prowlarr` (`grabs`, `queries`,
+`failed_grabs`, `failed_queries` summed over `GET /api/v1/indexerstats` indexers, plus `indexers` = count).
+`queued` reuses the queue the feed already fetches. **Partial-ok, like gcal's one-feed-down rule:** a failed
+count call nulls only that app's object (logged with a sanitised reason, no `app_errors` entry), an app that is
+down has no counts, and `PROWLARR_URL`/`PROWLARR_API_KEY` unset means `prowlarr: null` — none of these fails
+the run. These calls ride the 120 s fast loop with `arr`. Older envelopes lack all three and stay valid.
+
+**WUD live (WP-S3, 2026-10-06).** `wud` reads `GET {WUD_URL}/api/containers` with HTTP Basic
+(`WUD_USER`/`WUD_PASS`), hourly only (WUD itself checks daily). The list is returned unchanged; a WUD 9
+digest-only update (`updateKind.kind == "digest"`, `result.tag` = current tag) gives `kind: "digest"`,
+`new_tag: null`. Failure reasons are status/type only, never the URL or login.
+
 **Arr `at` (2026-10-06).** `arrived` and `updated` rows gain an optional `at` — the ISO timestamp
 of the newest import. "New this week" on My films / My shows filters on it and falls back to
 parsing the `when` text for older snapshots.

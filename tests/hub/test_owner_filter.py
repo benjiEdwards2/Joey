@@ -17,7 +17,7 @@ def client(tmp_path, monkeypatch):
     """One area holding a you-tile, a her-tile, and a shared tile (the summary)."""
     area = make_area("mixed", "shared-t")
     area["tiles"] = [
-        make_tile("shared-t", snapshot="open_meteo", stale_after_minutes=120),
+        make_tile("shared-t", snapshot="money", stale_after_minutes=120),  # money, not open_meteo: the weather tile is dropped beside the weather band (2026-10-06)
         make_tile("you-t", owner="you", snapshot="jellyfin", stale_after_minutes=120),
         make_tile("her-t", owner="her", snapshot="gcal", stale_after_minutes=120),
     ]
@@ -26,7 +26,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("AREAS_PATH", str(fixture))
 
     snaps = tmp_path / "snaps"
-    write_envelope(snaps, "open_meteo", data={"summary": "SHARED-VAL"})
+    write_envelope(snaps, "money", data={"summary": "SHARED-VAL"})
     write_envelope(snaps, "jellyfin", data={"summary": "YOU-VAL"})
     write_envelope(snaps, "gcal", data={"summary": "HER-VAL"})
     write_envelope(snaps, "nas_stats", data={"summary": "HERS-CARD"})

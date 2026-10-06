@@ -59,7 +59,9 @@ def test_hub_renders_the_sample_snapshots_end_to_end(monkeypatch):
         assert hub_page.status_code == 200
         # Each area's summary tile, straight off the WP23 transforms
         assert "Weekly standup" in hub_page.text          # calendar
-        assert "Tonight: Salmon and greens" in hub_page.text  # kitchen
+        # kitchen is parked (hidden): no hub card, its page still serves the tile
+        assert "Tonight: Salmon and greens" not in hub_page.text
+        assert "Tonight: Salmon and greens" in client.get("/a/kitchen").text
         assert "playing now" in hub_page.text             # media
 
         calendar_page = client.get("/a/calendar")

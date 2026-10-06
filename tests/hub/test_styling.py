@@ -1,5 +1,6 @@
 """WP20 — Control Surface port: weighted bento sizes + cockpit chrome."""
 import importlib
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -44,8 +45,9 @@ def test_hub_card_carries_size_class(client):
     # Apex hub (2026-10-06): hub_size no longer drives the hub layout (KPI row in registry /
     # hub_rank order), so this pin is weakened to "one KPI card per area" — size classes gone.
     html = client.get("/").text.split("<main", 1)[1]
-    assert '<a class="cardlink" href="/a/alpha">' in html
-    assert '<a class="cardlink" href="/a/beta">' in html
+    # the last of <= 3 cards carries `span2` (kpis few, 2026-10-06)
+    assert re.search(r'<a class="cardlink" href="/a/alpha">', html)
+    assert re.search(r'<a class="cardlink( span2)?" href="/a/beta">', html)
     assert "cardlink s22" not in html and "cardlink s11" not in html
 
 

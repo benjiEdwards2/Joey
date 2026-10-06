@@ -29,3 +29,5 @@ Media suites live in `tests/hub/` (`test_media_*.py`: shelves, discover, her vie
 Rail section + brand link (2026-10-06): `test_registry.py` covers `rail_section`; `test_apex_shell.py` covers Home-group rendering and the brand home link.
 
 `tests/conftest.py` has an autouse fixture that points `MEDIA_DB_PATH`, `MEDIA_BACKUP_DIR` and `SNAPSHOT_DIR` at per-test temp paths and sets `PLAY_RECORDER=off` and `MEDIA_BACKUP=off`; without it the default `/data/...` resolves to `C:\data\...` on Windows and tests touch a real directory.
+
+Hidden (parked) areas (2026-10-06): `test_hidden_areas.py` covers the registry `hidden` flag, rail / phone bar / hub row exclusion, `/a/<id>` still serving, the hub KPI order Media · Weather · Calendar with `kpis few` + `span2`, and the Calendar page dropping its Weather KPI tile. Pins reworded for this: `test_apex_hub.py` (visible areas only; money card gone), `test_apex_areas.py` (weather tile excluded where the band renders), `test_hub_hero.py` / `test_styling.py` (last card may carry `span2`), `test_owner_filter.py` (shared tile reads `money`, not `open_meteo`), `test_hub_reads_samples.py` (kitchen has no hub card).

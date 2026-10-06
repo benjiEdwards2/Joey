@@ -19,7 +19,7 @@
     {% for e in stats.top_shows %}
     <div class="uprow hasposter">
       {{ poster(e.poster, e.title, 120, "sm") }}
-      <span class="uptitle">{{ e.title }}</span>
+      <span class="uptitle">{% set ih = item_href(e.jf_id, e.key) %}{% if ih %}<a href="{{ ih }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
       <span class="uptime nextleft">{{ e.episodes }} episode{{ '' if e.episodes == 1 else 's' }} · {{ e.hours }} h</span>
     </div>
     {% else %}
@@ -30,7 +30,7 @@
     {% for e in stats.top_movies %}
     <div class="uprow hasposter">
       {{ poster(e.poster, e.title, 120, "sm") }}
-      <span class="uptitle">{{ e.title }}</span>
+      <span class="uptitle">{% set ih = item_href(e.jf_id, e.key) %}{% if ih %}<a href="{{ ih }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
       <span class="uptime nextleft">{{ e.plays }} play{{ '' if e.plays == 1 else 's' }} · {{ e.hours }} h</span>
     </div>
     {% else %}

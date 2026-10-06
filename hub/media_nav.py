@@ -73,6 +73,9 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
     area = shelves_area(registry)
     home_href = f"/a/{area.id}" if area else "/"
     section = active_section(path, request.url.query, home_href if area else None)
+    forced = getattr(getattr(request, "state", None), "media_section", None)  # F9: item pages pick Movies / TV Shows by kind
+    if forced:
+        section = next((s for s in SECTIONS if s["id"] == forced), section)
     waiting = waiting or {}
     counts = {"diary": waiting.get("to_rate", 0), "movies": waiting.get("to_place", 0),
               "tv": waiting.get("to_place", 0)}

@@ -18,13 +18,13 @@ def iso(days):
 
 
 def movie(title, year, key, played=False, runtime=100, cr=None, added=100, last=None, genres=None, jf="j"):
-    return {"title": title, "year": year, "jf_id": jf + key, "item_key": key, "poster": "jf:" + key,
+    return {"title": title, "year": year, "jf_id": jf + key.replace(":", "-"), "item_key": key, "poster": "jf:" + key,
             "backdrop": None, "runtime_min": runtime, "played": played, "last_played_at": last,
             "added_at": iso(added), "community_rating": cr, "genres": genres or []}
 
 
 def show(title, year, key, eps, unplayed, status="Continuing", cr=None, added=100, last=None):
-    return {"title": title, "year": year, "jf_id": "j" + key, "item_key": key, "poster": "jf:" + key,
+    return {"title": title, "year": year, "jf_id": "j" + key.replace(":", "-"), "item_key": key, "poster": "jf:" + key,
             "backdrop": None, "status_word": status, "episodes": eps, "unplayed": unplayed,
             "played": unplayed == 0, "last_played_at": last, "added_at": iso(added),
             "community_rating": cr, "genres": []}
@@ -77,13 +77,12 @@ def test_movies_page_in_frame_with_head_groups_and_words(env):
     assert 'class="poster sm' in b
 
 
-def test_row_links_title_page_or_deep_link(env):
+def test_row_links_item_page_over_title_page(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         _, b = body(c, "/media/movies")
-    assert 'href="/media/title/movie/11"' in b
-    assert f'href="{LINK}/web/#/details?id=jjf:13&amp;serverId=srv"' in b or \
-        f'href="{LINK}/web/#/details?id=jjf:13&serverId=srv"' in b
+    assert 'href="/media/item/jtmdb-11"' in b and 'href="/media/item/jjf-13"' in b
+    assert "/web/#/details" not in b and 'href="/media/title/movie/11"' not in b
 
 
 def test_default_sort_is_score_then_year_then_title_and_other_sorts(env):
@@ -131,7 +130,7 @@ def test_tv_page_groups_words_and_head(env):
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
     assert "Continuing" in b and "26 episodes · 6 to watch" in b and "8 episodes · All watched" in b
-    assert "Last watched yesterday" in b and 'href="/media/title/tv/21"' in b
+    assert "Last watched yesterday" in b and 'href="/media/item/jtmdb-21"' in b
 
 
 def test_her_view_uses_her_list_or_hides_marks(env):

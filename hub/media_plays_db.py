@@ -159,7 +159,8 @@ def stats(window=30, owner=None, now: datetime | None = None) -> dict:
             key, bucket, title = r["show_key"] or r["show_title"], shows, r["show_title"] or r["title"]
         else:
             key, bucket, title = r["item_key"] or r["title"], movies, r["title"]
-        e = bucket.setdefault(key, {"key": key, "title": title, "plays": 0, "hours": 0.0, "poster": None})
+        e = bucket.setdefault(key, {"key": key, "title": title, "plays": 0, "hours": 0.0, "poster": None,
+                                    "jf_id": None if r["kind"] == "episode" else r["jf_id"]})
         e["plays"] += 1
         e["hours"] += h
         e["poster"] = e["poster"] or r["poster"]

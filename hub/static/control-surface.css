@@ -599,3 +599,16 @@ table { width: 100%; border-collapse: collapse; }
 .wlgrid .wltitle form { margin: 0; flex: 0 0 auto; }
 .wlgrid .pgtitle { font-size: 12px; font-weight: 600; color: var(--fg); text-decoration: none; }
 .wlgrid .chip { align-self: flex-start; }
+
+/* ---- Item page (F9) ---- */
+.playrow2 { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
+.glassbtn.playbtn { font-size: 16px; font-weight: 700; padding: 10px 22px; border-color: var(--accent, var(--muted)); }
+.genrechips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.castline { margin-top: 8px; }
+.epmap { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 14px; }
+.epmap .ep { box-sizing: border-box; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; border: 1px solid var(--muted); border-radius: 4px; color: var(--fg); text-decoration: none; }
+.epmap .ep.watched { background: var(--accent, var(--muted)); color: var(--bg); border-color: var(--accent, var(--muted)); }
+.epmap .ep.progress { border: 2px solid var(--accent, var(--fg)); border-style: dashed; }
+.epmap .ep.unaired { border-style: dotted; opacity: .55; }
+.epmap .ep:hover { border-color: var(--fg); }

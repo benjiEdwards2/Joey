@@ -24,7 +24,7 @@
     {% for r in to_rate %}
     <div class="uprow hasposter rateable">
       {{ poster(r.poster, r.title, 120, "sm") }}
-      <span class="uptitle">{{ r.title }}</span>
+      <span class="uptitle">{% if item_href(r.jf_id) %}<a href="{{ item_href(r.jf_id) }}">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}</span>
       <span class="uptime nextleft">{{ r.when }}</span>
       {{ rate.picker(r) }}
     </div>
@@ -36,7 +36,7 @@
     {% for r in history.get("recent", []) %}
     <div class="uprow hasposter">
       {{ poster(r.poster, r.title, 120, "sm" ~ rate.rowpcls(r, ratings)) }}
-      <span class="uptitle">{{ r.title }}</span>
+      <span class="uptitle">{% if item_href(r.jf_id) %}<a href="{{ item_href(r.jf_id) }}">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}</span>
     {{ rate.rowchip(r, ratings) }}
       <span class="chip">{{ r.kind }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>

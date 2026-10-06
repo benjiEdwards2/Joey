@@ -243,3 +243,25 @@ def file_summary(kind: str, tmdb_id: int) -> dict | None:
     if out is not None:
         _cache[(kind, tmdb_id)] = (time.time(), out)
     return out
+
+
+def file_summary_for_item(jf_id: str) -> dict | None:
+    """Quality facts for ONE Jellyfin item (a film or an episode file), or None on any failure."""
+    key = (f"item:{jf_id}", 0)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < CACHE_TTL:
+        return hit[1]
+    creds = _creds()
+    if not creds:
+        return None
+    base, headers = creds
+    try:
+        uid = _user_id(base, headers)
+        item = _get(base, headers, f"/Users/{uid}/Items/{jf_id}", {"Fields": ITEM_FIELDS}) if uid else None
+        out = _summarise("movie", [item]) if isinstance(item, dict) else None
+    except Exception as exc:  # type only — requests errors embed the URL
+        log.warning("jellyfin item file lookup failed: %s", type(exc).__name__)
+        return None
+    if out is not None:
+        _cache[key] = (time.time(), out)
+    return out

@@ -4,7 +4,7 @@
 {% import "_rate.html" as rate %}
 <div class="uprow hasposter diaryrow rateable">
   {{ poster(row.poster, row.title, 120, "sm" ~ (" gold-glow" if score == 10 else "")) }}
-  <span class="uptitle"{% if row.episodes %} title="{{ row.episodes | join(' · ') }}"{% endif %}>{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}{% if row.sub %} <span class="dim">· {{ row.sub }}</span>{% endif %}{% if row.episodes and row.episodes|length <= 3 %}<span class="sub epnames">{{ row.episodes | join(" · ") }}</span>{% endif %}</span>
+  <span class="uptitle"{% if row.episodes %} title="{{ row.episodes | join(' · ') }}"{% endif %}>{% set ih = item_href(none, row.show_key or row.item_key) %}{% if ih %}<a href="{{ ih }}">{{ row.title }}</a>{% else %}{{ row.title }}{% endif %}{% if row.year %} ({{ row.year }}){% endif %}{% if row.sub %} <span class="dim">· {{ row.sub }}</span>{% endif %}{% if row.episodes and row.episodes|length <= 3 %}<span class="sub epnames">{{ row.episodes | join(" · ") }}</span>{% endif %}</span>
   <span class="chip">{{ "Film" if row.kind == "movie" else "TV" }}</span>
   {% if row.rewatch %}<span class="chip rewatch" title="Watched before">↻ rewatch</span>{% endif %}
   <span class="uptime nextleft">{{ row.watched_on }} · {% if row.source == "jellyfin" %}Jellyfin{% else %}Logged{% if row.place %} · {{ row.place }}{% endif %}{% endif %}</span>

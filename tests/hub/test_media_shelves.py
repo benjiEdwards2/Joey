@@ -192,11 +192,11 @@ def linked_jelly():
             "history": {"recent": [{**RECENT[0], "jf_id": "hist-id"}, *RECENT[1:]]}}
 
 
-def test_rows_deep_link_into_jellyfin_when_they_carry_a_jf_id(env):
+def test_rows_open_their_item_page_when_they_carry_a_jf_id(env):
     by = {s["id"]: s["items"] for s in shelves_for(env(jellyfin=linked_jelly(), arr=ARR))["shelves"]}
-    assert by["continue"][0]["href"] == deep("resume-id") and by["continue"][0]["external"] is True
-    assert by["added"][0]["href"] == deep("new-id") and by["added"][0]["external"] is True
-    assert by["watched"][0]["href"] == deep("hist-id") and by["watched"][0]["external"] is True
+    assert by["continue"][0]["href"] == "/media/item/resume-id" and "external" not in by["continue"][0]
+    assert by["added"][0]["href"] == "/media/item/new-id" and "external" not in by["added"][0]
+    assert by["watched"][0]["href"] == "/media/item/hist-id" and "external" not in by["watched"][0]
     # no jf_id on the row -> Joey page, no external flag
     assert by["watched"][1]["href"] == "/media/diary" and "external" not in by["watched"][1]
     # arr-only arrivals keep the library page
@@ -222,12 +222,13 @@ def test_no_jellyfin_link_tile_means_no_external_rows(env, tmp_path):
     assert not any("external" in i for s in sh["shelves"] for i in s["items"])
 
 
-def test_external_rows_open_in_a_new_tab_only_in_the_html(env):
+def test_item_rows_stay_in_joey_and_the_hero_keeps_the_jellyfin_link(env):
     main = env(jellyfin=linked_jelly(), arr=ARR)
     with TestClient(main.app) as client:
         html = main_html(client.get("/a/alpha").text)
-    assert f'href="{deep("resume-id").replace("&", "&amp;")}" target="_blank" rel="noopener"' in html
-    assert '<a class="shelf-item" href="/media/diary">' in html          # internal rows: no target
+    assert '<a class="shelf-item" href="/media/item/resume-id">' in html  # same tab, no target
+    assert '<a class="shelf-item" href="/media/diary">' in html
+    assert f'href="{LINK}" target="_blank" rel="noopener">Open in Jellyfin' in html  # hero stays external
 
 
 def test_waiting_counts_and_chips_on_the_area_page_and_hub(env):

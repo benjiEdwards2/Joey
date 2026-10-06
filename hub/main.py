@@ -23,7 +23,7 @@ from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
 from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
-from hub import media_library, media_plays, media_plays_db
+from hub import media_item, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub.media_watchlist import router as media_watchlist_router
@@ -93,6 +93,7 @@ app.include_router(images_router)
 app.include_router(media_write_router)
 app.include_router(media_discover_router)
 app.include_router(media_plays.router)
+app.include_router(media_item.router)
 app.include_router(media_watchlist_router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
@@ -424,6 +425,13 @@ PLAYING_DETAIL = "/media/playing"
 REQUESTS_DETAIL = "/media/requests"
 
 
+def item_href(jf_id=None, key=None) -> str | None:
+    """Joey item page (F9) for a Jellyfin id, or for a `jf:<id>` rating key; None otherwise."""
+    if not jf_id and str(key or "").startswith("jf:"):
+        jf_id = key[3:]
+    return f"/media/item/{jf_id}" if jf_id and media_item.ITEM_RE.match(str(jf_id)) else None
+
+
 def _deep_link(link, jf_id, server_id) -> str | None:
     """Jellyfin item page for a row; None rather than a fabricated link."""
     if not link or not jf_id:
@@ -471,6 +479,7 @@ def media_frame(request: Request) -> dict:
 
 for _t in (templates, _media_write.templates, _media_discover.templates):
     _t.env.globals["media_nav"] = media_frame
+    _t.env.globals["item_href"] = item_href
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
@@ -529,9 +538,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
                 "href": href, **{k: r.get(k) for k in LEVEL_KEYS}, **extra}
 
     def jf_item(r, sub, fallback):
-        """Row that opens in Jellyfin when it carries a jf_id (new tab), else a Joey page."""
-        url = _deep_link(link, r.get("jf_id"), server_id)
-        return item(r, sub, url or fallback, **({"external": True} if url else {}))
+        """Row that opens its Joey item page (F9) when it carries a jf_id, else a Joey page."""
+        return item(r, sub, item_href(r.get("jf_id")) or fallback)
 
     shelves: list[dict] = []
 
@@ -574,10 +582,10 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         unset_text if her_unset else "Nothing watched yet")
     most_shows, most_films = media_plays_db.most_played_30({"you": "you", "her": "her"}.get(view))
     most = ([item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
-                  f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", HISTORY_PLAYS)
+                  f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
              for e in most_shows]
             + [item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
-                    f"{e['plays']} play{'' if e['plays'] == 1 else 's'} · {e['hours']} h", HISTORY_PLAYS)
+                    f"{e['plays']} play{'' if e['plays'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
                for e in most_films])
     if most:  # F7: not behind a registry tile, so it skips add()'s detail gate
         shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
@@ -663,10 +671,10 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
 
     def item(row, owner, when, fallback):
         title, sub = _split_title(row)
-        url = _deep_link(link, row.get("jf_id"), server_id)
+        url = item_href(row.get("jf_id"))
         return {"title": title, "sub": " · ".join(x for x in (owner.title(), sub) if x),  # owner first: never ellipsised
                 "when": when, "poster": row.get("poster"), "href": url or fallback,
-                "external": bool(url), "pct": row.get("progress_pct")}
+                "external": False, "pct": row.get("progress_pct")}
 
     up_next = [item(r, o, r.get("remaining_text"), PLAYING_DETAIL)
                for r, o in _profile_rows(jelly, view, lambda p: p.get("up_next") or [])][:SHELF_MAX]
@@ -860,7 +868,7 @@ def _to_rate(recent, ratings) -> list[dict]:
         seen.add(key)
         rows.append({"item_key": key, "kind": kind, "year": None, "level": row_level,
                      "title": _to_rate_title(r, kind, row_level),
-                     "poster": r.get("poster"), "when": r.get("when", "")})
+                     "poster": r.get("poster"), "when": r.get("when", ""), "jf_id": r.get("jf_id")})
     return rows
 
 
@@ -960,14 +968,16 @@ def _kind_of(request: Request) -> str | None:
     return kind if kind in ("movie", "tv") else None
 
 
-def _lib_href(link, server_id):
-    """href_of for media_library rows: Joey title page for a tmdb key, else the Jellyfin deep link."""
+def _lib_href():
+    """href_of for media_library rows (F9): the Joey item page for a Jellyfin id, else the title page for a tmdb key."""
     def href_of(row, kind):
+        url = item_href(row.get("jf_id"))
+        if url:
+            return url, False
         key = str(row.get("item_key") or "")
         if key.startswith("tmdb:") and key[5:].isdigit():
             return f"/media/title/{kind}/{key[5:]}", False
-        url = _deep_link(link, row.get("jf_id"), server_id)
-        return url, bool(url)
+        return None, False
     return href_of
 
 
@@ -988,10 +998,9 @@ def _library_rows(data: dict, view: str, kind: str):
     items, marks = _library_lists(data, view, kind)
     if items is None:
         return None, marks, None
-    link = (find_detail_source(JELLYFIN_SNAPSHOT_ID, get_snapshots()) or {}).get("href")
     maker = media_library.film_rows if kind == "movie" else media_library.show_rows
     return items, marks, maker(items, _ratings(view, items), lambda v: _ago_text(v, now),
-                               _lib_href(link, data.get("server_id")), marks)
+                               _lib_href(), marks)
 
 
 def _library_page(request: Request, kind: str):

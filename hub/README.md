@@ -5,7 +5,7 @@ FastAPI + Jinja/HTMX dashboard shell. Areas are config, not code — see `config
 **Apex shell (2026-10-06).** `templates/base.html` is the one frame: 260 px labelled rail (brand = kangaroo photo
 `static/brand-joey.jpg`, the whole block links to `/`; Home group = Hub, any area with `rail_section: home`, Weather;
 Areas group = the rest, in `areas.yaml` order), sticky top bar (theme toggle → `data-theme` on `<html>`, saved in
-localStorage `joey-theme`, applied by a pre-paint script; You/Her switcher), page heading block, phone bottom bar.
+localStorage `joey-theme`, applied by a pre-paint script; user chip from `identity.py` — the Access header decides the owner view, `?owner_view=` only works locally), page heading block, phone bottom bar. Areas with `hidden: true` are parked: no rail entry, phone tab or hub card, page still serves.
 `static/control-surface.css` keeps its filename but is the Apex port: light values on `:root`, the two dark blocks
 redefine tokens only, no literal colour outside the token blocks (a test enforces it); `--brand` is the red, per-area
 `--accent` is injected by templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI

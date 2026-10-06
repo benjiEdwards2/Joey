@@ -63,6 +63,8 @@ def get_snapshots(snapshot_dir: str | Path | None = None) -> dict[str, Snapshot]
     now = datetime.now(timezone.utc)
     out: dict[str, Snapshot] = {}
     for path in sorted(directory.glob("*.json")):
+        if path.name.startswith("_"):  # _runner.json etc. are heartbeats, not envelopes
+            continue
         snap = _parse(path, now)
         if snap is not None:
             out[snap.connector] = snap

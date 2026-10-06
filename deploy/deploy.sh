@@ -64,9 +64,22 @@ docker compose build
 docker compose up -d --remove-orphans
 
 echo "== smoke =="
+# Wait for the hub to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the
+# hub's startup on a NAS that had just built two images (2026-10-06, two false rollbacks).
+wait_for_hub() {
+    i=0
+    while [ $i -lt 18 ]; do
+        if docker compose exec -T hub python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)" 2>/dev/null; then
+            return 0
+        fi
+        i=$((i + 1)); sleep 5
+    done
+    echo "hub did not answer /healthz within 90 s" >&2
+    return 1
+}
 smoke() {
-    sleep 5
-    docker compose exec -T hub python tests/deploy/smoke.py \
+    wait_for_hub \
+        && docker compose exec -T hub python tests/deploy/smoke.py \
         && [ -z "$(docker compose ps --status restarting -q)" ]
 }
 if smoke; then

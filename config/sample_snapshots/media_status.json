@@ -52,6 +52,14 @@
         "up": true
       },
       {
+        "href": "http://nas.local:8080",
+        "id": "gluetun",
+        "name": "Gluetun",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
         "href": "http://nas.local:3001",
         "id": "uptime_kuma",
         "name": "Uptime Kuma",
@@ -66,10 +74,34 @@
         "note": null,
         "status_text": "Up",
         "up": true
+      },
+      {
+        "href": "http://nas.local:3030",
+        "id": "wud",
+        "name": "WUD",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:8000",
+        "id": "adm",
+        "name": "ADM",
+        "note": null,
+        "status_text": "Up",
+        "up": true
+      },
+      {
+        "href": "http://nas.local:3000",
+        "id": "homepage",
+        "name": "Homepage",
+        "note": null,
+        "status_text": "Up",
+        "up": true
       }
     ],
     "secondary": "Down: Prowlarr",
-    "summary": "7 of 8 up"
+    "summary": "11 of 12 up"
   },
   "error": null,
   "fetched_at": "2026-01-01T00:00:00+00:00",

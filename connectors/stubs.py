@@ -712,7 +712,9 @@ class Jellyfin(Connector):
 
 # The Media area's app list (hard-coded by decision 2026-10-05): id, display
 # name, port, health path. Any HTTP answer counts as up — a 401 still means the
-# app is alive (qBittorrent); only no answer or a 5xx is down.
+# app is alive (qBittorrent), and redirects are not followed, so a 30x (ADM's
+# http -> https bounce) is up too; only no answer or a 5xx is down.
+# wud, adm, gluetun, homepage joined 2026-10-06 (WP-S2) for the Server area.
 MEDIA_APPS = (
     {"id": "jellyfin", "name": "Jellyfin", "port": 8096, "path": "/health"},
     {"id": "radarr", "name": "Radarr", "port": 7878, "path": "/ping"},
@@ -720,8 +722,17 @@ MEDIA_APPS = (
     {"id": "jellyseerr", "name": "Jellyseerr", "port": 5055, "path": "/api/v1/status"},
     {"id": "prowlarr", "name": "Prowlarr", "port": 9696, "path": "/ping"},
     {"id": "qbittorrent", "name": "qBittorrent", "port": 8080, "path": "/api/v2/app/version"},
+    # Gluetun's control server (8000) lives inside its own network namespace and is
+    # NOT published, so it is never probed. Rule: gluetun is Up iff prowlarr OR
+    # qbittorrent answers — both are routed through gluetun, so either answering
+    # proves the VPN container is alive. Its link is qBittorrent's (the UI behind it).
+    {"id": "gluetun", "name": "Gluetun", "port": 8080, "path": None,
+     "via": ("prowlarr", "qbittorrent")},
     {"id": "uptime_kuma", "name": "Uptime Kuma", "port": 3001, "path": "/"},
     {"id": "portainer", "name": "Portainer", "port": 9000, "path": "/api/status"},
+    {"id": "wud", "name": "WUD", "port": 3030, "path": "/"},
+    {"id": "adm", "name": "ADM", "port": 8000, "path": "/"},  # Asustor ADM web UI, plain http
+    {"id": "homepage", "name": "Homepage", "port": 3000, "path": "/"},
 )
 FIXTURE_MEDIA_HOST = "nas.local"  # fixture mode never reads the real host
 
@@ -747,6 +758,8 @@ class MediaStatus(Connector):
         host = os.environ["MEDIA_STATUS_HOST"]
         results = []
         for app in MEDIA_APPS:
+            if "via" in app:  # derived, never probed — see the gluetun comment above
+                continue
             up, note = False, None
             try:
                 response = requests.get(f"http://{host}:{app['port']}{app['path']}",
@@ -757,6 +770,12 @@ class MediaStatus(Connector):
             except Exception as exc:  # one app failing never fails the run
                 note = _probe_note(exc)
             results.append({"id": app["id"], "up": up, "note": note})
+        probed = {r["id"]: r["up"] for r in results}
+        for app in MEDIA_APPS:
+            if "via" in app:
+                up = any(probed.get(v) for v in app["via"])
+                results.append({"id": app["id"], "up": up,
+                                "note": None if up else "no answer via Prowlarr or qBittorrent"})
         return results
 
     def transform(self, raw: list[dict]) -> dict:
@@ -1371,10 +1390,45 @@ class QBittorrent(Connector):
 
 # -------------------------------------------------------------------- system
 
-# Server area (2026-10-06, WP-S1): host health of the NAS itself. The transform is
-# real; the live `fetch()` arrives in WP-S2 and must return the fixture's raw shape:
+# Server area (2026-10-06, WP-S1): host health of the NAS itself. Raw shape (fixture
+# and live `fetch()`, WP-S2):
 # {cpu_pct, mem_total_bytes, mem_available_bytes, uptime_s, load_1m|null,
 #  volumes: [{path, total_bytes, free_bytes}]}. Sizes are binary GiB, shown as "GB".
+# Live: runs inside joey-connectors on the NAS. /proc/{stat,meminfo,uptime,loadavg} are
+# host-wide from a container by default; volumes are os.statvfs on each container path
+# in SYSTEM_VOLUMES (set in deploy/docker-compose.yml, bind `/volume1:/host/volume1:ro`),
+# reported with the `/host` prefix stripped. No secrets, so no requires_env.
+
+PROC_ROOT = Path("/proc")
+CPU_SAMPLE_S = 1.0  # gap between the two /proc/stat reads
+SYSTEM_VOLUMES_DEFAULT = "/host/volume1"
+HOST_PREFIX = "/host"
+
+
+def _read_proc(name: str) -> str:
+    try:
+        return (PROC_ROOT / name).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"cannot read /proc/{name} ({type(exc).__name__})") from None
+
+
+def _cpu_times(stat_text: str) -> tuple[int, int]:
+    """(idle, total) jiffies from /proc/stat's aggregate `cpu` line. idle includes
+    iowait; total is user..steal (guest time is already inside user/nice)."""
+    for line in stat_text.splitlines():
+        parts = line.split()
+        if parts and parts[0] == "cpu":
+            values = [int(v) for v in parts[1:9]]
+            idle = values[3] + (values[4] if len(values) > 4 else 0)
+            return idle, sum(values)
+    raise RuntimeError("no cpu line in /proc/stat")
+
+
+def _volume_label(path: str) -> str:
+    """'/host/volume1' -> '/volume1' — the path as the NAS itself names it."""
+    if path == HOST_PREFIX:
+        return "/"
+    return path[len(HOST_PREFIX):] if path.startswith(HOST_PREFIX + "/") else path
 
 
 def _gib(n) -> float:
@@ -1397,7 +1451,45 @@ class System(Connector):
     id = "system"
 
     def fetch(self) -> dict:
-        raise NotImplementedError("live system fetch arrives in WP-S2")
+        import time
+
+        idle1, total1 = _cpu_times(_read_proc("stat"))
+        time.sleep(CPU_SAMPLE_S)
+        idle2, total2 = _cpu_times(_read_proc("stat"))
+        dt = total2 - total1
+        cpu = 0.0 if dt <= 0 else min(100.0, max(0.0, (dt - (idle2 - idle1)) / dt * 100))
+
+        mem = {}
+        for line in _read_proc("meminfo").splitlines():
+            key, _, rest = line.partition(":")
+            fields = rest.split()
+            if fields:
+                mem[key.strip()] = int(fields[0]) * (1024 if fields[1:] == ["kB"] else 1)
+        if "MemTotal" not in mem or "MemAvailable" not in mem:
+            raise RuntimeError("/proc/meminfo has no MemTotal/MemAvailable")
+
+        uptime = float(_read_proc("uptime").split()[0])
+        try:
+            load = float(_read_proc("loadavg").split()[0])
+        except (RuntimeError, IndexError, ValueError):
+            load = None  # load is optional in the raw shape
+
+        volumes = []
+        spec = os.environ.get("SYSTEM_VOLUMES") or SYSTEM_VOLUMES_DEFAULT
+        for path in (p.strip() for p in spec.split(",")):
+            if not path:
+                continue
+            try:
+                st = os.statvfs(path)
+            except (OSError, AttributeError) as exc:  # AttributeError: no statvfs (Windows)
+                raise RuntimeError(f"cannot stat volume {path} ({type(exc).__name__})") from None
+            volumes.append({"path": _volume_label(path),
+                            "total_bytes": st.f_blocks * st.f_frsize,
+                            "free_bytes": st.f_bavail * st.f_frsize})
+
+        return {"cpu_pct": round(cpu, 1), "mem_total_bytes": mem["MemTotal"],
+                "mem_available_bytes": mem["MemAvailable"], "uptime_s": int(uptime),
+                "load_1m": load, "volumes": volumes}
 
     def transform(self, raw: dict) -> dict:
         total, free = _gib(raw.get("mem_total_bytes")), _gib(raw.get("mem_available_bytes"))

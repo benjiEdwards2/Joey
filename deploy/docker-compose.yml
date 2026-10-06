@@ -82,6 +82,10 @@ services:
     environment:
       SNAPSHOT_DIR: /data/snapshots
       CONNECTOR_MODE: live
+      # system feed (WP-S2): statvfs targets, comma-separated container paths; `/host` is
+      # stripped for display. Not a secret, so it lives here, not in .env.
+      SYSTEM_VOLUMES: /host/volume1
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
+      - /volume1:/host/volume1:ro  # system feed: volume space only, read-only
     entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]

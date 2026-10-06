@@ -12,3 +12,13 @@ Server feeds (2026-10-06, WP-S1): `system` (NAS CPU, RAM, uptime, per-volume spa
 `wud` (What's Up Docker container image updates; hourly). WP-S1 ships ids, schemas, fixtures and transforms only — the
 live `fetch()` of each raises `NotImplementedError` (an error envelope, "Not connected" in the hub) until WP-S2 (`system`)
 and WP-S3 (`wud`) land. Raw shapes they must return are documented above each class in `stubs.py`.
+
+`system` live fetch (WP-S2, 2026-10-06): no env vars, no secrets. CPU % from two `/proc/stat` reads 1 s apart; RAM from
+`/proc/meminfo` (MemTotal / MemAvailable); `/proc/uptime`; `/proc/loadavg` (null if unreadable) — all host-wide from inside
+the container. Volume space is `os.statvfs` on each path in `SYSTEM_VOLUMES` (comma-separated, default `/host/volume1`),
+set in `deploy/docker-compose.yml` with the read-only bind `/volume1:/host/volume1:ro`; the `/host` prefix is stripped
+for display. Unreadable `/proc` or an unstattable volume is an error envelope naming the file/path — never made-up numbers.
+
+`media_status` probe list (WP-S2, 2026-10-06) adds `wud` (3030), `adm` (8000, Asustor ADM; a 30x redirect to https
+counts as Up — redirects are never followed) and `homepage` (3000). `gluetun` is never probed (its control port is not
+published): it is Up iff `prowlarr` or `qbittorrent` answers, since both route through it.

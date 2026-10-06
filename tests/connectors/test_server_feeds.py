@@ -61,6 +61,6 @@ def test_wud_digest_update_has_no_new_tag_and_empty_list_is_all_up_to_date():
 
 def test_live_run_without_a_fetch_is_an_error_envelope_not_a_crash(snapshots, monkeypatch):
     monkeypatch.setenv("CONNECTOR_MODE", "live")
-    for cls in (System, Wud):
+    for cls in (Wud,):  # System's live fetch is real since WP-S2 (tests/connectors/test_system_fetch.py)
         env = cls().run()
         assert env["status"] == "error" and "NotImplementedError" in env["error"]

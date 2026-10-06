@@ -49,7 +49,7 @@ def test_all_up(live, monkeypatch):
     envelope = run_with(monkeypatch, lambda port: 200)
     data = envelope["data"]
     assert envelope["status"] == "ok"
-    assert data["summary"] == "8 of 8 up" and data["secondary"] == "All apps up"
+    assert data["summary"] == "12 of 12 up" and data["secondary"] == "All apps up"
     assert all(a["status_text"] == "Up" and a["note"] is None for a in data["apps"])
     assert data["apps"][0]["href"] == f"http://{HOST}:8096"
     jsonschema.validate(data, SCHEMA)
@@ -63,7 +63,7 @@ def test_one_down_by_timeout_keeps_the_run_ok(live, monkeypatch):
     )
     data = envelope["data"]
     assert envelope["status"] == "ok" and envelope["consecutive_failures"] == 0
-    assert data["summary"] == "7 of 8 up" and data["secondary"] == "Down: Prowlarr"
+    assert data["summary"] == "11 of 12 up" and data["secondary"] == "Down: Prowlarr"
     down = [a for a in data["apps"] if not a["up"]]
     assert [(a["name"], a["status_text"], a["note"]) for a in down] == [("Prowlarr", "Down", "timeout")]
     jsonschema.validate(data, SCHEMA)
@@ -84,13 +84,15 @@ def test_connection_refused_and_5xx_notes(live, monkeypatch):
 
 def test_401_counts_as_up(live, monkeypatch):
     data = run_with(monkeypatch, lambda port: 401)["data"]
-    assert data["summary"] == "8 of 8 up"
+    assert data["summary"] == "12 of 12 up"
 
 
 def test_notes_never_contain_a_url_or_host(live, monkeypatch):
     envelope = run_with(monkeypatch, lambda port: RuntimeError(f"boom http://{HOST}:{port}/x"))
-    notes = [a["note"] for a in envelope["data"]["apps"]]
-    assert notes == ["RuntimeError"] * 8
+    notes = {a["id"]: a["note"] for a in envelope["data"]["apps"]}
+    # gluetun is derived, never probed (WP-S2) — its note is fixed words
+    assert notes.pop("gluetun") == "no answer via Prowlarr or qBittorrent"
+    assert list(notes.values()) == ["RuntimeError"] * 11
 
 
 def test_fixture_mode_never_touches_the_network(snapshots, monkeypatch):
@@ -100,7 +102,7 @@ def test_fixture_mode_never_touches_the_network(snapshots, monkeypatch):
     monkeypatch.setattr(requests, "get", boom)
     envelope = MediaStatus().run()
     assert envelope["status"] == "ok"
-    assert envelope["data"]["summary"] == "7 of 8 up"
+    assert envelope["data"]["summary"] == "11 of 12 up"
     assert envelope["data"]["apps"][4]["note"] == "timeout"
 
 
@@ -109,3 +111,56 @@ def test_live_mode_without_host_fails_naming_the_variable(snapshots, monkeypatch
     monkeypatch.delenv("MEDIA_STATUS_HOST", raising=False)
     envelope = MediaStatus().run()
     assert envelope["status"] == "error" and "MEDIA_STATUS_HOST" in envelope["error"]
+
+
+# ---- WP-S2 (2026-10-06): wud / adm / homepage probed, gluetun derived ----------
+
+
+def test_server_apps_are_listed_with_their_ports():
+    ports = {a["id"]: a["port"] for a in MEDIA_APPS}
+    assert (ports["wud"], ports["adm"], ports["homepage"]) == (3030, 8000, 3000)
+    assert {a["id"]: a["name"] for a in MEDIA_APPS if a["id"] in ("wud", "adm", "homepage", "gluetun")} == {
+        "gluetun": "Gluetun", "wud": "WUD", "adm": "ADM", "homepage": "Homepage"}
+    assert all(a["id"] == a["id"].lower() for a in MEDIA_APPS)
+
+
+def test_gluetun_is_never_probed(live, monkeypatch):
+    probed = []
+    run_with(monkeypatch, lambda port: probed.append(port) or 200)
+    assert len(probed) == len(MEDIA_APPS) - 1  # every app except gluetun
+
+
+@pytest.mark.parametrize("prowlarr_up, qbit_up, gluetun_up", [
+    (True, True, True), (False, True, True), (True, False, True), (False, False, False)])
+def test_gluetun_up_iff_prowlarr_or_qbittorrent_answers(live, monkeypatch, prowlarr_up, qbit_up, gluetun_up):
+    def behaviour(port):
+        if port == 9696:
+            return 200 if prowlarr_up else requests.ConnectionError("x")
+        if port == 8080:
+            return 200 if qbit_up else requests.Timeout("x")
+        return 200
+
+    apps = {a["id"]: a for a in run_with(monkeypatch, behaviour)["data"]["apps"]}
+    assert apps["gluetun"]["up"] is gluetun_up
+    assert apps["gluetun"]["note"] == (None if gluetun_up else "no answer via Prowlarr or qBittorrent")
+
+
+def test_adm_redirect_to_https_counts_as_up(live, monkeypatch):
+    seen = {}
+
+    def fake_get(url, timeout=None, allow_redirects=True, **kw):
+        seen[url.split(":")[2].split("/")[0]] = allow_redirects
+        return Resp(302 if ":8000/" in url else 200)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    apps = {a["id"]: a for a in MediaStatus().run()["data"]["apps"]}
+    assert apps["adm"]["up"] and apps["adm"]["href"] == f"http://{HOST}:8000"
+    assert seen["8000"] is False  # the redirect is the answer, never followed
+
+
+def test_new_ids_land_in_the_right_server_groups():
+    from hub.server import group_services
+
+    groups = {g["label"]: [a["id"] for a in g["apps"]] for g in group_services([{"id": a["id"]} for a in MEDIA_APPS])}
+    assert "gluetun" in groups["Downloads"]
+    assert {"wud", "adm", "homepage"} <= set(groups["System"])

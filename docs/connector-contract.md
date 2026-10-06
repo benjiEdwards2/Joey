@@ -161,6 +161,18 @@ Fetched in `connectors/stubs.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
 sweep, four with `JELLYFIN_USER_HER`. Snapshots written before this have neither array and stay
 valid; the hub library pages then say "Library list not available yet".
 
+**Server area `system` (2026-10-06, WP-S2).** Live fetch needs no env: CPU % is the busy share of
+two `/proc/stat` samples 1 s apart (idle includes iowait), RAM is `/proc/meminfo` MemTotal / MemAvailable,
+plus `/proc/uptime` and `/proc/loadavg` (`load_1m` null if unreadable). Volumes are `os.statvfs` on each
+container path in `SYSTEM_VOLUMES` (compose sets `/host/volume1`, bound `/volume1:/host/volume1:ro` on the
+`connectors` service); `path` is reported with the `/host` prefix stripped (`/volume1`). Unreadable `/proc`
+or a missing mount is an error envelope (`RuntimeError: cannot read /proc/stat (...)`), never invented numbers.
+
+**`media_status` apps (2026-10-06, WP-S2).** The probe list adds `wud` (3030), `adm` (8000, Asustor ADM —
+a 30x to https counts as Up) and `homepage` (3000). `gluetun` is derived, not probed: Up iff `prowlarr` or
+`qbittorrent` answers (both route through it); when Down its note is `no answer via Prowlarr or qBittorrent`.
+The hub's Server page groups `gluetun` under Downloads and the rest under System.
+
 **Arr `at` (2026-10-06).** `arrived` and `updated` rows gain an optional `at` — the ISO timestamp
 of the newest import. "New this week" on My films / My shows filters on it and falls back to
 parsing the `when` text for older snapshots.

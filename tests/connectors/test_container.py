@@ -48,6 +48,13 @@ def test_connectors_service_matches_the_D16_cadence_contract():
     assert "cron" not in entrypoint  # D16: sleep loop, never crond
 
 
+def test_connectors_service_mounts_volume1_read_only_for_the_system_feed():
+    """WP-S2 (2026-10-06): statvfs target + its env live in compose, never .env."""
+    svc = compose()["services"]["connectors"]
+    assert "/volume1:/host/volume1:ro" in svc["volumes"]
+    assert svc["environment"]["SYSTEM_VOLUMES"] == "/host/volume1"
+
+
 def test_connectors_dockerfile_follows_the_hub_pattern():
     text = DOCKERFILE.read_text(encoding="utf-8")
     assert "FROM python:3.12-slim" in text

@@ -8,7 +8,7 @@
 #       ingest= data in our own store    (snapshot + stale_after_minutes required)
 # snapshot ids come from the FROZEN D13 namespace:
 #   open_meteo gcal clickup macromates home_assistant jellyfin nas_stats money
-#   media_status arr jellyseerr qbittorrent system wud
+#   media_status arr jellyseerr qbittorrent system wud uptime_kuma
 # detail: optional hub route (starts with /) — the whole embed card links to it.
 # `hidden: true` parks an area: no rail, tab or hub card; its page still serves.
 # `layout: server` renders /a/<id> as the /server bands page (2026-10-06).
@@ -249,6 +249,14 @@ areas:
         detail: /server
         stale_after_minutes: 10
         setup_note: "System connector live fetch arrives in WP-S2."
+      - id: monitors
+        label: Monitors
+        tier: embed
+        owner: shared
+        snapshot: uptime_kuma
+        detail: "/server#monitors"
+        stale_after_minutes: 10
+        setup_note: "Set UPTIME_KUMA_URL/UPTIME_KUMA_API_KEY in deploy/.env."
       - id: updates
         label: Updates
         tier: embed

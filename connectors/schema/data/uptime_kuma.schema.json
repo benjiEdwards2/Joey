@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/uptime_kuma.schema.json",
+  "title": "uptime_kuma data block",
+  "description": "Server area monitor states from Uptime Kuma's Prometheus /metrics (2026-10-06, WP-S4). Monitors sort down, pending, maintenance, up, then by name. `response_ms` is null unless the monitor is up with a ping. Monitor URLs/hostnames are never carried. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "type": "object",
+  "required": ["summary", "up", "down", "total", "monitors"],
+  "additionalProperties": false,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "secondary": {"type": "string"},
+    "up": {"type": "integer", "minimum": 0},
+    "down": {"type": "integer", "minimum": 0},
+    "total": {"type": "integer", "minimum": 0},
+    "monitors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "status", "response_ms"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {"type": "string"},
+          "type": {"type": "string"},
+          "status": {"enum": ["up", "down", "pending", "maintenance"]},
+          "response_ms": {"type": ["integer", "null"], "minimum": 0}
+        }
+      }
+    }
+  }
+}

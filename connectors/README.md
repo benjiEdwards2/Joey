@@ -28,3 +28,10 @@ published): it is Up iff `prowlarr` or `qbittorrent` answers, since both route t
 `arr` counts (WP-S3): optional `radarr {movies, wanted, missing, queued}`, `sonarr {series, wanted, queued}` and
 `prowlarr {grabs, queries, failed_grabs, failed_queries, indexers}` (optional env `PROWLARR_URL`, `PROWLARR_API_KEY`).
 Each is partial-ok — null when its call fails or (Prowlarr) its env is unset; the rest of `arr` stays `ok`.
+
+`uptime_kuma` (WP-S4, 2026-10-06): Uptime Kuma 1.23 monitors from one `GET {UPTIME_KUMA_URL}/metrics` (10 s) with HTTP
+Basic — EMPTY username, the API key as password; env `UPTIME_KUMA_URL`, `UPTIME_KUMA_API_KEY`. Parses the Prometheus
+text: `monitor_status` (1 up, 0 down, 2 pending, 3 maintenance) and `monitor_response_time` (ms, -1 = none). Data
+`{monitors: [{name, type, status, response_ms}], up, down, total, summary, secondary}`; the `monitor_url` /
+`monitor_hostname` / `monitor_port` labels are never copied out. Text without monitor metrics is an error envelope
+("unexpected payload"). Runs on the hourly sweep and the 120 s fast loop. Fixture: `fixtures/uptime_kuma/raw.txt`.

@@ -8,7 +8,7 @@
 {% endblock %}
 {% block content %}
 {# Server area (WP-S1, 2026-10-06): the NAS Homepage, natively. Bands, top to bottom:
-   System, Services, Updates, Attention, Counts. Each band degrades to "Not connected" on
+   System, Services, Monitors (WP-S4), Updates, Attention, Counts. Each band degrades to "Not connected" on
    its own. Up/Down and states are WORDS beside the dot/bar — colour is never the only encoding. #}
 {% from "_kpi.html" import kpi %}
 {# KPI row: one card per registry tile, as on every grid area page. #}
@@ -35,6 +35,9 @@
     <div class="uprow"><span class="uptitle">CPU</span><span class="uptime nextleft">{{ sys.cpu_text }}{% if sys.load_text %} · {{ sys.load_text }}{% endif %}</span></div>
     <div class="uprow"><span class="uptitle">RAM</span><span class="uptime nextleft">{{ sys.ram_text }}{% if sys.ram_sub %} {{ sys.ram_sub }}{% endif %}</span></div>
     <div class="uprow"><span class="uptitle">Uptime</span><span class="uptime nextleft">{{ sys.uptime_text }}</span></div>
+    {% if sys.last_sweep %}
+    <div class="uprow"><span class="uptitle">Last sweep</span><span class="uptime nextleft">{{ sys.last_sweep.text }}{% if sys.last_sweep.stale %} · stale{% endif %}</span></div>
+    {% endif %}
     <div class="upday">Volumes</div>
     {% for v in sys.volumes %}
     <div class="uprow playrow">
@@ -80,6 +83,33 @@
 </section>
 {% endfor %}
 {% endif %}
+</div>
+
+{% set mon = sv.monitors %}
+<div class="mediacols">
+<section class="card uplist medialist" id="monitors" style="--accent: {{ area.accent }}" aria-label="Monitors">
+  <div class="head">Monitors</div>
+  {% if mon.st.state == "off" %}
+    <div class="value dim">Not connected</div>
+    {% if mon.st.note %}<div class="sub">{{ mon.st.note }}</div>{% endif %}
+  {% else %}
+    <div class="sub">{{ mon.data.get("up", 0) }} of {{ mon.data.get("total", 0) }} up</div>
+    {% for m in mon.rows %}
+    <div class="uprow approw">
+      <span class="appdot {{ {'up': 'up', 'down': 'down'}.get(m.status, '') }}" aria-hidden="true"></span>
+      <span class="appstate">{{ (m.status or "unknown") | title }}</span>
+      <span class="uptitle">{{ m.name }}</span>
+      <span class="uptime nextleft">{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
+    </div>
+    {% else %}
+    <div class="value dim">No monitors</div>
+    {% endfor %}
+    <div class="foot">
+      {% if mon.st.state == "stale" %}<span class="badge stale">{{ mon.st.age_text }}</span>
+      {% elif mon.st.age_text %}<span class="ago">updated {{ mon.st.age_text }}</span>{% endif %}
+    </div>
+  {% endif %}
+</section>
 </div>
 
 {% set up = sv.updates %}

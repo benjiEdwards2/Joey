@@ -1,0 +1,54 @@
+{
+  "connector": "uptime_kuma",
+  "consecutive_failures": 0,
+  "data": {
+    "down": 1,
+    "monitors": [
+      {
+        "name": "Prowlarr",
+        "response_ms": null,
+        "status": "down",
+        "type": "http"
+      },
+      {
+        "name": "Jellyfin",
+        "response_ms": 38,
+        "status": "up",
+        "type": "http"
+      },
+      {
+        "name": "Jellyseerr",
+        "response_ms": 51,
+        "status": "up",
+        "type": "http"
+      },
+      {
+        "name": "NAS",
+        "response_ms": 1,
+        "status": "up",
+        "type": "ping"
+      },
+      {
+        "name": "Radarr",
+        "response_ms": 27,
+        "status": "up",
+        "type": "http"
+      },
+      {
+        "name": "Sonarr",
+        "response_ms": 31,
+        "status": "up",
+        "type": "http"
+      }
+    ],
+    "secondary": "Prowlarr down",
+    "summary": "5 of 6 up",
+    "total": 6,
+    "up": 5
+  },
+  "error": null,
+  "fetched_at": "2026-01-01T00:00:00+00:00",
+  "schema_version": 1,
+  "status": "ok",
+  "updated_at": "2026-01-01T00:00:00+00:00"
+}

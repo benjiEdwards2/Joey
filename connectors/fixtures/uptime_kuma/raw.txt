@@ -1,0 +1,25 @@
+# Uptime Kuma 1.23 GET /metrics (Prometheus text exposition), trimmed to the monitor_* families.
+# monitor_url schemes are dropped here only because the fixtures pack forbids URLs.
+# HELP monitor_cert_days_remaining The number of days remaining until the certificate expires
+# TYPE monitor_cert_days_remaining gauge
+# HELP monitor_cert_is_valid Is the certificate still valid? (1 = Yes, 0= No)
+# TYPE monitor_cert_is_valid gauge
+# HELP monitor_response_time Monitor Response Time (ms)
+# TYPE monitor_response_time gauge
+monitor_response_time{monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null"} 38
+monitor_response_time{monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null"} 51
+monitor_response_time{monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null"} 27
+monitor_response_time{monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null"} 31
+monitor_response_time{monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null"} -1
+monitor_response_time{monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null"} 1
+# HELP monitor_status Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)
+# TYPE monitor_status gauge
+monitor_status{monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null"} 0
+monitor_status{monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null"} 1
+# HELP process_cpu_user_seconds_total Total user CPU time spent in seconds.
+# TYPE process_cpu_user_seconds_total counter
+process_cpu_user_seconds_total 412.53

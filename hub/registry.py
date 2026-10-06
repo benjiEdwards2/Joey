@@ -25,6 +25,7 @@ FROZEN_SNAPSHOT_IDS = {
     "qbittorrent",   # added 2026-10-06 (Media area: downloads)
     "system",        # added 2026-10-06 (Server area: NAS host health)
     "wud",           # added 2026-10-06 (Server area: container updates)
+    "uptime_kuma",   # added 2026-10-06 (Server area WP-S4: Uptime Kuma monitors)
 }
 
 MAX_AREAS = 9  # hard ceiling (DECISIONS 2026-08-17); "locked at 8" is yaml content

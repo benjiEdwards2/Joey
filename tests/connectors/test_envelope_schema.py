@@ -25,6 +25,7 @@ FROZEN_IDS = [
     "qbittorrent",  # added 2026-10-06 (authorised dated decision, Media downloads)
     "system",  # added 2026-10-06 (authorised dated decision, Server area)
     "wud",  # added 2026-10-06 (authorised dated decision, Server area)
+    "uptime_kuma",  # added 2026-10-06 (authorised dated decision, Server area WP-S4)
 ]
 
 REQUIRED_FIELDS = [

@@ -51,9 +51,13 @@ def _parse(path: Path, now: datetime) -> Optional[Snapshot]:
         return None
 
 
+def _snapshot_dir(snapshot_dir: str | Path | None = None) -> Path:
+    return Path(snapshot_dir or os.environ.get("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR))
+
+
 def get_snapshots(snapshot_dir: str | Path | None = None) -> dict[str, Snapshot]:
     """Read every envelope in the snapshot dir. Missing dir → {}."""
-    directory = Path(snapshot_dir or os.environ.get("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR))
+    directory = _snapshot_dir(snapshot_dir)
     if not directory.is_dir():
         return {}
     now = datetime.now(timezone.utc)
@@ -63,6 +67,19 @@ def get_snapshots(snapshot_dir: str | Path | None = None) -> dict[str, Snapshot]
         if snap is not None:
             out[snap.connector] = snap
     return out
+
+
+RUNNER_NAME = "_runner.json"  # connectors/run_all.py's heartbeat (last sweep only)
+
+
+def get_runner(snapshot_dir: str | Path | None = None) -> Optional[dict[str, Any]]:
+    """The connector runner's last-sweep heartbeat (WP-S4, 2026-10-06), from the same dir
+    as the envelopes. Missing or malformed → None, never a crash."""
+    try:
+        raw = json.loads((_snapshot_dir(snapshot_dir) / RUNNER_NAME).read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else None
+    except Exception:
+        return None
 
 
 def tile_state(tile, snapshots: dict[str, Snapshot]) -> dict[str, Any]:

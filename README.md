@@ -26,6 +26,6 @@ Diary · Server (incl. Downloads, live from qBittorrent) · Discover. See `hub/R
 
 **Server** (2026-10-06, last in the Areas rail) replaces the NAS "Homepage" dashboard natively: `/server` (and `/a/server`)
 shows System (CPU, RAM, volumes, uptime), Services (grouped Up/Down), Updates (What's Up Docker), Attention and Counts.
-Feeds `media_status`, `system`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.
+Feeds `media_status`, `system`, `uptime_kuma`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.
 
 Planning source of truth: `Desktop\Claude\LifeDashboard\{DECISIONS.md, MASTER_PLAN.md}` (not in this repo).

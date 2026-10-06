@@ -11,7 +11,7 @@ FIXTURES = Path(__file__).resolve().parents[2] / "connectors" / "fixtures"
 
 EXPECTED_FEEDS = {
     "open_meteo", "gcal", "macromates", "home_assistant", "jellyfin", "nas_stats",
-    "media_status", "arr", "jellyseerr", "qbittorrent", "system", "wud",
+    "media_status", "arr", "jellyseerr", "qbittorrent", "system", "wud", "uptime_kuma",
 }
 
 EMAIL = re.compile(r"[\w.+-]+@[\w.-]+")

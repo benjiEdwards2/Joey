@@ -50,10 +50,14 @@ def test_registry_server_area_is_last_with_the_agreed_tiles():
         "server", "Server", "#9AA4B2", "server", "server")
     assert area.rail_section == "areas" and not area.hidden and area.summary_tile == "services"
     tiles = {t.id: t for t in area.tiles}
-    assert list(tiles) == ["services", "system", "updates", "homepage", "portainer"]
+    assert list(tiles) == ["services", "system", "monitors", "updates", "homepage", "portainer"]  # monitors: WP-S4
     assert (tiles["services"].snapshot, tiles["services"].stale_after_minutes) == ("media_status", 10)
     assert (tiles["system"].snapshot, tiles["system"].stale_after_minutes) == ("system", 10)
     assert (tiles["updates"].snapshot, tiles["updates"].stale_after_minutes) == ("wud", 180)
+    assert (tiles["monitors"].snapshot, tiles["monitors"].stale_after_minutes,
+            tiles["monitors"].detail, tiles["monitors"].label) == (
+        "uptime_kuma", 10, "/server#monitors", "Monitors")
+    assert tiles["monitors"].setup_note == "Set UPTIME_KUMA_URL/UPTIME_KUMA_API_KEY in deploy/.env."
     assert tiles["homepage"].href == "https://homepage.joeyhome.net"
     assert tiles["portainer"].href == "http://192.168.68.59:9000"
     assert all(t.owner.value == "shared" for t in area.tiles)
@@ -110,7 +114,9 @@ def test_attention_lists_full_volumes_and_unknown_apps_land_in_system(env):
         {"id": "mystery", "name": "Mystery App", "href": "http://h:1", "up": True,
          "status_text": "Up", "note": None},
     ]}
-    with env(system=system, media_status=apps) as client:
+    kuma = {"summary": "1 of 1 up", "up": 1, "down": 0, "total": 1, "monitors": [  # WP-S4: all up
+        {"name": "Jellyfin", "type": "http", "status": "up", "response_ms": 30}]}
+    with env(system=system, media_status=apps, uptime_kuma=kuma) as client:
         body = main_of(client.get("/server").text)
     assert "/volume1 is 85% full" in body and "/volume2 is 84% full" not in body
     svc = services_of(body)
@@ -153,3 +159,77 @@ def test_server_route_404s_without_a_server_layout_area(tmp_path, monkeypatch):
     importlib.reload(hub.main)
     with TestClient(hub.main.app) as client:
         assert client.get("/server").status_code == 404
+
+
+# ---- WP-S4 (2026-10-06): Monitors band, monitor + runner attention, Last sweep ------
+
+def write_runner(snaps_dir, ran_at, results=None):
+    (snaps_dir / "_runner.json").write_text(json.dumps(
+        {"ran_at": ran_at, "results": results or {}}), encoding="utf-8")
+
+
+def test_monitors_band_sits_between_services_and_updates_and_flags_down(env):
+    with env() as client:
+        body = main_of(client.get("/server").text)
+    marks = [body.index(m) for m in ('id="services"', 'id="monitors"', 'id="updates"')]
+    assert marks == sorted(marks)
+    band = body.split('id="monitors"', 1)[1].split('id="updates"', 1)[0]
+    assert "5 of 6 up" in band
+    assert ">Down</span>" in band and ">Prowlarr</span>" in band and "38 ms" in band
+    assert band.index("Prowlarr") < band.index("Jellyfin")   # down sorts first
+    assert "Uptime Kuma: Prowlarr is Down" in body
+    assert 'href="/server#monitors"' in body                 # the KPI tile
+    assert "Last sweep" not in body                          # no _runner.json -> omitted
+
+
+def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(env, tmp_path):
+    from datetime import datetime, timedelta, timezone
+    kuma = {"summary": "0 of 1 up", "up": 0, "down": 0, "total": 1, "monitors": [
+        {"name": "Backup", "type": "push", "status": "pending", "response_ms": None}]}
+    client = env(uptime_kuma=kuma)
+    ran = (datetime.now(timezone.utc) - timedelta(minutes=4)).isoformat()
+    write_runner(tmp_path / "snaps", ran, {
+        "wud": {"status": "error", "consecutive_failures": 2,
+                "error": "RuntimeError: WUD containers failed (HTTP 401)"},
+        "gcal": {"status": "error", "consecutive_failures": -1,
+                 "error": "runner-level ValueError: http://secret.invalid/x?k=SECRETKEY"},
+        "system": {"status": "ok", "consecutive_failures": 0, "error": None}})
+    with client:
+        body = main_of(client.get("/server").text)
+    assert "Uptime Kuma: Backup is Pending" in body and ">Pending</span>" in body
+    assert "wud sweep failed: WUD containers failed (HTTP 401)" in body
+    assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
+    assert "system sweep failed" not in body
+    sweep = body.split("Last sweep", 1)[1].split("</div>", 1)[0]
+    assert "4 min ago" in sweep and "stale" not in sweep
+
+
+def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
+    client = env()
+    write_runner(tmp_path / "snaps", "2026-01-01T00:00:00+00:00")
+    with client:
+        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div>", 1)[0]
+        assert "days ago · stale" in sweep
+        for junk in ("{not json", "[]", '{"ran_at": "yesterday", "results": "nope"}'):
+            (tmp_path / "snaps" / "_runner.json").write_text(junk, encoding="utf-8")
+            r = client.get("/server")
+            assert r.status_code == 200 and "Last sweep" not in main_of(r.text)
+
+
+def test_sweep_and_ago_helpers():
+    from datetime import datetime, timezone
+    now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+    assert server.last_sweep({"ran_at": "2026-10-06T11:56:00+00:00"}, now) == {
+        "text": "4 min ago", "stale": False}
+    assert server.last_sweep({"ran_at": "2026-10-06T10:30:00Z"}, now) == {"text": "1 h ago", "stale": False}
+    assert server.last_sweep({"ran_at": "2026-10-06T10:29:00Z"}, now)["stale"] is True
+    assert server.last_sweep({}, now) is None
+    assert server.ago_text(0.5) == "just now" and server.ago_text(60 * 50) == "2 days ago"
+    assert server.runner_errors(None) == [] and server.runner_errors({"results": []}) == []
+
+
+def test_monitors_band_degrades_to_not_connected(env):
+    with env(samples=False) as client:
+        body = main_of(client.get("/server").text)
+    band = body.split('id="monitors"', 1)[1].split('id="updates"', 1)[0]
+    assert "Not connected" in band and "UPTIME_KUMA_URL" in band

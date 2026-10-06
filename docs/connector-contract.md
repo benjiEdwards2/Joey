@@ -94,7 +94,7 @@ never see half a snapshot.
 
 | Field | Meaning |
 |---|---|
-| `connector` | id from the frozen namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money, media_status, arr, jellyseerr, qbittorrent, system, wud. `clickup` is reserved-but-unused (removed from v1, 2026-08-25). |
+| `connector` | id from the frozen namespace: open_meteo, gcal, clickup, macromates, home_assistant, jellyfin, nas_stats, money, media_status, arr, jellyseerr, qbittorrent, system, wud, uptime_kuma. `clickup` is reserved-but-unused (removed from v1, 2026-08-25). |
 | `schema_version` | always `1` |
 | `fetched_at` | last fetch **attempt** |
 | `updated_at` | last **success** — this is what the hub's stale badge reads |
@@ -188,6 +188,15 @@ the run. These calls ride the 120 s fast loop with `arr`. Older envelopes lack a
 digest-only update (`updateKind.kind == "digest"`, `result.tag` = current tag) gives `kind: "digest"`,
 `new_tag: null`. Failure reasons are status/type only, never the URL or login.
 
+**Uptime Kuma (WP-S4, 2026-10-06).** `uptime_kuma` (frozen id added 2026-10-06, authorised dated
+decision) reads Uptime Kuma 1.23's Prometheus `GET {UPTIME_KUMA_URL}/metrics` with HTTP Basic where the
+username is EMPTY and the password is the API key (`UPTIME_KUMA_API_KEY`). Only `monitor_status`
+(1 up / 0 down / 2 pending / 3 maintenance) and `monitor_response_time` (ms; -1 → null) are read; data is
+`{monitors: [{name, type, status, response_ms}], up, down, total, summary, secondary}`, sorted down → pending →
+maintenance → up. `monitor_url`/`monitor_hostname`/`monitor_port` are never carried (LAN addresses, tokens).
+Text with no parseable monitor metrics is an error envelope ("unexpected payload", no label echo); HTTP
+failures are status/type only. Hourly sweep plus the 120 s fast loop.
+
 **Arr `at` (2026-10-06).** `arrived` and `updated` rows gain an optional `at` — the ISO timestamp
 of the newest import. "New this week" on My films / My shows filters on it and falls back to
 parsing the `when` text for older snapshots.
@@ -216,8 +225,8 @@ The connectors container runs `while true; do python -m connectors.run_all; slee
 connector crashing never stops the sweep.
 
 D16 amended 2026-10-05: a second background loop runs
-`python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system; sleep 120` for the live Media
-feeds (and, since 2026-10-06, the Server area's `system` host-health feed). `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
+`python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120` for the live Media
+feeds (and, since 2026-10-06, the Server area's `system` host-health and `uptime_kuma` monitor feeds). `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
 `"only": [...]` so full hourly sweeps can be told apart from fast partial ones.
 
 ## Add-a-connector checklist
@@ -235,7 +244,7 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`
-   in `hub/registry.py`; `media_status`, `arr` and `jellyseerr` were added to both on 2026-10-05, `qbittorrent` on 2026-10-06, `system` and `wud` on 2026-10-06 for the Server area).
+   in `hub/registry.py`; `media_status`, `arr` and `jellyseerr` were added to both on 2026-10-05, `qbittorrent` on 2026-10-06, `system` and `wud` on 2026-10-06 for the Server area, `uptime_kuma` on 2026-10-06 for Server WP-S4).
    An area may carry `hub_rank` (its place among the hub cards; Media is 1) and `hub_size`
    (`s22` is the hero card). Two tiles may share one snapshot (`jellyfin` feeds now-playing and watch history); each
    page is then picked by its tile's `detail` route.

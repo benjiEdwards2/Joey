@@ -56,6 +56,11 @@
       "error": null,
       "status": "ok"
     },
+    "uptime_kuma": {
+      "consecutive_failures": 0,
+      "error": null,
+      "status": "ok"
+    },
     "wud": {
       "consecutive_failures": 0,
       "error": null,

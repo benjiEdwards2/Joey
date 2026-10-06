@@ -29,7 +29,7 @@ from hub import media_watchlist
 from hub import server as server_area
 from hub.media_watchlist import router as media_watchlist_router
 from hub.registry import Registry, load_registry
-from hub.store import get_snapshots, tile_state
+from hub.store import get_runner, get_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -1189,7 +1189,7 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     resp = templates.TemplateResponse(request, "server.html", {
         "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
         "status": build_status(snaps),
-        "sv": server_area.build_server(area, snaps, media_backup.current_status()),
+        "sv": server_area.build_server(area, snaps, media_backup.current_status(), get_runner()),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

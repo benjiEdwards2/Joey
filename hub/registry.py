@@ -71,11 +71,17 @@ class Area(BaseModel):
     hub_rank: int = 100  # hub card order only (lower first); areas.yaml order drives rail/tabs (2026-10-05)
     layout: Literal["grid", "shelves"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05)
     rail_section: Literal["home", "areas"] = "areas"  # "home" lifts the area into the rail's Home group (2026-10-06)
+    hidden: bool = False  # parked: no rail, tab or hub card; /a/<id> still serves (2026-10-06)
     tiles: list[Tile]
 
 
 class Registry(BaseModel):
     areas: list[Area]
+
+    @property
+    def visible_areas(self) -> list[Area]:
+        """Areas shown in the rail, phone bar and hub row (everything not parked)."""
+        return [a for a in self.areas if not a.hidden]
 
 
 def _cross_checks(reg: Registry) -> list[str]:

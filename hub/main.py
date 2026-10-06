@@ -796,7 +796,7 @@ def hub_page(request: Request):
     snaps = get_snapshots()
     cards, shelf = [], None
     upcoming = hub_upcoming(snaps, view)
-    for a in registry.areas:
+    for a in registry.visible_areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not owner_visible(summary, view):
             continue  # hub summary cards respect the filter (Q24 assumption)
@@ -818,7 +818,7 @@ def hub_page(request: Request):
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
-        "areas": registry.areas, "active_id": None, "cards": cards, "owner_view": view,
+        "areas": registry.visible_areas, "active_id": None, "cards": cards, "owner_view": view,
         "status": build_status(snaps), "weather": find_weather(snaps),
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": media_backup.current_status()["warning"],
@@ -834,7 +834,7 @@ def weather_page(request: Request):
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
     resp = templates.TemplateResponse(request, "weather.html", {
-        "areas": registry.areas, "active_id": None, "owner_view": view,
+        "areas": registry.visible_areas, "active_id": None, "owner_view": view,
         "status": build_status(snaps), "w": find_weather(snaps),
         "fc": weather_forecast(snaps),
     })
@@ -851,14 +851,14 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     src = find_detail_source(snapshot_id, snaps, detail)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.areas, "active_id": None, "owner_view": view,
+            "areas": registry.visible_areas, "active_id": None, "owner_view": view,
             "missing_text": "No page here",
         }, status_code=404)
     if snapshot_id == JELLYFIN_SNAPSHOT_ID:
         src = {**src, "data": view_jelly(src["data"], view)}  # her view reads Georgina's up next/history
     extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
     resp = templates.TemplateResponse(request, template, {
-        "areas": registry.areas, "active_id": None, "owner_view": view,
+        "areas": registry.visible_areas, "active_id": None, "owner_view": view,
         "status": build_status(snaps), "src": src, "ratings": {}, **extra,
     })
     return _maybe_set_cookie(resp, view, from_query)
@@ -1166,7 +1166,7 @@ def _year_page(request: Request, slug: str, template: str):
     if not ctx_ok:
         view, _ = resolve_owner_view(request)
         return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.areas, "active_id": None, "owner_view": view,
+            "areas": registry.visible_areas, "active_id": None, "owner_view": view,
             "missing_text": "No rankings here",
         }, status_code=404)
     return resp
@@ -1188,7 +1188,7 @@ def area_page(request: Request, area_id: str):
     area = next((a for a in registry.areas if a.id == area_id), None)
     if area is None:
         return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.areas, "active_id": None, "missing_id": area_id,
+            "areas": registry.visible_areas, "active_id": None, "missing_id": area_id,
             "owner_view": view,
         }, status_code=404)
     snaps = get_snapshots()
@@ -1196,16 +1196,19 @@ def area_page(request: Request, area_id: str):
              for t in area.tiles if owner_visible(t, view)]
     if area.layout == "shelves":
         resp = templates.TemplateResponse(request, "area_shelves.html", {
-            "areas": registry.areas, "active_id": area.id, "area": area, "owner_view": view,
+            "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
             "status": build_status(snaps), "sh": build_shelves(area, tiles, snaps, view),
             "backup_warn": media_backup.current_status()["warning"],
         })
         return _maybe_set_cookie(resp, view, from_query)
     media = find_media(tiles, snaps)
+    upcoming, weather = find_upcoming(tiles, snaps, view), find_weather(snaps)
+    if upcoming and weather:  # the weather band renders here: its KPI tile would double it
+        tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]
     resp = templates.TemplateResponse(request, "area.html", {
-        "areas": registry.areas, "active_id": area.id, "area": area, "tiles": tiles,
+        "areas": registry.visible_areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
-        "upcoming": find_upcoming(tiles, snaps, view), "weather": find_weather(snaps),
+        "upcoming": upcoming, "weather": weather,
         "media": media,
         "ratings": _ratings(view, *_media_rows(media)),
     })

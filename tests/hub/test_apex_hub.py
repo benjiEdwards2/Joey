@@ -52,7 +52,7 @@ def hub(tmp_path, monkeypatch):
 
 
 def kpis_of(body):
-    return re.search(r'<section class="kpis".*?</section>', body, re.S).group(0)
+    return re.search(r'<section class="kpis[^"]*".*?</section>', body, re.S).group(0)
 
 
 def cards_of(body):
@@ -67,18 +67,18 @@ def cards_of(body):
 def test_every_registry_area_is_a_kpi_card_and_weather_links_to_its_page(hub):
     main, body = hub()
     cards = cards_of(body)
-    for a in main.registry.areas:
+    for a in main.registry.visible_areas:   # parked (hidden) areas have no hub card (2026-10-06)
         assert f"/a/{a.id}" in cards, a.id
         assert f'<div class="kpiarea">{a.name}</div>' in cards[f"/a/{a.id}"]
     assert '<a class="cardlink wx" href="/weather">' in kpis_of(body)
     assert '<div class="kpiarea">Weather</div>' in cards["/weather"]
-    assert len(cards) == len(main.registry.areas) + 1
+    assert len(cards) == len(main.registry.visible_areas) + 1
 
 
 def test_not_connected_card_keeps_the_anatomy_without_a_spark(hub):
-    _, body = hub(drop=("gcal",))   # money is never sampled; drop gcal too
+    _, body = hub(drop=("gcal",))   # money is parked now (hidden) — calendar is the not-connected card
     cards = cards_of(body)
-    for href in ("/a/money", "/a/calendar"):
+    for href in ("/a/calendar",):
         card = cards[href]
         assert '<div class="val dim">Not connected</div>' in card
         assert '<span class="badge off">not connected</span>' in card

@@ -45,8 +45,10 @@ def test_each_area_renders_one_kpi_card_per_tile(site):
     for a in non_media(main):
         _, body = site(f"/a/{a.id}")
         k = re.search(r'<section class="kpis areakpis".*?</section>', body, re.S).group(0)
-        assert k.count('class="card kpi') == len(a.tiles), a.id
-        for t in a.tiles:
+        # the weather tile is dropped where the page renders the weather band (2026-10-06)
+        shown = [t for t in a.tiles if t.snapshot != "open_meteo"] if "wxcard" in body else a.tiles
+        assert k.count('class="card kpi') == len(shown), a.id
+        for t in shown:
             assert f'<div class="label">{t.label}</div>' in k, (a.id, t.label)
         assert 'class="grid"' not in body
 

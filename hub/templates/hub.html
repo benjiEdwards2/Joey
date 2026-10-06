@@ -13,21 +13,30 @@
 {% from "_kpi.html" import kpi %}
 {% from "_shelf.html" import shelfrow %}
 {% if backup_warn %}<div class="backupwarn"><span class="badge stale">{{ backup_warn }}</span></div>{% endif %}
-<section class="kpis" aria-label="Area summaries">
-  {% for c in cards %}
+{% macro areacard(c, cls="") %}
   {% if c.area.layout == "shelves" %}
     {% set h = c.hero %}
     {% set playing = h and h.kind_word == "Playing now" %}
     {{ kpi("/a/" ~ c.area.id, h.kind_word if h else c.tile.label, c.area.name, c.area.icon, c.st,
            c.tile.owner.value, value=(h.title if h else none), sub=(c.st.value if h else none),
-           brand_icon=true, extra=c.downloading, waiting=c.waiting,
+           brand_icon=true, extra=c.downloading, waiting=c.waiting, cls=cls,
            jump=(h.href if h else none), pct=(h.progress_pct if playing else none)) }}
   {% else %}
     {{ kpi("/a/" ~ c.area.id, c.tile.label, c.area.name, c.area.icon, c.st, c.tile.owner.value,
-           bars=c.per_day) }}
+           bars=c.per_day, cls=cls) }}
   {% endif %}
+{% endmacro %}
+{# Order: Media first, Weather, the last card (Calendar) last; with <= 3 cards in all the
+   last one spans two columns so it fills the right half of the row (2026-10-06). #}
+{% set few = cards|length + 1 <= 3 %}
+<section class="kpis{% if few %} few{% endif %}" aria-label="Area summaries">
+  {% for c in cards %}
+  {% if loop.last and cards|length > 1 and weather %}
+    {{ kpi("/weather", "Newport VIC", "Weather", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
+  {% endif %}
+  {{ areacard(c, "span2" if loop.last and few else "") }}
   {% endfor %}
-  {% if weather %}
+  {% if weather and cards|length <= 1 %}
     {{ kpi("/weather", "Newport VIC", "Weather", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
   {% endif %}
 </section>

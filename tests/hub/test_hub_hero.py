@@ -103,7 +103,8 @@ def test_hub_card_falls_back_to_plain_tile_without_snapshot(env):
     html = hub_main(env())
     assert "herocard" not in html and "Jump back in" not in html
     # Apex hub (2026-10-06): the bento size class is gone; no hero -> a plain whole-card KPI link
-    assert '<a class="cardlink" href="/a/alpha">' in html
+    # a lone card now also carries the `span2` class (kpis few, 2026-10-06)
+    assert re.search(r'<a class="cardlink( span2)?" href="/a/alpha">', html)
 
 
 def test_no_nested_anchors_on_the_hub(env):

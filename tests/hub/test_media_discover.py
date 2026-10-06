@@ -484,6 +484,6 @@ def test_dolby_badge_in_the_file_strip(env, monkeypatch):
 def test_badge_tokens_in_all_three_blocks_and_rule_is_token_only():
     from pathlib import Path
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
-    assert css.count("--badge-ink: #000000; --badge-fg: #ffffff;") == 3
+    assert css.count("--badge-ink: #000000; --badge-fg: #ffffff;") == 1   # single dark :root block (restyle 2026-10-06)
     rule = css.split(".fbadge.brandbadge {", 1)[1].split("}", 1)[0]
     assert "var(--badge-fg)" in rule and "var(--badge-ink)" in rule and "#" not in rule

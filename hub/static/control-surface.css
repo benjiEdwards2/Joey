@@ -1,43 +1,31 @@
-/* Joey: Apex-shell port (2026-10-06). Admin-dashboard frame modelled on the DashboardPack
-   "Apex Dashboard" template via the approved joey-apex-mockup: 260px dark rail, sticky top
-   bar, light AND dark themes. TOKENS ONLY: every colour lives in the three token blocks
-   below (light on :root, dark under prefers-color-scheme and under [data-theme="dark"]);
-   component rules never carry a literal colour. Per-area --accent is still injected by the
-   templates from the registry; NO area-specific colour lives in this file.
-   The Control Surface goldens (docs/mockup/golden_1280.png, golden_375.png) are historical. */
+/* Joey: MediaHub restyle, Phase 1 of 4 (2026-10-06). Style spec: docs/style-guide.md (Jack's MediaHub guide,
+   adopted for all of Joey). ONE dark theme by design (guide 1.1): every token lives in the single :root block
+   below; light mode is retired, so there are no colour-scheme media or theme-attribute token blocks and the
+   theme toggle is a no-op until Phase 2 removes it. TOKENS ONLY: component and recipe rules never carry a
+   literal colour. Older variable names (--bg, --card, --rail*, ...) are remapped to the guide's palette so
+   existing templates render unchanged in the dark set; the recipe classes (guide 4-6) follow the base rules.
+   Per-area --accent is still injected by the templates from the registry. */
+
+@font-face { font-family: "Geist"; src: url("fonts/GeistVF.woff2") format("woff2");
+  font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist Mono"; src: url("fonts/GeistMonoVF.woff2") format("woff2");
+  font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
-  color-scheme: light;
-  --bg: #f7f7f6; --fg: #171717; --muted: #6b6b68; --faint: #a3a3a0;
-  --card: #ffffff; --border: #e6e6e3; --soft: #f1f1ef;
-  --brand: #d6321f; --brand-fg: #ffffff; --brand-soft: #fbe9e6;
-  --good: #1a7f37; --good-soft: #e6f4ea;
-  --warn: #9a6700; --warn-soft: #fff4d6;
-  --bad: #c42b1c; --bad-soft: #fde8e5;
-  --gold: #9a6b00; --gold-glow: rgba(214, 160, 0, .45);
-  --rail: #111111; --rail-fg: #c9c9c6; --rail-muted: #7c7c79; --rail-hover: #1c1c1c;
-  --rail-active: #262626; --rail-border: #262626; --rail-strong: #ffffff;
-  --scrim: rgba(247, 247, 246, .9); --scrim-soft: rgba(247, 247, 246, .62);
-  --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
-  --badge-ink: #000000; --badge-fg: #ffffff;
-  --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
-  --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
-  --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
-  --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px -1px rgba(0, 0, 0, .06);
-  --ic-moon: inline-block; --ic-sun: none;
-}
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   color-scheme: dark;
-  --bg: #0f0f0f; --fg: #ebebe9; --muted: #9a9a96; --faint: #62625f;
-  --card: #1a1a1a; --border: #2a2a2a; --soft: #242424;
-  --brand: #e5473a; --brand-fg: #111111; --brand-soft: #3a1a16;
-  --good: #4ac26b; --good-soft: #15301c;
-  --warn: #e3b341; --warn-soft: #33290f;
-  --bad: #f0695d; --bad-soft: #3b1a16;
-  --gold: #ffd76a; --gold-glow: rgba(255, 215, 106, .55);
-  --rail: #0a0a0a; --rail-fg: #d4d4d1; --rail-muted: #80807d; --rail-hover: #161616;
-  --rail-active: #222222; --rail-border: #232323; --rail-strong: #ffffff;
-  --scrim: rgba(15, 15, 15, .84); --scrim-soft: rgba(15, 15, 15, .58);
+  --font-sans: "Geist", ui-sans-serif, system-ui, Arial, Helvetica, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Older names, remapped to the guide (zinc greys, white-alpha layers) */
+  --bg: #09090b; --fg: #fafafa; --muted: #a1a1aa; --faint: #52525b;
+  --card: rgba(255, 255, 255, .03); --border: rgba(255, 255, 255, .07); --soft: rgba(255, 255, 255, .04);
+  --brand: #6366f1; --brand-fg: #ffffff; --brand-soft: rgba(99, 102, 241, .15);
+  --good: #34d399; --good-soft: rgba(16, 185, 129, .1);
+  --warn: #fbbf24; --warn-soft: rgba(245, 158, 11, .1);
+  --bad: #fca5a5; --bad-soft: rgba(239, 68, 68, .1);
+  --gold: #f2c14e; --gold-glow: rgba(251, 191, 36, .45);
+  --rail: #09090b; --rail-fg: #a1a1aa; --rail-muted: #71717a; --rail-hover: rgba(255, 255, 255, .04);
+  --rail-active: rgba(255, 255, 255, .07); --rail-border: rgba(255, 255, 255, .05); --rail-strong: #fafafa;
+  --scrim: rgba(9, 9, 11, .9); --scrim-soft: rgba(9, 9, 11, .62);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
   --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
@@ -45,37 +33,70 @@
   --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
   --shadow: none;
   --ic-moon: none; --ic-sun: inline-block;
-} }
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #0f0f0f; --fg: #ebebe9; --muted: #9a9a96; --faint: #62625f;
-  --card: #1a1a1a; --border: #2a2a2a; --soft: #242424;
-  --brand: #e5473a; --brand-fg: #111111; --brand-soft: #3a1a16;
-  --good: #4ac26b; --good-soft: #15301c;
-  --warn: #e3b341; --warn-soft: #33290f;
-  --bad: #f0695d; --bad-soft: #3b1a16;
-  --gold: #ffd76a; --gold-glow: rgba(255, 215, 106, .55);
-  --rail: #0a0a0a; --rail-fg: #d4d4d1; --rail-muted: #80807d; --rail-hover: #161616;
-  --rail-active: #222222; --rail-border: #232323; --rail-strong: #ffffff;
-  --scrim: rgba(15, 15, 15, .84); --scrim-soft: rgba(15, 15, 15, .58);
-  --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
-  --badge-ink: #000000; --badge-fg: #ffffff;
-  --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
-  --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
-  --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
-  --shadow: none;
-  --ic-moon: none; --ic-sun: inline-block;
+  /* Guide tokens (section 2) */
+  --surface: rgba(255, 255, 255, .03); --line: rgba(255, 255, 255, .1);
+  --line-soft: rgba(255, 255, 255, .05); --line-hover: rgba(255, 255, 255, .2); --line-focus: rgba(255, 255, 255, .25);
+  --hover: rgba(255, 255, 255, .05);
+  --primary: #6366f1; --primary-hover: #818cf8;
+  --text-1: #fafafa; --text-2: #e4e4e7; --text-3: #d4d4d8; --text-4: #a1a1aa; --text-5: #71717a; --text-6: #52525b;
+  --sky: #7dd3fc; --orange: #fb923c; --fuchsia: #f0abfc; --teal: #5eead4; --rose: #fb7185;
+  --indigo-glow: rgba(99, 102, 241, .1);
+  --zinc-100: #f4f4f5; --zinc-900: #18181b; --zinc-950: #09090b;
+  --amber: #fbbf24; --danger-line: rgba(239, 68, 68, .3); --warn-line: rgba(245, 158, 11, .3);
+  --toast-err: #fecaca; --toast-warn: #fef3c7;
+  --glass-bg: rgba(0, 0, 0, .3); --glass-bg-hover: rgba(0, 0, 0, .5); --glass-line: rgba(255, 255, 255, .2);
+  --shadow-poster: 0 10px 15px -3px rgba(0, 0, 0, .4), 0 4px 6px -4px rgba(0, 0, 0, .4);
+  --shadow-row-poster: 0 4px 6px -1px rgba(0, 0, 0, .4), 0 2px 4px -2px rgba(0, 0, 0, .4);
+  --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, .6), 0 8px 10px -6px rgba(0, 0, 0, .6);
+  /* States (guide 6, badges and row tints): outline, 3px bar, faint tint */
+  --watch-line: #c2410c; --watch-bar: #f97316; --watch-tint: rgba(249, 115, 22, .06);
+  --new-line: #a21caf; --new-bar: #d946ef; --new-tint: rgba(217, 70, 239, .06);
+  --done-line: #047857; --done-bar: #10b981; --done-tint: rgba(16, 185, 129, .06);
+  --down-bar: #ef4444; --down-tint: rgba(239, 68, 68, .06);
+  /* ratingColor grades (guide 2), Tailwind hexes */
+  --score-9: #34d399; --score-8: #4ade80; --score-7: #a3e635; --score-6: #facc15; --score-5: #fbbf24;
+  --score-4: #fb923c; --score-3: #f87171; --score-2: #ef4444; --score-1: #dc2626;
+  /* Ambient motion (guide 3): gold pulse for a perfect 10, live dot */
+  --gold-pulse-lo: 0 0 8px 0 rgba(251, 191, 36, .4), 0 0 20px 3px rgba(251, 191, 36, .2);
+  --gold-pulse-hi: 0 0 16px 3px rgba(251, 191, 36, .62), 0 0 34px 7px rgba(251, 191, 36, .34);
+  --gold-pulse-still: 0 0 14px 2px rgba(251, 191, 36, .5), 0 0 30px 6px rgba(251, 191, 36, .28);
+  --gold-sm-lo: 0 0 5px 0 rgba(251, 191, 36, .45); --gold-sm-hi: 0 0 10px 2px rgba(251, 191, 36, .65);
+  --gold-sm-still: 0 0 8px 1px rgba(251, 191, 36, .55); --gold-text: 0 0 12px rgba(251, 191, 36, .75);
+  --live-0: 0 0 0 0 rgba(244, 63, 94, .65); --live-70: 0 0 0 7px rgba(244, 63, 94, 0); --live-100: 0 0 0 0 rgba(244, 63, 94, 0);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { background: var(--bg); color: var(--fg); }
+/* Guide 3: no width jump between short and long pages. Only body carries the ground (it propagates to the
+   canvas), so the fixed indigo glow at z-index -1 shows through. */
+html { scrollbar-gutter: stable; }
+body { background: var(--bg); color: var(--fg); }
 body {
-  font: 14px/1.45 "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.45 var(--font-sans);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(55rem 40rem at 50% -10%, var(--indigo-glow), transparent); }
+
+/* A perfect 10: a slow gold pulse on the poster, a gold halo on the number. */
+@keyframes gold-glow-pulse { 0%, 100% { box-shadow: var(--gold-pulse-lo); } 50% { box-shadow: var(--gold-pulse-hi); } }
+.gold-glow { animation: gold-glow-pulse 2.4s ease-in-out infinite; }
+@keyframes gold-glow-sm-pulse { 0%, 100% { box-shadow: var(--gold-sm-lo); } 50% { box-shadow: var(--gold-sm-hi); } }
+.gold-glow-sm { animation: gold-glow-sm-pulse 2.4s ease-in-out infinite; }
+.gold-text-glow { text-shadow: var(--gold-text); }
+@media (prefers-reduced-motion: reduce) {
+  .gold-glow { animation: none; box-shadow: var(--gold-pulse-still); }
+  .gold-glow-sm { animation: none; box-shadow: var(--gold-sm-still); }
+}
+/* Home's hero backdrop drifts slowly; a live stream's dot pulses. */
+@keyframes hero-drift { from { transform: scale(1.08) translate3d(-1%, 0, 0); } to { transform: scale(1.02) translate3d(1%, -1%, 0); } }
+.hero-drift { animation: hero-drift 30s ease-in-out infinite alternate; will-change: transform; }
+@keyframes live-dot { 0% { box-shadow: var(--live-0); } 70% { box-shadow: var(--live-70); } 100% { box-shadow: var(--live-100); } }
+.live-dot { animation: live-dot 1.8s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) { .hero-drift, .live-dot { animation: none; } }
+
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
          stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
@@ -83,6 +104,140 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 @media (prefers-reduced-motion: no-preference) {
   a.cardlink .card, .nav a, .iconbtn, .seg a { transition: border-color .15s, background .15s; }
 }
+
+/* ---- MediaHub recipe classes (guide 4-6, Phase 1 of the restyle). Plain-CSS translations of the guide's
+   Tailwind recipes; Phases 2-4 rebuild templates on these. They sit BEFORE the older component rules, so
+   where an older rule shares a name (.chip, .poster-grid, .waitcount) the older rule still wins until its
+   templates move over; .badge/.panel/.empty/.label skip their older forms outright. Phone first (390 px). */
+
+/* Buttons: .btn + one variant; .btn-sm for the small size. Icons inside are 16px. */
+.btn { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 6px;
+  white-space: nowrap; border-radius: 8px; border: 1px solid transparent; font: inherit; font-size: 14px;
+  font-weight: 500; height: 36px; padding: 0 12px; text-decoration: none; cursor: pointer;
+  color: var(--text-3); background: none; transition: color .15s, background-color .15s, border-color .15s; }
+.btn:disabled, .btn[aria-disabled="true"] { pointer-events: none; opacity: .6; }
+.btn svg.ic { width: 16px; height: 16px; }
+.btn-sm { height: 32px; padding: 0 10px; font-size: 13px; }
+.btn-primary { background: var(--primary); color: var(--brand-fg); }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { border-color: var(--line); color: var(--text-3); }
+.btn-secondary:hover { background: var(--hover); color: var(--text-1); }
+.btn-ghost { color: var(--text-4); }
+.btn-ghost:hover { background: var(--hover); color: var(--text-2); }
+.btn-danger { border-color: var(--danger-line); color: var(--bad); }
+.btn-danger:hover { background: var(--bad-soft); }
+.btn-glass { border-color: var(--glass-line); background: var(--glass-bg); color: var(--text-1);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.btn-glass:hover { background: var(--glass-bg-hover); }
+
+/* Filter chip: outline, filled white while on. */
+.chip { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; height: 28px; padding: 0 12px;
+  white-space: nowrap; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; font-weight: 500;
+  color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s, border-color .15s; }
+.chip:hover { border-color: var(--line-hover); color: var(--text-2); }
+.chip.on:not(.filters *) { background: var(--zinc-100); border-color: var(--zinc-100); color: var(--zinc-900); }
+.chip svg.ic { width: 14px; height: 14px; }
+
+/* Form controls */
+.input, .textarea { width: 100%; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+  padding: 0 12px; font: inherit; font-size: 14px; color: var(--text-1); }
+.input { height: 36px; }
+.textarea { padding: 8px 12px; }
+.input::placeholder, .textarea::placeholder { color: var(--text-6); }
+.input:focus, .textarea:focus, .select:focus { border-color: var(--line-focus); outline: none; }
+.label:not(.kpi *) { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--text-4); }
+.select { height: 36px; border-radius: 8px; border: 1px solid var(--line); background: transparent;
+  padding: 0 12px; font: inherit; font-size: 14px; color: var(--text-3); }
+.select > option { background: var(--zinc-900); color: var(--text-2); }
+
+/* Section label ("WATCHED · 1,261") and micro label over a value */
+.seclabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--text-5); }
+.microlabel { font-size: 10px; text-transform: uppercase; letter-spacing: .025em; color: var(--text-5); }
+
+/* Lists: rows sit on the page, no box. minmax(0,1fr) stops a long title widening a phone page. */
+.listbox { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0 -8px; }
+.row { display: flex; align-items: center; gap: 14px; padding: 8px; border-radius: 12px; min-width: 0;
+  color: inherit; text-decoration: none; transition: background-color .15s; }
+a.row:hover { background: var(--soft); }
+.row-poster { aspect-ratio: 2 / 3; width: 44px; height: auto; flex-shrink: 0; object-fit: cover;
+  border-radius: 4px; box-shadow: var(--shadow-row-poster); }
+.row-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600;
+  color: var(--text-1); }
+.row-meta { margin-top: 2px; font-size: 12px; color: var(--text-5); }
+.row-meta .sep { color: var(--text-6); }
+.row-score { width: 40px; flex-shrink: 0; text-align: right; font-size: 20px; font-weight: 700;
+  font-variant-numeric: tabular-nums; }
+@media (min-width: 768px) { .row { gap: 16px; } }
+
+/* State badges (outline pills) and the matching row tint + 3px inset bar */
+.badge:not(.stale):not(.off) { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
+  border: 1px solid var(--line); padding: 2px 8px; font-size: 10px; font-weight: 500; color: var(--text-4); }
+.badge svg.ic { width: 12px; height: 12px; }
+.badge-watching { border-color: var(--watch-line); color: var(--orange); }
+.badge-new { border-color: var(--new-line); color: var(--fuchsia); }
+.badge-complete { border-color: var(--done-line); color: var(--good); }
+.row.is-watching { background: var(--watch-tint); box-shadow: inset 3px 0 0 var(--watch-bar); }
+.row.is-new { background: var(--new-tint); box-shadow: inset 3px 0 0 var(--new-bar); }
+.row.is-complete { background: var(--done-tint); box-shadow: inset 3px 0 0 var(--done-bar); }
+.row.is-down { background: var(--down-tint); box-shadow: inset 3px 0 0 var(--down-bar); }
+
+/* Score grades (ratingColor): .score-9 is 9 and up ... .score-1 is under 2; .score-none is "—" */
+.score-9 { color: var(--score-9); }
+.score-8 { color: var(--score-8); }
+.score-7 { color: var(--score-7); }
+.score-6 { color: var(--score-6); }
+.score-5 { color: var(--score-5); }
+.score-4 { color: var(--score-4); }
+.score-3 { color: var(--score-3); }
+.score-2 { color: var(--score-2); }
+.score-1 { color: var(--score-1); }
+.score-none { color: var(--text-6); }
+
+/* Stats strip: 3-up grid on a phone, a wrapping row from 640 px. Each .stat is a micro label over a value. */
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 12px;
+  border-radius: 16px; border: 1px solid var(--border); background: var(--surface); padding: 12px 16px; }
+@media (min-width: 640px) { .stats { display: flex; flex-wrap: wrap; column-gap: 32px; padding: 12px 20px; } }
+.stat { min-width: 0; }
+.stat > .microlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-number { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat-word { font-size: 18px; font-weight: 600; }
+
+/* Waiting count: amber pill on tabs and sections */
+.waitcount { display: inline-flex; align-items: center; justify-content: center; height: 16px; min-width: 16px;
+  border-radius: 999px; background: var(--amber); padding: 0 4px; font-size: 10px; font-weight: 600;
+  font-variant-numeric: tabular-nums; color: var(--zinc-950); }
+
+/* Glass: things over a picture */
+.glass { border: 1px solid var(--glass-line); background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+
+/* Poster grid and card */
+.poster-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 12px; }
+@media (min-width: 640px) { .poster-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 768px) { .poster-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .poster-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.card-poster { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.card-poster img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover;
+  border-radius: 8px; box-shadow: var(--shadow-poster); transition: transform .3s; }
+.card-poster:hover img { transform: translateY(-4px); }
+.card-poster .row-title { margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+.card-poster .row-meta { font-size: 11px; }
+
+/* Panel (a card/surface box) and the empty state */
+.panel:not(.card) { border-radius: 16px; border: 1px solid var(--border); background: var(--surface); padding: 16px; }
+.empty:not(td) { border-radius: 12px; border: 1px solid var(--line-soft); padding: 32px; text-align: center;
+  font-size: 14px; color: var(--text-5); }
+
+/* Toasts: bottom centre, above the phone tab bar */
+.toast { position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+  bottom: calc(4.75rem + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px);
+  border-radius: 12px; border: 1px solid var(--line); padding: 10px 14px; font-size: 14px; color: var(--text-2);
+  background: var(--zinc-900); box-shadow: var(--shadow-float);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: pointer; }
+.toast-info { border-color: var(--line); color: var(--text-2); }
+.toast-warn { border-color: var(--warn-line); color: var(--toast-warn); }
+.toast-error { border-color: var(--danger-line); color: var(--toast-err); }
+@media (min-width: 768px) { .toast { bottom: 24px; } }
 
 /* ---- Shell: rail + content column ---- */
 .app { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }

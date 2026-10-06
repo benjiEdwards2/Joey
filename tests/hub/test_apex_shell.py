@@ -80,24 +80,19 @@ def _props(body):
 
 
 def _token_blocks():
-    light = _block(r"(?m)^:root")
-    dark_media = _block(r':root:not\(\[data-theme="light"\]\)')
-    dark_attr = _block(r':root\[data-theme="dark"\]')
-    return light, dark_media, dark_attr
+    # MediaHub restyle (2026-10-06): one dark theme, every token on the single bare :root block
+    return (_block(r"(?m)^:root"),)
 
 
-# (c) tokens on :root, redefined in both dark blocks — same names, both directions
-def test_tokens_defined_on_root_and_redefined_in_both_dark_blocks():
-    light, dark_media, dark_attr = _token_blocks()
-    assert "@media (prefers-color-scheme: dark)" in CSS
-    lp, mp, ap = _props(light), _props(dark_media), _props(dark_attr)
-    assert len(lp) > 20
-    assert lp == ap, (lp ^ ap)
-    assert lp == mp, (lp ^ mp)
-    assert "color-scheme: dark" in dark_media and "color-scheme: dark" in dark_attr
+# (c) tokens on the one :root block; the light/dark theme blocks are retired (single dark theme)
+def test_tokens_defined_on_a_single_dark_root_block():
+    (root,) = _token_blocks()
+    assert len(_props(root)) > 20
+    assert "color-scheme: dark" in root
+    assert "prefers-color-scheme" not in CSS and "[data-theme=" not in CSS
 
 
-# (d) no literal hex colour anywhere outside the three token blocks
+# (d) no literal hex colour anywhere outside the token block
 def test_no_hex_colour_outside_token_blocks():
     rest = CSS
     for body in _token_blocks():

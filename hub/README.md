@@ -18,6 +18,12 @@ table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart 
 at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapshot has no `radar`. Files served by
 `GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting clock: `_now_home()` (Australia/Melbourne).
 
+**Style: MediaHub guide, adopted 2026-10-06 — see `docs/style-guide.md`.** Single dark theme (one `:root` token
+block, `color-scheme: dark`; the light/dark token blocks above are retired and the theme toggle is a no-op until
+Phase 2 removes it); older token names are remapped to the guide's zinc/indigo palette; Geist + Geist Mono are
+self-hosted in `static/fonts/`; the guide's recipe classes (`.btn*`, `.chip`, `.input`, `.row*`, `.stats`, `.badge-*`,
+`.score-*`, `.toast*`, ...) live in `control-surface.css`. Phase 1 of 4 (foundation); Phases 2-4 rebuild the templates on them.
+
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame
 was retired the same day) and adds an in-content sections nav

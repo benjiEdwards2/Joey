@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/wud.schema.json",
   "title": "wud data block",
-  "description": "Server area container image updates from What's Up Docker (2026-10-06). Containers with an update sort first. `kind` is null when there is no update. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "description": "Server area container image updates from What's Up Docker (2026-10-06). Containers with an update sort first. `kind` is null when there is no update. `summary`/`secondary` are the hub display convention (D17, WP18). WP-U1 (2026-10-06): optional `id` (WUD container id, null when WUD sent none) and `auto` (true when the `dockercompose.local` trigger applies, i.e. not excluded) — older envelopes without them stay valid.",
   "type": "object",
   "required": ["summary", "monitoring", "updates", "containers"],
   "additionalProperties": false,
@@ -23,7 +23,9 @@
           "current_tag": {"type": "string"},
           "new_tag": {"type": ["string", "null"]},
           "update_available": {"type": "boolean"},
-          "kind": {"enum": ["tag", "digest", null]}
+          "kind": {"enum": ["tag", "digest", null]},
+          "id": {"type": ["string", "null"]},
+          "auto": {"type": "boolean"}
         }
       }
     }

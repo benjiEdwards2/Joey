@@ -79,6 +79,47 @@ downloading/seeding/speeds, arr downloading / this week / disk rows). Each band 
 snapshot is missing. Tile `detail` links are anchors (`/server#services`, `/server#monitors`, `/server#updates`). `_runner.json` is read by
 `store.get_runner()` from the snapshot dir (WP-S4); missing or malformed simply omits Last sweep and runner errors.
 
+**Server → Update now / Ignore (WP-U1, 2026-10-06).** `server_updates.py`. Each pending update row in the Updates band shows
+"Update now" when the `wud` row is `auto` (WUD's `dockercompose.local` trigger applies), else the chip "Manual · excluded"
+(gluetun, qbittorrent, prowlarr, uptime-kuma, wud are notify-only), plus an Ignore button. Update now opens
+`/server/updates/{name}/run?step=confirm` (container, image, current → new, kind, the "about a minute" warning); its
+same-origin POST asks WUD to run the trigger (contract doc, tenth exception), records a `server_update_runs` row and
+redirects to `/server#updates` with "Update requested for X" / "WUD refused (HTTP n)" / "WUD unreachable". Ineligible rows,
+a missing WUD env or a container not pending in the snapshot get an explanatory page (409), never a call. The row shows
+"Requested N min ago" until the snapshot's tag moves on. Ignore keys on (container, new tag — or current tag for a digest
+update) in `server_update_ignores`; ignored rows fold into "Ignored (N)" with Unignore, and the band reads
+`N monitored · N updates · M ignored` (the connector's own tile summary is unchanged). Live check after deploy:
+`docs/server-updates-live-check.md`.
+
+**Server card, durable Attention, Sweeps, Discord (WP-U2, 2026-10-06).** The hub's Server KPI card no longer shows the
+`services` tile summary: `server.hub_card()` (wired in `hub/main.py` `server_card_state`, keyed by `layout: server`) writes
+line 1 "All up" / "2 down: Prowlarr, Sonarr" and line 2 "N updates" (ignored ones excluded, omitted at 0) · "disk N%"
+(fullest volume) · "N monitors down" (when > 0). When Attention is non-empty the card wears the amber stale badge with the
+words "Needs attention" (no new colour); a missing `media_status` snapshot still reads "Not connected". Attention items are
+now keyed (`attention_items()`: `down:<app>`, `disk:<path>`, `kuma:<monitor>`, `backup`, `sweep:<connector>`). Sweep
+failures are durable: `store.get_runner_history()` reads the tail of `_runner_history.jsonl` (last 2 MB, up to 1000 lines,
+malformed lines skipped) and `server.sweep_stats()` counts the last 24 h per connector — Attention says
+"wud failed 3 of the last 24 sweeps · <sanitised reason>" only while the connector's latest run is still an error; the
+Attention card's "Sweeps (24 h)" rows list every connector (runs · failed · last ok). No usable history ⇒ the old
+`_runner.json` "<id> sweep failed" items. `server_alerts.py` pushes each NEW item to Discord ("Joey Server: <text>", max
+5 per cycle, 10 s timeout) when `SERVER_DISCORD_WEBHOOK` is set, remembering keys in media.db `server_attention_seen`
+(a key that leaves Attention loses its row, so a recurrence notifies again). It runs after every `/server` render (a
+response background task) and on a hub loop beside the media backup one (first ~60 s after start, then every 5 min).
+Unset webhook ⇒ no call, no table writes; failures log status/type only.
+
+**Server → Last 24 h history (WP-U4, 2026-10-06).** `server_history.py` samples the `system` snapshot into media.db
+`server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — `ts` is the envelope's `updated_at`
+(UTC `…Z`), `volumes` JSON `[{path, pct_used, free_gb}]` with `pct_used` recomputed from free/total to two decimals. A row
+is inserted only when `updated_at` is newer than the last stored `ts` (≤ 1 row per 2-min snapshot; renders never
+duplicate); no row when the snapshot is missing or `status != ok`; each insert deletes rows older than 8 days. It runs on
+the WP-U2 paths: after every `/server` render (a second response background task) and on the same 5-minute hub loop as
+the Discord push. `server.history_band()` builds the "Last 24 h" band directly under System: three inline-SVG
+sparklines (no JS; the weather chart's conventions) for CPU %, RAM % used and the fullest volume's % used, each with
+"CPU 4–38 %, now 15 %" text, plus a 7-day disk line "Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate"
+(least-squares slope; "flat" when not rising or the projection is ≥ 10 years; under 24 h of history it says
+"projection after 24 h of history"). Fewer than 2 samples in 24 h ⇒ "Collecting history — first chart after a few
+sweeps". Reads never create media.db.
+
 Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages, Request),
 `media_db.py` (ratings + diary, per owner), `media_backup.py` (nightly `media.db` dump),
 `media_write.py` (same-origin write guard). The hub's Media KPI card is first (`hub_rank: 1`,

@@ -868,3 +868,19 @@ a.castcard:hover .castname { text-decoration: underline; }
 .hero-detail-btns .confirm { flex: 1 0 100%; text-align: left; }
 .logform label { display: block; }
 .personhead .hero-detail-text { align-items: flex-start; text-align: left; }
+
+/* Server → Updates actions (WP-U1, 2026-10-06): Update now / Ignore per row, Ignored (N) fold. */
+.uplist .upact { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }
+.uplist .upact form { display: inline; margin: 0; }
+.linkbtn { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.linkbtn:hover { color: var(--fg); }
+.uplist details.ignored > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
+.uplist .flash { color: var(--fg); }
+
+/* Server → Last 24 h sparklines (WP-U4, 2026-10-06): scoped .spark-*, weather-chart stroke tokens. */
+.spark-band .spark-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 240px); gap: 12px; align-items: center; padding: 6px 0; }
+.spark-band .spark-text { font-size: 14px; overflow-wrap: anywhere; }
+.spark-band .spark-svg { display: block; width: 100%; height: auto; }
+.spark-band .spark-base { stroke: var(--border); stroke-width: 1; }
+.spark-band .spark-line { fill: none; stroke: var(--brand); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+@media (max-width: 520px) { .spark-band .spark-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }

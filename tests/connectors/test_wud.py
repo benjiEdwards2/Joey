@@ -109,3 +109,41 @@ def test_a_non_list_payload_is_an_error_not_a_crash(live, monkeypatch):
     fake_get(monkeypatch, Resp({"error": "nope"}))
     envelope = Wud().run()
     assert envelope["status"] == "error" and "unexpected payload" in envelope["error"]
+
+
+# ---- WP-U1 (2026-10-06): `id` + `auto` per container, from WUD 9.3's triggerInclude/Exclude ----
+
+def test_fixture_rows_carry_id_and_auto_and_the_notify_only_five_are_not_auto(live, monkeypatch):
+    fake_get(monkeypatch, Resp(fixture_raw()))
+    data = Wud().run()["data"]
+    jsonschema.validate(data, SCHEMA)
+    by = {c["name"]: c for c in data["containers"]}
+    assert {n for n, c in by.items() if not c["auto"]} == {
+        "gluetun", "qbittorrent", "prowlarr", "uptime-kuma", "wud"}
+    assert all(c["id"] == f"ctr-{n}" for n, c in by.items())
+    assert by["vaultwarden"]["auto"] is True and by["uptime-kuma"]["update_available"] is True
+
+
+@pytest.mark.parametrize("row, auto", [
+    ({}, True),
+    ({"triggerExclude": "dockercompose.local"}, False),
+    ({"triggerExclude": "discord.main, DockerCompose.Local:major"}, False),
+    ({"triggerExclude": "discord.main"}, True),
+    ({"triggerInclude": "discord.main"}, False),
+    ({"triggerInclude": "discord.main,dockercompose.local:minor"}, True),
+    ({"triggerInclude": "dockercompose.local", "triggerExclude": "dockercompose.local"}, False),
+    ({"labels": {"wud.trigger.exclude": "dockercompose.local"}}, False),
+])
+def test_auto_follows_wuds_include_exclude_rule(row, auto):
+    from connectors.stubs import wud_auto
+    assert wud_auto(row) is auto
+
+
+def test_a_row_without_an_id_reads_null_and_old_envelopes_stay_valid():
+    data = Wud().transform([{"name": "x", "image": {"name": "x", "tag": {"value": "1"}},
+                             "updateAvailable": False}])
+    assert data["containers"][0]["id"] is None
+    jsonschema.validate(data, SCHEMA)
+    for c in data["containers"]:
+        c.pop("id"), c.pop("auto")
+    jsonschema.validate(data, SCHEMA)

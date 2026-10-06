@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Update {{ name }} · Joey{% endblock %}
+{% block content %}
+{# Server → Update now (WP-U1, 2026-10-06): the confirm step, or the reason it can't run.
+   Plain form POST behind the same-origin guard; no confirm() and no JS needed. #}
+<section class="card uplist medialist notfound" id="update-confirm" style="--accent: {{ area.accent }}" aria-label="Update {{ name }}">
+  <div class="head">Update {{ name }}</div>
+  {% if row %}
+  <div class="uprow"><span class="uptitle">Container</span><span class="uptime nextleft">{{ row.name }}</span></div>
+  <div class="uprow"><span class="uptitle">Image</span><span class="uptime nextleft">{{ row.image }}</span></div>
+  <div class="uprow"><span class="uptitle">Version</span><span class="uptime nextleft">{{ row.current_tag }}{% if row.new_tag %} → {{ row.new_tag }}{% endif %}</span></div>
+  <div class="uprow"><span class="uptitle">Kind</span><span class="uptime nextleft">{{ {"tag": "New version", "digest": "New build"}.get(row.kind, "Update") }}</span></div>
+  {% endif %}
+  {% if msg %}
+  <div class="sub">{{ msg }}</div>
+  <div class="reqbtns"><a class="glassbtn" href="/server#updates">Back to Server</a></div>
+  {% else %}
+  <div class="sub">{{ confirm_text }}</div>
+  <form method="post" action="/server/updates/{{ name }}/run" class="reqbtns">
+    <button class="launch" type="submit">Update {{ name }} now</button>
+    <a class="glassbtn" href="/server#updates">Cancel</a>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

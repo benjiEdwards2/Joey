@@ -24,6 +24,20 @@ log_history() {
     echo "$STAMP $1 prev=$PREV_SHA new=${NEW_SHA:-?} $2" >> "$HISTORY"
 }
 
+# One deploy at a time (2026-10-06: two concurrent deploys made smoke race the hub's
+# startup and forced a rollback). mkdir is the atomic lock on BusyBox; a stale lock
+# (older than 30 min) is removed. The trap releases it on any exit path.
+LOCK=/tmp/joey-deploy.lock
+if ! mkdir "$LOCK" 2>/dev/null; then
+    if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then
+        echo "stale deploy lock (>30 min) — removing"; rmdir "$LOCK"; mkdir "$LOCK"
+    else
+        echo "!! another deploy is running (lock $LOCK) — try again when it finishes !!"
+        exit 2
+    fi
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+
 cd "$REPO"
 PREV_SHA=$(GIT rev-parse --short HEAD)
 

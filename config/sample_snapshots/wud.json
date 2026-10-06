@@ -4,7 +4,9 @@
   "data": {
     "containers": [
       {
+        "auto": false,
         "current_tag": "1.23.16",
+        "id": "ctr-uptime-kuma",
         "image": "louislam/uptime-kuma",
         "kind": "tag",
         "name": "uptime-kuma",
@@ -12,7 +14,9 @@
         "update_available": true
       },
       {
+        "auto": true,
         "current_tag": "latest",
+        "id": "ctr-vaultwarden",
         "image": "vaultwarden/server",
         "kind": "digest",
         "name": "vaultwarden",
@@ -20,7 +24,9 @@
         "update_available": true
       },
       {
+        "auto": true,
         "current_tag": "2025.8.1",
+        "id": "ctr-cloudflared",
         "image": "cloudflare/cloudflared",
         "kind": null,
         "name": "cloudflared",
@@ -28,7 +34,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "v3.3.25",
+        "id": "ctr-flaresolverr",
         "image": "flaresolverr/flaresolverr",
         "kind": null,
         "name": "flaresolverr",
@@ -36,7 +44,9 @@
         "update_available": false
       },
       {
+        "auto": false,
         "current_tag": "v3.40.0",
+        "id": "ctr-gluetun",
         "image": "qmcgaw/gluetun",
         "kind": null,
         "name": "gluetun",
@@ -44,7 +54,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "v1.4.0",
+        "id": "ctr-homepage",
         "image": "gethomepage/homepage",
         "kind": null,
         "name": "homepage",
@@ -52,7 +64,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "10.10.7",
+        "id": "ctr-jellyfin",
         "image": "jellyfin/jellyfin",
         "kind": null,
         "name": "jellyfin",
@@ -60,7 +74,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "2.7.3",
+        "id": "ctr-jellyseerr",
         "image": "fallenbagel/jellyseerr",
         "kind": null,
         "name": "jellyseerr",
@@ -68,7 +84,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "latest",
+        "id": "ctr-joey-connectors",
         "image": "life-connectors",
         "kind": null,
         "name": "joey-connectors",
@@ -76,7 +94,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "latest",
+        "id": "ctr-joey-hub",
         "image": "life-hub",
         "kind": null,
         "name": "joey-hub",
@@ -84,7 +104,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "alpine",
+        "id": "ctr-macromates",
         "image": "nginx",
         "kind": null,
         "name": "macromates",
@@ -92,7 +114,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "2.27.9",
+        "id": "ctr-portainer",
         "image": "portainer/portainer-ce",
         "kind": null,
         "name": "portainer",
@@ -100,7 +124,9 @@
         "update_available": false
       },
       {
+        "auto": false,
         "current_tag": "1.37.0",
+        "id": "ctr-prowlarr",
         "image": "linuxserver/prowlarr",
         "kind": null,
         "name": "prowlarr",
@@ -108,7 +134,9 @@
         "update_available": false
       },
       {
+        "auto": false,
         "current_tag": "5.1.2",
+        "id": "ctr-qbittorrent",
         "image": "linuxserver/qbittorrent",
         "kind": null,
         "name": "qbittorrent",
@@ -116,7 +144,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "5.26.2",
+        "id": "ctr-radarr",
         "image": "linuxserver/radarr",
         "kind": null,
         "name": "radarr",
@@ -124,7 +154,9 @@
         "update_available": false
       },
       {
+        "auto": true,
         "current_tag": "4.0.15",
+        "id": "ctr-sonarr",
         "image": "linuxserver/sonarr",
         "kind": null,
         "name": "sonarr",
@@ -132,7 +164,9 @@
         "update_available": false
       },
       {
+        "auto": false,
         "current_tag": "8.1.1",
+        "id": "ctr-wud",
         "image": "getwud/wud",
         "kind": null,
         "name": "wud",

@@ -55,6 +55,30 @@
 </section>
 </div>
 
+{# WP-U4 (2026-10-06): "Last 24 h" — sparklines from media.db server_system_samples (inline SVG,
+   no JS, the weather chart's conventions). Every value is also text; colour is never the only encoding. #}
+{% set hist = sv.history %}
+<div class="mediacols">
+<section class="card uplist medialist spark-band" id="history" style="--accent: {{ area.accent }}" aria-label="Last 24 h">
+  <div class="head">Last 24 h</div>
+  {% if hist.collecting %}
+    <div class="value dim">{{ hist.text }}</div>
+  {% else %}
+    {% for sp in hist.sparks %}
+    <div class="spark-row">
+      <span class="spark-text">{{ sp.text }}</span>
+      <svg class="spark-svg" viewBox="0 0 {{ sp.w }} {{ sp.h }}" role="img" aria-labelledby="spark-t{{ loop.index }}">
+        <title id="spark-t{{ loop.index }}">Last 24 hours: {{ sp.text }}</title>
+        <line class="spark-base" x1="{{ sp.pad }}" y1="{{ sp.base }}" x2="{{ sp.w - sp.pad }}" y2="{{ sp.base }}"/>
+        <polyline class="spark-line" points="{{ sp.line }}"/>
+      </svg>
+    </div>
+    {% endfor %}
+    {% if hist.trend %}<div class="sub spark-trend">{{ hist.trend }}</div>{% endif %}
+  {% endif %}
+</section>
+</div>
+
 {% set svc = sv.services %}
 <div class="mediacols" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}
@@ -119,16 +143,37 @@
     <div class="value dim">Not connected</div>
     {% if up.st.note %}<div class="sub">{{ up.st.note }}</div>{% endif %}
   {% else %}
-    <div class="sub">{{ up.data.get("monitoring", 0) }} monitored · {{ up.data.get("updates", 0) }} update{{ "" if up.data.get("updates", 0) == 1 else "s" }}</div>
+    {% if flash %}<div class="sub flash" role="status">{{ flash }}</div>{% endif %}
+    {% set n_up = up.pending | length %}
+    <div class="sub">{{ up.data.get("monitoring", 0) }} monitored · {{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %} · {{ up.ignored | length }} ignored{% endif %}</div>
+    {# WP-U1: Update now only on rows WUD's dockercompose.local trigger applies to (`auto`);
+       excluded rows say so in words. Ignore/Unignore are same-origin POSTs. #}
     {% for c in up.pending %}
     <div class="uprow">
       <span class="uptitle">{{ c.name }}</span>
       <span class="chip">{{ {"tag": "New version", "digest": "New build"}.get(c.kind, "Update") }}</span>
-      <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}</span>
+      <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}{% if c.requested_text %} · {{ c.requested_text }}{% endif %}</span>
+      <span class="upact">
+        {% if c.auto %}<a class="glassbtn" href="/server/updates/{{ c.name }}/run?step=confirm">Update now</a>
+        {% else %}<span class="chip">Manual · excluded</span>{% endif %}
+        <form method="post" action="/server/updates/{{ c.name }}/ignore"><button class="linkbtn" type="submit">Ignore</button></form>
+      </span>
     </div>
     {% else %}
     <div class="value dim">All up to date</div>
     {% endfor %}
+    {% if up.ignored %}
+    <details class="ignored">
+      <summary>Ignored ({{ up.ignored | length }})</summary>
+      {% for c in up.ignored %}
+      <div class="uprow">
+        <span class="uptitle">{{ c.name }}</span>
+        <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}</span>
+        <span class="upact"><form method="post" action="/server/updates/{{ c.name }}/unignore"><button class="linkbtn" type="submit">Unignore</button></form></span>
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
     <div class="foot">
       {% if up.st.state == "stale" %}<span class="badge stale">{{ up.st.age_text }}</span>
       {% elif up.st.age_text %}<span class="ago">updated {{ up.st.age_text }}</span>{% endif %}
@@ -151,6 +196,17 @@
     <span class="uptitle">All clear</span>
   </div>
   {% endfor %}
+  {# WP-U2: per-connector sweep record from _runner_history.jsonl (last 24 h). A connector
+     that failed and has since recovered shows here only, not in Attention. #}
+  {% if sv.sweeps %}
+  <div class="upday" id="sweeps">Sweeps (24 h)</div>
+  {% for w in sv.sweeps %}
+  <div class="uprow">
+    <span class="uptitle">{{ w.id }}</span>
+    <span class="uptime nextleft">{{ w.runs }} run{{ "" if w.runs == 1 else "s" }} · {{ w.failures }} failed · last ok {{ w.last_ok_text }}{% if w.failing %} · failing{% endif %}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
 </section>
 </div>
 

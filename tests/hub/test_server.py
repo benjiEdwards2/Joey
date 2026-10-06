@@ -234,3 +234,122 @@ def test_monitors_band_degrades_to_not_connected(env):
         body = main_of(client.get("/server").text)
     band = body.split('id="monitors"', 1)[1].split('id="updates"', 1)[0]
     assert "Not connected" in band and "UPTIME_KUMA_URL" in band
+
+
+# ---- WP-U2 (2026-10-06): hub card words, durable sweep errors, Sweeps (24 h) -------
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
+
+from hub.store import get_snapshots  # noqa: E402
+from tests.hub.test_store import write_history  # noqa: E402
+
+ALL_UP = {"summary": "2 of 2 up", "apps": [
+    {"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "radarr", "name": "Radarr", "up": True}]}
+TWO_DOWN = {"summary": "1 of 3 up", "apps": [
+    {"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "prowlarr", "name": "Prowlarr", "up": False},
+    {"id": "sonarr", "name": "Sonarr", "up": False}]}
+WUD = {"summary": "2 updates", "containers": [
+    {"name": "a", "update_available": True, "current_tag": "1", "new_tag": "2"},
+    {"name": "b", "update_available": True, "current_tag": "3", "new_tag": "4"},
+    {"name": "c", "update_available": False, "current_tag": "5"}]}
+SYSTEM = {"volumes": [{"path": "/volume1", "pct_used": 71, "free_gb": 10, "total_gb": 40},
+                      {"path": "/volume2", "pct_used": 74, "free_gb": 10, "total_gb": 40}]}
+KUMA = {"monitors": [{"name": "Prowlarr", "status": "down"}, {"name": "Radarr", "status": "down"},
+                     {"name": "Jellyfin", "status": "up"}]}
+
+
+def _snaps(tmp_path, **data):
+    d = tmp_path / "card"
+    for cid, payload in data.items():
+        write_envelope(d, cid, age_minutes=1, data=payload)
+    return get_snapshots(d)
+
+
+def test_hub_card_all_up_is_ok_with_disk(tmp_path):
+    card = server.hub_card(_snaps(tmp_path, media_status=ALL_UP, system=SYSTEM), set(), {"warning": None})
+    assert card == {"summary": "All up", "secondary": "disk 74%", "state": "ok"}
+
+
+def test_hub_card_down_updates_excluding_ignored_monitors_and_warn(tmp_path):
+    snaps = _snaps(tmp_path, media_status=TWO_DOWN, wud=WUD, system=SYSTEM, uptime_kuma=KUMA)
+    card = server.hub_card(snaps, {("a", "2")}, {"warning": None})
+    assert card["summary"] == "2 down: Prowlarr, Sonarr"
+    assert card["secondary"] == "1 update · disk 74% · 2 monitors down"
+    assert card["state"] == "warn"
+    assert server.hub_card(snaps, set(), {"warning": None})["secondary"].startswith("2 updates · ")
+
+
+def test_hub_card_warns_on_any_attention_and_degrades(tmp_path):
+    snaps = _snaps(tmp_path, media_status=ALL_UP)
+    assert server.hub_card(snaps, set(), {"warning": "Media backup: none yet"})["state"] == "warn"
+    assert server.hub_card(snaps, set(), {"warning": None}) == {
+        "summary": "All up", "secondary": None, "state": "ok"}
+    assert server.hub_card({}, set(), {"warning": None})["summary"] == "Not connected"
+
+
+def test_hub_server_card_shows_the_words_and_needs_attention(env):
+    with env() as client:
+        body = main_of(client.get("/").text)
+    card = body.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
+    assert "1 down: Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
+    assert '<span class="badge stale">Needs attention</span>' in card
+    assert "12 of 12 up" not in card and "11 of 12 up" not in card
+
+
+def test_hub_server_card_is_ok_when_nothing_needs_attention(env):
+    with env(samples=False, media_status=ALL_UP, system=SYSTEM) as client:
+        card = main_of(client.get("/").text).split('href="/a/server"', 1)[1].split("</a>", 1)[0]
+    assert "All up" in card and "disk 74%" in card and "Needs attention" not in card
+
+
+NOW = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
+
+
+def _line(minutes_ago, results):
+    return {"ran_at": (NOW - timedelta(minutes=minutes_ago)).isoformat(), "results": {
+        cid: {"status": s, "error": e} for cid, (s, e) in results.items()}}
+
+
+def test_sweep_stats_window_recovered_and_still_failing():
+    err = ("error", "RuntimeError: WUD containers failed (HTTP 401)")
+    ok = ("ok", None)
+    history = [_line(25 * 60, {"wud": err, "arr": err}),            # outside the 24 h window
+               _line(180, {"wud": err, "arr": err}), _line(120, {"wud": ok, "arr": err}),
+               _line(60, {"wud": err, "arr": ok}), "junk", {"ran_at": "nope", "results": {}},
+               {"ran_at": NOW.isoformat(), "results": "bad"}]
+    stats = server.sweep_stats(history, NOW)
+    assert stats["wud"] == {"runs": 3, "failures": 2, "failing": True,
+                            "reason": "WUD containers failed (HTTP 401)",
+                            "last_ok": NOW - timedelta(minutes=120)}
+    assert stats["arr"]["failing"] is False and stats["arr"]["failures"] == 2
+    items = server.attention_items({}, {"warning": None}, None, stats)
+    assert items == [{"key": "sweep:wud",
+                      "text": "wud failed 2 of the last 3 sweeps · WUD containers failed (HTTP 401)"}]
+    rows = server.sweep_rows(stats, NOW)
+    assert [(r["id"], r["runs"], r["failures"], r["last_ok_text"]) for r in rows] == [
+        ("arr", 3, 2, "1 h ago"), ("wud", 3, 2, "2 h ago")]
+    assert server.sweep_stats(None) is None and server.sweep_stats(["junk"]) is None
+
+
+def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp_path):
+    client = env()
+    snaps = tmp_path / "snaps"
+    write_runner(snaps, datetime.now(timezone.utc).isoformat(), {
+        "wud": {"status": "ok", "consecutive_failures": 0, "error": None}})   # fast sweep overwrote it
+    write_history(snaps, [(90, {"wud": ("error", "RuntimeError: WUD containers failed (HTTP 401)"),
+                                "system": "ok"}),
+                          (30, {"wud": ("error", "RuntimeError: WUD containers failed (HTTP 401)"),
+                                "gcal": ("error", "runner-level ValueError: http://x.invalid/?k=SECRETKEY")}),
+                          (2, {"system": "ok", "gcal": "ok"})], junk=["{broken"])
+    with client:
+        body = main_of(client.get("/server").text)
+    att = body.split('id="attention"', 1)[1].split('id="sweeps"', 1)[0]
+    assert "wud failed 2 of the last 2 sweeps · WUD containers failed (HTTP 401)" in att
+    assert "gcal" not in att and "SECRETKEY" not in body                     # recovered -> table only
+    sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
+    assert "Sweeps (24 h)" in body and ">gcal</span>" in sweeps and "2 runs · 1 failed" in sweeps
+    assert ">system</span>" in sweeps and ">wud</span>" in sweeps and "last ok none in 24 h" in sweeps
+    (snaps / "_runner_history.jsonl").write_text("{junk\n[]\n", encoding="utf-8")
+    with client:
+        r = client.get("/server")
+    assert r.status_code == 200 and 'id="sweeps"' not in main_of(r.text)   # no usable history

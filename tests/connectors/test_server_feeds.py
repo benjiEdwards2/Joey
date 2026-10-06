@@ -42,10 +42,12 @@ def test_wud_fixture_transform(snapshots):
     assert (data["monitoring"], data["updates"]) == (17, 2)  # + vaultwarden digest (WP-S3)
     first = data["containers"][0]
     assert first == {"name": "uptime-kuma", "image": "louislam/uptime-kuma", "current_tag": "1.23.16",
-                     "new_tag": "2.0.2", "update_available": True, "kind": "tag"}
+                     "new_tag": "2.0.2", "update_available": True, "kind": "tag",
+                     "id": "ctr-uptime-kuma", "auto": False}  # id/auto: WP-U1 pin
     assert data["containers"][1] == {"name": "vaultwarden", "image": "vaultwarden/server",
                                      "current_tag": "latest", "new_tag": None,
-                                     "update_available": True, "kind": "digest"}
+                                     "update_available": True, "kind": "digest",
+                                     "id": "ctr-vaultwarden", "auto": True}  # WP-U1 pin
     assert all(c["kind"] is None and c["new_tag"] is None for c in data["containers"][2:])
     assert data["summary"] == "2 updates available"
     assert data["secondary"] == "uptime-kuma 1.23.16 → 2.0.2 (+1 more)"

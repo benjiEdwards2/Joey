@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTasks
 
 from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
@@ -27,10 +28,11 @@ from hub import media_film, media_item, media_person, media_library, media_plays
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub import server as server_area
+from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
-from hub.store import get_runner, get_snapshots, tile_state
+from hub.store import get_runner, get_runner_history, get_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -58,6 +60,22 @@ async def _backup_loop():
         await asyncio.sleep(BACKUP_EVERY_S)
 
 
+async def _server_alerts_loop():
+    """WP-U2: push NEW Server Attention items to Discord (no-op without the webhook).
+    WP-U4: the same loop samples the `system` snapshot into media.db (server_history)."""
+    await asyncio.sleep(server_alerts.FIRST_DELAY_S)
+    while True:
+        try:
+            await asyncio.to_thread(server_history.sample)
+        except Exception as exc:  # never let a history sample take the hub down
+            log.warning("server history task error: %s", type(exc).__name__)
+        try:
+            await asyncio.to_thread(server_alerts.check_once)
+        except Exception as exc:  # never let an alert check take the hub down
+            log.warning("server alerts task error: %s", type(exc).__name__)
+        await asyncio.sleep(server_alerts.EVERY_S)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Load the registry at startup, failing fast with the aggregated violation list."""
@@ -68,7 +86,11 @@ async def lifespan(_: FastAPI):
     log.info("registry loaded from %s: %d areas", areas_path, len(registry.areas))
     backup_task = None if media_backup.disabled() else asyncio.create_task(_backup_loop())
     plays_task = media_plays.start_recorder()  # F7 play recorder; None when off
+    alerts_task = asyncio.create_task(_server_alerts_loop())
     yield
+    alerts_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await alerts_task
     if plays_task is not None:
         plays_task.cancel()
         with suppress(asyncio.CancelledError):
@@ -97,6 +119,7 @@ app.include_router(media_plays.router)
 app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
+app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
 
@@ -888,6 +911,18 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
     }
 
 
+def server_card_state(st: dict, snaps) -> dict:
+    """The Server hub card (WP-U2): hub/server.py's words over the summary tile's state.
+    `warn` reuses the stale badge (amber) with the words "Needs attention"."""
+    card = server_area.hub_card(snaps, server_updates.get_ignores(), media_backup.current_status(),
+                                get_runner(), get_runner_history())
+    out = {**st, "value": card["summary"], "secondary": card["secondary"]}
+    if card["state"] == "warn":
+        stale = st.get("age_text") if st["state"] == "stale" else None
+        out.update(state="stale", age_text="Needs attention" + (f" · {stale}" if stale else ""))
+    return out
+
+
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
@@ -902,6 +937,8 @@ def hub_page(request: Request):
                 "per_day": None}
         if summary.snapshot == GCAL_SNAPSHOT_ID and upcoming:  # keyed by connector id, never area name
             card["per_day"] = upcoming["per_day"]
+        if a.layout == server_area.SERVER_LAYOUT and card["st"]["state"] != "off":
+            card["st"] = server_card_state(card["st"], snaps)  # WP-U2: the card's own words
         if a.layout == "shelves":  # hero content keyed by layout, never by area name
             link = next((st["href"] for t in a.tiles if owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
@@ -1331,11 +1368,17 @@ def media_year_countdown(request: Request, slug: str):
 def _server_response(request: Request, area, view: str, from_query: bool):
     """The `layout: server` page (WP-S1, 2026-10-06): bands built by hub/server.py."""
     snaps = get_snapshots()
+    sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
+                                  server_updates.get_ignores(), server_updates.last_requested(),
+                                  get_runner_history(), server_history.recent())
+    tasks = BackgroundTasks()
+    tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
+    tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = templates.TemplateResponse(request, "server.html", {
         "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
-        "status": build_status(snaps),
-        "sv": server_area.build_server(area, snaps, media_backup.current_status(), get_runner()),
-    })
+        "status": build_status(snaps), "sv": sv,
+        "flash": server_updates.flash_text(request.query_params),
+    }, background=tasks)
     return _maybe_set_cookie(resp, view, from_query)
 
 

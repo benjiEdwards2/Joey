@@ -125,6 +125,13 @@ never a stored value — the schemas reject it.
 connector feeds three tiles; that keying is what lets each tile slice its own
 entities instead of all three repeating the same summary.
 
+**Open-Meteo forecast (2026-10-06, weather upgrade).** The same single GET now also asks for `hourly` and
+7 `daily` days (`forecast_days=7`). `open_meteo` data gains optional `hourly` (≤ 24 rows from the current hour:
+`time`, `temp_c`, `rain_prob_pct`, `feels_c`) and `days` (≤ 7 rows: `date`, `min_c`, `max_c`, `rain_prob_pct`,
+`condition_text`, `sunrise`/`sunset` as local `HH:MM`, `uv_max`, `wind_max_kmh`); numbers may be null. `summary`,
+`secondary` and the today fields are unchanged. Snapshots written before this lack both arrays — `/weather` then
+renders today only.
+
 **Jellyfin media rows (2026-10-05/06).** Rows in `now_playing`, `up_next`, `recent` and the
 resume/history lists carry `jf_id` (the Jellyfin ItemId) and `data` carries `server_id` (from
 `/System/Info`); together they build the deep link `/web/#/details?id={jf_id}&serverId={server_id}`

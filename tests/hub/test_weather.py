@@ -6,6 +6,8 @@ today-only fields. The condition WORD always renders beside the glyph —
 colour/icon is never the only encoding.
 """
 import importlib
+import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -101,3 +103,81 @@ def test_glyph_mapping_first_match_wins():
     assert m.weather_glyph("clear sky") == "wx-sun"
     assert m.weather_glyph("overcast") == "wx-cloud"
     assert m.weather_glyph(None) == "wx-cloud"
+
+
+# ---- Weather upgrade (2026-10-06): hero extras, 24-hour SVG chart, 7-day strip ----
+
+SAMPLE_WX = json.loads(
+    (Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "open_meteo.json")
+    .read_text(encoding="utf-8")
+)["data"]
+
+
+def _weather_html(app_factory, data):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "open_meteo", age_minutes=5, data=data)
+    with build(snaps) as client:
+        r = client.get("/weather")
+        assert r.status_code == 200
+        return r.text
+
+
+def test_upgraded_hero_renders_feels_wind_uv_and_sun_times_as_text(app_factory):
+    html = _weather_html(app_factory, SAMPLE_WX)
+    assert "18.3 °C" in html and "light rain" in html          # word beside the glyph
+    assert "Feels like 16.4 °C" in html
+    assert "24.5 km/h" in html
+    assert "9.1" in html and "very high" in html               # UV number AND its word
+    assert "05:57 · 20:44" in html
+
+
+def test_24_hour_chart_is_inline_svg_with_text_values(app_factory):
+    html = _weather_html(app_factory, SAMPLE_WX)
+    assert '<svg class="wxchart"' in html and "<polyline" in html
+    assert "<script" not in html.split('<svg class="wxchart"')[1].split("</svg>")[0]
+    assert ">18.3°</text>" in html and ">55%</text>" in html    # labels on the chart itself
+    assert "08:00 · 18.3 °C" in html                            # per-point <title>
+    # the hour list carries all 24 values in words, so the chart is never the only encoding
+    hours = html.split('class="wxhours"')[1].split("</ol>")[0]
+    assert hours.count("<li>") == 24
+    assert "<b>08:00</b><span>18.3 °C</span><small>55% rain</small>" in hours
+    assert "<b>07:00</b>" in hours
+
+
+def test_7_day_strip_has_glyph_word_range_and_rain(app_factory):
+    html = _weather_html(app_factory, SAMPLE_WX)
+    week = html.split('class="wxdays"')[1].split("</ol>")[0]
+    assert week.count("<li>") == 7
+    assert "<b>Today</b>" in week and "<b>Fri 2</b>" in week   # 2026-01-02 is a Friday
+    assert "12.7–24.1 °C" in week and "55% rain" in week
+    assert "partly cloudy" in week and "clear" in week
+    assert week.count('<span class="glyph">') == 7
+
+
+def test_old_envelope_without_new_fields_renders_without_the_new_panels(app_factory):
+    html = _weather_html(app_factory, WX_DATA)                  # pre-upgrade shape
+    assert "9.7" in html and "partly cloudy" in html and "20%" in html
+    assert '<svg class="wxchart"' not in html and 'class="wxdays"' not in html
+    assert "Feels like" not in html and "km/h" not in html
+    assert "after the next weather refresh" in html
+
+
+def test_malformed_forecast_rows_never_crash(app_factory):
+    data = {**WX_DATA, "hourly": [None, {"time": "2026-01-01T08:00"}, "x"],
+            "days": [{"date": "not-a-date"}, 7]}
+    html = _weather_html(app_factory, data)
+    assert "9.7" in html
+    assert '<svg class="wxchart"' not in html                   # no temperatures => no chart
+    assert "<b>Today</b>" in html and "unknown" in html
+
+
+def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
+    with build(snaps) as client:
+        html = client.get("/").text
+        assert 'class="cardlink wx" href="/weather"' in html
+        assert "18.3 °C · light rain" in html and "12.7–24.1 °C · 55% rain" in html
+        assert '<svg class="wxchart"' not in html and 'class="wxdays"' not in html

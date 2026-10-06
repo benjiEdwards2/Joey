@@ -63,9 +63,65 @@ class OpenMeteo(Connector):
         9: "thunderstorms",
     }
 
+    # Weather upgrade (2026-10-06): one GET now also carries the next hours and
+    # 7 days. The first three daily fields keep their order — day 0 still
+    # composes summary/secondary exactly as before.
+    HOURLY = "temperature_2m,precipitation_probability,apparent_temperature"
+    DAILY = (
+        "temperature_2m_min,temperature_2m_max,precipitation_probability_max,"
+        "weather_code,sunrise,sunset,uv_index_max,wind_speed_10m_max"
+    )
+    HOURS = 24
+
     @classmethod
     def condition(cls, code: int) -> str:
         return cls.CONDITIONS.get(code) or cls.CONDITION_GROUPS.get(code // 10, "unknown")
+
+    @staticmethod
+    def _num(values, i, cast=float):
+        """values[i] cast, or None — Open-Meteo pads missing hours/days with null."""
+        try:
+            v = values[i]
+        except (IndexError, TypeError):
+            return None
+        return None if v is None else cast(v)
+
+    def _hourly(self, raw: dict) -> list[dict]:
+        """The next HOURS hours from the current hour (local ISO times sort as text)."""
+        hourly = raw.get("hourly") or {}
+        times = hourly.get("time") or []
+        start = str(raw["current"]["time"])[:13]  # "YYYY-MM-DDTHH" — floor to the hour
+        first = next((i for i, t in enumerate(times) if t[:13] >= start), len(times))
+        return [
+            {
+                "time": times[i],
+                "temp_c": self._num(hourly.get("temperature_2m"), i),
+                "rain_prob_pct": self._num(hourly.get("precipitation_probability"), i, int),
+                "feels_c": self._num(hourly.get("apparent_temperature"), i),
+            }
+            for i in range(first, min(first + self.HOURS, len(times)))
+        ]
+
+    def _days(self, daily: dict) -> list[dict]:
+        def clock(values, i):  # "2026-01-01T05:57" -> "05:57"
+            v = self._num(values, i, str)
+            return v[11:16] if v else None
+
+        days = []
+        for i, day in enumerate((daily.get("time") or [])[:7]):
+            code = self._num(daily.get("weather_code"), i, int)
+            days.append({
+                "date": day,
+                "min_c": self._num(daily.get("temperature_2m_min"), i),
+                "max_c": self._num(daily.get("temperature_2m_max"), i),
+                "rain_prob_pct": self._num(daily.get("precipitation_probability_max"), i, int),
+                "condition_text": "unknown" if code is None else self.condition(code),
+                "sunrise": clock(daily.get("sunrise"), i),
+                "sunset": clock(daily.get("sunset"), i),
+                "uv_max": self._num(daily.get("uv_index_max"), i),
+                "wind_max_kmh": self._num(daily.get("wind_speed_10m_max"), i),
+            })
+        return days
 
     def fetch(self) -> dict:
         import requests
@@ -76,9 +132,10 @@ class OpenMeteo(Connector):
                 "latitude": os.environ["WEATHER_LAT"],
                 "longitude": os.environ["WEATHER_LON"],
                 "current": "temperature_2m,weather_code",
-                "daily": "temperature_2m_min,temperature_2m_max,precipitation_probability_max",
+                "hourly": self.HOURLY,
+                "daily": self.DAILY,
                 "timezone": os.environ.get("TZ", "auto"),
-                "forecast_days": 1,
+                "forecast_days": 7,
             },
             timeout=10,
         )
@@ -101,6 +158,8 @@ class OpenMeteo(Connector):
             "today_min_c": low,
             "today_max_c": high,
             "rain_prob_pct": rain,
+            "hourly": self._hourly(raw),
+            "days": self._days(daily),
         }
 
 

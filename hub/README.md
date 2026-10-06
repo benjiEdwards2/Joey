@@ -11,7 +11,8 @@ redefine tokens only, no literal colour outside the token blocks (a test enforce
 `--accent` is injected by templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
 row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
 card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
-table + Weather band; `/weather` is one card. Greeting clock: `_now_home()` (Australia/Melbourne).
+table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart + hour list,
+`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Greeting clock: `_now_home()` (Australia/Melbourne).
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame

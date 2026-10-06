@@ -2,60 +2,66 @@
 {% block title %}Diary — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
+{% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
-{# Watch diary (2026-10-05): Jellyfin history synced in + watches logged by hand.
-   Source and kind are words on every row — colour is never the only encoding. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">Diary</div>
-  <div class="sub libline">{{ stats_text }}</div>
-  {% if milestones %}<div class="sub">Milestones: {{ milestones | join(" · ") }}</div>{% endif %}
-  {% if src.st.state == "off" %}<div class="sub appnote">Jellyfin not connected — only watches you log appear here.</div>{% endif %}
+{# Watch diary (2026-10-05; restyle Phase 3): Jellyfin history synced in + watches logged by hand. Source and kind
+   are words in every row's meta line — colour is never the only encoding. #}
+<p class="metaline">{{ stats_text }}</p>
+{% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
+{% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}
 
-  <details class="logwatch">
-    <summary class="launch">Log a watch</summary>
-    <form class="logform" method="post" action="/media/log" hx-post="/media/log" hx-target="#diary-new" hx-swap="afterbegin"
-          hx-on::after-request="if (event.detail.successful) { this.reset(); document.getElementById('search-results').innerHTML = ''; }">
-      <input type="search" name="q" placeholder="Search for a title" autocomplete="off"
-             hx-get="/media/search" hx-trigger="keyup changed delay:400ms" hx-target="#search-results">
-      <div id="search-results"></div>
-      <label>Date <input type="date" name="watched_on" value="{{ today }}" max="{{ today }}"></label>
-      <label>Where <input type="text" name="place" list="places" placeholder="Cinema, Netflix, Friend's…" maxlength="60"></label>
-      <datalist id="places"><option value="Cinema"><option value="Netflix"><option value="Friend's"><option value="Other"></datalist>
-      <label>Note <input type="text" name="note" maxlength="500"></label>
-      <button type="submit" class="launch">Add to diary</button>
-    </form>
-  </details>
-
-  <nav class="filters" aria-label="Filter diary">
+<div class="toolbar">
+  <nav class="chips" aria-label="Filter diary">
     {% for label, k in (("All", ""), ("Films", "movie"), ("TV", "tv")) %}
     <a class="chip{{ ' on' if kind == k }}" href="/media/diary{{ '?kind=' ~ k if k }}"{% if kind == k %} aria-current="true"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
+</div>
+<details class="logwatch">
+  <summary class="btn btn-secondary">{{ icon("plus") }}Log a watch</summary>
+  <form class="logform" method="post" action="/media/log" hx-post="/media/log" hx-target="#diary-new" hx-swap="afterbegin"
+        hx-on::after-request="if (event.detail.successful) { this.reset(); document.getElementById('search-results').innerHTML = ''; }">
+    <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" placeholder="Search for a title" autocomplete="off" aria-label="Search for a title"
+           hx-get="/media/search" hx-trigger="keyup changed delay:400ms" hx-target="#search-results"></div>
+    <div id="search-results" class="listbox"></div>
+    <label><span class="label">Date</span><input class="input" type="date" name="watched_on" value="{{ today }}" max="{{ today }}"></label>
+    <label><span class="label">Where</span><input class="input" type="text" name="place" list="places" placeholder="Cinema, Netflix, Friend's…" maxlength="60"></label>
+    <datalist id="places"><option value="Cinema"><option value="Netflix"><option value="Friend's"><option value="Other"></datalist>
+    <label><span class="label">Note</span><input class="input" type="text" name="note" maxlength="500"></label>
+    <div><button type="submit" class="btn btn-primary">Add to diary</button></div>
+  </form>
+</details>
 
-  {% if on_this_day %}
-  <div class="upday">On this day</div>
+{% if on_this_day %}
+<section class="sec">
+  <div class="seclabel">On this day</div>
+  <div class="listbox">
   {% for d in on_this_day %}
   {% set dh = row_href(none, d.item_key, "movie" if d.kind == "movie" else "tv") %}
-  <{{ "a" if dh else "div" }} class="uprow hasposter{{ ' reqrow' if dh }}"{% if dh %} href="{{ dh }}"{% endif %}>
-    {{ poster(d.poster, d.title, 120, "sm" ~ rate.pcls(d.item_key, ratings)) }}
-    <span class="uptitle">{{ d.title }}{% if d.sub %} <span class="dim">· {{ d.sub }}</span>{% endif %}</span>
-    <span class="chip">{{ d.kind }}</span>
-    {{ rate.chip(d.item_key, ratings) }}
-    <span class="uptime nextleft">{{ d.years_ago }} year{{ "" if d.years_ago == 1 else "s" }} ago</span>
+  <{{ "a" if dh else "div" }} class="row"{% if dh %} href="{{ dh }}"{% endif %}>
+    {{ poster(d.poster, d.title, 120, "row-poster" ~ rate.keyglow(d.item_key, ratings)) }}
+    <div class="row-body"><div class="row-title">{{ d.title }}</div>{{ meta([d.sub, d.kind, d.years_ago ~ " year" ~ ("" if d.years_ago == 1 else "s") ~ " ago"]) }}</div>
+    {{ rate.score_key(d.item_key, ratings) }}
   </{{ "a" if dh else "div" }}>
   {% endfor %}
-  {% endif %}
+  </div>
+</section>
+{% endif %}
 
-  <div id="diary-new"></div>
-  {% for g in months %}
-  <div class="upday">{{ g.label }}</div>
+<div id="diary-new" class="listbox"></div>
+{% for g in months %}
+<section class="sec">
+  <div class="seclabel">{{ g.label }}</div>
+  <div class="listbox">
   {% for row in g.rows %}
   {% with score = score_for(row, ratings) %}{% include "_diary_row.html" %}{% endwith %}
   {% endfor %}
-  {% else %}
-  <div class="value dim">Nothing in the diary yet</div>
-  {% endfor %}
-  {% if older %}<a class="older" href="{{ older }}">Older</a>{% endif %}
-  {% include "_detail_foot.html" %}
+  </div>
 </section>
+{% else %}
+<p class="empty">Nothing in the diary yet.</p>
+{% endfor %}
+{% if older %}<div><a class="btn btn-secondary" href="{{ older }}">Older</a></div>{% endif %}
+{% include "_detail_foot.html" %}
 {% endblock %}

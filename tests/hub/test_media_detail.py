@@ -69,12 +69,12 @@ def test_apps_page_lists_every_app_with_words_and_links(app_factory):
     assert resp.status_code == 200
     assert "<title>Media apps" in resp.text
     body = main_of(resp.text)
-    assert 'class="head">Media apps<' in body
-    assert body.count('<span class="appstate">') == 2
-    assert '<span class="appstate">Up</span>' in body and '<span class="appstate">Down</span>' in body
+    assert 'aria-current="page">Health' in body                 # restyle Phase 3: the tab names the page
+    assert body.count('<span class="st-good">') + body.count('<span class="st-warn">') == 2
+    assert '<span class="st-good">Up</span>' in body and '<span class="st-warn">Down</span>' in body
     assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body
-    assert "timeout" in body and "updated 1m ago" in body
-    assert "--accent: #3FD9C0" in body
+    assert "timeout" in body and "Updated 1m ago" in body
+    assert "--accent" not in body                                   # restyle Phase 3: Media drops the area accent
 
 
 def test_playing_page_sections_render_in_main(app_factory):
@@ -87,13 +87,14 @@ def test_playing_page_sections_render_in_main(app_factory):
     title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
     assert title.startswith("Now playing") and "<" not in title
     body = main_of(resp.text)
-    assert "Harbour Lights · Sample Person · Transcoding · 42%" in body
+    assert '<div class="row-title">Harbour Lights</div>' in body
+    assert 'Sample Person<span class="sep"> · </span>Transcoding<span class="sep"> · </span>42%' in body
     assert "width: 42%" in body
     assert f'href="{JELLY_HREF}"' in body                      # resolved like find_media
     assert ">Up next</div>" in body and "Dust and Daylight" in body and "Next episode" in body
     assert ">Latest additions</div>" in body
     assert body.index("Desert Crossing") > body.index(">Latest additions</div>")
-    assert "3 days ago" in body and ">Movie</span>" in body
+    assert "3 days ago" in body and ">Movie<" in body
     assert "Library: 42 movies · 237 episodes" in body
 
 
@@ -164,6 +165,6 @@ def test_playing_page_has_posters_and_a_backdrop_behind_now_playing(app_factory)
         body = main_of(client.get("/media/playing").text)
     assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
     assert 'src="/img/jf:def456?h=120' in body
-    assert "hasbackdrop" in body and "--bd: url(" in body and "/img/jfb%3Aabc123?h=1280" in body
+    assert 'class="pagehead-bd"' in body and "--bd: url(" in body and "/img/jfb%3Aabc123?h=1280" in body
     assert 'src="/img/none?h=120&amp;t=Desert%20Crossing' in body  # null ref -> fallback card
     assert "jfb:def456" not in body.split(">Up next</div>", 1)[1]  # backdrop only behind now playing

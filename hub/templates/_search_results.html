@@ -1,12 +1,12 @@
-{# Title-search results for the Log a watch form (2026-10-05); each pick is one JSON blob
-   the /media/log route re-validates. #}
+{# Title-search results for the Log a watch form (2026-10-05; restyle Phase 3 row recipe); each pick is one JSON
+   blob the /media/log route re-validates. #}
 {% from "_poster.html" import poster %}
-{% if note %}<div class="sub appnote">{{ note }}</div>{% endif %}
+{% from "_rows.html" import meta %}
+{% if note %}<p class="metaline">{{ note }}</p>{% endif %}
 {% for r in rows %}
-<label class="uprow hasposter pickrow">
+<label class="row pickrow">
   <input type="radio" name="pick" value='{{ r|tojson }}' required>
-  {{ poster(r.poster, r.title, 120, "sm") }}
-  <span class="uptitle">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</span>
-  <span class="chip">{{ "Film" if r.kind == "movie" else "TV" }}</span>
+  {{ poster(r.poster, r.title, 120, "row-poster") }}
+  <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta(["Film" if r.kind == "movie" else "TV"]) }}</div>
 </label>
 {% endfor %}

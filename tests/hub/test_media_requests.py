@@ -34,7 +34,8 @@ def app_factory(tmp_path, monkeypatch):
 
 
 def main_of(html: str) -> str:
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def test_requests_page_lists_rows_with_words_and_links_in_main(app_factory):
@@ -50,8 +51,9 @@ def test_requests_page_lists_rows_with_words_and_links_in_main(app_factory):
     assert "1 pending · 2 approved · 1 available · 1 declined" in body
     order = [body.index(w) for w in (">Pending</span>", ">Approved</span>", ">Available</span>", ">Declined</span>")]
     assert order == sorted(order)
-    assert "Midnight Harbour (2025) · Movie · Sample Person" in body
-    assert "Night Ferry (2023) · TV · Sample Partner" in body
+    # Restyle Phase 3 row recipe: the title, then status · kind · requester · when ("Film", guide §9).
+    assert ">Midnight Harbour (2025)</div>" in body and ">Pending</span> · Film · Sample Person" in body
+    assert ">Night Ferry (2023)</div>" in body and "</span> · TV · Sample Partner" in body
     assert "1 hour ago" in body and "yesterday" in body
     assert 'href="http://nas.local:5055/movie/1001" target="_blank" rel="noopener"' in body
     assert 'href="http://nas.local:5055/tv/2002"' in body
@@ -66,7 +68,7 @@ def test_a_row_without_a_year_has_no_empty_brackets(app_factory):
     write_envelope(snaps, "jellyseerr", age_minutes=1, data=data)
     with build(snaps) as client:
         body = main_of(client.get("/media/requests").text)
-    assert "TMDB #1001 · Movie" in body and "()" not in body
+    assert ">TMDB #1001</div>" in body and "</span> · Film ·" in body and "()" not in body
 
 
 def test_quiet_state_when_nothing_is_requested(app_factory):
@@ -108,6 +110,6 @@ def test_request_rows_carry_tmdb_posters_and_null_falls_back(app_factory):
     write_envelope(snaps, "jellyseerr", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
         body = main_of(client.get("/media/requests").text)
-    assert '<img class="poster sm' in body
+    assert '<img class="poster row-poster' in body
     assert 'src="/img/tmdb:/fixture1001.jpg?h=120&amp;t=Midnight%20Harbour' in body
     assert 'src="/img/none?h=120&amp;t=Harbour%20Watch' in body  # lookup had no posterPath

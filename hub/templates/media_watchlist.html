@@ -2,46 +2,41 @@
 {% block title %}Watchlist — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
-{# Watchlist (F6): posters with the title + year beneath, a server-status WORD, and × beside the year.
-   The whole card is the link (2026-10-06): a.rowlink overlay; the × form and Request sit above it. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">Watchlist</div>
-  {% if failed %}
-    <div class="value dim">Watchlist unavailable</div>
-  {% else %}
-    <div class="sub libline">{{ head_line }}</div>
-    {% if left %}<div class="sub">{{ left }} watched title{{ "s" if left != 1 }} left the list</div>{% endif %}
-    {% if rows %}
-    <form class="libctl" method="get">
-      <select name="sort" aria-label="Sort by">
-        {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      <button type="submit" class="launch">Apply</button>
+{% from "_icons.html" import icon %}
+{# Watchlist (F6; restyle Phase 3): poster cards with the title, the x beside it (never over the picture, guide 6),
+   then year · status WORD. The whole card is the link (2026-10-06): a.rowlink stretched over the .card-cell;
+   the x form and Request sit above it. #}
+{% if failed %}
+<p class="empty">Watchlist unavailable.</p>
+{% else %}
+<p class="metaline">{{ head_line }}</p>
+{% if left %}<p class="metaline">{{ left }} watched title{{ "s" if left != 1 }} left the list</p>{% endif %}
+{% if rows %}
+<form class="toolbar" method="get">
+  <select class="select" name="sort" aria-label="Sort by">
+    {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn btn-secondary">Apply</button>
+</form>
+<div class="poster-grid">
+  {% for r in rows %}
+  <div class="card-cell">
+    {% if r.href %}<a class="rowlink" href="{{ r.href }}">{% endif %}
+    <span class="card-pic">{{ poster(r.poster, r.title, 300) }}</span>
+    <span class="row-title">{{ r.title }}</span>
+    {% if r.href %}</a>{% endif %}
+    <form method="post" action="/media/watchlist/remove">
+      <input type="hidden" name="item_key" value="{{ r.item_key }}">
+      <input type="hidden" name="tmdb_id" value="{{ r.tmdb_id }}"><input type="hidden" name="kind" value="{{ r.kind }}">
+      <input type="hidden" name="title" value="{{ r.title }}">
+      <button type="submit" class="btn-mini" title="Remove from watchlist" aria-label="Remove {{ r.title }} from watchlist">{{ icon("x") }}</button>
     </form>
-    <div class="poster-grid wlgrid">
-      {% for r in rows %}
-      <div class="wlcell">
-        {% if r.href %}<a class="rowlink" href="{{ r.href }}">{% endif %}
-        {{ poster(r.poster, r.title, 300) }}
-        <span class="pgtitle">{{ r.title }}</span>
-        {% if r.href %}</a>{% endif %}
-        <div class="wltitle">
-          <span class="pgsub">{{ r.year or "" }}</span>
-          <form method="post" action="/media/watchlist/remove">
-            <input type="hidden" name="item_key" value="{{ r.item_key }}">
-            <input type="hidden" name="tmdb_id" value="{{ r.tmdb_id }}"><input type="hidden" name="kind" value="{{ r.kind }}">
-            <input type="hidden" name="title" value="{{ r.title }}">
-            <button type="submit" class="wlx" title="Remove from watchlist" aria-label="Remove {{ r.title }} from watchlist">×</button>
-          </form>
-        </div>
-        <span class="chip st-{{ r.status_word|lower|replace(' ', '-') }}">{{ r.status_word }}</span>
-        {% if r.status_word == "Not on server" %}<a class="older" href="{{ r.href }}">Request</a>{% endif %}
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="value dim">Nothing on your watchlist yet — add from Discover or a title page</div>
-    {% endif %}
-  {% endif %}
-</section>
+    <span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="st-{{ r.status_word|lower|replace(' ', '-') }}">{{ r.status_word }}</span>{% if r.status_word == "Not on server" %}<span class="sep"> · </span><a href="{{ r.href }}">Request</a>{% endif %}</span>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">Nothing on the watchlist.</p>
+{% endif %}
+{% endif %}
 {% endblock %}

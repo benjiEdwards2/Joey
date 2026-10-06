@@ -2,26 +2,25 @@
 {% block title %}By year — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
-{# Year rankings (2026-10-05): a tile per rating year, newest first. The #1 is named in
-   words and counts are numbers — colour is never the only encoding. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">By year{% if kind == "movie" %} — films{% elif kind == "tv" %} — TV{% endif %}</div>
+{# Year rankings (2026-10-05; restyle Phase 3 poster cards): a card per rating year, newest first. The #1 is named
+   in words and counts are numbers; "to place" is amber (something to do). #}
+<section class="sec">
+  <div class="seclabel">By year{% if kind == "movie" %} · films{% elif kind == "tv" %} · TV{% endif %}</div>
   {% if years %}
-  <div class="poster-grid yeargrid">
+  <div class="poster-grid">
     {% for y in years %}
-    <a class="yeartile" href="/media/years/{{ y.year or 'unknown' }}{{ '?kind=' ~ kind if kind }}">
-      {{ poster(y.top.poster if y.top else none, y.top.title if y.top else "", 400) }}
-      <div class="yearnum">{{ y.year or "Unknown year" }}</div>
-      <div class="pgtitle">{% if y.top %}#1 — {{ y.top.title }}{% else %}Nothing ranked yet{% endif %}</div>
-      <div class="pgsub">{{ y.ranked_count }} ranked</div>
-      {% if y.unranked_count %}<div class="pgsub toplace">{{ y.unranked_count }} to place</div>{% endif %}
+    <a class="card-poster" href="/media/years/{{ y.year or 'unknown' }}{{ '?kind=' ~ kind if kind }}">
+      <span class="card-pic">{{ poster(y.top.poster if y.top else none, y.top.title if y.top else "", 400) }}</span>
+      <div class="stat-number">{{ y.year or "Unknown year" }}</div>
+      <span class="row-title">{% if y.top %}#1 — {{ y.top.title }}{% else %}Nothing ranked yet{% endif %}</span>
+      <span class="row-meta">{{ y.ranked_count }} ranked{% if y.unranked_count %}<span class="sep"> · </span><span class="st-warn">{{ y.unranked_count }} to place</span>{% endif %}</span>
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="value dim">Rate something first — rankings are built from your ratings</div>
-  <a class="launch" href="/media/history">Go to Watched</a>
+  <p class="empty">Rate something first — rankings are built from your ratings.</p>
+  <div><a class="btn btn-secondary" href="/media/history">Go to Watched</a></div>
   {% endif %}
-  {% include "_detail_foot.html" %}
 </section>
+{% include "_detail_foot.html" %}
 {% endblock %}

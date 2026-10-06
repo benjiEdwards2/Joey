@@ -17,23 +17,64 @@ title, and one sub-line of facts joined by " · ". Section tabs `.sectabs` (Medi
 pills that scroll sideways on a phone, underlined from 768 px, amber `.waitcount` pills. Single dark theme: no theme
 toggle, one `theme-color` meta (`#09090b`), Geist self-hosted (no Google Fonts link). All shell CSS is in the "Shell"
 section of `static/control-surface.css`; every colour is a token on the one `:root` block and no literal colour appears
-outside it (a test enforces it); per-area `--accent` is still injected by some content templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
-row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
-card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
-table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart + hour list,
-`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Rain radar panel
-(2026-10-06, `weather_radar()`): stored BOM PNGs stacked as `<img>` layers, 6 frame slots cycled by CSS keyframes
-(no JS; reduced motion = latest frame), time-range text + worded intensity legend; its own column beside the rest
-at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapshot has no `radar`. Files served by
-`GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting clock: `_now_home()` (Australia/Melbourne).
+outside it (a test enforces it). Page content is described under "Styling" below. `/weather` = Today stats strip + Next 24 hours
+(inline-SVG chart + hour rows, `weather_forecast()`) + Rain radar + Next 7 days rows, the chart/hours/days absent for a
+pre-2026-10-06 snapshot. Rain radar panel (2026-10-06, `weather_radar()`): stored BOM PNGs stacked as `<img>` layers,
+6 frame slots cycled by CSS keyframes (no JS; reduced motion = latest frame), time-range text + worded intensity legend;
+a column beside the forecast from 1100 px, below it on narrower screens; "Radar unavailable" note when the snapshot has no
+`radar`. Files served by `GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting
+clock: `_now_home()` (Australia/Melbourne).
 
-**Style: MediaHub guide, adopted 2026-10-06 — see `docs/style-guide.md`.** Single dark theme (one `:root` token
-block, `color-scheme: dark`; the Apex light/dark token blocks are retired, and Phase 2 removed the theme toggle); older token names are remapped to the guide's zinc/indigo palette; Geist + Geist Mono are
-self-hosted in `static/fonts/`; the guide's recipe classes (`.btn*`, `.chip`, `.input`, `.row*`, `.stats`, `.badge-*`,
-`.score-*`, `.toast*`, ...) live in `control-surface.css`. Phase 1 of 4 (foundation); Phase 2 (shell, above) is done; Phase 3 (Media, below) is done; Phase 4 rebuilds the other pages on them.
+## Styling (MediaHub guide, complete 2026-10-06)
+
+Spec: `docs/style-guide.md` (Jack's MediaHub guide, adopted for all of Joey). History in one sentence: the Apex look
+(2026-10-06 morning) was replaced the same day by the guide in four phases: 1 tokens + recipes, 2 shell, 3 Media, 4 Hub /
+area / Server / Weather + copy pass. Everything lives in `static/control-surface.css`; plain CSS, no Tailwind.
+
+**Rules.** One dark theme (no toggle, no light mode, `color-scheme: dark`). Every colour is a token on the single `:root`
+block; no literal colour anywhere else (tests enforce it). Colour is for meaning only: emerald good/done, amber "something
+to do" (stale, to rate, attention; never a permanent state), red down/danger, indigo the one primary action and active
+tabs, sky info/links, teal upcoming, gold a perfect 10. The per-area `--accent` is gone (the field stays in `areas.yaml`
+as inert config; nothing injects it). The weather radar ramp (`--rad-*`) and the Dolby/format pills are data colours.
+Facts are joined with `<span class="sep"> · </span>` (`_rows.html` `meta()`); a missing value is "—"; lengths are "2h 47m"
+(`media_library.runtime_text`); buttons and labels are sentence case (uppercase only via `.seclabel`); British/Australian
+spelling; every icon-only control has an `aria-label`.
+
+**Tokens.** `--bg/--fg`, zinc text steps `--text-1…6`, white-alpha surfaces and lines (`--surface`, `--line`,
+`--line-soft/-hover/-focus`, `--hover`, `--soft`), `--primary/--primary-hover`, state tokens (`--good`, `--amber`, `--bad`,
+`--orange`, `--fuchsia`, `--teal`, `--sky`, `--gold`), row tints/bars (`--watch-*`, `--new-*`, `--done-*`, `--down-*`),
+score grades `--score-1…9`, `--rad-*`, `--appicon-bg` (the white tile behind a service logo).
+
+**Recipes** (one line each): `.btn` + `.btn-primary/-secondary/-ghost/-danger/-glass/-white/-icon`, `.btn-sm` buttons;
+`.chip` (`.on`) filter chips; `.input/.textarea/.select/.label` form controls; `.seclabel` (uppercase section label) and
+`.microlabel` (tiny label over a value); `.sec` + `.sechead` a titled group with an "All" link, `.metaline` one line of
+facts; `.listbox` + `.row` (`.row-poster/.row-body/.row-title/.row-meta/.row-side/.row-score/.row-rank`, states
+`.is-watching/.is-new/.is-complete/.is-down`, `.has-form` for a row holding a form) the list; `.bar` hairline progress;
+`.stats` + `.stat` (`.stat-number/.stat-word`, `.stat.wide`) the numbers strip; `.badge` (+ `.badge-watching/-new/-complete/
+-wait`) outline pills; `.st-*` status words (`.st-up/.st-down/.st-off` muted grey/.st-warn/.st-good/media words);
+`.score-1…9/.score-none`; `.waitcount`; `.panel` (+ `.panel-warn` amber, `.kv` label/value lines); `.empty` one-sentence
+empty state; `.confirm*` inline confirmation; `.toolbar/.search/.chips`; `.poster-grid`, `.carousel`, `.card-poster`,
+`.card-cell`, `.card-pic`, `.poster-score/.poster-tag`; `.pagehead*` header band, `.sectabs`, `.topbar`, `.tabbar`;
+`.fold` (a `<details>` with a `.seclabel` summary); `.cols` side-by-side groups.
+
+**The shell** is `base.html` (top bar from 768 px, phone tab bar, `main.page`) + `_pagehead.html` (see above).
+
+**Where each page's components come from.** *Hub* (`hub.html`): `_kpi.html` summary tiles (`.panel.tile`: `.microlabel`
+area name, `.stat-number/.stat-word` value, one `.row-meta` line, icon at the right; stale = `.badge-wait`, not connected
+= muted `.st-off` word; a `.bar` or a per-day spark only from real data); `_upcoming_table.html` "Next 7 days"
+(`.row.upc`: grid with uppercase column heads from 640 px, stacked on a phone); `_weather_glimpse.html` (a `.stats` strip,
+glyph + condition word); `_shelf.html` Continue watching on Media's `.carousel` of `.card-poster`s. *Area pages*
+(`area.html`, also hidden areas): tiles, the Calendar upcoming rows + weather glimpse, and for areas reading the
+jellyfin/media_status snapshots Media-style sections (`.row`s, `.row-score`, `.gold-glow-sm`). *Server* (`server.html`,
+`server_update.html`): System = `.stats` strip (volumes carry a `.bar`), Last 24 h = `.spark-band` panel (`.spark-*`,
+stroke `--primary`), Services = `.sec` groups of `.row` links with `.st-up/.st-down` words, `.row.is-down` and the 20 px
+`.appicon` slot, Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
+Ignored `.fold`, pending `.badge-wait`, Attention an amber `.panel-warn`), Counts = three `.panel.kv`s. *Weather*
+(`weather.html`): Today `.stats` strip, 24-hour chart `.panel` (+ a `.fold` of hour `.row`s), radar `.panel`, 7 days as
+`.row`s (glyph, day, condition word, range in `.row-side`). *Media*: below.
 
 **Media (MediaHub guide, Phase 3 of 4, 2026-10-06).** Every Media page is built from the recipes only (the Media block
-at the end of `control-surface.css` holds documented modifiers, tokens only; Media no longer injects `--accent`). Lists
+at the end of `control-surface.css` holds documented modifiers, tokens only). Lists
 are the guide's row recipe with no box round them: `.listbox` of `.row` (an `<a>` when it resolves; `.row.has-form` +
 `a.rowlink` overlay when it holds the 1-10 picker or another form), poster `.row-poster`, `.row-body` with `.row-title`
 and one `.row-meta` line of facts joined by a dim `.sep` " · " (`_rows.html` `meta()`), the score big on the right
@@ -52,7 +93,7 @@ on big ones) and `.gold-text-glow` on the number. Toolbars are `.toolbar` (`.sea
 Removed: `.glassbtn`, `.hero*`, `.shelf*` (`.shelfhead/.shelftop/.shelf-row/.shelf-item/.shelf-cell`), `.waitchip`
 (now `.badge-wait`), `.libctl`, `.launch`, `.actbtn`, `.ratebox` (now `.ratepick`/`.rated`), `.podium` (rebuilt),
 `.fbadge`, `.seasonrow`, `.eprow`, `.num*`, `.yeartile/.yearnum`, `.pgitem/.pgtitle/.pgsub`, `.wl*` grid, the old `.chip`
-and `.filters` rules; `.uplist/.uprow`, `.medialist`, `.poster.sm`, `.chip.score` stay for the non-Media pages (Phase 4).
+and `.filters` rules. Phase 4 then removed `.uplist/.uprow`, `.medialist`, `.poster.sm`, `.chip.score` too.
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Joey shell (the earlier "Return to Joey" frame was retired the same day)

@@ -67,7 +67,7 @@ def _tab_on(tab_href: str, path: str, kind: str | None) -> int:
 
 
 def nav_context(request, registry, waiting: dict | None, owner_view: str | None = None) -> dict:
-    """{sections, section, tabs, home_href, accent}; counts only when > 0."""
+    """{sections, section, tabs, home_href}; counts only when > 0."""
     path = request.url.path
     kind = _kind(request.url.query)
     area = shelves_area(registry)
@@ -90,5 +90,4 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
                       "/media/tv/watchlist": waiting.get("wl_tv", 0)}
         tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0}
                 for (label, h), sc in zip(section["tabs"], scores)]
-    return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href,
-            "accent": area.accent if area else None}
+    return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href}

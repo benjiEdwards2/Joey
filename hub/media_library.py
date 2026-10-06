@@ -25,10 +25,11 @@ def parse_ts(value) -> datetime | None:
 
 
 def runtime_text(minutes) -> str:
+    """Lengths as the guide writes them (section 9): 112 -> "1h 52m", 47 -> "47m", 120 -> "2h", missing -> "—"."""
     if not isinstance(minutes, (int, float)) or minutes <= 0:
-        return ""
+        return "—"
     h, m = divmod(int(minutes), 60)
-    return " ".join(x for x in (f"{h} h" if h else "", f"{m} m" if m else "") if x)
+    return " ".join(x for x in (f"{h}h" if h else "", f"{m}m" if m else "") if x)
 
 
 def _watched_text(played, last, ago) -> str:
@@ -53,7 +54,7 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
         rows.append({
             "kind": kind, "title": it.get("title") or "Untitled", "year": it.get("year"),
             "item_key": key, "poster": it.get("poster"), "href": href, "external": external,
-            "runtime_min": it.get("runtime_min"), "runtime": runtime_text(it.get("runtime_min")),
+            "runtime_min": it.get("runtime_min"), "runtime": runtime_text(it.get("runtime_min")) if it.get("runtime_min") else "",
             "played": played if marks else None, "last_played_at": last,
             "watched_text": _watched_text(played, last, ago) if marks and kind == "movie" else "",
             "added_at": it.get("added_at"),

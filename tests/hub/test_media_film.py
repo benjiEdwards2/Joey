@@ -185,7 +185,7 @@ def test_numbers_with_imdb_and_rt(env, monkeypatch):
         b = main_of(client.get("/media/title/movie/603").text)
     # Restyle Phase 3: the numbers are a stats strip (micro label over a big value).
     assert "7.8 / 10" in b and ">IMDb</div>" in b and ">7.9<" in b and ">Rotten Tomatoes</div>" in b and ">92 %<" in b
-    assert "1 h 52 m" in b and re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
+    assert "1h 52m" in b and re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
     assert 'score-9 gold-text-glow" title="Your rating: 10 out of 10">10<' in b   # gold at 10 (the number is there too)
 
 

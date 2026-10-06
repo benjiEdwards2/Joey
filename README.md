@@ -15,17 +15,20 @@ Cloudflare Tunnel + Access.
 | `docs/` | Contracts, runbook; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
 | `tests/` | Cumulative pytest suite — append-only, grows with every WP |
 
-**Shell (2026-10-06, Apex-style).** One admin-dashboard shell for every page: 260 px labelled rail (Home group: Hub ·
-Media · Weather; Areas group: the rest — order and grouping come from `config/areas.yaml`, `rail_section`), sticky top bar
-with a light/dark theme toggle and a chip for the signed-in Cloudflare Access user (`hub/identity.py`), Geist type, hairline cards. Areas with `hidden: true` are parked (no rail, tab or hub card). The hub is a KPI row (one card per
-area + Weather), a Next 7 days table, a Weather card and Continue watching shelves; area pages are a KPI row per tile.
+**Look (2026-10-06, MediaHub style guide).** One dark theme, no rail and no theme toggle: a top bar (section pills + the
+signed-in Cloudflare Access chip from `hub/identity.py`) with a phone tab bar below 768 px, a header band per page, Geist
+type, and every page built from the same few recipes (rows, stats strips, panels, poster cards) in
+`hub/static/control-surface.css`; spec in `docs/style-guide.md`, details in `hub/README.md` ("Styling"). Areas with
+`hidden: true` are parked (no pill, tab or hub tile; the page still serves). The hub is a row of summary tiles (one per
+area + Weather), Next 7 days, a weather glimpse and Continue watching posters; area pages are a row of tiles per registry
+tile.
 
 **Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·
 Diary · Server (incl. Downloads, live from qBittorrent) · Discover. See `hub/README.md`; feeds in
 `docs/connector-contract.md`, env in `docs/setup.md`.
 
-**Server** (2026-10-06, last in the Areas rail) replaces the NAS "Homepage" dashboard natively: `/server` (and `/a/server`)
-shows System (CPU, RAM, volumes, uptime), Services (grouped Up/Down), Updates (What's Up Docker), Attention and Counts.
+**Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively: `/server` (and `/a/server`)
+shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (grouped Up/Down), Updates (What's Up Docker), Attention and Counts.
 Feeds `media_status`, `system`, `uptime_kuma`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.
 
 Planning source of truth: `Desktop\Claude\LifeDashboard\{DECISIONS.md, MASTER_PLAN.md}` (not in this repo).

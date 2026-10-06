@@ -222,7 +222,7 @@ def test_movie_title_page(env):
         resp = client.get("/media/title/movie/603")
     body = main_of(resp.text)
     assert "The Matrix (1999)" in body and "Free your mind" in body and "A hacker learns." in body
-    assert "Action · Sci-Fi" in body and "2 h 16 m" in body and "7.8 / 10" in body
+    assert "Action · Sci-Fi" in body and "2h 16m" in body and "7.8 / 10" in body
     assert "Actor 7" in body and "Actor 8" not in body
     assert "--bd: url('/img/tmdb:/mb.jpg?h=1280')" in resp.text and "hero-detail-bd" in body
     assert f'href="{FAKE_URL}/movie/603"' in body and "Open in Jellyseerr" in body

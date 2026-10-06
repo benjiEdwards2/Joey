@@ -172,7 +172,7 @@ def test_nav_context_without_a_shelves_area():
     req = SimpleNamespace(url=SimpleNamespace(path="/media/tv", query=""))
     reg = SimpleNamespace(areas=[SimpleNamespace(layout="grid", id="x", accent="#000")])
     ctx = media_nav.nav_context(req, reg, {"to_rate": 0, "to_place": 3})
-    assert ctx["home_href"] == "/" and ctx["accent"] is None
+    assert ctx["home_href"] == "/" and "accent" not in ctx
     assert [s["count"] for s in ctx["sections"]] == [0, 3, 3, 0, 0, 0]
     assert [t["on"] for t in ctx["tabs"]] == [True, False, False, False]
 

@@ -1,9 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Not found · Joey{% endblock %}
 {% block content %}
-<div class="card notfound">
-  <div class="head">404</div>
-  <div class="value">{{ missing_text or ("No area called “" ~ missing_id ~ "”") }}</div>
-  <div class="sub">The areas that exist are in the tab bar above — rooms are config, not code.</div>
-</div>
+<section class="sec narrow">
+  <div class="sechead"><h1 class="seclabel">404</h1></div>
+  <p class="empty">{{ missing_text or ("No area called “" ~ missing_id ~ "”.") }}</p>
+</section>
 {% endblock %}

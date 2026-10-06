@@ -72,7 +72,7 @@ def test_movies_page_in_frame_with_head_groups_and_words(env):
     assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["My films"]
     assert "4 films · 2 watched · 2 to watch" in b
     assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")
-    assert "1 h 52 m" in b and "Watched 3 days ago" in b and "Not watched" in b and "45 m" in b
+    assert "1h 52m" in b and "Watched 3 days ago" in b and "Not watched" in b and "45m" in b
     assert "7.8" in b and "TMDB" in b and "Drama, Crime" in b
     assert 'class="poster row-poster' in b
 

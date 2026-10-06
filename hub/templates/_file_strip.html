@@ -1,11 +1,9 @@
 {% from "_icons.html" import icon %}
-{# File-quality strip (2026-10-06): what is on disk — generic icon + word per badge. Renders nothing without `files`.
-   Dolby/DTS audio (media_files.brand_badge) renders as a black pill with the label written out; the double-D glyph is extra. #}
-{% if files %}
+{# Quality pills (F10): what is on disk, as words. Dolby-STYLE pills (black, white capitals, double-D mark) are drawn
+   by us; if hub/static/badges/<id>.svg|png exists the image replaces the pill (the word stays as alt). Renders
+   nothing without `pills`. #}
+{% if pills %}
 <div class="filestrip">
-  {% if files.kind == "tv" %}<span class="fbadge">{{ icon("disk") }}<span>{{ files.episodes_on_disk }} episode{{ "s" if files.episodes_on_disk != 1 }} on disk</span></span>{% endif %}
-  {% for b in files.video %}<span class="fbadge">{{ icon(b.icon) }}<span>{{ b.word }}</span></span>{% endfor %}
-  {% for b in files.audio %}{% if b.brand %}<span class="fbadge brandbadge" title="{{ b.brand.label }}">{% if b.brand.glyph %}<svg class="dd" viewBox="0 0 18 12" aria-hidden="true"><path d="M0 0h2.5a6 6 0 0 1 0 12H0z"/><path d="M18 0h-2.5a6 6 0 0 0 0 12H18z"/></svg>{% endif %}<span>{{ b.brand.label }}</span></span>{% else %}<span class="fbadge">{{ icon(b.icon) }}<span>{{ b.word }}</span></span>{% endif %}{% endfor %}
-  {% if files.size_text %}<span class="fbadge">{{ icon("disk") }}<span>{{ files.size_text }}</span></span>{% endif %}
+  {% for p in pills %}{% if p.img %}<img class="pillimg" src="{{ p.img }}" alt="{{ p.label }}" height="22">{% else %}<span class="pill{{ ' ' ~ p.tone if p.tone != 'plain' }}">{% if p.glyph %}<svg class="dd" viewBox="0 0 18 12" aria-hidden="true"><path d="M0 0h2.5a6 6 0 0 1 0 12H0z"/><path d="M18 0h-2.5a6 6 0 0 0 0 12H18z"/></svg>{% elif p.tone == 'plain' and p.icon %}{{ icon(p.icon) }}{% endif %}<span>{{ p.label }}</span></span>{% endif %}{% endfor %}
 </div>
 {% endif %}

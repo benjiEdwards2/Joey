@@ -28,6 +28,17 @@ python -m hub.seed_demo
 set SNAPSHOT_DIR=data/demo-snapshots && python -m uvicorn hub.main:app --port 8800
 ```
 
+## Signed-in user (deploy/.env, on the NAS only)
+
+Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`
+header, and that person's view (you / her) is authoritative — the Both / You / Her switcher is gone.
+`OWNER_EMAIL_YOU` is B.'s own Access login address, set only in the NAS `.env` (the example file holds a placeholder);
+that address is "you", any other address Access admits is "her".
+`OWNER_NAME_YOU` (default Benji) and `OWNER_NAME_HER` (default Georgina) are the display names.
+The other person's email address is never recorded — not in `.env`, the repo, tests or docs.
+Without the header (local dev on port 8800, tests) the page shows "Not signed in" and the old
+`?owner_view=` query + cookie still pick the view; send the header with curl to preview the signed-in state.
+
 ## Media env (deploy/.env, on the NAS only)
 
 `JELLYFIN_URL` + `JELLYFIN_API_KEY` feed the connectors and the hub's `/img` proxy;

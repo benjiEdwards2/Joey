@@ -227,7 +227,7 @@ def test_title_page_button_states(discover_env):
                     headers={**HX, **FORM})
         on = main_of(client.get("/media/title/movie/603").text)
     assert "On your watchlist" in on and ">+ Watchlist<" not in on
-    assert on.index('id="request-block"') < on.index('id="wl-movie-603"')
+    assert on.index('id="wl-movie-603"') < on.index('id="request-block"')   # F10 button row: Watchlist, then Request
 
 
 def test_discover_plus_hidden_when_already_on_the_list(discover_env):

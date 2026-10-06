@@ -5,14 +5,18 @@ FastAPI + Jinja/HTMX dashboard shell. Areas are config, not code — see `config
 **Apex shell (2026-10-06).** `templates/base.html` is the one frame: 260 px labelled rail (brand = kangaroo photo
 `static/brand-joey.jpg`, the whole block links to `/`; Home group = Hub, any area with `rail_section: home`, Weather;
 Areas group = the rest, in `areas.yaml` order), sticky top bar (theme toggle → `data-theme` on `<html>`, saved in
-localStorage `joey-theme`, applied by a pre-paint script; You/Her switcher), page heading block, phone bottom bar.
+localStorage `joey-theme`, applied by a pre-paint script; user chip from `identity.py` — the Access header decides the owner view, `?owner_view=` only works locally), page heading block, phone bottom bar. Areas with `hidden: true` are parked: no rail entry, phone tab or hub card, page still serves.
 `static/control-surface.css` keeps its filename but is the Apex port: light values on `:root`, the two dark blocks
 redefine tokens only, no literal colour outside the token blocks (a test enforces it); `--brand` is the red, per-area
 `--accent` is injected by templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
 row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
 card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
 table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart + hour list,
-`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Greeting clock: `_now_home()` (Australia/Melbourne).
+`weather_forecast()`) + Next 7 days strip, the last two absent for a pre-2026-10-06 snapshot. Rain radar panel
+(2026-10-06, `weather_radar()`): stored BOM PNGs stacked as `<img>` layers, 6 frame slots cycled by CSS keyframes
+(no JS; reduced motion = latest frame), time-range text + worded intensity legend; its own column beside the rest
+at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapshot has no `radar`. Files served by
+`GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting clock: `_now_home()` (Australia/Melbourne).
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame
@@ -41,16 +45,21 @@ Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages
 `media_hero()` inside `_kpi.html`) with a sibling Jellyfin "Jump back in" deep link. A hx-boosted page that
 carries a new `joey-asset-v` meta forces a full reload so new CSS is never mixed with old pages.
 
-File-quality strip (2026-10-06, `media_files.py`): a Movie or TV title page that is Available / Partly
-available shows plain-word badges read live from Jellyfin: video (resolution, HDR, codec, container) and audio
-(format, channels, Atmos). Dolby and DTS audio formats render as a black badge with the name written out —
-Dolby ones carry a small double-D glyph (`brand_badge()` in `media_files.py`); the word is always present. It is cached for 10 minutes and
-simply absent when Jellyfin is unreachable or the title is not on disk.
-
-Title pages (2026-10-06): each season is a `<details>`; episodes load on first open from
-`GET /media/title/tv/{tmdb_id}/season/{n}` (Jellyseerr, cached 10 min, "Episodes unavailable right now" on failure)
-with an "On disk" word chip for episodes Jellyfin has. To-rate and diary rows wrap (`rateable`) so the 1–10 picker sits
-under the title.
+**Film page (F9 + F10, 2026-10-06).** `media_film.py` + `media_item.py` + `media_files.py` render ONE Cinema-layout page for
+every title, on the server or not: `/media/title/{kind}/{tmdb}` and `/media/item/{jf_id}` build the same page (live reads:
+`docs/connector-contract.md`, eighth exception; each section degrades to words when its source is down). Top to bottom: a
+status line in words ("On your server · 4K · HDR · watched 3 Oct · you rated 8", or "Not on your server · Requested ...");
+the backdrop hero; a numbers strip (your score or the picker, community, IMDb, Rotten Tomatoes, runtime with "ends HH:MM if you
+start now", rating); a button row — **Play ▶ (Resume / Play again / Next to watch) is the only Jellyfin hop**, plus Rate,
+Watchlist, Request, Trailer and Open in Jellyseerr (the hub hero's "Jump back in" stays a direct Jellyfin link). The file strip
+reads Jellyfin live (10 min cache, Available / Partly available only) as Dolby-style pills: black Dolby pills with a double-D
+glyph, DTS and HDR pills, plain pills for resolution, codec, container, channels and size; the word is always present.
+`hub/static/badges/<id>.svg|.png` overrides a pill with official artwork; no brand files are shipped (see its README). Below:
+poster + facts (languages, release dates, added, watched, requested), overview, cast portraits (initials when none), director /
+creators as search chips (no follow or lists), where to watch (AU, JustWatch links), then seasons — an episode map of squares
+for on-server shows, lazy `<details>` for off-server ones (`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection /
+Similar / Recommended shelves marked "On server". Every row with a Jellyfin id opens this page; an episode id shows an episode
+header over the show page.
 
 Rating level (2026-10-06): each owner chooses Show / Season / Episode with the chips on To rate
 (`POST /media/settings/rating_level`, stored per owner in `media.db` `setting`). The To rate inbox, the rate

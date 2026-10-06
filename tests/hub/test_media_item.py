@@ -1,4 +1,4 @@
-"""In-Joey item page (F9, 2026-10-06): /media/item/{jf_id} from a faked Jellyfin, the Play deep link,
+"""Item URL family of the film page (F9 -> F10): /media/item/{jf_id} from a faked Jellyfin, the Play deep link,
 the episode map, the failure fallback, nav section, and the link re-pointing of every row that
 carries a Jellyfin id. `requests.get` is faked; no network."""
 import html as htmllib
@@ -45,7 +45,7 @@ ITEMS = {
     "ser1": {"Id": "ser1", "Type": "Series", "Name": "Quiet Show", "ProductionYear": 2020, "Genres": ["Comedy"],
              "ProviderIds": {"Tmdb": "100"}, "Overview": "A quiet show.", "UserData": {"Played": False}},
 }
-SEASONS = [{"Id": "sea1", "Name": "Season 4"}]
+SEASONS = [{"Id": "sea1", "Name": "Season 4", "IndexNumber": 4}]
 EPISODES = [ep(1, "One", True), ep(2, "Two", True), ep(3, "Three", True), ep(4, "Four", pos=5 * TICKS),
             ep(5, "Five"), ep(6, "Six", premiere=TOMORROW)]
 
@@ -129,15 +129,15 @@ def test_movie_page(env):
     assert r.status_code == 200
     b = main_of(html)
     assert "Harbour Lights (2019)" in b and "A ferry pilot returns home." in b
-    assert "Drama" in b and "Thriller" in b and "1 h 52 m" in b and "Community rating 7.8" in b and ">M<" not in b and "M" in b
+    assert "Drama, Thriller" in b and "1 h 52 m" in b and "7.8 / 10" in b and ">M<" in b
     assert f'href="{deep("mov1")}" target="_blank" rel="noopener"' in b
     assert "Resume ▶ · 32 min left" in b                       # 112 - 80 minutes
-    assert b.index("Resume ▶") < b.index("Jellyseerr page →")  # Play first
-    assert 'href="/media/title/movie/603"' in b
+    assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate
     assert 'class="ratebox ratepick"' in b and 'value="tmdb:603"' in b
-    assert "In your diary: 12 Oct 2026" in b
+    assert "Watched 1 time · 12 Oct 2026" in b
     assert "filestrip" in b and "4K" in b and "HEVC" in b
-    assert "Cast: Ada Actor · Pilot" in b and "Dee Director" not in b
+    assert 'class="castname">Ada Actor</span><span class="sub">Pilot</span>' in b
+    assert 'href="/media/discover?q=Dee%20Director"' in b      # Jellyfin director, no Jellyseerr
     assert current(html, "Media sections") == ["Movies"]
 
 
@@ -160,10 +160,10 @@ def test_episode_page_and_map(env):
         html = r.text
     b = main_of(html)
     assert r.status_code == 200
-    assert 'href="/media/item/ser1">Quiet Show</a>' in b
-    assert "S04E03 · Penny for Your Thoughts · Aired 12 Oct 2026" in b
+    assert 'href="/media/item/ser1">Quiet Show</a>' in b          # the show, beneath the episode header
+    assert "S04E03 · Penny for Your Thoughts" in b and "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Play again ▶" in b and f'href="{deep("ep3")}"' in b
-    assert 'href="/media/title/tv/100"' in b                       # tmdb from the SERIES item
+    assert "Quiet Show (2020)" in b and "A quiet show." in b        # the SHOW's page content below
     assert "3 of 6 watched" in b
     squares = {n: cls for cls, n in re.findall(r'<a class="ep([^"]*)" href="/media/item/ep(\d)"', b)}
     assert "watched" in squares["1"] and "progress" in squares["4"] and "unaired" in squares["6"]
@@ -193,8 +193,9 @@ def test_series_page(env):
         r = client.get("/media/item/ser1")
         b = main_of(r.text)
     assert r.status_code == 200 and "Quiet Show (2020)" in b and "TV show" in b
-    assert "3 of 6 watched" in b and 'href="/media/title/tv/100"' in b and 'value="jf:ser1"' in b
-    assert f'href="{deep("ser1")}"' in b and ">Play ▶<" in b
+    assert "3 of 6 watched" in b and 'value="jf:ser1"' in b
+    assert f'href="{deep("ep4")}"' in b and "Next to watch: S4 E4 ▶" in b   # in-progress episode is next
+    assert "On your server · 6 episodes · 2 to watch · S4 E4 next" in b
 
 
 def test_bad_id_is_404(env):

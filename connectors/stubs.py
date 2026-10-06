@@ -123,7 +123,38 @@ class OpenMeteo(Connector):
             })
         return days
 
+    # BOM radar loop (2026-10-06, Option 1 approved by B.): rides this connector — the id
+    # namespace is frozen (D13). Raw PNG layers + rain frames are stored as sidecar files
+    # under SNAPSHOT_DIR/radar/; the /weather page stacks them (no server-side compositing).
+    # Fixture mode never reaches fetch(), so the committed sample carries no radar.
+    RADAR_HOST = "ftp.bom.gov.au"
+    RADAR_STATION = "IDR023"                       # Melbourne 128 km (IDR022 is the 256 km view)
+    RADAR_FRAMES_DIR = "/anon/gen/radar/"
+    RADAR_LAYERS_DIR = "/anon/gen/radar_transparencies/"
+    RADAR_LAYERS = ("background", "topography", "locations", "range")
+    RADAR_FRAMES = 6
+    RADAR_TIMEOUT = 10
+
     def fetch(self) -> dict:
+        raw = self._fetch_forecast()
+        radar = self._radar()   # never raises — radar trouble can't fail the weather
+        if radar:
+            raw["_radar"] = radar
+        return raw
+
+    def _radar(self) -> dict | None:
+        """Fresh radar block; on any error the previous block (files still on disk)
+        marked fetched_ok=False, or None when there never was one."""
+        try:
+            return fetch_radar(self)
+        except Exception as exc:
+            log.warning("open_meteo radar step failed: %s: %s", type(exc).__name__, exc)
+            prev = ((self._previous() or {}).get("data") or {}).get("radar")
+            if isinstance(prev, dict) and prev.get("frames"):
+                return {**prev, "fetched_ok": False}
+            return None
+
+    def _fetch_forecast(self) -> dict:
         import requests
 
         response = requests.get(
@@ -150,7 +181,7 @@ class OpenMeteo(Connector):
         low = float(daily["temperature_2m_min"][0])
         high = float(daily["temperature_2m_max"][0])
         rain = int(daily["precipitation_probability_max"][0])
-        return {
+        data = {
             "summary": f"{now_c:g} °C · {condition}",
             "secondary": f"{low:g}–{high:g} °C · {rain}% rain",
             "now_c": now_c,
@@ -161,6 +192,104 @@ class OpenMeteo(Connector):
             "hourly": self._hourly(raw),
             "days": self._days(daily),
         }
+        if raw.get("_radar"):
+            data["radar"] = raw["_radar"]
+        return data
+
+
+RADAR_FRAME_RE = re.compile(r"(?:^|/)(IDR\d{3})\.T\.(\d{12})\.png$")
+RADAR_DIRNAME = "radar"
+
+
+def radar_frame_stamps(names, station: str, count: int) -> list[str]:
+    """The latest `count` UTC stamps (YYYYMMDDHHMM) for `station`, oldest first.
+    `names` is an FTP NLST — bare names or full paths, any order, other stations mixed in."""
+    stamps = set()
+    for name in names:
+        m = RADAR_FRAME_RE.search(str(name).strip())
+        if m and m.group(1) == station:
+            stamps.add(m.group(2))
+    return sorted(stamps)[-count:] if count > 0 else []
+
+
+def _write_bytes_atomic(path: Path, blob: bytes) -> None:
+    """Same discipline as write_envelope: unique tmp, then os.replace."""
+    import threading
+
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_bytes(blob)
+    os.replace(tmp, path)
+
+
+def fetch_radar(connector: "OpenMeteo") -> dict:
+    """Pull the BOM layers + latest rain frames over anonymous FTP, store them under
+    SNAPSHOT_DIR/radar/, prune what no envelope references. Raises on any failure —
+    everything is downloaded to memory BEFORE a byte is written, so a failed pull
+    leaves the previous set intact."""
+    import ftplib
+    from contextlib import suppress
+
+    from connectors.base import snapshot_dir
+
+    c = connector
+    ftp = ftplib.FTP(c.RADAR_HOST, timeout=c.RADAR_TIMEOUT)
+    try:
+        ftp.login()
+        ftp.set_pasv(True)
+        stamps = radar_frame_stamps(ftp.nlst(c.RADAR_FRAMES_DIR), c.RADAR_STATION, c.RADAR_FRAMES)
+        if not stamps:
+            raise RuntimeError(f"no {c.RADAR_STATION} frames listed")
+
+        def get(path: str) -> bytes:
+            chunks: list[bytes] = []
+            ftp.retrbinary(f"RETR {path}", chunks.append)
+            blob = b"".join(chunks)
+            if not blob.startswith(b"\x89PNG"):
+                raise ValueError(f"{path.rsplit('/', 1)[-1]} is not a PNG")
+            return blob
+
+        layers = {f"layer_{n}.png": get(f"{c.RADAR_LAYERS_DIR}{c.RADAR_STATION}.{n}.png")
+                  for n in c.RADAR_LAYERS}
+        frames = {f"frame_{s}.png": get(f"{c.RADAR_FRAMES_DIR}{c.RADAR_STATION}.T.{s}.png")
+                  for s in stamps}
+    finally:
+        with suppress(Exception):
+            ftp.quit()
+
+    directory = snapshot_dir() / RADAR_DIRNAME
+    directory.mkdir(parents=True, exist_ok=True)
+    for name, blob in {**layers, **frames}.items():
+        _write_bytes_atomic(directory / name, blob)
+
+    # Keep this set AND the one the current envelope still points at — the hub may be
+    # serving the old envelope until run() replaces it; that set goes next sweep.
+    prev = ((c._previous() or {}).get("data") or {}).get("radar") or {}
+    keep = set(layers) | set(frames) | {
+        f.get("file") for f in (prev.get("frames") or []) if isinstance(f, dict)}
+    prune_radar_dir(directory, keep)
+
+    return {
+        "station": c.RADAR_STATION,
+        "fetched_ok": True,
+        "layers": list(layers),
+        "frames": [{"file": f"frame_{s}.png",
+                    "time_iso": datetime.strptime(s, "%Y%m%d%H%M")
+                    .replace(tzinfo=timezone.utc).isoformat()}
+                   for s in stamps],
+    }
+
+
+def prune_radar_dir(directory: Path, keep: set) -> list[str]:
+    """Delete every file in the radar dir not named in `keep` (stray tmp files too)."""
+    removed = []
+    for p in directory.iterdir():
+        if p.is_file() and p.name not in keep:
+            try:
+                p.unlink()
+                removed.append(p.name)
+            except OSError as exc:  # a reader holding it open on Windows — next sweep
+                log.warning("radar prune skipped %s: %s", p.name, exc)
+    return sorted(removed)
 
 
 # ---------------------------------------------------------------------- gcal

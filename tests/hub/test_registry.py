@@ -24,7 +24,7 @@ def make_tile(tid: str, **over) -> dict:
 def make_area(aid: str, tid: str | None = None, **tile_over) -> dict:
     tid = tid or f"{aid}-t"
     return {
-        "id": aid, "name": aid.title(), "accent": "#3FD9C0", "icon": aid,
+        "id": aid, "name": aid.title(), "icon": aid,
         "summary_tile": tid, "tiles": [make_tile(tid, **tile_over)],
     }
 
@@ -75,10 +75,10 @@ def test_duplicate_tile_id_across_areas_rejected(tmp_path):
             tmp_path, make_area("a1", "same"), make_area("a2", "same")))
 
 
-def test_bad_accent_rejected(tmp_path):
+def test_blank_icon_rejected(tmp_path):
     bad = make_area("a1")
-    bad["accent"] = "teal"
-    with pytest.raises(ValueError, match="not #RRGGBB"):
+    bad["icon"] = "  "
+    with pytest.raises(ValueError, match="icon must be a non-empty icon id"):
         load_registry(write_registry(tmp_path, bad))
 
 
@@ -112,15 +112,15 @@ def test_dangling_summary_tile_rejected(tmp_path):
 
 
 def test_all_violations_reported_together(tmp_path):
-    """Triple-violation fixture: bad accent + missing snapshot + dangling summary."""
+    """Triple-violation fixture: blank icon + missing snapshot + dangling summary."""
     bad = make_area("a1", snapshot=None)
-    bad["accent"] = "nope"
+    bad["icon"] = " "
     bad["summary_tile"] = "ghost"
     with pytest.raises(ValueError) as exc:
         load_registry(write_registry(tmp_path, bad))
     msg = str(exc.value)
     assert "3 violation(s)" in msg
-    assert "not #RRGGBB" in msg
+    assert "icon must be a non-empty icon id" in msg
     assert "requires a snapshot id" in msg
     assert "summary_tile 'ghost'" in msg
 

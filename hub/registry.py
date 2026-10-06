@@ -30,7 +30,6 @@ FROZEN_SNAPSHOT_IDS = {
 
 MAX_AREAS = 9  # hard ceiling (DECISIONS 2026-08-17); "locked at 8" is yaml content
 
-ACCENT_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 class Tier(str, Enum):
@@ -67,8 +66,7 @@ class HubSize(str, Enum):
 class Area(BaseModel):
     id: str
     name: str
-    accent: str
-    icon: str
+    icon: str  # (per-area `accent` removed 2026-10-06 — colour is for meaning only, MediaHub guide §1.2)
     summary_tile: str
     hub_size: HubSize = HubSize.s11
     hub_rank: int = 100  # hub card order only (lower first); areas.yaml order drives rail/tabs (2026-10-05)
@@ -103,9 +101,6 @@ def _cross_checks(reg: Registry) -> list[str]:
         if area.id in seen_areas:
             errors.append(f"duplicate area id '{area.id}'")
         seen_areas.add(area.id)
-
-        if not ACCENT_RE.match(area.accent):
-            errors.append(f"area '{area.id}': accent '{area.accent}' is not #RRGGBB")
 
         if not area.icon.strip():
             errors.append(f"area '{area.id}': icon must be a non-empty icon id")

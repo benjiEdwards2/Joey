@@ -52,8 +52,7 @@ def services_of(body):
 
 def test_registry_server_area_is_last_with_the_agreed_tiles():
     area = load_registry(AREAS_YAML).areas[-1]
-    assert (area.id, area.name, area.accent, area.icon, area.layout) == (
-        "server", "Server", "#9AA4B2", "server", "server")
+    assert (area.id, area.name, area.icon, area.layout) == ("server", "Server", "server", "server")
     assert area.rail_section == "areas" and not area.hidden and area.summary_tile == "services"
     tiles = {t.id: t for t in area.tiles}
     assert list(tiles) == ["services", "system", "monitors", "updates", "homepage", "portainer"]  # monitors: WP-S4

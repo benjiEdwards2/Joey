@@ -34,8 +34,8 @@ area / Server / Weather + copy pass. Everything lives in `static/control-surface
 **Rules.** One dark theme (no toggle, no light mode, `color-scheme: dark`). Every colour is a token on the single `:root`
 block; no literal colour anywhere else (tests enforce it). Colour is for meaning only: emerald good/done, amber "something
 to do" (stale, to rate, attention; never a permanent state), red down/danger, indigo the one primary action and active
-tabs, sky info/links, teal upcoming, gold a perfect 10. The per-area `--accent` is gone (the field stays in `areas.yaml`
-as inert config; nothing injects it). The weather radar ramp (`--rad-*`) and the Dolby/format pills are data colours.
+tabs, sky info/links, teal upcoming, gold a perfect 10. The per-area accent is gone entirely (field removed from `areas.yaml` and
+the registry, 2026-10-06). The weather radar ramp (`--rad-*`) and the Dolby/format pills are data colours.
 Facts are joined with `<span class="sep"> · </span>` (`_rows.html` `meta()`); a missing value is "—"; lengths are "2h 47m"
 (`media_library.runtime_text`); buttons and labels are sentence case (uppercase only via `.seclabel`); British/Australian
 spelling; every icon-only control has an `aria-label`.
@@ -106,7 +106,7 @@ Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="row"
 
 **Downloads (2026-10-06).** `/media/downloads` (Server sub-tab after Library) lists the live qBittorrent torrents. `media_downloads.py` joins the arr queue to qBittorrent (`download_id` == torrent hash) for live progress on the Home Downloading shelf, Library "This week" badges and title-page badges; a Sonarr season pack (one queue row per episode, one `download_id`) collapses to one row, e.g. "Show · S01 · 13 episodes".
 
-**Server area (WP-S1, 2026-10-06).** Registry area `server` (`layout: server`, last section in the top bar and tab bar, accent `#9AA4B2`,
+**Server area (WP-S1, 2026-10-06).** Registry area `server` (`layout: server`, last section in the top bar and tab bar,
 icon `server`) renders `server.html` at `/server` and `/a/server` — not to be confused with the Media "Server" sub-section.
 `server.py` (pure) builds, top to bottom: KPI row per tile (Services = `media_status`, System = `system`, Monitors = `uptime_kuma`,
 Updates = `wud`, Homepage + Portainer links), System band (CPU, RAM free/total, uptime, "Last sweep N min ago" from

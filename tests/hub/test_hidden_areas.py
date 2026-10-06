@@ -23,8 +23,8 @@ def test_hidden_defaults_false_and_is_accepted(tmp_path):
 
 
 def test_hidden_area_is_still_validated(tmp_path):
-    bad = {**make_area("b"), "hidden": True, "accent": "red"}
-    with pytest.raises(ValueError, match="accent"):
+    bad = {**make_area("b"), "hidden": True, "icon": " "}
+    with pytest.raises(ValueError, match="icon"):
         load_registry(write_registry(tmp_path, make_area("a"), bad))
 
 

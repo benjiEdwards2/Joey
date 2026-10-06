@@ -20,7 +20,6 @@ areas:
   - id: kitchen
     hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
     name: Food                                       # renamed from Kitchen (B., 2026-09-11); id stays 'kitchen'
-    accent: "#5BE08C"
     icon: kitchen
     summary_tile: meals
     tiles:
@@ -40,7 +39,6 @@ areas:
   - id: money
     hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
     name: Money
-    accent: "#3FD9C0"
     icon: money
     hub_size: s22        # second bento hero beside Media (B., 2026-10-06; was s21 for a day)
     summary_tile: month
@@ -56,7 +54,6 @@ areas:
   - id: desk
     hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
     name: Desk
-    accent: "#5B9CF6"
     icon: desk
     summary_tile: files
     tiles:
@@ -80,7 +77,6 @@ areas:
 
   - id: calendar
     name: Calendar
-    accent: "#A78BFA"
     icon: calendar
     hub_size: s21        # double-width (gate 2026-08-28)
     summary_tile: next-event
@@ -107,7 +103,6 @@ areas:
 
   - id: media
     name: Media
-    accent: "#E50914"          # Netflix red — Media Layout Lab pick, 2026-10-05 (was #FF5CA8)
     icon: media
     summary_tile: watching
     rail_section: home                               # rail: Home group, between Hub and Weather (B., 2026-10-06)
@@ -197,7 +192,6 @@ areas:
   - id: house
     hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
     name: House
-    accent: "#FFB454"
     icon: house
     summary_tile: climate
     tiles:
@@ -212,7 +206,6 @@ areas:
   - id: car
     hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
     name: Car
-    accent: "#F87171"
     icon: car
     summary_tile: car-status
     tiles:
@@ -228,7 +221,6 @@ areas:
   # Thresholds: disk 85 %, media.db backup 36 h, any service Down = attention.
   - id: server
     name: Server
-    accent: "#9AA4B2"
     icon: server
     summary_tile: services
     layout: server                                   # /a/server renders the /server bands page

@@ -66,7 +66,6 @@ def test_detail_tile_links_to_its_route(tmp_path, monkeypatch):
         areas:
           - id: desk
             name: Desk
-            accent: "#5B9CF6"
             icon: desk
             summary_tile: files
             tiles:

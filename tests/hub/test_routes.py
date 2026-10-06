@@ -72,7 +72,7 @@ def test_whoami_dash_without_header(client):
 def test_invalid_registry_fails_startup(tmp_path, monkeypatch):
     bad = tmp_path / "areas.yaml"
     bad.write_text(yaml.safe_dump({"areas": [
-        {"id": "x", "name": "X", "accent": "nope", "icon": "x",
+        {"id": "x", "name": "X", "icon": "x",
          "summary_tile": "ghost", "tiles": [
              {"id": "t", "label": "T", "tier": "embed", "owner": "shared"}]},
     ]}), encoding="utf-8")

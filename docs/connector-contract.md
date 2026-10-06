@@ -200,7 +200,7 @@ a 30x to https counts as Up) and `homepage` (3000). `gluetun` is derived, not pr
 The hub's Server page groups `gluetun` under Downloads and the rest under System.
 
 **Arr counts (WP-S3, 2026-10-06).** `arr` data gains three optional objects, each `null` on failure:
-`radarr` (`movies` = all, `wanted` = monitored without a file, `missing` = those also available, `queued` =
+`radarr` (`movies` = all, `missing` = monitored without a file, `wanted` = those also released/available, `queued` =
 the queue's `totalRecords`) from `GET /api/v3/movie`; `sonarr` (`series`, `wanted` = `/api/v3/wanted/missing`
 `totalRecords`, `queued`) from `GET /api/v3/series` + that paged call; and `prowlarr` (`grabs`, `queries`,
 `failed_grabs`, `failed_queries` summed over `GET /api/v1/indexerstats` indexers, plus `indexers` = count).

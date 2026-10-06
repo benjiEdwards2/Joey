@@ -17,7 +17,7 @@ def test_counts_band_shows_radarr_sonarr_and_prowlarr_from_the_samples(env):
     with env() as client:
         band = counts_of(main_of(client.get("/server").text))
     radarr = band.split('<div class="upday">Radarr</div>', 1)[1].split('<div class="upday">Sonarr</div>', 1)[0]
-    assert all(row(k, v) in radarr for k, v in (("Wanted", 3), ("Missing", 2), ("Queued", 1), ("Movies", 6)))
+    assert all(row(k, v) in radarr for k, v in (("Wanted", 2), ("Missing", 3), ("Queued", 1), ("Movies", 6)))
     sonarr = band.split('<div class="upday">Sonarr</div>', 1)[1].split('<div class="upday">Prowlarr</div>', 1)[0]
     assert all(row(k, v) in sonarr for k, v in (("Wanted", 7), ("Queued", 1), ("Series", 3)))
     prowlarr = band.split('<div class="upday">Prowlarr</div>', 1)[1]

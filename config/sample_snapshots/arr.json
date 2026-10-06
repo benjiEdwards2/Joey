@@ -86,10 +86,10 @@
       "queries": 1325
     },
     "radarr": {
-      "missing": 2,
+      "missing": 3,
       "movies": 6,
       "queued": 1,
-      "wanted": 3
+      "wanted": 2
     },
     "secondary": "Quiet Coast \u00b7 S02 \u00b7 3 episodes",
     "sonarr": {

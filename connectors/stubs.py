@@ -1114,9 +1114,11 @@ class Arr(Connector):
         radarr = sonarr = prowlarr = None
         movies = raw.get("raw_radarr_movie")
         if isinstance(movies, list) and "raw_radarr_queue" in raw:
-            wanted = [m for m in movies if m.get("monitored") and not m.get("hasFile")]
-            radarr = {"movies": len(movies), "wanted": len(wanted),
-                      "missing": sum(1 for m in wanted if m.get("isAvailable")),
+            # Homepage's Radarr semantics (verified against B.'s screenshot 2026-10-06):
+            # missing = monitored without a file; wanted = those already released (isAvailable).
+            missing = [m for m in movies if m.get("monitored") and not m.get("hasFile")]
+            radarr = {"movies": len(movies), "missing": len(missing),
+                      "wanted": sum(1 for m in missing if m.get("isAvailable")),
                       "queued": cls._total(raw["raw_radarr_queue"])}
         series = raw.get("raw_sonarr_series")
         if isinstance(series, list) and "raw_sonarr_missing" in raw and "raw_sonarr_queue" in raw:

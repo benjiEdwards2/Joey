@@ -34,8 +34,8 @@ def with_prowlarr(monkeypatch, fixtures, outcome=None):
 def test_fixture_counts(raw):
     data = Arr().transform(raw)
     jsonschema.validate(data, SCHEMA)
-    # 6 movies: 3 monitored without a file (wanted), 2 of those released (missing), 1 queued
-    assert data["radarr"] == {"movies": 6, "wanted": 3, "missing": 2, "queued": 1}
+    # 6 movies: 3 monitored without a file (missing), 2 of those released (wanted), 1 queued — Homepage semantics
+    assert data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1}
     assert data["sonarr"] == {"series": 3, "wanted": 7, "queued": 1}
 
 
@@ -104,7 +104,7 @@ def test_a_failed_count_call_nulls_only_that_app(live, monkeypatch, raw):
     envelope = Arr().run()
     data = envelope["data"]
     assert envelope["status"] == "ok" and "app_errors" not in data
-    assert data["sonarr"] is None and data["radarr"] == {"movies": 6, "wanted": 3, "missing": 2, "queued": 1}
+    assert data["sonarr"] is None and data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1}
     assert data["downloading"] and data["arrived"]  # the feed itself is untouched
     jsonschema.validate(data, SCHEMA)
     assert len(calls) == 10 and SKEY not in json.dumps(envelope)

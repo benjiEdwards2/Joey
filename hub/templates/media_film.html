@@ -62,13 +62,13 @@
     <div><h3>Cast</h3>
       <div class="castrow">
         {% for c in film.cast %}
-        <div class="castcard">{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h=120" alt="" loading="lazy" width="56" height="56">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
-          <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="sub">{{ c.role }}</span>{% endif %}</div>
+        <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h=120" alt="" loading="lazy" width="56" height="56">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+          <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="sub">{{ c.role }}</span>{% endif %}</{{ "a" if c.id else "div" }}>
         {% endfor %}
       </div>
     </div>
     {% endif %}
-    {% if film.makers %}<div><h3>{{ film.makers_label }}</h3><div class="makers">{% for m in film.makers %}<a class="chip" href="/media/discover?q={{ m|urlencode }}">{{ m }} <span class="sub">search</span></a>{% endfor %}</div></div>{% endif %}
+    {% if film.makers %}<div><h3>{{ film.makers_label }}</h3><div class="makers">{% for m in film.makers %}{% if m.id %}<a class="chip" href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a class="chip" href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }} <span class="sub">search</span></a>{% endif %}{% endfor %}</div></div>{% endif %}
     {% if film.providers %}
     <div><h3>Where to watch</h3>
       {% for g in film.providers %}<div class="provrow"><span class="sub">{{ g.label }}</span>{% for name in g.names %}<a class="chip provider" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% endfor %}</div>{% endfor %}

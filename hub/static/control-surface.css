@@ -17,6 +17,7 @@
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* Older names, remapped to the guide (zinc greys, white-alpha layers) */
   --bg: #09090b; --fg: #fafafa; --muted: #a1a1aa; --faint: #52525b;
+  --bar: rgba(9, 9, 11, .95);  /* fixed bars + sheets over content (guide §5: bg-zinc-950/95) */
   --card: rgba(255, 255, 255, .03); --border: rgba(255, 255, 255, .07); --soft: rgba(255, 255, 255, .04);
   --brand: #6366f1; --brand-fg: #ffffff; --brand-soft: rgba(99, 102, 241, .15);
   --good: #34d399; --good-soft: rgba(16, 185, 129, .1);
@@ -496,7 +497,7 @@ nav.tabs { display: none; }
 
   nav.tabs {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-    background: var(--card); border-top: 1px solid var(--border);
+    background: var(--bar); backdrop-filter: blur(8px); border-top: 1px solid var(--border);
     padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
     justify-content: space-between; gap: 2px;
   }
@@ -512,7 +513,7 @@ nav.tabs { display: none; }
   .more { position: relative; }
   .more[open] .sheet {
     position: fixed; left: 0; right: 0; bottom: 58px;
-    background: var(--card); border-top: 1px solid var(--border);
+    background: var(--bar); backdrop-filter: blur(8px); border-top: 1px solid var(--border);
     padding: 10px 16px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
   }
   .sheet a {

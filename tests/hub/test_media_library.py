@@ -123,3 +123,35 @@ def test_library_rows_carry_radarr_and_sonarr_posters_in_main(app_factory):
     assert '<img class="poster sm' in body
     assert "/img/radarr:" in body and "/img/sonarr:" in body
     assert 'src="/img/radarr:21?h=120&amp;t=Midnight%20Harbour' in body  # downloading row
+
+
+def test_library_tab_rows_are_whole_row_links(app_factory):
+    """B., 2026-10-06: "click into these images, or anywhere inside the blocks" — every
+    Just arrived / Just updated / This week row links to the Joey item page when the Jellyfin
+    library has the title, else the title page for a tmdb key; a row with neither stays a div."""
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    data = data_for_today()
+    data["arrived"] = [
+        {"title": "Fresh Movie", "item_key": "tmdb:31", "kind": "movie", "poster": None, "when": "yesterday"},
+        {"title": "Known Show · S01 · 3 episodes", "item_key": "tvdb:41", "kind": "season", "poster": None,
+         "when": "today"},
+        {"title": "Mystery Pack", "item_key": None, "kind": "season", "poster": None, "when": "today"},
+    ]
+    data["updated"] = [{"title": "Fresh Movie", "item_key": "tmdb:31", "kind": "movie", "poster": None,
+                        "what": "1080p → 2160p", "when": "today"}]
+    write_envelope(snaps, "arr", age_minutes=1, data=data)
+    write_envelope(snaps, "jellyfin", age_minutes=1, data={
+        "summary": "x", "now_playing": [], "up_next": [], "latest": [], "history": [], "library": {},
+        "movies": [], "shows": [{"title": "Known Show", "jf_id": "abc123", "item_key": "tmdb:999",
+                                 "year": 2021, "poster": None}]})
+    with build(snaps) as client:
+        body = main_of(client.get("/media/library").text)
+    arrived = body.split(">Just arrived<", 1)[1].split(">Just updated<", 1)[0]
+    assert 'href="/media/title/movie/31"' in arrived          # tmdb key, not in Jellyfin → title page
+    assert 'href="/media/item/abc123"' in arrived             # Sonarr tvdb key matched by series name
+    assert arrived.count("<a ") == 2 and "Mystery Pack" in arrived  # no key, no match → plain row
+    updated = body.split(">Just updated<", 1)[1].split(">This week<", 1)[0]
+    assert 'href="/media/title/movie/31"' in updated
+    week = body.split(">This week<", 1)[1].split(">Downloading<", 1)[0]
+    assert "<a " in week                                       # sample this_week rows carry tmdb keys

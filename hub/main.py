@@ -1017,7 +1017,21 @@ def media_library_page(request: Request):
                 groups.append({"day": day, "label": _day_label(day, today), "rows": []})
             groups[-1]["rows"].append(row)
         merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data())
+        # Whole row is the link (B., 2026-10-06): Joey item page, title page or nothing — same
+        # resolver the Movies/TV pages use, per kind, against the view's own Jellyfin lists.
+        jelly = get_snapshots().get(JELLYFIN_SNAPSHOT_ID)
+        jdata = jelly.data if jelly else {}
+        lists = {k: _library_lists(jdata, view, k)[0] for k in ("movie", "tv")}
+
+        def link(rows):
+            return [media_library.link_arrivals([r], lists[k], k, lambda jf: item_href(jf))[0]
+                    for r in rows or [] for k in ("movie" if r.get("kind") == "movie" else "tv",)]
+
+        for g in groups:
+            g["rows"] = link(g["rows"])
         return {
+            "arrived": link(data.get("arrived")),
+            "updated": link(data.get("updated")),
             "week": groups,
             "downloading": merged,
             "dl_badges": media_downloads.badges_by_item_key(merged),

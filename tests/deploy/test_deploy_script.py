@@ -58,3 +58,11 @@ def test_one_deploy_at_a_time_lock_is_taken_before_anything_and_released_on_exit
     assert "trap 'rmdir \"$LOCK\" 2>/dev/null' EXIT" in SCRIPT
     assert "another deploy is running" in SCRIPT and "exit 2" in SCRIPT
     assert "flock" not in SCRIPT  # not guaranteed on the NAS BusyBox
+
+
+def test_smoke_waits_for_the_hub_to_listen_instead_of_a_fixed_sleep():
+    """2026-10-06: two false rollbacks - the hub took longer than 5 s to listen after the
+    image build. Smoke now polls /healthz (18 x 5 s) and only then runs smoke.py."""
+    assert "wait_for_hub" in SCRIPT and SCRIPT.index("wait_for_hub()") < SCRIPT.index("smoke()")
+    assert "/healthz" in SCRIPT and "[ $i -lt 18 ]" in SCRIPT
+    assert "    sleep 5" + chr(10) + "    docker compose exec -T hub python tests/deploy/smoke.py" not in SCRIPT

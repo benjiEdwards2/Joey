@@ -104,3 +104,14 @@ def test_runner_history_reads_the_tail_and_skips_junk(tmp_path):
     assert len(get_runner_history(tmp_path, max_lines=5)) == 5
     tail = get_runner_history(tmp_path, max_bytes=400)               # cut mid-line: partial dropped
     assert tail and all("ran_at" in r for r in tail) and len(tail) < 30
+
+
+def test_heartbeat_files_are_skipped_without_a_warning(tmp_path, caplog):
+    """_runner.json / _runner_history.jsonl are not envelopes; they used to log an
+    'unreadable' warning on every read (2026-10-06)."""
+    import logging
+    from hub import store
+    (tmp_path / "_runner.json").write_text('{"ran_at": "x", "results": []}', encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="hub.store"):
+        assert store.get_snapshots(tmp_path) == {}
+    assert "unreadable" not in caplog.text

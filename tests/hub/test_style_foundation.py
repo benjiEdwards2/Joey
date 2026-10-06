@@ -21,8 +21,7 @@ TOKENS = {
     "--warn": "#fbbf24", "--warn-soft": "rgba(245, 158, 11, .1)",
     "--bad": "#fca5a5", "--bad-soft": "rgba(239, 68, 68, .1)",
     "--gold": "#f2c14e", "--gold-glow": "rgba(251, 191, 36, .45)",
-    "--rail": "#09090b", "--rail-fg": "#a1a1aa", "--rail-muted": "#71717a",
-    "--rail-hover": "rgba(255, 255, 255, .04)", "--rail-active": "rgba(255, 255, 255, .07)",
+    "--bar": "rgba(9, 9, 11, .95)", "--topbar": "rgba(9, 9, 11, .8)",  # shell bars (Phase 2 retired --rail*)
     "--scrim": "rgba(9, 9, 11, .9)", "--scrim-soft": "rgba(9, 9, 11, .62)",
     # new guide tokens
     "--primary": "#6366f1", "--primary-hover": "#818cf8",
@@ -31,7 +30,7 @@ TOKENS = {
     "--sky": "#7dd3fc", "--orange": "#fb923c", "--fuchsia": "#f0abfc", "--teal": "#5eead4", "--rose": "#fb7185",
     "--indigo-glow": "rgba(99, 102, 241, .1)",
 }
-KEPT = ["--rail-border", "--rail-strong", "--stage", "--stage-fg", "--stage-btn", "--stage-line",
+KEPT = ["--stage", "--stage-fg", "--stage-btn", "--stage-line",
         "--badge-ink", "--badge-fg", "--surface", "--line"] + [f"--rad-{i}" for i in range(1, 16)]
 
 RECIPES = [

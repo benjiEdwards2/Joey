@@ -1,0 +1,24 @@
+{# Page header (MediaHub guide §6, restyle Phase 2, 2026-10-06). Full-bleed band tucked under the top bar:
+   with `backdrop` (an /img/ name) a darkened picture, else a faint indigo glow. Optional eyebrow, the title,
+   one sub-line of facts joined by " · " (guide §9), actions as .btn-glass ({href, label, new_tab}).
+   Called with {% call %}, the caller's markup (section tabs) sits at the top of the band. #}
+{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none) -%}
+<header class="pagehead">
+  {% if backdrop %}<div class="pagehead-bd" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280')" aria-hidden="true"></div>{% endif %}
+  <div class="pagehead-in">
+    {% if caller %}{{ caller() }}{% endif %}
+    <div class="pagehead-foot">
+      <div class="pagehead-text">
+        {% if eyebrow %}<span class="eyebrow">{{ eyebrow }}</span>{% endif %}
+        <h1>{{ title }}</h1>
+        {% if sub %}<p class="pagehead-sub">{{ sub }}</p>{% endif %}
+      </div>
+      {% if actions %}
+      <div class="pagehead-actions">
+        {% for a in actions %}<a class="btn btn-glass" href="{{ a.href }}"{% if a.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ a.label }}</a>{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</header>
+{%- endmacro %}

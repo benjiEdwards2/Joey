@@ -120,5 +120,5 @@ def test_weather_page_is_one_card_and_pages_have_no_literal_hex(site):
 
 def test_media_area_unchanged(site):
     _, body = site("/a/media")
-    sections = re.search(r'<nav class="sections".*?</nav>', body, re.S).group(0)
+    sections = re.search(r'<nav class="sectabs".*?</nav>', body, re.S).group(0)
     assert "Movies" in sections and "uptable" not in body and "areakpis" not in body

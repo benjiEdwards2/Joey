@@ -1,10 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Weather — Joey{% endblock %}
 {% block pagehead %}
-<div class="pagehead">
-  <h1>Weather</h1>
-  <p>Newport VIC · today, the next 24 hours and the week ahead</p>
-</div>
+{% from "_pagehead.html" import pagehead %}
+{{ pagehead("Weather", sub="Newport VIC · Today · Next 24 hours · Next 7 days") }}
 {% endblock %}
 {% block content %}
 {# Detail behind the hub glimpse (2026-09-11; Apex restyle 2026-10-06).

@@ -1,7 +1,9 @@
-"""Apex shell (2026-10-06): rail with labelled areas, light+dark theme toggle with a pre-paint
-script, a tokens-only stylesheet, and the hub greeting computed on the home clock."""
+"""Shell (MediaHub guide, restyle Phase 2, 2026-10-06): top bar with one pill per section, phone tab bar with
+five slots (the fifth becomes "More" past five sections), the _pagehead.html page header on every page, a
+single dark theme (no toggle, no Google Fonts), a tokens-only stylesheet, and the hub greeting on the home clock."""
 import html as htmlmod
 import importlib
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -15,7 +17,9 @@ from tests.hub.test_registry import make_area, write_registry
 from tests.hub.test_store import write_envelope
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TEMPLATES = REPO_ROOT / "hub" / "templates"
 CSS = (REPO_ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+SAMPLES = REPO_ROOT / "config" / "sample_snapshots"
 MEL = ZoneInfo("Australia/Melbourne")
 
 
@@ -32,103 +36,11 @@ def main(tmp_path, monkeypatch):
     return hub.main
 
 
-def rail_of(html):
-    return re.search(r'<aside class="rail".*?</aside>', html, re.S).group(0)
-
-
-# (a) the rail lists every registry area by name, linked to /a/<id>
-def test_rail_lists_every_area_by_name(main):
-    with TestClient(main.app) as c:
-        html = c.get("/").text
-    rail = rail_of(html)
-    for a in main.registry.areas:
-        assert re.search(rf'<a href="/a/{a.id}"[^>]*>.*?</span>{re.escape(a.name)}</a>', rail, re.S), a.id
-    assert '<a href="/" class="on" aria-current="page">' in rail and 'href="/weather"' in rail
-    assert ">Home<" in rail and ">Areas<" in rail and "Services" not in rail
-    # signed-in user (2026-10-06): brand reads just "Joey"; footer shows the user (none here: no Access header)
-    assert "joeyhome.net" not in rail and "<b>Not signed in</b>" in rail and "Local preview" in rail
-
-
-def test_rail_marks_the_active_area(main):
-    with TestClient(main.app) as c:
-        rail = rail_of(c.get("/a/beta").text)
-    assert re.search(r'<a href="/a/beta"[^>]*class="on" aria-current="page"', rail)
-    assert rail.count('class="on"') == 1
-
-
-# (b) theme toggle + pre-paint script on hub, an area page and a media page
-@pytest.mark.parametrize("route", ["/", "/a/beta", "/media/diary"])
-def test_theme_toggle_and_prepaint_script(main, route):
-    with TestClient(main.app) as c:
-        html = c.get(route).text
-    head = html.split("</head>", 1)[0]
-    assert "localStorage.getItem('joey-theme')" in head and "setAttribute('data-theme'" in head
-    assert head.index("joey-theme") < head.index("control-surface.css")   # applied before first paint
-    assert re.search(r'<button class="iconbtn themetoggle" type="button" data-theme-toggle', html)
-    assert html.count('name="theme-color"') == 2 and 'media="(prefers-color-scheme: dark)"' in head
-    assert "fonts.googleapis.com/css2?family=Geist" in head
-
-
-def _block(selector_regex):
-    m = re.search(selector_regex + r"\s*\{(.*?)\}", CSS, re.S)
-    assert m, selector_regex
-    return m.group(1)
-
-
-def _props(body):
-    return set(re.findall(r"(--[\w-]+)\s*:", body))
-
-
-def _token_blocks():
-    # MediaHub restyle (2026-10-06): one dark theme, every token on the single bare :root block
-    return (_block(r"(?m)^:root"),)
-
-
-# (c) tokens on the one :root block; the light/dark theme blocks are retired (single dark theme)
-def test_tokens_defined_on_a_single_dark_root_block():
-    (root,) = _token_blocks()
-    assert len(_props(root)) > 20
-    assert "color-scheme: dark" in root
-    assert "prefers-color-scheme" not in CSS and "[data-theme=" not in CSS
-
-
-# (d) no literal hex colour anywhere outside the token block
-def test_no_hex_colour_outside_token_blocks():
-    rest = CSS
-    for body in _token_blocks():
-        rest = rest.replace(body, "")
-    rest = re.sub(r"/\*.*?\*/", "", rest, flags=re.S)
-    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b", rest)
-    assert not re.findall(r"\brgba?\(", rest)
-
-
-# (e) hub greeting on a pinned morning / afternoon / evening clock
-@pytest.mark.parametrize("hour, minute, part", [(8, 30, "morning"), (13, 5, "afternoon"), (19, 45, "evening")])
-def test_hub_greeting_follows_the_home_clock(main, monkeypatch, hour, minute, part):
-    monkeypatch.setattr(main, "_now_home", lambda: datetime(2026, 10, 6, hour, minute, tzinfo=MEL))
-    with TestClient(main.app) as c:
-        body = htmlmod.unescape(c.get("/").text.split("<main", 1)[1])
-    assert "<h1>Hub</h1>" in body
-    # no Access header in tests = not signed in, so no name (2026-10-06; named form in test_identity.py)
-    assert (f"Good {part}. Here's what's happening at home today, Tuesday 6 October.") in body
-
-
-def test_home_clock_is_melbourne(main):
-    now = main._now_home()
-    assert now.utcoffset() == datetime.now(MEL).utcoffset()
-
-
-def test_area_page_heading_replaces_dot_h2(main):
-    with TestClient(main.app) as c:
-        body = c.get("/a/beta").text.split("<main", 1)[1]
-    assert '<div class="pagehead">' in body and "<h1>Beta</h1>" in body
-    assert 'class="dot"' not in body and "1 tile" in body
-
-
-# rail_section + brand link (B., 2026-10-06)
-def _home_main(tmp_path, monkeypatch, *areas):
-    fixture = write_registry(tmp_path, *areas)
-    monkeypatch.setenv("AREAS_PATH", str(fixture))
+def _reload(tmp_path, monkeypatch, *areas):
+    if areas:
+        monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, *areas)))
+    else:
+        monkeypatch.delenv("AREAS_PATH", raising=False)
     monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
     import hub.main
@@ -136,36 +48,211 @@ def _home_main(tmp_path, monkeypatch, *areas):
     return hub.main
 
 
-def test_rail_home_section_area_sits_between_hub_and_weather_and_order_is_kept(tmp_path, monkeypatch):
-    m = _home_main(tmp_path, monkeypatch, make_area("alpha"), {**make_area("beta"), "rail_section": "home"},
-                   make_area("gamma"), {**make_area("delta"), "rail_section": "home"})
-    with TestClient(m.app) as c:
-        rail = rail_of(c.get("/").text)
-    home = re.search(r'<nav class="nav" aria-label="Home">(.*?)</nav>', rail, re.S).group(1)
-    areas = re.search(r'<nav class="nav" aria-label="Areas list">(.*?)</nav>', rail, re.S).group(1)
-    pos = [home.index(x) for x in ('href="/"', 'href="/a/beta"', 'href="/a/delta"', 'href="/weather"')]
-    assert pos == sorted(pos)
-    assert 'href="/a/beta"' not in areas and 'href="/a/delta"' not in areas
-    assert areas.index('href="/a/alpha"') < areas.index('href="/a/gamma"')
+def topbar_of(html):
+    return re.search(r'<header class="topbar">.*?</header>', html, re.S).group(0)
 
 
-def test_real_registry_media_renders_in_home_nav_not_areas_nav(tmp_path, monkeypatch):
-    monkeypatch.delenv("AREAS_PATH", raising=False)
-    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
-    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
-    import hub.main
-    importlib.reload(hub.main)
-    with TestClient(hub.main.app) as c:
-        rail = rail_of(c.get("/").text)
-    home = re.search(r'<nav class="nav" aria-label="Home">(.*?)</nav>', rail, re.S).group(1)
-    areas = re.search(r'<nav class="nav" aria-label="Areas list">(.*?)</nav>', rail, re.S).group(1)
-    assert 'href="/a/media"' in home and 'href="/a/media"' not in areas
+def pills_of(html):
+    nav = re.search(r'<nav class="toplinks" aria-label="Sections">(.*?)</nav>', topbar_of(html), re.S).group(1)
+    return re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', nav)
 
 
-def test_brand_block_is_one_home_link_with_kangaroo_image(main):
+def tabbar_of(html):
+    return re.search(r'<nav class="tabbar" aria-label="Sections \(phone\)">(.*)</nav>', html, re.S).group(1)
+
+
+def bar_items(html):
+    """(href, label) of the bar's own slots — the More sheet's links excluded."""
+    bar = tabbar_of(html).split('<details class="more">', 1)[0]
+    return re.findall(r'<a href="([^"]+)"[^>]*>.*?<span>([^<]+)</span></a>', bar, re.S)
+
+
+# (a) top bar: brand, one pill per visible section in rail order, user chip; no rail, no toggle, no web fonts
+def test_top_bar_has_one_pill_per_section_in_rail_order(main):
     with TestClient(main.app) as c:
-        rail = rail_of(c.get("/").text)
+        html = c.get("/").text
+    assert pills_of(html) == [("/", "Hub"), ("/weather", "Weather"), ("/a/alpha", "Alpha"),
+                              ("/a/beta", "Beta"), ("/a/gamma", "Gamma")]
+    bar = topbar_of(html)
+    assert '<a href="/" aria-current="page">Hub</a>' in bar and bar.count("aria-current") == 1
+    assert "<small>Local preview</small>" in bar and '<span class="uname">Not signed in</span>' in bar
+
+
+@pytest.mark.parametrize("route", ["/", "/a/beta", "/media/diary", "/weather"])
+def test_single_dark_theme_and_no_rail_or_toggle(main, route):
+    with TestClient(main.app) as c:
+        html = c.get(route).text
+    head = html.split("</head>", 1)[0]
+    assert 'class="rail"' not in html and "railfoot" not in html and 'aria-label="Areas list"' not in html
+    assert "data-theme" not in html and "joey-theme" not in html and "themetoggle" not in html
+    assert "fonts.googleapis.com" not in html
+    assert re.findall(r'<meta name="theme-color"[^>]*>', head) == ['<meta name="theme-color" content="#09090b">']
+
+
+@pytest.mark.parametrize("route, current", [("/a/beta", "/a/beta"), ("/media/diary", "/a/alpha"),
+                                            ("/a/alpha", "/a/alpha"), ("/weather", "/weather")])
+def test_current_section_marked_once_in_both_bars(main, route, current):
+    with TestClient(main.app) as c:
+        html = c.get(route).text
+    bar = topbar_of(html)
+    assert f'<a href="{current}" aria-current="page">' in bar and bar.count("aria-current") == 1
+    assert re.search(rf'<a href="{current}" aria-current="page">', tabbar_of(html))
+
+
+def test_brand_is_one_home_link_with_the_kangaroo_mark(main):
+    with TestClient(main.app) as c:
+        bar = topbar_of(c.get("/").text)
         img = c.get("/static/brand-joey.jpg")
-    brand = re.search(r'<a class="brand" href="/" aria-label="Joey home">(.*?)</a>', rail, re.S).group(1)
-    assert "/static/brand-joey.jpg?v=" in brand and "<b>Joey</b>" in brand and "joeyhome.net" not in brand  # 2026-10-06: just "Joey"
+    brand = re.search(r'<a class="brand" href="/" aria-label="Joey home">(.*?)</a>', bar, re.S).group(1)
+    assert "/static/brand-joey.jpg?v=" in brand and 'width="24"' in brand and "<b>Joey</b>" in brand
+    assert "joeyhome.net" not in bar
     assert img.status_code == 200 and img.content[:2] == b"\xff\xd8" and len(img.content) > 1000
+
+
+# (b) phone tab bar: min(5, sections) slots, hidden areas absent, "More" only past five
+def test_tab_bar_five_sections_no_more(main):
+    with TestClient(main.app) as c:
+        html = c.get("/").text
+    assert [label for _, label in bar_items(html)] == ["Hub", "Weather", "Alpha", "Beta", "Gamma"]
+    assert "<details" not in tabbar_of(html) and "More" not in tabbar_of(html)
+
+
+def test_tab_bar_more_than_five_uses_more_sheet_and_skips_hidden(tmp_path, monkeypatch):
+    m = _reload(tmp_path, monkeypatch, {**make_area("one"), "hidden": True}, make_area("two"),
+                make_area("three"), make_area("four"), make_area("five"))
+    with TestClient(m.app) as c:
+        html = c.get("/").text
+    tabs = tabbar_of(html)
+    assert "/a/one" not in tabs and "/a/one" not in topbar_of(html)
+    assert [label for _, label in bar_items(html)] == ["Hub", "Weather", "Two", "Three"]
+    sheet = tabs.split('<div class="sheet">', 1)[1]
+    assert "<span>More</span>" in tabs and "/a/four" in sheet and "/a/five" in sheet
+    assert len(pills_of(html)) == 6
+
+
+def test_more_is_marked_when_the_current_section_sits_in_the_sheet(tmp_path, monkeypatch):
+    m = _reload(tmp_path, monkeypatch, *(make_area(a) for a in ("two", "three", "four", "five")))
+    with TestClient(m.app) as c:
+        html = c.get("/a/five").text
+    assert '<summary class="on">' in tabbar_of(html)
+
+
+def test_real_registry_sections_are_exactly_five(tmp_path, monkeypatch):
+    m = _reload(tmp_path, monkeypatch)
+    with TestClient(m.app) as c:
+        html = c.get("/").text
+    assert [label for _, label in bar_items(html)] == ["Hub", "Media", "Weather", "Calendar", "Server"]
+    assert "<details" not in tabbar_of(html)
+    assert [label for _, label in pills_of(html)] == ["Hub", "Media", "Weather", "Calendar", "Server"]
+
+
+def test_rail_section_home_areas_sit_between_hub_and_weather(tmp_path, monkeypatch):
+    m = _reload(tmp_path, monkeypatch, make_area("alpha"), {**make_area("beta"), "rail_section": "home"},
+                make_area("gamma"))
+    with TestClient(m.app) as c:
+        html = c.get("/").text
+    assert [h for h, _ in pills_of(html)] == ["/", "/a/beta", "/weather", "/a/alpha", "/a/gamma"]
+
+
+# (c) the page header include: renders title / sub / eyebrow, and every page uses it
+def test_pagehead_macro_renders_title_sub_eyebrow_and_backdrop(main):
+    tpl = main.templates.env.from_string(
+        '{% from "_pagehead.html" import pagehead %}'
+        '{{ pagehead("Films", sub="12 seen · 3 to rate", eyebrow="This week", backdrop="bd/x.jpg",'
+        ' actions=[{"href": "/go", "label": "Open"}]) }}')
+    out = tpl.render()
+    assert '<header class="pagehead">' in out and "<h1>Films</h1>" in out
+    assert '<p class="pagehead-sub">12 seen · 3 to rate</p>' in out
+    assert '<span class="eyebrow">This week</span>' in out
+    assert "--bd: url('/img/bd/x.jpg?h=1280')" in out and '<a class="btn btn-glass" href="/go">Open</a>' in out
+    plain = main.templates.env.from_string('{% from "_pagehead.html" import pagehead %}{{ pagehead("Hub") }}').render()
+    assert "pagehead-bd" not in plain and "eyebrow" not in plain and "pagehead-sub" not in plain
+
+
+@pytest.mark.parametrize("name", ["hub.html", "area.html", "media_base.html", "weather.html", "server.html"])
+def test_five_templates_use_the_pagehead_include(name):
+    src = (TEMPLATES / name).read_text(encoding="utf-8")
+    assert '{% from "_pagehead.html" import pagehead %}' in src and 'class="pagehead' not in src
+
+
+def test_media_pages_carry_section_tabs_in_the_header(main):
+    with TestClient(main.app) as c:
+        body = c.get("/media/movies").text.split("<main", 1)[1]
+    head = re.search(r'<header class="pagehead">.*?</header>', body, re.S).group(0)
+    assert '<nav class="sectabs" aria-label="Media sections">' in head
+    assert '<nav class="sectabs sub"' in head
+    assert head.index('class="sectabs"') < head.index("<h1>")   # tabs on the band, title at its foot
+
+
+# (d) tokens on one dark :root block; no literal colour anywhere else
+def _root_block():
+    return re.search(r"(?m)^:root\s*\{(.*?)\}", CSS, re.S).group(1)
+
+
+def test_tokens_defined_on_a_single_dark_root_block():
+    root = _root_block()
+    assert len(set(re.findall(r"(--[\w-]+)\s*:", root))) > 20
+    assert "color-scheme: dark" in root
+    assert "prefers-color-scheme" not in CSS and "[data-theme=" not in CSS
+
+
+def test_no_literal_colour_outside_the_token_block():
+    rest = CSS.replace(_root_block(), "")
+    rest = re.sub(r"/\*.*?\*/", "", rest, flags=re.S)
+    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b", rest)
+    assert not re.findall(r"\brgba?\(", rest)
+
+
+def test_retired_shell_css_is_gone():
+    for sel in (".rail", ".railsec", ".railfoot", ".themetoggle", "nav.tabs", "mediatabs", "--rail", "--ic-moon"):
+        assert sel not in CSS, sel
+    for sel in (".topbar", ".tabbar", ".pagehead", ".sectabs", ".toplinks"):
+        assert re.search(rf"(?m)^{re.escape(sel)}\b", CSS), sel
+
+
+# (e) the real pages render in the shell with the sample snapshots
+@pytest.fixture()
+def sample_client(tmp_path, monkeypatch):
+    snaps = tmp_path / "snaps"
+    snaps.mkdir()
+    for p in SAMPLES.glob("*.json"):
+        if not p.stem.startswith("_"):
+            write_envelope(snaps, p.stem, age_minutes=1, data=json.loads(p.read_text(encoding="utf-8"))["data"])
+    m = _reload(tmp_path, monkeypatch)
+    return TestClient(m.app)
+
+
+@pytest.mark.parametrize("route", ["/", "/a/media", "/a/server", "/server", "/weather",
+                                   "/media/movies", "/media/diary", "/media/discover"])
+def test_pages_render_in_the_shell_with_sample_snapshots(sample_client, route):
+    with sample_client as c:
+        r = c.get(route)
+    assert r.status_code == 200
+    html = r.text
+    for cls in ('class="topbar"', 'class="tabbar"', 'class="pagehead"'):
+        assert html.count(cls) == 1, cls
+    assert 'class="rail"' not in html
+
+
+# hub greeting on a pinned morning / afternoon / evening clock; it leads the header's sub-line
+@pytest.mark.parametrize("hour, minute, part", [(8, 30, "morning"), (13, 5, "afternoon"), (19, 45, "evening")])
+def test_hub_greeting_follows_the_home_clock(main, monkeypatch, hour, minute, part):
+    monkeypatch.setattr(main, "_now_home", lambda: datetime(2026, 10, 6, hour, minute, tzinfo=MEL))
+    with TestClient(main.app) as c:
+        body = htmlmod.unescape(c.get("/").text.split("<main", 1)[1])
+    assert "<h1>Hub</h1>" in body
+    # no Access header in tests = not signed in, so no name (2026-10-06; named form in test_identity.py)
+    assert (f'<p class="pagehead-sub">Good {part}. Here\'s what\'s happening at home today, Tuesday 6 October.'
+            " · Feeds ") in body
+
+
+def test_home_clock_is_melbourne(main):
+    now = main._now_home()
+    assert now.utcoffset() == datetime.now(MEL).utcoffset()
+
+
+def test_area_page_header_names_the_area_and_counts_tiles(main):
+    with TestClient(main.app) as c:
+        body = c.get("/a/beta").text.split("<main", 1)[1]
+    assert '<header class="pagehead">' in body and "<h1>Beta</h1>" in body
+    assert '<p class="pagehead-sub">1 tile</p>' in body and 'class="dot"' not in body

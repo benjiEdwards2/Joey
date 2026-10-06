@@ -2,13 +2,22 @@
 
 FastAPI + Jinja/HTMX dashboard shell. Areas are config, not code — see `config/areas.yaml` (WP16).
 
-**Apex shell (2026-10-06).** `templates/base.html` is the one frame: 260 px labelled rail (brand = kangaroo photo
-`static/brand-joey.jpg`, the whole block links to `/`; Home group = Hub, any area with `rail_section: home`, Weather;
-Areas group = the rest, in `areas.yaml` order), sticky top bar (theme toggle → `data-theme` on `<html>`, saved in
-localStorage `joey-theme`, applied by a pre-paint script; user chip from `identity.py` — the Access header decides the owner view, `?owner_view=` only works locally), page heading block, phone bottom bar. Areas with `hidden: true` are parked: no rail entry, phone tab or hub card, page still serves.
-`static/control-surface.css` keeps its filename but is the Apex port: light values on `:root`, the two dark blocks
-redefine tokens only, no literal colour outside the token blocks (a test enforces it); `--brand` is the red, per-area
-`--accent` is injected by templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
+**Shell (MediaHub guide, Phase 2 of 4, 2026-10-06).** `templates/base.html` is the one frame (guide §5). Sections =
+Hub, any area with `rail_section: home`, Weather, then the other visible areas, in `areas.yaml` order (today: Hub ·
+Media · Weather · Calendar · Server). Top bar `.topbar` (sticky from 768 px, 56 px row, 72rem wide): the kangaroo mark
+`static/brand-joey.jpg` + "Joey" linking to `/`, one pill per section (`.toplinks`, shown from 768 px), and at the right
+the user chip from `identity.py` (the Access header decides the owner view, `?owner_view=` only works locally). Phone
+tab bar `.tabbar` (< 768 px): five slots, icon over label; with more than five sections the fifth slot becomes "More", a
+`<details class="more">` sheet listing the rest. Areas with `hidden: true` are parked: no pill, phone tab or hub card,
+page still serves. Page frame `main.page`: centred, 72rem, bottom padding clears the tab bar. Page header: the
+`_pagehead.html` macro (`pagehead(title, sub, eyebrow, backdrop, actions)`; called with `{% call %}` the caller's markup,
+e.g. section tabs, sits on the band) is used by `hub.html`, `area.html`, `server.html`, `weather.html` and
+`media_base.html`: a full-bleed band with a darkened backdrop (Media home uses the hero's) or a faint indigo glow, the
+title, and one sub-line of facts joined by " · ". Section tabs `.sectabs` (Media sections; `.sectabs.sub` for sub-tabs):
+pills that scroll sideways on a phone, underlined from 768 px, amber `.waitcount` pills. Single dark theme: no theme
+toggle, one `theme-color` meta (`#09090b`), Geist self-hosted (no Google Fonts link). All shell CSS is in the "Shell"
+section of `static/control-surface.css`; every colour is a token on the one `:root` block and no literal colour appears
+outside it (a test enforces it); per-area `--accent` is still injected by some content templates. Hub page (`hub.html`, `_kpi.html`, `_upcoming_table.html`, `_shelf.html`): KPI
 row per area in `hub_rank` order + Weather, sparks only from real data, Next 7 days table (`build_upcoming`), Weather
 card, Continue watching / Recently watched shelves. Area pages (`area.html`): KPI row per tile; Calendar adds the
 table + Weather band; `/weather` = Today hero + Next 24 hours (inline-SVG chart + hour list,
@@ -19,15 +28,14 @@ at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapsho
 `GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting clock: `_now_home()` (Australia/Melbourne).
 
 **Style: MediaHub guide, adopted 2026-10-06 — see `docs/style-guide.md`.** Single dark theme (one `:root` token
-block, `color-scheme: dark`; the light/dark token blocks above are retired and the theme toggle is a no-op until
-Phase 2 removes it); older token names are remapped to the guide's zinc/indigo palette; Geist + Geist Mono are
+block, `color-scheme: dark`; the Apex light/dark token blocks are retired, and Phase 2 removed the theme toggle); older token names are remapped to the guide's zinc/indigo palette; Geist + Geist Mono are
 self-hosted in `static/fonts/`; the guide's recipe classes (`.btn*`, `.chip`, `.input`, `.row*`, `.stats`, `.badge-*`,
-`.score-*`, `.toast*`, ...) live in `control-surface.css`. Phase 1 of 4 (foundation); Phases 2-4 rebuild the templates on them.
+`.score-*`, `.toast*`, ...) live in `control-surface.css`. Phase 1 of 4 (foundation); Phase 2 (shell, above) is done; Phases 3-4 rebuild the page content on them.
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
-`templates/media_base.html`, which extends the Apex shell (rail + top bar; the earlier "Return to Joey" no-rail frame
-was retired the same day) and adds an in-content sections nav
-**Home · Movies · TV Shows · Diary · Server · Discover** with sub-tabs, a phone bottom bar and amber waiting counts. The section map is one module, `media_nav.py`; Home is
+`templates/media_base.html`, which extends the Joey shell (the earlier "Return to Joey" frame was retired the same day)
+and puts the section tabs **Home · Movies · TV Shows · Diary · Server · Discover** on the page header, with sub-tabs and
+amber waiting counts; the phone tab bar stays Joey's. The section map is one module, `media_nav.py`; Home is
 the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonight" went live in F3 (below).
 Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="uprow ... reqrow">` (title plain `.uptitle` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
 
@@ -35,7 +43,7 @@ Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="upro
 
 **Downloads (2026-10-06).** `/media/downloads` (Server sub-tab after Library) lists the live qBittorrent torrents. `media_downloads.py` joins the arr queue to qBittorrent (`download_id` == torrent hash) for live progress on the Home Downloading shelf, Library "This week" badges and title-page badges; a Sonarr season pack (one queue row per episode, one `download_id`) collapses to one row, e.g. "Show · S01 · 13 episodes".
 
-**Server area (WP-S1, 2026-10-06).** Registry area `server` (`layout: server`, last in the Areas rail, accent `#9AA4B2`,
+**Server area (WP-S1, 2026-10-06).** Registry area `server` (`layout: server`, last section in the top bar and tab bar, accent `#9AA4B2`,
 icon `server`) renders `server.html` at `/server` and `/a/server` — not to be confused with the Media "Server" sub-section.
 `server.py` (pure) builds, top to bottom: KPI row per tile (Services = `media_status`, System = `system`, Monitors = `uptime_kuma`,
 Updates = `wud`, Homepage + Portainer links), System band (CPU, RAM free/total, uptime, "Last sweep N min ago" from

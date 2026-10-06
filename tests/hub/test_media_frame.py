@@ -1,6 +1,6 @@
 """F1 (2026-10-06) — the Media app frame: six sections, per-section sub-tabs.
-Apex shell (2026-10-06): Media pages now sit inside the Joey shell WITH the rail and top bar;
-"Return to Joey" is gone and the sections are an in-content segmented nav under the heading.
+Shell (restyle Phase 2, 2026-10-06): Media pages sit inside the Joey shell (top bar + phone tab bar);
+"Return to Joey" is gone and the sections are section tabs (.sectabs) on the page header.
 Bar and tabs are asserted on the whole body (they are chrome, not content)."""
 import importlib
 import re
@@ -72,19 +72,19 @@ def test_media_pages_use_the_frame(env, route):
         r = client.get(route)
     html = r.text
     assert r.status_code == 200
-    assert 'class="rail"' in html                       # Apex shell: the rail stays on Media pages
-    tabs_bar = re.search(r'<nav class="tabs[^"]*".*?</nav>', html, re.S).group(0)
-    assert "/a/beta" not in tabs_bar and "Hub" not in tabs_bar and "Areas (phone)" not in html
+    assert 'class="topbar"' in html and 'class="rail"' not in html   # Joey shell around Media pages
+    tabs_bar = html.split('<nav class="tabbar"', 1)[1]                 # the phone bar is Joey's, not Media's
+    assert "/a/beta" in tabs_bar and "Hub" in tabs_bar and "mediatabs" not in html
     assert "Return to Joey" not in html and "returnjoey" not in html
-    sections = nav_html(html, "sections")
+    sections = nav_html(html, "sectabs")
     for label in LABELS.values():
         assert f">{label}" in sections
     assert sections.count('aria-current="page"') == 1
-    assert current(html, "sections") == [LABELS[section]]
+    assert current(html, "sectabs") == [LABELS[section]]
     if tab:
-        assert current(html, "subtabs") == [tab]
+        assert current(html, "sectabs sub") == [tab]
     else:
-        assert 'class="subtabs"' not in html
+        assert 'class="sectabs sub"' not in html
     assert 'class="status"' not in html
 
 
@@ -92,16 +92,16 @@ def test_six_sections_and_home_resolves_via_registry(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get("/media/movies").text
-    assert len(re.findall(r"<a href=", nav_html(html, "sections"))) == 6
+    assert len(re.findall(r"<a href=", nav_html(html, "sectabs"))) == 6
     assert '<a href="/a/alpha">Home</a>' in html
 
 
 @pytest.mark.parametrize("route", ["/", "/weather", "/a/beta"])
-def test_non_media_pages_keep_rail_and_joey_tabs(env, route):
+def test_non_media_pages_have_the_shell_and_no_media_tabs(env, route):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get(route).text
-    assert 'class="rail"' in html and 'aria-label="Areas (phone)"' in html
+    assert 'class="topbar"' in html and 'aria-label="Sections (phone)"' in html and "sectabs" not in html
     assert "mediabar" not in html and "returnjoey" not in html
 
 
@@ -113,7 +113,7 @@ def test_waiting_counts_are_text_and_absent_at_zero(env):
         media_db.set_rating("m2", 8, "movie", "Rated One", year=2024)
         media_db.set_rating("m3", 7, "movie", "Old One")
         html = client.get("/media/movies").text
-    bar = nav_html(html, "sections")
+    bar = nav_html(html, "sectabs")
     assert "waitcount" not in bar.split("Diary")[1].split("Server")[0]   # nothing to rate: Diary has no count
     assert re.search(r'Movies <span class="waitcount">\d+<span class="vh"> to place</span></span>', bar)
     assert re.search(r'TV Shows <span class="waitcount">\d+<span class="vh"> to place</span></span>', bar)
@@ -188,7 +188,7 @@ def test_switcher_keeps_the_query_string(env):
         rank = client.get("/media/years/2020?mode=rank&kind=tv&owner_view=you").text
     # 2026-10-06: no switcher to carry the query any more; the pages still render their nav
     assert "owner_view=" not in disc and "owner_view=" not in rank
-    assert current(disc, "sections") == ["Discover"] and current(rank, "sections") == ["TV Shows"]
+    assert current(disc, "sectabs") == ["Discover"] and current(rank, "sectabs") == ["TV Shows"]
 
 
 def test_year_pages_carry_kind_and_light_the_right_section(env):
@@ -203,7 +203,7 @@ def test_year_pages_carry_kind_and_light_the_right_section(env):
         cd = client.get("/media/years/2020/countdown?kind=tv").text
     assert 'href="/media/years/2020?kind=tv"' in tiles
     for html in (page, rank, cd):
-        assert current(html, "sections") == ["TV Shows"]
+        assert current(html, "sectabs") == ["TV Shows"]
     assert 'href="/media/years?kind=tv"' in page
     assert 'href="/media/years/2020?mode=rank&amp;kind=tv"' in page
     assert 'href="/media/years/2020/countdown?kind=tv"' in page
@@ -239,8 +239,8 @@ def test_her_view_has_no_to_place_count(env):
     main = env(jellyfin=JELLY, arr=ARR)
     media_db.set_rating("tmdb:9", 8, "movie", "Film Nine", year=2020)
     with TestClient(main.app) as client:
-        you = nav_html(client.get("/media/movies?owner_view=you").text, "sections")
-        her = nav_html(client.get("/media/movies?owner_view=her").text, "sections")
+        you = nav_html(client.get("/media/movies?owner_view=you").text, "sectabs")
+        her = nav_html(client.get("/media/movies?owner_view=her").text, "sectabs")
     assert "to place" in you
     assert "to place" not in her
 
@@ -259,14 +259,14 @@ def test_waitcount_has_hidden_words(env):
 
 @pytest.mark.parametrize("route", ["/a/alpha", "/media/diary", "/media/playing", "/media/discover"])
 def test_media_pages_in_shell_carry_six_labels_and_no_return_link(env, route):
-    """Apex shell: rail + theme toggle present, six section labels in content, no way-out bar."""
+    """Shell: six section labels on the page header (tabs first, title at its foot), no way-out bar."""
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get(route).text
     body = html.split("<main", 1)[1]
-    sections = nav_html(body, "sections")                 # in-content, under the page heading
+    sections = nav_html(body, "sectabs")                 # in-content, under the page heading
     labels = [x.strip() for x in re.findall(r'<a href="[^"]*"[^>]*>([^<]*)', sections)]
     assert labels == list(LABELS.values())
-    assert body.index("<h1>") < body.index('<nav class="sections"')
+    assert body.index('<header class="pagehead">') < body.index('<nav class="sectabs"') < body.index("<h1>")
     assert "Return to Joey" not in html and "mediabar" not in html
-    assert 'href="/a/alpha" style="--accent: #3FD9C0" class="on" aria-current="page"' in html  # rail marks Media
+    assert '<a href="/a/alpha" aria-current="page">Alpha</a>' in html  # the top bar marks Media

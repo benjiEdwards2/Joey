@@ -226,6 +226,11 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .uplist a.rowlink::after { content: ""; position: absolute; inset: 0; }
 .uplist .uprow.rateable .ratebox { position: relative; z-index: 1; }
 .uplist .uprow:has(> a.rowlink:hover) { background: var(--soft); }
+.wlgrid .wlcell { position: relative; border-radius: 8px; }
+.wlgrid .wlcell form, .wlgrid .wlcell .older { position: relative; z-index: 1; }
+.wlgrid .wlcell:has(> a.rowlink:hover) { background: var(--soft); }
+a.pgitem { display: block; color: inherit; text-decoration: none; border-radius: 8px; }
+a.pgitem:hover { background: var(--soft); }
 
 /* ---- Media posters: /img proxy thumbnails, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;

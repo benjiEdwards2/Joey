@@ -15,13 +15,13 @@
     <div class="tonight">
       {% for c in cards %}
       {% set r = c.row %}
-      <div class="pgitem tcard">
-        {% if r.href %}<a href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}>{{ poster(r.poster, r.title, 240, "gold-glow" if r.score == 10 else "") }}</a>
-        {% else %}{{ poster(r.poster, r.title, 240) }}{% endif %}
-        <div class="pgtitle">{% if r.href %}<a href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}>{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}{% if r.year %} ({{ r.year }}){% endif %} {{ rate.scorechip(r.score) }}</div>
+      {# Whole card is the link (2026-10-06); plain when the row resolves nowhere. #}
+      <{{ "a" if r.href else "div" }} class="pgitem tcard"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
+        {{ poster(r.poster, r.title, 240, ("gold-glow" if r.score == 10 else "") if r.href else "") }}
+        <div class="pgtitle">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %} {{ rate.scorechip(r.score) }}</div>
         <div class="pgsub">{{ r.runtime if r.kind == "movie" else r.eps_text }}</div>
         <div class="pgsub tpile">{{ c.pile }}</div>
-      </div>
+      </{{ "a" if r.href else "div" }}>
       {% endfor %}
     </div>
     {% if cards|length < 3 %}<div class="value dim">Nothing else to deal</div>{% endif %}

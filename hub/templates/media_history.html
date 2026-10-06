@@ -53,11 +53,12 @@
     {% if shows %}
     <div class="poster-grid">
       {% for s in shows %}
-      <div class="pgitem">
+      {% set ph = row_href(s.jf_id, s.item_key, "tv") %}
+      <{{ "a" if ph else "div" }} class="pgitem"{% if ph %} href="{{ ph }}"{% endif %}>
         {{ poster(s.poster, s.title, 240, rate.pcls(s.item_key, ratings)) }}
         <div class="pgtitle">{{ s.title }} {{ rate.chip(s.item_key, ratings) }}</div>
         <div class="pgsub">{{ s.episodes }} episode{{ "" if s.episodes == 1 else "s" }} · {{ s.hours }} h</div>
-      </div>
+      </{{ "a" if ph else "div" }}>
       {% endfor %}
     </div>
     {% else %}
@@ -68,11 +69,12 @@
     {% if history.get("most_played_movies") %}
     <div class="poster-grid">
       {% for m in history.most_played_movies %}
-      <div class="pgitem">
+      {% set ph = row_href(m.jf_id, m.item_key, "movie") %}
+      <{{ "a" if ph else "div" }} class="pgitem"{% if ph %} href="{{ ph }}"{% endif %}>
         {{ poster(m.poster, m.title, 240, rate.pcls(m.item_key, ratings)) }}
         <div class="pgtitle">{{ m.title }} {{ rate.chip(m.item_key, ratings) }}</div>
         <div class="pgsub">{{ m.plays }} play{{ "" if m.plays == 1 else "s" }}</div>
-      </div>
+      </{{ "a" if ph else "div" }}>
       {% endfor %}
     </div>
     {% else %}

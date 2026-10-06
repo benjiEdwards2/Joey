@@ -35,13 +35,14 @@
   {% if on_this_day %}
   <div class="upday">On this day</div>
   {% for d in on_this_day %}
-  <div class="uprow hasposter">
+  {% set dh = row_href(none, d.item_key, "movie" if d.kind == "movie" else "tv") %}
+  <{{ "a" if dh else "div" }} class="uprow hasposter{{ ' reqrow' if dh }}"{% if dh %} href="{{ dh }}"{% endif %}>
     {{ poster(d.poster, d.title, 120, "sm" ~ rate.pcls(d.item_key, ratings)) }}
     <span class="uptitle">{{ d.title }}{% if d.sub %} <span class="dim">· {{ d.sub }}</span>{% endif %}</span>
     <span class="chip">{{ d.kind }}</span>
     {{ rate.chip(d.item_key, ratings) }}
     <span class="uptime nextleft">{{ d.years_ago }} year{{ "" if d.years_ago == 1 else "s" }} ago</span>
-  </div>
+  </{{ "a" if dh else "div" }}>
   {% endfor %}
   {% endif %}
 

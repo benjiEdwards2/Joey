@@ -105,9 +105,46 @@ def test_apps_rows_carry_the_row_link_look():
 def test_no_inline_anchor_inside_a_row_title():
     """The title is plain text in every Media row: no <a> nested inside <span class="uptitle">."""
     files = sorted(TEMPLATES.glob("media_*.html")) + [TEMPLATES / "_library_row.html", TEMPLATES / "_diary_row.html"]
+    assert TEMPLATES / "media_watchlist.html" in files
     offenders = []
     for f in files:
-        for m in re.finditer(r'<span class="uptitle"[^>]*>(.*?)</span>', f.read_text(encoding="utf-8"), re.S):
+        for m in re.finditer(r'<(?:span|div) class="(?:uptitle|pgtitle)"[^>]*>(.*?)</(?:span|div)>', f.read_text(encoding="utf-8"), re.S):
             if "<a " in m.group(1):
                 offenders.append(f"{f.name}: {m.group(0)[:80]}")
     assert files and not offenders, offenders
+
+
+def test_watched_most_played_tiles_are_links_where_a_key_resolves(env):
+    history = {**LINKED["history"],
+               "most_played_shows": [{"title": "Linked Show", "episodes": 4, "hours": 2.0, "poster": None,
+                                      "item_key": "jf:ser1"},
+                                     {"title": "Keyless Show", "episodes": 2, "hours": 1.0, "poster": None,
+                                      "item_key": None}],
+               "most_played_movies": [{"title": "Tmdb Film", "plays": 2, "poster": None, "item_key": "tmdb:88"}]}
+    with env(jellyfin={**LINKED, "history": history}) as client:
+        body = main_of(client.get("/media/history").text)
+    shows = between(body, ">Most played shows<", ">Most played movies<")
+    assert re.search(r'<a class="pgitem" href="/media/item/ser1">\s*<img[^>]*>\s*<div class="pgtitle">Linked Show', shows)
+    assert re.search(r'<div class="pgitem">\s*<img[^>]*>\s*<div class="pgtitle">Keyless Show', shows)
+    movies = between(body, ">Most played movies<")
+    assert re.search(r'<a class="pgitem" href="/media/title/movie/88">\s*<img[^>]*>\s*<div class="pgtitle">Tmdb Film', movies)
+
+
+def test_diary_on_this_day_rows_are_whole_row_links(env):
+    otd = [{"title": "Old Film", "kind": "movie", "years_ago": 2, "poster": None, "item_key": "tmdb:12", "jf_id": "of1"},
+           {"title": "Old Show · S01E01 · Pilot", "kind": "episode", "years_ago": 1, "poster": None,
+            "item_key": "jf:ser7", "jf_id": "ep1"},
+           {"title": "Keyless Thing", "kind": "movie", "years_ago": 3, "poster": None, "item_key": None}]
+    with env(jellyfin={**LINKED, "history": {**LINKED["history"], "on_this_day": otd}}) as client:
+        body = main_of(client.get("/media/diary").text)
+    day = between(body, ">On this day<", 'id="diary-new"')
+    assert row_of(day, "Old Film").startswith('<a class="uprow hasposter reqrow" href="/media/title/movie/12">')
+    assert row_of(day, "Old Show").startswith('<a class="uprow hasposter reqrow" href="/media/item/ser7">')
+    assert row_of(day, "Keyless Thing").startswith('<div class="uprow hasposter">')
+    assert '<span class="uptitle">Old Film</span>' in day
+
+
+def test_tonight_cards_are_whole_card_links():
+    """Tonight (Movies/TV): the card itself is the <a>; no separate poster + title anchors."""
+    src = (TEMPLATES / "media_tonight.html").read_text(encoding="utf-8")
+    assert '<{{ "a" if r.href else "div" }} class="pgitem tcard"' in src and src.count("<a ") == 1  # 'Deal again' only

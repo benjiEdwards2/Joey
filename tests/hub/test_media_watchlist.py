@@ -168,7 +168,7 @@ def test_tv_page_and_empty_state(env):
 def test_sorts_on_the_page(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     put(901, title="Bravo", year=2010); put(902, title="Alpha", year=2024); put(903, title="Charlie", year=2000)
-    order = lambda c, s: re.findall(r'class="pgtitle" href="[^"]+">([^<]+)', page(c, f"/media/movies/watchlist?sort={s}")[1])
+    order = lambda c, s: re.findall(r'class="pgtitle">([^<]+)', page(c, f"/media/movies/watchlist?sort={s}")[1])
     with TestClient(main.app) as c:
         assert order(c, "title") == ["Alpha", "Bravo", "Charlie"]
         assert order(c, "newest") == ["Alpha", "Bravo", "Charlie"]
@@ -248,3 +248,17 @@ def test_discover_search_partial_has_plus(discover_env):
     with client:
         html = client.get("/media/discover/search?q=found").text
     assert 'name="tmdb_id" value="5"' in html and 'hx-post="/media/watchlist/add"' in html
+
+
+def test_watchlist_card_is_one_whole_card_link(env):
+    """B., 2026-10-06: every row/card is selectable as a whole. Poster + title sit inside ONE
+    a.rowlink (stretched over the card); the x form and Request link stay outside it, on top."""
+    main = env(jellyfin=jelly(), jellyseerr=REQS)
+    put(999, title="Nowhere Film")
+    with TestClient(main.app) as c:
+        _, b = page(c, "/media/movies/watchlist")
+    cell = re.search(r'<div class="wlcell">.*?<span class="chip st-', b, re.S).group(0)
+    link = re.search(r'<a class="rowlink" href="/media/title/movie/999">(.*?)</a>', cell, re.S)
+    assert link and '<img class="poster' in link.group(1) and '<span class="pgtitle">Nowhere Film</span>' in link.group(1)
+    assert "<form" not in link.group(1) and cell.count("<a ") == 1 and "<form" in cell
+    assert 'class="pgtitle" href' not in b

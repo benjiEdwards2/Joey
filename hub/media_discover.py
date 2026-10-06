@@ -214,7 +214,11 @@ def _seasons(data: dict, info: dict) -> list[dict]:
 
 
 def _title(kind: str, tmdb_id: int) -> dict | None:
-    data = _get(f"/api/v1/{kind}/{tmdb_id}")
+    return title_from(_get(f"/api/v1/{kind}/{tmdb_id}"), kind, tmdb_id)
+
+
+def title_from(data, kind: str, tmdb_id: int) -> dict | None:
+    """The title payload from an already-fetched Jellyseerr /movie|tv/{id} body (the film page caches it)."""
     if not isinstance(data, dict):
         return None
     info = data.get("mediaInfo") if isinstance(data.get("mediaInfo"), dict) else {}
@@ -258,29 +262,6 @@ def _dl_badge(title) -> str | None:
     except Exception:
         log.warning("downloading badge skipped", exc_info=True)
         return None
-
-
-@router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
-def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "",
-               error: str = ""):
-    kind = _kind(kind)
-
-    def build():
-        connected = _creds() is not None
-        t = _title(kind, tmdb_id) if connected else None
-        if t is None:
-            return {"t": None, "note": "Title unavailable" if connected else "Not connected"}
-        if requested == "1":
-            block = _block(t, "done")
-        elif error in ERRORS:
-            block = _block(t, "error", ERRORS[error])
-        else:
-            block = _block(t, "confirm" if step == "confirm" else "idle")
-        files = media_files.file_summary(kind, tmdb_id) if t["status_word"] in ON_DISK else None
-        return {"note": None, "dl_badge": _dl_badge(t["title"]), "files": files,
-                "on_watchlist": bool(keys_for(request, [f"tmdb:{tmdb_id}"])), **block}
-
-    return _page(request, "media_title.html", build)
 
 
 @router.get("/media/title/{kind}/{tmdb_id}/request", response_class=HTMLResponse)
@@ -378,6 +359,8 @@ async def request_title(request: Request, kind: str, tmdb_id: int):
     kind = _kind(kind)
     seasons = await _seasons_of(request) if kind == "tv" else []
     code = _send(kind, tmdb_id, seasons)
+    if code is None:
+        _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)  # the film page re-reads the new request status
     if is_htmx(request):
         stub = _stub(kind, tmdb_id)
         return _partial(request, "_request_block.html",

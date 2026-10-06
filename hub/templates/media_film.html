@@ -1,0 +1,114 @@
+{% extends "media_base.html" %}
+{% block title %}{{ film.title }} — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% import "_rate.html" as rate %}
+{# The film page (F10, Cinema layout): one page for every title, on the server or not. Words first (status line),
+   then the backdrop hero with numbers + buttons, then poster/facts and overview/cast, then shelves. #}
+{% set n = film.numbers %}
+<div class="filmpage" style="--accent: {{ src.accent }}">
+<p class="statusline" id="status-line">{{ film.status_line }}</p>
+{% if film.note %}<div class="value dim">{{ film.note }}</div>{% endif %}
+{% if film.episode %}
+<section class="epheader card">
+  {% if film.episode.show_href %}<div class="sub">Episode of <a href="{{ film.episode.show_href }}">{{ film.title }}</a></div>{% endif %}
+  <div class="uptitle">{% if film.episode.code %}{{ film.episode.code }} · {% endif %}{{ film.episode.title }}</div>
+  <div class="sub">{% if film.episode.air_date %}Aired {{ film.episode.air_date }}{% endif %}{% if film.episode.runtime %}{{ " · " if film.episode.air_date }}{{ film.episode.runtime }}{% endif %}</div>
+  {% if film.episode.overview %}<p>{{ film.episode.overview }}</p>{% endif %}
+  {% if film.episode.play.href %}<a class="glassbtn playbtn" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
+</section>
+{% endif %}
+<section class="hero filmhero{{ ' hasbackdrop' if film.backdrop }}"{% if film.backdrop %} style="--bd: url('/img/{{ film.backdrop }}?h=1280')"{% endif %}>
+  <div class="herotext">
+    <div class="herokind">{{ "TV show" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin" }}</div>
+    <div class="herotitle">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</div>
+    {% if film.tagline %}<div class="herosub">{{ film.tagline }}</div>{% endif %}
+    <div class="numbers">
+      {% if film.rating %}<div class="num" id="rate"><span class="numlabel">Your score</span>{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating) }}{% endif %}</div>{% endif %}
+      {% if n.community %}<div class="num"><span class="numlabel">Community</span><span class="numval">{{ n.community }}</span></div>{% endif %}
+      {% if n.imdb %}<div class="num"><span class="numlabel">IMDb</span><span class="numval">IMDb {{ n.imdb }}</span></div>{% endif %}
+      {% if n.rt %}<div class="num"><span class="numlabel">Rotten Tomatoes</span><span class="numval">RT {{ n.rt }}</span></div>{% endif %}
+      {% if n.runtime %}<div class="num"><span class="numlabel">Runtime</span><span class="numval">{{ n.runtime }}{% if n.ends %} · ends {{ n.ends }} if you start now{% endif %}</span></div>{% endif %}
+      {% if film.official %}<div class="num"><span class="numlabel">Rated</span><span class="numval">{{ film.official }}</span></div>{% endif %}
+    </div>
+    <div class="btnrow">
+      {% if film.play and film.play.href %}<a class="glassbtn playbtn" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
+      {% if film.rating and not film.score %}<a class="glassbtn" href="#rate">Rate</a>{% endif %}
+      {% if film.tmdb and film.t %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
+      {% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg %}{% include "_request_block.html" %}{% endwith %}{% endif %}
+      {% if film.trailer %}<a class="glassbtn" href="{{ film.trailer }}" target="_blank" rel="noopener">Trailer ↗</a>{% endif %}
+      {% if film.jellyseerr_href %}<a class="glassbtn" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener">Open in Jellyseerr ↗</a>{% endif %}
+    </div>
+  </div>
+</section>
+<div class="filmbody">
+  <aside class="filmleft">
+    {{ poster(film.poster, film.title, 400, "filmposter") }}
+    <dl class="facts">
+      {% if film.facts.runtime %}<dt>Runtime</dt><dd>{{ film.facts.runtime }}</dd>{% endif %}
+      {% if film.facts.seasons %}<dt>Seasons</dt><dd>{{ film.facts.seasons }}</dd>{% endif %}
+      {% if film.genres %}<dt>Genres</dt><dd>{{ film.genres | join(", ") }}</dd>{% endif %}
+      {% if film.facts.languages %}<dt>On disk</dt><dd>{{ film.facts.languages }}</dd>{% endif %}
+      {% for r in film.facts.releases %}<dt>{{ r.label }}</dt><dd>{{ r.date }}</dd>{% endfor %}
+      {% if film.facts.added %}<dt>Added</dt><dd>Added to your server {{ film.facts.added }}</dd>{% endif %}
+      {% if film.watch_count %}<dt>Watched</dt><dd>Watched {{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(", ") }}{% endif %}</dd>{% endif %}
+      {% if film.requested_when %}<dt>Requested</dt><dd>Requested {{ film.requested_when }}{% if film.requested_by %} by {{ film.requested_by }}{% endif %}</dd>{% endif %}
+    </dl>
+  </aside>
+  <div class="filmright">
+    {% if film.overview %}<p class="overview">{{ film.overview }}</p>{% endif %}
+    {% set files = film.files %}{% set pills = film.pills %}{% include "_file_strip.html" %}
+    {% if film.cast %}
+    <div><h3>Cast</h3>
+      <div class="castrow">
+        {% for c in film.cast %}
+        <div class="castcard">{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h=120" alt="" loading="lazy" width="56" height="56">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+          <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="sub">{{ c.role }}</span>{% endif %}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% if film.makers %}<div><h3>{{ film.makers_label }}</h3><div class="makers">{% for m in film.makers %}<a class="chip" href="/media/discover?q={{ m|urlencode }}">{{ m }} <span class="sub">search</span></a>{% endfor %}</div></div>{% endif %}
+    {% if film.providers %}
+    <div><h3>Where to watch</h3>
+      {% for g in film.providers %}<div class="provrow"><span class="sub">{{ g.label }}</span>{% for name in g.names %}<a class="chip provider" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% endfor %}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if film.seasons %}
+    <div class="seasons">
+      <h3>Seasons</h3>
+      {% if film.next_air and film.next_air.date %}<div class="sub">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</div>{% endif %}
+      <div class="sub">watched · in progress · not aired — each square is an episode, in order</div>
+      {% for s in film.seasons %}
+      <div class="seasonrow"><span class="uptitle">{{ s.name }}</span><span class="sub">{{ s.watched_text }}</span></div>
+      <div class="epmap">
+        {% for e in s.episodes %}<a class="ep{{ ' watched' if e.played }}{{ ' progress' if e.in_progress }}{{ ' unaired' if not e.aired }}" href="/media/item/{{ e.jf_id }}" title="{{ e.name }}{{ ' (watched)' if e.played else ' (in progress)' if e.in_progress else ' (not aired)' if not e.aired else '' }}">{{ e.number }}</a>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% elif film.kind == "tv" and film.t and film.t.seasons %}
+    <div class="seasons">
+      <h3>Seasons</h3>
+      {% for s in film.t.seasons %}
+      {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
+      {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
+      <details class="seasonbox" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
+      <summary class="seasonrow"><span class="uptitle">{{ s.name }}</span>
+        <span class="sub">{{ s.episodes }} episode{{ "s" if s.episodes != 1 }}{% if s.year %} · {{ s.year }}{% endif %}</span>
+        <span class="chip st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span></summary>
+        <div class="episodes"><a class="older" href="{{ ep_href }}">Show episodes</a></div>
+      </details>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% for sh in film.shelves %}
+<section class="shelf"><div class="shelftop"><h3>{{ sh.title }}</h3></div>
+  <div class="shelf-row">
+    {% for r in sh.rows %}<a class="shelf-item" href="{{ r.href }}">{{ poster(r.poster, r.title, 240) }}<span class="pgtitle">{{ r.title }}</span><span class="pgsub">{{ r.year or "" }}</span><span class="chip{{ ' st-available' if r.on_server }}">{{ "On server" if r.on_server else "Not on server" }}</span></a>{% endfor %}
+  </div>
+</section>
+{% endfor %}
+</div>
+{% endblock %}

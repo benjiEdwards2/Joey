@@ -2,15 +2,6 @@
 {# Media pages inside the Apex shell (2026-10-06): Joey rail and top bar stay; the Media sections
    are an in-content segmented nav (.sections/.subtabs share the .seg look) under the page heading, sub-tabs a smaller row beneath.
    Sections/tabs come from hub/media_nav.py via the `media_nav(request)` global. #}
-{% block switcher %}
-{% set nav = media_nav(request) %}
-<nav class="switcher" aria-label="Who's looking">
-  {% for v, label in [("both", "Both"), ("you", "You"), ("her", "Her")] %}
-  <a href="{{ nav.here }}{{ '&' if '?' in nav.here else '?' }}owner_view={{ v }}"
-     {% if owner_view == v %}aria-current="true"{% endif %}>{{ label }}</a>
-  {% endfor %}
-</nav>
-{% endblock %}
 {% block pagehead %}
 {% set nav = media_nav(request) %}
 {% set ma = (areas or []) | selectattr("layout", "equalto", "shelves") | first %}

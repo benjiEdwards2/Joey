@@ -17,7 +17,7 @@ Cloudflare Tunnel + Access.
 
 **Shell (2026-10-06, Apex-style).** One admin-dashboard shell for every page: 260 px labelled rail (Home group: Hub ·
 Media · Weather; Areas group: the rest — order and grouping come from `config/areas.yaml`, `rail_section`), sticky top bar
-with a light/dark theme toggle and the You/Her switcher, Geist type, hairline cards. The hub is a KPI row (one card per
+with a light/dark theme toggle and a chip for the signed-in Cloudflare Access user (`hub/identity.py`), Geist type, hairline cards. Areas with `hidden: true` are parked (no rail, tab or hub card). The hub is a KPI row (one card per
 area + Weather), a Next 7 days table, a Weather card and Continue watching shelves; area pages are a KPI row per tile.
 
 **Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·

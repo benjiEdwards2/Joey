@@ -45,7 +45,8 @@ def test_rail_lists_every_area_by_name(main):
         assert re.search(rf'<a href="/a/{a.id}"[^>]*>.*?</span>{re.escape(a.name)}</a>', rail, re.S), a.id
     assert '<a href="/" class="on" aria-current="page">' in rail and 'href="/weather"' in rail
     assert ">Home<" in rail and ">Areas<" in rail and "Services" not in rail
-    assert "joeyhome.net" in rail and "Owner · Newport VIC" in rail
+    # signed-in user (2026-10-06): brand reads just "Joey"; footer shows the user (none here: no Access header)
+    assert "joeyhome.net" not in rail and "<b>Not signed in</b>" in rail and "Local preview" in rail
 
 
 def test_rail_marks_the_active_area(main):
@@ -113,7 +114,8 @@ def test_hub_greeting_follows_the_home_clock(main, monkeypatch, hour, minute, pa
     with TestClient(main.app) as c:
         body = htmlmod.unescape(c.get("/").text.split("<main", 1)[1])
     assert "<h1>Hub</h1>" in body
-    assert (f"Good {part}, Benji. Here's what's happening at home today, Tuesday 6 October.") in body
+    # no Access header in tests = not signed in, so no name (2026-10-06; named form in test_identity.py)
+    assert (f"Good {part}. Here's what's happening at home today, Tuesday 6 October.") in body
 
 
 def test_home_clock_is_melbourne(main):
@@ -170,5 +172,5 @@ def test_brand_block_is_one_home_link_with_kangaroo_image(main):
         rail = rail_of(c.get("/").text)
         img = c.get("/static/brand-joey.jpg")
     brand = re.search(r'<a class="brand" href="/" aria-label="Joey home">(.*?)</a>', rail, re.S).group(1)
-    assert "/static/brand-joey.jpg?v=" in brand and "<b>Joey</b>" in brand and "joeyhome.net" in brand
+    assert "/static/brand-joey.jpg?v=" in brand and "<b>Joey</b>" in brand and "joeyhome.net" not in brand  # 2026-10-06: just "Joey"
     assert img.status_code == 200 and img.content[:2] == b"\xff\xd8" and len(img.content) > 1000

@@ -80,8 +80,8 @@ def test_invalid_view_falls_back_to_both(client):
 
 
 def test_switcher_links_render_plain_hrefs(client):
-    """No-JS path: the control is real anchors with owner_view queries."""
+    """2026-10-06: the Both/You/Her links are gone (the signed-in user picks the view);
+    without the Access header the plain ?owner_view= query still switches the view."""
     html = client.get("/a/mixed").text
-    assert 'href="/a/mixed?owner_view=you"' in html
-    assert 'href="/a/mixed?owner_view=her"' in html
-    assert 'href="/a/mixed?owner_view=both"' in html
+    assert 'class="switcher"' not in html and "owner_view=" not in html
+    assert "HER-VAL" not in client.get("/a/mixed?owner_view=you").text

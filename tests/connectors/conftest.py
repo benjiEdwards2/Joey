@@ -29,6 +29,20 @@ def validate_envelope(envelope_schema):
     return _validate
 
 
+@pytest.fixture(autouse=True)
+def _no_real_ftp(monkeypatch):
+    """The open_meteo radar step speaks FTP (2026-10-06). A live-mode test that doesn't
+    mock it gets a refused connection here — the radar step then fails in isolation,
+    exactly as when BOM is unreachable — so the suite never touches ftp.bom.gov.au."""
+    import ftplib
+
+    class _Refused:
+        def __init__(self, *a, **k):
+            raise OSError("network disabled in tests")
+
+    monkeypatch.setattr(ftplib, "FTP", _Refused)
+
+
 @pytest.fixture()
 def snapshots(tmp_path, monkeypatch) -> Path:
     """Point SNAPSHOT_DIR at a tmp dir and default the mode to fixture."""

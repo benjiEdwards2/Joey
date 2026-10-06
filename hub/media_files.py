@@ -121,6 +121,36 @@ def brand_badge(text) -> dict | None:
     return {"label": hit[0], "glyph": hit[1]} if hit else None
 
 
+LANG_WORDS = {"eng": "English", "fra": "French", "fre": "French", "deu": "German", "ger": "German",
+              "spa": "Spanish", "ita": "Italian", "jpn": "Japanese", "kor": "Korean", "zho": "Chinese",
+              "chi": "Chinese", "rus": "Russian", "por": "Portuguese", "hin": "Hindi", "nld": "Dutch",
+              "dut": "Dutch", "swe": "Swedish", "nor": "Norwegian", "dan": "Danish", "ara": "Arabic"}
+
+
+def _lang_word(code) -> str | None:
+    code = str(code or "").strip().lower()
+    return None if not code or code == "und" else LANG_WORDS.get(code) or code.upper()
+
+
+# Quality pills (F10): ONE mapping from a badge word to {id, label, tone, glyph}. `id` names the optional
+# override image in hub/static/badges/; `tone` picks the pill style (dolby / dts black; hdr dark; plain).
+PILL_IDS = {"Dolby Vision": ("dolby-vision", "dolby", True), "Dolby Atmos": ("dolby-atmos", "dolby", True),
+            "Atmos": ("dolby-atmos", "dolby", True), "Dolby Digital Plus": ("dolby-digital-plus", "dolby", True),
+            "Dolby Digital": ("dolby-digital", "dolby", True), "TrueHD": ("dolby-truehd", "dolby", True),
+            "Dolby TrueHD": ("dolby-truehd", "dolby", True), "DTS-HD": ("dts-hd", "dts", False),
+            "DTS-HD MA": ("dts-hd", "dts", False), "DTS": ("dts", "dts", False),
+            "HDR10": ("hdr10", "hdr", False), "HDR10+": ("hdr10plus", "hdr", False), "HLG": ("hlg", "hdr", False)}
+
+
+def badge_pill(word: str, icon: str = "") -> dict:
+    """A badge word -> the pill to draw. Dolby words read as 'Dolby ...' (Atmos / TrueHD included)."""
+    hit = PILL_IDS.get(word)
+    label = {"Atmos": "Dolby Atmos", "TrueHD": "Dolby TrueHD"}.get(word, word)
+    if hit:
+        return {"id": hit[0], "label": label, "tone": hit[1], "glyph": hit[2], "icon": icon}
+    return {"id": None, "label": word, "tone": "plain", "glyph": False, "icon": icon}
+
+
 def _size_text(n) -> str | None:
     if not isinstance(n, (int, float)) or n <= 0:
         return None
@@ -143,6 +173,8 @@ def _facts(item: dict) -> dict | None:
         codec = str(video.get("Codec") or "").lower()
         f.update(res=_resolution(video, source), hdr=_hdr(video),
                  codec=VIDEO_WORDS.get(codec) or codec.upper() or None)
+    f["alangs"] = [w for a in audios for w in (_lang_word(a.get("Language")),) if w]
+    f["slangs"] = [w for st in streams if st.get("Type") == "Subtitle" for w in (_lang_word(st.get("Language")),) if w]
     if audio:
         f.update(audio=_audio_word(audio), channels=CHANNEL_WORDS.get(audio.get("Channels")),
                  atmos="atmos" in str(audio.get("Profile") or "").lower())
@@ -181,6 +213,8 @@ def _summarise(kind: str, items: list) -> dict | None:
     video, audio = _badges(files)
     note = " · ".join(b["word"] for b in video if b["icon"] == "res") if len(files) > 1 else None
     return {"kind": kind, "files": len(files), "video": video, "audio": audio,
+            "languages": _ordered(w for f in files for w in f.get("alangs") or []),
+            "subtitles": _ordered(w for f in files for w in f.get("slangs") or []),
             "size_text": _size_text(sum(f["size"] for f in files)), "note": note,
             "episodes_on_disk": len(files) if kind == "tv" else None,
             "episode_keys": _episode_keys(pairs) if kind == "tv" else None}

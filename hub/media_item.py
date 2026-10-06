@@ -1,5 +1,5 @@
-"""In-Joey item page (F9, 2026-10-06): full film / episode / show information for one Jellyfin
-item, with a Play button that goes to Jellyfin. Read live from Jellyfin (env JELLYFIN_URL +
+"""Jellyfin item data for the film page (F9 data helpers; the page itself is hub/media_film.py, F10).
+Full film / episode / show information for one Jellyfin item. Read live from Jellyfin (env JELLYFIN_URL +
 JELLYFIN_API_KEY) server-side only; the page carries no URL or key except the Play deep link
 (the same one the hero uses). Any upstream failure degrades to words, never a 500; logs carry
 the exception TYPE only.
@@ -12,15 +12,11 @@ import re
 import time
 from datetime import date
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
-
 from hub import media_db, media_files
 from hub.media_discover import _date_words
 from hub.media_library import runtime_text
 
 log = logging.getLogger("hub.media_item")
-router = APIRouter()
 
 ITEM_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 CACHE_TTL = 600
@@ -28,7 +24,7 @@ TICKS_PER_MINUTE = 600_000_000
 MAX_SEASONS, MAX_EPISODES = 12, 60
 FIELDS = ("Overview,Genres,People,ProviderIds,DateCreated,PremiereDate,RunTimeTicks,SeriesId,SeasonId,"
           "ParentIndexNumber,IndexNumber,SeriesName,SeasonName,Studios,OfficialRating,CommunityRating,"
-          "UserData,BackdropImageTags,ImageTags")
+          "UserData,BackdropImageTags,ImageTags,RemoteTrailers")
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
 
@@ -61,6 +57,14 @@ def _server_id(base, headers, from_snapshot) -> str | None:
     return None
 
 
+def _trailer(raw: dict) -> str | None:
+    for t in raw.get("RemoteTrailers") or []:
+        url = str(t.get("Url") or "") if isinstance(t, dict) else ""
+        if url.startswith(("https://", "http://")):
+            return url
+    return None
+
+
 def _state(row: dict, today: str) -> dict:
     ud = row.get("UserData") or {}
     played = bool(ud.get("Played"))
@@ -85,7 +89,7 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
                             "name": str(e.get("Name") or "Episode")[:200], "jf_id": e["Id"],
                             **_state(e, today)})
         done = sum(1 for e in eps if e["played"])
-        out.append({"id": s["Id"], "name": str(s.get("Name") or "Season")[:100], "episodes": eps,
+        out.append({"id": s["Id"], "number": _int(s.get("IndexNumber")), "name": str(s.get("Name") or "Season")[:100], "episodes": eps,
                     "watched_text": f"{done} of {len(eps)} watched"})
     return out
 
@@ -123,7 +127,9 @@ def _build(jf_id: str) -> dict:
         "runtime": runtime_text(ticks / TICKS_PER_MINUTE) if ticks else "",
         "community_rating": f"{cr:.1f}" if isinstance(cr, (int, float)) and cr > 0 else None,
         "official_rating": str(raw.get("OfficialRating") or "") or None,
-        "air_date": air, "played": played, "in_progress": not played and pos > 0,
+        "air_date": air, "runtime_min": ticks // TICKS_PER_MINUTE if ticks else None,
+        "added": raw.get("DateCreated"), "last_played": ud.get("LastPlayedDate"), "trailer": _trailer(raw),
+        "played": played, "in_progress": not played and pos > 0,
         "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE} min left" if ticks and pos > 0 else None,
         "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
         "show_title": str(raw.get("SeriesName") or "") or None, "show_id": series_id if kind != "series" else None,
@@ -133,9 +139,9 @@ def _build(jf_id: str) -> dict:
         "season_key": (f"jf:{raw['SeasonId']}" if raw.get("SeasonId") else
                        f"jf:{raw['Id']}" if kind == "season" else None),
         "episode_key": f"jf:{raw['Id']}" if kind == "episode" else None,
-        "cast": [f"{p['Name']} · {p['Role']}" if p.get("Role") else str(p["Name"])
-                 for p in (raw.get("People") or []) if isinstance(p, dict) and p.get("Name")
-                 and p.get("Type") == "Actor"][:8],
+        "people": [{"name": str(p["Name"])[:80], "role": str(p.get("Role") or "")[:80], "type": p.get("Type"),
+                    "ref": f"jf:{p['Id']}" if p.get("Id") and p.get("PrimaryImageTag") and ITEM_RE.match(str(p["Id"])) else None}
+                   for p in (raw.get("People") or []) if isinstance(p, dict) and p.get("Name")][:30],
     }
     seasons = _seasons(base, headers, uid, series_id, today) if series_id else []
     files = (media_files.file_summary("tv", int(tmdb)) if kind == "series" and str(tmdb).isdigit()
@@ -196,38 +202,3 @@ def _diary_dates(item: dict, owner: str) -> list[str]:
         if hit and r.get("watched_on"):
             out.append(_date_words(r["watched_on"])[0] or r["watched_on"])
     return out[:8]
-
-
-@router.get("/media/item/{jf_id}", response_class=HTMLResponse)
-def item_page(request: Request, jf_id: str):
-    from hub import main as hub  # late: hub.main includes this router
-
-    if not ITEM_RE.match(jf_id):
-        raise HTTPException(404, "No such item")
-    view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots()
-    src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
-    if src is None:
-        raise HTTPException(404, "No such item")
-    data = _data(jf_id)
-    item = data["item"] if data else {"kind": "unknown", "id": jf_id, "title": "Jellyfin item", "year": None,
-                                      "genres": [], "cast": [], "poster": None, "backdrop": None, "tmdb": None}
-    if data:
-        request.state.media_section = "movies" if item["kind"] == "movie" else "tv"
-    owner = media_db.owner_of(view)
-    rating = _rating_for(item, media_db.rating_level(owner)) if data else None
-    ratings = hub._ratings(view, [{"item_key": rating["item_key"]}] if rating else [])
-    snap_server = (src["data"] or {}).get("server_id")
-    creds = media_files._creds()
-    server = _server_id(*creds, snap_server) if creds else snap_server
-    resp = hub.templates.TemplateResponse(request, "media_item.html", {
-        "areas": hub.registry.areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(snaps), "src": src, "item": item,
-        "seasons": data["seasons"] if data else [], "files": data["files"] if data else None,
-        "note": None if data else DOWN_TEXT, "rating": rating,
-        "score": ratings.get(rating["item_key"]) if rating else None,
-        "diary": _diary_dates(item, owner) if data else [],
-        "play_href": hub._deep_link(src["href"], jf_id, server),
-        "seerr_href": (f"/media/title/{'movie' if item['kind'] == 'movie' else 'tv'}/{item['tmdb']}"
-                       if item["tmdb"] and str(item["tmdb"]).isdigit() else None)})
-    return hub._maybe_set_cookie(resp, view, from_query)

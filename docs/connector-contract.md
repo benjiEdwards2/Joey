@@ -59,6 +59,14 @@ server-side only) and records each Movie/Episode being played into `media.db` ta
 (or when the Jellyfin keys are missing). "A watch, not a sitting": the same user + item continues an open play unless it
 reached >= 90 % or the gap is > 2 h, in which case a new play starts. Failures log the exception type only.
 
+**Eighth exception (2026-10-06): the film page (`hub/media_film.py`, F9 + F10).** One page for every title: both
+`/media/title/{kind}/{tmdb}` and `/media/item/{jf_id}` build the same `film` dict. Its live reads, all server-side and
+all cached 10 minutes per path (a failed fetch is not cached), are Jellyfin item + seasons/episodes (`media_item.py`, with
+the sixth exception's file strip) and Jellyseerr title (`/api/v1/{movie|tv}/{tmdb}`), `ratingscombined` (else `ratings`),
+`similar`, `recommendations` and `collection/{id}`. Jellyseerr shares `media_discover`'s cache, so its `clear_cache()` (run
+on Request) clears these too. Every call degrades per section to words, never a 500; Jellyseerr not connected makes none.
+Logs carry exception types only; the page carries no key or upstream URL beyond the Play deep link and "Open in Jellyseerr".
+
 **`media.db` additions (2026-10-06).** `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key
 `(owner, item_key)` (F6); `play(...)` per watch, with user, item/show/season/episode keys, runtime, `started_at`,
 `last_seen_at`, `position_pct`, `finished` (F7); and diary columns `show_key, season_key, season, episode, show_title,

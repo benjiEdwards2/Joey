@@ -34,16 +34,21 @@ Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages
 `media_hero()` inside `_kpi.html`) with a sibling Jellyfin "Jump back in" deep link. A hx-boosted page that
 carries a new `joey-asset-v` meta forces a full reload so new CSS is never mixed with old pages.
 
-File-quality strip (2026-10-06, `media_files.py`): a Movie or TV title page that is Available / Partly
-available shows plain-word badges read live from Jellyfin: video (resolution, HDR, codec, container) and audio
-(format, channels, Atmos). Dolby and DTS audio formats render as a black badge with the name written out —
-Dolby ones carry a small double-D glyph (`brand_badge()` in `media_files.py`); the word is always present. It is cached for 10 minutes and
-simply absent when Jellyfin is unreachable or the title is not on disk.
-
-Title pages (2026-10-06): each season is a `<details>`; episodes load on first open from
-`GET /media/title/tv/{tmdb_id}/season/{n}` (Jellyseerr, cached 10 min, "Episodes unavailable right now" on failure)
-with an "On disk" word chip for episodes Jellyfin has. To-rate and diary rows wrap (`rateable`) so the 1–10 picker sits
-under the title.
+**Film page (F9 + F10, 2026-10-06).** `media_film.py` + `media_item.py` + `media_files.py` render ONE Cinema-layout page for
+every title, on the server or not: `/media/title/{kind}/{tmdb}` and `/media/item/{jf_id}` build the same page (live reads:
+`docs/connector-contract.md`, eighth exception; each section degrades to words when its source is down). Top to bottom: a
+status line in words ("On your server · 4K · HDR · watched 3 Oct · you rated 8", or "Not on your server · Requested ...");
+the backdrop hero; a numbers strip (your score or the picker, community, IMDb, Rotten Tomatoes, runtime with "ends HH:MM if you
+start now", rating); a button row — **Play ▶ (Resume / Play again / Next to watch) is the only Jellyfin hop**, plus Rate,
+Watchlist, Request, Trailer and Open in Jellyseerr (the hub hero's "Jump back in" stays a direct Jellyfin link). The file strip
+reads Jellyfin live (10 min cache, Available / Partly available only) as Dolby-style pills: black Dolby pills with a double-D
+glyph, DTS and HDR pills, plain pills for resolution, codec, container, channels and size; the word is always present.
+`hub/static/badges/<id>.svg|.png` overrides a pill with official artwork; no brand files are shipped (see its README). Below:
+poster + facts (languages, release dates, added, watched, requested), overview, cast portraits (initials when none), director /
+creators as search chips (no follow or lists), where to watch (AU, JustWatch links), then seasons — an episode map of squares
+for on-server shows, lazy `<details>` for off-server ones (`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection /
+Similar / Recommended shelves marked "On server". Every row with a Jellyfin id opens this page; an episode id shows an episode
+header over the show page.
 
 Rating level (2026-10-06): each owner chooses Show / Season / Episode with the chips on To rate
 (`POST /media/settings/rating_level`, stored per owner in `media.db` `setting`). The To rate inbox, the rate

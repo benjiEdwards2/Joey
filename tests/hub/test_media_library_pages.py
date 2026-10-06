@@ -348,3 +348,16 @@ def test_link_arrivals_is_pure():
     got = ml.link_arrivals(rows, items, "movie", lambda jf: f"/media/item/{jf}")
     assert [r["href"] for r in got] == ["/media/item/J5", None, "/media/title/movie/6"]
     assert ml.link_arrivals(rows[2:], None, "tv", lambda jf: None)[0]["href"] == "/media/title/tv/6"
+
+
+def test_link_arrivals_title_fallback():
+    from hub import media_library as ml
+    items = [{"title": "The Watchmen", "year": 2019, "item_key": "tmdb:1", "jf_id": "J1"},
+             {"title": "Twin", "year": 1990, "item_key": "tmdb:2", "jf_id": "J2"},
+             {"title": "Twin", "year": 2020, "item_key": "tmdb:3", "jf_id": "J3"}]
+    rows = [{"title": "Watchmen · S01 · 9 episodes", "item_key": "tvdb:9"},
+            {"title": "Twin · S01 · 2 episodes", "item_key": "tvdb:8", "year": 2020},
+            {"title": "Twin · S01 · 2 episodes", "item_key": "tvdb:7"},
+            {"title": "Nothing Here · S01", "item_key": "tvdb:6"}]
+    got = ml.link_arrivals(rows, items, "tv", lambda jf: f"/media/item/{jf}")
+    assert [r["href"] for r in got] == ["/media/item/J1", "/media/item/J3", "/media/item/J2", None]

@@ -924,3 +924,11 @@ a.castcard:hover .castname { text-decoration: underline; }
 .linkbtn:hover { color: var(--fg); }
 .uplist details.ignored > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
 .uplist .flash { color: var(--fg); }
+
+/* Server → Last 24 h sparklines (WP-U4, 2026-10-06): scoped .spark-*, weather-chart stroke tokens. */
+.spark-band .spark-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 240px); gap: 12px; align-items: center; padding: 6px 0; }
+.spark-band .spark-text { font-size: 14px; overflow-wrap: anywhere; }
+.spark-band .spark-svg { display: block; width: 100%; height: auto; }
+.spark-band .spark-base { stroke: var(--border); stroke-width: 1; }
+.spark-band .spark-line { fill: none; stroke: var(--brand); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+@media (max-width: 520px) { .spark-band .spark-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }

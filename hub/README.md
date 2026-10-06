@@ -85,6 +85,19 @@ Attention card's "Sweeps (24 h)" rows list every connector (runs · failed · la
 response background task) and on a hub loop beside the media backup one (first ~60 s after start, then every 5 min).
 Unset webhook ⇒ no call, no table writes; failures log status/type only.
 
+**Server → Last 24 h history (WP-U4, 2026-10-06).** `server_history.py` samples the `system` snapshot into media.db
+`server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — `ts` is the envelope's `updated_at`
+(UTC `…Z`), `volumes` JSON `[{path, pct_used, free_gb}]` with `pct_used` recomputed from free/total to two decimals. A row
+is inserted only when `updated_at` is newer than the last stored `ts` (≤ 1 row per 2-min snapshot; renders never
+duplicate); no row when the snapshot is missing or `status != ok`; each insert deletes rows older than 8 days. It runs on
+the WP-U2 paths: after every `/server` render (a second response background task) and on the same 5-minute hub loop as
+the Discord push. `server.history_band()` builds the "Last 24 h" band directly under System: three inline-SVG
+sparklines (no JS; the weather chart's conventions) for CPU %, RAM % used and the fullest volume's % used, each with
+"CPU 4–38 %, now 15 %" text, plus a 7-day disk line "Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate"
+(least-squares slope; "flat" when not rising or the projection is ≥ 10 years; under 24 h of history it says
+"projection after 24 h of history"). Fewer than 2 samples in 24 h ⇒ "Collecting history — first chart after a few
+sweeps". Reads never create media.db.
+
 Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages, Request),
 `media_db.py` (ratings + diary, per owner), `media_backup.py` (nightly `media.db` dump),
 `media_write.py` (same-origin write guard). The hub's Media KPI card is first (`hub_rank: 1`,

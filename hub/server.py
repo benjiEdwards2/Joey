@@ -13,6 +13,8 @@ on container + new tag, or current tag for a digest update), each shown row carr
 WP-U2 (2026-10-06): Attention as keyed items (`attention_items`, keys like `down:prowlarr`
 — hub/server_alerts.py pushes NEW ones to Discord), durable sweep failures from
 `_runner_history.jsonl` (last 24 h; `sweep_stats`), and the hub card's own words (`hub_card`).
+WP-U4 (2026-10-06): "Last 24 h" band (`history_band`) from media.db `server_system_samples`
+(hub/server_history.py) — CPU / RAM / fullest-volume sparklines and a 7-day disk trend line.
 """
 
 from __future__ import annotations
@@ -331,8 +333,97 @@ def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=N
             "state": "warn" if attention else "ok"}
 
 
+SPARK_W, SPARK_H, SPARK_PAD = 240, 40, 3
+SPARK_MIN_SPAN = 1.0  # % — a flat series draws as a flat line, not amplified noise
+DISK_TARGET_PCT = DISK_ATTENTION_PCT
+PROJECTION_MAX_DAYS = 3650  # 10 years: beyond that the trend reads "flat"
+COLLECTING = "Collecting history — first chart after a few sweeps"
+
+
+def _spark(label: str, points: list, start: datetime, digits: int = 0) -> dict | None:
+    """Inline-SVG sparkline geometry over the 24 h window + its words; None under 2 points."""
+    if len(points) < 2:
+        return None
+    vals = [v for _, v in points]
+    lo, hi, last = min(vals), max(vals), vals[-1]
+    span = max(hi - lo, SPARK_MIN_SPAN)
+    inner_w, inner_h = SPARK_W - 2 * SPARK_PAD, SPARK_H - 2 * SPARK_PAD
+    line = " ".join(
+        f"{round(SPARK_PAD + min(1.0, max(0.0, (at - start).total_seconds() / 86400)) * inner_w, 1)},"
+        f"{round(SPARK_H - SPARK_PAD - (v - lo) / span * inner_h, 1)}" for at, v in points)
+    f = (lambda v: f"{v:.{digits}f}")
+    return {"label": label, "line": line, "w": SPARK_W, "h": SPARK_H, "base": SPARK_H - SPARK_PAD,
+            "pad": SPARK_PAD, "text": f"{label} {f(lo)}–{f(hi)} %, now {f(last)} %"}
+
+
+def _vol_pct(sample: dict, path: str):
+    for v in sample.get("volumes") or []:
+        if v.get("path") == path and isinstance(v.get("pct_used"), (int, float)):
+            return float(v["pct_used"])
+    return None
+
+
+def _span_text(seconds: float) -> str:
+    days = seconds / 86400
+    if days >= 1:
+        n = round(days)
+        return f"{n} day{'' if n == 1 else 's'}"
+    return f"{max(1, round(seconds / 3600))} h"
+
+
+def disk_trend(points: list) -> str | None:
+    """'Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate' (least-squares slope,
+    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits."""
+    if len(points) < 2:
+        return None
+    t0 = points[0][0]
+    xs = [(at - t0).total_seconds() / 86400 for at, _ in points]
+    ys = [v for _, v in points]
+    span_s = (points[-1][0] - t0).total_seconds()
+    head = f"Disk: {ys[0]:.1f} % → {ys[-1]:.1f} % over {_span_text(span_s)}"
+    if span_s < 86400:
+        return head + " · projection after 24 h of history"
+    if ys[-1] >= DISK_TARGET_PCT:
+        return head + f" · at or over {DISK_TARGET_PCT} %"
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    var = sum((x - mx) ** 2 for x in xs)
+    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
+    if slope > 0:
+        days = (DISK_TARGET_PCT - ys[-1]) / slope
+        if days < PROJECTION_MAX_DAYS:
+            n = max(1, round(days))
+            return head + f" · ~{n:,} day{'' if n == 1 else 's'} to {DISK_TARGET_PCT} % at this rate"
+    return head + " · flat"
+
+
+def history_band(samples, now: datetime | None = None) -> dict:
+    """The "Last 24 h" band from server_history.recent() rows (oldest first): {collecting,
+    sparks [CPU, RAM, fullest volume], trend}. Fewer than 2 samples in 24 h ⇒ collecting."""
+    now = now or datetime.now(timezone.utc)
+    start = now.timestamp() - 86400
+    rows = [s for s in samples or [] if isinstance(s, dict) and s.get("at") is not None]
+    day = [s for s in rows if s["at"].timestamp() >= start]
+    if len(day) < 2:
+        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None}
+    t_start = datetime.fromtimestamp(start, timezone.utc)
+
+    def series(key, among):
+        return [(s["at"], float(s[key])) for s in among if isinstance(s.get(key), (int, float))]
+
+    sparks = [_spark("CPU", series("cpu_pct", day), t_start),
+              _spark("RAM", series("ram_pct_used", day), t_start)]
+    vols = [v for v in day[-1].get("volumes") or [] if isinstance(v.get("pct_used"), (int, float))]
+    trend = None
+    if vols:
+        path = max(vols, key=lambda v: v["pct_used"])["path"]
+        pts = [(s["at"], p) for s in day if (p := _vol_pct(s, path)) is not None]
+        sparks.append(_spark(f"Disk {path}", pts, t_start, digits=1))
+        trend = disk_trend([(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None])
+    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend}
+
+
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
-                 ignores=None, requested=None, history=None) -> dict:
+                 ignores=None, requested=None, history=None, samples=None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     monitors = _band(area, snaps, UPTIME_KUMA_SNAPSHOT_ID)
@@ -366,4 +457,5 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     return {"tiles": [{"tile": t, "st": tile_state(t, snaps)} for t in area.tiles],
             "system": system, "services": services, "monitors": monitors, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
-            "sweeps": sweep_rows(stats), "counts": _counts(snaps)}
+            "sweeps": sweep_rows(stats), "counts": _counts(snaps),
+            "history": history_band(samples)}

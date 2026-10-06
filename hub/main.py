@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.background import BackgroundTask
+from starlette.background import BackgroundTasks
 
 from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
@@ -28,7 +28,7 @@ from hub import media_film, media_item, media_person, media_library, media_plays
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_watchlist
 from hub import server as server_area
-from hub import server_alerts, server_updates
+from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
@@ -61,9 +61,14 @@ async def _backup_loop():
 
 
 async def _server_alerts_loop():
-    """WP-U2: push NEW Server Attention items to Discord (no-op without the webhook)."""
+    """WP-U2: push NEW Server Attention items to Discord (no-op without the webhook).
+    WP-U4: the same loop samples the `system` snapshot into media.db (server_history)."""
     await asyncio.sleep(server_alerts.FIRST_DELAY_S)
     while True:
+        try:
+            await asyncio.to_thread(server_history.sample)
+        except Exception as exc:  # never let a history sample take the hub down
+            log.warning("server history task error: %s", type(exc).__name__)
         try:
             await asyncio.to_thread(server_alerts.check_once)
         except Exception as exc:  # never let an alert check take the hub down
@@ -1365,12 +1370,15 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     snaps = get_snapshots()
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
-                                  get_runner_history())
+                                  get_runner_history(), server_history.recent())
+    tasks = BackgroundTasks()
+    tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
+    tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = templates.TemplateResponse(request, "server.html", {
         "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
         "status": build_status(snaps), "sv": sv,
         "flash": server_updates.flash_text(request.query_params),
-    }, background=BackgroundTask(server_alerts.sync, sv["attention_items"]))  # WP-U2: Discord push after the page
+    }, background=tasks)
     return _maybe_set_cookie(resp, view, from_query)
 
 

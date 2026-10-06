@@ -55,6 +55,30 @@
 </section>
 </div>
 
+{# WP-U4 (2026-10-06): "Last 24 h" — sparklines from media.db server_system_samples (inline SVG,
+   no JS, the weather chart's conventions). Every value is also text; colour is never the only encoding. #}
+{% set hist = sv.history %}
+<div class="mediacols">
+<section class="card uplist medialist spark-band" id="history" style="--accent: {{ area.accent }}" aria-label="Last 24 h">
+  <div class="head">Last 24 h</div>
+  {% if hist.collecting %}
+    <div class="value dim">{{ hist.text }}</div>
+  {% else %}
+    {% for sp in hist.sparks %}
+    <div class="spark-row">
+      <span class="spark-text">{{ sp.text }}</span>
+      <svg class="spark-svg" viewBox="0 0 {{ sp.w }} {{ sp.h }}" role="img" aria-labelledby="spark-t{{ loop.index }}">
+        <title id="spark-t{{ loop.index }}">Last 24 hours: {{ sp.text }}</title>
+        <line class="spark-base" x1="{{ sp.pad }}" y1="{{ sp.base }}" x2="{{ sp.w - sp.pad }}" y2="{{ sp.base }}"/>
+        <polyline class="spark-line" points="{{ sp.line }}"/>
+      </svg>
+    </div>
+    {% endfor %}
+    {% if hist.trend %}<div class="sub spark-trend">{{ hist.trend }}</div>{% endif %}
+  {% endif %}
+</section>
+</div>
+
 {% set svc = sv.services %}
 <div class="mediacols" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}

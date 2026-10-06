@@ -93,6 +93,9 @@ note)` — the Server page is single-owner, so no owner column. `watchlist(owner
 `last_seen_at`, `position_pct`, `finished` (F7); and diary columns `show_key, season_key, season, episode, show_title,
 episode_title` (F8, added by `ALTER` on connect). jellyfin-synced diary rows are now per episode; older show-level rows
 are kept and render as before.
+WP-U4: `server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — the hub's history of the
+`system` feed for the Server "Last 24 h" band. It is DERIVED from the `system` snapshot envelopes already on disk (one row
+per new `updated_at`, `status: ok` only, 8-day retention): no new live call, no connector change.
 
 **Backups.** The hub dumps `media.db` nightly (`hub/media_backup.py`, gzip, integrity-checked,
 30 daily + monthly kept) to `MEDIA_BACKUP_DIR`, mounted from

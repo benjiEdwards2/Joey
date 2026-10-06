@@ -1,24 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Update {{ name }} · Joey{% endblock %}
 {% block content %}
-{# Server → Update now (WP-U1, 2026-10-06): the confirm step, or the reason it can't run.
-   Plain form POST behind the same-origin guard; no confirm() and no JS needed. #}
-<section class="card uplist medialist notfound" id="update-confirm" style="--accent: {{ area.accent }}" aria-label="Update {{ name }}">
-  <div class="head">Update {{ name }}</div>
+{# Server → Update now (WP-U1, 2026-10-06; restyle Phase 4): the confirm step, or the reason it can't run. Plain form
+   POST behind the same-origin guard; no confirm() and no JS needed. The container facts are a spec-sheet panel. #}
+<section class="sec narrow" id="update-confirm" aria-label="Update {{ name }}">
+  <div class="sechead"><h1 class="seclabel">Update {{ name }}</h1></div>
   {% if row %}
-  <div class="uprow"><span class="uptitle">Container</span><span class="uptime nextleft">{{ row.name }}</span></div>
-  <div class="uprow"><span class="uptitle">Image</span><span class="uptime nextleft">{{ row.image }}</span></div>
-  <div class="uprow"><span class="uptitle">Version</span><span class="uptime nextleft">{{ row.current_tag }}{% if row.new_tag %} → {{ row.new_tag }}{% endif %}</span></div>
-  <div class="uprow"><span class="uptitle">Kind</span><span class="uptime nextleft">{{ {"tag": "New version", "digest": "New build"}.get(row.kind, "Update") }}</span></div>
+  <div class="panel kv">
+    <dl>
+      <dt>Container</dt><dd>{{ row.name }}</dd>
+      <dt>Image</dt><dd>{{ row.image }}</dd>
+      <dt>Version</dt><dd>{{ row.current_tag }}{% if row.new_tag %} → {{ row.new_tag }}{% endif %}</dd>
+      <dt>Kind</dt><dd>{{ {"tag": "New version", "digest": "New build"}.get(row.kind, "Update") }}</dd>
+    </dl>
+  </div>
   {% endif %}
   {% if msg %}
-  <div class="sub">{{ msg }}</div>
-  <div class="reqbtns"><a class="glassbtn" href="/server#updates">Back to Server</a></div>
+  <p class="metaline">{{ msg }}</p>
+  <div class="confirm-btns"><a class="btn btn-secondary" href="/server#updates">Back to Server</a></div>
   {% else %}
-  <div class="sub">{{ confirm_text }}</div>
-  <form method="post" action="/server/updates/{{ name }}/run" class="reqbtns">
-    <button class="launch" type="submit">Update {{ name }} now</button>
-    <a class="glassbtn" href="/server#updates">Cancel</a>
+  <p class="metaline">{{ confirm_text }}</p>
+  <form method="post" action="/server/updates/{{ name }}/run" class="confirm-btns">
+    <button class="btn btn-primary" type="submit">Update {{ name }} now</button>
+    <a class="btn btn-ghost" href="/server#updates">Cancel</a>
   </form>
   {% endif %}
 </section>

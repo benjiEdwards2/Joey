@@ -43,7 +43,7 @@ def _page(app_factory, data, files=()):
 
 def test_radar_panel_stacks_layers_and_cycles_six_frames(app_factory):
     html = _page(app_factory, {**WX_DATA, "radar": _radar()})
-    panel = html.split('class="card panel wxradar"')[1].split("</section>")[0]
+    panel = html.split('class="sec wxradar"')[1].split("</section>")[0]
     imgs = re.findall(r'<img class="(wxr\w+)[^"]*" src="([^"]+)"', panel)
     # background, topography under the rain; range, locations over it
     assert [s for c, s in imgs if c == "wxrlayer"] == [
@@ -81,8 +81,8 @@ def test_stale_radar_shows_unavailable_with_the_last_frames(app_factory):
 
 def test_no_radar_field_shows_a_note_never_a_crash(app_factory):
     html = _page(app_factory, WX_DATA)                             # pre-radar envelope
-    assert 'class="card panel wxradar wxradar-off"' in html
-    assert "Radar unavailable — the loop appears after the next successful radar fetch." in html
+    assert 'class="sec wxradar wxradar-off"' in html
+    assert "Radar unavailable. The loop appears after the next successful radar fetch." in html
     assert "<img" not in html.split("wxradar-off")[1].split("</section>")[0]
 
 

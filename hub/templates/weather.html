@@ -2,57 +2,46 @@
 {% block title %}Weather — Joey{% endblock %}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
-{{ pagehead("Weather", sub="Newport VIC · Today · Next 24 hours · Next 7 days") }}
+{{ pagehead("Weather", sub="Newport VIC") }}
 {% endblock %}
 {% block content %}
-{# Detail behind the hub glimpse (2026-09-11; Apex restyle 2026-10-06).
-   Weather upgrade (2026-10-06): today hero + 24-hour chart (inline SVG, no JS) + 7-day strip,
-   all from the one open_meteo snapshot. Every value renders as text — the glyph, line and bars
-   are never the only encoding. A snapshot written before the upgrade has no hourly/days:
-   those panels are simply absent. #}
+{% from "_rows.html" import meta, updated %}
+{# Detail behind the hub glimpse (2026-09-11; restyle Phase 4, 2026-10-06). Today as a .stats strip, the 24-hour chart
+   (inline SVG, no JS; strokes --primary) with the hours as .row rows, the BOM radar panel, and the 7 days as .row
+   rows (glyph · day · condition word · range at the right). Every value renders as text: the glyph, line and bars are
+   never the only encoding. A snapshot written before the upgrade has no hourly/days: those panels are simply absent. #}
 {% set w = w or none %}
 {% set fc = fc or none %}
 <div class="wxapp">
-<section class="card panel wxpage">
-  <div class="hd"><div><h2>Today</h2><p>Newport VIC · at home</p></div></div>
-  <div class="bd">
+<section class="sec wxpage">
+  <div class="sechead"><h2 class="seclabel">Today<span class="sep"> · </span>Newport VIC</h2></div>
   {% if not w or w.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if w and w.st.note %}<div class="sub">{{ w.st.note }}</div>{% endif %}
+    <div class="panel"><p class="stat-word st-off">Not connected</p>{% if w and w.st.note %}<p class="row-meta">{{ w.st.note }}</p>{% endif %}</div>
   {% else %}
-    <div class="wxnow">
-      <div class="glyph">{{ ic.icon(w.glyph) }}</div>
-      <div>
-        <div class="wxtemp">{{ w.data.get("now_c", "—") }} °C</div>
-        <div class="wxword">{{ w.data.get("condition_text", "—") }}</div>
-        {% if fc and fc.feels %}<div class="wxfeels">Feels like {{ fc.feels }} °C</div>{% endif %}
+    {% set d = w.data %}
+    <div class="stats">
+      <div class="stat">
+        <div class="microlabel">Now</div>
+        <div class="wxnow"><div class="glyph">{{ ic.icon(w.glyph) }}</div><div class="stat-number">{{ (d.get("now_c") ~ " °C") if d.get("now_c") is not none else "—" }}</div></div>
+        <div class="wxword">{{ d.get("condition_text") or "—" }}</div>
+        {% if fc and fc.feels %}<div class="row-meta">Feels like {{ fc.feels }} °C</div>{% endif %}
       </div>
+      <div class="stat"><div class="microlabel">Low</div><div class="stat-number">{{ (d.get("today_min_c") ~ " °C") if d.get("today_min_c") is not none else "—" }}</div></div>
+      <div class="stat"><div class="microlabel">High</div><div class="stat-number">{{ (d.get("today_max_c") ~ " °C") if d.get("today_max_c") is not none else "—" }}</div></div>
+      <div class="stat"><div class="microlabel">Rain</div><div class="stat-number">{{ (d.get("rain_prob_pct") ~ "%") if d.get("rain_prob_pct") is not none else "—" }}</div></div>
+      {% if fc and fc.wind %}<div class="stat"><div class="microlabel">Wind (max)</div><div class="stat-number">{{ fc.wind }} km/h</div></div>{% endif %}
+      {% if fc and fc.uv %}<div class="stat"><div class="microlabel">UV (max)</div><div class="stat-number">{{ fc.uv }}</div>{% if fc.uv_word %}<div class="row-meta">{{ fc.uv_word }}</div>{% endif %}</div>{% endif %}
+      {% if fc and (fc.sunrise or fc.sunset) %}<div class="stat"><div class="microlabel">Sunrise · sunset</div><div class="stat-word">{{ fc.sunrise or "—" }} · {{ fc.sunset or "—" }}</div></div>{% endif %}
     </div>
-    <dl class="wxfacts">
-      <div><dt>Today low</dt><dd>{{ w.data.get("today_min_c", "—") }} °C</dd></div>
-      <div><dt>Today high</dt><dd>{{ w.data.get("today_max_c", "—") }} °C</dd></div>
-      <div><dt>Rain chance</dt><dd>{{ w.data.get("rain_prob_pct", "—") }}%</dd></div>
-      {% if fc and fc.wind %}<div><dt>Wind (max)</dt><dd>{{ fc.wind }} km/h</dd></div>{% endif %}
-      {% if fc and fc.uv %}<div><dt>UV (max)</dt><dd>{{ fc.uv }}{% if fc.uv_word %} <small>{{ fc.uv_word }}</small>{% endif %}</dd></div>{% endif %}
-      {% if fc and (fc.sunrise or fc.sunset) %}<div><dt>Sunrise · sunset</dt><dd>{{ fc.sunrise or "—" }} · {{ fc.sunset or "—" }}</dd></div>{% endif %}
-    </dl>
   {% endif %}
-  {% if w %}
-  <div class="foot">
-    <span class="chip">{{ w.tile.owner.value | title }}</span>
-    {% if w.st.state == "stale" %}<span class="badge stale">{{ w.st.age_text }}</span>
-    {% elif w.st.state == "off" %}<span class="badge off">not connected</span>
-    {% elif w.st.age_text %}<span class="ago">updated {{ w.st.age_text }}</span>{% endif %}
-  </div>
-  {% endif %}
-  <div class="sub">Open-Meteo · refreshed hourly</div>
-  </div>
+  {% if w %}<p class="metaline">Open-Meteo<span class="sep"> · </span>{{ w.tile.owner.value | title }}{% if w.st.state != "off" and (w.st.state == "stale" or w.st.age_text) %}<span class="sep"> · </span>{{ updated(w.st) }}{% endif %}</p>{% endif %}
 </section>
 
 {% if fc and fc.chart %}{% set c = fc.chart %}
-<section class="card panel wxhourly">
-  <div class="hd"><div><h2>Next 24 hours</h2><p>Temperature °C (line, {{ c.lo }}–{{ c.hi }} °C) · rain chance % (bars)</p></div></div>
-  <div class="bd">
+<section class="sec wxhourly">
+  <div class="sechead"><h2 class="seclabel">Next 24 hours</h2></div>
+  <div class="panel">
+    <p class="metaline">Temperature, {{ c.lo }}–{{ c.hi }} °C (line)<span class="sep"> · </span>chance of rain (bars)</p>
     <svg class="wxchart" viewBox="0 0 {{ c.w }} {{ c.h }}" role="img" aria-labelledby="wxchart-t">
       <title id="wxchart-t">Next 24 hours: temperature from {{ c.lo }} to {{ c.hi }} °C, with rain chance per hour</title>
       <line class="wxbase" x1="{{ c.pad }}" y1="{{ c.base }}" x2="{{ c.w - c.pad }}" y2="{{ c.base }}"/>
@@ -68,23 +57,26 @@
       {% if p.label %}<text class="wxhourlab" x="{{ p.x }}" y="{{ c.h - 12 }}">{{ p.hour }}</text>{% endif %}
       {% endfor %}
     </svg>
-    <ol class="wxhours" aria-label="Hour by hour">
+  </div>
+  <details class="fold wxhours-fold">
+    <summary class="seclabel">Hour by hour<span class="sep"> · </span>{{ fc.hours | length }}</summary>
+    <ol class="listbox wxhours" aria-label="Hour by hour">
       {% for h in fc.hours %}
-      <li><b>{{ h.hour }}</b><span>{{ h.temp or "—" }} °C</span><small>{{ h.rain if h.rain is not none else "—" }}% rain</small></li>
+      <li class="row"><div class="row-body"><div class="row-title">{{ h.hour }}</div>{{ meta([(h.rain if h.rain is not none else "—") ~ "% rain"]) }}</div><span class="row-side">{{ h.temp or "—" }} °C</span></li>
       {% endfor %}
     </ol>
-  </div>
+  </details>
 </section>
 {% endif %}
 
-{# BOM radar loop (2026-10-06): stored PNG layers stacked as <img>, the 6 frame slots cycled
-   by CSS keyframes (no JS); reduced motion shows the latest frame only. The time range and the
-   legend words are text, so colour is never the only encoding. #}
+{# BOM radar loop (2026-10-06): stored PNG layers stacked as <img>, the 6 frame slots cycled by CSS keyframes (no JS);
+   reduced motion shows the latest frame only. The time range and the legend words are text, so colour is never the
+   only encoding. #}
 {% set radar = radar or none %}
 {% if w and w.st.state != "off" %}
-<section class="card panel wxradar{% if not radar %} wxradar-off{% endif %}">
-  <div class="hd"><div><h2>Rain radar</h2><p>Melbourne 128 km · Bureau of Meteorology</p></div></div>
-  <div class="bd">
+<section class="sec wxradar{% if not radar %} wxradar-off{% endif %}">
+  <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>Melbourne 128 km</h2></div>
+  <div class="panel">
   {% if radar %}
     <div class="wxradarbox" role="img" aria-label="Rain radar loop, {{ radar.count }} frames from {{ radar.first }} to {{ radar.last }}">
       {% for src in radar.under %}<img class="wxrlayer" src="{{ src }}" alt="" width="512" height="512">{% endfor %}
@@ -92,7 +84,7 @@
       {% for src in radar.over %}<img class="wxrlayer" src="{{ src }}" alt="" width="512" height="512">{% endfor %}
       {% for f in radar.slots %}<span class="wxrclock f{{ loop.index0 }}" aria-hidden="true">{{ f.time }}</span>{% endfor %}
     </div>
-    <p class="wxradartime">{% if radar.stale %}<b>Radar unavailable</b> — showing the last stored frames, {% endif %}{{ radar.first }}–{{ radar.last }}{% if radar.step %}, {{ radar.step }}-min frames{% endif %} · {{ radar.count }} frame{{ "s" if radar.count != 1 }}, latest held</p>
+    <p class="microlabel wxradartime">{% if radar.stale %}<b>Radar unavailable</b> — showing the last stored frames, {% endif %}{{ radar.first }}–{{ radar.last }}{% if radar.step %}, {{ radar.step }}-min frames{% endif %} · {{ radar.count }} frame{{ "s" if radar.count != 1 }}, latest held</p>
     <ul class="wxlegend" aria-label="Rain intensity legend">
       <li><i class="rl1"></i>Light <small>under 1.5 mm/h</small></li>
       <li><i class="rl2"></i>Moderate <small>1.5–10 mm/h</small></li>
@@ -101,34 +93,30 @@
       <li><i class="rl5"></i>Extreme, possible hail <small>over 120 mm/h</small></li>
     </ul>
   {% else %}
-    <p class="areaquiet">Radar unavailable — the loop appears after the next successful radar fetch.</p>
+    <p class="empty">Radar unavailable. The loop appears after the next successful radar fetch.</p>
   {% endif %}
-  <div class="sub">Radar © Commonwealth of Australia, Bureau of Meteorology · refreshed with the forecast</div>
+  <p class="metaline">Radar © Commonwealth of Australia, Bureau of Meteorology</p>
   </div>
 </section>
 {% endif %}
 
 {% if fc and fc.days %}
-<section class="card panel wxweek">
-  <div class="hd"><div><h2>Next 7 days</h2><p>Low – high °C · chance of rain</p></div></div>
-  <div class="bd">
-    <ol class="wxdays">
-      {% for d in fc.days %}
-      <li>
-        <b>{{ d.label }}</b>
-        <span class="glyph">{{ ic.icon(d.glyph) }}</span>
-        <span class="wxword">{{ d.word }}</span>
-        <span class="wxrange">{{ d.min or "—" }}–{{ d.max or "—" }} °C</span>
-        <small>{{ d.rain if d.rain is not none else "—" }}% rain</small>
-      </li>
-      {% endfor %}
-    </ol>
-  </div>
+<section class="sec wxweek">
+  <div class="sechead"><h2 class="seclabel">Next 7 days</h2></div>
+  <ol class="listbox wxdays" aria-label="Next 7 days">
+    {% for d in fc.days %}
+    <li class="row">
+      <span class="glyph">{{ ic.icon(d.glyph) }}</span>
+      <div class="row-body"><div class="row-title">{{ d.label }}</div>{{ meta([d.word, (d.rain if d.rain is not none else "—") ~ "% rain"]) }}</div>
+      <span class="row-side">{{ d.min or "—" }}–{{ d.max or "—" }} °C</span>
+    </li>
+    {% endfor %}
+  </ol>
 </section>
 {% endif %}
 
 {% if w and w.st.state != "off" and fc and not fc.chart and not fc.days %}
-<p class="areaquiet">The hourly and 7-day forecast appear after the next weather refresh.</p>
+<p class="metaline">The hourly and 7-day forecast appear after the next weather refresh.</p>
 {% endif %}
 </div>
 {% endblock %}

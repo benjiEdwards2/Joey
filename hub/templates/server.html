@@ -6,64 +6,61 @@
 {{ pagehead(area.name, sub=sub) }}
 {% endblock %}
 {% block content %}
-{# Server area (WP-S1, 2026-10-06): the NAS Homepage, natively. Bands, top to bottom:
-   System, Services, Monitors (WP-S4), Updates, Attention, Counts. Each band degrades to "Not connected" on
-   its own. Up/Down and states are WORDS beside the dot/bar — colour is never the only encoding. #}
+{# Server area (WP-S1, 2026-10-06; restyle Phase 4): bands, top to bottom: System, Last 24 h (WP-U4), Services,
+   Monitors (WP-S4), Updates, Attention, Counts. Each band degrades to "Not connected" on its own. Up/Down are
+   WORDS (.st-up emerald / .st-down red) beside the tinted row: colour is never the only encoding. Amber only where
+   there is something to do. #}
 {% from "_kpi.html" import kpi %}
-{# KPI row: one card per registry tile, as on every grid area page. #}
-<section class="kpis areakpis" aria-label="{{ area.name }} tiles">
+{% from "_rows.html" import meta, updated %}
+{# Summary tiles: one per registry tile, as on every area page. #}
+<section class="tiles areatiles" aria-label="{{ area.name }} tiles">
   {% for row in sv.tiles %}
     {% set t = row.tile %}{% set st = row.st %}
     {% if st.state == "link" %}
-      {{ kpi(st.href, t.label, t.owner.value | title, area.icon, st, t.owner.value,
-             value="Open ↗", sub="Opens the app in a new tab", new_tab=true) }}
+      {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true) }}
     {% else %}
-      {{ kpi(t.detail, t.label, t.owner.value | title, area.icon, st, t.owner.value, open_word="Open →") }}
+      {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value) }}
     {% endif %}
   {% endfor %}
 </section>
 
 {% set sys = sv.system %}
-<div class="mediacols">
-<section class="card uplist medialist" id="system" style="--accent: {{ area.accent }}" aria-label="System">
-  <div class="head">System</div>
+<section class="sec" id="system" aria-label="System">
+  <div class="sechead"><h2 class="seclabel">System</h2></div>
   {% if sys.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if sys.st.note %}<div class="sub">{{ sys.st.note }}</div>{% endif %}
+    <p class="empty">Not connected.</p>
+    {% if sys.st.note %}<p class="metaline">{{ sys.st.note }}</p>{% endif %}
   {% else %}
-    <div class="uprow"><span class="uptitle">CPU</span><span class="uptime nextleft">{{ sys.cpu_text }}{% if sys.load_text %} · {{ sys.load_text }}{% endif %}</span></div>
-    <div class="uprow"><span class="uptitle">RAM</span><span class="uptime nextleft">{{ sys.ram_text }}{% if sys.ram_sub %} {{ sys.ram_sub }}{% endif %}</span></div>
-    <div class="uprow"><span class="uptitle">Uptime</span><span class="uptime nextleft">{{ sys.uptime_text }}</span></div>
-    {% if sys.last_sweep %}
-    <div class="uprow"><span class="uptitle">Last sweep</span><span class="uptime nextleft">{{ sys.last_sweep.text }}{% if sys.last_sweep.stale %} · stale{% endif %}</span></div>
-    {% endif %}
-    <div class="upday">Volumes</div>
-    {% for v in sys.volumes %}
-    <div class="uprow playrow">
-      <span class="uptitle">{{ v.path }}</span>
-      <span class="uptime nextleft">{{ v.free_text }} free of {{ v.total_text }} · {{ v.pct_used }}% used</span>
-      <span class="pbar" aria-hidden="true"><span style="width: {{ v.pct_used }}%"></span></span>
+    <div class="stats">
+      <div class="stat"><div class="microlabel">CPU</div><div class="stat-number">{{ sys.cpu_text }}</div>{{ meta([sys.load_text]) }}</div>
+      <div class="stat"><div class="microlabel">RAM</div><div class="stat-word">{{ sys.ram_text }}</div>{{ meta([sys.ram_sub]) }}</div>
+      <div class="stat"><div class="microlabel">Uptime</div><div class="stat-word">{{ sys.uptime_text }}</div></div>
+      {% if sys.last_sweep %}
+      <div class="stat"><div class="microlabel">Last sweep</div><div class="stat-word">{{ sys.last_sweep.text }}</div>{% if sys.last_sweep.stale %}<div class="row-meta"><span class="st-warn">Stale</span></div>{% endif %}</div>
+      {% endif %}
+      {% for v in sys.volumes %}
+      <div class="stat wide">
+        <div class="microlabel">{{ v.path }}</div><div class="stat-word">{{ v.free_text }} free</div>
+        {{ meta(["of " ~ v.total_text, v.pct_used ~ "% used"]) }}
+        <div class="bar" role="img" aria-label="{{ v.pct_used }}% used"><span style="width: {{ v.pct_used }}%"></span></div>
+      </div>
+      {% else %}
+      <div class="stat"><div class="microlabel">Volumes</div><div class="stat-word st-off">—</div></div>
+      {% endfor %}
     </div>
-    {% else %}
-    <div class="value dim">No volumes reported</div>
-    {% endfor %}
-    <div class="foot">
-      {% if sys.st.state == "stale" %}<span class="badge stale">{{ sys.st.age_text }}</span>
-      {% elif sys.st.age_text %}<span class="ago">updated {{ sys.st.age_text }}</span>{% endif %}
-    </div>
+    <p class="metaline">{{ updated(sys.st) }}</p>
   {% endif %}
 </section>
-</div>
 
-{# WP-U4 (2026-10-06): "Last 24 h" — sparklines from media.db server_system_samples (inline SVG,
-   no JS, the weather chart's conventions). Every value is also text; colour is never the only encoding. #}
+{# WP-U4 (2026-10-06): "Last 24 h": sparklines from media.db server_system_samples (inline SVG, no JS, the weather
+   chart's conventions). Every value is also text; colour is never the only encoding. #}
 {% set hist = sv.history %}
-<div class="mediacols">
-<section class="card uplist medialist spark-band" id="history" style="--accent: {{ area.accent }}" aria-label="Last 24 h">
-  <div class="head">Last 24 h</div>
+<section class="sec spark-band" id="history" aria-label="Last 24 h">
+  <div class="sechead"><h2 class="seclabel">Last 24 h</h2></div>
   {% if hist.collecting %}
-    <div class="value dim">{{ hist.text }}</div>
+    <p class="empty">{{ hist.text }}</p>
   {% else %}
+  <div class="panel">
     {% for sp in hist.sparks %}
     <div class="spark-row">
       <span class="spark-text">{{ sp.text }}</span>
@@ -74,191 +71,166 @@
       </svg>
     </div>
     {% endfor %}
-    {% if hist.trend %}<div class="sub spark-trend">{{ hist.trend }}</div>{% endif %}
+    {% if hist.trend %}<p class="metaline spark-trend">{{ hist.trend }}</p>{% endif %}
+  </div>
   {% endif %}
 </section>
-</div>
 
 {% set svc = sv.services %}
-<div class="mediacols" id="services" aria-label="Services">
+<div class="sec" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}
-<section class="card uplist medialist" style="--accent: {{ area.accent }}">
-  <div class="head">Services</div>
-  <div class="value dim">Not connected</div>
-  {% if svc.st.note %}<div class="sub">{{ svc.st.note }}</div>{% endif %}
-</section>
+  <div class="sechead"><h2 class="seclabel">Services</h2></div>
+  <p class="empty">Not connected.</p>
+  {% if svc.st.note %}<p class="metaline">{{ svc.st.note }}</p>{% endif %}
 {% else %}
-{% for g in svc.groups %}
-<section class="card uplist medialist" style="--accent: {{ area.accent }}">
-  <div class="head">{{ g.label }}</div>
-  {% for a in g.apps %}
-  <a class="uprow approw" href="{{ a.href }}" target="_blank" rel="noopener">
-    <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>
-    <span class="appstate">{{ a.status_text or ("Up" if a.up else "Down") }}</span>
-    <span class="uptitle">{{ a.name }}</span>
-    {% if not a.up and a.note %}<span class="appnote">{{ a.note }}</span>{% endif %}
-  </a>
+  <p class="metaline">{{ updated(svc.st) }}</p>
+  <div class="cols">
+  {% for g in svc.groups %}
+  <section class="sec">
+    <div class="sechead"><h2 class="seclabel">{{ g.label }}</h2></div>
+    <div class="listbox">
+    {% for a in g.apps %}
+    <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
+      <div class="row-body"><div class="row-title">{{ a.name }}</div></div>
+      <span class="row-side"><span class="{{ 'st-up' if a.up else 'st-down' }}">{{ a.status_text or ("Up" if a.up else "Down") }}</span>{% if not a.up and a.note %}<span class="sep"> · </span>{{ a.note }}{% endif %}</span>
+    </a>
+    {% endfor %}
+    </div>
+  </section>
   {% endfor %}
-  <div class="foot">
-    {% if svc.st.state == "stale" %}<span class="badge stale">{{ svc.st.age_text }}</span>
-    {% elif svc.st.age_text %}<span class="ago">updated {{ svc.st.age_text }}</span>{% endif %}
   </div>
-</section>
-{% endfor %}
 {% endif %}
 </div>
 
 {% set mon = sv.monitors %}
-<div class="mediacols">
-<section class="card uplist medialist" id="monitors" style="--accent: {{ area.accent }}" aria-label="Monitors">
-  <div class="head">Monitors</div>
+<section class="sec" id="monitors" aria-label="Monitors">
+  <div class="sechead"><h2 class="seclabel">Monitors</h2></div>
   {% if mon.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if mon.st.note %}<div class="sub">{{ mon.st.note }}</div>{% endif %}
+    <p class="empty">Not connected.</p>
+    {% if mon.st.note %}<p class="metaline">{{ mon.st.note }}</p>{% endif %}
   {% else %}
-    <div class="sub">{{ mon.data.get("up", 0) }} of {{ mon.data.get("total", 0) }} up</div>
+    <p class="metaline">{{ mon.data.get("up", 0) }} of {{ mon.data.get("total", 0) }} up<span class="sep"> · </span>{{ updated(mon.st) }}</p>
+    <div class="listbox">
     {% for m in mon.rows %}
-    <div class="uprow approw">
-      <span class="appdot {{ {'up': 'up', 'down': 'down'}.get(m.status, '') }}" aria-hidden="true"></span>
-      <span class="appstate">{{ (m.status or "unknown") | title }}</span>
-      <span class="uptitle">{{ m.name }}</span>
-      <span class="uptime nextleft">{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
+    <div class="row{{ ' is-down' if m.status == 'down' }}">
+      <div class="row-body"><div class="row-title">{{ m.name }}</div></div>
+      <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ (m.status or "unknown") | title }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
     </div>
     {% else %}
-    <div class="value dim">No monitors</div>
+    <p class="empty">No monitors.</p>
     {% endfor %}
-    <div class="foot">
-      {% if mon.st.state == "stale" %}<span class="badge stale">{{ mon.st.age_text }}</span>
-      {% elif mon.st.age_text %}<span class="ago">updated {{ mon.st.age_text }}</span>{% endif %}
     </div>
   {% endif %}
 </section>
-</div>
 
 {% set up = sv.updates %}
-<div class="mediacols">
-<section class="card uplist medialist" id="updates" style="--accent: {{ area.accent }}" aria-label="Updates">
-  <div class="head">Updates</div>
+<section class="sec" id="updates" aria-label="Updates">
+  <div class="sechead"><h2 class="seclabel">Updates</h2></div>
   {% if up.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if up.st.note %}<div class="sub">{{ up.st.note }}</div>{% endif %}
+    <p class="empty">Not connected.</p>
+    {% if up.st.note %}<p class="metaline">{{ up.st.note }}</p>{% endif %}
   {% else %}
-    {% if flash %}<div class="sub flash" role="status">{{ flash }}</div>{% endif %}
+    {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
     {% set n_up = up.pending | length %}
-    <div class="sub">{{ up.data.get("monitoring", 0) }} monitored · {{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %} · {{ up.ignored | length }} ignored{% endif %}</div>
-    {# WP-U1: Update now only on rows WUD's dockercompose.local trigger applies to (`auto`);
-       excluded rows say so in words. Ignore/Unignore are same-origin POSTs. #}
+    <p class="metaline">{{ up.data.get("monitoring", 0) }} monitored<span class="sep"> · </span>{{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %}<span class="sep"> · </span>{{ up.ignored | length }} ignored{% endif %}<span class="sep"> · </span>{{ updated(up.st) }}</p>
+    {# WP-U1: Update now only on rows WUD's dockercompose.local trigger applies to (`auto`); excluded rows say so in
+       words. Ignore/Unignore are same-origin POSTs. #}
+    <div class="listbox">
     {% for c in up.pending %}
-    <div class="uprow">
-      <span class="uptitle">{{ c.name }}</span>
-      <span class="chip">{{ {"tag": "New version", "digest": "New build"}.get(c.kind, "Update") }}</span>
-      <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}{% if c.requested_text %} · {{ c.requested_text }}{% endif %}</span>
-      <span class="upact">
-        {% if c.auto %}<a class="glassbtn" href="/server/updates/{{ c.name }}/run?step=confirm">Update now</a>
-        {% else %}<span class="chip">Manual · excluded</span>{% endif %}
-        <form method="post" action="/server/updates/{{ c.name }}/ignore"><button class="linkbtn" type="submit">Ignore</button></form>
+    <div class="row has-form">
+      <div class="row-body"><div class="row-title">{{ c.name }}</div>{{ meta([c.current_tag ~ ((" → " ~ c.new_tag) if c.new_tag else ""), c.requested_text]) }}</div>
+      <span class="badge badge-wait">{{ {"tag": "New version", "digest": "New build"}.get(c.kind, "Update") }}</span>
+      <span class="row-side">
+        {% if c.auto %}<a class="btn btn-primary btn-sm" href="/server/updates/{{ c.name }}/run?step=confirm">Update now</a>
+        {% else %}<span>Manual · excluded</span>{% endif %}
+        <form method="post" action="/server/updates/{{ c.name }}/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button></form>
       </span>
     </div>
     {% else %}
-    <div class="value dim">All up to date</div>
+    <p class="empty">All up to date.</p>
     {% endfor %}
+    </div>
     {% if up.ignored %}
-    <details class="ignored">
-      <summary>Ignored ({{ up.ignored | length }})</summary>
+    <details class="fold ignored">
+      <summary class="seclabel">Ignored<span class="sep"> · </span>{{ up.ignored | length }}</summary>
+      <div class="listbox">
       {% for c in up.ignored %}
-      <div class="uprow">
-        <span class="uptitle">{{ c.name }}</span>
-        <span class="uptime nextleft">{{ c.current_tag }}{% if c.new_tag %} → {{ c.new_tag }}{% endif %}</span>
-        <span class="upact"><form method="post" action="/server/updates/{{ c.name }}/unignore"><button class="linkbtn" type="submit">Unignore</button></form></span>
+      <div class="row has-form">
+        <div class="row-body"><div class="row-title">{{ c.name }}</div>{{ meta([c.current_tag ~ ((" → " ~ c.new_tag) if c.new_tag else "")]) }}</div>
+        <span class="row-side"><form method="post" action="/server/updates/{{ c.name }}/unignore"><button class="btn btn-ghost btn-sm" type="submit">Unignore</button></form></span>
       </div>
       {% endfor %}
+      </div>
     </details>
     {% endif %}
-    <div class="foot">
-      {% if up.st.state == "stale" %}<span class="badge stale">{{ up.st.age_text }}</span>
-      {% elif up.st.age_text %}<span class="ago">updated {{ up.st.age_text }}</span>{% endif %}
-    </div>
   {% endif %}
 </section>
 
-<section class="card uplist medialist" id="attention" style="--accent: {{ area.accent }}" aria-label="Attention">
-  <div class="head">Attention</div>
-  {% for item in sv.attention %}
-  <div class="uprow approw">
-    <span class="appdot down" aria-hidden="true"></span>
-    <span class="appstate">Check</span>
-    <span class="uptitle">{{ item }}</span>
+<section class="sec" id="attention" aria-label="Attention">
+  <div class="sechead"><h2 class="seclabel">Attention</h2></div>
+  {% if sv.attention %}
+  <div class="panel panel-warn">
+    {% for item in sv.attention %}<p class="st-warn">{{ item }}</p>{% endfor %}
   </div>
   {% else %}
-  <div class="uprow approw">
-    <span class="appdot up" aria-hidden="true"></span>
-    <span class="appstate">OK</span>
-    <span class="uptitle">All clear</span>
-  </div>
-  {% endfor %}
-  {# WP-U2: per-connector sweep record from _runner_history.jsonl (last 24 h). A connector
-     that failed and has since recovered shows here only, not in Attention. #}
+  <p class="metaline">All clear</p>
+  {% endif %}
+  {# WP-U2: per-connector sweep record from _runner_history.jsonl (last 24 h). A connector that failed and has
+     since recovered shows here only, not in Attention. #}
   {% if sv.sweeps %}
-  <div class="upday" id="sweeps">Sweeps (24 h)</div>
+  <h3 class="seclabel" id="sweeps">Sweeps · 24 h</h3>
+  <div class="listbox">
   {% for w in sv.sweeps %}
-  <div class="uprow">
-    <span class="uptitle">{{ w.id }}</span>
-    <span class="uptime nextleft">{{ w.runs }} run{{ "" if w.runs == 1 else "s" }} · {{ w.failures }} failed · last ok {{ w.last_ok_text }}{% if w.failing %} · failing{% endif %}</span>
+  <div class="row">
+    <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "last ok " ~ w.last_ok_text]) }}</div>
+    {% if w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
   </div>
   {% endfor %}
+  </div>
   {% endif %}
 </section>
-</div>
 
-<div class="mediacols">
 {% set n = sv.counts %}
-<section class="card uplist medialist" id="counts" style="--accent: {{ area.accent }}" aria-label="Counts">
-  <div class="head">Counts</div>
-  <div class="upday">Requests</div>
-  {% if n.requests %}
-  <div class="uprow"><span class="uptitle">Pending</span><span class="uptime nextleft">{{ n.requests.pending }}</span></div>
-  <div class="uprow"><span class="uptitle">Approved</span><span class="uptime nextleft">{{ n.requests.approved }}</span></div>
-  <div class="uprow"><span class="uptitle">Available</span><span class="uptime nextleft">{{ n.requests.available }}</span></div>
-  {% else %}<div class="value dim">Not connected</div>{% endif %}
-  <div class="upday">Torrents</div>
-  {% if n.torrents %}
-  <div class="uprow"><span class="uptitle">Downloading</span><span class="uptime nextleft">{{ n.torrents.downloading }}</span></div>
-  <div class="uprow"><span class="uptitle">Seeding</span><span class="uptime nextleft">{{ n.torrents.seeding }}</span></div>
-  <div class="uprow"><span class="uptitle">Speed</span><span class="uptime nextleft">↓ {{ n.torrents.dl_text }} · ↑ {{ n.torrents.up_text }}</span></div>
-  {% else %}<div class="value dim">Not connected</div>{% endif %}
-  <div class="upday">Radarr / Sonarr</div>
-  {% if n.arr %}
-  <div class="uprow"><span class="uptitle">Downloading</span><span class="uptime nextleft">{{ n.arr.downloading }}</span></div>
-  <div class="uprow"><span class="uptitle">This week</span><span class="uptime nextleft">{{ n.arr.this_week }}</span></div>
-  {% for d in n.arr.disk %}
-  <div class="uprow playrow">
-    <span class="uptitle">{{ d.path }}</span>
-    <span class="uptime nextleft">{{ d.free_text }} free · {{ d.pct_used }}% used</span>
-    <span class="pbar" aria-hidden="true"><span style="width: {{ d.pct_used }}%"></span></span>
+<section class="sec" id="counts" aria-label="Counts">
+  <div class="sechead"><h2 class="seclabel">Counts</h2></div>
+  <div class="cols">
+    <div class="panel kv">
+      <h3 class="seclabel">Requests</h3>
+      {% if n.requests %}
+      <dl><dt>Pending</dt><dd>{{ n.requests.pending }}</dd><dt>Approved</dt><dd>{{ n.requests.approved }}</dd><dt>Available</dt><dd>{{ n.requests.available }}</dd></dl>
+      {% else %}<p class="st-off">Not connected</p>{% endif %}
+    </div>
+    <div class="panel kv">
+      <h3 class="seclabel">Torrents</h3>
+      {% if n.torrents %}
+      <dl><dt>Downloading</dt><dd>{{ n.torrents.downloading }}</dd><dt>Seeding</dt><dd>{{ n.torrents.seeding }}</dd><dt>Speed</dt><dd>↓ {{ n.torrents.dl_text }} · ↑ {{ n.torrents.up_text }}</dd></dl>
+      {% else %}<p class="st-off">Not connected</p>{% endif %}
+    </div>
+    <div class="panel kv">
+      <h3 class="seclabel">Radarr / Sonarr</h3>
+      {% if n.arr %}
+      <dl><dt>Downloading</dt><dd>{{ n.arr.downloading }}</dd><dt>This week</dt><dd>{{ n.arr.this_week }}</dd></dl>
+      {% for d in n.arr.disk %}
+      <div>
+        <div class="metaline">{{ d.path }}<span class="sep"> · </span>{{ d.free_text }} free<span class="sep"> · </span>{{ d.pct_used }}% used</div>
+        <div class="bar" role="img" aria-label="{{ d.pct_used }}% used"><span style="width: {{ d.pct_used }}%"></span></div>
+      </div>
+      {% endfor %}
+      {% else %}<p class="st-off">Not connected</p>{% endif %}
+      {# WP-S3: library + indexer counts, only when the arr snapshot carries them. #}
+      {% if n.radarr %}
+      <div class="microlabel">Radarr</div>
+      <dl><dt>Wanted</dt><dd>{{ n.radarr.wanted }}</dd><dt>Missing</dt><dd>{{ n.radarr.missing }}</dd><dt>Queued</dt><dd>{{ n.radarr.queued }}</dd><dt>Movies</dt><dd>{{ n.radarr.movies }}</dd></dl>
+      {% endif %}
+      {% if n.sonarr %}
+      <div class="microlabel">Sonarr</div>
+      <dl><dt>Wanted</dt><dd>{{ n.sonarr.wanted }}</dd><dt>Queued</dt><dd>{{ n.sonarr.queued }}</dd><dt>Series</dt><dd>{{ n.sonarr.series }}</dd></dl>
+      {% endif %}
+      {% if n.prowlarr %}
+      <div class="microlabel">Prowlarr</div>
+      <dl><dt>Grabs</dt><dd>{{ n.prowlarr.grabs }}</dd><dt>Queries</dt><dd>{{ n.prowlarr.queries }}</dd><dt>Failed grabs</dt><dd>{{ n.prowlarr.failed_grabs }}</dd><dt>Failed queries</dt><dd>{{ n.prowlarr.failed_queries }}</dd></dl>
+      {% endif %}
+    </div>
   </div>
-  {% endfor %}
-  {% else %}<div class="value dim">Not connected</div>{% endif %}
-  {# WP-S3: library + indexer counts, only when the arr snapshot carries them. #}
-  {% if n.radarr %}
-  <div class="upday">Radarr</div>
-  <div class="uprow"><span class="uptitle">Wanted</span><span class="uptime nextleft">{{ n.radarr.wanted }}</span></div>
-  <div class="uprow"><span class="uptitle">Missing</span><span class="uptime nextleft">{{ n.radarr.missing }}</span></div>
-  <div class="uprow"><span class="uptitle">Queued</span><span class="uptime nextleft">{{ n.radarr.queued }}</span></div>
-  <div class="uprow"><span class="uptitle">Movies</span><span class="uptime nextleft">{{ n.radarr.movies }}</span></div>
-  {% endif %}
-  {% if n.sonarr %}
-  <div class="upday">Sonarr</div>
-  <div class="uprow"><span class="uptitle">Wanted</span><span class="uptime nextleft">{{ n.sonarr.wanted }}</span></div>
-  <div class="uprow"><span class="uptitle">Queued</span><span class="uptime nextleft">{{ n.sonarr.queued }}</span></div>
-  <div class="uprow"><span class="uptitle">Series</span><span class="uptime nextleft">{{ n.sonarr.series }}</span></div>
-  {% endif %}
-  {% if n.prowlarr %}
-  <div class="upday">Prowlarr</div>
-  <div class="uprow"><span class="uptitle">Grabs</span><span class="uptime nextleft">{{ n.prowlarr.grabs }}</span></div>
-  <div class="uprow"><span class="uptitle">Queries</span><span class="uptime nextleft">{{ n.prowlarr.queries }}</span></div>
-  <div class="uprow"><span class="uptitle">Failed grabs</span><span class="uptime nextleft">{{ n.prowlarr.failed_grabs }}</span></div>
-  <div class="uprow"><span class="uptitle">Failed queries</span><span class="uptime nextleft">{{ n.prowlarr.failed_queries }}</span></div>
-  {% endif %}
 </section>
-</div>
 {% endblock %}

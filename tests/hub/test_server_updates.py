@@ -4,6 +4,7 @@ into a tmp dir (uptime-kuma = excluded tag update, vaultwarden = auto digest upd
 import importlib
 import json
 import logging
+import re
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -62,6 +63,11 @@ def env(tmp_path, monkeypatch):
 
 def main_of(html):
     return html.split("<main", 1)[1]
+
+
+def txt(html):
+    """Visible text of a fragment (tags stripped): the " · " joins sit in .sep spans."""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html))
 
 
 def band(html):
@@ -146,11 +152,11 @@ def test_ignore_and_unignore_hide_and_restore_the_row_and_the_count(env):
         assert r.status_code == 303 and r.headers["location"].endswith("#updates")
         b = band(client.get("/server").text)
         shown, folded = b.split("<details", 1)
-        assert "1 update · 1 ignored" in shown and "uptime-kuma" not in shown
-        assert "Ignored (1)" in folded and "uptime-kuma" in folded and "/unignore" in folded
+        assert "1 update · 1 ignored" in txt(shown) and "uptime-kuma" not in shown
+        assert "Ignored · 1" in txt(folded) and "uptime-kuma" in folded and "/unignore" in folded
         client.post("/server/updates/uptime-kuma/unignore")
         b = band(client.get("/server").text)
-    assert "17 monitored · 2 updates" in b and "<details" not in b and "uptime-kuma" in b
+    assert "17 monitored · 2 updates" in txt(b) and "<details" not in b and "uptime-kuma" in b
 
 
 def test_a_new_tag_resurfaces_an_ignored_row(env):
@@ -166,8 +172,10 @@ def test_a_new_tag_resurfaces_an_ignored_row(env):
 def test_rows_show_update_now_only_when_auto_else_manual_excluded(env):
     with env() as client:
         b = band(client.get("/server").text)
-    kuma = b.split(">uptime-kuma<", 1)[1].split('<div class="uprow">', 1)[0]
-    vault = b.split(">vaultwarden<", 1)[1].split('<div class="uprow">', 1)[0]
+    kuma = b.split(">uptime-kuma<", 1)[1].split('<div class="row has-form">', 1)[0]
+    vault = b.split(">vaultwarden<", 1)[1].split('<div class="row has-form">', 1)[0]
+    assert 'class="btn btn-ghost btn-sm" type="submit">Ignore<' in kuma         # Ignore is a ghost button
+    assert 'class="btn btn-primary btn-sm" href="/server/updates/vaultwarden/run?step=confirm">Update now' in vault
     assert "Manual · excluded" in kuma and "Update now" not in kuma and "Ignore" in kuma
     assert 'href="/server/updates/vaultwarden/run?step=confirm">Update now' in vault
 

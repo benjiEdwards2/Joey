@@ -10,17 +10,17 @@ def counts_of(body):
 
 
 def row(label, value):
-    return f'>{label}</span><span class="uptime nextleft">{value}<'
+    return f'<dt>{label}</dt><dd>{value}</dd>'
 
 
 def test_counts_band_shows_radarr_sonarr_and_prowlarr_from_the_samples(env):
     with env() as client:
         band = counts_of(main_of(client.get("/server").text))
-    radarr = band.split('<div class="upday">Radarr</div>', 1)[1].split('<div class="upday">Sonarr</div>', 1)[0]
+    radarr = band.split('<div class="microlabel">Radarr</div>', 1)[1].split('<div class="microlabel">Sonarr</div>', 1)[0]
     assert all(row(k, v) in radarr for k, v in (("Wanted", 2), ("Missing", 3), ("Queued", 1), ("Movies", 6)))
-    sonarr = band.split('<div class="upday">Sonarr</div>', 1)[1].split('<div class="upday">Prowlarr</div>', 1)[0]
+    sonarr = band.split('<div class="microlabel">Sonarr</div>', 1)[1].split('<div class="microlabel">Prowlarr</div>', 1)[0]
     assert all(row(k, v) in sonarr for k, v in (("Wanted", 7), ("Queued", 1), ("Series", 3)))
-    prowlarr = band.split('<div class="upday">Prowlarr</div>', 1)[1]
+    prowlarr = band.split('<div class="microlabel">Prowlarr</div>', 1)[1]
     assert all(row(k, v) in prowlarr for k, v in (("Grabs", 40), ("Queries", 1325),
                                                   ("Failed grabs", 3), ("Failed queries", 52)))
 
@@ -36,4 +36,4 @@ def test_older_or_nulled_arr_counts_render_no_rows_and_no_error(env):
     band = counts_of(main_of(r.text))
     assert ">This week<" in band  # the existing arr rows still render
     for head in ("Radarr", "Sonarr", "Prowlarr"):
-        assert f'<div class="upday">{head}</div>' not in band
+        assert f'<div class="microlabel">{head}</div>' not in band

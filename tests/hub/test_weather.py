@@ -46,7 +46,7 @@ def test_glimpse_renders_on_hub_and_links_to_detail(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=WX_DATA)
     with build(snaps) as client:
         html = client.get("/").text
-        assert 'class="cardlink wx" href="/weather"' in html
+        assert '<a class="panel tile wx" href="/weather"' in html
         assert "9.7 °C · partly cloudy" in html and "8–15 °C · 20% rain" in html
         assert '<div class="glyph">' in html          # the requested small image
         assert "12m ago" in html                       # fresh, faint timestamp
@@ -81,7 +81,7 @@ def test_detail_page_renders_todays_fields(app_factory):
         html = r.text
         assert "9.7" in html and "partly cloudy" in html   # word beside the glyph
         assert "8.0" in html and "15.1" in html and "20%" in html
-        assert "updated 30m ago" in html
+        assert "Updated 30m ago" in html
         assert "Open-Meteo" in html
 
 
@@ -139,17 +139,17 @@ def test_24_hour_chart_is_inline_svg_with_text_values(app_factory):
     assert ">18.3°</text>" in html and ">55%</text>" in html    # labels on the chart itself
     assert "08:00 · 18.3 °C" in html                            # per-point <title>
     # the hour list carries all 24 values in words, so the chart is never the only encoding
-    hours = html.split('class="wxhours"')[1].split("</ol>")[0]
-    assert hours.count("<li>") == 24
-    assert "<b>08:00</b><span>18.3 °C</span><small>55% rain</small>" in hours
-    assert "<b>07:00</b>" in hours
+    hours = html.split('class="listbox wxhours"')[1].split("</ol>")[0]
+    assert hours.count('<li class="row">') == 24
+    assert '<div class="row-title">08:00</div>' in hours and "55% rain" in hours and "18.3 °C" in hours
+    assert '<div class="row-title">07:00</div>' in hours
 
 
 def test_7_day_strip_has_glyph_word_range_and_rain(app_factory):
     html = _weather_html(app_factory, SAMPLE_WX)
-    week = html.split('class="wxdays"')[1].split("</ol>")[0]
-    assert week.count("<li>") == 7
-    assert "<b>Today</b>" in week and "<b>Fri 2</b>" in week   # 2026-01-02 is a Friday
+    week = html.split('class="listbox wxdays"')[1].split("</ol>")[0]
+    assert week.count('<li class="row">') == 7
+    assert '<div class="row-title">Today</div>' in week and '<div class="row-title">Fri 2</div>' in week   # 2026-01-02 is a Friday
     assert "12.7–24.1 °C" in week and "55% rain" in week
     assert "partly cloudy" in week and "clear" in week
     assert week.count('<span class="glyph">') == 7
@@ -158,7 +158,7 @@ def test_7_day_strip_has_glyph_word_range_and_rain(app_factory):
 def test_old_envelope_without_new_fields_renders_without_the_new_panels(app_factory):
     html = _weather_html(app_factory, WX_DATA)                  # pre-upgrade shape
     assert "9.7" in html and "partly cloudy" in html and "20%" in html
-    assert '<svg class="wxchart"' not in html and 'class="wxdays"' not in html
+    assert '<svg class="wxchart"' not in html and 'wxdays' not in html
     assert "Feels like" not in html and "km/h" not in html
     assert "after the next weather refresh" in html
 
@@ -169,7 +169,7 @@ def test_malformed_forecast_rows_never_crash(app_factory):
     html = _weather_html(app_factory, data)
     assert "9.7" in html
     assert '<svg class="wxchart"' not in html                   # no temperatures => no chart
-    assert "<b>Today</b>" in html and "unknown" in html
+    assert '<div class="row-title">Today</div>' in html and "unknown" in html
 
 
 def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
@@ -178,6 +178,6 @@ def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
     with build(snaps) as client:
         html = client.get("/").text
-        assert 'class="cardlink wx" href="/weather"' in html
+        assert '<a class="panel tile wx" href="/weather"' in html
         assert "18.3 °C · light rain" in html and "12.7–24.1 °C · 55% rain" in html
-        assert '<svg class="wxchart"' not in html and 'class="wxdays"' not in html
+        assert '<svg class="wxchart"' not in html and 'wxdays' not in html

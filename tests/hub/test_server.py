@@ -2,6 +2,7 @@
 tmp dir; every assertion is made inside <main> (sections once rendered into <title>)."""
 import importlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -40,6 +41,11 @@ def main_of(html):
     return html.split("<main", 1)[1]
 
 
+def txt(html):
+    """The visible text of a fragment: tags stripped, whitespace collapsed (the " · " joins sit in .sep spans)."""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html))
+
+
 def services_of(body):
     return body.split('id="services"', 1)[1].split('id="updates"', 1)[0]
 
@@ -73,16 +79,16 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     # 1 System
     assert "16%" in body and "Load 0.42" in body and "1.9 GB free" in body
     assert "of 7.7 GB · 75% used" in body and "12 days 4 h" in body
-    assert "/volume1/Docker" in body and "120.0 GB free of 465.6 GB · 74% used" in body
+    assert "/volume1/Docker" in body and "120.0 GB free" in body and "of 465.6 GB" in body and "74% used" in body
     assert "width: 71%" in body
     # 2 Services, grouped, Up/Down as words, whole row links to the app
     svc = services_of(body)
-    order = [svc.index(f'<div class="head">{h}</div>') for h in ("Media", "Downloads", "System")]
+    order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     assert ">Down</span>" in body and ">Up</span>" in body
     assert 'href="http://nas.local:8096"' in body
     # 3 Updates
-    assert "17 monitored · 2 updates" in body and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
+    assert "17 monitored · 2 updates" in txt(body) and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Counts
@@ -120,9 +126,9 @@ def test_attention_lists_full_volumes_and_unknown_apps_land_in_system(env):
         body = main_of(client.get("/server").text)
     assert "/volume1 is 85% full" in body and "/volume2 is 84% full" not in body
     svc = services_of(body)
-    sys_group = svc.split('<div class="head">System</div>', 1)[1].split("</section>", 1)[0]
+    sys_group = svc.split('<h2 class="seclabel">System</h2>', 1)[1].split("</section>", 1)[0]
     assert "Mystery App" in sys_group
-    assert '<div class="head">Downloads</div>' not in svc   # empty groups are omitted
+    assert '<h2 class="seclabel">Downloads</h2>' not in svc   # empty groups are omitted
     assert "1 needs attention" in body                      # the 85 % volume, nothing else
 
 
@@ -176,7 +182,8 @@ def test_monitors_band_sits_between_services_and_updates_and_flags_down(env):
     assert marks == sorted(marks)
     band = body.split('id="monitors"', 1)[1].split('id="updates"', 1)[0]
     assert "5 of 6 up" in band
-    assert ">Down</span>" in band and ">Prowlarr</span>" in band and "38 ms" in band
+    assert ">Down</span>" in band and ">Prowlarr</div>" in band and "38 ms" in band
+    assert 'class="row is-down"' in band                     # a down monitor is a tinted row
     assert band.index("Prowlarr") < band.index("Jellyfin")   # down sorts first
     assert "Uptime Kuma: Prowlarr is Down" in body
     assert 'href="/server#monitors"' in body                 # the KPI tile
@@ -201,16 +208,16 @@ def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(
     assert "wud sweep failed: WUD containers failed (HTTP 401)" in body
     assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
     assert "system sweep failed" not in body
-    sweep = body.split("Last sweep", 1)[1].split("</div>", 1)[0]
-    assert "4 min ago" in sweep and "stale" not in sweep
+    sweep = body.split("Last sweep", 1)[1].split("</div></div>", 1)[0]
+    assert "4 min ago" in sweep and "Stale" not in sweep
 
 
 def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
     client = env()
     write_runner(tmp_path / "snaps", "2026-01-01T00:00:00+00:00")
     with client:
-        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div>", 1)[0]
-        assert "days ago · stale" in sweep
+        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div></div>", 1)[0]
+        assert "days ago" in sweep and "Stale" in sweep
         for junk in ("{not json", "[]", '{"ran_at": "yesterday", "results": "nope"}'):
             (tmp_path / "snaps" / "_runner.json").write_text(junk, encoding="utf-8")
             r = client.get("/server")
@@ -292,7 +299,7 @@ def test_hub_server_card_shows_the_words_and_needs_attention(env):
         body = main_of(client.get("/").text)
     card = body.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
     assert "1 down: Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
-    assert '<span class="badge stale">Needs attention</span>' in card
+    assert '<span class="badge badge-wait">Needs attention</span>' in card   # amber: something to do
     assert "12 of 12 up" not in card and "11 of 12 up" not in card
 
 
@@ -347,8 +354,8 @@ def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp
     assert "wud failed 2 of the last 2 sweeps · WUD containers failed (HTTP 401)" in att
     assert "gcal" not in att and "SECRETKEY" not in body                     # recovered -> table only
     sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
-    assert "Sweeps (24 h)" in body and ">gcal</span>" in sweeps and "2 runs · 1 failed" in sweeps
-    assert ">system</span>" in sweeps and ">wud</span>" in sweeps and "last ok none in 24 h" in sweeps
+    assert "Sweeps · 24 h" in body and ">gcal</div>" in sweeps and "2 runs · 1 failed" in txt(sweeps)
+    assert ">system</div>" in sweeps and ">wud</div>" in sweeps and "last ok none in 24 h" in txt(sweeps)
     (snaps / "_runner_history.jsonl").write_text("{junk\n[]\n", encoding="utf-8")
     with client:
         r = client.get("/server")

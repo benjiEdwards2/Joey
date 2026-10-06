@@ -1,21 +1,22 @@
-{# One Discover/search result (2026-10-05): poster, title, year and the status WORD.
-   F6: a small "+" (htmx, plain-form fallback) adds it to the watchlist; hidden once it is on the list. #}
+{# One Discover/search result (2026-10-05; restyle Phase 3 poster card): poster, title, then year · kind · status
+   WORD. F6: a small "+" beside the title (never over the picture) adds it to the watchlist (htmx, plain-form
+   fallback); hidden once it is on the list. The whole card is the link (a.rowlink over the .card-cell). #}
 {% from "_poster.html" import poster %}
+{% from "_icons.html" import icon %}
 {% macro item(i, wl_keys=none) -%}
-<div class="shelf-cell">
-<a class="shelf-item" href="{{ i.href }}">
-  {{ poster(i.poster, i.title, 240) }}
-  <span class="pgtitle">{{ i.title }}</span>
-  <span class="pgsub">{{ i.year or "" }}{{ " · " if i.year }}{{ "TV" if i.kind == "tv" else "Film" }}</span>
-  <span class="chip st-{{ i.status_word|lower|replace(' ', '-') }}">{{ i.status_word }}</span>
+<div class="card-cell">
+<a class="rowlink" href="{{ i.href }}">
+  <span class="card-pic">{{ poster(i.poster, i.title, 240) }}</span>
+  <span class="row-title">{{ i.title }}</span>
 </a>
 {%- if wl_keys is not none and ("tmdb:" ~ i.tmdb_id) not in wl_keys %}
 <span class="wlbtn compact">
   <form method="post" action="/media/watchlist/add" hx-post="/media/watchlist/add" hx-target="closest .wlbtn" hx-swap="outerHTML">
     <input type="hidden" name="tmdb_id" value="{{ i.tmdb_id }}"><input type="hidden" name="kind" value="{{ i.kind }}"><input type="hidden" name="title" value="{{ i.title }}"><input type="hidden" name="year" value="{{ i.year or '' }}"><input type="hidden" name="poster" value="{{ i.poster or '' }}"><input type="hidden" name="compact" value="1">
-    <button type="submit" class="wlplus" title="Add to watchlist" aria-label="Add {{ i.title }} to watchlist">+</button>
+    <button type="submit" class="btn-mini" title="Add to watchlist" aria-label="Add {{ i.title }} to watchlist">{{ icon("plus") }}</button>
   </form>
 </span>
 {%- endif %}
+<span class="row-meta">{% if i.year %}{{ i.year }}<span class="sep"> · </span>{% endif %}{{ "TV" if i.kind == "tv" else "Film" }}<span class="sep"> · </span><span class="st-{{ i.status_word|lower|replace(' ', '-') }}">{{ i.status_word }}</span></span>
 </div>
 {%- endmacro %}

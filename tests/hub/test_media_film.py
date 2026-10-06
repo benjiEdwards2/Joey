@@ -119,7 +119,8 @@ def env(tmp_path, monkeypatch):
 
 
 def main_of(html):
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def status(html):
@@ -182,9 +183,10 @@ def test_numbers_with_imdb_and_rt(env, monkeypatch):
     with client:
         media_db.set_rating("tmdb:603", 10, "movie", "Harbour Lights", year=2019)
         b = main_of(client.get("/media/title/movie/603").text)
-    assert "7.8 / 10" in b and "IMDb 7.9" in b and "RT 92 %" in b and "1 h 52 m" in b
-    assert re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
-    assert 'class="chip score score-10"' in b                      # gold at 10 (the number is there too)
+    # Restyle Phase 3: the numbers are a stats strip (micro label over a big value).
+    assert "7.8 / 10" in b and ">IMDb</div>" in b and ">7.9<" in b and ">Rotten Tomatoes</div>" in b and ">92 %<" in b
+    assert "1 h 52 m" in b and re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
+    assert 'score-9 gold-text-glow" title="Your rating: 10 out of 10">10<' in b   # gold at 10 (the number is there too)
 
 
 def test_numbers_without_ratings_endpoint_and_picker_when_unrated(env):
@@ -192,8 +194,8 @@ def test_numbers_without_ratings_endpoint_and_picker_when_unrated(env):
     del both.seerr.table["/api/v1/movie/603/ratingscombined"]
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    assert "IMDb" not in b.split('class="filmbody"')[0] and "RT " not in b.split('class="filmbody"')[0]
-    assert 'class="ratebox ratepick"' in b and 'value="tmdb:603"' in b and 'href="#rate"' in b
+    assert ">IMDb</div>" not in b and ">Rotten Tomatoes</div>" not in b     # no stat without its source
+    assert 'class="ratepick"' in b and 'value="tmdb:603"' in b and 'href="#rate"' in b
 
 
 def test_ratings_flat_rt_shape():
@@ -233,14 +235,14 @@ def test_request_button_only_when_not_available(env):
         assert 'id="request-block"' not in client.get("/media/title/movie/603").text
         b = main_of(client.get("/media/title/movie/701").text)
     assert 'id="request-block"' in b and 'hx-get="/media/title/movie/701/request?step=confirm"' in b
-    assert "Open in Jellyseerr ↗" in b and f'href="{SEERR}/movie/701"' in b
+    assert 'aria-label="Open in Jellyseerr"' in b and f'href="{SEERR}/movie/701"' in b
 
 
 def test_trailer_jellyfin_then_jellyseerr_then_none(env, monkeypatch):
     client, both = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-        assert 'href="https://www.youtube.com/watch?v=seerr1" target="_blank" rel="noopener">Trailer ↗' in b
+        assert 'href="https://www.youtube.com/watch?v=seerr1" target="_blank" rel="noopener" aria-label="Trailer"' in b
         monkeypatch.setitem(ITEMS["mov1"], "RemoteTrailers", [{"Url": "https://www.youtube.com/watch?v=jf1"}])
         media_item.clear_cache()
         b = main_of(client.get("/media/title/movie/603").text)
@@ -307,7 +309,7 @@ def test_series_makers_are_creators(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/tv/100").text)
-    assert "<h3>Creators</h3>" in b and "Cass Creator" in b
+    assert "<span>Creators</span>" in b and "Cass Creator" in b
 
 
 def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):
@@ -338,11 +340,11 @@ def test_shelves_mark_server_status(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    col = b.split("<h3>Harbour Collection</h3>", 1)[1].split("</section>", 1)[0]
+    col = b.split('<div class="seclabel">Harbour Collection</div>', 1)[1].split("</section>", 1)[0]
     assert "Harbour Lights 2" in col and col.count(">On server<") == 2 and col.count(">Not on server<") == 1
-    sim = b.split("<h3>Similar</h3>", 1)[1].split("</section>", 1)[0]
+    sim = b.split('<div class="seclabel">Similar</div>', 1)[1].split("</section>", 1)[0]
     assert 'href="/media/title/movie/11"' in sim and sim.count(">On server<") == 1 and sim.count(">Not on server<") == 1
-    assert "<h3>Recommended</h3>" in b and "Rec One" in b and "?h=240" in b
+    assert '<div class="seclabel">Recommended</div>' in b and "Rec One" in b and "?h=240" in b
 
 
 def test_not_on_server_series_keeps_lazy_season_hooks(env):
@@ -408,7 +410,7 @@ def test_partial_failure_degrades_sections_only(env):
     with client:
         r = client.get("/media/title/movie/603")
     b = main_of(r.text)
-    assert r.status_code == 200 and "Harbour Lights (2019)" in b and "<h3>Similar</h3>" not in b and "IMDb" not in b
+    assert r.status_code == 200 and "Harbour Lights (2019)" in b and ">Similar</div>" not in b and ">IMDb</div>" not in b
 
 
 def test_no_key_or_jellyfin_host_in_html(env):
@@ -436,7 +438,7 @@ def test_watchlist_and_request_flows_on_the_page(env):
     client, both = env()
     with client:
         b = main_of(client.get("/media/title/movie/701").text)
-        assert 'hx-post="/media/watchlist/add"' in b and "+ Watchlist" in b
+        assert 'hx-post="/media/watchlist/add"' in b and 'aria-label="Add to watchlist"' in b
         client.post("/media/watchlist/add", content="tmdb_id=701&kind=movie&title=Plain+Film",
                     headers={"content-type": "application/x-www-form-urlencoded"})
         assert "On your watchlist" in main_of(client.get("/media/title/movie/701").text)

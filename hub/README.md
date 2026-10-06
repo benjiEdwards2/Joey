@@ -30,14 +30,36 @@ at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapsho
 **Style: MediaHub guide, adopted 2026-10-06 — see `docs/style-guide.md`.** Single dark theme (one `:root` token
 block, `color-scheme: dark`; the Apex light/dark token blocks are retired, and Phase 2 removed the theme toggle); older token names are remapped to the guide's zinc/indigo palette; Geist + Geist Mono are
 self-hosted in `static/fonts/`; the guide's recipe classes (`.btn*`, `.chip`, `.input`, `.row*`, `.stats`, `.badge-*`,
-`.score-*`, `.toast*`, ...) live in `control-surface.css`. Phase 1 of 4 (foundation); Phase 2 (shell, above) is done; Phases 3-4 rebuild the page content on them.
+`.score-*`, `.toast*`, ...) live in `control-surface.css`. Phase 1 of 4 (foundation); Phase 2 (shell, above) is done; Phase 3 (Media, below) is done; Phase 4 rebuilds the other pages on them.
+
+**Media (MediaHub guide, Phase 3 of 4, 2026-10-06).** Every Media page is built from the recipes only (the Media block
+at the end of `control-surface.css` holds documented modifiers, tokens only; Media no longer injects `--accent`). Lists
+are the guide's row recipe with no box round them: `.listbox` of `.row` (an `<a>` when it resolves; `.row.has-form` +
+`a.rowlink` overlay when it holds the 1-10 picker or another form), poster `.row-poster`, `.row-body` with `.row-title`
+and one `.row-meta` line of facts joined by a dim `.sep` " · " (`_rows.html` `meta()`), the score big on the right
+(`_rate.html` `score()`: `.row-score` + `.score-N`, "—" in `.score-none`); state rows `.is-watching` (now playing),
+`.is-new` (just arrived), `.is-complete` (finished downloads), `.is-down` (an app down) with the matching `.badge-*`.
+Sections are a `.seclabel` ("CONTINUE WATCHING · 3") over the group; poster cards are `.card-poster` /
+`.card-cell` (action beside the title, never over the picture) in `.poster-grid` or a snap-x `.carousel`, with a
+`.poster-score` badge and a teal `.poster-tag`. Home folds "Playing now" into the page header (eyebrow, title, facts
+sub-line, drifting backdrop, `.btn-glass` "Open in Jellyfin"). The film page is the detail hero (`.pagehead.hero-detail`:
+backdrop, poster leading — centred 62 %/260 px on a phone, 280 px from 640 px, 360 px from 1024 px — tagline,
+`.facts-line`, credits with IMDb/TMDB/Letterboxd `.linkchip`s, emerald status line, one `.btn-white` primary plus 36 px
+`.btn-icon`s; watchlist toggles sky with `aria-pressed`), then the `.stats` strip, the spec sheet `.panel` (F10 pills
+unchanged as the format logos), cast, seasons, shelves. A perfect 10 gets `.gold-glow-sm` on a row poster (`.gold-glow`
+on big ones) and `.gold-text-glow` on the number. Toolbars are `.toolbar` (`.search` icon + `.input`, `.chip`s,
+`.select`); empty states are `.empty`; confirmations are an inline `.confirm` panel (year Reset), never a browser dialog.
+Removed: `.glassbtn`, `.hero*`, `.shelf*` (`.shelfhead/.shelftop/.shelf-row/.shelf-item/.shelf-cell`), `.waitchip`
+(now `.badge-wait`), `.libctl`, `.launch`, `.actbtn`, `.ratebox` (now `.ratepick`/`.rated`), `.podium` (rebuilt),
+`.fbadge`, `.seasonrow`, `.eprow`, `.num*`, `.yeartile/.yearnum`, `.pgitem/.pgtitle/.pgsub`, `.wl*` grid, the old `.chip`
+and `.filters` rules; `.uplist/.uprow`, `.medialist`, `.poster.sm`, `.chip.score` stay for the non-Media pages (Phase 4).
 
 **Media section nav (2026-10-06).** Every `/media/*` page and the Media shelves page render in
 `templates/media_base.html`, which extends the Joey shell (the earlier "Return to Joey" frame was retired the same day)
 and puts the section tabs **Home · Movies · TV Shows · Diary · Server · Discover** on the page header, with sub-tabs and
 amber waiting counts; the phone tab bar stays Joey's. The section map is one module, `media_nav.py`; Home is
 the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonight" went live in F3 (below).
-Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="uprow ... reqrow">` (title plain `.uptitle` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
+Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="row">` (title plain `.row-title` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
 
 **Media library pages (F3, 2026-10-06).** `/media/movies`, `/media/movies/tonight`, `/media/tv`, `/media/tv/tonight` and `/media/years?kind=movie|tv`, built from the jellyfin `movies`/`shows` arrays by `media_library.py` (`film_rows`, `show_rows`, `deal_tonight`); "New this week" uses the arr `at` field. Absent arrays render "Library list not available yet".
 
@@ -85,7 +107,7 @@ picker and the score shown on rows follow it; a row lacking that level's key fal
 rankings count show + season ratings only.
 
 Watchlist (F6, 2026-10-06): `media_watchlist.py` + `media_watchlist_db.py`. A "Watchlist" tab under Movies and TV Shows
-(`/media/movies/watchlist`, `/media/tv/watchlist`); add from a title page ("+ Watchlist") or the small "+" on a Discover
+(`/media/movies/watchlist`, `/media/tv/watchlist`); add from a title page (the bookmark icon button) or the small "+" beside a Discover
 result. Each row carries a status word: On disk, Requested, Processing, Partly available or Not on server. A title the owner has
 watched leaves the list by itself when the page renders.
 

@@ -1,0 +1,8 @@
+[
+  {"id": 1, "title": "Harbour Lights", "tmdbId": 1001, "monitored": true, "hasFile": true, "isAvailable": true},
+  {"id": 2, "title": "Desert Crossing", "tmdbId": 1002, "monitored": true, "hasFile": true, "isAvailable": true},
+  {"id": 21, "title": "Midnight Harbour", "tmdbId": 1021, "monitored": true, "hasFile": false, "isAvailable": true},
+  {"id": 22, "title": "Northern Pass", "tmdbId": 1022, "monitored": true, "hasFile": false, "isAvailable": true},
+  {"id": 23, "title": "Glass Orchard", "tmdbId": 1023, "monitored": true, "hasFile": false, "isAvailable": false},
+  {"id": 24, "title": "Old Quarry", "tmdbId": 1024, "monitored": false, "hasFile": false, "isAvailable": true}
+]

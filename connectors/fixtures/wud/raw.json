@@ -7,6 +7,7 @@
   {"name": "qbittorrent", "image": {"name": "linuxserver/qbittorrent", "tag": {"value": "5.1.2"}}, "updateAvailable": false, "updateKind": {"kind": "unknown"}, "result": {"tag": "5.1.2"}},
   {"name": "gluetun", "image": {"name": "qmcgaw/gluetun", "tag": {"value": "v3.40.0"}}, "updateAvailable": false, "updateKind": {"kind": "unknown"}, "result": {"tag": "v3.40.0"}},
   {"name": "uptime-kuma", "image": {"name": "louislam/uptime-kuma", "tag": {"value": "1.23.16"}}, "updateAvailable": true, "updateKind": {"kind": "tag", "localValue": "1.23.16", "remoteValue": "2.0.2", "semverDiff": "major"}, "result": {"tag": "2.0.2"}},
+  {"name": "vaultwarden", "image": {"name": "vaultwarden/server", "tag": {"value": "latest"}}, "updateAvailable": true, "updateKind": {"kind": "digest", "localValue": "sha256:1111111111111111111111111111111111111111111111111111111111111111", "remoteValue": "sha256:2222222222222222222222222222222222222222222222222222222222222222"}, "result": {"tag": "latest"}},
   {"name": "portainer", "image": {"name": "portainer/portainer-ce", "tag": {"value": "2.27.9"}}, "updateAvailable": false, "updateKind": {"kind": "unknown"}, "result": {"tag": "2.27.9"}},
   {"name": "homepage", "image": {"name": "gethomepage/homepage", "tag": {"value": "v1.4.0"}}, "updateAvailable": false, "updateKind": {"kind": "unknown"}, "result": {"tag": "v1.4.0"}},
   {"name": "wud", "image": {"name": "getwud/wud", "tag": {"value": "8.1.1"}}, "updateAvailable": false, "updateKind": {"kind": "unknown"}, "result": {"tag": "8.1.1"}},

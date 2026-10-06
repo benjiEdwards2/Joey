@@ -153,6 +153,27 @@
   </div>
   {% endfor %}
   {% else %}<div class="value dim">Not connected</div>{% endif %}
+  {# WP-S3: library + indexer counts, only when the arr snapshot carries them. #}
+  {% if n.radarr %}
+  <div class="upday">Radarr</div>
+  <div class="uprow"><span class="uptitle">Wanted</span><span class="uptime nextleft">{{ n.radarr.wanted }}</span></div>
+  <div class="uprow"><span class="uptitle">Missing</span><span class="uptime nextleft">{{ n.radarr.missing }}</span></div>
+  <div class="uprow"><span class="uptitle">Queued</span><span class="uptime nextleft">{{ n.radarr.queued }}</span></div>
+  <div class="uprow"><span class="uptitle">Movies</span><span class="uptime nextleft">{{ n.radarr.movies }}</span></div>
+  {% endif %}
+  {% if n.sonarr %}
+  <div class="upday">Sonarr</div>
+  <div class="uprow"><span class="uptitle">Wanted</span><span class="uptime nextleft">{{ n.sonarr.wanted }}</span></div>
+  <div class="uprow"><span class="uptitle">Queued</span><span class="uptime nextleft">{{ n.sonarr.queued }}</span></div>
+  <div class="uprow"><span class="uptitle">Series</span><span class="uptime nextleft">{{ n.sonarr.series }}</span></div>
+  {% endif %}
+  {% if n.prowlarr %}
+  <div class="upday">Prowlarr</div>
+  <div class="uprow"><span class="uptitle">Grabs</span><span class="uptime nextleft">{{ n.prowlarr.grabs }}</span></div>
+  <div class="uprow"><span class="uptitle">Queries</span><span class="uptime nextleft">{{ n.prowlarr.queries }}</span></div>
+  <div class="uprow"><span class="uptitle">Failed grabs</span><span class="uptime nextleft">{{ n.prowlarr.failed_grabs }}</span></div>
+  <div class="uprow"><span class="uptitle">Failed queries</span><span class="uptime nextleft">{{ n.prowlarr.failed_queries }}</span></div>
+  {% endif %}
 </section>
 </div>
 {% endblock %}

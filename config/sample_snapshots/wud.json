@@ -12,6 +12,14 @@
         "update_available": true
       },
       {
+        "current_tag": "latest",
+        "image": "vaultwarden/server",
+        "kind": "digest",
+        "name": "vaultwarden",
+        "new_tag": null,
+        "update_available": true
+      },
+      {
         "current_tag": "2025.8.1",
         "image": "cloudflare/cloudflared",
         "kind": null,
@@ -132,10 +140,10 @@
         "update_available": false
       }
     ],
-    "monitoring": 16,
-    "secondary": "uptime-kuma 1.23.16 \u2192 2.0.2",
-    "summary": "1 update available",
-    "updates": 1
+    "monitoring": 17,
+    "secondary": "uptime-kuma 1.23.16 \u2192 2.0.2 (+1 more)",
+    "summary": "2 updates available",
+    "updates": 2
   },
   "error": null,
   "fetched_at": "2026-01-01T00:00:00+00:00",

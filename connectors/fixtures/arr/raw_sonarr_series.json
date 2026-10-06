@@ -1,0 +1,5 @@
+[
+  {"id": 1, "title": "Quiet Coast", "tvdbId": 2001, "monitored": true},
+  {"id": 2, "title": "Iron Valley", "tvdbId": 2002, "monitored": true},
+  {"id": 3, "title": "Paper Moons", "tvdbId": 2003, "monitored": false}
+]

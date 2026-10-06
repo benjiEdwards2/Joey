@@ -39,13 +39,16 @@ def test_system_transform_tolerates_missing_load_and_volumes():
 def test_wud_fixture_transform(snapshots):
     data = Wud().run()["data"]
     jsonschema.validate(data, schema("wud"))
-    assert (data["monitoring"], data["updates"]) == (16, 1)
+    assert (data["monitoring"], data["updates"]) == (17, 2)  # + vaultwarden digest (WP-S3)
     first = data["containers"][0]
     assert first == {"name": "uptime-kuma", "image": "louislam/uptime-kuma", "current_tag": "1.23.16",
                      "new_tag": "2.0.2", "update_available": True, "kind": "tag"}
-    assert all(c["kind"] is None and c["new_tag"] is None for c in data["containers"][1:])
-    assert data["summary"] == "1 update available"
-    assert data["secondary"] == "uptime-kuma 1.23.16 → 2.0.2"
+    assert data["containers"][1] == {"name": "vaultwarden", "image": "vaultwarden/server",
+                                     "current_tag": "latest", "new_tag": None,
+                                     "update_available": True, "kind": "digest"}
+    assert all(c["kind"] is None and c["new_tag"] is None for c in data["containers"][2:])
+    assert data["summary"] == "2 updates available"
+    assert data["secondary"] == "uptime-kuma 1.23.16 → 2.0.2 (+1 more)"
 
 
 def test_wud_digest_update_has_no_new_tag_and_empty_list_is_all_up_to_date():
@@ -61,6 +64,9 @@ def test_wud_digest_update_has_no_new_tag_and_empty_list_is_all_up_to_date():
 
 def test_live_run_without_a_fetch_is_an_error_envelope_not_a_crash(snapshots, monkeypatch):
     monkeypatch.setenv("CONNECTOR_MODE", "live")
-    for cls in (Wud,):  # System's live fetch is real since WP-S2 (tests/connectors/test_system_fetch.py)
-        env = cls().run()
-        assert env["status"] == "error" and "NotImplementedError" in env["error"]
+    # Both live fetches are real since WP-S2/S3 (see test_system_fetch.py / test_wud.py);
+    # Wud without its env fails fast with an honest error envelope, never a crash.
+    for var in Wud.requires_env:
+        monkeypatch.delenv(var, raising=False)
+    env = Wud().run()
+    assert env["status"] == "error" and "WUD_URL" in env["error"]

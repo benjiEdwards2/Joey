@@ -1,0 +1,5 @@
+{# Row helpers (MediaHub restyle, Phase 3, 2026-10-06). meta(parts): one .row-meta line, the truthy parts joined by
+   a dim " · " (guide 6, 9). Parts may be markup (a badge or a status word) built with {% set %}...{% endset %}. #}
+{% macro meta(parts, cls="row-meta") -%}
+<div class="{{ cls }}">{% for p in parts if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}</div>
+{%- endmacro %}

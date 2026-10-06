@@ -1,25 +1,12 @@
 {% extends "base.html" %}
-{# Media pages inside the Joey shell (restyle Phase 2, 2026-10-06): the page header (_pagehead.html) carries the
-   Media section tabs (guide §5: pills that scroll sideways on a phone, underlined on desktop) and, when a page
-   has sub-tabs, a second row beneath. The Media home header uses the hero's backdrop when there is one.
-   Sections/tabs come from hub/media_nav.py via the `media_nav(request)` global. #}
+{# Media pages inside the Joey shell (restyle Phases 2-3, 2026-10-06): the page header (_pagehead.html) carries the
+   Media section tabs (_media_tabs.html; guide §5: pills that scroll sideways on a phone, underlined on desktop) and,
+   when a page has sub-tabs, a second row beneath. The Media home (area_shelves.html) and the film page
+   (media_film.html) override this block: home folds "Playing now" into the header, the film page is the detail hero.
+   Sections/tabs come from hub/media_nav.py via the `media_nav(request)` global. Media carries no per-area --accent. #}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
-{% set nav = media_nav(request) %}
+{% from "_media_tabs.html" import media_tabs with context %}
 {% set ma = (areas or []) | selectattr("layout", "equalto", "shelves") | first %}
-{% set bd = sh.hero.backdrop if (sh is defined and sh and sh.hero and sh.hero.backdrop) else none %}
-{% call pagehead(ma.name if ma else "Media", backdrop=bd) %}
-  <nav class="sectabs" aria-label="Media sections">
-    <div class="sectabs-row">
-    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>{% endfor %}
-    </div>
-  </nav>
-  {% if nav.tabs %}
-  <nav class="sectabs sub" aria-label="{{ nav.section.label }}">
-    <div class="sectabs-row">
-    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> to get</span></span>{% endif %}</a>{% endfor %}
-    </div>
-  </nav>
-  {% endif %}
-{% endcall %}
+{% call pagehead(ma.name if ma else "Media") %}{{ media_tabs() }}{% endcall %}
 {% endblock %}

@@ -148,9 +148,10 @@ def test_route_renders_hero_and_trimmed_shelves(env):
     main = env(jellyfin=JELLY, arr=ARR, jellyseerr=SEERR, media_status={"summary": "x", "apps": APPS})
     with TestClient(main.app) as client:
         html = main_html(client.get("/a/alpha").text)
-    assert 'class="hero hasbackdrop"' in html and "Playing now" in html and "Playing Now Title" in html
-    assert html.count('<section class="shelf"') == 5   # continue, added, this week, downloading, watched
-    assert 'href="/media/library">See all' in html
+    # Restyle Phase 3: "Playing now" is the page header (eyebrow, title, drifting backdrop); shelves are sections.
+    assert 'class="pagehead-bd hero-drift"' in html and ">Playing now<" in html and "<h1>Playing Now Title</h1>" in html
+    assert html.count('<section class="sec">') == 5   # continue, added, this week, downloading, watched
+    assert 'href="/media/library">All' in html
     assert "Due Show" in html and "Fetching Film" in html
     assert "Media apps" not in html and "Requests</h3>" not in html and "By year</h3>" not in html
     assert 'class="grid"' not in html
@@ -162,7 +163,7 @@ def test_route_no_snapshots_is_quiet(env):
         r = client.get("/a/alpha")
     html = main_html(r.text)
     assert r.status_code == 200
-    assert "Nothing is playing or queued" in html and "Nothing up next" in html and "Nothing due this week" in html
+    assert "Nothing playing" in html and "Nothing up next" in html and "Nothing due this week" in html
     assert "Not connected" in html
     assert "hasbackdrop" not in html
 
@@ -170,13 +171,13 @@ def test_route_no_snapshots_is_quiet(env):
 def test_route_her_view(env):
     with TestClient(env(jellyfin=JELLY).app) as client:
         html = main_html(client.get("/a/alpha?owner_view=her").text)
-    assert 'class="hero' in html and "Recently watched" not in html and "Continue watching" in html
+    assert 'class="pagehead' in html and "Recently watched" not in html and "Continue watching" in html
 
 
 def test_grid_area_unaffected(env):
     with TestClient(env().app) as client:
         html = main_html(client.get("/a/beta").text)
-    assert 'class="kpis areakpis"' in html and 'class="hero' not in html
+    assert 'class="kpis areakpis"' in html and "hero-drift" not in html
 
 
 # ---- deep-linked rows + "waiting on you" chips (2026-10-05) ----
@@ -226,8 +227,8 @@ def test_item_rows_stay_in_joey_and_the_hero_keeps_the_jellyfin_link(env):
     main = env(jellyfin=linked_jelly(), arr=ARR)
     with TestClient(main.app) as client:
         html = main_html(client.get("/a/alpha").text)
-    assert '<a class="shelf-item" href="/media/item/resume-id">' in html  # same tab, no target
-    assert '<a class="shelf-item" href="/media/diary">' in html
+    assert '<a class="card-poster" href="/media/item/resume-id">' in html  # same tab, no target
+    assert '<a class="card-poster" href="/media/diary">' in html
     assert f'href="{LINK}" target="_blank" rel="noopener">Open in Jellyfin' in html  # hero stays external
 
 
@@ -242,15 +243,15 @@ def test_waiting_counts_and_chips_on_the_area_page_and_hub(env):
     with TestClient(main.app) as client:
         area_html = main_html(client.get("/a/alpha").text)
         hub_html = main_html(client.get("/").text)
-    assert '<span class="waitchip">1 to rate</span>' in area_html
+    assert '<span class="badge badge-wait">1 to rate</span>' in area_html
     assert "to place</span>" in area_html
-    assert '<span class="waitchip">1 to rate</span>' in hub_html
+    assert '<span class="badge badge-wait">1 to rate</span>' in hub_html
 
 
 def test_waiting_chips_absent_at_zero_and_for_hidden_tiles(env):
     main = env(jellyfin={**JELLY, "history": {"recent": []}})
     assert shelves_for(main)["waiting"] == {"to_rate": 0, "to_place": 0}
     with TestClient(main.app) as client:
-        assert "waitchip" not in main_html(client.get("/a/alpha").text)
+        assert "badge-wait" not in main_html(client.get("/a/alpha").text)
     main = env(jellyfin=JELLY)
     assert shelves_for(main, view="her")["waiting"] == {"to_rate": 0, "to_place": 0}

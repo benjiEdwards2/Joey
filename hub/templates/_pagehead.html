@@ -1,10 +1,11 @@
 {# Page header (MediaHub guide §6, restyle Phase 2, 2026-10-06). Full-bleed band tucked under the top bar:
    with `backdrop` (an /img/ name) a darkened picture, else a faint indigo glow. Optional eyebrow, the title,
    one sub-line of facts joined by " · " (guide §9), actions as .btn-glass ({href, label, new_tab}).
-   Called with {% call %}, the caller's markup (section tabs) sits at the top of the band. #}
-{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none) -%}
+   Called with {% call %}, the caller's markup (section tabs) sits at the top of the band. `drift` (Phase 3, Media
+   home) lets the backdrop drift slowly (guide 7, .hero-drift; off under reduced motion). #}
+{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false) -%}
 <header class="pagehead">
-  {% if backdrop %}<div class="pagehead-bd" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280')" aria-hidden="true"></div>{% endif %}
+  {% if backdrop %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280')" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {% if caller %}{{ caller() }}{% endif %}
     <div class="pagehead-foot">

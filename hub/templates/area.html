@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ area.name }} · Joey{% endblock %}
 {% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
 {% set nstale = tiles | selectattr("st.state", "equalto", "stale") | list | length %}
-<div class="pagehead">
-  <h1>{{ area.name }}</h1>
-  <p>{{ tiles | length }} tile{{ "" if tiles | length == 1 else "s" }}{% if nstale %} · {{ nstale }} stale{% endif %}</p>
-</div>
+{% set sub %}{{ tiles | length }} tile{{ "" if tiles | length == 1 else "s" }}{% if nstale %} · {{ nstale }} stale{% endif %}{% endset %}
+{{ pagehead(area.name, sub=sub) }}
 {% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}

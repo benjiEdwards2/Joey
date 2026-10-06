@@ -1,29 +1,25 @@
 {% extends "base.html" %}
-{# Media pages inside the Apex shell (2026-10-06): Joey rail and top bar stay; the Media sections
-   are an in-content segmented nav (.sections/.subtabs share the .seg look) under the page heading, sub-tabs a smaller row beneath.
+{# Media pages inside the Joey shell (restyle Phase 2, 2026-10-06): the page header (_pagehead.html) carries the
+   Media section tabs (guide §5: pills that scroll sideways on a phone, underlined on desktop) and, when a page
+   has sub-tabs, a second row beneath. The Media home header uses the hero's backdrop when there is one.
    Sections/tabs come from hub/media_nav.py via the `media_nav(request)` global. #}
 {% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
 {% set nav = media_nav(request) %}
 {% set ma = (areas or []) | selectattr("layout", "equalto", "shelves") | first %}
-<div class="pagehead mediahead"{% if nav.accent %} style="--accent: {{ nav.accent }}"{% endif %}>
-  <h1>{{ ma.name if ma else "Media" }}</h1>
-  <nav class="sections" aria-label="Media sections">
-    {% for s in nav.sections %}
-    <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>
-    {% endfor %}
+{% set bd = sh.hero.backdrop if (sh is defined and sh and sh.hero and sh.hero.backdrop) else none %}
+{% call pagehead(ma.name if ma else "Media", backdrop=bd) %}
+  <nav class="sectabs" aria-label="Media sections">
+    <div class="sectabs-row">
+    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>{% endfor %}
+    </div>
   </nav>
   {% if nav.tabs %}
-  <nav class="subtabs" aria-label="{{ nav.section.label }}">
+  <nav class="sectabs sub" aria-label="{{ nav.section.label }}">
+    <div class="sectabs-row">
     {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> to get</span></span>{% endif %}</a>{% endfor %}
+    </div>
   </nav>
   {% endif %}
-</div>
-{% endblock %}
-{% block tabs %}
-{% set nav = media_nav(request) %}
-<nav class="tabs mediatabs" aria-label="Media sections (phone)"{% if nav.accent %} style="--accent: {{ nav.accent }}"{% endif %}>
-  {% for s in nav.sections %}
-  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>
-  {% endfor %}
-</nav>
+{% endcall %}
 {% endblock %}

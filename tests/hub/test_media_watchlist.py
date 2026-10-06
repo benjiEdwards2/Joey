@@ -145,8 +145,8 @@ def test_movies_page_frame_status_words_and_head(env):
     put(999, title="Nowhere Film")
     with TestClient(main.app) as c:
         html, b = page(c, "/media/movies/watchlist")
-    assert current(html, "sections") == ["Movies"]
-    assert current(html, "subtabs") == ["Watchlist"]
+    assert current(html, "sectabs") == ["Movies"]
+    assert current(html, "sectabs sub") == ["Watchlist"]
     assert "5 on your watchlist · 4 not on the server" in b
     for word in ("On disk", "Requested", "Processing", "Partly available", "Not on server"):
         assert f">{word}</span>" in b
@@ -158,7 +158,7 @@ def test_tv_page_and_empty_state(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     with TestClient(main.app) as c:
         html, b = page(c, "/media/tv/watchlist")
-        assert current(html, "sections") == ["TV Shows"] and current(html, "subtabs") == ["Watchlist"]
+        assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["Watchlist"]
         assert "Nothing on your watchlist yet — add from Discover or a title page" in b
         put(22, kind="tv", title="Foxtrot Show")     # on the server list; wrong-kind request ignored
         _, b = page(c, "/media/tv/watchlist")
@@ -203,7 +203,7 @@ def test_watchlist_tab_count_is_the_not_on_server_number(env):
     put(12); put(555); put(556)
     with TestClient(main.app) as c:
         html = c.get("/media/movies").text
-    sub = re.search(r'<nav class="subtabs".*?</nav>', html, re.S).group(0)
+    sub = re.search(r'<nav class="sectabs sub".*?</nav>', html, re.S).group(0)
     assert re.search(r'Watchlist <span class="waitcount">2<span class="vh"> to get</span>', sub)
     assert "waitcount" not in re.search(r'>My films</a>', sub).string.split("Watchlist")[0]
 
@@ -212,7 +212,7 @@ def test_no_count_when_nothing_is_missing(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     put(12)
     with TestClient(main.app) as c:
-        sub = re.search(r'<nav class="subtabs".*?</nav>', c.get("/media/movies").text, re.S).group(0)
+        sub = re.search(r'<nav class="sectabs sub".*?</nav>', c.get("/media/movies").text, re.S).group(0)
     assert "waitcount" not in sub and ">Watchlist<" in sub
 
 

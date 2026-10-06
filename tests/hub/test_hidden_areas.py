@@ -49,17 +49,18 @@ def _client(monkeypatch, tmp_path, registry=None, drop=()):
     return TestClient(hub.main.app)
 
 
-def test_rail_and_phone_bar_skip_hidden_areas(tmp_path, monkeypatch):
+def test_top_bar_and_phone_bar_skip_hidden_areas(tmp_path, monkeypatch):
     reg = write_registry(tmp_path, {**make_area("one"), "hidden": True}, make_area("two"),
                          make_area("three"), make_area("four"), make_area("five"))
     with _client(monkeypatch, tmp_path, reg) as c:
         html = c.get("/").text
-    rail = html.split('aria-label="Areas list"', 1)[1].split("</nav>", 1)[0]
-    assert "/a/one" not in rail and "/a/two" in rail
-    tabs = html.split('aria-label="Areas (phone)"', 1)[1]
+    top = html.split('aria-label="Sections"', 1)[1].split("</nav>", 1)[0]
+    assert "/a/one" not in top and "/a/two" in top
+    tabs = html.split('aria-label="Sections (phone)"', 1)[1]
     bar, sheet = tabs.split('<div class="sheet">', 1)
     assert "/a/one" not in tabs
-    assert all(f"/a/{i}" in bar for i in ("two", "three", "four")) and "/a/five" in sheet
+    # Hub, Weather, two, three in the bar; four and five in the More sheet (six sections > five slots)
+    assert all(f"/a/{i}" in bar for i in ("two", "three")) and "/a/four" in sheet and "/a/five" in sheet
 
 
 def test_parked_page_still_serves(monkeypatch, tmp_path):

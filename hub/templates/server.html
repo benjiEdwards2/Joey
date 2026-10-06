@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}{{ area.name }} · Joey{% endblock %}
 {% block pagehead %}
-<div class="pagehead">
-  <h1>{{ area.name }}</h1>
-  <p>{% if sv.attention %}{{ sv.attention | length }} need{{ "s" if sv.attention | length == 1 else "" }} attention{% else %}All clear{% endif %}</p>
-</div>
+{% from "_pagehead.html" import pagehead %}
+{% set sub %}{% if sv.attention %}{{ sv.attention | length }} need{{ "s" if sv.attention | length == 1 else "" }} attention{% else %}All clear{% endif %}{% endset %}
+{{ pagehead(area.name, sub=sub) }}
 {% endblock %}
 {% block content %}
 {# Server area (WP-S1, 2026-10-06): the NAS Homepage, natively. Bands, top to bottom:

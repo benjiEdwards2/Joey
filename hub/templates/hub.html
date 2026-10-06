@@ -1,11 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Joey{% endblock %}
 {% block pagehead %}
-<div class="pagehead">
-  <h1>Hub</h1>
-  <p>{{ greeting }}</p>
-  {% if status %}<p class="feedline" role="status">FEEDS {{ status.feeds_ok }}/{{ status.feeds_total }} live{% for name in status.stale %} · {{ name }} stale{% endfor %}</p>{% endif %}
-</div>
+{% from "_pagehead.html" import pagehead %}
+{% set sub %}{{ greeting }}{% if status %} · Feeds {{ status.feeds_ok }}/{{ status.feeds_total }} live{% for name in status.stale %} · {{ name }} stale{% endfor %}{% endif %}{% endset %}
+{{ pagehead("Hub", sub=sub) }}
 {% endblock %}
 {% block content %}
 {# Apex hub (2026-10-06): KPI row (one card per area + Weather), Band A (Next 7 days +

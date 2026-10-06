@@ -1,8 +1,8 @@
 /* Joey: MediaHub restyle, Phase 1 of 4 (2026-10-06). Style spec: docs/style-guide.md (Jack's MediaHub guide,
    adopted for all of Joey). ONE dark theme by design (guide 1.1): every token lives in the single :root block
-   below; light mode is retired, so there are no colour-scheme media or theme-attribute token blocks and the
-   theme toggle is a no-op until Phase 2 removes it. TOKENS ONLY: component and recipe rules never carry a
-   literal colour. Older variable names (--bg, --card, --rail*, ...) are remapped to the guide's palette so
+   below; light mode is retired, so there are no colour-scheme media or theme-attribute token blocks (Phase 2
+   removed the theme toggle and the rail: the shell is the guide's top bar + phone tab bar). TOKENS ONLY: component and recipe rules never carry a
+   literal colour. Older variable names (--bg, --card, ...) are remapped to the guide's palette so
    existing templates render unchanged in the dark set; the recipe classes (guide 4-6) follow the base rules.
    Per-area --accent is still injected by the templates from the registry. */
 
@@ -24,8 +24,8 @@
   --warn: #fbbf24; --warn-soft: rgba(245, 158, 11, .1);
   --bad: #fca5a5; --bad-soft: rgba(239, 68, 68, .1);
   --gold: #f2c14e; --gold-glow: rgba(251, 191, 36, .45);
-  --rail: #09090b; --rail-fg: #a1a1aa; --rail-muted: #71717a; --rail-hover: rgba(255, 255, 255, .04);
-  --rail-active: rgba(255, 255, 255, .07); --rail-border: rgba(255, 255, 255, .05); --rail-strong: #fafafa;
+  --topbar: rgba(9, 9, 11, .8);  /* the top bar (guide §5: bg-zinc-950/80) */
+  --pill-on: rgba(255, 255, 255, .07); --tab-on: #818cf8; --tab-on-phone: #a5b4fc;  /* indigo-400 / -300 */
   --scrim: rgba(9, 9, 11, .9); --scrim-soft: rgba(9, 9, 11, .62);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
@@ -33,7 +33,6 @@
   --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
   --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
   --shadow: none;
-  --ic-moon: none; --ic-sun: inline-block;
   /* Guide tokens (section 2) */
   --surface: rgba(255, 255, 255, .03); --line: rgba(255, 255, 255, .1);
   --line-soft: rgba(255, 255, 255, .05); --line-hover: rgba(255, 255, 255, .2); --line-focus: rgba(255, 255, 255, .25);
@@ -43,6 +42,11 @@
   --sky: #7dd3fc; --orange: #fb923c; --fuchsia: #f0abfc; --teal: #5eead4; --rose: #fb7185;
   --indigo-glow: rgba(99, 102, 241, .1);
   --zinc-100: #f4f4f5; --zinc-900: #18181b; --zinc-950: #09090b;
+  --pagehead-glow: rgba(99, 102, 241, .14);
+  --pagehead-fade-0: #09090b; --pagehead-fade-1: rgba(9, 9, 11, .72); --pagehead-fade-2: rgba(9, 9, 11, .3);
+  --pagehead-side-0: rgba(9, 9, 11, .94); --pagehead-side-1: rgba(9, 9, 11, .62); --pagehead-side-2: rgba(9, 9, 11, .14);
+  --pagehead-foot-1: rgba(9, 9, 11, .55); --pagehead-foot-2: rgba(9, 9, 11, 0);
+  --title-shadow: 0 1px 14px rgba(0, 0, 0, .6);
   --amber: #fbbf24; --danger-line: rgba(239, 68, 68, .3); --warn-line: rgba(245, 158, 11, .3);
   --toast-err: #fecaca; --toast-warn: #fef3c7;
   --glass-bg: rgba(0, 0, 0, .3); --glass-bg-hover: rgba(0, 0, 0, .5); --glass-line: rgba(255, 255, 255, .2);
@@ -103,7 +107,7 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
          stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
 @media (prefers-reduced-motion: no-preference) {
-  a.cardlink .card, .nav a, .iconbtn, .seg a { transition: border-color .15s, background .15s; }
+  a.cardlink .card { transition: border-color .15s, background .15s; }
 }
 
 /* ---- MediaHub recipe classes (guide 4-6, Phase 1 of the restyle). Plain-CSS translations of the guide's
@@ -240,71 +244,107 @@ a.row:hover { background: var(--soft); }
 .toast-error { border-color: var(--danger-line); color: var(--toast-err); }
 @media (min-width: 768px) { .toast { bottom: 24px; } }
 
-/* ---- Shell: rail + content column ---- */
-.app { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
-.rail {
-  background: var(--rail); color: var(--rail-fg);
-  display: flex; flex-direction: column;
-  position: sticky; top: 0; height: 100vh; overflow: auto;
+/* ---- Shell (guide §5, restyle Phase 2): top bar, page frame, page header, section tabs, phone tab bar ---- */
+/* Top bar: brand, section pills (>= 768 px), signed-in chip. Sticky from 768 px; on a phone it scrolls away. */
+.topbar { position: relative; z-index: 40; border-bottom: 1px solid var(--line-soft); background: var(--topbar);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.topbar-in { display: flex; align-items: center; gap: 16px; height: 56px; max-width: 72rem; margin: 0 auto;
+  padding: 0 16px; min-width: 0; }
+.brand { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; text-decoration: none; color: var(--text-1); }
+.brand .mark { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; flex: none; }
+.brand b { font-size: 15px; font-weight: 600; letter-spacing: -.025em; }
+.toplinks { display: none; }
+.toplinks a { flex-shrink: 0; border-radius: 8px; padding: 6px 12px; font-size: 14px; white-space: nowrap;
+  color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s; }
+.toplinks a:hover { color: var(--text-2); }
+.toplinks a[aria-current] { background: var(--pill-on); color: var(--text-1); }
+.userchip { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-width: 0;
+  font-size: 12px; color: var(--text-5); }
+.userchip .avatar { width: 24px; height: 24px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: var(--soft); color: var(--text-3); font-size: 11px; font-weight: 600; }
+.userchip .uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.userchip small { display: none; font-size: 12px; white-space: nowrap; }
+@media (min-width: 640px) { .topbar-in { padding: 0 24px; } }
+@media (min-width: 768px) {
+  .topbar { position: sticky; top: env(safe-area-inset-top, 0px); }
+  .toplinks { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
 }
-.brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--rail-border); }
-.brand { text-decoration: none; }
-.brand .mark { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--rail-border); flex: none; }
-.brand:hover b { color: var(--rail-fg); }
-.brand b { display: block; font-size: 15px; color: var(--rail-strong); line-height: 1.1; }
-.railsec { padding: 14px 24px 4px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--rail-muted); }
-.nav { padding: 4px 10px; display: grid; gap: 2px; }
-.nav a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 9px;
-  font-size: 14px; color: var(--rail-fg); text-decoration: none; }
-.nav a:hover { background: var(--rail-hover); }
-.nav a.on { background: var(--rail-active); color: var(--rail-strong); }
-.nav a.on .ico { color: var(--accent, var(--brand)); }
-.ico { width: 18px; height: 18px; flex: none; display: inline-grid; place-items: center; }
-.railfoot { margin-top: auto; border-top: 1px solid var(--rail-border); padding: 14px 16px;
-  display: flex; align-items: center; gap: 10px; }
-.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--rail-active); color: var(--rail-strong);
-  display: grid; place-items: center; font-size: 12px; font-weight: 600; }
-.railfoot b { display: block; color: var(--rail-strong); font-size: 13px; }
-.railfoot small { color: var(--rail-muted); font-size: 11px; }
+@media (min-width: 1024px) { .userchip small { display: inline; } }
 
-.main { min-width: 0; display: flex; flex-direction: column; }
-.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg);
-  border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 12px 24px; }
-.spacer { flex: 1; }
-.iconbtn { width: 36px; height: 36px; border-radius: 9px; display: grid; place-items: center; color: var(--muted); }
-.iconbtn:hover { background: var(--soft); color: var(--fg); }
-.themetoggle .moon { display: var(--ic-moon); }
-.themetoggle .sun { display: var(--ic-sun); }
-/* Signed-in user chip (2026-10-06): avatar letter + name; email only at wide widths */
-.userchip { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
-.userchip .avatar { width: 28px; height: 28px; background: var(--soft); color: var(--fg); flex: none; }
-.userchip .uname { font-size: 13px; font-weight: 600; color: var(--fg); white-space: nowrap; }
-.userchip small { display: none; font-size: 11px; color: var(--muted); white-space: nowrap; }
-@media (min-width: 1001px) { .userchip small { display: inline; } }
+/* Page frame: one centred column, 72rem wide; the bottom padding clears the phone tab bar. */
+.page { width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px 7rem; min-width: 0;
+  display: flex; flex-direction: column; gap: 20px; }
+@media (min-width: 640px) { .page { padding-left: 24px; padding-right: 24px; } }
+@media (min-width: 768px) { .page { padding-top: 32px; padding-bottom: 4rem; } }
 
-/* Segmented control (.seg): Media sections and sub-tabs share the look */
-.seg, .sections, .subtabs { display: inline-flex; flex-wrap: wrap; align-self: flex-start;
-  background: var(--soft); border-radius: 9px; padding: 3px; gap: 2px; }
-.seg a, .page .sections a, .page .subtabs a { padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 500;
-  color: var(--muted); text-decoration: none; white-space: nowrap; }
-.seg a:hover, .page .sections a:hover, .page .subtabs a:hover { color: var(--fg); }
-.seg a[aria-current], .page .sections a[aria-current], .page .subtabs a[aria-current] {
-  background: var(--card); color: var(--fg); box-shadow: var(--shadow); font-weight: 600; }
+/* Page header (guide §6): full-bleed band tucked under the top bar; a darkened backdrop or a faint indigo glow.
+   The inner column lines up with the page frame. */
+.pagehead { position: relative; isolation: isolate; margin: -24px calc(50% - 50vw) 0; min-height: 170px;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: radial-gradient(40rem 14rem at 20% 0%, var(--pagehead-glow), transparent); }
+.pagehead-bd { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center 25%;
+  background-image: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%), var(--bd); }
+.pagehead-in { flex: 1; width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px 20px; min-width: 0;
+  display: flex; flex-direction: column; gap: 16px; }
+.pagehead-foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; min-width: 0; }
+.pagehead-text { flex: 1 1 16rem; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.pagehead .eyebrow { border-radius: 6px; background: var(--pill-on); padding: 4px 8px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .1em; color: var(--text-2);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.pagehead h1 { font-size: 30px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; color: var(--brand-fg);
+  text-shadow: var(--title-shadow); text-wrap: balance; overflow-wrap: anywhere; }
+.pagehead-sub { font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
+.pagehead-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (min-width: 640px) { .pagehead-in { padding-left: 24px; padding-right: 24px; } }
+@media (min-width: 768px) {
+  .pagehead { margin-top: -32px; min-height: 220px; }
+  .pagehead-in { padding-top: 32px; padding-bottom: 24px; }
+  .pagehead h1 { font-size: 48px; line-height: 1.05; }
+  .pagehead-bd { background-image:
+    linear-gradient(90deg, var(--pagehead-side-0) 0%, var(--pagehead-side-1) 45%, var(--pagehead-side-2) 85%),
+    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd); }
+}
 
-/* ---- Page content ---- */
-.page { padding: 24px 24px 90px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.pagehead { display: flex; flex-direction: column; gap: 4px; }
-.pagehead h1 { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; text-wrap: balance; }
-.pagehead p { color: var(--muted); }
-.pagehead .feedline { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
-.mediahead { gap: 10px; }
-.mediahead h1 { margin-bottom: -4px; }
-.page .sections a { font-size: 13px; padding: 6px 13px; }
-.subtabs { background: none; padding: 0; }
-.page .subtabs a { font-size: 12px; padding: 4px 10px; border: 1px solid transparent; }
-.page .subtabs a[aria-current] { border-color: var(--border); box-shadow: none; }
-.waitcount { display: inline-block; min-width: 18px; text-align: center; font-size: 11px; font-weight: 700; line-height: 16px;
-  color: var(--warn); background: var(--warn-soft); border-radius: 999px; padding: 0 5px; margin-left: 3px; }
+/* Section tabs (guide §5): pills that scroll sideways on a phone, underlined tabs from 768 px. */
+.sectabs { margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+.sectabs::-webkit-scrollbar { display: none; }
+.sectabs-row { display: flex; gap: 8px; }
+.sectabs a { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; white-space: nowrap; font-size: 14px;
+  color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s, border-color .15s;
+  border-radius: 999px; border: 1px solid var(--line); padding: 6px 14px; }
+.sectabs a:hover { color: var(--text-2); }
+.sectabs a[aria-current] { font-weight: 500; border-color: var(--zinc-100); background: var(--zinc-100); color: var(--zinc-900); }
+.sectabs.sub a { font-size: 13px; padding: 4px 12px; }
+.sectabs + .sectabs { margin-top: -8px; }
+@media (min-width: 640px) { .sectabs { margin: 0; padding: 0; } }
+@media (min-width: 768px) {
+  .sectabs-row { gap: 4px; border-bottom: 1px solid var(--line-soft); }
+  .sectabs a { margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    padding: 4px 12px 10px; background: none; }
+  .sectabs a[aria-current] { color: var(--text-1); background: none; border-bottom-color: var(--tab-on); }
+  .sectabs.sub a { padding: 2px 12px 8px; }
+}
+
+/* Phone tab bar (< 768 px): up to five slots, icon over an 11 px label; "More" opens a sheet above it. */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr); border-top: 1px solid var(--line-soft); background: var(--bar);
+  padding-bottom: env(safe-area-inset-bottom); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.tabbar > a, .tabbar summary { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; min-width: 0; height: 56px; padding: 0 4px; font-size: 11px; color: var(--text-5); text-decoration: none;
+  list-style: none; cursor: pointer; }
+.tabbar span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tabbar summary::-webkit-details-marker { display: none; }
+.tabbar svg.ic { width: 20px; height: 20px; }
+.tabbar > a[aria-current], .tabbar summary.on { color: var(--tab-on-phone); }
+.more { min-width: 0; }
+.more[open] .sheet { position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom));
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 16px;
+  background: var(--bar); border-top: 1px solid var(--line-soft); }
+.sheet a { display: flex; align-items: center; gap: 8px; min-width: 0; border-radius: 12px; border: 1px solid var(--line);
+  padding: 10px 12px; font-size: 13px; color: var(--text-4); text-decoration: none; }
+.sheet a[aria-current] { color: var(--tab-on-phone); border-color: var(--line-hover); }
+.sheet svg.ic { width: 16px; height: 16px; }
+@media (min-width: 768px) { .tabbar { display: none; } }
 
 .cardlink { text-decoration: none; display: block; min-width: 0; color: inherit; }
 .cardlink .card { height: 100%; }
@@ -455,10 +495,10 @@ form.inl { display: inline-block; margin: 0; }
 .countdown .poster { height: 60vh; width: auto; max-width: 90vw; }
 .cdpos { font-size: 64px; font-weight: 800; line-height: 1; }
 .cdtitle { font-size: 22px; font-weight: 600; }
-.cdscore, .cdcount { font-size: 14px; color: var(--rail-muted); }
+.cdscore, .cdcount { font-size: 14px; color: var(--text-5); }
 .cdnav button { font: inherit; padding: 8px 16px; margin: 4px; color: var(--stage-fg); background: var(--stage-btn);
   border: 1px solid var(--stage-line); border-radius: 8px; }
-.cdexit { position: absolute; top: 12px; left: 16px; font-size: 13px; color: var(--rail-muted); }
+.cdexit { position: absolute; top: 12px; left: 16px; font-size: 13px; color: var(--text-5); }
 .cdlist { text-align: left; font-size: 18px; }
 
 /* ---- Tiles that open a detail page ---- */
@@ -475,17 +515,9 @@ a.cardlink:hover .card { border-color: color-mix(in srgb, var(--accent, var(--mu
 .launch:hover { border-color: var(--accent, var(--muted)); }
 .notfound { max-width: 480px; }
 
-/* ---- Phone bottom bar (hidden on desktop) ---- */
-nav.tabs { display: none; }
-
-/* ---- Breakpoints: <=640 phone chrome (rail hidden, bottom bar) ---- */
-@media (max-width: 1000px) {
-}
+/* ---- Breakpoints: phone content tweaks (the shell's own rules sit with the shell above) ---- */
 @media (max-width: 640px) {
-  .app { display: block; }
-  .rail { display: none; }
-  .topbar { padding: 10px 16px; }
-  .page { padding: 16px 16px 96px; gap: 16px; }
+  .page { gap: 16px; }
   .card { padding: 16px; }
   .card .value { font-size: 22px; }
   .poster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -494,36 +526,6 @@ nav.tabs { display: none; }
   .podiumitem.p1, .podiumitem.p2, .podiumitem.p3 { order: 0; }
   .podiumitem .poster { max-width: 260px; }
   .cdpos { font-size: 48px; }
-
-  nav.tabs {
-    display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
-    background: var(--bar); backdrop-filter: blur(8px); border-top: 1px solid var(--border);
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-    justify-content: space-between; gap: 2px;
-  }
-  nav.tabs > a, nav.tabs summary {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    color: var(--muted); text-decoration: none; font-size: 10px;
-    padding: 4px 8px; cursor: pointer; list-style: none; border: 0; background: none;
-  }
-  nav.tabs summary::-webkit-details-marker { display: none; }
-  nav.tabs svg.ic { width: 20px; height: 20px; }
-  nav.tabs a[aria-current="page"] { color: var(--fg); font-weight: 600; }
-  nav.tabs a[aria-current="page"] svg.ic { color: var(--accent, var(--brand)); }
-  .more { position: relative; }
-  .more[open] .sheet {
-    position: fixed; left: 0; right: 0; bottom: 58px;
-    background: var(--bar); backdrop-filter: blur(8px); border-top: 1px solid var(--border);
-    padding: 10px 16px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-  }
-  .sheet a {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--bg); color: var(--muted);
-    border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px;
-    font-size: 13px; text-decoration: none;
-  }
-  .sheet a[aria-current="page"] { color: var(--fg); border-color: var(--accent, var(--muted)); }
-  .sheet svg.ic { width: 15px; height: 15px; color: var(--accent, var(--muted)); }
 }
 
 /* ---- Media shelves layout: hero + horizontal poster shelves ---- */
@@ -623,14 +625,9 @@ nav.tabs { display: none; }
 }
 
 
-/* ---- Media phone bar + visually hidden words for counts ---- */
+/* ---- Visually hidden words for counts ---- */
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-@media (max-width: 640px) {
-  nav.tabs.mediatabs { padding-left: 4px; padding-right: 4px; }
-  nav.mediatabs > a { flex: 1; text-align: center; padding: 6px 2px; }
-  nav.mediatabs .waitcount { font-size: 9px; min-width: 14px; line-height: 13px; padding: 0 3px; margin-left: 1px; }
-}
 
 /* ---- Movies + TV hub (F3b) ---- */
 .libctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 4px; }

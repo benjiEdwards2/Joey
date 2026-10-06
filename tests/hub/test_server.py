@@ -144,12 +144,13 @@ def test_uptime_text_and_grouping_helpers():
         ("Media", ["jellyseerr"]), ("Downloads", ["gluetun"]), ("System", ["portainer"])]
 
 
-def test_hub_and_rail_show_the_server_area(env):
+def test_hub_and_shell_show_the_server_area(env):
     with env() as client:
         html = client.get("/").text
-    rail = html.split('aria-label="Areas list"', 1)[1].split("</nav>", 1)[0]
-    assert 'href="/a/server"' in rail and "Server</a>" in rail
-    assert '<rect x="3.5" y="4" width="17" height="7"' in rail   # server-rack icon
+    top = html.split('aria-label="Sections"', 1)[1].split("</nav>", 1)[0]
+    assert '<a href="/a/server">Server</a>' in top
+    tabs = html.split('aria-label="Sections (phone)"', 1)[1]
+    assert 'href="/a/server"' in tabs and '<rect x="3.5" y="4" width="17" height="7"' in tabs   # server-rack icon
     assert 'href="/a/server"' in main_of(html)                   # hub KPI card
 
 

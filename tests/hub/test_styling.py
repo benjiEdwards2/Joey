@@ -53,11 +53,12 @@ def test_hub_card_carries_size_class(client):
 
 def test_status_strip_reports_feeds_and_stale(client):
     html = client.get("/").text
-    assert "FEEDS" in html and "1/2" in html      # open_meteo present, jellyfin absent
+    assert "Feeds 1/2 live" in html               # open_meteo present, jellyfin absent
     assert "stale" in html                        # stale feed named in the strip
 
 
-def test_phone_nav_first_three_plus_more_sheet(client):
+def test_phone_tab_bar_holds_every_section_when_five_or_fewer(client):
     html = client.get("/").text
-    assert html.count('nav class="tabs"') == 1
-    assert "<details" in html and "More" in html  # 4 slots + More disclosure, no JS
+    assert html.count('nav class="tabbar"') == 1
+    bar = html.split('nav class="tabbar"', 1)[1]
+    assert bar.count("<a href=") == 4 and "<details" not in bar  # Hub, Weather, Alpha, Beta; More only past five

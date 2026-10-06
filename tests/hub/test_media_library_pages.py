@@ -69,7 +69,7 @@ def test_movies_page_in_frame_with_head_groups_and_words(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         html, b = body(c, "/media/movies")
-    assert current(html, "sections") == ["Movies"] and current(html, "subtabs") == ["My films"]
+    assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["My films"]
     assert "4 films · 2 watched · 2 to watch" in b
     assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")
     assert "1 h 52 m" in b and "Watched 3 days ago" in b and "Not watched" in b and "45 m" in b
@@ -126,7 +126,7 @@ def test_tv_page_groups_words_and_head(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         html, b = body(c, "/media/tv")
-    assert current(html, "sections") == ["TV Shows"] and current(html, "subtabs") == ["My shows"]
+    assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["My shows"]
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
     assert "Continuing" in b and "26 episodes · 6 to watch" in b and "8 episodes · All watched" in b
@@ -235,10 +235,10 @@ def test_tonight_routes_render_cards_and_deal_again(env):
     with TestClient(main.app) as c:
         html, b = body(c, "/media/movies/tonight")
         tv_html, tv = body(c, "/media/tv/tonight")
-    assert current(html, "sections") == ["Movies"] and current(html, "subtabs") == ["Tonight"]
+    assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["Tonight"]
     assert "Three for tonight" in b and 'href="/media/movies/tonight">Deal again' in b
     assert b.count('class="pgitem tcard"') == 2 and "Nothing else to deal" in b   # 2 unplayed films
-    assert current(tv_html, "sections") == ["TV Shows"] and tv.count('class="pgitem tcard"') == 2
+    assert current(tv_html, "sectabs") == ["TV Shows"] and tv.count('class="pgitem tcard"') == 2
 
 
 # ---- By year kind filter ----

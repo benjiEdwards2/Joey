@@ -86,32 +86,26 @@ def test_without_header_the_query_still_works_and_sets_cookie(client):  # noqa: 
     assert "owner_view=you" in resp.headers.get("set-cookie", "")
 
 
-# ---- shell: rail footer, top-bar chip, greeting, no switcher ----
-
-def rail_of(html):
-    return re.search(r'<aside class="rail".*?</aside>', html, re.S).group(0)
-
+# ---- shell: top-bar chip, greeting, no switcher ----
 
 def topbar_of(html):
     return re.search(r'<header class="topbar">.*?</header>', html, re.S).group(0)
 
 
-def test_rail_footer_and_chip_show_the_signed_in_user(client):  # noqa: F811
+def test_top_bar_chip_shows_the_signed_in_user(client):  # noqa: F811
     html = client.get("/", headers=AS_YOU).text
-    foot = re.search(r'<div class="railfoot">.*?</div></div>', rail_of(html), re.S).group(0)
-    assert ">B</div>" in foot and "<b>Benji</b>" in foot and f"<small>{YOU}</small>" in foot
     bar = topbar_of(html)
     assert f'class="userchip" title="{YOU}"' in bar and '<span class="uname">Benji</span>' in bar
-    assert f"<small>{YOU}</small>" in bar
-    assert bar.index("data-theme-toggle") < bar.index("userchip")   # toggle, then the chip
+    assert '<span class="avatar" aria-hidden="true">B</span>' in bar and f"<small>{YOU}</small>" in bar
+    assert bar.index("toplinks") < bar.index("userchip")   # section pills, then the chip at the right
     her = client.get("/", headers=AS_HER).text
-    assert "<b>Georgina</b>" in rail_of(her) and '<span class="uname">Georgina</span>' in topbar_of(her)
+    assert '<span class="uname">Georgina</span>' in topbar_of(her)
 
 
 def test_not_signed_in_shell(client):  # noqa: F811
     html = client.get("/").text
-    assert "<b>Not signed in</b>" in rail_of(html) and "<small>Local preview</small>" in rail_of(html)
     bar = topbar_of(html)
+    assert '<span class="uname">Not signed in</span>' in bar and "<small>Local preview</small>" in bar
     assert '<div class="userchip">' in bar and "title=" not in bar.split("userchip", 1)[1]
 
 
@@ -137,9 +131,9 @@ def test_no_owner_switcher_in_shell_or_media_pages(client, env):  # noqa: F811
 
 
 def test_brand_reads_just_joey(client):  # noqa: F811
-    rail = rail_of(client.get("/").text)
-    brand = re.search(r'<a class="brand" href="/" aria-label="Joey home">(.*?)</a>', rail, re.S).group(1)
-    assert "joeyhome.net" not in rail
+    bar = topbar_of(client.get("/").text)
+    brand = re.search(r'<a class="brand" href="/" aria-label="Joey home">(.*?)</a>', bar, re.S).group(1)
+    assert "joeyhome.net" not in bar
     assert "/static/brand-joey.jpg?v=" in brand and "<b>Joey</b>" in brand
 
 

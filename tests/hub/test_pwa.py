@@ -88,4 +88,4 @@ def test_asset_version_meta_and_boost_reload_guard(monkeypatch):
 def test_links_never_use_browser_default_colours():
     css = (REPO_ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
     assert "\na { color: inherit; }" in css
-    assert "main a:not([class]) { color: var(--accent" in css
+    assert "main a:not([class]) { color: var(--text-2)" in css and "--accent" not in css.split("*/", 1)[1]

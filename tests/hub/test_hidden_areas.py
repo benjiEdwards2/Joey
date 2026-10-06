@@ -72,27 +72,27 @@ def test_parked_page_still_serves(monkeypatch, tmp_path):
 def test_hub_row_is_media_weather_calendar_and_spans_calendar(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as c:
         body = c.get("/").text.split("<main", 1)[1]
-    row = re.search(r'<section class="kpis[^"]*".*?</section>', body, re.S).group(0)
+    row = re.search(r'<section class="tiles[^"]*".*?</section>', body, re.S).group(0)
     # Server area (2026-10-06) makes it four cards: a full row, so no `few` / span2 any more
-    assert re.match(r'<section class="kpis"', row)
-    names = re.findall(r'<div class="kpiarea">([^<]+)</div>', row)
+    assert re.match(r'<section class="tiles"', row)
+    names = re.findall(r'<div class="microlabel">([^<]+)</div>', row)
     assert names == ["Media", "Calendar", "Weather", "Server"]  # Weather sits before the last card
-    assert re.search(r'<a class="cardlink" href="/a/server">', row)
+    assert re.search(r'<a class="panel tile" href="/a/server"', row)
     assert row.count("span2") == 0
     for name in ("Food", "Money", "Desk", "House", "Car"):
-        assert f'<div class="kpiarea">{name}</div>' not in body
+        assert f'<div class="microlabel">{name}</div>' not in body
 
 
 def test_calendar_page_has_no_weather_kpi_tile_but_keeps_the_band(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as c:
         body = c.get("/a/calendar").text
-    kpis = re.search(r'<section class="kpis areakpis".*?</section>', body, re.S).group(0)
+    kpis = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
     assert "light rain" not in kpis and "Weather" not in kpis
-    assert 'class="card panel wxcard"' in body and "light rain" not in kpis
+    assert 'class="sec wxglimpse"' in body and "light rain" not in kpis
 
 
 def test_css_has_span_rule_and_no_literal_colour():
     css = (REPO_ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
-    assert re.search(r"\.kpis\.few\s*>\s*\.span2\s*\{\s*grid-column:\s*span 2", css)
-    assert re.search(r"\.kpis\.few\s*>\s*\.span2\s*\{\s*grid-column:\s*1 / -1", css)
-    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b", css.split("/* ---- Apex hub", 1)[1])
+    assert re.search(r"\.tiles\.few\s*>\s*\.span2\s*\{\s*grid-column:\s*span 2", css)
+    assert re.search(r"\.tiles\.few\s*>\s*\.span2\s*\{\s*grid-column:\s*1 / -1", css)
+    assert not re.findall(r"#[0-9a-fA-F]{3,8}\b", css.split("/* ---- Pages (restyle Phase 4", 1)[1])

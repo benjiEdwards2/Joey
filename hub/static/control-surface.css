@@ -4,7 +4,8 @@
    removed the theme toggle and the rail: the shell is the guide's top bar + phone tab bar). TOKENS ONLY: component and recipe rules never carry a
    literal colour. Older variable names (--bg, --card, ...) are remapped to the guide's palette so
    existing templates render unchanged in the dark set; the recipe classes (guide 4-6) follow the base rules.
-   Per-area --accent is still injected by the non-Media templates (Media dropped it in Phase 3). */
+   Phase 4 (2026-10-06) finished the move: Hub, Server, Calendar/area pages and Weather are built from the same
+   recipes, the per-area --accent is gone everywhere, and the older .card/.kpi/.uplist rules were deleted. */
 
 @font-face { font-family: "Geist"; src: url("fonts/GeistVF.woff2") format("woff2");
   font-weight: 100 900; font-style: normal; font-display: swap; }
@@ -74,6 +75,7 @@
   --icon-btn-bg: rgba(9, 9, 11, .4); --sky-tint: rgba(14, 165, 233, .15); --confirm-bg: rgba(9, 9, 11, .9);
   --detail-fade-0: rgba(9, 9, 11, .45); --detail-fade-1: rgba(9, 9, 11, .55); --detail-fade-2: rgba(9, 9, 11, .9);
   --shadow-hero: 0 25px 50px -12px rgba(0, 0, 0, .7);
+  --appicon-bg: #ffffff;  /* the white tile behind an app logo (Server services) */
   --imdb-bg: rgba(234, 179, 8, .1); --imdb-fg: rgba(234, 179, 8, .8);
   --tmdb-bg: rgba(14, 165, 233, .1); --tmdb-fg: rgba(56, 189, 248, .8);
   --lbxd-bg: rgba(34, 197, 94, .1); --lbxd-fg: rgba(74, 222, 128, .8);
@@ -115,14 +117,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
          stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
-@media (prefers-reduced-motion: no-preference) {
-  a.cardlink .card { transition: border-color .15s, background .15s; }
-}
 
-/* ---- MediaHub recipe classes (guide 4-6, Phase 1 of the restyle). Plain-CSS translations of the guide's
-   Tailwind recipes; Phases 2-4 rebuild templates on these. They sit BEFORE the older component rules; Phase 3
-   removed the older .chip and .poster-grid rules, so the recipes win; .badge/.panel/.empty/.label skip their
-   older forms outright. Phone first (390 px). */
+/* ---- MediaHub recipe classes (guide 4-6). Plain-CSS translations of the guide's Tailwind recipes; every page is
+   built on these. Phone first (390 px). */
 
 /* Buttons: .btn + one variant; .btn-sm for the small size. Icons inside are 16px. */
 .btn { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 6px;
@@ -159,7 +156,7 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .textarea { padding: 8px 12px; }
 .input::placeholder, .textarea::placeholder { color: var(--text-6); }
 .input:focus, .textarea:focus, .select:focus { border-color: var(--line-focus); outline: none; }
-.label:not(.kpi *) { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--text-4); }
+.label { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--text-4); }
 .select { height: 36px; border-radius: 8px; border: 1px solid var(--line); background: transparent;
   padding: 0 12px; font: inherit; font-size: 14px; color: var(--text-3); }
 .select > option { background: var(--zinc-900); color: var(--text-2); }
@@ -169,7 +166,7 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .microlabel { font-size: 10px; text-transform: uppercase; letter-spacing: .025em; color: var(--text-5); }
 
 /* Lists: rows sit on the page, no box. minmax(0,1fr) stops a long title widening a phone page. */
-.listbox { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0 -8px; }
+.listbox { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0 -8px; list-style: none; }
 .row { display: flex; align-items: center; gap: 14px; padding: 8px; border-radius: 12px; min-width: 0;
   color: inherit; text-decoration: none; transition: background-color .15s; }
 a.row:hover { background: var(--soft); }
@@ -184,7 +181,7 @@ a.row:hover { background: var(--soft); }
 @media (min-width: 768px) { .row { gap: 16px; } }
 
 /* State badges (outline pills) and the matching row tint + 3px inset bar */
-.badge:not(.stale):not(.off) { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
+.badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
   border: 1px solid var(--line); padding: 2px 8px; font-size: 10px; font-weight: 500; color: var(--text-4); }
 .badge svg.ic { width: 12px; height: 12px; }
 .badge-watching { border-color: var(--watch-line); color: var(--orange); }
@@ -238,8 +235,8 @@ a.row:hover { background: var(--soft); }
 .card-poster .row-meta { font-size: 11px; }
 
 /* Panel (a card/surface box) and the empty state */
-.panel:not(.card) { border-radius: 16px; border: 1px solid var(--border); background: var(--surface); padding: 16px; }
-.empty:not(td) { border-radius: 12px; border: 1px solid var(--line-soft); padding: 32px; text-align: center;
+.panel { border-radius: 16px; border: 1px solid var(--border); background: var(--surface); padding: 16px; }
+.empty { border-radius: 12px; border: 1px solid var(--line-soft); padding: 32px; text-align: center;
   font-size: 14px; color: var(--text-5); }
 
 /* Toasts: bottom centre, above the phone tab bar */
@@ -355,76 +352,93 @@ a.row:hover { background: var(--soft); }
 .sheet svg.ic { width: 16px; height: 16px; }
 @media (min-width: 768px) { .tabbar { display: none; } }
 
-.cardlink { text-decoration: none; display: block; min-width: 0; color: inherit; }
-.cardlink .card { height: 100%; }
-
 h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent, var(--muted)); }
 
-/* ---- Card + tile anatomy (KPI-card look) ---- */
-.card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow);
-  padding: 18px 20px;
-  display: flex; flex-direction: column; gap: 6px;
-  min-width: 0; min-height: 118px; color: var(--fg);
+/* ---- Pages (restyle Phase 4, 2026-10-06): layout helpers shared by the Hub, Server, area and Weather pages. ---- */
+.narrow { max-width: 32rem; }
+/* Side-by-side groups: as many 20rem columns as fit, one on a phone (min(100%, 20rem) never exceeds the page). */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 20px; align-items: start; min-width: 0; }
+.cols > * { min-width: 0; }
+.panel-warn { display: flex; flex-direction: column; gap: 6px; border-color: var(--warn-line); background: var(--warn-soft); }
+/* .kv: a panel of label / value lines (the guide's spec-sheet lines, grid 6.5rem + minmax(0,1fr)). */
+.kv { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.kv dl { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
+.kv dt { color: var(--text-5); }
+.kv dd { color: var(--text-3); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+/* A fold (<details>) whose summary is a .seclabel. */
+details.fold > summary { list-style: none; cursor: pointer; padding: 6px 0; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "+ "; color: var(--text-5); }
+details.fold[open] > summary::before { content: "- "; }
+.sep { color: var(--text-6); }
+/* Stats strip extras: a wide stat (a volume with its bar) takes a full row on a phone and 12rem+ from 640 px. */
+.stat .row-meta { margin-top: 2px; }
+.stat .bar { margin-top: 6px; }
+.stat-word { overflow-wrap: anywhere; }
+.stat.wide { grid-column: 1 / -1; }
+@media (min-width: 640px) { .stat.wide { grid-column: auto; flex: 1 1 12rem; min-width: 12rem; } }
+
+/* Summary tiles (hub, area, Server): a .panel with a .microlabel, one value, one .row-meta line and the icon at the
+   right. A link tile gets a hover border; a tile with a "Jump back in" button is a div holding sibling anchors. */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tiles.few > .span2 { grid-column: span 2; }
+.tile { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px 16px; color: inherit;
+  text-decoration: none; transition: border-color .15s; }
+a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
+.tile-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; min-width: 0; }
+.tile-main { flex: 1 1 auto; min-width: 0; }
+.tile-main .microlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-value { margin-top: 2px; line-height: 1.2; overflow-wrap: anywhere; }
+.tile-main .row-meta { margin-top: 4px; }
+.tile-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px;
+  background: var(--soft); color: var(--text-3); }
+.tile-icon svg.ic { width: 20px; height: 20px; }
+.tile-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; }
+.tile.split > a.tile-body { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.tile-spark { display: block; width: 100%; height: 36px; }
+.tile-spark rect { fill: var(--line); }
+.tile-spark rect.today { fill: var(--text-5); }
+.tile .bar { margin-top: 2px; }
+
+.band { display: grid; gap: 20px; }
+.band.a { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 1180px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tiles.few > .span2 { grid-column: 1 / -1; }
+  .band.a { grid-template-columns: minmax(0, 1fr); }
 }
-.card .head { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-weight: 500; }
-.card .value { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin-top: auto; }
-.card .value.dim { color: var(--muted); font-size: 15px; font-weight: 500; letter-spacing: 0; }
-.card .sub { font-size: 12px; color: var(--muted); }
-.card .foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 640px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 
-.badge { font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 8px; }
-.badge.stale { color: var(--warn); background: var(--warn-soft); }
-.badge.off   { color: var(--muted); background: var(--soft); }
-.ago { font-size: 11px; color: var(--faint); margin-left: auto; }
+/* "Next 7 days": one .row per event. Phone: title + owner, then "Today · 10:00" as the meta line. From 640 px a grid
+   (When · Event · Owner) under uppercase column heads. The owner is a word; no colour is needed to read it. */
+.upc-head { display: none; }
+.row.upc { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "ev ow" "wh wh";
+  column-gap: 12px; row-gap: 2px; align-items: baseline; }
+.upc .row-body { grid-area: ev; }
+.upc .row-side { grid-area: ow; justify-content: flex-end; }
+.upc-when { grid-area: wh; font-size: 12px; color: var(--text-5); }
+.upc-day { font-weight: 500; color: var(--text-3); }
+.upc .row-title { white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
+@media (min-width: 640px) {
+  .upc-head { display: grid; grid-template-columns: 11rem minmax(0, 1fr) 6rem; gap: 16px; font-size: 11px; }
+  .upc-head > :last-child { text-align: right; }
+  .row.upc { grid-template-columns: 11rem minmax(0, 1fr) 6rem; grid-template-areas: "wh ev ow"; column-gap: 16px; }
+  .upc-when { font-size: 13px; }
+}
 
-/* ---- Weather: glimpse glyph + /weather detail page ---- */
-.card .glyph { color: var(--accent, var(--muted)); margin-top: 2px; }
-.card .glyph svg.ic { width: 38px; height: 38px; stroke-width: 1.4; }
-.wxfacts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 4px; }
-.wxfacts div { margin: 0; }
-.wxfacts dt { font-size: 12px; color: var(--muted); }
-.wxfacts dd { margin: 2px 0 0; font-size: 18px; font-weight: 700; }
+/* Weather glyph + the condition word beside it (never an icon on its own). */
+.glyph { display: grid; place-items: center; flex: none; color: var(--text-4); }
+.glyph svg.ic { width: 28px; height: 28px; stroke-width: 1.4; }
+.wxnow { display: flex; align-items: center; gap: 10px; }
+.wxnow .glyph svg.ic { width: 32px; height: 32px; }
+.wxword { font-size: 13px; color: var(--text-4); overflow-wrap: anywhere; }
 
-/* ---- Calendar: upcoming-events list ---- */
-.uplist { max-width: 560px; }
-.uplist .upday { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 12px 0 4px; }
-.uplist .uprow { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
-.uplist .uprow:last-child { border-bottom: 0; }
-.uplist .uptime { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 96px; }
-.uplist .uptitle { font-size: 13px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; flex: 1; }
-.uplist .uprow .chip { flex: 0 0 auto; }
-
-/* ---- Media: apps health + now playing / up next ---- */
-.mediacols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-.mediacols .medialist { flex: 1 1 280px; }
-.medialist .approw, .playrow { color: var(--fg); text-decoration: none; flex-wrap: wrap; }  /* any playrow wraps its bar */
-.medialist .approw:hover, .medialist .playrow:hover { background: var(--soft); }
-.medialist .approw { align-items: center; }
-.appdot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--faint); }
-.appdot.up { background: var(--good); }
-.appdot.down { background: var(--bad); }
-.appstate { font-size: 12px; font-weight: 700; flex: 0 0 40px; }  /* the WORD: Up / Down */
-.appnote { font-size: 11px; color: var(--muted); }
-.backuprow .appstate { flex: 0 0 auto; }  /* 'Backed up' / 'None yet' are wider than Up/Down */
-.backupwarn { margin: 0; }
-.pbar { flex: 0 0 100%; height: 4px; border-radius: 2px; background: var(--soft); overflow: hidden; }
-.pbar > span { display: block; height: 100%; background: var(--accent, var(--muted)); }
-.nextleft { flex: 0 0 auto; text-align: right; }
-/* ---- Media posters: /img proxy thumbnails, 2:3 ---- */
+/* ---- Poster thumbnails: /img proxy, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;
           background: var(--soft); border: 1px solid var(--border); }
-.poster.sm { height: 56px; width: auto; border-radius: 5px; }
-.uprow .uptitle .dim { color: var(--muted); font-weight: 500; }
-.uplist .uprow.hasposter { align-items: center; }
+.poster.gold-glow { border-color: var(--gold); box-shadow: 0 0 10px 1px var(--gold-glow); }  /* the countdown poster */
 
-/* ---- Ratings + diary: the score is always a number; gold at 10 is extra ---- */
-.chip.score { color: var(--fg); border-color: var(--muted); }
-.chip.score-10 { color: var(--gold); border-color: var(--gold); }
-.poster.gold-glow { border-color: var(--gold); box-shadow: 0 0 10px 1px var(--gold-glow); }
-
-/* Countdown stage stays dark in both themes (a cinema moment) */
+/* Countdown stage stays dark (a cinema moment) */
 .countdown { position: fixed; inset: 0; z-index: 100; background: var(--stage); color: var(--stage-fg); display: flex;
   flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; overflow: auto; }
 .countdown .cdstage { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
@@ -437,178 +451,42 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .cdexit { position: absolute; top: 12px; left: 16px; font-size: 13px; color: var(--text-5); }
 .cdlist { text-align: left; font-size: 18px; }
 
-/* ---- Tiles that open a detail page ---- */
-.card .foot .open { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--muted); }
-.card .foot .open + .ago { margin-left: 8px; }
-a.cardlink:hover .card { border-color: color-mix(in srgb, var(--accent, var(--muted)) 45%, var(--border)); }
-
-.notfound { max-width: 480px; }
-
 /* ---- Breakpoints: phone content tweaks (the shell's own rules sit with the shell above) ---- */
 @media (max-width: 640px) {
   .page { gap: 16px; }
-  .card { padding: 16px; }
-  .card .value { font-size: 22px; }
   .cdpos { font-size: 48px; }
 }
-
-.seeall { font-size: 13px; color: var(--muted); text-decoration: none; }
-.seeall:hover { color: var(--fg); }
-
 
 /* ---- Visually hidden words for counts ---- */
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 
-/* ---- Links: never the browser's purple/blue; inherit, accent for bare links ---- */
+/* ---- Links: never the browser's purple/blue; inherit, a light text colour for bare links ---- */
 a { color: inherit; }
-main a:not([class]) { color: var(--accent, var(--fg)); text-decoration-color: var(--faint); }
+main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6); }
 
-/* ---- Wide content never scrolls the body sideways ---- */
-table { width: 100%; border-collapse: collapse; }
-.tablewrap { overflow-x: auto; max-width: 100%; }
-
-/* ---- Apex hub (2026-10-06): KPI row, Band A (Next 7 days + Weather), Band B (shelves) ----
-   Mockup anatomy (joey-apex-mockup). Sparks only where a real series exists. Tokens only. */
-.kpis { display: grid; gap: 16px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.kpis > .cardlink, .kpis > .card { min-width: 0; }
-/* Three cards or fewer: the last (Calendar) spans two columns and fills the right half (2026-10-06). */
-.kpis.few > .span2 { grid-column: span 2; }
-.card.kpi { padding: 18px 20px 16px; gap: 0; overflow: hidden; position: relative; }
-.kpi .kpirow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.kpi .label { font-size: 13px; color: var(--muted); }
-.kpi .kpiarea { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
-.kpi .kpiicon { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; flex: none;
-  background: var(--soft); color: var(--fg); }
-.kpi .kpiicon.tint { background: var(--brand-soft); color: var(--brand); }
-.kpi .kpiicon svg.ic { width: 20px; height: 20px; }
-.kpi .val { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; margin-top: 6px;
-  overflow-wrap: anywhere; }
-.kpi .val.long { font-size: 20px; }
-.kpi .val.dim { color: var(--muted); font-size: 18px; font-weight: 500; letter-spacing: 0; }
-.kpi .sub { margin-top: 4px; }
-.kpi .foot { margin-top: auto; padding-top: 10px; }
-.kpi .jumpback { font-size: 12px; font-weight: 600; color: var(--fg); text-decoration: none; }
-.kpi .jumpback:hover { text-decoration: underline; }
-.kpi a.kpibody { color: inherit; text-decoration: none; display: block; }
-.kpi.split:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); }
-.kpi .spark { display: block; width: calc(100% + 40px); height: 44px; margin: 10px -20px -16px; }
-.kpi .spark rect { fill: var(--border); }
-.kpi .spark rect.today { fill: var(--muted); }
-.kpi .sparkbar { height: 4px; margin: 12px -20px -16px; background: var(--soft); }
-.kpi .sparkbar > span { display: block; height: 100%; background: var(--brand); }
-
-.band { display: grid; gap: 16px; }
-.band.a { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-.band > .cardlink .card { height: 100%; }
-.card.panel { padding: 0; gap: 0; }
-.panel .hd { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 0; }
-.panel .hd h2 { font-size: 15px; font-weight: 600; }
-.panel .hd p { margin-top: 2px; font-size: 13px; color: var(--muted); }
-.panel .hd .right { margin-left: auto; flex: none; }
-.panel .bd { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.panel .quiet { font-size: 13px; color: var(--muted); }
-.panel .subhd { font-size: 13px; font-weight: 600; margin-top: 14px; }
-
-.uptable { font-size: 13px; }
-.uptable th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 0 10px 10px 0;
-  border-bottom: 1px solid var(--border); white-space: nowrap; }
-.uptable td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.uptable tr:last-child td { border-bottom: 0; }
-.uptable td.when { white-space: nowrap; }
-.uptable td.when small { display: block; color: var(--muted); font-size: 12px; }
-.uptable .day { font-weight: 600; }
-.uptable td.event { font-weight: 500; overflow-wrap: anywhere; }
-.uptable td.empty { color: var(--muted); }
-.owner { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; border-radius: 6px;
-  padding: 2px 8px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
-.owner.you { color: var(--fg); }
-.owner.her { border-color: var(--brand-soft); background: var(--brand-soft); color: var(--brand); }
-.owner.shared { background: var(--soft); color: var(--fg); }
-
-.wxcard .wxnow { display: flex; align-items: center; gap: 14px; }
-.wxcard .glyph { color: var(--muted); }
-.wxcard .glyph svg.ic { width: 44px; height: 44px; stroke-width: 1.3; }
-.wxcard .wxtemp { font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
-.wxcard .wxword { font-size: 13px; color: var(--muted); }
-
-.hubshelf { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-.hubposter { flex: 0 0 112px; width: 112px; min-width: 0; color: var(--fg); text-decoration: none; }
-.hubposter .pimg { display: block; position: relative; border-radius: 10px; overflow: hidden; }
-.hubposter .poster { width: 100%; height: auto; border-radius: 10px; }
-.hubposter:hover .poster { border-color: var(--brand); }
-.hubposter .pprog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--scrim-soft); }
-.hubposter .pprog > span { display: block; height: 100%; background: var(--brand); }
-.hubposter b { display: block; font-size: 12px; font-weight: 600; margin-top: 7px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hubposter small { display: block; color: var(--muted); font-size: 11px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-@media (max-width: 1180px) {
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpis.few > .span2 { grid-column: 1 / -1; }
-  .band.a { grid-template-columns: minmax(0, 1fr); }
+/* ---- Weather (/weather and the glimpse): a .stats strip for today, the 24-hour chart, the radar, 7 days as rows.
+   Inline SVG coloured by tokens only (strokes --primary); every value is also printed as text. The radar colour ramp
+   (--rad-*) is a data colour. ---- */
+.wxapp { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.wxapp > .wxpage { grid-column: 1 / -1; }
+@media (min-width: 1100px) {
+  .wxapp { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .wxapp > .wxhourly, .wxapp > .wxweek { grid-column: 1; }
+  .wxapp > .wxradar { grid-column: 2; grid-row: 2 / span 2; }
 }
-@media (max-width: 640px) {
-  .kpis { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .card.kpi { padding: 16px 16px 14px; }
-  .kpi .spark { width: calc(100% + 32px); margin: 10px -16px -14px; }
-  .kpi .sparkbar { margin: 12px -16px -14px; }
-  .panel .hd { padding: 16px 16px 0; }
-  .panel .bd { padding: 14px 16px 16px; }
-  .hubposter { flex-basis: 100px; width: 100px; }
-}
-
-/* ---- Apex area pages (2026-10-06): KPI row per tile, Calendar band, /weather card ---- */
-.kpi .open { font-size: 12px; font-weight: 600; color: var(--fg); }
-.areaquiet { font-size: 13px; color: var(--muted); }
-.wxpage { max-width: 560px; }
-.wxpage .wxnow { display: flex; align-items: center; gap: 14px; }
-.wxpage .glyph { color: var(--muted); }
-.wxpage .glyph svg.ic { width: 56px; height: 56px; stroke-width: 1.2; }
-.wxpage .wxtemp { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
-.wxpage .wxword { font-size: 13px; color: var(--muted); }
-
-/* ---- /weather forecast (2026-10-06 weather upgrade): hero + 24-hour chart + 7-day strip.
-   Inline SVG coloured by tokens only; every value is also printed as text. ---- */
-.wxapp { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; }
-.wxapp > .wxpage { max-width: none; }
-.wxapp > .wxweek, .wxapp > .areaquiet { grid-column: 1 / -1; }
-.wxpage .wxfeels { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.wxpage .wxfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.wxpage .wxfacts dd small { font-size: 12px; font-weight: 500; color: var(--muted); }
 .wxchart { display: block; width: 100%; height: auto; }
-.wxchart .wxbase { stroke: var(--border); stroke-width: 1; }
-.wxchart .wxbar { fill: var(--faint); opacity: .45; }
-.wxchart .wxline { fill: none; stroke: var(--brand); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
-.wxchart .wxdot { fill: var(--card); stroke: var(--brand); stroke-width: 1.6; }
-.wxchart text { font-size: 12px; text-anchor: middle; fill: var(--muted); }
-.wxchart .wxtemplab { fill: var(--fg); font-weight: 600; }
-.wxhours { list-style: none; display: flex; gap: 4px; overflow-x: auto; padding: 8px 0 4px; scrollbar-width: thin; }
-.wxhours li { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 6px 0; border-radius: 8px; background: var(--soft); font-size: 12px; }
-.wxhours b { font-weight: 600; }
-.wxhours small, .wxdays small { color: var(--muted); font-size: 11px; }
-.wxdays { list-style: none; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
-.wxdays li { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center;
-  padding: 12px 6px; border: 1px solid var(--border); border-radius: 10px; min-width: 0; }
-.wxdays b { font-size: 13px; font-weight: 600; }
-.wxdays .glyph { color: var(--muted); }
-.wxdays .glyph svg.ic { width: 30px; height: 30px; stroke-width: 1.4; }
-.wxdays .wxword { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.wxdays .wxrange { font-size: 13px; font-weight: 600; }
-@media (max-width: 1180px) {
-  .wxapp { grid-template-columns: minmax(0, 1fr); }
-  .wxdays { display: flex; overflow-x: auto; padding-bottom: 4px; }
-  .wxdays li { flex: 0 0 104px; }
-}
+.wxchart .wxbase { stroke: var(--line); stroke-width: 1; }
+.wxchart .wxbar { fill: var(--text-6); opacity: .45; }
+.wxchart .wxline { fill: none; stroke: var(--primary); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.wxchart .wxdot { fill: var(--bg); stroke: var(--primary); stroke-width: 1.6; }
+.wxchart text { font-size: 12px; text-anchor: middle; fill: var(--text-5); }
+.wxchart .wxtemplab { fill: var(--text-1); font-weight: 600; }
+.wxhours .row { padding-top: 6px; padding-bottom: 6px; }
 
-/* ---- /weather rain radar (2026-10-06): stored BOM PNGs stacked as <img> layers; 6 frame slots
-   cycled by keyframes (7 x .6s — the latest frame holds for two slots). No JS. Reduced motion:
-   latest frame only. Big by request: own column beside everything at wide widths, full row
-   below that, capped to the viewport height so the square never scrolls off. ---- */
-.wxapp > .wxradar { grid-column: 1 / -1; }
+/* Rain radar: stored BOM PNGs stacked as <img> layers; 6 frame slots cycled by keyframes (7 x .6s: the latest frame
+   holds for two slots). No JS. Reduced motion: latest frame only. The square is capped to the viewport height. */
 .wxradarbox { position: relative; width: min(100%, 78vh); aspect-ratio: 1; margin: 0 auto;
   overflow: hidden; border-radius: 10px; background: var(--soft); }
 .wxradarbox img { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -621,31 +499,26 @@ table { width: 100%; border-collapse: collapse; }
 @keyframes wxr { 0%, 14.28% { opacity: 1; } 14.29%, 100% { opacity: 0; } }
 @keyframes wxrlast { 0%, 28.56% { opacity: 1; } 28.57%, 100% { opacity: 0; } }
 .wxrclock { position: absolute; top: 6%; left: 8px; padding: 2px 8px; border-radius: 6px;
-  background: var(--card); color: var(--fg); font-size: 13px; font-weight: 600; }
+  background: var(--poster-badge-bg); color: var(--text-1); font-size: 13px; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) {
   .wxradarbox .wxrframe, .wxradarbox .wxrclock { animation: none; }
   .wxradarbox .f5 { opacity: 1; }
 }
-.wxradartime { margin-top: 10px; font-size: 13px; text-align: center; }
-.wxlegend { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px;
-  margin-top: 8px; font-size: 12px; }
+.wxradartime { margin-top: 10px; text-align: center; }
+.wxradar .panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.wxlegend { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 12px; color: var(--text-3); }
 .wxlegend li { display: flex; align-items: center; gap: 6px; }
-.wxlegend small { color: var(--muted); font-size: 11px; }
+.wxlegend small { color: var(--text-5); font-size: 11px; }
 .wxlegend i { display: inline-block; width: 30px; height: 10px; border-radius: 3px; border: 1px solid var(--border); }
 .wxlegend .rl1 { background: linear-gradient(90deg, var(--rad-1), var(--rad-2)); }
 .wxlegend .rl2 { background: linear-gradient(90deg, var(--rad-3), var(--rad-4), var(--rad-5), var(--rad-6)); }
 .wxlegend .rl3 { background: linear-gradient(90deg, var(--rad-7), var(--rad-8), var(--rad-9)); }
 .wxlegend .rl4 { background: linear-gradient(90deg, var(--rad-10), var(--rad-11), var(--rad-12)); }
 .wxlegend .rl5 { background: linear-gradient(90deg, var(--rad-13), var(--rad-14), var(--rad-15)); }
-@media (min-width: 1440px) {
-  .wxapp { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
-  .wxapp > .wxpage, .wxapp > .wxhourly, .wxapp > .wxweek, .wxapp > .areaquiet { grid-column: 1; }
-  .wxapp > .wxradar { grid-column: 2; grid-row: 1 / span 3; }
-}
 
 /* ---- Media app (MediaHub restyle, Phase 3 of 4, 2026-10-06). Every Media page is built from the recipes above;
    the rules below only EXTEND them (named modifiers, documented here) for what the recipes do not cover. Media
-   drops the per-area --accent (guide 1.2: colour is kept for meaning). Tokens only. ---- */
+   carries no per-area colour (guide 1.2: colour is kept for meaning). Tokens only. ---- */
 
 /* Sections: a .seclabel ("CONTINUE WATCHING · 3") over a group; .sechead puts an "All" link at its right. */
 .sec { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -683,6 +556,11 @@ label.row input[type=radio] { flex-shrink: 0; }
 .st-available, .st-on-disk, .st-good { color: var(--good); }
 .st-requested, .st-processing, .st-partly-available { color: var(--amber-dim); }
 .st-warn { color: var(--amber); }
+/* Phase 4: live state words (Server rows, monitors, sweeps). Up emerald, down red; "off" (not connected, a permanent
+   state) is a muted grey, never amber (guide 9). */
+.st-up { color: var(--good); }
+.st-down { color: var(--bad); }
+.st-off { color: var(--text-5); }
 .badge-wait { border-color: var(--warn-line); color: var(--amber); }
 
 /* Filter chips: a 1-10 score chip keeps its grade colour; a chip holding a checkbox hides the box. */
@@ -869,18 +747,14 @@ a.castcard:hover .castname { text-decoration: underline; }
 .logform label { display: block; }
 .personhead .hero-detail-text { align-items: flex-start; text-align: left; }
 
-/* Server → Updates actions (WP-U1, 2026-10-06): Update now / Ignore per row, Ignored (N) fold. */
-.uplist .upact { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }
-.uplist .upact form { display: inline; margin: 0; }
-.linkbtn { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; }
-.linkbtn:hover { color: var(--fg); }
-.uplist details.ignored > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
-.uplist .flash { color: var(--fg); }
-
-/* Server → Last 24 h sparklines (WP-U4, 2026-10-06): scoped .spark-*, weather-chart stroke tokens. */
+/* Server (WP-U1/U4 + restyle Phase 4): services are rows; .appicon is the 20 px slot for an app logo (white 4 px tile,
+   padding 2 px; the server-icons branch fills it with an <img>). The Last 24 h sparklines keep scoped .spark-* rules,
+   stroked --primary over the base --line. */
+.appicon { width: 20px; height: 20px; flex: none; border-radius: 4px; padding: 2px; object-fit: contain;
+  background: var(--appicon-bg); }
 .spark-band .spark-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 240px); gap: 12px; align-items: center; padding: 6px 0; }
-.spark-band .spark-text { font-size: 14px; overflow-wrap: anywhere; }
+.spark-band .spark-text { font-size: 14px; color: var(--text-3); overflow-wrap: anywhere; }
 .spark-band .spark-svg { display: block; width: 100%; height: auto; }
-.spark-band .spark-base { stroke: var(--border); stroke-width: 1; }
-.spark-band .spark-line { fill: none; stroke: var(--brand); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.spark-band .spark-base { stroke: var(--line); stroke-width: 1; }
+.spark-band .spark-line { fill: none; stroke: var(--primary); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 @media (max-width: 520px) { .spark-band .spark-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }

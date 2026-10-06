@@ -296,7 +296,7 @@ def test_warning_only_when_stale_or_none(hub_env, monkeypatch, tmp_path):
         assert "Media backup:" not in body
     make_db(db)
     hub, area = pages()                                                # none
-    assert '<span class="badge stale">Media backup: none yet</span>' in hub
+    assert '<span class="st-warn">Media backup: none yet</span>' in hub
     assert "Media backup: none yet" in area.split('<p class="metaline">', 1)[1].split("</p>", 1)[0]
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(days=2, hours=1))
     for body in pages():                                               # stale

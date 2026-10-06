@@ -2,7 +2,7 @@
    The score is always a NUMBER — its grade colour and the gold at 10 are extra, never the only encoding.
    Media (restyle Phase 3, 2026-10-06): rows show the score big on the right (.row-score + .score-N, "—" in
    .score-none when missing); poster cards show a .poster-score badge; a perfect 10 gets the gold glow (guide 7).
-   scorechip / chip / rowchip / rowpcls / pcls are the older chip forms, still used by area.html (Phase 4). #}
+   Phase 4: the older chip forms (scorechip / chip / rowchip / rowpcls / pcls) are gone; area.html uses the row forms. #}
 {% macro grade(n) -%}
 {{ "score-none" if not n else "score-" ~ ([[n|int, 1]|max, 9]|min) }}
 {%- endmacro %}
@@ -31,22 +31,6 @@
 {%- endmacro %}
 {% macro rowglow(row, ratings, small=true) -%}
 {{ glow(score_for(row, ratings), small) }}
-{%- endmacro %}
-{% macro scorechip(n) -%}
-{%- if n %}<span class="chip score{{ ' score-10' if n == 10 }}" title="Your rating: {{ n }} out of 10">{{ n }}</span>{% endif -%}
-{%- endmacro %}
-{% macro chip(key, ratings) -%}
-{{ scorechip(ratings.get(key) if key else none) }}
-{%- endmacro %}
-{# Rows that may be episodes: the score follows the owner's rating level (score_for global). #}
-{% macro rowchip(row, ratings) -%}
-{{ scorechip(score_for(row, ratings)) }}
-{%- endmacro %}
-{% macro rowpcls(row, ratings) -%}
-{{ " gold-glow" if score_for(row, ratings) == 10 }}
-{%- endmacro %}
-{% macro pcls(key, ratings) -%}
-{{ " gold-glow" if key and ratings.get(key) == 10 }}
 {%- endmacro %}
 {# 1-10 picker: a plain form (works without JS, 303 back to history) that htmx upgrades
    to a swap. `r` carries item_key/kind/title/year/poster. Each number is a chip in its grade colour. #}

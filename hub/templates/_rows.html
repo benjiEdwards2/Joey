@@ -3,3 +3,9 @@
 {% macro meta(parts, cls="row-meta") -%}
 <div class="{{ cls }}">{% for p in parts if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}</div>
 {%- endmacro %}
+{# Freshness for a band (restyle Phase 4): amber only when stale (something to do), else a quiet "Updated 3 min ago";
+   nothing when there is no age. Expects a tile_state dict. #}
+{% macro updated(st) -%}
+{%- if st.state == "stale" %}<span class="st-warn">{{ st.age_text }}</span>
+{%- elif st.age_text and st.state != "off" %}Updated {{ st.age_text }}{% endif -%}
+{%- endmacro %}

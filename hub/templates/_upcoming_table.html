@@ -1,37 +1,31 @@
-{# Hub "Next 7 days" (Apex hub, 2026-10-06): build_upcoming's groups as a table. Owner chips
-   are TEXT (You / Her / Shared) — colour only echoes the word. Expects: upcoming. #}
-<article class="card panel">
-  <div class="hd">
-    <div><h2>Next {{ upcoming.days }} days</h2><p>Both calendars, merged</p></div>
-    {% if upcoming.href %}<a class="right seeall" href="{{ upcoming.href }}">View all ›</a>{% endif %}
+{# "Next 7 days" (hub + Calendar; restyle Phase 4, 2026-10-06): build_upcoming's groups as .row rows. From 640 px each
+   row is a grid (When · Event · Owner) under uppercase column heads; on a phone the same markup stacks: title and
+   owner, then "Today · 10:00" as the meta line — never a sideways scroll. The owner is a WORD (You / Her / Shared).
+   Expects: upcoming. #}
+{% from "_rows.html" import updated %}
+<section class="sec upcoming" aria-label="Next {{ upcoming.days }} days">
+  <div class="sechead">
+    <h2 class="seclabel">Next {{ upcoming.days }} days</h2>
+    {% if upcoming.href %}<a href="{{ upcoming.href }}">View all</a>{% endif %}
   </div>
-  <div class="bd">
-    {% if upcoming.st.state == "off" %}
-      <div class="value dim">Not connected</div>
-      {% if upcoming.st.note %}<div class="sub">{{ upcoming.st.note }}</div>{% endif %}
-    {% else %}
-    <div class="tablewrap">
-      <table class="uptable">
-        <thead><tr><th>When</th><th>Event</th><th>Owner</th></tr></thead>
-        <tbody>
-        {% for g in upcoming.groups %}{% for e in g.events %}
-          <tr>
-            <td class="when"><span class="day">{{ g.label }}</span><small>{{ e.time_text }}</small></td>
-            <td class="event">{{ e.title }}</td>
-            <td><span class="owner {{ e.owner }}">{{ e.owner | title }}</span></td>
-          </tr>
-        {% endfor %}{% else %}
-          <tr><td class="empty" colspan="3">Nothing in the next {{ upcoming.days }} days</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
+  {% if upcoming.st.state == "off" %}
+  <p class="empty">Not connected.</p>
+  {% if upcoming.st.note %}<p class="metaline">{{ upcoming.st.note }}</p>{% endif %}
+  {% else %}
+  {% if upcoming.st.state == "stale" %}<p class="metaline">{{ updated(upcoming.st) }}</p>{% endif %}
+  {% if upcoming.groups %}
+  <div class="upc-head seclabel" aria-hidden="true"><span>When</span><span>Event</span><span>Owner</span></div>
+  <div class="listbox">
+    {% for g in upcoming.groups %}{% for e in g.events %}
+    <div class="row upc">
+      <span class="upc-when"><span class="upc-day">{{ g.label }}</span><span class="sep"> · </span>{{ e.time_text }}</span>
+      <div class="row-body"><div class="row-title">{{ e.title }}</div></div>
+      <span class="row-side">{{ e.owner | title }}</span>
     </div>
-    {% endif %}
-    {% if upcoming.st.state != "fresh" %}
-    <div class="foot">
-      {% if upcoming.st.state == "stale" %}<span class="badge stale">{{ upcoming.st.age_text }}</span>
-      {% else %}<span class="badge off">not connected</span>{% endif %}
-    </div>
-    {% endif %}
+    {% endfor %}{% endfor %}
   </div>
-</article>
+  {% else %}
+  <p class="empty">Nothing in the next {{ upcoming.days }} days.</p>
+  {% endif %}
+  {% endif %}
+</section>

@@ -1,55 +1,53 @@
-{# Hub KPI card (Apex hub, 2026-10-06), mockup anatomy: label + tiny area name, icon square,
-   big value, sub line, footer (owner chip + state badge as in _tile.html), optional spark strip
-   on the bottom edge — only from real snapshot data (bars = events per day, pct = progress).
-   "Not connected": same anatomy, dim value, no spark. With `jump` (an app deep link) the card
-   is a div holding SIBLING anchors — never a link inside a link. No literal colours here. #}
+{# Hub / area / Server summary tile (restyle Phase 4, 2026-10-06; guide 6 "Stats strip" look). A .panel holding a
+   .microlabel, one big value (.stat-number when short, else .stat-word), ONE .row-meta line (label · detail · owner)
+   and the area icon at the right. Amber (.badge-wait) only when something is stale = something to do; "Not
+   connected" is a muted grey .st-off word (guide 9: no amber that never goes away). Optional: a progress .bar
+   (pct) or a tiny per-day bar chart (bars) from real snapshot data, "waiting on you" badges, and `jump` (an app
+   deep link): then the tile is a div holding SIBLING anchors, never a link inside a link. Tokens only. #}
 {% import "_icons.html" as ic %}
+{% from "_rows.html" import meta %}
 {% from "_waiting.html" import waitchips %}
-{% macro kpi(href, label, area_name, icon, st, owner, value=none, sub=none, brand_icon=false,
-             cls="", extra=none, waiting=none, jump=none, bars=none, pct=none, new_tab=false, open_word=none) -%}
+{% macro kpi(href, micro, label, icon, st, owner, value=none, sub=none, extra=none, waiting=none, jump=none,
+             bars=none, pct=none, new_tab=false, cls="") -%}
 {% set off = st.state == "off" %}
 {% set val = "Not connected" if off else (value if value is not none else st.value) %}
-{% set subline = st.note if off else (sub if sub is not none else st.secondary) %}
+{% set detail = st.note if off else (sub if sub is not none else st.secondary) %}
 {% set body %}
-  <div class="kpirow">
-    <div><div class="label">{{ label }}</div><div class="kpiarea">{{ area_name }}</div></div>
-    <div class="kpiicon{% if brand_icon %} tint{% endif %}">{{ ic.icon(icon) }}</div>
+  <div class="tile-top">
+    <div class="tile-main">
+      <div class="microlabel">{{ micro }}</div>
+      <div class="tile-value {{ 'stat-word st-off' if off else ('stat-number' if val|string|length <= 10 else 'stat-word') }}">{{ val }}</div>
+      {{ meta([label, detail, (extra if not off else none), owner | title]) }}
+    </div>
+    <span class="tile-icon">{{ ic.icon(icon) }}</span>
   </div>
-  <div class="val{% if off %} dim{% elif val|string|length > 14 %} long{% endif %}">{{ val }}</div>
-  {% if subline %}<div class="sub">{{ subline }}</div>{% endif %}
-  {% if extra and not off %}<div class="sub">{{ extra }}</div>{% endif %}
-{% endset %}
-{% set foot %}
-  <div class="foot">
-    <span class="chip">{{ owner | title }}</span>
-    {% if st.state == "stale" %}<span class="badge stale">{{ st.age_text }}</span>
-    {% elif off %}<span class="badge off">not connected</span>{% endif %}
-    {{ waitchips(waiting) }}
-    {% if open_word %}<span class="open">{{ open_word }}</span>{% endif %}
-    {% if jump %}<a class="jumpback" href="{{ jump }}" target="_blank" rel="noopener">Jump back in ↗</a>{% endif %}
-    {% if st.state == "fresh" and st.age_text %}<span class="ago">{{ st.age_text }}</span>{% endif %}
-  </div>
-{% endset %}
-{% set spark %}
   {% if not off and bars %}{% set top = [bars|max, 1]|max %}
-  <svg class="spark" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true">
+  <svg class="tile-spark" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true">
     {%- for n in bars %}<rect class="{{ 'today' if loop.first else '' }}" x="{{ 12 + loop.index0 * 42 }}" y="{{ 44 - (2 + (n / top * 36))|round(1) }}" width="28" height="{{ (2 + (n / top * 36))|round(1) }}" rx="2"/>{% endfor -%}
   </svg>
   <span class="vh">Events per day, next {{ bars|length }} days: {{ bars|join(", ") }}</span>
   {% elif not off and pct is not none %}
-  <div class="sparkbar" role="img" aria-label="{{ pct }}% watched"><span style="width: {{ pct }}%"></span></div>
+  <div class="bar" role="img" aria-label="{{ pct }}% watched"><span style="width: {{ pct }}%"></span></div>
+  {% endif %}
+{% endset %}
+{% set wc %}{{ waitchips(waiting) }}{% endset %}
+{% set foot %}
+  {% if st.state == "stale" or wc|trim or jump %}
+  <div class="tile-foot">
+    {% if st.state == "stale" %}<span class="badge badge-wait">{{ st.age_text }}</span>{% endif %}
+    {{ wc }}
+    {% if jump %}<a class="btn btn-ghost btn-sm" href="{{ jump }}" target="_blank" rel="noopener">Jump back in ↗</a>{% endif %}
+  </div>
   {% endif %}
 {% endset %}
 {% if href is none %}
-<div class="card kpi{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">{{ body }}{{ foot }}{{ spark }}</div>
+<div class="panel tile{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">{{ body }}{{ foot }}</div>
 {% elif jump %}
-<div class="card kpi split{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">
-  <a class="kpibody" href="{{ href }}">{{ body }}</a>
-  {{ foot }}{{ spark }}
+<div class="panel tile split{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">
+  <a class="tile-body" href="{{ href }}">{{ body }}</a>
+  {{ foot }}
 </div>
 {% else %}
-<a class="cardlink{% if cls %} {{ cls }}{% endif %}" href="{{ href }}"{% if new_tab %} target="_blank" rel="noopener"{% endif %}>
-  <div class="card kpi" data-owner="{{ owner }}">{{ body }}{{ foot }}{{ spark }}</div>
-</a>
+<a class="panel tile{% if cls %} {{ cls }}{% endif %}" href="{{ href }}"{% if new_tab %} target="_blank" rel="noopener"{% endif %} data-owner="{{ owner }}">{{ body }}{{ foot }}</a>
 {% endif %}
 {%- endmacro %}

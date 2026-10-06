@@ -1,0 +1,24 @@
+{# Weather glimpse (hub band + Calendar band; restyle Phase 4, 2026-10-06): a .stats strip — temperature as a
+   .stat-number with its glyph and the condition WORD beside it (never icon-only), then low / high / rain chance.
+   Expects `w` (find_weather). Stale = an amber badge (something to do); not connected = a muted grey word. #}
+{% import "_icons.html" as ic %}
+{% from "_rows.html" import updated %}
+<section class="sec wxglimpse" aria-label="Weather">
+  <div class="sechead"><h2 class="seclabel">Weather<span class="sep"> · </span>Newport VIC</h2><a href="/weather">Details</a></div>
+  {% if w.st.state == "off" %}
+  <div class="panel"><p class="stat-word st-off">Not connected</p>{% if w.st.note %}<p class="row-meta">{{ w.st.note }}</p>{% endif %}</div>
+  {% else %}
+  {% set d = w.data %}
+  <div class="stats">
+    <div class="stat">
+      <div class="microlabel">Now</div>
+      <div class="wxnow"><div class="glyph">{{ ic.icon(w.glyph) }}</div><div class="stat-number">{{ (d.get("now_c") ~ " °C") if d.get("now_c") is not none else "—" }}</div></div>
+      <div class="wxword">{{ d.get("condition_text") or "—" }}</div>
+    </div>
+    <div class="stat"><div class="microlabel">Low</div><div class="stat-number">{{ (d.get("today_min_c") ~ " °C") if d.get("today_min_c") is not none else "—" }}</div></div>
+    <div class="stat"><div class="microlabel">High</div><div class="stat-number">{{ (d.get("today_max_c") ~ " °C") if d.get("today_max_c") is not none else "—" }}</div></div>
+    {% if d.get("rain_prob_pct") is not none %}<div class="stat"><div class="microlabel">Rain</div><div class="stat-number">{{ d.rain_prob_pct }}%</div></div>{% endif %}
+  </div>
+  <p class="metaline">{{ updated(w.st) }}</p>
+  {% endif %}
+</section>

@@ -87,6 +87,6 @@ def test_link_tile_is_one_whole_card_link(app_factory):
     with build(tmp_path / "none") as client:
         html = client.get("/a/delta").text
     body = html.split("<main", 1)[1]
-    assert 'class="cardlink" href="https://notes.test" target="_blank" rel="noopener"' in body
+    assert 'class="panel tile" href="https://notes.test" target="_blank" rel="noopener"' in body
     assert 'class="launch"' not in body
     assert "Open Open" not in body

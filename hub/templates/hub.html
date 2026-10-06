@@ -6,102 +6,67 @@
 {{ pagehead("Hub", sub=sub) }}
 {% endblock %}
 {% block content %}
-{# Apex hub (2026-10-06): KPI row (one card per area + Weather), Band A (Next 7 days +
-   Weather), Band B (Continue watching / Recently watched). Real snapshot data only. #}
+{# Hub (restyle Phase 4, 2026-10-06): a row of summary tiles (one per area + Weather), then "Next 7 days" beside the
+   weather glimpse, then Continue watching on Media's poster carousel. Real snapshot data only. #}
 {% from "_kpi.html" import kpi %}
 {% from "_shelf.html" import shelfrow %}
-{% if backup_warn %}<div class="backupwarn"><span class="badge stale">{{ backup_warn }}</span></div>{% endif %}
+{% from "_rows.html" import updated %}
+{% if backup_warn %}<p class="metaline"><span class="st-warn">{{ backup_warn }}</span></p>{% endif %}
 {% macro areacard(c, cls="") %}
   {% if c.area.layout == "shelves" %}
     {% set h = c.hero %}
     {% set playing = h and h.kind_word == "Playing now" %}
-    {{ kpi("/a/" ~ c.area.id, h.kind_word if h else c.tile.label, c.area.name, c.area.icon, c.st,
+    {{ kpi("/a/" ~ c.area.id, c.area.name, (h.kind_word if h else c.tile.label), c.area.icon, c.st,
            c.tile.owner.value, value=(h.title if h else none), sub=(c.st.value if h else none),
-           brand_icon=true, extra=c.downloading, waiting=c.waiting, cls=cls,
+           extra=c.downloading, waiting=c.waiting, cls=cls,
            jump=(h.href if h else none), pct=(h.progress_pct if playing else none)) }}
   {% else %}
-    {{ kpi("/a/" ~ c.area.id, c.tile.label, c.area.name, c.area.icon, c.st, c.tile.owner.value,
+    {{ kpi("/a/" ~ c.area.id, c.area.name, c.tile.label, c.area.icon, c.st, c.tile.owner.value,
            bars=c.per_day, cls=cls) }}
   {% endif %}
 {% endmacro %}
 {# Order: Media first, Weather, the last card (Calendar) last; with <= 3 cards in all the
    last one spans two columns so it fills the right half of the row (2026-10-06). #}
 {% set few = cards|length + 1 <= 3 %}
-<section class="kpis{% if few %} few{% endif %}" aria-label="Area summaries">
+<section class="tiles{% if few %} few{% endif %}" aria-label="Area summaries">
   {% for c in cards %}
   {% if loop.last and cards|length > 1 and weather %}
-    {{ kpi("/weather", "Newport VIC", "Weather", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
+    {{ kpi("/weather", "Weather", "Newport VIC", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
   {% endif %}
   {{ areacard(c, "span2" if loop.last and few else "") }}
   {% endfor %}
   {% if weather and cards|length <= 1 %}
-    {{ kpi("/weather", "Newport VIC", "Weather", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
+    {{ kpi("/weather", "Weather", "Newport VIC", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
   {% endif %}
 </section>
 
 {% if upcoming or weather %}
 <section class="band a">
   {% if upcoming %}{% include "_upcoming_table.html" %}{% endif %}
-  {% if weather %}{% set w = weather %}
-  <a class="cardlink" href="/weather">
-    <article class="card panel wxcard">
-      <div class="hd"><div><h2>Weather</h2><p>Newport VIC</p></div><span class="right seeall">Details ›</span></div>
-      <div class="bd">
-        {% if w.st.state == "off" %}
-          <div class="value dim">Not connected</div>
-          {% if w.st.note %}<div class="sub">{{ w.st.note }}</div>{% endif %}
-        {% else %}
-          <div class="wxnow">
-            <div class="glyph">{{ ic.icon(w.glyph) }}</div>
-            <div>
-              <div class="wxtemp">{{ w.data.get("now_c", "—") }} °C</div>
-              <div class="wxword">{{ w.data.get("condition_text", "—") }}</div>
-            </div>
-          </div>
-          <dl class="wxfacts">
-            <div><dt>Today low</dt><dd>{{ w.data.get("today_min_c", "—") }} °C</dd></div>
-            <div><dt>Today high</dt><dd>{{ w.data.get("today_max_c", "—") }} °C</dd></div>
-            {% if w.data.get("rain_prob_pct") is not none %}<div><dt>Rain chance</dt><dd>{{ w.data.rain_prob_pct }}%</dd></div>{% endif %}
-          </dl>
-        {% endif %}
-        <div class="foot">
-          <span class="chip">{{ w.tile.owner.value | title }}</span>
-          {% if w.st.state == "stale" %}<span class="badge stale">{{ w.st.age_text }}</span>
-          {% elif w.st.state == "off" %}<span class="badge off">not connected</span>
-          {% elif w.st.age_text %}<span class="ago">updated {{ w.st.age_text }}</span>{% endif %}
-        </div>
-      </div>
-    </article>
-  </a>
-  {% endif %}
+  {% if weather %}{% set w = weather %}{% include "_weather_glimpse.html" %}{% endif %}
 </section>
 {% endif %}
 
 {% if shelf %}
-<section class="card panel">
-  <div class="hd">
-    <div><h2>Continue watching</h2><p>Jellyfin · {{ shelf.profiles }}</p></div>
-    <a class="right seeall" href="{{ shelf.href }}">Open Media ›</a>
+<section class="sec" id="continue">
+  <div class="sechead">
+    <h2 class="seclabel">Continue watching{% if shelf.up_next %}<span class="sep"> · </span>{{ shelf.up_next | length }}{% endif %}</h2>
+    <a href="{{ shelf.href }}">Open Media</a>
   </div>
-  <div class="bd">
-    {% if shelf.st.state == "off" %}
-      <div class="value dim">Not connected</div>
-    {% elif shelf.up_next %}
-      {{ shelfrow(shelf.up_next) }}
-    {% else %}
-      <div class="quiet">{{ shelf.quiet }}</div>
-    {% endif %}
-    {% if shelf.watched %}
-      <h3 class="subhd">Recently watched</h3>
-      {{ shelfrow(shelf.watched) }}
-    {% endif %}
-    {% if shelf.st.state != "fresh" %}
-    <div class="foot">
-      {% if shelf.st.state == "stale" %}<span class="badge stale">{{ shelf.st.age_text }}</span>
-      {% else %}<span class="badge off">not connected</span>{% endif %}
-    </div>
-    {% endif %}
-  </div>
+  <p class="metaline">Jellyfin<span class="sep"> · </span>{{ shelf.profiles | capitalize }}{% if shelf.st.state == "stale" %}<span class="sep"> · </span>{{ updated(shelf.st) }}{% endif %}</p>
+  {% if shelf.st.state == "off" %}
+    <p class="empty">Not connected.</p>
+  {% elif shelf.up_next %}
+    {{ shelfrow(shelf.up_next) }}
+  {% else %}
+    <p class="empty">{{ shelf.quiet }}.</p>
+  {% endif %}
 </section>
+{% if shelf.watched %}
+<section class="sec" id="recent">
+  <div class="sechead"><h2 class="seclabel">Recently watched<span class="sep"> · </span>{{ shelf.watched | length }}</h2></div>
+  {{ shelfrow(shelf.watched) }}
+</section>
+{% endif %}
 {% endif %}
 {% endblock %}

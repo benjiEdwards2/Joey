@@ -114,11 +114,12 @@ def test_area_strip_shows_five_recent_items_with_a_you_chip(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
         body = main_of(client.get("/a/alpha").text)
-    strip = body.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
-    assert body.index('class="kpis areakpis"') < body.index(">Recently watched<")
-    assert strip.count('class="uprow playrow hasposter"') == 5 and 'href="/media/diary"' in strip
+    strip = body.split(">Recently watched</h2>", 1)[1].split("</section>", 1)[0]
+    assert body.index('class="tiles areatiles"') < body.index(">Recently watched<")
+    assert strip.count('<a class="row" href="/media/diary">') == 5
+    assert strip.count('class="poster row-poster') == 5
     assert "Harbour Lights" in strip and "Desert Crossing" not in strip  # 4th kept, 6th cut
-    assert '<span class="chip">You</span>' in strip
+    assert '<p class="metaline">You' in strip
 
 
 def test_her_view_never_shows_the_strip(app_factory):

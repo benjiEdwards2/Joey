@@ -83,7 +83,7 @@ def test_real_registry_media_leads_the_hub():
 ])
 def test_hub_card_renders_hero_with_deep_link(env, data, kind, title, jf):
     html = hub_main(env(jellyfin=data))
-    assert f'>{kind}</div>' in html and f'>{title}</div>' in html
+    assert f'<div class="row-meta">{kind}' in html and f'>{title}</div>' in html
     assert "/img/jf:" in html or "/img/none" in html
     assert f'href="{deep(jf).replace("&", "&amp;")}" target="_blank" rel="noopener">Jump back in ↗' in html
     assert 'href="/a/alpha"' in html
@@ -91,7 +91,7 @@ def test_hub_card_renders_hero_with_deep_link(env, data, kind, title, jf):
 
 def test_hub_card_has_no_jump_link_without_an_id(env):
     html = hub_main(env(jellyfin=JELLY))  # rows carry no jf_id
-    assert ">Playing now</div>" in html and "Jump back in ↗" not in html
+    assert '<div class="row-meta">Playing now' in html and "Jump back in ↗" not in html
 
 
 def test_deep_link_omits_server_id_when_unknown(env):
@@ -104,7 +104,7 @@ def test_hub_card_falls_back_to_plain_tile_without_snapshot(env):
     assert "herocard" not in html and "Jump back in" not in html
     # Apex hub (2026-10-06): the bento size class is gone; no hero -> a plain whole-card KPI link
     # a lone card now also carries the `span2` class (kpis few, 2026-10-06)
-    assert re.search(r'<a class="cardlink( span2)?" href="/a/alpha">', html)
+    assert re.search(r'<a class="panel tile( span2)?" href="/a/alpha"', html)
 
 
 def test_no_nested_anchors_on_the_hub(env):

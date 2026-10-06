@@ -1,6 +1,6 @@
-"""Apex area pages (2026-10-06): non-media areas as a KPI row (one card per registry tile),
-Calendar with the Next 7 days table + Weather, a quiet sentence when nothing is connected,
-/weather inside one .card. Real registry + committed sample snapshots; media pages untouched."""
+"""Apex area pages (2026-10-06; restyle Phase 4): non-media areas as a row of summary tiles (one .panel.tile per
+registry tile), Calendar with the Next 7 days rows + Weather glimpse, a quiet sentence when nothing is connected,
+/weather as a stats strip + panels. Real registry + committed sample snapshots; media pages untouched."""
 import importlib
 import json
 import re
@@ -44,18 +44,18 @@ def test_each_area_renders_one_kpi_card_per_tile(site):
     main, _ = site("/")
     for a in non_media(main):
         _, body = site(f"/a/{a.id}")
-        k = re.search(r'<section class="kpis areakpis".*?</section>', body, re.S).group(0)
+        k = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
         # the weather tile is dropped where the page renders the weather band (2026-10-06)
-        shown = [t for t in a.tiles if t.snapshot != "open_meteo"] if "wxcard" in body else a.tiles
-        assert k.count('class="card kpi') == len(shown), a.id
+        shown = [t for t in a.tiles if t.snapshot != "open_meteo"] if "wxglimpse" in body else a.tiles
+        assert k.count('panel tile') == len(shown), a.id
         for t in shown:
-            assert f'<div class="label">{t.label}</div>' in k, (a.id, t.label)
+            assert f'<div class="microlabel">{t.label}</div>' in k, (a.id, t.label)
         assert 'class="grid"' not in body
 
 
 def test_link_tile_opens_new_tab_and_detail_tile_links_to_route(site):
     _, body = site("/a/calendar")
-    assert re.search(r'<a class="cardlink" href="https://calendar.google.com" target="_blank"', body)
+    assert re.search(r'<a class="panel tile" href="https://calendar.google.com" target="_blank"', body)
     assert "Open ↗" in body
 
 
@@ -81,38 +81,38 @@ def test_detail_tile_links_to_its_route(tmp_path, monkeypatch):
     importlib.reload(hub.main)
     with TestClient(hub.main.app) as client:
         html = client.get("/a/desk").text
-    assert '<a class="cardlink" href="/weather">' in html and "Open →" in html
+    assert re.search(r'<a class="panel tile" href="/weather"', html)
 
 
 def test_plain_tile_is_not_a_link(site):
     _, body = site("/a/house")
-    k = re.search(r'<section class="kpis areakpis".*?</section>', body, re.S).group(0)
-    assert "<a " not in k and 'class="card kpi"' in k
+    k = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
+    assert "<a " not in k and 'class="panel tile"' in k
 
 
-def test_calendar_has_upcoming_table_with_owner_words_and_no_uplist(site):
+def test_calendar_has_upcoming_rows_with_owner_words(site):
     _, body = site("/a/calendar")
-    assert 'class="uptable"' in body and "uplist" not in body
+    assert 'class="row upc"' in body and "uptable" not in body and "uplist" not in body
     for word in ("Shared", "You", "Her"):
-        assert f'<span class="owner {word.lower()}">{word}</span>' in body
+        assert f'<span class="row-side">{word}</span>' in body
     assert "View all" not in body            # already on the calendar page
-    assert 'class="card panel wxcard"' in body and 'class="band a"' in body
+    assert 'class="sec wxglimpse"' in body and 'class="band a"' in body
 
 
 def test_all_not_connected_area_shows_quiet_sentence(site):
     main, body = site("/a/money", drop=("money",))
     note = next(a for a in main.registry.areas if a.id == "money").tiles[0].setup_note
-    assert f"Nothing is connected here yet. {note}" in body
+    assert f"Nothing connected yet. {note}" in body
 
 
 def test_connected_area_has_no_quiet_sentence(site):
     _, body = site("/a/house")
-    assert "Nothing is connected here yet" not in body
+    assert "Nothing connected yet" not in body
 
 
-def test_weather_page_is_one_card_and_pages_have_no_literal_hex(site):
+def test_weather_page_is_a_stats_strip_and_pages_have_no_literal_hex(site):
     _, body = site("/weather")
-    assert re.search(r'<section class="card panel wxpage"', body)
+    assert re.search(r'<section class="sec wxpage"', body) and 'class="stats"' in body
     assert "Newport VIC" in body and "°C" in body
     for route in ("/weather", "/a/calendar", "/a/house", "/a/money", "/a/desk", "/a/kitchen"):
         assert not HEX.search(site(route)[1]), route
@@ -121,4 +121,4 @@ def test_weather_page_is_one_card_and_pages_have_no_literal_hex(site):
 def test_media_area_unchanged(site):
     _, body = site("/a/media")
     sections = re.search(r'<nav class="sectabs".*?</nav>', body, re.S).group(0)
-    assert "Movies" in sections and "uptable" not in body and "areakpis" not in body
+    assert "Movies" in sections and "uptable" not in body and "areatiles" not in body

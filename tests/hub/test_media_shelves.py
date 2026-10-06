@@ -177,7 +177,7 @@ def test_route_her_view(env):
 def test_grid_area_unaffected(env):
     with TestClient(env().app) as client:
         html = main_html(client.get("/a/beta").text)
-    assert 'class="kpis areakpis"' in html and "hero-drift" not in html
+    assert 'class="tiles areatiles"' in html and "hero-drift" not in html
 
 
 # ---- deep-linked rows + "waiting on you" chips (2026-10-05) ----

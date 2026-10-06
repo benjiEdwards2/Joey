@@ -1,14 +1,15 @@
-{# Hub poster shelf (Apex hub, 2026-10-06): 112px 2:3 posters, a progress bar on the poster only
-   where the snapshot carries a percentage. Rows that open in Jellyfin get a new tab. #}
+{# Hub poster shelf (restyle Phase 4, 2026-10-06): Media's carousel of .card-poster cards. A progress .bar sits under
+   the picture only where the snapshot carries a percentage. Rows that open in Jellyfin get a new tab. #}
 {% from "_poster.html" import poster %}
 {% macro shelfrow(items) -%}
-<div class="hubshelf">
+<div class="carousel">
   {% for i in items %}
-  <a class="hubposter" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
-    <span class="pimg">{{ poster(i.poster, i.title, 240) }}{% if i.pct is not none %}<span class="pprog" role="img" aria-label="{{ i.pct }}% watched"><span style="width: {{ i.pct }}%"></span></span>{% endif %}</span>
-    <b>{{ i.title }}</b>
-    {% if i.sub %}<small>{{ i.sub }}</small>{% endif %}
-    {% if i.when %}<small>{{ i.when }}</small>{% endif %}
+  <a class="card-poster" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
+    <span class="card-pic">{{ poster(i.poster, i.title, 240) }}</span>
+    {% if i.pct is not none %}<span class="bar" role="img" aria-label="{{ i.pct }}% watched"><span style="width: {{ i.pct }}%"></span></span>{% endif %}
+    <span class="row-title">{{ i.title }}</span>
+    {% if i.sub %}<span class="row-meta">{{ i.sub }}</span>{% endif %}
+    {% if i.when %}<span class="row-meta">{{ i.when }}</span>{% endif %}
   </a>
   {% endfor %}
 </div>

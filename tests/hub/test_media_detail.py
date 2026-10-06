@@ -126,10 +126,10 @@ def test_detail_tile_is_a_cardlink_and_keeps_its_owner(app_factory):
     write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "1 of 2 up", "apps": APPS})
     with build(snaps) as client:
         body = main_of(client.get("/a/alpha").text)
-        assert '<a class="cardlink" href="/media/playing">' in body
-        assert '<a class="cardlink" href="/media/apps">' in body
-        assert body.count("Open →") == 2
-        card = body.split('<a class="cardlink" href="/media/playing">', 1)[1].split("</a>", 1)[0]
+        assert '<a class="panel tile" href="/media/playing"' in body
+        assert '<a class="panel tile" href="/media/apps"' in body
+        assert body.count('<a class="panel tile" href="/media/') == 2
+        card = body.split('<a class="panel tile" href="/media/playing"', 1)[1].split("</a>", 1)[0]
         assert 'data-owner="her"' in card and "1 playing now" in card
         # owner filtering still hides the her-owned detail card from "you"
         you = main_of(client.get("/a/alpha?owner_view=you").text)

@@ -9,151 +9,112 @@
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
+{% from "_rows.html" import meta, updated %}
 {% from "_kpi.html" import kpi %}
-<section class="kpis areakpis" aria-label="{{ area.name }} tiles">
+{# Area page (restyle Phase 4, 2026-10-06): summary tiles, then the Calendar bands (upcoming + weather) and, for
+   areas reading the jellyfin / media_status snapshots, Media-style sections of .row lists. Up/Down is a WORD;
+   scores are .row-score + .score-N, a perfect 10 gets the gold glow. #}
+<section class="tiles areatiles" aria-label="{{ area.name }} tiles">
   {% for row in tiles %}
     {% set t = row.tile %}{% set st = row.st %}
     {% if st.state == "link" %}
-      {{ kpi(st.href, t.label, t.owner.value | title, area.icon, st, t.owner.value,
-             value="Open ↗", sub="Opens the app in a new tab", new_tab=true) }}
+      {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true) }}
     {% elif t.detail %}
-      {{ kpi(t.detail, t.label, t.owner.value | title, area.icon, st, t.owner.value, open_word="Open →") }}
+      {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value) }}
     {% else %}
-      {{ kpi(none, t.label, t.owner.value | title, area.icon, st, t.owner.value) }}
+      {{ kpi(none, t.label, none, area.icon, st, t.owner.value) }}
     {% endif %}
   {% endfor %}
 </section>
 {% set connected = tiles | rejectattr("st.state", "equalto", "off") | list %}
 {% if tiles and not connected %}
-<p class="quiet areaquiet">Nothing is connected here yet. {{ tiles[0].tile.setup_note }}</p>
+<p class="empty">Nothing connected yet. {{ tiles[0].tile.setup_note }}</p>
 {% endif %}
 {% if upcoming %}
 <section class="band a">
   {% include "_upcoming_table.html" %}
-  {% set w = weather %}
-  {% if w %}
-  <a class="cardlink" href="/weather">
-    <article class="card panel wxcard">
-      <div class="hd"><div><h2>Weather</h2><p>Newport VIC</p></div><span class="right seeall">Details ›</span></div>
-      <div class="bd">
-        {% if w.st.state == "off" %}
-          <div class="value dim">Not connected</div>
-          {% if w.st.note %}<div class="sub">{{ w.st.note }}</div>{% endif %}
-        {% else %}
-          <div class="wxnow">
-            <div class="glyph">{{ ic.icon(w.glyph) }}</div>
-            <div>
-              <div class="wxtemp">{{ w.data.get("now_c", "—") }} °C</div>
-              <div class="wxword">{{ w.data.get("condition_text", "—") }}</div>
-            </div>
-          </div>
-          <dl class="wxfacts">
-            <div><dt>Today low</dt><dd>{{ w.data.get("today_min_c", "—") }} °C</dd></div>
-            <div><dt>Today high</dt><dd>{{ w.data.get("today_max_c", "—") }} °C</dd></div>
-            {% if w.data.get("rain_prob_pct") is not none %}<div><dt>Rain chance</dt><dd>{{ w.data.rain_prob_pct }}%</dd></div>{% endif %}
-          </dl>
-        {% endif %}
-        <div class="foot">
-          <span class="chip">{{ w.tile.owner.value | title }}</span>
-          {% if w.st.state == "stale" %}<span class="badge stale">{{ w.st.age_text }}</span>
-          {% elif w.st.state == "off" %}<span class="badge off">not connected</span>
-          {% elif w.st.age_text %}<span class="ago">updated {{ w.st.age_text }}</span>{% endif %}
-        </div>
-      </div>
-    </article>
-  </a>
-  {% endif %}
+  {% if weather %}{% set w = weather %}{% include "_weather_glimpse.html" %}{% endif %}
 </section>
 {% endif %}
 {% if media %}
-{# Media sections (2026-10-05): rendered when the area's tiles read the
-   jellyfin / media_status snapshots. Up/Down is a WORD beside the dot. #}
-<div class="mediacols">
+{# Media sections (2026-10-05): rendered when the area's tiles read the jellyfin / media_status snapshots. #}
+<div class="cols">
 {% if media.apps %}
-<section class="card uplist medialist" style="--accent: {{ area.accent }}">
-  <div class="head">Apps</div>
+<section class="sec">
+  <div class="sechead"><h2 class="seclabel">Apps</h2></div>
+  <p class="metaline">{{ updated(media.apps.st) }}</p>
+  <div class="listbox">
   {% for a in media.apps["items"] %}
-  <a class="uprow approw" href="{{ a.href }}" target="_blank" rel="noopener">
-    <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>
-    <span class="appstate">{{ a.status_text }}</span>
-    <span class="uptitle">{{ a.name }}</span>
-    {% if not a.up and a.note %}<span class="appnote">{{ a.note }}</span>{% endif %}
+  <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
+    <div class="row-body"><div class="row-title">{{ a.name }}</div></div>
+    <span class="row-side"><span class="{{ 'st-up' if a.up else 'st-down' }}">{{ a.status_text }}</span>{% if not a.up and a.note %}<span class="sep"> · </span>{{ a.note }}{% endif %}</span>
   </a>
   {% endfor %}
-  <div class="foot">
-    {% if media.apps.st.state == "stale" %}<span class="badge stale">{{ media.apps.st.age_text }}</span>
-    {% elif media.apps.st.age_text %}<span class="ago">updated {{ media.apps.st.age_text }}</span>{% endif %}
   </div>
 </section>
 {% endif %}
 {% if media.play %}
-<section class="card uplist medialist" style="--accent: {{ area.accent }}">
-  <div class="head">Now playing</div>
-  {% if media.play.now_playing %}
-    {% for p in media.play.now_playing %}
-    {% if media.play.href %}<a class="uprow playrow hasposter" href="{{ media.play.href }}" target="_blank" rel="noopener">{% else %}<div class="uprow playrow hasposter">{% endif %}
-      {{ poster(p.poster, p.title, 120, "sm" ~ rate.rowpcls(p, ratings)) }}
-      <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
-    {{ rate.rowchip(p, ratings) }}
-      <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
+<section class="sec">
+  <div class="sechead"><h2 class="seclabel">Now playing</h2></div>
+  <p class="metaline">{{ updated(media.play.st) }}</p>
+  <div class="listbox">
+  {% for p in media.play.now_playing %}
+    {% if media.play.href %}<a class="row" href="{{ media.play.href }}" target="_blank" rel="noopener">{% else %}<div class="row">{% endif %}
+      {{ poster(p.poster, p.title, 120, "row-poster" ~ rate.rowglow(p, ratings)) }}
+      <div class="row-body"><div class="row-title">{{ p.title }}</div>{{ meta([p.user, p.play_method, p.progress_pct ~ "%"]) }}
+        <div class="bar" role="img" aria-label="{{ p.progress_pct }}% watched"><span style="width: {{ p.progress_pct }}%"></span></div></div>
+      {{ rate.score_row(p, ratings) }}
     {% if media.play.href %}</a>{% else %}</div>{% endif %}
-    {% endfor %}
   {% else %}
-    <div class="value dim">Nothing playing</div>
-  {% endif %}
-  <div class="upday">Up next</div>
-  {% if media.play.up_next %}
-    {% for n in media.play.up_next %}
-    <div class="uprow hasposter">
-      {{ poster(n.poster, n.title, 120, "sm" ~ rate.rowpcls(n, ratings)) }}
-      <span class="uptitle">{{ n.title }}</span>
-    {{ rate.rowchip(n, ratings) }}
-      <span class="uptime nextleft">{{ n.remaining_text }}</span>
+  <p class="empty">Nothing playing.</p>
+  {% endfor %}
+  </div>
+  <h3 class="seclabel">Up next</h3>
+  <div class="listbox">
+  {% for n in media.play.up_next %}
+    <div class="row">
+      {{ poster(n.poster, n.title, 120, "row-poster" ~ rate.rowglow(n, ratings)) }}
+      <div class="row-body"><div class="row-title">{{ n.title }}</div></div>
+      <span class="row-side">{{ n.remaining_text }}</span>
+      {{ rate.score_row(n, ratings) }}
     </div>
-    {% endfor %}
   {% else %}
-    <div class="value dim">Nothing up next</div>
-  {% endif %}
-  <div class="foot">
-    {% if media.play.st.state == "stale" %}<span class="badge stale">{{ media.play.st.age_text }}</span>
-    {% elif media.play.st.age_text %}<span class="ago">updated {{ media.play.st.age_text }}</span>{% endif %}
+  <p class="empty">Nothing up next.</p>
+  {% endfor %}
   </div>
 </section>
 {% endif %}
 {% if media.library %}
-<section class="card uplist medialist" style="--accent: {{ area.accent }}">
-  <div class="head">Just arrived</div>
+<section class="sec">
+  <div class="sechead"><h2 class="seclabel">Just arrived</h2></div>
+  <p class="metaline">{{ updated(media.library.st) }}</p>
+  <div class="listbox">
   {% for r in media.library["items"] %}
-  <div class="uprow hasposter">
-    {{ poster(r.poster, r.title, 120, "sm" ~ rate.rowpcls(r, ratings)) }}
-    <span class="uptitle">{{ r.title }}</span>
-    {{ rate.rowchip(r, ratings) }}
-    <span class="uptime nextleft">{{ r.when }}</span>
+  <div class="row">
+    {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.rowglow(r, ratings)) }}
+    <div class="row-body"><div class="row-title">{{ r.title }}</div></div>
+    <span class="row-side">{{ r.when }}</span>
+    {{ rate.score_row(r, ratings) }}
   </div>
   {% else %}
-  <div class="value dim">Nothing arrived this week</div>
+  <p class="empty">Nothing arrived this week.</p>
   {% endfor %}
-  <div class="foot">
-    {% if media.library.st.state == "stale" %}<span class="badge stale">{{ media.library.st.age_text }}</span>
-    {% elif media.library.st.age_text %}<span class="ago">updated {{ media.library.st.age_text }}</span>{% endif %}
   </div>
 </section>
 {% endif %}
 {% if media.history %}
-<section class="card uplist medialist" style="--accent: {{ area.accent }}">
-  <div class="head">Recently watched</div>
+<section class="sec">
+  <div class="sechead"><h2 class="seclabel">Recently watched</h2></div>
+  <p class="metaline">You{% if media.history.st.state == "stale" or media.history.st.age_text %}<span class="sep"> · </span>{{ updated(media.history.st) }}{% endif %}</p>
+  <div class="listbox">
   {% for r in media.history["items"] %}
-  <a class="uprow playrow hasposter" href="/media/diary">
-    {{ poster(r.poster, r.title, 120, "sm" ~ rate.rowpcls(r, ratings)) }}
-    <span class="uptitle">{{ r.title }}</span>
-    {{ rate.rowchip(r, ratings) }}
-    <span class="uptime nextleft">{{ r.when }}</span>
+  <a class="row" href="/media/diary">
+    {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.rowglow(r, ratings)) }}
+    <div class="row-body"><div class="row-title">{{ r.title }}</div></div>
+    <span class="row-side">{{ r.when }}</span>
+    {{ rate.score_row(r, ratings) }}
   </a>
   {% endfor %}
-  <div class="foot">
-    <span class="chip">You</span>
-    {% if media.history.st.state == "stale" %}<span class="badge stale">{{ media.history.st.age_text }}</span>
-    {% elif media.history.st.age_text %}<span class="ago">updated {{ media.history.st.age_text }}</span>{% endif %}
   </div>
 </section>
 {% endif %}

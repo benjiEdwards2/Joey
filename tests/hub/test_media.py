@@ -56,12 +56,12 @@ def test_apps_rows_show_up_down_words_and_link_out(app_factory):
                    data={"summary": "1 of 2 up", "apps": APPS})
     with build(snaps) as client:
         html = client.get("/a/alpha").text
-    assert '<span class="appstate">Up</span>' in html
-    assert '<span class="appstate">Down</span>' in html
+    assert '<span class="st-up">Up</span>' in html
+    assert '<span class="st-down">Down</span>' in html
     assert 'href="http://nas.example.invalid:9696"' in html
     assert 'target="_blank" rel="noopener"' in html
     assert "timeout" in html
-    assert "Now playing</div>" not in html  # no jellyfin snapshot -> no play section
+    assert ">Now playing<" not in html  # no jellyfin snapshot -> no play section
 
 
 def test_now_playing_and_up_next_rows(app_factory):
@@ -70,11 +70,11 @@ def test_now_playing_and_up_next_rows(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
     with build(snaps) as client:
         html = client.get("/a/alpha").text
-    assert "Harbour Lights · Sample Person · Transcoding · 42%" in html
+    assert "Harbour Lights" in html and "Sample Person" in html and "Transcoding" in html and "42%" in html
     assert "width: 42%" in html
     assert f'href="{JELLY_HREF}"' in html  # the area's LINK tile
     assert "Dust and Daylight" in html and "31 min left" in html
-    assert 'class="head">Apps<' not in html  # no media_status snapshot -> no apps section
+    assert ">Apps<" not in html  # no media_status snapshot -> no apps section
 
 
 def test_quiet_states_are_words(app_factory):
@@ -94,14 +94,14 @@ def test_stale_snapshot_still_renders_with_a_badge(app_factory):
                    data={"summary": "x", "apps": APPS})
     with build(snaps) as client:
         html = client.get("/a/alpha").text
-    assert "Prowlarr" in html and "badge stale" in html
+    assert "Prowlarr" in html and '<span class="st-warn">' in html   # stale = amber, something to do
 
 
 def test_absent_snapshots_render_no_media_section(app_factory):
     build, tmp_path = app_factory
     with build(tmp_path / "empty") as client:
         html = client.get("/a/alpha").text
-    assert "mediacols" not in html and "appstate" not in html
+    assert 'class="cols"' not in html and "st-up" not in html
 
 
 def test_hub_main_names_no_area_for_media():
@@ -123,8 +123,8 @@ def test_media_sections_render_in_the_page_body_not_the_title(app_factory):
     title = html.split("<title>", 1)[1].split("</title>", 1)[0]
     assert "<" not in title and "Apps" not in title
     body = html.split("<main", 1)[1]
-    assert body.index('class="kpis areakpis"') < body.index(">Apps<")
-    assert ">Now playing</div>" in body and ">Up next</div>" in body
+    assert body.index('class="tiles areatiles"') < body.index(">Apps<")
+    assert ">Now playing</h2>" in body and ">Up next</h3>" in body
 
 
 def test_area_media_rows_carry_posters_inside_main(app_factory):
@@ -133,6 +133,6 @@ def test_area_media_rows_carry_posters_inside_main(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
     with build(snaps) as client:
         body = client.get("/a/alpha").text.split("<main", 1)[1]
-    assert '<img class="poster sm' in body
+    assert '<img class="poster row-poster' in body
     assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
     assert 'src="/img/none?h=120&amp;t=Dust%20and%20Daylight' in body  # null ref -> fallback card

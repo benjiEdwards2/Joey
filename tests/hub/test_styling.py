@@ -46,9 +46,9 @@ def test_hub_card_carries_size_class(client):
     # hub_rank order), so this pin is weakened to "one KPI card per area" — size classes gone.
     html = client.get("/").text.split("<main", 1)[1]
     # the last of <= 3 cards carries `span2` (kpis few, 2026-10-06)
-    assert re.search(r'<a class="cardlink" href="/a/alpha">', html)
-    assert re.search(r'<a class="cardlink( span2)?" href="/a/beta">', html)
-    assert "cardlink s22" not in html and "cardlink s11" not in html
+    assert re.search(r'<a class="panel tile" href="/a/alpha"', html)
+    assert re.search(r'<a class="panel tile( span2)?" href="/a/beta"', html)
+    assert "cardlink" not in html and "tile s22" not in html and "tile s11" not in html
 
 
 def test_status_strip_reports_feeds_and_stale(client):

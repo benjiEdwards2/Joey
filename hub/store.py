@@ -82,6 +82,41 @@ def get_runner(snapshot_dir: str | Path | None = None) -> Optional[dict[str, Any
         return None
 
 
+HISTORY_NAME = "_runner_history.jsonl"  # run_all.py: one JSON line per sweep, append-only
+# 24 h is ~720 fast (120 s) sweeps + 24 hourly ones; read only the file's tail.
+HISTORY_MAX_LINES = 1000
+HISTORY_MAX_BYTES = 2 * 1024 * 1024
+
+
+def get_runner_history(snapshot_dir: str | Path | None = None,
+                       max_lines: int = HISTORY_MAX_LINES,
+                       max_bytes: int = HISTORY_MAX_BYTES) -> Optional[list[dict[str, Any]]]:
+    """The tail of `_runner_history.jsonl` (WP-U2, 2026-10-06), oldest first: at most
+    `max_lines` parsed sweep lines from the last `max_bytes`. Malformed lines are skipped;
+    a missing or unreadable file → None (callers fall back to `_runner.json`)."""
+    path = _snapshot_dir(snapshot_dir) / HISTORY_NAME
+    try:
+        with path.open("rb") as fh:
+            size = fh.seek(0, os.SEEK_END)
+            start = max(0, size - max_bytes)
+            fh.seek(start)
+            raw = fh.read()
+    except Exception:
+        return None
+    lines = raw.split(b"\n")
+    if start > 0:
+        lines = lines[1:]  # the first line is cut mid-way
+    out: list[dict[str, Any]] = []
+    for line in lines:  # bounded by max_bytes
+        try:
+            item = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(item, dict):
+            out.append(item)
+    return out[-max_lines:]
+
+
 def tile_state(tile, snapshots: dict[str, Snapshot]) -> dict[str, Any]:
     """Resolve one areas.yaml tile against the snapshots: the four states.
 

@@ -172,6 +172,17 @@
     <span class="uptitle">All clear</span>
   </div>
   {% endfor %}
+  {# WP-U2: per-connector sweep record from _runner_history.jsonl (last 24 h). A connector
+     that failed and has since recovered shows here only, not in Attention. #}
+  {% if sv.sweeps %}
+  <div class="upday" id="sweeps">Sweeps (24 h)</div>
+  {% for w in sv.sweeps %}
+  <div class="uprow">
+    <span class="uptitle">{{ w.id }}</span>
+    <span class="uptime nextleft">{{ w.runs }} run{{ "" if w.runs == 1 else "s" }} · {{ w.failures }} failed · last ok {{ w.last_ok_text }}{% if w.failing %} · failing{% endif %}</span>
+  </div>
+  {% endfor %}
+  {% endif %}
 </section>
 </div>
 

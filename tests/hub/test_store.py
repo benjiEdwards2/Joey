@@ -73,3 +73,34 @@ def test_state_link_never_reads_snapshots():
     t = Tile(id="t", label="Notion", tier=Tier.link, owner=Owner.shared, href="https://x.test")
     st = tile_state(t, {})
     assert st["state"] == "link" and st["href"] == "https://x.test"
+
+
+# ---- WP-U2 (2026-10-06): _runner_history.jsonl tail reader ----
+
+def write_history(d: Path, sweeps: list, junk: list | None = None) -> Path:
+    """Append run_all-shaped lines: each sweep is (minutes_ago, {cid: status | (status, error)})."""
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / "_runner_history.jsonl"
+    now = datetime.now(timezone.utc)
+    with path.open("a", encoding="utf-8") as fh:
+        for minutes_ago, results in sweeps:
+            res = {}
+            for cid, r in results.items():
+                status, error = r if isinstance(r, tuple) else (r, None)
+                res[cid] = {"status": status, "consecutive_failures": 0, "error": error}
+            fh.write(json.dumps({"ran_at": (now - timedelta(minutes=minutes_ago)).isoformat(),
+                                 "results": res}) + "\n")
+        for line in junk or []:
+            fh.write(line + "\n")
+    return path
+
+
+def test_runner_history_reads_the_tail_and_skips_junk(tmp_path):
+    from hub.store import get_runner_history
+    assert get_runner_history(tmp_path) is None                      # missing file
+    write_history(tmp_path, [(m, {"wud": "ok"}) for m in range(30, 0, -1)], junk=["{nope", "[]"])
+    rows = get_runner_history(tmp_path)
+    assert len(rows) == 30 and all(r["results"]["wud"]["status"] == "ok" for r in rows)
+    assert len(get_runner_history(tmp_path, max_lines=5)) == 5
+    tail = get_runner_history(tmp_path, max_bytes=400)               # cut mid-line: partial dropped
+    assert tail and all("ran_at" in r for r in tail) and len(tail) < 30

@@ -80,6 +80,12 @@ current `wud` snapshot holds the container with `update_available` and `auto: tr
 set. Each call writes a `server_update_runs` row (outcome `requested` / `refused` / `unreachable`, note = status or
 exception type only) and redirects to `/server#updates` with a flash word. Ignore/Unignore write only `media.db`.
 
+**Eleventh exception (2026-10-06): Server → Discord push (`hub/server_alerts.py`, WP-U2).** An outbound live call: when
+`SERVER_DISCORD_WEBHOOK` is set, each NEW `/server` Attention item is POSTed once to that Discord webhook as plain text
+("Joey Server: <item>", max 5 per cycle, 10 s timeout), after a `/server` render and on a 5-minute hub loop. Keys live in
+media.db `server_attention_seen`. Unset ⇒ nothing. The webhook URL is the credential: never logged or rendered; failures log
+the HTTP status or exception type only.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key
@@ -102,7 +108,7 @@ no snapshot, no expectation of one anywhere in the hub.
 |---|---|
 | Live snapshots (the box) | `/opt/life-dashboard-data/snapshots/{id}.json`, mounted at `/data/snapshots` |
 | Runner heartbeat | `{SNAPSHOT_DIR}/_runner.json` — last sweep only |
-| Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence) |
+| Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence). Since WP-U2 (2026-10-06) the hub READS its tail (read-only mount; last 2 MB / 1000 lines) for 24 h per-connector sweep failures on `/server` — keep the line shape `{ran_at, results: {id: {status, error, ...}}, only?}` |
 | Committed samples | `config/sample_snapshots/` — the fixture sweep, what hub work is developed against |
 
 Snapshots are **never committed** (D13); `data/` is gitignored. Their offsite

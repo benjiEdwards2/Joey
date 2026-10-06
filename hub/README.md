@@ -69,6 +69,22 @@ update) in `server_update_ignores`; ignored rows fold into "Ignored (N)" with Un
 `N monitored · N updates · M ignored` (the connector's own tile summary is unchanged). Live check after deploy:
 `docs/server-updates-live-check.md`.
 
+**Server card, durable Attention, Sweeps, Discord (WP-U2, 2026-10-06).** The hub's Server KPI card no longer shows the
+`services` tile summary: `server.hub_card()` (wired in `hub/main.py` `server_card_state`, keyed by `layout: server`) writes
+line 1 "All up" / "2 down: Prowlarr, Sonarr" and line 2 "N updates" (ignored ones excluded, omitted at 0) · "disk N%"
+(fullest volume) · "N monitors down" (when > 0). When Attention is non-empty the card wears the amber stale badge with the
+words "Needs attention" (no new colour); a missing `media_status` snapshot still reads "Not connected". Attention items are
+now keyed (`attention_items()`: `down:<app>`, `disk:<path>`, `kuma:<monitor>`, `backup`, `sweep:<connector>`). Sweep
+failures are durable: `store.get_runner_history()` reads the tail of `_runner_history.jsonl` (last 2 MB, up to 1000 lines,
+malformed lines skipped) and `server.sweep_stats()` counts the last 24 h per connector — Attention says
+"wud failed 3 of the last 24 sweeps · <sanitised reason>" only while the connector's latest run is still an error; the
+Attention card's "Sweeps (24 h)" rows list every connector (runs · failed · last ok). No usable history ⇒ the old
+`_runner.json` "<id> sweep failed" items. `server_alerts.py` pushes each NEW item to Discord ("Joey Server: <text>", max
+5 per cycle, 10 s timeout) when `SERVER_DISCORD_WEBHOOK` is set, remembering keys in media.db `server_attention_seen`
+(a key that leaves Attention loses its row, so a recurrence notifies again). It runs after every `/server` render (a
+response background task) and on a hub loop beside the media backup one (first ~60 s after start, then every 5 min).
+Unset webhook ⇒ no call, no table writes; failures log status/type only.
+
 Media modules: `media_discover.py` (live Jellyseerr search, shelves, title pages, Request),
 `media_db.py` (ratings + diary, per owner), `media_backup.py` (nightly `media.db` dump),
 `media_write.py` (same-origin write guard). The hub's Media KPI card is first (`hub_rank: 1`,

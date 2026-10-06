@@ -47,3 +47,14 @@ def test_smoke_runs_inside_the_hub_and_checks_the_hub_endpoints():
     assert "docker compose exec -T hub python tests/deploy/smoke.py" in SCRIPT
     assert "127.0.0.1:8000" in SMOKE
     assert "/healthz" in SMOKE
+
+
+def test_one_deploy_at_a_time_lock_is_taken_before_anything_and_released_on_exit():
+    """2026-10-06: two concurrent deploys raced smoke against the hub's startup → rollback.
+    The lock is an atomic mkdir (BusyBox-safe), taken before the pull, released by an EXIT trap,
+    and a second runner exits non-zero with a word instead of touching the stack."""
+    lock = SCRIPT.index('mkdir "$LOCK"')
+    assert lock < SCRIPT.index("== pull (ff-only) ==")
+    assert "trap 'rmdir \"$LOCK\" 2>/dev/null' EXIT" in SCRIPT
+    assert "another deploy is running" in SCRIPT and "exit 2" in SCRIPT
+    assert "flock" not in SCRIPT  # not guaranteed on the NAS BusyBox

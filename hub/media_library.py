@@ -143,6 +143,22 @@ def arrived_this_week(arrived, kind: str) -> list[dict]:
     return out
 
 
+def link_arrivals(rows, items, kind: str, item_href) -> list[dict]:
+    """Add `href` to each arrival: the Joey item page when the Jellyfin list has the same
+    item_key, else the title page for a tmdb key, else None (still shown, just not a link).
+    `items` = the raw Jellyfin list for this kind (or None); `item_href(jf_id)` -> path | None."""
+    by_key = {i.get("item_key"): i.get("jf_id") for i in items or [] if i.get("item_key")}
+    seg = "movie" if kind == "movie" else "tv"
+    out = []
+    for r in rows:
+        key = str(r.get("item_key") or "")
+        href = item_href(by_key[key]) if by_key.get(key) else None
+        if not href and key.startswith("tmdb:") and key[5:].isdigit():
+            href = f"/media/title/{seg}/{key[5:]}"
+        out.append({**r, "href": href})
+    return out
+
+
 def _recent(r, now) -> bool:
     ts = parse_ts(r["added_at"])
     return bool(ts) and now - ts <= timedelta(days=ARRIVED_DAYS)

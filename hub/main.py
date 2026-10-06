@@ -1208,6 +1208,7 @@ def _library_page(request: Request, kind: str):
         items, marks, rows = _library_rows(data, view, kind)
         arr = get_snapshots().get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
+        arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: item_href(jf))
         q = request.query_params.get("q", "")
         sort = request.query_params.get("sort", "score")
         sort = sort if sort in media_library.SORTS else "score"

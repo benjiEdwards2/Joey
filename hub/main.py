@@ -612,6 +612,15 @@ def item_href(jf_id=None, key=None) -> str | None:
     return f"/media/item/{jf_id}" if jf_id and media_item.ITEM_RE.match(str(jf_id)) else None
 
 
+def row_href(jf_id=None, key=None, kind=None) -> str | None:
+    """Whole-row link (B., 2026-10-06): Joey item page, else the tmdb title page, else None."""
+    url = item_href(jf_id, key)
+    k = str(key or "")
+    if not url and kind in ("movie", "tv") and k.startswith("tmdb:") and k[5:].isdigit():
+        url = f"/media/title/{kind}/{k[5:]}"
+    return url
+
+
 def _deep_link(link, jf_id, server_id) -> str | None:
     """Jellyfin item page for a row; None rather than a fabricated link."""
     if not link or not jf_id:
@@ -660,6 +669,7 @@ def media_frame(request: Request) -> dict:
 for _t in (templates, _media_write.templates, _media_discover.templates):
     _t.env.globals["media_nav"] = media_frame
     _t.env.globals["item_href"] = item_href
+    _t.env.globals["row_href"] = row_href
     _t.env.globals["identity"] = identity_of
 
 
@@ -992,9 +1002,32 @@ def _qb_data() -> dict:
     return snap.data if snap else {}
 
 
+def _arr_linker(view):
+    """Rows -> rows with `href`: same resolver the Movies/TV pages use, per kind, against the
+    view's own Jellyfin lists (media_library.link_arrivals). Rows without an item_key stay None."""
+    jelly = get_snapshots().get(JELLYFIN_SNAPSHOT_ID)
+    jdata = jelly.data if jelly else {}
+    lists = {k: _library_lists(jdata, view, k)[0] for k in ("movie", "tv")}
+
+    def link(rows, need_key=False):
+        return [{**r, "href": None} if need_key and not r.get("item_key") else
+                media_library.link_arrivals([r], lists[k], k, lambda jf: item_href(jf))[0]
+                for r in rows or [] for k in ("movie" if r.get("kind") == "movie" else "tv",)]
+    return link
+
+
 @app.get("/media/downloads", response_class=HTMLResponse)
 def media_downloads_page(request: Request):
     def build(data, view):
+        # Whole row is the link (2026-10-06) when the torrent is an arr download whose title resolves.
+        arr = get_snapshots().get(ARR_SNAPSHOT_ID)
+        by_hash = {str(r.get("download_id") or "").lower(): r
+                   for r in media_downloads.collapse_packs((arr.data if arr else {}).get("downloading"))
+                   if r.get("download_id")}
+        link = _arr_linker(view)
+        data = {**data, "active": [{**t, "href": (link([by_hash[h]], need_key=True)[0]["href"]
+                                                  if (h := str(t.get("hash") or "").lower()) in by_hash else None)}
+                                   for t in data.get("active") or []]}
         groups = [{"label": label, "rows": [r for r in data.get("active") or [] if r.get("kind") == kind]}
                   for kind, label in (("movie", "Movies"), ("tv", "TV"))]
         groups.append({"label": "Other", "rows": [r for r in data.get("active") or []
@@ -1019,13 +1052,7 @@ def media_library_page(request: Request):
         merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data())
         # Whole row is the link (B., 2026-10-06): Joey item page, title page or nothing — same
         # resolver the Movies/TV pages use, per kind, against the view's own Jellyfin lists.
-        jelly = get_snapshots().get(JELLYFIN_SNAPSHOT_ID)
-        jdata = jelly.data if jelly else {}
-        lists = {k: _library_lists(jdata, view, k)[0] for k in ("movie", "tv")}
-
-        def link(rows):
-            return [media_library.link_arrivals([r], lists[k], k, lambda jf: item_href(jf))[0]
-                    for r in rows or [] for k in ("movie" if r.get("kind") == "movie" else "tv",)]
+        link = _arr_linker(view)
 
         for g in groups:
             g["rows"] = link(g["rows"])
@@ -1033,7 +1060,7 @@ def media_library_page(request: Request):
             "arrived": link(data.get("arrived")),
             "updated": link(data.get("updated")),
             "week": groups,
-            "downloading": merged,
+            "downloading": link(merged, need_key=True),  # qBittorrent-only rows have no key: plain
             "dl_badges": media_downloads.badges_by_item_key(merged),
             "app_notes": [f"{app.title()} not answering: {reason}"
                           for app, reason in sorted((data.get("app_errors") or {}).items())],

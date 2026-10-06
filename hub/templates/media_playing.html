@@ -24,25 +24,27 @@
 
     <div class="upday">Up next</div>
     {% for n in src.data.get("up_next", []) %}
-    <div class="uprow hasposter">
+    {% set nh = item_href(n.jf_id) %}
+    <{{ "a" if nh else "div" }} class="uprow hasposter{{ ' reqrow' if nh }}"{% if nh %} href="{{ nh }}"{% endif %}>
       {{ poster(n.poster, n.title, 120, "sm" ~ rate.rowpcls(n, ratings)) }}
-      <span class="uptitle">{% if item_href(n.jf_id) %}<a href="{{ item_href(n.jf_id) }}">{{ n.title }}</a>{% else %}{{ n.title }}{% endif %}</span>
+      <span class="uptitle">{{ n.title }}</span>
     {{ rate.rowchip(n, ratings) }}
       <span class="uptime nextleft">{{ n.remaining_text }}</span>
-    </div>
+    </{{ "a" if nh else "div" }}>
     {% else %}
     <div class="value dim">Nothing up next</div>
     {% endfor %}
 
     <div class="upday">Latest additions</div>
     {% for i in latest %}
-    <div class="uprow hasposter">
+    {% set ih = item_href(i.jf_id) %}
+    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
       {{ poster(i.poster, i.title, 120, "sm" ~ rate.rowpcls(i, ratings)) }}
-      <span class="uptitle">{% if item_href(i.jf_id) %}<a href="{{ item_href(i.jf_id) }}">{{ i.title }}</a>{% else %}{{ i.title }}{% endif %}</span>
+      <span class="uptitle">{{ i.title }}</span>
     {{ rate.rowchip(i, ratings) }}
       <span class="chip">{{ i.type }}</span>
       <span class="uptime nextleft">{{ i.added_text }}</span>
-    </div>
+    </{{ "a" if ih else "div" }}>
     {% else %}
     <div class="value dim">Nothing added recently</div>
     {% endfor %}

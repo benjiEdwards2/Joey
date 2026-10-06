@@ -9,7 +9,7 @@
     {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
   {% else %}
     {% for a in src.data.get("apps", []) %}
-    <a class="uprow approw" href="{{ a.href }}" target="_blank" rel="noopener">
+    <a class="uprow approw reqrow" href="{{ a.href }}" target="_blank" rel="noopener">
       <span class="appdot {{ 'up' if a.up else 'down' }}" aria-hidden="true"></span>
       <span class="appstate">{{ a.status_text }}</span>
       <span class="uptitle">{{ a.name }}</span>

@@ -219,6 +219,13 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .libline { margin-top: 10px; }
 .uplist .reqrow { color: var(--fg); text-decoration: none; }
 .uplist .reqrow:hover { background: var(--soft); }
+/* Rows holding a 1-10 picker (2026-10-06): a <form> cannot sit inside <a>, so poster + title are an
+   a.rowlink whose ::after covers the whole row; the picker sits above it and stays clickable. */
+.uplist .uprow.rateable { position: relative; }
+.uplist a.rowlink { display: contents; color: inherit; text-decoration: none; }
+.uplist a.rowlink::after { content: ""; position: absolute; inset: 0; }
+.uplist .uprow.rateable .ratebox { position: relative; z-index: 1; }
+.uplist .uprow:has(> a.rowlink:hover) { background: var(--soft); }
 
 /* ---- Media posters: /img proxy thumbnails, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;

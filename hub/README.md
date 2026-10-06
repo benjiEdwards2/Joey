@@ -23,6 +23,7 @@ at ≥ 1440 px, a full row below that; "Radar unavailable" note when the snapsho
 was retired the same day) and adds an in-content sections nav
 **Home · Movies · TV Shows · Diary · Server · Discover** with sub-tabs, a phone bottom bar and amber waiting counts. The section map is one module, `media_nav.py`; Home is
 the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonight" went live in F3 (below).
+Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="uprow ... reqrow">` (title plain `.uptitle` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
 
 **Media library pages (F3, 2026-10-06).** `/media/movies`, `/media/movies/tonight`, `/media/tv`, `/media/tv/tonight` and `/media/years?kind=movie|tv`, built from the jellyfin `movies`/`shows` arrays by `media_library.py` (`film_rows`, `show_rows`, `deal_tonight`); "New this week" uses the arr `at` field. Absent arrays render "Library list not available yet".
 

@@ -290,7 +290,7 @@ def test_playing_diary_history_rows_link_to_item_pages(env):
         assert 'href="/media/item/np1"' in playing and 'href="/media/item/resume-id"' in playing
         assert 'href="/media/item/new-id"' in playing and "/web/#/details" not in playing
         diary = main_of(client.get("/media/diary").text)
-        assert 'href="/media/item/ser1">Quiet Show</a>' in diary
+        assert '<a class="rowlink" href="/media/item/ser1">' in diary  # whole-row overlay (2026-10-06)
         hist = main_of(client.get("/media/history").text)
         assert 'href="/media/item/e2"' in hist and "/web/#/details" not in hist
 
@@ -306,7 +306,7 @@ def test_server_history_top_rows_link_to_item_pages(env):
                 now - timedelta(minutes=30 if pos == 1 else 0))
     with client:
         body = main_of(client.get("/media/server/history?w=all").text)
-    assert 'href="/media/item/ser1">Quiet</a>' in body and 'href="/media/item/m1">Long Road</a>' in body
+    assert 'href="/media/item/ser1">' in body and 'href="/media/item/m1">' in body  # whole-row links (2026-10-06)
 
 
 def test_rows_without_a_jellyfin_id_are_unchanged(env):

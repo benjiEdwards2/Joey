@@ -22,9 +22,12 @@
       {% endfor %}
     </form>
     {% for r in to_rate %}
+    {% set ih = item_href(r.jf_id) %}
     <div class="uprow hasposter rateable">
+      {% if ih %}<a class="rowlink" href="{{ ih }}">{% endif %}
       {{ poster(r.poster, r.title, 120, "sm") }}
-      <span class="uptitle">{% if item_href(r.jf_id) %}<a href="{{ item_href(r.jf_id) }}">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}</span>
+      <span class="uptitle">{{ r.title }}</span>
+      {% if ih %}</a>{% endif %}
       <span class="uptime nextleft">{{ r.when }}</span>
       {{ rate.picker(r) }}
     </div>
@@ -34,13 +37,14 @@
 
     <div class="upday">Recently watched</div>
     {% for r in history.get("recent", []) %}
-    <div class="uprow hasposter">
+    {% set ih = item_href(r.jf_id) %}
+    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
       {{ poster(r.poster, r.title, 120, "sm" ~ rate.rowpcls(r, ratings)) }}
-      <span class="uptitle">{% if item_href(r.jf_id) %}<a href="{{ item_href(r.jf_id) }}">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}</span>
+      <span class="uptitle">{{ r.title }}</span>
     {{ rate.rowchip(r, ratings) }}
       <span class="chip">{{ r.kind }}</span>
       <span class="uptime nextleft">{{ r.when }}</span>
-    </div>
+    </{{ "a" if ih else "div" }}>
     {% else %}
     <div class="value dim">Nothing watched yet</div>
     {% endfor %}

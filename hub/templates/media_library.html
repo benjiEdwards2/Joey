@@ -57,12 +57,12 @@
 
     <div class="upday">Downloading</div>
     {% for d in downloading %}
-    <div class="uprow hasposter">
+    <{{ "a" if d.href else "div" }} class="uprow hasposter{{ ' reqrow' if d.href }}"{% if d.href %} href="{{ d.href }}"{% endif %}>
       {{ poster(d.poster, d.title, 120, "sm" ~ rate.pcls(d.item_key, ratings)) }}
       <span class="uptitle">{{ d.title }} · {{ d.status_text }} · {{ d.pct }}%{% if d.time_left %} · {{ d.time_left }} left{% endif %}</span>
     {{ rate.chip(d.item_key, ratings) }}
       <span class="pbar" aria-hidden="true"><span style="width: {{ d.pct }}%"></span></span>
-    </div>
+    </{{ "a" if d.href else "div" }}>
     {% else %}
     <div class="value dim">Nothing downloading</div>
     {% endfor %}

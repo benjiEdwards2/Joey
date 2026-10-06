@@ -13,12 +13,12 @@
     {% for g in groups %}
     <div class="upday">{{ g.label }}</div>
     {% for r in g.rows %}
-    <div class="uprow">
+    <{{ "a" if r.href else "div" }} class="uprow{{ ' reqrow' if r.href }}"{% if r.href %} href="{{ r.href }}"{% endif %}>
       <span class="uptitle">{{ r.name }}</span>
       <span class="chip">{{ r.state_text }}</span>
       <span class="uptime nextleft">{{ r.pct }}% done{% if r.speed_text %} · {{ r.speed_text }}{% endif %}{% if r.eta_text %} · {{ r.eta_text }} left{% endif %} · {{ r.size_text }}</span>
       <span class="pbar" aria-hidden="true"><span style="width: {{ r.pct }}%"></span></span>
-    </div>
+    </{{ "a" if r.href else "div" }}>
     {% endfor %}
     {% else %}
     <div class="value dim">Nothing downloading</div>

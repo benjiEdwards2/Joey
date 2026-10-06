@@ -17,22 +17,24 @@
 
     <div class="upday">Top shows</div>
     {% for e in stats.top_shows %}
-    <div class="uprow hasposter">
+    {% set ih = row_href(e.jf_id, e.key, "tv") %}
+    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
       {{ poster(e.poster, e.title, 120, "sm") }}
-      <span class="uptitle">{% set ih = item_href(e.jf_id, e.key) %}{% if ih %}<a href="{{ ih }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
+      <span class="uptitle">{{ e.title }}</span>
       <span class="uptime nextleft">{{ e.episodes }} episode{{ '' if e.episodes == 1 else 's' }} · {{ e.hours }} h</span>
-    </div>
+    </{{ "a" if ih else "div" }}>
     {% else %}
     <div class="value dim">No shows in this window</div>
     {% endfor %}
 
     <div class="upday">Top films</div>
     {% for e in stats.top_movies %}
-    <div class="uprow hasposter">
+    {% set ih = row_href(e.jf_id, e.key, "movie") %}
+    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
       {{ poster(e.poster, e.title, 120, "sm") }}
-      <span class="uptitle">{% set ih = item_href(e.jf_id, e.key) %}{% if ih %}<a href="{{ ih }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}</span>
+      <span class="uptitle">{{ e.title }}</span>
       <span class="uptime nextleft">{{ e.plays }} play{{ '' if e.plays == 1 else 's' }} · {{ e.hours }} h</span>
-    </div>
+    </{{ "a" if ih else "div" }}>
     {% else %}
     <div class="value dim">No films in this window</div>
     {% endfor %}

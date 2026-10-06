@@ -248,7 +248,7 @@ areas:
         snapshot: system
         detail: /server
         stale_after_minutes: 10
-        setup_note: "System connector live fetch arrives in WP-S2."
+        setup_note: "Reads /proc inside the connectors container; no env needed (WP-S2)."
       - id: monitors
         label: Monitors
         tier: embed
@@ -264,7 +264,7 @@ areas:
         snapshot: wud
         detail: "/server#updates"
         stale_after_minutes: 180
-        setup_note: "WUD connector live fetch arrives in WP-S3."
+        setup_note: "Set WUD_URL/WUD_USER/WUD_PASS in deploy/.env."
       - id: homepage
         label: Homepage
         tier: link

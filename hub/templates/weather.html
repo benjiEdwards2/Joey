@@ -3,18 +3,20 @@
 {% block pagehead %}
 <div class="pagehead">
   <h1>Weather</h1>
-  <p>Today at home</p>
+  <p>Newport VIC · today, the next 24 hours and the week ahead</p>
 </div>
 {% endblock %}
 {% block content %}
-{# Detail behind the hub glimpse (2026-09-11). Today-only by decision; a
-   multi-day forecast is a future connector/schema change, never a hub hack. #}
-{# Detail behind the hub glimpse (2026-09-11). Today-only by decision; a
-   multi-day forecast is a future connector/schema change, never a hub hack.
-   Apex restyle (2026-10-06): one .card.panel with the Apex heading. #}
+{# Detail behind the hub glimpse (2026-09-11; Apex restyle 2026-10-06).
+   Weather upgrade (2026-10-06): today hero + 24-hour chart (inline SVG, no JS) + 7-day strip,
+   all from the one open_meteo snapshot. Every value renders as text — the glyph, line and bars
+   are never the only encoding. A snapshot written before the upgrade has no hourly/days:
+   those panels are simply absent. #}
 {% set w = w or none %}
+{% set fc = fc or none %}
+<div class="wxapp">
 <section class="card panel wxpage">
-  <div class="hd"><div><h2>Weather</h2><p>Newport VIC · today at home</p></div></div>
+  <div class="hd"><div><h2>Today</h2><p>Newport VIC · at home</p></div></div>
   <div class="bd">
   {% if not w or w.st.state == "off" %}
     <div class="value dim">Not connected</div>
@@ -25,12 +27,16 @@
       <div>
         <div class="wxtemp">{{ w.data.get("now_c", "—") }} °C</div>
         <div class="wxword">{{ w.data.get("condition_text", "—") }}</div>
+        {% if fc and fc.feels %}<div class="wxfeels">Feels like {{ fc.feels }} °C</div>{% endif %}
       </div>
     </div>
     <dl class="wxfacts">
       <div><dt>Today low</dt><dd>{{ w.data.get("today_min_c", "—") }} °C</dd></div>
       <div><dt>Today high</dt><dd>{{ w.data.get("today_max_c", "—") }} °C</dd></div>
       <div><dt>Rain chance</dt><dd>{{ w.data.get("rain_prob_pct", "—") }}%</dd></div>
+      {% if fc and fc.wind %}<div><dt>Wind (max)</dt><dd>{{ fc.wind }} km/h</dd></div>{% endif %}
+      {% if fc and fc.uv %}<div><dt>UV (max)</dt><dd>{{ fc.uv }}{% if fc.uv_word %} <small>{{ fc.uv_word }}</small>{% endif %}</dd></div>{% endif %}
+      {% if fc and (fc.sunrise or fc.sunset) %}<div><dt>Sunrise · sunset</dt><dd>{{ fc.sunrise or "—" }} · {{ fc.sunset or "—" }}</dd></div>{% endif %}
     </dl>
   {% endif %}
   {% if w %}
@@ -44,4 +50,56 @@
   <div class="sub">Open-Meteo · refreshed hourly</div>
   </div>
 </section>
+
+{% if fc and fc.chart %}{% set c = fc.chart %}
+<section class="card panel wxhourly">
+  <div class="hd"><div><h2>Next 24 hours</h2><p>Temperature °C (line, {{ c.lo }}–{{ c.hi }} °C) · rain chance % (bars)</p></div></div>
+  <div class="bd">
+    <svg class="wxchart" viewBox="0 0 {{ c.w }} {{ c.h }}" role="img" aria-labelledby="wxchart-t">
+      <title id="wxchart-t">Next 24 hours: temperature from {{ c.lo }} to {{ c.hi }} °C, with rain chance per hour</title>
+      <line class="wxbase" x1="{{ c.pad }}" y1="{{ c.base }}" x2="{{ c.w - c.pad }}" y2="{{ c.base }}"/>
+      {% for p in c.points %}
+      {% if p.bar_h %}<rect class="wxbar" x="{{ p.bar_x }}" y="{{ p.bar_y }}" width="{{ p.bar_w }}" height="{{ p.bar_h }}"><title>{{ p.hour }}:00 · {{ p.rain }}% rain</title></rect>{% endif %}
+      {% if p.label and p.rain is not none %}<text class="wxrainlab" x="{{ p.x }}" y="{{ p.bar_y - 4 }}">{{ p.rain }}%</text>{% endif %}
+      {% endfor %}
+      {% if c.line %}<polyline class="wxline" points="{{ c.line }}"/>{% endif %}
+      {% for p in c.points %}{% if p.y is not none %}
+      <circle class="wxdot" cx="{{ p.x }}" cy="{{ p.y }}" r="{{ 3.5 if p.label else 2 }}"><title>{{ p.hour }}:00 · {{ p.temp }} °C</title></circle>
+      {% if p.label %}<text class="wxtemplab" x="{{ p.x }}" y="{{ p.y - 9 }}">{{ p.temp }}°</text>{% endif %}
+      {% endif %}
+      {% if p.label %}<text class="wxhourlab" x="{{ p.x }}" y="{{ c.h - 12 }}">{{ p.hour }}</text>{% endif %}
+      {% endfor %}
+    </svg>
+    <ol class="wxhours" aria-label="Hour by hour">
+      {% for h in fc.hours %}
+      <li><b>{{ h.hour }}</b><span>{{ h.temp or "—" }} °C</span><small>{{ h.rain if h.rain is not none else "—" }}% rain</small></li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+{% endif %}
+
+{% if fc and fc.days %}
+<section class="card panel wxweek">
+  <div class="hd"><div><h2>Next 7 days</h2><p>Low – high °C · chance of rain</p></div></div>
+  <div class="bd">
+    <ol class="wxdays">
+      {% for d in fc.days %}
+      <li>
+        <b>{{ d.label }}</b>
+        <span class="glyph">{{ ic.icon(d.glyph) }}</span>
+        <span class="wxword">{{ d.word }}</span>
+        <span class="wxrange">{{ d.min or "—" }}–{{ d.max or "—" }} °C</span>
+        <small>{{ d.rain if d.rain is not none else "—" }}% rain</small>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+{% endif %}
+
+{% if w and w.st.state != "off" and fc and not fc.chart and not fc.days %}
+<p class="areaquiet">The hourly and 7-day forecast appear after the next weather refresh.</p>
+{% endif %}
+</div>
 {% endblock %}

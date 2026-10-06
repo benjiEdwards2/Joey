@@ -13,6 +13,43 @@
     "condition_text": {"type": "string", "minLength": 1},
     "today_min_c": {"type": "number"},
     "today_max_c": {"type": "number"},
-    "rain_prob_pct": {"type": "integer", "minimum": 0, "maximum": 100}
+    "rain_prob_pct": {"type": "integer", "minimum": 0, "maximum": 100},
+    "hourly": {
+      "description": "Weather upgrade (2026-10-06): the next 24 hours from the current hour, local ISO times. Optional — envelopes written before the upgrade lack it.",
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "required": ["time", "temp_c", "rain_prob_pct", "feels_c"],
+        "additionalProperties": false,
+        "properties": {
+          "time": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}"},
+          "temp_c": {"type": ["number", "null"]},
+          "rain_prob_pct": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+          "feels_c": {"type": ["number", "null"]}
+        }
+      }
+    },
+    "days": {
+      "description": "Weather upgrade (2026-10-06): up to 7 days starting today; sunrise/sunset are local HH:MM. Optional — envelopes written before the upgrade lack it.",
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["date", "min_c", "max_c", "rain_prob_pct", "condition_text", "sunrise", "sunset", "uv_max", "wind_max_kmh"],
+        "additionalProperties": false,
+        "properties": {
+          "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+          "min_c": {"type": ["number", "null"]},
+          "max_c": {"type": ["number", "null"]},
+          "rain_prob_pct": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+          "condition_text": {"type": "string", "minLength": 1},
+          "sunrise": {"type": ["string", "null"], "pattern": "^\\d{2}:\\d{2}$"},
+          "sunset": {"type": ["string", "null"], "pattern": "^\\d{2}:\\d{2}$"},
+          "uv_max": {"type": ["number", "null"], "minimum": 0},
+          "wind_max_kmh": {"type": ["number", "null"], "minimum": 0}
+        }
+      }
+    }
   }
 }

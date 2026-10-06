@@ -178,6 +178,99 @@ def find_weather(snaps) -> dict | None:
     return None
 
 
+# /weather forecast (2026-10-06 weather upgrade): hero extras, a 24-hour chart drawn as
+# inline SVG by Jinja (no JS), and the 7-day strip. Every number also renders as text.
+# Envelopes written before the upgrade have no `hourly`/`days` — those sections are then
+# simply absent, never a crash.
+WX_CHART_W, WX_CHART_H = 720, 230
+WX_CHART_PAD = 14
+WX_TEMP_TOP, WX_TEMP_BOTTOM = 34, 118     # temperature line band
+WX_RAIN_BASE, WX_RAIN_MAX_H = 196, 56     # rain-chance bars grow up from the base
+WX_LABEL_EVERY = 3                        # value labels on every 3rd hour; the hour list has all
+
+
+def _wx_num(v) -> str | None:
+    """18.3 -> "18.3", 24.0 -> "24" (same :g as the connector's summary); None if not a number."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    return f"{v:g}"
+
+
+def _wx_uv_word(uv) -> str | None:
+    if not isinstance(uv, (int, float)):
+        return None
+    for limit, word in ((3, "low"), (6, "moderate"), (8, "high"), (11, "very high")):
+        if uv < limit:
+            return word
+    return "extreme"
+
+
+def _wx_day_label(iso: str, first: bool) -> str:
+    if first:
+        return "Today"
+    try:
+        d = date.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return str(iso)
+    return f"{d:%a} {d.day}"
+
+
+def _wx_chart(hourly: list[dict]) -> dict | None:
+    """SVG geometry for the 24-hour chart; None when there is nothing to draw."""
+    temps = [h["temp_c"] for h in hourly if isinstance(h.get("temp_c"), (int, float))]
+    if not hourly or not temps:
+        return None
+    lo, hi = min(temps), max(temps)
+    span = (hi - lo) or 1.0
+    step = (WX_CHART_W - 2 * WX_CHART_PAD) / len(hourly)
+    points = []
+    for i, h in enumerate(hourly):
+        x = round(WX_CHART_PAD + (i + 0.5) * step, 1)
+        temp, rain = h.get("temp_c"), h.get("rain_prob_pct")
+        y = (round(WX_TEMP_BOTTOM - (temp - lo) / span * (WX_TEMP_BOTTOM - WX_TEMP_TOP), 1)
+             if isinstance(temp, (int, float)) else None)
+        bar_h = round(rain / 100 * WX_RAIN_MAX_H, 1) if isinstance(rain, (int, float)) else 0
+        points.append({
+            "x": x, "y": y, "bar_x": round(x - step * 0.35, 1), "bar_w": round(step * 0.7, 1),
+            "bar_y": round(WX_RAIN_BASE - bar_h, 1), "bar_h": bar_h,
+            "hour": str(h.get("time", ""))[11:13], "temp": _wx_num(temp), "rain": rain,
+            "label": i % WX_LABEL_EVERY == 0,
+        })
+    return {
+        "w": WX_CHART_W, "h": WX_CHART_H, "base": WX_RAIN_BASE, "pad": WX_CHART_PAD,
+        "line": " ".join(f"{p['x']},{p['y']}" for p in points if p["y"] is not None),
+        "points": points, "lo": _wx_num(lo), "hi": _wx_num(hi),
+    }
+
+
+def weather_forecast(snaps) -> dict | None:
+    """Template context for /weather beyond today's core fields; None when not connected."""
+    snap = snaps.get(WEATHER_SNAPSHOT_ID)
+    data = snap.data if snap else None
+    if not isinstance(data, dict):
+        return None
+    hourly = [h for h in (data.get("hourly") or []) if isinstance(h, dict)]
+    days = [d for d in (data.get("days") or []) if isinstance(d, dict)]
+    today = days[0] if days else {}
+    now = hourly[0] if hourly else {}
+    return {
+        "feels": _wx_num(now.get("feels_c")),
+        "wind": _wx_num(today.get("wind_max_kmh")),
+        "uv": _wx_num(today.get("uv_max")), "uv_word": _wx_uv_word(today.get("uv_max")),
+        "sunrise": today.get("sunrise"), "sunset": today.get("sunset"),
+        "hours": [{"hour": str(h.get("time", ""))[11:16], "temp": _wx_num(h.get("temp_c")),
+                   "feels": _wx_num(h.get("feels_c")), "rain": h.get("rain_prob_pct")}
+                  for h in hourly],
+        "chart": _wx_chart(hourly),
+        "days": [{"label": _wx_day_label(d.get("date"), i == 0), "date": d.get("date"),
+                  "word": d.get("condition_text") or "unknown",
+                  "glyph": weather_glyph(d.get("condition_text")),
+                  "min": _wx_num(d.get("min_c")), "max": _wx_num(d.get("max_c")),
+                  "rain": d.get("rain_prob_pct")}
+                 for i, d in enumerate(days)],
+    }
+
+
 # Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
 # Rendered on any area page whose tiles read this snapshot — keyed by connector
 # id like the weather glimpse, never an area name (WP17 grep exception).
@@ -736,12 +829,14 @@ def hub_page(request: Request):
 
 @app.get("/weather", response_class=HTMLResponse)
 def weather_page(request: Request):
-    """Detail behind the hub glimpse (2026-09-11). Reads the same snapshot; today only."""
+    """Detail behind the hub glimpse (2026-09-11). Reads the same snapshot; today plus,
+    since the 2026-10-06 upgrade, the next 24 hours and 7 days when the snapshot has them."""
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
     resp = templates.TemplateResponse(request, "weather.html", {
         "areas": registry.areas, "active_id": None, "owner_view": view,
         "status": build_status(snaps), "w": find_weather(snaps),
+        "fc": weather_forecast(snaps),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

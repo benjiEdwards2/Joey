@@ -1,41 +1,44 @@
 {% from "_poster.html" import poster %}
 {% from "_library_row.html" import row %}
-{# Shared body of /media/movies and /media/tv. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">{{ "My films" if kind == "movie" else "My shows" }}</div>
-  {% if src.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-  {% elif rows is none %}
-    <div class="value dim">Library list not available yet</div>
-  {% else %}
-    <div class="sub libline">{{ head_line }}</div>
-    {% if not marks %}<div class="sub">Her watch marks and scores aren't available yet</div>{% endif %}
-    {% if new_week %}
-    <div class="upday">New this week</div>
-    <div class="shelf-row">
-    {% for r in new_week %}
-    {% if r.href %}<a class="shelf-item" href="{{ r.href }}">{% else %}<div class="shelf-item">{% endif %}
-      {{ poster(r.poster, r.title, 240) }}
-      <span class="pgtitle">{{ r.title }}</span>
-      {% if r.when %}<span class="pgsub">{{ r.when }}</span>{% endif %}
-    {% if r.href %}</a>{% else %}</div>{% endif %}
-    {% endfor %}
-    </div>
-    {% endif %}
-    <form class="libctl" method="get">
-      <input type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles">
-      <select name="sort" aria-label="Sort by">
-        {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      {% if marks %}<label><input type="hidden" name="group" value="0"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %}> Grouped</label>{% endif %}
-      <button type="submit" class="launch">Apply</button>
-    </form>
-    {% for g in groups %}
-    {% if g.label %}<div class="upday">{{ g.label }} · {{ g.rows|length }}</div>{% endif %}
-    {% for r in g.rows %}{{ row(r) }}{% endfor %}
-    {% else %}
-    <div class="value dim">{{ "Nothing matches that search" if q else "Nothing in the library yet" }}</div>
-    {% endfor %}
-  {% endif %}
-  {% include "_detail_foot.html" %}
+{% from "_icons.html" import icon %}
+{# Shared body of /media/movies and /media/tv (restyle Phase 3): a "New this week" carousel, the guide's toolbar
+   (search with its icon, the Grouped chip, sort), then rows grouped under section labels. #}
+{% if src.st.state == "off" %}
+<p class="empty">Not connected.</p>
+{% elif rows is none %}
+<p class="empty">Library list not available yet.</p>
+{% else %}
+<p class="metaline">{{ head_line }}</p>
+{% if not marks %}<p class="metaline">Her watch marks and scores aren't available yet</p>{% endif %}
+{% if new_week %}
+<section class="sec">
+  <div class="seclabel">New this week</div>
+  <div class="carousel">
+  {% for r in new_week %}
+  <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
+    <span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span>
+    <span class="row-title">{{ r.title }}</span>
+    {% if r.when %}<span class="row-meta">{{ r.when }}</span>{% endif %}
+  </{{ "a" if r.href else "div" }}>
+  {% endfor %}
+  </div>
 </section>
+{% endif %}
+<form class="toolbar" method="get">
+  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles"></div>
+  {% if marks %}<input type="hidden" name="group" value="0"><label class="chip{{ ' on' if group }}"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %}>Grouped</label>{% endif %}
+  <select class="select" name="sort" aria-label="Sort by">
+    {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn btn-secondary">Apply</button>
+</form>
+{% for g in groups %}
+<section class="sec">
+  {% if g.label %}<div class="seclabel">{{ g.label }} · {{ g.rows|length }}</div>{% endif %}
+  <div class="listbox">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
+</section>
+{% else %}
+<p class="empty">{{ "Nothing matches that search." if q else "Nothing in the library yet." }}</p>
+{% endfor %}
+{% endif %}
+{% include "_detail_foot.html" %}

@@ -1,4 +1,4 @@
-{# Search results grid (2026-10-05): the htmx partial and the no-JS ?q= render share it. #}
+{# Search results grid (2026-10-05; restyle Phase 3): the htmx partial and the no-JS ?q= render share it. #}
 {% from "_discover_item.html" import item %}
-{% if note %}<div class="sub appnote">{{ note }}</div>{% endif %}
+{% if note %}<p class="metaline">{{ note }}</p>{% endif %}
 {% if rows %}<div class="poster-grid">{% for r in rows %}{{ item(r, wl_keys) }}{% endfor %}</div>{% endif %}

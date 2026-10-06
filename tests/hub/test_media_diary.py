@@ -53,7 +53,7 @@ def test_manual_log_appears_month_grouped_with_place(env):
     with build() as client:
         resp = client.post("/media/log", data=log_form(), headers=HX)
         assert resp.status_code == 200 and "The Matrix (1999)" in resp.text
-        assert "Logged · Cinema" in resp.text and 'class="ratebox ratepick"' in resp.text  # unrated: picker
+        assert "Logged · Cinema" in resp.text and 'class="ratepick"' in resp.text  # unrated: picker
         dup = client.post("/media/log", data=log_form(), headers=HX)
         assert "Already in the diary" in dup.text
         body = main_of(client.get("/media/diary").text)
@@ -80,8 +80,8 @@ def test_rated_diary_rows_show_the_chip_unrated_show_a_picker(env):
     media_db.set_rating("tmdb:1", 10, "movie", "Heat")
     with build(jelly_data([])) as client:
         body = main_of(client.get("/media/diary").text)
-    assert 'title="Your rating: 10 out of 10"' in body and "poster sm gold-glow" in body
-    assert body.count('class="ratebox ratepick"') == 1
+    assert 'title="Your rating: 10 out of 10"' in body and "row-poster gold-glow-sm" in body
+    assert body.count('class="ratepick"') == 1
 
 
 def test_filter_chips(env):
@@ -92,9 +92,9 @@ def test_filter_chips(env):
         films = main_of(client.get("/media/diary?kind=movie").text)
         tv = main_of(client.get("/media/diary?kind=tv").text)
         every = main_of(client.get("/media/diary").text)
-    assert ">Heat</span>" in films and "Severance" not in films and 'aria-current="true">Films' in films
-    assert ">Severance</span>" in tv and ">Heat</span>" not in tv
-    assert ">Heat</span>" in every and ">Severance</span>" in every
+    assert ">Heat</div>" in films and "Severance" not in films and 'aria-current="true">Films' in films
+    assert ">Severance</div>" in tv and ">Heat</div>" not in tv
+    assert ">Heat</div>" in every and ">Severance</div>" in every
 
 
 def test_older_link_pages_fifty_at_a_time(env):
@@ -222,6 +222,8 @@ def test_diary_page_shows_rewatch_chip_and_keeps_owners_apart(env):
 
 
 def test_poster_sizes_are_pinned_in_css():
-    assert ".poster.sm { height: 56px" in CSS
-    assert ".shelf-item { flex: 0 0 144px; width: 144px;" in CSS
-    assert ".shelf-item { flex-basis: 116px; width: 116px; }" in CSS
+    # Restyle Phase 3: rows use the guide's 44 px .row-poster; carousel cards are 116 px, 144 px from 640 px.
+    assert ".poster.sm { height: 56px" in CSS                      # area.html (Phase 4) still uses it
+    assert ".poster.row-poster { width: 44px;" in CSS
+    assert ".carousel > * { flex: 0 0 116px; width: 116px;" in CSS
+    assert ".carousel > * { flex-basis: 144px; width: 144px; }" in CSS

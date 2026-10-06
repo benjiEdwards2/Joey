@@ -1,39 +1,43 @@
 {% extends "media_base.html" %}
 {% block title %}Downloads — Joey{% endblock %}
 {% block content %}
-{# Downloads (2026-10-06): qBittorrent, read-only. State and percentage are WORDS beside the
-   thin bar — colour is never the only encoding. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">Downloads</div>
-  {% if src.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
-  {% else %}
-    <div class="sub">{{ totals_text }}</div>
-    {% for g in groups %}
-    <div class="upday">{{ g.label }}</div>
-    {% for r in g.rows %}
-    <{{ "a" if r.href else "div" }} class="uprow{{ ' reqrow' if r.href }}"{% if r.href %} href="{{ r.href }}"{% endif %}>
-      <span class="uptitle">{{ r.name }}</span>
-      <span class="chip">{{ r.state_text }}</span>
-      <span class="uptime nextleft">{{ r.pct }}% done{% if r.speed_text %} · {{ r.speed_text }}{% endif %}{% if r.eta_text %} · {{ r.eta_text }} left{% endif %} · {{ r.size_text }}</span>
-      <span class="pbar" aria-hidden="true"><span style="width: {{ r.pct }}%"></span></span>
-    </{{ "a" if r.href else "div" }}>
-    {% endfor %}
-    {% else %}
-    <div class="value dim">Nothing downloading</div>
-    {% endfor %}
-
-    <div class="upday">Finished today</div>
-    {% for r in src.data.get("finished", []) %}
-    <div class="uprow">
-      <span class="uptitle">{{ r.name }}</span>
-      <span class="uptime nextleft">{{ r.size_text }}</span>
-    </div>
-    {% else %}
-    <div class="value dim">Nothing finished today</div>
-    {% endfor %}
-  {% endif %}
-  {% include "_detail_foot.html" %}
+{% from "_rows.html" import meta %}
+{% from "_icons.html" import icon %}
+{# Downloads (2026-10-06; restyle Phase 3 row recipe): qBittorrent, read-only. State and percentage are WORDS beside
+   the hairline bar — colour is never the only encoding. Finished torrents are Complete rows (emerald, guide 6). #}
+{% set done %}<span class="badge badge-complete">{{ icon("check") }}Complete</span>{% endset %}
+{% if src.st.state == "off" %}
+<p class="empty">Not connected.</p>
+{% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
+{% else %}
+<p class="metaline">{{ totals_text }}</p>
+{% for g in groups %}
+<section class="sec">
+  <div class="seclabel">{{ g.label }}</div>
+  <div class="listbox">
+  {% for r in g.rows %}
+  <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
+    <div class="row-body"><div class="row-title">{{ r.name }}</div>
+      {{ meta([r.state_text, r.pct ~ "% done", r.speed_text, (r.eta_text ~ " left") if r.eta_text else none, r.size_text]) }}
+      <span class="bar" aria-hidden="true"><span style="width: {{ r.pct }}%"></span></span></div>
+  </{{ "a" if r.href else "div" }}>
+  {% endfor %}
+  </div>
 </section>
+{% else %}
+<p class="empty">Nothing downloading.</p>
+{% endfor %}
+
+<section class="sec">
+  <div class="seclabel">Finished today</div>
+  {% if src.data.get("finished") %}<div class="listbox">
+  {% for r in src.data.get("finished", []) %}
+  <div class="row is-complete">
+    <div class="row-body"><div class="row-title">{{ r.name }}</div>{{ meta([done, r.size_text]) }}</div>
+  </div>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing finished today.</p>{% endif %}
+</section>
+{% endif %}
+{% include "_detail_foot.html" %}
 {% endblock %}

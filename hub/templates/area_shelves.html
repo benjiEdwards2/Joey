@@ -1,58 +1,51 @@
 {% extends "media_base.html" %}
 {% block title %}{{ area.name }} · Joey{% endblock %}
+{# Media home (shelves layout, 2026-10-05; restyle Phase 3, 2026-10-06). "Playing now" lives in the page header:
+   the eyebrow is the state word, the title the playing title, one sub-line of facts joined by " · ", the backdrop
+   drifts behind it, and "Open in Jellyfin" is the header's glass button. Shelves are deliberate carousels (snap-x)
+   of 2:3 poster cards. State is always a WORD. #}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% set h = sh.hero %}
+{% if h and h.user %}{% set sub = [h.user, h.play_method, (h.progress_pct ~ "%") if h.progress_pct is not none else none] | select | join(" · ") %}
+{% elif h %}{% set sub = h.sub %}
+{% else %}{% set sub = sh.kind_word %}{% endif %}
+{% set open = (h.href if h and h.href else sh.open_href) %}
+{% call pagehead(h.title if h else area.name, sub=sub, eyebrow=(sh.kind_word if h else area.name),
+                 backdrop=(h.backdrop if h else none), drift=true,
+                 actions=([{"href": open, "label": "Open in Jellyfin", "new_tab": true}] if open else none)) %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
-{# Shelves layout (2026-10-05): hero + horizontal poster shelves. State is always a WORD. #}
-<div class="shelfhead" style="--accent: {{ area.accent }}">
-  {% from "_waiting.html" import waitchips %}{{ waitchips(sh.waiting) }}
-  <span class="shelfbtns">
-    {% if sh.open_href %}<a class="glassbtn" href="{{ sh.open_href }}" target="_blank" rel="noopener">Open Jellyfin ↗</a>{% endif %}
-  </span>
-</div>
-
-{% set h = sh.hero %}
-<section class="hero{{ ' hasbackdrop' if h and h.backdrop }}" style="--accent: {{ area.accent }}{% if h and h.backdrop %}; --bd: url('/img/{{ h.backdrop|urlencode }}?h=1280'){% endif %}">
-  <div class="herocorner">
-    {% if sh.freshness and sh.freshness.state == "stale" %}<span class="badge stale">{{ sh.freshness.age_text }}</span>
-    {% elif sh.freshness and sh.freshness.state == "fresh" %}<span class="ago">updated {{ sh.freshness.age_text }}</span>
-    {% else %}<span class="badge off">Not connected</span>{% endif %}
-    {% if backup_warn %}<span class="badge stale">{{ backup_warn }}</span>{% endif %}
-  </div>
-  {% if h %}{{ poster(h.poster, h.title, 240, "heroposter") }}{% endif %}
-  <div class="herotext">
-    <div class="herokind">{{ sh.kind_word }}</div>
-    {% if h %}
-      <div class="herotitle">{{ h.title }}</div>
-      {% if h.user %}<div class="herosub">{{ h.user }} · {{ h.play_method }} · {{ h.progress_pct }}%</div>
-      <span class="pbar" aria-hidden="true"><span style="width: {{ h.progress_pct or 0 }}%"></span></span>
-      {% elif h.sub %}<div class="herosub">{{ h.sub }}</div>{% endif %}
-      {% if h.href %}<a class="glassbtn" href="{{ h.href }}" target="_blank" rel="noopener">Open in Jellyfin</a>{% endif %}
-    {% else %}
-      <div class="herosub">Nothing is playing or queued right now</div>
-    {% endif %}
-  </div>
-</section>
+{% from "_waiting.html" import waitchips %}
+<p class="metaline">
+  {%- if sh.freshness and sh.freshness.state == "stale" %}<span class="st-warn">{{ sh.freshness.age_text }}</span>
+  {%- elif sh.freshness and sh.freshness.state == "fresh" %}Updated {{ sh.freshness.age_text }}
+  {%- else %}Not connected{% endif %}
+  {%- if backup_warn %}<span class="sep"> · </span><span class="st-warn">{{ backup_warn }}</span>{% endif %}
+  {%- if sh.waiting and (sh.waiting.to_rate or sh.waiting.to_place) %}<span class="sep"> · </span>{{ waitchips(sh.waiting) }}{% endif -%}
+</p>
 
 {% for s in sh.shelves %}
-<section class="shelf" style="--accent: {{ area.accent }}">
-  <div class="shelftop">
-    <h3>{{ s.title }}</h3>
-    <a class="seeall" href="{{ s.see_all_href }}">See all →</a>
+<section class="sec">
+  <div class="sechead">
+    <h2 class="seclabel">{{ s.title }}{% if s["items"] %}<span class="sep"> · </span>{{ s["items"] | length }}{% endif %}</h2>
+    <a href="{{ s.see_all_href }}">All</a>
   </div>
   {% if s["items"] %}
-  <div class="shelf-row">
+  <div class="carousel">
     {% for i in s["items"] %}
-    <a class="shelf-item" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
-      {{ poster(i.poster, i.title, 240, "gold-glow" if i.score == 10 else "") }}
-      <span class="pgtitle">{{ i.title }}</span>
-      {% if i.sub %}<span class="pgsub">{{ i.sub }}</span>{% endif %}
-      {% if i.score %}{{ rate.scorechip(i.score) }}{% endif %}
+    <a class="card-poster" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
+      <span class="card-pic">{{ poster(i.poster, i.title, 240, rate.glow(i.score, false)) }}{{ rate.pscore(i.score) }}{% if s.id == "thisweek" and i.sub %}<span class="poster-tag">{{ i.sub.split(" · ")[0] }}</span>{% endif %}</span>
+      <span class="row-title">{{ i.title }}</span>
+      {% if i.sub %}<span class="row-meta">{{ i.sub }}</span>{% endif %}
     </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="value dim">{{ s.quiet_text }}</div>
+  <p class="empty">{{ s.quiet_text }}.</p>
   {% endif %}
 </section>
 {% endfor %}

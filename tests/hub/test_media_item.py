@@ -107,7 +107,8 @@ def env(tmp_path, monkeypatch):
 
 
 def main_of(html):
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def current(html, label):
@@ -129,14 +130,14 @@ def test_movie_page(env):
     assert r.status_code == 200
     b = main_of(html)
     assert "Harbour Lights (2019)" in b and "A ferry pilot returns home." in b
-    assert "Drama, Thriller" in b and "1 h 52 m" in b and "7.8 / 10" in b and ">M<" in b
+    assert "Drama · Thriller" in b and "1 h 52 m" in b and "7.8 / 10" in b and ">M<" in b
     assert f'href="{deep("mov1")}" target="_blank" rel="noopener"' in b
     assert "Resume ▶ · 32 min left" in b                       # 112 - 80 minutes
     assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate
-    assert 'class="ratebox ratepick"' in b and 'value="tmdb:603"' in b
+    assert 'class="ratepick"' in b and 'value="tmdb:603"' in b
     assert "Watched 1 time · 12 Oct 2026" in b
     assert "filestrip" in b and "4K" in b and "HEVC" in b
-    assert 'class="castname">Ada Actor</span><span class="sub">Pilot</span>' in b
+    assert 'class="castname">Ada Actor</span><span class="row-meta">Pilot</span>' in b
     assert 'href="/media/discover?q=Dee%20Director"' in b      # Jellyfin director, no Jellyseerr
     assert current(html, "Media sections") == ["Movies"]
 

@@ -261,12 +261,12 @@ def test_apps_page_backup_row(hub_env):
     assert "Joey media backup" not in apps_main(main)                 # nodb: nothing
     make_db(db)
     body = apps_main(main)
-    assert "Joey media backup" in body and '<span class="appstate">None yet</span>' in body
+    assert "Joey media backup" in body and '<span class="st-warn">None yet</span>' in body
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(hours=3, minutes=5), size=12 * 1024)
     body = apps_main(main)
-    row = body.split('backuprow">', 1)[1].split("</div>", 1)[0]
-    assert '<span class="appstate">Backed up</span>' in row and "3 hours ago · 12 KB" in row
-    assert 'appdot up' in row and "<a " not in row
+    row = body.split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
+    assert '<span class="st-good">Backed up</span>' in row and '3 hours ago<span class="sep"> · </span>12 KB' in row
+    assert "is-down" not in body.split("Joey media backup")[0][-400:] and "<a " not in row
     assert body.index("Jellyfin") < body.index("Joey media backup")   # the final row
 
 
@@ -274,11 +274,12 @@ def test_apps_page_backup_row_stale_and_off(hub_env, monkeypatch, tmp_path):
     main, (db, dest) = hub_env
     make_db(db)
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(days=2, hours=2))
-    row = apps_main(main).split('backuprow">', 1)[1].split("</div>", 1)[0]
-    assert '<span class="appstate">Stale</span>' in row and "2 days ago" in row and "appdot down" in row
+    body = apps_main(main)
+    row = body.split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
+    assert '<span class="st-warn">Stale</span>' in row and "2 days ago" in row and 'class="row is-down backuprow"' in body
     monkeypatch.setenv("MEDIA_BACKUP_DIR", str(tmp_path / "missing"))
-    row = apps_main(main).split('backuprow">', 1)[1].split("</div>", 1)[0]
-    assert '<span class="appstate">Off</span>' in row and "backup folder missing" in row
+    row = apps_main(main).split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
+    assert '<span>Off</span>' in row and "backup folder missing" in row
 
 
 def test_warning_only_when_stale_or_none(hub_env, monkeypatch, tmp_path):
@@ -296,7 +297,7 @@ def test_warning_only_when_stale_or_none(hub_env, monkeypatch, tmp_path):
     make_db(db)
     hub, area = pages()                                                # none
     assert '<span class="badge stale">Media backup: none yet</span>' in hub
-    assert "Media backup: none yet" in area.split('class="herocorner">', 1)[1].split("</div>", 1)[0]
+    assert "Media backup: none yet" in area.split('<p class="metaline">', 1)[1].split("</p>", 1)[0]
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(days=2, hours=1))
     for body in pages():                                               # stale
         assert "Media backup: none in 2 days" in body

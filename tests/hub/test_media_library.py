@@ -45,7 +45,8 @@ def app_factory(tmp_path, monkeypatch):
 
 
 def main_of(html: str) -> str:
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def test_library_page_renders_every_section_in_main(app_factory):
@@ -62,10 +63,11 @@ def test_library_page_renders_every_section_in_main(app_factory):
              ("Just arrived", "Just updated", "This week", "Downloading", "Disk")]
     assert order == sorted(order)
     assert "Quiet Coast · S02 · 3 episodes" in body and "3 hours ago" in body
-    assert "Salt Flats · Upgraded to 4K" in body
-    assert ">Today</div>" in body and ">Premiere</span>" in body and ">Digital</span>" in body
-    assert "Midnight Harbour · Downloading · 75% · 14 min left" in body and "width: 75%" in body
-    assert "/movies · 1117.6 of 3725.3 GB free · 70% used" in body and "width: 70%" in body
+    # Restyle Phase 3 row recipe: the title, then one meta line of facts.
+    assert '>Salt Flats</div><div class="row-meta">Upgraded to 4K' in body
+    assert ">Today</div>" in body and 'row-meta">Premiere' in body and 'row-meta">Digital' in body
+    assert '>Midnight Harbour</div><div class="row-meta">Downloading · 75% · 14 min left' in body and "width: 75%" in body
+    assert '>/movies</div><div class="row-meta">1117.6 of 3725.3 GB free · 70% used' in body and "width: 70%" in body
     assert "not answering" not in body
 
 
@@ -76,7 +78,7 @@ def test_this_week_is_grouped_by_day(app_factory):
     with build(snaps) as client:
         body = main_of(client.get("/media/library").text)
     week = body.split(">This week</div>", 1)[1].split(">Downloading</div>", 1)[0]
-    assert week.count('upday sub">') == 3  # today, tomorrow, +2 days
+    assert week.count('<div class="microlabel">') == 3  # today, tomorrow, +2 days
     assert ">Tomorrow</div>" in week
 
 
@@ -120,7 +122,7 @@ def test_library_rows_carry_radarr_and_sonarr_posters_in_main(app_factory):
     write_envelope(snaps, "arr", age_minutes=1, data=data_for_today())
     with build(snaps) as client:
         body = main_of(client.get("/media/library").text)
-    assert '<img class="poster sm' in body
+    assert '<img class="poster row-poster' in body
     assert "/img/radarr:" in body and "/img/sonarr:" in body
     assert 'src="/img/radarr:21?h=120&amp;t=Midnight%20Harbour' in body  # downloading row
 

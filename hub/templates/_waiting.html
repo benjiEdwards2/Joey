@@ -1,5 +1,6 @@
-{# "Waiting on you" chips (2026-10-05): the words carry the meaning; shown only when > 0. #}
+{# "Waiting on you" (2026-10-05; restyle Phase 3: amber outline badges, guide 6 + 9 — amber means something to do).
+   The words carry the meaning; shown only when > 0. #}
 {% macro waitchips(w) %}{% if w and (w.to_rate or w.to_place) %}<span class="waitchips">
-  {% if w.to_rate %}<span class="waitchip">{{ w.to_rate }} to rate</span>{% endif %}
-  {% if w.to_place %}<span class="waitchip">{{ w.to_place }} to place</span>{% endif %}
+  {%- if w.to_rate %}<span class="badge badge-wait">{{ w.to_rate }} to rate</span>{% endif %}
+  {%- if w.to_place %}{{ " " if w.to_rate }}<span class="badge badge-wait">{{ w.to_place }} to place</span>{% endif -%}
 </span>{% endif %}{% endmacro %}

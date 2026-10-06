@@ -1,7 +1,7 @@
-{# Freshness foot shared by the /media/* detail pages. Expects: src (find_detail_source). #}
-<div class="foot">
-  <span class="chip">{{ src.tile.owner.value | title }}</span>
-  {% if src.st.state == "stale" %}<span class="badge stale">{{ src.st.age_text }}</span>
-  {% elif src.st.state == "off" %}<span class="badge off">not connected</span>
-  {% elif src.st.age_text %}<span class="ago">updated {{ src.st.age_text }}</span>{% endif %}
-</div>
+{# Freshness line shared by the /media/* pages (restyle Phase 3: one quiet meta line, amber only when stale).
+   Expects: src (find_detail_source). #}
+<p class="metaline">{{ src.tile.owner.value | title }}
+  {%- if src.st.state == "stale" %}<span class="sep"> · </span><span class="st-warn">{{ src.st.age_text }}</span>
+  {%- elif src.st.state == "off" %}<span class="sep"> · </span>Not connected
+  {%- elif src.st.age_text %}<span class="sep"> · </span>Updated {{ src.st.age_text }}{% endif -%}
+</p>

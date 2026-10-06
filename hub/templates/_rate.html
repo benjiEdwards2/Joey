@@ -1,5 +1,37 @@
 {# Ratings (2026-10-05). `ratings` is {item_key: score} from ONE get_ratings() per page.
-   The score is a NUMBER in a chip — gold at 10 is extra, never the only encoding. #}
+   The score is always a NUMBER — its grade colour and the gold at 10 are extra, never the only encoding.
+   Media (restyle Phase 3, 2026-10-06): rows show the score big on the right (.row-score + .score-N, "—" in
+   .score-none when missing); poster cards show a .poster-score badge; a perfect 10 gets the gold glow (guide 7).
+   scorechip / chip / rowchip / rowpcls / pcls are the older chip forms, still used by area.html (Phase 4). #}
+{% macro grade(n) -%}
+{{ "score-none" if not n else "score-" ~ ([[n|int, 1]|max, 9]|min) }}
+{%- endmacro %}
+{% macro num(n) -%}
+{{ "—" if not n else (n|int if n == n|int else "%.1f"|format(n)) }}
+{%- endmacro %}
+{% macro score(n) -%}
+{%- if n %}<span class="row-score {{ grade(n) }}{{ ' gold-text-glow' if n == 10 }}" title="Your rating: {{ n }} out of 10">{{ num(n) }}</span>
+{%- else %}<span class="row-score score-none" title="Not rated">—</span>{% endif -%}
+{%- endmacro %}
+{% macro score_key(key, ratings) -%}
+{{ score(ratings.get(key) if key else none) }}
+{%- endmacro %}
+{% macro score_row(row, ratings) -%}
+{{ score(score_for(row, ratings)) }}
+{%- endmacro %}
+{% macro pscore(n) -%}
+{%- if n %}<span class="poster-score {{ grade(n) }}{{ ' gold-text-glow' if n == 10 }}" title="Your rating: {{ n }} out of 10">{{ num(n) }}</span>{% endif -%}
+{%- endmacro %}
+{# Gold glow class for a poster: rows take the small pulse, big posters the full one. #}
+{% macro glow(n, small=true) -%}
+{{ (" gold-glow-sm" if small else " gold-glow") if n == 10 }}
+{%- endmacro %}
+{% macro keyglow(key, ratings, small=true) -%}
+{{ glow(ratings.get(key) if key else none, small) }}
+{%- endmacro %}
+{% macro rowglow(row, ratings, small=true) -%}
+{{ glow(score_for(row, ratings), small) }}
+{%- endmacro %}
 {% macro scorechip(n) -%}
 {%- if n %}<span class="chip score{{ ' score-10' if n == 10 }}" title="Your rating: {{ n }} out of 10">{{ n }}</span>{% endif -%}
 {%- endmacro %}
@@ -17,22 +49,22 @@
 {{ " gold-glow" if key and ratings.get(key) == 10 }}
 {%- endmacro %}
 {# 1-10 picker: a plain form (works without JS, 303 back to history) that htmx upgrades
-   to a swap. `r` carries item_key/kind/title/year/poster. #}
+   to a swap. `r` carries item_key/kind/title/year/poster. Each number is a chip in its grade colour. #}
 {% macro picker(r) %}
-<form class="ratebox ratepick" method="post" action="/media/rate" hx-post="/media/rate" hx-target="this" hx-swap="outerHTML">
+<form class="ratepick" method="post" action="/media/rate" hx-post="/media/rate" hx-target="this" hx-swap="outerHTML">
   <input type="hidden" name="item_key" value="{{ r.item_key }}">
   <input type="hidden" name="kind" value="{{ r.kind }}">
   <input type="hidden" name="level" value="{{ r.level or 'show' }}">
   <input type="hidden" name="title" value="{{ r.title }}">
   <input type="hidden" name="year" value="{{ r.year or '' }}">
   <input type="hidden" name="poster" value="{{ r.poster or '' }}">
-  <span class="rlabel">Rate</span>
-  {% for n in range(1, 11) %}<button type="submit" name="score" value="{{ n }}" aria-label="Rate {{ n }} out of 10">{{ n }}</button>{% endfor %}
+  <span class="microlabel">Rate</span>
+  {% for n in range(1, 11) %}<button type="submit" class="chip {{ grade(n) }}" name="score" value="{{ n }}" aria-label="Rate {{ n }} out of 10">{{ n }}</button>{% endfor %}
 </form>
 {% endmacro %}
 {% macro rated(r, score) %}
-<form class="ratebox rated" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
-  {{ scorechip(score) }}<span class="rlabel">Rated {{ score }} out of 10</span>
-  <button type="submit" class="undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .ratebox" hx-swap="outerHTML">undo</button>
+<form class="rated" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
+  <span class="stat-number {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</span><span class="microlabel">Rated {{ score }} out of 10</span>
+  <button type="submit" class="btn btn-ghost btn-sm undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .rated" hx-swap="outerHTML">Undo</button>
 </form>
 {% endmacro %}

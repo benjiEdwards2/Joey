@@ -1,0 +1,17 @@
+{# Media section tabs (restyle Phase 2/3, 2026-10-06): sections + sub-tabs from hub/media_nav.py, amber waiting
+   counts. A macro so every Media page header (plain, home, detail hero) carries the same tabs. Import with context. #}
+{% macro media_tabs() -%}
+{% set nav = media_nav(request) %}
+  <nav class="sectabs" aria-label="Media sections">
+    <div class="sectabs-row">
+    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>{% endfor %}
+    </div>
+  </nav>
+  {% if nav.tabs %}
+  <nav class="sectabs sub" aria-label="{{ nav.section.label }}">
+    <div class="sectabs-row">
+    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> to get</span></span>{% endif %}</a>{% endfor %}
+    </div>
+  </nav>
+  {% endif %}
+{%- endmacro %}

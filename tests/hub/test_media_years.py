@@ -132,7 +132,7 @@ def test_rank_mode_renders_arrows_and_numbered_rows(client):
     body = main_of(client.get("/media/years/2020?mode=rank").text)
     assert 'class="podium"' not in body
     assert "▲" in body and "▼" in body and "✕ Unplace" in body
-    assert body.count('class="rankno">#') == 4
+    assert body.count('class="row-rank">#') == 4
     assert 'name="mode" value="rank"' in body and 'href="/media/years/2020"' in body  # "Done" link
     assert "hx-post=\"/media/years/2020/move\"" in body
 

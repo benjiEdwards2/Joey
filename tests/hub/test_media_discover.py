@@ -111,7 +111,8 @@ def env(tmp_path, monkeypatch):
 
 
 def main_of(html):
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def assert_no_secrets(html, link_ok=False):
@@ -153,7 +154,7 @@ def test_shelves_render_with_status_words(env):
         resp = client.get("/media/discover")
     body = main_of(resp.text)
     for title in ("Trending", "Popular films", "Popular TV", "Upcoming films", "Upcoming TV"):
-        assert f"<h3>{title}</h3>" in body
+        assert f'<div class="seclabel">{title}</div>' in body
     for word in ("Available", "Partly available", "Processing", "Requested", "Not in library"):
         assert f">{word}</span>" in body
     assert 'href="/media/title/movie/1"' in body and 'href="/media/title/tv/9"' in body
@@ -197,7 +198,7 @@ def test_search_partial(env):
         short = client.get("/media/discover/search?q=a")
         assert "Type at least two letters" in short.text and fake.gets == []
         got = client.get("/media/discover/search?q=%20hit%20")
-        assert got.text.count('class="shelf-item"') == 20 and "Nobody" not in got.text
+        assert got.text.count('class="card-cell"') == 20 and "Nobody" not in got.text
         assert "poster-grid" in got.text and "<html" not in got.text
         assert fake.gets == ["/api/v1/search?query=hit"]
         fake.search_results = {"results": []}
@@ -221,9 +222,9 @@ def test_movie_title_page(env):
         resp = client.get("/media/title/movie/603")
     body = main_of(resp.text)
     assert "The Matrix (1999)" in body and "Free your mind" in body and "A hacker learns." in body
-    assert "Action, Sci-Fi" in body and "2 h 16 m" in body and "7.8 / 10" in body
+    assert "Action · Sci-Fi" in body and "2 h 16 m" in body and "7.8 / 10" in body
     assert "Actor 7" in body and "Actor 8" not in body
-    assert "--bd: url('/img/tmdb:/mb.jpg?h=1280')" in resp.text and "hasbackdrop" in body
+    assert "--bd: url('/img/tmdb:/mb.jpg?h=1280')" in resp.text and "hero-detail-bd" in body
     assert f'href="{FAKE_URL}/movie/603"' in body and "Open in Jellyseerr" in body
     assert "Not on your server" in body and ">Request</a>" in body            # F10: the status is a line of words
     assert FAKE_KEY not in resp.text
@@ -235,7 +236,7 @@ def test_tv_title_page_seasons_and_confirm(env):
         page = client.get("/media/title/tv/100")
         body = main_of(page.text)
         assert "4 seasons · 30 episodes" in body
-        seasons = body.split("<h3>Seasons</h3>", 1)[1].split("requestblock", 1)[0]
+        seasons = body.split('<div class="seclabel">Seasons</div>', 1)[1].split("requestblock", 1)[0]
         assert seasons.index("Season 1") < seasons.index("Season 4") < seasons.index("Specials")
         for word in ("Available", "Processing", "Requested", "Not in library"):
             assert f">{word}</span>" in seasons
@@ -415,8 +416,8 @@ def test_title_page_lazy_hooks_per_season_and_no_episodes_inline(env):
     for n in (0, 1, 2, 3, 4):
         assert f'hx-get="/media/title/tv/100/season/{n}" hx-trigger="toggle once"' in body
         assert f'href="/media/title/tv/100/season/{n}">Show episodes</a>' in body
-    assert body.count('<details class="seasonbox"') == 5 and 'class="eprow"' not in body
-    assert '<summary class="seasonrow">' in body
+    assert body.count('<details class="seasonbox"') == 5 and "data-ep=" not in body
+    assert '<summary class="row">' in body
 
 
 def test_season_partial_lists_episodes_with_words(env, monkeypatch):
@@ -430,8 +431,8 @@ def test_season_partial_lists_episodes_with_words(env, monkeypatch):
     assert resp.status_code == 200 and "<main" not in html and again.text == html
     assert fake.gets.count("/api/v1/tv/100/season/1") == 1      # cached like the title
     assert html.index(">E1</span>") < html.index(">E2</span>") < html.index(">E3</span>")
-    assert ">Pilot</span>" in html and ">1 Jan 2018</span>" in html and ">8 Jan 2018</span>" in html
-    assert ">airs 14 Mar 2999</span>" in html and 'class="epover">It begins.</p>' in html
+    assert ">Pilot</div>" in html and ">1 Jan 2018<" in html and ">8 Jan 2018<" in html
+    assert ">airs 14 Mar 2999<" in html and 'class="ep-over">It begins.</p>' in html
     assert "On disk" not in html and FAKE_KEY not in html and "secret-host" not in html
 
 
@@ -443,9 +444,9 @@ def test_season_partial_marks_on_disk_episodes(env, monkeypatch):
                         lambda kind, tmdb_id: {"episode_keys": [(1, 2), (2, 1)]} if (kind, tmdb_id) == ("tv", 100) else None)
     with client:
         html = client.get("/media/title/tv/100/season/1", headers=HX).text
-    rows = html.split('class="eprow"')[1:]
+    rows = html.split("data-ep=")[1:]
     assert ["On disk" in r for r in rows] == [False, True, False]
-    assert '<span class="chip st-available">On disk</span>' in rows[1]
+    assert '<span class="st-available">On disk</span>' in rows[1]
 
 
 @pytest.mark.parametrize("mode", ["down", "missing", "junk"])
@@ -485,5 +486,5 @@ def test_badge_tokens_in_all_three_blocks_and_rule_is_token_only():
     from pathlib import Path
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
     assert css.count("--badge-ink: #000000; --badge-fg: #ffffff;") == 1   # single dark :root block (restyle 2026-10-06)
-    rule = css.split(".fbadge.brandbadge {", 1)[1].split("}", 1)[0]
+    rule = css.split(".pill.dolby, .pill.dts {", 1)[1].split("}", 1)[0]   # restyle Phase 3: .fbadge retired
     assert "var(--badge-fg)" in rule and "var(--badge-ink)" in rule and "#" not in rule

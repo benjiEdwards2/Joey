@@ -1,9 +1,9 @@
 {% from "_icons.html" import icon %}
-{# Quality pills (F10): what is on disk, as words. Dolby-STYLE pills (black, white capitals, double-D mark) are drawn
-   by us; if hub/static/badges/<id>.svg|png exists the image replaces the pill (the word stays as alt). Renders
-   nothing without `pills`. #}
+{# Quality pills (F10) — the spec sheet's format logos (guide 6): what is on disk, as words. Dolby-STYLE pills
+   (black, white capitals, double-D mark) are drawn by us; if hub/static/badges/<id>.svg|png exists the image
+   replaces the pill (the word stays as alt). Renders nothing without `pills`. #}
 {% if pills %}
 <div class="filestrip">
-  {% for p in pills %}{% if p.img %}<img class="pillimg" src="{{ p.img }}" alt="{{ p.label }}" height="22">{% else %}<span class="pill{{ ' ' ~ p.tone if p.tone != 'plain' }}">{% if p.glyph %}<svg class="dd" viewBox="0 0 18 12" aria-hidden="true"><path d="M0 0h2.5a6 6 0 0 1 0 12H0z"/><path d="M18 0h-2.5a6 6 0 0 0 0 12H18z"/></svg>{% elif p.tone == 'plain' and p.icon %}{{ icon(p.icon) }}{% endif %}<span>{{ p.label }}</span></span>{% endif %}{% endfor %}
+  {% for p in pills %}{% if p.img %}<img class="pillimg" src="{{ p.img }}" alt="{{ p.label }}" height="28">{% else %}<span class="pill{{ ' ' ~ p.tone if p.tone != 'plain' }}">{% if p.glyph %}<svg class="dd" viewBox="0 0 18 12" aria-hidden="true"><path d="M0 0h2.5a6 6 0 0 1 0 12H0z"/><path d="M18 0h-2.5a6 6 0 0 0 0 12H18z"/></svg>{% elif p.tone == 'plain' and p.icon %}{{ icon(p.icon) }}{% endif %}<span>{{ p.label }}</span></span>{% endif %}{% endfor %}
 </div>
 {% endif %}

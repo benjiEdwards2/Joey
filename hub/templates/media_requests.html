@@ -2,30 +2,27 @@
 {% block title %}Requests — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
-{# Detail behind the requests tile (2026-10-05): Jellyseerr's queue. The status is a
+{# Detail behind the requests tile (2026-10-05; restyle Phase 3 row recipe): Jellyseerr's queue. The status is a
    WORD on every row — colour is never the only encoding. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">Requests</div>
-  {% if src.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
-  {% else %}
-    {% if src.data.get("requests") %}
-    <div class="sub libline">{{ counts_text }}</div>
-    {% for r in src.data.requests %}
-    <a class="uprow reqrow hasposter" href="{{ r.href }}" target="_blank" rel="noopener">
-      {{ poster(r.poster, r.title, 120, "sm" ~ rate.pcls(r.item_key, ratings)) }}
-      <span class="chip">{{ r.status_text }}</span>
-      <span class="uptitle">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %} · {{ "TV" if r.kind == "tv" else "Movie" }} · {{ r.requested_by }}</span>
-    {{ rate.chip(r.item_key, ratings) }}
-      <span class="uptime nextleft">{{ r.when }}</span>
-    </a>
-    {% endfor %}
-    {% else %}
-    <div class="value dim">No open requests</div>
-    {% endif %}
-  {% endif %}
-  {% include "_detail_foot.html" %}
-</section>
+{% if src.st.state == "off" %}
+<p class="empty">Not connected.</p>
+{% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
+{% elif src.data.get("requests") %}
+<p class="metaline">{{ counts_text }}</p>
+<div class="listbox">
+{% for r in src.data.requests %}
+{% set st %}<span class="st-{{ r.status_text|lower|replace(' ', '-') }}">{{ r.status_text }}</span>{% endset %}
+<a class="row" href="{{ r.href }}" target="_blank" rel="noopener">
+  {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
+  <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, "TV" if r.kind == "tv" else "Film", r.requested_by, r.when]) }}</div>
+  {{ rate.score_key(r.item_key, ratings) }}
+</a>
+{% endfor %}
+</div>
+{% else %}
+<p class="empty">No open requests.</p>
+{% endif %}
+{% include "_detail_foot.html" %}
 {% endblock %}

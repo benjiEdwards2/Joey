@@ -87,7 +87,7 @@ def test_inbox_lists_unrated_recent_titles_once_each(env):
     with build() as client:
         body = main_of(client.get("/media/history").text)
     inbox = body.split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
-    assert inbox.count('class="ratebox ratepick"') == 2           # Heat + the show, once
+    assert inbox.count('class="ratepick"') == 2           # Heat + the show, once
     assert "Heat" in inbox and "Quiet Show" in inbox and "S01E02" not in inbox
     assert "Already Rated" not in inbox and "Long Ago" not in inbox
     assert 'hx-post="/media/rate"' in inbox and 'name="score" value="10"' in inbox
@@ -107,7 +107,7 @@ def test_htmx_rate_returns_the_rated_partial_and_persists(env):
     with build() as client:
         resp = client.post("/media/rate", data=rate_form(score=10), headers=HX)
     assert resp.status_code == 200
-    assert 'class="chip score score-10"' in resp.text and ">10<" in resp.text
+    assert 'class="stat-number score-9 gold-text-glow"' in resp.text and ">10<" in resp.text
     assert 'hx-delete="/media/rate/tmdb%3A1"' in resp.text and "undo" in resp.text
     assert "<html" not in resp.text  # a partial, not a page
     assert media_db.get_ratings(["tmdb:1"]) == {"tmdb:1": 10}
@@ -157,7 +157,7 @@ def test_undo_deletes_and_restores_the_picker(env):
     media_db.set_rating("tmdb:1", 8, "movie", "Heat", 1995, "jf:p-1")
     with build() as client:
         resp = client.delete("/media/rate/tmdb:1", headers=HX)
-        assert resp.status_code == 200 and 'class="ratebox ratepick"' in resp.text
+        assert resp.status_code == 200 and 'class="ratepick"' in resp.text
         assert 'name="title" value="Heat"' in resp.text
         assert media_db.get_ratings(["tmdb:1"]) == {}
         assert client.delete("/media/rate/tmdb:1", headers=HX).status_code == 200  # nothing left: still fine
@@ -190,10 +190,10 @@ def test_score_chips_on_history_playing_library_requests_and_the_area(env):
         req = main_of(client.get("/media/requests").text)
         area = main_of(client.get("/a/alpha").text)
     recent = hist.split(">Recently watched</div>", 1)[1]
-    assert 'chip score" title="Your rating: 8 out of 10">8<' in recent
-    assert 'chip score score-10"' in play and "poster sm gold-glow" in play
-    assert 'chip score" title="Your rating: 5 out of 10">5<' in lib
-    assert 'chip score" title="Your rating: 3 out of 10">3<' in req
+    assert 'row-score score-8" title="Your rating: 8 out of 10">8<' in recent
+    assert 'row-score score-9 gold-text-glow"' in play and "row-poster gold-glow-sm" in play
+    assert 'row-score score-5" title="Your rating: 5 out of 10">5<' in lib
+    assert 'row-score score-3" title="Your rating: 3 out of 10">3<' in req
     assert 'title="Your rating: 10 out of 10"' in area and "gold-glow" in area
 
 
@@ -245,7 +245,7 @@ def test_inbox_at_each_level_counts_titles_and_keys(env, level, count, titles, k
     media_db.set_setting("you", "rating_level", level)
     with build(jelly_data(TV)) as client:
         inbox = inbox_of(client.get("/media/history").text)
-    assert inbox.count('class="ratebox ratepick"') == count
+    assert inbox.count('class="ratepick"') == count
     assert all(t in inbox for t in titles) and f'name="item_key" value="{key}"' in inbox
     assert f'name="level" value="{level}"' in inbox and "Heat" in inbox
 
@@ -318,15 +318,16 @@ def test_to_rate_rows_wrap_so_the_title_keeps_its_width(env):
     with build() as client:
         body = main_of(client.get("/media/history").text)
     inbox = body.split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
-    rows = inbox.split('<div class="uprow')[1:]
-    assert len(rows) == 3 and all(r.startswith(' hasposter rateable"') for r in rows)
-    assert all('class="ratebox ratepick"' in r for r in rows)
+    rows = inbox.split('<div class="row has-form">')[1:]
+    assert len(rows) == 3
+    assert all('class="ratepick"' in r for r in rows)
     flat = " ".join(CSS.split())
-    assert ".uplist .uprow.rateable { flex-wrap: wrap; }" in flat
-    assert ".uplist .uprow.rateable .uptitle { flex: 1 1 140px; }" in flat
-    assert ".ratebox { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 0 100%;" in flat
+    # Restyle Phase 3: the row recipe wraps, the title block keeps the width, the picker takes its own line.
+    assert ".row.has-form { position: relative; flex-wrap: wrap; }" in flat
+    assert ".row-body { flex: 1 1 auto; min-width: 0; }" in flat
+    assert ".row .ratepick, .row .rated { flex: 0 0 100%;" in flat
 
 
 def test_diary_rows_with_a_picker_wrap_too():
     tpl = (Path(__file__).resolve().parents[2] / "hub" / "templates" / "_diary_row.html").read_text(encoding="utf-8")
-    assert 'class="uprow hasposter diaryrow rateable"' in tpl
+    assert 'class="row has-form diaryrow"' in tpl

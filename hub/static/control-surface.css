@@ -4,7 +4,7 @@
    removed the theme toggle and the rail: the shell is the guide's top bar + phone tab bar). TOKENS ONLY: component and recipe rules never carry a
    literal colour. Older variable names (--bg, --card, ...) are remapped to the guide's palette so
    existing templates render unchanged in the dark set; the recipe classes (guide 4-6) follow the base rules.
-   Per-area --accent is still injected by the templates from the registry. */
+   Per-area --accent is still injected by the non-Media templates (Media dropped it in Phase 3). */
 
 @font-face { font-family: "Geist"; src: url("fonts/GeistVF.woff2") format("woff2");
   font-weight: 100 900; font-style: normal; font-display: swap; }
@@ -68,6 +68,15 @@
   --gold-sm-lo: 0 0 5px 0 rgba(251, 191, 36, .45); --gold-sm-hi: 0 0 10px 2px rgba(251, 191, 36, .65);
   --gold-sm-still: 0 0 8px 1px rgba(251, 191, 36, .55); --gold-text: 0 0 12px rgba(251, 191, 36, .75);
   --live-0: 0 0 0 0 rgba(244, 63, 94, .65); --live-70: 0 0 0 7px rgba(244, 63, 94, 0); --live-100: 0 0 0 0 rgba(244, 63, 94, 0);
+  /* Media (restyle Phase 3): bar track, waiting text, poster badge/tag, icon buttons, confirm panel, detail hero, link chips */
+  --bar-track: rgba(255, 255, 255, .08); --amber-dim: rgba(251, 191, 36, .8);
+  --poster-badge-bg: rgba(9, 9, 11, .85); --teal-chip: rgba(20, 184, 166, .85);
+  --icon-btn-bg: rgba(9, 9, 11, .4); --sky-tint: rgba(14, 165, 233, .15); --confirm-bg: rgba(9, 9, 11, .9);
+  --detail-fade-0: rgba(9, 9, 11, .45); --detail-fade-1: rgba(9, 9, 11, .55); --detail-fade-2: rgba(9, 9, 11, .9);
+  --shadow-hero: 0 25px 50px -12px rgba(0, 0, 0, .7);
+  --imdb-bg: rgba(234, 179, 8, .1); --imdb-fg: rgba(234, 179, 8, .8);
+  --tmdb-bg: rgba(14, 165, 233, .1); --tmdb-fg: rgba(56, 189, 248, .8);
+  --lbxd-bg: rgba(34, 197, 94, .1); --lbxd-fg: rgba(74, 222, 128, .8);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,9 +120,9 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 }
 
 /* ---- MediaHub recipe classes (guide 4-6, Phase 1 of the restyle). Plain-CSS translations of the guide's
-   Tailwind recipes; Phases 2-4 rebuild templates on these. They sit BEFORE the older component rules, so
-   where an older rule shares a name (.chip, .poster-grid, .waitcount) the older rule still wins until its
-   templates move over; .badge/.panel/.empty/.label skip their older forms outright. Phone first (390 px). */
+   Tailwind recipes; Phases 2-4 rebuild templates on these. They sit BEFORE the older component rules; Phase 3
+   removed the older .chip and .poster-grid rules, so the recipes win; .badge/.panel/.empty/.label skip their
+   older forms outright. Phone first (390 px). */
 
 /* Buttons: .btn + one variant; .btn-sm for the small size. Icons inside are 16px. */
 .btn { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 6px;
@@ -140,7 +149,7 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
   white-space: nowrap; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; font-weight: 500;
   color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s, border-color .15s; }
 .chip:hover { border-color: var(--line-hover); color: var(--text-2); }
-.chip.on:not(.filters *) { background: var(--zinc-100); border-color: var(--zinc-100); color: var(--zinc-900); }
+.chip.on { background: var(--zinc-100); border-color: var(--zinc-100); color: var(--zinc-900); }
 .chip svg.ic { width: 14px; height: 14px; }
 
 /* Form controls */
@@ -365,10 +374,6 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .card .sub { font-size: 12px; color: var(--muted); }
 .card .foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 
-.chip {
-  font-size: 11px; font-weight: 600; color: var(--muted); background: var(--card);
-  border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px;
-}
 .badge { font-size: 11px; font-weight: 600; border-radius: 6px; padding: 2px 8px; }
 .badge.stale { color: var(--warn); background: var(--warn-soft); }
 .badge.off   { color: var(--muted); background: var(--soft); }
@@ -390,10 +395,6 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .uplist .uptime { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 96px; }
 .uplist .uptitle { font-size: 13px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; flex: 1; }
 .uplist .uprow .chip { flex: 0 0 auto; }
-/* Rows holding a 1-10 picker wrap: the picker (flex-basis 100%) drops under poster + title + when
-   instead of squeezing the title to one character per line (to-rate + diary rows, 2026-10-06). */
-.uplist .uprow.rateable { flex-wrap: wrap; }
-.uplist .uprow.rateable .uptitle { flex: 1 1 140px; }
 
 /* ---- Media: apps health + now playing / up next ---- */
 .mediacols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
@@ -411,83 +412,18 @@ h2 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent,
 .pbar { flex: 0 0 100%; height: 4px; border-radius: 2px; background: var(--soft); overflow: hidden; }
 .pbar > span { display: block; height: 100%; background: var(--accent, var(--muted)); }
 .nextleft { flex: 0 0 auto; text-align: right; }
-.uplist.wide { max-width: none; }
-.libline { margin-top: 10px; }
-.uplist .reqrow { color: var(--fg); text-decoration: none; }
-.uplist .reqrow:hover { background: var(--soft); }
-/* Rows holding a 1-10 picker (2026-10-06): a <form> cannot sit inside <a>, so poster + title are an
-   a.rowlink whose ::after covers the whole row; the picker sits above it and stays clickable. */
-.uplist .uprow.rateable { position: relative; }
-.uplist a.rowlink { display: contents; color: inherit; text-decoration: none; }
-.uplist a.rowlink::after { content: ""; position: absolute; inset: 0; }
-.uplist .uprow.rateable .ratebox { position: relative; z-index: 1; }
-.uplist .uprow:has(> a.rowlink:hover) { background: var(--soft); }
-.wlgrid .wlcell { position: relative; border-radius: 8px; }
-.wlgrid .wlcell form, .wlgrid .wlcell .older { position: relative; z-index: 1; }
-.wlgrid .wlcell:has(> a.rowlink:hover) { background: var(--soft); }
-a.pgitem { display: block; color: inherit; text-decoration: none; border-radius: 8px; }
-a.pgitem:hover { background: var(--soft); }
-
 /* ---- Media posters: /img proxy thumbnails, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;
           background: var(--soft); border: 1px solid var(--border); }
 .poster.sm { height: 56px; width: auto; border-radius: 5px; }
 .uprow .uptitle .dim { color: var(--muted); font-weight: 500; }
-.uprow .epnames { display: block; font-weight: 400; opacity: .8; }
 .uplist .uprow.hasposter { align-items: center; }
-.uplist .uprow.hasbackdrop { padding: 8px 10px; border-radius: 8px; border-bottom: 0; margin-bottom: 6px;
-  background-image: linear-gradient(var(--scrim), var(--scrim)), var(--bd);
-  background-size: cover; background-position: center; }
-.poster-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
-.poster-grid .poster { width: 100%; height: auto; }
-.pgitem { min-width: 0; }
-.pgtitle { font-size: 13px; font-weight: 600; margin-top: 6px; overflow-wrap: anywhere; }
-.pgsub { font-size: 11px; color: var(--muted); }
 
 /* ---- Ratings + diary: the score is always a number; gold at 10 is extra ---- */
 .chip.score { color: var(--fg); border-color: var(--muted); }
 .chip.score-10 { color: var(--gold); border-color: var(--gold); }
 .poster.gold-glow { border-color: var(--gold); box-shadow: 0 0 10px 1px var(--gold-glow); }
-.ratebox { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: 0 0 100%; margin: 0; }
-.ratebox .rlabel { font-size: 11px; color: var(--muted); margin-right: 4px; }
-.ratebox button { font: inherit; font-size: 12px; font-weight: 700; min-width: 28px; padding: 4px 0;
-  color: var(--fg); background: var(--card); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
-.ratebox button:hover { border-color: var(--accent, var(--muted)); }
-.ratebox button.undo { min-width: 0; padding: 4px 8px; color: var(--muted); }
-.logwatch { margin: 12px 0 4px; }
-.logwatch summary { cursor: pointer; list-style: none; }
-.logform { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-width: 480px; }
-.logform label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
-.logform input[type=search], .logform input[type=text], .logform input[type=date] {
-  font: inherit; font-size: 14px; color: var(--fg); background: var(--card);
-  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-.pickrow { cursor: pointer; }
-.filters { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
-.filters .chip { text-decoration: none; }
-.filters button.chip { font: inherit; background: none; cursor: pointer; }
-.filters .chip.on { color: var(--fg); border-color: var(--accent, var(--muted)); text-decoration: underline; }
-.older { display: inline-block; margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--accent, var(--muted)); }
 
-/* ---- Year rankings: positions are always written numbers ---- */
-.yeargrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-.yeartile { display: block; min-width: 0; text-decoration: none; color: inherit; }
-.yeartile .poster { width: 100%; height: auto; }
-.yearnum { font-size: 28px; font-weight: 700; margin-top: 6px; }
-.toplace { color: var(--warn); }
-.yearbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
-.yearbtns .launch { align-self: auto; }
-form.inl { display: inline-block; margin: 0; }
-.actbtn { font: inherit; font-size: 12px; font-weight: 700; padding: 4px 10px; cursor: pointer; color: var(--fg);
-  background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
-.actbtn:hover { border-color: var(--accent, var(--muted)); }
-.rankno { font-weight: 700; min-width: 2.2em; }
-.rankno.big { font-size: 26px; margin-top: 6px; }
-.podium { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 14px; align-items: end; margin-top: 10px; }
-.podiumitem { min-width: 0; }
-.podiumitem .poster { width: 100%; height: auto; }
-.podiumitem.p1 { order: 2; }
-.podiumitem.p2 { order: 1; }
-.podiumitem.p3 { order: 3; }
 /* Countdown stage stays dark in both themes (a cinema moment) */
 .countdown { position: fixed; inset: 0; z-index: 100; background: var(--stage); color: var(--stage-fg); display: flex;
   flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; overflow: auto; }
@@ -506,13 +442,6 @@ form.inl { display: inline-block; margin: 0; }
 .card .foot .open + .ago { margin-left: 8px; }
 a.cardlink:hover .card { border-color: color-mix(in srgb, var(--accent, var(--muted)) 45%, var(--border)); }
 
-.launch {
-  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
-  background: var(--card); color: var(--fg);
-  border: 1px solid var(--border); border-radius: 9px;
-  padding: 8px 14px; font-size: 13px; font-weight: 500; text-decoration: none;
-}
-.launch:hover { border-color: var(--accent, var(--muted)); }
 .notfound { max-width: 480px; }
 
 /* ---- Breakpoints: phone content tweaks (the shell's own rules sit with the shell above) ---- */
@@ -520,131 +449,17 @@ a.cardlink:hover .card { border-color: color-mix(in srgb, var(--accent, var(--mu
   .page { gap: 16px; }
   .card { padding: 16px; }
   .card .value { font-size: 22px; }
-  .poster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .yeargrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .podium { grid-template-columns: 1fr; }
-  .podiumitem.p1, .podiumitem.p2, .podiumitem.p3 { order: 0; }
-  .podiumitem .poster { max-width: 260px; }
   .cdpos { font-size: 48px; }
 }
 
-/* ---- Media shelves layout: hero + horizontal poster shelves ---- */
-.shelfhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.shelfhead:empty { display: none; }
-.glassbtn { display: inline-block; font-size: 13px; font-weight: 500; color: var(--fg); text-decoration: none;
-  background: var(--card); border: 1px solid var(--border); border-radius: 9px; padding: 7px 14px; }
-.glassbtn:hover { border-color: var(--accent, var(--muted)); }
-.hero { position: relative; display: flex; gap: 20px; align-items: flex-end; min-height: 220px; padding: 20px;
-  border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent, var(--muted)) 14%, var(--card)), var(--card) 70%); }
-.hero.hasbackdrop { background-image: linear-gradient(90deg, var(--scrim), var(--scrim-soft)), var(--bd);
-  background-size: cover; background-position: center; }
-.herocorner { position: absolute; top: 12px; right: 14px; display: flex; gap: 6px; flex-wrap: wrap; }
-.heroposter { height: 180px; width: auto; }
-.herotext { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; flex: 1; }
-.herokind { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.herotitle { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
-.herosub { font-size: 13px; color: var(--muted); }
-.herotext .pbar { flex: none; width: 100%; max-width: 360px; }
-.shelf { margin: 0; }
-.shelftop { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.shelftop h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .seeall { font-size: 13px; color: var(--muted); text-decoration: none; }
 .seeall:hover { color: var(--fg); }
-.shelf-row { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 6px;
-  scrollbar-width: none; }
-.shelf-row::-webkit-scrollbar { display: none; }
-.shelf-item { flex: 0 0 144px; width: 144px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
-  scroll-snap-align: start; color: var(--fg); text-decoration: none; }
-.shelf-item .poster { width: 100%; height: auto; }
-.shelf-item:hover .poster { border-color: var(--accent, var(--muted)); }
-.shelf-item .pgtitle { font-size: 12px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical; overflow: hidden; }
-.shelf-item .chip { align-self: flex-start; }
-.appstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px;
-  padding-top: 14px; border-top: 1px solid var(--border); }
-.appsum { font-size: 12px; color: var(--muted); margin-right: 4px; }
-.appchip { text-decoration: none; color: var(--fg); display: inline-flex; align-items: center; gap: 6px; }
-@media (max-width: 640px) {
-  .hero { flex-direction: column; align-items: flex-start; padding: 16px; }
-  .heroposter { height: 140px; }
-  .herotitle { font-size: 22px; }
-  .shelf-item { flex-basis: 116px; width: 116px; }
-}
-
-/* ---- Discover and Search: the word is always present; the colour only echoes it ---- */
-.shelfbtns { display: inline-flex; gap: 8px; flex-wrap: wrap; }
-.discover-search { max-width: 480px; margin: 10px 0 14px; }
-.discover-search input[type=search] { font: inherit; font-size: 14px; color: var(--fg); background: var(--card);
-  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-.chip.st-available { color: var(--good); border-color: var(--good); }
-.chip.st-partly-available, .chip.st-processing { color: var(--warn); border-color: var(--warn); }
-.chip.st-requested { color: var(--fg); border-color: var(--muted); }
-.poster-grid .shelf-item { width: auto; flex: none; text-decoration: none; color: inherit; }
-.titlepage { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
-.titlepage p { margin: 0; line-height: 1.5; }
-/* File-quality strip on the title page: icon + word badges, wraps on a phone. */
-.filestrip { display: flex; flex-wrap: wrap; gap: 6px; }
-.fbadge {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
-  color: var(--fg); background: var(--card); border: 1px solid var(--border);
-  border-radius: 6px; padding: 2px 8px;
-}
-.fbadge svg.ic { width: 14px; height: 14px; color: var(--muted); }
-/* Dolby / DTS: black pill, white bold label in BOTH themes; the double-D glyph is extra. */
-.fbadge.brandbadge { color: var(--badge-fg); background: var(--badge-ink); border-color: var(--badge-ink); font-weight: 700; }
-.fbadge svg.dd { width: 18px; height: 12px; fill: currentColor; flex: none; }
-.seasons h3 { margin: 6px 0; font-size: 15px; }
-.seasonrow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--border); }
-.seasonrow .uptitle { flex: 1 1 140px; }
-/* Season episodes (2026-10-06): <details> per season, episodes loaded on first open. */
-.seasonbox > summary { list-style: none; cursor: pointer; }
-.seasonbox > summary::-webkit-details-marker { display: none; }
-.seasonbox > summary .uptitle::before { content: "+ "; color: var(--muted); }
-.seasonbox[open] > summary .uptitle::before { content: "- "; }
-.episodes { padding: 0 0 8px 14px; }
-.eprow { padding: 6px 0; border-top: 1px solid var(--border); }
-.eprow .ephead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; }
-.eprow .epname { font-weight: 600; flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
-.eprow .epover { font-size: 12px; color: var(--muted); margin: 2px 0 0; display: -webkit-box;
-  -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.requestblock { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
-.requestblock form { display: flex; flex-direction: column; gap: 8px; }
-.seasonpick { display: flex; flex-direction: column; gap: 4px; }
-.seasonpick label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-.reqbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.reqdone { font-size: 15px; font-weight: 600; }
-.requestblock button.launch { font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
-@media (max-width: 640px) { .hero .heroposter { height: 120px; } }
-
-/* ---- "Waiting on you" chips: warn tone, word-led, never dismissible ---- */
-.waitchips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
-.waitchip {
-  font-size: 11px; font-weight: 600; color: var(--warn); background: var(--warn-soft);
-  border-radius: 6px; padding: 2px 8px;
-}
 
 
 /* ---- Visually hidden words for counts ---- */
 .vh { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-/* ---- Movies + TV hub (F3b) ---- */
-.libctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 4px; }
-.libctl input[type=search], .libctl select { font: inherit; font-size: 14px; color: var(--fg);
-  background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
-.libctl input[type=search] { flex: 1 1 180px; min-width: 0; }
-.libctl label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
-.libraryrow .uptitle a, .tcard a { color: inherit; text-decoration: none; }
-.libraryrow .uptitle a:hover, .tcard .pgtitle a:hover { text-decoration: underline; }
-.libmeta { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
-.libmeta .faint { color: var(--faint); }
-.libcomm { flex: 0 0 auto; font-size: 13px; font-variant-numeric: tabular-nums; }
-.libcomm small { font-size: 10px; color: var(--muted); }
-.tonight { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 8px 0 14px; }
-.tonight .poster { width: 100%; height: auto; }
-.tpile { text-transform: uppercase; letter-spacing: .5px; }
-@media (max-width: 640px) { .tonight { grid-template-columns: 1fr; } .tonight .tcard { max-width: 260px; } }
 
 /* ---- Links: never the browser's purple/blue; inherit, accent for bare links ---- */
 a { color: inherit; }
@@ -828,94 +643,231 @@ table { width: 100%; border-collapse: collapse; }
   .wxapp > .wxradar { grid-column: 2; grid-row: 1 / span 3; }
 }
 
-/* ---- Plays / History (F7) ---- */
-.playhist .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
-.hourbars { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; }
-.hourbar { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--muted); }
-.hourbar .hbar { display: flex; align-items: flex-end; width: 100%; height: 56px; background: var(--soft); border-radius: 2px; overflow: hidden; }
-.hourbar .hbar > span { display: block; width: 100%; background: var(--accent, var(--muted)); }
-@media (max-width: 640px) { .hourbar .hlab { visibility: hidden; } .hourbar:nth-child(3n+1) .hlab { visibility: visible; } }
+/* ---- Media app (MediaHub restyle, Phase 3 of 4, 2026-10-06). Every Media page is built from the recipes above;
+   the rules below only EXTEND them (named modifiers, documented here) for what the recipes do not cover. Media
+   drops the per-area --accent (guide 1.2: colour is kept for meaning). Tokens only. ---- */
 
-/* ---- Watchlist (F6) ---- */
-.shelf-cell { flex: 0 0 144px; width: 144px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
-  scroll-snap-align: start; position: relative; }
-.shelf-cell .shelf-item { flex: none; width: 100%; }
-.poster-grid .shelf-cell { width: auto; flex: none; }
-@media (max-width: 640px) { .shelf-cell { flex-basis: 116px; width: 116px; } .poster-grid .shelf-cell { width: auto; } }
-.wlbtn form { display: inline; margin: 0; }
-.wlbtn.compact { align-self: flex-start; }
-.wlplus, .wlx { font: inherit; font-size: 14px; line-height: 1; color: var(--muted); background: none;
-  border: 1px solid var(--border); border-radius: 999px; min-width: 26px; height: 26px; padding: 0 8px; cursor: pointer; }
-.wlplus:hover, .wlx:hover { color: var(--fg); border-color: var(--muted); }
-.wlon { color: var(--fg); }
-.wlgrid .wlcell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.wlgrid .poster { width: 100%; height: auto; }
-.wlgrid .wltitle { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
-.wlgrid .wltitle form { margin: 0; flex: 0 0 auto; }
-.wlgrid .pgtitle { font-size: 12px; font-weight: 600; color: var(--fg); text-decoration: none; }
-.wlgrid .chip { align-self: flex-start; }
+/* Sections: a .seclabel ("CONTINUE WATCHING · 3") over a group; .sechead puts an "All" link at its right. */
+.sec { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sechead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+.sechead > a { flex-shrink: 0; font-size: 13px; color: var(--text-4); text-decoration: none; }
+.sechead > a:hover { color: var(--text-2); }
+/* One line of facts outside a row (the row-meta look): "Shared · updated 3 min ago". */
+.metaline { font-size: 12px; color: var(--text-5); overflow-wrap: anywhere; }
+.metaline .sep { color: var(--text-6); }
 
-/* ---- Item page (F9) ---- */
-.playrow2 { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
-.glassbtn.playbtn { font-size: 16px; font-weight: 700; padding: 10px 22px; border-color: var(--accent, var(--muted)); }
-.genrechips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-.castline { margin-top: 8px; }
-.epmap { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 14px; }
-.epmap .ep { box-sizing: border-box; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 600; border: 1px solid var(--muted); border-radius: 4px; color: var(--fg); text-decoration: none; }
-.epmap .ep.watched { background: var(--accent, var(--muted)); color: var(--bg); border-color: var(--accent, var(--muted)); }
-.epmap .ep.progress { border: 2px solid var(--accent, var(--fg)); border-style: dashed; }
-.epmap .ep.unaired { border-style: dotted; opacity: .55; }
-.epmap .ep:hover { border-color: var(--fg); }
+/* Row extensions. .row-body holds title + meta and takes the width (min-width 0 so a long title truncates);
+   .row-side is a short word or control group at the right; .row-rank the big dim position number (guide 6,
+   ranking lists). .row.has-form: a row holding a form (the 1-10 picker, Place, x) — the poster + title sit in
+   an a.rowlink whose ::after covers the row, the forms sit above it, and the picker drops to its own line. */
+.row-body { flex: 1 1 auto; min-width: 0; }
+.row-meta { overflow-wrap: anywhere; }
+.row-side { flex-shrink: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-5);
+  text-align: right; }
+.row-rank { min-width: 28px; flex-shrink: 0; text-align: right; font-size: 18px; font-weight: 700; color: var(--text-6);
+  font-variant-numeric: tabular-nums; }
+.row.has-form { position: relative; flex-wrap: wrap; }
+.row.has-form > a.rowlink { display: contents; color: inherit; text-decoration: none; }
+.row.has-form > a.rowlink::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
+.row.has-form:has(> a.rowlink:hover) { background: var(--soft); }
+.row.has-form form, .row.has-form .row-side, .row.has-form .row-score { position: relative; z-index: 1; }
+.row .bar { margin-top: 6px; }
+.poster.row-poster { width: 44px; height: auto; border: 0; border-radius: 4px; }
+label.row { cursor: pointer; }
+label.row input[type=radio] { flex-shrink: 0; }
+/* A hairline progress bar (guide 6 summary card): track white/8, indigo-400 fill. */
+.bar { display: block; height: 4px; border-radius: 999px; background: var(--bar-track); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: inherit; background: var(--primary-hover); }
 
-/* ---- Film page (F10, Cinema) ---- */
-.filmpage { display: flex; flex-direction: column; gap: 20px; }
-.statusline { margin: 0; font-size: 15px; font-weight: 600; }
-.filmhero { min-height: clamp(300px, 42vw, 480px); align-items: flex-end; }
-.filmhero .herotext { width: 100%; }
-.numbers { display: flex; flex-wrap: wrap; gap: 8px; }
-.num { display: flex; flex-direction: column; gap: 2px; padding: 6px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
-.numlabel { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.numval { font-size: 15px; font-weight: 600; }
-.btnrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 4px; }
-.btnrow .requestblock { margin-top: 0; }
-.filmbody { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; }
-.filmleft, .filmright { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-.filmposter { width: 100%; max-width: 260px; height: auto; }
-.filmright h3 { margin: 0 0 8px; font-size: 15px; }
-.overview { margin: 0; line-height: 1.55; max-width: 70ch; }
-.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
-.facts dt { color: var(--muted); }
-.facts dd { margin: 0; }
-.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--fg);
-  background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
-.pill svg.ic { width: 14px; height: 14px; color: var(--muted); }
+/* Status words (guide 6: plain faded text, colour echoes the word): on disk / available emerald, waiting amber. */
+.st-available, .st-on-disk, .st-good { color: var(--good); }
+.st-requested, .st-processing, .st-partly-available { color: var(--amber-dim); }
+.st-warn { color: var(--amber); }
+.badge-wait { border-color: var(--warn-line); color: var(--amber); }
+
+/* Filter chips: a 1-10 score chip keeps its grade colour; a chip holding a checkbox hides the box. */
+.chip[class*="score-"] { font-variant-numeric: tabular-nums; min-width: 32px; justify-content: center; padding: 0 8px; }
+.chip > input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none; cursor: pointer; }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+
+/* Toolbar above a list (guide 4): search with its icon at left, chips, sort, wrapping on a phone. */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.search { position: relative; flex: 1 1 12rem; min-width: 0; max-width: 28rem; }
+.search > svg.ic { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px;
+  color: var(--text-5); pointer-events: none; }
+.search > .input { padding-left: 36px; }
+.toolbar .chip { height: 36px; }
+
+/* Posters: carousels (deliberate sideways shelves, snap-x) and cards with an action beside the title.
+   .card-pic holds the picture plus a score badge (top right) or a teal coming-soon tag (top left). */
+.carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  margin: 0 -16px; padding: 0 16px 4px; min-width: 0; }
+.carousel::-webkit-scrollbar { display: none; }
+.carousel > * { flex: 0 0 116px; width: 116px; scroll-snap-align: start; }
+@media (min-width: 640px) { .carousel { margin: 0; padding: 0 0 4px; } .carousel > * { flex-basis: 144px; width: 144px; } }
+.card-pic { position: relative; display: block; }
+.card-pic > img, .card-cell .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover;
+  border: 0; border-radius: 8px; box-shadow: var(--shadow-poster); transition: transform .3s; }
+.card-cell:hover .card-pic > img { transform: translateY(-4px); }
+.poster-score { position: absolute; right: 6px; top: 6px; border-radius: 6px; background: var(--poster-badge-bg);
+  padding: 2px 6px; font-size: 14px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.poster-tag { position: absolute; left: 6px; top: 6px; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; border-radius: 6px; background: var(--teal-chip); color: var(--zinc-950); padding: 2px 6px;
+  font-size: 10px; font-weight: 600; }
+.card-poster .row-title, .card-cell .row-title { display: block; }
+.card-poster .row-meta, .card-cell .row-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* .card-cell: a poster card whose poster + title are an a.rowlink stretched over the card, with an action (x, +)
+   beside the title — never over the picture (guide 6). */
+.card-cell { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  column-gap: 4px; min-width: 0; }
+.card-cell > a.rowlink { display: contents; color: inherit; text-decoration: none; }
+.card-cell > a.rowlink::after { content: ""; position: absolute; inset: 0; }
+.card-cell .card-pic { grid-column: 1 / -1; }
+.card-cell .row-title { grid-column: 1; margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
+.card-cell > form, .card-cell > .wlbtn { grid-column: 2; grid-row: 2; position: relative; z-index: 1; margin-top: 2px; }
+.card-cell > .row-meta { grid-column: 1 / -1; font-size: 11px; }
+.card-cell > .row-meta a { position: relative; z-index: 1; }
+.btn-mini { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 4px;
+  border-radius: 6px; color: var(--text-6); background: none; border: 0; cursor: pointer; transition: color .15s; }
+.btn-mini:hover { color: var(--text-3); }
+.btn-mini svg.ic { width: 14px; height: 14px; }
+.poster-grid.big { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 640px) { .poster-grid.big { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .poster-grid.big { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* Buttons: .btn-white is the detail hero's one primary (guide 6: bg-zinc-100 text-zinc-900); .btn-icon the 36 px
+   square icon buttons beside it (toggled watchlist tints sky). */
+.btn-white { background: var(--zinc-100); color: var(--zinc-900); }
+.btn-white:hover { background: var(--text-2); }
+.btn-icon { width: 36px; padding: 0; border-color: var(--line); background: var(--icon-btn-bg); color: var(--text-2);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.btn-icon:hover { border-color: var(--line-hover); color: var(--text-1); }
+.btn-icon.is-on { background: var(--sky-tint); color: var(--sky); }
+.btn-icon.is-on svg.ic { fill: currentColor; }
+
+/* Inline confirmation (guide 6): a panel under the button, never a browser dialog. */
+.confirm { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--confirm-bg); padding: 12px; font-size: 14px; color: var(--text-2);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.confirm.is-danger { border-color: var(--danger-line); }
+.confirm-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+details.confirm-wrap > summary { list-style: none; }
+details.confirm-wrap > summary::-webkit-details-marker { display: none; }
+
+/* Detail hero (guide 6): the backdrop across the window under a darkening gradient, the poster leads — centred
+   above a centred title on a phone (62 %, max 260 px), beside it from 640 px (280 px) and 1024 px (360 px). */
+.pagehead.hero-detail { min-height: 0; }
+.hero-detail-bd { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center 20%;
+  background-image: linear-gradient(to bottom, var(--detail-fade-0), var(--detail-fade-1) 35%, var(--detail-fade-2) 78%, var(--bg)), var(--bd); }
+.hero-detail-in { display: flex; flex-direction: column; align-items: center; gap: 20px; min-width: 0; text-align: center; }
+.hero-detail-poster { width: 62%; max-width: 260px; height: auto; aspect-ratio: 2 / 3; object-fit: cover; flex-shrink: 0;
+  border: 0; border-radius: 12px; box-shadow: var(--shadow-hero), 0 0 0 1px var(--line); }
+.hero-detail-text { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.hero-detail .hero-detail-title { font-size: 22px; font-weight: 700; letter-spacing: -.025em; line-height: 1.15;
+  color: var(--text-1); text-shadow: var(--title-shadow); text-wrap: balance; overflow-wrap: anywhere; }
+.tagline { font-size: 14px; font-style: italic; color: var(--text-3); }
+.facts-line { font-size: 13px; color: var(--text-3); overflow-wrap: anywhere; }
+.facts-line .sep, .credits .sep { color: var(--text-6); }
+.credits { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--text-4); }
+.credits a:not([class]) { color: var(--text-2); text-decoration: none; }
+.credits a:not([class]):hover { text-decoration: underline; }
+.statusline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--text-4); }
+.statusline.st-good { color: var(--good); }
+.statusline svg.ic { width: 16px; height: 16px; }
+.hero-detail-btns { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.hero-detail-btns > .requestblock, .hero-detail-btns > .wlbtn { display: contents; }
+/* External-link chips (guide 6): IMDb yellow, TMDB sky, Letterboxd green, at /10 behind and /80 text. */
+.linkchip { display: inline-flex; align-items: center; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;
+  text-decoration: none; }
+.linkchip-imdb { background: var(--imdb-bg); color: var(--imdb-fg); }
+.linkchip-tmdb { background: var(--tmdb-bg); color: var(--tmdb-fg); }
+.linkchip-lbxd { background: var(--lbxd-bg); color: var(--lbxd-fg); }
+@media (min-width: 640px) {
+  .hero-detail-in { flex-direction: row; align-items: flex-end; text-align: left; gap: 28px; }
+  .hero-detail-poster { width: 280px; max-width: none; }
+  .hero-detail-text { align-items: flex-start; }
+  .hero-detail .hero-detail-title { font-size: 30px; }
+  .credits, .hero-detail-btns { justify-content: flex-start; }
+}
+@media (min-width: 1024px) { .hero-detail-poster { width: 360px; } }
+
+/* Film page body: overview, the spec sheet, people, seasons. The spec sheet (guide 6) is one .panel in parts
+   divided by hairlines: format logos (the F10 pills, white, 28 px) then short label-value lines. */
+.overview { max-width: 70ch; font-size: 14px; line-height: 1.6; color: var(--text-3); }
+.specsheet { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.specsheet > * + * { border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.specsheet dl { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
+.specsheet dt { color: var(--text-5); }
+.specsheet dd { color: var(--text-3); overflow-wrap: anywhere; }
+.filestrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; height: 28px; font-size: 11px; font-weight: 600; color: var(--text-1);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
+.pill svg.ic { width: 14px; height: 14px; color: var(--text-4); }
 .pill.dolby, .pill.dts { color: var(--badge-fg); background: var(--badge-ink); border-color: var(--badge-ink); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .pill.hdr { color: var(--badge-fg); background: color-mix(in srgb, var(--badge-ink), var(--badge-fg) 16%); border-color: transparent; font-weight: 700; }
 .pill svg.dd { width: 18px; height: 12px; fill: currentColor; flex: none; }
-.pillimg { height: 22px; width: auto; }
+.pillimg { height: 28px; width: auto; }
 .castrow { display: flex; flex-wrap: wrap; gap: 14px; }
-.castcard { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 84px; text-align: center; font-size: 12px; }
-.castpic { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--card); border: 1px solid var(--border); }
-.castpic.initials { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--muted); }
-.castname { font-weight: 600; }
-.makers, .provrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
-.chip.provider, .makers .chip { text-decoration: none; color: var(--fg); }
-.epheader { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-@media (max-width: 760px) { .filmbody { grid-template-columns: minmax(0, 1fr); } .filmposter { max-width: 160px; } .num { min-width: 72px; } }
-/* Library rows: the whole row is the link (anchor keeps the flex row layout) */
-.uplist a.librow { display: flex; color: inherit; text-decoration: none; }
-/* ---- Person page (F11) ---- */
-a.castcard { color: inherit; text-decoration: none; }
+.castcard { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 84px; min-width: 0; text-align: center;
+  font-size: 12px; color: inherit; text-decoration: none; }
+.castcard .row-meta { overflow-wrap: anywhere; }
+.castpic { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--surface); border: 1px solid var(--line); }
+.castpic.initials { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-4); }
+.castname { font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
 a.castcard:hover .castname { text-decoration: underline; }
-.personhead { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 8px; }
-.personpic { width: 160px; height: 160px; flex: none; border-radius: 50%; object-fit: cover; background: var(--card); border: 1px solid var(--border); }
-.personpic.initials { display: inline-flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 700; color: var(--muted); }
-.personinfo { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.biomore summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-.credit-role { font-size: 12px; overflow-wrap: anywhere; }
-.personpage .poster-grid .shelf-item { display: flex; flex-direction: column; gap: 2px; }
-@media (max-width: 640px) { .personhead { flex-direction: column; } .personpic { width: 112px; height: 112px; } }
+.seasonbox > summary { list-style: none; cursor: pointer; }
+.seasonbox > summary::-webkit-details-marker { display: none; }
+.seasonbox > summary .row-title::before { content: "+ "; color: var(--text-5); }
+.seasonbox[open] > summary .row-title::before { content: "- "; }
+.episodes { padding: 0 0 8px 8px; }
+.ep-over { margin-top: 2px; font-size: 12px; color: var(--text-5); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }
+.epmap { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px; }
+.epmap .ep { box-sizing: border-box; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; border: 1px solid var(--line-hover); border-radius: 4px; color: var(--text-3); text-decoration: none; }
+.epmap .ep.watched { background: var(--good-soft); color: var(--good); border-color: var(--done-line); }
+.epmap .ep.progress { border: 2px dashed var(--watch-bar); color: var(--orange); }
+.epmap .ep.unaired { border-style: dotted; opacity: .55; }
+.epmap .ep:hover { border-color: var(--text-1); }
+.requestblock { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+.seasonpick { display: flex; flex-direction: column; gap: 4px; }
+.seasonpick label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+
+/* Person page: round portrait beside the name (stacked on a phone). */
+.personhead { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.personpic { width: 112px; height: 112px; flex: none; border-radius: 50%; object-fit: cover; background: var(--surface); border: 1px solid var(--line); }
+.personpic.initials { display: inline-flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700; color: var(--text-4); }
+.biomore summary { cursor: pointer; color: var(--text-4); font-size: 13px; }
+@media (min-width: 640px) { .personhead { flex-direction: row; align-items: flex-start; } .personpic { width: 160px; height: 160px; } }
+
+/* 1-10 picker and the rated line: score chips coloured by grade. */
+.ratepick, .rated { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.row .ratepick, .row .rated { flex: 0 0 100%; padding-left: 58px; }
+.ratepick .microlabel, .rated .microlabel { margin-right: 4px; }
+.rated .stat-number { margin-right: 6px; }
+
+/* Log a watch (diary): a form column. */
+.logform { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; max-width: 32rem; }
+.logwatch > summary { list-style: none; }
+.logwatch > summary::-webkit-details-marker { display: none; }
+
+/* Year rankings: the top three as big pictures (guide 6), #1 first; plays by hour as bars with their count. */
+.podium { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.podium .card-poster .stat-number { margin-top: 4px; }
+@media (min-width: 640px) { .podium { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); align-items: end; } }
+.hourbars { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; }
+.hourbar { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--text-5);
+  font-variant-numeric: tabular-nums; min-width: 0; }
+.hourbar .hbar { display: flex; align-items: flex-end; width: 100%; height: 56px; background: var(--bar-track); border-radius: 2px; overflow: hidden; }
+.hourbar .hbar > span { display: block; width: 100%; background: var(--primary-hover); }
+@media (max-width: 640px) { .hourbar .hlab { visibility: hidden; } .hourbar:nth-child(3n+1) .hlab { visibility: visible; } }
+.sechead > .seclabel { display: block; min-width: 0; }
+.waitchips { display: inline-flex; flex-wrap: wrap; gap: 6px; vertical-align: middle; }
+.filmbody { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.hero-detail-btns .confirm { flex: 1 0 100%; text-align: left; }
+.logform label { display: block; }
+.personhead .hero-detail-text { align-items: flex-start; text-align: left; }
 
 /* Server → Updates actions (WP-U1, 2026-10-06): Update now / Ignore per row, Ignored (N) fold. */
 .uplist .upact { display: inline-flex; gap: 8px; align-items: center; flex: 0 0 auto; }

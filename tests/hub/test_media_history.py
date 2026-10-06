@@ -36,7 +36,8 @@ def app_factory(tmp_path, monkeypatch):
 
 
 def main_of(html: str) -> str:
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def test_history_page_renders_every_section_in_main(app_factory):
@@ -65,7 +66,7 @@ def test_page_carries_the_you_chip_from_the_history_tile(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
         body = main_of(client.get("/media/history").text)
-    assert '<span class="chip">You</span>' in body  # not the shared owner of the now-playing tile
+    assert '<p class="metaline">You' in body  # not the shared owner of the now-playing tile
 
 
 def test_quiet_words_when_history_is_empty_or_absent(app_factory):
@@ -135,7 +136,7 @@ def test_history_posters_in_main_with_the_most_played_grids(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
         body = main_of(client.get("/media/history").text)
-    assert '<img class="poster sm' in body and 'src="/img/jf:series-fixture-1?h=120&amp;t=Quiet%20Coast' in body
+    assert '<img class="poster row-poster' in body and 'src="/img/jf:series-fixture-1?h=120&amp;t=Quiet%20Coast' in body
     shows = body.split(">Most played shows</div>", 1)[1].split(">Most played movies</div>", 1)[0]
     assert shows.count('class="poster ') == 4 and 'class="poster-grid"' in shows
     assert 'src="/img/jf:series-fixture-1?h=240' in shows

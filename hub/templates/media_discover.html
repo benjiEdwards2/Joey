@@ -2,35 +2,31 @@
 {% block title %}Discover — Joey{% endblock %}
 {% block content %}
 {% from "_discover_item.html" import item %}
-{# Discover & Search (2026-10-05): search box + poster shelves from Jellyseerr. Status is a WORD. #}
-<div class="shelfhead" style="--accent: {{ src.accent }}">
-  <h2><span class="dot"></span>Discover</h2>
-</div>
+{% from "_icons.html" import icon %}
+{# Discover & Search (2026-10-05; restyle Phase 3): the guide's search box, then poster carousels from Jellyseerr.
+   Status is a WORD. #}
 {% if not connected %}
-<section class="card wide" style="--accent: {{ src.accent }}">
-  <div class="head">Discover</div>
-  <div class="value dim">Not connected</div>
-  {% if src.tile.setup_note %}<div class="sub">{{ src.tile.setup_note }}</div>{% endif %}
-</section>
+<p class="empty">Not connected.</p>
+{% if src.tile.setup_note %}<p class="metaline">{{ src.tile.setup_note }}</p>{% endif %}
 {% else %}
-<form class="logform discover-search" method="get" action="/media/discover">
-  <input type="search" name="q" value="{{ q }}" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV"
-         hx-get="/media/discover/search" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-results">
-  <noscript><button class="launch" type="submit">Search</button></noscript>
+<form class="toolbar" method="get" action="/media/discover">
+  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV"
+         hx-get="/media/discover/search" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-results"></div>
+  <noscript><button class="btn btn-secondary" type="submit">Search</button></noscript>
 </form>
-<div id="discover-results" style="--accent: {{ src.accent }}">
+<div id="discover-results">
   {% if q %}{% include "_discover_results.html" %}{% endif %}
 </div>
 {% if not q %}
 {% for s in shelves %}
-<section class="shelf" style="--accent: {{ src.accent }}">
-  <div class="shelftop"><h3>{{ s.title }}</h3></div>
+<section class="sec">
+  <div class="seclabel">{{ s.title }}</div>
   {% if s.rows is none %}
-  <div class="value dim">Discover unavailable</div>
+  <p class="empty">Discover unavailable.</p>
   {% elif s.rows %}
-  <div class="shelf-row">{% for r in s.rows %}{{ item(r, wl_keys) }}{% endfor %}</div>
+  <div class="carousel">{% for r in s.rows %}{{ item(r, wl_keys) }}{% endfor %}</div>
   {% else %}
-  <div class="value dim">Nothing to show</div>
+  <p class="empty">Nothing to show.</p>
   {% endif %}
 </section>
 {% endfor %}

@@ -34,12 +34,12 @@ document.addEventListener('htmx:beforeSwap', function (e) {
    sections the fifth becomes "More" (a <details> sheet with the rest). #}
 {% set ns = namespace(s=[]) %}
 {% set ns.s = [{"href": "/", "name": "Hub", "icon": "hub", "on": path == "/"}] %}
-{% for a in areas if a.rail_section == "home" %}
+{% for a in areas if a.rail_section == "home" and not a.hidden %}
 {% set ns.s = ns.s + [{"href": "/a/" ~ a.id, "name": a.name, "icon": a.icon,
                        "on": active_id == a.id or (a.layout == "shelves" and path.startswith("/media/"))}] %}
 {% endfor %}
 {% set ns.s = ns.s + [{"href": "/weather", "name": "Weather", "icon": "wx-cloud", "on": path == "/weather"}] %}
-{% for a in areas if a.rail_section != "home" %}
+{% for a in areas if a.rail_section != "home" and not a.hidden %}
 {% set ns.s = ns.s + [{"href": "/a/" ~ a.id, "name": a.name, "icon": a.icon,
                        "on": active_id == a.id or (a.layout == "shelves" and path.startswith("/media/"))}] %}
 {% endfor %}

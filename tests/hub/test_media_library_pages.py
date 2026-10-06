@@ -62,7 +62,7 @@ def body(client, path):
 def row_titles(main_html):
     """Titles of the library rows only (after the controls form)."""
     rows = main_html.split("</form>", 1)[1]
-    return re.findall(r'class="uptitle">([^<(\n]+?)\s*(?:\(|\n|<)', rows)
+    return re.findall(r'class="row-title">([^<(\n]+?)\s*(?:\(|\n|<)', rows)
 
 
 def test_movies_page_in_frame_with_head_groups_and_words(env):
@@ -74,7 +74,7 @@ def test_movies_page_in_frame_with_head_groups_and_words(env):
     assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")
     assert "1 h 52 m" in b and "Watched 3 days ago" in b and "Not watched" in b and "45 m" in b
     assert "7.8" in b and "TMDB" in b and "Drama, Crime" in b
-    assert 'class="poster sm' in b
+    assert 'class="poster row-poster' in b
 
 
 def test_row_links_item_page_over_title_page(env):
@@ -99,7 +99,7 @@ def test_default_sort_is_score_then_year_then_title_and_other_sorts(env):
         assert order("sort=added") == ["Bravo Film", "Charlie Film", "Alpha Film", "Delta Film"]
         assert order("sort=rating") == ["Delta Film", "Alpha Film", "Bravo Film", "Charlie Film"]
         b = body(c, "/media/movies")[1]
-        assert 'class="chip score' in b and "Your rating: 9 out of 10" in b
+        assert 'class="row-score score-9' in b and "Your rating: 9 out of 10" in b
 
 
 def test_search_and_group_off(env):
@@ -147,8 +147,8 @@ def test_her_view_uses_her_list_or_hides_marks(env):
         media_db.set_rating("tmdb:11", 9, "movie", "Alpha Film", year=2020)
         _, b = body(c, "/media/movies?owner_view=her")
         _, tonight = body(c, "/media/movies/tonight?owner_view=her")
-    assert "4 films<" in b and "watched" not in b.split("libline")[1].split("</div>")[0]
-    assert "Not watched" not in b and 'class="chip score' not in b and "Grouped" not in b
+    assert "4 films<" in b and "watched" not in b.split('<p class="metaline">')[1].split("</p>")[0]
+    assert "Not watched" not in b and 'title="Your rating' not in b and "Grouped" not in b
     assert "nothing to deal" in tonight
 
 
@@ -237,8 +237,8 @@ def test_tonight_routes_render_cards_and_deal_again(env):
         tv_html, tv = body(c, "/media/tv/tonight")
     assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["Tonight"]
     assert "Three for tonight" in b and 'href="/media/movies/tonight">Deal again' in b
-    assert b.count('class="pgitem tcard"') == 2 and "Nothing else to deal" in b   # 2 unplayed films
-    assert current(tv_html, "sectabs") == ["TV Shows"] and tv.count('class="pgitem tcard"') == 2
+    assert b.count('class="card-poster tcard"') == 2 and "Nothing else to deal" in b   # 2 unplayed films
+    assert current(tv_html, "sectabs") == ["TV Shows"] and tv.count('class="card-poster tcard"') == 2
 
 
 # ---- By year kind filter ----
@@ -305,10 +305,9 @@ def test_whole_row_is_one_anchor_wrapping_the_title(env):
         _, m = body(c, "/media/movies?group=0")
         _, t = body(c, "/media/tv?group=0")
     for b, jf, title in ((m, "jtmdb-11", "Alpha Film"), (t, "jtmdb-21", "Echo Show")):
-        anchors = re.findall(r'<a class="uprow[^"]*librow[^"]*" href="/media/item/%s">(.*?)</a>' % jf, b, re.S)
+        anchors = re.findall(r'<a class="row" href="/media/item/%s">(.*?)</a>' % jf, b, re.S)
         assert len(anchors) == 1 and title in anchors[0] and "<a" not in anchors[0]
-        assert "reqrow" in b
-    assert 'class="chip score' not in m  # no rating set: chip absent, row still a link
+    assert 'title="Your rating' not in m and 'row-score score-none' in m  # no rating: "—", row still a link
 
 
 ARRL = {"summary": "x", "arrived": [
@@ -321,7 +320,7 @@ ARRL = {"summary": "x", "arrived": [
 
 
 def strip(b):
-    return b.split('<div class="shelf-row">', 1)[1].split("</form>", 1)[0] if "New this week" in b else ""
+    return b.split('<div class="carousel">', 1)[1].split("</form>", 1)[0] if "New this week" in b else ""
 
 
 def test_new_this_week_items_link_item_title_or_nothing(env):
@@ -330,15 +329,14 @@ def test_new_this_week_items_link_item_title_or_nothing(env):
         _, m = body(c, "/media/movies")
         _, t = body(c, "/media/tv")
     s = strip(m)
-    assert re.search(r'<a class="shelf-item" href="/media/item/jtmdb-11">.*?In Library', s, re.S)
-    assert re.search(r'<a class="shelf-item" href="/media/title/movie/77">.*?Title Only', s, re.S)
-    assert re.search(r'<div class="shelf-item">\s*<[^>]*>\s*(?:<[^>]*>\s*)*<span class="pgtitle">No Link', s) or \
-        ('<div class="shelf-item">' in s and "No Link" in s)
-    assert "href" not in s.split("No Link")[1].split("</div>")[0] and "<a" not in s.split('<div class="shelf-item">', 1)[1].split("</div>")[0]
+    assert re.search(r'<a class="card-poster" href="/media/item/jtmdb-11">.*?In Library', s, re.S)
+    assert re.search(r'<a class="card-poster" href="/media/title/movie/77">.*?Title Only', s, re.S)
+    assert '<div class="card-poster">' in s and "No Link" in s
+    assert "href" not in s.split("No Link")[1].split("</div>")[0] and "<a" not in s.split('<div class="card-poster">', 1)[1].split("</div>")[0]
     s = strip(t)
     assert 'href="/media/item/jtmdb-21"' in s and 'href="/media/title/tv/88"' in s
     assert "Show Tvdb Only" in s and s.count("<a ") == 2
-    assert 'class="pgsub">today' in s
+    assert 'class="row-meta">today' in s
 
 
 def test_link_arrivals_is_pure():

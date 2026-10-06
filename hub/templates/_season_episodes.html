@@ -1,15 +1,16 @@
-{# Episodes of one season (2026-10-06), lazy-loaded into the title page's <details>.
-   Expects: episodes (list|None), note (str|None). Every state is a WORD; "On disk" only when
-   Jellyfin says that episode's file exists. #}
-{% if note %}<div class="sub">{{ note }}</div>{% endif %}
+{# Episodes of one season (2026-10-06; restyle Phase 3 row recipe), lazy-loaded into the title page's <details>.
+   Expects: episodes (list|None), note (str|None). Every state is a WORD; "On disk" only when Jellyfin says that
+   episode's file exists. #}
+{% from "_rows.html" import meta %}
+{% if note %}<p class="metaline">{{ note }}</p>{% endif %}
 {% for e in episodes or [] %}
-<div class="eprow">
-  <div class="ephead">
-    <span class="epnum">E{{ e.number }}</span>
-    <span class="epname">{{ e.name }}</span>
-    {% if e.date_text %}<span class="sub">{{ "airs " if e.future }}{{ e.date_text }}</span>{% endif %}
-    {% if e.on_disk %}<span class="chip st-available">On disk</span>{% endif %}
+{% set disk %}{% if e.on_disk %}<span class="st-available">On disk</span>{% endif %}{% endset %}
+<div class="row" data-ep="{{ e.number }}">
+  <span class="row-rank">E{{ e.number }}</span>
+  <div class="row-body">
+    <div class="row-title">{{ e.name }}</div>
+    {{ meta([("airs " if e.future else "") ~ e.date_text if e.date_text else none, disk]) }}
+    {% if e.overview %}<p class="ep-over">{{ e.overview }}</p>{% endif %}
   </div>
-  {% if e.overview %}<p class="epover">{{ e.overview }}</p>{% endif %}
 </div>
 {% endfor %}

@@ -202,9 +202,9 @@ def test_history_page_with_data(env, tmp_path, monkeypatch):
     seed(tmp_path, monkeypatch)
     with TestClient(env.app) as client:
         body = main_html(client.get("/media/server/history?w=all").text)
-        assert "4 plays" in body and "3.5 hours" in body
+        assert '>Plays</div><div class="stat-number">4</div>' in body and "3.5 hours" in body
         assert "Quiet Coast" in body and "Long Road" in body and "2 episodes" in body
-        assert "uprow hasposter" in body and "Busiest day" in body and body.count('class="hourbar"') == 24
+        assert '<a class="row" href=' in body and "Busiest day" in body and body.count('class="hourbar"') == 24
         assert "/media/server/history?w=7" in body
         her = main_html(client.get("/media/server/history?w=all&owner_view=her").text)
         assert "1 play" in her and "Old Film" in her and "Quiet Coast" not in her

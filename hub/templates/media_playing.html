@@ -1,56 +1,69 @@
 {% extends "media_base.html" %}
 {% block title %}Now playing — Joey{% endblock %}
+{# The page header carries the first live session's backdrop (restyle Phase 3), like the Media home. #}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% set np = (src.data.get("now_playing") or []) if src.st.state != "off" else [] %}
+{% set ma = (areas or []) | selectattr("layout", "equalto", "shelves") | first %}
+{% call pagehead(ma.name if ma else "Media", backdrop=(np[0].backdrop if np and np[0].backdrop else none)) %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
+{% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
-{# Detail behind the now-playing tile (2026-10-05): sessions, up next, latest additions. #}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">Now playing</div>
-  {% if src.st.state == "off" %}
-    <div class="value dim">Not connected</div>
-    {% if src.st.note %}<div class="sub">{{ src.st.note }}</div>{% endif %}
-  {% else %}
-    {% for p in src.data.get("now_playing", []) %}
-    {% set phref = item_href(p.jf_id) or src.href %}
-    {% if phref %}<a class="uprow playrow hasposter{{ ' hasbackdrop' if p.backdrop }}"{% if p.backdrop %} style="--bd: url('/img/{{ p.backdrop|urlencode }}?h=1280')"{% endif %} href="{{ phref }}"{% if not item_href(p.jf_id) %} target="_blank" rel="noopener"{% endif %}>{% else %}<div class="uprow playrow hasposter{{ ' hasbackdrop' if p.backdrop }}"{% if p.backdrop %} style="--bd: url('/img/{{ p.backdrop|urlencode }}?h=1280')"{% endif %}>{% endif %}
-      {{ poster(p.poster, p.title, 120, "sm" ~ rate.rowpcls(p, ratings)) }}
-      <span class="uptitle">{{ p.title }} · {{ p.user }} · {{ p.play_method }} · {{ p.progress_pct }}%</span>
-    {{ rate.rowchip(p, ratings) }}
-      <span class="pbar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
-    {% if phref %}</a>{% else %}</div>{% endif %}
-    {% else %}
-    <div class="value dim">Nothing playing</div>
-    {% endfor %}
-
-    <div class="upday">Up next</div>
-    {% for n in src.data.get("up_next", []) %}
-    {% set nh = item_href(n.jf_id) %}
-    <{{ "a" if nh else "div" }} class="uprow hasposter{{ ' reqrow' if nh }}"{% if nh %} href="{{ nh }}"{% endif %}>
-      {{ poster(n.poster, n.title, 120, "sm" ~ rate.rowpcls(n, ratings)) }}
-      <span class="uptitle">{{ n.title }}</span>
-    {{ rate.rowchip(n, ratings) }}
-      <span class="uptime nextleft">{{ n.remaining_text }}</span>
-    </{{ "a" if nh else "div" }}>
-    {% else %}
-    <div class="value dim">Nothing up next</div>
-    {% endfor %}
-
-    <div class="upday">Latest additions</div>
-    {% for i in latest %}
-    {% set ih = item_href(i.jf_id) %}
-    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
-      {{ poster(i.poster, i.title, 120, "sm" ~ rate.rowpcls(i, ratings)) }}
-      <span class="uptitle">{{ i.title }}</span>
-    {{ rate.rowchip(i, ratings) }}
-      <span class="chip">{{ i.type }}</span>
-      <span class="uptime nextleft">{{ i.added_text }}</span>
-    </{{ "a" if ih else "div" }}>
-    {% else %}
-    <div class="value dim">Nothing added recently</div>
-    {% endfor %}
-
-    {% if library_text %}<div class="sub libline">Library: {{ library_text }}</div>{% endif %}
-  {% endif %}
-  {% include "_detail_foot.html" %}
+{# Detail behind the now-playing tile (2026-10-05; restyle Phase 3): live sessions as Watching rows (orange tint +
+   bar, guide 6), up next, latest additions. #}
+{% set watching %}<span class="badge badge-watching">{{ icon("eye") }}Watching</span>{% endset %}
+{% if src.st.state == "off" %}
+<p class="empty">Not connected.</p>
+{% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
+{% else %}
+<section class="sec">
+  <div class="seclabel">Playing now</div>
+  {% if src.data.get("now_playing") %}<div class="listbox">
+  {% for p in src.data.get("now_playing", []) %}
+  {% set phref = item_href(p.jf_id) or src.href %}
+  <{{ "a" if phref else "div" }} class="row is-watching"{% if phref %} href="{{ phref }}"{% if not item_href(p.jf_id) %} target="_blank" rel="noopener"{% endif %}{% endif %}>
+    {{ poster(p.poster, p.title, 120, "row-poster" ~ rate.rowglow(p, ratings)) }}
+    <div class="row-body"><div class="row-title">{{ p.title }}</div>{{ meta([watching, p.user, p.play_method, p.progress_pct ~ "%"]) }}
+      <span class="bar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span></div>
+    {{ rate.score_row(p, ratings) }}
+  </{{ "a" if phref else "div" }}>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing playing.</p>{% endif %}
 </section>
+
+<section class="sec">
+  <div class="seclabel">Up next</div>
+  {% if src.data.get("up_next") %}<div class="listbox">
+  {% for n in src.data.get("up_next", []) %}
+  {% set nh = item_href(n.jf_id) %}
+  <{{ "a" if nh else "div" }} class="row"{% if nh %} href="{{ nh }}"{% endif %}>
+    {{ poster(n.poster, n.title, 120, "row-poster" ~ rate.rowglow(n, ratings)) }}
+    <div class="row-body"><div class="row-title">{{ n.title }}</div>{{ meta([n.remaining_text]) }}</div>
+    {{ rate.score_row(n, ratings) }}
+  </{{ "a" if nh else "div" }}>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing up next.</p>{% endif %}
+</section>
+
+<section class="sec">
+  <div class="seclabel">Latest additions</div>
+  {% if latest %}<div class="listbox">
+  {% for i in latest %}
+  {% set ih = item_href(i.jf_id) %}
+  <{{ "a" if ih else "div" }} class="row"{% if ih %} href="{{ ih }}"{% endif %}>
+    {{ poster(i.poster, i.title, 120, "row-poster" ~ rate.rowglow(i, ratings)) }}
+    <div class="row-body"><div class="row-title">{{ i.title }}</div>{{ meta([i.type, i.added_text]) }}</div>
+    {{ rate.score_row(i, ratings) }}
+  </{{ "a" if ih else "div" }}>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing added recently.</p>{% endif %}
+</section>
+
+{% if library_text %}<p class="metaline">Library: {{ library_text }}</p>{% endif %}
+{% endif %}
+{% include "_detail_foot.html" %}
 {% endblock %}

@@ -106,7 +106,7 @@ def test_add_remove_routes_htmx_and_plain(env):
         assert "On your watchlist" in hx.text and 'id="wl-movie-555"' in hx.text
         assert wl.contains("you", ["tmdb:555"]) == {"tmdb:555"}
         gone = c.post("/media/watchlist/remove", content=body + "&item_key=tmdb:555", headers={**HX, **FORM})
-        assert "+ Watchlist" in gone.text and wl.list("you") == []
+        assert 'aria-label="Add to watchlist"' in gone.text and wl.list("you") == []
         plain = c.post("/media/watchlist/add", content=body, headers=FORM, follow_redirects=False)
         assert plain.status_code == 303 and plain.headers["location"] == "/media/movies/watchlist"
         back = c.post("/media/watchlist/remove", content=body, follow_redirects=False,
@@ -150,8 +150,8 @@ def test_movies_page_frame_status_words_and_head(env):
     assert "5 on your watchlist · 4 not on the server" in b
     for word in ("On disk", "Requested", "Processing", "Partly available", "Not on server"):
         assert f">{word}</span>" in b
-    assert b.count(">Request</a>") == 1 and 'class="poster-grid wlgrid"' in b and "h=300" in b
-    assert 'class="wlx"' in b and 'href="/media/title/movie/999"' in b
+    assert b.count(">Request</a>") == 1 and 'class="poster-grid"' in b and "h=300" in b
+    assert 'class="btn-mini"' in b and 'href="/media/title/movie/999"' in b
 
 
 def test_tv_page_and_empty_state(env):
@@ -159,7 +159,7 @@ def test_tv_page_and_empty_state(env):
     with TestClient(main.app) as c:
         html, b = page(c, "/media/tv/watchlist")
         assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["Watchlist"]
-        assert "Nothing on your watchlist yet — add from Discover or a title page" in b
+        assert '<p class="empty">Nothing on the watchlist.</p>' in b
         put(22, kind="tv", title="Foxtrot Show")     # on the server list; wrong-kind request ignored
         _, b = page(c, "/media/tv/watchlist")
     assert "1 on your watchlist · 0 not on the server" in b and ">On disk</span>" in b
@@ -168,7 +168,7 @@ def test_tv_page_and_empty_state(env):
 def test_sorts_on_the_page(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     put(901, title="Bravo", year=2010); put(902, title="Alpha", year=2024); put(903, title="Charlie", year=2000)
-    order = lambda c, s: re.findall(r'class="pgtitle">([^<]+)', page(c, f"/media/movies/watchlist?sort={s}")[1])
+    order = lambda c, s: re.findall(r'class="row-title">([^<]+)', page(c, f"/media/movies/watchlist?sort={s}")[1])
     with TestClient(main.app) as c:
         assert order(c, "title") == ["Alpha", "Bravo", "Charlie"]
         assert order(c, "newest") == ["Alpha", "Bravo", "Charlie"]
@@ -222,11 +222,11 @@ def test_title_page_button_states(discover_env):
     client, fake = discover_env()
     with client:
         off = main_of(client.get("/media/title/movie/603").text)
-        assert ">+ Watchlist</button>" in off and "On your watchlist" not in off
+        assert 'aria-label="Add to watchlist"' in off and "On your watchlist" not in off
         client.post("/media/watchlist/add", content=form(tmdb_id=603, kind="movie", title="The+Matrix"),
                     headers={**HX, **FORM})
         on = main_of(client.get("/media/title/movie/603").text)
-    assert "On your watchlist" in on and ">+ Watchlist<" not in on
+    assert "On your watchlist" in on and 'aria-label="Add to watchlist"' not in on and 'aria-pressed="true"' in on
     assert on.index('id="wl-movie-603"') < on.index('id="request-block"')   # F10 button row: Watchlist, then Request
 
 
@@ -234,7 +234,7 @@ def test_discover_plus_hidden_when_already_on_the_list(discover_env):
     client, fake = discover_env()
     with client:
         before = main_of(client.get("/media/discover").text)
-        assert 'class="wlplus"' in before and 'name="tmdb_id" value="1"' in before
+        assert 'class="btn-mini"' in before and 'name="tmdb_id" value="1"' in before
         client.post("/media/watchlist/add", content=form(tmdb_id=1, kind="movie", title="Film+Five"),
                     headers={**HX, **FORM})
         after = main_of(client.get("/media/discover").text)
@@ -257,8 +257,8 @@ def test_watchlist_card_is_one_whole_card_link(env):
     put(999, title="Nowhere Film")
     with TestClient(main.app) as c:
         _, b = page(c, "/media/movies/watchlist")
-    cell = re.search(r'<div class="wlcell">.*?<span class="chip st-', b, re.S).group(0)
+    cell = re.search(r'<div class="card-cell">.*?<span class="st-', b, re.S).group(0)
     link = re.search(r'<a class="rowlink" href="/media/title/movie/999">(.*?)</a>', cell, re.S)
-    assert link and '<img class="poster' in link.group(1) and '<span class="pgtitle">Nowhere Film</span>' in link.group(1)
+    assert link and '<img class="poster' in link.group(1) and '<span class="row-title">Nowhere Film</span>' in link.group(1)
     assert "<form" not in link.group(1) and cell.count("<a ") == 1 and "<form" in cell
-    assert 'class="pgtitle" href' not in b
+    assert 'class="row-title" href' not in b

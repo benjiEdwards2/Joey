@@ -1,7 +1,8 @@
 """Whole-row links across the Media pages (B., 2026-10-06): "In Server I cannot select the full
-thing. Plus the text does not match up." A row whose title resolves is ONE <a class="uprow ...">
-with the title as plain .uptitle text; a row with nothing to resolve stays a <div class="uprow">.
-Rows holding a 1-10 picker (a form) use an a.rowlink overlay instead. Asserted inside <main>."""
+thing. Plus the text does not match up." A row whose title resolves is ONE <a class="row ...">
+with the title as plain .row-title text; a row with nothing to resolve stays a <div class="row">.
+Rows holding a 1-10 picker (a form) use an a.rowlink overlay instead. Asserted inside <main>.
+Restyle Phase 3 (2026-10-06): the MediaHub row recipe (.row / .row-title) replaced .uprow / .uptitle."""
 import re
 from datetime import timedelta
 from pathlib import Path
@@ -20,7 +21,7 @@ def between(body, start, end=None):
 
 def row_of(html, title):
     """The row element (a or div) that holds `title`."""
-    m = re.search(r'<(a|div) class="uprow[^"]*"[^>]*>(?:(?!</?(?:a|div) class="uprow).)*?'
+    m = re.search(r'<(a|div) class="row(?: [^"]*)?"[^>]*>(?:(?!</?(?:a|div) class="row[ "]).)*?'
                   + re.escape(title), html, re.S)
     assert m, title
     return m.group(0)
@@ -35,13 +36,13 @@ def test_live_up_next_and_latest_rows_are_whole_row_links(env):
         body = main_of(client.get("/media/playing").text)
     up = between(body, ">Up next<", ">Latest additions<")
     row = row_of(up, "Dust and Daylight")
-    assert row.startswith('<a class="uprow hasposter reqrow" href="/media/item/resume-id">')
-    assert '<span class="uptitle">Dust and Daylight</span>' in up and "31 min left" in up
-    assert row_of(up, "Keyless Ep").startswith('<div class="uprow hasposter">')
+    assert row.startswith('<a class="row" href="/media/item/resume-id">')
+    assert '<div class="row-title">Dust and Daylight</div>' in up and "31 min left" in up
+    assert row_of(up, "Keyless Ep").startswith('<div class="row">')
     latest = between(body, ">Latest additions<")
-    assert row_of(latest, "Fresh Film").startswith('<a class="uprow hasposter reqrow" href="/media/item/new-id">')
-    assert '<span class="uptitle">Fresh Film</span>' in latest
-    assert row_of(latest, "Keyless Film").startswith('<div class="uprow hasposter">')
+    assert row_of(latest, "Fresh Film").startswith('<a class="row" href="/media/item/new-id">')
+    assert '<div class="row-title">Fresh Film</div>' in latest
+    assert row_of(latest, "Keyless Film").startswith('<div class="row">')
 
 
 def test_server_history_rows_are_whole_row_links(env):
@@ -58,22 +59,22 @@ def test_server_history_rows_are_whole_row_links(env):
     with client:
         body = main_of(client.get("/media/server/history?w=all").text)
     shows = between(body, ">Top shows<", ">Top films<")
-    assert row_of(shows, "Quiet").startswith('<a class="uprow hasposter reqrow" href="/media/item/ser1">')
-    assert '<span class="uptitle">Quiet</span>' in shows
+    assert row_of(shows, "Quiet").startswith('<a class="row" href="/media/item/ser1">')
+    assert '<div class="row-title">Quiet</div>' in shows
     films = between(body, ">Top films<", ">By hour of day<")
     assert row_of(films, "Title Page Film").startswith(
-        '<a class="uprow hasposter reqrow" href="/media/title/movie/77">')
-    assert row_of(films, "Keyless Film").startswith('<div class="uprow hasposter">')
+        '<a class="row" href="/media/title/movie/77">')
+    assert row_of(films, "Keyless Film").startswith('<div class="row">')
 
 
 def test_downloads_rows_link_through_their_arr_row(env):
     with env(qbittorrent=QB, arr=ARR) as client:
         body = main_of(client.get("/media/downloads").text)
     row = row_of(body, "Midnight Harbour 2021 1080p")
-    assert row.startswith('<a class="uprow reqrow" href="/media/title/movie/603">')  # arr tmdb key, not on server
-    assert '<span class="uptitle">Midnight Harbour 2021 1080p</span>' in body and "4.2 GB" in row_of(body, "4.2 GB")
-    assert row_of(body, "Some Show S01").startswith('<div class="uprow">')  # no arr row claims it
-    assert row_of(body, "Linux ISO").startswith('<div class="uprow">')
+    assert row.startswith('<a class="row" href="/media/title/movie/603">')  # arr tmdb key, not on server
+    assert '<div class="row-title">Midnight Harbour 2021 1080p</div>' in body and "4.2 GB" in row_of(body, "4.2 GB")
+    assert row_of(body, "Some Show S01").startswith('<div class="row">')  # no arr row claims it
+    assert row_of(body, "Linux ISO").startswith('<div class="row">')
 
 
 def test_library_downloading_rows_link_like_the_other_library_rows(env):
@@ -81,8 +82,8 @@ def test_library_downloading_rows_link_like_the_other_library_rows(env):
         body = main_of(client.get("/media/library").text)
     dl = between(body, ">Downloading<", ">Disk<")
     assert row_of(dl, "Midnight Harbour").startswith(
-        '<a class="uprow hasposter reqrow" href="/media/title/movie/603">')
-    assert row_of(dl, "Linux ISO").startswith('<div class="uprow hasposter">')  # qBittorrent-only: no key
+        '<a class="row" href="/media/title/movie/603">')
+    assert row_of(dl, "Linux ISO").startswith('<div class="row">')  # qBittorrent-only: no key
     assert '<a class="uprow' not in between(body, ">Disk<")  # disk rows are not titles
 
 
@@ -90,25 +91,25 @@ def test_watched_rows_are_whole_row_links_and_rateable_rows_use_the_overlay(env)
     with env(jellyfin=LINKED) as client:
         body = main_of(client.get("/media/history").text)
     recent = between(body, ">Recently watched<", ">Most played shows<")
-    assert row_of(recent, "Quiet Show").startswith('<a class="uprow hasposter reqrow" href="/media/item/e2">')
+    assert row_of(recent, "Quiet Show").startswith('<a class="row" href="/media/item/e2">')
     to_rate = between(body, ">To rate<", ">Recently watched<")
-    assert "uprow hasposter rateable" in to_rate  # the inbox row carries the picker form
+    assert "row has-form" in to_rate  # the inbox row carries the picker form
     assert '<a class="rowlink" href="/media/item/e2">' in to_rate and "<form" in to_rate
     assert not re.search(r'<a class="rowlink"[^>]*>(?:(?!</a>).)*<form', to_rate, re.S)  # form never inside
 
 
 def test_apps_rows_carry_the_row_link_look():
     src = (TEMPLATES / "media_apps.html").read_text(encoding="utf-8")
-    assert '<a class="uprow approw reqrow" href="{{ a.href }}" target="_blank" rel="noopener">' in src
+    assert """<a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">""" in src
 
 
 def test_no_inline_anchor_inside_a_row_title():
-    """The title is plain text in every Media row: no <a> nested inside <span class="uptitle">."""
+    """The title is plain text in every Media row: no <a> nested inside the .row-title."""
     files = sorted(TEMPLATES.glob("media_*.html")) + [TEMPLATES / "_library_row.html", TEMPLATES / "_diary_row.html"]
     assert TEMPLATES / "media_watchlist.html" in files
     offenders = []
     for f in files:
-        for m in re.finditer(r'<(?:span|div) class="(?:uptitle|pgtitle)"[^>]*>(.*?)</(?:span|div)>', f.read_text(encoding="utf-8"), re.S):
+        for m in re.finditer(r'<(?:span|div|p) class="row-title"[^>]*>(.*?)</(?:span|div|p)>', f.read_text(encoding="utf-8"), re.S):
             if "<a " in m.group(1):
                 offenders.append(f"{f.name}: {m.group(0)[:80]}")
     assert files and not offenders, offenders
@@ -124,10 +125,10 @@ def test_watched_most_played_tiles_are_links_where_a_key_resolves(env):
     with env(jellyfin={**LINKED, "history": history}) as client:
         body = main_of(client.get("/media/history").text)
     shows = between(body, ">Most played shows<", ">Most played movies<")
-    assert re.search(r'<a class="pgitem" href="/media/item/ser1">\s*<img[^>]*>\s*<div class="pgtitle">Linked Show', shows)
-    assert re.search(r'<div class="pgitem">\s*<img[^>]*>\s*<div class="pgtitle">Keyless Show', shows)
+    assert re.search(r'<a class="card-poster" href="/media/item/ser1">\s*<span class="card-pic"><img[^>]*>(?:<span[^>]*>[^<]*</span>)?</span>\s*<span class="row-title">Linked Show', shows)
+    assert re.search(r'<div class="card-poster">\s*<span class="card-pic"><img[^>]*>(?:<span[^>]*>[^<]*</span>)?</span>\s*<span class="row-title">Keyless Show', shows)
     movies = between(body, ">Most played movies<")
-    assert re.search(r'<a class="pgitem" href="/media/title/movie/88">\s*<img[^>]*>\s*<div class="pgtitle">Tmdb Film', movies)
+    assert re.search(r'<a class="card-poster" href="/media/title/movie/88">\s*<span class="card-pic"><img[^>]*>(?:<span[^>]*>[^<]*</span>)?</span>\s*<span class="row-title">Tmdb Film', movies)
 
 
 def test_diary_on_this_day_rows_are_whole_row_links(env):
@@ -138,13 +139,13 @@ def test_diary_on_this_day_rows_are_whole_row_links(env):
     with env(jellyfin={**LINKED, "history": {**LINKED["history"], "on_this_day": otd}}) as client:
         body = main_of(client.get("/media/diary").text)
     day = between(body, ">On this day<", 'id="diary-new"')
-    assert row_of(day, "Old Film").startswith('<a class="uprow hasposter reqrow" href="/media/title/movie/12">')
-    assert row_of(day, "Old Show").startswith('<a class="uprow hasposter reqrow" href="/media/item/ser7">')
-    assert row_of(day, "Keyless Thing").startswith('<div class="uprow hasposter">')
-    assert '<span class="uptitle">Old Film</span>' in day
+    assert row_of(day, "Old Film").startswith('<a class="row" href="/media/title/movie/12">')
+    assert row_of(day, "Old Show").startswith('<a class="row" href="/media/item/ser7">')
+    assert row_of(day, "Keyless Thing").startswith('<div class="row">')
+    assert '<div class="row-title">Old Film</div>' in day
 
 
 def test_tonight_cards_are_whole_card_links():
     """Tonight (Movies/TV): the card itself is the <a>; no separate poster + title anchors."""
     src = (TEMPLATES / "media_tonight.html").read_text(encoding="utf-8")
-    assert '<{{ "a" if r.href else "div" }} class="pgitem tcard"' in src and src.count("<a ") == 1  # 'Deal again' only
+    assert '<{{ "a" if r.href else "div" }} class="card-poster tcard"' in src and src.count("<a ") == 1  # 'Deal again' only

@@ -148,10 +148,10 @@ def _page(request: Request, template: str, build):
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=DISCOVER_DETAIL)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
-            "areas": hub.registry.areas, "active_id": None, "owner_view": view,
+            "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
             "missing_text": "No page here"}, status_code=404)
     resp = templates.TemplateResponse(request, template, {
-        "areas": hub.registry.areas, "active_id": None, "owner_view": view,
+        "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
         "status": hub.build_status(snaps), "src": src, "connected": _creds() is not None, **build()})
     return hub._maybe_set_cookie(resp, view, from_query)
 

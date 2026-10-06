@@ -440,7 +440,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
 
 def _render(request: Request, hub, src, film: dict, view, from_query):
     resp = hub.templates.TemplateResponse(request, "media_film.html", {
-        "areas": hub.registry.areas, "active_id": None, "owner_view": view,
+        "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
         "status": hub.build_status(hub.get_snapshots()), "src": src, "film": film})
     return hub._maybe_set_cookie(resp, view, from_query)
 
@@ -454,7 +454,7 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(), detail=md.DISCOVER_DETAIL)
     if src is None:
         return hub.templates.TemplateResponse(request, "404.html", {
-            "areas": hub.registry.areas, "active_id": None, "owner_view": view,
+            "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
             "missing_text": "No page here"}, status_code=404)
     state, msg = (("done", None) if requested == "1" else ("error", md.ERRORS[error]) if error in md.ERRORS
                   else ("confirm" if step == "confirm" else "idle", None))

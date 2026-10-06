@@ -68,7 +68,8 @@ def env(tmp_path, monkeypatch):
 
 
 def main_of(html):
-    return html.split("<main", 1)[1]
+    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
+    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def test_downloads_page_groups_words_and_totals(env):
@@ -79,9 +80,9 @@ def test_downloads_page_groups_words_and_totals(env):
     assert "↓ 1.4 MB/s · ↑ 230 kB/s · 5 seeding" in body
     order = [body.index(f">{h}</div>") for h in ("Movies", "TV", "Other", "Finished today")]
     assert order == sorted(order)
-    assert "Midnight Harbour 2021 1080p" in body and ">Downloading</span>" in body
+    assert "Midnight Harbour 2021 1080p" in body and 'class="row-meta">Downloading · ' in body
     assert "43% done · 1.1 MB/s · 12 min left · 4.2 GB" in body and "width: 43%" in body
-    assert ">Stalled</span>" in body and "10% done · 9.0 GB" in body
+    assert 'class="row-meta">Stalled · ' in body and "10% done · 9.0 GB" in body
     assert "Done Film" in body and "3.3 GB" in body
 
 
@@ -97,7 +98,7 @@ def test_downloads_page_omits_empty_groups_and_states_empty_in_words(env):
 def test_downloads_page_not_connected_shows_setup_note(env):
     with env(jellyfin={"summary": "x"}) as client:
         body = main_of(client.get("/media/downloads").text)
-    assert "Not connected" in body and '<div class="sub">n</div>' in body  # the tile's setup_note
+    assert "Not connected" in body and '<p class="metaline">n</p>' in body  # the tile's setup_note
 
 
 def test_server_section_has_downloads_tab_after_library(env):
@@ -191,7 +192,8 @@ def test_shelf_and_library_use_the_merged_rows(env):
         shelf = main_of(client.get("/a/alpha").text)
         lib = main_of(client.get("/media/library").text)
     assert "Downloading · 43% · 12 min" in shelf and "Linux ISO" in shelf
-    assert "Midnight Harbour · Downloading · 43% · 12 min left" in lib and "Linux ISO · Queued · 99%" in lib
+    assert '>Midnight Harbour</div><div class="row-meta">Downloading · 43% · 12 min left' in lib
+    assert '>Linux ISO</div><div class="row-meta">Queued · 99%' in lib
     assert "width: 43%" in lib
 
 
@@ -199,14 +201,14 @@ def test_shelf_still_works_without_the_qb_snapshot(env):
     with env(arr=ARR, jellyfin={"summary": "x"}) as client:
         shelf = main_of(client.get("/a/alpha").text)
         lib = main_of(client.get("/media/library").text)
-    assert "Downloading · 14 min" in shelf and "Midnight Harbour · Downloading · 75% · 14 min left" in lib
+    assert "Downloading · 14 min" in shelf and '>Midnight Harbour</div><div class="row-meta">Downloading · 75% · 14 min left' in lib
 
 
 def test_this_week_row_carries_a_download_badge(env, tmp_path):
     with env(arr=ARR, qbittorrent=QB) as client:
         lib = main_of(client.get("/media/library").text)
     week = lib.split(">This week</div>", 1)[1].split(">Downloading</div>", 1)[0]
-    assert '<span class="chip">Downloading · 43%</span>' in week
+    assert "Downloading · 43%</div>" in week
     (tmp_path / "snaps" / "qbittorrent.json").unlink()
     with env(arr=ARR) as client:
         lib = main_of(client.get("/media/library").text)

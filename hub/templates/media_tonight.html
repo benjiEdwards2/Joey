@@ -3,30 +3,29 @@
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
-<section class="card uplist wide" style="--accent: {{ src.accent }}">
-  <div class="head">{{ heading }}</div>
+{# Three for tonight (restyle Phase 3): three big poster cards, each the whole-card link (2026-10-06). #}
+<section class="sec">
+  <div class="seclabel">{{ heading }}</div>
   {% if src.st.state == "off" %}
-    <div class="value dim">Not connected</div>
+  <p class="empty">Not connected.</p>
   {% elif not available %}
-    <div class="value dim">Library list not available yet</div>
+  <p class="empty">Library list not available yet.</p>
   {% elif not marks %}
-    <div class="value dim">Her watch marks aren't available yet, so there is nothing to deal</div>
+  <p class="empty">Her watch marks aren't available yet, so there is nothing to deal.</p>
   {% else %}
-    <div class="tonight">
-      {% for c in cards %}
-      {% set r = c.row %}
-      {# Whole card is the link (2026-10-06); plain when the row resolves nowhere. #}
-      <{{ "a" if r.href else "div" }} class="pgitem tcard"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-        {{ poster(r.poster, r.title, 240, ("gold-glow" if r.score == 10 else "") if r.href else "") }}
-        <div class="pgtitle">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %} {{ rate.scorechip(r.score) }}</div>
-        <div class="pgsub">{{ r.runtime if r.kind == "movie" else r.eps_text }}</div>
-        <div class="pgsub tpile">{{ c.pile }}</div>
-      </{{ "a" if r.href else "div" }}>
-      {% endfor %}
-    </div>
-    {% if cards|length < 3 %}<div class="value dim">Nothing else to deal</div>{% endif %}
-    <a class="launch" href="{{ request.url.path }}">Deal again</a>
+  <div class="poster-grid big">
+    {% for c in cards %}
+    {% set r = c.row %}
+    <{{ "a" if r.href else "div" }} class="card-poster tcard"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
+      <span class="card-pic">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false) if r.href else "") }}{{ rate.pscore(r.score) }}</span>
+      <span class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</span>
+      <span class="row-meta">{{ r.runtime if r.kind == "movie" else r.eps_text }}<span class="sep"> · </span>{{ c.pile }}</span>
+    </{{ "a" if r.href else "div" }}>
+    {% endfor %}
+  </div>
+  {% if cards|length < 3 %}<p class="empty">Nothing else to deal.</p>{% endif %}
+  <div><a class="btn btn-secondary" href="{{ request.url.path }}">Deal again</a></div>
   {% endif %}
-  {% include "_detail_foot.html" %}
 </section>
+{% include "_detail_foot.html" %}
 {% endblock %}

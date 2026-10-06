@@ -2,49 +2,56 @@
 {% block title %}History — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
-{# Play history (F7, 2026-10-06): what was actually watched, from the recorder. Every number is text;
-   the hour bars carry their count beside them. #}
-<section class="card uplist wide playhist">
-  <div class="head">History</div>
-  <nav class="filters" aria-label="Time window">
-    {% for c in chips %}<a class="chip{{ ' on' if c.on }}" href="{{ c.href }}"{% if c.on %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
-  </nav>
-  {% if empty %}
-    <div class="value dim">No plays recorded yet — the recorder started on {{ since }}</div>
-  {% else %}
-    <div class="sub libline">{{ stats.plays }} play{{ '' if stats.plays == 1 else 's' }} · {{ stats.hours_text }}</div>
-    {% if stats.busiest_day %}<div class="sub">Busiest day: {{ stats.busiest_day.text }} · {{ stats.busiest_day.plays }} play{{ '' if stats.busiest_day.plays == 1 else 's' }}</div>{% endif %}
+{% from "_rows.html" import meta %}
+{# Play history (F7, 2026-10-06; restyle Phase 3): what was actually watched, from the recorder. Every number is
+   text; the hour bars carry their count beside them. #}
+<nav class="chips" aria-label="Time window">
+  {% for c in chips %}<a class="chip{{ ' on' if c.on }}" href="{{ c.href }}"{% if c.on %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
+</nav>
+{% if empty %}
+<p class="empty">No plays recorded yet — the recorder started on {{ since }}.</p>
+{% else %}
+<div class="stats">
+  <div class="stat"><div class="microlabel">Plays</div><div class="stat-number">{{ stats.plays }}</div></div>
+  <div class="stat"><div class="microlabel">Watched</div><div class="stat-word">{{ stats.hours_text }}</div></div>
+  {% if stats.busiest_day %}<div class="stat"><div class="microlabel">Busiest day</div><div class="stat-word">{{ stats.busiest_day.text }} · {{ stats.busiest_day.plays }} play{{ '' if stats.busiest_day.plays == 1 else 's' }}</div></div>{% endif %}
+</div>
 
-    <div class="upday">Top shows</div>
-    {% for e in stats.top_shows %}
-    {% set ih = row_href(e.jf_id, e.key, "tv") %}
-    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
-      {{ poster(e.poster, e.title, 120, "sm") }}
-      <span class="uptitle">{{ e.title }}</span>
-      <span class="uptime nextleft">{{ e.episodes }} episode{{ '' if e.episodes == 1 else 's' }} · {{ e.hours }} h</span>
-    </{{ "a" if ih else "div" }}>
-    {% else %}
-    <div class="value dim">No shows in this window</div>
-    {% endfor %}
-
-    <div class="upday">Top films</div>
-    {% for e in stats.top_movies %}
-    {% set ih = row_href(e.jf_id, e.key, "movie") %}
-    <{{ "a" if ih else "div" }} class="uprow hasposter{{ ' reqrow' if ih }}"{% if ih %} href="{{ ih }}"{% endif %}>
-      {{ poster(e.poster, e.title, 120, "sm") }}
-      <span class="uptitle">{{ e.title }}</span>
-      <span class="uptime nextleft">{{ e.plays }} play{{ '' if e.plays == 1 else 's' }} · {{ e.hours }} h</span>
-    </{{ "a" if ih else "div" }}>
-    {% else %}
-    <div class="value dim">No films in this window</div>
-    {% endfor %}
-
-    <div class="upday">By hour of day</div>
-    <div class="hourbars" role="list">
-      {% for b in by_hour %}
-      <div class="hourbar" role="listitem"><span class="hnum">{{ b.count }}</span><span class="hbar" aria-hidden="true"><span style="height: {{ b.pct }}%"></span></span><span class="hlab">{{ b.label }}</span></div>
-      {% endfor %}
-    </div>
-  {% endif %}
+<section class="sec">
+  <div class="seclabel">Top shows</div>
+  {% if stats.top_shows %}<div class="listbox">
+  {% for e in stats.top_shows %}
+  {% set ih = row_href(e.jf_id, e.key, "tv") %}
+  <{{ "a" if ih else "div" }} class="row"{% if ih %} href="{{ ih }}"{% endif %}>
+    <span class="row-rank">{{ loop.index }}</span>
+    {{ poster(e.poster, e.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ e.title }}</div>{{ meta([e.episodes ~ " episode" ~ ('' if e.episodes == 1 else 's'), e.hours ~ " h"]) }}</div>
+  </{{ "a" if ih else "div" }}>
+  {% endfor %}
+  </div>{% else %}<p class="empty">No shows in this window.</p>{% endif %}
 </section>
+
+<section class="sec">
+  <div class="seclabel">Top films</div>
+  {% if stats.top_movies %}<div class="listbox">
+  {% for e in stats.top_movies %}
+  {% set ih = row_href(e.jf_id, e.key, "movie") %}
+  <{{ "a" if ih else "div" }} class="row"{% if ih %} href="{{ ih }}"{% endif %}>
+    <span class="row-rank">{{ loop.index }}</span>
+    {{ poster(e.poster, e.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ e.title }}</div>{{ meta([e.plays ~ " play" ~ ('' if e.plays == 1 else 's'), e.hours ~ " h"]) }}</div>
+  </{{ "a" if ih else "div" }}>
+  {% endfor %}
+  </div>{% else %}<p class="empty">No films in this window.</p>{% endif %}
+</section>
+
+<section class="sec">
+  <div class="seclabel">By hour of day</div>
+  <div class="hourbars" role="list">
+    {% for b in by_hour %}
+    <div class="hourbar" role="listitem"><span class="hnum">{{ b.count }}</span><span class="hbar" aria-hidden="true"><span style="height: {{ b.pct }}%"></span></span><span class="hlab">{{ b.label }}</span></div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% endblock %}

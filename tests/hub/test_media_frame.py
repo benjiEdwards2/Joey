@@ -139,16 +139,16 @@ def test_library_pages_quiet_without_lists_and_years_heading(env):
             assert "Coming in the next phase" not in client.get(path).text
         def body(p):
             return client.get(p).text.split("<main", 1)[1]
-        assert "By year — films" in body("/media/years?kind=movie")
-        assert "By year — TV" in body("/media/years?kind=tv")
-        assert "By year — " not in body("/media/years")
+        assert "By year · films" in body("/media/years?kind=movie")
+        assert "By year · TV" in body("/media/years?kind=tv")
+        assert "By year · " not in body("/media/years")
 
 
 def test_home_shelf_set_is_trimmed(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get("/a/alpha").text.split("<main", 1)[1]
-    titles = re.findall(r"<h3>([^<]*)</h3>", html)
+    titles = re.findall(r'<h2 class="seclabel">([^<]*)', html)   # restyle Phase 3: "LABEL · count"
     assert titles == ["Continue watching", "Recently added", "This week", "Downloading", "Recently watched"]
     assert "appstrip" not in html and "Discover &amp; Search" not in html
 
@@ -250,8 +250,8 @@ def test_waitcount_has_hidden_words(env):
     from pathlib import Path
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
     assert ".vh {" in css and "clip" in css.split(".vh {")[1].split("}")[0]
-    assert "#F5A524" not in css.split(".waitchip {")[1].split("}")[0]
-    assert "var(--warn)" in css.split(".waitchip {")[1].split("}")[0]   # Apex shell: amber is the --warn token
+    rule = css.split(".badge-wait {")[1].split("}")[0]          # restyle Phase 3: amber outline badge
+    assert "#" not in rule and "var(--amber)" in rule
     with TestClient(main.app) as client:
         diary = client.get("/media/history").text
     assert '<span class="vh"> to rate</span>' in diary or "to rate" not in diary

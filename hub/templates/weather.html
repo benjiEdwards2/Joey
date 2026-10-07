@@ -7,7 +7,7 @@
 {% block content %}
 {% from "_rows.html" import meta, updated %}
 {# Detail behind the hub glimpse (2026-09-11; restyle Phase 4, 2026-10-06). Today as a .stats strip, the 24-hour chart
-   (inline SVG, no JS; strokes --primary) with the hours as .row rows, the BOM radar panel, and the 7 days as .row
+   (inline SVG, no JS; strokes --primary) with the hours as .row rows, the Windy radar embed, and the 7 days as .row
    rows (glyph · day · condition word · range at the right). Every value renders as text: the glyph, line and bars are
    never the only encoding. A snapshot written before the upgrade has no hourly/days: those panels are simply absent. #}
 {% set w = w or none %}
@@ -69,36 +69,18 @@
 </section>
 {% endif %}
 
-{# BOM radar loop (2026-10-06): stored PNG layers stacked as <img>, the 6 frame slots cycled by CSS keyframes (no JS);
-   reduced motion shows the latest frame only. The time range and the legend words are text, so colour is never the
-   only encoding. #}
-{% set radar = radar or none %}
-{% if w and w.st.state != "off" %}
-<section class="sec wxradar{% if not radar %} wxradar-off{% endif %}">
-  <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>Melbourne 128 km</h2></div>
+{# Radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed replaces the BOM loop — the browser loads embed.windy.com
+   directly. Shown whether or not the weather snapshot is connected (it does not depend on it). Iframe failure cannot
+   be detected reliably, so a static note says what a blank map means. The BOM panel (radar context, /weather/radar
+   route, .wxradarbox CSS) is parked: RADAR_LOOP=1 on the connector + swapping this section back restores it. #}
+<section class="sec wxradar">
+  <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>Newport VIC</h2></div>
   <div class="panel">
-  {% if radar %}
-    <div class="wxradarbox" role="img" aria-label="Rain radar loop, {{ radar.count }} frames from {{ radar.first }} to {{ radar.last }}">
-      {% for src in radar.under %}<img class="wxrlayer" src="{{ src }}" alt="" width="512" height="512">{% endfor %}
-      {% for f in radar.slots %}<img class="wxrframe f{{ loop.index0 }}" src="{{ f.src }}" alt="" width="512" height="512">{% endfor %}
-      {% for src in radar.over %}<img class="wxrlayer" src="{{ src }}" alt="" width="512" height="512">{% endfor %}
-      {% for f in radar.slots %}<span class="wxrclock f{{ loop.index0 }}" aria-hidden="true">{{ f.time }}</span>{% endfor %}
-    </div>
-    <p class="microlabel wxradartime">{% if radar.stale %}<b>Radar unavailable</b> — showing the last stored frames, {% endif %}{{ radar.first }}–{{ radar.last }}{% if radar.step %}, {{ radar.step }}-min frames{% endif %} · {{ radar.count }} frame{{ "s" if radar.count != 1 }}, latest held</p>
-    <ul class="wxlegend" aria-label="Rain intensity legend">
-      <li><i class="rl1"></i>Light <small>under 1.5 mm/h</small></li>
-      <li><i class="rl2"></i>Moderate <small>1.5–10 mm/h</small></li>
-      <li><i class="rl3"></i>Heavy <small>10–35 mm/h</small></li>
-      <li><i class="rl4"></i>Very heavy <small>35–120 mm/h</small></li>
-      <li><i class="rl5"></i>Extreme, possible hail <small>over 120 mm/h</small></li>
-    </ul>
-  {% else %}
-    <p class="empty">Radar unavailable. The loop appears after the next successful radar fetch.</p>
-  {% endif %}
-  <p class="metaline">Radar © Commonwealth of Australia, Bureau of Meteorology</p>
+    <iframe class="wxwindy" src="{{ windy_src }}" title="Interactive rain radar map around Newport VIC, from windy.com" loading="lazy"></iframe>
+    <p class="metaline">Interactive radar · map by windy.com (loads from windy.com)</p>
+    <p class="row-meta">Needs internet — if the map is blank, windy.com is unreachable</p>
   </div>
 </section>
-{% endif %}
 
 {% if fc and fc.days %}
 <section class="sec wxweek">

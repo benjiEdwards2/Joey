@@ -19,10 +19,12 @@ toggle, one `theme-color` meta (`#09090b`), Geist self-hosted (no Google Fonts l
 section of `static/control-surface.css`; every colour is a token on the one `:root` block and no literal colour appears
 outside it (a test enforces it). Page content is described under "Styling" below. `/weather` = Today stats strip + Next 24 hours
 (inline-SVG chart + hour rows, `weather_forecast()`) + Rain radar + Next 7 days rows, the chart/hours/days absent for a
-pre-2026-10-06 snapshot. Rain radar panel (2026-10-06, `weather_radar()`): stored BOM PNGs stacked as `<img>` layers,
-6 frame slots cycled by CSS keyframes (no JS; reduced motion = latest frame), time-range text + worded intensity legend;
-a column beside the forecast from 1100 px, below it on narrower screens; "Radar unavailable" note when the snapshot has no
-`radar`. Files served by `GET /weather/radar/{name}` (allowlisted names from `SNAPSHOT_DIR/radar/`, else 404). Greeting
+pre-2026-10-06 snapshot. Rain radar panel (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe
+(`windy_embed_url()`: `embed.windy.com/embed2.html`, overlay=radar, zoom 8, metric, coords from `WEATHER_LAT`/`WEATHER_LON`
+with Newport VIC as fallback), lazy-loaded, captioned, with a static "Needs internet" note; shown even when the weather
+snapshot is absent; a square column beside the forecast from 1100 px, below it on narrower screens. The 2026-10-06 BOM
+layer-stack panel is parked: `weather_radar()` context, the `.wxradarbox` CSS and `GET /weather/radar/{name}` (allowlisted
+names from `SNAPSHOT_DIR/radar/`, else 404) remain; the connector fetch needs `RADAR_LOOP=1`. Greeting
 clock: `_now_home()` (Australia/Melbourne).
 
 ## Styling (MediaHub guide, complete 2026-10-06)

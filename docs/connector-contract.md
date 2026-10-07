@@ -182,6 +182,12 @@ never fails the envelope: status stays `ok`, `radar` is the previous block with 
 still on disk) or absent if there never was one. Fixture mode never runs the step, so the committed sample has no
 `radar`. The hub serves the files read-only at `/weather/radar/{name}` behind a filename allowlist.
 
+**RADAR SUPERSESSION (2026-10-07, B.'s call).** The `/weather` radar surface is now a Windy embed
+(`embed.windy.com`, loaded by the browser — a recorded exception to "the phone talks only to Joey"). The BOM
+step above is **gated OFF by default**: `fetch()` runs it only when `RADAR_LOOP=1`, so by default `open_meteo`
+emits no `radar` block and makes no FTP connection. The code, the `/weather/radar/{name}` route and their tests
+stay; switching back is `RADAR_LOOP=1` + swapping the radar section of `weather.html` back to the BOM panel.
+
 **Jellyfin media rows (2026-10-05/06).** Rows in `now_playing`, `up_next`, `recent` and the
 resume/history lists carry `jf_id` (the Jellyfin ItemId) and `data` carries `server_id` (from
 `/System/Info`); together they build the deep link `/web/#/details?id={jf_id}&serverId={server_id}`

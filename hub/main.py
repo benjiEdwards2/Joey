@@ -312,6 +312,28 @@ def weather_forecast(snaps) -> dict | None:
     }
 
 
+# RADAR SUPERSESSION (2026-10-07, B.'s call): the /weather radar is a Windy embed — the
+# browser loads embed.windy.com directly (a recorded exception to "the phone talks only to
+# Joey"). Coordinates come from the same WEATHER_LAT/LON the open_meteo connector reads,
+# so they live in one place (.env); Newport VIC is the fallback when unset or unparsable.
+WINDY_EMBED = "https://embed.windy.com/embed2.html"
+WINDY_DEFAULT = (-37.84, 144.88)   # Newport VIC
+WINDY_ZOOM = 8
+
+
+def windy_embed_url() -> str:
+    try:
+        lat, lon = float(os.environ["WEATHER_LAT"]), float(os.environ["WEATHER_LON"])
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError
+    except (KeyError, ValueError):
+        lat, lon = WINDY_DEFAULT
+    return (f"{WINDY_EMBED}?lat={lat}&lon={lon}&detailLat={lat}&detailLon={lon}"
+            f"&zoom={WINDY_ZOOM}&level=surface&overlay=radar&product=radar&type=map"
+            f"&location=coordinates&metricWind=km%2Fh&metricTemp=%C2%B0C"
+            f"&calendar=now&menu=&message=&marker=&pressure=&detail=&detectRotation=false")
+
+
 # BOM radar loop (2026-10-06, Option 1 approved by B.): the open_meteo connector stores
 # raw PNG layers + up to 6 rain frames under SNAPSHOT_DIR/radar/ and names them in
 # data.radar. The page stacks <img> layers and cycles the frames with CSS keyframes (no
@@ -972,7 +994,8 @@ def weather_page(request: Request):
     resp = templates.TemplateResponse(request, "weather.html", {
         "areas": registry.visible_areas, "active_id": None, "owner_view": view,
         "status": build_status(snaps), "w": find_weather(snaps),
-        "fc": weather_forecast(snaps), "radar": weather_radar(snaps),
+        "fc": weather_forecast(snaps), "radar": weather_radar(snaps),   # radar: parked BOM panel context
+        "windy_src": windy_embed_url(),
     })
     return _maybe_set_cookie(resp, view, from_query)
 

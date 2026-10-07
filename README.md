@@ -21,7 +21,7 @@ type, and every page built from the same few recipes (rows, stats strips, panels
 `hub/static/control-surface.css`; spec in `docs/style-guide.md`, details in `hub/README.md` ("Styling"). Areas with
 `hidden: true` are parked (no pill, tab or hub tile; the page still serves). The hub is a row of summary tiles (one per
 area + Weather), Next 7 days, a weather glimpse and Continue watching posters; area pages are a row of tiles per registry
-tile.
+tile (except the weather tile, which renders on the hub and /weather only — 2026-10-08).
 
 **Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·
 Diary · Server (incl. Downloads, live from qBittorrent) · Discover. See `hub/README.md`; feeds in

@@ -74,7 +74,7 @@ area name, `.stat-number/.stat-word` value, one `.row-meta` line, icon at the ri
 = muted `.st-off` word; a `.bar` or a per-day spark only from real data); `_upcoming_table.html` "Next 7 days"
 (`.row.upc`: grid with uppercase column heads from 640 px, stacked on a phone); `_weather_glimpse.html` (a `.stats` strip,
 glyph + condition word); `_shelf.html` Continue watching on Media's `.carousel` of `.card-poster`s. *Area pages*
-(`area.html`, also hidden areas): tiles, the Calendar upcoming rows + weather glimpse, and for areas reading the
+(`area.html`, also hidden areas): tiles (the weather tile never renders here — hub + /weather only, 2026-10-08), the Calendar upcoming rows, and for areas reading the
 jellyfin/media_status snapshots Media-style sections (`.row`s, `.row-score`, `.gold-glow-sm`). *Server* (`server.html`,
 `server_update.html`): System = `.stats` strip (volumes carry a `.bar`), Last 24 h = `.spark-band` panel (`.spark-*`,
 stroke `--primary`), Services = `.sec` groups of a `.svc-grid` of `.svc-card` links (WP-U3: 40 px `.svc-logo` on

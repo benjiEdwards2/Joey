@@ -65,8 +65,11 @@ def check_path(path: str) -> str | None:
 
 
 def check_lines(path: str) -> str | None:
-    # .svg: vendored logos (hub/static/svc, WP-U3 2026-10-07) — minified path data trips BANK_ROW
-    if PurePosixPath(path).suffix in {".png", ".jpg", ".age", ".ico", ".svg"}:
+    if PurePosixPath(path).suffix in {".png", ".jpg", ".age", ".ico"}:
+        return None
+    # Vendored service logos only (WP-U3, 2026-10-07): minified SVG path data trips BANK_ROW.
+    # Narrow on purpose — an .svg anywhere else is still line-checked.
+    if path.startswith("hub/static/svc/") and path.endswith(".svg"):
         return None
     if is_allowlisted(path):
         # Code and schema files may legitimately carry sample rows (tests,

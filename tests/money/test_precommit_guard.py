@@ -53,9 +53,13 @@ def test_guard_survives_utf8_content_in_staged_files(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def test_svg_images_skip_the_line_heuristic():
-    """WP-U3 (2026-10-07): minified logo path data ("m1-2-3 … ,12.34") looks like a bank row;
-    .svg joins the image suffixes the line check skips. check_path still guards money paths."""
-    from precommit_money_guard import check_lines
-    assert check_lines("hub/static/svc/sonarr.svg") is None
-    assert check_path("connectors/money/x.csv") is not None
+def test_only_vendored_logo_svgs_skip_the_line_heuristic(monkeypatch):
+    """WP-U3 (2026-10-07): minified logo path data looks like a bank row, so SVGs under
+    hub/static/svc/ skip the line check. Coordinator narrowed it: an .svg anywhere else is
+    still checked, so a bank row hidden in e.g. docs/x.svg is still caught."""
+    import precommit_money_guard as g
+    row = "2026-10-01,COFFEE,-4.50,1234.56"
+    monkeypatch.setattr(g, "staged_content", lambda p: row)
+    assert g.check_lines("hub/static/svc/sonarr.svg") is None
+    assert g.check_lines("docs/chart.svg") is not None
+    assert g.check_path("connectors/money/x.csv") is not None

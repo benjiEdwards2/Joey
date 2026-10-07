@@ -41,9 +41,7 @@ ROUTES = {
     "/media/movies/tonight": ("movies", "Tonight"),
     "/media/tv": ("tv", "My shows"),
     "/media/tv/tonight": ("tv", "Tonight"),
-    "/media/years": ("movies", "By year"),
-    "/media/years?kind=movie": ("movies", "By year"),
-    "/media/years?kind=tv": ("tv", "By year"),
+    # media-ux2 (2026-10-08): /media/years has no tab of its own now - see test_media_nav_ux2.py
     "/media/diary": ("diary", "Diary"),
     "/media/history": ("diary", "To rate"),
     "/media/playing": ("server", "Live"),
@@ -175,7 +173,7 @@ def test_nav_context_without_a_shelves_area():
     ctx = media_nav.nav_context(req, reg, {"to_rate": 0, "to_place": 3})
     assert ctx["home_href"] == "/" and "accent" not in ctx
     assert [s["count"] for s in ctx["sections"]] == [0, 3, 3, 0, 0, 0]
-    assert [t["on"] for t in ctx["tabs"]] == [True, False, False, False]
+    assert [t["on"] for t in ctx["tabs"]] == [True, False, False]   # media-ux2: three TV tabs (By year removed)
 
 
 # ---- review fixes (2026-10-06) ----

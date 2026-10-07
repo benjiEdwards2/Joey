@@ -11,11 +11,9 @@ SECTIONS: list[dict] = [
     {"id": "home", "label": "Home", "short": "Home", "icon": "house", "href": None, "prefixes": [], "tabs": []},
     {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies", "prefixes": ["/media/movies"],
      "tabs": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
-              ("By year", "/media/years?kind=movie"),
               ("Tonight", "/media/movies/tonight")]},
     {"id": "tv", "label": "TV Shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
      "tabs": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"),
-              ("By year", "/media/years?kind=tv"),
               ("Tonight", "/media/tv/tonight")]},
     {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
      "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]},
@@ -28,6 +26,9 @@ SECTIONS: list[dict] = [
      # Follow (2026-10-07): Discover / Following; a title or person page shows no sub-tab row (none is its own)
      "tabs": [("Discover", "/media/discover"), ("Following", "/media/following")], "tabs_only_on": True},
 ]
+# media-ux2 (2026-10-08): the "By year" tabs are gone from Movies / TV Shows (B.); /media/years stays reachable by
+# URL and still lights its section. To restore: add ("By year", "/media/years?kind=movie|tv") back to the tabs —
+# _tab_on below still knows how to match it.
 YEARS = "/media/years"
 
 

@@ -1408,6 +1408,9 @@ class Jellyseerr(Connector):
                 "href": f"{host}/{kind}/{tmdb}",
                 "poster": f"tmdb:{info['posterPath']}" if info.get("posterPath") else None,
                 "item_key": f"tmdb:{tmdb}" if tmdb else None,
+                # Remove (2026-10-08): Sonarr finds a series by its TVDB id when the hub stops its search (TV only).
+                **({"tvdb_id": int(media["tvdbId"]) if str(media.get("tvdbId") or "").isdigit() else None}
+                   if kind == "tv" else {}),
             }))
         rows.sort(key=lambda r: r[1], reverse=True)    # newest first ...
         rows.sort(key=lambda r: not r[0])              # ... then pending first (stable)

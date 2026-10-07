@@ -2,7 +2,7 @@
   "pageInfo": {"pages": 1, "pageSize": 50, "results": 4, "page": 1},
   "results": [
     {"id": 14, "status": 2, "type": "tv", "createdAt": "2025-12-31T20:30:00.000Z",
-     "media": {"tmdbId": 2002, "mediaType": "tv", "status": 2},
+     "media": {"tmdbId": 2002, "tvdbId": 82002, "mediaType": "tv", "status": 2},
      "requestedBy": {"id": 2, "displayName": "Sample Partner"}},
     {"id": 13, "status": 1, "type": "movie", "createdAt": "2025-12-31T22:15:00.000Z",
      "media": {"tmdbId": 1001, "mediaType": "movie", "status": 2},
@@ -11,7 +11,7 @@
      "media": {"tmdbId": 1003, "mediaType": "movie", "status": 5},
      "requestedBy": {"id": 1, "displayName": "Sample Person"}},
     {"id": 11, "status": 3, "type": "tv", "createdAt": "2025-12-27T18:45:00.000Z",
-     "media": {"tmdbId": 2004, "mediaType": "tv", "status": 1},
+     "media": {"tmdbId": 2004, "tvdbId": 82004, "mediaType": "tv", "status": 1},
      "requestedBy": {"id": 2, "displayName": "Sample Partner"}}
   ]
 }

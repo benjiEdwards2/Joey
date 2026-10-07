@@ -277,3 +277,11 @@ params (`main.FLASH_PARAMS`: follow, requested, error, flash, c, code, done) fro
 `history.replaceState`, so a "Following" / "Requested" / "Removed" line is shown once. GET routes never toggle anything; the
 only GET-side writes are idempotent syncs (the diary page's Jellyfin history sync, the watchlist's prune of watched titles,
 the local-only `?owner_view=` cookie) and caches (meta, `/img`).
+
+Remove a request (2026-10-08): `media_requests.py`. Each Requests row (still a whole link to Jellyseerr, via an
+`a.rowlink` overlay) has a right-aligned **Remove** button opening an inline confirm (`details.confirm-wrap`, no browser
+dialog). `POST /media/requests/{id}/remove` (behind `same_origin`) deletes the Jellyseerr request, then — only when nothing
+is on disk — sets the Radarr movie / Sonarr series `monitored: false` (never a file or entry delete; see
+`docs/connector-contract.md`, thirteenth exception). The row leaves the page at once (`media_hidden.py`: hidden until a
+snapshot newer than the removal + 90 s; the film page's "Requested" line and the watchlist status read the same visible
+rows) and the page flashes "Removed" (`?done=removed|stopped|ondisk|arrfail|arrunset&app=…`; errors `?error=…`, words only).

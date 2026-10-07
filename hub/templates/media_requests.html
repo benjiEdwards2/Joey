@@ -9,19 +9,39 @@
 {% if src.st.state == "off" %}
 <p class="empty">Not connected.</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
-{% elif src.data.get("requests") %}
+{% else %}
+{% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
+{% if flash_warn %}<p class="metaline st-warn" role="status">{{ flash_warn }}</p>{% endif %}
+{% endif %}
+{% if src.st.state != "off" and rows %}
 <p class="metaline">{{ counts_text }}</p>
+{# Remove (2026-10-08): the row stays a whole link (a.rowlink overlay, to Jellyseerr); Remove sits above it at the
+   right and opens an inline confirm panel (guide 6: never a browser dialog). It deletes the Jellyseerr request and,
+   only when nothing is on disk yet, stops the Radarr / Sonarr search — never deletes a file. #}
 <div class="listbox">
-{% for r in src.data.requests %}
+{% for r in rows %}
 {% set st %}<span class="st-{{ r.status_text|lower|replace(' ', '-') }}">{{ r.status_text }}</span>{% endset %}
-<a class="row" href="{{ r.href }}" target="_blank" rel="noopener">
+<div class="row has-form reqrow" id="req-{{ r.id }}">
+  <a class="rowlink" href="{{ r.href }}" target="_blank" rel="noopener">
   {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
   <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, "TV" if r.kind == "tv" else "Film", r.requested_by, r.when]) }}</div>
   {{ rate.score_key(r.item_key, ratings) }}
-</a>
+  </a>
+  <details class="confirm-wrap reqremove">
+    <summary class="btn btn-secondary btn-sm">Remove</summary>
+    <div class="confirm is-danger">
+      <div>Remove the request for {{ r.title }}?</div>
+      <div class="metaline">{{ "Already on disk — the files stay." if r.status_text in ("Available", "Partly available") else ("Sonarr" if r.kind == "tv" else "Radarr") ~ " stops searching. Nothing is deleted." }}</div>
+      <div class="confirm-btns">
+        <form method="post" action="/media/requests/{{ r.id }}/remove"><button type="submit" class="btn btn-danger btn-sm">Remove request</button></form>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false">Cancel</button>
+      </div>
+    </div>
+  </details>
+</div>
 {% endfor %}
 </div>
-{% else %}
+{% elif src.st.state != "off" %}
 <p class="empty">No open requests.</p>
 {% endif %}
 {% include "_detail_foot.html" %}

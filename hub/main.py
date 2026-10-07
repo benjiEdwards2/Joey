@@ -26,7 +26,7 @@ from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
-from hub import media_follow, media_watchlist, media_warmup
+from hub import media_follow, media_requests, media_watchlist, media_warmup
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
@@ -160,7 +160,7 @@ async def no_store_pages(request: Request, call_next):
 
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
 # the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash.
-FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done")
+FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app")
 
 app.include_router(images_router)
 app.include_router(media_write_router)
@@ -170,6 +170,7 @@ app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
 app.include_router(media_follow.router)
+app.include_router(media_requests.router)
 app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
@@ -1195,10 +1196,15 @@ def media_library_page(request: Request):
 @app.get("/media/requests", response_class=HTMLResponse)
 def media_requests_page(request: Request):
     def build(data, view):
-        c = data.get("counts") or {}
+        # Remove (2026-10-08): a removed row leaves at once (media_hidden), not at the next hourly sweep.
+        snap = get_snapshots().get(JELLYSEERR_SNAPSHOT_ID)
+        rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
+        c = media_requests.visible_counts(data, rows)
+        good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
-                "ratings": _ratings(view, data.get("requests"))}
+                "rows": rows, "flash": good, "flash_warn": warn,
+                "ratings": _ratings(view, rows)}
     return _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
 
 

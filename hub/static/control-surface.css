@@ -549,6 +549,11 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .row.has-form > a.rowlink::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
 .row.has-form:has(> a.rowlink:hover) { background: var(--soft); }
 .row.has-form form, .row.has-form .row-side, .row.has-form .row-score { position: relative; z-index: 1; }
+/* A row action with an inline confirm (Requests "Remove", 2026-10-08): the button sits at the right above the
+   row link; opened, the panel takes its own full-width line under the row. */
+.row.has-form > details.confirm-wrap { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
+.row.has-form > details.confirm-wrap[open] { flex: 1 0 100%; display: flex; flex-direction: column; align-items: flex-end; }
+.row.has-form > details.confirm-wrap[open] > .confirm { align-self: stretch; margin-top: 8px; }
 .row .bar { margin-top: 6px; }
 .poster.row-poster { width: 44px; height: auto; border: 0; border-radius: 4px; }
 label.row { cursor: pointer; }

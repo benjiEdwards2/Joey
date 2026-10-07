@@ -33,6 +33,7 @@
         "status_text": "Approved",
         "title": "Night Ferry",
         "tmdb_id": 2002,
+        "tvdb_id": 82002,
         "when": "3 hours ago",
         "year": 2023
       },
@@ -59,6 +60,7 @@
         "status_text": "Declined",
         "title": "Harbour Watch",
         "tmdb_id": 2004,
+        "tvdb_id": 82004,
         "when": "4 days ago",
         "year": 2021
       }

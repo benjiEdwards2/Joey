@@ -251,3 +251,19 @@ def test_poster_is_the_lookup_poster_path_or_null(data):
 
 def test_item_key_is_the_tmdb_id(data):
     assert all(r["item_key"] == f"tmdb:{r['tmdb_id']}" for r in data["requests"])
+
+
+def test_tv_rows_carry_the_tvdb_id_for_the_hub_remove(data):
+    """Remove (2026-10-08): the hub stops a Sonarr search by TVDB id; films carry no tvdb_id key at all."""
+    by_title = {r["title"]: r for r in data["requests"]}
+    assert by_title["Night Ferry"]["tvdb_id"] == 82002 and by_title["Harbour Watch"]["tvdb_id"] == 82004
+    assert "tvdb_id" not in by_title["Midnight Harbour"] and "tvdb_id" not in by_title["Desert Crossing"]
+
+
+def test_tv_row_without_a_tvdb_id_is_null(raw):
+    raw = copy.deepcopy(raw)
+    for r in raw["raw_requests"]["results"]:
+        r["media"].pop("tvdbId", None)
+    out = Jellyseerr().transform(raw)
+    jsonschema.validate(out, SCHEMA)
+    assert all(r["tvdb_id"] is None for r in out["requests"] if r["kind"] == "tv")

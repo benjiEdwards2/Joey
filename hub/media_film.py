@@ -300,8 +300,8 @@ def _jf_from_snapshot(jelly: dict, kind: str, tmdb: int) -> dict | None:
 
 
 def _requested(snaps, hub, tmdb) -> dict | None:
-    snap = snaps.get(hub.JELLYSEERR_SNAPSHOT_ID)
-    for r in ((snap.data if snap else {}) or {}).get("requests") or []:
+    from hub.media_requests import snapshot_rows  # a removed request stops showing at once (2026-10-08)
+    for r in snapshot_rows(snaps, hub.JELLYSEERR_SNAPSHOT_ID):
         if isinstance(r, dict) and str(r.get("tmdb_id")) == str(tmdb):
             return r
     return None

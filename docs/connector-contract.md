@@ -110,6 +110,16 @@ requested again). Runs right after a Follow (a response background task) and on 
 6 h; `MEDIA_FOLLOW=off` disables the loop; no Jellyseerr keys ⇒ no calls. Each add POSTs one Discord message ("Joey Media:
 added …") to `MEDIA_DISCORD_WEBHOOK`, else `SERVER_DISCORD_WEBHOOK` (neither ⇒ silent). Logs carry status / exception type only.
 
+**Thirteenth exception (2026-10-08): Remove a request (`hub/media_requests.py`).** A `same_origin` POST from the
+Requests page's inline confirm. Writes, live and server-side: Jellyseerr `DELETE /api/v1/request/{id}` (X-Api-Key; a 404
+counts as removed); then ONLY when nothing is on disk (the snapshot row is not Available / Partly available AND the app
+reports no file: Radarr `hasFile` / `sizeOnDisk`, Sonarr `statistics.episodeFileCount` / `sizeOnDisk`) it reads Radarr
+`GET /api/v3/movie?tmdbId=` or Sonarr `GET /api/v3/series?tvdbId=` (else the full list matched on `tmdbId`) and PUTs the
+app's own resource back with `monitored: false` (`/api/v3/movie/{id}` or `/api/v3/series/{id}`; `RADARR_URL`/`_API_KEY`,
+`SONARR_URL`/`_API_KEY`, header X-Api-Key). It never deletes a file, an *arr entry or Jellyseerr media. The removed row is
+hidden in memory until a jellyseerr snapshot taken after the removal (`hub/media_hidden.py`). The jellyseerr data block's TV
+rows gain `tvdb_id` (integer or null) for this. Flashes and logs carry the HTTP status or exception type only.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

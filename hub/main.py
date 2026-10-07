@@ -876,13 +876,12 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         added.append(jf_item(r, sub, LIBRARY_DETAIL) if from_jf else item(r, sub, LIBRARY_DETAIL))
     added = added[:SHELF_MAX]
     arr = data_of(ARR_SNAPSHOT_ID)
-    this_week = [item(r, " · ".join(x for x in (_day_label(date.fromisoformat(r["date"]), now.date()), r.get("label")) if x),
-                      LIBRARY_DETAIL) for r in (arr.get("this_week") or [])][:SHELF_MAX]
+    # media-ux2 (2026-10-08, B.): "This week" and "Recently watched" left Media home (Server → Library keeps This week,
+    # Diary > To rate keeps Recently watched; the hub page's own Recently watched band is separate).
     downloading = [item(r, r["caption"], LIBRARY_DETAIL) for r in
                    media_downloads.merge_downloading(arr.get("downloading"), data_of(QBIT_SNAPSHOT_ID))][:SHELF_MAX]
 
-    watched_rows = recent[:SHELF_MAX]
-    ratings = _ratings(view, up_next, added, recent, this_week, downloading)  # ONE query for every shelf
+    ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
 
     unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
     add("continue", "Continue watching", PLAYING_DETAIL,
@@ -890,11 +889,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
          for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
-    add("thisweek", "This week", LIBRARY_DETAIL, this_week, "Nothing due this week")
     add("downloading", "Downloading", LIBRARY_DETAIL, downloading, "", omit_empty=True)
-    add("watched", "Recently watched", DIARY_DETAIL,
-        [jf_item(r, r.get("when", ""), DIARY_DETAIL) for r in watched_rows],
-        unset_text if her_unset else "Nothing watched yet")
     most_shows, most_films = media_plays_db.most_played_30({"you": "you", "her": "her"}.get(view))
     most = ([item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
                   f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)

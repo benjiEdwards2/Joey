@@ -148,7 +148,7 @@ def test_home_shelf_set_is_trimmed(env):
     with TestClient(main.app) as client:
         html = client.get("/a/alpha").text.split("<main", 1)[1]
     titles = re.findall(r'<h2 class="seclabel">([^<]*)', html)   # restyle Phase 3: "LABEL · count"
-    assert titles == ["Continue watching", "Recently added", "This week", "Downloading", "Recently watched"]
+    assert titles == ["Continue watching", "Recently added", "Downloading"]   # media-ux2: This week + Recently watched gone
     assert "appstrip" not in html and "Discover &amp; Search" not in html
 
 

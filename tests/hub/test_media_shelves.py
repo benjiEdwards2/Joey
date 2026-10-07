@@ -115,30 +115,28 @@ def test_shelf_order_dedupe_and_new_shelves(env):
     from hub import media_db
     media_db.set_rating("m2", 8, "movie", "Rated One")
     sh = shelves_for(main)
-    assert ids(sh) == ["continue", "added", "thisweek", "downloading", "watched"]  # F1: trimmed Home
+    assert ids(sh) == ["continue", "added", "downloading"]  # media-ux2: This week + Recently watched left Media home
     by = {s["id"]: s for s in sh["shelves"]}
     assert [i["title"] for i in by["added"]["items"]] == ["Fresh Film", "Arr Only"]  # deduped by key
-    assert by["thisweek"]["items"][0]["title"] == "Due Show" and by["thisweek"]["items"][0]["sub"] == "Today · Premiere"
     assert by["downloading"]["items"][0]["sub"] == "Downloading · 12 min"
-    assert by["watched"]["items"][1]["score"] == 8
     assert by["continue"]["see_all_href"] == "/media/playing"
 
 
 def test_downloading_shelf_omitted_when_empty_this_week_quiet(env):
     sh = shelves_for(env(jellyfin=JELLY, arr={**ARR, "downloading": [], "this_week": []}))
     assert "downloading" not in ids(sh)
-    assert {s["id"]: s["quiet_text"] for s in sh["shelves"]}["thisweek"] == "Nothing due this week"
+    assert "thisweek" not in ids(sh)  # media-ux2: This week + Recently watched left Media home
 
 
 def test_her_view_drops_owner_you_shelves(env):
     sh = shelves_for(env(jellyfin=JELLY, arr=ARR, jellyseerr=SEERR), view="her")
-    assert ids(sh) == ["continue", "added", "thisweek", "downloading"]
+    assert ids(sh) == ["continue", "added", "downloading"]  # media-ux2: This week + Recently watched left Media home
     assert sh["hero"] is not None
 
 
 def test_quiet_words_without_data(env):
     sh = shelves_for(env())
-    assert ids(sh) == ["continue", "added", "thisweek", "watched"]
+    assert ids(sh) == ["continue", "added"]  # media-ux2: This week + Recently watched left Media home
     assert {s["id"]: s["quiet_text"] for s in sh["shelves"]}["continue"] == "Nothing up next"
     assert all(not s["items"] for s in sh["shelves"]) and sh["hero"] is None
     assert sh["freshness"]["state"] == "off"
@@ -150,9 +148,9 @@ def test_route_renders_hero_and_trimmed_shelves(env):
         html = main_html(client.get("/a/alpha").text)
     # Restyle Phase 3: "Playing now" is the page header (eyebrow, title, drifting backdrop); shelves are sections.
     assert 'class="pagehead-bd hero-drift"' in html and ">Playing now<" in html and "<h1>Playing Now Title</h1>" in html
-    assert html.count('<section class="sec">') == 5   # continue, added, this week, downloading, watched
+    assert html.count('<section class="sec">') == 3   # continue, added, downloading (media-ux2)
     assert 'href="/media/library">All' in html
-    assert "Due Show" in html and "Fetching Film" in html
+    assert "Due Show" not in html and "Fetching Film" in html
     assert "Media apps" not in html and "Requests</h3>" not in html and "By year</h3>" not in html
     assert 'class="grid"' not in html
     assert f'href="{LINK}" target="_blank" rel="noopener"' in html
@@ -163,7 +161,7 @@ def test_route_no_snapshots_is_quiet(env):
         r = client.get("/a/alpha")
     html = main_html(r.text)
     assert r.status_code == 200
-    assert "Nothing playing" in html and "Nothing up next" in html and "Nothing due this week" in html
+    assert "Nothing playing" in html and "Nothing up next" in html and "Nothing due this week" not in html
     assert "Not connected" in html
     assert "hasbackdrop" not in html
 
@@ -197,9 +195,7 @@ def test_rows_open_their_item_page_when_they_carry_a_jf_id(env):
     by = {s["id"]: s["items"] for s in shelves_for(env(jellyfin=linked_jelly(), arr=ARR))["shelves"]}
     assert by["continue"][0]["href"] == "/media/item/resume-id" and "external" not in by["continue"][0]
     assert by["added"][0]["href"] == "/media/item/new-id" and "external" not in by["added"][0]
-    assert by["watched"][0]["href"] == "/media/item/hist-id" and "external" not in by["watched"][0]
-    # no jf_id on the row -> Joey page, no external flag
-    assert by["watched"][1]["href"] == "/media/diary" and "external" not in by["watched"][1]
+    assert "watched" not in by  # media-ux2: This week + Recently watched left Media home
     # arr-only arrivals keep the library page
     arr_only = next(i for i in by["added"] if i["title"] == "Arr Only")
     assert arr_only["href"] == "/media/library" and "external" not in arr_only
@@ -209,7 +205,6 @@ def test_rows_fall_back_to_joey_pages_without_ids_or_a_jellyfin_link(env):
     by = {s["id"]: s["items"] for s in shelves_for(env(jellyfin=JELLY, arr=ARR))["shelves"]}
     assert by["continue"][0]["href"] == "/media/playing"
     assert by["added"][0]["href"] == "/media/library"
-    assert by["watched"][0]["href"] == "/media/diary"
     assert not any("external" in i for items in by.values() for i in items)
 
 
@@ -228,7 +223,7 @@ def test_item_rows_stay_in_joey_and_the_hero_keeps_the_jellyfin_link(env):
     with TestClient(main.app) as client:
         html = main_html(client.get("/a/alpha").text)
     assert '<a class="card-poster" href="/media/item/resume-id">' in html  # same tab, no target
-    assert '<a class="card-poster" href="/media/diary">' in html
+    assert '<a class="card-poster" href="/media/library">' in html   # media-ux2: was a Recently watched row
     assert f'href="{LINK}" target="_blank" rel="noopener">Open in Jellyfin' in html  # hero stays external
 
 

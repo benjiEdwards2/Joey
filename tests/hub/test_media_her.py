@@ -65,8 +65,7 @@ def test_her_view_shelves_show_hers_not_b(env):
     with env(now_playing=[]) as client:
         html = main_html(client.get("/a/alpha?owner_view=her").text)
     assert "Cold Harbour" in html and "Up next" in html
-    assert "First Frost" in html and "Paper Lanterns" in html
-    assert "Continue watching" in html and "Recently watched" in html
+    assert "Continue watching" in html and "Recently watched" not in html   # media-ux2: no Recently watched on home
     for title in B_ONLY:
         assert title not in html, title
 
@@ -75,14 +74,14 @@ def test_you_and_both_views_still_show_b(env):
     with env() as client:
         for view in ("you", "both"):
             html = main_html(client.get(f"/a/alpha?owner_view={view}").text)
-            assert "Dust and Daylight" in html and "Harbour Lights" in html, view
+            assert "Dust and Daylight" in html, view   # media-ux2: Harbour Lights was a Recently watched row
             assert "Cold Harbour" not in html and "First Frost" not in html, view
 
 
 def test_her_view_with_null_her_shows_quiet_words(env):
     with env(her=None, now_playing=[]) as client:
         html = main_html(client.get("/a/alpha?owner_view=her").text)
-    assert html.count("Set JELLYFIN_USER_HER in deploy/.env") == 2
+    assert html.count("Set JELLYFIN_USER_HER in deploy/.env") == 1   # media-ux2: Continue watching only
     assert "Nothing playing" in html
     for title in B_ONLY:
         assert title not in html, title
@@ -92,10 +91,11 @@ def test_her_view_ratings_come_from_her_rows_only(env):
     media_db.set_rating("tmdb:202", 9, "movie", "Paper Lanterns", owner="her")
     media_db.set_rating("m2", 4, "movie", "Rated One")  # B.'s
     with env() as client:
-        her = main_html(client.get("/a/alpha?owner_view=her").text)
-        you = main_html(client.get("/a/alpha?owner_view=you").text)
-    assert "9 out of 10" in her and "4 out of 10" not in her
-    assert "4 out of 10" in you and "9 out of 10" not in you
+        # media-ux2: Media home lost Recently watched; History's Recently watched carries the scores now
+        her = main_html(client.get("/media/history?owner_view=her").text)
+        you = main_html(client.get("/media/history?owner_view=you").text)
+    assert "Your rating: 9 out of 10" in her and "Your rating: 4 out of 10" not in her
+    assert "Your rating: 4 out of 10" in you and "Your rating: 9 out of 10" not in you
 
 
 def test_playing_page_in_her_view_uses_her_up_next_but_shared_sessions(env):

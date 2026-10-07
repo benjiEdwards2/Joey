@@ -67,8 +67,9 @@ glyph + condition word); `_shelf.html` Continue watching on Media's `.carousel` 
 (`area.html`, also hidden areas): tiles, the Calendar upcoming rows + weather glimpse, and for areas reading the
 jellyfin/media_status snapshots Media-style sections (`.row`s, `.row-score`, `.gold-glow-sm`). *Server* (`server.html`,
 `server_update.html`): System = `.stats` strip (volumes carry a `.bar`), Last 24 h = `.spark-band` panel (`.spark-*`,
-stroke `--primary`), Services = `.sec` groups of `.row` links with `.st-up/.st-down` words, `.row.is-down` and the 20 px
-`.appicon` slot, Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
+stroke `--primary`), Services = `.sec` groups of a `.svc-grid` of `.svc-card` links (WP-U3: 40 px `.svc-logo` on
+`--appicon-bg`, `.st-up/.st-down` words beside a `.svc-dot`, `.svc-card.is-down` tint; the 20 px `.appicon` rule is now
+unused), Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
 Ignored `.fold`, pending `.badge-wait`, Attention an amber `.panel-warn`), Counts = three `.panel.kv`s. *Weather*
 (`weather.html`): Today `.stats` strip, 24-hour chart `.panel` (+ a `.fold` of hour `.row`s), radar `.panel`, 7 days as
 `.row`s (glyph, day, condition word, range in `.row-side`). *Media*: below.
@@ -111,7 +112,8 @@ icon `server`) renders `server.html` at `/server` and `/a/server` — not to be 
 `server.py` (pure) builds, top to bottom: KPI row per tile (Services = `media_status`, System = `system`, Monitors = `uptime_kuma`,
 Updates = `wud`, Homepage + Portainer links), System band (CPU, RAM free/total, uptime, "Last sweep N min ago" from
 `_runner.json` `ran_at` with "stale" past 90 min, each volume with a hairline bar and % used),
-Services grouped Media / Downloads / System by app id (unknown ids → System; Up/Down word beside the dot), Monitors
+Services grouped Media / Downloads / System by app id (unknown ids → System) as a card grid (WP-U3, 2026-10-07 — see
+below), Monitors
 (Uptime Kuma: status word + dot + response ms per monitor, down first), Updates
 (`N monitored · N updates` + a row per pending update), Attention (any service Down, any volume ≥ 85 % used, any
 Uptime Kuma monitor Down/Pending, the `media_backup` warning — none / older than 36 h, and every connector whose
@@ -157,6 +159,17 @@ Attention items, never post to Discord and never put the hub card in its warn st
 lists them with the words "Not configured" instead of "Failing". Because they leave Attention, `server_alerts.sync`
 deletes any `server_attention_seen` row they had, so a later genuine failure notifies again. The hub loop passes the
 loaded registry; `check_once()` without one reads `AREAS_PATH` / `config/areas.yaml`.
+
+**Services card grid (WP-U3, 2026-10-07).** B.: "logos … so much easier to find them in the card form". Each group is a
+Homepage-style grid (1 column on a phone, 2 from 640 px, 3 from 1100 px): one card per app, the whole card the link
+(`target=_blank rel=noopener`, no nested `<a>`), logo left (`<img alt="" width=40 height=40>` from
+`/static/svc/<file>?v={{ static_v }}`), name + one-line subtitle (`server.SERVICE_SUBTITLES`; unknown ids name only),
+the Up/Down WORD beside the dot, and the Uptime Kuma response ms of the first monitor whose name contains the app name
+(case-insensitive; a Down card shows its note instead). Logos are vendored in `hub/static/svc/` (dashboard-icons,
+Apache-2.0; sources in its README) and mapped in `server.SERVICE_LOGOS`; an id with no logo renders a neutral tile with
+its initial letter and the area's line icon, and a test fails if a `MEDIA_APPS` id has neither a logo nor a `NO_LOGO`
+entry. `server.GATED_HREFS` overrides a card's LAN href where a gated hostname exists (homepage →
+`https://homepage.joeyhome.net` only); the KPI-row Homepage/Portainer link tiles are unchanged.
 
 **Server → Last 24 h history (WP-U4, 2026-10-06).** `server_history.py` samples the `system` snapshot into media.db
 `server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — `ts` is the envelope's `updated_at`

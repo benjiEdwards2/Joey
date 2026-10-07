@@ -15,6 +15,8 @@ WP-U2 (2026-10-06): Attention as keyed items (`attention_items`, keys like `down
 `_runner_history.jsonl` (last 24 h; `sweep_stats`), and the hub card's own words (`hub_card`).
 WP-U4 (2026-10-06): "Last 24 h" band (`history_band`) from media.db `server_system_samples`
 (hub/server_history.py) — CPU / RAM / fullest-volume sparklines and a 7-day disk trend line.
+WP-U3 (2026-10-07): not-configured connectors (`not_configured`) stay out of Attention, and
+Services is a card grid (`service_card`: logo, subtitle, gated href, Uptime Kuma ms).
 """
 
 from __future__ import annotations
@@ -45,6 +47,28 @@ SERVICE_GROUPS = (
     ("Downloads", {"radarr", "sonarr", "prowlarr", "qbittorrent", "gluetun"}),
 )
 OTHER_GROUP = "System"
+
+# WP-U3 (2026-10-07): the Services band is a card grid (Homepage-style). Logos are vendored
+# in hub/static/svc/ (sources + licence in its README.md); an id with no entry renders a
+# neutral initial-letter tile. NO_LOGO lists media_status apps knowingly shipped without one
+# (tests/hub/test_server_cards.py fails on any other app missing a logo).
+SERVICE_LOGOS = {
+    "jellyfin": "jellyfin.svg", "jellyseerr": "jellyseerr.svg", "radarr": "radarr.svg",
+    "sonarr": "sonarr.svg", "prowlarr": "prowlarr.svg", "qbittorrent": "qbittorrent.svg",
+    "gluetun": "gluetun.svg", "portainer": "portainer.svg", "uptime_kuma": "uptime-kuma.svg",
+    "wud": "wud.svg", "adm": "adm.svg",
+    "homepage": "homepage.png",  # dashboard-icons has no Homepage SVG, only this PNG
+}
+NO_LOGO: set[str] = set()
+SERVICE_SUBTITLES = {
+    "jellyfin": "Media server", "jellyseerr": "Requests", "radarr": "Movies", "sonarr": "TV",
+    "prowlarr": "Indexers", "qbittorrent": "Torrents (via VPN)", "gluetun": "VPN tunnel",
+    "portainer": "Docker management", "uptime_kuma": "Service monitoring",
+    "wud": "Container updates", "adm": "NAS admin", "homepage": "NAS dashboard",
+}
+# Apps that have a Cloudflare-gated hostname: the card links there instead of the LAN
+# href from the snapshot (only Homepage today; the KPI-row link tiles are separate).
+GATED_HREFS = {"homepage": "https://homepage.joeyhome.net"}
 
 
 def uptime_text(seconds) -> str:
@@ -220,6 +244,19 @@ def group_services(apps: list[dict]) -> list[dict]:
     known = set().union(*(ids for _, ids in SERVICE_GROUPS))
     groups.append({"label": OTHER_GROUP, "apps": [a for a in apps if a.get("id") not in known]})
     return [g for g in groups if g["apps"]]
+
+
+def service_card(app: dict, monitors: list[dict]) -> dict:
+    """One Services card: the app plus logo (file name or None), subtitle (or None), href
+    (gated hostname when one exists) and the Uptime Kuma response ms of the first monitor
+    whose name contains the app's name (case-insensitive), else None."""
+    aid, name = app.get("id"), str(app.get("name") or app.get("id") or "?")
+    ms = next((m.get("response_ms") for m in monitors
+               if name.lower() in str(m.get("name") or "").lower()
+               and m.get("response_ms") is not None), None)
+    return {**app, "name": name, "initial": name[:1].upper(), "logo": SERVICE_LOGOS.get(aid),
+            "subtitle": SERVICE_SUBTITLES.get(aid), "href": GATED_HREFS.get(aid, app.get("href")),
+            "response_ms": ms}
 
 
 def _counts(snaps) -> dict:
@@ -472,10 +509,10 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
         last_sweep=last_sweep(runner) if runner else None,
     )
 
-    apps = services["data"].get("apps") or []
-    services["groups"] = group_services(apps)
-
     monitors["rows"] = [m for m in monitors["data"].get("monitors") or [] if isinstance(m, dict)]
+
+    apps = [a for a in services["data"].get("apps") or [] if isinstance(a, dict)]
+    services["groups"] = group_services([service_card(a, monitors["rows"]) for a in apps])
 
     ud = updates["data"]
     updates["pending"], updates["ignored"] = split_updates(

@@ -51,3 +51,11 @@ def test_guard_survives_utf8_content_in_staged_files(tmp_path):
     r = subprocess.run([sys.executable, str(guard)], cwd=repo,
                        capture_output=True, text=True, encoding="utf-8", errors="replace")
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_svg_images_skip_the_line_heuristic():
+    """WP-U3 (2026-10-07): minified logo path data ("m1-2-3 … ,12.34") looks like a bank row;
+    .svg joins the image suffixes the line check skips. check_path still guards money paths."""
+    from precommit_money_guard import check_lines
+    assert check_lines("hub/static/svc/sonarr.svg") is None
+    assert check_path("connectors/money/x.csv") is not None

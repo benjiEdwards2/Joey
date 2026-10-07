@@ -758,3 +758,28 @@ a.castcard:hover .castname { text-decoration: underline; }
 .spark-band .spark-base { stroke: var(--line); stroke-width: 1; }
 .spark-band .spark-line { fill: none; stroke: var(--primary); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 @media (max-width: 520px) { .spark-band .spark-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+
+/* Server Services card grid (WP-U3, 2026-10-07): one .svc-card link per app, Homepage-style. 1 column on a phone, 2 from
+   640 px, 3 from 1100 px (existing breakpoints). Logo 40 px on the --appicon-bg tile, or a neutral initial-letter tile
+   with the area's line icon; Up/Down is a word beside the dot (never colour alone); a down card wears the .is-down tint. */
+.svc-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+@media (min-width: 640px) { .svc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .svc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.svc-card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line-soft); background: var(--surface); color: inherit; text-decoration: none;
+  transition: background-color .15s, border-color .15s; }
+.svc-card:hover { background: var(--soft); border-color: var(--line-hover); }
+.svc-card.is-down { background: var(--down-tint); box-shadow: inset 3px 0 0 var(--down-bar); }
+.svc-logo { width: 40px; height: 40px; flex: none; border-radius: 8px; padding: 5px; object-fit: contain;
+  background: var(--appicon-bg); }
+.svc-fallback { position: relative; display: flex; align-items: center; justify-content: center; padding: 0;
+  background: var(--soft); border: 1px solid var(--line); color: var(--text-3); }
+.svc-fallback .svc-initial { font-size: 17px; font-weight: 700; }
+.svc-fallback svg.ic { position: absolute; right: 2px; bottom: 2px; width: 12px; height: 12px; color: var(--text-5); }
+.svc-body { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.svc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; color: var(--text-1); }
+.svc-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-5); }
+.svc-side { display: flex; flex-direction: column; align-items: flex-end; flex: none; gap: 2px; font-size: 13px; font-weight: 500; }
+.svc-side .svc-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 999px;
+  background: currentColor; vertical-align: 1px; }
+.svc-note { font-size: 12px; font-weight: 400; color: var(--text-5); font-variant-numeric: tabular-nums; }

@@ -105,13 +105,38 @@ def runner_errors(runner) -> list[str]:
     return [i["text"] for i in _runner_error_items(runner)]
 
 
-def _runner_error_items(runner) -> list[dict]:
+# WP-U3 (B., 2026-10-07: "silence parked alerts"): a connector is NOT CONFIGURED — a setup
+# task, not a failure — when (a) its latest error is a MissingCredential (connectors/base.py
+# records "MissingCredential: <id>: missing environment variable …"), or (b) no visible area
+# reads its snapshot (every area whose tiles reference it is `hidden`, or none does).
+# Not-configured connectors never reach Attention, Discord or the hub card's warn state; the
+# Sweeps (24 h) table still lists them, saying "Not configured" instead of "Failing".
+MISSING_CREDENTIAL = "MissingCredential"
+
+
+def live_snapshot_ids(registry) -> set[str] | None:
+    """Snapshot ids read by at least one visible (not `hidden`) area; None without a registry
+    (rule (b) then stays off and only rule (a) applies)."""
+    if registry is None:
+        return None
+    return {t.snapshot for a in registry.areas if not a.hidden for t in a.tiles if t.snapshot}
+
+
+def not_configured(cid: str, reason, live: set[str] | None = None) -> bool:
+    """Rule (a): the latest error is a MissingCredential; rule (b): not read by a visible area."""
+    if str(reason or "").removeprefix("runner-level ").startswith(MISSING_CREDENTIAL):
+        return True
+    return live is not None and cid not in live
+
+
+def _runner_error_items(runner, live: set[str] | None = None) -> list[dict]:
     results = (runner or {}).get("results") if isinstance(runner, dict) else None
     if not isinstance(results, dict):
         return []
     return [{"key": f"sweep:{cid}", "text": f"{cid} sweep failed: {_reason(res)}"}
             for cid, res in sorted(results.items())
-            if isinstance(res, dict) and res.get("status") == "error"]
+            if isinstance(res, dict) and res.get("status") == "error"
+            and not not_configured(cid, res.get("error"), live)]
 
 
 SWEEP_WINDOW_HOURS = 24
@@ -166,10 +191,12 @@ def sweep_stats(history, now: datetime | None = None) -> dict[str, dict] | None:
     return stats
 
 
-def sweep_rows(stats, now: datetime | None = None) -> list[dict]:
-    """The page's "Sweeps (24 h)" rows: {id, runs, failures, last_ok_text, failing}."""
+def sweep_rows(stats, now: datetime | None = None, live: set[str] | None = None) -> list[dict]:
+    """The page's "Sweeps (24 h)" rows: {id, runs, failures, last_ok_text, failing,
+    not_configured (failing, but a setup task — WP-U3)}."""
     now = now or datetime.now(timezone.utc)
     return [{"id": cid, "runs": st["runs"], "failures": st["failures"], "failing": st["failing"],
+             "not_configured": st["failing"] and not_configured(cid, st["reason"], live),
              "last_ok_text": (ago_text((now - st["last_ok"]).total_seconds() / 60.0)
                               if st["last_ok"] else "none in 24 h")}
             for cid, st in sorted((stats or {}).items())]
@@ -272,11 +299,14 @@ def _monitors(snaps) -> list[dict]:
     return [m for m in _data(snaps, UPTIME_KUMA_SNAPSHOT_ID).get("monitors") or [] if isinstance(m, dict)]
 
 
-def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None) -> list[dict]:
+def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
+                    live: set[str] | None = None) -> list[dict]:
     """[{key, text}] — what needs B.'s attention. Keys are stable (`down:<app id>`,
     `disk:<path>`, `kuma:<monitor>`, `backup`, `sweep:<connector>`) so hub/server_alerts.py
     can tell a NEW item from one already pushed. Sweep items come from the 24 h history
-    (`stats`, failing now) and fall back to `_runner.json` when there is no history."""
+    (`stats`, failing now) and fall back to `_runner.json` when there is no history.
+    Not-configured connectors (`not_configured`, WP-U3) never become sweep items; `live`
+    is `live_snapshot_ids(registry)`."""
     items: list[dict] = []
     for a in _apps(snaps):
         if not a.get("up"):
@@ -294,10 +324,10 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None)
     if (backup or {}).get("warning"):  # media_backup: stale (> 36 h) or none yet
         items.append({"key": "backup", "text": backup["warning"]})
     if stats is None:
-        items.extend(_runner_error_items(runner))
+        items.extend(_runner_error_items(runner, live))
     else:
         for cid, st in sorted(stats.items()):
-            if st["failing"] and st["failures"]:
+            if st["failing"] and st["failures"] and not not_configured(cid, st["reason"], live):
                 items.append({"key": f"sweep:{cid}",
                               "text": f"{cid} failed {st['failures']} of the last {st['runs']} "
                                       f"sweep{'' if st['runs'] == 1 else 's'} · {st['reason']}"})
@@ -305,7 +335,7 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None)
 
 
 def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=None,
-             now: datetime | None = None) -> dict:
+             now: datetime | None = None, live: set[str] | None = None) -> dict:
     """The Server area's hub card in words: {summary, secondary, state: ok|warn}.
     summary: "All up" / "2 down: Prowlarr, Sonarr"; secondary: "N updates" (ignored ones
     excluded) · "disk N%" (fullest volume) · "N monitors down". `warn` whenever Attention
@@ -328,7 +358,7 @@ def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=N
     n_down = sum(1 for m in _monitors(snaps) if m.get("status") == "down")
     if n_down:
         parts.append(f"{n_down} monitor{'' if n_down == 1 else 's'} down")
-    attention = attention_items(snaps, backup, runner, sweep_stats(history, now))
+    attention = attention_items(snaps, backup, runner, sweep_stats(history, now), live)
     return {"summary": summary, "secondary": " · ".join(parts) or None,
             "state": "warn" if attention else "ok"}
 
@@ -423,7 +453,8 @@ def history_band(samples, now: datetime | None = None) -> dict:
 
 
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
-                 ignores=None, requested=None, history=None, samples=None) -> dict:
+                 ignores=None, requested=None, history=None, samples=None,
+                 live: set[str] | None = None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     monitors = _band(area, snaps, UPTIME_KUMA_SNAPSHOT_ID)
@@ -452,10 +483,10 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
         ignores, requested)
 
     stats = sweep_stats(history)
-    items = attention_items(snaps, backup, runner, stats)
+    items = attention_items(snaps, backup, runner, stats, live)
 
     return {"tiles": [{"tile": t, "st": tile_state(t, snaps)} for t in area.tiles],
             "system": system, "services": services, "monitors": monitors, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
-            "sweeps": sweep_rows(stats), "counts": _counts(snaps),
+            "sweeps": sweep_rows(stats, live=live), "counts": _counts(snaps),
             "history": history_band(samples)}

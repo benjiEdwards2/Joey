@@ -70,7 +70,7 @@ async def _server_alerts_loop():
         except Exception as exc:  # never let a history sample take the hub down
             log.warning("server history task error: %s", type(exc).__name__)
         try:
-            await asyncio.to_thread(server_alerts.check_once)
+            await asyncio.to_thread(server_alerts.check_once, server_area.live_snapshot_ids(registry))
         except Exception as exc:  # never let an alert check take the hub down
             log.warning("server alerts task error: %s", type(exc).__name__)
         await asyncio.sleep(server_alerts.EVERY_S)
@@ -915,7 +915,8 @@ def server_card_state(st: dict, snaps) -> dict:
     """The Server hub card (WP-U2): hub/server.py's words over the summary tile's state.
     `warn` reuses the stale badge (amber) with the words "Needs attention"."""
     card = server_area.hub_card(snaps, server_updates.get_ignores(), media_backup.current_status(),
-                                get_runner(), get_runner_history())
+                                get_runner(), get_runner_history(),
+                                live=server_area.live_snapshot_ids(registry))  # WP-U3
     out = {**st, "value": card["summary"], "secondary": card["secondary"]}
     if card["state"] == "warn":
         stale = st.get("age_text") if st["state"] == "stale" else None
@@ -1370,7 +1371,8 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     snaps = get_snapshots()
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
-                                  get_runner_history(), server_history.recent())
+                                  get_runner_history(), server_history.recent(),
+                                  live=server_area.live_snapshot_ids(registry))  # WP-U3
     tasks = BackgroundTasks()
     tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
     tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page

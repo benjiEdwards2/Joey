@@ -148,6 +148,16 @@ Attention card's "Sweeps (24 h)" rows list every connector (runs · failed · la
 response background task) and on a hub loop beside the media backup one (first ~60 s after start, then every 5 min).
 Unset webhook ⇒ no call, no table writes; failures log status/type only.
 
+**Not-configured connectors (WP-U3, 2026-10-07).** B.: "silence parked alerts". A connector is *not configured* — a
+setup task, not a failure — when (a) its latest error is a `MissingCredential` (the runner records
+"MissingCredential: <id>: missing environment variable …"), or (b) no visible area reads its snapshot (every area whose
+tiles reference it is `hidden`, or none does — `server.live_snapshot_ids(registry)`). Rule (a) alone suffices: a live
+area's connector with its env unset (e.g. jellyseerr) is also not configured. Not-configured connectors never become
+Attention items, never post to Discord and never put the hub card in its warn state; the "Sweeps (24 h)" table still
+lists them with the words "Not configured" instead of "Failing". Because they leave Attention, `server_alerts.sync`
+deletes any `server_attention_seen` row they had, so a later genuine failure notifies again. The hub loop passes the
+loaded registry; `check_once()` without one reads `AREAS_PATH` / `config/areas.yaml`.
+
 **Server → Last 24 h history (WP-U4, 2026-10-06).** `server_history.py` samples the `system` snapshot into media.db
 `server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — `ts` is the envelope's `updated_at`
 (UTC `…Z`), `volumes` JSON `[{path, pct_used, free_gb}]` with `pct_used` recomputed from free/total to two decimals. A row

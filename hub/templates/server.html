@@ -183,7 +183,9 @@
   {% for w in sv.sweeps %}
   <div class="row">
     <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "last ok " ~ w.last_ok_text]) }}</div>
-    {% if w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
+    {# WP-U3: a not-configured connector (missing credential / parked area) is a setup task, not a failure. #}
+    {% if w.not_configured %}<span class="row-side st-off">Not configured</span>
+    {% elif w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
   </div>
   {% endfor %}
   </div>

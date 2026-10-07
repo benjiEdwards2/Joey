@@ -85,6 +85,11 @@ exception type only) and redirects to `/server#updates` with a flash word. Ignor
 ("Joey Server: <item>", max 5 per cycle, 10 s timeout), after a `/server` render and on a 5-minute hub loop. Keys live in
 media.db `server_attention_seen`. Unset ⇒ nothing. The webhook URL is the credential: never logged or rendered; failures log
 the HTTP status or exception type only.
+**Not configured is not failing (WP-U3, 2026-10-07).** A connector whose latest error is `MissingCredential: …` (the
+exact prefix `Connector.run` records), or whose snapshot no visible area reads (only `hidden` areas, or none), is "not
+configured": it is never a `/server` Attention item, never a Discord post and never turns the hub's Server card amber;
+the Sweeps (24 h) table shows it as "Not configured". So keep the `MissingCredential` type for "env var unset" — a
+connector that raised a generic error for missing setup would page B.
 
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,

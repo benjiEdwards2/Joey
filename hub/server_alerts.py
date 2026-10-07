@@ -7,6 +7,11 @@ current: a key with no `notified_at` gets ONE plain Discord message "Joey Server
 (at most 5 per cycle, 10 s timeout), and a key that leaves Attention loses its row so a
 recurrence notifies again.
 
+WP-U3 (2026-10-07): not-configured connectors (hub/server.py `not_configured`: latest error a
+MissingCredential, or no visible area reads the snapshot) never enter Attention, so they are
+never posted — and a seen-row left from before is deleted as "item gone", so a later genuine
+failure of that connector notifies again.
+
 Runs on two paths: after each `/server` render (a response background task) and on the
 hub's own loop (`lifespan` in hub/main.py, the media_backup pattern: first check ~60 s
 after startup, then every 5 min). `SERVER_DISCORD_WEBHOOK` unset ⇒ nothing at all (no
@@ -22,6 +27,7 @@ import sqlite3
 import threading
 from contextlib import closing
 from datetime import datetime, timezone
+from pathlib import Path
 
 import requests
 
@@ -97,13 +103,31 @@ def sync(items: list[dict], now: datetime | None = None) -> int:
     return sent
 
 
-def check_once() -> int:
-    """Build Attention from the current snapshots (as /server does) and sync it."""
+def _live_from_config() -> set[str] | None:
+    """`live_snapshot_ids` of the registry on disk (AREAS_PATH or config/areas.yaml); None
+    when it cannot load (rule (b) then stays off, rule (a) still applies)."""
+    from hub import server
+    from hub.registry import load_registry
+
+    path = os.environ.get("AREAS_PATH") or str(Path(__file__).resolve().parents[1] / "config" / "areas.yaml")
+    try:
+        return server.live_snapshot_ids(load_registry(path))
+    except Exception as exc:
+        log.warning("server alerts: registry unavailable: %s", type(exc).__name__)
+        return None
+
+
+def check_once(live: set[str] | None = None) -> int:
+    """Build Attention from the current snapshots (as /server does) and sync it. `live` is
+    `server.live_snapshot_ids(registry)` (hub/main.py passes the loaded one); not-configured
+    connectors (WP-U3) are left out, so their seen-rows are purged like any item gone."""
     if not webhook():
         return 0
     from hub import media_backup, server
     from hub.store import get_runner, get_runner_history, get_snapshots
 
+    if live is None:
+        live = _live_from_config()
     items = server.attention_items(get_snapshots(), media_backup.current_status(), get_runner(),
-                                   server.sweep_stats(get_runner_history()))
+                                   server.sweep_stats(get_runner_history()), live)
     return sync(items)

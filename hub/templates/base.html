@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Joey{% endblock %}</title>
+{% if media_mode %}
+<link rel="manifest" href="/static/manifest-media.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Joey Media">
+{% else %}
 <link rel="manifest" href="/static/manifest.webmanifest">
+{% endif %}
 <meta name="theme-color" content="#09090b">
 <meta name="joey-asset-v" content="{{ static_v }}">
 <link rel="apple-touch-icon" href="/static/icon-192.png?v=2">
@@ -20,7 +25,18 @@ document.addEventListener('htmx:beforeSwap', function (e) {
   if (m && mine && m[1] !== mine.content) {
     e.detail.shouldSwap = false;
     window.location.href = e.detail.pathInfo.finalRequestPath || e.detail.pathInfo.requestPath;
+    return;
   }
+  /* Boosts swap only <body> (and <title>): carry the page's manifest + iOS app title across, so "Add to Home
+     Screen" from a Media page reached by a boosted link still installs "Joey Media" (2026-10-07). */
+  var text = e.detail.xhr.responseText || '';
+  var mf = /<link rel="manifest" href="([^"]+)">/.exec(text);
+  var link = document.querySelector('link[rel="manifest"]');
+  if (mf && link && link.getAttribute('href') !== mf[1]) link.setAttribute('href', mf[1]);
+  var at = /<meta name="apple-mobile-web-app-title" content="([^"]+)">/.exec(text);
+  var am = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (at && !am) { am = document.createElement('meta'); am.name = 'apple-mobile-web-app-title'; document.head.appendChild(am); }
+  if (at) am.content = at[1]; else if (am && mf) am.remove();
 });
 </script>
 </head>
@@ -60,6 +76,18 @@ document.addEventListener('htmx:beforeSwap', function (e) {
   {% block content %}{% endblock %}
 </main>
 
+{% if media_mode %}
+{# Media mode (B., 2026-10-07): inside Media the phone bar is the six Media sections (media_nav.py, the same active
+   rule as the section tabs), six equal slots, no More. Links scroll the window to the top after the boosted swap
+   (htmx 2.0.4 does show:top for boosts already; stated here so tapping Home on Media home always lands at the top).
+   The way out is the Joey brand in the top bar. #}
+{% set mnav = media_nav(request) %}
+<nav class="tabbar" aria-label="Media sections (phone)" hx-swap="innerHTML show:window:top">
+  {% for s in mnav.sections %}
+  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ ic.icon(s.icon) }}<span>{{ s.short }}</span></a>
+  {% endfor %}
+</nav>
+{% else %}
 <nav class="tabbar" aria-label="Sections (phone)">
   {% for s in (sections if fits else sections[:4]) %}
   <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ ic.icon(s.icon) }}<span>{{ s.name }}</span></a>
@@ -76,5 +104,6 @@ document.addEventListener('htmx:beforeSwap', function (e) {
   </details>
   {% endif %}
 </nav>
+{% endif %}
 </body>
 </html>

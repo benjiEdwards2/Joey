@@ -8,22 +8,22 @@ from urllib.parse import parse_qs, urlsplit
 HOME_ID = "home"
 
 SECTIONS: list[dict] = [
-    {"id": "home", "label": "Home", "href": None, "prefixes": [], "tabs": []},
-    {"id": "movies", "label": "Movies", "href": "/media/movies", "prefixes": ["/media/movies"],
+    {"id": "home", "label": "Home", "short": "Home", "icon": "house", "href": None, "prefixes": [], "tabs": []},
+    {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies", "prefixes": ["/media/movies"],
      "tabs": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
               ("By year", "/media/years?kind=movie"),
               ("Tonight", "/media/movies/tonight")]},
-    {"id": "tv", "label": "TV Shows", "href": "/media/tv", "prefixes": ["/media/tv"],
+    {"id": "tv", "label": "TV Shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
      "tabs": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"),
               ("By year", "/media/years?kind=tv"),
               ("Tonight", "/media/tv/tonight")]},
-    {"id": "diary", "label": "Diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
+    {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
      "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]},
-    {"id": "server", "label": "Server", "href": "/media/playing",
+    {"id": "server", "label": "Server", "short": "Server", "icon": "server", "href": "/media/playing",
      "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps"],
      "tabs": [("Live", "/media/playing"), ("History", "/media/server/history"), ("Library", "/media/library"), ("Downloads", "/media/downloads"),
               ("Requests", "/media/requests"), ("Health", "/media/apps")]},
-    {"id": "discover", "label": "Discover", "href": "/media/discover",
+    {"id": "discover", "label": "Discover", "short": "Discover", "icon": "compass", "href": "/media/discover",
      "prefixes": ["/media/discover", "/media/title", "/media/person"], "tabs": []},
 ]
 YEARS = "/media/years"
@@ -79,7 +79,7 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
     waiting = waiting or {}
     counts = {"diary": waiting.get("to_rate", 0), "movies": waiting.get("to_place", 0),
               "tv": waiting.get("to_place", 0)}
-    sections = [{"id": s["id"], "label": s["label"], "href": home_href if s["id"] == HOME_ID else s["href"],
+    sections = [{"id": s["id"], "label": s["label"], "short": s["short"], "icon": s["icon"], "href": home_href if s["id"] == HOME_ID else s["href"],
                  "on": section is not None and s["id"] == section["id"],
                  "count": counts.get(s["id"], 0) or 0} for s in SECTIONS]
     tabs = []

@@ -27,6 +27,12 @@ tile.
 Diary · Server (incl. Downloads, live from qBittorrent) · Discover. See `hub/README.md`; feeds in
 `docs/connector-contract.md`, env in `docs/setup.md`.
 
+**Pin Media pages on your phone (2026-10-07).** Inside Media the phone's bottom bar is Media's own six sections
+(Home · Movies · TV · Diary · Server · Discover); tap the Joey logo at the top to go back to the overall hub. To keep a
+Media-focused app on your home screen, open any Media page first, then: iOS Safari: Share → Add to Home Screen (it is
+named "Joey Media"); Android Chrome: ⋮ menu → Install app / Add to Home screen (long-press the icon for Movies, TV,
+Server and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.
+
 **Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively: `/server` (and `/a/server`)
 shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (grouped Up/Down), Updates (What's Up Docker), Attention and Counts.
 Feeds `media_status`, `system`, `uptime_kuma`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.

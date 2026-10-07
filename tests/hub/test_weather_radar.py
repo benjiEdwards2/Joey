@@ -1,9 +1,14 @@
-"""/weather rain radar panel + the radar file route (2026-10-06).
+"""/weather rain radar panel + the radar file route.
 
-The open_meteo connector stores BOM PNGs under SNAPSHOT_DIR/radar/ and names them in
-data.radar; the page stacks them as <img> layers and cycles frames with CSS only.
+RADAR SUPERSESSION (2026-10-07, DECISIONS.md): the page's radar is now a Windy embed
+iframe; the BOM layer-stack page assertions (2026-10-06) were replaced by the Windy-embed
+assertions below — a deliberate feature replacement, not a weakening. The BOM file route
+stays (parked, still tested); the connector's BOM fetch is gated behind RADAR_LOOP=1.
 """
+import html as htmllib
 import re
+
+import pytest
 
 from tests.hub.test_store import write_envelope
 from tests.hub.test_weather import WX_DATA, app_factory  # noqa: F401  (fixture re-export)
@@ -38,72 +43,68 @@ def _page(app_factory, data, files=()):
         return r.text
 
 
-# ---- page --------------------------------------------------------------------------
+# ---- page: Windy embed (2026-10-07) ------------------------------------------------
 
 
-def test_radar_panel_stacks_layers_and_cycles_six_frames(app_factory):
-    html = _page(app_factory, {**WX_DATA, "radar": _radar()})
-    panel = html.split('class="sec wxradar"')[1].split("</section>")[0]
-    imgs = re.findall(r'<img class="(wxr\w+)[^"]*" src="([^"]+)"', panel)
-    # background, topography under the rain; range, locations over it
-    assert [s for c, s in imgs if c == "wxrlayer"] == [
-        "/weather/radar/layer_background.png", "/weather/radar/layer_topography.png",
-        "/weather/radar/layer_range.png", "/weather/radar/layer_locations.png"]
-    assert [s for c, s in imgs if c == "wxrframe"] == [f"/weather/radar/frame_{s}.png" for s in STAMPS]
-    assert [c for c, _ in imgs].index("wxrframe") == 2            # rain sits between the layer groups
-    assert all(f'class="wxrframe f{i}"' in panel for i in range(6))
-    assert "<script" not in panel
+def _windy_src(page):
+    panel = page.split('class="sec wxradar"')[1].split("</section>")[0]
+    m = re.search(r'<iframe class="wxwindy" src="([^"]+)"', panel)
+    assert m, "Windy iframe missing"
+    return panel, htmllib.unescape(m.group(1))
 
 
-def test_radar_text_line_and_legend_carry_the_meaning_in_words(app_factory):
-    html = _page(app_factory, {**WX_DATA, "radar": _radar()})
-    # 00:29Z is 11:29 in Melbourne (AEDT, UTC+11) on 2026-10-06
-    assert "11:29–11:54, 5-min frames · 6 frames, latest held" in html
-    for word in ("Light", "Moderate", "Heavy", "Very heavy", "Extreme, possible hail", "mm/h"):
-        assert word in html
-    assert "Bureau of Meteorology" in html
-    assert "Radar unavailable" not in html
-    assert 'class="wxrclock f5" aria-hidden="true">11:54<' in html
+@pytest.fixture()
+def coords(monkeypatch):
+    monkeypatch.setenv("WEATHER_LAT", "-37.84")
+    monkeypatch.setenv("WEATHER_LON", "144.88")
 
 
-def test_fewer_frames_pad_the_cycle_with_the_oldest(app_factory):
-    html = _page(app_factory, {**WX_DATA, "radar": _radar(STAMPS[-2:])})
-    frames = re.findall(r'class="wxrframe f\d" src="/weather/radar/(frame_\d+)\.png"', html)
-    assert frames == ["frame_202610060049"] * 5 + ["frame_202610060054"]
-    assert "11:49–11:54, 5-min frames · 2 frames" in html
+def test_radar_panel_is_a_windy_embed_with_the_home_coords(app_factory, coords):
+    page = _page(app_factory, {**WX_DATA, "radar": _radar()})
+    panel, src = _windy_src(page)
+    assert src.startswith("https://embed.windy.com/embed2.html?")
+    for part in ("lat=-37.84", "lon=144.88", "overlay=radar", "zoom=8", "metricTemp=%C2%B0C",
+                 "metricWind=km%2Fh", "detectRotation=false"):
+        assert part in src.split("?", 1)[1].split("&"), part
+    assert 'title="Interactive rain radar map' in panel and 'loading="lazy"' in panel
+    assert "Interactive radar · map by windy.com (loads from windy.com)" in panel
+    assert "Needs internet — if the map is blank, windy.com is unreachable" in panel
+    # the BOM layer stack is gone from the page, and the page itself runs no script for it
+    assert "wxrframe" not in page and "/weather/radar/" not in page and "<script" not in panel
 
 
-def test_stale_radar_shows_unavailable_with_the_last_frames(app_factory):
-    html = _page(app_factory, {**WX_DATA, "radar": _radar(fetched_ok=False)})
-    assert "<b>Radar unavailable</b> — showing the last stored frames, 11:29–11:54" in html
-    assert 'class="wxrframe f5"' in html
+def test_windy_coords_follow_the_weather_env(app_factory, monkeypatch):
+    monkeypatch.setenv("WEATHER_LAT", "-33.87")
+    monkeypatch.setenv("WEATHER_LON", "151.21")
+    _, src = _windy_src(_page(app_factory, WX_DATA))
+    assert "lat=-33.87&lon=151.21&detailLat=-33.87&detailLon=151.21" in src
 
 
-def test_no_radar_field_shows_a_note_never_a_crash(app_factory):
-    html = _page(app_factory, WX_DATA)                             # pre-radar envelope
-    assert 'class="sec wxradar wxradar-off"' in html
-    assert "Radar unavailable. The loop appears after the next successful radar fetch." in html
-    assert "<img" not in html.split("wxradar-off")[1].split("</section>")[0]
+@pytest.mark.parametrize("lat,lon", [(None, None), ("x", "144.88"), ("-137", "144.88")])
+def test_windy_falls_back_to_newport_when_env_missing_or_bad(app_factory, monkeypatch, lat, lon):
+    for k, v in (("WEATHER_LAT", lat), ("WEATHER_LON", lon)):
+        if v is None:
+            monkeypatch.delenv(k, raising=False)
+        else:
+            monkeypatch.setenv(k, v)
+    _, src = _windy_src(_page(app_factory, WX_DATA))
+    assert "lat=-37.84&lon=144.88" in src
 
 
-def test_malformed_radar_blocks_never_crash_and_never_emit_odd_paths(app_factory):
-    for radar in ("x", {"frames": "x"}, {"frames": [None, 3, {"file": "../open_meteo.json",
-                                                              "time_iso": "2026-10-06T00:00:00+00:00"}]},
-                  {"frames": [{"file": "frame_202610060029.png", "time_iso": "nope"}]}):
-        html = _page(app_factory, {**WX_DATA, "radar": radar})
-        assert "9.7" in html and "wxradar-off" in html and "open_meteo.json" not in html
-
-
-def test_unknown_layer_names_are_dropped(app_factory):
-    html = _page(app_factory, {**WX_DATA, "radar": _radar(layers=["layer_background.png", "../x.png"])})
-    assert html.count('class="wxrlayer"') == 1
-
-
-def test_not_connected_weather_has_no_radar_panel(app_factory):
+def test_windy_panel_renders_when_the_weather_snapshot_is_absent(app_factory, coords):
     build, tmp_path = app_factory
     with build(tmp_path / "never-created") as client:
-        html = client.get("/weather").text
-    assert "Not connected" in html and "wxradar" not in html.split("<main", 1)[1]
+        r = client.get("/weather")
+    assert r.status_code == 200 and "Not connected" in r.text
+    _, src = _windy_src(r.text)
+    assert "lat=-37.84" in src
+
+
+def test_windy_iframe_css_keeps_the_square_capped_slot():
+    from pathlib import Path
+    css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    rule = css.split(".wxwindy {")[1].split("}")[0]
+    assert "aspect-ratio: 1" in rule and "min(100%, 78vh)" in rule and "border: 0" in rule
 
 
 def test_reduced_motion_and_tokens_in_css():

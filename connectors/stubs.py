@@ -137,6 +137,10 @@ class OpenMeteo(Connector):
 
     def fetch(self) -> dict:
         raw = self._fetch_forecast()
+        # RADAR SUPERSESSION (2026-10-07): Windy is the radar surface; the BOM fetch is
+        # gated OFF by default and runs only with RADAR_LOOP=1 (code kept for a switch back).
+        if os.environ.get("RADAR_LOOP") != "1":
+            return raw
         radar = self._radar()   # never raises — radar trouble can't fail the weather
         if radar:
             raw["_radar"] = radar

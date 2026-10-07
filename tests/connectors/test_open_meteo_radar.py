@@ -1,5 +1,8 @@
 """BOM radar loop (2026-10-06) — rides the open_meteo connector as an extra fetch step.
 
+Since the RADAR SUPERSESSION (2026-10-07) the step is gated OFF by default (Windy is the
+radar surface); these tests set RADAR_LOOP=1 to keep exercising the parked code path.
+
 ftplib is replaced by an in-memory fake throughout; the suite never reaches
 ftp.bom.gov.au (conftest refuses any unmocked FTP connection).
 """
@@ -65,6 +68,7 @@ class FakeFTP:
 @pytest.fixture()
 def live(monkeypatch, snapshots):
     monkeypatch.setenv("CONNECTOR_MODE", "live")
+    monkeypatch.setenv("RADAR_LOOP", "1")
     monkeypatch.setenv("WEATHER_LAT", "-37.84")
     monkeypatch.setenv("WEATHER_LON", "144.88")
 
@@ -195,6 +199,7 @@ def test_radar_failure_after_success_keeps_last_frames_marked_stale(live, monkey
 def test_unmocked_ftp_is_refused_and_isolated(monkeypatch, snapshots):
     """The conftest guard: the existing live-fetch test path stays offline and ok."""
     monkeypatch.setenv("CONNECTOR_MODE", "live")
+    monkeypatch.setenv("RADAR_LOOP", "1")
     monkeypatch.setenv("WEATHER_LAT", "-37.84")
     monkeypatch.setenv("WEATHER_LON", "144.88")
 
@@ -208,6 +213,23 @@ def test_unmocked_ftp_is_refused_and_isolated(monkeypatch, snapshots):
     monkeypatch.setattr(requests, "get", lambda *a, **k: FakeResponse())
     env = OpenMeteo().run()
     assert env["status"] == "ok" and "radar" not in env["data"]
+
+
+@pytest.mark.parametrize("value", [None, "0", "true", ""])
+def test_radar_step_is_off_unless_radar_loop_is_1(live, monkeypatch, value):
+    """RADAR SUPERSESSION (2026-10-07): without RADAR_LOOP=1 the BOM step never runs."""
+    if value is None:
+        monkeypatch.delenv("RADAR_LOOP", raising=False)
+    else:
+        monkeypatch.setenv("RADAR_LOOP", value)
+    monkeypatch.setattr(stubs, "fetch_radar", lambda c: pytest.fail("radar step ran while gated off"))
+    env = OpenMeteo().run()
+    assert env["status"] == "ok" and env["error"] is None
+    assert env["data"]["summary"] == "18.3 °C · light rain"
+    assert "radar" not in env["data"]
+    assert FakeFTP.seen == []                       # no FTP connection attempted
+    assert not (live / "radar").exists()
+    _validate(env["data"])
 
 
 def test_fixture_mode_never_runs_the_radar_step(snapshots, monkeypatch):

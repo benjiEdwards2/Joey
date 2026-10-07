@@ -98,7 +98,7 @@ def test_follow_runs_the_check_straight_away_and_back_is_local_only(env):
     with client:
         r = client.post("/media/follow/person/55", data={"back": "https://evil.invalid/x"}, follow_redirects=False)
     assert r.headers["location"] == "/media/person/55?follow=on"
-    assert {j["mediaId"] for j in seerr_posts(both)} == {1, 2, 3, 5, 8}
+    assert {j["mediaId"] for j in seerr_posts(both)} == {1, 2, 3, 8}
 
 
 # ---- the rules ----
@@ -111,10 +111,10 @@ def test_rules_date_billing_director_both_roles_tv_and_status(env):
         got = media_follow.run_once()
     posts = seerr_posts(both)
     assert all(j == {"mediaType": "movie", "mediaId": j["mediaId"]} for j in posts)      # films only, Discover's payload
-    assert {j["mediaId"] for j in posts} == {1, 2, 3, 5, 8}
-    # 3: order 5 but directed; 4: before the follow; 5: no date; 6/7 in Jellyseerr; 9 producer; 10 billed 9th;
+    assert {j["mediaId"] for j in posts} == {1, 2, 3, 8}
+    # 3: order 5 but directed; 4: already released; 5: no date (never qualifies since 2026-10-08); 6/7 in Jellyseerr; 9 producer; 10 billed 9th;
     # 11: not in the film's cast list; TV never
-    assert got["requested"] == 5 and got["already"] == 2
+    assert got["requested"] == 4 and got["already"] == 2   # undated film 5 no longer qualifies (2026-10-08)
     adds = {a["tmdb_id"]: a for a in media_follow.recent_adds(50)}
     assert adds[1]["reason"] == "top-5 cast" and adds[3]["reason"] == "director" and adds[8]["reason"] == "director"
     assert adds[6]["outcome"] == "already" and adds[7]["outcome"] == "already" and 4 not in adds and 50 not in adds
@@ -141,9 +141,13 @@ def test_order_on_the_credit_itself_is_used_when_present(env):
 
 
 def test_follow_date_rule_uses_the_follow_day():
-    assert media_follow.qualifies("2026-10-07", "2026-10-07T00:00:00")
-    assert not media_follow.qualifies("2026-10-06", "2026-10-07")
-    assert media_follow.qualifies("", "2026-10-07") and media_follow.qualifies("TBA", "2026-10-07")
+    # Tightened 2026-10-08 (B.: "only add things that are releasing in the future of the date currently"):
+    # a known date strictly after today; today itself, the past, and unknown / TBA dates never qualify.
+    today = date(2026, 10, 8)
+    assert media_follow.qualifies("2026-10-09", today)
+    assert not media_follow.qualifies("2026-10-08", today)
+    assert not media_follow.qualifies("2026-10-06", today)
+    assert not media_follow.qualifies("", today) and not media_follow.qualifies("TBA", today)
 
 
 def test_collection_parts_are_requested(env):
@@ -221,14 +225,14 @@ def test_discord_one_post_per_add(env, monkeypatch):
     monkeypatch.setenv("SERVER_DISCORD_WEBHOOK", HOOK)
     monkeypatch.delenv("MEDIA_DISCORD_WEBHOOK", raising=False)
     client, both = env()
-    seed(both, {"cast": [film(1, "Lead Role", when="2027-03-01", order=0), film(7, "Have It", order=0, mediaInfo={"status": 5})],
-                "crew": [film(8, "Directed It", when="", job="Director")]})
+    seed(both, {"cast": [film(1, "Lead Role", when="2099-03-01", order=0), film(7, "Have It", order=0, mediaInfo={"status": 5})],
+                "crew": [film(8, "Directed It", when="2099-05-01", job="Director")]})
     with client:
         media_follow.follow("person", 55, "Ada Actor")
         media_follow.run_once()
     msgs = sorted(j["content"] for j in discord_posts(both))
-    assert msgs == ["Joey Media: added Directed It — director · following Ada Actor",
-                    "Joey Media: added Lead Role (2027) — top-5 cast · following Ada Actor"]
+    assert msgs == ["Joey Media: added Directed It (2099) — director · following Ada Actor",
+                    "Joey Media: added Lead Role (2099) — top-5 cast · following Ada Actor"]
 
 
 def test_media_webhook_overrides_and_silent_when_unset(env, monkeypatch):
@@ -249,7 +253,7 @@ def test_media_webhook_overrides_and_silent_when_unset(env, monkeypatch):
 
 def test_following_page_rows_and_recent_adds(env):
     client, both = env()
-    seed(both, {"cast": [film(1, "Lead Role", when="2027-03-01", order=0)], "crew": []})
+    seed(both, {"cast": [film(1, "Lead Role", when="2099-03-01", order=0)], "crew": []})
     both.seerr.table["/api/v1/collection/9"] = {"name": "Harbour Collection", "posterPath": "/hc.jpg",
                                                 "parts": [film(603, "Harbour Lights", when=PAST)]}
     with client:
@@ -261,7 +265,7 @@ def test_following_page_rows_and_recent_adds(env):
     assert '<a class="row" href="/media/title/movie/603">' in b and "Film series" in b and "Harbour Collection" in b
     assert "1 added" in b and "0 added" in b
     recent = b.split("Recently added by follows", 1)[1]
-    assert '<a class="row" href="/media/title/movie/1">' in recent and "Lead Role (2027)" in recent
+    assert '<a class="row" href="/media/title/movie/1">' in recent and "Lead Role (2099)" in recent
     assert "Requested" in recent and "top-5 cast" in recent
     assert "secret-token" not in b and SKEY not in b
 
@@ -278,14 +282,14 @@ def test_following_empty_state_and_director_word(env):
 
 def test_home_shelf_only_with_a_follow(env):
     client, both = env()
-    seed(both, {"cast": [film(1, "Lead Role", when="2027-03-01", order=0)], "crew": []})
+    seed(both, {"cast": [film(1, "Lead Role", when="2099-03-01", order=0)], "crew": []})
     with client:
         assert "New from people you follow" not in client.get("/a/alpha").text
         follow_person(client)
         b = main_of(client.get("/a/alpha").text)
     shelf = b.split("New from people you follow", 1)[1].split("</section>", 1)[0]
     assert 'href="/media/following"' in shelf and '<a class="card-poster" href="/media/title/movie/1">' in shelf
-    assert "Lead Role" in shelf and "2027 · Ada Actor" in shelf
+    assert "Lead Role" in shelf and "2099 · Ada Actor" in shelf
 
 
 def test_film_page_follow_series_button(env):

@@ -231,7 +231,7 @@ answer and is remembered (short cache for the short paths, 6 h for metadata); a 
 Continue watching / Up next, Recently added, Recently watched; both profiles; at most 60, one at a time with a 0.5 s pause),
 reads each title body + ratings and pre-fetches the film page's poster (h=600), backdrop (h=1280) and top-8 cast photos
 (h=120) into the `/img` disk cache. Everything it touches is cached, so a repeat pass is stats and short reads.
-`MEDIA_WARMUP=off` disables it; without Jellyfin / Jellyseerr keys it skips. Cast portraits and posters are
+**Library pass** (media-warm-library): after the shelf pass, at most once per 24 h (stamp `warmup_library.stamp` in the meta cache dir, written only after a pass with no failures), the whole library — jellyfin snapshot movies + shows, both profiles, de-duplicated — gets what `/media/item/{jf_id}` renders: poster h=600, backdrop h=1280, top-8 cast photos h=120, plus ratings and the title body through the 6 h disk meta cache (so later passes cost stats). Sequential, 0.3 s pause after each upstream fetch; a cold pass takes ~20 min and logs one summary line (titles, fetched, cached, failures, seconds). `MEDIA_WARMUP=off` disables everything, `MEDIA_WARMUP=shelves` keeps only the shelf pass; without Jellyfin / Jellyseerr keys it skips. Cast portraits and posters are
 `loading="lazy" decoding="async"`. Measure with `scripts/bench_item_page.py` (inside the hub container; its docstring has
 the command); `scripts/profile_item_page.py` prints a cold open's call timeline against the test fakes.
 

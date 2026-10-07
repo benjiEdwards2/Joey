@@ -560,6 +560,11 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .reqrow .row-body { flex-basis: 0; }  /* title + meta shrink so the score and Remove stay on the row's line */
 .row .bar { margin-top: 6px; }
 .poster.row-poster { width: 44px; height: auto; border: 0; border-radius: 4px; }
+/* Movies / TV Shows library lists (media-ux2, 2026-10-08): posters 25% bigger on a phone (55 px), 50% from 640 px
+   (66 px); the row grows with them. Only .listbox.libposters — other rows keep the 44 px guide size. */
+.listbox.libposters .poster.row-poster { width: 55px; }
+.listbox.libposters .row { padding: 10px 8px; }
+@media (min-width: 640px) { .listbox.libposters .poster.row-poster { width: 66px; } .listbox.libposters .row { padding: 10px; gap: 18px; } }
 label.row { cursor: pointer; }
 label.row input[type=radio] { flex-shrink: 0; }
 /* A hairline progress bar (guide 6 summary card): track white/8, indigo-400 fill. */

@@ -10,7 +10,8 @@ after the NAS's overnight power-off. MEDIA_WARMUP=off disables it; no Jellyseerr
 
 Library pass (media-warm-library, 2026-10-07): after the shelf pass, at most once per 24 h (stamp file in the
 meta cache dir), the same walk covers the WHOLE library — jellyfin snapshot movies + shows, both profiles,
-de-duplicated — warming exactly what /media/item/{jf_id} renders: poster h=600, backdrop h=1280, the
+de-duplicated — warming exactly what /media/item/{jf_id} renders: poster h=600, backdrop h=1280, the list-row
+poster h=240 (/media/movies, /media/tv; media-ux2), the
 top-CAST_MAX (8) cast photos at the portrait-card size (CAST_H, h=400 since film-quality), plus the title's ratings and body through the 6 h disk meta cache. Cached
 images cost a stat; the pass is sequential with a pause between upstream fetches. MEDIA_WARMUP=shelves keeps
 only the shelf pass.
@@ -33,6 +34,7 @@ MAX_TITLES = 60
 PAUSE_S = 0.5
 CAST_WARM = CAST_MAX    # the film page shows CAST_MAX (8) cast photos
 POSTER_H, BACKDROP_H, CAST_H = 600, 1280, FILM_CAST_H   # the sizes media_film.html asks /img for (cast: portrait cards)
+LIST_POSTER_H = 240   # media-ux2: the Movies / TV Shows list rows' poster (_library_row.html asks h=240)
 
 
 LIBRARY_EVERY_S = 24 * 3600
@@ -191,7 +193,8 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
         counts["titles"] += 1
         try:
             if jf:
-                for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H)):
+                for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H),
+                               (f"jf:{t['art']}", LIST_POSTER_H)):
                     if img(ref, h) == "fetched":
                         rest()
             if seerr and t["tmdb"]:

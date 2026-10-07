@@ -35,7 +35,7 @@
 {% for g in groups %}
 <section class="sec">
   {% if g.label %}<div class="seclabel">{{ g.label }} · {{ g.rows|length }}</div>{% endif %}
-  <div class="listbox">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
+  <div class="listbox libposters">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
 </section>
 {% else %}
 <p class="empty">{{ "Nothing matches that search." if q else "Nothing in the library yet." }}</p>

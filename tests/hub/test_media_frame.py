@@ -50,7 +50,8 @@ ROUTES = {
     "/media/library": ("server", "Library"),
     "/media/requests": ("server", "Requests"),
     "/media/apps": ("server", "Health"),
-    "/media/discover": ("discover", None),
+    "/media/discover": ("discover", "Discover"),   # Follow (2026-10-07): Discover / Following sub-tabs
+    "/media/following": ("discover", "Following"),
     "/media/title/movie/1": ("discover", None),
 }
 LABELS = {"home": "Home", "movies": "Movies", "tv": "TV Shows", "diary": "Diary", "server": "Server", "discover": "Discover"}

@@ -13,6 +13,14 @@
     {% if person.dept or person.life %}<p class="facts-line">{% for p in [person.dept, person.life] if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}</p>{% endif %}
     {% if person.bio %}<p class="overview">{{ person.bio.lead }}</p>{% if person.bio.more %}<details class="biomore"><summary>More</summary><p class="overview">{{ person.bio.more }}</p></details>{% endif %}{% endif %}
     <p class="statusline" id="status-line">{{ person.head }}</p>
+    {# Follow (2026-10-07): instant and reversible; only NEW films (top-5 billed / directed) get requested. #}
+    {% set base = "/media/follow/person/" ~ person.tmdb %}
+    <form class="followform" method="post" action="{{ base }}{{ '/unfollow' if person.following }}">
+      <input type="hidden" name="back" value="/media/person/{{ person.tmdb }}"><input type="hidden" name="name" value="{{ person.name }}">
+      {% if person.following %}<span class="st-good">Following ✓</span> <button class="btn btn-ghost btn-sm" type="submit">Unfollow</button>
+      {% else %}<button class="btn btn-secondary btn-sm" type="submit">Follow</button>{% endif %}
+    </form>
+    {% if follow_flash %}<p class="metaline st-good" role="status">{{ follow_flash }}</p>{% endif %}
   </div>
 </header>
 {% if person.shelf %}
@@ -24,7 +32,12 @@
 {% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
 <section class="sec">
   <div class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</div>
-  <div class="poster-grid">{% for r in rows %}{{ card(r, r.href, true) }}{% endfor %}</div>
+  <div class="poster-grid">{% for r in rows[:show_first] %}{{ card(r, r.href, true) }}{% endfor %}</div>
+  {% if rows | length > show_first %}
+  <details class="showmore"><summary>Show more · {{ rows | length - show_first }}</summary>
+  <div class="poster-grid">{% for r in rows[show_first:] %}{{ card(r, r.href, true) }}{% endfor %}</div>
+  </details>
+  {% endif %}
 </section>
 {% endif %}{% endfor %}
 {% endif %}

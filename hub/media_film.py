@@ -21,7 +21,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_discover as md, media_files, media_item, media_plays_db
+from hub import media_db, media_discover as md, media_files, media_follow, media_item, media_plays_db
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -308,12 +308,13 @@ def _languages(files: dict | None) -> str | None:
 def _shelves(raw: dict, kind: str, lib_keys: set, similar, recs) -> list[dict]:
     paths = [("Collection", None), ("Similar", similar), ("Recommended", recs)]
     col = raw.get("collection") if isinstance(raw.get("collection"), dict) else None
-    if col and isinstance(col.get("id"), int):
+    col_id = col["id"] if col and isinstance(col.get("id"), int) and not isinstance(col.get("id"), bool) else None
+    if col_id is not None:
         body = _cget(f"/api/v1/collection/{col['id']}")
         parts = body.get("parts") if isinstance(body, dict) else None
         paths[0] = (str(col.get("name") or "Collection")[:80], parts if isinstance(parts, list) else None)
     out = []
-    for title, src in paths:
+    for i, (title, src) in enumerate(paths):
         if isinstance(src, list):
             rows = md._rows(src, "movie")[:SHELF_MAX]
         elif isinstance(src, dict):
@@ -322,7 +323,8 @@ def _shelves(raw: dict, kind: str, lib_keys: set, similar, recs) -> list[dict]:
             rows = []
         rows = [{**r, "on_server": f"tmdb:{r['tmdb_id']}" in lib_keys or r["status_word"] in md.ON_DISK} for r in rows]
         if rows:
-            out.append({"title": title, "rows": rows})
+            out.append({"title": title, "rows": rows,
+                        "collection_id": col_id if i == 0 and kind == "movie" else None})
     return out
 
 
@@ -501,6 +503,14 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
     f["shelves"] = _shelves(raw, kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
+    f["follow_flash"] = media_follow.flash_text(request)
+    for sh in f["shelves"]:
+        if sh["collection_id"] is not None:
+            try:  # Follow (2026-10-07): the series' Follow button state; the page never fails on it
+                sh["following"] = media_follow.get("collection", sh["collection_id"]) is not None
+            except Exception as exc:
+                log.warning("follow lookup failed: %s", type(exc).__name__)
+                sh["following"] = False
     f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
     f["status_line"] = status_line(f)
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in

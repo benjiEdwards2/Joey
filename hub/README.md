@@ -235,6 +235,18 @@ reads each title body + ratings and pre-fetches the film page's poster (h=600), 
 `loading="lazy" decoding="async"`. Measure with `scripts/bench_item_page.py` (inside the hub container; its docstring has
 the command); `scripts/profile_item_page.py` prints a cold open's call timeline against the test fakes.
 
+Follow (2026-10-07): `media_follow.py`. **Films only.** Follow a person from their page (header "Follow" / "Following ✓ ·
+Unfollow") or a film series from the film page's collection shelf ("Follow series"); following is instant and reversible
+(`POST /media/follow/{person|collection}/{tmdb}` and `…/unfollow`, behind `same_origin`, redirect back with a flash word).
+New and future films only — a film released before the follow date is never added. A person's film qualifies when they are
+top-5 billed (cast `order` 0–4, read from the film's own Jellyseerr credits) or its Director; a series' film always does.
+Qualifying films not yet in Jellyseerr are requested through the Discover Request call (max 10 a run, the rest next run),
+recorded in media.db `media_follow_adds` (never requested twice by a follow) and announced on Discord ("Joey Media: added
+<Title> (<year>) — <reason> · following <Name>"; `MEDIA_DISCORD_WEBHOOK`, else `SERVER_DISCORD_WEBHOOK`). The check runs
+right after a Follow and every 6 h (first ~2 min after start; `MEDIA_FOLLOW=off` disables the loop). Discover has a
+**Following** tab (`/media/following`: each follow, then the last 20 adds) and Media home gains "New from people you
+follow" once anything is followed. Person pages show the first 24 titles of each grid and fold the rest under "Show more".
+
 Rating level (2026-10-06): each owner chooses Show / Season / Episode with the chips on To rate
 (`POST /media/settings/rating_level`, stored per owner in `media.db` `setting`). The To rate inbox, the rate
 picker and the score shown on rows follow it; a row lacking that level's key falls back to its show, and

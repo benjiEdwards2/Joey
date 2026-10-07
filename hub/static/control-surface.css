@@ -722,6 +722,12 @@ a.castcard:hover .castname { text-decoration: underline; }
 .personpic { width: 112px; height: 112px; flex: none; border-radius: 50%; object-fit: cover; background: var(--surface); border: 1px solid var(--line); }
 .personpic.initials { display: inline-flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 700; color: var(--text-4); }
 .biomore summary { cursor: pointer; color: var(--text-4); font-size: 13px; }
+/* Follow (2026-10-07): the Follow / Following line under a person's status line and a series shelf label;
+   "Show more" folds a long credits grid. */
+.followform { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; font-size: 13px; }
+.showmore { margin-top: 12px; }
+.showmore > summary { cursor: pointer; color: var(--text-3); font-size: 13px; font-weight: 500; padding: 8px 0; }
+.showmore > .poster-grid { margin-top: 8px; }
 @media (min-width: 640px) { .personhead { flex-direction: row; align-items: flex-start; } .personpic { width: 160px; height: 160px; } }
 
 /* 1-10 picker and the rated line: score chips coloured by grade. */

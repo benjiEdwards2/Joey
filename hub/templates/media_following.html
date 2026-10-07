@@ -1,0 +1,40 @@
+{% extends "media_base.html" %}
+{% block title %}Following — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
+{# Following (2026-10-07): the people and film series B. follows — their NEW films are requested automatically
+   (hub/media_follow.py) — then the latest adds. Every row is one whole-row link; state is a WORD. #}
+{% if request.query_params.get("follow") == "off" %}<p class="metaline st-good" role="status">Unfollowed</p>{% endif %}
+{% if needs %}<p class="metaline st-warn">{{ needs }}</p>{% endif %}
+{% if follows %}
+<section class="sec">
+  <div class="seclabel">Following · {{ follows | length }}</div>
+  <div class="listbox">
+  {% for f in follows %}
+  {% set added %}{{ f.added }} added{% endset %}
+  <a class="row" href="{{ f.href }}">
+    {{ poster(f.poster, f.name, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ f.name }}</div>{{ meta([f.kind_word, ("Since " ~ f.since) if f.since else none, added]) }}</div>
+  </a>
+  {% endfor %}
+  </div>
+</section>
+{% if adds %}
+<section class="sec">
+  <div class="seclabel">Recently added by follows</div>
+  <div class="listbox">
+  {% for a in adds %}
+  {% set word %}<span class="st-{{ 'available' if a.outcome == 'requested' else 'warn' if a.outcome == 'failed' else 'requested' }}">{{ a.word }}</span>{% endset %}
+  <a class="row" href="{{ a.href }}">
+    {{ poster(a.poster, a.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ a.title }}{% if a.year %} ({{ a.year }}){% endif %}</div>{{ meta([word, a.reason, "following " ~ a.follow_name, a.when]) }}</div>
+  </a>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% else %}
+<p class="empty">{{ empty }}</p>
+{% endif %}
+{% endblock %}

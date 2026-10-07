@@ -12,12 +12,13 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_discover as md, media_item
+from hub import media_discover as md, media_follow, media_item
 from hub.media_film import _cget
 
 router = APIRouter()
 
 CREDITS_MAX, BIO_MAX, BIO_LEAD = 200, 1200, 400
+SHOW_FIRST = 24   # Follow (2026-10-07): a grid shows this many, "Show more" folds the rest
 ID_RE = re.compile(r"^[1-9][0-9]{0,9}$")
 DOWN_TEXT = "Couldn't reach Jellyseerr — nothing to show for this person yet"
 
@@ -125,7 +126,13 @@ def person_page(request: Request, person_id: str):
     if src is None:
         raise HTTPException(404, "No such person")
     person = build_person(int(person_id), hub)
+    try:
+        person["following"] = media_follow.get("person", int(person_id)) is not None
+    except Exception as exc:  # the page never fails on the follow lookup
+        md.log.warning("follow lookup failed: %s", type(exc).__name__)
+        person["following"] = False
     resp = hub.templates.TemplateResponse(request, "media_person.html", {
         "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(snaps), "src": src, "person": person})
+        "status": hub.build_status(snaps), "src": src, "person": person, "show_first": SHOW_FIRST,
+        "follow_flash": media_follow.flash_text(request)})
     return hub._maybe_set_cookie(resp, view, from_query)

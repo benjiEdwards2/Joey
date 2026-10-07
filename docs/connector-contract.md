@@ -98,6 +98,18 @@ configured": it is never a `/server` Attention item, never a Discord post and ne
 the Sweeps (24 h) table shows it as "Not configured". So keep the `MissingCredential` type for "env var unset" — a
 connector that raised a generic error for missing setup would page B.
 
+**Twelfth exception (2026-10-07): Follow (`hub/media_follow.py`).** A background reader AND writer of Jellyseerr. For
+each row of media.db `media_follows` (a person or a TMDB collection, followed from its page by a `same_origin`-guarded
+POST) the check reads, live and server-side, `/api/v1/person/{id}/combined_credits` (films only: crew `job == "Director"`,
+or cast — whose top-5 billing it confirms from that film's `/api/v1/movie/{id}` `credits.cast[].order`, because Jellyseerr's
+person credits drop TMDB's `order`) or `/api/v1/collection/{id}` (`parts`). A film released before the follow date is never
+read further or requested. Each remaining film not yet in Jellyseerr is requested with the SAME `POST /api/v1/request`
+(`{"mediaType": "movie", "mediaId": id}`) the Discover Request button sends, at most 10 a run (the rest wait a run), and
+recorded in `media_follow_adds` (outcome `requested` / `already` / `failed`; a recorded requested/already title is never
+requested again). Runs right after a Follow (a response background task) and on a hub loop ~2 min after start, then every
+6 h; `MEDIA_FOLLOW=off` disables the loop; no Jellyseerr keys ⇒ no calls. Each add POSTs one Discord message ("Joey Media:
+added …") to `MEDIA_DISCORD_WEBHOOK`, else `SERVER_DISCORD_WEBHOOK` (neither ⇒ silent). Logs carry status / exception type only.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

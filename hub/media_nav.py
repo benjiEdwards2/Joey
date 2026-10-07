@@ -24,7 +24,9 @@ SECTIONS: list[dict] = [
      "tabs": [("Live", "/media/playing"), ("History", "/media/server/history"), ("Library", "/media/library"), ("Downloads", "/media/downloads"),
               ("Requests", "/media/requests"), ("Health", "/media/apps")]},
     {"id": "discover", "label": "Discover", "short": "Discover", "icon": "compass", "href": "/media/discover",
-     "prefixes": ["/media/discover", "/media/title", "/media/person"], "tabs": []},
+     "prefixes": ["/media/discover", "/media/following", "/media/title", "/media/person"],
+     # Follow (2026-10-07): Discover / Following; a title or person page shows no sub-tab row (none is its own)
+     "tabs": [("Discover", "/media/discover"), ("Following", "/media/following")], "tabs_only_on": True},
 ]
 YEARS = "/media/years"
 
@@ -90,4 +92,6 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
                       "/media/tv/watchlist": waiting.get("wl_tv", 0)}
         tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0}
                 for (label, h), sc in zip(section["tabs"], scores)]
+        if section.get("tabs_only_on") and not top:
+            tabs = []
     return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href}

@@ -26,7 +26,7 @@ from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
-from hub import media_watchlist, media_warmup
+from hub import media_follow, media_watchlist, media_warmup
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
@@ -88,6 +88,18 @@ async def _media_warmup_loop():
         await asyncio.sleep(media_warmup.EVERY_S)
 
 
+async def _media_follow_loop():
+    """Follow (2026-10-07): request NEW films of followed people / series (hub/media_follow.py) ~2 min after
+    startup, then every 6 h. Idempotent (the NAS is off overnight); MEDIA_FOLLOW=off disables it."""
+    await asyncio.sleep(media_follow.FIRST_DELAY_S)
+    while True:
+        try:
+            await asyncio.to_thread(media_follow.run_once)
+        except Exception as exc:  # never let a follow check take the hub down
+            log.warning("media follow task error: %s", type(exc).__name__)
+        await asyncio.sleep(media_follow.EVERY_S)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Load the registry at startup, failing fast with the aggregated violation list."""
@@ -100,7 +112,12 @@ async def lifespan(_: FastAPI):
     plays_task = media_plays.start_recorder()  # F7 play recorder; None when off
     alerts_task = asyncio.create_task(_server_alerts_loop())
     warmup_task = None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop())
+    follow_task = None if media_follow.disabled() else asyncio.create_task(_media_follow_loop())
     yield
+    if follow_task is not None:
+        follow_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await follow_task
     if warmup_task is not None:
         warmup_task.cancel()
         with suppress(asyncio.CancelledError):
@@ -136,6 +153,7 @@ app.include_router(media_plays.router)
 app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
+app.include_router(media_follow.router)
 app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
@@ -842,6 +860,14 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
             + [item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
                     f"{e['plays']} play{'' if e['plays'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
                for e in most_films])
+    try:  # Follow (2026-10-07): only once something is followed; behind the Discover tile like /media/following
+        followed = media_follow.home_items() if DISCOVER_DETAIL in by_detail else None
+    except Exception as exc:  # the home page never fails on the follow shelf
+        log.warning("follow shelf skipped: %s", type(exc).__name__)
+        followed = None
+    if followed is not None:
+        shelves.append({"id": "following", "title": "New from people you follow", "see_all_href": media_follow.FOLLOWING,
+                        "items": [item(r, r["sub"], r["href"]) for r in followed], "quiet_text": "Nothing new yet"})
     if most:  # F7: not behind a registry tile, so it skips add()'s detail gate
         shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
                         "items": most, "quiet_text": ""})

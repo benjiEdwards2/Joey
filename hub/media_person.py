@@ -7,6 +7,7 @@ page's cache), split into "On your server" (matched against the Jellyfin snapsho
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -93,8 +94,12 @@ def build_person(tmdb_id: int, hub) -> dict:
     snaps = hub.get_snapshots()
     jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     lib = _library((jsrc or {}).get("data") or {})
-    person = _cget(f"/api/v1/person/{tmdb_id}")
-    credits = _cget(f"/api/v1/person/{tmdb_id}/combined_credits")
+    # media-speed: the biography is metadata only (long, restart-proof meta cache); the credits carry each
+    # title's request / availability state, so they keep the short cache. Both reads run side by side.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        person_f = pool.submit(md.meta_get, f"/api/v1/person/{tmdb_id}")
+        credits = _cget(f"/api/v1/person/{tmdb_id}/combined_credits")
+        person = person_f.result()
     if not isinstance(person, dict) and not isinstance(credits, dict):
         return {"down": True, "note": DOWN_TEXT, "name": "Person", "tmdb": tmdb_id}
     person = person if isinstance(person, dict) else {}

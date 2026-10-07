@@ -208,6 +208,25 @@ for on-server shows, lazy `<details>` for off-server ones (`GET /media/title/tv/
 Similar / Recommended shelves marked "On server". Every row with a Jellyfin id opens this page; an episode id shows an episode
 header over the show page.
 
+**Film page speed (media-speed, 2026-10-07).** A cold open overlaps its live reads instead of chaining them: the Jellyseerr
+title / ratings / similar / recommendations start as soon as the TMDB id is known (from the URL, else from the library
+snapshot — an episode via its up-next / history row's show key), alongside the Jellyfin item read; the collection read
+starts the moment the title body names one; a show's per-season episode reads run side by side; an episode page reads its
+show once (the episode build fetches it through the cache) and a film's file strip rides on the item read itself. One
+snapshot read per film request is shared with the Media frame. Caches: request / availability state (title body, similar,
+recommendations, collection, person credits, Jellyfin item + seasons) keeps the 10 min in-process cache; metadata with no
+user state (ratings, a person's biography, a season's episode list) rides a 6 h cache kept in memory **and** on disk
+(`META_CACHE_DIR`, default `<IMG_CACHE_DIR>/meta/`, one JSON file per path) so a deploy restart doesn't empty it. A 404 is an
+answer and is remembered (short cache for the short paths, 6 h for metadata); a network failure is not. TV titles ask
+`ratings` only — Jellyseerr has no `tv/{id}/ratingscombined`, which was the 404 every TV page logged. **Warm-up**
+(`media_warmup.py`): ~60 s after startup and every 3 h, a background pass walks the Media home shelves' titles (Playing now,
+Continue watching / Up next, Recently added, Recently watched; both profiles; at most 60, one at a time with a 0.5 s pause),
+reads each title body + ratings and pre-fetches the film page's poster (h=600), backdrop (h=1280) and top-8 cast photos
+(h=120) into the `/img` disk cache. Everything it touches is cached, so a repeat pass is stats and short reads.
+`MEDIA_WARMUP=off` disables it; without Jellyfin / Jellyseerr keys it skips. Cast portraits and posters are
+`loading="lazy" decoding="async"`. Measure with `scripts/bench_item_page.py` (inside the hub container; its docstring has
+the command); `scripts/profile_item_page.py` prints a cold open's call timeline against the test fakes.
+
 Rating level (2026-10-06): each owner chooses Show / Season / Episode with the chips on To rate
 (`POST /media/settings/rating_level`, stored per owner in `media.db` `setting`). The To rate inbox, the rate
 picker and the score shown on rows follow it; a row lacking that level's key falls back to its show, and

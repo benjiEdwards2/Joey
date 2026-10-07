@@ -103,7 +103,7 @@
   <div class="seclabel">Cast</div>
   <div class="castrow">
     {% for c in film.cast %}
-    <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h=120" alt="" loading="lazy" width="56" height="56">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+    <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h=120" alt="" loading="lazy" decoding="async" width="56" height="56">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
       <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="row-meta">{{ c.role }}</span>{% endif %}</{{ "a" if c.id else "div" }}>
     {% endfor %}
   </div>

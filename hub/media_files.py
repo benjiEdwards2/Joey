@@ -279,6 +279,19 @@ def file_summary(kind: str, tmdb_id: int) -> dict | None:
     return out
 
 
+def file_summary_from_item(jf_id: str, item: dict) -> dict | None:
+    """file_summary_for_item from an item body already read WITH ITEM_FIELDS (the film page's own read):
+    no second Jellyfin call. Shares file_summary_for_item's cache entry."""
+    key = (f"item:{jf_id}", 0)
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < CACHE_TTL:
+        return hit[1]
+    out = _summarise("movie", [item]) if isinstance(item, dict) else None
+    if out is not None:
+        _cache[key] = (time.time(), out)
+    return out
+
+
 def file_summary_for_item(jf_id: str) -> dict | None:
     """Quality facts for ONE Jellyfin item (a film or an episode file), or None on any failure."""
     key = (f"item:{jf_id}", 0)

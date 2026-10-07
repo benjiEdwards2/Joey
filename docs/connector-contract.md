@@ -66,6 +66,13 @@ the sixth exception's file strip) and Jellyseerr title (`/api/v1/{movie|tv}/{tmd
 `similar`, `recommendations` and `collection/{id}`. Jellyseerr shares `media_discover`'s cache, so its `clear_cache()` (run
 on Request) clears these too. Every call degrades per section to words, never a 500; Jellyseerr not connected makes none.
 Logs carry exception types only; the page carries no key or upstream URL beyond the Play deep link and "Open in Jellyseerr".
+*Caching update (media-speed, 2026-10-07):* the 10-minute rule above still holds for everything carrying request /
+availability state, and a 404 answer is now cached for that time too (network failures still are not). Ratings
+(`ratingscombined` for films only — TV asks `ratings` alone), the person biography (`person/{id}`) and a season's episode
+list (`tv/{id}/season/{n}`) carry no user state and are cached 6 h, in memory and on disk (`META_CACHE_DIR`, default
+`<IMG_CACHE_DIR>/meta/`), 404s included. The reads run concurrently (Jellyfin and Jellyseerr side by side). A background
+warm-up (`hub/media_warmup.py`, `MEDIA_WARMUP=off` disables) makes the same reads plus `/img` pre-fetches for at most 60
+home-shelf titles at startup + 60 s and every 3 h; it is paced, idempotent and makes no call without the keys.
 
 **Ninth exception (2026-10-06): the person page (`hub/media_person.py`, F11).** `/media/person/{tmdb}` reads Jellyseerr
 `/api/v1/person/{id}` and `/api/v1/person/{id}/combined_credits` live, server-side, cached 10 minutes via the film page's

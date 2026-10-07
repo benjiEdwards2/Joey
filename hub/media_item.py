@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from hub import media_db, media_files
@@ -24,7 +25,10 @@ TICKS_PER_MINUTE = 600_000_000
 MAX_SEASONS, MAX_EPISODES = 12, 60
 FIELDS = ("Overview,Genres,People,ProviderIds,DateCreated,PremiereDate,RunTimeTicks,SeriesId,SeasonId,"
           "ParentIndexNumber,IndexNumber,SeriesName,SeasonName,Studios,OfficialRating,CommunityRating,"
-          "UserData,BackdropImageTags,ImageTags,RemoteTrailers")
+          "UserData,BackdropImageTags,ImageTags,RemoteTrailers,"
+          # media-speed (2026-10-07): the file strip's stream facts ride on the same item read
+          "MediaStreams,MediaSources,Path,Width,Height,Container")
+SEASON_WORKERS = 6
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
 
@@ -75,12 +79,20 @@ def _state(row: dict, today: str) -> dict:
 
 def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
     got = media_files._get(base, headers, f"/Shows/{series_id}/Seasons", {"userId": uid})
-    out = []
-    for s in (got.get("Items") if isinstance(got, dict) else None) or []:
-        if not isinstance(s, dict) or not s.get("Id") or len(out) >= MAX_SEASONS:
-            continue
-        body = media_files._get(base, headers, f"/Shows/{series_id}/Episodes", {
+    picked = [s for s in (got.get("Items") if isinstance(got, dict) else None) or []
+              if isinstance(s, dict) and s.get("Id")][:MAX_SEASONS]
+
+    def episodes(s):
+        return media_files._get(base, headers, f"/Shows/{series_id}/Episodes", {
             "userId": uid, "seasonId": s["Id"], "Fields": "UserData,PremiereDate,RunTimeTicks"})
+
+    if len(picked) > 1:  # one episode read per season, side by side (media-speed)
+        with ThreadPoolExecutor(max_workers=min(SEASON_WORKERS, len(picked))) as pool:
+            bodies = list(pool.map(episodes, picked))
+    else:
+        bodies = [episodes(s) for s in picked]
+    out = []
+    for s, body in zip(picked, bodies):
         eps = []
         for e in ((body.get("Items") if isinstance(body, dict) else None) or [])[:MAX_EPISODES]:
             if isinstance(e, dict) and e.get("Id"):
@@ -105,12 +117,25 @@ def _build(jf_id: str) -> dict:
     today = date.today().isoformat()
     series_id = raw.get("SeriesId") if kind in ("episode", "season") else (raw["Id"] if kind == "series" else None)
     tmdb = (raw.get("ProviderIds") or {}).get("Tmdb") if kind in ("movie", "series") else None
-    if kind in ("episode", "season") and series_id:
-        try:  # the episode/season payload carries no show provider ids: look the series up once
-            tmdb = (media_files._get(base, headers, f"/Users/{uid}/Items/{series_id}",
-                                     {"Fields": "ProviderIds"}).get("ProviderIds") or {}).get("Tmdb")
-        except Exception as exc:
-            log.warning("jellyfin series lookup failed: %s", type(exc).__name__)
+    show = None
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        # media-speed: the independent reads after the item run side by side. An episode / season reads its
+        # SHOW through _data (cached), which carries the show's TMDB id and seasons — the film page then
+        # finds the show already cached instead of reading it (and its seasons) a second time.
+        show_f = pool.submit(_data, series_id) if kind in ("episode", "season") and series_id else None
+        seasons_f = pool.submit(_seasons, base, headers, uid, series_id, today) if kind == "series" else None
+        files_f = (pool.submit(media_files.file_summary, "tv", int(tmdb)) if kind == "series" and str(tmdb).isdigit()
+                   else None)
+        if show_f is not None:
+            show = show_f.result()
+            if show is None:
+                log.warning("jellyfin series lookup failed")
+            tmdb = (show or {}).get("item", {}).get("tmdb")
+        seasons = (seasons_f.result() if seasons_f is not None
+                   else (show["seasons"] if show is not None else _seasons(base, headers, uid, series_id, today))
+                   if series_id else [])
+        files = (files_f.result() if files_f is not None
+                 else media_files.file_summary_from_item(jf_id, raw) if kind in ("movie", "episode") else None)
     ud = raw.get("UserData") or {}
     ticks = raw.get("RunTimeTicks") or 0
     pos = ud.get("PlaybackPositionTicks") or 0
@@ -143,9 +168,6 @@ def _build(jf_id: str) -> dict:
                     "ref": f"jf:{p['Id']}" if p.get("Id") and p.get("PrimaryImageTag") and ITEM_RE.match(str(p["Id"])) else None}
                    for p in (raw.get("People") or []) if isinstance(p, dict) and p.get("Name")][:30],
     }
-    seasons = _seasons(base, headers, uid, series_id, today) if series_id else []
-    files = (media_files.file_summary("tv", int(tmdb)) if kind == "series" and str(tmdb).isdigit()
-             else media_files.file_summary_for_item(jf_id) if kind in ("movie", "episode") else None)
     return {"item": item, "seasons": seasons, "files": files}
 
 

@@ -26,7 +26,7 @@ from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
-from hub import media_watchlist
+from hub import media_watchlist, media_warmup
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
@@ -76,6 +76,18 @@ async def _server_alerts_loop():
         await asyncio.sleep(server_alerts.EVERY_S)
 
 
+async def _media_warmup_loop():
+    """media-speed: warm the film pages behind the Media home shelves ~60 s after startup, then every few
+    hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it."""
+    await asyncio.sleep(media_warmup.FIRST_DELAY_S)
+    while True:
+        try:
+            await asyncio.to_thread(media_warmup.warm_once)
+        except Exception as exc:  # never let a warm-up take the hub down
+            log.warning("media warm-up task error: %s", type(exc).__name__)
+        await asyncio.sleep(media_warmup.EVERY_S)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Load the registry at startup, failing fast with the aggregated violation list."""
@@ -87,7 +99,12 @@ async def lifespan(_: FastAPI):
     backup_task = None if media_backup.disabled() else asyncio.create_task(_backup_loop())
     plays_task = media_plays.start_recorder()  # F7 play recorder; None when off
     alerts_task = asyncio.create_task(_server_alerts_loop())
+    warmup_task = None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop())
     yield
+    if warmup_task is not None:
+        warmup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await warmup_task
     alerts_task.cancel()
     with suppress(asyncio.CancelledError):
         await alerts_task
@@ -701,9 +718,11 @@ def media_frame(request: Request) -> dict:
     if cached is None:
         view, _ = resolve_owner_view(request)
         area = media_nav.shelves_area(registry)
-        waiting = area_waiting(area, get_snapshots(), view) if area else {}
+        snaps = getattr(request.state, "snaps", None)  # media-speed: a route's own read, when it shared one
+        snaps = get_snapshots() if snaps is None else snaps
+        waiting = area_waiting(area, snaps, view) if area else {}
         try:
-            jelly = get_snapshots().get(JELLYFIN_SNAPSHOT_ID)
+            jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
         except Exception as exc:  # the Watchlist count is a nicety: never break the frame
             log.warning("watchlist count skipped: %s", type(exc).__name__)

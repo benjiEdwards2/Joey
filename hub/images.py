@@ -157,3 +157,24 @@ def image(ref: str, h: str = "", t: str = ""):
         _store(stem, got[1], got[0])
         hit = got
     return Response(hit[0], media_type=MIME[hit[1]], headers={"Cache-Control": HIT_CACHE})
+
+
+def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
+    """Pre-fetch one ref into the disk cache exactly as GET /img/{ref}?h= would (media-speed warm-up).
+    -> 'cached' (already there), 'fetched', or 'skipped' (bad ref / size, no env, upstream failure)."""
+    match = REF_RE.match(ref or "")
+    if not match or h not in SIZES:
+        return "skipped"
+    stem = hashlib.sha256(f"{ref}|{h}".encode("utf-8")).hexdigest()
+    folder = cache_dir()
+    for ext in MIME:  # a stat, not a read: the warm-up re-checks hundreds of refs each pass
+        try:
+            if time.time() - (folder / (stem + ext)).stat().st_mtime < CACHE_TTL:
+                return "cached"
+        except OSError:
+            continue
+    got = _fetch(match.group(1) or match.group(3), match.group(2) or match.group(4), h)
+    if got is None:
+        return "skipped"
+    _store(stem, got[1], got[0])
+    return "fetched"

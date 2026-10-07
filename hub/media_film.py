@@ -44,9 +44,9 @@ def _cget(path: str):
     hit = md._cache.get(key)
     if hit and time.time() - hit[0] < md.CACHE_TTL:
         return hit[1]
-    body = md._get(path)
-    if body is None:
-        return None  # a failed fetch is not cached
+    body, code = md._fetch(path)
+    if body is None and code != 404:
+        return None  # a failed fetch is not cached; a 404 is an answer (nothing there) and is (media-speed)
     md._cache[key] = (time.time(), body)
     return body
 
@@ -74,7 +74,62 @@ def parse_ratings(body) -> dict:
 
 
 def _ratings(kind: str, tmdb: int) -> dict:
-    return parse_ratings(_cget(f"/api/v1/{kind}/{tmdb}/ratingscombined")) or parse_ratings(_cget(f"/api/v1/{kind}/{tmdb}/ratings"))
+    """IMDb / RT words. Ratings carry no user state, so they ride the long, restart-proof meta cache, and a
+    404 ("no ratings for this title") is remembered rather than re-asked on every open (media-speed).
+    Jellyseerr has `ratingscombined` for films only — a TV title goes straight to `ratings`."""
+    if kind == "tv":
+        return parse_ratings(md.meta_get(f"/api/v1/tv/{tmdb}/ratings"))
+    return (parse_ratings(md.meta_get(f"/api/v1/{kind}/{tmdb}/ratingscombined"))
+            or parse_ratings(md.meta_get(f"/api/v1/{kind}/{tmdb}/ratings")))
+
+
+def _collection_id(body) -> int | None:
+    col = body.get("collection") if isinstance(body, dict) and isinstance(body.get("collection"), dict) else None
+    return col["id"] if col and isinstance(col.get("id"), int) else None
+
+
+def seerr_bundle(kind: str, tmdb: int) -> tuple:
+    """(title body, ratings, similar, recommendations) for one title, read side by side; the collection read
+    starts the moment the title body names one (it lands in _cget's cache for _shelves)."""
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        body_f = pool.submit(_cget, f"/api/v1/{kind}/{tmdb}")
+        rest = [pool.submit(_ratings, kind, tmdb), pool.submit(_cget, f"/api/v1/{kind}/{tmdb}/similar"),
+                pool.submit(_cget, f"/api/v1/{kind}/{tmdb}/recommendations")]
+        body = body_f.result()
+        col = _collection_id(body)
+        col_f = pool.submit(_cget, f"/api/v1/collection/{col}") if col is not None else None
+        ratings, similar, recs = (x.result() for x in rest)
+        if col_f is not None:
+            col_f.result()
+    return body, ratings, similar, recs
+
+
+def tmdb_hint(jelly: dict, jf_id: str) -> tuple[str, int] | None:
+    """(kind, tmdb) for a Jellyfin id from the library snapshot alone — a film or show row directly, an
+    episode through the show key its up-next / history / latest row carries. Lets the Jellyseerr reads start
+    before the Jellyfin item read has answered. None when the snapshot can't tell."""
+    def tmdb_of(r):
+        key = str(r.get("item_key") or "")
+        return int(key[5:]) if key.startswith("tmdb:") and key[5:].isdigit() else None
+
+    profiles = [jelly] + [jelly["her"]] if isinstance(jelly.get("her"), dict) else [jelly]
+    by_jf: dict[str, tuple[str, int]] = {}
+    for prof in profiles:
+        for field, kind in (("movies", "movie"), ("shows", "tv")):
+            for r in prof.get(field) or []:
+                if isinstance(r, dict) and r.get("jf_id") and tmdb_of(r):
+                    by_jf.setdefault(str(r["jf_id"]), (kind, tmdb_of(r)))
+    if jf_id in by_jf:
+        return by_jf[jf_id]
+    for prof in profiles:
+        rows = (prof.get("up_next") or []) + (prof.get("now_playing") or []) + (prof.get("latest") or []) \
+            + ((prof.get("history") or {}).get("recent") or [])
+        for r in rows:
+            if isinstance(r, dict) and str(r.get("jf_id") or "") == jf_id:
+                show = str(r.get("show_key") or "")
+                if show.startswith("jf:") and show[3:] in by_jf:
+                    return by_jf[show[3:]]
+    return None
 
 
 # ---- small pure helpers ----
@@ -272,8 +327,9 @@ def _shelves(raw: dict, kind: str, lib_keys: set, similar, recs) -> list[dict]:
 
 
 def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
-               view: str, request: Request, hub, req_state: str = "idle", req_msg: str | None = None) -> dict:
-    snaps = hub.get_snapshots()
+               view: str, request: Request, hub, req_state: str = "idle", req_msg: str | None = None,
+               snaps=None) -> dict:
+    snaps = hub.get_snapshots() if snaps is None else snaps  # media-speed: the route's one read, passed in
     jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     jelly = (jsrc or {}).get("data") or {}
     owner = media_db.owner_of(view)
@@ -281,42 +337,58 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     arr = (arr_snap.data if arr_snap else {}) or {}
     f: dict = {"note": None, "jf_failed": False, "req_state": req_state, "req_msg": req_msg}
 
-    # --- 1. Jellyfin side: base (film / series), plus the episode when the page is for one ---
-    base, ep, row = None, None, None
-    if jf_id:
-        got = media_item._data(jf_id)
-        if got is None:
-            f["jf_failed"] = True
-        else:
-            it = got["item"]
-            ep = it if it["kind"] == "episode" else None
-            show = media_item._data(it["show_id"]) if it["kind"] in ("episode", "season") and it.get("show_id") else None
-            base = show or got
-    elif tmdb_id and kind:
-        row = _jf_from_snapshot(jelly, kind, tmdb_id)
-        if row:
-            base = media_item._data(row["jf_id"])
-            f["jf_failed"] = base is None
-    item = base["item"] if base else None
-    seasons = (base or {}).get("seasons") or []
-    if item:
-        kind = "movie" if item["kind"] == "movie" else "tv"
-        if not (tmdb_id and kind) and str(item.get("tmdb") or "").isdigit():
-            tmdb_id = int(item["tmdb"])
+    # media-speed (2026-10-07): the Jellyseerr reads start as soon as the title's TMDB id is known — from the
+    # URL, else from the library snapshot — so they overlap the Jellyfin reads instead of following them.
+    connected = md._creds() is not None
+    early: dict[tuple, object] = {}
+    side = ThreadPoolExecutor(max_workers=2)
+
+    def start(k, t):
+        if connected and k and t and (k, t) not in early:
+            early[(k, t)] = side.submit(seerr_bundle, k, t)
+
+    try:
+        if tmdb_id and kind:
+            start(kind, tmdb_id)
+        elif jf_id:
+            start(*(tmdb_hint(jelly, jf_id) or (None, None)))
+
+        # --- 1. Jellyfin side: base (film / series), plus the episode when the page is for one ---
+        base, ep, row = None, None, None
+        if jf_id:
+            got = media_item._data(jf_id)
+            if got is None:
+                f["jf_failed"] = True
+            else:
+                it = got["item"]
+                ep = it if it["kind"] == "episode" else None
+                if it["kind"] in ("episode", "season") and str(it.get("tmdb") or "").isdigit():
+                    start("tv", int(it["tmdb"]))
+                show = media_item._data(it["show_id"]) if it["kind"] in ("episode", "season") and it.get("show_id") else None
+                base = show or got
+        elif tmdb_id and kind:
+            row = _jf_from_snapshot(jelly, kind, tmdb_id)
+            if row:
+                base = media_item._data(row["jf_id"])
+                f["jf_failed"] = base is None
+        item = base["item"] if base else None
+        seasons = (base or {}).get("seasons") or []
+        if item:
+            kind = "movie" if item["kind"] == "movie" else "tv"
+            if not (tmdb_id and kind) and str(item.get("tmdb") or "").isdigit():
+                tmdb_id = int(item["tmdb"])
+
+        # --- 2. Jellyseerr side: one title body + ratings + shelves, in parallel ---
+        raw, t, ratings, similar, recs = {}, None, {}, None, None
+        if tmdb_id and kind and connected:
+            fut = early.get((kind, tmdb_id))
+            body, ratings, similar, recs = fut.result() if fut is not None else seerr_bundle(kind, tmdb_id)
+            if isinstance(body, dict):
+                raw, t = body, md.title_from(body, kind, tmdb_id)
+    finally:
+        side.shutdown(wait=False)  # a mispredicted early read just finishes into the cache
     f["kind"] = kind
     jf_item_id = item["id"] if item else (row["jf_id"] if row else None)
-
-    # --- 2. Jellyseerr side: one title body + ratings + shelves, in parallel ---
-    raw, t, ratings, similar, recs = {}, None, {}, None, None
-    connected = md._creds() is not None
-    if tmdb_id and kind and connected:
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            futs = [pool.submit(fn, *args) for fn, args in (
-                (_cget, (f"/api/v1/{kind}/{tmdb_id}",)), (_ratings, (kind, tmdb_id)),
-                (_cget, (f"/api/v1/{kind}/{tmdb_id}/similar",)), (_cget, (f"/api/v1/{kind}/{tmdb_id}/recommendations",)))]
-            body, ratings, similar, recs = (x.result() for x in futs)
-        if isinstance(body, dict):
-            raw, t = body, md.title_from(body, kind, tmdb_id)
     f["t"], f["connected"] = t, connected
     if tmdb_id and not item and not t:
         f["note"] = "Title unavailable" if connected else "Not connected"
@@ -400,7 +472,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     req = _requested(snaps, hub, tmdb_id) if tmdb_id else None
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
-    badge = md._dl_badge(title) if title and not f["jf_failed"] else None
+    badge = md._dl_badge(title, snaps) if title and not f["jf_failed"] else None
     m = re.search(r"(\d+)\s*%", badge or "")
     f["downloading_pct"] = int(m.group(1)) if m else None
 
@@ -438,10 +510,10 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
 
 # ---- routes ----
 
-def _render(request: Request, hub, src, film: dict, view, from_query):
+def _render(request: Request, hub, src, film: dict, view, from_query, snaps=None):
     resp = hub.templates.TemplateResponse(request, "media_film.html", {
         "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(hub.get_snapshots()), "src": src, "film": film})
+        "status": hub.build_status(hub.get_snapshots() if snaps is None else snaps), "src": src, "film": film})
     return hub._maybe_set_cookie(resp, view, from_query)
 
 
@@ -451,15 +523,16 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
 
     kind = md._kind(kind)
     view, from_query = hub.resolve_owner_view(request)
-    src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(), detail=md.DISCOVER_DETAIL)
+    snaps = request.state.snaps = hub.get_snapshots()  # media-speed: one snapshot read per request, shared
+    src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
         return hub.templates.TemplateResponse(request, "404.html", {
             "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
             "missing_text": "No page here"}, status_code=404)
     state, msg = (("done", None) if requested == "1" else ("error", md.ERRORS[error]) if error in md.ERRORS
                   else ("confirm" if step == "confirm" else "idle", None))
-    film = build_film(kind, tmdb_id, view=view, request=request, hub=hub, req_state=state, req_msg=msg)
-    return _render(request, hub, src, film, view, from_query)
+    film = build_film(kind, tmdb_id, view=view, request=request, hub=hub, req_state=state, req_msg=msg, snaps=snaps)
+    return _render(request, hub, src, film, view, from_query, snaps)
 
 
 @router.get("/media/item/{jf_id}", response_class=HTMLResponse)
@@ -469,8 +542,9 @@ def item_page(request: Request, jf_id: str):
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
     view, from_query = hub.resolve_owner_view(request)
-    src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, hub.get_snapshots())
+    snaps = request.state.snaps = hub.get_snapshots()  # media-speed: one snapshot read per request, shared
+    src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     if src is None:
         raise HTTPException(404, "No such item")
-    film = build_film(jf_id=jf_id, view=view, request=request, hub=hub)
-    return _render(request, hub, src, film, view, from_query)
+    film = build_film(jf_id=jf_id, view=view, request=request, hub=hub, snaps=snaps)
+    return _render(request, hub, src, film, view, from_query, snaps)

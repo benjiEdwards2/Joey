@@ -9,6 +9,8 @@ or an error: failures log the exception TYPE only and degrade to words, never a 
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import time
@@ -23,7 +25,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from hub import media_files
-from hub.images import REF_RE
+from hub.images import REF_RE, cache_dir
 from hub.media_watchlist import keys_for
 from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
 
@@ -46,11 +48,34 @@ SHELVES = (
 ERRORS = {"exists": "Already requested", "declined": "Jellyseerr declined the request",
           "network": "Couldn't send the request"}
 
+# Long-lived metadata (2026-10-07, media-speed): responses that carry NO user state (ratings, a person's
+# biography, a season's episode list) are kept META_TTL in memory AND on disk (META_CACHE_DIR, one JSON file per
+# path, inside the mounted poster-cache volume), so a deploy restart doesn't empty them. A 404 is remembered
+# too (a negative entry): "no ratings for this title" is an answer, not a failure. Anything carrying request /
+# availability state stays on CACHE_TTL.
+META_TTL = 6 * 3600
+
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
 
 def clear_cache() -> None:
     _cache.clear()
+
+
+def meta_dir() -> Path:
+    """META_CACHE_DIR, else a `meta/` folder inside the poster cache (the one cache volume the NAS mounts)."""
+    return Path(os.environ.get("META_CACHE_DIR", "").strip() or cache_dir() / "meta")
+
+
+def clear_meta(disk: bool = False) -> None:
+    for k in [k for k in _cache if k.startswith("meta:")]:
+        _cache.pop(k, None)
+    if disk:
+        for f in meta_dir().glob("*.json"):
+            try:
+                f.unlink()
+            except OSError:
+                pass
 
 
 def status_word(code) -> str:
@@ -64,20 +89,71 @@ def _creds() -> tuple[str, str] | None:
     return (base.rstrip("/"), key) if base and key else None
 
 
-def _get(path: str):
-    """GET a Jellyseerr JSON path -> parsed body, or None on no env / any failure."""
+def _fetch(path: str) -> tuple[object, int | None]:
+    """GET a Jellyseerr JSON path -> (parsed body or None, HTTP status or None when no answer)."""
     creds = _creds()
     if not creds:
-        return None
+        return None, None
     try:
         resp = requests.get(f"{creds[0]}{path}", headers={"X-Api-Key": creds[1]}, timeout=TIMEOUT)
         if not 200 <= resp.status_code < 300:
             log.warning("jellyseerr read failed: HTTP %s", resp.status_code)
-            return None
-        return resp.json()
+            return None, resp.status_code
+        return resp.json(), resp.status_code
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("jellyseerr read failed: %s", type(exc).__name__)
+        return None, None
+
+
+def _get(path: str):
+    """GET a Jellyseerr JSON path -> parsed body, or None on no env / any failure."""
+    return _fetch(path)[0]
+
+
+def _meta_file(path: str) -> Path:
+    return meta_dir() / (hashlib.sha256(path.encode("utf-8")).hexdigest() + ".json")
+
+
+def _meta_disk(path: str) -> tuple[float, object] | None:
+    try:
+        got = json.loads(_meta_file(path).read_text(encoding="utf-8"))
+        return (float(got["at"]), got["body"]) if got.get("path") == path else None
+    except (OSError, ValueError, KeyError, TypeError):
         return None
+
+
+def _meta_store(path: str, at: float, body) -> None:
+    folder = meta_dir()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        dest = _meta_file(path)
+        tmp = dest.with_suffix(f".{os.getpid()}.{time.monotonic_ns()}.tmp")
+        tmp.write_text(json.dumps({"path": path, "at": at, "body": body}), encoding="utf-8")
+        os.replace(tmp, dest)  # atomic — a reader never sees half a file
+    except (OSError, TypeError, ValueError) as exc:
+        log.warning("meta cache write failed (%s)", type(exc).__name__)
+
+
+def meta_get(path: str):
+    """A long-lived (META_TTL), restart-proof read for a path that carries no user state. Returns the body,
+    or None for a remembered 404 / any failure (a failure without a 404 answer is not remembered)."""
+    key = f"meta:{path}"
+    hit = _cache.get(key)
+    if hit is None:
+        hit = _meta_disk(path)
+        if hit is not None:
+            _cache[key] = hit
+    if hit is not None and time.time() - hit[0] < META_TTL:
+        return hit[1]
+    if not _creds():
+        return None
+    body, code = _fetch(path)
+    if body is None and code != 404:
+        return None
+    now = time.time()
+    _cache[key] = (now, body)
+    _meta_store(path, now, body)
+    return body
 
 
 def _year(value) -> int | None:
@@ -248,13 +324,13 @@ def _stub(kind: str, tmdb_id: int) -> dict:
     return {"kind": kind, "tmdb_id": tmdb_id, "title": "", "year": None, "seasons": [], "code": None}
 
 
-def _dl_badge(title) -> str | None:
+def _dl_badge(title, snaps=None) -> str | None:
     """'Downloading · 43%' when the arr queue / qBittorrent holds this title; never raises."""
     from hub import main as hub  # late: hub.main includes this router
     from hub import media_downloads
 
     try:
-        snaps = hub.get_snapshots()
+        snaps = hub.get_snapshots() if snaps is None else snaps
         arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(media_downloads.QB_SNAPSHOT_ID)
         merged = media_downloads.merge_downloading((arr.data if arr else {}).get("downloading"),
                                                    qb.data if qb else {})
@@ -288,13 +364,9 @@ def _date_words(value) -> tuple[str | None, bool]:
 
 
 def _episodes(tmdb_id: int, n: int) -> list[dict] | None:
-    path = f"/api/v1/tv/{tmdb_id}/season/{n}"
-    hit = _cache.get(path)
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1]
-    body = _get(path)
+    body = meta_get(f"/api/v1/tv/{tmdb_id}/season/{n}")  # a season's episode list: metadata only
     if not isinstance(body, dict) or not isinstance(body.get("episodes"), list):
-        return None  # a failed fetch is not cached
+        return None
     out = []
     for e in body["episodes"]:
         num = e.get("episodeNumber") if isinstance(e, dict) else None
@@ -305,7 +377,6 @@ def _episodes(tmdb_id: int, n: int) -> list[dict] | None:
                     "date_text": text, "future": future, "overview": str(e.get("overview") or "")[:600],
                     "still": _ref(e.get("stillPath"))})
     out.sort(key=lambda e: e["number"])
-    _cache[path] = (time.time(), out)
     return out
 
 

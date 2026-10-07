@@ -317,6 +317,11 @@ themselves); see `docs/connector-contract.md`, fourteenth exception. On success 
 "Marked watched" / "Progress reset" (`?done=…`, rendered by `base.html`). A watched mark lands in the diary at the next
 jellyfin sweep, dated the day it was marked. Reset progress on an episode may bring it back as "Next episode" after the
 next sweep (Jellyfin's Next Up).
+**Hide** (media-ux2, 2026-10-08): a "Next episode" suggestion also offers Hide (Move on panel and beside Mark watched on
+Up next). `POST /media/resume/{id}/hide` (same_origin, form `series` + `owner` + `back`) writes media.db `nextup_hidden`
+(owner, series key, suggested episode id) — no Jellyfin call — and `apply_hidden` drops that suggestion for that owner
+everywhere until Next Up suggests a different episode of the series (or the episode turns into a resume row). Flash
+"Hidden". The table rides the normal whole-DB backup.
 
 Episode list (2026-10-08, replaced the numbered squares and their legend): on an on-server show's page each season is a
 `<details class="seasonbox epseason">` headed "Season 4 · 3 of 6 watched", open for the page's episode's season, else the

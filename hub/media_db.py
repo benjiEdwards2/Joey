@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS setting(
 CREATE TABLE IF NOT EXISTS ranking(
   year INTEGER, item_key TEXT, position INTEGER, kind TEXT, title TEXT, poster TEXT,
   owner TEXT DEFAULT 'you', PRIMARY KEY(year, item_key), UNIQUE(year, position));
+CREATE TABLE IF NOT EXISTS nextup_hidden(
+  owner TEXT, series_key TEXT, episode_id TEXT, hidden_at TEXT, PRIMARY KEY(owner, series_key));
 """
 
 
@@ -210,6 +212,29 @@ def set_setting(owner: str, key: str, value: str) -> None:
     with closing(connect()) as db, db:
         db.execute("INSERT INTO setting(owner, key, value) VALUES(?,?,?) "
                    "ON CONFLICT(owner, key) DO UPDATE SET value = excluded.value", (owner, key, value))
+
+
+def hide_next_up(owner: str, series_key: str, episode_id: str) -> None:
+    """Hide a Next Up suggestion (media-ux2, 2026-10-08): one row per owner + series, the suggested episode it hid.
+    Hiding again (a later suggestion) replaces it."""
+    with closing(connect()) as db, db:
+        db.execute("INSERT INTO nextup_hidden(owner, series_key, episode_id, hidden_at) VALUES(?,?,?,?) "
+                   "ON CONFLICT(owner, series_key) DO UPDATE SET episode_id = excluded.episode_id, "
+                   "hidden_at = excluded.hidden_at", (owner, series_key, str(episode_id), _now().isoformat()))
+
+
+def next_up_hidden() -> dict[tuple[str, str], str]:
+    """{(owner, series_key): hidden episode id}; {} with no DB (reads never create it) or on any error."""
+    db = _read()
+    if db is None:
+        return {}
+    try:
+        with closing(db):
+            return {(r["owner"], r["series_key"]): r["episode_id"]
+                    for r in db.execute("SELECT owner, series_key, episode_id FROM nextup_hidden")}
+    except sqlite3.Error as exc:
+        log.warning("next_up_hidden failed: %s", type(exc).__name__)
+        return {}
 
 
 def rating_level(owner: str) -> str:

@@ -788,7 +788,9 @@ def resume_acts(row: dict, owner: str) -> dict | None:
     jf = str((row or {}).get("jf_id") or "")
     if not media_item.ITEM_RE.match(jf):
         return None
-    return {"jf_id": jf, "owner": owner, "reset": media_resume.in_progress(row)}
+    resume = media_resume.in_progress(row)
+    series = None if resume else media_resume.series_of(row)   # media-ux2: a Next Up suggestion can be hidden
+    return {"jf_id": jf, "owner": owner, "reset": resume, "hide": bool(series), "series": series}
 
 
 templates.env.globals["resume_acts"] = resume_acts

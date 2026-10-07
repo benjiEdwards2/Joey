@@ -15,6 +15,10 @@ After success the item leaves the cached resume list at once (media_hidden, unti
 page flashes "Marked watched" / "Progress reset". A watched mark reaches Joey's diary through the usual path: the next
 jellyfin sweep's history (IsPlayed, by DatePlayed) carries it and the diary page's sync_diary_from_history inserts it.
 Failures are words; logs carry an HTTP status or exception type only.
+
+Hide (media-ux2, 2026-10-08): a Next Up suggestion (remaining_text "Next episode") also offers "Hide":
+POST /media/resume/{id}/hide stores (owner, series, suggested episode) in media.db `nextup_hidden` (no Jellyfin call)
+and apply_hidden drops that suggestion everywhere until Next Up suggests a different episode. Flash "Hidden".
 """
 from __future__ import annotations
 
@@ -28,7 +32,7 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from hub import media_files, media_hidden, media_item
+from hub import media_db, media_files, media_hidden, media_item
 from hub.media_write import form_of, same_origin
 
 log = logging.getLogger("hub.media_resume")
@@ -38,9 +42,10 @@ GROUP = "resume"
 TIMEOUT = 8
 DEFAULT_BACK = "/media/playing"
 NEXT_EPISODE = "Next episode"   # the connector's word for a next-up row (nothing to reset)
-DONE = {"watched": "Marked watched", "reset": "Progress reset"}
+DONE = {"watched": "Marked watched", "reset": "Progress reset", "hide": "Hidden"}
 ERRORS = {"jfunset": "Jellyfin is not connected", "jfuser": "No Jellyfin user for this profile",
-          "jfdown": "Couldn't reach Jellyfin", "jfrefused": "Jellyfin refused"}
+          "jfdown": "Couldn't reach Jellyfin", "jfrefused": "Jellyfin refused",
+          "hidefail": "Couldn't hide it"}
 FALLBACK_STATUS = (404, 405)
 
 _her_uid: list = [0.0, None, None]  # [fetched_at, name, uid]
@@ -60,17 +65,38 @@ def hide_rows(rows, owner: str, updated_at=None) -> list:
     return media_hidden.visible(GROUP, rows, lambda r: key(owner, r.get("jf_id")) if r.get("jf_id") else None, updated_at)
 
 
+def series_of(row: dict) -> str | None:
+    """The series key a Next Up row belongs to (`show_key`, else the episode row's item_key, which is its series)."""
+    key = str((row or {}).get("show_key") or (row or {}).get("item_key") or "")
+    return key if media_db.KEY_RE.match(key) else None
+
+
+def drop_dismissed(rows, owner: str, dismissed: dict) -> list:
+    """Next Up suggestions the owner hid (media-ux2): a row goes while its series' hidden episode IS the one
+    suggested; once Next Up suggests a different episode the note no longer matches and the row shows again.
+    Resume rows (a saved position) are never hidden this way."""
+    if not dismissed:
+        return list(rows or [])
+    return [r for r in rows or [] if not (isinstance(r, dict) and not in_progress(r) and r.get("jf_id")
+                                          and dismissed.get((owner, series_of(r))) == str(r["jf_id"]))]
+
+
 def apply_hidden(snaps: dict, snapshot_id: str = "jellyfin") -> dict:
-    """The snapshots with marked / reset items dropped from B.'s `up_next` and Georgina's `her.up_next`. Untouched
-    (same objects) when nothing is hidden, so the common read costs nothing."""
+    """The snapshots with marked / reset items dropped from B.'s `up_next` and Georgina's `her.up_next` (until a
+    newer sweep), and Next Up suggestions each owner hid (media.db, until the suggestion changes). Untouched (same
+    objects) when nothing is hidden, so the common read costs one small query."""
     snap = snaps.get(snapshot_id)
-    if snap is None or not media_hidden.any_in(GROUP) or not isinstance(snap.data, dict):
+    if snap is None or not isinstance(snap.data, dict):
+        return snaps
+    dismissed = media_db.next_up_hidden()
+    if not dismissed and not media_hidden.any_in(GROUP):
         return snaps
     from dataclasses import replace
     data = dict(snap.data)
-    data["up_next"] = hide_rows(data.get("up_next"), "you", snap.updated_at)
+    data["up_next"] = drop_dismissed(hide_rows(data.get("up_next"), "you", snap.updated_at), "you", dismissed)
     if isinstance(data.get("her"), dict):
-        data["her"] = {**data["her"], "up_next": hide_rows(data["her"].get("up_next"), "her", snap.updated_at)}
+        her = drop_dismissed(hide_rows(data["her"].get("up_next"), "her", snap.updated_at), "her", dismissed)
+        data["her"] = {**data["her"], "up_next": her}
     return {**snaps, snapshot_id: replace(snap, data=data)}
 
 
@@ -177,3 +203,22 @@ async def mark_watched(request: Request, jf_id: str):
 @router.post("/media/resume/{jf_id}/reset", dependencies=[Depends(same_origin)])
 async def reset_progress(request: Request, jf_id: str):
     return await _run(request, jf_id, "reset")
+
+
+@router.post("/media/resume/{jf_id}/hide", dependencies=[Depends(same_origin)])
+async def hide_next_up(request: Request, jf_id: str):
+    """Hide a Next Up suggestion (media-ux2, 2026-10-08) for the owner: media.db only, no Jellyfin call (it has no
+    per-item Next Up dismiss). It stays hidden until Next Up suggests a different episode of that series."""
+    if not media_item.ITEM_RE.match(jf_id):
+        raise HTTPException(404, "No such item")
+    form = await form_of(request)
+    owner, back = owner_of(request, form), _back(form.get("back"))
+    series = str(form.get("series") or "")
+    if not media_db.KEY_RE.match(series):
+        raise HTTPException(422, "Invalid series")
+    try:
+        media_db.hide_next_up(owner, series, jf_id)
+    except Exception as exc:  # sqlite / OS errors: a word, never a 500
+        log.warning("next up hide not saved: %s", type(exc).__name__)
+        return RedirectResponse(f"{back}?error=hidefail", status_code=303)
+    return RedirectResponse(f"{back}?done=hide", status_code=303)

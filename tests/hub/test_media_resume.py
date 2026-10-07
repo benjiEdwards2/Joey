@@ -363,6 +363,9 @@ def test_not_connected(env, monkeypatch):
 
 def test_resume_acts_helper(env):
     import hub.main as main
-    assert main.resume_acts(MINE[0], "you") == {"jf_id": "mov1", "owner": "you", "reset": True}
-    assert main.resume_acts(MINE[1], "her") == {"jf_id": "ep5", "owner": "her", "reset": False}
+    # media-ux2: a Next Up suggestion (no position) also carries Hide + its series key
+    assert main.resume_acts(MINE[0], "you") == {"jf_id": "mov1", "owner": "you", "reset": True, "hide": False,
+                                                "series": None}
+    assert main.resume_acts(MINE[1], "her") == {"jf_id": "ep5", "owner": "her", "reset": False, "hide": True,
+                                                "series": "jf:ser1"}
     assert main.resume_acts({"title": "x"}, "you") is None

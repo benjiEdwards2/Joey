@@ -1524,13 +1524,14 @@ def area_page(request: Request, area_id: str):
         })
         return _maybe_set_cookie(resp, view, from_query)
     media = find_media(tiles, snaps)
-    upcoming, weather = find_upcoming(tiles, snaps, view), find_weather(snaps)
-    if upcoming and weather:  # the weather band renders here: its KPI tile would double it
-        tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]
+    upcoming = find_upcoming(tiles, snaps, view)
+    # Weather renders on the hub and /weather only (2026-10-08, B. — supersedes the
+    # Calendar-page card). The registry tile stays: find_weather's config anchor.
+    tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.visible_areas, "active_id": area.id, "area": area, "tiles": tiles,
         "owner_view": view, "status": build_status(snaps),
-        "upcoming": upcoming, "weather": weather,
+        "upcoming": upcoming,
         "media": media,
         "ratings": _ratings(view, *_media_rows(media)),
     })

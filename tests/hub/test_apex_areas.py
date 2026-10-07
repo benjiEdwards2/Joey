@@ -45,8 +45,8 @@ def test_each_area_renders_one_kpi_card_per_tile(site):
     for a in non_media(main):
         _, body = site(f"/a/{a.id}")
         k = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
-        # the weather tile is dropped where the page renders the weather band (2026-10-06)
-        shown = [t for t in a.tiles if t.snapshot != "open_meteo"] if "wxglimpse" in body else a.tiles
+        # weather renders on the hub and /weather only (2026-10-08) — never as an area tile
+        shown = [t for t in a.tiles if t.snapshot != "open_meteo"]
         assert k.count('panel tile') == len(shown), a.id
         for t in shown:
             assert f'<div class="microlabel">{t.label}</div>' in k, (a.id, t.label)
@@ -95,7 +95,10 @@ def test_calendar_has_upcoming_rows_with_owner_words(site):
     for word in ("Shared", "You", "Her"):
         assert f'<span class="row-side">{word}</span>' in body
     assert "View all" not in body            # already on the calendar page
-    assert 'class="sec wxglimpse"' in body and 'class="band a"' in body
+    assert 'class="band a"' in body
+    # weather lives on the hub and /weather only (2026-10-08) — no glimpse or tile here
+    # (the nav rail's Weather link still renders on every page, so match the card markers)
+    assert "wxglimpse" not in body and "Newport VIC" not in body
 
 
 def test_all_not_connected_area_shows_quiet_sentence(site):

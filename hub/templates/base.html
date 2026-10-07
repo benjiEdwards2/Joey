@@ -42,6 +42,15 @@ document.addEventListener('htmx:beforeSwap', function (e) {
   if (at && !am) { am = document.createElement('meta'); am.name = 'apple-mobile-web-app-title'; document.head.appendChild(am); }
   if (at) am.content = at[1]; else if (am && mf) am.remove();
 });
+/* An action is not a place (media-ux2, 2026-10-08): a boosted POST form (Mark watched, Remove, Follow, a rating,
+   watchlist ...) 303s back to a page, and htmx would PUSH that as a new history entry, so Back only dropped the flash
+   word. Every non-GET boosted navigation REPLACES the current entry instead: one Back goes to the page before.
+   htmx 2.0.4 fires htmx:beforeHistoryUpdate with detail.history = {type, path} (the object it then acts on) and
+   detail.requestConfig.verb. */
+document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
+  var h = e.detail && e.detail.history, rc = e.detail && e.detail.requestConfig;
+  if (h && h.type === 'push' && rc && String(rc.verb || 'get').toLowerCase() !== 'get') h.type = 'replace';
+});
 /* A flash line ("Following", "Requested", "Removed") is shown once: after render, its query params leave the
    address bar (replaceState keeps htmx's history state), so Back / Forward / reload never re-show it (2026-10-08). */
 (function () {

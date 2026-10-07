@@ -294,6 +294,10 @@ params (`main.FLASH_PARAMS`: follow, requested, error, flash, c, code, done) fro
 `history.replaceState`, so a "Following" / "Requested" / "Removed" line is shown once. GET routes never toggle anything; the
 only GET-side writes are idempotent syncs (the diary page's Jellyfin history sync, the watchlist's prune of watched titles,
 the local-only `?owner_view=` cookie) and caches (meta, `/img`).
+Actions add no history entries (media-ux2, 2026-10-08): a boosted POST (Mark watched, Remove, Follow, a rating, the
+watchlist …) 303s back to a page, which htmx would push as a new entry. A `htmx:beforeHistoryUpdate` hook in `base.html`
+turns that push into a replace for every non-GET request (`detail.requestConfig.verb`), so one Back goes to the page you
+were on before; GET boosts (links, search) still push.
 
 Remove a request (2026-10-08): `media_requests.py`. Each Requests row (still a whole link to Jellyseerr, via an
 `a.rowlink` overlay) has a right-aligned **Remove** button opening an inline confirm (`details.confirm-wrap`, no browser

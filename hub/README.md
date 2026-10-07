@@ -9,7 +9,15 @@ Media · Weather · Calendar · Server). Top bar `.topbar` (sticky from 768 px, 
 the user chip from `identity.py` (the Access header decides the owner view, `?owner_view=` only works locally). Phone
 tab bar `.tabbar` (< 768 px): five slots, icon over label; with more than five sections the fifth slot becomes "More", a
 `<details class="more">` sheet listing the rest. Areas with `hidden: true` are parked: no pill, phone tab or hub card,
-page still serves. Page frame `main.page`: centred, 72rem, bottom padding clears the tab bar. Page header: the
+page still serves. **Media phone bar (2026-10-07):** every page extending `media_base.html` (it sets `media_mode`; the
+shelves area page `/a/<id>` included) swaps the phone bar for the six Media sections from `media_nav.py` (`short` label +
+`icon` per section: Home = the shelves area page, Movies, TV, Diary, Server, Discover), six equal slots, no More, active
+slot by `media_nav.active_section` (the section-tab rule); the nav carries `hx-swap="innerHTML show:window:top"` so every
+tap (Home on Media home too) lands at the top. The top-bar Joey brand is the way out. Media pages also link
+`static/manifest-media.webmanifest` ("Joey Media", `start_url` `/a/media`, `scope` `/`, shortcuts Movies/TV/Server/
+Discover) and set `apple-mobile-web-app-title` "Joey Media"; every other page keeps `static/manifest.webmanifest`. Boosts
+swap only `<body>`, so the `htmx:beforeSwap` script in `base.html` copies the response's manifest link + iOS title into `<head>`. No
+service worker is involved (the hub registers none). Page frame `main.page`: centred, 72rem, bottom padding clears the tab bar. Page header: the
 `_pagehead.html` macro (`pagehead(title, sub, eyebrow, backdrop, actions)`; called with `{% call %}` the caller's markup,
 e.g. section tabs, sits on the band) is used by `hub.html`, `area.html`, `server.html`, `weather.html` and
 `media_base.html`: a full-bleed band with a darkened backdrop (Media home uses the hero's) or a faint indigo glow, the

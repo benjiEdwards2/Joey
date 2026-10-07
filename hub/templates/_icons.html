@@ -69,6 +69,13 @@
 <path d="M17.5 6.5l-11 11M6.5 6.5l11 11"/>
 {%- elif id == "plus" -%}
 <path d="M5 12h14M12 5v14"/>
+{#- Media phone bar (2026-10-07): TV, Diary, Discover slots. -#}
+{%- elif id == "tv" -%}
+<rect x="3" y="6" width="18" height="12.5" rx="2"/><path d="M8.5 2.5L12 6l3.5-3.5M8 21.5h8"/>
+{%- elif id == "diary" -%}
+<path d="M5.5 4.5A1.5 1.5 0 0 1 7 3h11.5v15H7a1.5 1.5 0 0 0-1.5 1.5z"/><path d="M5.5 19.5A1.5 1.5 0 0 0 7 21h11.5v-3M9.5 7.5h5M9.5 11h5"/>
+{%- elif id == "compass" -%}
+<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>
 {%- elif id == "eye" -%}
 <path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>
 {%- elif id == "sparkles" -%}

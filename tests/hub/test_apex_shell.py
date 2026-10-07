@@ -96,6 +96,8 @@ def test_current_section_marked_once_in_both_bars(main, route, current):
         html = c.get(route).text
     bar = topbar_of(html)
     assert f'<a href="{current}" aria-current="page">' in bar and bar.count("aria-current") == 1
+    if current == "/a/alpha":   # Media pages carry the Media phone bar (2026-10-07, test_media_phone_nav.py)
+        return
     assert re.search(rf'<a href="{current}" aria-current="page">', tabbar_of(html))
 
 

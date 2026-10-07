@@ -73,8 +73,8 @@ def test_media_pages_use_the_frame(env, route):
     html = r.text
     assert r.status_code == 200
     assert 'class="topbar"' in html and 'class="rail"' not in html   # Joey shell around Media pages
-    tabs_bar = html.split('<nav class="tabbar"', 1)[1]                 # the phone bar is Joey's, not Media's
-    assert "/a/beta" in tabs_bar and "Hub" in tabs_bar and "mediatabs" not in html
+    tabs_bar = html.split('<nav class="tabbar"', 1)[1]                 # Media phone bar (2026-10-07): Media's six
+    assert "/a/beta" not in tabs_bar and "<span>Diary</span>" in tabs_bar and "mediatabs" not in html
     assert "Return to Joey" not in html and "returnjoey" not in html
     sections = nav_html(html, "sectabs")
     for label in LABELS.values():

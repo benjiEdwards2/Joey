@@ -166,10 +166,13 @@ def test_episode_page_and_map(env):
     assert "Play again ▶" in b and f'href="{deep("ep3")}"' in b
     assert "Quiet Show (2020)" in b and "A quiet show." in b        # the SHOW's page content below
     assert "3 of 6 watched" in b
-    squares = {n: cls for cls, n in re.findall(r'<a class="ep([^"]*)" href="/media/item/ep(\d)"', b)}
-    assert "watched" in squares["1"] and "progress" in squares["4"] and "unaired" in squares["6"]
-    assert squares["5"] == "" and 'title="Six (not aired)"' in b and 'title="Four (in progress)"' in b
-    assert "watched · in progress · not aired" in b
+    # Episode list (2026-10-08, replaced the numbered squares + their legend): one whole-row link per episode with
+    # its state in words; the row's class carries the state too.
+    rows = {n: key for key, n in re.findall(r'<div class="row has-form epline ep-(\w+)" id="ep-ep(\d)">', b)}
+    assert rows == {"1": "watched", "2": "watched", "3": "watched", "4": "progress", "5": "todo", "6": "unaired"}
+    assert '<a class="rowlink" href="/media/item/ep6">' in b and ">E6 · Six</div>" in b and ">Not aired</div>" in b
+    assert ">In progress</div>" in b  # EPISODES carry no runtime, so no minutes-left figure
+    assert "Squares in order" not in b and "watched · in progress · not aired" not in b
     assert current(html, "Media sections") == ["TV Shows"]
     paths = [p for p, _ in fake.calls]
     assert "/Shows/ser1/Seasons" in paths and "/Shows/ser1/Episodes" in paths and "/Users/u1/Items/ser1" in paths

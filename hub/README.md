@@ -211,8 +211,9 @@ reads Jellyfin live (10 min cache, Available / Partly available only) as Dolby-s
 glyph, DTS and HDR pills, plain pills for resolution, codec, container, channels and size; the word is always present.
 `hub/static/badges/<id>.svg|.png` overrides a pill with official artwork; no brand files are shipped (see its README). Below:
 poster + facts (languages, release dates, added, watched, requested), overview, cast portraits (initials when none), director /
-creators as search chips (no follow or lists), where to watch (AU, JustWatch links), then seasons — an episode map of squares
-for on-server shows, lazy `<details>` for off-server ones (`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection /
+creators as search chips (no follow or lists), where to watch (AU, JustWatch links); on a TV page the seasons sit directly
+under the overview (2026-10-08) — an episode list for on-server shows (below), lazy `<details>` for off-server ones
+(`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection /
 Similar / Recommended shelves marked "On server". Every row with a Jellyfin id opens this page; an episode id shows an episode
 header over the show page.
 
@@ -296,3 +297,12 @@ themselves); see `docs/connector-contract.md`, fourteenth exception. On success 
 "Marked watched" / "Progress reset" (`?done=…`, rendered by `base.html`). A watched mark lands in the diary at the next
 jellyfin sweep, dated the day it was marked. Reset progress on an episode may bring it back as "Next episode" after the
 next sweep (Jellyfin's Next Up).
+
+Episode list (2026-10-08, replaced the numbered squares and their legend): on an on-server show's page each season is a
+`<details class="seasonbox epseason">` headed "Season 4 · 3 of 6 watched", open for the page's episode's season, else the
+next episode's, else the latest (`media_film.episode_list`). Each episode is one whole-row link (`.row.has-form.epline` +
+`a.rowlink` to `/media/item/{id}`, at least 64 px): its 16:9 still (`/img/jf:<episode id>?h=240`), "E3 · Name", air date ·
+runtime, and its state in words + colour (`episode_state`: Watched · In progress · 23m left · Not aired · Not watched; an
+in-progress row gets the Watching tint). The Play / Resume / Play again deep link sits beside the row, outside the link
+(aired episodes only). At ≤ 480 px the still shrinks to 96 px and the button drops under the text. The episode facts ride on
+the existing per-season read (`media_item._seasons`: PremiereDate, RunTimeTicks, UserData).

@@ -5,7 +5,7 @@
    Media tabs on it, the poster leading (centred above a centred title on a phone, beside it from 640 px), then
    tagline, facts line, credits with link chips, the status line (emerald + drive icon when on the server) and ONE
    row of buttons: one white primary + square icon buttons. Below: the stats card (your rating, community, IMDb,
-   RT, runtime, rating), overview, file, crew, details, cast, where to watch, seasons, shelves. A perfect 10 glows gold. #}
+   RT, runtime, rating), overview, seasons (TV), file, crew, details, cast, where to watch, shelves. A perfect 10 glows gold. #}
 {% block pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% from "_poster.html" import poster %}
@@ -91,6 +91,54 @@
 </section>
 {% endif %}
 
+{# Seasons (2026-10-08): directly under Overview on a TV page. Each season is a <details> (the page's / next
+   episode's season open); each episode ONE whole-row link (a.rowlink) with its 16:9 still, "E3 · Name", air date ·
+   runtime and its state in words + colour; the Play / Resume deep link sits beside the row, outside the link. #}
+{% if film.seasons %}
+<section class="sec seasons">
+  <div class="seclabel">Seasons</div>
+  {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
+  <div class="listbox">
+  {% for s in film.seasons %}
+  <details class="seasonbox epseason"{% if s.open %} open{% endif %}>
+    <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span></div></div></summary>
+    <div class="eplist">
+    {% for e in s.episodes %}
+    <div class="row has-form epline ep-{{ e.state.key }}" id="ep-{{ e.jf_id }}">
+      <a class="rowlink" href="/media/item/{{ e.jf_id }}">
+        <img class="epstill" src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ e.name|urlencode }}" alt="" loading="lazy" decoding="async" width="160" height="90">
+        <div class="row-body">
+          <div class="row-title">E{{ e.number }} · {{ e.name }}</div>
+          {{ meta([e.air_date, e.runtime]) }}
+          <div class="epstate {{ e.state.cls }}">{{ e.state.word }}</div>
+        </div>
+      </a>
+      {% if e.play %}<span class="row-side"><a class="btn btn-secondary btn-sm" href="{{ e.play.href }}" target="_blank" rel="noopener">{{ e.play.label }}</a></span>{% endif %}
+    </div>
+    {% endfor %}
+    </div>
+  </details>
+  {% endfor %}
+  </div>
+</section>
+{% elif film.kind == "tv" and film.t and film.t.seasons %}
+<section class="sec seasons">
+  <div class="seclabel">Seasons</div>
+  <div class="listbox">
+  {% for s in film.t.seasons %}
+  {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
+  {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
+  {% set st %}<span class="st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span>{% endset %}
+  <details class="seasonbox" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
+  <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>
+    {{ meta([s.episodes ~ " episode" ~ ("s" if s.episodes != 1 else ""), s.year, st]) }}</div></summary>
+    <div class="episodes listbox"><a class="btn btn-ghost btn-sm" href="{{ ep_href }}">Show episodes</a></div>
+  </details>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {% set fp = film.file %}
 {% if fp %}
 <section class="sec">
@@ -157,35 +205,6 @@
 </section>
 {% endif %}
 
-{% if film.seasons %}
-<section class="sec seasons">
-  <div class="seclabel">Seasons</div>
-  {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
-  <p class="metaline">Squares in order: watched · in progress · not aired</p>
-  {% for s in film.seasons %}
-  <div class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>{{ meta([s.watched_text]) }}</div></div>
-  <div class="epmap">
-    {% for e in s.episodes %}<a class="ep{{ ' watched' if e.played }}{{ ' progress' if e.in_progress }}{{ ' unaired' if not e.aired }}" href="/media/item/{{ e.jf_id }}" title="{{ e.name }}{{ ' (watched)' if e.played else ' (in progress)' if e.in_progress else ' (not aired)' if not e.aired else '' }}">{{ e.number }}</a>{% endfor %}
-  </div>
-  {% endfor %}
-</section>
-{% elif film.kind == "tv" and film.t and film.t.seasons %}
-<section class="sec seasons">
-  <div class="seclabel">Seasons</div>
-  <div class="listbox">
-  {% for s in film.t.seasons %}
-  {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
-  {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
-  {% set st %}<span class="st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span>{% endset %}
-  <details class="seasonbox" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
-  <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>
-    {{ meta([s.episodes ~ " episode" ~ ("s" if s.episodes != 1 else ""), s.year, st]) }}</div></summary>
-    <div class="episodes listbox"><a class="btn btn-ghost btn-sm" href="{{ ep_href }}">Show episodes</a></div>
-  </details>
-  {% endfor %}
-  </div>
-</section>
-{% endif %}
 </div>
 
 {% for sh in film.shelves %}

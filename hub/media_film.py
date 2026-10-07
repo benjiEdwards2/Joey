@@ -157,6 +157,44 @@ def _next_episode(seasons: list[dict]) -> dict | None:
     return None
 
 
+def episode_state(e: dict) -> dict:
+    """One episode's state as a word + a colour class (the word is never left out): Watched · In progress 23m
+    left · Not aired · Not watched."""
+    if e.get("played"):
+        return {"word": "Watched", "cls": "st-good", "key": "watched"}
+    if e.get("in_progress"):
+        left = e.get("left_min")
+        return {"word": f"In progress · {left}m left" if left else "In progress", "cls": "st-progress", "key": "progress"}
+    if not e.get("aired"):
+        return {"word": "Not aired", "cls": "st-off", "key": "unaired"}
+    return {"word": "Not watched", "cls": "st-todo", "key": "todo"}
+
+
+def episode_list(seasons: list[dict], href_of, page_season=None, next_ep: dict | None = None) -> list[dict]:
+    """The Seasons section's data (2026-10-08): per season `open` (the page's episode's season, else the next
+    episode's, else the last one) and per episode its state word and Play / Resume deep link. Copies — the
+    seasons come from media_item's shared cache and are never changed in place."""
+    out = []
+    for i, s in enumerate(seasons or []):
+        n = s.get("number") if s.get("number") is not None else i + 1
+        eps = []
+        for e in s.get("episodes") or []:
+            play = None
+            href = href_of(e["jf_id"]) if href_of and e.get("aired") else None
+            if href:
+                label = ("Resume ▶" + (f" · {e['left_min']}m left" if e.get("left_min") else "")) if e.get("in_progress")                     else "Play again ▶" if e.get("played") else "Play ▶"
+                play = {"href": href, "label": label}
+            eps.append({**e, "state": episode_state(e), "play": play})
+        out.append({**s, "n": n, "episodes": eps, "open": False})
+    want = page_season if page_season is not None else (next_ep or {}).get("season")
+    pick = next((s for s in out if s["n"] == want), None) if want is not None else None
+    if pick is None and out:
+        pick = out[-1]
+    if pick is not None:
+        pick["open"] = True
+    return out
+
+
 def _override(badge_id) -> str | None:
     for ext in ("svg", "png"):
         if badge_id and (BADGES_DIR / f"{badge_id}.{ext}").is_file():
@@ -519,7 +557,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         pid = jf_item_id or jf_id
         label = (f"Resume ▶ · {left}" if left else "Resume ▶") if in_progress else "Play again ▶" if played else "Play ▶"
         f["play"] = {"href": href_of(pid), "label": label}
-    f["seasons"] = seasons
+    f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None,
+                                ep["season_no"] if ep else None, f["next_ep"])
     if ep:
         f["episode"] = {"code": ep["code"], "title": ep["title"], "air_date": ep["air_date"],
                         "overview": ep["overview"], "runtime": ep["runtime"],

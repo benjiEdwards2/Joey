@@ -97,9 +97,18 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
         for e in ((body.get("Items") if isinstance(body, dict) else None) or [])[:MAX_EPISODES]:
             if isinstance(e, dict) and e.get("Id"):
                 num = _int(e.get("IndexNumber"))
+                ticks = e.get("RunTimeTicks") or 0
+                pos = (e.get("UserData") or {}).get("PlaybackPositionTicks") or 0
+                state = _state(e, today)
+                # Episode list (2026-10-08): air date, runtime and minutes left ride on the same read; the 16:9
+                # still is the episode's own Primary image through the /img proxy (`jf:<id>`).
                 eps.append({"number": num if num is not None else len(eps) + 1,
                             "name": str(e.get("Name") or "Episode")[:200], "jf_id": e["Id"],
-                            **_state(e, today)})
+                            "air_date": _date_words(e.get("PremiereDate"))[0] if e.get("PremiereDate") else None,
+                            "runtime": runtime_text(ticks / TICKS_PER_MINUTE) if ticks else None,
+                            "left_min": max(0, ticks - pos) // TICKS_PER_MINUTE if state["in_progress"] and ticks else None,
+                            "still": f"jf:{e['Id']}" if ITEM_RE.match(str(e["Id"])) else None,
+                            **state})
         done = sum(1 for e in eps if e["played"])
         out.append({"id": s["Id"], "number": _int(s.get("IndexNumber")), "name": str(s.get("Name") or "Season")[:100], "episodes": eps,
                     "watched_text": f"{done} of {len(eps)} watched"})

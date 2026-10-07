@@ -750,13 +750,25 @@ a.castcard:hover .castname { text-decoration: underline; }
 .episodes { padding: 0 0 8px 8px; }
 .ep-over { margin-top: 2px; font-size: 12px; color: var(--text-5); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
   -webkit-box-orient: vertical; overflow: hidden; }
-.epmap { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 8px; }
-.epmap .ep { box-sizing: border-box; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 600; border: 1px solid var(--line-hover); border-radius: 4px; color: var(--text-3); text-decoration: none; }
-.epmap .ep.watched { background: var(--good-soft); color: var(--good); border-color: var(--done-line); }
-.epmap .ep.progress { border: 2px dashed var(--watch-bar); color: var(--orange); }
-.epmap .ep.unaired { border-style: dotted; opacity: .55; }
-.epmap .ep:hover { border-color: var(--text-1); }
+/* Episode list (2026-10-08, replaces the numbered squares): per season a <details>, per episode one whole-row link
+   (.row.has-form + a.rowlink) at least 64 px tall: 16:9 still, "E3 · Name", air date · runtime, the state word in its
+   colour; an in-progress row gets the Watching tint + 3 px bar (guide 6). Phone (<= 480 px): a smaller still and the
+   Play button drops under the text. */
+.seasoncount { font-weight: 400; color: var(--text-5); }
+.eplist { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 0 0 8px; }
+.epline { min-height: 64px; }
+.epline .epstill { flex-shrink: 0; width: 128px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--line-soft); }
+.epline .row-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+.epstate { margin-top: 2px; font-size: 12px; font-weight: 500; }
+.st-progress { color: var(--orange); }
+.st-todo { color: var(--text-4); }
+.epline.ep-progress { background: var(--watch-tint); box-shadow: inset 3px 0 0 var(--watch-bar); }
+.epline.ep-unaired .epstill { opacity: .55; }
+@media (max-width: 480px) {
+  .epline .epstill { width: 96px; }
+  .epline .row-side { flex: 1 0 100%; justify-content: flex-end; }
+}
 .requestblock { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 .seasonpick { display: flex; flex-direction: column; gap: 4px; }
 .seasonpick label { display: flex; align-items: center; gap: 8px; font-size: 14px; }

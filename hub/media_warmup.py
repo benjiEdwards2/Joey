@@ -195,62 +195,6 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
                     if img(ref, h) == "fetched":
                         rest()
             if seerr and t["tmdb"]:
-                path = f"/api/v1/{t['kind']}/{t['tmdb']}"
-                cold = f"meta:{path}" not in md._cache and md._meta_disk(path) is None
-                body = md.meta_get(path)
-                media_film._ratings(t["kind"], t["tmdb"])
-                if cold:
-                    rest()
-                for c in media_film._cast(body if isinstance(body, dict) else {}, [])[:CAST_WARM]:
-                    img(c["ref"], CAST_H)
-        except Exception as exc:  # one bad title never stops the pass
-            log.warning("media warm-up title failed: %s", type(exc).__name__)
-        if pause:
-            time.sleep(pause)
-    log.info("media warm-up: %(titles)s titles, %(fetched)s images fetched, %(cached)s already cached", counts)
-    return counts
-
-
-def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
-    """The full-library pass. -> counts {titles, fetched, cached, failed}; never raises. Per title: poster h=600
-    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos at CAST_H (what the
-    item page renders)."""
-    from hub import media_film
-    from hub.store import get_snapshots
-
-    started = time.time()
-    seerr, jf = md._creds() is not None, media_files._creds() is not None
-    counts = {"titles": 0, "fetched": 0, "cached": 0, "failed": 0}
-    if not (seerr or jf):
-        counts["skipped_no_keys"] = True
-        return counts
-    snaps = get_snapshots() if snaps is None else snaps
-    snap = snaps.get("jellyfin")
-    jelly = (snap.data if snap else {}) or {}
-
-    def img(ref, h):
-        if ref:
-            got = images.warm(ref, h)
-            counts["failed" if got == "skipped" else got] += 1
-            return got
-
-    def rest():
-        if pause:
-            time.sleep(pause)
-
-    if jf:
-        try:
-            media_files._user_id(*media_files._creds())
-        except Exception as exc:
-            log.warning("media library warm-up user lookup failed: %s", type(exc).__name__)
-    for t in library_targets(jelly):
-        counts["titles"] += 1
-        try:
-            if jf:
-                for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H)):
-                    if img(ref, h) == "fetched":
-                        rest()
-            if seerr and t["tmdb"]:
                 before = md._cache.get(f"meta:/api/v1/{t['kind']}/{t['tmdb']}")
                 body = md.meta_get(f"/api/v1/{t['kind']}/{t['tmdb']}")
                 media_film._ratings(t["kind"], t["tmdb"])

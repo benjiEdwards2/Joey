@@ -61,7 +61,7 @@ def body(client, path):
 
 def row_titles(main_html):
     """Titles of the library rows only (after the controls form)."""
-    rows = main_html.split("</form>", 1)[1]
+    rows = main_html.split('class="toolbar"', 1)[1].split("</form>", 1)[1]   # media-ux2: To rate forms may sit above
     return re.findall(r'class="row-title">([^<(\n]+?)\s*(?:\(|\n|<)', rows)
 
 

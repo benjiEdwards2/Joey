@@ -1406,7 +1406,10 @@ def _library_page(request: Request, kind: str):
         sort = request.query_params.get("sort", "score")
         sort = sort if sort in media_library.SORTS else "score"
         group = (request.query_params.getlist("group") or ["1"])[-1] != "0"
+        recent = (data.get("history") or {}).get("recent") or []   # the viewer's own history (view_jelly)
+        to_rate = [{**r, "back": request.url.path} for r in _to_rate(recent, _ratings(view, recent)) if r["kind"] == kind]
         return {
+            "to_rate": to_rate,
             "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "group": group,
             "sorts": media_library.SORT_LABELS, "new_week": arrived,
             "head_line": media_library.head_line(rows or [], kind, marks),

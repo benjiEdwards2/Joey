@@ -253,6 +253,12 @@ Rating level (2026-10-06): each owner chooses Show / Season / Episode with the c
 picker and the score shown on rows follow it; a row lacking that level's key falls back to its show, and
 rankings count show + season ratings only.
 
+To rate on Movies / TV Shows (media-ux2, 2026-10-08): `/media/movies` and `/media/tv` open with a "To rate · N" section —
+the same inbox (`_to_rate`, viewer's own history and ratings) filtered to the page's kind, rendered by the shared
+`templates/_to_rate.html` rows Diary > To rate uses. It is absent when nothing waits. Each row's picker carries
+`back` (the page path); `POST /media/rate` returns a plain form there (fixed list `RATE_BACK`: history, movies, tv;
+anything else → `/media/history`); htmx swaps in the usual "Rated N · Undo" row in place.
+
 Watchlist (F6, 2026-10-06): `media_watchlist.py` + `media_watchlist_db.py`. A "Watchlist" tab under Movies and TV Shows
 (`/media/movies/watchlist`, `/media/tv/watchlist`); add from a title page (the bookmark icon button) or the small "+" beside a Discover
 result. Each row carries a status word: On disk, Requested, Processing, Partly available or Not on server. A title the owner has

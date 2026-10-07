@@ -4,6 +4,7 @@
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
+{% import "_to_rate.html" as torate %}
 {# Detail behind the watched tile (2026-10-05; restyle Phase 3): B.'s Jellyfin watch history, with the rating inbox
    on top (last 30 days, unrated). The diary page holds on-this-day now. Counts are words and numbers. #}
 {% if src.st.state == "off" %}
@@ -20,18 +21,7 @@
     <button type="submit" name="value" value="{{ lv }}" class="chip{{ ' on' if rating_level == lv }}"{% if rating_level == lv %} aria-current="true"{% endif %}>{{ lv|capitalize }}</button>
     {% endfor %}
   </form>
-  {% if to_rate %}<div class="listbox">
-  {% for r in to_rate %}
-  {% set ih = item_href(r.jf_id) %}
-  <div class="row has-form">
-    {% if ih %}<a class="rowlink" href="{{ ih }}">{% endif %}
-    {{ poster(r.poster, r.title, 120, "row-poster") }}
-    <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.when]) }}</div>
-    {% if ih %}</a>{% endif %}
-    {{ rate.picker(r) }}
-  </div>
-  {% endfor %}
-  </div>{% else %}<p class="empty">Nothing waiting to be rated.</p>{% endif %}
+  {% if to_rate %}{{ torate.rows(to_rate) }}{% else %}<p class="empty">Nothing waiting to be rated.</p>{% endif %}
 </section>
 
 <section class="sec">

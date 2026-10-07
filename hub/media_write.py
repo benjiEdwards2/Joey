@@ -33,6 +33,8 @@ MAX_BODY = 8192
 SEARCH_TIMEOUT = 8
 SEARCH_MAX = 8
 PLACES = ("Cinema", "Netflix", "Friend's", "Other")
+# Where a plain-form rating may return (media-ux2): the pages that hold a To rate list. Anything else -> history.
+RATE_BACK = {p: p for p in ("/media/history", "/media/movies", "/media/tv")}
 
 
 def same_origin(request: Request) -> None:
@@ -132,7 +134,7 @@ async def rate(request: Request):
         raise HTTPException(503, "Couldn't save the rating") from None
     if is_htmx(request):
         return render(request, "_rated_row.html", r=item, score=score)
-    return RedirectResponse("/media/history", status_code=303)
+    return RedirectResponse(RATE_BACK.get(f.get("back"), "/media/history"), status_code=303)
 
 
 def _unrate(item_key: str, owner: str) -> dict | None:

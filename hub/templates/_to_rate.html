@@ -1,0 +1,20 @@
+{% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
+{% import "_rate.html" as rate %}
+{# The rating inbox rows (2026-10-05; shared by Diary > To rate and the Movies / TV Shows pages since media-ux2,
+   2026-10-08): poster + title in an a.rowlink overlay, the 1-10 picker outside it. A row's `back` (when set)
+   rides in the picker so a plain-form rating returns to that page. #}
+{% macro rows(to_rate) %}
+<div class="listbox">
+  {% for r in to_rate %}
+  {% set ih = item_href(r.jf_id) %}
+  <div class="row has-form">
+    {% if ih %}<a class="rowlink" href="{{ ih }}">{% endif %}
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.when]) }}</div>
+    {% if ih %}</a>{% endif %}
+    {{ rate.picker(r) }}
+  </div>
+  {% endfor %}
+  </div>
+{%- endmacro %}

@@ -1,8 +1,16 @@
 {% from "_poster.html" import poster %}
 {% from "_library_row.html" import row %}
 {% from "_icons.html" import icon %}
+{% import "_to_rate.html" as torate %}
 {# Shared body of /media/movies and /media/tv (restyle Phase 3): a "New this week" carousel, the guide's toolbar
    (search with its icon, the Grouped chip, sort), then rows grouped under section labels. #}
+{# To rate (media-ux2, 2026-10-08): only this page's kind, at the top, and only when something waits. #}
+{% if to_rate %}
+<section class="sec">
+  <div class="seclabel">To rate · {{ to_rate|length }}</div>
+  {{ torate.rows(to_rate) }}
+</section>
+{% endif %}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected.</p>
 {% elif rows is none %}

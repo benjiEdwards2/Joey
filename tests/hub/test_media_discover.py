@@ -167,16 +167,19 @@ def test_shelves_render_with_status_words(env):
 def test_cache_hit_and_expiry(env, monkeypatch):
     client, fake = env()
     from hub import media_discover
+
+    def shelf_gets():   # media-ux2: the Services row's provider-list reads (24 h) are counted in test_media_services
+        return [g for g in fake.gets if g.startswith("/api/v1/discover/")]
     with client:
         client.get("/media/discover")
-        first = len(fake.gets)
+        first = len(shelf_gets())
         assert first == 5
         client.get("/media/discover")
-        assert len(fake.gets) == first                      # served from cache
+        assert len(shelf_gets()) == first                   # served from cache
         real = media_discover.time.time()
         monkeypatch.setattr(media_discover.time, "time", lambda: real + 601)
         client.get("/media/discover")
-        assert len(fake.gets) == first * 2                  # expired -> fetched again
+        assert len(shelf_gets()) == first * 2               # expired -> fetched again
 
 
 def test_failed_shelf_fetch_says_unavailable_and_is_not_cached(env):

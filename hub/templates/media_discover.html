@@ -3,6 +3,7 @@
 {% block content %}
 {% from "_discover_item.html" import item %}
 {% from "_icons.html" import icon %}
+{% from "_services.html" import services_row %}
 {# Discover & Search (2026-10-05; restyle Phase 3): the guide's search box, then poster carousels from Jellyseerr.
    Status is a WORD. #}
 {% if not connected %}
@@ -18,6 +19,7 @@
   {% if q %}{% include "_discover_results.html" %}{% endif %}
 </div>
 {% if not q %}
+{{ services_row(services) }}
 {% for s in shelves %}
 <section class="sec">
   <div class="seclabel">{{ s.title }}</div>

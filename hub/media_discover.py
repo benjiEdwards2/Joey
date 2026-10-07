@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import time
-from datetime import date
+from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import parse_qs, quote
@@ -134,8 +134,8 @@ def _meta_store(path: str, at: float, body) -> None:
         log.warning("meta cache write failed (%s)", type(exc).__name__)
 
 
-def meta_get(path: str):
-    """A long-lived (META_TTL), restart-proof read for a path that carries no user state. Returns the body,
+def meta_get(path: str, ttl: float = META_TTL):
+    """A long-lived (META_TTL, or `ttl`), restart-proof read for a path that carries no user state. Returns the body,
     or None for a remembered 404 / any failure (a failure without a 404 answer is not remembered)."""
     key = f"meta:{path}"
     hit = _cache.get(key)
@@ -143,7 +143,7 @@ def meta_get(path: str):
         hit = _meta_disk(path)
         if hit is not None:
             _cache[key] = hit
-    if hit is not None and time.time() - hit[0] < META_TTL:
+    if hit is not None and time.time() - hit[0] < ttl:
         return hit[1]
     if not _creds():
         return None
@@ -192,9 +192,9 @@ def _rows(results, kind_hint=None) -> list[dict]:
     return [r for r in rows if r][:ROW_MAX]
 
 
-def _shelf_rows(path: str, kind_hint) -> list[dict] | None:
+def _shelf_rows(path: str, kind_hint, ttl: float = CACHE_TTL) -> list[dict] | None:
     hit = _cache.get(path)
-    if hit and time.time() - hit[0] < CACHE_TTL:
+    if hit and time.time() - hit[0] < ttl:
         return hit[1]
     body = _get(path)
     if not isinstance(body, dict) or not isinstance(body.get("results"), list):
@@ -241,14 +241,16 @@ def discover_page(request: Request, q: str = ""):
     q = q.strip()[:100]
 
     def build():
-        ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set()}
+        ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set(), "services": []}
         if _creds():
             if q:
                 ctx["rows"], ctx["note"] = _search_outcome(q)
             else:
-                with ThreadPoolExecutor(max_workers=len(SHELVES)) as pool:
+                with ThreadPoolExecutor(max_workers=len(SHELVES) + 1) as pool:
+                    svc = pool.submit(services)
                     got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), SHELVES))
                 ctx["shelves"] = [{"id": s[0], "title": s[1], "rows": rows} for s, rows in zip(SHELVES, got)]
+                ctx["services"] = svc.result()
         ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in ctx["rows"]
                                             + [r for s in ctx["shelves"] for r in s["rows"] or []]])
         return ctx
@@ -261,6 +263,133 @@ def discover_search(request: Request, q: str = ""):
     rows, note = _search_outcome(q.strip()[:100])
     return _partial(request, "_discover_results.html", rows=rows, note=note,
                     wl_keys=keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in rows]))
+
+
+# ---- Browse by streaming service (media-ux2, 2026-10-08) ----
+# TMDB watch-provider discovery through Jellyseerr: the AU provider lists (/api/v1/watchproviders/{movies|tv}
+# ?watchRegion=AU -> [{id, name, logoPath, displayPriority}]) and /api/v1/discover/{movies|tv} with watchRegion +
+# watchProviders. The tiles on /media/discover are SERVICES, in this order, matched by name (tolerant of "+" vs
+# "Plus", case and spacing); a name the AU list does not carry is skipped (logged once per provider-list read).
+
+WATCH_REGION = "AU"
+SERVICES = ("Netflix", "Disney Plus", "Amazon Prime Video", "Stan", "Binge", "Apple TV Plus", "Paramount Plus",
+            "HBO Max", "Foxtel Now", "SBS On Demand", "ABC iview", "9Now", "7plus")
+PROVIDER_TTL = 24 * 3600   # the provider list barely changes
+SERVICE_TTL = 6 * 3600     # a service page's shelves
+NEW_DAYS = 30              # "New this month": released in the last NEW_DAYS days
+TOP_VOTES = 200            # "Top rated" ignores titles with fewer TMDB votes than this
+SERVICE_SHELVES = ("Popular films", "Popular TV", "New this month", "Top rated")
+
+
+def norm_provider(name) -> str:
+    """'Apple TV+' / 'Apple TV Plus' / 'apple tv plus' -> 'appletvplus'."""
+    return "".join(c for c in str(name or "").lower().replace("+", "plus") if c.isalnum())
+
+
+def providers() -> list[dict] | None:
+    """The AU watch providers, films' list then TV's, de-duplicated by id: [{id, name, logo}] (logo a tmdb: ref or
+    None). None when neither list can be read. Each list is a 24 h restart-proof meta read."""
+    out, seen, any_ok = [], set(), False
+    for kind in ("movies", "tv"):
+        body = meta_get(f"/api/v1/watchproviders/{kind}?watchRegion={WATCH_REGION}", ttl=PROVIDER_TTL)
+        if not isinstance(body, list):
+            continue
+        any_ok = True
+        for p in body:
+            if not isinstance(p, dict):
+                continue
+            pid, name = p.get("id"), str(p.get("name") or "").strip()[:80]
+            if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0 or not name or pid in seen:
+                continue
+            seen.add(pid)
+            out.append({"id": pid, "name": name, "logo": _ref(p.get("logoPath"))})
+    return out if any_ok else None
+
+
+def services() -> list[dict] | None:
+    """SERVICES in order, each matched to its AU provider: [{id, name, logo, href}]. None when the provider list is
+    unavailable. The match is cached with the list (PROVIDER_TTL) so a miss is logged once per read, not per page."""
+    hit = _cache.get("services")
+    if hit and time.time() - hit[0] < PROVIDER_TTL:
+        return hit[1]
+    listed = providers()
+    if listed is None:
+        return None
+    by_norm: dict[str, dict] = {}
+    for p in listed:
+        by_norm.setdefault(norm_provider(p["name"]), p)
+    out = []
+    for name in SERVICES:
+        p = by_norm.get(norm_provider(name))
+        if p is None:
+            log.info("watch provider not listed for %s: %s", WATCH_REGION, name)
+            continue
+        out.append({"id": p["id"], "name": name, "logo": p["logo"], "href": f"/media/discover/service/{p['id']}"})
+    _cache["services"] = (time.time(), out)
+    return out
+
+
+def _service_paths(pid: int, today: date) -> dict[str, list[tuple[str, str]]]:
+    """Shelf title -> [(Jellyseerr path, kind)] for one provider."""
+    base = f"watchRegion={WATCH_REGION}&watchProviders={pid}"
+    since, until = (today - timedelta(days=NEW_DAYS)).isoformat(), today.isoformat()
+    return {
+        "Popular films": [(f"/api/v1/discover/movies?{base}&sortBy=popularity.desc", "movie")],
+        "Popular TV": [(f"/api/v1/discover/tv?{base}&sortBy=popularity.desc", "tv")],
+        "New this month": [
+            (f"/api/v1/discover/movies?{base}&sortBy=primary_release_date.desc"
+             f"&primaryReleaseDateGte={since}&primaryReleaseDateLte={until}", "movie"),
+            (f"/api/v1/discover/tv?{base}&sortBy=first_air_date.desc&firstAirDateGte={since}&firstAirDateLte={until}",
+             "tv")],
+        "Top rated": [(f"/api/v1/discover/movies?{base}&sortBy=vote_average.desc&voteCountGte={TOP_VOTES}", "movie"),
+                      (f"/api/v1/discover/tv?{base}&sortBy=vote_average.desc&voteCountGte={TOP_VOTES}", "tv")],
+    }
+
+
+def _interleave(lists: list) -> list[dict] | None:
+    """Films and TV alternating (each list keeps its own order), ROW_MAX long; None only when every read failed."""
+    if all(rows is None for rows in lists):
+        return None
+    lists = [rows or [] for rows in lists]
+    out = []
+    for i in range(max((len(r) for r in lists), default=0)):
+        out += [r[i] for r in lists if i < len(r)]
+    return out[:ROW_MAX]
+
+
+def service_shelves(pid: int, today: date | None = None) -> list[dict]:
+    """[{title, rows}] for a provider; rows None = unavailable, [] = nothing to show. Reads run in parallel, each
+    cached SERVICE_TTL (a failed read is not cached)."""
+    paths = _service_paths(pid, today or date.today())
+    flat = [pk for title in SERVICE_SHELVES for pk in paths[title]]
+    with ThreadPoolExecutor(max_workers=len(flat)) as pool:
+        got = dict(zip(flat, pool.map(lambda pk: _shelf_rows(pk[0], pk[1], SERVICE_TTL), flat)))
+    return [{"title": t, "rows": _interleave([got[pk] for pk in paths[t]])} for t in SERVICE_SHELVES]
+
+
+@router.get("/media/discover/service/{provider_id}", response_class=HTMLResponse)
+def service_page(request: Request, provider_id: int):
+    """One streaming service's shelves. 404 for an id the AU provider list does not carry; with the list down the
+    page still renders (shelves by id under a plain heading)."""
+    from hub import main as hub  # late: hub.main includes this router
+
+    if hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(), detail=DISCOVER_DETAIL) is None:
+        return _page(request, "media_service.html", dict)   # the 404, before any upstream call
+    listed = providers() if _creds() else None
+    match = next((p for p in listed or [] if p["id"] == provider_id), None)
+    if provider_id <= 0 or (listed is not None and match is None):
+        raise HTTPException(404, "No such service")
+    named = next((s for s in services() or [] if s["id"] == provider_id), None) if listed is not None else None
+
+    def build():
+        ctx = {"service": {"id": provider_id, "name": (named or match or {}).get("name") or "Streaming service",
+                           "logo": (match or {}).get("logo")}, "shelves": [], "wl_keys": set()}
+        if _creds():
+            ctx["shelves"] = service_shelves(provider_id)
+        ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for s in ctx["shelves"] for r in s["rows"] or []])
+        return ctx
+
+    return _page(request, "media_service.html", build)
 
 
 # ---- Title page + request ----

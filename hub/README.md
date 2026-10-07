@@ -259,6 +259,16 @@ the same inbox (`_to_rate`, viewer's own history and ratings) filtered to the pa
 `back` (the page path); `POST /media/rate` returns a plain form there (fixed list `RATE_BACK`: history, movies, tv;
 anything else → `/media/history`); htmx swaps in the usual "Rated N · Undo" row in place.
 
+Browse by service (media-ux2, 2026-10-08): `/media/discover` gains a **Services** row (above the shelves, hidden while
+searching) — logo tiles for `media_discover.SERVICES` (Netflix, Disney Plus, Amazon Prime Video, Stan, Binge, Apple TV
+Plus, Paramount Plus, HBO Max, Foxtel Now, SBS On Demand, ABC iview, 9Now, 7plus, in that order), matched by name against
+Jellyseerr's AU watch-provider lists (`norm_provider`: case, spacing and "+"/"Plus" don't matter; a miss is skipped and
+logged once per list read). Logos come through the `/img` proxy (`tmdb:` logoPath), the name always under the logo. Each
+tile opens `/media/discover/service/{provider_id}` (Discover section, Discover tab lit): Popular films · Popular TV · New
+this month (released in the last 30 days, films and TV interleaved) · Top rated (vote_average.desc, ≥ 200 votes), each a
+carousel of the Discover poster cards (title page, +, status word). Provider list cached 24 h, shelves 6 h; a failed
+shelf says "Unavailable", an empty one "Nothing to show right now"; an id not in the AU list 404s.
+
 Watchlist (F6, 2026-10-06): `media_watchlist.py` + `media_watchlist_db.py`. A "Watchlist" tab under Movies and TV Shows
 (`/media/movies/watchlist`, `/media/tv/watchlist`); add from a title page (the bookmark icon button) or the small "+" beside a Discover
 result. Each row carries a status word: On disk, Requested, Processing, Partly available or Not on server. A title the owner has

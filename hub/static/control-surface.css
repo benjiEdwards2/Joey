@@ -614,6 +614,17 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
   font-size: 10px; font-weight: 600; }
 .card-poster .row-title, .card-cell .row-title { display: block; }
 .card-poster .row-meta, .card-cell .row-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Streaming services (media-ux2, 2026-10-08): a carousel of logo tiles on Discover, the name always under the
+   logo; a service page opens with its logo beside the name. */
+.carousel.svc-row > * { flex: 0 0 88px; width: 88px; }
+.svc-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px;
+  color: inherit; text-decoration: none; transition: background-color .15s; }
+.svc-tile:hover { background: var(--soft); }
+.svc-logo { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; box-shadow: var(--shadow-row-poster); }
+.svc-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px;
+  font-weight: 500; color: var(--text-2); text-align: center; }
+.svc-head { display: flex; align-items: center; gap: 12px; }
+.svc-title { font-size: 20px; font-weight: 600; color: var(--text-1); }
 /* .card-cell: a poster card whose poster + title are an a.rowlink stretched over the card, with an action (x, +)
    beside the title — never over the picture (guide 6). */
 .card-cell { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;

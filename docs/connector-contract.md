@@ -39,6 +39,10 @@ POST behind the `same_origin` guard) call Jellyseerr live with `JELLYSEERR_URL` 
 status codes map to one set of words (Available · Partly available · Processing · Requested ·
 Not in library); any failure logs the exception type only and degrades to words, never a 500.
 The registry tile `discover` rides the `jellyseerr` snapshot for its stale badge.
+Browse by service (media-ux2, 2026-10-08) is part of this exception, not a new one: the Discover "Services" row
+reads `/api/v1/watchproviders/{movies|tv}?watchRegion=AU` (24 h, in memory + the disk meta cache) and
+`/media/discover/service/{provider_id}` reads `/api/v1/discover/{movies|tv}?watchRegion=AU&watchProviders=<id>&sortBy=…`
+(6 h in memory; failed reads are not cached). Same env, same type/status-only logging, words on failure.
 
 **Fifth exception (2026-10-05): her view.** `media.db` ratings and diary are per owner —
 primary key `(item_key, owner)`, owner `you` or `her` — and an older single-owner file is

@@ -554,6 +554,7 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .row.has-form > details.confirm-wrap { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
 .row.has-form > details.confirm-wrap[open] { flex: 1 0 100%; display: flex; flex-direction: column; align-items: flex-end; }
 .row.has-form > details.confirm-wrap[open] > .confirm { align-self: stretch; margin-top: 8px; }
+.reqrow .row-body { flex-basis: 0; }  /* title + meta shrink so the score and Remove stay on the row's line */
 .row .bar { margin-top: 6px; }
 .poster.row-poster { width: 44px; height: auto; border: 0; border-radius: 4px; }
 label.row { cursor: pointer; }

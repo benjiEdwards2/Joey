@@ -254,7 +254,8 @@ def test_hub_and_media_home_cards_fold_the_actions_under_move_on(env):
     with client:
         hub_page = main_of(client.get("/").text)
         home = main_of(client.get("/a/alpha").text)
-    for page, back in ((hub_page, "/"), (home, "/a/alpha")):
+    assert "/media/resume/" not in hub_page                      # media-ux2: Continue watching left the hub
+    for page, back in ((home, "/a/alpha"),):
         wrap = page.split('<div class="card-wrap">', 1)[1]
         card = wrap.split("</a>", 1)[0]
         assert "<form" not in card and "<details" not in card       # the card stays one whole link
@@ -264,13 +265,15 @@ def test_hub_and_media_home_cards_fold_the_actions_under_move_on(env):
 
 
 def test_both_view_hub_cards_carry_each_rows_owner(env):
+    """media-ux2: the hub has no Continue watching cards any more; Media home's carry the owner."""
     client, _, _ = env()
     client.cookies.set("owner_view", "both")
     with client:
         page = main_of(client.get("/").text)
-    her = page.split('action="/media/resume/her-ep2/watched"', 1)[1].split("</form>", 1)[0]
-    assert 'name="owner" value="her"' in page.split('action="/media/resume/her-ep2/watched"', 1)[0][-400:] or \
-        'name="owner" value="her"' in her
+        home = main_of(client.get("/a/alpha").text)
+    assert 'action="/media/resume/' not in page
+    acts = home.split('action="/media/resume/mov1/watched"', 1)[1].split("</form>", 1)[0]
+    assert 'name="owner" value="you"' in home.split('action="/media/resume/mov1/watched"', 1)[0][-400:] + acts
 
 
 def test_film_page_shows_both_beside_resume(env):

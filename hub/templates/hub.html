@@ -47,21 +47,9 @@
 </section>
 {% endif %}
 
+{# media-ux2 (2026-10-08, B.): the hub no longer carries Continue watching — it lives on Media home (with Move on).
+   The Recently watched band stays. #}
 {% if shelf %}
-<section class="sec" id="continue">
-  <div class="sechead">
-    <h2 class="seclabel">Continue watching{% if shelf.up_next %}<span class="sep"> · </span>{{ shelf.up_next | length }}{% endif %}</h2>
-    <a href="{{ shelf.href }}">Open Media</a>
-  </div>
-  <p class="metaline">Jellyfin<span class="sep"> · </span>{{ shelf.profiles | capitalize }}{% if shelf.st.state == "stale" %}<span class="sep"> · </span>{{ updated(shelf.st) }}{% endif %}</p>
-  {% if shelf.st.state == "off" %}
-    <p class="empty">Not connected.</p>
-  {% elif shelf.up_next %}
-    {{ shelfrow(shelf.up_next, back="/") }}
-  {% else %}
-    <p class="empty">{{ shelf.quiet }}.</p>
-  {% endif %}
-</section>
 {% if shelf.watched %}
 <section class="sec" id="recent">
   <div class="sechead"><h2 class="seclabel">Recently watched<span class="sep"> · </span>{{ shelf.watched | length }}</h2></div>

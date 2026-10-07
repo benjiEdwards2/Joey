@@ -137,25 +137,20 @@ def test_weather_band_card_shows_glyph_word_and_today_range(hub):
 
 
 def test_continue_watching_shelf_renders_up_next_with_posters(hub):
+    """media-ux2 (2026-10-08, B.): Continue watching left the hub (Media home keeps it); Recently watched stays."""
     _, body = hub()
-    band = body.split('id="continue"', 1)[1]
-    assert 'class="carousel"' in band and 'class="card-poster"' in band      # Media poster cards
-    for row in SAMPLE_DATA["jellyfin"]["up_next"]:
-        assert f">{row['title'].split(' · ')[0]}</span>" in band
-        assert f"/img/{row['poster']}?h=240" in band
-    assert 'Jellyfin<span class="sep"> · </span>Both profiles' in body and ">Open Media</a>" in body
-    assert "You · Film" in band and "You · S02E05 · Break of Dawn" in band   # owner word leads the sub
-    assert ">Cold Harbour</span>" in band                # her profile merged in the both view
-    assert 'id="recent"' in band and "Recently watched" in band
+    assert 'id="continue"' not in body and "Continue watching" not in body
+    assert "/media/resume/" not in body                         # no Move on actions on the hub
+    band = body.split('id="recent"', 1)[1]
+    assert "Recently watched" in band and 'class="card-poster"' in band
 
 
 def test_continue_watching_her_view_and_empty_sentence(hub):
     _, her = hub(view="her")
-    band = her.split('id="continue"', 1)[1]
-    assert ">Cold Harbour</span>" in band and ">Dust and Daylight</span>" not in band
+    assert 'id="continue"' not in her and "Nothing up next" not in her
     jelly = {**SAMPLE_DATA["jellyfin"], "up_next": [], "her": None}
     _, body = hub(jellyfin=jelly)
-    assert '<p class="empty">Nothing up next.</p>' in body
+    assert '<p class="empty">Nothing up next.</p>' not in body
 
 
 def test_hub_main_has_no_literal_hex_colour(hub):

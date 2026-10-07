@@ -27,3 +27,15 @@ def test_the_data_still_shows_where_it_lives(env):
         hist = main_of(c.get("/media/history").text)
     assert ">This week" in lib
     assert ">Recently watched</div>" in hist and "Harbour Lights" in hist
+
+
+# ---- media-ux2 item 8 (2026-10-08): the Joey hub page (/) drops Continue watching; Media keeps it ----
+
+def test_hub_page_has_no_continue_watching_but_media_home_does(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as c:
+        hub_page = main_of(c.get("/").text)
+        home = main_of(c.get("/a/alpha").text)
+    assert "Continue watching" not in hub_page and 'id="continue"' not in hub_page
+    assert 'id="recent"' in hub_page and "Recently watched" in hub_page   # the hub's own band stays
+    assert ">Continue watching" in home and "Dust and Daylight" in home

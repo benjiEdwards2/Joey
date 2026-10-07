@@ -20,7 +20,7 @@ signed-in Cloudflare Access chip from `hub/identity.py`) with a phone tab bar be
 type, and every page built from the same few recipes (rows, stats strips, panels, poster cards) in
 `hub/static/control-surface.css`; spec in `docs/style-guide.md`, details in `hub/README.md` ("Styling"). Areas with
 `hidden: true` are parked (no pill, tab or hub tile; the page still serves). The hub is a row of summary tiles (one per
-area + Weather), Next 7 days, a weather glimpse and Continue watching posters; area pages are a row of tiles per registry
+area + Weather), Next 7 days, a weather glimpse and Recently watched posters (Continue watching lives on Media home since 2026-10-08); area pages are a row of tiles per registry
 tile.
 
 **Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·

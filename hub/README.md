@@ -73,7 +73,7 @@ empty state; `.confirm*` inline confirmation; `.toolbar/.search/.chips`; `.poste
 area name, `.stat-number/.stat-word` value, one `.row-meta` line, icon at the right; stale = `.badge-wait`, not connected
 = muted `.st-off` word; a `.bar` or a per-day spark only from real data); `_upcoming_table.html` "Next 7 days"
 (`.row.upc`: grid with uppercase column heads from 640 px, stacked on a phone); `_weather_glimpse.html` (a `.stats` strip,
-glyph + condition word); `_shelf.html` Continue watching on Media's `.carousel` of `.card-poster`s. *Area pages*
+glyph + condition word); `_shelf.html` Recently watched on Media's `.carousel` of `.card-poster`s (the hub's Continue watching band was removed in media-ux2, 2026-10-08 — Media home keeps it). *Area pages*
 (`area.html`, also hidden areas): tiles, the Calendar upcoming rows + weather glimpse, and for areas reading the
 jellyfin/media_status snapshots Media-style sections (`.row`s, `.row-score`, `.gold-glow-sm`). *Server* (`server.html`,
 `server_update.html`): System = `.stats` strip (volumes carry a `.bar`), Last 24 h = `.spark-band` panel (`.spark-*`,
@@ -312,7 +312,7 @@ snapshot newer than the removal + 90 s; the film page's "Requested" line and the
 rows) and the page flashes "Removed" (`?done=removed|stopped|ondisk|arrfail|arrunset&app=…`; errors `?error=…`, words only).
 
 Move on from Continue watching (2026-10-08): `media_resume.py`. **Mark watched** and **Reset progress** (the latter only on
-a resume row, not a "Next episode" suggestion) on the hub and Media home Continue watching cards (folded under a "Move on"
+a resume row, not a "Next episode" suggestion) on the Media home Continue watching cards (the hub page's band is gone since media-ux2) (folded under a "Move on"
 button below the card, outside its link: `_resume_acts.html`, `.card-wrap`), beside each Server → Playing "Up next" row
 (`.rowwrap`, the row stays one whole link) and beside "Resume ▶" on a film / episode page (B.'s views only — the page's
 watch state is read as `JELLYFIN_USER`). Acts as the viewer's Jellyfin user (you / her; a signed-in viewer is always

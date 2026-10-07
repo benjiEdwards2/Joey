@@ -976,8 +976,8 @@ def _split_title(row) -> tuple[str, str]:
 
 
 def hub_shelf(area, snaps, view: str, link) -> dict | None:
-    """Hub "Continue watching" (+ "Recently watched") band for a `layout: shelves` area.
-    Present when that area's jellyfin tile is visible; rows only from the snapshot."""
+    """Hub "Recently watched" band for a `layout: shelves` area (its Continue watching band left the hub in media-ux2,
+    2026-10-08; Media home keeps it). Present when that area's jellyfin tile is visible; rows only from the snapshot."""
     tiles = [t for t in area.tiles if owner_visible(t, view)]
     jtile = next((t for t in tiles if t.snapshot == JELLYFIN_SNAPSHOT_ID), None)
     if jtile is None:
@@ -994,8 +994,6 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
                 "when": when, "poster": row.get("poster"), "href": url or fallback,
                 "external": False, "pct": row.get("progress_pct"), "acts": acts}
 
-    up_next = [item(r, o, r.get("remaining_text"), PLAYING_DETAIL, resume_acts(r, o))
-               for r, o in _profile_rows(jelly, view, lambda p: p.get("up_next") or [])][:SHELF_MAX]
     watched = None
     if any(t.detail == DIARY_DETAIL for t in tiles):
         rows = _profile_rows(jelly, view, lambda p: (p.get("history") or {}).get("recent") or [])
@@ -1007,12 +1005,7 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
                     return 0.0
             rows = sorted(rows, key=when, reverse=True)
         watched = [item(r, o, r.get("when"), DIARY_DETAIL) for r, o in rows][:SHELF_MAX]
-    her_unset = view == "her" and bool(jelly) and jelly.get("her") is None
-    return {
-        "href": f"/a/{area.id}", "st": st, "up_next": up_next, "watched": watched,
-        "profiles": {"both": "both profiles", "you": "your profile", "her": "her profile"}[view],
-        "quiet": "Set JELLYFIN_USER_HER in deploy/.env" if her_unset else "Nothing up next",
-    }
+    return {"href": f"/a/{area.id}", "st": st, "watched": watched}
 
 
 def server_card_state(st: dict, snaps) -> dict:

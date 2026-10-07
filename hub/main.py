@@ -146,6 +146,22 @@ async def log_identity(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def no_store_pages(request: Request, call_next):
+    """Back/Forward is navigation only (2026-10-08): an HTML page is never stored, so neither the browser's
+    bfcache/HTTP cache nor a proxy can show a page as it was before a Follow / Request / Remove. Static files
+    and /img keep their own caching (static URLs are content-versioned)."""
+    response = await call_next(request)
+    ctype = response.headers.get("content-type", "")
+    if ctype.startswith("text/html") and not request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+# Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
+# the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash.
+FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done")
+
 app.include_router(images_router)
 app.include_router(media_write_router)
 app.include_router(media_discover_router)
@@ -753,6 +769,7 @@ for _t in (templates, _media_write.templates, _media_discover.templates):
     _t.env.globals["item_href"] = item_href
     _t.env.globals["row_href"] = row_href
     _t.env.globals["identity"] = identity_of
+    _t.env.globals["flash_params"] = FLASH_PARAMS
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:

@@ -268,3 +268,12 @@ earlier day. The "where" filter is not built. Older show-level rows still render
 
 Poster sizes: list rows use `.poster.sm` (56 px tall); shelf cards are 144 px wide (`.shelf-item`, `.shelf-cell`), both in
 `static/control-surface.css`.
+
+Back / Forward (2026-10-08): history navigation always shows fresh server state. `base.html` sets
+`<meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true}'>` (htmx 2.0.4 names: no
+localStorage page snapshots, a Back is a full reload), the `no_store_pages` middleware in `main.py` sends
+`Cache-Control: no-store` on every `text/html` response (not `/static/`, not `/img`), and a small script strips the flash
+params (`main.FLASH_PARAMS`: follow, requested, error, flash, c, code, done) from the address bar after render with
+`history.replaceState`, so a "Following" / "Requested" / "Removed" line is shown once. GET routes never toggle anything; the
+only GET-side writes are idempotent syncs (the diary page's Jellyfin history sync, the watchlist's prune of watched titles,
+the local-only `?owner_view=` cookie) and caches (meta, `/img`).

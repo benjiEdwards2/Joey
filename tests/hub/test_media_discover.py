@@ -372,16 +372,16 @@ def test_title_page_file_strip_available_only(env, monkeypatch):
     calls = _jf(monkeypatch, fake)
     with client:
         body = client.get("/media/title/movie/603").text
-        assert 'class="filestrip"' in body and ">4K</span>" in body and ">HDR10</span>" in body
-        assert ">Dolby Digital Plus</span>" in body and ">5.1</span>" in body and ">2.0 GB</span>" in body
-        assert "<svg" in body.split('class="filestrip"', 1)[1].split("</div>", 1)[0]
+        assert 'class="fmtbadges"' in body and "<b>4K</b>" in body and "<b>HDR10</b>" in body
+        assert 'title="Dolby Digital Plus"' in body and "<b>5.1</b>" in body and ">2.0 GB</div>" in body
+        assert "<svg" not in body.split('class="fmtbadges"', 1)[1].split("</div>", 1)[0]   # text badges only
         assert JF_KEY not in body and "jf.secret-host" not in body
         calls.clear()
         fake.table["/api/v1/movie/603"] = MOVIE  # Not in library
         from hub import media_discover
         media_discover.clear_cache()               # the film page caches the title for 10 min
         body = client.get("/media/title/movie/603").text
-        assert 'class="filestrip"' not in body and not calls
+        assert 'class="fmtbadges"' not in body and not calls
 
 
 def test_title_page_partly_available_show_has_episode_badge(env, monkeypatch):
@@ -389,7 +389,7 @@ def test_title_page_partly_available_show_has_episode_badge(env, monkeypatch):
     _jf(monkeypatch, fake)
     with client:
         body = client.get("/media/title/tv/100").text
-    assert "1 episode on disk" in body
+    assert '<div class="microlabel">On disk</div><div class="filestat-value">1 episode</div>' in body
 
 
 def test_title_page_degrades_when_jellyfin_down(env, monkeypatch):
@@ -398,7 +398,7 @@ def test_title_page_degrades_when_jellyfin_down(env, monkeypatch):
     _jf(monkeypatch, fake, down=True)
     with client:
         resp = client.get("/media/title/movie/603")
-    assert resp.status_code == 200 and "The Matrix (1999)" in resp.text and 'class="filestrip"' not in resp.text
+    assert resp.status_code == 200 and "The Matrix (1999)" in resp.text and 'class="fmtbadges"' not in resp.text
 
 
 # ---- Season episodes, lazy-loaded (2026-10-06) ----
@@ -475,16 +475,15 @@ def test_dolby_badge_in_the_file_strip(env, monkeypatch):
     _jf(monkeypatch, fake)
     with client:
         body = client.get("/media/title/movie/603").text
-    strip = body.split('class="filestrip"', 1)[1].split("</div>", 1)[0]
-    badge = strip.split('<span class="pill dolby">', 1)[1].split("</span></span>", 1)[0]
-    assert '<svg class="dd"' in badge and "<span>Dolby Digital Plus" in badge   # glyph AND the word
-    assert strip.count("pill dolby") == 1                                      # 5.1 / HEVC / 4K stay plain
-    assert ">5.1</span>" in strip and ">HEVC</span>" in strip
+    strip = body.split('class="fmtbadges"', 1)[1].split("</div>", 1)[0]
+    assert '<span class="fmt" title="Dolby Digital Plus"><b>DD+</b><small>DOLBY</small></span>' in strip  # the words
+    assert "<b>5.1</b>" in strip and "<small>HEVC</small>" in strip
 
 
-def test_badge_tokens_in_all_three_blocks_and_rule_is_token_only():
+def test_badge_rules_are_token_only():
     from pathlib import Path
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
     assert css.count("--badge-ink: #000000; --badge-fg: #ffffff;") == 1   # single dark :root block (restyle 2026-10-06)
-    rule = css.split(".pill.dolby, .pill.dts {", 1)[1].split("}", 1)[0]   # restyle Phase 3: .fbadge retired
-    assert "var(--badge-fg)" in rule and "var(--badge-ink)" in rule and "#" not in rule
+    for sel in (".fmt {", ".fmt b {", ".fmt small {", ".filestat-value {", ".castpic {", ".castname {", ".castrole {"):
+        rule = css.split(sel, 1)[1].split("}", 1)[0]
+        assert "#" not in rule and "rgb" not in rule, sel

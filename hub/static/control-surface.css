@@ -675,29 +675,55 @@ details.confirm-wrap > summary::-webkit-details-marker { display: none; }
 }
 @media (min-width: 1024px) { .hero-detail-poster { width: 360px; } }
 
-/* Film page body: overview, the spec sheet, people, seasons. The spec sheet (guide 6) is one .panel in parts
-   divided by hairlines: format logos (the F10 pills, white, 28 px) then short label-value lines. */
+/* Film page body (film-quality, 2026-10-07; MediaHub reference): the numbers as one card, then uppercase .seclabel
+   sections. FILE is one .panel in hairline-divided parts: text format badges (bold word over a tiny uppercase
+   sub-label), a 4-up stat grid (2-up on a phone), label / value rows and the file name in mono. CREW is a 2-column
+   grid of role -> linked names (names right-aligned on desktop, stacked under the role on a phone). CAST is a row
+   of 2:3 portrait cards that scrolls inside itself (130 px cards on a phone, 180 px from 640 px). Tokens only. */
 .overview { max-width: 70ch; font-size: 14px; line-height: 1.6; color: var(--text-3); }
-.specsheet { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.specsheet > * + * { border-top: 1px solid var(--line-soft); padding-top: 14px; }
-.specsheet dl { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 6px 12px; font-size: 13px; }
-.specsheet dt { color: var(--text-5); }
-.specsheet dd { color: var(--text-3); overflow-wrap: anywhere; }
-.filestrip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.pill { display: inline-flex; align-items: center; gap: 5px; height: 28px; font-size: 11px; font-weight: 600; color: var(--text-1);
-  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
-.pill svg.ic { width: 14px; height: 14px; color: var(--text-4); }
-.pill.dolby, .pill.dts { color: var(--badge-fg); background: var(--badge-ink); border-color: var(--badge-ink); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.pill.hdr { color: var(--badge-fg); background: color-mix(in srgb, var(--badge-ink), var(--badge-fg) 16%); border-color: transparent; font-weight: 700; }
-.pill svg.dd { width: 18px; height: 12px; fill: currentColor; flex: none; }
-.pillimg { height: 28px; width: auto; }
-.castrow { display: flex; flex-wrap: wrap; gap: 14px; }
-.castcard { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 84px; min-width: 0; text-align: center;
-  font-size: 12px; color: inherit; text-decoration: none; }
-.castcard .row-meta { overflow-wrap: anywhere; }
-.castpic { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--surface); border: 1px solid var(--line); }
-.castpic.initials { display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-4); }
-.castname { font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+.numbers { padding: 14px 18px; }
+.numbers .microlabel { letter-spacing: .08em; }
+.numbers .stat-link { display: inline-block; color: var(--text-3); text-decoration: none; }
+.numbers .stat-link:hover { color: var(--text-1); }
+.filepanel { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 18px 20px; }
+.filepanel > * + * { border-top: 1px solid var(--line-soft); padding-top: 16px; }
+.fmtbadges { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+.fmt { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-height: 28px;
+  line-height: 1; color: var(--text-1); }
+.fmt b { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+.fmt small { margin-top: 3px; font-size: 7.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
+.fmt-source b { font-style: italic; letter-spacing: 0; }
+.fmtimg { height: 28px; width: auto; }
+.filegrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+@media (min-width: 640px) { .filegrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.filestat { min-width: 0; }
+.filestat-value { margin-top: 4px; font-size: 18px; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.filestat-sub { margin-top: 2px; font-size: 11px; color: var(--text-5); }
+.kvrows { display: flex; flex-direction: column; gap: 8px; margin: 0; font-size: 13px; }
+.kvrows .kv { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 12px; }
+.kvrows dt { color: var(--text-5); }
+.kvrows dd, .crewgrid dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
+.filename { font-family: var(--font-mono); font-size: 11px; color: var(--text-5); overflow-wrap: anywhere; }
+.crewgrid { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 40px; margin: 0; font-size: 13px; }
+.crewgrid .kv { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); min-width: 0; }
+.crewgrid dt { color: var(--text-5); }
+.crewgrid a { color: inherit; text-decoration: none; }
+.crewgrid a:hover { text-decoration: underline; }
+@media (min-width: 640px) {
+  .crewgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crewgrid .kv { flex-direction: row; justify-content: space-between; gap: 16px; }
+  .crewgrid dd { text-align: right; }
+}
+.castrow { display: flex; gap: 14px; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity; padding-bottom: 6px; scrollbar-width: thin; }
+.castcard { flex: 0 0 130px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0;
+  text-align: center; color: inherit; text-decoration: none; scroll-snap-align: start; }
+@media (min-width: 640px) { .castrow { gap: 16px; } .castcard { flex-basis: 180px; } }
+.castpic { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; margin-bottom: 6px; border-radius: 8px;
+  object-fit: cover; background: var(--surface); border: 1px solid var(--line-soft); }
+.castpic.initials { display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 700; color: var(--text-5); }
+.castname { font-size: 14px; font-weight: 600; color: var(--text-1); overflow-wrap: anywhere; }
+.castrole { font-size: 12px; color: var(--text-5); overflow-wrap: anywhere; }
 a.castcard:hover .castname { text-decoration: underline; }
 .seasonbox > summary { list-style: none; cursor: pointer; }
 .seasonbox > summary::-webkit-details-marker { display: none; }

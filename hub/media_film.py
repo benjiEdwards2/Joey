@@ -21,7 +21,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_discover as md, media_files, media_follow, media_item, media_plays_db
+from hub import media_db, media_discover as md, media_files, media_follow, media_item, media_plays_db, media_rank
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -30,6 +30,11 @@ router = APIRouter()
 
 BADGES_DIR = Path(__file__).resolve().parent / "static" / "badges"
 CAST_MAX, SHELF_MAX = 8, 10
+CAST_H = 400   # /img size of a portrait cast card (180 x 270 px; TMDB w500 covers 2x). The warm-up warms the same.
+CREW_ROLES = (("Director", ("Director",)), ("Writer", ("Screenplay", "Writer", "Story", "Novel")),
+              ("Cinematography", ("Director of Photography", "Cinematographer", "Cinematography")),
+              ("Composer", ("Original Music Composer", "Music")), ("Editor", ("Editor",)))
+CREW_NAMES = 4
 REGION = "AU"
 JUSTWATCH = "https://www.justwatch.com/au/search?q="
 RELEASE_TYPES = {3: "Cinema", 4: "Digital", 5: "Disc"}
@@ -159,19 +164,94 @@ def _override(badge_id) -> str | None:
     return None
 
 
-def pills_for(files: dict | None) -> list[dict]:
-    """Quality pills for the file strip: media_files words, tone + optional override image per pill."""
-    out = []
-    for b in ((files or {}).get("video") or []) + ((files or {}).get("audio") or []):
-        p = media_files.badge_pill(b["word"], b["icon"])
-        out.append({**p, "img": _override(p["id"])})
-    if files and files.get("kind") == "tv" and files.get("episodes_on_disk"):
-        n = files["episodes_on_disk"]
-        out.insert(0, {"id": None, "label": f"{n} episode{'s' if n != 1 else ''} on disk", "tone": "plain",
-                       "glyph": False, "icon": "disk", "img": None})
-    if files and files.get("size_text"):
-        out.append({"id": None, "label": files["size_text"], "tone": "plain", "glyph": False, "icon": "disk", "img": None})
+# Format badges (film-quality, 2026-10-07): MediaHub-style TEXT badges — a bold main word over a small uppercase
+# sub-label (1080p / FULL HD, H.265 / HEVC, 5.1 / SURROUND). No brand artwork; an image dropped in
+# hub/static/badges/<id>.svg|png still replaces a badge (the words stay as its alt text).
+BADGE_WORDS = {"4K": ("4K", "ULTRA HD"), "1080p": ("1080p", "FULL HD"), "720p": ("720p", "HD"), "SD": ("SD", ""),
+               "HEVC": ("H.265", "HEVC"), "H.264": ("H.264", "AVC"), "Dolby Vision": ("Vision", "DOLBY"),
+               "HDR10": ("HDR10", ""), "HDR10+": ("HDR10+", ""), "HLG": ("HLG", "HDR"),
+               "Dolby Digital Plus": ("DD+", "DOLBY"), "Dolby Digital": ("DD", "DOLBY"), "TrueHD": ("TrueHD", "DOLBY"),
+               "Atmos": ("Atmos", "DOLBY"), "DTS-HD": ("DTS-HD", ""), "5.1": ("5.1", "SURROUND"),
+               "7.1": ("7.1", "SURROUND"), "Stereo": ("2.0", "STEREO"), "Mono": ("1.0", "MONO")}
+
+
+def _slug(word: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", word.lower()).strip("-")
+
+
+def badge(word: str) -> dict:
+    """One badge word -> {main, sub, label, id, img}. `id` keeps the F10 override names (dolby-atmos, hdr10, ...)."""
+    main, sub = BADGE_WORDS.get(word, (word, ""))
+    bid = media_files.badge_pill(word)["id"] or _slug(word)
+    label = media_files.badge_pill(word)["label"]
+    return {"main": main, "sub": sub, "label": label, "id": bid, "img": _override(bid)}
+
+
+def badges_for(files: dict | None) -> list[dict]:
+    """The File panel's badge row: resolution, HDR, video codec, audio format, channels, Atmos, then the source
+    from the file name (Blu-ray, WEB-DL, Remux ...). The container lives in the Release row instead."""
+    files = files or {}
+    words = [b["word"] for b in files.get("video") or [] if b["icon"] in ("res", "hdr", "codec")]
+    words += [b["word"] for b in files.get("audio") or []]
+    out = [badge(w) for w in words]
+    if files.get("source"):
+        out.append({**badge(files["source"]), "source": True})
     return out
+
+
+def crew_for(raw: dict, kind: str) -> list[dict]:
+    """[{role, people: [{name, id}]}] — Director, Writer (screenplay / writer / story / novel, de-duplicated),
+    Cinematography, Composer, Editor from TMDB credits.crew; a show leads with Created by. Empty roles drop out."""
+    crew = [c for c in ((raw.get("credits") or {}).get("crew") or []) if isinstance(c, dict) and c.get("name")]
+    roles = []
+    if kind == "tv":
+        roles.append(("Created by", [c for c in raw.get("createdBy") or [] if isinstance(c, dict) and c.get("name")]))
+    for role, jobs in CREW_ROLES:
+        roles.append((role, [c for c in crew if c.get("job") in jobs]))
+    out = []
+    for role, found in roles:
+        people: dict[str, dict] = {}
+        for c in found:
+            name = str(c["name"])[:80]
+            people.setdefault(name, {"name": name, "id": _pid(c.get("id"))})
+        if people:
+            out.append({"role": role, "people": list(people.values())[:CREW_NAMES]})
+    return out
+
+
+def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict | None:
+    """What the FILE section draws: badges, the stat grid, key / value rows and the file name. A film shows its
+    one file; a show degrades to its total size, episode count and languages (no single file name)."""
+    if not files:
+        return None
+    one = files.get("file") or {}
+    size_text = files.get("size_text")
+    grid, rows = [], []
+    if size_text:
+        grid.append({"label": "Size", "value": size_text, "key": "size"})
+    if kind == "tv":
+        n = files.get("episodes_on_disk") or files.get("files") or 0
+        if n:
+            grid.append({"label": "On disk", "value": f"{n} episode{'s' if n != 1 else ''}"})
+    if one.get("bitrate_text"):
+        grid.append({"label": "Bitrate", "value": one["bitrate_text"], "key": "bitrate"})
+    if one.get("picture"):
+        grid.append({"label": "Picture", "value": one["picture"]["ratio"], "sub": one["picture"]["sub"]})
+    if added:
+        grid.append({"label": "Added", "value": added})
+    if one:
+        rows += [("Audio", one.get("audio_text")), ("Subtitles", one.get("subs_text")), ("Release", one.get("release"))]
+    else:
+        langs, subs = files.get("languages") or [], files.get("subtitles") or []
+        rows += [("Audio", ", ".join(langs[:4]) or None),
+                 ("Subtitles", (subs[0] + (f" + {len(subs) - 1} more" if len(subs) > 1 else "")) if subs else None)]
+    rows = [{"label": k, "value": v} for k, v in rows if v]
+    if kind == "movie" and one:
+        ranks = media_rank.rank(one.get("jf_id"), files.get("size"), one.get("bitrate"))
+        for g in grid:
+            if g.get("key") in ranks and ranks[g["key"]]:
+                g["sub"] = ranks[g["key"]]
+    return {"badges": badges_for(files), "grid": grid, "rows": rows, "filename": one.get("filename")}
 
 
 def status_line(f: dict) -> str:
@@ -400,7 +480,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     if files is None and t and t["status_word"] in md.ON_DISK and not item:
         files = media_files.file_summary(kind, tmdb_id)
     on_server = bool(item or row or jf_id and not f["jf_failed"] or (t and t["status_word"] in md.ON_DISK))
-    f.update(on_server=on_server, files=files, pills=pills_for(files), status_word=(t or {}).get("status_word"))
+    f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"))
     title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title")
              or ("Jellyfin item" if jf_id else "Title unavailable"))
     year = (item["year"] if item else (t or {}).get("year") or (row or {}).get("year"))
@@ -490,6 +570,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["numbers"] = {"community": community, "imdb": ratings.get("imdb"), "rt": ratings.get("rt"),
                     "runtime": runtime_text(runtime_min) if runtime_min else None, "ends": ends}
     added = md._date_words(item.get("added"))[0] if item and item.get("added") else None
+    f["file"] = file_panel(files, kind, added)
     f["facts"] = {"runtime": runtime_text(runtime_min) if runtime_min else None,
                   "languages": _languages(files), "added": added,
                   "releases": _releases(raw, arr, tmdb_id) if kind == "movie" else [],
@@ -497,6 +578,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                               + (f" · {t['n_episodes']} episodes" if t.get("n_episodes") else "")) if kind == "tv" and t and t.get("n_seasons") else None}
     people = (item or {}).get("people") or []
     f["cast"], f["makers"] = _cast(raw, people), _makers(raw, people, kind or "movie")
+    f["crew"], f["cast_h"] = crew_for(raw, kind or "movie"), CAST_H
     f["makers_label"] = "Creators" if kind == "tv" else "Director"
     f["providers"] = _providers(raw, title)
     f["trailer"] = _trailer((item or {}).get("trailer"), raw)

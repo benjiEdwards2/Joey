@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 
 import requests
@@ -158,6 +159,141 @@ def _size_text(n) -> str | None:
     return f"{gb:.1f} GB" if gb >= 1 else f"{n / 1024 ** 2:.0f} MB"
 
 
+# ---- File panel (film-quality, 2026-10-07): bitrate, picture shape, subtitles kind, source + release group ----
+
+TEXT_SUBS = {"subrip": "SRT", "srt": "SRT", "ass": "ASS", "ssa": "SSA", "mov_text": "MOV text", "webvtt": "WebVTT",
+             "text": "Text"}
+PICTURE_SUBS = {"pgs": "PGS", "pgssub": "PGS", "hdmv_pgs_subtitle": "PGS", "vobsub": "VobSub", "dvdsub": "VobSub",
+                "dvd_subtitle": "VobSub", "dvb_subtitle": "DVB", "dvbsub": "DVB"}
+SOURCES = (("remux", "Remux"), ("uhd.?blu.?ray", "UHD Blu-ray"), ("blu.?ray|bdrip|brrip", "Blu-ray"),
+           ("web.?dl", "WEB-DL"), ("webrip", "WEBRip"), ("hdtv", "HDTV"), ("dvd.?rip|dvd", "DVD"), ("web", "WEB"))
+NOT_GROUPS = {"dl", "rip", "hd", "ma", "x", "uhd", "sdr", "hdr", "dts", "ac3", "aac", "hevc", "avc", "web"}
+
+
+def subtitle_kind(codec) -> tuple[str, str] | None:
+    """('Text'|'Picture', format word) from a subtitle codec; None when unknown."""
+    c = str(codec or "").strip().lower()
+    if c in TEXT_SUBS:
+        return "Text", TEXT_SUBS[c]
+    if c in PICTURE_SUBS:
+        return "Picture", PICTURE_SUBS[c]
+    return None
+
+
+def basename(path) -> str | None:
+    """The file NAME of a media path (either slash) — never the folders, which describe the host's layout."""
+    name = re.split(r"[\\/]", str(path or "").strip())[-1]
+    return name[:240] or None
+
+
+def source_word(filename) -> str | None:
+    """'...[Bluray-1080p]...' -> 'Blu-ray'; also Remux, UHD Blu-ray, WEB-DL, WEBRip, HDTV, DVD, WEB; else None."""
+    name = str(filename or "").lower()
+    for pattern, word in SOURCES:
+        if re.search(rf"(?<![a-z])(?:{pattern})(?![a-z])", name):
+            return word
+    return None
+
+
+def release_group(filename) -> str | None:
+    """The trailing '-Group' of a scene-style file name ('...[AAC 5.1]-Tigole.mkv' -> 'Tigole'), else None."""
+    stem = re.sub(r"\.[A-Za-z0-9]{2,4}$", "", str(filename or "").strip())
+    m = re.search(r"-([A-Za-z0-9][A-Za-z0-9_]{1,19})$", stem)
+    if not m or m.group(1).lower() in NOT_GROUPS or re.fullmatch(r"\d+p?|[xh]26[45]", m.group(1).lower()):
+        return None
+    return m.group(1)
+
+
+def bitrate_bps(source: dict, item: dict) -> int | None:
+    """MediaSource Bitrate (bits/s), else size * 8 / runtime; None when neither is known."""
+    rate = source.get("Bitrate")
+    if isinstance(rate, (int, float)) and not isinstance(rate, bool) and rate > 0:
+        return int(rate)
+    size = source.get("Size")
+    ticks = source.get("RunTimeTicks") or item.get("RunTimeTicks")
+    if isinstance(size, (int, float)) and size > 0 and isinstance(ticks, (int, float)) and ticks > 0:
+        return int(size * 8 / (ticks / 10_000_000))
+    return None
+
+
+def bitrate_text(bps) -> str | None:
+    return f"{bps / 1_000_000:.1f} Mb/s" if isinstance(bps, (int, float)) and bps > 0 else None
+
+
+def _ratio(stream: dict) -> float | None:
+    w, h = stream.get("Width") or 0, stream.get("Height") or 0
+    declared = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)\s*", str(stream.get("AspectRatio") or ""))
+    if stream.get("IsAnamorphic") and declared and float(declared.group(2)) > 0:
+        return float(declared.group(1)) / float(declared.group(2))  # stored pixels aren't the shape shown
+    return w / h if w and h else None
+
+
+def picture(stream: dict | None) -> dict | None:
+    """{'ratio': '2.40 : 1', 'sub': 'Scope · 1920 × 800'} from the video stream; None without a size."""
+    r = _ratio(stream or {})
+    if not r:
+        return None
+    shape = ("Scope" if r >= 2.2 else "Wide" if r >= 1.9 else "Flat" if r >= 1.83
+             else "Widescreen" if r >= 1.6 else "Full frame")
+    w, h = (stream or {}).get("Width"), (stream or {}).get("Height")
+    return {"ratio": f"{r:.2f} : 1", "shape": shape, "sub": f"{shape} · {w} × {h}" if w and h else shape}
+
+
+def _first_seen(values) -> list:
+    out = []
+    for v in values:
+        if v and v not in out:
+            out.append(v)
+    return out
+
+
+def subs_text(subs: list[dict]) -> str | None:
+    """[{lang, kind, format}] -> 'English + 4 more · Picture (VobSub)'; None without subtitles."""
+    if not subs:
+        return None
+    langs = _first_seen(s.get("lang") for s in subs)
+    lead = (langs[0] + (f" + {len(langs) - 1} more" if len(langs) > 1 else "")) if langs \
+        else f"{len(subs)} track{'s' if len(subs) != 1 else ''}"
+    kinds = _first_seen(s.get("kind") for s in subs)
+    if len(kinds) == 1:
+        formats = _first_seen(s.get("format") for s in subs)
+        return f"{lead} · {kinds[0]}" + (f" ({', '.join(formats)})" if formats else "")
+    return f"{lead} · " + " + ".join(kinds) if kinds else lead
+
+
+def audio_text(audios: list[dict]) -> str | None:
+    """'English · 2 tracks' (languages in track order, the default track's first)."""
+    if not audios:
+        return None
+    ordered = sorted(audios, key=lambda a: not a.get("IsDefault"))
+    langs = _first_seen(_lang_word(a.get("Language")) for a in ordered)
+    n = len(audios)
+    tracks = f"{n} track{'s' if n != 1 else ''}"
+    return f"{', '.join(langs[:3])} · {tracks}" if langs else tracks
+
+
+def _detail(item: dict, source: dict, streams: list[dict], video: dict | None, audios: list[dict]) -> dict:
+    """The File panel's one-file facts (a film or an episode file). The Path becomes the file NAME only."""
+    name = basename(source.get("Path") or item.get("Path"))
+    subs = []
+    for st in streams:
+        if st.get("Type") != "Subtitle":
+            continue
+        kind = subtitle_kind(st.get("Codec"))
+        if kind is None:
+            text = st.get("IsTextSubtitleStream")
+            kind = ("Text" if text else "Picture", None) if isinstance(text, bool) else (None, None)
+        subs.append({"lang": _lang_word(st.get("Language")), "kind": kind[0], "format": kind[1]})
+    bps = bitrate_bps(source, item)
+    group = release_group(name)
+    container = str(source.get("Container") or item.get("Container") or "").upper() or None
+    return {"jf_id": str(item.get("Id") or "") or None, "filename": name, "source": source_word(name),
+            "group": group, "container": container,
+            "release": " · ".join(p for p in ((f"group {group}" if group else None), container) if p) or None,
+            "bitrate": bps, "bitrate_text": bitrate_text(bps), "picture": picture(video),
+            "audio_text": audio_text(audios), "subs_text": subs_text(subs)}
+
+
 def _facts(item: dict) -> dict | None:
     sources = item.get("MediaSources") or []
     source = sources[0] if sources and isinstance(sources[0], dict) else {}
@@ -178,6 +314,7 @@ def _facts(item: dict) -> dict | None:
     if audio:
         f.update(audio=_audio_word(audio), channels=CHANNEL_WORDS.get(audio.get("Channels")),
                  atmos="atmos" in str(audio.get("Profile") or "").lower())
+    f["detail"] = _detail(item, source, streams, video, audios)
     return f
 
 
@@ -212,7 +349,10 @@ def _summarise(kind: str, items: list) -> dict | None:
         return None
     video, audio = _badges(files)
     note = " · ".join(b["word"] for b in video if b["icon"] == "res") if len(files) > 1 else None
+    sources = _first_seen(f["detail"]["source"] for f in files)
     return {"kind": kind, "files": len(files), "video": video, "audio": audio,
+            "source": sources[0] if len(sources) == 1 else None,
+            "file": files[0]["detail"] if kind == "movie" else None, "size": sum(f["size"] for f in files),
             "languages": _ordered(w for f in files for w in f.get("alangs") or []),
             "subtitles": _ordered(w for f in files for w in f.get("slangs") or []),
             "size_text": _size_text(sum(f["size"] for f in files)), "note": note,

@@ -28,8 +28,8 @@ def test_library_pass_warms_exactly_what_the_item_page_renders(env, monkeypatch,
     with client:
         html = client.get("/media/item/mov1").text
     rendered = {(m.group(1), int(m.group(2))) for m in
-                re.finditer(r"/img/([A-Za-z0-9:_./-]+?)\?h=(600|1280|120)\b", html)}
-    assert ("jf:mov1", 600) in rendered and ("jfb:mov1", 1280) in rendered and ("tmdb:/ada.jpg", 120) in rendered
+                re.finditer(r"/img/([A-Za-z0-9:_./-]+?)\?h=(600|1280|400)\b", html)}
+    assert ("jf:mov1", 600) in rendered and ("jfb:mov1", 1280) in rendered and ("tmdb:/ada.jpg", 400) in rendered
     for ref, h in rendered:   # every above-the-fold image the page asks for is already on disk
         assert images.warm(ref, h) == "cached", (ref, h)
 

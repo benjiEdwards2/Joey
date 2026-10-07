@@ -11,7 +11,7 @@ after the NAS's overnight power-off. MEDIA_WARMUP=off disables it; no Jellyseerr
 Library pass (media-warm-library, 2026-10-07): after the shelf pass, at most once per 24 h (stamp file in the
 meta cache dir), the same walk covers the WHOLE library — jellyfin snapshot movies + shows, both profiles,
 de-duplicated — warming exactly what /media/item/{jf_id} renders: poster h=600, backdrop h=1280, the
-top-CAST_MAX (8) cast photos h=120, plus the title's ratings and body through the 6 h disk meta cache. Cached
+top-CAST_MAX (8) cast photos at the portrait-card size (CAST_H, h=400 since film-quality), plus the title's ratings and body through the 6 h disk meta cache. Cached
 images cost a stat; the pass is sequential with a pause between upstream fetches. MEDIA_WARMUP=shelves keeps
 only the shelf pass.
 """
@@ -22,7 +22,8 @@ import logging
 import os
 import time
 
-from hub import images, media_discover as md, media_files, media_item
+from hub import images, media_discover as md, media_files, media_item, media_rank
+from hub.media_film import CAST_H as FILM_CAST_H, CAST_MAX
 
 log = logging.getLogger("hub.media_warmup")
 
@@ -30,8 +31,8 @@ FIRST_DELAY_S = 60
 EVERY_S = 3 * 3600
 MAX_TITLES = 60
 PAUSE_S = 0.5
-CAST_WARM = 8           # the film page shows CAST_MAX (8) cast photos
-POSTER_H, BACKDROP_H, CAST_H = 600, 1280, 120   # the sizes media_film.html asks /img for
+CAST_WARM = CAST_MAX    # the film page shows CAST_MAX (8) cast photos
+POSTER_H, BACKDROP_H, CAST_H = 600, 1280, FILM_CAST_H   # the sizes media_film.html asks /img for (cast: portrait cards)
 
 
 LIBRARY_EVERY_S = 24 * 3600
@@ -156,8 +157,8 @@ def warm_once(snaps=None, pause: float = PAUSE_S, limit: int = MAX_TITLES) -> di
 
 def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
     """The full-library pass. -> counts {titles, fetched, cached, failed}; never raises. Per title: poster h=600
-    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos h=120 (what the item
-    page renders)."""
+    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos at CAST_H (what the
+    item page renders)."""
     from hub import media_film
     from hub.store import get_snapshots
 
@@ -212,8 +213,8 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
 
 def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
     """The full-library pass. -> counts {titles, fetched, cached, failed}; never raises. Per title: poster h=600
-    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos h=120 (what the item
-    page renders)."""
+    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos at CAST_H (what the
+    item page renders)."""
     from hub import media_film
     from hub.store import get_snapshots
 
@@ -271,6 +272,8 @@ def run_pass(snaps=None, pause: float = PAUSE_S) -> dict:
     """What the background loop runs: the shelf pass, then — unless MEDIA_WARMUP=shelves — the library pass when
     it is due (24 h). The stamp is written only after a pass with no failures, so a bad run retries next time."""
     out = {"shelves": warm_once(snaps, pause)}
+    if media_rank.due():  # film-quality: the File panel's library rank, one Jellyfin read per 24 h
+        out["rank"] = media_rank.refresh()
     if library_enabled() and library_due():
         lib = warm_library(snaps)
         out["library"] = lib

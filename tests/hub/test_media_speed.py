@@ -206,7 +206,7 @@ def test_cast_and_posters_decode_async(env):
     client, _ = env()
     with client:
         b = client.get("/media/title/movie/603").text
-    assert '<img class="castpic" src="/img/tmdb:/ada.jpg?h=120" alt="" loading="lazy" decoding="async"' in b
+    assert '<img class="castpic" src="/img/tmdb:/ada.jpg?h=400" alt="" loading="lazy" decoding="async"' in b
     assert 'class="poster' in b and b.count('decoding="async"') >= 2
 
 
@@ -252,7 +252,7 @@ def test_warmup_fetches_once_then_is_cheap(env, monkeypatch, tmp_path):
     assert first["titles"] == 2                                     # the show (3 episodes up next) + the film
     # poster + backdrop per title, plus the film's one cast photo with a profile path
     assert first["fetched"] == 5 and len(fetched) == 5
-    assert any(u.endswith("/w185/ada.jpg") for u in fetched)
+    assert any(u.endswith("/w500/ada.jpg") for u in fetched)     # film-quality: the portrait-card size (h=400)
     n_seerr = len(paths(both, SEERR))
     md.clear_cache()
     second = media_warmup.warm_once(pause=0)

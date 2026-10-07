@@ -1,9 +1,9 @@
-{% from "_icons.html" import icon %}
-{# Quality pills (F10) — the spec sheet's format logos (guide 6): what is on disk, as words. Dolby-STYLE pills
-   (black, white capitals, double-D mark) are drawn by us; if hub/static/badges/<id>.svg|png exists the image
-   replaces the pill (the word stays as alt). Renders nothing without `pills`. #}
-{% if pills %}
-<div class="filestrip">
-  {% for p in pills %}{% if p.img %}<img class="pillimg" src="{{ p.img }}" alt="{{ p.label }}" height="28">{% else %}<span class="pill{{ ' ' ~ p.tone if p.tone != 'plain' }}">{% if p.glyph %}<svg class="dd" viewBox="0 0 18 12" aria-hidden="true"><path d="M0 0h2.5a6 6 0 0 1 0 12H0z"/><path d="M18 0h-2.5a6 6 0 0 0 0 12H18z"/></svg>{% elif p.tone == 'plain' and p.icon %}{{ icon(p.icon) }}{% endif %}<span>{{ p.label }}</span></span>{% endif %}{% endfor %}
+{# Format badges (film-quality, 2026-10-07): MediaHub-style TEXT badges — a bold main word over a small uppercase
+   sub-label (1080p / FULL HD, H.265 / HEVC, 5.1 / SURROUND), the source from the file name last. No brand artwork:
+   if hub/static/badges/<id>.svg|png exists the image replaces the badge (the words stay as alt). Renders nothing
+   without `badges`. #}
+{% if badges %}
+<div class="fmtbadges">
+  {% for b in badges %}{% if b.img %}<img class="fmtimg" src="{{ b.img }}" alt="{{ b.label }}" height="28">{% else %}<span class="fmt{{ ' fmt-source' if b.source }}" title="{{ b.label }}"><b>{{ b.main }}</b>{% if b.sub %}<small>{{ b.sub }}</small>{% endif %}</span>{% endif %}{% endfor %}
 </div>
 {% endif %}

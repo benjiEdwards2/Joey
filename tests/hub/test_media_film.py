@@ -250,17 +250,18 @@ def test_trailer_jellyfin_then_jellyseerr_then_none(env, monkeypatch):
         assert "Trailer" not in main_of(client.get("/media/title/movie/701").text)
 
 
-# ---- quality pills ----
+# ---- format badges (film-quality: text badges, bold word over a sub-label; no brand glyphs) ----
 
-def test_dolby_style_pills_and_hdr_pill(env):
+def test_format_badges_are_text_with_sub_labels(env):
     client, _ = env()
     with client:
         html = client.get("/media/title/movie/603").text
-    strip = html.split('class="filestrip"', 1)[1].split("</div>", 1)[0]
-    assert strip.count('class="pill dolby"') == 2 and strip.count('<svg class="dd"') == 2
-    assert "<span>Dolby Digital Plus</span>" in strip and "<span>Dolby Atmos</span>" in strip
-    assert '<span class="pill hdr"><span>HDR10</span></span>' in strip
-    assert "<span>4K</span>" in strip and '<span class="pill">' in strip      # plain pills stay plain
+    strip = html.split('class="fmtbadges"', 1)[1].split("</div>", 1)[0]
+    assert '<b>4K</b><small>ULTRA HD</small>' in strip and '<b>H.265</b><small>HEVC</small>' in strip
+    assert '<b>HDR10</b></span>' in strip and '<b>5.1</b><small>SURROUND</small>' in strip
+    assert 'title="Dolby Digital Plus"><b>DD+</b><small>DOLBY</small>' in strip
+    assert 'title="Dolby Atmos"><b>Atmos</b><small>DOLBY</small>' in strip
+    assert "<svg" not in strip and "MKV" not in strip                      # no glyphs; container is in Release
 
 
 def test_badge_pill_mapping():
@@ -280,9 +281,9 @@ def test_override_image_replaces_the_pill(env, tmp_path):
     client, _ = env()
     with client:
         html = client.get("/media/title/movie/603").text
-    strip = html.split('class="filestrip"', 1)[1].split("</div>", 1)[0]
-    assert '<img class="pillimg" src="/static/badges/dolby-atmos.svg" alt="Dolby Atmos"' in strip
-    assert "<span>Dolby Atmos</span>" not in strip and strip.count('class="pill dolby"') == 1
+    strip = html.split('class="fmtbadges"', 1)[1].split("</div>", 1)[0]
+    assert '<img class="fmtimg" src="/static/badges/dolby-atmos.svg" alt="Dolby Atmos"' in strip
+    assert "<b>Atmos</b>" not in strip and "<b>DD+</b>" in strip
 
 
 def test_badges_folder_ships_readme_only():
@@ -297,9 +298,10 @@ def test_cast_portraits_initials_makers_and_providers(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    assert '<img class="castpic" src="/img/tmdb:/ada.jpg?h=120"' in b
-    assert 'class="castpic initials" aria-hidden="true">B' in b and ">Bo Bit<" in b and "Deckhand" in b
-    assert 'href="/media/discover?q=Dee%20Director"' in b and "Cy Camera" not in b
+    assert f'<img class="castpic" src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in b
+    assert 'class="castpic initials" aria-hidden="true">B' in b and ">Bo Bit<" in b and "as Deckhand" in b
+    assert 'href="/media/discover?q=Dee%20Director"' in b
+    assert "<dt>Cinematography</dt>" in b and "Cy Camera" in b              # crew grid (film-quality)
     assert ">Netflix</a>" in b and ">Apple TV</a>" in b and "USOnly" not in b
     assert 'href="https://www.justwatch.com/au/search?q=Harbour%20Lights"' in b
     assert "Come home" in b and "A ferry pilot returns home." in b
@@ -322,9 +324,11 @@ def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):
         media_db.add_manual_watch(item_key="tmdb:603", kind="movie", title="Harbour Lights", year=2019, poster=None,
                                   watched_on="2025-10-12", place=None, note=None, owner="you")
         b = main_of(client.get("/media/title/movie/603").text)
-    assert "Audio English · Subtitles French" in b
+    assert "<dt>Audio</dt><dd>English · 1 track</dd>" in b and "<dt>Subtitles</dt><dd>French · Text (SRT)</dd>" in b
     assert "<dt>Cinema</dt><dd>5 May 2019</dd>" in b and "<dt>Digital</dt><dd>1 Aug 2019</dd>" in b
-    assert "Added to your server 2 Mar 2026" in b and "Watched 1 time · 12 Oct 2025" in b
+    added = b.split('class="filegrid"', 1)[1].split("</div>\n", 1)[0]
+    assert '<div class="microlabel">Added</div><div class="filestat-value">2 Mar 2026</div>' in added
+    assert "Watched 1 time · 12 Oct 2025" in b
 
 
 def test_arr_calendar_tops_up_release_dates_and_next_episode(env):

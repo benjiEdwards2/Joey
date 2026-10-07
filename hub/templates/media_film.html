@@ -4,8 +4,8 @@
    server or not. The header IS the detail hero: the backdrop across the window under the darkening gradient, the
    Media tabs on it, the poster leading (centred above a centred title on a phone, beside it from 640 px), then
    tagline, facts line, credits with link chips, the status line (emerald + drive icon when on the server) and ONE
-   row of buttons: one white primary + square icon buttons. Below: the stats strip (your score, community, IMDb,
-   RT, runtime, rating), overview, the spec sheet, cast, where to watch, seasons, shelves. A perfect 10 glows gold. #}
+   row of buttons: one white primary + square icon buttons. Below: the stats card (your rating, community, IMDb,
+   RT, runtime, rating), overview, file, crew, details, cast, where to watch, seasons, shelves. A perfect 10 glows gold. #}
 {% block pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% from "_poster.html" import poster %}
@@ -62,9 +62,13 @@
 {% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
 {% set n = film.numbers %}
-{% if (film.rating and film.score) or n.community or n.imdb or n.rt or n.runtime or film.official %}
+{# film-quality (2026-10-07): MediaHub-style body — the numbers as ONE card, then uppercase section labels:
+   OVERVIEW, FILE (badges, Size · Bitrate · Picture · Added, Audio / Subtitles / Release, the file name), CREW,
+   DETAILS (dates, watches, request), CAST (portrait photo cards in a row that scrolls inside itself). #}
+{% if film.rating or n.community or n.imdb or n.rt or n.runtime or film.official %}
 <div class="stats numbers">
-  {% if film.rating and film.score %}<div class="stat" id="rate"><div class="microlabel">Your score</div>{{ rate.rated(film.rating, film.score) }}</div>{% endif %}
+  {% if film.rating and film.score %}<div class="stat" id="rate"><div class="microlabel">Your rating</div>{{ rate.rated(film.rating, film.score) }}</div>
+  {% elif film.rating %}<div class="stat"><div class="microlabel">Your rating</div><a class="stat-word stat-link" href="#rate">Rate</a></div>{% endif %}
   {% if n.community %}<div class="stat"><div class="microlabel">Community</div><div class="stat-word">{{ n.community }}</div></div>{% endif %}
   {% if n.imdb %}<div class="stat"><div class="microlabel">IMDb</div><div class="stat-number">{{ n.imdb }}</div></div>{% endif %}
   {% if n.rt %}<div class="stat"><div class="microlabel">Rotten Tomatoes</div><div class="stat-number">{{ n.rt }}</div></div>{% endif %}
@@ -74,26 +78,61 @@
 {% endif %}
 {% if film.rating and not film.score %}
 <section class="sec" id="rate">
-  <div class="seclabel">Your score</div>
+  <div class="seclabel">Your rating</div>
   {{ rate.picker(film.rating) }}
 </section>
 {% endif %}
 <div class="filmbody">
-{% if film.overview %}<p class="overview">{{ film.overview }}</p>{% endif %}
+{% if film.overview %}
+<section class="sec">
+  <div class="seclabel">Overview</div>
+  <p class="overview">{{ film.overview }}</p>
+</section>
+{% endif %}
 
-{% set files = film.files %}{% set pills = film.pills %}
+{% set fp = film.file %}
+{% if fp %}
+<section class="sec">
+  <div class="seclabel">File</div>
+  <div class="panel filepanel">
+    {% with badges = fp.badges %}{% include "_file_strip.html" %}{% endwith %}
+    {% if fp.grid %}
+    <div class="filegrid">
+      {% for g in fp.grid %}<div class="filestat"><div class="microlabel">{{ g.label }}</div><div class="filestat-value">{{ g.value }}</div>{% if g.sub %}<div class="filestat-sub">{{ g.sub }}</div>{% endif %}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if fp.rows %}
+    <dl class="kvrows">
+      {% for r in fp.rows %}<div class="kv"><dt>{{ r.label }}</dt><dd>{{ r.value }}</dd></div>{% endfor %}
+    </dl>
+    {% endif %}
+    {% if fp.filename %}<p class="filename">{{ fp.filename }}</p>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if film.crew %}
+<section class="sec">
+  <div class="seclabel">Crew</div>
+  <dl class="crewgrid">
+    {% for c in film.crew %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}{% if m.id %}<a href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }}</a>{% endif %}{% endfor %}</dd></div>{% endfor %}
+  </dl>
+</section>
+{% endif %}
+
 {% set f = film.facts %}
-{% if pills or f.runtime or f.seasons or f.languages or f.releases or f.added or film.watch_count or film.requested_when %}
-<section class="panel specsheet">
-  {% include "_file_strip.html" %}
-  <dl>
-    {% if f.runtime %}<dt>Runtime</dt><dd>{{ f.runtime }}</dd>{% endif %}
-    {% if f.seasons %}<dt>Seasons</dt><dd>{{ f.seasons }}</dd>{% endif %}
-    {% if f.languages %}<dt>On disk</dt><dd>{{ f.languages }}</dd>{% endif %}
-    {% for r in f.releases %}<dt>{{ r.label }}</dt><dd>{{ r.date }}</dd>{% endfor %}
-    {% if f.added %}<dt>Added</dt><dd>Added to your server {{ f.added }}</dd>{% endif %}
-    {% if film.watch_count %}<dt>Watched</dt><dd>Watched {{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd>{% endif %}
-    {% if film.requested_when %}<dt>Requested</dt><dd>Requested {{ film.requested_when }}{% if film.requested_by %} by {{ film.requested_by }}{% endif %}</dd>{% endif %}
+{% set langs_row = f.languages if not fp else none %}
+{% if f.runtime or f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when %}
+<section class="sec">
+  <div class="seclabel">Details</div>
+  <dl class="kvrows details">
+    {% if f.runtime %}<div class="kv"><dt>Runtime</dt><dd>{{ f.runtime }}</dd></div>{% endif %}
+    {% if f.seasons %}<div class="kv"><dt>Seasons</dt><dd>{{ f.seasons }}</dd></div>{% endif %}
+    {% if langs_row %}<div class="kv"><dt>On disk</dt><dd>{{ langs_row }}</dd></div>{% endif %}
+    {% for r in f.releases %}<div class="kv"><dt>{{ r.label }}</dt><dd>{{ r.date }}</dd></div>{% endfor %}
+    {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>Added to your server {{ f.added }}</dd></div>{% endif %}
+    {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>Watched {{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
+    {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>Requested {{ film.requested_when }}{% if film.requested_by %} by {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
   </dl>
 </section>
 {% endif %}
@@ -103,8 +142,8 @@
   <div class="seclabel">Cast</div>
   <div class="castrow">
     {% for c in film.cast %}
-    <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h=120" alt="" loading="lazy" decoding="async" width="56" height="56">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
-      <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="row-meta">{{ c.role }}</span>{% endif %}</{{ "a" if c.id else "div" }}>
+    <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h={{ film.cast_h }}" alt="" loading="lazy" decoding="async" width="180" height="270">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+      <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="castrole">as {{ c.role }}</span>{% endif %}</{{ "a" if c.id else "div" }}>
     {% endfor %}
   </div>
 </section>

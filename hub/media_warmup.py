@@ -7,6 +7,13 @@ MAX_TITLES, one at a time with a short pause, and:
   * pre-fetches the film page's poster, backdrop and top-billed cast photos through the /img disk cache.
 Everything it touches is cached, so a repeat pass is a handful of stats and short reads — cheap to run again
 after the NAS's overnight power-off. MEDIA_WARMUP=off disables it; no Jellyseerr / Jellyfin keys = skipped.
+
+Library pass (media-warm-library, 2026-10-07): after the shelf pass, at most once per 24 h (stamp file in the
+meta cache dir), the same walk covers the WHOLE library — jellyfin snapshot movies + shows, both profiles,
+de-duplicated — warming exactly what /media/item/{jf_id} renders: poster h=600, backdrop h=1280, the
+top-CAST_MAX (8) cast photos h=120, plus the title's ratings and body through the 6 h disk meta cache. Cached
+images cost a stat; the pass is sequential with a pause between upstream fetches. MEDIA_WARMUP=shelves keeps
+only the shelf pass.
 """
 
 from __future__ import annotations
@@ -15,7 +22,7 @@ import logging
 import os
 import time
 
-from hub import images, media_discover as md, media_files
+from hub import images, media_discover as md, media_files, media_item
 
 log = logging.getLogger("hub.media_warmup")
 
@@ -27,8 +34,57 @@ CAST_WARM = 8           # the film page shows CAST_MAX (8) cast photos
 POSTER_H, BACKDROP_H, CAST_H = 600, 1280, 120   # the sizes media_film.html asks /img for
 
 
+LIBRARY_EVERY_S = 24 * 3600
+LIBRARY_PAUSE_S = 0.3
+STAMP = "warmup_library.stamp"
+
+
 def disabled() -> bool:
     return os.environ.get("MEDIA_WARMUP", "on").strip().lower() in ("off", "0", "false", "no")
+
+
+def library_enabled() -> bool:
+    return os.environ.get("MEDIA_WARMUP", "on").strip().lower() not in ("off", "0", "false", "no", "shelves")
+
+
+def _stamp_path():
+    return md.meta_dir() / STAMP
+
+
+def library_due(now: float | None = None) -> bool:
+    """True when the last completed full-library pass is over LIBRARY_EVERY_S old (or there never was one)."""
+    try:
+        last = float(_stamp_path().read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return True
+    return (time.time() if now is None else now) - last >= LIBRARY_EVERY_S
+
+
+def _stamp_done() -> None:
+    try:
+        path = _stamp_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(time.time()), encoding="utf-8")
+    except OSError as exc:
+        log.warning("media warm-up stamp write failed: %s", type(exc).__name__)
+
+
+def library_targets(jelly: dict) -> list[dict]:
+    """[{kind, tmdb|None, art}] — every film and show in the jellyfin snapshot, both profiles, de-duplicated by
+    Jellyfin id. `art` is the id the item page draws poster / backdrop from (the item itself)."""
+    profiles = [jelly] + ([jelly["her"]] if isinstance(jelly.get("her"), dict) else [])
+    out, seen = [], set()
+    for prof in profiles:
+        for field, kind in (("movies", "movie"), ("shows", "tv")):
+            for r in prof.get(field) or []:
+                jf = str(r.get("jf_id") or "") if isinstance(r, dict) else ""
+                if not jf or jf in seen or not media_item.ITEM_RE.match(jf):
+                    continue
+                seen.add(jf)
+                key = str(r.get("item_key") or "")
+                out.append({"kind": kind, "tmdb": int(key[5:]) if key.startswith("tmdb:") and key[5:].isdigit() else None,
+                            "art": jf})
+    return out
 
 
 def targets(jelly: dict, limit: int = MAX_TITLES) -> list[dict]:
@@ -96,3 +152,128 @@ def warm_once(snaps=None, pause: float = PAUSE_S, limit: int = MAX_TITLES) -> di
             time.sleep(pause)
     log.info("media warm-up: %(titles)s titles, %(fetched)s images fetched, %(cached)s already cached", counts)
     return counts
+
+
+def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
+    """The full-library pass. -> counts {titles, fetched, cached, failed}; never raises. Per title: poster h=600
+    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos h=120 (what the item
+    page renders)."""
+    from hub import media_film
+    from hub.store import get_snapshots
+
+    started = time.time()
+    seerr, jf = md._creds() is not None, media_files._creds() is not None
+    counts = {"titles": 0, "fetched": 0, "cached": 0, "failed": 0}
+    if not (seerr or jf):
+        counts["skipped_no_keys"] = True
+        return counts
+    snaps = get_snapshots() if snaps is None else snaps
+    snap = snaps.get("jellyfin")
+    jelly = (snap.data if snap else {}) or {}
+
+    def img(ref, h):
+        if ref:
+            got = images.warm(ref, h)
+            counts["failed" if got == "skipped" else got] += 1
+            return got
+
+    def rest():
+        if pause:
+            time.sleep(pause)
+
+    if jf:
+        try:
+            media_files._user_id(*media_files._creds())
+        except Exception as exc:
+            log.warning("media library warm-up user lookup failed: %s", type(exc).__name__)
+    for t in library_targets(jelly):
+        counts["titles"] += 1
+        try:
+            if jf:
+                for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H)):
+                    if img(ref, h) == "fetched":
+                        rest()
+            if seerr and t["tmdb"]:
+                path = f"/api/v1/{t['kind']}/{t['tmdb']}"
+                cold = f"meta:{path}" not in md._cache and md._meta_disk(path) is None
+                body = md.meta_get(path)
+                media_film._ratings(t["kind"], t["tmdb"])
+                if cold:
+                    rest()
+                for c in media_film._cast(body if isinstance(body, dict) else {}, [])[:CAST_WARM]:
+                    img(c["ref"], CAST_H)
+        except Exception as exc:  # one bad title never stops the pass
+            log.warning("media warm-up title failed: %s", type(exc).__name__)
+        if pause:
+            time.sleep(pause)
+    log.info("media warm-up: %(titles)s titles, %(fetched)s images fetched, %(cached)s already cached", counts)
+    return counts
+
+
+def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
+    """The full-library pass. -> counts {titles, fetched, cached, failed}; never raises. Per title: poster h=600
+    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos h=120 (what the item
+    page renders)."""
+    from hub import media_film
+    from hub.store import get_snapshots
+
+    started = time.time()
+    seerr, jf = md._creds() is not None, media_files._creds() is not None
+    counts = {"titles": 0, "fetched": 0, "cached": 0, "failed": 0}
+    if not (seerr or jf):
+        counts["skipped_no_keys"] = True
+        return counts
+    snaps = get_snapshots() if snaps is None else snaps
+    snap = snaps.get("jellyfin")
+    jelly = (snap.data if snap else {}) or {}
+
+    def img(ref, h):
+        if ref:
+            got = images.warm(ref, h)
+            counts["failed" if got == "skipped" else got] += 1
+            return got
+
+    def rest():
+        if pause:
+            time.sleep(pause)
+
+    if jf:
+        try:
+            media_files._user_id(*media_files._creds())
+        except Exception as exc:
+            log.warning("media library warm-up user lookup failed: %s", type(exc).__name__)
+    for t in library_targets(jelly):
+        counts["titles"] += 1
+        try:
+            if jf:
+                for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H)):
+                    if img(ref, h) == "fetched":
+                        rest()
+            if seerr and t["tmdb"]:
+                before = md._cache.get(f"meta:/api/v1/{t['kind']}/{t['tmdb']}")
+                body = md.meta_get(f"/api/v1/{t['kind']}/{t['tmdb']}")
+                media_film._ratings(t["kind"], t["tmdb"])
+                if before is None and md._cache.get(f"meta:/api/v1/{t['kind']}/{t['tmdb']}", (0, 0))[0] > started:
+                    rest()
+                for c in media_film._cast(body if isinstance(body, dict) else {}, [])[:CAST_WARM]:
+                    if img(c["ref"], CAST_H) == "fetched":
+                        rest()
+        except Exception as exc:
+            counts["failed"] += 1
+            log.warning("media library warm-up title failed: %s", type(exc).__name__)
+    counts["seconds"] = round(time.time() - started, 1)
+    log.info("media library warm-up: %(titles)s titles, %(fetched)s images fetched, %(cached)s already cached, "
+             "%(failed)s failures, %(seconds)s s", counts)
+    return counts
+
+
+def run_pass(snaps=None, pause: float = PAUSE_S) -> dict:
+    """What the background loop runs: the shelf pass, then — unless MEDIA_WARMUP=shelves — the library pass when
+    it is due (24 h). The stamp is written only after a pass with no failures, so a bad run retries next time."""
+    out = {"shelves": warm_once(snaps, pause)}
+    if library_enabled() and library_due():
+        lib = warm_library(snaps)
+        out["library"] = lib
+        if not lib.get("failed") and not lib.get("skipped_no_keys"):
+            _stamp_done()
+    return out

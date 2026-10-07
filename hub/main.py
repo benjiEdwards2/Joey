@@ -82,7 +82,7 @@ async def _media_warmup_loop():
     await asyncio.sleep(media_warmup.FIRST_DELAY_S)
     while True:
         try:
-            await asyncio.to_thread(media_warmup.warm_once)
+            await asyncio.to_thread(media_warmup.run_pass)
         except Exception as exc:  # never let a warm-up take the hub down
             log.warning("media warm-up task error: %s", type(exc).__name__)
         await asyncio.sleep(media_warmup.EVERY_S)

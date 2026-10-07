@@ -55,8 +55,8 @@ def wire(fake, movies=AU_MOVIES, tv=AU_TV, films=FILMS, shows=SHOWS):
 
 def tiles(html):
     sec = main_of(html).split(">Services</div>", 1)[1].split("</section>", 1)[0]
-    return re.findall(r'<a class="svc-tile" href="([^"]+)">\s*<img class="svc-logo" src="([^"]+)"[^>]*>\s*'
-                      r'<span class="svc-name">([^<]+)</span>', sec), sec
+    return re.findall(r'<a class="prov-tile" href="([^"]+)">\s*<img class="prov-logo" src="([^"]+)"[^>]*>\s*'
+                      r'<span class="prov-name">([^<]+)</span>', sec), sec
 
 
 def test_norm_provider_is_tolerant_of_plus_case_and_spacing():
@@ -92,7 +92,7 @@ def test_services_row_unavailable_when_provider_list_fails(env):
     with client:
         html = client.get("/media/discover").text
     sec = main_of(html).split(">Services</div>", 1)[1].split("</section>", 1)[0]
-    assert "Unavailable" in sec and "svc-tile" not in sec
+    assert "Unavailable" in sec and "prov-tile" not in sec
     assert ">Popular films</div>" in main_of(html)              # the rest of Discover still renders
 
 
@@ -111,7 +111,7 @@ def test_service_page_shelves_reuse_discover_cards(env):
         r = client.get("/media/discover/service/8")
     assert r.status_code == 200
     body = main_of(r.text)
-    assert '<h2 class="svc-title">Netflix</h2>' in body and "/img/tmdb:/netflix.jpg?h=120" in body
+    assert '<h2 class="prov-title">Netflix</h2>' in body and "/img/tmdb:/netflix.jpg?h=120" in body
     titles = re.findall(r'<div class="seclabel">([^<]+)</div>', body)
     assert titles == ["Popular films", "Popular TV", "New this month", "Top rated"]
     pop_films = body.split(">Popular films</div>", 1)[1].split("</section>", 1)[0]
@@ -223,3 +223,13 @@ def test_not_connected_page_makes_no_call(env):
     with client:
         r = client.get("/media/discover/service/8")
     assert r.status_code == 200 and "Not connected." in r.text and fake.gets == []
+
+
+def test_service_tiles_have_their_own_classes_not_the_server_cards():
+    """The Server page owns .svc-* (WP-U3); the streaming-service tiles use .prov-* so neither restyles the other,
+    and a tile name wraps instead of being cut off."""
+    from pathlib import Path
+    css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    assert css.count(".svc-logo {") == 1 and css.count(".svc-name {") == 1
+    name = css.split(".prov-name {", 1)[1].split("}", 1)[0]
+    assert "nowrap" not in name and "overflow-wrap: anywhere" in name

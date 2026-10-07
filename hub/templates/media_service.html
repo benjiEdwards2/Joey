@@ -5,9 +5,9 @@
 {# One streaming service (media-ux2, 2026-10-08): Popular films · Popular TV · New this month · Top rated from
    Jellyseerr's watch-provider discovery (AU), each a carousel of the Discover poster cards (title page, Request,
    On server / Requested words). A failed shelf says "Unavailable", an empty one "Nothing to show right now". #}
-<div class="svc-head">
-  {% if service.logo %}<img class="svc-logo" src="/img/{{ service.logo }}?h=120&amp;t={{ service.name|urlencode }}" alt="" width="56" height="56">{% endif %}
-  <h2 class="svc-title">{{ service.name }}</h2>
+<div class="prov-head">
+  {% if service.logo %}<img class="prov-logo" src="/img/{{ service.logo }}?h=120&amp;t={{ service.name|urlencode }}" alt="" width="56" height="56">{% endif %}
+  <h2 class="prov-title">{{ service.name }}</h2>
 </div>
 {% if not connected %}
 <p class="empty">Not connected.</p>

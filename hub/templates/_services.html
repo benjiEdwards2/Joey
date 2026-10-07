@@ -6,11 +6,11 @@
   {% if services is none %}
   <p class="empty">Unavailable</p>
   {% elif services %}
-  <div class="carousel svc-row">
+  <div class="carousel prov-row">
   {% for s in services %}
-    <a class="svc-tile" href="{{ s.href }}">
-      <img class="svc-logo" src="/img/{{ s.logo or 'none' }}?h=120&amp;t={{ s.name|urlencode }}" alt="" loading="lazy" decoding="async" width="56" height="56">
-      <span class="svc-name">{{ s.name }}</span>
+    <a class="prov-tile" href="{{ s.href }}">
+      <img class="prov-logo" src="/img/{{ s.logo or 'none' }}?h=120&amp;t={{ s.name|urlencode }}" alt="" loading="lazy" decoding="async" width="56" height="56">
+      <span class="prov-name">{{ s.name }}</span>
     </a>
   {% endfor %}
   </div>

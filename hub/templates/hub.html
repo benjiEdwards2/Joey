@@ -57,7 +57,7 @@
   {% if shelf.st.state == "off" %}
     <p class="empty">Not connected.</p>
   {% elif shelf.up_next %}
-    {{ shelfrow(shelf.up_next) }}
+    {{ shelfrow(shelf.up_next, back="/") }}
   {% else %}
     <p class="empty">{{ shelf.quiet }}.</p>
   {% endif %}

@@ -10,6 +10,7 @@
 {% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{% import "_resume_acts.html" as resume %}
 {% from "_rows.html" import meta %}
 {% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
@@ -40,11 +41,15 @@
   {% if src.data.get("up_next") %}<div class="listbox">
   {% for n in src.data.get("up_next", []) %}
   {% set nh = item_href(n.jf_id) %}
+  {% set acts = resume_acts(n, "her" if owner_view == "her" else "you") %}
+  {# Move on (2026-10-08): the row stays one whole link; Mark watched / Reset progress sit beside it, outside it. #}
+  {% if acts %}<div class="rowwrap resumerow">{% endif %}
   <{{ "a" if nh else "div" }} class="row"{% if nh %} href="{{ nh }}"{% endif %}>
     {{ poster(n.poster, n.title, 120, "row-poster" ~ rate.rowglow(n, ratings)) }}
     <div class="row-body"><div class="row-title">{{ n.title }}</div>{{ meta([n.remaining_text]) }}</div>
     {{ rate.score_row(n, ratings) }}
   </{{ "a" if nh else "div" }}>
+  {% if acts %}<span class="rowacts">{{ resume.forms(acts, request.url.path) }}</span></div>{% endif %}
   {% endfor %}
   </div>{% else %}<p class="empty">Nothing up next.</p>{% endif %}
 </section>

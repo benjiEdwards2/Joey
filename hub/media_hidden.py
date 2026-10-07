@@ -29,6 +29,12 @@ def hide(group: str, key) -> None:
         _hidden[(group, str(key))] = time.time()
 
 
+def any_in(group: str) -> bool:
+    """Cheap pre-check: is anything of this group hidden at all?"""
+    with _lock:
+        return any(g == group for g, _ in _hidden)
+
+
 def _stamp(updated_at) -> float | None:
     try:
         return datetime.fromisoformat(str(updated_at).replace("Z", "+00:00")).timestamp()

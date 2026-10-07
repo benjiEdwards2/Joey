@@ -92,6 +92,9 @@ document.addEventListener('htmx:beforeSwap', function (e) {
 
 <main class="page">
   {% block pagehead %}{% endblock %}
+  {# Move on (2026-10-08): the one flash line after Mark watched / Reset progress, on whichever page it returned to. #}
+  {% set rf = resume_flash(request) if resume_flash is defined else (none, none) %}
+  {% if rf[0] %}<p class="metaline st-good" role="status">{{ rf[0] }}</p>{% elif rf[1] %}<p class="metaline st-warn" role="status">{{ rf[1] }}</p>{% endif %}
   {% block content %}{% endblock %}
 </main>
 

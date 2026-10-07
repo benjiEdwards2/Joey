@@ -1,0 +1,11 @@
+{# Move on from Continue watching (2026-10-08): Mark watched (always) and Reset progress (resume rows only), each a
+   plain same-origin POST form acting as the viewer's Jellyfin user; `back` is the page to return to (with a flash).
+   `forms` is the button pair (list rows, the film page); `card` folds it under a "Move on" button beside a poster
+   card, never over the picture and never inside the card's link (guide 6). #}
+{% macro forms(a, back, primary=false) -%}
+<form method="post" action="/media/resume/{{ a.jf_id }}/watched"><input type="hidden" name="owner" value="{{ a.owner }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn {{ 'btn-secondary' if primary else 'btn-ghost' }} btn-sm" type="submit">Mark watched</button></form>
+{%- if a.reset %}<form method="post" action="/media/resume/{{ a.jf_id }}/reset"><input type="hidden" name="owner" value="{{ a.owner }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn btn-ghost btn-sm" type="submit">Reset progress</button></form>{% endif %}
+{%- endmacro %}
+{% macro card(a, back) -%}
+<details class="cardacts"><summary class="btn btn-ghost btn-sm">Move on</summary><div class="confirm">{{ forms(a, back, true) }}</div></details>
+{%- endmacro %}

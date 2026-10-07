@@ -530,6 +530,12 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         f["episode_season"] = ep["season_no"]
     else:
         f["episode"] = None
+    # Move on (2026-10-08): Mark watched / Reset progress beside "Resume ▶". The page's watch state is read as
+    # JELLYFIN_USER, so the buttons show in B.'s views only (Georgina moves on from her Continue watching shelf).
+    resume_id = (ep["id"] if ep and ep["in_progress"] else
+                 (jf_item_id or jf_id) if kind == "movie" and in_progress and not ep else None)
+    f["resume_acts"] = ({"jf_id": resume_id, "owner": owner, "reset": True}
+                        if resume_id and owner == "you" and media_item.ITEM_RE.match(str(resume_id)) else None)
 
     # --- 5. your rating, diary, watches ---
     key_item = ep or item

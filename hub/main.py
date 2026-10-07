@@ -26,13 +26,13 @@ from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
-from hub import media_follow, media_requests, media_watchlist, media_warmup
+from hub import media_follow, media_requests, media_resume, media_watchlist, media_warmup
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
-from hub.store import get_runner, get_runner_history, get_snapshots, tile_state
+from hub.store import get_runner, get_runner_history, get_snapshots as _read_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -41,6 +41,13 @@ log = logging.getLogger("hub")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
 
 registry: Registry | None = None
+
+
+def get_snapshots(snapshot_dir=None):
+    """Every envelope (hub.store), with resume items just marked watched / reset left out of the jellyfin
+    `up_next` lists until a newer sweep (media_resume, 2026-10-08) — so every shelf, hero and list drops them."""
+    return media_resume.apply_hidden(_read_snapshots(snapshot_dir), "jellyfin")
+
 registry_loaded_at: str | None = None
 
 # media.db backups (2026-10-05): first check ~30 s after startup (the NAS is off
@@ -171,6 +178,7 @@ app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
 app.include_router(media_follow.router)
 app.include_router(media_requests.router)
+app.include_router(media_resume.router)
 app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
@@ -771,6 +779,19 @@ for _t in (templates, _media_write.templates, _media_discover.templates):
     _t.env.globals["row_href"] = row_href
     _t.env.globals["identity"] = identity_of
     _t.env.globals["flash_params"] = FLASH_PARAMS
+    _t.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)
+
+
+def resume_acts(row: dict, owner: str) -> dict | None:
+    """Move on (2026-10-08): what a Continue watching card offers — Mark watched always, Reset progress only on a
+    resume row (not a next-up suggestion). None without a Jellyfin id."""
+    jf = str((row or {}).get("jf_id") or "")
+    if not media_item.ITEM_RE.match(jf):
+        return None
+    return {"jf_id": jf, "owner": owner, "reset": media_resume.in_progress(row)}
+
+
+templates.env.globals["resume_acts"] = resume_acts
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
@@ -828,9 +849,9 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         return {"title": r.get("title"), "sub": sub, "poster": r.get("poster"),
                 "href": href, **{k: r.get(k) for k in LEVEL_KEYS}, **extra}
 
-    def jf_item(r, sub, fallback):
+    def jf_item(r, sub, fallback, **extra):
         """Row that opens its Joey item page (F9) when it carries a jf_id, else a Joey page."""
-        return item(r, sub, item_href(r.get("jf_id")) or fallback)
+        return item(r, sub, item_href(r.get("jf_id")) or fallback, **extra)
 
     shelves: list[dict] = []
 
@@ -863,7 +884,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 
     unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
     add("continue", "Continue watching", PLAYING_DETAIL,
-        [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL) for n in up_next[:SHELF_MAX]],
+        [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
+         for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
     add("thisweek", "This week", LIBRARY_DETAIL, this_week, "Nothing due this week")
@@ -968,14 +990,14 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
     jelly = snap.data if snap and st["state"] != "off" else {}
     server_id = jelly.get("server_id")
 
-    def item(row, owner, when, fallback):
+    def item(row, owner, when, fallback, acts=None):
         title, sub = _split_title(row)
         url = item_href(row.get("jf_id"))
         return {"title": title, "sub": " · ".join(x for x in (owner.title(), sub) if x),  # owner first: never ellipsised
                 "when": when, "poster": row.get("poster"), "href": url or fallback,
-                "external": False, "pct": row.get("progress_pct")}
+                "external": False, "pct": row.get("progress_pct"), "acts": acts}
 
-    up_next = [item(r, o, r.get("remaining_text"), PLAYING_DETAIL)
+    up_next = [item(r, o, r.get("remaining_text"), PLAYING_DETAIL, resume_acts(r, o))
                for r, o in _profile_rows(jelly, view, lambda p: p.get("up_next") or [])][:SHELF_MAX]
     watched = None
     if any(t.detail == DIARY_DETAIL for t in tiles):

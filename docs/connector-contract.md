@@ -120,6 +120,15 @@ app's own resource back with `monitored: false` (`/api/v3/movie/{id}` or `/api/v
 hidden in memory until a jellyseerr snapshot taken after the removal (`hub/media_hidden.py`). The jellyseerr data block's TV
 rows gain `tvdb_id` (integer or null) for this. Flashes and logs carry the HTTP status or exception type only.
 
+**Fourteenth exception (2026-10-08): Move on from Continue watching (`hub/media_resume.py`).** Two `same_origin`
+POSTs (`/media/resume/{jf_id}/watched`, `/media/resume/{jf_id}/reset`) write live to Jellyfin as the viewer's user
+("you" = `JELLYFIN_USER` / first admin, "her" = exactly `JELLYFIN_USER_HER`, never the admin): `POST
+/UserPlayedItems/{id}?userId=` and `POST /UserItems/{id}/UserData?userId=` with `{"PlaybackPositionTicks": 0}` (10.9+);
+a 404/405 falls back to `/Users/{uid}/PlayedItems/{id}` and `/Users/{uid}/Items/{id}/UserData`. The item is dropped from
+the jellyfin snapshot's `up_next` (B.'s) or `her.up_next` (hers) in memory until a newer sweep (`hub/media_hidden.py`,
+applied in `main.get_snapshots`). A watched mark reaches the diary by the usual path (next sweep's history ->
+`sync_diary_from_history`). Flashes and logs carry the HTTP status or exception type only.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

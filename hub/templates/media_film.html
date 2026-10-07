@@ -46,6 +46,7 @@
         <div class="hero-detail-btns">
           {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
           {% if film.play and film.play.href %}<a class="btn {{ 'btn-secondary' if film.episode and film.episode.play.href else 'btn-white' }}" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
+          {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
           {% if film.rating and not film.score %}<a class="btn btn-icon" href="#rate" aria-label="Rate" title="Rate">{{ icon("star") }}</a>{% endif %}
           {% if film.tmdb and film.t %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg, req_primary = not (film.play and film.play.href) %}{% include "_request_block.html" %}{% endwith %}{% endif %}

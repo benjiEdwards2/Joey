@@ -19,6 +19,7 @@
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
+{% import "_resume_acts.html" as resume %}
 {% from "_waiting.html" import waitchips %}
 <p class="metaline">
   {%- if sh.freshness and sh.freshness.state == "stale" %}<span class="st-warn">{{ sh.freshness.age_text }}</span>
@@ -37,11 +38,13 @@
   {% if s["items"] %}
   <div class="carousel">
     {% for i in s["items"] %}
+    {% if i.acts %}<div class="card-wrap">{% endif %}
     <a class="card-poster" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
       <span class="card-pic">{{ poster(i.poster, i.title, 240, rate.glow(i.score, false)) }}{{ rate.pscore(i.score) }}{% if s.id == "thisweek" and i.sub %}<span class="poster-tag">{{ i.sub.split(" · ")[0] }}</span>{% endif %}</span>
       <span class="row-title">{{ i.title }}</span>
       {% if i.sub %}<span class="row-meta">{{ i.sub }}</span>{% endif %}
     </a>
+    {% if i.acts %}{{ resume.card(i.acts, request.url.path) }}</div>{% endif %}
     {% endfor %}
   </div>
   {% else %}

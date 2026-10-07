@@ -285,3 +285,14 @@ is on disk — sets the Radarr movie / Sonarr series `monitored: false` (never a
 `docs/connector-contract.md`, thirteenth exception). The row leaves the page at once (`media_hidden.py`: hidden until a
 snapshot newer than the removal + 90 s; the film page's "Requested" line and the watchlist status read the same visible
 rows) and the page flashes "Removed" (`?done=removed|stopped|ondisk|arrfail|arrunset&app=…`; errors `?error=…`, words only).
+
+Move on from Continue watching (2026-10-08): `media_resume.py`. **Mark watched** and **Reset progress** (the latter only on
+a resume row, not a "Next episode" suggestion) on the hub and Media home Continue watching cards (folded under a "Move on"
+button below the card, outside its link: `_resume_acts.html`, `.card-wrap`), beside each Server → Playing "Up next" row
+(`.rowwrap`, the row stays one whole link) and beside "Resume ▶" on a film / episode page (B.'s views only — the page's
+watch state is read as `JELLYFIN_USER`). Acts as the viewer's Jellyfin user (you / her; a signed-in viewer is always
+themselves); see `docs/connector-contract.md`, fourteenth exception. On success the item leaves every resume list at once
+(`main.get_snapshots` applies `media_hidden`), the item-page cache is cleared, and the page it returned to flashes
+"Marked watched" / "Progress reset" (`?done=…`, rendered by `base.html`). A watched mark lands in the diary at the next
+jellyfin sweep, dated the day it was marked. Reset progress on an episode may bring it back as "Next episode" after the
+next sweep (Jellyfin's Next Up).

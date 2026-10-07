@@ -616,6 +616,19 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 .card-cell > form, .card-cell > .wlbtn { grid-column: 2; grid-row: 2; position: relative; z-index: 1; margin-top: 2px; }
 .card-cell > .row-meta { grid-column: 1 / -1; font-size: 11px; }
 .card-cell > .row-meta a { position: relative; z-index: 1; }
+/* .rowwrap (2026-10-08): a list row (one whole link) with its actions beside it, outside the link (Up next's Mark
+   watched / Reset progress); on a phone the actions drop under the row, right-aligned. */
+.rowwrap { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; min-width: 0; }
+.rowwrap > .row { flex: 1 1 16rem; min-width: 0; }
+.rowacts { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; padding: 0 8px 4px; }
+/* .card-wrap (2026-10-08): a Continue watching card — the .card-poster link, then "Move on" under it (outside the
+   link). Opened, the panel (Mark watched / Reset progress) stacks its buttons in the card's width. */
+.card-wrap { display: flex; flex-direction: column; min-width: 0; }
+.cardacts { margin-top: 4px; }
+.cardacts > summary { list-style: none; height: 28px; padding: 0 6px; font-size: 12px; color: var(--text-5); }
+.cardacts > summary::-webkit-details-marker { display: none; }
+.cardacts > .confirm { margin-top: 6px; padding: 8px; gap: 6px; }
+.cardacts > .confirm form, .cardacts > .confirm .btn { width: 100%; }
 .btn-mini { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 4px;
   border-radius: 6px; color: var(--text-6); background: none; border: 0; cursor: pointer; transition: color .15s; }
 .btn-mini:hover { color: var(--text-3); }

@@ -5,8 +5,9 @@ Rules (B., 2026-10-07):
   * actor  -> a film where they are top-5 billed (cast `order` 0-4);
   * director -> any film where their crew job is "Director" (any billing); a person who does both: either rule;
   * series -> any film in the collection's `parts`;
-  * new and future only: a film qualifies when its release date is unknown or >= the follow date. Nothing
-    released before the follow is ever added.
+  * future only (tightened by B., 2026-10-08): a film qualifies only when it has a KNOWN release date that is
+    strictly after today. Unknown / "TBA" dates never qualify (untitled projects in development stay out until
+    TMDB gives them a date — the 6-hourly check picks them up then). Nothing already released is ever added.
 A film recorded in media_follow_adds as requested / already is never requested again by that follow (so a film
 deleted in Radarr is not re-added); a failed request is retried next run.
 
@@ -157,12 +158,12 @@ def _date(value) -> str:
     return str(value or "")[:10]
 
 
-def qualifies(release: str, followed_at: str) -> bool:
-    """New and future only: unknown / unparseable date, or on / after the follow date."""
+def qualifies(release: str, today: date | None = None) -> bool:
+    """Future only: a known release date strictly after today. Unknown / unparseable dates never qualify."""
     try:
-        return date.fromisoformat(release) >= date.fromisoformat(str(followed_at)[:10])
+        return date.fromisoformat(str(release)[:10]) > (today or date.today())
     except ValueError:
-        return True
+        return False
 
 
 def _cand(c: dict, reason: str) -> dict | None:
@@ -283,7 +284,7 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
                     continue
                 closed = _closed(db, f["id"])
                 for c in sorted(films, key=lambda c: (c["date"] or "9999", c["tmdb_id"])):
-                    if c["tmdb_id"] in closed or not qualifies(c["date"], f["followed_at"]):
+                    if c["tmdb_id"] in closed or not qualifies(c["date"]):
                         continue
                     if f["kind"] == "person" and not _top_billed(c, f["tmdb_id"]):
                         continue

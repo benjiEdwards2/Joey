@@ -13,6 +13,7 @@
   font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
+  --tab-lift: 12px;   /* phone bar lift, ~20 % of the 56 px bar (B., 2026-10-08) */
   color-scheme: dark;
   --font-sans: "Geist", ui-sans-serif, system-ui, Arial, Helvetica, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -241,7 +242,7 @@ a.row:hover { background: var(--soft); }
 
 /* Toasts: bottom centre, above the phone tab bar */
 .toast { position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
-  bottom: calc(4.75rem + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px);
+  bottom: calc(4.75rem + var(--tab-lift) + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px);
   border-radius: 12px; border: 1px solid var(--line); padding: 10px 14px; font-size: 14px; color: var(--text-2);
   background: var(--zinc-900); box-shadow: var(--shadow-float);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: pointer; }
@@ -278,7 +279,7 @@ a.row:hover { background: var(--soft); }
 @media (min-width: 1024px) { .userchip small { display: inline; } }
 
 /* Page frame: one centred column, 72rem wide; the bottom padding clears the phone tab bar. */
-.page { width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px 7rem; min-width: 0;
+.page { width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px calc(7rem + env(safe-area-inset-bottom)); min-width: 0;
   display: flex; flex-direction: column; gap: 20px; }
 @media (min-width: 640px) { .page { padding-left: 24px; padding-right: 24px; } }
 @media (min-width: 768px) { .page { padding-top: 32px; padding-bottom: 4rem; } }
@@ -332,9 +333,11 @@ a.row:hover { background: var(--soft); }
 }
 
 /* Phone tab bar (< 768 px): up to five slots, icon over an 11 px label; "More" opens a sheet above it. */
+/* --tab-lift raises the phone bar's icons ~20 % of the 56 px bar above the bottom edge (B., 2026-10-08);
+   viewport-fit=cover in base.html makes env(safe-area-inset-bottom) real on iPhones (it read 0 before). */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: grid; grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr); border-top: 1px solid var(--line-soft); background: var(--bar);
-  padding-bottom: env(safe-area-inset-bottom); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--tab-lift)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .tabbar > a, .tabbar summary { display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 4px; min-width: 0; height: 56px; padding: 0 4px; font-size: 11px; color: var(--text-5); text-decoration: none;
   list-style: none; cursor: pointer; }
@@ -343,7 +346,7 @@ a.row:hover { background: var(--soft); }
 .tabbar svg.ic { width: 20px; height: 20px; }
 .tabbar > a[aria-current], .tabbar summary.on { color: var(--tab-on-phone); }
 .more { min-width: 0; }
-.more[open] .sheet { position: fixed; left: 0; right: 0; bottom: calc(56px + env(safe-area-inset-bottom));
+.more[open] .sheet { position: fixed; left: 0; right: 0; bottom: calc(56px + var(--tab-lift) + env(safe-area-inset-bottom));
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 16px;
   background: var(--bar); border-top: 1px solid var(--line-soft); }
 .sheet a { display: flex; align-items: center; gap: 8px; min-width: 0; border-radius: 12px; border: 1px solid var(--line);

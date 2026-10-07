@@ -111,3 +111,12 @@ def test_geist_fonts_are_self_hosted():
     assert {"Geist", "Geist Mono"} <= families
     assert all("font-display: swap" in f for f in faces)
     assert 'url("fonts/GeistVF.woff2")' in CSS and 'url("fonts/GeistMonoVF.woff2")' in CSS
+
+
+def test_phone_bar_respects_iphone_safe_area_and_is_lifted():
+    """B., 2026-10-08: the phone bars sat too low. viewport-fit=cover makes env(safe-area-inset-bottom)
+    real on iPhones (it read 0 without it) and --tab-lift raises the bar ~20 % of its 56 px height."""
+    base = (Path(__file__).resolve().parents[2] / "hub" / "templates" / "base.html").read_text(encoding="utf-8")
+    assert "viewport-fit=cover" in base
+    assert re.search(r"--tab-lift:\s*\d+px", ROOT)
+    assert "padding-bottom: calc(env(safe-area-inset-bottom) + var(--tab-lift))" in CSS

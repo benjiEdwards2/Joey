@@ -83,12 +83,13 @@ def test_hub_row_is_media_weather_calendar_and_spans_calendar(monkeypatch, tmp_p
         assert f'<div class="microlabel">{name}</div>' not in body
 
 
-def test_calendar_page_has_no_weather_kpi_tile_but_keeps_the_band(monkeypatch, tmp_path):
+def test_calendar_page_has_no_weather_at_all(monkeypatch, tmp_path):
+    # weather renders on the hub and /weather only (2026-10-08) — no KPI, no wxcard
     with _client(monkeypatch, tmp_path) as c:
         body = c.get("/a/calendar").text
     kpis = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
     assert "light rain" not in kpis and "Weather" not in kpis
-    assert 'class="sec wxglimpse"' in body and "light rain" not in kpis
+    assert "wxglimpse" not in body and "Newport VIC" not in body
 
 
 def test_css_has_span_rule_and_no_literal_colour():

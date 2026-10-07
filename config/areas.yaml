@@ -94,7 +94,7 @@ areas:
         owner: shared
         snapshot: open_meteo
         stale_after_minutes: 180
-        setup_note: "Open-Meteo connector arrives at WP24."   # D18: lives here, never on the hub
+        setup_note: "Open-Meteo connector arrives at WP24."   # config anchor for find_weather: renders on the hub + /weather only, never on area pages (2026-10-08)
       - id: gcal-app
         label: Google Calendar
         tier: link

@@ -25,7 +25,10 @@ MEL = ZoneInfo("Australia/Melbourne")
 
 @pytest.fixture()
 def main(tmp_path, monkeypatch):
-    fixture = write_registry(tmp_path, shelf_area(), make_area("beta", "b-t"), make_area("gamma", "g-t"))
+    # nas_stats, not make_tile's open_meteo default: weather tiles never render on
+    # area pages any more (2026-10-08), and beta's pagehead must count 1 tile.
+    fixture = write_registry(tmp_path, shelf_area(), make_area("beta", "b-t", snapshot="nas_stats"),
+                             make_area("gamma", "g-t", snapshot="nas_stats"))
     monkeypatch.setenv("AREAS_PATH", str(fixture))
     monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))

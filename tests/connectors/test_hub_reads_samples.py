@@ -65,8 +65,9 @@ def test_hub_renders_the_sample_snapshots_end_to_end(monkeypatch):
         assert "Tonight: Salmon and greens" in client.get("/a/kitchen").text
         assert "playing now" in hub_page.text             # media
 
+        assert "light rain" in hub_page.text              # the hub weather glimpse
         calendar_page = client.get("/a/calendar")
         assert calendar_page.status_code == 200
-        assert "light rain" in calendar_page.text         # the weather EMBED tile
+        assert "light rain" not in calendar_page.text     # weather left the calendar page (2026-10-08)
         # Only money is unconnected here — Track E's importer writes it (D14)
         assert calendar_page.text.count("Not connected") == 0

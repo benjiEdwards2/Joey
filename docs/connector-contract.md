@@ -171,6 +171,18 @@ the existing Jellyseerr meta cache (`media_discover.meta_get`) on render, ≤ 60
 `scripts/awards_sync.py --edition oscars:97` runs one edition by hand through the same code. Logs carry counts and HTTP
 status / exception type only — never a URL, a page title or a body.
 
+**Seventeenth exception (2026-10-09): Search now + "All seasons + future" (`hub/media_arr_search.py`, media-ux5).** Live
+Radarr / Sonarr reads and writes, server-side only (`RADARR_URL`/`_API_KEY`, `SONARR_URL`/`_API_KEY`, header X-Api-Key;
+the title lookup is the thirteenth exception's: Radarr `GET /api/v3/movie?tmdbId=`, Sonarr `GET /api/v3/series?tvdbId=`
+else the full list matched on `tmdbId`). *Search now:* the film / series page lazy-loads
+`GET /media/title/{kind}/{tmdb}/arr` (one lookup; the form only when the app has the title — the page render itself makes
+no *arr call); the `same_origin` POST `/media/title/{kind}/{tmdb}/search` looks the title up again and sends
+`POST /api/v3/command` `{"name": "MoviesSearch", "movieIds": [id]}` (Radarr) or `{"name": "SeriesSearch", "seriesId": id}`
+(Sonarr). The apps search monitored items only. *All seasons + future:* after a successful Jellyseerr TV request sent with
+`"seasons": "all"`, the series is read from Sonarr (≤ 3 reads, 2 s apart — it appears once Jellyseerr hands it over; else
+skipped and the flash says so), PUT back as the app's own resource with `monitored: true, monitorNewItems: "all"` (every
+other field kept), then SeriesSearch. Nothing is ever deleted. Flashes and logs carry the HTTP status or exception type only.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

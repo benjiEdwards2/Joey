@@ -353,6 +353,16 @@ is on disk — sets the Radarr movie / Sonarr series `monitored: false` (never a
 snapshot newer than the removal + 90 s; the film page's "Requested" line and the watchlist status read the same visible
 rows) and the page flashes "Removed" (`?done=removed|stopped|ondisk|arrfail|arrunset&app=…`; errors `?error=…`, words only).
 
+Search now (media-ux5, 2026-10-09): `media_arr_search.py` + `_arr_search.html`. The film / series page (library item or
+Discover title — one template; not on an episode page, where it would search the whole series) holds a hidden
+`span#arr-search` that htmx swaps on load for `GET /media/title/{kind}/{tmdb}/arr?back=<page>[&tvdb=]`: a `.btn-glass`
+"Search now" form when the title is in Radarr (film) / Sonarr (series), else nothing (the Request flow applies). The page
+render makes no *arr call. Any viewer may press it. `POST /media/title/{kind}/{tmdb}/search` (`same_origin`) sends
+`MoviesSearch` / `SeriesSearch` (`POST /api/v3/command`) and 303s back with `?search=started|unmonitored|missing|unset|
+unreachable|refused&app=radarr|sonarr[&code=]` — flashed under the hero status line ("Search started in Radarr"; an
+unmonitored title is still sent and the line says it may find nothing, because the apps search monitored items only).
+Contract: seventeenth exception.
+
 Move on from Continue watching (2026-10-08): `media_resume.py`. **Mark watched** and **Reset progress** (the latter only on
 a resume row, not a "Next episode" suggestion) on the Media home Continue watching cards (the hub page's band is gone since media-ux2) (folded under a "Move on"
 button below the card, outside its link: `_resume_acts.html`, `.card-wrap`), beside each Server → Playing "Up next" row

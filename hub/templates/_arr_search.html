@@ -1,0 +1,5 @@
+{# Search now (media-ux5, 2026-10-09): lazy-loaded into the film / series hero (media_arr_search.py) only when the title
+   is in Radarr / Sonarr. One plain same-origin POST form (works without JS; boosted it replaces the history entry);
+   `back` returns to the page it was pressed on, with the flash. The apps search monitored items only. #}
+{% from "_icons.html" import icon %}
+<form id="arr-search" method="post" action="/media/title/{{ kind }}/{{ tmdb_id }}/search"><input type="hidden" name="back" value="{{ back }}">{% if tvdb %}<input type="hidden" name="tvdb" value="{{ tvdb }}">{% endif %}<button class="btn btn-glass" type="submit" title="Ask {{ app }} to search for {{ 'its monitored episodes' if kind == 'tv' else 'it' }} now{{ '' if monitored else ' (not monitored there)' }}">{{ icon("search") }}Search now</button></form>

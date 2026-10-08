@@ -27,7 +27,7 @@ from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
-from hub import media_follow, media_requests, media_resume, media_watchlist, media_warmup
+from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
 from hub import media_awards, media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
@@ -186,7 +186,7 @@ async def no_store_pages(request: Request, call_next):
 
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
 # the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash.
-FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app")
+FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app", "search")  # search: media-ux5
 
 app.include_router(images_router)
 app.include_router(media_write_router)
@@ -199,6 +199,7 @@ app.include_router(media_follow.router)
 app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)
 app.include_router(media_resume.router)
+app.include_router(media_arr_search.router)   # media-ux5: Search now
 app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))

@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import media_arr_search, media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -775,6 +775,12 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
             log.warning("follow lookup failed: %s", type(exc).__name__)
             f["collection"]["following"] = False
     f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
+    # Search now (media-ux5): a lazy-loaded form, shown only when the title is in Radarr / Sonarr (never on an episode
+    # page — it would search the whole series); the page itself makes no *arr call.
+    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, ext.get("tvdbId"), request.url.path)
+                       if not ep else None)
+    f["search_flash"] = media_arr_search.flash_text(request.query_params)
     f["status_line"] = status_line(f)
     f["awards"] = film_awards(kind, tmdb_id, jelly, jf_item_id)   # Awards (2026-10-08): media.db only, no call
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in

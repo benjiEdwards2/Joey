@@ -1,7 +1,10 @@
-{# Awards nominee pieces (AWARDS_PLAN A4, 2026-10-08). Each is ONE whole link (to the person page for a person-led
-   category, else the film / show page; plain when nothing matched) — never an anchor inside .row-title. "Won" is the
-   emerald word; seen is an emerald "Seen ✓" tag over the poster (Q4: the viewer's own played flag or a diary row). #}
+{# Awards nominee pieces (AWARDS_PLAN A4, 2026-10-08; awards-ui item 2, 2026-10-09). Each is ONE whole link (to the
+   person page for a person-led category, else the film / show page; plain when nothing matched) — never an anchor
+   inside .row-title. A winner sits in a gold frame beside the gold word "Won" (laurel mark); a nominee poster has a
+   faint neutral outline; seen is an emerald "Seen ✓" tag over the poster (Q4: the viewer's own played flag or a diary
+   row). #}
 {% from "_poster.html" import poster %}
+{% from "_award_icons.html" import award_icon %}
 {% macro tag(c) -%}{% if c.seen %}<span class="poster-tag is-seen">Seen ✓</span>{% endif %}{%- endmacro %}
 {# A nominee thumbnail: poster (h=120 / 240), title, one meta line. #}
 {% macro thumb(c, h=240) -%}
@@ -11,20 +14,20 @@
   {% if c.sub %}<span class="row-meta">{{ c.sub }}</span>{% endif %}
 </{{ "a" if c.href else "div" }}>
 {%- endmacro %}
-{# A winner line inside a category card: small poster, name, film / people, "Won", seen. #}
+{# A winner inside a category card: gold-framed poster / photo, name, "Won" · film / people, seen. #}
 {% macro winner(c) -%}
 <{{ "a" if c.href else "div" }} class="row awrow"{% if c.href %} href="{{ c.href }}"{% endif %}>
-  {{ poster(c.poster, c.title, 120, "row-poster") }}
+  <span class="awframe is-won{{ ' is-portrait' if c.portrait }}">{{ poster(c.poster, c.title, 240, "row-poster") }}</span>
   <div class="row-body">
     <div class="row-title">{{ c.title }}</div>
-    <div class="row-meta"><span class="st-good">Won</span>{% if c.sub %}<span class="sep"> · </span>{{ c.sub }}{% endif %}{% if c.seen %}<span class="sep"> · </span><span class="st-good">Seen ✓</span>{% endif %}</div>
+    <div class="row-meta"><span class="aw-won">{{ award_icon("laurel", 13, deco=true) }}Won</span>{% if c.sub %}<span class="sep"> · </span>{{ c.sub }}{% endif %}{% if c.seen %}<span class="sep"> · </span><span class="st-good">Seen ✓</span>{% endif %}</div>
   </div>
 </{{ "a" if c.href else "div" }}>
 {%- endmacro %}
-{# One category card: name, winner line(s), up to `shown` nominee thumbnails, the rest under "+N more". #}
+{# One category card: its mark + name, winner(s), up to `shown` nominee thumbnails, the rest under "+N more". #}
 {% macro category(c) -%}
 <div class="panel awcat{{ ' is-dim' if c.dim }}">
-  <div class="awcat-name">{{ c.name }}</div>
+  <div class="awcat-head">{{ award_icon(c.icon or "trophy", 16, deco=true) }}<div class="awcat-name">{{ c.name }}</div></div>
   {% for w in c.winners %}{{ winner(w) }}{% endfor %}
   {% if c.nominees %}
   <div class="awnoms">{% for n in c.nominees[:c.shown] %}{{ thumb(n, 120) }}{% endfor %}</div>

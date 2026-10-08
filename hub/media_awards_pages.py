@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse
 from starlette.background import BackgroundTask
 
 from hub import media_awards_db as adb
+from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
 from hub import media_db, media_discover as md, media_item
 
@@ -152,7 +153,28 @@ def card(entry: dict, lead: str, seen: Seen, kind: str) -> dict:
         portrait = None
         pic = poster
     return {"won": bool(entry.get("won")), "title": title, "sub": sub or None, "poster": pic, "href": href,
-            "seen": seen.seen(went), "work_qid": work.get("qid") or "", "portrait": bool(portrait)}
+            "seen": seen.seen(went), "work_qid": work.get("qid") or "", "portrait": bool(portrait),
+            "_ent": went, "_row": row}
+
+
+def hero_backdrop(c: dict | None, kind: str) -> str | None:
+    """The hero card's backdrop (awards-ui item 2): the winner's library backdrop, else its TMDB backdrop through the
+    Jellyseerr meta cache (6 h + disk, the same read the poster fill makes), else None (a plain gradient)."""
+    if not c:
+        return None
+    if (c.get("_row") or {}).get("backdrop"):
+        return c["_row"]["backdrop"]
+    ent = c.get("_ent") or {}
+    path = (f"/api/v1/movie/{ent['tmdb_movie']}" if kind == "movie" and ent.get("tmdb_movie") else
+            f"/api/v1/tv/{ent['tmdb_tv']}" if kind == "tv" and ent.get("tmdb_tv") else None)
+    if not path or md._creds() is None:
+        return None
+    try:
+        body = md.meta_get(path)
+    except Exception as exc:  # the hero never fails on its backdrop
+        log.warning("awards: backdrop skipped: %s", type(exc).__name__)
+        return None
+    return md._ref(body.get("backdropPath")) if isinstance(body, dict) else None
 
 
 # ---- lazy posters (Jellyseerr meta cache, never the award hosts) ----
@@ -259,12 +281,14 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         if unseen:
             cards = [x for x in cards if not x["seen"]]
         item = {"name": c["name"], "cat_key": c["cat_key"], "lead": c["lead"], "cards": cards,
+                "icon": icons.cat_icon(c["name"]),
                 "winners": [x for x in cards if x["won"]], "nominees": [x for x in cards if not x["won"]],
                 "dim": unseen and winner_seen, "shown": NOMINEES_SHOWN}
         if c.get("rank") == 0 and hero is None:
             w = item["winners"][0] if item["winners"] else None
             t = tally.get(w["work_qid"]) if w and w["work_qid"] else None
-            item["tally"] = (f"Won · {t[0]} of {t[1]} nomination{'s' if t[1] != 1 else ''}" if t else None)
+            item["tally"] = (f"Won {t[0]} of {t[1]} nomination{'s' if t[1] != 1 else ''}" if t else None)
+            item["backdrop"] = hero_backdrop(w, kind)
             hero = item
         elif c.get("grp") == "core":
             cats.append(item)
@@ -275,6 +299,9 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     prev_y = years_asc[i - 1] if i > 0 else None
     next_y = years_asc[i + 1] if 0 <= i < len(years_asc) - 1 else None
     st = status_line(adb.sync_status())
+    coming = adb.coming_up(date.today(), akind)
+    for i, ev in enumerate(e for m in coming for e in m["events"]):
+        ev["next"], ev["logo"] = i == 0, icons.override(ev["body_id"])
     state = (ed or {}).get("state")
     empty = None
     if not years:
@@ -285,14 +312,16 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         empty = PENDING if state in ("pending", None) else EMPTY
     ctx = {
         "kind": kind, "akind": akind, "base": PATHS[kind], "body": body, "year": year, "unseen": unseen,
-        "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], None, unseen)} for b in bodies],
+        "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], None, unseen), "logo": icons.override(b["id"])}
+                   for b in bodies],
+        "years": years,
         "body_name": (seed.BY_ID.get(body) or {}).get("name", body),
         "edition_line": _edition_line(body, ed, kind),
         "prev": {"year": prev_y, "href": _href(kind, body, prev_y, unseen)} if prev_y else None,
         "next": {"year": next_y, "href": _href(kind, body, next_y, unseen)} if next_y else None,
         "unseen_href": _href(kind, body, year, not unseen),
         "hero": hero, "cats": cats, "more": more, "empty": empty,
-        "coming": adb.coming_up(date.today(), akind), "sync": st,
+        "coming": coming, "sync": st,
     }
     return ctx, later
 
@@ -307,7 +336,7 @@ def _page(request: Request, kind: str, body: str, year: str, unseen: str):
             ctx, later = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view, hub)
         except (sqlite3.Error, OSError) as exc:
             log.warning("awards page degraded: %s", type(exc).__name__)
-            ctx = {"kind": kind, "bodies": [], "hero": None, "cats": [], "more": [], "coming": [],
+            ctx = {"kind": kind, "bodies": [], "years": [], "hero": None, "cats": [], "more": [], "coming": [],
                    "empty": EMPTY, "sync": {"text": PENDING, "failed": False}, "edition_line": None,
                    "prev": None, "next": None, "unseen": False, "unseen_href": PATHS[kind]}
         return ctx

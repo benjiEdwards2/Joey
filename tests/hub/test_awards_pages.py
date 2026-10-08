@@ -55,10 +55,12 @@ def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
     assert [t[0] for t in tabs if t[2]] == ["Awards"]
     b = main_of(html)
     assert '<h2 class="awtitle">Awards</h2>' in b
-    assert '<span class="awyear">2025</span>' in b                         # 2026 is pending: not the default
+    assert '<option value="2025" selected>2025</option>' in b              # 2026 is pending: not the default
+    assert '<option value="2026">2026</option>' in b                       # awards-ui: the year is a native select
     assert "97th Academy Awards · 2 Mar 2025 · films of 2024" in b
-    assert re.search(r'<a class="chip on" href="/media/movies/awards\?body=oscars" aria-current="page">Oscars</a>', b)
-    assert [c for c in re.findall(r'<a class="chip[^"]*" href="/media/movies/awards\?body=(\w+)"', b)] == [
+    assert re.search(r'<a class="awtile on" href="/media/movies/awards\?body=oscars" aria-current="page"><svg class="awic '
+                     r'awic-oscars"[^>]*aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">Oscars</span></a>', b)
+    assert [c for c in re.findall(r'<a class="awtile[^"]*" href="/media/movies/awards\?body=(\w+)"', b)] == [
         "oscars", "globes", "bafta", "critics", "sag", "dga", "pga", "wga", "cannes"]
 
 
@@ -75,7 +77,7 @@ def test_stepper_bounds(env):
     assert '<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>' in old
     assert '<span class="btn btn-glass btn-sm" aria-disabled="true">›</span>' in new
     assert '<p class="empty">Not synced yet</p>' in new                   # pending edition wording
-    assert '<span class="awyear">2025</span>' in junk and "Oscars</a>" in junk   # bad params fall back to defaults
+    assert '<option value="2025" selected>2025</option>' in junk and "Oscars</span></a>" in junk   # bad params -> defaults
 
 
 def test_hero_tally_seen_tags_and_links(env):
@@ -83,15 +85,15 @@ def test_hero_tally_seen_tags_and_links(env):
     seeded()
     with build(jelly(ALPHA)) as client:
         b = page(client, "/media/movies/awards")
-    hero = re.search(r'<section class="sec awhero">.*?</section>', b, re.S).group(0)
-    assert '<div class="seclabel">Best Picture</div>' in hero
-    assert '<a class="awwin" href="/media/item/jfalpha">' in hero and "Won · 2 of 2 nominations" in hero
+    hero = re.search(r'<section class="sec awhero[^"]*">.*?</section>', b, re.S).group(0)
+    assert re.search(r'<span class="awpill is-won"><svg class="awic awic-trophy"[^>]*>.*?</svg>Best Picture</span>', hero)
+    assert '<a class="awwin" href="/media/item/jfalpha">' in hero and "Won 2 of 2 nominations" in hero
     assert 'src="/img/jf:jfalpha?h=400' in hero and 'class="poster-tag is-seen">Seen ✓</span>' in hero
     assert '<a class="card-poster awthumb" href="/media/title/movie/12">' in hero      # Beta: off-server, TMDB link
     assert '<div class="card-poster awthumb">' in hero and ">Gamma<" in hero            # unresolved: plain, kept
     grid = b.split('<div class="awgrid">', 1)[1]
     assert '<div class="awcat-name">Best Actor</div>' in grid
-    assert re.search(r'<div class="row-title">Ann Actor</div>\s*<div class="row-meta"><span class="st-good">Won</span>'
+    assert re.search(r'<div class="row-title">Ann Actor</div>\s*<div class="row-meta"><span class="aw-won"><svg[^>]*>.*?</svg>Won</span>'
                      r'<span class="sep"> · </span>Alpha<span class="sep"> · </span><span class="st-good">Seen ✓</span>', grid)
     more = b.split('<details class="showmore awmorecats"><summary>More categories · 1</summary>', 1)[1]
     assert "Best Live Action Short Film" in more
@@ -102,8 +104,8 @@ def test_not_seen_hides_the_viewers_played_works_and_dims_their_categories(env):
     seeded()
     with build(jelly(ALPHA)) as client:
         b = page(client, "/media/movies/awards?unseen=1")
-    assert 'aria-pressed="true">Not seen</a>' in b
-    hero = re.search(r'<section class="sec awhero">.*?</section>', b, re.S).group(0)
+    assert re.search(r'aria-pressed="true"><svg class="ic"[^>]*>.*?</svg>Not seen</a>', b)
+    hero = re.search(r'<section class="sec awhero[^"]*">.*?</section>', b, re.S).group(0)
     assert "Alpha" not in hero and ">Beta<" in hero
     assert 'class="panel awcat is-dim"' in b                               # Best Actor: its winner is seen
     with build(jelly({**ALPHA, "played": False})) as client:
@@ -117,7 +119,7 @@ def test_a_diary_row_counts_as_seen(env):
     media_db.add_manual_watch("tmdb:12", "movie", "Beta", 2024, None, "2025-01-01")
     with build(jelly()) as client:
         b = page(client, "/media/movies/awards?unseen=1")
-    hero = re.search(r'<section class="sec awhero">.*?</section>', b, re.S).group(0)
+    hero = re.search(r'<section class="sec awhero[^"]*">.*?</section>', b, re.S).group(0)
     assert ">Beta<" not in hero and ">Alpha<" in hero
 
 

@@ -2,11 +2,16 @@
 {% block title %}Awards — Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{% from "_icons.html" import icon %}
+{% from "_award_icons.html" import award_icon %}
 {% import "_award_card.html" as aw %}
-{# Movies / TV Shows > Awards (AWARDS_PLAN A4, 2026-10-08): the tab after To rate. Top to bottom: title + the one
-   staleness line, Coming up (a stats strip, next ceremonies by month, teal when the date is known), the ceremony chips,
-   the year stepper (ceremony year) + edition line + Not seen chip, the hero category, then every category card in
-   curated rank order; shorts / documentary / technical fold under "More categories". #}
+{# Movies / TV Shows > Awards (AWARDS_PLAN A4, 2026-10-08; visual pass awards-ui item 2, 2026-10-09). Top to bottom:
+   title + the one staleness line; Coming up (a stats strip by month, each ceremony with its mark, the next one
+   outlined and saying "Next", teal when the date is known); the ceremony tiles (mark + name, the picked one gold;
+   a sideways-scrolling row inside its own box on a phone); the year stepper (‹ native year select ›) + edition line +
+   Not seen chip; the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
+   "Won N of M nominations" in gold, the nominees row); every category as a card in curated rank order; shorts /
+   documentary / technical fold under "More categories". Gold means won (style guide: colour for meaning). #}
 <section class="sec awhead">
   <h2 class="awtitle">Awards</h2>
   <p class="metaline">{% if sync.failed %}<span class="badge badge-wait">Sync failed · retrying</span> {% endif %}{{ sync.text }}</p>
@@ -15,42 +20,52 @@
 <section class="sec">
   <div class="seclabel">Coming up</div>
   <div class="stats awcoming">
-    {% for m in coming %}<div class="stat"><div class="microlabel">{{ m.month }}</div><div class="awcoming-names">{% for i in m.events %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{% if i.date %}<span class="aw-date">{{ i.name }} · {{ i.date }}</span>{% else %}{{ i.name }}{% endif %}{% endfor %}</div></div>{% endfor %}
+    {% for m in coming %}<div class="stat"><div class="microlabel">{{ m.month }}</div><div class="awcoming-names">{% for i in m.events %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}<span class="awev{{ ' is-next' if i.next }}">{{ award_icon(i.body_id, 14, src=i.logo, deco=true) }}{% if i.date %}<span class="aw-date">{{ i.name }} · {{ i.date }}</span>{% else %}{{ i.name }}{% endif %}{% if i.next %} <span class="awnext">Next</span>{% endif %}</span>{% endfor %}</div></div>{% endfor %}
   </div>
 </section>
 {% endif %}
 {% if bodies %}
-<nav class="chips awbodies" aria-label="Ceremonies">{% for b in bodies %}<a class="chip{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</nav>
+<nav class="awtiles" aria-label="Ceremonies"><div class="awtiles-row">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span></a>{% endfor %}</div></nav>
 <div class="awstep">
   {% if prev %}<a class="btn btn-glass btn-sm" href="{{ prev.href }}" aria-label="Previous ceremony, {{ prev.year }}">‹ {{ prev.year }}</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>{% endif %}
-  <span class="awyear">{{ year or "—" }}</span>
+  {% if years %}
+  <form class="awyearform" method="get" action="{{ base }}">
+    <input type="hidden" name="body" value="{{ body }}">{% if unseen %}<input type="hidden" name="unseen" value="1">{% endif %}
+    <label class="vh" for="awyear">Ceremony year</label>
+    <select class="select awyear" id="awyear" name="year" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
+    <noscript><button class="btn btn-secondary btn-sm" type="submit">Go</button></noscript>
+  </form>
+  {% else %}<span class="awyear">—</span>{% endif %}
   {% if next %}<a class="btn btn-glass btn-sm" href="{{ next.href }}" aria-label="Next ceremony, {{ next.year }}">{{ next.year }} ›</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">›</span>{% endif %}
-  <a class="chip{{ ' on' if unseen }}" href="{{ unseen_href }}" aria-pressed="{{ 'true' if unseen else 'false' }}">Not seen</a>
+  {% if edition_line %}<span class="metaline awed">{{ edition_line }}</span>{% endif %}
+  <a class="chip{{ ' on' if unseen }}" href="{{ unseen_href }}" aria-pressed="{{ 'true' if unseen else 'false' }}">{{ icon("eye") }}Not seen</a>
 </div>
-{% if edition_line %}<p class="metaline awed">{{ edition_line }}</p>{% endif %}
 {% endif %}
 {% if empty %}
 <p class="empty">{{ empty }}</p>
 {% else %}
 {% if hero %}
-<section class="sec awhero">
-  <div class="seclabel">{{ hero.name }}</div>
-  {% set w = hero.winners[0] if hero.winners else none %}
+{% set w = hero.winners[0] if hero.winners else none %}{% set hbd = hero.backdrop %}
+<section class="sec awhero{{ ' has-bd' if hbd }}">
+  {% if hbd %}<img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async">{% endif %}
   {% if w %}
   <{{ "a" if w.href else "div" }} class="awwin"{% if w.href %} href="{{ w.href }}"{% endif %}>
-    <span class="card-pic">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}</span>
+    <span class="card-pic awframe is-won">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}</span>
     <span class="awwin-text">
-      <span class="microlabel st-good">Winner</span>
+      <span class="awpill is-won">{{ award_icon("trophy", 14, deco=true) }}{{ hero.name }}</span>
       <span class="awwin-title">{{ w.title }}</span>
       {% if w.sub %}<span class="row-meta">{{ w.sub }}</span>{% endif %}
-      {% if hero.tally %}<span class="row-meta">{{ hero.tally }}</span>{% endif %}
+      {% if hero.tally %}<span class="awtally">{{ award_icon("laurel", 16, deco=true) }}{{ hero.tally }}</span>{% endif %}
+      {% if w.seen %}<span class="awseen st-good">{{ award_icon("seen", 14, deco=true) }}Seen</span>{% endif %}
     </span>
   </{{ "a" if w.href else "div" }}>
   {% for extra in hero.winners[1:] %}{{ aw.winner(extra) }}{% endfor %}
+  {% else %}
+  <span class="awpill">{{ award_icon("trophy", 14, deco=true) }}{{ hero.name }}</span>
   {% endif %}
   {% if hero.nominees %}
-  <div class="microlabel">Nominees · {{ hero.nominees | length }}</div>
-  <div class="carousel">{% for c in hero.nominees %}{{ aw.thumb(c) }}{% endfor %}</div>
+  <div class="microlabel awhero-label">Nominated · {{ hero.nominees | length }}</div>
+  <div class="carousel awhero-noms">{% for c in hero.nominees %}{{ aw.thumb(c) }}{% endfor %}</div>
   {% endif %}
 </section>
 {% endif %}

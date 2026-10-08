@@ -520,11 +520,14 @@ def season_episodes(request: Request, tmdb_id: int, n: int):
     return _partial(request, "_season_episodes.html", episodes=rows, note=None if rows else "No episodes listed")
 
 
-async def _seasons_of(request: Request) -> list[int]:
+async def _seasons_of(request: Request) -> list[int] | str:
+    """The ticked season numbers, or "all" when "All seasons + future" is ticked (media-ux5: it wins over any ticks)."""
     body = await request.body()
     if len(body) > MAX_BODY:
         raise bad("Too large")
     values = parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True).get("seasons", [])
+    if "all" in values:
+        return "all"
     try:
         nums = sorted({int(v) for v in values})
     except ValueError:
@@ -534,8 +537,9 @@ async def _seasons_of(request: Request) -> list[int]:
     return nums
 
 
-def _send(kind: str, tmdb_id: int, seasons: list[int]) -> str | None:
-    """POST the request to Jellyseerr -> None on success, else an ERRORS code."""
+def _send(kind: str, tmdb_id: int, seasons: list[int] | str) -> str | None:
+    """POST the request to Jellyseerr -> None on success, else an ERRORS code. `seasons` may be "all" (TV): the API's
+    `seasons: number[] | "all"` (seerr-api.yml, POST /request) — every season, Specials excepted."""
     creds = _creds()
     if not creds:
         return "network"
@@ -559,11 +563,19 @@ async def request_title(request: Request, kind: str, tmdb_id: int):
     kind = _kind(kind)
     seasons = await _seasons_of(request) if kind == "tv" else []
     code = _send(kind, tmdb_id, seasons)
+    future = None
     if code is None:
         _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)  # the film page re-reads the new request status
+        if seasons == "all":   # media-ux5 item 7: Sonarr follows new seasons too, then searches
+            from hub import media_arr_search  # late: it imports this module
+            future = media_arr_search.follow_all(tmdb_id)
     if is_htmx(request):
         stub = _stub(kind, tmdb_id)
-        return _partial(request, "_request_block.html",
-                        **(_block(stub, "done") if code is None else _block(stub, "error", ERRORS[code])))
-    return RedirectResponse(f"/media/title/{kind}/{tmdb_id}?" + ("requested=1" if code is None else f"error={code}"),
+        if code is None:
+            from hub import media_arr_search
+            return _partial(request, "_request_block.html", **_block(stub, "done"),
+                            future=media_arr_search.future_note(future))
+        return _partial(request, "_request_block.html", **_block(stub, "error", ERRORS[code]))
+    done = "requested=1" + (f"&future={future}" if future else "")
+    return RedirectResponse(f"/media/title/{kind}/{tmdb_id}?" + (done if code is None else f"error={code}"),
                             status_code=303)

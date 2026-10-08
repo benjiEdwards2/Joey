@@ -6,6 +6,7 @@
 <div id="request-block" class="requestblock">
 {% if state == "done" %}
   <p class="statusline st-good">Requested ✓ — shows in Requests within the hour</p>
+  {% if future %}<p class="metaline {{ 'st-good' if future.ok else 'st-warn' }}">{{ future.text }}</p>{% endif %}
 {% elif state == "error" %}
   <p class="statusline st-warn">{{ msg }}</p>
   <a class="btn btn-secondary" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Try again</a>
@@ -13,6 +14,9 @@
   <form class="confirm" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#request-block" hx-swap="outerHTML">
     {% if t.kind == "tv" %}
     <div>Request which seasons of {{ t.title }}?</div>
+    {# media-ux5 (2026-10-09): "All seasons + future" (default) requests every season and has Sonarr follow new ones; it
+       wins over the ticks below. Untick it to request just the ticked seasons (today's behaviour). #}
+    <label class="seasonall"><input type="checkbox" name="seasons" value="all" checked> All seasons + future <span class="metaline">every season, and new ones as they air</span></label>
     <div class="seasonpick">
       {% for s in t.seasons %}
       <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " checked" if s.ticked }}{{ " disabled" if s.disabled }}>

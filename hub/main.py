@@ -186,7 +186,7 @@ async def no_store_pages(request: Request, call_next):
 
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
 # the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash.
-FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app", "search")  # search: media-ux5
+FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app", "search", "future")  # search, future: media-ux5
 
 app.include_router(images_router)
 app.include_router(media_write_router)

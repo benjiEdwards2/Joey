@@ -817,7 +817,8 @@ def _render(request: Request, hub, src, film: dict, view, from_query, snaps=None
 
 
 @router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
-def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "", error: str = ""):
+def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "", error: str = "",
+               future: str = ""):
     from hub import main as hub  # late: hub.main includes this router
 
     kind = md._kind(kind)
@@ -831,6 +832,7 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
     state, msg = (("done", None) if requested == "1" else ("error", md.ERRORS[error]) if error in md.ERRORS
                   else ("confirm" if step == "confirm" else "idle", None))
     film = build_film(kind, tmdb_id, view=view, request=request, hub=hub, req_state=state, req_msg=msg, snaps=snaps)
+    film["req_future"] = media_arr_search.future_note(future) if state == "done" else None   # media-ux5 item 7
     return _render(request, hub, src, film, view, from_query, snaps)
 
 

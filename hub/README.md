@@ -363,6 +363,16 @@ unreachable|refused&app=radarr|sonarr[&code=]` — flashed under the hero status
 unmonitored title is still sent and the line says it may find nothing, because the apps search monitored items only).
 Contract: seventeenth exception.
 
+All seasons + future (media-ux5, 2026-10-09): the TV Request confirm step (`_request_block.html`) opens with a ticked
+**All seasons + future** checkbox (`name="seasons" value="all"`) above the season ticks (dimmed via `:has()` while it is
+ticked; it wins over them). Ticked, `media_discover._send` posts Jellyseerr `"seasons": "all"` (seerr-api.yml POST
+/request: `number[] | "all"`), then `media_arr_search.follow_all` reads the series from Sonarr (full list by `tmdbId`; up
+to 3 reads 2 s apart, because Jellyseerr hands it over a few seconds later), PUTs it back with `monitored: true,
+monitorNewItems: "all"` (other fields kept) and sends SeriesSearch. The done line gains one note
+(`?future=set|searchfail|notyet|unset|failed` without JS): emerald when Sonarr now follows new seasons, amber when it was
+skipped (not added yet / not connected / refused). Unticked, the ticked seasons are requested exactly as before and
+Sonarr is not touched. Worst case the request waits ~4 s on the retries.
+
 Move on from Continue watching (2026-10-08): `media_resume.py`. **Mark watched** and **Reset progress** (the latter only on
 a resume row, not a "Next episode" suggestion) on the Media home Continue watching cards (the hub page's band is gone since media-ux2) (folded under a "Move on"
 button below the card, outside its link: `_resume_acts.html`, `.card-wrap`), beside each Server → Playing "Up next" row

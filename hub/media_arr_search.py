@@ -135,6 +135,52 @@ def lazy_href(kind: str | None, tmdb, tvdb, back: str) -> str | None:
     return f"/media/title/{kind}/{tmdb}/arr?" + urlencode(q)
 
 
+# ---- All seasons + future (item 7) ----
+
+FUTURE = {"set": ("Sonarr: every season monitored, new seasons too · search started", True),
+          "searchfail": ("Sonarr: every season monitored, new seasons too · couldn't start the search", False),
+          "notyet": ("Sonarr hasn't added it yet — new seasons are not set to follow", False),
+          "unset": ("Sonarr is not connected — new seasons are not set to follow", False),
+          "failed": ("Couldn't set Sonarr to follow new seasons", False)}
+
+
+def future_note(code) -> dict | None:
+    """{text, ok} for the request block's second line, or None for an unknown / absent code."""
+    hit = FUTURE.get(str(code or ""))
+    return {"text": hit[0], "ok": hit[1]} if hit else None
+
+
+def follow_all(tmdb: int, tvdb: int | None = None) -> str:
+    """After an all-seasons Jellyseerr request: Sonarr series -> monitored + monitorNewItems "all" (the app's own resource
+    PUT back, every other field kept), then SeriesSearch. Returns a FUTURE code. The series appears in Sonarr a few
+    seconds after Jellyseerr hands it over: up to FOLLOW_TRIES reads, FOLLOW_WAIT s apart, else "notyet"."""
+    creds = mr._arr_creds("sonarr")
+    if creds is None:
+        return "unset"
+    base, headers = creds
+    try:
+        entry = None
+        for attempt in range(FOLLOW_TRIES):
+            if attempt:
+                time.sleep(FOLLOW_WAIT)
+            entry = mr._find("sonarr", base, headers, tmdb, tvdb)
+            if entry is not None:
+                break
+        if entry is None:
+            return "notyet"
+        _ok(requests.put(f"{base}/api/v3/series/{int(entry['id'])}",
+                         json={**entry, "monitored": True, "monitorNewItems": "all"}, headers=headers, timeout=TIMEOUT))
+    except Exception as exc:
+        log.warning("sonarr follow-new-seasons failed: %s", _why(exc))
+        return "failed"
+    try:
+        _command("sonarr", base, headers, entry)
+    except Exception as exc:
+        log.warning("sonarr search after follow failed: %s", _why(exc))
+        return "searchfail"
+    return "set"
+
+
 @router.get("/media/title/{kind}/{tmdb_id}/arr", response_class=HTMLResponse)
 def search_button(request: Request, kind: str, tmdb_id: int, tvdb: str = "", back: str = ""):
     kind = md._kind(kind)

@@ -565,6 +565,7 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 /* media-ux4 (2026-10-08): the same size on the TV To rate rows and every Diary list; a picker under such a row lines
    up with the title (poster + gap: 55 + 14 on a phone, 66 + 18 from 640 px). */
 .listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 69px; }
+.diaryrow .row-body { flex-basis: 0; }  /* a long facts line wraps beside the poster instead of dropping under it */
 @media (min-width: 640px) { .listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 84px; } }
 /* Grid view on the Movies / TV Shows lists (media-ux4, 2026-10-08, the default): poster cards at the Media home shelf size
    (116 px phone / 144 px from 640 px) in as many columns as fit. .seg is the Grid / List switch in the toolbar. */

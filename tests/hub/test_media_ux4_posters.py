@@ -74,3 +74,9 @@ def test_a_picker_under_a_big_poster_row_lines_up_with_the_title():
     assert ".listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 69px; }" in CSS
     assert re.search(r"@media \(min-width: 640px\) \{ \.listbox\.libposters \.row \.ratepick, "
                      r"\.listbox\.libposters \.row \.rated \{ padding-left: 84px; \} \}", CSS)
+
+
+def test_a_diary_rows_title_and_facts_stay_beside_the_bigger_poster():
+    # a long facts line ("TV · S4 E7 · The Final Whistle · 2026-10-08 · Jellyfin") wrapped the whole body under the
+    # 55 px poster on a phone; the body now shrinks from a zero basis like the Requests rows
+    assert ".diaryrow .row-body { flex-basis: 0; }" in CSS and ".reqrow .row-body { flex-basis: 0; }" in CSS

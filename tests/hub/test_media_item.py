@@ -161,7 +161,7 @@ def test_episode_page_and_map(env):
         html = r.text
     b = main_of(html)
     assert r.status_code == 200
-    assert 'href="/media/item/ser1">Quiet Show</a>' in b          # the show, beneath the episode header
+    assert 'href="/media/item/ser1#seasons"' in b          # the show: the part-of banner (media-ux4 dropped the "Episode of" line)
     assert "S04E03 · Penny for Your Thoughts" in b and "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Play again ▶" in b and f'href="{deep("ep3")}"' in b
     assert "Quiet Show (2020)" in b and "A quiet show." in b        # the SHOW's page content below

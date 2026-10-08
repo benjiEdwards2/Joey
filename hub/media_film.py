@@ -198,6 +198,31 @@ def episode_list(seasons: list[dict], href_of, page_season=None, next_ep: dict |
     return out
 
 
+def listed_episode(ep: dict, seasons: list[dict]) -> dict:
+    """The page's episode with its watch state taken from the show's season list (media-ux4, 2026-10-08) — the list the
+    "part of" banner counts and the episode rows show. The episode's own item read is a separate cache entry, read at
+    another time, so on a fully watched show the hero could say "Mark watched" beside "10 of 10 watched". Matched by
+    Jellyfin id, else by season + episode number (a duplicate item of the same episode: the listed one's id is used,
+    so the hero acts on the episode the banner counts). Not listed: unchanged."""
+    hit = None
+    for s in seasons or []:
+        hit = next((e for e in s.get("episodes") or [] if e.get("jf_id") == ep.get("id")), None)
+        if hit:
+            break
+    if hit is None and ep.get("season_no") is not None and ep.get("episode_no") is not None:
+        for i, s in enumerate(seasons or []):
+            n = s.get("number") if s.get("number") is not None else i + 1
+            if n == ep["season_no"]:
+                hit = next((e for e in s.get("episodes") or [] if e.get("number") == ep["episode_no"]), None)
+                break
+    if hit is None:
+        return ep
+    prog, left = bool(hit.get("in_progress")), hit.get("left_min")
+    jf = hit["jf_id"] if media_item.ITEM_RE.match(str(hit.get("jf_id") or "")) else ep["id"]
+    return {**ep, "id": jf, "played": bool(hit.get("played")), "in_progress": prog,
+            "left_text": (f"{left} min left" if left else ep.get("left_text")) if prog else None}
+
+
 def _override(badge_id) -> str | None:
     for ext in ("svg", "png"):
         if badge_id and (BADGES_DIR / f"{badge_id}.{ext}").is_file():
@@ -597,6 +622,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None, page_season, f["next_ep"])
     f["part_of"] = part_of(page_item, item, f["seasons"])
     if ep:
+        ep = listed_episode(ep, seasons)  # media-ux4: one watch state per page (hero = banner = rows)
         f["episode"] = {"code": ep["code"], "title": ep["title"], "air_date": ep["air_date"],
                         "overview": ep["overview"], "runtime": ep["runtime"],
                         "play": {"href": href_of(ep["id"]),

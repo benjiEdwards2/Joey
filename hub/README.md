@@ -360,6 +360,13 @@ hides its in-progress episodes (their positions are reset); a single item marked
 watched mark (a season: one row per episode, folded to "S4 E1-6") reaches the diary at the next jellyfin sweep as today's
 watch; marking unwatched never deletes a diary entry — remove it from the Diary by hand if it was a mistake.
 
+Episode pages (media-ux4, 2026-10-08): the hero has no "Episode of <Show>" line (the part-of banner leads to the show) and
+only the **episode's** Play button — the series-level "Next to watch: …" / "Play ▶" stays on the series page. The hero's
+watch state (toggle, Move-on pair, Play label) comes from the show's season list the banner counts and the rows show
+(`media_film.listed_episode`: by id, else by season + episode number for a duplicate Jellyfin item, whose listed id the
+toggle then acts on); before, the hero read the episode's own item — a separate 10-minute cache entry — and could say
+"Mark watched" beside "10 of 10 watched".
+
 "Part of" banners (media-ux3, 2026-10-08): `.partof` is a wide card with a backdrop under the guide's page-header scrim
 (`--pagehead-side-*` left to right + `--pagehead-foot-*` from the foot; on a phone the stacked `--pagehead-fade-*`), the
 poster, one " · " line and glass buttons; no backdrop → a plain panel; ≤ 640 px it stacks and its buttons go full width.

@@ -305,6 +305,8 @@ def test_film_page_in_her_view_has_no_actions(env):
 
 def test_episode_page_in_progress_targets_the_episode(env, monkeypatch):
     monkeypatch.setitem(ITEMS["ep3"], "UserData", {"Played": False, "PlaybackPositionTicks": 10 * TICKS})
+    # media-ux4: the hero reads the episode's state from the show's season list, so the list says in progress too
+    monkeypatch.setitem(EPISODES[2], "UserData", {"Played": False, "PlaybackPositionTicks": 10 * TICKS})
     client, _, _ = env()
     with client:
         b = main_of(client.get("/media/item/ep3").text)

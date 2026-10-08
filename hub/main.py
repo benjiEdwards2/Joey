@@ -28,6 +28,7 @@ from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_follow, media_requests, media_resume, media_watchlist, media_warmup
+from hub import media_awards
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
@@ -108,6 +109,18 @@ async def _media_follow_loop():
         await asyncio.sleep(media_follow.EVERY_S)
 
 
+async def _media_awards_loop():
+    """Awards (2026-10-08): hourly check, a pass when one is due (hub/media_awards.py: every 6 h while a backlog
+    exists, then weekly; skipped 22:00-07:00). MEDIA_AWARDS=off disables it; no AWARDS_CONTACT => no calls."""
+    await asyncio.sleep(media_awards.FIRST_DELAY_S)
+    while True:
+        try:
+            await asyncio.to_thread(media_awards.tick)
+        except Exception as exc:  # never let an awards pass take the hub down
+            log.warning("media awards task error: %s", type(exc).__name__)
+        await asyncio.sleep(media_awards.TICK_S)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Load the registry at startup, failing fast with the aggregated violation list."""
@@ -121,7 +134,12 @@ async def lifespan(_: FastAPI):
     alerts_task = asyncio.create_task(_server_alerts_loop())
     warmup_task = None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop())
     follow_task = None if media_follow.disabled() else asyncio.create_task(_media_follow_loop())
+    awards_task = None if media_awards.disabled() else asyncio.create_task(_media_awards_loop())
     yield
+    if awards_task is not None:
+        awards_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await awards_task
     if follow_task is not None:
         follow_task.cancel()
         with suppress(asyncio.CancelledError):

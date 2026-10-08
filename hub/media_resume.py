@@ -16,6 +16,13 @@ page flashes "Marked watched" / "Progress reset". A watched mark reaches Joey's 
 jellyfin sweep's history (IsPlayed, by DatePlayed) carries it and the diary page's sync_diary_from_history inserts it.
 Failures are words; logs carry an HTTP status or exception type only.
 
+Watched / unwatched (media-ux3, 2026-10-08): the same routes serve the film / episode page toggle, each episode row
+and a season's header (`scope=season`, the season's Jellyfin id — Jellyfin marks all its episodes):
+- Mark unwatched: DELETE /UserPlayedItems/{id}?userId={uid}  else DELETE /Users/{uid}/PlayedItems/{id}
+Marking watched hides the item (and, for a season, each of its episodes) from Continue watching until the next sweep;
+a season marked unwatched hides its in-progress episodes (their saved positions are gone). Unwatched never deletes a
+diary entry. The redirect may carry `season=N` so the episode list reopens that season.
+
 Hide (media-ux2, 2026-10-08): a Next Up suggestion (remaining_text "Next episode") also offers "Hide":
 POST /media/resume/{id}/hide stores (owner, series, suggested episode) in media.db `nextup_hidden` (no Jellyfin call)
 and apply_hidden drops that suggestion everywhere until Next Up suggests a different episode. Flash "Hidden".
@@ -42,7 +49,8 @@ GROUP = "resume"
 TIMEOUT = 8
 DEFAULT_BACK = "/media/playing"
 NEXT_EPISODE = "Next episode"   # the connector's word for a next-up row (nothing to reset)
-DONE = {"watched": "Marked watched", "reset": "Progress reset", "hide": "Hidden"}
+DONE = {"watched": "Marked watched", "unwatched": "Marked unwatched", "reset": "Progress reset", "hide": "Hidden",
+        "season-watched": "Season marked watched", "season-unwatched": "Season marked unwatched"}
 ERRORS = {"jfunset": "Jellyfin is not connected", "jfuser": "No Jellyfin user for this profile",
           "jfdown": "Couldn't reach Jellyfin", "jfrefused": "Jellyfin refused",
           "hidefail": "Couldn't hide it"}
@@ -135,6 +143,10 @@ def _post(base, headers, path, params=None, body=None):
     return requests.post(f"{base}{path}", params=params, json=body, headers=headers, timeout=TIMEOUT)
 
 
+def _delete(base, headers, path, params=None):
+    return requests.delete(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
+
+
 def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:
     """Run one action as the owner's Jellyfin user -> (None, None) on success, else (ERRORS code, HTTP status)."""
     creds = media_files._creds()
@@ -149,6 +161,10 @@ def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:
             resp = _post(base, headers, f"/UserPlayedItems/{jf_id}", {"userId": uid})
             if resp.status_code in FALLBACK_STATUS:   # a server older than 10.9
                 resp = _post(base, headers, f"/Users/{uid}/PlayedItems/{jf_id}")
+        elif action == "unwatched":
+            resp = _delete(base, headers, f"/UserPlayedItems/{jf_id}", {"userId": uid})
+            if resp.status_code in FALLBACK_STATUS:
+                resp = _delete(base, headers, f"/Users/{uid}/PlayedItems/{jf_id}")
         else:
             body = {"PlaybackPositionTicks": 0}
             resp = _post(base, headers, f"/UserItems/{jf_id}/UserData", {"userId": uid}, body)
@@ -181,23 +197,55 @@ def owner_of(request: Request, form: dict) -> str:
     return form.get("owner") if form.get("owner") in ("you", "her") else "you"
 
 
+def season_episodes(show_id, season_id: str) -> list[dict]:
+    """The episodes of one season from the show's item data (media_item's cache — the page just rendered it)."""
+    if not media_item.ITEM_RE.match(str(show_id or "")):
+        return []
+    data = media_item._data(str(show_id)) or {}
+    season = next((s for s in data.get("seasons") or [] if str(s.get("id")) == season_id), None)
+    return list((season or {}).get("episodes") or [])
+
+
+def _to_hide(action: str, scope: str | None, jf_id: str, show_id) -> list[str]:
+    """Which ids leave Continue watching after a successful action (media-ux3): a watched mark hides the item and,
+    for a season, every episode in it; a season marked unwatched hides its in-progress episodes (positions reset);
+    reset hides the item; a single item marked unwatched hides nothing (a watched item isn't a resume row)."""
+    if action == "unwatched" and scope != "season":
+        return []
+    ids = [] if action == "unwatched" else [jf_id]
+    if scope == "season":
+        ids += [e["jf_id"] for e in season_episodes(show_id, jf_id)
+                if e.get("jf_id") and (action == "watched" or e.get("in_progress"))]
+    return ids
+
+
 async def _run(request: Request, jf_id: str, action: str):
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
     form = await form_of(request)
     owner, back = owner_of(request, form), _back(form.get("back"))
+    scope = "season" if form.get("scope") == "season" and action in ("watched", "unwatched") else None
+    season = str(form.get("season") or "")
+    keep = {"season": season} if re.fullmatch(r"\d{1,3}", season) else {}  # the episode list reopens that season
     code, status = act(action, owner, jf_id)
     if code is not None:
-        return RedirectResponse(f"{back}?" + urlencode({"error": code, **({"code": status} if status else {})}),
+        return RedirectResponse(f"{back}?" + urlencode({"error": code, **({"code": status} if status else {}), **keep}),
                                 status_code=303)
-    media_hidden.hide(GROUP, key(owner, jf_id))
+    for hid in _to_hide(action, scope, jf_id, form.get("show")):
+        media_hidden.hide(GROUP, key(owner, hid))
     media_item._cache.clear()  # the film / episode / show pages re-read the new watch state
-    return RedirectResponse(f"{back}?done={action}", status_code=303)
+    done = f"season-{action}" if scope else action
+    return RedirectResponse(f"{back}?" + urlencode({"done": done, **keep}), status_code=303)
 
 
 @router.post("/media/resume/{jf_id}/watched", dependencies=[Depends(same_origin)])
 async def mark_watched(request: Request, jf_id: str):
     return await _run(request, jf_id, "watched")
+
+
+@router.post("/media/resume/{jf_id}/unwatched", dependencies=[Depends(same_origin)])
+async def mark_unwatched(request: Request, jf_id: str):
+    return await _run(request, jf_id, "unwatched")
 
 
 @router.post("/media/resume/{jf_id}/reset", dependencies=[Depends(same_origin)])

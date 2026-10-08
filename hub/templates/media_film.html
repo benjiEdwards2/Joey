@@ -47,6 +47,7 @@
           {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
           {% if film.play and film.play.href %}<a class="btn {{ 'btn-secondary' if film.episode and film.episode.play.href else 'btn-white' }}" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
           {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
+          {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
           {% if film.rating and not film.score %}<a class="btn btn-icon" href="#rate" aria-label="Rate" title="Rate">{{ icon("star") }}</a>{% endif %}
           {% if film.tmdb and film.t %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg, req_primary = not (film.play and film.play.href) %}{% include "_request_block.html" %}{% endwith %}{% endif %}
@@ -95,6 +96,7 @@
    episode's season open); each episode ONE whole-row link (a.rowlink) with its 16:9 still, "E3 · Name", air date ·
    runtime and its state in words + colour; the Play / Resume deep link sits beside the row, outside the link. #}
 {% if film.seasons %}
+{% import "_resume_acts.html" as wa %}
 <section class="sec seasons">
   <div class="seclabel">Seasons</div>
   {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
@@ -102,6 +104,7 @@
   {% for s in film.seasons %}
   <details class="seasonbox epseason"{% if s.open %} open{% endif %}>
     <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span></div></div></summary>
+    {% if film.watch_owner and s.id and s.episodes %}<div class="seasonacts">{{ wa.season_toggle(s, film.watch_owner, film.show_id, request.url.path) }}</div>{% endif %}
     <div class="eplist">
     {% for e in s.episodes %}
     <div class="row has-form epline ep-{{ e.state.key }}" id="ep-{{ e.jf_id }}">
@@ -113,7 +116,8 @@
           <div class="epstate {{ e.state.cls }}">{{ e.state.word }}</div>
         </div>
       </a>
-      {% if e.play %}<span class="row-side"><a class="btn btn-secondary btn-sm" href="{{ e.play.href }}" target="_blank" rel="noopener">{{ e.play.label }}</a></span>{% endif %}
+      {% set wt = film.watch_owner and e.aired %}
+      {% if e.play or wt %}<span class="row-side">{% if e.play %}<a class="btn btn-secondary btn-sm" href="{{ e.play.href }}" target="_blank" rel="noopener">{{ e.play.label }}</a>{% endif %}{% if wt %}{{ wa.toggle(e.jf_id, e.played, film.watch_owner, request.url.path, s.n) }}{% endif %}</span>{% endif %}
     </div>
     {% endfor %}
     </div>

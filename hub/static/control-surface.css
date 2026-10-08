@@ -789,6 +789,10 @@ a.castcard:hover .castname { text-decoration: underline; }
   .epline .epstill { width: 96px; }
   .epline .row-side { flex: 1 0 100%; justify-content: flex-end; }
 }
+/* Watched / unwatched (media-ux3): a season's toggle sits at the top of its open list, right-aligned; an episode's sits
+   in .row-side beside Play (outside the row link). */
+.seasonacts { display: flex; justify-content: flex-end; padding: 0 8px 6px; }
+.wtoggle { display: inline-flex; }
 .requestblock { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
 .seasonpick { display: flex; flex-direction: column; gap: 4px; }
 .seasonpick label { display: flex; align-items: center; gap: 8px; font-size: 14px; }

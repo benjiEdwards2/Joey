@@ -132,6 +132,9 @@ a 404/405 falls back to `/Users/{uid}/PlayedItems/{id}` and `/Users/{uid}/Items/
 the jellyfin snapshot's `up_next` (B.'s) or `her.up_next` (hers) in memory until a newer sweep (`hub/media_hidden.py`,
 applied in `main.get_snapshots`). A watched mark reaches the diary by the usual path (next sweep's history ->
 `sync_diary_from_history`). Flashes and logs carry the HTTP status or exception type only.
+Extended in media-ux3 (2026-10-08): `POST /media/resume/{jf_id}/unwatched` sends `DELETE /UserPlayedItems/{id}?userId=`
+(404/405 → `DELETE /Users/{uid}/PlayedItems/{id}`), and the watched / unwatched routes also take a season id
+(`scope=season`), which Jellyfin applies to every episode of the season. Unwatched never deletes a diary row.
 
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,

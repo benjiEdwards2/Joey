@@ -291,7 +291,8 @@ def test_film_page_without_progress_has_no_actions(env, monkeypatch):
     client, _, _ = env()
     with client:
         b = main_of(client.get("/media/item/mov1").text)
-    assert "/media/resume/" not in b
+    # media-ux3: a watched film now offers "Mark unwatched" — but never the Move-on pair
+    assert "/media/resume/mov1/reset" not in b and 'action="/media/resume/mov1/watched"' not in b
 
 
 def test_film_page_in_her_view_has_no_actions(env):

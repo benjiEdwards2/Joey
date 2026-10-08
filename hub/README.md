@@ -335,3 +335,18 @@ runtime, and its state in words + colour (`episode_state`: Watched · In progres
 in-progress row gets the Watching tint). The Play / Resume / Play again deep link sits beside the row, outside the link
 (aired episodes only). At ≤ 480 px the still shrinks to 96 px and the button drops under the text. The episode facts ride on
 the existing per-season read (`media_item._seasons`: PremiereDate, RunTimeTicks, UserData).
+
+Watched / unwatched (media-ux3, 2026-10-08): `media_resume.py` serves three more places, no confirm step. A season's open
+list starts with **Mark season watched** (until every aired episode is watched, then **Mark season unwatched**:
+`.seasonacts`); each aired episode row carries **Mark watched / Mark unwatched** beside Play in `.row-side`, outside the
+row link; the film and episode pages carry the same toggle in the hero buttons (not while in progress — the Move-on pair
+covers that). B.'s views only, like the Move-on buttons (the pages read watch state as `JELLYFIN_USER`). Routes:
+`POST /media/resume/{id}/watched` (a season sends its season id with `scope=season` + `show` — Jellyfin marks every
+episode) and `POST /media/resume/{id}/unwatched` → `DELETE /UserPlayedItems/{id}?userId=` (legacy `DELETE
+/Users/{uid}/PlayedItems/{id}` on 404/405), both same_origin, acting as the viewer's Jellyfin user. On success the
+item-page cache is cleared so the 303 re-reads Jellyfin, and the form's `season=N` rides along so the list reopens that
+season; flashes "Marked watched" / "Marked unwatched" / "Season marked watched" / "Season marked unwatched". Continue
+watching: a watched mark hides the item (a season: every episode in it) until the next sweep; a season marked unwatched
+hides its in-progress episodes (their positions are reset); a single item marked unwatched hides nothing. **Diary:** a
+watched mark (a season: one row per episode, folded to "S4 E1-6") reaches the diary at the next jellyfin sweep as today's
+watch; marking unwatched never deletes a diary entry — remove it from the Diary by hand if it was a mistake.

@@ -10,3 +10,12 @@
 {% macro card(a, back) -%}
 <details class="cardacts"><summary class="btn btn-ghost btn-sm">Move on</summary><div class="confirm">{{ forms(a, back, true) }}</div></details>
 {%- endmacro %}
+{# Watched / unwatched (media-ux3, 2026-10-08): no confirm step; the button says what it will do. `season` (a number)
+   rides along so the episode list reopens that season after the redirect. `toggle` = a film, an episode page or an
+   episode row; `season_toggle` = a season header (`scope=season`: Jellyfin marks every episode of the season). #}
+{% macro toggle(jf_id, played, owner, back, season=none) -%}
+{% from "_icons.html" import icon %}<form class="wtoggle" method="post" action="/media/resume/{{ jf_id }}/{{ 'unwatched' if played else 'watched' }}"><input type="hidden" name="owner" value="{{ owner }}"><input type="hidden" name="back" value="{{ back }}">{% if season is not none %}<input type="hidden" name="season" value="{{ season }}">{% endif %}<button class="btn btn-ghost btn-sm" type="submit">{{ icon("x" if played else "check") }}{{ "Mark unwatched" if played else "Mark watched" }}</button></form>
+{%- endmacro %}
+{% macro season_toggle(s, owner, show_id, back) -%}
+{% from "_icons.html" import icon %}<form class="wtoggle" method="post" action="/media/resume/{{ s.id }}/{{ 'unwatched' if s.all_watched else 'watched' }}"><input type="hidden" name="owner" value="{{ owner }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="scope" value="season">{% if show_id %}<input type="hidden" name="show" value="{{ show_id }}">{% endif %}<input type="hidden" name="season" value="{{ s.n }}"><button class="btn btn-secondary btn-sm" type="submit">{{ icon("x" if s.all_watched else "check") }}{{ "Mark season unwatched" if s.all_watched else "Mark season watched" }}</button></form>
+{%- endmacro %}

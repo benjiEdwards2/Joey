@@ -185,7 +185,10 @@ def episode_list(seasons: list[dict], href_of, page_season=None, next_ep: dict |
                 label = ("Resume ▶" + (f" · {e['left_min']}m left" if e.get("left_min") else "")) if e.get("in_progress")                     else "Play again ▶" if e.get("played") else "Play ▶"
                 play = {"href": href, "label": label}
             eps.append({**e, "state": episode_state(e), "play": play})
-        out.append({**s, "n": n, "episodes": eps, "open": False})
+        aired = [e for e in eps if e.get("aired")]
+        # media-ux3: the season header offers "Mark season unwatched" once every aired episode is watched
+        out.append({**s, "n": n, "episodes": eps, "open": False,
+                    "all_watched": bool(aired) and all(e.get("played") for e in aired)})
     want = page_season if page_season is not None else (next_ep or {}).get("season")
     pick = next((s for s in out if s["n"] == want), None) if want is not None else None
     if pick is None and out:
@@ -575,6 +578,16 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                  (jf_item_id or jf_id) if kind == "movie" and in_progress and not ep else None)
     f["resume_acts"] = ({"jf_id": resume_id, "owner": owner, "reset": True}
                         if resume_id and owner == "you" and media_item.ITEM_RE.match(str(resume_id)) else None)
+    # Watched / unwatched (media-ux3): the season headers, each episode row and the film / episode page toggle. Same
+    # B.'s-views-only rule as above (the page reads watch state as JELLYFIN_USER). A page already offering the
+    # Move-on pair (in progress) gets no second "Mark watched".
+    f["watch_owner"] = owner if owner == "you" and item and not f["jf_failed"] else None
+    f["show_id"] = item["id"] if item and item["kind"] == "series" else None
+    toggle_id = ep["id"] if ep else (jf_item_id if kind == "movie" and item else None)
+    f["watch_toggle"] = ({"jf_id": toggle_id, "played": bool(ep["played"] if ep else played),
+                          "season": ep["season_no"] if ep else None}
+                         if f["watch_owner"] and toggle_id and not f["resume_acts"]
+                         and media_item.ITEM_RE.match(str(toggle_id)) else None)
 
     # --- 5. your rating, diary, watches ---
     key_item = ep or item

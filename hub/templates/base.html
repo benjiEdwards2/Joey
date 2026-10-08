@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+{# No zoom (media-ux5, B.'s explicit choice 2026-10-09): pinch / focus zoom kept getting stuck on the iPhone. iOS ignores
+   user-scalable=no, so the gesture guard below blocks pinch there; trade-off documented in hub/README.md. #}
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>{% block title %}Joey{% endblock %}</title>
 {% if media_mode %}
 <link rel="manifest" href="/static/manifest-media.webmanifest">
@@ -66,6 +68,11 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   document.addEventListener('htmx:pushedIntoHistory', strip);
   document.addEventListener('htmx:replacedInHistory', strip);
 })();
+/* No pinch zoom on iOS Safari (media-ux5, 2026-10-09): Safari ignores user-scalable=no, so its proprietary pinch events
+   are cancelled instead (they never fire elsewhere). Double-tap zoom is off via touch-action in the CSS. */
+['gesturestart', 'gesturechange'].forEach(function (t) {
+  document.addEventListener(t, function (e) { e.preventDefault(); }, {passive: false});
+});
 /* Docked Media sections (media-ux5, 2026-10-09; desktop): once the page's section row (its .dock-sentinel) has scrolled
    under the sticky top bar, the bar gets .is-docked and CSS swaps its section pills for the server-rendered Media row
    (.topdock). Boosts swap <body>, so the observer re-attaches after every settle when the sentinel changed. */

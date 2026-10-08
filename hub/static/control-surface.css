@@ -86,6 +86,9 @@ html { scrollbar-gutter: stable; }
 /* media-ux5 (2026-10-09): the final guard against a sideways swipe on a phone — clip, never hidden (hidden would make
    html/body scroll containers and break the sticky top bar); the real fix is that nothing is wider than the page. */
 html { overflow-x: clip; }
+/* No zoom (media-ux5, B.'s choice 2026-10-09; trade-off in hub/README.md): no double-tap zoom, no text inflation on
+   rotate, and every form control at 16 px on a phone (the rule after "Form controls") so iOS never zooms in on focus. */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { background: var(--bg); color: var(--fg); }
 body {
   font: 14px/1.45 var(--font-sans);
@@ -161,6 +164,8 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .select { height: 36px; border-radius: 8px; border: 1px solid var(--line); background: transparent;
   padding: 0 12px; font: inherit; font-size: 14px; color: var(--text-3); }
 .select > option { background: var(--zinc-900); color: var(--text-2); }
+/* media-ux5 (2026-10-09): iOS zooms in on a focused control under 16 px - phones get 16 px. */
+@media (max-width: 767px) { input, select, textarea, .input, .select, .textarea { font-size: 16px; } }
 
 /* Section label ("WATCHED · 1,261") and micro label over a value */
 .seclabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--text-5); }

@@ -32,7 +32,16 @@ titles ellipsis, chip rows wrap, sideways rows (`.sectabs`, `.carousel`, cast/ma
 tab bar is `position: fixed` to the screen edges, a direct child of `<body>` with no transformed / filtered ancestor
 (either would re-anchor it). Measured in the preview at 320/375/390/430 px on 12 Media pages: `scrollWidth ==
 innerWidth`, bar bottom == `innerHeight` after scrolling. The sideways swipe / drifting bar on the iPhone was iOS focus
-zoom (14 px inputs), fixed by the 16 px rule below. Page header: the
+zoom (14 px inputs), fixed by the 16 px rule below.
+**No zoom (media-ux5, B.'s explicit choice 2026-10-09):** pinch / focus zoom kept getting stuck on the iPhone (the page
+stayed zoomed, so it panned sideways and the bottom bar drifted), so Joey cannot be zoomed: the viewport meta is
+`width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover`; `html` has
+`touch-action: manipulation` (no double-tap zoom) and `text-size-adjust: 100%`; every input / select / textarea is 16 px
+below 768 px (iOS zooms in on focus under 16 px); and because iOS Safari ignores `user-scalable=no`, `base.html` cancels
+its `gesturestart` / `gesturechange` events (they fire nowhere else). **Accessibility trade-off, accepted:** WCAG 1.4.4
+(resize text) asks that users can zoom; on this private two-person app B. chose a page that never gets stuck over pinch
+zoom. iOS "Larger Text" does not reach a web page (it has no Dynamic Type hook here), but Safari's own page zoom (aA menu)
+and the system Zoom accessibility feature still work. Undo by restoring the old meta and removing the gesture guard. Page header: the
 `_pagehead.html` macro (`pagehead(title, sub, eyebrow, backdrop, actions)`; called with `{% call %}` the caller's markup,
 e.g. section tabs, sits on the band) is used by `hub.html`, `area.html`, `server.html`, `weather.html` and
 `media_base.html`: a full-bleed band with a darkened backdrop (Media home uses the hero's) or a faint indigo glow, the

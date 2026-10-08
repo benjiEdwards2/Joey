@@ -1,6 +1,10 @@
 Adopted 2026-10-06 for all of Joey (DECISIONS.md).
 Source: Jack's MediaHub.
 Joey implements it in Jinja + `hub/static/control-surface.css` tokens, not Tailwind.
+Joey deviations (dated; details in `hub/README.md`): media-ux4 (2026-10-08) — the detail hero's coloured IMDb / TMDB /
+Letterboxd link chips are neutral logo pills, and every score is one `.scorepill` (logo + name + score; Metacritic tinted
+by its band); director / creators are headshot cards ("Directed by"); the Movies / TV lists default to a poster grid with
+a Grid / List switch; the Trailer button opens an in-page player.
 
 # MediaHub style guide
 

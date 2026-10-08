@@ -1044,3 +1044,8 @@ a.castcard:hover .castname { text-decoration: underline; }
   transition: background-color .15s; }
 a.awline:hover { background: var(--soft); }
 .awline .row-title { font-size: 14px; }
+
+/* Awards marks (awards-ui item 1, 2026-10-09): _award_icons.html draws in currentColor, so a parent's colour tints them;
+   an override logo (hub/static/awards/<id>.svg|png) keeps its own colours. */
+.awic { display: inline-block; flex-shrink: 0; vertical-align: -.15em; }
+.awlogo { object-fit: contain; }

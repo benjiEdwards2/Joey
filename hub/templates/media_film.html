@@ -59,7 +59,9 @@
           {% if film.rating and not film.score %}<a class="btn btn-icon" href="#rate" aria-label="Rate" title="Rate">{{ icon("star") }}</a>{% endif %}
           {% if film.tmdb and film.t %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg, req_primary = not (film.play and film.play.href) %}{% include "_request_block.html" %}{% endwith %}{% endif %}
-          {% if film.trailer %}<a class="btn btn-icon" href="{{ film.trailer }}" target="_blank" rel="noopener" aria-label="Trailer" title="Trailer">{{ icon("film") }}</a>{% endif %}
+          {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
+             in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
+          {% if film.trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.trailer }}" target="_blank" rel="noopener"{% if film.trailer_key %} data-yt="{{ film.trailer_key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}
           {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Jellyseerr" title="Open in Jellyseerr">{{ icon("external") }}</a>{% endif %}
         </div>
       </div>
@@ -277,6 +279,41 @@
 {% endif %}
 
 </div>
+
+{% if film.trailer_key %}
+{# The trailer player (media-ux4, 2026-10-08): an empty <dialog>; the click handler adds a youtube-nocookie.com iframe
+   (autoplay, no related videos) and opens it; closing (Close, Esc, the backdrop) removes the iframe, so the video stops
+   and nothing stays connected. Recorded privacy exception: docs/connector-contract.md (Trailer player). #}
+<dialog class="trailerdlg" id="trailer" aria-label="Trailer: {{ film.title }}">
+  <div class="trailerbar"><span class="trailertitle">{{ film.title }} · Trailer</span><form method="dialog"><button class="btn btn-glass btn-sm" type="submit">{{ icon("x") }}Close</button></form></div>
+  <div class="trailerframe"></div>
+</dialog>
+<script>
+(function () {
+  if (window.joeyTrailer) return;   /* boosted navigations re-run this script: bind once */
+  window.joeyTrailer = true;
+  var KEY = /^[A-Za-z0-9_-]{11}$/;
+  document.addEventListener('click', function (e) {
+    var dlg = document.getElementById('trailer');
+    if (dlg && e.target === dlg) { dlg.close(); return; }   /* a click on the backdrop */
+    var a = e.target.closest ? e.target.closest('a[data-yt]') : null;
+    if (!a || !dlg || typeof dlg.showModal !== 'function' || !KEY.test(a.getAttribute('data-yt') || '')) return;
+    e.preventDefault();
+    var box = dlg.querySelector('.trailerframe'), f = document.createElement('iframe');
+    f.src = 'https://www.youtube-nocookie.com/embed/' + a.getAttribute('data-yt') + '?autoplay=1&rel=0';
+    f.title = 'Trailer';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.setAttribute('allowfullscreen', '');
+    f.referrerPolicy = 'strict-origin-when-cross-origin';
+    box.replaceChildren(f);
+    dlg.showModal();
+  });
+  document.addEventListener('close', function (e) {   /* close does not bubble: caught on the way down */
+    if (e.target && e.target.id === 'trailer') e.target.querySelector('.trailerframe').replaceChildren();
+  }, true);
+})();
+</script>
+{% endif %}
 
 {% for sh in film.shelves %}
 <section class="sec">

@@ -16,7 +16,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -423,14 +423,40 @@ def _releases(raw: dict, arr: dict, tmdb) -> list[dict]:
             if label in found and md._date_words(found[label])[0]]
 
 
-def _trailer(jf_url, raw: dict) -> str | None:
-    if jf_url:
-        return jf_url
+YT_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+YT_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtube-nocookie.com", "www.youtube-nocookie.com"}
+
+
+def youtube_key(url) -> str | None:
+    """The 11-character YouTube video id in a watch / youtu.be / embed / shorts URL, else None."""
+    try:
+        parts = urlsplit(str(url or ""))
+    except ValueError:
+        return None
+    host, path = (parts.hostname or "").lower(), parts.path
+    if host == "youtu.be":
+        key = path.strip("/").split("/")[0]
+    elif host in YT_HOSTS:
+        key = (parse_qs(parts.query).get("v") or [""])[0] if path == "/watch" else \
+            path.split("/")[2] if path.startswith(("/embed/", "/shorts/")) and path.count("/") >= 2 else ""
+    else:
+        return None
+    return key if YT_KEY_RE.match(key or "") else None
+
+
+def _trailer(jf_url, raw: dict) -> tuple[str | None, str | None]:
+    """(link, YouTube key) for the Trailer button. Candidates: Jellyfin's RemoteTrailers URL, then Jellyseerr's TMDB
+    `relatedVideos` (YouTube trailers; their `key` field, else the key in the URL). The first one with a YouTube key wins
+    — the in-page player (media-ux4) needs it, and the link (the no-JS fallback) is that same video; none has a key: the
+    first link, played on YouTube itself."""
+    cands = [(jf_url, youtube_key(jf_url))] if jf_url else []
     for v in raw.get("relatedVideos") or []:
         url = str(v.get("url") or "") if isinstance(v, dict) else ""
         if v.get("site") == "YouTube" and v.get("type") == "Trailer" and url.startswith("https://"):
-            return url
-    return None
+            key = str(v.get("key") or "")
+            cands.append((url, key if YT_KEY_RE.match(key) else youtube_key(url)))
+    keyed = next((c for c in cands if c[1]), None)
+    return keyed or (cands[0] if cands else (None, None))
 
 
 def _cast(raw: dict, people: list[dict]) -> list[dict]:
@@ -736,7 +762,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
     f["maker_h"] = MAKER_H
     f["providers"] = _providers(raw, title)
-    f["trailer"] = _trailer((item or {}).get("trailer"), raw)
+    f["trailer"], f["trailer_key"] = _trailer((item or {}).get("trailer"), raw)   # media-ux4: in-page player key
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
     f["shelves"] = _shelves(raw, kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
     f["collection"] = collection_banner(raw, kind, lib_keys, tmdb_id) if raw and kind and tmdb_id else None

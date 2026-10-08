@@ -243,7 +243,7 @@ def test_trailer_jellyfin_then_jellyseerr_then_none(env, monkeypatch):
     client, both = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-        assert 'href="https://www.youtube.com/watch?v=seerr1" target="_blank" rel="noopener" aria-label="Trailer"' in b
+        assert 'href="https://www.youtube.com/watch?v=seerr1" target="_blank" rel="noopener">' in b and ">Trailer</a>" in b   # media-ux4: a word button
         monkeypatch.setitem(ITEMS["mov1"], "RemoteTrailers", [{"Url": "https://www.youtube.com/watch?v=jf1"}])
         media_item.clear_cache()
         b = main_of(client.get("/media/title/movie/603").text)

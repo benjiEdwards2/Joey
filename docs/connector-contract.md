@@ -146,6 +146,15 @@ OMDb's own limit stops calls for the rest of the day without marking any title. 
 failure ⇒ no pill, never a 500. The request URL carries the key, so logs carry the HTTP status or exception type only —
 never a URL, message or body — and the page never carries the key.
 
+**Trailer player (media-ux4, 2026-10-08) — a recorded privacy exception, like the Windy radar.** The film page's
+Trailer button opens an in-page player: a `<dialog>` into which a small inline script inserts
+`<iframe src="https://www.youtube-nocookie.com/embed/{key}?autoplay=1&rel=0">` **only when the user presses Trailer**
+(nothing in the page loads from YouTube before that; the initial HTML holds no iframe), and closing the dialog removes the
+iframe. So the browser — not the hub — talks to youtube-nocookie.com, only after that press. The key is the YouTube id of
+Jellyfin's `RemoteTrailers` URL or Jellyseerr's TMDB `relatedVideos` trailer (11 characters, validated server-side and in
+the script). Without JS the button is a plain link to the video on YouTube. The hub sends no CSP header today; if one is
+added, it must allow `frame-src https://www.youtube-nocookie.com`.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

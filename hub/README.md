@@ -385,6 +385,12 @@ person image when Jellyseerr has none; initials when neither) and the name at 16
 (`MAKERS_MAX`). Phone: one sideways row, centred while it fits; from 640 px they wrap. The site pills follow on their own
 line; the Crew section below still lists every role.
 
+Trailer player (media-ux4, 2026-10-08): the hero's Trailer button (now a word button, `btn-glass` + film icon) links
+to the trailer and, when it is a YouTube video (`media_film.youtube_key` / `_trailer`: Jellyfin RemoteTrailers, then
+Jellyseerr `relatedVideos`, first with an 11-character key), carries `data-yt`; a click opens `<dialog id="trailer">` and
+the inline script creates the `youtube-nocookie.com/embed/{key}?autoplay=1&rel=0` iframe only then; Close / Esc / the
+backdrop closes it and removes the iframe. No JS: the plain link. Recorded privacy exception in the contract doc.
+
 Metacritic (media-ux4, 2026-10-08): `media_omdb.metascore(imdb_id)` fills the Metacritic pill from OMDb when
 `OMDB_API_KEY` is set (contract doc, fifteenth exception): one lookup by IMDb id, every answer remembered 7 days in memory
 + on disk (`omdb:<id>` in the meta cache), ≤ 800 calls per process per day, a refused key stops calls for the day; no key,

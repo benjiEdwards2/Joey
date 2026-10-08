@@ -1107,3 +1107,13 @@ a.awline:hover { background: var(--soft); }
    an override logo (hub/static/awards/<id>.svg|png) keeps its own colours. */
 .awic { display: inline-block; flex-shrink: 0; vertical-align: -.15em; }
 .awlogo { object-fit: contain; }
+/* Poster winner badges (awards-ui item 3): the mark of the most prestigious win in a dark round badge at the poster's
+   bottom right ("+N" more ceremonies), and a gold frame on the poster — only for titles that WON. */
+.card-pic.is-won > img { box-shadow: var(--shadow-poster), 0 0 0 2px var(--gold); }
+.awbadge { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; justify-content: center;
+  gap: 2px; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 999px; background: var(--poster-badge-bg);
+  box-shadow: 0 0 0 1px var(--gold-line); color: var(--gold); font-size: 11px; font-weight: 700; line-height: 1;
+  font-variant-numeric: tabular-nums; }
+.awbadge-n { font-weight: 700; }
+.awnoms .awbadge { right: 3px; bottom: 3px; min-width: 20px; height: 20px; padding: 0 3px; }
+.awnoms .awbadge .awic { width: 12px; height: 12px; }

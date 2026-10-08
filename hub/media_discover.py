@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from hub import media_files
+from hub import media_awards_badges, media_files
 from hub.images import REF_RE, cache_dir
 from hub.media_watchlist import keys_for
 from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
@@ -253,6 +253,7 @@ def discover_page(request: Request, q: str = ""):
                 ctx["services"] = svc.result()
         ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in ctx["rows"]
                                             + [r for s in ctx["shelves"] for r in s["rows"] or []]])
+        media_awards_badges.attach(ctx["rows"] + [r for s in ctx["shelves"] for r in s["rows"] or []])  # awards-ui 3
         return ctx
 
     return _page(request, "media_discover.html", build)
@@ -261,6 +262,7 @@ def discover_page(request: Request, q: str = ""):
 @router.get("/media/discover/search", response_class=HTMLResponse)
 def discover_search(request: Request, q: str = ""):
     rows, note = _search_outcome(q.strip()[:100])
+    media_awards_badges.attach(rows)
     return _partial(request, "_discover_results.html", rows=rows, note=note,
                     wl_keys=keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in rows]))
 
@@ -387,6 +389,7 @@ def service_page(request: Request, provider_id: int):
         if _creds():
             ctx["shelves"] = service_shelves(provider_id)
         ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for s in ctx["shelves"] for r in s["rows"] or []])
+        media_awards_badges.attach([r for s in ctx["shelves"] for r in s["rows"] or []])
         return ctx
 
     return _page(request, "media_service.html", build)

@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_arr_search, media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -766,6 +766,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
     f["shelves"] = _shelves(raw, kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
     f["collection"] = collection_banner(raw, kind, lib_keys, tmdb_id) if raw and kind and tmdb_id else None
+    media_awards_badges.attach([r for sh in f["shelves"] for r in sh["rows"]]       # awards-ui item 3: one lookup
+                               + ((f["collection"] or {}).get("rows") or []), kind)
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
     if f["collection"]:

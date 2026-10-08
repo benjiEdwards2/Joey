@@ -26,6 +26,7 @@ from hub.images import router as images_router
 from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
+from hub import media_awards_badges
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
 from hub import media_awards, media_awards_pages
@@ -1449,6 +1450,7 @@ def _library_page(request: Request, kind: str):
         resume = {str(r.get("jf_id")) for r in data.get("up_next") or [] if media_resume.in_progress(r) and r.get("jf_id")}
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
+        media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
         arr = get_snapshots().get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: item_href(jf))

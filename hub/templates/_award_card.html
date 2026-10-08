@@ -4,12 +4,12 @@
    faint neutral outline; seen is an emerald "Seen ✓" tag over the poster (Q4: the viewer's own played flag or a diary
    row). #}
 {% from "_poster.html" import poster %}
-{% from "_award_icons.html" import award_icon %}
+{% from "_award_icons.html" import award_icon, award_badge %}
 {% macro tag(c) -%}{% if c.seen %}<span class="poster-tag is-seen">Seen ✓</span>{% endif %}{%- endmacro %}
 {# A nominee thumbnail: poster (h=120 / 240), title, one meta line. #}
 {% macro thumb(c, h=240) -%}
 <{{ "a" if c.href else "div" }} class="card-poster awthumb"{% if c.href %} href="{{ c.href }}"{% endif %}>
-  <span class="card-pic">{{ poster(c.poster, c.title, h) }}{{ tag(c) }}</span>
+  <span class="card-pic{{ ' is-won' if c.award }}">{{ poster(c.poster, c.title, h) }}{{ tag(c) }}{{ award_badge(c.award) }}</span>
   <span class="row-title">{{ c.title }}</span>
   {% if c.sub %}<span class="row-meta">{{ c.sub }}</span>{% endif %}
 </{{ "a" if c.href else "div" }}>

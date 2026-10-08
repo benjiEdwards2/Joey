@@ -49,3 +49,9 @@
 </svg>
 {%- endif -%}
 {%- endmacro %}
+{# Poster winner badge (awards-ui item 3): the mark of the title's most prestigious win at the poster's bottom right,
+   "+N" when it won at more ceremonies; the label ("Won Best Picture · Oscars 2025") is its accessible name and
+   tooltip. The poster's gold frame comes from `.card-pic.is-won` on the parent. `b`: media_awards_badges.badge_of. #}
+{% macro award_badge(b) -%}
+{%- if b -%}<span class="awbadge" role="img" aria-label="{{ b.label }}" title="{{ b.label }}">{{ award_icon(b.body_id, 14, src=b.logo, deco=true) }}{% if b.more %}<b class="awbadge-n" aria-hidden="true">+{{ b.more }}</b>{% endif %}</span>{%- endif -%}
+{%- endmacro %}

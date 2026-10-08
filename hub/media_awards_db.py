@@ -409,6 +409,29 @@ def person_awards(tmdb_person: int) -> dict:
     return {"wins": sum(1 for v in seen.values() if v), "noms": len(seen), "rows": out}
 
 
+def win_rows(movie_ids=(), tv_ids=(), tvdb_ids=(), qids=()) -> list[dict]:
+    """Poster winner badges (awards-ui item 3): every WON (ceremony, category) of the works matching these TMDB movie /
+    TMDB TV / TheTVDB ids or QIDs, in ONE statement (ids passed as JSON arrays, so a page of 1,000 posters is still one
+    query): [{qid, tmdb_movie, tmdb_tv, tvdb, body_id, year, cat, rank}]. [] without a media.db (never creates it)."""
+    ints = [json.dumps([int(x) for x in v if str(x).isdigit()]) for v in (movie_ids, tv_ids, tvdb_ids)]
+    qs = json.dumps([q for q in qids if is_qid(q)])
+    if ints == ["[]"] * 3 and qs == "[]":
+        return []
+    db = _reader()
+    if db is None:
+        return []
+    with closing(db):
+        return [dict(r) for r in db.execute(
+            "SELECT e.qid, e.tmdb_movie, e.tmdb_tv, e.tvdb, n.body_id, ed.year, c.name AS cat, c.rank "
+            "FROM award_entity e JOIN award_nomination n ON n.work_qid = e.qid AND n.won = 1 "
+            "JOIN award_category c ON c.body_id = n.body_id AND c.cat_key = n.cat_key "
+            "JOIN award_edition ed ON ed.body_id = n.body_id AND ed.ordinal = n.ordinal "
+            "WHERE e.qid IN (SELECT qid FROM award_entity WHERE tmdb_movie IN (SELECT value FROM json_each(?)) "
+            "UNION SELECT qid FROM award_entity WHERE tmdb_tv IN (SELECT value FROM json_each(?)) "
+            "UNION SELECT qid FROM award_entity WHERE tvdb IN (SELECT value FROM json_each(?)) "
+            "UNION SELECT value FROM json_each(?))", (*ints, qs))]
+
+
 MONTHS = ("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
 
 

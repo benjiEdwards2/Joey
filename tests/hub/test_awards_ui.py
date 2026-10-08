@@ -194,3 +194,146 @@ def test_gold_tokens_are_defined_once_in_root():
     root = CSS.split(":root {", 1)[1].split("}", 1)[0]
     for tok in ("--gold:", "--gold-soft:", "--gold-line:"):
         assert root.count(tok) == 1 and CSS.count(tok) == 1, tok
+
+
+# ---- item 3: poster winner badges ----
+from contextlib import closing  # noqa: E402
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from hub import media_awards_badges as badges, media_awards_db as adb, media_db  # noqa: E402
+from tests.hub.test_awards_db import seed_oscars  # noqa: E402
+from tests.hub import test_media_library_pages as lib  # noqa: E402
+from tests.hub.test_media_frame import env as frame_env  # noqa: E402,F401  (fixture)
+
+
+def win(body, cat, rank, year, qid="Q1"):
+    return {"qid": qid, "tmdb_movie": None, "tmdb_tv": None, "tvdb": None, "body_id": body, "cat": cat, "rank": rank,
+            "year": year}
+
+
+def test_badge_takes_the_most_prestigious_ceremony_and_counts_the_rest():
+    b = badges.badge_of([win("bafta", "Best Film", 0, 2025), win("oscars", "Best Actor", 300, 2025),
+                         win("oscars", "Best Picture", 0, 2025), win("sag", "Outstanding Cast", 0, 2025),
+                         win("bafta", "Best Editing", 1000, 2025)])
+    assert b == {"body_id": "oscars", "logo": None, "more": 2,
+                 "label": "Won Best Picture · Oscars 2025 · +2 more ceremonies"}
+    assert badges.badge_of([win("cannes", "Palme d'Or", 0, 2024), win("globes", "Best Motion Picture – Drama", 0, 2025)]
+                           )["body_id"] == "cannes"                          # Cannes outranks BAFTA / Globes
+    assert badges.badge_of([win("wga", "Best Original Screenplay", 0, 2020)])["label"] == \
+        "Won Best Original Screenplay · WGA 2020"
+    assert badges.badge_of([]) is None
+    assert badges.PRESTIGE == ("oscars", "cannes", "bafta", "globes", "emmys", "critics", "sag", "dga", "pga", "wga")
+
+
+def test_lookup_is_one_query_per_page_winners_only_and_cached(monkeypatch):
+    with closing(adb.ensure()) as db:
+        seed_oscars(db)
+    calls = []
+    real = adb.win_rows
+    monkeypatch.setattr(adb, "win_rows", lambda *a: calls.append(a) or real(*a))
+    badges._cache.clear()
+    pairs = [("movie", "tmdb:11"), ("movie", "tmdb:12"), ("movie", "jf:abc")] + [("movie", f"tmdb:{900 + i}")
+                                                                                   for i in range(300)]
+    got = badges.lookup(pairs)
+    assert set(got) == {("movie", "tmdb:11")}                                # Beta (tmdb:12) was only nominated
+    assert got[("movie", "tmdb:11")]["label"] == "Won Best Picture · Oscars 2025"
+    assert len(calls) == 1                                                    # 303 posters, one query
+    badges.lookup(list(reversed(pairs)))
+    assert len(calls) == 1                                                    # same set within TTL: cached
+    monkeypatch.setattr(badges, "TTL", 0.0)
+    badges.lookup(pairs)
+    assert len(calls) == 2
+    assert badges.lookup(qids=["Q1001", "Q1002", "~gamma"]) == {"Q1001": got[("movie", "tmdb:11")]}
+    assert badges.lookup([("tv", "tmdb:11")]) == {}                          # a film id is not a show id
+
+
+def test_lookup_without_media_db_never_creates_it():
+    badges._cache.clear()
+    assert badges.lookup([("movie", "tmdb:11")]) == {} and not media_db.db_path().exists()
+    rows = badges.attach([{"item_key": "tmdb:11", "kind": "movie"}, {"tmdb_id": 5, "kind": "tv"}, "junk"])
+    assert [r["award"] for r in rows] == [None, None]
+
+
+def test_attach_keys_rows_by_item_key_or_tmdb_id_and_kind():
+    with closing(adb.ensure()) as db:
+        seed_oscars(db)
+    badges._cache.clear()
+    rows = badges.attach([{"item_key": "tmdb:11"}, {"tmdb_id": 11, "kind": "movie"}, {"tmdb_id": 11, "kind": "tv"},
+                          {"item_key": "jf:x"}, {"tmdb_id": 12}], "movie")
+    assert [bool(r["award"]) for r in rows] == [True, True, False, False, False]
+
+
+def test_library_grid_badges_winners_with_a_gold_frame(frame_env):
+    main = frame_env(jellyfin=lib.jelly(), arr=lib.ARRV)
+    with closing(adb.ensure()) as db:
+        seed_oscars(db)
+    badges._cache.clear()
+    with TestClient(main.app) as c:
+        b = c.get("/media/movies?view=grid&group=0").text.split("<main", 1)[1]
+    grid = b.split('class="poster-grid libgrid"', 1)[1]
+    alpha = grid.split(">Alpha Film<", 1)[0].rsplit('class="card-poster"', 1)[1]
+    assert '<span class="card-pic is-won">' in alpha
+    assert re.search(r'<span class="awbadge" role="img" aria-label="Won Best Picture · Oscars 2025" '
+                     r'title="Won Best Picture · Oscars 2025"><svg class="awic awic-oscars"[^>]*aria-hidden="true"', alpha)
+    bravo = grid.split(">Bravo Film<", 1)[0].rsplit('class="card-poster"', 1)[1]
+    assert "is-won" not in bravo and "awbadge" not in bravo                   # a nomination alone: no badge, no frame
+    assert grid.count('class="awbadge"') == 1
+
+
+def test_badge_css_sits_bottom_right_with_tokens():
+    assert re.search(r"\.awbadge \{ position: absolute; right: 6px; bottom: 6px;", CSS)
+    assert re.search(r"\.card-pic\.is-won > img \{[^}]*var\(--gold\)", CSS)
+
+
+def test_awards_page_posters_carry_badges_by_qid(env):
+    build, _ = env
+    seeded()
+    badges._cache.clear()
+    with build(jelly(ALPHA)) as client:
+        b = page(client, "/media/movies/awards")
+    hero = hero_of(b)
+    assert 'aria-label="Won Best Picture · Oscars 2025"' in hero              # the hero winner's poster
+    assert hero.count('class="awbadge"') == 1                                 # Beta / Gamma / Delta: nominees only
+
+
+from tests.hub import test_media_discover as disc  # noqa: E402
+from tests.hub.test_media_discover import env as disc_env  # noqa: E402,F401  (fixture)
+from tests.hub.test_media_film import env as film_env  # noqa: E402,F401  (fixture)
+
+
+def card_of(html, title):
+    return html.split(f">{title}<", 1)[0].rsplit('<span class="card-pic', 1)[1]
+
+
+def test_discover_cards_badge_winners(disc_env):
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "bafta", [{"ordinal": 78, "year": 2025}])
+        adb.write_edition(db, "bafta", 78, [{"cat_key": "best-film", "name": "Best Film", "kind": "film", "lead": "work"}],
+                          [{"cat_key": "best-film", "work_qid": "Q9002", "work_title": "Film Four", "won": 1, "pos": 0},
+                           {"cat_key": "best-film", "work_qid": "Q9003", "work_title": "Film Three", "won": 0, "pos": 1}],
+                          {"Q9002": {"qid": "Q9002", "kind": "film", "label": "Film Four", "tmdb_movie": 2},
+                           "Q9003": {"qid": "Q9003", "kind": "film", "label": "Film Three", "tmdb_movie": 3}}, "done", "wp")
+    badges._cache.clear()
+    client, fake = disc_env()
+    fake.search_results = {"results": [disc.res(2, "Film Four", media="movie"), disc.res(5, "Film None", media="movie")]}
+    with client:
+        b = disc.main_of(client.get("/media/discover").text)
+        part = client.get("/media/discover/search?q=film").text
+    four = card_of(b, "Film Four")
+    assert four.startswith(' is-won">') and 'aria-label="Won Best Film · BAFTA 2025"' in four and "awic-bafta" in four
+    assert "awbadge" not in card_of(b, "Film Three") and "awbadge" not in card_of(b, "Film Five")
+    assert 'aria-label="Won Best Film · BAFTA 2025"' in card_of(part, "Film Four")   # the search partial too
+    assert "awbadge" not in card_of(part, "Film None")
+
+
+def test_film_page_similar_rows_badge_winners(film_env):
+    with closing(adb.ensure()) as db:
+        seed_oscars(db)                                                       # Alpha (tmdb 11) won Best Picture
+    badges._cache.clear()
+    client, _ = film_env()
+    with client:
+        b = client.get("/media/title/movie/603").text.split("<main", 1)[1]
+    one = card_of(b, "Similar One")
+    assert one.startswith(' is-won">') and 'aria-label="Won Best Picture · Oscars 2025"' in one
+    assert "awbadge" not in card_of(b, "Similar Two") and "awbadge" not in card_of(b, "Rec One")

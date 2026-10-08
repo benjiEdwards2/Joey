@@ -3,10 +3,11 @@
    fallback); hidden once it is on the list. The whole card is the link (a.rowlink over the .card-cell). #}
 {% from "_poster.html" import poster %}
 {% from "_icons.html" import icon %}
+{% from "_award_icons.html" import award_badge %}
 {% macro item(i, wl_keys=none) -%}
 <div class="card-cell">
 <a class="rowlink" href="{{ i.href }}">
-  <span class="card-pic">{{ poster(i.poster, i.title, 240) }}</span>
+  <span class="card-pic{{ ' is-won' if i.award }}">{{ poster(i.poster, i.title, 240) }}{{ award_badge(i.award) }}</span>
   <span class="row-title">{{ i.title }}</span>
 </a>
 {%- if wl_keys is not none and ("tmdb:" ~ i.tmdb_id) not in wl_keys %}

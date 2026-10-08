@@ -3,7 +3,7 @@
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_icons.html" import icon %}
-{% from "_award_icons.html" import award_icon %}
+{% from "_award_icons.html" import award_icon, award_badge %}
 {% import "_award_card.html" as aw %}
 {# Movies / TV Shows > Awards (AWARDS_PLAN A4, 2026-10-08; visual pass awards-ui item 2, 2026-10-09). Top to bottom:
    title + the one staleness line; Coming up (a stats strip by month, each ceremony with its mark, the next one
@@ -50,7 +50,7 @@
   {% if hbd %}<img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async">{% endif %}
   {% if w %}
   <{{ "a" if w.href else "div" }} class="awwin"{% if w.href %} href="{{ w.href }}"{% endif %}>
-    <span class="card-pic awframe is-won">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}</span>
+    <span class="card-pic awframe is-won">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}{{ award_badge(w.award) }}</span>
     <span class="awwin-text">
       <span class="awpill is-won">{{ award_icon("trophy", 14, deco=true) }}{{ hero.name }}</span>
       <span class="awwin-title">{{ w.title }}</span>

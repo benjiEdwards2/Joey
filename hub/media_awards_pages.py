@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse
 from starlette.background import BackgroundTask
 
 from hub import media_awards_db as adb
+from hub import media_awards_badges as badges
 from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
 from hub import media_db, media_discover as md, media_item
@@ -275,8 +276,12 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     ed = (page or {}).get("edition")
     hero, cats, more = None, [], []
     tally = _tally(page) if page else {}
+    won_by = badges.lookup(qids=[(e.get("work") or {}).get("qid") for c in (page or {}).get("categories") or []
+                                 for e in c["entries"]])   # awards-ui item 3: one query for the whole edition
     for c in (page or {}).get("categories") or []:
         cards = [card(e, c["lead"], seen, kind) for e in c["entries"]]
+        for x in cards:
+            x["award"] = won_by.get(x["work_qid"]) if c["lead"] != "person" else None
         winner_seen = any(x["seen"] for x in cards if x["won"])
         if unseen:
             cards = [x for x in cards if not x["seen"]]

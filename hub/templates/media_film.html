@@ -35,9 +35,10 @@
           {% if film.makers %}<span>{{ film.makers_label }}</span>
           {% for m in film.makers %}{% if not loop.first %}<span class="sep">·</span>{% endif %}{% if m.id %}<a href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }}</a>{% endif %}{% endfor %}{% endif %}
           {% if film.tmdb and film.kind in ("movie", "tv") %}
-          <a class="linkchip linkchip-imdb" href="https://www.imdb.com/find/?q={{ (film.title ~ (' ' ~ film.year if film.year else ''))|urlencode }}" target="_blank" rel="noopener">IMDb</a>
-          <a class="linkchip linkchip-tmdb" href="https://www.themoviedb.org/{{ film.kind }}/{{ film.tmdb }}" target="_blank" rel="noopener">TMDB</a>
-          {% if film.kind == "movie" %}<a class="linkchip linkchip-lbxd" href="https://letterboxd.com/tmdb/{{ film.tmdb }}" target="_blank" rel="noopener">Letterboxd</a>{% endif %}
+          {# media-ux4: the site links are neutral logo pills, the same family as the score pills #}
+          <a class="scorepill sitepill" href="https://www.imdb.com/find/?q={{ (film.title ~ (' ' ~ film.year if film.year else ''))|urlencode }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.imdb }}" alt="" width="16" height="16">IMDb</a>
+          <a class="scorepill sitepill" href="https://www.themoviedb.org/{{ film.kind }}/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.tmdb }}" alt="" width="16" height="16">TMDB</a>
+          {% if film.kind == "movie" %}<a class="scorepill sitepill" href="https://letterboxd.com/tmdb/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.lbxd }}" alt="" width="16" height="16">Letterboxd</a>{% endif %}
           {% endif %}
         </div>
         {% endif %}
@@ -91,13 +92,23 @@
 {# film-quality (2026-10-07): MediaHub-style body — the numbers as ONE card, then uppercase section labels:
    OVERVIEW, FILE (badges, Size · Bitrate · Picture · Added, Audio / Subtitles / Release, the file name), CREW,
    DETAILS (dates, watches, request), CAST (portrait photo cards in a row that scrolls inside itself). #}
-{% if film.rating or n.community or n.imdb or n.rt or n.runtime or film.official %}
+{# One rating style (media-ux4, 2026-10-08): every score is a .scorepill — a small monogram logo, the source's name and
+   the score in one format: IMDb 8.0 · RT 90% · Metacritic 74 (tinted by its band, number always shown) · TMDB 8.1 ·
+   Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain stats beside them. #}
+{% macro sp(id, name, value, extra="") -%}
+<span class="scorepill sp-{{ id }}{{ extra }}" title="{{ name }} {{ value }}"><img class="sp-logo" src="{{ film.logos[id] }}" alt="" width="16" height="16"><span class="sp-name">{{ name }}</span><b class="sp-val">{{ value }}</b></span>
+{%- endmacro %}
+{% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc %}
+{% if any_score or n.runtime or film.official %}
 <div class="stats numbers">
-  {% if film.rating and film.score %}<div class="stat" id="rate"><div class="microlabel">Your rating</div>{{ rate.rated(film.rating, film.score) }}</div>
-  {% elif film.rating %}<div class="stat"><div class="microlabel">Your rating</div><a class="stat-word stat-link" href="#rate">Rate</a></div>{% endif %}
-  {% if n.community %}<div class="stat"><div class="microlabel">Community</div><div class="stat-word">{{ n.community }}</div></div>{% endif %}
-  {% if n.imdb %}<div class="stat"><div class="microlabel">IMDb</div><div class="stat-number">{{ n.imdb }}</div></div>{% endif %}
-  {% if n.rt %}<div class="stat"><div class="microlabel">Rotten Tomatoes</div><div class="stat-number">{{ n.rt }}</div></div>{% endif %}
+  {% if any_score %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
+    {% if n.imdb %}{{ sp("imdb", "IMDb", n.imdb) }}{% endif %}
+    {% if n.rt %}{{ sp("rt", "RT", n.rt) }}{% endif %}
+    {% if n.mc %}{{ sp("mc", "Metacritic", n.mc, " sp-mc-" ~ n.mc_band) }}{% endif %}
+    {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
+    {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
+    {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
+  </div></div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>

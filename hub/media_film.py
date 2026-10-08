@@ -29,6 +29,7 @@ log = logging.getLogger("hub.media_film")
 router = APIRouter()
 
 BADGES_DIR = Path(__file__).resolve().parent / "static" / "badges"
+LOGO_IDS = ("imdb", "rt", "mc", "tmdb", "lbxd", "you")   # media-ux4: hub/static/logos/<id>.svg monograms
 CAST_MAX, SHELF_MAX = 8, 10
 CAST_H = 400   # /img size of a portrait cast card (180 x 270 px; TMDB w500 covers 2x). The warm-up warms the same.
 CREW_ROLES = (("Director", ("Director",)), ("Writer", ("Screenplay", "Writer", "Story", "Novel")),
@@ -72,7 +73,7 @@ def parse_ratings(body) -> dict:
     rt = body.get("rt") if isinstance(body.get("rt"), dict) else body if "criticsScore" in body else None
     imdb = body.get("imdb") if isinstance(body.get("imdb"), dict) else None
     if rt and _score(rt.get("criticsScore")):
-        out["rt"] = f"{int(_score(rt['criticsScore']))} %"
+        out["rt"] = f"{int(_score(rt['criticsScore']))}%"   # media-ux4: one score format ("90%")
     if imdb and _score(imdb.get("criticsScore")):
         out["imdb"] = f"{_score(imdb['criticsScore']):.1f}"
     return out
@@ -221,6 +222,25 @@ def listed_episode(ep: dict, seasons: list[dict]) -> dict:
     jf = hit["jf_id"] if media_item.ITEM_RE.match(str(hit.get("jf_id") or "")) else ep["id"]
     return {**ep, "id": jf, "played": bool(hit.get("played")), "in_progress": prog,
             "left_text": (f"{left} min left" if left else ep.get("left_text")) if prog else None}
+
+
+def logos() -> dict:
+    """{id: url} for the score / site pills (media-ux4, 2026-10-08): `hub/static/badges/logo-<id>.svg|png` when dropped
+    in (the badge override folder), else the shipped monogram `/static/logos/<id>.svg`."""
+    return {i: _override(f"logo-{i}") or f"/static/logos/{i}.svg" for i in LOGO_IDS}
+
+
+def score_text(value) -> str | None:
+    """A 0-10 score in the pills' one format: 8.0 -> "8.0", "7.4 / 10" -> "7.4"; None when absent."""
+    m = re.match(r"\s*(\d+(?:\.\d+)?)", str(value)) if value is not None else None
+    return f"{float(m.group(1)):.1f}" if m and float(m.group(1)) > 0 else None
+
+
+def mc_band(score) -> str | None:
+    """Metacritic's colour band: good >= 61, mid 40-60, bad < 40 (the number is always shown too)."""
+    if not isinstance(score, int) or isinstance(score, bool):
+        return None
+    return "good" if score >= 61 else "mid" if score >= 40 else "bad"
 
 
 def _override(badge_id) -> str | None:
@@ -684,9 +704,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     ends = None
     if mins and (kind == "movie" or ep):
         ends = (hub._now_home() + timedelta(minutes=mins)).strftime("%H:%M")
-    community = (f"{item['community_rating']} / 10" if item and item.get("community_rating") else (t or {}).get("vote"))
-    f["numbers"] = {"community": community, "imdb": ratings.get("imdb"), "rt": ratings.get("rt"),
+    # media-ux4: every score is a pill in one format — IMDb 8.0 · RT 90% · Metacritic 74 · TMDB 8.1 · Yours 8
+    community = score_text(item["community_rating"] if item and item.get("community_rating") else (t or {}).get("vote"))
+    f["numbers"] = {"tmdb": community, "imdb": ratings.get("imdb"), "rt": ratings.get("rt"), "mc": None, "mc_band": None,
                     "runtime": runtime_text(runtime_min) if runtime_min else None, "ends": ends}
+    f["logos"] = logos()
     added = md._date_words(item.get("added"))[0] if item and item.get("added") else None
     f["file"] = file_panel(files, kind, added)
     f["facts"] = {"runtime": runtime_text(runtime_min) if runtime_min else None,

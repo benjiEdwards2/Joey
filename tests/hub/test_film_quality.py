@@ -254,8 +254,8 @@ def test_stats_card_and_portrait_cast(env):
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
     stats = b.split('<div class="stats numbers">', 1)[1].split("\n</div>", 1)[0]
-    assert '>Your rating</div><a class="stat-word stat-link" href="#rate">Rate</a>' in stats
-    assert ">IMDb</div>" in stats and ">Runtime</div>" in stats
+    assert '<a class="scorepill sp-you" href="#rate">' in stats and '<b class="sp-val">Rate</b></a>' in stats  # media-ux4 (2026-10-08, B.): one pill style
+    assert '<span class="sp-name">IMDb</span>' in stats and ">Runtime</div>" in stats
     cast = b.split('<div class="castrow">', 1)[1].split("</section>", 1)[0]
     assert f'src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in cast and 'width="180" height="270"' in cast
     assert '<span class="castname">Ada Actor</span><span class="castrole">as Pilot</span>' in cast

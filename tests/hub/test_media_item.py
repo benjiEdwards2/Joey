@@ -130,7 +130,7 @@ def test_movie_page(env):
     assert r.status_code == 200
     b = main_of(html)
     assert "Harbour Lights (2019)" in b and "A ferry pilot returns home." in b
-    assert "Drama · Thriller" in b and "1h 52m" in b and "7.8 / 10" in b and ">M<" in b
+    assert "Drama · Thriller" in b and "1h 52m" in b and '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and ">M<" in b  # media-ux4 (2026-10-08, B.): one pill style
     assert f'href="{deep("mov1")}" target="_blank" rel="noopener"' in b
     assert "Resume ▶ · 32 min left" in b                       # 112 - 80 minutes
     assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate

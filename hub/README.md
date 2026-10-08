@@ -96,7 +96,7 @@ Sections are a `.seclabel` ("CONTINUE WATCHING · 3") over the group; poster car
 `.poster-score` badge and a teal `.poster-tag`. Home folds "Playing now" into the page header (eyebrow, title, facts
 sub-line, drifting backdrop, `.btn-glass` "Open in Jellyfin"). The film page is the detail hero (`.pagehead.hero-detail`:
 backdrop, poster leading — centred 62 %/260 px on a phone, 280 px from 640 px, 360 px from 1024 px — tagline,
-`.facts-line`, credits with IMDb/TMDB/Letterboxd `.linkchip`s, emerald status line, one `.btn-white` primary plus 36 px
+`.facts-line`, credits with IMDb/TMDB/Letterboxd site pills (`.scorepill.sitepill`, media-ux4), emerald status line, one `.btn-white` primary plus 36 px
 `.btn-icon`s; watchlist toggles sky with `aria-pressed`), then the `.stats` strip, the spec sheet `.panel` (F10 pills
 unchanged as the format logos), cast, seasons, shelves. A perfect 10 gets `.gold-glow-sm` on a row poster (`.gold-glow`
 on big ones) and `.gold-text-glow` on the number. Toolbars are `.toolbar` (`.search` icon + `.input`, `.chip`s,
@@ -208,8 +208,8 @@ carries a new `joey-asset-v` meta forces a full reload so new CSS is never mixed
 every title, on the server or not: `/media/title/{kind}/{tmdb}` and `/media/item/{jf_id}` build the same page (live reads:
 `docs/connector-contract.md`, eighth exception; each section degrades to words when its source is down). Top to bottom: a
 status line in words ("On your server · 4K · HDR · watched 3 Oct · you rated 8", or "Not on your server · Requested ...");
-the backdrop hero; a numbers strip (your score or the picker, community, IMDb, Rotten Tomatoes, runtime with "ends HH:MM if you
-start now", rating); a button row — **Play ▶ (Resume / Play again / Next to watch) is the only Jellyfin hop**, plus Rate,
+the backdrop hero; a numbers strip (score pills — IMDb · RT · Metacritic · TMDB · Yours, media-ux4 below — then runtime with
+"ends HH:MM if you start now" and the certificate); a button row — **Play ▶ (Resume / Play again / Next to watch) is the only Jellyfin hop**, plus Rate,
 Watchlist, Request, Trailer and Open in Jellyseerr (the hub hero's "Jump back in" stays a direct Jellyfin link). The file strip
 reads Jellyfin live (10 min cache, Available / Partly available only) as Dolby-style pills: black Dolby pills with a double-D
 glyph, DTS and HDR pills, plain pills for resolution, codec, container, channels and size; the word is always present.
@@ -359,6 +359,15 @@ watching: a watched mark hides the item (a season: every episode in it) until th
 hides its in-progress episodes (their positions are reset); a single item marked unwatched hides nothing. **Diary:** a
 watched mark (a season: one row per episode, folded to "S4 E1-6") reaches the diary at the next jellyfin sweep as today's
 watch; marking unwatched never deletes a diary entry — remove it from the Diary by hand if it was a mistake.
+
+One rating style (media-ux4, 2026-10-08): the numbers strip's scores are `.scorepill`s in one `.stat.wide` ("SCORES"): a
+small monogram logo (`hub/static/logos/<id>.svg`, self-made marks — `hub/static/badges/logo-<id>.svg|png` overrides
+one), the source's name, then the score in one format — IMDb `8.0` · RT `90%` · Metacritic `74` · TMDB `8.1` (Jellyfin's
+community rating, else the Jellyseerr vote; `media_film.score_text`) · Yours `8` (grade colour, gold at 10, Undo beside
+it; unrated: "Rate", a link to the picker). Metacritic alone is tinted by its band (`mc_band`: good ≥ 61, mid 40–60,
+bad < 40; tokens `--good` / `--score-6` / `--bad`), the number always shown. Runtime and the certificate stay plain
+stats. The hero's IMDb / TMDB / Letterboxd links are the same pill without a score (`.sitepill`), neutral — the
+yellow / sky / green link chips and their tokens are gone. A pill with no source is not drawn.
 
 Episode pages (media-ux4, 2026-10-08): the hero has no "Episode of <Show>" line (the part-of banner leads to the show) and
 only the **episode's** Play button — the series-level "Next to watch: …" / "Play ▶" stays on the series page. The hero's

@@ -77,9 +77,6 @@
   --detail-fade-0: rgba(9, 9, 11, .45); --detail-fade-1: rgba(9, 9, 11, .55); --detail-fade-2: rgba(9, 9, 11, .9);
   --shadow-hero: 0 25px 50px -12px rgba(0, 0, 0, .7);
   --appicon-bg: #ffffff;  /* the white tile behind an app logo (Server services) */
-  --imdb-bg: rgba(234, 179, 8, .1); --imdb-fg: rgba(234, 179, 8, .8);
-  --tmdb-bg: rgba(14, 165, 233, .1); --tmdb-fg: rgba(56, 189, 248, .8);
-  --lbxd-bg: rgba(34, 197, 94, .1); --lbxd-fg: rgba(74, 222, 128, .8);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -702,12 +699,28 @@ details.confirm-wrap > summary::-webkit-details-marker { display: none; }
 .statusline svg.ic { width: 16px; height: 16px; }
 .hero-detail-btns { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 8px; margin-top: 6px; }
 .hero-detail-btns > .requestblock, .hero-detail-btns > .wlbtn { display: contents; }
-/* External-link chips (guide 6): IMDb yellow, TMDB sky, Letterboxd green, at /10 behind and /80 text. */
-.linkchip { display: inline-flex; align-items: center; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 600;
-  text-decoration: none; }
-.linkchip-imdb { background: var(--imdb-bg); color: var(--imdb-fg); }
-.linkchip-tmdb { background: var(--tmdb-bg); color: var(--tmdb-fg); }
-.linkchip-lbxd { background: var(--lbxd-bg); color: var(--lbxd-fg); }
+/* Score + site pills (media-ux4, 2026-10-08; replaced the yellow / sky / green site-link chips): ONE family — a
+   small monogram logo (hub/static/logos/, override in hub/static/badges/logo-<id>.*), the source's name, then the
+   score in one format. Neutral outline; Metacritic alone is tinted by its band (good >= 61, mid 40-60, bad < 40), the
+   number always shown; Yours takes its grade colour (gold at 10). Site links are the same pill without a score. */
+.scorepills { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; min-width: 0; }
+.scorepill { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 6px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); font-size: 13px; color: var(--text-3); text-decoration: none;
+  white-space: nowrap; transition: border-color .15s, color .15s; }
+a.scorepill:hover { border-color: var(--line-hover); color: var(--text-1); }
+.sp-logo { width: 18px; height: 18px; flex: none; border-radius: 4px; }
+.sp-name { font-weight: 500; color: var(--text-4); }
+.sp-val { font-size: 15px; font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.sp-mc-good { border-color: var(--done-line); background: var(--good-soft); }
+.sp-mc-good .sp-val { color: var(--good); }
+.sp-mc-mid { border-color: var(--warn-line); background: var(--warn-soft); }
+.sp-mc-mid .sp-val { color: var(--score-6); }
+.sp-mc-bad { border-color: var(--danger-line); background: var(--bad-soft); }
+.sp-mc-bad .sp-val { color: var(--bad); }
+.ratedpill { gap: 6px; }
+.scorepills > .ratepick { flex: 1 0 100%; }
+.sitepill { height: 26px; padding: 0 9px 0 5px; font-size: 12px; font-weight: 500; }
+.sitepill .sp-logo { width: 16px; height: 16px; }
 @media (min-width: 640px) {
   .hero-detail-in { flex-direction: row; align-items: flex-end; text-align: left; gap: 28px; }
   .hero-detail-poster { width: 280px; max-width: none; }

@@ -184,7 +184,8 @@ def test_numbers_with_imdb_and_rt(env, monkeypatch):
         media_db.set_rating("tmdb:603", 10, "movie", "Harbour Lights", year=2019)
         b = main_of(client.get("/media/title/movie/603").text)
     # Restyle Phase 3: the numbers are a stats strip (micro label over a big value).
-    assert "7.8 / 10" in b and ">IMDb</div>" in b and ">7.9<" in b and ">Rotten Tomatoes</div>" in b and ">92 %<" in b
+    assert '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and '<span class="sp-name">IMDb</span><b class="sp-val">7.9</b>' in b  # media-ux4 (2026-10-08, B.): one pill style
+    assert '<span class="sp-name">RT</span><b class="sp-val">92%</b>' in b
     assert "1h 52m" in b and re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
     assert 'score-9 gold-text-glow" title="Your rating: 10 out of 10">10<' in b   # gold at 10 (the number is there too)
 
@@ -194,12 +195,12 @@ def test_numbers_without_ratings_endpoint_and_picker_when_unrated(env):
     del both.seerr.table["/api/v1/movie/603/ratingscombined"]
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    assert ">IMDb</div>" not in b and ">Rotten Tomatoes</div>" not in b     # no stat without its source
+    assert "sp-imdb" not in b and "sp-rt" not in b     # no pill without its source (media-ux4: pills, not stats)
     assert 'class="ratepick"' in b and 'value="tmdb:603"' in b and 'href="#rate"' in b
 
 
 def test_ratings_flat_rt_shape():
-    assert media_film.parse_ratings({"criticsScore": 88}) == {"rt": "88 %"}
+    assert media_film.parse_ratings({"criticsScore": 88}) == {"rt": "88%"}   # media-ux4: one format, no space
     assert media_film.parse_ratings({"imdb": {"criticsScore": 6.04}}) == {"imdb": "6.0"}
     assert media_film.parse_ratings(None) == {}
 
@@ -208,7 +209,7 @@ def test_community_falls_back_to_tmdb_vote_when_not_on_server(env):
     client, both = env()
     both.seerr.table["/api/v1/movie/701"] = {**PLAIN, "voteAverage": 6.51}
     with client:
-        assert "6.5 / 10" in main_of(client.get("/media/title/movie/701").text)
+        assert '<span class="sp-name">TMDB</span><b class="sp-val">6.5</b>' in main_of(client.get("/media/title/movie/701").text)  # media-ux4 (2026-10-08, B.): one pill style
 
 
 # ---- button row ----
@@ -415,7 +416,7 @@ def test_partial_failure_degrades_sections_only(env):
     with client:
         r = client.get("/media/title/movie/603")
     b = main_of(r.text)
-    assert r.status_code == 200 and "Harbour Lights (2019)" in b and ">Similar</div>" not in b and ">IMDb</div>" not in b
+    assert r.status_code == 200 and "Harbour Lights (2019)" in b and ">Similar</div>" not in b and "sp-imdb" not in b
 
 
 def test_no_key_or_jellyfin_host_in_html(env):

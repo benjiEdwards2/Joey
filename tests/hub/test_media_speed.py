@@ -141,7 +141,7 @@ def test_a_network_failure_is_not_remembered(env):
         client.get("/media/title/movie/603")
         both.fail_seerr = False
         b = client.get("/media/title/movie/603").text
-    assert ">IMDb</div>" in b                                             # retried, not a cached miss
+    assert '<span class="sp-name">IMDb</span>' in b                       # retried, not a cached miss (media-ux4 pill)
 
 
 # ---- TTL split ----

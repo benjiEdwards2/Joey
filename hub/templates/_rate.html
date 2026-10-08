@@ -47,6 +47,14 @@
   {% for n in range(1, 11) %}<button type="submit" class="chip {{ grade(n) }}" name="score" value="{{ n }}" aria-label="Rate {{ n }} out of 10">{{ n }}</button>{% endfor %}
 </form>
 {% endmacro %}
+{# The film page's "Yours 8" score pill (media-ux4, 2026-10-08): the same rated form (Undo swaps the picker back in),
+   drawn as a .scorepill beside IMDb / RT / Metacritic / TMDB. #}
+{% macro rated_pill(r, score, logo) %}
+<form class="rated ratedpill" id="rate" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
+  <span class="scorepill sp-you"><img class="sp-logo" src="{{ logo }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</b><span class="vh"> Rated {{ score }} out of 10</span></span>
+  <button type="submit" class="btn btn-ghost btn-sm undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .rated" hx-swap="outerHTML">Undo</button>
+</form>
+{% endmacro %}
 {% macro rated(r, score) %}
 <form class="rated" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
   <span class="stat-number {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</span><span class="microlabel">Rated {{ score }} out of 10</span>

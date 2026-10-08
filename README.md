@@ -24,7 +24,8 @@ area + Weather), Next 7 days, a weather glimpse and Recently watched posters (Co
 tile (except the weather tile, which renders on the hub and /weather only — 2026-10-08).
 
 **Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·
-Diary · Server (incl. Downloads, live from qBittorrent) · Discover. See `hub/README.md`; feeds in
+Diary · Server (incl. Downloads, live from qBittorrent) · Discover; Movies and TV Shows end with an Awards tab
+(2026-10-08: ceremonies from Wikidata / Wikipedia, synced into media.db). See `hub/README.md`; feeds in
 `docs/connector-contract.md`, env in `docs/setup.md`.
 
 **Pin Media pages on your phone (2026-10-07).** Inside Media the phone's bottom bar is Media's own six sections

@@ -155,6 +155,22 @@ Jellyfin's `RemoteTrailers` URL or Jellyseerr's TMDB `relatedVideos` trailer (11
 the script). Without JS the button is a plain link to the video on YouTube. The hub sends no CSP header today; if one is
 added, it must allow `frame-src https://www.youtube-nocookie.com`.
 
+**Sixteenth exception (2026-10-08): Awards sync (`hub/media_awards.py`, AWARDS_PLAN).** A background READ-only pull
+from two public, keyless hosts — `query.wikidata.org/sparql` (GET, `Accept: text/csv`; one query per Oscars edition
+`?st pq:P805 wd:<edition>`, one discovery query for the six ceremony series, one winners query per Cannes / DGA / PGA / WGA
+category list, and one ids query per ≤ 150 new QIDs) and `en.wikipedia.org/w/api.php` (`action=parse&prop=wikitext` of one
+ceremony page per call; `action=query&prop=pageprops&ppprop=wikibase_item&redirects=1` for ≤ 50 linked titles per call).
+`www.wikidata.org` `wbgetentities` is NOT used: measured 2026-10-08 it answered 530 KB for 8 titles with claims. Sequential,
+one session per pass, 2 s between calls, 30 s timeout, ≤ 40 editions per pass, a pass every 6 h while a backlog exists, then
+weekly (Sunday from 09:00), never 22:00–07:00 local; a 429 waits `Retry-After` (≤ 120 s) once and a second 429 ends the pass.
+Every call sends `User-Agent: Joey/awards (+https://joeyhome.net; <AWARDS_CONTACT>)`; `MEDIA_AWARDS=off` or an unset
+`AWARDS_CONTACT` ⇒ no calls. Results land in media.db `award_body`, `award_edition`, `award_category`, `award_nomination`,
+`award_entity`, `award_title`, `award_sync` (backed up nightly with the rest of media.db). The Awards pages and the film /
+person page sections read only those tables plus the jellyfin snapshot (✓ seen) and the diary; off-server posters come from
+the existing Jellyseerr meta cache (`media_discover.meta_get`) on render, ≤ 60 per page view, stored on `award_entity.poster`.
+`scripts/awards_sync.py --edition oscars:97` runs one edition by hand through the same code. Logs carry counts and HTTP
+status / exception type only — never a URL, a page title or a body.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

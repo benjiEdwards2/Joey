@@ -57,6 +57,13 @@ hub looks up a title's Metascore by IMDb id when its film page opens, at most on
 calls per process per day; unset, the film page simply has no Metacritic pill. It reaches the hub like the other media
 keys, through `deploy/.env` (compose `env_file`).
 
+Awards (2026-10-08): `AWARDS_CONTACT` (required for the sync) is the contact the Wikimedia User-Agent policy asks for —
+B.'s email address, set in the NAS `deploy/.env` only (`append_env.sh`), never in the repo; the hub sends it in
+`User-Agent: Joey/awards (+https://joeyhome.net; <contact>)`. Unset, the Awards sync makes no calls and the Awards tabs say
+"Not synced yet". `MEDIA_AWARDS=off` stops the loop altogether (default on). The first passes backfill ~400 ceremonies, 40 every
+6 h (~2½ days), then weekly on Sundays; watch `docker logs` for "awards: 40 editions, N rows, 0 failed". One edition by hand:
+`docker exec -i <hub container> python - --edition oscars:97 < scripts/awards_sync.py`.
+
 Play recorder (2026-10-06): the hub polls Jellyfin `/Sessions` every `PLAY_POLL_SECONDS` (default 60) into `media.db`;
 set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN_API_KEY`. Neither knob is listed in
 `deploy/.env.example` yet, so add them there by hand only if you want to change the defaults.

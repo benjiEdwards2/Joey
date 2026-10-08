@@ -50,3 +50,13 @@ def test_money_special_case_is_documented():
     text = doc_text()
     assert "D14" in text
     assert "empty" in text and "status=ok" in text
+
+
+def test_awards_exception_is_documented():
+    """Awards (2026-10-08): the sixteenth exception names both hosts, the contact gate and the off switch."""
+    text = doc_text()
+    para = text.split("**Sixteenth exception (2026-10-08): Awards sync", 1)[1].split("\n\n", 1)[0]
+    for needle in ("query.wikidata.org/sparql", "en.wikipedia.org/w/api.php", "AWARDS_CONTACT", "MEDIA_AWARDS=off",
+                   "Retry-After", "award_nomination", "status / exception type only"):
+        assert needle in para, needle
+    assert "@" not in para          # the contact address itself never appears in the repo

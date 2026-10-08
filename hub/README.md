@@ -396,6 +396,24 @@ Metacritic (media-ux4, 2026-10-08): `media_omdb.metascore(imdb_id)` fills the Me
 + on disk (`omdb:<id>` in the meta cache), ≤ 800 calls per process per day, a refused key stops calls for the day; no key,
 "N/A" or a failure ⇒ no pill. Logs never carry the URL (it holds the key) — status or exception type only.
 
+Awards (2026-10-08, AWARDS_PLAN): Movies and TV Shows gain an **Awards** tab after To rate (`/media/movies/awards`,
+`/media/tv/awards`, `?body=&year=&unseen=1`; `media_awards_pages.py`, `media_awards.html` + `_award_card.html`). Ceremonies:
+Oscars, Golden Globes, BAFTA, Critics' Choice, SAG, DGA, PGA, WGA, Cannes on Movies; Globes, Critics' Choice, SAG, Emmys on TV
+(film or TV categories each). Year = ceremony year (2025 = the 97th Oscars, "films of 2024"). Page: an "Updated 3 Oct · 388 of
+402 ceremonies" line (amber "Sync failed · retrying" only when the last pass landed nothing), Coming up (the next four months
+with a ceremony; a known date in teal), the ceremony chips, the year stepper + Not seen chip, the hero category (winner
+poster, "Won · 3 of 7 nominations", nominees carousel) and every category as a card in curated rank order
+(`media_awards_seed.py`; shorts / documentary / technical fold under "More categories"). Seen ✓ = the viewer's own Jellyfin
+played flag or any diary row for the title; a work matches the library by TMDB id (shows also by TheTVDB), never by title.
+The film / TV page gains an Awards section under the stats strip ("BAFTA 2025 · Won 3 of 7 nominations" + categories, each
+line linking to that ceremony) and the person page one ("2 wins · 5 nominations" + "Oscars 2025 · Best Actor" / "Won · The
+Brutalist"); both are absent when there is nothing. Data: `media_awards.py` syncs into the media.db `award_*` tables
+(`media_awards_db.py`; contract doc, sixteenth exception) — the Oscars from Wikidata per edition, Globes / BAFTA / Critics'
+Choice / SAG / Emmys from the Wikipedia ceremony page (`media_awards_parse.parse_award_blocks`: the `{{Award category}}`
+shape every page since the mid-2000s uses; older pages without it are `skipped`), Cannes and the guilds as winners only (v1).
+`AWARDS_CONTACT` (required) and `MEDIA_AWARDS=off` are in `docs/setup.md`; `scripts/awards_sync.py --edition oscars:97`
+runs one edition by hand. Backfill runs newest first, 40 editions a pass, every 6 h until done (~2½ days), then weekly.
+
 Episode pages (media-ux4, 2026-10-08): the hero has no "Episode of <Show>" line (the part-of banner leads to the show) and
 only the **episode's** Play button — the series-level "Next to watch: …" / "Play ▶" stays on the series page. The hero's
 watch state (toggle, Move-on pair, Play label) comes from the show's season list the banner counts and the rows show

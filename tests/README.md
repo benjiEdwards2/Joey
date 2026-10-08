@@ -52,3 +52,13 @@ gone — the banner links the show; scores as pills: "7.8" TMDB, "92%" RT; Trail
 `test_media_resume.py` (an in-progress episode is in progress in the season list too), `test_film_quality.py`,
 `test_media_discover.py`, `test_media_speed.py`, `test_style_media.py` (pills / site pills), `test_media_library_pages.py`
 (row markup read with `?view=list`; the New this week strip ends at the toolbar).
+
+Awards (2026-10-08, AWARDS_PLAN A0–A6): new suites `test_awards_fixtures.py` (the recorded Wikidata / Wikipedia answers in
+`tests/hub/fixtures/awards/`, each ≤ 100 KB, stored gzipped so the money pre-commit guard stays untouched), `test_awards_parse.py` (golden parses: 78th BAFTA, 82nd Globes, 77th Emmys,
+31st SAG, 30th Critics' Choice, 40th Globes = no shape, a redirect; 97th Oscars SPARQL; title → QID → TMDB ids),
+`test_awards_db.py` (award_* tables, reads never create media.db, coming_up, TheTVDB match), `test_awards_sync.py` (fake
+Session: full pass, 429, timeout / 5xx, skipped, no contact = zero calls, User-Agent, pause between calls, idempotent, discovery,
+cadence), `test_awards_pages.py` (Awards tab, defaults, stepper, Not seen, staleness line, lazy posters via the Jellyseerr meta
+cache only, tokens, whole-link rows) and `test_awards_sections.py` (film / person page sections). `conftest.py` also sets
+`MEDIA_AWARDS=off` and unsets `AWARDS_CONTACT`. Pins reworded for the fifth tab (same behaviour asserted):
+`test_media_ux4_to_rate_tab.py`, `test_media_frame.py`, `test_media_nav_ux2.py` (tab lists now end with Awards).

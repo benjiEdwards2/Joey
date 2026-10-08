@@ -565,6 +565,10 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .listbox.libposters .poster.row-poster { width: 55px; }
 .listbox.libposters .row { padding: 10px 8px; }
 @media (min-width: 640px) { .listbox.libposters .poster.row-poster { width: 66px; } .listbox.libposters .row { padding: 10px; gap: 18px; } }
+/* media-ux4 (2026-10-08): the same size on the TV To rate rows and every Diary list; a picker under such a row lines
+   up with the title (poster + gap: 55 + 14 on a phone, 66 + 18 from 640 px). */
+.listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 69px; }
+@media (min-width: 640px) { .listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 84px; } }
 label.row { cursor: pointer; }
 label.row input[type=radio] { flex-shrink: 0; }
 /* A hairline progress bar (guide 6 summary card): track white/8, indigo-400 fill. */

@@ -39,7 +39,9 @@ def test_other_row_lists_keep_the_small_poster(frame_env):
     main = frame_env(jellyfin=JELLY)
     with TestClient(main.app) as c:
         hist = c.get("/media/history").text
-    assert "libposters" not in hist and "?h=120&amp;" in hist
+    # media-ux4 (2026-10-08, B.): the To rate inbox rows on History now use the list size too; Recently watched keeps 44 px
+    recent = hist.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
+    assert "libposters" not in recent and "?h=120&amp;" in recent
 
 
 def test_css_scales_list_posters_25_and_50_percent_and_keeps_the_guide_size():

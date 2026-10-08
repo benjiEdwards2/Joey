@@ -293,8 +293,11 @@ Diary per episode (F8, 2026-10-06): jellyfin-synced diary rows are one per episo
 episodes of one show season into a single line ("S2 E3-5"), and a rewatch mark shows when the title was logged on an
 earlier day. The "where" filter is not built. Older show-level rows still render.
 
-Poster sizes: list rows use `.poster.sm` (56 px tall); shelf cards are 144 px wide (`.shelf-item`, `.shelf-cell`), both in
-`static/control-surface.css`.
+Poster sizes (updated media-ux4, 2026-10-08): list rows use `.row-poster` (44 px wide, fetched h=120); the Movies / TV
+Shows lists, every To rate list (Diary > To rate, the Movies / TV To rate tabs) and every Diary list use the bigger
+`.listbox.libposters` size (55 px on a phone, 66 px from 640 px, fetched h=240; a picker under such a row is indented
+to the title); poster cards are 116 px wide on a phone and 144 px from 640 px (`.carousel > *`), fetched h=240. History's
+Recently watched keeps the 44 px rows. All in `static/control-surface.css`.
 
 Back / Forward (2026-10-08): history navigation always shows fresh server state. `base.html` sets
 `<meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true}'>` (htmx 2.0.4 names: no

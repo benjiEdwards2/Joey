@@ -7,7 +7,7 @@
 {% set ih = item_href(none, row.show_key or row.item_key) %}
 <div class="row has-form diaryrow">
   {% if ih %}<a class="rowlink" href="{{ ih }}">{% endif %}
-  {{ poster(row.poster, row.title, 120, "row-poster" ~ rate.glow(score)) }}
+  {{ poster(row.poster, row.title, 240, "row-poster" ~ rate.glow(score)) }}
   <div class="row-body"{% if row.episodes %} title="{{ row.episodes | join(' · ') }}"{% endif %}>
     <div class="row-title">{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}</div>
     {{ meta(["Film" if row.kind == "movie" else "TV", row.sub,

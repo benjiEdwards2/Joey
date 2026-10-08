@@ -6,7 +6,8 @@
 {% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
 {# Watch diary (2026-10-05; restyle Phase 3): Jellyfin history synced in + watches logged by hand. Source and kind
-   are words in every row's meta line — colour is never the only encoding. #}
+   are words in every row's meta line — colour is never the only encoding. Every diary list uses the Movies list
+   poster size (.listbox.libposters, h=240; media-ux4, 2026-10-08). #}
 <p class="metaline">{{ stats_text }}</p>
 {% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
 {% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}
@@ -36,11 +37,11 @@
 {% if on_this_day %}
 <section class="sec">
   <div class="seclabel">On this day</div>
-  <div class="listbox">
+  <div class="listbox libposters">
   {% for d in on_this_day %}
   {% set dh = row_href(none, d.item_key, "movie" if d.kind == "movie" else "tv") %}
   <{{ "a" if dh else "div" }} class="row"{% if dh %} href="{{ dh }}"{% endif %}>
-    {{ poster(d.poster, d.title, 120, "row-poster" ~ rate.keyglow(d.item_key, ratings)) }}
+    {{ poster(d.poster, d.title, 240, "row-poster" ~ rate.keyglow(d.item_key, ratings)) }}
     <div class="row-body"><div class="row-title">{{ d.title }}</div>{{ meta([d.sub, d.kind, d.years_ago ~ " year" ~ ("" if d.years_ago == 1 else "s") ~ " ago"]) }}</div>
     {{ rate.score_key(d.item_key, ratings) }}
   </{{ "a" if dh else "div" }}>
@@ -49,11 +50,11 @@
 </section>
 {% endif %}
 
-<div id="diary-new" class="listbox"></div>
+<div id="diary-new" class="listbox libposters"></div>
 {% for g in months %}
 <section class="sec">
   <div class="seclabel">{{ g.label }}</div>
-  <div class="listbox">
+  <div class="listbox libposters">
   {% for row in g.rows %}
   {% with score = score_for(row, ratings) %}{% include "_diary_row.html" %}{% endwith %}
   {% endfor %}

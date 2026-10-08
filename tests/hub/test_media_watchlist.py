@@ -213,7 +213,8 @@ def test_no_count_when_nothing_is_missing(env):
     put(12)
     with TestClient(main.app) as c:
         sub = re.search(r'<nav class="sectabs sub".*?</nav>', c.get("/media/movies").text, re.S).group(0)
-    assert "waitcount" not in sub and ">Watchlist<" in sub
+    # media-ux4: the To rate tab beside it may carry its own count; the Watchlist tab carries none
+    assert ">Watchlist</a>" in sub and not re.search(r'>Watchlist <span class="waitcount">', sub)
 
 
 # ---- title page + Discover ----

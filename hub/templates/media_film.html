@@ -45,7 +45,8 @@
         {% if film.note %}<p class="metaline">{{ film.note }}</p>{% endif %}
         <div class="hero-detail-btns">
           {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
-          {% if film.play and film.play.href %}<a class="btn {{ 'btn-secondary' if film.episode and film.episode.play.href else 'btn-white' }}" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
+          {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
+          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
           {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
           {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
           {% if film.rating and not film.score %}<a class="btn btn-icon" href="#rate" aria-label="Rate" title="Rate">{{ icon("star") }}</a>{% endif %}

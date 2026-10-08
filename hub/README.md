@@ -24,7 +24,15 @@ keep the bottom bar; no layout is built in JS. Media pages also link
 `static/manifest-media.webmanifest` ("Joey Media", `start_url` `/a/media`, `scope` `/`, shortcuts Movies/TV/Server/
 Discover) and set `apple-mobile-web-app-title` "Joey Media"; every other page keeps `static/manifest.webmanifest`. Boosts
 swap only `<body>`, so the `htmx:beforeSwap` script in `base.html` copies the response's manifest link + iOS title into `<head>`. No
-service worker is involved (the hub registers none). Page frame `main.page`: centred, 72rem, bottom padding clears the tab bar. Page header: the
+service worker is involved (the hub registers none). Page frame `main.page`: centred, 72rem, bottom padding clears the tab bar.
+**Phone fit (media-ux5, 2026-10-09):** nothing may be wider than the screen — phone library grids (`.libgrid` below
+640 px) are exactly `repeat(3, minmax(0, 1fr))` with 10 px gaps (fits 320 px), grid children carry `min-width: 0`,
+titles ellipsis, chip rows wrap, sideways rows (`.sectabs`, `.carousel`, cast/makers) scroll inside themselves, and
+`html` + `body` have `overflow-x: clip` as the last guard (clip, not hidden, so the sticky top bar keeps working). The
+tab bar is `position: fixed` to the screen edges, a direct child of `<body>` with no transformed / filtered ancestor
+(either would re-anchor it). Measured in the preview at 320/375/390/430 px on 12 Media pages: `scrollWidth ==
+innerWidth`, bar bottom == `innerHeight` after scrolling. The sideways swipe / drifting bar on the iPhone was iOS focus
+zoom (14 px inputs), fixed by the 16 px rule below. Page header: the
 `_pagehead.html` macro (`pagehead(title, sub, eyebrow, backdrop, actions)`; called with `{% call %}` the caller's markup,
 e.g. section tabs, sits on the band) is used by `hub.html`, `area.html`, `server.html`, `weather.html` and
 `media_base.html`: a full-bleed band with a darkened backdrop (Media home uses the hero's) or a faint indigo glow, the

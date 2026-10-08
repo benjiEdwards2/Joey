@@ -83,6 +83,9 @@
 /* Guide 3: no width jump between short and long pages. Only body carries the ground (it propagates to the
    canvas), so the fixed indigo glow at z-index -1 shows through. */
 html { scrollbar-gutter: stable; }
+/* media-ux5 (2026-10-09): the final guard against a sideways swipe on a phone — clip, never hidden (hidden would make
+   html/body scroll containers and break the sticky top bar); the real fix is that nothing is wider than the page. */
+html { overflow-x: clip; }
 body { background: var(--bg); color: var(--fg); }
 body {
   font: 14px/1.45 var(--font-sans);
@@ -226,6 +229,7 @@ a.row:hover { background: var(--soft); }
 @media (min-width: 768px) { .poster-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (min-width: 1024px) { .poster-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 .card-poster { display: block; min-width: 0; color: inherit; text-decoration: none; }
+.poster-grid > *, .awnoms > * { min-width: 0; }  /* media-ux5: a long title never widens a column past the page */
 .card-poster img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover;
   border-radius: 8px; box-shadow: var(--shadow-poster); transition: transform .3s; }
 .card-poster:hover img { transform: translateY(-4px); }
@@ -373,6 +377,8 @@ a.row:hover { background: var(--soft); }
 .sheet a[aria-current] { color: var(--tab-on-phone); border-color: var(--line-hover); }
 .sheet svg.ic { width: 16px; height: 16px; }
 @media (min-width: 768px) { .tabbar { display: none; } }
+/* media-ux5 (2026-10-09): the bar is a direct child of <body> and no ancestor has a transform / filter /
+   backdrop-filter (any of those would make it fixed to that ancestor instead of the screen); tests pin both. */
 
 h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
@@ -593,6 +599,8 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
    (116 px phone / 144 px from 640 px) in as many columns as fit. .seg is the Grid / List switch in the toolbar. */
 .poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 20px 12px; }
 @media (min-width: 640px) { .poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); } }
+/* media-ux5 (2026-10-09): on a phone exactly three columns that always fit (320 px: 3 x 89 px + two 10 px gaps). */
+@media (max-width: 639px) { .poster-grid.libgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; } }
 .seg { display: inline-flex; flex-shrink: 0; gap: 2px; margin-left: auto; padding: 2px; border-radius: 8px; border: 1px solid var(--line); }
 .seg a { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px;
   font-weight: 500; color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s; }

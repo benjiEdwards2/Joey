@@ -13,7 +13,14 @@ page still serves. **Media phone bar (2026-10-07):** every page extending `media
 shelves area page `/a/<id>` included) swaps the phone bar for the six Media sections from `media_nav.py` (`short` label +
 `icon` per section: Home = the shelves area page, Movies, TV, Diary, Server, Discover), six equal slots, no More, active
 slot by `media_nav.active_section` (the section-tab rule); the nav carries `hx-swap="innerHTML show:window:top"` so every
-tap (Home on Media home too) lands at the top. The top-bar Joey brand is the way out. Media pages also link
+tap (Home on Media home too) lands at the top. The top-bar Joey brand is the way out. **Docked Media sections
+(media-ux5, 2026-10-09; desktop ≥ 768 px):** on Media pages the top bar wraps its section pills in `.topswap` beside a
+server-rendered copy of the Media section row (`_media_tabs.html` `media_dock()`: `nav.toplinks.topdock`, same sections,
+amber counts, the active section as `class="on"` — the bar keeps one `aria-current`, its Media pill). The page's own
+section row carries a 1 px `.dock-sentinel`; an IntersectionObserver in `base.html` (re-attached after every htmx settle,
+so boosted navigations work) adds `.topbar.is-docked` once the sentinel is under the 56 px sticky bar, and CSS slides the
+pills out and the Media row in within the same grid cell (no height change; no transition under reduced motion). Phones
+keep the bottom bar; no layout is built in JS. Media pages also link
 `static/manifest-media.webmanifest` ("Joey Media", `start_url` `/a/media`, `scope` `/`, shortcuts Movies/TV/Server/
 Discover) and set `apple-mobile-web-app-title` "Joey Media"; every other page keeps `static/manifest.webmanifest`. Boosts
 swap only `<body>`, so the `htmx:beforeSwap` script in `base.html` copies the response's manifest link + iOS title into `<head>`. No

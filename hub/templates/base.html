@@ -66,6 +66,27 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   document.addEventListener('htmx:pushedIntoHistory', strip);
   document.addEventListener('htmx:replacedInHistory', strip);
 })();
+/* Docked Media sections (media-ux5, 2026-10-09; desktop): once the page's section row (its .dock-sentinel) has scrolled
+   under the sticky top bar, the bar gets .is-docked and CSS swaps its section pills for the server-rendered Media row
+   (.topdock). Boosts swap <body>, so the observer re-attaches after every settle when the sentinel changed. */
+(function () {
+  var io = null, seen = null;
+  function init() {
+    var s = document.querySelector('.dock-sentinel'), bar = document.querySelector('.topbar');
+    if (s === seen) return;
+    seen = s;
+    if (io) { io.disconnect(); io = null; }
+    if (!s || !bar || !bar.querySelector('.topdock') || !('IntersectionObserver' in window)) return;
+    io = new IntersectionObserver(function (entries) {
+      var e = entries[entries.length - 1], top = e.rootBounds ? e.rootBounds.top : 56;
+      bar.classList.toggle('is-docked', !e.isIntersecting && e.boundingClientRect.bottom <= top);
+    }, {rootMargin: '-56px 0px 0px 0px'});
+    io.observe(s);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  document.addEventListener('htmx:afterSettle', init);
+  document.addEventListener('htmx:load', init);
+})();
 </script>
 </head>
 <body hx-boost="true">
@@ -92,9 +113,11 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
 <header class="topbar">
   <div class="topbar-in">
     <a class="brand" href="/" aria-label="Joey home"><img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
+    {% if media_mode %}<div class="topswap">{% endif %}
     <nav class="toplinks" aria-label="Sections">
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
     </nav>
+    {% if media_mode %}{% from "_media_tabs.html" import media_dock with context %}{{ media_dock() }}</div>{% endif %}
     <div class="userchip"{% if who.email %} title="{{ who.email }}"{% endif %}><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email or "Local preview" }}</small></div>
   </div>
 </header>

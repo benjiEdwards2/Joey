@@ -274,6 +274,27 @@ a.row:hover { background: var(--soft); }
   .toplinks { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
 }
 @media (min-width: 1024px) { .userchip small { display: inline; } }
+/* Docked Media sections (media-ux5, 2026-10-09): on Media pages the pills and the server-rendered Media row (.topdock)
+   share one grid cell (.topswap), so docking never changes the bar's height. .topbar.is-docked (base.html's observer,
+   once the page's own section row is under the bar) slides the pills up and out and the Media row up and in; the
+   brand stays, so Joey home is one click. Desktop only — the phone keeps its bottom bar. */
+.topswap { display: none; }
+.topdock a.on { background: var(--pill-on); color: var(--text-1); }
+.topdock .waitcount { margin-left: 6px; }
+@media (min-width: 768px) {
+  .topswap { display: grid; align-items: center; flex: 1 1 auto; min-width: 0; }
+  .topswap > .toplinks { grid-area: 1 / 1; transition: opacity .2s, transform .2s, visibility 0s; }
+  .topswap > .topdock { visibility: hidden; opacity: 0; transform: translateY(14px);
+    transition: opacity .2s, transform .2s, visibility 0s .2s; }
+  .topbar.is-docked .topswap > .toplinks:not(.topdock) { visibility: hidden; opacity: 0; transform: translateY(-14px);
+    transition: opacity .2s, transform .2s, visibility 0s .2s; }
+  .topbar.is-docked .topswap > .topdock { visibility: visible; opacity: 1; transform: none;
+    transition: opacity .2s, transform .2s, visibility 0s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar .topswap > .toplinks, .topbar.is-docked .topswap > .toplinks:not(.topdock),
+  .topbar.is-docked .topswap > .topdock { transition: none; transform: none; }
+}
 
 /* Page frame: one centred column, 72rem wide; the bottom padding clears the phone tab bar. */
 .page { width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px calc(7rem + env(safe-area-inset-bottom)); min-width: 0;
@@ -320,6 +341,7 @@ a.row:hover { background: var(--soft); }
 .sectabs a[aria-current] { font-weight: 500; border-color: var(--zinc-100); background: var(--zinc-100); color: var(--zinc-900); }
 .sectabs.sub a { font-size: 13px; padding: 4px 12px; }
 .sectabs + .sectabs { margin-top: -8px; }
+.dock-sentinel { display: block; height: 1px; margin-top: -1px; pointer-events: none; }  /* media-ux5: no layout */
 @media (min-width: 640px) { .sectabs { margin: 0; padding: 0; } }
 @media (min-width: 768px) {
   .sectabs-row { gap: 4px; border-bottom: 1px solid var(--line-soft); }

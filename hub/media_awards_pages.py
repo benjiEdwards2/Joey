@@ -1,8 +1,9 @@
 """Awards pages (AWARDS_PLAN A4, 2026-10-08): Movies > Awards and TV Shows > Awards, the tab after To rate.
 
 `GET /media/movies/awards` / `GET /media/tv/awards` (`?body=oscars&year=2025&unseen=1`): Coming up (the next ceremonies
-by month), the ceremony picker (chips), the year stepper (ceremony year, Q1), the Not seen chip, the hero category
-(winner poster large + its tally at this ceremony + the nominees), then every category as a card in curated rank order
+by month), the ceremony picker (tiles with marks since awards-ui, 2026-10-09), the year stepper (ceremony year, Q1; a
+year select), the Not seen chip, the Most wins podium, the hero category (winner poster large on its backdrop + its
+tally at this ceremony + the nominees), then every category as a card in curated rank order
 (Q2: shorts / documentary / technical fold under "More categories"). Reads only the media.db `award_*` tables and the
 jellyfin snapshot (on-server posters, the viewer's own played flag, Q4) plus the diary for ✓ seen. Off-server posters
 and portraits come from Jellyseerr's cached metadata reads (media_discover.meta_get, 6 h + disk): the hero category's

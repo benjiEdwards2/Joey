@@ -4,7 +4,8 @@ Joey implements it in Jinja + `hub/static/control-surface.css` tokens, not Tailw
 Joey deviations (dated; details in `hub/README.md`): media-ux4 (2026-10-08) — the detail hero's coloured IMDb / TMDB /
 Letterboxd link chips are neutral logo pills, and every score is one `.scorepill` (logo + name + score; Metacritic tinted
 by its band); director / creators are headshot cards ("Directed by"); the Movies / TV lists default to a poster grid with
-a Grid / List switch; the Trailer button opens an in-page player.
+a Grid / List switch; the Trailer button opens an in-page player. awards-ui (2026-10-09) — brand gold gains one more
+meaning, "won an award" (Awards pages, poster winner badges, Won pills), with silver / bronze only on the Most wins podium.
 
 # MediaHub style guide
 

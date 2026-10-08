@@ -458,6 +458,32 @@ shape every page since the mid-2000s uses; older pages without it are `skipped`)
 `AWARDS_CONTACT` (required) and `MEDIA_AWARDS=off` are in `docs/setup.md`; `scripts/awards_sync.py --edition oscars:97`
 runs one edition by hand. Backfill runs newest first, 40 editions a pass, every 6 h until done (~2½ days), then weekly.
 
+Awards visual pass (awards-ui, 2026-10-09; supersedes the chips / plain-text look above). **Marks:** `_award_icons.html`
+draws each ceremony as a simple self-drawn silhouette in currentColor (not the official logos): Oscars statuette, Golden
+Globes globe, BAFTA mask, Critics' Choice star, SAG two figures, DGA clapper, PGA reel, WGA pen nib, Cannes palm frond, Emmys
+winged figure, plus trophy / laurel / seen / person. `award_icon(name, size, label, src, deco)` is labelled (`role=img` +
+`aria-label`) or `aria-hidden` when words sit beside it; `media_awards_icons.cat_icon` picks a category's mark (acting →
+person, directing → clapper, writing → nib, picture / series → reel, else trophy). A file `hub/static/awards/<id>.svg|png|webp`
+replaces a ceremony's drawing everywhere (checked once per process). **Page:** ceremony tiles (mark + name; the picked one
+gold-outlined, the row scrolls sideways inside its own box below 1024 px), Coming up with a mark per ceremony and the next
+one underlined + "Next", the stepper `‹ [year select] ›` (native `<select>` of every known year, 18 px, submits on change;
+a Go button without JS) + edition line + Not seen, then the **Most wins podium**, the hero (the winner's backdrop — library
+row, else the Jellyseerr meta cache, else a faint gold glow — a gold-framed poster, gold trophy pill, "Won 5 of 6
+nominations" in gold, the Nominated row) and the category cards (mark + name; the winner gold-framed beside the gold word
+"Won"; nominees with a faint neutral outline). Gold means won (`--gold`, `--gold-soft`, `--gold-line`); the podium adds
+`--silver` / `--bronze`. **Podium:** the edition's top 3 works by categories won (ties: more nominations, then title), set out
+2nd · 1st · 3rd (the `<ol>` stays 1-2-3), three across on every width; hidden unless two works won something and the top one
+won 2+ (winners-only ceremonies — Cannes, the guilds — would show three 1-win ties). **Poster winner badges**
+(`media_awards_badges.py`): a round badge at a poster's bottom right with the mark of the most prestigious win (Oscars >
+Cannes > BAFTA > Globes > Emmys > Critics' Choice > SAG > DGA / PGA / WGA) and "+N" more ceremonies, labelled "Won Best
+Picture · Oscars 2025", and a gold frame on the poster — wins only, a nomination shows nothing. On the Movies / TV grid,
+Discover (shelves, search, service pages), the film page's collection + Similar / Recommended rows and the Awards pages.
+`media_awards_db.win_rows` answers every poster on a page in ONE statement (ids as JSON arrays through `json_each`), cached
+60 s per key set: a 200-poster grid measured the same with and without badges (151 vs 153 ms, noise; the query alone 5 ms
+cold, 0.2 ms cached). **Film / TV and person sections:** grouped per ceremony (prestige order) under its mark + tally; film
+lines "2025 · Won 2 of 3 nominations" (older editions fold after 3) over category pills — won gold with the laurel, nominated
+neutral, each saying Won / Nominated to a screen reader; person rows "2025 · Best Actor" over a Won / Nominated pill + the work.
+
 Episode pages (media-ux4, 2026-10-08): the hero has no "Episode of <Show>" line (the part-of banner leads to the show) and
 only the **episode's** Play button — the series-level "Next to watch: …" / "Play ▶" stays on the series page. The hero's
 watch state (toggle, Move-on pair, Play label) comes from the show's season list the banner counts and the rows show

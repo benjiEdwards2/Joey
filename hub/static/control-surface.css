@@ -27,6 +27,7 @@
   --bad: #fca5a5; --bad-soft: rgba(239, 68, 68, .1);
   --gold: #f2c14e; --gold-glow: rgba(251, 191, 36, .45);
   --gold-soft: rgba(242, 193, 78, .12); --gold-line: rgba(242, 193, 78, .6);  /* awards-ui: gold means won */
+  --silver: #cbd5e1; --silver-soft: rgba(203, 213, 225, .1); --bronze: #d6935a; --bronze-soft: rgba(214, 147, 90, .12);
   --topbar: rgba(9, 9, 11, .8);  /* the top bar (guide §5: bg-zinc-950/80) */
   --pill-on: rgba(255, 255, 255, .07); --tab-on: #818cf8; --tab-on-phone: #a5b4fc;  /* indigo-400 / -300 */
   --scrim: rgba(9, 9, 11, .9); --scrim-soft: rgba(9, 9, 11, .62);
@@ -1117,3 +1118,24 @@ a.awline:hover { background: var(--soft); }
 .awbadge-n { font-weight: 700; }
 .awnoms .awbadge { right: 3px; bottom: 3px; min-width: 20px; height: 20px; padding: 0 3px; }
 .awnoms .awbadge .awic { width: 12px; height: 12px; }
+/* Most wins podium (awards-ui item 4): the top three of the edition, set out 2nd · 1st · 3rd (the list stays 1-2-3
+   for screen readers), each poster framed gold / silver / bronze over its numbered step, 1st tallest. Three across on
+   every width (minmax(0, 1fr)), capped so the posters stay poster-sized on a desktop. */
+.awpodium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 10px;
+  width: 100%; max-width: 34rem; margin: 0 auto; padding: 0; list-style: none; }
+.awpod { min-width: 0; grid-row: 1; }
+.awpod-1 { grid-column: 2; } .awpod-2 { grid-column: 1; } .awpod-3 { grid-column: 3; }
+.awpod-in { display: flex; flex-direction: column; min-width: 0; color: inherit; text-decoration: none; }
+.awpod-in .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; }
+.awpod-in .row-title { display: block; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.awpod-in .row-meta { display: block; font-size: 11px; overflow-wrap: anywhere; }
+a.awpod-in:hover .row-title { color: var(--text-2); }
+.awframe.is-place-1 > img { box-shadow: 0 0 0 2px var(--gold), 0 0 16px var(--gold-glow); }
+.awframe.is-place-2 > img { box-shadow: 0 0 0 2px var(--silver); }
+.awframe.is-place-3 > img { box-shadow: 0 0 0 2px var(--bronze); }
+.awpod-step { display: flex; align-items: center; justify-content: center; margin-top: 8px; border-radius: 10px 10px 4px 4px;
+  font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.awpod-1 .awpod-step { height: 64px; background: var(--gold-soft); border-top: 2px solid var(--gold); color: var(--gold); }
+.awpod-2 .awpod-step { height: 44px; background: var(--silver-soft); border-top: 2px solid var(--silver); color: var(--silver); }
+.awpod-3 .awpod-step { height: 30px; background: var(--bronze-soft); border-top: 2px solid var(--bronze); color: var(--bronze); }

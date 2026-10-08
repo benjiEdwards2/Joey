@@ -258,6 +258,36 @@ def _tally(page: dict) -> dict[str, tuple[int, int]]:
     return {q: (sum(cats.values()), len(cats)) for q, cats in out.items()}
 
 
+PODIUM_MIN_TOP_WINS = 2     # below this every winner ties on one win: no "most wins" story, so no podium
+
+
+def podium(page: dict | None, tally: dict, seen: Seen, kind: str, won_by: dict) -> list[dict]:
+    """Most wins (awards-ui item 4): the top 3 works of this edition by categories won (ties: more nominations, then
+    title), place order 1-2-3 (the template sets them out 2nd · 1st · 3rd). [] unless at least two works won something
+    and the top one won at least PODIUM_MIN_TOP_WINS — winners-only ceremonies (Cannes, the guilds: one film per
+    category) would only show three 1-win ties."""
+    works: dict[str, dict] = {}
+    for c in (page or {}).get("categories") or []:
+        for e in c["entries"]:
+            w = e.get("work") or {}
+            if w.get("qid") and w["qid"] not in works:
+                works[w["qid"]] = w
+    title = lambda q: works[q].get("title") or ((works[q].get("ent") or {}).get("label")) or "—"  # noqa: E731
+    ranked = sorted((q for q in works if tally.get(q, (0, 0))[0] > 0),
+                    key=lambda q: (-tally[q][0], -tally[q][1], title(q).lower()))
+    if len(ranked) < 2 or tally[ranked[0]][0] < PODIUM_MIN_TOP_WINS:
+        return []
+    out = []
+    for place, q in enumerate(ranked[:3], 1):
+        ent = works[q].get("ent")
+        row = seen.row(ent)
+        n, m = tally[q]
+        out.append({"place": place, "title": title(q), "poster": (row or {}).get("poster") or (ent or {}).get("poster"),
+                    "href": _work_href(ent, row, kind), "seen": seen.seen(ent), "award": won_by.get(q),
+                    "line": f"{_count(n, 'win')} · {_count(m, 'nomination')}"})
+    return out
+
+
 def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str, hub) -> tuple[dict, list]:
     """-> (context, entities still to fill after the response)."""
     akind = AKIND[kind]
@@ -326,6 +356,7 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         "next": {"year": next_y, "href": _href(kind, body, next_y, unseen)} if next_y else None,
         "unseen_href": _href(kind, body, year, not unseen),
         "hero": hero, "cats": cats, "more": more, "empty": empty,
+        "podium": podium(page, tally, seen, kind, won_by) if page else [],
         "coming": coming, "sync": st,
     }
     return ctx, later
@@ -341,7 +372,7 @@ def _page(request: Request, kind: str, body: str, year: str, unseen: str):
             ctx, later = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view, hub)
         except (sqlite3.Error, OSError) as exc:
             log.warning("awards page degraded: %s", type(exc).__name__)
-            ctx = {"kind": kind, "bodies": [], "years": [], "hero": None, "cats": [], "more": [], "coming": [],
+            ctx = {"kind": kind, "bodies": [], "years": [], "podium": [], "hero": None, "cats": [], "more": [], "coming": [],
                    "empty": EMPTY, "sync": {"text": PENDING, "failed": False}, "edition_line": None,
                    "prev": None, "next": None, "unseen": False, "unseen_href": PATHS[kind]}
         return ctx

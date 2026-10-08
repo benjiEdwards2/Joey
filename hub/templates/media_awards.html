@@ -44,6 +44,17 @@
 {% if empty %}
 <p class="empty">{{ empty }}</p>
 {% else %}
+{% if podium %}
+<section class="sec">
+  <div class="seclabel">Most wins</div>
+  <ol class="awpodium">{% for s in podium %}<li class="awpod awpod-{{ s.place }}"><{{ "a" if s.href else "div" }} class="awpod-in"{% if s.href %} href="{{ s.href }}"{% endif %}>
+    <span class="card-pic awframe is-place-{{ s.place }}">{{ poster(s.poster, s.title, 240) }}{{ aw.tag(s) }}{{ award_badge(s.award) }}</span>
+    <span class="row-title">{{ s.title }}</span>
+    <span class="row-meta">{{ s.line }}</span>
+    <span class="awpod-step"><span class="vh">Place </span>{{ s.place }}</span>
+  </{{ "a" if s.href else "div" }}></li>{% endfor %}</ol>
+</section>
+{% endif %}
 {% if hero %}
 {% set w = hero.winners[0] if hero.winners else none %}{% set hbd = hero.backdrop %}
 <section class="sec awhero{{ ' has-bd' if hbd }}">

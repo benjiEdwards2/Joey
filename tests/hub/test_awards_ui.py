@@ -337,3 +337,77 @@ def test_film_page_similar_rows_badge_winners(film_env):
     one = card_of(b, "Similar One")
     assert one.startswith(' is-won">') and 'aria-label="Won Best Picture · Oscars 2025"' in one
     assert "awbadge" not in card_of(b, "Similar Two") and "awbadge" not in card_of(b, "Rec One")
+
+
+# ---- item 4: the Most wins podium ----
+def podium_seed(body="bafta", spec=None):
+    """spec: {title: [(category, won)]} -> one 2025 edition; works Q95xx with TMDB ids 950x."""
+    spec = spec or {"Alpha": [("Best Film", 1), ("Best Director", 1), ("Best Actor", 1), ("Best Editing", 0)],
+                    "Beta": [("Best Film", 0), ("Best Screenplay", 1), ("Best Score", 0)],
+                    "Delta": [("Best Director", 0), ("Best Actress", 1), ("Best Sound", 0)],
+                    "Charlie": [("Best Costume", 1)], "Echo": [("Best Film", 0)]}
+    cats, noms, ents = {}, [], {}
+    for i, (title, rows) in enumerate(spec.items()):
+        q = f"Q95{i:02d}"
+        ents[q] = {"qid": q, "kind": "film", "label": title, "tmdb_movie": 9500 + i}
+        for pos, (cat, won) in enumerate(rows):
+            key = cat.lower().replace(" ", "-")
+            cats[key] = {"cat_key": key, "name": cat, "kind": "film", "lead": "work"}
+            noms.append({"cat_key": key, "work_qid": q, "work_title": title, "won": won, "pos": i * 10 + pos})
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, body, [{"ordinal": 78, "year": 2025}])
+        adb.write_edition(db, body, 78, list(cats.values()), noms, ents, "done", "wp")
+
+
+def podium_of(b):
+    m = re.search(r'<ol class="awpodium">(.*?)</ol>', b, re.S)
+    return m.group(1) if m else None
+
+
+def test_podium_top_three_by_wins_then_nominations_then_title(env):
+    build, _ = env
+    podium_seed()
+    badges._cache.clear()
+    with build(jelly()) as client:
+        b = page(client, "/media/movies/awards?body=bafta&year=2025")
+    pod = podium_of(b)
+    assert pod and '<div class="seclabel">Most wins</div>' in b
+    steps = re.findall(r'<li class="awpod awpod-(\d)"><a class="awpod-in" href="(/media/title/movie/\d+)">.*?'
+                       r'<span class="card-pic awframe is-place-\1">.*?<span class="row-title">([^<]+)</span>\s*'
+                       r'<span class="row-meta">([^<]+)</span>\s*<span class="awpod-step"><span class="vh">Place </span>\1</span>',
+                       pod, re.S)
+    assert [(s[0], s[2], s[3]) for s in steps] == [("1", "Alpha", "3 wins · 4 nominations"),
+                                                   ("2", "Beta", "1 win · 3 nominations"),      # Beta = Delta on both
+                                                   ("3", "Delta", "1 win · 3 nominations")]     # counts: title decides
+    assert steps[0][1] == "/media/title/movie/9500" and "Charlie" not in pod
+    assert b.index("awpodium") < b.index("awhero")                            # at the top of the ceremony page
+
+
+def test_podium_hidden_for_winners_only_ceremonies_and_single_winners(env):
+    build, _ = env
+    podium_seed("cannes", {"One": [("Palme d'Or", 1)], "Two": [("Grand Prix", 1)], "Three": [("Jury Prize", 1)]})
+    podium_seed("bafta", {"Solo": [("Best Film", 1), ("Best Director", 1)], "Other": [("Best Film", 0)]})
+    with build(jelly()) as client:
+        cannes = page(client, "/media/movies/awards?body=cannes&year=2025")
+        solo = page(client, "/media/movies/awards?body=bafta&year=2025")
+    assert podium_of(cannes) is None and "Most wins" not in cannes            # three 1-win ties: no story
+    assert podium_of(solo) is None                                            # one winner is not a podium
+
+
+def test_podium_with_two_works_keeps_the_middle_for_first(env):
+    build, _ = env
+    podium_seed("bafta", {"Big": [("Best Film", 1), ("Best Director", 1)], "Small": [("Best Score", 1)]})
+    with build(jelly()) as client:
+        pod = podium_of(page(client, "/media/movies/awards?body=bafta&year=2025"))
+    assert re.findall(r'awpod-(\d)"', pod) == ["1", "2"]
+
+
+def test_podium_css_is_three_across_on_every_width_with_tokens():
+    assert re.search(r"\.awpodium \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)", CSS)
+    assert re.search(r"\.awpod-1 \{ grid-column: 2; \} \.awpod-2 \{ grid-column: 1; \} \.awpod-3 \{ grid-column: 3; \}", CSS)
+    root = CSS.split(":root {", 1)[1].split("}", 1)[0]
+    for tok in ("--silver:", "--bronze:", "--silver-soft:", "--bronze-soft:"):
+        assert root.count(tok) == 1 and CSS.count(tok) == 1, tok
+    heights = {n: int(re.search(rf"\.awpod-{n} \.awpod-step \{{ height: (\d+)px", CSS).group(1)) for n in (1, 2, 3)}
+    assert heights[1] > heights[2] > heights[3]                               # 1st tallest
+    assert not re.search(r"@media[^{]*\{[^}]*\.awpodium \{[^}]*grid-template-columns", CSS)   # no phone override

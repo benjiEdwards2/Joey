@@ -29,8 +29,8 @@ def posters(html):
 def test_tv_list_uses_the_movies_list_poster(frame_env):
     main = frame_env(jellyfin=jelly())
     with TestClient(main.app) as c:
-        _, mv = body(c, "/media/movies")
-        _, tv = body(c, "/media/tv")
+        _, mv = body(c, "/media/movies?view=list")    # the List view (item 6 made Grid the default)
+        _, tv = body(c, "/media/tv?view=list")
     for page, items in ((mv, MOVIES), (tv, SHOWS)):
         rows = "".join(boxes(page).get("listbox libposters", []))
         assert posters(rows) == ["240"] * len(items)

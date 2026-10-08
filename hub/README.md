@@ -114,6 +114,15 @@ the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonig
 Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="row">` (title plain `.row-title` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
 
 **Media library pages (F3, 2026-10-06).** `/media/movies`, `/media/movies/tonight`, `/media/tv`, `/media/tv/tonight` and `/media/years?kind=movie|tv`, built from the jellyfin `movies`/`shows` arrays by `media_library.py` (`film_rows`, `show_rows`, `deal_tonight`); "New this week" uses the arr `at` field. Absent arrays render "Library list not available yet". The "By year" tab was dropped from the Movies / TV Shows tab rows (media-ux2, 2026-10-08): `/media/years` and its year pages stay served and reachable by URL only (nothing else in the app linked to it; the Movies / TV "to place" waiting count still counts unranked years).
+**Grid view (media-ux4, 2026-10-08).** `/media/movies` and `/media/tv` open as a **grid** by default: `.poster-grid.libgrid`
+of `.card-poster` cards at the Media home shelf size (`repeat(auto-fill, minmax(104px | 136px from 640 px, 1fr))`, poster
+h=240 — the size the library warm-up warms), each card one link with poster, title, year and the state in words
+(`media_library.card_state`: Watched · In progress · Not watched — a film is in progress while it sits in the viewer's
+resume list; a show by finished / watching / not started; no word without watch marks) and your score as the poster
+badge. A **Grid / List** segmented control (`.seg`, plain links keeping search / sort / grouping) sits at the end of the
+toolbar; `?view=grid|list` sets the `media_libview` cookie (path `/media`, a year), so the server draws the remembered view
+with no flash; no query → the cookie → grid. Grouping (Watched / Not yet watched; Watching / Not started / Finished),
+search and sort work in both views; List is the media-ux2 rows.
 
 **Media home shelves (media-ux2, 2026-10-08).** `build_shelves` now gives Continue watching · Recently added ·
 Downloading (when anything is) · New from people you follow · Most played. "This week" (arr airings) and "Recently

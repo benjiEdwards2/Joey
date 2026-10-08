@@ -11,6 +11,7 @@ import random
 import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
 from contextlib import asynccontextmanager, suppress
 
@@ -1397,11 +1398,37 @@ def _library_rows(data: dict, view: str, kind: str):
                                _lib_href(), marks)
 
 
+LIBVIEW_COOKIE = "media_libview"     # media-ux4: Grid / List on /media/movies + /media/tv, remembered per device
+LIBVIEWS = ("grid", "list")
+LIBVIEW_MAX_AGE = 365 * 24 * 3600
+
+
+def library_view(request: Request) -> tuple[str, bool]:
+    """(grid | list, came_from_query): `?view=` wins (and is remembered in a cookie), else the cookie, else grid."""
+    q = request.query_params.get("view")
+    if q in LIBVIEWS:
+        return q, True
+    c = request.cookies.get(LIBVIEW_COOKIE)
+    return (c if c in LIBVIEWS else "grid"), False
+
+
+def library_view_links(request: Request) -> dict:
+    """{grid: href, list: href} — this page with the same search / sort / grouping and the other layout."""
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k != "view"]
+    return {v: request.url.path + "?" + urlencode(keep + [("view", v)]) for v in LIBVIEWS}
+
+
 def _library_page(request: Request, kind: str):
     template = "media_movies.html" if kind == "movie" else "media_tv.html"
+    libview, view_from_query = library_view(request)
 
     def build(data, view):
         items, marks, rows = _library_rows(data, view, kind)
+        # media-ux4: each grid card says Watched / Not watched / In progress (a film is in progress while it sits in the
+        # viewer's resume list)
+        resume = {str(r.get("jf_id")) for r in data.get("up_next") or [] if media_resume.in_progress(r) and r.get("jf_id")}
+        for r in rows or []:
+            r["card_state"] = media_library.card_state(r, resume)
         arr = get_snapshots().get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: item_href(jf))
@@ -1415,8 +1442,12 @@ def _library_page(request: Request, kind: str):
             "head_line": media_library.head_line(rows or [], kind, marks),
             "groups": media_library.arrange(rows or [], q, sort, group, kind, marks),
             "ratings": _ratings(view, arrived),
+            "libview": libview, "libview_links": library_view_links(request),
         }
-    return _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
+    resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
+    if view_from_query:
+        resp.set_cookie(LIBVIEW_COOKIE, libview, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
+    return resp
 
 
 def _tonight_page(request: Request, kind: str):

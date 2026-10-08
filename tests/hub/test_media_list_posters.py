@@ -23,8 +23,8 @@ def _listboxes(main_html):
 def test_movies_and_tv_lists_ask_for_the_bigger_poster(frame_env):
     main = frame_env(jellyfin=jelly())
     with TestClient(main.app) as c:
-        _, mv = body(c, "/media/movies")
-        _, tv = body(c, "/media/tv")
+        _, mv = body(c, "/media/movies?view=list")    # media-ux4: the rows are the List view (grid is the default)
+        _, tv = body(c, "/media/tv?view=list")
     for page, items in ((mv, MOVIES), (tv, SHOWS)):
         boxes = "".join(_listboxes(page))
         assert boxes, "the list rows sit in .listbox.libposters"

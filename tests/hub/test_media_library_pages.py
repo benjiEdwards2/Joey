@@ -68,7 +68,7 @@ def row_titles(main_html):
 def test_movies_page_in_frame_with_head_groups_and_words(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
-        html, b = body(c, "/media/movies")
+        html, b = body(c, "/media/movies?view=list")   # media-ux4: grid is the default; the row words live in List
     assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["My films"]
     assert "4 films · 2 watched · 2 to watch" in b
     assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")
@@ -98,7 +98,7 @@ def test_default_sort_is_score_then_year_then_title_and_other_sorts(env):
         assert order("sort=year") == ["Delta Film", "Bravo Film", "Alpha Film", "Charlie Film"]
         assert order("sort=added") == ["Bravo Film", "Charlie Film", "Alpha Film", "Delta Film"]
         assert order("sort=rating") == ["Delta Film", "Alpha Film", "Bravo Film", "Charlie Film"]
-        b = body(c, "/media/movies")[1]
+        b = body(c, "/media/movies?view=list")[1]   # media-ux4: grid is the default; the row words live in List
         assert 'class="row-score score-9' in b and "Your rating: 9 out of 10" in b
 
 
@@ -125,7 +125,7 @@ def test_new_this_week_strip_present_and_absent(env):
 def test_tv_page_groups_words_and_head(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
-        html, b = body(c, "/media/tv")
+        html, b = body(c, "/media/tv?view=list")   # media-ux4: grid is the default; the row words live in List
     assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["My shows"]
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
@@ -302,8 +302,8 @@ def test_arrived_this_week_prefers_the_timestamp_over_the_text():
 def test_whole_row_is_one_anchor_wrapping_the_title(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
-        _, m = body(c, "/media/movies?group=0")
-        _, t = body(c, "/media/tv?group=0")
+        _, m = body(c, "/media/movies?group=0&view=list")   # media-ux4: grid is the default; the row words live in List
+        _, t = body(c, "/media/tv?group=0&view=list")
     for b, jf, title in ((m, "jtmdb-11", "Alpha Film"), (t, "jtmdb-21", "Echo Show")):
         anchors = re.findall(r'<a class="row" href="/media/item/%s">(.*?)</a>' % jf, b, re.S)
         assert len(anchors) == 1 and title in anchors[0] and "<a" not in anchors[0]
@@ -320,7 +320,8 @@ ARRL = {"summary": "x", "arrived": [
 
 
 def strip(b):
-    return b.split('<div class="carousel">', 1)[1].split("</form>", 1)[0] if "New this week" in b else ""
+    # media-ux4: ends where the toolbar starts (the toolbar now holds the Grid / List links)
+    return b.split('<div class="carousel">', 1)[1].split('<form class="toolbar"', 1)[0] if "New this week" in b else ""
 
 
 def test_new_this_week_items_link_item_title_or_nothing(env):

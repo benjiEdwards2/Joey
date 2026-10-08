@@ -52,7 +52,7 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
         cr = it.get("community_rating")
         last = it.get("last_played_at") if marks else None
         rows.append({
-            "kind": kind, "title": it.get("title") or "Untitled", "year": it.get("year"),
+            "kind": kind, "title": it.get("title") or "Untitled", "year": it.get("year"), "jf_id": it.get("jf_id"),
             "item_key": key, "poster": it.get("poster"), "href": href, "external": external,
             "runtime_min": it.get("runtime_min"), "runtime": runtime_text(it.get("runtime_min")) if it.get("runtime_min") else "",
             "played": played if marks else None, "last_played_at": last,
@@ -68,6 +68,20 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
             "last_text": f"Last watched {ago(last)}" if marks and kind == "tv" and last else "",
         })
     return rows
+
+
+def card_state(row: dict, resume_ids=frozenset()) -> dict | None:
+    """The grid card's state word (media-ux4, 2026-10-08): Watched · In progress · Not watched, with its colour class.
+    Films: played, else in progress while the viewer's resume list holds it; shows: finished / watching / not started.
+    None without watch marks (her view before her own list exists) — no word rather than a wrong one."""
+    if row.get("played") is None:
+        return None
+    if row.get("kind") == "movie":
+        key = "watched" if row["played"] else "progress" if str(row.get("jf_id")) in resume_ids else "todo"
+    else:
+        key = {"finished": "watched", "watching": "progress"}.get(row.get("state"), "todo")
+    return {"watched": {"word": "Watched", "cls": "st-good"}, "progress": {"word": "In progress", "cls": "st-progress"},
+            "todo": {"word": "Not watched", "cls": "st-todo"}}[key]
 
 
 def film_rows(items, ratings, ago, href_of, marks=True) -> list[dict]:

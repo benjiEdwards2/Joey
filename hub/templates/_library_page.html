@@ -1,8 +1,9 @@
 {% from "_poster.html" import poster %}
-{% from "_library_row.html" import row %}
+{% from "_library_row.html" import row, card %}
 {% from "_icons.html" import icon %}
 {# Shared body of /media/movies and /media/tv (restyle Phase 3): a "New this week" carousel, the guide's toolbar
-   (search with its icon, the Grouped chip, sort), then rows grouped under section labels. #}
+   (search with its icon, the Grouped chip, sort, the Grid / List switch), then the titles grouped under section labels —
+   poster cards (the default, media-ux4) or rows. #}
 {# To rate moved to its own tab beside Tonight (media-ux4, 2026-10-08: /media/movies/to-rate, /media/tv/to-rate). #}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected.</p>
@@ -32,11 +33,18 @@
     {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
   <button type="submit" class="btn btn-secondary">Apply</button>
+  {# Grid / List (media-ux4, 2026-10-08): plain links keeping the search / sort / grouping; the choice is a cookie, so the
+     server draws the right layout on the next visit (no flash). Grid is the default. #}
+  <nav class="seg" aria-label="Layout">
+    <a href="{{ libview_links.grid }}"{% if libview == "grid" %} aria-current="true"{% endif %}>{{ icon("grid") }}Grid</a>
+    <a href="{{ libview_links.list }}"{% if libview == "list" %} aria-current="true"{% endif %}>{{ icon("list") }}List</a>
+  </nav>
 </form>
 {% for g in groups %}
 <section class="sec">
   {% if g.label %}<div class="seclabel">{{ g.label }} · {{ g.rows|length }}</div>{% endif %}
-  <div class="listbox libposters">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
+  {% if libview == "list" %}<div class="listbox libposters">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
+  {% else %}<div class="poster-grid libgrid">{% for r in g.rows %}{{ card(r) }}{% endfor %}</div>{% endif %}
 </section>
 {% else %}
 <p class="empty">{{ "Nothing matches that search." if q else "Nothing in the library yet." }}</p>

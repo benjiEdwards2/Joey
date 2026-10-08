@@ -144,7 +144,7 @@ def test_year_select_keeps_body_and_not_seen(env):
     assert '<label class="vh" for="awyear">Ceremony year</label>' in form
     assert re.findall(r'<option value="(\d+)"( selected)?>', form) == [("2026", ""), ("2025", ""), ("2024", " selected")]
     assert 'onchange="this.form.submit()"' in form and "<noscript>" in form   # works without JS too
-    assert re.search(r"\.awyear\.select \{[^}]*font-size: (1[6-9]|2\d)px", CSS)  # >= 16 px: no zoom on a phone
+    assert re.search(r"\.awyearform \.awyear \{[^}]*font-size: (1[6-9]|2\d)px", CSS)  # >= 16 px: no zoom on a phone
     assert b.index("‹ 2024") < b.index("awyearform") < b.index("2025 ›") < b.index("97th Academy Awards") \
         if "‹ 2024" in b else b.index("awyearform") < b.index("2025 ›")
 

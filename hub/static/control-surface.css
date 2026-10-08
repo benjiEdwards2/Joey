@@ -1018,10 +1018,10 @@ a.castcard:hover .castname { text-decoration: underline; }
 .awyear { min-width: 3.5em; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums;
   color: var(--text-1); }
 .awstep .chip { margin-left: auto; }
-/* awards-ui item 2 (2026-10-09): the reference layout. The year is a native select between the arrows (16 px+ so a
+/* awards-ui item 2 (2026-10-09): the reference layout. The year is a native select between the arrows (18 px, over 16 so a
    phone never zooms); the edition line sits beside it; Not seen keeps to the right. */
 .awyearform { display: flex; align-items: center; gap: 6px; margin: 0; }
-.awyear.select { height: 32px; min-width: 0; padding: 0 8px; font-size: 18px; font-weight: 600; color: var(--text-1); }
+.awyearform .awyear { height: 32px; min-width: 0; padding: 0 8px; font-size: 18px; font-weight: 600; color: var(--text-1); }
 .awstep .awed { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 639px) { .awstep .awed { flex: 1 1 100%; order: 5; } }
 /* Coming up: each ceremony with its mark; the next one outlined + the word "Next". */

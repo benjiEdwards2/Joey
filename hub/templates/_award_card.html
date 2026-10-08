@@ -39,3 +39,34 @@
   {% elif not c.winners %}<p class="metaline">—</p>{% endif %}
 </div>
 {%- endmacro %}
+{# Film / TV page and person page Awards sections (awards-ui item 5): one group per ceremony — its mark, name and
+   tally — then whole-link lines; a won category is a gold pill with the laurel mark, a nomination a neutral pill, and
+   each pill says Won / Nominated to a screen reader (colour is never the only signal). #}
+{% macro cat_pill(name, won) -%}
+<span class="awchip{{ ' is-won' if won }}">{% if won %}{{ award_icon("laurel", 12, deco=true) }}<span class="vh">Won: </span>{% else %}<span class="vh">Nominated: </span>{% endif %}{{ name }}</span>
+{%- endmacro %}
+{% macro group_head(g) -%}
+<div class="awgroup-head">{{ award_icon(g.body_id, 20, src=g.logo, deco=true) }}<span class="awgroup-name">{{ g.body }}</span><span class="awgroup-tally">{{ g.tally }}</span></div>
+{%- endmacro %}
+{% macro film_line(e) -%}
+<a class="awline" href="{{ e.href }}"><div class="row-title">{{ e.line }}</div><div class="awchips">{% for c in e.cats %}{{ cat_pill(c.name, c.won) }}{% endfor %}</div></a>
+{%- endmacro %}
+{% macro film_group(g, shown=3) -%}
+<div class="awgroup">
+  {{ group_head(g) }}
+  <div class="awlines">{% for e in g.editions[:shown] %}{{ film_line(e) }}{% endfor %}</div>
+  {% if g.editions | length > shown %}<details class="showmore"><summary>Show more · {{ g.editions | length - shown }}</summary>
+  <div class="awlines">{% for e in g.editions[shown:] %}{{ film_line(e) }}{% endfor %}</div></details>{% endif %}
+</div>
+{%- endmacro %}
+{% macro person_line(r) -%}
+<{{ "a" if r.href else "div" }} class="awline"{% if r.href %} href="{{ r.href }}"{% endif %}><div class="row-title">{{ r.lead }}</div><div class="awchips">{% if r.won %}<span class="awchip is-won">{{ award_icon("laurel", 12, deco=true) }}Won</span>{% else %}<span class="awchip">Nominated</span>{% endif %}{% if r.work_title %}<span class="row-meta">{{ r.work_title }}</span>{% endif %}</div></{{ "a" if r.href else "div" }}>
+{%- endmacro %}
+{% macro person_group(g, shown=4) -%}
+<div class="awgroup">
+  {{ group_head(g) }}
+  <div class="awlines">{% for r in g.rows[:shown] %}{{ person_line(r) }}{% endfor %}</div>
+  {% if g.rows | length > shown %}<details class="showmore"><summary>Show more · {{ g.rows | length - shown }}</summary>
+  <div class="awlines">{% for r in g.rows[shown:] %}{{ person_line(r) }}{% endfor %}</div></details>{% endif %}
+</div>
+{%- endmacro %}

@@ -397,19 +397,40 @@ def _count(n: int, word: str) -> str:
     return f"{n} {word}{'s' if n != 1 else ''}"
 
 
+def _tally_text(won: int, noms: int) -> str:
+    return f"Won {won} of {_count(noms, 'nomination')}" if won else _count(noms, "nomination")
+
+
+def _grouped(items: list[dict]) -> list[tuple[str, list[dict]]]:
+    """[(body_id, items)] in ceremony prestige order (badges.PRESTIGE), each group keeping the items' own order."""
+    groups: dict[str, list[dict]] = {}
+    for it in items:
+        groups.setdefault(it["body_id"], []).append(it)
+    order = {b: i for i, b in enumerate(badges.PRESTIGE)}
+    return sorted(groups.items(), key=lambda kv: order.get(kv[0], len(order)))
+
+
 def section_rows(rows: list[dict], kind: str) -> list[dict]:
-    """work_awards rows -> the film / TV page section: one line per ceremony + its categories, linked to that page."""
+    """work_awards rows -> the film / TV page section (awards-ui item 5): one group per ceremony (prestige order) with
+    its mark and tally ("Won 3 of 7 nominations"), then one whole-link line per edition ("2025 · Won 2 of 3
+    nominations", newest first, linked to that ceremony's Awards page) over its category pills (won gold, nominated
+    neutral)."""
     page_kind = "movie" if kind == "movie" else "tv"
     out = []
-    for g in rows:
-        tally = f"Won {g['won']} of {_count(g['noms'], 'nomination')}" if g["won"] else _count(g["noms"], "nomination")
-        out.append({**g, "href": _href(page_kind, g["body_id"], g["year"], False),
-                    "line": " · ".join(x for x in (f"{g['body']} {g['year']}" if g["year"] else g["body"], tally) if x)})
+    for body_id, eds in _grouped(rows):
+        editions = [{**g, "href": _href(page_kind, g["body_id"], g["year"], False),
+                     "line": " · ".join(x for x in (str(g["year"]) if g["year"] else None,
+                                                    _tally_text(g["won"], g["noms"])) if x)} for g in eds]
+        out.append({"body_id": body_id, "body": eds[0]["body"], "logo": icons.override(body_id),
+                    "tally": _tally_text(sum(g["won"] for g in eds), sum(g["noms"] for g in eds)),
+                    "editions": editions})
     return out
 
 
 def person_rows(got: dict) -> dict | None:
-    """person_awards -> the person page section, None when there is nothing."""
+    """person_awards -> the person page section (awards-ui item 5), None when there is nothing: the overall "2 wins ·
+    5 nominations", then one group per ceremony (prestige order) with its mark and tally, each row "2025 · Best Actor"
+    over a gold Won / neutral Nominated pill + the work (one link to the work when it matched, plain otherwise)."""
     if not got or not got.get("rows"):
         return None
     rows = []
@@ -419,5 +440,15 @@ def person_rows(got: dict) -> dict | None:
         href = (f"/media/title/movie/{ent['tmdb_movie']}" if ent.get("tmdb_movie") else
                 f"/media/title/tv/{ent['tmdb_tv']}" if ent.get("tmdb_tv") else None)
         rows.append({**r, "kind": kind, "href": href,
-                     "lead": " · ".join(x for x in (f"{r['body']} {r['year']}" if r["year"] else r["body"], r["cat"]) if x)})
-    return {"head": f"{_count(got['wins'], 'win')} · {_count(got['noms'], 'nomination')}", "rows": rows}
+                     "lead": " · ".join(x for x in (str(r["year"]) if r["year"] else None, r["cat"]) if x)})
+    groups = []
+    for body_id, rs in _grouped(rows):
+        cats: dict[tuple, bool] = {}
+        for r in rs:
+            cats[(r["year"], r["cat"])] = cats.get((r["year"], r["cat"]), False) or r["won"]
+        won = sum(cats.values())
+        groups.append({"body_id": body_id, "body": rs[0]["body"], "logo": icons.override(body_id), "rows": rs,
+                       "tally": " · ".join(x for x in (_count(won, "win") if won else None,
+                                                       _count(len(cats), "nomination")) if x)})
+    return {"head": f"{_count(got['wins'], 'win')} · {_count(got['noms'], 'nomination')}", "groups": groups,
+            "rows": rows}

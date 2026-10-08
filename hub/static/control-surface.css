@@ -1139,3 +1139,17 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
 .awpod-1 .awpod-step { height: 64px; background: var(--gold-soft); border-top: 2px solid var(--gold); color: var(--gold); }
 .awpod-2 .awpod-step { height: 44px; background: var(--silver-soft); border-top: 2px solid var(--silver); color: var(--silver); }
 .awpod-3 .awpod-step { height: 30px; background: var(--bronze-soft); border-top: 2px solid var(--bronze); color: var(--bronze); }
+/* Film / TV and person Awards sections (awards-ui item 5): a group per ceremony (mark + name + tally), whole-link lines
+   with category pills - won gold with the laurel mark, nominated neutral. One column on a phone, two from a tablet. */
+.awgroups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 24px; }
+@media (min-width: 768px) { .awgroups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.awgroup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.awgroup-head { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-3); }
+.awgroup-name { font-size: 15px; font-weight: 600; color: var(--text-1); }
+.awgroup-tally { min-width: 0; margin-left: auto; font-size: 12px; color: var(--text-5); text-align: right; }
+.awchips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 4px; min-width: 0; }
+.awchip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-height: 22px; padding: 1px 8px;
+  border-radius: 999px; border: 1px solid var(--line); color: var(--text-4); font-size: 11px; font-weight: 500;
+  overflow-wrap: anywhere; }
+.awchip.is-won { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); font-weight: 600; }
+.awchips .row-meta { min-width: 0; }

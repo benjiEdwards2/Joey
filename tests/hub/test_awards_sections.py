@@ -59,12 +59,18 @@ def test_film_page_lists_each_ceremony_with_its_categories_and_links(env):
         b = main_of(client.get("/media/title/movie/603").text)
     sec = awards_section(b)
     assert sec and '<div class="seclabel">Awards</div>' in sec
+    # awards-ui item 5 (2026-10-09): grouped per ceremony (prestige order) under its mark + tally; a line per edition
     lines = re.findall(r'<a class="awline" href="([^"]+)"><div class="row-title">([^<]+)</div>', sec)
-    assert lines == [("/media/movies/awards?body=oscars&amp;year=2025", "Oscars 2025 · Won 1 of 2 nominations"),
-                     ("/media/movies/awards?body=bafta&amp;year=2025", "BAFTA 2025 · Won 2 of 3 nominations"),
-                     ("/media/movies/awards?body=globes&amp;year=2024", "Golden Globes 2024 · 1 nomination")]
-    assert '<span class="st-good">Won</span> Best Picture · Best Actor' in sec
-    assert '<span class="st-good">Won</span> Best Film · <span class="st-good">Won</span> Best Actress in a Leading Role · Best Editing' in sec
+    assert lines == [("/media/movies/awards?body=oscars&amp;year=2025", "2025 · Won 1 of 2 nominations"),
+                     ("/media/movies/awards?body=bafta&amp;year=2025", "2025 · Won 2 of 3 nominations"),
+                     ("/media/movies/awards?body=globes&amp;year=2024", "2024 · 1 nomination")]
+    heads = re.findall(r'<div class="awgroup-head"><svg class="awic awic-(\w+)"[^>]*aria-hidden="true"[^>]*>.*?</svg>'
+                       r'<span class="awgroup-name">([^<]+)</span><span class="awgroup-tally">([^<]+)</span></div>', sec, re.S)
+    assert heads == [("oscars", "Oscars", "Won 1 of 2 nominations"), ("bafta", "BAFTA", "Won 2 of 3 nominations"),
+                     ("globes", "Golden Globes", "1 nomination")]
+    pills = lambda h: re.sub(r"<svg.*?</svg>", "", sec.split(h, 1)[1].split("</a>", 1)[0], flags=re.S)  # noqa: E731
+    assert re.findall(r'<span class="awchip( is-won)?">(?:<span class="vh">(Won|Nominated): </span>)([^<]+)</span>',
+                      pills("year=2025")) == [(" is-won", "Won", "Best Picture"), ("", "Nominated", "Best Actor")]
     assert b.index('id="awards"') < b.index('<div class="filmbody">')     # under the stats strip
 
 
@@ -83,13 +89,17 @@ def test_person_page_counts_wins_and_nominations_and_links_matched_works(env):
         b = main_of(client.get("/media/person/55").text)
     sec = awards_section(b)
     assert sec and '<p class="metaline">2 wins · 4 nominations</p>' in sec
+    # awards-ui item 5 (2026-10-09): grouped per ceremony under its mark + tally; Won is a gold pill, Nominated neutral
     rows = re.findall(r'<(a|div) class="awline"(?: href="([^"]*)")?><div class="row-title">([^<]+)</div>'
-                      r'<div class="row-meta">(.*?)</div>', sec)
-    assert [(r[2], re.sub(r"<[^>]+>", "", r[3])) for r in rows] == [
-        ("Oscars 2025 · Best Actor", "Nominated · Harbour Lights"),
-        ("BAFTA 2025 · Best Actress in a Leading Role", "Won · Harbour Lights"),
-        ("Golden Globes 2024 · Best Actress in a Motion Picture – Drama", "Nominated · Other Film"),
-        ("Golden Globes 2024 · Best Supporting Actress – Motion Picture", "Won · Unlinked")]
+                      r'<div class="awchips">(.*?)</div>', sec, re.S)
+    assert [(r[2], " · ".join(re.findall(r">([^<>]+)<", re.sub(r"<svg.*?</svg>", "", r[3], flags=re.S)))) for r in rows] == [
+        ("2025 · Best Actor", "Nominated · Harbour Lights"),
+        ("2025 · Best Actress in a Leading Role", "Won · Harbour Lights"),
+        ("2024 · Best Actress in a Motion Picture – Drama", "Nominated · Other Film"),
+        ("2024 · Best Supporting Actress – Motion Picture", "Won · Unlinked")]
+    assert re.findall(r'<span class="awgroup-name">([^<]+)</span><span class="awgroup-tally">([^<]+)</span>', sec) == [
+        ("Oscars", "1 nomination"), ("BAFTA", "1 win · 1 nomination"), ("Golden Globes", "1 win · 2 nominations")]
+    assert re.search(r'<span class="awchip is-won"><svg class="awic awic-laurel"[^>]*aria-hidden="true"', sec)
     assert rows[0][0] == "a" and rows[0][1] == "/media/title/movie/603"
     assert rows[3][0] == "div" and rows[3][1] == ""                       # unmatched work: plain row
     assert b.index('id="awards"') < b.index("On your server") if "On your server" in b else True

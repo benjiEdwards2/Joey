@@ -411,3 +411,55 @@ def test_podium_css_is_three_across_on_every_width_with_tokens():
     heights = {n: int(re.search(rf"\.awpod-{n} \.awpod-step \{{ height: (\d+)px", CSS).group(1)) for n in (1, 2, 3)}
     assert heights[1] > heights[2] > heights[3]                               # 1st tallest
     assert not re.search(r"@media[^{]*\{[^}]*\.awpodium \{[^}]*grid-template-columns", CSS)   # no phone override
+
+
+# ---- item 5: film / TV and person Awards sections ----
+from hub import media_awards_pages as pages  # noqa: E402
+
+
+def wrow(body, year, won, noms, cats=()):
+    return {"body_id": body, "body": body.title(), "ordinal": year - 1900, "year": year, "won": won, "noms": noms,
+            "cats": [{"name": c, "won": w, "rank": 0} for c, w in cats]}
+
+
+def test_film_section_groups_by_ceremony_in_prestige_order_with_tallies():
+    rows = [wrow("bafta", 2025, 1, 3, [("Best Film", True)]), wrow("cannes", 2024, 1, 1, [("Palme d'Or", True)]),
+            wrow("bafta", 2024, 0, 2), wrow("oscars", 2025, 0, 1)]
+    got = pages.section_rows(rows, "movie")
+    assert [(g["body_id"], g["tally"]) for g in got] == [("oscars", "1 nomination"), ("cannes", "Won 1 of 1 nomination"),
+                                                         ("bafta", "Won 1 of 5 nominations")]
+    assert [e["line"] for e in got[2]["editions"]] == ["2025 · Won 1 of 3 nominations", "2024 · 2 nominations"]
+    assert got[2]["editions"][1]["href"] == "/media/movies/awards?body=bafta&year=2024" and got[0]["logo"] is None
+
+
+def test_person_section_groups_and_counts_per_ceremony():
+    got = pages.person_rows({"wins": 2, "noms": 3, "rows": [
+        {"body_id": "globes", "body": "Golden Globes", "year": 2024, "cat": "Best Actress", "won": True,
+         "work_title": "A", "work": {"kind": "film", "tmdb_movie": 5}, "rank": 0},
+        {"body_id": "oscars", "body": "Oscars", "year": 2025, "cat": "Best Actress", "won": True, "work_title": "A",
+         "work": None, "rank": 0},
+        {"body_id": "globes", "body": "Golden Globes", "year": 2023, "cat": "Best Actress", "won": False,
+         "work_title": "B", "work": None, "rank": 0}]})
+    assert got["head"] == "2 wins · 3 nominations"
+    assert [(g["body_id"], g["tally"], [r["lead"] for r in g["rows"]]) for g in got["groups"]] == [
+        ("oscars", "1 win · 1 nomination", ["2025 · Best Actress"]),
+        ("globes", "1 win · 2 nominations", ["2024 · Best Actress", "2023 · Best Actress"])]
+    assert got["groups"][1]["rows"][0]["href"] == "/media/title/movie/5" and got["groups"][1]["rows"][1]["href"] is None
+    assert pages.person_rows({"rows": []}) is None
+
+
+def test_section_pills_say_won_or_nominated_beyond_colour():
+    src = (TEMPLATES / "_award_card.html").read_text(encoding="utf-8")
+    pill = src.split("{% macro cat_pill(name, won) -%}", 1)[1].split("{%- endmacro %}", 1)[0]
+    assert '<span class="vh">Won: </span>' in pill and '<span class="vh">Nominated: </span>' in pill
+    assert 'award_icon("laurel", 12, deco=true)' in pill                     # a shape too, not only gold
+    assert re.search(r"\.awchip\.is-won \{[^}]*var\(--gold\)", CSS) and re.search(r"\.awchip \{[^}]*var\(--line\)", CSS)
+
+
+def test_film_section_folds_older_editions_per_ceremony():
+    env_ = jinja2.Environment(loader=jinja2.FileSystemLoader(str(TEMPLATES)), autoescape=True)
+    g = pages.section_rows([wrow("oscars", y, 0, 1, [("Best Picture", False)]) for y in (2025, 2024, 2023, 2022, 2021)],
+                           "movie")[0]
+    out = env_.from_string('{% import "_award_card.html" as aw %}{{ aw.film_group(g) }}').render(g=g)
+    shown, folded = out.split('<details class="showmore"><summary>Show more · 2</summary>', 1)
+    assert shown.count('class="awline"') == 3 and folded.count('class="awline"') == 2

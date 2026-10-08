@@ -126,6 +126,7 @@ def _build(jf_id: str) -> dict:
     today = date.today().isoformat()
     series_id = raw.get("SeriesId") if kind in ("episode", "season") else (raw["Id"] if kind == "series" else None)
     tmdb = (raw.get("ProviderIds") or {}).get("Tmdb") if kind in ("movie", "series") else None
+    imdb = (raw.get("ProviderIds") or {}).get("Imdb") if kind in ("movie", "series") else None  # media-ux4: OMDb lookup
     show = None
     with ThreadPoolExecutor(max_workers=3) as pool:
         # media-speed: the independent reads after the item run side by side. An episode / season reads its
@@ -166,6 +167,7 @@ def _build(jf_id: str) -> dict:
         "played": played, "in_progress": not played and pos > 0,
         "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE} min left" if ticks and pos > 0 else None,
         "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
+        "imdb": str(imdb) if imdb else None,
         # media-ux3: the "part of" banner draws a backdrop only when Jellyfin has one (else a plain panel)
         "has_backdrop": bool(raw.get("BackdropImageTags")),
         "show_title": str(raw.get("SeriesName") or "") or None, "show_id": series_id if kind != "series" else None,

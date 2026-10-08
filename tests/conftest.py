@@ -23,3 +23,4 @@ def _isolated_media_paths(tmp_path, monkeypatch):
     monkeypatch.setenv("MEDIA_BACKUP", "off")
     monkeypatch.setenv("META_CACHE_DIR", str(tmp_path / "isolated-meta"))  # media-speed: long Jellyseerr cache
     monkeypatch.setenv("MEDIA_WARMUP", "off")  # media-speed: no background warm-up thread in tests
+    monkeypatch.delenv("OMDB_API_KEY", raising=False)  # media-ux4: no Metacritic lookups unless a test sets a key

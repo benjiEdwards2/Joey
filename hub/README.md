@@ -369,6 +369,11 @@ bad < 40; tokens `--good` / `--score-6` / `--bad`), the number always shown. Run
 stats. The hero's IMDb / TMDB / Letterboxd links are the same pill without a score (`.sitepill`), neutral — the
 yellow / sky / green link chips and their tokens are gone. A pill with no source is not drawn.
 
+Metacritic (media-ux4, 2026-10-08): `media_omdb.metascore(imdb_id)` fills the Metacritic pill from OMDb when
+`OMDB_API_KEY` is set (contract doc, fifteenth exception): one lookup by IMDb id, every answer remembered 7 days in memory
++ on disk (`omdb:<id>` in the meta cache), ≤ 800 calls per process per day, a refused key stops calls for the day; no key,
+"N/A" or a failure ⇒ no pill. Logs never carry the URL (it holds the key) — status or exception type only.
+
 Episode pages (media-ux4, 2026-10-08): the hero has no "Episode of <Show>" line (the part-of banner leads to the show) and
 only the **episode's** Play button — the series-level "Next to watch: …" / "Play ▶" stays on the series page. The hero's
 watch state (toggle, Move-on pair, Play label) comes from the show's season list the banner counts and the rows show

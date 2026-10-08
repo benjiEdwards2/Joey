@@ -136,6 +136,16 @@ Extended in media-ux3 (2026-10-08): `POST /media/resume/{jf_id}/unwatched` sends
 (404/405 → `DELETE /Users/{uid}/PlayedItems/{id}`), and the watched / unwatched routes also take a season id
 (`scope=season`), which Jellyfin applies to every episode of the season. Unwatched never deletes a diary row.
 
+**Fifteenth exception (2026-10-08): Metacritic via OMDb (`hub/media_omdb.py`, media-ux4).** A live outbound read, server-side
+only, when the optional `OMDB_API_KEY` is set: the film page asks `GET https://www.omdbapi.com/?i={imdb id}&apikey=…` (IMDb
+id from Jellyseerr `externalIds.imdbId` / `imdbId`, else Jellyfin `ProviderIds.Imdb`) and shows `Metascore`, else the
+`Ratings` "Metacritic" entry, as a pill. Every answer for a title (a score, "N/A", not found, a failed call) is remembered
+7 days in memory and on disk beside the Jellyseerr meta cache (`META_CACHE_DIR`, key `omdb:<id>`), so a title costs at most
+one call per 7 days, restarts included; a process makes at most 800 calls a UTC day (free tier 1,000); a refused key or
+OMDb's own limit stops calls for the rest of the day without marking any title. The warm-up never calls OMDb. No key or any
+failure ⇒ no pill, never a 500. The request URL carries the key, so logs carry the HTTP status or exception type only —
+never a URL, message or body — and the page never carries the key.
+
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
 note)` — the Server page is single-owner, so no owner column. `watchlist(owner, item_key, kind, title, year, poster, tmdb_id, added_at)`, key

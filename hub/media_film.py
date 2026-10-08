@@ -21,7 +21,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_discover as md, media_files, media_follow, media_item, media_plays_db, media_rank
+from hub import media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -234,6 +234,16 @@ def score_text(value) -> str | None:
     """A 0-10 score in the pills' one format: 8.0 -> "8.0", "7.4 / 10" -> "7.4"; None when absent."""
     m = re.match(r"\s*(\d+(?:\.\d+)?)", str(value)) if value is not None else None
     return f"{float(m.group(1)):.1f}" if m and float(m.group(1)) > 0 else None
+
+
+def imdb_id(raw: dict, item: dict | None) -> str | None:
+    """The title's IMDb id: Jellyseerr's `externalIds.imdbId` (films and shows), its film-only `imdbId`, else Jellyfin's
+    ProviderIds.Imdb (media_item `imdb`)."""
+    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    for v in (ext.get("imdbId"), raw.get("imdbId"), (item or {}).get("imdb")):
+        if isinstance(v, str) and media_omdb.IMDB_RE.match(v.strip()):
+            return v.strip()
+    return None
 
 
 def mc_band(score) -> str | None:
@@ -706,7 +716,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         ends = (hub._now_home() + timedelta(minutes=mins)).strftime("%H:%M")
     # media-ux4: every score is a pill in one format — IMDb 8.0 · RT 90% · Metacritic 74 · TMDB 8.1 · Yours 8
     community = score_text(item["community_rating"] if item and item.get("community_rating") else (t or {}).get("vote"))
-    f["numbers"] = {"tmdb": community, "imdb": ratings.get("imdb"), "rt": ratings.get("rt"), "mc": None, "mc_band": None,
+    mc = media_omdb.metascore(imdb_id(raw, item)) if kind in ("movie", "tv") else None   # Metacritic via OMDb (item 2)
+    f["numbers"] = {"tmdb": community, "imdb": ratings.get("imdb"), "rt": ratings.get("rt"), "mc": mc, "mc_band": mc_band(mc),
                     "runtime": runtime_text(runtime_min) if runtime_min else None, "ends": ends}
     f["logos"] = logos()
     added = md._date_words(item.get("added"))[0] if item and item.get("added") else None

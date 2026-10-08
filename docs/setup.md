@@ -52,6 +52,11 @@ qBittorrent Web UI LAN address (NAS IP, port 8080) and a permanent Web UI login 
 (the linuxserver image otherwise prints a throwaway password each start); read-only, on the 2-min loop. `media.db` is backed up nightly into
 `/volume1/Docker/joey/backups/media` (the host dir must be owned by uid 1000).
 
+Metacritic (media-ux4, 2026-10-08): `OMDB_API_KEY` (optional) is a free OMDb key (omdbapi.com, 1,000 calls a day). The
+hub looks up a title's Metascore by IMDb id when its film page opens, at most once per title per 7 days and at most 800
+calls per process per day; unset, the film page simply has no Metacritic pill. It reaches the hub like the other media
+keys, through `deploy/.env` (compose `env_file`).
+
 Play recorder (2026-10-06): the hub polls Jellyfin `/Sessions` every `PLAY_POLL_SECONDS` (default 60) into `media.db`;
 set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN_API_KEY`. Neither knob is listed in
 `deploy/.env.example` yet, so add them there by hand only if you want to change the defaults.

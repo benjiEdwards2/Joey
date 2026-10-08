@@ -344,7 +344,7 @@ def test_shelves_mark_server_status(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    col = b.split('<div class="seclabel">Harbour Collection</div>', 1)[1].split("</section>", 1)[0]
+    col = b.split('<section class="sec colsec" id="collection">', 1)[1].split("</section>", 1)[0]  # media-ux3 banner
     assert "Harbour Lights 2" in col and col.count(">On server<") == 2 and col.count(">Not on server<") == 1
     sim = b.split('<div class="seclabel">Similar</div>', 1)[1].split("</section>", 1)[0]
     assert 'href="/media/title/movie/11"' in sim and sim.count(">On server<") == 1 and sim.count(">Not on server<") == 1

@@ -789,6 +789,36 @@ a.castcard:hover .castname { text-decoration: underline; }
   .epline .epstill { width: 96px; }
   .epline .row-side { flex: 1 0 100%; justify-content: flex-end; }
 }
+/* "Part of" banners (media-ux3, 2026-10-08): an episode / season page's show and a film's series. A wide card: the
+   backdrop under the guide's page-header scrim (dark side under the text, the foot fading to the ground), the poster,
+   one line of words, glass buttons. No backdrop: a plain panel. Phone (<= 640 px): stacked, buttons full width.
+   The series' parts follow as a poster carousel; the page's own film is outlined and says "This film". */
+.partof { position: relative; isolation: isolate; overflow: hidden; display: flex; align-items: center; gap: 20px;
+  min-width: 0; min-height: 168px; padding: 20px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); }
+.partof.has-bd { border-color: var(--line); }
+.partof-bd { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center 25%;
+  background-image: linear-gradient(90deg, var(--pagehead-side-0) 0%, var(--pagehead-side-1) 45%, var(--pagehead-side-2) 85%),
+    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd); }
+.partof-poster { flex-shrink: 0; width: 96px; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px;
+  box-shadow: var(--shadow-poster), 0 0 0 1px var(--line); }
+.partof-text { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.partof-line { font-size: 14px; color: var(--text-3); text-shadow: var(--title-shadow); overflow-wrap: anywhere; text-wrap: balance; }
+.partof-line .sep { color: var(--text-4); }
+.partof-title { font-size: 20px; font-weight: 700; letter-spacing: -.02em; color: var(--text-1); }
+.partof-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+.partof-parts .card-poster.is-current .card-pic > img { outline: 2px solid var(--primary-hover); outline-offset: 2px; }
+.st-current { color: var(--tab-on); font-weight: 600; }
+/* "This season" / "All seasons" land on an anchor: clear the sticky top bar (56 px from 768 px). */
+.seasons, .epseason { scroll-margin-top: 72px; }
+@media (min-width: 640px) { .partof-poster { width: 120px; } .partof-title { font-size: 24px; } }
+@media (max-width: 640px) {
+  .partof { flex-direction: column; align-items: stretch; }
+  .partof-bd { background-image: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%), var(--bd); }
+  .partof-btns .btn, .partof-btns > .st-good { flex: 1 1 100%; }
+  .partof-title { display: block; }
+  .partof-title + .sep { display: none; }
+}
+
 /* Watched / unwatched (media-ux3): a season's toggle sits at the top of its open list, right-aligned; an episode's sits
    in .row-side beside Play (outside the row link). */
 .seasonacts { display: flex; justify-content: flex-end; padding: 0 8px 6px; }

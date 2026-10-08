@@ -217,7 +217,7 @@ glyph, DTS and HDR pills, plain pills for resolution, codec, container, channels
 poster + facts (languages, release dates, added, watched, requested), overview, cast portraits (initials when none), director /
 creators as search chips (no follow or lists), where to watch (AU, JustWatch links); on a TV page the seasons sit directly
 under the overview (2026-10-08) — an episode list for on-server shows (below), lazy `<details>` for off-server ones
-(`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection /
+(`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection (a banner under Overview since media-ux3, below) /
 Similar / Recommended shelves marked "On server". Every row with a Jellyfin id opens this page; an episode id shows an episode
 header over the show page.
 
@@ -350,3 +350,17 @@ watching: a watched mark hides the item (a season: every episode in it) until th
 hides its in-progress episodes (their positions are reset); a single item marked unwatched hides nothing. **Diary:** a
 watched mark (a season: one row per episode, folded to "S4 E1-6") reaches the diary at the next jellyfin sweep as today's
 watch; marking unwatched never deletes a diary entry — remove it from the Diary by hand if it was a mistake.
+
+"Part of" banners (media-ux3, 2026-10-08): `.partof` is a wide card with a backdrop under the guide's page-header scrim
+(`--pagehead-side-*` left to right + `--pagehead-foot-*` from the foot; on a phone the stacked `--pagehead-fade-*`), the
+poster, one " · " line and glass buttons; no backdrop → a plain panel; ≤ 640 px it stacks and its buttons go full width.
+An **episode page** shows its show directly under the hero ("Slow Horses · Season 6 · Episode 4 · 3 of 6 watched", the
+show's backdrop only when Jellyfin has one — `media_item` `has_backdrop` from `BackdropImageTags`) with **This season**
+(`/media/item/{show}?season=N#season-N`) and **All seasons** (`#seasons`); a **season page** links to All seasons only and
+opens its own season. The series page reads `?season=N` (junk ignored) to open that season; every season `<details>`
+carries `id="season-N"` and the Seasons section `id="seasons"`. A **film page** (item and Discover title URLs alike)
+shows its collection directly under Overview (`media_film.collection_banner`): the collection backdrop (Jellyseerr
+`backdropPath`), else the first part's, else a plain panel; "The Dark Knight Collection · 3 films · 2 on server"; the
+Follow series form inside; then the parts in release order (undated last) as `.card-poster`s with On server / Not on
+server words, the page's own film outlined with "This film" (`.is-current`, `aria-current`). Similar / Recommended stay
+as the bottom shelves.

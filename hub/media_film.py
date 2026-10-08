@@ -426,32 +426,63 @@ def _languages(files: dict | None) -> str | None:
     return " · ".join(bits) or None
 
 
+def _on_server(rows: list[dict], lib_keys: set) -> list[dict]:
+    return [{**r, "on_server": f"tmdb:{r['tmdb_id']}" in lib_keys or r["status_word"] in md.ON_DISK} for r in rows]
+
+
 def _shelves(raw: dict, kind: str, lib_keys: set, similar, recs) -> list[dict]:
-    paths = [("Collection", None), ("Similar", similar), ("Recommended", recs)]
+    """Similar / Recommended (the collection moved to its own banner under Overview, media-ux3)."""
+    out = []
+    for title, src in (("Similar", similar), ("Recommended", recs)):
+        rows = _on_server(_results(src, kind), lib_keys) if isinstance(src, dict) else []
+        if rows:
+            out.append({"title": title, "rows": rows, "collection_id": None})
+    return out
+
+
+def collection_banner(raw: dict, kind: str, lib_keys: set, tmdb_id) -> dict | None:
+    """The film series banner under Overview (media-ux3, 2026-10-08): the collection's name, its parts in release order
+    with On server words and the page's own film flagged, "3 films · 2 on server", and a backdrop — the collection's,
+    else the first part's that has one, else None (a plain panel)."""
     col = raw.get("collection") if isinstance(raw.get("collection"), dict) else None
     col_id = col["id"] if col and isinstance(col.get("id"), int) and not isinstance(col.get("id"), bool) else None
-    if col_id is not None:
-        body = _cget(f"/api/v1/collection/{col['id']}")
-        parts = body.get("parts") if isinstance(body, dict) else None
-        paths[0] = (str(col.get("name") or "Collection")[:80], parts if isinstance(parts, list) else None)
-    out = []
-    for i, (title, src) in enumerate(paths):
-        if isinstance(src, list):
-            rows = md._rows(src, "movie")[:SHELF_MAX]
-        elif isinstance(src, dict):
-            rows = _results(src, kind)
-        else:
-            rows = []
-        rows = [{**r, "on_server": f"tmdb:{r['tmdb_id']}" in lib_keys or r["status_word"] in md.ON_DISK} for r in rows]
-        if rows:
-            out.append({"title": title, "rows": rows,
-                        "collection_id": col_id if i == 0 and kind == "movie" else None})
-    return out
+    if kind != "movie" or col_id is None:
+        return None
+    body = _cget(f"/api/v1/collection/{col_id}")
+    body = body if isinstance(body, dict) else {}
+    parts = body.get("parts") if isinstance(body.get("parts"), list) else []
+    rows = sorted(_on_server(md._rows(parts, "movie"), lib_keys), key=lambda r: (r["year"] is None, r["year"] or 0))
+    if not rows:
+        return None
+    rows = [{**r, "current": str(r["tmdb_id"]) == str(tmdb_id)} for r in rows]
+    n, on = len(rows), sum(1 for r in rows if r["on_server"])
+    backdrop = md._ref(body.get("backdropPath")) or next((r["backdrop"] for r in rows if r.get("backdrop")), None)
+    return {"title": str(body.get("name") or col.get("name") or "Collection")[:80], "collection_id": col_id,
+            "rows": rows, "poster": md._ref(body.get("posterPath")), "backdrop": backdrop,
+            "line": [f"{n} film{'s' if n != 1 else ''}", f"{on} on server"]}
+
+
+def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict | None:
+    """The "part of" banner on an episode or season page (media-ux3): the show's backdrop (when Jellyfin has one) and
+    poster, "Show · Season 6 · Episode 4 · 3 of 6 watched", and links to the show page — "This season" opens and
+    scrolls to that season (`?season=N#season-N`), "All seasons" lands on the Seasons section."""
+    if not page or not item or item.get("kind") != "series" or page.get("kind") not in ("episode", "season"):
+        return None
+    n = page.get("season_no")
+    season = next((s for s in seasons if s.get("n") == n), None) if n is not None else None
+    line = [f"Season {n}" if n is not None else None,
+            f"Episode {page['episode_no']}" if page["kind"] == "episode" and page.get("episode_no") is not None else None,
+            (season or {}).get("watched_text")]
+    show = f"/media/item/{item['id']}"
+    return {"title": item["title"], "line": [x for x in line if x], "poster": item["poster"],
+            "backdrop": item["backdrop"] if item.get("has_backdrop") else None,
+            "season_href": f"{show}?season={n}#season-{n}" if page["kind"] == "episode" and n is not None else None,
+            "all_href": f"{show}#seasons"}
 
 
 def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
                view: str, request: Request, hub, req_state: str = "idle", req_msg: str | None = None,
-               snaps=None) -> dict:
+               snaps=None, open_season: int | None = None) -> dict:
     snaps = hub.get_snapshots() if snaps is None else snaps  # media-speed: the route's one read, passed in
     jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     jelly = (jsrc or {}).get("data") or {}
@@ -477,13 +508,13 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
             start(*(tmdb_hint(jelly, jf_id) or (None, None)))
 
         # --- 1. Jellyfin side: base (film / series), plus the episode when the page is for one ---
-        base, ep, row = None, None, None
+        base, ep, row, page_item = None, None, None, None
         if jf_id:
             got = media_item._data(jf_id)
             if got is None:
                 f["jf_failed"] = True
             else:
-                it = got["item"]
+                it = page_item = got["item"]
                 ep = it if it["kind"] == "episode" else None
                 if it["kind"] in ("episode", "season") and str(it.get("tmdb") or "").isdigit():
                     start("tv", int(it["tmdb"]))
@@ -560,8 +591,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         pid = jf_item_id or jf_id
         label = (f"Resume ▶ · {left}" if left else "Resume ▶") if in_progress else "Play again ▶" if played else "Play ▶"
         f["play"] = {"href": href_of(pid), "label": label}
-    f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None,
-                                ep["season_no"] if ep else None, f["next_ep"])
+    # media-ux3: `?season=N` (the banner's "This season") opens that season; else the page's episode / season
+    page_season = (open_season if open_season is not None
+                   else page_item["season_no"] if page_item and page_item["kind"] in ("episode", "season") else None)
+    f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None, page_season, f["next_ep"])
+    f["part_of"] = part_of(page_item, item, f["seasons"])
     if ep:
         f["episode"] = {"code": ep["code"], "title": ep["title"], "air_date": ep["air_date"],
                         "overview": ep["overview"], "runtime": ep["runtime"],
@@ -642,15 +676,15 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["trailer"] = _trailer((item or {}).get("trailer"), raw)
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
     f["shelves"] = _shelves(raw, kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
+    f["collection"] = collection_banner(raw, kind, lib_keys, tmdb_id) if raw and kind and tmdb_id else None
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
-    for sh in f["shelves"]:
-        if sh["collection_id"] is not None:
-            try:  # Follow (2026-10-07): the series' Follow button state; the page never fails on it
-                sh["following"] = media_follow.get("collection", sh["collection_id"]) is not None
-            except Exception as exc:
-                log.warning("follow lookup failed: %s", type(exc).__name__)
-                sh["following"] = False
+    if f["collection"]:
+        try:  # Follow (2026-10-07): the series' Follow button state; the page never fails on it
+            f["collection"]["following"] = media_follow.get("collection", f["collection"]["collection_id"]) is not None
+        except Exception as exc:
+            log.warning("follow lookup failed: %s", type(exc).__name__)
+            f["collection"]["following"] = False
     f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
     f["status_line"] = status_line(f)
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in
@@ -686,7 +720,7 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
 
 
 @router.get("/media/item/{jf_id}", response_class=HTMLResponse)
-def item_page(request: Request, jf_id: str):
+def item_page(request: Request, jf_id: str, season: str = ""):
     from hub import main as hub
 
     if not media_item.ITEM_RE.match(jf_id):
@@ -696,5 +730,6 @@ def item_page(request: Request, jf_id: str):
     src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     if src is None:
         raise HTTPException(404, "No such item")
-    film = build_film(jf_id=jf_id, view=view, request=request, hub=hub, snaps=snaps)
+    open_season = int(season) if season.isdigit() and len(season) <= 3 else None  # media-ux3: "This season"
+    film = build_film(jf_id=jf_id, view=view, request=request, hub=hub, snaps=snaps, open_season=open_season)
     return _render(request, hub, src, film, view, from_query, snaps)

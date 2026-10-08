@@ -62,7 +62,7 @@ def test_the_next_episodes_season_is_open_by_default(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/item/ser1").text)
-    assert '<details class="seasonbox epseason" open>' in b
+    assert '<details class="seasonbox epseason" id="season-4" open>' in b   # media-ux3: each season has an anchor
 
 
 def test_no_anchor_inside_a_row_title(env):

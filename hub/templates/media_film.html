@@ -62,8 +62,31 @@
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
+{% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
 {% set n = film.numbers %}
+{# "Part of" banners (media-ux3, 2026-10-08): a wide card with the show's / film series' backdrop under the guide's
+   gradient scrim (text and glass buttons sit on the dark side), the poster, one " · " line in words and the actions.
+   No backdrop -> a plain panel. Phone (<= 640 px): stacked, buttons full width. #}
+{% macro banner_bg(bd) -%}
+{% if bd %}<div class="partof-bd" style="--bd: url('/img/{{ bd }}?h=1280')" aria-hidden="true"></div>{% endif %}
+{%- endmacro %}
+{% if film.part_of %}
+{% set po = film.part_of %}
+<section class="sec partof-sec">
+  <div class="partof{{ ' has-bd' if po.backdrop }}">
+    {{ banner_bg(po.backdrop) }}
+    {{ poster(po.poster, po.title, 240, "partof-poster") }}
+    <div class="partof-text">
+      <p class="partof-line"><span class="partof-title">{{ po.title }}</span>{% for x in po.line %}<span class="sep"> · </span>{{ x }}{% endfor %}</p>
+      <div class="partof-btns">
+        {% if po.season_href %}<a class="btn btn-glass" href="{{ po.season_href }}">{{ icon("tv") }}This season</a>{% endif %}
+        <a class="btn btn-glass" href="{{ po.all_href }}">{{ icon("tv") }}All seasons</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
 {# film-quality (2026-10-07): MediaHub-style body — the numbers as ONE card, then uppercase section labels:
    OVERVIEW, FILE (badges, Size · Bitrate · Picture · Added, Audio / Subtitles / Release, the file name), CREW,
    DETAILS (dates, watches, request), CAST (portrait photo cards in a row that scrolls inside itself). #}
@@ -92,17 +115,43 @@
 </section>
 {% endif %}
 
+{# The film series (media-ux3): directly under Overview — the banner (Follow series inside it), then the parts in
+   release order as poster cards with On server words; the page's own film is outlined and says "This film". #}
+{% if film.collection %}
+{% set c = film.collection %}
+<section class="sec colsec" id="collection">
+  <div class="partof partof-col{{ ' has-bd' if c.backdrop }}">
+    {{ banner_bg(c.backdrop) }}
+    {% if c.poster %}{{ poster(c.poster, c.title, 240, "partof-poster") }}{% endif %}
+    <div class="partof-text">
+      <p class="partof-line"><span class="partof-title">{{ c.title }}</span>{% for x in c.line %}<span class="sep"> · </span>{{ x }}{% endfor %}</p>
+      {# Follow (2026-10-07): follow the film series — its NEW films get requested automatically. #}
+      {% set base = "/media/follow/collection/" ~ c.collection_id %}
+      <form class="followform partof-btns" method="post" action="{{ base }}{{ '/unfollow' if c.following }}">
+        <input type="hidden" name="back" value="{{ request.url.path }}"><input type="hidden" name="name" value="{{ c.title }}">
+        {% if c.following %}<span class="st-good">Following series ✓</span> <button class="btn btn-glass btn-sm" type="submit">Unfollow</button>
+        {% else %}<button class="btn btn-glass" type="submit">{{ icon("plus") }}Follow series</button>{% endif %}
+      </form>
+      {% if film.follow_flash %}<p class="metaline st-good" role="status">{{ film.follow_flash }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="carousel partof-parts">
+    {% for r in c.rows %}<a class="card-poster{{ ' is-current' if r.current }}" href="{{ r.href }}"{% if r.current %} aria-current="page"{% endif %}><span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}{% if r.current %}<span class="st-current">This film</span><span class="sep"> · </span>{% endif %}<span class="{{ 'st-available' if r.on_server else 'st-off' }}">{{ "On server" if r.on_server else "Not on server" }}</span></span></a>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
 {# Seasons (2026-10-08): directly under Overview on a TV page. Each season is a <details> (the page's / next
    episode's season open); each episode ONE whole-row link (a.rowlink) with its 16:9 still, "E3 · Name", air date ·
    runtime and its state in words + colour; the Play / Resume deep link sits beside the row, outside the link. #}
 {% if film.seasons %}
 {% import "_resume_acts.html" as wa %}
-<section class="sec seasons">
+<section class="sec seasons" id="seasons">
   <div class="seclabel">Seasons</div>
   {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
   <div class="listbox">
   {% for s in film.seasons %}
-  <details class="seasonbox epseason"{% if s.open %} open{% endif %}>
+  <details class="seasonbox epseason" id="season-{{ s.n }}"{% if s.open %} open{% endif %}>
     <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span></div></div></summary>
     {% if film.watch_owner and s.id and s.episodes %}<div class="seasonacts">{{ wa.season_toggle(s, film.watch_owner, film.show_id, request.url.path) }}</div>{% endif %}
     <div class="eplist">
@@ -214,16 +263,6 @@
 {% for sh in film.shelves %}
 <section class="sec">
   <div class="seclabel">{{ sh.title }}</div>
-  {% if sh.collection_id is not none %}
-  {# Follow (2026-10-07): follow the film series — its NEW films get requested automatically. #}
-  {% set base = "/media/follow/collection/" ~ sh.collection_id %}
-  <form class="followform" method="post" action="{{ base }}{{ '/unfollow' if sh.following }}">
-    <input type="hidden" name="back" value="{{ request.url.path }}"><input type="hidden" name="name" value="{{ sh.title }}">
-    {% if sh.following %}<span class="st-good">Following series ✓</span> <button class="btn btn-ghost btn-sm" type="submit">Unfollow</button>
-    {% else %}<button class="btn btn-secondary btn-sm" type="submit">Follow series</button>{% endif %}
-  </form>
-  {% if film.follow_flash %}<p class="metaline st-good" role="status">{{ film.follow_flash }}</p>{% endif %}
-  {% endif %}
   <div class="carousel">
     {% for r in sh.rows %}<a class="card-poster" href="{{ r.href }}"><span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="{{ 'st-available' if r.on_server else 'st-off' }}">{{ "On server" if r.on_server else "Not on server" }}</span></span></a>{% endfor %}
   </div>

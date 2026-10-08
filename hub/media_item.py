@@ -166,6 +166,8 @@ def _build(jf_id: str) -> dict:
         "played": played, "in_progress": not played and pos > 0,
         "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE} min left" if ticks and pos > 0 else None,
         "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
+        # media-ux3: the "part of" banner draws a backdrop only when Jellyfin has one (else a plain panel)
+        "has_backdrop": bool(raw.get("BackdropImageTags")),
         "show_title": str(raw.get("SeriesName") or "") or None, "show_id": series_id if kind != "series" else None,
         "season_no": season_no, "episode_no": ep_no,
         "code": f"S{season_no:02d}E{ep_no:02d}" if kind == "episode" and season_no is not None and ep_no is not None else None,

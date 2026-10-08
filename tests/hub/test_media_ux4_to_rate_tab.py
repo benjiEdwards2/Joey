@@ -21,8 +21,9 @@ def subtabs(html):
 
 def test_sections_list_to_rate_after_tonight():
     tabs = {s["id"]: s["tabs"] for s in media_nav.SECTIONS}
-    assert tabs["movies"][-2:] == [("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate")]
-    assert tabs["tv"][-2:] == [("Tonight", "/media/tv/tonight"), ("To rate", "/media/tv/to-rate")]
+    # Awards (2026-10-08) follows To rate: the pair is read at its place, not at the end of the row
+    assert tabs["movies"][2:4] == [("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate")]
+    assert tabs["tv"][2:4] == [("Tonight", "/media/tv/tonight"), ("To rate", "/media/tv/to-rate")]
 
 
 def test_tab_row_carries_the_to_rate_count_per_kind(env):
@@ -30,10 +31,10 @@ def test_tab_row_carries_the_to_rate_count_per_kind(env):
     with build() as client:
         films = subtabs(client.get("/media/movies").text)
         tv = subtabs(client.get("/media/tv").text)
-    assert [t[0] for t in films] == ["My films", "Watchlist", "Tonight", "To rate"]
-    assert films[-1] == ("To rate", "/media/movies/to-rate", False, (2, "to rate"))   # Heat + Already Rated
+    assert [t[0] for t in films] == ["My films", "Watchlist", "Tonight", "To rate", "Awards"]   # + Awards (2026-10-08)
+    assert films[3] == ("To rate", "/media/movies/to-rate", False, (2, "to rate"))   # Heat + Already Rated
     assert films[0][2] is True                                                       # My films is current
-    assert tv[-1] == ("To rate", "/media/tv/to-rate", False, (1, "to rate"))          # Quiet Show (show level)
+    assert tv[3] == ("To rate", "/media/tv/to-rate", False, (1, "to rate"))           # Quiet Show (show level)
 
 
 def test_tab_page_is_current_and_lists_its_kind(env):
@@ -54,7 +55,7 @@ def test_tv_tab_count_follows_the_owner_level(env):
     with build(jelly_data(TV)) as client:
         tv = subtabs(client.get("/media/tv/to-rate").text)
         body = main_of(client.get("/media/tv/to-rate").text)
-    assert tv[-1][3] == (3, "to rate") and tv[-1][2] is True
+    assert tv[3][3] == (3, "to rate") and tv[3][2] is True   # [3]: To rate sits before Awards (2026-10-08)
     assert body.count('name="level" value="episode"') == 3 and "3 titles watched" in body
 
 
@@ -64,7 +65,7 @@ def test_tab_shows_without_a_count_when_nothing_waits(env):
         films = client.get("/media/movies/to-rate").text
         tv = client.get("/media/tv/to-rate").text
     for html in (films, tv):
-        assert subtabs(html)[-1][0] == "To rate" and subtabs(html)[-1][3] is None
+        assert subtabs(html)[3][0] == "To rate" and subtabs(html)[3][3] is None
         assert '<p class="empty">Nothing to rate.</p>' in main_of(html) and "ratepick" not in main_of(html)
 
 
@@ -88,4 +89,4 @@ def test_htmx_rating_on_the_tab_swaps_in_place(env):
                                                          "score": "8", "back": "/media/movies/to-rate"})
         assert r.status_code == 200 and "Rated 8 out of 10" in r.text and "<html" not in r.text
         films = subtabs(client.get("/media/movies").text)
-    assert films[-1][3] == (1, "to rate")                                             # one fewer waiting
+    assert films[3][3] == (1, "to rate")                                              # one fewer waiting

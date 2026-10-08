@@ -1,0 +1,67 @@
+{% extends "media_base.html" %}
+{% block title %}Awards — Joey{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% import "_award_card.html" as aw %}
+{# Movies / TV Shows > Awards (AWARDS_PLAN A4, 2026-10-08): the tab after To rate. Top to bottom: title + the one
+   staleness line, Coming up (a stats strip, next ceremonies by month, teal when the date is known), the ceremony chips,
+   the year stepper (ceremony year) + edition line + Not seen chip, the hero category, then every category card in
+   curated rank order; shorts / documentary / technical fold under "More categories". #}
+<section class="sec awhead">
+  <h2 class="awtitle">Awards</h2>
+  <p class="metaline">{% if sync.failed %}<span class="badge badge-wait">Sync failed · retrying</span> {% endif %}{{ sync.text }}</p>
+</section>
+{% if coming %}
+<section class="sec">
+  <div class="seclabel">Coming up</div>
+  <div class="stats awcoming">
+    {% for m in coming %}<div class="stat"><div class="microlabel">{{ m.month }}</div><div class="awcoming-names">{% for i in m.events %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{% if i.date %}<span class="aw-date">{{ i.name }} · {{ i.date }}</span>{% else %}{{ i.name }}{% endif %}{% endfor %}</div></div>{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% if bodies %}
+<nav class="chips awbodies" aria-label="Ceremonies">{% for b in bodies %}<a class="chip{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ b.name }}</a>{% endfor %}</nav>
+<div class="awstep">
+  {% if prev %}<a class="btn btn-glass btn-sm" href="{{ prev.href }}" aria-label="Previous ceremony, {{ prev.year }}">‹ {{ prev.year }}</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>{% endif %}
+  <span class="awyear">{{ year or "—" }}</span>
+  {% if next %}<a class="btn btn-glass btn-sm" href="{{ next.href }}" aria-label="Next ceremony, {{ next.year }}">{{ next.year }} ›</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">›</span>{% endif %}
+  <a class="chip{{ ' on' if unseen }}" href="{{ unseen_href }}" aria-pressed="{{ 'true' if unseen else 'false' }}">Not seen</a>
+</div>
+{% if edition_line %}<p class="metaline awed">{{ edition_line }}</p>{% endif %}
+{% endif %}
+{% if empty %}
+<p class="empty">{{ empty }}</p>
+{% else %}
+{% if hero %}
+<section class="sec awhero">
+  <div class="seclabel">{{ hero.name }}</div>
+  {% set w = hero.winners[0] if hero.winners else none %}
+  {% if w %}
+  <{{ "a" if w.href else "div" }} class="awwin"{% if w.href %} href="{{ w.href }}"{% endif %}>
+    <span class="card-pic">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}</span>
+    <span class="awwin-text">
+      <span class="microlabel st-good">Winner</span>
+      <span class="awwin-title">{{ w.title }}</span>
+      {% if w.sub %}<span class="row-meta">{{ w.sub }}</span>{% endif %}
+      {% if hero.tally %}<span class="row-meta">{{ hero.tally }}</span>{% endif %}
+    </span>
+  </{{ "a" if w.href else "div" }}>
+  {% for extra in hero.winners[1:] %}{{ aw.winner(extra) }}{% endfor %}
+  {% endif %}
+  {% if hero.nominees %}
+  <div class="microlabel">Nominees · {{ hero.nominees | length }}</div>
+  <div class="carousel">{% for c in hero.nominees %}{{ aw.thumb(c) }}{% endfor %}</div>
+  {% endif %}
+</section>
+{% endif %}
+{% if cats %}
+<div class="awgrid">{% for c in cats %}{{ aw.category(c) }}{% endfor %}</div>
+{% endif %}
+{% if more %}
+<details class="showmore awmorecats"><summary>More categories · {{ more | length }}</summary>
+<div class="awgrid">{% for c in more %}{{ aw.category(c) }}{% endfor %}</div>
+</details>
+{% endif %}
+{% if not hero and not cats and not more %}<p class="empty">{{ "Everything here is seen." if unseen else "Nothing recorded for this ceremony yet." }}</p>{% endif %}
+{% endif %}
+{% endblock %}

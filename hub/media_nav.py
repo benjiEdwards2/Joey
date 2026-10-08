@@ -11,10 +11,12 @@ SECTIONS: list[dict] = [
     {"id": "home", "label": "Home", "short": "Home", "icon": "house", "href": None, "prefixes": [], "tabs": []},
     {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies", "prefixes": ["/media/movies"],
      "tabs": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
-              ("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate")]},
+              ("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate"),
+              ("Awards", "/media/movies/awards")]},
     {"id": "tv", "label": "TV Shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
      "tabs": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"),
-              ("Tonight", "/media/tv/tonight"), ("To rate", "/media/tv/to-rate")]},
+              ("Tonight", "/media/tv/tonight"), ("To rate", "/media/tv/to-rate"),
+              ("Awards", "/media/tv/awards")]},
     {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
      "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]},
     {"id": "server", "label": "Server", "short": "Server", "icon": "server", "href": "/media/playing",
@@ -26,6 +28,7 @@ SECTIONS: list[dict] = [
      # Follow (2026-10-07): Discover / Following; a title or person page shows no sub-tab row (none is its own)
      "tabs": [("Discover", "/media/discover"), ("Following", "/media/following")], "tabs_only_on": True},
 ]
+# Awards (2026-10-08): the Awards tab follows To rate on Movies and TV Shows (hub/media_awards_pages.py).
 # media-ux4 (2026-10-08): "To rate" is a tab beside Tonight (the films / TV inbox, count when > 0); the To rate section
 # left the top of the list pages.
 # media-ux2 (2026-10-08): the "By year" tabs are gone from Movies / TV Shows (B.); /media/years stays reachable by

@@ -173,7 +173,7 @@ def test_nav_context_without_a_shelves_area():
     ctx = media_nav.nav_context(req, reg, {"to_rate": 0, "to_place": 3})
     assert ctx["home_href"] == "/" and "accent" not in ctx
     assert [s["count"] for s in ctx["sections"]] == [0, 3, 3, 0, 0, 0]
-    assert [t["on"] for t in ctx["tabs"]] == [True, False, False, False]   # media-ux2: By year removed; media-ux4: + To rate
+    assert [t["on"] for t in ctx["tabs"]] == [True, False, False, False, False]   # media-ux2: By year removed; media-ux4: + To rate; Awards (2026-10-08): + Awards
 
 
 # ---- review fixes (2026-10-06) ----

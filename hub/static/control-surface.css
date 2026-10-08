@@ -962,3 +962,47 @@ a.castcard:hover .castname { text-decoration: underline; }
 .svc-side .svc-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 999px;
   background: currentColor; vertical-align: 1px; }
 .svc-note { font-size: 12px; font-weight: 400; color: var(--text-5); font-variant-numeric: tabular-nums; }
+
+/* Awards (AWARDS_PLAN A4, 2026-10-08): Movies / TV Shows > Awards. Coming up is a .stats strip (teal when the date is
+   known); the ceremony picker is .chips; the stepper is two glass buttons around the year; the hero winner is a big
+   poster beside its name, the nominees a carousel; categories are .panel cards (1 / 2 / 3 columns) with a winner row
+   and a 4-up row of small nominee thumbnails. Seen is an emerald tag; "Won" the emerald word. Film / person pages
+   reuse .awlines rows. */
+.awtitle { font-size: 24px; font-weight: 600; color: var(--text-1); }
+.awcoming-names { min-height: 32px; padding-top: 4px; font-size: 14px; font-weight: 600; line-height: 1.4;
+  color: var(--text-2); overflow-wrap: anywhere; }
+.awcoming-names .sep { color: var(--text-6); }
+@media (max-width: 639px) { .awcoming-names { font-size: 13px; } }
+.aw-date { color: var(--teal); }
+.awstep { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.awyear { min-width: 3.5em; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--text-1); }
+.awstep .chip { margin-left: auto; }
+.poster-tag.is-seen { background: var(--good); }
+.awwin { display: flex; align-items: flex-end; gap: 16px; min-width: 0; color: inherit; text-decoration: none; }
+.awwin .card-pic { flex: 0 0 140px; width: 140px; }
+@media (min-width: 640px) { .awwin .card-pic { flex-basis: 200px; width: 200px; } }
+.awwin-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.awwin-title { font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: var(--text-1); overflow-wrap: anywhere; }
+.awwin:hover .awwin-title { color: var(--text-2); }
+.awwin .row-meta { font-size: 13px; }
+.awgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+@media (min-width: 768px) { .awgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .awgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.awcat { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; }
+.awcat.is-dim { opacity: .55; }
+.awcat-name { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text-4);
+  overflow-wrap: anywhere; }
+.awcat .awrow { margin: 0 -4px; padding: 4px; }
+.awnoms { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
+.awnoms .card-poster .row-title { font-size: 11px; }
+.awnoms .card-poster .row-meta { font-size: 10px; }
+.awmore { margin-top: 0; }
+.awmore > summary { padding: 4px 0; font-size: 12px; }
+.awmore > .awnoms { margin-top: 6px; }
+.awmorecats > .awgrid { margin-top: 8px; }
+.awlines { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 0 -8px; }
+.awline { display: block; min-width: 0; padding: 8px; border-radius: 12px; color: inherit; text-decoration: none;
+  transition: background-color .15s; }
+a.awline:hover { background: var(--soft); }
+.awline .row-title { font-size: 14px; }

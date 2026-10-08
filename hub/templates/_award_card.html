@@ -1,0 +1,38 @@
+{# Awards nominee pieces (AWARDS_PLAN A4, 2026-10-08). Each is ONE whole link (to the person page for a person-led
+   category, else the film / show page; plain when nothing matched) — never an anchor inside .row-title. "Won" is the
+   emerald word; seen is an emerald "Seen ✓" tag over the poster (Q4: the viewer's own played flag or a diary row). #}
+{% from "_poster.html" import poster %}
+{% macro tag(c) -%}{% if c.seen %}<span class="poster-tag is-seen">Seen ✓</span>{% endif %}{%- endmacro %}
+{# A nominee thumbnail: poster (h=120 / 240), title, one meta line. #}
+{% macro thumb(c, h=240) -%}
+<{{ "a" if c.href else "div" }} class="card-poster awthumb"{% if c.href %} href="{{ c.href }}"{% endif %}>
+  <span class="card-pic">{{ poster(c.poster, c.title, h) }}{{ tag(c) }}</span>
+  <span class="row-title">{{ c.title }}</span>
+  {% if c.sub %}<span class="row-meta">{{ c.sub }}</span>{% endif %}
+</{{ "a" if c.href else "div" }}>
+{%- endmacro %}
+{# A winner line inside a category card: small poster, name, film / people, "Won", seen. #}
+{% macro winner(c) -%}
+<{{ "a" if c.href else "div" }} class="row awrow"{% if c.href %} href="{{ c.href }}"{% endif %}>
+  {{ poster(c.poster, c.title, 120, "row-poster") }}
+  <div class="row-body">
+    <div class="row-title">{{ c.title }}</div>
+    <div class="row-meta"><span class="st-good">Won</span>{% if c.sub %}<span class="sep"> · </span>{{ c.sub }}{% endif %}{% if c.seen %}<span class="sep"> · </span><span class="st-good">Seen ✓</span>{% endif %}</div>
+  </div>
+</{{ "a" if c.href else "div" }}>
+{%- endmacro %}
+{# One category card: name, winner line(s), up to `shown` nominee thumbnails, the rest under "+N more". #}
+{% macro category(c) -%}
+<div class="panel awcat{{ ' is-dim' if c.dim }}">
+  <div class="awcat-name">{{ c.name }}</div>
+  {% for w in c.winners %}{{ winner(w) }}{% endfor %}
+  {% if c.nominees %}
+  <div class="awnoms">{% for n in c.nominees[:c.shown] %}{{ thumb(n, 120) }}{% endfor %}</div>
+  {% if c.nominees | length > c.shown %}
+  <details class="showmore awmore"><summary>+{{ c.nominees | length - c.shown }} more</summary>
+  <div class="awnoms">{% for n in c.nominees[c.shown:] %}{{ thumb(n, 120) }}{% endfor %}</div>
+  </details>
+  {% endif %}
+  {% elif not c.winners %}<p class="metaline">—</p>{% endif %}
+</div>
+{%- endmacro %}

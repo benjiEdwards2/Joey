@@ -28,7 +28,7 @@ from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub.media_write import router as media_write_router, year_ctx
 from hub import media_follow, media_requests, media_resume, media_watchlist, media_warmup
-from hub import media_awards
+from hub import media_awards, media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
@@ -196,6 +196,7 @@ app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
 app.include_router(media_follow.router)
+app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)
 app.include_router(media_resume.router)
 app.include_router(server_updates.router)

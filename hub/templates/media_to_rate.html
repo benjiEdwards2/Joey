@@ -1,0 +1,18 @@
+{% extends "media_base.html" %}
+{% block title %}To rate — Joey{% endblock %}
+{% block content %}
+{% import "_to_rate.html" as torate %}
+{# Movies / TV Shows > To rate (media-ux4, 2026-10-08): a tab beside Tonight holding the viewer's rating inbox for this
+   kind (the Diary > To rate rows: poster + title one whole link, the 1-10 picker outside it). A plain-form rating
+   returns to this tab; htmx swaps the row in place. #}
+{% set noun = "film" if kind == "movie" else "title" %}
+{% if src.st.state == "off" %}
+<p class="empty">Not connected.</p>
+{% elif to_rate %}
+<p class="metaline">{{ to_rate|length }} {{ noun }}{{ "" if to_rate|length == 1 else "s" }} watched in the last 30 days, not rated yet</p>
+{{ torate.rows(to_rate) }}
+{% else %}
+<p class="empty">Nothing to rate.</p>
+{% endif %}
+{% include "_detail_foot.html" %}
+{% endblock %}

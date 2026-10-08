@@ -262,6 +262,12 @@ the same inbox (`_to_rate`, viewer's own history and ratings) filtered to the pa
 `templates/_to_rate.html` rows Diary > To rate uses. It is absent when nothing waits. Each row's picker carries
 `back` (the page path); `POST /media/rate` returns a plain form there (fixed list `RATE_BACK`: history, movies, tv;
 anything else → `/media/history`); htmx swaps in the usual "Rated N · Undo" row in place.
+**Superseded by media-ux4 (2026-10-08):** To rate is a **tab** beside Tonight — My films · Watchlist · Tonight · To rate
+(and My shows · … · To rate) at `/media/movies/to-rate` and `/media/tv/to-rate` (`main._to_rate_page`,
+`templates/media_to_rate.html`): the same rows for the page's kind with a "N films watched in the last 30 days, not
+rated yet" line, "Nothing to rate." when empty. The tab always shows; its amber count (`main.to_rate_tab_counts`, the
+viewer's inbox split by kind; screen-reader word "to rate") only when > 0. The list pages no longer hold the section.
+`RATE_BACK` adds both tab paths (the list paths stay for forms already open).
 
 Browse by service (media-ux2, 2026-10-08): `/media/discover` gains a **Services** row (above the shelves, hidden while
 searching) — logo tiles for `media_discover.SERVICES` (Netflix, Disney Plus, Amazon Prime Video, Stan, Binge, Apple TV

@@ -755,6 +755,15 @@ def area_waiting(area, snaps, view: str) -> dict:
     return counts
 
 
+def to_rate_tab_counts(snaps, view: str) -> dict:
+    """The Movies / TV Shows "To rate" tab counts (media-ux4): the viewer's own inbox split by kind."""
+    jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
+    recent = (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
+    rows = _to_rate(recent, _ratings(view, recent)) if recent else []
+    return {"to_rate_movie": sum(1 for r in rows if r["kind"] == "movie"),
+            "to_rate_tv": sum(1 for r in rows if r["kind"] == "tv")}
+
+
 def media_frame(request: Request) -> dict:
     """Template global `media_nav(request)`: the Media bar/tabs context (cached per request)."""
     cached = getattr(request.state, "media_nav", None)
@@ -769,6 +778,10 @@ def media_frame(request: Request) -> dict:
             waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
         except Exception as exc:  # the Watchlist count is a nicety: never break the frame
             log.warning("watchlist count skipped: %s", type(exc).__name__)
+        try:
+            waiting = {**waiting, **to_rate_tab_counts(snaps, view)}
+        except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)
+            log.warning("to rate count skipped: %s", type(exc).__name__)
         cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)
     return cached
 
@@ -1396,10 +1409,7 @@ def _library_page(request: Request, kind: str):
         sort = request.query_params.get("sort", "score")
         sort = sort if sort in media_library.SORTS else "score"
         group = (request.query_params.getlist("group") or ["1"])[-1] != "0"
-        recent = (data.get("history") or {}).get("recent") or []   # the viewer's own history (view_jelly)
-        to_rate = [{**r, "back": request.url.path} for r in _to_rate(recent, _ratings(view, recent)) if r["kind"] == kind]
         return {
-            "to_rate": to_rate,
             "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "group": group,
             "sorts": media_library.SORT_LABELS, "new_week": arrived,
             "head_line": media_library.head_line(rows or [], kind, marks),
@@ -1417,6 +1427,26 @@ def _tonight_page(request: Request, kind: str):
         return {"kind": kind, "marks": marks, "available": rows is not None, "cards": cards,
                 "ratings": ratings, "heading": "Three for tonight"}
     return _detail_page(request, "media_tonight.html", JELLYFIN_SNAPSHOT_ID, build)
+
+
+def _to_rate_page(request: Request, kind: str):
+    """Movies / TV Shows > To rate (media-ux4, 2026-10-08): the viewer's rating inbox for this kind (films; TV at the
+    owner's level), the Diary > To rate rows; a plain-form rating returns here (media_write.RATE_BACK)."""
+    def build(data, view):
+        recent = (data.get("history") or {}).get("recent") or []   # the viewer's own history (view_jelly)
+        rows = [{**r, "back": request.url.path} for r in _to_rate(recent, _ratings(view, recent)) if r["kind"] == kind]
+        return {"kind": kind, "to_rate": rows}
+    return _detail_page(request, "media_to_rate.html", JELLYFIN_SNAPSHOT_ID, build)
+
+
+@app.get("/media/movies/to-rate", response_class=HTMLResponse)
+def media_movies_to_rate_page(request: Request):
+    return _to_rate_page(request, "movie")
+
+
+@app.get("/media/tv/to-rate", response_class=HTMLResponse)
+def media_tv_to_rate_page(request: Request):
+    return _to_rate_page(request, "tv")
 
 
 @app.get("/media/movies", response_class=HTMLResponse)

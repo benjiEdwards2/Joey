@@ -10,7 +10,7 @@
   {% if nav.tabs %}
   <nav class="sectabs sub" aria-label="{{ nav.section.label }}">
     <div class="sectabs-row">
-    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> to get</span></span>{% endif %}</a>{% endfor %}
+    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> {{ t.what }}</span></span>{% endif %}</a>{% endfor %}
     </div>
   </nav>
   {% endif %}

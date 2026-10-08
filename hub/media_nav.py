@@ -11,10 +11,10 @@ SECTIONS: list[dict] = [
     {"id": "home", "label": "Home", "short": "Home", "icon": "house", "href": None, "prefixes": [], "tabs": []},
     {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies", "prefixes": ["/media/movies"],
      "tabs": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
-              ("Tonight", "/media/movies/tonight")]},
+              ("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate")]},
     {"id": "tv", "label": "TV Shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
      "tabs": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"),
-              ("Tonight", "/media/tv/tonight")]},
+              ("Tonight", "/media/tv/tonight"), ("To rate", "/media/tv/to-rate")]},
     {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
      "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]},
     {"id": "server", "label": "Server", "short": "Server", "icon": "server", "href": "/media/playing",
@@ -26,6 +26,8 @@ SECTIONS: list[dict] = [
      # Follow (2026-10-07): Discover / Following; a title or person page shows no sub-tab row (none is its own)
      "tabs": [("Discover", "/media/discover"), ("Following", "/media/following")], "tabs_only_on": True},
 ]
+# media-ux4 (2026-10-08): "To rate" is a tab beside Tonight (the films / TV inbox, count when > 0); the To rate section
+# left the top of the list pages.
 # media-ux2 (2026-10-08): the "By year" tabs are gone from Movies / TV Shows (B.); /media/years stays reachable by
 # URL and still lights its section. To restore: add ("By year", "/media/years?kind=movie|tv") back to the tabs —
 # _tab_on below still knows how to match it.
@@ -90,8 +92,11 @@ def nav_context(request, registry, waiting: dict | None, owner_view: str | None 
         scores = [_tab_on(h, path, kind) for _, h in section["tabs"]]
         top = max(scores, default=0)
         tab_counts = {"/media/movies/watchlist": waiting.get("wl_movie", 0),
-                      "/media/tv/watchlist": waiting.get("wl_tv", 0)}
-        tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0}
+                      "/media/tv/watchlist": waiting.get("wl_tv", 0),
+                      "/media/movies/to-rate": waiting.get("to_rate_movie", 0),
+                      "/media/tv/to-rate": waiting.get("to_rate_tv", 0)}
+        tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
+                 "what": "to rate" if h.endswith("/to-rate") else "to get"}
                 for (label, h), sc in zip(section["tabs"], scores)]
         if section.get("tabs_only_on") and not top:
             tabs = []

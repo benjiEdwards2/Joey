@@ -34,7 +34,8 @@ SEARCH_TIMEOUT = 8
 SEARCH_MAX = 8
 PLACES = ("Cinema", "Netflix", "Friend's", "Other")
 # Where a plain-form rating may return (media-ux2): the pages that hold a To rate list. Anything else -> history.
-RATE_BACK = {p: p for p in ("/media/history", "/media/movies", "/media/tv")}
+# media-ux4: the Movies / TV Shows "To rate" tabs (the list pages keep their entries for forms already open).
+RATE_BACK = {p: p for p in ("/media/history", "/media/movies", "/media/tv", "/media/movies/to-rate", "/media/tv/to-rate")}
 
 
 def same_origin(request: Request) -> None:

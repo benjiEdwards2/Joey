@@ -1,6 +1,9 @@
 """media-ux2 item 2 (2026-10-08): a "To rate" section at the top of /media/movies and /media/tv, reusing the
 Diary > To rate inbox (_to_rate) and the POST /media/rate route. Films page: films only; TV page: shows / seasons /
-episodes per the owner's level. Absent when nothing waits; a plain-form rating returns to the same page."""
+episodes per the owner's level. Absent when nothing waits; a plain-form rating returns to the same page.
+Reworded for media-ux4 (2026-10-08, B.): the section moved off the list pages to a "To rate" TAB beside Tonight
+(/media/movies/to-rate, /media/tv/to-rate) — the same rows, filters and redirect, asserted on the tab pages now.
+"""
 import pytest
 
 from hub import media_db
@@ -9,35 +12,35 @@ from tests.hub.test_media_rate import env, jelly_data, main_of, TV, HX  # noqa: 
 
 
 def section(html):
-    """The To rate section of a library page, or None when the page has none."""
+    """The inbox of a To rate tab page (from its count line), or None when nothing waits there."""
     body = main_of(html)
-    if ">To rate · " not in body:
+    if 'class="ratepick"' not in body:
         return None
-    return body.split(">To rate · ", 1)[1].split("</section>", 1)[0]
+    return body.split('<p class="metaline">', 1)[1].split('<p class="metaline">', 1)[0]
 
 
 def test_films_page_lists_only_films_waiting(env):
     build, _ = env
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")
     with build() as client:
-        sec = section(client.get("/media/movies").text)
-    assert sec is not None and sec.startswith("1<")                    # "To rate · 1"
+        sec = section(client.get("/media/movies/to-rate").text)
+    assert sec is not None and sec.startswith("1 film watched")          # the count line
     assert sec.count('class="ratepick"') == 1 and "Heat" in sec
     assert "Quiet Show" not in sec and "Already Rated" not in sec and "Long Ago" not in sec
-    assert 'name="kind" value="movie"' in sec and 'name="back" value="/media/movies"' in sec
+    assert 'name="kind" value="movie"' in sec and 'name="back" value="/media/movies/to-rate"' in sec
     assert 'hx-post="/media/rate"' in sec
 
 
 def test_tv_page_lists_only_tv_at_the_owner_level(env):
     build, _ = env
     with build() as client:
-        sec = section(client.get("/media/tv").text)
+        sec = section(client.get("/media/tv/to-rate").text)
     assert sec.count('class="ratepick"') == 1 and "Quiet Show" in sec and "Heat" not in sec
-    assert 'name="back" value="/media/tv"' in sec and 'name="item_key" value="jf:s1"' in sec
+    assert 'name="back" value="/media/tv/to-rate"' in sec and 'name="item_key" value="jf:s1"' in sec
     media_db.set_setting("you", "rating_level", "episode")
     with build(jelly_data(TV)) as client:
-        sec = section(client.get("/media/tv").text)
-        films = section(client.get("/media/movies").text)
+        sec = section(client.get("/media/tv/to-rate").text)
+        films = section(client.get("/media/movies/to-rate").text)
     assert sec.count('class="ratepick"') == 3 and 'name="level" value="episode"' in sec
     assert "Colin from Accounts · S01E08 · High Needs People<" in sec and "Heat" not in sec
     assert films.count('class="ratepick"') == 1 and "Heat" in films
@@ -46,25 +49,25 @@ def test_tv_page_lists_only_tv_at_the_owner_level(env):
 def test_section_is_absent_when_nothing_waits(env):
     build, _ = env
     with build(jelly_data([])) as client:
-        for path in ("/media/movies", "/media/tv"):
+        for path in ("/media/movies/to-rate", "/media/tv/to-rate"):
             html = client.get(path).text
             assert section(html) is None and "ratepick" not in html, path
             assert "Nothing waiting to be rated" not in html
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")
     media_db.set_rating("tmdb:1", 8, "movie", "Heat")                  # every film waiting is now rated
     with build() as client:
-        assert section(client.get("/media/movies").text) is None
-        assert section(client.get("/media/tv").text) is not None        # the show still waits
+        assert section(client.get("/media/movies/to-rate").text) is None
+        assert section(client.get("/media/tv/to-rate").text) is not None        # the show still waits
 
 
-@pytest.mark.parametrize("back", ["/media/movies", "/media/tv"])
+@pytest.mark.parametrize("back", ["/media/movies/to-rate", "/media/tv/to-rate"])
 def test_plain_form_rating_returns_to_the_same_page_and_the_row_is_gone(env, back):
     build, _ = env
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")         # one row left on each page
     with build() as client:
         sec = section(client.get(back).text)
-        key = "tmdb:1" if back == "/media/movies" else "jf:s1"
-        kind = "movie" if back == "/media/movies" else "tv"
+        key = "tmdb:1" if back == "/media/movies/to-rate" else "jf:s1"
+        kind = "movie" if back == "/media/movies/to-rate" else "tv"
         form = {"item_key": key, "kind": kind, "title": "x", "score": "7", "back": back}
         r = client.post("/media/rate", data=form, follow_redirects=False)
         assert r.status_code == 303 and r.headers["location"] == back
@@ -95,14 +98,14 @@ def test_history_inbox_rows_carry_no_back(env):
 def test_her_view_sees_her_own_waiting_rows(her_env):
     media_db.set_rating("tmdb:202", 7, "movie", "Paper Lanterns")    # B. rated it; she has not
     with her_env() as client:
-        her = main_html(client.get("/media/movies?owner_view=her").text)
-        her_tv = main_html(client.get("/media/tv?owner_view=her").text)
-        you = main_html(client.get("/media/movies?owner_view=you").text)
-    her_sec = her.split(">To rate · ", 1)[1].split("</section>", 1)[0]
+        her = client.get("/media/movies/to-rate?owner_view=her").text
+        her_tv = client.get("/media/tv/to-rate?owner_view=her").text
+        you = client.get("/media/movies/to-rate?owner_view=you").text
+    her_sec = section(her)
     assert "Paper Lanterns" in her_sec and "Harbour Lights" not in her_sec
-    assert "Garden Lane" in her_tv.split(">To rate · ", 1)[1].split("</section>", 1)[0]
-    you_sec = you.split(">To rate · ", 1)[1].split("</section>", 1)[0]
+    assert "Garden Lane" in section(her_tv)
+    you_sec = section(you)
     assert "Harbour Lights" in you_sec and "Paper Lanterns" not in you_sec
     media_db.set_rating("tmdb:202", 4, "movie", "Paper Lanterns", owner="her")
     with her_env() as client:
-        assert ">To rate · " not in main_html(client.get("/media/movies?owner_view=her").text)
+        assert section(client.get("/media/movies/to-rate?owner_view=her").text) is None

@@ -127,6 +127,21 @@
   {{ rate.picker(film.rating) }}
 </section>
 {% endif %}
+{# Awards (AWARDS_PLAN A5, 2026-10-08): one whole-link line per ceremony ("BAFTA 2025 · Won 3 of 7 nominations") with its
+   categories ("Won" in emerald, nominated plain), each linking to that ceremony on Movies / TV Shows > Awards. Absent
+   when the title has no rows. #}
+{% if film.awards %}
+<section class="sec" id="awards">
+  <div class="seclabel">Awards</div>
+  {% macro awline(g) %}<a class="awline" href="{{ g.href }}"><div class="row-title">{{ g.line }}</div><div class="row-meta">{% for c in g.cats %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{% if c.won %}<span class="st-good">Won</span> {% endif %}{{ c.name }}{% endfor %}</div></a>{% endmacro %}
+  <div class="awlines">{% for g in film.awards[:6] %}{{ awline(g) }}{% endfor %}</div>
+  {% if film.awards | length > 6 %}
+  <details class="showmore"><summary>Show more · {{ film.awards | length - 6 }}</summary>
+  <div class="awlines">{% for g in film.awards[6:] %}{{ awline(g) }}{% endfor %}</div>
+  </details>
+  {% endif %}
+</section>
+{% endif %}
 <div class="filmbody">
 {% if film.overview %}
 <section class="sec">

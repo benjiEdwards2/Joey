@@ -23,6 +23,21 @@
     {% if follow_flash %}<p class="metaline st-good" role="status">{{ follow_flash }}</p>{% endif %}
   </div>
 </header>
+{# Awards (AWARDS_PLAN A5, 2026-10-08): "2 wins · 5 nominations", then "Oscars 2025 · Best Actor" over "Won · The
+   Brutalist" — each line one link to the film / show page when it matched, plain otherwise. Hidden when none. #}
+{% if person.awards %}
+{% macro awrow(r) %}<{{ "a" if r.href else "div" }} class="awline"{% if r.href %} href="{{ r.href }}"{% endif %}><div class="row-title">{{ r.lead }}</div><div class="row-meta">{% if r.won %}<span class="st-good">Won</span>{% else %}Nominated{% endif %}{% if r.work_title %}<span class="sep"> · </span>{{ r.work_title }}{% endif %}</div></{{ "a" if r.href else "div" }}>{% endmacro %}
+<section class="sec" id="awards">
+  <div class="seclabel">Awards</div>
+  <p class="metaline">{{ person.awards.head }}</p>
+  <div class="awlines">{% for r in person.awards.rows[:8] %}{{ awrow(r) }}{% endfor %}</div>
+  {% if person.awards.rows | length > 8 %}
+  <details class="showmore"><summary>Show more · {{ person.awards.rows | length - 8 }}</summary>
+  <div class="awlines">{% for r in person.awards.rows[8:] %}{{ awrow(r) }}{% endfor %}</div>
+  </details>
+  {% endif %}
+</section>
+{% endif %}
 {% if person.shelf %}
 <section class="sec">
   <div class="seclabel">On your server</div>

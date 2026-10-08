@@ -126,6 +126,12 @@ def person_page(request: Request, person_id: str):
     if src is None:
         raise HTTPException(404, "No such person")
     person = build_person(int(person_id), hub)
+    try:  # Awards (2026-10-08): this person's wins / nominations from the media.db award tables; hidden when none
+        from hub import media_awards_db, media_awards_pages
+        person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))
+    except Exception as exc:  # the page never fails on the awards lookup
+        md.log.warning("awards lookup failed: %s", type(exc).__name__)
+        person["awards"] = None
     try:
         person["following"] = media_follow.get("person", int(person_id)) is not None
     except Exception as exc:  # the page never fails on the follow lookup

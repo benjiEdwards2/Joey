@@ -776,9 +776,29 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
             f["collection"]["following"] = False
     f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
     f["status_line"] = status_line(f)
+    f["awards"] = film_awards(kind, tmdb_id, jelly, jf_item_id)   # Awards (2026-10-08): media.db only, no call
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in
         request.state.media_section = "movies" if kind == "movie" else "tv"
     return f
+
+
+def film_awards(kind, tmdb_id, jelly: dict, jf_item_id) -> list[dict]:
+    """The Awards section rows (AWARDS_PLAN A5): this title's nominations across every ceremony, from the media.db
+    award tables (matched on its TMDB id, or a show's TheTVDB key from the library row). Never fails the page."""
+    if kind not in ("movie", "tv"):
+        return []
+    keys = {f"tmdb:{tmdb_id}"} if tmdb_id else set()
+    for r in (jelly or {}).get("movies" if kind == "movie" else "shows") or []:
+        if isinstance(r, dict) and jf_item_id and r.get("jf_id") == jf_item_id and r.get("item_key"):
+            keys.add(r["item_key"])
+    if not keys:
+        return []
+    try:
+        from hub import media_awards_db, media_awards_pages
+        return media_awards_pages.section_rows(media_awards_db.work_awards(sorted(keys), kind), kind)
+    except Exception as exc:  # the page never fails on the awards lookup
+        log.warning("awards lookup failed: %s", type(exc).__name__)
+        return []
 
 
 # ---- routes ----

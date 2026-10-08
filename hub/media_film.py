@@ -36,6 +36,8 @@ CREW_ROLES = (("Director", ("Director",)), ("Writer", ("Screenplay", "Writer", "
               ("Cinematography", ("Director of Photography", "Cinematographer", "Cinematography")),
               ("Composer", ("Original Music Composer", "Music")), ("Editor", ("Editor",)))
 CREW_NAMES = 4
+MAKERS_MAX = 4      # media-ux4: "Directed by" / "Created by" cards in the hero
+MAKER_H = 240       # /img size of a maker headshot (a 52 px circle; 2:3 portrait cropped to the face)
 REGION = "AU"
 JUSTWATCH = "https://www.justwatch.com/au/search?q="
 RELEASE_TYPES = {3: "Cinema", 4: "Digital", 5: "Disc"}
@@ -454,12 +456,13 @@ def _makers(raw: dict, people: list[dict], kind: str) -> list[dict]:
         found = [c for c in ((raw.get("credits") or {}).get("crew") or [])
                  if isinstance(c, dict) and c.get("job") == "Director"]
     out: dict[str, dict] = {}
-    for c in found:
+    for c in found:   # media-ux4: the headshot (TMDB profile through /img) rides along for the "Directed by" cards
         if c.get("name"):
-            out.setdefault(str(c["name"])[:80], {"name": str(c["name"])[:80], "id": _pid(c.get("id"))})
+            out.setdefault(str(c["name"])[:80], {"name": str(c["name"])[:80], "id": _pid(c.get("id")),
+                                                 "ref": md._ref(c.get("profilePath"))})
     if not out:
-        out = {p["name"]: {"name": p["name"], "id": None} for p in people if p["type"] == "Director"}
-    return list(out.values())[:4]
+        out = {p["name"]: {"name": p["name"], "id": None, "ref": p.get("ref")} for p in people if p["type"] == "Director"}
+    return list(out.values())[:MAKERS_MAX]
 
 
 def _providers(raw: dict, title: str) -> list[dict]:
@@ -730,7 +733,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     people = (item or {}).get("people") or []
     f["cast"], f["makers"] = _cast(raw, people), _makers(raw, people, kind or "movie")
     f["crew"], f["cast_h"] = crew_for(raw, kind or "movie"), CAST_H
-    f["makers_label"] = "Creators" if kind == "tv" else "Director"
+    f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
+    f["maker_h"] = MAKER_H
     f["providers"] = _providers(raw, title)
     f["trailer"] = _trailer((item or {}).get("trailer"), raw)
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")

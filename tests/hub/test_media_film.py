@@ -312,7 +312,7 @@ def test_series_makers_are_creators(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/tv/100").text)
-    assert "<span>Creators</span>" in b and "Cass Creator" in b
+    assert '<div class="microlabel">Created by</div>' in b and ">Cass Creator</span></a>" in b   # media-ux4: cards
 
 
 def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):

@@ -215,7 +215,7 @@ reads Jellyfin live (10 min cache, Available / Partly available only) as Dolby-s
 glyph, DTS and HDR pills, plain pills for resolution, codec, container, channels and size; the word is always present.
 `hub/static/badges/<id>.svg|.png` overrides a pill with official artwork; no brand files are shipped (see its README). Below:
 poster + facts (languages, release dates, added, watched, requested), overview, cast portraits (initials when none), director /
-creators as search chips (no follow or lists), where to watch (AU, JustWatch links); on a TV page the seasons sit directly
+creators as headshot cards in the hero (media-ux4), where to watch (AU, JustWatch links); on a TV page the seasons sit directly
 under the overview (2026-10-08) — an episode list for on-server shows (below), lazy `<details>` for off-server ones
 (`GET /media/title/tv/{tmdb_id}/season/{n}`) — and Collection (a banner under Overview since media-ux3, below) /
 Similar / Recommended shelves marked "On server". Every row with a Jellyfin id opens this page; an episode id shows an episode
@@ -368,6 +368,13 @@ it; unrated: "Rate", a link to the picker). Metacritic alone is tinted by its ba
 bad < 40; tokens `--good` / `--score-6` / `--bad`), the number always shown. Runtime and the certificate stay plain
 stats. The hero's IMDb / TMDB / Letterboxd links are the same pill without a score (`.sitepill`), neutral — the
 yellow / sky / green link chips and their tokens are gone. A pill with no source is not drawn.
+
+Directed by / Created by (media-ux4, 2026-10-08): the hero's inline "Director …" text is a block of headshot cards
+(`.makers` > `.makerrow` > `a.makercard`): a 52 px round photo (the TMDB profile through `/img`, `MAKER_H` = 240; Jellyfin's
+person image when Jellyseerr has none; initials when neither) and the name at 16 px, each card ONE glass link to
+`/media/person/{id}` (a Discover search without a TMDB id). Films say "Directed by", shows "Created by", up to four cards
+(`MAKERS_MAX`). Phone: one sideways row, centred while it fits; from 640 px they wrap. The site pills follow on their own
+line; the Crew section below still lists every role.
 
 Metacritic (media-ux4, 2026-10-08): `media_omdb.metascore(imdb_id)` fills the Metacritic pill from OMDb when
 `OMDB_API_KEY` is set (contract doc, fifteenth exception): one lookup by IMDb id, every answer remembered 7 days in memory

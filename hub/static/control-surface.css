@@ -694,6 +694,23 @@ details.confirm-wrap > summary::-webkit-details-marker { display: none; }
 .credits { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: 13px; color: var(--text-4); }
 .credits a:not([class]) { color: var(--text-2); text-decoration: none; }
 .credits a:not([class]):hover { text-decoration: underline; }
+/* Directed by / Created by (media-ux4, 2026-10-08): headshot cards on the hero — a 52 px round photo (initials when none)
+   and the name at 16 px, each card one glass link to the person page. Wraps from 640 px; a sideways row on a phone
+   (centred while it fits). */
+.makers { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; max-width: 100%; margin-top: 4px; }
+.makers > .microlabel { letter-spacing: .08em; color: var(--text-4); }
+.makerrow { display: flex; gap: 8px; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.makerrow::-webkit-scrollbar { display: none; }
+.makerrow > :first-child { margin-left: auto; }
+.makerrow > :last-child { margin-right: auto; }
+.makercard { display: inline-flex; flex-shrink: 0; align-items: center; gap: 10px; padding: 5px 16px 5px 5px; border-radius: 999px;
+  border: 1px solid var(--glass-line); background: var(--glass-bg); color: var(--text-1); text-decoration: none;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: background-color .15s, border-color .15s; }
+.makercard:hover { background: var(--glass-bg-hover); border-color: var(--line-hover); }
+.makerpic { width: 52px; height: 52px; flex: none; border-radius: 50%; object-fit: cover; object-position: center 20%;
+  background: var(--surface); border: 1px solid var(--line); }
+.makerpic.initials { display: inline-flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 700; color: var(--text-4); }
+.makername { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .statusline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--text-4); }
 .statusline.st-good { color: var(--good); }
 .statusline svg.ic { width: 16px; height: 16px; }
@@ -727,6 +744,9 @@ a.scorepill:hover { border-color: var(--line-hover); color: var(--text-1); }
   .hero-detail-text { align-items: flex-start; }
   .hero-detail .hero-detail-title { font-size: 30px; }
   .credits, .hero-detail-btns { justify-content: flex-start; }
+  .makers { align-items: flex-start; }
+  .makerrow { flex-wrap: wrap; overflow: visible; }
+  .makerrow > :first-child, .makerrow > :last-child { margin-left: 0; margin-right: 0; }
 }
 @media (min-width: 1024px) { .hero-detail-poster { width: 360px; } }
 

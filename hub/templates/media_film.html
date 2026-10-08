@@ -30,16 +30,22 @@
         {{ meta(["TV show" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else film.facts.runtime, film.official]
                 + (film.genres or []), "facts-line") }}
-        {% if film.makers or film.tmdb %}
-        <div class="credits">
-          {% if film.makers %}<span>{{ film.makers_label }}</span>
-          {% for m in film.makers %}{% if not loop.first %}<span class="sep">·</span>{% endif %}{% if m.id %}<a href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }}</a>{% endif %}{% endfor %}{% endif %}
-          {% if film.tmdb and film.kind in ("movie", "tv") %}
+        {# Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials when
+           none), each ONE link to the person page (else a Discover search); a sideways row on a phone. #}
+        {% if film.makers %}
+        <div class="makers">
+          <div class="microlabel">{{ film.makers_label }}</div>
+          <div class="makerrow">
+          {% for m in film.makers %}<a class="makercard" href="{{ '/media/person/' ~ m.id if m.id else '/media/discover?q=' ~ (m.name|urlencode) }}">{% if m.ref %}<img class="makerpic" src="/img/{{ m.ref }}?h={{ film.maker_h }}" alt="" loading="lazy" decoding="async" width="52" height="52">{% else %}<span class="makerpic initials" aria-hidden="true">{% for w in m.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}<span class="makername">{{ m.name }}</span></a>{% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if film.tmdb and film.kind in ("movie", "tv") %}
+        <div class="credits sitepills">
           {# media-ux4: the site links are neutral logo pills, the same family as the score pills #}
           <a class="scorepill sitepill" href="https://www.imdb.com/find/?q={{ (film.title ~ (' ' ~ film.year if film.year else ''))|urlencode }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.imdb }}" alt="" width="16" height="16">IMDb</a>
           <a class="scorepill sitepill" href="https://www.themoviedb.org/{{ film.kind }}/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.tmdb }}" alt="" width="16" height="16">TMDB</a>
           {% if film.kind == "movie" %}<a class="scorepill sitepill" href="https://letterboxd.com/tmdb/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.lbxd }}" alt="" width="16" height="16">Letterboxd</a>{% endif %}
-          {% endif %}
         </div>
         {% endif %}
         <p class="statusline{{ ' st-good' if film.on_server and not film.jf_failed }}">{% if film.on_server and not film.jf_failed %}{{ icon("drive") }}{% endif %}<span id="status-line">{{ film.status_line }}</span></p>

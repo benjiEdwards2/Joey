@@ -1,0 +1,14 @@
+# Line endings: the NAS runs BusyBox sh and the images are Linux; keep LF in the tree
+# regardless of core.autocrlf on the laptop (tree was already LF-only, 2026-10-09 review G-08).
+* text=auto eol=lf
+*.sh text eol=lf
+scripts/hooks/* text eol=lf
+
+# Binaries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff2 binary
+*.gz binary
+*.db binary

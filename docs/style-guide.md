@@ -5,7 +5,8 @@ Joey deviations (dated; details in `docs/hub-changelog.md`): Plex → Jellyfin (
 Letterboxd link chips are neutral logo pills, and every score is one `.scorepill` (logo + name + score; Metacritic tinted
 by its band); director / creators are headshot cards ("Directed by"); the Movies / TV lists default to a poster grid with
 a Grid / List switch; the Trailer button opens an in-page player. awards-ui (2026-10-09) — brand gold gains one more
-meaning, "won an award" (Awards pages, poster winner badges, Won pills), with silver / bronze only on the Most wins podium.
+meaning, "won an award" (Awards pages, poster winner badges, Won pills), with silver / bronze only on the Most wins podium;
+toast/textarea/live-dot recipes not carried (2026-10-09).
 
 # MediaHub style guide
 

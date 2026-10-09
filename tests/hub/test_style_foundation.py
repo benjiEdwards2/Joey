@@ -38,13 +38,12 @@ REMOVED = ["--muted", "--faint", "--card", "--brand-soft", "--warn", "--scrim-so
 
 RECIPES = [
     "btn", "btn-primary", "btn-secondary", "btn-ghost", "btn-danger", "btn-glass", "btn-sm",
-    "chip", "input", "textarea", "label", "select", "seclabel", "microlabel",
+    "chip", "input", "label", "select", "seclabel", "microlabel",
     "listbox", "row", "row-poster", "row-title", "row-score", "row-meta", "sep",
     "stats", "stat-number", "stat-word", "stat",
     "badge", "badge-watching", "badge-new", "badge-complete",
-    "waitcount", "glass", "poster-grid", "card-poster", "empty", "toast", "toast-info", "toast-warn",
-    "toast-error", "panel",
-] + [f"score-{i}" for i in range(1, 10)] + ["score-none"]
+    "waitcount", "glass", "poster-grid", "card-poster", "empty", "panel",
+] + [f"score-{i}" for i in range(1, 10)] + ["score-none"]   # toast / textarea / live-dot not carried (2026-10-09, decision 6)
 
 SCORE_HEX = {9: "#34d399", 8: "#4ade80", 7: "#a3e635", 6: "#facc15", 5: "#fbbf24",
              4: "#fb923c", 3: "#f87171", 2: "#ef4444", 1: "#dc2626"}
@@ -99,10 +98,10 @@ def test_global_css_from_the_guide():
     assert "html { scrollbar-gutter: stable; }" in flat
     assert "overflow-x: clip;" in flat and "-webkit-font-smoothing: antialiased;" in flat
     assert "body::before {" in flat and "var(--indigo-glow)" in flat
-    for kf in ("gold-glow-pulse", "gold-glow-sm-pulse", "hero-drift", "live-dot"):
+    for kf in ("gold-glow-pulse", "gold-glow-sm-pulse", "hero-drift"):
         assert f"@keyframes {kf} " in CSS, kf
     assert ".gold-text-glow {" in CSS
-    reduced = CSS.split("@media (prefers-reduced-motion: reduce) { .hero-drift, .live-dot { animation: none; } }")
+    reduced = CSS.split("@media (prefers-reduced-motion: reduce) { .hero-drift { animation: none; } }")
     assert len(reduced) == 2
 
 

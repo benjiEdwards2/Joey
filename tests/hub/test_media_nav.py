@@ -123,10 +123,10 @@ def test_css_turns_off_double_tap_zoom_and_text_inflation():
 
 
 def test_form_controls_are_16px_on_a_phone_after_the_base_rules():
-    rule = "@media (max-width: 767px) { input, select, textarea, .input, .select, .textarea { font-size: 16px; } }"
+    rule = "@media (max-width: 767px) { input, select, textarea, .input, .select { font-size: 16px; } }"
     assert rule in CSS_ux5_no_zoom
     # the phone rule must come AFTER the 14 px .input / .select rules or they would win
-    assert CSS_ux5_no_zoom.index(rule) > CSS_ux5_no_zoom.index(".input, .textarea { width: 100%;") and CSS_ux5_no_zoom.index(rule) > CSS_ux5_no_zoom.index(".select { height: 36px;")
+    assert CSS_ux5_no_zoom.index(rule) > CSS_ux5_no_zoom.index(".input { width: 100%;") and CSS_ux5_no_zoom.index(rule) > CSS_ux5_no_zoom.index(".select { height: 36px;")
     after = CSS_ux5_no_zoom[CSS_ux5_no_zoom.index(rule) + len(rule):]
     assert not re.search(r"(?:input|select|textarea|\.input|\.select|\.textarea)[^{}]*\{[^}]*font-size", after)
 

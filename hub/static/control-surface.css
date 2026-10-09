@@ -48,7 +48,6 @@
   --pagehead-foot-1: rgba(9, 9, 11, .55); --pagehead-foot-2: rgba(9, 9, 11, 0);
   --title-shadow: 0 1px 14px rgba(0, 0, 0, .6);
   --amber: #fbbf24; --danger-line: rgba(239, 68, 68, .3); --warn-line: rgba(245, 158, 11, .3);
-  --toast-err: #fecaca; --toast-warn: #fef3c7;
   --glass-bg: rgba(0, 0, 0, .3); --glass-bg-hover: rgba(0, 0, 0, .5); --glass-line: rgba(255, 255, 255, .2);
   --shadow-poster: 0 10px 15px -3px rgba(0, 0, 0, .4), 0 4px 6px -4px rgba(0, 0, 0, .4);
   --shadow-row-poster: 0 4px 6px -1px rgba(0, 0, 0, .4), 0 2px 4px -2px rgba(0, 0, 0, .4);
@@ -67,7 +66,6 @@
   --gold-pulse-still: 0 0 14px 2px rgba(251, 191, 36, .5), 0 0 30px 6px rgba(251, 191, 36, .28);
   --gold-sm-lo: 0 0 5px 0 rgba(251, 191, 36, .45); --gold-sm-hi: 0 0 10px 2px rgba(251, 191, 36, .65);
   --gold-sm-still: 0 0 8px 1px rgba(251, 191, 36, .55); --gold-text: 0 0 12px rgba(251, 191, 36, .75);
-  --live-0: 0 0 0 0 rgba(244, 63, 94, .65); --live-70: 0 0 0 7px rgba(244, 63, 94, 0); --live-100: 0 0 0 0 rgba(244, 63, 94, 0);
   /* Media (restyle Phase 3): bar track, waiting text, poster badge/tag, icon buttons, confirm panel, detail hero, link chips */
   --bar-track: rgba(255, 255, 255, .08); --amber-dim: rgba(251, 191, 36, .8);
   --poster-badge-bg: rgba(9, 9, 11, .85); --teal-chip: rgba(20, 184, 166, .85);
@@ -108,12 +106,10 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-even
   .gold-glow { animation: none; box-shadow: var(--gold-pulse-still); }
   .gold-glow-sm { animation: none; box-shadow: var(--gold-sm-still); }
 }
-/* Home's hero backdrop drifts slowly; a live stream's dot pulses. */
+/* Home's hero backdrop drifts slowly. */
 @keyframes hero-drift { from { transform: scale(1.08) translate3d(-1%, 0, 0); } to { transform: scale(1.02) translate3d(1%, -1%, 0); } }
 .hero-drift { animation: hero-drift 30s ease-in-out infinite alternate; will-change: transform; }
-@keyframes live-dot { 0% { box-shadow: var(--live-0); } 70% { box-shadow: var(--live-70); } 100% { box-shadow: var(--live-100); } }
-.live-dot { animation: live-dot 1.8s ease-out infinite; }
-@media (prefers-reduced-motion: reduce) { .hero-drift, .live-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .hero-drift { animation: none; } }
 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
@@ -152,18 +148,17 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 .chip svg.ic { width: 14px; height: 14px; }
 
 /* Form controls */
-.input, .textarea { width: 100%; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+.input { width: 100%; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
   padding: 0 12px; font: inherit; font-size: 14px; color: var(--text-1); }
 .input { height: 36px; }
-.textarea { padding: 8px 12px; }
-.input::placeholder, .textarea::placeholder { color: var(--text-6); }
-.input:focus, .textarea:focus, .select:focus { border-color: var(--line-focus); outline: none; }
+.input::placeholder { color: var(--text-6); }
+.input:focus, .select:focus { border-color: var(--line-focus); outline: none; }
 .label { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--text-4); }
 .select { height: 36px; border-radius: 8px; border: 1px solid var(--line); background: transparent;
   padding: 0 12px; font: inherit; font-size: 14px; color: var(--text-3); }
 .select > option { background: var(--zinc-900); color: var(--text-2); }
 /* media-ux5 (2026-10-09): iOS zooms in on a focused control under 16 px - phones get 16 px. */
-@media (max-width: 767px) { input, select, textarea, .input, .select, .textarea { font-size: 16px; } }
+@media (max-width: 767px) { input, select, textarea, .input, .select { font-size: 16px; } }
 
 /* Section label ("WATCHED · 1,261") and micro label over a value */
 .seclabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--text-5); }
@@ -243,17 +238,6 @@ a.row:hover { background: var(--soft); }
 .panel { border-radius: 16px; border: 1px solid var(--border); background: var(--surface); padding: 16px; }
 .empty { border-radius: 12px; border: 1px solid var(--line-soft); padding: 32px; text-align: center;
   font-size: 14px; color: var(--text-5); }
-
-/* Toasts: bottom centre, above the phone tab bar */
-.toast { position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
-  bottom: calc(4.75rem + var(--tab-lift) + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px);
-  border-radius: 12px; border: 1px solid var(--line); padding: 10px 14px; font-size: 14px; color: var(--text-2);
-  background: var(--zinc-900); box-shadow: var(--shadow-float);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: pointer; }
-.toast-info { border-color: var(--line); color: var(--text-2); }
-.toast-warn { border-color: var(--warn-line); color: var(--toast-warn); }
-.toast-error { border-color: var(--danger-line); color: var(--toast-err); }
-@media (min-width: 768px) { .toast { bottom: 24px; } }
 
 /* ---- Shell (guide §5, restyle Phase 2): top bar, page frame, page header, section tabs, phone tab bar ---- */
 /* Top bar: brand, section pills (>= 768 px), signed-in chip. Sticky from 768 px; on a phone it scrolls away. */

@@ -76,3 +76,14 @@ def test_connectors_dockerfile_follows_the_hub_pattern():
     assert "USER joey" in text                       # non-root
     assert "COPY tests/ tests/" in text                # suite ships in the image
     assert "connectors/requirements.txt" in text
+
+
+def test_hub_and_connectors_join_the_media_stack_network():
+    """N-09 (2026-10-09): service-name URLs (jellyfin:8096, gluetun:8080, ...) need the media
+    stack's network; `default` stays so cloudflared still reaches hub:8000."""
+    doc = compose()
+    assert doc["networks"] == {"media": {"external": True, "name": "media-server_default"}}
+    for name in ("hub", "connectors"):
+        assert doc["services"][name]["networks"] == ["default", "media"], name
+    for name in ("cloudflared", "macromates"):
+        assert "networks" not in doc["services"][name], name  # tunnel side only

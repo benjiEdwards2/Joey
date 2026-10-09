@@ -29,11 +29,13 @@ def test_cloudflared_service_shape():
 def test_cloudflared_publishes_no_port_and_joins_the_default_network():
     svc = cloudflared()
     assert "ports" not in svc and "expose" not in svc
-    # no custom networks anywhere: every service shares the compose default,
-    # so cloudflared reaches the hub as http://hub:8000
+    # cloudflared sits on the compose default only, and the hub stays on it, so cloudflared
+    # reaches the hub as http://hub:8000. The one extra network is the media stack's (N-09),
+    # joined by hub + connectors only.
     full = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
-    assert "networks" not in full
-    assert all("networks" not in s for s in full["services"].values())
+    assert set(full["networks"]) == {"media"}
+    assert "networks" not in svc
+    assert "default" in full["services"]["hub"]["networks"]
 
 
 def test_only_cloudflared_is_handed_the_tunnel_token_explicitly():

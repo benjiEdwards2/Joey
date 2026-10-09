@@ -53,6 +53,10 @@ services:
     # container, which WP11 fronts it with on the compose network.
     expose:
       - "8000"
+    # default: cloudflared reaches it as hub:8000. media: the media stack by service name (N-09).
+    networks:
+      - default
+      - media
 
   cloudflared:
     # WP11 — remotely-managed Cloudflare tunnel (`joey-nas` in Zero Trust).
@@ -123,4 +127,17 @@ services:
       SYSTEM_VOLUME_LABELS: /data/snapshots=/volume1
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
+    networks:
+      - default
+      - media
     entrypoint: ["sh", "-c", "python -m connectors.run_all; (while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do sleep 3600; python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; done"]
+
+networks:
+  # Shared Docker network (N-09, 2026-10-09): the media stack's compose network, joined by the hub
+  # and connectors so they reach jellyfin:8096, radarr:7878, ... and gluetun:8080/9696 (qBittorrent
+  # and Prowlarr live in gluetun's network namespace) by service name instead of the NAS LAN IP.
+  # External: the media stack owns it, so it must exist before `up` (deploy.sh checks first).
+  # Service-name URLs and the port checklist: docs/network.md.
+  media:
+    external: true
+    name: media-server_default

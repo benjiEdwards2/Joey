@@ -117,3 +117,10 @@ def test_smoke_waits_for_the_hub_to_listen_instead_of_a_fixed_sleep():
     assert "wait_for_hub" in SCRIPT and SCRIPT.index("wait_for_hub()") < SCRIPT.index("smoke()")
     assert "/healthz" in SCRIPT and "[ $i -lt 18 ]" in SCRIPT
     assert "    sleep 5" + chr(10) + "    docker compose exec -T hub python tests/deploy/smoke.py" not in SCRIPT
+
+
+def test_a_missing_media_network_fails_the_gate_before_the_stack_is_touched():
+    """N-09: compose `up` cannot start hub/connectors without the external media network."""
+    check = SCRIPT.index("docker network inspect media-server_default")
+    assert check < SCRIPT.index("== build + converge ==")
+    assert 'gate_fail "network media-server_default missing' in SCRIPT[check:check + 200]

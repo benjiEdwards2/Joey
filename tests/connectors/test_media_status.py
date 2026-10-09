@@ -196,3 +196,40 @@ def test_probes_run_concurrently_at_most_six_at_a_time_in_app_order(live, monkey
     assert raw_order == [a["id"] for a in MEDIA_APPS if "via" not in a] + ["gluetun"]
     assert [a["id"] for a in envelope["data"]["apps"]] == [a["id"] for a in MEDIA_APPS]
     assert envelope["data"]["secondary"] == "Down: Radarr"
+
+
+# ---- N-09 (2026-10-09): MEDIA_STATUS_HOSTS moves the probe onto the shared Docker network ----
+
+
+def test_probe_hosts_override_the_probe_but_never_the_link(live, monkeypatch):
+    monkeypatch.setenv("MEDIA_STATUS_HOSTS",
+                       "jellyfin=jellyfin, qbittorrent=gluetun,prowlarr=gluetun,wud=wud:3000")
+    probed = []
+
+    def fake_get(url, timeout=None, **kw):
+        probed.append(url)
+        return Resp(200)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    data = MediaStatus().run()["data"]
+    assert {"http://jellyfin:8096/health", "http://gluetun:8080/api/v2/app/version",
+            "http://gluetun:9696/ping", "http://wud:3000/", f"http://{HOST}:7878/ping"} <= set(probed)
+    assert len(probed) == 11 and not any(u.startswith(f"http://{HOST}:3030") for u in probed)
+    hrefs = {a["id"]: a["href"] for a in data["apps"]}
+    assert hrefs["jellyfin"] == f"http://{HOST}:8096" and hrefs["wud"] == f"http://{HOST}:3030"
+    assert hrefs["qbittorrent"] == hrefs["gluetun"] == f"http://{HOST}:8080"
+    assert data["summary"] == "12 of 12 up"
+
+
+@pytest.mark.parametrize("spec, expected", [
+    ("", {}),
+    ("jellyfin=jellyfin", {"jellyfin": ("jellyfin", 8096)}),
+    ("wud=wud:3000,radarr=radarr", {"wud": ("wud", 3000), "radarr": ("radarr", 7878)}),
+    ("nosuch=x,gluetun=gluetun,radarr=,=x,sonarr", {}),        # unknown, derived, blank, malformed
+    ("wud=wud:http,sonarr=sonarr:", {}),                       # a port must be digits
+])
+def test_probe_targets_parse(monkeypatch, spec, expected):
+    from connectors.feeds.media_status import probe_targets
+
+    monkeypatch.setenv("MEDIA_STATUS_HOSTS", spec)
+    assert probe_targets() == expected

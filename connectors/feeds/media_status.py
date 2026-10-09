@@ -35,6 +35,24 @@ MEDIA_APPS = (
 )
 
 
+def probe_targets() -> dict[str, tuple[str, int]]:
+    """MEDIA_STATUS_HOSTS `app=host[:port][,app=host[:port]]` -> {app: (host, port)} (N-09):
+    where to PROBE an app from inside Docker once Joey shares the media stack's network, e.g.
+    `jellyfin=jellyfin,qbittorrent=gluetun,prowlarr=gluetun,wud=wud:3000` (the port defaults
+    to the app's published one; give it when the container port differs, as WUD's does).
+    Only the probe moves: the card `href` stays MEDIA_STATUS_HOST + the published port, so
+    the link still works from a phone on the LAN. Unknown ids and bad pairs are ignored."""
+    ports = {app["id"]: app["port"] for app in MEDIA_APPS if "via" not in app}
+    targets = {}
+    for pair in (os.environ.get("MEDIA_STATUS_HOSTS") or "").split(","):
+        app, sep, where = (s.strip() for s in pair.partition("="))
+        host, colon, port = where.partition(":")
+        if not (sep and app in ports and host.strip()) or (colon and not port.strip().isdigit()):
+            continue
+        targets[app] = (host.strip(), int(port) if colon else ports[app])
+    return targets
+
+
 class MediaStatus(Connector):
     id = "media_status"
     requires_env = ("MEDIA_STATUS_HOST",)
@@ -45,11 +63,13 @@ class MediaStatus(Connector):
         import requests
 
         host = os.environ["MEDIA_STATUS_HOST"]
+        targets = probe_targets()
 
         def probe(app: dict) -> dict:
             up, note = False, None
+            where, port = targets.get(app["id"], (host, app["port"]))
             try:
-                response = requests.get(f"http://{host}:{app['port']}{app['path']}",
+                response = requests.get(f"http://{where}:{port}{app['path']}",
                                         timeout=5, allow_redirects=False)
                 up = response.status_code < 500
                 if not up:

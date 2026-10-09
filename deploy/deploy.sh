@@ -96,6 +96,9 @@ gate_fail() {
 echo "== compose validate =="
 cd "$DEPLOY_DIR"   # picks up docker-compose.yml + any local override
 docker compose config -q || gate_fail "compose config invalid"
+# hub + connectors join the media stack's network (N-09); `up` fails without it, so check first
+docker network inspect media-server_default >/dev/null 2>&1 \
+    || gate_fail "network media-server_default missing — start the media stack first"
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.

@@ -1,6 +1,5 @@
 """Media helpers the hub page, the Media home and the Media detail pages share (W3 split of hub/main.py, H-44): the
-one ratings read per page (_ratings / score_for), the owner view of the Jellyfin data (view_jelly), the area page's
-Media sections (find_media), the Media home's hero + poster shelves (build_shelves), the rating inbox (_to_rate) and
+one ratings read per page (_ratings / score_for), the owner view of the Jellyfin data (view_jelly), the Media home's hero + poster shelves (build_shelves), the rating inbox (_to_rate) and
 waiting counts, the Media frame (media_frame, Jinja `media_nav`), and the hub's Media card builders (media_hero,
 hub_shelf). Sets its Jinja globals (score_for, status_of, media_nav, item_href, row_href, resume_flash,
 resume_acts) on the shared shell env at import.
@@ -15,19 +14,17 @@ from fastapi import Request
 
 from hub import (media_db, media_discover, media_downloads, media_follow, media_item, media_nav, media_plays_db,
                  media_resume, media_status_words, media_text, media_watchlist, shell)
-from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
+from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 from hub.store import ago_text, data_of, parse_utc, tile_state
 
 log = logging.getLogger("hub.media_home")
 
 
-# Media sections (2026-10-05): apps health + now playing + up next. Keyed by
+# Media detail paths (2026-10-05). Keyed by
 # connector id (hub/ids.py) like the upcoming list — never an area name (WP17 grep exception).
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
 HISTORY_PLAYS = "/media/server/history"  # F7 play history (Server > History)
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
-LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
-HISTORY_STRIP_MAX = 5  # "Recently watched" strip on the area page
 TO_RATE_DAYS = 30      # rating inbox window on /media/history
 
 
@@ -93,42 +90,6 @@ def _library_text(library: dict) -> str:
              for k, s, p in (("movies", "movie", "movies"), ("episodes", "episode", "episodes"))
              if isinstance(library.get(k), int)]
     return " · ".join(parts)
-
-
-def find_media(tiles, snaps) -> dict | None:
-    """Media sections for an area: each present when a visible tile reads that
-    snapshot and it holds data (fresh or stale — never fabricated). Now-playing
-    rows link to the first LINK tile in the same area (the Jellyfin launcher)."""
-    def reading(snapshot_id, detail=None):
-        for row in tiles:
-            if (row["tile"].snapshot == snapshot_id and (detail is None or row["tile"].detail == detail)
-                    and row["st"]["state"] in ("fresh", "stale")):
-                return row["st"], snaps[snapshot_id].data
-        return None
-
-    play, apps = reading(JELLYFIN_SNAPSHOT_ID), reading(MEDIA_STATUS_SNAPSHOT_ID)
-    library = reading(ARR_SNAPSHOT_ID)
-    watched = reading(JELLYFIN_SNAPSHOT_ID, HISTORY_DETAIL)  # B.'s own tile, so a her view never sees it
-    recent = ((watched[1].get("history") or {}).get("recent") or [])[:HISTORY_STRIP_MAX] if watched else []
-    if not (play or apps or library or recent):
-        return None
-    link = next((r["st"]["href"] for r in tiles if r["st"]["state"] == "link"), None)
-    return {
-        "apps": {"st": apps[0], "items": apps[1].get("apps", [])} if apps else None,
-        "play": {"st": play[0], "now_playing": play[1].get("now_playing", []),
-                 "up_next": play[1].get("up_next", []), "href": link} if play else None,
-        "library": {"st": library[0], "items": library[1].get("arrived", [])[:LIBRARY_STRIP_MAX]}
-                   if library else None,
-        "history": {"st": watched[0], "items": recent} if recent else None,
-    }
-
-
-def _media_rows(media) -> list:
-    """Every row list on the area's media sections, for the page's one ratings lookup."""
-    if not media:
-        return []
-    play, library, history = media["play"] or {}, media["library"] or {}, media["history"] or {}
-    return [play.get("now_playing"), play.get("up_next"), library.get("items"), history.get("items")]
 
 
 SHELF_MAX = 15         # items per poster shelf

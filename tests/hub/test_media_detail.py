@@ -75,7 +75,7 @@ def test_playing_page_sections_render_in_main(app_factory):
     assert '<div class="row-title">Harbour Lights</div>' in body
     assert 'Sample Person<span class="sep"> · </span>Transcoding<span class="sep"> · </span>42%' in body
     assert "width: 42%" in body
-    assert f'href="{JELLY_HREF}"' in body                      # resolved like find_media
+    assert f'href="{JELLY_HREF}"' in body                      # the area's LINK tile
     assert ">Up next</div>" in body and "Dust and Daylight" in body and "Next episode" in body
     assert ">Latest additions</div>" in body
     assert body.index("Desert Crossing") > body.index(">Latest additions</div>")

@@ -171,7 +171,7 @@ def test_unwritable_db_is_a_503_not_a_crash(env, monkeypatch, tmp_path):
         assert client.post("/media/rate", data=rate_form(), headers=HX).status_code == 503
 
 
-def test_score_chips_on_history_playing_library_requests_and_the_area(env):
+def test_score_chips_on_history_playing_library_requests(env):
     build, _ = env
     keys = {"hist": "tmdb:1", "play": JELLY["now_playing"][0]["item_key"],
             "lib": ARR["arrived"][0]["item_key"], "req": SEERR["requests"][0]["item_key"]}
@@ -184,13 +184,11 @@ def test_score_chips_on_history_playing_library_requests_and_the_area(env):
         play = main_of(client.get("/media/playing").text)
         lib = main_of(client.get("/media/library").text)
         req = main_of(client.get("/media/requests").text)
-        area = main_of(client.get("/a/alpha").text)
     recent = hist.split(">Recently watched</div>", 1)[1]
     assert 'row-score score-8" title="Your rating: 8 out of 10">8<' in recent
     assert 'row-score score-9 gold-text-glow"' in play and "row-poster gold-glow-sm" in play
     assert 'row-score score-5" title="Your rating: 5 out of 10">5<' in lib
     assert 'row-score score-3" title="Your rating: 3 out of 10">3<' in req
-    assert 'title="Your rating: 10 out of 10"' in area and "gold-glow" in area
 
 
 def test_her_view_sees_no_scores_or_inbox(env):

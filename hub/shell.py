@@ -272,7 +272,7 @@ def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
     """The page behind a `detail` tile: the first registry tile reading the
     snapshot (the one whose `detail` route matches, when several tiles share a
     snapshot), its area and the area's first LINK tile (the app
-    launcher, as find_media resolves it). None when no tile reads the snapshot."""
+    launcher). None when no tile reads the snapshot."""
     for a in registry.areas:
         for t in a.tiles:
             if t.snapshot == snapshot_id and (detail is None or t.detail == detail):

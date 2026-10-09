@@ -1,5 +1,5 @@
-"""Media Phase 4a — the /media/history page and the area "Recently watched" strip,
-rendered from the history block of the jellyfin snapshot. Placement is asserted inside <main>.
+"""Media Phase 4a — the /media/history page, rendered from the history block of the jellyfin snapshot (the area
+"Recently watched" strip was removed 2026-10-09, decision 2). Placement is asserted inside <main>.
 """
 import importlib
 import json
@@ -64,7 +64,6 @@ def test_quiet_words_when_history_is_empty_or_absent(app_factory):
         assert "0 this week · 0 this month · 0 h this month · 0 h all time" in body
         for words in ("Nothing watched yet", "Nothing waiting to be rated"):
             assert words in body
-        assert "Recently watched" not in main_of(client.get("/a/alpha").text)
 
 
 def test_not_connected_state_without_a_snapshot(app_factory):
@@ -88,29 +87,6 @@ def test_404_when_no_tile_has_the_history_route(tmp_path, monkeypatch):
     with TestClient(hub.main.app) as client:
         resp = client.get("/media/history")
     assert resp.status_code == 404 and "No page here" in resp.text
-
-
-def test_area_strip_shows_five_recent_items_with_a_you_chip(app_factory):
-    build, tmp_path = app_factory
-    snaps = tmp_path / "snaps"
-    write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
-    with build(snaps) as client:
-        body = main_of(client.get("/a/alpha").text)
-    strip = body.split(">Recently watched</h2>", 1)[1].split("</section>", 1)[0]
-    assert body.index('class="tiles areatiles"') < body.index(">Recently watched<")
-    assert strip.count('<a class="row" href="/media/diary">') == 5
-    assert strip.count('class="poster row-poster') == 5
-    assert "Harbour Lights" in strip and "Desert Crossing" not in strip  # 4th kept, 6th cut
-    assert '<p class="metaline">You' in strip
-
-
-def test_her_view_never_shows_the_strip(app_factory):
-    build, tmp_path = app_factory
-    snaps = tmp_path / "snaps"
-    write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
-    with build(snaps) as client:
-        body = main_of(client.get("/a/alpha?owner_view=her").text)
-    assert "Recently watched" not in body and "Now playing" in body
 
 
 def test_history_posters_in_main(app_factory):

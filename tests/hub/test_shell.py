@@ -260,3 +260,11 @@ def test_area_page_header_names_the_area_and_counts_tiles(main):
         body = c.get("/a/beta").text.split("<main", 1)[1]
     assert '<header class="pagehead">' in body and "<h1>Beta</h1>" in body
     assert '<p class="pagehead-sub">1 tile</p>' in body and 'class="dot"' not in body
+
+
+def test_hub_main_names_no_area_for_media():
+    """Moved from test_media.py (2026-10-09, decision 2): the Media code keys by connector id, never an area name."""
+    hub_dir = REPO_ROOT / "hub"   # W3: main.py's Media code moved to these two modules
+    text = "".join((hub_dir / f).read_text(encoding="utf-8") for f in ("main.py", "media_home.py", "media_pages.py"))
+    assert "JELLYFIN_SNAPSHOT_ID" in text and "MEDIA_STATUS_SNAPSHOT_ID" in text
+    assert '"media"' not in text

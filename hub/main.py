@@ -37,10 +37,10 @@ from hub.media_pages import (  # noqa: F401
 )
 # W3: the shared Media helpers live in hub/media_home.py; re-exported for the old `hub.main.X` paths.
 from hub.media_home import (  # noqa: F401
-    DIARY_DETAIL, HISTORY_DETAIL, HISTORY_PLAYS, HISTORY_STRIP_MAX, LEVEL_KEYS, LIBRARY_DETAIL, LIBRARY_STRIP_MAX,
-    PLAYING_DETAIL, Ratings, SHELF_MAX, TO_RATE_DAYS, _ago_text, _library_text, _media_rows,
+    DIARY_DETAIL, HISTORY_DETAIL, HISTORY_PLAYS, LEVEL_KEYS, LIBRARY_DETAIL,
+    PLAYING_DETAIL, Ratings, SHELF_MAX, TO_RATE_DAYS, _ago_text, _library_text,
     _parse_ts, _profile_rows, _ratings, _recent, _split_title, _to_rate, _to_rate_title, area_waiting,
-    build_shelves, find_media, hub_shelf, item_href, media_frame, media_hero, resume_acts, row_href, score_for,
+    build_shelves, hub_shelf, item_href, media_frame, media_hero, resume_acts, row_href, score_for,
     to_rate_tab_counts, view_jelly, waiting_counts,
 )
 # W3: the calendar helpers live in hub/upcoming.py; re-exported for the old `hub.main.X` paths.
@@ -235,7 +235,6 @@ def area_page(request: Request, area_id: str):
             "backup_warn": media_backup.current_status()["warning"],
         }, active_id=area.id)
         return shell._maybe_set_cookie(resp, view, from_query)
-    media = media_home.find_media(tiles, snaps)
     upcoming = find_upcoming(tiles, snaps, view)
     # Weather renders on the hub and /weather only (2026-10-08, B. — supersedes the
     # Calendar-page card). The registry tile stays: find_weather's config anchor.
@@ -243,8 +242,6 @@ def area_page(request: Request, area_id: str):
     resp = shell.render_page(request, "area.html", {
         "area": area, "tiles": tiles,
         "upcoming": upcoming,
-        "media": media,
-        "ratings": media_home._ratings(view, *media_home._media_rows(media)),
     }, active_id=area.id)
     return shell._maybe_set_cookie(resp, view, from_query)
 

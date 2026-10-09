@@ -1,5 +1,5 @@
-"""Media Phase 2 — the /media/library page and the area "Just arrived" strip,
-rendered from the arr snapshot. Placement is asserted inside <main>.
+"""Media Phase 2 — the /media/library page, rendered from the arr snapshot (the area "Just arrived" strip was
+removed 2026-10-09, decision 2). Placement is asserted inside <main>.
 """
 import json
 from datetime import date, timedelta
@@ -82,20 +82,6 @@ def test_not_connected_state_without_a_snapshot(app_factory):
     assert resp.status_code == 200
     body = main_of(resp.text)
     assert "Not connected" in body and "Just arrived" not in body
-
-
-def test_area_strip_present_only_with_the_snapshot(app_factory):
-    build, tmp_path = app_factory
-    snaps = tmp_path / "snaps"
-    data = data_for_today()
-    data["arrived"] = [{"title": f"Item {i}", "kind": "movie", "when": "yesterday"} for i in range(8)]
-    write_envelope(snaps, "arr", age_minutes=1, data=data)
-    with build(snaps) as client:
-        body = main_of(client.get("/a/alpha").text)
-    assert body.index('class="tiles areatiles"') < body.index(">Just arrived<")
-    assert "Item 4" in body and "Item 5" not in body  # capped at 5
-    with build(tmp_path / "empty") as client:
-        assert "Just arrived" not in main_of(client.get("/a/alpha").text)
 
 
 def test_library_rows_carry_radarr_and_sonarr_posters_in_main(app_factory):

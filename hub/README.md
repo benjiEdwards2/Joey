@@ -38,7 +38,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | Route | Module | Notes |
 |---|---|---|
 | `GET /` | main | Hub: summary tiles, Next 7 days, weather glimpse, Recently watched |
-| `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server); hidden areas still serve |
+| `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server; grid = tiles + Next 7 days, its Media sections removed 2026-10-09, decision 2); hidden areas still serve |
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather`, `/weather/radar/{name}` | weather | Weather page (Windy radar embed); parked BOM layer files (404 if absent) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Server section: Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |

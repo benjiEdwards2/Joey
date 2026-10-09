@@ -207,8 +207,8 @@ no snapshot, no expectation of one anywhere in the hub.
 | What | Where |
 |---|---|
 | Live snapshots (the box) | `/opt/life-dashboard-data/snapshots/{id}.json`, mounted at `/data/snapshots` |
-| Runner heartbeat | `{SNAPSHOT_DIR}/_runner.json` — last sweep only |
-| Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence). Since WP-U2 (2026-10-06) the hub READS its tail (read-only mount; last 2 MB / 1000 lines) for 24 h per-connector sweep failures on `/server` — keep the line shape `{ran_at, results: {id: {status, error, ...}}, only?}` |
+| Runner heartbeat | `{SNAPSHOT_DIR}/_runner.json` — last sweep only, written atomically (tmp + `os.replace`) |
+| Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence). Since WP-U2 (2026-10-06) the hub READS its tail (read-only mount; last 2 MB / 1000 lines) for 24 h per-connector sweep failures on `/server` — keep the line shape `{ran_at, results: {id: {status, error, ...}}, only?}`. Since 2026-10-09 each result also carries `duration_ms` and each line `sweep_ms` (the heartbeat does not), and past 5 MB the file is rewritten atomically to its newest lines of the last 14 days, capped at 2.5 MB (≥ 24 h always kept) |
 | Committed samples | `config/sample_snapshots/` — the fixture sweep, what hub work is developed against |
 
 Snapshots are **never committed** (D13); `data/` is gitignored. Their offsite
@@ -238,6 +238,11 @@ sets status=error, bumps `consecutive_failures`, and refreshes `fetched_at` only
 The tile therefore keeps showing the last known value with a stale badge, which
 is exactly the agreed failure handling (2026-08-25).
 
+**Error text never carries a URL (2026-10-09, C-06).** Every live `fetch()` reduces an upstream failure to
+type/status (`_safe_reason` and friends) — Open-Meteo included, whose query holds the home coordinates. As
+defence in depth `base.run` (and the runner's own isolation path) replaces any `http(s)://…` in the error with
+`<url>` before it is logged or stored. Open-Meteo sends `timezone=auto` when `TZ` is unset **or blank**.
+
 ## The `data` block
 
 Each feed has its own schema in `connectors/schema/data/{id}.schema.json`, and
@@ -253,6 +258,17 @@ never a stored value — the schemas reject it.
 `home_assistant` is keyed by area (`house`, `car`, `garden`) because one
 connector feeds three tiles; that keying is what lets each tile slice its own
 entities instead of all three repeating the same summary.
+
+**Home time zone (2026-10-09, C-08).** Everything calendar-shaped is computed in the household's zone,
+`base.home_tz()`: `TZ`, else `Australia/Melbourne` (the hub's `HOME_TZ_NAME`), UTC only if no tz database
+loads; fixture mode always uses Australia/Melbourne so samples never depend on the machine. That covers
+Jellyfin `history.on_this_day` (local month/day), the Arr calendar window and `this_week` dates, and `when`
+texts of a day or more ("yesterday", "N days ago" count local calendar days; under 24 h stays "N hours ago").
+Durations (last 7/30 days, qBittorrent's 24 h "finished today") are unaffected.
+
+**One duration format (2026-10-09, C-14).** Arr `time_left`, qBittorrent `eta_text` and the `system` uptime in
+`secondary` all come from `_duration_words`: `12m`, `1h 05m`, `5h 20m`, `12d 4h` (was "12 min" / "1 h 05 min" /
+"12 days" depending on the feed).
 
 **Open-Meteo forecast (2026-10-06, weather upgrade).** The same single GET now also asks for `hourly` and
 7 `daily` days (`forecast_days=7`). `open_meteo` data gains optional `hourly` (≤ 24 rows from the current hour:
@@ -309,17 +325,26 @@ Fetched in `connectors/stubs.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
 sweep, four with `JELLYFIN_USER_HER`. Snapshots written before this have neither array and stay
 valid; the hub library pages then say "Library list not available yet".
 
+**Jellyfin partial-ok (2026-10-09, C-09).** Only the core calls (users, system, sessions, resume, next up,
+latest, counts, history) can fail the `jellyfin` feed. The library lists and every `her` call are optional:
+one that fails is logged with its sanitised reason (`Jellyfin movies failed (Timeout)`) and the envelope stays
+`ok` — `movies` / `shows` absent, or `her` null when her resume, next up or history is missing.
+
 **Server area `system` (2026-10-06, WP-S2).** Live fetch needs no env: CPU % is the busy share of
 two `/proc/stat` samples 1 s apart (idle includes iowait), RAM is `/proc/meminfo` MemTotal / MemAvailable,
 plus `/proc/uptime` and `/proc/loadavg` (`load_1m` null if unreadable). Volumes are `os.statvfs` on each
 container path in `SYSTEM_VOLUMES` (compose sets `/host/volume1`, bound `/volume1:/host/volume1:ro` on the
-`connectors` service); `path` is reported with the `/host` prefix stripped (`/volume1`). Unreadable `/proc`
+`connectors` service); `path` is reported with the `/host` prefix stripped (`/volume1`). Since 2026-10-09 (C-19)
+`SYSTEM_VOLUME_LABELS` (`path=label[,path=label]`) overrides that label per path — e.g.
+`SYSTEM_VOLUMES=/data/snapshots` + `SYSTEM_VOLUME_LABELS=/data/snapshots=/volume1` reports the snapshots bind (same
+filesystem, so the same `statvfs` numbers) as `/volume1` without mounting the whole volume. Unset: unchanged. Unreadable `/proc`
 or a missing mount is an error envelope (`RuntimeError: cannot read /proc/stat (...)`), never invented numbers.
 
 **`media_status` apps (2026-10-06, WP-S2).** The probe list adds `wud` (3030), `adm` (8000, Asustor ADM —
 a 30x to https counts as Up) and `homepage` (3000). `gluetun` is derived, not probed: Up iff `prowlarr` or
 `qbittorrent` answers (both route through it); when Down its note is `no answer via Prowlarr or qBittorrent`.
-The hub's Server page groups `gluetun` under Downloads and the rest under System.
+The hub's Server page groups `gluetun` under Downloads and the rest under System. Since 2026-10-09 (C-12) the
+probes run six at a time (5 s timeout each), so a filtered port no longer stretches the 120 s loop by ~55 s.
 
 **Arr counts (WP-S3, 2026-10-06).** `arr` data gains three optional objects, each `null` on failure:
 `radarr` (`movies` = all, `missing` = monitored without a file, `wanted` = those also released/available, `queued` =
@@ -369,6 +394,23 @@ never silently serve fake data) and `fixture` in the suite and for local work.
 - **live** — missing credentials fail fast, and the error names the exact
   environment variable. Credentials live only in `deploy/.env` on the box.
 
+## Parked connectors
+
+Since 2026-10-09 (review C-01/N-12) `macromates`, `home_assistant` and `nas_stats` are **parked**: they
+have a transform, fixture and data schema but no live `fetch()`, so in live mode they could only ever write
+`MissingCredential` error envelopes. They are registered as parked (`connectors/stubs.py` `PARKED`):
+
+- **fixture mode** builds them like any other feed — the sample sweep needs no env, so
+  `config/sample_snapshots/` keeps all 13 ids;
+- **live mode** sweeps a parked connector only when every name in its `requires_env` is set
+  (`macromates`: `SUPABASE_URL`, `SUPABASE_KEY`; `home_assistant`: `HA_URL`, `HA_TOKEN`;
+  `nas_stats`: `NAS_SHARES_ROOT` — these code names are the ones that count). Re-enabling one is
+  "write its `fetch()`, then set the env".
+
+Their ids stay in the frozen D13 envelope enum. `registry.connector_ids()` is what a sweep runs;
+`registry.all_ids()` (parked included) is what `areas.yaml` is cross-checked against. A snapshot a parked
+connector wrote before 2026-10-09 is simply no longer refreshed.
+
 ## Cadence
 
 The connectors container runs `while true; do python -m connectors.run_all; sleep 3600; done`
@@ -391,7 +433,7 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
    `summary`, allowing `secondary`, `additionalProperties: false`.
 3. `connectors/stubs.py` — a `Connector` subclass with `id`, `requires_env`,
    `transform(raw)`, and its live `fetch()` (sanitised errors via `_safe_reason`; a connector that
-   enriches rows per item, like `jellyseerr`'s TMDB titles, caps lookups and reuses `self._previous()`); append it to `STUBS` so it registers.
+   enriches rows per item, like `jellyseerr`'s TMDB titles, caps lookups and reuses `self._previous()`); append it to `STUBS` so it registers (`PARKED` for one with no live `fetch()` yet).
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`

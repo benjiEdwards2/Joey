@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from connectors import registry
-from connectors.base import Connector, _now_iso, log, mode
+from connectors.base import Connector, _now_iso, home_tz, log, mode
 
 CALENDAR_WINDOW_DAYS = 14
 NAS_RECENT_DAYS = 7
@@ -161,21 +161,27 @@ class OpenMeteo(Connector):
     def _fetch_forecast(self) -> dict:
         import requests
 
-        response = requests.get(
-            self.FORECAST_URL,
-            params={
-                "latitude": os.environ["WEATHER_LAT"],
-                "longitude": os.environ["WEATHER_LON"],
-                "current": "temperature_2m,weather_code",
-                "hourly": self.HOURLY,
-                "daily": self.DAILY,
-                "timezone": os.environ.get("TZ", "auto"),
-                "forecast_days": 7,
-            },
-            timeout=10,
-        )
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.get(
+                self.FORECAST_URL,
+                params={
+                    "latitude": os.environ["WEATHER_LAT"],
+                    "longitude": os.environ["WEATHER_LON"],
+                    "current": "temperature_2m,weather_code",
+                    "hourly": self.HOURLY,
+                    "daily": self.DAILY,
+                    # `or`, not a .get default: compose passes a blank `TZ=` through as ""
+                    "timezone": os.environ.get("TZ") or "auto",
+                    "forecast_days": 7,
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as exc:
+            # Reason is type/status ONLY — requests exception text embeds the URL,
+            # whose query carries the home coordinates (C-06).
+            raise RuntimeError(f"Open-Meteo forecast failed ({_safe_reason(exc)})") from None
 
     def transform(self, raw: dict) -> dict:
         current = raw["current"]
@@ -217,12 +223,15 @@ def radar_frame_stamps(names, station: str, count: int) -> list[str]:
 
 
 def _write_bytes_atomic(path: Path, blob: bytes) -> None:
-    """Same discipline as write_envelope: unique tmp, then os.replace."""
+    """Same discipline as write_envelope: unique tmp, then os.replace (with its
+    Windows reader-lock retry)."""
     import threading
+
+    from connectors.base import replace_with_retry
 
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_bytes(blob)
-    os.replace(tmp, path)
+    replace_with_retry(tmp, path)
 
 
 def fetch_radar(connector: "OpenMeteo") -> dict:
@@ -618,6 +627,15 @@ class Jellyfin(Connector):
                 # server URL, and this string ends up in envelopes and logs.
                 raise RuntimeError(f"Jellyfin {label} failed ({_safe_reason(exc)})") from None
 
+        def optional(label: str, path: str, params: dict | None = None):
+            """Partial-ok (C-09): an optional call that fails is left out of `raw` (its data key is
+            then absent / `her` null) and logged with the sanitised reason; the run stays ok."""
+            try:
+                return get(label, path, params)
+            except RuntimeError as exc:
+                log.warning("jellyfin: skipped, %s", exc)
+                return None
+
         users = get("users", "/Users")
         uid = self.pick_user(users, os.environ.get("JELLYFIN_USER")).get("Id")
         if not uid:
@@ -638,23 +656,32 @@ class Jellyfin(Connector):
             "raw_latest": get("latest", f"/Users/{uid}/Items/Latest", {"Limit": 5, **fields}),
             "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
             "raw_history": get("history", f"/Users/{uid}/Items", history_params),
-            # Library lists (F3a). Two extra GETs (four with her) ride the 2-minute sweep;
-            # acceptable for a 42-film library; a split sweep is a later decision.
-            "raw_movies": get("movies", f"/Users/{uid}/Items", self._library_params("Movie")),
-            "raw_shows": get("shows", f"/Users/{uid}/Items", self._library_params("Series")),
         }
+        # Library lists (F3a). Two extra GETs (four with her) ride the 2-minute sweep;
+        # acceptable for a 42-film library; a split sweep is a later decision. Optional, like
+        # her view below: a failure leaves the key out instead of failing the feed (C-09).
+        optional_calls = [
+            ("raw_movies", "movies", f"/Users/{uid}/Items", self._library_params("Movie")),
+            ("raw_shows", "shows", f"/Users/{uid}/Items", self._library_params("Series")),
+        ]
         # Georgina's view (2026-10-05): only when JELLYFIN_USER_HER names an existing user.
+        # Her block needs resume + next up + history; any of them missing makes `her` null.
         her = self.pick_her_user(users, self._her_name())
         if her:
             hid = her["Id"]
-            raw["raw_her_resume"] = get("her resume", f"/Users/{hid}/Items/Resume",
-                                        {"Limit": 10, "MediaTypes": "Video", **fields})
-            raw["raw_her_nextup"] = get("her next up", "/Shows/NextUp",
-                                        {"UserId": hid, "Limit": 10, **fields})
-            raw["raw_her_history"] = get("her history", f"/Users/{hid}/Items", history_params)
-            raw["raw_her_movies"] = get("her movies", f"/Users/{hid}/Items", self._library_params("Movie"))
-            raw["raw_her_shows"] = get("her shows", f"/Users/{hid}/Items", self._library_params("Series"))
-        elif os.environ.get("JELLYFIN_USER_HER"):
+            optional_calls += [
+                ("raw_her_resume", "her resume", f"/Users/{hid}/Items/Resume",
+                 {"Limit": 10, "MediaTypes": "Video", **fields}),
+                ("raw_her_nextup", "her next up", "/Shows/NextUp", {"UserId": hid, "Limit": 10, **fields}),
+                ("raw_her_history", "her history", f"/Users/{hid}/Items", history_params),
+                ("raw_her_movies", "her movies", f"/Users/{hid}/Items", self._library_params("Movie")),
+                ("raw_her_shows", "her shows", f"/Users/{hid}/Items", self._library_params("Series")),
+            ]
+        for key, label, path, params in optional_calls:
+            got = optional(label, path, params)
+            if got is not None:
+                raw[key] = got
+        if not her and os.environ.get("JELLYFIN_USER_HER"):
             log.info("jellyfin: her user not found")
         return raw
 
@@ -702,6 +729,8 @@ class Jellyfin(Connector):
     def _history(items: list[dict], now: datetime) -> dict:
         """Watch history for the history page: windows, hours, top shows/movies, on-this-day."""
         week, month = now - timedelta(days=7), now - timedelta(days=30)
+        tz = home_tz()  # "on this day" is the household's calendar day, not UTC's (C-08)
+        today = now.astimezone(tz)
         played = []  # (item, last-played datetime, runtime hours, plays)
         for item in items:
             stamp = (item.get("UserData") or {}).get("LastPlayedDate")
@@ -736,11 +765,11 @@ class Jellyfin(Connector):
             "most_played_shows": [{**s, "hours": round(s["hours"], 1)} for s in sorted(
                 shows.values(), key=lambda s: (-s["episodes"], s["title"]))[:HISTORY_TOP]],
             "most_played_movies": movies[:HISTORY_TOP],
-            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": now.year - dt.year,
+            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": today.year - d.year,
                              "poster": _jf_ref("jf", item), "item_key": _jf_key(item),
                              "jf_id": item.get("Id")}
-                            for item, dt, _, _ in played
-                            if (dt.month, dt.day) == (now.month, now.day) and dt.year < now.year][:HISTORY_TOP],
+                            for item, d in ((item, dt.astimezone(tz)) for item, dt, _, _ in played)
+                            if (d.month, d.day) == (today.month, today.day) and d.year < today.year][:HISTORY_TOP],
         }
 
     @staticmethod
@@ -886,13 +915,13 @@ class MediaStatus(Connector):
     requires_env = ("MEDIA_STATUS_HOST",)
 
     def fetch(self) -> list[dict]:
+        from concurrent.futures import ThreadPoolExecutor
+
         import requests
 
         host = os.environ["MEDIA_STATUS_HOST"]
-        results = []
-        for app in MEDIA_APPS:
-            if "via" in app:  # derived, never probed — see the gluetun comment above
-                continue
+
+        def probe(app: dict) -> dict:
             up, note = False, None
             try:
                 response = requests.get(f"http://{host}:{app['port']}{app['path']}",
@@ -902,7 +931,13 @@ class MediaStatus(Connector):
                     note = f"HTTP {response.status_code}"
             except Exception as exc:  # one app failing never fails the run
                 note = _probe_note(exc)
-            results.append({"id": app["id"], "up": up, "note": note})
+            return {"id": app["id"], "up": up, "note": note}
+
+        # Six probes at a time (C-12): one after another, 5 s timeouts stretched the fast loop
+        # to ~55 s. map() keeps MEDIA_APPS order; transform rebuilds it from MEDIA_APPS anyway.
+        probes = [app for app in MEDIA_APPS if "via" not in app]  # derived apps are never probed
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            results = list(pool.map(probe, probes))
         probed = {r["id"]: r["up"] for r in results}
         for app in MEDIA_APPS:
             if "via" in app:
@@ -973,7 +1008,8 @@ def _ago(dt: datetime, now: datetime) -> str:
     if seconds < 86400:
         hours = int(seconds // 3600)
         return f"{hours} hour{'' if hours == 1 else 's'} ago"
-    days = int(seconds // 86400)
+    tz = home_tz()  # a day or more: count the household's calendar days (C-08)
+    days = (now.astimezone(tz).date() - dt.astimezone(tz).date()).days
     return "yesterday" if days == 1 else f"{days} days ago"
 
 
@@ -1024,15 +1060,26 @@ def _arr_key(app: str, record: dict, movie: bool = False) -> str | None:
     return f"tvdb:{tvdb}" if tvdb else None
 
 
+def _duration_words(minutes) -> str:
+    """The one duration format (C-14): '12m' / '1h 05m' / '5h 20m' / '12d 4h'."""
+    minutes = max(0, int(minutes or 0))
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h {minutes % 60:02d}m"
+    return f"{hours // 24}d {hours % 24}h"
+
+
 def _timeleft(text) -> str:
-    """Servarr 'd.hh:mm:ss' / 'hh:mm:ss' -> '12 min' / '1h 05m' (blank when unknown)."""
+    """Servarr 'd.hh:mm:ss' / 'hh:mm:ss' -> '12m' / '1h 05m' (blank when unknown)."""
     try:
         days, _, clock = str(text).rpartition(".")
         h, m, _s = (int(p) for p in clock.split(":"))
         minutes = (int(days or 0) * 24 + h) * 60 + m
     except Exception:
         return ""
-    return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{max(minutes, 1)} min"
+    return _duration_words(max(minutes, 1))
 
 
 class Arr(Connector):
@@ -1045,7 +1092,8 @@ class Arr(Connector):
     @staticmethod
     def endpoints(app: str, now: datetime) -> list[tuple[str, str, dict]]:
         since = (now.astimezone(timezone.utc) - timedelta(days=ARR_WINDOW_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        start, end = now.date(), now.date() + timedelta(days=ARR_WINDOW_DAYS)
+        start = now.astimezone(home_tz()).date()  # the household's today (C-08)
+        end = start + timedelta(days=ARR_WINDOW_DAYS)
         hist = {"pageSize": 100, "sortKey": "date", "sortDirection": "descending", "since": since}
         cal = {"start": start.isoformat(), "end": end.isoformat()}
         if app == "radarr":
@@ -1190,14 +1238,16 @@ class Arr(Connector):
 
     @staticmethod
     def _this_week(radarr: list[dict], sonarr: list[dict], now: datetime) -> list[dict]:
-        today, end = now.date(), now.date() + timedelta(days=ARR_WINDOW_DAYS)
+        tz = home_tz()  # the household's calendar week, not UTC's (C-08)
+        today = now.astimezone(tz).date()
+        end = today + timedelta(days=ARR_WINDOW_DAYS)
         rows: list[dict] = []
         for m in radarr:
             for field, label in (("digitalRelease", "Digital"), ("physicalRelease", "Disc"),
                                  ("inCinemas", "Cinemas")):
                 if not m.get(field):
                     continue
-                day = _dt(m[field]).date()
+                day = _dt(m[field]).astimezone(tz).date()
                 if not today <= day <= end or (label == "Disc" and m.get("hasFile")):
                     continue  # a disc release already on disk is not news
                 rows.append({"title": m["title"], "kind": "movie", "date": day.isoformat(), "label": label,
@@ -1207,7 +1257,7 @@ class Arr(Connector):
             stamp = e.get("airDateUtc") or e.get("airDate")
             if not stamp:
                 continue
-            day = _dt(stamp).date()
+            day = _dt(stamp).astimezone(tz).date()
             if not today <= day <= end:
                 continue
             if e.get("episodeNumber") == 1:
@@ -1460,15 +1510,14 @@ def _bytes_text(n) -> str:
 
 
 def _eta_text(seconds) -> str:
-    """qBittorrent eta seconds -> '12 min' / '2 h 05 min' (blank when unknown or infinite)."""
+    """qBittorrent eta seconds -> '12m' / '2h 05m' (blank when unknown or infinite)."""
     try:
         seconds = int(seconds)
     except (TypeError, ValueError):
         return ""
     if seconds <= 0 or seconds >= QBIT_ETA_INFINITE:
         return ""
-    minutes = max(1, round(seconds / 60))
-    return f"{minutes // 60} h {minutes % 60:02d} min" if minutes >= 60 else f"{minutes} min"
+    return _duration_words(max(1, round(seconds / 60)))
 
 
 def _qbit_kind(category) -> str:
@@ -1592,7 +1641,8 @@ class QBittorrent(Connector):
 # Live: runs inside joey-connectors on the NAS. /proc/{stat,meminfo,uptime,loadavg} are
 # host-wide from a container by default; volumes are os.statvfs on each container path
 # in SYSTEM_VOLUMES (set in deploy/docker-compose.yml, bind `/volume1:/host/volume1:ro`),
-# reported with the `/host` prefix stripped. No secrets, so no requires_env.
+# reported with the `/host` prefix stripped — or under its SYSTEM_VOLUME_LABELS name
+# (2026-10-09). No secrets, so no requires_env.
 
 PROC_ROOT = Path("/proc")
 CPU_SAMPLE_S = 1.0  # gap between the two /proc/stat reads
@@ -1626,18 +1676,26 @@ def _volume_label(path: str) -> str:
     return path[len(HOST_PREFIX):] if path.startswith(HOST_PREFIX + "/") else path
 
 
+def _volume_labels() -> dict[str, str]:
+    """SYSTEM_VOLUME_LABELS `path=label[,path=label]` -> {path: label} (C-19): the name a
+    volume is shown under, e.g. `/data/snapshots=/volume1` (statvfs reports the whole
+    filesystem, so a small bind on the volume replaces mounting the volume itself).
+    Pairs without both a path and a label are ignored."""
+    labels = {}
+    for pair in (os.environ.get("SYSTEM_VOLUME_LABELS") or "").split(","):
+        path, sep, label = pair.partition("=")
+        if sep and path.strip() and label.strip():
+            labels[path.strip()] = label.strip()
+    return labels
+
+
 def _gib(n) -> float:
     return round(float(n or 0) / GIB, 1)
 
 
 def _uptime_words(seconds) -> str:
-    """'12 days' / '5 h 20 min' / '40 min' — the NAS uptime, as a person says it."""
-    seconds = max(0, int(seconds or 0))
-    days, rest = divmod(seconds, 86400)
-    if days:
-        return f"{days} day{'' if days == 1 else 's'}"
-    hours, minutes = rest // 3600, (rest % 3600) // 60
-    return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+    """'12d 4h' / '5h 20m' / '40m' — the NAS uptime, in the one duration format."""
+    return _duration_words(max(0, int(seconds or 0)) // 60)
 
 
 class System(Connector):
@@ -1671,6 +1729,7 @@ class System(Connector):
 
         volumes = []
         spec = os.environ.get("SYSTEM_VOLUMES") or SYSTEM_VOLUMES_DEFAULT
+        labels = _volume_labels()
         for path in (p.strip() for p in spec.split(",")):
             if not path:
                 continue
@@ -1678,7 +1737,7 @@ class System(Connector):
                 st = os.statvfs(path)
             except (OSError, AttributeError) as exc:  # AttributeError: no statvfs (Windows)
                 raise RuntimeError(f"cannot stat volume {path} ({type(exc).__name__})") from None
-            volumes.append({"path": _volume_label(path),
+            volumes.append({"path": labels.get(path) or _volume_label(path),
                             "total_bytes": st.f_blocks * st.f_frsize,
                             "free_bytes": st.f_bavail * st.f_frsize})
 
@@ -1953,9 +2012,16 @@ def count_files(share_root: Path, since_ts: float) -> int:
 # ------------------------------------------------------------------ register
 
 STUBS: tuple[type[Connector], ...] = (
-    OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, MediaStatus, Arr, Jellyseerr, QBittorrent, NasStats,
+    OpenMeteo, Gcal, Jellyfin, MediaStatus, Arr, Jellyseerr, QBittorrent,
     System, Wud, UptimeKuma,  # Server area (2026-10-06)
 )
 
+# Parked (2026-10-09, C-01): no live fetch() yet. Their ids stay in the frozen D13 enum and
+# their transforms/fixtures/schemas stay; live sweeps skip them until their requires_env are
+# all set (registry.connector_ids). Fixture mode still builds them for the sample sweep.
+PARKED: tuple[type[Connector], ...] = (MacroMates, HomeAssistant, NasStats)
+
 for _cls in STUBS:
     registry.register(_cls, _cls.id)
+for _cls in PARKED:
+    registry.register(_cls, _cls.id, parked=True)

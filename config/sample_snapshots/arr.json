@@ -17,7 +17,7 @@
         "kind": "movie",
         "poster": "radarr:1",
         "title": "Harbour Lights",
-        "when": "yesterday"
+        "when": "2 days ago"
       },
       {
         "at": "2025-12-29T07:30:00+00:00",
@@ -25,7 +25,7 @@
         "kind": "episode",
         "poster": "sonarr:2",
         "title": "Night Ferry \u00b7 S01E04 \u00b7 Last Crossing",
-        "when": "2 days ago"
+        "when": "3 days ago"
       },
       {
         "at": "2025-12-28T18:05:00+00:00",
@@ -64,7 +64,7 @@
         "pct": 75,
         "poster": "radarr:21",
         "status_text": "Downloading",
-        "time_left": "14 min",
+        "time_left": "14m",
         "title": "Midnight Harbour"
       },
       {
@@ -148,7 +148,7 @@
         "poster": "radarr:3",
         "title": "Salt Flats",
         "what": "Upgraded to 4K",
-        "when": "2 days ago"
+        "when": "3 days ago"
       },
       {
         "at": "2025-12-28T12:10:00+00:00",
@@ -157,7 +157,7 @@
         "poster": "sonarr:1",
         "title": "Quiet Coast \u00b7 S01E01 \u00b7 Pilot",
         "what": "Upgraded to 4K",
-        "when": "3 days ago"
+        "when": "4 days ago"
       },
       {
         "at": "2025-12-27T21:30:00+00:00",

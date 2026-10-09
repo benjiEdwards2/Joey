@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -44,10 +45,39 @@ def mode() -> str:
     return os.environ.get("CONNECTOR_MODE", "live").strip().lower()
 
 
+DEFAULT_HOME_TZ = "Australia/Melbourne"  # the hub's HOME_TZ_NAME (hub/main.py)
+
+
+def home_tz():
+    """The household's zone for "today" / "this week" / "on this day" (C-08): `TZ`, else
+    Australia/Melbourne (always the default in fixture mode, so samples never depend on the
+    machine); UTC if zoneinfo cannot load either."""
+    from zoneinfo import ZoneInfo
+
+    names = (DEFAULT_HOME_TZ,) if mode() == "fixture" else (os.environ.get("TZ"), DEFAULT_HOME_TZ)
+    for name in names:
+        if not name:
+            continue
+        try:
+            return ZoneInfo(name)
+        except Exception:  # unknown name, or no tz database in the image
+            continue
+    return timezone.utc
+
+
 def _now_iso() -> str:
     if mode() == "fixture":
         return FIXTURE_TIMESTAMP
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+_URL_RE = re.compile(r"https?://\S+")
+
+
+def mask_urls(text: str) -> str:
+    """Defence in depth (C-06): no URL — with its host, query or token — reaches an
+    envelope, `_runner.json`, the history or the log, even from an unwrapped call."""
+    return _URL_RE.sub("<url>", text)
 
 
 class MissingCredential(RuntimeError):
@@ -131,7 +161,8 @@ class Connector:
                 "data": data,
             }
         except Exception as exc:  # a connector failure is data, not a crash
-            log.warning("%s failed: %s", self.id, exc)
+            reason = mask_urls(f"{type(exc).__name__}: {exc}")
+            log.warning("%s failed: %s", self.id, reason)
             envelope = {
                 "connector": self.id,
                 "schema_version": SCHEMA_VERSION,
@@ -140,7 +171,7 @@ class Connector:
                 "updated_at": (previous or {}).get("updated_at", now),
                 "status": "error",
                 "consecutive_failures": int((previous or {}).get("consecutive_failures", 0)) + 1,
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": reason,
                 "data": (previous or {}).get("data", {}),
             }
         write_envelope(self.path(), envelope)
@@ -158,6 +189,11 @@ def write_envelope(path: Path, envelope: dict[str, Any]) -> None:
     # tmp name is unique per writer so two concurrent runs can't share a buffer
     tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(envelope, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    replace_with_retry(tmp, path)
+
+
+def replace_with_retry(tmp: Path, path: Path) -> None:
+    """os.replace(tmp, path), removing tmp if it finally fails."""
     # os.replace is atomic on both POSIX and Windows, but Windows refuses while
     # a reader holds the destination open — retry briefly rather than fail a run.
     attempts = 60

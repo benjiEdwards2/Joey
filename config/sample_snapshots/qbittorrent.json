@@ -6,7 +6,7 @@
       {
         "added": "2025-12-31T22:00:00+00:00",
         "category": "tv-sonarr",
-        "eta_text": "2 h 05 min",
+        "eta_text": "2h 05m",
         "hash": "fedcbafedcbafedcbafedcbafedcbafedcbafedc",
         "kind": "tv",
         "name": "Example.Show.S02E03.1080p",
@@ -18,7 +18,7 @@
       {
         "added": "2025-12-31T23:00:00+00:00",
         "category": "radarr",
-        "eta_text": "12 min",
+        "eta_text": "12m",
         "hash": "abcdefabcdefabcdefabcdefabcdefabcdefabcd",
         "kind": "movie",
         "name": "Example.Movie.2024.2160p.WEB-DL",

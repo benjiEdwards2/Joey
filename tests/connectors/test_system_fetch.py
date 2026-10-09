@@ -66,7 +66,7 @@ def test_raw_shape_matches_the_fixture_contract(proc):
     data = System().transform(raw)
     jsonschema.validate(data, SCHEMA)
     assert data["summary"] == "CPU 40% · 1.9 GB RAM free"
-    assert data["secondary"] == "Up 12 days · /volume1 75% used"
+    assert data["secondary"] == "Up 12d 4h · /volume1 75% used"
 
 
 def test_volume_paths_strip_the_host_prefix(proc, monkeypatch):
@@ -104,3 +104,27 @@ def test_unstattable_volume_is_an_error_naming_the_path(proc, monkeypatch):
     monkeypatch.setattr(stubs.os, "statvfs", boom, raising=False)
     with pytest.raises(RuntimeError, match=r"cannot stat volume /host/volume1 \(FileNotFoundError\)"):
         System().fetch()
+
+
+# ---- C-19 (2026-10-09): SYSTEM_VOLUME_LABELS maps a mount path to the name shown ----
+
+
+def test_volume_labels_map_a_path_to_the_nas_name(proc, monkeypatch):
+    monkeypatch.setenv("SYSTEM_VOLUMES", "/data/snapshots,/host/volume2")
+    monkeypatch.setenv("SYSTEM_VOLUME_LABELS", "/data/snapshots=/volume1")
+    raw = System().fetch()
+    assert proc == ["/data/snapshots", "/host/volume2"]          # statvfs still runs on the real path
+    assert [v["path"] for v in raw["volumes"]] == ["/volume1", "/volume2"]  # unmapped: default label
+    assert System().transform(raw)["secondary"].endswith("/volume1 75% used")
+
+
+def test_volume_labels_tolerate_spaces_and_junk_pairs(proc, monkeypatch):
+    monkeypatch.setenv("SYSTEM_VOLUMES", "/data/snapshots")
+    monkeypatch.setenv("SYSTEM_VOLUME_LABELS", " /data/snapshots = /volume1 , nonsense, =x, /y= ")
+    assert stubs._volume_labels() == {"/data/snapshots": "/volume1"}
+    assert System().fetch()["volumes"][0]["path"] == "/volume1"
+
+
+def test_without_labels_the_default_behaviour_is_unchanged(proc, monkeypatch):
+    monkeypatch.delenv("SYSTEM_VOLUME_LABELS", raising=False)
+    assert System().fetch()["volumes"][0]["path"] == "/volume1"   # /host/volume1, prefix stripped

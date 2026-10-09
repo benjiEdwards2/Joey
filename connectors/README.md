@@ -1,6 +1,6 @@
 ﻿# connectors
 
-Hourly data connectors. The hub<->connector contract is `schema/envelope.schema.json` — FROZEN at WP0 (D13).
+Data connectors: an hourly full sweep, plus a 120 s fast loop for jellyfin, media_status, qbittorrent, arr, system and uptime_kuma. The hub<->connector contract is `schema/envelope.schema.json` — FROZEN at WP0 (D13).
 
 Media feeds: `jellyfin` (now playing, up next, recent; rows carry `jf_id`, data carries `server_id`,
 plus a `her` block for `JELLYFIN_USER_HER`; optional `movies`/`shows` library arrays, 2026-10-06), `media_status`, `arr` (rows carry optional `at`), `jellyseerr`. Field detail in
@@ -16,7 +16,8 @@ fetches landed in WP-S2 (`system`) and WP-S3 (`wud`) the same day — see below.
 `/proc/meminfo` (MemTotal / MemAvailable); `/proc/uptime`; `/proc/loadavg` (null if unreadable) — all host-wide from inside
 the container. Volume space is `os.statvfs` on each path in `SYSTEM_VOLUMES` (comma-separated, default `/host/volume1`),
 set in `deploy/docker-compose.yml` with the read-only bind `/volume1:/host/volume1:ro`; the `/host` prefix is stripped
-for display. Unreadable `/proc` or an unstattable volume is an error envelope naming the file/path — never made-up numbers.
+for display. `SYSTEM_VOLUME_LABELS=path=label[,…]` (2026-10-09) overrides the shown name per path, e.g.
+`/data/snapshots=/volume1`, so a small bind on the volume can stand in for the whole-volume mount. Unreadable `/proc` or an unstattable volume is an error envelope naming the file/path — never made-up numbers.
 
 `media_status` probe list (WP-S2, 2026-10-06) adds `wud` (3030), `adm` (8000, Asustor ADM; a 30x redirect to https
 counts as Up — redirects are never followed) and `homepage` (3000). `gluetun` is never probed (its control port is not
@@ -37,3 +38,8 @@ text: `monitor_status` (1 up, 0 down, 2 pending, 3 maintenance) and `monitor_res
 `{monitors: [{name, type, status, response_ms}], up, down, total, summary, secondary}`; the `monitor_url` /
 `monitor_hostname` / `monitor_port` labels are never copied out. Text without monitor metrics is an error envelope
 ("unexpected payload"). Runs on the hourly sweep and the 120 s fast loop. Fixture: `fixtures/uptime_kuma/raw.txt`.
+
+Parked (2026-10-09): `macromates`, `home_assistant`, `nas_stats` have no live `fetch()`. They stay registered
+(`PARKED` in `stubs.py`) so fixture mode and the sample sweep still build them, but a live sweep runs one only
+when all of its `requires_env` are set (`SUPABASE_URL`/`SUPABASE_KEY`, `HA_URL`/`HA_TOKEN`, `NAS_SHARES_ROOT`).
+See "Parked connectors" in `docs/connector-contract.md`.

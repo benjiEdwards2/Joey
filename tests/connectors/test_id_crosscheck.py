@@ -13,6 +13,8 @@ from connectors import registry, stubs  # noqa: F401  (import registers the stub
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AREAS = REPO_ROOT / "config" / "areas.yaml"
 
+# Ids are checked against registry.all_ids(): parked connectors (2026-10-09) are skipped by
+# live sweeps but stay registered, and hidden areas still reference them.
 # money is written by Track E's importer, a runner-registered task rather than a
 # Connector subclass (D14) — so it is a legitimate areas.yaml id with no registry row.
 NON_CONNECTOR_IDS = {"money"}
@@ -29,12 +31,12 @@ def snapshot_ids(text: str | None = None) -> set[str]:
 
 
 def test_every_areas_yaml_snapshot_id_has_a_connector():
-    unresolved = snapshot_ids() - set(registry.connector_ids()) - NON_CONNECTOR_IDS
+    unresolved = snapshot_ids() - set(registry.all_ids()) - NON_CONNECTOR_IDS
     assert not unresolved, f"areas.yaml references ids nothing writes: {sorted(unresolved)}"
 
 
 def test_every_registered_connector_is_used_by_at_least_one_tile():
-    unused = set(registry.connector_ids()) - snapshot_ids()
+    unused = set(registry.all_ids()) - snapshot_ids()
     assert not unused, f"connectors nothing displays: {sorted(unused)}"
 
 
@@ -50,5 +52,5 @@ def test_a_typo_would_be_caught():
     typo = AREAS.read_text(encoding="utf-8").replace(
         "snapshot: open_meteo", "snapshot: open_metao", 1
     )
-    unresolved = snapshot_ids(typo) - set(registry.connector_ids()) - NON_CONNECTOR_IDS
+    unresolved = snapshot_ids(typo) - set(registry.all_ids()) - NON_CONNECTOR_IDS
     assert unresolved == {"open_metao"}

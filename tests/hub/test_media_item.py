@@ -132,7 +132,7 @@ def test_movie_page(env):
     assert "Harbour Lights (2019)" in b and "A ferry pilot returns home." in b
     assert "Drama · Thriller" in b and "1h 52m" in b and '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and ">M<" in b  # media-ux4 (2026-10-08, B.): one pill style
     assert f'href="{deep("mov1")}" target="_blank" rel="noopener"' in b
-    assert "Resume ▶ · 32 min left" in b                       # 112 - 80 minutes
+    assert "Resume ▶ · 32m left" in b                       # 112 - 80 minutes
     assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate
     assert 'class="ratepick"' in b and 'value="tmdb:603"' in b
     assert "Watched 1 time · 12 Oct 2026" in b
@@ -196,10 +196,10 @@ def test_series_page(env):
     with client:
         r = client.get("/media/item/ser1")
         b = main_of(r.text)
-    assert r.status_code == 200 and "Quiet Show (2020)" in b and "TV show" in b
+    assert r.status_code == 200 and "Quiet Show (2020)" in b and ">TV<" in b
     assert "3 of 6 watched" in b and 'value="jf:ser1"' in b
     assert f'href="{deep("ep4")}"' in b and "Next to watch: S4 E4 ▶" in b   # in-progress episode is next
-    assert "On your server · 6 episodes · 2 to watch · S4 E4 next" in b
+    assert "On server · 6 episodes · 2 to watch · S4 E4 next" in b
 
 
 def test_bad_id_is_404(env):

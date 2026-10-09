@@ -48,15 +48,13 @@ def test_history_page_renders_every_section_in_main(app_factory):
         resp = client.get("/media/history")
     assert resp.status_code == 200
     title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
-    assert title.startswith("To rate") and "<" not in title
+    assert title == "To Rate · Joey"   # D-45 separator; the tab page keeps B.'s title case
     body = main_of(resp.text)
     assert "8 this week · 16 this month · 18.7 h this month · 45.1 h all time" in body
-    order = [body.index(f">{h}</div>") for h in
-             ("To rate", "Recently watched", "Most played shows", "Most played movies")]
+    order = [body.index(f">{h}</div>") for h in ("To rate", "Recently watched")]
     assert order == sorted(order)
+    assert "Most played" not in body   # M-22 (W2): Most played comes from the play recorder (Server › History) only
     assert "Quiet Coast · S02E04 · Late Tide" in body and "2 hours ago" in body
-    assert "6 episodes · 4.5 h" in body and "2 episodes · 1.6 h" in body  # words under each grid poster
-    assert "The Long Road Home" in body and "3 plays" in body and "1 play<" in body
     assert "On this day" not in body  # moved to the diary page (2026-10-05)
 
 
@@ -79,8 +77,7 @@ def test_quiet_words_when_history_is_empty_or_absent(app_factory):
         assert resp.status_code == 200
         body = main_of(resp.text)
         assert "0 this week · 0 this month · 0 h this month · 0 h all time" in body
-        for words in ("Nothing watched yet", "No shows watched yet", "No movies watched yet",
-                      "Nothing waiting to be rated"):
+        for words in ("Nothing watched yet", "Nothing waiting to be rated"):
             assert words in body
         assert "Recently watched" not in main_of(client.get("/a/alpha").text)
 
@@ -131,18 +128,14 @@ def test_her_view_never_shows_the_strip(app_factory):
     assert "Recently watched" not in body and "Now playing" in body
 
 
-def test_history_posters_in_main_with_the_most_played_grids(app_factory):
+def test_history_posters_in_main(app_factory):
     build, tmp_path = app_factory
     snaps = tmp_path / "snaps"
     write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
         body = main_of(client.get("/media/history").text)
     assert '<img class="poster row-poster' in body and 'src="/img/jf:series-fixture-1?h=120&amp;t=QU"' in body
-    shows = body.split(">Most played shows</div>", 1)[1].split(">Most played movies</div>", 1)[0]
-    assert shows.count('class="poster ') == 4 and 'class="poster-grid"' in shows
-    assert 'src="/img/jf:series-fixture-1?h=240' in shows
-    movies = body.split(">Most played movies</div>", 1)[1].split(">On this day</div>", 1)[0]
-    assert 'class="poster-grid"' in movies and "/img/jf:" in movies
+    assert 'class="poster-grid"' not in body   # the Jellyfin-history Most played grids are gone (M-22)
 
 
 def test_a_row_without_a_ref_points_at_the_fallback(app_factory):

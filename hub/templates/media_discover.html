@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Discover — Joey{% endblock %}
+{% block title %}Discover · Joey{% endblock %}
 {% block content %}
 {% from "_discover_item.html" import item %}
 {% from "_icons.html" import icon %}
@@ -7,7 +7,7 @@
 {# Discover & Search (2026-10-05; restyle Phase 3): the guide's search box, then poster carousels from Jellyseerr.
    Status is a WORD. #}
 {% if not connected %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.tile.setup_note %}<p class="metaline">{{ src.tile.setup_note }}</p>{% endif %}
 {% else %}
 <form class="toolbar" method="get" action="/media/discover">
@@ -24,7 +24,7 @@
 <section class="sec">
   <div class="seclabel">{{ s.title }}</div>
   {% if s.rows is none %}
-  <p class="empty">Discover unavailable.</p>
+  <p class="empty">Discover unavailable</p>
   {% elif s.rows %}
   <div class="carousel">{% for r in s.rows %}{{ item(r, wl_keys) }}{% endfor %}</div>
   {% else %}

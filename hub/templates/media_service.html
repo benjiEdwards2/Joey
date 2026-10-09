@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}{{ service.name }} — Joey{% endblock %}
+{% block title %}{{ service.name }} · Joey{% endblock %}
 {% block content %}
 {% from "_discover_item.html" import item %}
 {# One streaming service (media-ux2, 2026-10-08): Popular films · Popular TV · New this month · Top rated from
@@ -10,7 +10,7 @@
   <h2 class="prov-title">{{ service.name }}</h2>
 </div>
 {% if not connected %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% else %}
 {% for s in shelves %}
 <section class="sec">

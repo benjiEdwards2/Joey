@@ -240,10 +240,12 @@ def disc(env, monkeypatch):
 
 
 def test_title_page_shows_download_badge_only_when_matching(disc):
-    with disc(arr=ARR, qbittorrent=QB) as client:  # The Matrix: not in the queue
+    """M-50 (W2): the queue row's key (tmdb:603) decides, never its title."""
+    other = {**ARR, "downloading": [{**r, "item_key": "tmdb:999"} for r in ARR["downloading"]]}
+    with disc(title="Midnight Harbour", arr=other, qbittorrent=QB) as client:   # same title, another film's key
         assert "Downloading · " not in main_of(client.get("/media/title/movie/603").text)
-    with disc(title="Midnight Harbour", arr=ARR, qbittorrent=QB) as client:
-        assert "Not on your server · downloading 43 %" in main_of(client.get("/media/title/movie/603").text)  # F10: in the status line
+    with disc(arr=ARR, qbittorrent=QB) as client:   # keyed tmdb:603, whatever the page's title says
+        assert "Not on server · Downloading · 43%" in main_of(client.get("/media/title/movie/603").text)  # F10: in the status line
 
 
 def test_title_page_skips_the_badge_silently_without_snapshots(disc):

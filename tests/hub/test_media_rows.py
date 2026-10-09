@@ -90,7 +90,7 @@ def test_library_downloading_rows_link_like_the_other_library_rows(env):
 def test_watched_rows_are_whole_row_links_and_rateable_rows_use_the_overlay(env):
     with env(jellyfin=LINKED) as client:
         body = main_of(client.get("/media/history").text)
-    recent = between(body, ">Recently watched<", ">Most played shows<")
+    recent = between(body, ">Recently watched<")
     assert row_of(recent, "Quiet Show").startswith('<a class="row" href="/media/item/e2">')
     to_rate = between(body, ">To rate<", ">Recently watched<")
     assert "row has-form" in to_rate  # the inbox row carries the picker form
@@ -113,22 +113,6 @@ def test_no_inline_anchor_inside_a_row_title():
             if "<a " in m.group(1):
                 offenders.append(f"{f.name}: {m.group(0)[:80]}")
     assert files and not offenders, offenders
-
-
-def test_watched_most_played_tiles_are_links_where_a_key_resolves(env):
-    history = {**LINKED["history"],
-               "most_played_shows": [{"title": "Linked Show", "episodes": 4, "hours": 2.0, "poster": None,
-                                      "item_key": "jf:ser1"},
-                                     {"title": "Keyless Show", "episodes": 2, "hours": 1.0, "poster": None,
-                                      "item_key": None}],
-               "most_played_movies": [{"title": "Tmdb Film", "plays": 2, "poster": None, "item_key": "tmdb:88"}]}
-    with env(jellyfin={**LINKED, "history": history}) as client:
-        body = main_of(client.get("/media/history").text)
-    shows = between(body, ">Most played shows<", ">Most played movies<")
-    assert re.search(r'<a class="card-poster" href="/media/item/ser1">\s*<span class="card-pic"><img[^>]*>(?:<span[^>]*>[^<]*</span>)?</span>\s*<span class="row-title">Linked Show', shows)
-    assert re.search(r'<div class="card-poster">\s*<span class="card-pic"><img[^>]*>(?:<span[^>]*>[^<]*</span>)?</span>\s*<span class="row-title">Keyless Show', shows)
-    movies = between(body, ">Most played movies<")
-    assert re.search(r'<a class="card-poster" href="/media/title/movie/88">\s*<span class="card-pic"><img[^>]*>(?:<span[^>]*>[^<]*</span>)?</span>\s*<span class="row-title">Tmdb Film', movies)
 
 
 def test_diary_on_this_day_rows_are_whole_row_links(env):

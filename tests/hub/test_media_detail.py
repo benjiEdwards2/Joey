@@ -70,8 +70,8 @@ def test_apps_page_lists_every_app_with_words_and_links(app_factory):
     assert "<title>Media apps" in resp.text
     body = main_of(resp.text)
     assert 'aria-current="page">Health' in body                 # restyle Phase 3: the tab names the page
-    assert body.count('<span class="st-good">') + body.count('<span class="st-warn">') == 2
-    assert '<span class="st-good">Up</span>' in body and '<span class="st-warn">Down</span>' in body
+    assert body.count('<span class="st-up">') + body.count('<span class="st-down">') == 2   # Server › Services' words (M-25)
+    assert '<span class="st-up">Up</span>' in body and '<span class="st-down">Down</span>' in body
     assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body
     assert "timeout" in body and "Updated 1m ago" in body
     assert "--accent" not in body                                   # restyle Phase 3: Media drops the area accent

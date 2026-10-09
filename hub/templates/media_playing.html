@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Now playing — Joey{% endblock %}
+{% block title %}Now playing · Joey{% endblock %}
 {# The page header carries the first live session's backdrop (restyle Phase 3), like the Media home. #}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
@@ -18,7 +18,7 @@
    bar, guide 6), up next, latest additions. #}
 {% set watching %}<span class="badge badge-watching">{{ icon("eye") }}Watching</span>{% endset %}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <section class="sec">

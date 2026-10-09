@@ -229,7 +229,7 @@ def test_movie_title_page(env):
     assert "Actor 7" in body and "Actor 8" not in body
     assert "--bd: url('/img/tmdb:/mb.jpg?h=1280')" in resp.text and "hero-detail-bd" in body
     assert f'href="{FAKE_URL}/movie/603"' in body and "Open in Jellyseerr" in body
-    assert "Not on your server" in body and ">Request</a>" in body            # F10: the status is a line of words
+    assert "Not on server" in body and ">Request</a>" in body            # F10: the status is a line of words
     assert FAKE_KEY not in resp.text
 
 

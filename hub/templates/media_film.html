@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}{{ film.title }} — Joey{% endblock %}
+{% block title %}{{ film.title }} · Joey{% endblock %}
 {# The film page (F10, Cinema layout; restyle Phase 3: guide 6 "Detail hero"). One page for every title, on the
    server or not. The header IS the detail hero: the backdrop across the window under the darkening gradient, the
    Media tabs on it, the poster leading (centred above a centred title on a phone, beside it from 640 px), then
@@ -27,7 +27,7 @@
         {% endif %}
         <h1 class="hero-detail-title">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
-        {{ meta(["TV show" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
+        {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else film.facts.runtime, film.official]
                 + (film.genres or []), "facts-line") }}
         {# Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials when

@@ -22,7 +22,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -224,7 +224,7 @@ def listed_episode(ep: dict, seasons: list[dict]) -> dict:
     prog, left = bool(hit.get("in_progress")), hit.get("left_min")
     jf = hit["jf_id"] if media_item.ITEM_RE.match(str(hit.get("jf_id") or "")) else ep["id"]
     return {**ep, "id": jf, "played": bool(hit.get("played")), "in_progress": prog,
-            "left_text": (f"{left} min left" if left else ep.get("left_text")) if prog else None}
+            "left_text": (f"{left}m left" if left else ep.get("left_text")) if prog else None}
 
 
 def logos() -> dict:
@@ -365,15 +365,15 @@ def status_line(f: dict) -> str:
     if f["jf_failed"]:
         return media_item.DOWN_TEXT
     if not f["on_server"]:
-        parts = ["Not on your server"]
+        parts = ["Not on server"]
         if f.get("requested_when"):
             parts.append(f"Requested {f['requested_when']}")
         if f.get("status_word") in ("Processing", "Partly available") or (f.get("status_word") == "Requested" and not f.get("requested_when")):
             parts.append(f["status_word"])
         if f.get("downloading_pct") is not None:
-            parts.append(f"downloading {f['downloading_pct']} %")
+            parts.append(media_downloads.badge_text({"pct": f["downloading_pct"]}))
         return " · ".join(parts)
-    parts = ["On your server"]
+    parts = ["On server"]
     if f["kind"] == "tv":
         s = f.get("series")
         if s:
@@ -390,7 +390,7 @@ def status_line(f: dict) -> str:
         else:
             parts.append("in progress" if f.get("in_progress") else "not watched yet")
     if f.get("downloading_pct") is not None:
-        parts.append(f"downloading {f['downloading_pct']} %")
+        parts.append(media_downloads.badge_text({"pct": f["downloading_pct"]}))   # 'Downloading · 43%' (M-27)
     if f.get("score"):
         parts.append(f"you rated {f['score']}")
     return " · ".join(parts)

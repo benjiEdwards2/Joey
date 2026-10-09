@@ -280,7 +280,7 @@ def test_film_page_shows_both_beside_resume(env):
     client, _, _ = env()
     with client:
         b = main_of(client.get("/media/item/mov1").text)
-    assert "Resume ▶ · 32 min left" in b
+    assert "Resume ▶ · 32m left" in b
     btns = b.split('class="hero-detail-btns"', 1)[1]
     assert 'action="/media/resume/mov1/watched"' in btns and 'action="/media/resume/mov1/reset"' in btns
     assert 'name="back" value="/media/item/mov1"' in btns

@@ -1,6 +1,6 @@
 """Person pages (F11, 2026-10-06): click a cast or crew name on a film page and see everything that person
 is in. Jellyseerr `person/{id}` + `person/{id}/combined_credits` (server-side, cached 10 min via the film
-page's cache), split into "On your server" (matched against the Jellyfin snapshot library lists) and
+page's cache), split into "On server" (matched against the Jellyfin snapshot library lists) and
 "Everything else" (Films / TV). Upstream failure degrades to words, never a 500; no URL or key in the page.
 """
 
@@ -111,7 +111,7 @@ def build_person(tmdb_id: int, hub, snaps=None) -> dict:
             "ref": md._ref(person.get("profilePath")), "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
             "shelf": shelf, "films": [r for r in rest if r["kind"] == "movie"], "shows": [r for r in rest if r["kind"] == "tv"],
-            "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on your server"}
+            "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}
 
 
 @router.get("/media/person/{person_id}", response_class=HTMLResponse)

@@ -855,7 +855,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 
     ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
 
-    unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
+    unset_text = "Her Jellyfin account isn't set up yet"
     add("continue", "Continue watching", PLAYING_DETAIL,
         [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
          for n in up_next[:SHELF_MAX]],
@@ -1243,17 +1243,14 @@ def _to_rate(recent, ratings) -> list[dict]:
 def media_history_page(request: Request):
     def build(data, view):
         history = data.get("history") or {}
-        shows = history.get("most_played_shows", [])
-        top = max((s["episodes"] for s in shows), default=0)
         recent = history.get("recent", [])
-        ratings = _ratings(view, recent, shows, history.get("most_played_movies"))
+        ratings = _ratings(view, recent)
         return {
             "history": history,
             "ratings": ratings,
             "to_rate": _to_rate(recent, ratings),
             "rating_levels": media_db.LEVELS,
             "rating_level": ratings.level,
-            "shows": [{**s, "pct": round(s["episodes"] / top * 100)} for s in shows],
             "numbers": " · ".join([
                 f"{history.get('week_count', 0)} this week",
                 f"{history.get('month_count', 0)} this month",

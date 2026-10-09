@@ -58,10 +58,10 @@ def test_on_your_server_shelf_first_with_library_matches_only(env):
     with client:
         b = main_of(client.get("/media/person/55").text)
     shelf, rest = b.split("Everything else", 1)
-    assert "On your server" in shelf and 'href="/media/item/mov1"' in shelf and 'href="/media/item/ser1"' in shelf
+    assert "On server" in shelf and 'href="/media/item/mov1"' in shelf and 'href="/media/item/ser1"' in shelf
     assert "Harbour Lights" in shelf and "as Pilot" in shelf and "Quiet Show" in shelf
     assert "Old Film" not in shelf and "Harbour Lights" not in rest and "Quiet Show" not in rest
-    assert "3 titles" not in b and "6 titles · 2 on your server" in b
+    assert "3 titles" not in b and "6 titles · 2 on server" in b
 
 
 def test_grid_groups_newest_first_roles_joined_and_status_words(env):

@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Requests — Joey{% endblock %}
+{% block title %}Requests · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
@@ -7,7 +7,7 @@
 {# Detail behind the requests tile (2026-10-05; restyle Phase 3 row recipe): Jellyseerr's queue. The status is a
    WORD on every row — colour is never the only encoding. #}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}

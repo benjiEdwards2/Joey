@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Watchlist — Joey{% endblock %}
+{% block title %}Watchlist · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_icons.html" import icon %}
@@ -7,7 +7,7 @@
    then year · status WORD. The whole card is the link (2026-10-06): a.rowlink stretched over the .card-cell;
    the x form and Request sit above it. #}
 {% if failed %}
-<p class="empty">Watchlist unavailable.</p>
+<p class="empty">Watchlist unavailable</p>
 {% else %}
 <p class="metaline">{{ head_line }}</p>
 {% if left %}<p class="metaline">{{ left }} watched title{{ "s" if left != 1 }} left the list</p>{% endif %}

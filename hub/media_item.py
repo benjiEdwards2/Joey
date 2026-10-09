@@ -167,7 +167,7 @@ def _build(jf_id: str) -> dict:
         "air_date": air, "runtime_min": ticks // TICKS_PER_MINUTE if ticks else None,
         "added": raw.get("DateCreated"), "last_played": ud.get("LastPlayedDate"), "trailer": _trailer(raw),
         "played": played, "in_progress": not played and pos > 0,
-        "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE} min left" if ticks and pos > 0 else None,
+        "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE}m left" if ticks and pos > 0 else None,
         "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
         "imdb": str(imdb) if imdb else None,
         # media-ux3: the "part of" banner draws a backdrop only when Jellyfin has one (else a plain panel)

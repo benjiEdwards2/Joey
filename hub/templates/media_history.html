@@ -1,14 +1,15 @@
 {% extends "media_base.html" %}
-{% block title %}To rate — Joey{% endblock %}
+{% block title %}To Rate · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
 {% import "_to_rate.html" as torate %}
 {# Detail behind the watched tile (2026-10-05; restyle Phase 3): B.'s Jellyfin watch history, with the rating inbox
-   on top (last 30 days, unrated). The diary page holds on-this-day now. Counts are words and numbers. #}
+   on top (last 30 days, unrated). The diary page holds on-this-day now. Counts are words and numbers. "Most played"
+   lives on Server › History and Media home, from the play recorder only (M-22, W2). #}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <p class="metaline">{{ numbers }}</p>
@@ -38,37 +39,6 @@
   </div>{% else %}<p class="empty">Nothing watched yet.</p>{% endif %}
 </section>
 
-<section class="sec">
-  <div class="seclabel">Most played shows</div>
-  {% if shows %}
-  <div class="poster-grid">
-    {% for s in shows %}
-    {% set ph = row_href(s.jf_id, s.item_key, "tv") %}
-    <{{ "a" if ph else "div" }} class="card-poster"{% if ph %} href="{{ ph }}"{% endif %}>
-      <span class="card-pic">{{ poster(s.poster, s.title, 240, rate.keyglow(s.item_key, ratings, false)) }}{{ rate.pscore(ratings.get(s.item_key) if s.item_key else none) }}</span>
-      <span class="row-title">{{ s.title }}</span>
-      <span class="row-meta">{{ s.episodes }} episode{{ "" if s.episodes == 1 else "s" }} · {{ s.hours }} h</span>
-    </{{ "a" if ph else "div" }}>
-    {% endfor %}
-  </div>
-  {% else %}<p class="empty">No shows watched yet.</p>{% endif %}
-</section>
-
-<section class="sec">
-  <div class="seclabel">Most played movies</div>
-  {% if history.get("most_played_movies") %}
-  <div class="poster-grid">
-    {% for m in history.most_played_movies %}
-    {% set ph = row_href(m.jf_id, m.item_key, "movie") %}
-    <{{ "a" if ph else "div" }} class="card-poster"{% if ph %} href="{{ ph }}"{% endif %}>
-      <span class="card-pic">{{ poster(m.poster, m.title, 240, rate.keyglow(m.item_key, ratings, false)) }}{{ rate.pscore(ratings.get(m.item_key) if m.item_key else none) }}</span>
-      <span class="row-title">{{ m.title }}</span>
-      <span class="row-meta">{{ m.plays }} play{{ "" if m.plays == 1 else "s" }}</span>
-    </{{ "a" if ph else "div" }}>
-    {% endfor %}
-  </div>
-  {% else %}<p class="empty">No movies watched yet.</p>{% endif %}
-</section>
 {% endif %}
 {% include "_detail_foot.html" %}
 {% endblock %}

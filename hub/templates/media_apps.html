@@ -1,16 +1,16 @@
 {% extends "media_base.html" %}
-{% block title %}Media apps — Joey{% endblock %}
+{% block title %}Media apps · Joey{% endblock %}
 {% block content %}
 {% from "_rows.html" import meta %}
 {# Detail behind the apps tile (2026-10-05; restyle Phase 3 row recipe). Up/Down is a WORD; a Down app is an
    .is-down row (red tint + bar). #}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <div class="listbox">
 {% for a in src.data.get("apps", []) %}
-{% set word %}<span class="{{ 'st-good' if a.up else 'st-warn' }}">{{ a.status_text }}</span>{% endset %}
+{% set word %}<span class="{{ 'st-up' if a.up else 'st-down' }}">{{ a.status_text }}</span>{% endset %}
 <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
   <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, a.note if not a.up else none]) }}</div>
 </a>

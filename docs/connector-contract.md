@@ -317,7 +317,7 @@ is unset or names no user.
 - shows: the same fields plus `status_word` (`Continuing` | `Ended` | `Unknown`), `episodes`
   (int ≥ 0) and `unplayed` (int ≥ 0).
 
-Fetched in `connectors/stubs.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
+Fetched in `connectors/feeds/jellyfin.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
 `IncludeItemTypes=Movie` / `Series`, `Recursive=true`, `SortBy=SortName`, `Limit=2000`
 (`LIBRARY_FETCH_LIMIT`) and `Fields` of `DateCreated,ProviderIds,Genres,ProductionYear` plus
 `Overview` (and `Status,RecursiveItemCount` for series). That is two extra GETs on the 2-minute
@@ -396,7 +396,7 @@ never silently serve fake data) and `fixture` in the suite and for local work.
 
 Since 2026-10-09 (review C-01/N-12) `macromates`, `home_assistant` and `nas_stats` are **parked**: they
 have a transform, fixture and data schema but no live `fetch()`, so in live mode they could only ever write
-`MissingCredential` error envelopes. They are registered as parked (`connectors/stubs.py` `PARKED`):
+`MissingCredential` error envelopes. They are registered as parked (`connectors/feeds/__init__.py` `PARKED`):
 
 - **fixture mode** builds them like any other feed — the sample sweep needs no env, so
   `config/sample_snapshots/` keeps all 13 ids;
@@ -420,6 +420,19 @@ D16 amended 2026-10-05: a second background loop runs
 feeds (and, since 2026-10-06, the Server area's `system` host-health and `uptime_kuma` monitor feeds). `--only id1,id2` runs a subset and tags the `_runner.json` / history line with
 `"only": [...]` so full hourly sweeps can be told apart from fast partial ones.
 
+Amended 2026-10-09 (review C-17): the container entrypoint runs ONE full sweep at start, then the 120 s `--only`
+loop above, then an hourly `python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma`
+loop — so the two loops never run the same connector at once. `--except id1,id2` runs everything but that subset.
+Jellyfin's `Limit=2000` library lists (and the her-view lists) are re-fetched at most every `JELLYFIN_LIBRARY_EVERY_S`
+seconds (default 900; `0` = every run); between fetches the previous envelope's lists are carried forward and
+`data.library_fetched_at` says when they were last pulled.
+
+**Partial failures (2026-10-09, review C-10):** a connector that keeps going after one of its sources fails records
+it in `data.partial_errors` (object: source → reason, reason = status / exception type only) via `base.partial_note()`.
+`gcal` (`feed_errors`) and `arr` (`app_errors`) keep their older keys as well; Jellyfin's optional library / her-view
+calls use only `partial_errors`. The envelope `status` stays `ok`; `run_all` counts such sweeps as `partial` in its
+summary line.
+
 ## Add-a-connector checklist
 
 Every file a new feed touches. Nothing here needs knowledge outside the repo.
@@ -429,9 +442,13 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
    (`tests/connectors/test_fixtures.py` enforces this).
 2. `connectors/schema/data/{id}.schema.json` — the data block, requiring
    `summary`, allowing `secondary`, `additionalProperties: false`.
-3. `connectors/stubs.py` — a `Connector` subclass with `id`, `requires_env`,
-   `transform(raw)`, and its live `fetch()` (sanitised errors via `_safe_reason`; a connector that
-   enriches rows per item, like `jellyseerr`'s TMDB titles, caps lookups and reuses `self._previous()`); append it to `STUBS` so it registers (`PARKED` for one with no live `fetch()` yet).
+3. `connectors/feeds/{id}.py` — a `Connector` subclass with `id`, `requires_env`,
+   `transform(raw)`, and its live `fetch()` (every HTTP call through `connectors/feeds/_http.py`
+   `http_json(label, url, ..., session=...)`, which keeps the error reason to status / exception type only and reuses
+   one `requests.Session` per run; a connector that enriches rows per item, like `jellyseerr`'s TMDB titles, caps
+   lookups and reuses `self._previous()`); add it to `LIVE` in `connectors/feeds/__init__.py` so it registers
+   (`PARKED` for one with no live `fetch()` yet). `connectors/stubs.py` is only a compatibility shim re-exporting the
+   old names (2026-10-09, review C-04).
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`

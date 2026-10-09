@@ -10,7 +10,11 @@ Jellyfin episode rows also carry optional `show_key`/`season_key`/`episode_key`,
 
 Server feeds (2026-10-06, WP-S1): `system` (NAS CPU, RAM, uptime, per-volume space; on the 2-minute fast loop) and
 `wud` (What's Up Docker container image updates; hourly). WP-S1 shipped ids, schemas, fixtures and transforms; the live
-fetches landed in WP-S2 (`system`) and WP-S3 (`wud`) the same day — see below. Raw shapes are documented above each class in `stubs.py`.
+fetches landed in WP-S2 (`system`) and WP-S3 (`wud`) the same day — see below. Raw shapes are documented above each class in `feeds/<id>.py`.
+
+Layout (2026-10-09, review C-04): one module per feed in `connectors/feeds/`, shared helpers in `feeds/_common.py`,
+and every HTTP call through `feeds/_http.py` (`http_json` — one `requests.Session` per run, error reasons reduced to
+status / exception type). `connectors/stubs.py` is a compatibility shim that re-exports the old names.
 
 `system` live fetch (WP-S2, 2026-10-06): no env vars, no secrets. CPU % from two `/proc/stat` reads 1 s apart; RAM from
 `/proc/meminfo` (MemTotal / MemAvailable); `/proc/uptime`; `/proc/loadavg` (null if unreadable) — all host-wide from inside
@@ -40,6 +44,6 @@ text: `monitor_status` (1 up, 0 down, 2 pending, 3 maintenance) and `monitor_res
 ("unexpected payload"). Runs on the hourly sweep and the 120 s fast loop. Fixture: `fixtures/uptime_kuma/raw.txt`.
 
 Parked (2026-10-09): `macromates`, `home_assistant`, `nas_stats` have no live `fetch()`. They stay registered
-(`PARKED` in `stubs.py`) so fixture mode and the sample sweep still build them, but a live sweep runs one only
+(`PARKED` in `feeds/__init__.py`) so fixture mode and the sample sweep still build them, but a live sweep runs one only
 when all of its `requires_env` are set (`SUPABASE_URL`/`SUPABASE_KEY`, `HA_URL`/`HA_TOKEN`, `NAS_SHARES_ROOT`).
 See "Parked connectors" in `docs/connector-contract.md`.

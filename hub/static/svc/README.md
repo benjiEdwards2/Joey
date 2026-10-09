@@ -24,5 +24,5 @@ used here only to identify the services on a private dashboard.
 | adm | `adm.svg` | `svg/asustor.svg` (Asustor ADM) |
 | homepage | `homepage.png` | `png/homepage.png` (dashboard-icons has no Homepage SVG); resized 2026-10-09 from 494×512 to 96×96 (aspect kept, transparent padding), 256-colour palette, 2 KB |
 
-Adding an app to `MEDIA_APPS` (connectors/stubs.py): add its logo here + to `SERVICE_LOGOS`, or list it in
+Adding an app to `MEDIA_APPS` (connectors/feeds/media_status.py): add its logo here + to `SERVICE_LOGOS`, or list it in
 `NO_LOGO` (it then renders a neutral initial-letter tile) — `tests/hub/test_server_cards.py` fails otherwise.

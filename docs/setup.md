@@ -28,6 +28,15 @@ python -m hub.seed_demo
 set SNAPSHOT_DIR=data/demo-snapshots && python -m uvicorn hub.main:app --port 8800
 ```
 
+## Env files on the NAS (deploy/.env, optional hub.env / connectors.env)
+
+All secrets live in `deploy/` on the NAS only, never in git. Today one `deploy/.env` feeds both the hub and
+the connectors (compose `env_file`) and supplies `TUNNEL_TOKEN` to cloudflared by interpolation. Since
+2026-10-09 (review D-05) compose also reads the optional `deploy/hub.env` and `deploy/connectors.env`, so each
+container can carry only its own keys; a key there overrides the same key in `.env`. The key-by-key split is
+at the top of `deploy/.env.example`. Once `.env` holds only `TUNNEL_TOKEN`, remove `- .env` from both
+`env_file` lists so no app container carries the tunnel token. Keep all three files `chmod 600`.
+
 ## Signed-in user (deploy/.env, on the NAS only)
 
 Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`
@@ -35,6 +44,8 @@ header, and that person's view (you / her) is authoritative — the Both / You /
 `OWNER_EMAIL_YOU` is B.'s own Access login address, set only in the NAS `.env` (the example file holds a placeholder);
 that address is "you", any other address Access admits is "her". It must be the real Access email, not the example value:
 left at the placeholder, every signed-in person is treated as "her" (this happened 2026-10-06).
+Unset or blank (2026-10-09, review H-38) it counts as not configured: signed-in people get the "both" view and no
+owner, and the hub logs one warning — nothing is written as "her" by accident.
 `OWNER_NAME_YOU` (default Benji) and `OWNER_NAME_HER` (default Georgina) are the display names (both optional).
 The other person's email address is never recorded — not in `.env`, the repo, tests or docs.
 Without the header (local dev on port 8800, tests) the page shows "Not signed in" and the old

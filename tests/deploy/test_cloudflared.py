@@ -36,6 +36,15 @@ def test_cloudflared_publishes_no_port_and_joins_the_default_network():
     assert all("networks" not in s for s in full["services"].values())
 
 
+def test_only_cloudflared_is_handed_the_tunnel_token_explicitly():
+    """D-05: the split env files are per service; cloudflared gets no env_file at all."""
+    services = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]
+    assert "env_file" not in services["cloudflared"] and "env_file" not in services["macromates"]
+    assert services["connectors"]["env_file"] == [".env", {"path": "connectors.env", "required": False}]
+    assert all("TUNNEL_TOKEN" not in (s.get("environment") or {})
+               for name, s in services.items() if name != "cloudflared")
+
+
 def test_env_example_carries_a_blank_tunnel_token():
     lines = ENV_EXAMPLE.read_text(encoding="utf-8").splitlines()
     assert "TUNNEL_TOKEN=" in lines  # blank template line, real value NAS-only
@@ -43,7 +52,8 @@ def test_env_example_carries_a_blank_tunnel_token():
 
 def test_hub_reads_the_env_file_and_mounts_the_poster_cache_read_write():
     hub = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))["services"]["hub"]
-    assert hub["env_file"] == [".env"]
+    # D-05 (2026-10-09): .env stays (backward compatible); hub.env is the optional least-privilege split
+    assert hub["env_file"] == [".env", {"path": "hub.env", "required": False}]
     assert hub["environment"]["IMG_CACHE_DIR"] == "/data/cache/img"
     assert "/volume1/Docker/joey/data/cache/img:/data/cache/img" in hub["volumes"]
     assert "/volume1/Docker/joey/data/snapshots:/data/snapshots:ro" in hub["volumes"]  # still read-only

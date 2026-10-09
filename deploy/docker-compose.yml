@@ -21,8 +21,12 @@ services:
       dockerfile: hub/Dockerfile
     container_name: joey-hub
     restart: unless-stopped
+    # Least privilege (review D-05, 2026-10-09): hub-only keys belong in hub.env. Optional so the
+    # single NAS .env keeps working until it is split by hand (deploy/README.md); later files win.
     env_file:
       - .env
+      - path: hub.env
+        required: false
     environment:
       SNAPSHOT_DIR: /data/snapshots
       IMG_CACHE_DIR: /data/cache/img
@@ -79,6 +83,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+      - path: connectors.env  # optional connector-only keys (D-05), see the hub service
+        required: false
     environment:
       SNAPSHOT_DIR: /data/snapshots
       CONNECTOR_MODE: live

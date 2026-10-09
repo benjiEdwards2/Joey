@@ -38,7 +38,7 @@ def test_hub_service_mounts_snapshots_read_only_and_publishes_no_port():
 def test_connectors_service_matches_the_D16_cadence_contract():
     svc = compose()["services"]["connectors"]
     assert svc["restart"] == "unless-stopped"
-    assert svc["env_file"] == [".env"]
+    assert svc["env_file"] == [".env", {"path": "connectors.env", "required": False}]  # D-05 optional split
     assert "/volume1/Docker/joey/data/snapshots:/data/snapshots" in svc["volumes"]
     entrypoint = " ".join(svc["entrypoint"])
     assert "python -m connectors.run_all" in entrypoint

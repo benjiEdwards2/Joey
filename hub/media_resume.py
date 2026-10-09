@@ -38,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin
+from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_resume")
@@ -179,8 +179,7 @@ def _back(value) -> str:
 
 def owner_of(request: Request, form: dict) -> str:
     """The signed-in viewer's own owner; the local 'both' view may pick the row's owner."""
-    from hub.main import resolve_owner_view  # late: hub.main includes this router
-    view = resolve_owner_view(request)[0]
+    view = shell.resolve_owner_view(request)[0]
     if view in ("you", "her"):
         return view
     return form.get("owner") if form.get("owner") in ("you", "her") else "you"

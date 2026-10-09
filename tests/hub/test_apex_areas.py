@@ -37,7 +37,7 @@ def site(tmp_path, monkeypatch):
 
 
 def non_media(main):
-    return [a for a in main.registry.areas if a.layout != "shelves"]
+    return [a for a in main.shell.registry.areas if a.layout != "shelves"]
 
 
 def test_each_area_renders_one_kpi_card_per_tile(site):
@@ -103,7 +103,7 @@ def test_calendar_has_upcoming_rows_with_owner_words(site):
 
 def test_all_not_connected_area_shows_quiet_sentence(site):
     main, body = site("/a/money", drop=("money",))
-    note = next(a for a in main.registry.areas if a.id == "money").tiles[0].setup_note
+    note = next(a for a in main.shell.registry.areas if a.id == "money").tiles[0].setup_note
     assert f"Nothing connected yet. {note}" in body
 
 

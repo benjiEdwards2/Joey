@@ -33,11 +33,16 @@ from hub import media_awards, media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
+from hub import shell
+from hub.identity import IDENTITY_HEADER
 from hub.ids import (ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID,
-                     MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID, areas_path, home_now, home_tz)
-from hub.registry import Registry, load_registry
-from hub.shell import Compress, ShellMiddleware, _static_version, templates  # ONE Jinja env for every router (H-31)
+                     MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID, home_tz)
+# W3 (H-44/H-45): the shared page shell lives in hub/shell.py (ONE Jinja env for every router, H-31); these names
+# are re-exported so the old `hub.main.X` paths keep working. Callers use shell.X.
+from hub.shell import (OWNER_COOKIE, OWNER_COOKIE_MAX_AGE, OWNER_VIEWS, Compress, ShellMiddleware,  # noqa: F401
+                       _deep_link, _maybe_set_cookie, _now_home, _static_version, build_status, find_detail_source,
+                       get_snapshots, identity_of, not_found_page, owner_visible, render_page, resolve_owner_view,
+                       templates)
 from hub.store import (_snapshot_dir, ago_text, connected, data_of, get_runner, get_runner_history,
                        get_snapshots as _read_snapshots, parse_utc, tile_state)
 
@@ -49,25 +54,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s
 # hub.shell.ShellMiddleware writes the one request line (owner word, quiet paths skipped); uvicorn's access log
 # would repeat every request, the 30 s healthcheck and every poster (H-58, N-28).
 logging.getLogger("uvicorn.access").disabled = True
-
-registry: Registry | None = None
-
-
-def get_snapshots(snapshot_dir=None, request=None):
-    """Every envelope (hub.store), with resume items just marked watched / reset left out of the jellyfin
-    `up_next` lists until a newer sweep (media_resume, 2026-10-08) — so every shelf, hero and list drops them.
-    With `request`: read once per request — the first call keeps it on request.state.snaps, where the page's
-    builders and media_frame find it (H-48)."""
-    state = getattr(request, "state", None)
-    cached = getattr(state, "snaps", None) if state is not None else None
-    if cached is not None:
-        return cached
-    snaps = media_resume.apply_hidden(_read_snapshots(snapshot_dir), "jellyfin")
-    if state is not None:
-        state.snaps = snaps
-    return snaps
-
-registry_loaded_at: str | None = None
 
 # media.db backups (2026-10-05): first check ~30 s after startup (the NAS is off
 # overnight, so this is what gives one a day), then hourly; maybe_backup skips
@@ -101,7 +87,7 @@ def _server_tick() -> None:
         server_history.sample(snaps)
     except Exception as exc:
         log.warning("server history task error: %s", type(exc).__name__)
-    server_alerts.check_once(server_area.live_snapshot_ids(registry), snaps)
+    server_alerts.check_once(server_area.live_snapshot_ids(shell.registry), snaps)
 
 
 def _server_alerts_loop():
@@ -128,12 +114,8 @@ def _media_awards_loop():
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Load the registry at startup, failing fast with the aggregated violation list."""
-    global registry, registry_loaded_at
-    path = areas_path()
-    registry = load_registry(path)  # ValueError here aborts startup by design
-    registry_loaded_at = datetime.now(timezone.utc).isoformat()
-    log.info("registry loaded from %s: %d areas", path, len(registry.areas))
+    """Load the registry at startup (shell.load_areas), failing fast with the aggregated violation list."""
+    shell.load_areas()
     tasks = [
         None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
         media_plays.start_recorder(),  # F7 play recorder; None when off
@@ -181,50 +163,6 @@ app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 
-def identity_of(request) -> Identity:
-    """Template global `identity(request)`: the signed-in user (name/email/owner), cached per request."""
-    state = getattr(request, "state", None)
-    cached = getattr(state, "identity", None) if state is not None else None
-    if cached is None:
-        cached = resolve_identity(request)
-        if state is not None:
-            state.identity = cached
-    return cached
-
-
-OWNER_VIEWS = ("both", "you", "her")
-OWNER_COOKIE = "owner_view"
-OWNER_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days, per device (WP19)
-
-
-def resolve_owner_view(request: Request) -> tuple[str, bool]:
-    """Signed in (Access header): the view IS the signed-in owner — query and cookie are
-    ignored and no cookie is set (2026-10-06). Not signed in (local dev, tests): query param
-    wins (and sets the cookie); else cookie; else 'both'.
-
-    Semantics per Q9 (answered 2026-08-25): you = you+shared, her = her+shared.
-    Returns (view, came_from_query).
-    """
-    who = resolve_identity(request)
-    if who.owner:
-        return who.owner, False
-    q = request.query_params.get(OWNER_COOKIE)
-    if q in OWNER_VIEWS:
-        return q, True
-    c = request.cookies.get(OWNER_COOKIE)
-    return (c if c in OWNER_VIEWS else "both"), False
-
-
-def owner_visible(tile, view: str) -> bool:
-    return view == "both" or tile.owner.value == "shared" or tile.owner.value == view
-
-
-def _maybe_set_cookie(response, view: str, from_query: bool):
-    if from_query:
-        response.set_cookie(OWNER_COOKIE, view, max_age=OWNER_COOKIE_MAX_AGE, samesite="lax")
-    return response
-
-
 # Hub weather glimpse (2026-09-11 decision — supersedes D18). The glimpse reuses
 # the registry tile that reads this snapshot (Calendar's weather tile), so its
 # stale_after/owner/states stay single-sourced in areas.yaml. Keyed by the connector id
@@ -251,7 +189,7 @@ def weather_glyph(condition_text) -> str:
 
 def find_weather(snaps) -> dict | None:
     """The hub glimpse card: first registry tile reading the weather snapshot."""
-    for a in registry.areas:
+    for a in shell.registry.areas:
         for t in a.tiles:
             if t.snapshot == WEATHER_SNAPSHOT_ID:
                 data = data_of(snaps.get(WEATHER_SNAPSHOT_ID))
@@ -525,21 +463,6 @@ DIARY_PAGE = 50
 MILESTONES_MAX = 5
 
 
-def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
-    """The page behind a `detail` tile: the first registry tile reading the
-    snapshot (the one whose `detail` route matches, when several tiles share a
-    snapshot), its area and the area's first LINK tile (the app
-    launcher, as find_media resolves it). None when no tile reads the snapshot."""
-    for a in registry.areas:
-        for t in a.tiles:
-            if t.snapshot == snapshot_id and (detail is None or t.detail == detail):
-                snap = snaps.get(snapshot_id)
-                href = next((x.href for x in a.tiles if x.tier.value == "link"), None)
-                return {"tile": t, "st": tile_state(t, snaps),
-                        "data": snap.data if snap else {}, "href": href}
-    return None
-
-
 def _parse_ts(value) -> datetime:
     """ISO timestamp -> aware datetime (store.parse_utc); raises ValueError when it is not one."""
     dt = parse_utc(value)
@@ -640,23 +563,6 @@ def _media_rows(media) -> list:
     return [play.get("now_playing"), play.get("up_next"), library.get("items"), history.get("items")]
 
 
-def build_status(snaps) -> dict:
-    """The hub page's "Feeds N/M live" line (H-32): the feeds the VISIBLE areas read (parked areas don't count). A
-    feed is live when its tiles read fresh or stale (tile_state — an error envelope without data is not); `stale`
-    names the first visible area of every feed whose tile has gone stale."""
-    tiles: dict[str, list] = {}   # connector id -> [(area name, tile)] over visible areas
-    for a in registry.visible_areas:
-        for t in a.tiles:
-            if t.snapshot:
-                tiles.setdefault(t.snapshot, []).append((a.name, t))
-    states = {cid: [tile_state(t, snaps)["state"] for _, t in rows] for cid, rows in tiles.items()}
-    return {
-        "feeds_total": len(tiles),
-        "feeds_ok": sum(1 for st in states.values() if st[0] in ("fresh", "stale")),
-        "stale": sorted({tiles[cid][0][0] for cid, st in states.items() if "stale" in st}),
-    }
-
-
 SHELF_MAX = 15         # items per poster shelf
 LIBRARY_DETAIL = "/media/library"
 PLAYING_DETAIL = "/media/playing"
@@ -676,14 +582,6 @@ def row_href(jf_id=None, key=None, kind=None) -> str | None:
     if not url and kind in ("movie", "tv") and k.startswith("tmdb:") and k[5:].isdigit():
         url = f"/media/title/{kind}/{k[5:]}"
     return url
-
-
-def _deep_link(link, jf_id, server_id) -> str | None:
-    """Jellyfin item page for a row; None rather than a fabricated link."""
-    if not link or not jf_id:
-        return None
-    url = f"{link.rstrip('/')}/web/#/details?id={jf_id}"
-    return url + (f"&serverId={server_id}" if server_id else "")
 
 
 def waiting_counts(recent, ratings, details, to_rate_rows=None) -> dict:
@@ -708,7 +606,7 @@ def area_waiting(area, snaps, view: str, recent=None, ratings=None, to_rate_rows
     `ratings` / `to_rate_rows` when the caller already has them (media_frame builds them once for both counts)."""
     recent = _recent(snaps, view) if recent is None else recent
     counts = waiting_counts(recent, _ratings(view, recent) if ratings is None else ratings,
-                            {t.detail for t in area.tiles if t.detail and owner_visible(t, view)}, to_rate_rows)
+                            {t.detail for t in area.tiles if t.detail and shell.owner_visible(t, view)}, to_rate_rows)
     if view == "her":
         counts["to_place"] = 0  # rankings are B.'s only
     return counts
@@ -727,10 +625,10 @@ def media_frame(request: Request) -> dict:
     """Template global `media_nav(request)`: the Media bar/tabs context (cached per request)."""
     cached = getattr(request.state, "media_nav", None)
     if cached is None:
-        view, _ = resolve_owner_view(request)
-        area = media_nav.shelves_area(registry)
+        view, _ = shell.resolve_owner_view(request)
+        area = media_nav.shelves_area(shell.registry)
         snaps = getattr(request.state, "snaps", None)  # media-speed: a route's own read, when it shared one
-        snaps = get_snapshots(request=request) if snaps is None else snaps
+        snaps = shell.get_snapshots(request=request) if snaps is None else snaps
         recent = _recent(snaps, view)
         ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
         inbox = _to_rate(recent, ratings) if recent and ratings is not None else []   # M-24: ONE inbox for both
@@ -744,14 +642,13 @@ def media_frame(request: Request) -> dict:
             waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings, inbox)}
         except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)
             log.warning("to rate count skipped: %s", type(exc).__name__)
-        cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting)
+        cached = request.state.media_nav = media_nav.nav_context(request, shell.registry, waiting)
     return cached
 
 
 templates.env.globals["media_nav"] = media_frame
 templates.env.globals["item_href"] = item_href
 templates.env.globals["row_href"] = row_href
-templates.env.globals["identity"] = identity_of
 templates.env.globals["flash_params"] = FLASH_PARAMS
 templates.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)
 
@@ -778,7 +675,7 @@ def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict
     def hero(row, kind_word, sub, **extra):
         return {"kind_word": kind_word, "title": row.get("title"), "poster": row.get("poster"),
                 "backdrop": row.get("backdrop"), "sub": sub,
-                "href": _deep_link(link, row.get("jf_id"), server_id),
+                "href": shell._deep_link(link, row.get("jf_id"), server_id),
                 "progress_pct": None, "user": None, "play_method": None, **extra}
 
     playing = jelly.get("now_playing") or []
@@ -894,11 +791,6 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     }
 
 
-# Hub greeting (Apex shell, 2026-10-06): wall-clock at home, not the container's zone (hub/ids.py). A module
-# name of its own so tests (and media_film) can reach / monkeypatch it.
-_now_home = home_now
-
-
 def hub_greeting(now: datetime, name: str | None = None) -> str:
     part = "morning" if now.hour < 12 else "afternoon" if now.hour < 17 else "evening"
     hello = f"Good {part}, {name}." if name else f"Good {part}."
@@ -914,8 +806,8 @@ def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
 def hub_upcoming(snaps, view: str) -> dict | None:
     """Hub "Next 7 days" card: the first visible tile reading the gcal snapshot, its area's
     page for "View all", and find_upcoming's groups (None data = not connected)."""
-    for a in registry.areas:
-        rows = [{"tile": t, "st": tile_state(t, snaps)} for t in a.tiles if owner_visible(t, view)]
+    for a in shell.registry.areas:
+        rows = [{"tile": t, "st": tile_state(t, snaps)} for t in a.tiles if shell.owner_visible(t, view)]
         row = next((r for r in rows if r["tile"].snapshot == GCAL_SNAPSHOT_ID), None)
         if row:
             up = find_upcoming(rows, snaps, view)
@@ -943,7 +835,7 @@ def _split_title(row) -> tuple[str, str]:
 def hub_shelf(area, snaps, view: str) -> dict | None:
     """Hub "Recently watched" band for a `layout: shelves` area (its Continue watching band left the hub in media-ux2,
     2026-10-08; Media home keeps it). Present when that area's jellyfin tile is visible; rows only from the snapshot."""
-    tiles = [t for t in area.tiles if owner_visible(t, view)]
+    tiles = [t for t in area.tiles if shell.owner_visible(t, view)]
     jtile = next((t for t in tiles if t.snapshot == JELLYFIN_SNAPSHOT_ID), None)
     if jtile is None:
         return None
@@ -987,7 +879,7 @@ def _server_hub_card(snaps, backup: dict) -> dict:
     if hit and hit[1] == key and now - hit[0] < HUB_CARD_TTL_S:
         return hit[2]
     card = server_area.hub_card(snaps, server_updates.get_ignores(), backup, get_runner(), get_runner_history(),
-                                live=server_area.live_snapshot_ids(registry))  # WP-U3
+                                live=server_area.live_snapshot_ids(shell.registry))  # WP-U3
     _hub_card_cache = (now, key, card)
     return card
 
@@ -1006,14 +898,14 @@ def server_card_state(st: dict, snaps, backup: dict | None = None) -> dict:
 
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
-    view, from_query = resolve_owner_view(request)
-    snaps = get_snapshots(request=request)
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)
     backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
     cards, shelf = [], None
     upcoming = hub_upcoming(snaps, view)
-    for a in registry.visible_areas:
+    for a in shell.registry.visible_areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
-        if not owner_visible(summary, view):
+        if not shell.owner_visible(summary, view):
             continue  # hub summary cards respect the filter (Q24 assumption)
         card = {"area": a, "tile": summary, "st": tile_state(summary, snaps), "hero": None,
                 "per_day": None}
@@ -1025,7 +917,7 @@ def hub_page(request: Request):
             except Exception as exc:  # a malformed envelope never 500s the hub: the plain tile state stays (H-63)
                 log.warning("server hub card skipped: %s", type(exc).__name__)
         if a.layout == "shelves":  # hero content keyed by layout, never by area name
-            link = next((st["href"] for t in a.tiles if owner_visible(t, view)
+            link = next((st["href"] for t in a.tiles if shell.owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             jdata = view_jelly(jelly.data if jelly else {}, view)
@@ -1037,28 +929,28 @@ def hub_page(request: Request):
                 shelf = hub_shelf(a, snaps, view)
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
-    resp = templates.TemplateResponse(request, "hub.html", {
-        "areas": registry.visible_areas, "active_id": None, "cards": cards,
-        "status": build_status(snaps), "weather": find_weather(snaps),  # status: hub.html only (H-50)
+    resp = shell.render_page(request, "hub.html", {
+        "cards": cards,
+        "status": shell.build_status(snaps), "weather": find_weather(snaps),  # status: hub.html only (H-50)
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": backup["warning"],
-        "greeting": hub_greeting(_now_home(), identity_of(request).owner and identity_of(request).name),
+        "greeting": hub_greeting(shell._now_home(), shell.identity_of(request).owner and shell.identity_of(request).name),
     })
-    return _maybe_set_cookie(resp, view, from_query)
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 @app.get("/weather", response_class=HTMLResponse)
 def weather_page(request: Request):
     """Detail behind the hub glimpse (2026-09-11). Reads the same snapshot; today plus,
     since the 2026-10-06 upgrade, the next 24 hours and 7 days when the snapshot has them."""
-    view, from_query = resolve_owner_view(request)
-    snaps = get_snapshots(request=request)
-    resp = templates.TemplateResponse(request, "weather.html", {
-        "areas": registry.visible_areas, "active_id": None, "w": find_weather(snaps),
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)
+    resp = shell.render_page(request, "weather.html", {
+        "w": find_weather(snaps),
         "fc": weather_forecast(snaps),   # the parked BOM panel's weather_radar() context is not built (H-05)
         "windy_src": windy_embed_url(),
     })
-    return _maybe_set_cookie(resp, view, from_query)
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 @app.get("/weather/radar/{name}")
@@ -1082,22 +974,19 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     """Detail page behind a `detail` tile (2026-10-05). Keyed by connector id —
     404 when no registry tile reads that snapshot; 'Not connected' when it has no data
     (`always_build` still runs `build` then — the diary has data of its own)."""
-    view, from_query = resolve_owner_view(request)
-    snaps = get_snapshots(request=request)
-    src = find_detail_source(snapshot_id, snaps, detail)
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)
+    src = shell.find_detail_source(snapshot_id, snaps, detail)
     if src is None:
-        return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None,
-            "missing_text": "No page here",
-        }, status_code=404)
+        return shell.not_found_page(request)
     if snapshot_id == JELLYFIN_SNAPSHOT_ID:
         src = {**src, "data": view_jelly(src["data"], view)}  # her view reads Georgina's up next/history
     extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
-    resp = templates.TemplateResponse(request, template, {
-        "areas": registry.visible_areas, "active_id": None, "src": src, "ratings": {}, **extra,
+    resp = shell.render_page(request, template, {
+        "src": src, "ratings": {}, **extra,
         "owner": media_db.owner_of(view),  # media_playing.html's Move on acts (M-16)
     })
-    return _maybe_set_cookie(resp, view, from_query)
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 @app.get("/media/apps", response_class=HTMLResponse)
@@ -1120,14 +1009,14 @@ def media_playing_page(request: Request):
 
 
 def _qb_data(request=None) -> dict:
-    snap = get_snapshots(request=request).get(QBIT_SNAPSHOT_ID)
+    snap = shell.get_snapshots(request=request).get(QBIT_SNAPSHOT_ID)
     return snap.data if snap else {}
 
 
 def _arr_linker(view, request=None):
     """Rows -> rows with `href`: same resolver the Movies/TV pages use, per kind, against the
     view's own Jellyfin lists (media_library.link_arrivals). Rows without an item_key stay None."""
-    jelly = get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
+    jelly = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
     jdata = jelly.data if jelly else {}
     lists = {k: _library_lists(jdata, view, k)[0] for k in ("movie", "tv")}
 
@@ -1142,7 +1031,7 @@ def _arr_linker(view, request=None):
 def media_downloads_page(request: Request):
     def build(data, view):
         # Whole row is the link (2026-10-06) when the torrent is an arr download whose title resolves.
-        arr = get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
+        arr = shell.get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
         by_hash = {str(r.get("download_id") or "").lower(): r
                    for r in media_downloads.collapse_packs((arr.data if arr else {}).get("downloading"))
                    if r.get("download_id")}
@@ -1195,7 +1084,7 @@ def media_library_page(request: Request):
 def media_requests_page(request: Request):
     def build(data, view):
         # Remove (2026-10-08): a removed row leaves at once (media_hidden), not at the next hourly sweep.
-        snap = get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
+        snap = shell.get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
         rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
         c = media_requests.visible_counts(data, rows)
         good, warn = media_requests.flash_text(request.query_params)
@@ -1399,7 +1288,7 @@ def _library_page(request: Request, kind: str):
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
-        arr = get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
+        arr = shell.get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: item_href(jf))
         q = request.query_params.get("q", "")
@@ -1485,10 +1374,7 @@ def _year_page(request: Request, slug: str, template: str):
     ctx_ok = resp is not None and resp.status_code == 200 and (
         resp.context.get("ranked") or resp.context.get("unranked"))
     if not ctx_ok:
-        return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None,
-            "missing_text": "No page here",
-        }, status_code=404)
+        return shell.not_found_page(request)
     return resp
 
 
@@ -1504,74 +1390,70 @@ def media_year_countdown(request: Request, slug: str):
 
 def _server_response(request: Request, area, view: str, from_query: bool):
     """The `layout: server` page (WP-S1, 2026-10-06): bands built by hub/server.py."""
-    snaps = get_snapshots(request=request)
+    snaps = shell.get_snapshots(request=request)
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
                                   get_runner_history(), server_history.recent(),
-                                  live=server_area.live_snapshot_ids(registry),  # WP-U3
-                                  gated=registry.gated_hrefs)
+                                  live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
+                                  gated=shell.registry.gated_hrefs)
     tasks = BackgroundTasks()
     tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
     tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
-    resp = templates.TemplateResponse(request, "server.html", {
-        "areas": registry.visible_areas, "active_id": area.id, "area": area, "sv": sv,
+    resp = shell.render_page(request, "server.html", {
+        "area": area, "sv": sv,
         "flash": server_updates.flash_text(request.query_params),
-    }, background=tasks)
-    return _maybe_set_cookie(resp, view, from_query)
+    }, active_id=area.id)
+    resp.background = tasks
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 @app.get("/server", response_class=HTMLResponse)
 def server_page(request: Request):
-    view, from_query = resolve_owner_view(request)
-    area = next((a for a in registry.areas if a.layout == server_area.SERVER_LAYOUT), None)
+    view, from_query = shell.resolve_owner_view(request)
+    area = next((a for a in shell.registry.areas if a.layout == server_area.SERVER_LAYOUT), None)
     if area is None:
-        return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None,
-            "missing_text": "No page here",
-        }, status_code=404)
+        return shell.not_found_page(request)
     return _server_response(request, area, view, from_query)
 
 
 @app.get("/a/{area_id}", response_class=HTMLResponse)
 def area_page(request: Request, area_id: str):
-    view, from_query = resolve_owner_view(request)
-    area = next((a for a in registry.areas if a.id == area_id), None)
+    view, from_query = shell.resolve_owner_view(request)
+    area = next((a for a in shell.registry.areas if a.id == area_id), None)
     if area is None:
-        return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None, "missing_id": area_id,
-        }, status_code=404)
+        return shell.not_found_page(request)
     if area.layout == server_area.SERVER_LAYOUT:  # keyed by layout, never by area name
         return _server_response(request, area, view, from_query)
-    snaps = get_snapshots(request=request)
+    snaps = shell.get_snapshots(request=request)
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
-             for t in area.tiles if owner_visible(t, view)]
+             for t in area.tiles if shell.owner_visible(t, view)]
     if area.layout == "shelves":
-        resp = templates.TemplateResponse(request, "area_shelves.html", {
-            "areas": registry.visible_areas, "active_id": area.id, "area": area,
+        resp = shell.render_page(request, "area_shelves.html", {
+            "area": area,
             "sh": build_shelves(area, tiles, snaps, view),
             "backup_warn": media_backup.current_status()["warning"],
-        })
-        return _maybe_set_cookie(resp, view, from_query)
+        }, active_id=area.id)
+        return shell._maybe_set_cookie(resp, view, from_query)
     media = find_media(tiles, snaps)
     upcoming = find_upcoming(tiles, snaps, view)
     # Weather renders on the hub and /weather only (2026-10-08, B. — supersedes the
     # Calendar-page card). The registry tile stays: find_weather's config anchor.
     tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]
-    resp = templates.TemplateResponse(request, "area.html", {
-        "areas": registry.visible_areas, "active_id": area.id, "area": area, "tiles": tiles,
+    resp = shell.render_page(request, "area.html", {
+        "area": area, "tiles": tiles,
         "upcoming": upcoming,
         "media": media,
         "ratings": _ratings(view, *_media_rows(media)),
-    })
-    return _maybe_set_cookie(resp, view, from_query)
+    }, active_id=area.id)
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 @app.get("/healthz")
 def healthz():
     return {
         "status": "ok",
-        "areas": len(registry.areas) if registry else 0,
-        "registry_loaded_at": registry_loaded_at,
+        "areas": len(shell.registry.areas) if shell.registry else 0,
+        "registry_loaded_at": shell.registry_loaded_at,
     }
 
 

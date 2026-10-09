@@ -65,7 +65,7 @@ def test_hub_rank_sorts_cards_and_defaults_to_100(tmp_path, monkeypatch):
     html = hub_main(hub.main)
     assert [html.index(f'href="/a/{i}"') for i in ("bb", "aa", "cc")] == sorted(
         html.index(f'href="/a/{i}"') for i in ("bb", "aa", "cc"))
-    assert [a.id for a in hub.main.registry.areas] == ["aa", "bb", "cc"]
+    assert [a.id for a in hub.main.shell.registry.areas] == ["aa", "bb", "cc"]
 
 
 def test_real_registry_media_leads_the_hub():

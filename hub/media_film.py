@@ -23,6 +23,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import shell
+from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -405,9 +407,9 @@ def _jf_from_snapshot(jelly: dict, kind: str, tmdb: int) -> dict | None:
     return None
 
 
-def _requested(snaps, hub, tmdb) -> dict | None:
+def _requested(snaps, tmdb) -> dict | None:
     from hub.media_requests import snapshot_rows  # a removed request stops showing at once (2026-10-08)
-    for r in snapshot_rows(snaps, hub.JELLYSEERR_SNAPSHOT_ID):
+    for r in snapshot_rows(snaps, JELLYSEERR_SNAPSHOT_ID):
         if isinstance(r, dict) and str(r.get("tmdb_id")) == str(tmdb):
             return r
     return None
@@ -573,13 +575,13 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
 
 
 def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
-               view: str, request: Request, hub, req_state: str = "idle", req_msg: str | None = None,
+               view: str, request: Request, req_state: str = "idle", req_msg: str | None = None,
                snaps=None, open_season: int | None = None) -> dict:
-    snaps = hub.get_snapshots() if snaps is None else snaps  # media-speed: the route's one read, passed in
-    jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
+    snaps = shell.get_snapshots() if snaps is None else snaps  # media-speed: the route's one read, passed in
+    jsrc = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps)
     jelly = (jsrc or {}).get("data") or {}
     owner = media_db.owner_of(view)
-    arr_snap = snaps.get(hub.ARR_SNAPSHOT_ID)
+    arr_snap = snaps.get(ARR_SNAPSHOT_ID)
     arr = (arr_snap.data if arr_snap else {}) or {}
     f: dict = {"note": None, "jf_failed": False, "req_state": req_state, "req_msg": req_msg}
 
@@ -662,7 +664,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     snap_server = jelly.get("server_id")
     creds = media_files._creds()
     server = media_item._server_id(*creds, snap_server) if creds and (jf_item_id or jf_id) else snap_server
-    href_of = lambda i: hub._deep_link((jsrc or {}).get("href"), i, server)
+    href_of = lambda i: shell._deep_link((jsrc or {}).get("href"), i, server)
     f["play"] = None
     f["series"], f["next_ep"] = None, None
     if kind == "tv" and seasons:
@@ -725,7 +727,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                   "year": year, "poster": t.get("poster")}
     else:
         rating = None
-    ratings_map = hub._ratings(view, [{"item_key": rating["item_key"]}] if rating else [])
+    from hub.main import _ratings  # W3 step 1: moves to hub.media_home next
+    ratings_map = _ratings(view, [{"item_key": rating["item_key"]}] if rating else [])
     f["rating"] = rating
     f["score"] = ratings_map.get(rating["item_key"]) if rating else None
     diary_item = key_item or {"kind": "movie" if kind == "movie" else "series", "id": "", "tmdb": tmdb_id,
@@ -736,7 +739,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f.update(diary=dates, watch_count=count, last_watched=last)
 
     # --- 6. request / downloading ---
-    req = _requested(snaps, hub, tmdb_id) if tmdb_id else None
+    req = _requested(snaps, tmdb_id) if tmdb_id else None
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
     ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
@@ -751,7 +754,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     mins = (int("".join(c for c in left if c.isdigit()) or 0) if in_progress and left else None) or runtime_min
     ends = None
     if mins and (kind == "movie" or ep):
-        ends = (hub._now_home() + timedelta(minutes=mins)).strftime("%H:%M")
+        ends = (shell._now_home() + timedelta(minutes=mins)).strftime("%H:%M")
     # media-ux4: every score is a pill in one format — IMDb 8.0 · RT 90% · Metacritic 74 · TMDB 8.1 · Yours 8
     community = score_text(item["community_rating"] if item and item.get("community_rating") else (t or {}).get("vote"))
     mc = media_omdb.metascore(imdb_id(raw, item)) if kind in ("movie", "tv") else None   # Metacritic via OMDb (item 2)
@@ -819,44 +822,37 @@ def film_awards(kind, tmdb_id, jelly: dict, jf_item_id) -> list[dict]:
 
 # ---- routes ----
 
-def _render(request: Request, hub, src, film: dict, view, from_query, snaps=None):
-    resp = hub.templates.TemplateResponse(request, "media_film.html", {
-        "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(hub.get_snapshots() if snaps is None else snaps), "src": src, "film": film})
-    return hub._maybe_set_cookie(resp, view, from_query)
+def _render(request: Request, src, film: dict, view, from_query, snaps=None):
+    resp = shell.render_page(request, "media_film.html", {
+        "status": shell.build_status(shell.get_snapshots() if snaps is None else snaps), "src": src, "film": film})
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 @router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
 def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "", error: str = "",
                future: str = ""):
-    from hub import main as hub  # late: hub.main includes this router
-
     kind = md._kind(kind)
-    view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
-    src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
+    src = shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
-        return hub.templates.TemplateResponse(request, "404.html", {
-            "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-            "missing_text": "No page here"}, status_code=404)
+        return shell.not_found_page(request)
     state, msg = (("done", None) if requested == "1" else ("error", md.ERRORS[error]) if error in md.ERRORS
                   else ("confirm" if step == "confirm" else "idle", None))
-    film = build_film(kind, tmdb_id, view=view, request=request, hub=hub, req_state=state, req_msg=msg, snaps=snaps)
+    film = build_film(kind, tmdb_id, view=view, request=request, req_state=state, req_msg=msg, snaps=snaps)
     film["req_future"] = media_arr_search.future_note(future) if state == "done" else None   # media-ux5 item 7
-    return _render(request, hub, src, film, view, from_query, snaps)
+    return _render(request, src, film, view, from_query, snaps)
 
 
 @router.get("/media/item/{jf_id}", response_class=HTMLResponse)
 def item_page(request: Request, jf_id: str, season: str = ""):
-    from hub import main as hub
-
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
-    view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
-    src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
+    src = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps)
     if src is None:
         raise HTTPException(404, "No such item")
     open_season = int(season) if season.isdigit() and len(season) <= 3 else None  # media-ux3: "This season"
-    film = build_film(jf_id=jf_id, view=view, request=request, hub=hub, snaps=snaps, open_season=open_season)
-    return _render(request, hub, src, film, view, from_query, snaps)
+    film = build_film(jf_id=jf_id, view=view, request=request, snaps=snaps, open_season=open_season)
+    return _render(request, src, film, view, from_query, snaps)

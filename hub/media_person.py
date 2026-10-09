@@ -13,7 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_discover as md, media_follow, media_item
+from hub import media_discover as md, media_follow, media_item, shell
+from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_film import _cget
 
 log = logging.getLogger("hub.media_person")   # M-29: its own logger, not media_discover's
@@ -93,9 +94,9 @@ def _credits(body, lib: dict[str, str]) -> list[dict]:
     return rows
 
 
-def build_person(tmdb_id: int, hub, snaps=None) -> dict:
-    snaps = hub.get_snapshots() if snaps is None else snaps
-    jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
+def build_person(tmdb_id: int, snaps=None) -> dict:
+    snaps = shell.get_snapshots() if snaps is None else snaps
+    jsrc = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps)
     lib = _library((jsrc or {}).get("data") or {})
     # media-speed: the biography is metadata only (long, restart-proof meta cache); the credits carry each
     # title's request / availability state, so they keep the short cache. Both reads run side by side.
@@ -118,16 +119,14 @@ def build_person(tmdb_id: int, hub, snaps=None) -> dict:
 
 @router.get("/media/person/{person_id}", response_class=HTMLResponse)
 def person_page(request: Request, person_id: str):
-    from hub import main as hub  # late: hub.main includes this router
-
     if not ID_RE.match(person_id):
         raise HTTPException(404, "No such person")
-    view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots(request=request)
-    src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)
+    src = shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
         raise HTTPException(404, "No such person")
-    person = build_person(int(person_id), hub, snaps)
+    person = build_person(int(person_id), snaps)
     try:  # Awards (2026-10-08): this person's wins / nominations from the media.db award tables; hidden when none
         from hub import media_awards_db, media_awards_pages
         person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))
@@ -139,8 +138,7 @@ def person_page(request: Request, person_id: str):
     except Exception as exc:  # the page never fails on the follow lookup
         log.warning("follow lookup failed: %s", type(exc).__name__)
         person["following"] = False
-    resp = hub.templates.TemplateResponse(request, "media_person.html", {
-        "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(snaps), "src": src, "person": person, "show_first": SHOW_FIRST,
+    resp = shell.render_page(request, "media_person.html", {
+        "status": shell.build_status(snaps), "src": src, "person": person, "show_first": SHOW_FIRST,
         "follow_flash": media_follow.flash_text(request)})
-    return hub._maybe_set_cookie(resp, view, from_query)
+    return shell._maybe_set_cookie(resp, view, from_query)

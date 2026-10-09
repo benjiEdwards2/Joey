@@ -67,12 +67,12 @@ def cards_of(body):
 def test_every_registry_area_is_a_kpi_card_and_weather_links_to_its_page(hub):
     main, body = hub()
     cards = cards_of(body)
-    for a in main.registry.visible_areas:   # parked (hidden) areas have no hub card (2026-10-06)
+    for a in main.shell.registry.visible_areas:   # parked (hidden) areas have no hub card (2026-10-06)
         assert f"/a/{a.id}" in cards, a.id
         assert f'<div class="microlabel">{a.name}</div>' in cards[f"/a/{a.id}"]
     assert '<a class="panel tile" href="/weather"' in kpis_of(body)
     assert '<div class="microlabel">Weather</div>' in cards["/weather"]
-    assert len(cards) == len(main.registry.visible_areas) + 1
+    assert len(cards) == len(main.shell.registry.visible_areas) + 1
 
 
 def test_not_connected_card_keeps_the_anatomy_without_a_spark(hub):

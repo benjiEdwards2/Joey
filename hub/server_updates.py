@@ -29,10 +29,9 @@ import requests
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from hub import media_db
+from hub import media_db, shell
 from hub.media_write import same_origin
-from hub.server import key_tag  # one definition (H-24)
-from hub.shell import templates
+from hub.server import SERVER_LAYOUT, WUD_SNAPSHOT_ID, key_tag  # one definition (H-24)
 
 log = logging.getLogger("hub.server_updates")
 router = APIRouter()
@@ -162,10 +161,7 @@ def run_trigger(container_id: str) -> tuple[str, str | None]:
 # ---- routes ----
 
 def _pending_row(name: str) -> dict | None:
-    from hub import main as hub  # late: hub.main includes this router
-    from hub.server import WUD_SNAPSHOT_ID
-
-    snap = hub.get_snapshots().get(WUD_SNAPSHOT_ID)
+    snap = shell.get_snapshots().get(WUD_SNAPSHOT_ID)
     rows = ((snap.data or {}).get("containers") or []) if snap else []
     return next((c for c in rows if isinstance(c, dict) and c.get("name") == name
                  and c.get("update_available")), None)
@@ -186,17 +182,12 @@ def refusal(row: dict | None, name: str) -> str | None:
 
 
 def _page(request: Request, ctx: dict, status: int = 200):
-    from hub import main as hub
-    from hub.server import SERVER_LAYOUT
-
-    area = next((a for a in hub.registry.areas if a.layout == SERVER_LAYOUT), None)
-    base = {"areas": hub.registry.visible_areas}
+    area = next((a for a in shell.registry.areas if a.layout == SERVER_LAYOUT), None)
     if area is None:
-        return templates.TemplateResponse(request, "404.html", {
-            **base, "active_id": None, "missing_text": "No page here"}, status_code=404)
+        return shell.not_found_page(request)
     # the shared shell env (hub/shell.py) carries every global (identity, static_v, ...)
-    return templates.TemplateResponse(request, "server_update.html", {
-        **base, "active_id": area.id, "area": area, "confirm_text": CONFIRM_TEXT, **ctx}, status_code=status)
+    return shell.render_page(request, "server_update.html", {
+        "area": area, "confirm_text": CONFIRM_TEXT, **ctx}, active_id=area.id, status=status)
 
 
 def _name(name: str) -> str | None:

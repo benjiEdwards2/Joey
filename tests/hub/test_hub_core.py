@@ -123,8 +123,8 @@ def test_a_media_page_reads_the_snapshot_dir_once(tmp_path, monkeypatch):
     main = _reload(tmp_path, monkeypatch, area)
     write_envelope(tmp_path / "snaps", "arr", age_minutes=1, data={"summary": "x", "arrived": [], "this_week": []})
     write_envelope(tmp_path / "snaps", "qbittorrent", age_minutes=1, data={"summary": "x", "active": []})
-    reads, real = [], main._read_snapshots
-    monkeypatch.setattr(main, "_read_snapshots", lambda *a: reads.append(1) or real(*a))
+    reads, real = [], main.shell._read_snapshots
+    monkeypatch.setattr(main.shell, "_read_snapshots", lambda *a: reads.append(1) or real(*a))
     with TestClient(main.app) as c:
         for path in ("/media/library", "/media/downloads", "/media/movies", "/"):
             reads.clear()

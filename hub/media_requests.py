@@ -22,7 +22,8 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from hub import media_discover as md, media_hidden, media_text
+from hub import media_discover as md, media_hidden, media_text, shell
+from hub.ids import JELLYSEERR_SNAPSHOT_ID
 from hub.media_write import flash_keys, same_origin
 
 log = logging.getLogger("hub.media_requests")
@@ -166,8 +167,7 @@ def delete_request(rid: int) -> tuple[str | None, int | None]:
 
 
 def _row(rid: int) -> tuple[dict | None, object]:
-    from hub import main as hub  # late: hub.main includes this router
-    snap = hub.get_snapshots().get(hub.JELLYSEERR_SNAPSHOT_ID)
+    snap = shell.get_snapshots().get(JELLYSEERR_SNAPSHOT_ID)
     for r in visible_rows((snap.data if snap else {}) or {}, snap.updated_at if snap else None):
         if r.get("id") == rid:
             return r, snap

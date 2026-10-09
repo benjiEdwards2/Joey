@@ -24,7 +24,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_awards_badges, media_files, media_text
+from hub import media_awards_badges, media_files, media_text, shell
+from hub.ids import ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 from hub.images import REF_RE, cache_dir
 from hub.media_cache import LRU
 from hub.media_watchlist import keys_for
@@ -240,19 +241,14 @@ def _search_outcome(q: str) -> tuple[list[dict], str | None]:
 def _page(request: Request, template: str, build):
     """Full page behind the discover tile; 404 (before any upstream call) when no registry
     tile has that detail. `build()` -> the page-specific context."""
-    from hub import main as hub  # late: hub.main includes this router
-
-    view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots(request=request)   # M-41: kept on request.state.snaps for the frame and builders
-    src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=DISCOVER_DETAIL)
+    view, from_query = shell.resolve_owner_view(request)
+    snaps = shell.get_snapshots(request=request)   # M-41: kept on request.state.snaps for the frame and builders
+    src = shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, snaps, detail=DISCOVER_DETAIL)
     if src is None:
-        return templates.TemplateResponse(request, "404.html", {
-            "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-            "missing_text": "No page here"}, status_code=404)
-    resp = templates.TemplateResponse(request, template, {
-        "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(snaps), "src": src, "connected": _creds() is not None, **build()})
-    return hub._maybe_set_cookie(resp, view, from_query)
+        return shell.not_found_page(request)
+    resp = shell.render_page(request, template, {
+        "status": shell.build_status(snaps), "src": src, "connected": _creds() is not None, **build()})
+    return shell._maybe_set_cookie(resp, view, from_query)
 
 
 def _partial(request: Request, name: str, **ctx) -> HTMLResponse:
@@ -396,10 +392,8 @@ def service_shelves(pid: int, today: date | None = None) -> list[dict]:
 def service_page(request: Request, provider_id: int):
     """One streaming service's shelves. 404 for an id the AU provider list does not carry; with the list down the
     page still renders (shelves by id under a plain heading)."""
-    from hub import main as hub  # late: hub.main includes this router
-
-    if hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(request=request),
-                              detail=DISCOVER_DETAIL) is None:
+    if shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, shell.get_snapshots(request=request),
+                                detail=DISCOVER_DETAIL) is None:
         return _page(request, "media_service.html", dict)   # the 404, before any upstream call
     listed = providers() if _creds() else None
     match = next((p for p in listed or [] if p["id"] == provider_id), None)
@@ -482,12 +476,11 @@ def _stub(kind: str, tmdb_id: int) -> dict:
 
 def _dl_pct(keys, snaps=None) -> int | None:
     """The download % when the arr queue / qBittorrent holds a title with one of `keys` (tmdb: / tvdb:); never raises."""
-    from hub import main as hub  # late: hub.main includes this router
     from hub import media_downloads
 
     try:
-        snaps = hub.get_snapshots() if snaps is None else snaps
-        arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(hub.QBIT_SNAPSHOT_ID)
+        snaps = shell.get_snapshots() if snaps is None else snaps
+        arr, qb = snaps.get(ARR_SNAPSHOT_ID), snaps.get(QBIT_SNAPSHOT_ID)
         merged = media_downloads.merge_downloading((arr.data if arr else {}).get("downloading"),
                                                    qb.data if qb else {})
         return media_downloads.pct_for_keys(merged, keys)
@@ -535,8 +528,7 @@ def season_episodes(request: Request, tmdb_id: int, n: int):
     eps = _episodes(tmdb_id, n) if n >= 0 else None
     if eps is None:
         return _partial(request, "_season_episodes.html", episodes=[], note=EPISODES_DOWN)
-    from hub import main as hub  # late: hub.main includes this router
-    files = media_files.file_summary("tv", tmdb_id, snaps=hub.get_snapshots(request=request))
+    files = media_files.file_summary("tv", tmdb_id, snaps=shell.get_snapshots(request=request))
     have = {tuple(k) for k in (files or {}).get("episode_keys") or []}
     rows = [{**e, "on_disk": (n, e["number"]) in have} for e in eps]
     return _partial(request, "_season_episodes.html", episodes=rows, note=None if rows else "No episodes listed")

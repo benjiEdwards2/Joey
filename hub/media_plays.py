@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_jellyfin as jellyfin, media_plays_db as pdb
+from hub import media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
 
 log = logging.getLogger("hub.media_plays")
 
@@ -134,11 +134,8 @@ def history_context(window, view: str) -> dict:
 
 @router.get("/media/server/history", response_class=HTMLResponse)
 def history_page(request: Request, w: str = "30"):
-    from hub import main as hub  # late: hub.main includes this router
-
-    view, from_query = hub.resolve_owner_view(request)
+    view, from_query = shell.resolve_owner_view(request)
     ctx = history_context(int(w) if w.isdigit() else w, view)
-    resp = hub.templates.TemplateResponse(request, "media_server_history.html", {
-        "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(hub.get_snapshots(request=request)), "ratings": {}, **ctx})
-    return hub._maybe_set_cookie(resp, view, from_query)
+    resp = shell.render_page(request, "media_server_history.html", {
+        "status": shell.build_status(shell.get_snapshots(request=request)), "ratings": {}, **ctx})
+    return shell._maybe_set_cookie(resp, view, from_query)

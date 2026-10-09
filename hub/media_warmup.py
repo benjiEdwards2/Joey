@@ -158,15 +158,16 @@ def warm_once(snaps=None, pause: float = PAUSE_S, limit: int = MAX_TITLES) -> di
 
 
 def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
-    """The full-library pass. -> counts {titles, fetched, cached, failed}; never raises. Per title: poster h=600
-    + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos at CAST_H (what the
-    item page renders)."""
+    """The full-library pass. -> counts {titles, fetched, cached, skipped, failed}; never raises. Per title: poster
+    h=600 + backdrop h=1280 (Jellyfin), ratings + body via the 6 h disk meta cache, cast photos at CAST_H (what the
+    item page renders). An image the upstream doesn't have (no backdrop, a 404 poster: images.warm's "skipped") is
+    an answer, not a failure (M-44); `failed` counts only titles that raised."""
     from hub import media_film
     from hub.store import get_snapshots
 
     started = time.time()
     seerr, jf = md._creds() is not None, media_files._creds() is not None
-    counts = {"titles": 0, "fetched": 0, "cached": 0, "failed": 0}
+    counts = {"titles": 0, "fetched": 0, "cached": 0, "skipped": 0, "failed": 0}
     if not (seerr or jf):
         counts["skipped_no_keys"] = True
         return counts
@@ -177,7 +178,7 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
     def img(ref, h):
         if ref:
             got = images.warm(ref, h)
-            counts["failed" if got == "skipped" else got] += 1
+            counts[got] += 1
             return got
 
     def rest():
@@ -211,19 +212,20 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
             log.warning("media library warm-up title failed: %s", type(exc).__name__)
     counts["seconds"] = round(time.time() - started, 1)
     log.info("media library warm-up: %(titles)s titles, %(fetched)s images fetched, %(cached)s already cached, "
-             "%(failed)s failures, %(seconds)s s", counts)
+             "%(skipped)s not upstream, %(failed)s failures, %(seconds)s s", counts)
     return counts
 
 
 def run_pass(snaps=None, pause: float = PAUSE_S) -> dict:
     """What the background loop runs: the shelf pass, then — unless MEDIA_WARMUP=shelves — the library pass when
-    it is due (24 h). The stamp is written only after a pass with no failures, so a bad run retries next time."""
+    it is due (24 h). The stamp is written after every completed pass (M-44: a missing backdrop or one bad title no
+    longer re-runs the whole library every 3 h); a pass skipped for want of keys leaves it unstamped."""
     out = {"shelves": warm_once(snaps, pause)}
     if media_rank.due():  # film-quality: the File panel's library rank, one Jellyfin read per 24 h
         out["rank"] = media_rank.refresh()
     if library_enabled() and library_due():
         lib = warm_library(snaps)
         out["library"] = lib
-        if not lib.get("failed") and not lib.get("skipped_no_keys"):
+        if not lib.get("skipped_no_keys"):
             _stamp_done()
     return out

@@ -88,10 +88,12 @@ services:
     environment:
       SNAPSHOT_DIR: /data/snapshots
       CONNECTOR_MODE: live
-      # system feed (WP-S2): statvfs targets, comma-separated container paths; `/host` is
-      # stripped for display. Not a secret, so it lives here, not in .env.
-      SYSTEM_VOLUMES: /host/volume1
+      # system feed: statvfs targets, comma-separated container paths. statvfs reports the whole
+      # filesystem, so the snapshots mount (on /volume1) gives /volume1's numbers without binding
+      # the entire NAS volume into this container (review C-19, 2026-10-09). LABELS map a path to
+      # the name shown in the UI (`path=label[,path=label]`). Not secrets: they live here, not in .env.
+      SYSTEM_VOLUMES: /data/snapshots
+      SYSTEM_VOLUME_LABELS: /data/snapshots=/volume1
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
-      - /volume1:/host/volume1:ro  # system feed: volume space only, read-only
     entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]

@@ -48,11 +48,15 @@ def test_connectors_service_matches_the_D16_cadence_contract():
     assert "cron" not in entrypoint  # D16: sleep loop, never crond
 
 
-def test_connectors_service_mounts_volume1_read_only_for_the_system_feed():
-    """WP-S2 (2026-10-06): statvfs target + its env live in compose, never .env."""
+def test_connectors_system_feed_uses_the_snapshots_mount_not_the_whole_volume():
+    """C-19 (2026-10-09): statvfs on the snapshots dir reports /volume1's numbers, so the
+    `/volume1:/host/volume1:ro` bind is gone; the label keeps the UI saying /volume1.
+    The statvfs target + its env live in compose, never .env."""
     svc = compose()["services"]["connectors"]
-    assert "/volume1:/host/volume1:ro" in svc["volumes"]
-    assert svc["environment"]["SYSTEM_VOLUMES"] == "/host/volume1"
+    assert svc["volumes"] == ["/volume1/Docker/joey/data/snapshots:/data/snapshots"]
+    assert not any(v.startswith("/volume1:") for v in svc["volumes"])
+    assert svc["environment"]["SYSTEM_VOLUMES"] == "/data/snapshots"
+    assert svc["environment"]["SYSTEM_VOLUME_LABELS"] == "/data/snapshots=/volume1"
 
 
 def test_connectors_dockerfile_follows_the_hub_pattern():

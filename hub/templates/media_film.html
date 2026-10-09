@@ -193,7 +193,7 @@
     {% for e in s.episodes %}
     <div class="row has-form epline ep-{{ e.state.key }}" id="ep-{{ e.jf_id }}">
       <a class="rowlink" href="/media/item/{{ e.jf_id }}">
-        <img class="epstill" src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ e.name|urlencode }}" alt="" loading="lazy" decoding="async" width="160" height="90">
+        <img class="epstill" src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ img_letters(e.name)|urlencode }}" alt="" loading="lazy" decoding="async" width="160" height="90">
         <div class="row-body">
           <div class="row-title">E{{ e.number }} · {{ e.name }}</div>
           {{ meta([e.air_date, e.runtime]) }}

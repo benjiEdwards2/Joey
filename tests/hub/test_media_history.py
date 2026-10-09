@@ -137,7 +137,7 @@ def test_history_posters_in_main_with_the_most_played_grids(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
         body = main_of(client.get("/media/history").text)
-    assert '<img class="poster row-poster' in body and 'src="/img/jf:series-fixture-1?h=120&amp;t=Quiet%20Coast' in body
+    assert '<img class="poster row-poster' in body and 'src="/img/jf:series-fixture-1?h=120&amp;t=QU"' in body
     shows = body.split(">Most played shows</div>", 1)[1].split(">Most played movies</div>", 1)[0]
     assert shows.count('class="poster ') == 4 and 'class="poster-grid"' in shows
     assert 'src="/img/jf:series-fixture-1?h=240' in shows
@@ -153,4 +153,4 @@ def test_a_row_without_a_ref_points_at_the_fallback(app_factory):
     write_envelope(snaps, "jellyfin", age_minutes=1, data=data)
     with build(snaps) as client:
         body = main_of(client.get("/media/history").text)
-    assert 'src="/img/none?h=120&amp;t=Quiet%20Coast' in body
+    assert 'src="/img/none?h=120&amp;t=QU"' in body

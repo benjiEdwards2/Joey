@@ -163,8 +163,8 @@ def test_playing_page_has_posters_and_a_backdrop_behind_now_playing(app_factory)
     write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
     with build(snaps) as client:
         body = main_of(client.get("/media/playing").text)
-    assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
+    assert 'src="/img/jf:abc123?h=120&amp;t=HA"' in body
     assert 'src="/img/jf:def456?h=120' in body
     assert 'class="pagehead-bd"' in body and "--bd: url(" in body and "/img/jfb%3Aabc123?h=1280" in body
-    assert 'src="/img/none?h=120&amp;t=Desert%20Crossing' in body  # null ref -> fallback card
+    assert 'src="/img/none?h=120&amp;t=DE"' in body  # null ref -> fallback card
     assert "jfb:def456" not in body.split(">Up next</div>", 1)[1]  # backdrop only behind now playing

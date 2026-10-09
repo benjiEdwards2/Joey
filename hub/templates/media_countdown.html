@@ -25,7 +25,8 @@
   if (!items.length) return;
   stage.hidden = false;
   var i = items.length - 1;
-  function src(it) { return "/img/" + (it.poster || "none") + "?h=600&t=" + encodeURIComponent(it.title || ""); }
+  function letters(t) { return String(t || "").replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase(); }   // = img_letters
+  function src(it) { return "/img/" + (it.poster || "none") + "?h=600&t=" + encodeURIComponent(letters(it.title)); }
   function show() {
     var it = items[i];
     var img = document.getElementById("cdposter"); img.src = src(it);

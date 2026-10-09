@@ -111,5 +111,5 @@ def test_request_rows_carry_tmdb_posters_and_null_falls_back(app_factory):
     with build(snaps) as client:
         body = main_of(client.get("/media/requests").text)
     assert '<img class="poster row-poster' in body
-    assert 'src="/img/tmdb:/fixture1001.jpg?h=120&amp;t=Midnight%20Harbour' in body
-    assert 'src="/img/none?h=120&amp;t=Harbour%20Watch' in body  # lookup had no posterPath
+    assert 'src="/img/tmdb:/fixture1001.jpg?h=120&amp;t=MI"' in body
+    assert 'src="/img/none?h=120&amp;t=HA"' in body  # lookup had no posterPath

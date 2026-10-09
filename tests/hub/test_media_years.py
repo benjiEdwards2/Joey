@@ -173,3 +173,10 @@ def test_cross_site_write_refused(client):
                            headers={"Origin": "https://evil.example"})
         assert resp.status_code == 403, path
     assert titles(2020) == []
+
+
+def test_countdown_placeholder_urls_carry_letters_not_titles():
+    """N-33 (W2): the countdown's JS builds /img/...&t= from the title's two letters, like img_letters."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2] / "hub" / "templates" / "media_countdown.html").read_text(encoding="utf-8")
+    assert "encodeURIComponent(letters(it.title))" in src and "encodeURIComponent(it.title" not in src

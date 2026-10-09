@@ -37,7 +37,7 @@ def test_each_episode_is_a_big_whole_row_link_with_still_state_and_play(env, mon
     assert "Season 4 · 3 of 6 watched" in re.sub(r"<[^>]+>", "", seasons)
     four = ep_row(seasons, 4)
     link = four.split('<a class="rowlink" href="/media/item/ep4">', 1)[1].split("</a>", 1)[0]
-    assert '<img class="epstill" src="/img/jf:ep4?h=240&amp;t=Four"' in link
+    assert '<img class="epstill" src="/img/jf:ep4?h=240&amp;t=FO"' in link
     assert ">E4 · Four</div>" in link and "45m" in link
     assert '<div class="epstate st-progress">In progress · 40m left</div>' in link
     assert "<a " not in link and "Resume" not in link                     # the deep link is beside the row

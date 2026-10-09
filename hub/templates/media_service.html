@@ -6,7 +6,7 @@
    Jellyseerr's watch-provider discovery (AU), each a carousel of the Discover poster cards (title page, Request,
    On server / Requested words). A failed shelf says "Unavailable", an empty one "Nothing to show right now". #}
 <div class="prov-head">
-  {% if service.logo %}<img class="prov-logo" src="/img/{{ service.logo }}?h=120&amp;t={{ service.name|urlencode }}" alt="" width="56" height="56">{% endif %}
+  {% if service.logo %}<img class="prov-logo" src="/img/{{ service.logo }}?h=120&amp;t={{ img_letters(service.name)|urlencode }}" alt="" width="56" height="56">{% endif %}
   <h2 class="prov-title">{{ service.name }}</h2>
 </div>
 {% if not connected %}

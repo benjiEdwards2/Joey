@@ -134,5 +134,5 @@ def test_area_media_rows_carry_posters_inside_main(app_factory):
     with build(snaps) as client:
         body = client.get("/a/alpha").text.split("<main", 1)[1]
     assert '<img class="poster row-poster' in body
-    assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
-    assert 'src="/img/none?h=120&amp;t=Dust%20and%20Daylight' in body  # null ref -> fallback card
+    assert 'src="/img/jf:abc123?h=120&amp;t=HA"' in body
+    assert 'src="/img/none?h=120&amp;t=DU"' in body  # null ref -> fallback card

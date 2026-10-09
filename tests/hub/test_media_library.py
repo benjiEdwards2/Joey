@@ -124,7 +124,7 @@ def test_library_rows_carry_radarr_and_sonarr_posters_in_main(app_factory):
         body = main_of(client.get("/media/library").text)
     assert '<img class="poster row-poster' in body
     assert "/img/radarr:" in body and "/img/sonarr:" in body
-    assert 'src="/img/radarr:21?h=120&amp;t=Midnight%20Harbour' in body  # downloading row
+    assert 'src="/img/radarr:21?h=120&amp;t=MI"' in body  # downloading row
 
 
 def test_library_tab_rows_are_whole_row_links(app_factory):

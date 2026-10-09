@@ -8,11 +8,13 @@ Warnings name the ref kind and a status/type only — never a URL or key.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import html
 import logging
 import os
 import re
+import tempfile
 import time
 from pathlib import Path
 
@@ -24,9 +26,10 @@ router = APIRouter()
 
 SIZES = (120, 240, 400, 600, 1280)
 DEFAULT_SIZE = 400
-TMDB_WIDTH = {120: "w185", 240: "w342", 400: "w500", 600: "w780", 1280: "original"}
+TMDB_WIDTH = {120: "w185", 240: "w342", 400: "w500", 600: "w780", 1280: "w1280"}  # TMDB serves w1280; "original" is multi-MB
 TIMEOUT = 8
 MAX_BYTES = 5 * 1024 * 1024
+CHUNK = 64 * 1024
 CACHE_TTL = 30 * 24 * 3600
 HIT_CACHE = "public, max-age=2592000, immutable"
 FALLBACK_CACHE = "public, max-age=3600"
@@ -86,6 +89,23 @@ def _reason(exc: Exception) -> str:
     return type(exc).__name__  # requests exception text embeds the URL — never use it
 
 
+def _read_capped(resp) -> bytes | None:
+    """The body, streamed with a running cap: None as soon as it passes MAX_BYTES (a declared
+    Content-Length over the cap is refused unread), so a huge upstream image is never held in RAM."""
+    try:
+        if int(resp.headers.get("content-length") or 0) > MAX_BYTES:
+            return None
+    except (TypeError, ValueError):
+        pass
+    chunks = getattr(resp, "iter_content", None)
+    body = bytearray()
+    for chunk in (chunks(CHUNK) if chunks else (resp.content,)):
+        body += chunk or b""
+        if len(body) > MAX_BYTES:
+            return None
+    return bytes(body)
+
+
 def _fetch(kind: str, ident: str, h: int) -> tuple[bytes, str] | None:
     candidates = _upstreams(kind, ident, h)
     if candidates is None:
@@ -93,47 +113,72 @@ def _fetch(kind: str, ident: str, h: int) -> tuple[bytes, str] | None:
     reason = "no answer"
     for url, params, headers in candidates:
         try:
-            resp = requests.get(url, params=params or None, headers=headers or None, timeout=TIMEOUT)
+            resp = requests.get(url, params=params or None, headers=headers or None, timeout=TIMEOUT,
+                                stream=True)
         except Exception as exc:
             reason = _reason(exc)
             break  # an unreachable app won't answer the second candidate either
-        ctype = str(resp.headers.get("content-type", "")).split(";")[0].strip().lower()
-        if resp.status_code != 200:
-            reason = f"HTTP {resp.status_code}"
-            continue  # radarr/sonarr: poster-500.jpg missing -> try poster.jpg
-        if ctype not in EXT:
-            reason = "not an image"
+        try:
+            ctype = str(resp.headers.get("content-type", "")).split(";")[0].strip().lower()
+            if resp.status_code != 200:
+                reason = f"HTTP {resp.status_code}"
+                continue  # radarr/sonarr: poster-500.jpg missing -> try poster.jpg
+            if ctype not in EXT:
+                reason = "not an image"
+                break
+            body = _read_capped(resp)
+            if body is None:
+                reason = "image too large"
+                break
+            return body, EXT[ctype]
+        except Exception as exc:  # a connection dropped mid-body
+            reason = _reason(exc)
             break
-        if len(resp.content) > MAX_BYTES:
-            reason = "image too large"
-            break
-        return resp.content, EXT[ctype]
+        finally:
+            close = getattr(resp, "close", None)
+            if close:
+                close()
     log.warning("image upstream failed (%s: %s)", kind, reason)
     return None
 
 
-def _cached(stem: str) -> tuple[bytes, str] | None:
+def _cache_path(stem: str) -> Path | None:
+    """The cached file for a stem still inside CACHE_TTL (any image extension), else None. A stat, not a read."""
     folder = cache_dir()
     for ext in MIME:
         path = folder / (stem + ext)
         try:
             if time.time() - path.stat().st_mtime < CACHE_TTL:
-                return path.read_bytes(), ext
+                return path
         except OSError:
             continue
     return None
 
 
+def _cached(stem: str) -> tuple[bytes, str] | None:
+    path = _cache_path(stem)
+    try:
+        return (path.read_bytes(), path.suffix) if path else None
+    except OSError:
+        return None
+
+
 def _store(stem: str, ext: str, body: bytes) -> None:
     folder = cache_dir()
+    tmp = None
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        path = folder / (stem + ext)
-        tmp = path.with_suffix(f".{os.getpid()}.tmp")
-        tmp.write_bytes(body)
-        os.replace(tmp, path)  # atomic — a reader never sees a half-written image
+        # a temp name unique per call (H-62): request threads and the warm-up share one pid, and two
+        # fetches of one ref must never write the same temp file and publish a half-written image
+        fd, tmp = tempfile.mkstemp(dir=folder, prefix=stem[:16] + ".", suffix=".tmp")
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(body)
+        os.replace(tmp, folder / (stem + ext))  # atomic — a reader never sees a half-written image
     except OSError as exc:
         log.warning("image cache write failed (%s)", _reason(exc))
+        if tmp:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp)
 
 
 @router.get("/img/{ref:path}")
@@ -166,13 +211,8 @@ def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
     if not match or h not in SIZES:
         return "skipped"
     stem = hashlib.sha256(f"{ref}|{h}".encode("utf-8")).hexdigest()
-    folder = cache_dir()
-    for ext in MIME:  # a stat, not a read: the warm-up re-checks hundreds of refs each pass
-        try:
-            if time.time() - (folder / (stem + ext)).stat().st_mtime < CACHE_TTL:
-                return "cached"
-        except OSError:
-            continue
+    if _cache_path(stem):  # a stat, not a read: the warm-up re-checks hundreds of refs each pass
+        return "cached"
     got = _fetch(match.group(1) or match.group(3), match.group(2) or match.group(4), h)
     if got is None:
         return "skipped"

@@ -129,11 +129,11 @@ def test_no_data_schema_exists_for_removed_or_foreign_ids():
     assert "money" not in present  # WP32 authors it under connectors/money/ (§4 rule 9)
 
 
-def test_a_broken_stubs_module_fails_loudly_instead_of_sweeping_nothing(monkeypatch):
-    """C-03: the WP22-era ImportError swallow is gone."""
+def test_a_broken_feeds_package_fails_loudly_instead_of_sweeping_nothing(monkeypatch):
+    """C-03: the WP22-era ImportError swallow is gone (C-04: the feeds live in connectors.feeds)."""
     import sys
 
-    monkeypatch.setitem(sys.modules, "connectors.stubs", None)  # import now raises ImportError
-    monkeypatch.delattr("connectors.stubs", raising=False)
+    monkeypatch.setitem(sys.modules, "connectors.feeds", None)  # import now raises ImportError
+    monkeypatch.delattr("connectors.feeds", raising=False)
     with pytest.raises(ImportError):
-        registry._load_stubs()
+        registry._load_feeds()

@@ -166,7 +166,7 @@ def test_failure_never_leaks_the_url_or_key(live, monkeypatch):
     assert envelope["status"] == "error"
     dumped = json.dumps(envelope)
     assert "example.invalid" not in dumped and KEY not in dumped
-    assert "ConnectionError" in envelope["error"]
+    assert "Jellyfin users failed (connection refused)" in envelope["error"]
 
 
 def test_http_failure_reason_is_the_status_code(live, monkeypatch):
@@ -471,9 +471,10 @@ def test_a_failed_library_list_drops_only_that_list(live, monkeypatch, raw, capl
     assert envelope["status"] == "ok", envelope["error"]
     data = envelope["data"]
     assert "movies" not in data and len(data["shows"]) > 0
+    assert data["partial_errors"] == {"movies": "timeout"}  # C-10
     assert data["summary"] and data["up_next"]            # the core feed is untouched
     jsonschema.validate(data, SCHEMA)
-    assert "Jellyfin movies failed (Timeout)" in caplog.text
+    assert "Jellyfin movies failed (timeout)" in caplog.text
     assert "example.invalid" not in caplog.text and KEY not in caplog.text
 
 
@@ -483,6 +484,7 @@ def test_a_failed_her_call_makes_her_null_and_keeps_the_feed_ok(live, monkeypatc
     envelope = Jellyfin().run()
     assert envelope["status"] == "ok", envelope["error"]
     assert envelope["data"]["her"] is None and envelope["data"]["movies"]
+    assert envelope["data"]["partial_errors"] == {"her resume": "timeout"}
     jsonschema.validate(envelope["data"], SCHEMA)
 
 
@@ -490,4 +492,61 @@ def test_a_failed_core_call_still_fails_the_feed(live, monkeypatch, raw):
     _failing(monkeypatch, raw, lambda path, p: path == "/Sessions")
     envelope = Jellyfin().run()
     assert envelope["status"] == "error"
-    assert envelope["error"] == "RuntimeError: Jellyfin sessions failed (Timeout)"
+    assert envelope["error"] == "RuntimeError: Jellyfin sessions failed (timeout)"
+
+
+# ---- C-18 (2026-10-09): the Limit=2000 library lists run at most every JELLYFIN_LIBRARY_EVERY_S ----
+
+
+def _library_calls(calls):
+    return [c for c in calls if (c[1] or {}).get("IncludeItemTypes") in ("Movie", "Series")]
+
+
+def test_library_lists_are_reused_inside_the_window(live, monkeypatch, raw):
+    monkeypatch.setenv("JELLYFIN_USER_HER", "georgina")
+    monkeypatch.delenv("JELLYFIN_LIBRARY_EVERY_S", raising=False)
+    calls = _live_calls(monkeypatch, raw)
+    first = Jellyfin().run()["data"]
+    assert len(_library_calls(calls)) == 4 and first["library_fetched_at"]
+    calls.clear()
+    second = Jellyfin().run()
+    data = second["data"]
+    assert second["status"] == "ok", second["error"]
+    assert _library_calls(calls) == [] and calls  # the other calls still ran
+    assert data["movies"] == first["movies"] and data["shows"] == first["shows"]
+    assert data["her"]["movies"] == first["her"]["movies"] and data["her"]["shows"] == first["her"]["shows"]
+    assert data["library_fetched_at"] == first["library_fetched_at"]
+    jsonschema.validate(data, SCHEMA)
+
+
+def test_library_lists_are_fetched_again_once_the_window_passes(live, monkeypatch, raw):
+    monkeypatch.delenv("JELLYFIN_USER_HER", raising=False)
+    calls = _live_calls(monkeypatch, raw)
+    Jellyfin().run()
+    path = live / "jellyfin.json"
+    env = json.loads(path.read_text(encoding="utf-8"))
+    env["data"]["library_fetched_at"] = "2020-01-01T00:00:00+00:00"
+    path.write_text(json.dumps(env), encoding="utf-8")
+    calls.clear()
+    data = Jellyfin().run()["data"]
+    assert len(_library_calls(calls)) == 2
+    assert data["library_fetched_at"] > "2020-01-01T00:00:00+00:00"
+
+
+@pytest.mark.parametrize("every", ["0", "-5"])
+def test_a_zero_window_fetches_the_lists_every_run(live, monkeypatch, raw, every):
+    monkeypatch.delenv("JELLYFIN_USER_HER", raising=False)
+    monkeypatch.setenv("JELLYFIN_LIBRARY_EVERY_S", every)
+    calls = _live_calls(monkeypatch, raw)
+    Jellyfin().run()
+    Jellyfin().run()
+    assert len(_library_calls(calls)) == 4
+
+
+def test_a_list_missing_last_time_fetches_them_all(live, monkeypatch, raw):
+    monkeypatch.delenv("JELLYFIN_USER_HER", raising=False)
+    _failing(monkeypatch, raw, lambda path, p: p.get("IncludeItemTypes") == "Movie")
+    assert "movies" not in Jellyfin().run()["data"]
+    calls = _live_calls(monkeypatch, raw)
+    data = Jellyfin().run()["data"]
+    assert len(_library_calls(calls)) == 2 and data["movies"] and "partial_errors" not in data

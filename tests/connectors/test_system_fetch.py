@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import jsonschema
 import pytest
 
-from connectors import stubs
+from connectors.feeds import system as system_feed
 from connectors.stubs import System
 
 SCHEMA = json.loads((Path(__file__).resolve().parents[2] / "connectors" / "schema" / "data"
@@ -28,15 +28,15 @@ def proc(monkeypatch):
     """Fake /proc: stat answers STAT_1 then STAT_2; statvfs 1 TiB with 256 GiB available."""
     stats = iter([STAT_1, STAT_2])
     files = {"meminfo": MEMINFO, "uptime": UPTIME, "loadavg": LOADAVG}
-    monkeypatch.setattr(stubs, "_read_proc", lambda name: next(stats) if name == "stat" else files[name])
-    monkeypatch.setattr(stubs, "CPU_SAMPLE_S", 0)
+    monkeypatch.setattr(system_feed, "_read_proc", lambda name: next(stats) if name == "stat" else files[name])
+    monkeypatch.setattr(system_feed, "CPU_SAMPLE_S", 0)
     statted = []
 
     def statvfs(path):
         statted.append(path)
         return SimpleNamespace(f_frsize=4096, f_blocks=1024 * GIB // 4096, f_bavail=256 * GIB // 4096)
 
-    monkeypatch.setattr(stubs.os, "statvfs", statvfs, raising=False)
+    monkeypatch.setattr(system_feed.os, "statvfs", statvfs, raising=False)
     monkeypatch.delenv("SYSTEM_VOLUMES", raising=False)
     return statted
 
@@ -51,8 +51,8 @@ def test_cpu_is_the_delta_between_two_samples(proc):
 
 
 def test_cpu_math_ignores_cumulative_totals():
-    assert stubs._cpu_times(STAT_1) == (8500, 10000)
-    assert stubs._cpu_times(STAT_2) == (9100, 11000)
+    assert system_feed._cpu_times(STAT_1) == (8500, 10000)
+    assert system_feed._cpu_times(STAT_2) == (9100, 11000)
 
 
 def test_raw_shape_matches_the_fixture_contract(proc):
@@ -74,24 +74,24 @@ def test_volume_paths_strip_the_host_prefix(proc, monkeypatch):
     raw = System().fetch()
     assert proc == ["/host/volume1", "/host/volume2/Docker", "/data/snapshots", "/host"]
     assert [v["path"] for v in raw["volumes"]] == ["/volume1", "/volume2/Docker", "/data/snapshots", "/"]
-    assert stubs._volume_label("/hostile/x") == "/hostile/x"  # only a whole /host segment is stripped
+    assert system_feed._volume_label("/hostile/x") == "/hostile/x"  # only a whole /host segment is stripped
 
 
 def test_missing_loadavg_is_null_not_a_failure(proc, monkeypatch):
-    real = stubs._read_proc
+    real = system_feed._read_proc
 
     def no_load(name):
         if name == "loadavg":
             raise RuntimeError("cannot read /proc/loadavg (FileNotFoundError)")
         return real(name)
 
-    monkeypatch.setattr(stubs, "_read_proc", no_load)
+    monkeypatch.setattr(system_feed, "_read_proc", no_load)
     assert System().fetch()["load_1m"] is None
 
 
 def test_unreadable_proc_is_an_error_envelope_never_numbers(snapshots, monkeypatch, tmp_path):
     monkeypatch.setenv("CONNECTOR_MODE", "live")
-    monkeypatch.setattr(stubs, "PROC_ROOT", tmp_path / "no-proc")
+    monkeypatch.setattr(system_feed, "PROC_ROOT", tmp_path / "no-proc")
     env = System().run()
     assert env["status"] == "error" and env["data"] == {}
     assert env["error"] == "RuntimeError: cannot read /proc/stat (FileNotFoundError)"
@@ -101,7 +101,7 @@ def test_unstattable_volume_is_an_error_naming_the_path(proc, monkeypatch):
     def boom(path):
         raise FileNotFoundError(path)
 
-    monkeypatch.setattr(stubs.os, "statvfs", boom, raising=False)
+    monkeypatch.setattr(system_feed.os, "statvfs", boom, raising=False)
     with pytest.raises(RuntimeError, match=r"cannot stat volume /host/volume1 \(FileNotFoundError\)"):
         System().fetch()
 
@@ -121,7 +121,7 @@ def test_volume_labels_map_a_path_to_the_nas_name(proc, monkeypatch):
 def test_volume_labels_tolerate_spaces_and_junk_pairs(proc, monkeypatch):
     monkeypatch.setenv("SYSTEM_VOLUMES", "/data/snapshots")
     monkeypatch.setenv("SYSTEM_VOLUME_LABELS", " /data/snapshots = /volume1 , nonsense, =x, /y= ")
-    assert stubs._volume_labels() == {"/data/snapshots": "/volume1"}
+    assert system_feed._volume_labels() == {"/data/snapshots": "/volume1"}
     assert System().fetch()["volumes"][0]["path"] == "/volume1"
 
 

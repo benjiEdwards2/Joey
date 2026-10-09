@@ -53,13 +53,18 @@ services:
     # container, which WP11 fronts it with on the compose network.
     expose:
       - "8000"
+    # default: cloudflared reaches it as hub:8000. media: the media stack by service name (N-09).
+    networks:
+      - default
+      - media
 
   cloudflared:
     # WP11 — remotely-managed Cloudflare tunnel (`joey-nas` in Zero Trust).
     # Fronts the hub over the compose network as http://hub:8000; the token
     # lives ONLY in the NAS-side .env (rule 11). No public hostnames until
     # WP12 puts Access in front.
-    image: cloudflare/cloudflared:latest
+    # Pinned (review D-06, 2026-10-09): 2026.9.3, pushed 2026-09-24. Bump by hand (WUD shows new tags).
+    image: cloudflare/cloudflared:2026.9.3
     container_name: joey-cloudflared
     restart: unless-stopped
     logging: *logging
@@ -74,7 +79,8 @@ services:
     # read-only deploy key /root/.ssh/macromates_deploy). Reached ONLY through the
     # joey-nas tunnel at https://macromates.joeyhome.net behind the family-allowlist
     # Access policy — no published ports. Supabase backend unchanged.
-    image: nginx:alpine
+    # Pinned (review D-06, 2026-10-09): nginx 1.31.6 mainline (released 2026-09-15), what nginx:alpine was.
+    image: nginx:1.31.6-alpine
     container_name: joey-macromates
     restart: unless-stopped
     logging: *logging
@@ -90,6 +96,9 @@ services:
     # (jellyfin, media_status, qbittorrent, arr; D16 amended 2026-10-05, qbittorrent 2026-10-06; arr joins
     # 2026-10-06 so a new download is named within 2 min). sleep loops, NOT crond (D16) — phase drift
     # after a restart is accepted. Writes the snapshot envelopes the hub reads.
+    # Start-up order (C-17, 2026-10-09): ONE full sweep first (every envelope written), then the
+    # 2-minute loop in the background, then the hourly loop `--except` the six fast ids, so the
+    # two loops never run the same connector at once.
     image: life-connectors
     build:
       context: ..
@@ -120,4 +129,17 @@ services:
       SYSTEM_VOLUME_LABELS: /data/snapshots=/volume1
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots
-    entrypoint: ["sh", "-c", "(while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do python -m connectors.run_all; sleep 3600; done"]
+    networks:
+      - default
+      - media
+    entrypoint: ["sh", "-c", "python -m connectors.run_all; (while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do sleep 3600; python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; done"]
+
+networks:
+  # Shared Docker network (N-09, 2026-10-09): the media stack's compose network, joined by the hub
+  # and connectors so they reach jellyfin:8096, radarr:7878, ... and gluetun:8080/9696 (qBittorrent
+  # and Prowlarr live in gluetun's network namespace) by service name instead of the NAS LAN IP.
+  # External: the media stack owns it, so it must exist before `up` (deploy.sh checks first).
+  # Service-name URLs and the port checklist: docs/network.md.
+  media:
+    external: true
+    name: media-server_default

@@ -59,10 +59,11 @@ def build_all() -> list[Connector]:
     return [_FACTORIES[cid]() for cid in connector_ids()]
 
 
-def _load_stubs() -> None:
-    """Import the per-feed stub connectors, which self-register (WP23). Unconditional
-    (C-03): a broken stubs.py must fail loudly, not quietly sweep zero connectors."""
-    from connectors import stubs  # noqa: F401
+def _load_feeds() -> None:
+    """Import the per-feed connectors (`connectors/feeds/`), which self-register (WP23,
+    C-04). Unconditional (C-03): a broken feed module must fail loudly, not quietly sweep
+    zero connectors."""
+    import connectors.feeds  # noqa: F401
 
 
-_load_stubs()
+_load_feeds()

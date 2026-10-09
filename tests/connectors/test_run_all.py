@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from connectors.base import Connector
 from connectors.run_all import HEARTBEAT_NAME, HISTORY_NAME, run_sweep
 
@@ -80,6 +82,26 @@ def test_main_parses_only_argument(snapshots, monkeypatch):
     assert run_all.main(["--only", "open_meteo, nas_stats"]) == 0
     beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
     assert beat["only"] == ["open_meteo", "nas_stats"]
+
+
+def test_except_leaves_ids_out_and_tags_the_sweep(snapshots):
+    """C-17: the hourly loop runs `--except` the fast loop's ids, so no connector runs twice at once."""
+    sweep = run_sweep([Raiser(), Good()], skip=["nas_stats"])
+    assert set(sweep["results"]) == {"open_meteo"}
+    assert sweep["except"] == ["nas_stats"] and "only" not in sweep
+    line = json.loads((snapshots / HISTORY_NAME).read_text(encoding="utf-8").splitlines()[-1])
+    assert line["except"] == ["nas_stats"]
+
+
+def test_main_parses_except_argument_and_refuses_it_with_only(snapshots, monkeypatch):
+    from connectors import registry, run_all
+
+    monkeypatch.setattr(registry, "build_all", lambda: [Raiser(), Good()])
+    assert run_all.main(["--except", " nas_stats ,"]) == 0
+    beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
+    assert set(beat["results"]) == {"open_meteo"} and beat["except"] == ["nas_stats"]
+    with pytest.raises(SystemExit):
+        run_all.main(["--only", "open_meteo", "--except", "nas_stats"])
 
 
 def test_heartbeat_is_written_atomically_via_os_replace(snapshots, monkeypatch):
@@ -183,3 +205,18 @@ def test_only_non_ok_results_and_one_summary_line_are_printed(snapshots, capsys,
     assert re.fullmatch(r"sweep ok=2 err=1 partial=1 ms=\d+", out[-1])
     assert len(out) == 2                       # nothing printed for the ok results
     assert "open_meteo: ok" not in caplog.text  # and no per-connector log.info duplicate
+
+
+class PartialNew(Good):
+    id = "jellyfin"
+
+    def fetch_fixture(self):
+        return {"summary": "ok", "partial_errors": {"movies": "timeout"}}
+
+
+def test_partial_errors_count_as_partial(snapshots, capsys):
+    """C-10: the one convention key is counted like its two older forms."""
+    import re
+
+    run_sweep([Good(), PartialNew()])
+    assert re.fullmatch(r"sweep ok=2 err=0 partial=1 ms=\d+", capsys.readouterr().out.strip().splitlines()[-1])

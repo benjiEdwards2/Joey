@@ -9,6 +9,11 @@
   "properties": {
     "summary": {"type": "string", "minLength": 1},
     "secondary": {"type": "string"},
+    "partial_errors": {
+      "type": "object",
+      "description": "C-10 (2026-10-09), the one partial-failure convention: present only when the feed is ok but some of its sources failed this sweep; source -> sanitized reason (type/status only, never a URL). Additive: older per-feed keys stay.",
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
     "arrived": {
       "type": "array",
       "maxItems": 20,

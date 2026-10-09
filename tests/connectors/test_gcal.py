@@ -13,7 +13,7 @@ import jsonschema
 import pytest
 import requests
 
-import connectors.stubs
+import connectors.feeds._common
 from connectors.base import FIXTURE_TIMESTAMP
 from connectors.stubs import Gcal
 
@@ -33,7 +33,7 @@ def live(snapshots, monkeypatch):
     monkeypatch.setenv("CONNECTOR_MODE", "live")
     monkeypatch.setenv("ICS_URL_YOU", URL_YOU)
     monkeypatch.setenv("ICS_URL_HER", URL_HER)
-    monkeypatch.setattr(connectors.stubs, "_now_iso", lambda: FIXTURE_TIMESTAMP)
+    monkeypatch.setattr(connectors.feeds._common, "_now_iso", lambda: FIXTURE_TIMESTAMP)
     return snapshots
 
 
@@ -85,7 +85,8 @@ def test_one_feed_down_keeps_the_other_owner(live, monkeypatch):
     assert envelope["status"] == "ok"  # partial result, per the WP25 plan
     events = envelope["data"]["events"]
     assert events and {e["owner"] for e in events} == {"you"}
-    assert envelope["data"]["feed_errors"] == {"her": "Timeout"}
+    assert envelope["data"]["feed_errors"] == {"her": "timeout"}  # one sanitiser for every feed (C-05)
+    assert envelope["data"]["partial_errors"] == {"her": "timeout"}  # C-10, alongside feed_errors
     assert "her feed down" in envelope["data"]["secondary"]
     jsonschema.Draft202012Validator(GCAL_DATA_SCHEMA).validate(envelope["data"])
 

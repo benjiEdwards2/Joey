@@ -223,7 +223,7 @@ def test_errors_never_leak_the_url_or_key(live, monkeypatch, raw):
     fake_requests(monkeypatch, raw, lambda p: leaky)
     envelope = Jellyseerr().run()
     blob = json.dumps(envelope)
-    assert envelope["status"] == "error" and "ConnectionError" in envelope["error"]
+    assert envelope["status"] == "error" and "(connection refused)" in envelope["error"]
     for secret in (KEY, "example.invalid", "http://"):
         assert secret not in blob
 

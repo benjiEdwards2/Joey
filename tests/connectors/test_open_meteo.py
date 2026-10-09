@@ -171,7 +171,7 @@ def test_a_failed_forecast_reports_status_only_never_the_url(monkeypatch, snapsh
     with caplog.at_level("WARNING", logger="connectors"):
         envelope = OpenMeteo().run()
     assert envelope["status"] == "error"
-    assert envelope["error"] == "RuntimeError: Open-Meteo forecast failed (ConnectionError)"
+    assert envelope["error"] == "RuntimeError: Open-Meteo forecast failed (connection refused)"
     on_disk = (snapshots / "open_meteo.json").read_text(encoding="utf-8")
     for text in (envelope["error"], on_disk, caplog.text):
         assert "-37.84" not in text and "latitude" not in text and "open-meteo.com" not in text

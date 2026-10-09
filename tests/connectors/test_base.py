@@ -153,3 +153,14 @@ def test_home_tz_reads_tz_in_live_mode_and_pins_melbourne_in_fixture_mode(monkey
     monkeypatch.setenv("CONNECTOR_MODE", "fixture")
     monkeypatch.setenv("TZ", "UTC")
     assert str(home_tz()) == "Australia/Melbourne"   # samples never depend on the machine
+
+
+def test_partial_note_adds_to_one_partial_errors_dict():
+    """C-10: source -> reason, additive, returns the same dict."""
+    from connectors.base import partial_note
+
+    data = {"summary": "x", "feed_errors": {"her": "timeout"}}
+    assert partial_note(data, "her", "timeout") is data
+    partial_note(data, "you", "HTTP 500")
+    assert data == {"summary": "x", "feed_errors": {"her": "timeout"},
+                    "partial_errors": {"her": "timeout", "you": "HTTP 500"}}

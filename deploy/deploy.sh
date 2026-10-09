@@ -96,13 +96,17 @@ gate_fail() {
 echo "== compose validate =="
 cd "$DEPLOY_DIR"   # picks up docker-compose.yml + any local override
 docker compose config -q || gate_fail "compose config invalid"
+# hub + connectors join the media stack's network (N-09); `up` fails without it, so check first
+docker network inspect media-server_default >/dev/null 2>&1 \
+    || gate_fail "network media-server_default missing — start the media stack first"
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.
+# -n auto (pytest-xdist, review N-44): one worker per core; the suite was ~9 of the ~10 minutes.
 cd "$REPO"
 gate() {
     docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
-        && docker run --rm --network none life-test
+        && docker run --rm --network none life-test python -m pytest -q -n auto tests/
 }
 gate || gate_fail "test build or suite red"
 

@@ -33,6 +33,14 @@ def test_gate_runs_offline():
     assert "docker run --rm life-test" not in SCRIPT
 
 
+def test_gate_runs_the_full_suite_in_parallel_with_a_pinned_xdist():
+    """N-44 (2026-10-09): ~9 of a deploy's ~10 minutes were the suite; xdist spreads it over
+    the cores. Still the FULL tests/ tree (rule 13), and xdist is pinned for the image."""
+    assert "docker run --rm --network none life-test python -m pytest -q -n auto tests/" in SCRIPT
+    dev = (REPO_ROOT / "requirements-dev.txt").read_text(encoding="utf-8").splitlines()
+    assert "pytest-xdist==3.8.0" in dev
+
+
 def test_gate_fail_resets_the_tree_to_prev_sha():
     """D-02: a red gate (or invalid compose) must not leave the tree on the untested SHA,
     or the next deploy's PREV_SHA (its rollback target) is code that never passed."""
@@ -117,3 +125,10 @@ def test_smoke_waits_for_the_hub_to_listen_instead_of_a_fixed_sleep():
     assert "wait_for_hub" in SCRIPT and SCRIPT.index("wait_for_hub()") < SCRIPT.index("smoke()")
     assert "/healthz" in SCRIPT and "[ $i -lt 18 ]" in SCRIPT
     assert "    sleep 5" + chr(10) + "    docker compose exec -T hub python tests/deploy/smoke.py" not in SCRIPT
+
+
+def test_a_missing_media_network_fails_the_gate_before_the_stack_is_touched():
+    """N-09: compose `up` cannot start hub/connectors without the external media network."""
+    check = SCRIPT.index("docker network inspect media-server_default")
+    assert check < SCRIPT.index("== build + converge ==")
+    assert 'gate_fail "network media-server_default missing' in SCRIPT[check:check + 200]

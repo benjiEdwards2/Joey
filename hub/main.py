@@ -26,7 +26,7 @@ from hub.images import router as images_router
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub import media_awards_badges
-from hub.media_write import router as media_write_router, year_ctx
+from hub.media_write import PLACES, router as media_write_router, year_ctx
 from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
 from hub import media_awards, media_awards_pages
 from hub import server as server_area
@@ -744,7 +744,7 @@ def media_frame(request: Request) -> dict:
             waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings, inbox)}
         except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)
             log.warning("to rate count skipped: %s", type(exc).__name__)
-        cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)
+        cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting)
     return cached
 
 
@@ -956,7 +956,7 @@ def hub_shelf(area, snaps, view: str) -> dict | None:
         url = item_href(row.get("jf_id"))
         return {"title": title, "sub": " · ".join(x for x in (owner.title(), sub) if x),  # owner first: never ellipsised
                 "when": when, "poster": row.get("poster"), "href": url or fallback,
-                "external": False, "pct": row.get("progress_pct"), "acts": None}  # _shelf.html's shared shape
+                "pct": row.get("progress_pct")}  # _shelf.html's shape
 
     watched = None
     if any(t.detail == DIARY_DETAIL for t in tiles):
@@ -1310,7 +1310,7 @@ def media_diary_page(request: Request):
                 f"{stats['year_episodes']} episode{'' if stats['year_episodes'] == 1 else 's'} this year",
                 f"{streak}-day streak" if streak else "no current streak"]),
             "milestones": stats["milestones"][:MILESTONES_MAX],
-            "months": months, "kind": kind or "", "today": date.today().isoformat(),
+            "months": months, "kind": kind or "", "today": date.today().isoformat(), "places": PLACES,
             "on_this_day": on_this_day,
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,

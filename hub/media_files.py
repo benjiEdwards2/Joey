@@ -105,25 +105,6 @@ def _audio_word(stream: dict) -> str:
     return AUDIO_WORDS.get(codec) or codec.upper() or "Audio"
 
 
-# Dolby / DTS badge (2026-10-06): the ONE mapping from an audio word or raw codec string to a
-# brand badge. The label is always written out — the double-D glyph is extra, never the only encoding.
-BRAND_BADGES = {
-    "atmos": ("Dolby Atmos", True), "dolbyatmos": ("Dolby Atmos", True),
-    "eac3": ("Dolby Digital Plus", True), "ddp": ("Dolby Digital Plus", True),
-    "dolbydigitalplus": ("Dolby Digital Plus", True),
-    "ac3": ("Dolby Digital", True), "dolbydigital": ("Dolby Digital", True),
-    "truehd": ("Dolby TrueHD", True), "dolbytruehd": ("Dolby TrueHD", True),
-    "dts": ("DTS", False), "dtshd": ("DTS-HD", False), "dtshdma": ("DTS-HD MA", False), "dtsx": ("DTS:X", False),
-}
-
-
-def brand_badge(text) -> dict | None:
-    """'E-AC-3' / 'Dolby Digital Plus' -> {'label': 'Dolby Digital Plus', 'glyph': True}; unknown -> None."""
-    key = "".join(ch for ch in str(text or "").lower() if ch.isalnum())
-    hit = BRAND_BADGES.get(key)
-    return {"label": hit[0], "glyph": hit[1]} if hit else None
-
-
 LANG_WORDS = {"eng": "English", "fra": "French", "fre": "French", "deu": "German", "ger": "German",
               "spa": "Spanish", "ita": "Italian", "jpn": "Japanese", "kor": "Korean", "zho": "Chinese",
               "chi": "Chinese", "rus": "Russian", "por": "Portuguese", "hin": "Hindi", "nld": "Dutch",
@@ -135,23 +116,17 @@ def _lang_word(code) -> str | None:
     return None if not code or code == "und" else LANG_WORDS.get(code) or code.upper()
 
 
-# Quality pills (F10): ONE mapping from a badge word to {id, label, tone, glyph}. `id` names the optional
-# override image in hub/static/badges/; `tone` picks the pill style (dolby / dts black; hdr dark; plain).
-PILL_IDS = {"Dolby Vision": ("dolby-vision", "dolby", True), "Dolby Atmos": ("dolby-atmos", "dolby", True),
-            "Atmos": ("dolby-atmos", "dolby", True), "Dolby Digital Plus": ("dolby-digital-plus", "dolby", True),
-            "Dolby Digital": ("dolby-digital", "dolby", True), "TrueHD": ("dolby-truehd", "dolby", True),
-            "Dolby TrueHD": ("dolby-truehd", "dolby", True), "DTS-HD": ("dts-hd", "dts", False),
-            "DTS-HD MA": ("dts-hd", "dts", False), "DTS": ("dts", "dts", False),
-            "HDR10": ("hdr10", "hdr", False), "HDR10+": ("hdr10plus", "hdr", False), "HLG": ("hlg", "hdr", False)}
+# Quality pills (F10): ONE mapping from a badge word to {id, label}. `id` names the optional override image in
+# hub/static/badges/ (media_film.badge).
+PILL_IDS = {"Dolby Vision": "dolby-vision", "Dolby Atmos": "dolby-atmos", "Atmos": "dolby-atmos",
+            "Dolby Digital Plus": "dolby-digital-plus", "Dolby Digital": "dolby-digital", "TrueHD": "dolby-truehd",
+            "Dolby TrueHD": "dolby-truehd", "DTS-HD": "dts-hd", "DTS-HD MA": "dts-hd", "DTS": "dts",
+            "HDR10": "hdr10", "HDR10+": "hdr10plus", "HLG": "hlg"}
 
 
-def badge_pill(word: str, icon: str = "") -> dict:
-    """A badge word -> the pill to draw. Dolby words read as 'Dolby ...' (Atmos / TrueHD included)."""
-    hit = PILL_IDS.get(word)
-    label = {"Atmos": "Dolby Atmos", "TrueHD": "Dolby TrueHD"}.get(word, word)
-    if hit:
-        return {"id": hit[0], "label": label, "tone": hit[1], "glyph": hit[2], "icon": icon}
-    return {"id": None, "label": word, "tone": "plain", "glyph": False, "icon": icon}
+def badge_pill(word: str) -> dict:
+    """A badge word -> {id, label}. Dolby words read as 'Dolby ...' (Atmos / TrueHD included)."""
+    return {"id": PILL_IDS.get(word), "label": {"Atmos": "Dolby Atmos", "TrueHD": "Dolby TrueHD"}.get(word, word)}
 
 
 def _size_text(n) -> str | None:
@@ -337,8 +312,6 @@ def _badges(files: list[dict]) -> tuple[list[dict], list[dict]]:
     audio += [{"word": w, "icon": "channels"} for w in _ordered(col("channels"), ("Mono", "Stereo", "5.1", "7.1"))]
     if any(f.get("atmos") for f in files):
         audio.append({"word": "Atmos", "icon": "atmos"})
-    for b in audio:
-        b["brand"] = brand_badge(b["word"]) if b["icon"] in ("audio", "atmos") else None
     return video, audio
 
 
@@ -455,35 +428,13 @@ def file_summary(kind: str, tmdb_id: int, jf_id: str | None = None, snaps=None) 
 
 
 def file_summary_from_item(jf_id: str, item: dict) -> dict | None:
-    """file_summary_for_item from an item body already read WITH ITEM_FIELDS (the film page's own read):
-    no second Jellyfin call. Shares file_summary_for_item's cache entry."""
+    """Quality facts for ONE Jellyfin item (a film or an episode file) from an item body already read WITH
+    ITEM_FIELDS (the film page's own read): no second Jellyfin call."""
     key = (f"item:{jf_id}", 0)
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < CACHE_TTL:
         return hit[1]
     out = _summarise("movie", [item]) if isinstance(item, dict) else None
-    if out is not None:
-        _cache[key] = (time.time(), out)
-    return out
-
-
-def file_summary_for_item(jf_id: str) -> dict | None:
-    """Quality facts for ONE Jellyfin item (a film or an episode file), or None on any failure."""
-    key = (f"item:{jf_id}", 0)
-    hit = _cache.get(key)
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1]
-    creds = _creds()
-    if not creds:
-        return None
-    base, headers = creds
-    try:
-        uid = _user_id(base, headers)
-        item = _get(base, headers, f"/Users/{uid}/Items/{jf_id}", {"Fields": ITEM_FIELDS}) if uid else None
-        out = _summarise("movie", [item]) if isinstance(item, dict) else None
-    except Exception as exc:  # type only — requests errors embed the URL
-        log.warning("jellyfin item file lookup failed: %s", type(exc).__name__)
-        return None
     if out is not None:
         _cache[key] = (time.time(), out)
     return out

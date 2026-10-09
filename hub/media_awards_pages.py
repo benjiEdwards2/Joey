@@ -310,7 +310,7 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     bodies = adb.bodies(akind)
     ids = [b["id"] for b in bodies]
     body = body_q if body_q in ids else ids[0]
-    years = adb.years_of(body, akind)
+    years = adb.years_of(body)
     latest = adb.latest_synced_year(body, akind) or (years[0] if years else None)
     asked = int(year_q) if year_q.isdigit() and body_q in ids else None    # a bad body = a bad link: plain defaults
     year = asked if asked in years else (nearest_year(years, asked) if asked and years else latest)

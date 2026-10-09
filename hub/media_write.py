@@ -31,7 +31,7 @@ router = APIRouter()
 MAX_BODY = 8192
 SEARCH_TIMEOUT = 8
 SEARCH_MAX = 8
-PLACES = ("Cinema", "Netflix", "Friend's", "Other")
+PLACES = ("Cinema", "Netflix", "Friend's", "Other")   # the diary log form's place suggestions (<datalist>)
 # Where a plain-form rating may return (media-ux2): the pages that hold a To rate list. Anything else -> history.
 # media-ux4: the Movies / TV Shows "To rate" tabs (the list pages keep their entries for forms already open).
 RATE_BACK = {p: p for p in ("/media/history", "/media/movies", "/media/tv", "/media/movies/to-rate", "/media/tv/to-rate")}

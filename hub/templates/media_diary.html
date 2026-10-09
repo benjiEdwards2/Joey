@@ -28,7 +28,7 @@
     <div id="search-results" class="listbox"></div>
     <label><span class="label">Date</span><input class="input" type="date" name="watched_on" value="{{ today }}" max="{{ today }}"></label>
     <label><span class="label">Where</span><input class="input" type="text" name="place" list="places" placeholder="Cinema, Netflix, Friend's…" maxlength="60"></label>
-    <datalist id="places"><option value="Cinema"><option value="Netflix"><option value="Friend's"><option value="Other"></datalist>
+    <datalist id="places">{% for p in places %}<option value="{{ p }}">{% endfor %}</datalist>
     <label><span class="label">Note</span><input class="input" type="text" name="note" maxlength="500"></label>
     <div><button type="submit" class="btn btn-primary">Add to diary</button></div>
   </form>

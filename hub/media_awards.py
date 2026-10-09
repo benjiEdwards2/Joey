@@ -27,7 +27,6 @@ nothing is ever called.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sqlite3
@@ -534,7 +533,6 @@ def run_pass(cap: int = CAP, client: Client | None = None, today: date | None = 
                 failed = (not ok or counts["rate_limited"]) and not counts["editions"]   # outright: nothing landed
                 adb.set_sync(db, "last_pass_ok", "0" if failed else "1")
                 counts["calls"] = client.calls
-                adb.set_sync(db, "last_result", json.dumps(counts))
     except (sqlite3.Error, OSError) as exc:
         log.warning("awards pass failed: %s", type(exc).__name__)
     finally:

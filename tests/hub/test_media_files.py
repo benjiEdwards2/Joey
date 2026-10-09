@@ -176,28 +176,10 @@ def test_movie_filtered_client_side(fake):
     assert media_files.file_summary("movie", 3) is None
 
 
-# ---- Dolby / DTS badges (2026-10-06) ----
-@pytest.mark.parametrize("text,label,glyph", [
-    ("E-AC-3", "Dolby Digital Plus", True), ("eac3", "Dolby Digital Plus", True),
-    ("Dolby Digital Plus", "Dolby Digital Plus", True),
-    ("AC-3", "Dolby Digital", True), ("Dolby Digital", "Dolby Digital", True),
-    ("TrueHD", "Dolby TrueHD", True), ("truehd", "Dolby TrueHD", True),
-    ("Atmos", "Dolby Atmos", True),
-    ("DTS", "DTS", False), ("DTS-HD", "DTS-HD", False), ("DTS-HD MA", "DTS-HD MA", False), ("DTS:X", "DTS:X", False)])
-def test_brand_badge_mapping(text, label, glyph):
-    assert media_files.brand_badge(text) == {"label": label, "glyph": glyph}
-
-
-@pytest.mark.parametrize("text", ["AAC", "FLAC", "5.1", "HEVC", "", None, "Dolby Vision"])
-def test_brand_badge_unknown_is_unchanged(text):
-    assert media_files.brand_badge(text) is None
-
-
-def test_audio_badges_carry_brand_but_keep_their_words(fake):
+def test_audio_badges_keep_their_words(fake):
     fake.movies = [item([vstream(2160, 3840, "hevc"), astream("truehd", 8, "Dolby TrueHD + Dolby Atmos")])]
     s = media_files.file_summary("movie", 1)
     assert words(s["audio"]) == ["TrueHD", "7.1", "Atmos"]
-    assert [b["brand"] and b["brand"]["label"] for b in s["audio"]] == ["Dolby TrueHD", None, "Dolby Atmos"]
 
 
 def test_show_summary_lists_episode_keys_on_disk(fake):

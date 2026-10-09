@@ -23,7 +23,6 @@ DDL = (
   runtime_min REAL, started_at TEXT, last_seen_at TEXT, position_pct INT, finished INT, poster TEXT)""",
     "CREATE INDEX IF NOT EXISTS play_user_item ON play(user_name, jf_id, last_seen_at)",
 )
-WINDOWS = (7, 30, 90, "year", "all")
 OPEN_GAP = timedelta(hours=2)
 FINISHED_PCT = 90
 HOME_TZ_NAME = "Australia/Melbourne"
@@ -200,6 +199,6 @@ def first_run_date() -> str | None:
 
 
 def hours_text(hours: float) -> str:
-    """'12.5 hours' / '1 hour' — a helper F8 may use on the diary later (not wired yet)."""
+    """'12.5 hours' / '1 hour' (Server › History's totals, media_plays)."""
     value = round(float(hours or 0), 1)
     return f"{value:g} hour{'' if value == 1 else 's'}"

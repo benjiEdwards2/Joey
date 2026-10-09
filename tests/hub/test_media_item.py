@@ -261,15 +261,6 @@ def test_no_url_or_key_in_the_page(env):
             assert KEY not in html and "secret-host" not in html
 
 
-def test_file_summary_for_item_reads_one_item(env):
-    client, fake = env()
-    with client:
-        out = media_files.file_summary_for_item("mov1")
-        assert media_files.file_summary_for_item("mov1") == out
-    assert out["files"] == 1 and {"word": "4K", "icon": "res"} in out["video"]
-    assert [p for p, _ in fake.calls].count("/Users/u1/Items/mov1") == 1
-
-
 # ---- link re-pointing ----
 
 LINKED = {

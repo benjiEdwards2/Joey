@@ -522,7 +522,7 @@ def _on_server(rows: list[dict], lib_keys: set) -> list[dict]:
     return [{**r, "on_server": f"tmdb:{r['tmdb_id']}" in lib_keys or r["status_word"] in md.ON_DISK} for r in rows]
 
 
-def _shelves(raw: dict, kind: str, lib_keys: set, similar, recs) -> list[dict]:
+def _shelves(kind: str, lib_keys: set, similar, recs) -> list[dict]:
     """Similar / Recommended (the collection moved to its own banner under Overview, media-ux3)."""
     out = []
     for title, src in (("Similar", similar), ("Recommended", recs)):
@@ -773,7 +773,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["providers"] = _providers(raw, title)
     f["trailer"], f["trailer_key"] = _trailer((item or {}).get("trailer"), raw)   # media-ux4: in-page player key
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
-    f["shelves"] = _shelves(raw, kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
+    f["shelves"] = _shelves(kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
     f["collection"] = collection_banner(raw, kind, lib_keys, tmdb_id) if raw and kind and tmdb_id else None
     media_awards_badges.attach([r for sh in f["shelves"] for r in sh["rows"]]       # awards-ui item 3: one lookup
                                + ((f["collection"] or {}).get("rows") or []), kind)

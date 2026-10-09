@@ -26,7 +26,6 @@ from hub.media_awards_parse import ordinal, slug, wp_title
 
 log = logging.getLogger("hub.media_awards_db")
 
-STATES = ("pending", "done", "partial", "failed", "skipped")
 DDL = (
     """CREATE TABLE IF NOT EXISTS award_body(
   id TEXT PRIMARY KEY, name TEXT, kinds TEXT, wd_series TEXT, wp_title_fmt TEXT, usual_month INT, sort INT)""",
@@ -236,7 +235,7 @@ def bodies(kind: str) -> list[dict]:
             if kind in b["kinds"].split(",")]
 
 
-def years_of(body_id: str, kind: str | None = None) -> list[int]:
+def years_of(body_id: str) -> list[int]:
     """Ceremony years of the editions known for a body, newest first (any state; an edition without a year is not
     placeable yet)."""
     db = _reader()
@@ -507,13 +506,3 @@ def sync_status() -> dict:
         ok = get_sync(db, "last_pass_ok", "1")
     return {"updated": last, "done": row["done"] or 0, "total": row["total"] or 0, "failed": ok == "0"}
 
-
-def last_result() -> dict:
-    db = _reader()
-    if db is None:
-        return {}
-    with closing(db):
-        try:
-            return json.loads(get_sync(db, "last_result", "{}") or "{}")
-        except ValueError:
-            return {}

@@ -59,7 +59,7 @@ def titles(year):
 def test_overview_empty_state_with_no_db(client, tmp_path):
     resp = client.get("/media/years")
     assert resp.status_code == 200
-    assert "Rate something first" in resp.text and 'href="/media/history"' in resp.text
+    assert "Rate something first" in resp.text and 'href="/media/diary">Go to Diary' in resp.text
     assert not (tmp_path / "data" / "media.db").exists()
 
 

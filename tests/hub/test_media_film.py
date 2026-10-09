@@ -266,12 +266,10 @@ def test_format_badges_are_text_with_sub_labels(env):
 
 
 def test_badge_pill_mapping():
-    for word, id_, tone in (("DTS-HD", "dts-hd", "dts"), ("DTS", "dts", "dts"), ("HDR10+", "hdr10plus", "hdr"),
-                            ("HLG", "hlg", "hdr"), ("Dolby Vision", "dolby-vision", "dolby"), ("TrueHD", "dolby-truehd", "dolby"),
-                            ("Dolby Digital", "dolby-digital", "dolby")):
-        p = media_files.badge_pill(word)
-        assert (p["id"], p["tone"]) == (id_, tone), word
-    assert media_files.badge_pill("1080p")["tone"] == "plain" and media_files.badge_pill("1080p")["id"] is None
+    for word, id_ in (("DTS-HD", "dts-hd"), ("DTS", "dts"), ("HDR10+", "hdr10plus"), ("HLG", "hlg"),
+                      ("Dolby Vision", "dolby-vision"), ("TrueHD", "dolby-truehd"), ("Dolby Digital", "dolby-digital")):
+        assert media_files.badge_pill(word)["id"] == id_, word
+    assert media_files.badge_pill("1080p") == {"id": None, "label": "1080p"}
     assert media_files.badge_pill("Atmos")["label"] == "Dolby Atmos"
 
 

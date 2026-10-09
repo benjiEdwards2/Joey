@@ -8,9 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
-from tests.hub.helpers import (  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_raw as main_of
+from tests.hub.helpers import (  # noqa: F401
     ARR, JELLY, LINK, make_area, make_tile, NOW, RECENT, SEERR_REQUESTS as SEERR, shelf_area, TODAY,
     write_envelope, write_registry)
+from tests.hub.test_media_frame import env as frame_env  # noqa: F401
+
 
 APPS = [{"id": "j", "name": "Jellyfin", "href": "http://a.invalid", "up": True, "status_text": "Up", "note": None},
         {"id": "p", "name": "Prowlarr", "href": "http://b.invalid", "up": False, "status_text": "Down", "note": "t"}]
@@ -209,3 +212,39 @@ def test_waiting_chips_absent_at_zero_and_for_hidden_tiles(env):
         assert "badge-wait" not in main_html(client.get("/a/alpha").text)
     main = env(jellyfin=JELLY)
     assert shelves_for(main, view="her")["waiting"] == {"to_rate": 0, "to_place": 0}
+
+
+# ---- merged from test_media_home_trim.py ----
+# media-ux2 item 7 (2026-10-08): Media home drops the "This week" and "Recently watched" shelves. The data stays:
+# Server -> Library keeps its This week rows and Diary > To rate (/media/history) keeps Recently watched.
+
+
+def test_media_home_has_no_this_week_or_recently_watched(frame_env):
+    main = frame_env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as c:
+        home = main_of(c.get("/a/alpha").text)
+    assert ">This week" not in home and "Recently watched" not in home
+    assert "Due Show" not in home and "Nothing due this week" not in home and "poster-tag" not in home
+    assert "Harbour Lights" not in home                       # a Recently watched row
+    assert ">Continue watching" in home and ">Recently added" in home
+
+
+def test_the_data_still_shows_where_it_lives(frame_env):
+    main = frame_env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as c:
+        lib = main_of(c.get("/media/library").text)
+        hist = main_of(c.get("/media/history").text)
+    assert ">This week" in lib
+    assert ">Recently watched</div>" in hist and "Harbour Lights" in hist
+
+
+# ---- media-ux2 item 8 (2026-10-08): the Joey hub page (/) drops Continue watching; Media keeps it ----
+
+def test_hub_page_has_no_continue_watching_but_media_home_does(frame_env):
+    main = frame_env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as c:
+        hub_page = main_of(c.get("/").text)
+        home = main_of(c.get("/a/alpha").text)
+    assert "Continue watching" not in hub_page and 'id="continue"' not in hub_page
+    assert 'id="recent"' in hub_page and "Recently watched" in hub_page   # the hub's own band stays
+    assert ">Continue watching" in home and "Dust and Daylight" in home

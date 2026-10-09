@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from hub import media_db
-from tests.hub import test_apex_shell
+from tests.hub import test_shell
 from tests.hub.test_media_downloads import env as dl_env  # noqa: F401  (fixture)
 from tests.hub.test_media_frame import env as frame_env  # noqa: F401  (fixture)
 from tests.hub.helpers import env as film_env, LINKED  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
@@ -84,7 +84,7 @@ def test_film_page_renders_the_detail_hero(film_env):
 
 # (e) tokens only: no literal colour in the stylesheet outside :root, none in the Media templates
 def test_no_literal_colour_outside_root_and_none_in_media_templates():
-    test_apex_shell.test_no_literal_colour_outside_the_token_block()
+    test_shell.test_no_literal_colour_outside_the_token_block()
     for f in MEDIA:
         src = f.read_text(encoding="utf-8")
         assert not re.findall(r"#[0-9a-fA-F]{3,8}\b(?![^{]*\}\})", " ".join(re.findall(r'style="([^"]*)"', src))), f.name

@@ -12,7 +12,7 @@ from hub import media_db, media_discover as md, media_nav
 from tests.hub.test_awards_db import seed_oscars
 from tests.hub.conftest import main_raw as main_of  # noqa: F401
 from tests.hub.test_media_rate import env, jelly_data  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_ux4_to_rate_tab import subtabs
+from tests.hub.test_media_to_rate_pages import subtabs
 
 TEMPLATES = Path(__file__).resolve().parents[2] / "hub" / "templates"
 ALPHA = {"added_at": "2024-03-02T10:00:00.0000000Z", "backdrop": None, "community_rating": 7.8, "genres": ["Drama"],

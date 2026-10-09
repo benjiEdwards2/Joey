@@ -2,13 +2,20 @@
 collapsible <details> (the page's / next episode's season open) with "Season 4 · 3 of 6 watched"; per episode one
 whole-row link with a 16:9 still, "E3 · Name", air date · runtime, a state word + colour and the Play / Resume deep
 link beside it. And the Seasons section sits directly under Overview on TV pages. Jellyfin + Jellyseerr faked."""
+import html as htmllib
+import logging
 import re
 from pathlib import Path
 
-from hub import media_film
+import pytest
+import requests
+
+from hub import media_arr_search, media_film
 from tests.hub import helpers as tmi
-from tests.hub.helpers import deep, env, ep, SHOW, TICKS  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.helpers import deep, env, ep, ITEMS, FakeResponse as R, SHOW, TICKS  # noqa: F401
+from tests.hub.test_media_discover import env as discover_env, FAKE_KEY, FORM, HX  # noqa: F401
+
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
 
@@ -137,3 +144,255 @@ def test_film_page_order_is_unchanged(env):
     assert '<div class="seclabel">Seasons</div>' not in b
     o, f, w = (b.index(f'<div class="seclabel">{k}</div>') for k in ("Overview", "File", "Where to watch"))
     assert o < f < w
+
+
+# ---- merged from test_media_ux4_episode.py ----
+# media-ux4 items 5 / 5b / 5c (2026-10-08): an episode page's hero carries no "Episode of <Show>" line (the part-of
+# banner under the hero is the way to the show), only the EPISODE's Play button (the series-level "Next to watch" /
+# "Play" stays on the series page), and a watched toggle that reflects and acts on the episode itself.
+
+
+def hero(html):
+    return html.split('<header class="pagehead hero-detail">', 1)[1].split("</header>", 1)[0]
+
+
+# ---- item 5: no "Episode of" line ----
+
+def test_episode_hero_has_no_episode_of_line_but_keeps_the_rest(env):
+    client, _ = env()
+    with client:
+        h = hero(client.get("/media/item/ep3").text)
+        b = main_of(client.get("/media/item/ep3").text)
+    assert "Episode of" not in h and 'href="/media/item/ser1"' not in h
+    assert "S04E03 · Penny for Your Thoughts" in h and "Coins go missing." in h and "Quiet Show (2020)" in h
+    assert 'href="/media/item/ser1#seasons"' in b                     # the banner still leads to the show
+
+
+# ---- item 5b: one Play button on an episode page ----
+
+def plays(h):
+    btns = h.split('<div class="hero-detail-btns">', 1)[1]
+    return re.findall(r'<a class="btn [^"]*" href="([^"]+)" target="_blank" rel="noopener">([^<]*▶[^<]*)</a>', btns)
+
+
+def test_episode_page_renders_only_the_episodes_play(env):
+    client, _ = env()
+    with client:
+        h = hero(client.get("/media/item/ep3").text)
+    assert plays(h) == [(deep("ep3"), "Play again ▶")]
+    assert "Next to watch" not in h
+
+
+def test_episode_page_of_a_fully_watched_show_has_no_series_play(env, monkeypatch):
+    from tests.hub import helpers as tmi
+    monkeypatch.setattr(tmi, "EPISODES", [tmi.ep(i, f"E{i}", True) for i in range(1, 4)])
+    client, _ = env()
+    with client:
+        h = hero(client.get("/media/item/ep3").text)
+    assert [label for _, label in plays(h)] == ["Play again ▶"]                    # not the series' plain "Play ▶"
+    assert 'class="btn btn-white"' in h.split('<div class="hero-detail-btns">', 1)[1]
+
+
+def test_series_page_keeps_its_next_to_watch(env):
+    client, _ = env()
+    with client:
+        h = hero(client.get("/media/item/ser1").text)
+    assert [label for _, label in plays(h)] == ["Next to watch: S4 E4 ▶"]
+
+
+# ---- merged from test_media_ux5_all_seasons.py ----
+# media-ux5 item 7 (2026-10-09): "All seasons + future" in the Discover title Request block (default for TV).
+# Ticked, the request goes to Jellyseerr as `"seasons": "all"` (seerr-api.yml POST /request: number[] | "all"), then the
+# series is looked up in Sonarr (<= 3 reads, 2 s apart), PUT back with monitored + monitorNewItems "all" (other fields
+# kept) and SeriesSearch is sent. Unticked, the ticked seasons go as before and Sonarr is not touched.
+# Jellyseerr is the Discover test fake; Sonarr is faked here at requests.get / put / post. No network, no real sleeps.
+
+
+SONARR = "http://sonarr.secret-host.invalid:8989"
+TKEY = "s-SECRET-sonarr-key"
+
+
+class Sonarr:
+    def __init__(self):
+        self.series = [{"id": 31, "tmdbId": 100, "tvdbId": 7100, "title": "Big Show", "monitored": False,
+                        "monitorNewItems": "none", "path": "/tv/Big Show", "qualityProfileId": 4,
+                        "seasons": [{"seasonNumber": 1, "monitored": True}]}]
+        self.appear_after = 0          # reads that come back empty first (the series is not added yet)
+        self.calls, self.raise_get, self.put_status, self.post_status = [], None, 202, 201
+
+    def get(self, url, params=None, headers=None, timeout=None, **kw):
+        assert headers == {"X-Api-Key": TKEY}
+        self.calls.append(("GET", url, params, None))
+        if self.raise_get:
+            raise self.raise_get(f"{url}?apikey={TKEY}")
+        if self.appear_after:
+            self.appear_after -= 1
+            return R([])
+        return R(self.series)
+
+    def put(self, url, json=None, headers=None, timeout=None, **kw):
+        assert headers == {"X-Api-Key": TKEY}
+        self.calls.append(("PUT", url, None, json))
+        return R(json, self.put_status)
+
+    def post(self, url, json=None, headers=None, timeout=None, **kw):
+        assert headers == {"X-Api-Key": TKEY}
+        self.calls.append(("POST", url, None, json))
+        return R({"id": 1}, self.post_status)
+
+
+@pytest.fixture()
+def tv_env(discover_env, monkeypatch):
+    monkeypatch.setenv("SONARR_URL", SONARR)
+    monkeypatch.setenv("SONARR_API_KEY", TKEY)
+    sleeps = []
+    monkeypatch.setattr(media_arr_search.time, "sleep", lambda s: sleeps.append(s))
+
+    def build():
+        client, fake = discover_env()
+        son = Sonarr()
+        get, post = requests.get, requests.post
+        mine = lambda url: str(url).startswith(SONARR)
+        monkeypatch.setattr(requests, "get", lambda url, *a, **k: son.get(url, *a, **k) if mine(url) else get(url, *a, **k))
+        monkeypatch.setattr(requests, "post", lambda url, *a, **k: son.post(url, *a, **k) if mine(url) else post(url, *a, **k))
+        monkeypatch.setattr(requests, "put", son.put)
+        return client, fake, son, sleeps
+    return build
+
+
+def seerr_posts(fake):
+    return [j for u, j, _ in fake.posts if u.endswith("/api/v1/request")]
+
+
+def test_confirm_step_offers_all_seasons_plus_future_ticked_first(tv_env):
+    client, _, son, _ = tv_env()
+    with client:
+        confirm = client.get("/media/title/tv/100/request?step=confirm", headers=HX).text
+    tag = '<label class="seasonall"><input type="checkbox" name="seasons" value="all" checked> All seasons + future'
+    assert tag in confirm
+    assert confirm.index('value="all"') < confirm.index('<div class="seasonpick">') < confirm.index('value="4"')
+    assert son.calls == []
+
+
+def test_movie_confirm_has_no_all_seasons(tv_env):
+    client, _, _, _ = tv_env()
+    with client:
+        confirm = client.get("/media/title/movie/603/request?step=confirm", headers=HX).text
+    assert "All seasons + future" not in confirm
+
+
+def test_all_seasons_requests_all_then_sonarr_follows_and_searches(tv_env):
+    client, fake, son, sleeps = tv_env()
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all&seasons=4", headers={**HX, **FORM})
+    assert seerr_posts(fake) == [{"mediaType": "tv", "mediaId": 100, "seasons": "all"}]
+    gets = [c for c in son.calls if c[0] == "GET"]
+    assert gets == [("GET", f"{SONARR}/api/v3/series", None, None)]          # matched on tmdbId in the full list
+    put = [c for c in son.calls if c[0] == "PUT"]
+    assert len(put) == 1 and put[0][1] == f"{SONARR}/api/v3/series/31"
+    sent = put[0][3]
+    assert sent["monitored"] is True and sent["monitorNewItems"] == "all"
+    assert {k: v for k, v in sent.items() if k not in ("monitored", "monitorNewItems")} == \
+        {k: v for k, v in son.series[0].items() if k not in ("monitored", "monitorNewItems")}   # other fields kept
+    assert [c[3] for c in son.calls if c[0] == "POST"] == [{"name": "SeriesSearch", "seriesId": 31}]
+    assert sleeps == []
+    body = htmllib.unescape(r.text)
+    assert "Requested ✓ — shows in Requests within the hour" in body
+    assert '<p class="metaline st-good">Sonarr: every season monitored, new seasons too · search started</p>' in body
+
+
+def test_individual_seasons_keep_todays_behaviour(tv_env):
+    client, fake, son, _ = tv_env()
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=3&seasons=4", headers={**HX, **FORM})
+    assert seerr_posts(fake) == [{"mediaType": "tv", "mediaId": 100, "seasons": [3, 4]}]
+    assert son.calls == [] and "Sonarr" not in r.text
+
+
+def test_series_not_in_sonarr_yet_retries_three_times_then_says_so(tv_env):
+    client, fake, son, sleeps = tv_env()
+    son.appear_after = 99
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
+    assert len([c for c in son.calls if c[0] == "GET"]) == 3 and sleeps == [2.0, 2.0]   # bounded: 3 reads, 2 s apart
+    assert not [c for c in son.calls if c[0] in ("PUT", "POST")]
+    assert "Requested ✓" in r.text
+    assert "Sonarr hasn&#39;t added it yet — new seasons are not set to follow" in r.text
+    assert 'class="metaline st-warn"' in r.text
+
+
+def test_series_appearing_on_the_second_read_is_followed(tv_env):
+    client, fake, son, sleeps = tv_env()
+    son.appear_after = 1
+    with client:
+        client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
+    assert len([c for c in son.calls if c[0] == "GET"]) == 2 and sleeps == [2.0]
+    assert len([c for c in son.calls if c[0] == "PUT"]) == 1
+
+
+def test_failed_jellyseerr_request_never_touches_sonarr(tv_env):
+    client, fake, son, _ = tv_env()
+    fake.post_status = 409
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
+    assert "Already requested" in r.text and son.calls == []
+
+
+@pytest.mark.parametrize("fail, word", [
+    ("get", "Couldn&#39;t set Sonarr to follow new seasons"),
+    ("put", "Couldn&#39;t set Sonarr to follow new seasons"),
+    ("post", "couldn&#39;t start the search"),
+])
+def test_sonarr_failures_are_sanitized_words(tv_env, caplog, fail, word):
+    client, fake, son, _ = tv_env()
+    if fail == "get":
+        son.raise_get = requests.ConnectionError
+    elif fail == "put":
+        son.put_status = 500
+    else:
+        son.post_status = 503
+    with caplog.at_level(logging.WARNING), client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
+    assert "Requested ✓" in r.text and word in r.text
+    for secret in (TKEY, "sonarr.secret-host", FAKE_KEY):
+        assert secret not in caplog.text and secret not in r.text
+    assert ("ConnectionError" if fail == "get" else "HTTP 500" if fail == "put" else "HTTP 503") in caplog.text
+
+
+def test_sonarr_not_connected_is_noted(tv_env, monkeypatch):
+    client, fake, son, _ = tv_env()
+    monkeypatch.delenv("SONARR_URL")
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
+    assert seerr_posts(fake) == [{"mediaType": "tv", "mediaId": 100, "seasons": "all"}]
+    assert "Sonarr is not connected — new seasons are not set to follow" in r.text and son.calls == []
+
+
+def test_no_js_post_redirects_with_the_note_and_the_page_shows_it(tv_env):
+    client, fake, son, _ = tv_env()
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all", headers=FORM, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/media/title/tv/100?requested=1&future=set"
+        page = htmllib.unescape(client.get(r.headers["location"]).text)
+    assert "Requested ✓ — shows in Requests within the hour" in page
+    assert "Sonarr: every season monitored, new seasons too · search started" in page
+
+
+def test_unknown_future_code_shows_nothing(tv_env):
+    client, _, _, _ = tv_env()
+    with client:
+        page = client.get("/media/title/tv/100?requested=1&future=<b>x").text
+    assert "Requested ✓" in page and "&lt;b&gt;x" not in page and "<b>x" not in page
+
+
+def test_cross_site_request_is_refused(tv_env):
+    client, fake, son, _ = tv_env()
+    with client:
+        r = client.post("/media/title/tv/100/request", content="seasons=all",
+                        headers={**FORM, "Origin": "https://evil.invalid"})
+    assert r.status_code == 403 and fake.posts == [] and son.calls == []
+
+
+def test_future_param_leaves_the_address_bar():
+    import hub.main
+    assert "future" in hub.main.FLASH_PARAMS

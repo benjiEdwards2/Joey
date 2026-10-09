@@ -1,4 +1,5 @@
-"""Apex area pages (2026-10-06; restyle Phase 4): non-media areas as a row of summary tiles (one .panel.tile per
+"""Formerly test_apex_areas.py ("Apex" was the 2026-10-06 restyle round's name).
+Apex area pages (2026-10-06; restyle Phase 4): non-media areas as a row of summary tiles (one .panel.tile per
 registry tile), Calendar with the Next 7 days rows + Weather glimpse, a quiet sentence when nothing is connected,
 /weather as a stats strip + panels. Real registry + committed sample snapshots; media pages untouched."""
 import importlib
@@ -10,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.hub.helpers import write_envelope
-from tests.hub.test_apex_hub import EVENTS, SAMPLE_DATA
+from tests.hub.test_hub_page import EVENTS, SAMPLE_DATA
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 

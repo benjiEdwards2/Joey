@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 from hub.media_library import runtime_text
-from tests.hub.test_apex_areas import site  # noqa: F401  (fixture: get(route) -> (hub.main, <main> html))
+from tests.hub.test_area_pages import site  # noqa: F401  (fixture: get(route) -> (hub.main, <main> html))
 from tests.hub.test_server_updates import env  # noqa: F401  (fixture: Server with a WUD env)
 
 HUB = Path(__file__).resolve().parents[2] / "hub"

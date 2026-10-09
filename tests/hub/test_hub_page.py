@@ -1,4 +1,5 @@
-"""Apex hub page (2026-10-06; restyle Phase 4): a row of summary tiles (one per registry area + Weather), Band A
+"""Formerly test_apex_hub.py ("Apex" was the 2026-10-06 restyle round's name).
+Apex hub page (2026-10-06; restyle Phase 4): a row of summary tiles (one per registry area + Weather), Band A
 (Next 7 days rows + the weather glimpse), Band B (Continue watching / Recently watched carousels). Runs the REAL
 registry against the committed sample snapshots (re-stamped fresh); placement asserted inside <main>. Only real
 snapshot data: not-connected tiles carry no spark, owners are words."""

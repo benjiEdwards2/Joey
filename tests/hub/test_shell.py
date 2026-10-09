@@ -1,4 +1,5 @@
-"""Shell (MediaHub guide, restyle Phase 2, 2026-10-06): top bar with one pill per section, phone tab bar with
+"""Formerly test_apex_shell.py ("Apex" was the 2026-10-06 restyle round's name).
+Shell (MediaHub guide, restyle Phase 2, 2026-10-06): top bar with one pill per section, phone tab bar with
 five slots (the fifth becomes "More" past five sections), the _pagehead.html page header on every page, a
 single dark theme (no toggle, no Google Fonts), a tokens-only stylesheet, and the hub greeting on the home clock."""
 import html as htmlmod

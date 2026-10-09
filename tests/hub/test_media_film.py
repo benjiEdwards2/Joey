@@ -4,17 +4,19 @@ import html as htmllib
 import importlib
 import re
 from datetime import date
+from pathlib import Path
 
 import pytest
 import requests
 from fastapi.testclient import TestClient
 
 from hub import media_db, media_discover, media_files, media_film, media_item
-from tests.hub.helpers import (  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.helpers import (  # noqa: F401
     Both, deep, env, FILM, ITEMS, JellyfinFake as JFFake, KEY, LIB_MOVIES, LIB_SHOWS, make_area, make_tile,
     PLAIN, prow, FakeResponse as R, SEERR_URL as SEERR, Seerr, shelf_area, SHOW, SKEY, SOURCES, STREAMS, URL,
     write_envelope, write_registry)
-from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
+
 
 YEAR = date.today().year
 HX = {"HX-Request": "true"}
@@ -348,3 +350,196 @@ def test_watchlist_and_request_flows_on_the_page(env):
         done = client.get("/media/title/movie/701?requested=1")
     assert "Requested ✓" in done.text
     assert "playbtn" not in main_of(done.text)               # no Play link for a title that is not on the server
+
+
+# ---- merged from test_media_ux4_trailer.py ----
+# media-ux4 item 9 (2026-10-08): trailers embedded. The Trailer button keeps a plain link to the video (no JS) and, when it
+# is a YouTube video, carries its key; a click opens an in-page <dialog> into which the script creates a
+# youtube-nocookie.com iframe (autoplay, rel=0) — nothing in the initial HTML loads from YouTube — and closing removes it.
+# Keys come from Jellyfin RemoteTrailers, then Jellyseerr's TMDB relatedVideos.
+
+
+ROOT = Path(__file__).resolve().parents[2]
+CSS = (ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+CONTRACT = (ROOT / "docs" / "connector-contract.md").read_text(encoding="utf-8")
+KEY_ux4_trailer = "dQw4w9WgXcQ"
+
+
+def with_video(both, **video):
+    both.seerr.table["/api/v1/movie/603"] = {**FILM, "relatedVideos": [
+        {"url": f"https://www.youtube.com/watch?v={KEY_ux4_trailer}", "site": "YouTube", "type": "Trailer", "key": KEY_ux4_trailer, **video}]}
+
+
+def button(b):
+    m = re.search(r'<a class="btn btn-glass trailer-btn" href="([^"]+)" target="_blank" rel="noopener"([^>]*)>(.*?)</a>', b, re.S)
+    return m and (m.group(1), m.group(2), re.sub(r"<svg.*?</svg>", "", m.group(3), flags=re.S))
+
+
+def test_button_is_a_word_link_with_the_youtube_key(env):
+    client, both = env()
+    with_video(both)
+    with client:
+        b = main_of(client.get("/media/title/movie/603").text)
+    href, attrs, words = button(b)
+    assert href == f"https://www.youtube.com/watch?v={KEY_ux4_trailer}" and words == "Trailer"
+    assert f'data-yt="{KEY_ux4_trailer}"' in attrs and 'aria-haspopup="dialog"' in attrs
+    hero = b.split("</header>", 1)[0]
+    assert "trailer-btn" in hero and '<svg class="ic"' in hero.split("trailer-btn", 1)[1].split("</a>", 1)[0]
+
+
+def test_dialog_ships_empty_and_no_iframe_is_in_the_initial_html(env):
+    client, both = env()
+    with_video(both)
+    with client:
+        html = client.get("/media/title/movie/603").text
+    dlg = html.split('<dialog class="trailerdlg" id="trailer"', 1)[1].split("</dialog>", 1)[0]
+    assert 'aria-label="Trailer: Harbour Lights"' in dlg and '<form method="dialog">' in dlg and ">Close</button>" in dlg
+    assert '<div class="trailerframe"></div>' in dlg
+    assert "<iframe" not in html                                      # created only on click
+    assert not re.search(r'(src|href)="https://www\.youtube-nocookie\.com', html)
+
+
+def test_script_builds_the_nocookie_embed_on_click_and_removes_it_on_close(env):
+    client, both = env()
+    with_video(both)
+    with client:
+        html = client.get("/media/title/movie/603").text
+    script = html.split("</dialog>", 1)[1].split("</script>", 1)[0]
+    assert "'https://www.youtube-nocookie.com/embed/' + a.getAttribute('data-yt') + '?autoplay=1&rel=0'" in script
+    assert "createElement('iframe')" in script and "dlg.showModal()" in script and "e.preventDefault()" in script
+    assert "document.addEventListener('close'" in script and ".replaceChildren()" in script
+    assert "/^[A-Za-z0-9_-]{11}$/" in script and "window.joeyTrailer" in script     # validated; bound once per tab
+
+
+def test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links(env, monkeypatch):
+    client, both = env()
+    with_video(both)
+    monkeypatch.setitem(ITEMS["mov1"], "RemoteTrailers", [{"Url": "https://youtu.be/AAAAAAAAAAA"}])
+    with client:
+        b = main_of(client.get("/media/item/mov1").text)
+        assert button(b)[0] == "https://youtu.be/AAAAAAAAAAA" and 'data-yt="AAAAAAAAAAA"' in button(b)[1]
+        monkeypatch.setitem(ITEMS["mov1"], "RemoteTrailers", [{"Url": "https://vimeo.com/12345"}])
+        media_item.clear_cache()
+        b = main_of(client.get("/media/item/mov1").text)
+    assert button(b)[0] == f"https://www.youtube.com/watch?v={KEY_ux4_trailer}"     # the keyed Jellyseerr video beats a non-YouTube link
+
+
+def test_no_key_means_a_plain_link_and_no_dialog(env):
+    client, _ = env()                                                    # FILM's video id "seerr1" is not a YouTube id
+    with client:
+        html = client.get("/media/title/movie/603").text
+    href, attrs, _ = button(main_of(html))
+    assert href == "https://www.youtube.com/watch?v=seerr1" and "data-yt" not in attrs
+    assert "<dialog" not in html and "youtube-nocookie" not in html
+
+
+@pytest.mark.parametrize("url, key", [
+    (f"https://www.youtube.com/watch?v={KEY_ux4_trailer}", KEY_ux4_trailer), (f"https://youtube.com/watch?v={KEY_ux4_trailer}&t=3", KEY_ux4_trailer),
+    (f"https://youtu.be/{KEY_ux4_trailer}", KEY_ux4_trailer), (f"https://www.youtube.com/embed/{KEY_ux4_trailer}", KEY_ux4_trailer),
+    (f"https://m.youtube.com/shorts/{KEY_ux4_trailer}", KEY_ux4_trailer), (f"https://www.youtube-nocookie.com/embed/{KEY_ux4_trailer}", KEY_ux4_trailer),
+    ("https://www.youtube.com/watch?v=short", None), ("https://evil.example/watch?v=" + KEY_ux4_trailer, None),
+    ("https://vimeo.com/123", None), ("", None), (None, None),
+    ("https://www.youtube.com/watch?v=" + KEY_ux4_trailer[:10] + '"', None)])
+def test_youtube_key(url, key):
+    assert media_film.youtube_key(url) == key
+
+
+def test_trailer_prefers_the_relatedvideos_key_field():
+    raw = {"relatedVideos": [{"url": "https://www.youtube.com/watch?v=xx", "site": "YouTube", "type": "Trailer", "key": KEY_ux4_trailer},
+                             {"url": "https://www.youtube.com/watch?v=BBBBBBBBBBB", "site": "YouTube", "type": "Teaser"}]}
+    assert media_film._trailer(None, raw) == ("https://www.youtube.com/watch?v=xx", KEY_ux4_trailer)
+    assert media_film._trailer(None, {}) == (None, None)
+
+
+def test_player_css_and_the_recorded_privacy_exception():
+    assert ".trailerdlg::backdrop { background: var(--scrim); }" in CSS
+    assert ".trailerframe { aspect-ratio: 16 / 9;" in CSS and ".trailerframe iframe { display: block; width: 100%;" in CSS
+    assert "Trailer player (media-ux4, 2026-10-08) — a recorded privacy exception" in CONTRACT
+    assert "only when the user presses Trailer" in CONTRACT and "frame-src https://www.youtube-nocookie.com" in CONTRACT
+
+
+# ---- merged from test_media_ux4_makers.py ----
+# media-ux4 item 4 (2026-10-08): director / creators more prominent. The hero's inline "Director Guy Ritchie" text is a
+# "Directed by" block of headshot cards (TMDB profile through the /img proxy, initials when none) with the name larger,
+# each card ONE link to /media/person/{id} (a Discover search when TMDB gives no id); TV shows say "Created by" with up to
+# four cards; on a phone the cards are a sideways row.
+
+
+CSS_ux4_makers = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+
+
+def hero(b):
+    return b.split("</header>", 1)[0]
+
+
+def cards(h):
+    block = h.split('<div class="makers">', 1)[1].split('<div class="credits sitepills">', 1)[0]
+    label = re.search(r'<div class="microlabel">([^<]+)</div>', block).group(1)
+    found = re.findall(r'<a class="makercard" href="([^"]+)">(<img class="makerpic" src="([^"]+)"[^>]*>|<span class="makerpic '
+                       r'initials" aria-hidden="true">([^<]*)</span>)<span class="makername">([^<]+)</span></a>', block)
+    return label, [(href, src or None, initials or None, name) for href, _, src, initials, name in found]
+
+
+def test_film_hero_has_a_directed_by_card_with_headshot_and_person_link(env):
+    client, both = env()
+    both.seerr.table["/api/v1/movie/603"] = {**FILM, "credits": {**FILM["credits"], "crew": [
+        {"id": 77, "name": "Guy Ritchie", "job": "Director", "profilePath": "/guy.jpg"}]}}
+    with client:
+        h = hero(main_of(client.get("/media/title/movie/603").text))
+    label, found = cards(h)
+    assert label == "Directed by"
+    assert found == [("/media/person/77", f"/img/tmdb:/guy.jpg?h={media_film.MAKER_H}", None, "Guy Ritchie")]
+    assert 'width="52" height="52"' in h and "Director</span>" not in h and "<span>Director</span>" not in h
+
+
+def test_no_tmdb_id_or_photo_falls_back_to_search_and_initials(env):
+    client, _ = env()                                   # FILM's director has neither id nor profilePath
+    with client:
+        _, found = cards(hero(main_of(client.get("/media/title/movie/603").text)))
+    assert found == [("/media/discover?q=Dee%20Director", None, "DD", "Dee Director")]
+
+
+def test_series_says_created_by_with_up_to_four_cards(env):
+    client, both = env()
+    both.seerr.table["/api/v1/tv/100"] = {**SHOW, "createdBy": [
+        {"id": 10 + i, "name": f"Maker {chr(65 + i)} Person", "profilePath": f"/m{i}.jpg" if i % 2 == 0 else None}
+        for i in range(5)]}
+    with client:
+        label, found = cards(hero(main_of(client.get("/media/title/tv/100").text)))
+    assert label == "Created by" and len(found) == 4
+    assert found[0] == ("/media/person/10", f"/img/tmdb:/m0.jpg?h={media_film.MAKER_H}", None, "Maker A Person")
+    assert found[1] == ("/media/person/11", None, "MB", "Maker B Person")       # initials of the first two words
+
+
+def test_jellyfin_director_without_jellyseerr_still_gets_a_card(env, monkeypatch):
+    from tests.hub import helpers as tmi
+    monkeypatch.setitem(tmi.ITEMS["mov1"], "People", [
+        {"Name": "Ada Actor", "Type": "Actor", "Role": "Pilot"},
+        {"Name": "Dee Director", "Type": "Director", "Id": "p77", "PrimaryImageTag": "t"}])
+    client, both = env()
+    both.fail_seerr = True
+    with client:
+        label, found = cards(hero(main_of(client.get("/media/item/mov1").text)))
+    assert label == "Directed by"
+    assert found == [("/media/discover?q=Dee%20Director", f"/img/jf:p77?h={media_film.MAKER_H}", None, "Dee Director")]
+
+
+def test_cards_sit_before_the_site_pills_and_status(env):
+    client, _ = env()
+    with client:
+        h = hero(main_of(client.get("/media/title/movie/603").text))
+    assert h.index('<div class="makers">') < h.index('<div class="credits sitepills">') < h.index('id="status-line"')
+    assert h.index('class="facts-line"') < h.index('<div class="makers">')
+
+
+def test_maker_headshot_size_is_a_proxy_size():
+    from hub import images
+    assert media_film.MAKER_H in images.SIZES and media_film.MAKERS_MAX == 4
+
+
+def test_phone_row_scrolls_sideways_and_wraps_from_640():
+    row = CSS_ux4_makers.split(".makerrow {", 1)[1].split("}", 1)[0]
+    assert "display: flex" in row and "overflow-x: auto" in row and "flex-wrap" not in row
+    wide = CSS_ux4_makers.split("@media (min-width: 640px) {\n  .hero-detail-in", 1)[1].split("\n}", 1)[0]
+    assert ".makerrow { flex-wrap: wrap; overflow: visible; }" in wide
+    assert ".makername { font-size: 16px; font-weight: 600;" in CSS_ux4_makers and ".makerpic { width: 52px; height: 52px;" in CSS_ux4_makers

@@ -7,7 +7,7 @@
 {% import "_to_rate.html" as torate %}
 {# Detail behind the watched tile (2026-10-05; restyle Phase 3): B.'s Jellyfin watch history, with the rating inbox
    on top (last 30 days, unrated). The diary page holds on-this-day now. Counts are words and numbers. "Most played"
-   lives on Server › History and Media home, from the play recorder only (M-22, W2). #}
+   lives on Activity › History and Media home, from the play recorder only (M-22, W2). #}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}

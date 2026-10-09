@@ -14,7 +14,7 @@ from tests.hub.helpers import ARR, JELLY
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MEDIA_BAR = [("/a/alpha", "Home"), ("/media/movies", "Movies"), ("/media/tv", "TV"), ("/media/diary", "Diary"),
-             ("/media/playing", "Server"), ("/media/discover", "Discover")]
+             ("/media/playing", "Activity"), ("/media/discover", "Discover")]
 SECTION_HREF = {"home": "/a/alpha", "movies": "/media/movies", "tv": "/media/tv", "diary": "/media/diary",
                 "server": "/media/playing", "discover": "/media/discover"}
 
@@ -81,7 +81,7 @@ def test_joey_media_manifest_is_valid_and_served(env):
     assert (m["name"], m["short_name"], m["scope"], m["display"]) == ("Joey Media", "Media", "/", "standalone")
     assert m["icons"] == main_manifest["icons"]
     assert [(s["name"], s["url"]) for s in m["shortcuts"]] == [
-        ("Movies", "/media/movies"), ("TV Shows", "/media/tv"), ("Server", "/media/playing"), ("Discover", "/media/discover")]
+        ("Movies", "/media/movies"), ("TV Shows", "/media/tv"), ("Activity", "/media/playing"), ("Discover", "/media/discover")]
 
 
 def test_manifest_start_url_is_the_real_media_home():

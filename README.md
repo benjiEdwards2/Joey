@@ -26,15 +26,16 @@ area + Weather), Next 7 days, a weather glimpse and Recently watched posters (Co
 tile (except the weather tile, which renders on the hub and /weather only — 2026-10-08).
 
 **Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·
-Diary · Server (incl. Downloads, live from qBittorrent) · Discover; Movies and TV Shows end with an Awards tab
+Diary · Activity (Live, History, Library, Downloads live from qBittorrent, Requests, Health; renamed from "Server"
+2026-10-09, decision 4) · Discover; Movies and TV Shows end with an Awards tab
 (2026-10-08: ceremonies from Wikidata / Wikipedia, synced into media.db). See `hub/README.md`; feeds in
 `docs/connector-contract.md`, env in `docs/setup.md`.
 
 **Pin Media pages on your phone (2026-10-07).** Inside Media the phone's bottom bar is Media's own six sections
-(Home · Movies · TV · Diary · Server · Discover); tap the Joey logo at the top to go back to the overall hub. To keep a
+(Home · Movies · TV · Diary · Activity · Discover); tap the Joey logo at the top to go back to the overall hub. To keep a
 Media-focused app on your home screen, open any Media page first, then: iOS Safari: Share → Add to Home Screen (it is
 named "Joey Media"); Android Chrome: ⋮ menu → Install app / Add to Home screen (long-press the icon for Movies, TV,
-Server and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.
+Activity and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.
 
 **Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively (Homepage itself is still up and linked): `/server` (and `/a/server`)
 shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (cards grouped Media / Downloads / System), Updates (What's Up Docker), Attention and Counts.

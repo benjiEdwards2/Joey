@@ -193,6 +193,6 @@ def first_run_date() -> str | None:
 
 
 def hours_text(hours: float) -> str:
-    """'12.5 hours' / '1 hour' (Server › History's totals, media_plays)."""
+    """'12.5 hours' / '1 hour' (Activity › History's totals, media_plays)."""
     value = round(float(hours or 0), 1)
     return f"{value:g} hour{'' if value == 1 else 's'}"

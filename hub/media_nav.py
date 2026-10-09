@@ -17,7 +17,8 @@ SECTIONS: list[dict] = [
               ("Awards", "/media/tv/awards")]},
     {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
      "tabs": [("Diary", "/media/diary"), ("To Rate", "/media/history")]},
-    {"id": "server", "label": "Server", "short": "Server", "icon": "server", "href": "/media/playing",
+    # decision 4 (2026-10-09): the Media section reads "Activity" (the hub AREA stays "Server"); id + URLs unchanged.
+    {"id": "server", "label": "Activity", "short": "Activity", "icon": "server", "href": "/media/playing",
      "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps"],
      "tabs": [("Live", "/media/playing"), ("History", "/media/server/history"), ("Library", "/media/library"), ("Downloads", "/media/downloads"),
               ("Requests", "/media/requests"), ("Health", "/media/apps")]},

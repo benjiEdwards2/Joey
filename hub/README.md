@@ -41,7 +41,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server; grid = tiles + Next 7 days, its Media sections removed 2026-10-09, decision 2); hidden areas still serve |
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
-| `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Server section: Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
+| `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
 | `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1) |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
 | `GET /media/server/history` | media_plays | History tab: plays recorded from Jellyfin sessions |

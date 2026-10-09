@@ -23,7 +23,7 @@ log = logging.getLogger("hub.media_home")
 # Media detail paths (2026-10-05). Keyed by
 # connector id (hub/ids.py) like the upcoming list — never an area name (WP17 grep exception).
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
-HISTORY_PLAYS = "/media/server/history"  # F7 play history (Server > History)
+HISTORY_PLAYS = "/media/server/history"  # F7 play history (Activity > History)
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
 TO_RATE_DAYS = 30      # rating inbox window on /media/history
 
@@ -270,7 +270,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         added.append(jf_item(r, sub, LIBRARY_DETAIL) if from_jf else item(r, sub, LIBRARY_DETAIL))
     added = added[:SHELF_MAX]
     arr = data_of(ARR_SNAPSHOT_ID)
-    # media-ux2 (2026-10-08, B.): "This week" and "Recently watched" left Media home (Server → Library keeps This week,
+    # media-ux2 (2026-10-08, B.): "This week" and "Recently watched" left Media home (Activity → Library keeps This week,
     # Diary > To rate keeps Recently watched; the hub page's own Recently watched band is separate).
     downloading = [item(r, r["caption"], LIBRARY_DETAIL) for r in
                    media_downloads.merge_downloading(arr.get("downloading"), data_of(QBIT_SNAPSHOT_ID))][:SHELF_MAX]

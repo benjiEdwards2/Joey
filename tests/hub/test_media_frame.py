@@ -49,7 +49,7 @@ ROUTES = {
     "/media/following": ("discover", "Following"),
     "/media/title/movie/1": ("discover", None),
 }
-LABELS = {"home": "Home", "movies": "Movies", "tv": "TV Shows", "diary": "Diary", "server": "Server", "discover": "Discover"}
+LABELS = {"home": "Home", "movies": "Movies", "tv": "TV Shows", "diary": "Diary", "server": "Activity", "discover": "Discover"}
 
 
 def nav_html(html, cls):
@@ -110,7 +110,7 @@ def test_waiting_counts_are_text_and_absent_at_zero(env):
         media_db.set_rating("m3", 7, "movie", "Old One")
         html = client.get("/media/movies").text
     bar = nav_html(html, "sectabs")
-    assert "waitcount" not in bar.split("Diary")[1].split("Server")[0]   # nothing to rate: Diary has no count
+    assert "waitcount" not in bar.split("Diary")[1].split("Activity")[0]   # nothing to rate: Diary has no count
     assert "to place" not in bar                                            # decision 1: no By-year badge
 
 

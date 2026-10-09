@@ -1,5 +1,5 @@
 """Move on from Continue watching (2026-10-08): "Mark watched" and "Reset progress" on resume items — the hub
-and Media home Continue watching shelves, Server → Playing's Up next, and the film / episode page when it shows
+and Media home Continue watching shelves, Activity → Live's Up next, and the film / episode page when it shows
 "Resume ▶". Live Jellyfin writes, server-side only (env JELLYFIN_URL + JELLYFIN_API_KEY):
 
 - Mark watched:   POST /UserPlayedItems/{id}?userId={uid}                         (Jellyfin 10.9+)

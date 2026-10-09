@@ -102,10 +102,11 @@ docker network inspect media-server_default >/dev/null 2>&1 \
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.
+# -n auto (pytest-xdist, review N-44): one worker per core; the suite was ~9 of the ~10 minutes.
 cd "$REPO"
 gate() {
     docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
-        && docker run --rm --network none life-test
+        && docker run --rm --network none life-test python -m pytest -q -n auto tests/
 }
 gate || gate_fail "test build or suite red"
 

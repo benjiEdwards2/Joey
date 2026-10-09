@@ -4,3 +4,5 @@
 pytest==9.1.1
 jsonschema==4.26.0
 httpx2==2.13.1
+# the deploy gate runs the suite in parallel, `pytest -n auto` (review N-44, 2026-10-09)
+pytest-xdist==3.8.0

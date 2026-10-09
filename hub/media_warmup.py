@@ -218,9 +218,9 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
 
 def run_pass(snaps=None, pause: float = PAUSE_S) -> dict:
     """What the background loop runs: the shelf pass, then — unless MEDIA_WARMUP=shelves — the library pass when
-    it is due (24 h). The stamp is written after every completed pass (M-44: a missing backdrop or one bad title no
+    it is due (24 h); first, meta cache files older than 7 days are deleted. The stamp is written after every completed pass (M-44: a missing backdrop or one bad title no
     longer re-runs the whole library every 3 h); a pass skipped for want of keys leaves it unstamped."""
-    out = {"shelves": warm_once(snaps, pause)}
+    out = {"pruned": md.prune_meta(), "shelves": warm_once(snaps, pause)}   # M-47: the disk meta cache stays bounded
     if media_rank.due():  # film-quality: the File panel's library rank, one Jellyfin read per 24 h
         out["rank"] = media_rank.refresh()
     if library_enabled() and library_due():

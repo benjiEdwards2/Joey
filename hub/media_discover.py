@@ -70,6 +70,27 @@ def meta_dir() -> Path:
     return Path(os.environ.get("META_CACHE_DIR", "").strip() or cache_dir() / "meta")
 
 
+META_KEEP_S = 7 * 24 * 3600   # the longest any meta file is ever read for (OMDb answers, media_omdb.TTL)
+
+
+def prune_meta(now: float | None = None, keep_s: float = META_KEEP_S) -> int:
+    """Delete meta cache files last written over `keep_s` ago (M-47; the warm-up loop runs it). -> files removed."""
+    cut = (time.time() if now is None else now) - keep_s
+    removed = 0
+    try:
+        files = list(meta_dir().glob("*.json"))
+    except OSError:
+        return 0
+    for f in files:
+        try:
+            if f.stat().st_mtime < cut:
+                f.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
 def clear_meta(disk: bool = False) -> None:
     for k in [k for k in _cache if k.startswith("meta:")]:
         _cache.pop(k, None)

@@ -87,3 +87,20 @@ def test_mode_switches(env, monkeypatch, tmp_path):
     assert media_warmup.disabled() and not media_warmup.library_enabled()
     monkeypatch.setenv("MEDIA_WARMUP", "on")
     assert not media_warmup.disabled() and media_warmup.library_enabled()
+
+
+def test_the_warm_up_loop_prunes_meta_files_older_than_seven_days(env, monkeypatch, tmp_path):
+    """M-47 (W2): META_CACHE_DIR no longer grows forever — run_pass deletes files last written over 7 days ago."""
+    import os
+    warm_env(env, monkeypatch, tmp_path)
+    monkeypatch.setenv("MEDIA_WARMUP", "shelves")
+    folder = md.meta_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    old, fresh = folder / "old.json", folder / "fresh.json"
+    for f in (old, fresh):
+        f.write_text("{}", encoding="utf-8")
+    week = 7 * 24 * 3600
+    os.utime(old, (time.time() - week - 60,) * 2)
+    os.utime(fresh, (time.time() - week + 3600,) * 2)
+    out = media_warmup.run_pass(pause=0)
+    assert out["pruned"] == 1 and not old.exists() and fresh.exists()

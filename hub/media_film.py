@@ -15,6 +15,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -256,8 +257,15 @@ def mc_band(score) -> str | None:
 
 
 def _override(badge_id) -> str | None:
+    """An image dropped in hub/static/badges for this badge / logo id, else None. Cached (M-09): the folder only
+    changes on deploy, and a film page asks for ~14 ids."""
+    return _override_in(BADGES_DIR, badge_id)
+
+
+@lru_cache(maxsize=256)
+def _override_in(folder: Path, badge_id) -> str | None:
     for ext in ("svg", "png"):
-        if badge_id and (BADGES_DIR / f"{badge_id}.{ext}").is_file():
+        if badge_id and (folder / f"{badge_id}.{ext}").is_file():
             return f"/static/badges/{badge_id}.{ext}"
     return None
 

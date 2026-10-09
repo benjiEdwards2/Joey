@@ -22,7 +22,7 @@ from hub import media_awards_seed as seed
 
 log = logging.getLogger("hub.media_awards_badges")
 
-PRESTIGE = ("oscars", "cannes", "bafta", "globes", "emmys", "critics", "sag", "dga", "pga", "wga")
+PRESTIGE = tuple(b["id"] for b in sorted(seed.BODIES, key=lambda b: b["prestige"]))   # M-21: from the seed
 TTL = 60.0
 CACHE_MAX = 128
 KEY_RE = re.compile(r"^(tmdb|tvdb):(\d{1,10})$")

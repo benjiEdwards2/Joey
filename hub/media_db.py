@@ -17,7 +17,7 @@ from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from hub import media_store
+from hub import media_store, media_text
 
 log = logging.getLogger("hub.media_db")
 
@@ -249,10 +249,9 @@ def base_title(title: str, kind: str) -> str:
 
 
 def _local_date(stamp: str) -> str:
-    text = re.sub(r"(\.\d{6})\d+", r"\1", str(stamp).replace("Z", "+00:00"))
-    dt = datetime.fromisoformat(text)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+    dt = media_text.parse(stamp)
+    if dt is None:
+        raise ValueError("not a timestamp")
     return dt.astimezone().date().isoformat()
 
 

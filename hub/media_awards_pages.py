@@ -28,7 +28,7 @@ from hub import media_awards_db as adb
 from hub import media_awards_badges as badges
 from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
-from hub import media_db, media_discover as md, media_item
+from hub import media_db, media_discover as md, media_item, media_text
 
 log = logging.getLogger("hub.media_awards_pages")
 router = APIRouter()
@@ -42,13 +42,7 @@ EMPTY = "Nothing recorded for this ceremony yet."
 PENDING = "Not synced yet"
 
 
-def _date_short(value) -> str | None:
-    """'2025-03-02' -> '2 Mar 2025' ('2 Mar' this year); junk -> None."""
-    try:
-        d = date.fromisoformat(str(value or "")[:10])
-    except ValueError:
-        return None
-    return f"{d.day} {d.strftime('%b')}" + ("" if d.year == date.today().year else f" {d.year}")
+_date_short = media_text.short_date   # '2025-03-02' -> '2 Mar 2025' ('2 Mar' this year)
 
 
 def status_line(st: dict) -> dict:
@@ -416,8 +410,7 @@ def tv_awards(request: Request, body: str = "", year: str = "", unseen: str = ""
     return _page(request, "tv", body, year, unseen)
 
 
-def _count(n: int, word: str) -> str:
-    return f"{n} {word}{'s' if n != 1 else ''}"
+_count = media_text.plural   # '1 win' / '3 nominations'
 
 
 def _tally_text(won: int, noms: int) -> str:

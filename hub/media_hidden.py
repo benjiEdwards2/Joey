@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import threading
 import time
-from datetime import datetime
+
+from hub import media_text
 
 GRACE_S = 90           # a sweep that started just before the action may still carry the row
 MAX_AGE_S = 6 * 3600   # a note never outlives this, whatever the snapshot does
@@ -36,10 +37,8 @@ def any_in(group: str) -> bool:
 
 
 def _stamp(updated_at) -> float | None:
-    try:
-        return datetime.fromisoformat(str(updated_at).replace("Z", "+00:00")).timestamp()
-    except (TypeError, ValueError):
-        return None
+    at = media_text.parse(updated_at)
+    return at.timestamp() if at else None
 
 
 def is_hidden(group: str, key, updated_at=None) -> bool:

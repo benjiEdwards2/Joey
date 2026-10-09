@@ -33,7 +33,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_discover as md, media_store, server_alerts
+from hub import media_db, media_discover as md, media_store, media_text, server_alerts
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_follow")
@@ -413,9 +413,7 @@ async def unfollow_route(request: Request, kind: str, tmdb_id: int):
     return RedirectResponse(_flashed(_back(form.get("back"), FOLLOWING), "off"), status_code=303)
 
 
-def _year(value) -> int | None:
-    text = str(value or "")[:4]
-    return int(text) if text.isdigit() else None
+_year = media_text.year
 
 
 def following_ctx() -> dict:

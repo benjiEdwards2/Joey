@@ -31,7 +31,7 @@
       <input type="hidden" name="title" value="{{ r.title }}">
       <button type="submit" class="btn-mini" title="Remove from watchlist" aria-label="Remove {{ r.title }} from watchlist">{{ icon("x") }}</button>
     </form>
-    <span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="st-{{ r.status_word|lower|replace(' ', '-') }}">{{ r.status_word }}</span>{% if r.status_word == "Not on server" %}<span class="sep"> · </span><a href="{{ r.href }}">Request</a>{% endif %}</span>
+    <span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="{{ status_of(r.status_word).cls }}">{{ r.status_word }}</span>{% if r.status_word == "Not on server" %}<span class="sep"> · </span><a href="{{ r.href }}">Request</a>{% endif %}</span>
   </div>
   {% endfor %}
 </div>

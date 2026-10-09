@@ -25,7 +25,7 @@ from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
-from hub import media_awards_badges
+from hub import media_awards_badges, media_status_words, media_text
 from hub import media_write as _media_write
 from hub.media_write import PLACES, router as media_write_router, year_ctx
 from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
@@ -577,6 +577,7 @@ def score_for(row, ratings, level=None):
 
 
 templates.env.globals["score_for"] = score_for
+templates.env.globals["status_of"] = media_status_words.status   # M-19: a status word's colour class
 
 
 def view_jelly(jelly: dict, view: str) -> dict:
@@ -596,12 +597,8 @@ def _ago_text(value, now: datetime) -> str:
     return ago_text((now - at).total_seconds() / 60.0) if at else ""
 
 
-def _count_text(n, singular: str, plural: str) -> str:
-    return f"{n} {singular if n == 1 else plural}"
-
-
 def _library_text(library: dict) -> str:
-    parts = [_count_text(library[k], s, p)
+    parts = [media_text.plural(library[k], s, p)
              for k, s, p in (("movies", "movie", "movies"), ("episodes", "episode", "episodes"))
              if isinstance(library.get(k), int)]
     return " · ".join(parts)

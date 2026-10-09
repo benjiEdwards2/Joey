@@ -25,7 +25,7 @@
   <div class="seclabel">Recently added by follows</div>
   <div class="listbox">
   {% for a in adds %}
-  {% set word %}<span class="st-{{ 'available' if a.outcome == 'requested' else 'warn' if a.outcome == 'failed' else 'requested' }}">{{ a.word }}</span>{% endset %}
+  {% set word %}<span class="{{ status_of(a.word).cls }}">{{ a.word }}</span>{% endset %}
   <a class="row" href="{{ a.href }}">
     {{ poster(a.poster, a.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ a.title }}{% if a.year %} ({{ a.year }}){% endif %}</div>{{ meta([word, a.reason, "following " ~ a.follow_name, a.when]) }}</div>

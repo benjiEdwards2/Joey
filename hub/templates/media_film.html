@@ -216,7 +216,7 @@
   {% for s in film.t.seasons %}
   {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
   {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
-  {% set st %}<span class="st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span>{% endset %}
+  {% set st %}<span class="{{ status_of(s.status_word).cls }}">{{ s.status_word }}</span>{% endset %}
   <details class="seasonbox" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
   <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>
     {{ meta([s.episodes ~ " episode" ~ ("s" if s.episodes != 1 else ""), s.year, st]) }}</div></summary>

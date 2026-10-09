@@ -4,7 +4,7 @@
 {% from "_poster.html" import poster %}
 {# Person page (F11; restyle Phase 3): round portrait beside the name, bio, then "On your server" first as a
    carousel and Films / TV as poster grids. Every card: year · role · status WORD. #}
-{% macro card(r, href, word) %}<a class="card-poster" href="{{ href }}"><span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% for p in [r.year, r.role] if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}{% if word %}{% if r.year or r.role %}<span class="sep"> · </span>{% endif %}<span class="{{ 'st-available' if r.on_server else 'st-' ~ (r.word|lower|replace(' ', '-')) }}">{{ r.word }}</span>{% endif %}</span></a>{% endmacro %}
+{% macro card(r, href, word) %}<a class="card-poster" href="{{ href }}"><span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% for p in [r.year, r.role] if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}{% if word %}{% if r.year or r.role %}<span class="sep"> · </span>{% endif %}<span class="{{ status_of(r.word).cls }}">{{ r.word }}</span>{% endif %}</span></a>{% endmacro %}
 {% if person.down %}<p class="empty">{{ person.note }}</p>{% else %}
 <header class="personhead hero-detail">
   {% if person.ref %}<img class="personpic" src="/img/{{ person.ref }}?h=240" alt="" width="160" height="160">{% else %}<span class="personpic initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}

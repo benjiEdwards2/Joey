@@ -24,7 +24,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_awards_badges, media_files
+from hub import media_awards_badges, media_files, media_text
 from hub.images import REF_RE, cache_dir
 from hub.media_cache import LRU
 from hub.media_watchlist import keys_for
@@ -181,9 +181,7 @@ def meta_get(path: str, ttl: float = META_TTL):
     return body
 
 
-def _year(value) -> int | None:
-    text = str(value or "")[:4]
-    return int(text) if text.isdigit() else None
+_year = media_text.year
 
 
 def _ref(path) -> str | None:
@@ -512,13 +510,7 @@ def request_step(request: Request, kind: str, tmdb_id: int, step: str = ""):
 EPISODES_DOWN = "Episodes unavailable right now"
 
 
-def _date_words(value) -> tuple[str | None, bool]:
-    """'2026-03-14' -> ('14 Mar 2026', is_future); junk -> (None, False)."""
-    try:
-        d = date.fromisoformat(str(value or "")[:10])
-    except ValueError:
-        return None, False
-    return f"{d.day} {d.strftime('%b')} {d.year}", d > date.today()
+_date_words = media_text.date_words   # '2026-03-14' -> ('14 Mar 2026', is_future)
 
 
 def _episodes(tmdb_id: int, n: int) -> list[dict] | None:

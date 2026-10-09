@@ -20,7 +20,7 @@
    only when nothing is on disk yet, stops the Radarr / Sonarr search — never deletes a file. #}
 <div class="listbox">
 {% for r in rows %}
-{% set st %}<span class="st-{{ r.status_text|lower|replace(' ', '-') }}">{{ r.status_text }}</span>{% endset %}
+{% set st %}<span class="{{ status_of(r.status_text).cls }}">{{ r.status_text }}</span>{% endset %}
 <div class="row has-form reqrow" id="req-{{ r.id }}">
   <a class="rowlink" href="{{ r.href }}" target="_blank" rel="noopener">
   {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}

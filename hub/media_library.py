@@ -6,6 +6,8 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 
+from hub import media_text
+
 SORTS = ("score", "title", "year", "added", "rating")
 SORT_LABELS = {"score": "Your score", "title": "A-Z", "year": "Newest release",
                "added": "Recently added", "rating": "Community rating"}
@@ -15,21 +17,8 @@ OLD_FAVOURITE_MIN = 8
 _EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 
-def parse_ts(value) -> datetime | None:
-    try:
-        text = re.sub(r"(\.\d{6})\d+", r"\1", str(value).replace("Z", "+00:00"))
-        dt = datetime.fromisoformat(text)
-        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-    except Exception:
-        return None
-
-
-def runtime_text(minutes) -> str:
-    """Lengths as the guide writes them (section 9): 112 -> "1h 52m", 47 -> "47m", 120 -> "2h", missing -> "—"."""
-    if not isinstance(minutes, (int, float)) or minutes <= 0:
-        return "—"
-    h, m = divmod(int(minutes), 60)
-    return " ".join(x for x in (f"{h}h" if h else "", f"{m}m" if m else "") if x)
+parse_ts = media_text.parse          # ISO -> aware datetime, None when it is not one
+runtime_text = media_text.duration   # 112 -> "1h 52m", 47 -> "47m", 120 -> "2h", missing -> "—"
 
 
 def _watched_text(played, last, ago) -> str:

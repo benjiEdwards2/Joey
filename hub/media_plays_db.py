@@ -12,7 +12,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
-from hub import media_store
+from hub import media_store, media_text
 from hub.ids import home_tz
 
 log = logging.getLogger("hub.media_plays_db")
@@ -42,11 +42,7 @@ def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _parse(stamp) -> datetime | None:
-    try:
-        return datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
-    except ValueError:
-        return None
+_parse = media_text.parse
 
 
 def _tz():

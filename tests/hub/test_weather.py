@@ -169,7 +169,9 @@ def test_malformed_forecast_rows_never_crash(app_factory):
     html = _weather_html(app_factory, data)
     assert "9.7" in html
     assert '<svg class="wxchart"' not in html                   # no temperatures => no chart
-    assert '<div class="row-title">Today</div>' in html and "unknown" in html
+    assert '<div class="row-title">Today</div>' in html and "unknown" not in html.lower()
+    week = html.split('class="listbox wxdays"')[1].split("</ol>")[0]
+    assert '<div class="row-meta">—' in week                     # a missing condition word is "—" (guide §9)
 
 
 def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):

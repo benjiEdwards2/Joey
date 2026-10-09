@@ -353,7 +353,7 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
 def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=None,
              now: datetime | None = None, live: set[str] | None = None) -> dict:
     """The Server area's hub card in words: {summary, secondary, state: ok|warn}.
-    summary: "All up" / "2 down: Prowlarr, Sonarr"; secondary: "N updates" (ignored ones
+    summary: "All up" / "2 down · Prowlarr · Sonarr"; secondary: "N updates" (ignored ones
     excluded) · "disk N%" (fullest volume) · "N monitors down". `warn` whenever Attention
     is non-empty. "Not connected" when the services snapshot is missing."""
     apps = _apps(snaps)
@@ -361,7 +361,7 @@ def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=N
         summary = "Not connected"
     else:
         down = [str(a.get("name", a.get("id", "?"))) for a in apps if not a.get("up")]
-        summary = f"{len(down)} down: {', '.join(down)}" if down else "All up"
+        summary = " · ".join([f"{len(down)} down", *down]) if down else "All up"  # guide §9: " · " joins
     parts = []
     rows = [c for c in _data(snaps, WUD_SNAPSHOT_ID).get("containers") or []
             if isinstance(c, dict) and c.get("update_available")]

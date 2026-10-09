@@ -108,7 +108,7 @@ def test_hub_server_card_is_cached_while_snapshots_are_unchanged(tmp_path, monke
         assert len(builds) == 1 and len(backups) == 2          # one backup read per request, one card build
         write_envelope(tmp_path / "snaps", "media_status", age_minutes=0, data={"summary": "0 of 1 up", "apps": [
             {"id": "j", "name": "Jellyfin", "up": False}]})
-        assert "1 down: Jellyfin" in c.get("/").text and len(builds) == 2
+        assert "1 down · Jellyfin" in c.get("/").text and len(builds) == 2
         monkeypatch.setattr(main, "HUB_CARD_TTL_S", 0)
         c.get("/")
         assert len(builds) == 3

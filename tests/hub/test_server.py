@@ -279,7 +279,7 @@ def test_hub_card_all_up_is_ok_with_disk(tmp_path):
 def test_hub_card_down_updates_excluding_ignored_monitors_and_warn(tmp_path):
     snaps = _snaps(tmp_path, media_status=TWO_DOWN, wud=WUD, system=SYSTEM, uptime_kuma=KUMA)
     card = server.hub_card(snaps, {("a", "2")}, {"warning": None})
-    assert card["summary"] == "2 down: Prowlarr, Sonarr"
+    assert card["summary"] == "2 down · Prowlarr · Sonarr"
     assert card["secondary"] == "1 update · disk 74% · 2 monitors down"
     assert card["state"] == "warn"
     assert server.hub_card(snaps, set(), {"warning": None})["secondary"].startswith("2 updates · ")
@@ -297,7 +297,7 @@ def test_hub_server_card_shows_the_words_and_needs_attention(env):
     with env() as client:
         body = main_of(client.get("/").text)
     card = body.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
-    assert "1 down: Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
+    assert "1 down · Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
     assert '<span class="badge badge-wait">Needs attention</span>' in card   # amber: something to do
     assert "12 of 12 up" not in card and "11 of 12 up" not in card
 

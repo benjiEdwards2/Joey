@@ -185,7 +185,7 @@ update) in `server_update_ignores`; ignored rows fold into "Ignored (N)" with Un
 
 **Server card, durable Attention, Sweeps, Discord (WP-U2, 2026-10-06).** The hub's Server KPI card no longer shows the
 `services` tile summary: `server.hub_card()` (wired in `hub/main.py` `server_card_state`, keyed by `layout: server`) writes
-line 1 "All up" / "2 down: Prowlarr, Sonarr" and line 2 "N updates" (ignored ones excluded, omitted at 0) · "disk N%"
+line 1 "All up" / "2 down · Prowlarr · Sonarr" and line 2 "N updates" (ignored ones excluded, omitted at 0) · "disk N%"
 (fullest volume) · "N monitors down" (when > 0). When Attention is non-empty the card wears the amber stale badge with the
 words "Needs attention" (no new colour); a missing `media_status` snapshot still reads "Not connected". Attention items are
 now keyed (`attention_items()`: `down:<app>`, `disk:<path>`, `kuma:<monitor>`, `backup`, `sweep:<connector>`). Sweep

@@ -118,7 +118,7 @@
     {% for m in mon.rows %}
     <div class="row{{ ' is-down' if m.status == 'down' }}">
       <div class="row-body"><div class="row-title">{{ m.name }}</div></div>
-      <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ (m.status or "unknown") | title }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
+      <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ m.status | title if m.status else "—" }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
     </div>
     {% else %}
     <p class="empty">No monitors.</p>

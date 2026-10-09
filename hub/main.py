@@ -344,7 +344,7 @@ def weather_forecast(snaps) -> dict | None:
                   for h in hourly],
         "chart": _wx_chart(hourly),
         "days": [{"label": _wx_day_label(d.get("date"), i == 0), "date": d.get("date"),
-                  "word": d.get("condition_text") or "unknown",
+                  "word": d.get("condition_text") or "—",   # guide §9: missing is "—"
                   "glyph": weather_glyph(d.get("condition_text")),
                   "min": _wx_num(d.get("min_c")), "max": _wx_num(d.get("max_c")),
                   "rain": d.get("rain_prob_pct")}
@@ -455,7 +455,7 @@ def _day_label(d: date, today: date) -> str:
         return "Today"
     if d == today + timedelta(days=1):
         return "Tomorrow"
-    return d.strftime("%a %d %b")
+    return f"{d:%a} {d.day} {d:%b}"   # "Wed 8 Oct" (guide §9: no zero padding)
 
 
 def build_upcoming(events, view: str, now: datetime, days: int = UPCOMING_DAYS) -> list[dict]:

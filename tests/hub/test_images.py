@@ -224,3 +224,15 @@ def test_warm_and_get_share_one_cache_lookup(client, jelly, upstream, tmp_path):
     assert images.warm("jf:abc123", 240) == "cached"
     assert client.get("/img/jf:abc123?h=240").content == JPEG
     assert len(calls) == 1
+
+
+def test_placeholder_url_carries_letters_only_and_serves_the_same_card(client):
+    """N-33: `t=` is the card's two letters, so every 'Jellyfin…' title shares ONE cacheable placeholder URL."""
+    from hub.images import fallback_letters
+    from hub.shell import templates
+    assert fallback_letters("the Quiet Coast") == "TH" and fallback_letters("  ") == "" and fallback_letters(None) == ""
+    html = templates.env.from_string('{% from "_services.html" import services_row %}{{ services_row(s) }}').render(
+        s=[{"href": "/x", "logo": None, "name": "Jellyfin Plus"}, {"href": "/y", "logo": "tmdb:/l.png", "name": "Neon"}])
+    assert 'src="/img/none?h=120&amp;t=JE"' in html and 'src="/img/tmdb:/l.png?h=120&amp;t=NE"' in html
+    whole, short = client.get("/img/none?h=120&t=Jellyfin Plus"), client.get("/img/none?h=120&t=JE")
+    assert whole.content == short.content and short.headers["cache-control"] == "public, max-age=3600"

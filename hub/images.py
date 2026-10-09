@@ -44,9 +44,16 @@ def cache_dir() -> Path:
     return Path(os.environ.get("IMG_CACHE_DIR", "/data/cache/img"))
 
 
+def fallback_letters(title) -> str:
+    """The fallback card's text: the title's first two letters/digits, upper-cased ("" when none). Templates pass
+    this, not the whole title, as `t=` (Jinja global `img_letters`), so one placeholder URL — cached for an hour —
+    serves every title sharing those letters instead of one URL per title (N-33)."""
+    return "".join(c for c in str(title or "") if c.isalnum())[:2].upper()
+
+
 def fallback_svg(title: str = "") -> bytes:
     """Area-neutral dark 2:3 card with the title's first two letters; no external request."""
-    letters = "".join(c for c in title if c.isalnum())[:2].upper() or "·"
+    letters = fallback_letters(title) or "·"
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" role="img">'
         '<rect width="200" height="300" fill="#1c1f26"/>'

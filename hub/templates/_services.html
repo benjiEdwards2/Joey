@@ -9,7 +9,7 @@
   <div class="carousel prov-row">
   {% for s in services %}
     <a class="prov-tile" href="{{ s.href }}">
-      <img class="prov-logo" src="/img/{{ s.logo or 'none' }}?h=120&amp;t={{ s.name|urlencode }}" alt="" loading="lazy" decoding="async" width="56" height="56">
+      <img class="prov-logo" src="/img/{{ s.logo or 'none' }}?h=120&amp;t={{ img_letters(s.name)|urlencode }}" alt="" loading="lazy" decoding="async" width="56" height="56">
       <span class="prov-name">{{ s.name }}</span>
     </a>
   {% endfor %}

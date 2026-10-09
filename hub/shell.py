@@ -18,6 +18,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
 
+from hub.images import fallback_letters
+
 HUB_DIR = Path(__file__).resolve().parent
 STATIC_DIR = HUB_DIR / "static"
 TEMPLATES_DIR = HUB_DIR / "templates"
@@ -44,6 +46,7 @@ def dev_mode() -> bool:
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = dev_mode()
 templates.env.globals["static_v"] = _static_version()
+templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
 
 
 # ---- response headers (T3, 2026-10-09: H-56, N-48, N-49) ----

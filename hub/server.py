@@ -21,6 +21,7 @@ Services is a card grid (`service_card`: logo, subtitle, gated href, Uptime Kuma
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import datetime, timezone
 
@@ -82,6 +83,18 @@ def uptime_text(seconds) -> str:
     if days:
         return f"{days} day{'' if days == 1 else 's'} {hours} h"
     return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+
+
+def _num(v) -> float | None:
+    """A finite number from an envelope value (int, float or numeric string), else None — a malformed
+    `system` value degrades to "—", never a 500 (H-63)."""
+    if isinstance(v, bool):
+        return None
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return None
+    return n if math.isfinite(n) else None
 
 
 def _gb(n) -> str:
@@ -351,9 +364,10 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
                           "text": f"{a.get('name', a.get('id', '?'))} is Down"
                                   + (f" ({a['note']})" if a.get("note") else "")})
     for v in _volumes(snaps):
-        if int(v.get("pct_used") or 0) >= DISK_ATTENTION_PCT:
+        pct = _num(v.get("pct_used"))
+        if pct is not None and int(pct) >= DISK_ATTENTION_PCT:
             items.append({"key": f"disk:{v.get('path', '?')}",
-                          "text": f"{v.get('path', '?')} is {v['pct_used']}% full ({v['free_text']} free)"})
+                          "text": f"{v.get('path', '?')} is {pct:g}% full ({v['free_text']} free)"})
     for m in _monitors(snaps):
         if m.get("status") in ("down", "pending"):
             items.append({"key": f"kuma:{m.get('name', '?')}",
@@ -389,7 +403,7 @@ def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=N
     n_up = len(split_updates(rows, ignores, None, now)[0])
     if n_up:
         parts.append(f"{n_up} update{'' if n_up == 1 else 's'}")
-    pcts = [int(v.get("pct_used") or 0) for v in _volumes(snaps)]
+    pcts = [int(p) for v in _volumes(snaps) if (p := _num(v.get("pct_used"))) is not None]
     if pcts:
         parts.append(f"disk {max(pcts)}%")
     n_down = sum(1 for m in _monitors(snaps) if m.get("status") == "down")
@@ -498,9 +512,10 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     updates = _band(area, snaps, WUD_SNAPSHOT_ID)
 
     sd = system["data"]
+    cpu, load = _num(sd.get("cpu_pct")), _num(sd.get("load_1m"))
     system.update(
-        cpu_text=f"{float(sd['cpu_pct']):.0f}%" if sd.get("cpu_pct") is not None else "—",
-        load_text=f"Load {sd['load_1m']:.2f}" if sd.get("load_1m") is not None else "",
+        cpu_text=f"{cpu:.0f}%" if cpu is not None else "—",
+        load_text=f"Load {load:.2f}" if load is not None else "",
         ram_text=_gb(sd.get("ram_free_gb")) + " free" if sd.get("ram_free_gb") is not None else "—",
         ram_sub=(f"of {_gb(sd.get('ram_total_gb'))} · {sd.get('ram_pct_used', 0)}% used"
                  if sd.get("ram_total_gb") is not None else ""),

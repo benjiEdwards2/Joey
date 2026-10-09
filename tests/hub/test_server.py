@@ -308,6 +308,33 @@ def test_hub_server_card_is_ok_when_nothing_needs_attention(env):
     assert "All up" in card and "disk 74%" in card and "Needs attention" not in card
 
 
+BAD_SYSTEM = {"summary": "x", "cpu_pct": "busy", "load_1m": "high", "ram_pct_used": "most", "uptime_s": "long",
+              "volumes": [{"path": "/volume1", "pct_used": "full", "free_gb": "?", "total_gb": None},
+                          {"path": "/volume2", "pct_used": float("nan")}, "not a volume"]}
+
+
+def test_malformed_system_envelope_never_500s_hub_or_server(env):
+    """H-63: non-numeric values degrade to words; the hub's Server card never takes `/` down."""
+    with env(samples=False, media_status=ALL_UP, system=BAD_SYSTEM) as client:
+        hub, page = client.get("/"), client.get("/server")
+    assert hub.status_code == 200 and page.status_code == 200
+    assert "All up" in main_of(hub.text).split('href="/a/server"', 1)[1].split("</a>", 1)[0]
+    assert "Load " not in txt(main_of(page.text)).split("Last 24 h")[0]
+
+
+def test_hub_page_survives_a_hub_card_crash(env, monkeypatch):
+    with env(samples=False, media_status=ALL_UP, system=SYSTEM) as client:
+        import hub.main
+        monkeypatch.setattr(hub.main.server_area, "hub_card", lambda *a, **k: 1 / 0)
+        r = client.get("/")
+    assert r.status_code == 200 and 'href="/a/server"' in r.text
+
+
+def test_num_coerces_envelope_values():
+    assert [server._num(v) for v in (3, 2.5, "4.5", True, None, "x", float("inf"))] == [3.0, 2.5, 4.5, None, None,
+                                                                                         None, None]
+
+
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
 
 

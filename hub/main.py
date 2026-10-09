@@ -1061,7 +1061,10 @@ def hub_page(request: Request):
         if summary.snapshot == GCAL_SNAPSHOT_ID and upcoming:  # keyed by connector id, never area name
             card["per_day"] = upcoming["per_day"]
         if a.layout == server_area.SERVER_LAYOUT and card["st"]["state"] != "off":
-            card["st"] = server_card_state(card["st"], snaps)  # WP-U2: the card's own words
+            try:
+                card["st"] = server_card_state(card["st"], snaps)  # WP-U2: the card's own words
+            except Exception as exc:  # a malformed envelope never 500s the hub: the plain tile state stays (H-63)
+                log.warning("server hub card skipped: %s", type(exc).__name__)
         if a.layout == "shelves":  # hero content keyed by layout, never by area name
             link = next((st["href"] for t in a.tiles if owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)

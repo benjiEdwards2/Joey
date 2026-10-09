@@ -43,6 +43,31 @@ def _no_real_ftp(monkeypatch):
     monkeypatch.setattr(ftplib, "FTP", _Refused)
 
 
+@pytest.fixture(autouse=True)
+def _session_calls_reach_patched_requests(monkeypatch):
+    """Feeds make their calls on one `requests.Session` per run (C-05). Most tests here
+    intercept the module-level `requests.get` / `requests.post`; this stand-in Session routes
+    to whatever those are at call time, so the interception keeps covering every call. A test
+    that patches `requests.Session` itself (qBittorrent, test_http_session) overrides it."""
+    import requests
+    from requests.cookies import RequestsCookieJar
+
+    class RoutedSession:
+        def __init__(self):
+            self.cookies = RequestsCookieJar()
+
+        def get(self, url, **kw):
+            return requests.get(url, **kw)
+
+        def post(self, url, **kw):
+            return requests.post(url, **kw)
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(requests, "Session", RoutedSession)
+
+
 @pytest.fixture()
 def snapshots(tmp_path, monkeypatch) -> Path:
     """Point SNAPSHOT_DIR at a tmp dir and default the mode to fixture."""

@@ -166,7 +166,7 @@ def test_failure_never_leaks_the_url_or_key(live, monkeypatch):
     assert envelope["status"] == "error"
     dumped = json.dumps(envelope)
     assert "example.invalid" not in dumped and KEY not in dumped
-    assert "ConnectionError" in envelope["error"]
+    assert "Jellyfin users failed (connection refused)" in envelope["error"]
 
 
 def test_http_failure_reason_is_the_status_code(live, monkeypatch):
@@ -473,7 +473,7 @@ def test_a_failed_library_list_drops_only_that_list(live, monkeypatch, raw, capl
     assert "movies" not in data and len(data["shows"]) > 0
     assert data["summary"] and data["up_next"]            # the core feed is untouched
     jsonschema.validate(data, SCHEMA)
-    assert "Jellyfin movies failed (Timeout)" in caplog.text
+    assert "Jellyfin movies failed (timeout)" in caplog.text
     assert "example.invalid" not in caplog.text and KEY not in caplog.text
 
 
@@ -490,4 +490,4 @@ def test_a_failed_core_call_still_fails_the_feed(live, monkeypatch, raw):
     _failing(monkeypatch, raw, lambda path, p: path == "/Sessions")
     envelope = Jellyfin().run()
     assert envelope["status"] == "error"
-    assert envelope["error"] == "RuntimeError: Jellyfin sessions failed (Timeout)"
+    assert envelope["error"] == "RuntimeError: Jellyfin sessions failed (timeout)"

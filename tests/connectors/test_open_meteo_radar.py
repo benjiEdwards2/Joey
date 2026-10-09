@@ -14,7 +14,7 @@ import jsonschema
 import pytest
 import requests
 
-from connectors import stubs
+from connectors.feeds import open_meteo as open_meteo_feed
 from connectors.stubs import OpenMeteo, prune_radar_dir, radar_frame_stamps
 from pathlib import Path
 
@@ -222,7 +222,7 @@ def test_radar_step_is_off_unless_radar_loop_is_1(live, monkeypatch, value):
         monkeypatch.delenv("RADAR_LOOP", raising=False)
     else:
         monkeypatch.setenv("RADAR_LOOP", value)
-    monkeypatch.setattr(stubs, "fetch_radar", lambda c: pytest.fail("radar step ran while gated off"))
+    monkeypatch.setattr(open_meteo_feed, "fetch_radar", lambda c: pytest.fail("radar step ran while gated off"))
     env = OpenMeteo().run()
     assert env["status"] == "ok" and env["error"] is None
     assert env["data"]["summary"] == "18.3 °C · light rain"
@@ -233,7 +233,7 @@ def test_radar_step_is_off_unless_radar_loop_is_1(live, monkeypatch, value):
 
 
 def test_fixture_mode_never_runs_the_radar_step(snapshots, monkeypatch):
-    monkeypatch.setattr(stubs, "fetch_radar", lambda c: pytest.fail("radar in fixture mode"))
+    monkeypatch.setattr(open_meteo_feed, "fetch_radar", lambda c: pytest.fail("radar in fixture mode"))
     env = OpenMeteo().run()
     assert env["status"] == "ok" and "radar" not in env["data"]
     assert not (snapshots / "radar").exists()

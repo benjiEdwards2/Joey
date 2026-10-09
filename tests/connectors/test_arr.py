@@ -45,7 +45,7 @@ def live(snapshots, monkeypatch):
     monkeypatch.setenv("SONARR_URL", SONARR)
     monkeypatch.setenv("SONARR_API_KEY", SKEY)
     # live mode reads the real clock; pin it so the fixture dates stay in the window
-    monkeypatch.setattr("connectors.stubs._now", lambda: datetime(2026, 1, 1, tzinfo=timezone.utc))
+    monkeypatch.setattr("connectors.feeds.arr._now", lambda: datetime(2026, 1, 1, tzinfo=timezone.utc))
     return snapshots
 
 

@@ -30,7 +30,7 @@
 <section class="sec" id="system" aria-label="System">
   <div class="sechead"><h2 class="seclabel">System</h2></div>
   {% if sys.st.state == "off" %}
-    <p class="empty">Not connected.</p>
+    <p class="empty">Not connected</p>
     {% if sys.st.note %}<p class="metaline">{{ sys.st.note }}</p>{% endif %}
   {% else %}
     <div class="stats">
@@ -82,7 +82,7 @@
 <div class="sec" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}
   <div class="sechead"><h2 class="seclabel">Services</h2></div>
-  <p class="empty">Not connected.</p>
+  <p class="empty">Not connected</p>
   {% if svc.st.note %}<p class="metaline">{{ svc.st.note }}</p>{% endif %}
 {% else %}
   <p class="metaline">{{ updated(svc.st) }}</p>
@@ -116,7 +116,7 @@
 <section class="sec" id="monitors" aria-label="Monitors">
   <div class="sechead"><h2 class="seclabel">Monitors</h2></div>
   {% if mon.st.state == "off" %}
-    <p class="empty">Not connected.</p>
+    <p class="empty">Not connected</p>
     {% if mon.st.note %}<p class="metaline">{{ mon.st.note }}</p>{% endif %}
   {% else %}
     <p class="metaline">{{ mon.data.get("up", 0) }} of {{ mon.data.get("total", 0) }} up<span class="sep"> · </span>{{ updated(mon.st) }}</p>
@@ -127,7 +127,7 @@
       <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ m.status | title if m.status else "—" }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
     </div>
     {% else %}
-    <p class="empty">No monitors.</p>
+    <p class="empty">No monitors</p>
     {% endfor %}
     </div>
   {% endif %}
@@ -137,7 +137,7 @@
 <section class="sec" id="updates" aria-label="Updates">
   <div class="sechead"><h2 class="seclabel">Updates</h2></div>
   {% if up.st.state == "off" %}
-    <p class="empty">Not connected.</p>
+    <p class="empty">Not connected</p>
     {% if up.st.note %}<p class="metaline">{{ up.st.note }}</p>{% endif %}
   {% else %}
     {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
@@ -157,7 +157,7 @@
       </span>
     </div>
     {% else %}
-    <p class="empty">All up to date.</p>
+    <p class="empty">All up to date</p>
     {% endfor %}
     </div>
     {% if up.ignored %}

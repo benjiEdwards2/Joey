@@ -449,6 +449,10 @@ ambient animations. Everything respects `prefers-reduced-motion`.
 - **Empty states** are one sentence in a quiet bordered box: `rounded-xl
   border border-white/5 p-8 text-center text-sm text-zinc-500` — "Nothing on
   the watchlist."
+  Joey's punctuation rule (2026-10-09): a state shown as a short phrase has no
+  full stop ("Not connected", "Nothing playing", "Unavailable", "No page here");
+  a full sentence has one ("Hourly and 7-day forecast arrive with the next refresh.").
+  Page titles read "Page · Joey"; every "see everything" link in a section head says "All".
 - No amber that never goes away: a permanent, unfixable state is a muted grey
   line; amber means "something to do".
 - Every icon-only button has an `aria-label`; toggles use `aria-pressed`.

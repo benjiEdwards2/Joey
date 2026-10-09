@@ -49,7 +49,7 @@ def test_link_tile_renders_href(client):
 def test_unknown_area_is_styled_404(client):
     r = client.get("/a/pool")
     assert r.status_code == 404
-    assert "pool" in r.text            # named in the styled page
+    assert "No page here" in r.text and "Back to Hub" in r.text   # one 404 wording, with a way back
     assert "Alpha" in r.text           # tab bar still rendered
 
 

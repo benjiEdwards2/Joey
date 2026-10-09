@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Not found · Joey{% endblock %}
+{% block title %}No page here · Joey{% endblock %}
 {% block content %}
 <section class="sec narrow">
   <div class="sechead"><h1 class="seclabel">404</h1></div>
-  <p class="empty">{{ missing_text or ("No area called “" ~ missing_id ~ "”.") }}</p>
+  <p class="empty">{{ missing_text or "No page here" }}</p>
+  <p class="metaline"><a href="/">Back to Hub</a></p>
 </section>
 {% endblock %}

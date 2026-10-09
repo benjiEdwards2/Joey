@@ -67,8 +67,7 @@ def test_radar_panel_is_a_windy_embed_with_the_home_coords(app_factory, coords):
                  "metricWind=km%2Fh", "detectRotation=false"):
         assert part in src.split("?", 1)[1].split("&"), part
     assert 'title="Interactive rain radar map' in panel and 'loading="lazy"' in panel
-    assert "Interactive radar · map by windy.com (loads from windy.com)" in panel
-    assert "Needs internet — if the map is blank, windy.com is unreachable" in panel
+    assert "Interactive radar · windy.com · needs internet" in panel
     # the BOM layer stack is gone from the page, and the page itself runs no script for it
     assert "wxrframe" not in page and "/weather/radar/" not in page and "<script" not in panel
 

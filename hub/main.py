@@ -858,7 +858,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 
     ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
 
-    unset_text = "Set JELLYFIN_USER_HER in deploy/.env"
+    unset_text = "Set JELLYFIN_USER_HER in deploy/.env."
     add("continue", "Continue watching", PLAYING_DETAIL,
         [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
          for n in up_next[:SHELF_MAX]],
@@ -1493,7 +1493,7 @@ def _year_page(request: Request, slug: str, template: str):
     if not ctx_ok:
         return templates.TemplateResponse(request, "404.html", {
             "areas": registry.visible_areas, "active_id": None,
-            "missing_text": "No rankings here",
+            "missing_text": "No page here",
         }, status_code=404)
     return resp
 

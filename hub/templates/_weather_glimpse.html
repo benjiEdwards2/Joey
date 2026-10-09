@@ -4,7 +4,7 @@
 {% import "_icons.html" as ic %}
 {% from "_rows.html" import updated %}
 <section class="sec wxglimpse" aria-label="Weather">
-  <div class="sechead"><h2 class="seclabel">Weather<span class="sep"> · </span>{{ weather_place() }}</h2><a href="/weather">Details</a></div>
+  <div class="sechead"><h2 class="seclabel">Weather<span class="sep"> · </span>{{ weather_place() }}</h2><a href="/weather">All</a></div>
   {% if w.st.state == "off" %}
   <div class="panel"><p class="stat-word st-off">Not connected</p>{% if w.st.note %}<p class="row-meta">{{ w.st.note }}</p>{% endif %}</div>
   {% else %}

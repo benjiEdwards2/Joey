@@ -94,7 +94,7 @@ def test_calendar_has_upcoming_rows_with_owner_words(site):
     assert 'class="row upc"' in body and "uptable" not in body and "uplist" not in body
     for word in ("Shared", "You", "Her"):
         assert f'<span class="row-side">{word}</span>' in body
-    assert "View all" not in body            # already on the calendar page
+    assert ">All</a>" not in body.split('class="band a"', 1)[1].split("</section>", 1)[0]   # already on the calendar page
     assert 'class="band a"' in body
     # weather lives on the hub and /weather only (2026-10-08) — no glimpse or tile here
     # (the nav rail's Weather link still renders on every page, so match the card markers)

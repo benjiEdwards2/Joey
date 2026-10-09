@@ -139,7 +139,7 @@ def _reason(res: dict) -> str:
 # records "MissingCredential: <id>: missing environment variable …"), or (b) no visible area
 # reads its snapshot (every area whose tiles reference it is `hidden`, or none does).
 # Not-configured connectors never reach Attention, Discord or the hub card's warn state; the
-# Sweeps (24 h) table still lists them, saying "Not configured" instead of "Failing".
+# Sweeps · 24 h table still lists them, saying "Not configured" instead of "Failing".
 MISSING_CREDENTIAL = "MissingCredential"
 
 
@@ -404,7 +404,7 @@ SPARK_W, SPARK_H, SPARK_PAD = 240, 40, 3
 SPARK_MIN_SPAN = 1.0  # % — a flat series draws as a flat line, not amplified noise
 DISK_TARGET_PCT = DISK_ATTENTION_PCT
 PROJECTION_MAX_DAYS = 3650  # 10 years: beyond that the trend reads "flat"
-COLLECTING = "Collecting history — first chart after a few sweeps"
+COLLECTING = "Collecting history · first chart after a few sweeps"
 
 
 def _spark(label: str, points: list, start: datetime, digits: int = 0) -> dict | None:

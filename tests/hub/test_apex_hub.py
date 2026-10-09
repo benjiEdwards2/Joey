@@ -114,7 +114,7 @@ def test_next_seven_days_rows_have_day_words_and_text_owners(hub):
     assert '<div class="upc-head seclabel"' in table                       # the column heads (desktop)
     for word in ("Shared", "You", "Her"):
         assert f'<span class="row-side">{word}</span>' in table
-    assert 'href="/a/calendar">View all</a>' in body
+    assert 'href="/a/calendar">All</a>' in body
 
 
 def test_next_seven_days_empty_sentence(hub):
@@ -150,7 +150,7 @@ def test_continue_watching_her_view_and_empty_sentence(hub):
     assert 'id="continue"' not in her and "Nothing up next" not in her
     jelly = {**SAMPLE_DATA["jellyfin"], "up_next": [], "her": None}
     _, body = hub(jellyfin=jelly)
-    assert '<p class="empty">Nothing up next.</p>' not in body
+    assert '<p class="empty">Nothing up next</p>' not in body
 
 
 def test_hub_main_has_no_literal_hex_colour(hub):

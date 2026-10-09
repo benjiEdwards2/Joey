@@ -6,10 +6,10 @@
 <section class="sec upcoming" aria-label="Next {{ upcoming.days }} days">
   <div class="sechead">
     <h2 class="seclabel">Next {{ upcoming.days }} days</h2>
-    {% if upcoming.href %}<a href="{{ upcoming.href }}">View all</a>{% endif %}
+    {% if upcoming.href %}<a href="{{ upcoming.href }}">All</a>{% endif %}
   </div>
   {% if upcoming.st.state == "off" %}
-  <p class="empty">Not connected.</p>
+  <p class="empty">Not connected</p>
   {% if upcoming.st.note %}<p class="metaline">{{ upcoming.st.note }}</p>{% endif %}
   {% else %}
   {% if upcoming.st.state == "stale" %}<p class="metaline">{{ updated(upcoming.st) }}</p>{% endif %}
@@ -25,7 +25,7 @@
     {% endfor %}{% endfor %}
   </div>
   {% else %}
-  <p class="empty">Nothing in the next {{ upcoming.days }} days.</p>
+  <p class="empty">Nothing in the next {{ upcoming.days }} days</p>
   {% endif %}
   {% endif %}
 </section>

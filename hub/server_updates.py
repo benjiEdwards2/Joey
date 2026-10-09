@@ -212,7 +212,7 @@ def run_step(request: Request, name: str, step: str = ""):
     if step != "confirm":
         return RedirectResponse("/server#updates", status_code=303)
     if _name(name) is None:
-        return _page(request, {"name": "?", "row": None, "msg": "No such container."}, 404)
+        return _page(request, {"name": "?", "row": None, "msg": "No such container"}, 404)
     row = _pending_row(name)
     return _page(request, {"name": name, "row": row, "msg": refusal(row, name)})
 
@@ -220,7 +220,7 @@ def run_step(request: Request, name: str, step: str = ""):
 @router.post("/server/updates/{name}/run", dependencies=[Depends(same_origin)])
 def run_now(request: Request, name: str):
     if _name(name) is None:
-        return _page(request, {"name": "?", "row": None, "msg": "No such container."}, 404)
+        return _page(request, {"name": "?", "row": None, "msg": "No such container"}, 404)
     row = _pending_row(name)
     why = refusal(row, name)
     if why:

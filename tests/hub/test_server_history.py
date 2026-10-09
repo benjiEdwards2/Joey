@@ -152,7 +152,7 @@ def test_page_collecting_with_fewer_than_two_samples(client_for):
     with build() as client:
         r = client.get("/server")
         assert r.status_code == 200
-        assert "Collecting history — first chart after a few sweeps" in r.text.split("<main", 1)[1]
+        assert "Collecting history · first chart after a few sweeps" in r.text.split("<main", 1)[1]
     assert len(_rows()) == 1  # the render's background task sampled the snapshot
 
 

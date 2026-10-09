@@ -160,7 +160,7 @@ def test_old_envelope_without_new_fields_renders_without_the_new_panels(app_fact
     assert "9.7" in html and "partly cloudy" in html and "20%" in html
     assert '<svg class="wxchart"' not in html and 'wxdays' not in html
     assert "Feels like" not in html and "km/h" not in html
-    assert "after the next weather refresh" in html
+    assert "arrive with the next refresh" in html
 
 
 def test_malformed_forecast_rows_never_crash(app_factory):

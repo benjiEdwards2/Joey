@@ -325,6 +325,11 @@ Fetched in `connectors/stubs.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
 sweep, four with `JELLYFIN_USER_HER`. Snapshots written before this have neither array and stay
 valid; the hub library pages then say "Library list not available yet".
 
+**Jellyfin partial-ok (2026-10-09, C-09).** Only the core calls (users, system, sessions, resume, next up,
+latest, counts, history) can fail the `jellyfin` feed. The library lists and every `her` call are optional:
+one that fails is logged with its sanitised reason (`Jellyfin movies failed (Timeout)`) and the envelope stays
+`ok` — `movies` / `shows` absent, or `her` null when her resume, next up or history is missing.
+
 **Server area `system` (2026-10-06, WP-S2).** Live fetch needs no env: CPU % is the busy share of
 two `/proc/stat` samples 1 s apart (idle includes iowait), RAM is `/proc/meminfo` MemTotal / MemAvailable,
 plus `/proc/uptime` and `/proc/loadavg` (`load_1m` null if unreadable). Volumes are `os.statvfs` on each

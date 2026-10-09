@@ -627,6 +627,15 @@ class Jellyfin(Connector):
                 # server URL, and this string ends up in envelopes and logs.
                 raise RuntimeError(f"Jellyfin {label} failed ({_safe_reason(exc)})") from None
 
+        def optional(label: str, path: str, params: dict | None = None):
+            """Partial-ok (C-09): an optional call that fails is left out of `raw` (its data key is
+            then absent / `her` null) and logged with the sanitised reason; the run stays ok."""
+            try:
+                return get(label, path, params)
+            except RuntimeError as exc:
+                log.warning("jellyfin: skipped, %s", exc)
+                return None
+
         users = get("users", "/Users")
         uid = self.pick_user(users, os.environ.get("JELLYFIN_USER")).get("Id")
         if not uid:
@@ -647,23 +656,32 @@ class Jellyfin(Connector):
             "raw_latest": get("latest", f"/Users/{uid}/Items/Latest", {"Limit": 5, **fields}),
             "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
             "raw_history": get("history", f"/Users/{uid}/Items", history_params),
-            # Library lists (F3a). Two extra GETs (four with her) ride the 2-minute sweep;
-            # acceptable for a 42-film library; a split sweep is a later decision.
-            "raw_movies": get("movies", f"/Users/{uid}/Items", self._library_params("Movie")),
-            "raw_shows": get("shows", f"/Users/{uid}/Items", self._library_params("Series")),
         }
+        # Library lists (F3a). Two extra GETs (four with her) ride the 2-minute sweep;
+        # acceptable for a 42-film library; a split sweep is a later decision. Optional, like
+        # her view below: a failure leaves the key out instead of failing the feed (C-09).
+        optional_calls = [
+            ("raw_movies", "movies", f"/Users/{uid}/Items", self._library_params("Movie")),
+            ("raw_shows", "shows", f"/Users/{uid}/Items", self._library_params("Series")),
+        ]
         # Georgina's view (2026-10-05): only when JELLYFIN_USER_HER names an existing user.
+        # Her block needs resume + next up + history; any of them missing makes `her` null.
         her = self.pick_her_user(users, self._her_name())
         if her:
             hid = her["Id"]
-            raw["raw_her_resume"] = get("her resume", f"/Users/{hid}/Items/Resume",
-                                        {"Limit": 10, "MediaTypes": "Video", **fields})
-            raw["raw_her_nextup"] = get("her next up", "/Shows/NextUp",
-                                        {"UserId": hid, "Limit": 10, **fields})
-            raw["raw_her_history"] = get("her history", f"/Users/{hid}/Items", history_params)
-            raw["raw_her_movies"] = get("her movies", f"/Users/{hid}/Items", self._library_params("Movie"))
-            raw["raw_her_shows"] = get("her shows", f"/Users/{hid}/Items", self._library_params("Series"))
-        elif os.environ.get("JELLYFIN_USER_HER"):
+            optional_calls += [
+                ("raw_her_resume", "her resume", f"/Users/{hid}/Items/Resume",
+                 {"Limit": 10, "MediaTypes": "Video", **fields}),
+                ("raw_her_nextup", "her next up", "/Shows/NextUp", {"UserId": hid, "Limit": 10, **fields}),
+                ("raw_her_history", "her history", f"/Users/{hid}/Items", history_params),
+                ("raw_her_movies", "her movies", f"/Users/{hid}/Items", self._library_params("Movie")),
+                ("raw_her_shows", "her shows", f"/Users/{hid}/Items", self._library_params("Series")),
+            ]
+        for key, label, path, params in optional_calls:
+            got = optional(label, path, params)
+            if got is not None:
+                raw[key] = got
+        if not her and os.environ.get("JELLYFIN_USER_HER"):
             log.info("jellyfin: her user not found")
         return raw
 

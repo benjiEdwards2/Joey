@@ -443,3 +443,51 @@ def test_on_this_day_is_the_melbourne_calendar_day(snapshots):
              for n, at in (("Local Jan 1", "2024-12-31T20:00:00Z"), ("Local Jan 2", "2025-01-01T20:00:00Z"))]
     history = Jellyfin._history(items, datetime(2026, 1, 1, tzinfo=timezone.utc))
     assert [(d["title"], d["years_ago"]) for d in history["on_this_day"]] == [("Local Jan 1", 1)]
+
+
+# ---- C-09 (2026-10-09): the library lists and her view are partial-ok ----
+
+
+def _failing(monkeypatch, raw, fail):
+    """_live_calls, except calls whose (path, params) satisfy `fail` time out."""
+    calls = _live_calls(monkeypatch, raw)
+    ok_get = requests.get
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if fail(url[len(URL):], params or {}):
+            calls.append((url[len(URL):], params))
+            raise requests.Timeout(f"Read timed out for url: {url}")
+        return ok_get(url, headers=headers, params=params, timeout=timeout)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    return calls
+
+
+def test_a_failed_library_list_drops_only_that_list(live, monkeypatch, raw, caplog):
+    monkeypatch.delenv("JELLYFIN_USER_HER", raising=False)
+    _failing(monkeypatch, raw, lambda path, p: p.get("IncludeItemTypes") == "Movie")
+    with caplog.at_level("WARNING", logger="connectors"):
+        envelope = Jellyfin().run()
+    assert envelope["status"] == "ok", envelope["error"]
+    data = envelope["data"]
+    assert "movies" not in data and len(data["shows"]) > 0
+    assert data["summary"] and data["up_next"]            # the core feed is untouched
+    jsonschema.validate(data, SCHEMA)
+    assert "Jellyfin movies failed (Timeout)" in caplog.text
+    assert "example.invalid" not in caplog.text and KEY not in caplog.text
+
+
+def test_a_failed_her_call_makes_her_null_and_keeps_the_feed_ok(live, monkeypatch, raw):
+    monkeypatch.setenv("JELLYFIN_USER_HER", "georgina")
+    _failing(monkeypatch, raw, lambda path, p: path == "/Users/user-fixture-3/Items/Resume")
+    envelope = Jellyfin().run()
+    assert envelope["status"] == "ok", envelope["error"]
+    assert envelope["data"]["her"] is None and envelope["data"]["movies"]
+    jsonschema.validate(envelope["data"], SCHEMA)
+
+
+def test_a_failed_core_call_still_fails_the_feed(live, monkeypatch, raw):
+    _failing(monkeypatch, raw, lambda path, p: path == "/Sessions")
+    envelope = Jellyfin().run()
+    assert envelope["status"] == "error"
+    assert envelope["error"] == "RuntimeError: Jellyfin sessions failed (Timeout)"

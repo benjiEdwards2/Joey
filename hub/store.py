@@ -161,10 +161,23 @@ def get_runner_history(snapshot_dir: str | Path | None = None,
     return out[-max_lines:]
 
 
+def connected(snap: Optional[Snapshot]) -> bool:
+    """THE "is there something to show" rule (H-33): an envelope exists and is not an error with no data. An error
+    envelope that still carries the last good data IS connected — it shows that data and ages into "stale" (the
+    connector keeps `updated_at` at its last success)."""
+    return snap is not None and not (snap.status == "error" and not snap.data)
+
+
+def data_of(snap: Optional[Snapshot]) -> dict[str, Any]:
+    """A connected envelope's data as a dict; {} otherwise."""
+    return snap.data if connected(snap) and isinstance(snap.data, dict) else {}
+
+
 def tile_state(tile, snapshots: dict[str, Snapshot]) -> dict[str, Any]:
     """Resolve one areas.yaml tile against the snapshots: the four states.
 
-    Returns {state: link|fresh|stale|off, value, secondary, age_text, href, note}.
+    Returns {state: link|fresh|stale|off, value, secondary, age_text, href, note}. (The hub Server card adds a
+    fifth, `warn` — "Needs attention" — styled like stale; hub/main.py server_card_state.)
     Display convention (WP18): a tile shows envelope.data["summary"] and the
     optional envelope.data["secondary"] (D17's one secondary line).
     """
@@ -173,7 +186,7 @@ def tile_state(tile, snapshots: dict[str, Snapshot]) -> dict[str, Any]:
                 "secondary": None, "age_text": None, "note": None}
 
     snap = snapshots.get(tile.snapshot)
-    if snap is None or snap.status == "error" and not snap.data:
+    if not connected(snap):
         return {"state": "off", "value": "Not connected", "secondary": None,
                 "age_text": None, "href": None, "note": tile.setup_note}
 

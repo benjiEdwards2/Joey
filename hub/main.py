@@ -38,8 +38,8 @@ from hub.ids import (ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JE
                      MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID, areas_path, home_now, home_tz)
 from hub.registry import Registry, load_registry
 from hub.shell import Compress, ShellMiddleware, _static_version, templates  # ONE Jinja env for every router (H-31)
-from hub.store import (_snapshot_dir, ago_text, get_runner, get_runner_history, get_snapshots as _read_snapshots,
-                       parse_utc, tile_state)
+from hub.store import (_snapshot_dir, ago_text, connected, data_of, get_runner, get_runner_history,
+                       get_snapshots as _read_snapshots, parse_utc, tile_state)
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -252,8 +252,7 @@ def find_weather(snaps) -> dict | None:
     for a in registry.areas:
         for t in a.tiles:
             if t.snapshot == WEATHER_SNAPSHOT_ID:
-                snap = snaps.get(WEATHER_SNAPSHOT_ID)
-                data = snap.data if snap else {}
+                data = data_of(snaps.get(WEATHER_SNAPSHOT_ID))
                 return {"tile": t, "st": tile_state(t, snaps),
                         "glyph": weather_glyph(data.get("condition_text")), "data": data}
     return None
@@ -327,9 +326,9 @@ def _wx_chart(hourly: list[dict]) -> dict | None:
 def weather_forecast(snaps) -> dict | None:
     """Template context for /weather beyond today's core fields; None when not connected."""
     snap = snaps.get(WEATHER_SNAPSHOT_ID)
-    data = snap.data if snap else None
-    if not isinstance(data, dict):
+    if not connected(snap) or not isinstance(snap.data, dict):
         return None
+    data = snap.data
     hourly = [h for h in (data.get("hourly") or []) if isinstance(h, dict)]
     days = [d for d in (data.get("days") or []) if isinstance(d, dict)]
     today = days[0] if days else {}
@@ -643,22 +642,19 @@ def _media_rows(media) -> list:
 
 
 def build_status(snaps) -> dict:
-    """The hub page's "Feeds N/M live" line: feed health computed from registry vs snapshots."""
-    wanted: dict[str, str] = {}   # connector id -> first area name using it
-    for a in registry.areas:
+    """The hub page's "Feeds N/M live" line (H-32): the feeds the VISIBLE areas read (parked areas don't count). A
+    feed is live when its tiles read fresh or stale (tile_state — an error envelope without data is not); `stale`
+    names the first visible area of every feed whose tile has gone stale."""
+    tiles: dict[str, list] = {}   # connector id -> [(area name, tile)] over visible areas
+    for a in registry.visible_areas:
         for t in a.tiles:
-            if t.snapshot and t.snapshot not in wanted:
-                wanted[t.snapshot] = a.name
-    stale = sorted({
-        wanted[cid] for cid, s in snaps.items()
-        if cid in wanted and any(
-            t.snapshot == cid and t.stale_after_minutes and s.age_minutes > t.stale_after_minutes
-            for a in registry.areas for t in a.tiles)
-    })
+            if t.snapshot:
+                tiles.setdefault(t.snapshot, []).append((a.name, t))
+    states = {cid: [tile_state(t, snaps)["state"] for _, t in rows] for cid, rows in tiles.items()}
     return {
-        "feeds_total": len(wanted),
-        "feeds_ok": sum(1 for cid in wanted if cid in snaps),
-        "stale": stale,
+        "feeds_total": len(tiles),
+        "feeds_ok": sum(1 for st in states.values() if st[0] in ("fresh", "stale")),
+        "stale": sorted({tiles[cid][0][0] for cid, st in states.items() if "stale" in st}),
     }
 
 
@@ -956,7 +952,7 @@ def hub_shelf(area, snaps, view: str) -> dict | None:
         return None
     st = tile_state(jtile, snaps)
     snap = snaps.get(JELLYFIN_SNAPSHOT_ID)
-    jelly = snap.data if snap and st["state"] != "off" else {}
+    jelly = data_of(snap)
 
     def item(row, owner, when, fallback):
         title, sub = _split_title(row)
@@ -1000,13 +996,14 @@ def _server_hub_card(snaps, backup: dict) -> dict:
 
 
 def server_card_state(st: dict, snaps, backup: dict | None = None) -> dict:
-    """The Server hub card (WP-U2): hub/server.py's words over the summary tile's state.
-    `warn` reuses the stale badge (amber) with the words "Needs attention"."""
+    """The Server hub card (WP-U2): hub/server.py's words over the summary tile's state. Something in Attention
+    makes it state `warn` (H-34: its own state, no longer a borrowed "stale"), which _kpi.html badges amber like
+    stale, with the words "Needs attention" (· the tile's own stale age, when it is stale too)."""
     card = _server_hub_card(snaps, media_backup.current_status() if backup is None else backup)
     out = {**st, "value": card["summary"], "secondary": card["secondary"]}
     if card["state"] == "warn":
         stale = st.get("age_text") if st["state"] == "stale" else None
-        out.update(state="stale", age_text="Needs attention" + (f" · {stale}" if stale else ""))
+        out.update(state="warn", age_text="Needs attention" + (f" · {stale}" if stale else ""))
     return out
 
 

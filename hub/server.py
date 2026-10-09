@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 from hub.ids import (ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID,  # noqa: F401
                      SYSTEM_SNAPSHOT_ID, UPTIME_KUMA_SNAPSHOT_ID, WUD_SNAPSHOT_ID)
-from hub.store import ago_text, parse_utc, tile_state
+from hub.store import ago_text, connected, data_of, parse_utc, tile_state
 
 SERVER_LAYOUT = "server"
 
@@ -213,8 +213,7 @@ def _band(area, snaps, snapshot_id) -> dict:
     """{tile, st, data} for the area tile reading `snapshot_id`; data is {} when off."""
     tile = _tile(area, snapshot_id)
     st = tile_state(tile, snaps) if tile else {"state": "off", "note": None}
-    snap = snaps.get(snapshot_id)
-    return {"tile": tile, "st": st, "data": (snap.data or {}) if snap and st["state"] != "off" else {}}
+    return {"tile": tile, "st": st, "data": data_of(snaps.get(snapshot_id)) if st["state"] != "off" else {}}
 
 
 def group_services(apps: list[dict]) -> list[dict]:
@@ -243,8 +242,7 @@ def _counts(snaps) -> dict:
     library/indexer objects (`radarr`, `sonarr`, `prowlarr`, WP-S3) are None when the
     snapshot predates them or the connector nulled them (partial-ok)."""
     def data(cid):
-        snap = snaps.get(cid)
-        return snap.data if snap and snap.data else None
+        return data_of(snaps.get(cid)) or None
 
     seerr, qb, arr = data(JELLYSEERR_SNAPSHOT_ID), data(QBIT_SNAPSHOT_ID), data(ARR_SNAPSHOT_ID)
     totals = (qb or {}).get("totals") or {}
@@ -297,8 +295,7 @@ def split_updates(rows, ignores=None, requested=None, now: datetime | None = Non
 
 
 def _data(snaps, cid) -> dict:
-    snap = snaps.get(cid)
-    return (snap.data or {}) if snap and isinstance(snap.data, dict) else {}
+    return data_of(snaps.get(cid))
 
 
 def _volumes(snaps) -> list[dict]:
@@ -357,7 +354,7 @@ def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=N
     excluded) · "disk N%" (fullest volume) · "N monitors down". `warn` whenever Attention
     is non-empty. "Not connected" when the services snapshot is missing."""
     apps = _apps(snaps)
-    if MEDIA_STATUS_SNAPSHOT_ID not in snaps or not _data(snaps, MEDIA_STATUS_SNAPSHOT_ID):
+    if not connected(snaps.get(MEDIA_STATUS_SNAPSHOT_ID)) or not _data(snaps, MEDIA_STATUS_SNAPSHOT_ID):
         summary = "Not connected"
     else:
         down = [str(a.get("name", a.get("id", "?"))) for a in apps if not a.get("up")]

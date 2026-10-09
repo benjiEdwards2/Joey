@@ -1,6 +1,7 @@
 {# Hub / area / Server summary tile (restyle Phase 4, 2026-10-06; guide 6 "Stats strip" look). A .panel holding a
    .microlabel, one big value (.stat-number when short, else .stat-word), ONE .row-meta line (label · detail · owner)
-   and the area icon at the right. Amber (.badge-wait) only when something is stale = something to do; "Not
+   and the area icon at the right. Amber (.badge-wait) only when something is stale or `warn` (the
+   Server card's "Needs attention") = something to do; "Not
    connected" is a muted grey .st-off word (guide 9: no amber that never goes away). Optional: a progress .bar
    (pct) or a tiny per-day bar chart (bars) from real snapshot data, "waiting on you" badges, and `jump` (an app
    deep link): then the tile is a div holding SIBLING anchors, never a link inside a link. Tokens only. #}
@@ -32,9 +33,9 @@
 {% endset %}
 {% set wc %}{{ waitchips(waiting) }}{% endset %}
 {% set foot %}
-  {% if st.state == "stale" or wc|trim or jump %}
+  {% if st.state in ("stale", "warn") or wc|trim or jump %}
   <div class="tile-foot">
-    {% if st.state == "stale" %}<span class="badge badge-wait">{{ st.age_text }}</span>{% endif %}
+    {% if st.state in ("stale", "warn") %}<span class="badge badge-wait">{{ st.age_text }}</span>{% endif %}
     {{ wc }}
     {% if jump %}<a class="btn btn-ghost btn-sm" href="{{ jump }}" target="_blank" rel="noopener">Jump back in ↗</a>{% endif %}
   </div>

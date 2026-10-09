@@ -156,3 +156,41 @@ def test_home_clock_and_areas_path(monkeypatch):
     assert ids.areas_path() == "/x/areas.yaml"
     monkeypatch.setenv("AREAS_PATH", "")
     assert ids.areas_path().endswith("areas.yaml") and ids.DEFAULT_AREAS_PATH.is_file()
+
+
+def test_feeds_line_counts_visible_live_feeds_only(tmp_path, monkeypatch):
+    """H-32: parked areas' feeds are not in the denominator; an error envelope without data is not live."""
+    parked = {**make_area("parked", "p-t", snapshot="money"), "hidden": True}
+    main = _reload(tmp_path, monkeypatch, _shelf_area(), make_area("cal", "c-t", snapshot="gcal"),
+                   make_area("wx", "w-t", snapshot="open_meteo", stale_after_minutes=60), parked)
+    write_envelope(tmp_path / "snaps", "gcal", age_minutes=1, data={}, status="error")      # failing, nothing kept
+    write_envelope(tmp_path / "snaps", "open_meteo", age_minutes=120, data={"summary": "x"})  # stale
+    write_envelope(tmp_path / "snaps", "money", age_minutes=1, data={"summary": "x"})         # parked
+    with TestClient(main.app):
+        status = main.build_status(main.get_snapshots())
+    assert status == {"feeds_total": 3, "feeds_ok": 2, "stale": ["Wx"]}
+
+
+def test_connected_is_the_one_rule():
+    from hub.store import Snapshot, connected, data_of
+
+    def snap(status, data):
+        return Snapshot("c", status, "", "", 0, None, data, 1.0)
+    assert not connected(None) and not connected(snap("error", {}))
+    assert connected(snap("error", {"summary": "old"})) and connected(snap("ok", {}))
+    assert data_of(snap("error", {})) == {} and data_of(snap("ok", {"a": 1})) == {"a": 1} and data_of(None) == {}
+
+
+def test_server_card_needs_attention_is_its_own_warn_state(tmp_path, monkeypatch):
+    """H-34: the hub Server card's "Needs attention" is state `warn` (amber like stale), not a borrowed "stale"."""
+    main = _reload(tmp_path, monkeypatch, _shelf_area())
+    monkeypatch.setattr(main, "_server_hub_card", lambda snaps, backup: {"summary": "1 down · X", "secondary": None,
+                                                                        "state": "warn"})
+    fresh = {"state": "fresh", "age_text": "2m ago", "value": "v", "secondary": None, "href": None, "note": None}
+    out = main.server_card_state(fresh, {}, {"warning": None})
+    assert (out["state"], out["age_text"]) == ("warn", "Needs attention")
+    stale = {**fresh, "state": "stale", "age_text": "Stale · 3h ago"}
+    assert main.server_card_state(stale, {}, {"warning": None})["age_text"] == "Needs attention · Stale · 3h ago"
+    html = main.templates.env.from_string('{% from "_kpi.html" import kpi %}{{ kpi("/a/x", "X", "L", "server", st, "shared") }}'
+                                          ).render(st=out)
+    assert '<span class="badge badge-wait">Needs attention</span>' in html

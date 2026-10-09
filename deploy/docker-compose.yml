@@ -5,6 +5,15 @@
 #
 # Build context is the repo root for BOTH images (each Dockerfile COPYs config/
 # and tests/, which live above their own directory).
+#
+# Every service rotates its json-file log and has a memory cap (review D-04, 2026-10-09: the
+# NAS has 3.7 GB and swaps; no daemon.json caps logs). Caps sit ~2.5x the measured
+# `docker stats` use (hub 142 MiB, cloudflared 23, connectors idle 8, macromates 3).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   hub:
@@ -21,6 +30,8 @@ services:
       dockerfile: hub/Dockerfile
     container_name: joey-hub
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 384m
     # Least privilege (review D-05, 2026-10-09): hub-only keys belong in hub.env. Optional so the
     # single NAS .env keeps working until it is split by hand (deploy/README.md); later files win.
     env_file:
@@ -51,6 +62,8 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: joey-cloudflared
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 128m
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
@@ -64,6 +77,8 @@ services:
     image: nginx:alpine
     container_name: joey-macromates
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 32m
     volumes:
       - /volume1/Docker/joey/macromates-app:/usr/share/nginx/html:ro
       - ./macromates.nginx.conf:/etc/nginx/conf.d/default.conf:ro
@@ -81,6 +96,15 @@ services:
       dockerfile: connectors/Dockerfile
     container_name: joey-connectors
     restart: unless-stopped
+    logging: *logging
+    mem_limit: 256m
+    # tini as PID 1 so `docker stop` reaches the sh loops instead of a 10 s SIGKILL mid-sweep
+    init: true
+    # healthy while the runner heartbeat (rewritten by the 2-minute fast loop) is < 5 min old
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys, time; sys.exit(time.time() - os.stat('/data/snapshots/_runner.json').st_mtime > 300)"]
+      interval: 60s
+      start_period: 180s
     env_file:
       - .env
       - path: connectors.env  # optional connector-only keys (D-05), see the hub service

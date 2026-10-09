@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.hub.conftest import shell_script
 from tests.hub.test_media_frame import env, ROUTES  # noqa: F401  (env is a fixture)
 from tests.hub.test_media_shelves import JELLY, ARR
 
@@ -95,6 +96,6 @@ def test_boosted_navigation_carries_the_manifest_across(env):
     """hx-boost swaps only <body>: the head script copies the response's manifest link and iOS app title over."""
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
-        script = c.get("/").text.split("</head>", 1)[0].split("<script>", 1)[1]
+        script = shell_script(c, c.get("/").text)   # H-57: /static/joey.js
     assert "htmx:beforeSwap" in script and 'link[rel="manifest"]' in script
     assert "apple-mobile-web-app-title" in script

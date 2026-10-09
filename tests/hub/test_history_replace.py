@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.hub.conftest import shell_script
 from tests.hub.test_history_nav import client, REPO_ROOT
 
 
@@ -24,9 +25,9 @@ def test_hook_is_on_every_page_before_htmx_runs(monkeypatch):
     with c:
         for path in ("/", "/weather"):
             html = c.get(path).text
-            hook = _hook(html)
+            hook = _hook(shell_script(c, html))   # H-57: the hook lives in /static/joey.js, loaded from <head>
             assert "h.type = 'replace'" in hook and "requestConfig" in hook
-            assert html.index("htmx:beforeHistoryUpdate") < html.index("<body hx-boost")
+            assert html.index("/static/joey.js?v=") < html.index("<body hx-boost")
 
 
 def test_vendored_htmx_reads_the_type_after_the_event():
@@ -57,7 +58,7 @@ def test_hook_logic_under_node(monkeypatch, tmp_path):
         pytest.skip("node not installed")
     c, _ = client(monkeypatch)
     with c:
-        hook = _hook(c.get("/").text)
+        hook = _hook(shell_script(c, c.get("/").text))
     script = tmp_path / "hook.js"
     script.write_text(NODE_HARNESS % hook, encoding="utf-8")
     out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=30)
@@ -68,5 +69,5 @@ def test_hook_logic_under_node(monkeypatch, tmp_path):
 def test_flash_strip_still_listens_to_both_history_events(monkeypatch):
     c, _ = client(monkeypatch)
     with c:
-        html = c.get("/").text
-    assert "htmx:pushedIntoHistory', strip" in html and "htmx:replacedInHistory', strip" in html
+        js = shell_script(c, c.get("/").text)
+    assert "htmx:pushedIntoHistory', strip" in js and "htmx:replacedInHistory', strip" in js

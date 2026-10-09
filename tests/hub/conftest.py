@@ -8,6 +8,7 @@
   import paths (`from tests.hub.test_media_film import main_of`, ...) keep working: those modules re-export these.
 """
 import importlib
+import re
 
 import pytest
 import yaml
@@ -26,6 +27,16 @@ def main_raw(html: str) -> str:
 def main_of(html: str) -> str:
     """main_raw with the dim ' · ' separator spans read as plain ' · ' (Restyle Phase 3), so pins read the words."""
     return main_raw(html).replace(SEP, " · ")
+
+
+def shell_script(client, html: str) -> str:
+    """The page's shell script (H-57: hub/static/joey.js, no longer inline in base.html), fetched from the versioned
+    src the page's <head> names — so a pin on the script also proves the page loads it."""
+    m = re.search(r'<script src="(/static/joey\.js\?v=[0-9a-z]+)" defer></script>', html.split("</head>", 1)[0])
+    assert m, "joey.js is not loaded in <head>"
+    r = client.get(m.group(1))
+    assert r.status_code == 200
+    return r.text
 
 
 def app_with(tmp_path, monkeypatch, *areas):

@@ -83,12 +83,15 @@ def test_asset_version_meta_and_boost_reload_guard(monkeypatch):
     from fastapi.testclient import TestClient
     import hub.main
     importlib.reload(hub.main)
+    from tests.hub.conftest import shell_script
     with TestClient(hub.main.app) as c:
         html = c.get("/").text
+        js = shell_script(c, html)   # H-57: the guard lives in /static/joey.js, loaded after htmx
     v = hub.main.templates.env.globals["static_v"]
     assert f'<meta name="joey-asset-v" content="{v}">' in html
-    assert "htmx:beforeSwap" in html and "joey-asset-v" in html.split("</head>")[0].split("htmx.min.js")[-1]
-    assert "shouldSwap = false" in html and "window.location.href" in html
+    assert "htmx:beforeSwap" in js and "joey-asset-v" in js
+    assert html.index("htmx.min.js") < html.index("/static/joey.js?v=") < html.index("</head>")
+    assert "shouldSwap = false" in js and "window.location.href" in js
 
 
 def test_links_never_use_browser_default_colours():

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.hub.conftest import shell_script
 from tests.hub.test_media_frame import env  # noqa: F401  (env is a fixture)
 from tests.hub.test_media_shelves import JELLY, ARR
 
@@ -41,7 +42,7 @@ def test_form_controls_are_16px_on_a_phone_after_the_base_rules():
 def test_base_cancels_safari_pinch_gestures(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
-        head = c.get("/media/movies").text.split("</head>", 1)[0]
+        head = shell_script(c, c.get("/media/movies").text)   # H-57: /static/joey.js
     assert "['gesturestart', 'gesturechange'].forEach(function (t) {" in head
     assert "document.addEventListener(t, function (e) { e.preventDefault(); }, {passive: false});" in head
 

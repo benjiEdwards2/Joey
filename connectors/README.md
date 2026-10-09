@@ -1,4 +1,4 @@
-﻿# connectors
+# connectors
 
 Data connectors: an hourly full sweep, plus a 120 s fast loop for jellyfin, media_status, qbittorrent, arr, system and uptime_kuma. The hub<->connector contract is `schema/envelope.schema.json` — FROZEN at WP0 (D13).
 

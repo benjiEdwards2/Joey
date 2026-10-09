@@ -7,7 +7,7 @@ Regenerate after changing a fixture or a `transform()`:
 
 ```sh
 CONNECTOR_MODE=fixture SNAPSHOT_DIR=/tmp/snapgen python -m connectors.run_all
-cp /tmp/snapgen/*.json config/sample_snapshots/   # then delete _runner_history.jsonl
+cp /tmp/snapgen/*.json config/sample_snapshots/
 ```
 
 Timestamps are pinned to `2026-01-01T00:00:00+00:00` in fixture mode, so the

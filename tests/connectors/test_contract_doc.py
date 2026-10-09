@@ -36,7 +36,7 @@ def test_every_path_the_checklist_names_exists():
 def test_the_load_bearing_rules_are_stated():
     text = doc_text()
     for rule in [
-        "THE HUB'S TILES READ SNAPSHOTS ONLY",
+        "TILES READ SNAPSHOTS; THE NUMBERED EXCEPTIONS BELOW ARE THE ONLY LIVE PATHS",
         "Notion is LINK tier",
         "2026-01-01T00:00:00+00:00",
         "you | her | shared",

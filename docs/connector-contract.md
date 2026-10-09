@@ -5,14 +5,13 @@ hub, which reads). Authored at WP23; the envelope it describes was FROZEN at
 WP0 (D13). Changing the envelope is a dated DECISIONS.md entry plus a full
 suite re-run — never a silent edit.
 
-## THE HUB'S TILES READ SNAPSHOTS ONLY
+## TILES READ SNAPSHOTS; THE NUMBERED EXCEPTIONS BELOW ARE THE ONLY LIVE PATHS
 
 A tile never calls a live API. Connectors fetch on their own hourly clock and
 leave a file behind; the hub renders whatever file is there, or "Not connected"
 if there is none. This is why the dashboard still loads when an upstream is down.
 
-The single sanctioned exception is the **/money room page**, which reads SQLite
-directly (D14). It is a room page, not a tile.
+The numbered exceptions below (the second onwards) are the only places the hub reaches out or writes.
 
 **Second exception (2026-10-05): the `/img/{ref}` poster proxy.** Media rows carry an
 optional `poster` ref (string or null; `backdrop` too on Jellyfin now_playing/up_next),
@@ -31,8 +30,8 @@ episode uses its SERIES (`jf:<SeriesId>`, as its payload carries no series provi
 Grammar `^(tmdb|tvdb|jf):[A-Za-z0-9-]+$`. The hub also proxies one live Jellyseerr search
 for the diary's "Log a watch" form; with no keys it says "Search unavailable".
 
-**Fourth exception (2026-10-05): Discover & Search (`hub/media_discover.py`)** — the third
-live call path, after `/money` SQLite and `/img`. Routes `/media/discover`,
+**Fourth exception (2026-10-05): Discover & Search (`hub/media_discover.py`)** — a live
+call path, after `/img`. Routes `/media/discover`,
 `/media/discover/search`, `/media/title/{kind}/{tmdb_id}` and its `/request` (GET `?step=confirm`,
 POST behind the `same_origin` guard) call Jellyseerr live with `JELLYSEERR_URL` +
 `JELLYSEERR_API_KEY`, server-side only. Results are cached in-process for 10 minutes; Jellyseerr's
@@ -206,7 +205,7 @@ no snapshot, no expectation of one anywhere in the hub.
 
 | What | Where |
 |---|---|
-| Live snapshots (the box) | `/opt/life-dashboard-data/snapshots/{id}.json`, mounted at `/data/snapshots` |
+| Live snapshots (the box) | `/volume1/Docker/joey/data/snapshots/{id}.json`, mounted at `/data/snapshots` |
 | Runner heartbeat | `{SNAPSHOT_DIR}/_runner.json` — last sweep only, written atomically (tmp + `os.replace`) |
 | Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence). Since WP-U2 (2026-10-06) the hub READS its tail (read-only mount; last 2 MB / 1000 lines) for 24 h per-connector sweep failures on `/server` — keep the line shape `{ran_at, results: {id: {status, error, ...}}, only?}`. Since 2026-10-09 each result also carries `duration_ms` and each line `sweep_ms` (the heartbeat does not), and past 5 MB the file is rewritten atomically to its newest lines of the last 14 days, capped at 2.5 MB (≥ 24 h always kept) |
 | Committed samples | `config/sample_snapshots/` — the fixture sweep, what hub work is developed against |
@@ -252,8 +251,8 @@ every one of them requires the **hub display convention** (D17, WP18):
 - `secondary` — optional string, the single supporting line
 
 Feed-specific fields sit alongside them. Any person-scoped record carries
-`owner: you | her | shared` (R12). `both` is a **view** (the hub's switcher),
-never a stored value — the schemas reject it.
+`owner: you | her | shared` (R12). `both` was a view (the old switcher, gone since 2026-10-06);
+it is never a stored value — the schemas reject it.
 
 `home_assistant` is keyed by area (`house`, `car`, `garden`) because one
 connector feeds three tiles; that keying is what lets each tile slice its own
@@ -333,11 +332,10 @@ one that fails is logged with its sanitised reason (`Jellyfin movies failed (Tim
 **Server area `system` (2026-10-06, WP-S2).** Live fetch needs no env: CPU % is the busy share of
 two `/proc/stat` samples 1 s apart (idle includes iowait), RAM is `/proc/meminfo` MemTotal / MemAvailable,
 plus `/proc/uptime` and `/proc/loadavg` (`load_1m` null if unreadable). Volumes are `os.statvfs` on each
-container path in `SYSTEM_VOLUMES` (compose sets `/host/volume1`, bound `/volume1:/host/volume1:ro` on the
-`connectors` service); `path` is reported with the `/host` prefix stripped (`/volume1`). Since 2026-10-09 (C-19)
-`SYSTEM_VOLUME_LABELS` (`path=label[,path=label]`) overrides that label per path — e.g.
-`SYSTEM_VOLUMES=/data/snapshots` + `SYSTEM_VOLUME_LABELS=/data/snapshots=/volume1` reports the snapshots bind (same
-filesystem, so the same `statvfs` numbers) as `/volume1` without mounting the whole volume. Unset: unchanged. Unreadable `/proc`
+container path in `SYSTEM_VOLUMES` (code default `/host/volume1`; compose sets `/data/snapshots`, the snapshots bind,
+which lives on `/volume1`, so `statvfs` gives that volume's numbers without mounting the whole NAS volume, C-19, 2026-10-09).
+The reported `path` is the container path with a leading `/host` stripped, or its `SYSTEM_VOLUME_LABELS` name
+(`path=label[,path=label]`); compose sets `SYSTEM_VOLUME_LABELS=/data/snapshots=/volume1`, so the UI shows `/volume1`. Unreadable `/proc`
 or a missing mount is an error envelope (`RuntimeError: cannot read /proc/stat (...)`), never invented numbers.
 
 **`media_status` apps (2026-10-06, WP-S2).** The probe list adds `wud` (3030), `adm` (8000, Asustor ADM —
@@ -438,8 +436,7 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`
    in `hub/registry.py`; `media_status`, `arr` and `jellyseerr` were added to both on 2026-10-05, `qbittorrent` on 2026-10-06, `system` and `wud` on 2026-10-06 for the Server area, `uptime_kuma` on 2026-10-06 for Server WP-S4).
-   An area may carry `hub_rank` (its place among the hub cards; Media is 1) and `hub_size`
-   (`s22` is the hero card). Two tiles may share one snapshot (`jellyfin` feeds now-playing and watch history); each
+   An area may carry `hub_rank` (its place among the hub cards; Media is 1). Two tiles may share one snapshot (`jellyfin` feeds now-playing and watch history); each
    page is then picked by its tile's `detail` route.
 5. `config/sample_snapshots/{id}.json` — regenerate the sweep per that folder's
    README and commit the result.
@@ -453,5 +450,4 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
 
 ## Where the container proof stands
 
-`connectors/Dockerfile` and `deploy/docker-compose.yml` were authored blind at
-WP22 (the dev machine has no container engine). The first engine-verify: WP24 step 1.
+The first engine-verify was the NAS bring-up (2026-08-31); every deploy since goes through `deploy/deploy.sh` (build, offline suite, smoke).

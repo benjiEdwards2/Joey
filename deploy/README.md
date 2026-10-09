@@ -1,4 +1,4 @@
-﻿# deploy
+# deploy
 
 Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (rule 13). Runbook:
 

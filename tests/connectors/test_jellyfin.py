@@ -432,3 +432,14 @@ def test_up_next_and_now_playing_episode_rows_carry_level_keys(snapshots, raw):
     assert ep["season_key"].startswith("jf:season-")
     playing = next(r for r in data["now_playing"] if r["item_key"] and r["item_key"].startswith("jf:series"))
     assert playing["show_key"] == playing["item_key"] and playing["season"] is not None
+
+
+def test_on_this_day_is_the_melbourne_calendar_day(snapshots):
+    """C-08: at 2026-01-01T00:00Z it is Jan 1 11:00 in Melbourne. 2024-12-31T20:00Z was Jan 1
+    local (on this day); 2025-01-01T20:00Z was already Jan 2 local (not)."""
+    from datetime import datetime, timezone
+
+    items = [{"Name": n, "Type": "Movie", "Id": n, "UserData": {"LastPlayedDate": at, "PlayCount": 1}}
+             for n, at in (("Local Jan 1", "2024-12-31T20:00:00Z"), ("Local Jan 2", "2025-01-01T20:00:00Z"))]
+    history = Jellyfin._history(items, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    assert [(d["title"], d["years_ago"]) for d in history["on_this_day"]] == [("Local Jan 1", 1)]

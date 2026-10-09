@@ -45,6 +45,26 @@ def mode() -> str:
     return os.environ.get("CONNECTOR_MODE", "live").strip().lower()
 
 
+DEFAULT_HOME_TZ = "Australia/Melbourne"  # the hub's HOME_TZ_NAME (hub/main.py)
+
+
+def home_tz():
+    """The household's zone for "today" / "this week" / "on this day" (C-08): `TZ`, else
+    Australia/Melbourne (always the default in fixture mode, so samples never depend on the
+    machine); UTC if zoneinfo cannot load either."""
+    from zoneinfo import ZoneInfo
+
+    names = (DEFAULT_HOME_TZ,) if mode() == "fixture" else (os.environ.get("TZ"), DEFAULT_HOME_TZ)
+    for name in names:
+        if not name:
+            continue
+        try:
+            return ZoneInfo(name)
+        except Exception:  # unknown name, or no tz database in the image
+            continue
+    return timezone.utc
+
+
 def _now_iso() -> str:
     if mode() == "fixture":
         return FIXTURE_TIMESTAMP

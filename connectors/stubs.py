@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from connectors import registry
-from connectors.base import Connector, _now_iso, log, mode
+from connectors.base import Connector, _now_iso, home_tz, log, mode
 
 CALENDAR_WINDOW_DAYS = 14
 NAS_RECENT_DAYS = 7
@@ -711,6 +711,8 @@ class Jellyfin(Connector):
     def _history(items: list[dict], now: datetime) -> dict:
         """Watch history for the history page: windows, hours, top shows/movies, on-this-day."""
         week, month = now - timedelta(days=7), now - timedelta(days=30)
+        tz = home_tz()  # "on this day" is the household's calendar day, not UTC's (C-08)
+        today = now.astimezone(tz)
         played = []  # (item, last-played datetime, runtime hours, plays)
         for item in items:
             stamp = (item.get("UserData") or {}).get("LastPlayedDate")
@@ -745,11 +747,11 @@ class Jellyfin(Connector):
             "most_played_shows": [{**s, "hours": round(s["hours"], 1)} for s in sorted(
                 shows.values(), key=lambda s: (-s["episodes"], s["title"]))[:HISTORY_TOP]],
             "most_played_movies": movies[:HISTORY_TOP],
-            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": now.year - dt.year,
+            "on_this_day": [{"title": _media_title(item), "kind": _item_kind(item), "years_ago": today.year - d.year,
                              "poster": _jf_ref("jf", item), "item_key": _jf_key(item),
                              "jf_id": item.get("Id")}
-                            for item, dt, _, _ in played
-                            if (dt.month, dt.day) == (now.month, now.day) and dt.year < now.year][:HISTORY_TOP],
+                            for item, d in ((item, dt.astimezone(tz)) for item, dt, _, _ in played)
+                            if (d.month, d.day) == (today.month, today.day) and d.year < today.year][:HISTORY_TOP],
         }
 
     @staticmethod
@@ -982,7 +984,8 @@ def _ago(dt: datetime, now: datetime) -> str:
     if seconds < 86400:
         hours = int(seconds // 3600)
         return f"{hours} hour{'' if hours == 1 else 's'} ago"
-    days = int(seconds // 86400)
+    tz = home_tz()  # a day or more: count the household's calendar days (C-08)
+    days = (now.astimezone(tz).date() - dt.astimezone(tz).date()).days
     return "yesterday" if days == 1 else f"{days} days ago"
 
 
@@ -1054,7 +1057,8 @@ class Arr(Connector):
     @staticmethod
     def endpoints(app: str, now: datetime) -> list[tuple[str, str, dict]]:
         since = (now.astimezone(timezone.utc) - timedelta(days=ARR_WINDOW_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        start, end = now.date(), now.date() + timedelta(days=ARR_WINDOW_DAYS)
+        start = now.astimezone(home_tz()).date()  # the household's today (C-08)
+        end = start + timedelta(days=ARR_WINDOW_DAYS)
         hist = {"pageSize": 100, "sortKey": "date", "sortDirection": "descending", "since": since}
         cal = {"start": start.isoformat(), "end": end.isoformat()}
         if app == "radarr":
@@ -1199,14 +1203,16 @@ class Arr(Connector):
 
     @staticmethod
     def _this_week(radarr: list[dict], sonarr: list[dict], now: datetime) -> list[dict]:
-        today, end = now.date(), now.date() + timedelta(days=ARR_WINDOW_DAYS)
+        tz = home_tz()  # the household's calendar week, not UTC's (C-08)
+        today = now.astimezone(tz).date()
+        end = today + timedelta(days=ARR_WINDOW_DAYS)
         rows: list[dict] = []
         for m in radarr:
             for field, label in (("digitalRelease", "Digital"), ("physicalRelease", "Disc"),
                                  ("inCinemas", "Cinemas")):
                 if not m.get(field):
                     continue
-                day = _dt(m[field]).date()
+                day = _dt(m[field]).astimezone(tz).date()
                 if not today <= day <= end or (label == "Disc" and m.get("hasFile")):
                     continue  # a disc release already on disk is not news
                 rows.append({"title": m["title"], "kind": "movie", "date": day.isoformat(), "label": label,
@@ -1216,7 +1222,7 @@ class Arr(Connector):
             stamp = e.get("airDateUtc") or e.get("airDate")
             if not stamp:
                 continue
-            day = _dt(stamp).date()
+            day = _dt(stamp).astimezone(tz).date()
             if not today <= day <= end:
                 continue
             if e.get("episodeNumber") == 1:

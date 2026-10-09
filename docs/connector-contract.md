@@ -259,6 +259,13 @@ never a stored value — the schemas reject it.
 connector feeds three tiles; that keying is what lets each tile slice its own
 entities instead of all three repeating the same summary.
 
+**Home time zone (2026-10-09, C-08).** Everything calendar-shaped is computed in the household's zone,
+`base.home_tz()`: `TZ`, else `Australia/Melbourne` (the hub's `HOME_TZ_NAME`), UTC only if no tz database
+loads; fixture mode always uses Australia/Melbourne so samples never depend on the machine. That covers
+Jellyfin `history.on_this_day` (local month/day), the Arr calendar window and `this_week` dates, and `when`
+texts of a day or more ("yesterday", "N days ago" count local calendar days; under 24 h stays "N hours ago").
+Durations (last 7/30 days, qBittorrent's 24 h "finished today") are unaffected.
+
 **Open-Meteo forecast (2026-10-06, weather upgrade).** The same single GET now also asks for `hourly` and
 7 `daily` days (`forecast_days=7`). `open_meteo` data gains optional `hourly` (≤ 24 rows from the current hour:
 `time`, `temp_c`, `rain_prob_pct`, `feels_c`) and `days` (≤ 7 rows: `date`, `min_c`, `max_c`, `rain_prob_pct`,

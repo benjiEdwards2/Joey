@@ -99,7 +99,9 @@ def test_arrivals_exclude_upgrades_and_old_imports(data):
     assert titles == ["Quiet Coast · S02 · 3 episodes", "Harbour Lights",
                       "Night Ferry · S01E04 · Last Crossing", "Desert Crossing"]
     assert [r["kind"] for r in data["arrived"]] == ["season", "movie", "episode", "movie"]
-    assert [r["when"] for r in data["arrived"]] == ["3 hours ago", "yesterday", "2 days ago", "3 days ago"]
+    # Days count Melbourne calendar days (C-08, 2026-10-09): the fixture clock is Jan 1 11:00 local, so
+    # Harbour Lights (Dec 30 20:12 local, 39 h earlier) is "2 days ago", no longer "yesterday".
+    assert [r["when"] for r in data["arrived"]] == ["3 hours ago", "2 days ago", "3 days ago", "3 days ago"]
     assert "Salt Flats" not in titles and "Paper Lanterns" not in titles
     assert data["summary"] == "4 arrived this week · 2 downloading"
     assert data["secondary"] == "Quiet Coast · S02 · 3 episodes"
@@ -306,3 +308,11 @@ def test_arrived_and_updated_rows_carry_an_iso_import_timestamp(data):
     for row in data["arrived"] + data["updated"]:
         assert datetime.fromisoformat(row["at"]).tzinfo is not None
     assert [r["at"] for r in data["arrived"]][0] > [r["at"] for r in data["arrived"]][-1]
+
+
+def test_calendar_window_starts_on_the_melbourne_date(snapshots):
+    """C-08: 2025-12-31T20:00Z is already Jan 1 07:00 in Melbourne."""
+    from datetime import datetime, timezone
+
+    calendar = dict((k, p) for k, _, p in Arr.endpoints("radarr", datetime(2025, 12, 31, 20, tzinfo=timezone.utc)))
+    assert calendar["raw_radarr_calendar"] == {"start": "2026-01-01", "end": "2026-01-08"}

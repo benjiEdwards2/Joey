@@ -135,3 +135,21 @@ def test_radar_sidecar_write_retries_a_windows_reader_lock(tmp_path, monkeypatch
     _write_bytes_atomic(target, b"\x89PNG data")
     assert target.read_bytes() == b"\x89PNG data" and len(calls) == 3
     assert [p.name for p in tmp_path.iterdir()] == ["frame.png"]
+
+
+# ---- C-08 (2026-10-09): the household's time zone for today / this week / on this day ----
+
+
+def test_home_tz_reads_tz_in_live_mode_and_pins_melbourne_in_fixture_mode(monkeypatch):
+    from connectors.base import home_tz
+
+    monkeypatch.setenv("CONNECTOR_MODE", "live")
+    monkeypatch.delenv("TZ", raising=False)
+    assert str(home_tz()) == "Australia/Melbourne"
+    monkeypatch.setenv("TZ", "UTC")
+    assert str(home_tz()) == "UTC"
+    monkeypatch.setenv("TZ", "Not/AZone")
+    assert str(home_tz()) == "Australia/Melbourne"   # unknown name: the default, never a crash
+    monkeypatch.setenv("CONNECTOR_MODE", "fixture")
+    monkeypatch.setenv("TZ", "UTC")
+    assert str(home_tz()) == "Australia/Melbourne"   # samples never depend on the machine

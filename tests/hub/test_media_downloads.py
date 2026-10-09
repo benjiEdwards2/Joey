@@ -13,6 +13,7 @@ from tests.hub.test_media_discover import FAKE_KEY, FAKE_URL, MOVIE, Fake
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 H1, H2 = "a" * 40, "b" * 40
 QB = {
@@ -65,11 +66,6 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app)
 
     return build
-
-
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def test_downloads_page_groups_words_and_totals(env):
@@ -155,7 +151,6 @@ def test_title_page_percentage_matches_the_item_key_not_a_title_prefix():
     assert pct_for_keys(rows, []) is None and pct_for_keys(None, ["tmdb:679"]) is None
     merged = merge_downloading([], {"active": [QB["active"][0]]})   # qBittorrent-only rows carry no key
     assert pct_for_keys(merged, ["tmdb:603"]) is None
-
 
 
 EPISODES = ["3AM", "Two Dead Men", "Kandahar", "Resupply", "Gunner", "The Judas Goat", "Crosshairs",

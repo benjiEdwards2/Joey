@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from hub import media_db
 from tests.hub.test_registry import make_area, make_tile
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_raw as main_of
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"
 JELLY = json.loads((SAMPLES / "jellyfin.json").read_text(encoding="utf-8"))["data"]
@@ -70,10 +71,6 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app)
 
     return build, tmp_path / "data" / "media.db"
-
-
-def main_of(html):
-    return html.split("<main", 1)[1]
 
 
 def rate_form(key="tmdb:1", score=8, **over):

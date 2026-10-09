@@ -11,14 +11,11 @@ from fastapi.testclient import TestClient
 from hub import media_db
 from tests.hub.test_registry import make_area, make_tile
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_raw as main_of
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"
 JELLY = json.loads((SAMPLES / "jellyfin.json").read_text(encoding="utf-8"))["data"]
 HX = {"HX-Request": "true"}
-
-
-def main_of(html):
-    return html.split("<main", 1)[1]
 
 
 @pytest.fixture()

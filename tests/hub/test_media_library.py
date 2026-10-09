@@ -1,17 +1,15 @@
 """Media Phase 2 — the /media/library page and the area "Just arrived" strip,
 rendered from the arr snapshot. Placement is asserted inside <main>.
 """
-import importlib
 import json
 from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
-import yaml
-from fastapi.testclient import TestClient
 
 from tests.hub.test_registry import make_area, make_tile
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import app_with, main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SAMPLE = json.loads((Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "arr.json")
                     .read_text(encoding="utf-8"))["data"]
@@ -31,22 +29,7 @@ def app_factory(tmp_path, monkeypatch):
     area = make_area("alpha", "lib-t", snapshot="arr", stale_after_minutes=180,
                      detail="/media/library")
     area["tiles"].append(make_tile("other-t", snapshot="media_status", stale_after_minutes=10))
-    path = tmp_path / "areas.yaml"
-    path.write_text(yaml.safe_dump({"areas": [area]}), encoding="utf-8")
-    monkeypatch.setenv("AREAS_PATH", str(path))
-
-    def build(snapshot_dir):
-        monkeypatch.setenv("SNAPSHOT_DIR", str(snapshot_dir))
-        import hub.main
-        importlib.reload(hub.main)
-        return TestClient(hub.main.app)
-
-    return build, tmp_path
-
-
-def main_of(html: str) -> str:
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
+    return app_with(tmp_path, monkeypatch, area), tmp_path
 
 
 def test_library_page_renders_every_section_in_main(app_factory):

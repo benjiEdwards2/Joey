@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_discover as md, media_requests as mr
+from hub import media_discover as md, media_requests as mr, media_text
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_arr_search")
@@ -57,9 +57,7 @@ def _ok(resp) -> None:
         raise RuntimeError(f"HTTP {resp.status_code}")
 
 
-def _why(exc: Exception) -> str:
-    """Log-safe words for a failure: the HTTP status, else the exception type (never its message)."""
-    return str(exc) if isinstance(exc, RuntimeError) and re.fullmatch(r"HTTP \d{3}", str(exc)) else type(exc).__name__
+_why = media_text.why   # log-safe words: 'HTTP 503' or the exception type, never its message
 
 
 def find(kind: str, tmdb: int, tvdb: int | None = None) -> dict | None:

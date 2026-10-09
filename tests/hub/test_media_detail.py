@@ -7,12 +7,12 @@ import importlib
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import yaml
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import app_with, main_raw as main_of
 
 JELLY_HREF = "http://nas.example.invalid:8096"
 APPS = [
@@ -43,21 +43,7 @@ def app_factory(tmp_path, monkeypatch):
                                    detail="/media/apps"))
     area["tiles"].append({"id": "open-t", "label": "Open Jellyfin", "tier": "link",
                           "owner": "shared", "href": JELLY_HREF})
-    path = tmp_path / "areas.yaml"
-    path.write_text(yaml.safe_dump({"areas": [area]}), encoding="utf-8")
-    monkeypatch.setenv("AREAS_PATH", str(path))
-
-    def build(snapshot_dir):
-        monkeypatch.setenv("SNAPSHOT_DIR", str(snapshot_dir))
-        import hub.main
-        importlib.reload(hub.main)
-        return TestClient(hub.main.app)
-
-    return build, tmp_path
-
-
-def main_of(html: str) -> str:
-    return html.split("<main", 1)[1]
+    return app_with(tmp_path, monkeypatch, area), tmp_path
 
 
 def test_apps_page_lists_every_app_with_words_and_links(app_factory):

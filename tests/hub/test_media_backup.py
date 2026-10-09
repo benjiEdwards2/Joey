@@ -14,6 +14,7 @@ from hub import media_backup as mb
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_raw as main_of
 
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
@@ -246,9 +247,6 @@ def test_media_backup_off_starts_no_task(hub_env, monkeypatch):
 
 
 # --- surfaces -----------------------------------------------------------------
-
-def main_of(html):
-    return html.split("<main", 1)[1]
 
 
 def apps_main(main):

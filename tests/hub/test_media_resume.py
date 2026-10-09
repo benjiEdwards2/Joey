@@ -14,6 +14,7 @@ from tests.hub.test_media_item import EPISODES, ITEMS, SEASONS, TICKS
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 URL = "http://jf.secret-host.invalid:8096"
 KEY = "jf-SECRET-key-123"
@@ -101,10 +102,6 @@ def env(tmp_path, monkeypatch):
 
     yield build
     media_hidden.clear()
-
-
-def main_of(html):
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def watched(client, jf, back="/media/playing", **extra):

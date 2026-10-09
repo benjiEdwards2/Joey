@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 FAKE_URL = "http://seerr.secret-host.invalid:5055"
 FAKE_KEY = "k-SECRET-0123456789"
@@ -108,11 +109,6 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app), fake
 
     return build
-
-
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def assert_no_secrets(html, link_ok=False):

@@ -5,9 +5,12 @@ missing value, counts with their noun ('3 episodes').
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime
 
 from hub.store import parse_utc
+
+_HTTP = re.compile(r"HTTP \d{3}")
 
 
 def parse(value) -> datetime | None:
@@ -41,6 +44,12 @@ def short_date(value) -> str | None:
 def plural(n: int, singular: str, many: str | None = None) -> str:
     """'1 episode' / '3 episodes' (`many` for an irregular plural)."""
     return f"{n} {singular if n == 1 else (many or singular + 's')}"
+
+
+def why(exc: BaseException) -> str:
+    """Log-safe words for a failure (M-29): 'HTTP 503' for our own status RuntimeErrors, else the exception TYPE —
+    never its message (requests errors embed the URL, and a URL can carry a key)."""
+    return str(exc) if isinstance(exc, RuntimeError) and _HTTP.fullmatch(str(exc)) else type(exc).__name__
 
 
 def duration(minutes) -> str:

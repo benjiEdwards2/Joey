@@ -6,6 +6,7 @@ page's cache), split into "On server" (matched against the Jellyfin snapshot lib
 
 from __future__ import annotations
 
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 
@@ -15,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from hub import media_discover as md, media_follow, media_item
 from hub.media_film import _cget
 
+log = logging.getLogger("hub.media_person")   # M-29: its own logger, not media_discover's
 router = APIRouter()
 
 CREDITS_MAX, BIO_MAX, BIO_LEAD = 200, 1200, 400
@@ -130,12 +132,12 @@ def person_page(request: Request, person_id: str):
         from hub import media_awards_db, media_awards_pages
         person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))
     except Exception as exc:  # the page never fails on the awards lookup
-        md.log.warning("awards lookup failed: %s", type(exc).__name__)
+        log.warning("awards lookup failed: %s", type(exc).__name__)
         person["awards"] = None
     try:
         person["following"] = media_follow.get("person", int(person_id)) is not None
     except Exception as exc:  # the page never fails on the follow lookup
-        md.log.warning("follow lookup failed: %s", type(exc).__name__)
+        log.warning("follow lookup failed: %s", type(exc).__name__)
         person["following"] = False
     resp = hub.templates.TemplateResponse(request, "media_person.html", {
         "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,

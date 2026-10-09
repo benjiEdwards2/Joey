@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.test_registry import make_area, make_tile
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import app_with, main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SAMPLE = json.loads((Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "jellyfin.json")
                     .read_text(encoding="utf-8"))["data"]
@@ -22,22 +23,7 @@ def app_factory(tmp_path, monkeypatch):
                      detail="/media/playing")
     area["tiles"].append(make_tile("hist-t", snapshot="jellyfin", stale_after_minutes=10,
                                    detail="/media/history", owner="you"))
-    path = tmp_path / "areas.yaml"
-    path.write_text(yaml.safe_dump({"areas": [area]}), encoding="utf-8")
-    monkeypatch.setenv("AREAS_PATH", str(path))
-
-    def build(snapshot_dir):
-        monkeypatch.setenv("SNAPSHOT_DIR", str(snapshot_dir))
-        import hub.main
-        importlib.reload(hub.main)
-        return TestClient(hub.main.app)
-
-    return build, tmp_path
-
-
-def main_of(html: str) -> str:
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
+    return app_with(tmp_path, monkeypatch, area), tmp_path
 
 
 def test_history_page_renders_every_section_in_main(app_factory):

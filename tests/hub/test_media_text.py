@@ -37,3 +37,35 @@ def test_ceremony_orders_come_from_the_seed():
     assert list(media_awards_icons.BODY_IDS) == by_sort
     assert media_awards_badges.PRESTIGE[0] == "oscars" and set(media_awards_badges.PRESTIGE) == set(by_sort)
     assert sorted(b["prestige"] for b in media_awards_seed.BODIES) == list(range(1, len(by_sort) + 1))
+
+
+def test_log_reasons_are_status_or_type_only():
+    """M-29 (W2): one `why` for every Media log line — never an exception's message (it can hold a URL and key)."""
+    import requests
+    assert media_text.why(RuntimeError("HTTP 503")) == "HTTP 503"
+    assert media_text.why(RuntimeError("http://host/?apikey=SECRET")) == "RuntimeError"
+    assert media_text.why(requests.ConnectionError("http://host/?apikey=SECRET")) == "ConnectionError"
+
+
+def test_every_logging_media_module_has_its_own_logger():
+    import re
+    from pathlib import Path
+    for path in sorted((Path(__file__).resolve().parents[2] / "hub").glob("media_*.py")):
+        src = path.read_text(encoding="utf-8")
+        assert "exc_info" not in src, path.name
+        if re.search(r"\blog\.(warning|info|error)\(", src):
+            assert f'logging.getLogger("hub.{path.stem}")' in src, path.name
+        assert "md.log." not in src, path.name
+
+
+def test_media_caches_start_empty_in_every_test():
+    """M-60 (W2): tests/hub/conftest.py empties the module caches before each test — this test sees none of the
+    entries an earlier test left."""
+    from hub import media_discover, media_item, media_omdb
+    assert len(media_discover._cache) == len(media_item._cache) == len(media_omdb._mem) == 0
+    media_discover._cache["leak:x"] = (0, None)       # the next test must not see this
+
+
+def test_media_caches_start_empty_in_every_test_again():
+    from hub import media_discover
+    assert "leak:x" not in media_discover._cache

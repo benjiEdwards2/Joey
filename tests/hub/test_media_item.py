@@ -14,6 +14,7 @@ from hub import media_db, media_files, media_item, media_plays_db
 from tests.hub.test_media_shelves import LINK, shelf_area
 from tests.hub.test_registry import make_area, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 URL = "http://jf.secret-host.invalid:8096"
 KEY = "jf-SECRET-key-123"
@@ -104,11 +105,6 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app), fake
 
     return build
-
-
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def current(html, label):

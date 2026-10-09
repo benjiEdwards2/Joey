@@ -471,6 +471,7 @@ def test_a_failed_library_list_drops_only_that_list(live, monkeypatch, raw, capl
     assert envelope["status"] == "ok", envelope["error"]
     data = envelope["data"]
     assert "movies" not in data and len(data["shows"]) > 0
+    assert data["partial_errors"] == {"movies": "timeout"}  # C-10
     assert data["summary"] and data["up_next"]            # the core feed is untouched
     jsonschema.validate(data, SCHEMA)
     assert "Jellyfin movies failed (timeout)" in caplog.text
@@ -483,6 +484,7 @@ def test_a_failed_her_call_makes_her_null_and_keeps_the_feed_ok(live, monkeypatc
     envelope = Jellyfin().run()
     assert envelope["status"] == "ok", envelope["error"]
     assert envelope["data"]["her"] is None and envelope["data"]["movies"]
+    assert envelope["data"]["partial_errors"] == {"her resume": "timeout"}
     jsonschema.validate(envelope["data"], SCHEMA)
 
 

@@ -6,7 +6,7 @@ import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from connectors.base import Connector
+from connectors.base import Connector, partial_note
 from connectors.feeds._common import _now
 from connectors.feeds._http import http_json, session
 
@@ -74,6 +74,8 @@ class Gcal(Connector):
         }
         if errors:
             data["feed_errors"] = errors
+            for owner, why in sorted(errors.items()):
+                partial_note(data, owner, why)
         return data
 
 

@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from connectors.base import Connector, home_tz, log
+from connectors.base import Connector, home_tz, log, partial_note
 from connectors.feeds._common import GIB, _ago, _dt, _duration_words, _now
 from connectors.feeds._http import http_json, session
 
@@ -350,4 +350,6 @@ class Arr(Connector):
         data["radarr"], data["sonarr"], data["prowlarr"] = self._counts(raw)
         if raw.get("app_errors"):
             data["app_errors"] = dict(raw["app_errors"])
+            for app, why in sorted(raw["app_errors"].items()):
+                partial_note(data, app, why)
         return data

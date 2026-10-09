@@ -80,6 +80,14 @@ def mask_urls(text: str) -> str:
     return _URL_RE.sub("<url>", text)
 
 
+def partial_note(data: dict[str, Any], source: str, reason: str) -> dict[str, Any]:
+    """The one partial-failure convention (C-10): the feed is ok but `source` failed this
+    sweep, so `data["partial_errors"][source] = reason` (type/status only, never a URL).
+    Additive — feeds keep their older keys (gcal `feed_errors`, arr `app_errors`)."""
+    data.setdefault("partial_errors", {})[source] = reason
+    return data
+
+
 class MissingCredential(RuntimeError):
     """Live mode started without an env var the connector needs."""
 

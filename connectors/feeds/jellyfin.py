@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timedelta
 
-from connectors.base import Connector, home_tz, log, mode
+from connectors.base import Connector, home_tz, log, mode, partial_note
 from connectors.feeds._common import _ago, _dt, _now
 from connectors.feeds._http import http_json, session
 
@@ -143,13 +143,17 @@ class Jellyfin(Connector):
         def get(label: str, path: str, params: dict | None = None):
             return http_json(f"Jellyfin {label}", base + path, headers=headers, params=params, session=client)
 
+        skipped: dict[str, str] = {}
+
         def optional(label: str, path: str, params: dict | None = None):
             """Partial-ok (C-09): an optional call that fails is left out of `raw` (its data key is
-            then absent / `her` null) and logged with the sanitised reason; the run stays ok."""
+            then absent / `her` null), logged with the sanitised reason and noted under
+            `partial_errors` (C-10); the run stays ok."""
             try:
                 return get(label, path, params)
             except RuntimeError as exc:
                 log.warning("jellyfin: skipped, %s", exc)
+                skipped[label] = exc.reason
                 return None
 
         users = get("users", "/Users")
@@ -199,6 +203,8 @@ class Jellyfin(Connector):
                 raw[key] = got
         if not her and os.environ.get("JELLYFIN_USER_HER"):
             log.info("jellyfin: her user not found")
+        if skipped:
+            raw["errors"] = skipped
         return raw
 
     @staticmethod
@@ -365,7 +371,7 @@ class Jellyfin(Connector):
             library_lists["movies"] = self._movies(raw["raw_movies"])
         if "raw_shows" in raw:
             library_lists["shows"] = self._shows(raw["raw_shows"])
-        return {
+        data = {
             **library_lists,
             "summary": (
                 f"{len(now_playing)} playing now" if now_playing
@@ -384,3 +390,6 @@ class Jellyfin(Connector):
             "history": self._history((raw.get("raw_history") or {}).get("Items", []), _now()),
             "her": self._her_block(raw),
         }
+        for label, why in sorted((raw.get("errors") or {}).items()):
+            partial_note(data, label, why)
+        return data

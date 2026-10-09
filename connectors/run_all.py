@@ -91,7 +91,8 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
 
 
 # data keys by which an ok envelope reports that part of its sources failed
-PARTIAL_KEYS = ("app_errors", "feed_errors")
+# (`partial_errors` is the one convention since C-10; the other two are its older forms)
+PARTIAL_KEYS = ("partial_errors", "app_errors", "feed_errors")
 
 
 def _partial(envelope) -> bool:

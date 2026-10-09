@@ -183,3 +183,18 @@ def test_only_non_ok_results_and_one_summary_line_are_printed(snapshots, capsys,
     assert re.fullmatch(r"sweep ok=2 err=1 partial=1 ms=\d+", out[-1])
     assert len(out) == 2                       # nothing printed for the ok results
     assert "open_meteo: ok" not in caplog.text  # and no per-connector log.info duplicate
+
+
+class PartialNew(Good):
+    id = "jellyfin"
+
+    def fetch_fixture(self):
+        return {"summary": "ok", "partial_errors": {"movies": "timeout"}}
+
+
+def test_partial_errors_count_as_partial(snapshots, capsys):
+    """C-10: the one convention key is counted like its two older forms."""
+    import re
+
+    run_sweep([Good(), PartialNew()])
+    assert re.fullmatch(r"sweep ok=2 err=0 partial=1 ms=\d+", capsys.readouterr().out.strip().splitlines()[-1])

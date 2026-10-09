@@ -216,6 +216,7 @@ def test_one_app_down_keeps_the_run_ok_with_an_app_error(live, monkeypatch, raw)
     data = envelope["data"]
     assert envelope["status"] == "ok" and envelope["consecutive_failures"] == 0
     assert data["app_errors"] == {"sonarr": "timeout"}
+    assert data["partial_errors"] == {"sonarr": "timeout"}  # C-10, alongside app_errors
     assert [r["title"] for r in data["arrived"]] == ["Harbour Lights", "Desert Crossing"]  # radarr only
     assert not any(" · S0" in r["title"] for r in data["this_week"])
     jsonschema.validate(data, SCHEMA)

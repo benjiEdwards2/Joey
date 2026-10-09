@@ -86,6 +86,7 @@ def test_one_feed_down_keeps_the_other_owner(live, monkeypatch):
     events = envelope["data"]["events"]
     assert events and {e["owner"] for e in events} == {"you"}
     assert envelope["data"]["feed_errors"] == {"her": "timeout"}  # one sanitiser for every feed (C-05)
+    assert envelope["data"]["partial_errors"] == {"her": "timeout"}  # C-10, alongside feed_errors
     assert "her feed down" in envelope["data"]["secondary"]
     jsonschema.Draft202012Validator(GCAL_DATA_SCHEMA).validate(envelope["data"])
 

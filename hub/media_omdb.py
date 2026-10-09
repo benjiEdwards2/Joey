@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 import requests
 
 from hub import media_discover as md
+from hub.media_cache import LRU
 
 log = logging.getLogger("hub.media_omdb")
 
@@ -35,7 +36,7 @@ IMDB_RE = re.compile(r"^tt\d{5,10}$")
 KEY_ERRORS = ("invalid api key", "no api key", "request limit reached")
 
 _lock = threading.Lock()
-_mem: dict[str, tuple[float, int | None]] = {}
+_mem: LRU = LRU()   # imdb id -> (at, score); bounded (M-42), the disk meta cache is the long tier
 _day: list = ["", 0, False]   # [UTC date, calls made today, stopped for today]
 
 

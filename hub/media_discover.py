@@ -26,6 +26,7 @@ from starlette.concurrency import run_in_threadpool
 
 from hub import media_awards_badges, media_files
 from hub.images import REF_RE, cache_dir
+from hub.media_cache import LRU
 from hub.media_watchlist import keys_for
 from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
@@ -55,7 +56,9 @@ ERRORS = {"exists": "Already requested", "declined": "Jellyseerr declined the re
 # availability state stays on CACHE_TTL.
 META_TTL = 6 * 3600
 
-_cache: dict[str, tuple[float, list[dict]]] = {}
+# Bounded (M-42): "film:" / "meta:" bodies and shelf rows share one LRU; a disk hit copied in by meta_get evicts the
+# least recently used entry instead of growing RAM with every library title the warm-up reads.
+_cache: LRU = LRU()
 
 
 def clear_cache() -> None:

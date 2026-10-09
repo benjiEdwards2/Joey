@@ -15,6 +15,8 @@ import time
 
 import requests
 
+from hub.media_cache import LRU
+
 log = logging.getLogger("hub.media_files")
 
 TIMEOUT = 8
@@ -23,7 +25,7 @@ UID_TTL = 3600
 ITEM_FIELDS = "MediaStreams,MediaSources,Path,Width,Height,Container,RunTimeTicks"
 ITEM_LIMIT = 500
 
-_cache: dict[tuple[str, int], tuple[float, dict]] = {}
+_cache: LRU = LRU()   # (kind, tmdb) / item keys -> (fetched_at, summary); bounded (M-42)
 _uid: list = [0.0, None]  # [fetched_at, uid]
 
 

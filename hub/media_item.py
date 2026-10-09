@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from hub import media_db, media_files
+from hub.media_cache import LRU
 from hub.media_discover import _date_words
 from hub.media_library import runtime_text
 
@@ -32,7 +33,7 @@ SEASON_WORKERS = 6
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
 
-_cache: dict[str, tuple[float, dict]] = {}
+_cache: LRU = LRU()   # jf_id -> (fetched_at, item + seasons); bounded (M-42)
 _server: list = [0.0, None]  # [fetched_at, server id]
 
 

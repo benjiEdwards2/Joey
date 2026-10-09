@@ -28,7 +28,10 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub import shell, tasks, weather
+from hub import calendar, shell, tasks, weather
+# W3: the calendar helpers live in hub/calendar.py; re-exported for the old `hub.main.X` paths.
+from hub.calendar import (UPCOMING_DAYS, _day_label, _event_dt, build_upcoming, find_upcoming,  # noqa: F401
+                          hub_upcoming, per_day_counts)
 # W3: the weather helpers and routes live in hub/weather.py; re-exported for the old `hub.main.X` paths.
 from hub.weather import (RADAR_FILE_RE, RADAR_OVER, RADAR_SLOTS, RADAR_UNDER, WINDY_DEFAULT, WINDY_EMBED,  # noqa: F401
                          WINDY_ZOOM, WX_CHART_H, WX_CHART_PAD, WX_CHART_W, WX_LABEL_EVERY, WX_RAIN_BASE, WX_RAIN_MAX_H,
@@ -88,81 +91,6 @@ app.include_router(media_arr_search.router)   # media-ux5: Search now
 app.include_router(server_updates.router)
 app.include_router(weather.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
-
-
-# Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
-# Rendered on any area page whose tiles read this snapshot — keyed by connector
-# id (GCAL_SNAPSHOT_ID) like the weather glimpse, never an area name (WP17 grep exception).
-UPCOMING_DAYS = 7
-
-
-def _event_dt(value: str, tz) -> datetime:
-    """Parse an event timestamp (ISO with offset, or bare date for all-day)."""
-    dt = datetime.fromisoformat(value)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=tz)
-    return dt.astimezone(tz)
-
-
-def _day_label(d: date, today: date) -> str:
-    if d == today:
-        return "Today"
-    if d == today + timedelta(days=1):
-        return "Tomorrow"
-    return f"{d:%a} {d.day} {d:%b}"   # "Wed 8 Oct" (guide §9: no zero padding)
-
-
-def build_upcoming(events, view: str, now: datetime, days: int = UPCOMING_DAYS) -> list[dict]:
-    """Day-grouped event rows for the coming week, honouring the owner view (Q9).
-
-    All-day events carry an ICS-style exclusive end date. An event already in
-    progress groups under Today. A malformed event is skipped, never a crash.
-    """
-    tz = now.tzinfo
-    today = now.date()
-    window_end = today + timedelta(days=days)
-    rows: list[tuple[date, datetime, dict]] = []
-    for ev in events:
-        try:
-            owner = ev["owner"]
-            if not (view == "both" or owner == "shared" or owner == view):
-                continue
-            start = _event_dt(ev["start"], tz)
-            end = _event_dt(ev["end"], tz)
-            if ev["all_day"]:
-                if end <= start:
-                    end = start + timedelta(days=1)
-                still_on = end.date() > today  # exclusive end
-                time_text = "All day"
-            else:
-                still_on = end > now
-                time_text = f"{start:%H:%M} – {end:%H:%M}"
-            if not still_on or start.date() >= window_end:
-                continue
-            rows.append((max(start.date(), today),
-                         start, {"title": str(ev["title"]), "time_text": time_text,
-                                 "owner": owner}))
-        except Exception:
-            continue
-    rows.sort(key=lambda r: (r[0], r[1]))
-    groups: list[dict] = []
-    for day, _, event in rows:
-        if not groups or groups[-1]["day"] != day:
-            groups.append({"day": day, "label": _day_label(day, today), "events": []})
-        groups[-1]["events"].append(event)
-    return groups
-
-
-def find_upcoming(tiles, snaps, view: str):
-    """The area's upcoming list: present when a visible tile reads the gcal
-    snapshot and that snapshot holds data (fresh or stale — never fabricated)."""
-    for row in tiles:
-        if row["tile"].snapshot == GCAL_SNAPSHOT_ID and row["st"]["state"] in ("fresh", "stale"):
-            snap = snaps.get(GCAL_SNAPSHOT_ID)
-            return {"groups": build_upcoming(snap.data.get("events", []), view,
-                                             datetime.now().astimezone()),
-                    "st": row["st"], "days": UPCOMING_DAYS}
-    return None
 
 
 # Media sections (2026-10-05): apps health + now playing + up next. Keyed by
@@ -512,27 +440,6 @@ def hub_greeting(now: datetime, name: str | None = None) -> str:
     return f"{hello} Here's what's happening at home today, {now:%A} {now.day} {now:%B}."
 
 
-def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
-    """Events per day for today + the next days-1, from build_upcoming's groups (Calendar KPI bars)."""
-    by_day = {g["day"]: len(g["events"]) for g in groups}
-    return [by_day.get(today + timedelta(days=i), 0) for i in range(days)]
-
-
-def hub_upcoming(snaps, view: str) -> dict | None:
-    """Hub "Next 7 days" card: the first visible tile reading the gcal snapshot, its area's
-    page for "View all", and find_upcoming's groups (None data = not connected)."""
-    for a in shell.registry.areas:
-        rows = [{"tile": t, "st": tile_state(t, snaps)} for t in a.tiles if shell.owner_visible(t, view)]
-        row = next((r for r in rows if r["tile"].snapshot == GCAL_SNAPSHOT_ID), None)
-        if row:
-            up = find_upcoming(rows, snaps, view)
-            today = datetime.now().astimezone().date()  # the clock find_upcoming groups on
-            return {"href": f"/a/{a.id}", "st": row["st"], "days": UPCOMING_DAYS,
-                    "groups": up["groups"] if up else [],
-                    "per_day": per_day_counts(up["groups"], today) if up else None}
-    return None
-
-
 def _profile_rows(jelly: dict, view: str, pick) -> list[tuple[dict, str]]:
     """(row, owner) pairs from B.'s and Georgina's Jellyfin profiles as the owner view sees
     them: you = B.'s, her = hers, both = B.'s then hers. `pick(profile_dict)` -> rows."""
@@ -617,7 +524,7 @@ def hub_page(request: Request):
     snaps = shell.get_snapshots(request=request)
     backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
     cards, shelf = [], None
-    upcoming = hub_upcoming(snaps, view)
+    upcoming = calendar.hub_upcoming(snaps, view)
     for a in shell.registry.visible_areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not shell.owner_visible(summary, view):
@@ -743,7 +650,7 @@ def media_library_page(request: Request):
         for row in sorted(data.get("this_week", []), key=lambda r: (r["date"], r["title"])):
             day = date.fromisoformat(row["date"])
             if not groups or groups[-1]["day"] != day:
-                groups.append({"day": day, "label": _day_label(day, today), "rows": []})
+                groups.append({"day": day, "label": calendar._day_label(day, today), "rows": []})
             groups[-1]["rows"].append(row)
         merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data(request))
         # Whole row is the link (B., 2026-10-06): Joey item page, title page or nothing — same
@@ -1120,7 +1027,7 @@ def area_page(request: Request, area_id: str):
         }, active_id=area.id)
         return shell._maybe_set_cookie(resp, view, from_query)
     media = find_media(tiles, snaps)
-    upcoming = find_upcoming(tiles, snaps, view)
+    upcoming = calendar.find_upcoming(tiles, snaps, view)
     # Weather renders on the hub and /weather only (2026-10-08, B. — supersedes the
     # Calendar-page card). The registry tile stays: find_weather's config anchor.
     tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]

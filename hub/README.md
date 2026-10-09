@@ -13,7 +13,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `main.py` | App creation, middleware, `/static` mount, router includes, Hub page (`/`), Area pages (`/a/{id}`, `/server`), `/healthz`, `/whoami`; re-exports the moved names so old `hub.main.X` paths keep working |
 | `shell.py` | What every router imports instead of `hub.main`: THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`, `identity`), the registry holder (`load_areas`, `registry`), `get_snapshots` (once per request), the owner view, `build_status`, `find_detail_source`, `render_page` / `not_found_page` (the one base context and 404), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
 | `tasks.py` | The app lifespan (loads the registry) and the background loops, all through `_every` |
-| `weather.py`, `upcoming.py` | Weather glimpse, `/weather` forecast + radar routes; the Next 7 days list and hub card |
+| `weather.py`, `upcoming.py` | Weather glimpse, `/weather` forecast + Windy radar embed; the Next 7 days list and hub card |
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
 | `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary, Years, Movies / TV grid, Tonight |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
@@ -40,7 +40,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /` | main | Hub: summary tiles, Next 7 days, weather glimpse, Recently watched |
 | `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server; grid = tiles + Next 7 days, its Media sections removed 2026-10-09, decision 2); hidden areas still serve |
 | `GET /server` | main | Server area (same page as `/a/server`) |
-| `GET /weather`, `/weather/radar/{name}` | weather | Weather page (Windy radar embed); parked BOM layer files (404 if absent) |
+| `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Server section: Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
 | `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1) |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
@@ -70,7 +70,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `IMG_CACHE_DIR` / `META_CACHE_DIR` | `/data/cache/img` / `<IMG_CACHE_DIR>/meta` | Poster cache; 6 h Jellyseerr / title meta cache |
 | `AREAS_PATH` | `config/areas.yaml` | Registry file |
 | `OWNER_EMAIL_YOU`, `OWNER_NAME_YOU`, `OWNER_NAME_HER` | unset, Benji, Georgina | Access email that is "you" (any other is "her"); chip and greeting names |
-| `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE` | radar falls back to Newport, `Newport VIC` | Radar centre (the weather connector reads the same pair) and the place name in weather labels |
+| `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE` | Windy radar falls back to Newport, `Newport VIC` | Windy radar centre (the weather connector reads the same pair) and the place name in weather labels |
 | `HUB_DEV` | off | `1` re-reads templates on every render (local template editing) |
 | `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER` | unset | Live item reads, play recorder, her profile |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |

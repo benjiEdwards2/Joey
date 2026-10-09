@@ -30,20 +30,6 @@ def validate_envelope(envelope_schema):
 
 
 @pytest.fixture(autouse=True)
-def _no_real_ftp(monkeypatch):
-    """The open_meteo radar step speaks FTP (2026-10-06). A live-mode test that doesn't
-    mock it gets a refused connection here — the radar step then fails in isolation,
-    exactly as when BOM is unreachable — so the suite never touches ftp.bom.gov.au."""
-    import ftplib
-
-    class _Refused:
-        def __init__(self, *a, **k):
-            raise OSError("network disabled in tests")
-
-    monkeypatch.setattr(ftplib, "FTP", _Refused)
-
-
-@pytest.fixture(autouse=True)
 def _session_calls_reach_patched_requests(monkeypatch):
     """Feeds make their calls on one `requests.Session` per run (C-05). Most tests here
     intercept the module-level `requests.get` / `requests.post`; this stand-in Session routes

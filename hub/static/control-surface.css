@@ -502,7 +502,7 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .wxhours .row { padding-top: 6px; padding-bottom: 6px; }
 
 /* Rain radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe in a square slot, capped to the viewport
-   height. (The parked BOM loop's own rules were removed 2026-10-09.) */
+   height. (The parked BOM radar was removed 2026-10-09, decision 5.) */
 .wxwindy { display: block; width: min(100%, 78vh); aspect-ratio: 1; margin: 0 auto;
   border: 0; border-radius: 10px; background: var(--soft); }
 

@@ -5,8 +5,10 @@ states/staleness stay single-sourced; /weather renders the same snapshot's
 today-only fields. The condition WORD always renders beside the glyph —
 colour/icon is never the only encoding.
 """
+import html as htmllib
 import importlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -206,3 +208,75 @@ def test_place_name_comes_from_weather_place(app_factory, monkeypatch):
         hub, page = client.get("/").text, client.get("/weather").text
     assert "Newport VIC" not in hub + page
     assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 4
+
+
+# ---- Windy radar embed (RADAR SUPERSESSION, 2026-10-07; moved from test_weather_radar.py 2026-10-09 when the
+# parked BOM radar was removed, decision 5) ----
+
+def _windy_page(app_factory, data):
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "open_meteo", age_minutes=5, data=data)
+    with build(snaps) as client:
+        r = client.get("/weather")
+        assert r.status_code == 200
+        return r.text
+
+
+def _windy_src(page):
+    panel = page.split('class="sec wxradar"')[1].split("</section>")[0]
+    m = re.search(r'<iframe class="wxwindy" src="([^"]+)"', panel)
+    assert m, "Windy iframe missing"
+    return panel, htmllib.unescape(m.group(1))
+
+
+@pytest.fixture()
+def coords(monkeypatch):
+    monkeypatch.setenv("WEATHER_LAT", "-37.84")
+    monkeypatch.setenv("WEATHER_LON", "144.88")
+
+
+def test_radar_panel_is_a_windy_embed_with_the_home_coords(app_factory, coords):
+    page = _windy_page(app_factory, WX_DATA)
+    panel, src = _windy_src(page)
+    assert src.startswith("https://embed.windy.com/embed2.html?")
+    for part in ("lat=-37.84", "lon=144.88", "overlay=radar", "zoom=8", "metricTemp=%C2%B0C",
+                 "metricWind=km%2Fh", "detectRotation=false"):
+        assert part in src.split("?", 1)[1].split("&"), part
+    assert 'title="Interactive rain radar map' in panel and 'loading="lazy"' in panel
+    assert "Interactive radar · windy.com · needs internet" in panel
+    # no BOM layer stack on the page, and the page itself runs no script for the radar
+    assert "wxrframe" not in page and "/weather/radar/" not in page and "<script" not in panel
+
+
+def test_windy_coords_follow_the_weather_env(app_factory, monkeypatch):
+    monkeypatch.setenv("WEATHER_LAT", "-33.87")
+    monkeypatch.setenv("WEATHER_LON", "151.21")
+    _, src = _windy_src(_windy_page(app_factory, WX_DATA))
+    assert "lat=-33.87&lon=151.21&detailLat=-33.87&detailLon=151.21" in src
+
+
+@pytest.mark.parametrize("lat,lon", [(None, None), ("x", "144.88"), ("-137", "144.88")])
+def test_windy_falls_back_to_newport_when_env_missing_or_bad(app_factory, monkeypatch, lat, lon):
+    for k, v in (("WEATHER_LAT", lat), ("WEATHER_LON", lon)):
+        if v is None:
+            monkeypatch.delenv(k, raising=False)
+        else:
+            monkeypatch.setenv(k, v)
+    _, src = _windy_src(_windy_page(app_factory, WX_DATA))
+    assert "lat=-37.84&lon=144.88" in src
+
+
+def test_windy_panel_renders_when_the_weather_snapshot_is_absent(app_factory, coords):
+    build, tmp_path = app_factory
+    with build(tmp_path / "never-created") as client:
+        r = client.get("/weather")
+    assert r.status_code == 200 and "Not connected" in r.text
+    _, src = _windy_src(r.text)
+    assert "lat=-37.84" in src
+
+
+def test_windy_iframe_css_keeps_the_square_capped_slot():
+    css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+    rule = css.split(".wxwindy {")[1].split("}")[0]
+    assert "aspect-ratio: 1" in rule and "min(100%, 78vh)" in rule and "border: 0" in rule

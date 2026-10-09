@@ -1,20 +1,18 @@
 """Weather (W3 split of hub/main.py, H-44): the hub glimpse card (find_weather), the /weather forecast page with
-its 24-hour chart and 7-day strip, the Windy radar embed and the parked BOM radar file route.
+its 24-hour chart and 7-day strip, and the Windy radar embed (the parked BOM radar was removed 2026-10-09, decision 5).
 """
 
 from __future__ import annotations
 
 import os
-import re
 from datetime import date
-from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from hub import shell
-from hub.ids import WEATHER_SNAPSHOT_ID, home_tz
-from hub.store import _snapshot_dir, connected, data_of, parse_utc, tile_state
+from hub.ids import WEATHER_SNAPSHOT_ID
+from hub.store import connected, data_of, tile_state
 
 router = APIRouter()
 
@@ -169,69 +167,6 @@ def windy_embed_url() -> str:
             f"&calendar=now&menu=&message=&marker=&pressure=&detail=&detectRotation=false")
 
 
-# BOM radar loop (2026-10-06, Option 1 approved by B.): the open_meteo connector stores
-# raw PNG layers + up to 6 rain frames under SNAPSHOT_DIR/radar/ and names them in
-# data.radar. The page stacks <img> layers and cycles the frames with CSS keyframes (no
-# JS); the route below serves ONLY names matching this allowlist, never arbitrary paths.
-RADAR_FILE_RE = re.compile(r"^(?:layer_(?:background|topography|locations|range)|frame_\d{12})\.png$")
-RADAR_UNDER = ("background", "topography")   # below the rain
-RADAR_OVER = ("range", "locations")          # above it, so town names stay readable
-RADAR_SLOTS = 6                              # the CSS cycle is built for 6 frame slots
-
-
-def _radar_dir() -> Path:
-    return _snapshot_dir() / "radar"
-
-
-def _radar_clock(iso: str) -> str | None:
-    t = parse_utc(iso) if iso else None
-    if t is None:
-        return None
-    return f"{t.astimezone(home_tz()):%H:%M}"
-
-
-def weather_radar(snaps) -> dict | None:
-    """Template context for the radar panel; None when the snapshot carries no usable radar."""
-    snap = snaps.get(WEATHER_SNAPSHOT_ID)
-    data = snap.data if snap else None
-    radar = data.get("radar") if isinstance(data, dict) else None
-    if not isinstance(radar, dict):
-        return None
-    frames = []
-    for f in radar.get("frames") or []:
-        name = f.get("file") if isinstance(f, dict) else None
-        clock = _radar_clock(f.get("time_iso")) if name else None
-        if isinstance(name, str) and RADAR_FILE_RE.match(name) and clock:
-            frames.append({"src": f"/weather/radar/{name}", "time": clock})
-    if not frames:
-        return None
-    layers = {n for n in radar.get("layers") or [] if isinstance(n, str) and RADAR_FILE_RE.match(n)}
-
-    def urls(names):
-        return [f"/weather/radar/layer_{n}.png" for n in names if f"layer_{n}.png" in layers]
-
-    # Always RADAR_SLOTS slots so one fixed CSS cycle fits: pad by repeating the oldest frame.
-    slots = [frames[0]] * (RADAR_SLOTS - len(frames)) + frames[-RADAR_SLOTS:]
-    steps = sorted({_frame_minutes(a, b) for a, b in zip(frames, frames[1:])} - {None})
-    return {
-        "under": urls(RADAR_UNDER), "over": urls(RADAR_OVER), "slots": slots,
-        "count": len(frames), "first": frames[0]["time"], "last": frames[-1]["time"],
-        "step": steps[0] if len(steps) == 1 else None,
-        "stale": radar.get("fetched_ok") is False,
-        "station": radar.get("station") or "",
-    }
-
-
-def _frame_minutes(a: dict, b: dict) -> int | None:
-    try:
-        ha, ma = map(int, a["time"].split(":"))
-        hb, mb = map(int, b["time"].split(":"))
-    except (KeyError, ValueError):
-        return None
-    return ((hb * 60 + mb) - (ha * 60 + ma)) % 1440 or None
-
-
-
 @router.get("/weather", response_class=HTMLResponse)
 def weather_page(request: Request):
     """Detail behind the hub glimpse (2026-09-11). Reads the same snapshot; today plus,
@@ -240,23 +175,8 @@ def weather_page(request: Request):
     snaps = shell.get_snapshots(request=request)
     resp = shell.render_page(request, "weather.html", {
         "w": find_weather(snaps),
-        "fc": weather_forecast(snaps),   # the parked BOM panel's weather_radar() context is not built (H-05)
+        "fc": weather_forecast(snaps),
         "windy_src": windy_embed_url(),
     })
     return shell._maybe_set_cookie(resp, view, from_query)
 
-
-@router.get("/weather/radar/{name}")
-def weather_radar_file(name: str):
-    """One stored BOM radar PNG (2026-10-06). Allowlisted names only — anything else,
-    traversal attempts included, is a 404; so is a name the connector has pruned."""
-    from fastapi.responses import FileResponse
-
-    if not RADAR_FILE_RE.match(name):
-        raise HTTPException(status_code=404)
-    path = _radar_dir() / name
-    if not path.is_file():
-        raise HTTPException(status_code=404)
-    # frames are immutable (timestamped names); layers are rewritten in place — revalidate
-    cache = "public, max-age=86400, immutable" if name.startswith("frame_") else "no-cache"
-    return FileResponse(path, media_type="image/png", headers={"Cache-Control": cache})

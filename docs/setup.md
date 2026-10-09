@@ -85,7 +85,6 @@ set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN
 - `PLAY_RECORDER` — `off` stops the Jellyfin play recorder (hub; default on, needs the Jellyfin URL + key).
 - `PLAY_POLL_SECONDS` — play-recorder poll interval in seconds, minimum 1 (hub; default 60).
 - `META_CACHE_DIR` — disk cache for Jellyseerr bodies and ratings (hub; default `<IMG_CACHE_DIR>/meta`).
-- `RADAR_LOOP` — `1` also fetches the parked BOM radar loop with the weather (connectors; default off, Windy is the radar).
 - `AREAS_PATH` — area registry file (hub; default `config/areas.yaml` in the image).
 - `WEATHER_PLACE` — the place name in the weather labels (hub; default `Newport VIC`; the coordinates are `WEATHER_LAT` / `WEATHER_LON`).
 - `HUB_DEV` — `1` re-reads templates on every render, for local template editing (hub; default off).

@@ -47,11 +47,11 @@ from hub.media_home import (  # noqa: F401
 from hub.upcoming import (UPCOMING_DAYS, _day_label, _event_dt, build_upcoming, find_upcoming,  # noqa: F401
                           hub_upcoming, per_day_counts)
 # W3: the weather helpers and routes live in hub/weather.py; re-exported for the old `hub.main.X` paths.
-from hub.weather import (RADAR_FILE_RE, RADAR_OVER, RADAR_SLOTS, RADAR_UNDER, WINDY_DEFAULT, WINDY_EMBED,  # noqa: F401
+from hub.weather import (WINDY_DEFAULT, WINDY_EMBED,  # noqa: F401
                          WINDY_ZOOM, WX_CHART_H, WX_CHART_PAD, WX_CHART_W, WX_LABEL_EVERY, WX_RAIN_BASE, WX_RAIN_MAX_H,
-                         WX_TEMP_BOTTOM, WX_TEMP_TOP, _frame_minutes, _radar_clock, _radar_dir, _wx_chart,
+                         WX_TEMP_BOTTOM, WX_TEMP_TOP, _wx_chart,
                          _wx_day_label, _wx_num, _wx_uv_word, find_weather, weather_forecast, weather_glyph,
-                         weather_page, weather_radar, weather_radar_file, windy_embed_url)
+                         weather_page, windy_embed_url)
 # W3: background loops + lifespan live in hub/tasks.py; re-exported for the old `hub.main.X` paths.
 from hub.tasks import (BACKUP_EVERY_S, BACKUP_FIRST_DELAY_S, _backup_loop, _every, _media_awards_loop,  # noqa: F401
                        _media_follow_loop, _media_warmup_loop, _server_alerts_loop, _server_tick, lifespan)

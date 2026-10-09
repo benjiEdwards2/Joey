@@ -59,7 +59,7 @@ DEFAULT_WEATHER_PLACE = "Newport VIC"
 
 def weather_place() -> str:
     """Jinja global `weather_place()`: the place the weather labels name (WEATHER_PLACE in .env, next to the
-    WEATHER_LAT/LON the connector and the radar read; H-36)."""
+    WEATHER_LAT/LON the connector and the Windy radar read; H-36)."""
     return os.environ.get("WEATHER_PLACE", "").strip() or DEFAULT_WEATHER_PLACE
 
 
@@ -138,7 +138,7 @@ class ShellMiddleware:
                 request_log.info("%s %s owner=%s -> %d", scope.get("method", "-"), path, owner_word(scope), status[0])
 
 
-# Already-compressed bodies (posters, icons, fonts, radar PNGs) skip gzip: no gain, NAS CPU spent.
+# Already-compressed bodies (posters, icons, fonts) skip gzip: no gain, NAS CPU spent.
 NO_GZIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".woff2", ".ico")
 GZIP_MIN_BYTES = 1024
 GZIP_LEVEL = 6

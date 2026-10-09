@@ -147,5 +147,5 @@ def history_page(request: Request, w: str = "30"):
     ctx = history_context(int(w) if w.isdigit() else w, view)
     resp = hub.templates.TemplateResponse(request, "media_server_history.html", {
         "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(hub.get_snapshots()), "ratings": {}, **ctx})
+        "status": hub.build_status(hub.get_snapshots(request=request)), "ratings": {}, **ctx})
     return hub._maybe_set_cookie(resp, view, from_query)

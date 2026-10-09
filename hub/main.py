@@ -686,11 +686,13 @@ def _deep_link(link, jf_id, server_id) -> str | None:
     return url + (f"&serverId={server_id}" if server_id else "")
 
 
-def waiting_counts(recent, ratings, details) -> dict:
+def waiting_counts(recent, ratings, details, to_rate_rows=None) -> dict:
     """What waits on the owner: titles to rate (full, uncapped inbox) and years to place.
     `details` = the detail paths of the tiles visible in this owner view; a count whose
-    tile is hidden is 0. Shared by the area page and the hub card."""
-    to_rate = len(_to_rate(recent, ratings)) if HISTORY_DETAIL in details else 0
+    tile is hidden is 0. Shared by the area page and the hub card. `to_rate_rows`: the inbox when the caller
+    already built it (media_frame)."""
+    rows = _to_rate(recent, ratings) if to_rate_rows is None and HISTORY_DETAIL in details else to_rate_rows
+    to_rate = len(rows) if HISTORY_DETAIL in details else 0
     to_place = media_db.unranked_count() if YEARS_DETAIL in details else 0  # one COUNT (H-49)
     return {"to_rate": to_rate, "to_place": to_place}
 
@@ -701,21 +703,22 @@ def _recent(snaps, view: str) -> list:
     return (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
 
 
-def area_waiting(area, snaps, view: str, recent=None, ratings=None) -> dict:
+def area_waiting(area, snaps, view: str, recent=None, ratings=None, to_rate_rows=None) -> dict:
     """waiting_counts for an area straight from snapshots + owner view (hub card, Media frame). `recent` /
-    `ratings` when the caller already has them (media_frame shares one read with the To rate tab counts)."""
+    `ratings` / `to_rate_rows` when the caller already has them (media_frame builds them once for both counts)."""
     recent = _recent(snaps, view) if recent is None else recent
     counts = waiting_counts(recent, _ratings(view, recent) if ratings is None else ratings,
-                            {t.detail for t in area.tiles if t.detail and owner_visible(t, view)})
+                            {t.detail for t in area.tiles if t.detail and owner_visible(t, view)}, to_rate_rows)
     if view == "her":
         counts["to_place"] = 0  # rankings are B.'s only
     return counts
 
 
-def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None) -> dict:
+def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None, to_rate_rows=None) -> dict:
     """The Movies / TV Shows "To rate" tab counts (media-ux4): the viewer's own inbox split by kind."""
     recent = _recent(snaps, view) if recent is None else recent
-    rows = _to_rate(recent, _ratings(view, recent) if ratings is None else ratings) if recent else []
+    rows = to_rate_rows if to_rate_rows is not None else (
+        _to_rate(recent, _ratings(view, recent) if ratings is None else ratings) if recent else [])
     return {"to_rate_movie": sum(1 for r in rows if r["kind"] == "movie"),
             "to_rate_tv": sum(1 for r in rows if r["kind"] == "tv")}
 
@@ -730,14 +733,15 @@ def media_frame(request: Request) -> dict:
         snaps = get_snapshots(request=request) if snaps is None else snaps
         recent = _recent(snaps, view)
         ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
-        waiting = area_waiting(area, snaps, view, recent, ratings) if area else {}
+        inbox = _to_rate(recent, ratings) if recent and ratings is not None else []   # M-24: ONE inbox for both
+        waiting = area_waiting(area, snaps, view, recent, ratings, inbox) if area else {}
         try:
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
         except Exception as exc:  # the Watchlist count is a nicety: never break the frame
             log.warning("watchlist count skipped: %s", type(exc).__name__)
         try:
-            waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings)}
+            waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings, inbox)}
         except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)
             log.warning("to rate count skipped: %s", type(exc).__name__)
         cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)

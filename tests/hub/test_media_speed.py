@@ -301,3 +301,30 @@ def test_meta_cache_defaults_inside_the_mounted_poster_cache(monkeypatch, tmp_pa
     monkeypatch.delenv("META_CACHE_DIR")
     monkeypatch.setenv("IMG_CACHE_DIR", str(tmp_path / "img"))
     assert md.meta_dir() == tmp_path / "img" / "meta"
+
+
+# ---- W2 (M-41, M-24): one snapshot read per Media page, one rating inbox per frame ----
+
+@pytest.mark.parametrize("path", ["/media/discover", "/media/person/31", "/media/movies/watchlist",
+                                  "/media/server/history", "/media/diary", "/media/library", "/media/movies"])
+def test_one_snapshot_read_per_media_page(env, monkeypatch, path):
+    client, _ = env()
+    import hub.main
+    reads = []
+    real = hub.main._read_snapshots
+    monkeypatch.setattr(hub.main, "_read_snapshots", lambda *a, **k: reads.append(1) or real(*a, **k))
+    with client:
+        assert client.get(path).status_code == 200
+    assert len(reads) == 1, path
+
+
+def test_the_media_frame_builds_the_rating_inbox_once(env, monkeypatch):
+    client, _ = env(jelly_extra={"history": {"recent": [
+        {"item_key": "tmdb:603", "kind": "movie", "title": "Harbour Lights", "watched_at": "2099-01-01T00:00:00Z"}]}})
+    import hub.main
+    calls = []
+    real = hub.main._to_rate
+    monkeypatch.setattr(hub.main, "_to_rate", lambda *a, **k: calls.append(1) or real(*a, **k))
+    with client:
+        assert client.get("/media/movies").status_code == 200   # the page itself builds no inbox: only the frame
+    assert len(calls) == 1

@@ -91,8 +91,8 @@ def _credits(body, lib: dict[str, str]) -> list[dict]:
     return rows
 
 
-def build_person(tmdb_id: int, hub) -> dict:
-    snaps = hub.get_snapshots()
+def build_person(tmdb_id: int, hub, snaps=None) -> dict:
+    snaps = hub.get_snapshots() if snaps is None else snaps
     jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     lib = _library((jsrc or {}).get("data") or {})
     # media-speed: the biography is metadata only (long, restart-proof meta cache); the credits carry each
@@ -121,11 +121,11 @@ def person_page(request: Request, person_id: str):
     if not ID_RE.match(person_id):
         raise HTTPException(404, "No such person")
     view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots()
+    snaps = hub.get_snapshots(request=request)
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
         raise HTTPException(404, "No such person")
-    person = build_person(int(person_id), hub)
+    person = build_person(int(person_id), hub, snaps)
     try:  # Awards (2026-10-08): this person's wins / nominations from the media.db award tables; hidden when none
         from hub import media_awards_db, media_awards_pages
         person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))

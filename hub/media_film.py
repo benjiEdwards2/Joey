@@ -634,7 +634,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     # --- 3. what is on the server ---
     files = (base or {}).get("files")
     if files is None and t and t["status_word"] in md.ON_DISK and not item:
-        files = media_files.file_summary(kind, tmdb_id)
+        files = media_files.file_summary(kind, tmdb_id, snaps=snaps)
     on_server = bool(item or row or jf_id and not f["jf_failed"] or (t and t["status_word"] in md.ON_DISK))
     f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"))
     title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title")
@@ -825,7 +825,7 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
 
     kind = md._kind(kind)
     view, from_query = hub.resolve_owner_view(request)
-    snaps = request.state.snaps = hub.get_snapshots()  # media-speed: one snapshot read per request, shared
+    snaps = hub.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
         return hub.templates.TemplateResponse(request, "404.html", {
@@ -845,7 +845,7 @@ def item_page(request: Request, jf_id: str, season: str = ""):
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
     view, from_query = hub.resolve_owner_view(request)
-    snaps = request.state.snaps = hub.get_snapshots()  # media-speed: one snapshot read per request, shared
+    snaps = hub.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
     src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     if src is None:
         raise HTTPException(404, "No such item")

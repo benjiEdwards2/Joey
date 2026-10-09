@@ -223,7 +223,7 @@ def _page(request: Request, template: str, build):
     from hub import main as hub  # late: hub.main includes this router
 
     view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots()
+    snaps = hub.get_snapshots(request=request)   # M-41: kept on request.state.snaps for the frame and builders
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=DISCOVER_DETAIL)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
@@ -378,7 +378,8 @@ def service_page(request: Request, provider_id: int):
     page still renders (shelves by id under a plain heading)."""
     from hub import main as hub  # late: hub.main includes this router
 
-    if hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(), detail=DISCOVER_DETAIL) is None:
+    if hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(request=request),
+                              detail=DISCOVER_DETAIL) is None:
         return _page(request, "media_service.html", dict)   # the 404, before any upstream call
     listed = providers() if _creds() else None
     match = next((p for p in listed or [] if p["id"] == provider_id), None)
@@ -520,7 +521,8 @@ def season_episodes(request: Request, tmdb_id: int, n: int):
     eps = _episodes(tmdb_id, n) if n >= 0 else None
     if eps is None:
         return _partial(request, "_season_episodes.html", episodes=[], note=EPISODES_DOWN)
-    files = media_files.file_summary("tv", tmdb_id)
+    from hub import main as hub  # late: hub.main includes this router
+    files = media_files.file_summary("tv", tmdb_id, snaps=hub.get_snapshots(request=request))
     have = {tuple(k) for k in (files or {}).get("episode_keys") or []}
     rows = [{**e, "on_disk": (n, e["number"]) in have} for e in eps]
     return _partial(request, "_season_episodes.html", episodes=rows, note=None if rows else "No episodes listed")

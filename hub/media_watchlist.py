@@ -113,7 +113,7 @@ def _page(request: Request, kind: str):
             rows, failed = [], True
         on_keys = on_server_keys(data, kind)
         from hub.media_requests import snapshot_rows  # a removed request stops showing at once (2026-10-08)
-        words = wl.request_words(snapshot_rows(hub.get_snapshots(), hub.JELLYSEERR_SNAPSHOT_ID))
+        words = wl.request_words(snapshot_rows(hub.get_snapshots(request=request), hub.JELLYSEERR_SNAPSHOT_ID))
         sort = request.query_params.get("sort", "added")
         sort = sort if sort in wl.SORTS else "added"
         rows = [{**r, "status_word": wl.status_word(r, on_keys, words),

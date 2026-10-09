@@ -9,6 +9,7 @@ import logging
 import os
 import random
 import re
+import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
@@ -707,8 +708,7 @@ def waiting_counts(recent, ratings, details) -> dict:
     `details` = the detail paths of the tiles visible in this owner view; a count whose
     tile is hidden is 0. Shared by the area page and the hub card."""
     to_rate = len(_to_rate(recent, ratings)) if HISTORY_DETAIL in details else 0
-    to_place = (sum(y["unranked_count"] for y in media_db.years_overview())
-                if YEARS_DETAIL in details else 0)
+    to_place = media_db.unranked_count() if YEARS_DETAIL in details else 0  # one COUNT (H-49)
     return {"to_rate": to_rate, "to_place": to_place}
 
 
@@ -1001,12 +1001,30 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
     return {"href": f"/a/{area.id}", "st": st, "watched": watched}
 
 
-def server_card_state(st: dict, snaps) -> dict:
+# The hub page would otherwise pay for the Server page on every load (H-49): the runner history tail (up to
+# 2 MB of JSON lines), the ignores table and the sweep stats. The card is kept 60 s while the snapshots and the
+# backup word are unchanged; the /server page itself is never cached.
+HUB_CARD_TTL_S = 60
+_hub_card_cache: tuple | None = None   # (monotonic time, key, card)
+
+
+def _server_hub_card(snaps, backup: dict) -> dict:
+    global _hub_card_cache
+    key = (tuple(sorted((cid, s.updated_at, s.status) for cid, s in snaps.items())), backup.get("warning"))
+    now = time.monotonic()
+    hit = _hub_card_cache
+    if hit and hit[1] == key and now - hit[0] < HUB_CARD_TTL_S:
+        return hit[2]
+    card = server_area.hub_card(snaps, server_updates.get_ignores(), backup, get_runner(), get_runner_history(),
+                                live=server_area.live_snapshot_ids(registry))  # WP-U3
+    _hub_card_cache = (now, key, card)
+    return card
+
+
+def server_card_state(st: dict, snaps, backup: dict | None = None) -> dict:
     """The Server hub card (WP-U2): hub/server.py's words over the summary tile's state.
     `warn` reuses the stale badge (amber) with the words "Needs attention"."""
-    card = server_area.hub_card(snaps, server_updates.get_ignores(), media_backup.current_status(),
-                                get_runner(), get_runner_history(),
-                                live=server_area.live_snapshot_ids(registry))  # WP-U3
+    card = _server_hub_card(snaps, media_backup.current_status() if backup is None else backup)
     out = {**st, "value": card["summary"], "secondary": card["secondary"]}
     if card["state"] == "warn":
         stale = st.get("age_text") if st["state"] == "stale" else None
@@ -1018,6 +1036,7 @@ def server_card_state(st: dict, snaps) -> dict:
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
+    backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
     cards, shelf = [], None
     upcoming = hub_upcoming(snaps, view)
     for a in registry.visible_areas:
@@ -1030,7 +1049,7 @@ def hub_page(request: Request):
             card["per_day"] = upcoming["per_day"]
         if a.layout == server_area.SERVER_LAYOUT and card["st"]["state"] != "off":
             try:
-                card["st"] = server_card_state(card["st"], snaps)  # WP-U2: the card's own words
+                card["st"] = server_card_state(card["st"], snaps, backup)  # WP-U2: the card's own words
             except Exception as exc:  # a malformed envelope never 500s the hub: the plain tile state stays (H-63)
                 log.warning("server hub card skipped: %s", type(exc).__name__)
         if a.layout == "shelves":  # hero content keyed by layout, never by area name
@@ -1050,7 +1069,7 @@ def hub_page(request: Request):
         "areas": registry.visible_areas, "active_id": None, "cards": cards,
         "status": build_status(snaps), "weather": find_weather(snaps),  # status: hub.html only (H-50)
         "upcoming": upcoming, "shelf": shelf,
-        "backup_warn": media_backup.current_status()["warning"],
+        "backup_warn": backup["warning"],
         "greeting": hub_greeting(_now_home(), identity_of(request).owner and identity_of(request).name),
     })
     return _maybe_set_cookie(resp, view, from_query)

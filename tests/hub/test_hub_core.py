@@ -76,3 +76,39 @@ def test_check_once_uses_the_callers_snapshots(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "get_snapshots", lambda *a: (_ for _ in ()).throw(AssertionError("re-read")))
     monkeypatch.setattr(server_alerts, "sync", lambda items: len(items))
     assert server_alerts.check_once(set(), {}) >= 0
+
+
+def test_unranked_count_matches_years_overview(tmp_path, monkeypatch):
+    """H-49: the hub's "to place" is one COUNT, equal to the per-year sum it replaces."""
+    from hub import media_db
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    assert media_db.unranked_count() == 0                       # no media.db yet
+    for i, year in enumerate((2020, 2020, 2021, None, 2021)):
+        media_db.set_rating(f"tmdb:{i}", 7, "movie", f"Film {i}", year=year)
+    media_db.set_rating("tmdb:99", 8, "movie", "Hers", year=2020, owner="her")
+    media_db.place(2020, "tmdb:0")
+    media_db.place(2021, "tmdb:2")
+    expected = sum(y["unranked_count"] for y in media_db.years_overview())
+    assert media_db.unranked_count() == expected == 3
+
+
+def test_hub_server_card_is_cached_while_snapshots_are_unchanged(tmp_path, monkeypatch):
+    """H-49: the hub page reuses the Server card for 60 s; a new snapshot (or the TTL) rebuilds it."""
+    server_area = make_area("srv", "svc-t", snapshot="media_status", stale_after_minutes=10)
+    server_area["layout"] = "server"
+    main = _reload(tmp_path, monkeypatch, server_area)
+    write_envelope(tmp_path / "snaps", "media_status", age_minutes=1, data={"summary": "1 of 1 up", "apps": [
+        {"id": "j", "name": "Jellyfin", "up": True}]})
+    builds, backups = [], []
+    real_card, real_status = main.server_area.hub_card, main.media_backup.current_status
+    monkeypatch.setattr(main.server_area, "hub_card", lambda *a, **k: builds.append(1) or real_card(*a, **k))
+    monkeypatch.setattr(main.media_backup, "current_status", lambda: backups.append(1) or real_status())
+    with TestClient(main.app) as c:
+        assert "All up" in c.get("/").text and "All up" in c.get("/").text
+        assert len(builds) == 1 and len(backups) == 2          # one backup read per request, one card build
+        write_envelope(tmp_path / "snaps", "media_status", age_minutes=0, data={"summary": "0 of 1 up", "apps": [
+            {"id": "j", "name": "Jellyfin", "up": False}]})
+        assert "1 down: Jellyfin" in c.get("/").text and len(builds) == 2
+        monkeypatch.setattr(main, "HUB_CARD_TTL_S", 0)
+        c.get("/")
+        assert len(builds) == 3

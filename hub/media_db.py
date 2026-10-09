@@ -561,3 +561,19 @@ def reset_year(year) -> None:
         return
     with closing(connect()) as db, db:
         db.execute("DELETE FROM ranking WHERE year = ?", (_yk(year),))
+
+
+def unranked_count() -> int:
+    """Rated-but-unplaced titles over every year in ONE count — the sum of years_overview()'s unranked_count,
+    for the hub card / Media frame "to place" (T3 hub core, 2026-10-09, H-49). No media.db -> 0."""
+    db = _read()
+    if db is None:
+        return 0
+    try:
+        with closing(db):
+            return db.execute(
+                "SELECT COUNT(*) FROM rating WHERE owner = 'you' AND level IN ('show', 'season') AND item_key NOT IN "
+                "(SELECT item_key FROM ranking WHERE ranking.year = COALESCE(rating.year, 0))").fetchone()[0]
+    except sqlite3.Error as exc:
+        log.warning("unranked_count failed: %s", type(exc).__name__)
+        return 0

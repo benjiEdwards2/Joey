@@ -18,7 +18,6 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.background import BackgroundTasks
 
 from hub import media_backup, media_db, media_downloads, media_nav
@@ -35,6 +34,7 @@ from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
+from hub.shell import _static_version, templates  # ONE Jinja env for every router (H-31)
 from hub.store import get_runner, get_runner_history, get_snapshots as _read_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
@@ -203,21 +203,6 @@ app.include_router(media_resume.router)
 app.include_router(media_arr_search.router)   # media-ux5: Search now
 app.include_router(server_updates.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
-templates = Jinja2Templates(directory=str(HUB_DIR / "templates"))
-
-
-def _static_version() -> str:
-    """Content hash of the stylesheet, appended as ?v= so a deploy that changes
-    CSS is never painted with a browser's stale copy (StaticFiles sends no
-    Cache-Control; field note 2026-09-11, bit us 2026-10-05)."""
-    import hashlib
-    try:
-        return hashlib.sha1((HUB_DIR / "static" / "control-surface.css").read_bytes()).hexdigest()[:8]
-    except OSError:
-        return "0"
-
-
-templates.env.globals["static_v"] = _static_version()
 
 
 def identity_of(request) -> Identity:
@@ -808,13 +793,12 @@ def media_frame(request: Request) -> dict:
     return cached
 
 
-for _t in (templates, _media_write.templates, _media_discover.templates):
-    _t.env.globals["media_nav"] = media_frame
-    _t.env.globals["item_href"] = item_href
-    _t.env.globals["row_href"] = row_href
-    _t.env.globals["identity"] = identity_of
-    _t.env.globals["flash_params"] = FLASH_PARAMS
-    _t.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)
+templates.env.globals["media_nav"] = media_frame
+templates.env.globals["item_href"] = item_href
+templates.env.globals["row_href"] = row_href
+templates.env.globals["identity"] = identity_of
+templates.env.globals["flash_params"] = FLASH_PARAMS
+templates.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)
 
 
 def resume_acts(row: dict, owner: str) -> dict | None:
@@ -829,6 +813,12 @@ def resume_acts(row: dict, owner: str) -> dict | None:
 
 
 templates.env.globals["resume_acts"] = resume_acts
+
+# Interim (T3, 2026-10-09): the media routers still build their own Jinja envs; give them EVERY shell global
+# (static_v, score_for, resume_acts included) so their pages carry the asset version. A later media WP switches
+# those modules to hub.shell.templates and this loop goes.
+for _t in (_media_write.templates, _media_discover.templates, media_watchlist.templates):
+    _t.env.globals.update(templates.env.globals)
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:

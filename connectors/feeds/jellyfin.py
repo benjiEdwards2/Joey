@@ -19,6 +19,7 @@ HISTORY_RECENT = 20
 HISTORY_TOP = 10           # rows in each most-played / on-this-day list
 UP_NEXT_LIMIT = 8
 LIBRARY_FETCH_LIMIT = 2000  # whole-library movie/series lists (F3a)
+LIBRARY_EVERY_S_DEFAULT = 900  # library lists are re-fetched at most this often (C-18)
 
 # Jellyfin's PlayState.PlayMethod -> a word, never a colour.
 PLAY_METHODS = {"DirectPlay": "Direct play", "DirectStream": "Direct stream", "Transcode": "Transcoding"}
@@ -177,16 +178,22 @@ class Jellyfin(Connector):
             "raw_counts": get("counts", "/Items/Counts", {"UserId": uid}),
             "raw_history": get("history", f"/Users/{uid}/Items", history_params),
         }
-        # Library lists (F3a). Two extra GETs (four with her) ride the 2-minute sweep;
-        # acceptable for a 42-film library; a split sweep is a later decision. Optional, like
-        # her view below: a failure leaves the key out instead of failing the feed (C-09).
-        optional_calls = [
-            ("raw_movies", "movies", f"/Users/{uid}/Items", self._library_params("Movie")),
-            ("raw_shows", "shows", f"/Users/{uid}/Items", self._library_params("Series")),
-        ]
         # Georgina's view (2026-10-05): only when JELLYFIN_USER_HER names an existing user.
         # Her block needs resume + next up + history; any of them missing makes `her` null.
         her = self.pick_her_user(users, self._her_name())
+        # Library lists (F3a): Limit=2000 GETs, two (four with her). Since C-18 they run at most
+        # every JELLYFIN_LIBRARY_EVERY_S; in between the previous envelope's lists are reused.
+        # Optional, like her view: a failure leaves the key out instead of failing the feed (C-09).
+        cache = self._library_cache(with_her=bool(her))
+        optional_calls = []
+        if cache is None:
+            raw["library_fetched_at"] = _now().isoformat(timespec="seconds")
+            optional_calls += [
+                ("raw_movies", "movies", f"/Users/{uid}/Items", self._library_params("Movie")),
+                ("raw_shows", "shows", f"/Users/{uid}/Items", self._library_params("Series")),
+            ]
+        else:
+            raw["library_cache"] = cache
         if her:
             hid = her["Id"]
             optional_calls += [
@@ -194,9 +201,12 @@ class Jellyfin(Connector):
                  {"Limit": 10, "MediaTypes": "Video", **fields}),
                 ("raw_her_nextup", "her next up", "/Shows/NextUp", {"UserId": hid, "Limit": 10, **fields}),
                 ("raw_her_history", "her history", f"/Users/{hid}/Items", history_params),
-                ("raw_her_movies", "her movies", f"/Users/{hid}/Items", self._library_params("Movie")),
-                ("raw_her_shows", "her shows", f"/Users/{hid}/Items", self._library_params("Series")),
             ]
+            if cache is None:
+                optional_calls += [
+                    ("raw_her_movies", "her movies", f"/Users/{hid}/Items", self._library_params("Movie")),
+                    ("raw_her_shows", "her shows", f"/Users/{hid}/Items", self._library_params("Series")),
+                ]
         for key, label, path, params in optional_calls:
             got = optional(label, path, params)
             if got is not None:
@@ -206,6 +216,28 @@ class Jellyfin(Connector):
         if skipped:
             raw["errors"] = skipped
         return raw
+
+    def _library_cache(self, with_her: bool) -> dict | None:
+        """The previous envelope's library lists (+ her two when `with_her`) when they were
+        fetched less than JELLYFIN_LIBRARY_EVERY_S ago (C-18), else None: fetch them now.
+        All or nothing: a list missing last time (a failed call) means fetch them all."""
+        try:
+            every = int(os.environ.get("JELLYFIN_LIBRARY_EVERY_S") or LIBRARY_EVERY_S_DEFAULT)
+        except ValueError:
+            every = LIBRARY_EVERY_S_DEFAULT
+        prev = (self._previous() or {}).get("data") or {}
+        her = prev.get("her") or {}
+        lists = {"movies": prev.get("movies"), "shows": prev.get("shows")}
+        if with_her:
+            lists.update(her_movies=her.get("movies"), her_shows=her.get("shows"))
+        stamp = prev.get("library_fetched_at")
+        if every <= 0 or not stamp or any(rows is None for rows in lists.values()):
+            return None
+        try:
+            age = (_now() - _dt(stamp)).total_seconds()
+        except (TypeError, ValueError):
+            return None
+        return {"fetched_at": stamp, **lists} if 0 <= age < every else None
 
     @staticmethod
     def _library_row(item: dict) -> dict:
@@ -327,10 +359,15 @@ class Jellyfin(Connector):
         block = {"user": (user or {}).get("Name") or "her",
                  "up_next": self._up_next(raw["raw_her_resume"], raw["raw_her_nextup"]),
                  "history": self._history(raw["raw_her_history"].get("Items", []), _now())}
+        cache = raw.get("library_cache") or {}
         if "raw_her_movies" in raw:
             block["movies"] = self._movies(raw["raw_her_movies"])
+        elif cache.get("her_movies") is not None:
+            block["movies"] = cache["her_movies"]
         if "raw_her_shows" in raw:
             block["shows"] = self._shows(raw["raw_her_shows"])
+        elif cache.get("her_shows") is not None:
+            block["shows"] = cache["her_shows"]
         return block
 
     def transform(self, raw: dict) -> dict:
@@ -367,10 +404,19 @@ class Jellyfin(Connector):
         else:
             secondary = up_next[0]["title"] if up_next else "Nothing up next"
         library_lists = {}
+        cache = raw.get("library_cache") or {}  # rows reused from the previous envelope (C-18)
         if "raw_movies" in raw:  # older fixtures/snapshots carry none - the keys stay absent
             library_lists["movies"] = self._movies(raw["raw_movies"])
+        elif cache.get("movies") is not None:
+            library_lists["movies"] = cache["movies"]
         if "raw_shows" in raw:
             library_lists["shows"] = self._shows(raw["raw_shows"])
+        elif cache.get("shows") is not None:
+            library_lists["shows"] = cache["shows"]
+        # live only: when the lists were last fetched (fixtures carry no stamp, so samples don't)
+        stamp = raw.get("library_fetched_at") or cache.get("fetched_at")
+        if stamp:
+            library_lists["library_fetched_at"] = stamp
         data = {
             **library_lists,
             "summary": (

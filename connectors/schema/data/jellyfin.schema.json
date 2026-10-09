@@ -15,6 +15,7 @@
       "additionalProperties": {"type": "string", "minLength": 1}
     },
     "server_id": {"type": ["string", "null"]},
+    "library_fetched_at": {"type": "string", "description": "Live only (C-18, 2026-10-09): when `movies`/`shows` were last fetched; between fetches they are reused from the previous envelope for JELLYFIN_LIBRARY_EVERY_S (default 900 s)."},
     "now_playing": {
       "type": "array",
       "items": {

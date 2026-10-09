@@ -34,9 +34,12 @@ from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
+from hub.ids import (ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID,
+                     MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID, areas_path, home_now, home_tz)
 from hub.registry import Registry, load_registry
 from hub.shell import Compress, ShellMiddleware, _static_version, templates  # ONE Jinja env for every router (H-31)
-from hub.store import get_runner, get_runner_history, get_snapshots as _read_snapshots, tile_state
+from hub.store import (_snapshot_dir, get_runner, get_runner_history, get_snapshots as _read_snapshots, parse_utc,
+                       tile_state)
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -127,10 +130,10 @@ def _media_awards_loop():
 async def lifespan(_: FastAPI):
     """Load the registry at startup, failing fast with the aggregated violation list."""
     global registry, registry_loaded_at
-    areas_path = os.environ.get("AREAS_PATH", str(REPO_ROOT / "config" / "areas.yaml"))
-    registry = load_registry(areas_path)  # ValueError here aborts startup by design
+    path = areas_path()
+    registry = load_registry(path)  # ValueError here aborts startup by design
     registry_loaded_at = datetime.now(timezone.utc).isoformat()
-    log.info("registry loaded from %s: %d areas", areas_path, len(registry.areas))
+    log.info("registry loaded from %s: %d areas", path, len(registry.areas))
     tasks = [
         None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
         media_plays.start_recorder(),  # F7 play recorder; None when off
@@ -222,9 +225,8 @@ def _maybe_set_cookie(response, view: str, from_query: bool):
 
 # Hub weather glimpse (2026-09-11 decision — supersedes D18). The glimpse reuses
 # the registry tile that reads this snapshot (Calendar's weather tile), so its
-# stale_after/owner/states stay single-sourced in areas.yaml. Connector id, not
-# an area name (WP17 grep exception, as in registry.py).
-WEATHER_SNAPSHOT_ID = "open_meteo"
+# stale_after/owner/states stay single-sourced in areas.yaml. Keyed by the connector id
+# WEATHER_SNAPSHOT_ID (hub/ids.py), not an area name (WP17 grep exception, as in registry.py).
 
 # Keyword -> wx-* glyph id, first match wins ("snow showers" must hit snow
 # before shower). The condition word always renders beside the glyph.
@@ -383,21 +385,14 @@ RADAR_SLOTS = 6                              # the CSS cycle is built for 6 fram
 
 
 def _radar_dir() -> Path:
-    from hub.store import DEFAULT_SNAPSHOT_DIR
-    return Path(os.environ.get("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR)) / "radar"
+    return _snapshot_dir() / "radar"
 
 
 def _radar_clock(iso: str) -> str | None:
-    try:
-        t = datetime.fromisoformat(iso)
-    except (TypeError, ValueError):
+    t = parse_utc(iso) if iso else None
+    if t is None:
         return None
-    try:
-        from zoneinfo import ZoneInfo
-        t = t.astimezone(ZoneInfo(HOME_TZ_NAME))
-    except Exception:
-        t = t.astimezone()
-    return f"{t:%H:%M}"
+    return f"{t.astimezone(home_tz()):%H:%M}"
 
 
 def weather_radar(snaps) -> dict | None:
@@ -443,8 +438,7 @@ def _frame_minutes(a: dict, b: dict) -> int | None:
 
 # Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
 # Rendered on any area page whose tiles read this snapshot — keyed by connector
-# id like the weather glimpse, never an area name (WP17 grep exception).
-GCAL_SNAPSHOT_ID = "gcal"
+# id (GCAL_SNAPSHOT_ID) like the weather glimpse, never an area name (WP17 grep exception).
 UPCOMING_DAYS = 7
 
 
@@ -518,12 +512,7 @@ def find_upcoming(tiles, snaps, view: str):
 
 
 # Media sections (2026-10-05): apps health + now playing + up next. Keyed by
-# connector id like the upcoming list — never an area name (WP17 grep exception).
-JELLYFIN_SNAPSHOT_ID = "jellyfin"
-MEDIA_STATUS_SNAPSHOT_ID = "media_status"
-ARR_SNAPSHOT_ID = "arr"
-JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
-QBIT_SNAPSHOT_ID = media_downloads.QB_SNAPSHOT_ID
+# connector id (hub/ids.py) like the upcoming list — never an area name (WP17 grep exception).
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
 HISTORY_PLAYS = "/media/server/history"  # F7 play history (Server > History)
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
@@ -551,10 +540,11 @@ def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
 
 
 def _parse_ts(value) -> datetime:
-    """ISO timestamp -> aware datetime (Jellyfin's 7-digit fractions tolerated)."""
-    text = re.sub(r"(\.\d{6})\d+", r"\1", str(value).replace("Z", "+00:00"))
-    dt = datetime.fromisoformat(text)
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    """ISO timestamp -> aware datetime (store.parse_utc); raises ValueError when it is not one."""
+    dt = parse_utc(value)
+    if dt is None:
+        raise ValueError("not a timestamp")
+    return dt
 
 
 LEVEL_KEYS = ("item_key", "show_key", "season_key", "episode_key")
@@ -920,16 +910,9 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     }
 
 
-# Hub greeting (Apex shell, 2026-10-06): wall-clock at home, not the container's zone.
-HOME_TZ_NAME = "Australia/Melbourne"
-
-
-def _now_home() -> datetime:
-    try:
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo(HOME_TZ_NAME))
-    except Exception:  # no tz database in the image: fall back to the container's local time
-        return datetime.now().astimezone()
+# Hub greeting (Apex shell, 2026-10-06): wall-clock at home, not the container's zone (hub/ids.py). A module
+# name of its own so tests (and media_film) can reach / monkeypatch it.
+_now_home = home_now
 
 
 def hub_greeting(now: datetime, name: str | None = None) -> str:

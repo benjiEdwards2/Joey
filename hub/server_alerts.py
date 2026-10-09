@@ -27,7 +27,6 @@ import sqlite3
 import threading
 from contextlib import closing
 from datetime import datetime, timezone
-from pathlib import Path
 
 import requests
 
@@ -107,11 +106,11 @@ def _live_from_config() -> set[str] | None:
     """`live_snapshot_ids` of the registry on disk (AREAS_PATH or config/areas.yaml); None
     when it cannot load (rule (b) then stays off, rule (a) still applies)."""
     from hub import server
+    from hub.ids import areas_path
     from hub.registry import load_registry
 
-    path = os.environ.get("AREAS_PATH") or str(Path(__file__).resolve().parents[1] / "config" / "areas.yaml")
     try:
-        return server.live_snapshot_ids(load_registry(path))
+        return server.live_snapshot_ids(load_registry(areas_path()))
     except Exception as exc:
         log.warning("server alerts: registry unavailable: %s", type(exc).__name__)
         return None

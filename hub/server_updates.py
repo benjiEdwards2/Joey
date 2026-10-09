@@ -31,6 +31,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from hub import media_db
 from hub.media_write import same_origin
+from hub.server import key_tag  # one definition (H-24)
 from hub.shell import templates
 
 log = logging.getLogger("hub.server_updates")
@@ -128,11 +129,6 @@ def last_requested() -> dict[str, dict]:
 
 
 # ---- WUD ----
-
-def key_tag(row: dict) -> str:
-    """The tag an ignore/run is keyed on: the new tag, or the current tag for a digest update."""
-    return str(row.get("new_tag") or row.get("current_tag") or "")
-
 
 def _creds() -> tuple[str, str, str] | None:
     vals = [os.environ.get(n, "").strip() for n in ("WUD_URL", "WUD_USER", "WUD_PASS")]

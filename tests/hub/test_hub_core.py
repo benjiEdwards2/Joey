@@ -129,3 +129,30 @@ def test_a_media_page_reads_the_snapshot_dir_once(tmp_path, monkeypatch):
             reads.clear()
             assert c.get(path).status_code == 200
             assert reads == [1], path
+
+
+def test_ids_are_defined_once_for_the_hub_core():
+    """H-19 / H-26 / H-21 / H-24: snapshot ids, the home clock, the areas path and the timestamp parser live in one
+    place each; main.py and the server modules import them."""
+    import re
+    from pathlib import Path
+
+    from hub import ids, main, server, server_history, server_updates
+    hub_dir = Path(__file__).resolve().parents[2] / "hub"
+    for name in ("main.py", "server.py", "server_history.py", "server_alerts.py", "server_updates.py"):
+        text = (hub_dir / name).read_text(encoding="utf-8")
+        assert not re.search(r'(?m)^[A-Z_]*SNAPSHOT_ID = "', text), name
+        assert 'HOME_TZ_NAME = "' not in text and 'replace("Z", "+00:00")' not in text, name
+    assert main.JELLYFIN_SNAPSHOT_ID == ids.JELLYFIN_SNAPSHOT_ID and server.SYSTEM_SNAPSHOT_ID == ids.SYSTEM_SNAPSHOT_ID
+    assert server_history.SYSTEM_SNAPSHOT_ID == "system" and server_updates.key_tag is server.key_tag
+    assert main._now_home is ids.home_now
+
+
+def test_home_clock_and_areas_path(monkeypatch):
+    from hub import ids
+    now = ids.home_now()
+    assert now.tzinfo is not None and str(now.tzinfo) in ("Australia/Melbourne", str(now.astimezone().tzinfo))
+    monkeypatch.setenv("AREAS_PATH", "/x/areas.yaml")
+    assert ids.areas_path() == "/x/areas.yaml"
+    monkeypatch.setenv("AREAS_PATH", "")
+    assert ids.areas_path().endswith("areas.yaml") and ids.DEFAULT_AREAS_PATH.is_file()

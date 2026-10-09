@@ -25,17 +25,11 @@ import math
 import re
 from datetime import datetime, timezone
 
-from hub.store import tile_state
+from hub.ids import (ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID,  # noqa: F401
+                     SYSTEM_SNAPSHOT_ID, UPTIME_KUMA_SNAPSHOT_ID, WUD_SNAPSHOT_ID)
+from hub.store import parse_utc, tile_state
 
 SERVER_LAYOUT = "server"
-
-SYSTEM_SNAPSHOT_ID = "system"
-WUD_SNAPSHOT_ID = "wud"
-MEDIA_STATUS_SNAPSHOT_ID = "media_status"
-JELLYSEERR_SNAPSHOT_ID = "jellyseerr"
-QBIT_SNAPSHOT_ID = "qbittorrent"
-ARR_SNAPSHOT_ID = "arr"
-UPTIME_KUMA_SNAPSHOT_ID = "uptime_kuma"
 
 SWEEP_STALE_MINUTES = 90
 _URL_RE = re.compile(r"https?://\S+")
@@ -118,11 +112,8 @@ def ago_text(minutes: float) -> str:
 
 def last_sweep(runner, now: datetime | None = None) -> dict | None:
     """{text, stale} from `_runner.json` `ran_at`; None when absent or unreadable."""
-    try:
-        ran = datetime.fromisoformat(str(runner["ran_at"]).replace("Z", "+00:00"))
-        if ran.tzinfo is None:
-            ran = ran.replace(tzinfo=timezone.utc)
-    except Exception:
+    ran = parse_utc(runner.get("ran_at")) if isinstance(runner, dict) else None
+    if ran is None:
         return None
     minutes = ((now or datetime.now(timezone.utc)) - ran).total_seconds() / 60.0
     return {"text": ago_text(minutes), "stale": minutes > SWEEP_STALE_MINUTES}
@@ -174,14 +165,6 @@ def _runner_error_items(runner, live: set[str] | None = None) -> list[dict]:
 SWEEP_WINDOW_HOURS = 24
 
 
-def _when(value) -> datetime | None:
-    try:
-        at = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
-
-
 def sweep_stats(history, now: datetime | None = None) -> dict[str, dict] | None:
     """Per connector over the last 24 h of `_runner_history.jsonl` lines (oldest first):
     {runs, failures, failing (latest run errored), reason (last error, sanitised),
@@ -196,7 +179,7 @@ def sweep_stats(history, now: datetime | None = None) -> dict[str, dict] | None:
     for line in history:
         if not isinstance(line, dict) or not isinstance(line.get("results"), dict):
             continue
-        at = _when(line.get("ran_at"))
+        at = parse_utc(line.get("ran_at"))
         if at is None:
             continue
         usable = True
@@ -297,18 +280,17 @@ def _counts(snaps) -> dict:
     }
 
 
-def _key_tag(row: dict) -> str:
-    """Same key as hub/server_updates.key_tag (kept here so this module stays pure)."""
+def key_tag(row: dict) -> str:
+    """The tag an ignore/run is keyed on: the new tag, or the current tag for a digest update (server_updates
+    imports it from here)."""
     return str(row.get("new_tag") or row.get("current_tag") or "")
 
 
 def _requested_text(run, row, now: datetime) -> str | None:
-    if not run or run.get("tag") != _key_tag(row):
+    if not run or run.get("tag") != key_tag(row):
         return None
-    try:
-        at = datetime.fromisoformat(str(run["requested_at"]).replace("Z", "+00:00"))
-        at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
-    except (KeyError, ValueError):
+    at = parse_utc(run.get("requested_at"))
+    if at is None:
         return None
     return "Requested " + ago_text((now - at).total_seconds() / 60.0)
 
@@ -319,7 +301,7 @@ def split_updates(rows, ignores=None, requested=None, now: datetime | None = Non
     now = now or datetime.now(timezone.utc)
     shown, ignored = [], []
     for c in rows:
-        if (c.get("name"), _key_tag(c)) in ignores:
+        if (c.get("name"), key_tag(c)) in ignores:
             ignored.append(c)
         else:
             shown.append({**c, "requested_text": _requested_text(requested.get(c.get("name")), c, now)})

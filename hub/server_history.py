@@ -22,10 +22,11 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 from hub import media_db
+from hub.ids import SYSTEM_SNAPSHOT_ID  # noqa: F401
+from hub.store import parse_utc
 
 log = logging.getLogger("hub.server_history")
 
-SYSTEM_SNAPSHOT_ID = "system"
 RETAIN = timedelta(days=8)
 
 DDL = """CREATE TABLE IF NOT EXISTS server_system_samples(
@@ -40,14 +41,6 @@ def ensure(db) -> None:
 
 def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _parse(stamp) -> datetime | None:
-    try:
-        at = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
 
 
 def _num(v):
@@ -74,7 +67,7 @@ def sample(snaps=None) -> bool:
     snap = (snaps or {}).get(SYSTEM_SNAPSHOT_ID)
     if snap is None or snap.status != "ok" or not isinstance(snap.data, dict) or not snap.data:
         return False
-    at = _parse(snap.updated_at)
+    at = parse_utc(snap.updated_at)
     if at is None:
         return False
     ts, d = _iso(at), snap.data
@@ -119,7 +112,7 @@ def recent(now: datetime | None = None, days: int = 7) -> list[dict]:
             vols = json.loads(r["volumes"] or "[]")
         except ValueError:
             vols = []
-        out.append({"at": _parse(r["ts"]), "cpu_pct": r["cpu_pct"], "ram_pct_used": r["ram_pct_used"],
+        out.append({"at": parse_utc(r["ts"]), "cpu_pct": r["cpu_pct"], "ram_pct_used": r["ram_pct_used"],
                     "ram_free_gb": r["ram_free_gb"], "load_1m": r["load_1m"],
                     "volumes": [v for v in vols if isinstance(v, dict)]})
     return out

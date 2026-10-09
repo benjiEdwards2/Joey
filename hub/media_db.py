@@ -347,6 +347,32 @@ def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
         return []
 
 
+def diary_dates(owner: str, item_keys=(), show_key: str | None = None, season_key: str | None = None,
+                limit: int = 8) -> list[str]:
+    """The newest `limit` watch dates (ISO, newest first) of one title for the film page (M-36): rows whose item_key
+    is one of `item_keys`, or whose show_key / season_key matches. One SELECT; [] with no DB or on any error."""
+    conds, args = [], [owner]
+    keys = [k for k in item_keys if k]
+    if keys:
+        conds.append(f"item_key IN ({','.join('?' * len(keys))})")
+        args += keys
+    for col, value in (("show_key", show_key), ("season_key", season_key)):
+        if value:
+            conds.append(f"{col} = ?")
+            args.append(value)
+    db = _read() if conds else None
+    if db is None:
+        return []
+    try:
+        with closing(db):
+            return [r[0] for r in db.execute(
+                f"SELECT watched_on FROM diary WHERE owner = ? AND ({' OR '.join(conds)}) AND watched_on IS NOT NULL"
+                f" ORDER BY watched_on DESC, id DESC LIMIT ?", [*args, limit])]
+    except sqlite3.Error as exc:
+        log.warning("diary dates failed: %s", type(exc).__name__)
+        return []
+
+
 def _episode_runs(numbers) -> str:
     """[1, 2, 3, 7] -> 'E1–E3, E7' (runs of consecutive numbers collapse)."""
     nums = sorted(set(numbers))

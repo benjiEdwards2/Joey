@@ -225,17 +225,14 @@ def _rating_for(item: dict, level: str) -> dict:
 
 
 def _diary_dates(item: dict, owner: str) -> list[str]:
-    kind, out = item["kind"], []
-    film_keys = {f"jf:{item['id']}"} | ({f"tmdb:{item['tmdb']}"} if item["tmdb"] else set())
-    for r in media_db.list_diary(500, 0, None, owner):
-        if kind == "movie":
-            hit = r.get("item_key") in film_keys
-        elif kind == "episode":
-            hit = r.get("item_key") == item["episode_key"]
-        elif kind == "season":
-            hit = r.get("season_key") == item["season_key"]
-        else:
-            hit = f"jf:{item['id']}" in (r.get("show_key"), r.get("item_key"))
-        if hit and r.get("watched_on"):
-            out.append(_date_words(r["watched_on"])[0] or r["watched_on"])
-    return out[:8]
+    """The title's newest 8 diary dates as words — one dedicated SELECT (M-36), not a scan of the latest 500 rows."""
+    kind = item["kind"]
+    if kind == "movie":
+        q = {"item_keys": [f"jf:{item['id']}"] + ([f"tmdb:{item['tmdb']}"] if item["tmdb"] else [])}
+    elif kind == "episode":
+        q = {"item_keys": [item["episode_key"]]}
+    elif kind == "season":
+        q = {"season_key": item["season_key"]}
+    else:
+        q = {"item_keys": [f"jf:{item['id']}"], "show_key": f"jf:{item['id']}"}
+    return [_date_words(d)[0] or d for d in media_db.diary_dates(owner, **q)]

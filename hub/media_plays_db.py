@@ -137,8 +137,12 @@ def _rows(window, owner, now):
     if owner in ("you", "her"):
         sql += " AND owner = ?"
         args.append(owner)
-    with closing(db):
-        return db.execute(sql, args).fetchall()
+    try:   # M-52: a query error degrades (no Most played, an empty History) instead of a 500
+        with closing(db):
+            return db.execute(sql, args).fetchall()
+    except sqlite3.Error as exc:
+        log.warning("plays read failed: %s", type(exc).__name__)
+        return []
 
 
 def watch_count(jf_id: str, owner: str | None = None) -> int:
@@ -200,8 +204,12 @@ def first_run_date() -> str | None:
     db = _read()
     if db is None:
         return None
-    with closing(db):
-        row = db.execute("SELECT MIN(started_at) AS m FROM play").fetchone()
+    try:
+        with closing(db):
+            row = db.execute("SELECT MIN(started_at) AS m FROM play").fetchone()
+    except sqlite3.Error as exc:
+        log.warning("plays first date failed: %s", type(exc).__name__)
+        return None
     return row["m"][:10] if row and row["m"] else None
 
 

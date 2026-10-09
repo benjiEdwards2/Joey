@@ -8,7 +8,7 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from hub.media_downloads import badge_for_title, merge_downloading
+from hub.media_downloads import merge_downloading, pct_for_keys
 from tests.hub.test_media_discover import FAKE_KEY, FAKE_URL, MOVIE, Fake
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, make_tile, write_registry
@@ -143,11 +143,18 @@ def test_merge_with_qb_absent_leaves_arr_rows_unchanged():
     assert merge_downloading(None, None) == []
 
 
-def test_badge_for_title_ignores_year_and_episode_suffix():
-    merged = merge_downloading([], {"active": [QB["active"][0], QB["active"][1]]})
-    assert badge_for_title(merged, "Midnight Harbour") == "Downloading · 43%"
-    assert badge_for_title(merged, "some show") == "Downloading · 10%"
-    assert badge_for_title(merged, "Other") is None and badge_for_title(merged, "") is None
+def test_title_page_percentage_matches_the_item_key_not_a_title_prefix():
+    """M-50 (W2): "It" must not pick up an "It Follows" download; a key (tmdb: / tvdb:) is the only match."""
+    rows = [{"title": "It Follows", "item_key": "tmdb:270303", "pct": 40},
+            {"title": "Aliens", "item_key": "tmdb:679", "pct": 12},
+            {"title": "Some Show · S01E02", "item_key": "tvdb:100", "pct": 10},
+            {"title": "Alien", "item_key": "tmdb:348", "pct": None}]
+    assert pct_for_keys(rows, ["tmdb:679"]) == 12 and pct_for_keys(rows, ["tvdb:100"]) == 10
+    assert pct_for_keys(rows, ["tmdb:346364"]) is None              # "It": no prefix match on "It Follows"
+    assert pct_for_keys(rows, ["tmdb:348"]) is None                 # a queued row without a percentage
+    assert pct_for_keys(rows, []) is None and pct_for_keys(None, ["tmdb:679"]) is None
+    merged = merge_downloading([], {"active": [QB["active"][0]]})   # qBittorrent-only rows carry no key
+    assert pct_for_keys(merged, ["tmdb:603"]) is None
 
 
 

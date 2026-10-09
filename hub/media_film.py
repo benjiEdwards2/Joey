@@ -731,9 +731,10 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     req = _requested(snaps, hub, tmdb_id) if tmdb_id else None
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
-    badge = md._dl_badge(title, snaps) if title and not f["jf_failed"] else None
-    m = re.search(r"(\d+)\s*%", badge or "")
-    f["downloading_pct"] = int(m.group(1)) if m else None
+    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    dl_keys = ([f"tmdb:{tmdb_id}"] if kind == "movie" and tmdb_id else
+               [f"tvdb:{ext['tvdbId']}"] if kind == "tv" and str(ext.get("tvdbId") or "").isdigit() else [])
+    f["downloading_pct"] = md._dl_pct(dl_keys, snaps) if dl_keys and not f["jf_failed"] else None   # M-50: by key
 
     # --- 7. numbers, facts, people, shelves ---
     runtime_min = (item or {}).get("runtime_min") or (t or {}).get("runtime") if kind == "movie" else None
@@ -779,7 +780,6 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
     # Search now (media-ux5): a lazy-loaded form, shown only when the title is in Radarr / Sonarr (never on an episode
     # page — it would search the whole series); the page itself makes no *arr call.
-    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
     f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, ext.get("tvdbId"), request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)

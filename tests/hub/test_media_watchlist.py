@@ -40,18 +40,18 @@ def test_add_remove_contains_and_owner_isolation(db):
     put(1, title="One")
     put(1, title="One again")                      # idempotent: no duplicate row
     put(2, kind="tv", title="Two", owner="her")
-    assert [r["item_key"] for r in wl.list("you")] == ["tmdb:1"] and len(wl.list("you")) == 1
+    assert [r["item_key"] for r in wl.rows("you")] == ["tmdb:1"] and len(wl.rows("you")) == 1
     assert wl.contains("you", ["tmdb:1", "tmdb:2"]) == {"tmdb:1"}
     assert wl.contains("her", ["tmdb:1", "tmdb:2"]) == {"tmdb:2"}
-    assert [r["title"] for r in wl.list("her", "tv")] == ["Two"] and wl.list("her", "movie") == []
+    assert [r["title"] for r in wl.rows("her", "tv")] == ["Two"] and wl.rows("her", "movie") == []
     wl.remove("her", "tmdb:1")                     # not hers: yours stays
     assert wl.contains("you", ["tmdb:1"]) == {"tmdb:1"}
     wl.remove("you", "tmdb:1")
-    assert wl.list("you") == [] and wl.contains("you", []) == set()
+    assert wl.rows("you") == [] and wl.contains("you", []) == set()
 
 
 def test_reads_never_create_the_db_file(db):
-    assert wl.list("you") == [] and wl.contains("you", ["tmdb:1"]) == set()
+    assert wl.rows("you") == [] and wl.contains("you", ["tmdb:1"]) == set()
     assert not media_db.db_path().exists()
 
 
@@ -64,7 +64,7 @@ def test_count_not_on_server(db):
 def test_prune_played_removes_watched_and_reports(db):
     put(1); put(2); put(3)
     assert wl.prune_played("you", {"tmdb:1", "tmdb:3", "tmdb:99"}) == 2
-    assert [r["item_key"] for r in wl.list("you")] == ["tmdb:2"]
+    assert [r["item_key"] for r in wl.rows("you")] == ["tmdb:2"]
     assert wl.prune_played("you", set()) == 0
 
 
@@ -106,7 +106,7 @@ def test_add_remove_routes_htmx_and_plain(env):
         assert "On your watchlist" in hx.text and 'id="wl-movie-555"' in hx.text
         assert wl.contains("you", ["tmdb:555"]) == {"tmdb:555"}
         gone = c.post("/media/watchlist/remove", content=body + "&item_key=tmdb:555", headers={**HX, **FORM})
-        assert 'aria-label="Add to watchlist"' in gone.text and wl.list("you") == []
+        assert 'aria-label="Add to watchlist"' in gone.text and wl.rows("you") == []
         plain = c.post("/media/watchlist/add", content=body, headers=FORM, follow_redirects=False)
         assert plain.status_code == 303 and plain.headers["location"] == "/media/movies/watchlist"
         back = c.post("/media/watchlist/remove", content=body, follow_redirects=False,
@@ -126,7 +126,7 @@ def test_foreign_origin_is_refused(env):
             r = c.post(f"/media/watchlist/{path}", content=form(tmdb_id=1, kind="movie", title="T"),
                        headers={**FORM, "Origin": "https://evil.example"})
             assert r.status_code == 403
-    assert wl.list("you") == []
+    assert wl.rows("you") == []
 
 
 # ---- pages ----

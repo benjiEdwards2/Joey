@@ -54,7 +54,7 @@ def remove(owner: str, item_key: str) -> None:
         db.commit()
 
 
-def list(owner: str, kind: str | None = None):  # noqa: A001 - spec name (shadows the builtin here)
+def rows(owner: str, kind: str | None = None) -> list[dict]:
     sql, args = "SELECT * FROM watchlist WHERE owner = ?", [owner]
     if kind:
         sql, args = sql + " AND kind = ?", args + [media_db.norm_kind(kind)]
@@ -80,14 +80,18 @@ def contains(owner: str, keys) -> set:
 
 def count_not_on_server(owner: str, kind: str | None, on_server_keys) -> int:
     have = set(on_server_keys or [])
-    return sum(1 for r in list(owner, kind) if r["item_key"] not in have)
+    return sum(1 for r in rows(owner, kind) if r["item_key"] not in have)
 
 
 def prune_played(owner: str, played_keys, kind: str | None = None) -> int:
-    """Drop watched titles from the list; returns how many left."""
-    gone = [r["item_key"] for r in list(owner, kind) if r["item_key"] in set(played_keys or [])]
-    for k in gone:
-        remove(owner, k)
+    """Drop watched titles from the list in ONE delete (M-38); returns how many left."""
+    played = set(played_keys or [])
+    gone = sorted(r["item_key"] for r in rows(owner, kind) if r["item_key"] in played)
+    if gone:
+        with closing(ensure()) as db:
+            db.execute(f"DELETE FROM watchlist WHERE owner = ? AND item_key IN ({','.join('?' * len(gone))})",
+                       [owner, *gone])
+            db.commit()
     return len(gone)
 
 

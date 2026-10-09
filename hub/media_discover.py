@@ -459,8 +459,8 @@ def _stub(kind: str, tmdb_id: int) -> dict:
     return {"kind": kind, "tmdb_id": tmdb_id, "title": "", "year": None, "seasons": [], "code": None}
 
 
-def _dl_badge(title, snaps=None) -> str | None:
-    """'Downloading · 43%' when the arr queue / qBittorrent holds this title; never raises."""
+def _dl_pct(keys, snaps=None) -> int | None:
+    """The download % when the arr queue / qBittorrent holds a title with one of `keys` (tmdb: / tvdb:); never raises."""
     from hub import main as hub  # late: hub.main includes this router
     from hub import media_downloads
 
@@ -469,9 +469,9 @@ def _dl_badge(title, snaps=None) -> str | None:
         arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(media_downloads.QB_SNAPSHOT_ID)
         merged = media_downloads.merge_downloading((arr.data if arr else {}).get("downloading"),
                                                    qb.data if qb else {})
-        return media_downloads.badge_for_title(merged, title)
-    except Exception:
-        log.warning("downloading badge skipped", exc_info=True)
+        return media_downloads.pct_for_keys(merged, keys)
+    except Exception as exc:
+        log.warning("downloading badge skipped: %s", type(exc).__name__)
         return None
 
 

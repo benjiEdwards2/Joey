@@ -107,7 +107,7 @@ def _page(request: Request, kind: str):
                 played = {r["item_key"] for r in lrows
                           if r["played"] and r["item_key"] and (kind == "movie" or r["episodes"])}
                 left = wl.prune_played(owner, played, kind)
-            rows, failed = wl.list(owner, kind), False
+            rows, failed = wl.rows(owner, kind), False
         except (sqlite3.Error, OSError) as exc:
             log.warning("watchlist read failed: %s", type(exc).__name__)
             rows, failed = [], True

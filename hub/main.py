@@ -752,7 +752,8 @@ def media_frame(request: Request) -> dict:
     if cached is None:
         view, _ = resolve_owner_view(request)
         area = media_nav.shelves_area(registry)
-        snaps = get_snapshots(request=request)  # media-speed: a route's own read, when it shared one
+        snaps = getattr(request.state, "snaps", None)  # media-speed: a route's own read, when it shared one
+        snaps = get_snapshots(request=request) if snaps is None else snaps
         recent = _recent(snaps, view)
         ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
         waiting = area_waiting(area, snaps, view, recent, ratings) if area else {}

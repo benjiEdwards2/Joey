@@ -207,3 +207,60 @@ def test_show_summary_lists_episode_keys_on_disk(fake):
                      item([vstream(), astream()])]  # no index numbers: counted, not keyed
     s = media_files.file_summary("tv", 100)
     assert s["episodes_on_disk"] == 3 and s["episode_keys"] == [(1, 1), (1, 2)]
+
+
+# ---- known ids instead of library listings (W2, M-45) ----
+
+class BigLibrary(Fake):
+    """A Jellyfin with more films than ITEM_LIMIT; its listing honours Limit like the real one."""
+
+    def __init__(self):
+        super().__init__()
+        self.movies = [item([vstream(), astream()], tmdb=str(i), Id=f"m{i}") for i in range(600)]
+        self.movies[550] = item([vstream(2160, 3840, "hevc"), astream()], tmdb="550", Id="m550")
+
+    def get(self, url, params=None, headers=None, timeout=None, **kw):
+        path = url[len(URL):]
+        if path.startswith("/Users/u-admin/Items/"):
+            self.calls.append((path, params))
+            return R(next(m for m in self.movies if m["Id"] == path.rsplit("/", 1)[1]))
+        if path.startswith("/Shows/") and path.endswith("/Episodes"):
+            self.calls.append((path, params))
+            return R({"Items": self.episodes})
+        if (params or {}).get("IncludeItemTypes") == "Movie":
+            self.calls.append((path, params))
+            return R({"Items": self.movies[:params["Limit"]]})
+        return super().get(url, params, headers, timeout)
+
+
+@pytest.fixture()
+def big(fake, monkeypatch, tmp_path):
+    from tests.hub.test_store import write_envelope
+    f = BigLibrary()
+    monkeypatch.setattr(media_files.requests, "get", f.get)
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    snap = lambda data: write_envelope(tmp_path / "snaps", "jellyfin", age_minutes=1, data=data)  # noqa: E731
+    return f, snap
+
+
+def test_a_film_past_the_listing_cap_is_found_by_its_snapshot_id(big):
+    f, snap = big
+    assert media_files.file_summary("movie", 550) is None          # off-snapshot fallback: the listing stops at 500
+    media_files.clear_cache()
+    snap({"movies": [{"item_key": "tmdb:550", "jf_id": "m550"}], "shows": []})
+    s = media_files.file_summary("movie", 550)
+    assert s is not None and "4K" in words(s["video"])
+    assert f.calls[-1][0] == "/Users/u-admin/Items/m550"            # one item read, no listing
+    assert not [c for c in f.calls[-2:] if (c[1] or {}).get("IncludeItemTypes")]
+
+
+def test_a_series_reads_its_episodes_by_id(big):
+    f, snap = big
+    f.episodes = [item([vstream(), astream()], ParentIndexNumber=1, IndexNumber=1)]
+    snap({"movies": [], "shows": [], "her": {"shows": [{"item_key": "tmdb:100", "jf_id": "ser9"}]}})
+    s = media_files.file_summary("tv", 100)                         # her profile's list counts too
+    assert s["episode_keys"] == [(1, 1)] and f.calls[-1][0] == "/Shows/ser9/Episodes"
+    assert f.calls[-1][1]["UserId"] == "u-admin" and "MediaSources" in f.calls[-1][1]["Fields"]
+    media_files.clear_cache()
+    assert media_files.file_summary("tv", 100, jf_id="serX")["files"] == 1   # a caller's own id wins
+    assert f.calls[-1][0] == "/Shows/serX/Episodes"

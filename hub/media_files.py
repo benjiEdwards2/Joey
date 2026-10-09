@@ -378,7 +378,37 @@ def _tmdb_match(items, tmdb_id: int) -> list[dict]:
     return out
 
 
+JF_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")   # media_item.ITEM_RE (not imported: media_item imports this module)
+
+
+def jf_for(kind: str, tmdb_id: int, snaps=None) -> str | None:
+    """The Jellyfin id of a film / show from the jellyfin snapshot's library lists (both profiles), or None when the
+    title isn't there (off-server, or no snapshot)."""
+    from hub.ids import JELLYFIN_SNAPSHOT_ID
+    from hub.store import data_of, get_snapshots
+
+    data = data_of((get_snapshots() if snaps is None else snaps).get(JELLYFIN_SNAPSHOT_ID))
+    field, key = ("movies" if kind == "movie" else "shows"), f"tmdb:{tmdb_id}"
+    for prof in (data, data.get("her") if isinstance(data.get("her"), dict) else {}):
+        for r in prof.get(field) or []:
+            if isinstance(r, dict) and r.get("item_key") == key and JF_ID_RE.match(str(r.get("jf_id") or "")):
+                return str(r["jf_id"])
+    return None
+
+
+def _by_id(base: str, headers: dict, uid: str, kind: str, jf_id: str):
+    """M-45: the reads for a known Jellyfin id — a film is one item read, a series' files come from
+    /Shows/{id}/Episodes — instead of listing the whole library (multi-MB, and capped at ITEM_LIMIT)."""
+    if kind == "movie":
+        item = _get(base, headers, f"/Users/{uid}/Items/{jf_id}", {"Fields": ITEM_FIELDS})
+        return [item] if isinstance(item, dict) else None
+    body = _get(base, headers, f"/Shows/{jf_id}/Episodes", {"UserId": uid, "Fields": ITEM_FIELDS})
+    items = body.get("Items") if isinstance(body, dict) else None
+    return items if isinstance(items, list) else None
+
+
 def _items(base: str, headers: dict, uid: str, kind: str, tmdb_id: int):
+    """The fallback for a title without a known Jellyfin id (off-server per the snapshot): list and match."""
     path = f"/Users/{uid}/Items"
     common = {"Recursive": "true", "Fields": ITEM_FIELDS, "Limit": ITEM_LIMIT}
     wanted = {"AnyProviderIdEquals": f"Tmdb.{tmdb_id}"}
@@ -398,8 +428,10 @@ def _items(base: str, headers: dict, uid: str, kind: str, tmdb_id: int):
     return items if isinstance(items, list) else None
 
 
-def file_summary(kind: str, tmdb_id: int) -> dict | None:
-    """Quality facts for what is on disk, or None (not in Jellyfin / not configured / any failure)."""
+def file_summary(kind: str, tmdb_id: int, jf_id: str | None = None, snaps=None) -> dict | None:
+    """Quality facts for what is on disk, or None (not in Jellyfin / not configured / any failure). `jf_id` (the film,
+    or the SERIES for tv) when the caller knows it, else the snapshot's library lists are asked (jf_for); only a
+    title found in neither falls back to listing the library."""
     if kind not in ("movie", "tv"):
         return None
     hit = _cache.get((kind, tmdb_id))
@@ -411,7 +443,8 @@ def file_summary(kind: str, tmdb_id: int) -> dict | None:
     base, headers = creds
     try:
         uid = _user_id(base, headers)
-        items = _items(base, headers, uid, kind, tmdb_id) if uid else None
+        jf_id = jf_id if jf_id and JF_ID_RE.match(str(jf_id)) else jf_for(kind, tmdb_id, snaps)
+        items = (_by_id(base, headers, uid, kind, jf_id) if jf_id else _items(base, headers, uid, kind, tmdb_id))             if uid else None
         out = _summarise(kind, items) if items else None
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("jellyfin file lookup failed: %s", type(exc).__name__)

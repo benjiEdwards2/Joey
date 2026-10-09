@@ -135,7 +135,8 @@ def _build(jf_id: str) -> dict:
         # finds the show already cached instead of reading it (and its seasons) a second time.
         show_f = pool.submit(_data, series_id) if kind in ("episode", "season") and series_id else None
         seasons_f = pool.submit(_seasons, base, headers, uid, series_id, today) if kind == "series" else None
-        files_f = (pool.submit(media_files.file_summary, "tv", int(tmdb)) if kind == "series" and str(tmdb).isdigit()
+        files_f = (pool.submit(media_files.file_summary, "tv", int(tmdb), raw["Id"])   # M-45: the series id is known
+                   if kind == "series" and str(tmdb).isdigit()
                    else None)
         if show_f is not None:
             show = show_f.result()

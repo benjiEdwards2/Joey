@@ -86,7 +86,9 @@ def test_episode_reads_its_show_once(env):
         assert client.get("/media/item/ep3").status_code == 200
     jf = paths(both, URL)
     assert jf.count("/Users/u1/Items/ser1") == 1 and jf.count("/Shows/ser1/Seasons") == 1
-    assert jf.count("/Shows/ser1/Episodes") == 1
+    # the season's episode list + the file panel's ONE episodes read by the known series id (M-45; it used to list
+    # every series, then every episode of the match, through /Users/{uid}/Items)
+    assert jf.count("/Shows/ser1/Episodes") == 2 and "/Users/u1/Items" not in jf
 
 
 def test_one_snapshot_read_per_film_request(env, monkeypatch):

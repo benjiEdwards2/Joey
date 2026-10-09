@@ -50,8 +50,8 @@ def test_media_frame_reads_ratings_once(tmp_path, monkeypatch):
     """H-29: the Media frame's waiting counts and To rate tab counts share one recent + ratings read."""
     main = _reload(tmp_path, monkeypatch, _shelf_area())
     calls = []
-    real = main._ratings
-    monkeypatch.setattr(main, "_ratings", lambda *a: calls.append(a) or real(*a))
+    real = main.media_home._ratings
+    monkeypatch.setattr(main.media_home, "_ratings", lambda *a: calls.append(a) or real(*a))
     with TestClient(main.app):
         req = Request({"type": "http", "method": "GET", "path": "/media/movies", "headers": [], "query_string": b"",
                        "scheme": "http", "server": ("t", 80), "root_path": ""})
@@ -63,7 +63,7 @@ def test_server_loop_reads_snapshots_once(tmp_path, monkeypatch):
     """H-53: one snapshot read feeds both the history sample and the alert check."""
     main = _reload(tmp_path, monkeypatch, _shelf_area())
     reads, seen = [], {}
-    monkeypatch.setattr(main, "_read_snapshots", lambda *a: reads.append(1) or {"marker": True})
+    monkeypatch.setattr(main.tasks, "_read_snapshots", lambda *a: reads.append(1) or {"marker": True})
     monkeypatch.setattr(main.server_history, "sample", lambda snaps=None: seen.setdefault("sample", snaps))
     monkeypatch.setattr(main.server_alerts, "check_once", lambda live=None, snaps=None: seen.setdefault("check", snaps))
     main._server_tick()
@@ -123,8 +123,8 @@ def test_a_media_page_reads_the_snapshot_dir_once(tmp_path, monkeypatch):
     main = _reload(tmp_path, monkeypatch, area)
     write_envelope(tmp_path / "snaps", "arr", age_minutes=1, data={"summary": "x", "arrived": [], "this_week": []})
     write_envelope(tmp_path / "snaps", "qbittorrent", age_minutes=1, data={"summary": "x", "active": []})
-    reads, real = [], main._read_snapshots
-    monkeypatch.setattr(main, "_read_snapshots", lambda *a: reads.append(1) or real(*a))
+    reads, real = [], main.shell._read_snapshots
+    monkeypatch.setattr(main.shell, "_read_snapshots", lambda *a: reads.append(1) or real(*a))
     with TestClient(main.app) as c:
         for path in ("/media/library", "/media/downloads", "/media/movies", "/"):
             reads.clear()

@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db
+from hub import media_db, shell
 from hub.images import REF_RE
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
@@ -86,10 +86,8 @@ async def form_of(request: Request) -> dict:
 
 
 def owner_for(request: Request) -> str:
-    """THE request-level owner (M-16): 'her' in the her view, else 'you' (media_db.owner_of over the owner view).
-    Lazy import — hub.main imports this module for its router."""
-    from hub.main import resolve_owner_view
-    return media_db.owner_of(resolve_owner_view(request)[0])
+    """THE request-level owner (M-16): 'her' in the her view, else 'you' (media_db.owner_of over the owner view)."""
+    return media_db.owner_of(shell.resolve_owner_view(request)[0])
 
 
 def safe_back(value, default: str, keep_query: bool = False, prefixes=("/media/", "/a/"), exact=("/",)) -> str:

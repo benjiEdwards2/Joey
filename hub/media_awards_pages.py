@@ -28,7 +28,8 @@ from hub import media_awards_db as adb
 from hub import media_awards_badges as badges
 from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
-from hub import media_db, media_discover as md, media_item, media_text
+from hub import media_db, media_discover as md, media_item, media_pages, media_text
+from hub.ids import JELLYFIN_SNAPSHOT_ID
 
 log = logging.getLogger("hub.media_awards_pages")
 router = APIRouter()
@@ -59,9 +60,9 @@ def status_line(st: dict) -> dict:
 
 # ---- library + seen ----
 
-def _library(data: dict, view: str, kind: str, hub) -> dict[str, dict]:
+def _library(data: dict, view: str, kind: str) -> dict[str, dict]:
     """{item_key: row} of the viewer's own library list for this kind (Q4: the viewer's own played flag)."""
-    items, _marks = hub._library_lists(data or {}, view, kind)
+    items, _marks = media_pages._library_lists(data or {}, view, kind)
     return {r["item_key"]: r for r in items or [] if isinstance(r, dict) and r.get("item_key")}
 
 
@@ -298,7 +299,7 @@ def tile_month(body_id: str, held: dict[str, int]) -> str | None:
     return date(2000, m, 1).strftime("%b") if m else None
 
 
-def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str, hub) -> tuple[dict, list]:
+def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str) -> tuple[dict, list]:
     """-> (context, entities still to fill after the response)."""
     akind = AKIND[kind]
     bodies = adb.bodies(akind)
@@ -314,7 +315,7 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         fill_posters(_need_poster(page, hero_only=True), HERO_READS)
     later = _need_poster(page, hero_only=False)[:max(0, POSTER_READS - HERO_READS)] if page else []
     owner = media_db.owner_of(view)
-    seen = Seen(_library(data, view, kind, hub), _diary_keys(owner), kind)
+    seen = Seen(_library(data, view, kind), _diary_keys(owner), kind)
     ed = (page or {}).get("edition")
     hero, cats, more = None, [], []
     tally = _tally(page) if page else {}
@@ -379,13 +380,12 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
 
 
 def _page(request: Request, kind: str, body: str, year: str, unseen: str):
-    from hub import main as hub  # late: hub.main includes this router
     later: list = []
 
     def build(data, view):
         nonlocal later
         try:
-            ctx, later = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view, hub)
+            ctx, later = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view)
         except (sqlite3.Error, OSError) as exc:
             log.warning("awards page degraded: %s", type(exc).__name__)
             ctx = {"kind": kind, "bodies": [], "years": [], "podium": [], "hero": None, "cats": [], "more": [], "coming": [],
@@ -394,7 +394,7 @@ def _page(request: Request, kind: str, body: str, year: str, unseen: str):
                    "year_note": None, "current": None}
         return ctx
 
-    resp = hub._detail_page(request, "media_awards.html", hub.JELLYFIN_SNAPSHOT_ID, build, always_build=True)
+    resp = media_pages._detail_page(request, "media_awards.html", JELLYFIN_SNAPSHOT_ID, build, always_build=True)
     if later and md._creds() is not None:
         resp.background = BackgroundTask(fill_posters, later, len(later))
     return resp

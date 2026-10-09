@@ -1,0 +1,77 @@
+/* Joey's page shell script (H-57, 2026-10-09): moved out of base.html so it is cached like every versioned asset
+   (/static/joey.js?v=, immutable) instead of re-sent inline with every no-store page. Loaded with defer right after
+   htmx, so every listener below is in place before htmx processes the page; nothing here has to run before first
+   paint. The flash keys come from base.html's joey-flash-params meta (FLASH_PARAMS, hub/main.py). */
+/* A tab kept open across a deploy would boost into new markup with the OLD stylesheet
+   (2026-10-06): when a boosted response carries a different asset version, load it fully. */
+document.addEventListener('htmx:beforeSwap', function (e) {
+  if (!e.detail.boosted) return;
+  var m = /name="joey-asset-v" content="([0-9a-f]+)"/.exec(e.detail.xhr.responseText || '');
+  var mine = document.querySelector('meta[name="joey-asset-v"]');
+  if (m && mine && m[1] !== mine.content) {
+    e.detail.shouldSwap = false;
+    window.location.href = e.detail.pathInfo.finalRequestPath || e.detail.pathInfo.requestPath;
+    return;
+  }
+  /* Boosts swap only <body> (and <title>): carry the page's manifest + iOS app title across, so "Add to Home
+     Screen" from a Media page reached by a boosted link still installs "Joey Media" (2026-10-07). */
+  var text = e.detail.xhr.responseText || '';
+  var mf = /<link rel="manifest" href="([^"]+)">/.exec(text);
+  var link = document.querySelector('link[rel="manifest"]');
+  if (mf && link && link.getAttribute('href') !== mf[1]) link.setAttribute('href', mf[1]);
+  var at = /<meta name="apple-mobile-web-app-title" content="([^"]+)">/.exec(text);
+  var am = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (at && !am) { am = document.createElement('meta'); am.name = 'apple-mobile-web-app-title'; document.head.appendChild(am); }
+  if (at) am.content = at[1]; else if (am && mf) am.remove();
+});
+/* An action is not a place (media-ux2, 2026-10-08): a boosted POST form (Mark watched, Remove, Follow, a rating,
+   watchlist ...) 303s back to a page, and htmx would PUSH that as a new history entry, so Back only dropped the flash
+   word. Every non-GET boosted navigation REPLACES the current entry instead: one Back goes to the page before.
+   htmx 2.0.4 fires htmx:beforeHistoryUpdate with detail.history = {type, path} (the object it then acts on) and
+   detail.requestConfig.verb. */
+document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
+  var h = e.detail && e.detail.history, rc = e.detail && e.detail.requestConfig;
+  if (h && h.type === 'push' && rc && String(rc.verb || 'get').toLowerCase() !== 'get') h.type = 'replace';
+});
+/* A flash line ("Following", "Requested", "Removed") is shown once: after render, its query params leave the
+   address bar (replaceState keeps htmx's history state), so Back / Forward / reload never re-show it (2026-10-08). */
+(function () {
+  var meta = document.querySelector('meta[name="joey-flash-params"]');
+  var keys = meta ? JSON.parse(meta.content) : [];
+  function strip() {
+    try {
+      var u = new URL(window.location.href), hit = false;
+      keys.forEach(function (k) { if (u.searchParams.has(k)) { u.searchParams.delete(k); hit = true; } });
+      if (hit) history.replaceState(history.state, '', u.pathname + (u.search ? u.search : '') + u.hash);
+    } catch (err) { /* never break a page over the address bar */ }
+  }
+  strip();
+  document.addEventListener('htmx:pushedIntoHistory', strip);
+  document.addEventListener('htmx:replacedInHistory', strip);
+})();
+/* No pinch zoom on iOS Safari (media-ux5, 2026-10-09): Safari ignores user-scalable=no, so its proprietary pinch events
+   are cancelled instead (they never fire elsewhere). Double-tap zoom is off via touch-action in the CSS. */
+['gesturestart', 'gesturechange'].forEach(function (t) {
+  document.addEventListener(t, function (e) { e.preventDefault(); }, {passive: false});
+});
+/* Docked Media sections (media-ux5, 2026-10-09; desktop): once the page's section row (its .dock-sentinel) has scrolled
+   under the sticky top bar, the bar gets .is-docked and CSS swaps its section pills for the server-rendered Media row
+   (.topdock). Boosts swap <body>, so the observer re-attaches after every settle when the sentinel changed. */
+(function () {
+  var io = null, seen = null;
+  function init() {
+    var s = document.querySelector('.dock-sentinel'), bar = document.querySelector('.topbar');
+    if (s === seen) return;
+    seen = s;
+    if (io) { io.disconnect(); io = null; }
+    if (!s || !bar || !bar.querySelector('.topdock') || !('IntersectionObserver' in window)) return;
+    io = new IntersectionObserver(function (entries) {
+      var e = entries[entries.length - 1], top = e.rootBounds ? e.rootBounds.top : 56;
+      bar.classList.toggle('is-docked', !e.isIntersecting && e.boundingClientRect.bottom <= top);
+    }, {rootMargin: '-56px 0px 0px 0px'});
+    io.observe(s);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  document.addEventListener('htmx:afterSettle', init);
+  document.addEventListener('htmx:load', init);
+})();

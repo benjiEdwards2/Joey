@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.hub.conftest import shell_script
 from tests.hub.test_media_frame import env, ROUTES, LABELS  # noqa: F401  (env is a fixture)
 from tests.hub.test_media_shelves import JELLY, ARR
 
@@ -76,8 +77,7 @@ def test_non_media_pages_have_no_dock(env, route):
 def test_observer_script_hook_in_base(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
-        html = c.get("/media/movies").text
-    script = html.split("</head>", 1)[0]
+        script = shell_script(c, c.get("/media/movies").text)   # H-57: /static/joey.js
     assert "new IntersectionObserver(" in script and "document.querySelector('.dock-sentinel')" in script
     assert "bar.classList.toggle('is-docked'" in script
     assert "addEventListener('htmx:afterSettle', init)" in script and "addEventListener('htmx:load', init)" in script

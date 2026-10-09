@@ -95,8 +95,8 @@ def test_one_snapshot_read_per_film_request(env, monkeypatch):
     client, _ = env()
     import hub.main
     calls = []
-    real = hub.main.get_snapshots
-    monkeypatch.setattr(hub.main, "get_snapshots", lambda *a, **k: calls.append(1) or real(*a, **k))
+    real = hub.main.shell.get_snapshots
+    monkeypatch.setattr(hub.main.shell, "get_snapshots", lambda *a, **k: calls.append(1) or real(*a, **k))
     with client:
         client.get("/media/item/mov1")
         n_item = len(calls)
@@ -311,8 +311,8 @@ def test_one_snapshot_read_per_media_page(env, monkeypatch, path):
     client, _ = env()
     import hub.main
     reads = []
-    real = hub.main._read_snapshots
-    monkeypatch.setattr(hub.main, "_read_snapshots", lambda *a, **k: reads.append(1) or real(*a, **k))
+    real = hub.main.shell._read_snapshots
+    monkeypatch.setattr(hub.main.shell, "_read_snapshots", lambda *a, **k: reads.append(1) or real(*a, **k))
     with client:
         assert client.get(path).status_code == 200
     assert len(reads) == 1, path
@@ -323,8 +323,8 @@ def test_the_media_frame_builds_the_rating_inbox_once(env, monkeypatch):
         {"item_key": "tmdb:603", "kind": "movie", "title": "Harbour Lights", "watched_at": "2099-01-01T00:00:00Z"}]}})
     import hub.main
     calls = []
-    real = hub.main._to_rate
-    monkeypatch.setattr(hub.main, "_to_rate", lambda *a, **k: calls.append(1) or real(*a, **k))
+    real = hub.main.media_home._to_rate
+    monkeypatch.setattr(hub.main.media_home, "_to_rate", lambda *a, **k: calls.append(1) or real(*a, **k))
     with client:
         assert client.get("/media/movies").status_code == 200   # the page itself builds no inbox: only the frame
     assert len(calls) == 1

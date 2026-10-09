@@ -8,6 +8,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from tests.hub.conftest import shell_script
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -58,9 +60,10 @@ def test_flash_params_are_stripped_after_render(monkeypatch):
     c, main = client(monkeypatch)
     with c:
         html = c.get("/").text
-    assert "history.replaceState(history.state" in html
-    assert "htmx:pushedIntoHistory" in html  # boosted POST -> 303 -> pushed URL is cleaned too
-    keys = json.loads(re.search(r"var keys = (\[[^\]]*\]);", html).group(1))
+        js = shell_script(c, html)
+    assert "history.replaceState(history.state" in js
+    assert "htmx:pushedIntoHistory" in js  # boosted POST -> 303 -> pushed URL is cleaned too
+    keys = json.loads(re.search(r"<meta name=\"joey-flash-params\" content='(\[[^\]]*\])'>", html).group(1))
     assert set(keys) == set(main.FLASH_PARAMS)
     # every flash a write route redirects with is in the list
     for k in ("follow", "requested", "error", "flash", "c", "code", "done"):

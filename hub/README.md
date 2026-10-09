@@ -10,8 +10,12 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 
 | Module | Owns |
 |---|---|
-| `main.py` | App, lifespan, background loops, Hub / Area / Weather pages, the `/media/*` list pages, `/healthz`, `/whoami` |
-| `shell.py` | THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
+| `main.py` | App creation, middleware, `/static` mount, router includes, Hub page (`/`), Area pages (`/a/{id}`, `/server`), `/healthz`, `/whoami`; re-exports the moved names so old `hub.main.X` paths keep working |
+| `shell.py` | What every router imports instead of `hub.main`: THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`, `identity`), the registry holder (`load_areas`, `registry`), `get_snapshots` (once per request), the owner view, `build_status`, `find_detail_source`, `render_page` / `not_found_page` (the one base context and 404), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
+| `tasks.py` | The app lifespan (loads the registry) and the background loops, all through `_every` |
+| `weather.py`, `calendar.py` | Weather glimpse, `/weather` forecast + radar routes; the Next 7 days list and hub card |
+| `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
+| `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary, Years, Movies / TV grid, Tonight |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
@@ -25,7 +29,8 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_warmup.py`, `media_backup.py` | Film-page cache warm-up; nightly media.db backups |
 | `seed_demo.py` | Writes demo snapshots for local runs |
 
-Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`.
+Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`
+(`static/joey.js` is the frame's script: boost guard, history replace, flash strip, pinch guard, docked Media row).
 Routers are included in `main.py`; every write route carries `Depends(same_origin)` (403 unless htmx or same Origin).
 
 ## Routes

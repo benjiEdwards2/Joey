@@ -76,7 +76,7 @@ def env(tmp_path, monkeypatch):
 
 def shelves_for(main, view="you"):
     with TestClient(main.app):  # lifespan loads the registry
-        area = next(a for a in main.registry.areas if a.id == "alpha")
+        area = next(a for a in main.shell.registry.areas if a.id == "alpha")
         snaps = main.get_snapshots()
         tiles = [{"tile": t, "st": main.tile_state(t, snaps)} for t in area.tiles if main.owner_visible(t, view)]
         return main.build_shelves(area, tiles, snaps, view)
@@ -211,7 +211,7 @@ def test_rows_fall_back_to_joey_pages_without_ids_or_a_jellyfin_link(env):
 def test_no_jellyfin_link_tile_means_no_external_rows(env, tmp_path):
     main = env(jellyfin=linked_jelly())
     with TestClient(main.app):
-        area = next(a for a in main.registry.areas if a.id == "alpha")
+        area = next(a for a in main.shell.registry.areas if a.id == "alpha")
         snaps = main.get_snapshots()
         tiles = [{"tile": t, "st": main.tile_state(t, snaps)} for t in area.tiles if t.tier != "link"]
         sh = main.build_shelves(area, tiles, snaps, "you")

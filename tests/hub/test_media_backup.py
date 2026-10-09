@@ -207,7 +207,7 @@ def hub_env(tmp_path, monkeypatch, paths):
 def test_scheduler_runs_maybe_backup_and_stops_cleanly(hub_env, monkeypatch):
     main, _ = hub_env
     calls = []
-    monkeypatch.setattr(main, "BACKUP_FIRST_DELAY_S", 0)
+    monkeypatch.setattr(main.tasks, "BACKUP_FIRST_DELAY_S", 0)
     monkeypatch.setattr(main.media_backup, "maybe_backup", lambda: calls.append(1) or True)
     with TestClient(main.app) as client:
         deadline = time.time() + 5
@@ -224,7 +224,7 @@ def test_scheduler_survives_a_crashing_backup(hub_env, monkeypatch):
     def boom():
         calls.append(1)
         raise RuntimeError("disk on fire")
-    monkeypatch.setattr(main, "BACKUP_FIRST_DELAY_S", 0)
+    monkeypatch.setattr(main.tasks, "BACKUP_FIRST_DELAY_S", 0)
     monkeypatch.setattr(main.media_backup, "maybe_backup", boom)
     with TestClient(main.app) as client:
         deadline = time.time() + 5
@@ -238,7 +238,7 @@ def test_media_backup_off_starts_no_task(hub_env, monkeypatch):
     main, _ = hub_env
     calls = []
     monkeypatch.setenv("MEDIA_BACKUP", "off")
-    monkeypatch.setattr(main, "BACKUP_FIRST_DELAY_S", 0)
+    monkeypatch.setattr(main.tasks, "BACKUP_FIRST_DELAY_S", 0)
     monkeypatch.setattr(main.media_backup, "maybe_backup", lambda: calls.append(1))
     with TestClient(main.app) as client:
         time.sleep(0.2)

@@ -242,7 +242,7 @@ def test_pages_render_in_the_shell_with_sample_snapshots(sample_client, route):
 # hub greeting on a pinned morning / afternoon / evening clock; it leads the header's sub-line
 @pytest.mark.parametrize("hour, minute, part", [(8, 30, "morning"), (13, 5, "afternoon"), (19, 45, "evening")])
 def test_hub_greeting_follows_the_home_clock(main, monkeypatch, hour, minute, part):
-    monkeypatch.setattr(main, "_now_home", lambda: datetime(2026, 10, 6, hour, minute, tzinfo=MEL))
+    monkeypatch.setattr(main.shell, "_now_home", lambda: datetime(2026, 10, 6, hour, minute, tzinfo=MEL))
     with TestClient(main.app) as c:
         body = htmlmod.unescape(c.get("/").text.split("<main", 1)[1])
     assert "<h1>Hub</h1>" in body

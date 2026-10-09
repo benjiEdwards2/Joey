@@ -1023,6 +1023,10 @@ a.castcard:hover .castname { text-decoration: underline; }
 .awyearform { display: flex; align-items: center; gap: 6px; margin: 0; }
 .awyearform .awyear { height: 32px; min-width: 0; padding: 0 8px; font-size: 18px; font-weight: 600; color: var(--text-1); }
 .awstep .awed { min-width: 0; overflow-wrap: anywhere; }
+/* awards-year (2026-10-09): "Current year" sits beside the stepper (Not seen alone keeps to the right); the fallback
+   note under the stepper is plain muted metaline text. */
+.awstep .awcur { margin-left: 0; }
+.awyearnote { margin-top: 6px; }
 @media (max-width: 639px) { .awstep .awed { flex: 1 1 100%; order: 5; } }
 /* Coming up: each ceremony with its mark; the next one outlined + the word "Next". */
 .awev .awic { margin-right: 4px; }

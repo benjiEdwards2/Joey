@@ -58,9 +58,11 @@ def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
     assert '<option value="2025" selected>2025</option>' in b              # 2026 is pending: not the default
     assert '<option value="2026">2026</option>' in b                       # awards-ui: the year is a native select
     assert "97th Academy Awards · 2 Mar 2025 · films of 2024" in b
-    assert re.search(r'<a class="awtile on" href="/media/movies/awards\?body=oscars" aria-current="page"><svg class="awic '
-                     r'awic-oscars"[^>]*aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">Oscars</span></a>', b)
-    assert [c for c in re.findall(r'<a class="awtile[^"]*" href="/media/movies/awards\?body=(\w+)"', b)] == [
+    # awards-year (2026-10-09): the tiles keep the year the viewer is on
+    assert re.search(r'<a class="awtile on" href="/media/movies/awards\?body=oscars&amp;year=2025" aria-current="page">'
+                     r'<svg class="awic awic-oscars"[^>]*aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">Oscars'
+                     r'</span></a>', b)
+    assert [c for c in re.findall(r'<a class="awtile[^"]*" href="/media/movies/awards\?body=(\w+)&amp;year=2025"', b)] == [
         "oscars", "globes", "bafta", "critics", "sag", "dga", "pga", "wga", "cannes"]
 
 
@@ -193,3 +195,51 @@ def test_awards_templates_use_tokens_and_whole_link_rows(env):
         for inner in re.findall(rf'class="{cls}">(.*?)</(?:div|span)>', b, re.S):
             assert "<a" not in inner, (cls, inner)
     assert not re.search(r'<a [^>]*>(?:(?!</a>).)*<a ', b, re.S)            # no link inside a link
+
+
+# ---- awards-year (2026-10-09): switching ceremony keeps the year; nearest-year fallback + note; "Current year" ----
+
+def seed_globes(years):
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "globes", [{"ordinal": y - 1943, "year": y} for y in years])
+
+
+def test_ceremony_tiles_carry_the_current_year_and_the_unseen_flag(env):
+    build, _ = env
+    seeded()
+    with build(jelly(ALPHA)) as client:
+        b = page(client, "/media/movies/awards?body=oscars&year=2024&unseen=1")
+    assert re.findall(r'<a class="awtile[^"]*" href="(/media/movies/awards\?body=(?:oscars|globes)[^"]*)"', b) == [
+        "/media/movies/awards?body=oscars&amp;year=2024&amp;unseen=1",
+        "/media/movies/awards?body=globes&amp;year=2024&amp;unseen=1"]
+
+
+def test_a_missing_year_lands_on_the_closest_earlier_year_with_a_note(env):
+    build, _ = env
+    seeded()
+    seed_globes([2021, 2023, 2026])
+    with build(jelly(ALPHA)) as client:
+        earlier = page(client, "/media/movies/awards?body=globes&year=2025")
+        later = page(client, "/media/movies/awards?body=globes&year=2019")
+        held = page(client, "/media/movies/awards?body=oscars&year=2025")
+    assert '<option value="2023" selected>2023</option>' in earlier          # 2023 beats the nearer-by-a-year 2026
+    assert '<p class="metaline awyearnote">No Golden Globes in 2025 · showing 2023</p>' in earlier
+    assert 'href="/media/movies/awards?body=oscars&amp;year=2023"' in earlier   # the tiles carry the year shown
+    assert '<option value="2021" selected>2021</option>' in later            # nothing earlier: the closest later
+    assert "No Golden Globes in 2019 · showing 2021" in later
+    assert "awyearnote" not in held                                          # the year exists: no note
+
+
+def test_current_year_chip_links_to_the_latest_synced_year_unless_already_there(env):
+    build, _ = env
+    seeded()
+    with build(jelly(ALPHA)) as client:
+        old = page(client, "/media/movies/awards?body=oscars&year=2024&unseen=1")
+        latest = page(client, "/media/movies/awards?body=oscars&year=2025")
+        default = page(client, "/media/movies/awards?body=oscars")
+        pending = page(client, "/media/movies/awards?body=oscars&year=2026")
+    assert ('<a class="chip awcur" href="/media/movies/awards?body=oscars&amp;unseen=1" aria-label="Current year, 2025">'
+            'Current year</a>') in old
+    assert "awcur" not in latest and "awcur" not in default
+    assert 'class="chip awcur" href="/media/movies/awards?body=oscars"' in pending   # 2026 is pending: 2025 is current
+    assert "awyearnote" not in pending and "awyearnote" not in default

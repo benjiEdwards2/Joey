@@ -484,6 +484,12 @@ cold, 0.2 ms cached). **Film / TV and person sections:** grouped per ceremony (p
 lines "2025 · Won 2 of 3 nominations" (older editions fold after 3) over category pills — won gold with the laurel, nominated
 neutral, each saying Won / Nominated to a screen reader; person rows "2025 · Best Actor" over a Won / Nominated pill + the work.
 
+Awards year kept (awards-year, 2026-10-09): each ceremony tile links `?body=X&year=<the year on screen>` (+ `unseen=1`), so
+switching ceremony keeps the year instead of jumping to the latest. A year the target ceremony has no edition for lands on
+its closest earlier year, else its closest later one (`media_awards_pages.nearest_year`, over `years_of`), under a muted
+note "No Emmys in 1946 · showing 1949"; a bad `body` still means plain defaults. A "Current year" chip beside the stepper
+links to the ceremony's latest synced year (the no-year URL) and is hidden when already there.
+
 Episode pages (media-ux4, 2026-10-08): the hero has no "Episode of <Show>" line (the part-of banner leads to the show) and
 only the **episode's** Play button — the series-level "Next to watch: …" / "Play ▶" stays on the series page. The hero's
 watch state (toggle, Move-on pair, Play label) comes from the show's season list the banner counts and the rows show

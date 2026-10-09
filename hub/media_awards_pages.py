@@ -289,6 +289,14 @@ def podium(page: dict | None, tally: dict, seen: Seen, kind: str, won_by: dict) 
     return out
 
 
+def nearest_year(years: list[int], asked: int) -> int | None:
+    """Year-keeping ceremony switch (awards-year, 2026-10-09): the edition year to show when `asked` has none — the
+    closest earlier year, else the closest later one; None when there are no years."""
+    earlier = [y for y in years if y < asked]
+    later = [y for y in years if y > asked]
+    return max(earlier) if earlier else (min(later) if later else None)
+
+
 def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str, hub) -> tuple[dict, list]:
     """-> (context, entities still to fill after the response)."""
     akind = AKIND[kind]
@@ -296,8 +304,10 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     ids = [b["id"] for b in bodies]
     body = body_q if body_q in ids else ids[0]
     years = adb.years_of(body, akind)
-    year = int(year_q) if year_q.isdigit() and int(year_q) in years else (adb.latest_synced_year(body, akind) or
-                                                                        (years[0] if years else None))
+    latest = adb.latest_synced_year(body, akind) or (years[0] if years else None)
+    asked = int(year_q) if year_q.isdigit() and body_q in ids else None    # a bad body = a bad link: plain defaults
+    year = asked if asked in years else (nearest_year(years, asked) if asked and years else latest)
+    missing = {"asked": asked, "shown": year} if asked and year and year != asked else None
     page = adb.edition_page(body, year, akind) if year else None
     if page:
         fill_posters(_need_poster(page, hero_only=True), HERO_READS)
@@ -348,9 +358,12 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         empty = PENDING if state in ("pending", None) else EMPTY
     ctx = {
         "kind": kind, "akind": akind, "base": PATHS[kind], "body": body, "year": year, "unseen": unseen,
-        "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], None, unseen), "logo": icons.override(b["id"])}
+        "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], year, unseen), "logo": icons.override(b["id"])}
                    for b in bodies],
         "years": years,
+        "year_note": (f"No {(seed.BY_ID.get(body) or {}).get('name', body)} in {missing['asked']} · showing "
+                      f"{missing['shown']}") if missing else None,
+        "current": {"year": latest, "href": _href(kind, body, None, unseen)} if latest and year != latest else None,
         "body_name": (seed.BY_ID.get(body) or {}).get("name", body),
         "edition_line": _edition_line(body, ed, kind),
         "prev": {"year": prev_y, "href": _href(kind, body, prev_y, unseen)} if prev_y else None,
@@ -375,7 +388,8 @@ def _page(request: Request, kind: str, body: str, year: str, unseen: str):
             log.warning("awards page degraded: %s", type(exc).__name__)
             ctx = {"kind": kind, "bodies": [], "years": [], "podium": [], "hero": None, "cats": [], "more": [], "coming": [],
                    "empty": EMPTY, "sync": {"text": PENDING, "failed": False}, "edition_line": None,
-                   "prev": None, "next": None, "unseen": False, "unseen_href": PATHS[kind]}
+                   "prev": None, "next": None, "unseen": False, "unseen_href": PATHS[kind],
+                   "year_note": None, "current": None}
         return ctx
 
     resp = hub._detail_page(request, "media_awards.html", hub.JELLYFIN_SNAPSHOT_ID, build, always_build=True)

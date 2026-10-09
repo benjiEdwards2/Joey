@@ -9,7 +9,8 @@
    title + the one staleness line; Coming up (a stats strip by month, each ceremony with its mark, the next one
    outlined and saying "Next", teal when the date is known); the ceremony tiles (mark + name, the picked one gold;
    a sideways-scrolling row inside its own box on a phone); the year stepper (‹ native year select ›) + edition line +
-   Not seen chip; the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
+   Not seen chip (awards-year, 2026-10-09: the tiles keep the year; a "Current year" chip back to the latest synced
+   year unless already there; a muted "No <Ceremony> in <year> · showing <year2>" note when the year fell back); the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
    "Won N of M nominations" in gold, the nominees row); every category as a card in curated rank order; shorts /
    documentary / technical fold under "More categories". Gold means won (style guide: colour for meaning). #}
 <section class="sec awhead">
@@ -37,9 +38,11 @@
   </form>
   {% else %}<span class="awyear">—</span>{% endif %}
   {% if next %}<a class="btn btn-glass btn-sm" href="{{ next.href }}" aria-label="Next ceremony, {{ next.year }}">{{ next.year }} ›</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">›</span>{% endif %}
+  {% if current %}<a class="chip awcur" href="{{ current.href }}" aria-label="Current year, {{ current.year }}">Current year</a>{% endif %}
   {% if edition_line %}<span class="metaline awed">{{ edition_line }}</span>{% endif %}
   <a class="chip{{ ' on' if unseen }}" href="{{ unseen_href }}" aria-pressed="{{ 'true' if unseen else 'false' }}">{{ icon("eye") }}Not seen</a>
 </div>
+{% if year_note %}<p class="metaline awyearnote">{{ year_note }}</p>{% endif %}
 {% endif %}
 {% if empty %}
 <p class="empty">{{ empty }}</p>

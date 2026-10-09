@@ -8,7 +8,8 @@ import pytest
 
 from hub import media_db
 from tests.hub.test_media_her import env as her_env, main_html  # noqa: F401  (fixture)
-from tests.hub.test_media_rate import env, jelly_data, main_of, TV, HX  # noqa: F401  (env fixture)
+from tests.hub.conftest import main_raw as main_of  # noqa: F401
+from tests.hub.test_media_rate import env, jelly_data, TV, HX  # noqa: F401  (env fixture)
 
 
 def section(html):

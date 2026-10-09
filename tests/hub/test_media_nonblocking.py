@@ -8,7 +8,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.hub.test_registry import make_area, write_registry
+from tests.hub.helpers import make_area, write_registry
 
 WAIT_S = 5.0
 

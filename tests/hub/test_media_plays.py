@@ -8,9 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub import media_plays as mp, media_plays_db as pdb
-from tests.hub.test_media_shelves import ids, main_html, shelf_area
-from tests.hub.test_registry import make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, shelf_area, write_envelope, write_registry
+from tests.hub.test_media_shelves import ids, main_html
 
 T0 = datetime(2026, 10, 6, 2, 0, tzinfo=timezone.utc)
 MIN = 600_000_000  # ticks per minute

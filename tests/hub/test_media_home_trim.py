@@ -3,7 +3,7 @@ Server -> Library keeps its This week rows and Diary > To rate (/media/history) 
 from fastapi.testclient import TestClient
 
 from tests.hub.test_media_frame import env  # noqa: F401  (env fixture)
-from tests.hub.test_media_shelves import JELLY, ARR
+from tests.hub.helpers import ARR, JELLY
 from tests.hub.conftest import main_raw as main_of
 
 

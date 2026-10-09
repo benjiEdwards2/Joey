@@ -10,8 +10,7 @@ from fastapi.testclient import TestClient
 
 from hub import server
 from hub.registry import load_registry
-from tests.hub.test_registry import AREAS_YAML, make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_history, write_registry
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"
 
@@ -250,7 +249,6 @@ def test_monitors_band_degrades_to_not_connected(env):
 from datetime import datetime, timedelta, timezone  # noqa: E402
 
 from hub.store import get_snapshots  # noqa: E402
-from tests.hub.test_store import write_history  # noqa: E402
 
 ALL_UP = {"summary": "2 of 2 up", "apps": [
     {"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "radarr", "name": "Radarr", "up": True}]}

@@ -6,8 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.hub.test_registry import make_area, make_tile
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope
 from tests.hub.conftest import app_with
 
 JELLY_HREF = "http://nas.example.invalid:8096"

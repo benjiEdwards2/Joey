@@ -9,8 +9,8 @@ import pytest
 import requests
 
 from connectors.stubs import Arr
-from tests.connectors.test_arr import RADARR, SCHEMA, SKEY, SONARR, Resp, fake_requests
-from tests.connectors.test_arr import live, raw  # noqa: F401  (fixtures)
+from tests.connectors.helpers import RADARR, SCHEMA, SKEY, SONARR, Resp, fake_requests
+from tests.connectors.helpers import live, raw  # noqa: F401  (fixtures)
 
 PROWLARR, PKEY = "http://prowlarr.example.invalid:9696", "PROWLARRSECRETkey"
 

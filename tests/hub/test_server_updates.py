@@ -14,7 +14,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import media_db, server_updates
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import write_envelope
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"
 URL, USER, PASS = "http://wud.secret-host.invalid:3030", "wudSECRETuser", "wudSECRETpass"

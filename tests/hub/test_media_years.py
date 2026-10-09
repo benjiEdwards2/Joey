@@ -9,8 +9,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from hub import media_db
-from tests.hub.test_registry import make_area, make_tile
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope
 from tests.hub.conftest import main_raw as main_of
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"

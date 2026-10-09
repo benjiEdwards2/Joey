@@ -3,6 +3,7 @@ import pytest
 import requests
 
 from hub import media_files
+from tests.hub.helpers import FakeResponse as R
 
 URL = "http://jf.secret-host.invalid:8096"
 KEY = "jf-SECRET-key-123"
@@ -21,16 +22,6 @@ def astream(codec="aac", ch=2, profile="LC", default=True):
 
 def item(streams, container="mkv", size=12.4 * 1024 ** 3, tmdb="1", **extra):
     return {"ProviderIds": {"Tmdb": tmdb}, **extra, "MediaSources": [{"Container": container, "Size": int(size), "MediaStreams": streams}]}
-
-
-class R:
-    status_code = 200
-
-    def __init__(self, body):
-        self._b = body
-
-    def json(self):
-        return self._b
 
 
 class Fake:
@@ -217,7 +208,7 @@ class BigLibrary(Fake):
 
 @pytest.fixture()
 def big(fake, monkeypatch, tmp_path):
-    from tests.hub.test_store import write_envelope
+    from tests.hub.helpers import write_envelope
     f = BigLibrary()
     monkeypatch.setattr(media_files.requests, "get", f.get)
     monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))

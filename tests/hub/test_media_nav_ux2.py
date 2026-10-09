@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from hub import media_nav
 from tests.hub.test_media_frame import env, current, nav_html  # noqa: F401  (env fixture)
-from tests.hub.test_media_shelves import JELLY, ARR
+from tests.hub.helpers import ARR, JELLY
 
 
 def test_movies_and_tv_tabs_have_no_by_year():

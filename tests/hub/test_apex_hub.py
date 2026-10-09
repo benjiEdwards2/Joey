@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import write_envelope
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = REPO_ROOT / "config" / "sample_snapshots"

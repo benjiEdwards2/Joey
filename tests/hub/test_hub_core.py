@@ -4,8 +4,7 @@ import importlib
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope, write_registry
 
 
 def _shelf_area():

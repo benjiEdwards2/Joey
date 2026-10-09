@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import write_envelope
 from tests.hub.test_apex_hub import EVENTS, SAMPLE_DATA
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")

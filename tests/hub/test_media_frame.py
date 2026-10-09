@@ -10,9 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub import media_nav
-from tests.hub.test_media_shelves import JELLY, ARR, shelf_area
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import ARR, JELLY, make_area, make_tile, shelf_area, write_envelope, write_registry
 
 
 @pytest.fixture()

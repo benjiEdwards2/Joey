@@ -15,8 +15,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from hub import media_hidden
-from tests.hub.test_registry import make_area
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, FakeResponse as R, write_envelope
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SAMPLE = json.loads((Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "jellyseerr.json")
@@ -28,14 +27,6 @@ RKEY = "r-SECRET-radarr"
 SONARR = "http://sonarr.secret-host.invalid:8989"
 TKEY = "s-SECRET-sonarr"
 ORIGIN_BAD = {"Origin": "https://evil.invalid"}
-
-
-class R:
-    def __init__(self, body=None, code=200):
-        self._body, self.status_code = body, code
-
-    def json(self):
-        return self._body
 
 
 class Fake:

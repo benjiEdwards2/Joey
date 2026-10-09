@@ -11,17 +11,10 @@ import requests
 
 from hub import media_arr_search
 from tests.hub.test_media_discover import env, FORM, HX, FAKE_KEY  # noqa: F401  (env is a fixture)
+from tests.hub.helpers import FakeResponse as R
 
 SONARR = "http://sonarr.secret-host.invalid:8989"
 TKEY = "s-SECRET-sonarr-key"
-
-
-class R:
-    def __init__(self, body=None, code=200):
-        self._b, self.status_code = body, code
-
-    def json(self):
-        return self._b
 
 
 class Sonarr:

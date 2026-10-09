@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import write_envelope
 from tests.hub.test_weather import WX_DATA, app_factory  # noqa: F401  (fixture re-export)
 
 PNG = b"\x89PNG\r\n\x1a\nfake"

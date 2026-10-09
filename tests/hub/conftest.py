@@ -14,7 +14,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from tests.hub.test_store import write_envelope  # noqa: F401  (re-export)
+from tests.hub.helpers import write_envelope  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 SEP = '<span class="sep"> · </span>'
 

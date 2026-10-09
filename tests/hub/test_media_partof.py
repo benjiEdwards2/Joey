@@ -6,9 +6,9 @@ import re
 
 import pytest
 
-from tests.hub.test_media_film import FILM, PLAIN, env, main_of, prow  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_item import ITEMS
-import tests.hub.test_media_item as tmi
+from tests.hub.helpers import env, FILM, ITEMS, PLAIN, prow  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub import helpers as tmi
 from pathlib import Path
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")

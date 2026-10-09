@@ -10,9 +10,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
-from tests.hub.test_media_shelves import LINK, JELLY, shelf_area, shelves_for
-from tests.hub.test_registry import AREAS_YAML, make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import AREAS_YAML, JELLY, LINK, make_area, shelf_area, write_envelope, write_registry
+from tests.hub.test_media_shelves import shelves_for
 
 SERVER = "srv-1"
 NOW = datetime.now(timezone.utc)

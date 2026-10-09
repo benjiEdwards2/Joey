@@ -7,8 +7,9 @@ import pytest
 import requests
 
 from hub import media_db, media_hidden, media_item
-from tests.hub.test_media_item import EPISODES, ITEMS, TOMORROW, ep
-from tests.hub.test_media_resume import KEY, ORIGIN_BAD, URL, R, env, main_of  # noqa: F401  (env is a fixture)
+from tests.hub.helpers import ep, EPISODES, ITEMS, TOMORROW
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.test_media_resume import KEY, ORIGIN_BAD, URL, R, env  # noqa: F401  (env is a fixture)
 
 
 @pytest.fixture()

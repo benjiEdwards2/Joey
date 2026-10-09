@@ -7,8 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
-from tests.hub.test_registry import AREAS_YAML, make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_registry
 
 
 def test_real_registry_has_no_hub_size_key():

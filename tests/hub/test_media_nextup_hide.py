@@ -5,7 +5,8 @@ import json
 from datetime import datetime, timedelta, timezone
 
 from hub import media_backup, media_db, media_hidden, media_resume
-from tests.hub.test_media_resume import env, main_of, ORIGIN_BAD, MINE  # noqa: F401  (env fixture)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.test_media_resume import env, ORIGIN_BAD, MINE  # noqa: F401  (env fixture)
 
 
 def hide(client, jf="ep5", series="jf:ser1", back="/media/playing", **extra):

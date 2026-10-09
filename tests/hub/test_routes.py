@@ -9,7 +9,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from tests.hub.test_registry import make_area, write_registry
+from tests.hub.helpers import make_area, write_registry
 
 IDENTITY_HEADER = "Cf-Access-Authenticated-User-Email"
 

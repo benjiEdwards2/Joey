@@ -8,10 +8,9 @@ from datetime import datetime, timedelta, timezone
 
 from hub import media_db, server, server_alerts
 from hub.registry import load_registry
-from tests.hub.test_registry import AREAS_YAML
+from tests.hub.helpers import AREAS_YAML, write_envelope, write_history
 from tests.hub.test_server import ALL_UP, SYSTEM, _snaps, env, main_of, txt  # noqa: F401 (fixture)
 from tests.hub.test_server_alerts import posts  # noqa: F401 (fixture)
-from tests.hub.test_store import write_envelope, write_history
 
 NOW = datetime(2026, 10, 7, 12, 0, tzinfo=timezone.utc)
 MISSING = "MissingCredential: home_assistant: missing environment variable HA_URL"

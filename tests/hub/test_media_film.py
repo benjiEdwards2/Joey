@@ -10,113 +10,14 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import media_db, media_discover, media_files, media_film, media_item
-from tests.hub.test_media_item import ITEMS, KEY, SOURCES, STREAMS, URL, Fake as JFFake, R, deep
-from tests.hub.test_media_shelves import shelf_area
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import (  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+    Both, deep, env, FILM, ITEMS, JellyfinFake as JFFake, KEY, LIB_MOVIES, LIB_SHOWS, make_area, make_tile,
+    PLAIN, prow, FakeResponse as R, SEERR_URL as SEERR, Seerr, shelf_area, SHOW, SKEY, SOURCES, STREAMS, URL,
+    write_envelope, write_registry)
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
-SEERR = "http://seerr.secret-host.invalid:5055"
-SKEY = "k-SECRET-0123456789"
 YEAR = date.today().year
 HX = {"HX-Request": "true"}
-
-LIB_MOVIES = [{"item_key": "tmdb:603", "jf_id": "mov1", "title": "Harbour Lights", "year": 2019},
-              {"item_key": "tmdb:604", "jf_id": "mov2", "title": "Harbour Lights 2", "year": 2022}]
-LIB_SHOWS = [{"item_key": "tmdb:100", "jf_id": "ser1", "title": "Quiet Show", "year": 2020}]
-
-
-def prow(i, title, status=None):
-    r = {"id": i, "title": title, "releaseDate": "2020-01-01", "posterPath": f"/p{i}.jpg", "mediaType": "movie"}
-    if status:
-        r["mediaInfo"] = {"status": status}
-    return r
-
-
-FILM = {"id": 603, "title": "Harbour Lights", "releaseDate": "2019-05-05", "tagline": "Come home", "runtime": 112,
-        "overview": "A ferry pilot returns home.", "voteAverage": 7.4, "posterPath": "/hl.jpg", "backdropPath": "/hlb.jpg",
-        "genres": [{"name": "Drama"}], "mediaInfo": {"status": 5},
-        "credits": {"cast": [{"name": "Ada Actor", "character": "Pilot", "profilePath": "/ada.jpg"},
-                             {"name": "Bo Bit", "character": "Deckhand"}],
-                    "crew": [{"name": "Dee Director", "job": "Director"}, {"name": "Cy Camera", "job": "Cinematographer"}]},
-        "collection": {"id": 9, "name": "Harbour Collection"},
-        "watchProviders": [{"iso_3166_1": "AU", "flatrate": [{"name": "Netflix"}], "rent": [{"name": "Apple TV"}]},
-                           {"iso_3166_1": "US", "flatrate": [{"name": "USOnly"}]}],
-        "relatedVideos": [{"url": "https://www.youtube.com/watch?v=seerr1", "site": "YouTube", "type": "Trailer"}],
-        "releases": {"results": [{"iso_3166_1": "AU", "release_dates": [
-            {"type": 3, "release_date": "2019-05-05T00:00:00.000Z"}, {"type": 4, "release_date": "2019-08-01T00:00:00.000Z"}]}]}}
-PLAIN = {"id": 701, "title": "Plain Film", "releaseDate": "2024-01-01", "posterPath": "/pf.jpg", "backdropPath": "/pfb.jpg",
-         "overview": "Nothing yet.", "mediaInfo": {"status": 1}}
-SHOW = {"id": 100, "name": "Quiet Show", "firstAirDate": "2020-01-01", "numberOfSeasons": 1, "numberOfEpisodes": 6,
-        "posterPath": "/qs.jpg", "createdBy": [{"name": "Cass Creator"}], "mediaInfo": {"status": 5},
-        "seasons": [{"seasonNumber": 4, "name": "Season 4", "episodeCount": 6, "airDate": "2020-01-01"}]}
-
-
-class Seerr:
-    def __init__(self):
-        self.table = {
-            "/api/v1/movie/603": FILM, "/api/v1/movie/701": PLAIN, "/api/v1/tv/100": SHOW,
-            "/api/v1/movie/603/ratingscombined": {"rt": {"criticsScore": 92}, "imdb": {"criticsScore": 7.9}},
-            "/api/v1/movie/603/similar": {"results": [prow(11, "Similar One", 5), prow(12, "Similar Two")]},
-            "/api/v1/movie/603/recommendations": {"results": [prow(13, "Rec One")]},
-            "/api/v1/collection/9": {"parts": [prow(603, "Harbour Lights", 5), prow(604, "Harbour Lights 2"), prow(605, "Harbour Lights 3")]}}
-        self.post_status = 201
-        self.posts = []
-
-    def get(self, path):
-        return R(self.table[path]) if path in self.table else R({}, 404)
-
-
-class Both:
-    """requests.get / post for both services."""
-
-    def __init__(self):
-        self.jf, self.seerr, self.fail_jf, self.fail_seerr, self.calls = JFFake(), Seerr(), False, False, []
-
-    def get(self, url, params=None, headers=None, timeout=None, **kw):
-        self.calls.append(url)
-        if url.startswith(URL):
-            self.jf.fail = self.fail_jf
-            return self.jf.get(url, params=params, headers=headers, timeout=timeout)
-        assert url.startswith(SEERR) and headers == {"X-Api-Key": SKEY}
-        if self.fail_seerr:
-            raise requests.ConnectionError(url)
-        return self.seerr.get(url[len(SEERR):])
-
-    def post(self, url, json=None, headers=None, timeout=None, **kw):
-        self.seerr.posts.append((url, json))
-        return R({}, self.seerr.post_status)
-
-
-@pytest.fixture()
-def env(tmp_path, monkeypatch):
-    area = shelf_area()
-    area["tiles"].append(make_tile("disc-t", snapshot="jellyseerr", stale_after_minutes=180, detail="/media/discover"))
-    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, area, make_area("beta"))))
-    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
-    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
-    monkeypatch.setenv("PLAY_RECORDER", "off")
-    for k, v in (("JELLYFIN_URL", URL), ("JELLYFIN_API_KEY", KEY), ("JELLYSEERR_URL", SEERR), ("JELLYSEERR_API_KEY", SKEY)):
-        monkeypatch.setenv(k, v)
-    monkeypatch.delenv("JELLYFIN_USER", raising=False)
-    monkeypatch.setattr(media_film, "BADGES_DIR", tmp_path / "badges")
-
-    def build(arr=None, seerr_snap=None, jelly_extra=None):
-        snaps = tmp_path / "snaps"
-        write_envelope(snaps, "jellyfin", age_minutes=1,
-                       data={"summary": "x", "server_id": "srv-1", "movies": LIB_MOVIES, "shows": LIB_SHOWS, **(jelly_extra or {})})
-        write_envelope(snaps, "arr", age_minutes=1, data={"summary": "x", **(arr or {})})
-        write_envelope(snaps, "jellyseerr", age_minutes=1, data={"summary": "x", "requests": seerr_snap or []})
-        import hub.main
-        importlib.reload(hub.main)
-        for clear in (media_files.clear_cache, media_item.clear_cache, media_discover.clear_cache):
-            clear()
-        both = Both()
-        monkeypatch.setattr(requests, "get", both.get)
-        monkeypatch.setattr(requests, "post", both.post)
-        return TestClient(hub.main.app), both
-
-    return build
 
 
 def status(html):

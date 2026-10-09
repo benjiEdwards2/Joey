@@ -11,76 +11,10 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import media_db, media_files, media_item, media_plays_db
-from tests.hub.test_media_shelves import LINK, shelf_area
-from tests.hub.test_registry import make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import (  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+    deep, ep, EPISODES, JellyfinFake as Fake, ITEMS, KEY, LINK, LINKED, make_area, NOW, FakeResponse as R,
+    SEASONS, shelf_area, SOURCES, STREAMS, TICKS, TOMORROW, URL, write_envelope, write_registry, YESTERDAY)
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
-
-URL = "http://jf.secret-host.invalid:8096"
-KEY = "jf-SECRET-key-123"
-NOW = datetime.now(timezone.utc)
-YESTERDAY = (date.today() - timedelta(days=1)).isoformat() + "T00:00:00.0000000Z"
-TOMORROW = (date.today() + timedelta(days=3)).isoformat() + "T00:00:00.0000000Z"
-TICKS = 600_000_000
-STREAMS = [{"Type": "Video", "Codec": "hevc", "Height": 2160, "Width": 3840, "VideoRangeType": "HDR10"},
-           {"Type": "Audio", "Codec": "eac3", "Channels": 6, "Profile": "Dolby Digital Plus + Dolby Atmos", "IsDefault": True}]
-SOURCES = [{"Container": "mkv", "Size": 20 * 1024 ** 3, "MediaStreams": STREAMS}]
-
-
-def ep(i, name, played=False, pos=0, premiere=YESTERDAY, season="sea1"):
-    return {"Id": f"ep{i}", "Name": name, "IndexNumber": i, "PremiereDate": premiere, "SeasonId": season,
-            "UserData": {"Played": played, "PlaybackPositionTicks": pos}}
-
-
-ITEMS = {
-    "mov1": {"Id": "mov1", "Type": "Movie", "Name": "Harbour Lights", "ProductionYear": 2019,
-             "Overview": "A ferry pilot returns home.", "Genres": ["Drama", "Thriller"], "RunTimeTicks": 112 * TICKS,
-             "CommunityRating": 7.84, "OfficialRating": "M", "ProviderIds": {"Tmdb": "603"},
-             "UserData": {"Played": False, "PlaybackPositionTicks": 80 * TICKS},
-             "People": [{"Name": "Ada Actor", "Type": "Actor", "Role": "Pilot"}, {"Name": "Dee Director", "Type": "Director"}],
-             "MediaSources": SOURCES},
-    "ep3": {"Id": "ep3", "Type": "Episode", "Name": "Penny for Your Thoughts", "SeriesId": "ser1",
-            "SeasonId": "sea1", "SeriesName": "Quiet Show", "ParentIndexNumber": 4, "IndexNumber": 3,
-            "PremiereDate": "2026-10-12T00:00:00.0000000Z", "RunTimeTicks": 45 * TICKS, "Overview": "Coins go missing.",
-            "UserData": {"Played": True, "PlaybackPositionTicks": 0}, "MediaSources": SOURCES},
-    "ser1": {"Id": "ser1", "Type": "Series", "Name": "Quiet Show", "ProductionYear": 2020, "Genres": ["Comedy"],
-             "ProviderIds": {"Tmdb": "100"}, "Overview": "A quiet show.", "UserData": {"Played": False}},
-}
-SEASONS = [{"Id": "sea1", "Name": "Season 4", "IndexNumber": 4}]
-EPISODES = [ep(1, "One", True), ep(2, "Two", True), ep(3, "Three", True), ep(4, "Four", pos=5 * TICKS),
-            ep(5, "Five"), ep(6, "Six", premiere=TOMORROW)]
-
-
-class R:
-    def __init__(self, body, status=200):
-        self._b, self.status_code = body, status
-
-    def json(self):
-        return self._b
-
-
-class Fake:
-    def __init__(self):
-        self.calls, self.fail = [], False
-
-    def get(self, url, params=None, headers=None, timeout=None, **kw):
-        assert url.startswith(URL) and headers == {"Authorization": f"MediaBrowser Token={KEY}"}
-        path = url[len(URL):]
-        self.calls.append((path, params))
-        if self.fail:
-            raise requests.ConnectionError(url)
-        if path == "/Users":
-            return R([{"Id": "u1", "Name": "Ben", "Policy": {"IsAdministrator": True}}])
-        if path == "/System/Info/Public":
-            return R({"Id": "pubsrv"})
-        if path.startswith("/Users/u1/Items/"):
-            it = ITEMS.get(path.rsplit("/", 1)[1])
-            return R(it) if it else R({}, 404)
-        if path == "/Shows/ser1/Seasons":
-            return R({"Items": SEASONS})
-        if path == "/Shows/ser1/Episodes":
-            return R({"Items": EPISODES})
-        return R({}, 404)
 
 
 @pytest.fixture()
@@ -110,10 +44,6 @@ def env(tmp_path, monkeypatch):
 def current(html, label):
     nav = html.split(f'aria-label="{label}"', 1)[1].split("</nav>", 1)[0]
     return re.findall(r'aria-current="page">([^<]+?)(?:\s*<|\s*$)', nav)
-
-
-def deep(jf_id, server="srv-1"):
-    return f"{LINK}/web/#/details?id={jf_id}&amp;serverId={server}"
 
 
 def test_movie_page(env):
@@ -258,20 +188,6 @@ def test_no_url_or_key_in_the_page(env):
 
 
 # ---- link re-pointing ----
-
-LINKED = {
-    "summary": "x", "server_id": "srv-1",
-    "now_playing": [{"title": "Playing Now Title", "user": "Sam", "progress_pct": 42, "play_method": "Direct",
-                     "poster": "jf:np", "backdrop": "jfb:np", "jf_id": "np1", "item_key": "jf:np1"}],
-    "up_next": [{"title": "Dust and Daylight", "remaining_text": "31 min left", "poster": None, "jf_id": "resume-id",
-                 "item_key": "jf:ser9", "show_key": "jf:ser9", "season_key": "jf:sea9", "episode_key": "jf:resume-id"}],
-    "latest": [{"title": "Fresh Film", "type": "Movie", "item_key": "tmdb:5", "poster": None, "jf_id": "new-id",
-                "added_at": NOW.isoformat()}],
-    "history": {"recent": [{"title": "Quiet Show · S01E02 · B", "kind": "episode", "poster": None,
-                            "when": "today", "watched_at": NOW.isoformat(), "jf_id": "e2", "item_key": "jf:ser1",
-                            "show_key": "jf:ser1", "season_key": "jf:sea1", "episode_key": "jf:e2",
-                            "season": 1, "episode": 2, "show_title": "Quiet Show"}]},
-}
 
 
 def test_playing_diary_history_rows_link_to_item_pages(env):

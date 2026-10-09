@@ -9,7 +9,8 @@ import requests
 from fastapi.testclient import TestClient  # noqa: F401
 
 from hub import media_discover as md
-from tests.hub.test_media_discover import env, main_of, assert_no_secrets, res, Resp  # noqa: F401  (env fixture)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.test_media_discover import env, assert_no_secrets, res, Resp  # noqa: F401  (env fixture)
 from tests.hub.test_media_frame import current
 
 AU_MOVIES = [
@@ -211,7 +212,7 @@ def test_service_page_sits_under_discover_in_the_nav(env):
 
 
 def test_404_without_discover_tile_makes_no_call(env):
-    from tests.hub.test_registry import make_area
+    from tests.hub.helpers import make_area
     client, fake = env(areas=[make_area("beta")])
     with client:
         assert client.get("/media/discover/service/8").status_code == 404

@@ -5,18 +5,7 @@ from pathlib import Path
 
 from hub.registry import Owner, Tier, Tile
 from hub.store import get_snapshots, tile_state
-
-
-def write_envelope(d: Path, connector: str, age_minutes: int = 10, data: dict | None = None,
-                   status: str = "ok") -> None:
-    ts = (datetime.now(timezone.utc) - timedelta(minutes=age_minutes)).isoformat()
-    d.mkdir(parents=True, exist_ok=True)
-    (d / f"{connector}.json").write_text(json.dumps({
-        "connector": connector, "schema_version": 1,
-        "fetched_at": ts, "updated_at": ts, "status": status,
-        "consecutive_failures": 0, "error": None,
-        "data": data if data is not None else {"summary": "VALUE"},
-    }), encoding="utf-8")
+from tests.hub.helpers import write_envelope, write_history  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 
 def embed_tile(snapshot="open_meteo", stale_after=120, **over) -> Tile:
@@ -76,23 +65,6 @@ def test_state_link_never_reads_snapshots():
 
 
 # ---- WP-U2 (2026-10-06): _runner_history.jsonl tail reader ----
-
-def write_history(d: Path, sweeps: list, junk: list | None = None) -> Path:
-    """Append run_all-shaped lines: each sweep is (minutes_ago, {cid: status | (status, error)})."""
-    d.mkdir(parents=True, exist_ok=True)
-    path = d / "_runner_history.jsonl"
-    now = datetime.now(timezone.utc)
-    with path.open("a", encoding="utf-8") as fh:
-        for minutes_ago, results in sweeps:
-            res = {}
-            for cid, r in results.items():
-                status, error = r if isinstance(r, tuple) else (r, None)
-                res[cid] = {"status": status, "consecutive_failures": 0, "error": error}
-            fh.write(json.dumps({"ran_at": (now - timedelta(minutes=minutes_ago)).isoformat(),
-                                 "results": res}) + "\n")
-        for line in junk or []:
-            fh.write(line + "\n")
-    return path
 
 
 def test_runner_history_reads_the_tail_and_skips_junk(tmp_path):

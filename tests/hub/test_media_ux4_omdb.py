@@ -10,8 +10,8 @@ import pytest
 import requests
 
 from hub import media_discover, media_omdb
-from tests.hub.test_media_film import env, main_of  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_item import R
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.helpers import env, FakeResponse as R  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 KEY = "omdbSECRETkey42"
 TT = "tt0133093"
@@ -233,7 +233,7 @@ def test_imdb_id_sources():
 
 
 def test_the_jellyfin_imdb_id_is_used_when_jellyseerr_has_none(env, omdb, monkeypatch):
-    import tests.hub.test_media_item as tmi
+    from tests.hub import helpers as tmi
     monkeypatch.setitem(tmi.ITEMS["mov1"], "ProviderIds", {"Tmdb": "603", "Imdb": "tt1234567"})
     html, fake = film_page(env, monkeypatch, {"Metascore": "81"}, path="/media/item/mov1", imdb=None)
     assert fake.calls and fake.calls[0][1]["i"] == "tt1234567" and "sp-mc-good" in html

@@ -300,7 +300,7 @@ def test_awards_page_posters_carry_badges_by_qid(env):
 
 from tests.hub import test_media_discover as disc  # noqa: E402
 from tests.hub.test_media_discover import env as disc_env  # noqa: E402,F401  (fixture)
-from tests.hub.test_media_film import env as film_env  # noqa: E402,F401  (fixture)
+from tests.hub.helpers import env as film_env  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 
 def card_of(html, title):

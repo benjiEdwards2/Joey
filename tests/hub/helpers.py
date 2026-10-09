@@ -1,0 +1,337 @@
+"""Shared hub test helpers (W3 tests, T-03, 2026-10-09): the builders and sample data that many test modules
+import — snapshot envelopes, registry/area/tile builders, the Jellyfin / Jellyseerr / shelf fakes and samples.
+The modules that used to define them still re-export them, so old `from tests.hub.test_store import write_envelope`
+style imports keep working; new code imports from here."""
+import importlib
+import json
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+import requests
+import yaml
+from fastapi.testclient import TestClient
+
+
+class FakeResponse:
+    """A requests-style response: `.json()` returns the body, `.status_code` the status."""
+
+    def __init__(self, body=None, status=200):
+        self._b, self.status_code = body, status
+
+    def json(self):
+        return self._b
+
+
+def write_envelope(d: Path, connector: str, age_minutes: int = 10, data: dict | None = None,
+                   status: str = "ok") -> None:
+    ts = (datetime.now(timezone.utc) - timedelta(minutes=age_minutes)).isoformat()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{connector}.json").write_text(json.dumps({
+        "connector": connector, "schema_version": 1,
+        "fetched_at": ts, "updated_at": ts, "status": status,
+        "consecutive_failures": 0, "error": None,
+        "data": data if data is not None else {"summary": "VALUE"},
+    }), encoding="utf-8")
+
+
+def write_history(d: Path, sweeps: list, junk: list | None = None) -> Path:
+    """Append run_all-shaped lines: each sweep is (minutes_ago, {cid: status | (status, error)})."""
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / "_runner_history.jsonl"
+    now = datetime.now(timezone.utc)
+    with path.open("a", encoding="utf-8") as fh:
+        for minutes_ago, results in sweeps:
+            res = {}
+            for cid, r in results.items():
+                status, error = r if isinstance(r, tuple) else (r, None)
+                res[cid] = {"status": status, "consecutive_failures": 0, "error": error}
+            fh.write(json.dumps({"ran_at": (now - timedelta(minutes=minutes_ago)).isoformat(),
+                                 "results": res}) + "\n")
+        for line in junk or []:
+            fh.write(line + "\n")
+    return path
+
+
+AREAS_YAML = Path(__file__).resolve().parents[2] / "config" / "areas.yaml"
+
+
+def make_tile(tid: str, **over) -> dict:
+    tile = {
+        "id": tid, "label": "T", "tier": "embed", "owner": "shared",
+        "snapshot": "open_meteo", "stale_after_minutes": 60, "setup_note": "n",
+    }
+    tile.update(over)
+    return {k: v for k, v in tile.items() if v is not None}
+
+
+def make_area(aid: str, tid: str | None = None, **tile_over) -> dict:
+    tid = tid or f"{aid}-t"
+    return {
+        "id": aid, "name": aid.title(), "icon": aid,
+        "summary_tile": tid, "tiles": [make_tile(tid, **tile_over)],
+    }
+
+
+def write_registry(tmp_path: Path, *areas: dict) -> Path:
+    p = tmp_path / "areas.yaml"
+    p.write_text(yaml.safe_dump({"areas": list(areas)}), encoding="utf-8")
+    return p
+
+
+LINK = "http://nas.example.invalid:8096"
+
+
+NOW = datetime.now(timezone.utc)
+
+
+TODAY = NOW.date().isoformat()
+
+
+RECENT = [
+    {"title": "Harbour Lights", "item_key": "m1", "kind": "movie", "poster": "jf:1",
+     "when": "yesterday", "watched_at": (NOW - timedelta(days=1)).isoformat()},
+    {"title": "Rated One", "item_key": "m2", "kind": "movie", "poster": None,
+     "when": "2 days ago", "watched_at": (NOW - timedelta(days=2)).isoformat()},
+    {"title": "Old One", "item_key": "m3", "kind": "movie", "poster": None,
+     "when": "long ago", "watched_at": (NOW - timedelta(days=90)).isoformat()},
+]
+
+
+JELLY = {
+    "summary": "1 playing now",
+    "now_playing": [{"title": "Playing Now Title", "user": "Sample Person", "progress_pct": 42,
+                     "play_method": "Transcoding", "poster": "jf:np", "backdrop": "jfb:np"}],
+    "up_next": [{"title": "Dust and Daylight", "remaining_text": "31 min left", "poster": None,
+                 "item_key": "u1"}],
+    "latest": [{"title": "Fresh Film", "item_key": "dup", "poster": "jf:f",
+                "added_at": (NOW - timedelta(days=1)).isoformat()}],
+    "history": {"recent": RECENT},
+}
+
+
+ARR = {"summary": "x", "arrived": [{"title": "Fresh Film", "item_key": "dup", "when": "today"},
+                                   {"title": "Arr Only", "item_key": "a1", "when": "today"}],
+       "this_week": [{"title": "Due Show", "kind": "episode", "date": TODAY, "label": "Premiere", "item_key": "tvdb:9"}],
+       "downloading": [{"title": "Fetching Film", "kind": "movie", "pct": 40, "status_text": "Downloading",
+                        "time_left": "12 min", "item_key": None}]}
+
+
+SEERR_REQUESTS = {"summary": "x", "requests": [{"title": "Wanted", "item_key": "r1", "status_text": "Pending",
+                                       "href": "http://x.invalid"}]}
+
+
+def shelf_area(layout="shelves"):
+    area = make_area("alpha", "play-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/playing")
+    area["layout"] = layout
+    t = area["tiles"]
+    t.append(make_tile("lib-t", snapshot="arr", stale_after_minutes=180, detail="/media/library"))
+    t.append(make_tile("req-t", snapshot="jellyseerr", stale_after_minutes=180, detail="/media/requests"))
+    t.append(make_tile("apps-t", snapshot="media_status", stale_after_minutes=10, detail="/media/apps"))
+    t.append(make_tile("hist-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/history", owner="you"))
+    t.append(make_tile("diary-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/diary", owner="you"))
+    t.append(make_tile("years-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/years", owner="you"))
+    t.append({"id": "open-t", "label": "Open Jellyfin", "tier": "link", "owner": "shared", "href": LINK})
+    return area
+
+
+URL = "http://jf.secret-host.invalid:8096"
+
+
+KEY = "jf-SECRET-key-123"
+
+
+YESTERDAY = (date.today() - timedelta(days=1)).isoformat() + "T00:00:00.0000000Z"
+
+
+TOMORROW = (date.today() + timedelta(days=3)).isoformat() + "T00:00:00.0000000Z"
+
+
+TICKS = 600_000_000
+
+
+STREAMS = [{"Type": "Video", "Codec": "hevc", "Height": 2160, "Width": 3840, "VideoRangeType": "HDR10"},
+           {"Type": "Audio", "Codec": "eac3", "Channels": 6, "Profile": "Dolby Digital Plus + Dolby Atmos", "IsDefault": True}]
+
+
+SOURCES = [{"Container": "mkv", "Size": 20 * 1024 ** 3, "MediaStreams": STREAMS}]
+
+
+def ep(i, name, played=False, pos=0, premiere=YESTERDAY, season="sea1"):
+    return {"Id": f"ep{i}", "Name": name, "IndexNumber": i, "PremiereDate": premiere, "SeasonId": season,
+            "UserData": {"Played": played, "PlaybackPositionTicks": pos}}
+
+
+ITEMS = {
+    "mov1": {"Id": "mov1", "Type": "Movie", "Name": "Harbour Lights", "ProductionYear": 2019,
+             "Overview": "A ferry pilot returns home.", "Genres": ["Drama", "Thriller"], "RunTimeTicks": 112 * TICKS,
+             "CommunityRating": 7.84, "OfficialRating": "M", "ProviderIds": {"Tmdb": "603"},
+             "UserData": {"Played": False, "PlaybackPositionTicks": 80 * TICKS},
+             "People": [{"Name": "Ada Actor", "Type": "Actor", "Role": "Pilot"}, {"Name": "Dee Director", "Type": "Director"}],
+             "MediaSources": SOURCES},
+    "ep3": {"Id": "ep3", "Type": "Episode", "Name": "Penny for Your Thoughts", "SeriesId": "ser1",
+            "SeasonId": "sea1", "SeriesName": "Quiet Show", "ParentIndexNumber": 4, "IndexNumber": 3,
+            "PremiereDate": "2026-10-12T00:00:00.0000000Z", "RunTimeTicks": 45 * TICKS, "Overview": "Coins go missing.",
+            "UserData": {"Played": True, "PlaybackPositionTicks": 0}, "MediaSources": SOURCES},
+    "ser1": {"Id": "ser1", "Type": "Series", "Name": "Quiet Show", "ProductionYear": 2020, "Genres": ["Comedy"],
+             "ProviderIds": {"Tmdb": "100"}, "Overview": "A quiet show.", "UserData": {"Played": False}},
+}
+
+
+SEASONS = [{"Id": "sea1", "Name": "Season 4", "IndexNumber": 4}]
+
+
+EPISODES = [ep(1, "One", True), ep(2, "Two", True), ep(3, "Three", True), ep(4, "Four", pos=5 * TICKS),
+            ep(5, "Five"), ep(6, "Six", premiere=TOMORROW)]
+
+
+class JellyfinFake:
+    def __init__(self):
+        self.calls, self.fail = [], False
+
+    def get(self, url, params=None, headers=None, timeout=None, **kw):
+        assert url.startswith(URL) and headers == {"Authorization": f"MediaBrowser Token={KEY}"}
+        path = url[len(URL):]
+        self.calls.append((path, params))
+        if self.fail:
+            raise requests.ConnectionError(url)
+        if path == "/Users":
+            return FakeResponse([{"Id": "u1", "Name": "Ben", "Policy": {"IsAdministrator": True}}])
+        if path == "/System/Info/Public":
+            return FakeResponse({"Id": "pubsrv"})
+        if path.startswith("/Users/u1/Items/"):
+            it = ITEMS.get(path.rsplit("/", 1)[1])
+            return FakeResponse(it) if it else FakeResponse({}, 404)
+        if path == "/Shows/ser1/Seasons":
+            return FakeResponse({"Items": SEASONS})
+        if path == "/Shows/ser1/Episodes":
+            return FakeResponse({"Items": EPISODES})
+        return FakeResponse({}, 404)
+
+
+def deep(jf_id, server="srv-1"):
+    return f"{LINK}/web/#/details?id={jf_id}&amp;serverId={server}"
+
+
+LINKED = {
+    "summary": "x", "server_id": "srv-1",
+    "now_playing": [{"title": "Playing Now Title", "user": "Sam", "progress_pct": 42, "play_method": "Direct",
+                     "poster": "jf:np", "backdrop": "jfb:np", "jf_id": "np1", "item_key": "jf:np1"}],
+    "up_next": [{"title": "Dust and Daylight", "remaining_text": "31 min left", "poster": None, "jf_id": "resume-id",
+                 "item_key": "jf:ser9", "show_key": "jf:ser9", "season_key": "jf:sea9", "episode_key": "jf:resume-id"}],
+    "latest": [{"title": "Fresh Film", "type": "Movie", "item_key": "tmdb:5", "poster": None, "jf_id": "new-id",
+                "added_at": NOW.isoformat()}],
+    "history": {"recent": [{"title": "Quiet Show · S01E02 · B", "kind": "episode", "poster": None,
+                            "when": "today", "watched_at": NOW.isoformat(), "jf_id": "e2", "item_key": "jf:ser1",
+                            "show_key": "jf:ser1", "season_key": "jf:sea1", "episode_key": "jf:e2",
+                            "season": 1, "episode": 2, "show_title": "Quiet Show"}]},
+}
+
+
+SEERR_URL = "http://seerr.secret-host.invalid:5055"
+
+
+SKEY = "k-SECRET-0123456789"
+
+
+FILM = {"id": 603, "title": "Harbour Lights", "releaseDate": "2019-05-05", "tagline": "Come home", "runtime": 112,
+        "overview": "A ferry pilot returns home.", "voteAverage": 7.4, "posterPath": "/hl.jpg", "backdropPath": "/hlb.jpg",
+        "genres": [{"name": "Drama"}], "mediaInfo": {"status": 5},
+        "credits": {"cast": [{"name": "Ada Actor", "character": "Pilot", "profilePath": "/ada.jpg"},
+                             {"name": "Bo Bit", "character": "Deckhand"}],
+                    "crew": [{"name": "Dee Director", "job": "Director"}, {"name": "Cy Camera", "job": "Cinematographer"}]},
+        "collection": {"id": 9, "name": "Harbour Collection"},
+        "watchProviders": [{"iso_3166_1": "AU", "flatrate": [{"name": "Netflix"}], "rent": [{"name": "Apple TV"}]},
+                           {"iso_3166_1": "US", "flatrate": [{"name": "USOnly"}]}],
+        "relatedVideos": [{"url": "https://www.youtube.com/watch?v=seerr1", "site": "YouTube", "type": "Trailer"}],
+        "releases": {"results": [{"iso_3166_1": "AU", "release_dates": [
+            {"type": 3, "release_date": "2019-05-05T00:00:00.000Z"}, {"type": 4, "release_date": "2019-08-01T00:00:00.000Z"}]}]}}
+
+
+PLAIN = {"id": 701, "title": "Plain Film", "releaseDate": "2024-01-01", "posterPath": "/pf.jpg", "backdropPath": "/pfb.jpg",
+         "overview": "Nothing yet.", "mediaInfo": {"status": 1}}
+
+
+SHOW = {"id": 100, "name": "Quiet Show", "firstAirDate": "2020-01-01", "numberOfSeasons": 1, "numberOfEpisodes": 6,
+        "posterPath": "/qs.jpg", "createdBy": [{"name": "Cass Creator"}], "mediaInfo": {"status": 5},
+        "seasons": [{"seasonNumber": 4, "name": "Season 4", "episodeCount": 6, "airDate": "2020-01-01"}]}
+
+
+def prow(i, title, status=None):
+    r = {"id": i, "title": title, "releaseDate": "2020-01-01", "posterPath": f"/p{i}.jpg", "mediaType": "movie"}
+    if status:
+        r["mediaInfo"] = {"status": status}
+    return r
+
+
+class Seerr:
+    def __init__(self):
+        self.table = {
+            "/api/v1/movie/603": FILM, "/api/v1/movie/701": PLAIN, "/api/v1/tv/100": SHOW,
+            "/api/v1/movie/603/ratingscombined": {"rt": {"criticsScore": 92}, "imdb": {"criticsScore": 7.9}},
+            "/api/v1/movie/603/similar": {"results": [prow(11, "Similar One", 5), prow(12, "Similar Two")]},
+            "/api/v1/movie/603/recommendations": {"results": [prow(13, "Rec One")]},
+            "/api/v1/collection/9": {"parts": [prow(603, "Harbour Lights", 5), prow(604, "Harbour Lights 2"), prow(605, "Harbour Lights 3")]}}
+        self.post_status = 201
+        self.posts = []
+
+    def get(self, path):
+        return FakeResponse(self.table[path]) if path in self.table else FakeResponse({}, 404)
+
+
+class Both:
+    """requests.get / post for both services."""
+
+    def __init__(self):
+        self.jf, self.seerr, self.fail_jf, self.fail_seerr, self.calls = JellyfinFake(), Seerr(), False, False, []
+
+    def get(self, url, params=None, headers=None, timeout=None, **kw):
+        self.calls.append(url)
+        if url.startswith(URL):
+            self.jf.fail = self.fail_jf
+            return self.jf.get(url, params=params, headers=headers, timeout=timeout)
+        assert url.startswith(SEERR_URL) and headers == {"X-Api-Key": SKEY}
+        if self.fail_seerr:
+            raise requests.ConnectionError(url)
+        return self.seerr.get(url[len(SEERR_URL):])
+
+    def post(self, url, json=None, headers=None, timeout=None, **kw):
+        self.seerr.posts.append((url, json))
+        return FakeResponse({}, self.seerr.post_status)
+
+
+LIB_MOVIES = [{"item_key": "tmdb:603", "jf_id": "mov1", "title": "Harbour Lights", "year": 2019},
+              {"item_key": "tmdb:604", "jf_id": "mov2", "title": "Harbour Lights 2", "year": 2022}]
+LIB_SHOWS = [{"item_key": "tmdb:100", "jf_id": "ser1", "title": "Quiet Show", "year": 2020}]
+
+
+@pytest.fixture()
+def env(tmp_path, monkeypatch):
+    from hub import media_discover, media_files, media_film, media_item  # lazy: keep helpers import-light
+    area = shelf_area()
+    area["tiles"].append(make_tile("disc-t", snapshot="jellyseerr", stale_after_minutes=180, detail="/media/discover"))
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, area, make_area("beta"))))
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    monkeypatch.setenv("PLAY_RECORDER", "off")
+    for k, v in (("JELLYFIN_URL", URL), ("JELLYFIN_API_KEY", KEY), ("JELLYSEERR_URL", SEERR_URL), ("JELLYSEERR_API_KEY", SKEY)):
+        monkeypatch.setenv(k, v)
+    monkeypatch.delenv("JELLYFIN_USER", raising=False)
+    monkeypatch.setattr(media_film, "BADGES_DIR", tmp_path / "badges")
+
+    def build(arr=None, seerr_snap=None, jelly_extra=None):
+        snaps = tmp_path / "snaps"
+        write_envelope(snaps, "jellyfin", age_minutes=1,
+                       data={"summary": "x", "server_id": "srv-1", "movies": LIB_MOVIES, "shows": LIB_SHOWS, **(jelly_extra or {})})
+        write_envelope(snaps, "arr", age_minutes=1, data={"summary": "x", **(arr or {})})
+        write_envelope(snaps, "jellyseerr", age_minutes=1, data={"summary": "x", "requests": seerr_snap or []})
+        import hub.main
+        importlib.reload(hub.main)
+        for clear in (media_files.clear_cache, media_item.clear_cache, media_discover.clear_cache):
+            clear()
+        both = Both()
+        monkeypatch.setattr(requests, "get", both.get)
+        monkeypatch.setattr(requests, "post", both.post)
+        return TestClient(hub.main.app), both
+
+    return build

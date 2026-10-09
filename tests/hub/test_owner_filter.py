@@ -8,8 +8,7 @@ import importlib
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope, write_registry
 
 
 @pytest.fixture()

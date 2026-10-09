@@ -7,8 +7,7 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope, write_registry
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 FAKE_URL = "http://seerr.secret-host.invalid:5055"

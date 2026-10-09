@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from hub import media_db, media_library
 from tests.hub.test_media_frame import env, current  # noqa: F401  (env fixture)
-from tests.hub.test_media_shelves import JELLY, LINK
+from tests.hub.helpers import JELLY, LINK
 
 NOW = datetime.now(timezone.utc)
 

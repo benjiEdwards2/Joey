@@ -5,7 +5,8 @@ import re
 from contextlib import closing
 
 from hub import media_awards_db as adb
-from tests.hub.test_media_film import env, main_of  # noqa: F401  (env is a fixture)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.helpers import env  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.test_media_person import seed as seed_person
 
 HARBOUR = {"qid": "Q7001", "kind": "film", "label": "Harbour Lights", "tmdb_movie": 603, "tmdb_tv": None,

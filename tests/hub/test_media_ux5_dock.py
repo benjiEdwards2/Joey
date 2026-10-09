@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.conftest import shell_script
 from tests.hub.test_media_frame import env, ROUTES, LABELS  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_shelves import JELLY, ARR
+from tests.hub.helpers import ARR, JELLY
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
 

@@ -6,7 +6,8 @@ import re
 from pathlib import Path
 
 from hub import media_film
-from tests.hub.test_media_film import FILM, SHOW, env, main_of  # noqa: F401  (env is a fixture)
+from tests.hub.helpers import env, FILM, SHOW  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_of  # noqa: F401
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
 
@@ -55,7 +56,7 @@ def test_series_says_created_by_with_up_to_four_cards(env):
 
 
 def test_jellyfin_director_without_jellyseerr_still_gets_a_card(env, monkeypatch):
-    import tests.hub.test_media_item as tmi
+    from tests.hub import helpers as tmi
     monkeypatch.setitem(tmi.ITEMS["mov1"], "People", [
         {"Name": "Ada Actor", "Type": "Actor", "Role": "Pilot"},
         {"Name": "Dee Director", "Type": "Director", "Id": "p77", "PrimaryImageTag": "t"}])

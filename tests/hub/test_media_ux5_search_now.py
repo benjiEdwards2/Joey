@@ -9,7 +9,7 @@ import re
 import pytest
 import requests
 
-from tests.hub.test_media_film import env  # noqa: F401  (env is a fixture)
+from tests.hub.helpers import env, FakeResponse as R  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 RADARR = "http://radarr.secret-host.invalid:7878"
 RKEY = "r-SECRET-radarr-key"
@@ -52,14 +52,6 @@ class Arr:
 
     def commands(self):
         return [(u, j) for m, u, _, j in self.calls if m == "POST" and u.endswith("/api/v3/command")]
-
-
-class R:
-    def __init__(self, body=None, code=200):
-        self._b, self.status_code = body, code
-
-    def json(self):
-        return self._b
 
 
 @pytest.fixture()

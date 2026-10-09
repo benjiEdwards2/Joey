@@ -7,8 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.hub.test_registry import make_area, make_tile
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope
 from tests.hub.conftest import app_with, main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SAMPLE = json.loads((Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "arr.json")

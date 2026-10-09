@@ -5,7 +5,7 @@ import re
 import time
 
 from hub import images, media_discover as md, media_warmup
-from tests.hub.test_media_film import env  # noqa: F401  (fixture)
+from tests.hub.helpers import env  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.test_media_speed import warm_env  # noqa: F401
 
 

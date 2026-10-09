@@ -10,9 +10,7 @@ from fastapi.testclient import TestClient
 
 from hub.media_downloads import merge_downloading, pct_for_keys
 from tests.hub.test_media_discover import FAKE_KEY, FAKE_URL, MOVIE, Fake
-from tests.hub.test_media_shelves import shelf_area
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, shelf_area, write_envelope, write_registry
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 H1, H2 = "a" * 40, "b" * 40

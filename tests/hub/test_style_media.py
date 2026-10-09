@@ -9,9 +9,8 @@ from fastapi.testclient import TestClient
 from hub import media_db
 from tests.hub import test_apex_shell
 from tests.hub.test_media_downloads import env as dl_env  # noqa: F401  (fixture)
-from tests.hub.test_media_film import env as film_env  # noqa: F401  (fixture)
 from tests.hub.test_media_frame import env as frame_env  # noqa: F401  (fixture)
-from tests.hub.test_media_item import LINKED
+from tests.hub.helpers import env as film_env, LINKED  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.test_media_library_pages import jelly
 from tests.hub.test_media_watchlist import REQS
 

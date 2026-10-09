@@ -3,8 +3,8 @@ banner under the hero is the way to the show), only the EPISODE's Play button (t
 "Play" stays on the series page), and a watched toggle that reflects and acts on the episode itself."""
 import re
 
-from tests.hub.test_media_film import env, main_of  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_item import ITEMS, deep
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.helpers import deep, env, ITEMS  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 
 def hero(html):
@@ -39,7 +39,7 @@ def test_episode_page_renders_only_the_episodes_play(env):
 
 
 def test_episode_page_of_a_fully_watched_show_has_no_series_play(env, monkeypatch):
-    import tests.hub.test_media_item as tmi
+    from tests.hub import helpers as tmi
     monkeypatch.setattr(tmi, "EPISODES", [tmi.ep(i, f"E{i}", True) for i in range(1, 4)])
     client, _ = env()
     with client:

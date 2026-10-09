@@ -4,7 +4,8 @@ import re
 from datetime import date, timedelta
 
 from hub import media_follow
-from tests.hub.test_media_film import SEERR, SKEY, env, main_of  # noqa: F401  (env is a fixture)
+from tests.hub.helpers import env, SEERR_URL as SEERR, SKEY  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_of  # noqa: F401
 
 TODAY = date.today()
 PAST = (TODAY - timedelta(days=400)).isoformat()

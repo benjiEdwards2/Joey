@@ -7,10 +7,9 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import images, media_warmup
-from tests.hub.test_media_film import env  # noqa: F401  (fixture)
 from tests.hub.test_media_frame import env as frame_env  # noqa: F401  (fixture)
 from tests.hub.test_media_library_pages import MOVIES, SHOWS, jelly, body
-from tests.hub.test_media_shelves import JELLY
+from tests.hub.helpers import env, JELLY  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.test_media_speed import Img
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")

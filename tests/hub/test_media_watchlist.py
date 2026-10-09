@@ -8,7 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub import media_db, media_watchlist_db as wl
-from tests.hub.test_media_discover import FORM, HX, env as discover_env, main_of  # noqa: F401
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.test_media_discover import FORM, HX, env as discover_env  # noqa: F401
 from tests.hub.test_media_frame import current, env  # noqa: F401  (frame env fixture)
 from tests.hub.test_media_library_pages import MOVIES, SHOWS, jelly
 

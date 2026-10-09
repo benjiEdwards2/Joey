@@ -10,10 +10,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import media_files, media_hidden, media_item, media_resume
-from tests.hub.test_media_item import EPISODES, ITEMS, SEASONS, TICKS
-from tests.hub.test_media_shelves import shelf_area
-from tests.hub.test_registry import make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import EPISODES, ITEMS, make_area, FakeResponse as R, SEASONS, shelf_area, TICKS, write_envelope, write_registry
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 URL = "http://jf.secret-host.invalid:8096"
@@ -27,14 +24,6 @@ MINE = [{"title": "Dust and Daylight", "kind": "movie", "remaining_text": "31 mi
          "item_key": "jf:ser1", "jf_id": "ep5", "show_key": "jf:ser1"}]
 HERS = [{"title": "Garden Lane · S01E02 · Thaw", "kind": "episode", "remaining_text": "12 min left",
          "poster": "jf:her-series-1", "item_key": "jf:her-series-1", "jf_id": "her-ep2"}]
-
-
-class R:
-    def __init__(self, body=None, status=200):
-        self._b, self.status_code = body, status
-
-    def json(self):
-        return self._b
 
 
 class Fake:

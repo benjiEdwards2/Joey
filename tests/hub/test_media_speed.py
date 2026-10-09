@@ -9,8 +9,7 @@ import pytest
 import requests
 
 from hub import images, media_discover as md, media_film, media_item, media_warmup
-from tests.hub.test_media_film import SEERR, env  # noqa: F401  (fixture)
-from tests.hub.test_media_item import URL
+from tests.hub.helpers import env, SEERR_URL as SEERR, URL  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 LAT = 0.25
 

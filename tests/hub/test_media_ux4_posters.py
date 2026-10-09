@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 from hub import media_db
 from tests.hub.test_media_frame import env as frame_env  # noqa: F401  (fixture)
 from tests.hub.test_media_library_pages import MOVIES, SHOWS, jelly, body
-from tests.hub.test_media_rate import HX, env, main_of  # noqa: F401  (env fixture)
+from tests.hub.conftest import main_raw as main_of  # noqa: F401
+from tests.hub.test_media_rate import HX, env  # noqa: F401  (env fixture)
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
 

@@ -7,7 +7,8 @@ import pytest
 import requests
 
 from hub import media_db
-from tests.hub.test_media_rate import HX, JELLY, RECENT, env, jelly_data, main_of  # noqa: F401
+from tests.hub.conftest import main_raw as main_of  # noqa: F401
+from tests.hub.test_media_rate import HX, JELLY, RECENT, env, jelly_data  # noqa: F401
 
 SEARCH = {"results": [
     {"id": 603, "mediaType": "movie", "title": "The Matrix", "releaseDate": "1999-03-30",

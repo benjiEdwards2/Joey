@@ -5,8 +5,7 @@ import re
 
 from fastapi.testclient import TestClient
 
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, make_tile, write_envelope, write_registry
 
 CSS_V = re.compile(r'href="/static/control-surface\.css\?v=([0-9a-f]*)"')
 

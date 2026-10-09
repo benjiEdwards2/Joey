@@ -12,8 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.hub.test_registry import make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import make_area, write_envelope, write_registry
 
 WX_DATA = {
     "summary": "9.7 °C · partly cloudy", "secondary": "8–15 °C · 20% rain",

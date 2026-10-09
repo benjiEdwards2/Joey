@@ -6,7 +6,8 @@ import re
 import pytest
 
 from hub import media_db, media_nav, media_write
-from tests.hub.test_media_rate import HX, TV, env, jelly_data, main_of  # noqa: F401  (env fixture)
+from tests.hub.conftest import main_raw as main_of  # noqa: F401
+from tests.hub.test_media_rate import HX, TV, env, jelly_data  # noqa: F401  (env fixture)
 
 
 def subtabs(html):

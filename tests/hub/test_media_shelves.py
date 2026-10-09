@@ -8,53 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
-from tests.hub.test_registry import make_area, make_tile, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import (  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+    ARR, JELLY, LINK, make_area, make_tile, NOW, RECENT, SEERR_REQUESTS as SEERR, shelf_area, TODAY,
+    write_envelope, write_registry)
 
-LINK = "http://nas.example.invalid:8096"
-NOW = datetime.now(timezone.utc)
-RECENT = [
-    {"title": "Harbour Lights", "item_key": "m1", "kind": "movie", "poster": "jf:1",
-     "when": "yesterday", "watched_at": (NOW - timedelta(days=1)).isoformat()},
-    {"title": "Rated One", "item_key": "m2", "kind": "movie", "poster": None,
-     "when": "2 days ago", "watched_at": (NOW - timedelta(days=2)).isoformat()},
-    {"title": "Old One", "item_key": "m3", "kind": "movie", "poster": None,
-     "when": "long ago", "watched_at": (NOW - timedelta(days=90)).isoformat()},
-]
-JELLY = {
-    "summary": "1 playing now",
-    "now_playing": [{"title": "Playing Now Title", "user": "Sample Person", "progress_pct": 42,
-                     "play_method": "Transcoding", "poster": "jf:np", "backdrop": "jfb:np"}],
-    "up_next": [{"title": "Dust and Daylight", "remaining_text": "31 min left", "poster": None,
-                 "item_key": "u1"}],
-    "latest": [{"title": "Fresh Film", "item_key": "dup", "poster": "jf:f",
-                "added_at": (NOW - timedelta(days=1)).isoformat()}],
-    "history": {"recent": RECENT},
-}
-TODAY = NOW.date().isoformat()
-ARR = {"summary": "x", "arrived": [{"title": "Fresh Film", "item_key": "dup", "when": "today"},
-                                   {"title": "Arr Only", "item_key": "a1", "when": "today"}],
-       "this_week": [{"title": "Due Show", "kind": "episode", "date": TODAY, "label": "Premiere", "item_key": "tvdb:9"}],
-       "downloading": [{"title": "Fetching Film", "kind": "movie", "pct": 40, "status_text": "Downloading",
-                        "time_left": "12 min", "item_key": None}]}
-SEERR = {"summary": "x", "requests": [{"title": "Wanted", "item_key": "r1", "status_text": "Pending",
-                                       "href": "http://x.invalid"}]}
 APPS = [{"id": "j", "name": "Jellyfin", "href": "http://a.invalid", "up": True, "status_text": "Up", "note": None},
         {"id": "p", "name": "Prowlarr", "href": "http://b.invalid", "up": False, "status_text": "Down", "note": "t"}]
-
-
-def shelf_area(layout="shelves"):
-    area = make_area("alpha", "play-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/playing")
-    area["layout"] = layout
-    t = area["tiles"]
-    t.append(make_tile("lib-t", snapshot="arr", stale_after_minutes=180, detail="/media/library"))
-    t.append(make_tile("req-t", snapshot="jellyseerr", stale_after_minutes=180, detail="/media/requests"))
-    t.append(make_tile("apps-t", snapshot="media_status", stale_after_minutes=10, detail="/media/apps"))
-    t.append(make_tile("hist-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/history", owner="you"))
-    t.append(make_tile("diary-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/diary", owner="you"))
-    t.append(make_tile("years-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/years", owner="you"))
-    t.append({"id": "open-t", "label": "Open Jellyfin", "tier": "link", "owner": "shared", "href": LINK})
-    return area
 
 
 @pytest.fixture()

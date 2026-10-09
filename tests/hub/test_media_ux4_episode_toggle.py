@@ -7,9 +7,10 @@ import copy
 
 import pytest
 
-import tests.hub.test_media_item as tmi
+from tests.hub import helpers as tmi
 from tests.hub.test_media_watched import hero_btns, wenv  # noqa: F401  (fixture)
-from tests.hub.test_media_resume import env, main_of  # noqa: F401  (fixture)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.test_media_resume import env  # noqa: F401  (fixture)
 
 TICKS = tmi.TICKS
 

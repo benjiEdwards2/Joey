@@ -8,8 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
-from tests.hub.test_registry import AREAS_YAML, make_area, write_registry
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_registry
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = REPO_ROOT / "config" / "sample_snapshots"

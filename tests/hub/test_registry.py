@@ -5,34 +5,11 @@ import pytest
 import yaml
 
 from hub.registry import load_registry
+from tests.hub.helpers import AREAS_YAML, make_area, make_tile, write_registry  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-AREAS_YAML = REPO_ROOT / "config" / "areas.yaml"
 
 LOCKED_ORDER = ["kitchen", "money", "desk", "calendar", "media", "house", "car", "server"]  # garden removed (B., 2026-09-11); server added last (2026-10-06)
-
-
-def make_tile(tid: str, **over) -> dict:
-    tile = {
-        "id": tid, "label": "T", "tier": "embed", "owner": "shared",
-        "snapshot": "open_meteo", "stale_after_minutes": 60, "setup_note": "n",
-    }
-    tile.update(over)
-    return {k: v for k, v in tile.items() if v is not None}
-
-
-def make_area(aid: str, tid: str | None = None, **tile_over) -> dict:
-    tid = tid or f"{aid}-t"
-    return {
-        "id": aid, "name": aid.title(), "icon": aid,
-        "summary_tile": tid, "tiles": [make_tile(tid, **tile_over)],
-    }
-
-
-def write_registry(tmp_path: Path, *areas: dict) -> Path:
-    p = tmp_path / "areas.yaml"
-    p.write_text(yaml.safe_dump({"areas": list(areas)}), encoding="utf-8")
-    return p
 
 
 def test_real_registry_loads_in_locked_order():

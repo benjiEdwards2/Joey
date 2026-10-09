@@ -6,9 +6,9 @@ import re
 from pathlib import Path
 
 from hub import media_film
-from tests.hub import test_media_item as tmi
-from tests.hub.test_media_film import SHOW, env, main_of  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_item import TICKS, deep, ep
+from tests.hub import helpers as tmi
+from tests.hub.helpers import deep, env, ep, SHOW, TICKS  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_of  # noqa: F401
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
 

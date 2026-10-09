@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 
 from hub import media_db, media_film
-from tests.hub.test_media_film import env, main_of  # noqa: F401  (env is a fixture)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.helpers import env  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 ROOT = Path(__file__).resolve().parents[2]
 CSS = (ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")

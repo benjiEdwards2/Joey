@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.conftest import shell_script
 from tests.hub.test_media_frame import env, ROUTES  # noqa: F401  (env is a fixture)
-from tests.hub.test_media_shelves import JELLY, ARR
+from tests.hub.helpers import ARR, JELLY
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MEDIA_BAR = [("/a/alpha", "Home"), ("/media/movies", "Movies"), ("/media/tv", "TV"), ("/media/diary", "Diary"),

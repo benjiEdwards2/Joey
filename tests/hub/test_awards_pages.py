@@ -10,7 +10,8 @@ import pytest
 from hub import media_awards_db as adb
 from hub import media_db, media_discover as md, media_nav
 from tests.hub.test_awards_db import seed_oscars
-from tests.hub.test_media_rate import env, jelly_data, main_of  # noqa: F401  (env is a fixture)
+from tests.hub.conftest import main_raw as main_of  # noqa: F401
+from tests.hub.test_media_rate import env, jelly_data  # noqa: F401  (env is a fixture)
 from tests.hub.test_media_ux4_to_rate_tab import subtabs
 
 TEMPLATES = Path(__file__).resolve().parents[2] / "hub" / "templates"

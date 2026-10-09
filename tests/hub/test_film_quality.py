@@ -7,7 +7,9 @@ import time
 import pytest
 
 from hub import images, media_files as mf, media_film, media_rank, media_warmup
-from tests.hub.test_media_film import FILM, ITEMS, SOURCES, STREAMS, env, main_of  # noqa: F401  (env = fixture)
+from tests.hub.helpers import env, FILM  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.conftest import main_of  # noqa: F401
+from tests.hub.test_media_film import ITEMS, SOURCES, STREAMS  # noqa: F401  (env = fixture)
 
 NAME = "500 Days of Summer (2009) {imdb-tt1022603} [QxR8R][Bluray-1080p][x265][AAC 5.1]-Tigole.mkv"
 

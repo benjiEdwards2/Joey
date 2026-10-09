@@ -8,7 +8,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import media_db, server_alerts
-from tests.hub.test_store import write_envelope
+from tests.hub.helpers import write_envelope
 
 HOOK = "https://discord.invalid/api/webhooks/1/SECRET"
 

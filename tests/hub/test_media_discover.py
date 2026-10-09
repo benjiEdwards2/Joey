@@ -444,7 +444,7 @@ def test_season_partial_marks_on_disk_episodes(env, monkeypatch):
     fake.table["/api/v1/tv/100/season/1"] = SEASON
     from hub import media_files
     monkeypatch.setattr(media_files, "file_summary",
-                        lambda kind, tmdb_id: {"episode_keys": [(1, 2), (2, 1)]} if (kind, tmdb_id) == ("tv", 100) else None)
+                        lambda kind, tmdb_id, **kw: {"episode_keys": [(1, 2), (2, 1)]} if (kind, tmdb_id) == ("tv", 100) else None)
     with client:
         html = client.get("/media/title/tv/100/season/1", headers=HX).text
     rows = html.split("data-ep=")[1:]

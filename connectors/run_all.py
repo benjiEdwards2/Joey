@@ -50,6 +50,7 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
 
     results: dict[str, dict] = {}
     durations: dict[str, int] = {}
+    partial = 0
     sweep_start = time.monotonic()
     for connector in connectors:
         cid = getattr(connector, "id", connector.__class__.__name__)
@@ -70,15 +71,31 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
                 "error": f"runner-level {reason}",
             }
         durations[cid] = _ms(started)
-        log.info("%s: %s", cid, results[cid]["status"])
-        print(f"{cid}: {results[cid]['status']}"
-              + (f" ({results[cid]['error']})" if results[cid]["error"] else ""))
+        # One container-log line per NON-ok result (C-24, N-27); ok results are counted in
+        # the summary line below instead of being printed and logged one by one.
+        if results[cid]["status"] != "ok":
+            print(f"{cid}: {results[cid]['status']}"
+                  + (f" ({results[cid]['error']})" if results[cid]["error"] else ""))
+        elif _partial(envelope):
+            partial += 1
 
     sweep = {"ran_at": _now_iso(), "results": results}
     if only:
         sweep["only"] = list(only)
-    _write_heartbeat(sweep, durations, _ms(sweep_start))
+    sweep_ms = _ms(sweep_start)
+    _write_heartbeat(sweep, durations, sweep_ms)
+    ok = sum(1 for r in results.values() if r["status"] == "ok")
+    print(f"sweep ok={ok} err={len(results) - ok} partial={partial} ms={sweep_ms}")
     return sweep
+
+
+# data keys by which an ok envelope reports that part of its sources failed
+PARTIAL_KEYS = ("app_errors", "feed_errors")
+
+
+def _partial(envelope) -> bool:
+    data = envelope.get("data") if isinstance(envelope, dict) else None
+    return isinstance(data, dict) and any(data.get(k) for k in PARTIAL_KEYS)
 
 
 def _ms(since: float) -> int:

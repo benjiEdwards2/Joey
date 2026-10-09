@@ -161,3 +161,25 @@ def test_history_under_the_cap_is_never_rewritten(snapshots, monkeypatch):
     monkeypatch.setattr(run_all, "_rotate_history", lambda *a: (_ for _ in ()).throw(AssertionError))
     run_sweep([Good()])
     assert len(history.read_text(encoding="utf-8").splitlines()) == 3
+
+
+# ---- 2026-10-09 review (C-24, N-27): one log line per problem + one summary per sweep ----
+
+
+class Partial(Good):
+    id = "arr"
+
+    def fetch_fixture(self):
+        return {"summary": "1 arrived", "app_errors": {"sonarr": "HTTP 401"}}
+
+
+def test_only_non_ok_results_and_one_summary_line_are_printed(snapshots, capsys, caplog):
+    import re
+
+    with caplog.at_level("INFO"):
+        run_sweep([Raiser(), Good(), Partial()])
+    out = capsys.readouterr().out.strip().splitlines()
+    assert out[0] == "nas_stats: error (runner-level RuntimeError: connector exploded)"
+    assert re.fullmatch(r"sweep ok=2 err=1 partial=1 ms=\d+", out[-1])
+    assert len(out) == 2                       # nothing printed for the ok results
+    assert "open_meteo: ok" not in caplog.text  # and no per-connector log.info duplicate

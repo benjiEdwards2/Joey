@@ -915,13 +915,13 @@ class MediaStatus(Connector):
     requires_env = ("MEDIA_STATUS_HOST",)
 
     def fetch(self) -> list[dict]:
+        from concurrent.futures import ThreadPoolExecutor
+
         import requests
 
         host = os.environ["MEDIA_STATUS_HOST"]
-        results = []
-        for app in MEDIA_APPS:
-            if "via" in app:  # derived, never probed — see the gluetun comment above
-                continue
+
+        def probe(app: dict) -> dict:
             up, note = False, None
             try:
                 response = requests.get(f"http://{host}:{app['port']}{app['path']}",
@@ -931,7 +931,13 @@ class MediaStatus(Connector):
                     note = f"HTTP {response.status_code}"
             except Exception as exc:  # one app failing never fails the run
                 note = _probe_note(exc)
-            results.append({"id": app["id"], "up": up, "note": note})
+            return {"id": app["id"], "up": up, "note": note}
+
+        # Six probes at a time (C-12): one after another, 5 s timeouts stretched the fast loop
+        # to ~55 s. map() keeps MEDIA_APPS order; transform rebuilds it from MEDIA_APPS anyway.
+        probes = [app for app in MEDIA_APPS if "via" not in app]  # derived apps are never probed
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            results = list(pool.map(probe, probes))
         probed = {r["id"]: r["up"] for r in results}
         for app in MEDIA_APPS:
             if "via" in app:

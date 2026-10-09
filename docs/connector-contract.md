@@ -343,7 +343,8 @@ or a missing mount is an error envelope (`RuntimeError: cannot read /proc/stat (
 **`media_status` apps (2026-10-06, WP-S2).** The probe list adds `wud` (3030), `adm` (8000, Asustor ADM —
 a 30x to https counts as Up) and `homepage` (3000). `gluetun` is derived, not probed: Up iff `prowlarr` or
 `qbittorrent` answers (both route through it); when Down its note is `no answer via Prowlarr or qBittorrent`.
-The hub's Server page groups `gluetun` under Downloads and the rest under System.
+The hub's Server page groups `gluetun` under Downloads and the rest under System. Since 2026-10-09 (C-12) the
+probes run six at a time (5 s timeout each), so a filtered port no longer stretches the 120 s loop by ~55 s.
 
 **Arr counts (WP-S3, 2026-10-06).** `arr` data gains three optional objects, each `null` on failure:
 `radarr` (`movies` = all, `missing` = monitored without a file, `wanted` = those also released/available, `queued` =

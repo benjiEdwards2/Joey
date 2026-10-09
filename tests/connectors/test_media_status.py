@@ -164,3 +164,35 @@ def test_new_ids_land_in_the_right_server_groups():
     groups = {g["label"]: [a["id"] for a in g["apps"]] for g in group_services([{"id": a["id"]} for a in MEDIA_APPS])}
     assert "gluetun" in groups["Downloads"]
     assert {"wud", "adm", "homepage"} <= set(groups["System"])
+
+
+def test_probes_run_concurrently_at_most_six_at_a_time_in_app_order(live, monkeypatch):
+    """C-12: sequential 5 s timeouts stretched the 120 s fast loop to ~55 s."""
+    import threading
+    import time
+
+    lock, active, peak = threading.Lock(), [0], [0]
+
+    def slow(port):
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        time.sleep(0.05)
+        with lock:
+            active[0] -= 1
+        return 200 if port != 7878 else 503
+
+    raw_order = []
+    real_fetch = MediaStatus.fetch
+
+    def spy(self):
+        raw = real_fetch(self)
+        raw_order.extend(r["id"] for r in raw)
+        return raw
+
+    monkeypatch.setattr(MediaStatus, "fetch", spy)
+    envelope = run_with(monkeypatch, slow)
+    assert 2 <= peak[0] <= 6
+    assert raw_order == [a["id"] for a in MEDIA_APPS if "via" not in a] + ["gluetun"]
+    assert [a["id"] for a in envelope["data"]["apps"]] == [a["id"] for a in MEDIA_APPS]
+    assert envelope["data"]["secondary"] == "Down: Radarr"

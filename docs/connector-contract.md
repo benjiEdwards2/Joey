@@ -325,7 +325,10 @@ valid; the hub library pages then say "Library list not available yet".
 two `/proc/stat` samples 1 s apart (idle includes iowait), RAM is `/proc/meminfo` MemTotal / MemAvailable,
 plus `/proc/uptime` and `/proc/loadavg` (`load_1m` null if unreadable). Volumes are `os.statvfs` on each
 container path in `SYSTEM_VOLUMES` (compose sets `/host/volume1`, bound `/volume1:/host/volume1:ro` on the
-`connectors` service); `path` is reported with the `/host` prefix stripped (`/volume1`). Unreadable `/proc`
+`connectors` service); `path` is reported with the `/host` prefix stripped (`/volume1`). Since 2026-10-09 (C-19)
+`SYSTEM_VOLUME_LABELS` (`path=label[,path=label]`) overrides that label per path — e.g.
+`SYSTEM_VOLUMES=/data/snapshots` + `SYSTEM_VOLUME_LABELS=/data/snapshots=/volume1` reports the snapshots bind (same
+filesystem, so the same `statvfs` numbers) as `/volume1` without mounting the whole volume. Unset: unchanged. Unreadable `/proc`
 or a missing mount is an error envelope (`RuntimeError: cannot read /proc/stat (...)`), never invented numbers.
 
 **`media_status` apps (2026-10-06, WP-S2).** The probe list adds `wud` (3030), `adm` (8000, Asustor ADM —

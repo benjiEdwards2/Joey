@@ -1607,7 +1607,8 @@ class QBittorrent(Connector):
 # Live: runs inside joey-connectors on the NAS. /proc/{stat,meminfo,uptime,loadavg} are
 # host-wide from a container by default; volumes are os.statvfs on each container path
 # in SYSTEM_VOLUMES (set in deploy/docker-compose.yml, bind `/volume1:/host/volume1:ro`),
-# reported with the `/host` prefix stripped. No secrets, so no requires_env.
+# reported with the `/host` prefix stripped — or under its SYSTEM_VOLUME_LABELS name
+# (2026-10-09). No secrets, so no requires_env.
 
 PROC_ROOT = Path("/proc")
 CPU_SAMPLE_S = 1.0  # gap between the two /proc/stat reads
@@ -1639,6 +1640,19 @@ def _volume_label(path: str) -> str:
     if path == HOST_PREFIX:
         return "/"
     return path[len(HOST_PREFIX):] if path.startswith(HOST_PREFIX + "/") else path
+
+
+def _volume_labels() -> dict[str, str]:
+    """SYSTEM_VOLUME_LABELS `path=label[,path=label]` -> {path: label} (C-19): the name a
+    volume is shown under, e.g. `/data/snapshots=/volume1` (statvfs reports the whole
+    filesystem, so a small bind on the volume replaces mounting the volume itself).
+    Pairs without both a path and a label are ignored."""
+    labels = {}
+    for pair in (os.environ.get("SYSTEM_VOLUME_LABELS") or "").split(","):
+        path, sep, label = pair.partition("=")
+        if sep and path.strip() and label.strip():
+            labels[path.strip()] = label.strip()
+    return labels
 
 
 def _gib(n) -> float:
@@ -1686,6 +1700,7 @@ class System(Connector):
 
         volumes = []
         spec = os.environ.get("SYSTEM_VOLUMES") or SYSTEM_VOLUMES_DEFAULT
+        labels = _volume_labels()
         for path in (p.strip() for p in spec.split(",")):
             if not path:
                 continue
@@ -1693,7 +1708,7 @@ class System(Connector):
                 st = os.statvfs(path)
             except (OSError, AttributeError) as exc:  # AttributeError: no statvfs (Windows)
                 raise RuntimeError(f"cannot stat volume {path} ({type(exc).__name__})") from None
-            volumes.append({"path": _volume_label(path),
+            volumes.append({"path": labels.get(path) or _volume_label(path),
                             "total_bytes": st.f_blocks * st.f_frsize,
                             "free_bytes": st.f_bavail * st.f_frsize})
 

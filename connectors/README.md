@@ -16,7 +16,8 @@ fetches landed in WP-S2 (`system`) and WP-S3 (`wud`) the same day — see below.
 `/proc/meminfo` (MemTotal / MemAvailable); `/proc/uptime`; `/proc/loadavg` (null if unreadable) — all host-wide from inside
 the container. Volume space is `os.statvfs` on each path in `SYSTEM_VOLUMES` (comma-separated, default `/host/volume1`),
 set in `deploy/docker-compose.yml` with the read-only bind `/volume1:/host/volume1:ro`; the `/host` prefix is stripped
-for display. Unreadable `/proc` or an unstattable volume is an error envelope naming the file/path — never made-up numbers.
+for display. `SYSTEM_VOLUME_LABELS=path=label[,…]` (2026-10-09) overrides the shown name per path, e.g.
+`/data/snapshots=/volume1`, so a small bind on the volume can stand in for the whole-volume mount. Unreadable `/proc` or an unstattable volume is an error envelope naming the file/path — never made-up numbers.
 
 `media_status` probe list (WP-S2, 2026-10-06) adds `wud` (3030), `adm` (8000, Asustor ADM; a 30x redirect to https
 counts as Up — redirects are never followed) and `homepage` (3000). `gluetun` is never probed (its control port is not

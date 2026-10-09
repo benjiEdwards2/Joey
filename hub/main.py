@@ -34,7 +34,7 @@ from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
-from hub.shell import CacheHeaders, Compress, _static_version, templates  # ONE Jinja env for every router (H-31)
+from hub.shell import Compress, ShellMiddleware, _static_version, templates  # ONE Jinja env for every router (H-31)
 from hub.store import get_runner, get_runner_history, get_snapshots as _read_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
@@ -42,6 +42,9 @@ REPO_ROOT = HUB_DIR.parent
 
 log = logging.getLogger("hub")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+# hub.shell.ShellMiddleware writes the one request line (owner word, quiet paths skipped); uvicorn's access log
+# would repeat every request, the 30 s healthcheck and every poster (H-58, N-28).
+logging.getLogger("uvicorn.access").disabled = True
 
 registry: Registry | None = None
 
@@ -60,66 +63,52 @@ BACKUP_FIRST_DELAY_S = 30
 BACKUP_EVERY_S = 3600
 
 
-async def _backup_loop():
-    await asyncio.sleep(BACKUP_FIRST_DELAY_S)
+async def _every(label: str, first_s: float, every_s: float, fn) -> None:
+    """One background loop (H-23): wait `first_s`, then run `fn` in a worker thread every `every_s`. An error is
+    logged by type only and never takes the hub down."""
+    await asyncio.sleep(first_s)
     while True:
         try:
-            await asyncio.to_thread(media_backup.maybe_backup)
-        except Exception as exc:  # never let a backup take the hub down
-            log.warning("media backup task error: %s: %s", type(exc).__name__, exc)
-        await asyncio.sleep(BACKUP_EVERY_S)
+            await asyncio.to_thread(fn)
+        except Exception as exc:
+            log.warning("%s task error: %s", label, type(exc).__name__)
+        await asyncio.sleep(every_s)
 
 
-async def _server_alerts_loop():
-    """WP-U2: push NEW Server Attention items to Discord (no-op without the webhook).
-    WP-U4: the same loop samples the `system` snapshot into media.db (server_history)."""
-    await asyncio.sleep(server_alerts.FIRST_DELAY_S)
-    while True:
-        try:
-            await asyncio.to_thread(server_history.sample)
-        except Exception as exc:  # never let a history sample take the hub down
-            log.warning("server history task error: %s", type(exc).__name__)
-        try:
-            await asyncio.to_thread(server_alerts.check_once, server_area.live_snapshot_ids(registry))
-        except Exception as exc:  # never let an alert check take the hub down
-            log.warning("server alerts task error: %s", type(exc).__name__)
-        await asyncio.sleep(server_alerts.EVERY_S)
+def _backup_loop():
+    return _every("media backup", BACKUP_FIRST_DELAY_S, BACKUP_EVERY_S, lambda: media_backup.maybe_backup())
 
 
-async def _media_warmup_loop():
+def _server_tick() -> None:
+    """WP-U4: sample the `system` snapshot into media.db (server_history); WP-U2: push NEW Server Attention items
+    to Discord (no-op without the webhook). A failed sample never skips the alert check."""
+    try:
+        server_history.sample()
+    except Exception as exc:
+        log.warning("server history task error: %s", type(exc).__name__)
+    server_alerts.check_once(server_area.live_snapshot_ids(registry))
+
+
+def _server_alerts_loop():
+    return _every("server alerts", server_alerts.FIRST_DELAY_S, server_alerts.EVERY_S, _server_tick)
+
+
+def _media_warmup_loop():
     """media-speed: warm the film pages behind the Media home shelves ~60 s after startup, then every few
     hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it."""
-    await asyncio.sleep(media_warmup.FIRST_DELAY_S)
-    while True:
-        try:
-            await asyncio.to_thread(media_warmup.run_pass)
-        except Exception as exc:  # never let a warm-up take the hub down
-            log.warning("media warm-up task error: %s", type(exc).__name__)
-        await asyncio.sleep(media_warmup.EVERY_S)
+    return _every("media warm-up", media_warmup.FIRST_DELAY_S, media_warmup.EVERY_S, lambda: media_warmup.run_pass())
 
 
-async def _media_follow_loop():
+def _media_follow_loop():
     """Follow (2026-10-07): request NEW films of followed people / series (hub/media_follow.py) ~2 min after
     startup, then every 6 h. Idempotent (the NAS is off overnight); MEDIA_FOLLOW=off disables it."""
-    await asyncio.sleep(media_follow.FIRST_DELAY_S)
-    while True:
-        try:
-            await asyncio.to_thread(media_follow.run_once)
-        except Exception as exc:  # never let a follow check take the hub down
-            log.warning("media follow task error: %s", type(exc).__name__)
-        await asyncio.sleep(media_follow.EVERY_S)
+    return _every("media follow", media_follow.FIRST_DELAY_S, media_follow.EVERY_S, lambda: media_follow.run_once())
 
 
-async def _media_awards_loop():
+def _media_awards_loop():
     """Awards (2026-10-08): hourly check, a pass when one is due (hub/media_awards.py: every 6 h while a backlog
     exists, then weekly; skipped 22:00-07:00). MEDIA_AWARDS=off disables it; no AWARDS_CONTACT => no calls."""
-    await asyncio.sleep(media_awards.FIRST_DELAY_S)
-    while True:
-        try:
-            await asyncio.to_thread(media_awards.tick)
-        except Exception as exc:  # never let an awards pass take the hub down
-            log.warning("media awards task error: %s", type(exc).__name__)
-        await asyncio.sleep(media_awards.TICK_S)
+    return _every("media awards", media_awards.FIRST_DELAY_S, media_awards.TICK_S, lambda: media_awards.tick())
 
 
 @asynccontextmanager
@@ -130,51 +119,28 @@ async def lifespan(_: FastAPI):
     registry = load_registry(areas_path)  # ValueError here aborts startup by design
     registry_loaded_at = datetime.now(timezone.utc).isoformat()
     log.info("registry loaded from %s: %d areas", areas_path, len(registry.areas))
-    backup_task = None if media_backup.disabled() else asyncio.create_task(_backup_loop())
-    plays_task = media_plays.start_recorder()  # F7 play recorder; None when off
-    alerts_task = asyncio.create_task(_server_alerts_loop())
-    warmup_task = None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop())
-    follow_task = None if media_follow.disabled() else asyncio.create_task(_media_follow_loop())
-    awards_task = None if media_awards.disabled() else asyncio.create_task(_media_awards_loop())
+    tasks = [
+        None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
+        media_plays.start_recorder(),  # F7 play recorder; None when off
+        asyncio.create_task(_server_alerts_loop()),
+        None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop()),
+        None if media_follow.disabled() else asyncio.create_task(_media_follow_loop()),
+        None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),
+    ]
     yield
-    if awards_task is not None:
-        awards_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await awards_task
-    if follow_task is not None:
-        follow_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await follow_task
-    if warmup_task is not None:
-        warmup_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await warmup_task
-    alerts_task.cancel()
-    with suppress(asyncio.CancelledError):
-        await alerts_task
-    if plays_task is not None:
-        plays_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await plays_task
-    if backup_task is not None:
-        backup_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await backup_task
+    for task in reversed(tasks):  # newest first
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
 
 
 app = FastAPI(title="Joey hub", lifespan=lifespan)
 
 
-@app.middleware("http")
-async def log_identity(request: Request, call_next):
-    email = request.headers.get(IDENTITY_HEADER, "-")
-    response = await call_next(request)
-    log.info('%s %s user=%s -> %d', request.method, request.url.path, email, response.status_code)
-    return response
-
-
-# HTML pages no-store, /static/ immutable when ?v= versioned, else an hour; text bodies gzipped (hub/shell.py).
-app.add_middleware(CacheHeaders)
+# Request log + Cache-Control (pages no-store, /static/ immutable when ?v= versioned, else an hour) in one pure
+# ASGI layer; text bodies gzipped (hub/shell.py).
+app.add_middleware(ShellMiddleware)
 app.add_middleware(Compress)
 
 

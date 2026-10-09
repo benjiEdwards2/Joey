@@ -96,8 +96,58 @@ def test_text_is_gzipped_and_images_are_not(tmp_path, monkeypatch):
         gz = {"Accept-Encoding": "gzip"}
         page, css = c.get("/", headers=gz), c.get("/static/control-surface.css?v=1", headers=gz)
         icon, poster = c.get("/static/icon-192.png?v=3", headers=gz), c.get("/img/none?h=240", headers=gz)
+        small = c.get("/healthz", headers=gz)
     assert page.headers.get("content-encoding") == "gzip" and "<html" in page.text
     assert css.headers.get("content-encoding") == "gzip"
     assert css.headers["cache-control"].endswith("immutable")
-    for r in (icon, poster):
+    for r in (icon, poster, small):  # small: under 1 KB
         assert "content-encoding" not in r.headers
+
+
+def test_request_log_skips_quiet_paths_and_never_logs_the_email(tmp_path, monkeypatch, caplog):
+    """H-58 / N-28: one line per page, owner word only; healthcheck, static files and posters are silent."""
+    import logging
+    monkeypatch.setenv("OWNER_EMAIL_YOU", "me@example.invalid")
+    with _plain_client(monkeypatch, tmp_path) as c, caplog.at_level(logging.INFO, logger="hub"):
+        c.get("/", headers={"Cf-Access-Authenticated-User-Email": "me@example.invalid"})
+        c.get("/weather", headers={"Cf-Access-Authenticated-User-Email": "other@example.invalid"})
+        c.get("/nope")
+        c.get("/healthz"), c.get("/static/manifest.webmanifest"), c.get("/img/none?h=240")
+    lines = [r.getMessage() for r in caplog.records if r.name == "hub" and " owner=" in r.getMessage()]
+    assert lines == ["GET / owner=you -> 200", "GET /weather owner=her -> 200", "GET /nope owner=none -> 404"]
+    assert "example.invalid" not in caplog.text
+    assert logging.getLogger("uvicorn.access").disabled
+
+
+def test_one_pure_asgi_middleware_layer(tmp_path, monkeypatch):
+    """H-59: no BaseHTTPMiddleware left — the shell layer and gzip are plain ASGI classes."""
+    from starlette.middleware.base import BaseHTTPMiddleware
+    with _plain_client(monkeypatch, tmp_path):
+        import hub.main
+        from hub.shell import Compress, ShellMiddleware
+        classes = [m.cls for m in hub.main.app.user_middleware]
+    assert ShellMiddleware in classes and Compress in classes and BaseHTTPMiddleware not in classes
+
+
+def test_every_loop_logs_type_only_and_keeps_going(monkeypatch, caplog):
+    """H-23: the one loop helper — an error is logged by type (never its text) and the next run still happens."""
+    import asyncio
+    import logging
+
+    import hub.main as main
+    runs = []
+
+    def fn():
+        runs.append(1)
+        if len(runs) == 1:
+            raise RuntimeError("secret detail http://x.invalid")
+
+    async def go():
+        task = asyncio.create_task(main._every("demo", 0, 0, fn))
+        while len(runs) < 2:
+            await asyncio.sleep(0.01)
+        task.cancel()
+
+    with caplog.at_level(logging.WARNING, logger="hub"):
+        asyncio.run(go())
+    assert "demo task error: RuntimeError" in caplog.text and "secret" not in caplog.text

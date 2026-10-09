@@ -10,14 +10,16 @@ HUB_DEV=1 (local template editing).
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from fastapi.templating import Jinja2Templates
-from starlette.datastructures import MutableHeaders
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
 
+from hub.identity import resolve_identity
 from hub.images import fallback_letters
 
 HUB_DIR = Path(__file__).resolve().parent
@@ -71,8 +73,25 @@ def cache_control(path: str, query: bytes, status: int, content_type: str) -> st
     return None
 
 
-class CacheHeaders:
-    """Pure ASGI (no BaseHTTPMiddleware): sets `cache_control()` on the response start message."""
+# One request line per page/action (H-58, N-28): never for the healthcheck, static files or posters, and the
+# signed-in address is never logged — only the owner word. uvicorn's own access log is off (hub/main.py).
+QUIET_PREFIXES = ("/healthz", STATIC_PREFIX, "/img/")
+request_log = logging.getLogger("hub")
+
+
+class _HeaderView:
+    def __init__(self, scope):
+        self.headers = Headers(scope=scope)
+
+
+def owner_word(scope) -> str:
+    """'you' / 'her' / 'none' (not signed in) — what the request log says instead of the email."""
+    return resolve_identity(_HeaderView(scope)).owner or "none"
+
+
+class ShellMiddleware:
+    """The one pure ASGI middleware (H-59: the two BaseHTTPMiddleware layers merged): sets `cache_control()` on
+    the response start message and writes the request log line."""
 
     def __init__(self, app):
         self.app = app
@@ -82,16 +101,22 @@ class CacheHeaders:
             await self.app(scope, receive, send)
             return
         path, query = scope.get("path", ""), scope.get("query_string", b"")
+        status = [500]
 
         async def send_with_cache(message):
             if message["type"] == "http.response.start":
+                status[0] = message["status"]
                 headers = MutableHeaders(raw=message.setdefault("headers", []))
                 value = cache_control(path, query, message["status"], headers.get("content-type", ""))
                 if value:
                     headers["Cache-Control"] = value
             await send(message)
 
-        await self.app(scope, receive, send_with_cache)
+        try:
+            await self.app(scope, receive, send_with_cache)
+        finally:
+            if not path.startswith(QUIET_PREFIXES):
+                request_log.info("%s %s owner=%s -> %d", scope.get("method", "-"), path, owner_word(scope), status[0])
 
 
 # Already-compressed bodies (posters, icons, fonts, radar PNGs) skip gzip: no gain, NAS CPU spent.

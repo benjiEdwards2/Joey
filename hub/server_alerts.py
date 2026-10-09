@@ -5,7 +5,8 @@ Every Attention item (hub/server.py `attention_items`) carries a stable key (`do
 `server_attention_seen(key, first_seen, last_seen, notified_at)` remembers which keys are
 current: a key with no `notified_at` gets ONE plain Discord message "Joey Server: <text>"
 (at most 5 per cycle, 10 s timeout), and a key that leaves Attention loses its row so a
-recurrence notifies again.
+recurrence notifies again. A key whose push failed MAX_FAILS (3) times is not retried while it stays
+current (`fails`, 2026-10-09: a permanently refused webhook no longer retries every 5 minutes forever).
 
 WP-U3 (2026-10-07): not-configured connectors (hub/server.py `not_configured`: latest error a
 MissingCredential, or no visible area reads the snapshot) never enter Attention, so they are
@@ -37,12 +38,19 @@ log = logging.getLogger("hub.server_alerts")
 ENV = "SERVER_DISCORD_WEBHOOK"
 TIMEOUT = 10
 MAX_PER_CYCLE = 5
+MAX_FAILS = 3   # H-67: a key whose push failed this often is not retried until it leaves Attention and returns
 FIRST_DELAY_S = 60
 EVERY_S = 300
 PREFIX = "Joey Server: "
 
 DDL = """CREATE TABLE IF NOT EXISTS server_attention_seen(
-  key TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, notified_at TEXT)"""
+  key TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, notified_at TEXT, fails INTEGER NOT NULL DEFAULT 0)"""
+
+
+def _ensure(db) -> None:
+    db.execute(DDL)
+    if "fails" not in {r[1] for r in db.execute("PRAGMA table_info(server_attention_seen)")}:
+        db.execute("ALTER TABLE server_attention_seen ADD COLUMN fails INTEGER NOT NULL DEFAULT 0")  # pre-2026-10-09
 
 _lock = threading.Lock()  # the render path and the loop must never double-post
 
@@ -78,9 +86,9 @@ def sync(items: list[dict], now: datetime | None = None) -> int:
     with _lock:
         try:
             with closing(media_db.connect()) as db:
-                db.execute(DDL)
-                rows = {r["key"]: r["notified_at"] for r in
-                        db.execute("SELECT key, notified_at FROM server_attention_seen")}
+                _ensure(db)
+                rows = {r["key"]: (r["notified_at"], r["fails"]) for r in
+                        db.execute("SELECT key, notified_at, fails FROM server_attention_seen")}
                 with db:
                     for key in set(rows) - set(current):
                         db.execute("DELETE FROM server_attention_seen WHERE key = ?", (key,))
@@ -89,14 +97,20 @@ def sync(items: list[dict], now: datetime | None = None) -> int:
                                    "VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET "
                                    "last_seen = excluded.last_seen", (key, stamp, stamp))
                 for key, text in current.items():
-                    if rows.get(key) or tried >= MAX_PER_CYCLE:
-                        continue  # already pushed, or capped (the rest go next cycle)
+                    notified, fails = rows.get(key, (None, 0))
+                    if notified or fails >= MAX_FAILS or tried >= MAX_PER_CYCLE:
+                        continue  # already pushed, given up on, or capped (the rest go next cycle)
                     tried += 1
                     if post(url, PREFIX + text):
                         sent += 1
                         with db:
                             db.execute("UPDATE server_attention_seen SET notified_at = ? "
                                        "WHERE key = ?", (stamp, key))
+                    else:
+                        with db:
+                            db.execute("UPDATE server_attention_seen SET fails = fails + 1 WHERE key = ?", (key,))
+                        if fails + 1 >= MAX_FAILS:
+                            log.warning("discord push: giving up on one item after %d failures", MAX_FAILS)
         except (sqlite3.Error, OSError) as exc:
             log.warning("server attention sync failed: %s", type(exc).__name__)
     return sent

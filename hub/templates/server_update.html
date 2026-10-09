@@ -20,7 +20,7 @@
   <div class="confirm-btns"><a class="btn btn-secondary" href="/server#updates">Back to Server</a></div>
   {% else %}
   <p class="metaline">{{ confirm_text }}</p>
-  <form method="post" action="/server/updates/{{ name }}/run" class="confirm-btns">
+  <form method="post" action="/server/updates/{{ name | urlencode }}/run" class="confirm-btns">
     <button class="btn btn-primary" type="submit">Update {{ name }} now</button>
     <a class="btn btn-ghost" href="/server#updates">Cancel</a>
   </form>

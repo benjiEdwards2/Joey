@@ -171,3 +171,18 @@ def test_rail_section_rejects_other_values(tmp_path):
 def test_real_registry_puts_media_in_home_rail_section():
     reg = load_registry(AREAS_YAML)
     assert [a.id for a in reg.areas if a.rail_section == "home"] == ["media"]
+
+
+def test_gated_hrefs_live_in_areas_yaml_and_must_be_https(tmp_path):
+    """H-42: public hostnames are config (areas.yaml `gated_hrefs`), never hub code."""
+    import yaml
+    from pathlib import Path
+    reg = load_registry(AREAS_YAML)
+    assert reg.gated_hrefs == {"homepage": "https://homepage.joeyhome.net"}
+    hub_dir = Path(__file__).resolve().parents[2] / "hub"
+    core = ["main.py", "shell.py", "ids.py", "server.py", "server_alerts.py", "server_history.py", "server_updates.py"]
+    assert all("joeyhome.net" not in (hub_dir / name).read_text(encoding="utf-8") for name in core)
+    p = tmp_path / "areas.yaml"
+    p.write_text(yaml.safe_dump({"gated_hrefs": {"x": "http://lan:1"}, "areas": [make_area("a1")]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="gated_hrefs 'x'"):
+        load_registry(p)

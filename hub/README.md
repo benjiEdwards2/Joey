@@ -214,12 +214,16 @@ loaded registry; `check_once()` without one reads `AREAS_PATH` / `config/areas.y
 Homepage-style grid (1 column on a phone, 2 from 640 px, 3 from 1100 px): one card per app, the whole card the link
 (`target=_blank rel=noopener`, no nested `<a>`), logo left (`<img alt="" width=40 height=40>` from
 `/static/svc/<file>?v={{ static_v }}`), name + one-line subtitle (`server.SERVICE_SUBTITLES`; unknown ids name only),
-the Up/Down WORD beside the dot, and the Uptime Kuma response ms of the first monitor whose name contains the app name
-(case-insensitive; a Down card shows its note instead). Logos are vendored in `hub/static/svc/` (dashboard-icons,
+the Up/Down WORD beside the dot, and the Uptime Kuma response ms of the monitor whose name IS the app name
+(case-insensitive, exact since 2026-10-09; a Down card shows its note instead). Logos are vendored in `hub/static/svc/` (dashboard-icons,
 Apache-2.0; sources in its README) and mapped in `server.SERVICE_LOGOS`; an id with no logo renders a neutral tile with
 its initial letter and the area's line icon, and a test fails if a `MEDIA_APPS` id has neither a logo nor a `NO_LOGO`
-entry. `server.GATED_HREFS` overrides a card's LAN href where a gated hostname exists (homepage →
-`https://homepage.joeyhome.net` only); the KPI-row Homepage/Portainer link tiles are unchanged.
+entry. **LAN links (T3, 2026-10-09):** `gated_hrefs:` in `config/areas.yaml` (app / tile id → https hostname;
+homepage → `https://homepage.joeyhome.net` only) overrides a card's or link tile's href; a href that is still a LAN
+address (`server.is_lan`: private / loopback IP, dot-less, `.local`, `.lan`) renders as a plain card / tile with the
+word "LAN" and no link, since it is dead off the home network. The Services tile on this page says what the hub
+Server card says (`server.services_words`: "All up" / "1 down · Prowlarr"). Discord pushes stop retrying an item
+after 3 failed posts (`server_attention_seen.fails`) until it clears and returns.
 
 **Server → Last 24 h history (WP-U4, 2026-10-06).** `server_history.py` samples the `system` snapshot into media.db
 `server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — `ts` is the envelope's `updated_at`

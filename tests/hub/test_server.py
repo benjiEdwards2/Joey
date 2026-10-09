@@ -80,20 +80,23 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "of 7.7 GB · 75% used" in body and "12 days 4 h" in body
     assert "/volume1/Docker" in body and "120.0 GB free" in body and "of 465.6 GB" in body and "74% used" in body
     assert "width: 71%" in body
-    # 2 Services, grouped, Up/Down as words, whole row links to the app
+    # 2 Services, grouped, Up/Down as words; LAN-only apps are plain cards, never a dead link (H-71)
     svc = services_of(body)
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     assert ">Down</span>" in body and ">Up</span>" in body
-    assert 'href="http://nas.local:8096"' in body
+    assert "nas.local" not in body and '<span class="svc-sub">Media server · LAN</span>' in svc
     # 3 Updates
     assert "17 monitored · 2 updates" in txt(body) and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Counts
     assert ">Pending<" in body and ">Seeding<" in body and ">This week<" in body
-    # link tiles
-    assert 'href="https://homepage.joeyhome.net"' in body and 'href="http://192.168.68.59:9000"' in body
+    # link tiles: the gated one links, the LAN one (Portainer) is a plain "LAN" tile (H-71)
+    assert 'href="https://homepage.joeyhome.net"' in body and "192.168.68.59" not in body
+    tiles = body.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
+    portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
+    assert '<div class="tile-value stat-number">LAN' in portainer
     # band order, top to bottom
     marks = [body.index(m) for m in
              ('id="system"', 'id="services"', 'id="updates"', 'id="attention"', 'id="counts"')]
@@ -386,3 +389,25 @@ def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp
     with client:
         r = client.get("/server")
     assert r.status_code == 200 and 'id="sweeps"' not in main_of(r.text)   # no usable history
+
+
+def test_container_names_are_urlencoded_in_update_links(env):
+    """H-77: a container name from the WUD snapshot is URL-encoded wherever it builds a /server/updates/ path."""
+    wud = {"summary": "1 update", "monitoring": 1, "containers": [
+        {"name": "odd name&x", "current_tag": "1", "new_tag": "2", "kind": "tag", "update_available": True,
+         "auto": True}]}
+    with env(samples=False, wud=wud) as client:
+        body = main_of(client.get("/server").text)
+    assert 'href="/server/updates/odd%20name%26x/run?step=confirm"' in body
+    assert 'action="/server/updates/odd%20name%26x/ignore"' in body and "odd name&amp;x" in body
+
+
+def test_services_tile_and_hub_card_say_the_same_words(env):
+    """H-73: the Server page's Services tile and the hub's Server card share one vocabulary."""
+    with env() as client:
+        page = main_of(client.get("/server").text)
+        hub = main_of(client.get("/").text)
+    tiles = page.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
+    card = hub.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
+    assert "1 down · Prowlarr" in tiles and "1 down · Prowlarr" in card
+    assert " of 12 up" not in tiles + card

@@ -21,9 +21,11 @@ Services is a card grid (`service_card`: logo, subtitle, gated href, Uptime Kuma
 
 from __future__ import annotations
 
+import ipaddress
 import math
 import re
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from hub.ids import (ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID,  # noqa: F401
                      SYSTEM_SNAPSHOT_ID, UPTIME_KUMA_SNAPSHOT_ID, WUD_SNAPSHOT_ID)
@@ -61,9 +63,25 @@ SERVICE_SUBTITLES = {
     "portainer": "Docker management", "uptime_kuma": "Service monitoring",
     "wud": "Container updates", "adm": "NAS admin", "homepage": "NAS dashboard",
 }
-# Apps that have a Cloudflare-gated hostname: the card links there instead of the LAN
-# href from the snapshot (only Homepage today; the KPI-row link tiles are separate).
-GATED_HREFS = {"homepage": "https://homepage.joeyhome.net"}
+# Apps with a Cloudflare-gated hostname come from areas.yaml `gated_hrefs` (registry.gated_hrefs, 2026-10-09):
+# no hostname lives in this file. A card / link tile whose href is still a LAN address has no link and says "LAN".
+LAN_WORD = "LAN"
+
+
+def is_lan(href) -> bool:
+    """True for a link only the home network can open (dead through the tunnel): a private / loopback / link-local
+    IP, or a dot-less, .local, .lan or .home.arpa host name."""
+    try:
+        host = urlsplit(str(href or "")).hostname
+    except ValueError:
+        return False
+    if not host:
+        return False
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return "." not in host or host.endswith((".local", ".lan", ".home.arpa"))
+    return ip.is_private or ip.is_loopback or ip.is_link_local
 
 
 def uptime_text(seconds) -> str:
@@ -224,16 +242,18 @@ def group_services(apps: list[dict]) -> list[dict]:
     return [g for g in groups if g["apps"]]
 
 
-def service_card(app: dict, monitors: list[dict]) -> dict:
-    """One Services card: the app plus logo (file name or None), subtitle (or None), href
-    (gated hostname when one exists) and the Uptime Kuma response ms of the first monitor
-    whose name contains the app's name (case-insensitive), else None."""
+def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> dict:
+    """One Services card: the app plus logo (file name or None), subtitle (or None), href (the gated hostname from
+    `gated` when one exists, else the snapshot's — None with `lan` True when that is a LAN address, H-71) and the
+    Uptime Kuma response ms of the monitor whose name IS the app's name (case-insensitive, H-72), else None."""
     aid, name = app.get("id"), str(app.get("name") or app.get("id") or "?")
+    key = name.strip().lower()
     ms = next((m.get("response_ms") for m in monitors
-               if name.lower() in str(m.get("name") or "").lower()
-               and m.get("response_ms") is not None), None)
+               if str(m.get("name") or "").strip().lower() == key and m.get("response_ms") is not None), None)
+    href = (gated or {}).get(aid) or app.get("href")
+    lan = bool(href) and is_lan(href)
     return {**app, "name": name, "initial": name[:1].upper(), "logo": SERVICE_LOGOS.get(aid),
-            "subtitle": SERVICE_SUBTITLES.get(aid), "href": GATED_HREFS.get(aid, app.get("href")),
+            "subtitle": SERVICE_SUBTITLES.get(aid), "href": None if lan else href, "lan": lan,
             "response_ms": ms}
 
 
@@ -347,18 +367,22 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
     return items
 
 
+def services_words(snaps) -> str:
+    """"All up" / "2 down · Prowlarr · Sonarr" / "Not connected" — the Services words of the hub card AND the Server
+    page's Services tile (H-73: one vocabulary, guide §9 " · " joins)."""
+    if not connected(snaps.get(MEDIA_STATUS_SNAPSHOT_ID)) or not _data(snaps, MEDIA_STATUS_SNAPSHOT_ID):
+        return "Not connected"
+    down = [str(a.get("name", a.get("id", "?"))) for a in _apps(snaps) if not a.get("up")]
+    return " · ".join([f"{len(down)} down", *down]) if down else "All up"
+
+
 def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=None,
              now: datetime | None = None, live: set[str] | None = None) -> dict:
     """The Server area's hub card in words: {summary, secondary, state: ok|warn}.
     summary: "All up" / "2 down · Prowlarr · Sonarr"; secondary: "N updates" (ignored ones
     excluded) · "disk N%" (fullest volume) · "N monitors down". `warn` whenever Attention
     is non-empty. "Not connected" when the services snapshot is missing."""
-    apps = _apps(snaps)
-    if not connected(snaps.get(MEDIA_STATUS_SNAPSHOT_ID)) or not _data(snaps, MEDIA_STATUS_SNAPSHOT_ID):
-        summary = "Not connected"
-    else:
-        down = [str(a.get("name", a.get("id", "?"))) for a in apps if not a.get("up")]
-        summary = " · ".join([f"{len(down)} down", *down]) if down else "All up"  # guide §9: " · " joins
+    summary = services_words(snaps)
     parts = []
     rows = [c for c in _data(snaps, WUD_SNAPSHOT_ID).get("containers") or []
             if isinstance(c, dict) and c.get("update_available")]
@@ -465,9 +489,21 @@ def history_band(samples, now: datetime | None = None) -> dict:
     return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend}
 
 
+def _tile_row(tile, snaps, gated: dict | None) -> dict:
+    """{tile, st} for the page's tile row: a link tile takes its gated hostname, or loses its link (`lan`) when it
+    points at a LAN address; the Services tile says what the hub card says (H-73)."""
+    st = tile_state(tile, snaps)
+    if st["state"] == "link":
+        href = (gated or {}).get(tile.id) or st["href"]
+        st = {**st, "href": None, "lan": True} if is_lan(href) else {**st, "href": href}
+    elif tile.snapshot == MEDIA_STATUS_SNAPSHOT_ID and st["state"] != "off":
+        st = {**st, "value": services_words(snaps)}
+    return {"tile": tile, "st": st}
+
+
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
                  ignores=None, requested=None, history=None, samples=None,
-                 live: set[str] | None = None) -> dict:
+                 live: set[str] | None = None, gated: dict | None = None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     monitors = _band(area, snaps, UPTIME_KUMA_SNAPSHOT_ID)
@@ -489,7 +525,7 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     monitors["rows"] = [m for m in monitors["data"].get("monitors") or [] if isinstance(m, dict)]
 
     apps = [a for a in services["data"].get("apps") or [] if isinstance(a, dict)]
-    services["groups"] = group_services([service_card(a, monitors["rows"]) for a in apps])
+    services["groups"] = group_services([service_card(a, monitors["rows"], gated) for a in apps])
 
     ud = updates["data"]
     updates["pending"], updates["ignored"] = split_updates(
@@ -499,7 +535,7 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)
 
-    return {"tiles": [{"tile": t, "st": tile_state(t, snaps)} for t in area.tiles],
+    return {"tiles": [_tile_row(t, snaps, gated) for t in area.tiles],
             "system": system, "services": services, "monitors": monitors, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
             "sweeps": sweep_rows(stats, live=live), "counts": _counts(snaps),

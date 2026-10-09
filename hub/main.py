@@ -1514,7 +1514,8 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
                                   get_runner_history(), server_history.recent(),
-                                  live=server_area.live_snapshot_ids(registry))  # WP-U3
+                                  live=server_area.live_snapshot_ids(registry),  # WP-U3
+                                  gated=registry.gated_hrefs)
     tasks = BackgroundTasks()
     tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
     tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page

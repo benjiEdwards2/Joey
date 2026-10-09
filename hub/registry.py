@@ -71,6 +71,9 @@ class Area(BaseModel):
 
 class Registry(BaseModel):
     areas: list[Area]
+    # app / tile id -> its Cloudflare-gated https hostname (2026-10-09, H-42): Server cards and link tiles use it
+    # instead of a LAN address; with none, a LAN-only app renders as a plain card saying "LAN" (hub/server.py).
+    gated_hrefs: dict[str, str] = {}
 
     @property
     def visible_areas(self) -> list[Area]:
@@ -86,6 +89,10 @@ def _cross_checks(reg: Registry) -> list[str]:
         errors.append(
             f"registry has {len(reg.areas)} areas — must be between 1 and {MAX_AREAS} (hard cap)"
         )
+
+    for key, href in reg.gated_hrefs.items():
+        if not href.startswith("https://"):
+            errors.append(f"gated_hrefs '{key}': '{href}' must be an https:// hostname")
 
     seen_areas: set[str] = set()
     seen_tiles: set[str] = set()

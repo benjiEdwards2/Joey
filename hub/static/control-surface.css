@@ -949,6 +949,7 @@ a.castcard:hover .castname { text-decoration: underline; }
   border: 1px solid var(--line-soft); background: var(--surface); color: inherit; text-decoration: none;
   transition: background-color .15s, border-color .15s; }
 .svc-card:hover { background: var(--soft); border-color: var(--line-hover); }
+div.svc-card:not(.is-down):hover { background: var(--surface); border-color: var(--line-soft); }  /* LAN card: no link */
 .svc-card.is-down { background: var(--down-tint); box-shadow: inset 3px 0 0 var(--down-bar); }
 .svc-logo { width: 40px; height: 40px; flex: none; border-radius: 8px; padding: 5px; object-fit: contain;
   background: var(--appicon-bg); }

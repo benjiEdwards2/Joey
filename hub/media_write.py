@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, quote, urlencode, urlparse
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_db
 from hub.images import REF_RE
@@ -101,7 +102,10 @@ def render(request: Request, name: str, **ctx) -> HTMLResponse:
 @router.post("/media/settings/rating_level", dependencies=[Depends(same_origin)])
 async def set_rating_level(request: Request):
     """'Rate TV by' choice for the owner; back to the To rate inbox it reshapes."""
-    f = await form_of(request)
+    return await run_in_threadpool(_set_rating_level, request, await form_of(request))
+
+
+def _set_rating_level(request: Request, f: dict):
     value = f.get("value") or ""
     if value not in media_db.LEVELS:
         raise bad("Invalid rating level")
@@ -115,7 +119,10 @@ async def set_rating_level(request: Request):
 
 @router.post("/media/rate", dependencies=[Depends(same_origin)])
 async def rate(request: Request):
-    f = await form_of(request)
+    return await run_in_threadpool(_rate, request, await form_of(request))
+
+
+def _rate(request: Request, f: dict):
     item = clean_item(f)
     try:
         score = int(f.get("score", ""))
@@ -164,7 +171,10 @@ def unrate_form(request: Request, item_key: str):
 
 @router.post("/media/log", dependencies=[Depends(same_origin)])
 async def log_watch(request: Request):
-    f = await form_of(request)
+    return await run_in_threadpool(_log_watch, request, await form_of(request))
+
+
+def _log_watch(request: Request, f: dict):
     try:
         pick = json.loads(f.get("pick") or "")
     except ValueError:
@@ -250,7 +260,10 @@ def year_ctx(slug: str, mode: str = "", kind: str | None = None) -> dict:
 
 
 async def _ranking_write(request: Request, slug: str, action):
-    f = await form_of(request)
+    return await run_in_threadpool(_ranking_apply, request, slug, action, await form_of(request))
+
+
+def _ranking_apply(request: Request, slug: str, action, f: dict):
     year = parse_year(slug)
     try:
         action(year, f)

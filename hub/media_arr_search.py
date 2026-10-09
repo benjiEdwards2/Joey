@@ -26,6 +26,7 @@ from urllib.parse import urlencode
 import requests
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_discover as md, media_requests as mr, media_resume
 from hub.media_write import form_of, same_origin
@@ -196,6 +197,7 @@ async def search_now(request: Request, kind: str, tmdb_id: int):
     kind = md._kind(kind)
     form = await form_of(request)
     back = _back(form.get("back"), kind, tmdb_id)
-    code, status = start_search(kind, tmdb_id, _tvdb(form.get("tvdb"))) if tmdb_id > 0 else ("missing", None)
+    code, status = (await run_in_threadpool(start_search, kind, tmdb_id, _tvdb(form.get("tvdb")))  # M-40: off the loop
+                    if tmdb_id > 0 else ("missing", None))
     q = {"search": code, "app": app_of(kind), **({"code": status} if status else {})}
     return RedirectResponse(f"{back}?" + urlencode(q), status_code=303)

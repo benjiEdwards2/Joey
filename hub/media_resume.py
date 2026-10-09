@@ -38,6 +38,7 @@ from urllib.parse import urlencode
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_files, media_hidden, media_item
 from hub.media_write import form_of, same_origin
@@ -220,9 +221,14 @@ def _to_hide(action: str, scope: str | None, jf_id: str, show_id) -> list[str]:
 
 
 async def _run(request: Request, jf_id: str, action: str):
+    """The form is read on the event loop; the Jellyfin calls (and the season read behind _to_hide) run in a worker
+    thread (M-40)."""
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
-    form = await form_of(request)
+    return await run_in_threadpool(_apply, request, jf_id, action, await form_of(request))
+
+
+def _apply(request: Request, jf_id: str, action: str, form: dict):
     owner, back = owner_of(request, form), _back(form.get("back"))
     scope = "season" if form.get("scope") == "season" and action in ("watched", "unwatched") else None
     season = str(form.get("season") or "")
@@ -265,7 +271,7 @@ async def hide_next_up(request: Request, jf_id: str):
     if not media_db.KEY_RE.match(series):
         raise HTTPException(422, "Invalid series")
     try:
-        media_db.hide_next_up(owner, series, jf_id)
+        await run_in_threadpool(media_db.hide_next_up, owner, series, jf_id)
     except Exception as exc:  # sqlite / OS errors: a word, never a 500
         log.warning("next up hide not saved: %s", type(exc).__name__)
         return RedirectResponse(f"{back}?error=hidefail", status_code=303)

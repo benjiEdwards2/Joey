@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, quote
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_awards_badges, media_files
 from hub.images import REF_RE, cache_dir
@@ -562,8 +563,14 @@ def _send(kind: str, tmdb_id: int, seasons: list[int] | str) -> str | None:
 
 @router.post("/media/title/{kind}/{tmdb_id}/request", dependencies=[Depends(same_origin)])
 async def request_title(request: Request, kind: str, tmdb_id: int):
+    """The body is read on the event loop; the Jellyseerr POST and Sonarr's follow (up to two 2 s waits) run in a
+    worker thread, so a slow upstream never stalls other requests or /healthz (M-40)."""
     kind = _kind(kind)
     seasons = await _seasons_of(request) if kind == "tv" else []
+    return await run_in_threadpool(_request_title, request, kind, tmdb_id, seasons)
+
+
+def _request_title(request: Request, kind: str, tmdb_id: int, seasons):
     code = _send(kind, tmdb_id, seasons)
     future = None
     if code is None:

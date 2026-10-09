@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_watchlist_db as wl
 from hub.media_write import bad, clean_item, form_of, is_htmx, owner_for, same_origin
@@ -64,7 +65,11 @@ def _back(request: Request, kind: str) -> RedirectResponse:
 
 
 async def _write(request: Request, adding: bool):
-    f = await form_of(request)
+    """The form is read on the event loop; the SQLite write and the render run in a worker thread (M-40)."""
+    return await run_in_threadpool(_apply, request, adding, await form_of(request))
+
+
+def _apply(request: Request, adding: bool, f: dict):
     item = _item(f)
     owner = owner_for(request)
     try:

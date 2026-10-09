@@ -13,7 +13,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `main.py` | App creation, middleware, `/static` mount, router includes, Hub page (`/`), Area pages (`/a/{id}`, `/server`), `/healthz`, `/whoami`; re-exports the moved names so old `hub.main.X` paths keep working |
 | `shell.py` | What every router imports instead of `hub.main`: THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`, `identity`), the registry holder (`load_areas`, `registry`), `get_snapshots` (once per request), the owner view, `build_status`, `find_detail_source`, `render_page` / `not_found_page` (the one base context and 404), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
 | `tasks.py` | The app lifespan (loads the registry) and the background loops, all through `_every` |
-| `weather.py`, `calendar.py` | Weather glimpse, `/weather` forecast + radar routes; the Next 7 days list and hub card |
+| `weather.py`, `upcoming.py` | Weather glimpse, `/weather` forecast + radar routes; the Next 7 days list and hub card |
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
 | `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary, Years, Movies / TV grid, Tonight |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |

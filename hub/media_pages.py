@@ -13,8 +13,8 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import (calendar, media_awards_badges, media_backup, media_db, media_downloads, media_home, media_library,
-                 media_requests, media_resume, media_write, shell)
+from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_library,
+                 media_requests, media_resume, media_write, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -112,7 +112,7 @@ def media_library_page(request: Request):
         for row in sorted(data.get("this_week", []), key=lambda r: (r["date"], r["title"])):
             day = date.fromisoformat(row["date"])
             if not groups or groups[-1]["day"] != day:
-                groups.append({"day": day, "label": calendar._day_label(day, today), "rows": []})
+                groups.append({"day": day, "label": upcoming._day_label(day, today), "rows": []})
             groups[-1]["rows"].append(row)
         merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data(request))
         # Whole row is the link (B., 2026-10-06): Joey item page, title page or nothing — same

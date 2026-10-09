@@ -1,5 +1,6 @@
-"""Calendar (W3 split of hub/main.py, H-44): the day-grouped "next 7 days" list an area page renders under a gcal
-tile (build_upcoming / find_upcoming) and the hub's "Next 7 days" card with its per-day KPI bars (hub_upcoming).
+"""Upcoming (W3 split of hub/main.py, H-44; was hub/calendar.py, renamed so it no longer shadows the stdlib `calendar`):
+the day-grouped "next 7 days" list an area page renders under a gcal tile (build_upcoming / find_upcoming) and the hub's
+"Next 7 days" card with its per-day KPI bars (hub_upcoming).
 """
 
 from __future__ import annotations

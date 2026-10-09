@@ -25,7 +25,7 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub import calendar, media_home, media_pages, shell, tasks, weather
+from hub import media_home, media_pages, shell, tasks, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
     DIARY_PAGE, LIBVIEWS, LIBVIEW_COOKIE, LIBVIEW_MAX_AGE, MILESTONES_MAX, _arr_linker, _detail_page,
@@ -43,8 +43,8 @@ from hub.media_home import (  # noqa: F401
     build_shelves, find_media, hub_shelf, item_href, media_frame, media_hero, resume_acts, row_href, score_for,
     to_rate_tab_counts, view_jelly, waiting_counts,
 )
-# W3: the calendar helpers live in hub/calendar.py; re-exported for the old `hub.main.X` paths.
-from hub.calendar import (UPCOMING_DAYS, _day_label, _event_dt, build_upcoming, find_upcoming,  # noqa: F401
+# W3: the calendar helpers live in hub/upcoming.py; re-exported for the old `hub.main.X` paths.
+from hub.upcoming import (UPCOMING_DAYS, _day_label, _event_dt, build_upcoming, find_upcoming,  # noqa: F401
                           hub_upcoming, per_day_counts)
 # W3: the weather helpers and routes live in hub/weather.py; re-exported for the old `hub.main.X` paths.
 from hub.weather import (RADAR_FILE_RE, RADAR_OVER, RADAR_SLOTS, RADAR_UNDER, WINDY_DEFAULT, WINDY_EMBED,  # noqa: F401
@@ -152,7 +152,7 @@ def hub_page(request: Request):
     snaps = shell.get_snapshots(request=request)
     backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
     cards, shelf = [], None
-    upcoming = calendar.hub_upcoming(snaps, view)
+    upcoming = hub_upcoming(snaps, view)
     for a in shell.registry.visible_areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not shell.owner_visible(summary, view):
@@ -236,7 +236,7 @@ def area_page(request: Request, area_id: str):
         }, active_id=area.id)
         return shell._maybe_set_cookie(resp, view, from_query)
     media = media_home.find_media(tiles, snaps)
-    upcoming = calendar.find_upcoming(tiles, snaps, view)
+    upcoming = find_upcoming(tiles, snaps, view)
     # Weather renders on the hub and /weather only (2026-10-08, B. — supersedes the
     # Calendar-page card). The registry tile stays: find_weather's config anchor.
     tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]

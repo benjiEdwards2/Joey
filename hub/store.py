@@ -32,27 +32,63 @@ class Snapshot:
     age_minutes: float  # since updated_at (last SUCCESS — what stale badges read)
 
 
-def _parse(path: Path, now: datetime) -> Optional[Snapshot]:
+def parse_utc(value) -> Optional[datetime]:
+    """An ISO timestamp as an aware datetime (naive = UTC; 'Z' and Jellyfin's 7-digit fractions accepted by
+    Python 3.12's fromisoformat); None when it is not one. The one parser for the hub core (H-21)."""
+    try:
+        at = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+def _parse(path: Path) -> Optional[tuple[dict[str, Any], datetime]]:
+    """(Snapshot fields without age, updated_at as a datetime); None for a malformed file."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-        updated = datetime.fromisoformat(raw["updated_at"].replace("Z", "+00:00"))
-        return Snapshot(
-            connector=raw["connector"],
-            status=raw["status"],
-            fetched_at=raw["fetched_at"],
-            updated_at=raw["updated_at"],
-            consecutive_failures=raw["consecutive_failures"],
-            error=raw.get("error"),
-            data=raw["data"],
-            age_minutes=(now - updated).total_seconds() / 60.0,
-        )
+        updated = parse_utc(raw["updated_at"])
+        if updated is None:
+            raise ValueError("updated_at is not a timestamp")
+        return {
+            "connector": raw["connector"],
+            "status": raw["status"],
+            "fetched_at": raw["fetched_at"],
+            "updated_at": raw["updated_at"],
+            "consecutive_failures": raw["consecutive_failures"],
+            "error": raw.get("error"),
+            "data": raw["data"],
+        }, updated
     except Exception as exc:  # malformed file == absent, never a crash
-        log.warning("snapshot %s unreadable, treating as absent: %s", path.name, exc)
+        log.warning("snapshot %s unreadable, treating as absent: %s", path.name, type(exc).__name__)
         return None
 
 
 def _snapshot_dir(snapshot_dir: str | Path | None = None) -> Path:
     return Path(snapshot_dir or os.environ.get("SNAPSHOT_DIR", DEFAULT_SNAPSHOT_DIR))
+
+
+# H-48 (2026-10-09): every request used to re-parse every envelope (the jellyfin one carries whole libraries) up
+# to four times. Each file is now parsed once per (st_mtime_ns, st_size); a file changed in the last
+# FRESH_GUARD_S is always re-read (filesystems with coarse mtimes), and age_minutes is recomputed on every call.
+# The parsed `data` is shared between calls: treat Snapshot.data as read-only.
+FRESH_GUARD_S = 1.0
+_PARSED: dict[str, dict[str, tuple]] = {}   # dir -> {file name: ((mtime_ns, size), parsed or None)}
+_PARSED_DIRS_MAX = 8
+
+
+def _cached_parse(path: Path, seen: dict[str, tuple], prev: dict[str, tuple], now: datetime):
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    sig = (st.st_mtime_ns, st.st_size)
+    hit = prev.get(path.name)
+    if hit is not None and hit[0] == sig and now.timestamp() - st.st_mtime >= FRESH_GUARD_S:
+        parsed = hit[1]
+    else:
+        parsed = _parse(path)
+    seen[path.name] = (sig, parsed)
+    return parsed
 
 
 def get_snapshots(snapshot_dir: str | Path | None = None) -> dict[str, Snapshot]:
@@ -61,13 +97,19 @@ def get_snapshots(snapshot_dir: str | Path | None = None) -> dict[str, Snapshot]
     if not directory.is_dir():
         return {}
     now = datetime.now(timezone.utc)
+    key = str(directory)
+    prev, seen = _PARSED.get(key, {}), {}
     out: dict[str, Snapshot] = {}
     for path in sorted(directory.glob("*.json")):
         if path.name.startswith("_"):  # _runner.json etc. are heartbeats, not envelopes
             continue
-        snap = _parse(path, now)
-        if snap is not None:
-            out[snap.connector] = snap
+        parsed = _cached_parse(path, seen, prev, now)
+        if parsed is not None:
+            fields, updated = parsed
+            out[fields["connector"]] = Snapshot(**fields, age_minutes=(now - updated).total_seconds() / 60.0)
+    if key not in _PARSED and len(_PARSED) >= _PARSED_DIRS_MAX:
+        _PARSED.clear()  # tests use many temp dirs; production has one
+    _PARSED[key] = seen   # only the files still there
     return out
 
 

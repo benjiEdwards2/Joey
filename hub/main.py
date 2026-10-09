@@ -50,10 +50,19 @@ logging.getLogger("uvicorn.access").disabled = True
 registry: Registry | None = None
 
 
-def get_snapshots(snapshot_dir=None):
+def get_snapshots(snapshot_dir=None, request=None):
     """Every envelope (hub.store), with resume items just marked watched / reset left out of the jellyfin
-    `up_next` lists until a newer sweep (media_resume, 2026-10-08) — so every shelf, hero and list drops them."""
-    return media_resume.apply_hidden(_read_snapshots(snapshot_dir), "jellyfin")
+    `up_next` lists until a newer sweep (media_resume, 2026-10-08) — so every shelf, hero and list drops them.
+    With `request`: read once per request — the first call keeps it on request.state.snaps, where the page's
+    builders and media_frame find it (H-48)."""
+    state = getattr(request, "state", None)
+    cached = getattr(state, "snaps", None) if state is not None else None
+    if cached is not None:
+        return cached
+    snaps = media_resume.apply_hidden(_read_snapshots(snapshot_dir), "jellyfin")
+    if state is not None:
+        state.snaps = snaps
+    return snaps
 
 registry_loaded_at: str | None = None
 
@@ -743,8 +752,7 @@ def media_frame(request: Request) -> dict:
     if cached is None:
         view, _ = resolve_owner_view(request)
         area = media_nav.shelves_area(registry)
-        snaps = getattr(request.state, "snaps", None)  # media-speed: a route's own read, when it shared one
-        snaps = get_snapshots() if snaps is None else snaps
+        snaps = get_snapshots(request=request)  # media-speed: a route's own read, when it shared one
         recent = _recent(snaps, view)
         ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
         waiting = area_waiting(area, snaps, view, recent, ratings) if area else {}
@@ -1035,7 +1043,7 @@ def server_card_state(st: dict, snaps, backup: dict | None = None) -> dict:
 @app.get("/", response_class=HTMLResponse)
 def hub_page(request: Request):
     view, from_query = resolve_owner_view(request)
-    snaps = get_snapshots()
+    snaps = get_snapshots(request=request)
     backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
     cards, shelf = [], None
     upcoming = hub_upcoming(snaps, view)
@@ -1080,7 +1088,7 @@ def weather_page(request: Request):
     """Detail behind the hub glimpse (2026-09-11). Reads the same snapshot; today plus,
     since the 2026-10-06 upgrade, the next 24 hours and 7 days when the snapshot has them."""
     view, from_query = resolve_owner_view(request)
-    snaps = get_snapshots()
+    snaps = get_snapshots(request=request)
     resp = templates.TemplateResponse(request, "weather.html", {
         "areas": registry.visible_areas, "active_id": None, "w": find_weather(snaps),
         "fc": weather_forecast(snaps), "radar": weather_radar(snaps),   # radar: parked BOM panel context
@@ -1111,7 +1119,7 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     404 when no registry tile reads that snapshot; 'Not connected' when it has no data
     (`always_build` still runs `build` then — the diary has data of its own)."""
     view, from_query = resolve_owner_view(request)
-    snaps = get_snapshots()
+    snaps = get_snapshots(request=request)
     src = find_detail_source(snapshot_id, snaps, detail)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
@@ -1147,15 +1155,15 @@ def media_playing_page(request: Request):
     return _detail_page(request, "media_playing.html", JELLYFIN_SNAPSHOT_ID, build)
 
 
-def _qb_data() -> dict:
-    snap = get_snapshots().get(QBIT_SNAPSHOT_ID)
+def _qb_data(request=None) -> dict:
+    snap = get_snapshots(request=request).get(QBIT_SNAPSHOT_ID)
     return snap.data if snap else {}
 
 
-def _arr_linker(view):
+def _arr_linker(view, request=None):
     """Rows -> rows with `href`: same resolver the Movies/TV pages use, per kind, against the
     view's own Jellyfin lists (media_library.link_arrivals). Rows without an item_key stay None."""
-    jelly = get_snapshots().get(JELLYFIN_SNAPSHOT_ID)
+    jelly = get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
     jdata = jelly.data if jelly else {}
     lists = {k: _library_lists(jdata, view, k)[0] for k in ("movie", "tv")}
 
@@ -1170,11 +1178,11 @@ def _arr_linker(view):
 def media_downloads_page(request: Request):
     def build(data, view):
         # Whole row is the link (2026-10-06) when the torrent is an arr download whose title resolves.
-        arr = get_snapshots().get(ARR_SNAPSHOT_ID)
+        arr = get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
         by_hash = {str(r.get("download_id") or "").lower(): r
                    for r in media_downloads.collapse_packs((arr.data if arr else {}).get("downloading"))
                    if r.get("download_id")}
-        link = _arr_linker(view)
+        link = _arr_linker(view, request)
         data = {**data, "active": [{**t, "href": (link([by_hash[h]], need_key=True)[0]["href"]
                                                   if (h := str(t.get("hash") or "").lower()) in by_hash else None)}
                                    for t in data.get("active") or []]}
@@ -1199,10 +1207,10 @@ def media_library_page(request: Request):
             if not groups or groups[-1]["day"] != day:
                 groups.append({"day": day, "label": _day_label(day, today), "rows": []})
             groups[-1]["rows"].append(row)
-        merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data())
+        merged = media_downloads.merge_downloading(data.get("downloading"), _qb_data(request))
         # Whole row is the link (B., 2026-10-06): Joey item page, title page or nothing — same
         # resolver the Movies/TV pages use, per kind, against the view's own Jellyfin lists.
-        link = _arr_linker(view)
+        link = _arr_linker(view, request)
 
         for g in groups:
             g["rows"] = link(g["rows"])
@@ -1223,7 +1231,7 @@ def media_library_page(request: Request):
 def media_requests_page(request: Request):
     def build(data, view):
         # Remove (2026-10-08): a removed row leaves at once (media_hidden), not at the next hourly sweep.
-        snap = get_snapshots().get(JELLYSEERR_SNAPSHOT_ID)
+        snap = get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
         rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
         c = media_requests.visible_counts(data, rows)
         good, warn = media_requests.flash_text(request.query_params)
@@ -1430,7 +1438,7 @@ def _library_page(request: Request, kind: str):
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
-        arr = get_snapshots().get(ARR_SNAPSHOT_ID)
+        arr = get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: item_href(jf))
         q = request.query_params.get("q", "")
@@ -1535,7 +1543,7 @@ def media_year_countdown(request: Request, slug: str):
 
 def _server_response(request: Request, area, view: str, from_query: bool):
     """The `layout: server` page (WP-S1, 2026-10-06): bands built by hub/server.py."""
-    snaps = get_snapshots()
+    snaps = get_snapshots(request=request)
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
                                   get_runner_history(), server_history.recent(),
@@ -1572,7 +1580,7 @@ def area_page(request: Request, area_id: str):
         }, status_code=404)
     if area.layout == server_area.SERVER_LAYOUT:  # keyed by layout, never by area name
         return _server_response(request, area, view, from_query)
-    snaps = get_snapshots()
+    snaps = get_snapshots(request=request)
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
              for t in area.tiles if owner_visible(t, view)]
     if area.layout == "shelves":

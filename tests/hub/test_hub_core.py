@@ -112,3 +112,20 @@ def test_hub_server_card_is_cached_while_snapshots_are_unchanged(tmp_path, monke
         monkeypatch.setattr(main, "HUB_CARD_TTL_S", 0)
         c.get("/")
         assert len(builds) == 3
+
+
+def test_a_media_page_reads_the_snapshot_dir_once(tmp_path, monkeypatch):
+    """H-48: _detail_page, its builders (_qb_data, _arr_linker) and media_frame share request.state.snaps."""
+    area = _shelf_area()
+    area["tiles"] += [make_tile("lib-t", snapshot="arr", stale_after_minutes=60, detail="/media/library"),
+                      make_tile("dl-t", snapshot="qbittorrent", stale_after_minutes=60, detail="/media/downloads")]
+    main = _reload(tmp_path, monkeypatch, area)
+    write_envelope(tmp_path / "snaps", "arr", age_minutes=1, data={"summary": "x", "arrived": [], "this_week": []})
+    write_envelope(tmp_path / "snaps", "qbittorrent", age_minutes=1, data={"summary": "x", "active": []})
+    reads, real = [], main._read_snapshots
+    monkeypatch.setattr(main, "_read_snapshots", lambda *a: reads.append(1) or real(*a))
+    with TestClient(main.app) as c:
+        for path in ("/media/library", "/media/downloads", "/media/movies", "/"):
+            reads.clear()
+            assert c.get(path).status_code == 200
+            assert reads == [1], path

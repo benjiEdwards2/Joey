@@ -21,7 +21,8 @@ COPY requirements-dev.txt requirements-dev.txt
 RUN pip install --no-cache-dir -r hub/requirements.txt \
     -r connectors/requirements.txt -r requirements-dev.txt
 
-# Everything the suite touches (.dockerignore keeps .env/*.env and data out)
+# Everything the suite touches (.dockerignore keeps **/.env, **/*.env -- incl. deploy/.env --
+# history.log and data out)
 COPY . .
 
 USER joey

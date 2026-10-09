@@ -2,15 +2,19 @@
 /data/
 docs/*
 !docs/connector-contract.md
-__pycache__/
-*.pyc
+**/__pycache__/
+**/*.pyc
 .pytest_cache/
 .venv/
 *.db
 *.db-wal
 *.db-shm
-.env
-*.env
+# Secrets: `*` does not cross `/`, so the ** forms are needed to catch deploy/.env (review D-01)
+**/.env
+**/*.env
+!**/*.env.example
+deploy/history.log
+.preview/
 drop/
 connectors/money/samples/
 connectors/money/golden_local/

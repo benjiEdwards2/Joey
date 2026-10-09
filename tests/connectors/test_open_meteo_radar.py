@@ -9,6 +9,7 @@ ftp.bom.gov.au (conftest refuses any unmocked FTP connection).
 
 import ftplib
 import json
+import time
 
 import jsonschema
 import pytest
@@ -63,6 +64,30 @@ class FakeFTP:
 
     def quit(self):
         FakeFTP.seen.append(("quit",))
+
+
+@pytest.fixture(autouse=True)
+def _reset_fake_ftp():
+    """FakeFTP keeps its state on the class, so one test's files / listing / call log / failure switch must not reach
+    the next (W3 tests, T-02: the suspected order-dependence)."""
+    FakeFTP.files, FakeFTP.listing, FakeFTP.seen, FakeFTP.fail_on = {}, [], [], None
+    yield
+    FakeFTP.files, FakeFTP.listing, FakeFTP.seen, FakeFTP.fail_on = {}, [], [], None
+
+
+def _names_settled(rdir, gone):
+    """The radar dir's file names once `gone` have been pruned. On Windows a reader (an antivirus scan, the hub
+    serving the file) can briefly hold a file the prune could not delete — production skips it until the next
+    sweep — so retry the prune up to 3x, with a short sleep, before the caller asserts."""
+    names = {p.name for p in rdir.iterdir()}
+    for _ in range(3):
+        stale = set(gone) & names
+        if not stale:
+            break
+        time.sleep(0.2)
+        prune_radar_dir(rdir, names - stale)
+        names = {p.name for p in rdir.iterdir()}
+    return names
 
 
 @pytest.fixture()
@@ -140,12 +165,12 @@ def test_second_run_prunes_frames_no_envelope_references(live):
     FakeFTP.listing = LISTING + ["/anon/gen/radar/IDR023.T.202610060059.png",
                                  "/anon/gen/radar/IDR023.T.202610060104.png"]
     OpenMeteo().run()       # new set = 0039..0104; the previous envelope's 0029..0054 kept
-    names = {p.name for p in rdir.iterdir()}
+    names = _names_settled(rdir, {"stray.png", ".frame_x.png.1.2.tmp"})
     assert "stray.png" not in names and ".frame_x.png.1.2.tmp" not in names
     assert "frame_202610060029.png" in names and "frame_202610060104.png" in names
 
     OpenMeteo().run()       # same set again — now 0029/0034 are referenced by nothing
-    names = {p.name for p in rdir.iterdir()}
+    names = _names_settled(rdir, {"frame_202610060029.png", "frame_202610060034.png"})
     assert "frame_202610060029.png" not in names and "frame_202610060034.png" not in names
     assert len([n for n in names if n.startswith("frame_")]) == 6
     assert len([n for n in names if n.startswith("layer_")]) == 4

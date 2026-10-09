@@ -1,8 +1,8 @@
 """Play history (F7, 2026-10-06) — "a watch, not a sitting". One row per watch of a movie or
 episode, written by the recorder in hub/media_plays.py and read by the History page and
 Home's "Most played" shelf. A play's end is its `last_seen_at`; hours are capped at the
-runtime so a paused session left open never inflates them. Own table, own `ensure()`;
-the shared SCHEMA in media_db is untouched.
+runtime so a paused session left open never inflates them. Own table (DDL below; media_store
+creates it with the rest of media.db).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
-from hub import media_db
+from hub import media_store
 
 log = logging.getLogger("hub.media_plays_db")
 
@@ -30,27 +30,13 @@ HOME_TZ_NAME = "Australia/Melbourne"
 TOP_N = 10
 
 
-def ensure(db) -> None:
-    for stmt in DDL:
-        db.execute(stmt)
-    db.commit()
-
-
 def _connect():
-    db = media_db.connect()
-    ensure(db)
-    return db
+    return media_store.connect()
 
 
 def _read():
-    """A connection when the DB file exists (the table is created on demand), else None."""
-    if not media_db.db_path().is_file():
-        return None
-    try:
-        return _connect()
-    except (sqlite3.Error, OSError) as exc:
-        log.warning("plays db unreadable: %s", type(exc).__name__)
-        return None
+    """A connection when the DB file exists, else None (media_store: never creates it, never raises)."""
+    return media_store.reader()
 
 
 def _iso(dt: datetime) -> str:

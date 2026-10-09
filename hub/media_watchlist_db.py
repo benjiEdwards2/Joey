@@ -1,6 +1,6 @@
 """Watchlist storage (F6, 2026-10-06): titles B. or Georgina want to see, one row per owner
-and `tmdb:<id>` key, in the same media.db. Own table, own ensure(): the shared SCHEMA string
-in hub/media_db.py is not touched. Pure helpers (statuses, sorts, shuffle) live here too."""
+and `tmdb:<id>` key, in the same media.db. Own table (DDL below; media_store creates it with
+the rest of media.db). Pure helpers (statuses, sorts, shuffle) live here too."""
 from __future__ import annotations
 
 import random
@@ -8,7 +8,7 @@ import sqlite3
 from contextlib import closing
 from datetime import date
 
-from hub import media_db
+from hub import media_db, media_store
 
 DDL = """CREATE TABLE IF NOT EXISTS watchlist(
   owner TEXT, item_key TEXT, kind TEXT, title TEXT, year INT, poster TEXT, tmdb_id INT, added_at TEXT,
@@ -23,15 +23,13 @@ NOT_ON = "Not on server"
 
 
 def ensure() -> sqlite3.Connection:
-    db = media_db.connect()
-    db.execute(DDL)
-    db.commit()
-    return db
+    """A connection for a write (media_store)."""
+    return media_store.connect()
 
 
 def _reader():
-    """Connection for reads, or None when there is no DB file yet (reads never create it)."""
-    return ensure() if media_db.db_path().is_file() else None
+    """Connection for reads, or None when there is no DB file yet (reads never create it) or it can't be opened."""
+    return media_store.reader()
 
 
 def key_of(tmdb_id) -> str:

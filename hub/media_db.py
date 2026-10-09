@@ -4,22 +4,24 @@ owner: `you` (B.) or `her` (Georgina's Jellyfin user, 2026-10-05); rankings stay
 
 Reads never create the file: with no DB present the pages render empty and
 `get_ratings` answers {}. Only a write (rating, manual log, diary sync with rows
-to insert) creates the directory and schema, on first use.
+to insert) creates the directory and schema, on first use. Opening and the versioned
+schema live in hub/media_store.py (W2, 2026-10-09); SCHEMA and _migrate stay here.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import re
 import sqlite3
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from hub import media_store
+
 log = logging.getLogger("hub.media_db")
 
-DEFAULT_DB_PATH = "/data/sqlite/media.db"
+DEFAULT_DB_PATH = media_store.DEFAULT_DB_PATH
 KEY_RE = re.compile(r"^(tmdb|tvdb|jf):[A-Za-z0-9-]+$")
 
 RATING_DDL = """CREATE TABLE rating(
@@ -49,7 +51,7 @@ CREATE TABLE IF NOT EXISTS nextup_hidden(
 
 
 def db_path() -> Path:
-    return Path(os.environ.get("MEDIA_DB_PATH", DEFAULT_DB_PATH))
+    return media_store.db_path()
 
 
 def owner_of(view: str) -> str:
@@ -97,7 +99,7 @@ def _add_diary_columns(db) -> None:
 
 
 def _migrate(db) -> None:
-    """Idempotent, run on every connect: rebuild a pre-owner rating/diary table in the new
+    """Idempotent, run by media_store's baseline step (once per file per process): rebuild a pre-owner rating/diary table in the new
     shape, every row kept as owner 'you'. Cheap no-op once migrated; one transaction."""
     _add_level_column(db)
     _add_diary_columns(db)
@@ -121,27 +123,13 @@ def _migrate(db) -> None:
 
 
 def connect() -> sqlite3.Connection:
-    """Open the DB, creating the parent dir and schema if missing."""
-    path = db_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(path, timeout=5)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA journal_mode=WAL")
-    db.execute("PRAGMA busy_timeout=5000")
-    _migrate(db)
-    db.executescript(SCHEMA)
-    return db
+    """Open the DB for a write, creating the parent dir and schema if missing (media_store)."""
+    return media_store.connect()
 
 
 def _read():
-    """A connection for reading, or None when there is no DB yet / it can't be opened."""
-    if not db_path().is_file():
-        return None
-    try:
-        return connect()
-    except (sqlite3.Error, OSError) as exc:
-        log.warning("media db unreadable: %s", type(exc).__name__)
-        return None
+    """A connection for reading, or None when there is no DB yet / it can't be opened (media_store)."""
+    return media_store.reader()
 
 
 def _now() -> datetime:

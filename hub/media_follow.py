@@ -33,7 +33,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_discover as md, server_alerts
+from hub import media_db, media_discover as md, media_store, server_alerts
 from hub.media_write import form_of, same_origin
 
 log = logging.getLogger("hub.media_follow")
@@ -66,15 +66,12 @@ def disabled() -> bool:
 # ---- storage ----
 
 def ensure() -> sqlite3.Connection:
-    db = media_db.connect()
-    for ddl in DDL:
-        db.execute(ddl)
-    db.commit()
-    return db
+    """A connection for a write (media_store creates the tables below with the rest of media.db)."""
+    return media_store.connect()
 
 
 def _reader():
-    return ensure() if media_db.db_path().is_file() else None
+    return media_store.reader()
 
 
 def follow(kind: str, tmdb_id: int, name: str, poster: str | None = None, dept: str | None = None,

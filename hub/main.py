@@ -662,7 +662,7 @@ def _media_rows(media) -> list:
 
 
 def build_status(snaps) -> dict:
-    """Cockpit status strip: feed health computed from registry vs snapshots."""
+    """The hub page's "Feeds N/M live" line: feed health computed from registry vs snapshots."""
     wanted: dict[str, str] = {}   # connector id -> first area name using it
     for a in registry.areas:
         for t in a.tiles:
@@ -682,10 +682,8 @@ def build_status(snaps) -> dict:
 
 
 SHELF_MAX = 15         # items per poster shelf
-TO_RATE_SHELF_MAX = 10
 LIBRARY_DETAIL = "/media/library"
 PLAYING_DETAIL = "/media/playing"
-REQUESTS_DETAIL = "/media/requests"
 
 
 def item_href(jf_id=None, key=None) -> str | None:
@@ -847,8 +845,6 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         hero["kind_word"] = "Up next"  # the area page keeps its original word
     kind_word = hero["kind_word"] if hero else "Nothing playing"
 
-    server_id = jelly.get("server_id")
-
     def item(r, sub, href, **extra):
         return {"title": r.get("title"), "sub": sub, "poster": r.get("poster"),
                 "href": href, **{k: r.get(k) for k in LEVEL_KEYS}, **extra}
@@ -977,7 +973,7 @@ def _split_title(row) -> tuple[str, str]:
     return head, rest or ("Film" if row.get("kind") == "movie" else "")
 
 
-def hub_shelf(area, snaps, view: str, link) -> dict | None:
+def hub_shelf(area, snaps, view: str) -> dict | None:
     """Hub "Recently watched" band for a `layout: shelves` area (its Continue watching band left the hub in media-ux2,
     2026-10-08; Media home keeps it). Present when that area's jellyfin tile is visible; rows only from the snapshot."""
     tiles = [t for t in area.tiles if owner_visible(t, view)]
@@ -987,14 +983,13 @@ def hub_shelf(area, snaps, view: str, link) -> dict | None:
     st = tile_state(jtile, snaps)
     snap = snaps.get(JELLYFIN_SNAPSHOT_ID)
     jelly = snap.data if snap and st["state"] != "off" else {}
-    server_id = jelly.get("server_id")
 
-    def item(row, owner, when, fallback, acts=None):
+    def item(row, owner, when, fallback):
         title, sub = _split_title(row)
         url = item_href(row.get("jf_id"))
         return {"title": title, "sub": " · ".join(x for x in (owner.title(), sub) if x),  # owner first: never ellipsised
                 "when": when, "poster": row.get("poster"), "href": url or fallback,
-                "external": False, "pct": row.get("progress_pct"), "acts": acts}
+                "external": False, "pct": row.get("progress_pct"), "acts": None}  # _shelf.html's shared shape
 
     watched = None
     if any(t.detail == DIARY_DETAIL for t in tiles):
@@ -1071,7 +1066,7 @@ def hub_page(request: Request):
             card["downloading"] = (qb.data.get("summary") if qb and qb.data.get("active") else None)
             card["waiting"] = area_waiting(a, snaps, view)
             if shelf is None:
-                shelf = hub_shelf(a, snaps, view, link)
+                shelf = hub_shelf(a, snaps, view)
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
@@ -1092,7 +1087,7 @@ def weather_page(request: Request):
     snaps = get_snapshots(request=request)
     resp = templates.TemplateResponse(request, "weather.html", {
         "areas": registry.visible_areas, "active_id": None, "w": find_weather(snaps),
-        "fc": weather_forecast(snaps), "radar": weather_radar(snaps),   # radar: parked BOM panel context
+        "fc": weather_forecast(snaps),   # the parked BOM panel's weather_radar() context is not built (H-05)
         "windy_src": windy_embed_url(),
     })
     return _maybe_set_cookie(resp, view, from_query)

@@ -55,8 +55,9 @@ pre-2026-10-06 snapshot. Rain radar panel (RADAR SUPERSESSION, 2026-10-07): a Wi
 (`windy_embed_url()`: `embed.windy.com/embed2.html`, overlay=radar, zoom 8, metric, coords from `WEATHER_LAT`/`WEATHER_LON`
 with Newport VIC as fallback), lazy-loaded, captioned, with a static "Needs internet" note; shown even when the weather
 snapshot is absent; a square column beside the forecast from 1100 px, below it on narrower screens. The 2026-10-06 BOM
-layer-stack panel is parked: `weather_radar()` context, the `.wxradarbox` CSS and `GET /weather/radar/{name}` (allowlisted
-names from `SNAPSHOT_DIR/radar/`, else 404) remain; the connector fetch needs `RADAR_LOOP=1`. Greeting
+layer-stack panel is parked: `weather_radar()` and `GET /weather/radar/{name}` (allowlisted
+names from `SNAPSHOT_DIR/radar/`, else 404) remain, but `/weather` no longer builds its context and its CSS was removed
+(2026-10-09, T3); the connector fetch needs `RADAR_LOOP=1`. Greeting
 clock: `_now_home()` (Australia/Melbourne).
 
 ## Styling (MediaHub guide, complete 2026-10-06)
@@ -77,7 +78,8 @@ spelling; every icon-only control has an `aria-label`.
 **Tokens.** `--bg/--fg`, zinc text steps `--text-1…6`, white-alpha surfaces and lines (`--surface`, `--line`,
 `--line-soft/-hover/-focus`, `--hover`, `--soft`), `--primary/--primary-hover`, state tokens (`--good`, `--amber`, `--bad`,
 `--orange`, `--fuchsia`, `--teal`, `--sky`, `--gold`), row tints/bars (`--watch-*`, `--new-*`, `--done-*`, `--down-*`),
-score grades `--score-1…9`, `--rad-*`, `--appicon-bg` (the white tile behind a service logo).
+score grades `--score-1…9`, `--appicon-bg` (the white tile behind a service logo). Ten never-read older names and the
+parked radar ramp `--rad-*` were removed 2026-10-09 (T3).
 
 **Recipes** (one line each): `.btn` + `.btn-primary/-secondary/-ghost/-danger/-glass/-white/-icon`, `.btn-sm` buttons;
 `.chip` (`.on`) filter chips; `.input/.textarea/.select/.label` form controls; `.seclabel` (uppercase section label) and
@@ -102,8 +104,8 @@ glyph + condition word); `_shelf.html` Recently watched on Media's `.carousel` o
 jellyfin/media_status snapshots Media-style sections (`.row`s, `.row-score`, `.gold-glow-sm`). *Server* (`server.html`,
 `server_update.html`): System = `.stats` strip (volumes carry a `.bar`), Last 24 h = `.spark-band` panel (`.spark-*`,
 stroke `--primary`), Services = `.sec` groups of a `.svc-grid` of `.svc-card` links (WP-U3: 40 px `.svc-logo` on
-`--appicon-bg`, `.st-up/.st-down` words beside a `.svc-dot`, `.svc-card.is-down` tint; the 20 px `.appicon` rule is now
-unused), Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
+`--appicon-bg`, `.st-up/.st-down` words beside a `.svc-dot`, `.svc-card.is-down` tint; the unused 20 px `.appicon` rule was
+removed 2026-10-09), Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
 Ignored `.fold`, pending `.badge-wait`, Attention an amber `.panel-warn`), Counts = three `.panel.kv`s. *Weather*
 (`weather.html`): Today `.stats` strip, 24-hour chart `.panel` (+ a `.fold` of hour `.row`s), radar `.panel`, 7 days as
 `.row`s (glyph, day, condition word, range in `.row-side`). *Media*: below.

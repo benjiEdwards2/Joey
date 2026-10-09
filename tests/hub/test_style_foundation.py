@@ -13,25 +13,27 @@ ROOT = re.search(r"(?m)^:root\s*\{(.*?)\}", CSS, re.S).group(1)
 
 TOKENS = {
     # older names, remapped to the guide's palette
-    "--bg": "#09090b", "--fg": "#fafafa", "--muted": "#a1a1aa", "--faint": "#52525b",
-    "--card": "rgba(255, 255, 255, .03)", "--border": "rgba(255, 255, 255, .07)",
+    "--bg": "#09090b", "--fg": "#fafafa", "--border": "rgba(255, 255, 255, .07)",
     "--soft": "rgba(255, 255, 255, .04)",
-    "--brand": "#6366f1", "--brand-fg": "#ffffff", "--brand-soft": "rgba(99, 102, 241, .15)",
+    "--brand": "#6366f1", "--brand-fg": "#ffffff",
     "--good": "#34d399", "--good-soft": "rgba(16, 185, 129, .1)",
-    "--warn": "#fbbf24", "--warn-soft": "rgba(245, 158, 11, .1)",
+    "--warn-soft": "rgba(245, 158, 11, .1)",
     "--bad": "#fca5a5", "--bad-soft": "rgba(239, 68, 68, .1)",
     "--gold": "#f2c14e", "--gold-glow": "rgba(251, 191, 36, .45)",
     "--bar": "rgba(9, 9, 11, .95)", "--topbar": "rgba(9, 9, 11, .8)",  # shell bars (Phase 2 retired --rail*)
-    "--scrim": "rgba(9, 9, 11, .9)", "--scrim-soft": "rgba(9, 9, 11, .62)",
+    "--scrim": "rgba(9, 9, 11, .9)",
     # new guide tokens
     "--primary": "#6366f1", "--primary-hover": "#818cf8",
     "--text-1": "#fafafa", "--text-2": "#e4e4e7", "--text-3": "#d4d4d8",
     "--text-4": "#a1a1aa", "--text-5": "#71717a", "--text-6": "#52525b",
-    "--sky": "#7dd3fc", "--orange": "#fb923c", "--fuchsia": "#f0abfc", "--teal": "#5eead4", "--rose": "#fb7185",
+    "--sky": "#7dd3fc", "--orange": "#fb923c", "--fuchsia": "#f0abfc", "--teal": "#5eead4",
     "--indigo-glow": "rgba(99, 102, 241, .1)",
 }
-KEPT = ["--stage", "--stage-fg", "--stage-btn", "--stage-line",
-        "--badge-ink", "--badge-fg", "--surface", "--line"] + [f"--rad-{i}" for i in range(1, 16)]
+KEPT = ["--stage", "--stage-fg", "--stage-btn", "--stage-line", "--surface", "--line"]
+# 2026-10-09 (T3, H-12/H-13): --muted, --faint, --card, --brand-soft, --warn, --scrim-soft, --badge-ink, --badge-fg,
+# --shadow, --rose and the parked radar ramp --rad-1..15 were never read and are gone.
+REMOVED = ["--muted", "--faint", "--card", "--brand-soft", "--warn", "--scrim-soft", "--badge-ink", "--badge-fg",
+           "--shadow", "--rose"] + [f"--rad-{i}" for i in range(1, 16)]
 
 RECIPES = [
     "btn", "btn-primary", "btn-secondary", "btn-ghost", "btn-danger", "btn-glass", "btn-sm",
@@ -61,6 +63,10 @@ def test_token_on_root_with_guide_value(name, value):
 @pytest.mark.parametrize("name", KEPT)
 def test_kept_token_on_root(name):
     assert _decl(name)
+
+
+def test_unread_tokens_stay_removed():
+    assert [n for n in REMOVED if _decl(n)] == []
 
 
 def test_single_dark_theme_no_theme_blocks():

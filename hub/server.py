@@ -137,11 +137,6 @@ def _reason(res: dict) -> str:
     return _URL_RE.sub("[url]", reason.removeprefix("RuntimeError: "))
 
 
-def runner_errors(runner) -> list[str]:
-    """'<id> sweep failed: <reason>' per connector whose last result errored."""
-    return [i["text"] for i in _runner_error_items(runner)]
-
-
 # WP-U3 (B., 2026-10-07: "silence parked alerts"): a connector is NOT CONFIGURED — a setup
 # task, not a failure — when (a) its latest error is a MissingCredential (connectors/base.py
 # records "MissingCredential: <id>: missing environment variable …"), or (b) no visible area

@@ -56,19 +56,11 @@ class Tile(BaseModel):
     setup_note: Optional[str] = None
 
 
-class HubSize(str, Enum):
-    """Weighted bento size of the area's hub summary card (gate decision 2026-08-28)."""
-    s11 = "s11"  # 1×1 (default)
-    s21 = "s21"  # 2 wide
-    s22 = "s22"  # 2 wide, 2 tall (hero)
-
-
 class Area(BaseModel):
     id: str
     name: str
     icon: str  # (per-area `accent` removed 2026-10-06 — colour is for meaning only, MediaHub guide §1.2)
     summary_tile: str
-    hub_size: HubSize = HubSize.s11
     hub_rank: int = 100  # hub card order only (lower first); areas.yaml order drives rail/tabs (2026-10-05)
     layout: Literal["grid", "shelves", "server"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05);
     # "server" = the /server bands page instead of tile cards (2026-10-06)

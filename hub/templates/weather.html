@@ -71,8 +71,8 @@
 
 {# Radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed replaces the BOM loop — the browser loads embed.windy.com
    directly. Shown whether or not the weather snapshot is connected (it does not depend on it). Iframe failure cannot
-   be detected reliably, so a static note says what a blank map means. The BOM panel (radar context, /weather/radar
-   route, .wxradarbox CSS) is parked: RADAR_LOOP=1 on the connector + swapping this section back restores it. #}
+   be detected reliably, so a static note says what a blank map means. The BOM panel is parked: weather_radar() and the
+   /weather/radar route remain (RADAR_LOOP=1 on the connector); its context and CSS were dropped 2026-10-09 (H-05/H-12). #}
 <section class="sec wxradar">
   <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>Newport VIC</h2></div>
   <div class="panel">

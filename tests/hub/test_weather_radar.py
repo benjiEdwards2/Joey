@@ -107,12 +107,24 @@ def test_windy_iframe_css_keeps_the_square_capped_slot():
     assert "aspect-ratio: 1" in rule and "min(100%, 78vh)" in rule and "border: 0" in rule
 
 
-def test_reduced_motion_and_tokens_in_css():
+def test_parked_bom_css_is_gone_and_the_page_gets_no_radar_context(app_factory):
+    """H-05/H-12 (2026-10-09): the BOM loop's CSS and its per-request context are dropped; route + connector stay."""
     from pathlib import Path
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
-    rm = css.split("@media (prefers-reduced-motion: reduce) {\n  .wxradarbox")[1].split("\n}")[0]
-    assert "animation: none" in rm and ".f5 { opacity: 1; }" in rm
-    assert "@keyframes wxr " in css and "@keyframes wxrlast" in css
+    assert ".wxradarbox" not in css and ".wxlegend" not in css and "@keyframes wxr" not in css and "--rad-" not in css
+    build, tmp_path = app_factory
+    snaps = _setup(tmp_path, {**WX_DATA, "radar": _radar()}, files=LAYERS + [f"frame_{s}.png" for s in STAMPS])
+    import hub.main
+    seen = {}
+    real = hub.main.templates.TemplateResponse
+    with build(snaps) as client:
+        hub.main.templates.TemplateResponse = lambda req, name, ctx=None, *a, **k: (
+            seen.setdefault(name, set(ctx or {})), real(req, name, ctx, *a, **k))[1]
+        try:
+            assert client.get("/weather").status_code == 200
+        finally:
+            del hub.main.templates.TemplateResponse
+    assert "radar" not in seen["weather.html"]
 
 
 # ---- file route --------------------------------------------------------------------

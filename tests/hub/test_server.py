@@ -232,7 +232,7 @@ def test_sweep_and_ago_helpers():
     assert server.last_sweep({"ran_at": "2026-10-06T10:29:00Z"}, now)["stale"] is True
     assert server.last_sweep({}, now) is None
     assert server.ago_text(0.5) == "just now" and server.ago_text(60 * 50) == "2 days ago"
-    assert server.runner_errors(None) == [] and server.runner_errors({"results": []}) == []
+    assert server._runner_error_items(None) == [] and server._runner_error_items({"results": []}) == []
 
 
 def test_monitors_band_degrades_to_not_connected(env):

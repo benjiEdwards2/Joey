@@ -46,7 +46,7 @@ def test_glimpse_renders_on_hub_and_links_to_detail(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=WX_DATA)
     with build(snaps) as client:
         html = client.get("/").text
-        assert '<a class="panel tile wx" href="/weather"' in html
+        assert '<a class="panel tile" href="/weather"' in html
         assert "9.7 °C · partly cloudy" in html and "8–15 °C · 20% rain" in html
         assert '<div class="glyph">' in html          # the requested small image
         assert "12m ago" in html                       # fresh, faint timestamp
@@ -178,7 +178,7 @@ def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
     with build(snaps) as client:
         html = client.get("/").text
-        assert '<a class="panel tile wx" href="/weather"' in html
+        assert '<a class="panel tile" href="/weather"' in html
         assert "18.3 °C · light rain" in html and "12.7–24.1 °C · 55% rain" in html
         assert '<svg class="wxchart"' not in html and 'wxdays' not in html
 

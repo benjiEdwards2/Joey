@@ -194,3 +194,16 @@ def test_zero_degrees_renders_as_0_not_a_dash(app_factory):
     week = html.split('class="listbox wxdays"')[1].split("</ol>")[0]
     assert '<span class="row-side">0 °C</span>' in hours
     assert '<span class="row-side">0–0 °C</span>' in week
+
+
+def test_place_name_comes_from_weather_place(app_factory, monkeypatch):
+    """H-36 / D-18: the labels follow WEATHER_PLACE (default Newport VIC), like the coordinates follow WEATHER_LAT/LON."""
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
+    with build(snaps) as client:
+        assert "Newport VIC" in client.get("/").text and "Newport VIC" in client.get("/weather").text
+        monkeypatch.setenv("WEATHER_PLACE", "Castlemaine VIC")
+        hub, page = client.get("/").text, client.get("/weather").text
+    assert "Newport VIC" not in hub + page
+    assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 4

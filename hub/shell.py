@@ -45,9 +45,19 @@ def dev_mode() -> bool:
     return os.environ.get("HUB_DEV", "").strip() == "1"
 
 
+DEFAULT_WEATHER_PLACE = "Newport VIC"
+
+
+def weather_place() -> str:
+    """Jinja global `weather_place()`: the place the weather labels name (WEATHER_PLACE in .env, next to the
+    WEATHER_LAT/LON the connector and the radar read; H-36)."""
+    return os.environ.get("WEATHER_PLACE", "").strip() or DEFAULT_WEATHER_PLACE
+
+
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = dev_mode()
 templates.env.globals["static_v"] = _static_version()
+templates.env.globals["weather_place"] = weather_place
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
 
 

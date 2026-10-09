@@ -30,12 +30,12 @@
 <section class="tiles{% if few %} few{% endif %}" aria-label="Area summaries">
   {% for c in cards %}
   {% if loop.last and cards|length > 1 and weather %}
-    {{ kpi("/weather", "Weather", "Newport VIC", weather.glyph, weather.st, weather.tile.owner.value) }}
+    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value) }}
   {% endif %}
   {{ areacard(c, "span2" if loop.last and few else "") }}
   {% endfor %}
   {% if weather and cards|length <= 1 %}
-    {{ kpi("/weather", "Weather", "Newport VIC", weather.glyph, weather.st, weather.tile.owner.value) }}
+    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value) }}
   {% endif %}
 </section>
 

@@ -2,7 +2,7 @@
 {% block title %}Weather — Joey{% endblock %}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
-{{ pagehead("Weather", sub="Newport VIC") }}
+{{ pagehead("Weather", sub=weather_place()) }}
 {% endblock %}
 {% block content %}
 {% from "_rows.html" import meta, updated %}
@@ -14,7 +14,7 @@
 {% set fc = fc or none %}
 <div class="wxapp">
 <section class="sec wxpage">
-  <div class="sechead"><h2 class="seclabel">Today<span class="sep"> · </span>Newport VIC</h2></div>
+  <div class="sechead"><h2 class="seclabel">Today<span class="sep"> · </span>{{ weather_place() }}</h2></div>
   {% if not w or w.st.state == "off" %}
     <div class="panel"><p class="stat-word st-off">Not connected</p>{% if w and w.st.note %}<p class="row-meta">{{ w.st.note }}</p>{% endif %}</div>
   {% else %}
@@ -74,9 +74,9 @@
    be detected reliably, so a static note says what a blank map means. The BOM panel is parked: weather_radar() and the
    /weather/radar route remain (RADAR_LOOP=1 on the connector); its context and CSS were dropped 2026-10-09 (H-05/H-12). #}
 <section class="sec wxradar">
-  <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>Newport VIC</h2></div>
+  <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>{{ weather_place() }}</h2></div>
   <div class="panel">
-    <iframe class="wxwindy" src="{{ windy_src }}" title="Interactive rain radar map around Newport VIC, from windy.com" loading="lazy"></iframe>
+    <iframe class="wxwindy" src="{{ windy_src }}" title="Interactive rain radar map around {{ weather_place() }}, from windy.com" loading="lazy"></iframe>
     <p class="metaline">Interactive radar · map by windy.com (loads from windy.com)</p>
     <p class="row-meta">Needs internet — if the map is blank, windy.com is unreachable</p>
   </div>

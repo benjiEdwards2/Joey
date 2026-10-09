@@ -13,7 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_watchlist_db as wl
+from hub import media_db, media_watchlist_db as wl, shell
+from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_write import bad, clean_item, form_of, is_htmx, owner_for, same_origin
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
@@ -96,13 +97,13 @@ async def watchlist_remove(request: Request):
 
 
 def _page(request: Request, kind: str):
-    from hub import main as hub  # late: hub.main includes this router
+    from hub import media_pages  # function-level: media_discover imports keys_for from here, media_pages reaches back
 
     def build(data, view):
         owner = media_db.owner_of(view)
         left = 0
         try:
-            _items, marks, lrows = hub._library_rows(data, view, kind)
+            _items, marks, lrows = media_pages._library_rows(data, view, kind)
             if marks and lrows:
                 played = {r["item_key"] for r in lrows
                           if r["played"] and r["item_key"] and (kind == "movie" or r["episodes"])}
@@ -113,7 +114,7 @@ def _page(request: Request, kind: str):
             rows, failed = [], True
         on_keys = on_server_keys(data, kind)
         from hub.media_requests import snapshot_rows  # a removed request stops showing at once (2026-10-08)
-        words = wl.request_words(snapshot_rows(hub.get_snapshots(request=request), hub.JELLYSEERR_SNAPSHOT_ID))
+        words = wl.request_words(snapshot_rows(shell.get_snapshots(request=request), JELLYSEERR_SNAPSHOT_ID))
         sort = request.query_params.get("sort", "added")
         sort = sort if sort in wl.SORTS else "added"
         rows = [{**r, "status_word": wl.status_word(r, on_keys, words),
@@ -123,7 +124,7 @@ def _page(request: Request, kind: str):
                 "failed": failed, "page_href": PAGES[kind],
                 "head_line": f"{len(rows)} on your watchlist · {missing} not on the server"}
 
-    return hub._detail_page(request, "media_watchlist.html", hub.JELLYFIN_SNAPSHOT_ID, build, always_build=True)
+    return media_pages._detail_page(request, "media_watchlist.html", JELLYFIN_SNAPSHOT_ID, build, always_build=True)
 
 
 @router.get("/media/movies/watchlist", response_class=HTMLResponse)

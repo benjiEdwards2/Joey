@@ -54,8 +54,8 @@ MEDIA_STATUS_HOSTS=jellyfin=jellyfin,radarr=radarr,sonarr=sonarr,jellyseerr=jell
 
 The format is `app=host[:port]`, comma-separated. The port defaults to the app's published
 port, so it is needed only when the container port differs, as WUD's does. Apps left out
-(`portainer`, `adm`, `homepage`) are still probed on the LAN host. ADM is the NAS itself.
-Portainer and Homepage can be added only if they are on `media-server_default`.
+(`portainer`, `adm`) are still probed on the LAN host. ADM is the NAS itself.
+Portainer can be added only if it is on `media-server_default`. (Homepage was retired 2026-10-09, decision 9.)
 
 To check after the change: the Server page shows every app Up, and
 `docker compose logs connectors` shows `sweep ok=… err=0`.

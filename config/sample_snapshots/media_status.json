@@ -90,18 +90,10 @@
         "note": null,
         "status_text": "Up",
         "up": true
-      },
-      {
-        "href": "http://nas.local:3000",
-        "id": "homepage",
-        "name": "Homepage",
-        "note": null,
-        "status_text": "Up",
-        "up": true
       }
     ],
     "secondary": "Down: Prowlarr",
-    "summary": "11 of 12 up"
+    "summary": "10 of 11 up"
   },
   "error": null,
   "fetched_at": "2026-01-01T00:00:00+00:00",

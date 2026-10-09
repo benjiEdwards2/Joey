@@ -54,7 +54,7 @@ def test_registry_server_area_is_last_with_the_agreed_tiles():
     assert (area.id, area.name, area.icon, area.layout) == ("server", "Server", "server", "server")
     assert area.rail_section == "areas" and not area.hidden and area.summary_tile == "services"
     tiles = {t.id: t for t in area.tiles}
-    assert list(tiles) == ["services", "system", "monitors", "updates", "homepage", "portainer"]  # monitors: WP-S4
+    assert list(tiles) == ["services", "system", "monitors", "updates", "portainer"]  # monitors: WP-S4; homepage gone (decision 9)
     assert (tiles["services"].snapshot, tiles["services"].stale_after_minutes) == ("media_status", 10)
     assert (tiles["system"].snapshot, tiles["system"].stale_after_minutes) == ("system", 10)
     assert (tiles["updates"].snapshot, tiles["updates"].stale_after_minutes) == ("wud", 180)
@@ -62,7 +62,6 @@ def test_registry_server_area_is_last_with_the_agreed_tiles():
             tiles["monitors"].detail, tiles["monitors"].label) == (
         "uptime_kuma", 10, "/server#monitors", "Monitors")
     assert tiles["monitors"].setup_note == "Set UPTIME_KUMA_URL/UPTIME_KUMA_API_KEY in deploy/.env."
-    assert tiles["homepage"].href == "https://homepage.joeyhome.net"
     assert tiles["portainer"].href == "http://192.168.68.59:9000"
     assert all(t.owner.value == "shared" for t in area.tiles)
 
@@ -91,8 +90,8 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Counts
     assert ">Pending<" in body and ">Seeding<" in body and ">This week<" in body
-    # link tiles: the gated one links, the LAN one (Portainer) is a plain "LAN" tile (H-71)
-    assert 'href="https://homepage.joeyhome.net"' in body and "192.168.68.59" not in body
+    # link tiles: the LAN one (Portainer) is a plain "LAN" tile (H-71)
+    assert "192.168.68.59" not in body
     tiles = body.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
     portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
     assert '<div class="tile-value stat-number">LAN' in portainer
@@ -300,7 +299,7 @@ def test_hub_server_card_shows_the_words_and_needs_attention(env):
     card = body.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
     assert "1 down · Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
     assert '<span class="badge badge-wait">Needs attention</span>' in card   # amber: something to do
-    assert "12 of 12 up" not in card and "11 of 12 up" not in card
+    assert "11 of 11 up" not in card and "10 of 11 up" not in card
 
 
 def test_hub_server_card_is_ok_when_nothing_needs_attention(env):
@@ -408,4 +407,4 @@ def test_services_tile_and_hub_card_say_the_same_words(env):
     tiles = page.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
     card = hub.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
     assert "1 down · Prowlarr" in tiles and "1 down · Prowlarr" in card
-    assert " of 12 up" not in tiles + card
+    assert " of 11 up" not in tiles + card

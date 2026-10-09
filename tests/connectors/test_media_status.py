@@ -49,7 +49,7 @@ def test_all_up(live, monkeypatch):
     envelope = run_with(monkeypatch, lambda port: 200)
     data = envelope["data"]
     assert envelope["status"] == "ok"
-    assert data["summary"] == "12 of 12 up" and data["secondary"] == "All apps up"
+    assert data["summary"] == "11 of 11 up" and data["secondary"] == "All apps up"
     assert all(a["status_text"] == "Up" and a["note"] is None for a in data["apps"])
     assert data["apps"][0]["href"] == f"http://{HOST}:8096"
     jsonschema.validate(data, SCHEMA)
@@ -63,7 +63,7 @@ def test_one_down_by_timeout_keeps_the_run_ok(live, monkeypatch):
     )
     data = envelope["data"]
     assert envelope["status"] == "ok" and envelope["consecutive_failures"] == 0
-    assert data["summary"] == "11 of 12 up" and data["secondary"] == "Down: Prowlarr"
+    assert data["summary"] == "10 of 11 up" and data["secondary"] == "Down: Prowlarr"
     down = [a for a in data["apps"] if not a["up"]]
     assert [(a["name"], a["status_text"], a["note"]) for a in down] == [("Prowlarr", "Down", "timeout")]
     jsonschema.validate(data, SCHEMA)
@@ -84,7 +84,7 @@ def test_connection_refused_and_5xx_notes(live, monkeypatch):
 
 def test_401_counts_as_up(live, monkeypatch):
     data = run_with(monkeypatch, lambda port: 401)["data"]
-    assert data["summary"] == "12 of 12 up"
+    assert data["summary"] == "11 of 11 up"
 
 
 def test_notes_never_contain_a_url_or_host(live, monkeypatch):
@@ -92,7 +92,7 @@ def test_notes_never_contain_a_url_or_host(live, monkeypatch):
     notes = {a["id"]: a["note"] for a in envelope["data"]["apps"]}
     # gluetun is derived, never probed (WP-S2) — its note is fixed words
     assert notes.pop("gluetun") == "no answer via Prowlarr or qBittorrent"
-    assert list(notes.values()) == ["RuntimeError"] * 11
+    assert list(notes.values()) == ["RuntimeError"] * 10
 
 
 def test_fixture_mode_never_touches_the_network(snapshots, monkeypatch):
@@ -102,7 +102,7 @@ def test_fixture_mode_never_touches_the_network(snapshots, monkeypatch):
     monkeypatch.setattr(requests, "get", boom)
     envelope = MediaStatus().run()
     assert envelope["status"] == "ok"
-    assert envelope["data"]["summary"] == "11 of 12 up"
+    assert envelope["data"]["summary"] == "10 of 11 up"
     assert envelope["data"]["apps"][4]["note"] == "timeout"
 
 
@@ -113,14 +113,14 @@ def test_live_mode_without_host_fails_naming_the_variable(snapshots, monkeypatch
     assert envelope["status"] == "error" and "MEDIA_STATUS_HOST" in envelope["error"]
 
 
-# ---- WP-S2 (2026-10-06): wud / adm / homepage probed, gluetun derived ----------
+# ---- WP-S2 (2026-10-06): wud / adm probed, gluetun derived (homepage retired 2026-10-09, decision 9) ----
 
 
 def test_server_apps_are_listed_with_their_ports():
     ports = {a["id"]: a["port"] for a in MEDIA_APPS}
-    assert (ports["wud"], ports["adm"], ports["homepage"]) == (3030, 8000, 3000)
-    assert {a["id"]: a["name"] for a in MEDIA_APPS if a["id"] in ("wud", "adm", "homepage", "gluetun")} == {
-        "gluetun": "Gluetun", "wud": "WUD", "adm": "ADM", "homepage": "Homepage"}
+    assert (ports["wud"], ports["adm"]) == (3030, 8000) and "homepage" not in ports and len(MEDIA_APPS) == 11
+    assert {a["id"]: a["name"] for a in MEDIA_APPS if a["id"] in ("wud", "adm", "gluetun")} == {
+        "gluetun": "Gluetun", "wud": "WUD", "adm": "ADM"}
     assert all(a["id"] == a["id"].lower() for a in MEDIA_APPS)
 
 
@@ -163,7 +163,7 @@ def test_new_ids_land_in_the_right_server_groups():
 
     groups = {g["label"]: [a["id"] for a in g["apps"]] for g in group_services([{"id": a["id"]} for a in MEDIA_APPS])}
     assert "gluetun" in groups["Downloads"]
-    assert {"wud", "adm", "homepage"} <= set(groups["System"])
+    assert {"wud", "adm"} <= set(groups["System"])
 
 
 def test_probes_run_concurrently_at_most_six_at_a_time_in_app_order(live, monkeypatch):
@@ -214,11 +214,11 @@ def test_probe_hosts_override_the_probe_but_never_the_link(live, monkeypatch):
     data = MediaStatus().run()["data"]
     assert {"http://jellyfin:8096/health", "http://gluetun:8080/api/v2/app/version",
             "http://gluetun:9696/ping", "http://wud:3000/", f"http://{HOST}:7878/ping"} <= set(probed)
-    assert len(probed) == 11 and not any(u.startswith(f"http://{HOST}:3030") for u in probed)
+    assert len(probed) == 10 and not any(u.startswith(f"http://{HOST}:3030") for u in probed)
     hrefs = {a["id"]: a["href"] for a in data["apps"]}
     assert hrefs["jellyfin"] == f"http://{HOST}:8096" and hrefs["wud"] == f"http://{HOST}:3030"
     assert hrefs["qbittorrent"] == hrefs["gluetun"] == f"http://{HOST}:8080"
-    assert data["summary"] == "12 of 12 up"
+    assert data["summary"] == "11 of 11 up"
 
 
 @pytest.mark.parametrize("spec, expected", [

@@ -9,6 +9,5 @@
   {"id": "portainer", "up": true, "note": null},
   {"id": "wud", "up": true, "note": null},
   {"id": "adm", "up": true, "note": null},
-  {"id": "homepage", "up": true, "note": null},
   {"id": "gluetun", "up": true, "note": null}
 ]

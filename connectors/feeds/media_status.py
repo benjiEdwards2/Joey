@@ -13,7 +13,7 @@ from connectors.feeds._http import reason
 # name, port, health path. Any HTTP answer counts as up — a 401 still means the
 # app is alive (qBittorrent), and redirects are not followed, so a 30x (ADM's
 # http -> https bounce) is up too; only no answer or a 5xx is down.
-# wud, adm, gluetun, homepage joined 2026-10-06 (WP-S2) for the Server area.
+# wud, adm, gluetun joined 2026-10-06 (WP-S2) for the Server area; homepage left 2026-10-09 (decision 9: retired).
 MEDIA_APPS = (
     {"id": "jellyfin", "name": "Jellyfin", "port": 8096, "path": "/health"},
     {"id": "radarr", "name": "Radarr", "port": 7878, "path": "/ping"},
@@ -31,7 +31,6 @@ MEDIA_APPS = (
     {"id": "portainer", "name": "Portainer", "port": 9000, "path": "/api/status"},
     {"id": "wud", "name": "WUD", "port": 3030, "path": "/"},
     {"id": "adm", "name": "ADM", "port": 8000, "path": "/"},  # Asustor ADM web UI, plain http
-    {"id": "homepage", "name": "Homepage", "port": 3000, "path": "/"},
 )
 
 

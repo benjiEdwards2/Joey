@@ -10,18 +10,19 @@ endpoint — the hub's `auto` check is the only guard, so step 2 matters.
 From the compose folder on the NAS (where `.env` lives):
 
 ```sh
-set -a; . ./.env; set +a; curl -s -u "$WUD_USER:$WUD_PASS" "$WUD_URL/api/containers/$(docker inspect -f '{{.Id}}' homepage)/triggers"
+set -a; . ./.env; set +a; curl -s -u "$WUD_USER:$WUD_PASS" "$WUD_URL/api/containers/$(docker inspect -f '{{.Id}}' portainer)/triggers"
 ```
 
 Expect a JSON list that includes `"type":"dockercompose"` and `"name":"local"`. That proves the
 login, that WUD's container `id` is the Docker container id, and that the trigger applies to
-homepage. Repeat with `uptime-kuma`: `dockercompose.local` must NOT be in its list.
+portainer. Repeat with `uptime-kuma`: `dockercompose.local` must NOT be in its list.
 `401` = wrong login; `403` = the WUD user lacks the write role (`admin`/`rw`) the run endpoint needs;
 `404` = WUD does not know that container id.
 
 ## 1. Pick a safe container
 
-Use `homepage` (or any non-critical container that WUD currently shows with an update). Never
+Use `portainer` (or any non-critical container that WUD currently shows with an update; the test target was `homepage`
+until Homepage was retired 2026-10-09, decision 9). Never
 gluetun, qbittorrent, prowlarr, uptime-kuma or wud — the page shows those as "Manual · excluded".
 
 ## 2. Confirm page

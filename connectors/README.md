@@ -24,7 +24,8 @@ for display. `SYSTEM_VOLUME_LABELS=path=label[,…]` (2026-10-09) overrides the 
 `/data/snapshots=/volume1`, so a small bind on the volume can stand in for the whole-volume mount. Unreadable `/proc` or an unstattable volume is an error envelope naming the file/path — never made-up numbers.
 
 `media_status` probe list (WP-S2, 2026-10-06) adds `wud` (3030), `adm` (8000, Asustor ADM; a 30x redirect to https
-counts as Up — redirects are never followed) and `homepage` (3000). `gluetun` is never probed (its control port is not
+counts as Up — redirects are never followed); `homepage` (3000) was dropped 2026-10-09 (decision 9: retired), so 11
+apps. `gluetun` is never probed (its control port is not
 published): it is Up iff `prowlarr` or `qbittorrent` answers, since both route through it.
 
 `wud` live (WP-S3): one HTTP Basic `GET {WUD_URL}/api/containers` (10 s), the list returned unchanged; env `WUD_URL`,

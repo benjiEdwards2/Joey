@@ -1,4 +1,4 @@
-"""Server area page (WP-S1, 2026-10-06): the NAS "Homepage" dashboard, natively.
+"""Server area page (WP-S1, 2026-10-06): the NAS "Homepage" dashboard, natively (Homepage retired 2026-10-09).
 
 Pure: registry area + snapshots + backup status in, one dict of bands out. Every band
 degrades on its own — a missing snapshot is that band's "Not connected", never a 500.
@@ -54,14 +54,13 @@ SERVICE_LOGOS = {
     "sonarr": "sonarr.svg", "prowlarr": "prowlarr.svg", "qbittorrent": "qbittorrent.svg",
     "gluetun": "gluetun.svg", "portainer": "portainer.svg", "uptime_kuma": "uptime-kuma.svg",
     "wud": "wud.svg", "adm": "adm.svg",
-    "homepage": "homepage.png",  # dashboard-icons has no Homepage SVG, only this PNG
 }
 NO_LOGO: set[str] = set()
 SERVICE_SUBTITLES = {
     "jellyfin": "Media server", "jellyseerr": "Requests", "radarr": "Movies", "sonarr": "TV",
     "prowlarr": "Indexers", "qbittorrent": "Torrents (via VPN)", "gluetun": "VPN tunnel",
     "portainer": "Docker management", "uptime_kuma": "Service monitoring",
-    "wud": "Container updates", "adm": "NAS admin", "homepage": "NAS dashboard",
+    "wud": "Container updates", "adm": "NAS admin",
 }
 # Apps with a Cloudflare-gated hostname come from areas.yaml `gated_hrefs` (registry.gated_hrefs, 2026-10-09):
 # no hostname lives in this file. A card / link tile whose href is still a LAN address has no link and says "LAN".

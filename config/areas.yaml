@@ -17,8 +17,7 @@
 #   saying "LAN" (a LAN link is dead off the home network). Public hostnames live here, never in .py files.
 # =============================================================================
 
-gated_hrefs:
-  homepage: "https://homepage.joeyhome.net"
+gated_hrefs: {}                                       # homepage removed 2026-10-09 (decision 9: Homepage retired)
 
 areas:
   # Rail / tab order = the order of this list; `rail_section: home` lifts an area into the Home group.
@@ -211,7 +210,7 @@ areas:
         stale_after_minutes: 240
         setup_note: "Renders 'Not connected' until HA has car entities (Q16 — never fabricated)."
 
-  # Server (B. approved scope 2026-10-06): replaces the NAS "Homepage" dashboard natively.
+  # Server (B. approved scope 2026-10-06): replaces the NAS "Homepage" dashboard natively (Homepage retired 2026-10-09).
   # Thresholds: disk 85 %, media.db backup 36 h, any service Down = attention.
   - id: server
     name: Server
@@ -251,11 +250,6 @@ areas:
         detail: "/server#updates"
         stale_after_minutes: 180
         setup_note: "Set WUD_URL/WUD_USER/WUD_PASS in deploy/.env."
-      - id: homepage
-        label: Homepage
-        tier: link
-        owner: shared
-        href: "https://homepage.joeyhome.net"
       - id: portainer
         label: Portainer
         tier: link

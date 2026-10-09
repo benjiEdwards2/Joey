@@ -1,4 +1,4 @@
-"""WP-U3 commit B (2026-10-07): the Services band as a Homepage-style card grid with vendored
+"""WP-U3 commit B (2026-10-07): the Services band as a card grid with vendored
 logos. Real registry + sample snapshots; every assertion is made inside <main>."""
 import re
 from pathlib import Path
@@ -49,10 +49,8 @@ def test_one_card_per_app_with_logo_subtitle_word_and_grouping(env):
     assert 'class="svc-card is-down"' in pr and ">Down</span>" in pr and "timeout" in pr
     assert '<span class="svc-sub">Indexers · LAN</span>' in pr
     assert "/static/svc/uptime-kuma.svg?v=" in card(body, "Uptime Kuma")
-    assert "/static/svc/homepage.png?v=" in card(body, "Homepage")
     for c in cards:                                   # a linked card is the one link; a LAN card has none
         assert c.count("<a ") == c.count("</a>") == (1 if c.startswith("<a ") else 0)
-    assert card(body, "Homepage").startswith('<a class="svc-card"')
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     media = svc.split('<h2 class="seclabel">Media</h2>', 1)[1].split("</section>", 1)[0]
@@ -67,11 +65,15 @@ def test_kuma_response_ms_when_a_monitor_name_matches(env):
     assert " ms</span>" not in card(body, "Portainer")             # no matching monitor
 
 
-def test_homepage_card_links_to_the_gated_hostname(env):
-    with env() as client:
-        body = main_of(client.get("/server").text)
-    assert 'href="https://homepage.joeyhome.net"' in card(body, "Homepage")
-    assert 'href="http://nas.local:3000"' not in services_of(body)
+def test_link_tile_takes_its_gated_hostname():
+    """The gated-hostname path for link tiles (was pinned through the Homepage tile, retired 2026-10-09, decision 9)."""
+    from types import SimpleNamespace
+    tile = SimpleNamespace(id="portainer", tier=SimpleNamespace(value="link"), href="http://192.168.68.59:9000",
+                           snapshot=None, label="Portainer")
+    gated = server._tile_row(tile, {}, {"portainer": "https://portainer.example.org"})["st"]
+    assert gated["href"] == "https://portainer.example.org" and not gated.get("lan")
+    lan = server._tile_row(tile, {}, {})["st"]
+    assert lan["href"] is None and lan["lan"] is True
 
 
 def test_unknown_app_gets_the_fallback_tile_and_no_subtitle(env):
@@ -103,6 +105,6 @@ def test_is_lan():
     for href in ("http://192.168.68.59:9000", "http://10.0.0.2", "http://127.0.0.1:8000", "http://nas.local:3000",
                  "http://nas:8096", "http://box.lan/", "http://[fd00::1]:80"):
         assert server.is_lan(href), href
-    for href in ("https://homepage.joeyhome.net", "https://8.8.8.8", "", None, "not a url"):
+    for href in ("https://jellyfin.joeyhome.net", "https://8.8.8.8", "", None, "not a url"):
         assert not server.is_lan(href), href
     assert server.service_card({"id": "zzz"}, [])["logo"] is None

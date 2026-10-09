@@ -37,7 +37,7 @@ Media-focused app on your home screen, open any Media page first, then: iOS Safa
 named "Joey Media"); Android Chrome: ⋮ menu → Install app / Add to Home screen (long-press the icon for Movies, TV,
 Activity and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.
 
-**Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively (Homepage itself is still up and linked): `/server` (and `/a/server`)
+**Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively (Homepage retired 2026-10-09, decision 9): `/server` (and `/a/server`)
 shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (cards grouped Media / Downloads / System), Updates (What's Up Docker), Attention and Counts.
 Feeds `media_status`, `system`, `uptime_kuma`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.
 

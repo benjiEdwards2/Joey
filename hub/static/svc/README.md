@@ -22,7 +22,8 @@ used here only to identify the services on a private dashboard.
 | uptime_kuma | `uptime-kuma.svg` | `svg/uptime-kuma.svg` |
 | wud | `wud.svg` | `svg/whats-up-docker.svg` (`wud.svg` does not exist upstream); path coordinates rounded to 1 decimal 2026-10-09, 96 KB to 73 KB (24 KB gzipped), rendered identical to the eye at 400 px |
 | adm | `adm.svg` | `svg/asustor.svg` (Asustor ADM) |
-| homepage | `homepage.png` | `png/homepage.png` (dashboard-icons has no Homepage SVG); resized 2026-10-09 from 494×512 to 96×96 (aspect kept, transparent padding), 256-colour palette, 2 KB |
+
+(homepage.png removed 2026-10-09 with Homepage itself, decision 9.)
 
 Adding an app to `MEDIA_APPS` (connectors/feeds/media_status.py): add its logo here + to `SERVICE_LOGOS`, or list it in
 `NO_LOGO` (it then renders a neutral initial-letter tile) — `tests/hub/test_server_cards.py` fails otherwise.

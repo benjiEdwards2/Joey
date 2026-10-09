@@ -155,7 +155,7 @@ def test_gated_hrefs_live_in_areas_yaml_and_must_be_https(tmp_path):
     import yaml
     from pathlib import Path
     reg = load_registry(AREAS_YAML)
-    assert reg.gated_hrefs == {"homepage": "https://homepage.joeyhome.net"}
+    assert reg.gated_hrefs == {}                     # homepage was the only one (retired 2026-10-09, decision 9)
     hub_dir = Path(__file__).resolve().parents[2] / "hub"
     core = ["main.py", "shell.py", "ids.py", "server.py", "server_alerts.py", "server_history.py", "server_updates.py"]
     assert all("joeyhome.net" not in (hub_dir / name).read_text(encoding="utf-8") for name in core)

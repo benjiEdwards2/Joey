@@ -34,7 +34,7 @@ from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_discover as md, media_store, server_alerts
-from hub.media_write import form_of, same_origin
+from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_follow")
 
@@ -320,6 +320,7 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
 router = APIRouter()
 FOLLOWING = "/media/following"
 FLASH = {"on": "Following — new films are requested automatically", "off": "Unfollowed"}
+flash_keys("follow")
 KIND_WORDS = {"Directing": "Director"}
 NEEDS_SEERR = "Follow needs Jellyseerr"
 EMPTY = "Follow an actor, director or film series from their page."
@@ -332,9 +333,8 @@ def _kind_of(kind: str) -> str:
 
 
 def _back(value: str, default: str) -> str:
-    """Only a local /media/ path (no scheme, no //) is a redirect target."""
-    v = str(value or "")
-    return v if v.startswith("/media/") and "//" not in v and "\\" not in v and len(v) < 300 else default
+    """Only a local /media/ path is a redirect target (media_write.safe_back); its query is kept for _flashed."""
+    return safe_back(value, default, keep_query=True, prefixes=("/media/",), exact=())
 
 
 def _flashed(url: str, word: str) -> str:

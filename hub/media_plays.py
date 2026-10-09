@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_jellyfin as jellyfin, media_plays_db as pdb
+from hub import media_db, media_jellyfin as jellyfin, media_plays_db as pdb
 
 log = logging.getLogger("hub.media_plays")
 
@@ -118,7 +118,7 @@ def start_recorder():
 
 def history_context(window, view: str) -> dict:
     window = window if window in ("year", "all") else (int(window) if str(window) in ("7", "30", "90") else 30)
-    owner = {"you": "you", "her": "her"}.get(view)
+    owner = media_db.owner_filter(view)
     s = pdb.stats(window, owner)
     day = s["busiest_day"]
     if day:

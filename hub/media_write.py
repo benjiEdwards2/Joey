@@ -86,10 +86,34 @@ async def form_of(request: Request) -> dict:
 
 
 def owner_for(request: Request) -> str:
-    """Data owner of a write: 'her' in the her view, else 'you'. Lazy import — hub.main
-    imports this module for its router."""
+    """THE request-level owner (M-16): 'her' in the her view, else 'you' (media_db.owner_of over the owner view).
+    Lazy import — hub.main imports this module for its router."""
     from hub.main import resolve_owner_view
     return media_db.owner_of(resolve_owner_view(request)[0])
+
+
+def safe_back(value, default: str, keep_query: bool = False, prefixes=("/media/", "/a/"), exact=("/",)) -> str:
+    """THE redirect-target rule for Media writes (M-17): a local page path — one of `exact`, or under `prefixes` —
+    with no scheme, no '//', no backslash and under 300 characters; anything else is `default`. A fragment is always
+    dropped; the query too unless `keep_query` (a stale flash never rides along)."""
+    v = str(value or "").split("#", 1)[0]
+    if not keep_query:
+        v = v.split("?", 1)[0]
+    ok = v in exact or v.startswith(prefixes)
+    return v if ok and "//" not in v and "\\" not in v and len(v) < 300 else default
+
+
+# One-off flash lines ride on query params after a POST's 303 (2026-10-08); base.html strips them from the address
+# bar after render. Each module registers the params it reads here, and hub.main's FLASH_PARAMS is derived from this
+# registry (M-17) instead of a hand-kept list.
+FLASH_KEYS: dict[str, None] = {}
+
+
+def flash_keys(*keys: str) -> tuple[str, ...]:
+    """Register flash query params (idempotent); returns them."""
+    for k in keys:
+        FLASH_KEYS.setdefault(k, None)
+    return keys
 
 
 def render(request: Request, name: str, **ctx) -> HTMLResponse:

@@ -28,7 +28,7 @@ from hub import media_awards_badges, media_files
 from hub.images import REF_RE, cache_dir
 from hub.media_cache import LRU
 from hub.media_watchlist import keys_for
-from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
+from hub.media_write import MAX_BODY, bad, flash_keys, is_htmx, same_origin
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_discover")
@@ -46,6 +46,7 @@ SHELVES = (
     ("movies-soon", "Upcoming films", "/api/v1/discover/movies/upcoming", "movie"),
     ("tv-soon", "Upcoming TV", "/api/v1/discover/tv/upcoming", "tv"),
 )
+flash_keys("requested", "error", "future")   # the title page after a plain-form Request
 ERRORS = {"exists": "Already requested", "declined": "Jellyseerr declined the request",
           "network": "Couldn't send the request"}
 

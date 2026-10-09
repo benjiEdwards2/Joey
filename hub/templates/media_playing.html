@@ -41,7 +41,7 @@
   {% if src.data.get("up_next") %}<div class="listbox">
   {% for n in src.data.get("up_next", []) %}
   {% set nh = item_href(n.jf_id) %}
-  {% set acts = resume_acts(n, "her" if owner_view == "her" else "you") %}
+  {% set acts = resume_acts(n, owner) %}
   {# Move on (2026-10-08): the row stays one whole link; Mark watched / Reset progress sit beside it, outside it. #}
   {% if acts %}<div class="rowwrap resumerow">{% endif %}
   <{{ "a" if nh else "div" }} class="row"{% if nh %} href="{{ nh }}"{% endif %}>

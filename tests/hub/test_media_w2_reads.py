@@ -78,3 +78,32 @@ def test_prune_played_is_one_delete(db, monkeypatch):
     assert wl.prune_played("you", {"tmdb:1", "tmdb:3", "tmdb:99"}, "movie") == 2
     assert [r["item_key"] for r in wl.rows("you")] == ["tmdb:2"]
     assert not hasattr(wl, "list")                                   # the builtin is no longer shadowed
+
+
+# ---- one redirect rule, one flash registry, one owner filter (M-16, M-17) ----
+
+@pytest.mark.parametrize("value, out", [
+    ("/media/tv?done=1#x", "/media/tv"), ("/a/alpha", "/a/alpha"), ("/", "/"),
+    ("//evil.example/x", "D"), ("https://evil.example/media/", "D"), (r"/media\..\x", "D"), ("/server", "D"),
+    ("/media/" + "x" * 300, "D"), (None, "D")])
+def test_safe_back_is_the_one_redirect_rule(value, out):
+    from hub.media_write import safe_back
+    assert safe_back(value, "D") == out
+
+
+def test_follow_keeps_its_query_and_only_media_paths():
+    from hub import media_follow
+    assert media_follow._back("/media/person/3?x=1", "D") == "/media/person/3?x=1"
+    assert media_follow._back("/", "D") == "D" and media_follow._back("/a/alpha", "D") == "D"
+
+
+def test_flash_params_are_derived_from_the_registry():
+    import hub.main as main
+    from hub.media_write import FLASH_KEYS
+    assert set(main.FLASH_PARAMS) == set(FLASH_KEYS) | set(main.SERVER_FLASH_PARAMS)
+    assert {"follow", "requested", "future", "error", "done", "app", "search", "code"} <= set(FLASH_KEYS)
+    assert len(main.FLASH_PARAMS) == len(set(main.FLASH_PARAMS))
+
+
+def test_owner_filter():
+    assert [media_db.owner_filter(v) for v in ("you", "her", "both", None)] == ["you", "her", None, None]

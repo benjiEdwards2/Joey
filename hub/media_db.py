@@ -59,6 +59,11 @@ def owner_of(view: str) -> str:
     return "her" if view == "her" else "you"
 
 
+def owner_filter(view: str) -> str | None:
+    """The owner a cross-owner read filters on: 'you' / 'her', or None for the 'both' view (everyone's rows)."""
+    return view if view in ("you", "her") else None
+
+
 def _old_shapes(db) -> tuple[bool, bool]:
     """(rating, diary) still in the pre-owner shape: rating keyed by item_key alone,
     diary UNIQUE without owner. Absent tables count as new."""

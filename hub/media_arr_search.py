@@ -28,8 +28,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_discover as md, media_requests as mr, media_resume
-from hub.media_write import form_of, same_origin
+from hub import media_discover as md, media_requests as mr
+from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_arr_search")
 router = APIRouter()
@@ -101,6 +101,9 @@ def start_search(kind: str, tmdb: int, tvdb: int | None = None) -> tuple[str, in
         return ("refused" if status else "unreachable"), status
 
 
+flash_keys("search", "app", "code")
+
+
 def flash_text(params) -> tuple[str | None, str | None]:
     """(good line, warning line) from `?search=<code>&app=<app>[&code=<status>]`; anything odd -> (None, None)."""
     code, app, status = params.get("search") or "", NAMES.get(params.get("app") or ""), params.get("code") or ""
@@ -120,12 +123,8 @@ def _tvdb(value) -> int | None:
 
 
 def _back(value, kind: str, tmdb: int) -> str:
-    """A local Media page to return to (media_resume's rule), else the title page."""
-    raw = str(value or "")
-    v = media_resume._back(raw)
-    if v == media_resume.DEFAULT_BACK and not raw.startswith(media_resume.DEFAULT_BACK):
-        return f"/media/title/{kind}/{tmdb}"   # missing / foreign / odd -> the title page, not Server
-    return v
+    """A local Media page to return to (media_write.safe_back), else the title page — never Server."""
+    return safe_back(value, f"/media/title/{kind}/{tmdb}")
 
 
 def lazy_href(kind: str | None, tmdb, tvdb, back: str) -> str | None:

@@ -26,6 +26,7 @@ from hub.images import router as images_router
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub import media_awards_badges
+from hub import media_write as _media_write
 from hub.media_write import PLACES, router as media_write_router, year_ctx
 from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
 from hub import media_awards, media_awards_pages
@@ -159,8 +160,10 @@ app.add_middleware(Compress)
 
 
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
-# the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash.
-FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app", "search", "future")  # search, future: media-ux5
+# the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash. Derived
+# from the Media modules' registry (media_write.flash_keys, M-17) plus the Server page's own (server_updates).
+SERVER_FLASH_PARAMS = ("flash", "c", "code")
+FLASH_PARAMS = tuple(dict.fromkeys([*_media_write.FLASH_KEYS, *SERVER_FLASH_PARAMS]))
 
 app.include_router(images_router)
 app.include_router(media_write_router)
@@ -862,7 +865,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
     add("downloading", "Downloading", LIBRARY_DETAIL, downloading, "", omit_empty=True)
-    most_shows, most_films = media_plays_db.most_played_30({"you": "you", "her": "her"}.get(view))
+    most_shows, most_films = media_plays_db.most_played_30(media_db.owner_filter(view))
     most = ([item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
                   f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
              for e in most_shows]
@@ -1095,7 +1098,7 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
     resp = templates.TemplateResponse(request, template, {
         "areas": registry.visible_areas, "active_id": None, "src": src, "ratings": {}, **extra,
-        "owner_view": view,  # media_playing.html reads it (H-08: no other template does)
+        "owner": media_db.owner_of(view),  # media_playing.html's Move on acts (M-16)
     })
     return _maybe_set_cookie(resp, view, from_query)
 

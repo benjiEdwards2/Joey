@@ -39,7 +39,7 @@ from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin
-from hub.media_write import form_of, same_origin
+from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_resume")
 router = APIRouter()
@@ -111,6 +111,9 @@ def in_progress(row: dict) -> bool:
     return bool(text) and text != NEXT_EPISODE
 
 
+flash_keys("done", "error", "code")
+
+
 def flash_text(params) -> tuple[str | None, str | None]:
     done, err, code = params.get("done") or "", params.get("error") or "", params.get("code") or ""
     if done in DONE:
@@ -170,10 +173,8 @@ def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:
 # ---- routes ----
 
 def _back(value) -> str:
-    """Only a local page path (no scheme, no //) is a redirect target; its query is dropped (no stale flash)."""
-    v = str(value or "").split("#", 1)[0].split("?", 1)[0]
-    ok = v == "/" or v.startswith(("/media/", "/a/"))
-    return v if ok and "//" not in v and "\\" not in v and len(v) < 300 else DEFAULT_BACK
+    """Only a local page path is a redirect target (media_write.safe_back); its query is dropped (no stale flash)."""
+    return safe_back(value, DEFAULT_BACK)
 
 
 def owner_of(request: Request, form: dict) -> str:

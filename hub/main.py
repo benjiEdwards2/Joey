@@ -4,7 +4,6 @@ areas.yaml; no area name appears in this code (WP17 verify greps for that).
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import random
@@ -13,8 +12,6 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
-
-from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -28,12 +25,15 @@ from hub import media_film, media_item, media_person, media_library, media_plays
 from hub import media_awards_badges, media_status_words, media_text
 from hub import media_write as _media_write
 from hub.media_write import PLACES, router as media_write_router, year_ctx
-from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
-from hub import media_awards, media_awards_pages
+from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist
+from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub import shell
+from hub import shell, tasks
+# W3: background loops + lifespan live in hub/tasks.py; re-exported for the old `hub.main.X` paths.
+from hub.tasks import (BACKUP_EVERY_S, BACKUP_FIRST_DELAY_S, _backup_loop, _every, _media_awards_loop,  # noqa: F401
+                       _media_follow_loop, _media_warmup_loop, _server_alerts_loop, _server_tick, lifespan)
 from hub.identity import IDENTITY_HEADER
 from hub.ids import (ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID,
                      MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID, home_tz)
@@ -44,7 +44,7 @@ from hub.shell import (OWNER_COOKIE, OWNER_COOKIE_MAX_AGE, OWNER_VIEWS, Compress
                        get_snapshots, identity_of, not_found_page, owner_visible, render_page, resolve_owner_view,
                        templates)
 from hub.store import (_snapshot_dir, ago_text, connected, data_of, get_runner, get_runner_history,
-                       get_snapshots as _read_snapshots, parse_utc, tile_state)
+                       parse_utc, tile_state)
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -55,84 +55,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s
 # would repeat every request, the 30 s healthcheck and every poster (H-58, N-28).
 logging.getLogger("uvicorn.access").disabled = True
 
-# media.db backups (2026-10-05): first check ~30 s after startup (the NAS is off
-# overnight, so this is what gives one a day), then hourly; maybe_backup skips
-# while a backup under 20 h old exists. MEDIA_BACKUP=off disables the task.
-BACKUP_FIRST_DELAY_S = 30
-BACKUP_EVERY_S = 3600
-
-
-async def _every(label: str, first_s: float, every_s: float, fn) -> None:
-    """One background loop (H-23): wait `first_s`, then run `fn` in a worker thread every `every_s`. An error is
-    logged by type only and never takes the hub down."""
-    await asyncio.sleep(first_s)
-    while True:
-        try:
-            await asyncio.to_thread(fn)
-        except Exception as exc:
-            log.warning("%s task error: %s", label, type(exc).__name__)
-        await asyncio.sleep(every_s)
-
-
-def _backup_loop():
-    return _every("media backup", BACKUP_FIRST_DELAY_S, BACKUP_EVERY_S, lambda: media_backup.maybe_backup())
-
-
-def _server_tick() -> None:
-    """WP-U4: sample the `system` snapshot into media.db (server_history); WP-U2: push NEW Server Attention items
-    to Discord (no-op without the webhook). A failed sample never skips the alert check. One snapshot read
-    serves both (H-53)."""
-    snaps = _read_snapshots()
-    try:
-        server_history.sample(snaps)
-    except Exception as exc:
-        log.warning("server history task error: %s", type(exc).__name__)
-    server_alerts.check_once(server_area.live_snapshot_ids(shell.registry), snaps)
-
-
-def _server_alerts_loop():
-    return _every("server alerts", server_alerts.FIRST_DELAY_S, server_alerts.EVERY_S, _server_tick)
-
-
-def _media_warmup_loop():
-    """media-speed: warm the film pages behind the Media home shelves ~60 s after startup, then every few
-    hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it."""
-    return _every("media warm-up", media_warmup.FIRST_DELAY_S, media_warmup.EVERY_S, lambda: media_warmup.run_pass())
-
-
-def _media_follow_loop():
-    """Follow (2026-10-07): request NEW films of followed people / series (hub/media_follow.py) ~2 min after
-    startup, then every 6 h. Idempotent (the NAS is off overnight); MEDIA_FOLLOW=off disables it."""
-    return _every("media follow", media_follow.FIRST_DELAY_S, media_follow.EVERY_S, lambda: media_follow.run_once())
-
-
-def _media_awards_loop():
-    """Awards (2026-10-08): hourly check, a pass when one is due (hub/media_awards.py: every 6 h while a backlog
-    exists, then weekly; skipped 22:00-07:00). MEDIA_AWARDS=off disables it; no AWARDS_CONTACT => no calls."""
-    return _every("media awards", media_awards.FIRST_DELAY_S, media_awards.TICK_S, lambda: media_awards.tick())
-
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    """Load the registry at startup (shell.load_areas), failing fast with the aggregated violation list."""
-    shell.load_areas()
-    tasks = [
-        None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
-        media_plays.start_recorder(),  # F7 play recorder; None when off
-        asyncio.create_task(_server_alerts_loop()),
-        None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop()),
-        None if media_follow.disabled() else asyncio.create_task(_media_follow_loop()),
-        None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),
-    ]
-    yield
-    for task in reversed(tasks):  # newest first
-        if task is not None:
-            task.cancel()
-            with suppress(asyncio.CancelledError):
-                await task
-
-
-app = FastAPI(title="Joey hub", lifespan=lifespan)
+app = FastAPI(title="Joey hub", lifespan=tasks.lifespan)
 
 
 # Request log + Cache-Control (pages no-store, /static/ immutable when ?v= versioned, else an hour) in one pure
@@ -1396,14 +1319,14 @@ def _server_response(request: Request, area, view: str, from_query: bool):
                                   get_runner_history(), server_history.recent(),
                                   live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
                                   gated=shell.registry.gated_hrefs)
-    tasks = BackgroundTasks()
-    tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
-    tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
+    after = BackgroundTasks()
+    after.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
+    after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = shell.render_page(request, "server.html", {
         "area": area, "sv": sv,
         "flash": server_updates.flash_text(request.query_params),
     }, active_id=area.id)
-    resp.background = tasks
+    resp.background = after
     return shell._maybe_set_cookie(resp, view, from_query)
 
 

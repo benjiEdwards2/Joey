@@ -63,7 +63,7 @@ def test_server_loop_reads_snapshots_once(tmp_path, monkeypatch):
     """H-53: one snapshot read feeds both the history sample and the alert check."""
     main = _reload(tmp_path, monkeypatch, _shelf_area())
     reads, seen = [], {}
-    monkeypatch.setattr(main, "_read_snapshots", lambda *a: reads.append(1) or {"marker": True})
+    monkeypatch.setattr(main.tasks, "_read_snapshots", lambda *a: reads.append(1) or {"marker": True})
     monkeypatch.setattr(main.server_history, "sample", lambda snaps=None: seen.setdefault("sample", snaps))
     monkeypatch.setattr(main.server_alerts, "check_once", lambda live=None, snaps=None: seen.setdefault("check", snaps))
     main._server_tick()

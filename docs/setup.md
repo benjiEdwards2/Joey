@@ -76,5 +76,16 @@ B.'s email address, set in the NAS `deploy/.env` only (`append_env.sh`), never i
 `docker exec -i <hub container> python - --edition oscars:97 < scripts/awards_sync.py`.
 
 Play recorder (2026-10-06): the hub polls Jellyfin `/Sessions` every `PLAY_POLL_SECONDS` (default 60) into `media.db`;
-set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN_API_KEY`. Neither knob is listed in
-`deploy/.env.example` yet, so add them there by hand only if you want to change the defaults.
+set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN_API_KEY`.
+
+## Optional knobs (unset = default; listed commented-out at the end of `deploy/.env.example`)
+
+- `MEDIA_BACKUP` — `off` stops the nightly `media.db` gzip backup (hub; default on).
+- `MEDIA_WARMUP` — `off` stops the background poster/ratings warm-up; `shelves` keeps only the home-shelf pass (hub; default on).
+- `PLAY_RECORDER` — `off` stops the Jellyfin play recorder (hub; default on, needs the Jellyfin URL + key).
+- `PLAY_POLL_SECONDS` — play-recorder poll interval in seconds, minimum 1 (hub; default 60).
+- `META_CACHE_DIR` — disk cache for Jellyseerr bodies and ratings (hub; default `<IMG_CACHE_DIR>/meta`).
+- `RADAR_LOOP` — `1` also fetches the parked BOM radar loop with the weather (connectors; default off, Windy is the radar).
+- `AREAS_PATH` — area registry file (hub; default `config/areas.yaml` in the image).
+- `SYSTEM_VOLUMES` / `SYSTEM_VOLUME_LABELS` — set in `docker-compose.yml`, not `.env`: statvfs targets (the snapshots dir,
+  which reports `/volume1`'s numbers) and the `path=label[,path=label]` names the Server area shows.

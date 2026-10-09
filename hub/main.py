@@ -34,7 +34,7 @@ from hub import server_alerts, server_history, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.registry import Registry, load_registry
-from hub.shell import _static_version, templates  # ONE Jinja env for every router (H-31)
+from hub.shell import CacheHeaders, Compress, _static_version, templates  # ONE Jinja env for every router (H-31)
 from hub.store import get_runner, get_runner_history, get_snapshots as _read_snapshots, tile_state
 
 HUB_DIR = Path(__file__).resolve().parent
@@ -173,16 +173,9 @@ async def log_identity(request: Request, call_next):
     return response
 
 
-@app.middleware("http")
-async def no_store_pages(request: Request, call_next):
-    """Back/Forward is navigation only (2026-10-08): an HTML page is never stored, so neither the browser's
-    bfcache/HTTP cache nor a proxy can show a page as it was before a Follow / Request / Remove. Static files
-    and /img keep their own caching (static URLs are content-versioned)."""
-    response = await call_next(request)
-    ctype = response.headers.get("content-type", "")
-    if ctype.startswith("text/html") and not request.url.path.startswith("/static/"):
-        response.headers["Cache-Control"] = "no-store"
-    return response
+# HTML pages no-store, /static/ immutable when ?v= versioned, else an hour; text bodies gzipped (hub/shell.py).
+app.add_middleware(CacheHeaders)
+app.add_middleware(Compress)
 
 
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from

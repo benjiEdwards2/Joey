@@ -62,3 +62,42 @@ def test_static_version_hashes_the_whole_tree(tmp_path):
 def test_templates_do_not_auto_reload_outside_dev():
     from hub import shell
     assert shell.templates.env.auto_reload is shell.dev_mode()
+
+
+def _plain_client(monkeypatch, tmp_path):
+    monkeypatch.delenv("AREAS_PATH", raising=False)
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    import hub.main
+    importlib.reload(hub.main)
+    return TestClient(hub.main.app)
+
+
+def test_static_cache_control_versioned_vs_unversioned(tmp_path, monkeypatch):
+    """H-56 / N-48: a ?v= static URL is immutable for a year; manifests and un-versioned files an hour;
+    pages stay no-store; a static 404 is never pinned."""
+    with _plain_client(monkeypatch, tmp_path) as c:
+        css = c.get("/static/control-surface.css?v=abc12345")
+        bare = c.get("/static/control-surface.css")
+        manifest = c.get("/static/manifest.webmanifest")
+        icon = c.get("/static/icon-192.png?v=3")
+        missing = c.get("/static/nope.css?v=1")
+        page = c.get("/")
+    assert css.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert icon.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert bare.headers["cache-control"] == "public, max-age=3600"
+    assert manifest.headers["cache-control"] == "public, max-age=3600"
+    assert missing.status_code == 404 and "immutable" not in missing.headers.get("cache-control", "")
+    assert page.headers["cache-control"] == "no-store"
+
+
+def test_text_is_gzipped_and_images_are_not(tmp_path, monkeypatch):
+    """N-49: pages and CSS over 1 KB are gzipped when asked; PNGs and /img are sent as they are."""
+    with _plain_client(monkeypatch, tmp_path) as c:
+        gz = {"Accept-Encoding": "gzip"}
+        page, css = c.get("/", headers=gz), c.get("/static/control-surface.css?v=1", headers=gz)
+        icon, poster = c.get("/static/icon-192.png?v=3", headers=gz), c.get("/img/none?h=240", headers=gz)
+    assert page.headers.get("content-encoding") == "gzip" and "<html" in page.text
+    assert css.headers.get("content-encoding") == "gzip"
+    assert css.headers["cache-control"].endswith("immutable")
+    for r in (icon, poster):
+        assert "content-encoding" not in r.headers

@@ -181,3 +181,14 @@ def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
         assert '<a class="panel tile wx" href="/weather"' in html
         assert "18.3 °C · light rain" in html and "12.7–24.1 °C · 55% rain" in html
         assert '<svg class="wxchart"' not in html and 'wxdays' not in html
+
+
+def test_zero_degrees_renders_as_0_not_a_dash(app_factory):
+    """D-52: 0 °C is a temperature, not a missing value — the hour rows and the 7-day range print "0"."""
+    data = {**WX_DATA, "hourly": [{"time": "2026-07-01T06:00", "temp_c": 0, "feels_c": -3, "rain_prob_pct": 0}],
+            "days": [{"date": "2026-07-01", "condition_text": "frost", "min_c": 0, "max_c": 0.0, "rain_prob_pct": 0}]}
+    html = _weather_html(app_factory, data)
+    hours = html.split('class="listbox wxhours"')[1].split("</ol>")[0]
+    week = html.split('class="listbox wxdays"')[1].split("</ol>")[0]
+    assert '<span class="row-side">0 °C</span>' in hours
+    assert '<span class="row-side">0–0 °C</span>' in week

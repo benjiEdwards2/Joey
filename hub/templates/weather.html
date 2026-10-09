@@ -62,7 +62,7 @@
     <summary class="seclabel">Hour by hour<span class="sep"> · </span>{{ fc.hours | length }}</summary>
     <ol class="listbox wxhours" aria-label="Hour by hour">
       {% for h in fc.hours %}
-      <li class="row"><div class="row-body"><div class="row-title">{{ h.hour }}</div>{{ meta([(h.rain if h.rain is not none else "—") ~ "% rain"]) }}</div><span class="row-side">{{ h.temp or "—" }} °C</span></li>
+      <li class="row"><div class="row-body"><div class="row-title">{{ h.hour }}</div>{{ meta([(h.rain if h.rain is not none else "—") ~ "% rain"]) }}</div><span class="row-side">{{ h.temp if h.temp is not none else "—" }} °C</span></li>
       {% endfor %}
     </ol>
   </details>
@@ -90,7 +90,7 @@
     <li class="row">
       <span class="glyph">{{ ic.icon(d.glyph) }}</span>
       <div class="row-body"><div class="row-title">{{ d.label }}</div>{{ meta([d.word, (d.rain if d.rain is not none else "—") ~ "% rain"]) }}</div>
-      <span class="row-side">{{ d.min or "—" }}–{{ d.max or "—" }} °C</span>
+      <span class="row-side">{{ d.min if d.min is not none else "—" }}–{{ d.max if d.max is not none else "—" }} °C</span>
     </li>
     {% endfor %}
   </ol>

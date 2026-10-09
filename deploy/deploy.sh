@@ -7,6 +7,10 @@
 # git has no host binary — every git call goes through an alpine/git container
 # with the joey_deploy key; the full suite runs in the union life-test image
 # (production images carry only their own deps).
+#
+# Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
+# Every run that takes the lock appends ONE line to history.log (review D-03, 2026-10-09):
+# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | ROLLED-BACK | ROLLBACK-FAILED | ABORTED.
 set -eu
 set -o pipefail
 
@@ -14,6 +18,17 @@ REPO=/volume1/Docker/joey/life-dashboard
 DEPLOY_DIR=$REPO/deploy
 HISTORY=$DEPLOY_DIR/history.log
 STAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+START=$(date +%s)
+PREV_SHA=?
+NEW_SHA=?
+LOGGED=0
+
+FORCE=0
+case "${1:-}" in
+    --force) FORCE=1 ;;
+    "") ;;
+    *) echo "usage: deploy.sh [--force]" >&2; exit 64 ;;
+esac
 
 GIT() {
     docker run --rm -v "$REPO":/work -v /root/.ssh:/root/.ssh:ro -w /work \
@@ -21,12 +36,15 @@ GIT() {
 }
 
 log_history() {
-    echo "$STAMP $1 prev=$PREV_SHA new=${NEW_SHA:-?} $2" >> "$HISTORY"
+    echo "$STAMP $1 prev=$PREV_SHA new=${NEW_SHA:-?} $2 end=$(date -u '+%Y-%m-%dT%H:%M:%SZ') dur=$(($(date +%s) - START))s" >> "$HISTORY"
+    LOGGED=1
 }
 
 # One deploy at a time (2026-10-06: two concurrent deploys made smoke race the hub's
 # startup and forced a rollback). mkdir is the atomic lock on BusyBox; a stale lock
-# (older than 30 min) is removed. The trap releases it on any exit path.
+# (older than 30 min) is removed. The traps release it on every exit path, Ctrl-C and
+# kill included (`trap EXIT` alone does not fire on a signal in ash), and log ABORTED
+# when the run dies before an outcome line was written (e.g. `set -e` on a failed pull).
 LOCK=/tmp/joey-deploy.lock
 if ! mkdir "$LOCK" 2>/dev/null; then
     if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then
@@ -36,7 +54,23 @@ if ! mkdir "$LOCK" 2>/dev/null; then
         exit 2
     fi
 fi
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+on_exit() {
+    rc=$?
+    trap - EXIT INT TERM
+    if [ "$LOGGED" -eq 0 ]; then
+        note="exit $rc before an outcome"
+        # back to PREV_SHA so a plain rerun redeploys instead of saying NOTHING-TO-DEPLOY
+        if [ "$NEW_SHA" != "?" ] && [ "$NEW_SHA" != "$PREV_SHA" ]; then
+            GIT reset --hard "$PREV_SHA" >/dev/null 2>&1 && note="$note — tree reset to prev, rerun deploy.sh"
+        fi
+        log_history "ABORTED" "$note" || true
+    fi
+    rmdir "$LOCK" 2>/dev/null || true
+    exit "$rc"
+}
+trap on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 cd "$REPO"
 PREV_SHA=$(GIT rev-parse --short HEAD)
@@ -44,26 +78,34 @@ PREV_SHA=$(GIT rev-parse --short HEAD)
 echo "== pull (ff-only) =="
 GIT pull --ff-only
 NEW_SHA=$(GIT rev-parse --short HEAD)
+if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$FORCE" -eq 0 ]; then
+    log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy)"
+    echo "NOTHING-TO-DEPLOY: already at $NEW_SHA (deploy.sh --force to redeploy)"
+    exit 0
+fi
+
+# Never leave the tree on an untested SHA: the next run's PREV_SHA (its rollback target)
+# must be code that passed the gate (review D-02). The live stack is untouched here.
+gate_fail() {
+    GIT reset --hard "$PREV_SHA" || echo "!! git reset to $PREV_SHA failed — reset the tree by hand !!" >&2
+    log_history "GATE-FAIL" "$1 — tree reset to prev, live stack untouched"
+    echo "GATE FAILED ($1) — deploy aborted, tree back on $PREV_SHA, live stack untouched." >&2
+    exit 1
+}
 
 echo "== compose validate =="
 cd "$DEPLOY_DIR"   # picks up docker-compose.yml + any local override
-docker compose config -q
+docker compose config -q || gate_fail "compose config invalid"
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
+# --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.
 cd "$REPO"
-docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null
-if ! docker run --rm life-test; then
-    log_history "GATE-FAIL" "suite red — live stack untouched"
-    echo "SUITE RED — deploy aborted, live stack untouched." >&2
-    exit 1
-fi
+gate() {
+    docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
+        && docker run --rm --network none life-test
+}
+gate || gate_fail "test build or suite red"
 
-echo "== build + converge =="
-cd "$DEPLOY_DIR"
-docker compose build
-docker compose up -d --remove-orphans
-
-echo "== smoke =="
 # Wait for the hub to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the
 # hub's startup on a NAS that had just built two images (2026-10-06, two false rollbacks).
 wait_for_hub() {
@@ -82,21 +124,36 @@ smoke() {
         && docker compose exec -T hub python tests/deploy/smoke.py \
         && [ -z "$(docker compose ps --status restarting -q)" ]
 }
-if smoke; then
-    log_history "PASS" "suite green, smoke ok"
-    echo "DEPLOY OK: $PREV_SHA -> $NEW_SHA"
-    exit 0
-fi
+# One rollback path for every post-gate failure (compose build, compose up, smoke) — review
+# D-03: under `set -e` a failing build/up used to exit with no rollback and no history line.
+# Everything runs inside `if`, so a failing step lands in ROLLBACK-FAILED instead of aborting.
+rollback() {
+    echo "!! $1 — rolling back to $PREV_SHA !!" >&2
+    cd "$DEPLOY_DIR"
+    if GIT reset --hard "$PREV_SHA" \
+        && docker compose build \
+        && docker compose up -d --remove-orphans \
+        && smoke; then
+        log_history "ROLLED-BACK" "$1 on new SHA; previous SHA healthy"
+        echo "############ ROLLED BACK to $PREV_SHA ############" >&2
+    else
+        log_history "ROLLBACK-FAILED" "$1 on new SHA, and the previous SHA is unhealthy too — manual intervention"
+        echo "############ ROLLBACK ALSO UNHEALTHY — investigate ############" >&2
+    fi
+    exit 1
+}
 
-echo "!! SMOKE FAILED — rolling back to $PREV_SHA !!" >&2
-GIT reset --hard "$PREV_SHA"
-docker compose build
-docker compose up -d --remove-orphans
-if smoke; then
-    log_history "ROLLED-BACK" "smoke failed on new SHA; previous SHA healthy"
-    echo "############ ROLLED BACK to $PREV_SHA ############" >&2
-else
-    log_history "ROLLBACK-FAILED" "smoke failed on BOTH SHAs — manual intervention"
-    echo "############ ROLLBACK ALSO UNHEALTHY — investigate ############" >&2
-fi
-exit 1
+echo "== build + converge =="
+cd "$DEPLOY_DIR"
+docker compose build || rollback "compose build failed"
+docker compose up -d --remove-orphans || rollback "compose up failed"
+
+echo "== smoke =="
+smoke || rollback "smoke failed"
+
+# Reclaim what each build leaves behind (review D-08): dangling images and week-old build cache.
+docker image prune -f >/dev/null || true
+docker builder prune -f --filter until=168h >/dev/null || true
+log_history "PASS" "suite green, smoke ok"
+echo "DEPLOY OK: $PREV_SHA -> $NEW_SHA"
+exit 0

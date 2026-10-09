@@ -66,7 +66,7 @@ def test_library_page_renders_every_section_in_main(app_factory):
     # Restyle Phase 3 row recipe: the title, then one meta line of facts.
     assert '>Salt Flats</div><div class="row-meta">Upgraded to 4K' in body
     assert ">Today</div>" in body and 'row-meta">Premiere' in body and 'row-meta">Digital' in body
-    assert '>Midnight Harbour</div><div class="row-meta">Downloading · 75% · 14 min left' in body and "width: 75%" in body
+    assert '>Midnight Harbour</div><div class="row-meta">Downloading · 75% · 14m left' in body and "width: 75%" in body
     assert '>/movies</div><div class="row-meta">1117.6 of 3725.3 GB free · 70% used' in body and "width: 70%" in body
     assert "not answering" not in body
 

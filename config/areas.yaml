@@ -72,11 +72,6 @@ areas:
         tier: link
         owner: shared
         href: "https://www.notion.so"               # Q12 answered at WP21 sign-off (2026-09-11)
-      - id: nas-home
-        label: NAS Homepage
-        tier: link
-        owner: shared
-        href: "http://192.168.68.59:3000"           # Asustor Homepage app (2026-08-28)
 
   - id: calendar
     name: Calendar

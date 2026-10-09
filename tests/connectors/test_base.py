@@ -97,3 +97,20 @@ def test_concurrent_runs_never_leave_a_truncated_file(snapshots):
     assert not corrupt, f"reader saw a partial snapshot: {corrupt[:3]}"
     json.loads(path.read_text(encoding="utf-8"))
     assert not list(snapshots.glob("*.tmp")), "temp file left behind"
+
+
+class UrlLeaker(Dummy):
+    """An unwrapped upstream call: the exception text carries the full URL (C-06)."""
+
+    def fetch_fixture(self):
+        raise RuntimeError("400 Client Error for url: https://api.example.invalid/v1?latitude=-37.84&key=s3cret")
+
+
+def test_a_url_in_the_exception_never_reaches_the_envelope_or_the_log(snapshots, caplog):
+    with caplog.at_level("WARNING", logger="connectors"):
+        envelope = UrlLeaker().run()
+    on_disk = (snapshots / "open_meteo.json").read_text(encoding="utf-8")
+    assert envelope["error"] == "RuntimeError: 400 Client Error for url: <url>"
+    for text in (envelope["error"], on_disk, caplog.text):
+        assert "http" not in text and "-37.84" not in text and "s3cret" not in text
+    assert "<url>" in caplog.text

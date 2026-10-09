@@ -161,21 +161,27 @@ class OpenMeteo(Connector):
     def _fetch_forecast(self) -> dict:
         import requests
 
-        response = requests.get(
-            self.FORECAST_URL,
-            params={
-                "latitude": os.environ["WEATHER_LAT"],
-                "longitude": os.environ["WEATHER_LON"],
-                "current": "temperature_2m,weather_code",
-                "hourly": self.HOURLY,
-                "daily": self.DAILY,
-                "timezone": os.environ.get("TZ", "auto"),
-                "forecast_days": 7,
-            },
-            timeout=10,
-        )
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.get(
+                self.FORECAST_URL,
+                params={
+                    "latitude": os.environ["WEATHER_LAT"],
+                    "longitude": os.environ["WEATHER_LON"],
+                    "current": "temperature_2m,weather_code",
+                    "hourly": self.HOURLY,
+                    "daily": self.DAILY,
+                    # `or`, not a .get default: compose passes a blank `TZ=` through as ""
+                    "timezone": os.environ.get("TZ") or "auto",
+                    "forecast_days": 7,
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as exc:
+            # Reason is type/status ONLY — requests exception text embeds the URL,
+            # whose query carries the home coordinates (C-06).
+            raise RuntimeError(f"Open-Meteo forecast failed ({_safe_reason(exc)})") from None
 
     def transform(self, raw: dict) -> dict:
         current = raw["current"]

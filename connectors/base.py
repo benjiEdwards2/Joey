@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -48,6 +49,15 @@ def _now_iso() -> str:
     if mode() == "fixture":
         return FIXTURE_TIMESTAMP
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+_URL_RE = re.compile(r"https?://\S+")
+
+
+def mask_urls(text: str) -> str:
+    """Defence in depth (C-06): no URL — with its host, query or token — reaches an
+    envelope, `_runner.json`, the history or the log, even from an unwrapped call."""
+    return _URL_RE.sub("<url>", text)
 
 
 class MissingCredential(RuntimeError):
@@ -131,7 +141,8 @@ class Connector:
                 "data": data,
             }
         except Exception as exc:  # a connector failure is data, not a crash
-            log.warning("%s failed: %s", self.id, exc)
+            reason = mask_urls(f"{type(exc).__name__}: {exc}")
+            log.warning("%s failed: %s", self.id, reason)
             envelope = {
                 "connector": self.id,
                 "schema_version": SCHEMA_VERSION,
@@ -140,7 +151,7 @@ class Connector:
                 "updated_at": (previous or {}).get("updated_at", now),
                 "status": "error",
                 "consecutive_failures": int((previous or {}).get("consecutive_failures", 0)) + 1,
-                "error": f"{type(exc).__name__}: {exc}",
+                "error": reason,
                 "data": (previous or {}).get("data", {}),
             }
         write_envelope(self.path(), envelope)

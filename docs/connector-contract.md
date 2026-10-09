@@ -238,6 +238,11 @@ sets status=error, bumps `consecutive_failures`, and refreshes `fetched_at` only
 The tile therefore keeps showing the last known value with a stale badge, which
 is exactly the agreed failure handling (2026-08-25).
 
+**Error text never carries a URL (2026-10-09, C-06).** Every live `fetch()` reduces an upstream failure to
+type/status (`_safe_reason` and friends) — Open-Meteo included, whose query holds the home coordinates. As
+defence in depth `base.run` (and the runner's own isolation path) replaces any `http(s)://…` in the error with
+`<url>` before it is logged or stored. Open-Meteo sends `timezone=auto` when `TZ` is unset **or blank**.
+
 ## The `data` block
 
 Each feed has its own schema in `connectors/schema/data/{id}.schema.json`, and

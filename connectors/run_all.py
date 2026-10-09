@@ -20,7 +20,7 @@ import logging
 import sys
 from typing import Iterable
 
-from connectors.base import Connector, _now_iso, snapshot_dir
+from connectors.base import Connector, _now_iso, mask_urls, snapshot_dir
 
 log = logging.getLogger("connectors.run_all")
 
@@ -48,11 +48,12 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
                 "error": envelope["error"],
             }
         except Exception as exc:  # run() shouldn't raise; isolate it anyway
-            log.error("%s raised outside run(): %s", cid, exc)
+            reason = mask_urls(f"{type(exc).__name__}: {exc}")
+            log.error("%s raised outside run(): %s", cid, reason)
             results[cid] = {
                 "status": "error",
                 "consecutive_failures": -1,
-                "error": f"runner-level {type(exc).__name__}: {exc}",
+                "error": f"runner-level {reason}",
             }
         log.info("%s: %s", cid, results[cid]["status"])
         print(f"{cid}: {results[cid]['status']}"

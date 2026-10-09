@@ -149,3 +149,57 @@ def test_transform_without_hourly_or_extra_daily_still_composes():
     assert data["summary"] == "18.3 °C · light rain"
     assert data["secondary"] == "12.7–24.1 °C · 55% rain"
     assert data["hourly"] == [] and len(data["days"]) == 1
+
+
+# ---- 2026-10-09 review (C-06, C-07): no coordinates in errors; blank TZ means auto ----
+
+
+def _live(monkeypatch):
+    monkeypatch.setenv("CONNECTOR_MODE", "live")
+    monkeypatch.setenv("WEATHER_LAT", "-37.84")
+    monkeypatch.setenv("WEATHER_LON", "144.88")
+
+
+def test_a_failed_forecast_reports_status_only_never_the_url(monkeypatch, snapshots, caplog):
+    _live(monkeypatch)
+    url = f"{OpenMeteo.FORECAST_URL}?latitude=-37.84&longitude=144.88"
+
+    def fake_get(*a, **k):
+        raise requests.ConnectionError(f"HTTPSConnectionPool: Max retries exceeded with url: {url}")
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    with caplog.at_level("WARNING", logger="connectors"):
+        envelope = OpenMeteo().run()
+    assert envelope["status"] == "error"
+    assert envelope["error"] == "RuntimeError: Open-Meteo forecast failed (ConnectionError)"
+    on_disk = (snapshots / "open_meteo.json").read_text(encoding="utf-8")
+    for text in (envelope["error"], on_disk, caplog.text):
+        assert "-37.84" not in text and "latitude" not in text and "open-meteo.com" not in text
+
+
+def test_an_http_error_reports_its_status(monkeypatch, snapshots):
+    _live(monkeypatch)
+
+    class Bad:
+        status_code = 400
+
+        def raise_for_status(self):
+            raise requests.HTTPError("400 Client Error for url: https://api.open-meteo.com/?latitude=-37.84",
+                                     response=self)
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: Bad())
+    assert OpenMeteo().run()["error"] == "RuntimeError: Open-Meteo forecast failed (HTTP 400)"
+
+
+def test_a_blank_tz_asks_open_meteo_for_auto(monkeypatch, snapshots):
+    _live(monkeypatch)
+    monkeypatch.setenv("TZ", "")
+    seen = {}
+
+    def fake_get(url, params=None, timeout=None):
+        seen.update(params)
+        raise requests.Timeout()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    OpenMeteo().run()
+    assert seen["timezone"] == "auto"

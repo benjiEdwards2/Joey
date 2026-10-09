@@ -81,12 +81,14 @@ def _backup_loop():
 
 def _server_tick() -> None:
     """WP-U4: sample the `system` snapshot into media.db (server_history); WP-U2: push NEW Server Attention items
-    to Discord (no-op without the webhook). A failed sample never skips the alert check."""
+    to Discord (no-op without the webhook). A failed sample never skips the alert check. One snapshot read
+    serves both (H-53)."""
+    snaps = _read_snapshots()
     try:
-        server_history.sample()
+        server_history.sample(snaps)
     except Exception as exc:
         log.warning("server history task error: %s", type(exc).__name__)
-    server_alerts.check_once(server_area.live_snapshot_ids(registry))
+    server_alerts.check_once(server_area.live_snapshot_ids(registry), snaps)
 
 
 def _server_alerts_loop():
@@ -710,22 +712,27 @@ def waiting_counts(recent, ratings, details) -> dict:
     return {"to_rate": to_rate, "to_place": to_place}
 
 
-def area_waiting(area, snaps, view: str) -> dict:
-    """waiting_counts for an area straight from snapshots + owner view (hub card, Media frame)."""
+def _recent(snaps, view: str) -> list:
+    """The viewer's recent watch history (her view = hers) from the jellyfin snapshot."""
     jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
-    recent = (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
-    counts = waiting_counts(recent, _ratings(view, recent),
+    return (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
+
+
+def area_waiting(area, snaps, view: str, recent=None, ratings=None) -> dict:
+    """waiting_counts for an area straight from snapshots + owner view (hub card, Media frame). `recent` /
+    `ratings` when the caller already has them (media_frame shares one read with the To rate tab counts)."""
+    recent = _recent(snaps, view) if recent is None else recent
+    counts = waiting_counts(recent, _ratings(view, recent) if ratings is None else ratings,
                             {t.detail for t in area.tiles if t.detail and owner_visible(t, view)})
     if view == "her":
         counts["to_place"] = 0  # rankings are B.'s only
     return counts
 
 
-def to_rate_tab_counts(snaps, view: str) -> dict:
+def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None) -> dict:
     """The Movies / TV Shows "To rate" tab counts (media-ux4): the viewer's own inbox split by kind."""
-    jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
-    recent = (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
-    rows = _to_rate(recent, _ratings(view, recent)) if recent else []
+    recent = _recent(snaps, view) if recent is None else recent
+    rows = _to_rate(recent, _ratings(view, recent) if ratings is None else ratings) if recent else []
     return {"to_rate_movie": sum(1 for r in rows if r["kind"] == "movie"),
             "to_rate_tv": sum(1 for r in rows if r["kind"] == "tv")}
 
@@ -738,14 +745,16 @@ def media_frame(request: Request) -> dict:
         area = media_nav.shelves_area(registry)
         snaps = getattr(request.state, "snaps", None)  # media-speed: a route's own read, when it shared one
         snaps = get_snapshots() if snaps is None else snaps
-        waiting = area_waiting(area, snaps, view) if area else {}
+        recent = _recent(snaps, view)
+        ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
+        waiting = area_waiting(area, snaps, view, recent, ratings) if area else {}
         try:
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
         except Exception as exc:  # the Watchlist count is a nicety: never break the frame
             log.warning("watchlist count skipped: %s", type(exc).__name__)
         try:
-            waiting = {**waiting, **to_rate_tab_counts(snaps, view)}
+            waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings)}
         except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)
             log.warning("to rate count skipped: %s", type(exc).__name__)
         cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)
@@ -1038,8 +1047,8 @@ def hub_page(request: Request):
         cards.append(card)
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = templates.TemplateResponse(request, "hub.html", {
-        "areas": registry.visible_areas, "active_id": None, "cards": cards, "owner_view": view,
-        "status": build_status(snaps), "weather": find_weather(snaps),
+        "areas": registry.visible_areas, "active_id": None, "cards": cards,
+        "status": build_status(snaps), "weather": find_weather(snaps),  # status: hub.html only (H-50)
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": media_backup.current_status()["warning"],
         "greeting": hub_greeting(_now_home(), identity_of(request).owner and identity_of(request).name),
@@ -1054,8 +1063,7 @@ def weather_page(request: Request):
     view, from_query = resolve_owner_view(request)
     snaps = get_snapshots()
     resp = templates.TemplateResponse(request, "weather.html", {
-        "areas": registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": build_status(snaps), "w": find_weather(snaps),
+        "areas": registry.visible_areas, "active_id": None, "w": find_weather(snaps),
         "fc": weather_forecast(snaps), "radar": weather_radar(snaps),   # radar: parked BOM panel context
         "windy_src": windy_embed_url(),
     })
@@ -1088,15 +1096,15 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     src = find_detail_source(snapshot_id, snaps, detail)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None, "owner_view": view,
+            "areas": registry.visible_areas, "active_id": None,
             "missing_text": "No page here",
         }, status_code=404)
     if snapshot_id == JELLYFIN_SNAPSHOT_ID:
         src = {**src, "data": view_jelly(src["data"], view)}  # her view reads Georgina's up next/history
     extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
     resp = templates.TemplateResponse(request, template, {
-        "areas": registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": build_status(snaps), "src": src, "ratings": {}, **extra,
+        "areas": registry.visible_areas, "active_id": None, "src": src, "ratings": {}, **extra,
+        "owner_view": view,  # media_playing.html reads it (H-08: no other template does)
     })
     return _maybe_set_cookie(resp, view, from_query)
 
@@ -1489,9 +1497,8 @@ def _year_page(request: Request, slug: str, template: str):
     ctx_ok = resp is not None and resp.status_code == 200 and (
         resp.context.get("ranked") or resp.context.get("unranked"))
     if not ctx_ok:
-        view, _ = resolve_owner_view(request)
         return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None, "owner_view": view,
+            "areas": registry.visible_areas, "active_id": None,
             "missing_text": "No rankings here",
         }, status_code=404)
     return resp
@@ -1518,8 +1525,7 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     tasks.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
     tasks.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = templates.TemplateResponse(request, "server.html", {
-        "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
-        "status": build_status(snaps), "sv": sv,
+        "areas": registry.visible_areas, "active_id": area.id, "area": area, "sv": sv,
         "flash": server_updates.flash_text(request.query_params),
     }, background=tasks)
     return _maybe_set_cookie(resp, view, from_query)
@@ -1531,7 +1537,7 @@ def server_page(request: Request):
     area = next((a for a in registry.areas if a.layout == server_area.SERVER_LAYOUT), None)
     if area is None:
         return templates.TemplateResponse(request, "404.html", {
-            "areas": registry.visible_areas, "active_id": None, "owner_view": view,
+            "areas": registry.visible_areas, "active_id": None,
             "missing_text": "No page here",
         }, status_code=404)
     return _server_response(request, area, view, from_query)
@@ -1544,7 +1550,6 @@ def area_page(request: Request, area_id: str):
     if area is None:
         return templates.TemplateResponse(request, "404.html", {
             "areas": registry.visible_areas, "active_id": None, "missing_id": area_id,
-            "owner_view": view,
         }, status_code=404)
     if area.layout == server_area.SERVER_LAYOUT:  # keyed by layout, never by area name
         return _server_response(request, area, view, from_query)
@@ -1553,8 +1558,8 @@ def area_page(request: Request, area_id: str):
              for t in area.tiles if owner_visible(t, view)]
     if area.layout == "shelves":
         resp = templates.TemplateResponse(request, "area_shelves.html", {
-            "areas": registry.visible_areas, "active_id": area.id, "area": area, "owner_view": view,
-            "status": build_status(snaps), "sh": build_shelves(area, tiles, snaps, view),
+            "areas": registry.visible_areas, "active_id": area.id, "area": area,
+            "sh": build_shelves(area, tiles, snaps, view),
             "backup_warn": media_backup.current_status()["warning"],
         })
         return _maybe_set_cookie(resp, view, from_query)
@@ -1565,7 +1570,6 @@ def area_page(request: Request, area_id: str):
     tiles = [r for r in tiles if r["tile"].snapshot != WEATHER_SNAPSHOT_ID]
     resp = templates.TemplateResponse(request, "area.html", {
         "areas": registry.visible_areas, "active_id": area.id, "area": area, "tiles": tiles,
-        "owner_view": view, "status": build_status(snaps),
         "upcoming": upcoming,
         "media": media,
         "ratings": _ratings(view, *_media_rows(media)),

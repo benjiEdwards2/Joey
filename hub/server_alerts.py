@@ -117,10 +117,11 @@ def _live_from_config() -> set[str] | None:
         return None
 
 
-def check_once(live: set[str] | None = None) -> int:
+def check_once(live: set[str] | None = None, snaps=None) -> int:
     """Build Attention from the current snapshots (as /server does) and sync it. `live` is
     `server.live_snapshot_ids(registry)` (hub/main.py passes the loaded one); not-configured
-    connectors (WP-U3) are left out, so their seen-rows are purged like any item gone."""
+    connectors (WP-U3) are left out, so their seen-rows are purged like any item gone. `snaps`: the
+    caller's own read (the hub loop shares one with server_history.sample), else read here."""
     if not webhook():
         return 0
     from hub import media_backup, server
@@ -128,6 +129,7 @@ def check_once(live: set[str] | None = None) -> int:
 
     if live is None:
         live = _live_from_config()
-    items = server.attention_items(get_snapshots(), media_backup.current_status(), get_runner(),
+    items = server.attention_items(get_snapshots() if snaps is None else snaps, media_backup.current_status(),
+                                   get_runner(),
                                    server.sweep_stats(get_runner_history()), live)
     return sync(items)

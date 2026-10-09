@@ -23,7 +23,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
-from hub import shell
+from hub import media_home, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -727,8 +727,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                   "year": year, "poster": t.get("poster")}
     else:
         rating = None
-    from hub.main import _ratings  # W3 step 1: moves to hub.media_home next
-    ratings_map = _ratings(view, [{"item_key": rating["item_key"]}] if rating else [])
+    ratings_map = media_home._ratings(view, [{"item_key": rating["item_key"]}] if rating else [])
     f["rating"] = rating
     f["score"] = ratings_map.get(rating["item_key"]) if rating else None
     diary_item = key_item or {"kind": "movie" if kind == "movie" else "series", "id": "", "tmdb": tmdb_id,

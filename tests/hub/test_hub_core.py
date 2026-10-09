@@ -50,8 +50,8 @@ def test_media_frame_reads_ratings_once(tmp_path, monkeypatch):
     """H-29: the Media frame's waiting counts and To rate tab counts share one recent + ratings read."""
     main = _reload(tmp_path, monkeypatch, _shelf_area())
     calls = []
-    real = main._ratings
-    monkeypatch.setattr(main, "_ratings", lambda *a: calls.append(a) or real(*a))
+    real = main.media_home._ratings
+    monkeypatch.setattr(main.media_home, "_ratings", lambda *a: calls.append(a) or real(*a))
     with TestClient(main.app):
         req = Request({"type": "http", "method": "GET", "path": "/media/movies", "headers": [], "query_string": b"",
                        "scheme": "http", "server": ("t", 80), "root_path": ""})

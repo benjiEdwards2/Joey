@@ -323,8 +323,8 @@ def test_the_media_frame_builds_the_rating_inbox_once(env, monkeypatch):
         {"item_key": "tmdb:603", "kind": "movie", "title": "Harbour Lights", "watched_at": "2099-01-01T00:00:00Z"}]}})
     import hub.main
     calls = []
-    real = hub.main._to_rate
-    monkeypatch.setattr(hub.main, "_to_rate", lambda *a, **k: calls.append(1) or real(*a, **k))
+    real = hub.main.media_home._to_rate
+    monkeypatch.setattr(hub.main.media_home, "_to_rate", lambda *a, **k: calls.append(1) or real(*a, **k))
     with client:
         assert client.get("/media/movies").status_code == 200   # the page itself builds no inbox: only the frame
     assert len(calls) == 1

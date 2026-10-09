@@ -10,7 +10,9 @@ Driven by the container entrypoint's `sleep 3600` loop, not crond (D16). Since
 2026-10-05 (D16 amended) a second 120 s loop runs
 `--only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma` (every other feed is hourly only);
 those sweeps are tagged `{"only": [...]}` so a soak counter can tell the
-hourly full sweeps from the fast partial ones.
+hourly full sweeps from the fast partial ones. Since 2026-10-09 (C-17) the hourly loop runs
+`--except` those six ids — tagged `{"except": [...]}` — so the two loops never run one
+connector at once; one full sweep at container start still writes every envelope.
 """
 
 from __future__ import annotations
@@ -41,13 +43,15 @@ HISTORY_KEEP_DAYS = 14
 
 
 def run_sweep(connectors: Iterable[Connector] | None = None,
-              only: list[str] | None = None) -> dict:
+              only: list[str] | None = None, skip: list[str] | None = None) -> dict:
     if connectors is None:
         from connectors import registry
 
         connectors = registry.build_all()
     if only:
         connectors = [c for c in connectors if getattr(c, "id", None) in only]
+    if skip:  # `--except` (C-17): the fast loop's ids, so the hourly loop never doubles them
+        connectors = [c for c in connectors if getattr(c, "id", None) not in skip]
 
     results: dict[str, dict] = {}
     durations: dict[str, int] = {}
@@ -83,6 +87,8 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
     sweep = {"ran_at": _now_iso(), "results": results}
     if only:
         sweep["only"] = list(only)
+    if skip:
+        sweep["except"] = list(skip)
     sweep_ms = _ms(sweep_start)
     _write_heartbeat(sweep, durations, sweep_ms)
     ok = sum(1 for r in results.values() if r["status"] == "ok")
@@ -154,12 +160,18 @@ def _rotate_history(history: Path, now_iso: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the connector sweep.")
-    parser.add_argument("--only", help="comma-separated connector ids to run (default: all)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--only", help="comma-separated connector ids to run (default: all)")
+    group.add_argument("--except", dest="skip", help="comma-separated connector ids to leave out")
     args = parser.parse_args(argv or [])
-    only = [i.strip() for i in args.only.split(",") if i.strip()] if args.only else None
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    run_sweep(only=only)
+    run_sweep(only=_ids(args.only), skip=_ids(args.skip))
     return 0  # a failed feed is data, not a runner failure — the loop keeps going
+
+
+def _ids(text: str | None) -> list[str] | None:
+    ids = [i.strip() for i in (text or "").split(",") if i.strip()]
+    return ids or None
 
 
 if __name__ == "__main__":

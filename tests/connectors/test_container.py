@@ -41,11 +41,22 @@ def test_connectors_service_matches_the_D16_cadence_contract():
     assert svc["env_file"] == [".env", {"path": "connectors.env", "required": False}]  # D-05 optional split
     assert "/volume1/Docker/joey/data/snapshots:/data/snapshots" in svc["volumes"]
     entrypoint = " ".join(svc["entrypoint"])
-    assert "python -m connectors.run_all" in entrypoint
-    assert "sleep 3600" in entrypoint
+    fast = "jellyfin,media_status,qbittorrent,arr,system,uptime_kuma"
+    # C-17 (2026-10-09): one full sweep at start (every envelope), then the fast loop, then the
+    # hourly loop over everything EXCEPT the fast ids, so no connector runs in both loops at once
+    assert entrypoint.startswith("sh -c python -m connectors.run_all; (while true;")
     # fast 2-minute loop for the live Media feeds (D16 amended 2026-10-05)
-    assert "python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120" in entrypoint
+    assert f"python -m connectors.run_all --only {fast}; sleep 120" in entrypoint
+    assert f"while true; do sleep 3600; python -m connectors.run_all --except {fast}; done" in entrypoint
+    assert entrypoint.count("python -m connectors.run_all;") == 1  # the one full sweep
     assert "cron" not in entrypoint  # D16: sleep loop, never crond
+
+
+def test_the_fast_ids_are_live_connectors():
+    from connectors import registry
+
+    fast = "jellyfin,media_status,qbittorrent,arr,system,uptime_kuma".split(",")
+    assert set(fast) <= set(registry.all_ids()) and not set(fast) & set(registry.parked_ids())
 
 
 def test_connectors_system_feed_uses_the_snapshots_mount_not_the_whole_volume():

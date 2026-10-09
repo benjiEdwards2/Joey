@@ -61,6 +61,27 @@ names from `SNAPSHOT_DIR/radar/`, else 404) remain, but `/weather` no longer bui
 (2026-10-09, T3); the connector fetch needs `RADAR_LOOP=1`. Greeting
 clock: `_now_home()` (Australia/Melbourne).
 
+## Hub core (T3, 2026-10-09)
+
+- **One page shell:** `hub/shell.py` holds the ONE `Jinja2Templates` instance (main.py and server_updates render
+  through it; the media routers' own envs get a copy of every shell global until the media WP switches them), the
+  asset version `static_v` (a hash of the whole `hub/static` tree), the `weather_place()` / `img_letters()` globals and
+  the response layers. Templates are not re-stat'ed per render unless `HUB_DEV=1`.
+- **Response headers:** one pure ASGI `ShellMiddleware` — HTML pages `no-store`; `/static/*` with `?v=` →
+  `public, max-age=31536000, immutable`, without → one hour; one request log line per page (`METHOD path owner=you|her|none
+  -> status`, never the email; `/healthz`, `/static/`, `/img/` are silent; uvicorn's access log is off). `Compress` =
+  `GZipMiddleware(minimum_size=1024)` for text; `/img/` and binary files pass untouched.
+- **Snapshots:** `store.get_snapshots` parses each envelope once per `(mtime_ns, size)` (a file changed in the last
+  second is always re-read; `age_minutes` is recomputed per call — treat `Snapshot.data` as read-only); a request
+  reads the dir once (`main.get_snapshots(request=...)` keeps it on `request.state.snaps`). `store.connected()` /
+  `data_of()` are the one "anything to show" rule, `store.parse_utc()` the one timestamp parser, `store.ago_text()`
+  the one relative time ("just now" / "12m ago" / "3h ago" / "2d ago"; stale tiles "Stale · 5h ago").
+- **Constants:** `hub/ids.py` — snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()`.
+- **Hub page cost:** the Server card is cached 60 s while the snapshots and backup word are unchanged; "Feeds N/M live"
+  counts the visible areas' feeds that are fresh or stale; `status` is built for the hub page only. The Server card's
+  "Needs attention" is its own `warn` state (amber like stale).
+- **Background loops:** one `_every(label, first_s, every_s, fn)` helper; errors are logged by type only.
+
 ## Styling (MediaHub guide, complete 2026-10-06)
 
 Spec: `docs/style-guide.md` (Jack's MediaHub guide, adopted for all of Joey). History in one sentence: the Apex look

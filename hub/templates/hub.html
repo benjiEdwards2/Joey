@@ -7,10 +7,9 @@
 {% endblock %}
 {% block content %}
 {# Hub (restyle Phase 4, 2026-10-06): a row of summary tiles (one per area + Weather), then "Next 7 days" beside the
-   weather glimpse, then Continue watching on Media's poster carousel. Real snapshot data only. #}
+   weather glimpse, then Recently watched. Real snapshot data only. #}
 {% from "_kpi.html" import kpi %}
 {% from "_shelf.html" import shelfrow %}
-{% from "_rows.html" import updated %}
 {% if backup_warn %}<p class="metaline"><span class="st-warn">{{ backup_warn }}</span></p>{% endif %}
 {% macro areacard(c, cls="") %}
   {% if c.area.layout == "shelves" %}
@@ -31,12 +30,12 @@
 <section class="tiles{% if few %} few{% endif %}" aria-label="Area summaries">
   {% for c in cards %}
   {% if loop.last and cards|length > 1 and weather %}
-    {{ kpi("/weather", "Weather", "Newport VIC", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
+    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value) }}
   {% endif %}
   {{ areacard(c, "span2" if loop.last and few else "") }}
   {% endfor %}
   {% if weather and cards|length <= 1 %}
-    {{ kpi("/weather", "Weather", "Newport VIC", weather.glyph, weather.st, weather.tile.owner.value, cls="wx") }}
+    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value) }}
   {% endif %}
 </section>
 

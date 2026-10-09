@@ -59,7 +59,7 @@ def test_state_stale_in_words(tmp_path):
     write_envelope(tmp_path, "open_meteo", age_minutes=5 * 60)
     st = tile_state(embed_tile(stale_after=120), get_snapshots(tmp_path))
     assert st["state"] == "stale"
-    assert st["age_text"] == "stale 5h"
+    assert st["age_text"] == "Stale · 5h ago"   # state word · age (H-20, H-37)
     assert st["value"] == "VALUE"  # last known value still shown
 
 
@@ -115,3 +115,63 @@ def test_heartbeat_files_are_skipped_without_a_warning(tmp_path, caplog):
     with caplog.at_level(logging.WARNING, logger="hub.store"):
         assert store.get_snapshots(tmp_path) == {}
     assert "unreadable" not in caplog.text
+
+
+def _age_file(path, seconds_ago=60):
+    import os
+    import time
+    t = time.time() - seconds_ago
+    os.utime(path, (t, t))
+
+
+def test_envelopes_are_parsed_once_per_file_version(tmp_path, monkeypatch):
+    """H-48: an unchanged file is not re-parsed; age is still recomputed per call; a changed file is re-read."""
+    import os
+
+    import hub.store as store
+    write_envelope(tmp_path, "open_meteo", age_minutes=30)
+    write_envelope(tmp_path, "jellyfin", age_minutes=5)
+    for name in ("open_meteo.json", "jellyfin.json"):
+        _age_file(tmp_path / name)
+    parsed, real = [], store._parse
+    monkeypatch.setattr(store, "_parse", lambda p: parsed.append(p.name) or real(p))
+    first, second = get_snapshots(tmp_path), get_snapshots(tmp_path)
+    assert sorted(parsed) == ["jellyfin.json", "open_meteo.json"]
+    assert second["open_meteo"] is not first["open_meteo"] and second["open_meteo"].age_minutes >= first["open_meteo"].age_minutes
+    # same size, new mtime -> re-read
+    path = tmp_path / "open_meteo.json"
+    st = path.stat()
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    _age_file(path, 30)
+    get_snapshots(tmp_path)
+    assert parsed.count("open_meteo.json") == 2 and parsed.count("jellyfin.json") == 1
+    (tmp_path / "jellyfin.json").unlink()
+    assert set(get_snapshots(tmp_path)) == {"open_meteo"}
+
+
+def test_a_just_written_file_is_always_re_read(tmp_path, monkeypatch):
+    """Coarse-mtime filesystems: a file changed within the last second never comes from the cache."""
+    import hub.store as store
+    parsed, real = [], store._parse
+    monkeypatch.setattr(store, "_parse", lambda p: parsed.append(p.name) or real(p))
+    write_envelope(tmp_path, "gcal", age_minutes=1, data={"summary": "A"})
+    assert get_snapshots(tmp_path)["gcal"].data["summary"] == "A"
+    write_envelope(tmp_path, "gcal", age_minutes=1, data={"summary": "B"})   # same size, same second
+    assert get_snapshots(tmp_path)["gcal"].data["summary"] == "B"
+    assert parsed == ["gcal.json", "gcal.json"]
+
+
+def test_parse_utc_accepts_z_fractions_and_naive():
+    from datetime import datetime, timezone
+
+    from hub.store import parse_utc
+    assert parse_utc("2026-10-08T01:02:03.1234567Z") == datetime(2026, 10, 8, 1, 2, 3, 123456, tzinfo=timezone.utc)
+    assert parse_utc("2026-10-08T01:02:03").tzinfo == timezone.utc
+    assert parse_utc("nope") is None and parse_utc(None) is None
+
+
+def test_ago_text_is_the_one_relative_time_format():
+    """H-20: tiles, the Server page and Media's added / watched words share one vocabulary."""
+    from hub.store import ago_text
+    assert [ago_text(m) for m in (-3, 0.5, 1, 59, 60, 47 * 60 + 59, 48 * 60, 10 * 1440)] == [
+        "just now", "just now", "1m ago", "59m ago", "1h ago", "47h ago", "2d ago", "10d ago"]

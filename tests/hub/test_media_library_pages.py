@@ -72,7 +72,7 @@ def test_movies_page_in_frame_with_head_groups_and_words(env):
     assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["My films"]
     assert "4 films · 2 watched · 2 to watch" in b
     assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")
-    assert "1h 52m" in b and "Watched 3 days ago" in b and "Not watched" in b and "45m" in b
+    assert "1h 52m" in b and "Watched 3d ago" in b and "Not watched" in b and "45m" in b
     assert "7.8" in b and "TMDB" in b and "Drama, Crime" in b
     assert 'class="poster row-poster' in b
 
@@ -130,7 +130,7 @@ def test_tv_page_groups_words_and_head(env):
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
     assert "Continuing" in b and "26 episodes · 6 to watch" in b and "8 episodes · All watched" in b
-    assert "Last watched yesterday" in b and 'href="/media/item/jtmdb-21"' in b
+    assert "Last watched 24h ago" in b and 'href="/media/item/jtmdb-21"' in b
 
 
 def test_her_view_uses_her_list_or_hides_marks(env):

@@ -1,4 +1,5 @@
-"""WP20 — Control Surface port: weighted bento sizes + cockpit chrome."""
+"""Hub chrome on a synthetic registry: one KPI card per area (no size classes), the feeds line and the phone tab bar.
+(WP20's weighted bento sizes — `hub_size` — were removed 2026-10-09, T3 H-01: nothing had read them since the Apex hub.)"""
 import importlib
 import re
 
@@ -10,27 +11,15 @@ from tests.hub.test_registry import AREAS_YAML, make_area, write_registry
 from tests.hub.test_store import write_envelope
 
 
-def test_real_registry_hub_sizes():
+def test_real_registry_has_no_hub_size_key():
     reg = load_registry(AREAS_YAML)
-    sizes = {a.id: a.hub_size.value for a in reg.areas}
-    assert sizes["money"] == "s22"      # second hero beside Media (B., 2026-10-06)
-    assert sizes["media"] == "s22"      # bento hero
-    assert sizes["calendar"] == "s21"   # double width
-    assert sizes["kitchen"] == "s11"    # default
-
-
-def test_invalid_hub_size_rejected(tmp_path):
-    bad = make_area("a1")
-    bad["hub_size"] = "huge"
-    with pytest.raises(ValueError, match="hub_size"):
-        load_registry(write_registry(tmp_path, bad))
+    assert all("hub_size" not in a.model_dump() for a in reg.areas)
+    assert "hub_size" not in AREAS_YAML.read_text(encoding="utf-8")
 
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    a1 = make_area("alpha", "a-t")
-    a1["hub_size"] = "s22"
-    fixture = write_registry(tmp_path, a1, make_area("beta", "b-t", snapshot="jellyfin"))
+    fixture = write_registry(tmp_path, make_area("alpha", "a-t"), make_area("beta", "b-t", snapshot="jellyfin"))
     monkeypatch.setenv("AREAS_PATH", str(fixture))
     snaps = tmp_path / "snaps"
     write_envelope(snaps, "open_meteo", age_minutes=10 * 60)  # stale vs 60-min default
@@ -41,9 +30,8 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
-def test_hub_card_carries_size_class(client):
-    # Apex hub (2026-10-06): hub_size no longer drives the hub layout (KPI row in registry /
-    # hub_rank order), so this pin is weakened to "one KPI card per area" — size classes gone.
+def test_one_kpi_card_per_area_without_size_classes(client):
+    # Apex hub (2026-10-06): the KPI row is in registry / hub_rank order — one card per area, no size classes.
     html = client.get("/").text.split("<main", 1)[1]
     # the last of <= 3 cards carries `span2` (kpis few, 2026-10-06)
     assert re.search(r'<a class="panel tile" href="/a/alpha"', html)

@@ -3,8 +3,9 @@
 Source: hub/static/icon_source.jpg (B.'s joey kangaroo photo, 2026-09-11 —
 supersedes the drawn "J" glyph). Square crop keeps the face centred.
 
-Run from the repo root:  python scripts/make_icons.py
-Writes hub/static/icon-192.png and hub/static/icon-512.png.
+Run from the repo root:  python scripts/make_icons.py   (needs Pillow: pip install pillow)
+Writes hub/static/icon-192.png and hub/static/icon-512.png as 256-colour optimised PNGs (2026-10-09:
+the 24-bit originals were 407 KB + 78 KB). After a re-run, bump the icons' ?v= in base.html and both manifests.
 """
 
 from pathlib import Path
@@ -31,7 +32,7 @@ def main() -> None:
     STATIC.mkdir(parents=True, exist_ok=True)
     for size in (192, 512):
         path = STATIC / f"icon-{size}.png"
-        make(size).save(path, "PNG")
+        make(size).quantize(256).save(path, "PNG", optimize=True)
         print(f"wrote {path}")
 
 

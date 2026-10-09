@@ -11,7 +11,8 @@ SVC_DIR = Path(server.__file__).resolve().parent / "static" / "svc"
 
 
 def cards_of(body):
-    return re.findall(r'<a class="svc-card[^"]*".*?</a>', services_of(body), re.S)
+    """Every card: a link (<a>) or, for a LAN-only app, a plain <div> (H-71)."""
+    return [m.group(0) for m in re.finditer(r'<(a|div) class="svc-card[^"]*".*?</\1>', services_of(body), re.S)]
 
 
 def card(body, name):
@@ -42,15 +43,16 @@ def test_one_card_per_app_with_logo_subtitle_word_and_grouping(env):
     jf = card(body, "Jellyfin")
     assert re.search(r'<img class="svc-logo" src="/static/svc/jellyfin\.svg\?v=[0-9a-f]+" alt="" '
                      r'width="40" height="40">', jf)
-    assert '<span class="svc-sub">Media server</span>' in jf and ">Up</span>" in jf
-    assert 'href="http://nas.local:8096" target="_blank" rel="noopener"' in jf
+    assert '<span class="svc-sub">Media server · LAN</span>' in jf and ">Up</span>" in jf
+    assert jf.startswith('<div class="svc-card"') and "href=" not in jf        # LAN only: no dead link (H-71)
     pr = card(body, "Prowlarr")
     assert 'class="svc-card is-down"' in pr and ">Down</span>" in pr and "timeout" in pr
-    assert '<span class="svc-sub">Indexers</span>' in pr
+    assert '<span class="svc-sub">Indexers · LAN</span>' in pr
     assert "/static/svc/uptime-kuma.svg?v=" in card(body, "Uptime Kuma")
     assert "/static/svc/homepage.png?v=" in card(body, "Homepage")
-    for c in cards:                                   # the whole card is the one link
-        assert c.count("<a ") == 1 and c.count("</a>") == 1
+    for c in cards:                                   # a linked card is the one link; a LAN card has none
+        assert c.count("<a ") == c.count("</a>") == (1 if c.startswith("<a ") else 0)
+    assert card(body, "Homepage").startswith('<a class="svc-card"')
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     media = svc.split('<h2 class="seclabel">Media</h2>', 1)[1].split("</section>", 1)[0]
@@ -80,12 +82,27 @@ def test_unknown_app_gets_the_fallback_tile_and_no_subtitle(env):
     c = card(body, "mystery App")
     assert "<img" not in c and 'class="svc-logo svc-fallback" aria-hidden="true"' in c
     assert '<span class="svc-initial">M</span>' in c and '<svg class="ic"' in c
-    assert "svc-sub" not in c and ">Up</span>" in c
+    assert '<span class="svc-sub">LAN</span>' in c and ">Up</span>" in c    # http://h:1 is a LAN host
 
 
 def test_service_card_helper():
-    mons = [{"name": "Jellyfin HTTP", "response_ms": 12}, {"name": "jellyfin", "response_ms": None}]
-    c = server.service_card({"id": "jellyfin", "name": "Jellyfin", "href": "http://x"}, mons)
-    assert (c["logo"], c["subtitle"], c["href"], c["response_ms"], c["initial"]) == (
-        "jellyfin.svg", "Media server", "http://x", 12, "J")
+    """H-72: the monitor whose name IS the app's name (case-insensitive) — "Jellyfin HTTP" no longer matches."""
+    mons = [{"name": "Jellyfin HTTP", "response_ms": 12}, {"name": " jellyfin ", "response_ms": 9}]
+    c = server.service_card({"id": "jellyfin", "name": "Jellyfin", "href": "https://jf.example.org"}, mons)
+    assert (c["logo"], c["subtitle"], c["href"], c["response_ms"], c["initial"], c["lan"]) == (
+        "jellyfin.svg", "Media server", "https://jf.example.org", 9, "J", False)
+    assert server.service_card({"id": "wud", "name": "WUD"}, [{"name": "WUD Admin", "response_ms": 3}])["response_ms"] is None
+    lan = server.service_card({"id": "jellyfin", "name": "Jellyfin", "href": "http://192.168.68.59:8096"}, [])
+    assert lan["href"] is None and lan["lan"] is True
+    gated = server.service_card({"id": "jellyfin", "href": "http://192.168.68.59:8096"}, [],
+                                {"jellyfin": "https://jellyfin.joeyhome.net"})
+    assert gated["href"] == "https://jellyfin.joeyhome.net" and gated["lan"] is False
+
+
+def test_is_lan():
+    for href in ("http://192.168.68.59:9000", "http://10.0.0.2", "http://127.0.0.1:8000", "http://nas.local:3000",
+                 "http://nas:8096", "http://box.lan/", "http://[fd00::1]:80"):
+        assert server.is_lan(href), href
+    for href in ("https://homepage.joeyhome.net", "https://8.8.8.8", "", None, "not a url"):
+        assert not server.is_lan(href), href
     assert server.service_card({"id": "zzz"}, [])["logo"] is None

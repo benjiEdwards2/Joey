@@ -31,6 +31,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from hub import media_db
 from hub.media_write import same_origin
+from hub.server import key_tag  # one definition (H-24)
+from hub.shell import templates
 
 log = logging.getLogger("hub.server_updates")
 router = APIRouter()
@@ -128,11 +130,6 @@ def last_requested() -> dict[str, dict]:
 
 # ---- WUD ----
 
-def key_tag(row: dict) -> str:
-    """The tag an ignore/run is keyed on: the new tag, or the current tag for a digest update."""
-    return str(row.get("new_tag") or row.get("current_tag") or "")
-
-
 def _creds() -> tuple[str, str, str] | None:
     vals = [os.environ.get(n, "").strip() for n in ("WUD_URL", "WUD_USER", "WUD_PASS")]
     return (vals[0].rstrip("/"), vals[1], vals[2]) if all(vals) else None
@@ -192,16 +189,14 @@ def _page(request: Request, ctx: dict, status: int = 200):
     from hub import main as hub
     from hub.server import SERVER_LAYOUT
 
-    view, _ = hub.resolve_owner_view(request)
     area = next((a for a in hub.registry.areas if a.layout == SERVER_LAYOUT), None)
-    base = {"areas": hub.registry.visible_areas, "owner_view": view}
+    base = {"areas": hub.registry.visible_areas}
     if area is None:
-        return hub.templates.TemplateResponse(request, "404.html", {
+        return templates.TemplateResponse(request, "404.html", {
             **base, "active_id": None, "missing_text": "No page here"}, status_code=404)
-    # hub.main's Jinja env: it carries the shell globals (identity, static_v, ...)
-    return hub.templates.TemplateResponse(request, "server_update.html", {
-        **base, "active_id": area.id, "area": area, "status": hub.build_status(hub.get_snapshots()),
-        "confirm_text": CONFIRM_TEXT, **ctx}, status_code=status)
+    # the shared shell env (hub/shell.py) carries every global (identity, static_v, ...)
+    return templates.TemplateResponse(request, "server_update.html", {
+        **base, "active_id": area.id, "area": area, "confirm_text": CONFIRM_TEXT, **ctx}, status_code=status)
 
 
 def _name(name: str) -> str | None:

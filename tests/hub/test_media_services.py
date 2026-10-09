@@ -75,8 +75,8 @@ def test_services_row_order_names_logos_and_links(env, caplog):
     got, sec = tiles(html)
     assert [g[2] for g in got] == ["Netflix", "Disney Plus", "Amazon Prime Video", "Stan", "Binge", "Apple TV Plus",
                                    "Paramount Plus", "ABC iview", "9Now", "7plus"]
-    assert got[0][0] == "/media/discover/service/8" and got[0][1] == "/img/tmdb:/netflix.jpg?h=120&amp;t=Netflix"
-    assert ("/media/discover/service/350", "/img/tmdb:/apple.jpg?h=120&amp;t=Apple%20TV%20Plus", "Apple TV Plus") in got
+    assert got[0][0] == "/media/discover/service/8" and got[0][1] == "/img/tmdb:/netflix.jpg?h=120&amp;t=NE"
+    assert ("/media/discover/service/350", "/img/tmdb:/apple.jpg?h=120&amp;t=AP", "Apple TV Plus") in got
     assert got[8][1].startswith("/img/none?")                  # no logoPath -> the proxy's fallback card, name still shown
     assert "/service/2\"" not in sec                           # plain "Apple TV" is not on the list
     misses = [r.getMessage() for r in caplog.records if "not listed" in r.getMessage()]

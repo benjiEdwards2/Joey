@@ -53,11 +53,34 @@ outside it (a test enforces it). Page content is described under "Styling" below
 (inline-SVG chart + hour rows, `weather_forecast()`) + Rain radar + Next 7 days rows, the chart/hours/days absent for a
 pre-2026-10-06 snapshot. Rain radar panel (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe
 (`windy_embed_url()`: `embed.windy.com/embed2.html`, overlay=radar, zoom 8, metric, coords from `WEATHER_LAT`/`WEATHER_LON`
-with Newport VIC as fallback), lazy-loaded, captioned, with a static "Needs internet" note; shown even when the weather
+with Newport VIC as fallback; the place name in the labels is `WEATHER_PLACE`, default "Newport VIC", a
+Jinja global from `hub/shell.py`), lazy-loaded, captioned, with a static "Needs internet" note; shown even when the weather
 snapshot is absent; a square column beside the forecast from 1100 px, below it on narrower screens. The 2026-10-06 BOM
-layer-stack panel is parked: `weather_radar()` context, the `.wxradarbox` CSS and `GET /weather/radar/{name}` (allowlisted
-names from `SNAPSHOT_DIR/radar/`, else 404) remain; the connector fetch needs `RADAR_LOOP=1`. Greeting
+layer-stack panel is parked: `weather_radar()` and `GET /weather/radar/{name}` (allowlisted
+names from `SNAPSHOT_DIR/radar/`, else 404) remain, but `/weather` no longer builds its context and its CSS was removed
+(2026-10-09, T3); the connector fetch needs `RADAR_LOOP=1`. Greeting
 clock: `_now_home()` (Australia/Melbourne).
+
+## Hub core (T3, 2026-10-09)
+
+- **One page shell:** `hub/shell.py` holds the ONE `Jinja2Templates` instance (main.py and server_updates render
+  through it; the media routers' own envs get a copy of every shell global until the media WP switches them), the
+  asset version `static_v` (a hash of the whole `hub/static` tree), the `weather_place()` / `img_letters()` globals and
+  the response layers. Templates are not re-stat'ed per render unless `HUB_DEV=1`.
+- **Response headers:** one pure ASGI `ShellMiddleware` — HTML pages `no-store`; `/static/*` with `?v=` →
+  `public, max-age=31536000, immutable`, without → one hour; one request log line per page (`METHOD path owner=you|her|none
+  -> status`, never the email; `/healthz`, `/static/`, `/img/` are silent; uvicorn's access log is off). `Compress` =
+  `GZipMiddleware(minimum_size=1024)` for text; `/img/` and binary files pass untouched.
+- **Snapshots:** `store.get_snapshots` parses each envelope once per `(mtime_ns, size)` (a file changed in the last
+  second is always re-read; `age_minutes` is recomputed per call — treat `Snapshot.data` as read-only); a request
+  reads the dir once (`main.get_snapshots(request=...)` keeps it on `request.state.snaps`). `store.connected()` /
+  `data_of()` are the one "anything to show" rule, `store.parse_utc()` the one timestamp parser, `store.ago_text()`
+  the one relative time ("just now" / "12m ago" / "3h ago" / "2d ago"; stale tiles "Stale · 5h ago").
+- **Constants:** `hub/ids.py` — snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()`.
+- **Hub page cost:** the Server card is cached 60 s while the snapshots and backup word are unchanged; "Feeds N/M live"
+  counts the visible areas' feeds that are fresh or stale; `status` is built for the hub page only. The Server card's
+  "Needs attention" is its own `warn` state (amber like stale).
+- **Background loops:** one `_every(label, first_s, every_s, fn)` helper; errors are logged by type only.
 
 ## Styling (MediaHub guide, complete 2026-10-06)
 
@@ -77,7 +100,8 @@ spelling; every icon-only control has an `aria-label`.
 **Tokens.** `--bg/--fg`, zinc text steps `--text-1…6`, white-alpha surfaces and lines (`--surface`, `--line`,
 `--line-soft/-hover/-focus`, `--hover`, `--soft`), `--primary/--primary-hover`, state tokens (`--good`, `--amber`, `--bad`,
 `--orange`, `--fuchsia`, `--teal`, `--sky`, `--gold`), row tints/bars (`--watch-*`, `--new-*`, `--done-*`, `--down-*`),
-score grades `--score-1…9`, `--rad-*`, `--appicon-bg` (the white tile behind a service logo).
+score grades `--score-1…9`, `--appicon-bg` (the white tile behind a service logo). Eight never-read older names and the
+parked radar ramp `--rad-*` were removed 2026-10-09 (T3).
 
 **Recipes** (one line each): `.btn` + `.btn-primary/-secondary/-ghost/-danger/-glass/-white/-icon`, `.btn-sm` buttons;
 `.chip` (`.on`) filter chips; `.input/.textarea/.select/.label` form controls; `.seclabel` (uppercase section label) and
@@ -102,8 +126,8 @@ glyph + condition word); `_shelf.html` Recently watched on Media's `.carousel` o
 jellyfin/media_status snapshots Media-style sections (`.row`s, `.row-score`, `.gold-glow-sm`). *Server* (`server.html`,
 `server_update.html`): System = `.stats` strip (volumes carry a `.bar`), Last 24 h = `.spark-band` panel (`.spark-*`,
 stroke `--primary`), Services = `.sec` groups of a `.svc-grid` of `.svc-card` links (WP-U3: 40 px `.svc-logo` on
-`--appicon-bg`, `.st-up/.st-down` words beside a `.svc-dot`, `.svc-card.is-down` tint; the 20 px `.appicon` rule is now
-unused), Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
+`--appicon-bg`, `.st-up/.st-down` words beside a `.svc-dot`, `.svc-card.is-down` tint; the unused 20 px `.appicon` rule was
+removed 2026-10-09), Monitors/Updates/Attention rows (Update now `.btn-primary .btn-sm`, Ignore `.btn-ghost .btn-sm`, the
 Ignored `.fold`, pending `.badge-wait`, Attention an amber `.panel-warn`), Counts = three `.panel.kv`s. *Weather*
 (`weather.html`): Today `.stats` strip, 24-hour chart `.panel` (+ a `.fold` of hour `.row`s), radar `.panel`, 7 days as
 `.row`s (glyph, day, condition word, range in `.row-side`). *Media*: below.
@@ -183,7 +207,7 @@ update) in `server_update_ignores`; ignored rows fold into "Ignored (N)" with Un
 
 **Server card, durable Attention, Sweeps, Discord (WP-U2, 2026-10-06).** The hub's Server KPI card no longer shows the
 `services` tile summary: `server.hub_card()` (wired in `hub/main.py` `server_card_state`, keyed by `layout: server`) writes
-line 1 "All up" / "2 down: Prowlarr, Sonarr" and line 2 "N updates" (ignored ones excluded, omitted at 0) · "disk N%"
+line 1 "All up" / "2 down · Prowlarr · Sonarr" and line 2 "N updates" (ignored ones excluded, omitted at 0) · "disk N%"
 (fullest volume) · "N monitors down" (when > 0). When Attention is non-empty the card wears the amber stale badge with the
 words "Needs attention" (no new colour); a missing `media_status` snapshot still reads "Not connected". Attention items are
 now keyed (`attention_items()`: `down:<app>`, `disk:<path>`, `kuma:<monitor>`, `backup`, `sweep:<connector>`). Sweep
@@ -211,12 +235,16 @@ loaded registry; `check_once()` without one reads `AREAS_PATH` / `config/areas.y
 Homepage-style grid (1 column on a phone, 2 from 640 px, 3 from 1100 px): one card per app, the whole card the link
 (`target=_blank rel=noopener`, no nested `<a>`), logo left (`<img alt="" width=40 height=40>` from
 `/static/svc/<file>?v={{ static_v }}`), name + one-line subtitle (`server.SERVICE_SUBTITLES`; unknown ids name only),
-the Up/Down WORD beside the dot, and the Uptime Kuma response ms of the first monitor whose name contains the app name
-(case-insensitive; a Down card shows its note instead). Logos are vendored in `hub/static/svc/` (dashboard-icons,
+the Up/Down WORD beside the dot, and the Uptime Kuma response ms of the monitor whose name IS the app name
+(case-insensitive, exact since 2026-10-09; a Down card shows its note instead). Logos are vendored in `hub/static/svc/` (dashboard-icons,
 Apache-2.0; sources in its README) and mapped in `server.SERVICE_LOGOS`; an id with no logo renders a neutral tile with
 its initial letter and the area's line icon, and a test fails if a `MEDIA_APPS` id has neither a logo nor a `NO_LOGO`
-entry. `server.GATED_HREFS` overrides a card's LAN href where a gated hostname exists (homepage →
-`https://homepage.joeyhome.net` only); the KPI-row Homepage/Portainer link tiles are unchanged.
+entry. **LAN links (T3, 2026-10-09):** `gated_hrefs:` in `config/areas.yaml` (app / tile id → https hostname;
+homepage → `https://homepage.joeyhome.net` only) overrides a card's or link tile's href; a href that is still a LAN
+address (`server.is_lan`: private / loopback IP, dot-less, `.local`, `.lan`) renders as a plain card / tile with the
+word "LAN" and no link, since it is dead off the home network. The Services tile on this page says what the hub
+Server card says (`server.services_words`: "All up" / "1 down · Prowlarr"). Discord pushes stop retrying an item
+after 3 failed posts (`server_attention_seen.fails`) until it clears and returns.
 
 **Server → Last 24 h history (WP-U4, 2026-10-06).** `server_history.py` samples the `system` snapshot into media.db
 `server_system_samples(ts, cpu_pct, ram_pct_used, ram_free_gb, load_1m, volumes)` — `ts` is the envelope's `updated_at`

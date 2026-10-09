@@ -80,20 +80,23 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "of 7.7 GB · 75% used" in body and "12 days 4 h" in body
     assert "/volume1/Docker" in body and "120.0 GB free" in body and "of 465.6 GB" in body and "74% used" in body
     assert "width: 71%" in body
-    # 2 Services, grouped, Up/Down as words, whole row links to the app
+    # 2 Services, grouped, Up/Down as words; LAN-only apps are plain cards, never a dead link (H-71)
     svc = services_of(body)
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     assert ">Down</span>" in body and ">Up</span>" in body
-    assert 'href="http://nas.local:8096"' in body
+    assert "nas.local" not in body and '<span class="svc-sub">Media server · LAN</span>' in svc
     # 3 Updates
     assert "17 monitored · 2 updates" in txt(body) and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Counts
     assert ">Pending<" in body and ">Seeding<" in body and ">This week<" in body
-    # link tiles
-    assert 'href="https://homepage.joeyhome.net"' in body and 'href="http://192.168.68.59:9000"' in body
+    # link tiles: the gated one links, the LAN one (Portainer) is a plain "LAN" tile (H-71)
+    assert 'href="https://homepage.joeyhome.net"' in body and "192.168.68.59" not in body
+    tiles = body.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
+    portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
+    assert '<div class="tile-value stat-number">LAN' in portainer
     # band order, top to bottom
     marks = [body.index(m) for m in
              ('id="system"', 'id="services"', 'id="updates"', 'id="attention"', 'id="counts"')]
@@ -208,7 +211,7 @@ def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(
     assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
     assert "system sweep failed" not in body
     sweep = body.split("Last sweep", 1)[1].split("</div></div>", 1)[0]
-    assert "4 min ago" in sweep and "Stale" not in sweep
+    assert "4m ago" in sweep and "Stale" not in sweep
 
 
 def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
@@ -216,7 +219,7 @@ def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
     write_runner(tmp_path / "snaps", "2026-01-01T00:00:00+00:00")
     with client:
         sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div></div>", 1)[0]
-        assert "days ago" in sweep and "Stale" in sweep
+        assert "d ago" in sweep and "Stale" in sweep
         for junk in ("{not json", "[]", '{"ran_at": "yesterday", "results": "nope"}'):
             (tmp_path / "snaps" / "_runner.json").write_text(junk, encoding="utf-8")
             r = client.get("/server")
@@ -227,12 +230,12 @@ def test_sweep_and_ago_helpers():
     from datetime import datetime, timezone
     now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
     assert server.last_sweep({"ran_at": "2026-10-06T11:56:00+00:00"}, now) == {
-        "text": "4 min ago", "stale": False}
-    assert server.last_sweep({"ran_at": "2026-10-06T10:30:00Z"}, now) == {"text": "1 h ago", "stale": False}
+        "text": "4m ago", "stale": False}
+    assert server.last_sweep({"ran_at": "2026-10-06T10:30:00Z"}, now) == {"text": "1h ago", "stale": False}
     assert server.last_sweep({"ran_at": "2026-10-06T10:29:00Z"}, now)["stale"] is True
     assert server.last_sweep({}, now) is None
-    assert server.ago_text(0.5) == "just now" and server.ago_text(60 * 50) == "2 days ago"
-    assert server.runner_errors(None) == [] and server.runner_errors({"results": []}) == []
+    assert server.ago_text(0.5) == "just now" and server.ago_text(60 * 50) == "2d ago"
+    assert server._runner_error_items(None) == [] and server._runner_error_items({"results": []}) == []
 
 
 def test_monitors_band_degrades_to_not_connected(env):
@@ -279,7 +282,7 @@ def test_hub_card_all_up_is_ok_with_disk(tmp_path):
 def test_hub_card_down_updates_excluding_ignored_monitors_and_warn(tmp_path):
     snaps = _snaps(tmp_path, media_status=TWO_DOWN, wud=WUD, system=SYSTEM, uptime_kuma=KUMA)
     card = server.hub_card(snaps, {("a", "2")}, {"warning": None})
-    assert card["summary"] == "2 down: Prowlarr, Sonarr"
+    assert card["summary"] == "2 down · Prowlarr · Sonarr"
     assert card["secondary"] == "1 update · disk 74% · 2 monitors down"
     assert card["state"] == "warn"
     assert server.hub_card(snaps, set(), {"warning": None})["secondary"].startswith("2 updates · ")
@@ -297,7 +300,7 @@ def test_hub_server_card_shows_the_words_and_needs_attention(env):
     with env() as client:
         body = main_of(client.get("/").text)
     card = body.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
-    assert "1 down: Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
+    assert "1 down · Prowlarr" in card and "2 updates · disk 74% · 1 monitor down" in card
     assert '<span class="badge badge-wait">Needs attention</span>' in card   # amber: something to do
     assert "12 of 12 up" not in card and "11 of 12 up" not in card
 
@@ -306,6 +309,33 @@ def test_hub_server_card_is_ok_when_nothing_needs_attention(env):
     with env(samples=False, media_status=ALL_UP, system=SYSTEM) as client:
         card = main_of(client.get("/").text).split('href="/a/server"', 1)[1].split("</a>", 1)[0]
     assert "All up" in card and "disk 74%" in card and "Needs attention" not in card
+
+
+BAD_SYSTEM = {"summary": "x", "cpu_pct": "busy", "load_1m": "high", "ram_pct_used": "most", "uptime_s": "long",
+              "volumes": [{"path": "/volume1", "pct_used": "full", "free_gb": "?", "total_gb": None},
+                          {"path": "/volume2", "pct_used": float("nan")}, "not a volume"]}
+
+
+def test_malformed_system_envelope_never_500s_hub_or_server(env):
+    """H-63: non-numeric values degrade to words; the hub's Server card never takes `/` down."""
+    with env(samples=False, media_status=ALL_UP, system=BAD_SYSTEM) as client:
+        hub, page = client.get("/"), client.get("/server")
+    assert hub.status_code == 200 and page.status_code == 200
+    assert "All up" in main_of(hub.text).split('href="/a/server"', 1)[1].split("</a>", 1)[0]
+    assert "Load " not in txt(main_of(page.text)).split("Last 24 h")[0]
+
+
+def test_hub_page_survives_a_hub_card_crash(env, monkeypatch):
+    with env(samples=False, media_status=ALL_UP, system=SYSTEM) as client:
+        import hub.main
+        monkeypatch.setattr(hub.main.server_area, "hub_card", lambda *a, **k: 1 / 0)
+        r = client.get("/")
+    assert r.status_code == 200 and 'href="/a/server"' in r.text
+
+
+def test_num_coerces_envelope_values():
+    assert [server._num(v) for v in (3, 2.5, "4.5", True, None, "x", float("inf"))] == [3.0, 2.5, 4.5, None, None,
+                                                                                         None, None]
 
 
 NOW = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
@@ -333,7 +363,7 @@ def test_sweep_stats_window_recovered_and_still_failing():
                       "text": "wud failed 2 of the last 3 sweeps · WUD containers failed (HTTP 401)"}]
     rows = server.sweep_rows(stats, NOW)
     assert [(r["id"], r["runs"], r["failures"], r["last_ok_text"]) for r in rows] == [
-        ("arr", 3, 2, "1 h ago"), ("wud", 3, 2, "2 h ago")]
+        ("arr", 3, 2, "1h ago"), ("wud", 3, 2, "2h ago")]
     assert server.sweep_stats(None) is None and server.sweep_stats(["junk"]) is None
 
 
@@ -359,3 +389,25 @@ def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp
     with client:
         r = client.get("/server")
     assert r.status_code == 200 and 'id="sweeps"' not in main_of(r.text)   # no usable history
+
+
+def test_container_names_are_urlencoded_in_update_links(env):
+    """H-77: a container name from the WUD snapshot is URL-encoded wherever it builds a /server/updates/ path."""
+    wud = {"summary": "1 update", "monitoring": 1, "containers": [
+        {"name": "odd name&x", "current_tag": "1", "new_tag": "2", "kind": "tag", "update_available": True,
+         "auto": True}]}
+    with env(samples=False, wud=wud) as client:
+        body = main_of(client.get("/server").text)
+    assert 'href="/server/updates/odd%20name%26x/run?step=confirm"' in body
+    assert 'action="/server/updates/odd%20name%26x/ignore"' in body and "odd name&amp;x" in body
+
+
+def test_services_tile_and_hub_card_say_the_same_words(env):
+    """H-73: the Server page's Services tile and the hub's Server card share one vocabulary."""
+    with env() as client:
+        page = main_of(client.get("/server").text)
+        hub = main_of(client.get("/").text)
+    tiles = page.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
+    card = hub.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
+    assert "1 down · Prowlarr" in tiles and "1 down · Prowlarr" in card
+    assert " of 12 up" not in tiles + card

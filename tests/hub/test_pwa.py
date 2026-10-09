@@ -12,7 +12,8 @@ def test_manifest_is_valid_and_dark():
     m = json.loads((REPO_ROOT / "hub/static/manifest.webmanifest").read_text(encoding="utf-8"))
     assert m["name"] == "Joey"
     assert m["display"] == "standalone"
-    assert m["background_color"] == "#141414" and m["theme_color"] == "#141414"
+    assert m["background_color"] == "#09090b" and m["theme_color"] == "#09090b"   # = theme-color meta, --bg (H-41)
+    assert m["description"] == "Joey"
     assert {i["sizes"] for i in m["icons"]} == {"192x192", "512x512"}
 
 
@@ -54,6 +55,11 @@ def test_icon_urls_are_cache_busted():
     assert all("?v=" in i["src"] for i in m["icons"])
     base = (REPO_ROOT / "hub/templates/base.html").read_text(encoding="utf-8")
     assert 'rel="apple-touch-icon" href="/static/icon-192.png?v=' in base
+    assert '<link rel="icon" href="/static/icon-192.png?v=' in base            # favicon (D-60)
+    media = json.loads((REPO_ROOT / "hub/static/manifest-media.webmanifest").read_text(encoding="utf-8"))
+    assert media["theme_color"] == media["background_color"] == "#09090b"
+    v = {i["src"].split("?v=")[1] for i in m["icons"] + media["icons"]}
+    assert len(v) == 1 and f'icon-192.png?v={v.pop()}"' in base                # one icon version everywhere
 
 
 def test_stylesheet_link_is_content_versioned(monkeypatch):

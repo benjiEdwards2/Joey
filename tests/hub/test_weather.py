@@ -46,7 +46,7 @@ def test_glimpse_renders_on_hub_and_links_to_detail(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=WX_DATA)
     with build(snaps) as client:
         html = client.get("/").text
-        assert '<a class="panel tile wx" href="/weather"' in html
+        assert '<a class="panel tile" href="/weather"' in html
         assert "9.7 °C · partly cloudy" in html and "8–15 °C · 20% rain" in html
         assert '<div class="glyph">' in html          # the requested small image
         assert "12m ago" in html                       # fresh, faint timestamp
@@ -68,7 +68,7 @@ def test_glimpse_stale_keeps_value_with_badge(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=400, data=WX_DATA)
     with build(snaps) as client:
         html = client.get("/").text
-        assert "9.7 °C · partly cloudy" in html and "stale 6h" in html
+        assert "9.7 °C · partly cloudy" in html and "Stale · 6h ago" in html
 
 
 def test_detail_page_renders_todays_fields(app_factory):
@@ -169,7 +169,9 @@ def test_malformed_forecast_rows_never_crash(app_factory):
     html = _weather_html(app_factory, data)
     assert "9.7" in html
     assert '<svg class="wxchart"' not in html                   # no temperatures => no chart
-    assert '<div class="row-title">Today</div>' in html and "unknown" in html
+    assert '<div class="row-title">Today</div>' in html and "unknown" not in html.lower()
+    week = html.split('class="listbox wxdays"')[1].split("</ol>")[0]
+    assert '<div class="row-meta">—' in week                     # a missing condition word is "—" (guide §9)
 
 
 def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
@@ -178,6 +180,30 @@ def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
     with build(snaps) as client:
         html = client.get("/").text
-        assert '<a class="panel tile wx" href="/weather"' in html
+        assert '<a class="panel tile" href="/weather"' in html
         assert "18.3 °C · light rain" in html and "12.7–24.1 °C · 55% rain" in html
         assert '<svg class="wxchart"' not in html and 'wxdays' not in html
+
+
+def test_zero_degrees_renders_as_0_not_a_dash(app_factory):
+    """D-52: 0 °C is a temperature, not a missing value — the hour rows and the 7-day range print "0"."""
+    data = {**WX_DATA, "hourly": [{"time": "2026-07-01T06:00", "temp_c": 0, "feels_c": -3, "rain_prob_pct": 0}],
+            "days": [{"date": "2026-07-01", "condition_text": "frost", "min_c": 0, "max_c": 0.0, "rain_prob_pct": 0}]}
+    html = _weather_html(app_factory, data)
+    hours = html.split('class="listbox wxhours"')[1].split("</ol>")[0]
+    week = html.split('class="listbox wxdays"')[1].split("</ol>")[0]
+    assert '<span class="row-side">0 °C</span>' in hours
+    assert '<span class="row-side">0–0 °C</span>' in week
+
+
+def test_place_name_comes_from_weather_place(app_factory, monkeypatch):
+    """H-36 / D-18: the labels follow WEATHER_PLACE (default Newport VIC), like the coordinates follow WEATHER_LAT/LON."""
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
+    with build(snaps) as client:
+        assert "Newport VIC" in client.get("/").text and "Newport VIC" in client.get("/weather").text
+        monkeypatch.setenv("WEATHER_PLACE", "Castlemaine VIC")
+        hub, page = client.get("/").text, client.get("/weather").text
+    assert "Newport VIC" not in hub + page
+    assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 4

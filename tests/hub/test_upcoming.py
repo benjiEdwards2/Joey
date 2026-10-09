@@ -40,7 +40,7 @@ def test_day_labels_today_tomorrow_then_date():
         ev("C", "2026-01-07T09:00+11:00", "2026-01-07T09:30+11:00"),
     ]
     groups = build_upcoming(events, "both", NOW)
-    assert [g["label"] for g in groups] == ["Today", "Tomorrow", "Wed 07 Jan"]
+    assert [g["label"] for g in groups] == ["Today", "Tomorrow", "Wed 7 Jan"]
     assert groups[0]["events"][0]["time_text"] == "09:00 – 09:30"
 
 

@@ -16,7 +16,9 @@
 <section class="tiles areatiles" aria-label="{{ area.name }} tiles">
   {% for row in sv.tiles %}
     {% set t = row.tile %}{% set st = row.st %}
-    {% if st.state == "link" %}
+    {% if st.state == "link" and st.lan %}
+      {{ kpi(none, t.label, none, area.icon, st, t.owner.value, value="LAN") }}{# home network only: no dead link #}
+    {% elif st.state == "link" %}
       {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true) }}
     {% else %}
       {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value) }}
@@ -93,12 +95,16 @@
     <div class="sechead"><h2 class="seclabel">{{ g.label }}</h2></div>
     <div class="svc-grid">
     {% for a in g.apps %}
-    <a class="svc-card{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
+    {# H-71: a LAN-only app (no gated hostname in areas.yaml) is a plain card saying "LAN" — its link is dead off
+       the home network. #}
+    {% set tag = "a" if a.href else "div" %}
+    <{{ tag }} class="svc-card{{ ' is-down' if not a.up }}"{% if a.href %} href="{{ a.href }}" target="_blank" rel="noopener"{% endif %}>
       {% if a.logo %}<img class="svc-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="40" height="40">
       {% else %}<span class="svc-logo svc-fallback" aria-hidden="true"><span class="svc-initial">{{ a.initial }}</span>{{ ic.icon(area.icon) }}</span>{% endif %}
-      <span class="svc-body"><span class="svc-name">{{ a.name }}</span>{% if a.subtitle %}<span class="svc-sub">{{ a.subtitle }}</span>{% endif %}</span>
+      {% set sub = [a.subtitle, "LAN" if a.lan else none] | select | join(" · ") %}
+      <span class="svc-body"><span class="svc-name">{{ a.name }}</span>{% if sub %}<span class="svc-sub">{{ sub }}</span>{% endif %}</span>
       <span class="svc-side"><span class="{{ 'st-up' if a.up else 'st-down' }}"><span class="svc-dot" aria-hidden="true"></span>{{ a.status_text or ("Up" if a.up else "Down") }}</span>{% if not a.up and a.note %}<span class="svc-note">{{ a.note }}</span>{% elif a.response_ms is not none %}<span class="svc-note">{{ a.response_ms }} ms</span>{% endif %}</span>
-    </a>
+    </{{ tag }}>
     {% endfor %}
     </div>
   </section>
@@ -118,7 +124,7 @@
     {% for m in mon.rows %}
     <div class="row{{ ' is-down' if m.status == 'down' }}">
       <div class="row-body"><div class="row-title">{{ m.name }}</div></div>
-      <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ (m.status or "unknown") | title }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
+      <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ m.status | title if m.status else "—" }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
     </div>
     {% else %}
     <p class="empty">No monitors.</p>
@@ -145,9 +151,9 @@
       <div class="row-body"><div class="row-title">{{ c.name }}</div>{{ meta([c.current_tag ~ ((" → " ~ c.new_tag) if c.new_tag else ""), c.requested_text]) }}</div>
       <span class="badge badge-wait">{{ {"tag": "New version", "digest": "New build"}.get(c.kind, "Update") }}</span>
       <span class="row-side">
-        {% if c.auto %}<a class="btn btn-primary btn-sm" href="/server/updates/{{ c.name }}/run?step=confirm">Update now</a>
+        {% if c.auto %}<a class="btn btn-primary btn-sm" href="/server/updates/{{ c.name | urlencode }}/run?step=confirm">Update now</a>
         {% else %}<span>Manual · excluded</span>{% endif %}
-        <form method="post" action="/server/updates/{{ c.name }}/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button></form>
+        <form method="post" action="/server/updates/{{ c.name | urlencode }}/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button></form>
       </span>
     </div>
     {% else %}
@@ -161,7 +167,7 @@
       {% for c in up.ignored %}
       <div class="row has-form">
         <div class="row-body"><div class="row-title">{{ c.name }}</div>{{ meta([c.current_tag ~ ((" → " ~ c.new_tag) if c.new_tag else "")]) }}</div>
-        <span class="row-side"><form method="post" action="/server/updates/{{ c.name }}/unignore"><button class="btn btn-ghost btn-sm" type="submit">Unignore</button></form></span>
+        <span class="row-side"><form method="post" action="/server/updates/{{ c.name | urlencode }}/unignore"><button class="btn btn-ghost btn-sm" type="submit">Unignore</button></form></span>
       </div>
       {% endfor %}
       </div>

@@ -94,3 +94,28 @@ def test_check_once_and_server_render_push_from_snapshots(posts, tmp_path, monke
         assert client.get("/server").status_code == 200
     assert [p["text"] for p in posts] == ["Joey Server: Prowlarr is Down (timeout)",
                                          "Joey Server: Uptime Kuma: Radarr is Down"]
+
+
+def test_a_refused_push_backs_off_after_three_failures(posts, caplog):
+    """H-67: a permanently refused webhook is tried 3 times per item, then left alone while the item stays current;
+    once the item clears and returns it is tried again."""
+    import logging
+    posts.state["code"] = 404
+    with caplog.at_level(logging.WARNING, logger="hub.server_alerts"):
+        for _ in range(6):
+            assert server_alerts.sync([DOWN]) == 0
+    assert len(posts) == 3 and "giving up on one item after 3 failures" in caplog.text
+    assert HOOK not in caplog.text and "SECRET" not in caplog.text
+    server_alerts.sync([])                               # cleared: row deleted
+    posts.state["code"] = 204
+    assert server_alerts.sync([DOWN]) == 1 and len(posts) == 4
+
+
+def test_fails_column_is_added_to_an_older_table(posts):
+    with sqlite3.connect(media_db.db_path()) as db:
+        db.execute("CREATE TABLE server_attention_seen(key TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, "
+                   "notified_at TEXT)")
+        db.execute("INSERT INTO server_attention_seen VALUES('down:prowlarr', 'a', 'a', NULL)")
+    assert server_alerts.sync([DOWN]) == 1
+    with sqlite3.connect(media_db.db_path()) as db:
+        assert [r[1] for r in db.execute("PRAGMA table_info(server_attention_seen)")][-1] == "fails"

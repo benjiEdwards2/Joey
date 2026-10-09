@@ -94,7 +94,7 @@ def test_playing_page_sections_render_in_main(app_factory):
     assert ">Up next</div>" in body and "Dust and Daylight" in body and "Next episode" in body
     assert ">Latest additions</div>" in body
     assert body.index("Desert Crossing") > body.index(">Latest additions</div>")
-    assert "3 days ago" in body and ">Movie<" in body
+    assert "3d ago" in body and ">Movie<" in body
     assert "Library: 42 movies · 237 episodes" in body
 
 

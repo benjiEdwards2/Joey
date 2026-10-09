@@ -2,7 +2,7 @@
    adopted for all of Joey). ONE dark theme by design (guide 1.1): every token lives in the single :root block
    below; light mode is retired, so there are no colour-scheme media or theme-attribute token blocks (Phase 2
    removed the theme toggle and the rail: the shell is the guide's top bar + phone tab bar). TOKENS ONLY: component and recipe rules never carry a
-   literal colour. Older variable names (--bg, --card, ...) are remapped to the guide's palette so
+   literal colour. Older variable names (--bg, --border, ...) are remapped to the guide's palette so
    existing templates render unchanged in the dark set; the recipe classes (guide 4-6) follow the base rules.
    Phase 4 (2026-10-06) finished the move: Hub, Server, Calendar/area pages and Weather are built from the same
    recipes, the per-area --accent is gone everywhere, and the older .card/.kpi/.uplist rules were deleted. */
@@ -18,32 +18,28 @@
   --font-sans: "Geist", ui-sans-serif, system-ui, Arial, Helvetica, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* Older names, remapped to the guide (zinc greys, white-alpha layers) */
-  --bg: #09090b; --fg: #fafafa; --muted: #a1a1aa; --faint: #52525b;
+  --bg: #09090b; --fg: #fafafa;
   --bar: rgba(9, 9, 11, .95);  /* fixed bars + sheets over content (guide §5: bg-zinc-950/95) */
-  --card: rgba(255, 255, 255, .03); --border: rgba(255, 255, 255, .07); --soft: rgba(255, 255, 255, .04);
-  --brand: #6366f1; --brand-fg: #ffffff; --brand-soft: rgba(99, 102, 241, .15);
+  --border: rgba(255, 255, 255, .07); --soft: rgba(255, 255, 255, .04);
+  --brand: #6366f1; --brand-fg: #ffffff;
   --good: #34d399; --good-soft: rgba(16, 185, 129, .1);
-  --warn: #fbbf24; --warn-soft: rgba(245, 158, 11, .1);
+  --warn-soft: rgba(245, 158, 11, .1);
   --bad: #fca5a5; --bad-soft: rgba(239, 68, 68, .1);
   --gold: #f2c14e; --gold-glow: rgba(251, 191, 36, .45);
   --gold-soft: rgba(242, 193, 78, .12); --gold-line: rgba(242, 193, 78, .6);  /* awards-ui: gold means won */
   --silver: #cbd5e1; --silver-soft: rgba(203, 213, 225, .1); --bronze: #d6935a; --bronze-soft: rgba(214, 147, 90, .12);
   --topbar: rgba(9, 9, 11, .8);  /* the top bar (guide §5: bg-zinc-950/80) */
   --pill-on: rgba(255, 255, 255, .07); --tab-on: #818cf8; --tab-on-phone: #a5b4fc;  /* indigo-400 / -300 */
-  --scrim: rgba(9, 9, 11, .9); --scrim-soft: rgba(9, 9, 11, .62);
+  --scrim: rgba(9, 9, 11, .9);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
-  --rad-1: #f5f5ff; --rad-2: #b4b4ff; --rad-3: #7878ff; --rad-4: #1414ff; --rad-5: #00d8c3;
-  --rad-6: #009690; --rad-7: #006666; --rad-8: #ffff00; --rad-9: #ffc800; --rad-10: #ff9600;
-  --rad-11: #ff6400; --rad-12: #ff0000; --rad-13: #c80000; --rad-14: #780000; --rad-15: #280000;
-  --shadow: none;
   /* Guide tokens (section 2) */
   --surface: rgba(255, 255, 255, .03); --line: rgba(255, 255, 255, .1);
   --line-soft: rgba(255, 255, 255, .05); --line-hover: rgba(255, 255, 255, .2); --line-focus: rgba(255, 255, 255, .25);
   --hover: rgba(255, 255, 255, .05);
   --primary: #6366f1; --primary-hover: #818cf8;
   --text-1: #fafafa; --text-2: #e4e4e7; --text-3: #d4d4d8; --text-4: #a1a1aa; --text-5: #71717a; --text-6: #52525b;
-  --sky: #7dd3fc; --orange: #fb923c; --fuchsia: #f0abfc; --teal: #5eead4; --rose: #fb7185;
+  --sky: #7dd3fc; --orange: #fb923c; --fuchsia: #f0abfc; --teal: #5eead4;
   --indigo-glow: rgba(99, 102, 241, .1);
   --zinc-100: #f4f4f5; --zinc-900: #18181b; --zinc-950: #09090b;
   --pagehead-glow: rgba(99, 102, 241, .14);
@@ -502,8 +498,7 @@ a { color: inherit; }
 main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6); }
 
 /* ---- Weather (/weather and the glimpse): a .stats strip for today, the 24-hour chart, the radar, 7 days as rows.
-   Inline SVG coloured by tokens only (strokes --primary); every value is also printed as text. The radar colour ramp
-   (--rad-*) is a data colour. ---- */
+   Inline SVG coloured by tokens only (strokes --primary); every value is also printed as text. ---- */
 .wxapp { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); align-items: start; }
 .wxapp > .wxpage { grid-column: 1 / -1; }
 @media (min-width: 1100px) {
@@ -520,41 +515,12 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .wxchart .wxtemplab { fill: var(--text-1); font-weight: 600; }
 .wxhours .row { padding-top: 6px; padding-bottom: 6px; }
 
-/* Rain radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe in the same square slot, capped to the viewport
-   height. The .wxradarbox / .wxlegend rules below are the parked BOM loop, kept for a one-template swap back. */
+/* Rain radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe in a square slot, capped to the viewport
+   height. (The parked BOM loop's own rules were removed 2026-10-09.) */
 .wxwindy { display: block; width: min(100%, 78vh); aspect-ratio: 1; margin: 0 auto;
   border: 0; border-radius: 10px; background: var(--soft); }
 
-/* Rain radar: stored BOM PNGs stacked as <img> layers; 6 frame slots cycled by keyframes (7 x .6s: the latest frame
-   holds for two slots). No JS. Reduced motion: latest frame only. The square is capped to the viewport height. */
-.wxradarbox { position: relative; width: min(100%, 78vh); aspect-ratio: 1; margin: 0 auto;
-  overflow: hidden; border-radius: 10px; background: var(--soft); }
-.wxradarbox img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.wxradarbox .wxrframe, .wxradarbox .wxrclock { opacity: 0; animation: wxr 4.2s linear infinite; }
-.wxradarbox .f1 { animation-delay: .6s; }
-.wxradarbox .f2 { animation-delay: 1.2s; }
-.wxradarbox .f3 { animation-delay: 1.8s; }
-.wxradarbox .f4 { animation-delay: 2.4s; }
-.wxradarbox .f5 { animation-name: wxrlast; animation-delay: 3s; }
-@keyframes wxr { 0%, 14.28% { opacity: 1; } 14.29%, 100% { opacity: 0; } }
-@keyframes wxrlast { 0%, 28.56% { opacity: 1; } 28.57%, 100% { opacity: 0; } }
-.wxrclock { position: absolute; top: 6%; left: 8px; padding: 2px 8px; border-radius: 6px;
-  background: var(--poster-badge-bg); color: var(--text-1); font-size: 13px; font-weight: 600; }
-@media (prefers-reduced-motion: reduce) {
-  .wxradarbox .wxrframe, .wxradarbox .wxrclock { animation: none; }
-  .wxradarbox .f5 { opacity: 1; }
-}
-.wxradartime { margin-top: 10px; text-align: center; }
 .wxradar .panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.wxlegend { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 12px; color: var(--text-3); }
-.wxlegend li { display: flex; align-items: center; gap: 6px; }
-.wxlegend small { color: var(--text-5); font-size: 11px; }
-.wxlegend i { display: inline-block; width: 30px; height: 10px; border-radius: 3px; border: 1px solid var(--border); }
-.wxlegend .rl1 { background: linear-gradient(90deg, var(--rad-1), var(--rad-2)); }
-.wxlegend .rl2 { background: linear-gradient(90deg, var(--rad-3), var(--rad-4), var(--rad-5), var(--rad-6)); }
-.wxlegend .rl3 { background: linear-gradient(90deg, var(--rad-7), var(--rad-8), var(--rad-9)); }
-.wxlegend .rl4 { background: linear-gradient(90deg, var(--rad-10), var(--rad-11), var(--rad-12)); }
-.wxlegend .rl5 { background: linear-gradient(90deg, var(--rad-13), var(--rad-14), var(--rad-15)); }
 
 /* ---- Media app (MediaHub restyle, Phase 3 of 4, 2026-10-06). Every Media page is built from the recipes above;
    the rules below only EXTEND them (named modifiers, documented here) for what the recipes do not cover. Media
@@ -806,8 +772,6 @@ a.scorepill:hover { border-color: var(--line-hover); color: var(--text-1); }
 .overview { max-width: 70ch; font-size: 14px; line-height: 1.6; color: var(--text-3); }
 .numbers { padding: 14px 18px; }
 .numbers .microlabel { letter-spacing: .08em; }
-.numbers .stat-link { display: inline-block; color: var(--text-3); text-decoration: none; }
-.numbers .stat-link:hover { color: var(--text-1); }
 .filepanel { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 18px 20px; }
 .filepanel > * + * { border-top: 1px solid var(--line-soft); padding-top: 16px; }
 .fmtbadges { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
@@ -966,11 +930,8 @@ a.castcard:hover .castname { text-decoration: underline; }
 .logform label { display: block; }
 .personhead .hero-detail-text { align-items: flex-start; text-align: left; }
 
-/* Server (WP-U1/U4 + restyle Phase 4): services are rows; .appicon is the 20 px slot for an app logo (white 4 px tile,
-   padding 2 px; the server-icons branch fills it with an <img>). The Last 24 h sparklines keep scoped .spark-* rules,
-   stroked --primary over the base --line. */
-.appicon { width: 20px; height: 20px; flex: none; border-radius: 4px; padding: 2px; object-fit: contain;
-  background: var(--appicon-bg); }
+/* Server (WP-U1/U4 + restyle Phase 4): the Last 24 h sparklines keep scoped .spark-* rules, stroked --primary over
+   the base --line. */
 .spark-band .spark-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 240px); gap: 12px; align-items: center; padding: 6px 0; }
 .spark-band .spark-text { font-size: 14px; color: var(--text-3); overflow-wrap: anywhere; }
 .spark-band .spark-svg { display: block; width: 100%; height: auto; }
@@ -988,6 +949,7 @@ a.castcard:hover .castname { text-decoration: underline; }
   border: 1px solid var(--line-soft); background: var(--surface); color: inherit; text-decoration: none;
   transition: background-color .15s, border-color .15s; }
 .svc-card:hover { background: var(--soft); border-color: var(--line-hover); }
+div.svc-card:not(.is-down):hover { background: var(--surface); border-color: var(--line-soft); }  /* LAN card: no link */
 .svc-card.is-down { background: var(--down-tint); box-shadow: inset 3px 0 0 var(--down-bar); }
 .svc-logo { width: 40px; height: 40px; flex: none; border-radius: 8px; padding: 5px; object-fit: contain;
   background: var(--appicon-bg); }

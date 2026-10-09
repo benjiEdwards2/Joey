@@ -39,7 +39,7 @@ def test_all_four_states_render(app_factory):
     with build(snaps) as client:
         hub_html = client.get("/").text
         assert "18 °C" in hub_html and "12m ago" in hub_html          # fresh
-        assert "S4E3" in hub_html and "stale 5h" in hub_html          # stale, value kept
+        assert "S4E3" in hub_html and "Stale · 5h ago" in hub_html    # stale, value kept
         assert "Not connected" in hub_html                            # off
         assert 'href="https://notes.test"' in client.get("/a/delta").text  # link
 

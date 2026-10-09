@@ -7,7 +7,8 @@
 {% import "_award_card.html" as aw %}
 {# Movies / TV Shows > Awards (AWARDS_PLAN A4, 2026-10-08; visual pass awards-ui item 2, 2026-10-09). Top to bottom:
    title + the one staleness line; Coming up (a stats strip by month, each ceremony with its mark, the next one
-   outlined and saying "Next", teal when the date is known); the ceremony tiles (mark + name, the picked one gold;
+   outlined and saying "Next", teal when the date is known); the ceremony tiles (mark + name + a muted month line — awards-year item 3: the selected year's
+   edition date, else the usual month — the picked one gold;
    a sideways-scrolling row inside its own box on a phone); the year stepper (‹ native year select ›) + edition line +
    Not seen chip (awards-year, 2026-10-09: the tiles keep the year; a "Current year" chip back to the latest synced
    year unless already there; a muted "No <Ceremony> in <year> · showing <year2>" note when the year fell back); the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
@@ -26,7 +27,7 @@
 </section>
 {% endif %}
 {% if bodies %}
-<nav class="awtiles" aria-label="Ceremonies"><div class="awtiles-row">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span></a>{% endfor %}</div></nav>
+<nav class="awtiles" aria-label="Ceremonies"><div class="awtiles-row">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span>{% if b.month %}<span class="awtile-month">{{ b.month }}</span>{% endif %}</a>{% endfor %}</div></nav>
 <div class="awstep">
   {% if prev %}<a class="btn btn-glass btn-sm" href="{{ prev.href }}" aria-label="Previous ceremony, {{ prev.year }}">‹ {{ prev.year }}</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>{% endif %}
   {% if years %}

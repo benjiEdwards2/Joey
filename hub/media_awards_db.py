@@ -252,6 +252,22 @@ def years_of(body_id: str, kind: str | None = None) -> list[int]:
             (body_id,))]
 
 
+def held_months(year: int | None) -> dict[str, int]:
+    """{body_id: month} of the editions of this ceremony year with a known date (awards-year item 3, the tile month)."""
+    db = _reader() if year else None
+    if db is None:
+        return {}
+    out: dict[str, int] = {}
+    with closing(db):
+        for r in db.execute("SELECT body_id, held_on FROM award_edition WHERE year = ? AND held_on IS NOT NULL AND "
+                            "held_on != ''", (year,)):
+            try:
+                out[r["body_id"]] = date.fromisoformat(r["held_on"][:10]).month
+            except ValueError:
+                pass
+    return out
+
+
 def latest_synced_year(body_id: str, kind: str) -> int | None:
     """The newest year with nominations of this kind for the body (else the newest known year)."""
     db = _reader()

@@ -297,6 +297,13 @@ def nearest_year(years: list[int], asked: int) -> int | None:
     return max(earlier) if earlier else (min(later) if later else None)
 
 
+def tile_month(body_id: str, held: dict[str, int]) -> str | None:
+    """A ceremony tile's month line (awards-year item 3): 'Mar' from the selected year's edition date, else the body's
+    usual month (the constant Coming up falls back to); None when neither is known."""
+    m = held.get(body_id) or (seed.BY_ID.get(body_id) or {}).get("usual_month")
+    return date(2000, m, 1).strftime("%b") if m else None
+
+
 def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str, hub) -> tuple[dict, list]:
     """-> (context, entities still to fill after the response)."""
     akind = AKIND[kind]
@@ -356,10 +363,11 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         empty = EMPTY
     elif not page["categories"]:
         empty = PENDING if state in ("pending", None) else EMPTY
+    held = adb.held_months(year)
     ctx = {
         "kind": kind, "akind": akind, "base": PATHS[kind], "body": body, "year": year, "unseen": unseen,
-        "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], year, unseen), "logo": icons.override(b["id"])}
-                   for b in bodies],
+        "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], year, unseen), "logo": icons.override(b["id"]),
+                    "month": tile_month(b["id"], held)} for b in bodies],
         "years": years,
         "year_note": (f"No {(seed.BY_ID.get(body) or {}).get('name', body)} in {missing['asked']} · showing "
                       f"{missing['shown']}") if missing else None,

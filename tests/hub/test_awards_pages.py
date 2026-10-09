@@ -61,7 +61,7 @@ def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
     # awards-year (2026-10-09): the tiles keep the year the viewer is on
     assert re.search(r'<a class="awtile on" href="/media/movies/awards\?body=oscars&amp;year=2025" aria-current="page">'
                      r'<svg class="awic awic-oscars"[^>]*aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">Oscars'
-                     r'</span></a>', b)
+                     r'</span><span class="awtile-month">Mar</span></a>', b)   # awards-year item 3: + the month line
     assert [c for c in re.findall(r'<a class="awtile[^"]*" href="/media/movies/awards\?body=(\w+)&amp;year=2025"', b)] == [
         "oscars", "globes", "bafta", "critics", "sag", "dga", "pga", "wga", "cannes"]
 
@@ -79,7 +79,7 @@ def test_stepper_bounds(env):
     assert '<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>' in old
     assert '<span class="btn btn-glass btn-sm" aria-disabled="true">›</span>' in new
     assert '<p class="empty">Not synced yet</p>' in new                   # pending edition wording
-    assert '<option value="2025" selected>2025</option>' in junk and "Oscars</span></a>" in junk   # bad params -> defaults
+    assert '<option value="2025" selected>2025</option>' in junk and 'Oscars</span><span class="awtile-month">Mar</span></a>' in junk   # bad params -> defaults
 
 
 def test_hero_tally_seen_tags_and_links(env):
@@ -243,3 +243,32 @@ def test_current_year_chip_links_to_the_latest_synced_year_unless_already_there(
     assert "awcur" not in latest and "awcur" not in default
     assert 'class="chip awcur" href="/media/movies/awards?body=oscars"' in pending   # 2026 is pending: 2025 is current
     assert "awyearnote" not in pending and "awyearnote" not in default
+
+
+# ---- awards-year item 3 (2026-10-09): the ceremony tiles say the month the ceremony is held ----
+
+def tile_months(b):
+    return dict(re.findall(r'<span class="awtile-name">([^<]+)</span><span class="awtile-month">(\w+)</span>', b))
+
+
+def test_tiles_show_the_month_from_the_selected_years_edition_date(env):
+    build, _ = env
+    seeded()
+    with closing(adb.ensure()) as db:            # an off-season date proves the edition's own date wins
+        seed_oscars(db, ordinal=95, year=2023, held_on="2023-04-12")
+    with build(jelly(ALPHA)) as client:
+        y2023 = tile_months(page(client, "/media/movies/awards?body=oscars&year=2023"))
+        y2025 = tile_months(page(client, "/media/movies/awards?body=oscars&year=2025"))
+    assert y2023["Oscars"] == "Apr" and y2025["Oscars"] == "Mar"
+    assert list(y2025) == ["Oscars", "Golden Globes", "BAFTA", "Critics&#39; Choice", "SAG", "DGA", "PGA", "WGA",
+                           "Cannes"]                                       # tile order unchanged, every tile has one
+
+
+def test_tile_month_falls_back_to_the_usual_month_without_a_date(env):
+    build, _ = env
+    seeded()                                     # 2026 is pending with no held_on; BAFTA / Globes have no editions
+    with build(jelly(ALPHA)) as client:
+        b = tile_months(page(client, "/media/movies/awards?body=oscars&year=2026"))
+        tv = tile_months(page(client, "/media/tv/awards"))                 # no media data at all
+    assert (b["Oscars"], b["BAFTA"], b["Golden Globes"], b["Cannes"]) == ("Mar", "Feb", "Jan", "May")
+    assert tv["Emmys"] == "Sep"

@@ -98,7 +98,8 @@ def test_ceremony_tiles_carry_marks_and_the_picked_one_is_gold(env):
         b = page(client, "/media/movies/awards?body=bafta")
     nav = re.search(r'<nav class="awtiles" aria-label="Ceremonies"><div class="awtiles-row">(.*?)</div></nav>', b, re.S).group(1)
     tiles = re.findall(r'<a class="(awtile[^"]*)" href="[^"]*body=(\w+)"[^>]*><svg class="awic awic-(\w+)"[^>]*'
-                       r'aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">([^<]+)</span></a>', nav, re.S)
+                       r'aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">([^<]+)</span>'
+                       r'<span class="awtile-month">\w+</span></a>', nav, re.S)   # awards-year item 3: + the month line
     assert [(t[1], t[2]) for t in tiles] == [(x, x) for x in ("oscars", "globes", "bafta", "critics", "sag", "dga", "pga",
                                                               "wga", "cannes")]
     assert [t[1] for t in tiles if t[0] == "awtile on"] == ["bafta"] and "Critics&#39; Choice" in nav

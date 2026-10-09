@@ -12,7 +12,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _isolated_media_paths(tmp_path, monkeypatch):
-    """Every test gets its own media.db / backup dir / snapshot dir unless it sets them
+    r"""Every test gets its own media.db / backup dir / snapshot dir unless it sets them
     itself (2026-10-06): the defaults are absolute /data/... paths, which on Windows
     resolve to C:\data\... — a test that touched the DB without MEDIA_DB_PATH created a
     real file there and flipped the apps page's backup row for every later test."""

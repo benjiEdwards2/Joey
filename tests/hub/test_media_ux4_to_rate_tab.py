@@ -22,8 +22,8 @@ def subtabs(html):
 def test_sections_list_to_rate_after_tonight():
     tabs = {s["id"]: s["tabs"] for s in media_nav.SECTIONS}
     # Awards (2026-10-08) follows To rate: the pair is read at its place, not at the end of the row
-    assert tabs["movies"][2:4] == [("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate")]
-    assert tabs["tv"][2:4] == [("Tonight", "/media/tv/tonight"), ("To rate", "/media/tv/to-rate")]
+    assert tabs["movies"][2:4] == [("Tonight", "/media/movies/tonight"), ("To Rate", "/media/movies/to-rate")]
+    assert tabs["tv"][2:4] == [("Tonight", "/media/tv/tonight"), ("To Rate", "/media/tv/to-rate")]
 
 
 def test_tab_row_carries_the_to_rate_count_per_kind(env):
@@ -31,10 +31,10 @@ def test_tab_row_carries_the_to_rate_count_per_kind(env):
     with build() as client:
         films = subtabs(client.get("/media/movies").text)
         tv = subtabs(client.get("/media/tv").text)
-    assert [t[0] for t in films] == ["My films", "Watchlist", "Tonight", "To rate", "Awards"]   # + Awards (2026-10-08)
-    assert films[3] == ("To rate", "/media/movies/to-rate", False, (2, "to rate"))   # Heat + Already Rated
+    assert [t[0] for t in films] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]   # + Awards (2026-10-08)
+    assert films[3] == ("To Rate", "/media/movies/to-rate", False, (2, "to rate"))   # Heat + Already Rated
     assert films[0][2] is True                                                       # My films is current
-    assert tv[3] == ("To rate", "/media/tv/to-rate", False, (1, "to rate"))           # Quiet Show (show level)
+    assert tv[3] == ("To Rate", "/media/tv/to-rate", False, (1, "to rate"))           # Quiet Show (show level)
 
 
 def test_tab_page_is_current_and_lists_its_kind(env):
@@ -42,7 +42,7 @@ def test_tab_page_is_current_and_lists_its_kind(env):
     with build() as client:
         html = client.get("/media/movies/to-rate").text
     tabs = subtabs(html)
-    assert [t[0] for t in tabs if t[2]] == ["To rate"]
+    assert [t[0] for t in tabs if t[2]] == ["To Rate"]
     body = main_of(html)
     assert '<div class="listbox libposters">' in body or '<div class="listbox">' in body
     assert body.count('class="ratepick"') == 2 and "Heat" in body and "Quiet Show" not in body
@@ -65,7 +65,7 @@ def test_tab_shows_without_a_count_when_nothing_waits(env):
         films = client.get("/media/movies/to-rate").text
         tv = client.get("/media/tv/to-rate").text
     for html in (films, tv):
-        assert subtabs(html)[3][0] == "To rate" and subtabs(html)[3][3] is None
+        assert subtabs(html)[3][0] == "To Rate" and subtabs(html)[3][3] is None
         assert '<p class="empty">Nothing to rate.</p>' in main_of(html) and "ratepick" not in main_of(html)
 
 
@@ -90,3 +90,18 @@ def test_htmx_rating_on_the_tab_swaps_in_place(env):
         assert r.status_code == 200 and "Rated 8 out of 10" in r.text and "<html" not in r.text
         films = subtabs(client.get("/media/movies").text)
     assert films[3][3] == (1, "to rate")                                              # one fewer waiting
+
+
+def test_to_rate_tab_label_is_title_case_and_body_copy_stays_sentence_case(env):
+    """awards-year (2026-10-09, B.): the tab label reads "To Rate" on Movies, TV Shows and Diary (and the tab page's
+    <title>); the count's screen-reader words, the Diary section label and "Nothing to rate." stay as they were."""
+    build, _ = env
+    with build(jelly_data([])) as client:
+        films = client.get("/media/movies/to-rate").text
+        diary = client.get("/media/history").text
+    labels = {s["id"]: [t[0] for t in s["tabs"] if t[0].lower() == "to rate"] for s in media_nav.SECTIONS}
+    assert labels["movies"] == labels["tv"] == labels["diary"] == ["To Rate"]
+    assert "<title>To Rate — Joey</title>" in films and ">To rate<" not in films.split('<nav class="sectabs sub"', 1)[1]
+    assert [t[0] for t in subtabs(diary) if t[2]] == ["To Rate"]
+    assert '<p class="empty">Nothing to rate.</p>' in main_of(films)
+    assert '<div class="seclabel">To rate</div>' in main_of(diary)

@@ -10,8 +10,8 @@ from tests.hub.test_media_shelves import JELLY, ARR
 
 def test_movies_and_tv_tabs_have_no_by_year():
     tabs = {s["id"]: [label for label, _ in s["tabs"]] for s in media_nav.SECTIONS}
-    assert tabs["movies"] == ["My films", "Watchlist", "Tonight", "To rate", "Awards"]   # media-ux4: + To rate; 2026-10-08: + Awards
-    assert tabs["tv"] == ["My shows", "Watchlist", "Tonight", "To rate", "Awards"]
+    assert tabs["movies"] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]   # media-ux4: + To rate; 2026-10-08: + Awards
+    assert tabs["tv"] == ["My shows", "Watchlist", "Tonight", "To Rate", "Awards"]
     assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h.startswith(media_nav.YEARS)]
 
 

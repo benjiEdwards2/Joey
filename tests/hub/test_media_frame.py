@@ -43,7 +43,7 @@ ROUTES = {
     "/media/tv/tonight": ("tv", "Tonight"),
     # media-ux2 (2026-10-08): /media/years has no tab of its own now - see test_media_nav_ux2.py
     "/media/diary": ("diary", "Diary"),
-    "/media/history": ("diary", "To rate"),
+    "/media/history": ("diary", "To Rate"),
     "/media/playing": ("server", "Live"),
     "/media/library": ("server", "Library"),
     "/media/requests": ("server", "Requests"),

@@ -300,7 +300,9 @@ anything else → `/media/history`); htmx swaps in the usual "Rated N · Undo" r
 `templates/media_to_rate.html`): the same rows for the page's kind with a "N films watched in the last 30 days, not
 rated yet" line, "Nothing to rate." when empty. The tab always shows; its amber count (`main.to_rate_tab_counts`, the
 viewer's inbox split by kind; screen-reader word "to rate") only when > 0. The list pages no longer hold the section.
-`RATE_BACK` adds both tab paths (the list paths stay for forms already open).
+`RATE_BACK` adds both tab paths (the list paths stay for forms already open). Label case (awards-year, 2026-10-09, B.):
+the tab reads **"To Rate"** on Movies, TV Shows and Diary (and the tab page's `<title>`); body copy ("Nothing to rate.",
+the Diary section label, the count's screen-reader words) stays sentence case.
 
 Browse by service (media-ux2, 2026-10-08): `/media/discover` gains a **Services** row (above the shelves, hidden while
 searching) — logo tiles for `media_discover.SERVICES` (Netflix, Disney Plus, Amazon Prime Video, Stan, Binge, Apple TV

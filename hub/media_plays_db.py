@@ -13,6 +13,7 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 from hub import media_store
+from hub.ids import home_tz
 
 log = logging.getLogger("hub.media_plays_db")
 
@@ -25,7 +26,6 @@ DDL = (
 )
 OPEN_GAP = timedelta(hours=2)
 FINISHED_PCT = 90
-HOME_TZ_NAME = "Australia/Melbourne"
 TOP_N = 10
 
 
@@ -50,11 +50,9 @@ def _parse(stamp) -> datetime | None:
 
 
 def _tz():
-    try:
-        from zoneinfo import ZoneInfo
-        return ZoneInfo(HOME_TZ_NAME)
-    except Exception:
-        return timezone.utc
+    """The home zone (hub.ids); None without a tz database, which astimezone() reads as the container's local time
+    — no longer a silent UTC (M-15)."""
+    return home_tz()
 
 
 # ---- recorder side ----

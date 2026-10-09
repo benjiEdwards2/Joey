@@ -161,8 +161,7 @@ def test_search_returns_movie_and_tv_rows_only(env, monkeypatch):
     calls = []
 
     class Resp:
-        def raise_for_status(self):
-            pass
+        status_code = 200
 
         def json(self):
             return SEARCH

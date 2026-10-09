@@ -10,13 +10,11 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import sqlite3
 from datetime import date
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
-import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
@@ -29,7 +27,6 @@ log = logging.getLogger("hub.media_write")
 router = APIRouter()
 
 MAX_BODY = 8192
-SEARCH_TIMEOUT = 8
 SEARCH_MAX = 8
 PLACES = ("Cinema", "Netflix", "Friend's", "Other")   # the diary log form's place suggestions (<datalist>)
 # Where a plain-form rating may return (media-ux2): the pages that hold a To rate list. Anything else -> history.
@@ -204,17 +201,15 @@ def _log_watch(request: Request, f: dict):
 
 
 def _search(query: str) -> list[dict] | None:
-    """Jellyseerr title search -> rows, or None when unavailable (no env or any failure)."""
-    base, key = os.environ.get("JELLYSEERR_URL", ""), os.environ.get("JELLYSEERR_API_KEY", "")
-    if not (base and key):
+    """Jellyseerr title search -> rows, or None when unavailable (no env or any failure). The call goes through
+    media_discover's one Jellyseerr reader (M-13); this maps its results to the diary log's rows."""
+    from hub import media_discover as md  # late: media_discover imports this module
+
+    if md._creds() is None:
         return None
-    try:
-        resp = requests.get(f"{base.rstrip('/')}/api/v1/search?query={quote(query, safe='')}",
-                            headers={"X-Api-Key": key}, timeout=SEARCH_TIMEOUT)
-        resp.raise_for_status()
-        results = resp.json().get("results", [])
-    except Exception as exc:  # type only — requests errors embed the URL
-        log.warning("title search failed: %s", type(exc).__name__)
+    body = md._get(f"/api/v1/search?query={quote(query, safe='')}")
+    results = body.get("results") if isinstance(body, dict) else None
+    if not isinstance(results, list):
         return None
     rows = []
     for r in results:

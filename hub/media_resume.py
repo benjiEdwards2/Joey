@@ -30,9 +30,7 @@ and apply_hidden drops that suggestion everywhere until Next Up suggests a diffe
 from __future__ import annotations
 
 import logging
-import os
 import re
-import time
 from urllib.parse import urlencode
 
 import requests
@@ -40,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_files, media_hidden, media_item
+from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin
 from hub.media_write import form_of, same_origin
 
 log = logging.getLogger("hub.media_resume")
@@ -57,11 +55,9 @@ ERRORS = {"jfunset": "Jellyfin is not connected", "jfuser": "No Jellyfin user fo
           "hidefail": "Couldn't hide it"}
 FALLBACK_STATUS = (404, 405)
 
-_her_uid: list = [0.0, None, None]  # [fetched_at, name, uid]
-
 
 def clear_cache() -> None:
-    _her_uid[:] = [0.0, None, None]
+    jellyfin.clear_cache()   # her user id now lives in media_jellyfin's cache
 
 
 # ---- what the pages show ----
@@ -127,17 +123,8 @@ def flash_text(params) -> tuple[str | None, str | None]:
 # ---- Jellyfin ----
 
 def _her_user_id(base: str, headers: dict) -> str | None:
-    name = os.environ.get("JELLYFIN_USER_HER", "").strip()
-    if not name:
-        return None
-    if _her_uid[2] and _her_uid[1] == name and time.time() - _her_uid[0] < media_files.UID_TTL:
-        return _her_uid[2]
-    users = media_files._get(base, headers, "/Users")
-    uid = next((u["Id"] for u in users if isinstance(u, dict) and u.get("Name") == name and u.get("Id")), None) \
-        if isinstance(users, list) else None
-    if uid:
-        _her_uid[:] = [time.time(), name, uid]
-    return uid
+    """Georgina's Jellyfin user id: exactly JELLYFIN_USER_HER (media_jellyfin), never the admin."""
+    return jellyfin.user_id("her", base, headers, lambda b, h: media_files._get(b, h, "/Users"))
 
 
 def _post(base, headers, path, params=None, body=None):

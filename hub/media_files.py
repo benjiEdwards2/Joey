@@ -9,64 +9,37 @@ never a URL or key.
 from __future__ import annotations
 
 import logging
-import os
 import re
 import time
 
-import requests
+import requests  # noqa: F401 - tests fake Jellyfin at media_files.requests.get (the shared module)
 
+from hub import media_jellyfin as jellyfin
 from hub.media_cache import LRU
 
 log = logging.getLogger("hub.media_files")
 
-TIMEOUT = 8
 CACHE_TTL = 600
-UID_TTL = 3600
+UID_TTL = jellyfin.UID_TTL
 ITEM_FIELDS = "MediaStreams,MediaSources,Path,Width,Height,Container,RunTimeTicks"
 ITEM_LIMIT = 500
 
 _cache: LRU = LRU()   # (kind, tmdb) / item keys -> (fetched_at, summary); bounded (M-42)
-_uid: list = [0.0, None]  # [fetched_at, uid]
 
 
 def clear_cache() -> None:
     _cache.clear()
-    _uid[:] = [0.0, None]
+    jellyfin.clear_cache()
 
 
-def _creds() -> tuple[str, dict] | None:
-    base, key = os.environ.get("JELLYFIN_URL", "").strip(), os.environ.get("JELLYFIN_API_KEY", "").strip()
-    if not (base and key):
-        return None
-    return base.rstrip("/"), {"Authorization": f"MediaBrowser Token={key}"}
-
-
-def _get(base: str, headers: dict, path: str, params: dict | None = None):
-    resp = requests.get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
-    if not 200 <= resp.status_code < 300:
-        raise RuntimeError(f"HTTP {resp.status_code}")
-    return resp.json()
-
-
-def _pick_user(users, preferred: str | None) -> str | None:
-    """JELLYFIN_USER by name, else the first administrator, else the first user."""
-    users = [u for u in users if isinstance(u, dict) and u.get("Id")] if isinstance(users, list) else []
-    for u in users:
-        if preferred and u.get("Name") == preferred:
-            return u["Id"]
-    for u in users:
-        if (u.get("Policy") or {}).get("IsAdministrator"):
-            return u["Id"]
-    return users[0]["Id"] if users else None
+# The Jellyfin client lives in hub/media_jellyfin.py (M-12); these names stay for the modules that call them.
+_creds = jellyfin.creds
+_get = jellyfin.get
 
 
 def _user_id(base: str, headers: dict) -> str | None:
-    if _uid[1] and time.time() - _uid[0] < UID_TTL:
-        return _uid[1]
-    uid = _pick_user(_get(base, headers, "/Users"), os.environ.get("JELLYFIN_USER", "").strip() or None)
-    if uid:
-        _uid[:] = [time.time(), uid]
-    return uid
+    """B.'s Jellyfin user id (media_jellyfin.user_id("you")), read through this module's _get."""
+    return jellyfin.user_id("you", base, headers, lambda b, h: _get(b, h, "/Users"))
 
 
 # ---- facts -> words ----

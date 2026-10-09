@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import re
 
-QB_SNAPSHOT_ID = "qbittorrent"
-
 
 def caption(state_text, pct, eta_text) -> str:
     """'Downloading · 43% · 12 min' — pieces that are missing are left out."""

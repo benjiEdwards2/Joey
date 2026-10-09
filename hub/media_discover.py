@@ -488,7 +488,7 @@ def _dl_pct(keys, snaps=None) -> int | None:
 
     try:
         snaps = hub.get_snapshots() if snaps is None else snaps
-        arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(media_downloads.QB_SNAPSHOT_ID)
+        arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(hub.QBIT_SNAPSHOT_ID)
         merged = media_downloads.merge_downloading((arr.data if arr else {}).get("downloading"),
                                                    qb.data if qb else {})
         return media_downloads.pct_for_keys(merged, keys)

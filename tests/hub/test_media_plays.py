@@ -48,7 +48,7 @@ def rec(tmp_path, monkeypatch):
     monkeypatch.delenv("PLAY_RECORDER", raising=False)
 
     def poll(sessions, at):
-        monkeypatch.setattr(mp.requests, "get", FakeGet(sessions))
+        monkeypatch.setattr(mp.jellyfin.requests, "get", FakeGet(sessions))
         return mp.poll_once(at)
     return poll
 
@@ -97,14 +97,14 @@ def test_owner_mapping_and_ignored_sessions(rec, tmp_path):
 
 
 def test_upstream_failure_does_not_crash(rec, tmp_path, monkeypatch):
-    monkeypatch.setattr(mp.requests, "get", FakeGet(error=ConnectionError("http://jf.invalid secret")))
+    monkeypatch.setattr(mp.jellyfin.requests, "get", FakeGet(error=ConnectionError("http://jf.invalid secret")))
     assert mp.poll_once(T0) == 0
     assert not (tmp_path / "media.db").exists() or rows(tmp_path) == []
 
 
 def test_disabled_means_no_task_and_no_requests(tmp_path, monkeypatch):
     fake = FakeGet([session()])
-    monkeypatch.setattr(mp.requests, "get", fake)
+    monkeypatch.setattr(mp.jellyfin.requests, "get", fake)
     monkeypatch.setenv("JELLYFIN_URL", "http://jf.invalid")
     monkeypatch.setenv("JELLYFIN_API_KEY", "k")
     monkeypatch.setenv("PLAY_RECORDER", "off")

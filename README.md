@@ -1,8 +1,9 @@
 # life-dashboard
 
-Private, self-hosted life OS for B. and Georgina. One dashboard surface over notes, files,
-apps, tasks and budget, refreshing itself hourly, reachable from any device through
-Cloudflare Tunnel + Access.
+Joey: a private Media · Calendar · Server · Weather dashboard for B. and Georgina, self-hosted on the NAS and
+reachable from any device through Cloudflare Tunnel + Access. Five more areas (Food, Money, Desk, House, Car) are
+parked: hidden from the navigation, still defined in `config/areas.yaml`. Connector feeds refresh hourly, except the
+live Media and Server feeds, which refresh every 2 minutes.
 
 **This repo is PRIVATE and stays private forever** (DECISIONS 2026-08-24).
 
@@ -10,15 +11,16 @@ Cloudflare Tunnel + Access.
 |---|---|
 | `hub/` | FastAPI + Jinja/HTMX shell |
 | `connectors/` | Hourly connectors + the FROZEN envelope schema |
-| `deploy/` | Compose, `.env.example`, `deploy.sh` (the only path to production) |
+| `deploy/` | Compose, `.env.example`, `deploy.sh` (the only path to production); `deploy/README.md` is the deploy runbook |
 | `config/` | Area registry, sample snapshots |
-| `docs/` | Contracts, runbook; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
-| `tests/` | Cumulative pytest suite — append-only, grows with every WP |
+| `scripts/` | Dev and maintenance tools: icons, awards sync CLI, profiling, the money pre-commit guard and hooks |
+| `docs/` | Setup, connector contract, style guide, hub changelog, Server-updates live check; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
+| `tests/` | Cumulative pytest suite — append-only, grows with every WP; test-only deps in `requirements-dev.txt` |
 
 **Look (2026-10-06, MediaHub style guide).** One dark theme, no rail and no theme toggle: a top bar (section pills + the
 signed-in Cloudflare Access chip from `hub/identity.py`) with a phone tab bar below 768 px, a header band per page, Geist
 type, and every page built from the same few recipes (rows, stats strips, panels, poster cards) in
-`hub/static/control-surface.css`; spec in `docs/style-guide.md`, details in `hub/README.md` ("Styling"). Areas with
+`hub/static/control-surface.css`; spec in `docs/style-guide.md`, details in `docs/hub-changelog.md` ("Styling"). Areas with
 `hidden: true` are parked (no pill, tab or hub tile; the page still serves). The hub is a row of summary tiles (one per
 area + Weather), Next 7 days, a weather glimpse and Recently watched posters (Continue watching lives on Media home since 2026-10-08); area pages are a row of tiles per registry
 tile (except the weather tile, which renders on the hub and /weather only — 2026-10-08).
@@ -34,8 +36,8 @@ Media-focused app on your home screen, open any Media page first, then: iOS Safa
 named "Joey Media"); Android Chrome: ⋮ menu → Install app / Add to Home screen (long-press the icon for Movies, TV,
 Server and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.
 
-**Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively: `/server` (and `/a/server`)
-shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (grouped Up/Down), Updates (What's Up Docker), Attention and Counts.
+**Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively (Homepage itself is still up and linked): `/server` (and `/a/server`)
+shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (cards grouped Media / Downloads / System), Updates (What's Up Docker), Attention and Counts.
 Feeds `media_status`, `system`, `uptime_kuma`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.
 
 Planning source of truth: `Desktop\Claude\LifeDashboard\{DECISIONS.md, MASTER_PLAN.md}` (not in this repo).

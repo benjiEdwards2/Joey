@@ -20,7 +20,7 @@ def cloudflared() -> dict:
 
 def test_cloudflared_service_shape():
     svc = cloudflared()
-    assert svc["image"] == "cloudflare/cloudflared:latest"
+    assert svc["image"] == "cloudflare/cloudflared:2026.9.3"  # pinned, D-06
     assert svc["restart"] == "unless-stopped"
     assert svc["command"] == "tunnel --no-autoupdate run"
     assert svc["environment"] == {"TUNNEL_TOKEN": "${TUNNEL_TOKEN}"}

@@ -63,7 +63,8 @@ services:
     # Fronts the hub over the compose network as http://hub:8000; the token
     # lives ONLY in the NAS-side .env (rule 11). No public hostnames until
     # WP12 puts Access in front.
-    image: cloudflare/cloudflared:latest
+    # Pinned (review D-06, 2026-10-09): 2026.9.3, pushed 2026-09-24. Bump by hand (WUD shows new tags).
+    image: cloudflare/cloudflared:2026.9.3
     container_name: joey-cloudflared
     restart: unless-stopped
     logging: *logging
@@ -78,7 +79,8 @@ services:
     # read-only deploy key /root/.ssh/macromates_deploy). Reached ONLY through the
     # joey-nas tunnel at https://macromates.joeyhome.net behind the family-allowlist
     # Access policy — no published ports. Supabase backend unchanged.
-    image: nginx:alpine
+    # Pinned (review D-06, 2026-10-09): nginx 1.31.6 mainline (released 2026-09-15), what nginx:alpine was.
+    image: nginx:1.31.6-alpine
     container_name: joey-macromates
     restart: unless-stopped
     logging: *logging

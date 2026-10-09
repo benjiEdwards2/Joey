@@ -19,7 +19,7 @@ def macromates() -> dict:
 
 def test_macromates_service_shape():
     svc = macromates()
-    assert svc["image"] == "nginx:alpine"
+    assert svc["image"] == "nginx:1.31.6-alpine"  # pinned, D-06
     assert svc["container_name"] == "joey-macromates"
     assert svc["restart"] == "unless-stopped"
 

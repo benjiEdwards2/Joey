@@ -36,7 +36,7 @@ def test_gate_runs_offline():
 def test_gate_runs_the_full_suite_in_parallel_with_a_pinned_xdist():
     """N-44 (2026-10-09): ~9 of a deploy's ~10 minutes were the suite; xdist spreads it over
     the cores. Still the FULL tests/ tree (rule 13), and xdist is pinned for the image."""
-    assert "docker run --rm --network none life-test python -m pytest -q -n auto tests/" in SCRIPT
+    assert "docker run --rm --network none life-test python -m pytest -q -n 2 tests/" in SCRIPT
     dev = (REPO_ROOT / "requirements-dev.txt").read_text(encoding="utf-8").splitlines()
     assert "pytest-xdist==3.8.0" in dev
 

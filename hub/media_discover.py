@@ -22,16 +22,15 @@ from urllib.parse import parse_qs, quote
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from hub import media_awards_badges, media_files
 from hub.images import REF_RE, cache_dir
 from hub.media_watchlist import keys_for
 from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
+from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_discover")
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 DISCOVER_DETAIL = "/media/discover"
 TIMEOUT = 8

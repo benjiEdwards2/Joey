@@ -43,10 +43,11 @@ def test_one_template_env_is_shared(tmp_path, monkeypatch):
         import hub.main
         from hub import media_discover, media_watchlist, media_write, shell
         assert hub.main.templates is shell.templates
-        for mod in (media_discover, media_write, media_watchlist):  # interim copy until the media WP
-            g = mod.templates.env.globals
-            for key in ("static_v", "score_for", "resume_acts", "media_nav", "identity", "flash_params"):
-                assert key in g, (mod.__name__, key)
+        for mod in (media_discover, media_write, media_watchlist):  # W2 media: the copies are gone
+            assert mod.templates is shell.templates, mod.__name__
+        g = shell.templates.env.globals
+        for key in ("static_v", "score_for", "resume_acts", "media_nav", "identity", "flash_params"):
+            assert key in g, key
 
 
 def test_static_version_hashes_the_whole_tree(tmp_path):

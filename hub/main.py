@@ -23,7 +23,6 @@ from starlette.background import BackgroundTasks
 
 from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
-from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
 from hub import media_awards_badges
@@ -765,12 +764,6 @@ def resume_acts(row: dict, owner: str) -> dict | None:
 
 
 templates.env.globals["resume_acts"] = resume_acts
-
-# Interim (T3, 2026-10-09): the media routers still build their own Jinja envs; give them EVERY shell global
-# (static_v, score_for, resume_acts included) so their pages carry the asset version. A later media WP switches
-# those modules to hub.shell.templates and this loop goes.
-for _t in (_media_write.templates, _media_discover.templates, media_watchlist.templates):
-    _t.env.globals.update(templates.env.globals)
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:

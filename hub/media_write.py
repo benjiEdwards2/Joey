@@ -14,20 +14,18 @@ import os
 import re
 import sqlite3
 from datetime import date
-from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 
 from hub import media_db
 from hub.images import REF_RE
+from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_write")
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 MAX_BODY = 8192
 SEARCH_TIMEOUT = 8

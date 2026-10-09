@@ -7,19 +7,17 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
-from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from hub import media_db, media_watchlist_db as wl
 from hub.media_write import bad, clean_item, form_of, is_htmx, owner_for, same_origin
+from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_watchlist")
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 PAGES = {"movie": "/media/movies/watchlist", "tv": "/media/tv/watchlist"}
 FIELD = {"movie": "movies", "tv": "shows"}

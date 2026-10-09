@@ -30,10 +30,34 @@ def run_stub(connector_id: str) -> dict:
     return connector.run()
 
 
+PARKED = ["home_assistant", "macromates", "nas_stats"]  # no live fetch() yet (2026-10-09, C-01)
+
+
 def test_registry_holds_exactly_the_v1_connectors():
+    assert registry.all_ids() == FEEDS
+    assert registry.parked_ids() == PARKED
+    assert "clickup" not in registry.all_ids()  # removed from v1 (2026-08-25)
+    assert "money" not in registry.all_ids()    # Track E importer, not a Connector (D14)
+
+
+def test_fixture_mode_sweeps_every_connector_parked_included(monkeypatch):
+    monkeypatch.setenv("CONNECTOR_MODE", "fixture")
     assert registry.connector_ids() == FEEDS
-    assert "clickup" not in registry.connector_ids()  # removed from v1 (2026-08-25)
-    assert "money" not in registry.connector_ids()    # Track E importer, not a Connector (D14)
+    assert [c.id for c in registry.build_all()] == FEEDS
+
+
+def test_live_mode_skips_parked_connectors_until_their_env_is_set(monkeypatch):
+    monkeypatch.setenv("CONNECTOR_MODE", "live")
+    for cls in (stubs.MacroMates, stubs.HomeAssistant, stubs.NasStats):
+        for var in cls.requires_env:
+            monkeypatch.delenv(var, raising=False)
+    assert registry.connector_ids() == [f for f in FEEDS if f not in PARKED]
+
+    monkeypatch.setenv("HA_URL", "http://ha.example.invalid")  # one of two: still parked
+    assert "home_assistant" not in registry.connector_ids()
+    monkeypatch.setenv("HA_TOKEN", "x")                         # all set: opted in
+    assert "home_assistant" in registry.connector_ids()
+    assert "macromates" not in registry.connector_ids()
 
 
 @pytest.mark.parametrize("connector_id", FEEDS)

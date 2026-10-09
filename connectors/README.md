@@ -37,3 +37,8 @@ text: `monitor_status` (1 up, 0 down, 2 pending, 3 maintenance) and `monitor_res
 `{monitors: [{name, type, status, response_ms}], up, down, total, summary, secondary}`; the `monitor_url` /
 `monitor_hostname` / `monitor_port` labels are never copied out. Text without monitor metrics is an error envelope
 ("unexpected payload"). Runs on the hourly sweep and the 120 s fast loop. Fixture: `fixtures/uptime_kuma/raw.txt`.
+
+Parked (2026-10-09): `macromates`, `home_assistant`, `nas_stats` have no live `fetch()`. They stay registered
+(`PARKED` in `stubs.py`) so fixture mode and the sample sweep still build them, but a live sweep runs one only
+when all of its `requires_env` are set (`SUPABASE_URL`/`SUPABASE_KEY`, `HA_URL`/`HA_TOKEN`, `NAS_SHARES_ROOT`).
+See "Parked connectors" in `docs/connector-contract.md`.

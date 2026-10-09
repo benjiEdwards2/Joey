@@ -369,6 +369,23 @@ never silently serve fake data) and `fixture` in the suite and for local work.
 - **live** — missing credentials fail fast, and the error names the exact
   environment variable. Credentials live only in `deploy/.env` on the box.
 
+## Parked connectors
+
+Since 2026-10-09 (review C-01/N-12) `macromates`, `home_assistant` and `nas_stats` are **parked**: they
+have a transform, fixture and data schema but no live `fetch()`, so in live mode they could only ever write
+`MissingCredential` error envelopes. They are registered as parked (`connectors/stubs.py` `PARKED`):
+
+- **fixture mode** builds them like any other feed — the sample sweep needs no env, so
+  `config/sample_snapshots/` keeps all 13 ids;
+- **live mode** sweeps a parked connector only when every name in its `requires_env` is set
+  (`macromates`: `SUPABASE_URL`, `SUPABASE_KEY`; `home_assistant`: `HA_URL`, `HA_TOKEN`;
+  `nas_stats`: `NAS_SHARES_ROOT` — these code names are the ones that count). Re-enabling one is
+  "write its `fetch()`, then set the env".
+
+Their ids stay in the frozen D13 envelope enum. `registry.connector_ids()` is what a sweep runs;
+`registry.all_ids()` (parked included) is what `areas.yaml` is cross-checked against. A snapshot a parked
+connector wrote before 2026-10-09 is simply no longer refreshed.
+
 ## Cadence
 
 The connectors container runs `while true; do python -m connectors.run_all; sleep 3600; done`
@@ -391,7 +408,7 @@ Every file a new feed touches. Nothing here needs knowledge outside the repo.
    `summary`, allowing `secondary`, `additionalProperties: false`.
 3. `connectors/stubs.py` — a `Connector` subclass with `id`, `requires_env`,
    `transform(raw)`, and its live `fetch()` (sanitised errors via `_safe_reason`; a connector that
-   enriches rows per item, like `jellyseerr`'s TMDB titles, caps lookups and reuses `self._previous()`); append it to `STUBS` so it registers.
+   enriches rows per item, like `jellyseerr`'s TMDB titles, caps lookups and reuses `self._previous()`); append it to `STUBS` so it registers (`PARKED` for one with no live `fetch()` yet).
 4. `config/areas.yaml` — a tile with `tier: embed|ingest`, `snapshot: {id}`,
    `stale_after_minutes`, `owner`. The id must already be in the frozen
    namespace in `connectors/schema/envelope.schema.json` (and in `FROZEN_SNAPSHOT_IDS`

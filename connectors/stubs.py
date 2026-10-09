@@ -1953,9 +1953,16 @@ def count_files(share_root: Path, since_ts: float) -> int:
 # ------------------------------------------------------------------ register
 
 STUBS: tuple[type[Connector], ...] = (
-    OpenMeteo, Gcal, MacroMates, HomeAssistant, Jellyfin, MediaStatus, Arr, Jellyseerr, QBittorrent, NasStats,
+    OpenMeteo, Gcal, Jellyfin, MediaStatus, Arr, Jellyseerr, QBittorrent,
     System, Wud, UptimeKuma,  # Server area (2026-10-06)
 )
 
+# Parked (2026-10-09, C-01): no live fetch() yet. Their ids stay in the frozen D13 enum and
+# their transforms/fixtures/schemas stay; live sweeps skip them until their requires_env are
+# all set (registry.connector_ids). Fixture mode still builds them for the sample sweep.
+PARKED: tuple[type[Connector], ...] = (MacroMates, HomeAssistant, NasStats)
+
 for _cls in STUBS:
     registry.register(_cls, _cls.id)
+for _cls in PARKED:
+    registry.register(_cls, _cls.id, parked=True)

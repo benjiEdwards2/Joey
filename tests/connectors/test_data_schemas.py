@@ -127,3 +127,13 @@ def test_no_data_schema_exists_for_removed_or_foreign_ids():
     assert present == set(FEEDS)
     assert "clickup" not in present
     assert "money" not in present  # WP32 authors it under connectors/money/ (§4 rule 9)
+
+
+def test_a_broken_stubs_module_fails_loudly_instead_of_sweeping_nothing(monkeypatch):
+    """C-03: the WP22-era ImportError swallow is gone."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "connectors.stubs", None)  # import now raises ImportError
+    monkeypatch.delattr("connectors.stubs", raising=False)
+    with pytest.raises(ImportError):
+        registry._load_stubs()

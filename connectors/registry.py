@@ -60,11 +60,9 @@ def build_all() -> list[Connector]:
 
 
 def _load_stubs() -> None:
-    """Import the per-feed stub connectors, which self-register (WP23)."""
-    try:
-        from connectors import stubs  # noqa: F401
-    except ImportError:  # WP22 ships before the stubs exist
-        pass
+    """Import the per-feed stub connectors, which self-register (WP23). Unconditional
+    (C-03): a broken stubs.py must fail loudly, not quietly sweep zero connectors."""
+    from connectors import stubs  # noqa: F401
 
 
 _load_stubs()

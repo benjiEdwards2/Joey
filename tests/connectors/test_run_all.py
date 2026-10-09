@@ -99,3 +99,65 @@ def test_heartbeat_is_written_atomically_via_os_replace(snapshots, monkeypatch):
     assert not list(snapshots.glob("*.tmp"))
     beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
     assert beat["results"]["open_meteo"]["status"] == "ok"
+
+
+# ---- 2026-10-09 review (C-16, N-10, N-11): timings + bounded history ----
+
+
+def test_history_line_carries_timings_but_the_heartbeat_does_not(snapshots):
+    run_sweep([Raiser(), Good()])
+    line = json.loads((snapshots / HISTORY_NAME).read_text(encoding="utf-8").splitlines()[-1])
+    assert isinstance(line["sweep_ms"], int) and line["sweep_ms"] >= 0
+    for cid in ("open_meteo", "nas_stats"):
+        assert isinstance(line["results"][cid]["duration_ms"], int) and line["results"][cid]["duration_ms"] >= 0
+    # otherwise the same shape the hub tails: {ran_at, results: {id: {status, error, ...}}, only?}
+    assert line["results"]["open_meteo"]["status"] == "ok" and line["ran_at"]
+    beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
+    assert "sweep_ms" not in beat and "duration_ms" not in beat["results"]["open_meteo"]
+
+
+def _seed_history(path, days_ago_list):
+    from datetime import datetime, timedelta, timezone
+
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)  # the fixture clock
+    with path.open("w", encoding="utf-8") as fh:
+        for days in days_ago_list:
+            at = (base - timedelta(days=days)).isoformat(timespec="seconds")
+            fh.write(json.dumps({"ran_at": at, "results": {"open_meteo": {"status": "ok", "error": None,
+                                                                           "pad": "x" * 200}}}) + "\n")
+
+
+def test_history_over_the_cap_is_rewritten_to_the_last_14_days(snapshots, monkeypatch):
+    from connectors import run_all
+
+    history = snapshots / HISTORY_NAME
+    _seed_history(history, [30] * 8 + [20, 15, 13, 5, 1])
+    monkeypatch.setattr(run_all, "HISTORY_MAX_BYTES", 3000)  # seed is ~3.4 kB: over
+    run_sweep([Good()])
+    lines = [json.loads(x) for x in history.read_text(encoding="utf-8").splitlines()]
+    assert [x["ran_at"][:10] for x in lines] == ["2025-12-19", "2025-12-27", "2025-12-31", "2026-01-01"]
+    assert "sweep_ms" in lines[-1]                       # the new line survived, last
+    assert history.stat().st_size <= 3000 // 2
+    assert not list(snapshots.glob("*.tmp"))
+
+
+def test_rotation_keeps_only_the_newest_half_cap_when_14_days_is_too_big(snapshots, monkeypatch):
+    from connectors import run_all
+
+    history = snapshots / HISTORY_NAME
+    _seed_history(history, [3, 2, 1, 0])
+    monkeypatch.setattr(run_all, "HISTORY_MAX_BYTES", 800)
+    run_sweep([Good()])
+    lines = history.read_text(encoding="utf-8").splitlines()
+    assert history.stat().st_size <= 400 and json.loads(lines[-1])["sweep_ms"] >= 0
+    assert len(lines) < 5
+
+
+def test_history_under_the_cap_is_never_rewritten(snapshots, monkeypatch):
+    from connectors import run_all
+
+    history = snapshots / HISTORY_NAME
+    _seed_history(history, [30, 1])
+    monkeypatch.setattr(run_all, "_rotate_history", lambda *a: (_ for _ in ()).throw(AssertionError))
+    run_sweep([Good()])
+    assert len(history.read_text(encoding="utf-8").splitlines()) == 3

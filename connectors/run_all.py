@@ -17,15 +17,26 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
+import threading
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Iterable
 
-from connectors.base import Connector, _now_iso, mask_urls, snapshot_dir, write_envelope
+from connectors.base import Connector, _now_iso, mask_urls, replace_with_retry, snapshot_dir, write_envelope
 
 log = logging.getLogger("connectors.run_all")
 
 HEARTBEAT_NAME = "_runner.json"
 HISTORY_NAME = "_runner_history.jsonl"
+# Rotation (C-16, N-10): past HISTORY_MAX_BYTES the file is rewritten (tmp + os.replace) to
+# its newest lines from the last HISTORY_KEEP_DAYS days, capped at half the limit so the next
+# rewrite is days away (14 days of fast-loop lines alone is ~6 MB). The hub reads the last
+# 2 MB / 1000 lines and the WP38 soak needs >= 24 h (~750 lines, ~0.5 MB) — both kept.
+HISTORY_MAX_BYTES = 5 * 1024 * 1024
+HISTORY_KEEP_DAYS = 14
 
 
 def run_sweep(connectors: Iterable[Connector] | None = None,
@@ -38,8 +49,11 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
         connectors = [c for c in connectors if getattr(c, "id", None) in only]
 
     results: dict[str, dict] = {}
+    durations: dict[str, int] = {}
+    sweep_start = time.monotonic()
     for connector in connectors:
         cid = getattr(connector, "id", connector.__class__.__name__)
+        started = time.monotonic()
         try:
             envelope = connector.run()
             results[cid] = {
@@ -55,6 +69,7 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
                 "consecutive_failures": -1,
                 "error": f"runner-level {reason}",
             }
+        durations[cid] = _ms(started)
         log.info("%s: %s", cid, results[cid]["status"])
         print(f"{cid}: {results[cid]['status']}"
               + (f" ({results[cid]['error']})" if results[cid]["error"] else ""))
@@ -62,17 +77,60 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
     sweep = {"ran_at": _now_iso(), "results": results}
     if only:
         sweep["only"] = list(only)
-    _write_heartbeat(sweep)
+    _write_heartbeat(sweep, durations, _ms(sweep_start))
     return sweep
 
 
-def _write_heartbeat(sweep: dict) -> None:
+def _ms(since: float) -> int:
+    return int(round((time.monotonic() - since) * 1000))
+
+
+def _write_heartbeat(sweep: dict, durations: dict[str, int] | None = None,
+                     sweep_ms: int | None = None) -> None:
     directory = snapshot_dir()
     directory.mkdir(parents=True, exist_ok=True)
     # Atomic (C-15): the hourly and the 120 s loop both write it while the hub reads it.
     write_envelope(directory / HEARTBEAT_NAME, sweep)
-    with (directory / HISTORY_NAME).open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(sweep, sort_keys=True) + "\n")
+    # The history line is the heartbeat plus timings (N-11): `duration_ms` per result and
+    # `sweep_ms` per line. The heartbeat itself stays timing-free (byte-stable samples).
+    line = {**sweep, "results": {cid: ({**res, "duration_ms": durations[cid]}
+                                       if durations and cid in durations else res)
+                                 for cid, res in sweep["results"].items()}}
+    if sweep_ms is not None:
+        line["sweep_ms"] = sweep_ms
+    history = directory / HISTORY_NAME
+    with history.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(line, sort_keys=True) + "\n")
+    try:
+        if history.stat().st_size > HISTORY_MAX_BYTES:
+            _rotate_history(history, sweep["ran_at"])
+    except Exception as exc:  # rotation trouble never fails a sweep — next sweep retries
+        log.warning("history rotation skipped: %s", type(exc).__name__)
+
+
+def _rotate_history(history: Path, now_iso: str) -> None:
+    """Rewrite `history` atomically to its newest lines no older than HISTORY_KEEP_DAYS and
+    no bigger than HISTORY_MAX_BYTES // 2 in total; unparseable lines are dropped. A line
+    another loop appends during the rewrite can be lost — once every few days, accepted."""
+    cutoff = datetime.fromisoformat(now_iso) - timedelta(days=HISTORY_KEEP_DAYS)
+    kept: list[str] = []
+    size = 0
+    for raw in reversed(history.read_text(encoding="utf-8").splitlines()):
+        try:
+            at = datetime.fromisoformat(str(json.loads(raw)["ran_at"]).replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=cutoff.tzinfo)
+        if at < cutoff:
+            break
+        size += len(raw.encode("utf-8")) + 1
+        if size > HISTORY_MAX_BYTES // 2:
+            break
+        kept.append(raw)
+    tmp = history.with_name(f"{history.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text("".join(f"{raw}\n" for raw in reversed(kept)), encoding="utf-8")
+    replace_with_retry(tmp, history)
 
 
 def main(argv: list[str] | None = None) -> int:

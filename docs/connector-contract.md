@@ -207,8 +207,8 @@ no snapshot, no expectation of one anywhere in the hub.
 | What | Where |
 |---|---|
 | Live snapshots (the box) | `/opt/life-dashboard-data/snapshots/{id}.json`, mounted at `/data/snapshots` |
-| Runner heartbeat | `{SNAPSHOT_DIR}/_runner.json` — last sweep only |
-| Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence). Since WP-U2 (2026-10-06) the hub READS its tail (read-only mount; last 2 MB / 1000 lines) for 24 h per-connector sweep failures on `/server` — keep the line shape `{ran_at, results: {id: {status, error, ...}}, only?}` |
+| Runner heartbeat | `{SNAPSHOT_DIR}/_runner.json` — last sweep only, written atomically (tmp + `os.replace`) |
+| Runner history | `{SNAPSHOT_DIR}/_runner_history.jsonl` — one line per sweep, append-only (WP38 soak evidence). Since WP-U2 (2026-10-06) the hub READS its tail (read-only mount; last 2 MB / 1000 lines) for 24 h per-connector sweep failures on `/server` — keep the line shape `{ran_at, results: {id: {status, error, ...}}, only?}`. Since 2026-10-09 each result also carries `duration_ms` and each line `sweep_ms` (the heartbeat does not), and past 5 MB the file is rewritten atomically to its newest lines of the last 14 days, capped at 2.5 MB (≥ 24 h always kept) |
 | Committed samples | `config/sample_snapshots/` — the fixture sweep, what hub work is developed against |
 
 Snapshots are **never committed** (D13); `data/` is gitignored. Their offsite

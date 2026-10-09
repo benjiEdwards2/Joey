@@ -10,6 +10,10 @@
 # `up`'d and publishes nothing.
 FROM python:3.12-slim
 
+# No node on purpose (review D-09, 2026-10-09): tests/hub/test_history_replace.py's one node
+# test skips here and runs on the laptop, where node is installed. Debian's nodejs pulls in
+# libnode + ICU (~100+ MB) for a single 10-line JS check, on a 3.7 GB NAS that rebuilds this
+# image after every base bump. Add `nodejs` to the line below if the gate must run it too.
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 1000 joey

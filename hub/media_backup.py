@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from hub import media_db
+from hub.store import ago_text
 
 log = logging.getLogger("hub.media_backup")
 
@@ -130,14 +131,8 @@ def newest(dest_dir, now: datetime | None = None) -> dict | None:
 
 
 def _ago(seconds: float) -> str:
-    """Same wording as the hub's `_ago_text` ('just now', '3 hours ago', '2 days ago')."""
-    if seconds < 3600:
-        return "just now"
-    if seconds < 86400:
-        hours = int(seconds // 3600)
-        return f"{hours} hour{'' if hours == 1 else 's'} ago"
-    days = int(seconds // 86400)
-    return "yesterday" if days == 1 else f"{days} days ago"
+    """The hub's one relative-time format (store.ago_text: 'just now' / '12m ago' / '3h ago' / '2d ago')."""
+    return ago_text(seconds / 60)
 
 
 def _gap(seconds: float) -> str:

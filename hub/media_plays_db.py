@@ -1,8 +1,8 @@
 """Play history (F7, 2026-10-06) — "a watch, not a sitting". One row per watch of a movie or
 episode, written by the recorder in hub/media_plays.py and read by the History page and
 Home's "Most played" shelf. A play's end is its `last_seen_at`; hours are capped at the
-runtime so a paused session left open never inflates them. Own table, own `ensure()`;
-the shared SCHEMA in media_db is untouched.
+runtime so a paused session left open never inflates them. Own table (DDL below; media_store
+creates it with the rest of media.db).
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
-from hub import media_db
+from hub import media_store, media_text
+from hub.ids import home_tz
 
 log = logging.getLogger("hub.media_plays_db")
 
@@ -23,53 +24,31 @@ DDL = (
   runtime_min REAL, started_at TEXT, last_seen_at TEXT, position_pct INT, finished INT, poster TEXT)""",
     "CREATE INDEX IF NOT EXISTS play_user_item ON play(user_name, jf_id, last_seen_at)",
 )
-WINDOWS = (7, 30, 90, "year", "all")
 OPEN_GAP = timedelta(hours=2)
 FINISHED_PCT = 90
-HOME_TZ_NAME = "Australia/Melbourne"
 TOP_N = 10
 
 
-def ensure(db) -> None:
-    for stmt in DDL:
-        db.execute(stmt)
-    db.commit()
-
-
 def _connect():
-    db = media_db.connect()
-    ensure(db)
-    return db
+    return media_store.connect()
 
 
 def _read():
-    """A connection when the DB file exists (the table is created on demand), else None."""
-    if not media_db.db_path().is_file():
-        return None
-    try:
-        return _connect()
-    except (sqlite3.Error, OSError) as exc:
-        log.warning("plays db unreadable: %s", type(exc).__name__)
-        return None
+    """A connection when the DB file exists, else None (media_store: never creates it, never raises)."""
+    return media_store.reader()
 
 
 def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _parse(stamp) -> datetime | None:
-    try:
-        return datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
-    except ValueError:
-        return None
+_parse = media_text.parse
 
 
 def _tz():
-    try:
-        from zoneinfo import ZoneInfo
-        return ZoneInfo(HOME_TZ_NAME)
-    except Exception:
-        return timezone.utc
+    """The home zone (hub.ids); None without a tz database, which astimezone() reads as the container's local time
+    — no longer a silent UTC (M-15)."""
+    return home_tz()
 
 
 # ---- recorder side ----
@@ -137,8 +116,12 @@ def _rows(window, owner, now):
     if owner in ("you", "her"):
         sql += " AND owner = ?"
         args.append(owner)
-    with closing(db):
-        return db.execute(sql, args).fetchall()
+    try:   # M-52: a query error degrades (no Most played, an empty History) instead of a 500
+        with closing(db):
+            return db.execute(sql, args).fetchall()
+    except sqlite3.Error as exc:
+        log.warning("plays read failed: %s", type(exc).__name__)
+        return []
 
 
 def watch_count(jf_id: str, owner: str | None = None) -> int:
@@ -200,12 +183,16 @@ def first_run_date() -> str | None:
     db = _read()
     if db is None:
         return None
-    with closing(db):
-        row = db.execute("SELECT MIN(started_at) AS m FROM play").fetchone()
+    try:
+        with closing(db):
+            row = db.execute("SELECT MIN(started_at) AS m FROM play").fetchone()
+    except sqlite3.Error as exc:
+        log.warning("plays first date failed: %s", type(exc).__name__)
+        return None
     return row["m"][:10] if row and row["m"] else None
 
 
 def hours_text(hours: float) -> str:
-    """'12.5 hours' / '1 hour' — a helper F8 may use on the diary later (not wired yet)."""
+    """'12.5 hours' / '1 hour' (Server › History's totals, media_plays)."""
     value = round(float(hours or 0), 1)
     return f"{value:g} hour{'' if value == 1 else 's'}"

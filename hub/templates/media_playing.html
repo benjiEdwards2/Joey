@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Now playing — Joey{% endblock %}
+{% block title %}Now playing · Joey{% endblock %}
 {# The page header carries the first live session's backdrop (restyle Phase 3), like the Media home. #}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
@@ -18,7 +18,7 @@
    bar, guide 6), up next, latest additions. #}
 {% set watching %}<span class="badge badge-watching">{{ icon("eye") }}Watching</span>{% endset %}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <section class="sec">
@@ -41,7 +41,7 @@
   {% if src.data.get("up_next") %}<div class="listbox">
   {% for n in src.data.get("up_next", []) %}
   {% set nh = item_href(n.jf_id) %}
-  {% set acts = resume_acts(n, "her" if owner_view == "her" else "you") %}
+  {% set acts = resume_acts(n, owner) %}
   {# Move on (2026-10-08): the row stays one whole link; Mark watched / Reset progress sit beside it, outside it. #}
   {% if acts %}<div class="rowwrap resumerow">{% endif %}
   <{{ "a" if nh else "div" }} class="row"{% if nh %} href="{{ nh }}"{% endif %}>

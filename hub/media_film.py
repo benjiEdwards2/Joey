@@ -15,13 +15,14 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
@@ -223,7 +224,7 @@ def listed_episode(ep: dict, seasons: list[dict]) -> dict:
     prog, left = bool(hit.get("in_progress")), hit.get("left_min")
     jf = hit["jf_id"] if media_item.ITEM_RE.match(str(hit.get("jf_id") or "")) else ep["id"]
     return {**ep, "id": jf, "played": bool(hit.get("played")), "in_progress": prog,
-            "left_text": (f"{left} min left" if left else ep.get("left_text")) if prog else None}
+            "left_text": (f"{left}m left" if left else ep.get("left_text")) if prog else None}
 
 
 def logos() -> dict:
@@ -256,8 +257,15 @@ def mc_band(score) -> str | None:
 
 
 def _override(badge_id) -> str | None:
+    """An image dropped in hub/static/badges for this badge / logo id, else None. Cached (M-09): the folder only
+    changes on deploy, and a film page asks for ~14 ids."""
+    return _override_in(BADGES_DIR, badge_id)
+
+
+@lru_cache(maxsize=256)
+def _override_in(folder: Path, badge_id) -> str | None:
     for ext in ("svg", "png"):
-        if badge_id and (BADGES_DIR / f"{badge_id}.{ext}").is_file():
+        if badge_id and (folder / f"{badge_id}.{ext}").is_file():
             return f"/static/badges/{badge_id}.{ext}"
     return None
 
@@ -357,15 +365,15 @@ def status_line(f: dict) -> str:
     if f["jf_failed"]:
         return media_item.DOWN_TEXT
     if not f["on_server"]:
-        parts = ["Not on your server"]
+        parts = ["Not on server"]
         if f.get("requested_when"):
             parts.append(f"Requested {f['requested_when']}")
         if f.get("status_word") in ("Processing", "Partly available") or (f.get("status_word") == "Requested" and not f.get("requested_when")):
             parts.append(f["status_word"])
         if f.get("downloading_pct") is not None:
-            parts.append(f"downloading {f['downloading_pct']} %")
+            parts.append(media_downloads.badge_text({"pct": f["downloading_pct"]}))
         return " · ".join(parts)
-    parts = ["On your server"]
+    parts = ["On server"]
     if f["kind"] == "tv":
         s = f.get("series")
         if s:
@@ -382,7 +390,7 @@ def status_line(f: dict) -> str:
         else:
             parts.append("in progress" if f.get("in_progress") else "not watched yet")
     if f.get("downloading_pct") is not None:
-        parts.append(f"downloading {f['downloading_pct']} %")
+        parts.append(media_downloads.badge_text({"pct": f["downloading_pct"]}))   # 'Downloading · 43%' (M-27)
     if f.get("score"):
         parts.append(f"you rated {f['score']}")
     return " · ".join(parts)
@@ -514,7 +522,7 @@ def _on_server(rows: list[dict], lib_keys: set) -> list[dict]:
     return [{**r, "on_server": f"tmdb:{r['tmdb_id']}" in lib_keys or r["status_word"] in md.ON_DISK} for r in rows]
 
 
-def _shelves(raw: dict, kind: str, lib_keys: set, similar, recs) -> list[dict]:
+def _shelves(kind: str, lib_keys: set, similar, recs) -> list[dict]:
     """Similar / Recommended (the collection moved to its own banner under Overview, media-ux3)."""
     out = []
     for title, src in (("Similar", similar), ("Recommended", recs)):
@@ -634,7 +642,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     # --- 3. what is on the server ---
     files = (base or {}).get("files")
     if files is None and t and t["status_word"] in md.ON_DISK and not item:
-        files = media_files.file_summary(kind, tmdb_id)
+        files = media_files.file_summary(kind, tmdb_id, snaps=snaps)
     on_server = bool(item or row or jf_id and not f["jf_failed"] or (t and t["status_word"] in md.ON_DISK))
     f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"))
     title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title")
@@ -731,9 +739,10 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     req = _requested(snaps, hub, tmdb_id) if tmdb_id else None
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
-    badge = md._dl_badge(title, snaps) if title and not f["jf_failed"] else None
-    m = re.search(r"(\d+)\s*%", badge or "")
-    f["downloading_pct"] = int(m.group(1)) if m else None
+    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    dl_keys = ([f"tmdb:{tmdb_id}"] if kind == "movie" and tmdb_id else
+               [f"tvdb:{ext['tvdbId']}"] if kind == "tv" and str(ext.get("tvdbId") or "").isdigit() else [])
+    f["downloading_pct"] = md._dl_pct(dl_keys, snaps) if dl_keys and not f["jf_failed"] else None   # M-50: by key
 
     # --- 7. numbers, facts, people, shelves ---
     runtime_min = (item or {}).get("runtime_min") or (t or {}).get("runtime") if kind == "movie" else None
@@ -764,7 +773,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["providers"] = _providers(raw, title)
     f["trailer"], f["trailer_key"] = _trailer((item or {}).get("trailer"), raw)   # media-ux4: in-page player key
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
-    f["shelves"] = _shelves(raw, kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
+    f["shelves"] = _shelves(kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
     f["collection"] = collection_banner(raw, kind, lib_keys, tmdb_id) if raw and kind and tmdb_id else None
     media_awards_badges.attach([r for sh in f["shelves"] for r in sh["rows"]]       # awards-ui item 3: one lookup
                                + ((f["collection"] or {}).get("rows") or []), kind)
@@ -779,7 +788,6 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
     # Search now (media-ux5): a lazy-loaded form, shown only when the title is in Radarr / Sonarr (never on an episode
     # page — it would search the whole series); the page itself makes no *arr call.
-    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
     f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, ext.get("tvdbId"), request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
@@ -825,7 +833,7 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
 
     kind = md._kind(kind)
     view, from_query = hub.resolve_owner_view(request)
-    snaps = request.state.snaps = hub.get_snapshots()  # media-speed: one snapshot read per request, shared
+    snaps = hub.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
         return hub.templates.TemplateResponse(request, "404.html", {
@@ -845,7 +853,7 @@ def item_page(request: Request, jf_id: str, season: str = ""):
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
     view, from_query = hub.resolve_owner_view(request)
-    snaps = request.state.snaps = hub.get_snapshots()  # media-speed: one snapshot read per request, shared
+    snaps = hub.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
     src = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     if src is None:
         raise HTTPException(404, "No such item")

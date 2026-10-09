@@ -1,11 +1,12 @@
 """Person pages (F11, 2026-10-06): click a cast or crew name on a film page and see everything that person
 is in. Jellyseerr `person/{id}` + `person/{id}/combined_credits` (server-side, cached 10 min via the film
-page's cache), split into "On your server" (matched against the Jellyfin snapshot library lists) and
+page's cache), split into "On server" (matched against the Jellyfin snapshot library lists) and
 "Everything else" (Films / TV). Upstream failure degrades to words, never a 500; no URL or key in the page.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 
@@ -15,6 +16,7 @@ from fastapi.responses import HTMLResponse
 from hub import media_discover as md, media_follow, media_item
 from hub.media_film import _cget
 
+log = logging.getLogger("hub.media_person")   # M-29: its own logger, not media_discover's
 router = APIRouter()
 
 CREDITS_MAX, BIO_MAX, BIO_LEAD = 200, 1200, 400
@@ -91,8 +93,8 @@ def _credits(body, lib: dict[str, str]) -> list[dict]:
     return rows
 
 
-def build_person(tmdb_id: int, hub) -> dict:
-    snaps = hub.get_snapshots()
+def build_person(tmdb_id: int, hub, snaps=None) -> dict:
+    snaps = hub.get_snapshots() if snaps is None else snaps
     jsrc = hub.find_detail_source(hub.JELLYFIN_SNAPSHOT_ID, snaps)
     lib = _library((jsrc or {}).get("data") or {})
     # media-speed: the biography is metadata only (long, restart-proof meta cache); the credits carry each
@@ -111,7 +113,7 @@ def build_person(tmdb_id: int, hub) -> dict:
             "ref": md._ref(person.get("profilePath")), "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
             "shelf": shelf, "films": [r for r in rest if r["kind"] == "movie"], "shows": [r for r in rest if r["kind"] == "tv"],
-            "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on your server"}
+            "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}
 
 
 @router.get("/media/person/{person_id}", response_class=HTMLResponse)
@@ -121,21 +123,21 @@ def person_page(request: Request, person_id: str):
     if not ID_RE.match(person_id):
         raise HTTPException(404, "No such person")
     view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots()
+    snaps = hub.get_snapshots(request=request)
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
         raise HTTPException(404, "No such person")
-    person = build_person(int(person_id), hub)
+    person = build_person(int(person_id), hub, snaps)
     try:  # Awards (2026-10-08): this person's wins / nominations from the media.db award tables; hidden when none
         from hub import media_awards_db, media_awards_pages
         person["awards"] = media_awards_pages.person_rows(media_awards_db.person_awards(int(person_id)))
     except Exception as exc:  # the page never fails on the awards lookup
-        md.log.warning("awards lookup failed: %s", type(exc).__name__)
+        log.warning("awards lookup failed: %s", type(exc).__name__)
         person["awards"] = None
     try:
         person["following"] = media_follow.get("person", int(person_id)) is not None
     except Exception as exc:  # the page never fails on the follow lookup
-        md.log.warning("follow lookup failed: %s", type(exc).__name__)
+        log.warning("follow lookup failed: %s", type(exc).__name__)
         person["following"] = False
     resp = hub.templates.TemplateResponse(request, "media_person.html", {
         "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,

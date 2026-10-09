@@ -3,9 +3,11 @@ reads it from deploy/.env through compose `env_file`, like the Jellyseerr keys).
 `GET https://www.omdbapi.com/?i=tt…&apikey=…` — server-side only; `Metascore`, else the `Ratings` entry whose Source is
 "Metacritic" ("74/100").
 
-Budget (OMDb's free tier is 1,000 calls a day): every answer for a title — a score, "N/A", not found, or a failed call
-— is remembered for TTL (7 days) in memory and on disk beside the Jellyseerr meta cache (`media_discover.meta_dir()`,
-key `omdb:<imdb id>`), so a title costs at most one call per 7 days, restarts included. A process makes at most
+Budget (OMDb's free tier is 1,000 calls a day): every answer for a title — a score, "N/A" or not found — is
+remembered for TTL (7 days) in memory and on disk beside the Jellyseerr meta cache (`media_discover.meta_dir()`,
+key `omdb:<imdb id>`), so a title costs at most one call per 7 days, restarts included. A failed call (no answer,
+non-2xx, bad JSON) is remembered for FAIL_TTL (10 minutes) only, so a brief outage never hides Metacritic for a week
+(M-51). Lookups lock per title, never across titles: a slow OMDb stalls only that title's page (M-43). A process makes at most
 DAILY_CAP calls per UTC day. A refused key or OMDb's own limit stops calls for the rest of the day without marking
 any title. No key, a bad id, the cap, or any failure ⇒ None and the pill is simply not drawn.
 
@@ -24,24 +26,34 @@ from datetime import datetime, timezone
 import requests
 
 from hub import media_discover as md
+from hub.media_cache import LRU
 
 log = logging.getLogger("hub.media_omdb")
 
 URL = "https://www.omdbapi.com/"
 TTL = 7 * 24 * 3600
+FAIL_TTL = 10 * 60
 DAILY_CAP = 800
 TIMEOUT = 5
 IMDB_RE = re.compile(r"^tt\d{5,10}$")
 KEY_ERRORS = ("invalid api key", "no api key", "request limit reached")
 
-_lock = threading.Lock()
-_mem: dict[str, tuple[float, int | None]] = {}
+_lock = threading.Lock()   # guards _locks and the day budget only — never held across an HTTP call
+_locks: dict[str, threading.Lock] = {}   # imdb id -> its lookup lock (M-43)
+_mem: LRU = LRU()   # imdb id -> (at, score, ttl); bounded (M-42), the disk meta cache is the long tier
 _day: list = ["", 0, False]   # [UTC date, calls made today, stopped for today]
 
 
 def clear_cache() -> None:
     _mem.clear()
-    _day[:] = ["", 0, False]
+    with _lock:
+        _locks.clear()
+        _day[:] = ["", 0, False]
+
+
+def _title_lock(imdb: str) -> threading.Lock:
+    with _lock:
+        return _locks.setdefault(imdb, threading.Lock())
 
 
 def _key() -> str | None:
@@ -69,28 +81,31 @@ def _cached(imdb: str) -> tuple[bool, int | None]:
         disk = md._meta_disk(f"omdb:{imdb}")
         if disk is not None and isinstance(disk[1], dict):
             score = disk[1].get("metascore")
-            hit = (disk[0], score if isinstance(score, int) and not isinstance(score, bool) else None)
+            hit = (disk[0], score if isinstance(score, int) and not isinstance(score, bool) else None,
+                   FAIL_TTL if disk[1].get("failed") else TTL)
             _mem[imdb] = hit
-    if hit is not None and time.time() - hit[0] < TTL:
+    if hit is not None and time.time() - hit[0] < hit[2]:
         return True, hit[1]
     return False, None
 
 
-def _remember(imdb: str, score: int | None) -> None:
+def _remember(imdb: str, score: int | None, failed: bool = False) -> None:
+    """An answer for TTL; a failed call (`failed`) for FAIL_TTL — on disk too, so a restart keeps the short wait."""
     now = time.time()
-    _mem[imdb] = (now, score)
-    md._meta_store(f"omdb:{imdb}", now, {"metascore": score})
+    _mem[imdb] = (now, score, FAIL_TTL if failed else TTL)
+    md._meta_store(f"omdb:{imdb}", now, {"metascore": score, **({"failed": True} if failed else {})})
 
 
 def _budget() -> bool:
     """One call allowed now? Counts it. False when the day's cap is used up or OMDb refused the key today."""
     today = datetime.now(timezone.utc).date().isoformat()
-    if _day[0] != today:
-        _day[:] = [today, 0, False]
-    if _day[2] or _day[1] >= DAILY_CAP:
-        return False
-    _day[1] += 1
-    return True
+    with _lock:
+        if _day[0] != today:
+            _day[:] = [today, 0, False]
+        if _day[2] or _day[1] >= DAILY_CAP:
+            return False
+        _day[1] += 1
+        return True
 
 
 def metascore(imdb_id) -> int | None:
@@ -99,7 +114,7 @@ def metascore(imdb_id) -> int | None:
     imdb = str(imdb_id or "").strip()
     if not key or not IMDB_RE.match(imdb):
         return None
-    with _lock:   # one lookup per title at a time: a burst of opens never doubles a call
+    with _title_lock(imdb):   # one lookup per title at a time: a burst of opens never doubles a call
         found, score = _cached(imdb)
         if found:
             return score
@@ -109,7 +124,7 @@ def metascore(imdb_id) -> int | None:
             resp = requests.get(URL, params={"i": imdb, "apikey": key}, timeout=TIMEOUT)
         except Exception as exc:  # type only — the exception text holds the URL, which holds the key
             log.warning("omdb lookup failed: %s", type(exc).__name__)
-            _remember(imdb, None)
+            _remember(imdb, None, failed=True)
             return None
         if resp.status_code == 401:
             log.warning("omdb lookup refused: HTTP 401")
@@ -117,13 +132,13 @@ def metascore(imdb_id) -> int | None:
             return None
         if not 200 <= resp.status_code < 300:
             log.warning("omdb lookup failed: HTTP %s", resp.status_code)
-            _remember(imdb, None)
+            _remember(imdb, None, failed=True)
             return None
         try:
             body = resp.json()
         except Exception as exc:
             log.warning("omdb lookup failed: %s", type(exc).__name__)
-            _remember(imdb, None)
+            _remember(imdb, None, failed=True)
             return None
         error = str(body.get("Error") or "").lower() if isinstance(body, dict) else ""
         if any(e in error for e in KEY_ERRORS):

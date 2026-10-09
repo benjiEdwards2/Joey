@@ -6,9 +6,9 @@
    poster cards (the default, media-ux4) or rows. #}
 {# To rate moved to its own tab beside Tonight (media-ux4, 2026-10-08: /media/movies/to-rate, /media/tv/to-rate). #}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% elif rows is none %}
-<p class="empty">Library list not available yet.</p>
+<p class="empty">Library list not available yet</p>
 {% else %}
 <p class="metaline">{{ head_line }}</p>
 {% if not marks %}<p class="metaline">Her watch marks and scores aren't available yet</p>{% endif %}

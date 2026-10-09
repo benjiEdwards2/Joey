@@ -97,6 +97,7 @@ def test_badges_main_word_sub_label_and_source_last(tmp_path, monkeypatch):
     got = [(b["main"], b["sub"]) for b in media_film.badges_for(files)]
     assert got == [("1080p", "FULL HD"), ("H.265", "HEVC"), ("AAC", ""), ("5.1", "SURROUND"), ("Blu-ray", "")]
     (tmp_path / "1080p.svg").write_text("<svg/>", encoding="utf-8")       # the override hook covers every badge
+    media_film._override_in.cache_clear()                                  # the folder is cached (it changes on deploy)
     assert media_film.badges_for(files)[0]["img"] == "/static/badges/1080p.svg"
     assert media_film.badge("Dolby Vision")["id"] == "dolby-vision"        # F10 override ids kept
 
@@ -268,3 +269,18 @@ def test_cast_row_scrolls_inside_itself_css():
     assert "overflow-x: auto" in row and "flex-wrap" not in row
     assert "flex: 0 0 130px" in css.split(".castcard {", 1)[1].split("}", 1)[0] and ".castcard { flex-basis: 180px; }" in css
     assert "aspect-ratio: 2 / 3" in css.split(".castpic {", 1)[1].split("}", 1)[0]
+
+
+def test_override_lookups_are_cached_per_folder(tmp_path, monkeypatch):
+    """M-09 (W2): the badges folder is stat-ed once per id, not on every film render."""
+    monkeypatch.setattr(media_film, "BADGES_DIR", tmp_path)
+    media_film._override_in.cache_clear()
+    assert media_film._override("4k") is None
+    (tmp_path / "4k.svg").write_text("<svg/>", encoding="utf-8")
+    assert media_film._override("4k") is None                             # cached until the next deploy
+    assert media_film._override_in.cache_info().hits >= 1
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "4k.png").write_bytes(b"x")
+    monkeypatch.setattr(media_film, "BADGES_DIR", other)
+    assert media_film._override("4k") == "/static/badges/4k.png"           # keyed on the folder too

@@ -7,19 +7,18 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
-from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_watchlist_db as wl
 from hub.media_write import bad, clean_item, form_of, is_htmx, owner_for, same_origin
+from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_watchlist")
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 PAGES = {"movie": "/media/movies/watchlist", "tv": "/media/tv/watchlist"}
 FIELD = {"movie": "movies", "tv": "shows"}
@@ -66,7 +65,11 @@ def _back(request: Request, kind: str) -> RedirectResponse:
 
 
 async def _write(request: Request, adding: bool):
-    f = await form_of(request)
+    """The form is read on the event loop; the SQLite write and the render run in a worker thread (M-40)."""
+    return await run_in_threadpool(_apply, request, adding, await form_of(request))
+
+
+def _apply(request: Request, adding: bool, f: dict):
     item = _item(f)
     owner = owner_for(request)
     try:
@@ -104,13 +107,13 @@ def _page(request: Request, kind: str):
                 played = {r["item_key"] for r in lrows
                           if r["played"] and r["item_key"] and (kind == "movie" or r["episodes"])}
                 left = wl.prune_played(owner, played, kind)
-            rows, failed = wl.list(owner, kind), False
+            rows, failed = wl.rows(owner, kind), False
         except (sqlite3.Error, OSError) as exc:
             log.warning("watchlist read failed: %s", type(exc).__name__)
             rows, failed = [], True
         on_keys = on_server_keys(data, kind)
         from hub.media_requests import snapshot_rows  # a removed request stops showing at once (2026-10-08)
-        words = wl.request_words(snapshot_rows(hub.get_snapshots(), hub.JELLYSEERR_SNAPSHOT_ID))
+        words = wl.request_words(snapshot_rows(hub.get_snapshots(request=request), hub.JELLYSEERR_SNAPSHOT_ID))
         sort = request.query_params.get("sort", "added")
         sort = sort if sort in wl.SORTS else "added"
         rows = [{**r, "status_word": wl.status_word(r, on_keys, words),

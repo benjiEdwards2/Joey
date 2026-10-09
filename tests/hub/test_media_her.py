@@ -81,7 +81,7 @@ def test_you_and_both_views_still_show_b(env):
 def test_her_view_with_null_her_shows_quiet_words(env):
     with env(her=None, now_playing=[]) as client:
         html = main_html(client.get("/a/alpha?owner_view=her").text)
-    assert html.count("Set JELLYFIN_USER_HER in deploy/.env") == 1   # media-ux2: Continue watching only
+    assert html.count("Her Jellyfin account isn&#39;t set up yet") == 1   # media-ux2: Continue watching only
     assert "Nothing playing" in html
     for title in B_ONLY:
         assert title not in html, title

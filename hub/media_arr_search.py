@@ -26,9 +26,10 @@ from urllib.parse import urlencode
 import requests
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
-from hub import media_discover as md, media_requests as mr, media_resume
-from hub.media_write import form_of, same_origin
+from hub import media_discover as md, media_requests as mr, media_text
+from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_arr_search")
 router = APIRouter()
@@ -56,9 +57,7 @@ def _ok(resp) -> None:
         raise RuntimeError(f"HTTP {resp.status_code}")
 
 
-def _why(exc: Exception) -> str:
-    """Log-safe words for a failure: the HTTP status, else the exception type (never its message)."""
-    return str(exc) if isinstance(exc, RuntimeError) and re.fullmatch(r"HTTP \d{3}", str(exc)) else type(exc).__name__
+_why = media_text.why   # log-safe words: 'HTTP 503' or the exception type, never its message
 
 
 def find(kind: str, tmdb: int, tvdb: int | None = None) -> dict | None:
@@ -100,6 +99,9 @@ def start_search(kind: str, tmdb: int, tvdb: int | None = None) -> tuple[str, in
         return ("refused" if status else "unreachable"), status
 
 
+flash_keys("search", "app", "code")
+
+
 def flash_text(params) -> tuple[str | None, str | None]:
     """(good line, warning line) from `?search=<code>&app=<app>[&code=<status>]`; anything odd -> (None, None)."""
     code, app, status = params.get("search") or "", NAMES.get(params.get("app") or ""), params.get("code") or ""
@@ -119,12 +121,8 @@ def _tvdb(value) -> int | None:
 
 
 def _back(value, kind: str, tmdb: int) -> str:
-    """A local Media page to return to (media_resume's rule), else the title page."""
-    raw = str(value or "")
-    v = media_resume._back(raw)
-    if v == media_resume.DEFAULT_BACK and not raw.startswith(media_resume.DEFAULT_BACK):
-        return f"/media/title/{kind}/{tmdb}"   # missing / foreign / odd -> the title page, not Server
-    return v
+    """A local Media page to return to (media_write.safe_back), else the title page — never Server."""
+    return safe_back(value, f"/media/title/{kind}/{tmdb}")
 
 
 def lazy_href(kind: str | None, tmdb, tvdb, back: str) -> str | None:
@@ -196,6 +194,7 @@ async def search_now(request: Request, kind: str, tmdb_id: int):
     kind = md._kind(kind)
     form = await form_of(request)
     back = _back(form.get("back"), kind, tmdb_id)
-    code, status = start_search(kind, tmdb_id, _tvdb(form.get("tvdb"))) if tmdb_id > 0 else ("missing", None)
+    code, status = (await run_in_threadpool(start_search, kind, tmdb_id, _tvdb(form.get("tvdb")))  # M-40: off the loop
+                    if tmdb_id > 0 else ("missing", None))
     q = {"search": code, "app": app_of(kind), **({"code": status} if status else {})}
     return RedirectResponse(f"{back}?" + urlencode(q), status_code=303)

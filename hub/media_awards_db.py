@@ -1,5 +1,6 @@
 """Awards store (AWARDS_PLAN A1, 2026-10-08): the `award_*` tables in media.db, their writers (the sync's) and the
-readers the pages use. DDL on `ensure()` like media_follow; reads never create the file.
+readers the pages use. media_store creates the tables (DDL below) and runs `apply_seed()` once per file per process; reads
+never create the file.
 
 Tables (plan §2.1, with three recorded additions):
   award_body / award_edition / award_category / award_nomination / award_entity / award_sync as planned;
@@ -19,13 +20,12 @@ import sqlite3
 from contextlib import closing
 from datetime import date
 
-from hub import media_db
+from hub import media_db, media_store
 from hub import media_awards_seed as seed
 from hub.media_awards_parse import ordinal, slug, wp_title
 
 log = logging.getLogger("hub.media_awards_db")
 
-STATES = ("pending", "done", "partial", "failed", "skipped")
 DDL = (
     """CREATE TABLE IF NOT EXISTS award_body(
   id TEXT PRIMARY KEY, name TEXT, kinds TEXT, wd_series TEXT, wp_title_fmt TEXT, usual_month INT, sort INT)""",
@@ -66,9 +66,12 @@ def local_key(label: str) -> str:
 # ---- connection ----
 
 def ensure() -> sqlite3.Connection:
-    db = media_db.connect()
-    for ddl in DDL:
-        db.execute(ddl)
+    """A connection for a write (media_store)."""
+    return media_store.connect()
+
+
+def apply_seed(db) -> None:
+    """The body rows from media_awards_seed, written when the stored seed version differs (one SELECT otherwise)."""
     row = db.execute("SELECT value FROM award_sync WHERE key = 'seed_v'").fetchone()
     if not row or row["value"] != str(seed.SEED_VERSION):
         with db:
@@ -80,19 +83,11 @@ def ensure() -> sqlite3.Connection:
                            (b["id"], b["name"], b["kinds"], b.get("wd_series"), b.get("wp_title_fmt"),
                             b["usual_month"], b["sort"]))
             db.execute("INSERT OR REPLACE INTO award_sync(key, value) VALUES('seed_v', ?)", (str(seed.SEED_VERSION),))
-    db.commit()
-    return db
 
 
 def _reader():
-    """A connection for reading, or None when there is no media.db yet / it can't be opened."""
-    if not media_db.db_path().is_file():
-        return None
-    try:
-        return ensure()
-    except (sqlite3.Error, OSError) as exc:
-        log.warning("awards db unreadable: %s", type(exc).__name__)
-        return None
+    """A connection for reading, or None when there is no media.db yet / it can't be opened (media_store)."""
+    return media_store.reader()
 
 
 def _now() -> str:
@@ -240,7 +235,7 @@ def bodies(kind: str) -> list[dict]:
             if kind in b["kinds"].split(",")]
 
 
-def years_of(body_id: str, kind: str | None = None) -> list[int]:
+def years_of(body_id: str) -> list[int]:
     """Ceremony years of the editions known for a body, newest first (any state; an edition without a year is not
     placeable yet)."""
     db = _reader()
@@ -511,13 +506,3 @@ def sync_status() -> dict:
         ok = get_sync(db, "last_pass_ok", "1")
     return {"updated": last, "done": row["done"] or 0, "total": row["total"] or 0, "failed": ok == "0"}
 
-
-def last_result() -> dict:
-    db = _reader()
-    if db is None:
-        return {}
-    with closing(db):
-        try:
-            return json.loads(get_sync(db, "last_result", "{}") or "{}")
-        except ValueError:
-            return {}

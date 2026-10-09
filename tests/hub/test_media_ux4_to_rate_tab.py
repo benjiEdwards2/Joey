@@ -101,7 +101,7 @@ def test_to_rate_tab_label_is_title_case_and_body_copy_stays_sentence_case(env):
         diary = client.get("/media/history").text
     labels = {s["id"]: [t[0] for t in s["tabs"] if t[0].lower() == "to rate"] for s in media_nav.SECTIONS}
     assert labels["movies"] == labels["tv"] == labels["diary"] == ["To Rate"]
-    assert "<title>To Rate — Joey</title>" in films and ">To rate<" not in films.split('<nav class="sectabs sub"', 1)[1]
+    assert "<title>To Rate · Joey</title>" in films and ">To rate<" not in films.split('<nav class="sectabs sub"', 1)[1]
     assert [t[0] for t in subtabs(diary) if t[2]] == ["To Rate"]
     assert '<p class="empty">Nothing to rate.</p>' in main_of(films)
     assert '<div class="seclabel">To rate</div>' in main_of(diary)

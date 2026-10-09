@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}{{ film.title }} — Joey{% endblock %}
+{% block title %}{{ film.title }} · Joey{% endblock %}
 {# The film page (F10, Cinema layout; restyle Phase 3: guide 6 "Detail hero"). One page for every title, on the
    server or not. The header IS the detail hero: the backdrop across the window under the darkening gradient, the
    Media tabs on it, the poster leading (centred above a centred title on a phone, beside it from 640 px), then
@@ -27,7 +27,7 @@
         {% endif %}
         <h1 class="hero-detail-title">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
-        {{ meta(["TV show" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
+        {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else film.facts.runtime, film.official]
                 + (film.genres or []), "facts-line") }}
         {# Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials when
@@ -193,7 +193,7 @@
     {% for e in s.episodes %}
     <div class="row has-form epline ep-{{ e.state.key }}" id="ep-{{ e.jf_id }}">
       <a class="rowlink" href="/media/item/{{ e.jf_id }}">
-        <img class="epstill" src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ e.name|urlencode }}" alt="" loading="lazy" decoding="async" width="160" height="90">
+        <img class="epstill" src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ img_letters(e.name)|urlencode }}" alt="" loading="lazy" decoding="async" width="160" height="90">
         <div class="row-body">
           <div class="row-title">E{{ e.number }} · {{ e.name }}</div>
           {{ meta([e.air_date, e.runtime]) }}
@@ -216,7 +216,7 @@
   {% for s in film.t.seasons %}
   {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
   {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
-  {% set st %}<span class="st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span>{% endset %}
+  {% set st %}<span class="{{ status_of(s.status_word).cls }}">{{ s.status_word }}</span>{% endset %}
   <details class="seasonbox" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
   <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>
     {{ meta([s.episodes ~ " episode" ~ ("s" if s.episodes != 1 else ""), s.year, st]) }}</div></summary>

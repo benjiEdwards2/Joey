@@ -11,9 +11,11 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from hub import media_awards_seed as seed
+
 OVERRIDE_DIR = Path(__file__).resolve().parent / "static" / "awards"
 OVERRIDE_EXTS = ("svg", "png", "webp")
-BODY_IDS = ("oscars", "globes", "bafta", "critics", "sag", "dga", "pga", "wga", "cannes", "emmys")
+BODY_IDS = tuple(b["id"] for b in sorted(seed.BODIES, key=lambda b: b["sort"]))   # M-21: the seed's ceremony order
 SHAPES = BODY_IDS + ("trophy", "laurel", "seen", "person", "reel", "clapper", "nib")
 
 # A category's icon by its name (first rule wins): acting -> person, directing -> clapper, writing -> nib,

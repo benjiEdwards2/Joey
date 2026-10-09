@@ -20,7 +20,7 @@
     <div class="seasonpick">
       {% for s in t.seasons %}
       <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " checked" if s.ticked }}{{ " disabled" if s.disabled }}>
-        {{ s.name }} <span class="metaline st-{{ s.status_word|lower|replace(' ', '-') }}">{{ s.status_word }}</span></label>
+        {{ s.name }} <span class="metaline {{ status_of(s.status_word).cls }}">{{ s.status_word }}</span></label>
       {% endfor %}
     </div>
     {% else %}

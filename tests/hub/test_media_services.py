@@ -222,7 +222,7 @@ def test_not_connected_page_makes_no_call(env):
     client, fake = env(connected=False)
     with client:
         r = client.get("/media/discover/service/8")
-    assert r.status_code == 200 and "Not connected." in r.text and fake.gets == []
+    assert r.status_code == 200 and "Not connected<" in r.text and fake.gets == []
 
 
 def test_service_tiles_have_their_own_classes_not_the_server_cards():

@@ -75,7 +75,7 @@ def _tab_on(tab_href: str, path: str, kind: str | None) -> int:
     return len(tpath) if _under(path, tpath) else 0
 
 
-def nav_context(request, registry, waiting: dict | None, owner_view: str | None = None) -> dict:
+def nav_context(request, registry, waiting: dict | None) -> dict:
     """{sections, section, tabs, home_href}; counts only when > 0."""
     path = request.url.path
     kind = _kind(request.url.query)

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import re
 
-QB_SNAPSHOT_ID = "qbittorrent"
-
 
 def caption(state_text, pct, eta_text) -> str:
     """'Downloading · 43% · 12 min' — pieces that are missing are left out."""
@@ -79,17 +77,13 @@ def badges_by_item_key(merged) -> dict[str, str]:
     return {r["item_key"]: badge_text(r) for r in merged or [] if r.get("item_key")}
 
 
-def _norm(text) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[._]+", " ", str(text or ""))).strip().lower()
-
-
-def badge_for_title(merged, title) -> str | None:
-    """Badge for a title page: first merged row whose title starts with the page title
-    (so a trailing year or 'S01E02' on the row does not matter). None when nothing matches."""
-    want = _norm(title)
-    if not want:
-        return None
+def pct_for_keys(merged, keys) -> int | None:
+    """A title page's download percentage: the first merged row whose `item_key` (an arr row's `tmdb:` / `tvdb:` key) is
+    one of `keys`. Never a title prefix (M-50: the film "It" no longer picks up an "It Follows" torrent). None when
+    nothing matches or the row carries no percentage."""
+    keys = {k for k in keys or () if k}
     for r in merged or []:
-        if _norm(r.get("title")).startswith(want):
-            return badge_text(r)
+        pct = r.get("pct")
+        if r.get("item_key") in keys and isinstance(pct, (int, float)) and not isinstance(pct, bool):
+            return int(pct)
     return None

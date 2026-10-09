@@ -10,29 +10,25 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import sqlite3
 from datetime import date
-from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
-import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
 from hub import media_db
 from hub.images import REF_RE
+from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_write")
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 MAX_BODY = 8192
-SEARCH_TIMEOUT = 8
 SEARCH_MAX = 8
-PLACES = ("Cinema", "Netflix", "Friend's", "Other")
+PLACES = ("Cinema", "Netflix", "Friend's", "Other")   # the diary log form's place suggestions (<datalist>)
 # Where a plain-form rating may return (media-ux2): the pages that hold a To rate list. Anything else -> history.
 # media-ux4: the Movies / TV Shows "To rate" tabs (the list pages keep their entries for forms already open).
 RATE_BACK = {p: p for p in ("/media/history", "/media/movies", "/media/tv", "/media/movies/to-rate", "/media/tv/to-rate")}
@@ -90,10 +86,34 @@ async def form_of(request: Request) -> dict:
 
 
 def owner_for(request: Request) -> str:
-    """Data owner of a write: 'her' in the her view, else 'you'. Lazy import — hub.main
-    imports this module for its router."""
+    """THE request-level owner (M-16): 'her' in the her view, else 'you' (media_db.owner_of over the owner view).
+    Lazy import — hub.main imports this module for its router."""
     from hub.main import resolve_owner_view
     return media_db.owner_of(resolve_owner_view(request)[0])
+
+
+def safe_back(value, default: str, keep_query: bool = False, prefixes=("/media/", "/a/"), exact=("/",)) -> str:
+    """THE redirect-target rule for Media writes (M-17): a local page path — one of `exact`, or under `prefixes` —
+    with no scheme, no '//', no backslash and under 300 characters; anything else is `default`. A fragment is always
+    dropped; the query too unless `keep_query` (a stale flash never rides along)."""
+    v = str(value or "").split("#", 1)[0]
+    if not keep_query:
+        v = v.split("?", 1)[0]
+    ok = v in exact or v.startswith(prefixes)
+    return v if ok and "//" not in v and "\\" not in v and len(v) < 300 else default
+
+
+# One-off flash lines ride on query params after a POST's 303 (2026-10-08); base.html strips them from the address
+# bar after render. Each module registers the params it reads here, and hub.main's FLASH_PARAMS is derived from this
+# registry (M-17) instead of a hand-kept list.
+FLASH_KEYS: dict[str, None] = {}
+
+
+def flash_keys(*keys: str) -> tuple[str, ...]:
+    """Register flash query params (idempotent); returns them."""
+    for k in keys:
+        FLASH_KEYS.setdefault(k, None)
+    return keys
 
 
 def render(request: Request, name: str, **ctx) -> HTMLResponse:
@@ -103,7 +123,10 @@ def render(request: Request, name: str, **ctx) -> HTMLResponse:
 @router.post("/media/settings/rating_level", dependencies=[Depends(same_origin)])
 async def set_rating_level(request: Request):
     """'Rate TV by' choice for the owner; back to the To rate inbox it reshapes."""
-    f = await form_of(request)
+    return await run_in_threadpool(_set_rating_level, request, await form_of(request))
+
+
+def _set_rating_level(request: Request, f: dict):
     value = f.get("value") or ""
     if value not in media_db.LEVELS:
         raise bad("Invalid rating level")
@@ -117,7 +140,10 @@ async def set_rating_level(request: Request):
 
 @router.post("/media/rate", dependencies=[Depends(same_origin)])
 async def rate(request: Request):
-    f = await form_of(request)
+    return await run_in_threadpool(_rate, request, await form_of(request))
+
+
+def _rate(request: Request, f: dict):
     item = clean_item(f)
     try:
         score = int(f.get("score", ""))
@@ -166,7 +192,10 @@ def unrate_form(request: Request, item_key: str):
 
 @router.post("/media/log", dependencies=[Depends(same_origin)])
 async def log_watch(request: Request):
-    f = await form_of(request)
+    return await run_in_threadpool(_log_watch, request, await form_of(request))
+
+
+def _log_watch(request: Request, f: dict):
     try:
         pick = json.loads(f.get("pick") or "")
     except ValueError:
@@ -196,17 +225,15 @@ async def log_watch(request: Request):
 
 
 def _search(query: str) -> list[dict] | None:
-    """Jellyseerr title search -> rows, or None when unavailable (no env or any failure)."""
-    base, key = os.environ.get("JELLYSEERR_URL", ""), os.environ.get("JELLYSEERR_API_KEY", "")
-    if not (base and key):
+    """Jellyseerr title search -> rows, or None when unavailable (no env or any failure). The call goes through
+    media_discover's one Jellyseerr reader (M-13); this maps its results to the diary log's rows."""
+    from hub import media_discover as md  # late: media_discover imports this module
+
+    if md._creds() is None:
         return None
-    try:
-        resp = requests.get(f"{base.rstrip('/')}/api/v1/search?query={quote(query, safe='')}",
-                            headers={"X-Api-Key": key}, timeout=SEARCH_TIMEOUT)
-        resp.raise_for_status()
-        results = resp.json().get("results", [])
-    except Exception as exc:  # type only — requests errors embed the URL
-        log.warning("title search failed: %s", type(exc).__name__)
+    body = md._get(f"/api/v1/search?query={quote(query, safe='')}")
+    results = body.get("results") if isinstance(body, dict) else None
+    if not isinstance(results, list):
         return None
     rows = []
     for r in results:
@@ -252,7 +279,10 @@ def year_ctx(slug: str, mode: str = "", kind: str | None = None) -> dict:
 
 
 async def _ranking_write(request: Request, slug: str, action):
-    f = await form_of(request)
+    return await run_in_threadpool(_ranking_apply, request, slug, action, await form_of(request))
+
+
+def _ranking_apply(request: Request, slug: str, action, f: dict):
     year = parse_year(slug)
     try:
         action(year, f)

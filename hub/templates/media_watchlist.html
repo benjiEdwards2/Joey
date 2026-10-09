@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Watchlist — Joey{% endblock %}
+{% block title %}Watchlist · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_icons.html" import icon %}
@@ -7,7 +7,7 @@
    then year · status WORD. The whole card is the link (2026-10-06): a.rowlink stretched over the .card-cell;
    the x form and Request sit above it. #}
 {% if failed %}
-<p class="empty">Watchlist unavailable.</p>
+<p class="empty">Watchlist unavailable</p>
 {% else %}
 <p class="metaline">{{ head_line }}</p>
 {% if left %}<p class="metaline">{{ left }} watched title{{ "s" if left != 1 }} left the list</p>{% endif %}
@@ -31,7 +31,7 @@
       <input type="hidden" name="title" value="{{ r.title }}">
       <button type="submit" class="btn-mini" title="Remove from watchlist" aria-label="Remove {{ r.title }} from watchlist">{{ icon("x") }}</button>
     </form>
-    <span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="st-{{ r.status_word|lower|replace(' ', '-') }}">{{ r.status_word }}</span>{% if r.status_word == "Not on server" %}<span class="sep"> · </span><a href="{{ r.href }}">Request</a>{% endif %}</span>
+    <span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="{{ status_of(r.status_word).cls }}">{{ r.status_word }}</span>{% if r.status_word == "Not on server" %}<span class="sep"> · </span><a href="{{ r.href }}">Request</a>{% endif %}</span>
   </div>
   {% endfor %}
 </div>

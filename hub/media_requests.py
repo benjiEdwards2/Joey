@@ -22,8 +22,8 @@ import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from hub import media_discover as md, media_hidden
-from hub.media_write import same_origin
+from hub import media_discover as md, media_hidden, media_text
+from hub.media_write import flash_keys, same_origin
 
 log = logging.getLogger("hub.media_requests")
 router = APIRouter()
@@ -68,6 +68,9 @@ def snapshot_rows(snaps, snapshot_id: str = "jellyseerr") -> list[dict]:
     """Visible request rows straight from the snapshots dict (film page, watchlist)."""
     snap = snaps.get(snapshot_id)
     return visible_rows((snap.data if snap else {}) or {}, snap.updated_at if snap else None)
+
+
+flash_keys("done", "error", "app", "code")
 
 
 def flash_text(params) -> tuple[str | None, str | None]:
@@ -140,7 +143,7 @@ def stop_search(kind: str, tmdb: int, tvdb: int | None = None) -> str:
             raise RuntimeError(f"HTTP {resp.status_code}")
         return "stopped"
     except Exception as exc:  # type / status only — requests errors embed the URL and key
-        log.warning("%s unmonitor failed: %s", app, str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__)
+        log.warning("%s unmonitor failed: %s", app, media_text.why(exc))
         return "arrfail"
 
 

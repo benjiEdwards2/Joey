@@ -14,6 +14,7 @@ from tests.hub.test_media_item import ITEMS, KEY, SOURCES, STREAMS, URL, Fake as
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SEERR = "http://seerr.secret-host.invalid:5055"
 SKEY = "k-SECRET-0123456789"
@@ -118,11 +119,6 @@ def env(tmp_path, monkeypatch):
     return build
 
 
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
-
-
 def status(html):
     return htmllib.unescape(re.search(r'id="status-line">([^<]*)<', html).group(1))
 
@@ -141,7 +137,7 @@ def test_status_on_server_watched_and_rated(env, monkeypatch):
                                   watched_on=f"{YEAR}-10-12", place=None, note=None, owner="you")
         media_db.set_rating("tmdb:603", 9, "movie", "Harbour Lights", year=2019)
         html = client.get("/media/item/mov1").text
-    assert status(html) == "On your server · 4K · HDR10 · watched 12 Oct · you rated 9"
+    assert status(html) == "On server · 4K · HDR10 · watched 12 Oct · you rated 9"
 
 
 def test_status_on_server_unwatched(env, monkeypatch):
@@ -149,7 +145,7 @@ def test_status_on_server_unwatched(env, monkeypatch):
     client, _ = env()
     with client:
         html = client.get("/media/title/movie/603").text
-    assert status(html) == "On your server · 4K · HDR10 · not watched yet"
+    assert status(html) == "On server · 4K · HDR10 · not watched yet"
 
 
 def test_status_not_on_server_requested_processing_and_downloading(env):
@@ -159,20 +155,20 @@ def test_status_not_on_server_requested_processing_and_downloading(env):
     both.seerr.table["/api/v1/movie/701"] = {**PLAIN, "mediaInfo": {"status": 3}}
     with client:
         html = client.get("/media/title/movie/701").text
-    assert status(html) == "Not on your server · Requested 3 hours ago · Processing · downloading 42 %"
+    assert status(html) == "Not on server · Requested 3 hours ago · Processing · Downloading · 42%"
     assert "Requested 3 hours ago by Sam" in html
 
 
 def test_status_plain_not_on_server(env):
     client, _ = env()
     with client:
-        assert status(client.get("/media/title/movie/701").text) == "Not on your server"
+        assert status(client.get("/media/title/movie/701").text) == "Not on server"
 
 
 def test_status_series(env):
     client, _ = env()
     with client:
-        assert status(client.get("/media/title/tv/100").text) == "On your server · 6 episodes · 2 to watch · S4 E4 next"
+        assert status(client.get("/media/title/tv/100").text) == "On server · 6 episodes · 2 to watch · S4 E4 next"
 
 
 # ---- numbers strip ----
@@ -219,7 +215,7 @@ def test_buttons_resume_play_again_next_and_none(env, monkeypatch):
     with client:
         set_ud(monkeypatch, PlaybackPositionTicks=80 * 600_000_000)
         b = main_of(client.get("/media/title/movie/603").text)
-        assert "Resume ▶ · 32 min left" in b and f'href="{deep("mov1")}"' in b
+        assert "Resume ▶ · 32m left" in b and f'href="{deep("mov1")}"' in b
         assert b.index("Resume ▶") < b.index('href="#rate"')
         media_item.clear_cache()
         set_ud(monkeypatch, Played=True)
@@ -266,12 +262,10 @@ def test_format_badges_are_text_with_sub_labels(env):
 
 
 def test_badge_pill_mapping():
-    for word, id_, tone in (("DTS-HD", "dts-hd", "dts"), ("DTS", "dts", "dts"), ("HDR10+", "hdr10plus", "hdr"),
-                            ("HLG", "hlg", "hdr"), ("Dolby Vision", "dolby-vision", "dolby"), ("TrueHD", "dolby-truehd", "dolby"),
-                            ("Dolby Digital", "dolby-digital", "dolby")):
-        p = media_files.badge_pill(word)
-        assert (p["id"], p["tone"]) == (id_, tone), word
-    assert media_files.badge_pill("1080p")["tone"] == "plain" and media_files.badge_pill("1080p")["id"] is None
+    for word, id_ in (("DTS-HD", "dts-hd"), ("DTS", "dts"), ("HDR10+", "hdr10plus"), ("HLG", "hlg"),
+                      ("Dolby Vision", "dolby-vision"), ("TrueHD", "dolby-truehd"), ("Dolby Digital", "dolby-digital")):
+        assert media_files.badge_pill(word)["id"] == id_, word
+    assert media_files.badge_pill("1080p") == {"id": None, "label": "1080p"}
     assert media_files.badge_pill("Atmos")["label"] == "Dolby Atmos"
 
 
@@ -391,7 +385,7 @@ def test_everything_failing_still_200_with_words(env):
         plain = client.get("/media/title/movie/701")
         listed = client.get("/media/title/movie/603")        # on the library snapshot, but nothing reachable
         item = client.get("/media/item/mov1")
-    assert plain.status_code == 200 and status(plain.text) == "Not on your server"
+    assert plain.status_code == 200 and status(plain.text) == "Not on server"
     assert "Title unavailable" in plain.text
     assert listed.status_code == 200 and status(listed.text) == media_item.DOWN_TEXT
     assert item.status_code == 200 and status(item.text) == media_item.DOWN_TEXT and f'href="{deep("mov1")}"' in item.text

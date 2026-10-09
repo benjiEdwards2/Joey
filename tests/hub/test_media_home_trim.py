@@ -4,10 +4,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.test_media_frame import env  # noqa: F401  (env fixture)
 from tests.hub.test_media_shelves import JELLY, ARR
-
-
-def main_of(html):
-    return html.split("<main", 1)[1]
+from tests.hub.conftest import main_raw as main_of
 
 
 def test_media_home_has_no_this_week_or_recently_watched(env):

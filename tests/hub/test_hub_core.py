@@ -27,8 +27,8 @@ def _reload(tmp_path, monkeypatch, *areas):
 
 
 def test_status_is_built_for_the_hub_page_only(tmp_path, monkeypatch):
-    """H-50: only hub.html reads `status`; no other page pays for build_status. H-08: only media_playing.html
-    reads `owner_view`."""
+    """H-50: only hub.html reads `status`; no other page pays for build_status. H-08 / M-16: the detail pages get the
+    data `owner` (media_playing.html's Move on acts), never the raw `owner_view`."""
     main = _reload(tmp_path, monkeypatch, _shelf_area(), make_area("beta"))
     ctx, real = {}, main.templates.TemplateResponse
 
@@ -42,7 +42,8 @@ def test_status_is_built_for_the_hub_page_only(tmp_path, monkeypatch):
             c.get(path)
     assert set(ctx) == {"hub.html", "weather.html", "area.html", "area_shelves.html", "media_playing.html", "404.html"}
     assert [n for n, keys in ctx.items() if "status" in keys] == ["hub.html"]
-    assert [n for n, keys in ctx.items() if "owner_view" in keys] == ["media_playing.html"]
+    assert [n for n, keys in ctx.items() if "owner_view" in keys] == []
+    assert "owner" in ctx["media_playing.html"]
 
 
 def test_media_frame_reads_ratings_once(tmp_path, monkeypatch):

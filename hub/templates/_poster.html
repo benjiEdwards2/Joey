@@ -1,6 +1,7 @@
 {# Poster thumbnail (2026-10-05). `ref` is a connector poster ref (jf:/radarr:/sonarr:/tmdb:);
    null points at /img/none, the proxy fallback card. `h` is the fetch size (an allowed
-   /img height); display size comes from CSS (.poster.sm, .poster-grid). #}
+   /img height); display size comes from CSS (.poster.sm, .poster-grid). `t=` carries the title's two letters
+   (img_letters), never the whole title, so the placeholder URL is shared and cached (N-33). #}
 {% macro poster(ref, title, h=120, cls="") -%}
-<img class="poster {{ cls }}" src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ (title or '')|urlencode }}" alt="" loading="lazy" decoding="async" width="{{ (h * 2 / 3)|round|int }}" height="{{ h }}">
+<img class="poster {{ cls }}" src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}" alt="" loading="lazy" decoding="async" width="{{ (h * 2 / 3)|round|int }}" height="{{ h }}">
 {%- endmacro %}

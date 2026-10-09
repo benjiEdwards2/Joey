@@ -8,11 +8,12 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from hub.media_downloads import badge_for_title, merge_downloading
+from hub.media_downloads import merge_downloading, pct_for_keys
 from tests.hub.test_media_discover import FAKE_KEY, FAKE_URL, MOVIE, Fake
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 H1, H2 = "a" * 40, "b" * 40
 QB = {
@@ -65,11 +66,6 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app)
 
     return build
-
-
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def test_downloads_page_groups_words_and_totals(env):
@@ -143,12 +139,18 @@ def test_merge_with_qb_absent_leaves_arr_rows_unchanged():
     assert merge_downloading(None, None) == []
 
 
-def test_badge_for_title_ignores_year_and_episode_suffix():
-    merged = merge_downloading([], {"active": [QB["active"][0], QB["active"][1]]})
-    assert badge_for_title(merged, "Midnight Harbour") == "Downloading · 43%"
-    assert badge_for_title(merged, "some show") == "Downloading · 10%"
-    assert badge_for_title(merged, "Other") is None and badge_for_title(merged, "") is None
-
+def test_title_page_percentage_matches_the_item_key_not_a_title_prefix():
+    """M-50 (W2): "It" must not pick up an "It Follows" download; a key (tmdb: / tvdb:) is the only match."""
+    rows = [{"title": "It Follows", "item_key": "tmdb:270303", "pct": 40},
+            {"title": "Aliens", "item_key": "tmdb:679", "pct": 12},
+            {"title": "Some Show · S01E02", "item_key": "tvdb:100", "pct": 10},
+            {"title": "Alien", "item_key": "tmdb:348", "pct": None}]
+    assert pct_for_keys(rows, ["tmdb:679"]) == 12 and pct_for_keys(rows, ["tvdb:100"]) == 10
+    assert pct_for_keys(rows, ["tmdb:346364"]) is None              # "It": no prefix match on "It Follows"
+    assert pct_for_keys(rows, ["tmdb:348"]) is None                 # a queued row without a percentage
+    assert pct_for_keys(rows, []) is None and pct_for_keys(None, ["tmdb:679"]) is None
+    merged = merge_downloading([], {"active": [QB["active"][0]]})   # qBittorrent-only rows carry no key
+    assert pct_for_keys(merged, ["tmdb:603"]) is None
 
 
 EPISODES = ["3AM", "Two Dead Men", "Kandahar", "Resupply", "Gunner", "The Judas Goat", "Crosshairs",
@@ -233,10 +235,12 @@ def disc(env, monkeypatch):
 
 
 def test_title_page_shows_download_badge_only_when_matching(disc):
-    with disc(arr=ARR, qbittorrent=QB) as client:  # The Matrix: not in the queue
+    """M-50 (W2): the queue row's key (tmdb:603) decides, never its title."""
+    other = {**ARR, "downloading": [{**r, "item_key": "tmdb:999"} for r in ARR["downloading"]]}
+    with disc(title="Midnight Harbour", arr=other, qbittorrent=QB) as client:   # same title, another film's key
         assert "Downloading · " not in main_of(client.get("/media/title/movie/603").text)
-    with disc(title="Midnight Harbour", arr=ARR, qbittorrent=QB) as client:
-        assert "Not on your server · downloading 43 %" in main_of(client.get("/media/title/movie/603").text)  # F10: in the status line
+    with disc(arr=ARR, qbittorrent=QB) as client:   # keyed tmdb:603, whatever the page's title says
+        assert "Not on server · Downloading · 43%" in main_of(client.get("/media/title/movie/603").text)  # F10: in the status line
 
 
 def test_title_page_skips_the_badge_silently_without_snapshots(disc):

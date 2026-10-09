@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 from hub import media_db, media_files
+from hub.media_cache import LRU
 from hub.media_discover import _date_words
 from hub.media_library import runtime_text
 
@@ -32,7 +33,7 @@ SEASON_WORKERS = 6
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
 
-_cache: dict[str, tuple[float, dict]] = {}
+_cache: LRU = LRU()   # jf_id -> (fetched_at, item + seasons); bounded (M-42)
 _server: list = [0.0, None]  # [fetched_at, server id]
 
 
@@ -134,7 +135,8 @@ def _build(jf_id: str) -> dict:
         # finds the show already cached instead of reading it (and its seasons) a second time.
         show_f = pool.submit(_data, series_id) if kind in ("episode", "season") and series_id else None
         seasons_f = pool.submit(_seasons, base, headers, uid, series_id, today) if kind == "series" else None
-        files_f = (pool.submit(media_files.file_summary, "tv", int(tmdb)) if kind == "series" and str(tmdb).isdigit()
+        files_f = (pool.submit(media_files.file_summary, "tv", int(tmdb), raw["Id"])   # M-45: the series id is known
+                   if kind == "series" and str(tmdb).isdigit()
                    else None)
         if show_f is not None:
             show = show_f.result()
@@ -165,7 +167,7 @@ def _build(jf_id: str) -> dict:
         "air_date": air, "runtime_min": ticks // TICKS_PER_MINUTE if ticks else None,
         "added": raw.get("DateCreated"), "last_played": ud.get("LastPlayedDate"), "trailer": _trailer(raw),
         "played": played, "in_progress": not played and pos > 0,
-        "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE} min left" if ticks and pos > 0 else None,
+        "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE}m left" if ticks and pos > 0 else None,
         "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
         "imdb": str(imdb) if imdb else None,
         # media-ux3: the "part of" banner draws a backdrop only when Jellyfin has one (else a plain panel)
@@ -223,17 +225,14 @@ def _rating_for(item: dict, level: str) -> dict:
 
 
 def _diary_dates(item: dict, owner: str) -> list[str]:
-    kind, out = item["kind"], []
-    film_keys = {f"jf:{item['id']}"} | ({f"tmdb:{item['tmdb']}"} if item["tmdb"] else set())
-    for r in media_db.list_diary(500, 0, None, owner):
-        if kind == "movie":
-            hit = r.get("item_key") in film_keys
-        elif kind == "episode":
-            hit = r.get("item_key") == item["episode_key"]
-        elif kind == "season":
-            hit = r.get("season_key") == item["season_key"]
-        else:
-            hit = f"jf:{item['id']}" in (r.get("show_key"), r.get("item_key"))
-        if hit and r.get("watched_on"):
-            out.append(_date_words(r["watched_on"])[0] or r["watched_on"])
-    return out[:8]
+    """The title's newest 8 diary dates as words — one dedicated SELECT (M-36), not a scan of the latest 500 rows."""
+    kind = item["kind"]
+    if kind == "movie":
+        q = {"item_keys": [f"jf:{item['id']}"] + ([f"tmdb:{item['tmdb']}"] if item["tmdb"] else [])}
+    elif kind == "episode":
+        q = {"item_keys": [item["episode_key"]]}
+    elif kind == "season":
+        q = {"season_key": item["season_key"]}
+    else:
+        q = {"item_keys": [f"jf:{item['id']}"], "show_key": f"jf:{item['id']}"}
+    return [_date_words(d)[0] or d for d in media_db.diary_dates(owner, **q)]

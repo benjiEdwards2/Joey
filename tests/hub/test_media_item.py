@@ -14,6 +14,7 @@ from hub import media_db, media_files, media_item, media_plays_db
 from tests.hub.test_media_shelves import LINK, shelf_area
 from tests.hub.test_registry import make_area, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 URL = "http://jf.secret-host.invalid:8096"
 KEY = "jf-SECRET-key-123"
@@ -106,11 +107,6 @@ def env(tmp_path, monkeypatch):
     return build
 
 
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
-
-
 def current(html, label):
     nav = html.split(f'aria-label="{label}"', 1)[1].split("</nav>", 1)[0]
     return re.findall(r'aria-current="page">([^<]+?)(?:\s*<|\s*$)', nav)
@@ -132,7 +128,7 @@ def test_movie_page(env):
     assert "Harbour Lights (2019)" in b and "A ferry pilot returns home." in b
     assert "Drama · Thriller" in b and "1h 52m" in b and '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and ">M<" in b  # media-ux4 (2026-10-08, B.): one pill style
     assert f'href="{deep("mov1")}" target="_blank" rel="noopener"' in b
-    assert "Resume ▶ · 32 min left" in b                       # 112 - 80 minutes
+    assert "Resume ▶ · 32m left" in b                       # 112 - 80 minutes
     assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate
     assert 'class="ratepick"' in b and 'value="tmdb:603"' in b
     assert "Watched 1 time · 12 Oct 2026" in b
@@ -196,10 +192,10 @@ def test_series_page(env):
     with client:
         r = client.get("/media/item/ser1")
         b = main_of(r.text)
-    assert r.status_code == 200 and "Quiet Show (2020)" in b and "TV show" in b
+    assert r.status_code == 200 and "Quiet Show (2020)" in b and ">TV<" in b
     assert "3 of 6 watched" in b and 'value="jf:ser1"' in b
     assert f'href="{deep("ep4")}"' in b and "Next to watch: S4 E4 ▶" in b   # in-progress episode is next
-    assert "On your server · 6 episodes · 2 to watch · S4 E4 next" in b
+    assert "On server · 6 episodes · 2 to watch · S4 E4 next" in b
 
 
 def test_bad_id_is_404(env):
@@ -259,15 +255,6 @@ def test_no_url_or_key_in_the_page(env):
         for jf in ("mov1", "ep3", "ser1"):
             html = client.get(f"/media/item/{jf}").text
             assert KEY not in html and "secret-host" not in html
-
-
-def test_file_summary_for_item_reads_one_item(env):
-    client, fake = env()
-    with client:
-        out = media_files.file_summary_for_item("mov1")
-        assert media_files.file_summary_for_item("mov1") == out
-    assert out["files"] == 1 and {"word": "4K", "icon": "res"} in out["video"]
-    assert [p for p, _ in fake.calls].count("/Users/u1/Items/mov1") == 1
 
 
 # ---- link re-pointing ----

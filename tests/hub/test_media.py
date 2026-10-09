@@ -2,15 +2,13 @@
 on any area whose tiles read the media_status / jellyfin snapshots. Up/Down is a
 WORD beside the dot (colour never the only encoding).
 """
-import importlib
 from pathlib import Path
 
 import pytest
-import yaml
-from fastapi.testclient import TestClient
 
 from tests.hub.test_registry import make_area, make_tile
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import app_with
 
 JELLY_HREF = "http://nas.example.invalid:8096"
 
@@ -36,17 +34,7 @@ def app_factory(tmp_path, monkeypatch):
     area["tiles"].append(make_tile("apps-t", snapshot="media_status", stale_after_minutes=10))
     area["tiles"].append({"id": "open-t", "label": "Open Jellyfin", "tier": "link",
                           "owner": "shared", "href": JELLY_HREF})
-    path = tmp_path / "areas.yaml"
-    path.write_text(yaml.safe_dump({"areas": [area]}), encoding="utf-8")
-    monkeypatch.setenv("AREAS_PATH", str(path))
-
-    def build(snapshot_dir):
-        monkeypatch.setenv("SNAPSHOT_DIR", str(snapshot_dir))
-        import hub.main
-        importlib.reload(hub.main)
-        return TestClient(hub.main.app)
-
-    return build, tmp_path
+    return app_with(tmp_path, monkeypatch, area), tmp_path
 
 
 def test_apps_rows_show_up_down_words_and_link_out(app_factory):
@@ -134,5 +122,5 @@ def test_area_media_rows_carry_posters_inside_main(app_factory):
     with build(snaps) as client:
         body = client.get("/a/alpha").text.split("<main", 1)[1]
     assert '<img class="poster row-poster' in body
-    assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
-    assert 'src="/img/none?h=120&amp;t=Dust%20and%20Daylight' in body  # null ref -> fallback card
+    assert 'src="/img/jf:abc123?h=120&amp;t=HA"' in body
+    assert 'src="/img/none?h=120&amp;t=DU"' in body  # null ref -> fallback card

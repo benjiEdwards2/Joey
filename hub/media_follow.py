@@ -31,9 +31,10 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_discover as md, server_alerts
-from hub.media_write import form_of, same_origin
+from hub import media_db, media_discover as md, media_store, media_text, server_alerts
+from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_follow")
 
@@ -65,15 +66,12 @@ def disabled() -> bool:
 # ---- storage ----
 
 def ensure() -> sqlite3.Connection:
-    db = media_db.connect()
-    for ddl in DDL:
-        db.execute(ddl)
-    db.commit()
-    return db
+    """A connection for a write (media_store creates the tables below with the rest of media.db)."""
+    return media_store.connect()
 
 
 def _reader():
-    return ensure() if media_db.db_path().is_file() else None
+    return media_store.reader()
 
 
 def follow(kind: str, tmdb_id: int, name: str, poster: str | None = None, dept: str | None = None,
@@ -322,6 +320,7 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
 router = APIRouter()
 FOLLOWING = "/media/following"
 FLASH = {"on": "Following — new films are requested automatically", "off": "Unfollowed"}
+flash_keys("follow")
 KIND_WORDS = {"Directing": "Director"}
 NEEDS_SEERR = "Follow needs Jellyseerr"
 EMPTY = "Follow an actor, director or film series from their page."
@@ -334,9 +333,8 @@ def _kind_of(kind: str) -> str:
 
 
 def _back(value: str, default: str) -> str:
-    """Only a local /media/ path (no scheme, no //) is a redirect target."""
-    v = str(value or "")
-    return v if v.startswith("/media/") and "//" not in v and "\\" not in v and len(v) < 300 else default
+    """Only a local /media/ path is a redirect target (media_write.safe_back); its query is kept for _flashed."""
+    return safe_back(value, default, keep_query=True, prefixes=("/media/",), exact=())
 
 
 def _flashed(url: str, word: str) -> str:
@@ -381,7 +379,10 @@ async def follow_route(request: Request, kind: str, tmdb_id: int):
     kind = _kind_of(kind)
     if tmdb_id <= 0:
         raise HTTPException(404, "Nothing to follow")
-    form = await form_of(request)
+    return await run_in_threadpool(_follow, kind, tmdb_id, await form_of(request))   # M-40: Jellyseerr read off the loop
+
+
+def _follow(kind: str, tmdb_id: int, form: dict):
     got = _describe(kind, tmdb_id)
     fallback = " ".join(str(form.get("name") or "").split())[:120]
     name = got.get("name") or fallback or ("Person" if kind == "person" else "Film series")
@@ -405,16 +406,14 @@ async def unfollow_route(request: Request, kind: str, tmdb_id: int):
     kind = _kind_of(kind)
     form = await form_of(request)
     try:
-        unfollow(kind, tmdb_id)
+        await run_in_threadpool(unfollow, kind, tmdb_id)
     except (sqlite3.Error, OSError) as exc:
         log.warning("unfollow not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the change") from None
     return RedirectResponse(_flashed(_back(form.get("back"), FOLLOWING), "off"), status_code=303)
 
 
-def _year(value) -> int | None:
-    text = str(value or "")[:4]
-    return int(text) if text.isdigit() else None
+_year = media_text.year
 
 
 def following_ctx() -> dict:

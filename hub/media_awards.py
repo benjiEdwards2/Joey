@@ -27,7 +27,6 @@ nothing is ever called.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sqlite3
@@ -41,6 +40,7 @@ import requests
 from hub import media_awards_db as adb
 from hub import media_awards_seed as seed
 from hub import media_awards_parse as ap
+from hub.ids import home_now
 
 log = logging.getLogger("hub.media_awards")
 
@@ -61,7 +61,6 @@ WEEKLY_DAY, WEEKLY_HOUR = 6, 9          # Sunday, from 09:00 local
 OFF_FROM, OFF_TO = 22, 7                # the NAS is off 22:00–07:00 local
 FIRST_DELAY_S = 180
 TICK_S = 3600
-HOME_TZ_NAME = "Australia/Melbourne"
 
 # "Nothing there yet" answers: not backlog (they would hold the 6-hourly cadence forever); the weekly refresh of recent /
 # coming editions asks again once the pull is ≥ 6 days old.
@@ -92,11 +91,8 @@ def user_agent(who: str) -> str:
 
 
 def now_home() -> datetime:
-    try:
-        from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo(HOME_TZ_NAME))
-    except Exception:  # no tz database: the container's local time
-        return datetime.now().astimezone()
+    """Wall-clock at home (hub.ids.home_now: the container's local time without a tz database)."""
+    return home_now()
 
 
 def in_off_window(now_local: datetime) -> bool:
@@ -534,7 +530,6 @@ def run_pass(cap: int = CAP, client: Client | None = None, today: date | None = 
                 failed = (not ok or counts["rate_limited"]) and not counts["editions"]   # outright: nothing landed
                 adb.set_sync(db, "last_pass_ok", "0" if failed else "1")
                 counts["calls"] = client.calls
-                adb.set_sync(db, "last_result", json.dumps(counts))
     except (sqlite3.Error, OSError) as exc:
         log.warning("awards pass failed: %s", type(exc).__name__)
     finally:

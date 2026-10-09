@@ -12,15 +12,13 @@ import logging
 import os
 from datetime import datetime, timezone
 
-import requests
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_plays_db as pdb
+from hub import media_db, media_jellyfin as jellyfin, media_plays_db as pdb
 
 log = logging.getLogger("hub.media_plays")
 
-TIMEOUT = 8
 DEFAULT_POLL_S = 60
 FIRST_DELAY_S = 15
 WINDOW_CHIPS = [(7, "7 days"), (30, "30 days"), (90, "90 days"), ("year", "This year"), ("all", "All time")]
@@ -35,9 +33,7 @@ def poll_seconds() -> float:
         return float(DEFAULT_POLL_S)
 
 
-def _creds():
-    base, key = os.environ.get("JELLYFIN_URL", "").strip(), os.environ.get("JELLYFIN_API_KEY", "").strip()
-    return (base.rstrip("/"), {"Authorization": f"MediaBrowser Token={key}"}) if base and key else None
+_creds = jellyfin.creds   # M-12: one Jellyfin client (hub/media_jellyfin.py)
 
 
 def disabled() -> bool:
@@ -45,7 +41,7 @@ def disabled() -> bool:
 
 
 def _owner(user_name) -> str:
-    her = os.environ.get("JELLYFIN_USER_HER", "").strip()
+    her = jellyfin.her_name()
     return "her" if her and user_name == her else "you"
 
 
@@ -90,10 +86,7 @@ def poll_once(now: datetime | None = None) -> int:
     now = now or datetime.now(timezone.utc)
     base, headers = creds
     try:
-        resp = requests.get(f"{base}/Sessions", headers=headers, timeout=TIMEOUT)
-        if not 200 <= resp.status_code < 300:
-            raise RuntimeError(f"HTTP {resp.status_code}")
-        sessions = resp.json()
+        sessions = jellyfin.get(base, headers, "/Sessions")
         count = 0
         for s in sessions if isinstance(sessions, list) else []:
             play = play_from_session(s) if isinstance(s, dict) else None
@@ -125,7 +118,7 @@ def start_recorder():
 
 def history_context(window, view: str) -> dict:
     window = window if window in ("year", "all") else (int(window) if str(window) in ("7", "30", "90") else 30)
-    owner = {"you": "you", "her": "her"}.get(view)
+    owner = media_db.owner_filter(view)
     s = pdb.stats(window, owner)
     day = s["busiest_day"]
     if day:
@@ -147,5 +140,5 @@ def history_page(request: Request, w: str = "30"):
     ctx = history_context(int(w) if w.isdigit() else w, view)
     resp = hub.templates.TemplateResponse(request, "media_server_history.html", {
         "areas": hub.registry.visible_areas, "active_id": None, "owner_view": view,
-        "status": hub.build_status(hub.get_snapshots()), "ratings": {}, **ctx})
+        "status": hub.build_status(hub.get_snapshots(request=request)), "ratings": {}, **ctx})
     return hub._maybe_set_cookie(resp, view, from_query)

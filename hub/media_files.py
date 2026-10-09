@@ -9,62 +9,37 @@ never a URL or key.
 from __future__ import annotations
 
 import logging
-import os
 import re
 import time
 
-import requests
+import requests  # noqa: F401 - tests fake Jellyfin at media_files.requests.get (the shared module)
+
+from hub import media_jellyfin as jellyfin
+from hub.media_cache import LRU
 
 log = logging.getLogger("hub.media_files")
 
-TIMEOUT = 8
 CACHE_TTL = 600
-UID_TTL = 3600
+UID_TTL = jellyfin.UID_TTL
 ITEM_FIELDS = "MediaStreams,MediaSources,Path,Width,Height,Container,RunTimeTicks"
 ITEM_LIMIT = 500
 
-_cache: dict[tuple[str, int], tuple[float, dict]] = {}
-_uid: list = [0.0, None]  # [fetched_at, uid]
+_cache: LRU = LRU()   # (kind, tmdb) / item keys -> (fetched_at, summary); bounded (M-42)
 
 
 def clear_cache() -> None:
     _cache.clear()
-    _uid[:] = [0.0, None]
+    jellyfin.clear_cache()
 
 
-def _creds() -> tuple[str, dict] | None:
-    base, key = os.environ.get("JELLYFIN_URL", "").strip(), os.environ.get("JELLYFIN_API_KEY", "").strip()
-    if not (base and key):
-        return None
-    return base.rstrip("/"), {"Authorization": f"MediaBrowser Token={key}"}
-
-
-def _get(base: str, headers: dict, path: str, params: dict | None = None):
-    resp = requests.get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
-    if not 200 <= resp.status_code < 300:
-        raise RuntimeError(f"HTTP {resp.status_code}")
-    return resp.json()
-
-
-def _pick_user(users, preferred: str | None) -> str | None:
-    """JELLYFIN_USER by name, else the first administrator, else the first user."""
-    users = [u for u in users if isinstance(u, dict) and u.get("Id")] if isinstance(users, list) else []
-    for u in users:
-        if preferred and u.get("Name") == preferred:
-            return u["Id"]
-    for u in users:
-        if (u.get("Policy") or {}).get("IsAdministrator"):
-            return u["Id"]
-    return users[0]["Id"] if users else None
+# The Jellyfin client lives in hub/media_jellyfin.py (M-12); these names stay for the modules that call them.
+_creds = jellyfin.creds
+_get = jellyfin.get
 
 
 def _user_id(base: str, headers: dict) -> str | None:
-    if _uid[1] and time.time() - _uid[0] < UID_TTL:
-        return _uid[1]
-    uid = _pick_user(_get(base, headers, "/Users"), os.environ.get("JELLYFIN_USER", "").strip() or None)
-    if uid:
-        _uid[:] = [time.time(), uid]
-    return uid
+    """B.'s Jellyfin user id (media_jellyfin.user_id("you")), read through this module's _get."""
+    return jellyfin.user_id("you", base, headers, lambda b, h: _get(b, h, "/Users"))
 
 
 # ---- facts -> words ----
@@ -103,25 +78,6 @@ def _audio_word(stream: dict) -> str:
     return AUDIO_WORDS.get(codec) or codec.upper() or "Audio"
 
 
-# Dolby / DTS badge (2026-10-06): the ONE mapping from an audio word or raw codec string to a
-# brand badge. The label is always written out — the double-D glyph is extra, never the only encoding.
-BRAND_BADGES = {
-    "atmos": ("Dolby Atmos", True), "dolbyatmos": ("Dolby Atmos", True),
-    "eac3": ("Dolby Digital Plus", True), "ddp": ("Dolby Digital Plus", True),
-    "dolbydigitalplus": ("Dolby Digital Plus", True),
-    "ac3": ("Dolby Digital", True), "dolbydigital": ("Dolby Digital", True),
-    "truehd": ("Dolby TrueHD", True), "dolbytruehd": ("Dolby TrueHD", True),
-    "dts": ("DTS", False), "dtshd": ("DTS-HD", False), "dtshdma": ("DTS-HD MA", False), "dtsx": ("DTS:X", False),
-}
-
-
-def brand_badge(text) -> dict | None:
-    """'E-AC-3' / 'Dolby Digital Plus' -> {'label': 'Dolby Digital Plus', 'glyph': True}; unknown -> None."""
-    key = "".join(ch for ch in str(text or "").lower() if ch.isalnum())
-    hit = BRAND_BADGES.get(key)
-    return {"label": hit[0], "glyph": hit[1]} if hit else None
-
-
 LANG_WORDS = {"eng": "English", "fra": "French", "fre": "French", "deu": "German", "ger": "German",
               "spa": "Spanish", "ita": "Italian", "jpn": "Japanese", "kor": "Korean", "zho": "Chinese",
               "chi": "Chinese", "rus": "Russian", "por": "Portuguese", "hin": "Hindi", "nld": "Dutch",
@@ -133,23 +89,17 @@ def _lang_word(code) -> str | None:
     return None if not code or code == "und" else LANG_WORDS.get(code) or code.upper()
 
 
-# Quality pills (F10): ONE mapping from a badge word to {id, label, tone, glyph}. `id` names the optional
-# override image in hub/static/badges/; `tone` picks the pill style (dolby / dts black; hdr dark; plain).
-PILL_IDS = {"Dolby Vision": ("dolby-vision", "dolby", True), "Dolby Atmos": ("dolby-atmos", "dolby", True),
-            "Atmos": ("dolby-atmos", "dolby", True), "Dolby Digital Plus": ("dolby-digital-plus", "dolby", True),
-            "Dolby Digital": ("dolby-digital", "dolby", True), "TrueHD": ("dolby-truehd", "dolby", True),
-            "Dolby TrueHD": ("dolby-truehd", "dolby", True), "DTS-HD": ("dts-hd", "dts", False),
-            "DTS-HD MA": ("dts-hd", "dts", False), "DTS": ("dts", "dts", False),
-            "HDR10": ("hdr10", "hdr", False), "HDR10+": ("hdr10plus", "hdr", False), "HLG": ("hlg", "hdr", False)}
+# Quality pills (F10): ONE mapping from a badge word to {id, label}. `id` names the optional override image in
+# hub/static/badges/ (media_film.badge).
+PILL_IDS = {"Dolby Vision": "dolby-vision", "Dolby Atmos": "dolby-atmos", "Atmos": "dolby-atmos",
+            "Dolby Digital Plus": "dolby-digital-plus", "Dolby Digital": "dolby-digital", "TrueHD": "dolby-truehd",
+            "Dolby TrueHD": "dolby-truehd", "DTS-HD": "dts-hd", "DTS-HD MA": "dts-hd", "DTS": "dts",
+            "HDR10": "hdr10", "HDR10+": "hdr10plus", "HLG": "hlg"}
 
 
-def badge_pill(word: str, icon: str = "") -> dict:
-    """A badge word -> the pill to draw. Dolby words read as 'Dolby ...' (Atmos / TrueHD included)."""
-    hit = PILL_IDS.get(word)
-    label = {"Atmos": "Dolby Atmos", "TrueHD": "Dolby TrueHD"}.get(word, word)
-    if hit:
-        return {"id": hit[0], "label": label, "tone": hit[1], "glyph": hit[2], "icon": icon}
-    return {"id": None, "label": word, "tone": "plain", "glyph": False, "icon": icon}
+def badge_pill(word: str) -> dict:
+    """A badge word -> {id, label}. Dolby words read as 'Dolby ...' (Atmos / TrueHD included)."""
+    return {"id": PILL_IDS.get(word), "label": {"Atmos": "Dolby Atmos", "TrueHD": "Dolby TrueHD"}.get(word, word)}
 
 
 def _size_text(n) -> str | None:
@@ -335,8 +285,6 @@ def _badges(files: list[dict]) -> tuple[list[dict], list[dict]]:
     audio += [{"word": w, "icon": "channels"} for w in _ordered(col("channels"), ("Mono", "Stereo", "5.1", "7.1"))]
     if any(f.get("atmos") for f in files):
         audio.append({"word": "Atmos", "icon": "atmos"})
-    for b in audio:
-        b["brand"] = brand_badge(b["word"]) if b["icon"] in ("audio", "atmos") else None
     return video, audio
 
 
@@ -376,7 +324,37 @@ def _tmdb_match(items, tmdb_id: int) -> list[dict]:
     return out
 
 
+JF_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")   # media_item.ITEM_RE (not imported: media_item imports this module)
+
+
+def jf_for(kind: str, tmdb_id: int, snaps=None) -> str | None:
+    """The Jellyfin id of a film / show from the jellyfin snapshot's library lists (both profiles), or None when the
+    title isn't there (off-server, or no snapshot)."""
+    from hub.ids import JELLYFIN_SNAPSHOT_ID
+    from hub.store import data_of, get_snapshots
+
+    data = data_of((get_snapshots() if snaps is None else snaps).get(JELLYFIN_SNAPSHOT_ID))
+    field, key = ("movies" if kind == "movie" else "shows"), f"tmdb:{tmdb_id}"
+    for prof in (data, data.get("her") if isinstance(data.get("her"), dict) else {}):
+        for r in prof.get(field) or []:
+            if isinstance(r, dict) and r.get("item_key") == key and JF_ID_RE.match(str(r.get("jf_id") or "")):
+                return str(r["jf_id"])
+    return None
+
+
+def _by_id(base: str, headers: dict, uid: str, kind: str, jf_id: str):
+    """M-45: the reads for a known Jellyfin id — a film is one item read, a series' files come from
+    /Shows/{id}/Episodes — instead of listing the whole library (multi-MB, and capped at ITEM_LIMIT)."""
+    if kind == "movie":
+        item = _get(base, headers, f"/Users/{uid}/Items/{jf_id}", {"Fields": ITEM_FIELDS})
+        return [item] if isinstance(item, dict) else None
+    body = _get(base, headers, f"/Shows/{jf_id}/Episodes", {"UserId": uid, "Fields": ITEM_FIELDS})
+    items = body.get("Items") if isinstance(body, dict) else None
+    return items if isinstance(items, list) else None
+
+
 def _items(base: str, headers: dict, uid: str, kind: str, tmdb_id: int):
+    """The fallback for a title without a known Jellyfin id (off-server per the snapshot): list and match."""
     path = f"/Users/{uid}/Items"
     common = {"Recursive": "true", "Fields": ITEM_FIELDS, "Limit": ITEM_LIMIT}
     wanted = {"AnyProviderIdEquals": f"Tmdb.{tmdb_id}"}
@@ -396,8 +374,10 @@ def _items(base: str, headers: dict, uid: str, kind: str, tmdb_id: int):
     return items if isinstance(items, list) else None
 
 
-def file_summary(kind: str, tmdb_id: int) -> dict | None:
-    """Quality facts for what is on disk, or None (not in Jellyfin / not configured / any failure)."""
+def file_summary(kind: str, tmdb_id: int, jf_id: str | None = None, snaps=None) -> dict | None:
+    """Quality facts for what is on disk, or None (not in Jellyfin / not configured / any failure). `jf_id` (the film,
+    or the SERIES for tv) when the caller knows it, else the snapshot's library lists are asked (jf_for); only a
+    title found in neither falls back to listing the library."""
     if kind not in ("movie", "tv"):
         return None
     hit = _cache.get((kind, tmdb_id))
@@ -409,7 +389,8 @@ def file_summary(kind: str, tmdb_id: int) -> dict | None:
     base, headers = creds
     try:
         uid = _user_id(base, headers)
-        items = _items(base, headers, uid, kind, tmdb_id) if uid else None
+        jf_id = jf_id if jf_id and JF_ID_RE.match(str(jf_id)) else jf_for(kind, tmdb_id, snaps)
+        items = (_by_id(base, headers, uid, kind, jf_id) if jf_id else _items(base, headers, uid, kind, tmdb_id))             if uid else None
         out = _summarise(kind, items) if items else None
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("jellyfin file lookup failed: %s", type(exc).__name__)
@@ -420,35 +401,13 @@ def file_summary(kind: str, tmdb_id: int) -> dict | None:
 
 
 def file_summary_from_item(jf_id: str, item: dict) -> dict | None:
-    """file_summary_for_item from an item body already read WITH ITEM_FIELDS (the film page's own read):
-    no second Jellyfin call. Shares file_summary_for_item's cache entry."""
+    """Quality facts for ONE Jellyfin item (a film or an episode file) from an item body already read WITH
+    ITEM_FIELDS (the film page's own read): no second Jellyfin call."""
     key = (f"item:{jf_id}", 0)
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < CACHE_TTL:
         return hit[1]
     out = _summarise("movie", [item]) if isinstance(item, dict) else None
-    if out is not None:
-        _cache[key] = (time.time(), out)
-    return out
-
-
-def file_summary_for_item(jf_id: str) -> dict | None:
-    """Quality facts for ONE Jellyfin item (a film or an episode file), or None on any failure."""
-    key = (f"item:{jf_id}", 0)
-    hit = _cache.get(key)
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1]
-    creds = _creds()
-    if not creds:
-        return None
-    base, headers = creds
-    try:
-        uid = _user_id(base, headers)
-        item = _get(base, headers, f"/Users/{uid}/Items/{jf_id}", {"Fields": ITEM_FIELDS}) if uid else None
-        out = _summarise("movie", [item]) if isinstance(item, dict) else None
-    except Exception as exc:  # type only — requests errors embed the URL
-        log.warning("jellyfin item file lookup failed: %s", type(exc).__name__)
-        return None
     if out is not None:
         _cache[key] = (time.time(), out)
     return out

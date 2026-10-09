@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Library — Joey{% endblock %}
+{% block title %}Library · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
@@ -9,7 +9,7 @@
    word beside its bar — colour is never the only encoding. #}
 {% set newbadge %}<span class="badge badge-new">{{ icon("sparkles") }}New</span>{% endset %}
 {% if src.st.state == "off" %}
-<p class="empty">Not connected.</p>
+<p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 {% for note in app_notes %}<p class="metaline">{{ note }}</p>{% endfor %}

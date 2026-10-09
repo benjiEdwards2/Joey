@@ -56,12 +56,26 @@ def test_library_gating_24h_and_stamp(env, monkeypatch, tmp_path):
     assert "library" in media_warmup.run_pass(pause=0)
 
 
-def test_failed_library_pass_is_not_stamped(env, monkeypatch, tmp_path):
+def test_missing_backdrops_count_as_done_and_the_pass_is_stamped(env, monkeypatch, tmp_path):
+    """M-44: a library whose items have no backdrop (images.warm -> "skipped" for every jfb: ref) completes, counts
+    those as skipped rather than failed, and stamps — the whole-library pass no longer repeats every 3 h."""
     _, both, fetched = warm_env(env, monkeypatch, tmp_path)
     monkeypatch.setenv("MEDIA_WARMUP", "on")
-    monkeypatch.setattr(images, "warm", lambda ref, h=0: "skipped")
+    real = images.warm
+    monkeypatch.setattr(images, "warm", lambda ref, h=0: "skipped" if ref.startswith("jfb:") else real(ref, h))
     out = media_warmup.run_pass(pause=0)
-    assert out["library"]["failed"] > 0 and media_warmup.library_due()
+    lib = out["library"]
+    assert lib["titles"] == 3 and lib["skipped"] == 3 and lib["failed"] == 0 and lib["fetched"] > 0
+    assert not media_warmup.library_due()
+
+
+def test_a_pass_without_keys_is_not_stamped(env, monkeypatch, tmp_path):
+    warm_env(env, monkeypatch, tmp_path)
+    monkeypatch.setenv("MEDIA_WARMUP", "on")
+    for name in ("JELLYSEERR_URL", "JELLYSEERR_API_KEY", "JELLYFIN_URL", "JELLYFIN_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    out = media_warmup.run_pass(pause=0)
+    assert out["library"].get("skipped_no_keys") and media_warmup.library_due()
 
 
 def test_mode_switches(env, monkeypatch, tmp_path):
@@ -73,3 +87,20 @@ def test_mode_switches(env, monkeypatch, tmp_path):
     assert media_warmup.disabled() and not media_warmup.library_enabled()
     monkeypatch.setenv("MEDIA_WARMUP", "on")
     assert not media_warmup.disabled() and media_warmup.library_enabled()
+
+
+def test_the_warm_up_loop_prunes_meta_files_older_than_seven_days(env, monkeypatch, tmp_path):
+    """M-47 (W2): META_CACHE_DIR no longer grows forever — run_pass deletes files last written over 7 days ago."""
+    import os
+    warm_env(env, monkeypatch, tmp_path)
+    monkeypatch.setenv("MEDIA_WARMUP", "shelves")
+    folder = md.meta_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    old, fresh = folder / "old.json", folder / "fresh.json"
+    for f in (old, fresh):
+        f.write_text("{}", encoding="utf-8")
+    week = 7 * 24 * 3600
+    os.utime(old, (time.time() - week - 60,) * 2)
+    os.utime(fresh, (time.time() - week + 3600,) * 2)
+    out = media_warmup.run_pass(pause=0)
+    assert out["pruned"] == 1 and not old.exists() and fresh.exists()

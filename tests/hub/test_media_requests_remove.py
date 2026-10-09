@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from hub import media_hidden
 from tests.hub.test_registry import make_area
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SAMPLE = json.loads((Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "jellyseerr.json")
                     .read_text(encoding="utf-8"))["data"]
@@ -114,10 +115,6 @@ def env(tmp_path, monkeypatch):
 
     yield build
     media_hidden.clear()
-
-
-def main_of(html: str) -> str:
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def remove(client, rid):

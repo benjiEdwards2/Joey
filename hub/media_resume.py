@@ -30,17 +30,16 @@ and apply_hidden drops that suggestion everywhere until Next Up suggests a diffe
 from __future__ import annotations
 
 import logging
-import os
 import re
-import time
 from urllib.parse import urlencode
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_files, media_hidden, media_item
-from hub.media_write import form_of, same_origin
+from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin
+from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_resume")
 router = APIRouter()
@@ -56,11 +55,9 @@ ERRORS = {"jfunset": "Jellyfin is not connected", "jfuser": "No Jellyfin user fo
           "hidefail": "Couldn't hide it"}
 FALLBACK_STATUS = (404, 405)
 
-_her_uid: list = [0.0, None, None]  # [fetched_at, name, uid]
-
 
 def clear_cache() -> None:
-    _her_uid[:] = [0.0, None, None]
+    jellyfin.clear_cache()   # her user id now lives in media_jellyfin's cache
 
 
 # ---- what the pages show ----
@@ -114,6 +111,9 @@ def in_progress(row: dict) -> bool:
     return bool(text) and text != NEXT_EPISODE
 
 
+flash_keys("done", "error", "code")
+
+
 def flash_text(params) -> tuple[str | None, str | None]:
     done, err, code = params.get("done") or "", params.get("error") or "", params.get("code") or ""
     if done in DONE:
@@ -126,17 +126,8 @@ def flash_text(params) -> tuple[str | None, str | None]:
 # ---- Jellyfin ----
 
 def _her_user_id(base: str, headers: dict) -> str | None:
-    name = os.environ.get("JELLYFIN_USER_HER", "").strip()
-    if not name:
-        return None
-    if _her_uid[2] and _her_uid[1] == name and time.time() - _her_uid[0] < media_files.UID_TTL:
-        return _her_uid[2]
-    users = media_files._get(base, headers, "/Users")
-    uid = next((u["Id"] for u in users if isinstance(u, dict) and u.get("Name") == name and u.get("Id")), None) \
-        if isinstance(users, list) else None
-    if uid:
-        _her_uid[:] = [time.time(), name, uid]
-    return uid
+    """Georgina's Jellyfin user id: exactly JELLYFIN_USER_HER (media_jellyfin), never the admin."""
+    return jellyfin.user_id("her", base, headers, lambda b, h: media_files._get(b, h, "/Users"))
 
 
 def _post(base, headers, path, params=None, body=None):
@@ -182,10 +173,8 @@ def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:
 # ---- routes ----
 
 def _back(value) -> str:
-    """Only a local page path (no scheme, no //) is a redirect target; its query is dropped (no stale flash)."""
-    v = str(value or "").split("#", 1)[0].split("?", 1)[0]
-    ok = v == "/" or v.startswith(("/media/", "/a/"))
-    return v if ok and "//" not in v and "\\" not in v and len(v) < 300 else DEFAULT_BACK
+    """Only a local page path is a redirect target (media_write.safe_back); its query is dropped (no stale flash)."""
+    return safe_back(value, DEFAULT_BACK)
 
 
 def owner_of(request: Request, form: dict) -> str:
@@ -220,9 +209,14 @@ def _to_hide(action: str, scope: str | None, jf_id: str, show_id) -> list[str]:
 
 
 async def _run(request: Request, jf_id: str, action: str):
+    """The form is read on the event loop; the Jellyfin calls (and the season read behind _to_hide) run in a worker
+    thread (M-40)."""
     if not media_item.ITEM_RE.match(jf_id):
         raise HTTPException(404, "No such item")
-    form = await form_of(request)
+    return await run_in_threadpool(_apply, request, jf_id, action, await form_of(request))
+
+
+def _apply(request: Request, jf_id: str, action: str, form: dict):
     owner, back = owner_of(request, form), _back(form.get("back"))
     scope = "season" if form.get("scope") == "season" and action in ("watched", "unwatched") else None
     season = str(form.get("season") or "")
@@ -265,7 +259,7 @@ async def hide_next_up(request: Request, jf_id: str):
     if not media_db.KEY_RE.match(series):
         raise HTTPException(422, "Invalid series")
     try:
-        media_db.hide_next_up(owner, series, jf_id)
+        await run_in_threadpool(media_db.hide_next_up, owner, series, jf_id)
     except Exception as exc:  # sqlite / OS errors: a word, never a 500
         log.warning("next up hide not saved: %s", type(exc).__name__)
         return RedirectResponse(f"{back}?error=hidefail", status_code=303)

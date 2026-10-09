@@ -14,6 +14,7 @@ from hub import media_backup as mb
 from tests.hub.test_media_shelves import shelf_area
 from tests.hub.test_registry import make_area, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_raw as main_of
 
 NOW = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
 
@@ -120,7 +121,7 @@ def test_status_thresholds(paths):
     assert st["state"] == "none" and st["warning"] == "Media backup: none yet"
     p = touch_dump(dest, NOW - timedelta(hours=3), size=12 * 1024)
     st = mb.status(db, dest, NOW)
-    assert (st["state"], st["age_text"], st["size_text"], st["warning"]) == ("ok", "3 hours ago", "12 KB", None)
+    assert (st["state"], st["age_text"], st["size_text"], st["warning"]) == ("ok", "3h ago", "12 KB", None)
     p.unlink()
     touch_dump(dest, NOW - timedelta(hours=36))
     assert mb.status(db, dest, NOW)["state"] == "ok"                  # 36 h exactly is not stale yet
@@ -133,7 +134,7 @@ def test_status_thresholds(paths):
         f.unlink()
     touch_dump(dest, NOW - timedelta(days=2, hours=1))
     st = mb.status(db, dest, NOW)
-    assert st["age_text"] == "2 days ago" and st["warning"] == "Media backup: none in 2 days"
+    assert st["age_text"] == "2d ago" and st["warning"] == "Media backup: none in 2 days"
 
 
 def test_status_off_when_dir_unset_or_missing(paths, tmp_path):
@@ -247,9 +248,6 @@ def test_media_backup_off_starts_no_task(hub_env, monkeypatch):
 
 # --- surfaces -----------------------------------------------------------------
 
-def main_of(html):
-    return html.split("<main", 1)[1]
-
 
 def apps_main(main):
     with TestClient(main.app) as client:
@@ -265,7 +263,7 @@ def test_apps_page_backup_row(hub_env):
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(hours=3, minutes=5), size=12 * 1024)
     body = apps_main(main)
     row = body.split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
-    assert '<span class="st-good">Backed up</span>' in row and '3 hours ago<span class="sep"> · </span>12 KB' in row
+    assert '<span class="st-good">Backed up</span>' in row and '3h ago<span class="sep"> · </span>12 KB' in row
     assert "is-down" not in body.split("Joey media backup")[0][-400:] and "<a " not in row
     assert body.index("Jellyfin") < body.index("Joey media backup")   # the final row
 
@@ -276,7 +274,7 @@ def test_apps_page_backup_row_stale_and_off(hub_env, monkeypatch, tmp_path):
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(days=2, hours=2))
     body = apps_main(main)
     row = body.split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
-    assert '<span class="st-warn">Stale</span>' in row and "2 days ago" in row and 'class="row is-down backuprow"' in body
+    assert '<span class="st-warn">Stale</span>' in row and "2d ago" in row and 'class="row is-down backuprow"' in body
     monkeypatch.setenv("MEDIA_BACKUP_DIR", str(tmp_path / "missing"))
     row = apps_main(main).split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
     assert '<span>Off</span>' in row and "backup folder missing" in row

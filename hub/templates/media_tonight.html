@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Three for tonight — Joey{% endblock %}
+{% block title %}Three for tonight · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
@@ -7,9 +7,9 @@
 <section class="sec">
   <div class="seclabel">{{ heading }}</div>
   {% if src.st.state == "off" %}
-  <p class="empty">Not connected.</p>
+  <p class="empty">Not connected</p>
   {% elif not available %}
-  <p class="empty">Library list not available yet.</p>
+  <p class="empty">Library list not available yet</p>
   {% elif not marks %}
   <p class="empty">Her watch marks aren't available yet, so there is nothing to deal.</p>
   {% else %}

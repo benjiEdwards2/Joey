@@ -11,14 +11,11 @@ from fastapi.testclient import TestClient
 from hub import media_db
 from tests.hub.test_registry import make_area, make_tile
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_raw as main_of
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"
 JELLY = json.loads((SAMPLES / "jellyfin.json").read_text(encoding="utf-8"))["data"]
 HX = {"HX-Request": "true"}
-
-
-def main_of(html):
-    return html.split("<main", 1)[1]
 
 
 @pytest.fixture()
@@ -59,7 +56,7 @@ def titles(year):
 def test_overview_empty_state_with_no_db(client, tmp_path):
     resp = client.get("/media/years")
     assert resp.status_code == 200
-    assert "Rate something first" in resp.text and 'href="/media/history"' in resp.text
+    assert "Rate something first" in resp.text and 'href="/media/diary">Go to Diary' in resp.text
     assert not (tmp_path / "data" / "media.db").exists()
 
 
@@ -173,3 +170,10 @@ def test_cross_site_write_refused(client):
                            headers={"Origin": "https://evil.example"})
         assert resp.status_code == 403, path
     assert titles(2020) == []
+
+
+def test_countdown_placeholder_urls_carry_letters_not_titles():
+    """N-33 (W2): the countdown's JS builds /img/...&t= from the title's two letters, like img_letters."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parents[2] / "hub" / "templates" / "media_countdown.html").read_text(encoding="utf-8")
+    assert "encodeURIComponent(letters(it.title))" in src and "encodeURIComponent(it.title" not in src

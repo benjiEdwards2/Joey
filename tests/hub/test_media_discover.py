@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 FAKE_URL = "http://seerr.secret-host.invalid:5055"
 FAKE_KEY = "k-SECRET-0123456789"
@@ -108,11 +109,6 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app), fake
 
     return build
-
-
-def main_of(html):
-    # Restyle Phase 3: facts are joined by a dim <span class="sep"> · </span>; the pins read the words.
-    return html.split("<main", 1)[1].replace('<span class="sep"> · </span>', " · ")
 
 
 def assert_no_secrets(html, link_ok=False):
@@ -229,7 +225,7 @@ def test_movie_title_page(env):
     assert "Actor 7" in body and "Actor 8" not in body
     assert "--bd: url('/img/tmdb:/mb.jpg?h=1280')" in resp.text and "hero-detail-bd" in body
     assert f'href="{FAKE_URL}/movie/603"' in body and "Open in Jellyseerr" in body
-    assert "Not on your server" in body and ">Request</a>" in body            # F10: the status is a line of words
+    assert "Not on server" in body and ">Request</a>" in body            # F10: the status is a line of words
     assert FAKE_KEY not in resp.text
 
 
@@ -444,7 +440,7 @@ def test_season_partial_marks_on_disk_episodes(env, monkeypatch):
     fake.table["/api/v1/tv/100/season/1"] = SEASON
     from hub import media_files
     monkeypatch.setattr(media_files, "file_summary",
-                        lambda kind, tmdb_id: {"episode_keys": [(1, 2), (2, 1)]} if (kind, tmdb_id) == ("tv", 100) else None)
+                        lambda kind, tmdb_id, **kw: {"episode_keys": [(1, 2), (2, 1)]} if (kind, tmdb_id) == ("tv", 100) else None)
     with client:
         html = client.get("/media/title/tv/100/season/1", headers=HX).text
     rows = html.split("data-ep=")[1:]

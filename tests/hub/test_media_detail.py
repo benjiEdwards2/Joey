@@ -7,12 +7,12 @@ import importlib
 from datetime import datetime, timedelta, timezone
 
 import pytest
-import yaml
 from fastapi.testclient import TestClient
 
 from hub.registry import load_registry
 from tests.hub.test_registry import make_area, make_tile, write_registry
 from tests.hub.test_store import write_envelope
+from tests.hub.conftest import app_with, main_raw as main_of
 
 JELLY_HREF = "http://nas.example.invalid:8096"
 APPS = [
@@ -43,21 +43,7 @@ def app_factory(tmp_path, monkeypatch):
                                    detail="/media/apps"))
     area["tiles"].append({"id": "open-t", "label": "Open Jellyfin", "tier": "link",
                           "owner": "shared", "href": JELLY_HREF})
-    path = tmp_path / "areas.yaml"
-    path.write_text(yaml.safe_dump({"areas": [area]}), encoding="utf-8")
-    monkeypatch.setenv("AREAS_PATH", str(path))
-
-    def build(snapshot_dir):
-        monkeypatch.setenv("SNAPSHOT_DIR", str(snapshot_dir))
-        import hub.main
-        importlib.reload(hub.main)
-        return TestClient(hub.main.app)
-
-    return build, tmp_path
-
-
-def main_of(html: str) -> str:
-    return html.split("<main", 1)[1]
+    return app_with(tmp_path, monkeypatch, area), tmp_path
 
 
 def test_apps_page_lists_every_app_with_words_and_links(app_factory):
@@ -70,8 +56,8 @@ def test_apps_page_lists_every_app_with_words_and_links(app_factory):
     assert "<title>Media apps" in resp.text
     body = main_of(resp.text)
     assert 'aria-current="page">Health' in body                 # restyle Phase 3: the tab names the page
-    assert body.count('<span class="st-good">') + body.count('<span class="st-warn">') == 2
-    assert '<span class="st-good">Up</span>' in body and '<span class="st-warn">Down</span>' in body
+    assert body.count('<span class="st-up">') + body.count('<span class="st-down">') == 2   # Server › Services' words (M-25)
+    assert '<span class="st-up">Up</span>' in body and '<span class="st-down">Down</span>' in body
     assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body
     assert "timeout" in body and "Updated 1m ago" in body
     assert "--accent" not in body                                   # restyle Phase 3: Media drops the area accent
@@ -163,8 +149,8 @@ def test_playing_page_has_posters_and_a_backdrop_behind_now_playing(app_factory)
     write_envelope(snaps, "jellyfin", age_minutes=1, data=PLAY)
     with build(snaps) as client:
         body = main_of(client.get("/media/playing").text)
-    assert 'src="/img/jf:abc123?h=120&amp;t=Harbour%20Lights' in body
+    assert 'src="/img/jf:abc123?h=120&amp;t=HA"' in body
     assert 'src="/img/jf:def456?h=120' in body
     assert 'class="pagehead-bd"' in body and "--bd: url(" in body and "/img/jfb%3Aabc123?h=1280" in body
-    assert 'src="/img/none?h=120&amp;t=Desert%20Crossing' in body  # null ref -> fallback card
+    assert 'src="/img/none?h=120&amp;t=DE"' in body  # null ref -> fallback card
     assert "jfb:def456" not in body.split(">Up next</div>", 1)[1]  # backdrop only behind now playing

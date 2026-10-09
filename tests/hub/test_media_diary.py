@@ -48,6 +48,15 @@ def test_stats_strip_in_words_and_month_grouping(env):
     assert date.today().strftime("%B %Y") in body or (date.today() - timedelta(days=60)).strftime("%B %Y") in body
 
 
+def test_place_suggestions_come_from_media_write_places(env):
+    """M-05 (W2): the log form's <datalist> is rendered from media_write.PLACES, not a second hand-written list."""
+    from hub.media_write import PLACES
+    build, _ = env
+    with build() as client:
+        html = client.get("/media/diary").text
+    assert '<datalist id="places">' + "".join(f'<option value="{p}">' for p in PLACES).replace("'", "&#39;") in html
+
+
 def test_manual_log_appears_month_grouped_with_place(env):
     build, _ = env
     with build() as client:
@@ -152,8 +161,7 @@ def test_search_returns_movie_and_tv_rows_only(env, monkeypatch):
     calls = []
 
     class Resp:
-        def raise_for_status(self):
-            pass
+        status_code = 200
 
         def json(self):
             return SEARCH

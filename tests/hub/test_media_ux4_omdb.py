@@ -17,15 +17,20 @@ KEY = "omdbSECRETkey42"
 TT = "tt0133093"
 
 
+class BadJson(R):
+    def json(self):
+        raise ValueError("not json")
+
+
 class Omdb:
-    def __init__(self, body=None, status=200, exc=None):
-        self.body, self.status, self.exc, self.calls = body, status, exc, []
+    def __init__(self, body=None, status=200, exc=None, bad_json=False):
+        self.body, self.status, self.exc, self.bad_json, self.calls = body, status, exc, bad_json, []
 
     def get(self, url, params=None, headers=None, timeout=None, **kw):
         self.calls.append((url, dict(params or {})))
         if self.exc:
             raise self.exc
-        return R(self.body, self.status)
+        return (BadJson if self.bad_json else R)(self.body, self.status)
 
 
 @pytest.fixture()
@@ -111,8 +116,47 @@ def test_failure_is_sanitized_and_remembered(omdb, caplog):
     with caplog.at_level(logging.WARNING, logger="hub.media_omdb"):
         assert media_omdb.metascore(TT) is None
         assert media_omdb.metascore(TT) is None
-    assert len(fake.calls) == 1                                  # never more than one call per title per 7 days
+    assert len(fake.calls) == 1                                  # a failure is remembered too (for FAIL_TTL)
     assert "ConnectionError" in caplog.text and KEY not in caplog.text and "apikey" not in caplog.text
+
+
+@pytest.mark.parametrize("kw", [{"exc": requests.ConnectionError("down")}, {"body": {"x": 1}, "status": 503},
+                                {"bad_json": True}])
+def test_a_failure_is_remembered_ten_minutes_not_seven_days(omdb, monkeypatch, kw):
+    """M-51 (W2): a network error, a 5xx or a bad body waits FAIL_TTL (10 min), restarts included, then asks again."""
+    fake = omdb(**kw)
+    assert media_omdb.metascore(TT) is None
+    media_omdb.clear_cache()                                     # a restart: the short wait is on disk too
+    real = time.time
+    monkeypatch.setattr(media_omdb.time, "time", lambda: real() + 9 * 60)
+    assert media_omdb.metascore(TT) is None and len(fake.calls) == 1
+    monkeypatch.setattr(media_omdb.time, "time", lambda: real() + 11 * 60)
+    fake.exc, fake.bad_json, fake.body, fake.status = None, False, {"Metascore": "74"}, 200
+    assert media_omdb.metascore(TT) == 74 and len(fake.calls) == 2
+
+
+def test_a_slow_title_does_not_hold_up_another(omdb, monkeypatch):
+    """M-43 (W2): the lock is per title — a lookup stuck on OMDb never queues a different title behind it."""
+    import threading
+    slow_started, release = threading.Event(), threading.Event()
+
+    def get(url, params=None, timeout=None, **kw):
+        if params["i"] == TT:
+            slow_started.set()
+            release.wait(5)
+        return R({"Metascore": "60"}, 200)
+
+    monkeypatch.setattr(media_omdb.requests, "get", get)
+    worker = threading.Thread(target=media_omdb.metascore, args=(TT,))
+    worker.start()
+    try:
+        assert slow_started.wait(5)
+        t0 = time.monotonic()
+        assert media_omdb.metascore("tt7654321") == 60
+        assert time.monotonic() - t0 < 1.0
+    finally:
+        release.set()
+        worker.join(5)
 
 
 def test_http_error_logs_the_status_only(omdb, caplog):

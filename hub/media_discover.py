@@ -22,16 +22,17 @@ from urllib.parse import parse_qs, quote
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
+from starlette.concurrency import run_in_threadpool
 
-from hub import media_awards_badges, media_files
+from hub import media_awards_badges, media_files, media_text
 from hub.images import REF_RE, cache_dir
+from hub.media_cache import LRU
 from hub.media_watchlist import keys_for
-from hub.media_write import MAX_BODY, bad, is_htmx, same_origin
+from hub.media_write import MAX_BODY, bad, flash_keys, is_htmx, same_origin
+from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_discover")
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
 DISCOVER_DETAIL = "/media/discover"
 TIMEOUT = 8
@@ -45,6 +46,7 @@ SHELVES = (
     ("movies-soon", "Upcoming films", "/api/v1/discover/movies/upcoming", "movie"),
     ("tv-soon", "Upcoming TV", "/api/v1/discover/tv/upcoming", "tv"),
 )
+flash_keys("requested", "error", "future")   # the title page after a plain-form Request
 ERRORS = {"exists": "Already requested", "declined": "Jellyseerr declined the request",
           "network": "Couldn't send the request"}
 
@@ -55,7 +57,9 @@ ERRORS = {"exists": "Already requested", "declined": "Jellyseerr declined the re
 # availability state stays on CACHE_TTL.
 META_TTL = 6 * 3600
 
-_cache: dict[str, tuple[float, list[dict]]] = {}
+# Bounded (M-42): "film:" / "meta:" bodies and shelf rows share one LRU; a disk hit copied in by meta_get evicts the
+# least recently used entry instead of growing RAM with every library title the warm-up reads.
+_cache: LRU = LRU()
 
 
 def clear_cache() -> None:
@@ -65,6 +69,27 @@ def clear_cache() -> None:
 def meta_dir() -> Path:
     """META_CACHE_DIR, else a `meta/` folder inside the poster cache (the one cache volume the NAS mounts)."""
     return Path(os.environ.get("META_CACHE_DIR", "").strip() or cache_dir() / "meta")
+
+
+META_KEEP_S = 7 * 24 * 3600   # the longest any meta file is ever read for (OMDb answers, media_omdb.TTL)
+
+
+def prune_meta(now: float | None = None, keep_s: float = META_KEEP_S) -> int:
+    """Delete meta cache files last written over `keep_s` ago (M-47; the warm-up loop runs it). -> files removed."""
+    cut = (time.time() if now is None else now) - keep_s
+    removed = 0
+    try:
+        files = list(meta_dir().glob("*.json"))
+    except OSError:
+        return 0
+    for f in files:
+        try:
+            if f.stat().st_mtime < cut:
+                f.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
 
 
 def clear_meta(disk: bool = False) -> None:
@@ -156,9 +181,7 @@ def meta_get(path: str, ttl: float = META_TTL):
     return body
 
 
-def _year(value) -> int | None:
-    text = str(value or "")[:4]
-    return int(text) if text.isdigit() else None
+_year = media_text.year
 
 
 def _ref(path) -> str | None:
@@ -220,7 +243,7 @@ def _page(request: Request, template: str, build):
     from hub import main as hub  # late: hub.main includes this router
 
     view, from_query = hub.resolve_owner_view(request)
-    snaps = hub.get_snapshots()
+    snaps = hub.get_snapshots(request=request)   # M-41: kept on request.state.snaps for the frame and builders
     src = hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, snaps, detail=DISCOVER_DETAIL)
     if src is None:
         return templates.TemplateResponse(request, "404.html", {
@@ -375,7 +398,8 @@ def service_page(request: Request, provider_id: int):
     page still renders (shelves by id under a plain heading)."""
     from hub import main as hub  # late: hub.main includes this router
 
-    if hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(), detail=DISCOVER_DETAIL) is None:
+    if hub.find_detail_source(hub.JELLYSEERR_SNAPSHOT_ID, hub.get_snapshots(request=request),
+                              detail=DISCOVER_DETAIL) is None:
         return _page(request, "media_service.html", dict)   # the 404, before any upstream call
     listed = providers() if _creds() else None
     match = next((p for p in listed or [] if p["id"] == provider_id), None)
@@ -456,19 +480,19 @@ def _stub(kind: str, tmdb_id: int) -> dict:
     return {"kind": kind, "tmdb_id": tmdb_id, "title": "", "year": None, "seasons": [], "code": None}
 
 
-def _dl_badge(title, snaps=None) -> str | None:
-    """'Downloading · 43%' when the arr queue / qBittorrent holds this title; never raises."""
+def _dl_pct(keys, snaps=None) -> int | None:
+    """The download % when the arr queue / qBittorrent holds a title with one of `keys` (tmdb: / tvdb:); never raises."""
     from hub import main as hub  # late: hub.main includes this router
     from hub import media_downloads
 
     try:
         snaps = hub.get_snapshots() if snaps is None else snaps
-        arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(media_downloads.QB_SNAPSHOT_ID)
+        arr, qb = snaps.get(hub.ARR_SNAPSHOT_ID), snaps.get(hub.QBIT_SNAPSHOT_ID)
         merged = media_downloads.merge_downloading((arr.data if arr else {}).get("downloading"),
                                                    qb.data if qb else {})
-        return media_downloads.badge_for_title(merged, title)
-    except Exception:
-        log.warning("downloading badge skipped", exc_info=True)
+        return media_downloads.pct_for_keys(merged, keys)
+    except Exception as exc:
+        log.warning("downloading badge skipped: %s", type(exc).__name__)
         return None
 
 
@@ -486,13 +510,7 @@ def request_step(request: Request, kind: str, tmdb_id: int, step: str = ""):
 EPISODES_DOWN = "Episodes unavailable right now"
 
 
-def _date_words(value) -> tuple[str | None, bool]:
-    """'2026-03-14' -> ('14 Mar 2026', is_future); junk -> (None, False)."""
-    try:
-        d = date.fromisoformat(str(value or "")[:10])
-    except ValueError:
-        return None, False
-    return f"{d.day} {d.strftime('%b')} {d.year}", d > date.today()
+_date_words = media_text.date_words   # '2026-03-14' -> ('14 Mar 2026', is_future)
 
 
 def _episodes(tmdb_id: int, n: int) -> list[dict] | None:
@@ -517,7 +535,8 @@ def season_episodes(request: Request, tmdb_id: int, n: int):
     eps = _episodes(tmdb_id, n) if n >= 0 else None
     if eps is None:
         return _partial(request, "_season_episodes.html", episodes=[], note=EPISODES_DOWN)
-    files = media_files.file_summary("tv", tmdb_id)
+    from hub import main as hub  # late: hub.main includes this router
+    files = media_files.file_summary("tv", tmdb_id, snaps=hub.get_snapshots(request=request))
     have = {tuple(k) for k in (files or {}).get("episode_keys") or []}
     rows = [{**e, "on_disk": (n, e["number"]) in have} for e in eps]
     return _partial(request, "_season_episodes.html", episodes=rows, note=None if rows else "No episodes listed")
@@ -563,8 +582,14 @@ def _send(kind: str, tmdb_id: int, seasons: list[int] | str) -> str | None:
 
 @router.post("/media/title/{kind}/{tmdb_id}/request", dependencies=[Depends(same_origin)])
 async def request_title(request: Request, kind: str, tmdb_id: int):
+    """The body is read on the event loop; the Jellyseerr POST and Sonarr's follow (up to two 2 s waits) run in a
+    worker thread, so a slow upstream never stalls other requests or /healthz (M-40)."""
     kind = _kind(kind)
     seasons = await _seasons_of(request) if kind == "tv" else []
+    return await run_in_threadpool(_request_title, request, kind, tmdb_id, seasons)
+
+
+def _request_title(request: Request, kind: str, tmdb_id: int, seasons):
     code = _send(kind, tmdb_id, seasons)
     future = None
     if code is None:

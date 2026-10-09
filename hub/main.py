@@ -23,11 +23,11 @@ from starlette.background import BackgroundTasks
 
 from hub import media_backup, media_db, media_downloads, media_nav
 from hub.images import router as images_router
-from hub import media_discover as _media_discover, media_write as _media_write
 from hub.media_discover import DISCOVER_DETAIL, router as media_discover_router
 from hub import media_film, media_item, media_person, media_library, media_plays, media_plays_db
-from hub import media_awards_badges
-from hub.media_write import router as media_write_router, year_ctx
+from hub import media_awards_badges, media_status_words, media_text
+from hub import media_write as _media_write
+from hub.media_write import PLACES, router as media_write_router, year_ctx
 from hub import media_arr_search, media_follow, media_requests, media_resume, media_watchlist, media_warmup
 from hub import media_awards, media_awards_pages
 from hub import server as server_area
@@ -160,8 +160,10 @@ app.add_middleware(Compress)
 
 
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
-# the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash.
-FLASH_PARAMS = ("follow", "requested", "error", "flash", "c", "code", "done", "app", "search", "future")  # search, future: media-ux5
+# the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash. Derived
+# from the Media modules' registry (media_write.flash_keys, M-17) plus the Server page's own (server_updates).
+SERVER_FLASH_PARAMS = ("flash", "c", "code")
+FLASH_PARAMS = tuple(dict.fromkeys([*_media_write.FLASH_KEYS, *SERVER_FLASH_PARAMS]))
 
 app.include_router(images_router)
 app.include_router(media_write_router)
@@ -575,6 +577,7 @@ def score_for(row, ratings, level=None):
 
 
 templates.env.globals["score_for"] = score_for
+templates.env.globals["status_of"] = media_status_words.status   # M-19: a status word's colour class
 
 
 def view_jelly(jelly: dict, view: str) -> dict:
@@ -594,12 +597,8 @@ def _ago_text(value, now: datetime) -> str:
     return ago_text((now - at).total_seconds() / 60.0) if at else ""
 
 
-def _count_text(n, singular: str, plural: str) -> str:
-    return f"{n} {singular if n == 1 else plural}"
-
-
 def _library_text(library: dict) -> str:
-    parts = [_count_text(library[k], s, p)
+    parts = [media_text.plural(library[k], s, p)
              for k, s, p in (("movies", "movie", "movies"), ("episodes", "episode", "episodes"))
              if isinstance(library.get(k), int)]
     return " · ".join(parts)
@@ -687,11 +686,13 @@ def _deep_link(link, jf_id, server_id) -> str | None:
     return url + (f"&serverId={server_id}" if server_id else "")
 
 
-def waiting_counts(recent, ratings, details) -> dict:
+def waiting_counts(recent, ratings, details, to_rate_rows=None) -> dict:
     """What waits on the owner: titles to rate (full, uncapped inbox) and years to place.
     `details` = the detail paths of the tiles visible in this owner view; a count whose
-    tile is hidden is 0. Shared by the area page and the hub card."""
-    to_rate = len(_to_rate(recent, ratings)) if HISTORY_DETAIL in details else 0
+    tile is hidden is 0. Shared by the area page and the hub card. `to_rate_rows`: the inbox when the caller
+    already built it (media_frame)."""
+    rows = _to_rate(recent, ratings) if to_rate_rows is None and HISTORY_DETAIL in details else to_rate_rows
+    to_rate = len(rows) if HISTORY_DETAIL in details else 0
     to_place = media_db.unranked_count() if YEARS_DETAIL in details else 0  # one COUNT (H-49)
     return {"to_rate": to_rate, "to_place": to_place}
 
@@ -702,21 +703,22 @@ def _recent(snaps, view: str) -> list:
     return (view_jelly(jelly.data if jelly else {}, view).get("history") or {}).get("recent") or []
 
 
-def area_waiting(area, snaps, view: str, recent=None, ratings=None) -> dict:
+def area_waiting(area, snaps, view: str, recent=None, ratings=None, to_rate_rows=None) -> dict:
     """waiting_counts for an area straight from snapshots + owner view (hub card, Media frame). `recent` /
-    `ratings` when the caller already has them (media_frame shares one read with the To rate tab counts)."""
+    `ratings` / `to_rate_rows` when the caller already has them (media_frame builds them once for both counts)."""
     recent = _recent(snaps, view) if recent is None else recent
     counts = waiting_counts(recent, _ratings(view, recent) if ratings is None else ratings,
-                            {t.detail for t in area.tiles if t.detail and owner_visible(t, view)})
+                            {t.detail for t in area.tiles if t.detail and owner_visible(t, view)}, to_rate_rows)
     if view == "her":
         counts["to_place"] = 0  # rankings are B.'s only
     return counts
 
 
-def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None) -> dict:
+def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None, to_rate_rows=None) -> dict:
     """The Movies / TV Shows "To rate" tab counts (media-ux4): the viewer's own inbox split by kind."""
     recent = _recent(snaps, view) if recent is None else recent
-    rows = _to_rate(recent, _ratings(view, recent) if ratings is None else ratings) if recent else []
+    rows = to_rate_rows if to_rate_rows is not None else (
+        _to_rate(recent, _ratings(view, recent) if ratings is None else ratings) if recent else [])
     return {"to_rate_movie": sum(1 for r in rows if r["kind"] == "movie"),
             "to_rate_tv": sum(1 for r in rows if r["kind"] == "tv")}
 
@@ -731,17 +733,18 @@ def media_frame(request: Request) -> dict:
         snaps = get_snapshots(request=request) if snaps is None else snaps
         recent = _recent(snaps, view)
         ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
-        waiting = area_waiting(area, snaps, view, recent, ratings) if area else {}
+        inbox = _to_rate(recent, ratings) if recent and ratings is not None else []   # M-24: ONE inbox for both
+        waiting = area_waiting(area, snaps, view, recent, ratings, inbox) if area else {}
         try:
             jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
             waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
         except Exception as exc:  # the Watchlist count is a nicety: never break the frame
             log.warning("watchlist count skipped: %s", type(exc).__name__)
         try:
-            waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings)}
+            waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings, inbox)}
         except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)
             log.warning("to rate count skipped: %s", type(exc).__name__)
-        cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting, view)
+        cached = request.state.media_nav = media_nav.nav_context(request, registry, waiting)
     return cached
 
 
@@ -765,12 +768,6 @@ def resume_acts(row: dict, owner: str) -> dict | None:
 
 
 templates.env.globals["resume_acts"] = resume_acts
-
-# Interim (T3, 2026-10-09): the media routers still build their own Jinja envs; give them EVERY shell global
-# (static_v, score_for, resume_acts included) so their pages carry the asset version. A later media WP switches
-# those modules to hub.shell.templates and this loop goes.
-for _t in (_media_write.templates, _media_discover.templates, media_watchlist.templates):
-    _t.env.globals.update(templates.env.globals)
 
 
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
@@ -858,14 +855,14 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 
     ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
 
-    unset_text = "Set JELLYFIN_USER_HER in deploy/.env."
+    unset_text = "Her Jellyfin account isn't set up yet"
     add("continue", "Continue watching", PLAYING_DETAIL,
         [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
          for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
     add("downloading", "Downloading", LIBRARY_DETAIL, downloading, "", omit_empty=True)
-    most_shows, most_films = media_plays_db.most_played_30({"you": "you", "her": "her"}.get(view))
+    most_shows, most_films = media_plays_db.most_played_30(media_db.owner_filter(view))
     most = ([item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
                   f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
              for e in most_shows]
@@ -959,7 +956,7 @@ def hub_shelf(area, snaps, view: str) -> dict | None:
         url = item_href(row.get("jf_id"))
         return {"title": title, "sub": " · ".join(x for x in (owner.title(), sub) if x),  # owner first: never ellipsised
                 "when": when, "poster": row.get("poster"), "href": url or fallback,
-                "external": False, "pct": row.get("progress_pct"), "acts": None}  # _shelf.html's shared shape
+                "pct": row.get("progress_pct")}  # _shelf.html's shape
 
     watched = None
     if any(t.detail == DIARY_DETAIL for t in tiles):
@@ -1098,7 +1095,7 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     extra = build(src["data"], view) if build and (always_build or src["st"]["state"] != "off") else {}
     resp = templates.TemplateResponse(request, template, {
         "areas": registry.visible_areas, "active_id": None, "src": src, "ratings": {}, **extra,
-        "owner_view": view,  # media_playing.html reads it (H-08: no other template does)
+        "owner": media_db.owner_of(view),  # media_playing.html's Move on acts (M-16)
     })
     return _maybe_set_cookie(resp, view, from_query)
 
@@ -1246,17 +1243,14 @@ def _to_rate(recent, ratings) -> list[dict]:
 def media_history_page(request: Request):
     def build(data, view):
         history = data.get("history") or {}
-        shows = history.get("most_played_shows", [])
-        top = max((s["episodes"] for s in shows), default=0)
         recent = history.get("recent", [])
-        ratings = _ratings(view, recent, shows, history.get("most_played_movies"))
+        ratings = _ratings(view, recent)
         return {
             "history": history,
             "ratings": ratings,
             "to_rate": _to_rate(recent, ratings),
             "rating_levels": media_db.LEVELS,
             "rating_level": ratings.level,
-            "shows": [{**s, "pct": round(s["episodes"] / top * 100)} for s in shows],
             "numbers": " · ".join([
                 f"{history.get('week_count', 0)} this week",
                 f"{history.get('month_count', 0)} this month",
@@ -1313,7 +1307,7 @@ def media_diary_page(request: Request):
                 f"{stats['year_episodes']} episode{'' if stats['year_episodes'] == 1 else 's'} this year",
                 f"{streak}-day streak" if streak else "no current streak"]),
             "milestones": stats["milestones"][:MILESTONES_MAX],
-            "months": months, "kind": kind or "", "today": date.today().isoformat(),
+            "months": months, "kind": kind or "", "today": date.today().isoformat(), "places": PLACES,
             "on_this_day": on_this_day,
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,

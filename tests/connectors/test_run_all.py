@@ -80,3 +80,22 @@ def test_main_parses_only_argument(snapshots, monkeypatch):
     assert run_all.main(["--only", "open_meteo, nas_stats"]) == 0
     beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
     assert beat["only"] == ["open_meteo", "nas_stats"]
+
+
+def test_heartbeat_is_written_atomically_via_os_replace(snapshots, monkeypatch):
+    """C-15: two loops write _runner.json while the hub reads it — tmp + os.replace."""
+    from connectors import base
+
+    replaced = []
+    real = base.os.replace
+
+    def spy(src, dst):
+        replaced.append((str(src), str(dst)))
+        real(src, dst)
+
+    monkeypatch.setattr(base.os, "replace", spy)
+    run_sweep([Good()])
+    assert any(dst.endswith(HEARTBEAT_NAME) and src.endswith(".tmp") for src, dst in replaced)
+    assert not list(snapshots.glob("*.tmp"))
+    beat = json.loads((snapshots / HEARTBEAT_NAME).read_text(encoding="utf-8"))
+    assert beat["results"]["open_meteo"]["status"] == "ok"

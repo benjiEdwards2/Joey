@@ -114,3 +114,24 @@ def test_a_url_in_the_exception_never_reaches_the_envelope_or_the_log(snapshots,
     for text in (envelope["error"], on_disk, caplog.text):
         assert "http" not in text and "-37.84" not in text and "s3cret" not in text
     assert "<url>" in caplog.text
+
+
+def test_radar_sidecar_write_retries_a_windows_reader_lock(tmp_path, monkeypatch):
+    """C-22: _write_bytes_atomic shares write_envelope's PermissionError retry."""
+    from connectors import base
+    from connectors.stubs import _write_bytes_atomic
+
+    real, calls = base.os.replace, []
+
+    def locked_twice(src, dst):
+        calls.append(dst)
+        if len(calls) <= 2:
+            raise PermissionError("held open by a reader")
+        real(src, dst)
+
+    monkeypatch.setattr(base.os, "replace", locked_twice)
+    monkeypatch.setattr(base.time, "sleep", lambda s: None)
+    target = tmp_path / "frame.png"
+    _write_bytes_atomic(target, b"\x89PNG data")
+    assert target.read_bytes() == b"\x89PNG data" and len(calls) == 3
+    assert [p.name for p in tmp_path.iterdir()] == ["frame.png"]

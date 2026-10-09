@@ -169,6 +169,11 @@ def write_envelope(path: Path, envelope: dict[str, Any]) -> None:
     # tmp name is unique per writer so two concurrent runs can't share a buffer
     tmp = path.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(envelope, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    replace_with_retry(tmp, path)
+
+
+def replace_with_retry(tmp: Path, path: Path) -> None:
+    """os.replace(tmp, path), removing tmp if it finally fails."""
     # os.replace is atomic on both POSIX and Windows, but Windows refuses while
     # a reader holds the destination open — retry briefly rather than fail a run.
     attempts = 60

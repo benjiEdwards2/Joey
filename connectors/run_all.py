@@ -20,7 +20,7 @@ import logging
 import sys
 from typing import Iterable
 
-from connectors.base import Connector, _now_iso, mask_urls, snapshot_dir
+from connectors.base import Connector, _now_iso, mask_urls, snapshot_dir, write_envelope
 
 log = logging.getLogger("connectors.run_all")
 
@@ -69,9 +69,8 @@ def run_sweep(connectors: Iterable[Connector] | None = None,
 def _write_heartbeat(sweep: dict) -> None:
     directory = snapshot_dir()
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / HEARTBEAT_NAME).write_text(
-        json.dumps(sweep, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    # Atomic (C-15): the hourly and the 120 s loop both write it while the hub reads it.
+    write_envelope(directory / HEARTBEAT_NAME, sweep)
     with (directory / HISTORY_NAME).open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(sweep, sort_keys=True) + "\n")
 

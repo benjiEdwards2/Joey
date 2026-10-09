@@ -223,12 +223,15 @@ def radar_frame_stamps(names, station: str, count: int) -> list[str]:
 
 
 def _write_bytes_atomic(path: Path, blob: bytes) -> None:
-    """Same discipline as write_envelope: unique tmp, then os.replace."""
+    """Same discipline as write_envelope: unique tmp, then os.replace (with its
+    Windows reader-lock retry)."""
     import threading
+
+    from connectors.base import replace_with_retry
 
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_bytes(blob)
-    os.replace(tmp, path)
+    replace_with_retry(tmp, path)
 
 
 def fetch_radar(connector: "OpenMeteo") -> dict:

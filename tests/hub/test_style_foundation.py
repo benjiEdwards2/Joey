@@ -29,10 +29,11 @@ TOKENS = {
     "--sky": "#7dd3fc", "--orange": "#fb923c", "--fuchsia": "#f0abfc", "--teal": "#5eead4",
     "--indigo-glow": "rgba(99, 102, 241, .1)",
 }
-KEPT = ["--stage", "--stage-fg", "--stage-btn", "--stage-line", "--surface", "--line"]
-# 2026-10-09 (T3, H-12/H-13): --muted, --faint, --card, --brand-soft, --warn, --scrim-soft, --badge-ink, --badge-fg,
-# --shadow, --rose and the parked radar ramp --rad-1..15 were never read and are gone.
-REMOVED = ["--muted", "--faint", "--card", "--brand-soft", "--warn", "--scrim-soft", "--badge-ink", "--badge-fg",
+KEPT = ["--stage", "--stage-fg", "--stage-btn", "--stage-line",
+        "--badge-ink", "--badge-fg", "--surface", "--line"]   # badge-*: pinned by test_media_discover
+# 2026-10-09 (T3, H-12/H-13): --muted, --faint, --card, --brand-soft, --warn, --scrim-soft, --shadow, --rose and the
+# parked radar ramp --rad-1..15 were never read and are gone.
+REMOVED = ["--muted", "--faint", "--card", "--brand-soft", "--warn", "--scrim-soft",
            "--shadow", "--rose"] + [f"--rad-{i}" for i in range(1, 16)]
 
 RECIPES = [

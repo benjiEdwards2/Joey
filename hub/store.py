@@ -177,20 +177,25 @@ def tile_state(tile, snapshots: dict[str, Snapshot]) -> dict[str, Any]:
         return {"state": "off", "value": "Not connected", "secondary": None,
                 "age_text": None, "href": None, "note": tile.setup_note}
 
-    age_text = _age_text(snap.age_minutes)
+    age_text = ago_text(snap.age_minutes)
     common = {
         "value": str(snap.data.get("summary", "—")),
         "secondary": snap.data.get("secondary"),
         "href": None, "note": None,
     }
     if snap.age_minutes > tile.stale_after_minutes:
-        return {"state": "stale", "age_text": f"stale {age_text}", **common}
-    return {"state": "fresh", "age_text": f"{age_text} ago", **common}
+        return {"state": "stale", "age_text": f"Stale · {age_text}", **common}
+    return {"state": "fresh", "age_text": age_text, **common}
 
 
-def _age_text(minutes: float) -> str:
+def ago_text(minutes: float) -> str:
+    """'just now' / '12m ago' / '3h ago' / '2d ago' — the ONE relative-time format of the hub core (H-20): tile ages,
+    the Server page and Media's added / watched words all use it."""
+    minutes = max(0, int(minutes))
+    if minutes < 1:
+        return "just now"
     if minutes < 60:
-        return f"{max(0, int(minutes))}m"
+        return f"{minutes}m ago"
     if minutes < 48 * 60:
-        return f"{int(minutes // 60)}h"
-    return f"{int(minutes // 1440)}d"
+        return f"{minutes // 60}h ago"
+    return f"{minutes // 1440}d ago"

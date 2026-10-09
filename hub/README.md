@@ -78,7 +78,7 @@ spelling; every icon-only control has an `aria-label`.
 **Tokens.** `--bg/--fg`, zinc text steps `--text-1…6`, white-alpha surfaces and lines (`--surface`, `--line`,
 `--line-soft/-hover/-focus`, `--hover`, `--soft`), `--primary/--primary-hover`, state tokens (`--good`, `--amber`, `--bad`,
 `--orange`, `--fuchsia`, `--teal`, `--sky`, `--gold`), row tints/bars (`--watch-*`, `--new-*`, `--done-*`, `--down-*`),
-score grades `--score-1…9`, `--appicon-bg` (the white tile behind a service logo). Ten never-read older names and the
+score grades `--score-1…9`, `--appicon-bg` (the white tile behind a service logo). Eight never-read older names and the
 parked radar ramp `--rad-*` were removed 2026-10-09 (T3).
 
 **Recipes** (one line each): `.btn` + `.btn-primary/-secondary/-ghost/-danger/-glass/-white/-icon`, `.btn-sm` buttons;

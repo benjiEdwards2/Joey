@@ -68,7 +68,7 @@ def test_glimpse_stale_keeps_value_with_badge(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=400, data=WX_DATA)
     with build(snaps) as client:
         html = client.get("/").text
-        assert "9.7 °C · partly cloudy" in html and "stale 6h" in html
+        assert "9.7 °C · partly cloudy" in html and "Stale · 6h ago" in html
 
 
 def test_detail_page_renders_todays_fields(app_factory):

@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 from hub.ids import (ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID,  # noqa: F401
                      SYSTEM_SNAPSHOT_ID, UPTIME_KUMA_SNAPSHOT_ID, WUD_SNAPSHOT_ID)
-from hub.store import parse_utc, tile_state
+from hub.store import ago_text, parse_utc, tile_state
 
 SERVER_LAYOUT = "server"
 
@@ -96,18 +96,6 @@ def _gb(n) -> str:
         return f"{float(n):,.1f} GB"
     except (TypeError, ValueError):
         return "—"
-
-
-def ago_text(minutes: float) -> str:
-    """'just now' / '4 min ago' / '2 h ago' / '3 days ago'."""
-    minutes = max(0, int(minutes))
-    if minutes < 1:
-        return "just now"
-    if minutes < 60:
-        return f"{minutes} min ago"
-    if minutes < 48 * 60:
-        return f"{minutes // 60} h ago"
-    return f"{minutes // 1440} days ago"
 
 
 def last_sweep(runner, now: datetime | None = None) -> dict | None:

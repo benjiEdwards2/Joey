@@ -38,8 +38,8 @@ from hub.ids import (ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JE
                      MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID, areas_path, home_now, home_tz)
 from hub.registry import Registry, load_registry
 from hub.shell import Compress, ShellMiddleware, _static_version, templates  # ONE Jinja env for every router (H-31)
-from hub.store import (_snapshot_dir, get_runner, get_runner_history, get_snapshots as _read_snapshots, parse_utc,
-                       tile_state)
+from hub.store import (_snapshot_dir, ago_text, get_runner, get_runner_history, get_snapshots as _read_snapshots,
+                       parse_utc, tile_state)
 
 HUB_DIR = Path(__file__).resolve().parent
 REPO_ROOT = HUB_DIR.parent
@@ -590,18 +590,9 @@ def view_jelly(jelly: dict, view: str) -> dict:
 
 
 def _ago_text(value, now: datetime) -> str:
-    """'3 days ago' for an ISO timestamp (Jellyfin's 7-digit fractions tolerated)."""
-    try:
-        seconds = (now - _parse_ts(value)).total_seconds()
-    except Exception:
-        return ""
-    if seconds < 3600:
-        return "just now"
-    if seconds < 86400:
-        hours = int(seconds // 3600)
-        return f"{hours} hour{'' if hours == 1 else 's'} ago"
-    days = int(seconds // 86400)
-    return "yesterday" if days == 1 else f"{days} days ago"
+    """store.ago_text ('3d ago') for an ISO timestamp (Jellyfin's 7-digit fractions tolerated); "" when it is not one."""
+    at = parse_utc(value)
+    return ago_text((now - at).total_seconds() / 60.0) if at else ""
 
 
 def _count_text(n, singular: str, plural: str) -> str:

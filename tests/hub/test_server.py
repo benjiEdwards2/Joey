@@ -208,7 +208,7 @@ def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(
     assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
     assert "system sweep failed" not in body
     sweep = body.split("Last sweep", 1)[1].split("</div></div>", 1)[0]
-    assert "4 min ago" in sweep and "Stale" not in sweep
+    assert "4m ago" in sweep and "Stale" not in sweep
 
 
 def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
@@ -216,7 +216,7 @@ def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
     write_runner(tmp_path / "snaps", "2026-01-01T00:00:00+00:00")
     with client:
         sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div></div>", 1)[0]
-        assert "days ago" in sweep and "Stale" in sweep
+        assert "d ago" in sweep and "Stale" in sweep
         for junk in ("{not json", "[]", '{"ran_at": "yesterday", "results": "nope"}'):
             (tmp_path / "snaps" / "_runner.json").write_text(junk, encoding="utf-8")
             r = client.get("/server")
@@ -227,11 +227,11 @@ def test_sweep_and_ago_helpers():
     from datetime import datetime, timezone
     now = datetime(2026, 10, 6, 12, 0, tzinfo=timezone.utc)
     assert server.last_sweep({"ran_at": "2026-10-06T11:56:00+00:00"}, now) == {
-        "text": "4 min ago", "stale": False}
-    assert server.last_sweep({"ran_at": "2026-10-06T10:30:00Z"}, now) == {"text": "1 h ago", "stale": False}
+        "text": "4m ago", "stale": False}
+    assert server.last_sweep({"ran_at": "2026-10-06T10:30:00Z"}, now) == {"text": "1h ago", "stale": False}
     assert server.last_sweep({"ran_at": "2026-10-06T10:29:00Z"}, now)["stale"] is True
     assert server.last_sweep({}, now) is None
-    assert server.ago_text(0.5) == "just now" and server.ago_text(60 * 50) == "2 days ago"
+    assert server.ago_text(0.5) == "just now" and server.ago_text(60 * 50) == "2d ago"
     assert server._runner_error_items(None) == [] and server._runner_error_items({"results": []}) == []
 
 
@@ -360,7 +360,7 @@ def test_sweep_stats_window_recovered_and_still_failing():
                       "text": "wud failed 2 of the last 3 sweeps · WUD containers failed (HTTP 401)"}]
     rows = server.sweep_rows(stats, NOW)
     assert [(r["id"], r["runs"], r["failures"], r["last_ok_text"]) for r in rows] == [
-        ("arr", 3, 2, "1 h ago"), ("wud", 3, 2, "2 h ago")]
+        ("arr", 3, 2, "1h ago"), ("wud", 3, 2, "2h ago")]
     assert server.sweep_stats(None) is None and server.sweep_stats(["junk"]) is None
 
 

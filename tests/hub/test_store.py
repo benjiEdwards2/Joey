@@ -59,7 +59,7 @@ def test_state_stale_in_words(tmp_path):
     write_envelope(tmp_path, "open_meteo", age_minutes=5 * 60)
     st = tile_state(embed_tile(stale_after=120), get_snapshots(tmp_path))
     assert st["state"] == "stale"
-    assert st["age_text"] == "stale 5h"
+    assert st["age_text"] == "Stale · 5h ago"   # state word · age (H-20, H-37)
     assert st["value"] == "VALUE"  # last known value still shown
 
 
@@ -168,3 +168,10 @@ def test_parse_utc_accepts_z_fractions_and_naive():
     assert parse_utc("2026-10-08T01:02:03.1234567Z") == datetime(2026, 10, 8, 1, 2, 3, 123456, tzinfo=timezone.utc)
     assert parse_utc("2026-10-08T01:02:03").tzinfo == timezone.utc
     assert parse_utc("nope") is None and parse_utc(None) is None
+
+
+def test_ago_text_is_the_one_relative_time_format():
+    """H-20: tiles, the Server page and Media's added / watched words share one vocabulary."""
+    from hub.store import ago_text
+    assert [ago_text(m) for m in (-3, 0.5, 1, 59, 60, 47 * 60 + 59, 48 * 60, 10 * 1440)] == [
+        "just now", "just now", "1m ago", "59m ago", "1h ago", "47h ago", "2d ago", "10d ago"]

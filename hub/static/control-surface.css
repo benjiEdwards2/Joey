@@ -32,6 +32,7 @@
   --pill-on: rgba(255, 255, 255, .07); --tab-on: #818cf8; --tab-on-phone: #a5b4fc;  /* indigo-400 / -300 */
   --scrim: rgba(9, 9, 11, .9);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
+  --badge-ink: #000000; --badge-fg: #ffffff;
   /* Guide tokens (section 2) */
   --surface: rgba(255, 255, 255, .03); --line: rgba(255, 255, 255, .1);
   --line-soft: rgba(255, 255, 255, .05); --line-hover: rgba(255, 255, 255, .2); --line-focus: rgba(255, 255, 255, .25);

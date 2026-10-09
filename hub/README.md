@@ -40,9 +40,9 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /` | main | Hub: summary tiles, Next 7 days, weather glimpse, Recently watched |
 | `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server); hidden areas still serve |
 | `GET /server` | main | Server area (same page as `/a/server`) |
-| `GET /weather`, `/weather/radar/{name}` | main | Weather page (Windy radar embed); parked BOM layer files (404 if absent) |
-| `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | main | Media Server section: Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
-| `GET /media/diary`, `/media/years`, `/media/years/{slug}[/countdown]` | main | Diary; year rankings (reachable by URL, no tab) |
+| `GET /weather`, `/weather/radar/{name}` | weather | Weather page (Windy radar embed); parked BOM layer files (404 if absent) |
+| `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Server section: Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
+| `GET /media/diary`, `/media/years`, `/media/years/{slug}[/countdown]` | media_pages | Diary; year rankings (reachable by URL, no tab) |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
 | `GET /media/server/history` | media_plays | History tab: plays recorded from Jellyfin sessions |
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
@@ -78,7 +78,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `MEDIA_BACKUP`, `PLAY_RECORDER`, `MEDIA_WARMUP`, `MEDIA_FOLLOW`, `MEDIA_AWARDS` | on | `off` stops that background job (`MEDIA_WARMUP=shelves` keeps only the shelf pass) |
 | `PLAY_POLL_SECONDS`, `AWARDS_CONTACT` | 60, unset | Recorder poll; awards sync makes no call without a contact |
 
-## Background loops (started in `main.lifespan` through `_every(label, first_s, every_s, fn)`; errors log by type only)
+## Background loops (started in `tasks.lifespan` through `_every(label, first_s, every_s, fn)`; errors log by type only)
 
 | Loop | First run | Every |
 |---|---|---|
@@ -101,7 +101,7 @@ Posters: 30 days on disk. HTML pages are `no-store` so Back and Forward never sh
 ## Decisions pinned by tests
 
 **No zoom (media-ux5, B.'s explicit choice 2026-10-09):** Joey cannot be pinch- or focus-zoomed on a phone (viewport
-`maximum-scale=1`, 16 px inputs, Safari gesture events cancelled in `base.html`). The accessibility trade-off (WCAG 1.4.4)
+`maximum-scale=1`, 16 px inputs, Safari gesture events cancelled in `static/joey.js`). The accessibility trade-off (WCAG 1.4.4)
 is accepted for this private two-person app; undo by restoring the old viewport meta and removing the gesture guard.
 
 **Search now (media-ux5, 2026-10-09):** `media_arr_search.py` sends a Radarr `MoviesSearch` / Sonarr `SeriesSearch` for

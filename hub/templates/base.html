@@ -16,7 +16,7 @@
 <meta name="joey-asset-v" content="{{ static_v }}">
 {# Back/Forward is navigation only (2026-10-08): no htmx history snapshots (they restored a page as it was BEFORE a
    Follow / Request, so the button showed its old state), and a history miss is a full reload — always fresh
-   server state. Pages are sent Cache-Control: no-store (hub/main.py) so the browser's bfcache can't either. #}
+   server state. Pages are sent Cache-Control: no-store (hub/shell.py) so the browser's bfcache can't either. #}
 <meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true}'>
 <link rel="icon" href="/static/icon-192.png?v=3">
 <link rel="apple-touch-icon" href="/static/icon-192.png?v=3">

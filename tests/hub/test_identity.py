@@ -4,6 +4,7 @@ Only placeholder addresses appear here (example.com) — the other person's real
 never written into the repo. OWNER_EMAIL_YOU is monkeypatched to a placeholder too.
 """
 import importlib
+import logging
 import re
 from datetime import datetime
 from types import SimpleNamespace
@@ -12,7 +13,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
-from hub import media_db
+from hub import identity, media_db
 from hub.identity import IDENTITY_HEADER, resolve_identity
 from tests.hub.test_media_rate import HX, env, rate_form  # noqa: F401  (env is a fixture)
 from tests.hub.test_owner_filter import client  # noqa: F401  (fixture)
@@ -48,6 +49,31 @@ def test_owner_address_matches_case_insensitively():
 def test_any_other_address_is_her():
     who = resolve_identity(req(**{IDENTITY_HEADER: OTHER}))
     assert (who.owner, who.name, who.email) == ("her", "Georgina", OTHER)
+
+
+def test_unset_owner_email_is_not_configured_not_her(monkeypatch, caplog):
+    """H-38 (2026-10-09): with OWNER_EMAIL_YOU unset/blank, a signed-in address no longer
+    fails open to "her" - it gets no owner (the "both" view) and ONE warning, never the email."""
+    monkeypatch.setattr(identity, "_warned_unconfigured", False)
+    for blank in (None, "", "   "):
+        if blank is None:
+            monkeypatch.delenv("OWNER_EMAIL_YOU", raising=False)
+        else:
+            monkeypatch.setenv("OWNER_EMAIL_YOU", blank)
+        with caplog.at_level(logging.WARNING, logger="hub.identity"):
+            for address in (YOU, OTHER):
+                who = resolve_identity(req(**{IDENTITY_HEADER: address}))
+                assert who.owner is None and who.email == address and who.name not in ("Benji", "Georgina")
+    warnings = [r for r in caplog.records if r.name == "hub.identity"]
+    assert len(warnings) == 1 and "OWNER_EMAIL_YOU" in warnings[0].getMessage()
+    assert YOU not in caplog.text and OTHER not in caplog.text
+
+
+def test_unset_owner_email_shows_the_both_view_and_never_writes_as_her(client, monkeypatch):  # noqa: F811
+    monkeypatch.delenv("OWNER_EMAIL_YOU", raising=False)
+    monkeypatch.setattr(identity, "_warned_unconfigured", True)  # keep the log quiet here
+    html = client.get("/a/mixed", headers=AS_HER).text
+    assert "HER-VAL" in html and "YOU-VAL" in html and "SHARED-VAL" in html
 
 
 def test_no_header_is_not_signed_in():

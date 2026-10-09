@@ -193,25 +193,23 @@ def test_waiting_counts_and_chips_on_the_area_page_and_hub(env):
     main = env(jellyfin=JELLY, arr=ARR)
     from hub import media_db
     media_db.set_rating("m2", 8, "movie", "Rated One", year=2024)
-    media_db.set_rating("m3", 7, "movie", "Old One")   # no year -> unranked in the Unknown year
     sh = shelves_for(main)
-    assert sh["waiting"]["to_rate"] == 1
-    assert sh["waiting"]["to_place"] == sum(y["unranked_count"] for y in media_db.years_overview())
+    assert sh["waiting"] == {"to_rate": 1}                       # decision 1: no "to place" count
     with TestClient(main.app) as client:
         area_html = main_html(client.get("/a/alpha").text)
         hub_html = main_html(client.get("/").text)
     assert '<span class="badge badge-wait">1 to rate</span>' in area_html
-    assert "to place</span>" in area_html
+    assert "to place" not in area_html
     assert '<span class="badge badge-wait">1 to rate</span>' in hub_html
 
 
 def test_waiting_chips_absent_at_zero_and_for_hidden_tiles(env):
     main = env(jellyfin={**JELLY, "history": {"recent": []}})
-    assert shelves_for(main)["waiting"] == {"to_rate": 0, "to_place": 0}
+    assert shelves_for(main)["waiting"] == {"to_rate": 0}
     with TestClient(main.app) as client:
         assert "badge-wait" not in main_html(client.get("/a/alpha").text)
     main = env(jellyfin=JELLY)
-    assert shelves_for(main, view="her")["waiting"] == {"to_rate": 0, "to_place": 0}
+    assert shelves_for(main, view="her")["waiting"] == {"to_rate": 0}
 
 
 # ---- merged from test_media_home_trim.py ----

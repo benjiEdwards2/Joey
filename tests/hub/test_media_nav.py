@@ -54,7 +54,7 @@ def test_docked_row_carries_the_same_hrefs_and_counts_as_the_section_row(env):
     d = dock(html)
     assert [h for h, _, _ in links(d)] == [h for h, _, _ in links(row)]
     counts = lambda s: re.findall(r'<span class="waitcount">(\d+)<span class="vh"> ([a-z ]+)</span>', s)
-    assert counts(d) == counts(row) and counts(d)                  # Movies / TV "to place" badges
+    assert counts(d) == counts(row)
 
 
 @pytest.mark.parametrize("route", list(ROUTES))
@@ -211,15 +211,15 @@ def test_tab_bar_is_a_direct_child_of_body(env, route):
 
 
 # ---- merged from test_media_nav_ux2.py ----
-# media-ux2 item 3 (2026-10-08): "By year" is gone from the Movies and TV Shows tab rows; /media/years stays
-# reachable by URL (and still lights the right section), with no in-app link to it from the Movies / TV pages.
+# media-ux2 item 3 (2026-10-08): "By year" is gone from the Movies and TV Shows tab rows.
+# By-year rankings removed 2026-10-09 (decision 1): /media/years and its pages are gone (404).
 
 
 def test_movies_and_tv_tabs_have_no_by_year():
     tabs = {s["id"]: [label for label, _ in s["tabs"]] for s in media_nav.SECTIONS}
     assert tabs["movies"] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]   # media-ux4: + To rate; 2026-10-08: + Awards
     assert tabs["tv"] == ["My shows", "Watchlist", "Tonight", "To Rate", "Awards"]
-    assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h.startswith(media_nav.YEARS)]
+    assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h.startswith("/media/years")]
 
 
 @pytest.mark.parametrize("route", ["/media/movies", "/media/tv", "/media/movies/tonight", "/media/tv/watchlist"])
@@ -230,13 +230,9 @@ def test_movies_tv_pages_link_nowhere_to_years(env, route):
     assert "By year" not in html and "/media/years" not in html
 
 
-@pytest.mark.parametrize("route, section", [("/media/years", "Movies"), ("/media/years?kind=movie", "Movies"),
-                                            ("/media/years?kind=tv", "TV Shows")])
-def test_years_page_still_served_under_its_section_with_no_current_tab(env, route, section):
+@pytest.mark.parametrize("route", ["/media/years", "/media/years/2020", "/media/years/2020/countdown"])
+def test_years_pages_are_gone(env, route):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
-        r = c.get(route)
-    assert r.status_code == 200
-    assert current(r.text, "sectabs") == [section]
-    assert current(r.text, "sectabs sub") == []           # no tab claims the page
-    assert "By year" not in nav_html(r.text, "sectabs sub")
+        assert c.get(route).status_code == 404
+        assert c.post(route + "/reset", headers={"HX-Request": "true"}).status_code in (404, 405)

@@ -130,7 +130,6 @@ def shelf_area(layout="shelves"):
     t.append(make_tile("apps-t", snapshot="media_status", stale_after_minutes=10, detail="/media/apps"))
     t.append(make_tile("hist-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/history", owner="you"))
     t.append(make_tile("diary-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/diary", owner="you"))
-    t.append(make_tile("years-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/years", owner="you"))
     t.append({"id": "open-t", "label": "Open Jellyfin", "tier": "link", "owner": "shared", "href": LINK})
     return area
 

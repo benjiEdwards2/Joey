@@ -18,7 +18,7 @@ TEMPLATES = Path(__file__).resolve().parents[2] / "hub" / "templates"
 PARTIALS = ["_library_row.html", "_diary_row.html", "_rated_row.html", "_rate_picker.html", "_rate.html",
             "_watchlist_btn.html", "_library_page.html", "_discover_item.html", "_discover_results.html",
             "_search_results.html", "_season_episodes.html", "_file_strip.html", "_detail_foot.html",
-            "_request_block.html", "_year_list.html", "_waiting.html", "_media_tabs.html", "_rows.html",
+            "_request_block.html", "_waiting.html", "_media_tabs.html", "_rows.html",
             "_poster.html", "area_shelves.html"]
 MEDIA = sorted(TEMPLATES.glob("media_*.html")) + [TEMPLATES / p for p in PARTIALS]
 RETIRED = {"glassbtn", "hero", "shelfhead", "uprow", "waitchip", "libctl", "actbtn", "ratebox"}

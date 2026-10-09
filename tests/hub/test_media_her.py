@@ -147,11 +147,11 @@ def test_hub_card_hero_in_her_view_uses_her_up_next(env):
     assert "Dust and Daylight" in you and "Cold Harbour" not in you
 
 
-def test_real_registry_history_and_diary_are_shared_years_stays_you():
+def test_real_registry_history_and_diary_are_shared():
     from hub.registry import load_registry
     media = next(a for a in load_registry("config/areas.yaml").areas if a.id == "media")
     owners = {t.id: t.owner.value for t in media.tiles}
-    assert owners["history"] == owners["diary"] == "shared" and owners["years"] == "you"
+    assert owners["history"] == owners["diary"] == "shared" and "years" not in owners   # decision 1
 
 
 def test_rating_level_setting_is_per_owner(env):

@@ -113,16 +113,6 @@ def test_diary_is_isolated_per_owner(path):
     assert db.diary_stats()["total"] == 1 and db.diary_stats(owner="her")["total"] == 2
 
 
-def test_rankings_ignore_her_ratings(path):
-    db.set_rating("tmdb:1", 8, "movie", "Heat", 1995)
-    db.set_rating("tmdb:1", 2, "movie", "Heat", 1995, owner="her")
-    db.set_rating("tmdb:2", 9, "movie", "Hers Only", 1995, owner="her")
-    assert db.years_overview() == [{"year": 1995, "ranked_count": 0, "unranked_count": 1, "top": None}]
-    assert db.place(1995, "tmdb:2") is False
-    assert db.place(1995, "tmdb:1") is True
-    assert [r["score"] for r in db.year_list(1995)["ranked"]] == [8]
-
-
 def _old_shape_db(path):
     import sqlite3
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,15 +186,6 @@ def test_migration_adds_level_to_a_pre_level_rating_table(path):
     assert db.get_rating("tmdb:1")["level"] == "show" and db.get_ratings(["tmdb:1"]) == {"tmdb:1": 9}
     db.set_rating("jf:e", 4, "tv", "S", level="episode")  # second connect: idempotent
     assert db.get_rating("jf:e")["level"] == "episode"
-
-
-def test_rankings_ignore_episode_level_ratings(path):
-    db.set_rating("tmdb:1", 8, "movie", "Heat", 2020)
-    db.set_rating("jf:season1", 7, "tv", "Show · Season 1", 2020, level="season")
-    db.set_rating("jf:ep1", 9, "tv", "Show · S01E01", 2020, level="episode")
-    assert [y["unranked_count"] for y in db.years_overview()] == [2]
-    assert {r["item_key"] for r in db.year_list(2020)["unranked"]} == {"tmdb:1", "jf:season1"}
-    assert db.place(2020, "jf:ep1") is False and db.place(2020, "jf:season1") is True
 
 
 # ---- Per-episode diary (F8, 2026-10-06) ----

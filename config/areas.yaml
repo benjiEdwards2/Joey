@@ -177,14 +177,6 @@ areas:
         detail: /media/diary                         # watch diary: Jellyfin history + hand-logged watches (2026-10-05)
         stale_after_minutes: 10
         setup_note: "Set JELLYFIN_URL/JELLYFIN_API_KEY in deploy/.env."
-      - id: years
-        label: By year
-        tier: embed
-        owner: you
-        snapshot: jellyfin
-        detail: /media/years                         # year rankings built from ratings (2026-10-05)
-        stale_after_minutes: 10
-        setup_note: "Set JELLYFIN_URL/JELLYFIN_API_KEY in deploy/.env."
       - id: jellyfin-app
         label: Open Jellyfin
         tier: link

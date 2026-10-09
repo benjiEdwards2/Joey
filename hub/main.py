@@ -29,16 +29,16 @@ from hub import media_home, media_pages, shell, tasks, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
     DIARY_PAGE, LIBVIEWS, LIBVIEW_COOKIE, LIBVIEW_MAX_AGE, MILESTONES_MAX, _arr_linker, _detail_page,
-    _group_on_this_day, _kind_of, _lib_href, _library_lists, _library_page, _library_rows, _qb_data, _to_rate_page,
-    _tonight_page, _year_page, library_view, library_view_links, media_apps_page, media_diary_page,
+    _group_on_this_day, _lib_href, _library_lists, _library_page, _library_rows, _qb_data, _to_rate_page,
+    _tonight_page, library_view, library_view_links, media_apps_page, media_diary_page,
     media_downloads_page, media_history_page, media_library_page, media_movies_page, media_movies_to_rate_page,
     media_movies_tonight_page, media_playing_page, media_requests_page, media_tv_page, media_tv_to_rate_page,
-    media_tv_tonight_page, media_year_countdown, media_year_page, media_years_page,
+    media_tv_tonight_page,
 )
 # W3: the shared Media helpers live in hub/media_home.py; re-exported for the old `hub.main.X` paths.
 from hub.media_home import (  # noqa: F401
     DIARY_DETAIL, HISTORY_DETAIL, HISTORY_PLAYS, HISTORY_STRIP_MAX, LEVEL_KEYS, LIBRARY_DETAIL, LIBRARY_STRIP_MAX,
-    PLAYING_DETAIL, Ratings, SHELF_MAX, TO_RATE_DAYS, YEARS_DETAIL, _ago_text, _library_text, _media_rows,
+    PLAYING_DETAIL, Ratings, SHELF_MAX, TO_RATE_DAYS, _ago_text, _library_text, _media_rows,
     _parse_ts, _profile_rows, _ratings, _recent, _split_title, _to_rate, _to_rate_title, area_waiting,
     build_shelves, find_media, hub_shelf, item_href, media_frame, media_hero, resume_acts, row_href, score_for,
     to_rate_tab_counts, view_jelly, waiting_counts,

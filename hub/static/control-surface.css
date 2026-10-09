@@ -467,25 +467,11 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
 /* ---- Poster thumbnails: /img proxy, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;
           background: var(--soft); border: 1px solid var(--border); }
-.poster.gold-glow { border-color: var(--gold); box-shadow: 0 0 10px 1px var(--gold-glow); }  /* the countdown poster */
-
-/* Countdown stage stays dark (a cinema moment) */
-.countdown { position: fixed; inset: 0; z-index: 100; background: var(--stage); color: var(--stage-fg); display: flex;
-  flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; overflow: auto; }
-.countdown .cdstage { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
-.countdown .poster { height: 60vh; width: auto; max-width: 90vw; }
-.cdpos { font-size: 64px; font-weight: 800; line-height: 1; }
-.cdtitle { font-size: 22px; font-weight: 600; }
-.cdscore, .cdcount { font-size: 14px; color: var(--text-5); }
-.cdnav button { font: inherit; padding: 8px 16px; margin: 4px; color: var(--stage-fg); background: var(--stage-btn);
-  border: 1px solid var(--stage-line); border-radius: 8px; }
-.cdexit { position: absolute; top: 12px; left: 16px; font-size: 13px; color: var(--text-5); }
-.cdlist { text-align: left; font-size: 18px; }
+.poster.gold-glow { border-color: var(--gold); box-shadow: 0 0 10px 1px var(--gold-glow); }
 
 /* ---- Breakpoints: phone content tweaks (the shell's own rules sit with the shell above) ---- */
 @media (max-width: 640px) {
   .page { gap: 16px; }
-  .cdpos { font-size: 48px; }
 }
 
 /* ---- Visually hidden words for counts ---- */
@@ -913,10 +899,7 @@ a.castcard:hover .castname { text-decoration: underline; }
 .logwatch > summary { list-style: none; }
 .logwatch > summary::-webkit-details-marker { display: none; }
 
-/* Year rankings: the top three as big pictures (guide 6), #1 first; plays by hour as bars with their count. */
-.podium { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.podium .card-poster .stat-number { margin-top: 4px; }
-@media (min-width: 640px) { .podium { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); align-items: end; } }
+/* Plays by hour as bars with their count. */
 .hourbars { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; align-items: end; }
 .hourbar { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: var(--text-5);
   font-variant-numeric: tabular-nums; min-width: 0; }

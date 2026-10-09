@@ -78,20 +78,6 @@ def test_check_once_uses_the_callers_snapshots(tmp_path, monkeypatch):
     assert server_alerts.check_once(set(), {}) >= 0
 
 
-def test_unranked_count_matches_years_overview(tmp_path, monkeypatch):
-    """H-49: the hub's "to place" is one COUNT, equal to the per-year sum it replaces."""
-    from hub import media_db
-    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
-    assert media_db.unranked_count() == 0                       # no media.db yet
-    for i, year in enumerate((2020, 2020, 2021, None, 2021)):
-        media_db.set_rating(f"tmdb:{i}", 7, "movie", f"Film {i}", year=year)
-    media_db.set_rating("tmdb:99", 8, "movie", "Hers", year=2020, owner="her")
-    media_db.place(2020, "tmdb:0")
-    media_db.place(2021, "tmdb:2")
-    expected = sum(y["unranked_count"] for y in media_db.years_overview())
-    assert media_db.unranked_count() == expected == 3
-
-
 def test_hub_server_card_is_cached_while_snapshots_are_unchanged(tmp_path, monkeypatch):
     """H-49: the hub page reuses the Server card for 60 s; a new snapshot (or the TTL) rebuilds it."""
     server_area = make_area("srv", "svc-t", snapshot="media_status", stale_after_minutes=10)

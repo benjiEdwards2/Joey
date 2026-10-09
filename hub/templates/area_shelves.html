@@ -26,7 +26,7 @@
   {%- elif sh.freshness and sh.freshness.state == "fresh" %}Updated {{ sh.freshness.age_text }}
   {%- else %}Not connected{% endif %}
   {%- if backup_warn %}<span class="sep"> · </span><span class="st-warn">{{ backup_warn }}</span>{% endif %}
-  {%- if sh.waiting and (sh.waiting.to_rate or sh.waiting.to_place) %}<span class="sep"> · </span>{{ waitchips(sh.waiting) }}{% endif -%}
+  {%- if sh.waiting and sh.waiting.to_rate %}<span class="sep"> · </span>{{ waitchips(sh.waiting) }}{% endif -%}
 </p>
 
 {% for s in sh.shelves %}

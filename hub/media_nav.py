@@ -3,8 +3,6 @@ Pure: no area name lives here — Home resolves to the registry's first `layout:
 """
 from __future__ import annotations
 
-from urllib.parse import parse_qs, urlsplit
-
 HOME_ID = "home"
 
 SECTIONS: list[dict] = [
@@ -32,10 +30,7 @@ SECTIONS: list[dict] = [
 # Awards (2026-10-08): the Awards tab follows To rate on Movies and TV Shows (hub/media_awards_pages.py).
 # media-ux4 (2026-10-08): "To rate" is a tab beside Tonight (the films / TV inbox, count when > 0); the To rate section
 # left the top of the list pages.
-# media-ux2 (2026-10-08): the "By year" tabs are gone from Movies / TV Shows (B.); /media/years stays reachable by
-# URL and still lights its section. To restore: add ("By year", "/media/years?kind=movie|tv") back to the tabs —
-# _tab_on below still knows how to match it.
-YEARS = "/media/years"
+# By-year rankings removed 2026-10-09 (decision 1).
 
 
 def shelves_area(registry):
@@ -46,17 +41,8 @@ def _under(path: str, prefix: str) -> bool:
     return path == prefix or path.startswith(prefix + "/")
 
 
-def _kind(query) -> str | None:
-    if isinstance(query, str):
-        query = {k: v[-1] for k, v in parse_qs(query).items()}
-    kind = (query or {}).get("kind")
-    return kind if kind in ("movie", "tv") else None
-
-
-def active_section(path: str, query=None, home_href: str | None = None) -> dict | None:
-    """Longest-prefix section for `path`. /media/years is movies unless ?kind=tv."""
-    if _under(path, YEARS):
-        return next(s for s in SECTIONS if s["id"] == ("tv" if _kind(query) == "tv" else "movies"))
+def active_section(path: str, home_href: str | None = None) -> dict | None:
+    """Longest-prefix section for `path`."""
     best, best_len = None, -1
     for s in SECTIONS:
         prefixes = [home_href] if s["id"] == HOME_ID and home_href else s["prefixes"]
@@ -66,34 +52,29 @@ def active_section(path: str, query=None, home_href: str | None = None) -> dict 
     return best
 
 
-def _tab_on(tab_href: str, path: str, kind: str | None) -> int:
+def _tab_on(tab_href: str, path: str) -> int:
     """Match strength of a tab for this page (0 = no match; longer path wins)."""
-    tpath, _, tq = tab_href.partition("?")
-    if tpath == YEARS:
-        want = _kind(tq) or "movie"
-        return len(tpath) if _under(path, YEARS) and (kind or "movie") == want else 0
+    tpath = tab_href.partition("?")[0]
     return len(tpath) if _under(path, tpath) else 0
 
 
 def nav_context(request, registry, waiting: dict | None) -> dict:
     """{sections, section, tabs, home_href}; counts only when > 0."""
     path = request.url.path
-    kind = _kind(request.url.query)
     area = shelves_area(registry)
     home_href = f"/a/{area.id}" if area else "/"
-    section = active_section(path, request.url.query, home_href if area else None)
+    section = active_section(path, home_href if area else None)
     forced = getattr(getattr(request, "state", None), "media_section", None)  # F9: item pages pick Movies / TV Shows by kind
     if forced:
         section = next((s for s in SECTIONS if s["id"] == forced), section)
     waiting = waiting or {}
-    counts = {"diary": waiting.get("to_rate", 0), "movies": waiting.get("to_place", 0),
-              "tv": waiting.get("to_place", 0)}
+    counts = {"diary": waiting.get("to_rate", 0)}
     sections = [{"id": s["id"], "label": s["label"], "short": s["short"], "icon": s["icon"], "href": home_href if s["id"] == HOME_ID else s["href"],
                  "on": section is not None and s["id"] == section["id"],
                  "count": counts.get(s["id"], 0) or 0} for s in SECTIONS]
     tabs = []
     if section:
-        scores = [_tab_on(h, path, kind) for _, h in section["tabs"]]
+        scores = [_tab_on(h, path) for _, h in section["tabs"]]
         top = max(scores, default=0)
         tab_counts = {"/media/movies/watchlist": waiting.get("wl_movie", 0),
                       "/media/tv/watchlist": waiting.get("wl_tv", 0),

@@ -4,7 +4,7 @@
 {% set nav = media_nav(request) %}
   <nav class="sectabs" aria-label="Media sections">
     <div class="sectabs-row">
-    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>{% endfor %}
+    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> to rate</span></span>{% endif %}</a>{% endfor %}
     </div>
     {# media-ux5: the dock sentinel (1 px over the row's last pixel, no layout of its own) — base.html's observer docks
        the row into the top bar once this has scrolled under it (desktop only). #}
@@ -25,6 +25,6 @@
 {% macro media_dock() -%}
 {% set nav = media_nav(request) %}
     <nav class="toplinks topdock" aria-label="Media sections (docked)">
-    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} class="on"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> {{ 'to rate' if s.id == 'diary' else 'to place' }}</span></span>{% endif %}</a>{% endfor %}
+    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} class="on"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> to rate</span></span>{% endif %}</a>{% endfor %}
     </nav>
 {%- endmacro %}

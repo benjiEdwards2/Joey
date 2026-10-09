@@ -42,7 +42,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather`, `/weather/radar/{name}` | weather | Weather page (Windy radar embed); parked BOM layer files (404 if absent) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Server section: Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
-| `GET /media/diary`, `/media/years`, `/media/years/{slug}[/countdown]` | media_pages | Diary; year rankings (reachable by URL, no tab) |
+| `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1) |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
 | `GET /media/server/history` | media_plays | History tab: plays recorded from Jellyfin sessions |
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
@@ -51,7 +51,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /media/title/{kind}/{tmdb_id}/request`, `/arr`; `/media/title/tv/{tmdb_id}/season/{n}` | media_discover, media_arr_search | Request form, Radarr / Sonarr search form, season list |
 | `POST /media/title/{kind}/{tmdb_id}/request`, `/search` | media_discover, media_arr_search | Jellyseerr request; Search now (Radarr / Sonarr command) |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
-| `POST /media/settings/rating_level`, `/media/years/{slug}/{place,move,unplace,reset}` | media_write | Rating scale; year ranking edits |
+| `POST /media/settings/rating_level` | media_write | Rating scale |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
 | `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person or a film series |
 | `POST /media/requests/{rid}/remove` | media_requests | Remove a Jellyseerr request |

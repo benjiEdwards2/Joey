@@ -55,7 +55,7 @@ each with one job:
 | Primary action | `indigo-500` (bg), hover `indigo-400` | the one main button; active tab underline `indigo-400`; phone active tab `indigo-300`; ambient glow rgba(99,102,241,…) |
 | Brand gold | `#f2c14e` | the logo's dot; a perfect 10's glow (`rgba(251,191,36,…)`) |
 | Good / done | `emerald-400` (text), `emerald-300/90` lines | "In library", Complete, scores 9+ |
-| Waiting / warning | `amber-400` (`/70–/90`) | "Wanted", "To place", counts badge, warnings |
+| Waiting / warning | `amber-400` (`/70–/90`) | "Wanted", counts badge, warnings |
 | Watchlist / follow / info | `sky-300/400` | bookmark marks, the followed tick, links chips |
 | In progress | `orange-400`, row tint `orange-500/[0.06]`, bar `#f97316` | "Watching" |
 | New | `fuchsia-300`, tint `fuchsia-500/[0.06]`, bar `#d946ef` | "New season" |
@@ -396,12 +396,7 @@ backdrop-blur bg-zinc-900`: error `border-red-500/30 text-red-200`, warning
 `border-amber-500/30 text-amber-100`, info `border-white/10 text-zinc-200`.
 Tap to dismiss; they leave by themselves.
 
-**Ranking lists** (drag to order): the top three as big pictures (a 16:9
-backdrop card for #1, two stacked beside it on desktop, stacked on a phone),
-then rows with a big dim rank number (`w-7 text-right text-lg font-bold
-text-zinc-600`). Dragging is behind a "Rank" toggle (rows get a grip handle, a
-rose-tinted frame `border-rose-500/20 bg-rose-500/[0.03]`); "To place" items
-wait below in a dashed box with a "+ Place" button each.
+**Ranking lists**: By-year rankings removed 2026-10-09 (decision 1).
 
 **Spec sheet** (technical details): one card in three parts divided by
 `border-t border-white/[0.06]`: format logos (white, `h-7`, drawn with

@@ -245,51 +245,6 @@ def test_tonight_routes_render_cards_and_deal_again(env):
     assert current(tv_html, "sectabs") == ["TV Shows"] and tv.count('class="card-poster tcard"') == 2
 
 
-# ---- By year kind filter ----
-
-def seed_years():
-    media_db.set_rating("m1", 8, "movie", "Film A", year=2020)
-    media_db.set_rating("m2", 6, "movie", "Film B", year=2020)
-    media_db.set_rating("t1", 9, "tv", "Show A", year=2020)
-    media_db.set_rating("t2", 7, "tv", "Show B", year=2019)
-    media_db.place(2020, "t1")
-    media_db.place(2020, "m1")
-
-
-def test_years_db_kind_filter(env):
-    env(jellyfin=jelly(), arr=ARRV)
-    seed_years()
-    allr = {y["year"]: y for y in media_db.years_overview()}
-    assert allr[2020]["ranked_count"] == 2 and allr[2020]["unranked_count"] == 1
-    mv = {y["year"]: y for y in media_db.years_overview("movie")}
-    assert set(mv) == {2020} and mv[2020]["ranked_count"] == 1 and mv[2020]["unranked_count"] == 1
-    assert mv[2020]["top"]["title"] == "Film A"
-    tv = {y["year"]: y for y in media_db.years_overview(kind="tv")}
-    assert set(tv) == {2019, 2020} and tv[2020]["top"]["title"] == "Show A" and tv[2020]["unranked_count"] == 0
-    yl = media_db.year_list(2020, "tv")
-    assert [r["title"] for r in yl["ranked"]] == ["Show A"] and yl["unranked"] == []
-    yl = media_db.year_list(2020, "movie")
-    assert [r["title"] for r in yl["ranked"]] == ["Film A"] and [r["title"] for r in yl["unranked"]] == ["Film B"]
-    assert len(media_db.year_list(2020)["ranked"]) == 2
-    assert media_db.years_overview("junk") == media_db.years_overview()
-
-
-def test_years_routes_kind_filter(env):
-    main = env(jellyfin=jelly(), arr=ARRV)
-    with TestClient(main.app) as c:
-        seed_years()
-        _, mv = body(c, "/media/years?kind=movie")
-        _, tv = body(c, "/media/years?kind=tv")
-        _, y_mv = body(c, "/media/years/2020?kind=movie")
-        _, y_tv = body(c, "/media/years/2020?kind=tv")
-        _, y_all = body(c, "/media/years/2020")
-    assert "#1 — Film A" in mv and "2019" not in mv and 'href="/media/years/2020?kind=movie"' in mv
-    assert "#1 — Show A" in tv and "2019" in tv
-    assert "Film A" in y_mv and "Show A" not in y_mv and "Film B" in y_mv
-    assert "Show A" in y_tv and "Film A" not in y_tv
-    assert "Film A" in y_all and "Show A" in y_all
-
-
 def test_arrived_this_week_prefers_the_timestamp_over_the_text():
     from datetime import datetime, timedelta, timezone
     from hub import media_library as ml

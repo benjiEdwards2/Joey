@@ -12,6 +12,8 @@ and a seed check). Now:
     (tests switch MEDIA_DB_PATH per test; a restored backup is a new inode, so it is checked again).
   * The tables' DDL stays beside the code that owns it (media_db.SCHEMA, media_plays_db.DDL, ...); STEPS reads it
     from there.
+  * `ranking` (media_db.SCHEMA): retained, unused since 2026-10-09 — the By-year rankings were removed (decision 1);
+    its rows stay in media.db so the feature can come back.
 """
 
 from __future__ import annotations

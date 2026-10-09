@@ -54,7 +54,7 @@ call path: Jellyfin `/Users` (uid cached 1 h) then `/Users/{uid}/Items` with Med
 `JELLYFIN_URL` + `JELLYFIN_API_KEY` server-side. Matching is a client-side `ProviderIds.Tmdb` filter, because
 Jellyfin 12 ignores `AnyProviderIdEquals`. Cached 10 minutes; shown only for Available / Partly available titles;
 any failure degrades to no strip. `media.db` also gained `setting(owner, key, value)` and `rating.level`
-(`show` | `season` | `episode`, default `show`); rankings and by-year counts use show + season ratings only.
+(`show` | `season` | `episode`, default `show`). By-year rankings removed 2026-10-09 (decision 1).
 
 **Seventh exception (2026-10-06): the play recorder (`hub/media_plays.py`).** A sixth live call path, and the hub's
 first background writer: every `PLAY_POLL_SECONDS` (60) it polls Jellyfin `/Sessions` (`JELLYFIN_URL` + `JELLYFIN_API_KEY`,

@@ -1,5 +1,5 @@
 """The Media detail pages behind registry `detail` tiles (W3 split of hub/main.py, H-44): /media/apps, /playing,
-/downloads, /library, /requests, /history, /diary, /years (+ a year and its countdown), /movies and /tv (grid / list,
+/downloads, /library, /requests, /history, /diary, /movies and /tv (grid / list,
 Tonight, To rate). `_detail_page` is their one frame: 404 when no tile reads the snapshot, 'Not connected' when it has
 no data. The Watchlist and Awards pages render through it too.
 """
@@ -10,7 +10,7 @@ import random
 from datetime import date, datetime, timezone
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_library,
@@ -227,21 +227,6 @@ def media_diary_page(request: Request):
                         detail=media_home.DIARY_DETAIL, always_build=True)
 
 
-@router.get("/media/years", response_class=HTMLResponse)
-def media_years_page(request: Request):
-    """Year rankings (2026-10-05): one tile per rating year. Pure media.db — no snapshot data needed."""
-    def build(data, view):
-        kind = _kind_of(request)
-        return {"years": [] if view == "her" else media_db.years_overview(kind), "kind": kind}
-    return _detail_page(request, "media_years.html", JELLYFIN_SNAPSHOT_ID, build,
-                        detail=media_home.YEARS_DETAIL, always_build=True)
-
-
-def _kind_of(request: Request) -> str | None:
-    kind = request.query_params.get("kind")
-    return kind if kind in ("movie", "tv") else None
-
-
 def _lib_href():
     """href_of for media_library rows (F9): the Joey item page for a Jellyfin id, else the title page for a tmdb key."""
     def href_of(row, kind):
@@ -378,32 +363,3 @@ def media_tv_page(request: Request):
 @router.get("/media/tv/tonight", response_class=HTMLResponse)
 def media_tv_tonight_page(request: Request):
     return _tonight_page(request, "tv")
-
-
-def _year_page(request: Request, slug: str, template: str):
-    """Year page / countdown: 404 for a bad slug or a year with nothing rated or ranked."""
-    def build(data, view):
-        ctx = media_write.year_ctx(slug, request.query_params.get("mode", ""), _kind_of(request))
-        if view == "her":
-            ctx["ranked"] = ctx["unranked"] = []
-        return {**ctx, "count": len(ctx["ranked"])}
-    try:
-        resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build,
-                            detail=media_home.YEARS_DETAIL, always_build=True)
-    except HTTPException:
-        resp = None
-    ctx_ok = resp is not None and resp.status_code == 200 and (
-        resp.context.get("ranked") or resp.context.get("unranked"))
-    if not ctx_ok:
-        return shell.not_found_page(request)
-    return resp
-
-
-@router.get("/media/years/{slug}", response_class=HTMLResponse)
-def media_year_page(request: Request, slug: str):
-    return _year_page(request, slug, "media_year.html")
-
-
-@router.get("/media/years/{slug}/countdown", response_class=HTMLResponse)
-def media_year_countdown(request: Request, slug: str):
-    return _year_page(request, slug, "media_countdown.html")

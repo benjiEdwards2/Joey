@@ -26,7 +26,6 @@ log = logging.getLogger("hub.media_home")
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
 HISTORY_PLAYS = "/media/server/history"  # F7 play history (Server > History)
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
-YEARS_DETAIL = "/media/years"      # the tile reading it as the year rankings
 LIBRARY_STRIP_MAX = 5  # "Just arrived" strip on the area page
 HISTORY_STRIP_MAX = 5  # "Recently watched" strip on the area page
 TO_RATE_DAYS = 30      # rating inbox window on /media/history
@@ -154,14 +153,13 @@ def row_href(jf_id=None, key=None, kind=None) -> str | None:
 
 
 def waiting_counts(recent, ratings, details, to_rate_rows=None) -> dict:
-    """What waits on the owner: titles to rate (full, uncapped inbox) and years to place.
+    """What waits on the owner: titles to rate (full, uncapped inbox).
     `details` = the detail paths of the tiles visible in this owner view; a count whose
     tile is hidden is 0. Shared by the area page and the hub card. `to_rate_rows`: the inbox when the caller
     already built it (media_frame)."""
     rows = _to_rate(recent, ratings) if to_rate_rows is None and HISTORY_DETAIL in details else to_rate_rows
     to_rate = len(rows) if HISTORY_DETAIL in details else 0
-    to_place = media_db.unranked_count() if YEARS_DETAIL in details else 0  # one COUNT (H-49)
-    return {"to_rate": to_rate, "to_place": to_place}
+    return {"to_rate": to_rate}
 
 
 def _recent(snaps, view: str) -> list:
@@ -176,8 +174,6 @@ def area_waiting(area, snaps, view: str, recent=None, ratings=None, to_rate_rows
     recent = _recent(snaps, view) if recent is None else recent
     counts = waiting_counts(recent, _ratings(view, recent) if ratings is None else ratings,
                             {t.detail for t in area.tiles if t.detail and shell.owner_visible(t, view)}, to_rate_rows)
-    if view == "her":
-        counts["to_place"] = 0  # rankings are B.'s only
     return counts
 
 
@@ -263,7 +259,7 @@ def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict
 def build_shelves(area, tiles, snaps, view: str) -> dict:
     """Hero + poster shelves for a `layout: shelves` area. Pure over its inputs (plus the
     ratings DB). A shelf renders only when the registry tile it stands for is visible in
-    the owner view; snapshots/DB missing just leave quiet words (years/torate: omitted)."""
+    the owner view; snapshots/DB missing just leave quiet words (torate: omitted)."""
     by_detail = {r["tile"].detail: r for r in tiles if r["tile"].detail}
     link = next((r["st"]["href"] for r in tiles if r["st"]["state"] == "link"), None)
 

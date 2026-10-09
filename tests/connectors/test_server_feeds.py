@@ -25,7 +25,7 @@ def test_system_fixture_transform(snapshots):
     assert [v["path"] for v in data["volumes"]] == ["/volume1", "/volume2", "/volume1/Docker"]
     assert [v["pct_used"] for v in data["volumes"]] == [71, 66, 74]
     assert data["summary"] == "CPU 16% · 1.9 GB RAM free"
-    assert data["secondary"] == "Up 12 days · /volume1/Docker 74% used"
+    assert data["secondary"] == "Up 12d 4h · /volume1/Docker 74% used"
 
 
 def test_system_transform_tolerates_missing_load_and_volumes():
@@ -33,7 +33,7 @@ def test_system_transform_tolerates_missing_load_and_volumes():
                                "uptime_s": 125})
     jsonschema.validate(data, schema("system"))
     assert data["load_1m"] is None and data["volumes"] == [] and data["ram_pct_used"] == 0
-    assert data["secondary"] == "Up 2 min"
+    assert data["secondary"] == "Up 2m"
 
 
 def test_wud_fixture_transform(snapshots):

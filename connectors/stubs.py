@@ -1036,15 +1036,26 @@ def _arr_key(app: str, record: dict, movie: bool = False) -> str | None:
     return f"tvdb:{tvdb}" if tvdb else None
 
 
+def _duration_words(minutes) -> str:
+    """The one duration format (C-14): '12m' / '1h 05m' / '5h 20m' / '12d 4h'."""
+    minutes = max(0, int(minutes or 0))
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h {minutes % 60:02d}m"
+    return f"{hours // 24}d {hours % 24}h"
+
+
 def _timeleft(text) -> str:
-    """Servarr 'd.hh:mm:ss' / 'hh:mm:ss' -> '12 min' / '1h 05m' (blank when unknown)."""
+    """Servarr 'd.hh:mm:ss' / 'hh:mm:ss' -> '12m' / '1h 05m' (blank when unknown)."""
     try:
         days, _, clock = str(text).rpartition(".")
         h, m, _s = (int(p) for p in clock.split(":"))
         minutes = (int(days or 0) * 24 + h) * 60 + m
     except Exception:
         return ""
-    return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{max(minutes, 1)} min"
+    return _duration_words(max(minutes, 1))
 
 
 class Arr(Connector):
@@ -1475,15 +1486,14 @@ def _bytes_text(n) -> str:
 
 
 def _eta_text(seconds) -> str:
-    """qBittorrent eta seconds -> '12 min' / '2 h 05 min' (blank when unknown or infinite)."""
+    """qBittorrent eta seconds -> '12m' / '2h 05m' (blank when unknown or infinite)."""
     try:
         seconds = int(seconds)
     except (TypeError, ValueError):
         return ""
     if seconds <= 0 or seconds >= QBIT_ETA_INFINITE:
         return ""
-    minutes = max(1, round(seconds / 60))
-    return f"{minutes // 60} h {minutes % 60:02d} min" if minutes >= 60 else f"{minutes} min"
+    return _duration_words(max(1, round(seconds / 60)))
 
 
 def _qbit_kind(category) -> str:
@@ -1660,13 +1670,8 @@ def _gib(n) -> float:
 
 
 def _uptime_words(seconds) -> str:
-    """'12 days' / '5 h 20 min' / '40 min' — the NAS uptime, as a person says it."""
-    seconds = max(0, int(seconds or 0))
-    days, rest = divmod(seconds, 86400)
-    if days:
-        return f"{days} day{'' if days == 1 else 's'}"
-    hours, minutes = rest // 3600, (rest % 3600) // 60
-    return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+    """'12d 4h' / '5h 20m' / '40m' — the NAS uptime, in the one duration format."""
+    return _duration_words(max(0, int(seconds or 0)) // 60)
 
 
 class System(Connector):

@@ -66,7 +66,7 @@ def test_raw_shape_matches_the_fixture_contract(proc):
     data = System().transform(raw)
     jsonschema.validate(data, SCHEMA)
     assert data["summary"] == "CPU 40% · 1.9 GB RAM free"
-    assert data["secondary"] == "Up 12 days · /volume1 75% used"
+    assert data["secondary"] == "Up 12d 4h · /volume1 75% used"
 
 
 def test_volume_paths_strip_the_host_prefix(proc, monkeypatch):

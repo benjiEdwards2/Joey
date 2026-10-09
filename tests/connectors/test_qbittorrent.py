@@ -119,14 +119,14 @@ def test_active_rows_are_speed_first_then_progress(data):
     assert rows[1] == {
         "hash": "abcdefabcdefabcdefabcdefabcdefabcdefabcd", "name": "Example.Movie.2024.2160p.WEB-DL",
         "kind": "movie", "category": "radarr", "pct": 42, "state_text": "Downloading",
-        "speed_text": "1.4 MB/s", "eta_text": "12 min", "size_text": "4.2 GB",
+        "speed_text": "1.4 MB/s", "eta_text": "12m", "size_text": "4.2 GB",
         "added": "2025-12-31T23:00:00+00:00"}
 
 
 def test_kinds_categories_pct_and_blank_texts(data):
     by_name = {r["name"]: r for r in data["active"]}
     show = by_name["Example.Show.S02E03.1080p"]
-    assert (show["kind"], show["pct"], show["speed_text"], show["eta_text"]) == ("tv", 81, "230 kB/s", "2 h 05 min")
+    assert (show["kind"], show["pct"], show["speed_text"], show["eta_text"]) == ("tv", 81, "230 kB/s", "2h 05m")
     paused = by_name["Fixture.Distro.Image.x64"]
     assert (paused["kind"], paused["category"], paused["speed_text"], paused["eta_text"]) == ("other", "", "", "")
     stalled = by_name["Sample.Series.S01E07.720p"]
@@ -214,7 +214,7 @@ def test_bytes_and_eta_helpers():
     assert [_bytes_text(n) for n in (0, 999, 230000, 1400000, 900000000, 4200000000, 123400000000)] == \
         ["0 B", "999 B", "230 kB", "1.4 MB", "900 MB", "4.2 GB", "123 GB"]
     assert [_eta_text(s) for s in (720, 7500, 30, 0, -1, 8640000, None)] == \
-        ["12 min", "2 h 05 min", "1 min", "", "", "", ""]
+        ["12m", "2h 05m", "1m", "", "", "", ""]
 
 
 # ---- fetch -----------------------------------------------------------------
@@ -290,3 +290,14 @@ def test_live_mode_fails_fast_naming_the_missing_variable(snapshots, monkeypatch
     monkeypatch.delenv("QBIT_PASS", raising=False)
     envelope = QBittorrent().run()
     assert envelope["status"] == "error" and "QBIT_PASS" in envelope["error"]
+
+
+def test_one_duration_format_across_arr_qbittorrent_and_system():
+    """C-14 (2026-10-09): the same download reads the same on the Arr and qBittorrent rows."""
+    from connectors.stubs import _duration_words, _timeleft, _uptime_words
+
+    assert [_duration_words(m) for m in (0, 12, 59, 60, 65, 320, 1439, 1440, 17520)] == \
+        ["0m", "12m", "59m", "1h 00m", "1h 05m", "5h 20m", "23h 59m", "1d 0h", "12d 4h"]
+    assert _timeleft("01:05:00") == _eta_text(65 * 60) == "1h 05m"
+    assert _timeleft("00:00:20") == "1m"                     # under a minute still reads 1m
+    assert _uptime_words(1052400) == "12d 4h" and _uptime_words(40 * 60) == "40m"

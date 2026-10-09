@@ -149,7 +149,7 @@ def test_this_week_labels_and_on_disk_disc_releases_are_skipped(data):
 def test_queue_percent_status_and_time_left(data):
     movie, episode = data["downloading"]
     assert (movie["title"], movie["pct"], movie["status_text"], movie["time_left"]) == \
-        ("Midnight Harbour", 75, "Downloading", "14 min")
+        ("Midnight Harbour", 75, "Downloading", "14m")
     assert (episode["pct"], episode["time_left"]) == (25, "1h 05m")
 
 

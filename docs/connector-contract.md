@@ -266,6 +266,10 @@ Jellyfin `history.on_this_day` (local month/day), the Arr calendar window and `t
 texts of a day or more ("yesterday", "N days ago" count local calendar days; under 24 h stays "N hours ago").
 Durations (last 7/30 days, qBittorrent's 24 h "finished today") are unaffected.
 
+**One duration format (2026-10-09, C-14).** Arr `time_left`, qBittorrent `eta_text` and the `system` uptime in
+`secondary` all come from `_duration_words`: `12m`, `1h 05m`, `5h 20m`, `12d 4h` (was "12 min" / "1 h 05 min" /
+"12 days" depending on the feed).
+
 **Open-Meteo forecast (2026-10-06, weather upgrade).** The same single GET now also asks for `hourly` and
 7 `daily` days (`forecast_days=7`). `open_meteo` data gains optional `hourly` (≤ 24 rows from the current hour:
 `time`, `temp_c`, `rain_prob_pct`, `feels_c`) and `days` (≤ 7 rows: `date`, `min_c`, `max_c`, `rain_prob_pct`,

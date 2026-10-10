@@ -331,6 +331,20 @@ def crew_for(raw: dict, kind: str, people: list[dict] | None = None) -> list[dic
     return out
 
 
+def show_crew(item: dict | None, seasons: list[dict]) -> list[dict]:
+    """A show page's Director / Writer people: the series' own Jellyfin People when it has any, else everyone who
+    directed or wrote an episode on the server, most episodes first (2026-10-10 — Jellyfin credits them per episode)."""
+    own = [p for p in (item or {}).get("people") or [] if p.get("type") in ("Director", "Writer")]
+    if own:
+        return own
+    counts: dict[tuple, int] = {}
+    for s in seasons or []:
+        for e in s.get("episodes") or []:
+            for c in e.get("crew") or []:
+                counts[(c["name"], c["type"])] = counts.get((c["name"], c["type"]), 0) + 1
+    return [{"name": n, "type": t} for (n, t), _ in sorted(counts.items(), key=lambda kv: -kv[1])]
+
+
 def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict | None:
     """What the FILE section draws: badges, the stat grid, key / value rows and the file name. A film shows its
     one file; a show degrades to its total size, episode count and languages (no single file name)."""
@@ -773,7 +787,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                               + (f" · {t['n_episodes']} episodes" if t.get("n_episodes") else "")) if kind == "tv" and t and t.get("n_seasons") else None}
     people = (item or {}).get("people") or []
     f["cast"], f["makers"] = _cast(raw, people), _makers(raw, people, kind or "movie")
-    f["crew"], f["cast_h"] = crew_for(raw, kind or "movie", (ep or item or {}).get("people")), CAST_H
+    f["crew"], f["cast_h"] = crew_for(raw, kind or "movie", (ep or {}).get("people") or show_crew(item, seasons)), CAST_H
     f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
     f["maker_h"] = MAKER_H
     f["providers"] = _providers(raw, title)

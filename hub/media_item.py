@@ -30,6 +30,7 @@ FIELDS = ("Overview,Genres,People,ProviderIds,DateCreated,PremiereDate,RunTimeTi
           # media-speed (2026-10-07): the file strip's stream facts ride on the same item read
           "MediaStreams,MediaSources,Path,Width,Height,Container")
 SEASON_WORKERS = 6
+CREW_TYPES = ("Director", "Writer")
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
 
@@ -85,7 +86,7 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
 
     def episodes(s):
         return media_files._get(base, headers, f"/Shows/{series_id}/Episodes", {
-            "userId": uid, "seasonId": s["Id"], "Fields": "UserData,PremiereDate,RunTimeTicks"})
+            "userId": uid, "seasonId": s["Id"], "Fields": "UserData,PremiereDate,RunTimeTicks,People"})
 
     if len(picked) > 1:  # one episode read per season, side by side (media-speed)
         with ThreadPoolExecutor(max_workers=min(SEASON_WORKERS, len(picked))) as pool:
@@ -109,6 +110,9 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
                             "runtime": runtime_text(ticks / TICKS_PER_MINUTE) if ticks else None,
                             "left_min": max(0, ticks - pos) // TICKS_PER_MINUTE if state["in_progress"] and ticks else None,
                             "still": f"jf:{e['Id']}" if ITEM_RE.match(str(e["Id"])) else None,
+                            # TV directors (2026-10-10): the show page's Director / Writer rows add these up
+                            "crew": [{"name": str(c["Name"])[:80], "type": c["Type"]} for c in e.get("People") or []
+                                     if isinstance(c, dict) and c.get("Name") and c.get("Type") in CREW_TYPES],
                             **state})
         done = sum(1 for e in eps if e["played"])
         out.append({"id": s["Id"], "number": _int(s.get("IndexNumber")), "name": str(s.get("Name") or "Season")[:100], "episodes": eps,
@@ -181,8 +185,10 @@ def _build(jf_id: str) -> dict:
         "episode_key": f"jf:{raw['Id']}" if kind == "episode" else None,
         "people": [{"name": str(p["Name"])[:80], "role": str(p.get("Role") or "")[:80], "type": p.get("Type"),
                     "ref": f"jf:{p['Id']}" if p.get("Id") and p.get("PrimaryImageTag") and ITEM_RE.match(str(p["Id"])) else None}
-                   for p in (raw.get("People") or []) if isinstance(p, dict) and p.get("Name")][:30],
+                   for p in (raw.get("People") or []) if isinstance(p, dict) and p.get("Name")],
     }
+    # cap at 30, but never cut a Director / Writer (an episode lists its guest stars first, 2026-10-10)
+    item["people"] = item["people"][:30] + [p for p in item["people"][30:] if p["type"] in CREW_TYPES]
     return {"item": item, "seasons": seasons, "files": files}
 
 

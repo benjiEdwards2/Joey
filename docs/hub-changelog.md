@@ -551,3 +551,7 @@ episode lands; a missing count is kept. `media_library` no longer calls a 0-epis
 TV directors (2026-10-10): TMDB's show-level crew has no directors (they are credited per episode), so a show page's
 Crew never had a Director row. `media_film.crew_for` now takes the Director and Writer rows for TV from Jellyfin's People
 — the episode's on an episode page, the series' on a show page — and falls back to TMDB crew; films are unchanged.
+Same day, follow-up: Jellyfin keeps directors on episodes, not the series, so a show page's rows now add up the
+People of every episode on the server (`/Shows/{id}/Episodes` reads `People`; `media_film.show_crew`, most episodes
+first) when the series has none of its own; and the item's 30-person cap no longer cuts a Director / Writer listed
+after many guest stars.

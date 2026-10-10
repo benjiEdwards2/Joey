@@ -547,3 +547,7 @@ as the bottom shelves.
 Empty shows (2026-10-10): the Jellyfin feed leaves out a Series whose `RecursiveItemCount` is 0 — the empty folder Sonarr
 makes for an unaired show (Harry Potter, VisionQuest) — so it is not on the TV page or any other show list until an
 episode lands; a missing count is kept. `media_library` no longer calls a 0-episode show "finished" / "All watched".
+
+TV directors (2026-10-10): TMDB's show-level crew has no directors (they are credited per episode), so a show page's
+Crew never had a Director row. `media_film.crew_for` now takes the Director and Writer rows for TV from Jellyfin's People
+— the episode's on an episode page, the series' on a show page — and falls back to TMDB crew; films are unchanged.

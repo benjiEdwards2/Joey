@@ -121,6 +121,20 @@ def test_crew_groups_roles_dedupes_writers_and_drops_empty_roles():
     assert media_film.crew_for({}, "movie") == []
 
 
+def test_tv_crew_takes_director_and_writer_from_jellyfin_people():
+    """2026-10-10: TMDB's show-level crew has no directors; the episode's Jellyfin People do."""
+    raw = {"createdBy": [{"name": "Cass Creator", "id": 9}],
+           "credits": {"crew": [{"name": "Show Writer", "job": "Writer", "id": 5}, {"name": "Comp", "job": "Music"}]}}
+    people = [{"name": "Ep Director", "type": "Director"}, {"name": "Ep Writer", "type": "Writer"},
+              {"name": "An Actor", "type": "Actor"}]
+    tv = {c["role"]: [p["name"] for p in c["people"]] for c in media_film.crew_for(raw, "tv", people)}
+    assert tv == {"Created by": ["Cass Creator"], "Director": ["Ep Director"], "Writer": ["Ep Writer"],
+                  "Composer": ["Comp"]}
+    assert media_film.crew_for(raw, "tv")[1] == {"role": "Writer", "people": [{"name": "Show Writer", "id": 5}]}
+    film = media_film.crew_for({"credits": {"crew": []}}, "movie", people)   # films keep TMDB crew only
+    assert film == []
+
+
 def test_warmup_warms_the_cast_size_the_page_renders():
     assert media_warmup.CAST_H == media_film.CAST_H == 400 and media_film.CAST_H in images.SIZES
     assert media_warmup.CAST_WARM == media_film.CAST_MAX

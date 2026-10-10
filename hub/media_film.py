@@ -307,15 +307,19 @@ def badges_for(files: dict | None) -> list[dict]:
     return out
 
 
-def crew_for(raw: dict, kind: str) -> list[dict]:
+def crew_for(raw: dict, kind: str, people: list[dict] | None = None) -> list[dict]:
     """[{role, people: [{name, id}]}] — Director, Writer (screenplay / writer / story / novel, de-duplicated),
-    Cinematography, Composer, Editor from TMDB credits.crew; a show leads with Created by. Empty roles drop out."""
+    Cinematography, Composer, Editor from TMDB credits.crew; a show leads with Created by. Empty roles drop out.
+    A show's TMDB crew is show-level (directors are credited per episode), so for TV the Director and Writer rows
+    come from Jellyfin's `people` (the episode's on an episode page) first, TMDB crew after (2026-10-10)."""
     crew = [c for c in ((raw.get("credits") or {}).get("crew") or []) if isinstance(c, dict) and c.get("name")]
+    jf = {"Director": "Director", "Writer": "Writer"} if kind == "tv" else {}
     roles = []
     if kind == "tv":
         roles.append(("Created by", [c for c in raw.get("createdBy") or [] if isinstance(c, dict) and c.get("name")]))
     for role, jobs in CREW_ROLES:
-        roles.append((role, [c for c in crew if c.get("job") in jobs]))
+        found = [{"name": p["name"]} for p in people or [] if role in jf and p.get("type") == jf[role] and p.get("name")]
+        roles.append((role, found or [c for c in crew if c.get("job") in jobs]))
     out = []
     for role, found in roles:
         people: dict[str, dict] = {}
@@ -769,7 +773,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                               + (f" · {t['n_episodes']} episodes" if t.get("n_episodes") else "")) if kind == "tv" and t and t.get("n_seasons") else None}
     people = (item or {}).get("people") or []
     f["cast"], f["makers"] = _cast(raw, people), _makers(raw, people, kind or "movie")
-    f["crew"], f["cast_h"] = crew_for(raw, kind or "movie"), CAST_H
+    f["crew"], f["cast_h"] = crew_for(raw, kind or "movie", (ep or item or {}).get("people")), CAST_H
     f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
     f["maker_h"] = MAKER_H
     f["providers"] = _providers(raw, title)

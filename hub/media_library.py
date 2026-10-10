@@ -35,7 +35,7 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
         if kind == "movie":
             played, state = bool(it.get("played")), None
         else:
-            played = unplayed == 0
+            played = eps > 0 and unplayed == 0               # 0 episodes is not "all watched" (2026-10-10)
             state = "finished" if played else ("not_started" if unplayed >= eps else "watching")
         href, external = href_of(it, kind)
         cr = it.get("community_rating")
@@ -53,7 +53,7 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
             "status_word": it.get("status_word"), "episodes": eps, "unplayed": unplayed, "state": state,
             "eps_text": "" if kind == "movie" else (
                 f"{eps} episode{'' if eps == 1 else 's'}"
-                + ((" · All watched" if unplayed == 0 else f" · {unplayed} to watch") if marks else "")),
+                + ((" · All watched" if played else f" · {unplayed} to watch") if marks else "")),
             "last_text": f"Last watched {ago(last)}" if marks and kind == "tv" and last else "",
         })
     return rows

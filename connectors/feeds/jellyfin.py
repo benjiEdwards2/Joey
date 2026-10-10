@@ -269,6 +269,10 @@ class Jellyfin(Connector):
     def _shows(cls, payload: dict) -> list[dict]:
         rows = []
         for item in (payload or {}).get("Items", []):
+            # 2026-10-10: a series with a counted 0 items is an empty folder (an unaired show Sonarr added) — skip it;
+            # it comes back on its own once an episode lands. A missing count is not 0 (kept, counts default to 0).
+            if item.get("RecursiveItemCount") == 0:
+                continue
             ids = item.get("ProviderIds") or {}
             key = (f"tmdb:{ids['Tmdb']}" if ids.get("Tmdb")
                    else f"tvdb:{ids['Tvdb']}" if ids.get("Tvdb") else f"jf:{item['Id']}")

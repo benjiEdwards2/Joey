@@ -61,7 +61,7 @@ def test_show_rows_status_words_and_counts(data):
     assert (by["Night Ferry"]["status_word"], by["Night Ferry"]["played"], by["Night Ferry"]["unplayed"]) == ("Ended", True, 0)
     never = by["Garden Lane"]
     assert never["status_word"] == "Unknown" and never["last_played_at"] is None and never["played"] is False
-    assert never["episodes"] == 0 and never["community_rating"] is None
+    assert never["episodes"] == never["unplayed"] == 6 and never["community_rating"] is None
 
 
 def test_show_item_key_prefers_tmdb_then_tvdb_then_jf(data):
@@ -74,6 +74,14 @@ def test_show_missing_counts_default_to_zero(snapshots, raw):
     raw["raw_shows"]["Items"] = [{"Id": "s1", "Name": "Bare", "Status": "Paused"}]
     row = Jellyfin().transform(raw)["shows"][0]
     assert (row["episodes"], row["unplayed"], row["status_word"]) == (0, 0, "Unknown")
+
+
+def test_show_with_zero_items_on_disk_is_left_out(snapshots, raw):
+    """2026-10-10: an unaired show Sonarr added is an empty Jellyfin Series (RecursiveItemCount 0) — not listed."""
+    raw = copy.deepcopy(raw)
+    raw["raw_shows"]["Items"] = [{"Id": "s1", "Name": "Empty", "RecursiveItemCount": 0},
+                                 {"Id": "s2", "Name": "Has one", "RecursiveItemCount": 1}]
+    assert [s["title"] for s in Jellyfin().transform(raw)["shows"]] == ["Has one"]
 
 
 def test_her_arrays_only_when_her_keys_are_present(snapshots, raw):

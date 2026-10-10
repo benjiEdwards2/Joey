@@ -771,7 +771,7 @@
         "added_at": "2025-12-27T10:00:00.0000000Z",
         "backdrop": "jfb:series-fixture-3",
         "community_rating": null,
-        "episodes": 0,
+        "episodes": 6,
         "genres": [],
         "item_key": "jf:series-fixture-3",
         "jf_id": "series-fixture-3",
@@ -780,7 +780,7 @@
         "poster": "jf:series-fixture-3",
         "status_word": "Unknown",
         "title": "Garden Lane",
-        "unplayed": 0,
+        "unplayed": 6,
         "year": 2022
       }
     ],

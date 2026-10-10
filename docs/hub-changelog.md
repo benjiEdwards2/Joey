@@ -242,7 +242,8 @@ its initial letter and the area's line icon, and a test fails if a `MEDIA_APPS` 
 entry. **LAN links (T3, 2026-10-09):** `gated_hrefs:` in `config/areas.yaml` (app / tile id → https hostname;
 homepage → `https://homepage.joeyhome.net` only) overrides a card's or link tile's href; a href that is still a LAN
 address (`server.is_lan`: private / loopback IP, dot-less, `.local`, `.lan`) renders as a plain card / tile with the
-word "LAN" and no link, since it is dead off the home network. The Services tile on this page says what the hub
+word "LAN" and no link, since it is dead off the home network. **Since 2026-10-10 a Services card links to its LAN address
+anyway** (still saying "LAN"; it opens on the home network only) — B. asked for clickable cards; link tiles are unchanged. The Services tile on this page says what the hub
 Server card says (`server.services_words`: "All up" / "1 down · Prowlarr"). Discord pushes stop retrying an item
 after 3 failed posts (`server_attention_seen.fails`) until it clears and returns.
 
@@ -542,3 +543,7 @@ shows its collection directly under Overview (`media_film.collection_banner`): t
 Follow series form inside; then the parts in release order (undated last) as `.card-poster`s with On server / Not on
 server words, the page's own film outlined with "This film" (`.is-current`, `aria-current`). Similar / Recommended stay
 as the bottom shelves.
+
+Empty shows (2026-10-10): the Jellyfin feed leaves out a Series whose `RecursiveItemCount` is 0 — the empty folder Sonarr
+makes for an unaired show (Harry Potter, VisionQuest) — so it is not on the TV page or any other show list until an
+episode lands; a missing count is kept. `media_library` no longer calls a 0-episode show "finished" / "All watched".

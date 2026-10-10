@@ -51,10 +51,10 @@
       "ProductionYear": 2022,
       "DateCreated": "2025-12-27T10:00:00.0000000Z",
       "Genres": [],
-      "RecursiveItemCount": 0,
+      "RecursiveItemCount": 6,
       "UserData": {
         "Played": false,
-        "UnplayedItemCount": 0
+        "UnplayedItemCount": 6
       }
     }
   ],

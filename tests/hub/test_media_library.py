@@ -125,3 +125,11 @@ def test_library_tab_rows_are_whole_row_links(app_factory):
     assert 'href="/media/title/movie/31"' in updated
     week = body.split(">This week<", 1)[1].split(">Downloading<", 1)[0]
     assert "<a " in week                                       # sample this_week rows carry tmdb keys
+
+
+def test_a_show_with_no_episodes_is_not_all_watched():
+    """2026-10-10: 0 episodes with 0 unplayed is not "finished" / "All watched"."""
+    from hub import media_library
+    row = media_library.show_rows([{"title": "Empty", "episodes": 0, "unplayed": 0}], {}, str,
+                                  lambda it, kind: ("/x", False))[0]
+    assert (row["played"], row["state"], row["eps_text"]) == (False, "not_started", "0 episodes · 0 to watch")

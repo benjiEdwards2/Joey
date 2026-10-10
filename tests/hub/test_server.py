@@ -78,12 +78,12 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "of 7.7 GB · 75% used" in body and "12 days 4 h" in body
     assert "/volume1/Docker" in body and "120.0 GB free" in body and "of 465.6 GB" in body and "74% used" in body
     assert "width: 71%" in body
-    # 2 Services, grouped, Up/Down as words; LAN-only apps are plain cards, never a dead link (H-71)
+    # 2 Services, grouped, Up/Down as words; LAN-only apps link to their LAN address and say "LAN" (2026-10-10)
     svc = services_of(body)
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     assert ">Down</span>" in body and ">Up</span>" in body
-    assert "nas.local" not in body and '<span class="svc-sub">Media server · LAN</span>' in svc
+    assert 'href="http://nas.local:8096"' in svc and '<span class="svc-sub">Media server · LAN</span>' in svc
     # 3 Updates
     assert "17 monitored · 2 updates" in txt(body) and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture

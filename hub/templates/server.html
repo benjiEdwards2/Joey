@@ -95,8 +95,8 @@
     <div class="sechead"><h2 class="seclabel">{{ g.label }}</h2></div>
     <div class="svc-grid">
     {% for a in g.apps %}
-    {# H-71: a LAN-only app (no gated hostname in areas.yaml) is a plain card saying "LAN" — its link is dead off
-       the home network. #}
+    {# 2026-10-10 (reverses H-71): a LAN-only app (no gated hostname in areas.yaml) still links to its LAN address
+       and says "LAN" — it opens on the home network only. An app with no href at all is a plain card. #}
     {% set tag = "a" if a.href else "div" %}
     <{{ tag }} class="svc-card{{ ' is-down' if not a.up }}"{% if a.href %} href="{{ a.href }}" target="_blank" rel="noopener"{% endif %}>
       {% if a.logo %}<img class="svc-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="40" height="40">

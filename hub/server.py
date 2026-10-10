@@ -243,7 +243,8 @@ def group_services(apps: list[dict]) -> list[dict]:
 
 def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> dict:
     """One Services card: the app plus logo (file name or None), subtitle (or None), href (the gated hostname from
-    `gated` when one exists, else the snapshot's — None with `lan` True when that is a LAN address, H-71) and the
+    `gated` when one exists, else the snapshot's — kept even when it is a LAN address, with `lan` True so the card
+    says "LAN": it opens at home and is dead off the home network, 2026-10-10, reverses H-71) and the
     Uptime Kuma response ms of the monitor whose name IS the app's name (case-insensitive, H-72), else None."""
     aid, name = app.get("id"), str(app.get("name") or app.get("id") or "?")
     key = name.strip().lower()
@@ -252,7 +253,7 @@ def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> 
     href = (gated or {}).get(aid) or app.get("href")
     lan = bool(href) and is_lan(href)
     return {**app, "name": name, "initial": name[:1].upper(), "logo": SERVICE_LOGOS.get(aid),
-            "subtitle": SERVICE_SUBTITLES.get(aid), "href": None if lan else href, "lan": lan,
+            "subtitle": SERVICE_SUBTITLES.get(aid), "href": href, "lan": lan,
             "response_ms": ms}
 
 

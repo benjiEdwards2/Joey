@@ -11,7 +11,7 @@ SVC_DIR = Path(server.__file__).resolve().parent / "static" / "svc"
 
 
 def cards_of(body):
-    """Every card: a link (<a>) or, for a LAN-only app, a plain <div> (H-71)."""
+    """Every card: a link (<a>) or, for an app with no href, a plain <div>."""
     return [m.group(0) for m in re.finditer(r'<(a|div) class="svc-card[^"]*".*?</\1>', services_of(body), re.S)]
 
 
@@ -44,12 +44,12 @@ def test_one_card_per_app_with_logo_subtitle_word_and_grouping(env):
     assert re.search(r'<img class="svc-logo" src="/static/svc/jellyfin\.svg\?v=[0-9a-f]+" alt="" '
                      r'width="40" height="40">', jf)
     assert '<span class="svc-sub">Media server · LAN</span>' in jf and ">Up</span>" in jf
-    assert jf.startswith('<div class="svc-card"') and "href=" not in jf        # LAN only: no dead link (H-71)
+    assert jf.startswith('<a class="svc-card" href="http://') and ':8096" target="_blank"' in jf  # LAN link, 2026-10-10
     pr = card(body, "Prowlarr")
     assert 'class="svc-card is-down"' in pr and ">Down</span>" in pr and "timeout" in pr
     assert '<span class="svc-sub">Indexers · LAN</span>' in pr
     assert "/static/svc/uptime-kuma.svg?v=" in card(body, "Uptime Kuma")
-    for c in cards:                                   # a linked card is the one link; a LAN card has none
+    for c in cards:                                   # a linked card is the one link; a card with no href has none
         assert c.count("<a ") == c.count("</a>") == (1 if c.startswith("<a ") else 0)
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
@@ -95,7 +95,8 @@ def test_service_card_helper():
         "jellyfin.svg", "Media server", "https://jf.example.org", 9, "J", False)
     assert server.service_card({"id": "wud", "name": "WUD"}, [{"name": "WUD Admin", "response_ms": 3}])["response_ms"] is None
     lan = server.service_card({"id": "jellyfin", "name": "Jellyfin", "href": "http://192.168.68.59:8096"}, [])
-    assert lan["href"] is None and lan["lan"] is True
+    assert lan["href"] == "http://192.168.68.59:8096" and lan["lan"] is True      # LAN link kept, 2026-10-10
+    assert server.service_card({"id": "wud", "name": "WUD"}, [])["href"] is None
     gated = server.service_card({"id": "jellyfin", "href": "http://192.168.68.59:8096"}, [],
                                 {"jellyfin": "https://jellyfin.joeyhome.net"})
     assert gated["href"] == "https://jellyfin.joeyhome.net" and gated["lan"] is False

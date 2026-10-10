@@ -111,7 +111,11 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
                             "left_min": max(0, ticks - pos) // TICKS_PER_MINUTE if state["in_progress"] and ticks else None,
                             "still": f"jf:{e['Id']}" if ITEM_RE.match(str(e["Id"])) else None,
                             # TV directors (2026-10-10): the show page's Director / Writer rows add these up
-                            "crew": [{"name": str(c["Name"])[:80], "type": c["Type"]} for c in e.get("People") or []
+                            "crew": [{"name": str(c["Name"])[:80], "type": c["Type"],
+                                      # the show page's "Directed by" cards use the Jellyfin headshot when there is one
+                                      "ref": (f"jf:{c['Id']}" if c.get("Id") and c.get("PrimaryImageTag")
+                                              and ITEM_RE.match(str(c["Id"])) else None)}
+                                     for c in e.get("People") or []
                                      if isinstance(c, dict) and c.get("Name") and c.get("Type") in CREW_TYPES],
                             **state})
         done = sum(1 for e in eps if e["played"])

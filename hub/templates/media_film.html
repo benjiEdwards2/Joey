@@ -32,11 +32,24 @@
                 + (film.genres or []), "facts-line") }}
         {# Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials when
            none), each ONE link to the person page (else a Discover search); a sideways row on a phone. #}
+        {% macro makercards(people) -%}
+          {% for m in people %}<a class="makercard" href="{{ '/media/person/' ~ m.id if m.id else '/media/discover?q=' ~ (m.name|urlencode) }}">{% if m.ref %}<img class="makerpic" src="/img/{{ m.ref }}?h={{ film.maker_h }}" alt="" loading="lazy" decoding="async" width="52" height="52">{% else %}<span class="makerpic initials" aria-hidden="true">{% for w in m.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}<span class="makername">{{ m.name }}</span></a>{% endfor %}
+        {%- endmacro %}
         {% if film.makers %}
         <div class="makers">
           <div class="microlabel">{{ film.makers_label }}</div>
           <div class="makerrow">
-          {% for m in film.makers %}<a class="makercard" href="{{ '/media/person/' ~ m.id if m.id else '/media/discover?q=' ~ (m.name|urlencode) }}">{% if m.ref %}<img class="makerpic" src="/img/{{ m.ref }}?h={{ film.maker_h }}" alt="" loading="lazy" decoding="async" width="52" height="52">{% else %}<span class="makerpic initials" aria-hidden="true">{% for w in m.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}<span class="makername">{{ m.name }}</span></a>{% endfor %}
+          {{ makercards(film.makers) }}
+          </div>
+        </div>
+        {% endif %}
+        {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
+           (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
+        {% if film.directors %}
+        <div class="makers makers-directors">
+          <div class="microlabel">Directed by</div>
+          <div class="makerrow">
+          {{ makercards(film.directors) }}
           </div>
         </div>
         {% endif %}

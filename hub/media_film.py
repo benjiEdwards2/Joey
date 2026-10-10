@@ -345,6 +345,27 @@ def show_crew(item: dict | None, seasons: list[dict]) -> list[dict]:
     return [{"name": n, "type": t} for (n, t), _ in sorted(counts.items(), key=lambda kv: -kv[1])]
 
 
+def show_directors(item: dict | None, seasons: list[dict]) -> list[dict]:
+    """The show page's "Directed by" headshot cards (2026-10-11), the TV twin of a film's: the series' own Director
+    People first when Jellyfin lists any, then whoever directed the most episodes on the server, up to MAKERS_MAX.
+    Cards carry the Jellyfin headshot (`jf:<person id>`) when one exists; there is no TMDB person id, so the card
+    links to a Discover search like a film's maker card does without one."""
+    counts: dict[str, int] = {}
+    refs: dict[str, str | None] = {}
+    for p in (item or {}).get("people") or []:
+        if p.get("type") == "Director" and p.get("name"):
+            counts[p["name"]] = counts.get(p["name"], 0) + 10_000    # the series' own credit outranks any count
+            refs[p["name"]] = refs.get(p["name"]) or p.get("ref")
+    for s in seasons or []:
+        for e in s.get("episodes") or []:
+            for c in e.get("crew") or []:
+                if c.get("type") == "Director" and c.get("name"):
+                    counts[c["name"]] = counts.get(c["name"], 0) + 1
+                    refs[c["name"]] = refs.get(c["name"]) or c.get("ref")
+    ranked = sorted(counts.items(), key=lambda kv: -kv[1])          # stable: ties keep first-seen order
+    return [{"name": n, "id": None, "ref": refs.get(n)} for n, _ in ranked][:MAKERS_MAX]
+
+
 def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict | None:
     """What the FILE section draws: badges, the stat grid, key / value rows and the file name. A film shows its
     one file; a show degrades to its total size, episode count and languages (no single file name)."""
@@ -789,6 +810,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["cast"], f["makers"] = _cast(raw, people), _makers(raw, people, kind or "movie")
     f["crew"], f["cast_h"] = crew_for(raw, kind or "movie", (ep or {}).get("people") or show_crew(item, seasons)), CAST_H
     f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
+    f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep else []   # a show page's second card row (2026-10-11); not episodes
     f["maker_h"] = MAKER_H
     f["providers"] = _providers(raw, title)
     f["trailer"], f["trailer_key"] = _trailer((item or {}).get("trailer"), raw)   # media-ux4: in-page player key

@@ -555,3 +555,10 @@ Same day, follow-up: Jellyfin keeps directors on episodes, not the series, so a 
 People of every episode on the server (`/Shows/{id}/Episodes` reads `People`; `media_film.show_crew`, most episodes
 first) when the series has none of its own; and the item's 30-person cap no longer cuts a Director / Writer listed
 after many guest stars.
+
+## 2026-10-11 — show pages get "Directed by" cards
+A show page now shows a second hero card row, "Directed by", below "Created by": the same headshot cards a film
+has, with the directors of the most episodes on the server first (`media_film.show_directors`, the series' own
+Director People outrank the count), capped at `MAKERS_MAX`. Episode crew entries carry the Jellyfin headshot ref
+(`jf:<person id>`) when the person has an image; without a TMDB person id the card links to a Discover search, as a
+film's maker card does. Episode pages and films are unchanged (`tests/hub/test_media_tv_crew.py`).

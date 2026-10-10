@@ -3,6 +3,10 @@
 Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (rule 13). Runbook:
 
 - **Deploy:** `ssh root@<nas> /volume1/Docker/joey/life-dashboard/deploy/deploy.sh` (`--force` redeploys an unchanged SHA).
+- **From your computer:** `JOEY_NAS=root@<nas> deploy/push.sh` lists every update on GitHub main the NAS is not running
+  yet, asks, then runs deploy.sh over ssh. `--list` (no deploy), `--search WORD` (pending updates mentioning WORD),
+  `--all [N]` (last N updates, deployed or not), `--history [N]` (last N deploys), `--yes` (no question). Mac / Linux /
+  Git Bash on Windows.
 - **What it does:** lock → `git pull --ff-only` → `compose config` → build `life-test` and run the full suite offline
   (`--network none`) → `compose build` + `up -d` → smoke (`/healthz`, `tests/deploy/smoke.py`, nothing restarting) → prune.
   A red gate resets the tree to the previous SHA and leaves the live stack alone; a failed build/up/smoke rolls back.

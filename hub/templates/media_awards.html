@@ -11,7 +11,7 @@
    edition date, else the usual month — the picked one gold;
    a sideways-scrolling row inside its own box on a phone); the year stepper (‹ native year select ›) + edition line +
    Not seen chip (awards-year, 2026-10-09: the tiles keep the year; a "Current year" chip back to the latest synced
-   year unless already there; a muted "No <Ceremony> in <year> · showing <year2>" note when the year fell back); the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
+   year unless already there; the ceremony tiles, stepper, year select and chips keep the scroll position — hx-swap "show:none", F1 2026-10-12; a muted "No <Ceremony> in <year> · showing <year2>" note when the year fell back); the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
    "Won N of M nominations" in gold, the nominees row); every category as a card in curated rank order; shorts /
    documentary / technical fold under "More categories". Gold means won (style guide: colour for meaning). #}
 <section class="sec awhead">
@@ -27,14 +27,14 @@
 </section>
 {% endif %}
 {% if bodies %}
-<nav class="awtiles" aria-label="Ceremonies"><div class="awtiles-row">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span>{% if b.month %}<span class="awtile-month">{{ b.month }}</span>{% endif %}</a>{% endfor %}</div></nav>
-<div class="awstep">
+<nav class="awtiles" aria-label="Ceremonies" hx-swap="innerHTML show:none"><div class="awtiles-row">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span>{% if b.month %}<span class="awtile-month">{{ b.month }}</span>{% endif %}</a>{% endfor %}</div></nav>
+<div class="awstep" hx-swap="innerHTML show:none">
   {% if prev %}<a class="btn btn-glass btn-sm" href="{{ prev.href }}" aria-label="Previous ceremony, {{ prev.year }}">‹ {{ prev.year }}</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>{% endif %}
   {% if years %}
   <form class="awyearform" method="get" action="{{ base }}">
     <input type="hidden" name="body" value="{{ body }}">{% if unseen %}<input type="hidden" name="unseen" value="1">{% endif %}
     <label class="vh" for="awyear">Ceremony year</label>
-    <select class="select awyear" id="awyear" name="year" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
+    <select class="select awyear" id="awyear" name="year" onchange="this.form.requestSubmit()">{% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
     <noscript><button class="btn btn-secondary btn-sm" type="submit">Go</button></noscript>
   </form>
   {% else %}<span class="awyear">—</span>{% endif %}

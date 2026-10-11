@@ -96,7 +96,7 @@ def test_ceremony_tiles_carry_marks_and_the_picked_one_is_gold(env):
     seeded()
     with build(jelly(ALPHA)) as client:
         b = page(client, "/media/movies/awards?body=bafta")
-    nav = re.search(r'<nav class="awtiles" aria-label="Ceremonies"><div class="awtiles-row">(.*?)</div></nav>', b, re.S).group(1)
+    nav = re.search(r'<nav class="awtiles" aria-label="Ceremonies"[^>]*><div class="awtiles-row">(.*?)</div></nav>', b, re.S).group(1)
     tiles = re.findall(r'<a class="(awtile[^"]*)" href="[^"]*body=(\w+)"[^>]*><svg class="awic awic-(\w+)"[^>]*'
                        r'aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">([^<]+)</span>'
                        r'<span class="awtile-month">\w+</span></a>', nav, re.S)   # awards-year item 3: + the month line
@@ -144,7 +144,7 @@ def test_year_select_keeps_body_and_not_seen(env):
     assert '<input type="hidden" name="body" value="oscars"><input type="hidden" name="unseen" value="1">' in form
     assert '<label class="vh" for="awyear">Ceremony year</label>' in form
     assert re.findall(r'<option value="(\d+)"( selected)?>', form) == [("2026", ""), ("2025", ""), ("2024", " selected")]
-    assert 'onchange="this.form.submit()"' in form and "<noscript>" in form   # works without JS too
+    assert 'onchange="this.form.requestSubmit()"' in form and "<noscript>" in form   # works without JS too
     assert re.search(r"\.awyearform \.awyear \{[^}]*font-size: (1[6-9]|2\d)px", CSS)  # >= 16 px: no zoom on a phone
     assert b.index("‹ 2024") < b.index("awyearform") < b.index("2025 ›") < b.index("97th Academy Awards") \
         if "‹ 2024" in b else b.index("awyearform") < b.index("2025 ›")

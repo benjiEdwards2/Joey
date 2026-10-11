@@ -562,3 +562,14 @@ has, with the directors of the most episodes on the server first (`media_film.sh
 Director People outrank the count), capped at `MAKERS_MAX`. Episode crew entries carry the Jellyfin headshot ref
 (`jf:<person id>`) when the person has an image; without a TMDB person id the card links to a Discover search, as a
 film's maker card does. Episode pages and films are unchanged (`tests/hub/test_media_tv_crew.py`).
+
+## 2026-10-12 — F1 keep scroll on the same-page controls
+htmx boosts every link and GET form and, by default, scrolls a boosted swap to the top, so changing the awards
+ceremony or year, or sorting Movies / TV, threw the reader back to the top of a long page. The controls that re-render the
+SAME page now carry `hx-swap="innerHTML show:none"` (htmx 2.0.4 parses any `show:` value after its boosted `show:top`
+default and only scrolls for `top` / `bottom`): the awards ceremony tiles and the whole stepper row (prev / next, year
+select, Current year, Not seen) in `media_awards.html`, and the Movies / TV `.toolbar` form (search, Grouped, sort,
+Grid / List) in `_library_page.html`. The year select now calls `this.form.requestSubmit()` instead of
+`this.form.submit()`: the native `submit()` skips the submit event, so htmx never saw it and the page fully reloaded.
+Section tabs, the phone bar and posters are unchanged (still land at the top), as is Back / Forward
+(`historyCacheSize` 0). Tests: `tests/hub/test_keep_scroll.py`.

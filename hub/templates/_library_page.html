@@ -4,6 +4,7 @@
 {# Shared body of /media/movies and /media/tv (restyle Phase 3): a "New this week" carousel, the guide's toolbar
    (search with its icon, the Grouped chip, sort, the Grid / List switch), then the titles grouped under section labels —
    poster cards (the default, media-ux4) or rows. #}
+{# The toolbar (search, Grouped, sort, Grid / List) keeps the scroll position on a swap (hx-swap show:none, F1 2026-10-12). #}
 {# To rate moved to its own tab beside Tonight (media-ux4, 2026-10-08: /media/movies/to-rate, /media/tv/to-rate). #}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
@@ -26,7 +27,7 @@
   </div>
 </section>
 {% endif %}
-<form class="toolbar" method="get">
+<form class="toolbar" method="get" hx-swap="innerHTML show:none">
   <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles"></div>
   {% if marks %}<input type="hidden" name="group" value="0"><label class="chip{{ ' on' if group }}"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %}>Grouped</label>{% endif %}
   <select class="select" name="sort" aria-label="Sort by">

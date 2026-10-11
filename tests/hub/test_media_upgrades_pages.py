@@ -124,3 +124,66 @@ def test_the_css_token_is_light_blue_and_one_class():
     assert css.count("--upgrade:") == 1 and ":root { --upgrade: var(--sky); }" in css
     rule = re.search(r"\n\.upnote \{([^}]*)\}", css).group(1)
     assert "color: var(--upgrade)" in rule and "background" not in rule
+
+
+# ---- Requests rows ----
+
+REQS = [{"id": 1, "title": "Alpha Film", "year": 2020, "kind": "movie", "tmdb_id": 11, "item_key": "tmdb:11",
+         "status_text": "Available", "href": "http://x.invalid/1", "poster": None, "when": "today"},
+        {"id": 2, "title": "Renamed Echo", "year": 2019, "kind": "tv", "tmdb_id": 21, "tvdb_id": 7021,
+         "item_key": "tmdb:21", "status_text": "Partly available", "href": "http://x.invalid/2", "poster": None},
+        {"id": 3, "title": "Bravo Film", "year": 2022, "kind": "movie", "tmdb_id": 12, "item_key": "tmdb:12",
+         "status_text": "Pending", "href": "http://x.invalid/3", "poster": None}]
+
+
+def req_row(html, rid):
+    return html.split(f'id="req-{rid}"', 1)[1].split('<details', 1)[0]
+
+
+def test_request_rows_carry_the_line_by_tmdb_or_tvdb(site):
+    with site(requests_rows=REQS) as c:
+        b = main_of(c.get("/media/requests").text)
+    assert f'<div class="upnote">{FILM_NOTE}</div>' in req_row(b, 1)
+    assert f'<div class="upnote">{ECHO_NOTE}</div>' in req_row(b, 2)           # the request's tvdb_id bridges it
+    assert "upnote" not in req_row(b, 3)
+
+
+def test_request_rows_without_upgrades_render_plain(site):
+    with site(upgrades=None, requests_rows=REQS) as c:
+        r = c.get("/media/requests")
+    assert r.status_code == 200 and "upnote" not in main_of(r.text)
+
+
+# ---- Activity › Downloads: the Upgrades block ----
+
+def upgrades_block(html):
+    return html.split('<section class="sec" id="upgrades">', 1)[1].split("</section>", 1)[0]
+
+
+def test_downloads_block_lists_titles_with_totals_and_links(site):
+    with site() as c:
+        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+    assert '<div class="seclabel">Upgrades</div>' in blk
+    assert '<p class="metaline">2 films · 2 shows</p>' in blk
+    assert f'<div class="upnote">{FILM_NOTE}</div>' in blk and ECHO_NOTE in blk and GOLF_NOTE in blk
+    assert "Upgrade available · DVD" not in blk and "Upgrade available</div>" in blk   # unknown cutoff: no arrow part
+    alpha = blk.split("Alpha Film (2020)", 1)[0].rsplit("<a ", 1)[1]
+    assert 'href="/media/item/jtmdb-11"' in alpha                              # the Joey item page (library title)
+    assert 'href="/media/title/movie/99"' in blk                               # not in the library: the title page
+    assert 'href="/media/item/jtvdb-7023"' in blk                               # Golf Show: Jellyfin keys it tvdb:
+    assert 'href="/media/item/jtmdb-21"' in blk                                 # Echo Show: matched on its title
+
+
+def test_downloads_block_states(site):
+    with site(upgrades=None) as c:
+        b = main_of(c.get("/media/downloads").text)
+    assert 'id="upgrades"' not in b                                            # an older arr envelope: no block
+    with site(upgrades={"radarr": None, "sonarr": None, "totals": {}}) as c:
+        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+    assert '<p class="metaline">Not connected</p>' in blk and "upnote" not in blk
+    with site(upgrades={**UP, "sonarr": None}) as c:
+        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+    assert '<p class="metaline">2 films · Sonarr not connected</p>' in blk
+    with site(upgrades={"radarr": [], "sonarr": [], "totals": {"movies": 0, "episodes": 0, "series": 0}}) as c:
+        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+    assert "0 films · 0 shows" in blk and '<p class="empty">Nothing to upgrade.</p>' in blk

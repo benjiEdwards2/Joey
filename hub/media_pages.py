@@ -98,7 +98,11 @@ def media_downloads_page(request: Request):
         groups.append({"label": "Other", "rows": [r for r in data.get("active") or []
                                                   if r.get("kind") not in ("movie", "tv")]})
         totals = data.get("totals") or {}
-        return {"groups": [g for g in groups if g["rows"]],
+        # F4b: the "Upgrades" block - the arr snapshot's cutoff-unmet titles, each row linked like the rows above
+        upgrades = media_upgrades.block(shell.get_snapshots(request=request))
+        if upgrades and upgrades.get("rows"):
+            upgrades["rows"] = link(upgrades["rows"])
+        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades,
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
                                f" · {data.get('seeding', 0)} seeding"}
     return _detail_page(request, "media_downloads.html", QBIT_SNAPSHOT_ID, build)
@@ -141,6 +145,10 @@ def media_requests_page(request: Request):
         snap = shell.get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
         rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
         c = media_requests.visible_counts(data, rows)
+        # F4b: "Upgrade available" on a request whose title is on the arr cutoff-unmet lists (copies: the counts above
+        # match rows by identity, and the snapshot's own dicts stay untouched)
+        rows = [dict(r) for r in rows]
+        media_upgrades.attach(rows, shell.get_snapshots(request=request), None, lambda r: r.get("tvdb_id"))
         good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),

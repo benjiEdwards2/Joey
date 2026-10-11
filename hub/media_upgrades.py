@@ -95,9 +95,10 @@ def find(idx: dict, kind: str, item_key=None, tvdb=None, title=None, titles: dic
     return None
 
 
-def attach(rows, snaps, kind: str, tvdb_of=lambda r: None) -> None:
-    """Set `upgrade` (the note, or '') on each library / request row in place. `tvdb_of(row)` -> a TheTVDB id the
-    caller knows for the row, or None. The title match needs the name unique among these rows too."""
+def attach(rows, snaps, kind: str | None, tvdb_of=lambda r: None) -> None:
+    """Set `upgrade` (the note, or '') on each library / request row in place. `kind` None = each row's own `kind`
+    (Requests mixes films and shows). `tvdb_of(row)` -> a TheTVDB id the caller knows for the row, or None. The title
+    match needs the name unique among these rows too."""
     idx = index(snaps)
     rows = list(rows or [])
     if not idx:
@@ -110,7 +111,8 @@ def attach(rows, snaps, kind: str, tvdb_of=lambda r: None) -> None:
         count[norm_title(r.get("title"))] = count.get(norm_title(r.get("title")), 0) + 1
     for r in rows:
         unique = count.get(norm_title(r.get("title"))) == 1
-        hit = find(idx, kind, r.get("item_key"), tvdb_of(r), r.get("title") if unique else None, titles)
+        k = kind or ("tv" if r.get("kind") == "tv" else "movie")
+        hit = find(idx, k, r.get("item_key"), tvdb_of(r), r.get("title") if unique else None, titles)
         r["upgrade"] = hit["note"] if hit else ""
 
 

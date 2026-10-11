@@ -3,6 +3,8 @@
 {% block content %}
 {% from "_rows.html" import meta %}
 {% from "_icons.html" import icon %}
+{% from "_poster.html" import poster %}
+{% from "_upgrade_note.html" import upnote %}
 {% include "_arr_sweep.html" %}{# F3 (2026-10-12): Search missing / upgrades, Radarr · Sonarr #}
 {# Downloads (2026-10-06; restyle Phase 3 row recipe): qBittorrent, read-only. State and percentage are WORDS beside
    the hairline bar — colour is never the only encoding. Finished torrents are Complete rows (emerald, guide 6). #}
@@ -39,6 +41,26 @@
   {% endfor %}
   </div>{% else %}<p class="empty">Nothing finished today.</p>{% endif %}
 </section>
+
+{# F4b (2026-10-12): Upgrades - titles whose file is below the Radarr / Sonarr quality cutoff (arr snapshot), each row
+   linked to its page, where "Search for upgrade" asks the app to look. Absent for an older arr envelope. #}
+{% if upgrades %}
+<section class="sec" id="upgrades">
+  <div class="seclabel">Upgrades</div>
+  {% if upgrades.state == "off" %}<p class="metaline">Not connected</p>
+  {% else %}
+  <p class="metaline">{{ upgrades.totals_text }}{% for a in upgrades.off %} · {{ a }} not connected{% endfor %}</p>
+  {% if upgrades.rows %}<div class="listbox">
+  {% for r in upgrades.rows %}
+  <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ upnote(r.note) }}</div>
+  </{{ "a" if r.href else "div" }}>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing to upgrade.</p>{% endif %}
+  {% endif %}
+</section>
+{% endif %}
 {% endif %}
 {% include "_detail_foot.html" %}
 {% endblock %}

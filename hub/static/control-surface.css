@@ -1088,3 +1088,9 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
   overflow-wrap: anywhere; }
 .awchip.is-won { border-color: var(--gold-line); background: var(--gold-soft); color: var(--gold); font-weight: 600; }
 .awchips .row-meta { min-width: 0; }
+/* F2 fast item pages (2026-10-12): a film-page section waiting on an upstream read sits in a .fpart placeholder (it adds
+   no box: its content lays out as the section itself would); the page's one part request swaps it out of band. The
+   waiting score pill and shelf say "Loading" in the dim meta colour; the shelf keeps a poster row's height. */
+.fpart { display: contents; }
+.scorepill.sp-wait { color: var(--text-5); }
+.fp-shelf-wait { min-height: 120px; }

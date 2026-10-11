@@ -7,6 +7,7 @@ import time
 import pytest
 
 from hub import images, media_files as mf, media_film, media_rank, media_warmup
+from tests.hub.film_page import whole
 from tests.hub.helpers import env, FILM  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub.test_media_film import ITEMS, SOURCES, STREAMS  # noqa: F401  (env = fixture)
@@ -241,7 +242,7 @@ def test_rank_hidden_under_twenty_films(env, monkeypatch, rankdir):
 def test_tv_file_panel_degrades_to_totals(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/tv/100").text)
+        b = main_of(whole(client, "/media/title/tv/100"))
     assert '<div class="seclabel">Crew</div>' in b and "<dt>Created by</dt>" in b and "Cass Creator" in b
     if '<div class="seclabel">File</div>' in b:                             # the fake show has no file facts
         panel = b.split('<div class="seclabel">File</div>', 1)[1].split("</section>", 1)[0]
@@ -269,7 +270,7 @@ def test_not_on_server_film_has_no_file_section_but_keeps_details(env):
 def test_stats_card_and_portrait_cast(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     stats = b.split('<div class="stats numbers">', 1)[1].split("\n</div>", 1)[0]
     assert '<a class="scorepill sp-you" href="#rate">' in stats and '<b class="sp-val">Rate</b></a>' in stats  # media-ux4 (2026-10-08, B.): one pill style
     assert '<span class="sp-name">IMDb</span>' in stats and ">Runtime</div>" in stats

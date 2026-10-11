@@ -175,12 +175,14 @@ def test_lazy_posters_come_from_the_jellyseerr_meta_cache_only(env, monkeypatch)
     monkeypatch.setattr(requests, "get", lambda *a, **k: pytest.fail("no live call from an awards page"))
     with build(jelly(ALPHA)) as client:
         b = page(client, "/media/movies/awards")
+        again = page(client, "/media/movies/awards")
     assert "/api/v1/movie/12" in reads and all(p.startswith("/api/v1/") for p in reads)
     assert len(reads) <= 60
     with closing(adb.ensure()) as db:
         assert db.execute("SELECT poster FROM award_entity WHERE qid = 'Q1002'").fetchone()["poster"] == "tmdb:/beta123.jpg"
         assert db.execute("SELECT poster FROM award_entity WHERE qid = 'Q2001'").fetchone()["poster"] == "tmdb:/ann.jpg"
-    assert "/img/tmdb:/beta123.jpg?h=" in b                               # the hero's posters land before the render
+    # M-46 / F2 (2026-10-12): no poster read before the render - the BackgroundTask stores them for the next view
+    assert "/img/tmdb:/beta123.jpg?h=" not in b and "/img/tmdb:/beta123.jpg?h=" in again
 
 
 def test_awards_templates_use_tokens_and_whole_link_rows(env):
@@ -273,3 +275,21 @@ def test_tile_month_falls_back_to_the_usual_month_without_a_date(env):
         tv = tile_months(page(client, "/media/tv/awards"))                 # no media data at all
     assert (b["Oscars"], b["BAFTA"], b["Golden Globes"], b["Cannes"]) == ("Mar", "Feb", "Jan", "May")
     assert tv["Emmys"] == "Sep"
+
+
+def test_the_page_renders_before_any_poster_read_hero_first_after(env, monkeypatch):
+    """M-46 / F2 (2026-10-12): no Jellyseerr read on the request path - the posters (hero category first) and a missing
+    hero backdrop are handed to the BackgroundTask, which runs after the response."""
+    from hub import media_awards_pages as ap
+    build, _ = env
+    seeded()
+    monkeypatch.setattr(md, "_creds", lambda: ("http://seerr.invalid", "k"))
+    monkeypatch.setattr(md, "meta_get", lambda *a, **k: pytest.fail("a meta read before the render"))
+    queued = []
+    monkeypatch.setattr(ap, "fill_later", lambda ents, paths: queued.append(([e["qid"] for e in ents], paths)))
+    with build(jelly()) as client:
+        b = page(client, "/media/movies/awards")
+    assert "awhero" in b and queued
+    ents, paths = queued[0]
+    assert ents and len(ents) <= ap.POSTER_READS and len(set(ents)) == len(ents)
+    assert paths == ["/api/v1/movie/11"]                                  # the off-server winner's backdrop, later

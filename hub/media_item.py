@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 
 from hub import media_db, media_files
@@ -36,6 +37,31 @@ KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "
 
 _cache: LRU = LRU()   # jf_id -> (fetched_at, item + seasons); bounded (M-42)
 _server: list = [0.0, None]  # [fetched_at, server id]
+_flights: dict = {}           # key -> Future of the one read in flight (F2 fast pages, 2026-10-12)
+_flight_lock = threading.Lock()
+
+
+def once(key, fn):
+    """fn() run ONCE for concurrent callers with the same key (F2, 2026-10-12): the first caller runs it, the others wait
+    for its answer. A link prefetch and the tap right after it, or a page and its deferred parts, share one upstream
+    read instead of racing two. Nothing is kept once it is done — the callers' own caches hold the answer."""
+    with _flight_lock:
+        fut = _flights.get(key)
+        lead = fut is None
+        if lead:
+            fut = _flights[key] = Future()
+    if not lead:
+        return fut.result()
+    try:
+        out = fn()
+        fut.set_result(out)
+        return out
+    except BaseException as exc:
+        fut.set_exception(exc)
+        raise
+    finally:
+        with _flight_lock:
+            _flights.pop(key, None)
 
 
 def clear_cache() -> None:
@@ -178,6 +204,8 @@ def _build(jf_id: str) -> dict:
         "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE}m left" if ticks and pos > 0 else None,
         "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
         "imdb": str(imdb) if imdb else None,
+        # F2 (2026-10-12): the show's TheTVDB id from Jellyfin, so the download badge and Search now need no Jellyseerr read
+        "tvdb": (str((raw.get("ProviderIds") or {}).get("Tvdb") or "") or None) if kind == "series" else None,
         # media-ux3: the "part of" banner draws a backdrop only when Jellyfin has one (else a plain panel)
         "has_backdrop": bool(raw.get("BackdropImageTags")),
         "show_title": str(raw.get("SeriesName") or "") or None, "show_id": series_id if kind != "series" else None,
@@ -202,6 +230,13 @@ def _data(jf_id: str) -> dict | None:
         return hit[1]
     if not media_files._creds():
         return None
+    return once(("item", jf_id), lambda: _read(jf_id))
+
+
+def _read(jf_id: str) -> dict | None:
+    hit = _cache.get(jf_id)   # a caller that queued behind a read that has just finished
+    if hit and time.time() - hit[0] < CACHE_TTL:
+        return hit[1]
     try:
         out = _build(jf_id)
     except Exception as exc:  # type only — requests errors embed the URL
@@ -209,6 +244,13 @@ def _data(jf_id: str) -> dict | None:
         return None
     _cache[jf_id] = (time.time(), out)
     return out
+
+
+def peek(jf_id: str | None) -> dict | None:
+    """The cached page data for an item, however old, WITHOUT a Jellyfin read — the film page's deferred parts
+    (F2, 2026-10-12) use what the page itself just read and never read Jellyfin again."""
+    hit = _cache.get(jf_id) if jf_id else None
+    return hit[1] if hit else None
 
 
 def _rating_for(item: dict, level: str) -> dict:

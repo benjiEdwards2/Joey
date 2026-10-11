@@ -1,0 +1,5 @@
+{# The hero's Request block (and, from a part request, the TMDB trailer when Jellyfin has none) - a deferred part since F2
+   (2026-10-12): both come from the Jellyseerr title body. #}
+{% from "_icons.html" import icon %}
+{% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg, future = film.req_future, req_primary = not (film.play and film.play.href) %}{% include "_request_block.html" %}{% endwith %}{% endif %}
+{% if film.late_trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.late_trailer.href }}" target="_blank" rel="noopener"{% if film.late_trailer.key %} data-yt="{{ film.late_trailer.key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}

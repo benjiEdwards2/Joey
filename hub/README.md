@@ -48,6 +48,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
 | `GET /media/search` | media_write | Title search behind the Log form |
 | `GET /media/title/{kind}/{tmdb_id}`, `/media/item/{jf_id}`, `/media/person/{person_id}` | media_film, media_person | Film / series page by TMDB id or Jellyfin id; person page |
+| `GET /media/title/{kind}/{tmdb_id}/part/{name}`, `/media/item/{jf_id}/part/{name}` | media_film | The film page's deferred sections (`all?p=…` = every pending one, out-of-band swaps) |
 | `GET /media/title/{kind}/{tmdb_id}/request`, `/arr`; `/media/title/tv/{tmdb_id}/season/{n}` | media_discover, media_arr_search | Request form, Radarr / Sonarr search form, season list |
 | `POST /media/title/{kind}/{tmdb_id}/request`, `/search` | media_discover, media_arr_search | Jellyseerr request; Search now (Radarr / Sonarr command) |
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
@@ -98,6 +99,20 @@ The connectors run in their own container: Media / Server feeds every 2 min, eve
 Snapshots: parsed once per `(mtime_ns, size)`, read once per request (`request.state.snaps`). Hub Server card: 60 s.
 Discover lists: 10 min; Jellyseerr meta (bodies, ratings, season lists): 6 h in memory and on disk; providers 24 h.
 Posters: 30 days on disk. HTML pages are `no-store` so Back and Forward never show a stale page.
+
+**Film pages render first, upstream sections after (F2, 2026-10-12).** `media_film.build_film(..., defer=True)` (the
+routes) never waits on Jellyseerr or OMDb: it renders from Jellyfin + the caches (`peek_extras`), and each section whose
+answer is not cached is in `film.pending` — drawn by `_film_wait.html` as a `<div class="fpart" id="fp-<name>">`
+(display: contents) holding the Jellyfin fallback or "Loading". ONE element (`.fpart-load`, `hx-trigger="load"`,
+`hx-swap="none"`) asks `GET /media/{item/{jf_id}|title/{kind}/{tmdb}}/part/all?p=<names>`; `build_parts` answers with
+each part wrapped in its placeholder's id and `hx-swap-oob="true"`. Parts are `media_film.PARTS` (makers, actions,
+scores, collection, crew, dates, cast, providers, shelves), each one template `_film_<name>.html` that the page includes
+inline when cached; `/part/<name>` serves one. The upstream read runs in a bounded background pool (`warm_extras`, one
+job per title, started as soon as the TMDB id is known); part requests wait for it (`EXTRAS_WAIT`) and never read
+Jellyfin (`media_item.peek`). Scripts and tests calling `build_film` without `defer` get the whole page, waiting as
+before. **Prefetch:** `static/joey.js` sends `X-Joey-Prefetch: 1` to a film / show link on touch or a 60 ms hover (once
+per link, one at a time); the route runs the reads and answers 204 with no body, no cookie and a log line without the
+path.
 
 ## Decisions pinned by tests
 

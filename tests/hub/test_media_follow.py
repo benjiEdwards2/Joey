@@ -4,6 +4,7 @@ import re
 from datetime import date, timedelta
 
 from hub import media_follow
+from tests.hub.film_page import whole
 from tests.hub.helpers import env, SEERR_URL as SEERR, SKEY  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.conftest import main_of  # noqa: F401
 
@@ -296,11 +297,11 @@ def test_home_shelf_only_with_a_follow(env):
 def test_film_page_follow_series_button(env):
     client, both = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
         assert 'action="/media/follow/collection/9"' in b and "Follow series" in b
         assert b.count("Follow series") == 1                                   # only the collection shelf
         client.post("/media/follow/collection/9", data={"back": "/media/title/movie/603"})
-        b = main_of(client.get("/media/title/movie/603?follow=on").text)
+        b = main_of(whole(client, "/media/title/movie/603?follow=on"))
     assert 'action="/media/follow/collection/9/unfollow"' in b and "Following series ✓" in b
 
 

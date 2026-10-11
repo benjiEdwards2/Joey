@@ -1,0 +1,6 @@
+{# F2 fast item pages (2026-10-12): a film-page section still waiting on an upstream read is wrapped in its placeholder
+   (`fp-<name>`, display: contents) - the page's one part request (`.../part/all`) swaps each out of band. The wrapped
+   content is the section's Jellyfin-only fallback or a one-word "Loading" state, so nothing jumps when it lands. #}
+{% macro wait(name, pending) -%}
+{% if name in pending %}<div class="fpart" id="fp-{{ name }}" aria-busy="true">{{ caller() }}</div>{% else %}{{ caller() }}{% endif %}
+{%- endmacro %}

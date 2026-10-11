@@ -99,13 +99,22 @@ def test_no_hook_when_the_app_is_not_connected(env, monkeypatch):
     assert lazy(html) is None and 'id="arr-search"' not in html
 
 
-def test_series_hook_carries_the_tvdb_id(arr_env):
-    from tests.hub import test_media_film as tf
+def test_series_hook_carries_the_tvdb_id(arr_env, monkeypatch):
+    from hub import media_film
+    from tests.hub import helpers, test_media_film as tf
     client, both, _ = arr_env()
     both.seerr.table["/api/v1/tv/100"] = {**tf.SHOW, "externalIds": {"tvdbId": 1100}}
     with client:
-        html = client.get("/media/title/tv/100").text
+        client.get("/media/title/tv/100")
+        media_film.drain_extras()
+        html = client.get("/media/title/tv/100").text           # the Jellyseerr body cached: its TheTVDB id
     assert lazy(html) == "/media/title/tv/100/arr?back=%2Fmedia%2Ftitle%2Ftv%2F100&tvdb=1100"
+    # F2 (2026-10-12): a cold open draws the hook before the body is read - from Jellyfin's ProviderIds.Tvdb
+    monkeypatch.setitem(helpers.ITEMS["ser1"], "ProviderIds", {"Tmdb": "100", "Tvdb": "1200"})
+    client, both, _ = arr_env()
+    with client:
+        html = client.get("/media/title/tv/100").text
+    assert lazy(html) == "/media/title/tv/100/arr?back=%2Fmedia%2Ftitle%2Ftv%2F100&tvdb=1200"
 
 
 # ---- the fragment ----

@@ -12,6 +12,7 @@ import pytest
 import requests
 
 from hub import media_db, media_discover, media_film, media_omdb
+from tests.hub.film_page import whole
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub.helpers import env, FakeResponse as R  # noqa: F401
 
@@ -198,7 +199,7 @@ def film_page(env, monkeypatch, body, path="/media/title/movie/603", imdb=TT, st
 
     monkeypatch.setattr(requests, "get", get)
     with client:
-        html = client.get(path).text
+        html = whole(client, path)   # F2: the score pills are a deferred part on a cold open
     return html, omdb_fake
 
 
@@ -263,7 +264,7 @@ def pills(b):
 def test_score_pills_in_one_format_and_order(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     assert pills(b) == [("imdb", "/static/logos/imdb.svg", "IMDb", "7.9"),
                         ("rt", "/static/logos/rt.svg", "RT", "92%"),
                         ("tmdb", "/static/logos/tmdb.svg", "TMDB", "7.8"),
@@ -278,7 +279,7 @@ def test_your_rating_pill_keeps_grade_gold_and_undo(env):
     client, _ = env()
     with client:
         media_db.set_rating("tmdb:603", 10, "movie", "Harbour Lights", year=2019)
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     you = b.split('<form class="rated ratedpill" id="rate"', 1)[1].split("</form>", 1)[0]
     assert '<span class="sp-name">Yours</span><b class="sp-val score-9 gold-text-glow" title="Your rating: 10 out of 10">10</b>' in you
     assert 'hx-delete="/media/rate/tmdb%3A603"' in you and ">Undo</button>" in you
@@ -289,7 +290,7 @@ def test_tmdb_pill_from_the_jellyseerr_vote_when_off_server(env):
     client, both = env()
     both.seerr.table["/api/v1/movie/701"] = {**both.seerr.table["/api/v1/movie/701"], "voteAverage": 6.51}
     with client:
-        b = main_of(client.get("/media/title/movie/701").text)
+        b = main_of(whole(client, "/media/title/movie/701"))
     assert ("tmdb", "/static/logos/tmdb.svg", "TMDB", "6.5") in pills(b)
 
 
@@ -343,6 +344,6 @@ def test_a_logo_dropped_in_the_badges_folder_overrides_the_monogram(env, tmp_pat
     (tmp_path / "badges").mkdir()
     (tmp_path / "badges" / "logo-imdb.png").write_bytes(b"\x89PNG")
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     assert ("imdb", "/static/badges/logo-imdb.png", "IMDb", "7.9") in pills(b)
     assert 'src="/static/badges/logo-imdb.png" alt="" width="16" height="16">IMDb</a>' in b     # the site pill too

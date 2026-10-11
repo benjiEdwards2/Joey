@@ -182,6 +182,21 @@ def meta_get(path: str, ttl: float = META_TTL):
     return body
 
 
+MISSING = object()   # meta_peek: "not cached" (a cached 404 is None)
+
+
+def meta_peek(path: str, ttl: float = META_TTL):
+    """meta_get's answer from memory or disk ONLY — never a call (F2 fast pages, 2026-10-12). MISSING when nothing
+    fresh is cached, so a page can render what it has and leave the read to a deferred part or a background fill."""
+    key = f"meta:{path}"
+    hit = _cache.get(key)
+    if hit is None:
+        hit = _meta_disk(path)
+        if hit is not None:
+            _cache[key] = hit
+    return hit[1] if hit is not None and time.time() - hit[0] < ttl else MISSING
+
+
 _year = media_text.year
 
 

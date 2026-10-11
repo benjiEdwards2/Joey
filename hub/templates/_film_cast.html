@@ -1,0 +1,13 @@
+{# Cast (portrait photo cards in a row that scrolls inside itself) - a deferred part since F2 (2026-10-12): TMDB's cast
+   from the Jellyseerr title body; waiting, Jellyfin's actors and headshots. #}
+{% if film.cast %}
+<section class="sec">
+  <div class="seclabel">Cast</div>
+  <div class="castrow">
+    {% for c in film.cast %}
+    <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h={{ film.cast_h }}" alt="" loading="lazy" decoding="async" width="180" height="270">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+      <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="castrole">as {{ c.role }}</span>{% endif %}</{{ "a" if c.id else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

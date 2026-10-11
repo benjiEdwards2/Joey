@@ -80,6 +80,7 @@ def test_icon_css_is_a_token_free_recipe():
 
 
 # ---- item 2: the page layout ----
+from tests.hub.film_page import whole
 from tests.hub.test_awards_pages import ALPHA, jelly, page, seeded  # noqa: E402
 from tests.hub.test_media_rate import env  # noqa: E402,F401  (env is a fixture)
 from hub import media_discover as md  # noqa: E402
@@ -170,12 +171,21 @@ def test_hero_is_gold_framed_on_the_winners_backdrop(env, monkeypatch):
 def test_hero_backdrop_comes_from_the_meta_cache_for_an_off_server_winner(env, monkeypatch):
     build, _ = env
     seeded()
-    reads = []
+    reads, cache = [], {}
     monkeypatch.setattr(md, "_creds", lambda: ("http://seerr.invalid", "k"))
-    monkeypatch.setattr(md, "meta_get", lambda path, ttl=None: reads.append(path) or {"backdropPath": "/wide.jpg",
-                                                                                         "posterPath": "/p.jpg"})
+
+    def meta_get(path, ttl=None):
+        reads.append(path)
+        cache[path] = {"backdropPath": "/wide.jpg", "posterPath": "/p.jpg"}
+        return cache[path]
+
+    monkeypatch.setattr(md, "meta_get", meta_get)
+    monkeypatch.setattr(md, "meta_peek", lambda path, ttl=None: cache.get(path, md.MISSING))
     with build(jelly()) as client:                                           # Alpha is not on the server
+        first = hero_of(page(client, "/media/movies/awards"))
         hero = hero_of(page(client, "/media/movies/awards"))
+    # M-46 / F2 (2026-10-12): the render reads the meta cache only; the BackgroundTask reads it for the next view
+    assert "awhero-bd" not in first
     assert '<img class="awhero-bd" src="/img/tmdb:/wide.jpg?h=1280"' in hero and "/api/v1/movie/11" in reads
 
 
@@ -334,7 +344,7 @@ def test_film_page_similar_rows_badge_winners(film_env):
     badges._cache.clear()
     client, _ = film_env()
     with client:
-        b = client.get("/media/title/movie/603").text.split("<main", 1)[1]
+        b = whole(client, "/media/title/movie/603").split("<main", 1)[1]
     one = card_of(b, "Similar One")
     assert one.startswith(' is-won">') and 'aria-label="Won Best Picture · Oscars 2025"' in one
     assert "awbadge" not in card_of(b, "Similar Two") and "awbadge" not in card_of(b, "Rec One")

@@ -11,6 +11,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from hub import media_db, media_discover, media_files, media_film, media_item
+from tests.hub.film_page import whole
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub.helpers import (  # noqa: F401
     Both, deep, env, FILM, ITEMS, JellyfinFake as JFFake, KEY, LIB_MOVIES, LIB_SHOWS, make_area, make_tile,
@@ -81,7 +82,7 @@ def test_numbers_with_imdb_and_rt(env, monkeypatch):
     client, _ = env()
     with client:
         media_db.set_rating("tmdb:603", 10, "movie", "Harbour Lights", year=2019)
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     # Restyle Phase 3: the numbers are a stats strip (micro label over a big value).
     assert '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and '<span class="sp-name">IMDb</span><b class="sp-val">7.9</b>' in b  # media-ux4 (2026-10-08, B.): one pill style
     assert '<span class="sp-name">RT</span><b class="sp-val">92%</b>' in b
@@ -141,13 +142,13 @@ def test_request_button_only_when_not_available(env):
 def test_trailer_jellyfin_then_jellyseerr_then_none(env, monkeypatch):
     client, both = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
         assert 'href="https://www.youtube.com/watch?v=seerr1" target="_blank" rel="noopener">' in b and ">Trailer</a>" in b   # media-ux4: a word button
         monkeypatch.setitem(ITEMS["mov1"], "RemoteTrailers", [{"Url": "https://www.youtube.com/watch?v=jf1"}])
         media_item.clear_cache()
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
         assert 'watch?v=jf1" target="_blank"' in b and "seerr1" not in b and "<iframe" not in b
-        assert "Trailer" not in main_of(client.get("/media/title/movie/701").text)
+        assert "Trailer" not in main_of(whole(client, "/media/title/movie/701"))
 
 
 # ---- format badges (film-quality: text badges, bold word over a sub-label; no brand glyphs) ----
@@ -195,14 +196,16 @@ def test_badges_folder_ships_readme_only():
 def test_cast_portraits_initials_makers_and_providers(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     assert f'<img class="castpic" src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in b
     assert 'class="castpic initials" aria-hidden="true">B' in b and ">Bo Bit<" in b and "as Deckhand" in b
     assert 'href="/media/discover?q=Dee%20Director"' in b
     assert "<dt>Cinematography</dt>" in b and "Cy Camera" in b              # crew grid (film-quality)
     assert ">Netflix</a>" in b and ">Apple TV</a>" in b and "USOnly" not in b
     assert 'href="https://www.justwatch.com/au/search?q=Harbour%20Lights"' in b
-    assert "Come home" in b and "A ferry pilot returns home." in b
+    assert "A ferry pilot returns home." in b
+    # F2: the tagline is drawn inline only - it is there once the title body is cached (the next open, or a prefetch)
+    assert "Come home" not in b and "Come home" in main_of(client.get("/media/title/movie/603").text)
 
 
 def test_series_makers_are_creators(env):
@@ -221,7 +224,7 @@ def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):
     with client:
         media_db.add_manual_watch(item_key="tmdb:603", kind="movie", title="Harbour Lights", year=2019, poster=None,
                                   watched_on="2025-10-12", place=None, note=None, owner="you")
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     assert "<dt>Audio</dt><dd>English · 1 track</dd>" in b and "<dt>Subtitles</dt><dd>French · Text (SRT)</dd>" in b
     assert "<dt>Cinema</dt><dd>5 May 2019</dd>" in b and "<dt>Digital</dt><dd>1 Aug 2019</dd>" in b
     added = b.split('class="filegrid"', 1)[1].split("</div>\n", 1)[0]
@@ -241,7 +244,7 @@ def test_arr_calendar_tops_up_release_dates_and_next_episode(env):
 def test_shelves_mark_server_status(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     col = b.split('<section class="sec colsec" id="collection">', 1)[1].split("</section>", 1)[0]  # media-ux3 banner
     assert "Harbour Lights 2" in col and col.count(">On server<") == 2 and col.count(">Not on server<") == 1
     sim = b.split('<div class="seclabel">Similar</div>', 1)[1].split("</section>", 1)[0]
@@ -272,7 +275,7 @@ def test_both_url_families_render_the_same_title(env):
 def test_episode_route_shows_episode_header_over_show_page(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/item/ep3").text)
+        b = main_of(whole(client, "/media/item/ep3"))
     assert b.index("S04E03 · Penny for Your Thoughts") < b.index("Quiet Show (2020)")
     assert "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Episode of" not in b      # media-ux4 (2026-10-08, B.): the line is gone; the part-of banner links the show
@@ -312,7 +315,7 @@ def test_partial_failure_degrades_sections_only(env):
             del both.seerr.table[k]
     with client:
         r = client.get("/media/title/movie/603")
-    b = main_of(r.text)
+        b = main_of(whole(client, "/media/title/movie/603"))   # F2: after the deferred parts landed
     assert r.status_code == 200 and "Harbour Lights (2019)" in b and ">Similar</div>" not in b and "sp-imdb" not in b
 
 
@@ -379,7 +382,7 @@ def test_button_is_a_word_link_with_the_youtube_key(env):
     client, both = env()
     with_video(both)
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     href, attrs, words = button(b)
     assert href == f"https://www.youtube.com/watch?v={KEY_ux4_trailer}" and words == "Trailer"
     assert f'data-yt="{KEY_ux4_trailer}"' in attrs and 'aria-haspopup="dialog"' in attrs
@@ -427,10 +430,13 @@ def test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links(env, m
 def test_no_key_means_a_plain_link_and_no_dialog(env):
     client, _ = env()                                                    # FILM's video id "seerr1" is not a YouTube id
     with client:
-        html = client.get("/media/title/movie/603").text
+        html = whole(client, "/media/title/movie/603")
+        cached = client.get("/media/title/movie/603").text
     href, attrs, _ = button(main_of(html))
     assert href == "https://www.youtube.com/watch?v=seerr1" and "data-yt" not in attrs
-    assert "<dialog" not in html and "youtube-nocookie" not in html
+    assert "<iframe" not in html
+    # F2: a cold page ships the empty dialog while its trailer is still a pending part; once known (cached), no dialog
+    assert "<dialog" not in cached and "youtube-nocookie" not in cached
 
 
 @pytest.mark.parametrize("url, key", [
@@ -485,7 +491,7 @@ def test_film_hero_has_a_directed_by_card_with_headshot_and_person_link(env):
     both.seerr.table["/api/v1/movie/603"] = {**FILM, "credits": {**FILM["credits"], "crew": [
         {"id": 77, "name": "Guy Ritchie", "job": "Director", "profilePath": "/guy.jpg"}]}}
     with client:
-        h = hero(main_of(client.get("/media/title/movie/603").text))
+        h = hero(main_of(whole(client, "/media/title/movie/603")))
     label, found = cards(h)
     assert label == "Directed by"
     assert found == [("/media/person/77", f"/img/tmdb:/guy.jpg?h={media_film.MAKER_H}", None, "Guy Ritchie")]
@@ -505,7 +511,7 @@ def test_series_says_created_by_with_up_to_four_cards(env):
         {"id": 10 + i, "name": f"Maker {chr(65 + i)} Person", "profilePath": f"/m{i}.jpg" if i % 2 == 0 else None}
         for i in range(5)]}
     with client:
-        label, found = cards(hero(main_of(client.get("/media/title/tv/100").text)))
+        label, found = cards(hero(main_of(whole(client, "/media/title/tv/100"))))
     assert label == "Created by" and len(found) == 4
     assert found[0] == ("/media/person/10", f"/img/tmdb:/m0.jpg?h={media_film.MAKER_H}", None, "Maker A Person")
     assert found[1] == ("/media/person/11", None, "MB", "Maker B Person")       # initials of the first two words

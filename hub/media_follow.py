@@ -28,12 +28,14 @@ import threading
 from contextlib import closing
 from datetime import date
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_discover as md, media_store, media_text, server_alerts
+from hub import (media_arr_search, media_db, media_discover as md, media_requests as mr, media_store, media_text,
+                 server_alerts, shell)
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_follow")
@@ -361,11 +363,78 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
     return counts
 
 
+# ---- shows (F5, 2026-10-12): Sonarr keeps a followed show monitored, new seasons included ----
+# B.: "follow … the show, so I can auto-request future seasons once announced". Follow = Sonarr's own series resource
+# PUT back with `monitored: true, monitorNewItems: "all"` (every other field kept, no search, seasons untouched); a show
+# Sonarr doesn't have yet is requested first through the "All seasons + future" path (Jellyseerr `seasons: "all"`, then
+# media_arr_search.follow_all). Unfollow = the same PUT with `monitorNewItems: "none"` only. Nothing is ever deleted.
+# The page's Follow state is a media.db read; Sonarr is called only on the POSTs and by the 6-hourly check.
+
+_why = media_text.why
+SONARR_NOTE = {"set": ("Sonarr: monitored, new seasons too", True),
+               "reqfail": ("Not in Sonarr, and Jellyseerr didn't take the request — use Request", False),
+               "unset": ("Sonarr is not connected — new seasons are not set to follow", False),
+               "failed": ("Couldn't set Sonarr to follow new seasons", False),
+               "stopped": ("Sonarr: new seasons are no longer added · what you have stays", True),
+               "missing": ("Not in Sonarr — nothing to change there", True),
+               "stopfail": ("Couldn't tell Sonarr to stop adding new seasons", False)}
+
+
+def sonarr_note(code) -> dict | None:
+    """{text, ok} for a `?sonarr=<code>` flash; `req-<code>` = requested, then media_arr_search.FUTURE's line."""
+    code = str(code or "")
+    req = code.startswith("req-")
+    hit = media_arr_search.FUTURE.get(code[4:]) if req else SONARR_NOTE.get(code)
+    return {"text": ("Requested every season · " if req else "") + hit[0], "ok": hit[1]} if hit else None
+
+
+def _sonarr_put(entry: dict, **fields) -> None:
+    """PUT the series back as Sonarr's own resource with `fields` changed (every other field kept)."""
+    base, headers = mr._arr_creds("sonarr")
+    media_arr_search._ok(requests.put(f"{base}/api/v3/series/{int(entry['id'])}", json={**entry, **fields},
+                                      headers=headers, timeout=media_arr_search.TIMEOUT))
+
+
+def keep_show(tmdb_id: int) -> str:
+    """Follow show: Sonarr monitors it with every new season. -> a SONARR_NOTE code ("req-…" when it was requested)."""
+    if mr._arr_creds("sonarr") is None:
+        return "unset"
+    entry = media_arr_search.find("tv", tmdb_id)
+    if entry is not None:
+        try:
+            _sonarr_put(entry, monitored=True, monitorNewItems="all")
+            return "set"
+        except Exception as exc:
+            log.warning("sonarr follow-show failed: %s", _why(exc))
+            return "failed"
+    code = md._send("tv", tmdb_id, "all")        # not in Sonarr: the "All seasons + future" request
+    if code not in (None, "exists"):
+        return "reqfail"
+    md._cache.pop(f"film:/api/v1/tv/{tmdb_id}", None)
+    return "req-" + media_arr_search.follow_all(tmdb_id)
+
+
+def stop_show(tmdb_id: int) -> str:
+    """Unfollow show: Sonarr stops adding new seasons (`monitorNewItems: "none"`); monitored and files stay."""
+    if mr._arr_creds("sonarr") is None:
+        return "unset"
+    entry = media_arr_search.find("tv", tmdb_id)
+    if entry is None:
+        return "missing"
+    try:
+        _sonarr_put(entry, monitorNewItems="none")
+        return "stopped"
+    except Exception as exc:
+        log.warning("sonarr unfollow-show failed: %s", _why(exc))
+        return "stopfail"
+
+
 # ---- routes: Follow / Unfollow (instant, reversible, behind same_origin) and the Following tab ----
 router = APIRouter()
 FOLLOWING = "/media/following"
-FLASH = {"on": "Following — new films are requested automatically", "off": "Unfollowed"}
-flash_keys("follow")
+FLASH = {"on": "Following — new films are requested automatically", "off": "Unfollowed",
+         "show": "Following — new seasons are added automatically"}
+flash_keys("follow", "sonarr")
 KIND_WORDS = {"Directing": "Director"}
 NEEDS_SEERR = "Follow needs Jellyseerr"
 EMPTY = "Follow an actor, director or film series from their page."
@@ -382,9 +451,9 @@ def _back(value: str, default: str) -> str:
     return safe_back(value, default, keep_query=True, prefixes=("/media/",), exact=())
 
 
-def _flashed(url: str, word: str) -> str:
+def _flashed(url: str, word: str, sonarr: str | None = None) -> str:
     base = url.split("#", 1)[0]
-    return base + ("&" if "?" in base else "?") + f"follow={word}"
+    return base + ("&" if "?" in base else "?") + f"follow={word}" + (f"&sonarr={sonarr}" if sonarr else "")
 
 
 def _describe(kind: str, tmdb_id: int) -> dict:
@@ -399,6 +468,10 @@ def _describe(kind: str, tmdb_id: int) -> dict:
                     "dept": str(body.get("knownForDepartment") or "")[:40] or None}
         return {}
     from hub.media_film import _cget
+    if kind == "show":   # the show page's own cached body
+        body = _cget(f"/api/v1/tv/{tmdb_id}")
+        return ({"name": str(body.get("name") or "")[:120] or None, "poster": md._ref(body.get("posterPath"))}
+                if isinstance(body, dict) else {})
     body = _cget(f"/api/v1/collection/{tmdb_id}")
     if not isinstance(body, dict):
         return {}
@@ -410,12 +483,16 @@ def _describe(kind: str, tmdb_id: int) -> dict:
 def page_href(kind: str, tmdb_id: int, link: str | None = None) -> str:
     if kind == "person":
         return f"/media/person/{tmdb_id}"
-    return link if link and _back(link, "") else FOLLOWING
+    if link and _back(link, ""):
+        return link
+    return f"/media/title/tv/{tmdb_id}" if kind == "show" else FOLLOWING
 
 
 def kind_word(f: dict) -> str:
     if f["kind"] == "collection":
         return "Film series"
+    if f["kind"] == "show":
+        return "Show · future seasons"
     return KIND_WORDS.get(f.get("dept") or "", "Actor · top-5 billed")
 
 
@@ -424,7 +501,24 @@ async def follow_route(request: Request, kind: str, tmdb_id: int):
     kind = _kind_of(kind)
     if tmdb_id <= 0:
         raise HTTPException(404, "Nothing to follow")
-    return await run_in_threadpool(_follow, kind, tmdb_id, await form_of(request))   # M-40: Jellyseerr read off the loop
+    form = await form_of(request)
+    if kind == "show":   # Sonarr / Jellyseerr writes: off the loop too
+        return await run_in_threadpool(_follow_show, tmdb_id, form)
+    return await run_in_threadpool(_follow, kind, tmdb_id, form)   # M-40: Jellyseerr read off the loop
+
+
+def _follow_show(tmdb_id: int, form: dict):
+    got = _describe("show", tmdb_id)
+    name = got.get("name") or " ".join(str(form.get("name") or "").split())[:120] or "Show"
+    back = _back(form.get("back"), "")
+    page = back.split("?", 1)[0]
+    link = page if page.startswith(("/media/title/tv/", "/media/item/")) else f"/media/title/tv/{tmdb_id}"
+    try:
+        follow("show", tmdb_id, name, got.get("poster"), link=link)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("follow not saved: %s", type(exc).__name__)
+        raise HTTPException(503, "Couldn't save the follow") from None
+    return RedirectResponse(_flashed(back or link, "show", keep_show(tmdb_id)), status_code=303)
 
 
 def _follow(kind: str, tmdb_id: int, form: dict):
@@ -455,7 +549,8 @@ async def unfollow_route(request: Request, kind: str, tmdb_id: int):
     except (sqlite3.Error, OSError) as exc:
         log.warning("unfollow not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the change") from None
-    return RedirectResponse(_flashed(_back(form.get("back"), FOLLOWING), "off"), status_code=303)
+    sonarr = await run_in_threadpool(stop_show, tmdb_id) if kind == "show" else None
+    return RedirectResponse(_flashed(_back(form.get("back"), FOLLOWING), "off", sonarr), status_code=303)
 
 
 _year = media_text.year
@@ -487,3 +582,25 @@ def home_items(limit: int = 12) -> list[dict] | None:
     return [{"title": a["title"], "poster": a["poster"], "item_key": f"tmdb:{a['tmdb_id']}",
              "sub": " · ".join(str(x) for x in (_year(a["release_date"]), a["follow_name"]) if x),
              "href": f"/media/title/movie/{a['tmdb_id']}"} for a in recent_adds(limit, KEEP)]
+
+
+def show_ctx(request, film) -> dict | None:
+    """What `_follow_show.html` draws on a show page (not an episode): the Follow state from media.db (never an
+    upstream call — F2) and the flash. Pages call it as the `follow_show(request, film)` global."""
+    tmdb = film.get("tmdb") if isinstance(film, dict) else None
+    if not isinstance(tmdb, int) or tmdb <= 0 or film.get("kind") != "tv" or film.get("episode"):
+        return None
+    try:
+        on = get("show", tmdb) is not None
+    except Exception as exc:  # the page never fails on the follow lookup
+        log.warning("follow lookup failed: %s", type(exc).__name__)
+        on = False
+    params = request.query_params if request is not None else {}
+    word = params.get("follow") or ""
+    return {"tmdb": tmdb, "following": on, "name": film.get("title") or "",
+            "back": film.get("back") or f"/media/title/tv/{tmdb}",
+            "flash": FLASH.get(word) if word in ("show", "off", "creator") else None,
+            "note": sonarr_note(params.get("sonarr"))}
+
+
+shell.templates.env.globals["follow_show"] = show_ctx

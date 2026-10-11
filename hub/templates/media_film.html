@@ -43,6 +43,7 @@
           </div>
         </div>
         {% endif %}
+        {% include "_follow_show.html" %}
         {% if film.tmdb and film.kind in ("movie", "tv") %}
         <div class="credits sitepills">
           {# media-ux4: the site links are neutral logo pills, the same family as the score pills #}

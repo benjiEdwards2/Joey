@@ -562,3 +562,24 @@ has, with the directors of the most episodes on the server first (`media_film.sh
 Director People outrank the count), capped at `MAKERS_MAX`. Episode crew entries carry the Jellyfin headshot ref
 (`jf:<person id>`) when the person has an image; without a TMDB person id the card links to a Discover search, as a
 film's maker card does. Episode pages and films are unchanged (`tests/hub/test_media_tv_crew.py`).
+
+## 2026-10-12 — F2 fast item pages: the page first, the upstream sections after
+B.: "The phone and sometimes computer still take seconds in between loading pages … at least load the page and have
+the photos come after." A film / show page (`/media/item/{jf_id}`, `/media/title/{kind}/{tmdb}`) used to wait for the
+Jellyseerr bundle (body, ratings, similar, recommendations, collection) and OMDb before its first byte — 0.8–1.4 s on
+the NAS on a first open. It now renders from Jellyfin + whatever is cached and never waits on Jellyseerr or OMDb; the
+sections still waiting are placeholders (`film.pending`) and ONE htmx request (`.../part/all?p=…`, out-of-band swaps)
+fills them: the hero's makers and Request block, the IMDb / RT / Metacritic pills, the film series, Crew, the Details
+release dates / Seasons row, Cast, Where to watch and the shelves. Placeholders hold the Jellyfin fallback (directors,
+crew, cast with headshots) or one "Loading" word. The upstream read starts in the background the moment the TMDB id is
+known (one bounded job per title, `media_film.warm_extras`), so the part request usually finds it done; a title whose
+answers are all cached renders whole, as before. An off-server title still waits for its one title body (it is the
+page); a request step (`?step=confirm`, `?requested=1`) reads it too, so the Request block draws its state. The tagline
+is drawn only when the body is cached (no jump in the hero). The part routes never read Jellyfin again
+(`media_item.peek`); `media_item.once` makes concurrent reads of one item / Jellyseerr path share a call. Links to
+film / show pages prefetch on touch or a 60 ms hover (`static/joey.js`, `X-Joey-Prefetch: 1`, once per link, one at a
+time): the route runs the reads and answers an empty 204. The Awards page no longer reads hero posters before render
+(M-46): they, the rest of the edition's posters and a missing hero backdrop fill in its BackgroundTask. Measured on the
+test fakes with Jellyfin 100 ms / Jellyseerr + OMDb 300 ms a call: a film page's first byte 0.95 s → 0.25 s (no
+Jellyseerr / OMDb call waited for). `tests/hub/test_media_fast_pages.py`; tests that read a deferred section fetch the
+parts through `tests/hub/film_page.whole()`.

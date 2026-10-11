@@ -20,6 +20,7 @@
   <div class="confirm-btns"><a class="btn btn-secondary" href="/server#updates">Back to Server</a></div>
   {% else %}
   <p class="metaline">{{ confirm_text }}</p>
+  {% for w in warnings or [] %}<p class="metaline st-warn">{{ w }}</p>{% endfor %}
   <form method="post" action="/server/updates/{{ name | urlencode }}/run" class="confirm-btns">
     <button class="btn btn-primary" type="submit">Update {{ name }} now</button>
     <a class="btn btn-ghost" href="/server#updates">Cancel</a>

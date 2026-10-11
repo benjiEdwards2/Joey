@@ -89,6 +89,9 @@ Docker 9.3 `POST {WUD_URL}/api/containers/{id}/triggers/dockercompose/local` (no
 current `wud` snapshot holds the container with `update_available` and `auto: true`, it has an `id`, and the WUD env is
 set. Each call writes a `server_update_runs` row (outcome `requested` / `refused` / `unreachable`, note = status or
 exception type only) and redirects to `/server#updates` with a flash word. Ignore/Unignore write only `media.db`.
+Amended 2026-10-12: rows with `auto` not true (the notify-only containers) now call the second trigger
+`triggers/dockercompose/manual` instead of being refused — set on the NAS with `WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false`,
+so WUD only runs it on request. The `wud` container itself is always refused (updated by hand).
 
 **Eleventh exception (2026-10-06): Server → Discord push (`hub/server_alerts.py`, WP-U2).** An outbound live call: when
 `SERVER_DISCORD_WEBHOOK` is set, each NEW `/server` Attention item is POSTed once to that Discord webhook as plain text

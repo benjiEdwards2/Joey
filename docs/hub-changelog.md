@@ -608,3 +608,11 @@ time): the route runs the reads and answers an empty 204. The Awards page no lon
 test fakes with Jellyfin 100 ms / Jellyseerr + OMDb 300 ms a call: a film page's first byte 0.95 s → 0.25 s (no
 Jellyseerr / OMDb call waited for). `tests/hub/test_media_fast_pages.py`; tests that read a deferred section fetch the
 parts through `tests/hub/film_page.whole()`.
+
+## 2026-10-12 — Server: manual Update now for notify-only containers
+**Server → manual Update now (2026-10-12).** `server_updates.py`. Notify-only containers (gluetun, qbittorrent, prowlarr,
+uptime-kuma) keep the "Manual · excluded" chip but now also get Update now: the confirm page says it is a manual update
+and the POST calls WUD's `dockercompose.manual` trigger (`WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false` on the NAS, so
+it never fires on its own). Warnings on the confirm page: qbittorrent/prowlarr route through gluetun (brief network
+drop); gluetun may leave them needing a restart; a leading-number tag jump is flagged "Major version jump". The `wud`
+row reads "Update WUD by hand" and is always refused (409, no call). `auto` rows still use `dockercompose.local`.

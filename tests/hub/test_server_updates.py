@@ -90,11 +90,54 @@ def test_confirm_page_states_the_facts_and_posts_back(env):
     assert URL not in r.text and "secret-host" not in r.text
 
 
-def test_confirm_page_for_an_excluded_row_explains_and_has_no_button(env):
+def test_confirm_page_for_an_excluded_row_is_a_manual_update_with_a_major_warning(env):
     with env() as client:
         body = main_of(client.get("/server/updates/uptime-kuma/run?step=confirm").text)
-    assert "1.23.16 → 2.0.2" in body and "excluded from automatic updates" in body
-    assert 'method="post"' not in body
+    assert "1.23.16 → 2.0.2" in body and server_updates.MANUAL_CONFIRM_TEXT in body
+    assert "Major version jump (1.23.16 → 2.0.2)" in body and "gluetun" not in body
+    assert server_updates.CONFIRM_TEXT not in body
+    assert 'method="post" action="/server/updates/uptime-kuma/run"' in body
+
+
+def _with(name, **fields):
+    wud = json.loads((SAMPLES / "wud.json").read_text(encoding="utf-8"))["data"]
+    row = next(c for c in wud["containers"] if c["name"] == name)
+    row.update(update_available=True, kind="tag", **fields)
+    return wud
+
+
+@pytest.mark.parametrize("name, new_tag", [("qbittorrent", "5.1.3"), ("prowlarr", "1.38.0")])
+def test_vpn_routed_excluded_rows_warn_of_a_network_drop_and_run_manual(env, name, new_tag):
+    with env(wud=_with(name, new_tag=new_tag)) as client:
+        body = main_of(client.get(f"/server/updates/{name}/run?step=confirm").text)
+        r = client.post(f"/server/updates/{name}/run", follow_redirects=False)
+    assert server_updates.MANUAL_CONFIRM_TEXT in body and "gluetun (VPN)" in body
+    assert "Major version" not in body
+    assert r.status_code == 303 and r.headers["location"] == f"/server?flash=requested&c={name}#updates"
+    assert env.calls == [{"url": f"{URL}/api/containers/ctr-{name}/triggers/dockercompose/manual",
+                          "auth": (USER, PASS), "timeout": 10}]
+    assert runs() == [(name, new_tag, "requested", None)]
+
+
+def test_excluded_row_posts_to_the_manual_trigger(env):
+    with env() as client:
+        r = client.post("/server/updates/uptime-kuma/run", follow_redirects=False)
+    assert r.status_code == 303
+    assert env.calls == [{"url": f"{URL}/api/containers/ctr-uptime-kuma/triggers/dockercompose/manual",
+                          "auth": (USER, PASS), "timeout": 10}]
+    assert runs() == [("uptime-kuma", "2.0.2", "requested", None)]
+
+
+def test_wud_itself_is_always_refused_even_when_auto(env):
+    with env(wud=_with("wud", new_tag="8.2.0", auto=True)) as client:
+        g = main_of(client.get("/server/updates/wud/run?step=confirm").text)
+        r = client.post("/server/updates/wud/run", follow_redirects=False)
+        b = band(client.get("/server").text)
+    assert "Update WUD by hand." in g and 'method="post" action="/server/updates/wud/run"' not in g
+    assert r.status_code == 409 and "Update WUD by hand." in main_of(r.text)
+    assert env.calls == []
+    row = b.split(">wud<", 1)[1].split('<div class="row has-form">', 1)[0]
+    assert "Update WUD by hand" in row and "Update now" not in row
 
 
 def test_post_without_same_origin_is_refused_and_calls_nothing(env):
@@ -104,7 +147,6 @@ def test_post_without_same_origin_is_refused_and_calls_nothing(env):
 
 
 @pytest.mark.parametrize("name, words", [
-    ("uptime-kuma", "excluded from automatic updates"),     # auto: false
     ("jellyfin", "No update is pending for jellyfin"),       # not update_available
     ("ghost", "No update is pending for ghost"),             # not in the snapshot
 ])
@@ -143,7 +185,7 @@ def test_requested_clears_once_the_snapshot_tag_moves_on(env):
     with env(wud=wud) as client:
         b = band(client.get("/server").text)
     assert ">vaultwarden<" in b and "Requested" not in b
-    assert b.count("Update now") == 2   # uptime-kuma now auto too
+    assert b.count("Update now") == 2   # uptime-kuma (manual) and vaultwarden
 
 
 def test_ignore_and_unignore_hide_and_restore_the_row_and_the_count(env):
@@ -169,14 +211,16 @@ def test_a_new_tag_resurfaces_an_ignored_row(env):
     assert "<details" not in b and "1.23.16 → 2.1.0" in b
 
 
-def test_rows_show_update_now_only_when_auto_else_manual_excluded(env):
+def test_rows_show_update_now_and_excluded_rows_keep_the_manual_chip(env):
     with env() as client:
         b = band(client.get("/server").text)
     kuma = b.split(">uptime-kuma<", 1)[1].split('<div class="row has-form">', 1)[0]
     vault = b.split(">vaultwarden<", 1)[1].split('<div class="row has-form">', 1)[0]
     assert 'class="btn btn-ghost btn-sm" type="submit">Ignore<' in kuma         # Ignore is a ghost button
     assert 'class="btn btn-primary btn-sm" href="/server/updates/vaultwarden/run?step=confirm">Update now' in vault
-    assert "Manual · excluded" in kuma and "Update now" not in kuma and "Ignore" in kuma
+    assert "Manual · excluded" in kuma and "Ignore" in kuma
+    assert 'href="/server/updates/uptime-kuma/run?step=confirm">Update now' in kuma
+    assert "Manual · excluded" not in vault
     assert 'href="/server/updates/vaultwarden/run?step=confirm">Update now' in vault
 
 

@@ -4,8 +4,13 @@ Update now is a LIVE call path to What's Up Docker 9.3 (env WUD_URL + WUD_USER/W
 HTTP Basic), server-side only: POST /api/containers/{id}/triggers/dockercompose/local, no
 body (app/api/container.ts `runTriggerForContainer`, docs getwud.app "Run trigger for
 container"). WUD does NOT apply include/exclude on that endpoint — it runs whatever it is
-asked — so the hub is the only guard: it refuses any row whose `auto` is not true (the
-notify-only containers carry `wud.trigger.exclude=dockercompose.local`).
+asked — so the hub is the only guard.
+
+Manual updates (2026-10-12): rows whose `auto` is not true (the notify-only containers carry
+`wud.trigger.exclude=dockercompose.local`) run a second trigger, `dockercompose.manual`, set
+`WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false` on the NAS (WUD 9.3 Trigger.ts `init()` only
+registers for auto execution when `auto` is true) — so it fires only when asked from here.
+The `wud` container itself is always refused: B. updates WUD by hand.
 
 Two-step like the Jellyseerr Request: GET `?step=confirm` -> POST behind `same_origin`.
 Failures log and record status/type only — never the URL or login — and degrade to words.
@@ -38,9 +43,15 @@ router = APIRouter()
 
 TIMEOUT = 10
 TRIGGER_TYPE, TRIGGER_NAME = "dockercompose", "local"
+MANUAL_TRIGGER_NAME = "manual"      # WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false (NAS)
+SELF_NAME = "wud"                   # never recreated from the hub
+VPN_ROUTED = ("prowlarr", "qbittorrent")   # live in gluetun's network namespace
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 CONFIRM_TEXT = ("This asks WUD to recreate the container now via the dockercompose.local trigger. "
                 "The app will be unavailable for about a minute.")
+MANUAL_CONFIRM_TEXT = ("This is a manual update: the container is excluded from automatic updates, so "
+                       "this asks WUD to recreate it now via the dockercompose.manual trigger. "
+                       "The app will be unavailable for about a minute.")
 
 DDL = (
     """CREATE TABLE IF NOT EXISTS server_update_ignores(
@@ -134,20 +145,25 @@ def _creds() -> tuple[str, str, str] | None:
     return (vals[0].rstrip("/"), vals[1], vals[2]) if all(vals) else None
 
 
-def trigger_path(container_id: str) -> str:
+def trigger_path(container_id: str, trigger_name: str = TRIGGER_NAME) -> str:
     """Verified against WUD 9.3 (app/api/container.ts): POST, no body, 200 `{}` on success,
     404 for an unknown container/trigger, 500 when the trigger itself fails."""
     return (f"/api/containers/{quote(container_id, safe='')}"
-            f"/triggers/{TRIGGER_TYPE}/{TRIGGER_NAME}")
+            f"/triggers/{TRIGGER_TYPE}/{trigger_name}")
 
 
-def run_trigger(container_id: str) -> tuple[str, str | None]:
+def trigger_name(row: dict) -> str:
+    """`local` for rows WUD auto-updates, `manual` for the excluded ones."""
+    return TRIGGER_NAME if row.get("auto") is True else MANUAL_TRIGGER_NAME
+
+
+def run_trigger(container_id: str, trigger_name: str = TRIGGER_NAME) -> tuple[str, str | None]:
     """-> ('requested', None) | ('refused', 'HTTP 4xx/5xx') | ('unreachable', '<ExcType>')."""
     creds = _creds()
     if not creds:
         return "unreachable", "not configured"
     try:
-        resp = requests.post(creds[0] + trigger_path(container_id), auth=(creds[1], creds[2]),
+        resp = requests.post(creds[0] + trigger_path(container_id, trigger_name), auth=(creds[1], creds[2]),
                              timeout=TIMEOUT)
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("wud trigger failed: %s", type(exc).__name__)
@@ -171,14 +187,32 @@ def refusal(row: dict | None, name: str) -> str | None:
     """Why Update now must not run for this row, in words; None when it may."""
     if row is None:
         return f"No update is pending for {name} in the latest WUD sweep."
-    if row.get("auto") is not True:
-        return (f"{name} is excluded from automatic updates (wud.trigger.exclude) — "
-                "update it by hand.")
+    if name == SELF_NAME:
+        return "Update WUD by hand."
     if not row.get("id"):
         return "The WUD snapshot has no container id yet — try again after the next hourly sweep."
     if _creds() is None:
         return "WUD is not configured on the hub (WUD_URL, WUD_USER, WUD_PASS)."
     return None
+
+
+def _major(tag) -> int | None:
+    m = re.match(r"v?(\d+)", str(tag or ""))
+    return int(m.group(1)) if m else None
+
+
+def warnings(row: dict | None, name: str) -> list[str]:
+    """Extra lines on the confirm step: VPN-routed apps and major version jumps."""
+    if row is None:
+        return []
+    out = []
+    if name in VPN_ROUTED:
+        out.append(f"{name} routes through gluetun (VPN) — expect a brief network drop while it restarts.")
+    old, new = _major(row.get("current_tag")), _major(row.get("new_tag"))
+    if old is not None and new is not None and new > old:
+        out.append(f"Major version jump ({row.get('current_tag')} → {row.get('new_tag')}) — "
+                   "check the release notes for breaking changes first.")
+    return out
 
 
 def _page(request: Request, ctx: dict, status: int = 200):
@@ -205,7 +239,9 @@ def run_step(request: Request, name: str, step: str = ""):
     if _name(name) is None:
         return _page(request, {"name": "?", "row": None, "msg": "No such container"}, 404)
     row = _pending_row(name)
-    return _page(request, {"name": name, "row": row, "msg": refusal(row, name)})
+    return _page(request, {"name": name, "row": row, "msg": refusal(row, name),
+                           "confirm_text": CONFIRM_TEXT if (row or {}).get("auto") is True
+                           else MANUAL_CONFIRM_TEXT, "warnings": warnings(row, name)})
 
 
 @router.post("/server/updates/{name}/run", dependencies=[Depends(same_origin)])
@@ -216,7 +252,7 @@ def run_now(request: Request, name: str):
     why = refusal(row, name)
     if why:
         return _page(request, {"name": name, "row": row, "msg": why}, 409)
-    outcome, note = run_trigger(str(row["id"]))
+    outcome, note = run_trigger(str(row["id"]), trigger_name(row))
     try:
         record_run(name, key_tag(row), outcome, note)
     except (sqlite3.Error, OSError) as exc:

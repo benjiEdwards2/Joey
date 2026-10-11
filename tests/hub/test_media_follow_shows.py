@@ -232,3 +232,131 @@ def test_cold_show_page_draws_the_line_before_any_upstream_call(son_env, monkeyp
         assert not [c for c in both.calls if c.startswith(SEERR)] and son.calls == []
         go.set()
     assert 'action="/media/follow/show/100/unfollow"' in page and "Following ✓ · future seasons" in page
+
+
+# ---- the 6-hourly check: followed shows ----
+
+def test_check_puts_a_followed_show_sonarr_added_later_and_leaves_a_set_one(son_env, monkeypatch):
+    client, both, son, _ = son_env()
+    monkeypatch.delenv("JELLYSEERR_URL")                     # shows need Sonarr only
+    with client:
+        media_follow.follow("show", 100, "Quiet Show")
+        got = media_follow.run_once()
+        assert got["shows_set"] == 1 and got["skipped_no_keys"]
+        assert son.of("GET") == [("GET", f"{SONARR}/api/v3/series", None, None)]          # one list read a run
+        assert [c[3] for c in son.of("PUT")] == [{**son.series[0], "monitored": True, "monitorNewItems": "all"}]
+        son.series[0].update(monitored=True, monitorNewItems="all")
+        son.calls.clear()
+        assert media_follow.run_once()["shows_set"] == 0
+    assert son.of("PUT") == [] and son.of("DELETE") == [] and not both.seerr.posts
+
+
+# ---- creators: "Created by" on a show page, the person page, the check ----
+
+CREATOR = {"id": 77, "name": "Cass Creator", "knownForDepartment": "Writing", "profilePath": "/cass.jpg"}
+
+
+def tv(i, name, when=SOON, job="Creator", **extra):
+    return {"id": i, "mediaType": "tv", "name": name, "firstAirDate": when, "posterPath": f"/s{i}.jpg", "job": job, **extra}
+
+
+CREDITS = {"cast": [], "crew": [
+    tv(501, "New Show"),
+    tv(502, "Old Show", when=PAST),
+    tv(503, "Have It", job="Director", mediaInfo={"status": 5}),
+    tv(504, "Produced Show", job="Executive Producer"),
+    tv(505, "Written Show", job="Writer"),
+    tv(506, "Undated Show", when=""),
+    {"id": 507, "mediaType": "movie", "title": "Directed Film", "releaseDate": SOON, "job": "Director"},
+]}
+
+
+def seed_creator(both, credits=CREDITS):
+    both.seerr.table["/api/v1/person/77"] = CREATOR
+    both.seerr.table["/api/v1/person/77/combined_credits"] = credits
+    both.seerr.table["/api/v1/tv/100"] = {**both.seerr.table["/api/v1/tv/100"],
+                                          "createdBy": [{"id": 77, "name": "Cass Creator", "profilePath": "/cass.jpg"},
+                                                        {"name": "No Id Writer"}]}
+
+
+def test_created_by_row_follows_a_creator_as_a_tv_maker(son_env):
+    client, both, son, _ = son_env()
+    seed_creator(both)
+    with client:
+        page = whole(client, "/media/title/tv/100")
+        row = page.split('<div class="microlabel">Created by</div>', 1)[1].split('<div class="makers', 1)[0]
+        assert ('<form method="post" action="/media/follow/person/77"><input type="hidden" name="back" '
+                'value="/media/title/tv/100"><input type="hidden" name="name" value="Cass Creator">'
+                '<input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">'
+                'Follow Cass Creator</button></form>') in row
+        assert '<a class="makercard" href="/media/person/77">' in row          # the card itself stays the person link
+        assert "Follow No Id Writer" not in row                               # no TMDB id, nothing to follow
+        r = client.post("/media/follow/person/77", data={"back": "/media/title/tv/100", "tv": "1"}, follow_redirects=False)
+        assert r.headers["location"] == "/media/title/tv/100?follow=creator"
+        son.calls.clear()
+        page = whole(client, "/media/title/tv/100?follow=creator")
+    assert "Following Cass Creator ✓" in page and "Follow Cass Creator</button>" not in page
+    assert "Following — their new films and shows are requested automatically" in page
+    assert son.calls == []
+    f = media_follow.get("person", 77)
+    assert f["dept"] == "creator" and media_follow.kind_word(f) == "Creator · films + shows"
+    assert {(j["mediaType"], j["mediaId"]) for j in seerr_posts(both)} == {("tv", 501), ("tv", 504), ("movie", 507)}
+
+
+def test_film_directed_by_row_has_no_follow_buttons(son_env):
+    client, both, son, _ = son_env()
+    with client:
+        page = whole(client, "/media/title/movie/603")
+    assert '<div class="microlabel">Directed by</div>' in page and "/media/follow/person/" not in page
+
+
+def test_person_page_follows_a_tv_maker_with_shows(son_env):
+    client, both, son, _ = son_env()
+    seed_creator(both)
+    with client:
+        b = main_of(client.get("/media/person/77").text)
+        assert '<input type="hidden" name="tv" value="1">' in b
+        assert '<button class="btn btn-secondary btn-sm" type="submit">Follow</button>' in b
+        client.post("/media/follow/person/77", data={"back": "/media/person/77", "name": "Cass Creator", "tv": "1"})
+        b = main_of(client.get("/media/person/77?follow=creator").text)
+    assert "Following ✓ · films + shows" in b and 'action="/media/follow/person/77/unfollow"' in b
+    assert "their new films and shows are requested automatically" in b and 'name="tv"' not in b
+
+
+def test_person_page_film_only_person_has_no_tv_field(son_env):
+    client, both, son, _ = son_env()
+    seed_creator(both, {"cast": [], "crew": [{"id": 507, "mediaType": "movie", "title": "F", "releaseDate": SOON,
+                                              "job": "Director"}, tv(508, "Written", job="Writer")]})
+    with client:
+        b = main_of(client.get("/media/person/77").text)
+    assert 'name="tv"' not in b and ">Follow</button>" in b
+
+
+def test_check_requests_a_new_show_once_and_skips_old_seen_and_on_server(son_env, monkeypatch):
+    hook = "https://discord.invalid/api/webhooks/1/secret-token"
+    monkeypatch.setenv("MEDIA_DISCORD_WEBHOOK", hook)
+    client, both, son, _ = son_env()
+    seed_creator(both)
+    with client:
+        media_follow.follow("person", 77, "Cass Creator", dept="creator")
+        first = media_follow.run_once()
+        again = media_follow.run_once()
+    assert seerr_posts(both) == [{"mediaType": "tv", "mediaId": 501, "seasons": "all"},       # same date: by id
+                                 {"mediaType": "tv", "mediaId": 504, "seasons": "all"},
+                                 {"mediaType": "movie", "mediaId": 507}]
+    # 502 aired already; 503 is on the server (Available); 505 a writer credit; 506 has no date
+    assert first["requested"] == 3 and first["already"] == 1 and again["requested"] == 0
+    adds = {(a["media"], a["tmdb_id"]): a for a in media_follow.recent_adds(50)}
+    assert adds[("tv", 501)]["reason"] == "creator" and adds[("tv", 504)]["reason"] == "executive producer"
+    assert adds[("tv", 503)]["outcome"] == "already" and ("tv", 502) not in adds and ("tv", 505) not in adds
+    msgs = sorted(j["content"] for u, j in both.seerr.posts if u == hook)
+    assert f"Joey Media: added show New Show ({SOON[:4]}) — creator · following Cass Creator" in msgs
+    assert son.calls == []
+
+
+def test_executive_producer_alone_is_not_a_creator_and_others_ignore_tv():
+    ep_only = {"crew": [tv(1, "EP Show", job="Executive Producer")]}
+    assert media_follow.person_shows(ep_only) == [] and not media_follow.tv_maker(ep_only)
+    assert media_follow.person_titles(CREDITS) == media_follow.person_films(CREDITS)            # not a TV-maker follow
+    both_jobs = {"crew": [tv(9, "S", job="Executive Producer"), tv(9, "S", job="Creator")]}
+    assert [r["reason"] for r in media_follow.person_shows(both_jobs)] == ["creator"]         # strongest reason, once

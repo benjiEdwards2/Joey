@@ -1,20 +1,27 @@
 """Follow (2026-10-07): follow a person (actor / director) or a film series (TMDB collection) and have their NEW
-films requested through Jellyseerr automatically. Films only — TV credits are ignored everywhere.
+films requested through Jellyseerr automatically. F5 (2026-10-12) adds shows and TV makers: a followed SHOW stays
+monitored in Sonarr with every new season (see "shows" below), and a person followed as a TV maker (dept CREATOR —
+followed from a show's "Created by" row, or from the person page of someone with TV Creator / Director credits) also
+gets their NEW shows requested. Anyone else's TV credits are ignored, as before.
 
 Rules (B., 2026-10-07):
   * actor  -> a film where they are top-5 billed (cast `order` 0-4);
   * director -> any film where their crew job is "Director" (any billing); a person who does both: either rule;
   * series -> any film in the collection's `parts`;
+  * TV maker (dept CREATOR only) -> a show where their TV crew job is "Creator" or "Director", or "Executive Producer"
+    when they are a Creator somewhere (a showrunner's later shows often carry only that credit); requested with
+    `seasons: "all"`, the Discover "All seasons + future" payload. "New" = a known first air date after today;
   * future only (tightened by B., 2026-10-08): a film qualifies only when it has a KNOWN release date that is
     strictly after today. Unknown / "TBA" dates never qualify (untitled projects in development stay out until
     TMDB gives them a date — the 6-hourly check picks them up then). Nothing already released is ever added.
-A film recorded in media_follow_adds as requested / already is never requested again by that follow (so a film
+A title recorded in media_follow_adds as requested / already is never requested again by that follow (so a film
 deleted in Radarr is not re-added); a failed request is retried next run.
 
 The check reads Jellyseerr live (person combined_credits / collection) and requests through the SAME call the
 Discover Request button uses (media_discover._send). At most MAX_PER_RUN requests a run; the rest wait for the
 next run. Runs right after a Follow (a response background task) and on the hub's own loop (first ~2 min after
-start, then every 6 h). MEDIA_FOLLOW=off disables the loop. No Jellyseerr keys -> no calls at all.
+start, then every 6 h). MEDIA_FOLLOW=off disables the loop. No Jellyseerr keys -> no Jellyseerr calls at all
+(followed shows need Sonarr only).
 Each successful add posts one Discord message (MEDIA_DISCORD_WEBHOOK, else SERVER_DISCORD_WEBHOOK; neither ->
 silent). Failures log the exception type / HTTP status only.
 """
@@ -47,6 +54,8 @@ FIRST_DELAY_S = 120
 EVERY_S = 6 * 3600
 TOP_BILLED = 5
 REASONS = {"cast": "top-5 cast", "director": "director", "collection": "collection"}
+SHOW_JOBS = {"Creator": "creator", "Director": "director"}   # TV crew job -> reason, strongest first
+EP_JOB = ("Executive Producer", "executive producer")       # counts only for someone who is a Creator somewhere
 KEEP = ("requested", "already")   # outcomes that close a title for its follow; "failed" retries next run
 ENV_WEBHOOK = "MEDIA_DISCORD_WEBHOOK"
 
@@ -152,12 +161,17 @@ def follows() -> list[dict]:
 
 
 def followed(kind: str) -> set[int]:
-    """The TMDB ids followed as `kind` (one cheap media.db read; a page's Follow state, never an upstream call)."""
+    """The TMDB ids followed as `kind` (one cheap media.db read; a page's Follow state, never an upstream call).
+    Never raises: an unreadable file is an empty set."""
     db = _reader()
     if db is None:
         return set()
-    with closing(db):
-        return {r["tmdb_id"] for r in db.execute("SELECT tmdb_id FROM media_follows WHERE kind = ?", (kind,))}
+    try:
+        with closing(db):
+            return {r["tmdb_id"] for r in db.execute("SELECT tmdb_id FROM media_follows WHERE kind = ?", (kind,))}
+    except sqlite3.Error as exc:
+        log.warning("follow lookup failed: %s", type(exc).__name__)
+        return set()
 
 
 def any_follows() -> bool:
@@ -253,6 +267,33 @@ def person_films(body) -> list[dict]:
     return list(out.values())
 
 
+def person_shows(body) -> list[dict]:
+    """combined_credits -> the shows this person makes (TV crew: Creator / Director, plus Executive Producer for a
+    Creator). Each show once, under its strongest reason."""
+    crew = [c for c in (body.get("crew") or [] if isinstance(body, dict) else [])
+            if isinstance(c, dict) and c.get("mediaType") == "tv"]
+    jobs = dict(SHOW_JOBS)
+    if any(c.get("job") == "Creator" for c in crew):
+        jobs[EP_JOB[0]] = EP_JOB[1]
+    out: dict[int, dict] = {}
+    for job, reason in jobs.items():
+        for c in crew:
+            row = _cand(c, reason, "tv") if c.get("job") == job else None
+            if row:
+                out.setdefault(row["tmdb_id"], {**row, "billing": 0})
+    return list(out.values())
+
+
+def person_titles(body, shows: bool = False) -> list[dict]:
+    """A person's films (person_films), plus their shows (person_shows) when followed as a TV maker."""
+    return person_films(body) + (person_shows(body) if shows else [])
+
+
+def tv_maker(body) -> bool:
+    """Has this person made TV (Creator / Director credits)? The person page's Follow then covers shows too."""
+    return bool(person_shows(body))
+
+
 def billed_order(movie_body, person_id: int) -> int | None:
     """The person's cast `order` in a Jellyseerr /movie/{id} body, None when not in its cast."""
     cast = ((movie_body or {}).get("credits") or {}).get("cast") if isinstance(movie_body, dict) else None
@@ -288,7 +329,8 @@ def webhook() -> str | None:
 
 def message(c: dict, follow_name: str) -> str:
     year = c["date"][:4] if c["date"][:4].isdigit() else ""
-    return f"Joey Media: added {c['title']}{f' ({year})' if year else ''} — {c['reason']} · following {follow_name}"
+    what = "show " if c.get("media") == "tv" else ""
+    return f"Joey Media: added {what}{c['title']}{f' ({year})' if year else ''} — {c['reason']} · following {follow_name}"
 
 
 def _notify(c: dict, follow_name: str) -> None:
@@ -299,39 +341,44 @@ def _notify(c: dict, follow_name: str) -> None:
 
 # ---- the check ----
 
-def _films_for(f: dict) -> list[dict] | None:
+def _titles_for(f: dict) -> list[dict] | None:
     if f["kind"] == "person":
         body = md._get(f"/api/v1/person/{f['tmdb_id']}/combined_credits")
-        return person_films(body) if isinstance(body, dict) else None
+        return person_titles(body, shows=f.get("dept") == CREATOR) if isinstance(body, dict) else None
     body = md._get(f"/api/v1/collection/{f['tmdb_id']}")
     return collection_films(body) if isinstance(body, dict) else None
 
 
 def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
-    """One idempotent pass over every follow (or just follow id `only`). -> counts; never raises."""
-    counts = {"follows": 0, "requested": 0, "already": 0, "failed": 0, "deferred": 0}
-    if md._creds() is None:
-        counts["skipped_no_keys"] = True
-        return counts
+    """One idempotent pass over every follow (or just follow id `only`). -> counts; never raises. Followed shows
+    need Sonarr only (_keep_shows); people and series need Jellyseerr."""
+    counts = {"follows": 0, "requested": 0, "already": 0, "failed": 0, "deferred": 0, "shows_set": 0}
     if not _lock.acquire(blocking=False):
         counts["busy"] = True
         return counts
     try:
         with closing(ensure()) as db:
-            rows = [dict(r) for r in db.execute("SELECT * FROM media_follows ORDER BY id")]
+            rows = [dict(r) for r in db.execute("SELECT * FROM media_follows ORDER BY id")
+                    if only is None or r["id"] == only]
+            shows = [f for f in rows if f["kind"] == "show"]
+            counts["follows"] += len(shows)
+            counts["shows_set"] = _keep_shows(shows)
+            if md._creds() is None:
+                counts["skipped_no_keys"] = True
+                return counts
             for f in rows:
-                if only is not None and f["id"] != only:
+                if f["kind"] == "show":
                     continue
                 counts["follows"] += 1
-                films = _films_for(f)
-                if films is None:
+                titles = _titles_for(f)
+                if titles is None:
                     log.warning("follow check: credits unavailable for one follow")
                     continue
                 closed = _closed(db, f["id"])
-                for c in sorted(films, key=lambda c: (c["date"] or "9999", c["tmdb_id"])):
+                for c in sorted(titles, key=lambda c: (c["date"] or "9999", c["tmdb_id"])):
                     if (c["media"], c["tmdb_id"]) in closed or not qualifies(c["date"]):
                         continue
-                    if f["kind"] == "person" and not _top_billed(c, f["tmdb_id"]):
+                    if f["kind"] == "person" and c["media"] == "movie" and not _top_billed(c, f["tmdb_id"]):
                         continue
                     if isinstance(c["status"], int) and c["status"] >= 2:   # requested / available / blocked in Jellyseerr
                         word = md.status_word(c["status"])
@@ -341,9 +388,9 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
                     if counts["requested"] + counts["failed"] >= cap:
                         counts["deferred"] += 1
                         continue
-                    code = md._send("movie", c["tmdb_id"], [])
+                    code = md._send(c["media"], c["tmdb_id"], "all" if c["media"] == "tv" else [])
                     if code is None:
-                        md._cache.pop(f"film:/api/v1/movie/{c['tmdb_id']}", None)
+                        md._cache.pop(f"film:/api/v1/{c['media']}/{c['tmdb_id']}", None)
                         _record(db, f["id"], c, "requested", None)
                         counts["requested"] += 1
                         _notify(c, f["name"])
@@ -414,6 +461,34 @@ def keep_show(tmdb_id: int) -> str:
     return "req-" + media_arr_search.follow_all(tmdb_id)
 
 
+def _keep_shows(rows: list[dict]) -> int:
+    """The 6-hourly check for followed shows: one Sonarr series-list read, then the follow PUT for any followed show
+    Sonarr has that isn't monitored with new seasons (it arrived after the Follow, or was changed by hand). -> PUTs."""
+    creds = mr._arr_creds("sonarr")
+    if not rows or creds is None:
+        return 0
+    base, headers = creds
+    try:
+        resp = requests.get(f"{base}/api/v3/series", headers=headers, timeout=media_arr_search.TIMEOUT)
+        media_arr_search._ok(resp)
+        body = resp.json()
+    except Exception as exc:
+        log.warning("follow check: sonarr list failed: %s", _why(exc))
+        return 0
+    series = {s.get("tmdbId"): s for s in body if isinstance(s, dict) and s.get("id")} if isinstance(body, list) else {}
+    done = 0
+    for f in rows:
+        entry = series.get(f["tmdb_id"])
+        if entry is None or (entry.get("monitored") is True and entry.get("monitorNewItems") == "all"):
+            continue
+        try:
+            _sonarr_put(entry, monitored=True, monitorNewItems="all")
+            done += 1
+        except Exception as exc:
+            log.warning("follow check: sonarr follow-show failed: %s", _why(exc))
+    return done
+
+
 def stop_show(tmdb_id: int) -> str:
     """Unfollow show: Sonarr stops adding new seasons (`monitorNewItems: "none"`); monitored and files stay."""
     if mr._arr_creds("sonarr") is None:
@@ -433,11 +508,12 @@ def stop_show(tmdb_id: int) -> str:
 router = APIRouter()
 FOLLOWING = "/media/following"
 FLASH = {"on": "Following — new films are requested automatically", "off": "Unfollowed",
-         "show": "Following — new seasons are added automatically"}
+         "show": "Following — new seasons are added automatically",
+         "creator": "Following — their new films and shows are requested automatically"}
 flash_keys("follow", "sonarr")
 KIND_WORDS = {"Directing": "Director"}
 NEEDS_SEERR = "Follow needs Jellyseerr"
-EMPTY = "Follow an actor, director or film series from their page."
+EMPTY = "Follow an actor, director, creator, film series or show from their page."
 
 
 def _kind_of(kind: str) -> str:
@@ -493,6 +569,8 @@ def kind_word(f: dict) -> str:
         return "Film series"
     if f["kind"] == "show":
         return "Show · future seasons"
+    if f.get("dept") == CREATOR:
+        return "Creator · films + shows"
     return KIND_WORDS.get(f.get("dept") or "", "Actor · top-5 billed")
 
 
@@ -530,14 +608,15 @@ def _follow(kind: str, tmdb_id: int, form: dict):
     if kind == "collection":
         link = (back if back.startswith(("/media/title/movie/", "/media/item/")) else
                 f"/media/title/movie/{got['first']}" if got.get("first") else None)
+    tv = kind == "person" and form.get("tv") == "1"   # followed as a TV maker: new shows too
     try:
-        fid = follow(kind, tmdb_id, name, got.get("poster"), got.get("dept"), link=link)
+        fid = follow(kind, tmdb_id, name, got.get("poster"), CREATOR if tv else got.get("dept"), link=link)
     except (sqlite3.Error, OSError) as exc:
         log.warning("follow not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the follow") from None
     back = back or page_href(kind, tmdb_id, link)
     task = BackgroundTask(run_once, only=fid) if md._creds() else None   # B. sees results quickly
-    return RedirectResponse(_flashed(back, "on"), status_code=303, background=task)
+    return RedirectResponse(_flashed(back, "creator" if tv else "on"), status_code=303, background=task)
 
 
 @router.post("/media/follow/{kind}/{tmdb_id}/unfollow", dependencies=[Depends(same_origin)])
@@ -556,10 +635,14 @@ async def unfollow_route(request: Request, kind: str, tmdb_id: int):
 _year = media_text.year
 
 
+def _add_href(a: dict) -> str:
+    return f"/media/title/{'tv' if a.get('media') == 'tv' else 'movie'}/{a['tmdb_id']}"
+
+
 def following_ctx() -> dict:
     rows = [{**f, "href": page_href(f["kind"], f["tmdb_id"], f.get("link")), "kind_word": kind_word(f),
              "since": md._date_words(f["followed_at"])[0]} for f in follows()]
-    adds = [{**a, "year": _year(a["release_date"]), "href": f"/media/title/movie/{a['tmdb_id']}",
+    adds = [{**a, "year": _year(a["release_date"]), "href": _add_href(a),
              "when": md._date_words(a["at"])[0], "word": {"requested": "Requested", "already": "Already there",
                                                           "failed": "Failed"}.get(a["outcome"], a["outcome"])}
             for a in recent_adds(20)]
@@ -581,7 +664,7 @@ def home_items(limit: int = 12) -> list[dict] | None:
         return None
     return [{"title": a["title"], "poster": a["poster"], "item_key": f"tmdb:{a['tmdb_id']}",
              "sub": " · ".join(str(x) for x in (_year(a["release_date"]), a["follow_name"]) if x),
-             "href": f"/media/title/movie/{a['tmdb_id']}"} for a in recent_adds(limit, KEEP)]
+             "href": _add_href(a)} for a in recent_adds(limit, KEEP)]
 
 
 def show_ctx(request, film) -> dict | None:
@@ -604,3 +687,4 @@ def show_ctx(request, film) -> dict | None:
 
 
 shell.templates.env.globals["follow_show"] = show_ctx
+shell.templates.env.globals["followed"] = followed   # the show page's "Created by" Follow buttons (one read)

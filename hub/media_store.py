@@ -58,7 +58,12 @@ def _indexes(db) -> None:
     db.commit()
 
 
-STEPS = (_baseline, _indexes)   # STEPS[n] takes a file from user_version n to n + 1
+def _follow_shows(db) -> None:
+    from hub import media_follow
+    media_follow.migrate_shows(db)
+
+
+STEPS = (_baseline, _indexes, _follow_shows)   # STEPS[n] takes a file from user_version n to n + 1
 SCHEMA_VERSION = len(STEPS)
 
 _ready: set[tuple] = set()      # files already brought up to date by this process

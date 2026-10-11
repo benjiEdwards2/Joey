@@ -38,7 +38,8 @@ from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_follow")
 
-KINDS = ("person", "collection")
+KINDS = ("person", "collection", "show")
+CREATOR = "creator"   # a person's dept when followed as a TV maker: their new SHOWS are requested too (F5)
 MAX_PER_RUN = 10
 FIRST_DELAY_S = 120
 EVERY_S = 6 * 3600
@@ -47,14 +48,36 @@ REASONS = {"cast": "top-5 cast", "director": "director", "collection": "collecti
 KEEP = ("requested", "already")   # outcomes that close a title for its follow; "failed" retries next run
 ENV_WEBHOOK = "MEDIA_DISCORD_WEBHOOK"
 
-DDL = (
-    """CREATE TABLE IF NOT EXISTS media_follows(
-  id INTEGER PRIMARY KEY, kind TEXT CHECK(kind IN ('person','collection')), tmdb_id INTEGER, name TEXT,
-  followed_at TEXT, poster TEXT, dept TEXT, link TEXT, UNIQUE(kind, tmdb_id))""",
-    """CREATE TABLE IF NOT EXISTS media_follow_adds(
-  follow_id INTEGER, tmdb_id INTEGER, title TEXT, release_date TEXT, reason TEXT, outcome TEXT, note TEXT,
-  at TEXT, poster TEXT, PRIMARY KEY(follow_id, tmdb_id))""",
-)
+FOLLOWS_DDL = """CREATE TABLE IF NOT EXISTS {name}(
+  id INTEGER PRIMARY KEY, kind TEXT CHECK(kind IN ('person','collection','show')), tmdb_id INTEGER, name TEXT,
+  followed_at TEXT, poster TEXT, dept TEXT, link TEXT, UNIQUE(kind, tmdb_id))"""
+ADDS_DDL = """CREATE TABLE IF NOT EXISTS {name}(
+  follow_id INTEGER, media TEXT NOT NULL DEFAULT 'movie', tmdb_id INTEGER, title TEXT, release_date TEXT, reason TEXT,
+  outcome TEXT, note TEXT, at TEXT, poster TEXT, PRIMARY KEY(follow_id, media, tmdb_id))"""
+DDL = (FOLLOWS_DDL.format(name="media_follows"), ADDS_DDL.format(name="media_follow_adds"))
+FOLLOWS_COLS = "id, kind, tmdb_id, name, followed_at, poster, dept, link"
+ADDS_COLS = "follow_id, tmdb_id, title, release_date, reason, outcome, note, at, poster"
+
+
+def migrate_shows(db) -> None:
+    """media.db step 3 (F5, 2026-10-12; media_store.STEPS): `media_follows.kind` also takes 'show' and an add is keyed
+    on (follow_id, media, tmdb_id) — a film and a show may share a TMDB number. SQLite can't alter a CHECK or a key,
+    so each table is rebuilt (rows copied, existing adds become media 'movie'). Idempotent: a table already in the new
+    shape is left alone (a new file gets it from DDL in step 1)."""
+    def sql(name):
+        row = db.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (name,)).fetchone()
+        return row[0] if row else ""
+    if "'show'" not in sql("media_follows"):
+        db.execute(FOLLOWS_DDL.format(name="media_follows_f5"))
+        db.execute(f"INSERT INTO media_follows_f5({FOLLOWS_COLS}) SELECT {FOLLOWS_COLS} FROM media_follows")
+        db.execute("DROP TABLE media_follows")
+        db.execute("ALTER TABLE media_follows_f5 RENAME TO media_follows")
+    if "media TEXT" not in sql("media_follow_adds"):
+        db.execute(ADDS_DDL.format(name="media_follow_adds_f5"))
+        db.execute(f"INSERT INTO media_follow_adds_f5({ADDS_COLS}) SELECT {ADDS_COLS} FROM media_follow_adds")
+        db.execute("DROP TABLE media_follow_adds")
+        db.execute("ALTER TABLE media_follow_adds_f5 RENAME TO media_follow_adds")
+    db.commit()
 
 _lock = threading.Lock()  # the after-Follow run and the loop never overlap
 
@@ -76,11 +99,14 @@ def _reader():
 
 def follow(kind: str, tmdb_id: int, name: str, poster: str | None = None, dept: str | None = None,
            today: date | None = None, link: str | None = None) -> int:
-    """Follow (idempotent: a second Follow keeps the first date). -> the follow id."""
+    """Follow (idempotent: a second Follow keeps the first date). -> the follow id. A person followed again as a TV
+    maker (dept CREATOR) is widened to films + shows; nothing ever narrows a follow but Unfollow."""
     with closing(ensure()) as db:
         db.execute("INSERT OR IGNORE INTO media_follows(kind, tmdb_id, name, followed_at, poster, dept, link) "
                    "VALUES(?,?,?,?,?,?,?)", (kind, int(tmdb_id), name[:120], (today or date.today()).isoformat(),
                                             poster, (dept or "")[:40], link))
+        if dept == CREATOR:
+            db.execute("UPDATE media_follows SET dept = ? WHERE kind = ? AND tmdb_id = ?", (CREATOR, kind, int(tmdb_id)))
         db.commit()
         return db.execute("SELECT id FROM media_follows WHERE kind = ? AND tmdb_id = ?",
                           (kind, int(tmdb_id))).fetchone()["id"]
@@ -104,15 +130,32 @@ def get(kind: str, tmdb_id: int) -> dict | None:
         return dict(row) if row else None
 
 
+_ADDED = ("(SELECT COUNT(*) FROM media_follow_adds a WHERE a.follow_id = f.id "
+          "AND a.outcome IN ('requested','already'){media}) AS {label}")
+_MOVIE, _TV = " AND a.media = 'movie'", " AND a.media = 'tv'"
+
+
 def follows() -> list[dict]:
-    """Every follow, newest first, with its `added` count (requested / already)."""
+    """Every follow, newest first, with its `added` count (requested / already) and that count split into
+    `added_films` / `added_shows`."""
     db = _reader()
     if db is None:
         return []
     with closing(db):
         return [dict(r) for r in db.execute(
-            "SELECT f.*, (SELECT COUNT(*) FROM media_follow_adds a WHERE a.follow_id = f.id "
-            "AND a.outcome IN ('requested','already')) AS added FROM media_follows f ORDER BY f.followed_at DESC, f.id DESC")]
+            f"SELECT f.*, {_ADDED.format(media='', label='added')}, "
+            f"{_ADDED.format(media=_MOVIE, label='added_films')}, {_ADDED.format(media=_TV, label='added_shows')} "
+            "FROM media_follows f "
+            "ORDER BY f.followed_at DESC, f.id DESC")]
+
+
+def followed(kind: str) -> set[int]:
+    """The TMDB ids followed as `kind` (one cheap media.db read; a page's Follow state, never an upstream call)."""
+    db = _reader()
+    if db is None:
+        return set()
+    with closing(db):
+        return {r["tmdb_id"] for r in db.execute("SELECT tmdb_id FROM media_follows WHERE kind = ?", (kind,))}
 
 
 def any_follows() -> bool:
@@ -136,17 +179,18 @@ def recent_adds(limit: int = 20, outcomes: tuple | None = None) -> list[dict]:
         return [dict(r) for r in db.execute(sql + " ORDER BY a.at DESC, a.rowid DESC LIMIT ?", [*args, limit])]
 
 
-def _closed(db, follow_id: int) -> set[int]:
-    return {r["tmdb_id"] for r in db.execute(
-        "SELECT tmdb_id FROM media_follow_adds WHERE follow_id = ? AND outcome IN ('requested','already')", (follow_id,))}
+def _closed(db, follow_id: int) -> set[tuple[str, int]]:
+    return {(r["media"], r["tmdb_id"]) for r in db.execute(
+        "SELECT media, tmdb_id FROM media_follow_adds WHERE follow_id = ? AND outcome IN ('requested','already')",
+        (follow_id,))}
 
 
 def _record(db, follow_id: int, c: dict, outcome: str, note: str | None) -> None:
     with db:
-        db.execute("INSERT INTO media_follow_adds(follow_id, tmdb_id, title, release_date, reason, outcome, note, at, poster) "
-                   "VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(follow_id, tmdb_id) DO UPDATE SET outcome = excluded.outcome, "
-                   "note = excluded.note, at = excluded.at",
-                   (follow_id, c["tmdb_id"], c["title"], c["date"], c["reason"], outcome, note,
+        db.execute("INSERT INTO media_follow_adds(follow_id, media, tmdb_id, title, release_date, reason, outcome, note, "
+                   "at, poster) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(follow_id, media, tmdb_id) DO UPDATE SET "
+                   "outcome = excluded.outcome, note = excluded.note, at = excluded.at",
+                   (follow_id, c.get("media", "movie"), c["tmdb_id"], c["title"], c["date"], c["reason"], outcome, note,
                     media_db._now().isoformat(), c["poster"]))
 
 
@@ -164,7 +208,7 @@ def qualifies(release: str, today: date | None = None) -> bool:
         return False
 
 
-def _cand(c: dict, reason: str) -> dict | None:
+def _cand(c: dict, reason: str, media: str = "movie") -> dict | None:
     try:
         tmdb_id = int(c.get("id"))
     except (TypeError, ValueError):
@@ -172,8 +216,9 @@ def _cand(c: dict, reason: str) -> dict | None:
     if tmdb_id <= 0:
         return None
     info = c.get("mediaInfo")
-    return {"tmdb_id": tmdb_id, "title": str(c.get("title") or c.get("name") or "Untitled")[:200],
-            "date": _date(c.get("releaseDate")), "reason": reason, "poster": md._ref(c.get("posterPath")),
+    return {"media": media, "tmdb_id": tmdb_id, "title": str(c.get("title") or c.get("name") or "Untitled")[:200],
+            "date": _date(c.get("firstAirDate") if media == "tv" else c.get("releaseDate")), "reason": reason,
+            "poster": md._ref(c.get("posterPath")),
             "status": info.get("status") if isinstance(info, dict) else None}
 
 
@@ -282,7 +327,7 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
                     continue
                 closed = _closed(db, f["id"])
                 for c in sorted(films, key=lambda c: (c["date"] or "9999", c["tmdb_id"])):
-                    if c["tmdb_id"] in closed or not qualifies(c["date"]):
+                    if (c["media"], c["tmdb_id"]) in closed or not qualifies(c["date"]):
                         continue
                     if f["kind"] == "person" and not _top_billed(c, f["tmdb_id"]):
                         continue

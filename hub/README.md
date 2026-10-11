@@ -21,7 +21,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
 | `images.py` | `GET /img/{ref}` poster proxy with a 30-day disk cache and generated fallback cards |
 | `server.py`, `server_updates.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Ignore (live What's Up Docker call); Discord push of new Attention items; 24 h health history |
-| `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank |
+| `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
 | `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / log / search routes, play recorder and History, resume actions, hide-until-next-sweep |
@@ -52,6 +52,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /media/title/{kind}/{tmdb_id}/request`, `/arr`; `/media/title/tv/{tmdb_id}/season/{n}` | media_discover, media_arr_search | Request form, Radarr / Sonarr search form, season list |
 | `POST /media/title/{kind}/{tmdb_id}/request`, `/search` | media_discover, media_arr_search | Jellyseerr request; Search now (Radarr / Sonarr command) |
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
+| `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/settings/rating_level` | media_write | Rating scale |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
@@ -131,6 +132,18 @@ sends Radarr `MissingMoviesSearch` + Sonarr `MissingEpisodeSearch`, or `CutoffUn
 `CutoffUnmetEpisodeSearch` — one worker thread and a 10 s timeout per app, so one app down never stops the other
 (`?sweep=started|partial|failed`). A second sweep of the same kind inside 10 min is allowed; the card says "Started N min
 ago · run again?" (in-process timestamp). Neither app configured: "Not connected", no buttons.
+
+**Upgrade available (F4b, 2026-10-12):** `media_upgrades.py` reads the `arr` snapshot's `data.upgrades` (Radarr / Sonarr
+cutoff unmet) — no call. A small light-blue line (`.upnote`, token `--upgrade`; macro `_upgrade_note.html`) says
+"Upgrade available · WEBDL-720p → Bluray-1080p" ("· 3 episodes ·" for a show; no arrow when the cutoff is unknown) under
+Movies / TV rows and cards, Requests rows and the film / show hero's status line (inline in the core, never an episode
+page); Activity › Downloads gains an "Upgrades" block ("3 films · 2 shows", each title linked; "Not connected" when both
+lists are null, absent for an older envelope). Films match on `tmdb:`; Sonarr rows are `tvdb:`, so a show matches its
+own `tvdb:` key, else a known TheTVDB id (the Jellyfin item's ProviderIds.Tvdb — cached by its page, `media_item.peek` —
+or a request's `tvdb_id`), else its normalised title when unique on both sides. "Search for upgrade" joins the lazy
+Search-now fragment when the app's own id is on the list: an inline confirm, then `POST …/upgrade` (`same_origin`,
+threadpooled) sends `MoviesSearch` / `SeriesSearch`; `?upgrade=started|failed` flashes "Upgrade search started" /
+"Couldn't start the search". The app grabs the best release its profile allows; picking a release is not offered (v2).
 
 ## Run locally
 

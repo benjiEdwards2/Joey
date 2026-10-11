@@ -608,3 +608,22 @@ time): the route runs the reads and answers an empty 204. The Awards page no lon
 test fakes with Jellyfin 100 ms / Jellyseerr + OMDb 300 ms a call: a film page's first byte 0.95 s → 0.25 s (no
 Jellyseerr / OMDb call waited for). `tests/hub/test_media_fast_pages.py`; tests that read a deferred section fetch the
 parts through `tests/hub/film_page.whole()`.
+
+## 2026-10-12 — Upgrade available (F4b)
+B.: "show me if an upgrade is available, such as a small light-blue text underneath the movie saying 'Upgrade
+available', and allow me to decide if I want to download that upgrade." The hub side of F4a's `arr` `data.upgrades`.
+`hub/media_upgrades.py` (pure): `index(snaps)` keys both lists by `item_key`, `note(row)` = "Upgrade available ·
+WEBDL-720p → Bluray-1080p" / "Upgrade available · 3 episodes · SDTV → WEB 1080p" (no arrow part without `want`; "to
+<want>" without `have`), `find` / `attach` match a film on `tmdb:` only (TMDB movie and TV ids are separate spaces) and
+a show on its `tvdb:` key, a known TheTVDB id (Jellyfin ProviderIds.Tvdb cached by the show page via
+`media_item.peek`, or a request's `tvdb_id`), else the normalised title when exactly one Sonarr row and one library
+show carry it. The line (`.upnote`, one appended token `--upgrade: var(--sky)` — colour for meaning, the words say it
+too) renders under Movies / TV cards and rows, Requests rows and the film / show hero's status line (core, from the
+snapshot: no call, F2's order kept; not on an episode page). Activity › Downloads gains an "Upgrades" block (poster,
+title, note; "3 films · 2 shows" from `totals`; "Sonarr not connected" for one null list; "Not connected" for both;
+absent for an older envelope). "Search for upgrade" sits in the lazy Search-now fragment when the app's own id (from its
+lookup) is on the list — an inline `<details>` confirm, then the `same_origin` `POST /media/title/{kind}/{tmdb}/upgrade`
+looks the title up and sends `{"name": "MoviesSearch", "movieIds": [id]}` / `{"name": "SeriesSearch", "seriesId": id}`
+in a worker thread, 303 back with `?upgrade=started|failed` ("Upgrade search started" / "Couldn't start the search");
+logs carry the HTTP status or exception type only. Picking a specific release is a possible v2
+(`tests/hub/test_media_upgrades.py`, `test_media_upgrades_pages.py`, `test_media_upgrades_film.py`).

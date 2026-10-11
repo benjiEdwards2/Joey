@@ -13,8 +13,8 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_library,
-                 media_requests, media_resume, media_write, shell, upcoming)
+from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
+                 media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -262,6 +262,11 @@ def _library_rows(data: dict, view: str, kind: str):
                                _lib_href(), marks)
 
 
+def _cached_tvdb(row: dict):
+    """A show row's TheTVDB id from the item data its page last read (media_item.peek - never a Jellyfin read)."""
+    return ((media_item.peek(row.get("jf_id")) or {}).get("item") or {}).get("tvdb") if row.get("jf_id") else None
+
+
 LIBVIEW_COOKIE = "media_libview"     # media-ux4: Grid / List on /media/movies + /media/tv, remembered per device
 LIBVIEWS = ("grid", "list")
 LIBVIEW_MAX_AGE = 365 * 24 * 3600
@@ -294,6 +299,9 @@ def _library_page(request: Request, kind: str):
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
+        # F4b: "Upgrade available" under the title - the arr snapshot's cutoff-unmet lists; a show also by the TheTVDB id
+        # its page has cached (media_item.peek, no read), else its unique title
+        media_upgrades.attach(rows, shell.get_snapshots(request=request), kind, _cached_tvdb)
         arr = shell.get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: media_home.item_href(jf))

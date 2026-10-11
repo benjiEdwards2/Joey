@@ -37,6 +37,18 @@ def test_radarr_rows_name_the_held_quality_and_the_profile_cutoff(raw):
                        "have": "WEBDL-720p", "want": "Bluray-1080p", "poster": "radarr:1"}
     assert rows[1]["want"] == "Bluray + Remux 2160p"  # the cutoff is a quality group: its name
     assert rows[0]["want"] is None                    # profile 9 is not in the profile list
+    assert rows[0]["have"] is None                    # Copper Sky is not in the movie list
+
+
+def test_radarr_have_joins_the_movie_list_and_falls_back_to_the_records_own_file(raw):
+    # live Radarr 6.4 cutoff records carry movieFileId, never movieFile
+    assert not any("movieFile" in m for m in raw["raw_radarr_cutoff"]["records"])
+    raw = copy.deepcopy(raw)
+    raw["raw_radarr_cutoff"]["records"][0]["movieFile"] = {"quality": {"quality": {"name": "DVD"}}}
+    rows = Arr().transform(raw)["upgrades"]["radarr"]
+    assert [r["have"] for r in rows] == ["DVD", "Bluray-1080p", "WEBDL-720p"]
+    del raw["raw_radarr_movie"]  # the count call failed: no join, the own file still counts
+    assert [r["have"] for r in Arr().transform(raw)["upgrades"]["radarr"]] == ["DVD", None, None]
 
 
 def test_sonarr_episodes_group_per_series_with_the_lowest_quality(raw):
@@ -60,11 +72,11 @@ def test_totals_and_counts_use_total_records_not_the_page(raw):
 def test_missing_profiles_or_files_leave_want_and_have_null(raw):
     bare = copy.deepcopy(raw)
     del bare["raw_radarr_qualityprofile"], bare["raw_sonarr_qualityprofile"]
-    bare["raw_radarr_cutoff"]["records"][0].pop("movieFile")
+    bare["raw_radarr_movie"][0].pop("movieFile")
     data = Arr().transform(bare)
     jsonschema.validate(data, SCHEMA)
     assert all(r["want"] is None for app in ("radarr", "sonarr") for r in data["upgrades"][app])
-    assert data["upgrades"]["radarr"][0]["have"] is None
+    assert data["upgrades"]["radarr"][2]["have"] is None  # Harbour Lights: no file in the list
 
 
 def test_no_cutoff_payload_means_null_lists_and_no_upgrades_count(raw):
@@ -123,7 +135,7 @@ def test_a_failed_profile_call_only_nulls_want(live, monkeypatch, raw):
     data = envelope["data"]
     assert envelope["status"] == "ok" and "partial_errors" not in data
     rows = data["upgrades"]["radarr"] + data["upgrades"]["sonarr"]
-    assert len(rows) == 5 and all(r["want"] is None for r in rows) and all(r["have"] for r in rows)
+    assert len(rows) == 5 and all(r["want"] is None for r in rows) and sum(1 for r in rows if r["have"]) == 4
     jsonschema.validate(data, SCHEMA)
 
 

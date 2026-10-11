@@ -175,7 +175,7 @@
       "radarr": [
         {
           "arr_id": 3,
-          "have": "DVD",
+          "have": null,
           "item_key": "tmdb:1003",
           "poster": "radarr:3",
           "title": "Copper Sky",

@@ -370,7 +370,7 @@ Sonarr the same path with `sortKey=series.sortTitle&includeSeries=true&includeEp
 `GET /api/v3/qualityprofile` to name the cutoff. Shape:
 `{radarr: [{item_key, title, year, arr_id, have, want, poster}] | null, sonarr: [{item_key, title, arr_id, episodes,
 have, want, sample, poster}] | null, totals: {movies, episodes, series}}`. Radarr: one row per movie, `item_key`
-`tmdb:<tmdbId>`, `arr_id` the movie id, `have` = `movieFile.quality.quality.name`. Sonarr: episodes grouped per
+`tmdb:<tmdbId>`, `arr_id` the movie id, `have` = `movieFile.quality.quality.name` from the `GET /api/v3/movie` list the counts already fetch, joined on `id` (Radarr cutoff records carry only `movieFileId`; a record's own `movieFile` wins if present). Sonarr: episodes grouped per
 series, `item_key` `tvdb:<tvdbId>` (the queue / this-week scheme), `arr_id` the series id, `episodes` = cutoff-unmet
 episodes listed, `have` = the lowest `episodeFile.quality.quality.name` among them (by resolution), `sample` = the
 earliest such episode (`S01E02`). `want` = the name of the profile's cutoff (`qualityProfileId` — the movie's, or

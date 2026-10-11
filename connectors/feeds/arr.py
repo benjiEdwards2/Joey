@@ -351,10 +351,14 @@ class Arr(Connector):
         radarr = sonarr = None
         if raw.get("raw_radarr_cutoff") is not None:
             want = cls._cutoff_names(raw.get("raw_radarr_qualityprofile"))
+            # Radarr's cutoff records carry movieFileId but no movieFile (verified live, Radarr 6.4):
+            # the held quality comes from the library list fetched for the counts, joined on id.
+            files = {m.get("id"): m.get("movieFile") for m in raw.get("raw_radarr_movie") or []
+                     if isinstance(m, dict) and m.get("movieFile")}
             radarr = sorted((
                 {"item_key": _arr_key("radarr", m, movie=True), "title": m.get("title") or "Unknown",
                  "year": m.get("year") or None, "arr_id": m.get("id"),
-                 "have": quality(m.get("movieFile")).get("name"), "want": want.get(m.get("qualityProfileId")),
+                 "have": quality(m.get("movieFile") or files.get(m.get("id"))).get("name"), "want": want.get(m.get("qualityProfileId")),
                  "poster": _arr_ref("radarr", m, movie=True)}
                 for m in _records(raw["raw_radarr_cutoff"])), key=lambda r: (r["title"].casefold(), r["arr_id"] or 0))
         if raw.get("raw_sonarr_cutoff") is not None:

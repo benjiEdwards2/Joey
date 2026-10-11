@@ -50,6 +50,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /media/title/{kind}/{tmdb_id}`, `/media/item/{jf_id}`, `/media/person/{person_id}` | media_film, media_person | Film / series page by TMDB id or Jellyfin id; person page |
 | `GET /media/title/{kind}/{tmdb_id}/request`, `/arr`; `/media/title/tv/{tmdb_id}/season/{n}` | media_discover, media_arr_search | Request form, Radarr / Sonarr search form, season list |
 | `POST /media/title/{kind}/{tmdb_id}/request`, `/search` | media_discover, media_arr_search | Jellyseerr request; Search now (Radarr / Sonarr command) |
+| `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/settings/rating_level` | media_write | Rating scale |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
@@ -107,6 +108,14 @@ is accepted for this private two-person app; undo by restoring the old viewport 
 **Search now (media-ux5, 2026-10-09):** `media_arr_search.py` sends a Radarr `MoviesSearch` / Sonarr `SeriesSearch` for
 monitored items only, plus the "All seasons + future" request option; full behaviour in `docs/hub-changelog.md` and the
 seventeenth exception in `docs/connector-contract.md`.
+
+**Search all monitored (F3, 2026-10-12):** Activity › Requests and › Downloads open with one row (`_arr_sweep.html`, via
+the `arr_sweep(request)` global): "Search missing" and "Search upgrades", each an inline confirm (htmx
+`GET /media/arr/sweep?step=confirm`; without JS the page draws it from `?sweep_ask=`) then a `same_origin` POST that
+sends Radarr `MissingMoviesSearch` + Sonarr `MissingEpisodeSearch`, or `CutoffUnmetMoviesSearch` +
+`CutoffUnmetEpisodeSearch` — one worker thread and a 10 s timeout per app, so one app down never stops the other
+(`?sweep=started|partial|failed`). A second sweep of the same kind inside 10 min is allowed; the card says "Started N min
+ago · run again?" (in-process timestamp). Neither app configured: "Not connected", no buttons.
 
 ## Run locally
 

@@ -573,3 +573,17 @@ Grid / List) in `_library_page.html`. The year select now calls `this.form.reque
 `this.form.submit()`: the native `submit()` skips the submit event, so htmx never saw it and the page fully reloaded.
 Section tabs, the phone bar and posters are unchanged (still land at the top), as is Back / Forward
 (`historyCacheSize` 0). Tests: `tests/hub/test_keep_scroll.py`.
+
+## 2026-10-12 — Search all monitored (F3)
+B. asked for a button to search everything monitored in Radarr and Sonarr himself. Activity › Requests and › Downloads
+now open with a shared action row (`_arr_sweep.html`): **Search missing** and **Search upgrades**, sub-line naming the
+connected apps ("Radarr · Sonarr"). Each opens an inline confirm card in place (htmx `GET /media/arr/sweep?step=confirm
+&kind=…&back=…`, the Update now / Request two-step; no browser dialog; no-JS fallback `?sweep_ask=`), then a
+`same_origin` `POST /media/arr/sweep` sends `POST /api/v3/command` to both apps in parallel worker threads, 10 s timeout
+each: missing → Radarr `MissingMoviesSearch` + Sonarr `MissingEpisodeSearch`; upgrades → Radarr
+`CutoffUnmetMoviesSearch` + Sonarr `CutoffUnmetEpisodeSearch`. It 303s back with `?sweep=started&ran=radarr,sonarr`
+("Search started · Radarr · Sonarr"), `partial` ("Search started · Sonarr only") or `failed` ("Couldn't start the
+search"); logs carry the HTTP status or exception type only. Repeating a kind inside 10 min is allowed but the card says
+"Started N min ago · run again?" (in-process, reset by a restart). With neither app configured the row reads "Not
+connected" and has no buttons. `_command` gained an optional `body` / `timeout` for this; Search now is unchanged
+(`tests/hub/test_media_arr_sweep.py`).

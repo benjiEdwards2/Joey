@@ -112,6 +112,23 @@ recorded in `media_follow_adds` (outcome `requested` / `already` / `failed`; a r
 requested again). Runs right after a Follow (a response background task) and on a hub loop ~2 min after start, then every
 6 h; `MEDIA_FOLLOW=off` disables the loop; no Jellyseerr keys ⇒ no calls. Each add POSTs one Discord message ("Joey Media:
 added …") to `MEDIA_DISCORD_WEBHOOK`, else `SERVER_DISCORD_WEBHOOK` (neither ⇒ silent). Logs carry status / exception type only.
+*Shows and TV makers (F5, 2026-10-12).* `media_follows.kind` also takes `show`, and `media_follow_adds` is keyed on
+(follow, `media` movie / tv, TMDB id). **Follow show** (`POST /media/follow/show/{tmdb}`, `same_origin`, worker thread):
+records the follow, then reads Sonarr `GET /api/v3/series` (full list, matched on `tmdbId`) and, when the show is there,
+`PUT /api/v3/series/{id}` with Sonarr's own resource plus `monitored: true, monitorNewItems: "all"` (every other field
+kept; no search). A show Sonarr doesn't have is requested first through the seventeenth exception's "All seasons + future"
+path: Jellyseerr `POST /api/v1/request` `{"mediaType": "tv", "mediaId": id, "seasons": "all"}`, then
+`media_arr_search.follow_all` (≤ 3 Sonarr reads 2 s apart, the same PUT, `SeriesSearch`). The follow is kept whatever
+Sonarr / Jellyseerr answer; the flash says what happened (`?sonarr=<code>`). **Unfollow show** deletes the row, reads the
+series and PUTs it back with `monitorNewItems: "none"` only (monitored and files untouched) — nothing is ever DELETEd.
+The 6-hourly check reads the Sonarr series list once and repeats the follow PUT for any followed show that isn't
+monitored with new seasons (Sonarr added it after the Follow, or it was changed by hand); it needs Sonarr only. The show
+page's Follow line is a media.db read — no Sonarr or Jellyseerr call on render. **TV makers:** a person followed with
+dept `creator` (the show page's "Created by" Follow buttons, or the person page of someone with TV Creator / Director
+credits; form field `tv=1`) also has the shows in `combined_credits.crew` with `mediaType: "tv"` and `job` Creator or
+Director — or Executive Producer when they are a Creator somewhere — whose `firstAirDate` is after today requested with
+`{"mediaType": "tv", "mediaId": id, "seasons": "all"}`, under the same cap, once per follow, Discord "added show …".
+Everyone else's TV credits are still ignored.
 
 **Thirteenth exception (2026-10-08): Remove a request (`hub/media_requests.py`).** A `same_origin` POST from the
 Requests page's inline confirm. Writes, live and server-side: Jellyseerr `DELETE /api/v1/request/{id}` (X-Api-Key; a 404

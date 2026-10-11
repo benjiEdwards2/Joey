@@ -399,3 +399,15 @@ def test_following_tab_shows_only(son_env):
         b = main_of(client.get("/media/following").text)
     assert "Shows · future seasons · 1" in b and "Following · " not in b and "from their page" not in b
     assert son.calls == []
+
+
+def test_contract_and_readme_document_follow_shows():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    contract = (root / "docs" / "connector-contract.md").read_text(encoding="utf-8")
+    twelfth = contract.split("**Twelfth exception", 1)[1].split("**Thirteenth exception", 1)[0]
+    for word in ('monitorNewItems: "all"', 'monitorNewItems: "none"', '"seasons": "all"', "Creator", "Executive Producer",
+                 "/media/follow/show/{tmdb}", "nothing is ever DELETEd"):
+        assert word in twelfth, word
+    readme = (root / "hub" / "README.md").read_text(encoding="utf-8")
+    assert "Follow shows + show creators (F5" in readme and "follow_show(request, film)" in readme

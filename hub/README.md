@@ -55,7 +55,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/settings/rating_level` | media_write | Rating scale |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
-| `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person or a film series |
+| `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person, a film series or a show (`kind` person / collection / show) |
 | `POST /media/requests/{rid}/remove` | media_requests | Remove a Jellyseerr request |
 | `POST /media/resume/{jf_id}/{watched,unwatched,reset,hide}` | media_resume | Move on from Continue watching |
 | `GET/POST /server/updates/{name}/run`, `POST .../ignore`, `.../unignore` | server_updates | Update now (GET = confirm page), Ignore |
@@ -119,6 +119,15 @@ path.
 **No zoom (media-ux5, B.'s explicit choice 2026-10-09):** Joey cannot be pinch- or focus-zoomed on a phone (viewport
 `maximum-scale=1`, 16 px inputs, Safari gesture events cancelled in `static/joey.js`). The accessibility trade-off (WCAG 1.4.4)
 is accepted for this private two-person app; undo by restoring the old viewport meta and removing the gesture guard.
+
+**Follow shows + show creators (F5, 2026-10-12):** `media_follow.py`. A show page (not an episode) carries one line under
+the hero's makers (`_follow_show.html` via the `follow_show(request, film)` global — a media.db read, no upstream call):
+"Follow show" keeps it monitored in Sonarr with every new season (`monitored: true, monitorNewItems: "all"`; requested
+"All seasons + future" through Jellyseerr first when Sonarr lacks it), Unfollow sets `monitorNewItems: "none"` and never
+deletes. A show's "Created by" cards get a small "Follow <name>" button each (`_film_makers.html`, via the `followed(kind)`
+global); that, or Follow on the person page of someone with TV Creator / Director credits, follows them as a TV maker
+(dept `creator`), so the 6-hourly check requests their new shows too. Following lists shows in their own group with
+Unfollow. media.db `user_version` 3 (`migrate_shows`). Calls: the twelfth exception in `docs/connector-contract.md`.
 
 **Search now (media-ux5, 2026-10-09):** `media_arr_search.py` sends a Radarr `MoviesSearch` / Sonarr `SeriesSearch` for
 monitored items only, plus the "All seasons + future" request option; full behaviour in `docs/hub-changelog.md` and the

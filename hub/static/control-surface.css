@@ -40,6 +40,7 @@
   --primary: #6366f1; --primary-hover: #818cf8;
   --text-1: #fafafa; --text-2: #e4e4e7; --text-3: #d4d4d8; --text-4: #a1a1aa; --text-5: #71717a; --text-6: #52525b;
   --sky: #7dd3fc; --orange: #fb923c; --fuchsia: #f0abfc; --teal: #5eead4;
+  --upgrade: var(--sky);  /* F4b: the light-blue "Upgrade available" line (B., 2026-10-12) */
   --indigo-glow: rgba(99, 102, 241, .1);
   --zinc-100: #f4f4f5; --zinc-900: #18181b; --zinc-950: #09090b;
   --pagehead-glow: rgba(99, 102, 241, .14);
@@ -1095,7 +1096,7 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
 .scorepill.sp-wait { color: var(--text-5); }
 .fp-shelf-wait { min-height: 120px; }
 /* F4b upgrade available (2026-10-12): B. asked for a small light-blue "Upgrade available" line under a title (the file is
-   below its Radarr / Sonarr quality cutoff). The colour carries meaning, the words say it too; no background. One token. */
-:root { --upgrade: var(--sky); }
+   below its Radarr / Sonarr quality cutoff). The colour carries meaning, the words say it too; no background. Token
+   --upgrade sits in :root (one :root block). */
 .upnote { display: block; margin-top: 2px; font-size: 12px; color: var(--upgrade); overflow-wrap: anywhere; }
 .card-poster .upnote { font-size: 11px; }

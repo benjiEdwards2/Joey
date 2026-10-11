@@ -121,7 +121,8 @@ def test_older_envelope_or_both_apps_down_renders_no_label(site, upgrades):
 def test_the_css_token_is_light_blue_and_one_class():
     from pathlib import Path
     css = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
-    assert css.count("--upgrade:") == 1 and ":root { --upgrade: var(--sky); }" in css
+    root = css.split(":root {", 1)[1].split("}", 1)[0]
+    assert css.count("--upgrade:") == 1 and "--upgrade: var(--sky);" in root    # light blue (sky-300), one token
     rule = re.search(r"\n\.upnote \{([^}]*)\}", css).group(1)
     assert "color: var(--upgrade)" in rule and "background" not in rule
 

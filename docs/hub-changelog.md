@@ -617,8 +617,8 @@ WEBDL-720p → Bluray-1080p" / "Upgrade available · 3 episodes · SDTV → WEB 
 <want>" without `have`), `find` / `attach` match a film on `tmdb:` only (TMDB movie and TV ids are separate spaces) and
 a show on its `tvdb:` key, a known TheTVDB id (Jellyfin ProviderIds.Tvdb cached by the show page via
 `media_item.peek`, or a request's `tvdb_id`), else the normalised title when exactly one Sonarr row and one library
-show carry it. The line (`.upnote`, one appended token `--upgrade: var(--sky)` — colour for meaning, the words say it
-too) renders under Movies / TV cards and rows, Requests rows and the film / show hero's status line (core, from the
+show carry it. The line (`.upnote`, appended; one token `--upgrade: var(--sky)` in the single `:root` — colour for
+meaning, the words say it too) renders under Movies / TV cards and rows, Requests rows and the film / show hero's status line (core, from the
 snapshot: no call, F2's order kept; not on an episode page). Activity › Downloads gains an "Upgrades" block (poster,
 title, note; "3 films · 2 shows" from `totals`; "Sonarr not connected" for one null list; "Not connected" for both;
 absent for an older envelope). "Search for upgrade" sits in the lazy Search-now fragment when the app's own id (from its

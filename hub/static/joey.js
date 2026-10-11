@@ -75,3 +75,27 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   document.addEventListener('htmx:afterSettle', init);
   document.addEventListener('htmx:load', init);
 })();
+/* ---- F2 fast item pages (2026-10-12): warm a film / show page on touch or hover ----
+   A finger landing on (or a pointer resting 60 ms over) a link to a film / show page sends that page a GET with
+   X-Joey-Prefetch: 1 and throws the answer away (an empty 204): the server reads Jellyfin and starts the Jellyseerr /
+   OMDb read, so the real tap finds its caches warm. Once per href, one prefetch in flight at a time. */
+(function () {
+  var SEL = 'a[href^="/media/item/"], a[href^="/media/title/"]';
+  var done = {}, busy = false, timer = null;
+  function go(href) {
+    if (busy || done[href]) return;
+    done[href] = true;
+    busy = true;
+    var end = function () { busy = false; };
+    fetch(href, {headers: {'X-Joey-Prefetch': '1'}, credentials: 'same-origin'}).then(end, end);
+  }
+  function near(e) {
+    var a = e.target && e.target.closest ? e.target.closest(SEL) : null;
+    var href = a ? a.getAttribute('href') : null;
+    if (!href || done[href] || href.indexOf('/part/') !== -1) return;
+    clearTimeout(timer);
+    timer = setTimeout(function () { go(href); }, 60);
+  }
+  document.addEventListener('touchstart', near, {passive: true});
+  document.addEventListener('mouseover', near);
+})();

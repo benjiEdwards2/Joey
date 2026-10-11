@@ -38,18 +38,23 @@ def paths(both, prefix):
 
 def test_cold_movie_open_overlaps_jellyfin_and_jellyseerr(env, monkeypatch):
     client, both = env()
-    get, log = slow(both)
-    monkeypatch.setattr(requests, "get", get)
+    jf_get, jf_log = slow(both)
+    seerr_get, seerr_log = slow(both, 6 * LAT)                            # a slow Jellyseerr: 1.5 s a call
+    monkeypatch.setattr(requests, "get", lambda url, **kw: (jf_get if url.startswith(URL) else seerr_get)(url, **kw))
     with client:
         t0 = time.perf_counter()
-        assert client.get("/media/item/mov1").status_code == 200
+        page = client.get("/media/item/mov1").text
         took = time.perf_counter() - t0
+        media_film.drain_extras()
+    log = jf_log + seerr_log
     assert len(log) >= 7
-    # the longest chain is 2 deep (Jellyfin user -> item; Jellyseerr title -> collection): ~0.5 s, not 7 x 0.25
-    assert took < len(log) * LAT * 0.6, (took, len(log))
+    # F2 (2026-10-12): the page waits for the Jellyfin chain only (user -> item, ~0.5 s); the Jellyseerr reads run in
+    # the background and the page's part request collects them
+    assert took < 6 * LAT, took
     item_call = next(c for c in log if c[2].endswith("/Users/u1/Items/mov1"))
     title_call = next(c for c in log if c[2].endswith("/api/v1/movie/603"))
     assert title_call[0] < item_call[1]   # the Jellyseerr read started before the Jellyfin item had answered
+    assert 'class="fpart-load"' in page
 
 
 def test_seasons_episode_reads_run_side_by_side(monkeypatch):

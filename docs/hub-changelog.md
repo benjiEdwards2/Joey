@@ -562,3 +562,17 @@ has, with the directors of the most episodes on the server first (`media_film.sh
 Director People outrank the count), capped at `MAKERS_MAX`. Episode crew entries carry the Jellyfin headshot ref
 (`jf:<person id>`) when the person has an image; without a TMDB person id the card links to a Discover search, as a
 film's maker card does. Episode pages and films are unchanged (`tests/hub/test_media_tv_crew.py`).
+
+## 2026-10-12 — Search all monitored (F3)
+B. asked for a button to search everything monitored in Radarr and Sonarr himself. Activity › Requests and › Downloads
+now open with a shared action row (`_arr_sweep.html`): **Search missing** and **Search upgrades**, sub-line naming the
+connected apps ("Radarr · Sonarr"). Each opens an inline confirm card in place (htmx `GET /media/arr/sweep?step=confirm
+&kind=…&back=…`, the Update now / Request two-step; no browser dialog; no-JS fallback `?sweep_ask=`), then a
+`same_origin` `POST /media/arr/sweep` sends `POST /api/v3/command` to both apps in parallel worker threads, 10 s timeout
+each: missing → Radarr `MissingMoviesSearch` + Sonarr `MissingEpisodeSearch`; upgrades → Radarr
+`CutoffUnmetMoviesSearch` + Sonarr `CutoffUnmetEpisodeSearch`. It 303s back with `?sweep=started&ran=radarr,sonarr`
+("Search started · Radarr · Sonarr"), `partial` ("Search started · Sonarr only") or `failed` ("Couldn't start the
+search"); logs carry the HTTP status or exception type only. Repeating a kind inside 10 min is allowed but the card says
+"Started N min ago · run again?" (in-process, reset by a restart). With neither app configured the row reads "Not
+connected" and has no buttons. `_command` gained an optional `body` / `timeout` for this; Search now is unchanged
+(`tests/hub/test_media_arr_sweep.py`).

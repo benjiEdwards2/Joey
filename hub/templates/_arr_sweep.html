@@ -1,0 +1,32 @@
+{# Search all monitored (F3, 2026-10-12; media_arr_search.py): the action row at the top of Activity › Requests and
+   › Downloads. Two buttons ("Search missing", "Search upgrades"), each opening an inline confirm card in place (htmx
+   GET /media/arr/sweep?step=confirm; without JS the page itself draws it from ?sweep_ask=) and then ONE same-origin
+   POST. Neither Radarr nor Sonarr configured: the word "Not connected", no buttons. The pages call the
+   `arr_sweep(request)` global; the GET route passes `sw`. #}
+{% set s = sw if sw is defined else arr_sweep(request) %}
+<div id="arr-sweep" class="sec">
+{% if not s.apps %}
+  <p class="metaline">Search all monitored · Not connected</p>
+{% else %}
+  {% if s.flash %}<p class="metaline st-good" role="status">{{ s.flash }}</p>{% endif %}
+  {% if s.flash_warn %}<p class="metaline st-warn" role="status">{{ s.flash_warn }}</p>{% endif %}
+  {% if s.ask %}
+  <form class="confirm" method="post" action="/media/arr/sweep">
+    <input type="hidden" name="kind" value="{{ s.ask }}"><input type="hidden" name="back" value="{{ s.back }}">
+    <div>{{ s.ask_text }}</div>
+    <div class="metaline">{{ s.apps | join(" · ") }}</div>
+    {% if s.since is not none %}<div class="metaline st-warn">Started {{ s.since }} min ago · run again?</div>{% endif %}
+    <div class="confirm-btns">
+      <button class="btn btn-primary btn-sm" type="submit">{{ s.labels[s.ask] }}</button>
+      <a class="btn btn-ghost btn-sm" href="{{ s.back }}" hx-get="/media/arr/sweep?step=idle&amp;back={{ s.back | urlencode }}" hx-target="#arr-sweep" hx-swap="outerHTML">Cancel</a>
+    </div>
+  </form>
+  {% else %}
+  <div class="confirm-btns">
+    {% for kind in ("missing", "upgrades") %}
+    <a class="btn btn-secondary" style="height: auto; flex-direction: column; align-items: flex-start; gap: 0; padding: 6px 12px" href="{{ s.back }}?sweep_ask={{ kind }}" hx-get="/media/arr/sweep?step=confirm&amp;kind={{ kind }}&amp;back={{ s.back | urlencode }}" hx-target="#arr-sweep" hx-swap="outerHTML">{{ s.labels[kind] }}<span class="metaline">{{ s.apps | join(" · ") }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endif %}
+</div>

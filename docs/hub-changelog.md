@@ -635,3 +635,22 @@ looks the title up and sends `{"name": "MoviesSearch", "movieIds": [id]}` / `{"n
 in a worker thread, 303 back with `?upgrade=started|failed` ("Upgrade search started" / "Couldn't start the search");
 logs carry the HTTP status or exception type only. Picking a specific release is a possible v2
 (`tests/hub/test_media_upgrades.py`, `test_media_upgrades_pages.py`, `test_media_upgrades_film.py`).
+
+## 2026-10-12 — F5 follow shows + show creators
+B.: "TV directors should have a way for me to follow them too — or at least the show, so I can auto-request future
+seasons once announced." **Follow show:** a show page (not an episode) has one line under the hero's makers rows
+(`_follow_show.html`): "Follow show", or "Following ✓ · future seasons" + Unfollow. Following sets the show in Sonarr to
+`monitored: true, monitorNewItems: "all"` (its own resource PUT back, nothing else changed, no search); a show Sonarr
+doesn't have is requested "All seasons + future" first (Jellyseerr `seasons: "all"`, then `media_arr_search.follow_all`).
+The follow is kept either way and the flash says what Sonarr did. Unfollow sets `monitorNewItems: "none"` — monitored,
+seasons and files stay; nothing is deleted. The 6-hourly check repeats the PUT for a followed show Sonarr added later or
+that was changed by hand (one series-list read a run). The line reads media.db only: no upstream call on render (F2).
+**Show creators "like movies":** under a show's "Created by" cards, a small "Follow <name>" button per creator with a
+TMDB id (the card stays the person link); on the person page, Follow for someone with TV Creator / Director credits
+carries `tv=1`. Either follows them as a TV maker (dept `creator`, "Creator · films + shows"): their new films by the
+existing rules plus their new SHOWS — TV crew Creator or Director, or Executive Producer when they are a Creator
+somewhere; a known first air date after today; requested with `seasons: "all"`, once per follow, capped with the films,
+Discord "added show …". Actors and directors followed before keep films only. **Following** has a "Shows · future
+seasons" group (poster, name, Unfollow) and a TV maker's count reads "1 film · 3 shows". media.db `user_version` 3:
+`media_follows.kind` takes `show`; `media_follow_adds` is keyed on (follow, media, TMDB id) so a film and a show sharing
+a number never collide (tables rebuilt, rows kept). `tests/hub/test_media_follow_shows.py`.

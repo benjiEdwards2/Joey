@@ -276,7 +276,7 @@ def test_following_empty_state_and_director_word(env):
     client, both = env()
     with client:
         b = main_of(client.get("/media/following").text)
-        assert "Follow an actor, director or film series from their page." in b
+        assert "Follow an actor, director, creator, film series or show from their page." in b   # F5: shows too
         media_follow.follow("person", 77, "Dee Director", dept="Directing")
         b = main_of(client.get("/media/following").text)
     assert "Dee Director" in b and "Director" in b and "top-5" not in b

@@ -114,6 +114,7 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
             "ref": md._ref(person.get("profilePath")), "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
             "shelf": shelf, "films": [r for r in rest if r["kind"] == "movie"], "shows": [r for r in rest if r["kind"] == "tv"],
+            "tv_maker": media_follow.tv_maker(credits),   # F5: Follow covers their new shows too
             "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}
 
 
@@ -134,10 +135,12 @@ def person_page(request: Request, person_id: str):
         log.warning("awards lookup failed: %s", type(exc).__name__)
         person["awards"] = None
     try:
-        person["following"] = media_follow.get("person", int(person_id)) is not None
+        row = media_follow.get("person", int(person_id))
     except Exception as exc:  # the page never fails on the follow lookup
         log.warning("follow lookup failed: %s", type(exc).__name__)
-        person["following"] = False
+        row = None
+    person["following"] = row is not None
+    person["follow_tv"] = bool(row and row.get("dept") == media_follow.CREATOR)
     resp = shell.render_page(request, "media_person.html", {
         "status": shell.build_status(snaps), "src": src, "person": person, "show_first": SHOW_FIRST,
         "follow_flash": media_follow.flash_text(request)})

@@ -1,6 +1,8 @@
 {# The hero's Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials
    when none), each ONE link to the person page (else a Discover search); a sideways row on a phone. A deferred part
-   since F2 (2026-10-12): the cards come from the Jellyseerr title body. #}
+   since F2 (2026-10-12): the cards come from the Jellyseerr title body.
+   F5 (2026-10-12): under a show's "Created by" cards, one small Follow button per creator with a TMDB id (follows them
+   as a TV maker: new films AND shows) or "Following <name> ✓" - the state is one media.db read, no upstream call. #}
 {% from "_film_macros.html" import makercards with context %}
 {% if film.makers %}
 <div class="makers">
@@ -8,5 +10,9 @@
   <div class="makerrow">
   {{ makercards(film.makers) }}
   </div>
+  {% set creators = film.makers | selectattr("id") | list if film.kind == "tv" else [] %}
+  {% if creators %}{% set on = followed("person") %}
+  <div class="followform">{% for m in creators %}{% if m.id in on %}<span class="st-good">Following {{ m.name }} ✓</span>{% else %}<form method="post" action="/media/follow/person/{{ m.id }}"><input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ m.name }}"><input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">Follow {{ m.name }}</button></form>{% endif %}{% endfor %}</div>
+  {% endif %}
 </div>
 {% endif %}

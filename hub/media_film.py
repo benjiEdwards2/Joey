@@ -26,7 +26,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
-from hub import media_home, shell
+from hub import media_home, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -603,6 +603,19 @@ def _jf_from_snapshot(jelly: dict, kind: str, tmdb: int) -> dict | None:
     return None
 
 
+def _upgrade(snaps, jelly: dict, kind, tmdb, tvdb, title) -> str | None:
+    """F4b: "Upgrade available · …" for the hero, from the arr snapshot's cutoff-unmet lists - no call. A show matches
+    its TheTVDB id, else its title when the library holds that title once."""
+    if kind not in ("movie", "tv"):
+        return None
+    name = media_upgrades.norm_title(title)
+    once = kind == "tv" and sum(1 for r in jelly.get("shows") or [] if isinstance(r, dict)
+                                and media_upgrades.norm_title(r.get("title")) == name) <= 1
+    row = media_upgrades.find(media_upgrades.index(snaps), kind, f"tmdb:{tmdb}" if tmdb else None, tvdb,
+                              title if once else None)
+    return row["note"] if row else None
+
+
 def _requested(snaps, tmdb) -> dict | None:
     from hub.media_requests import snapshot_rows  # a removed request stops showing at once (2026-10-08)
     for r in snapshot_rows(snaps, JELLYSEERR_SNAPSHOT_ID):
@@ -1044,6 +1057,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, tvdb, request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
+    f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only
+    f["upgrade_flash"] = media_arr_search.upgrade_flash(request.query_params)
     f["status_line"] = status_line(f)
     f["awards"] = film_awards(kind, tmdb_id, jelly, jf_item_id)   # Awards (2026-10-08): media.db only, no call
     # F2: the ONE request that fills every placeholder (out-of-band swaps), naming only the parts still pending

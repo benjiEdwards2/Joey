@@ -211,7 +211,7 @@ def test_cast_portraits_initials_makers_and_providers(env):
 def test_series_makers_are_creators(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/tv/100").text)
+        b = main_of(whole(client, "/media/title/tv/100"))   # F2: makers is a deferred part (was a timing flake)
     assert '<div class="microlabel">Created by</div>' in b and ">Cass Creator</span></a>" in b   # media-ux4: cards
 
 

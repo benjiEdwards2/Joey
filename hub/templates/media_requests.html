@@ -4,6 +4,7 @@
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
+{% from "_upgrade_note.html" import upnote %}
 {% include "_arr_sweep.html" %}{# F3 (2026-10-12): Search missing / upgrades, Radarr · Sonarr #}
 {# Detail behind the requests tile (2026-10-05; restyle Phase 3 row recipe): Jellyseerr's queue. The status is a
    WORD on every row — colour is never the only encoding. #}
@@ -25,7 +26,7 @@
 <div class="row has-form reqrow" id="req-{{ r.id }}">
   <a class="rowlink" href="{{ r.href }}" target="_blank" rel="noopener">
   {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
-  <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, "TV" if r.kind == "tv" else "Film", r.requested_by, r.when]) }}</div>
+  <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, "TV" if r.kind == "tv" else "Film", r.requested_by, r.when]) }}{{ upnote(r.upgrade) }}</div>
   {{ rate.score_key(r.item_key, ratings) }}
   </a>
   <details class="confirm-wrap reqremove">

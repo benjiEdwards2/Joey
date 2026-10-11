@@ -13,8 +13,8 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_library,
-                 media_requests, media_resume, media_write, shell, upcoming)
+from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
+                 media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -98,7 +98,11 @@ def media_downloads_page(request: Request):
         groups.append({"label": "Other", "rows": [r for r in data.get("active") or []
                                                   if r.get("kind") not in ("movie", "tv")]})
         totals = data.get("totals") or {}
-        return {"groups": [g for g in groups if g["rows"]],
+        # F4b: the "Upgrades" block - the arr snapshot's cutoff-unmet titles, each row linked like the rows above
+        upgrades = media_upgrades.block(shell.get_snapshots(request=request))
+        if upgrades and upgrades.get("rows"):
+            upgrades["rows"] = link(upgrades["rows"])
+        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades,
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
                                f" · {data.get('seeding', 0)} seeding"}
     return _detail_page(request, "media_downloads.html", QBIT_SNAPSHOT_ID, build)
@@ -141,6 +145,10 @@ def media_requests_page(request: Request):
         snap = shell.get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
         rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
         c = media_requests.visible_counts(data, rows)
+        # F4b: "Upgrade available" on a request whose title is on the arr cutoff-unmet lists (copies: the counts above
+        # match rows by identity, and the snapshot's own dicts stay untouched)
+        rows = [dict(r) for r in rows]
+        media_upgrades.attach(rows, shell.get_snapshots(request=request), None, lambda r: r.get("tvdb_id"))
         good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
@@ -262,6 +270,11 @@ def _library_rows(data: dict, view: str, kind: str):
                                _lib_href(), marks)
 
 
+def _cached_tvdb(row: dict):
+    """A show row's TheTVDB id from the item data its page last read (media_item.peek - never a Jellyfin read)."""
+    return ((media_item.peek(row.get("jf_id")) or {}).get("item") or {}).get("tvdb") if row.get("jf_id") else None
+
+
 LIBVIEW_COOKIE = "media_libview"     # media-ux4: Grid / List on /media/movies + /media/tv, remembered per device
 LIBVIEWS = ("grid", "list")
 LIBVIEW_MAX_AGE = 365 * 24 * 3600
@@ -294,6 +307,9 @@ def _library_page(request: Request, kind: str):
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
+        # F4b: "Upgrade available" under the title - the arr snapshot's cutoff-unmet lists; a show also by the TheTVDB id
+        # its page has cached (media_item.peek, no read), else its unique title
+        media_upgrades.attach(rows, shell.get_snapshots(request=request), kind, _cached_tvdb)
         arr = shell.get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: media_home.item_href(jf))

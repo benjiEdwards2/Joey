@@ -1,5 +1,8 @@
 {# Search now (media-ux5, 2026-10-09): lazy-loaded into the film / series hero (media_arr_search.py) only when the title
    is in Radarr / Sonarr. One plain same-origin POST form (works without JS; boosted it replaces the history entry);
-   `back` returns to the page it was pressed on, with the flash. The apps search monitored items only. #}
+   `back` returns to the page it was pressed on, with the flash. The apps search monitored items only.
+   F4b (2026-10-12): "Search for upgrade" beside it when this app entry is on the arr snapshot's cutoff-unmet list —
+   an inline confirm (no JS needed to open it), then one same-origin POST to /upgrade. #}
 {% from "_icons.html" import icon %}
 <form id="arr-search" method="post" action="/media/title/{{ kind }}/{{ tmdb_id }}/search"><input type="hidden" name="back" value="{{ back }}">{% if tvdb %}<input type="hidden" name="tvdb" value="{{ tvdb }}">{% endif %}<button class="btn btn-glass" type="submit" title="Ask {{ app }} to search for {{ 'its monitored episodes' if kind == 'tv' else 'it' }} now{{ '' if monitored else ' (not monitored there)' }}">{{ icon("search") }}Search now</button></form>
+{% if upgrade %}<details class="confirm-wrap" id="arr-upgrade"><summary class="btn btn-glass">{{ icon("search") }}Search for upgrade</summary><div class="confirm"><div>Ask {{ app }} for a better copy?</div><div class="metaline">{{ upgrade.note }}{{ '' if monitored else ' · not monitored there, so it may find nothing' }}</div><div class="confirm-btns"><form method="post" action="/media/title/{{ kind }}/{{ tmdb_id }}/upgrade"><input type="hidden" name="back" value="{{ back }}">{% if tvdb %}<input type="hidden" name="tvdb" value="{{ tvdb }}">{% endif %}<button class="btn btn-primary btn-sm" type="submit">Search for upgrade</button></form><button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false">Cancel</button></div></div></details>{% endif %}

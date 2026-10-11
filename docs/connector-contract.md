@@ -189,6 +189,10 @@ each a two-step confirm then `POST /media/arr/sweep` behind `same_origin` — "S
 `{"name": "MissingMoviesSearch"}` + Sonarr `{"name": "MissingEpisodeSearch"}`, "Search upgrades" sends
 `CutoffUnmetMoviesSearch` + `CutoffUnmetEpisodeSearch` (both `POST /api/v3/command`, threadpooled, 10 s each, one app
 down is a partial word). Nothing is read; the arrs do the searching and grabbing per their own profiles.
+*Search for upgrade (2026-10-12, F4b):* on a film / show page whose title is on the `arr` snapshot's `upgrades` list,
+a two-step confirm then `POST /media/title/{kind}/{tmdb}/upgrade` behind `same_origin` repeats the Search-now lookup and
+sends the same per-title `MoviesSearch` / `SeriesSearch` command; the app replaces the file only with a release its
+profile ranks higher.
 
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,

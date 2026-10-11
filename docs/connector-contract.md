@@ -181,6 +181,11 @@ no *arr call); the `same_origin` POST `/media/title/{kind}/{tmdb}/search` looks 
 `"seasons": "all"`, the series is read from Sonarr (≤ 3 reads, 2 s apart — it appears once Jellyseerr hands it over; else
 skipped and the flash says so), PUT back as the app's own resource with `monitored: true, monitorNewItems: "all"` (every
 other field kept), then SeriesSearch. Nothing is ever deleted. Flashes and logs carry the HTTP status or exception type only.
+*Search all monitored (2026-10-12, F3):* the Activity › Requests and › Downloads tabs carry two buttons B. presses himself,
+each a two-step confirm then `POST /media/arr/sweep` behind `same_origin` — "Search missing" sends Radarr
+`{"name": "MissingMoviesSearch"}` + Sonarr `{"name": "MissingEpisodeSearch"}`, "Search upgrades" sends
+`CutoffUnmetMoviesSearch` + `CutoffUnmetEpisodeSearch` (both `POST /api/v3/command`, threadpooled, 10 s each, one app
+down is a partial word). Nothing is read; the arrs do the searching and grabbing per their own profiles.
 
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,

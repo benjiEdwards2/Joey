@@ -46,6 +46,7 @@ TRIGGER_TYPE, TRIGGER_NAME = "dockercompose", "local"
 MANUAL_TRIGGER_NAME = "manual"      # WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false (NAS)
 SELF_NAME = "wud"                   # never recreated from the hub
 VPN_ROUTED = ("prowlarr", "qbittorrent")   # live in gluetun's network namespace
+VPN_NAME = "gluetun"
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 CONFIRM_TEXT = ("This asks WUD to recreate the container now via the dockercompose.local trigger. "
                 "The app will be unavailable for about a minute.")
@@ -208,6 +209,9 @@ def warnings(row: dict | None, name: str) -> list[str]:
     out = []
     if name in VPN_ROUTED:
         out.append(f"{name} routes through gluetun (VPN) — expect a brief network drop while it restarts.")
+    if name == VPN_NAME:
+        out.append("qBittorrent and Prowlarr share gluetun's network — if they lose their connection after "
+                   "this update, restart them (or update them here) too.")
     old, new = _major(row.get("current_tag")), _major(row.get("new_tag"))
     if old is not None and new is not None and new > old:
         out.append(f"Major version jump ({row.get('current_tag')} → {row.get('new_tag')}) — "

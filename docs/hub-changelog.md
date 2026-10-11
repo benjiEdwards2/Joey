@@ -587,3 +587,10 @@ search"); logs carry the HTTP status or exception type only. Repeating a kind in
 "Started N min ago · run again?" (in-process, reset by a restart). With neither app configured the row reads "Not
 connected" and has no buttons. `_command` gained an optional `body` / `timeout` for this; Search now is unchanged
 (`tests/hub/test_media_arr_sweep.py`).
+
+**Server → manual Update now (2026-10-12).** `server_updates.py`. Notify-only containers (gluetun, qbittorrent, prowlarr,
+uptime-kuma) keep the "Manual · excluded" chip but now also get Update now: the confirm page says it is a manual update
+and the POST calls WUD's `dockercompose.manual` trigger (`WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false` on the NAS, so
+it never fires on its own). Warnings on the confirm page: qbittorrent/prowlarr route through gluetun (brief network
+drop); gluetun may leave them needing a restart; a leading-number tag jump is flagged "Major version jump". The `wud`
+row reads "Update WUD by hand" and is always refused (409, no call). `auto` rows still use `dockercompose.local`.

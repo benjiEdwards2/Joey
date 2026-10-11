@@ -24,11 +24,13 @@ portainer. Repeat with `uptime-kuma`: `dockercompose.local` must NOT be in its l
 Use `portainer` (or any non-critical container that WUD currently shows with an update; the test target was `homepage`
 until Homepage was retired 2026-10-09, decision 9). Never
 gluetun, qbittorrent, prowlarr, uptime-kuma or wud — the page shows those as "Manual · excluded".
+(Since 2026-10-12 those four, but not wud, also have Update now via the manual-only `dockercompose.manual`
+trigger; use them only for a deliberate manual update, not for this check.)
 
 ## 2. Confirm page
 
-Open `/server#updates`. Check the excluded five show "Manual · excluded" and no Update now
-button. Click **Update now** on the safe row: the confirm page must show container, image,
+Open `/server#updates`. Check the excluded rows show "Manual · excluded" with Update now, and the
+`wud` row shows "Update WUD by hand" with no button. Click **Update now** on the safe row: the confirm page must show container, image,
 current → new tag, kind and the "about a minute" warning.
 
 ## 3. Click

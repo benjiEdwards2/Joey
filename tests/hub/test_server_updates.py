@@ -119,6 +119,14 @@ def test_vpn_routed_excluded_rows_warn_of_a_network_drop_and_run_manual(env, nam
     assert runs() == [(name, new_tag, "requested", None)]
 
 
+def test_gluetun_warns_that_qbittorrent_and_prowlarr_may_need_a_restart(env):
+    with env(wud=_with("gluetun", new_tag="v3.41.0")) as client:
+        body = main_of(client.get("/server/updates/gluetun/run?step=confirm").text)
+    assert server_updates.MANUAL_CONFIRM_TEXT in body
+    assert "qBittorrent and Prowlarr share gluetun&#39;s network" in body or \
+        "qBittorrent and Prowlarr share gluetun's network" in body
+
+
 def test_excluded_row_posts_to_the_manual_trigger(env):
     with env() as client:
         r = client.post("/server/updates/uptime-kuma/run", follow_redirects=False)

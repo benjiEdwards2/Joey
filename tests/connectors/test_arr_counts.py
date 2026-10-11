@@ -35,8 +35,8 @@ def test_fixture_counts(raw):
     data = Arr().transform(raw)
     jsonschema.validate(data, SCHEMA)
     # 6 movies: 3 monitored without a file (missing), 2 of those released (wanted), 1 queued — Homepage semantics
-    assert data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1}
-    assert data["sonarr"] == {"series": 3, "wanted": 7, "queued": 1}
+    assert data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1, "upgrades": 3}
+    assert data["sonarr"] == {"series": 3, "wanted": 7, "queued": 1, "upgrades": 4}  # F4a: cutoff unmet
 
 
 def test_prowlarr_stats_are_summed_across_indexers(raw):
@@ -55,7 +55,7 @@ def test_live_count_calls_use_the_paged_wanted_endpoint(live, monkeypatch, raw):
     assert movie["timeout"] == wanted["timeout"] == 10
     assert wanted["params"]["pageSize"] == 1 and wanted["headers"] == {"X-Api-Key": SKEY}
     assert sum(c["url"].endswith("/queue") for c in calls) == 2  # queued reuses the feed's queue call
-    assert data["radarr"]["queued"] == 1 and data["sonarr"] == {"series": 3, "wanted": 7, "queued": 1}
+    assert data["radarr"]["queued"] == 1 and data["sonarr"] == {"series": 3, "wanted": 7, "queued": 1, "upgrades": 4}
 
 
 def test_prowlarr_env_absent_is_null_and_the_run_stays_ok(live, monkeypatch, raw):
@@ -104,10 +104,10 @@ def test_a_failed_count_call_nulls_only_that_app(live, monkeypatch, raw):
     envelope = Arr().run()
     data = envelope["data"]
     assert envelope["status"] == "ok" and "app_errors" not in data
-    assert data["sonarr"] is None and data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1}
+    assert data["sonarr"] is None and data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1, "upgrades": 3}
     assert data["downloading"] and data["arrived"]  # the feed itself is untouched
     jsonschema.validate(data, SCHEMA)
-    assert len(calls) == 10 and SKEY not in json.dumps(envelope)
+    assert len(calls) == 14 and SKEY not in json.dumps(envelope)
 
 
 def test_an_app_down_means_its_counts_are_null_and_not_fetched(live, monkeypatch, raw):

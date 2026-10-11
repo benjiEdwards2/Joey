@@ -1,0 +1,15 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "sortKey": "movieMetadata.sortTitle",
+  "sortDirection": "ascending",
+  "totalRecords": 3,
+  "records": [
+    {"id": 3, "title": "Copper Sky", "year": 2019, "tmdbId": 1003, "qualityProfileId": 9, "monitored": true, "hasFile": true,
+     "movieFile": {"id": 503, "movieId": 3, "quality": {"quality": {"id": 2, "name": "DVD", "source": "dvd", "resolution": 480}, "revision": {"version": 1, "real": 0}}}},
+    {"id": 2, "title": "Desert Crossing", "year": 2024, "tmdbId": 1002, "qualityProfileId": 5, "monitored": true, "hasFile": true,
+     "movieFile": {"id": 502, "movieId": 2, "quality": {"quality": {"id": 7, "name": "Bluray-1080p", "source": "bluray", "resolution": 1080}, "revision": {"version": 1, "real": 0}}}},
+    {"id": 1, "title": "Harbour Lights", "year": 2025, "tmdbId": 1001, "qualityProfileId": 4, "monitored": true, "hasFile": true,
+     "movieFile": {"id": 501, "movieId": 1, "quality": {"quality": {"id": 5, "name": "WEBDL-720p", "source": "webdl", "resolution": 720}, "revision": {"version": 1, "real": 0}}}}
+  ]
+}

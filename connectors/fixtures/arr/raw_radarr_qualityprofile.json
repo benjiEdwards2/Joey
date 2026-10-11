@@ -1,0 +1,14 @@
+[
+  {"id": 4, "name": "HD-1080p", "upgradeAllowed": true, "cutoff": 7, "items": [
+    {"quality": {"id": 5, "name": "WEBDL-720p", "source": "webdl", "resolution": 720}, "items": [], "allowed": true},
+    {"quality": {"id": 3, "name": "WEBDL-1080p", "source": "webdl", "resolution": 1080}, "items": [], "allowed": true},
+    {"quality": {"id": 7, "name": "Bluray-1080p", "source": "bluray", "resolution": 1080}, "items": [], "allowed": true}
+  ]},
+  {"id": 5, "name": "Ultra-HD", "upgradeAllowed": true, "cutoff": 1001, "items": [
+    {"quality": {"id": 7, "name": "Bluray-1080p", "source": "bluray", "resolution": 1080}, "items": [], "allowed": true},
+    {"id": 1001, "name": "Bluray + Remux 2160p", "allowed": true, "items": [
+      {"quality": {"id": 19, "name": "Bluray-2160p", "source": "bluray", "resolution": 2160}, "items": [], "allowed": true},
+      {"quality": {"id": 31, "name": "Remux-2160p", "source": "bluray", "resolution": 2160}, "items": [], "allowed": true}
+    ]}
+  ]}
+]

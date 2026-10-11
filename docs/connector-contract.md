@@ -361,6 +361,27 @@ failures are status/type only. Hourly sweep plus the 120 s fast loop.
 of the newest import. "New this week" on My films / My shows filters on it and falls back to
 parsing the `when` text for older snapshots.
 
+**Arr upgrades (F4a, 2026-10-12).** `arr` data gains an optional `upgrades` object — the titles whose file on
+disk is below their quality profile's cutoff (Radarr/Sonarr "cutoff unmet"). It says the file is not yet the
+quality the profile aims for; it does **not** mean a better release is on the indexers right now (the hub's
+"Search for upgrade" button asks the app to look). Read each sweep (on the 120 s loop with `arr`, one cheap page):
+Radarr `GET /api/v3/wanted/cutoff?page=1&pageSize=100&monitored=true&sortKey=movieMetadata.sortTitle&sortDirection=ascending`,
+Sonarr the same path with `sortKey=series.sortTitle&includeSeries=true&includeEpisodeFile=true`, plus each app's
+`GET /api/v3/qualityprofile` to name the cutoff. Shape:
+`{radarr: [{item_key, title, year, arr_id, have, want, poster}] | null, sonarr: [{item_key, title, arr_id, episodes,
+have, want, sample, poster}] | null, totals: {movies, episodes, series}}`. Radarr: one row per movie, `item_key`
+`tmdb:<tmdbId>`, `arr_id` the movie id, `have` = `movieFile.quality.quality.name`. Sonarr: episodes grouped per
+series, `item_key` `tvdb:<tvdbId>` (the queue / this-week scheme), `arr_id` the series id, `episodes` = cutoff-unmet
+episodes listed, `have` = the lowest `episodeFile.quality.quality.name` among them (by resolution), `sample` = the
+earliest such episode (`S01E02`). `want` = the name of the profile's cutoff (`qualityProfileId` — the movie's, or
+the series' — → profile `cutoff` → that quality, or that quality group's name); null when the profile list is
+unavailable or lacks the id. Rows sort by title; lists hold at most one page (100). `totals.movies` /
+`totals.episodes` are the cutoff calls' `totalRecords` (may exceed the page), `totals.series` the Sonarr rows listed;
+the `radarr` / `sonarr` count objects gain the same optional `upgrades` (= `totalRecords`). **Partial-ok:** a failed
+cutoff call nulls only that app's list (`partial_errors["<app>_upgrades"]`, no `app_errors` entry, no `upgrades`
+count) and skips its profile call; a failed profile call only nulls `want`; an app that is down has a null list.
+`summary` / `secondary` are unchanged (the hub renders the label). Older envelopes lack `upgrades` and stay valid.
+
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a
 runner-registered task rather than a `Connector` subclass (D14), and an empty

@@ -6,9 +6,9 @@ year select), the Not seen chip, the Most wins podium, the hero category (winner
 tally at this ceremony + the nominees), then every category as a card in curated rank order
 (Q2: shorts / documentary / technical fold under "More categories"). Reads only the media.db `award_*` tables and the
 jellyfin snapshot (on-server posters, the viewer's own played flag, Q4) plus the diary for ✓ seen. Off-server posters
-and portraits come from Jellyseerr's cached metadata reads (media_discover.meta_get, 6 h + disk): the hero category's
-before the render (≤ HERO_READS), the rest of the visible edition after the response (≤ POSTER_READS in all), each
-stored on its award_entity row so it is read once. Never calls the award hosts.
+and portraits come from Jellyseerr's cached metadata reads (media_discover.meta_get, 6 h + disk), all after the
+response (M-46, F2 2026-10-12): the hero category's first (≤ HERO_READS), then the rest of the visible edition
+(≤ POSTER_READS in all), each stored on its award_entity row so it is read once and drawn from the next view on. Never calls the award hosts.
 """
 
 from __future__ import annotations
@@ -154,9 +154,10 @@ def card(entry: dict, lead: str, seen: Seen, kind: str) -> dict:
             "_ent": went, "_row": row}
 
 
-def hero_backdrop(c: dict | None, kind: str) -> str | None:
-    """The hero card's backdrop (awards-ui item 2): the winner's library backdrop, else its TMDB backdrop through the
-    Jellyseerr meta cache (6 h + disk, the same read the poster fill makes), else None (a plain gradient)."""
+def hero_backdrop(c: dict | None, kind: str, queue: list | None = None) -> str | None:
+    """The hero card's backdrop (awards-ui item 2): the winner's library backdrop, else its TMDB backdrop from the
+    Jellyseerr meta cache (6 h + disk, the same read the poster fill makes), else None (a plain gradient). Cache only
+    (M-46, F2 2026-10-12): a miss puts the path on `queue` for the page's BackgroundTask - the next view has it."""
     if not c:
         return None
     if (c.get("_row") or {}).get("backdrop"):
@@ -166,10 +167,10 @@ def hero_backdrop(c: dict | None, kind: str) -> str | None:
             f"/api/v1/tv/{ent['tmdb_tv']}" if kind == "tv" and ent.get("tmdb_tv") else None)
     if not path or md._creds() is None:
         return None
-    try:
-        body = md.meta_get(path)
-    except Exception as exc:  # the hero never fails on its backdrop
-        log.warning("awards: backdrop skipped: %s", type(exc).__name__)
+    body = md.meta_peek(path)
+    if body is md.MISSING:
+        if queue is not None:
+            queue.append(path)
         return None
     return md._ref(body.get("backdropPath")) if isinstance(body, dict) else None
 
@@ -201,6 +202,18 @@ def _read_poster(ent: dict) -> str | None:
         return None
     body = md.meta_get(path)
     return md._ref((body or {}).get("posterPath")) if isinstance(body, dict) else None
+
+
+def fill_later(ents: list[dict], paths: list[str]) -> int:
+    """The awards page's BackgroundTask (M-46, F2 2026-10-12): the visible edition's missing posters, hero category
+    first, then any hero backdrop the meta cache did not have - all after the response, never before the render."""
+    n = fill_posters(ents, len(ents))
+    for path in paths:
+        try:
+            md.meta_get(path)
+        except Exception as exc:  # the fill never fails anything
+            log.warning("awards: backdrop skipped: %s", type(exc).__name__)
+    return n
 
 
 def fill_posters(ents: list[dict], limit: int) -> int:
@@ -299,8 +312,8 @@ def tile_month(body_id: str, held: dict[str, int]) -> str | None:
     return date(2000, m, 1).strftime("%b") if m else None
 
 
-def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str) -> tuple[dict, list]:
-    """-> (context, entities still to fill after the response)."""
+def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str) -> tuple[dict, list, list]:
+    """-> (context, entities still to fill after the response, meta paths to read after it)."""
     akind = AKIND[kind]
     bodies = adb.bodies(akind)
     ids = [b["id"] for b in bodies]
@@ -311,9 +324,13 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     year = asked if asked in years else (nearest_year(years, asked) if asked and years else latest)
     missing = {"asked": asked, "shown": year} if asked and year and year != asked else None
     page = adb.edition_page(body, year, akind) if year else None
-    if page:
-        fill_posters(_need_poster(page, hero_only=True), HERO_READS)
-    later = _need_poster(page, hero_only=False)[:max(0, POSTER_READS - HERO_READS)] if page else []
+    # M-46 / F2 (2026-10-12): no poster read before the render - the page draws what is stored and the BackgroundTask
+    # fills the rest, the hero category's first (up to HERO_READS), so the next view has them.
+    hero_first = _need_poster(page, hero_only=True)[:HERO_READS] if page else []
+    first_q = {e["qid"] for e in hero_first}
+    rest = [e for e in _need_poster(page, hero_only=False) if e["qid"] not in first_q] if page else []
+    later = (hero_first + rest)[:POSTER_READS]
+    warm_paths: list[str] = []
     owner = media_db.owner_of(view)
     seen = Seen(_library(data, view, kind), _diary_keys(owner), kind)
     ed = (page or {}).get("edition")
@@ -336,7 +353,7 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
             w = item["winners"][0] if item["winners"] else None
             t = tally.get(w["work_qid"]) if w and w["work_qid"] else None
             item["tally"] = (f"Won {t[0]} of {t[1]} nomination{'s' if t[1] != 1 else ''}" if t else None)
-            item["backdrop"] = hero_backdrop(w, kind)
+            item["backdrop"] = hero_backdrop(w, kind, warm_paths)
             hero = item
         elif c.get("grp") == "core":
             cats.append(item)
@@ -376,16 +393,17 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         "podium": podium(page, tally, seen, kind, won_by) if page else [],
         "coming": coming, "sync": st,
     }
-    return ctx, later
+    return ctx, later, warm_paths
 
 
 def _page(request: Request, kind: str, body: str, year: str, unseen: str):
     later: list = []
+    warm_paths: list = []
 
     def build(data, view):
-        nonlocal later
+        nonlocal later, warm_paths
         try:
-            ctx, later = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view)
+            ctx, later, warm_paths = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view)
         except (sqlite3.Error, OSError) as exc:
             log.warning("awards page degraded: %s", type(exc).__name__)
             ctx = {"kind": kind, "bodies": [], "years": [], "podium": [], "hero": None, "cats": [], "more": [], "coming": [],
@@ -395,8 +413,8 @@ def _page(request: Request, kind: str, body: str, year: str, unseen: str):
         return ctx
 
     resp = media_pages._detail_page(request, "media_awards.html", JELLYFIN_SNAPSHOT_ID, build, always_build=True)
-    if later and md._creds() is not None:
-        resp.background = BackgroundTask(fill_posters, later, len(later))
+    if (later or warm_paths) and md._creds() is not None:
+        resp.background = BackgroundTask(fill_later, later, warm_paths)
     return resp
 
 

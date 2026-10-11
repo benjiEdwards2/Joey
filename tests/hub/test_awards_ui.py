@@ -171,12 +171,21 @@ def test_hero_is_gold_framed_on_the_winners_backdrop(env, monkeypatch):
 def test_hero_backdrop_comes_from_the_meta_cache_for_an_off_server_winner(env, monkeypatch):
     build, _ = env
     seeded()
-    reads = []
+    reads, cache = [], {}
     monkeypatch.setattr(md, "_creds", lambda: ("http://seerr.invalid", "k"))
-    monkeypatch.setattr(md, "meta_get", lambda path, ttl=None: reads.append(path) or {"backdropPath": "/wide.jpg",
-                                                                                         "posterPath": "/p.jpg"})
+
+    def meta_get(path, ttl=None):
+        reads.append(path)
+        cache[path] = {"backdropPath": "/wide.jpg", "posterPath": "/p.jpg"}
+        return cache[path]
+
+    monkeypatch.setattr(md, "meta_get", meta_get)
+    monkeypatch.setattr(md, "meta_peek", lambda path, ttl=None: cache.get(path, md.MISSING))
     with build(jelly()) as client:                                           # Alpha is not on the server
+        first = hero_of(page(client, "/media/movies/awards"))
         hero = hero_of(page(client, "/media/movies/awards"))
+    # M-46 / F2 (2026-10-12): the render reads the meta cache only; the BackgroundTask reads it for the next view
+    assert "awhero-bd" not in first
     assert '<img class="awhero-bd" src="/img/tmdb:/wide.jpg?h=1280"' in hero and "/api/v1/movie/11" in reads
 
 

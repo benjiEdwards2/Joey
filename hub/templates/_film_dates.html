@@ -1,0 +1,5 @@
+{# Details' Seasons row (TV) and Cinema / Digital / Disc dates (films) - a deferred part since F2 (2026-10-12): both come
+   from the Jellyseerr title body. #}
+{% set f = film.facts %}
+{% if f.seasons %}<div class="kv"><dt>Seasons</dt><dd>{{ f.seasons }}</dd></div>{% endif %}
+{% for r in f.releases or [] %}<div class="kv"><dt>{{ r.label }}</dt><dd>{{ r.date }}</dd></div>{% endfor %}

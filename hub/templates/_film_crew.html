@@ -1,0 +1,10 @@
+{# Crew - a deferred part since F2 (2026-10-12): TMDB's crew from the Jellyseerr title body; waiting, Jellyfin's
+   Director / Writer. #}
+{% if film.crew %}
+<section class="sec">
+  <div class="seclabel">Crew</div>
+  <dl class="crewgrid">
+    {% for c in film.crew %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}{% if m.id %}<a href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }}</a>{% endif %}{% endfor %}</dd></div>{% endfor %}
+  </dl>
+</section>
+{% endif %}

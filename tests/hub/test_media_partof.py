@@ -6,6 +6,7 @@ import re
 
 import pytest
 
+from tests.hub.film_page import whole
 from tests.hub.helpers import env, FILM, ITEMS, PLAIN, prow  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub import helpers as tmi
@@ -128,7 +129,7 @@ def test_episode_banner_links_carry_the_episodes_own_season(env, two_seasons, mo
 def test_collection_sits_directly_under_overview(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/item/mov1").text)
+        b = main_of(whole(client, "/media/item/mov1"))
     ov, col = b.index('<div class="seclabel">Overview</div>'), b.index('id="collection"')
     assert ov < col < b.index('<div class="seclabel">File</div>') < b.index('<div class="seclabel">Similar</div>')
     assert '<div class="seclabel">Harbour Collection</div>' not in b                 # no longer a bottom shelf
@@ -138,7 +139,7 @@ def test_collection_sits_directly_under_overview(env):
 def test_collection_banner_words_follow_form_and_current_film(env):
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     col = collection(b)
     head = col.split('<div class="carousel partof-parts">', 1)[0]
     assert words(head.split('<p class="partof-line">', 1)[1].split("</p>", 1)[0]) == "Harbour Collection · 3 films · 2 on server"
@@ -153,8 +154,8 @@ def test_collection_banner_words_follow_form_and_current_film(env):
 def test_item_and_title_pages_share_the_banner(env):
     client, _ = env()
     with client:
-        a = collection(main_of(client.get("/media/item/mov1").text))
-        b = collection(main_of(client.get("/media/title/movie/603").text))
+        a = collection(main_of(whole(client, "/media/item/mov1")))
+        b = collection(main_of(whole(client, "/media/title/movie/603")))
     assert a.replace("/media/item/mov1", "/media/title/movie/603") == b              # only `back` differs
 
 
@@ -166,7 +167,7 @@ def test_parts_run_in_release_order(env):
         {**prow(606, "Harbour Lights 0"), "releaseDate": ""},
         {**prow(604, "Harbour Lights 2"), "releaseDate": "2022-01-01"}]}
     with client:
-        cards = collection(main_of(client.get("/media/title/movie/603").text)).split("partof-parts", 1)[1]
+        cards = collection(main_of(whole(client, "/media/title/movie/603"))).split("partof-parts", 1)[1]
     hrefs = re.findall(r'href="/media/title/movie/(\d+)"', cards)
     assert hrefs == ["603", "604", "605", "606"]                                     # undated last
 
@@ -176,14 +177,14 @@ def test_collection_backdrop_then_first_part_then_none(env):
     parts = [prow(603, "Harbour Lights", 5), {**prow(604, "Harbour Lights 2"), "backdropPath": "/p2b.jpg"}]
     with client:
         both.seerr.table["/api/v1/collection/9"] = {"name": "HC", "backdropPath": "/colb.jpg", "parts": parts}
-        a = collection(main_of(client.get("/media/title/movie/603").text))
+        a = collection(main_of(whole(client, "/media/title/movie/603")))
         from hub import media_discover
         media_discover.clear_cache()
         both.seerr.table["/api/v1/collection/9"] = {"name": "HC", "parts": parts}
-        b = collection(main_of(client.get("/media/title/movie/603").text))
+        b = collection(main_of(whole(client, "/media/title/movie/603")))
         media_discover.clear_cache()
         both.seerr.table["/api/v1/collection/9"] = {"name": "HC", "parts": parts[:1]}
-        c = collection(main_of(client.get("/media/title/movie/603").text))
+        c = collection(main_of(whole(client, "/media/title/movie/603")))
     assert "url('/img/tmdb:/colb.jpg?h=1280')" in a and '<div class="partof partof-col has-bd">' in a
     assert "url('/img/tmdb:/p2b.jpg?h=1280')" in b
     assert "partof-bd" not in c and '<div class="partof partof-col">' in c

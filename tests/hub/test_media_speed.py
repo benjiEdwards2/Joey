@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from hub import images, media_discover as md, media_film, media_item, media_warmup
+from tests.hub.film_page import whole
 from tests.hub.helpers import env, SEERR_URL as SEERR, URL  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 
 LAT = 0.25
@@ -140,8 +141,9 @@ def test_a_network_failure_is_not_remembered(env):
     both.fail_seerr = True
     with client:
         client.get("/media/title/movie/603")
+        media_film.drain_extras()                                          # F2: the failed background read is over
         both.fail_seerr = False
-        b = client.get("/media/title/movie/603").text
+        b = whole(client, "/media/title/movie/603")
     assert '<span class="sp-name">IMDb</span>' in b                       # retried, not a cached miss (media-ux4 pill)
 
 
@@ -206,7 +208,7 @@ def test_tmdb_hint_from_the_snapshot():
 def test_cast_and_posters_decode_async(env):
     client, _ = env()
     with client:
-        b = client.get("/media/title/movie/603").text
+        b = whole(client, "/media/title/movie/603")
     assert '<img class="castpic" src="/img/tmdb:/ada.jpg?h=400" alt="" loading="lazy" decoding="async"' in b
     assert 'class="poster' in b and b.count('decoding="async"') >= 2
 

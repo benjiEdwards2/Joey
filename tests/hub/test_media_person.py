@@ -3,6 +3,7 @@ page's fixtures; no network."""
 import html as htmllib
 import re
 
+from tests.hub.film_page import whole
 from tests.hub.helpers import env, FILM, prow, SEERR_URL as SEERR, SKEY
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub.test_media_film import KEY, URL
@@ -103,7 +104,7 @@ def test_cast_links_on_film_page_point_to_person(env):
                  {"name": "Bo Bit", "character": "Deckhand"}],
         "crew": [{"id": 77, "name": "Dee Director", "job": "Director"}]}}
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(whole(client, "/media/title/movie/603"))
     assert 'class="castcard" href="/media/person/55"' in b and 'href="/media/person/77">Dee Director</a>' in b
     assert "/media/discover?q=Dee" not in b and '<div class="castcard">' in b       # no id -> plain text, no link
 

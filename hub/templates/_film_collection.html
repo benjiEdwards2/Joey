@@ -1,0 +1,30 @@
+{# The film series (media-ux3): directly under Overview - the banner (Follow series inside it), then the parts in
+   release order as poster cards with On server words; the page's own film is outlined and says "This film". A deferred
+   part since F2 (2026-10-12). #}
+{% from "_film_macros.html" import banner_bg %}
+{% from "_poster.html" import poster %}
+{% from "_icons.html" import icon %}
+{% from "_award_icons.html" import award_badge %}
+{% if film.collection %}
+{% set c = film.collection %}
+<section class="sec colsec" id="collection">
+  <div class="partof partof-col{{ ' has-bd' if c.backdrop }}">
+    {{ banner_bg(c.backdrop) }}
+    {% if c.poster %}{{ poster(c.poster, c.title, 240, "partof-poster") }}{% endif %}
+    <div class="partof-text">
+      <p class="partof-line"><span class="partof-title">{{ c.title }}</span>{% for x in c.line %}<span class="sep"> · </span>{{ x }}{% endfor %}</p>
+      {# Follow (2026-10-07): follow the film series — its NEW films get requested automatically. #}
+      {% set base = "/media/follow/collection/" ~ c.collection_id %}
+      <form class="followform partof-btns" method="post" action="{{ base }}{{ '/unfollow' if c.following }}">
+        <input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ c.title }}">
+        {% if c.following %}<span class="st-good">Following series ✓</span> <button class="btn btn-glass btn-sm" type="submit">Unfollow</button>
+        {% else %}<button class="btn btn-glass" type="submit">{{ icon("plus") }}Follow series</button>{% endif %}
+      </form>
+      {% if film.follow_flash %}<p class="metaline st-good" role="status">{{ film.follow_flash }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="carousel partof-parts">
+    {% for r in c.rows %}<a class="card-poster{{ ' is-current' if r.current }}" href="{{ r.href }}"{% if r.current %} aria-current="page"{% endif %}><span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240) }}{{ award_badge(r.award) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}{% if r.current %}<span class="st-current">This film</span><span class="sep"> · </span>{% endif %}<span class="{{ 'st-available' if r.on_server else 'st-off' }}">{{ "On server" if r.on_server else "Not on server" }}</span></span></a>{% endfor %}
+  </div>
+</section>
+{% endif %}

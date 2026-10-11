@@ -4,7 +4,9 @@ one `film` dict, rendered by media_film.html. Both URL families resolve here:
 /media/title/{kind}/{tmdb_id} and /media/item/{jf_id}.
 
 Live reads (Jellyfin and Jellyseerr, server-side only) are cached 10 min per path and every upstream failure
-degrades to a missing section, never a 500. Logs carry exception TYPES only; the page carries no URL or key
+degrades to a missing section, never a 500. F2 fast pages (2026-10-12): the page renders from Jellyfin + whatever
+Jellyseerr / OMDb answers are already cached; the sections still waiting on an upstream read are placeholders that
+ONE htmx request fills (`.../part/all`, out-of-band swaps) while the read runs in the background. Logs carry exception TYPES only; the page carries no URL or key
 except the Play deep link and the "Open in Jellyseerr" link (as the old title page did).
 """
 
@@ -12,15 +14,16 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import timedelta
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub import media_home, shell
@@ -51,6 +54,13 @@ PROVIDER_GROUPS = (("Stream", "flatrate"), ("Rent", "rent"), ("Buy", "buy"))
 # ---- cached Jellyseerr reads (shares media_discover's cache, so its clear_cache() clears these too) ----
 
 def _cget(path: str):
+    hit = md._cache.get(f"film:{path}")
+    if hit and time.time() - hit[0] < md.CACHE_TTL:
+        return hit[1]
+    return media_item.once(("seerr", path), lambda: _cread(path))   # F2: concurrent askers share one read
+
+
+def _cread(path: str):
     key = f"film:{path}"
     hit = md._cache.get(key)
     if hit and time.time() - hit[0] < md.CACHE_TTL:
@@ -60,6 +70,12 @@ def _cget(path: str):
         return None  # a failed fetch is not cached; a 404 is an answer (nothing there) and is (media-speed)
     md._cache[key] = (time.time(), body)
     return body
+
+
+def _cpeek(path: str):
+    """_cget's answer from the cache only - MISSING when it would need a call (F2)."""
+    hit = md._cache.get(f"film:{path}")
+    return hit[1] if hit and time.time() - hit[0] < md.CACHE_TTL else MISSING
 
 
 def _results(body, kind: str) -> list[dict]:
@@ -113,6 +129,146 @@ def seerr_bundle(kind: str, tmdb: int) -> tuple:
         if col_f is not None:
             col_f.result()
     return body, ratings, similar, recs
+
+
+# ---- deferred parts (F2 fast item pages, 2026-10-12) ----
+# The page renders at once from Jellyfin + the caches. A section whose upstream answer is not cached yet is a placeholder
+# (`film.pending`); its read runs in the background (one job per title, `warm_extras`) and the page's ONE htmx request
+# (`/part/all`) waits for it and swaps every placeholder out of band. A cached title renders whole, as before.
+
+MISSING = md.MISSING
+PARTS = ("makers", "actions", "scores", "collection", "crew", "dates", "cast", "providers", "shelves")
+RAW_PARTS = ("makers", "actions", "crew", "dates", "cast", "providers")   # drawn from the Jellyseerr title body
+EXTRAS_WAIT = 30          # s a part request waits for the background read (each upstream call has its own timeout)
+_extras_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="film-extras")   # bounded: a NAS (M-46)
+_extras: dict[tuple, Future] = {}
+_extras_lock = threading.Lock()
+
+
+def _ratings_peek(kind: str, tmdb: int):
+    if kind == "tv":
+        body = md.meta_peek(f"/api/v1/tv/{tmdb}/ratings")
+        return MISSING if body is MISSING else parse_ratings(body)
+    combined = md.meta_peek(f"/api/v1/{kind}/{tmdb}/ratingscombined")
+    if combined is MISSING:
+        return MISSING
+    if parse_ratings(combined):
+        return parse_ratings(combined)
+    flat = md.meta_peek(f"/api/v1/{kind}/{tmdb}/ratings")
+    return MISSING if flat is MISSING else parse_ratings(flat)
+
+
+def _mc_peek(imdb):
+    """The Metascore from the OMDb cache only: None when there is nothing to look up, MISSING when it needs a call."""
+    if not media_omdb._key() or not media_omdb.IMDB_RE.match(str(imdb or "").strip()):
+        return None
+    found, score = media_omdb._cached(str(imdb).strip())
+    return score if found else MISSING
+
+
+def peek_extras(kind: str, tmdb: int, imdb_hint=None, raw=MISSING) -> dict:
+    """Everything the upstream sections need, from the caches alone - no call. MISSING marks what is not cached.
+    `raw` overrides the title body (a page that has just read it)."""
+    if md._creds() is None:
+        out = {"raw": None, "ratings": {}, "similar": None, "recs": None, "collection": None}
+    else:
+        out = {"raw": _cpeek(f"/api/v1/{kind}/{tmdb}") if raw is MISSING else raw,
+               "ratings": _ratings_peek(kind, tmdb), "similar": _cpeek(f"/api/v1/{kind}/{tmdb}/similar"),
+               "recs": _cpeek(f"/api/v1/{kind}/{tmdb}/recommendations")}
+        col = _collection_id(out["raw"]) if out["raw"] is not MISSING else None
+        out["collection"] = (MISSING if out["raw"] is MISSING else
+                             _cpeek(f"/api/v1/collection/{col}") if col is not None else None)
+    body = out["raw"] if isinstance(out["raw"], dict) else {}
+    out["mc"] = (MISSING if out["raw"] is MISSING and not imdb_hint
+                 else _mc_peek(imdb_id(body, {"imdb": imdb_hint})))
+    return out
+
+
+def _complete(ex: dict) -> bool:
+    return all(v is not MISSING for v in ex.values())
+
+
+def _load_extras(kind: str, tmdb: int, imdb_hint) -> dict:
+    """The background read: the Jellyseerr bundle (title body, ratings, shelves, collection), then OMDb."""
+    if md._creds() is not None:
+        body, ratings, similar, recs = seerr_bundle(kind, tmdb)
+        col = _collection_id(body)
+        collection = _cget(f"/api/v1/collection/{col}") if col is not None else None
+    else:
+        body, ratings, similar, recs, collection = None, {}, None, None, None
+    mc = media_omdb.metascore(imdb_id(body if isinstance(body, dict) else {}, {"imdb": imdb_hint}))
+    return {"raw": body, "ratings": ratings, "similar": similar, "recs": recs, "collection": collection, "mc": mc}
+
+
+def _forget(key, fut) -> None:
+    with _extras_lock:
+        if _extras.get(key) is fut:
+            _extras.pop(key, None)
+
+
+def warm_extras(kind: str, tmdb: int, imdb_hint=None) -> Future:
+    """Start (or join) the title's background read - one job per title at a time; a done job is dropped, the
+    caches hold its answers."""
+    key = (kind, tmdb)
+    with _extras_lock:
+        fut = _extras.get(key)
+        fresh = fut is None
+        if fresh:
+            fut = _extras[key] = _extras_pool.submit(_load_extras, kind, tmdb, imdb_hint)
+    if fresh:
+        fut.add_done_callback(lambda f, k=key: _forget(k, f))   # outside the lock: a done future calls back at once
+    return fut
+
+
+def drain_extras(timeout: float = EXTRAS_WAIT) -> None:
+    """Wait for every background read in flight (tests: one test's read never lands in the next one's fakes)."""
+    with _extras_lock:
+        futs = list(_extras.values())
+    for fut in futs:
+        try:
+            fut.result(timeout=timeout)
+        except Exception:
+            pass
+
+
+def settle(ex: dict) -> dict:
+    """MISSING -> each part's 'nothing there' value, so a section can be drawn from what is known."""
+    blank = {"raw": None, "ratings": {}, "similar": None, "recs": None, "collection": None, "mc": None}
+    return {k: blank[k] if v is MISSING else v for k, v in ex.items()}
+
+
+def extras_for(kind: str, tmdb: int, imdb_hint=None, *, wait: bool) -> dict:
+    """The title's upstream extras: from the caches when complete; else the background read is started and either
+    awaited (`wait`: a part request, a script) or not (the page renders what `peek_extras` found)."""
+    ex = peek_extras(kind, tmdb, imdb_hint)
+    if _complete(ex):
+        return ex
+    fut = warm_extras(kind, tmdb, imdb_hint)
+    if not wait:
+        return ex
+    try:
+        got = fut.result(timeout=EXTRAS_WAIT)
+    except Exception as exc:  # type only
+        log.warning("film extras read failed: %s", type(exc).__name__)
+        return settle(ex)
+    if got.get("mc") is None and imdb_hint:   # a job started before the Jellyfin item named its IMDb id
+        got = {**got, "mc": media_omdb.metascore(imdb_id(got["raw"] if isinstance(got.get("raw"), dict) else {},
+                                                          {"imdb": imdb_hint}))}
+    return got
+
+
+def pending_parts(ex: dict | None, kind: str | None) -> set:
+    """The parts a page draws as placeholders: each one whose upstream answer is not cached."""
+    if not ex:
+        return set()
+    out = set(RAW_PARTS) if ex["raw"] is MISSING else set()
+    if ex["ratings"] is MISSING or ex["mc"] is MISSING:
+        out.add("scores")
+    if kind == "movie" and ex["collection"] is MISSING:
+        out.add("collection")
+    if ex["similar"] is MISSING or ex["recs"] is MISSING:
+        out.add("shelves")
+    return out
 
 
 def tmdb_hint(jelly: dict, jf_id: str) -> tuple[str, int] | None:
@@ -307,13 +463,14 @@ def badges_for(files: dict | None) -> list[dict]:
     return out
 
 
-def crew_for(raw: dict, kind: str, people: list[dict] | None = None) -> list[dict]:
+def crew_for(raw: dict, kind: str, people: list[dict] | None = None, jf_crew: bool = False) -> list[dict]:
     """[{role, people: [{name, id}]}] — Director, Writer (screenplay / writer / story / novel, de-duplicated),
     Cinematography, Composer, Editor from TMDB credits.crew; a show leads with Created by. Empty roles drop out.
     A show's TMDB crew is show-level (directors are credited per episode), so for TV the Director and Writer rows
-    come from Jellyfin's `people` (the episode's on an episode page) first, TMDB crew after (2026-10-10)."""
+    come from Jellyfin's `people` (the episode's on an episode page) first, TMDB crew after (2026-10-10). `jf_crew`: a
+    film's too - its placeholder while the TMDB crew is a pending part (F2)."""
     crew = [c for c in ((raw.get("credits") or {}).get("crew") or []) if isinstance(c, dict) and c.get("name")]
-    jf = {"Director": "Director", "Writer": "Writer"} if kind == "tv" else {}
+    jf = {"Director": "Director", "Writer": "Writer"} if kind == "tv" or jf_crew else {}
     roles = []
     if kind == "tv":
         roles.append(("Created by", [c for c in raw.get("createdBy") or [] if isinstance(c, dict) and c.get("name")]))
@@ -613,9 +770,83 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
             "all_href": f"{show}#seasons"}
 
 
+def _jellyfin_side(kind, tmdb_id, jf_id, jelly: dict, read, on_tmdb=None) -> dict:
+    """The Jellyfin side: base (film / series), plus the episode when the page is for one. `read` is media_item._data
+    (the page) or media_item.peek (a part request: never a second Jellyfin read, F2)."""
+    out = {"base": None, "ep": None, "row": None, "page_item": None, "jf_failed": False}
+    if jf_id:
+        got = read(jf_id)
+        if got is None:
+            out["jf_failed"] = True
+        else:
+            it = out["page_item"] = got["item"]
+            out["ep"] = it if it["kind"] == "episode" else None
+            if on_tmdb and it["kind"] in ("episode", "season") and str(it.get("tmdb") or "").isdigit():
+                on_tmdb("tv", int(it["tmdb"]))
+            show = read(it["show_id"]) if it["kind"] in ("episode", "season") and it.get("show_id") else None
+            out["base"] = show or got
+    elif tmdb_id and kind:
+        out["row"] = _jf_from_snapshot(jelly, kind, tmdb_id)
+        if out["row"]:
+            out["base"] = read(out["row"]["jf_id"])
+            out["jf_failed"] = out["base"] is None
+    return out
+
+
+def _sections(f: dict, names, c: dict, ex: dict) -> None:
+    """The sections drawn from upstream answers (`ex`, settled) into `f`, one builder each (F2). The page calls it with
+    what is cached, and with blank answers for a pending part (its Jellyfin-only fallback, the placeholder's content);
+    a part request calls it with what the background read found. `c` is the page's context: kind, tmdb, t, title,
+    people, crew_people, on_server, lib_keys, arr, jf_trailer, pending, late."""
+    raw = ex["raw"] if isinstance(ex["raw"], dict) else {}
+    kind, t, tmdb_id = c["kind"], c["t"], c["tmdb"]
+    if "makers" in names:   # a show's "Created by" is TMDB's alone: its placeholder stays empty, not Jellyfin directors
+        f["makers"] = [] if kind == "tv" and "makers" in c["pending"] else _makers(raw, c["people"], kind or "movie")
+        f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
+    if "actions" in names:
+        f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and c["on_server"]))
+        if c.get("late") and not c["jf_trailer"]:   # a part request: the TMDB trailer the page could not draw yet
+            url, key = _trailer(None, raw)
+            f["late_trailer"] = {"href": url, "key": key} if url else None
+    if "scores" in names:   # media-ux4: every score is a pill in one format - IMDb 8.0 · RT 90% · Metacritic 74
+        ratings = ex["ratings"] or {}
+        mc = ex["mc"] if kind in ("movie", "tv") else None   # Metacritic via OMDb (item 2)
+        f["numbers"].update(imdb=ratings.get("imdb"), rt=ratings.get("rt"), mc=mc, mc_band=mc_band(mc))
+    if "collection" in names:
+        f["collection"] = collection_banner(raw, kind, c["lib_keys"], tmdb_id) if raw and kind and tmdb_id else None
+        if f["collection"]:
+            try:  # Follow (2026-10-07): the series' Follow button state; the page never fails on it
+                f["collection"]["following"] = media_follow.get("collection", f["collection"]["collection_id"]) is not None
+            except Exception as exc:
+                log.warning("follow lookup failed: %s", type(exc).__name__)
+                f["collection"]["following"] = False
+    if "crew" in names:
+        f["crew"] = crew_for(raw, kind or "movie", c["crew_people"], jf_crew="crew" in c["pending"])
+    if "dates" in names:
+        f["facts"]["releases"] = _releases(raw, c["arr"], tmdb_id) if kind == "movie" else []
+        f["facts"]["seasons"] = ((f"{t['n_seasons']} season{'s' if t['n_seasons'] != 1 else ''}"
+                                  + (f" · {t['n_episodes']} episodes" if t.get("n_episodes") else ""))
+                                 if kind == "tv" and t and t.get("n_seasons") else None)
+    if "cast" in names:
+        f["cast"] = _cast(raw, c["people"])
+    if "providers" in names:
+        f["providers"] = _providers(raw, c["title"])
+    if "shelves" in names:
+        f["shelves"] = _shelves(kind, c["lib_keys"], ex["similar"], ex["recs"]) if raw and kind and tmdb_id else []
+    if "shelves" in names or "collection" in names:
+        media_awards_badges.attach([r for sh in f.get("shelves") or [] for r in sh["rows"]]   # awards-ui item 3: one lookup
+                                   + ((f.get("collection") or {}).get("rows") or []), kind)
+
+
+BLANK = {"raw": None, "ratings": {}, "similar": None, "recs": None, "collection": None, "mc": None}
+
+
 def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
                view: str, request: Request, req_state: str = "idle", req_msg: str | None = None,
-               snaps=None, open_season: int | None = None) -> dict:
+               snaps=None, open_season: int | None = None, defer: bool = False) -> dict:
+    """The page's `film` dict. `defer` (the routes, F2): never wait on Jellyseerr / OMDb - a section whose answer is
+    not cached is left in `film.pending` for the page's part request. Without it (scripts, tests) every section is
+    drawn, waiting for the reads as the page always did."""
     snaps = shell.get_snapshots() if snaps is None else snaps  # media-speed: the route's one read, passed in
     jsrc = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps)
     jelly = (jsrc or {}).get("data") or {}
@@ -623,58 +854,46 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     arr_snap = snaps.get(ARR_SNAPSHOT_ID)
     arr = (arr_snap.data if arr_snap else {}) or {}
     f: dict = {"note": None, "jf_failed": False, "req_state": req_state, "req_msg": req_msg}
-
-    # media-speed (2026-10-07): the Jellyseerr reads start as soon as the title's TMDB id is known — from the
-    # URL, else from the library snapshot — so they overlap the Jellyfin reads instead of following them.
     connected = md._creds() is not None
-    early: dict[tuple, object] = {}
-    side = ThreadPoolExecutor(max_workers=2)
+    warmed: set = set()
 
-    def start(k, t):
-        if connected and k and t and (k, t) not in early:
-            early[(k, t)] = side.submit(seerr_bundle, k, t)
+    def warm(k, t):
+        # media-speed (2026-10-07) / F2: the upstream reads start as soon as the title's TMDB id is known - from the
+        # URL, else from the library snapshot - in the background, overlapping the Jellyfin reads.
+        if k and t and (k, t) not in warmed:
+            warmed.add((k, t))
+            if not _complete(peek_extras(k, t)):
+                warm_extras(k, t)
 
-    try:
-        if tmdb_id and kind:
-            start(kind, tmdb_id)
-        elif jf_id:
-            start(*(tmdb_hint(jelly, jf_id) or (None, None)))
+    if tmdb_id and kind:
+        warm(kind, tmdb_id)
+    elif jf_id:
+        warm(*(tmdb_hint(jelly, jf_id) or (None, None)))
 
-        # --- 1. Jellyfin side: base (film / series), plus the episode when the page is for one ---
-        base, ep, row, page_item = None, None, None, None
-        if jf_id:
-            got = media_item._data(jf_id)
-            if got is None:
-                f["jf_failed"] = True
-            else:
-                it = page_item = got["item"]
-                ep = it if it["kind"] == "episode" else None
-                if it["kind"] in ("episode", "season") and str(it.get("tmdb") or "").isdigit():
-                    start("tv", int(it["tmdb"]))
-                show = media_item._data(it["show_id"]) if it["kind"] in ("episode", "season") and it.get("show_id") else None
-                base = show or got
-        elif tmdb_id and kind:
-            row = _jf_from_snapshot(jelly, kind, tmdb_id)
-            if row:
-                base = media_item._data(row["jf_id"])
-                f["jf_failed"] = base is None
-        item = base["item"] if base else None
-        seasons = (base or {}).get("seasons") or []
-        if item:
-            kind = "movie" if item["kind"] == "movie" else "tv"
-            if not (tmdb_id and kind) and str(item.get("tmdb") or "").isdigit():
-                tmdb_id = int(item["tmdb"])
+    # --- 1. Jellyfin side: base (film / series), plus the episode when the page is for one ---
+    side = _jellyfin_side(kind, tmdb_id, jf_id, jelly, media_item._data, warm)
+    base, ep, row, page_item = side["base"], side["ep"], side["row"], side["page_item"]
+    f["jf_failed"] = side["jf_failed"]
+    item = base["item"] if base else None
+    seasons = (base or {}).get("seasons") or []
+    if item:
+        kind = "movie" if item["kind"] == "movie" else "tv"
+        if not (tmdb_id and kind) and str(item.get("tmdb") or "").isdigit():
+            tmdb_id = int(item["tmdb"])
 
-        # --- 2. Jellyseerr side: one title body + ratings + shelves, in parallel ---
-        raw, t, ratings, similar, recs = {}, None, {}, None, None
-        if tmdb_id and kind and connected:
-            fut = early.get((kind, tmdb_id))
-            body, ratings, similar, recs = fut.result() if fut is not None else seerr_bundle(kind, tmdb_id)
-            if isinstance(body, dict):
-                raw, t = body, md.title_from(body, kind, tmdb_id)
-    finally:
-        side.shutdown(wait=False)  # a mispredicted early read just finishes into the cache
-    f["kind"] = kind
+    # --- 2. Jellyseerr side: what is cached (F2); an off-server title waits for its one title body ---
+    ex, pending = dict(BLANK), set()
+    if tmdb_id and kind:
+        ex = extras_for(kind, tmdb_id, (item or {}).get("imdb"), wait=not defer)
+        if defer and ex["raw"] is MISSING and connected and (not item or req_state != "idle"):
+            # the title body IS the page when Jellyfin has nothing (title, poster, overview, Request), and a request
+            # step (confirm / done / error) draws the request block now - the one read such a page waits for
+            ex = peek_extras(kind, tmdb_id, (item or {}).get("imdb"), raw=_cget(f"/api/v1/{kind}/{tmdb_id}"))
+        pending = pending_parts(ex, kind) if defer else set()
+        ex = settle(ex)
+    body = ex["raw"]
+    raw, t = ({}, None) if not isinstance(body, dict) else (body, md.title_from(body, kind, tmdb_id))
+    f["kind"], f["pending"] = kind, pending
     jf_item_id = item["id"] if item else (row["jf_id"] if row else None)
     f["t"], f["connected"] = t, connected
     if tmdb_id and not item and not t:
@@ -689,13 +908,17 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title")
              or ("Jellyfin item" if jf_id else "Title unavailable"))
     year = (item["year"] if item else (t or {}).get("year") or (row or {}).get("year"))
+    seerr = md._creds()
     f.update(title=title, year=year, tagline=(t or {}).get("tagline") or "",
              overview=(item or {}).get("overview") or (t or {}).get("overview") or "",
              genres=(item or {}).get("genres") or (t or {}).get("genres") or [],
              official=(item or {}).get("official_rating"),
              backdrop=(item["backdrop"] if item else (row or {}).get("backdrop") if row else None) or (t or {}).get("backdrop"),
              poster=(item["poster"] if item else (row or {}).get("poster")) or (t or {}).get("poster"),
-             jellyseerr_href=(t or {}).get("jellyseerr_href"), tmdb=tmdb_id)
+             # F2: the link needs no read (the same URL title_from builds), so it is there while the body is pending
+             jellyseerr_href=(t or {}).get("jellyseerr_href") or (f"{seerr[0]}/{kind}/{tmdb_id}"
+                                                                  if seerr and "actions" in pending else None),
+             tmdb=tmdb_id)
 
     # --- 4. watch state, Play, series summary ---
     played, in_progress, left = (item["played"], item["in_progress"], item["left_text"]) if item and kind == "movie" else (False, False, None)
@@ -781,8 +1004,9 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
     ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    tvdb = ext.get("tvdbId") or (item or {}).get("tvdb")   # F2: Jellyfin's TheTVDB id while the body is pending
     dl_keys = ([f"tmdb:{tmdb_id}"] if kind == "movie" and tmdb_id else
-               [f"tvdb:{ext['tvdbId']}"] if kind == "tv" and str(ext.get("tvdbId") or "").isdigit() else [])
+               [f"tvdb:{tvdb}"] if kind == "tv" and str(tvdb or "").isdigit() else [])
     f["downloading_pct"] = md._dl_pct(dl_keys, snaps) if dl_keys and not f["jf_failed"] else None   # M-50: by key
 
     # --- 7. numbers, facts, people, shelves ---
@@ -793,50 +1017,77 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     ends = None
     if mins and (kind == "movie" or ep):
         ends = (shell._now_home() + timedelta(minutes=mins)).strftime("%H:%M")
-    # media-ux4: every score is a pill in one format — IMDb 8.0 · RT 90% · Metacritic 74 · TMDB 8.1 · Yours 8
     community = score_text(item["community_rating"] if item and item.get("community_rating") else (t or {}).get("vote"))
-    mc = media_omdb.metascore(imdb_id(raw, item)) if kind in ("movie", "tv") else None   # Metacritic via OMDb (item 2)
-    f["numbers"] = {"tmdb": community, "imdb": ratings.get("imdb"), "rt": ratings.get("rt"), "mc": mc, "mc_band": mc_band(mc),
+    f["numbers"] = {"tmdb": community, "imdb": None, "rt": None, "mc": None, "mc_band": None,
                     "runtime": runtime_text(runtime_min) if runtime_min else None, "ends": ends}
     f["logos"] = logos()
     added = md._date_words(item.get("added"))[0] if item and item.get("added") else None
     f["file"] = file_panel(files, kind, added)
     f["facts"] = {"runtime": runtime_text(runtime_min) if runtime_min else None,
-                  "languages": _languages(files), "added": added,
-                  "releases": _releases(raw, arr, tmdb_id) if kind == "movie" else [],
-                  "seasons": (f"{t['n_seasons']} season{'s' if t['n_seasons'] != 1 else ''}"
-                              + (f" · {t['n_episodes']} episodes" if t.get("n_episodes") else "")) if kind == "tv" and t and t.get("n_seasons") else None}
+                  "languages": _languages(files), "added": added, "releases": [], "seasons": None}
     people = (item or {}).get("people") or []
-    f["cast"], f["makers"] = _cast(raw, people), _makers(raw, people, kind or "movie")
-    f["crew"], f["cast_h"] = crew_for(raw, kind or "movie", (ep or {}).get("people") or show_crew(item, seasons)), CAST_H
-    f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
+    f["cast_h"], f["maker_h"] = CAST_H, MAKER_H
     f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep else []   # a show page's second card row (2026-10-11); not episodes
-    f["maker_h"] = MAKER_H
-    f["providers"] = _providers(raw, title)
     f["trailer"], f["trailer_key"] = _trailer((item or {}).get("trailer"), raw)   # media-ux4: in-page player key
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
-    f["shelves"] = _shelves(kind, lib_keys, similar, recs) if raw and kind and tmdb_id else []
-    f["collection"] = collection_banner(raw, kind, lib_keys, tmdb_id) if raw and kind and tmdb_id else None
-    media_awards_badges.attach([r for sh in f["shelves"] for r in sh["rows"]]       # awards-ui item 3: one lookup
-                               + ((f["collection"] or {}).get("rows") or []), kind)
+    f["collection"], f["shelves"] = None, []
+    ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": people,
+           "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
+           "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending}
+    _sections(f, [p for p in PARTS if p not in pending], ctx, ex)
+    _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
-    if f["collection"]:
-        try:  # Follow (2026-10-07): the series' Follow button state; the page never fails on it
-            f["collection"]["following"] = media_follow.get("collection", f["collection"]["collection_id"]) is not None
-        except Exception as exc:
-            log.warning("follow lookup failed: %s", type(exc).__name__)
-            f["collection"]["following"] = False
-    f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and on_server))
+    f["back"] = request.url.path
     # Search now (media-ux5): a lazy-loaded form, shown only when the title is in Radarr / Sonarr (never on an episode
-    # page — it would search the whole series); the page itself makes no *arr call.
-    f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, ext.get("tvdbId"), request.url.path)
+    # page - it would search the whole series); the page itself makes no *arr call.
+    f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, tvdb, request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
     f["status_line"] = status_line(f)
     f["awards"] = film_awards(kind, tmdb_id, jelly, jf_item_id)   # Awards (2026-10-08): media.db only, no call
+    # F2: the ONE request that fills every placeholder (out-of-band swaps), naming only the parts still pending
+    f["parts_href"] = (f"{request.url.path}/part/all?p=" + ",".join(p for p in PARTS if p in pending)) if pending else None
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in
         request.state.media_section = "movies" if kind == "movie" else "tv"
+    return f
+
+
+def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
+                snaps, back: str) -> dict:
+    """A part request's `film` (F2): only the named sections, from the item data the page has just cached (never a
+    second Jellyfin read) and the title's background read (awaited, bounded by EXTRAS_WAIT)."""
+    jsrc = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps)
+    jelly = (jsrc or {}).get("data") or {}
+    arr_snap = snaps.get(ARR_SNAPSHOT_ID)
+    arr = (arr_snap.data if arr_snap else {}) or {}
+    side = _jellyfin_side(kind, tmdb_id, jf_id, jelly, media_item.peek)
+    base, ep, row = side["base"], side["ep"], side["row"]
+    item = base["item"] if base else None
+    seasons = (base or {}).get("seasons") or []
+    if item:
+        kind = "movie" if item["kind"] == "movie" else "tv"
+        if not tmdb_id and str(item.get("tmdb") or "").isdigit():
+            tmdb_id = int(item["tmdb"])
+    f: dict = {"kind": kind, "tmdb": tmdb_id, "pending": set(), "numbers": {}, "facts": {}, "logos": logos(),
+               "cast_h": CAST_H, "maker_h": MAKER_H, "req_state": "idle", "req_msg": None, "req_future": None,
+               "makers": [], "crew": [], "cast": [], "providers": [], "shelves": [], "collection": None,
+               "show_request": False, "late_trailer": None, "t": None, "play": None, "follow_flash": None, "back": back}
+    if not (kind and tmdb_id):
+        return f
+    ex = settle(extras_for(kind, tmdb_id, (item or {}).get("imdb"), wait=True))
+    body = ex["raw"]
+    raw, t = ({}, None) if not isinstance(body, dict) else (body, md.title_from(body, kind, tmdb_id))
+    title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title") or "Title unavailable")
+    on_server = bool(item or row or (jf_id and not side["jf_failed"]) or (t and t["status_word"] in md.ON_DISK))
+    jf_item_id = item["id"] if item else (row["jf_id"] if row else None)
+    f.update(t=t, title=title, year=(item or {}).get("year") or (t or {}).get("year"),
+             play={"href": shell._deep_link((jsrc or {}).get("href"), jf_item_id, None)} if jf_item_id else None)
+    ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": (item or {}).get("people") or [],
+           "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
+           "lib_keys": on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv"), "arr": arr,
+           "jf_trailer": (item or {}).get("trailer"), "pending": set(), "late": True}
+    _sections(f, names, ctx, ex)
     return f
 
 
@@ -867,6 +1118,17 @@ def _render(request: Request, src, film: dict, view, from_query, snaps=None):
     return shell._maybe_set_cookie(resp, view, from_query)
 
 
+def is_prefetch(request: Request) -> bool:
+    """A link prefetch (F2, hub/static/joey.js): the page's reads run - Jellyfin read and cached, the upstream read
+    started - but nothing is rendered or written, and the answer is an empty 204 the browser throws away."""
+    return request.headers.get("x-joey-prefetch") == "1"
+
+
+def _prefetched(what: str) -> Response:
+    log.info("film prefetch: %s", what)   # the kind of page only - never the path or an id
+    return Response(status_code=204)
+
+
 @router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
 def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "", error: str = "",
                future: str = ""):
@@ -875,10 +1137,12 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
     snaps = shell.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
     src = shell.find_detail_source(JELLYSEERR_SNAPSHOT_ID, snaps, detail=md.DISCOVER_DETAIL)
     if src is None:
-        return shell.not_found_page(request)
+        return Response(status_code=204) if is_prefetch(request) else shell.not_found_page(request)
     state, msg = (("done", None) if requested == "1" else ("error", md.ERRORS[error]) if error in md.ERRORS
                   else ("confirm" if step == "confirm" else "idle", None))
-    film = build_film(kind, tmdb_id, view=view, request=request, req_state=state, req_msg=msg, snaps=snaps)
+    film = build_film(kind, tmdb_id, view=view, request=request, req_state=state, req_msg=msg, snaps=snaps, defer=True)
+    if is_prefetch(request):
+        return _prefetched("title")
     film["req_future"] = media_arr_search.future_note(future) if state == "done" else None   # media-ux5 item 7
     return _render(request, src, film, view, from_query, snaps)
 
@@ -893,5 +1157,35 @@ def item_page(request: Request, jf_id: str, season: str = ""):
     if src is None:
         raise HTTPException(404, "No such item")
     open_season = int(season) if season.isdigit() and len(season) <= 3 else None  # media-ux3: "This season"
-    film = build_film(jf_id=jf_id, view=view, request=request, snaps=snaps, open_season=open_season)
+    film = build_film(jf_id=jf_id, view=view, request=request, snaps=snaps, open_season=open_season, defer=True)
+    if is_prefetch(request):
+        return _prefetched("item")
     return _render(request, src, film, view, from_query, snaps)
+
+
+# ---- deferred parts (F2): `name` is one part, or `all` with `p=<part>,<part>` (the page's one request) ----
+
+def _parts(request: Request, name: str, p: str, **where):
+    if name != "all" and name not in PARTS:
+        raise HTTPException(404, "No such part")
+    names = [n for n in dict.fromkeys(p.split(",") if name == "all" else [name]) if n in PARTS]
+    back = request.url.path.rsplit("/part/", 1)[0]
+    film = None
+    if names:
+        try:
+            film = build_parts(names, snaps=shell.get_snapshots(request=request), back=back, **where)
+        except Exception as exc:  # a part never fails the page: its placeholder just empties
+            log.warning("film part failed: %s", type(exc).__name__)
+    return shell.templates.TemplateResponse(request, "_film_parts.html", {"film": film, "names": names})
+
+
+@router.get("/media/title/{kind}/{tmdb_id}/part/{name}", response_class=HTMLResponse)
+def title_part(request: Request, kind: str, tmdb_id: int, name: str, p: str = ""):
+    return _parts(request, name, p[:200], kind=md._kind(kind), tmdb_id=tmdb_id)
+
+
+@router.get("/media/item/{jf_id}/part/{name}", response_class=HTMLResponse)
+def item_part(request: Request, jf_id: str, name: str, p: str = ""):
+    if not media_item.ITEM_RE.match(jf_id):
+        raise HTTPException(404, "No such item")
+    return _parts(request, name, p[:200], jf_id=jf_id)

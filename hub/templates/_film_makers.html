@@ -1,0 +1,12 @@
+{# The hero's Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials
+   when none), each ONE link to the person page (else a Discover search); a sideways row on a phone. A deferred part
+   since F2 (2026-10-12): the cards come from the Jellyseerr title body. #}
+{% from "_film_macros.html" import makercards with context %}
+{% if film.makers %}
+<div class="makers">
+  <div class="microlabel">{{ film.makers_label }}</div>
+  <div class="makerrow">
+  {{ makercards(film.makers) }}
+  </div>
+</div>
+{% endif %}

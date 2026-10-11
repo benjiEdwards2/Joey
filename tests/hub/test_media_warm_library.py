@@ -5,6 +5,7 @@ import re
 import time
 
 from hub import images, media_discover as md, media_warmup
+from tests.hub.film_page import whole
 from tests.hub.helpers import env  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.test_media_speed import warm_env  # noqa: F401
 
@@ -26,7 +27,7 @@ def test_library_pass_warms_exactly_what_the_item_page_renders(env, monkeypatch,
     # 3 titles x (poster + backdrop) + the film's one cast photo, fetched for each of the 2 films with the credit
     assert first["fetched"] == len(fetched) and first["fetched"] >= 7
     with client:
-        html = client.get("/media/item/mov1").text
+        html = whole(client, "/media/item/mov1")
     rendered = {(m.group(1), int(m.group(2))) for m in
                 re.finditer(r"/img/([A-Za-z0-9:_./-]+?)\?h=(600|1280|400)\b", html)}
     assert ("jf:mov1", 600) in rendered and ("jfb:mov1", 1280) in rendered and ("tmdb:/ada.jpg", 400) in rendered

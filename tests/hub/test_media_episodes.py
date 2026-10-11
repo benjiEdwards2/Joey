@@ -11,6 +11,7 @@ import pytest
 import requests
 
 from hub import media_arr_search, media_film
+from tests.hub.film_page import whole
 from tests.hub import helpers as tmi
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub.helpers import deep, env, ep, ITEMS, FakeResponse as R, SHOW, TICKS  # noqa: F401
@@ -119,7 +120,7 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
                                          "watchProviders": [{"iso_3166_1": "AU", "flatrate": [{"name": "Stan"}]}],
                                          "credits": {"cast": [{"name": "Ada Actor", "character": "Lead"}]}}
     with client:
-        b = main_of(client.get("/media/item/ser1").text)
+        b = main_of(whole(client, "/media/item/ser1"))
     idx = {k: b.index(f'<div class="seclabel">{k}</div>') for k in ("Overview", "Seasons", "Cast", "Where to watch")}
     assert idx["Overview"] < idx["Seasons"] < idx["Cast"] < idx["Where to watch"]
     between = b[idx["Overview"]:idx["Seasons"]]

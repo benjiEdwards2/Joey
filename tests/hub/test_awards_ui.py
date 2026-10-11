@@ -80,6 +80,7 @@ def test_icon_css_is_a_token_free_recipe():
 
 
 # ---- item 2: the page layout ----
+from tests.hub.film_page import whole
 from tests.hub.test_awards_pages import ALPHA, jelly, page, seeded  # noqa: E402
 from tests.hub.test_media_rate import env  # noqa: E402,F401  (env is a fixture)
 from hub import media_discover as md  # noqa: E402
@@ -334,7 +335,7 @@ def test_film_page_similar_rows_badge_winners(film_env):
     badges._cache.clear()
     client, _ = film_env()
     with client:
-        b = client.get("/media/title/movie/603").text.split("<main", 1)[1]
+        b = whole(client, "/media/title/movie/603").split("<main", 1)[1]
     one = card_of(b, "Similar One")
     assert one.startswith(' is-won">') and 'aria-label="Won Best Picture · Oscars 2025"' in one
     assert "awbadge" not in card_of(b, "Similar Two") and "awbadge" not in card_of(b, "Rec One")

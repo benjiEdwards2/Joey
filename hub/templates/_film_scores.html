@@ -1,0 +1,11 @@
+{# One rating style (media-ux4, 2026-10-08): every score is a .scorepill - a small monogram logo, the source's name and
+   the score in one format: IMDb 8.0 · RT 90% · Metacritic 74 (tinted by its band, number always shown). The upstream
+   pills are a deferred part since F2 (2026-10-12); waiting, they are one "Loading" pill. #}
+{% from "_film_macros.html" import sp with context %}
+{% set n = film.numbers %}
+{% if "scores" in film.pending %}<span class="scorepill sp-wait"><span class="sp-name">Loading</span></span>
+{% else %}
+    {% if n.imdb %}{{ sp("imdb", "IMDb", n.imdb) }}{% endif %}
+    {% if n.rt %}{{ sp("rt", "RT", n.rt) }}{% endif %}
+    {% if n.mc %}{{ sp("mc", "Metacritic", n.mc, " sp-mc-" ~ n.mc_band) }}{% endif %}
+{% endif %}

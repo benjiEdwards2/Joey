@@ -12,6 +12,8 @@
 {% from "_rows.html" import meta %}
 {% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
+{% from "_film_wait.html" import wait %}
+{% from "_film_macros.html" import makercards with context %}
 <header class="pagehead hero-detail">
   {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280')" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
@@ -30,19 +32,7 @@
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else film.facts.runtime, film.official]
                 + (film.genres or []), "facts-line") }}
-        {# Directed by / Created by (media-ux4, 2026-10-08): up to four headshot cards (TMDB profile via /img, initials when
-           none), each ONE link to the person page (else a Discover search); a sideways row on a phone. #}
-        {% macro makercards(people) -%}
-          {% for m in people %}<a class="makercard" href="{{ '/media/person/' ~ m.id if m.id else '/media/discover?q=' ~ (m.name|urlencode) }}">{% if m.ref %}<img class="makerpic" src="/img/{{ m.ref }}?h={{ film.maker_h }}" alt="" loading="lazy" decoding="async" width="52" height="52">{% else %}<span class="makerpic initials" aria-hidden="true">{% for w in m.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}<span class="makername">{{ m.name }}</span></a>{% endfor %}
-        {%- endmacro %}
-        {% if film.makers %}
-        <div class="makers">
-          <div class="microlabel">{{ film.makers_label }}</div>
-          <div class="makerrow">
-          {{ makercards(film.makers) }}
-          </div>
-        </div>
-        {% endif %}
+        {% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
            (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
         {% if film.directors %}
@@ -71,8 +61,9 @@
           {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
           {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
           {% if film.rating and not film.score %}<a class="btn btn-icon" href="#rate" aria-label="Rate" title="Rate">{{ icon("star") }}</a>{% endif %}
-          {% if film.tmdb and film.t %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
-          {% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg, future = film.req_future, req_primary = not (film.play and film.play.href) %}{% include "_request_block.html" %}{% endwith %}{% endif %}
+          {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
+          {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
+          {% call wait("actions", film.pending) %}{% include "_film_actions.html" %}{% endcall %}
           {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
           {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
           {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
@@ -91,13 +82,12 @@
 {% from "_icons.html" import icon %}
 {% from "_award_icons.html" import award_badge %}
 {% import "_rate.html" as rate %}
+{% from "_film_wait.html" import wait %}
+{% from "_film_macros.html" import banner_bg, sp with context %}
 {% set n = film.numbers %}
 {# "Part of" banners (media-ux3, 2026-10-08): a wide card with the show's / film series' backdrop under the guide's
    gradient scrim (text and glass buttons sit on the dark side), the poster, one " · " line in words and the actions.
    No backdrop -> a plain panel. Phone (<= 640 px): stacked, buttons full width. #}
-{% macro banner_bg(bd) -%}
-{% if bd %}<div class="partof-bd" style="--bd: url('/img/{{ bd }}?h=1280')" aria-hidden="true"></div>{% endif %}
-{%- endmacro %}
 {% if film.part_of %}
 {% set po = film.part_of %}
 <section class="sec partof-sec">
@@ -117,19 +107,14 @@
 {# film-quality (2026-10-07): MediaHub-style body — the numbers as ONE card, then uppercase section labels:
    OVERVIEW, FILE (badges, Size · Bitrate · Picture · Added, Audio / Subtitles / Release, the file name), CREW,
    DETAILS (dates, watches, request), CAST (portrait photo cards in a row that scrolls inside itself). #}
-{# One rating style (media-ux4, 2026-10-08): every score is a .scorepill — a small monogram logo, the source's name and
-   the score in one format: IMDb 8.0 · RT 90% · Metacritic 74 (tinted by its band, number always shown) · TMDB 8.1 ·
-   Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain stats beside them. #}
-{% macro sp(id, name, value, extra="") -%}
-<span class="scorepill sp-{{ id }}{{ extra }}" title="{{ name }} {{ value }}"><img class="sp-logo" src="{{ film.logos[id] }}" alt="" width="16" height="16"><span class="sp-name">{{ name }}</span><b class="sp-val">{{ value }}</b></span>
-{%- endmacro %}
-{% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc %}
+{# One rating style (media-ux4, 2026-10-08): every score is a .scorepill (`sp`, _film_scores.html) - IMDb 8.0 · RT 90% ·
+   Metacritic 74 · TMDB 8.1 · Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain
+   stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
+{% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
 {% if any_score or n.runtime or film.official %}
 <div class="stats numbers">
   {% if any_score %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
-    {% if n.imdb %}{{ sp("imdb", "IMDb", n.imdb) }}{% endif %}
-    {% if n.rt %}{{ sp("rt", "RT", n.rt) }}{% endif %}
-    {% if n.mc %}{{ sp("mc", "Metacritic", n.mc, " sp-mc-" ~ n.mc_band) }}{% endif %}
+    {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
     {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
@@ -163,31 +148,7 @@
 </section>
 {% endif %}
 
-{# The film series (media-ux3): directly under Overview — the banner (Follow series inside it), then the parts in
-   release order as poster cards with On server words; the page's own film is outlined and says "This film". #}
-{% if film.collection %}
-{% set c = film.collection %}
-<section class="sec colsec" id="collection">
-  <div class="partof partof-col{{ ' has-bd' if c.backdrop }}">
-    {{ banner_bg(c.backdrop) }}
-    {% if c.poster %}{{ poster(c.poster, c.title, 240, "partof-poster") }}{% endif %}
-    <div class="partof-text">
-      <p class="partof-line"><span class="partof-title">{{ c.title }}</span>{% for x in c.line %}<span class="sep"> · </span>{{ x }}{% endfor %}</p>
-      {# Follow (2026-10-07): follow the film series — its NEW films get requested automatically. #}
-      {% set base = "/media/follow/collection/" ~ c.collection_id %}
-      <form class="followform partof-btns" method="post" action="{{ base }}{{ '/unfollow' if c.following }}">
-        <input type="hidden" name="back" value="{{ request.url.path }}"><input type="hidden" name="name" value="{{ c.title }}">
-        {% if c.following %}<span class="st-good">Following series ✓</span> <button class="btn btn-glass btn-sm" type="submit">Unfollow</button>
-        {% else %}<button class="btn btn-glass" type="submit">{{ icon("plus") }}Follow series</button>{% endif %}
-      </form>
-      {% if film.follow_flash %}<p class="metaline st-good" role="status">{{ film.follow_flash }}</p>{% endif %}
-    </div>
-  </div>
-  <div class="carousel partof-parts">
-    {% for r in c.rows %}<a class="card-poster{{ ' is-current' if r.current }}" href="{{ r.href }}"{% if r.current %} aria-current="page"{% endif %}><span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240) }}{{ award_badge(r.award) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}{% if r.current %}<span class="st-current">This film</span><span class="sep"> · </span>{% endif %}<span class="{{ 'st-available' if r.on_server else 'st-off' }}">{{ "On server" if r.on_server else "Not on server" }}</span></span></a>{% endfor %}
-  </div>
-</section>
-{% endif %}
+{% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}
 
 {# Seasons (2026-10-08): directly under Overview on a TV page. Each season is a <details> (the page's / next
    episode's season open); each episode ONE whole-row link (a.rowlink) with its 16:9 still, "E3 · Name", air date ·
@@ -261,25 +222,17 @@
 </section>
 {% endif %}
 
-{% if film.crew %}
-<section class="sec">
-  <div class="seclabel">Crew</div>
-  <dl class="crewgrid">
-    {% for c in film.crew %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}{% if m.id %}<a href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }}</a>{% endif %}{% endfor %}</dd></div>{% endfor %}
-  </dl>
-</section>
-{% endif %}
+{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}
 
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
-{% if f.runtime or f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when %}
+{% if f.runtime or f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or "dates" in film.pending %}
 <section class="sec">
   <div class="seclabel">Details</div>
   <dl class="kvrows details">
     {% if f.runtime %}<div class="kv"><dt>Runtime</dt><dd>{{ f.runtime }}</dd></div>{% endif %}
-    {% if f.seasons %}<div class="kv"><dt>Seasons</dt><dd>{{ f.seasons }}</dd></div>{% endif %}
+    {% call wait("dates", film.pending) %}{% include "_film_dates.html" %}{% endcall %}
     {% if langs_row %}<div class="kv"><dt>On disk</dt><dd>{{ langs_row }}</dd></div>{% endif %}
-    {% for r in f.releases %}<div class="kv"><dt>{{ r.label }}</dt><dd>{{ r.date }}</dd></div>{% endfor %}
     {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>Added to your server {{ f.added }}</dd></div>{% endif %}
     {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>Watched {{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
     {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>Requested {{ film.requested_when }}{% if film.requested_by %} by {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
@@ -287,28 +240,13 @@
 </section>
 {% endif %}
 
-{% if film.cast %}
-<section class="sec">
-  <div class="seclabel">Cast</div>
-  <div class="castrow">
-    {% for c in film.cast %}
-    <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h={{ film.cast_h }}" alt="" loading="lazy" decoding="async" width="180" height="270">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
-      <span class="castname">{{ c.name }}</span>{% if c.role %}<span class="castrole">as {{ c.role }}</span>{% endif %}</{{ "a" if c.id else "div" }}>
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
+{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
 
-{% if film.providers %}
-<section class="sec">
-  <div class="seclabel">Where to watch</div>
-  {% for g in film.providers %}<div class="chips"><span class="microlabel">{{ g.label }}</span>{% for name in g.names %}<a class="chip" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% endfor %}</div>{% endfor %}
-</section>
-{% endif %}
+{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
 
 </div>
 
-{% if film.trailer_key %}
+{% if film.trailer_key or ("actions" in film.pending and not film.trailer) %}
 {# The trailer player (media-ux4, 2026-10-08): an empty <dialog>; the click handler adds a youtube-nocookie.com iframe
    (autoplay, no related videos) and opens it; closing (Close, Esc, the backdrop) removes the iframe, so the video stops
    and nothing stays connected. Recorded privacy exception: docs/connector-contract.md (Trailer player). #}
@@ -343,12 +281,7 @@
 </script>
 {% endif %}
 
-{% for sh in film.shelves %}
-<section class="sec">
-  <div class="seclabel">{{ sh.title }}</div>
-  <div class="carousel">
-    {% for r in sh.rows %}<a class="card-poster" href="{{ r.href }}"><span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240) }}{{ award_badge(r.award) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% if r.year %}{{ r.year }}<span class="sep"> · </span>{% endif %}<span class="{{ 'st-available' if r.on_server else 'st-off' }}">{{ "On server" if r.on_server else "Not on server" }}</span></span></a>{% endfor %}
-  </div>
-</section>
-{% endfor %}
+{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}
+{# F2 fast item pages (2026-10-12): the ONE request that fills every placeholder above (out-of-band swaps). #}
+{% if film.parts_href %}<div class="fpart-load" hidden hx-get="{{ film.parts_href }}" hx-trigger="load" hx-swap="none"></div>{% endif %}
 {% endblock %}

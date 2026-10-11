@@ -52,8 +52,11 @@
         </div>
         {% endif %}
         <p class="statusline{{ ' st-good' if film.on_server and not film.jf_failed }}">{% if film.on_server and not film.jf_failed %}{{ icon("drive") }}{% endif %}<span id="status-line">{{ film.status_line }}</span></p>
+        {# F4b (2026-10-12): "Upgrade available · <have> → <want>" from the arr snapshot (no call); the button is in the Search-now fragment #}
+        {% from "_upgrade_note.html" import upnote %}{{ upnote(film.upgrade, "p") }}
         {% if film.note %}<p class="metaline">{{ film.note }}</p>{% endif %}
         {% if film.search_flash and film.search_flash[0] %}<p class="metaline st-good" role="status">{{ film.search_flash[0] }}</p>{% elif film.search_flash and film.search_flash[1] %}<p class="metaline st-warn" role="status">{{ film.search_flash[1] }}</p>{% endif %}
+        {% if film.upgrade_flash and film.upgrade_flash[0] %}<p class="metaline st-good" role="status">{{ film.upgrade_flash[0] }}</p>{% elif film.upgrade_flash and film.upgrade_flash[1] %}<p class="metaline st-warn" role="status">{{ film.upgrade_flash[1] }}</p>{% endif %}
         <div class="hero-detail-btns">
           {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
           {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}

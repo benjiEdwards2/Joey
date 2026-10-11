@@ -18,6 +18,11 @@ media_requests: Radarr GET /api/v3/movie?tmdbId=, Sonarr GET /api/v3/series?tvdb
    (GET /media/arr/sweep?step=confirm, then the same-origin POST) send Radarr MissingMoviesSearch / CutoffUnmetMoviesSearch
    and Sonarr MissingEpisodeSearch / CutoffUnmetEpisodeSearch, both apps in parallel, 10 s each.
 
+4. Search for upgrade (F4b, 2026-10-12). When the title's file is below its quality cutoff (the arr snapshot's
+   `upgrades`, matched on the app's own id from the lookup above), the lazy fragment adds "Search for upgrade": an
+   inline confirm (details), then the same-origin POST /media/title/{kind}/{tmdb}/upgrade sends the title's
+   MoviesSearch / SeriesSearch; the app grabs the best release its profile allows. Flash: ?upgrade=started|failed.
+
 Upstream failures are words; logs carry an exception TYPE or an HTTP status only (requests errors embed URLs/keys).
 """
 from __future__ import annotations
@@ -33,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_discover as md, media_requests as mr, media_text, shell
+from hub import media_discover as md, media_requests as mr, media_text, media_upgrades, shell
 from hub.media_write import flash_keys, form_of, is_htmx, safe_back, same_origin
 
 log = logging.getLogger("hub.media_arr_search")
@@ -194,7 +199,8 @@ def search_button(request: Request, kind: str, tmdb_id: int, tvdb: str = "", bac
     if entry is None:
         return HTMLResponse("")   # not in the app (or unreachable): no button, the Request flow applies
     return md._partial(request, "_arr_search.html", kind=kind, tmdb_id=tmdb_id, tvdb=_tvdb(tvdb),
-                       back=_back(back, kind, tmdb_id), app=NAMES[app_of(kind)], monitored=bool(entry.get("monitored")))
+                       back=_back(back, kind, tmdb_id), app=NAMES[app_of(kind)], monitored=bool(entry.get("monitored")),
+                       upgrade=upgrade_row(request, kind, entry))
 
 
 @router.post("/media/title/{kind}/{tmdb_id}/search", dependencies=[Depends(same_origin)])
@@ -311,3 +317,54 @@ async def sweep_now(request: Request):
         _started[kind] = _clock()
         q = {"sweep": "started" if len(ran) == len(apps) else "partial", "ran": ",".join(ran)}
     return RedirectResponse(f"{back}?" + urlencode(q), status_code=303)
+
+
+# ---- Search for upgrade (F4b, 2026-10-12) ----
+# B.: "show me if an upgrade is available … and allow me to decide if I want to download that upgrade." The film / show
+# hero says "Upgrade available · <have> → <want>" from the arr snapshot; the Search-now fragment adds the button when
+# the app's own id for this title is on the snapshot's cutoff-unmet list (exact, whatever key Jellyfin uses).
+
+flash_keys("upgrade")
+UPGRADE_FLASH = {"started": ("Upgrade search started", None), "failed": (None, "Couldn't start the search")}
+
+
+def upgrade_row(request, kind: str, entry: dict) -> dict | None:
+    """The snapshot's upgrade row for this app entry (matched on `arr_id`), or None."""
+    app = app_of(kind)
+    for row in media_upgrades.index(shell.get_snapshots(request=request)).values():
+        if row["app"] == app and str(row.get("arr_id")) == str(entry.get("id")):
+            return row
+    return None
+
+
+def upgrade_flash(params) -> tuple[str | None, str | None]:
+    """(good line, warning line) from `?upgrade=started|failed`; anything else -> (None, None)."""
+    return UPGRADE_FLASH.get(params.get("upgrade") or "", (None, None))
+
+
+def start_upgrade(kind: str, tmdb: int, tvdb: int | None = None) -> bool:
+    """Ask Radarr / Sonarr to search the title now (MoviesSearch / SeriesSearch on its own id): True when the command
+    was accepted. The app replaces the file only with a release its profile ranks higher."""
+    app = app_of(kind)
+    creds = mr._arr_creds(app)
+    if creds is None:
+        return False
+    base, headers = creds
+    try:
+        entry = mr._find(app, base, headers, tmdb, tvdb)
+        if entry is None:
+            return False
+        _command(app, base, headers, entry)
+        return True
+    except Exception as exc:
+        log.warning("%s upgrade search failed: %s", app, _why(exc))
+        return False
+
+
+@router.post("/media/title/{kind}/{tmdb_id}/upgrade", dependencies=[Depends(same_origin)])
+async def upgrade_now(request: Request, kind: str, tmdb_id: int):
+    kind = md._kind(kind)
+    form = await form_of(request)
+    back = _back(form.get("back"), kind, tmdb_id)
+    ok = tmdb_id > 0 and await run_in_threadpool(start_upgrade, kind, tmdb_id, _tvdb(form.get("tvdb")))  # off the loop
+    return RedirectResponse(f"{back}?" + urlencode({"upgrade": "started" if ok else "failed"}), status_code=303)

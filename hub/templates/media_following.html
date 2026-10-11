@@ -4,22 +4,42 @@
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
 {# Following (2026-10-07): the people and film series B. follows — their NEW films are requested automatically
-   (hub/media_follow.py) — then the latest adds. Every row is one whole-row link; state is a WORD. #}
+   (hub/media_follow.py) — then the latest adds. Every row is one whole-row link; state is a WORD. F5 (2026-10-12):
+   followed shows are their own group (Sonarr keeps every new season), each row with its Unfollow; a TV maker's count
+   reads "films · shows". #}
 {% if request.query_params.get("follow") == "off" %}<p class="metaline st-good" role="status">Unfollowed</p>{% endif %}
+{% if sonarr_note %}<p class="metaline {{ 'st-good' if sonarr_note.ok else 'st-warn' }}" role="status">{{ sonarr_note.text }}</p>{% endif %}
 {% if needs %}<p class="metaline st-warn">{{ needs }}</p>{% endif %}
+{% if follows or shows %}
 {% if follows %}
 <section class="sec">
   <div class="seclabel">Following · {{ follows | length }}</div>
   <div class="listbox">
   {% for f in follows %}
-  {% set added %}{{ f.added }} added{% endset %}
   <a class="row" href="{{ f.href }}">
     {{ poster(f.poster, f.name, 120, "row-poster") }}
-    <div class="row-body"><div class="row-title">{{ f.name }}</div>{{ meta([f.kind_word, ("Since " ~ f.since) if f.since else none, added]) }}</div>
+    <div class="row-body"><div class="row-title">{{ f.name }}</div>{{ meta([f.kind_word, ("Since " ~ f.since) if f.since else none, f.added_words]) }}</div>
   </a>
   {% endfor %}
   </div>
 </section>
+{% endif %}
+{% if shows %}
+<section class="sec">
+  <div class="seclabel">Shows · future seasons · {{ shows | length }}</div>
+  <div class="listbox">
+  {% for s in shows %}
+  <div class="row has-form">
+    <a class="rowlink" href="{{ s.href }}">
+      {{ poster(s.poster, s.name, 120, "row-poster") }}
+      <div class="row-body"><div class="row-title">{{ s.name }}</div>{{ meta(["Sonarr adds new seasons", ("Since " ~ s.since) if s.since else none]) }}</div>
+    </a>
+    <span class="row-side"><form method="post" action="/media/follow/show/{{ s.tmdb_id }}/unfollow"><input type="hidden" name="back" value="/media/following"><button class="btn btn-ghost btn-sm" type="submit">Unfollow</button></form></span>
+  </div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
 {% if adds %}
 <section class="sec">
   <div class="seclabel">Recently added by follows</div>

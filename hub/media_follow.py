@@ -639,19 +639,31 @@ def _add_href(a: dict) -> str:
     return f"/media/title/{'tv' if a.get('media') == 'tv' else 'movie'}/{a['tmdb_id']}"
 
 
-def following_ctx() -> dict:
+def _added_words(f: dict) -> str:
+    """'3 added', or for a TV maker '2 films · 1 show' (requested / already)."""
+    if f.get("dept") != CREATOR:
+        return f"{f['added']} added"
+    films, shows = f.get("added_films") or 0, f.get("added_shows") or 0
+    return f"{films} film{'s' if films != 1 else ''} · {shows} show{'s' if shows != 1 else ''}"
+
+
+def following_ctx(request: Request | None = None) -> dict:
+    """People and film series (one group), followed shows (their own group, each with Unfollow), the latest adds."""
     rows = [{**f, "href": page_href(f["kind"], f["tmdb_id"], f.get("link")), "kind_word": kind_word(f),
-             "since": md._date_words(f["followed_at"])[0]} for f in follows()]
+             "since": md._date_words(f["followed_at"])[0], "added_words": _added_words(f)} for f in follows()]
+    params = request.query_params if request is not None else {}
     adds = [{**a, "year": _year(a["release_date"]), "href": _add_href(a),
              "when": md._date_words(a["at"])[0], "word": {"requested": "Requested", "already": "Already there",
                                                           "failed": "Failed"}.get(a["outcome"], a["outcome"])}
             for a in recent_adds(20)]
-    return {"follows": rows, "adds": adds, "needs": NEEDS_SEERR if md._creds() is None else None, "empty": EMPTY}
+    return {"follows": [f for f in rows if f["kind"] != "show"], "shows": [f for f in rows if f["kind"] == "show"],
+            "adds": adds, "needs": NEEDS_SEERR if md._creds() is None else None, "empty": EMPTY,
+            "sonarr_note": sonarr_note(params.get("sonarr"))}
 
 
 @router.get(FOLLOWING, response_class=HTMLResponse)
 def following_page(request: Request):
-    return md._page(request, "media_following.html", following_ctx)
+    return md._page(request, "media_following.html", lambda: following_ctx(request))
 
 
 def flash_text(request: Request) -> str | None:

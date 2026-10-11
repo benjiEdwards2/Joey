@@ -360,3 +360,42 @@ def test_executive_producer_alone_is_not_a_creator_and_others_ignore_tv():
     assert media_follow.person_titles(CREDITS) == media_follow.person_films(CREDITS)            # not a TV-maker follow
     both_jobs = {"crew": [tv(9, "S", job="Executive Producer"), tv(9, "S", job="Creator")]}
     assert [r["reason"] for r in media_follow.person_shows(both_jobs)] == ["creator"]         # strongest reason, once
+
+
+# ---- the Following tab ----
+
+def test_following_tab_groups_shows_and_counts_films_and_shows(son_env):
+    client, both, son, _ = son_env()
+    seed_creator(both)
+    with client:
+        media_follow.follow("person", 77, "Cass Creator", dept="creator")
+        media_follow.run_once()
+        media_follow.follow("person", 55, "Ada Actor", dept="Acting")
+        follow_show(client)
+        son.calls.clear()
+        b = main_of(client.get("/media/following").text)
+        people, shows = b.split("Shows · future seasons · 1", 1)
+        assert "Following · 2" in people and "Cass Creator" in people and "Creator · films + shows" in people
+        assert "1 film · 3 shows" in people and "0 added" in people and "Quiet Show" not in people   # 503: already
+        shows = shows.split("Recently added by follows", 1)[0]
+        assert '<a class="rowlink" href="/media/title/tv/100">' in shows and "Quiet Show" in shows
+        assert "qs.jpg" in shows                                                      # the show poster
+        assert ('<form method="post" action="/media/follow/show/100/unfollow"><input type="hidden" name="back" '
+                'value="/media/following"><button class="btn btn-ghost btn-sm" type="submit">Unfollow</button></form>') in shows
+        recent = b.split("Recently added by follows", 1)[1]
+        assert '<a class="row" href="/media/title/tv/501">' in recent and '<a class="row" href="/media/title/movie/507">' in recent
+        r = client.post("/media/follow/show/100/unfollow", data={"back": "/media/following"}, follow_redirects=False)
+        assert r.headers["location"] == "/media/following?follow=off&sonarr=stopped"
+        b = main_of(client.get(r.headers["location"]).text)
+    assert "Unfollowed" in b and "Sonarr: new seasons are no longer added · what you have stays" in b
+    assert "Shows · future seasons" not in b and son.of("DELETE") == []
+    assert son.of("GET") == [("GET", f"{SONARR}/api/v3/series", None, None)]   # the unfollow's lookup; no read on render
+
+
+def test_following_tab_shows_only(son_env):
+    client, both, son, _ = son_env()
+    media_follow.follow("show", 100, "Quiet Show")
+    with client:
+        b = main_of(client.get("/media/following").text)
+    assert "Shows · future seasons · 1" in b and "Following · " not in b and "from their page" not in b
+    assert son.calls == []

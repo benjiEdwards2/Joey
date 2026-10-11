@@ -109,7 +109,7 @@ def test_a_run_makes_every_call_on_one_session_and_closes_it(snapshots, monkeypa
     envelope = Arr().run()
     assert envelope["status"] == "ok", envelope["error"]
     assert len(sessions) == 1 and sessions[0].closed
-    assert len(sessions[0].calls) == 11  # 4 + 1 Radarr, 4 + 2 Sonarr
+    assert len(sessions[0].calls) == 15  # 4 + 1 + 2 Radarr, 4 + 2 + 2 Sonarr (F4a: cutoff + qualityprofile)
 
 
 def test_session_is_a_requests_session(monkeypatch):

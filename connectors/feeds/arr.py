@@ -1,5 +1,5 @@
 """Radarr + Sonarr (+ optional Prowlarr stats): arrivals, upgrades, this week, the queue,
-disk space and library counts."""
+disk space, library counts and the titles below their quality cutoff (upgrade available)."""
 
 from __future__ import annotations
 
@@ -23,6 +23,21 @@ ARR_COUNT_ENDPOINTS = {
     "radarr": (("raw_radarr_movie", "/api/v3/movie", {}),),
     "sonarr": (("raw_sonarr_series", "/api/v3/series", {}),
                ("raw_sonarr_missing", "/api/v3/wanted/missing", {"pageSize": 1, "monitored": "true"})),
+}
+# Upgrades (F4a, 2026-10-12): "cutoff unmet" — titles whose file on disk is below the quality
+# profile's cutoff — plus the profile list (qualityProfileId -> cutoff name, `want`). Partial-ok:
+# a failed cutoff call nulls only that app's list (partial_errors "<app>_upgrades"); a failed
+# profile call only nulls `want`. One page, sorted by title, keeps the 120 s loop cheap.
+ARR_UPGRADE_PAGE = 100
+_CUTOFF_PAGE = {"page": 1, "pageSize": ARR_UPGRADE_PAGE, "monitored": "true", "sortDirection": "ascending"}
+ARR_UPGRADE_ENDPOINTS = {
+    "radarr": (("raw_radarr_cutoff", "/api/v3/wanted/cutoff",
+                {**_CUTOFF_PAGE, "sortKey": "movieMetadata.sortTitle"}),
+               ("raw_radarr_qualityprofile", "/api/v3/qualityprofile", {})),
+    "sonarr": (("raw_sonarr_cutoff", "/api/v3/wanted/cutoff",
+                {**_CUTOFF_PAGE, "sortKey": "series.sortTitle",
+                 "includeSeries": "true", "includeEpisodeFile": "true"}),
+               ("raw_sonarr_qualityprofile", "/api/v3/qualityprofile", {})),
 }
 # Prowlarr is optional: env unset or the call failing -> `prowlarr: null`, the run stays ok.
 PROWLARR_ENV = ("PROWLARR_URL", "PROWLARR_API_KEY")
@@ -141,6 +156,14 @@ class Arr(Connector):
                     raw[key] = http_json(app, base + path, headers=headers, params=params, session=client)
             except RuntimeError as exc:
                 log.warning("arr: %s counts failed (%s)", app, exc.reason)
+            for key, path, params in ARR_UPGRADE_ENDPOINTS[app]:  # upgrades: partial-ok too
+                try:
+                    raw[key] = http_json(app, base + path, headers=headers, params=params, session=client)
+                except RuntimeError as exc:
+                    log.warning("arr: %s %s failed (%s)", app, key.rsplit("_", 1)[1], exc.reason)
+                    if key.endswith("_cutoff"):  # no list: the profile lookup is not needed
+                        raw.setdefault("upgrade_errors", {})[app] = exc.reason
+                        break
         if len(errors) == len(ARR_APPS):
             raise RuntimeError(
                 "both apps failed (" + ", ".join(f"{a}: {r}" for a, r in sorted(errors.items())) + ")"
@@ -180,6 +203,9 @@ class Arr(Connector):
         if isinstance(series, list) and "raw_sonarr_missing" in raw and "raw_sonarr_queue" in raw:
             sonarr = {"series": len(series), "wanted": cls._total(raw["raw_sonarr_missing"]),
                       "queued": cls._total(raw["raw_sonarr_queue"])}
+        for counts, app in ((radarr, "radarr"), (sonarr, "sonarr")):  # F4a: optional key
+            if counts is not None and raw.get(f"raw_{app}_cutoff") is not None:
+                counts["upgrades"] = cls._total(raw[f"raw_{app}_cutoff"])
         stats = raw.get("raw_prowlarr_indexerstats")
         if isinstance(stats, dict):
             indexers = stats.get("indexers") or []
@@ -300,6 +326,64 @@ class Arr(Connector):
             })
         return rows
 
+    @staticmethod
+    def _cutoff_names(profiles) -> dict[Any, str]:
+        """qualityProfileId -> its cutoff's name. The cutoff id names a quality, or a quality
+        group (a top-level item with its own id and name, no `quality`)."""
+        names: dict[Any, str] = {}
+        for p in profiles if isinstance(profiles, list) else []:
+            for item in p.get("items") or []:
+                own = item.get("quality") or {}
+                if (own.get("id") if own else item.get("id")) == p.get("cutoff"):
+                    name = own.get("name") if own else item.get("name")
+                    if name:
+                        names[p.get("id")] = str(name)
+                    break
+        return names
+
+    @classmethod
+    def _upgrades(cls, raw: dict) -> dict:
+        """Cutoff-unmet titles: Radarr one row per movie, Sonarr episodes grouped per series.
+        An app whose cutoff list is unavailable (down, or the call failed) is null."""
+        def quality(file) -> dict:
+            return ((file or {}).get("quality") or {}).get("quality") or {}
+
+        radarr = sonarr = None
+        if raw.get("raw_radarr_cutoff") is not None:
+            want = cls._cutoff_names(raw.get("raw_radarr_qualityprofile"))
+            # Radarr's cutoff records carry movieFileId but no movieFile (verified live, Radarr 6.4):
+            # the held quality comes from the library list fetched for the counts, joined on id.
+            files = {m.get("id"): m.get("movieFile") for m in raw.get("raw_radarr_movie") or []
+                     if isinstance(m, dict) and m.get("movieFile")}
+            radarr = sorted((
+                {"item_key": _arr_key("radarr", m, movie=True), "title": m.get("title") or "Unknown",
+                 "year": m.get("year") or None, "arr_id": m.get("id"),
+                 "have": quality(m.get("movieFile") or files.get(m.get("id"))).get("name"), "want": want.get(m.get("qualityProfileId")),
+                 "poster": _arr_ref("radarr", m, movie=True)}
+                for m in _records(raw["raw_radarr_cutoff"])), key=lambda r: (r["title"].casefold(), r["arr_id"] or 0))
+        if raw.get("raw_sonarr_cutoff") is not None:
+            want = cls._cutoff_names(raw.get("raw_sonarr_qualityprofile"))
+            groups: dict[Any, list[dict]] = {}
+            for e in _records(raw["raw_sonarr_cutoff"]):
+                groups.setdefault((e.get("series") or {}).get("id") or e.get("seriesId"), []).append(e)
+            sonarr = []
+            for sid, eps in groups.items():
+                series = next((e["series"] for e in eps if e.get("series")), {})
+                held = [q for q in (quality(e.get("episodeFile")) for e in eps) if q.get("name")]
+                lowest = min(held, key=lambda q: (int(q.get("resolution") or 0), str(q["name"])), default={})
+                first = min(eps, key=lambda e: (e.get("seasonNumber") or 0, e.get("episodeNumber") or 0))
+                sonarr.append({
+                    "item_key": _arr_key("sonarr", {"series": series}), "title": series.get("title") or "Unknown",
+                    "arr_id": sid, "episodes": len(eps), "have": lowest.get("name"),
+                    "want": want.get(series.get("qualityProfileId")),
+                    "sample": _episode_code(first.get("seasonNumber"), first.get("episodeNumber")),
+                    "poster": _arr_ref("sonarr", {"series": series, "seriesId": sid})})
+            sonarr.sort(key=lambda r: (r["title"].casefold(), r["arr_id"] or 0))
+        totals = {"movies": cls._total(raw["raw_radarr_cutoff"]) if radarr is not None else 0,
+                  "episodes": cls._total(raw["raw_sonarr_cutoff"]) if sonarr is not None else 0,
+                  "series": len(sonarr or [])}
+        return {"radarr": radarr, "sonarr": sonarr, "totals": totals}
+
     def transform(self, raw: dict) -> dict:
         now = _now()
         arrived: list[tuple[datetime, dict]] = []
@@ -348,8 +432,11 @@ class Arr(Connector):
             "disk": disk[:ARR_LIMIT],
         }
         data["radarr"], data["sonarr"], data["prowlarr"] = self._counts(raw)
+        data["upgrades"] = self._upgrades(raw)
         if raw.get("app_errors"):
             data["app_errors"] = dict(raw["app_errors"])
             for app, why in sorted(raw["app_errors"].items()):
                 partial_note(data, app, why)
+        for app, why in sorted((raw.get("upgrade_errors") or {}).items()):
+            partial_note(data, f"{app}_upgrades", why)
         return data

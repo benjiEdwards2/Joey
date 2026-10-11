@@ -1,0 +1,21 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "sortKey": "series.sortTitle",
+  "sortDirection": "ascending",
+  "totalRecords": 4,
+  "records": [
+    {"id": 3201, "seriesId": 2, "seasonNumber": 1, "episodeNumber": 1, "title": "Ironworks", "monitored": true, "hasFile": true, "episodeFileId": 801,
+     "series": {"id": 2, "title": "Iron Valley", "tvdbId": 2002, "qualityProfileId": 7, "monitored": true},
+     "episodeFile": {"id": 801, "seriesId": 2, "quality": {"quality": {"id": 5, "name": "WEBDL-720p", "source": "web", "resolution": 720}, "revision": {"version": 1, "real": 0}}}},
+    {"id": 3104, "seriesId": 1, "seasonNumber": 1, "episodeNumber": 3, "title": "Low Water", "monitored": true, "hasFile": true, "episodeFileId": 703,
+     "series": {"id": 1, "title": "Quiet Coast", "tvdbId": 2001, "qualityProfileId": 6, "monitored": true},
+     "episodeFile": {"id": 703, "seriesId": 1, "quality": {"quality": {"id": 1, "name": "SDTV", "source": "television", "resolution": 480}, "revision": {"version": 1, "real": 0}}}},
+    {"id": 3103, "seriesId": 1, "seasonNumber": 1, "episodeNumber": 2, "title": "Breakwater", "monitored": true, "hasFile": true, "episodeFileId": 702,
+     "series": {"id": 1, "title": "Quiet Coast", "tvdbId": 2001, "qualityProfileId": 6, "monitored": true},
+     "episodeFile": {"id": 702, "seriesId": 1, "quality": {"quality": {"id": 4, "name": "HDTV-720p", "source": "television", "resolution": 720}, "revision": {"version": 1, "real": 0}}}},
+    {"id": 3115, "seriesId": 1, "seasonNumber": 2, "episodeNumber": 5, "title": "Undertow", "monitored": true, "hasFile": true, "episodeFileId": 715,
+     "series": {"id": 1, "title": "Quiet Coast", "tvdbId": 2001, "qualityProfileId": 6, "monitored": true},
+     "episodeFile": {"id": 715, "seriesId": 1, "quality": {"quality": {"id": 4, "name": "HDTV-720p", "source": "television", "resolution": 720}, "revision": {"version": 1, "real": 0}}}}
+  ]
+}

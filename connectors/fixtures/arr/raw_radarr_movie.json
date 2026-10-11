@@ -1,6 +1,8 @@
 [
-  {"id": 1, "title": "Harbour Lights", "tmdbId": 1001, "monitored": true, "hasFile": true, "isAvailable": true},
-  {"id": 2, "title": "Desert Crossing", "tmdbId": 1002, "monitored": true, "hasFile": true, "isAvailable": true},
+  {"id": 1, "title": "Harbour Lights", "tmdbId": 1001, "monitored": true, "hasFile": true, "isAvailable": true,
+   "movieFile": {"id": 501, "movieId": 1, "quality": {"quality": {"id": 5, "name": "WEBDL-720p", "source": "webdl", "resolution": 720}, "revision": {"version": 1, "real": 0}}}},
+  {"id": 2, "title": "Desert Crossing", "tmdbId": 1002, "monitored": true, "hasFile": true, "isAvailable": true,
+   "movieFile": {"id": 502, "movieId": 2, "quality": {"quality": {"id": 7, "name": "Bluray-1080p", "source": "bluray", "resolution": 1080}, "revision": {"version": 1, "real": 0}}}},
   {"id": 21, "title": "Midnight Harbour", "tmdbId": 1021, "monitored": true, "hasFile": false, "isAvailable": true},
   {"id": 22, "title": "Northern Pass", "tmdbId": 1022, "monitored": true, "hasFile": false, "isAvailable": true},
   {"id": 23, "title": "Glass Orchard", "tmdbId": 1023, "monitored": true, "hasFile": false, "isAvailable": false},

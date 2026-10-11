@@ -1,0 +1,14 @@
+[
+  {"id": 6, "name": "HD-1080p", "upgradeAllowed": true, "cutoff": 1002, "items": [
+    {"quality": {"id": 1, "name": "SDTV", "source": "television", "resolution": 480}, "items": [], "allowed": true},
+    {"quality": {"id": 4, "name": "HDTV-720p", "source": "television", "resolution": 720}, "items": [], "allowed": true},
+    {"id": 1002, "name": "WEB 1080p", "allowed": true, "items": [
+      {"quality": {"id": 15, "name": "WEBRip-1080p", "source": "webRip", "resolution": 1080}, "items": [], "allowed": true},
+      {"quality": {"id": 3, "name": "WEBDL-1080p", "source": "web", "resolution": 1080}, "items": [], "allowed": true}
+    ]}
+  ]},
+  {"id": 7, "name": "Bluray-1080p", "upgradeAllowed": true, "cutoff": 7, "items": [
+    {"quality": {"id": 5, "name": "WEBDL-720p", "source": "web", "resolution": 720}, "items": [], "allowed": true},
+    {"quality": {"id": 7, "name": "Bluray-1080p", "source": "bluray", "resolution": 1080}, "items": [], "allowed": true}
+  ]}
+]

@@ -1,0 +1,12 @@
+{
+  "page": 1,
+  "pageSize": 100,
+  "sortKey": "movieMetadata.sortTitle",
+  "sortDirection": "ascending",
+  "totalRecords": 3,
+  "records": [
+    {"id": 3, "title": "Copper Sky", "year": 2019, "tmdbId": 1003, "qualityProfileId": 9, "monitored": true, "hasFile": true, "movieFileId": 503},
+    {"id": 2, "title": "Desert Crossing", "year": 2024, "tmdbId": 1002, "qualityProfileId": 5, "monitored": true, "hasFile": true, "movieFileId": 502},
+    {"id": 1, "title": "Harbour Lights", "year": 2025, "tmdbId": 1001, "qualityProfileId": 4, "monitored": true, "hasFile": true, "movieFileId": 501}
+  ]
+}

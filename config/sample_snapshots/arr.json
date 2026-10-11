@@ -89,12 +89,14 @@
       "missing": 3,
       "movies": 6,
       "queued": 1,
+      "upgrades": 3,
       "wanted": 2
     },
     "secondary": "Quiet Coast \u00b7 S02 \u00b7 3 episodes",
     "sonarr": {
       "queued": 1,
       "series": 3,
+      "upgrades": 4,
       "wanted": 7
     },
     "summary": "4 arrived this week \u00b7 2 downloading",
@@ -168,7 +170,65 @@
         "what": "Upgraded to Blu-ray",
         "when": "4 days ago"
       }
-    ]
+    ],
+    "upgrades": {
+      "radarr": [
+        {
+          "arr_id": 3,
+          "have": null,
+          "item_key": "tmdb:1003",
+          "poster": "radarr:3",
+          "title": "Copper Sky",
+          "want": null,
+          "year": 2019
+        },
+        {
+          "arr_id": 2,
+          "have": "Bluray-1080p",
+          "item_key": "tmdb:1002",
+          "poster": "radarr:2",
+          "title": "Desert Crossing",
+          "want": "Bluray + Remux 2160p",
+          "year": 2024
+        },
+        {
+          "arr_id": 1,
+          "have": "WEBDL-720p",
+          "item_key": "tmdb:1001",
+          "poster": "radarr:1",
+          "title": "Harbour Lights",
+          "want": "Bluray-1080p",
+          "year": 2025
+        }
+      ],
+      "sonarr": [
+        {
+          "arr_id": 2,
+          "episodes": 1,
+          "have": "WEBDL-720p",
+          "item_key": "tvdb:2002",
+          "poster": "sonarr:2",
+          "sample": "S01E01",
+          "title": "Iron Valley",
+          "want": "Bluray-1080p"
+        },
+        {
+          "arr_id": 1,
+          "episodes": 3,
+          "have": "SDTV",
+          "item_key": "tvdb:2001",
+          "poster": "sonarr:1",
+          "sample": "S01E02",
+          "title": "Quiet Coast",
+          "want": "WEB 1080p"
+        }
+      ],
+      "totals": {
+        "episodes": 4,
+        "movies": 3,
+        "series": 2
+      }
+    }
   },
   "error": null,
   "fetched_at": "2026-01-01T00:00:00+00:00",

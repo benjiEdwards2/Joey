@@ -148,6 +148,29 @@ def test_wud_itself_is_always_refused_even_when_auto(env):
     assert "Update WUD by hand" in row and "Update now" not in row
 
 
+def _joey(wud=None, name="joey-cloudflared"):
+    """The sample WUD data plus a pending Joey-deployed container (not in the media-server compose)."""
+    wud = wud or json.loads((SAMPLES / "wud.json").read_text(encoding="utf-8"))["data"]
+    wud["containers"].append({"auto": True, "current_tag": "2025.8.1", "id": f"ctr-{name}", "image": "cloudflare/cloudflared",
+                              "kind": "tag", "name": name, "new_tag": "2025.9.0", "update_available": True})
+    return wud
+
+
+@pytest.mark.parametrize("name", ["joey-cloudflared", "joey-macromates"])
+def test_joey_containers_update_on_the_next_deploy_never_through_wud(env, name):
+    with env(wud=_joey(name=name)) as client:
+        g = main_of(client.get(f"/server/updates/{name}/run?step=confirm").text)
+        r = client.post(f"/server/updates/{name}/run", follow_redirects=False)
+        b = band(client.get("/server").text)
+        i = client.post(f"/server/updates/{name}/ignore", follow_redirects=False)
+    assert "Updates on next Joey deploy." in g and f'action="/server/updates/{name}/run"' not in g
+    assert r.status_code == 409 and "Updates on next Joey deploy." in main_of(r.text)
+    assert env.calls == []
+    row = b.split(f">{name}<", 1)[1].split("</form>", 1)[0]
+    assert "Updates on next Joey deploy" in row and "Update now" not in row and ">Ignore<" in row
+    assert i.status_code == 303                      # Ignore still allowed
+
+
 def test_post_without_same_origin_is_refused_and_calls_nothing(env):
     with env() as client:
         r = client.post("/server/updates/vaultwarden/run", headers=EVIL, follow_redirects=False)

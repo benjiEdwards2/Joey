@@ -10,7 +10,9 @@ Manual updates (2026-10-12): rows whose `auto` is not true (the notify-only cont
 `wud.trigger.exclude=dockercompose.local`) run a second trigger, `dockercompose.manual`, set
 `WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false` on the NAS (WUD 9.3 Trigger.ts `init()` only
 registers for auto execution when `auto` is true) — so it fires only when asked from here.
-The `wud` container itself is always refused: B. updates WUD by hand.
+The `wud` container itself is always refused: B. updates WUD by hand. So is any `joey-*` container
+(2026-10-12): Joey's own containers are not in the media-server compose the WUD triggers manage —
+they update on the next Joey deploy (`hub.server.update_hold`, one name rule).
 
 Two-step like the Jellyseerr Request: GET `?step=confirm` -> POST behind `same_origin`.
 Failures log and record status/type only — never the URL or login — and degrade to words.
@@ -36,7 +38,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from hub import media_db, shell
 from hub.media_write import same_origin
-from hub.server import SERVER_LAYOUT, WUD_SNAPSHOT_ID, key_tag  # one definition (H-24)
+from hub.server import (HOLD_TEXT, SERVER_LAYOUT, WUD_SELF, WUD_SNAPSHOT_ID, key_tag,  # one definition (H-24)
+                        update_hold)
 
 log = logging.getLogger("hub.server_updates")
 router = APIRouter()
@@ -44,7 +47,7 @@ router = APIRouter()
 TIMEOUT = 10
 TRIGGER_TYPE, TRIGGER_NAME = "dockercompose", "local"
 MANUAL_TRIGGER_NAME = "manual"      # WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false (NAS)
-SELF_NAME = "wud"                   # never recreated from the hub
+SELF_NAME = WUD_SELF                # never recreated from the hub
 VPN_ROUTED = ("prowlarr", "qbittorrent")   # live in gluetun's network namespace
 VPN_NAME = "gluetun"
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -188,8 +191,9 @@ def refusal(row: dict | None, name: str) -> str | None:
     """Why Update now must not run for this row, in words; None when it may."""
     if row is None:
         return f"No update is pending for {name} in the latest WUD sweep."
-    if name == SELF_NAME:
-        return "Update WUD by hand."
+    hold = update_hold(name)
+    if hold:                            # wud: by hand; joey-*: the next Joey deploy
+        return HOLD_TEXT[hold] + "."
     if not row.get("id"):
         return "The WUD snapshot has no container id yet — try again after the next hourly sweep."
     if _creds() is None:

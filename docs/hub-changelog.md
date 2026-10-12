@@ -662,3 +662,11 @@ declined the request", "Couldn't reach Seerr", "Follow needs Seerr", "In Seerr",
 Services card name (`media_status` catalogue). Env vars (`JELLYSEERR_*`), connector and snapshot ids, tables, modules and
 URLs keep the old name. A Services card now also takes its Uptime Kuma ms from a monitor named like the app's **id**,
 so a Kuma monitor still called "Jellyseerr" keeps feeding the Seerr card.
+
+## 2026-10-12 — Server: Joey's own containers update on deploy
+**Server → Updates, `joey-*` rows (2026-10-12).** WUD's compose triggers only manage
+`/volume1/media-server/docker-compose.yml`, so a pending row for one of Joey's own containers (joey-cloudflared,
+joey-macromates, any `joey-` name) has no Update now: it reads "Updates on next Joey deploy" (Ignore stays), and
+`POST /server/updates/{name}/run` refuses it (409, no WUD call). One rule in `hub/server.py` (`WUD_SELF`, `JOEY_PREFIX`,
+`update_hold`, `HOLD_TEXT`); `split_updates` gives every shown row `hold` / `hold_text`, which the band and
+`server_updates.refusal` both read (the `wud` row's "Update WUD by hand" moved onto the same rule).

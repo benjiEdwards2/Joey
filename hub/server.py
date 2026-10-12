@@ -287,6 +287,22 @@ def _counts(snaps) -> dict:
     }
 
 
+# Pending rows the hub never sends to WUD (one definition; server_updates imports these): WUD itself (B. updates it by
+# hand) and Joey's own containers (joey-cloudflared, joey-macromates, any `joey-*`: not in the media-server compose
+# that WUD's dockercompose triggers manage, so they update on the next Joey deploy, 2026-10-12).
+WUD_SELF = "wud"
+JOEY_PREFIX = "joey-"
+HOLD_TEXT = {"wud": "Update WUD by hand", "joey": "Updates on next Joey deploy"}
+
+
+def update_hold(name) -> str | None:
+    """Why a pending row has no Update now: "wud" | "joey" | None (it may run)."""
+    name = str(name or "")
+    if name == WUD_SELF:
+        return "wud"
+    return "joey" if name.startswith(JOEY_PREFIX) else None
+
+
 def key_tag(row: dict) -> str:
     """The tag an ignore/run is keyed on: the new tag, or the current tag for a digest update (server_updates
     imports it from here)."""
@@ -303,7 +319,8 @@ def _requested_text(run, row, now: datetime) -> str | None:
 
 
 def split_updates(rows, ignores=None, requested=None, now: datetime | None = None) -> tuple[list, list]:
-    """(shown, ignored) pending update rows; shown rows gain `requested_text`."""
+    """(shown, ignored) pending update rows; shown rows gain `requested_text` and `hold` / `hold_text`
+    (`update_hold`: no Update now when set)."""
     ignores, requested = ignores or set(), requested or {}
     now = now or datetime.now(timezone.utc)
     shown, ignored = [], []
@@ -311,7 +328,9 @@ def split_updates(rows, ignores=None, requested=None, now: datetime | None = Non
         if (c.get("name"), key_tag(c)) in ignores:
             ignored.append(c)
         else:
-            shown.append({**c, "requested_text": _requested_text(requested.get(c.get("name")), c, now)})
+            hold = update_hold(c.get("name"))
+            shown.append({**c, "requested_text": _requested_text(requested.get(c.get("name")), c, now),
+                          "hold": hold, "hold_text": HOLD_TEXT.get(hold)})
     return shown, ignored
 
 

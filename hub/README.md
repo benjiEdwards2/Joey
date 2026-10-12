@@ -20,7 +20,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
 | `images.py` | `GET /img/{ref}` poster proxy with a 30-day disk cache and generated fallback cards |
-| `server.py`, `server_updates.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Ignore (live What's Up Docker call); Discord push of new Attention items; 24 h health history |
+| `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Restart + update media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
 | `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
@@ -61,6 +61,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/resume/{jf_id}/{watched,unwatched,reset,hide}` | media_resume | Move on from Continue watching |
 | `GET/POST /server/updates/{name}/run`, `POST .../ignore`, `.../unignore` | server_updates | Update now (GET = confirm page), Ignore |
 | `GET/POST /server/updates/all/run` | server_updates | Update all: every eligible pending row in turn, gluetun first (GET `?step=confirm` = the list) |
+| `GET/POST /server/stack/run` | server_stack | Restart + update media stack through stackctl (GET `?step=confirm` = what happens) |
 | `GET /img/{ref:path}` | images | Poster / backdrop / cast proxy, sizes 120 / 240 / 400 / 600 / 1280 |
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
 | `/static/*` | StaticFiles | `?v=` content hash: `immutable` for a year; un-versioned: one hour |
@@ -79,6 +80,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER` | unset | Live item reads, play recorder, her profile |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |
 | `WUD_URL`, `WUD_USER`, `WUD_PASS`, `SERVER_DISCORD_WEBHOOK` | unset | Update now / Ignore; Attention push |
+| `STACKCTL_URL`, `STACKCTL_TOKEN` | unset | Restart + update media stack and its status line (`stackctl/NAS_INSTALL.md`); unset = button hidden, "Not connected" |
 | `MEDIA_BACKUP`, `PLAY_RECORDER`, `MEDIA_WARMUP`, `MEDIA_FOLLOW`, `MEDIA_AWARDS` | on | `off` stops that background job (`MEDIA_WARMUP=shelves` keeps only the shelf pass) |
 | `PLAY_POLL_SECONDS`, `AWARDS_CONTACT` | 60, unset | Recorder poll; awards sync makes no call without a contact |
 

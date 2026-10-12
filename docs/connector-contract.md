@@ -98,6 +98,15 @@ no call; it updates on the next Joey deploy (`hub.server.update_hold`, one `JOEY
 (gluetun first), for every pending, non-ignored row that `refusal()` passes — never wud or `joey-*` — recording a
 `server_update_runs` row each; a WUD that doesn't answer ends the run. Flash "N requested · M refused".
 
+**Eighteenth exception (2026-10-12): Server → Restart + update media stack (`hub/server_stack.py`).** A live WRITE to
+the `stackctl` helper (`stackctl/`, runs in the media-server compose on the NAS with the Docker socket). `GET
+/server/stack/run?step=confirm` says exactly what happens (pull + recreate every media-server container except WUD and
+stackctl; manual-only apps update too; pinned tags stay; playback and downloads drop for minutes; Joey untouched); the
+`same_origin` POST calls `POST {STACKCTL_URL}/media/pull-up` (`Authorization: Bearer STACKCTL_TOKEN`, 10 s) and redirects
+with a flash word (started / busy / refused / unreachable). The `/server` render reads `GET {STACKCTL_URL}/status` (2 s)
+for one status line. Server-side only; the token never reaches a page, redirect or log; failures log the HTTP status or
+exception type only. Env unset ⇒ no call, no button, "Not connected".
+
 **Eleventh exception (2026-10-06): Server → Discord push (`hub/server_alerts.py`, WP-U2).** An outbound live call: when
 `SERVER_DISCORD_WEBHOOK` is set, each NEW `/server` Attention item is POSTed once to that Discord webhook as plain text
 ("Joey Server: <item>", max 5 per cycle, 10 s timeout), after a `/server` render and on a 5-minute hub loop. Keys live in

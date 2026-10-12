@@ -21,13 +21,14 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 | `tests/connectors/` | Envelope and per-feed schemas, fixture tests per connector, the sample snapshots, the contract doc |
 | `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script and cloudflared checks |
 | `tests/money/` | The money pre-commit guard only (the money importer was never built) |
+| `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
 
 `tests/hub/` by theme (file prefixes):
 
 - **Shell and look:** `test_hub_shell`, `test_hub_core`, `test_shell`, `test_hub_page`, `test_area_pages` (top bar, tab bar, hub tiles, area pages; formerly `test_apex_*` — the Apex rail and theme-toggle tests are historical, rewritten for the MediaHub shell), `test_style_*`, `test_styling`, `test_pwa`, `test_hidden_areas`, `test_history_*`, `test_routes`.
 - **Registry, identity, owners:** `test_registry`, `test_identity`, `test_owner_filter`, `test_store`, `test_tiles`, `test_images`.
 - **Hub, Next 7 days, weather:** `test_upcoming` (hub/upcoming.py), `test_weather*`, `test_hub_hero`.
-- **Server area:** `test_server*` (bands, cards, counts, history, alerts, Update now / Ignore, not-configured states).
+- **Server area:** `test_server*` (bands, cards, counts, history, alerts, Update now / Update all / Ignore, Restart + update media stack, not-configured states).
 - **Media app:** `test_media*` — feature-named files, not build-round names: shelves (`test_media_shelves`), library and list pages (`test_media_library_pages`, `test_media_list_posters`, `test_media_to_rate_pages`), nav and phone fit (`test_media_nav`, `test_media_phone_nav`, `test_media_frame`), film / item / person pages (`test_media_film`, `test_media_film_scores`, `test_media_item`, `test_media_person`), episodes (`test_media_episodes`, `test_media_episode_watch_state`), Discover (`test_media_discover`, `test_media_discover_search_now`), Follow, requests, watchlist, rate and diary, play recorder, backup, warm-up; plus `test_film_quality`.
 - **Awards:** `test_awards_*` (recorded Wikidata / Wikipedia answers in `tests/hub/fixtures/awards/`, stored gzipped; parsers, store, sync, pages, UI).
 

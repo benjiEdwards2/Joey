@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Restart + update media stack · Joey{% endblock %}
+{% block content %}
+{# Server → Restart + update media stack (2026-10-12): the confirm step, or the reason it can't run. Plain form POST
+   behind the same-origin guard; no JS. The hub calls stackctl server-side; no token or URL reaches this page. #}
+<section class="sec narrow" id="stack-confirm" aria-label="Restart + update media stack">
+  <div class="sechead"><h1 class="seclabel">Restart + update media stack</h1></div>
+  {% for line in lines %}<p class="metaline{{ ' st-warn' if loop.index in (2, 4) }}">{{ line }}</p>{% endfor %}
+  <p class="metaline">Media stack<span class="sep"> · </span>{{ st.text }}</p>
+  {% if msg %}
+  <p class="metaline">{{ msg }}</p>
+  <div class="confirm-btns"><a class="btn btn-secondary" href="/server#updates">Back to Server</a></div>
+  {% else %}
+  <form method="post" action="/server/stack/run" class="confirm-btns">
+    <button class="btn btn-primary" type="submit">Restart + update now</button>
+    <a class="btn btn-ghost" href="/server#updates">Cancel</a>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

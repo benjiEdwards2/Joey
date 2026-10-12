@@ -23,7 +23,7 @@ from hub.media_write import router as media_write_router
 from hub import media_arr_search, media_follow, media_requests, media_resume
 from hub import media_awards_pages
 from hub import server as server_area
-from hub import server_alerts, server_history, server_updates
+from hub import server_alerts, server_history, server_stack, server_updates
 from hub.media_watchlist import router as media_watchlist_router
 from hub import media_home, media_pages, shell, tasks, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
@@ -86,7 +86,7 @@ app.add_middleware(Compress)
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
 # the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash. Derived
 # from the Media modules' registry (media_write.flash_keys, M-17) plus the Server page's own (server_updates).
-SERVER_FLASH_PARAMS = ("flash", "c", "code", "n", "m", "u")   # n / m / u: Update all's counts
+SERVER_FLASH_PARAMS = ("flash", "c", "code", "n", "m", "u", "stack")   # n / m / u: Update all; stack: stackctl
 FLASH_PARAMS = tuple(dict.fromkeys([*_media_write.FLASH_KEYS, *SERVER_FLASH_PARAMS]))
 templates.env.globals["flash_params"] = FLASH_PARAMS
 
@@ -103,6 +103,7 @@ app.include_router(media_requests.router)
 app.include_router(media_resume.router)
 app.include_router(media_arr_search.router)   # media-ux5: Search now
 app.include_router(server_updates.router)
+app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
 app.include_router(weather.router)
 app.include_router(media_pages.router)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
@@ -202,7 +203,8 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = shell.render_page(request, "server.html", {
         "area": area, "sv": sv,
-        "flash": server_updates.flash_text(request.query_params),
+        "flash": server_updates.flash_text(request.query_params) or server_stack.flash_text(request.query_params),
+        "stack": server_stack.status(),   # 2026-10-12: stackctl's last run (2 s cap; no env = no call)
     }, active_id=area.id)
     resp.background = after
     return shell._maybe_set_cookie(resp, view, from_query)

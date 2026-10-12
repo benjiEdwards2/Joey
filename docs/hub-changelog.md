@@ -683,3 +683,19 @@ VPN namespace), and redirects with "N requested · M refused" (flash params `n` 
 bar like the others). Decision: a WUD that doesn't answer ends the run (" · WUD unreachable"; the rows not tried count
 as refused) rather than timing out 10 s per remaining row. The "all" routes are declared before the per-row ones, so
 a container literally named `all` could not be updated singly (none exists).
+
+## 2026-10-12 — Server: Restart + update media stack (stackctl)
+**Server → Restart + update media stack (2026-10-12).** WUD can't pull and restart the whole media-server compose, so a
+new top-level `stackctl/` holds a tiny stdlib-only helper (`stackctl.py`, `python:3.12-alpine` + docker-cli +
+compose, root for the Docker socket) that B. adds to `/volume1/media-server/docker-compose.yml` (`stackctl/NAS_INSTALL.md`):
+`POST /media/pull-up` (202, or 409 while a job runs) lists the compose services, drops `EXCLUDE` (`wud stackctl`),
+then `pull` + `up -d --no-deps`; `GET /status` gives running / times / exit code / last 50 log lines. Bearer token on
+every endpoint (constant-time), no token = no start, the token is masked from output. Hub: `hub/server_stack.py` — a
+"Restart + update media stack" button beside Update all (shown only with `STACKCTL_URL` + `STACKCTL_TOKEN`), a
+"Media stack · …" line under the band head (Updating now · started 3m ago / Last run finished OK · 1h ago / Last run
+failed (exit 1) · … / No run yet / stackctl unreachable / Not connected; `GET /status`, 2 s cap), a confirm page
+(`server_stack.html`) listing exactly what happens, and the `same_origin` POST → flash (`?stack=started|busy|refused|
+unreachable`). The flash line now sits under the band head, outside the WUD-connected branch, so stack flashes show
+even with WUD down. Decision: stackctl mounts `/volume1/media-server` at the SAME path (not `/compose`) and defaults
+`COMPOSE_FILE` to it, so compose's relative binds, `.env` and project name (`media-server`) match the host's — a
+`/compose` mount would start a second project. `tests/stackctl/test_stackctl.py`, `tests/hub/test_server_stack.py`.

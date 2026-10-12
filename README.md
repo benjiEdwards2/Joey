@@ -13,6 +13,7 @@ live Media and Server feeds, which refresh every 2 minutes.
 | `connectors/` | Hourly connectors + the FROZEN envelope schema |
 | `deploy/` | Compose, `.env.example`, `deploy.sh` (the only path to production); `deploy/README.md` is the deploy runbook |
 | `config/` | Area registry, sample snapshots |
+| `stackctl/` | NAS helper behind Server → "Restart + update media stack" (pull + recreate the media-server compose); runs in the media stack, not Joey's — `stackctl/NAS_INSTALL.md` |
 | `scripts/` | Dev and maintenance tools: icons, awards sync CLI, profiling, the money pre-commit guard and hooks |
 | `docs/` | Setup, connector contract, style guide, hub changelog, Server-updates live check; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
 | `tests/` | Cumulative pytest suite — append-only, grows with every WP; test-only deps in `requirements-dev.txt` |
@@ -38,7 +39,7 @@ named "Joey Media"); Android Chrome: ⋮ menu → Install app / Add to Home scre
 Activity and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.
 
 **Server** (2026-10-06, the last section) replaces the NAS "Homepage" dashboard natively (Homepage retired 2026-10-09, decision 9): `/server` (and `/a/server`)
-shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (cards grouped Media / Downloads / System), Updates (What's Up Docker), Attention and Counts.
+shows System (CPU, RAM, volumes, uptime), Last 24 h sparklines, Services (cards grouped Media / Downloads / System), Updates (What's Up Docker: Update now, Update all, and Restart + update media stack through `stackctl/`), Attention and Counts.
 Feeds `media_status`, `system`, `uptime_kuma`, `wud` (+ `jellyseerr`/`qbittorrent`/`arr` counts); see `hub/README.md`.
 
 Planning source of truth: `Desktop\Claude\LifeDashboard\{DECISIONS.md, MASTER_PLAN.md}` (not in this repo).

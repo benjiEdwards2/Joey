@@ -73,8 +73,10 @@ def test_the_four_pages_render_on_recipes_without_accent_or_literal_colours(site
 def test_server_bands_use_the_stats_strip_and_status_words(site):  # noqa: F811
     _, body = site("/server")
     assert body.count('class="stats"') == 1 and 'class="bar"' in body
-    assert '<span class="st-down">Down</span>' in body and '<span class="st-up">Up</span>' in body
-    assert 'class="row is-down"' in body and 'class="panel panel-warn"' in body   # something to do = amber panel
+    # 2026-10-12: the Monitors band (plain st-down / st-up words, tinted rows) is gone; the Services cards carry them
+    dot = '<span class="svc-dot" aria-hidden="true"></span>'
+    assert f'<span class="st-down">{dot}Down</span>' in body and f'<span class="st-up">{dot}Up</span>' in body
+    assert 'class="svc-card is-down"' in body and 'class="panel panel-warn"' in body   # something to do = amber panel
     assert 'id="history"' in body and "spark-band" in body
 
 

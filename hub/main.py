@@ -86,7 +86,7 @@ app.add_middleware(Compress)
 # Query params that only carry a one-off flash line after a POST's 303 (2026-10-08). base.html strips them from
 # the address bar after render (history.replaceState), so Back / Forward / reload never re-show the flash. Derived
 # from the Media modules' registry (media_write.flash_keys, M-17) plus the Server page's own (server_updates).
-SERVER_FLASH_PARAMS = ("flash", "c", "code")
+SERVER_FLASH_PARAMS = ("flash", "c", "code", "n", "m", "u")   # n / m / u: Update all's counts
 FLASH_PARAMS = tuple(dict.fromkeys([*_media_write.FLASH_KEYS, *SERVER_FLASH_PARAMS]))
 templates.env.globals["flash_params"] = FLASH_PARAMS
 

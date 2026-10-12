@@ -670,3 +670,16 @@ joey-macromates, any `joey-` name) has no Update now: it reads "Updates on next 
 `POST /server/updates/{name}/run` refuses it (409, no WUD call). One rule in `hub/server.py` (`WUD_SELF`, `JOEY_PREFIX`,
 `update_hold`, `HOLD_TEXT`); `split_updates` gives every shown row `hold` / `hold_text`, which the band and
 `server_updates.refusal` both read (the `wud` row's "Update WUD by hand" moved onto the same rule).
+
+## 2026-10-12 — Server: Update all
+**Server → Update all (2026-10-12).** An "Update all" button at the top of the Updates band whenever at least one
+pending, non-ignored row may run (`updates.n_eligible`: no `hold`). `GET /server/updates/all/run?step=confirm`
+(`server_update_all.html`) lists every row that will run — current → new tag, the WUD trigger
+(`dockercompose.local` / `dockercompose.manual`) and that row's warnings — then "Not included" with the reason (wud:
+"Update WUD by hand.", joey-*: "Updates on next Joey deploy.", ignored rows: "Ignored."). The `same_origin` POST
+re-reads the snapshot (`server_updates.plan_all`) and calls each row's trigger in turn through `run_trigger` /
+`trigger_name` / `record_run`, gluetun first when pending (qBittorrent and Prowlarr then come back up inside the new
+VPN namespace), and redirects with "N requested · M refused" (flash params `n` / `m` / `u`, stripped from the address
+bar like the others). Decision: a WUD that doesn't answer ends the run (" · WUD unreachable"; the rows not tried count
+as refused) rather than timing out 10 s per remaining row. The "all" routes are declared before the per-row ones, so
+a container literally named `all` could not be updated singly (none exists).

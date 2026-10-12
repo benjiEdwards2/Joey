@@ -15,6 +15,11 @@ The `wud` container itself is always refused: B. updates WUD by hand. So is any 
 they update on the next Joey deploy (`hub.server.update_hold`, one name rule).
 
 Two-step like the Jellyseerr Request: GET `?step=confirm` -> POST behind `same_origin`.
+
+Update all (2026-10-12): `/server/updates/all/run` — the same two steps over every pending,
+non-ignored row `refusal()` lets through (wud / joey-* listed apart with the reason), gluetun
+first, each through the per-row trigger + `record_run`. A WUD that doesn't answer ends the run
+(no point timing out once per row); the flash counts "N requested · M refused".
 Failures log and record status/type only — never the URL or login — and degrade to words.
 
 media.db tables (own `ensure()`, the shared SCHEMA in media_db is untouched):
@@ -39,7 +44,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from hub import media_db, shell
 from hub.media_write import same_origin
 from hub.server import (HOLD_TEXT, SERVER_LAYOUT, WUD_SELF, WUD_SNAPSHOT_ID, key_tag,  # one definition (H-24)
-                        update_hold)
+                        split_updates, update_hold)
 
 log = logging.getLogger("hub.server_updates")
 router = APIRouter()
@@ -180,11 +185,14 @@ def run_trigger(container_id: str, trigger_name: str = TRIGGER_NAME) -> tuple[st
 
 # ---- routes ----
 
-def _pending_row(name: str) -> dict | None:
+def _pending_rows() -> list[dict]:
     snap = shell.get_snapshots().get(WUD_SNAPSHOT_ID)
     rows = ((snap.data or {}).get("containers") or []) if snap else []
-    return next((c for c in rows if isinstance(c, dict) and c.get("name") == name
-                 and c.get("update_available")), None)
+    return [c for c in rows if isinstance(c, dict) and c.get("update_available")]
+
+
+def _pending_row(name: str) -> dict | None:
+    return next((c for c in _pending_rows() if c.get("name") == name), None)
 
 
 def refusal(row: dict | None, name: str) -> str | None:
@@ -223,12 +231,28 @@ def warnings(row: dict | None, name: str) -> list[str]:
     return out
 
 
-def _page(request: Request, ctx: dict, status: int = 200):
+def plan_all() -> tuple[list[dict], list[dict]]:
+    """Update all: (rows to run, in order — gluetun first, then the band's order — each with its `trigger` and
+    `warnings`; rows left out as {name, why}: wud / joey-* / no id, then the ignored ones)."""
+    shown, ignored = split_updates(_pending_rows(), get_ignores())
+    run, skip = [], []
+    for row in shown:
+        name = str(row.get("name") or "")
+        why = refusal(row, name)
+        if why:
+            skip.append({"name": name, "why": why})
+        else:
+            run.append({**row, "trigger": f"{TRIGGER_TYPE}.{trigger_name(row)}", "warnings": warnings(row, name)})
+    run.sort(key=lambda r: r.get("name") != VPN_NAME)   # stable: gluetun first, the rest keep their order
+    return run, skip + [{"name": str(c.get("name") or "?"), "why": "Ignored."} for c in ignored]
+
+
+def _page(request: Request, ctx: dict, status: int = 200, template: str = "server_update.html"):
     area = next((a for a in shell.registry.areas if a.layout == SERVER_LAYOUT), None)
     if area is None:
         return shell.not_found_page(request)
     # the shared shell env (hub/shell.py) carries every global (identity, static_v, ...)
-    return shell.render_page(request, "server_update.html", {
+    return shell.render_page(request, template, {
         "area": area, "confirm_text": CONFIRM_TEXT, **ctx}, active_id=area.id, status=status)
 
 
@@ -238,6 +262,40 @@ def _name(name: str) -> str | None:
 
 def _back(**flash) -> RedirectResponse:
     return RedirectResponse("/server?" + urlencode(flash) + "#updates", status_code=303)
+
+
+# Update all: declared before the per-row routes so "all" never reaches /server/updates/{name}/run.
+def _all_msg(run: list) -> str | None:
+    if _creds() is None:
+        return "WUD is not configured on the hub (WUD_URL, WUD_USER, WUD_PASS)."
+    return None if run else "Nothing to update — no pending row can run from here."
+
+
+@router.get("/server/updates/all/run", response_class=HTMLResponse)
+def run_all_step(request: Request, step: str = ""):
+    if step != "confirm":
+        return RedirectResponse("/server#updates", status_code=303)
+    run, skip = plan_all()
+    return _page(request, {"rows": run, "skipped": skip, "msg": _all_msg(run)}, template="server_update_all.html")
+
+
+@router.post("/server/updates/all/run", dependencies=[Depends(same_origin)])
+def run_all(request: Request):
+    run, skip = plan_all()
+    why = _all_msg(run)
+    if why:
+        return _page(request, {"rows": run, "skipped": skip, "msg": why}, 409, template="server_update_all.html")
+    done = 0
+    for i, row in enumerate(run):
+        outcome, note = run_trigger(str(row["id"]), trigger_name(row))
+        try:
+            record_run(str(row["name"]), key_tag(row), outcome, note)
+        except (sqlite3.Error, OSError) as exc:
+            log.warning("server update run not recorded: %s", type(exc).__name__)
+        done += outcome == "requested"
+        if outcome == "unreachable":          # WUD is down: don't time out once per remaining row
+            return _back(flash="all", n=done, m=len(run) - done, u=1)
+    return _back(flash="all", n=done, m=len(run) - done)
 
 
 @router.get("/server/updates/{name}/run", response_class=HTMLResponse)
@@ -314,4 +372,7 @@ def flash_text(params) -> str | None:
         return f"{name} is back in Updates"
     if kind == "dberror":
         return "Couldn't save that — try again"
+    n, m = params.get("n") or "", params.get("m") or ""
+    if kind == "all" and n.isdigit() and m.isdigit():
+        return f"{int(n)} requested · {int(m)} refused" + (" · WUD unreachable" if params.get("u") == "1" else "")
     return None

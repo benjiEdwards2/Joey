@@ -93,7 +93,10 @@ Amended 2026-10-12: rows with `auto` not true (the notify-only containers) now c
 `triggers/dockercompose/manual` instead of being refused — set on the NAS with `WUD_TRIGGER_DOCKERCOMPOSE_MANUAL_AUTO=false`,
 so WUD only runs it on request. The `wud` container itself is always refused (updated by hand). Amended 2026-10-12: any
 `joey-*` container (Joey's own, not in the media-server compose the WUD triggers manage) is refused too — no button, 409,
-no call; it updates on the next Joey deploy (`hub.server.update_hold`, one `JOEY_PREFIX` rule).
+no call; it updates on the next Joey deploy (`hub.server.update_hold`, one `JOEY_PREFIX` rule). Amended 2026-10-12:
+**Update all** (`GET /server/updates/all/run?step=confirm` → `same_origin` POST) makes the same per-row call, in turn
+(gluetun first), for every pending, non-ignored row that `refusal()` passes — never wud or `joey-*` — recording a
+`server_update_runs` row each; a WUD that doesn't answer ends the run. Flash "N requested · M refused".
 
 **Eleventh exception (2026-10-06): Server → Discord push (`hub/server_alerts.py`, WP-U2).** An outbound live call: when
 `SERVER_DISCORD_WEBHOOK` is set, each NEW `/server` Attention item is POSTed once to that Discord webhook as plain text

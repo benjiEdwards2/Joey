@@ -551,6 +551,7 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     updates["pending"], updates["ignored"] = split_updates(
         [c for c in ud.get("containers") or [] if isinstance(c, dict) and c.get("update_available")],
         ignores, requested)
+    updates["n_eligible"] = sum(1 for c in updates["pending"] if not c["hold"])   # Update all is shown from 1
 
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)

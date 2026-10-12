@@ -141,6 +141,8 @@
     {% if up.st.note %}<p class="metaline">{{ up.st.note }}</p>{% endif %}
   {% else %}
     {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
+    {# Update all (2026-10-12): every pending, non-ignored row that may run (no wud / joey-*); its own confirm page. #}
+    {% if up.n_eligible %}<div class="confirm-btns"><a class="btn btn-primary btn-sm" href="/server/updates/all/run?step=confirm">Update all</a></div>{% endif %}
     {% set n_up = up.pending | length %}
     <p class="metaline">{{ up.data.get("monitoring", 0) }} monitored<span class="sep"> · </span>{{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %}<span class="sep"> · </span>{{ up.ignored | length }} ignored{% endif %}<span class="sep"> · </span>{{ updated(up.st) }}</p>
     {# WP-U1: Update now on every row; rows excluded from WUD's dockercompose.local trigger (`auto` false) run the

@@ -299,3 +299,90 @@ def test_updates_band_without_a_wud_snapshot_still_renders(env, tmp_path):
         p = client.post("/server/updates/vaultwarden/run", follow_redirects=False)
     assert r.status_code == 200 and "Not connected" in band(r.text)
     assert p.status_code == 409 and env.calls == []
+
+
+# ---- Update all (2026-10-12) ----
+
+def _all_pending():
+    """uptime-kuma (manual) + vaultwarden (auto) from the sample, plus gluetun, qbittorrent (to be ignored), wud and
+    joey-cloudflared pending."""
+    wud = _with("gluetun", new_tag="v3.41.0")
+    for c in wud["containers"]:
+        if c["name"] in ("qbittorrent", "wud"):
+            c.update(update_available=True, kind="tag", new_tag="9.9.9")
+    return _joey(wud)
+
+
+def test_update_all_button_shows_only_with_an_eligible_row(env):
+    with env() as client:
+        b = band(client.get("/server").text)
+    assert 'href="/server/updates/all/run?step=confirm">Update all<' in b
+    wud = _with("wud", new_tag="8.2.0")
+    for c in wud["containers"]:
+        c["update_available"] = c["name"] == "wud"
+    with env(wud=_joey(wud)) as client:                              # only wud + joey-* pending
+        b = band(client.get("/server").text)
+    assert "Update all" not in b and "Updates on next Joey deploy" in b
+
+
+def test_update_all_confirm_lists_eligible_rows_and_the_left_out_ones(env):
+    with env(wud=_all_pending()) as client:
+        client.post("/server/updates/qbittorrent/ignore")
+        r = client.get("/server/updates/all/run?step=confirm")
+    body = txt(main_of(r.text))
+    assert r.status_code == 200
+    run = body.split("Not included", 1)[0]
+    assert run.index("gluetun") < run.index("uptime-kuma") < run.index("vaultwarden")   # gluetun first
+    assert "v3.41.0" in run and "dockercompose.manual" in run and "dockercompose.local" in run
+    assert "1.23.16 → 2.0.2" in run and "Major version jump (1.23.16 → 2.0.2)" in run
+    assert "qBittorrent and Prowlarr share gluetun" in run.replace("&#39;", "'")
+    left = body.split("Not included", 1)[1]
+    assert "wudUpdate WUD by hand." in left and "joey-cloudflaredUpdates on next Joey deploy." in left
+    assert "qbittorrentIgnored." in left and "qbittorrent" not in run
+    assert 'method="post" action="/server/updates/all/run"' in r.text and "Update 3 containers now" in body
+    assert env.calls == [] and "secret-host" not in r.text
+
+
+def test_update_all_runs_each_eligible_row_with_its_trigger_and_flashes_a_summary(env):
+    env.outcome = Resp(200)
+    with env(wud=_all_pending()) as client:
+        client.post("/server/updates/qbittorrent/ignore")
+        r = client.post("/server/updates/all/run", follow_redirects=False)
+        page = client.get(r.headers["location"]).text
+    assert r.status_code == 303 and r.headers["location"] == "/server?flash=all&n=3&m=0#updates"
+    base = f"{URL}/api/containers/ctr-"
+    assert [c["url"] for c in env.calls] == [f"{base}gluetun/triggers/dockercompose/manual",
+                                             f"{base}uptime-kuma/triggers/dockercompose/manual",
+                                             f"{base}vaultwarden/triggers/dockercompose/local"]
+    assert all(c["auth"] == (USER, PASS) and c["timeout"] == 10 for c in env.calls)
+    assert [r[:3] for r in runs()] == [("gluetun", "v3.41.0", "requested"), ("uptime-kuma", "2.0.2", "requested"),
+                                       ("vaultwarden", "latest", "requested")]
+    assert "3 requested · 0 refused" in band(page)
+
+
+def test_update_all_counts_refusals_and_stops_when_wud_is_unreachable(env):
+    env.outcome = Resp(500)
+    with env() as client:
+        r = client.post("/server/updates/all/run", follow_redirects=False)
+        assert r.headers["location"] == "/server?flash=all&n=0&m=2#updates" and len(env.calls) == 2
+        assert "0 requested · 2 refused" in band(client.get(r.headers["location"]).text)
+        env.calls.clear()
+        env.outcome = requests.ConnectTimeout("x")
+        r = client.post("/server/updates/all/run", follow_redirects=False)
+        assert r.headers["location"] == "/server?flash=all&n=0&m=2&u=1#updates" and len(env.calls) == 1
+        assert "0 requested · 2 refused · WUD unreachable" in band(client.get(r.headers["location"]).text)
+
+
+def test_update_all_refuses_cross_origin_nothing_eligible_and_missing_env(env):
+    with env(wud_env=False) as client:
+        r = client.post("/server/updates/all/run", follow_redirects=False)
+        assert r.status_code == 409 and "WUD is not configured" in main_of(r.text)
+    with env() as client:
+        assert client.post("/server/updates/all/run", headers=EVIL).status_code == 403
+    with env(wud=_joey(_with("wud", new_tag="8.2.0"))) as client:
+        client.post("/server/updates/uptime-kuma/ignore")
+        client.post("/server/updates/vaultwarden/ignore")
+        g = client.get("/server/updates/all/run?step=confirm")
+        p = client.post("/server/updates/all/run", follow_redirects=False)
+    assert "Nothing to update" in main_of(g.text) and 'action="/server/updates/all/run"' not in g.text
+    assert p.status_code == 409 and env.calls == []

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Update all · Joey{% endblock %}
+{% block content %}
+{# Server → Update all (2026-10-12): the confirm step over every row that will run (current → new, the WUD trigger,
+   its warnings), then the rows left out and why. Plain form POST behind the same-origin guard; no JS. #}
+{% from "_rows.html" import meta %}
+<section class="sec narrow" id="update-all-confirm" aria-label="Update all">
+  <div class="sechead"><h1 class="seclabel">Update all</h1></div>
+  {% if rows %}
+  <p class="metaline">These run one after another{% if rows | length > 1 %}, gluetun first when it is pending{% endif %}. Each app is unavailable for about a minute while WUD recreates it.</p>
+  <div class="listbox">
+  {% for r in rows %}
+  <div class="row">
+    <div class="row-body"><div class="row-title">{{ r.name }}</div>{{ meta([r.current_tag ~ ((" → " ~ r.new_tag) if r.new_tag else ""), r.trigger]) }}
+      {% for w in r.warnings %}<p class="metaline st-warn">{{ w }}</p>{% endfor %}</div>
+  </div>
+  {% endfor %}
+  </div>
+  {% endif %}
+  {% if skipped %}
+  <h2 class="seclabel">Not included</h2>
+  <div class="listbox">
+  {% for s in skipped %}
+  <div class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>{{ meta([s.why]) }}</div></div>
+  {% endfor %}
+  </div>
+  {% endif %}
+  {% if msg %}
+  <p class="metaline">{{ msg }}</p>
+  <div class="confirm-btns"><a class="btn btn-secondary" href="/server#updates">Back to Server</a></div>
+  {% else %}
+  <form method="post" action="/server/updates/all/run" class="confirm-btns">
+    <button class="btn btn-primary" type="submit">Update {{ rows | length }} container{{ "" if rows | length == 1 else "s" }} now</button>
+    <a class="btn btn-ghost" href="/server#updates">Cancel</a>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

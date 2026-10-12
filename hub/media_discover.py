@@ -449,7 +449,7 @@ def _seasons(data: dict, info: dict) -> list[dict]:
                     "code": code, "status_word": status_word(code)})
     out.sort(key=lambda s: (s["number"] == 0, s["number"]))  # Specials last
     for s in out:
-        s["ticked"] = s["number"] != 0 and s["code"] not in (5, 3, 2)
+        s["ticked"] = False  # nothing pre-ticked (2026-10-12): the user picks seasons or ticks "All seasons + future"
         s["disabled"] = s["code"] == 5
     return out
 
@@ -550,15 +550,17 @@ def season_episodes(request: Request, tmdb_id: int, n: int):
 
 
 async def _seasons_of(request: Request) -> list[int] | str:
-    """The ticked season numbers, or "all" when "All seasons + future" is ticked (media-ux5: it wins over any ticks)."""
+    """The ticked season numbers, or "all" when ONLY "All seasons + future" is ticked (media-ux5; 2026-10-12: specific
+    season ticks win over "all" when both arrive, so one Season tick never requests the whole show)."""
     body = await request.body()
     if len(body) > MAX_BODY:
         raise bad("Too large")
     values = parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True).get("seasons", [])
-    if "all" in values:
+    specific = [v for v in values if v != "all"]
+    if "all" in values and not specific:
         return "all"
     try:
-        nums = sorted({int(v) for v in values})
+        nums = sorted({int(v) for v in specific})
     except ValueError:
         raise bad("Pick at least one season") from None
     if not nums or nums[0] < 1 or len(nums) > 100:

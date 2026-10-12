@@ -243,7 +243,7 @@ def test_tv_title_page_seasons_and_confirm(env):
     tags = {chunk.split('"', 1)[0]: chunk.split(">", 1)[0] for chunk in confirm.split('name="seasons" value="')[1:]}
     assert " disabled" in tags["1"] and " checked" not in tags["1"]
     assert " checked" not in tags["2"] and " checked" not in tags["3"]
-    assert " checked" in tags["4"] and " disabled" not in tags["4"]
+    assert " checked" not in tags["4"] and " disabled" not in tags["4"]   # nothing pre-ticked
     assert " checked" not in tags["0"]
     assert confirm.index('value="4"') < confirm.index('value="0"')
     assert "Confirm request" in confirm and "Cancel" in confirm and 'hx-post="/media/title/tv/100/request"' in confirm

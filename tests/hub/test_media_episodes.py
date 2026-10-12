@@ -265,14 +265,31 @@ def seerr_posts(fake):
     return [j for u, j, _ in fake.posts if u.endswith("/api/v1/request")]
 
 
-def test_confirm_step_offers_all_seasons_plus_future_ticked_first(tv_env):
+def test_confirm_step_offers_all_seasons_plus_future_unticked_first(tv_env):
     client, _, son, _ = tv_env()
     with client:
         confirm = client.get("/media/title/tv/100/request?step=confirm", headers=HX).text
-    tag = '<label class="seasonall"><input type="checkbox" name="seasons" value="all" checked> All seasons + future'
+    tag = '<label class="seasonall"><input type="checkbox" name="seasons" value="all"> All seasons + future'
     assert tag in confirm
     assert confirm.index('value="all"') < confirm.index('<div class="seasonpick">') < confirm.index('value="4"')
+    assert 'value="all" checked' not in confirm and "checked" not in confirm.split('<div class="seasonpick">')[1]
+    assert "onchange=" in confirm
     assert son.calls == []
+
+
+def test_all_plus_specific_season_prefers_the_specific_season(tv_env):
+    client, fake, son, _ = tv_env()
+    with client:
+        client.post("/media/title/tv/100/request", content="seasons=all&seasons=3", headers={**HX, **FORM})
+    assert seerr_posts(fake) == [{"mediaType": "tv", "mediaId": 100, "seasons": [3]}]
+    assert [c for c in son.calls if c[0] == "PUT"] == []
+
+
+def test_only_all_still_means_all(tv_env):
+    client, fake, _, _ = tv_env()
+    with client:
+        client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
+    assert seerr_posts(fake) == [{"mediaType": "tv", "mediaId": 100, "seasons": "all"}]
 
 
 def test_movie_confirm_has_no_all_seasons(tv_env):
@@ -285,7 +302,7 @@ def test_movie_confirm_has_no_all_seasons(tv_env):
 def test_all_seasons_requests_all_then_sonarr_follows_and_searches(tv_env):
     client, fake, son, sleeps = tv_env()
     with client:
-        r = client.post("/media/title/tv/100/request", content="seasons=all&seasons=4", headers={**HX, **FORM})
+        r = client.post("/media/title/tv/100/request", content="seasons=all", headers={**HX, **FORM})
     assert seerr_posts(fake) == [{"mediaType": "tv", "mediaId": 100, "seasons": "all"}]
     gets = [c for c in son.calls if c[0] == "GET"]
     assert gets == [("GET", f"{SONARR}/api/v3/series", None, None)]          # matched on tmdbId in the full list

@@ -11,12 +11,13 @@
   <p class="statusline st-warn">{{ msg }}</p>
   <a class="btn btn-secondary" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Try again</a>
 {% elif state == "confirm" %}
-  <form class="confirm" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#request-block" hx-swap="outerHTML">
+  <form class="confirm" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#request-block" hx-swap="outerHTML"{% if t.kind == "tv" %} onchange="var a=this.querySelector('input[value=all]'),t=event.target;if(t===a){if(a.checked)this.querySelectorAll('.seasonpick input').forEach(function(i){i.checked=false})}else if(t.checked){a.checked=false}"{% endif %}>
     {% if t.kind == "tv" %}
     <div>Request which seasons of {{ t.title }}?</div>
-    {# media-ux5 (2026-10-09): "All seasons + future" (default) requests every season and has Sonarr follow new ones; it
-       wins over the ticks below. Untick it to request just the ticked seasons (today's behaviour). #}
-    <label class="seasonall"><input type="checkbox" name="seasons" value="all" checked> All seasons + future <span class="metaline">every season, and new ones as they air</span></label>
+    {# media-ux5 (2026-10-09): "All seasons + future" requests every season and has Sonarr follow new ones. Unticked by
+       default (2026-10-12: a default-on box swamped a single Season tick); ticking a season unticks it and vice versa
+       (form onchange, works on htmx-swapped content). If both still arrive, the server prefers the specific seasons. #}
+    <label class="seasonall"><input type="checkbox" name="seasons" value="all"> All seasons + future <span class="metaline">every season, and new ones as they air</span></label>
     <div class="seasonpick">
       {% for s in t.seasons %}
       <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " checked" if s.ticked }}{{ " disabled" if s.disabled }}>

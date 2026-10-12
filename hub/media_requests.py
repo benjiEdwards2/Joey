@@ -40,9 +40,9 @@ DONE = {"removed": "Removed",
         "arrfail": "Removed · couldn't stop the {app} search",
         "arrunset": "Removed · {app} not connected, its search carries on"}
 ERRORS = {"missing": "That request is no longer listed",
-          "unset": "Jellyseerr is not connected",
-          "unreachable": "Couldn't reach Jellyseerr",
-          "refused": "Jellyseerr refused"}
+          "unset": "Seerr is not connected",
+          "unreachable": "Couldn't reach Seerr",
+          "refused": "Seerr refused"}
 COUNT_OF = {"Pending": "pending", "Approved": "approved", "Processing": "approved", "Partly available": "approved",
             "Available": "available", "Declined": "declined"}
 

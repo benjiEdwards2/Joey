@@ -54,7 +54,7 @@ def test_one_card_per_app_with_logo_subtitle_word_and_grouping(env):
     order = [svc.index(f'<h2 class="seclabel">{h}</h2>') for h in ("Media", "Downloads", "System")]
     assert order == sorted(order)
     media = svc.split('<h2 class="seclabel">Media</h2>', 1)[1].split("</section>", 1)[0]
-    assert ">Jellyfin<" in media and ">Jellyseerr<" in media and ">Radarr<" not in media
+    assert ">Jellyfin<" in media and ">Seerr<" in media and ">Radarr<" not in media
 
 
 def test_kuma_response_ms_when_a_monitor_name_matches(env):
@@ -62,6 +62,7 @@ def test_kuma_response_ms_when_a_monitor_name_matches(env):
         body = main_of(client.get("/server").text)
     assert '<span class="svc-note">38 ms</span>' in card(body, "Jellyfin")
     assert '<span class="svc-note">27 ms</span>' in card(body, "Radarr")
+    assert '<span class="svc-note">51 ms</span>' in card(body, "Seerr")          # Kuma still says "Jellyseerr": id match
     assert " ms</span>" not in card(body, "Portainer")             # no matching monitor
 
 

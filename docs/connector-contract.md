@@ -68,7 +68,7 @@ all cached 10 minutes per path (a failed fetch is not cached), are Jellyfin item
 the sixth exception's file strip) and Jellyseerr title (`/api/v1/{movie|tv}/{tmdb}`), `ratingscombined` (else `ratings`),
 `similar`, `recommendations` and `collection/{id}`. Jellyseerr shares `media_discover`'s cache, so its `clear_cache()` (run
 on Request) clears these too. Every call degrades per section to words, never a 500; Jellyseerr not connected makes none.
-Logs carry exception types only; the page carries no key or upstream URL beyond the Play deep link and "Open in Jellyseerr".
+Logs carry exception types only; the page carries no key or upstream URL beyond the Play deep link and "Open in Seerr".
 *Caching update (media-speed, 2026-10-07):* the 10-minute rule above still holds for everything carrying request /
 availability state, and a 404 answer is now cached for that time too (network failures still are not). Ratings
 (`ratingscombined` for films only — TV asks `ratings` alone), the person biography (`person/{id}`) and a season's episode

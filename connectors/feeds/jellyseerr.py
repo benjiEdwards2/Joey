@@ -56,7 +56,7 @@ class Jellyseerr(Connector):
         headers = {"X-Api-Key": os.environ["JELLYSEERR_API_KEY"]}
 
         def get(label: str, path: str, params: dict | None = None):
-            return http_json(f"Jellyseerr {label}", base + path, headers=headers, params=params, session=client)
+            return http_json(f"Seerr {label}", base + path, headers=headers, params=params, session=client)
 
         raw_count = get("count", "/api/v1/request/count")
         raw_requests = get("requests", "/api/v1/request",

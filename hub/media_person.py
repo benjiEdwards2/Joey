@@ -23,7 +23,7 @@ router = APIRouter()
 CREDITS_MAX, BIO_MAX, BIO_LEAD = 200, 1200, 400
 SHOW_FIRST = 24   # Follow (2026-10-07): a grid shows this many, "Show more" folds the rest
 ID_RE = re.compile(r"^[1-9][0-9]{0,9}$")
-DOWN_TEXT = "Couldn't reach Jellyseerr — nothing to show for this person yet"
+DOWN_TEXT = "Couldn't reach Seerr — nothing to show for this person yet"
 
 
 def _bio(text) -> dict | None:

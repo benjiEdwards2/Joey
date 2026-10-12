@@ -38,7 +38,7 @@ phone opens is built from it.
 | `PROWLARR_URL` | `http://gluetun:9696` | Same as qBittorrent. |
 | `JELLYSEERR_URL` | `http://jellyseerr:5055`, **but hold for now** | See below. |
 
-**Hold `JELLYSEERR_URL`.** It also builds two links people click: the "Open in Jellyseerr"
+**Hold `JELLYSEERR_URL`.** It also builds two links people click: the "Open in Seerr"
 button on a film page (`hub/media_discover.py`, `jellyseerr_href`) and each request row's
 `href` in the `jellyseerr` snapshot. With a service name, those links stop working from a
 browser. Keep it on the LAN IP until the link base is split from the API base. That is a

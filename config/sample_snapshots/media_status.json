@@ -30,7 +30,7 @@
       {
         "href": "http://nas.local:5055",
         "id": "jellyseerr",
-        "name": "Jellyseerr",
+        "name": "Seerr",
         "note": null,
         "status_text": "Up",
         "up": true

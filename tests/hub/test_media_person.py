@@ -94,7 +94,7 @@ def test_upstream_failure_words_page_still_200(env):
     both.fail_seerr = True
     with client:
         r = client.get("/media/person/55")
-    assert r.status_code == 200 and "Couldn't reach Jellyseerr — nothing to show for this person yet" in htmllib.unescape(r.text)
+    assert r.status_code == 200 and "Couldn't reach Seerr — nothing to show for this person yet" in htmllib.unescape(r.text)
 
 
 def test_cast_links_on_film_page_point_to_person(env):

@@ -136,7 +136,7 @@ def test_request_button_only_when_not_available(env):
         assert 'id="request-block"' not in client.get("/media/title/movie/603").text
         b = main_of(client.get("/media/title/movie/701").text)
     assert 'id="request-block"' in b and 'hx-get="/media/title/movie/701/request?step=confirm"' in b
-    assert 'aria-label="Open in Jellyseerr"' in b and f'href="{SEERR}/movie/701"' in b
+    assert 'aria-label="Open in Seerr"' in b and f'href="{SEERR}/movie/701"' in b
 
 
 def test_trailer_jellyfin_then_jellyseerr_then_none(env, monkeypatch):
@@ -325,7 +325,7 @@ def test_no_key_or_jellyfin_host_in_html(env):
         for url in ("/media/title/movie/603", "/media/title/movie/701", "/media/title/tv/100", "/media/item/mov1", "/media/item/ep3"):
             html = client.get(url).text
             assert KEY not in html and SKEY not in html and "jf.secret-host" not in html
-            assert html.count("seerr.secret-host") <= 1          # only the one "Open in Jellyseerr" link
+            assert html.count("seerr.secret-host") <= 1          # only the one "Open in Seerr" link
 
 
 def test_cache_hit_and_request_invalidates_title(env):

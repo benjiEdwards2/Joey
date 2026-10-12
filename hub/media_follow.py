@@ -382,7 +382,7 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
                         continue
                     if isinstance(c["status"], int) and c["status"] >= 2:   # requested / available / blocked in Jellyseerr
                         word = md.status_word(c["status"])
-                        _record(db, f["id"], c, "already", word if word != "Not in library" else "In Jellyseerr")
+                        _record(db, f["id"], c, "already", word if word != "Not in library" else "In Seerr")
                         counts["already"] += 1
                         continue
                     if counts["requested"] + counts["failed"] >= cap:
@@ -419,7 +419,7 @@ def run_once(only: int | None = None, cap: int = MAX_PER_RUN) -> dict:
 
 _why = media_text.why
 SONARR_NOTE = {"set": ("Sonarr: monitored, new seasons too", True),
-               "reqfail": ("Not in Sonarr, and Jellyseerr didn't take the request — use Request", False),
+               "reqfail": ("Not in Sonarr, and Seerr didn't take the request — use Request", False),
                "unset": ("Sonarr is not connected — new seasons are not set to follow", False),
                "failed": ("Couldn't set Sonarr to follow new seasons", False),
                "stopped": ("Sonarr: new seasons are no longer added · what you have stays", True),
@@ -512,7 +512,7 @@ FLASH = {"on": "Following — new films are requested automatically", "off": "Un
          "creator": "Following — their new films and shows are requested automatically"}
 flash_keys("follow", "sonarr")
 KIND_WORDS = {"Directing": "Director"}
-NEEDS_SEERR = "Follow needs Jellyseerr"
+NEEDS_SEERR = "Follow needs Seerr"
 EMPTY = "Follow an actor, director, creator, film series or show from their page."
 
 

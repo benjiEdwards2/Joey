@@ -7,7 +7,7 @@ Live reads (Jellyfin and Jellyseerr, server-side only) are cached 10 min per pat
 degrades to a missing section, never a 500. F2 fast pages (2026-10-12): the page renders from Jellyfin + whatever
 Jellyseerr / OMDb answers are already cached; the sections still waiting on an upstream read are placeholders that
 ONE htmx request fills (`.../part/all`, out-of-band swaps) while the read runs in the background. Logs carry exception TYPES only; the page carries no URL or key
-except the Play deep link and the "Open in Jellyseerr" link (as the old title page did).
+except the Play deep link and the "Open in Seerr" link (as the old title page did).
 """
 
 from __future__ import annotations

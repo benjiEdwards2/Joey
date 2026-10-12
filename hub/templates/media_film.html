@@ -73,7 +73,7 @@
           {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
              in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
           {% if film.trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.trailer }}" target="_blank" rel="noopener"{% if film.trailer_key %} data-yt="{{ film.trailer_key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}
-          {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Jellyseerr" title="Open in Jellyseerr">{{ icon("external") }}</a>{% endif %}
+          {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
         </div>
       </div>
     </div>

@@ -18,7 +18,7 @@ MEDIA_APPS = (
     {"id": "jellyfin", "name": "Jellyfin", "port": 8096, "path": "/health"},
     {"id": "radarr", "name": "Radarr", "port": 7878, "path": "/ping"},
     {"id": "sonarr", "name": "Sonarr", "port": 8989, "path": "/ping"},
-    {"id": "jellyseerr", "name": "Jellyseerr", "port": 5055, "path": "/api/v1/status"},
+    {"id": "jellyseerr", "name": "Seerr", "port": 5055, "path": "/api/v1/status"},
     {"id": "prowlarr", "name": "Prowlarr", "port": 9696, "path": "/ping"},
     {"id": "qbittorrent", "name": "qBittorrent", "port": 8080, "path": "/api/v2/app/version"},
     # Gluetun's control server (8000) lives inside its own network namespace and is

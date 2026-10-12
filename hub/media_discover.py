@@ -3,7 +3,7 @@ title pages with per-season status, and a two-step Request that goes THROUGH the
 
 A LIVE call path to Jellyseerr (env JELLYSEERR_URL + JELLYSEERR_API_KEY, header X-Api-Key),
 server-side only. The key and URL never reach the browser (the one outward link is the
-title page's "Open in Jellyseerr", like the existing request rows) and never reach a log
+title page's "Open in Seerr", like the existing request rows) and never reach a log
 or an error: failures log the exception TYPE only and degrade to words, never a 500.
 """
 
@@ -48,7 +48,7 @@ SHELVES = (
     ("tv-soon", "Upcoming TV", "/api/v1/discover/tv/upcoming", "tv"),
 )
 flash_keys("requested", "error", "future")   # the title page after a plain-form Request
-ERRORS = {"exists": "Already requested", "declined": "Jellyseerr declined the request",
+ERRORS = {"exists": "Already requested", "declined": "Seerr declined the request",
           "network": "Couldn't send the request"}
 
 # Long-lived metadata (2026-10-07, media-speed): responses that carry NO user state (ratings, a person's

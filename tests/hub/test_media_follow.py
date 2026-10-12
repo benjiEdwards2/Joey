@@ -217,7 +217,7 @@ def test_no_keys_means_no_calls_and_the_page_says_so(env, monkeypatch):
         media_follow.follow("person", 55, "Ada")
         assert media_follow.run_once().get("skipped_no_keys")
         b = main_of(client.get("/media/following").text)
-    assert "Follow needs Jellyseerr" in b
+    assert "Follow needs Seerr" in b
     assert not [c for c in both.calls if c.startswith(SEERR)] and not both.seerr.posts
 
 

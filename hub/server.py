@@ -245,11 +245,12 @@ def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> 
     """One Services card: the app plus logo (file name or None), subtitle (or None), href (the gated hostname from
     `gated` when one exists, else the snapshot's — kept even when it is a LAN address, with `lan` True so the card
     says "LAN": it opens at home and is dead off the home network, 2026-10-10, reverses H-71) and the
-    Uptime Kuma response ms of the monitor whose name IS the app's name (case-insensitive, H-72), else None."""
+    Uptime Kuma response ms of the monitor whose name IS the app's name or id (case-insensitive, H-72; the id too since
+    the Jellyseerr -> Seerr rename, 2026-10-12, so a Kuma monitor still called "Jellyseerr" keeps matching), else None."""
     aid, name = app.get("id"), str(app.get("name") or app.get("id") or "?")
-    key = name.strip().lower()
+    keys = {name.strip().lower(), str(aid or "").strip().lower()}
     ms = next((m.get("response_ms") for m in monitors
-               if str(m.get("name") or "").strip().lower() == key and m.get("response_ms") is not None), None)
+               if str(m.get("name") or "").strip().lower() in keys and m.get("response_ms") is not None), None)
     href = (gated or {}).get(aid) or app.get("href")
     lan = bool(href) and is_lan(href)
     return {**app, "name": name, "initial": name[:1].upper(), "logo": SERVICE_LOGOS.get(aid),

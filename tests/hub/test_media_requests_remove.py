@@ -270,7 +270,7 @@ def test_jellyseerr_unreachable_is_a_plain_word_and_never_leaks(env, caplog):
         page = client.get(r.headers["location"]).text
     assert r.headers["location"] == "/media/requests?error=unreachable"
     body = main_of(page)
-    assert '<p class="metaline st-warn" role="status">Couldn\'t reach Jellyseerr</p>' in body.replace("&#39;", "'")
+    assert '<p class="metaline st-warn" role="status">Couldn\'t reach Seerr</p>' in body.replace("&#39;", "'")
     assert "Midnight Harbour" in body and fake.of("PUT") == []         # nothing hidden, nothing unmonitored
     for text in (page, caplog.text, r.headers["location"]):
         assert "secret-host" not in text and "SECRET" not in text
@@ -283,7 +283,7 @@ def test_jellyseerr_refusal_shows_status_only(env):
         r = remove(client, 13)
         page = main_of(client.get(r.headers["location"]).text)
     assert r.headers["location"] == "/media/requests?error=refused&code=500"
-    assert "Jellyseerr refused (HTTP 500)" in page and "Midnight Harbour" in page
+    assert "Seerr refused (HTTP 500)" in page and "Midnight Harbour" in page
 
 
 def test_arr_failure_still_removes_and_is_sanitized(env, caplog):

@@ -654,3 +654,11 @@ Discord "added show …". Actors and directors followed before keep films only. 
 seasons" group (poster, name, Unfollow) and a TV maker's count reads "1 film · 3 shows". media.db `user_version` 3:
 `media_follows.kind` takes `show`; `media_follow_adds` is keyed on (follow, media, TMDB id) so a film and a show sharing
 a number never collide (tables rebuilt, rows kept). `tests/hub/test_media_follow_shows.py`.
+
+## 2026-10-12 — Jellyseerr shows as "Seerr"
+The app was renamed upstream (the NAS now runs `ghcr.io/seerr-team/seerr`), so every user-visible string says **Seerr**:
+the film page's "Open in Seerr" link, the Requests / Discover / Follow / person-page error and flash texts ("Seerr
+declined the request", "Couldn't reach Seerr", "Follow needs Seerr", "In Seerr", …) and the Server status light /
+Services card name (`media_status` catalogue). Env vars (`JELLYSEERR_*`), connector and snapshot ids, tables, modules and
+URLs keep the old name. A Services card now also takes its Uptime Kuma ms from a monitor named like the app's **id**,
+so a Kuma monitor still called "Jellyseerr" keeps feeding the Seerr card.

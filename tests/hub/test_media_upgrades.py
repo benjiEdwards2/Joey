@@ -103,3 +103,12 @@ def test_attach_title_match_skips_a_title_the_library_holds_twice():
     shows = [{"item_key": "tmdb:6", "title": "Quiet Coast"}, {"item_key": "tmdb:7", "title": "Quiet Coast"}]
     mu.attach(shows, snaps(SAMPLE), "tv")
     assert [r["upgrade"] for r in shows] == ["", ""]
+
+
+def test_norm_title_drops_a_trailing_year():
+    """Sonarr names a show "Brothers (2026)" when another Brothers exists; Jellyfin's row is just "Brothers"."""
+    from hub.media_upgrades import norm_title
+    assert norm_title("Brothers (2026)") == norm_title("Brothers") == "brothers"
+    assert norm_title("The Wanted Man (2025)") == "wanted man"
+    assert norm_title("2001") == "2001"                          # a bare year title stays itself
+    assert norm_title("Blade Runner 2049") == "blade runner 2049"   # only a parenthesised year is dropped

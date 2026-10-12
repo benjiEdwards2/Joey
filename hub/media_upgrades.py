@@ -47,8 +47,11 @@ def note(row: dict | None) -> str:
 
 
 def norm_title(text) -> str:
-    """Lower-case, no punctuation, no leading article, single spaces (media_library's rule)."""
-    words = re.sub(r"[^a-z0-9]+", " ", str(text or "").lower()).split()
+    """Lower-case, no punctuation, no leading article, single spaces (media_library's rule). A parenthesised
+    trailing year is dropped first: Sonarr disambiguates "Brothers (2026)" but Jellyfin's row is "Brothers"
+    (seen live 2026-10-12); a bare number in a title ("Blade Runner 2049") is kept."""
+    text = re.sub(r"\s*\((19|20)\d\d\)\s*$", "", str(text or ""))
+    words = re.sub(r"[^a-z0-9]+", " ", text.lower()).split()
     return " ".join(words[1:] if len(words) > 1 and words[0] in ("the", "a", "an") else words)
 
 

@@ -234,7 +234,7 @@ areas:
         tier: embed
         owner: shared
         snapshot: uptime_kuma
-        detail: "/server#monitors"
+        detail: "/server#services"   # 2026-10-12: the Monitors band was removed (it repeated Services)
         stale_after_minutes: 10
         setup_note: "Set UPTIME_KUMA_URL/UPTIME_KUMA_API_KEY in deploy/.env."
       - id: updates

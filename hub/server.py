@@ -526,7 +526,6 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
                  live: set[str] | None = None, gated: dict | None = None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
-    monitors = _band(area, snaps, UPTIME_KUMA_SNAPSHOT_ID)
     updates = _band(area, snaps, WUD_SNAPSHOT_ID)
 
     sd = system["data"]
@@ -542,10 +541,9 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
         last_sweep=last_sweep(runner) if runner else None,
     )
 
-    monitors["rows"] = [m for m in monitors["data"].get("monitors") or [] if isinstance(m, dict)]
-
+    # 2026-10-12: no Monitors band any more (it repeated Services); the Kuma rows still give each card its ms.
     apps = [a for a in services["data"].get("apps") or [] if isinstance(a, dict)]
-    services["groups"] = group_services([service_card(a, monitors["rows"], gated) for a in apps])
+    services["groups"] = group_services([service_card(a, _monitors(snaps), gated) for a in apps])
 
     ud = updates["data"]
     updates["pending"], updates["ignored"] = split_updates(
@@ -557,7 +555,7 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     items = attention_items(snaps, backup, runner, stats, live)
 
     return {"tiles": [_tile_row(t, snaps, gated) for t in area.tiles],
-            "system": system, "services": services, "monitors": monitors, "updates": updates,
+            "system": system, "services": services, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
             "sweeps": sweep_rows(stats, live=live), "counts": _counts(snaps),
             "history": history_band(samples)}

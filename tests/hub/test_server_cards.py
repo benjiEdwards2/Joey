@@ -39,7 +39,7 @@ def test_one_card_per_app_with_logo_subtitle_word_and_grouping(env):
     svc = services_of(body)
     cards = cards_of(body)
     assert len(cards) == len(MEDIA_APPS)
-    assert 'class="row' not in svc.split('id="monitors"', 1)[0]           # the old row list is gone
+    assert 'class="row' not in svc                                         # the old row list is gone
     jf = card(body, "Jellyfin")
     assert re.search(r'<img class="svc-logo" src="/static/svc/jellyfin\.svg\?v=[0-9a-f]+" alt="" '
                      r'width="40" height="40">', jf)

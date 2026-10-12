@@ -7,7 +7,8 @@
 {% endblock %}
 {% block content %}
 {# Server area (WP-S1, 2026-10-06; restyle Phase 4): bands, top to bottom: System, Last 24 h (WP-U4), Services,
-   Monitors (WP-S4), Updates, Attention, Counts. Each band degrades to "Not connected" on its own. Up/Down are
+   Updates, Attention, Counts (the Monitors band, WP-S4, was removed 2026-10-12: it repeated Services; Uptime Kuma
+   still feeds the cards' ms, the Monitors tile and Attention). Each band degrades to "Not connected" on its own. Up/Down are
    WORDS (.st-up emerald / .st-down red) beside the tinted row: colour is never the only encoding. Amber only where
    there is something to do. #}
 {% from "_kpi.html" import kpi %}
@@ -111,27 +112,6 @@
   {% endfor %}
 {% endif %}
 </div>
-
-{% set mon = sv.monitors %}
-<section class="sec" id="monitors" aria-label="Monitors">
-  <div class="sechead"><h2 class="seclabel">Monitors</h2></div>
-  {% if mon.st.state == "off" %}
-    <p class="empty">Not connected</p>
-    {% if mon.st.note %}<p class="metaline">{{ mon.st.note }}</p>{% endif %}
-  {% else %}
-    <p class="metaline">{{ mon.data.get("up", 0) }} of {{ mon.data.get("total", 0) }} up<span class="sep"> · </span>{{ updated(mon.st) }}</p>
-    <div class="listbox">
-    {% for m in mon.rows %}
-    <div class="row{{ ' is-down' if m.status == 'down' }}">
-      <div class="row-body"><div class="row-title">{{ m.name }}</div></div>
-      <span class="row-side"><span class="{{ {'up': 'st-up', 'down': 'st-down'}.get(m.status, 'st-warn') }}">{{ m.status | title if m.status else "—" }}</span><span class="sep"> · </span>{% if m.response_ms is not none %}{{ m.response_ms }} ms{% else %}—{% endif %}</span>
-    </div>
-    {% else %}
-    <p class="empty">No monitors</p>
-    {% endfor %}
-    </div>
-  {% endif %}
-</section>
 
 {% set up = sv.updates %}
 <section class="sec" id="updates" aria-label="Updates">

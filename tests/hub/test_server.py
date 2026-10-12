@@ -60,7 +60,7 @@ def test_registry_server_area_is_last_with_the_agreed_tiles():
     assert (tiles["updates"].snapshot, tiles["updates"].stale_after_minutes) == ("wud", 180)
     assert (tiles["monitors"].snapshot, tiles["monitors"].stale_after_minutes,
             tiles["monitors"].detail, tiles["monitors"].label) == (
-        "uptime_kuma", 10, "/server#monitors", "Monitors")
+        "uptime_kuma", 10, "/server#services", "Monitors")   # 2026-10-12: the Monitors band is gone
     assert tiles["monitors"].setup_note == "Set UPTIME_KUMA_URL/UPTIME_KUMA_API_KEY in deploy/.env."
     assert tiles["portainer"].href == "http://192.168.68.59:9000"
     assert all(t.owner.value == "shared" for t in area.tiles)
@@ -175,18 +175,18 @@ def write_runner(snaps_dir, ran_at, results=None):
         {"ran_at": ran_at, "results": results or {}}), encoding="utf-8")
 
 
-def test_monitors_band_sits_between_services_and_updates_and_flags_down(env):
+def test_no_monitors_band_but_kuma_still_feeds_attention_cards_and_the_tile(env):
+    """2026-10-12 (B.): the Monitors band repeated Services and was removed. Uptime Kuma still reaches Attention, the
+    Services cards' ms and the Monitors KPI tile, which now opens Services. (Was: the band sat between Services and
+    Updates, "5 of 6 up", down rows tinted and first.)"""
     with env() as client:
         body = main_of(client.get("/server").text)
-    marks = [body.index(m) for m in ('id="services"', 'id="monitors"', 'id="updates"')]
+    assert 'id="monitors"' not in body and "No monitors" not in body
+    marks = [body.index(m) for m in ('id="services"', 'id="updates"')]
     assert marks == sorted(marks)
-    band = body.split('id="monitors"', 1)[1].split('id="updates"', 1)[0]
-    assert "5 of 6 up" in band
-    assert ">Down</span>" in band and ">Prowlarr</div>" in band and "38 ms" in band
-    assert 'class="row is-down"' in band                     # a down monitor is a tinted row
-    assert band.index("Prowlarr") < band.index("Jellyfin")   # down sorts first
     assert "Uptime Kuma: Prowlarr is Down" in body
-    assert 'href="/server#monitors"' in body                 # the KPI tile
+    assert "38 ms" in body.split('id="services"', 1)[1].split('id="updates"', 1)[0]   # Jellyfin's card
+    assert 'href="/server#services"' in body and 'href="/server#monitors"' not in body   # the KPI tile
     assert "Last sweep" not in body                          # no _runner.json -> omitted
 
 
@@ -204,7 +204,7 @@ def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(
         "system": {"status": "ok", "consecutive_failures": 0, "error": None}})
     with client:
         body = main_of(client.get("/server").text)
-    assert "Uptime Kuma: Backup is Pending" in body and ">Pending</span>" in body
+    assert "Uptime Kuma: Backup is Pending" in body   # (">Pending</span>" was the Monitors band, removed 2026-10-12)
     assert "wud sweep failed: WUD containers failed (HTTP 401)" in body
     assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
     assert "system sweep failed" not in body
@@ -236,11 +236,12 @@ def test_sweep_and_ago_helpers():
     assert server._runner_error_items(None) == [] and server._runner_error_items({"results": []}) == []
 
 
-def test_monitors_band_degrades_to_not_connected(env):
+def test_no_kuma_snapshot_still_renders_without_a_monitors_band(env):
+    """Was the Monitors band's "Not connected" (removed 2026-10-12): without Kuma the page renders, no band, no ms."""
     with env(samples=False) as client:
-        body = main_of(client.get("/server").text)
-    band = body.split('id="monitors"', 1)[1].split('id="updates"', 1)[0]
-    assert "Not connected" in band and "UPTIME_KUMA_URL" in band
+        r = client.get("/server")
+    body = main_of(r.text)
+    assert r.status_code == 200 and 'id="monitors"' not in body and " ms</span>" not in body
 
 
 # ---- WP-U2 (2026-10-06): hub card words, durable sweep errors, Sweeps (24 h) -------

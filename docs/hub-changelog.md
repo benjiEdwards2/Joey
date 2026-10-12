@@ -185,12 +185,12 @@ Updates = `wud`, Homepage + Portainer links), System band (CPU, RAM free/total, 
 `_runner.json` `ran_at` with "stale" past 90 min, each volume with a hairline bar and % used),
 Services grouped Media / Downloads / System by app id (unknown ids → System) as a card grid (WP-U3, 2026-10-07 — see
 below), Monitors
-(Uptime Kuma: status word + dot + response ms per monitor, down first), Updates
+(Uptime Kuma: status word + dot + response ms per monitor, down first; **removed 2026-10-12**, see below), Updates
 (`N monitored · N updates` + a row per pending update), Attention (any service Down, any volume ≥ 85 % used, any
 Uptime Kuma monitor Down/Pending, the `media_backup` warning — none / older than 36 h, and every connector whose
 last `_runner.json` result is an error, with its sanitised reason) and Counts (Jellyseerr pending/approved/available, qBittorrent
 downloading/seeding/speeds, arr downloading / this week / disk rows). Each band says "Not connected" on its own when its
-snapshot is missing. Tile `detail` links are anchors (`/server#services`, `/server#monitors`, `/server#updates`). `_runner.json` is read by
+snapshot is missing. Tile `detail` links are anchors (`/server#services`, `/server#monitors` — `#services` since 2026-10-12 —, `/server#updates`). `_runner.json` is read by
 `store.get_runner()` from the snapshot dir (WP-S4); missing or malformed simply omits Last sweep and runner errors.
 
 **Server → Update now / Ignore (WP-U1, 2026-10-06).** `server_updates.py`. Each pending update row in the Updates band shows
@@ -699,3 +699,11 @@ unreachable`). The flash line now sits under the band head, outside the WUD-conn
 even with WUD down. Decision: stackctl mounts `/volume1/media-server` at the SAME path (not `/compose`) and defaults
 `COMPOSE_FILE` to it, so compose's relative binds, `.env` and project name (`media-server`) match the host's — a
 `/compose` mount would start a second project. `tests/stackctl/test_stackctl.py`, `tests/hub/test_server_stack.py`.
+
+## 2026-10-12 — Server: Monitors band removed
+B.: the Monitors band duplicated what the Services cards above it already show. `server.html` drops the band and
+`build_server` no longer builds a `monitors` band; the `uptime_kuma` connector, its snapshot, the Monitors KPI tile and
+the Attention lines ("Uptime Kuma: X is Down / Pending") are unchanged, and the cards still take their response ms from
+the Kuma rows (`service_card`). The Monitors tile's `detail` now opens `/server#services`. What the band showed that
+nothing else does: Uptime Kuma monitors that are not one of the Services apps (e.g. a "NAS" ping monitor) when they are
+UP, with their ms, and the band's "N of M up" line (the tile still says it). Down / pending ones still reach Attention.

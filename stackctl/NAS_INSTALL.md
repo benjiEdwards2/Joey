@@ -11,7 +11,7 @@ the Asustor BusyBox shell.
 TOKEN=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'); echo "$TOKEN"
 ```
 
-64 hex characters. It goes in two places (steps 2 and 5) and nowhere else — never in chat, a commit or a screenshot.
+64 hex characters. It goes in two places (steps 2 and 6) and nowhere else — never in chat, a commit or a screenshot.
 Treat it like a root password: whoever holds it can recreate every media container.
 
 ## 2. stackctl's env file

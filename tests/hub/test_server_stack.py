@@ -103,18 +103,17 @@ def test_band_shows_the_button_and_the_last_run(env):
     assert TOKEN not in r.text and "secret-host" not in r.text
 
 
-@pytest.mark.parametrize("status, words", [
-    (Resp(200, {"running": True, "started_at": _iso(3), "finished_at": None, "exit_code": None, "log_tail": []}),
+@pytest.mark.parametrize("status, words", [   # lambdas: the times are taken when the test runs, not at collection
+    (lambda: Resp(200, {"running": True, "started_at": _iso(3), "finished_at": None, "exit_code": None}),
      "Updating now · started 3m ago"),
-    (Resp(200, {"running": False, "started_at": None, "finished_at": None, "exit_code": None, "log_tail": []}),
-     "No run yet"),
-    (Resp(200, {"running": False, "started_at": _iso(70), "finished_at": _iso(65), "exit_code": 1, "log_tail": []}),
+    (lambda: Resp(200, {"running": False, "started_at": None, "finished_at": None, "exit_code": None}), "No run yet"),
+    (lambda: Resp(200, {"running": False, "started_at": _iso(70), "finished_at": _iso(65), "exit_code": 1}),
      "Last run failed (exit 1) · 1h ago"),
-    (Resp(401, {"error": "unauthorized"}), "stackctl unreachable"),
-    (requests.ConnectTimeout(f"{URL} {TOKEN}"), "stackctl unreachable"),
+    (lambda: Resp(401, {"error": "unauthorized"}), "stackctl unreachable"),
+    (lambda: requests.ConnectTimeout(f"{URL} {TOKEN}"), "stackctl unreachable"),
 ])
 def test_status_words(env, caplog, status, words):
-    env.status = status
+    env.status = status()
     with caplog.at_level(logging.WARNING), env() as client:
         r = client.get("/server")
     assert r.status_code == 200 and f"Media stack · {words}" in txt(band(r.text))

@@ -327,6 +327,12 @@ a.row:hover { background: var(--soft); }
     linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd-pick); }
 }
 
+/* E3 (U4, 2026-10-13): a page head with no backdrop is a plain page — no 170 / 220 px band, and the guide's plain-page
+   title (text-2xl font-semibold: 24 px / 600) at every width; the backdrop variant keeps 30 / 48 px. The film page's
+   detail hero (.hero-detail) has its own sizes. */
+.pagehead:not(.hero-detail, :has(> .pagehead-bd)) { min-height: 0; }
+.pagehead:not(.hero-detail, :has(> .pagehead-bd)) h1 { font-size: 24px; font-weight: 600; line-height: 1.25; }
+
 /* Section tabs (guide §5): pills that scroll sideways on a phone, underlined tabs from 768 px. */
 .sectabs { margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .sectabs::-webkit-scrollbar { display: none; }
@@ -968,7 +974,6 @@ div.svc-card:not(.is-down):hover { background: var(--surface); border-color: var
    poster beside its name, the nominees a carousel; categories are .panel cards (1 / 2 / 3 columns) with a winner row
    and a 4-up row of small nominee thumbnails. Seen is an emerald tag; "Won" the emerald word. Film / person pages
    reuse .awlines rows. */
-.awtitle { font-size: 24px; font-weight: 600; color: var(--text-1); }
 .awcoming-names { min-height: 32px; padding-top: 4px; font-size: 14px; font-weight: 600; line-height: 1.4;
   color: var(--text-2); overflow-wrap: anywhere; }
 .awcoming-names .sep { color: var(--text-6); }

@@ -6,7 +6,7 @@
 {% from "_media_tabs.html" import media_tabs with context %}
 {% set np = (src.data.get("now_playing") or []) if src.st.state != "off" else [] %}
 {% set ma = (areas or []) | selectattr("layout", "equalto", "shelves") | first %}
-{% call pagehead(ma.name if ma else "Media", backdrop=(np[0].backdrop if np and np[0].backdrop else none)) %}{{ media_tabs() }}{% endcall %}
+{% call pagehead(media_nav(request).title or (ma.name if ma else "Media"), backdrop=(np[0].backdrop if np and np[0].backdrop else none)) %}{{ media_tabs() }}{% endcall %}
 {% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}

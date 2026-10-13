@@ -55,7 +55,7 @@ def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
     assert [t[0] for t in tabs] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]
     assert [t[0] for t in tabs if t[2]] == ["Awards"]
     b = main_of(html)
-    assert '<h2 class="awtitle">Awards</h2>' in b
+    assert "<h1>Awards</h1>" in b and "awtitle" not in b   # E3 (U4): the tab label is the H1; no second "Awards" title
     assert '<option value="2025" selected>2025</option>' in b              # 2026 is pending: not the default
     assert '<option value="2026">2026</option>' in b                       # awards-ui: the year is a native select
     assert "97th Academy Awards · 2 Mar 2025 · films of 2024" in b

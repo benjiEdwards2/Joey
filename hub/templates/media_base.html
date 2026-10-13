@@ -11,5 +11,7 @@
 {% from "_pagehead.html" import pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% set ma = (areas or []) | selectattr("layout", "equalto", "shelves") | first %}
-{% call pagehead(ma.name if ma else "Media") %}{{ media_tabs() }}{% endcall %}
+{# E3 (U4, 2026-10-13): the H1 is the active tab / section label from media_nav ("My films", "Diary", "Awards"), never
+   the area's name on every page; a page head with no backdrop is the guide's plain 24 px title (CSS). #}
+{% call pagehead(media_nav(request).title or (ma.name if ma else "Media")) %}{{ media_tabs() }}{% endcall %}
 {% endblock %}

@@ -1,5 +1,11 @@
 {% extends "media_base.html" %}
 {% block title %}{{ person.name }} · Joey{% endblock %}
+{# E3 (U4, 2026-10-13): the person's name is the page's H1 (below), so the band carries the section tabs only. #}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead(none) %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {# Person page (F11; restyle Phase 3): round portrait beside the name, bio, then "On server" first as a
@@ -9,7 +15,7 @@
 <header class="personhead hero-detail">
   {% if person.ref %}<img class="personpic" src="/img/{{ person.ref }}?h=240" alt="" width="160" height="160">{% else %}<span class="personpic initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
   <div class="hero-detail-text">
-    <h2 class="hero-detail-title">{{ person.name }}</h2>
+    <h1 class="hero-detail-title">{{ person.name }}</h1>
     {% if person.dept or person.life %}<p class="facts-line">{% for p in [person.dept, person.life] if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}</p>{% endif %}
     {% if person.bio %}<p class="overview">{{ person.bio.lead }}</p>{% if person.bio.more %}<details class="biomore"><summary>More</summary><p class="overview">{{ person.bio.more }}</p></details>{% endif %}{% endif %}
     <p class="statusline" id="status-line">{{ person.head }}</p>

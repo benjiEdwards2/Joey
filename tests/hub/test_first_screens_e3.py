@@ -93,3 +93,68 @@ def test_no_shared_owner_word_on_hub_tiles_or_rows(hub):
 def test_hub_comment_no_longer_says_calendar_is_last():
     src = tpl("hub.html")
     assert "the last card (Calendar) last" not in src and "Order: the area cards in hub_rank order" in src
+
+
+# 2. Media page heads (U4) -----------------------------------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+from tests.hub.helpers import env  # noqa: E402,F401  (fixture: the film-page env, Jellyfin + Jellyseerr faked)
+from tests.hub.test_shell import sample_client  # noqa: E402,F401  (fixture: the real registry on the sample snapshots)
+
+
+def h1s(html):
+    return re.findall(r"<h1\b[^>]*>(.*?)</h1>", html.split("<main", 1)[1], re.S)
+
+
+@pytest.mark.parametrize("route, title", [
+    ("/media/movies", "My films"), ("/media/tv", "My shows"), ("/media/movies/watchlist", "Watchlist"),
+    ("/media/diary", "Diary"), ("/media/history", "To Rate"), ("/media/requests", "Requests"),
+    ("/media/playing", "Live"), ("/media/discover", "Discover"), ("/media/following", "Following"),
+    ("/media/movies/awards", "Awards")])
+def test_media_page_head_is_the_active_tab_label(sample_client, route, title):
+    with sample_client as c:
+        html = c.get(route).text
+    assert h1s(html) == [title], route                                            # one H1, and it names the page
+
+
+def test_media_nav_carries_the_title():
+    from types import SimpleNamespace
+
+    from hub import media_nav
+    req = lambda path: SimpleNamespace(url=SimpleNamespace(path=path), state=SimpleNamespace())  # noqa: E731
+    assert media_nav.nav_context(req("/media/movies"), None, {})["title"] == "My films"
+    assert media_nav.nav_context(req("/media/requests"), None, {})["title"] == "Requests"
+    assert media_nav.nav_context(req("/media/person/5"), None, {})["title"] == "Discover"    # no tab: the section
+    assert media_nav.nav_context(req("/elsewhere"), None, {})["title"] is None
+
+
+def test_person_page_h1_is_the_name(env):
+    from tests.hub.test_media_person import seed
+    client, both = env()
+    seed(both)
+    with client:
+        html = client.get("/media/person/55").text
+    assert h1s(html) == ["Ada Actor"]
+    assert '<h1 class="hero-detail-title">Ada Actor</h1>' in html
+    assert '<nav class="sectabs" aria-label="Media sections">' in html             # the band still carries the tabs
+
+
+def test_awards_page_has_no_second_title():
+    assert "awtitle" not in tpl("media_awards.html") and ".awtitle" not in CSS
+
+
+def test_eyebrow_is_dropped_when_it_repeats_the_title():
+    from hub import shell
+    render = lambda src: shell.templates.env.from_string('{% from "_pagehead.html" import pagehead %}' + src).render()  # noqa: E731
+    assert "eyebrow" not in render('{{ pagehead("Media", eyebrow="Media") }}')
+    assert '<span class="eyebrow">Up next</span>' in render('{{ pagehead("Film", eyebrow="Up next") }}')
+    bare = render("{{ pagehead(none) }}")
+    assert "<h1" not in bare and "pagehead-foot" not in bare
+
+
+def test_plain_page_head_css():
+    flat = rules()
+    assert ".pagehead:not(.hero-detail, :has(> .pagehead-bd)) { min-height: 0; }" in flat
+    assert ".pagehead:not(.hero-detail, :has(> .pagehead-bd)) h1 { font-size: 24px; font-weight: 600; line-height: 1.25; }" in flat
+    assert "min-height: 170px" in flat and ".pagehead h1 { font-size: 48px; line-height: 1.05; }" in flat   # backdrop keeps it

@@ -54,12 +54,14 @@ POSTER_READS, FIRST_READS, READ_WORKERS = 60, 12, 4
 FIRST_CARDS = 4             # category cards on the first screen (E7); the rest load through the part route
 FIRST_ROWS = 12             # ballot rows on the first screen; the rest load through the rows part route
 PILLS = 5                   # category pills on a ballot row; the rest are "+N"
+WHO_ICONS = ("person", "clapper")   # pills that name their first person: acting and directing (WP-C3, the mockup)
 VIEWS = ("films", "categories")
 FILTERS = ("all", "headline", "acting", "direction", "craft", "unseen", "server")
 SORTS = {"wins": "Most wins", "noms": "Most nominations", "az": "A to Z"}
 FILTER_WORDS = {"all": "All", "acting": "Acting", "craft": "Craft", "unseen": "Not seen", "server": "On your server"}
 DIRECTION_WORDS = {"movie": "Direction & writing", "tv": "Writing & directing"}
 SHORT_RE = re.compile(r"\bshort\b", re.I)
+WRITING_RE = re.compile(r"Writing\s*(?:\((.+)\)|,\s*(.+))")   # short_name: "Writing (X)" / "Writing, X" -> "X"
 ALL_SEEN = "Everything here is seen."
 NO_MATCH = "Nothing matches that filter."
 NOMINEES_SHOWN = 4          # nominee thumbnails on a category card; the rest fold under "+N more"
@@ -274,7 +276,9 @@ SORT_KEYS = {"wins": lambda r: (-r["wins"], -r["noms"], r["title"].lower()),
 
 def short_name(name: str | None) -> str:
     """A pill's category name (decision C3): a leading "Best " / "Outstanding " stripped, "Supporting " -> "Supp. ",
-    "Original " -> "Orig. ", "Adapted " -> "Adapt. ", a trailing " Feature" / " Feature Film" dropped; nothing else."""
+    "Original " -> "Orig. ", "Adapted " -> "Adapt. ", a trailing " Feature" / " Feature Film" dropped, and a "Writing"
+    name carrying its kind in parentheses or after a comma keeps only that kind ("Writing (Original Screenplay)" ->
+    "Orig. Screenplay", WP-C3); nothing else."""
     n = name or ""
     for lead in ("Best ", "Outstanding "):
         if n.startswith(lead):
@@ -285,7 +289,8 @@ def short_name(name: str | None) -> str:
         if n.endswith(tail):
             n = n[:-len(tail)]
             break
-    return n
+    m = WRITING_RE.fullmatch(n)
+    return (m.group(1) or m.group(2)).strip() if m else n
 
 
 def is_short(cat: dict) -> bool:
@@ -338,7 +343,7 @@ def _tmdb_of(ent: dict | None, kind: str):
 
 def ballot_row(w: dict, seen: Seen, kind: str, won_by: dict, wl_keys: set) -> dict:
     """One work of the edition as a ballot row (contract §2 `row`): its categories won first (edition order kept),
-    PILLS of them as short-named pills (person-led ones carry their first person), the rest as `more`."""
+    PILLS of them as short-named pills (acting / directing ones carry their first person), the rest as `more`."""
     ent = w["ent"]
     lib = seen.row(ent)
     cats = sorted(w["cats"].values(), key=lambda x: not x["won"])
@@ -347,8 +352,9 @@ def ballot_row(w: dict, seen: Seen, kind: str, won_by: dict, wl_keys: set) -> di
     poster = (lib or {}).get("poster") or (ent or {}).get("poster")
     year = (lib or {}).get("year") if isinstance((lib or {}).get("year"), int) else None
 
-    def who(x):
-        return x["people"][0] if x["lead"] == "person" and x["people"] else None
+    def who(x):     # acting and directing pills name their person; the Details fold names everyone
+        return x["people"][0] if x["lead"] == "person" and x["people"] and icons.cat_icon(x["name"]) in WHO_ICONS \
+            else None
 
     return {
         "title": w["title"], "year": year, "href": _work_href(ent, lib, kind), "poster": poster,

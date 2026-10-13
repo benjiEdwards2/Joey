@@ -82,11 +82,14 @@ def test_five_pills_won_first_with_the_rest_counted(oscars97):
     anora = rows["Anora"]
     assert [(p["name"], p["won"], p["who"]) for p in anora["pills"]] == [
         ("Picture", True, None), ("Director", True, "Sean Baker"), ("Actress", True, "Mikey Madison"),
-        ("Writing, Orig. Screenplay", True, "Sean Baker"), ("Film Editing", True, None)]
+        ("Orig. Screenplay", True, None), ("Film Editing", True, None)]     # who: acting + directing pills only (C3)
     assert anora["more"] == 1 and len(anora["cats"]) == 6
     assert [c["won"] for c in anora["cats"]] == [True] * 5 + [False]
     assert anora["cats"][0] == {"name": "Best Picture", "won": True, "who": anora["cats"][0]["who"], "lead": "film"}
     assert anora["cats"][2]["lead"] == "person" and anora["cats"][2]["who"] == "Mikey Madison"
+    assert "Sean Baker" in anora["cats"][3]["who"]                     # the screenplay pill drops its person; the fold keeps it
+    assert all(p["who"] is None for r in rows.values() for p in r["pills"]
+               if icons.cat_icon(p["name"]) not in ap.WHO_ICONS)       # no "Cinematography · Lol Crawley"
     brutalist = rows["The Brutalist"]
     won = [p["won"] for p in brutalist["pills"]]
     assert won == sorted(won, reverse=True) and won.count(True) == 3 and brutalist["more"] == brutalist["noms"] - 5
@@ -95,7 +98,8 @@ def test_five_pills_won_first_with_the_rest_counted(oscars97):
 
 @pytest.mark.parametrize("name, short", [
     ("Best Picture", "Picture"), ("Best Supporting Actress", "Supp. Actress"),
-    ("Best Writing, Original Screenplay", "Writing, Orig. Screenplay"), ("Best Adapted Screenplay", "Adapt. Screenplay"),
+    ("Best Writing, Original Screenplay", "Orig. Screenplay"), ("Best Adapted Screenplay", "Adapt. Screenplay"),
+    ("Writing (Original Screenplay)", "Orig. Screenplay"), ("Outstanding Writing for a Drama Series", "Writing for a Drama Series"),
     ("Best Animated Feature", "Animated"), ("Best International Feature Film", "International"),
     ("Outstanding Drama Series", "Drama Series"), ("Palme d'Or", "Palme d'Or"),
     ("Best Original Score", "Orig. Score"), ("Outstanding Supporting Actor in a Comedy Series", "Supp. Actor in a Comedy Series"),

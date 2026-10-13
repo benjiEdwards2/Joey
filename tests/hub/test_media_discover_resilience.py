@@ -137,7 +137,7 @@ def test_a_service_page_serves_its_last_rows_with_their_age(env, monkeypatch):
         r = client.get("/media/discover/service/8")
     body = main_of(r.text)
     assert r.status_code == 200 and "Service Film A" in body and "Unavailable" not in body
-    assert ">Popular films · 7h ago</div>" in body
+    assert ">Popular films · 7h ago</h2>" in body
 
 
 def test_failure_logs_name_the_type_only(env, monkeypatch, caplog):

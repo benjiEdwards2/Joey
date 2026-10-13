@@ -56,7 +56,7 @@ def test_diary_is_activity_history_and_links_play_stats(env):
     with build() as client:
         html = client.get("/media/diary").text
     assert html.split("<title>", 1)[1].split("</title>", 1)[0] == "History · Joey"
-    assert 'href="/media/playing" aria-current="page">Activity' in html.split('<nav class="sectabs"', 1)[1]
+    assert 'href="/media/playing" aria-current="page">Activity' in html.split('<nav class="sectabs sectabs-page"', 1)[1]
     assert 'href="/media/diary" aria-current="page">History</a>' in html.split('<nav class="sectabs sub"', 1)[1]
     body = main_of(html)
     assert '<p class="metaline"><a href="/media/server/history">Play stats</a></p>' in body

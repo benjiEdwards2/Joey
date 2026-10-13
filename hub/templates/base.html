@@ -71,8 +71,8 @@
 </main>
 
 {% if media_mode %}
-{# Media mode (B., 2026-10-07): inside Media the phone bar is the six Media sections (media_nav.py, the same active
-   rule as the section tabs), six equal slots, no More. Links scroll the window to the top after the boosted swap
+{# Media mode (B., 2026-10-07): inside Media the phone bar is the five Media sections (media_nav.py, the same active
+   rule as the section tabs), five equal slots, no More (five since nav-tidy 2026-10-13). Links scroll the window to the top after the boosted swap
    (htmx 2.0.4 does show:top for boosts already; stated here so tapping Home on Media home always lands at the top).
    The way out is the Joey brand in the top bar. #}
 {% set mnav = media_nav(request) %}

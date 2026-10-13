@@ -301,7 +301,7 @@ def test_activity_section_shows_the_to_rate_count_on_the_page(env):
     main = env(jellyfin=JELLY, arr=ARR)   # the fixture history carries titles nobody has rated yet
     with TestClient(main.app) as c:
         html = c.get("/media/history").text
-    row = nav_html(html, "sectabs")
+    row = nav_html(html, "sectabs sectabs-page")
     assert re.search(r'href="/media/playing"[^>]*>Activity <span class="waitcount">\d+<span class="vh"> to rate</span>', row)
     sub = nav_html(html, "sectabs sub")
     assert re.search(r'href="/media/history" aria-current="page">To rate <span class="waitcount">\d+', sub)

@@ -13,7 +13,7 @@
 {% if follows or shows %}
 {% if follows %}
 <section class="sec">
-  <div class="seclabel">Following · {{ follows | length }}</div>
+  <h2 class="seclabel">Following · {{ follows | length }}</h2>
   <div class="listbox">
   {% for f in follows %}
   <a class="row" href="{{ f.href }}">
@@ -26,7 +26,7 @@
 {% endif %}
 {% if shows %}
 <section class="sec">
-  <div class="seclabel">Shows · future seasons · {{ shows | length }}</div>
+  <h2 class="seclabel">Shows · future seasons · {{ shows | length }}</h2>
   <div class="listbox">
   {% for s in shows %}
   <div class="row has-form">
@@ -42,7 +42,7 @@
 {% endif %}
 {% if adds %}
 <section class="sec">
-  <div class="seclabel">Recently added by follows</div>
+  <h2 class="seclabel">Recently added by follows</h2>
   <div class="listbox">
   {% for a in adds %}
   {% set word %}<span class="{{ status_of(a.word).cls }}">{{ a.word }}</span>{% endset %}

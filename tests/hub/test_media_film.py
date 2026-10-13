@@ -247,9 +247,9 @@ def test_shelves_mark_server_status(env):
         b = main_of(whole(client, "/media/title/movie/603"))
     col = b.split('<section class="sec colsec" id="collection">', 1)[1].split("</section>", 1)[0]  # media-ux3 banner
     assert "Harbour Lights 2" in col and col.count(">On server<") == 2 and col.count(">Not on server<") == 1
-    sim = b.split('<div class="seclabel">Similar</div>', 1)[1].split("</section>", 1)[0]
+    sim = b.split('<h2 class="seclabel">Similar</h2>', 1)[1].split("</section>", 1)[0]
     assert 'href="/media/title/movie/11"' in sim and sim.count(">On server<") == 1 and sim.count(">Not on server<") == 1
-    assert '<div class="seclabel">Recommended</div>' in b and "Rec One" in b and "?h=240" in b
+    assert '<h2 class="seclabel">Recommended</h2>' in b and "Rec One" in b and "?h=240" in b
 
 
 def test_not_on_server_series_keeps_lazy_season_hooks(env):

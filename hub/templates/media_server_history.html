@@ -18,7 +18,7 @@
 </div>
 
 <section class="sec">
-  <div class="seclabel">Top shows</div>
+  <h2 class="seclabel">Top shows</h2>
   {% if stats.top_shows %}<div class="listbox">
   {% for e in stats.top_shows %}
   {% set ih = row_href(e.jf_id, e.key, "tv") %}
@@ -32,7 +32,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Top films</div>
+  <h2 class="seclabel">Top films</h2>
   {% if stats.top_movies %}<div class="listbox">
   {% for e in stats.top_movies %}
   {% set ih = row_href(e.jf_id, e.key, "movie") %}
@@ -46,7 +46,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">By hour of day</div>
+  <h2 class="seclabel">By hour of day</h2>
   <div class="hourbars" role="list">
     {% for b in by_hour %}
     <div class="hourbar" role="listitem"><span class="hnum">{{ b.count }}</span><span class="hbar" aria-hidden="true"><span style="height: {{ b.pct }}%"></span></span><span class="hlab">{{ b.label }}</span></div>

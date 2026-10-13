@@ -30,20 +30,20 @@
 {% if person.awards %}
 {% import "_award_card.html" as aw %}
 <section class="sec" id="awards">
-  <div class="seclabel">Awards</div>
+  <h2 class="seclabel">Awards</h2>
   <p class="metaline">{{ person.awards.head }}</p>
   <div class="awgroups">{% for g in person.awards.groups %}{{ aw.person_group(g) }}{% endfor %}</div>
 </section>
 {% endif %}
 {% if person.shelf %}
 <section class="sec">
-  <div class="seclabel">On server</div>
+  <h2 class="seclabel">On server</h2>
   <div class="carousel">{% for r in person.shelf %}{{ card(r, r.item_href, false) }}{% endfor %}</div>
 </section>
 {% endif %}
 {% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
 <section class="sec">
-  <div class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</div>
+  <h2 class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</h2>
   <div class="poster-grid">{% for r in rows[:show_first] %}{{ card(r, r.href, true) }}{% endfor %}</div>
   {% if rows | length > show_first %}
   <details class="showmore"><summary>Show more · {{ rows | length - show_first }}</summary>

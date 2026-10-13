@@ -233,7 +233,7 @@ def test_the_data_still_shows_where_it_lives(frame_env):
         lib = main_of(c.get("/media/library").text)
         hist = main_of(c.get("/media/history").text)
     assert ">This week" in lib
-    assert ">Recently watched</div>" in hist and "Harbour Lights" in hist
+    assert ">Recently watched</h2>" in hist and "Harbour Lights" in hist
 
 
 # ---- media-ux2 item 8 (2026-10-08): the Joey hub page (/) drops Continue watching; Media keeps it ----

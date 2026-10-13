@@ -15,7 +15,7 @@
 {% for note in app_notes %}<p class="metaline">{{ note }}</p>{% endfor %}
 
 <section class="sec">
-  <div class="seclabel">Just arrived</div>
+  <h2 class="seclabel">Just arrived</h2>
   {% if arrived %}<div class="listbox">
   {% for r in arrived %}
   <{{ "a" if r.href else "div" }} class="row is-new"{% if r.href %} href="{{ r.href }}"{% endif %}>
@@ -28,7 +28,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Just updated</div>
+  <h2 class="seclabel">Just updated</h2>
   {% if updated %}<div class="listbox">
   {% for r in updated %}
   <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
@@ -41,7 +41,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">This week</div>
+  <h2 class="seclabel">This week</h2>
   {% for g in week %}
   <div class="microlabel">{{ g.label }}</div>
   <div class="listbox">
@@ -59,7 +59,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Downloading</div>
+  <h2 class="seclabel">Downloading</h2>
   {% if downloading %}<div class="listbox">
   {% for d in downloading %}
   <{{ "a" if d.href else "div" }} class="row"{% if d.href %} href="{{ d.href }}"{% endif %}>
@@ -73,7 +73,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Disk</div>
+  <h2 class="seclabel">Disk</h2>
   {% if src.data.get("disk") %}<div class="listbox">
   {% for d in src.data.get("disk", []) %}
   <div class="row">

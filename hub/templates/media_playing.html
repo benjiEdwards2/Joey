@@ -22,7 +22,7 @@
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <section class="sec">
-  <div class="seclabel">Playing now</div>
+  <h2 class="seclabel">Playing now</h2>
   {% if src.data.get("now_playing") %}<div class="listbox">
   {% for p in src.data.get("now_playing", []) %}
   {% set phref = item_href(p.jf_id) or src.href %}
@@ -37,7 +37,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Up next</div>
+  <h2 class="seclabel">Up next</h2>
   {% if src.data.get("up_next") %}<div class="listbox">
   {% for n in src.data.get("up_next", []) %}
   {% set nh = item_href(n.jf_id) %}
@@ -55,7 +55,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Latest additions</div>
+  <h2 class="seclabel">Latest additions</h2>
   {% if latest %}<div class="listbox">
   {% for i in latest %}
   {% set ih = item_href(i.jf_id) %}

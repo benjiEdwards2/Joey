@@ -382,7 +382,7 @@ def test_podium_top_three_by_wins_then_nominations_then_title(env):
     with build(jelly()) as client:
         b = page(client, "/media/movies/awards?body=bafta&year=2025")
     pod = podium_of(b)
-    assert pod and '<div class="seclabel">Most wins</div>' in b
+    assert pod and '<h2 class="seclabel">Most wins</h2>' in b
     steps = re.findall(r'<li class="awpod awpod-(\d)"><a class="awpod-in" href="(/media/title/movie/\d+)">.*?'
                        r'<span class="card-pic awframe is-place-\1">.*?<span class="row-title">([^<]+)</span>\s*'
                        r'<span class="row-meta">([^<]+)</span>\s*<span class="awpod-step"><span class="vh">Place </span>\1</span>',

@@ -20,7 +20,7 @@
 </section>
 {% if coming %}
 <section class="sec">
-  <div class="seclabel">Coming up</div>
+  <h2 class="seclabel">Coming up</h2>
   <div class="stats awcoming">
     {% for m in coming %}<div class="stat"><div class="microlabel">{{ m.month }}</div><div class="awcoming-names">{% for i in m.events %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}<span class="awev{{ ' is-next' if i.next }}">{{ award_icon(i.body_id, 14, src=i.logo, deco=true) }}{% if i.date %}<span class="aw-date">{{ i.name }} · {{ i.date }}</span>{% else %}{{ i.name }}{% endif %}{% if i.next %} <span class="awnext">Next</span>{% endif %}</span>{% endfor %}</div></div>{% endfor %}
   </div>
@@ -50,7 +50,7 @@
 {% else %}
 {% if podium %}
 <section class="sec">
-  <div class="seclabel">Most wins</div>
+  <h2 class="seclabel">Most wins</h2>
   <ol class="awpodium">{% for s in podium %}<li class="awpod awpod-{{ s.place }}"><{{ "a" if s.href else "div" }} class="awpod-in"{% if s.href %} href="{{ s.href }}"{% endif %}>
     <span class="card-pic awframe is-place-{{ s.place }}">{{ poster(s.poster, s.title, 240) }}{{ aw.tag(s) }}{{ award_badge(s.award) }}</span>
     <span class="row-title">{{ s.title }}</span>

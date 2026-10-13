@@ -129,7 +129,7 @@
 {% endif %}
 {% if film.rating and not film.score %}
 <section class="sec" id="rate">
-  <div class="seclabel">Your rating</div>
+  <h2 class="seclabel">Your rating</h2>
   {{ rate.picker(film.rating) }}
 </section>
 {% endif %}
@@ -140,14 +140,14 @@
 {% if film.awards %}
 {% import "_award_card.html" as aw %}
 <section class="sec" id="awards">
-  <div class="seclabel">Awards</div>
+  <h2 class="seclabel">Awards</h2>
   <div class="awgroups">{% for g in film.awards %}{{ aw.film_group(g) }}{% endfor %}</div>
 </section>
 {% endif %}
 <div class="filmbody">
 {% if film.overview %}
 <section class="sec">
-  <div class="seclabel">Overview</div>
+  <h2 class="seclabel">Overview</h2>
   <p class="overview">{{ film.overview }}</p>
 </section>
 {% endif %}
@@ -160,7 +160,7 @@
 {% if film.seasons %}
 {% import "_resume_acts.html" as wa %}
 <section class="sec seasons" id="seasons">
-  <div class="seclabel">Seasons</div>
+  <h2 class="seclabel">Seasons</h2>
   {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
   <div class="listbox">
   {% for s in film.seasons %}
@@ -189,7 +189,7 @@
 </section>
 {% elif film.kind == "tv" and film.t and film.t.seasons %}
 <section class="sec seasons">
-  <div class="seclabel">Seasons</div>
+  <h2 class="seclabel">Seasons</h2>
   <div class="listbox">
   {% for s in film.t.seasons %}
   {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
@@ -208,7 +208,7 @@
 {% set fp = film.file %}
 {% if fp %}
 <section class="sec">
-  <div class="seclabel">File</div>
+  <h2 class="seclabel">File</h2>
   <div class="panel filepanel">
     {% with badges = fp.badges %}{% include "_file_strip.html" %}{% endwith %}
     {% if fp.grid %}
@@ -232,7 +232,7 @@
 {% set langs_row = f.languages if not fp else none %}
 {% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or "dates" in film.pending %}
 <section class="sec">
-  <div class="seclabel">Details</div>
+  <h2 class="seclabel">Details</h2>
   <dl class="kvrows details">
     {% call wait("dates", film.pending) %}{% include "_film_dates.html" %}{% endcall %}
     {% if langs_row %}<div class="kv"><dt>On disk</dt><dd>{{ langs_row }}</dd></div>{% endif %}

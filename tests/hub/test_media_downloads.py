@@ -72,7 +72,7 @@ def test_downloads_page_groups_words_and_totals(env):
     assert resp.status_code == 200
     body = main_of(resp.text)
     assert "↓ 1.4 MB/s · ↑ 230 kB/s · 5 seeding" in body
-    order = [body.index(f">{h}</div>") for h in ("Movies", "TV", "Other", "Finished today")]
+    order = [body.index(f">{h}</h2>") for h in ("Movies", "TV", "Other", "Finished today")]
     assert order == sorted(order)
     assert "Midnight Harbour 2021 1080p" in body and 'class="row-meta">Downloading · ' in body
     assert "43% done · 1.1 MB/s · 12 min left · 4.2 GB" in body and "width: 43%" in body
@@ -83,7 +83,7 @@ def test_downloads_page_groups_words_and_totals(env):
 def test_downloads_page_omits_empty_groups_and_states_empty_in_words(env):
     with env(qbittorrent={**QB, "active": [QB["active"][1]], "finished": []}) as client:
         body = main_of(client.get("/media/downloads").text)
-    assert ">TV</div>" in body and ">Movies</div>" not in body and ">Other</div>" not in body
+    assert ">TV</h2>" in body and ">Movies</h2>" not in body and ">Other</h2>" not in body
     with env(qbittorrent=EMPTY_QB) as client:
         body = main_of(client.get("/media/downloads").text)
     assert "Nothing downloading" in body and "Nothing finished today" in body
@@ -207,12 +207,12 @@ def test_shelf_still_works_without_the_qb_snapshot(env):
 def test_this_week_row_carries_a_download_badge(env, tmp_path):
     with env(arr=ARR, qbittorrent=QB) as client:
         lib = main_of(client.get("/media/library").text)
-    week = lib.split(">This week</div>", 1)[1].split(">Downloading</div>", 1)[0]
+    week = lib.split(">This week</h2>", 1)[1].split(">Downloading</h2>", 1)[0]
     assert "Downloading · 43%</div>" in week
     (tmp_path / "snaps" / "qbittorrent.json").unlink()
     with env(arr=ARR) as client:
         lib = main_of(client.get("/media/library").text)
-    week = lib.split(">This week</div>", 1)[1].split(">Downloading</div>", 1)[0]
+    week = lib.split(">This week</h2>", 1)[1].split(">Downloading</h2>", 1)[0]
     assert "Downloading · 75%" in week  # arr's own pct when qb is absent
 
 

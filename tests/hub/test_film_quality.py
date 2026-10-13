@@ -217,7 +217,7 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    panel = b.split('<div class="seclabel">File</div>', 1)[1].split("</section>", 1)[0]
+    panel = b.split('<h2 class="seclabel">File</h2>', 1)[1].split("</section>", 1)[0]
     assert '<b>WEB-DL</b>' in panel and 'class="fmt fmt-source"' in panel
     for label, value in (("Size", "20.0 GB"), ("Bitrate", "4.7 Mb/s"), ("Picture", "1.78 : 1"), ("Added", "1 May 2024")):
         assert f'<div class="microlabel">{label}</div><div class="filestat-value">{value}</div>' in panel, label
@@ -227,7 +227,7 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     assert "<dt>Subtitles</dt><dd>English · Text (SRT)</dd>" in panel
     assert '<p class="filename">Harbour.Lights.2019.2160p.WEB-DL.DDP5.1.HEVC-FLUX.mkv</p>' in panel
     assert "secret-share" not in b and "/volume1" not in b                 # never the folders
-    assert b.index(">Overview</div>") < b.index(">File</div>") < b.index(">Crew</div>") < b.index(">Cast</div>")
+    assert b.index(">Overview</h2>") < b.index(">File</h2>") < b.index(">Crew</h2>") < b.index(">Cast</h2>")
 
 
 def test_rank_hidden_under_twenty_films(env, monkeypatch, rankdir):
@@ -243,9 +243,9 @@ def test_tv_file_panel_degrades_to_totals(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/tv/100"))
-    assert '<div class="seclabel">Crew</div>' in b and "<dt>Created by</dt>" in b and "Cass Creator" in b
-    if '<div class="seclabel">File</div>' in b:                             # the fake show has no file facts
-        panel = b.split('<div class="seclabel">File</div>', 1)[1].split("</section>", 1)[0]
+    assert '<h2 class="seclabel">Crew</h2>' in b and "<dt>Created by</dt>" in b and "Cass Creator" in b
+    if '<h2 class="seclabel">File</h2>' in b:                             # the fake show has no file facts
+        panel = b.split('<h2 class="seclabel">File</h2>', 1)[1].split("</section>", 1)[0]
         assert 'class="filename"' not in panel and ">Bitrate<" not in panel
 
 
@@ -263,8 +263,8 @@ def test_not_on_server_film_has_no_file_section_but_keeps_details(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/701").text)
-    assert '<div class="seclabel">File</div>' not in b and '<div class="seclabel">Crew</div>' not in b
-    assert '<div class="seclabel">Overview</div>' in b and "Nothing yet." in b
+    assert '<h2 class="seclabel">File</h2>' not in b and '<h2 class="seclabel">Crew</h2>' not in b
+    assert '<h2 class="seclabel">Overview</h2>' in b and "Nothing yet." in b
 
 
 def test_stats_card_and_portrait_cast(env):

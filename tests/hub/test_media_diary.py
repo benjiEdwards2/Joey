@@ -67,7 +67,7 @@ def test_manual_log_appears_month_grouped_with_place(env):
         dup = client.post("/media/log", data=log_form(), headers=HX)
         assert "Already in the diary" in dup.text
         body = main_of(client.get("/media/diary").text)
-    month = body.split(f">{date.today().strftime('%B %Y')}</div>", 1)[1]
+    month = body.split(f">{date.today().strftime('%B %Y')}</h2>", 1)[1]
     assert "The Matrix (1999)" in month and "Film" in month and "Logged · Cinema" in month
 
 
@@ -125,7 +125,7 @@ def test_on_this_day_and_milestones_live_on_the_diary_not_history(env):
     with build() as client:
         diary = main_of(client.get("/media/diary").text)
         history = main_of(client.get("/media/history").text)
-    assert ">On this day</div>" in diary and "Salt Flats" in diary
+    assert ">On this day</h2>" in diary and "Salt Flats" in diary
     assert "Milestones: " in diary and "First watch of 2025: Heat" in diary
     assert "On this day" not in history
 

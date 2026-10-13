@@ -5,7 +5,7 @@
 {% import "_rate.html" as rate %}
 {# Three for tonight (restyle Phase 3): three big poster cards, each the whole-card link (2026-10-06). #}
 <section class="sec">
-  <div class="seclabel">{{ heading }}</div>
+  <h2 class="seclabel">{{ heading }}</h2>
   {% if src.st.state == "off" %}
   <p class="empty">Not connected</p>
   {% elif not available %}

@@ -16,7 +16,7 @@
 <p class="metaline">{{ totals_text }}</p>
 {% for g in groups %}
 <section class="sec">
-  <div class="seclabel">{{ g.label }}</div>
+  <h2 class="seclabel">{{ g.label }}</h2>
   <div class="listbox">
   {% for r in g.rows %}
   <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
@@ -32,7 +32,7 @@
 {% endfor %}
 
 <section class="sec">
-  <div class="seclabel">Finished today</div>
+  <h2 class="seclabel">Finished today</h2>
   {% if src.data.get("finished") %}<div class="listbox">
   {% for r in src.data.get("finished", []) %}
   <div class="row is-complete">
@@ -46,7 +46,7 @@
    linked to its page, where "Search for upgrade" asks the app to look. Absent for an older arr envelope. #}
 {% if upgrades %}
 <section class="sec" id="upgrades">
-  <div class="seclabel">Upgrades</div>
+  <h2 class="seclabel">Upgrades</h2>
   {% if upgrades.state == "off" %}<p class="metaline">Not connected</p>
   {% else %}
   <p class="metaline">{{ upgrades.totals_text }}{% for a in upgrades.off %} · {{ a }} not connected{% endfor %}</p>

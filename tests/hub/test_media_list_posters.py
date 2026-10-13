@@ -39,7 +39,7 @@ def test_other_row_lists_keep_the_small_poster(frame_env):
     with TestClient(main.app) as c:
         hist = c.get("/media/history").text
     # media-ux4 (2026-10-08, B.): the To rate inbox rows on History now use the list size too; Recently watched keeps 44 px
-    recent = hist.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
+    recent = hist.split(">Recently watched</h2>", 1)[1].split("</section>", 1)[0]
     assert "libposters" not in recent and "?h=120&amp;" in recent
 
 

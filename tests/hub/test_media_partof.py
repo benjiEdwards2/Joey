@@ -130,10 +130,10 @@ def test_collection_sits_directly_under_overview(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/item/mov1"))
-    ov, col = b.index('<div class="seclabel">Overview</div>'), b.index('id="collection"')
-    assert ov < col < b.index('<div class="seclabel">File</div>') < b.index('<div class="seclabel">Similar</div>')
-    assert '<div class="seclabel">Harbour Collection</div>' not in b                 # no longer a bottom shelf
-    assert '<div class="seclabel">Recommended</div>' in b
+    ov, col = b.index('<h2 class="seclabel">Overview</h2>'), b.index('id="collection"')
+    assert ov < col < b.index('<h2 class="seclabel">File</h2>') < b.index('<h2 class="seclabel">Similar</h2>')
+    assert '<h2 class="seclabel">Harbour Collection</h2>' not in b                 # no longer a bottom shelf
+    assert '<h2 class="seclabel">Recommended</h2>' in b
 
 
 def test_collection_banner_words_follow_form_and_current_film(env):

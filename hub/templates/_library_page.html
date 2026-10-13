@@ -15,7 +15,7 @@
 {% if not marks %}<p class="metaline">Her watch marks and scores aren't available yet</p>{% endif %}
 {% if new_week %}
 <section class="sec">
-  <div class="seclabel">New this week</div>
+  <h2 class="seclabel">New this week</h2>
   <div class="carousel">
   {% for r in new_week %}
   <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
@@ -43,7 +43,7 @@
 </form>
 {% for g in groups %}
 <section class="sec">
-  {% if g.label %}<div class="seclabel">{{ g.label }} · {{ g.rows|length }}</div>{% endif %}
+  {% if g.label %}<h2 class="seclabel">{{ g.label }} · {{ g.rows|length }}</h2>{% endif %}
   {% if libview == "list" %}<div class="listbox libposters">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
   {% else %}<div class="poster-grid libgrid">{% for r in g.rows %}{{ card(r) }}{% endfor %}</div>{% endif %}
 </section>

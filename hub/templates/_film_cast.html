@@ -2,7 +2,7 @@
    from the Jellyseerr title body; waiting, Jellyfin's actors and headshots. #}
 {% if film.cast %}
 <section class="sec">
-  <div class="seclabel">Cast</div>
+  <h2 class="seclabel">Cast</h2>
   <div class="castrow">
     {% for c in film.cast %}
     <{{ "a" if c.id else "div" }} class="castcard"{% if c.id %} href="/media/person/{{ c.id }}"{% endif %}>{% if c.ref %}<img class="castpic" src="/img/{{ c.ref }}?h={{ film.cast_h }}" alt="" loading="lazy" decoding="async" width="180" height="270">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in c.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}

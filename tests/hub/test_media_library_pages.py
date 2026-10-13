@@ -119,7 +119,7 @@ def test_new_this_week_strip_present_and_absent(env):
     with TestClient(main.app) as c:
         _, m = body(c, "/media/movies")
         _, t = body(c, "/media/tv")
-    assert ">New this week</div>" in m and "Fresh Movie" in m and "yesterday" in m and "Old Movie" not in m
+    assert ">New this week</h2>" in m and "Fresh Movie" in m and "yesterday" in m and "Old Movie" not in m
     assert "New Series" in t and "Fresh Movie" not in t
     main = env(jellyfin=jelly(), arr={"summary": "x", "arrived": []})
     with TestClient(main.app) as c:
@@ -355,7 +355,7 @@ def test_to_rate_rows_use_the_movies_list_poster(rate_env):
     build, _ = rate_env
     with build() as client:
         hist = main_of(client.get("/media/history").text)
-    inbox = hist.split(">To rate</div>", 1)[1].split("</section>", 1)[0]
+    inbox = hist.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]
     assert '<div class="listbox libposters">' in inbox
     assert posters(inbox) and set(posters(inbox)) == {"240"}
 
@@ -368,7 +368,7 @@ def test_every_diary_list_uses_the_movies_list_poster(rate_env):
         logged = client.post("/media/log", headers=HX, data={
             "pick": '{"item_key": "tmdb:603", "kind": "movie", "title": "The Matrix", "year": 1999}',
             "watched_on": date.today().isoformat(), "place": "", "note": ""}).text
-    otd = diary.split(">On this day</div>", 1)[1].split("</section>", 1)[0]
+    otd = diary.split(">On this day</h2>", 1)[1].split("</section>", 1)[0]
     assert '<div class="listbox libposters">' in otd and set(posters(otd)) == {"240"}
     assert '<div id="diary-new" class="listbox libposters"></div>' in diary       # htmx-logged rows land here
     months = diary.split('<div id="diary-new"', 1)[1]
@@ -381,7 +381,7 @@ def test_recently_watched_on_history_keeps_the_small_poster(rate_env):
     build, _ = rate_env
     with build() as client:
         hist = main_of(client.get("/media/history").text)
-    recent = hist.split(">Recently watched</div>", 1)[1].split("</section>", 1)[0]
+    recent = hist.split(">Recently watched</h2>", 1)[1].split("</section>", 1)[0]
     assert "libposters" not in recent and set(posters(recent)) == {"120"}
 
 

@@ -76,9 +76,9 @@ def test_playing_page_sections_render_in_main(app_factory):
     assert 'Sample Person<span class="sep"> · </span>Transcoding<span class="sep"> · </span>42%' in body
     assert "width: 42%" in body
     assert f'href="{JELLY_HREF}"' in body                      # the area's LINK tile
-    assert ">Up next</div>" in body and "Dust and Daylight" in body and "Next episode" in body
-    assert ">Latest additions</div>" in body
-    assert body.index("Desert Crossing") > body.index(">Latest additions</div>")
+    assert ">Up next</h2>" in body and "Dust and Daylight" in body and "Next episode" in body
+    assert ">Latest additions</h2>" in body
+    assert body.index("Desert Crossing") > body.index(">Latest additions</h2>")
     assert "3d ago" in body and ">Movie<" in body
     assert "Library: 42 movies · 237 episodes" in body
 
@@ -152,4 +152,4 @@ def test_playing_page_has_posters_and_a_backdrop_behind_now_playing(app_factory)
     assert 'src="/img/jf:def456?h=120' in body
     assert 'class="pagehead-bd"' in body and "--bd: url(" in body and "/img/jfb%3Aabc123?h=1280" in body
     assert 'src="/img/none?h=120&amp;t=DE"' in body  # null ref -> fallback card
-    assert "jfb:def456" not in body.split(">Up next</div>", 1)[1]  # backdrop only behind now playing
+    assert "jfb:def456" not in body.split(">Up next</h2>", 1)[1]  # backdrop only behind now playing

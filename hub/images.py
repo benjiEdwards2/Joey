@@ -56,9 +56,9 @@ def fallback_svg(title: str = "") -> bytes:
     letters = fallback_letters(title) or "·"
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300" role="img">'
-        '<rect width="200" height="300" fill="#1c1f26"/>'
-        '<text x="100" y="168" text-anchor="middle" font-family="sans-serif" font-size="64" '
-        f'font-weight="600" fill="#6b7280">{html.escape(letters)}</text></svg>'
+        '<rect width="200" height="300" fill="#18181b"/>'
+        '<text x="100" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="64" '
+        f'font-weight="600" fill="#52525b">{html.escape(letters)}</text></svg>'
     ).encode("utf-8")
 
 

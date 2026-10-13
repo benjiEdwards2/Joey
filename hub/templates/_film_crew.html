@@ -2,7 +2,7 @@
    Director / Writer. #}
 {% if film.crew %}
 <section class="sec">
-  <div class="seclabel">Crew</div>
+  <h2 class="seclabel">Crew</h2>
   <dl class="crewgrid">
     {% for c in film.crew %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}{% if m.id %}<a href="/media/person/{{ m.id }}">{{ m.name }}</a>{% else %}<a href="/media/discover?q={{ m.name|urlencode }}">{{ m.name }}</a>{% endif %}{% endfor %}</dd></div>{% endfor %}
   </dl>

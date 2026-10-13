@@ -149,7 +149,7 @@ def test_shelves_render_with_status_words(env):
         resp = client.get("/media/discover")
     body = main_of(resp.text)
     for title in ("Trending", "Popular films", "Popular TV", "Upcoming films", "Upcoming TV"):
-        assert f'<div class="seclabel">{title}</div>' in body
+        assert f'<h2 class="seclabel">{title}</h2>' in body
     for word in ("Available", "Partly available", "Processing", "Requested", "Not in library"):
         assert f">{word}</span>" in body
     assert 'href="/media/title/movie/1"' in body and 'href="/media/title/tv/9"' in body
@@ -234,7 +234,7 @@ def test_tv_title_page_seasons_and_confirm(env):
         page = client.get("/media/title/tv/100")
         body = main_of(page.text)
         assert "4 seasons · 30 episodes" in body
-        seasons = body.split('<div class="seclabel">Seasons</div>', 1)[1].split("requestblock", 1)[0]
+        seasons = body.split('<h2 class="seclabel">Seasons</h2>', 1)[1].split("requestblock", 1)[0]
         assert seasons.index("Season 1") < seasons.index("Season 4") < seasons.index("Specials")
         for word in ("Available", "Processing", "Requested", "Not in library"):
             assert f">{word}</span>" in seasons

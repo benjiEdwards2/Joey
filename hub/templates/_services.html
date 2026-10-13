@@ -2,7 +2,7 @@
    tile is one whole link to /media/discover/service/{id}. `services` None = the provider list is down. #}
 {% macro services_row(services) %}
 <section class="sec">
-  <div class="seclabel">Services</div>
+  <h2 class="seclabel">Services</h2>
   {% if services is none %}
   <p class="empty">Unavailable</p>
   {% elif services %}

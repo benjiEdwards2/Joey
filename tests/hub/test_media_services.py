@@ -55,7 +55,7 @@ def wire(fake, movies=AU_MOVIES, tv=AU_TV, films=FILMS, shows=SHOWS):
 
 
 def tiles(html):
-    sec = main_of(html).split(">Services</div>", 1)[1].split("</section>", 1)[0]
+    sec = main_of(html).split(">Services</h2>", 1)[1].split("</section>", 1)[0]
     return re.findall(r'<a class="prov-tile" href="([^"]+)">\s*<img class="prov-logo" src="([^"]+)"[^>]*>\s*'
                       r'<span class="prov-name">([^<]+)</span>', sec), sec
 
@@ -92,9 +92,9 @@ def test_services_row_unavailable_when_provider_list_fails(env):
     client, fake = env()      # no provider paths in the table -> 404 both
     with client:
         html = client.get("/media/discover").text
-    sec = main_of(html).split(">Services</div>", 1)[1].split("</section>", 1)[0]
+    sec = main_of(html).split(">Services</h2>", 1)[1].split("</section>", 1)[0]
     assert "Unavailable" in sec and "prov-tile" not in sec
-    assert ">Popular films</div>" in main_of(html)              # the rest of Discover still renders
+    assert ">Popular films</h2>" in main_of(html)              # the rest of Discover still renders
 
 
 def test_services_row_hidden_while_searching(env):
@@ -113,14 +113,14 @@ def test_service_page_shelves_reuse_discover_cards(env):
     assert r.status_code == 200
     body = main_of(r.text)
     assert '<h2 class="prov-title">Netflix</h2>' in body and "/img/tmdb:/netflix.jpg?h=120" in body
-    titles = re.findall(r'<div class="seclabel">([^<]+)</div>', body)
+    titles = re.findall(r'<h2 class="seclabel">([^<]+)</h2>', body)
     assert titles == ["Popular films", "Popular TV", "New this month", "Top rated"]
-    pop_films = body.split(">Popular films</div>", 1)[1].split("</section>", 1)[0]
+    pop_films = body.split(">Popular films</h2>", 1)[1].split("</section>", 1)[0]
     assert 'href="/media/title/movie/11"' in pop_films and "Service Film B" in pop_films
     assert "Available" in pop_films and 'class="card-cell"' in pop_films       # the Discover card + status word
-    pop_tv = body.split(">Popular TV</div>", 1)[1].split("</section>", 1)[0]
+    pop_tv = body.split(">Popular TV</h2>", 1)[1].split("</section>", 1)[0]
     assert 'href="/media/title/tv/21"' in pop_tv and "Requested" in pop_tv
-    new = body.split(">New this month</div>", 1)[1].split("</section>", 1)[0]
+    new = body.split(">New this month</h2>", 1)[1].split("</section>", 1)[0]
     order = re.findall(r'href="/media/title/(movie|tv)/(\d+)"', new)
     assert order == [("movie", "11"), ("tv", "21"), ("movie", "12")]            # films and TV interleaved
     assert 'action="/media/watchlist/add"' in pop_films                           # the existing + / Request flow
@@ -146,9 +146,9 @@ def test_failed_and_empty_shelves_degrade_to_words(env):
         r = client.get("/media/discover/service/8")
     body = main_of(r.text)
     assert r.status_code == 200
-    films = body.split(">Popular films</div>", 1)[1].split("</section>", 1)[0]
-    tv = body.split(">Popular TV</div>", 1)[1].split("</section>", 1)[0]
-    new = body.split(">New this month</div>", 1)[1].split("</section>", 1)[0]
+    films = body.split(">Popular films</h2>", 1)[1].split("</section>", 1)[0]
+    tv = body.split(">Popular TV</h2>", 1)[1].split("</section>", 1)[0]
+    new = body.split(">New this month</h2>", 1)[1].split("</section>", 1)[0]
     assert "Unavailable" in films and "Nothing to show right now" in tv
     assert "Nothing to show right now" in new                   # one half failed, the other empty: still a word
 

@@ -11,7 +11,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | Module | Owns |
 |---|---|
 | `main.py` | App creation, middleware, `/static` mount, router includes, Hub page (`/`), Area pages (`/a/{id}`, `/server`), `/healthz`, `/whoami`; re-exports the moved names so old `hub.main.X` paths keep working |
-| `shell.py` | What every router imports instead of `hub.main`: THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`, `identity`), the registry holder (`load_areas`, `registry`), `get_snapshots` (once per request), the owner view, `build_status`, `find_detail_source`, `render_page` / `not_found_page` (the one base context and 404), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
+| `shell.py` | What every router imports instead of `hub.main`: THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`, `identity`, `from_lan(request)`, `duration`; `shelf_max` is set by `media_home`), the registry holder (`load_areas`, `registry`), `get_snapshots` (once per request), the owner view, `build_status`, `find_detail_source`, `render_page` / `not_found_page` (the one base context and 404), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
 | `tasks.py` | The app lifespan (loads the registry) and the background loops, all through `_every` |
 | `weather.py`, `upcoming.py` | Weather glimpse, `/weather` forecast + Windy radar embed; the Next 7 days list and hub card |
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
@@ -20,7 +20,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
 | `images.py` | `GET /img/{ref}` poster proxy with a 30-day disk cache and generated fallback cards |
-| `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Restart + update media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
+| `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Update and restart media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
 | `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
@@ -61,7 +61,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/resume/{jf_id}/{watched,unwatched,reset,hide}` | media_resume | Move on from Continue watching |
 | `GET/POST /server/updates/{name}/run`, `POST .../ignore`, `.../unignore` | server_updates | Update now (GET = confirm page), Ignore |
 | `GET/POST /server/updates/all/run` | server_updates | Update all: every eligible pending row in turn, gluetun first (GET `?step=confirm` = the list) |
-| `GET/POST /server/stack/run` | server_stack | Restart + update media stack through stackctl (GET `?step=confirm` = what happens) |
+| `GET/POST /server/stack/run` | server_stack | Update and restart media stack through stackctl (GET `?step=confirm` = what happens) |
 | `GET /img/{ref:path}` | images | Poster / backdrop / cast proxy, sizes 120 / 240 / 400 / 600 / 1280 |
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
 | `/static/*` | StaticFiles | `?v=` content hash: `immutable` for a year; un-versioned: one hour |
@@ -80,7 +80,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER` | unset | Live item reads, play recorder, her profile |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |
 | `WUD_URL`, `WUD_USER`, `WUD_PASS`, `SERVER_DISCORD_WEBHOOK` | unset | Update now / Ignore; Attention push |
-| `STACKCTL_URL`, `STACKCTL_TOKEN` | unset | Restart + update media stack and its status line (`stackctl/NAS_INSTALL.md`); unset = button hidden, "Not connected" |
+| `STACKCTL_URL`, `STACKCTL_TOKEN` | unset | Update and restart media stack and its status line (`stackctl/NAS_INSTALL.md`); unset = button hidden, "Not connected" |
 | `MEDIA_BACKUP`, `PLAY_RECORDER`, `MEDIA_WARMUP`, `MEDIA_FOLLOW`, `MEDIA_AWARDS` | on | `off` stops that background job (`MEDIA_WARMUP=shelves` keeps only the shelf pass) |
 | `PLAY_POLL_SECONDS`, `AWARDS_CONTACT` | 60, unset | Recorder poll; awards sync makes no call without a contact |
 
@@ -142,7 +142,7 @@ the `arr_sweep(request)` global): "Search missing" and "Search upgrades", each a
 `GET /media/arr/sweep?step=confirm`; without JS the page draws it from `?sweep_ask=`) then a `same_origin` POST that
 sends Radarr `MissingMoviesSearch` + Sonarr `MissingEpisodeSearch`, or `CutoffUnmetMoviesSearch` +
 `CutoffUnmetEpisodeSearch` — one worker thread and a 10 s timeout per app, so one app down never stops the other
-(`?sweep=started|partial|failed`). A second sweep of the same kind inside 10 min is allowed; the card says "Started N min
+(`?sweep=started|partial|failed`). A second sweep of the same kind inside 10 min is allowed; the card says "Started 4m
 ago · run again?" (in-process timestamp). Neither app configured: "Not connected", no buttons.
 
 **Upgrade available (F4b, 2026-10-12):** `media_upgrades.py` reads the `arr` snapshot's `data.upgrades` (Radarr / Sonarr

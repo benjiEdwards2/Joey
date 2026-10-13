@@ -1,4 +1,5 @@
-"""Media phone nav (B., 2026-10-07): inside Media the phone tab bar is the six Media sections (Home = Media home),
+"""Media phone nav (B., 2026-10-07): inside Media the phone tab bar is the Media sections (Overview = Media home;
+five since nav-tidy 2026-10-13, Diary folded into Activity),
 the Joey brand is the way out, and Media pages link the "Joey Media" manifest so a home-screen pin stays in Media.
 Bar asserted inside <nav class="tabbar">, manifest/title metas inside <head> (never inside <title>)."""
 import json
@@ -13,9 +14,9 @@ from tests.hub.test_media_frame import env, ROUTES  # noqa: F401  (env is a fixt
 from tests.hub.helpers import ARR, JELLY
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MEDIA_BAR = [("/a/alpha", "Home"), ("/media/movies", "Movies"), ("/media/tv", "TV"), ("/media/diary", "Diary"),
+MEDIA_BAR = [("/a/alpha", "Overview"), ("/media/movies", "Movies"), ("/media/tv", "TV"),
              ("/media/playing", "Activity"), ("/media/discover", "Discover")]
-SECTION_HREF = {"home": "/a/alpha", "movies": "/media/movies", "tv": "/media/tv", "diary": "/media/diary",
+SECTION_HREF = {"home": "/a/alpha", "movies": "/media/movies", "tv": "/media/tv",
                 "server": "/media/playing", "discover": "/media/discover"}
 
 
@@ -35,14 +36,15 @@ def head(html):
 
 
 @pytest.mark.parametrize("route", list(ROUTES))
-def test_media_pages_get_the_six_media_sections(env, route):
+def test_media_pages_get_the_five_media_sections(env, route):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
         html = c.get(route).text
     bar = tabbar(html)
     assert 'aria-label="Media sections (phone)"' in bar and 'hx-swap="innerHTML show:window:top"' in bar
     assert items(bar) == MEDIA_BAR
-    assert bar.count('<svg class="ic"') == 6 and "<details" not in bar and "More" not in bar
+    assert bar.count('<svg class="ic"') == 5 and "<details" not in bar and "More" not in bar
+    assert "Diary" not in bar and "/media/diary" not in bar   # nav-tidy (2026-10-13): no Diary slot
     assert bar.count('aria-current="page"') == 1
     assert f'<a href="{SECTION_HREF[ROUTES[route][0]]}" aria-current="page">' in bar
     assert '<a class="brand" href="/" aria-label="Joey home">' in html     # the way back to the overall hub

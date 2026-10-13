@@ -49,6 +49,20 @@ def test_stats_strip_in_words_and_month_grouping(env):
     assert date.today().strftime("%B %Y") in body or (date.today() - timedelta(days=60)).strftime("%B %Y") in body
 
 
+def test_diary_is_activity_history_and_links_play_stats(env):
+    """nav-tidy (2026-10-13, B.): the diary is Activity > History (no Diary section); the play recorder page keeps its
+    URL with no tab, linked from a metaline under the stats line."""
+    build, _ = env
+    with build() as client:
+        html = client.get("/media/diary").text
+    assert html.split("<title>", 1)[1].split("</title>", 1)[0] == "History · Joey"
+    assert 'href="/media/playing" aria-current="page">Activity' in html.split('<nav class="sectabs"', 1)[1]
+    assert 'href="/media/diary" aria-current="page">History</a>' in html.split('<nav class="sectabs sub"', 1)[1]
+    body = main_of(html)
+    assert '<p class="metaline"><a href="/media/server/history">Play stats</a></p>' in body
+    assert body.index("this week · ") < body.index(">Play stats</a>")
+
+
 def test_place_suggestions_come_from_media_write_places(env):
     """M-05 (W2): the log form's <datalist> is rendered from media_write.PLACES, not a second hand-written list."""
     from hub.media_write import PLACES

@@ -147,7 +147,7 @@ def test_movies_page_frame_status_words_and_head(env):
     with TestClient(main.app) as c:
         html, b = page(c, "/media/movies/watchlist")
     assert current(html, "sectabs") == ["Movies"]
-    assert current(html, "sectabs sub") == ["Watchlist"]
+    assert current(html, "sectabs sub") == ["My films"]   # nav-tidy (2026-10-13): no Watchlist tab; My films holds it
     assert "5 on your watchlist · 4 not on the server" in b
     for word in ("On disk", "Requested", "Processing", "Partly available", "Not on server"):
         assert f">{word}</span>" in b
@@ -159,7 +159,7 @@ def test_tv_page_and_empty_state(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     with TestClient(main.app) as c:
         html, b = page(c, "/media/tv/watchlist")
-        assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["Watchlist"]
+        assert current(html, "sectabs") == ["TV shows"] and current(html, "sectabs sub") == ["My shows"]
         assert '<p class="empty">Nothing on the watchlist.</p>' in b
         put(22, kind="tv", title="Foxtrot Show")     # on the server list; wrong-kind request ignored
         _, b = page(c, "/media/tv/watchlist")
@@ -199,23 +199,16 @@ def test_finished_show_leaves_but_a_started_one_stays(env):
     assert "Golf Show" not in b and "Echo Show" in b and "1 watched title left the list" in b
 
 
-def test_watchlist_tab_count_is_the_not_on_server_number(env):
+def test_watchlist_left_the_nav_but_its_pages_still_serve(env):
+    """nav-tidy (2026-10-13, B.): no Watchlist tab (so no "to get" count) on Movies or TV shows; the pages, routes and
+    the title-page button stay, reachable by URL."""
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     put(12); put(555); put(556)
     with TestClient(main.app) as c:
-        html = c.get("/media/movies").text
-    sub = re.search(r'<nav class="sectabs sub".*?</nav>', html, re.S).group(0)
-    assert re.search(r'Watchlist <span class="waitcount">2<span class="vh"> to get</span>', sub)
-    assert "waitcount" not in re.search(r'>My films</a>', sub).string.split("Watchlist")[0]
-
-
-def test_no_count_when_nothing_is_missing(env):
-    main = env(jellyfin=jelly(), jellyseerr=REQS)
-    put(12)
-    with TestClient(main.app) as c:
-        sub = re.search(r'<nav class="sectabs sub".*?</nav>', c.get("/media/movies").text, re.S).group(0)
-    # media-ux4: the To rate tab beside it may carry its own count; the Watchlist tab carries none
-    assert ">Watchlist</a>" in sub and not re.search(r'>Watchlist <span class="waitcount">', sub)
+        for list_path, wl_path in (("/media/movies", "/media/movies/watchlist"), ("/media/tv", "/media/tv/watchlist")):
+            sub = re.search(r'<nav class="sectabs sub".*?</nav>', c.get(list_path).text, re.S).group(0)
+            assert "Watchlist" not in sub and wl_path not in sub and "to get" not in sub
+            assert c.get(wl_path).status_code == 200
 
 
 # ---- title page + Discover ----

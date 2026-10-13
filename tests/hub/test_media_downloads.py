@@ -100,7 +100,7 @@ def test_server_section_has_downloads_tab_after_library(env):
         html = client.get("/media/downloads").text
     tabs = re.search(r'<nav class="sectabs sub".*?</nav>', html, re.S).group(0)
     labels = [x.strip() for x in re.findall(r">([^<>]+)</a>", tabs) if x.strip()]
-    assert labels[:4] == ["Live", "History", "Library", "Downloads"]  # F7 put History after Live
+    assert labels[:5] == ["Live", "History", "To rate", "Library", "Downloads"]  # F7 put History after Live; nav-tidy (2026-10-13): + To rate
     assert 'aria-current="page">Downloads' in tabs
 
 

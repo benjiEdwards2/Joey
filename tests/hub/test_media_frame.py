@@ -1,4 +1,4 @@
-"""F1 (2026-10-06) — the Media app frame: six sections, per-section sub-tabs.
+"""F1 (2026-10-06) — the Media app frame: five sections (six until nav-tidy, 2026-10-13), per-section sub-tabs.
 Shell (restyle Phase 2, 2026-10-06): Media pages sit inside the Joey shell (top bar + phone tab bar);
 "Return to Joey" is gone and the sections are section tabs (.sectabs) on the page header.
 Bar and tabs are asserted on the whole body (they are chrome, not content)."""
@@ -36,11 +36,12 @@ def env(tmp_path, monkeypatch):
 ROUTES = {
     "/a/alpha": ("home", None),
     "/media/movies": ("movies", "My films"),
-    "/media/movies/tonight": ("movies", "Tonight"),
+    "/media/movies/tonight": ("movies", "My films"),   # nav-tidy (2026-10-13): Tonight has no tab; My films holds it
     "/media/tv": ("tv", "My shows"),
-    "/media/tv/tonight": ("tv", "Tonight"),
-    "/media/diary": ("diary", "Diary"),
-    "/media/history": ("diary", "To Rate"),
+    "/media/tv/tonight": ("tv", "My shows"),
+    "/media/diary": ("server", "History"),         # nav-tidy (2026-10-13): the Diary section folded into Activity
+    "/media/history": ("server", "To rate"),
+    "/media/server/history": ("server", None),     # play stats: under Activity, no tab of its own
     "/media/playing": ("server", "Live"),
     "/media/library": ("server", "Library"),
     "/media/requests": ("server", "Requests"),
@@ -49,7 +50,7 @@ ROUTES = {
     "/media/following": ("discover", "Following"),
     "/media/title/movie/1": ("discover", None),
 }
-LABELS = {"home": "Home", "movies": "Movies", "tv": "TV Shows", "diary": "Diary", "server": "Activity", "discover": "Discover"}
+LABELS = {"home": "Overview", "movies": "Movies", "tv": "TV shows", "server": "Activity", "discover": "Discover"}
 
 
 def nav_html(html, cls):
@@ -69,8 +70,9 @@ def test_media_pages_use_the_frame(env, route):
     html = r.text
     assert r.status_code == 200
     assert 'class="topbar"' in html and 'class="rail"' not in html   # Joey shell around Media pages
-    tabs_bar = html.split('<nav class="tabbar"', 1)[1]                 # Media phone bar (2026-10-07): Media's six
-    assert "/a/beta" not in tabs_bar and "<span>Diary</span>" in tabs_bar and "mediatabs" not in html
+    tabs_bar = html.split('<nav class="tabbar"', 1)[1]                 # Media phone bar (2026-10-07): Media's five
+    assert "/a/beta" not in tabs_bar and "<span>Activity</span>" in tabs_bar and "mediatabs" not in html
+    assert "<span>Diary</span>" not in tabs_bar                         # nav-tidy (2026-10-13)
     assert "Return to Joey" not in html and "returnjoey" not in html
     sections = nav_html(html, "sectabs")
     for label in LABELS.values():
@@ -79,17 +81,19 @@ def test_media_pages_use_the_frame(env, route):
     assert current(html, "sectabs") == [LABELS[section]]
     if tab:
         assert current(html, "sectabs sub") == [tab]
+    elif route == "/media/server/history":
+        assert current(html, "sectabs sub") == []   # Activity's tabs show, none lit
     else:
         assert 'class="sectabs sub"' not in html
     assert 'class="status"' not in html
 
 
-def test_six_sections_and_home_resolves_via_registry(env):
+def test_five_sections_and_home_resolves_via_registry(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get("/media/movies").text
-    assert len(re.findall(r"<a href=", nav_html(html, "sectabs"))) == 6
-    assert '<a href="/a/alpha">Home</a>' in html
+    assert len(re.findall(r"<a href=", nav_html(html, "sectabs"))) == 5   # nav-tidy (2026-10-13): Diary gone
+    assert '<a href="/a/alpha">Overview</a>' in html                      # nav-tidy: Home reads "Overview"
 
 
 @pytest.mark.parametrize("route", ["/", "/weather", "/a/beta"])
@@ -110,7 +114,7 @@ def test_waiting_counts_are_text_and_absent_at_zero(env):
         media_db.set_rating("m3", 7, "movie", "Old One")
         html = client.get("/media/movies").text
     bar = nav_html(html, "sectabs")
-    assert "waitcount" not in bar.split("Diary")[1].split("Activity")[0]   # nothing to rate: Diary has no count
+    assert "waitcount" not in bar.split("Activity")[1].split("Discover")[0]   # nothing to rate: Activity has no count
     assert "to place" not in bar                                            # decision 1: no By-year badge
 
 
@@ -146,7 +150,8 @@ def test_active_section_unit():
         return (media_nav.active_section(*a, **k) or {}).get("id")
     assert s("/media/movies") == "movies" and s("/media/movies/tonight") == "movies"
     assert s("/media/tv/tonight") == "tv"
-    assert s("/media/history") == "diary" and s("/media/diary") == "diary"
+    assert s("/media/history") == "server" and s("/media/diary") == "server"   # nav-tidy (2026-10-13)
+    assert s("/media/server/history") == "server"
     assert s("/media/apps") == "server" and s("/media/requests") == "server"
     assert s("/media/title/tv/9") == "discover" and s("/media/discover/search") == "discover"
     assert s("/a/media", home_href="/a/media") == "home"
@@ -158,8 +163,8 @@ def test_nav_context_without_a_shelves_area():
     reg = SimpleNamespace(areas=[SimpleNamespace(layout="grid", id="x")])
     ctx = media_nav.nav_context(req, reg, {"to_rate": 2})
     assert ctx["home_href"] == "/" and "accent" not in ctx
-    assert [s["count"] for s in ctx["sections"]] == [0, 0, 0, 2, 0, 0]
-    assert [t["on"] for t in ctx["tabs"]] == [True, False, False, False, False]   # media-ux2: By year removed; media-ux4: + To rate; Awards (2026-10-08): + Awards
+    assert [s["count"] for s in ctx["sections"]] == [0, 0, 0, 2, 0]   # nav-tidy (2026-10-13): the count sits on Activity
+    assert [t["on"] for t in ctx["tabs"]] == [True, False, False]   # nav-tidy: My shows · To rate · Awards
 
 
 # ---- review fixes (2026-10-06) ----
@@ -186,8 +191,8 @@ def test_waitcount_has_hidden_words(env):
 
 
 @pytest.mark.parametrize("route", ["/a/alpha", "/media/diary", "/media/playing", "/media/discover"])
-def test_media_pages_in_shell_carry_six_labels_and_no_return_link(env, route):
-    """Shell: six section labels on the page header (tabs first, title at its foot), no way-out bar."""
+def test_media_pages_in_shell_carry_five_labels_and_no_return_link(env, route):
+    """Shell: five section labels on the page header (tabs first, title at its foot), no way-out bar."""
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get(route).text

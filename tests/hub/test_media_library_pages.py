@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from hub import media_db, media_library
 from tests.hub.conftest import main_raw as main_of  # noqa: F401
 from tests.hub.helpers import JELLY, LINK
-from tests.hub.test_media_frame import current, env, env as frame_env  # noqa: F401
+from tests.hub.test_media_frame import current, env, env as frame_env, nav_html  # noqa: F401
 from tests.hub.test_media_rate import HX, env as rate_env  # noqa: F401
 
 
@@ -130,7 +130,7 @@ def test_tv_page_groups_words_and_head(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         html, b = body(c, "/media/tv?view=list")   # media-ux4: grid is the default; the row words live in List
-    assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["My shows"]
+    assert current(html, "sectabs") == ["TV shows"] and current(html, "sectabs sub") == ["My shows"]
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
     assert "Continuing" in b and "26 episodes · 6 to watch" in b and "8 episodes · All watched" in b
@@ -237,12 +237,16 @@ def test_tv_deal_piles():
 def test_tonight_routes_render_cards_and_deal_again(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
+        assert c.get("/media/movies/tonight").status_code == c.get("/media/tv/tonight").status_code == 200
         html, b = body(c, "/media/movies/tonight")
         tv_html, tv = body(c, "/media/tv/tonight")
-    assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["Tonight"]
+    # nav-tidy (2026-10-13, B.): Tonight left the nav (route + page stay, reachable by URL); My films / My shows hold it
+    assert "/media/movies/tonight" not in nav_html(html, "sectabs sub") and "/media/tv/tonight" not in nav_html(tv_html, "sectabs sub")
+    assert current(tv_html, "sectabs sub") == ["My shows"]
+    assert current(html, "sectabs") == ["Movies"] and current(html, "sectabs sub") == ["My films"]
     assert "Three for tonight" in b and 'href="/media/movies/tonight">Deal again' in b
     assert b.count('class="card-poster tcard"') == 2 and "Nothing else to deal" in b   # 2 unplayed films
-    assert current(tv_html, "sectabs") == ["TV Shows"] and tv.count('class="card-poster tcard"') == 2
+    assert current(tv_html, "sectabs") == ["TV shows"] and tv.count('class="card-poster tcard"') == 2
 
 
 def test_arrived_this_week_prefers_the_timestamp_over_the_text():

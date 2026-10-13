@@ -4,8 +4,8 @@
    when a page has sub-tabs, a second row beneath. The Media home (area_shelves.html) and the film page
    (media_film.html) override this block: home folds "Playing now" into the header, the film page is the detail hero.
    Sections/tabs come from hub/media_nav.py via the `media_nav(request)` global. Media carries no per-area colour. #}
-{# Media mode (2026-10-07): base.html swaps the phone tab bar for the six Media sections and links the Joey Media
-   manifest. Every Media page extends this template (the shelves area page included), so the flag lives here. #}
+{# Media mode (2026-10-07): base.html swaps the phone tab bar for the Media sections (five since 2026-10-13) and
+   links the Joey Media manifest. Every Media page extends this template (the shelves area page included), so the flag lives here. #}
 {% set media_mode = true %}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}

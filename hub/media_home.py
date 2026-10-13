@@ -23,7 +23,7 @@ log = logging.getLogger("hub.media_home")
 # Media detail paths (2026-10-05). Keyed by
 # connector id (hub/ids.py) like the upcoming list — never an area name (WP17 grep exception).
 HISTORY_DETAIL = "/media/history"  # the tile reading the jellyfin snapshot as watch history
-HISTORY_PLAYS = "/media/server/history"  # F7 play history (Activity > History)
+HISTORY_PLAYS = "/media/server/history"  # F7 play history (Play stats, linked from Activity > History; nav-tidy 2026-10-13)
 DIARY_DETAIL = "/media/diary"      # the tile reading it as the watch diary
 TO_RATE_DAYS = 30      # rating inbox window on /media/history
 

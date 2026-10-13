@@ -42,8 +42,8 @@ def page(client, path):
 
 def test_sections_list_awards_after_to_rate():
     tabs = {s["id"]: s["tabs"] for s in media_nav.SECTIONS}
-    assert tabs["movies"][-2:] == [("To Rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]
-    assert tabs["tv"][-2:] == [("To Rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
+    assert tabs["movies"][-2:] == [("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]   # nav-tidy: sentence case
+    assert tabs["tv"][-2:] == [("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
 
 
 def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
@@ -52,7 +52,7 @@ def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
     with build(jelly(ALPHA)) as client:
         html = client.get("/media/movies/awards").text
     tabs = subtabs(html)
-    assert [t[0] for t in tabs] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]
+    assert [t[0] for t in tabs] == ["My films", "To rate", "Awards"]   # nav-tidy (2026-10-13)
     assert [t[0] for t in tabs if t[2]] == ["Awards"]
     b = main_of(html)
     assert '<h2 class="awtitle">Awards</h2>' in b

@@ -194,7 +194,10 @@ def test_history_page_empty_in_frame(env, tmp_path):
         assert "No plays recorded yet — the recorder started on" in body
         for chip in ("7 days", "30 days", "90 days", "This year", "All time"):
             assert chip in body
-        assert 'aria-current="page"' in body and ">History<" in body
+        # nav-tidy (2026-10-13, B.): "Play stats" — under Activity with no tab of its own (History is the diary now)
+        assert r.text.split("<title>", 1)[1].split("</title>", 1)[0] == "Play stats · Joey"
+        sub = r.text.split('<nav class="sectabs sub"', 1)[1].split("</nav>", 1)[0]
+        assert 'href="/media/diary">History<' in sub and 'aria-current="page"' not in sub
 
 
 def test_history_page_with_data(env, tmp_path, monkeypatch):

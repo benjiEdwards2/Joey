@@ -99,7 +99,7 @@ def test_episode_page_and_map(env):
     assert '<a class="rowlink" href="/media/item/ep6">' in b and ">E6 · Six</div>" in b and ">Not aired</div>" in b
     assert ">In progress</div>" in b  # EPISODES carry no runtime, so no minutes-left figure
     assert "Squares in order" not in b and "watched · in progress · not aired" not in b
-    assert current(html, "Media sections") == ["TV Shows"]
+    assert current(html, "Media sections") == ["TV shows"]
     paths = [p for p, _ in fake.calls]
     assert "/Shows/ser1/Seasons" in paths and "/Shows/ser1/Episodes" in paths and "/Users/u1/Items/ser1" in paths
     ep_call = next(q for p, q in fake.calls if p == "/Shows/ser1/Episodes")

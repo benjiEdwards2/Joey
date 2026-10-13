@@ -3,6 +3,7 @@ The docked copy is rendered server-side inside the top bar on Media pages only (
 section as the page's own row), the row carries the sentinel, base.html carries the observer, CSS does the swap."""
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -217,9 +218,68 @@ def test_tab_bar_is_a_direct_child_of_body(env, route):
 
 def test_movies_and_tv_tabs_have_no_by_year():
     tabs = {s["id"]: [label for label, _ in s["tabs"]] for s in media_nav.SECTIONS}
-    assert tabs["movies"] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]   # media-ux4: + To rate; 2026-10-08: + Awards
-    assert tabs["tv"] == ["My shows", "Watchlist", "Tonight", "To Rate", "Awards"]
+    assert tabs["movies"] == ["My films", "To rate", "Awards"]   # nav-tidy (2026-10-13): Watchlist + Tonight left the nav
+    assert tabs["tv"] == ["My shows", "To rate", "Awards"]
     assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h.startswith("/media/years")]
+
+
+# ---- nav-tidy (2026-10-13, B.): five sections, Diary folded into Activity, sentence-case labels ----
+
+def test_five_sections_and_no_diary():
+    assert [(s["id"], s["label"], s["short"]) for s in media_nav.SECTIONS] == [
+        ("home", "Overview", "Overview"), ("movies", "Movies", "Movies"), ("tv", "TV shows", "TV"),
+        ("server", "Activity", "Activity"), ("discover", "Discover", "Discover")]
+    home = media_nav.SECTIONS[0]
+    assert (home["icon"], home["href"]) == ("house", None)   # Overview: label only, id / href / icon unchanged
+
+
+def test_movies_and_tv_have_exactly_three_tabs():
+    tabs = {s["id"]: s["tabs"] for s in media_nav.SECTIONS}
+    assert tabs["movies"] == [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]
+    assert tabs["tv"] == [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
+
+
+def test_activity_has_seven_tabs_with_history_on_the_diary():
+    server = next(s for s in media_nav.SECTIONS if s["id"] == "server")
+    assert server["tabs"] == [("Live", "/media/playing"), ("History", "/media/diary"), ("To rate", "/media/history"),
+                              ("Library", "/media/library"), ("Downloads", "/media/downloads"),
+                              ("Requests", "/media/requests"), ("Health", "/media/apps")]
+    assert {"/media/diary", "/media/history"} <= set(server["prefixes"])
+    assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h == "/media/server/history"]   # play stats: no tab
+
+
+def test_every_section_and_tab_label_is_sentence_case():
+    """docs/style-guide.md: sentence case for labels; "TV" stays an acronym."""
+    labels = [s["label"] for s in media_nav.SECTIONS] + [label for s in media_nav.SECTIONS for label, _ in s["tabs"]]
+    for label in labels:
+        words = label.split()
+        assert words[0] == "TV" or (words[0][0].isupper() and words[0][1:] == words[0][1:].lower()), label
+        assert all(w == "TV" or w == w.lower() for w in words[1:]), label
+
+
+def test_to_rate_count_sits_on_activity_and_its_to_rate_tab():
+    req = SimpleNamespace(url=SimpleNamespace(path="/media/history", query=""))
+    reg = SimpleNamespace(areas=[SimpleNamespace(layout="shelves", id="alpha")])
+    ctx = media_nav.nav_context(req, reg, {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
+    assert {s["id"]: s["count"] for s in ctx["sections"]} == {"home": 0, "movies": 0, "tv": 0, "server": 3, "discover": 0}
+    tabs = {t["href"]: (t["label"], t["on"], t["count"], t["what"]) for t in ctx["tabs"]}
+    assert tabs["/media/history"] == ("To rate", True, 3, "to rate")
+    assert tabs["/media/diary"] == ("History", False, 0, "to get")
+    movies = media_nav.nav_context(SimpleNamespace(url=SimpleNamespace(path="/media/movies", query="")), reg,
+                                   {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
+    assert [(t["label"], t["count"], t["what"]) for t in movies["tabs"]] == [
+        ("My films", 0, "to get"), ("To rate", 2, "to rate"), ("Awards", 0, "to get")]
+
+
+def test_activity_section_shows_the_to_rate_count_on_the_page(env):
+    main = env(jellyfin=JELLY, arr=ARR)   # the fixture history carries titles nobody has rated yet
+    with TestClient(main.app) as c:
+        html = c.get("/media/history").text
+    row = nav_html(html, "sectabs")
+    assert re.search(r'href="/media/playing"[^>]*>Activity <span class="waitcount">\d+<span class="vh"> to rate</span>', row)
+    sub = nav_html(html, "sectabs sub")
+    assert re.search(r'href="/media/history" aria-current="page">To rate <span class="waitcount">\d+', sub)
+    assert "Diary" not in row
 
 
 @pytest.mark.parametrize("route", ["/media/movies", "/media/tv", "/media/movies/tonight", "/media/tv/watchlist"])

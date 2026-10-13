@@ -159,6 +159,13 @@ and `.filters` rules. Phase 4 then removed `.uplist/.uprow`, `.medialist`, `.pos
 and puts the section tabs **Home · Movies · TV Shows · Diary · Server · Discover** on the page header, with sub-tabs and
 amber waiting counts; the phone tab bar stays Joey's. The section map is one module, `media_nav.py`; Home is
 the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonight" went live in F3 (below).
+**Nav tidy (2026-10-13, B.).** Five sections: **Overview** (was Home; id / href / icon unchanged) · Movies · TV shows ·
+Activity · Discover, every section and tab label sentence case (supersedes the awards-year "To Rate"). Movies / TV tabs:
+My films|My shows · To rate · Awards (Watchlist and Tonight left the nav; their routes, pages and the title-page
+Watchlist button stay). The Diary section folded into Activity: Live · History (`/media/diary`, title "History") ·
+To rate (`/media/history`, carrying the amber to-rate count, as does the Activity section) · Library · Downloads ·
+Requests · Health. The play recorder `/media/server/history` ("Play stats") keeps its URL with no tab, linked from a
+metaline on the diary page.
 Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="row">` (title plain `.row-title` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
 
 **Media library pages (F3, 2026-10-06).** `/media/movies`, `/media/movies/tonight`, `/media/tv`, `/media/tv/tonight` and `/media/years?kind=movie|tv`, built from the jellyfin `movies`/`shows` arrays by `media_library.py` (`film_rows`, `show_rows`, `deal_tonight`); "New this week" uses the arr `at` field. Absent arrays render "Library list not available yet". The "By year" tab was dropped from the Movies / TV Shows tab rows (media-ux2, 2026-10-08): `/media/years` and its year pages stay served and reachable by URL only (nothing else in the app linked to it; the Movies / TV "to place" waiting count still counts unranked years).

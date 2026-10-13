@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Diary · Joey{% endblock %}
+{% block title %}History · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
@@ -9,6 +9,8 @@
    are words in every row's meta line — colour is never the only encoding. Every diary list uses the Movies list
    poster size (.listbox.libposters, h=240; media-ux4, 2026-10-08). #}
 <p class="metaline">{{ stats_text }}</p>
+{# nav-tidy (2026-10-13): this page is Activity > History; the play recorder keeps its URL, linked here (no tab). #}
+<p class="metaline"><a href="/media/server/history">Play stats</a></p>
 {% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
 {% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}
 

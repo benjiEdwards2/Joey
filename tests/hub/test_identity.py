@@ -141,8 +141,9 @@ def test_greeting_with_and_without_a_name(client, monkeypatch):  # noqa: F811
                         lambda: datetime(2026, 10, 6, 19, 45, tzinfo=ZoneInfo("Australia/Melbourne")))
     signed = client.get("/", headers=AS_YOU).text
     anon = client.get("/").text
-    assert "Good evening, Benji. Here&#39;s what&#39;s happening at home today, Tuesday 6 October." in signed
-    assert "Good evening. Here&#39;s what&#39;s happening at home today, Tuesday 6 October." in anon
+    # E3 (U3, 2026-10-13): the greeting is the H1, the date the sub-line
+    assert "<h1>Good evening, Benji</h1>" in signed and '<p class="pagehead-sub">Tue 6 Oct' in signed
+    assert "<h1>Good evening</h1>" in anon and '<p class="pagehead-sub">Tue 6 Oct' in anon
     assert "Benji" not in anon.split("<main", 1)[1]
 
 

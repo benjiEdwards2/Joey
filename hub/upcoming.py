@@ -55,15 +55,16 @@ def build_upcoming(events, view: str, now: datetime, days: int = UPCOMING_DAYS) 
                 if end <= start:
                     end = start + timedelta(days=1)
                 still_on = end.date() > today  # exclusive end
-                time_text = "All day"
+                time_text = start_text = "All day"
             else:
                 still_on = end > now
                 time_text = f"{start:%H:%M} – {end:%H:%M}"
+                start_text = f"{start:%H:%M}"
             if not still_on or start.date() >= window_end:
                 continue
             rows.append((max(start.date(), today),
                          start, {"title": str(ev["title"]), "time_text": time_text,
-                                 "owner": owner}))
+                                 "start_text": start_text, "owner": owner}))
         except Exception:
             continue
     rows.sort(key=lambda r: (r[0], r[1]))
@@ -102,7 +103,12 @@ def hub_upcoming(snaps, view: str) -> dict | None:
         if row:
             up = find_upcoming(rows, snaps, view)
             today = datetime.now().astimezone().date()  # the clock find_upcoming groups on
+            first = up["groups"][0] if up and up["groups"] else None
             return {"href": f"/a/{a.id}", "st": row["st"], "days": UPCOMING_DAYS,
                     "groups": up["groups"] if up else [],
-                    "per_day": per_day_counts(up["groups"], today) if up else None}
+                    "per_day": per_day_counts(up["groups"], today) if up else None,
+                    # E3 (2026-10-13): the hub Calendar card's value (title) and meta ("Today · 09:00"); None when
+                    # nothing is on in the window (the card keeps the snapshot's own summary)
+                    "next": ({"title": first["events"][0]["title"],
+                              "when": f'{first["label"]} · {first["events"][0]["start_text"]}'} if first else None)}
     return None

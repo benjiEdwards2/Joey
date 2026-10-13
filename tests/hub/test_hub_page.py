@@ -71,7 +71,7 @@ def test_every_registry_area_is_a_kpi_card_and_weather_links_to_its_page(hub):
     for a in main.shell.registry.visible_areas:   # parked (hidden) areas have no hub card (2026-10-06)
         assert f"/a/{a.id}" in cards, a.id
         assert f'<div class="microlabel">{a.name}</div>' in cards[f"/a/{a.id}"]
-    assert '<a class="panel tile" href="/weather"' in kpis_of(body)
+    assert '<a class="panel tile dup" href="/weather"' in kpis_of(body)   # E3: .dup — hidden under 640 px
     assert '<div class="microlabel">Weather</div>' in cards["/weather"]
     assert len(cards) == len(main.shell.registry.visible_areas) + 1
 
@@ -97,7 +97,8 @@ def test_media_card_carries_the_hero_title_and_a_sibling_jump_link(hub):
     main, body = hub()
     np = SAMPLE_DATA["jellyfin"]["now_playing"][0]
     card = cards_of(body)["/a/media"]
-    assert "Playing now" in card and f">{np['title']}</div>" in card
+    assert f">{np['title']}</div>" in card
+    assert '<div class="row-meta">2 playing now' in card and "Playing now" not in card   # E3: the word is said once
     assert 'class="btn btn-ghost btn-sm"' in card and "Jump back in ↗" in card
     assert f"details?id={np['jf_id']}" in card
     body_link = re.search(r'<a class="tile-body".*?</a>', card, re.S).group(0)
@@ -113,8 +114,9 @@ def test_next_seven_days_rows_have_day_words_and_text_owners(hub):
     assert '<span class="upc-day">Today</span><span class="sep"> · </span>All day' in table
     assert '<span class="upc-day">Tomorrow</span>' in table
     assert '<div class="upc-head seclabel"' in table                       # the column heads (desktop)
-    for word in ("Shared", "You", "Her"):
+    for word in ("You", "Her"):
         assert f'<span class="row-side">{word}</span>' in table
+    assert '<span class="row-side"></span>' in table and "Shared" not in table   # E3: a shared event has no owner word
     assert 'href="/a/calendar">All</a>' in body
 
 

@@ -93,8 +93,9 @@ def test_plain_tile_is_not_a_link(site):
 def test_calendar_has_upcoming_rows_with_owner_words(site):
     _, body = site("/a/calendar")
     assert 'class="row upc"' in body and "uptable" not in body and "uplist" not in body
-    for word in ("Shared", "You", "Her"):
+    for word in ("You", "Her"):
         assert f'<span class="row-side">{word}</span>' in body
+    assert '<span class="row-side"></span>' in body and ">Shared<" not in body   # E3 (2026-10-13): no "Shared" word
     assert ">All</a>" not in body.split('class="band a"', 1)[1].split("</section>", 1)[0]   # already on the calendar page
     assert 'class="band a"' in body
     # weather lives on the hub and /weather only (2026-10-08) — no glimpse or tile here

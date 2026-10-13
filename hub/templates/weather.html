@@ -34,7 +34,7 @@
       {% if fc and (fc.sunrise or fc.sunset) %}<div class="stat"><div class="microlabel">Sunrise · sunset</div><div class="stat-word">{{ fc.sunrise or "—" }} · {{ fc.sunset or "—" }}</div></div>{% endif %}
     </div>
   {% endif %}
-  {% if w %}<p class="metaline">Open-Meteo<span class="sep"> · </span>{{ w.tile.owner.value | title }}{% if w.st.state != "off" and (w.st.state == "stale" or w.st.age_text) %}<span class="sep"> · </span>{{ updated(w.st) }}{% endif %}</p>{% endif %}
+  {% if w %}<p class="metaline">Open-Meteo{% if w.tile.owner.value != "shared" %}<span class="sep"> · </span>{{ w.tile.owner.value | title }}{% endif %}{% if w.st.state != "off" and (w.st.state == "stale" or w.st.age_text) %}<span class="sep"> · </span>{{ updated(w.st) }}{% endif %}</p>{% endif %}
 </section>
 
 {% if fc and fc.chart %}{% set c = fc.chart %}

@@ -110,9 +110,10 @@ app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="stati
 
 
 def hub_greeting(now: datetime, name: str | None = None) -> str:
+    """The hub page's H1 (E3, U3, 2026-10-13): "Good evening, Benji" — a short phrase, so no full stop (guide §9);
+    the date is the sub-line ("Mon 13 Oct", hub_page)."""
     part = "morning" if now.hour < 12 else "afternoon" if now.hour < 17 else "evening"
-    hello = f"Good {part}, {name}." if name else f"Good {part}."
-    return f"{hello} Here's what's happening at home today, {now:%A} {now.day} {now:%B}."
+    return f"Good {part}, {name}" if name else f"Good {part}"
 
 
 # The hub page would otherwise pay for the Server page on every load (H-49): the runner history tail (up to
@@ -154,6 +155,7 @@ def hub_page(request: Request):
     backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
     cards, shelf = [], None
     upcoming = hub_upcoming(snaps, view)
+    now = shell._now_home()
     for a in shell.registry.visible_areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not shell.owner_visible(summary, view):
@@ -162,6 +164,8 @@ def hub_page(request: Request):
                 "per_day": None}
         if summary.snapshot == GCAL_SNAPSHOT_ID and upcoming:  # keyed by connector id, never area name
             card["per_day"] = upcoming["per_day"]
+            card["next"] = upcoming["next"]   # E3: the event title is the value, its day / time the meta line
+            card["dup"] = True                # E3 (U3): repeats the Next 7 days band below — hidden under 640 px
         if a.layout == server_area.SERVER_LAYOUT and card["st"]["state"] != "off":
             try:
                 card["st"] = server_card_state(card["st"], snaps, backup)  # WP-U2: the card's own words
@@ -185,7 +189,8 @@ def hub_page(request: Request):
         "status": shell.build_status(snaps), "weather": weather.find_weather(snaps),  # status: hub.html only (H-50)
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": backup["warning"],
-        "greeting": hub_greeting(shell._now_home(), shell.identity_of(request).owner and shell.identity_of(request).name),
+        "greeting": hub_greeting(now, shell.identity_of(request).owner and shell.identity_of(request).name),
+        "today": f"{now:%a} {now.day} {now:%b}",   # "Mon 13 Oct" (guide §9: no zero padding)
     })
     return shell._maybe_set_cookie(resp, view, from_query)
 

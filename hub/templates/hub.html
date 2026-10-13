@@ -2,8 +2,10 @@
 {% block title %}Joey{% endblock %}
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
-{% set sub %}{{ greeting }}{% if status %} · Feeds {{ status.feeds_ok }}/{{ status.feeds_total }} live{% for name in status.stale %} · {{ name }} stale{% endfor %}{% endif %}{% endset %}
-{{ pagehead("Hub", sub=sub) }}
+{# E3 (U3, 2026-10-13): the greeting is the H1 ("Good evening, Benji"), the date the sub-line ("Mon 13 Oct"); feed
+   problems join it only when there are any — "Feeds 8/10 live" while some feed is down, "<Area> stale" per stale feed. #}
+{% set sub %}{{ today }}{% if status and status.feeds_ok < status.feeds_total %} · Feeds {{ status.feeds_ok }}/{{ status.feeds_total }} live{% endif %}{% if status %}{% for name in status.stale %} · {{ name }} stale{% endfor %}{% endif %}{% endset %}
+{{ pagehead(greeting, sub=sub) }}
 {% endblock %}
 {% block content %}
 {# Hub (restyle Phase 4, 2026-10-06): a row of summary tiles (one per area + Weather), then "Next 7 days" beside the
@@ -11,31 +13,37 @@
 {% from "_kpi.html" import kpi %}
 {% from "_shelf.html" import shelfrow %}
 {% if backup_warn %}<p class="metaline"><span class="st-warn">{{ backup_warn }}</span></p>{% endif %}
+{# E3 (2026-10-13): the playing hero's word is NOT repeated as the first meta fact (the snapshot's "2 playing now"
+   already says it). A card that repeats the band below (`c.dup`: the calendar feed's card; the Weather tile) carries
+   .dup, which the CSS hides under 640 px. The calendar card's value is the next event's title, its day / time the meta. #}
 {% macro areacard(c, cls="") %}
+  {% set cls = (cls ~ " dup") | trim if c.dup else cls %}
   {% if c.area.layout == "shelves" %}
     {% set h = c.hero %}
     {% set playing = h and h.kind_word == "Playing now" %}
-    {{ kpi("/a/" ~ c.area.id, c.area.name, (h.kind_word if h else c.tile.label), c.area.icon, c.st,
+    {{ kpi("/a/" ~ c.area.id, c.area.name, (none if playing else (h.kind_word if h else c.tile.label)), c.area.icon, c.st,
            c.tile.owner.value, value=(h.title if h else none), sub=(c.st.value if h else none),
            extra=c.downloading, waiting=c.waiting, cls=cls,
            jump=(h.href if h else none), pct=(h.progress_pct if playing else none)) }}
   {% else %}
     {{ kpi("/a/" ~ c.area.id, c.area.name, c.tile.label, c.area.icon, c.st, c.tile.owner.value,
+           value=(c.next.title if c.next else none), sub=(c.next.when if c.next else none),
            bars=c.per_day, cls=cls) }}
   {% endif %}
 {% endmacro %}
-{# Order: Media first, Weather, the last card (Calendar) last; with <= 3 cards in all the
-   last one spans two columns so it fills the right half of the row (2026-10-06). #}
+{# Order: the area cards in hub_rank order (registry order on ties), with the Weather tile slotted in before the last
+   card; with <= 3 cards in all the last one spans two columns so it fills the right half of the row (2026-10-06).
+   Under 640 px the .dup cards drop out and the band (Next 7 days + weather) follows the rest directly. #}
 {% set few = cards|length + 1 <= 3 %}
 <section class="tiles{% if few %} few{% endif %}" aria-label="Area summaries">
   {% for c in cards %}
   {% if loop.last and cards|length > 1 and weather %}
-    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value) }}
+    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value, cls="dup") }}
   {% endif %}
   {{ areacard(c, "span2" if loop.last and few else "") }}
   {% endfor %}
   {% if weather and cards|length <= 1 %}
-    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value) }}
+    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value, cls="dup") }}
   {% endif %}
 </section>
 

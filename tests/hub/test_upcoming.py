@@ -53,7 +53,7 @@ def test_all_day_exclusive_end_and_in_progress_groups_under_today():
     groups = build_upcoming(events, "both", NOW)
     assert len(groups) == 1 and groups[0]["label"] == "Today"
     assert groups[0]["events"] == [
-        {"title": "Leave", "time_text": "All day", "owner": "shared"}]
+        {"title": "Leave", "time_text": "All day", "start_text": "All day", "owner": "shared"}]   # E3: start_text
 
 
 def test_owner_view_semantics_q9():

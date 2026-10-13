@@ -60,7 +60,7 @@ def test_status_not_on_server_requested_processing_and_downloading(env):
     with client:
         html = client.get("/media/title/movie/701").text
     assert status(html) == "Not on server · Requested 3 hours ago · Processing · Downloading · 42%"
-    assert "Requested 3 hours ago by Sam" in html
+    assert "<dt>Requested</dt><dd>3 hours ago · Sam</dd>" in html            # U6 (2026-10-13): no verb repeating its label
 
 
 def test_status_plain_not_on_server(env):
@@ -229,7 +229,7 @@ def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):
     assert "<dt>Cinema</dt><dd>5 May 2019</dd>" in b and "<dt>Digital</dt><dd>1 Aug 2019</dd>" in b
     added = b.split('class="filegrid"', 1)[1].split("</div>\n", 1)[0]
     assert '<div class="microlabel">Added</div><div class="filestat-value">2 Mar 2026</div>' in added
-    assert "Watched 1 time · 12 Oct 2025" in b
+    assert "<dt>Watched</dt><dd>1 time · 12 Oct 2025</dd>" in b             # U6 (2026-10-13): no verb repeating its label
 
 
 def test_arr_calendar_tops_up_release_dates_and_next_episode(env):

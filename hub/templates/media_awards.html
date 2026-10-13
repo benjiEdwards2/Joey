@@ -62,7 +62,7 @@
 {% if hero %}
 {% set w = hero.winners[0] if hero.winners else none %}{% set hbd = hero.backdrop %}
 <section class="sec awhero{{ ' has-bd' if hbd }}">
-  {% if hbd %}<img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async">{% endif %}
+  {% if hbd %}{% if hbd.startswith('jfb:') %}<img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async">{% else %}<picture><source media="(max-width: 767px)" srcset="/img/{{ hbd }}?h=600"><img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async"></picture>{% endif %}{% endif %}
   {% if w %}
   <{{ "a" if w.href else "div" }} class="awwin"{% if w.href %} href="{{ w.href }}"{% endif %}>
     <span class="card-pic awframe is-won">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}{{ award_badge(w.award) }}</span>

@@ -231,7 +231,7 @@ def test_diary_page_shows_rewatch_chip_and_keeps_owners_apart(env):
 
 
 def test_poster_sizes_are_pinned_in_css():
-    # Restyle Phase 3: rows use the guide's 44 px .row-poster; carousel cards are 116 px, 144 px from 640 px.
+    # Restyle Phase 3: rows use the guide's 44 px .row-poster; carousel cards are 104 px (U11, 2026-10-13: a 4th card peeks), 144 px from 640 px.
     assert ".poster.row-poster { width: 44px;" in CSS
-    assert ".carousel > * { flex: 0 0 116px; width: 116px;" in CSS
+    assert ".carousel > * { flex: 0 0 104px; width: 104px;" in CSS
     assert ".carousel > * { flex-basis: 144px; width: 144px; }" in CSS

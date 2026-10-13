@@ -8,5 +8,5 @@
 <span class="scorepill sp-{{ id }}{{ extra }}" title="{{ name }} {{ value }}"><img class="sp-logo" src="{{ film.logos[id] }}" alt="" width="16" height="16"><span class="sp-name">{{ name }}</span><b class="sp-val">{{ value }}</b></span>
 {%- endmacro %}
 {% macro banner_bg(bd) -%}
-{% if bd %}<div class="partof-bd" style="--bd: url('/img/{{ bd }}?h=1280')" aria-hidden="true"></div>{% endif %}
+{% if bd %}<div class="partof-bd" style="--bd: url('/img/{{ bd }}?h=1280'){% if not bd.startswith('jfb:') %}; --bd-sm: url('/img/{{ bd }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
 {%- endmacro %}

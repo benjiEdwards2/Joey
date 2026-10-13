@@ -38,7 +38,7 @@
   --line-soft: rgba(255, 255, 255, .05); --line-hover: rgba(255, 255, 255, .2); --line-focus: rgba(255, 255, 255, .25);
   --hover: rgba(255, 255, 255, .05);
   --primary: #6366f1; --primary-hover: #818cf8;
-  --text-1: #fafafa; --text-2: #e4e4e7; --text-3: #d4d4d8; --text-4: #a1a1aa; --text-5: #71717a; --text-6: #52525b;
+  --text-1: #fafafa; --text-2: #e4e4e7; --text-3: #d4d4d8; --text-4: #a1a1aa; --text-5: #82828b; --text-6: #52525b;
   --sky: #7dd3fc; --orange: #fb923c; --fuchsia: #f0abfc; --teal: #5eead4;
   --upgrade: var(--sky);  /* F4b: the light-blue "Upgrade available" line (B., 2026-10-12) */
   --indigo-glow: rgba(99, 102, 241, .1);
@@ -163,6 +163,7 @@ svg.ic { width: 18px; height: 18px; stroke: currentColor; fill: none;
 
 /* Section label ("WATCHED · 1,261") and micro label over a value */
 .seclabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--text-5); }
+h2.seclabel { display: block; font-size: 12px; }  /* U16: section labels are real headings; h2 { flex 16px } above must not win */
 .microlabel { font-size: 10px; text-transform: uppercase; letter-spacing: .025em; color: var(--text-5); }
 
 /* Lists: rows sit on the page, no box. minmax(0,1fr) stops a long title widening a phone page. */
@@ -231,7 +232,7 @@ a.row:hover { background: var(--soft); }
 .poster-grid > *, .awnoms > * { min-width: 0; }  /* media-ux5: a long title never widens a column past the page */
 .card-poster img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover;
   border-radius: 8px; box-shadow: var(--shadow-poster); transition: transform .3s; }
-.card-poster:hover img { transform: translateY(-4px); }
+@media (hover: hover) { .card-poster:hover img { transform: translateY(-4px); } }
 .card-poster .row-title { margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
 .card-poster .row-meta { font-size: 11px; }
 
@@ -299,8 +300,12 @@ a.row:hover { background: var(--soft); }
 .pagehead { position: relative; isolation: isolate; margin: -24px calc(50% - 50vw) 0; min-height: 170px;
   display: flex; flex-direction: column; overflow: hidden;
   background: radial-gradient(40rem 14rem at 20% 0%, var(--pagehead-glow), transparent); }
+/* P6 (2026-10-13): a backdrop is sized to the screen. Markup sets --bd (h=1280) and --bd-sm (h=600) inline; under 768 px
+   --bd-pick takes the small one, and every backdrop gradient paints var(--bd-pick). */
+.pagehead-bd, .hero-detail-bd, .partof-bd { --bd-pick: var(--bd); }
+@media (max-width: 767px) { .pagehead-bd, .hero-detail-bd, .partof-bd { --bd-pick: var(--bd-sm, var(--bd)); } }
 .pagehead-bd { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center 25%;
-  background-image: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%), var(--bd); }
+  background-image: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%), var(--bd-pick); }
 .pagehead-in { flex: 1; width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px 20px; min-width: 0;
   display: flex; flex-direction: column; gap: 16px; }
 .pagehead-foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; min-width: 0; }
@@ -319,7 +324,7 @@ a.row:hover { background: var(--soft); }
   .pagehead h1 { font-size: 48px; line-height: 1.05; }
   .pagehead-bd { background-image:
     linear-gradient(90deg, var(--pagehead-side-0) 0%, var(--pagehead-side-1) 45%, var(--pagehead-side-2) 85%),
-    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd); }
+    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd-pick); }
 }
 
 /* Section tabs (guide §5): pills that scroll sideways on a phone, underlined tabs from 768 px. */
@@ -350,7 +355,7 @@ a.row:hover { background: var(--soft); }
   grid-auto-columns: minmax(0, 1fr); border-top: 1px solid var(--line-soft); background: var(--bar);
   padding-bottom: calc(env(safe-area-inset-bottom) + var(--tab-lift)); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .tabbar > a, .tabbar summary { display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; min-width: 0; height: 56px; padding: 0 4px; font-size: 11px; color: var(--text-5); text-decoration: none;
+  gap: 4px; min-width: 0; height: 56px; padding: 0 4px; font-size: 11px; color: var(--text-4); text-decoration: none;
   list-style: none; cursor: pointer; }
 .tabbar span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tabbar summary::-webkit-details-marker { display: none; }
@@ -367,6 +372,20 @@ a.row:hover { background: var(--soft); }
 @media (min-width: 768px) { .tabbar { display: none; } }
 /* media-ux5 (2026-10-09): the bar is a direct child of <body> and no ancestor has a transform / filter /
    backdrop-filter (any of those would make it fixed to that ancestor instead of the screen); tests pin both. */
+
+/* Load bar (U2, 2026-10-13): <body> carries hx-indicator="#loadbar", so htmx puts .htmx-request on the bar for every
+   boosted navigation and action. 2 px of --primary: at the bottom edge just above the phone tab bar, at the top from
+   768 px. It only shows after 150 ms (a transition delay), so a quick swap never flashes it; static under reduced
+   motion. A link or button mid-request dims, so the tap visibly landed. */
+.loadbar { position: fixed; left: 0; right: 0; z-index: 60; height: 2px; pointer-events: none; opacity: 0;
+  bottom: calc(56px + var(--tab-lift) + env(safe-area-inset-bottom)); transition: opacity .2s;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent) no-repeat; background-size: 40% 100%;
+  animation: loadbar-run 1.1s ease-in-out infinite; }
+.loadbar.htmx-indicator.htmx-request { opacity: 1; transition: opacity .2s .15s; }
+@keyframes loadbar-run { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+@media (min-width: 768px) { .loadbar { bottom: auto; top: env(safe-area-inset-top, 0px); } }
+@media (prefers-reduced-motion: reduce) { .loadbar { animation: none; background: var(--primary); } }
+a.htmx-request, button.htmx-request { opacity: .6; }
 
 h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
@@ -442,6 +461,9 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
   .upc-when { font-size: 13px; }
 }
 
+/* Hub glimpse (U21): its four stats stay one row on a phone, so "Rain" is never orphaned. */
+.wxglimpse .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
 /* Weather glyph + the condition word beside it (never an icon on its own). */
 .glyph { display: grid; place-items: center; flex: none; color: var(--text-4); }
 .glyph svg.ic { width: 28px; height: 28px; stroke-width: 1.4; }
@@ -484,6 +506,10 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .wxchart .wxdot { fill: var(--bg); stroke: var(--primary); stroke-width: 1.6; }
 .wxchart text { font-size: 12px; text-anchor: middle; fill: var(--text-5); }
 .wxchart .wxtemplab { fill: var(--text-1); font-weight: 600; }
+/* U10 (2026-10-13): the chart is drawn at 720 units into a ~326 px panel, so 12 units rendered at about 5 px; 24 units
+   read at about 11 px on a phone. Under 1100 px the 7 days and the hours come before the map. */
+@media (max-width: 639px) { .wxchart text { font-size: 24px; } }
+@media (max-width: 1099px) { .wxapp > .wxweek { order: 1; } .wxapp > .wxhourly { order: 2; } .wxapp > .wxradar { order: 3; } }
 .wxhours .row { padding-top: 6px; padding-bottom: 6px; }
 
 /* Rain radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe in a square slot, capped to the viewport
@@ -587,12 +613,14 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 .carousel { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
   margin: 0 -16px; padding: 0 16px 4px; min-width: 0; }
 .carousel::-webkit-scrollbar { display: none; }
-.carousel > * { flex: 0 0 116px; width: 116px; scroll-snap-align: start; }
-@media (min-width: 640px) { .carousel { margin: 0; padding: 0 0 4px; } .carousel > * { flex-basis: 144px; width: 144px; } }
+.carousel > * { flex: 0 0 104px; width: 104px; scroll-snap-align: start; }  /* 16 + 3 x 116 = 364: about 26 px of the 4th card peeks at 390 px */
+.carousel { scroll-padding-inline: 16px; }
+@media (min-width: 640px) { .carousel { margin: 0; padding: 0 0 4px; scroll-padding-inline: 0; } .carousel > * { flex-basis: 144px; width: 144px; } }
 .card-pic { position: relative; display: block; }
 .card-pic > img, .card-cell .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover;
   border: 0; border-radius: 8px; box-shadow: var(--shadow-poster); transition: transform .3s; }
-.card-cell:hover .card-pic > img { transform: translateY(-4px); }
+@media (hover: hover) { .card-cell:hover .card-pic > img { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .card-poster img, .card-pic > img, .card-cell .card-pic > img { transition: none; } }
 .poster-score { position: absolute; right: 6px; top: 6px; border-radius: 6px; background: var(--poster-badge-bg);
   padding: 2px 6px; font-size: 14px; font-weight: 700; line-height: 1.25; font-variant-numeric: tabular-nums; }
 .poster-tag { position: absolute; left: 6px; top: 6px; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis;
@@ -636,8 +664,8 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 .cardacts > .confirm { margin-top: 6px; padding: 8px; gap: 6px; }
 .cardacts > .confirm form, .cardacts > .confirm .btn { width: 100%; }
 .btn-mini { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 4px;
-  border-radius: 6px; color: var(--text-6); background: none; border: 0; cursor: pointer; transition: color .15s; }
-.btn-mini:hover { color: var(--text-3); }
+  border-radius: 6px; color: var(--text-4); background: none; border: 0; cursor: pointer; transition: color .15s; }
+.btn-mini:hover { color: var(--text-1); }
 .btn-mini svg.ic { width: 14px; height: 14px; }
 .poster-grid.big { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 640px) { .poster-grid.big { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -666,7 +694,7 @@ details.confirm-wrap > summary::-webkit-details-marker { display: none; }
    above a centred title on a phone (62 %, max 260 px), beside it from 640 px (280 px) and 1024 px (360 px). */
 .pagehead.hero-detail { min-height: 0; }
 .hero-detail-bd { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center 20%;
-  background-image: linear-gradient(to bottom, var(--detail-fade-0), var(--detail-fade-1) 35%, var(--detail-fade-2) 78%, var(--bg)), var(--bd); }
+  background-image: linear-gradient(to bottom, var(--detail-fade-0), var(--detail-fade-1) 35%, var(--detail-fade-2) 78%, var(--bg)), var(--bd-pick); }
 .hero-detail-in { display: flex; flex-direction: column; align-items: center; gap: 20px; min-width: 0; text-align: center; }
 .hero-detail-poster { width: 62%; max-width: 260px; height: auto; aspect-ratio: 2 / 3; object-fit: cover; flex-shrink: 0;
   border: 0; border-radius: 12px; box-shadow: var(--shadow-hero), 0 0 0 1px var(--line); }
@@ -749,7 +777,7 @@ a.scorepill:hover { border-color: var(--line-hover); color: var(--text-1); }
 .fmt { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; min-height: 28px;
   line-height: 1; color: var(--text-1); }
 .fmt b { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
-.fmt small { margin-top: 3px; font-size: 7.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--text-3); }
+.fmt small { margin-top: 3px; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
 .fmt-source b { font-style: italic; letter-spacing: 0; }
 .fmtimg { height: 28px; width: auto; }
 .filegrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
@@ -818,7 +846,7 @@ a.castcard:hover .castname { text-decoration: underline; }
 .partof.has-bd { border-color: var(--line); }
 .partof-bd { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center 25%;
   background-image: linear-gradient(90deg, var(--pagehead-side-0) 0%, var(--pagehead-side-1) 45%, var(--pagehead-side-2) 85%),
-    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd); }
+    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd-pick); }
 .partof-poster { flex-shrink: 0; width: 96px; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px;
   box-shadow: var(--shadow-poster), 0 0 0 1px var(--line); }
 .partof-text { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
@@ -828,12 +856,12 @@ a.castcard:hover .castname { text-decoration: underline; }
 .partof-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
 .partof-parts .card-poster.is-current .card-pic > img { outline: 2px solid var(--primary-hover); outline-offset: 2px; }
 .st-current { color: var(--tab-on); font-weight: 600; }
-/* "This season" / "All seasons" land on an anchor: clear the sticky top bar (56 px from 768 px). */
-.seasons, .epseason { scroll-margin-top: 72px; }
+/* Any anchor jump (#rate, #awards, #upgrades, /server#services, "This season") clears the sticky top bar (56 px from 768 px). */
+[id] { scroll-margin-top: 72px; }
 @media (min-width: 640px) { .partof-poster { width: 120px; } .partof-title { font-size: 24px; } }
 @media (max-width: 640px) {
   .partof { flex-direction: column; align-items: stretch; }
-  .partof-bd { background-image: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%), var(--bd); }
+  .partof-bd { background-image: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%), var(--bd-pick); }
   .partof-btns .btn, .partof-btns > .st-good { flex: 1 1 100%; }
   .partof-title { display: block; }
   .partof-title + .sep { display: none; }
@@ -1100,3 +1128,14 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
    --upgrade sits in :root (one :root block). */
 .upnote { display: block; margin-top: 2px; font-size: 12px; color: var(--upgrade); overflow-wrap: anywhere; }
 .card-poster .upnote { font-size: 11px; }
+
+/* Tap targets (U8, 2026-10-13): under 768 px the most-used controls reach about 40 px; the extra hit area is padding
+   (offset by a negative margin where it would move the layout), so nothing looks bigger than before. Last in the file so
+   it wins over the base rules above. */
+@media (max-width: 767px) {
+  .ratepick .chip, .ratepick .chip[class*="score-"] { height: 40px; min-width: 40px; }
+  .ratepick { gap: 6px; }
+  .btn-mini { padding: 12px; margin: -8px; }
+  .sechead > a { padding: 10px 0 10px 12px; margin: -10px 0; }
+  .seg a, .sectabs a { min-height: 36px; }
+}

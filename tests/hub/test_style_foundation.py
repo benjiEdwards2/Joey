@@ -25,7 +25,7 @@ TOKENS = {
     # new guide tokens
     "--primary": "#6366f1", "--primary-hover": "#818cf8",
     "--text-1": "#fafafa", "--text-2": "#e4e4e7", "--text-3": "#d4d4d8",
-    "--text-4": "#a1a1aa", "--text-5": "#71717a", "--text-6": "#52525b",
+    "--text-4": "#a1a1aa", "--text-5": "#82828b", "--text-6": "#52525b",   # --text-5 lightened from #71717a (U15, 2026-10-13; 4.1:1 -> about 5:1)
     "--sky": "#7dd3fc", "--orange": "#fb923c", "--fuchsia": "#f0abfc", "--teal": "#5eead4",
     "--indigo-glow": "rgba(99, 102, 241, .1)",
 }

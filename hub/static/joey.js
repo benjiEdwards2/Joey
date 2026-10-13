@@ -78,10 +78,13 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
 /* ---- F2 fast item pages (2026-10-12): warm a film / show page on touch or hover ----
    A finger landing on (or a pointer resting 60 ms over) a link to a film / show page sends that page a GET with
    X-Joey-Prefetch: 1 and throws the answer away (an empty 204): the server reads Jellyfin and starts the Jellyseerr /
-   OMDb read, so the real tap finds its caches warm. Once per href, one prefetch in flight at a time. */
+   OMDb read, so the real tap finds its caches warm. Once per href, one prefetch in flight at a time.
+   P3c (2026-10-13): a finger that starts scrolling (touchmove) cancels the pending prefetch, so flicking through a
+   shelf of posters warms nothing; a touch that ends without moving fires it at once (a quick tap), and a touch held
+   60 ms without moving fires it then. The 60 ms hover path is unchanged. */
 (function () {
   var SEL = 'a[href^="/media/item/"], a[href^="/media/title/"]';
-  var done = {}, busy = false, timer = null;
+  var done = {}, busy = false, timer = null, pending = null;
   function go(href) {
     if (busy || done[href]) return;
     done[href] = true;
@@ -94,8 +97,19 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
     var href = a ? a.getAttribute('href') : null;
     if (!href || done[href] || href.indexOf('/part/') !== -1) return;
     clearTimeout(timer);
-    timer = setTimeout(function () { go(href); }, 60);
+    pending = href;
+    timer = setTimeout(function () { pending = null; go(href); }, 60);
+  }
+  function cancel() { clearTimeout(timer); pending = null; }
+  function lift() {
+    clearTimeout(timer);
+    var href = pending;
+    pending = null;
+    if (href) go(href);
   }
   document.addEventListener('touchstart', near, {passive: true});
+  document.addEventListener('touchmove', cancel, {passive: true});
+  document.addEventListener('touchcancel', cancel, {passive: true});
+  document.addEventListener('touchend', lift, {passive: true});
   document.addEventListener('mouseover', near);
 })();

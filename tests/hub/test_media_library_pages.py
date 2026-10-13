@@ -540,7 +540,7 @@ def test_card_state_is_pure():
 def test_grid_css_matches_the_shelf_card_size_and_the_switch_is_a_segmented_control():
     assert ".poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 20px 12px; }" in CSS
     assert "@media (min-width: 640px) { .poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); } }" in CSS
-    assert ".carousel > * { flex: 0 0 116px; width: 116px;" in CSS and "flex-basis: 144px; width: 144px;" in CSS
+    assert ".carousel > * { flex: 0 0 104px; width: 104px;" in CSS and "flex-basis: 144px; width: 144px;" in CSS
     assert ".seg a[aria-current] { background: var(--pill-on); color: var(--text-1); }" in CSS
 
 

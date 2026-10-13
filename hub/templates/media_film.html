@@ -15,7 +15,7 @@
 {% from "_film_wait.html" import wait %}
 {% from "_film_macros.html" import makercards with context %}
 <header class="pagehead hero-detail">
-  {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280')" aria-hidden="true"></div>{% endif %}
+  {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280'){% if not film.backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
     <div class="hero-detail-in">
@@ -29,8 +29,9 @@
         {% endif %}
         <h1 class="hero-detail-title">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
+        {# U6 (2026-10-13): runtime and the certificate are said once, in the Numbers strip below, not here and in Details too. #}
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
-                 film.facts.seasons if film.kind == "tv" else film.facts.runtime, film.official]
+                 film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
         {% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
@@ -64,7 +65,6 @@
           {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
           {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
           {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
-          {% if film.rating and not film.score %}<a class="btn btn-icon" href="#rate" aria-label="Rate" title="Rate">{{ icon("star") }}</a>{% endif %}
           {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
           {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% call wait("actions", film.pending) %}{% include "_film_actions.html" %}{% endcall %}
@@ -230,16 +230,15 @@
 
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
-{% if f.runtime or f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or "dates" in film.pending %}
+{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or "dates" in film.pending %}
 <section class="sec">
   <div class="seclabel">Details</div>
   <dl class="kvrows details">
-    {% if f.runtime %}<div class="kv"><dt>Runtime</dt><dd>{{ f.runtime }}</dd></div>{% endif %}
     {% call wait("dates", film.pending) %}{% include "_film_dates.html" %}{% endcall %}
     {% if langs_row %}<div class="kv"><dt>On disk</dt><dd>{{ langs_row }}</dd></div>{% endif %}
-    {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>Added to your server {{ f.added }}</dd></div>{% endif %}
-    {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>Watched {{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
-    {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>Requested {{ film.requested_when }}{% if film.requested_by %} by {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
+    {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>{{ f.added }}</dd></div>{% endif %}
+    {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>{{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
+    {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>{{ film.requested_when }}{% if film.requested_by %} · {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
   </dl>
 </section>
 {% endif %}

@@ -5,7 +5,7 @@
    home) lets the backdrop drift slowly (guide 7, .hero-drift; off under reduced motion). #}
 {% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false) -%}
 <header class="pagehead">
-  {% if backdrop %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280')" aria-hidden="true"></div>{% endif %}
+  {% if backdrop %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280'){% if not backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {% if caller %}{{ caller() }}{% endif %}
     <div class="pagehead-foot">

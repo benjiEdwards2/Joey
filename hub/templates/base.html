@@ -20,13 +20,19 @@
 <meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true}'>
 <link rel="icon" href="/static/icon-192.png?v=3">
 <link rel="apple-touch-icon" href="/static/icon-192.png?v=3">
+{# Font preload (2026-10-13): the first paint waits for Geist, which the stylesheet only names after it has loaded. The href
+   is EXACTLY what the stylesheet's url("fonts/GeistVF.woff2") resolves to (no ?v=; a different URL would be fetched twice),
+   and `crossorigin` is required for a font preload even same-origin. #}
+<link rel="preload" href="/static/fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/control-surface.css?v={{ static_v }}">
 <script src="/static/htmx.min.js?v={{ static_v }}" defer></script>
 {# The shell script (H-57): cached in /static/joey.js; the one value it needs from the server is the flash keys. #}
 <meta name="joey-flash-params" content='{{ (flash_params or []) | list | tojson }}'>
 <script src="/static/joey.js?v={{ static_v }}" defer></script>
 </head>
-<body hx-boost="true">
+<body hx-boost="true" hx-indicator="#loadbar">
+{# Load bar (U2, 2026-10-13): htmx marks it .htmx-request during every boosted navigation / action; CSS shows it after 150 ms. #}
+<div id="loadbar" class="loadbar htmx-indicator" aria-hidden="true"></div>
 {% import "_icons.html" as ic %}
 {% set path = request.url.path if request else "" %}
 {% set who = identity(request) %}

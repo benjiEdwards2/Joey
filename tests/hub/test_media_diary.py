@@ -200,7 +200,7 @@ def test_search_failure_is_words_never_the_url_or_key(env, monkeypatch, caplog):
 
 from pathlib import Path  # noqa: E402
 
-from tests.hub.test_media_rate import ago  # noqa: E402
+from tests.hub.test_media_rate import ago, recent_row  # noqa: E402
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
 
@@ -235,3 +235,56 @@ def test_poster_sizes_are_pinned_in_css():
     assert ".poster.row-poster { width: 44px;" in CSS
     assert ".carousel > * { flex: 0 0 116px; width: 116px;" in CSS
     assert ".carousel > * { flex-basis: 144px; width: 144px; }" in CSS
+
+
+# ---- diary scope "Show: Mine / Everyone" (2026-10-13): only owner "you" may list everyone's rows ----
+
+SCOPE_FORM = "/media/settings/diary_scope"
+
+
+def test_diary_scope_defaults_to_mine_and_the_eligible_viewer_sees_the_toggle(env):
+    build, _ = env
+    media_db.add_manual_watch("tmdb:2", "movie", "Ronin", watched_on=date.today().isoformat(), owner="her")
+    with build() as client:
+        body = main_of(client.get("/media/diary").text)   # not signed in, both view = owner "you" (eligible)
+    assert media_db.diary_scope("you") == "mine"
+    assert f'action="{SCOPE_FORM}"' in body and '<span class="microlabel">Show</span>' in body
+    assert 'value="mine" class="chip on" aria-current="true">Mine<' in body
+    assert 'value="everyone" class="chip">Everyone<' in body
+    assert "Ronin" not in body   # her row stays out of the default (mine) scope
+
+
+def test_diary_scope_everyone_lists_both_owners_with_words_then_mine_returns(env, monkeypatch):
+    monkeypatch.delenv("OWNER_NAME_HER", raising=False)
+    build, _ = env
+    today = date.today().isoformat()
+    media_db.add_manual_watch("tmdb:2", "movie", "Ronin", watched_on=today, owner="her")
+    with build(jelly_data([recent_row("tmdb:1", "Heat", 1)])) as client:
+        resp = client.post(SCOPE_FORM, data={"value": "everyone"}, follow_redirects=False)
+        assert resp.status_code == 303 and resp.headers["location"] == "/media/diary"
+        assert media_db.diary_scope("you") == "everyone"
+        body = main_of(client.get("/media/diary").text)
+        assert 'value="everyone" class="chip on" aria-current="true">Everyone<' in body
+        assert "Heat" in body and "Ronin" in body
+        ronin = body.split("Ronin", 1)[1].split("diaryrow", 1)[0]
+        heat = body.split(">Heat<", 1)[1].split("diaryrow", 1)[0]
+        assert 'class="row-meta">Georgina<' in ronin and 'class="row-meta">You<' in heat   # a word, not a colour
+        assert client.post(SCOPE_FORM, data={"value": "mine"}, follow_redirects=False).status_code == 303
+        mine = main_of(client.get("/media/diary").text)
+    assert "Heat" in mine and "Ronin" not in mine and 'class="row-meta">You<' not in mine
+    assert [r["title"] for r in media_db.list_diary(owner="her")] == ["Ronin"]   # sync stayed the viewer's own
+
+
+def test_diary_scope_invalid_value_is_400_and_stores_nothing(env):
+    build, _ = env
+    with build() as client:
+        assert client.post(SCOPE_FORM, data={"value": "all"}, follow_redirects=False).status_code == 400
+    assert media_db.get_setting("you", "diary_scope") is None
+
+
+def test_group_diary_keeps_two_owners_rows_of_one_episode_apart(env):
+    media_db.sync_diary_from_history([ep_row(1, 1)], owner="you")
+    media_db.sync_diary_from_history([ep_row(1, 1)], owner="her")
+    lines = media_db.group_diary(media_db.list_diary(owner=None))
+    assert len(lines) == 2 and sorted(l["owner"] for l in lines) == ["her", "you"]
+    assert all(l["count"] == 1 and l["sub"] == "S4 E1" for l in lines)

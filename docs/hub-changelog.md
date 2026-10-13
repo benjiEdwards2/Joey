@@ -707,3 +707,11 @@ the Attention lines ("Uptime Kuma: X is Down / Pending") are unchanged, and the 
 the Kuma rows (`service_card`). The Monitors tile's `detail` now opens `/server#services`. What the band showed that
 nothing else does: Uptime Kuma monitors that are not one of the Services apps (e.g. a "NAS" ping monitor) when they are
 UP, with their ms, and the band's "N of M up" line (the tile still says it). Down / pending ones still reach Attention.
+
+## 2026-10-13 — Diary: Show Mine / Everyone
+B.: a per-owner setting `diary_scope` (`mine` default / `everyone`), set by a "Show" chip form in the diary toolbar
+(`POST /media/settings/diary_scope`, 400 on any other value). Like Jellyfin, where only the admin sees every user's
+history, only owner "you" (and the not-signed-in local view, as `owner_of`) may pick Everyone; Georgina never sees the
+toggle and her POST is 403. Everyone lists both owners' rows (`list_diary(owner=None)`; `group_diary` already folds per
+owner and now carries `owner`), each naming whose it is in words ("You" / `OWNER_NAME_HER`). Stats, streak, Log a watch,
+On this day and the Jellyfin sync stay the viewer's own.

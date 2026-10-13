@@ -18,6 +18,15 @@
     <a class="chip{{ ' on' if kind == k }}" href="/media/diary{{ '?kind=' ~ k if k }}"{% if kind == k %} aria-current="true"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
+  {# Diary scope (2026-10-13): only the eligible owner ("you") sees Mine / Everyone; rows then name whose they are. #}
+  {% if scope_eligible %}
+  <form class="chips" method="post" action="/media/settings/diary_scope" aria-label="Show">
+    <span class="microlabel">Show</span>
+    {% for label, v in (("Mine", "mine"), ("Everyone", "everyone")) %}
+    <button type="submit" name="value" value="{{ v }}" class="chip{{ ' on' if diary_scope == v }}"{% if diary_scope == v %} aria-current="true"{% endif %}>{{ label }}</button>
+    {% endfor %}
+  </form>
+  {% endif %}
 </div>
 <details class="logwatch">
   <summary class="btn btn-secondary">{{ icon("plus") }}Log a watch</summary>

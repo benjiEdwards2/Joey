@@ -84,6 +84,7 @@ areas:
         owner: shared
         snapshot: gcal
         stale_after_minutes: 120
+        show_media_releases: true                    # E5 (H2, 2026-10-13): arr releases join Next 7 days as "Media" rows
         setup_note: "Calendar ICS connector (Google + Outlook) arrives at WP25."
       - id: weather
         label: Weather

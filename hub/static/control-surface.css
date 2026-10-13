@@ -1190,3 +1190,8 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
   .wxglimpse .wxnow { gap: 6px; }
   .wxglimpse .wxnow .glyph svg.ic { width: 24px; height: 24px; }
 }
+/* Next 7 days media releases (H2): their own row type; the "Media" chip is a neutral outline pill (guide §6 state chip
+   shape, no colour of its own: the word says it). */
+.upc-chip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 8px; font-size: 11px; font-weight: 500; color: var(--text-4); white-space: nowrap; }
+.upc-release .row-title { color: var(--text-3); }

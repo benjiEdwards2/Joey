@@ -16,7 +16,7 @@
     {# Follow (2026-10-07): instant and reversible; only NEW films (top-5 billed / directed) get requested. F5
        (2026-10-12): someone with TV Creator / Director credits is followed as a TV maker (`tv`) - their new shows too. #}
     {% set base = "/media/follow/person/" ~ person.tmdb %}
-    <form class="followform" method="post" action="{{ base }}{{ '/unfollow' if person.following }}">
+    <form class="followform" method="post" hx-swap="innerHTML show:none" action="{{ base }}{{ '/unfollow' if person.following }}">
       <input type="hidden" name="back" value="/media/person/{{ person.tmdb }}"><input type="hidden" name="name" value="{{ person.name }}">{% if person.tv_maker and not person.following %}<input type="hidden" name="tv" value="1">{% endif %}
       {% if person.following %}<span class="st-good">Following ✓{{ " · films + shows" if person.follow_tv }}</span> <button class="btn btn-ghost btn-sm" type="submit">Unfollow</button>
       {% else %}<button class="btn btn-secondary btn-sm" type="submit">Follow</button>{% endif %}
@@ -30,20 +30,20 @@
 {% if person.awards %}
 {% import "_award_card.html" as aw %}
 <section class="sec" id="awards">
-  <div class="seclabel">Awards</div>
+  <h2 class="seclabel">Awards</h2>
   <p class="metaline">{{ person.awards.head }}</p>
   <div class="awgroups">{% for g in person.awards.groups %}{{ aw.person_group(g) }}{% endfor %}</div>
 </section>
 {% endif %}
 {% if person.shelf %}
 <section class="sec">
-  <div class="seclabel">On server</div>
+  <h2 class="seclabel">On server</h2>
   <div class="carousel">{% for r in person.shelf %}{{ card(r, r.item_href, false) }}{% endfor %}</div>
 </section>
 {% endif %}
 {% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
 <section class="sec">
-  <div class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</div>
+  <h2 class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</h2>
   <div class="poster-grid">{% for r in rows[:show_first] %}{{ card(r, r.href, true) }}{% endfor %}</div>
   {% if rows | length > show_first %}
   <details class="showmore"><summary>Show more · {{ rows | length - show_first }}</summary>

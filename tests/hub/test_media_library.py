@@ -41,7 +41,7 @@ def test_library_page_renders_every_section_in_main(app_factory):
     title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
     assert title.startswith("Library") and "<" not in title
     body = main_of(resp.text)
-    order = [body.index(f">{h}</div>") for h in
+    order = [body.index(f">{h}</h2>") for h in
              ("Just arrived", "Just updated", "This week", "Downloading", "Disk")]
     assert order == sorted(order)
     assert "Quiet Coast · S02 · 3 episodes" in body and "3 hours ago" in body
@@ -59,7 +59,7 @@ def test_this_week_is_grouped_by_day(app_factory):
     write_envelope(snaps, "arr", age_minutes=1, data=data_for_today())
     with build(snaps) as client:
         body = main_of(client.get("/media/library").text)
-    week = body.split(">This week</div>", 1)[1].split(">Downloading</div>", 1)[0]
+    week = body.split(">This week</h2>", 1)[1].split(">Downloading</h2>", 1)[0]
     assert week.count('<div class="microlabel">') == 3  # today, tomorrow, +2 days
     assert ">Tomorrow</div>" in week
 

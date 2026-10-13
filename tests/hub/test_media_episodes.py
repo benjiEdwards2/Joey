@@ -29,7 +29,7 @@ def timed(monkeypatch):
 
 
 def section(body, label):
-    return body.split(f'<div class="seclabel">{label}</div>', 1)[1].split('<section class="sec', 1)[0]
+    return body.split(f'<h2 class="seclabel">{label}</h2>', 1)[1].split('<section class="sec', 1)[0]
 
 
 def ep_row(body, n):
@@ -121,10 +121,10 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
                                          "credits": {"cast": [{"name": "Ada Actor", "character": "Lead"}]}}
     with client:
         b = main_of(whole(client, "/media/item/ser1"))
-    idx = {k: b.index(f'<div class="seclabel">{k}</div>') for k in ("Overview", "Seasons", "Cast", "Where to watch")}
+    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "Seasons", "Cast", "Where to watch")}
     assert idx["Overview"] < idx["Seasons"] < idx["Cast"] < idx["Where to watch"]
     between = b[idx["Overview"]:idx["Seasons"]]
-    assert '<div class="seclabel">' not in between.split("</div>", 1)[1]               # nothing in between
+    assert '<h2 class="seclabel">' not in between.split("</h2>", 1)[1]               # nothing in between
 
 
 def test_off_server_tv_title_keeps_seasons_under_overview(env):
@@ -134,7 +134,7 @@ def test_off_server_tv_title_keeps_seasons_under_overview(env):
                                          "watchProviders": [{"iso_3166_1": "AU", "flatrate": [{"name": "Stan"}]}]}
     with client:
         b = main_of(client.get("/media/title/tv/555").text)
-    o, s, w = (b.index(f'<div class="seclabel">{k}</div>') for k in ("Overview", "Seasons", "Where to watch"))
+    o, s, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "Seasons", "Where to watch"))
     assert o < s < w
 
 
@@ -142,8 +142,8 @@ def test_film_page_order_is_unchanged(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    assert '<div class="seclabel">Seasons</div>' not in b
-    o, f, w = (b.index(f'<div class="seclabel">{k}</div>') for k in ("Overview", "File", "Where to watch"))
+    assert '<h2 class="seclabel">Seasons</h2>' not in b
+    o, f, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "File", "Where to watch"))
     assert o < f < w
 
 

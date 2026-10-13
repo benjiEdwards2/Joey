@@ -164,7 +164,7 @@ def upgrades_block(html):
 def test_downloads_block_lists_titles_with_totals_and_links(site):
     with site() as c:
         blk = upgrades_block(main_of(c.get("/media/downloads").text))
-    assert '<div class="seclabel">Upgrades</div>' in blk
+    assert '<h2 class="seclabel">Upgrades</h2>' in blk
     assert '<p class="metaline">2 films · 2 shows</p>' in blk
     assert f'<div class="upnote">{FILM_NOTE}</div>' in blk and ECHO_NOTE in blk and GOLF_NOTE in blk
     assert "Upgrade available · DVD" not in blk and "Upgrade available</div>" in blk   # unknown cutoff: no arrow part

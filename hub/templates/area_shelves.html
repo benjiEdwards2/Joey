@@ -32,7 +32,7 @@
 {% for s in sh.shelves %}
 <section class="sec">
   <div class="sechead">
-    <h2 class="seclabel">{{ s.title }}{% if s["items"] %}<span class="sep"> · </span>{{ s["items"] | length }}{% endif %}</h2>
+    <h2 class="seclabel">{{ s.title }}{% if s["items"] and s["items"] | length < 15 %}<span class="sep"> · </span>{{ s["items"] | length }}{% endif %}</h2>
     <a href="{{ s.see_all_href }}">All</a>
   </div>
   {% if s["items"] %}

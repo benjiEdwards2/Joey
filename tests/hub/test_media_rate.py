@@ -82,7 +82,7 @@ def test_inbox_lists_unrated_recent_titles_once_each(env):
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")
     with build() as client:
         body = main_of(client.get("/media/history").text)
-    inbox = body.split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
+    inbox = body.split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
     assert inbox.count('class="ratepick"') == 2           # Heat + the show, once
     assert "Heat" in inbox and "Quiet Show" in inbox and "S01E02" not in inbox
     assert "Already Rated" not in inbox and "Long Ago" not in inbox
@@ -184,7 +184,7 @@ def test_score_chips_on_history_playing_library_requests(env):
         play = main_of(client.get("/media/playing").text)
         lib = main_of(client.get("/media/library").text)
         req = main_of(client.get("/media/requests").text)
-    recent = hist.split(">Recently watched</div>", 1)[1]
+    recent = hist.split(">Recently watched</h2>", 1)[1]
     assert 'row-score score-8" title="Your rating: 8 out of 10">8<' in recent
     assert 'row-score score-9 gold-text-glow"' in play and "row-poster gold-glow-sm" in play
     assert 'row-score score-5" title="Your rating: 5 out of 10">5<' in lib
@@ -226,7 +226,7 @@ TV = [
 
 
 def inbox_of(html):
-    return main_of(html).split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
+    return main_of(html).split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
 
 
 @pytest.mark.parametrize("level, count, titles, key", [
@@ -297,7 +297,7 @@ def test_show_score_stays_on_shelf_rows_while_episode_score_wins_on_an_episode_r
         ep_level = main_of(client.get("/media/history").text)
 
     def recent(h):
-        return h.split(">Recently watched</div>", 1)[1].split(">Most played shows</div>", 1)[0]
+        return h.split(">Recently watched</h2>", 1)[1].split(">Most played shows</h2>", 1)[0]
     assert recent(show_level).count('title="Your rating: 6 out of 10"') == 3  # each episode row shows the show score
     r = recent(ep_level)
     assert r.count('title="Your rating: 9 out of 10"') == 1 and r.count('title="Your rating: 6 out of 10"') == 2
@@ -311,7 +311,7 @@ def test_to_rate_rows_wrap_so_the_title_keeps_its_width(env):
     build, db_file = env
     with build() as client:
         body = main_of(client.get("/media/history").text)
-    inbox = body.split(">To rate</div>", 1)[1].split(">Recently watched</div>", 1)[0]
+    inbox = body.split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
     rows = inbox.split('<div class="row has-form">')[1:]
     assert len(rows) == 3
     assert all('class="ratepick"' in r for r in rows)

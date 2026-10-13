@@ -3,7 +3,7 @@
    monitored + every new season ("All seasons + future"), requested first when Sonarr doesn't have the show yet. #}
 {% set fs = follow_show(request, film) %}
 {% if fs %}
-<form class="followform" method="post" action="/media/follow/show/{{ fs.tmdb }}{{ '/unfollow' if fs.following }}">
+<form class="followform" method="post" hx-swap="innerHTML show:none" action="/media/follow/show/{{ fs.tmdb }}{{ '/unfollow' if fs.following }}">
   <input type="hidden" name="back" value="{{ fs.back }}"><input type="hidden" name="name" value="{{ fs.name }}">
   {% if fs.following %}<span class="st-good">Following ✓ · future seasons</span> <button class="btn btn-ghost btn-sm" type="submit">Unfollow</button>
   {% else %}<button class="btn btn-secondary btn-sm" type="submit">Follow show</button>{% endif %}

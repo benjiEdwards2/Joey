@@ -67,7 +67,7 @@ def test_manual_log_appears_month_grouped_with_place(env):
         dup = client.post("/media/log", data=log_form(), headers=HX)
         assert "Already in the diary" in dup.text
         body = main_of(client.get("/media/diary").text)
-    month = body.split(f">{date.today().strftime('%B %Y')}</div>", 1)[1]
+    month = body.split(f">{date.today().strftime('%B %Y')}</h2>", 1)[1]
     assert "The Matrix (1999)" in month and "Film" in month and "Logged · Cinema" in month
 
 
@@ -125,7 +125,7 @@ def test_on_this_day_and_milestones_live_on_the_diary_not_history(env):
     with build() as client:
         diary = main_of(client.get("/media/diary").text)
         history = main_of(client.get("/media/history").text)
-    assert ">On this day</div>" in diary and "Salt Flats" in diary
+    assert ">On this day</h2>" in diary and "Salt Flats" in diary
     assert "Milestones: " in diary and "First watch of 2025: Heat" in diary
     assert "On this day" not in history
 
@@ -231,7 +231,7 @@ def test_diary_page_shows_rewatch_chip_and_keeps_owners_apart(env):
 
 
 def test_poster_sizes_are_pinned_in_css():
-    # Restyle Phase 3: rows use the guide's 44 px .row-poster; carousel cards are 116 px, 144 px from 640 px.
+    # Restyle Phase 3: rows use the guide's 44 px .row-poster; carousel cards are 104 px (U11, 2026-10-13: a 4th card peeks), 144 px from 640 px.
     assert ".poster.row-poster { width: 44px;" in CSS
-    assert ".carousel > * { flex: 0 0 116px; width: 116px;" in CSS
+    assert ".carousel > * { flex: 0 0 104px; width: 104px;" in CSS
     assert ".carousel > * { flex-basis: 144px; width: 144px; }" in CSS

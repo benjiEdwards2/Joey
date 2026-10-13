@@ -36,7 +36,7 @@
 
 {% if on_this_day %}
 <section class="sec">
-  <div class="seclabel">On this day</div>
+  <h2 class="seclabel">On this day</h2>
   <div class="listbox libposters">
   {% for d in on_this_day %}
   {% set dh = row_href(none, d.item_key, "movie" if d.kind == "movie" else "tv") %}
@@ -53,7 +53,7 @@
 <div id="diary-new" class="listbox libposters"></div>
 {% for g in months %}
 <section class="sec">
-  <div class="seclabel">{{ g.label }}</div>
+  <h2 class="seclabel">{{ g.label }}</h2>
   <div class="listbox libposters">
   {% for row in g.rows %}
   {% with score = score_for(row, ratings) %}{% include "_diary_row.html" %}{% endwith %}

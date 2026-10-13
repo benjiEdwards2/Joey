@@ -145,7 +145,7 @@
       <span class="row-side">
         {% if c.hold %}<span>{{ c.hold_text }}</span>
         {% else %}{% if not c.auto %}<span>Manual · excluded</span>{% endif %}<a class="btn btn-primary btn-sm" href="/server/updates/{{ c.name | urlencode }}/run?step=confirm">Update now</a>{% endif %}
-        <form method="post" action="/server/updates/{{ c.name | urlencode }}/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button></form>
+        <form method="post" hx-swap="innerHTML show:none" action="/server/updates/{{ c.name | urlencode }}/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button></form>
       </span>
     </div>
     {% else %}
@@ -159,7 +159,7 @@
       {% for c in up.ignored %}
       <div class="row has-form">
         <div class="row-body"><div class="row-title">{{ c.name }}</div>{{ meta([c.current_tag ~ ((" → " ~ c.new_tag) if c.new_tag else "")]) }}</div>
-        <span class="row-side"><form method="post" action="/server/updates/{{ c.name | urlencode }}/unignore"><button class="btn btn-ghost btn-sm" type="submit">Unignore</button></form></span>
+        <span class="row-side"><form method="post" hx-swap="innerHTML show:none" action="/server/updates/{{ c.name | urlencode }}/unignore"><button class="btn btn-ghost btn-sm" type="submit">Unignore</button></form></span>
       </div>
       {% endfor %}
       </div>

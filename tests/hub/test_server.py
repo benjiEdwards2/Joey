@@ -94,7 +94,7 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "192.168.68.59" not in body
     tiles = body.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
     portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
-    assert '<div class="tile-value stat-number">LAN' in portainer
+    assert '<div class="tile-value stat-word">LAN' in portainer
     # band order, top to bottom
     marks = [body.index(m) for m in
              ('id="system"', 'id="services"', 'id="updates"', 'id="attention"', 'id="counts"')]

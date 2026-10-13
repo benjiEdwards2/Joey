@@ -15,7 +15,7 @@
 <p class="metaline">{{ numbers }}</p>
 
 <section class="sec">
-  <div class="seclabel">To rate</div>
+  <h2 class="seclabel">To rate</h2>
   <form class="chips" method="post" action="/media/settings/rating_level" aria-label="Rate TV by">
     <span class="microlabel">Rate TV by</span>
     {% for lv in rating_levels %}
@@ -26,7 +26,7 @@
 </section>
 
 <section class="sec">
-  <div class="seclabel">Recently watched</div>
+  <h2 class="seclabel">Recently watched</h2>
   {% if history.get("recent") %}<div class="listbox">
   {% for r in history.get("recent", []) %}
   {% set ih = item_href(r.jf_id) %}

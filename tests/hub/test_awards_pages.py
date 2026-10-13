@@ -146,7 +146,7 @@ def test_tv_page_lists_tv_bodies_and_says_not_synced_yet(env):
     b = main_of(html)
     assert re.findall(r'href="/media/tv/awards\?body=(\w+)"', b)[:4] == ["globes", "critics", "sag", "emmys"]
     assert '<p class="empty">Not synced yet</p>' in b and "Not synced yet</p>" in b
-    assert '<div class="seclabel">Coming up</div>' in b and '<div class="microlabel">JAN</div>' in b
+    assert '<h2 class="seclabel">Coming up</h2>' in b and '<div class="microlabel">JAN</div>' in b
     assert not media_db.db_path().exists()                                 # rendering never creates media.db
 
 

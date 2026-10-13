@@ -59,7 +59,7 @@ def test_film_page_lists_each_ceremony_with_its_categories_and_links(env):
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
     sec = awards_section(b)
-    assert sec and '<div class="seclabel">Awards</div>' in sec
+    assert sec and '<h2 class="seclabel">Awards</h2>' in sec
     # awards-ui item 5 (2026-10-09): grouped per ceremony (prestige order) under its mark + tally; a line per edition
     lines = re.findall(r'<a class="awline" href="([^"]+)"><div class="row-title">([^<]+)</div>', sec)
     assert lines == [("/media/movies/awards?body=oscars&amp;year=2025", "2025 · Won 1 of 2 nominations"),

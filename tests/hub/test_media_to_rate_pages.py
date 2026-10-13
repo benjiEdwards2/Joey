@@ -215,4 +215,4 @@ def test_to_rate_tab_label_is_title_case_and_body_copy_stays_sentence_case(env):
     assert "<title>To Rate · Joey</title>" in films and ">To rate<" not in films.split('<nav class="sectabs sub"', 1)[1]
     assert [t[0] for t in subtabs(diary) if t[2]] == ["To Rate"]
     assert '<p class="empty">Nothing to rate.</p>' in main_of(films)
-    assert '<div class="seclabel">To rate</div>' in main_of(diary)
+    assert '<h2 class="seclabel">To rate</h2>' in main_of(diary)

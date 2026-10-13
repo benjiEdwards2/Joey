@@ -1,12 +1,12 @@
 {# Where to watch - a deferred part since F2 (2026-10-12): the Jellyseerr title body's AU providers; waiting, "Loading". #}
 {% if film.providers %}
 <section class="sec">
-  <div class="seclabel">Where to watch</div>
+  <h2 class="seclabel">Where to watch</h2>
   {% for g in film.providers %}<div class="chips"><span class="microlabel">{{ g.label }}</span>{% for name in g.names %}<a class="chip" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% endfor %}</div>{% endfor %}
 </section>
 {% elif "providers" in film.pending %}
 <section class="sec">
-  <div class="seclabel">Where to watch</div>
+  <h2 class="seclabel">Where to watch</h2>
   <p class="metaline">Loading</p>
 </section>
 {% endif %}

@@ -61,7 +61,7 @@ def test_movie_page(env):
     assert "Resume ▶ · 32m left" in b                       # 112 - 80 minutes
     assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate
     assert 'class="ratepick"' in b and 'value="tmdb:603"' in b
-    assert "Watched 1 time · 12 Oct 2026" in b
+    assert "<dt>Watched</dt><dd>1 time · 12 Oct 2026</dd>" in b
     assert "fmtbadges" in b and "<b>4K</b>" in b and "<small>HEVC</small>" in b
     assert 'class="castname">Ada Actor</span><span class="castrole">as Pilot</span>' in b
     assert 'href="/media/discover?q=Dee%20Director"' in b      # Jellyfin director, no Jellyseerr

@@ -51,7 +51,8 @@
 {% if shelf %}
 {% if shelf.watched %}
 <section class="sec" id="recent">
-  <div class="sechead"><h2 class="seclabel">Recently watched<span class="sep"> · </span>{{ shelf.watched | length }}</h2></div>
+  {# U17 (2026-10-13): the shelf is capped at media_home.SHELF_MAX (15), so a full shelf's count is not a total: it is left off. #}
+  <div class="sechead"><h2 class="seclabel">Recently watched{% if shelf.watched | length < 15 %}<span class="sep"> · </span>{{ shelf.watched | length }}{% endif %}</h2><a href="/media/diary">All</a></div>
   {{ shelfrow(shelf.watched) }}
 </section>
 {% endif %}

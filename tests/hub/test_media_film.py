@@ -60,7 +60,7 @@ def test_status_not_on_server_requested_processing_and_downloading(env):
     with client:
         html = client.get("/media/title/movie/701").text
     assert status(html) == "Not on server · Requested 3 hours ago · Processing · Downloading · 42%"
-    assert "Requested 3 hours ago by Sam" in html
+    assert "<dt>Requested</dt><dd>3 hours ago · Sam</dd>" in html            # U6 (2026-10-13): no verb repeating its label
 
 
 def test_status_plain_not_on_server(env):
@@ -229,7 +229,7 @@ def test_facts_languages_release_dates_added_and_watched(env, monkeypatch):
     assert "<dt>Cinema</dt><dd>5 May 2019</dd>" in b and "<dt>Digital</dt><dd>1 Aug 2019</dd>" in b
     added = b.split('class="filegrid"', 1)[1].split("</div>\n", 1)[0]
     assert '<div class="microlabel">Added</div><div class="filestat-value">2 Mar 2026</div>' in added
-    assert "Watched 1 time · 12 Oct 2025" in b
+    assert "<dt>Watched</dt><dd>1 time · 12 Oct 2025</dd>" in b             # U6 (2026-10-13): no verb repeating its label
 
 
 def test_arr_calendar_tops_up_release_dates_and_next_episode(env):
@@ -247,9 +247,9 @@ def test_shelves_mark_server_status(env):
         b = main_of(whole(client, "/media/title/movie/603"))
     col = b.split('<section class="sec colsec" id="collection">', 1)[1].split("</section>", 1)[0]  # media-ux3 banner
     assert "Harbour Lights 2" in col and col.count(">On server<") == 2 and col.count(">Not on server<") == 1
-    sim = b.split('<div class="seclabel">Similar</div>', 1)[1].split("</section>", 1)[0]
+    sim = b.split('<h2 class="seclabel">Similar</h2>', 1)[1].split("</section>", 1)[0]
     assert 'href="/media/title/movie/11"' in sim and sim.count(">On server<") == 1 and sim.count(">Not on server<") == 1
-    assert '<div class="seclabel">Recommended</div>' in b and "Rec One" in b and "?h=240" in b
+    assert '<h2 class="seclabel">Recommended</h2>' in b and "Rec One" in b and "?h=240" in b
 
 
 def test_not_on_server_series_keeps_lazy_season_hooks(env):

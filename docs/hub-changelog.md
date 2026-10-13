@@ -707,3 +707,26 @@ the Attention lines ("Uptime Kuma: X is Down / Pending") are unchanged, and the 
 the Kuma rows (`service_card`). The Monitors tile's `detail` now opens `/server#services`. What the band showed that
 nothing else does: Uptime Kuma monitors that are not one of the Services apps (e.g. a "NAS" ping monitor) when they are
 UP, with their ms, and the band's "N of M up" line (the tile still says it). Down / pending ones still reach Attention.
+
+## 2026-10-13 — UI polish batch (WP E2; review_ui.md (c), P3c, P6)
+Templates / CSS / `joey.js` only. **U1** every action form that re-renders its own page (Mark watched / Reset / Hide / season
+toggle, watchlist ×, Follow / Unfollow, server Ignore / Unignore) carries `hx-swap="innerHTML show:none"` (the F1 pattern), so
+the page keeps its scroll position. **U2** `body` has `hx-indicator="#loadbar"` and `base.html` a `#loadbar.htmx-indicator`:
+a 2 px `--primary` bar (bottom edge above the phone tab bar, top from 768 px) that appears 150 ms into a request, static
+under reduced motion; `a.htmx-request, button.htmx-request` dim to 60 %. **U6** the film page says runtime and certificate
+once (the Numbers strip), Details values no longer repeat their label's verb, and the extra Rate star is gone (the
+"Yours · Rate" pill stays). **U8** phone tap targets (rating chips 40 px, `.btn-mini` and section "All" ~40 px hit area,
+`.seg` / `.sectabs` 36 px). **U10** weather under 1100 px: 7 days, then hours, then the Windy map; chart text 24 units
+under 640 px (about 11 px rendered). **U11** carousels: 104 px phone cards (a 4th card peeks), `scroll-padding-inline: 16px`.
+**U15** `--text-5` #82828b, tab labels / `.btn-mini` on `--text-4`, `.fmt small` 10 px (see the style guide's deviations).
+**U16** every `div.seclabel` is `h2.seclabel` (VoiceOver headings rotor). **U17** a shelf count is left off when the shelf
+is full (15 = `SHELF_MAX`, so it is a cap not a total); the hub's Recently watched gets an "All" link to `/media/diary`.
+**U18 / U19** poster lifts only under `@media (hover: hover)`, none under reduced motion; `[id] { scroll-margin-top: 72px }`.
+**U21 / U22** the hub glimpse's four stats stay one row; a tile value is `.stat-number` only when numeric, else `.stat-word`.
+**U23** placeholder posters are zinc (`#18181b` card, `#52525b` letters, `system-ui`). **P3c** `joey.js` cancels the pending
+film-page prefetch when a finger scrolls (`touchmove`) and fires it on `touchend` / after 60 ms held; hover is unchanged.
+**P6** backdrops take a second inline size: `--bd` (h=1280) and `--bd-sm` (h=600), `--bd-pick` chooses under 768 px; not
+for Jellyfin `jfb:` refs, which `/img` sizes at maxWidth 1280 whatever `h` says (so h=600 would be a second, cold cache key
+for the same bytes). The awards hero `<img>` uses a `<picture>` source for the same switch. **Font preload** `base.html`
+preloads `/static/fonts/GeistVF.woff2` (the exact URL the stylesheet's `url("fonts/GeistVF.woff2")` resolves to; it has no
+`?v=`, so it is cached for an hour, not `immutable`). Tests: `tests/hub/test_polish_e2.py`.

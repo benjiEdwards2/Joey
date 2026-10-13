@@ -14,7 +14,7 @@
 {% else %}
 {% for s in shelves %}
 <section class="sec">
-  <div class="seclabel">{{ s.title }}</div>
+  <h2 class="seclabel">{{ s.title }}</h2>
   {% if s.rows is none %}
   <p class="empty">Unavailable</p>
   {% elif s.rows %}

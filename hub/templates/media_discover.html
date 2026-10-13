@@ -22,7 +22,7 @@
 {{ services_row(services) }}
 {% for s in shelves %}
 <section class="sec">
-  <div class="seclabel">{{ s.title }}</div>
+  <h2 class="seclabel">{{ s.title }}</h2>
   {% if s.rows is none %}
   <p class="empty">Discover unavailable</p>
   {% elif s.rows %}

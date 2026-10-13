@@ -4,7 +4,9 @@
 {% from "_pagehead.html" import pagehead %}
 {# E3 (U3, 2026-10-13): the greeting is the H1 ("Good evening, Benji"), the date the sub-line ("Mon 13 Oct"); feed
    problems join it only when there are any — "Feeds 8/10 live" while some feed is down, "<Area> stale" per stale feed. #}
-{% set sub %}{{ today }}{% if status and status.feeds_ok < status.feeds_total %} · Feeds {{ status.feeds_ok }}/{{ status.feeds_total }} live{% endif %}{% if status %}{% for name in status.stale %} · {{ name }} stale{% endfor %}{% endif %}{% endset %}
+{# E5 (H1, 2026-10-13): the Today line follows the date — "Tue 13 Oct · Rain from 15:00 · 2 events · first 9:30 Dentist ·
+   New: Severance S02E03" (hub/today.py; each clause only when its source has something to say). #}
+{% set sub %}{{ today }}{% if today_line %} · {{ today_line }}{% endif %}{% if status and status.feeds_ok < status.feeds_total %} · Feeds {{ status.feeds_ok }}/{{ status.feeds_total }} live{% endif %}{% if status %}{% for name in status.stale %} · {{ name }} stale{% endfor %}{% endif %}{% endset %}
 {{ pagehead(greeting, sub=sub) }}
 {% endblock %}
 {% block content %}

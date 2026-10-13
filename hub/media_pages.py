@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
+                 media_plays_db, media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -295,9 +295,11 @@ def _library_rows(data: dict, view: str, kind: str):
     items, marks = _library_lists(data, view, kind)
     if items is None:
         return None, marks, None
-    maker = media_library.film_rows if kind == "movie" else media_library.show_rows
-    return items, marks, maker(items, media_home._ratings(view, items), lambda v: media_home._ago_text(v, now),
-                               _lib_href(), marks)
+    ratings, ago = media_home._ratings(view, items), lambda v: media_home._ago_text(v, now)
+    if kind == "movie":
+        return items, marks, media_library.film_rows(items, ratings, ago, _lib_href(), marks)
+    runtimes = media_plays_db.show_runtimes(f"jf:{i.get('jf_id')}" for i in items if i.get("jf_id")) if marks else {}
+    return items, marks, media_library.show_rows(items, ratings, ago, _lib_href(), marks, runtimes)   # E5 (M2)
 
 
 def _cached_tvdb(row: dict):

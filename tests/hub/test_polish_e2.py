@@ -134,7 +134,12 @@ def test_phone_tap_targets_come_last_in_the_file():
     assert ".btn-mini { padding: 12px; margin: -8px; }" in tail
     assert ".sechead > a { padding: 10px 0 10px 12px; margin: -10px 0; }" in tail
     assert ".seg a, .sectabs a { min-height: 36px; }" in tail
-    assert tail.count("@media") == 1                                  # the block is last, so it beats the base rules above
+    # The block beats the base rules above it. E5 (2026-10-13) appends its own feature block after it (the coordinator's
+    # "one block at the END" rule), so the pin is now: nothing after the tap-target block touches those selectors.
+    block_end = tail.index("min-height: 36px; } }") + len("min-height: 36px; } }")
+    later = tail[block_end:]
+    for sel in (".ratepick", ".btn-mini", ".sechead > a", ".seg a", ".sectabs a"):
+        assert sel not in later, sel
 
 
 def test_weather_phone_order_and_chart_text():

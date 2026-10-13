@@ -175,6 +175,8 @@ def media_frame(request: Request) -> dict:
 shell.templates.env.globals["media_nav"] = media_frame
 shell.templates.env.globals["shelf_max"] = SHELF_MAX   # E3 (U17, 2026-10-13): a full shelf's count is a cap, not a total
 shell.templates.env.globals["item_href"] = item_href
+# E5 (M2, 2026-10-13): "4 left · ~3h 10m" for any template holding a show's counts (the show hero can call it)
+shell.templates.env.globals["progress_words"] = media_text.progress_words
 shell.templates.env.globals["row_href"] = row_href
 shell.templates.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)
 
@@ -277,10 +279,12 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
                    media_downloads.merge_downloading(arr.get("downloading"), data_of(QBIT_SNAPSHOT_ID))][:SHELF_MAX]
 
     ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
+    progress = continue_progress(jelly, view, up_next[:SHELF_MAX])   # E5 (M2): "4 left · ~3h 10m" per show
 
     unset_text = "Her Jellyfin account isn't set up yet"
     add("continue", "Continue watching", PLAYING_DETAIL,
-        [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
+        [jf_item(n, " · ".join(x for x in (n.get("remaining_text"), progress.get(n.get("show_key"))) if x),
+                 PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
          for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
@@ -315,6 +319,26 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         "open_href": link,
         "freshness": jelly_row["st"] if jelly_row else None,
     }
+
+
+def continue_progress(jelly: dict, view: str, rows) -> dict[str, str]:
+    """{show_key: progress words} for Continue watching rows (E5, M2): the show's unplayed / episode counts from the
+    view owner's library rows (her view: her own list, else nothing — B.'s counts would be wrong for her), the hours
+    from the recorded plays' average runtime. Only shows with episodes left: a next-up suggestion never says "All
+    watched"."""
+    shows = (jelly.get("her") or {}).get("shows") if view == "her" else jelly.get("shows")
+    by_id = {f"jf:{s.get('jf_id')}": s for s in shows or [] if s.get("jf_id")}
+    keys = [r.get("show_key") for r in rows or [] if r.get("show_key") in by_id]
+    if not keys:
+        return {}
+    runtimes = media_plays_db.show_runtimes(keys)
+    out = {}
+    for k in keys:
+        s = by_id[k]
+        words = media_text.progress_words(s.get("unplayed"), s.get("episodes"), runtimes.get(k))
+        if words and words != "All watched":
+            out[k] = words
+    return out
 
 
 def _to_rate_title(r: dict, kind: str, level: str) -> str:

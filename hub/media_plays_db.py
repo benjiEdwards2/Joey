@@ -178,6 +178,24 @@ def most_played_30(owner=None, now: datetime | None = None) -> tuple[list, list]
     return s["top_shows"][:5], s["top_movies"][:5]
 
 
+def show_runtimes(show_keys) -> dict[str, float]:
+    """{show_key: average episode runtime in minutes} from the recorded plays (E5, M2: the hours in "4 left · ~3h 10m");
+    a show with no recorded play with a runtime is absent. One SELECT; {} with no DB or on any error."""
+    keys = sorted({k for k in show_keys if k})
+    db = _read() if keys else None
+    if db is None:
+        return {}
+    try:
+        with closing(db):
+            marks = ",".join("?" * len(keys))
+            return {r["show_key"]: float(r["rt"]) for r in db.execute(
+                f"SELECT show_key, AVG(runtime_min) AS rt FROM play WHERE show_key IN ({marks}) AND runtime_min > 0"
+                " GROUP BY show_key", keys)}
+    except sqlite3.Error as exc:
+        log.warning("show runtimes failed: %s", type(exc).__name__)
+        return {}
+
+
 def first_run_date() -> str | None:
     """Date of the earliest recorded play (the recorder's first sighting), or None."""
     db = _read()

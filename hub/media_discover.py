@@ -261,25 +261,29 @@ def _rows(results, kind_hint=None) -> list[dict]:
 SHELF_DISK = "shelf:"   # the disk copy's key prefix (its own file, never meta_get's)
 
 
-def _shelf(path: str, kind_hint, ttl: float = CACHE_TTL) -> tuple[list[dict] | None, float | None]:
+def _shelf(path: str, kind_hint, ttl: float = CACHE_TTL, key: str | None = None) -> tuple[list[dict] | None, float | None]:
     """(rows, stored_at) for one shelf path (E1). stored_at is None when the rows are fresh (under `ttl`), else the
     time the served rows were read: a failed read (SHELF_TIMEOUT, then remembered FAIL_TTL) falls back to the last
-    good rows in memory or on disk, whatever their age. (None, None) = failed with nothing stored."""
-    hit = _cache.get(path)
+    good rows in memory or on disk, whatever their age. (None, None) = failed with nothing stored.
+    `key` names the shelf for the memory / disk copies and the failure memo when the path itself changes from day
+    to day (a service's "New this month" carries today's date): without it, the last good rows could never be found
+    after midnight (seen 2026-10-13 as a clock-crossing test failure)."""
+    k = key or path
+    hit = _cache.get(k)
     if hit is None:
-        disk = _meta_disk(SHELF_DISK + path)
+        disk = _meta_disk(SHELF_DISK + k)
         if disk is not None and isinstance(disk[1], list):
-            hit = _cache[path] = disk
+            hit = _cache[k] = disk
     if hit and time.time() - hit[0] < ttl:
         return hit[1], None
-    if not _recently_failed(path):
+    if not _recently_failed(k):
         body = _get(path, SHELF_TIMEOUT)
         if isinstance(body, dict) and isinstance(body.get("results"), list):
             rows, now = _rows(body["results"], kind_hint), time.time()
-            _cache[path] = (now, rows)
-            _meta_store(SHELF_DISK + path, now, rows)
+            _cache[k] = (now, rows)
+            _meta_store(SHELF_DISK + k, now, rows)
             return rows, None
-        _note_failure(path)
+        _note_failure(k)
     return (hit[1], hit[0]) if hit else (None, None)
 
 
@@ -418,11 +422,12 @@ def services() -> list[dict] | None:
     return out
 
 
-def _service_paths(pid: int, today: date) -> dict[str, list[tuple[str, str]]]:
-    """Shelf title -> [(Jellyseerr path, kind)] for one provider."""
+def _service_paths(pid: int, today: date) -> dict[str, list[tuple[str, str, str]]]:
+    """Shelf title -> [(Jellyseerr path, kind, store key)] for one provider. The key names the shelf for the
+    last-good copy and the failure memo (`_shelf`): stable across days even where the path carries today's date."""
     base = f"watchRegion={WATCH_REGION}&watchProviders={pid}"
     since, until = (today - timedelta(days=NEW_DAYS)).isoformat(), today.isoformat()
-    return {
+    paths = {
         "Popular films": [(f"/api/v1/discover/movies?{base}&sortBy=popularity.desc", "movie")],
         "Popular TV": [(f"/api/v1/discover/tv?{base}&sortBy=popularity.desc", "tv")],
         "New this month": [
@@ -433,6 +438,7 @@ def _service_paths(pid: int, today: date) -> dict[str, list[tuple[str, str]]]:
         "Top rated": [(f"/api/v1/discover/movies?{base}&sortBy=vote_average.desc&voteCountGte={TOP_VOTES}", "movie"),
                       (f"/api/v1/discover/tv?{base}&sortBy=vote_average.desc&voteCountGte={TOP_VOTES}", "tv")],
     }
+    return {title: [(path, kind, f"svc:{pid}:{title}:{kind}") for path, kind in rows] for title, rows in paths.items()}
 
 
 def _interleave(lists: list) -> list[dict] | None:
@@ -452,7 +458,7 @@ def service_shelves(pid: int, today: date | None = None) -> list[dict]:
     paths = _service_paths(pid, today or date.today())
     flat = [pk for title in SERVICE_SHELVES for pk in paths[title]]
     with ThreadPoolExecutor(max_workers=len(flat)) as pool:
-        got = dict(zip(flat, pool.map(lambda pk: _shelf(pk[0], pk[1], SERVICE_TTL), flat)))
+        got = dict(zip(flat, pool.map(lambda pk: _shelf(pk[0], pk[1], SERVICE_TTL, key=pk[2]), flat)))
 
     def oldest(t):
         ages = [got[pk][1] for pk in paths[t] if got[pk][1] is not None]

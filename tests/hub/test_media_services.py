@@ -161,13 +161,13 @@ def test_shelves_are_cached_six_hours_and_failures_are_not(env, monkeypatch):
         n = len(fake.gets)
         client.get("/media/discover/service/8")
     assert len(fake.gets) == n
-    path = next(p for p in md._cache if "watchProviders=8" in str(p))
-    at, rows = md._cache[path]
-    md._cache[path] = (at - md.SERVICE_TTL - 1, rows)
+    key = next(k for k in md._cache if str(k).startswith("svc:8:"))   # the shelf's store key, not its dated path
+    at, rows = md._cache[key]
+    md._cache[key] = (at - md.SERVICE_TTL - 1, rows)
     assert md.SERVICE_TTL == 6 * 3600 and md.PROVIDER_TTL == 24 * 3600
     with client:
         client.get("/media/discover/service/8")
-    assert path in fake.gets[n:]
+    assert [p for p in fake.gets[n:] if "watchProviders=8" in p]
 
 
 def test_unknown_service_404_and_list_down_still_renders(env):

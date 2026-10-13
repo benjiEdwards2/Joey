@@ -147,3 +147,23 @@ def test_failure_logs_name_the_type_only(env, monkeypatch, caplog):
         client.get("/media/discover")
     assert "jellyseerr read failed: ConnectionError" in caplog.text
     assert "secret-host" not in caplog.text and FAKE_KEY not in caplog.text
+
+
+def test_a_service_page_last_rows_survive_midnight(env, monkeypatch):
+    """A service's "New this month" path carries today's date, so the day after it is a NEW path: the last good
+    rows must still be found (the store is keyed on the shelf, not the dated path) — 2026-10-13 fix."""
+    client, fake = env()
+    wire(fake)
+    with client:
+        client.get("/media/discover/service/8")
+        later(monkeypatch, 25 * 3600)   # always crosses midnight, whatever the hour the suite runs at
+
+        def boom(url, headers=None, timeout=None, **kw):
+            if "watchProviders=" in url:
+                raise requests.ConnectionError(url)
+            return fake.get(url, headers=headers, timeout=timeout, **kw)
+        md.requests.get = boom
+        r = client.get("/media/discover/service/8")
+    body = main_of(r.text)
+    assert r.status_code == 200 and "Service Film A" in body and "Unavailable" not in body
+    assert ">New this month · 25h ago</h2>" in body

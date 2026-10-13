@@ -257,14 +257,22 @@ def _href(kind: str, body: str, year: int | None, unseen: bool = False, path: st
 def _edition_line(body_id: str, ed: dict | None, kind: str) -> str | None:
     if not ed:
         return None
-    b = seed.BY_ID.get(body_id) or {}
     parts = [ed.get("name") or adb.edition_name(body_id, ed["ordinal"], ed.get("year"))]
     when = _date_short(ed.get("held_on"))
     if when:
         parts.append(when)
-    if kind == "movie" and b.get("source") in ("wd", "wp") and ed.get("year"):
-        parts.append(f"films of {ed['year'] - 1}")
+    films_of = _films_of(body_id, ed, kind)
+    if films_of:
+        parts.append(f"films of {films_of}")
     return " · ".join(parts)
+
+
+def _films_of(body_id: str, ed: dict | None, kind: str) -> int | None:
+    """The release year a film edition honours (the year before the ceremony, for the wd / wp sources); None for TV."""
+    b = seed.BY_ID.get(body_id) or {}
+    if kind == "movie" and b.get("source") in ("wd", "wp") and (ed or {}).get("year"):
+        return ed["year"] - 1
+    return None
 
 
 # ---- the ballot (films view, Awards ballot 2026-10-14; BALLOT_CONTRACT.md §2) ----
@@ -341,7 +349,7 @@ def _tmdb_of(ent: dict | None, kind: str):
     return (ent or {}).get("tmdb_movie" if kind == "movie" else "tmdb_tv")
 
 
-def ballot_row(w: dict, seen: Seen, kind: str, won_by: dict, wl_keys: set) -> dict:
+def ballot_row(w: dict, seen: Seen, kind: str, won_by: dict, wl_keys: set, films_of: int | None = None) -> dict:
     """One work of the edition as a ballot row (contract §2 `row`): its categories won first (edition order kept),
     PILLS of them as short-named pills (acting / directing ones carry their first person), the rest as `more`."""
     ent = w["ent"]
@@ -350,7 +358,8 @@ def ballot_row(w: dict, seen: Seen, kind: str, won_by: dict, wl_keys: set) -> di
     wins, noms = sum(1 for x in cats if x["won"]), len(cats)
     tmdb = _tmdb_of(ent, kind)
     poster = (lib or {}).get("poster") or (ent or {}).get("poster")
-    year = (lib or {}).get("year") if isinstance((lib or {}).get("year"), int) else None
+    # the server's year; else the edition's "films of" year (award entities carry none; TV has no such year)
+    year = (lib or {}).get("year") if isinstance((lib or {}).get("year"), int) else films_of
 
     def who(x):     # acting and directing pills name their person; the Details fold names everyone
         return x["people"][0] if x["lead"] == "person" and x["people"] and icons.cat_icon(x["name"]) in WHO_ICONS \
@@ -387,7 +396,7 @@ def no_ballot(empty: str | None) -> dict:
 
 
 def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f: str, s: str, nav,
-           empty: str | None, show_all: bool = False) -> tuple[dict, set[str]]:
+           empty: str | None, show_all: bool = False, films_of: int | None = None) -> tuple[dict, set[str]]:
     """The films view (contract §2 `ballot`) -> (ballot, the work qids of the rows drawn, for the poster fill order).
     `nav(**state)` links this view with its state changed; `empty` is the page's own wording when there is no edition."""
     all_cats = (page or {}).get("categories") or []
@@ -397,7 +406,7 @@ def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f
     works, short_works = _pivot(feature), _pivot([c for c in all_cats if is_short(c)])
     wl_keys = _watch_keys(owner, {f"tmdb:{_tmdb_of(w['ent'], kind)}" for w in works + short_works
                                   if _tmdb_of(w["ent"], kind)})
-    items = [(ballot_row(w, seen, kind, won_by, wl_keys),
+    items = [(ballot_row(w, seen, kind, won_by, wl_keys, films_of),
               set().union(*(cat_groups(x, hkey) for x in w["cats"].values())), w["qid"]) for w in works]
 
     def keep(r, groups):
@@ -433,7 +442,7 @@ def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f
         "rows": [r for r, _ in picked[:first_n]],
         "rest": max(0, len(picked) - first_n),
         "part_rows_href": nav(path=ROW_PARTS[kind]),
-        "shorts": [ballot_row(w, seen, kind, won_by, wl_keys) for w in short_works],
+        "shorts": [ballot_row(w, seen, kind, won_by, wl_keys, films_of) for w in short_works],
         "people": people,
         "empty": empty or (None if picked or not total else ALL_SEEN if f == "unseen" else NO_MATCH),
     }
@@ -517,7 +526,8 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
                                  for e in c["entries"]])   # awards-ui item 3: one query for the whole edition
     cats, more, the_ballot, first_q = [], [], None, set()
     if v == "films":
-        the_ballot, first_q = ballot(page, seen, kind, won_by, owner, f, s, nav, empty, show_all)
+        the_ballot, first_q = ballot(page, seen, kind, won_by, owner, f, s, nav, empty, show_all,
+                                     _films_of(body, ed, kind))
     for c in ((page or {}).get("categories") or []) if v == "categories" else []:
         cards = [card(e, c["lead"], seen, kind) for e in c["entries"]]
         for x in cards:

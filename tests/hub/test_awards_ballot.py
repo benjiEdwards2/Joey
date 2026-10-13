@@ -69,7 +69,7 @@ def test_rows_rank_by_wins_then_nominations_then_title(oscars97):
     a = b["rows"][0]
     assert (a["wins"], a["noms"], a["won_any"], a["tally"]) == (5, 6, True, "5 wins · 6 nominations")
     assert a["href"] == f"/media/title/movie/{a['w']['tmdb_id']}" and a["seen"] is False and a["on_server"] is False
-    assert a["w"] == {"tmdb_id": a["w"]["tmdb_id"], "kind": "movie", "title": "Anora", "year": None, "poster": None}
+    assert a["w"] == {"tmdb_id": a["w"]["tmdb_id"], "kind": "movie", "title": "Anora", "year": 2024, "poster": None}
     rows = all_rows()
     keys = [(-r["wins"], -r["noms"], r["title"].lower()) for r in rows]
     assert keys == sorted(keys) and len(rows) == 40
@@ -233,6 +233,16 @@ def test_progress_counts_the_viewers_seen_set(oscars97):
     assert rows["Nosferatu"]["watchlisted"] and rows["Wicked"]["watchlisted"] and not rows["Flow"]["watchlisted"]
     her = ctx_of(data=data, view="her")["ballot"]["progress"]
     assert her["watchlisted"] == 1
+
+
+def test_row_year_is_the_servers_else_the_editions_films_of_year(oscars97):
+    """WP-C3: award entities carry no year, so a film off the server takes the edition's "films of" year (97th Oscars,
+    2025 -> 2024) - the row and its watchlist item alike; a library row's own year wins."""
+    data = jelly({**lib("Wicked", jf="jfw"), "year": 2023})
+    rows = {r["title"]: r for r in all_rows(data=data)}
+    assert (rows["Anora"]["year"], rows["Anora"]["w"]["year"]) == (2024, 2024)
+    assert (rows["Wicked"]["year"], rows["Wicked"]["w"]["year"]) == (2023, 2023)
+    assert all(r["year"] == 2024 for r in ctx_of(show_all=True)["ballot"]["shorts"])
 
 
 def test_people_are_the_acting_and_directing_winners_in_edition_order(oscars97):
@@ -399,3 +409,4 @@ def test_tv_ballot_uses_the_emmys_headline_and_tv_words(env, monkeypatch):
     assert [(x["key"], x["label"]) for x in b["filters"]][1:4] == [
         ("headline", "Drama Series"), ("acting", "Acting"), ("direction", "Writing & directing")]
     assert {r["title"] for r in all_rows(kind="tv", body="emmys", f="headline")} >= {"The Pitt", "Severance"}
+    assert all(r["year"] is None for r in all_rows(kind="tv", body="emmys"))           # TV: no "films of" year to borrow

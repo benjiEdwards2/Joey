@@ -30,6 +30,7 @@ from hub.images import REF_RE, cache_dir
 from hub.media_cache import LRU
 from hub.media_watchlist import keys_for
 from hub.media_write import MAX_BODY, bad, flash_keys, is_htmx, same_origin
+from hub.store import ago_text
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
 
 log = logging.getLogger("hub.media_discover")
@@ -38,6 +39,11 @@ router = APIRouter()
 DISCOVER_DETAIL = "/media/discover"
 TIMEOUT = 8
 CACHE_TTL = 600
+# E1 (2026-10-13): Discover never blocks. Shelf and provider-list reads wait SHELF_TIMEOUT, not TIMEOUT; a failed read
+# is remembered FAIL_TTL so the next loads don't wait again, and the last good rows (kept in memory AND on disk beside
+# the meta cache, so a restart keeps them) are served with their age instead of "Discover unavailable".
+SHELF_TIMEOUT = 3
+FAIL_TTL = 60
 ROW_MAX = 20
 ON_DISK = ("Available", "Partly available")
 SHELVES = (
@@ -61,10 +67,12 @@ META_TTL = 6 * 3600
 # Bounded (M-42): "film:" / "meta:" bodies and shelf rows share one LRU; a disk hit copied in by meta_get evicts the
 # least recently used entry instead of growing RAM with every library title the warm-up reads.
 _cache: LRU = LRU()
+_failed: dict[str, float] = {}   # shelf / provider path -> monotonic time of its last failed read (E1)
 
 
 def clear_cache() -> None:
     _cache.clear()
+    _failed.clear()
 
 
 def meta_dir() -> Path:
@@ -115,13 +123,13 @@ def _creds() -> tuple[str, str] | None:
     return (base.rstrip("/"), key) if base and key else None
 
 
-def _fetch(path: str) -> tuple[object, int | None]:
+def _fetch(path: str, timeout: float = TIMEOUT) -> tuple[object, int | None]:
     """GET a Jellyseerr JSON path -> (parsed body or None, HTTP status or None when no answer)."""
     creds = _creds()
     if not creds:
         return None, None
     try:
-        resp = requests.get(f"{creds[0]}{path}", headers={"X-Api-Key": creds[1]}, timeout=TIMEOUT)
+        resp = requests.get(f"{creds[0]}{path}", headers={"X-Api-Key": creds[1]}, timeout=timeout)
         if not 200 <= resp.status_code < 300:
             log.warning("jellyseerr read failed: HTTP %s", resp.status_code)
             return None, resp.status_code
@@ -131,9 +139,9 @@ def _fetch(path: str) -> tuple[object, int | None]:
         return None, None
 
 
-def _get(path: str):
+def _get(path: str, timeout: float = TIMEOUT):
     """GET a Jellyseerr JSON path -> parsed body, or None on no env / any failure."""
-    return _fetch(path)[0]
+    return _fetch(path, timeout)[0]
 
 
 def _meta_file(path: str) -> Path:
@@ -160,9 +168,23 @@ def _meta_store(path: str, at: float, body) -> None:
         log.warning("meta cache write failed (%s)", type(exc).__name__)
 
 
-def meta_get(path: str, ttl: float = META_TTL):
+def _recently_failed(path: str) -> bool:
+    at = _failed.get(path)
+    return at is not None and time.monotonic() - at < FAIL_TTL
+
+
+def _note_failure(path: str) -> None:
+    _failed[path] = time.monotonic()
+    if len(_failed) > 256:   # bounded: drop the oldest half
+        for k in sorted(_failed, key=_failed.get)[:128]:
+            _failed.pop(k, None)
+
+
+def meta_get(path: str, ttl: float = META_TTL, *, timeout: float = TIMEOUT, stale_on_fail: bool = False):
     """A long-lived (META_TTL, or `ttl`), restart-proof read for a path that carries no user state. Returns the body,
-    or None for a remembered 404 / any failure (a failure without a 404 answer is not remembered)."""
+    or None for a remembered 404 / any failure (a failure without a 404 answer is not remembered).
+    `stale_on_fail` (E1, Discover's provider list): a failed read is remembered FAIL_TTL and the last stored body is
+    returned, whatever its age, instead of None."""
     key = f"meta:{path}"
     hit = _cache.get(key)
     if hit is None:
@@ -173,8 +195,13 @@ def meta_get(path: str, ttl: float = META_TTL):
         return hit[1]
     if not _creds():
         return None
-    body, code = _fetch(path)
+    if stale_on_fail and _recently_failed(path):
+        return hit[1] if hit is not None else None
+    body, code = _fetch(path, timeout)
     if body is None and code != 404:
+        if stale_on_fail:
+            _note_failure(path)
+            return hit[1] if hit is not None else None
         return None
     now = time.time()
     _cache[key] = (now, body)
@@ -231,16 +258,38 @@ def _rows(results, kind_hint=None) -> list[dict]:
     return [r for r in rows if r][:ROW_MAX]
 
 
-def _shelf_rows(path: str, kind_hint, ttl: float = CACHE_TTL) -> list[dict] | None:
+SHELF_DISK = "shelf:"   # the disk copy's key prefix (its own file, never meta_get's)
+
+
+def _shelf(path: str, kind_hint, ttl: float = CACHE_TTL) -> tuple[list[dict] | None, float | None]:
+    """(rows, stored_at) for one shelf path (E1). stored_at is None when the rows are fresh (under `ttl`), else the
+    time the served rows were read: a failed read (SHELF_TIMEOUT, then remembered FAIL_TTL) falls back to the last
+    good rows in memory or on disk, whatever their age. (None, None) = failed with nothing stored."""
     hit = _cache.get(path)
+    if hit is None:
+        disk = _meta_disk(SHELF_DISK + path)
+        if disk is not None and isinstance(disk[1], list):
+            hit = _cache[path] = disk
     if hit and time.time() - hit[0] < ttl:
-        return hit[1]
-    body = _get(path)
-    if not isinstance(body, dict) or not isinstance(body.get("results"), list):
-        return None  # a failed fetch is not cached
-    rows = _rows(body["results"], kind_hint)
-    _cache[path] = (time.time(), rows)
-    return rows
+        return hit[1], None
+    if not _recently_failed(path):
+        body = _get(path, SHELF_TIMEOUT)
+        if isinstance(body, dict) and isinstance(body.get("results"), list):
+            rows, now = _rows(body["results"], kind_hint), time.time()
+            _cache[path] = (now, rows)
+            _meta_store(SHELF_DISK + path, now, rows)
+            return rows, None
+        _note_failure(path)
+    return (hit[1], hit[0]) if hit else (None, None)
+
+
+def _shelf_rows(path: str, kind_hint, ttl: float = CACHE_TTL) -> list[dict] | None:
+    return _shelf(path, kind_hint, ttl)[0]
+
+
+def _aged(title: str, stored_at: float | None) -> str:
+    """A shelf heading, plus the age of its rows when they are the last good ones ("Trending · 12m ago")."""
+    return title if stored_at is None else f"{title} · {ago_text((time.time() - stored_at) / 60.0)}"
 
 
 def _search_outcome(q: str) -> tuple[list[dict], str | None]:
@@ -282,9 +331,12 @@ def discover_page(request: Request, q: str = ""):
             else:
                 with ThreadPoolExecutor(max_workers=len(SHELVES) + 1) as pool:
                     svc = pool.submit(services)
-                    got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), SHELVES))
-                ctx["shelves"] = [{"id": s[0], "title": s[1], "rows": rows} for s, rows in zip(SHELVES, got)]
+                    got = list(pool.map(lambda s: _shelf(s[2], s[3]), SHELVES))
+                ctx["shelves"] = [{"id": s[0], "title": _aged(s[1], at), "rows": rows}
+                                  for s, (rows, at) in zip(SHELVES, got)]
                 ctx["services"] = svc.result()
+                ages = [at for _, at in got if at is not None]   # E1: for a page-level line, should the page want one
+                ctx["stale_note"] = f"Shelves from {ago_text((time.time() - min(ages)) / 60.0)}" if ages else None
         ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for r in ctx["rows"]
                                             + [r for s in ctx["shelves"] for r in s["rows"] or []]])
         media_awards_badges.attach(ctx["rows"] + [r for s in ctx["shelves"] for r in s["rows"] or []])  # awards-ui 3
@@ -327,7 +379,8 @@ def providers() -> list[dict] | None:
     None). None when neither list can be read. Each list is a 24 h restart-proof meta read."""
     out, seen, any_ok = [], set(), False
     for kind in ("movies", "tv"):
-        body = meta_get(f"/api/v1/watchproviders/{kind}?watchRegion={WATCH_REGION}", ttl=PROVIDER_TTL)
+        body = meta_get(f"/api/v1/watchproviders/{kind}?watchRegion={WATCH_REGION}", ttl=PROVIDER_TTL,
+                        timeout=SHELF_TIMEOUT, stale_on_fail=True)   # E1: 3 s, then the last list kept on disk
         if not isinstance(body, list):
             continue
         any_ok = True
@@ -395,12 +448,17 @@ def _interleave(lists: list) -> list[dict] | None:
 
 def service_shelves(pid: int, today: date | None = None) -> list[dict]:
     """[{title, rows}] for a provider; rows None = unavailable, [] = nothing to show. Reads run in parallel, each
-    cached SERVICE_TTL (a failed read is not cached)."""
+    cached SERVICE_TTL; a failed read serves the last good rows with their age (E1, `_shelf`)."""
     paths = _service_paths(pid, today or date.today())
     flat = [pk for title in SERVICE_SHELVES for pk in paths[title]]
     with ThreadPoolExecutor(max_workers=len(flat)) as pool:
-        got = dict(zip(flat, pool.map(lambda pk: _shelf_rows(pk[0], pk[1], SERVICE_TTL), flat)))
-    return [{"title": t, "rows": _interleave([got[pk] for pk in paths[t]])} for t in SERVICE_SHELVES]
+        got = dict(zip(flat, pool.map(lambda pk: _shelf(pk[0], pk[1], SERVICE_TTL), flat)))
+
+    def oldest(t):
+        ages = [got[pk][1] for pk in paths[t] if got[pk][1] is not None]
+        return min(ages) if ages else None
+    return [{"title": _aged(t, oldest(t)), "rows": _interleave([got[pk][0] for pk in paths[t]])}
+            for t in SERVICE_SHELVES]
 
 
 @router.get("/media/discover/service/{provider_id}", response_class=HTMLResponse)

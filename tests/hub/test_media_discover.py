@@ -63,8 +63,10 @@ class Fake:
         self.search_results = {"results": []}
 
     def get(self, url, headers=None, timeout=None, **kw):
-        assert url.startswith(FAKE_URL) and headers == {"X-Api-Key": FAKE_KEY} and timeout == 8
         path = url[len(FAKE_URL):]
+        # E1 (2026-10-13): shelf and provider-list reads wait 3 s, everything else 8 s
+        shelf = path.startswith(("/api/v1/discover/", "/api/v1/watchproviders/"))
+        assert url.startswith(FAKE_URL) and headers == {"X-Api-Key": FAKE_KEY} and timeout == (3 if shelf else 8)
         self.gets.append(path)
         if self.fail:
             raise requests.ConnectionError(url)
@@ -177,15 +179,23 @@ def test_cache_hit_and_expiry(env, monkeypatch):
         assert len(shelf_gets()) == first * 2               # expired -> fetched again
 
 
-def test_failed_shelf_fetch_says_unavailable_and_is_not_cached(env):
+def test_failed_shelf_fetch_says_unavailable_and_is_remembered_a_minute(env, monkeypatch):
+    """E1 (2026-10-13; was "...is_not_cached"): a failed shelf read with nothing stored says "Discover unavailable"
+    at once, and is remembered FAIL_TTL (60 s) so the next loads don't wait on Seerr again; after that it re-reads."""
     client, fake = env()
     fake.fail = True
+    from hub import media_discover
     with client:
         resp = client.get("/media/discover")
         assert resp.status_code == 200 and main_of(resp.text).count("Discover unavailable") == 5
         fake.fail = False
+        n = len(fake.gets)
         again = client.get("/media/discover")
-    assert "Discover unavailable" not in again.text
+        assert main_of(again.text).count("Discover unavailable") == 5 and len(fake.gets) == n   # remembered: no read
+        real = media_discover.time.monotonic
+        monkeypatch.setattr(media_discover.time, "monotonic", lambda: real() + media_discover.FAIL_TTL + 1)
+        later = client.get("/media/discover")
+    assert "Discover unavailable" not in later.text
 
 
 def test_search_partial(env):

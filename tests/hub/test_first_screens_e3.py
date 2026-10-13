@@ -391,3 +391,15 @@ def test_full_hub_shelf_prints_no_count_and_a_short_one_does(hub):
     head = re.search(r'<section class="sec" id="recent">.*?</h2>', body, re.S).group(0)
     n = re.search(r'Recently watched<span class="sep"> · </span>(\d+)</h2>', head)   # her rows join in the both view
     assert n and 3 <= int(n.group(1)) < SHELF_MAX
+
+
+def test_calendar_card_looks_past_the_week_for_the_next_event(hub):
+    from datetime import datetime, timedelta
+    day = datetime.now().astimezone().date() + timedelta(days=20)
+    far = [{"title": "Dentist", "start": f"{day.isoformat()}T09:30:00+11:00", "end": f"{day.isoformat()}T10:00:00+11:00",
+            "all_day": False, "owner": "you"}]
+    _, body = hub(gcal={**SAMPLE_DATA["gcal"], "summary": "Dentist · long form", "events": far})
+    card = cards_of(body)["/a/calendar"]
+    assert '<div class="tile-value stat-word">Dentist</div>' in card and "long form" not in card
+    assert re.search(r'<div class="row-meta">Next up<span class="sep"> · </span>\w{3} \d{1,2} \w{3} · \d\d:\d\d<', card)
+    assert "Nothing in the next 7 days" in body                                          # the band keeps its week

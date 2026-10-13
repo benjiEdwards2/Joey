@@ -1170,3 +1170,24 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
   .sechead > a { padding: 10px 0 10px 12px; margin: -10px 0; }
   .seg a, .sectabs a { min-height: 36px; }
 }
+
+/* ---- E4 film page (2026-10-13) ---- */
+/* U5 (B.): on a phone the poster is smaller (50 %, max 200 px; the guide's 62 % / 260 px put Play below the fold). From
+   640 px the poster still leads beside the title at 280 / 360 px. */
+@media (max-width: 639px) { .hero-detail-poster { width: 50%; max-width: 200px; } }
+/* U7: "More" under the one action row - a fold whose summary is a 36 px text control, opening the inline .confirm panel
+   (guide 6, never a browser dialog). Its buttons are md (36 px) side by side; a nested confirm's Confirm / Cancel stay
+   sm. With nothing in it (Search now not loaded yet, or the title not in Radarr / Sonarr) the fold is hidden. */
+details.heromore { max-width: 100%; }
+details.heromore > summary { display: inline-flex; align-items: center; min-height: 36px; padding: 0 4px; font-size: 13px;
+  font-weight: 500; color: var(--text-3); }
+details.heromore > summary:hover { color: var(--text-1); }
+.heromore:not(:has(.heromore-acts :is(form, a, button, p))) { display: none; }
+.heromore-acts { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+  margin-top: 4px; max-width: 32rem; text-align: left; }
+.heromore-acts .btn { height: 36px; }
+.heromore-acts .confirm .btn { height: 32px; }
+.heromore-acts > details[open], .heromore-acts .requestblock:has(.confirm, .statusline) { flex: 1 0 100%; }
+/* U5: the IMDb / TMDB / Letterboxd pills sit in the Scores strip under the score pills (or a Details "Links" row). */
+.kvrows dd.sitepills { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (min-width: 640px) { .heromore-acts { justify-content: flex-start; } }

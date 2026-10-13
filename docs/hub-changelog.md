@@ -730,3 +730,54 @@ for Jellyfin `jfb:` refs, which `/img` sizes at maxWidth 1280 whatever `h` says 
 for the same bytes). The awards hero `<img>` uses a `<picture>` source for the same switch. **Font preload** `base.html`
 preloads `/static/fonts/GeistVF.woff2` (the exact URL the stylesheet's `url("fonts/GeistVF.woff2")` resolves to; it has no
 `?v=`, so it is cached for an hour, not `immutable`). Tests: `tests/hub/test_polish_e2.py`.
+## 2026-10-13 — E1: resilience + per-request costs
+From the 2026-10-12 evaluation (§3 P2, P2b, P3/P3b, P3c server side, P4, P5, P10, P12) and the E2 follow-ups. The NAS's
+internet link was dropping DNS replies and TCP handshakes under torrent load, so anything leaving the NAS took 7-12 s
+or failed; Joey now degrades instead of waiting.
+- **Discover never blocks** (`media_discover.py`). Shelf and provider-list reads wait `SHELF_TIMEOUT` = 3 s (title
+  reads keep 8 s). Each shelf's last good rows are kept in memory and on disk (META_CACHE_DIR, key `shelf:<path>`); when
+  a refresh fails they are served with their age in the shelf heading ("Trending · 12m ago"; the page also gets
+  `stale_note`, "Shelves from 12m ago", for a future metaline). A failed read is remembered `FAIL_TTL` = 60 s, so the
+  next loads do not wait again; with nothing stored the shelf says "Discover unavailable" at once. The provider list gets
+  the same fallback (`meta_get(..., stale_on_fail=True)`); service pages share the shelf path. 10-min fresh TTL kept.
+- **`/img` never stalls pages** (`images.py`). The route is `async`. A hit is read in a short worker call; a miss waits
+  on the event loop (no thread held) for one of `MISS_SLOTS` = 6 slots of a per-loop anyio CapacityLimiter, then fetches
+  + stores in a worker of its own limiter, re-checking the disk cache first. After `MISS_WAIT_S` = 8 s without a slot
+  it gets the fallback card (`FALLBACK_CACHE`, 1 h). Measured on the laptop with 20 misses stuck upstream: a cached hit
+  3.8 ms median / 26 ms max, never more than 6 upstream reads at once (`tests/hub/test_images_burst.py`).
+- **Phone backdrops** (`images.py`, `media_warmup.py`). A `jfb:` backdrop's `maxWidth` follows `h`
+  (`JF_BACKDROP_WIDTH`: 120->320, 240->480, 400->640, 600->800, 1280->1280; it was 1280 whatever `h` said); the allowed
+  heights are unchanged. Both warm-up passes warm h=600 beside h=1280.
+- **Jellyfin items stay warm** (`media_item.py`, `media_warmup.py`, `tasks.py`). The item cache serves an entry up to
+  6 h old (`CACHE_TTL`) and re-reads it in the background once it is over 10 min old (`FRESH_S`; one 1-worker refresh
+  pool, one refresh per item; a failed refresh keeps the entry). Joey's watch marks call `media_item.invalidate()`
+  (drops the cache, and a read in flight across the mark is not cached); the resume write path reads the show fresh.
+  Series pages read ONE `/Shows/{id}/Episodes` (grouped by each episode's SeasonId / SeasonName / ParentIndexNumber,
+  Specials first, at most 12 seasons) instead of `/Seasons` + one read per season. The warm-up loop ticks every 60 s:
+  the full pass still every 3 h, and each new jellyfin snapshot (`updated_at`) reads the Playing now / Continue watching
+  / Recently added items (both profiles) that are not fresh — at most 20 per pass, 0.5 s apart.
+- **Prefetches yield to taps** (`media_film.py`). An `X-Joey-Prefetch` request's background read runs in its own
+  1-worker lane; at most one more prefetch waits there (later ones are skipped); a tap on a title whose prefetch has not
+  started cancels it and reads in the 2-worker page lane (a running one is joined).
+- **Server page** (`server_stack.py`, `store.py`). stackctl's `/status` answer is kept 30 s (an unreachable answer too;
+  words unchanged, ages worked out per request; Restart + update drops it). `store.get_runner_history` keeps the parsed
+  tail per (file, max_bytes) with the file's device, inode, size and mtime: unchanged -> the same list (so `/server`
+  reuses the hub card's parse), grown -> only the new bytes are parsed, rotated / shrunk / rewritten -> read afresh;
+  answers equal the old full re-read (randomised test). 2 MB tail: 10.5 ms -> 0.35 ms per call on the laptop.
+- **media.db readers** (`media_store.py`). One kept reader connection per thread (`_Kept`: close() only rolls back),
+  replaced when the file's identity changes, closed when its thread ends or on `media_store.reset()` (the tests'
+  autouse fixture calls it); 1 MiB page cache each; writes keep `connect()`. A Media page opens at most one connection
+  per thread. Laptop, warm, DB present: Media home 32 -> 6.5 ms, film page 57 -> 12 ms, show page 54 -> 12 ms.
+- **Smaller waste.** `/media/library` builds its library index once per request (`media_library.library_index`). The
+  Diary syncs Jellyfin history only when the jellyfin snapshot moved for that owner and file, and keeps its stats per
+  (owner, file, snapshot, today, `diary_signature`). The lifespan pre-compiles every template and pre-parses the
+  snapshots (`tasks.prewarm`). The Search now fragment's Radarr / Sonarr lookup is kept 5 min (`media_requests.
+  find_kept`; failures not kept; every Joey write to an *arr app or a Seerr request drops it; write paths read live).
+  `hub/upstream.py`: one keep-alive `requests.Session` per upstream (jellyfin, seerr, arr, omdb, tmdb; no cookies kept)
+  for the Media modules and `/img` — the Server side (stackctl, WUD, Discord) keeps plain calls. `/static/fonts/*` is
+  `immutable` without a `?v=` (the CSS names the fonts by a plain URL; a font only changes with the CSS hash).
+- **Tests changed with the behaviour** (not weakened): the Discover failure test now pins "remembered 60 s" (was "not
+  cached"); the Jellyseerr fake expects 3 s on shelf / provider reads; the season-read tests pin the one Episodes read
+  (the Jellyfin fake's episodes name their season, as Jellyfin's do); the warm-up counts include the h=600 backdrop; one
+  speed test drains the F2 background read before counting. `tests/hub/conftest.py` routes `upstream.session` back
+  through the `requests` module so every fake still sees every call.

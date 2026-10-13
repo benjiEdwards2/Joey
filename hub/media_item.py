@@ -22,7 +22,11 @@ from hub.media_library import runtime_text
 log = logging.getLogger("hub.media_item")
 
 ITEM_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-CACHE_TTL = 600
+# E1 (2026-10-13): stale-while-revalidate. An item read is served from the cache up to CACHE_TTL old; once it is
+# older than FRESH_S it is still served at once and re-read in the background (one refresh per item at a time).
+# Joey's own watch-state writes drop the cache (`invalidate`), so a mark is never shown stale.
+CACHE_TTL = 6 * 3600
+FRESH_S = 600
 TICKS_PER_MINUTE = 600_000_000
 MAX_SEASONS, MAX_EPISODES = 12, 60
 FIELDS = ("Overview,Genres,People,ProviderIds,DateCreated,PremiereDate,RunTimeTicks,SeriesId,SeasonId,"
@@ -30,7 +34,6 @@ FIELDS = ("Overview,Genres,People,ProviderIds,DateCreated,PremiereDate,RunTimeTi
           "UserData,BackdropImageTags,ImageTags,RemoteTrailers,"
           # media-speed (2026-10-07): the file strip's stream facts ride on the same item read
           "MediaStreams,MediaSources,Path,Width,Height,Container")
-SEASON_WORKERS = 6
 CREW_TYPES = ("Director", "Writer")
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
@@ -39,6 +42,9 @@ _cache: LRU = LRU()   # jf_id -> (fetched_at, item + seasons); bounded (M-42)
 _server: list = [0.0, None]  # [fetched_at, server id]
 _flights: dict = {}           # key -> Future of the one read in flight (F2 fast pages, 2026-10-12)
 _flight_lock = threading.Lock()
+_gen = [0]                    # bumped by every invalidation: a read that started before one is not cached (E1)
+_refreshing: set = set()      # item ids with a background refresh queued or running
+_refresh_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="item-refresh")   # bounded: one at a time
 
 
 def once(key, fn):
@@ -65,8 +71,24 @@ def once(key, fn):
 
 
 def clear_cache() -> None:
-    _cache.clear()
+    invalidate()
     _server[:] = [0.0, None]
+
+
+def invalidate() -> None:
+    """Every cached item dropped (Joey changed watch state): the next page reads Jellyfin again, and a read already
+    in flight is not cached."""
+    with _flight_lock:
+        _gen[0] += 1
+        _cache.clear()
+
+
+def drain_refresh(timeout: float = 10.0) -> None:
+    """Wait for the background refreshes queued so far (tests: one test's refresh never lands in the next one)."""
+    try:
+        _refresh_pool.submit(lambda: None).result(timeout=timeout)
+    except Exception:
+        pass
 
 
 def _int(v) -> int | None:
@@ -105,24 +127,29 @@ def _state(row: dict, today: str) -> dict:
             "aired": aired or played}
 
 
+def _season_groups(items) -> list[tuple[dict, list[dict]]]:
+    """The show's episodes (ONE /Shows/{id}/Episodes read, E1) grouped by their season: [(season, episodes)] in
+    season-number order (Specials, number 0, first; unnumbered last), at most MAX_SEASONS. Each episode names its
+    season (SeasonId, SeasonName, ParentIndexNumber), so the separate /Seasons read and the read per season went."""
+    groups: dict[str, tuple[dict, list[dict]]] = {}
+    for e in items or []:
+        if not isinstance(e, dict) or not e.get("Id") or not e.get("SeasonId"):
+            continue
+        sid = str(e["SeasonId"])
+        if sid not in groups:
+            groups[sid] = ({"Id": sid, "Name": e.get("SeasonName"), "IndexNumber": _int(e.get("ParentIndexNumber"))}, [])
+        groups[sid][1].append(e)
+    ordered = sorted(groups.values(), key=lambda g: (g[0]["IndexNumber"] is None, g[0]["IndexNumber"] or 0))
+    return ordered[:MAX_SEASONS]
+
+
 def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
-    got = media_files._get(base, headers, f"/Shows/{series_id}/Seasons", {"userId": uid})
-    picked = [s for s in (got.get("Items") if isinstance(got, dict) else None) or []
-              if isinstance(s, dict) and s.get("Id")][:MAX_SEASONS]
-
-    def episodes(s):
-        return media_files._get(base, headers, f"/Shows/{series_id}/Episodes", {
-            "userId": uid, "seasonId": s["Id"], "Fields": "UserData,PremiereDate,RunTimeTicks,People"})
-
-    if len(picked) > 1:  # one episode read per season, side by side (media-speed)
-        with ThreadPoolExecutor(max_workers=min(SEASON_WORKERS, len(picked))) as pool:
-            bodies = list(pool.map(episodes, picked))
-    else:
-        bodies = [episodes(s) for s in picked]
+    body = media_files._get(base, headers, f"/Shows/{series_id}/Episodes", {
+        "userId": uid, "Fields": "UserData,PremiereDate,RunTimeTicks,People"})
     out = []
-    for s, body in zip(picked, bodies):
+    for s, items in _season_groups(body.get("Items") if isinstance(body, dict) else None):
         eps = []
-        for e in ((body.get("Items") if isinstance(body, dict) else None) or [])[:MAX_EPISODES]:
+        for e in items[:MAX_EPISODES]:
             if isinstance(e, dict) and e.get("Id"):
                 num = _int(e.get("IndexNumber"))
                 ticks = e.get("RunTimeTicks") or 0
@@ -224,26 +251,63 @@ def _build(jf_id: str) -> dict:
     return {"item": item, "seasons": seasons, "files": files}
 
 
-def _data(jf_id: str) -> dict | None:
+def _data(jf_id: str, stale_ok: bool = True) -> dict | None:
+    """The item's page data. Fresh (under FRESH_S): from the cache. Older but under CACHE_TTL: from the cache at once
+    and re-read in the background (`stale_ok`; False = read now, as a write path that needs today's state does).
+    Otherwise one blocking read, shared by concurrent callers."""
     hit = _cache.get(jf_id)
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1]
+    if hit:
+        age = time.time() - hit[0]
+        if age < FRESH_S:
+            return hit[1]
+        if stale_ok and age < CACHE_TTL and media_files._creds():
+            _refresh_later(jf_id)
+            return hit[1]
     if not media_files._creds():
         return None
     return once(("item", jf_id), lambda: _read(jf_id))
 
 
-def _read(jf_id: str) -> dict | None:
+def _read(jf_id: str, force: bool = False) -> dict | None:
     hit = _cache.get(jf_id)   # a caller that queued behind a read that has just finished
-    if hit and time.time() - hit[0] < CACHE_TTL:
+    if not force and hit and time.time() - hit[0] < FRESH_S:
         return hit[1]
+    gen = _gen[0]
     try:
         out = _build(jf_id)
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("jellyfin item lookup failed: %s", type(exc).__name__)
-        return None
-    _cache[jf_id] = (time.time(), out)
+        return None   # a background refresh that fails keeps the entry it was refreshing
+    with _flight_lock:
+        if gen == _gen[0]:   # not across an invalidation: the read may predate Joey's own write
+            _cache[jf_id] = (time.time(), out)
     return out
+
+
+def _refresh_later(jf_id: str) -> None:
+    """Queue one background re-read of a stale item (the bounded refresh pool; a second ask while queued is a no-op)."""
+    with _flight_lock:
+        if jf_id in _refreshing:
+            return
+        _refreshing.add(jf_id)
+
+    def run():
+        try:
+            once(("item", jf_id), lambda: _read(jf_id, force=True))
+        finally:
+            with _flight_lock:
+                _refreshing.discard(jf_id)
+    _refresh_pool.submit(run)
+
+
+def warm(jf_id: str) -> str:
+    """The warm-up's item read (E1): 'cached' when the item is fresh, else read now -> 'fetched' or 'failed'."""
+    hit = _cache.get(jf_id)
+    if hit and time.time() - hit[0] < FRESH_S:
+        return "cached"
+    if not media_files._creds():
+        return "failed"
+    return "fetched" if once(("item", jf_id), lambda: _read(jf_id, force=True)) is not None else "failed"
 
 
 def peek(jf_id: str | None) -> dict | None:

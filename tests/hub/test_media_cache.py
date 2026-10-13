@@ -35,7 +35,7 @@ def test_meta_get_disk_hits_never_grow_memory_past_the_bound(tmp_path, monkeypat
     now = time.time()
     for i in range(n):
         md._meta_store(f"/api/v1/movie/{i}", now, {"id": i})
-    monkeypatch.setattr(md, "_fetch", lambda path: (_ for _ in ()).throw(AssertionError("no upstream call")))
+    monkeypatch.setattr(md, "_fetch", lambda path, *a: (_ for _ in ()).throw(AssertionError("no upstream call")))
     try:
         assert [md.meta_get(f"/api/v1/movie/{i}")["id"] for i in range(n)] == list(range(n))   # all off disk
         assert len(md._cache) == media_cache.MAX_ENTRIES
@@ -51,7 +51,7 @@ def test_ttl_still_applies_to_a_cached_entry(monkeypatch):
     monkeypatch.setenv("JELLYSEERR_API_KEY", "k")
     monkeypatch.setattr(md, "_meta_disk", lambda path: None)
     monkeypatch.setattr(md, "_meta_store", lambda *a: None)
-    monkeypatch.setattr(md, "_fetch", lambda path: (calls.append(path) or {"n": len(calls)}, 200))
+    monkeypatch.setattr(md, "_fetch", lambda path, *a: (calls.append(path) or {"n": len(calls)}, 200))
     try:
         assert md.meta_get("/api/v1/person/1")["n"] == 1
         assert md.meta_get("/api/v1/person/1")["n"] == 1             # fresh: from memory

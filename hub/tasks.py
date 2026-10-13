@@ -59,8 +59,10 @@ def _server_alerts_loop():
 
 def _media_warmup_loop():
     """media-speed: warm the film pages behind the Media home shelves ~60 s after startup, then every few
-    hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it."""
-    return _every("media warm-up", media_warmup.FIRST_DELAY_S, media_warmup.EVERY_S, lambda: media_warmup.run_pass())
+    hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it. E1: the loop
+    ticks every minute — the full pass still runs every EVERY_S, and each new jellyfin snapshot warms the shelf
+    titles' Jellyfin item reads (media_warmup.tick)."""
+    return _every("media warm-up", media_warmup.FIRST_DELAY_S, media_warmup.TICK_S, lambda: media_warmup.tick())
 
 
 def _media_follow_loop():
@@ -75,10 +77,30 @@ def _media_awards_loop():
     return _every("media awards", media_awards.FIRST_DELAY_S, media_awards.TICK_S, lambda: media_awards.tick())
 
 
+def prewarm() -> dict:
+    """E1 (2026-10-13): the first request after a deploy no longer pays the Jinja compiles and the snapshot parses -
+    every template is compiled and every envelope parsed once at startup. -> counts; never raises."""
+    out = {"templates": 0, "template_errors": 0, "snapshots": 0}
+    for name in shell.templates.env.list_templates():
+        try:
+            shell.templates.env.get_template(name)
+            out["templates"] += 1
+        except Exception as exc:  # a broken template still fails its own page, as before - never the startup
+            out["template_errors"] += 1
+            log.warning("template pre-compile failed: %s", type(exc).__name__)
+    try:
+        out["snapshots"] = len(_read_snapshots())   # hub.store's parse cache - the one every request reads through
+    except Exception as exc:
+        log.warning("snapshot pre-parse failed: %s", type(exc).__name__)
+    return out
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Load the registry at startup (shell.load_areas), failing fast with the aggregated violation list."""
+    """Load the registry at startup (shell.load_areas), failing fast with the aggregated violation list; then
+    pre-compile the templates and pre-parse the snapshots (E1) in a worker thread."""
     shell.load_areas()
+    await asyncio.to_thread(prewarm)
     tasks = [
         None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
         media_plays.start_recorder(),  # F7 play recorder; None when off

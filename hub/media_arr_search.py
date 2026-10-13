@@ -33,12 +33,12 @@ import re
 import time
 from urllib.parse import urlencode
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_arr_search.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_discover as md, media_requests as mr, media_text, media_upgrades, shell
+from hub import media_discover as md, media_requests as mr, media_text, media_upgrades, shell, upstream
 from hub.media_write import flash_keys, form_of, is_htmx, safe_back, same_origin
 
 log = logging.getLogger("hub.media_arr_search")
@@ -70,14 +70,15 @@ def _ok(resp) -> None:
 _why = media_text.why   # log-safe words: 'HTTP 503' or the exception type, never its message
 
 
-def find(kind: str, tmdb: int, tvdb: int | None = None) -> dict | None:
-    """The app's own resource for this title, or None (not there / not connected / unreachable — logged)."""
+def find(kind: str, tmdb: int, tvdb: int | None = None, kept: bool = False) -> dict | None:
+    """The app's own resource for this title, or None (not there / not connected / unreachable — logged). `kept`
+    (E1, the Search now fragment only): through media_requests' 5-minute lookup cache."""
     app = app_of(kind)
     creds = mr._arr_creds(app)
     if creds is None:
         return None
     try:
-        return mr._find(app, *creds, tmdb, tvdb)
+        return (mr.find_kept if kept else mr._find)(app, *creds, tmdb, tvdb)
     except Exception as exc:
         log.warning("%s lookup failed: %s", app, _why(exc))
         return None
@@ -89,7 +90,7 @@ def _command(app: str, base: str, headers: dict, entry: dict | None, body: dict 
     if body is None:
         body = ({"name": "MoviesSearch", "movieIds": [int(entry["id"])]} if app == "radarr"
                 else {"name": "SeriesSearch", "seriesId": int(entry["id"])})
-    _ok(requests.post(f"{base}/api/v3/command", json=body, headers=headers, timeout=timeout))
+    _ok(upstream.session("arr").post(f"{base}/api/v3/command", json=body, headers=headers, timeout=timeout))
 
 
 def start_search(kind: str, tmdb: int, tvdb: int | None = None) -> tuple[str, int | None]:
@@ -179,7 +180,8 @@ def follow_all(tmdb: int, tvdb: int | None = None) -> str:
                 break
         if entry is None:
             return "notyet"
-        _ok(requests.put(f"{base}/api/v3/series/{int(entry['id'])}",
+        mr.forget_lookups()
+        _ok(upstream.session("arr").put(f"{base}/api/v3/series/{int(entry['id'])}",
                          json={**entry, "monitored": True, "monitorNewItems": "all"}, headers=headers, timeout=TIMEOUT))
     except Exception as exc:
         log.warning("sonarr follow-new-seasons failed: %s", _why(exc))
@@ -195,7 +197,7 @@ def follow_all(tmdb: int, tvdb: int | None = None) -> str:
 @router.get("/media/title/{kind}/{tmdb_id}/arr", response_class=HTMLResponse)
 def search_button(request: Request, kind: str, tmdb_id: int, tvdb: str = "", back: str = ""):
     kind = md._kind(kind)
-    entry = find(kind, tmdb_id, _tvdb(tvdb)) if tmdb_id > 0 else None
+    entry = find(kind, tmdb_id, _tvdb(tvdb), kept=True) if tmdb_id > 0 else None
     if entry is None:
         return HTMLResponse("")   # not in the app (or unreachable): no button, the Request flow applies
     return md._partial(request, "_arr_search.html", kind=kind, tmdb_id=tmdb_id, tvdb=_tvdb(tvdb),

@@ -8,6 +8,7 @@ Warnings name the ref kind and a status/type only — never a URL or key.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hashlib
 import html
@@ -16,10 +17,15 @@ import os
 import re
 import tempfile
 import time
+import weakref
 from pathlib import Path
 
-import requests
+import anyio
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.images.requests (E1: via tests/hub/conftest)
+
 from fastapi import APIRouter, Response
+
+from hub import upstream
 
 log = logging.getLogger("hub.images")
 router = APIRouter()
@@ -27,6 +33,9 @@ router = APIRouter()
 SIZES = (120, 240, 400, 600, 1280)
 DEFAULT_SIZE = 400
 TMDB_WIDTH = {120: "w185", 240: "w342", 400: "w500", 600: "w780", 1280: "w1280"}  # TMDB serves w1280; "original" is multi-MB
+# E1 (2026-10-13): a Jellyfin backdrop (jfb:) is sized by the asked h too - it was 1280 wide whatever h said - so the
+# phone backdrop (h=600) is a genuinely smaller file
+JF_BACKDROP_WIDTH = {120: 320, 240: 480, 400: 640, 600: 800, 1280: 1280}
 TIMEOUT = 8
 MAX_BYTES = 5 * 1024 * 1024
 CHUNK = 64 * 1024
@@ -37,7 +46,18 @@ EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/we
        "image/gif": ".gif"}
 MIME = {ext: mime for mime, ext in EXT.items() if mime != "image/jpg"}
 
+_UPSTREAM = {"jf": "jellyfin", "jfb": "jellyfin", "radarr": "arr", "sonarr": "arr", "tmdb": "tmdb"}   # E1: keep-alive
+
 REF_RE = re.compile(r"^(?:(jf|jfb|radarr|sonarr):([A-Za-z0-9-]+)|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
+
+
+# E1 (2026-10-13): a cold-poster burst must never stall pages. /img is async: a cache hit is read in a short worker
+# call; a MISS waits (without holding a thread) for one of MISS_SLOTS upstream slots, then fetches + stores in a
+# worker of its own limiter, so the shared threadpool pages use is never filled by slow upstreams. A miss that has
+# waited MISS_WAIT_S for a slot gets the fallback card (FALLBACK_CACHE) instead of hanging.
+MISS_SLOTS = 6
+MISS_WAIT_S = 8.0
+_limiters: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()   # event loop -> (slot gate, worker limiter)
 
 
 def cache_dir() -> Path:
@@ -82,7 +102,7 @@ def _upstreams(kind: str, ident: str, h: int) -> list[tuple[str, dict, dict]] | 
         headers = {"Authorization": f"MediaBrowser Token={key}"}
         if kind == "jf":
             return [(f"{url}/Items/{ident}/Images/Primary", {"maxHeight": h, "quality": 90}, headers)]
-        return [(f"{url}/Items/{ident}/Images/Backdrop/0", {"maxWidth": 1280, "quality": 85}, headers)]
+        return [(f"{url}/Items/{ident}/Images/Backdrop/0", {"maxWidth": JF_BACKDROP_WIDTH[h], "quality": 85}, headers)]
     if kind in ("radarr", "sonarr"):
         env = _env(f"{kind.upper()}_URL", f"{kind.upper()}_API_KEY")
         if not env:
@@ -120,7 +140,7 @@ def _fetch(kind: str, ident: str, h: int) -> tuple[bytes, str] | None:
     reason = "no answer"
     for url, params, headers in candidates:
         try:
-            resp = requests.get(url, params=params or None, headers=headers or None, timeout=TIMEOUT,
+            resp = upstream.session(_UPSTREAM[kind]).get(url, params=params or None, headers=headers or None, timeout=TIMEOUT,
                                 stream=True)
         except Exception as exc:
             reason = _reason(exc)
@@ -188,8 +208,45 @@ def _store(stem: str, ext: str, body: bytes) -> None:
                 os.unlink(tmp)
 
 
+def _miss_limiters() -> tuple[anyio.CapacityLimiter, anyio.CapacityLimiter]:
+    """This event loop's (slot gate, worker limiter); one pair per loop (tests run several loops)."""
+    loop = asyncio.get_running_loop()
+    pair = _limiters.get(loop)
+    if pair is None:
+        pair = _limiters[loop] = (anyio.CapacityLimiter(MISS_SLOTS), anyio.CapacityLimiter(MISS_SLOTS))
+    return pair
+
+
+def _fetch_and_store(stem: str, kind: str, ident: str, size: int) -> tuple[bytes, str] | None:
+    """A miss, in a worker thread: re-check the cache (a request ahead in the queue may have fetched it), else fetch
+    and store. -> (body, ext) or None (upstream failure)."""
+    hit = _cached(stem)
+    if hit is not None:
+        return hit
+    got = _fetch(kind, ident, size)
+    if got is not None:
+        _store(stem, got[1], got[0])
+    return got
+
+
+async def _miss(stem: str, kind: str, ident: str, size: int) -> tuple[bytes, str] | None | bool:
+    """-> (body, ext), None (upstream failure) or False (no slot within MISS_WAIT_S)."""
+    gate, workers = _miss_limiters()
+    slot = False
+    with anyio.move_on_after(MISS_WAIT_S):
+        await gate.acquire()   # waits on the event loop, holding no thread
+        slot = True
+    if not slot:
+        log.warning("image upstream busy (%s): fallback served", kind)
+        return False
+    try:
+        return await anyio.to_thread.run_sync(_fetch_and_store, stem, kind, ident, size, limiter=workers)
+    finally:
+        gate.release()
+
+
 @router.get("/img/{ref:path}")
-def image(ref: str, h: str = "", t: str = ""):
+async def image(ref: str, h: str = "", t: str = ""):
     title = t[:80]
     if ref == "none":
         return _fallback(title)
@@ -201,13 +258,13 @@ def image(ref: str, h: str = "", t: str = ""):
     size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
 
     stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
-    hit = _cached(stem)
+    hit = await anyio.to_thread.run_sync(_cached, stem) if _cache_path(stem) else None   # a stat, then a short read
     if hit is None:
-        got = _fetch(kind, ident, size)
-        if got is None:
+        if _upstreams(kind, ident, size) is None:   # nothing configured: the card at once, no slot, no thread
             return _fallback(title)
-        _store(stem, got[1], got[0])
-        hit = got
+        hit = await _miss(stem, kind, ident, size)
+        if not hit:
+            return _fallback(title)
     return Response(hit[0], media_type=MIME[hit[1]], headers={"Cache-Control": HIT_CACHE})
 
 

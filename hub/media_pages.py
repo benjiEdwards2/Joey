@@ -22,6 +22,35 @@ router = APIRouter()
 DIARY_PAGE = 50
 MILESTONES_MAX = 5
 
+# E1 (2026-10-13): every Diary visit used to write (the history sync: INSERT OR IGNORE + commit) and then load every
+# diary row for the stats. The sync now runs only when the jellyfin snapshot moved since the last one for that owner
+# and file; the stats are kept per (owner, file, snapshot, today, diary row count + newest id) - diary rows are only
+# ever inserted, so a new row is a new key.
+_diary_synced: dict = {}   # (db path, owner) -> the jellyfin updated_at last synced
+_diary_stats: dict = {}    # (db path, owner) -> (key, stats)
+
+
+def clear_diary_memo() -> None:
+    _diary_synced.clear()
+    _diary_stats.clear()
+
+
+def _diary_sync_and_stats(recent, owner: str, stamp) -> dict:
+    where = (str(media_db.db_path()), owner)
+    if stamp is None or _diary_synced.get(where) != stamp:
+        media_db.sync_diary_from_history(recent, owner)
+        if stamp is not None:
+            _diary_synced[where] = stamp
+    key = (stamp, date.today().isoformat(), media_db.diary_signature(owner))
+    kept = _diary_stats.get(where)
+    if kept is not None and kept[0] == key:
+        return kept[1]
+    stats = media_db.diary_stats(owner=owner)
+    if len(_diary_stats) > 16:
+        _diary_stats.clear()
+    _diary_stats[where] = (key, stats)
+    return stats
+
 
 def _detail_page(request: Request, template: str, snapshot_id: str, build=None, detail=None,
                  always_build=False):
@@ -73,10 +102,11 @@ def _arr_linker(view, request=None):
     jelly = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
     jdata = jelly.data if jelly else {}
     lists = {k: _library_lists(jdata, view, k)[0] for k in ("movie", "tv")}
+    index = {k: media_library.library_index(lists[k]) for k in lists}   # E1: once per request, not once per row
 
     def link(rows, need_key=False):
         return [{**r, "href": None} if need_key and not r.get("item_key") else
-                media_library.link_arrivals([r], lists[k], k, lambda jf: media_home.item_href(jf))[0]
+                media_library.link_arrivals([r], None, k, lambda jf: media_home.item_href(jf), index[k])[0]
                 for r in rows or [] for k in ("movie" if r.get("kind") == "movie" else "tv",)]
     return link
 
@@ -203,11 +233,11 @@ def media_diary_page(request: Request):
     def build(data, view):
         history = data.get("history") or {}
         owner = media_db.owner_of(view)
-        media_db.sync_diary_from_history(history.get("recent"), owner)
+        jsnap = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
+        stats = _diary_sync_and_stats(history.get("recent"), owner, jsnap.updated_at if jsnap else None)
         rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, owner)
         more = len(rows) > DIARY_PAGE
         rows = rows[:DIARY_PAGE]
-        stats = media_db.diary_stats(owner=owner)
         months: list[dict] = []
         lines = media_db.group_diary(rows)
         for row in lines:

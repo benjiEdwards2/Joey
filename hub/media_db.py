@@ -410,6 +410,21 @@ def group_diary(rows) -> list[dict]:
     return list(lines.values())
 
 
+def diary_signature(owner: str = "you") -> tuple[int, int]:
+    """(row count, newest id) of the owner's diary - what changes whenever a row is added (rows are never edited or
+    deleted). (0, 0) with no DB or on any error."""
+    db = _read()
+    if db is None:
+        return (0, 0)
+    try:
+        with closing(db):
+            row = db.execute("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM diary WHERE owner = ?", (owner,)).fetchone()
+            return (row[0], row[1])
+    except sqlite3.Error as exc:
+        log.warning("diary_signature failed: %s", type(exc).__name__)
+        return (0, 0)
+
+
 def diary_stats(now: datetime | None = None, owner: str = "you") -> dict:
     """{this_week, this_month, total, streak_days, milestones}. Week/month are the
     last 7/30 days; the streak is consecutive days with a watch, ending today or

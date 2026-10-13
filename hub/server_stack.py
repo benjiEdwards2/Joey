@@ -6,13 +6,17 @@ only (env STACKCTL_URL + STACKCTL_TOKEN, `Authorization: Bearer`): the token nev
 a flash. Two-step like Update now: GET `/server/stack/run?step=confirm` explains exactly what happens -> POST behind
 `same_origin` -> `POST {STACKCTL_URL}/media/pull-up` (202 started, 409 already running) -> 303 back with a flash word.
 The Server page shows stackctl's last run (`GET /status`, 2 s timeout) when STACKCTL_URL is set; failures log the HTTP
-status or exception type only and degrade to words.
+status or exception type only and degrade to words. E1 (2026-10-13): that read is kept STATUS_TTL_S (30 s), an
+unreachable answer as well as a good one, so the Server page never waits on stackctl twice in a row; the line's
+"· 3m ago" ages are still worked out per request, and a Restart + update request drops the kept answer.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 from datetime import datetime, timezone
 
 import requests
@@ -28,6 +32,9 @@ log = logging.getLogger("hub.server_stack")
 router = APIRouter()
 
 RUN_TIMEOUT, STATUS_TIMEOUT = 10, 2
+STATUS_TTL_S = 30
+_status_kept: dict = {}   # (url, token) -> (monotonic time, parsed /status body or None for unreachable)
+_status_lock = threading.Lock()
 CONFIRM_LINES = (
     "This pulls the newest image for, and recreates, every container in the media-server stack "
     "(/volume1/media-server/docker-compose.yml) except WUD and stackctl itself.",
@@ -51,11 +58,17 @@ def _headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def clear_cache() -> None:
+    with _status_lock:
+        _status_kept.clear()
+
+
 def pull_up() -> str:
     """-> 'started' | 'busy' (a run is going) | 'refused' (any other HTTP answer) | 'unreachable'."""
     creds = _creds()
     if not creds:
         return "unreachable"
+    clear_cache()   # the page after the redirect asks stackctl again: "Updating now"
     try:
         resp = requests.post(creds[0] + "/media/pull-up", headers=_headers(creds[1]), timeout=RUN_TIMEOUT)
     except Exception as exc:  # type only — requests errors embed the URL
@@ -69,17 +82,31 @@ def pull_up() -> str:
     return "refused"
 
 
-def status(now: datetime | None = None) -> dict:
-    """The Server page's line: {connected, state: off | unreachable | idle | running | ok | failed, text}."""
-    creds = _creds()
-    if not creds:
-        return {"connected": False, "state": "off", "text": "Not connected"}
+def _status_body(creds: tuple[str, str]):
+    """stackctl's /status body (None = unreachable / not a dict), read at most once per STATUS_TTL_S."""
+    with _status_lock:
+        hit = _status_kept.get(creds)
+    if hit is not None and time.monotonic() - hit[0] < STATUS_TTL_S:
+        return hit[1]
     try:
         resp = requests.get(creds[0] + "/status", headers=_headers(creds[1]), timeout=STATUS_TIMEOUT)
         body = resp.json() if resp.status_code == 200 else None
     except Exception as exc:
         log.warning("stackctl status failed: %s", type(exc).__name__)
         body = None
+    body = body if isinstance(body, dict) else None
+    with _status_lock:
+        _status_kept.clear()   # one stackctl: only the current creds' answer is kept
+        _status_kept[creds] = (time.monotonic(), body)
+    return body
+
+
+def status(now: datetime | None = None) -> dict:
+    """The Server page's line: {connected, state: off | unreachable | idle | running | ok | failed, text}."""
+    creds = _creds()
+    if not creds:
+        return {"connected": False, "state": "off", "text": "Not connected"}
+    body = _status_body(creds)
     if not isinstance(body, dict):
         return {"connected": True, "state": "unreachable", "text": "stackctl unreachable"}
     now = now or datetime.now(timezone.utc)

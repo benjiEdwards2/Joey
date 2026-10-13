@@ -66,7 +66,8 @@ def test_missing_backdrops_count_as_done_and_the_pass_is_stamped(env, monkeypatc
     monkeypatch.setattr(images, "warm", lambda ref, h=0: "skipped" if ref.startswith("jfb:") else real(ref, h))
     out = media_warmup.run_pass(pause=0)
     lib = out["library"]
-    assert lib["titles"] == 3 and lib["skipped"] == 3 and lib["failed"] == 0 and lib["fetched"] > 0
+    # E1: two backdrop sizes per title now (desktop h=1280 + phone h=600), each "skipped"
+    assert lib["titles"] == 3 and lib["skipped"] == 6 and lib["failed"] == 0 and lib["fetched"] > 0
     assert not media_warmup.library_due()
 
 

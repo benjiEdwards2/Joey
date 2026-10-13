@@ -141,8 +141,13 @@ PARTS = ("makers", "actions", "scores", "collection", "crew", "dates", "cast", "
 RAW_PARTS = ("makers", "actions", "crew", "dates", "cast", "providers")   # drawn from the Jellyseerr title body
 EXTRAS_WAIT = 30          # s a part request waits for the background read (each upstream call has its own timeout)
 _extras_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="film-extras")   # bounded: a NAS (M-46)
+# E1 (2026-10-13): link prefetches (X-Joey-Prefetch) read in their own 1-worker lane, so a real tap's read never queues
+# behind speculation. At most one prefetch waits in that lane (a later one is skipped), and a tap on a title whose
+# prefetch is still waiting takes it over in the page lane.
+_prefetch_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="film-prefetch")
+_prefetch_waiting = [0]   # prefetch jobs submitted and not yet started
 _extras: dict[tuple, Future] = {}
-_extras_lock = threading.Lock()
+_extras_lock = threading.RLock()   # re-entrant: cancelling a queued prefetch runs its _forget callback under the lock
 
 
 def _ratings_peek(kind: str, tmdb: int):
@@ -206,14 +211,29 @@ def _forget(key, fut) -> None:
             _extras.pop(key, None)
 
 
-def warm_extras(kind: str, tmdb: int, imdb_hint=None) -> Future:
+def _prefetch_job(kind: str, tmdb: int, imdb_hint) -> dict:
+    with _extras_lock:
+        _prefetch_waiting[0] -= 1
+    return _load_extras(kind, tmdb, imdb_hint)
+
+
+def warm_extras(kind: str, tmdb: int, imdb_hint=None, *, prefetch: bool = False) -> Future | None:
     """Start (or join) the title's background read - one job per title at a time; a done job is dropped, the
-    caches hold its answers."""
+    caches hold its answers. `prefetch` (E1): the prefetch lane - None when a prefetch is already waiting there."""
     key = (kind, tmdb)
     with _extras_lock:
         fut = _extras.get(key)
+        if fut is not None and not prefetch and getattr(fut, "joey_prefetch", False) and fut.cancel():
+            _prefetch_waiting[0] -= 1   # its prefetch had not started: the tap's read runs in the page lane now
+            fut = None
         fresh = fut is None
-        if fresh:
+        if fresh and prefetch:
+            if _prefetch_waiting[0] >= 1:
+                return None
+            _prefetch_waiting[0] += 1
+            fut = _extras[key] = _prefetch_pool.submit(_prefetch_job, kind, tmdb, imdb_hint)
+            fut.joey_prefetch = True
+        elif fresh:
             fut = _extras[key] = _extras_pool.submit(_load_extras, kind, tmdb, imdb_hint)
     if fresh:
         fut.add_done_callback(lambda f, k=key: _forget(k, f))   # outside the lock: a done future calls back at once
@@ -237,13 +257,13 @@ def settle(ex: dict) -> dict:
     return {k: blank[k] if v is MISSING else v for k, v in ex.items()}
 
 
-def extras_for(kind: str, tmdb: int, imdb_hint=None, *, wait: bool) -> dict:
+def extras_for(kind: str, tmdb: int, imdb_hint=None, *, wait: bool, prefetch: bool = False) -> dict:
     """The title's upstream extras: from the caches when complete; else the background read is started and either
     awaited (`wait`: a part request, a script) or not (the page renders what `peek_extras` found)."""
     ex = peek_extras(kind, tmdb, imdb_hint)
     if _complete(ex):
         return ex
-    fut = warm_extras(kind, tmdb, imdb_hint)
+    fut = warm_extras(kind, tmdb, imdb_hint, prefetch=prefetch and not wait)
     if not wait:
         return ex
     try:
@@ -869,6 +889,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f: dict = {"note": None, "jf_failed": False, "req_state": req_state, "req_msg": req_msg}
     connected = md._creds() is not None
     warmed: set = set()
+    pf = is_prefetch(request)   # E1: a link prefetch's reads take the prefetch lane
 
     def warm(k, t):
         # media-speed (2026-10-07) / F2: the upstream reads start as soon as the title's TMDB id is known - from the
@@ -876,7 +897,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         if k and t and (k, t) not in warmed:
             warmed.add((k, t))
             if not _complete(peek_extras(k, t)):
-                warm_extras(k, t)
+                warm_extras(k, t, prefetch=pf)
 
     if tmdb_id and kind:
         warm(kind, tmdb_id)
@@ -897,7 +918,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     # --- 2. Jellyseerr side: what is cached (F2); an off-server title waits for its one title body ---
     ex, pending = dict(BLANK), set()
     if tmdb_id and kind:
-        ex = extras_for(kind, tmdb_id, (item or {}).get("imdb"), wait=not defer)
+        ex = extras_for(kind, tmdb_id, (item or {}).get("imdb"), wait=not defer, prefetch=pf)
         if defer and ex["raw"] is MISSING and connected and (not item or req_state != "idle"):
             # the title body IS the page when Jellyfin has nothing (title, poster, overview, Request), and a request
             # step (confirm / done / error) draws the request block now - the one read such a page waits for

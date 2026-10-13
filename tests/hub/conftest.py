@@ -57,17 +57,46 @@ def app_with(tmp_path, monkeypatch, *areas):
 def clear_media_caches() -> None:
     """Every Media module's in-process cache, emptied."""
     from hub import (media_awards_badges, media_awards_icons, media_discover, media_files, media_film, media_hidden,
-                     media_item, media_jellyfin, media_omdb, media_rank, media_resume)
+                     media_item, media_jellyfin, media_omdb, media_pages, media_rank, media_requests, media_resume,
+                     server_stack)
     for clear in (media_discover.clear_cache, media_item.clear_cache, media_files.clear_cache, media_jellyfin.clear_cache,
                   media_omdb.clear_cache, media_hidden.clear, media_rank.clear_cache, media_resume.clear_cache,
                   media_awards_badges._cache.clear, media_awards_icons.override.cache_clear,
-                  media_film._override_in.cache_clear):
+                  media_film._override_in.cache_clear,
+                  server_stack.clear_cache,    # E1: the 30 s stackctl status answer
+                  media_pages.clear_diary_memo,    # E1: the diary sync / stats memo
+                  media_requests.forget_lookups):  # E1: the Search now lookups
         clear()
+
+
+REAL_UPSTREAM: dict = {}   # the real hub.upstream.session, for tests of the Sessions themselves
+
+
+class _ViaRequests:
+    """Test stand-in for a kept upstream Session (E1, 2026-10-13): every call goes through the `requests` module's
+    function of the same name, looked up at call time - so the suite's fakes (monkeypatched requests.get / post /
+    put / delete) still see every outbound call."""
+
+    def __getattr__(self, name):
+        import requests
+        return getattr(requests, name)
+
+
+@pytest.fixture(autouse=True)
+def _upstream_via_requests(monkeypatch):
+    from hub import upstream
+    REAL_UPSTREAM.setdefault("session", upstream.session)
+
+    def via(name):
+        assert name in upstream.UPSTREAMS, name
+        return _ViaRequests()
+    monkeypatch.setattr(upstream, "session", via)
 
 
 @pytest.fixture(autouse=True)
 def _fresh_media_caches():
     clear_media_caches()
     yield
-    from hub import media_film   # F2: a film page's background read finishes inside its own test, never the next one's
+    from hub import media_film, media_item   # F2: a film page's background read finishes inside its own test, never the next one's
     media_film.drain_extras()
+    media_item.drain_refresh()   # E1: so does a stale item's background re-read

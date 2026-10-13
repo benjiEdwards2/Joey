@@ -101,9 +101,11 @@ def test_episode_page_and_map(env):
     assert "Squares in order" not in b and "watched · in progress · not aired" not in b
     assert current(html, "Media sections") == ["TV Shows"]
     paths = [p for p, _ in fake.calls]
-    assert "/Shows/ser1/Seasons" in paths and "/Shows/ser1/Episodes" in paths and "/Users/u1/Items/ser1" in paths
-    ep_call = next(q for p, q in fake.calls if p == "/Shows/ser1/Episodes")
-    assert ep_call["userId"] == "u1" and ep_call["seasonId"] == "sea1"
+    # E1 (2026-10-13): ONE /Shows/{id}/Episodes read for every season (each episode names its season) - no /Seasons
+    # read and no read per season
+    assert "/Shows/ser1/Seasons" not in paths and "/Shows/ser1/Episodes" in paths and "/Users/u1/Items/ser1" in paths
+    ep_call = next(q for p, q in fake.calls if p == "/Shows/ser1/Episodes" and "People" in q.get("Fields", ""))
+    assert ep_call["userId"] == "u1" and "seasonId" not in ep_call
 
 
 def test_episode_rating_follows_the_owners_level(env):

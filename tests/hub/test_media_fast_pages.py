@@ -96,7 +96,7 @@ def test_parts_never_read_jellyfin_again(env):
     with client:
         page = client.get("/media/item/ser1").text
         before = list(jf_calls(both))
-        assert before.count("/Shows/ser1/Seasons") == 1
+        assert before.count("/Shows/ser1/Episodes") == 2   # E1: the season list (one read) + the file panel's read
         href = parts_href(page)
         if href:
             client.get(href)

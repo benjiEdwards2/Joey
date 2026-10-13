@@ -15,6 +15,12 @@ poster h=240 (/media/movies, /media/tv; media-ux2), the
 top-CAST_MAX (8) cast photos at the portrait-card size (CAST_H, h=400 since film-quality), plus the title's ratings and body through the 6 h disk meta cache. Cached
 images cost a stat; the pass is sequential with a pause between upstream fetches. MEDIA_WARMUP=shelves keeps
 only the shelf pass.
+
+Item warm-up (E1, 2026-10-13): the loop now ticks every TICK_S. The pass above still runs every EVERY_S; in between,
+each time the jellyfin snapshot's updated_at moves (the connectors' 2-minute sweep), the Jellyfin ITEM reads behind
+the Media home's Playing now / Continue watching / Recently added rows (both profiles) that are not fresh in
+media_item's cache are read — at most ITEM_MAX per pass, one at a time, ITEM_PAUSE_S apart — so the first tap on a
+title Jellyfin hasn't served lately doesn't wait on its 2-10 s cold query.
 """
 
 from __future__ import annotations
@@ -30,10 +36,14 @@ log = logging.getLogger("hub.media_warmup")
 
 FIRST_DELAY_S = 60
 EVERY_S = 3 * 3600
+TICK_S = 60          # E1: how often the loop looks for a new jellyfin snapshot
+ITEM_MAX = 20        # E1: item reads per pass
+ITEM_PAUSE_S = 0.5
 MAX_TITLES = 60
 PAUSE_S = 0.5
 CAST_WARM = CAST_MAX    # the film page shows CAST_MAX (8) cast photos
 POSTER_H, BACKDROP_H, CAST_H = 600, 1280, FILM_CAST_H   # the sizes media_film.html asks /img for (cast: portrait cards)
+BACKDROP_PHONE_H = 600   # E1: the phone backdrop (h=600 -> a Jellyfin backdrop 800 wide, images.JF_BACKDROP_WIDTH)
 LIST_POSTER_H = 240   # media-ux2: the Movies / TV Shows list rows' poster (_library_row.html asks h=240)
 
 
@@ -144,6 +154,7 @@ def warm_once(snaps=None, pause: float = PAUSE_S, limit: int = MAX_TITLES) -> di
             if jf:
                 img(f"jf:{t['art']}", POSTER_H)
                 img(f"jfb:{t['art']}", BACKDROP_H)
+                img(f"jfb:{t['art']}", BACKDROP_PHONE_H)
             if seerr:
                 body = media_film._cget(f"/api/v1/{t['kind']}/{t['tmdb']}")
                 media_film._ratings(t["kind"], t["tmdb"])
@@ -195,6 +206,7 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
         try:
             if jf:
                 for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H),
+                               (f"jfb:{t['art']}", BACKDROP_PHONE_H),
                                (f"jf:{t['art']}", LIST_POSTER_H)):
                     if img(ref, h) == "fetched":
                         rest()
@@ -214,6 +226,72 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
     log.info("media library warm-up: %(titles)s titles, %(fetched)s images fetched, %(cached)s already cached, "
              "%(skipped)s not upstream, %(failed)s failures, %(seconds)s s", counts)
     return counts
+
+
+def item_targets(jelly: dict) -> list[str]:
+    """The Jellyfin ids the Media home links straight to (Playing now, Continue watching, Recently added - newest
+    first), the "you" profile then hers, de-duplicated, in shelf order."""
+    profiles = [jelly] + ([jelly["her"]] if isinstance(jelly.get("her"), dict) else [])
+    out: list[str] = []
+    for prof in profiles:
+        latest = sorted((r for r in prof.get("latest") or [] if isinstance(r, dict)),
+                        key=lambda r: str(r.get("added_at") or ""), reverse=True)
+        for r in (prof.get("now_playing") or []) + (prof.get("up_next") or []) + latest:
+            jf = str(r.get("jf_id") or "") if isinstance(r, dict) else ""
+            if jf and jf not in out and media_item.ITEM_RE.match(jf):
+                out.append(jf)
+    return out
+
+
+def warm_items(snaps=None, pause: float = ITEM_PAUSE_S, limit: int = ITEM_MAX) -> dict:
+    """One item pass: read the targets that are not fresh in media_item's cache, at most `limit`, paced. -> counts
+    {items, fetched, failed, cached}; never raises."""
+    from hub.store import get_snapshots
+
+    counts = {"items": 0, "fetched": 0, "failed": 0, "cached": 0}
+    if media_files._creds() is None:
+        counts["skipped_no_keys"] = True
+        return counts
+    snaps = get_snapshots() if snaps is None else snaps
+    snap = snaps.get("jellyfin")
+    for jf in item_targets((snap.data if snap else {}) or {}):
+        if counts["fetched"] + counts["failed"] >= limit:
+            break
+        try:
+            got = media_item.warm(jf)
+        except Exception as exc:  # one bad item never stops the pass
+            log.warning("media item warm-up failed: %s", type(exc).__name__)
+            got = "failed"
+        counts["items"] += 1
+        counts[got] += 1
+        if got != "cached" and pause:
+            time.sleep(pause)
+    if counts["fetched"] or counts["failed"]:
+        log.info("media item warm-up: %(fetched)s read, %(failed)s failed, %(cached)s already fresh", counts)
+    return counts
+
+
+_tick = {"pass_at": None, "snapshot": None}   # monotonic time of the last full pass; the snapshot last warmed for
+
+
+def tick(now: float | None = None) -> dict:
+    """What the background loop runs every TICK_S (E1): the full pass when EVERY_S has passed since the last one
+    (the first tick runs it), then an item pass when the jellyfin snapshot's updated_at has moved."""
+    from hub.store import get_snapshots
+
+    now = time.monotonic() if now is None else now
+    snaps = get_snapshots()
+    out: dict = {}
+    if _tick["pass_at"] is None or now - _tick["pass_at"] >= EVERY_S:
+        _tick["pass_at"] = now
+        out["pass"] = run_pass(snaps)
+    snap = snaps.get("jellyfin")
+    stamp = snap.updated_at if snap else None
+    if stamp and stamp != _tick["snapshot"]:
+        out["items"] = warm_items(snaps)
+        if not out["items"].get("skipped_no_keys"):
+            _tick["snapshot"] = stamp
+    return out
 
 
 def run_pass(snaps=None, pause: float = PAUSE_S) -> dict:

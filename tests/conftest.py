@@ -10,6 +10,15 @@ if str(REPO_ROOT) not in sys.path:
 import pytest
 
 
+def _reset_media_readers():
+    """E1 (2026-10-13): hub.media_store keeps one reader connection per thread; close them all so a test's media.db is
+    never read through the previous test's connection (and Windows can delete the temp file). Only when the hub is
+    loaded - the connector tests never import it."""
+    store = sys.modules.get("hub.media_store")
+    if store is not None:
+        store.reset()
+
+
 @pytest.fixture(autouse=True)
 def _isolated_media_paths(tmp_path, monkeypatch):
     r"""Every test gets its own media.db / backup dir / snapshot dir unless it sets them
@@ -26,3 +35,6 @@ def _isolated_media_paths(tmp_path, monkeypatch):
     monkeypatch.delenv("OMDB_API_KEY", raising=False)  # media-ux4: no Metacritic lookups unless a test sets a key
     monkeypatch.setenv("MEDIA_AWARDS", "off")  # Awards: no background awards loop in tests
     monkeypatch.delenv("AWARDS_CONTACT", raising=False)  # Awards: without a contact the sync never calls out
+    _reset_media_readers()
+    yield
+    _reset_media_readers()

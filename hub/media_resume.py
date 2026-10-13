@@ -33,12 +33,12 @@ import logging
 import re
 from urllib.parse import urlencode
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_resume.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell
+from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell, upstream
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_resume")
@@ -131,11 +131,11 @@ def _her_user_id(base: str, headers: dict) -> str | None:
 
 
 def _post(base, headers, path, params=None, body=None):
-    return requests.post(f"{base}{path}", params=params, json=body, headers=headers, timeout=TIMEOUT)
+    return upstream.session("jellyfin").post(f"{base}{path}", params=params, json=body, headers=headers, timeout=TIMEOUT)
 
 
 def _delete(base, headers, path, params=None):
-    return requests.delete(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
+    return upstream.session("jellyfin").delete(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
 
 
 def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:
@@ -189,7 +189,7 @@ def season_episodes(show_id, season_id: str) -> list[dict]:
     """The episodes of one season from the show's item data (media_item's cache — the page just rendered it)."""
     if not media_item.ITEM_RE.match(str(show_id or "")):
         return []
-    data = media_item._data(str(show_id)) or {}
+    data = media_item._data(str(show_id), stale_ok=False) or {}   # E1: a write path reads today's state, never a stale entry
     season = next((s for s in data.get("seasons") or [] if str(s.get("id")) == season_id), None)
     return list((season or {}).get("episodes") or [])
 
@@ -226,7 +226,7 @@ def _apply(request: Request, jf_id: str, action: str, form: dict):
                                 status_code=303)
     for hid in _to_hide(action, scope, jf_id, form.get("show")):
         media_hidden.hide(GROUP, key(owner, hid))
-    media_item._cache.clear()  # the film / episode / show pages re-read the new watch state
+    media_item.invalidate()  # the film / episode / show pages re-read the new watch state (and an in-flight read isn't kept)
     done = f"season-{action}" if scope else action
     return RedirectResponse(f"{back}?" + urlencode({"done": done, **keep}), status_code=303)
 

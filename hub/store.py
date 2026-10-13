@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -132,33 +133,83 @@ HISTORY_MAX_LINES = 1000
 HISTORY_MAX_BYTES = 2 * 1024 * 1024
 
 
+# E1 (2026-10-13): the history file is append-only between rotations, and the hub read its 2 MB tail on every Server
+# page and every hub-card refresh (~110 ms on the NAS). The parsed lines are now kept per (file, max_bytes) with the
+# file's identity (device, inode), size and mtime: unchanged → the same list back (callers treat it as read-only);
+# grown → only the new bytes are parsed; shrunk, replaced (run_all's rotation is tmp + os.replace) or rewritten in
+# place → read afresh. The answer is exactly what a full re-read would give.
+_HISTORY: dict[tuple[str, int], dict] = {}
+_HISTORY_LOCK = threading.Lock()
+_HISTORY_MAX = 8   # tests use many temp dirs; production has one
+
+
+def _parse_line(raw: bytes):
+    try:
+        item = json.loads(raw)
+    except Exception:
+        return None
+    return item if isinstance(item, dict) else None
+
+
+def _history_lines(fh, begin: int, end: int) -> tuple[list[tuple[int, Any]], int]:
+    """Parse file[begin:end] -> ([(line start offset, dict or None)] for every newline-terminated line, the offset
+    where the unterminated remainder starts)."""
+    fh.seek(begin)
+    raw = fh.read(end - begin)
+    recs, pos = [], 0
+    while True:
+        nl = raw.find(b"\n", pos)
+        if nl < 0:
+            break
+        recs.append((begin + pos, _parse_line(raw[pos:nl])))
+        pos = nl + 1
+    return recs, begin + pos
+
+
 def get_runner_history(snapshot_dir: str | Path | None = None,
                        max_lines: int = HISTORY_MAX_LINES,
                        max_bytes: int = HISTORY_MAX_BYTES) -> Optional[list[dict[str, Any]]]:
     """The tail of `_runner_history.jsonl` (WP-U2, 2026-10-06), oldest first: at most
     `max_lines` parsed sweep lines from the last `max_bytes`. Malformed lines are skipped;
-    a missing or unreadable file → None (callers fall back to `_runner.json`)."""
+    a missing or unreadable file → None (callers fall back to `_runner.json`). Kept in memory between calls and
+    extended by the appended bytes only (E1); the list returned is shared — read-only."""
     path = _snapshot_dir(snapshot_dir) / HISTORY_NAME
+    key = (str(path), max_bytes)
     try:
         with path.open("rb") as fh:
-            size = fh.seek(0, os.SEEK_END)
+            st = os.fstat(fh.fileno())
+            sig = (st.st_dev, st.st_ino, st.st_size, st.st_mtime_ns)
+            with _HISTORY_LOCK:
+                kept = _HISTORY.get(key)
+            if kept is not None and kept["sig"] == sig and kept["max_lines"] == max_lines:
+                return kept["out"]
+            size = st.st_size
             start = max(0, size - max_bytes)
-            fh.seek(start)
-            raw = fh.read()
+            grown = (kept is not None and kept["sig"][:2] == sig[:2] and kept["sig"][2] <= size
+                     and kept["rest"] >= start and (kept["sig"][2] < size or kept["sig"][3] == sig[3]))
+            if grown:
+                new, rest = _history_lines(fh, kept["rest"], size)
+                recs = kept["recs"] + new
+            else:
+                recs, rest = _history_lines(fh, start, size)
+            tail = None
+            if rest < size:   # a last line not yet newline-terminated: read now, re-read when the file grows
+                fh.seek(rest)
+                tail = _parse_line(fh.read(size - rest))
     except Exception:
         return None
-    lines = raw.split(b"\n")
-    if start > 0:
-        lines = lines[1:]  # the first line is cut mid-way
-    out: list[dict[str, Any]] = []
-    for line in lines:  # bounded by max_bytes
-        try:
-            item = json.loads(line)
-        except Exception:
-            continue
-        if isinstance(item, dict):
-            out.append(item)
-    return out[-max_lines:]
+    # the first line of the window is cut mid-way unless the window starts at the file's beginning (a line starting
+    # exactly at `start` is dropped too - as the full read always did)
+    recs = [r for r in recs if r[0] > start or start == 0]
+    out = [item for _, item in recs if item is not None]
+    if tail is not None and (rest > start or start == 0):
+        out.append(tail)
+    out = out[-max_lines:]
+    with _HISTORY_LOCK:
+        if key not in _HISTORY and len(_HISTORY) >= _HISTORY_MAX:
+            _HISTORY.clear()
+        _HISTORY[key] = {"sig": sig, "recs": recs, "rest": rest, "out": out, "max_lines": max_lines}
+    return out
 
 
 def connected(snap: Optional[Snapshot]) -> bool:

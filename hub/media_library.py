@@ -153,18 +153,26 @@ def _norm_title(text) -> str:
     return " ".join(words[1:] if len(words) > 1 and words[0] in ("the", "a", "an") else words)
 
 
-def link_arrivals(rows, items, kind: str, item_href) -> list[dict]:
+def library_index(items) -> dict:
+    """The lookups link_arrivals matches against, built once (E1: a page linking many rows builds it once, not per
+    row): {by_key: item_key -> jf_id, by_title: normalised title -> [items]}."""
+    items = [i for i in items or [] if i.get("jf_id")]
+    by_title: dict[str, list] = {}
+    for i in items:
+        by_title.setdefault(_norm_title(i.get("title")), []).append(i)
+    return {"by_key": {i["item_key"]: i["jf_id"] for i in items if i.get("item_key")}, "by_title": by_title}
+
+
+def link_arrivals(rows, items, kind: str, item_href, index: dict | None = None) -> list[dict]:
     """Add `href` to each arrival: the Joey item page when the Jellyfin list has the same
     item_key, else (Sonarr keys are tvdb, Jellyfin prefers tmdb) when exactly one library
     title matches the normalised series name (several: same year if known, else the first),
     else the title page for a tmdb key, else None (still shown, just not a link).
     The arr schema has no series field, so the name is the part of the title before ' · '.
-    `items` = the raw Jellyfin list for this kind (or None); `item_href(jf_id)` -> path | None."""
-    items = [i for i in items or [] if i.get("jf_id")]
-    by_key = {i["item_key"]: i["jf_id"] for i in items if i.get("item_key")}
-    by_title: dict[str, list] = {}
-    for i in items:
-        by_title.setdefault(_norm_title(i.get("title")), []).append(i)
+    `items` = the raw Jellyfin list for this kind (or None); `item_href(jf_id)` -> path | None. `index` = a
+    library_index(items) already built (then `items` is not read)."""
+    index = library_index(items) if index is None else index
+    by_key, by_title = index["by_key"], index["by_title"]
     seg = "movie" if kind == "movie" else "tv"
     out = []
     for r in rows:

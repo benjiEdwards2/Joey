@@ -156,8 +156,13 @@ STREAMS = [{"Type": "Video", "Codec": "hevc", "Height": 2160, "Width": 3840, "Vi
 SOURCES = [{"Container": "mkv", "Size": 20 * 1024 ** 3, "MediaStreams": STREAMS}]
 
 
+SEASON_NO = {"sea1": 4}   # E1: an episode names its season (SeasonName, ParentIndexNumber), as Jellyfin's do
+
+
 def ep(i, name, played=False, pos=0, premiere=YESTERDAY, season="sea1"):
+    n = SEASON_NO.get(season)
     return {"Id": f"ep{i}", "Name": name, "IndexNumber": i, "PremiereDate": premiere, "SeasonId": season,
+            "SeasonName": f"Season {n}" if n is not None else None, "ParentIndexNumber": n,
             "UserData": {"Played": played, "PlaybackPositionTicks": pos}}
 
 

@@ -36,3 +36,7 @@ Shared fixtures live in `tests/hub/conftest.py`; shared builders, fakes and samp
 that points `MEDIA_DB_PATH`, `MEDIA_BACKUP_DIR`, `SNAPSHOT_DIR` and `META_CACHE_DIR` at per-test temp paths, sets
 `PLAY_RECORDER`, `MEDIA_BACKUP`, `MEDIA_WARMUP` and `MEDIA_AWARDS` to `off`, and unsets `OMDB_API_KEY` and
 `AWARDS_CONTACT`; without it the default `/data/...` resolves to `C:\data\...` on Windows and tests touch a real directory.
+It also calls `hub.media_store.reset()` before and after each test (E1, 2026-10-13: media.db readers are one kept
+connection per thread). `tests/hub/conftest.py` routes `hub.upstream.session(...)` back through the `requests` module
+(E1: the Media modules call one keep-alive Session per upstream), so a fake at `requests.get` / `post` / `put` /
+`delete` still sees every outbound call; tests of the Sessions themselves restore the real one.

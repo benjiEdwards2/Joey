@@ -90,6 +90,24 @@ def test_static_cache_control_versioned_vs_unversioned(tmp_path, monkeypatch):
     assert page.headers["cache-control"] == "no-store"
 
 
+def test_fonts_are_immutable_without_a_version(tmp_path, monkeypatch):
+    """E1 (2026-10-13): the CSS names the fonts by a plain URL; a font only changes in a deploy that changes the CSS
+    hash, so /static/fonts/* is immutable for a year with or without ?v=. Other un-versioned files stay an hour, and a
+    missing font is never pinned."""
+    with _plain_client(monkeypatch, tmp_path) as c:
+        geist = c.get("/static/fonts/GeistVF.woff2")
+        mono = c.get("/static/fonts/GeistMonoVF.woff2?v=1")
+        bare = c.get("/static/control-surface.css")
+        missing = c.get("/static/fonts/Nope.woff2")
+    assert geist.status_code == 200 and geist.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert mono.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert bare.headers["cache-control"] == "public, max-age=3600"
+    assert missing.status_code == 404 and "immutable" not in missing.headers.get("cache-control", "")
+    from hub import shell
+    assert shell.cache_control("/static/fonts/GeistVF.woff2", b"", 200, "font/woff2") == shell.STATIC_IMMUTABLE
+    assert shell.cache_control("/static/fontsX/a.woff2", b"", 200, "font/woff2") == shell.STATIC_SHORT
+
+
 def test_text_is_gzipped_and_images_are_not(tmp_path, monkeypatch):
     """N-49: pages and CSS over 1 KB are gzipped when asked; PNGs and /img are sent as they are."""
     with _plain_client(monkeypatch, tmp_path) as c:

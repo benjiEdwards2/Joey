@@ -75,6 +75,9 @@ templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries l
 STATIC_PREFIX = "/static/"
 STATIC_IMMUTABLE = "public, max-age=31536000, immutable"   # a ?v= URL changes whenever its bytes do
 STATIC_SHORT = "public, max-age=3600"                       # manifests, un-versioned files
+# E1 (2026-10-13): the stylesheet names the fonts by a plain URL (no ?v=), and a font file only changes in a deploy that
+# also changes the stylesheet's hash - so /static/fonts/ is immutable too, and a visit an hour later never revalidates it.
+STATIC_FONTS = "/static/fonts/"
 PAGE_NO_STORE = "no-store"
 
 
@@ -86,7 +89,9 @@ def cache_control(path: str, query: bytes, status: int, content_type: str) -> st
     if path.startswith(STATIC_PREFIX):
         if status not in (200, 304):
             return None
-        return STATIC_IMMUTABLE if parse_qs(query.decode("latin-1")).get("v") else STATIC_SHORT
+        if path.startswith(STATIC_FONTS) or parse_qs(query.decode("latin-1")).get("v"):
+            return STATIC_IMMUTABLE
+        return STATIC_SHORT
     if content_type.startswith("text/html"):
         return PAGE_NO_STORE
     return None

@@ -2,6 +2,8 @@
 /data/
 docs/*
 !docs/connector-contract.md
+!docs/style-guide.md
+# ^ tests/hub/test_first_screens_e3.py reads the style guide's dated supersession line (gate FAILED on the NAS 2026-10-14)
 **/__pycache__/
 **/*.pyc
 .pytest_cache/

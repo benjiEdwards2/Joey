@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+from hub.shell import home_now
 from hub.today import short_title, today_line
 from tests.hub.helpers import write_envelope
 
@@ -147,7 +148,7 @@ def hub_sub(tmp_path, monkeypatch):
 
 
 def test_hub_sub_is_the_date_then_the_today_line(hub_sub):
-    day = datetime.now().astimezone().date()
+    day = home_now().date()   # the home day, as the Today line counts it - the NAS gate runs on a UTC clock (2026-10-14)
     gcal = {**SAMPLE_DATA["gcal"], "events": [{"title": "Bins out", "start": day.isoformat(),
                                                "end": (day + timedelta(days=1)).isoformat(),
                                                "all_day": True, "owner": "shared"}]}

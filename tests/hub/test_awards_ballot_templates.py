@@ -15,6 +15,31 @@ ENV = shell.templates.env
 BADGE = {"body_id": "oscars", "logo": None, "more": 0, "label": "Won Best Picture · Oscars 2025"}
 
 
+def parent_class(html, cls):
+    """The class of the element that holds the first element whose class list has `cls` (stdlib parser, void tags skipped)."""
+    from html.parser import HTMLParser
+    void = {"input", "img", "br", "hr", "meta", "link", "source", "path", "circle", "rect", "line", "polyline", "polygon"}
+    found = []
+
+    class P(HTMLParser):
+        stack = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag in void:
+                return
+            c = dict(attrs).get("class") or ""
+            if not found and cls in c.split() and self.stack:
+                found.append(self.stack[-1])
+            self.stack.append(c)
+
+        def handle_endtag(self, tag):
+            if tag not in void and self.stack:
+                self.stack.pop()
+
+    P().feed(html)
+    return found[0] if found else None
+
+
 def work(n, title, **kw):
     """One ballot row (contract `row`)."""
     base = {"title": title, "year": 2024, "href": f"/media/title/movie/{n}", "poster": None, "award": None,
@@ -241,6 +266,7 @@ def test_sentinel_loads_the_rest_of_the_rows_in_one_request():
     assert m and m.group(1) == "/media/movies/awards/part/rows?body=oscars&amp;year=2025"
     assert "Show 5 more" in m.group(2) and 'hx-boost="false"' in m.group(2)
     assert b.index("awfilms-list") < b.index('class="awrest"') < b.index("Shorts ·")   # after the rows, before the folds
+    assert parent_class(b, "awrest") == "awfilms-list"                       # inside the list: loaded rows join its grid
     assert "awrest" not in body(ballot_rest=0)
 
 

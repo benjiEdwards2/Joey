@@ -37,11 +37,12 @@
   {% endif %}
   {% if ballot.hidden_seen %}<p class="metaline awhiding">Hiding {{ ballot.hidden_seen }} seen</p>{% endif %}
   {% if ballot.rows %}
-  <div class="awfilms-list">{% for r in ballot.rows %}{{ b.row(r, kind) }}{% endfor %}</div>
-  {# Films sentinel (E7 pattern): the rows after the first screen come in ONE request that replaces this block. #}
+  <div class="awfilms-list">{% for r in ballot.rows %}{{ b.row(r, kind) }}{% endfor %}
+  {#- Films sentinel (E7 pattern): the rows after the first screen come in ONE request that replaces this block. It sits
+      INSIDE the list so the rows it brings join the list's grid (WP-C3 eyes-on: outside it they lost the row gap). #}
   {% if ballot.rest %}
   <div class="awrest" hx-get="{{ ballot.part_rows_href }}" hx-trigger="revealed" hx-target="this" hx-select="unset" hx-swap="outerHTML" hx-push-url="false" hx-indicator="this"><a class="btn btn-glass btn-sm" href="{{ ballot.part_rows_href }}" hx-boost="false">Show {{ ballot.rest }} more</a></div>
-  {% endif %}
+  {% endif %}</div>
   {% endif %}
   {% if ballot.empty %}<p class="empty">{{ ballot.empty }}</p>{% endif %}
   {% if ballot.shorts %}

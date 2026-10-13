@@ -1256,6 +1256,15 @@ a.awfilm-title:hover { color: var(--text-2); }
 .awfilm-seen { font-weight: 500; white-space: nowrap; }
 /* The row's watchlist button (E1): small and worded; on the list it tints sky like the icon button's is-on. */
 .wlbtn-ballot .btn.is-on { border-color: transparent; background: var(--sky-tint); color: var(--sky); }
+/* Phone (WP-C3 eyes-on): the action sits beside the title only, so the tally and pills take the full width under it
+   (a full-height action column squeezed the pills to one per line). */
+@media (max-width: 639px) {
+  .awfilm-main { display: contents; }
+  .awfilm-pic { grid-row: 1 / span 3; }
+  .awfilm-tt { grid-column: 2; grid-row: 1; align-self: center; }
+  .awfilm-act { grid-column: 3; grid-row: 1; }
+  .awfilm-tally, .awfilm-pills { grid-column: 2 / -1; }
+}
 .awfilm .awdetail { grid-column: 1 / -1; margin: 0; border-top: 1px solid var(--line-soft); }
 .awdetail > summary { display: flex; align-items: center; min-height: 36px; padding: 0; font-size: 12px; color: var(--text-4); }
 .awdetail-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; padding: 4px 0; font-size: 12px; }

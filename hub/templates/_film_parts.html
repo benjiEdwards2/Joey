@@ -1,4 +1,7 @@
 {# F2 fast item pages (2026-10-12): the film page's deferred parts. Each is wrapped in its placeholder's id and swapped
    out of band, so the page's ONE request fills every placeholder; a part that has nothing to draw empties its own. #}
-{% for name in names %}<div class="fpart" id="fp-{{ name }}" hx-swap-oob="true">{% if film %}{% include "_film_" ~ name ~ ".html" %}{% endif %}</div>
+{% for name in names %}<div class="fpart" id="fp-{{ name }}" hx-swap-oob="true">{% if film %}{% with slot = "row" %}{% include "_film_" ~ name ~ ".html" %}{% endwith %}{% endif %}</div>
+{# E4 (2026-10-13): the actions part's second slot, under the hero's More (only drawn beside Play, as the page does) #}
+{% if name == "actions" and (not film or (film.play and film.play.href)) %}<div class="fpart" id="fp-actions-more" hx-swap-oob="true">{% if film %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endif %}</div>
+{% endif %}
 {% endfor %}

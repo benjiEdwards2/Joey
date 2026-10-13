@@ -479,7 +479,7 @@ def hero(b):
 
 
 def cards(h):
-    block = h.split('<div class="makers">', 1)[1].split('<div class="credits sitepills">', 1)[0]
+    block = h.split('<div class="makers">', 1)[1].split("\n  </div>", 1)[0]   # E4: the makerrow (site pills left the hero)
     label = re.search(r'<div class="microlabel">([^<]+)</div>', block).group(1)
     found = re.findall(r'<a class="makercard" href="([^"]+)">(<img class="makerpic" src="([^"]+)"[^>]*>|<span class="makerpic '
                        r'initials" aria-hidden="true">([^<]*)</span>)<span class="makername">([^<]+)</span></a>', block)
@@ -530,12 +530,13 @@ def test_jellyfin_director_without_jellyseerr_still_gets_a_card(env, monkeypatch
     assert found == [("/media/discover?q=Dee%20Director", f"/img/jf:p77?h={media_film.MAKER_H}", None, "Dee Director")]
 
 
-def test_cards_sit_before_the_site_pills_and_status(env):
+def test_cards_sit_after_the_status_and_the_action_row(env):
+    # E4 (U5, 2026-10-13, B.): facts, status line, ONE action row, then the makers; the site pills left the hero
     client, _ = env()
     with client:
         h = hero(main_of(client.get("/media/title/movie/603").text))
-    assert h.index('<div class="makers">') < h.index('<div class="credits sitepills">') < h.index('id="status-line"')
-    assert h.index('class="facts-line"') < h.index('<div class="makers">')
+    assert h.index('class="facts-line"') < h.index('id="status-line"') < h.index('class="hero-detail-btns"') < h.index('<div class="makers">')
+    assert "sitepill" not in h
 
 
 def test_maker_headshot_size_is_a_proxy_size():

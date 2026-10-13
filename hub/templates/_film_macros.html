@@ -7,6 +7,13 @@
 {% macro sp(id, name, value, extra="") -%}
 <span class="scorepill sp-{{ id }}{{ extra }}" title="{{ name }} {{ value }}"><img class="sp-logo" src="{{ film.logos[id] }}" alt="" width="16" height="16"><span class="sp-name">{{ name }}</span><b class="sp-val">{{ value }}</b></span>
 {%- endmacro %}
+{# The site pills (media-ux4: neutral logo pills, the score pills' family). E4 (U5, 2026-10-13): in the Scores strip after
+   the score pills, or a Details row when the title has no strip - no longer in the hero above Play. #}
+{% macro sitepills() -%}
+<a class="scorepill sitepill" href="https://www.imdb.com/find/?q={{ (film.title ~ (' ' ~ film.year if film.year else ''))|urlencode }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.imdb }}" alt="" width="16" height="16">IMDb</a>
+<a class="scorepill sitepill" href="https://www.themoviedb.org/{{ film.kind }}/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.tmdb }}" alt="" width="16" height="16">TMDB</a>
+{% if film.kind == "movie" %}<a class="scorepill sitepill" href="https://letterboxd.com/tmdb/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.lbxd }}" alt="" width="16" height="16">Letterboxd</a>{% endif %}
+{%- endmacro %}
 {% macro banner_bg(bd) -%}
 {% if bd %}<div class="partof-bd" style="--bd: url('/img/{{ bd }}?h=1280'){% if not bd.startswith('jfb:') %}; --bd-sm: url('/img/{{ bd }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
 {%- endmacro %}

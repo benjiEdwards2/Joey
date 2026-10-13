@@ -375,3 +375,19 @@ def test_requests_counts_leave_out_zero_parts():
     assert render("0 pending · 2 approved · 1 available · 0 declined") == '<p class="metaline">2 approved · 1 available</p>'
     assert render("10 pending · 0 approved") == '<p class="metaline">10 pending</p>'
     assert render("0 pending · 0 approved · 0 available · 0 declined") == ""
+
+
+# 8. SHELF_MAX as a Jinja global (U17) ----------------------------------------------------------------------------
+
+def test_full_hub_shelf_prints_no_count_and_a_short_one_does(hub):
+    from hub.media_home import SHELF_MAX
+    full = [{"title": f"Film {i}", "kind": "movie", "watched_at": "2026-10-01T10:00:00Z", "when": "today",
+             "item_key": f"tmdb:{i}"} for i in range(SHELF_MAX + 3)]
+    jf = {**SAMPLE_DATA["jellyfin"], "history": {**SAMPLE_DATA["jellyfin"]["history"], "recent": full}}
+    _, body = hub(jellyfin=jf)
+    head = re.search(r'<section class="sec" id="recent">.*?</h2>', body, re.S).group(0)
+    assert re.search(r">Recently watched</h2>", head)                                   # 15 of more: no count
+    _, body = hub(jellyfin={**jf, "history": {**jf["history"], "recent": full[:3]}})
+    head = re.search(r'<section class="sec" id="recent">.*?</h2>', body, re.S).group(0)
+    n = re.search(r'Recently watched<span class="sep"> · </span>(\d+)</h2>', head)   # her rows join in the both view
+    assert n and 3 <= int(n.group(1)) < SHELF_MAX

@@ -193,11 +193,13 @@ def test_section_labels_are_headings():
 
 def test_a_full_shelf_prints_no_count_and_the_hub_shelf_links_to_the_diary():
     from hub.media_home import SHELF_MAX
-    assert SHELF_MAX == 15                                            # the templates hard-code it: keep in step
+    from hub.shell import templates
+    assert templates.env.globals["shelf_max"] == SHELF_MAX          # E3: the templates read the global, not a literal 15
     hub = tpl("hub.html")
-    assert "{% if shelf.watched | length < 15 %}" in hub
+    assert "{% if shelf.watched | length < shelf_max %}" in hub
     assert '<a href="/media/diary">All</a>' in hub.split('id="recent"', 1)[1]
-    assert 's["items"] | length < 15' in tpl("area_shelves.html")
+    assert 's["items"] | length < shelf_max' in tpl("area_shelves.html")
+    assert "< 15" not in hub and "< 15" not in tpl("area_shelves.html")
 
 
 def kpi_html(value):

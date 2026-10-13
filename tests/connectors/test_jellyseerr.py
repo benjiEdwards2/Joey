@@ -267,3 +267,24 @@ def test_tv_row_without_a_tvdb_id_is_null(raw):
     out = Jellyseerr().transform(raw)
     jsonschema.validate(out, SCHEMA)
     assert all(r["tvdb_id"] is None for r in out["requests"] if r["kind"] == "tv")
+
+
+def test_seerr_v3_completed_is_available_failed_is_named_unknown_is_open(raw):
+    from connectors.feeds.jellyseerr import _seerr_status_text
+    assert _seerr_status_text({"status": 5}) == "Available"
+    assert _seerr_status_text({"status": 4}) == "Failed"
+    assert _seerr_status_text({"status": 99}) == "Approved"
+    raw = copy.deepcopy(raw)
+    raw["raw_requests"]["results"][1]["status"] = 5      # the pending fixture request is now Completed
+    data = Jellyseerr().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    assert data["requests"][0]["status_text"] != "Pending"
+    assert all(r["status_text"] != "Pending" for r in data["requests"])
+    assert data["secondary"] == ""
+
+
+def test_completed_count_folds_into_available(raw):
+    raw = copy.deepcopy(raw)
+    raw["raw_count"] = {"total": 71, "pending": 0, "approved": 26, "available": 1, "completed": 70}
+    counts = Jellyseerr().transform(raw)["counts"]
+    assert counts["available"] == 71 and counts["approved"] == 26 and "completed" not in counts

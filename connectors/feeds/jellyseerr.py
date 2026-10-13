@@ -14,8 +14,9 @@ from connectors.feeds._http import http_json, session
 SEERR_LIST_TAKE = 50       # requests fetched per sweep
 SEERR_ROW_LIMIT = 30       # rows kept in the data block
 SEERR_LOOKUP_CAP = 20      # new TMDB title lookups per sweep (the rest keep "TMDB #id")
-# Jellyseerr request.status / media.status -> a word, never a colour.
-SEERR_REQUEST_STATUS = {1: "Pending", 2: "Approved", 3: "Declined"}
+# Jellyseerr request.status / media.status -> a word, never a colour. Seerr v3: 4 = FAILED, 5 = COMPLETED
+# (the media is in Jellyfin, so "Available"). An unknown code is still an open request -> "Approved", not "Pending".
+SEERR_REQUEST_STATUS = {1: "Pending", 2: "Approved", 3: "Declined", 4: "Failed", 5: "Available"}
 SEERR_MEDIA_STATUS = {5: "Available", 4: "Partly available", 3: "Processing"}
 
 
@@ -25,7 +26,7 @@ def _seerr_kind(request: dict) -> str:
 
 
 def _seerr_status_text(request: dict) -> str:
-    text = SEERR_REQUEST_STATUS.get(request.get("status"), "Pending")
+    text = SEERR_REQUEST_STATUS.get(request.get("status"), "Approved")
     if text == "Approved":  # an approved request reports how far the download got
         text = SEERR_MEDIA_STATUS.get((request.get("media") or {}).get("status"), text)
     return text
@@ -127,6 +128,7 @@ class Jellyseerr(Connector):
         count = raw.get("raw_count") or {}
         counts = {k: int(count.get(k) or 0)
                   for k in ("pending", "approved", "available", "declined", "total")}
+        counts["available"] += int(count.get("completed") or 0)   # Seerr v3 splits Completed out of available
         pending = [r for r in requests_out if r["status_text"] == "Pending"]
         open_requests = counts["pending"] or counts["approved"]
         return {

@@ -38,7 +38,7 @@
           "title": {"type": "string"},
           "year": {"type": ["integer", "null"]},
           "requested_by": {"type": "string"},
-          "status_text": {"enum": ["Pending", "Approved", "Declined", "Available", "Partly available", "Processing"]},
+          "status_text": {"enum": ["Pending", "Approved", "Declined", "Failed", "Available", "Partly available", "Processing"]},
           "when": {"type": "string"},
           "href": {"type": "string"}
         }

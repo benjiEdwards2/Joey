@@ -885,3 +885,42 @@ disc" in the When column and a "Media" word chip in the Owner column. The Calend
 calendar only. **CSS** one block at the end of `control-surface.css` ("E5 features"); E2's tap-target pin now checks that
 nothing after its block touches those selectors (instead of "no @media after it"). Tests: `test_today_line.py`,
 `test_weather_glimpse_e5.py`, `test_show_progress_words.py`, `test_to_rate_skip.py`, `test_media_releases_upcoming.py`.
+
+## 2026-10-13 — Month in Review → Wrapped (WP E6; review_features M1, EVALUATION_2026-10-12 §5 row 6)
+A SUMMARY, never a ranking UI (B., 2026-10-09: the By-year rankings stay deleted — no Rank / Place, no podium of your own
+films; a "Top rated" list is fine). Pure reads, no new table: `hub/media_wrapped.py` reads media.db (`diary`, `play`,
+`rating`, the award tables) and the jellyfin snapshot's library rows, owner-scoped by `media_db.owner_filter(view)` (the
+signed-in owner; both when not signed in), and keeps each answer in memory per (file, owner, year, month, a one-SELECT
+row signature of diary / play / rating / award rows, the jellyfin snapshot, today), at most 32.
+**Data-source rules (no fabrication).** Films / episodes / days / rewatches / firsts and lasts / shows: the diary, one line
+per (item key, date) — a watch both synced and logged, or the both view's two owners watching together, counts once;
+days add a recorded play's local date. **Hours:** every recorded play (capped at its runtime, `media_plays_db._hours`;
+the both view keeps one play per item and day), plus the snapshot's `runtime_min` for each diary film that no play of
+that film covers within a day (watched before the recorder started, or missed by it); an episode without a play adds
+nothing; with neither source the hours are "—" in a strip and left out of a sentence. A note names the sources
+("Plays since 6 Oct + film runtimes" / "Plays + film runtimes" / "Films only"). **Busiest weekday / hour** and
+"mostly Sunday nights" (weekday + mornings / afternoons / evenings / nights, 3 plays at least): recorded plays only.
+**Scores:** the view owner's ratings (`owner_of`: the both view reads B.'s, as every score in Joey). **Award winners you
+saw:** wins at the ceremonies held that year (`award_edition.year`) of a title in the diary up to the year's end or the
+year's plays, the badge from `media_awards_badges.badge_of`. **The recorder's start** is the earliest `play` row, never a
+constant ("Plays recorded by Joey since 6 Oct 2026").
+**Month in Review** (`_month_card.html`): the Diary's first block, above the filters — one `.panel` with "This month"
+(home time), a flat stats strip (Films · Episodes · Hours · Days watched · Average score) and ONE sentence ("4 films · 4
+episodes · 7h 36m · mostly Sunday nights · best: Ember 10"; zero parts left out), plus "All of 2026 →". An empty month
+shows the month before ("November · nothing yet", "October: …"; January falls back to last December and links that year).
+**Wrapped** `GET /media/diary/year/{year}` (`media_wrapped.html`, title "2026 · Joey", H1 the year): a ‹ year › stepper
+between years with a diary row or a play and this year; Numbers (films, episodes, hours, days watched, longest streak,
+busiest month, busiest weekday, busiest hour), Top rated (9s and 10s, max 12, posters in a `.carousel`, "4 films rated ·
+average 8.5"), Most watched shows (episodes per show, max 8, E5's progress words while episodes are left, from the view
+owner's own list), Firsts and lasts (first / last watch, oldest / newest film — the year from the diary, else the
+snapshot), Rewatches (count + 6), Award winners you saw (gold frame + badge), then one quiet sources line. An empty year
+reads "Nothing watched in 2019". `/media/diary/year` redirects (307) to this year; a non-number or a year outside
+1900–2100 is the 404 page. **Nav:** the Diary tabs are Diary · To Rate · Year (`media_nav.YEAR_TAB`, lit on every Wrapped
+page, href this home-time year via `tab_href`); the hub gets no card (Media already pushes one fact). **Show hero:** a
+show's status line reads "On server · 26 episodes · 6 left · ~4h 30m · S2 E3 next" (`progress_words` with the show's
+average recorded episode runtime; "N left" without one; "all watched" and episode pages unchanged) — two older pins moved
+from "2 to watch" to "2 left" deliberately. **Eyes-on** (local preview, 375 px): "Days with a watch" truncated, so the
+label reads "Days watched"; the first hours rule (plays from the recorder's start, film runtimes only before it) left out
+films the recorder missed, hence the "no play covers it" rule above. CSS: one tail block `/* ---- E6 wrapped (2026-10-13)
+---- */` (tokens only). Tests: `test_wrapped.py`, `test_month_in_review.py`, `test_show_hero_progress.py` (builders and the
+`wrap` fixture in `tests/hub/helpers.py`).

@@ -16,7 +16,8 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `weather.py`, `upcoming.py` | Weather glimpse (E5: rain words `rain_words`, the 7-day row), `/weather` forecast + Windy radar embed; the Next 7 days list and hub card (E5: media releases from the arr calendar behind `show_media_releases`) |
 | `today.py` | The hub's Today line (E5, 2026-10-13): one sentence after the date from the hub's own data — rain timing · today's events · new arrivals · Server state when not fine |
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
-| `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary, Movies / TV grid, Tonight |
+| `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary (+ its Month in Review card), Wrapped, Movies / TV grid, Tonight |
+| `media_wrapped.py` | Month in Review + Wrapped (E6, 2026-10-13): one month's / year's summary from media.db (diary, plays, ratings, award wins) + the jellyfin snapshot's runtimes and years; the data-source rules are its docstring; kept in memory per row signature |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
@@ -44,7 +45,8 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
-| `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1) |
+| `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1); E6: the Month in Review card leads |
+| `GET /media/diary/year/{year}`, `/media/diary/year` | media_pages | Wrapped (E6, 2026-10-13): one year in words, a summary not a ranking; the bare path redirects to this year |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
 | `GET /media/{movies,tv}/awards/part/categories` | awards_pages | Awards page's deferred category cards (E7): one htmx request on `revealed`, same `body` / `year` / `unseen` query; `/awards?all=1` is the whole page (no-JS fallback) |
 | `GET /media/server/history` | media_plays | History tab: plays recorded from Jellyfin sessions |
@@ -111,7 +113,7 @@ stackctl status: 30 s (good or unreachable). Discover lists: 10 min fresh, the l
 with their age when a refresh fails, a failed read remembered 60 s; Jellyseerr meta (bodies, ratings, season lists): 6 h
 in memory and on disk; providers 24 h (last list kept on failure). Jellyfin item data: 10 min fresh, served up to 6 h
 old while a background re-read runs (`media_item`; Joey's watch marks drop it). Search now lookups: 5 min (dropped by
-Joey's *arr / Seerr writes). Diary: history sync once per jellyfin snapshot, stats per diary change. media.db: one kept
+Joey's *arr / Seerr writes). Diary: history sync once per jellyfin snapshot, stats per diary change; Month in Review / Wrapped per media.db row signature (at most 32). media.db: one kept
 reader connection per thread (`media_store.reader`). Posters: 30 days on disk. HTML pages are `no-store` so Back and
 Forward never show a stale page.
 

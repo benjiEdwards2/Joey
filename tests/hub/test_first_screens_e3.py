@@ -158,3 +158,52 @@ def test_plain_page_head_css():
     assert ".pagehead:not(.hero-detail, :has(> .pagehead-bd)) { min-height: 0; }" in flat
     assert ".pagehead:not(.hero-detail, :has(> .pagehead-bd)) h1 { font-size: 24px; font-weight: 600; line-height: 1.25; }" in flat
     assert "min-height: 170px" in flat and ".pagehead h1 { font-size: 48px; line-height: 1.05; }" in flat   # backdrop keeps it
+
+
+# 2b. Phone: no section pill row in Media, the to-rate count on the bar's Diary icon -----------------------------------
+
+def test_phone_hides_the_media_section_pills_but_keeps_sub_tabs():
+    flat = rules()
+    assert "@media (max-width: 767px) { .sectabs:not(.sub) { display: none; } .sectabs + .sectabs.sub { margin-top: 0; } }" in flat
+    assert ".tabbar > a { position: relative; }" in flat
+    assert ".tabbar > a > .waitcount { position: absolute;" in flat
+
+
+def test_diary_slot_of_the_phone_bar_carries_the_to_rate_count(tmp_path, monkeypatch):
+    import importlib
+
+    from fastapi.testclient import TestClient
+
+    from tests.hub.helpers import ARR, JELLY, shelf_area, write_envelope, write_registry
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, shelf_area())))   # test_media_frame's env, by hand
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    for cid, d in (("jellyfin", JELLY), ("arr", ARR)):
+        write_envelope(tmp_path / "snaps", cid, age_minutes=1, data=d)
+    import hub.main
+    importlib.reload(hub.main)
+    with TestClient(hub.main.app) as c:
+        html = c.get("/media/movies").text
+    row = re.search(r'<nav class="sectabs" aria-label="Media sections">.*?</nav>', html, re.S).group(0)
+    n = re.search(r'href="/media/diary"[^>]*>Diary <span class="waitcount">(\d+)<', row)
+    assert n, "the sample needs something to rate"
+    bar = re.search(r'<nav class="tabbar"[^>]*>.*?</nav>', html, re.S).group(0)
+    diary = re.search(r'<a href="/media/diary"[^>]*>(.*?)</a>', bar, re.S).group(1)
+    assert f'<span class="waitcount">{n.group(1)}<span class="vh"> to rate</span></span><span>Diary</span>' in diary
+    assert bar.count('class="waitcount"') == 1                                      # only the Diary slot
+
+
+# 3. The way out of Media on a phone (U9 option a) ---------------------------------------------------------------
+
+def test_media_brand_reads_back_to_joey_and_the_phone_bar_is_sticky(sample_client):
+    with sample_client as c:
+        media = c.get("/media/movies").text
+        hub_page = c.get("/").text
+    brand = lambda h: re.search(r'<a class="brand" href="/" aria-label="Joey home">(.*?)</a>', h, re.S).group(1)  # noqa: E731
+    assert brand(media).startswith('<span class="brand-back" aria-hidden="true">‹</span><img class="mark"')
+    assert "<b>Joey</b>" in brand(media)
+    assert "brand-back" not in brand(hub_page)                                      # outside Media: unchanged
+    flat = rules()
+    assert ".brand-back { display: none; }" in flat
+    assert ("@media (max-width: 767px) { .topbar:has(.topswap) { position: sticky; top: 0; } "
+            ".topbar:has(.topswap) .topbar-in { height: 48px; } .brand-back { display: inline;") in flat

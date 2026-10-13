@@ -7,10 +7,11 @@ Data-source rules (no fabricated number anywhere):
   * Films, episodes, days, rewatches, firsts and lasts, most watched shows: the diary (Jellyfin history synced in plus
     watches logged by hand), one line per (item key, date), so a watch both synced and logged, or the both view's two
     owners watching together, counts once. Days also count a recorded play's local date.
-  * Hours: recorded plays (`play`, each capped at its runtime, media_plays_db._hours) from the recorder's first play
-    on; before that day, the diary's films whose runtime the jellyfin snapshot carries. An episode before the
-    recorder adds nothing (no runtime is known for it). With neither source the hours are None: "—" in a strip,
-    dropped from a sentence. `hours_note` says which sources a total is made of.
+  * Hours: recorded plays first (`play`, each capped at its runtime, media_plays_db._hours); then the runtime the
+    jellyfin snapshot carries for each diary film that no play covers (watched before the recorder's start, or missed
+    by it: no play of that film within a day). An episode without a play adds nothing (no runtime is known for it).
+    With neither source the hours are None: "—" in a strip, dropped from a sentence. `hours_note` names the sources
+    ("Plays since 6 Oct + film runtimes", "Films only").
   * Busiest weekday / hour and "mostly Sunday nights": recorded plays only (the diary has dates, not times), and
     "mostly" needs MOSTLY_MIN plays.
   * Scores: the view owner's ratings (media_db.owner_of: the both view reads B.'s, like every score in Joey).
@@ -205,11 +206,19 @@ def _dedupe_plays(plays: list[dict], owner) -> list[dict]:
 
 
 def _hours(films, plays, film_idx, rec_start: date | None, start: date) -> tuple[float | None, str | None]:
-    """(minutes | None, note) — plays from the recorder's start, the diary's film runtimes before it."""
+    """(minutes | None, note): every recorded play, plus the runtime of each diary film no play covers (a watch before
+    the recorder's start, or one it missed: no play of that film within a day of the diary date)."""
     play_min = sum(media_plays_db._hours(p) * 60 for p in plays)
+    played = set()
+    for p in plays:
+        at = _local_start(p["started_at"])
+        for k in (p.get("item_key"), f"jf:{p['jf_id']}" if p.get("jf_id") else None):
+            if k and at:
+                played.add((_canon(k, film_idx), at.date()))
     diary_min, used = 0.0, False
     for r in films:
-        if rec_start and r["watched_on"] >= rec_start.isoformat():
+        d, ck = date.fromisoformat(r["watched_on"]), _canon(r["item_key"], film_idx)
+        if any((ck, d + timedelta(days=n)) in played for n in (-1, 0, 1)):
             continue
         rt = (film_idx.get(r["item_key"]) or {}).get("runtime_min")
         if isinstance(rt, (int, float)) and not isinstance(rt, bool) and rt > 0:
@@ -217,13 +226,14 @@ def _hours(films, plays, film_idx, rec_start: date | None, start: date) -> tuple
             used = True
     if not plays and not used:
         return None, None
-    parts = []
-    if plays and rec_start and start < rec_start:
-        parts.append(f"Plays since {_day(rec_start.isoformat())}")
-    if used:
-        parts.append("films before" if plays else "Films only")
-    note = " · ".join(parts)
-    return play_min + diary_min, (note[:1].upper() + note[1:]) if note else None
+    since = f" since {_day(rec_start.isoformat())}" if plays and rec_start and start < rec_start else ""
+    if plays and used:
+        note = f"Plays{since} + film runtimes"
+    elif plays:
+        note = f"Plays{since}" if since else None
+    else:
+        note = "Films only"
+    return play_min + diary_min, note
 
 
 def _title(r: dict) -> str:

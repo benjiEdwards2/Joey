@@ -76,7 +76,7 @@ def seed_year():
     diary("tmdb:1", "movie", "Anora", "2025-12-30")                                 # last year: makes 2026's a rewatch
     diary("tmdb:2", "movie", "Old Film", "2026-01-02", poster="jf:old1")
     diary("tmdb:3", "movie", "Mid Film", "2026-03-10")
-    diary("tmdb:1", "movie", "Anora", "2026-10-11", poster="jf:anora1")
+    diary("tmdb:1", "movie", "Anora", "2026-10-06", poster="jf:anora1")                # the play below covers it
     diary("tmdb:9", "movie", "Hand Logged", "2026-10-12", source="manual", year=2026)
     eps("jf:ser1", "Quiet Show", ["2026-03-10", "2026-03-11", "2026-03-12", "2026-10-11", "2026-10-12"])
     eps("jf:ser2", "Done Show", ["2026-03-14", "2026-03-15"])
@@ -106,7 +106,7 @@ def test_numbers_count_the_diary_once_per_title_and_day(wrap):
     build, _ = wrap
     with build():
         seed_year()
-        diary("tmdb:1", "movie", "Anora", "2026-10-11", source="manual")          # synced AND logged: one watch
+        diary("tmdb:1", "movie", "Anora", "2026-10-06", source="manual")          # synced AND logged: one watch
         w = media_wrapped.summary("you", jelly(), 2026)
     assert (w["films"], w["episodes"]) == (4, 7)
     # days: 2 Jan, 10-12 Mar + 14-15 Mar, 6 Oct (a play), 11-12 Oct
@@ -119,9 +119,22 @@ def test_hours_are_plays_from_the_recorder_on_plus_film_runtimes_before(wrap):
     with build():
         seed_year()
         w = media_wrapped.summary("you", jelly(), 2026)
-    # plays 130 + 45 + 45 = 220 min; before 6 Oct: Old Film 100 min (Mid Film has no runtime: adds nothing)
+    # plays 130 + 45 + 45 = 220 min; + Old Film 100 min (no play covers it); Mid Film has no runtime: adds nothing;
+    # Anora on 6 Oct is covered by its play (not counted twice)
     assert w["minutes"] == pytest.approx(320) and w["hours_text"] == "5h 20m"
-    assert w["hours_note"] == "Plays since 6 Oct · films before"
+    assert w["hours_note"] == "Plays since 6 Oct + film runtimes"
+
+
+def test_a_film_the_recorder_missed_adds_its_runtime_once(wrap):
+    build, _ = wrap
+    with build():
+        media_store.connect().close()
+        play("x", "movie", "Other", local(date(2026, 10, 1), 20), 60, runtime=60, item_key="tmdb:50")
+        diary("tmdb:2", "movie", "Old Film", "2026-10-08")                       # no play of it: 100 min from the snapshot
+        diary("tmdb:1", "movie", "Anora", "2026-10-09")
+        play("anora1", "movie", "Anora", local(date(2026, 10, 8), 23), 139, runtime=139)   # by jf id, a day apart
+        w = media_wrapped.summary("you", jelly(), 2026, 10)
+    assert w["minutes"] == pytest.approx(60 + 100 + 139) and w["hours_note"] == "Plays + film runtimes"
 
 
 def test_no_plays_and_no_runtimes_means_no_hours(wrap):
@@ -316,7 +329,7 @@ def test_page_numbers_are_stats(wrap):
     for label in ("Films", "Episodes", "Hours", "Days with a watch", "Longest streak", "Busiest month",
                   "Busiest weekday", "Busiest hour"):
         assert f'<div class="stat"><div class="microlabel">{label}</div>' in n
-    assert '<div class="stat-word">5h 20m</div><div class="row-meta">Plays since 6 Oct · films before</div>' in n
+    assert '<div class="stat-word">5h 20m</div><div class="row-meta">Plays since 6 Oct + film runtimes</div>' in n
     assert '<div class="stat-word">3 days</div>' in n and '<div class="stat-word">March</div>' in n
     assert '<div class="stat-word">Sunday</div>' in n and '<div class="stat-number">21:00</div>' in n
 

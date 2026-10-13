@@ -273,6 +273,12 @@ Toolbar above a list (search · filters · sort · view), wrapping on a phone:
   (`text-[15px] font-semibold tracking-tight`), section links as pills
   (`rounded-lg px-3 py-1.5 text-sm`; current `bg-white/[0.07] text-zinc-100`,
   others `text-zinc-400 hover:text-zinc-200`), settings gear at the right.
+  **Inside Media (nav-tidy, 2026-10-13):** the same bar carries the Media section
+  row (same pills, amber counts, active = `aria-current="page"`) *instead of* the
+  Joey pills, permanently, from the first paint — no scroll docking; the Joey
+  logo is the way out. The in-page section row is hidden from `md`, so a Media
+  page is two rows (bar + sub-tabs). Exactly two active treatments: the filled
+  pill in the bar, the underline on the sub-tabs.
 - **Phone tab bar (< md):** `fixed inset-x-0 bottom-0 z-40 border-t
   border-white/5 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)]
   backdrop-blur`, a 5-column grid; each item icon (`h-5 w-5`) over an
@@ -293,8 +299,8 @@ Toolbar above a list (search · filters · sort · view), wrapping on a phone:
 ```
 
 - **Waiting count** (things needing attention, on tabs and sections): an amber
-  pill `inline-flex h-4 min-w-4 items-center justify-center rounded-full
-  bg-amber-400 px-1 text-[10px] font-semibold tabular-nums text-zinc-950`.
+  pill `inline-flex h-[18px] min-w-[18px] ml-1.5 items-center justify-center rounded-full
+  bg-amber-400 px-[5px] text-[10px] font-semibold tabular-nums text-zinc-950`.
 - **No sideways scrolling, ever.** Wide data is a CSS grid whose columns drop
   out as the screen narrows (what has no column is said in a line under the
   title); a phone gets stacked rows/cards. Only deliberate carousels scroll

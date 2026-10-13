@@ -2,13 +2,12 @@
    counts. A macro so every Media page header (plain, home, detail hero) carries the same tabs. Import with context. #}
 {% macro media_tabs() -%}
 {% set nav = media_nav(request) %}
-  <nav class="sectabs" aria-label="Media sections">
+  {# nav-tidy (2026-10-13): .sectabs-page is this in-page section row — hidden from 768 px, where the top bar carries the
+     same row (media_bar() below); it stays on phones. #}
+  <nav class="sectabs sectabs-page" aria-label="Media sections">
     <div class="sectabs-row">
     {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> to rate</span></span>{% endif %}</a>{% endfor %}
     </div>
-    {# media-ux5: the dock sentinel (1 px over the row's last pixel, no layout of its own) — base.html's observer docks
-       the row into the top bar once this has scrolled under it (desktop only). #}
-    <span class="dock-sentinel" aria-hidden="true"></span>
   </nav>
   {% if nav.tabs %}
   <nav class="sectabs sub" aria-label="{{ nav.section.label }}">
@@ -18,13 +17,12 @@
   </nav>
   {% endif %}
 {%- endmacro %}
-{# media-ux5 (2026-10-09): the docked copy of the section row, rendered server-side inside the top bar (base.html, Media
-   pages only) and shown from 768 px once the page's own row has scrolled under the bar (.topbar.is-docked). The same
-   sections, counts and active section as media_tabs(); the active link is class "on" (the top bar keeps ONE
-   aria-current — the Media pill it replaces; the page's own section row keeps its aria-current). #}
-{% macro media_dock() -%}
+{# nav-tidy (2026-10-13; replaces the media-ux5 docked copy): the Media section row as rendered inside the top bar
+   (base.html, Media pages only, from 768 px — hidden on phones). Same sections, counts and active section as
+   media_tabs(); the active link carries aria-current="page" like the Joey pills, so the bar keeps exactly one. #}
+{% macro media_bar() -%}
 {% set nav = media_nav(request) %}
-    <nav class="toplinks topdock" aria-label="Media sections (docked)">
-    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} class="on"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> to rate</span></span>{% endif %}</a>{% endfor %}
+    <nav class="toplinks" aria-label="Media sections">
+    {% for s in nav.sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.label }}{% if s.count %} <span class="waitcount">{{ s.count }}<span class="vh"> to rate</span></span>{% endif %}</a>{% endfor %}
     </nav>
 {%- endmacro %}

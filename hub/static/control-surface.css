@@ -213,9 +213,10 @@ a.row:hover { background: var(--soft); }
 .stat-number { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .stat-word { font-size: 18px; font-weight: 600; }
 
-/* Waiting count: amber pill on tabs and sections */
-.waitcount { display: inline-flex; align-items: center; justify-content: center; height: 16px; min-width: 16px;
-  border-radius: 999px; background: var(--amber); padding: 0 4px; font-size: 10px; font-weight: 600;
+/* Waiting count: amber pill on tabs and sections. Fixed 18 px box + one 6 px left margin everywhere it sits (top bar,
+   sub-tabs) so a count never shifts its neighbours unevenly (nav-tidy item 7, 2026-10-13). */
+.waitcount { display: inline-flex; align-items: center; justify-content: center; height: 18px; min-width: 18px;
+  margin-left: 6px; border-radius: 999px; background: var(--amber); padding: 0 5px; font-size: 10px; font-weight: 600;
   font-variant-numeric: tabular-nums; color: var(--zinc-950); }
 
 /* Glass: things over a picture */
@@ -250,7 +251,7 @@ a.row:hover { background: var(--soft); }
 .brand .mark { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; flex: none; }
 .brand b { font-size: 15px; font-weight: 600; letter-spacing: -.025em; }
 .toplinks { display: none; }
-.toplinks a { flex-shrink: 0; border-radius: 8px; padding: 6px 12px; font-size: 14px; white-space: nowrap;
+.toplinks a { display: inline-flex; align-items: center; flex-shrink: 0; border-radius: 8px; padding: 6px 12px; font-size: 14px; white-space: nowrap;
   color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s; }
 .toplinks a:hover { color: var(--text-2); }
 .toplinks a[aria-current] { background: var(--pill-on); color: var(--text-1); }
@@ -266,27 +267,11 @@ a.row:hover { background: var(--soft); }
   .toplinks { display: flex; gap: 4px; min-width: 0; overflow: hidden; }
 }
 @media (min-width: 1024px) { .userchip small { display: inline; } }
-/* Docked Media sections (media-ux5, 2026-10-09): on Media pages the pills and the server-rendered Media row (.topdock)
-   share one grid cell (.topswap), so docking never changes the bar's height. .topbar.is-docked (base.html's observer,
-   once the page's own section row is under the bar) slides the pills up and out and the Media row up and in; the
-   brand stays, so Joey home is one click. Desktop only — the phone keeps its bottom bar. */
-.topswap { display: none; }
-.topdock a.on { background: var(--pill-on); color: var(--text-1); }
-.topdock .waitcount { margin-left: 6px; }
-@media (min-width: 768px) {
-  .topswap { display: grid; align-items: center; flex: 1 1 auto; min-width: 0; }
-  .topswap > .toplinks { grid-area: 1 / 1; transition: opacity .2s, transform .2s, visibility 0s; }
-  .topswap > .topdock { visibility: hidden; opacity: 0; transform: translateY(14px);
-    transition: opacity .2s, transform .2s, visibility 0s .2s; }
-  .topbar.is-docked .topswap > .toplinks:not(.topdock) { visibility: hidden; opacity: 0; transform: translateY(-14px);
-    transition: opacity .2s, transform .2s, visibility 0s .2s; }
-  .topbar.is-docked .topswap > .topdock { visibility: visible; opacity: 1; transform: none;
-    transition: opacity .2s, transform .2s, visibility 0s; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .topbar .topswap > .toplinks, .topbar.is-docked .topswap > .toplinks:not(.topdock),
-  .topbar.is-docked .topswap > .topdock { transition: none; transform: none; }
-}
+/* Media top bar (nav-tidy, B., 2026-10-13; supersedes the media-ux5 scroll-docking of 2026-10-09): inside Media the bar
+   is docked from the start, permanently. base.html renders the Media section row (_media_tabs.html media_bar()) as the
+   bar's own .toplinks nav INSTEAD of the Joey pills, so there is nothing to swap or observe (the scroll sentinel,
+   the docked-state class and their JS are gone). Active section = aria-current="page", the same filled pill as the Joey pills. The brand stays
+   (Joey home is one click). Phones keep the bottom bar (.toplinks is display:none below 768 px). */
 
 /* Page frame: one centred column, 72rem wide; the bottom padding clears the phone tab bar. */
 .page { width: 100%; max-width: 72rem; margin: 0 auto; padding: 24px 16px calc(7rem + env(safe-area-inset-bottom)); min-width: 0;
@@ -322,18 +307,19 @@ a.row:hover { background: var(--soft); }
     linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%), var(--bd); }
 }
 
-/* Section tabs (guide §5): pills that scroll sideways on a phone, underlined tabs from 768 px. */
+/* Section tabs (guide §5): pills that scroll sideways on a phone, underlined tabs from 768 px. From 768 px the Media
+   section row (.sectabs-page) is hidden — the top bar carries it (2026-10-13) — so only the sub-tab row is left, and
+   it is the one place the underline marks the active tab (the top bar's filled pill is the other). */
 .sectabs { margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .sectabs::-webkit-scrollbar { display: none; }
 .sectabs-row { display: flex; gap: 8px; }
-.sectabs a { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; white-space: nowrap; font-size: 14px;
+.sectabs a { display: inline-flex; flex-shrink: 0; align-items: center; white-space: nowrap; font-size: 14px;
   color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s, border-color .15s;
   border-radius: 999px; border: 1px solid var(--line); padding: 6px 14px; }
 .sectabs a:hover { color: var(--text-2); }
 .sectabs a[aria-current] { font-weight: 500; border-color: var(--zinc-100); background: var(--zinc-100); color: var(--zinc-900); }
 .sectabs.sub a { font-size: 13px; padding: 4px 12px; }
 .sectabs + .sectabs { margin-top: -8px; }
-.dock-sentinel { display: block; height: 1px; margin-top: -1px; pointer-events: none; }  /* media-ux5: no layout */
 @media (min-width: 640px) { .sectabs { margin: 0; padding: 0; } }
 @media (min-width: 768px) {
   .sectabs-row { gap: 4px; border-bottom: 1px solid var(--line-soft); }
@@ -341,6 +327,9 @@ a.row:hover { background: var(--soft); }
     padding: 4px 12px 10px; background: none; }
   .sectabs a[aria-current] { color: var(--text-1); background: none; border-bottom-color: var(--tab-on); }
   .sectabs.sub a { padding: 2px 12px 8px; }
+  .sectabs-row a:first-child { padding-left: 0; }  /* first tab's text sits flush with the page column */
+  .sectabs-page { display: none; }
+  .sectabs-page + .sectabs { margin-top: 0; }
 }
 
 /* Phone tab bar (< 768 px): up to five slots, icon over an 11 px label; "More" opens a sheet above it. */

@@ -146,7 +146,7 @@ def test_movies_page_frame_status_words_and_head(env):
     put(999, title="Nowhere Film")
     with TestClient(main.app) as c:
         html, b = page(c, "/media/movies/watchlist")
-    assert current(html, "sectabs") == ["Movies"]
+    assert current(html, "sectabs sectabs-page") == ["Movies"]
     assert current(html, "sectabs sub") == ["My films"]   # nav-tidy (2026-10-13): no Watchlist tab; My films holds it
     assert "5 on your watchlist · 4 not on the server" in b
     for word in ("On disk", "Requested", "Processing", "Partly available", "Not on server"):
@@ -159,7 +159,7 @@ def test_tv_page_and_empty_state(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     with TestClient(main.app) as c:
         html, b = page(c, "/media/tv/watchlist")
-        assert current(html, "sectabs") == ["TV shows"] and current(html, "sectabs sub") == ["My shows"]
+        assert current(html, "sectabs sectabs-page") == ["TV shows"] and current(html, "sectabs sub") == ["My shows"]
         assert '<p class="empty">Nothing on the watchlist.</p>' in b
         put(22, kind="tv", title="Foxtrot Show")     # on the server list; wrong-kind request ignored
         _, b = page(c, "/media/tv/watchlist")

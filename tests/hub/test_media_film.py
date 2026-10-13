@@ -72,7 +72,7 @@ def test_status_plain_not_on_server(env):
 def test_status_series(env):
     client, _ = env()
     with client:
-        assert status(client.get("/media/title/tv/100").text) == "On server · 6 episodes · 2 to watch · S4 E4 next"
+        assert status(client.get("/media/title/tv/100").text) == "On server · 6 episodes · 2 left · S4 E4 next"   # E6 (2026-10-13): the progress words, as My shows (E5)
 
 
 # ---- numbers strip ----

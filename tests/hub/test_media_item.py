@@ -127,7 +127,7 @@ def test_series_page(env):
     assert r.status_code == 200 and "Quiet Show (2020)" in b and ">TV<" in b
     assert "3 of 6 watched" in b and 'value="jf:ser1"' in b
     assert f'href="{deep("ep4")}"' in b and "Next to watch: S4 E4 ▶" in b   # in-progress episode is next
-    assert "On server · 6 episodes · 2 to watch · S4 E4 next" in b
+    assert "On server · 6 episodes · 2 left · S4 E4 next" in b   # E6: progress words (was "2 to watch")
 
 
 def test_bad_id_is_404(env):

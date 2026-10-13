@@ -26,7 +26,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
-from hub import media_home, media_upgrades, shell
+from hub import media_home, media_text, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -596,7 +596,7 @@ def status_line(f: dict) -> str:
         s = f.get("series")
         if s:
             parts.append(f"{s['episodes']} episode{'s' if s['episodes'] != 1 else ''}")
-            parts.append(f"{s['to_watch']} to watch" if s["to_watch"] else "all watched")
+            parts.append(s.get("progress") or (f"{s['to_watch']} to watch" if s["to_watch"] else "all watched"))
             if f.get("next_ep"):
                 parts.append(f"{f['next_ep']['label']} next")
     else:
@@ -967,6 +967,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         eps = [e for s in seasons for e in s["episodes"]]
         nxt = _next_episode(seasons)
         f["series"] = {"episodes": len(eps), "to_watch": sum(1 for e in eps if not e["played"] and e["aired"])}
+        # E6 (2026-10-13; E5's M2 words on the show hero): "6 left · ~4h 30m" — the hours from the recorded plays'
+        # average episode runtime of this show (media_plays_db.show_runtimes), else "6 left"; never on an episode page
+        if not ep and jf_item_id and f["series"]["to_watch"]:
+            rt = media_plays_db.show_runtimes([f"jf:{jf_item_id}"]).get(f"jf:{jf_item_id}")
+            f["series"]["progress"] = media_text.progress_words(f["series"]["to_watch"], len(eps), rt)
         f["next_ep"] = nxt
         title_key = f"{title} · "
         for r in arr.get("this_week") or []:

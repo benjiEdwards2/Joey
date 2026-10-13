@@ -42,7 +42,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, To rate (`/media/history`), Library, Downloads, Requests, Health |
-| `GET /media/diary` | media_pages | Activity > History: the watch diary (the Diary section folded into Activity 2026-10-13; By-year rankings removed 2026-10-09, decision 1) |
+| `GET /media/diary` | media_pages | Activity > History: the watch diary (the Diary section folded into Activity 2026-10-13; By-year rankings removed 2026-10-09, decision 1). "Show: Mine / Everyone" 2026-10-13 — only owner "you" may list everyone's rows, each then named "You" / `OWNER_NAME_HER` in its meta line; her diary is always her own |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), To rate, Awards tabs; Tonight and Watchlist serve by URL with no tab (2026-10-13) |
 | `GET /media/server/history` | media_plays | Play stats: plays recorded from Jellyfin sessions (no tab since 2026-10-13; linked from the diary) |
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
@@ -54,7 +54,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
 | `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
-| `POST /media/settings/rating_level` | media_write | Rating scale |
+| `POST /media/settings/rating_level`, `/media/settings/diary_scope` | media_write | Rating scale; diary scope (2026-10-13: `mine` / `everyone`, 403 for her) |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
 | `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person, a film series or a show (`kind` person / collection / show) |
 | `POST /media/requests/{rid}/remove` | media_requests | Remove a Jellyseerr request |

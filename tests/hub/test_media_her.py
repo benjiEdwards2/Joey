@@ -160,3 +160,31 @@ def test_rating_level_setting_is_per_owner(env):
         assert client.post("/media/settings/rating_level", data={"value": "episode"},
                            follow_redirects=False).status_code == 303
     assert media_db.rating_level("her") == "episode" and media_db.rating_level("you") == "show"
+
+
+def test_signed_in_her_never_sees_diary_scope_and_her_post_is_refused(env, monkeypatch):
+    """Diary scope (2026-10-13): only owner 'you' may show everyone's diary. Signed-in her: no toggle, POST 403,
+    nothing stored, and her page stays hers even with B.'s scope set to everyone."""
+    from hub.identity import IDENTITY_HEADER
+    monkeypatch.setenv("OWNER_EMAIL_YOU", "you@example.invalid")
+    as_her = {IDENTITY_HEADER: "her@example.invalid"}
+    media_db.add_manual_watch("tmdb:9", "movie", "B Only Film", watched_on=NOW.date().isoformat(), owner="you")
+    media_db.set_setting("you", "diary_scope", "everyone")
+    with env() as client:
+        html = main_html(client.get("/media/diary", headers=as_her).text)
+        assert "/media/settings/diary_scope" not in html and ">Everyone<" not in html
+        assert "Paper Lanterns" in html and "B Only Film" not in html
+        for value in ("everyone", "mine"):
+            assert client.post("/media/settings/diary_scope", data={"value": value}, headers=as_her,
+                               follow_redirects=False).status_code == 403
+    assert media_db.get_setting("her", "diary_scope") is None and media_db.diary_scope("her") == "mine"
+    assert media_db.diary_scope("you") == "everyone"   # her refused POST changed nothing of his either
+
+
+def test_her_view_not_signed_in_is_not_eligible_for_diary_scope(env):
+    with env() as client:
+        html = main_html(client.get("/media/diary?owner_view=her").text)
+        assert "/media/settings/diary_scope" not in html
+        assert client.post("/media/settings/diary_scope", data={"value": "everyone"},
+                           follow_redirects=False).status_code == 403   # her cookie
+    assert media_db.get_setting("her", "diary_scope") is None

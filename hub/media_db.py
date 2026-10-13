@@ -230,6 +230,15 @@ def next_up_hidden() -> dict[tuple[str, str], str]:
         return {}
 
 
+DIARY_SCOPES = ("mine", "everyone")  # the diary's "Show" choice (2026-10-13); only owner 'you' may pick everyone
+
+
+def diary_scope(owner: str) -> str:
+    """The owner's diary scope: 'everyone' only for owner 'you' who set it; 'mine' otherwise (her: always mine)."""
+    value = get_setting(owner, "diary_scope", "mine") if owner == "you" else "mine"
+    return value if value in DIARY_SCOPES else "mine"
+
+
 def rating_level(owner: str) -> str:
     """The owner's 'Rate TV by' choice; show unless set to season or episode."""
     value = get_setting(owner, "rating_level", "show")
@@ -319,13 +328,20 @@ def add_manual_watch(item_key: str, kind: str, title: str, year=None, poster=Non
 
 
 def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
-               owner: str = "you") -> list[dict]:
-    """Newest first. `kind` is 'movie' or 'tv' (anything else = all)."""
+               owner: str | None = "you") -> list[dict]:
+    """Newest first. `kind` is 'movie' or 'tv' (anything else = all). `owner` None = every owner's rows (the
+    diary's "Show: Everyone" scope, 2026-10-13); each row keeps its own `owner` column."""
     db = _read()
     if db is None:
         return []
-    where, args = (("WHERE d.owner = ? AND d.kind = ?", [owner, kind]) if kind in ("movie", "tv")
-                   else ("WHERE d.owner = ?", [owner]))
+    conds, args = [], []
+    if owner is not None:
+        conds.append("d.owner = ?")
+        args.append(owner)
+    if kind in ("movie", "tv"):
+        conds.append("d.kind = ?")
+        args.append(kind)
+    where = ("WHERE " + " AND ".join(conds)) if conds else ""
     try:
         with closing(db):
             return [dict(r) for r in db.execute(
@@ -395,7 +411,7 @@ def group_diary(rows) -> list[dict]:
                 "item_key": r["show_key"] if ep else r["item_key"],
                 "show_key": r["show_key"] if ep else None, "season_key": r.get("season_key") if ep else None,
                 "season": r.get("season"), "numbers": [], "episodes": [], "count": 0, "rewatch": False,
-                "sub": ""}
+                "sub": "", "owner": r.get("owner")}
         line["count"] += 1
         line["rewatch"] = line["rewatch"] or bool(r.get("rewatch"))
         if r.get("episode") is not None:

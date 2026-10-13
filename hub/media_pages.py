@@ -6,6 +6,7 @@ no data. The Watchlist and Awards pages render through it too.
 
 from __future__ import annotations
 
+import os
 import random
 from datetime import date, datetime, timezone
 from urllib.parse import urlencode
@@ -204,13 +205,20 @@ def media_diary_page(request: Request):
         history = data.get("history") or {}
         owner = media_db.owner_of(view)
         media_db.sync_diary_from_history(history.get("recent"), owner)
-        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, owner)
+        # Diary scope (2026-10-13): only owner "you" may list everyone's rows (like Jellyfin's admin); each row then
+        # names whose it is in words. Stats, streak and "Log a watch" stay the viewer's own.
+        scope = media_db.diary_scope(owner)
+        everyone = scope == "everyone"
+        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, None if everyone else owner)
         more = len(rows) > DIARY_PAGE
         rows = rows[:DIARY_PAGE]
         stats = media_db.diary_stats(owner=owner)
         months: list[dict] = []
         lines = media_db.group_diary(rows)
+        her_name = os.environ.get("OWNER_NAME_HER") or "Georgina"
         for row in lines:
+            if everyone:
+                row["who"] = "You" if row.get("owner") == owner else her_name
             label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")
             if not months or months[-1]["label"] != label:
                 months.append({"label": label, "rows": []})
@@ -226,7 +234,7 @@ def media_diary_page(request: Request):
                 f"{streak}-day streak" if streak else "no current streak"]),
             "milestones": stats["milestones"][:MILESTONES_MAX],
             "months": months, "kind": kind or "", "today": date.today().isoformat(), "places": media_write.PLACES,
-            "on_this_day": on_this_day,
+            "on_this_day": on_this_day, "scope_eligible": owner == "you", "diary_scope": scope,
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,
             "ratings": media_home._ratings(view, lines, on_this_day),

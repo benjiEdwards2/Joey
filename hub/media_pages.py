@@ -248,7 +248,11 @@ def media_diary_page(request: Request):
             months[-1]["rows"].append(row)
         on_this_day = _group_on_this_day(history.get("on_this_day", []))
         streak = stats["streak_days"]
+        # E6 (M1): the Month in Review card, read after the sync above so it counts today's history
+        raw = jsnap.data if jsnap else {}
+        month = media_wrapped.month_card(view, raw, jsnap.updated_at if jsnap else None)
         return {
+            "month": month,
             "stats_text": " · ".join([
                 f"{stats['this_week']} this week", f"{stats['this_month']} this month",
                 f"{stats['total']} all time",

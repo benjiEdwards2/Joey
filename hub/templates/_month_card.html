@@ -1,0 +1,18 @@
+{# Month in Review (E6, 2026-10-13; review_features M1): the Diary's first block. ONE .panel — the section label (this
+   home-time month, or "October · nothing yet" while the month is empty and the month before has something), a stats
+   strip and ONE sentence in words, and the link to the year's Wrapped. Expects `month` (media_wrapped.month_card).
+   Hours with no source are "—" here and left out of the sentence (never guessed). #}
+{% set s = month.s %}
+<section class="panel monthcard" aria-labelledby="monthcard-h">
+  <div class="sechead"><h2 class="seclabel" id="monthcard-h">{{ month.label }}</h2><a href="{{ month.href }}">{{ month.link_text }}</a></div>
+  {% if s %}
+  <div class="stats">
+    <div class="stat"><div class="microlabel">Films</div><div class="stat-number">{{ s.films }}</div></div>
+    <div class="stat"><div class="microlabel">Episodes</div><div class="stat-number">{{ s.episodes }}</div></div>
+    <div class="stat"><div class="microlabel">Hours</div><div class="stat-word{{ ' blank' if not s.minutes }}">{{ s.hours_text }}</div>{% if s.hours_note %}<div class="row-meta">{{ s.hours_note }}</div>{% endif %}</div>
+    <div class="stat"><div class="microlabel">Days watched</div><div class="stat-number">{{ s.days }}</div></div>
+    <div class="stat"><div class="microlabel">Average score</div><div class="stat-number{{ ' blank' if s.average is none }}">{{ s.average_text }}</div>{% if s.rated %}<div class="row-meta">{{ s.rated }} film{{ '' if s.rated == 1 else 's' }} rated</div>{% endif %}</div>
+  </div>
+  {% if s.sentence %}<p class="monthline">{% if month.lead %}{{ month.lead }}: {% endif %}{{ s.sentence }}</p>{% endif %}
+  {% endif %}
+</section>

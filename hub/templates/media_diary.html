@@ -7,7 +7,8 @@
 {% import "_rate.html" as rate %}
 {# Watch diary (2026-10-05; restyle Phase 3): Jellyfin history synced in + watches logged by hand. Source and kind
    are words in every row's meta line — colour is never the only encoding. Every diary list uses the Movies list
-   poster size (.listbox.libposters, h=240; media-ux4, 2026-10-08). #}
+   poster size (.listbox.libposters, h=240; media-ux4, 2026-10-08). E6 (2026-10-13): the Month in Review card leads. #}
+{% if month %}{% include "_month_card.html" %}{% endif %}
 <p class="metaline">{{ stats_text }}</p>
 {% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
 {% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}

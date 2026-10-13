@@ -819,3 +819,28 @@ counts leave out zero parts (template-side); the Diary › To Rate section label
 deviation line). **U17** `shelf_max` (= `media_home.SHELF_MAX`) is a Jinja global and the hub / Media home shelves compare
 against it. Not done here (Python outside this WP): "N h this month" on Diary › To Rate (`media_pages.py`). Tests:
 `tests/hub/test_first_screens_e3.py`.
+
+## 2026-10-13 — Film page order + action row (WP E4; review_ui.md U5, U7; EVALUATION_2026-10-12 §4.2 "U5–U7")
+B. fixed the order on 2026-10-13. **Order (U5)** the hero reads poster → episode code / name (episode pages) → title →
+tagline → facts line → status line (+ upgrade note, note, search / upgrade flashes) → the ONE action row → "More" →
+Directed by / Created by cards (+ a show's directors, Follow show) → an episode's overview; one DOM, so desktop reads the
+same: the poster still leads beside the text column from 640 px, and the makers moved from above the status line to under
+the row there too (they were in the text column before, not beside the facts). The phone poster is `width: 50%;
+max-width: 200px` (under 640 px; was 62 % / 260 px). **Sub-tabs** an item / title page (a forced section,
+`request.state.media_section`) draws no sub-tab row — `media_nav.nav_context` treats a forced section like
+`tabs_only_on` when no tab matches; the page still names the section (Movies / TV Shows) in the pill row. **Action row
+(U7)** at most four md (36 px) controls: Play (`btn-white`; Request as the white primary when there is no Play) · Trailer
+(glass) · watchlist (icon) · Seerr (icon). Everything else is under `<details class="fold heromore">` "More", whose panel
+is the guide's inline `.confirm` (as the cards' "Move on"): Mark watched / Reset progress, Mark (un)watched, Request beside
+Play (a secondary), Search now / Search for upgrade. Every form, route and hx attribute is unchanged (the resume forms keep
+E2's `hx-swap="innerHTML show:none"`). The actions part draws into two slots (`_film_actions.html` `slot`: `row` = Request
+without Play + the late Trailer; `more` = Request beside Play), so `_film_parts.html` answers `fp-actions` and, beside
+Play, `fp-actions-more`; `_film_wait.html` `wait(name, pending, slot)` names the second placeholder. The More fold hides
+itself while its panel holds no form / link / button / line (`:has`), so a title Radarr / Sonarr does not have shows no
+empty "More" once the Search now fragment comes back empty. In the panel every button is 36 px and outlined (ghost ones
+get the hairline). **Site pills** IMDb / TMDB / Letterboxd (`_film_macros.html` `sitepills()`) left the hero for the
+Scores strip, on a line under the score pills; a title with no strip gets a Details "Links" row. **Verified, not redone
+(E2):** no runtime / certificate in the facts line, Details values without their verb, no Rate star button (the "Yours ·
+Rate" pill in the strip is the one way to the picker, so no Rate link was added to More). CSS: one tail block under
+`/* ---- E4 film page (2026-10-13) ---- */`; the E2 tap-target pin now allows later tail blocks that leave its controls
+alone. Tests: `tests/hub/test_film_page_e4.py` (and `film_page.whole` splices `fp-actions-more`).

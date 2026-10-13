@@ -355,7 +355,7 @@ def test_to_rate_rows_use_the_movies_list_poster(rate_env):
     build, _ = rate_env
     with build() as client:
         hist = main_of(client.get("/media/history").text)
-    inbox = hist.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]
+    inbox = hist.split(">To Rate</h2>", 1)[1].split("</section>", 1)[0]
     assert '<div class="listbox libposters">' in inbox
     assert posters(inbox) and set(posters(inbox)) == {"240"}
 

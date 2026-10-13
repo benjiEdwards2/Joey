@@ -29,6 +29,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.ids import areas_path, home_now
 from hub.images import fallback_letters
+from hub.media_text import duration
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots as _read_snapshots, tile_state
 
@@ -69,6 +70,7 @@ templates.env.auto_reload = dev_mode()
 templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
+templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
 
 
 # ---- response headers (T3, 2026-10-09: H-56, N-48, N-49) ----

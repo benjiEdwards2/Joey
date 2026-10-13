@@ -87,7 +87,7 @@ def test_back_is_a_fixed_list_never_an_open_redirect(env):
             assert r.status_code == 303 and r.headers["location"] == "/media/history", back
         r = client.post("/media/rate", data={"item_key": "tmdb:1", "kind": "movie", "title": "Heat", "score": "5",
                                              "back": "/media/tv"}, headers=HX)
-        assert r.status_code == 200 and "Rated 5 out of 10" in r.text        # htmx: the in-place rated row, as on History
+        assert r.status_code == 200 and 'title="Your rating: 5 out of 10">5</span><span class="microlabel">Rated</span>' in r.text   # htmx: in place (E3: the number once)
 
 
 def test_history_inbox_rows_carry_no_back(env):
@@ -198,14 +198,15 @@ def test_htmx_rating_on_the_tab_swaps_in_place(env):
     with build() as client:
         r = client.post("/media/rate", headers=HX, data={"item_key": "tmdb:1", "kind": "movie", "title": "Heat",
                                                          "score": "8", "back": "/media/movies/to-rate"})
-        assert r.status_code == 200 and "Rated 8 out of 10" in r.text and "<html" not in r.text
+        assert r.status_code == 200 and 'title="Your rating: 8 out of 10">8</span><span class="microlabel">Rated</span>' in r.text and "<html" not in r.text
         films = subtabs(client.get("/media/movies").text)
     assert films[3][3] == (1, "to rate")                                              # one fewer waiting
 
 
 def test_to_rate_tab_label_is_title_case_and_body_copy_stays_sentence_case(env):
     """awards-year (2026-10-09, B.): the tab label reads "To Rate" on Movies, TV Shows and Diary (and the tab page's
-    <title>); the count's screen-reader words, the Diary section label and "Nothing to rate." stay as they were."""
+    <title>); the count's screen-reader words and "Nothing to rate." stay as they were; E3 (2026-10-13): the Diary section
+    label follows the tab ("To Rate")."""
     build, _ = env
     with build(jelly_data([])) as client:
         films = client.get("/media/movies/to-rate").text
@@ -215,4 +216,4 @@ def test_to_rate_tab_label_is_title_case_and_body_copy_stays_sentence_case(env):
     assert "<title>To Rate · Joey</title>" in films and ">To rate<" not in films.split('<nav class="sectabs sub"', 1)[1]
     assert [t[0] for t in subtabs(diary) if t[2]] == ["To Rate"]
     assert '<p class="empty">Nothing to rate.</p>' in main_of(films)
-    assert '<h2 class="seclabel">To rate</h2>' in main_of(diary)
+    assert '<h2 class="seclabel">To Rate</h2>' in main_of(diary)   # E3 (U27): the section label matches the tab (B., 2026-10-09)

@@ -86,7 +86,7 @@ def test_no_env_hides_the_button_says_not_connected_and_calls_nothing(env):
         b = band(client.get("/server").text)
         g = main_of(client.get("/server/stack/run?step=confirm").text)
         p = client.post("/server/stack/run", follow_redirects=False)
-    assert "Restart + update media stack" not in b and "Media stack · Not connected" in txt(b)
+    assert "restart media stack" not in b and "Media stack · Not connected" in txt(b)
     assert "stackctl is not connected" in g and 'action="/server/stack/run"' not in g
     assert p.status_code == 303 and p.headers["location"] == "/server#updates"
     assert env.calls == []
@@ -96,7 +96,7 @@ def test_band_shows_the_button_and_the_last_run(env):
     with env() as client:
         r = client.get("/server")
     b = band(r.text)
-    assert 'href="/server/stack/run?step=confirm">Restart + update media stack<' in b
+    assert 'href="/server/stack/run?step=confirm">Update and restart media stack<' in b   # E3 (U27)
     assert "Media stack · Last run finished OK · 1h ago" in txt(b)
     assert env.calls == [{"method": "GET", "url": f"{URL}/status", "headers": {"Authorization": f"Bearer {TOKEN}"},
                           "timeout": 2}]

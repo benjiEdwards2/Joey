@@ -217,7 +217,7 @@ def test_diary_page_folds_episodes_into_one_line_with_names(env):
         body = main_of(client.get("/media/diary").text)
     assert body.count("diaryrow") == 1
     assert "S4 E1–E3" in body and "Name1 · Name2 · Name3" in body
-    assert "↻ rewatch" not in body
+    assert "Rewatch" not in body   # E3 (U27): was "↻ rewatch"
     assert "3 episodes this year" in body and "0 films" in body
 
 
@@ -226,7 +226,7 @@ def test_diary_page_shows_rewatch_chip_and_keeps_owners_apart(env):
     media_db.sync_diary_from_history([ep_row(1, 10)])
     with build(jelly_data([ep_row(1, 1)])) as client:
         body = main_of(client.get("/media/diary").text)
-    assert "↻ rewatch" in body and "S4 E1" in body
+    assert "Rewatch" in body and "↻" not in body and "S4 E1" in body   # E3 (U27): sentence case, no glyph
     assert media_db.list_diary(owner="her") == []  # B.'s sync never lands in her diary
 
 

@@ -133,13 +133,13 @@
 <section class="sec" id="updates" aria-label="Updates">
   <div class="sechead"><h2 class="seclabel">Updates</h2></div>
   {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
-  {# 2026-10-12: Update all (every pending, non-ignored row that may run — no wud / joey-*) and Restart + update
+  {# 2026-10-12: Update all (every pending, non-ignored row that may run — no wud / joey-*) and Update and restart
      media stack (stackctl: pull + recreate the whole media-server compose; hidden without STACKCTL_URL/TOKEN). Each
      has its own confirm page. The stack line is stackctl's last run, in words. #}
   {% if up.n_eligible or stack.connected %}
   <div class="confirm-btns">
     {% if up.n_eligible %}<a class="btn btn-primary btn-sm" href="/server/updates/all/run?step=confirm">Update all</a>{% endif %}
-    {% if stack.connected %}<a class="btn btn-secondary btn-sm" href="/server/stack/run?step=confirm">Restart + update media stack</a>{% endif %}
+    {% if stack.connected %}<a class="btn btn-secondary btn-sm" href="/server/stack/run?step=confirm">Update and restart media stack</a>{% endif %}
   </div>
   {% endif %}
   <p class="metaline">Media stack<span class="sep"> · </span><span class="{{ {'running': 'st-warn', 'failed': 'st-down', 'unreachable': 'st-warn', 'off': 'st-off'}.get(stack.state, '') }}">{{ stack.text }}</span></p>
@@ -192,7 +192,7 @@
   <div class="listbox">
   {% for w in sv.sweeps %}
   <div class="row">
-    <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "last ok " ~ w.last_ok_text]) }}</div>
+    <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "Last OK " ~ w.last_ok_text]) }}</div>
     {# WP-U3: a not-configured connector (missing credential / parked area) is a setup task, not a failure. #}
     {% if w.not_configured %}<span class="row-side st-off">Not configured</span>
     {% elif w.failing %}<span class="row-side st-down">Failing</span>{% endif %}

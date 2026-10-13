@@ -77,7 +77,7 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert r.text.split("<title>", 1)[1].split("</title>", 1)[0] == "Server · Joey"
     # 1 System
     assert "16%" in body and "Load 0.42" in body and "1.9 GB free" in body
-    assert "of 7.7 GB · 75% used" in body and "12 days 4 h" in body
+    assert "of 7.7 GB · 75% used" in body and "12d 4h" in body   # E3: guide lengths
     assert "/volume1/Docker" in body and "120.0 GB free" in body and "of 465.6 GB" in body and "74% used" in body
     assert "width: 71%" in body
     # 2 Services, grouped, Up/Down as words; LAN-only apps link to their LAN address and say "LAN" (2026-10-10)
@@ -143,10 +143,12 @@ def test_build_server_adds_the_backup_warning():
 
 
 def test_uptime_text_and_grouping_helpers():
-    assert server.uptime_text(1052400) == "12 days 4 h"
-    assert server.uptime_text(86400) == "1 day 0 h"
-    assert server.uptime_text(5 * 3600 + 20 * 60) == "5 h 20 min"
-    assert server.uptime_text(40 * 60) == "40 min"
+    # E3 (2026-10-13): the guide's "2h 47m" lengths
+    assert server.uptime_text(1052400) == "12d 4h"
+    assert server.uptime_text(86400) == "1d 0h"
+    assert server.uptime_text(5 * 3600 + 20 * 60) == "5h 20m"
+    assert server.uptime_text(2 * 3600 + 5 * 60) == "2h 5m"
+    assert server.uptime_text(40 * 60) == "40m"
     assert server.uptime_text(None) == "—"
     groups = server.group_services([{"id": "gluetun"}, {"id": "portainer"}, {"id": "jellyseerr"}])
     assert [(g["label"], [a["id"] for a in g["apps"]]) for g in groups] == [
@@ -385,7 +387,7 @@ def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp
     assert "gcal" not in att and "SECRETKEY" not in body                     # recovered -> table only
     sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
     assert "Sweeps · 24 h" in body and ">gcal</div>" in sweeps and "2 runs · 1 failed" in txt(sweeps)
-    assert ">system</div>" in sweeps and ">wud</div>" in sweeps and "last ok none in 24 h" in txt(sweeps)
+    assert ">system</div>" in sweeps and ">wud</div>" in sweeps and "Last OK none in 24 h" in txt(sweeps)
     (snaps / "_runner_history.jsonl").write_text("{junk\n[]\n", encoding="utf-8")
     with client:
         r = client.get("/server")

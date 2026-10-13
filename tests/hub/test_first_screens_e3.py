@@ -329,3 +329,49 @@ def test_from_lan_helper():
     assert not shell.from_lan(req("172.20.0.3", {"Cf-Access-Authenticated-User-Email": "a@b.c"}))   # via the tunnel
     assert not shell.from_lan(None)
     assert shell.templates.env.globals["from_lan"] is shell.from_lan
+
+
+# 7. Copy (U27 new items) -------------------------------------------------------------------------------------------
+
+def test_duration_global_and_the_sweep_line():
+    from hub import shell
+    d = shell.templates.env.globals["duration"]
+    assert (d(167), d(4), d(120)) == ("2h 47m", "4m", "2h")
+    src = tpl("_arr_sweep.html")
+    assert 'Started {{ duration(s.since) ~ " ago" if s.since >= 1 else "just now" }} · run again?' in src
+    assert "min ago" not in src
+
+
+def test_uptime_reads_the_guide_way():
+    from hub import server
+    assert [server.uptime_text(s) for s in (1052400, 7500, 2400)] == ["12d 4h", "2h 5m", "40m"]
+
+
+def test_words_start_with_a_capital_and_say_and_not_plus():
+    assert '"Rewatch" if row.rewatch' in tpl("_diary_row.html") and "↻ rewatch" not in tpl("_diary_row.html")
+    srv = tpl("server.html")
+    assert '"Last OK " ~ w.last_ok_text' in srv and "last ok" not in srv
+    assert ">Update and restart media stack</a>" in srv and "Restart + update" not in srv
+    assert "Restart + update" not in tpl("server_stack.html")
+
+
+def test_rated_line_says_the_number_once():
+    src = tpl("_rate.html")
+    assert '<span class="microlabel">Rated</span>' in src and "Rated {{ score }} out of 10</span><button" not in src
+    assert '<span class="microlabel">Rated {{ score }} out of 10</span>' not in src
+
+
+def test_to_rate_label_matches_the_tab_and_the_guide_records_it():
+    assert '<h2 class="seclabel">To Rate</h2>' in tpl("media_history.html")
+    guide = (HUB.parent / "docs" / "style-guide.md").read_text(encoding="utf-8").split("# MediaHub style guide", 1)[0]
+    assert '"To Rate"' in guide                                                        # the dated deviation line
+
+
+def test_requests_counts_leave_out_zero_parts():
+    from hub import shell
+    src = tpl("media_requests.html")
+    block = src[src.index("{% set nz"):src.index("{% endif %}", src.index("{% set nz")) + len("{% endif %}")]
+    render = lambda t: shell.templates.env.from_string(block).render(counts_text=t).strip()  # noqa: E731
+    assert render("0 pending · 2 approved · 1 available · 0 declined") == '<p class="metaline">2 approved · 1 available</p>'
+    assert render("10 pending · 0 approved") == '<p class="metaline">10 pending</p>'
+    assert render("0 pending · 0 approved · 0 available · 0 declined") == ""

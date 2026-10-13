@@ -16,7 +16,9 @@
 {% if flash_warn %}<p class="metaline st-warn" role="status">{{ flash_warn }}</p>{% endif %}
 {% endif %}
 {% if src.st.state != "off" and rows %}
-<p class="metaline">{{ counts_text }}</p>
+{# E3 (U27, 2026-10-13): only the counts that are not zero ("2 approved · 1 available", never "0 pending"). #}
+{% set nz = namespace(parts=[]) %}{% for p in counts_text.split(" · ") if not p.startswith("0 ") %}{% set nz.parts = nz.parts + [p] %}{% endfor %}
+{% if nz.parts %}<p class="metaline">{{ nz.parts | join(" · ") }}</p>{% endif %}
 {# Remove (2026-10-08): the row stays a whole link (a.rowlink overlay, to Jellyseerr); Remove sits above it at the
    right and opens an inline confirm panel (guide 6: never a browser dialog). It deletes the Jellyseerr request and,
    only when nothing is on disk yet, stops the Radarr / Sonarr search — never deletes a file. #}

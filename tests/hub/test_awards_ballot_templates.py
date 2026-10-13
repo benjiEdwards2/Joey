@@ -210,15 +210,18 @@ def test_action_column_seen_tick_or_watchlist_button():
     b = body()
     seen = row("The Brutalist", b)
     assert '<span class="awfilm-seen st-good">Seen ✓</span>' in seen
-    assert "wlbtn" not in seen and '<span class="poster-tag is-seen">Seen ✓</span>' in seen
+    assert "wlbtn" not in seen and "poster-tag" not in seen                  # C3: the poster carries no seen tag (the words do)
     anora = row("Anora", b)
     act = re.search(r'<div class="awfilm-act" hx-push-url="false">(.*?)</div>\s*<details', anora, re.S).group(1)
-    assert '<span id="wl-movie-11" class="wlbtn compact">' in act              # _watchlist_btn.html, compact, off the list
+    assert '<span id="wl-movie-11" class="wlbtn wlbtn-ballot">' in act        # _watchlist_btn.html, style "ballot", off the list
     assert 'hx-post="/media/watchlist/add"' in act and 'name="tmdb_id" value="11"' in act
-    assert 'class="btn-mini"' in act and "Seen" not in act
-    conclave = row("Conclave", b)
-    assert '<span class="awfilm-wl">✓ Watchlisted</span>' in conclave           # on the list: the compact button hides, so words
-    assert 'id="wl-movie-13"' in conclave and "btn-mini" not in conclave
+    assert 'hx-target="#wl-movie-11" hx-swap="outerHTML"' in act and '<input type="hidden" name="style" value="ballot">' in act
+    assert re.search(r'<button type="submit" class="btn btn-sm btn-secondary" aria-pressed="false"[^>]*><svg[^>]*>.*?</svg>Watchlist</button>',
+                     act, re.S) and "Seen" not in act
+    conclave = row("Conclave", b)                                              # on the list: the same button, pressed, worded
+    assert 'id="wl-movie-13"' in conclave and 'hx-post="/media/watchlist/remove"' in conclave
+    assert re.search(r'class="btn btn-sm btn-secondary is-on" aria-pressed="true"[^>]*>✓ Watchlisted</button>', conclave)
+    assert conclave.count("Watchlisted") == 1                                  # no loose words beside the button
     nickel = row("Nickel Boys", b)                                             # no TMDB id: no button, plain title, no links
     assert "wlbtn" not in nickel and 'href=' not in nickel
     assert '<span class="card-pic awframe awfilm-pic">' in nickel and '<span class="awfilm-title">Nickel Boys</span>' in nickel

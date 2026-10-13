@@ -1254,7 +1254,8 @@ a.awfilm-title:hover { color: var(--text-2); }
 .awmore { border-color: transparent; background: var(--pill-on); color: var(--text-5); }
 .awfilm-act { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; font-size: 12px; }
 .awfilm-seen { font-weight: 500; white-space: nowrap; }
-.awfilm-wl { color: var(--text-4); white-space: nowrap; }
+/* The row's watchlist button (E1): small and worded; on the list it tints sky like the icon button's is-on. */
+.wlbtn-ballot .btn.is-on { border-color: transparent; background: var(--sky-tint); color: var(--sky); }
 .awfilm .awdetail { grid-column: 1 / -1; margin: 0; border-top: 1px solid var(--line-soft); }
 .awdetail > summary { display: flex; align-items: center; min-height: 36px; padding: 0; font-size: 12px; color: var(--text-4); }
 .awdetail-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; padding: 4px 0; font-size: 12px; }

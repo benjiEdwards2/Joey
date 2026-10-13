@@ -1,18 +1,23 @@
 {# Watchlist button (F6; restyle Phase 3: a 36 px square icon button, guide 6 — toggled on it tints sky, aria-pressed).
    `w` = the title's fields, `on` = on the list. compact = the small "+" beside a Discover card's title (hidden once
-   the title is on the list). Works without JS: plain forms post and 303 back; the hx- attributes swap this span. #}
+   the title is on the list). style="ballot" = the Awards ballot row's small worded button (decision E1, 2026-10-14):
+   "+ Watchlist" off, "✓ Watchlisted" (aria-pressed, sky tint) on; the route hands the same style back.
+   Works without JS: plain forms post and 303 back; the hx- attributes swap this span. #}
 {% from "_icons.html" import icon %}
-{% set fields %}<input type="hidden" name="tmdb_id" value="{{ w.tmdb_id }}"><input type="hidden" name="kind" value="{{ w.kind }}"><input type="hidden" name="title" value="{{ w.title }}"><input type="hidden" name="year" value="{{ w.year or '' }}"><input type="hidden" name="poster" value="{{ w.poster or '' }}">{% if compact %}<input type="hidden" name="compact" value="1">{% endif %}{% endset %}
-<span id="wl-{{ w.kind }}-{{ w.tmdb_id }}" class="wlbtn{{ ' compact' if compact }}">
+{% set wlb = style is defined and style == "ballot" %}
+{% set fields %}<input type="hidden" name="tmdb_id" value="{{ w.tmdb_id }}"><input type="hidden" name="kind" value="{{ w.kind }}"><input type="hidden" name="title" value="{{ w.title }}"><input type="hidden" name="year" value="{{ w.year or '' }}"><input type="hidden" name="poster" value="{{ w.poster or '' }}">{% if compact %}<input type="hidden" name="compact" value="1">{% endif %}{% if wlb %}<input type="hidden" name="style" value="ballot">{% endif %}{% endset %}
+<span id="wl-{{ w.kind }}-{{ w.tmdb_id }}" class="wlbtn{{ ' compact' if compact }}{{ ' wlbtn-ballot' if wlb }}">
 {%- if on %}{% if not compact %}
   <form method="post" action="/media/watchlist/remove" hx-post="/media/watchlist/remove" hx-target="#wl-{{ w.kind }}-{{ w.tmdb_id }}" hx-swap="outerHTML">
     {{ fields }}<input type="hidden" name="item_key" value="tmdb:{{ w.tmdb_id }}">
-    <button type="submit" class="btn btn-icon is-on" aria-pressed="true" aria-label="On your watchlist — remove" title="On your watchlist">{{ icon("bookmark") }}</button>
+    {% if wlb %}<button type="submit" class="btn btn-sm btn-secondary is-on" aria-pressed="true" title="On your watchlist — remove">✓ Watchlisted</button>
+    {% else %}<button type="submit" class="btn btn-icon is-on" aria-pressed="true" aria-label="On your watchlist — remove" title="On your watchlist">{{ icon("bookmark") }}</button>{% endif %}
   </form>{% endif %}
 {%- else %}
   <form method="post" action="/media/watchlist/add" hx-post="/media/watchlist/add" hx-target="#wl-{{ w.kind }}-{{ w.tmdb_id }}" hx-swap="outerHTML">
     {{ fields }}
     {% if compact %}<button type="submit" class="btn-mini" title="Add to watchlist" aria-label="Add {{ w.title }} to watchlist">{{ icon("plus") }}</button>
+    {% elif wlb %}<button type="submit" class="btn btn-sm btn-secondary" aria-pressed="false" title="Add to watchlist">{{ icon("plus") }}Watchlist</button>
     {% else %}<button type="submit" class="btn btn-icon" aria-pressed="false" aria-label="Add to watchlist" title="Add to watchlist">{{ icon("bookmark") }}</button>{% endif %}
   </form>
 {%- endif %}

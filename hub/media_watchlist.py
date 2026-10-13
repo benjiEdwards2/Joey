@@ -53,8 +53,10 @@ def _item(f: dict) -> dict:
     return {**item, "tmdb_id": int(tmdb)}
 
 
-def _button(request: Request, item: dict, on: bool, compact: bool):
-    return templates.TemplateResponse(request, "_watchlist_btn.html", {"w": item, "on": on, "compact": compact})
+def _button(request: Request, item: dict, on: bool, compact: bool, style: str | None = None):
+    """The button fragment in the style it was posted from (compact "+", the ballot row's worded button, or the icon)."""
+    return templates.TemplateResponse(request, "_watchlist_btn.html",
+                                      {"w": item, "on": on, "compact": compact, "style": style})
 
 
 def _back(request: Request, kind: str) -> RedirectResponse:
@@ -82,7 +84,7 @@ def _apply(request: Request, adding: bool, f: dict):
         log.warning("watchlist not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the watchlist") from None
     if is_htmx(request):
-        return _button(request, item, adding, f.get("compact") == "1")
+        return _button(request, item, adding, f.get("compact") == "1", "ballot" if f.get("style") == "ballot" else None)
     return _back(request, item["kind"])
 
 

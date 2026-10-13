@@ -1,20 +1,19 @@
 {# Awards ballot pieces (WP-C2, 2026-10-14): the films view is one row per nominated film / show. A row is ONE .awfilm
-   block: poster (gold frame when it won anything, emerald "Seen ✓" tag, the existing winner badge), title link + year,
+   block: poster (gold frame when it won anything, the existing winner badge; no seen tag - the action column says it), title link + year,
    the tally line, up to five category pills (gold = won, with the laurel mark AND a screen-reader "Won: " prefix; neutral
-   = nominated), an action column (the emerald words "Seen ✓", or the watchlist button) and a native <details> that lists
+   = nominated), an action column (the emerald words "Seen ✓", or the worded watchlist button, style "ballot") and a native <details> that lists
    every category. Colour only ever sits beside words (style guide): gold = won, emerald = seen, sky = on your server.
    htmx: #awmain (media_awards.html) boosts every link into itself, so a row's own links (the title opens another page)
    reset the target / select / swap on the .awfilm, and the action column resets push-url + select for the watchlist form. #}
 {% from "_poster.html" import poster %}
 {% from "_award_icons.html" import award_icon, award_badge %}
-{% import "_award_card.html" as aw %}
 {% macro pill(p) -%}
 <span class="awchip{{ ' is-won' if p.won }}">{% if p.won %}{{ award_icon("laurel", 12, deco=true) }}<span class="vh">Won: </span>{% else %}<span class="vh">Nominated: </span>{% endif %}{{ p.name }}{% if p.who %} · {{ p.who }}{% endif %}</span>
 {%- endmacro %}
 {% macro row(r, kind) -%}
 {% set href = r.href %}
 <article class="awfilm{{ ' is-won' if r.won_any }}" hx-target="body" hx-select="unset" hx-swap="innerHTML show:window:top">
-  <{{ "a" if href else "span" }} class="card-pic awframe awfilm-pic{{ ' is-won' if r.won_any }}"{% if href %} href="{{ href }}" tabindex="-1" aria-hidden="true"{% endif %}>{{ poster(r.poster, r.title, 120) }}{{ aw.tag(r) }}{{ award_badge(r.award) }}</{{ "a" if href else "span" }}>
+  <{{ "a" if href else "span" }} class="card-pic awframe awfilm-pic{{ ' is-won' if r.won_any }}"{% if href %} href="{{ href }}" tabindex="-1" aria-hidden="true"{% endif %}>{{ poster(r.poster, r.title, 120) }}{{ award_badge(r.award) }}</{{ "a" if href else "span" }}>
   <div class="awfilm-main">
     <div class="awfilm-tt">{% if href %}<a class="awfilm-title" href="{{ href }}">{{ r.title }}</a>{% else %}<span class="awfilm-title">{{ r.title }}</span>{% endif %}{% if r.year %}<span class="awfilm-year">{{ r.year }}</span>{% endif %}</div>
     <div class="awfilm-tally">{{ r.tally }}{% if r.on_server and not r.seen %}<span class="sep"> · </span><span class="awfilm-srv">On your server</span>{% endif %}</div>
@@ -22,8 +21,7 @@
   </div>
   <div class="awfilm-act" hx-push-url="false">
     {% if r.seen %}<span class="awfilm-seen st-good">Seen ✓</span>
-    {% else %}{% if r.watchlisted %}<span class="awfilm-wl">✓ Watchlisted</span>{% endif %}
-    {% if r.w %}{% set w = r.w %}{% set on = r.watchlisted %}{% set compact = true %}{% include "_watchlist_btn.html" with context %}{% endif %}{% endif %}
+    {% elif r.w %}{% set w = r.w %}{% set on = r.watchlisted %}{% set style = "ballot" %}{% include "_watchlist_btn.html" with context %}{% endif %}
   </div>
   {% if r.cats %}
   <details class="showmore awdetail"><summary>Details</summary>

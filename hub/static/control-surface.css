@@ -1179,13 +1179,14 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
    (guide 6, never a browser dialog). Its buttons are md (36 px) side by side; a nested confirm's Confirm / Cancel stay
    sm. With nothing in it (Search now not loaded yet, or the title not in Radarr / Sonarr) the fold is hidden. */
 details.heromore { max-width: 100%; }
-details.heromore > summary { display: inline-flex; align-items: center; min-height: 36px; padding: 0 4px; font-size: 13px;
+details.heromore > summary { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 4px; font-size: 13px;
   font-weight: 500; color: var(--text-3); }
 details.heromore > summary:hover { color: var(--text-1); }
 .heromore:not(:has(.heromore-acts :is(form, a, button, p))) { display: none; }
 .heromore-acts { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
   margin-top: 4px; max-width: 32rem; text-align: left; }
 .heromore-acts .btn { height: 36px; }
+.heromore-acts .btn-ghost { border-color: var(--line); color: var(--text-3); }   /* one look in the panel: outlined, like Search now */
 .heromore-acts .confirm .btn { height: 32px; }
 .heromore-acts > details[open], .heromore-acts .requestblock:has(.confirm, .statusline) { flex: 1 0 100%; }
 /* U5: the IMDb / TMDB / Letterboxd pills sit in the Scores strip under the score pills (or a Details "Links" row). */

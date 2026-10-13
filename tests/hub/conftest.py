@@ -57,11 +57,12 @@ def app_with(tmp_path, monkeypatch, *areas):
 def clear_media_caches() -> None:
     """Every Media module's in-process cache, emptied."""
     from hub import (media_awards_badges, media_awards_icons, media_discover, media_files, media_film, media_hidden,
-                     media_item, media_jellyfin, media_omdb, media_rank, media_resume)
+                     media_item, media_jellyfin, media_omdb, media_rank, media_resume, server_stack)
     for clear in (media_discover.clear_cache, media_item.clear_cache, media_files.clear_cache, media_jellyfin.clear_cache,
                   media_omdb.clear_cache, media_hidden.clear, media_rank.clear_cache, media_resume.clear_cache,
                   media_awards_badges._cache.clear, media_awards_icons.override.cache_clear,
-                  media_film._override_in.cache_clear):
+                  media_film._override_in.cache_clear,
+                  server_stack.clear_cache):   # E1: the 30 s stackctl status answer
         clear()
 
 

@@ -458,8 +458,9 @@ def test_tv_cards_say_watched_in_progress_not_watched(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         _, b = body(c, "/media/tv")
-    words = {title: meta for _, _, title, meta in cards(b)}
-    assert words == {"Echo Show": "2019 · In progress", "Foxtrot Show": "2021 · Not watched", "Golf Show": "2015 · Watched"}
+    words = {title: re.sub(r"\s+", " ", meta) for _, _, title, meta in cards(b)}
+    # E5 (M2): a show being watched adds its progress line under the state ("6 left"; no runtime recorded here)
+    assert words == {"Echo Show": "2019 · In progress 6 left", "Foxtrot Show": "2021 · Not watched", "Golf Show": "2015 · Watched"}
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
 
 

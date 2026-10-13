@@ -4,7 +4,13 @@
 {# The rating inbox rows (2026-10-05; shared by Diary > To rate and the Movies / TV Shows pages since media-ux2,
    2026-10-08): poster + title in an a.rowlink overlay, the 1-10 picker outside it. A row's `back` (when set)
    rides in the picker so a plain-form rating returns to that page. media-ux4 (2026-10-08): the Movies list poster size
-   (.listbox.libposters, h=240) everywhere these rows show. #}
+   (.listbox.libposters, h=240) everywhere these rows show.
+   E5 (M3, 2026-10-13): each row also offers Skip (this film / this season or episode) and, for TV, Skip show (every
+   season and episode of it, later ones too) — plain forms that re-render the page in place; `skipped()` is the
+   "Skipped" group at the foot of a To rate page, each with Unskip. #}
+{% macro skipform(action, key, kind, title, poster, back, label) -%}
+<form method="post" action="{{ action }}" hx-swap="innerHTML show:none"><input type="hidden" name="item_key" value="{{ key }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="title" value="{{ title }}"><input type="hidden" name="poster" value="{{ poster or '' }}">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}<button class="btn btn-ghost btn-sm" type="submit">{{ label }}</button></form>
+{%- endmacro %}
 {% macro rows(to_rate) %}
 <div class="listbox libposters">
   {% for r in to_rate %}
@@ -15,7 +21,27 @@
     <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.when]) }}</div>
     {% if ih %}</a>{% endif %}
     {{ rate.picker(r) }}
+    <div class="skipacts">
+      {%- if r.kind != "tv" or r.level != "show" %}{{ skipform("/media/rate/skip", r.item_key, r.kind, r.title, r.poster, r.back, "Skip") }}{% endif %}
+      {%- if r.show_key %}{{ skipform("/media/rate/skip-show", r.show_key, "tv", r.show_title, r.poster, r.back, "Skip show") }}{% endif -%}
+    </div>
   </div>
   {% endfor %}
   </div>
+{%- endmacro %}
+{% macro skipped(rows, back=none) %}
+{% if rows %}
+<section class="sec skipped">
+  <h2 class="seclabel">Skipped<span class="sep"> · </span>{{ rows | length }}</h2>
+  <div class="listbox">
+    {% for s in rows %}
+    <div class="row">
+      {{ poster(s.poster, s.title, 120, "row-poster") }}
+      <div class="row-body"><div class="row-title">{{ s.title }}</div>{{ meta(["Skipped", "Whole show" if s.forever else none]) }}</div>
+      <span class="row-side"><form method="post" action="/media/rate/unskip" hx-swap="innerHTML show:none"><input type="hidden" name="key" value="{{ s.key }}">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}<button class="btn btn-ghost btn-sm" type="submit">Unskip</button></form></span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 {%- endmacro %}

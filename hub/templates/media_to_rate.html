@@ -6,6 +6,8 @@
    kind (the Diary > To rate rows: poster + title one whole link, the 1-10 picker outside it). A plain-form rating
    returns to this tab; htmx swaps the row in place. #}
 {% set noun = "film" if kind == "movie" else "title" %}
+{% set sf = skip_flash(request) %}{# E5 (M3): "Skipped" / "Show skipped" / "Back in To Rate" after a Skip form #}
+{% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
 {% elif to_rate %}
@@ -14,5 +16,6 @@
 {% else %}
 <p class="empty">Nothing to rate.</p>
 {% endif %}
+{% if src.st.state != "off" %}{{ torate.skipped(skipped, request.url.path) }}{% endif %}
 {% include "_detail_foot.html" %}
 {% endblock %}

@@ -1195,3 +1195,6 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
 .upc-chip { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px;
   padding: 1px 8px; font-size: 11px; font-weight: 500; color: var(--text-4); white-space: nowrap; }
 .upc-release .row-title { color: var(--text-3); }
+/* To rate Skip / Skip show (M3): two small ghost buttons after the 1-10 picker, on the row's right; the Skipped group
+   at the page foot is plain rows with Unskip. */
+.skipacts { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; position: relative; z-index: 1; }

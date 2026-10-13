@@ -48,7 +48,7 @@ def test_step_three_rebuilds_the_follow_tables_and_keeps_rows(tmp_path, monkeypa
     media_store.forget()
     assert media_follow.get("person", 55)["name"] == "Ada"                              # the first open migrates
     with closing(sqlite3.connect(path)) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 3
+        assert db.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 4
         assert db.execute("SELECT media, tmdb_id, outcome FROM media_follow_adds").fetchall() == [("movie", 603, "requested")]
     media_follow.follow("show", 603, "Same Number Show")                                # 'show' now passes the CHECK
     assert {f["kind"] for f in media_follow.follows()} == {"person", "show"}

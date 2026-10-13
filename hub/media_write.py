@@ -188,6 +188,62 @@ def unrate_form(request: Request, item_key: str):
     return RedirectResponse("/media/history", status_code=303)
 
 
+# To rate: Skip / Skip show (E5, M3, 2026-10-13). Plain forms (hx-swap "innerHTML show:none": the boosted 303 re-renders
+# the page in place, scroll kept); owner-scoped like ratings; back to the To rate page the form came from.
+SKIP_FLASH = {"item": ("Skipped", None), "show": ("Show skipped", None), "unskip": ("Back in To Rate", None),
+              "failed": (None, "Couldn't save that")}
+flash_keys("skip")
+
+
+def skip_flash(request) -> tuple[str | None, str | None]:
+    """(good, warn) words for the `?skip=` flash; (None, None) otherwise. Jinja global `skip_flash(request)`."""
+    return SKIP_FLASH.get((request.query_params.get("skip") or "") if request else "", (None, None))
+
+
+shell.templates.env.globals["skip_flash"] = skip_flash
+
+
+def _skip_back(f: dict, word: str):
+    return RedirectResponse(f"{RATE_BACK.get(f.get('back'), '/media/history')}?skip={word}", status_code=303)
+
+
+@router.post("/media/rate/skip", dependencies=[Depends(same_origin)])
+async def skip_item(request: Request):
+    return await run_in_threadpool(_skip, request, await form_of(request), False)
+
+
+@router.post("/media/rate/skip-show", dependencies=[Depends(same_origin)])
+async def skip_show(request: Request):
+    return await run_in_threadpool(_skip, request, await form_of(request), True)
+
+
+def _skip(request: Request, f: dict, forever: bool):
+    item = clean_item(f)   # item_key = the inbox key (Skip) or the show key (Skip show)
+    if forever and item["kind"] != "tv":
+        raise bad("Only a show can be skipped as a whole")
+    try:
+        media_db.skip(owner_for(request), item["item_key"], item["kind"], item["title"], item["poster"], forever)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("skip not saved: %s", type(exc).__name__)
+        return _skip_back(f, "failed")
+    return _skip_back(f, "show" if forever else "item")
+
+
+@router.post("/media/rate/unskip", dependencies=[Depends(same_origin)])
+async def unskip(request: Request):
+    return await run_in_threadpool(_unskip, request, await form_of(request))
+
+
+def _unskip(request: Request, f: dict):
+    key = valid_key(f.get("key", ""))
+    try:
+        media_db.unskip(owner_for(request), key)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("unskip not saved: %s", type(exc).__name__)
+        return _skip_back(f, "failed")
+    return _skip_back(f, "unskip")
+
+
 @router.post("/media/log", dependencies=[Depends(same_origin)])
 async def log_watch(request: Request):
     return await run_in_threadpool(_log_watch, request, await form_of(request))

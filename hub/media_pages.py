@@ -197,6 +197,7 @@ def media_history_page(request: Request):
             "history": history,
             "ratings": ratings,
             "to_rate": media_home._to_rate(recent, ratings),
+            "skipped": media_db.skips(ratings.owner),   # E5 (M3): the Skipped group, Unskip each
             "rating_levels": media_db.LEVELS,
             "rating_level": ratings.level,
             "numbers": " · ".join([
@@ -379,7 +380,8 @@ def _to_rate_page(request: Request, kind: str):
     def build(data, view):
         recent = (data.get("history") or {}).get("recent") or []   # the viewer's own history (view_jelly)
         rows = [{**r, "back": request.url.path} for r in media_home._to_rate(recent, media_home._ratings(view, recent)) if r["kind"] == kind]
-        return {"kind": kind, "to_rate": rows}
+        skipped = [s for s in media_db.skips(media_db.owner_of(view)) if s["kind"] == kind]   # E5 (M3)
+        return {"kind": kind, "to_rate": rows, "skipped": skipped}
     return _detail_page(request, "media_to_rate.html", JELLYFIN_SNAPSHOT_ID, build)
 
 

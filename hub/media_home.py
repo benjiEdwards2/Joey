@@ -40,8 +40,19 @@ LEVEL_KEYS = ("item_key", "show_key", "season_key", "episode_key")
 
 
 class Ratings(dict):
-    """{key: score} plus the owner's rating level, so templates can call score_for(row, ratings)."""
+    """{key: score} plus the owner's rating level, so templates can call score_for(row, ratings). E5: `owner`, so the
+    rating inbox can read that owner's skips once (`skipped`, loaded on first use)."""
     level = "show"
+    owner = None
+    _skipped = None
+
+    @property
+    def skipped(self) -> dict:
+        """{key: forever} of the owner's To rate skips (E5, M3): one media.db read per Ratings, only when an inbox is
+        built; {} without an owner."""
+        if self._skipped is None:
+            self._skipped = {r["key"]: bool(r["forever"]) for r in media_db.skips(self.owner)} if self.owner else {}
+        return self._skipped
 
 
 def _ratings(view: str, *row_lists) -> Ratings:
@@ -51,6 +62,7 @@ def _ratings(view: str, *row_lists) -> Ratings:
     out = Ratings(media_db.get_ratings((r.get(k) for rows in row_lists for r in rows or [] for k in LEVEL_KEYS),
                                        owner))
     out.level = media_db.rating_level(owner)
+    out.owner = owner
     return out
 
 
@@ -353,8 +365,10 @@ def _to_rate_title(r: dict, kind: str, level: str) -> str:
 def _to_rate(recent, ratings) -> list[dict]:
     """The rating inbox: unrated titles watched in the last TO_RATE_DAYS, one per rating key.
     TV rows follow the owner's level (ratings.level): one entry per show / season / episode
-    (a row without that level's key falls back to its show); movies are always one title."""
+    (a row without that level's key falls back to its show); movies are always one title. E5 (M3): a skipped key is
+    left out, and so is every row of a show skipped forever (Skip show)."""
     level = getattr(ratings, "level", "show")
+    skipped = getattr(ratings, "skipped", None) or {}
     cutoff = datetime.now(timezone.utc) - timedelta(days=TO_RATE_DAYS)
     seen, rows = set(), []
     for r in recent:
@@ -365,12 +379,15 @@ def _to_rate(recent, ratings) -> list[dict]:
             fresh = _parse_ts(r["watched_at"]) >= cutoff
         except Exception:
             continue
-        if not key or key in ratings or key in seen or not fresh:
+        show_key = (r.get("show_key") or r.get("item_key")) if kind == "tv" else None
+        if not key or key in ratings or key in seen or not fresh or key in skipped or skipped.get(show_key):
             continue
         seen.add(key)
         rows.append({"item_key": key, "kind": kind, "year": None, "level": row_level,
                      "title": _to_rate_title(r, kind, row_level),
-                     "poster": r.get("poster"), "when": r.get("when", ""), "jf_id": r.get("jf_id")})
+                     "poster": r.get("poster"), "when": r.get("when", ""), "jf_id": r.get("jf_id"),
+                     "show_key": show_key,
+                     "show_title": (r.get("show_title") or media_db.base_title(r["title"], kind)) if show_key else None})
     return rows
 
 

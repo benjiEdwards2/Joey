@@ -34,7 +34,7 @@
       {{ poster(s.poster, s.name, 120, "row-poster") }}
       <div class="row-body"><div class="row-title">{{ s.name }}</div>{{ meta(["Sonarr adds new seasons", ("Since " ~ s.since) if s.since else none]) }}</div>
     </a>
-    <span class="row-side"><form method="post" action="/media/follow/show/{{ s.tmdb_id }}/unfollow"><input type="hidden" name="back" value="/media/following"><button class="btn btn-ghost btn-sm" type="submit">Unfollow</button></form></span>
+    <span class="row-side"><form method="post" hx-swap="innerHTML show:none" action="/media/follow/show/{{ s.tmdb_id }}/unfollow"><input type="hidden" name="back" value="/media/following"><button class="btn btn-ghost btn-sm" type="submit">Unfollow</button></form></span>
   </div>
   {% endfor %}
   </div>

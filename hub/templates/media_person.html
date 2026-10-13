@@ -16,7 +16,7 @@
     {# Follow (2026-10-07): instant and reversible; only NEW films (top-5 billed / directed) get requested. F5
        (2026-10-12): someone with TV Creator / Director credits is followed as a TV maker (`tv`) - their new shows too. #}
     {% set base = "/media/follow/person/" ~ person.tmdb %}
-    <form class="followform" method="post" action="{{ base }}{{ '/unfollow' if person.following }}">
+    <form class="followform" method="post" hx-swap="innerHTML show:none" action="{{ base }}{{ '/unfollow' if person.following }}">
       <input type="hidden" name="back" value="/media/person/{{ person.tmdb }}"><input type="hidden" name="name" value="{{ person.name }}">{% if person.tv_maker and not person.following %}<input type="hidden" name="tv" value="1">{% endif %}
       {% if person.following %}<span class="st-good">Following ✓{{ " · films + shows" if person.follow_tv }}</span> <button class="btn btn-ghost btn-sm" type="submit">Unfollow</button>
       {% else %}<button class="btn btn-secondary btn-sm" type="submit">Follow</button>{% endif %}

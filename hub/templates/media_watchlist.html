@@ -25,7 +25,7 @@
     <span class="card-pic">{{ poster(r.poster, r.title, 300) }}</span>
     <span class="row-title">{{ r.title }}</span>
     {% if r.href %}</a>{% endif %}
-    <form method="post" action="/media/watchlist/remove">
+    <form method="post" hx-swap="innerHTML show:none" action="/media/watchlist/remove">
       <input type="hidden" name="item_key" value="{{ r.item_key }}">
       <input type="hidden" name="tmdb_id" value="{{ r.tmdb_id }}"><input type="hidden" name="kind" value="{{ r.kind }}">
       <input type="hidden" name="title" value="{{ r.title }}">

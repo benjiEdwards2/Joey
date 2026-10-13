@@ -12,7 +12,7 @@
   </div>
   {% set creators = film.makers | selectattr("id") | list if film.kind == "tv" else [] %}
   {% if creators %}{% set on = followed("person") %}
-  <div class="followform">{% for m in creators %}{% if m.id in on %}<span class="st-good">Following {{ m.name }} ✓</span>{% else %}<form method="post" action="/media/follow/person/{{ m.id }}"><input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ m.name }}"><input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">Follow {{ m.name }}</button></form>{% endif %}{% endfor %}</div>
+  <div class="followform">{% for m in creators %}{% if m.id in on %}<span class="st-good">Following {{ m.name }} ✓</span>{% else %}<form method="post" hx-swap="innerHTML show:none" action="/media/follow/person/{{ m.id }}"><input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ m.name }}"><input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">Follow {{ m.name }}</button></form>{% endif %}{% endfor %}</div>
   {% endif %}
 </div>
 {% endif %}

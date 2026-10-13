@@ -55,7 +55,9 @@
 {% set fits = sections | length <= 5 %}
 <header class="topbar">
   <div class="topbar-in">
-    <a class="brand" href="/" aria-label="Joey home"><img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
+    {# E3 (U9 option a, 2026-10-13): in Media mode a phone shows the brand as "‹ Joey" (the way out of Media) and the bar
+       stays at the top (CSS: sticky, 48 px, under 768 px only); desktop and the other pages are unchanged. #}
+    <a class="brand" href="/" aria-label="Joey home">{% if media_mode %}<span class="brand-back" aria-hidden="true">‹</span>{% endif %}<img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
     {% if media_mode %}<div class="topswap">{% endif %}
     <nav class="toplinks" aria-label="Sections">
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
@@ -77,11 +79,12 @@
 {# Media mode (B., 2026-10-07): inside Media the phone bar is the six Media sections (media_nav.py, the same active
    rule as the section tabs), six equal slots, no More. Links scroll the window to the top after the boosted swap
    (htmx 2.0.4 does show:top for boosts already; stated here so tapping Home on Media home always lands at the top).
-   The way out is the Joey brand in the top bar. #}
+   The way out is the "‹ Joey" brand in the sticky top bar (E3, U9). E3 (2026-10-13): the amber to-rate count sits on
+   the Diary icon here, because the page head's section pill row is hidden on a phone (the bar is the same six). #}
 {% set mnav = media_nav(request) %}
 <nav class="tabbar" aria-label="Media sections (phone)" hx-swap="innerHTML show:window:top">
   {% for s in mnav.sections %}
-  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ ic.icon(s.icon) }}<span>{{ s.short }}</span></a>
+  <a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ ic.icon(s.icon) }}{% if s.count %}<span class="waitcount">{{ s.count }}<span class="vh"> to rate</span></span>{% endif %}<span>{{ s.short }}</span></a>
   {% endfor %}
 </nav>
 {% else %}

@@ -55,15 +55,16 @@ def build_upcoming(events, view: str, now: datetime, days: int = UPCOMING_DAYS) 
                 if end <= start:
                     end = start + timedelta(days=1)
                 still_on = end.date() > today  # exclusive end
-                time_text = "All day"
+                time_text = start_text = "All day"
             else:
                 still_on = end > now
                 time_text = f"{start:%H:%M} – {end:%H:%M}"
+                start_text = f"{start:%H:%M}"
             if not still_on or start.date() >= window_end:
                 continue
             rows.append((max(start.date(), today),
                          start, {"title": str(ev["title"]), "time_text": time_text,
-                                 "owner": owner}))
+                                 "start_text": start_text, "owner": owner}))
         except Exception:
             continue
     rows.sort(key=lambda r: (r[0], r[1]))
@@ -93,6 +94,21 @@ def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
     return [by_day.get(today + timedelta(days=i), 0) for i in range(days)]
 
 
+NEXT_DAYS = 366   # how far ahead the hub Calendar card looks for "Next up" (the band itself shows UPCOMING_DAYS)
+
+
+def next_event(snaps, view: str) -> dict | None:
+    """The hub Calendar card's value and meta line (E3, 2026-10-13): the owner view's next event, however far ahead,
+    as {title, when: "Today · 09:00" / "Wed 8 Oct · All day"}; None when nothing is coming (the card then keeps the
+    snapshot's own summary). The title alone is the value, so a long "title · day time" never wraps at 24 px."""
+    snap = snaps.get(GCAL_SNAPSHOT_ID)
+    groups = build_upcoming((snap.data if snap else {}).get("events", []), view, datetime.now().astimezone(), NEXT_DAYS)
+    if not groups:
+        return None
+    first = groups[0]["events"][0]
+    return {"title": first["title"], "when": f'{groups[0]["label"]} · {first["start_text"]}'}
+
+
 def hub_upcoming(snaps, view: str) -> dict | None:
     """Hub "Next 7 days" card: the first visible tile reading the gcal snapshot, its area's
     page for "View all", and find_upcoming's groups (None data = not connected)."""
@@ -104,5 +120,6 @@ def hub_upcoming(snaps, view: str) -> dict | None:
             today = datetime.now().astimezone().date()  # the clock find_upcoming groups on
             return {"href": f"/a/{a.id}", "st": row["st"], "days": UPCOMING_DAYS,
                     "groups": up["groups"] if up else [],
-                    "per_day": per_day_counts(up["groups"], today) if up else None}
+                    "per_day": per_day_counts(up["groups"], today) if up else None,
+                    "next": next_event(snaps, view) if up else None}
     return None

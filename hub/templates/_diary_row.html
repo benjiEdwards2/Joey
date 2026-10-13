@@ -12,7 +12,7 @@
     <div class="row-title">{{ row.title }}{% if row.year %} ({{ row.year }}){% endif %}</div>
     {{ meta(["Film" if row.kind == "movie" else "TV", row.sub,
              (row.episodes | join(" · ")) if row.episodes and row.episodes|length <= 3 else none,
-             "↻ rewatch" if row.rewatch else none, row.watched_on,
+             "Rewatch" if row.rewatch else none, row.watched_on,
              "Jellyfin" if row.source == "jellyfin" else "Logged" ~ (" · " ~ row.place if row.place else "")]) }}
   </div>
   {% if ih %}</a>{% endif %}

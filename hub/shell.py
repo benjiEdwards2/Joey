@@ -14,6 +14,7 @@ HUB_DEV=1 (local template editing).
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import logging
 import os
 from datetime import datetime, timezone
@@ -25,9 +26,10 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
 
-from hub.identity import Identity, resolve_identity
+from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.ids import areas_path, home_now
 from hub.images import fallback_letters
+from hub.media_text import duration
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots as _read_snapshots, tile_state
 
@@ -68,6 +70,7 @@ templates.env.auto_reload = dev_mode()
 templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
+templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
 
 
 # ---- response headers (T3, 2026-10-09: H-56, N-48, N-49) ----
@@ -215,6 +218,26 @@ def identity_of(request) -> Identity:
 
 
 templates.env.globals["identity"] = identity_of
+
+
+_LAN_NETS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"))
+
+
+def from_lan(request) -> bool:
+    """Template global `from_lan(request)` (E3, U12, 2026-10-13): True when the request came from the home network — it
+    has NO Cloudflare Access header (every request through the tunnel carries one) and the client address is a home
+    (RFC 1918 / IPv6 ULA) or loopback address. A link only the LAN can open (`server.is_lan`) is hidden from everyone else: off the home network it is
+    a dead link."""
+    if request is None or request.headers.get(IDENTITY_HEADER):
+        return False
+    try:
+        ip = ipaddress.ip_address(request.client.host if request.client else "")
+    except ValueError:
+        return False
+    return ip.is_loopback or any(ip in net for net in _LAN_NETS)
+
+
+templates.env.globals["from_lan"] = from_lan
 
 OWNER_VIEWS = ("both", "you", "her")
 OWNER_COOKIE = "owner_view"

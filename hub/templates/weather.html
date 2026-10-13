@@ -14,12 +14,13 @@
 {% set fc = fc or none %}
 <div class="wxapp">
 <section class="sec wxpage">
-  <div class="sechead"><h2 class="seclabel">Today<span class="sep"> · </span>{{ weather_place() }}</h2></div>
+  {# E3 (U10, 2026-10-13): the place is in the page head's sub-line only, not repeated in the section labels. #}
+  <div class="sechead"><h2 class="seclabel">Today</h2></div>
   {% if not w or w.st.state == "off" %}
     <div class="panel"><p class="stat-word st-off">Not connected</p>{% if w and w.st.note %}<p class="row-meta">{{ w.st.note }}</p>{% endif %}</div>
   {% else %}
     {% set d = w.data %}
-    <div class="stats">
+    <div class="stats wxstats">
       <div class="stat">
         <div class="microlabel">Now</div>
         <div class="wxnow"><div class="glyph">{{ ic.icon(w.glyph) }}</div><div class="stat-number">{{ (d.get("now_c") ~ " °C") if d.get("now_c") is not none else "—" }}</div></div>
@@ -34,7 +35,7 @@
       {% if fc and (fc.sunrise or fc.sunset) %}<div class="stat"><div class="microlabel">Sunrise · sunset</div><div class="stat-word">{{ fc.sunrise or "—" }} · {{ fc.sunset or "—" }}</div></div>{% endif %}
     </div>
   {% endif %}
-  {% if w %}<p class="metaline">Open-Meteo<span class="sep"> · </span>{{ w.tile.owner.value | title }}{% if w.st.state != "off" and (w.st.state == "stale" or w.st.age_text) %}<span class="sep"> · </span>{{ updated(w.st) }}{% endif %}</p>{% endif %}
+  {% if w %}<p class="metaline">Open-Meteo{% if w.tile.owner.value != "shared" %}<span class="sep"> · </span>{{ w.tile.owner.value | title }}{% endif %}{% if w.st.state != "off" and (w.st.state == "stale" or w.st.age_text) %}<span class="sep"> · </span>{{ updated(w.st) }}{% endif %}</p>{% endif %}
 </section>
 
 {% if fc and fc.chart %}{% set c = fc.chart %}
@@ -74,7 +75,7 @@
    be detected reliably, so a static note says what a blank map means. The parked BOM radar was removed 2026-10-09
    (decision 5). #}
 <section class="sec wxradar">
-  <div class="sechead"><h2 class="seclabel">Rain radar<span class="sep"> · </span>{{ weather_place() }}</h2></div>
+  <div class="sechead"><h2 class="seclabel">Rain radar</h2></div>
   <div class="panel">
     <iframe class="wxwindy" src="{{ windy_src }}" title="Interactive rain radar map around {{ weather_place() }}, from windy.com" loading="lazy"></iframe>
     <p class="metaline">Interactive radar · windy.com · needs internet</p>

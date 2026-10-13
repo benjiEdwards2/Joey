@@ -12,11 +12,13 @@
 <p class="metaline">{{ head_line }}</p>
 {% if left %}<p class="metaline">{{ left }} watched title{{ "s" if left != 1 }} left the list</p>{% endif %}
 {% if rows %}
-<form class="toolbar" method="get">
+{# E3 (U14, 2026-10-13): the sort applies on change (htmx GET of the same URL, scroll kept, URL pushed); Apply is no-JS only. #}
+<form class="toolbar" method="get" hx-get="{{ request.url.path }}" hx-target="body" hx-swap="innerHTML show:none" hx-push-url="true"
+      hx-trigger="submit, change">
   <select class="select" name="sort" aria-label="Sort by">
     {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
-  <button type="submit" class="btn btn-secondary">Apply</button>
+  <noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>
 </form>
 <div class="poster-grid">
   {% for r in rows %}

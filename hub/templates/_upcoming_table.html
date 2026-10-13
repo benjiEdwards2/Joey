@@ -1,6 +1,7 @@
 {# "Next 7 days" (hub + Calendar; restyle Phase 4, 2026-10-06): build_upcoming's groups as .row rows. From 640 px each
    row is a grid (When · Event · Owner) under uppercase column heads; on a phone the same markup stacks: title and
-   owner, then "Today · 10:00" as the meta line — never a sideways scroll. The owner is a WORD (You / Her / Shared).
+   owner, then "Today · 10:00" as the meta line — never a sideways scroll. The owner is a WORD (You / Her); a shared
+   event leaves the cell empty (E3, 2026-10-13).
    Expects: upcoming. #}
 {% from "_rows.html" import updated %}
 <section class="sec upcoming" aria-label="Next {{ upcoming.days }} days">
@@ -20,7 +21,7 @@
     <div class="row upc">
       <span class="upc-when"><span class="upc-day">{{ g.label }}</span><span class="sep"> · </span>{{ e.time_text }}</span>
       <div class="row-body"><div class="row-title">{{ e.title }}</div></div>
-      <span class="row-side">{{ e.owner | title }}</span>
+      <span class="row-side">{% if e.owner != "shared" %}{{ e.owner | title }}{% endif %}</span>
     </div>
     {% endfor %}{% endfor %}
   </div>

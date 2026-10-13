@@ -86,4 +86,8 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
                 for (label, h), sc in zip(section["tabs"], scores)]
         if section.get("tabs_only_on") and not top:
             tabs = []
-    return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href}
+    # E3 (U4, 2026-10-13): the page names itself — the active tab's label ("My films", "Diary", "Requests"), else the
+    # section's ("Discover" on a person page, which draws its own H1 instead); None outside every section.
+    on = next((t for t in tabs if t["on"]), None)
+    title = on["label"] if on else (section["label"] if section else None)
+    return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href, "title": title}

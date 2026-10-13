@@ -244,10 +244,10 @@ def test_hub_greeting_follows_the_home_clock(main, monkeypatch, hour, minute, pa
     monkeypatch.setattr(main.shell, "_now_home", lambda: datetime(2026, 10, 6, hour, minute, tzinfo=MEL))
     with TestClient(main.app) as c:
         body = htmlmod.unescape(c.get("/").text.split("<main", 1)[1])
-    assert "<h1>Hub</h1>" in body
-    # no Access header in tests = not signed in, so no name (2026-10-06; named form in test_identity.py)
-    assert (f'<p class="pagehead-sub">Good {part}. Here\'s what\'s happening at home today, Tuesday 6 October.'
-            " · Feeds ") in body
+    # E3 (U3, 2026-10-13): the greeting is the H1 (no full stop: a short phrase), the date the sub-line. No Access
+    # header in tests = not signed in, so no name (named form in test_identity.py).
+    assert f"<h1>Good {part}</h1>" in body and "<h1>Hub</h1>" not in body
+    assert '<p class="pagehead-sub">Tue 6 Oct' in body
 
 
 def test_home_clock_is_melbourne(main):

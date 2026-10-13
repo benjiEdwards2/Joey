@@ -81,7 +81,11 @@ def test_real_registry_media_leads_the_hub():
 ])
 def test_hub_card_renders_hero_with_deep_link(env, data, kind, title, jf):
     html = hub_main(env(jellyfin=data))
-    assert f'<div class="row-meta">{kind}' in html and f'>{title}</div>' in html
+    # E3 (2026-10-13): while playing, the meta line opens with the snapshot's "1 playing now" — the hero's own
+    # "Playing now" is not said twice
+    meta = "1 playing now" if kind == "Playing now" else kind
+    assert f'<div class="row-meta">{meta}' in html and f'>{title}</div>' in html
+    assert '<div class="row-meta">Playing now' not in html
     assert "/img/jf:" in html or "/img/none" in html
     assert f'href="{deep(jf).replace("&", "&amp;")}" target="_blank" rel="noopener">Jump back in ↗' in html
     assert 'href="/a/alpha"' in html
@@ -89,7 +93,7 @@ def test_hub_card_renders_hero_with_deep_link(env, data, kind, title, jf):
 
 def test_hub_card_has_no_jump_link_without_an_id(env):
     html = hub_main(env(jellyfin=JELLY))  # rows carry no jf_id
-    assert '<div class="row-meta">Playing now' in html and "Jump back in ↗" not in html
+    assert '<div class="row-meta">1 playing now' in html and "Jump back in ↗" not in html   # E3: no "Playing now ·" first
 
 
 def test_deep_link_omits_server_id_when_unknown(env):

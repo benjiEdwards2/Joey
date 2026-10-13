@@ -57,7 +57,8 @@
 {% endmacro %}
 {% macro rated(r, score) %}
 <form class="rated" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
-  <span class="stat-number {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</span><span class="microlabel">Rated {{ score }} out of 10</span>
+  {# E3 (U27, 2026-10-13): the number once — "8 · RATED", not "8 RATED 8 OUT OF 10" (the title keeps the full words) #}
+  <span class="stat-number {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</span><span class="microlabel">Rated</span>
   <button type="submit" class="btn btn-ghost btn-sm undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .rated" hx-swap="outerHTML">Undo</button>
 </form>
 {% endmacro %}

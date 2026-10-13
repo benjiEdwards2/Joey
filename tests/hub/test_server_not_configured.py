@@ -94,8 +94,9 @@ def test_page_and_hub_card_stay_clear_and_sweeps_say_not_configured(env, tmp_pat
     with client:
         body = main_of(client.get("/server").text)
         card = main_of(client.get("/").text).split('href="/a/server"', 1)[1].split("</a>", 1)[0]
-    att = body.split('id="attention"', 1)[1].split('id="sweeps"', 1)[0]
-    assert "All clear" in att and "home_assistant" not in att and "jellyseerr" not in att
+    # E3 (U12, 2026-10-13): nothing to attend to = no Attention band; "All clear" is the sub-line, said once
+    assert 'id="attention"' not in body and body.count("All clear") == 1
+    assert '<p class="pagehead-sub">All clear</p>' in body
     sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
     assert ">home_assistant</div>" in sweeps and ">jellyseerr</div>" in sweeps
     assert txt(sweeps).count("Not configured") == 3 and "Failing" not in sweeps

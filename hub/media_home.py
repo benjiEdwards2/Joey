@@ -173,6 +173,7 @@ def media_frame(request: Request) -> dict:
 
 
 shell.templates.env.globals["media_nav"] = media_frame
+shell.templates.env.globals["shelf_max"] = SHELF_MAX   # E3 (U17, 2026-10-13): a full shelf's count is a cap, not a total
 shell.templates.env.globals["item_href"] = item_href
 shell.templates.env.globals["row_href"] = row_href
 shell.templates.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)

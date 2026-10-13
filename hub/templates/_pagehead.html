@@ -2,16 +2,19 @@
    with `backdrop` (an /img/ name) a darkened picture, else a faint indigo glow. Optional eyebrow, the title,
    one sub-line of facts joined by " · " (guide §9), actions as .btn-glass ({href, label, new_tab}).
    Called with {% call %}, the caller's markup (section tabs) sits at the top of the band. `drift` (Phase 3, Media
-   home) lets the backdrop drift slowly (guide 7, .hero-drift; off under reduced motion). #}
+   home) lets the backdrop drift slowly (guide 7, .hero-drift; off under reduced motion). E3 (U4, 2026-10-13): no eyebrow
+   when it says the same as the title; a page that draws its own H1 (the person page) passes title=none and gets the band
+   with its tabs only. Without a backdrop the CSS makes it a plain 24 px page title with no minimum height. #}
 {% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false) -%}
 <header class="pagehead">
   {% if backdrop %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280'){% if not backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {% if caller %}{{ caller() }}{% endif %}
+    {% if title or sub or actions %}
     <div class="pagehead-foot">
       <div class="pagehead-text">
-        {% if eyebrow %}<span class="eyebrow">{{ eyebrow }}</span>{% endif %}
-        <h1>{{ title }}</h1>
+        {% if eyebrow and eyebrow != title %}<span class="eyebrow">{{ eyebrow }}</span>{% endif %}
+        {% if title %}<h1>{{ title }}</h1>{% endif %}
         {% if sub %}<p class="pagehead-sub">{{ sub }}</p>{% endif %}
       </div>
       {% if actions %}
@@ -20,6 +23,7 @@
       </div>
       {% endif %}
     </div>
+    {% endif %}
   </div>
 </header>
 {%- endmacro %}

@@ -15,7 +15,7 @@
     <input type="hidden" name="kind" value="{{ s.ask }}"><input type="hidden" name="back" value="{{ s.back }}">
     <div>{{ s.ask_text }}</div>
     <div class="metaline">{{ s.apps | join(" · ") }}</div>
-    {% if s.since is not none %}<div class="metaline st-warn">Started {{ s.since }} min ago · run again?</div>{% endif %}
+    {% if s.since is not none %}<div class="metaline st-warn">Started {{ duration(s.since) ~ " ago" if s.since >= 1 else "just now" }} · run again?</div>{% endif %}
     <div class="confirm-btns">
       <button class="btn btn-primary btn-sm" type="submit">{{ s.labels[s.ask] }}</button>
       <a class="btn btn-ghost btn-sm" href="{{ s.back }}" hx-get="/media/arr/sweep?step=idle&amp;back={{ s.back | urlencode }}" hx-target="#arr-sweep" hx-swap="outerHTML">Cancel</a>

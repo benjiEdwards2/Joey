@@ -355,7 +355,7 @@ def test_to_rate_rows_use_the_movies_list_poster(rate_env):
     build, _ = rate_env
     with build() as client:
         hist = main_of(client.get("/media/history").text)
-    inbox = hist.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]
+    inbox = hist.split(">To Rate</h2>", 1)[1].split("</section>", 1)[0]
     assert '<div class="listbox libposters">' in inbox
     assert posters(inbox) and set(posters(inbox)) == {"240"}
 
@@ -423,8 +423,9 @@ def cards(b):
 
 
 def seg(b):
+    """E3 (U14, 2026-10-13): the switch is ONE icon link to the other layout: [(href, "grid" | "list")]."""
     nav = b.split('<nav class="seg" aria-label="Layout">', 1)[1].split("</nav>", 1)[0]
-    return re.findall(r'<a href="([^"]+)"( aria-current="true")?><svg class="ic"[^>]*>.*?</svg>(\w+)</a>', nav, re.S)
+    return re.findall(r'<a href="([^"]+)" aria-label="Show as (\w+)" title="Show as \2"><svg class="ic"[^>]*>.*?</svg></a>', nav, re.S)
 
 
 def test_grid_is_the_default_with_shelf_sized_cards_and_state_words(env):
@@ -466,10 +467,7 @@ def test_switch_links_keep_search_sort_and_grouping(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         _, b = body(c, "/media/movies?q=film&sort=title&group=0")
-    links = seg(b)
-    assert [(label, bool(cur)) for _, cur, label in links] == [("Grid", True), ("List", False)]
-    assert links[0][0] == "/media/movies?q=film&amp;sort=title&amp;group=0&amp;view=grid"
-    assert links[1][0] == "/media/movies?q=film&amp;sort=title&amp;group=0&amp;view=list"
+    assert seg(b) == [("/media/movies?q=film&amp;sort=title&amp;group=0&amp;view=list", "list")]   # on Grid: go to List
     assert [t for _, _, t, _ in cards(b)] == ["Alpha Film", "Bravo Film", "Charlie Film", "Delta Film"]   # sorted A-Z
 
 
@@ -483,7 +481,7 @@ def test_list_choice_is_remembered_in_a_cookie_and_drawn_server_side(env):
         after = c.get("/media/movies").text.split("<main", 1)[1]
     assert f"{COOKIE}=list" in cookie and "Path=/media" in cookie and "Max-Age=31536000" in cookie and "SameSite=lax" in cookie
     lst = r.text.split("<main", 1)[1]
-    assert "listbox libposters" in lst and not grids(lst) and [cur for _, cur, _ in seg(lst)] == ["", ' aria-current="true"']
+    assert "listbox libposters" in lst and not grids(lst) and seg(lst) == [("/media/movies?view=grid", "grid")]
     assert "listbox libposters" in again and not grids(again)
     assert f"{COOKIE}=grid" in back.headers.get("set-cookie", "") and grids(after)
 
@@ -541,7 +539,7 @@ def test_grid_css_matches_the_shelf_card_size_and_the_switch_is_a_segmented_cont
     assert ".poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 20px 12px; }" in CSS
     assert "@media (min-width: 640px) { .poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); } }" in CSS
     assert ".carousel > * { flex: 0 0 104px; width: 104px;" in CSS and "flex-basis: 144px; width: 144px;" in CSS
-    assert ".seg a[aria-current] { background: var(--pill-on); color: var(--text-1); }" in CSS
+    assert ".seg { display: inline-flex;" in CSS and ".seg a[aria-current]" not in CSS   # E3: one link, no current state
 
 
 def test_tv_shows_list_counts_match_both_views(env):

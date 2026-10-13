@@ -240,7 +240,7 @@ def test_a_repeat_within_ten_minutes_says_so_and_still_runs(env, monkeypatch):
         sweep(client, "missing")
         now[0] += 4 * 60 + 30
         html = client.get("/media/arr/sweep?step=confirm&kind=missing", headers=HX).text
-        assert "Started 4 min ago · run again?" in html
+        assert "Started 4m ago · run again?" in html   # E3 (U27): the guide's "2h 47m" lengths
         other = client.get("/media/arr/sweep?step=confirm&kind=upgrades", headers=HX).text
         assert "Started" not in other                                       # per kind
         assert sweep(client, "missing").headers["location"].startswith("/media/downloads?sweep=started")

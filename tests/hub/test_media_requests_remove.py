@@ -144,7 +144,7 @@ def test_remove_film_deletes_request_unmonitors_radarr_and_drops_the_row(env):
     assert puts[0][3]["monitored"] is False and puts[0][3]["path"] == "/movies/Midnight Harbour (2025)"  # own resource
     assert "Removed · Radarr stopped searching" in page
     assert "Midnight Harbour" not in page and "Night Ferry" in page    # gone at once, the rest stay
-    assert "0 pending · 2 approved · 1 available · 1 declined" in page  # the count drops with it
+    assert "2 approved · 1 available · 1 declined" in page and "0 pending" not in page  # the count drops with it (E3: zeros left off)
 
 
 def test_remove_tv_unmonitors_sonarr_series_by_tvdb(env):

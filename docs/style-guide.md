@@ -12,6 +12,13 @@ toast/textarea/live-dot recipes not carried (2026-10-09).
 10 px (`.fmt small` was 7.5 px); under 768 px the rating chips are 40 px, `.btn-mini` / section "All" links get a ~40 px hit
 area and `.seg` / `.sectabs` links are 36 px; every boosted request shows a 2 px `--primary` load bar (`#loadbar`) after
 150 ms; section labels are `h2.seclabel` headings.
+2026-10-09 (B., awards-year): the tab label "To Rate" is Title Case on Movies, TV Shows and Diary, and since E3
+(2026-10-13) so is the Diary section label under that tab; every other label and body copy stays sentence case.
+2026-10-13 (first screens, WP E3): in Media mode on a phone (< 768 px) the page head's section pill row is hidden (the
+bottom tab bar already holds the same six sections) and the amber to-rate count sits on the bar's Diary icon; the phone
+top bar is sticky at 48 px there and the brand reads "‹ Joey"; the Movies / TV Grid / List switch is one icon link to the
+other layout; the weather page's Today strip is 2 columns under 640 px (the guide's strip is 3); the owner word on
+tiles and rows is shown only for You / Her (no "Shared"). The plain-page 24 px / 600 title is the guide's own value.
 
 # MediaHub style guide
 

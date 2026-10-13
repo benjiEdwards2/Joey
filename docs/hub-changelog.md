@@ -781,3 +781,41 @@ or failed; Joey now degrades instead of waiting.
   (the Jellyfin fake's episodes name their season, as Jellyfin's do); the warm-up counts include the h=600 backdrop; one
   speed test drains the F2 background read before counting. `tests/hub/conftest.py` routes `upstream.session` back
   through the `requests` module so every fake still sees every call.
+
+## 2026-10-13 — First screens (WP E3; EVALUATION_2026-10-12 §4.2 / §4.4, review_ui.md U3, U4, U9 a, U10, U12, U14, U17, U27)
+B. approved the items on 2026-10-13. **Hub (U3)** the H1 is the greeting (`main.hub_greeting`: "Good evening, Benji", no
+full stop; no name when not signed in), the sub-line the date ("Tue 13 Oct") plus feed problems only when there are any
+("Feeds 8/10 live" while a feed is down, "<Area> stale" per stale feed; nothing when all are live). The calendar feed's
+card and the Weather tile carry `.dup` and are hidden under 640 px (they repeat the band, which now follows the Media /
+Server tiles on a phone). The calendar card's value is the next event's title and its meta "Next up · Today · 09:00"
+(`upcoming.next_event`, any distance ahead; the 7-day band and its per-day bars are unchanged; events gained
+`start_text`). The Media card no longer says "Playing now" before the snapshot's "2 playing now". The owner word is shown
+only for You / Her: no "Shared" on tiles, Next 7 days rows, the Media detail foot or the weather source line.
+**Media heads (U4)** `media_nav` returns `title` (the active tab's label, else the section's) and `media_base.html` uses it
+as the H1 ("My films", "Diary", "Requests", "Awards"…; Live too); the person page draws its own H1 (the name, was an h2)
+under a tabs-only band (`pagehead(none)` renders no H1 / foot); Awards lost its second "Awards" title (and `.awtitle`); an
+eyebrow equal to the title is dropped. A page head with no backdrop is a plain page: `min-height: 0` and a 24 px / 600
+title at every width (`.pagehead:not(.hero-detail, :has(> .pagehead-bd))`); the backdrop variant keeps 30 / 48 px.
+**Phone chrome** in Media mode under 768 px the section pill row is hidden (the sub-tab row stays) and the to-rate count
+is a `.waitcount` on the tab bar's Diary icon; **U9 (a)** the brand reads "‹ Joey" (`.brand-back`, Media pages only) and
+the top bar is sticky at 48 px (`.topbar:has(.topswap)` — `.topswap` exists only in Media mode, so the header markup is
+unchanged). Desktop is unchanged. **Weather (U10)** the Today strip (`.wxstats`) keeps every value on one line and is 2
+columns under 640 px (not only under 400: at 3 columns the "Now" stat — glyph + "18.3 °C" — still needs more than a
+third of a 430 px screen); "Today" and "Rain radar" no longer repeat the place (the page head's sub-line has it).
+**Toolbars (U14)** the Movies / TV toolbar and the Watchlist sort apply themselves: `hx-get` the same path,
+`hx-target="body"`, `hx-swap="innerHTML show:none"`, `hx-push-url="true"`, triggers `submit, change, search, keyup changed
+delay:400ms from:find input[type=search]` (Watchlist: `submit, change`); the search box has `id="libq"` so htmx keeps its
+focus across the swap; Apply is inside `<noscript>`. Grid / List is one icon link to the other layout ("Show as list");
+the form never sends `view`, so the `media_libview` cookie keeps the choice (`media_pages.library_view` unchanged).
+**Server (U12)** Attention renders first, under the page head, and only when non-empty ("All clear" is the sub-line, once);
+Sweeps · 24 h is its own section after Updates; the tile row (`.srvtiles`) is hidden under 640 px; a row's Update now is
+`btn-secondary` ("Update all" is the page's one primary). LAN-only links (`server.is_lan`: the Portainer tile and the
+Services cards that say "LAN") are drawn only when `shell.from_lan(request)` — no Cloudflare Access header and an RFC 1918
+/ IPv6 ULA / loopback client address (the tunnel always sends the header). **Copy (U27)** a `duration` Jinja global
+(`media_text.duration`): "Started 4m ago · run again?"; uptime "12d 4h" / "5h 20m" / "40m" (`server.uptime_text`);
+"Rewatch" (was "↻ rewatch"); "Last OK 3h ago"; "Update and restart media stack" (button and confirm page; was "Restart +
+update"); the rated line shows the number once with a "Rated" label (the title keeps "Your rating: 8 out of 10"); Requests
+counts leave out zero parts (template-side); the Diary › To Rate section label is Title Case like its tab (style guide
+deviation line). **U17** `shelf_max` (= `media_home.SHELF_MAX`) is a Jinja global and the hub / Media home shelves compare
+against it. Not done here (Python outside this WP): "N h this month" on Diary › To Rate (`media_pages.py`). Tests:
+`tests/hub/test_first_screens_e3.py`.

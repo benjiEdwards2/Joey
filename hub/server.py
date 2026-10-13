@@ -84,7 +84,7 @@ def is_lan(href) -> bool:
 
 
 def uptime_text(seconds) -> str:
-    """'12 days 4 h' / '5 h 20 min' / '40 min'."""
+    """'12d 4h' / '5h 20m' / '40m' (E3, 2026-10-13: the guide's '2h 47m' lengths; was '5 h 20 min')."""
     try:
         seconds = max(0, int(seconds))
     except (TypeError, ValueError):
@@ -92,8 +92,8 @@ def uptime_text(seconds) -> str:
     days, rest = divmod(seconds, 86400)
     hours, minutes = rest // 3600, (rest % 3600) // 60
     if days:
-        return f"{days} day{'' if days == 1 else 's'} {hours} h"
-    return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+        return f"{days}d {hours}h"
+    return f"{hours}h {minutes}m" if hours else f"{minutes}m"
 
 
 def _num(v) -> float | None:

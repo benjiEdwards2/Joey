@@ -47,7 +47,7 @@ def test_glimpse_renders_on_hub_and_links_to_detail(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=WX_DATA)
     with build(snaps) as client:
         html = client.get("/").text
-        assert '<a class="panel tile" href="/weather"' in html
+        assert '<a class="panel tile dup" href="/weather"' in html   # E3: .dup — it repeats the glimpse (phone hides it)
         assert "9.7 °C · partly cloudy" in html and "8–15 °C · 20% rain" in html
         assert '<div class="glyph">' in html          # the requested small image
         assert "12m ago" in html                       # fresh, faint timestamp
@@ -181,7 +181,7 @@ def test_glimpse_is_unchanged_by_the_forecast_fields(app_factory):
     write_envelope(snaps, "open_meteo", age_minutes=12, data=SAMPLE_WX)
     with build(snaps) as client:
         html = client.get("/").text
-        assert '<a class="panel tile" href="/weather"' in html
+        assert '<a class="panel tile dup" href="/weather"' in html   # E3: .dup
         assert "18.3 °C · light rain" in html and "12.7–24.1 °C · 55% rain" in html
         assert '<svg class="wxchart"' not in html and 'wxdays' not in html
 
@@ -207,7 +207,9 @@ def test_place_name_comes_from_weather_place(app_factory, monkeypatch):
         monkeypatch.setenv("WEATHER_PLACE", "Castlemaine VIC")
         hub, page = client.get("/").text, client.get("/weather").text
     assert "Newport VIC" not in hub + page
-    assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 4
+    # E3 (U10, 2026-10-13): the "Today" and "Rain radar" labels no longer repeat the place (4 -> 2: the page head's
+    # sub-line and the Windy caption)
+    assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 2
 
 
 # ---- Windy radar embed (RADAR SUPERSESSION, 2026-10-07; moved from test_weather_radar.py 2026-10-09 when the

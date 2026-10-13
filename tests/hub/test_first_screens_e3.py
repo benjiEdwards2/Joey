@@ -259,3 +259,73 @@ def test_libview_cookie_route_still_sets_the_choice(sample_client):
         assert "media_libview=list" in r.headers.get("set-cookie", "")
         again = c.get("/media/movies?sort=title").text                                    # what the toolbar sends
     assert "listbox libposters" in again and 'aria-label="Show as grid"' in again
+
+
+# 6. Server page (U12) ----------------------------------------------------------------------------------------------
+
+from tests.hub.test_server import env as server_env  # noqa: E402,F401  (the Server page env; fixture named `env` there)
+
+
+def server_page(tmp_path, monkeypatch, lan, headers=None):
+    """The real registry on the sample snapshots, /server asked from a LAN or an outside address."""
+    import importlib
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from tests.hub.helpers import write_envelope
+    from tests.hub.test_server import SAMPLES
+    monkeypatch.delenv("AREAS_PATH", raising=False)
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    snaps = tmp_path / "snaps"
+    monkeypatch.setenv("SNAPSHOT_DIR", str(snaps))
+    for p in SAMPLES.glob("*.json"):
+        if not p.stem.startswith("_"):
+            write_envelope(snaps, p.stem, age_minutes=1, data=json.loads(p.read_text(encoding="utf-8"))["data"])
+    import hub.main
+    importlib.reload(hub.main)
+    with TestClient(hub.main.app, client=("192.168.68.20" if lan else "203.0.113.9", 50000)) as c:
+        return c.get("/server", headers=headers or {}).text.split("<main", 1)[1]
+
+
+def test_attention_leads_the_server_page(tmp_path, monkeypatch):
+    body = server_page(tmp_path, monkeypatch, lan=True)
+    assert "Prowlarr is Down (timeout)" in body
+    assert body.index("</header>") < body.index('id="attention"') < body.index('class="tiles areatiles srvtiles"') \
+        < body.index('id="system"')
+    assert "@media (max-width: 639px) { .srvtiles { display: none; } }" in rules()
+
+
+def test_update_now_is_secondary_and_update_all_the_one_primary(tmp_path, monkeypatch):
+    body = server_page(tmp_path, monkeypatch, lan=True)
+    assert body.count("btn-primary") == 1 and ">Update all</a>" in body
+    assert 'class="btn btn-secondary btn-sm" href="/server/updates/vaultwarden/run?step=confirm">Update now' in body
+
+
+def test_lan_only_links_show_on_the_lan_only(tmp_path, monkeypatch):
+    on = server_page(tmp_path, monkeypatch, lan=True)
+    off = server_page(tmp_path, monkeypatch, lan=False)
+    tunnel = server_page(tmp_path, monkeypatch, lan=True, headers={"Cf-Access-Authenticated-User-Email": "a@b.c"})
+    assert '<div class="microlabel">Portainer</div>' in on and "svc-sub\">Media server · LAN<" in on
+    for page in (off, tunnel):                                   # outside, or through the tunnel from a LAN-ish hop
+        assert '<div class="microlabel">Portainer</div>' not in page and "· LAN<" not in page
+        cards = re.findall(r'<(?:a|div) class="svc-card.*?</(?:a|div)>\s*(?=<(?:a|div) class="svc-card|</div>)', on, re.S)
+        gated = [c for c in cards if "· LAN<" not in c and ">LAN<" not in c]
+        assert page.count('class="svc-card') == len(gated)        # cards with a gated hostname (or none) still show
+    assert "192.168." not in tpl("server.html") and "10." not in re.sub(r"\d+\.\d+\.\d+", "", tpl("server.html"))
+
+
+def test_from_lan_helper():
+    from types import SimpleNamespace
+
+    from hub import shell
+    req = lambda host, hdr=None: SimpleNamespace(client=SimpleNamespace(host=host) if host else None,  # noqa: E731
+                                                 headers=hdr or {})
+    assert shell.from_lan(req("192.168.68.20")) and shell.from_lan(req("10.0.0.4")) and shell.from_lan(req("172.20.0.3"))
+    assert shell.from_lan(req("127.0.0.1"))
+    assert not shell.from_lan(req("203.0.113.9")) and not shell.from_lan(req("1.1.1.1"))
+    assert not shell.from_lan(req("testclient")) and not shell.from_lan(req(None))
+    assert shell.from_lan(req("fd12::1")) and not shell.from_lan(req("2606:4700::1111"))
+    assert not shell.from_lan(req("172.20.0.3", {"Cf-Access-Authenticated-User-Email": "a@b.c"}))   # via the tunnel
+    assert not shell.from_lan(None)
+    assert shell.templates.env.globals["from_lan"] is shell.from_lan

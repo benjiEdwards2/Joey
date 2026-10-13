@@ -13,6 +13,7 @@ from hub.registry import load_registry
 from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_history, write_registry
 
 SAMPLES = Path(__file__).resolve().parents[2] / "config" / "sample_snapshots"
+LAN_CLIENT = "192.168.68.20"
 
 
 @pytest.fixture()
@@ -22,7 +23,7 @@ def env(tmp_path, monkeypatch):
     snaps.mkdir()
     monkeypatch.setenv("SNAPSHOT_DIR", str(snaps))
 
-    def build(samples=True, **data):
+    def build(samples=True, lan=True, **data):
         if samples:
             for p in SAMPLES.glob("*.json"):
                 if not p.stem.startswith("_"):
@@ -32,7 +33,8 @@ def env(tmp_path, monkeypatch):
             write_envelope(snaps, cid, age_minutes=1, data=d)
         import hub.main
         importlib.reload(hub.main)
-        return TestClient(hub.main.app)
+        # E3 (U12, 2026-10-13): from a LAN address, so LAN-only links show (shell.from_lan); `lan=False` = off the LAN
+        return TestClient(hub.main.app, client=(LAN_CLIENT if lan else "testclient", 50000))
     return build
 
 
@@ -96,8 +98,9 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
     assert '<div class="tile-value stat-word">LAN' in portainer
     # band order, top to bottom
-    marks = [body.index(m) for m in
-             ('id="system"', 'id="services"', 'id="updates"', 'id="attention"', 'id="counts"')]
+    marks = [body.index(m) for m in   # E3 (U12, 2026-10-13): Attention first, right under the page head
+             ('class="pagehead"', 'id="attention"', 'aria-label="Server tiles"', 'id="system"', 'id="services"',
+              'id="updates"', 'id="counts"')]
     assert marks == sorted(marks)
 
 

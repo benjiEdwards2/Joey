@@ -23,14 +23,15 @@ def site(tmp_path, monkeypatch):
     snaps = tmp_path / "snaps"
     monkeypatch.setenv("SNAPSHOT_DIR", str(snaps))
 
-    def get(route, drop=()):
+    def get(route, drop=(), lan=False):
         data = {**SAMPLE_DATA, "gcal": {**SAMPLE_DATA["gcal"], "events": EVENTS}}
         for cid, d in data.items():
             if cid not in drop:
                 write_envelope(snaps, cid, age_minutes=1, data=d)
         import hub.main
         importlib.reload(hub.main)
-        with TestClient(hub.main.app) as client:
+        # E3 (2026-10-13): `lan=True` asks from a LAN address, so LAN-only Server links show (shell.from_lan)
+        with TestClient(hub.main.app, client=("192.168.68.20" if lan else "testclient", 50000)) as client:
             html = client.get(f"{route}?owner_view=both").text
         return hub.main, html.split("<main", 1)[1].split("</main>", 1)[0]
 
@@ -44,8 +45,8 @@ def non_media(main):
 def test_each_area_renders_one_kpi_card_per_tile(site):
     main, _ = site("/")
     for a in non_media(main):
-        _, body = site(f"/a/{a.id}")
-        k = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
+        _, body = site(f"/a/{a.id}", lan=True)   # E3: on the LAN, so the Server page's LAN-only tile shows too
+        k = re.search(r'<section class="tiles areatiles[^"]*".*?</section>', body, re.S).group(0)   # E3: + srvtiles
         # weather renders on the hub and /weather only (2026-10-08) — never as an area tile
         shown = [t for t in a.tiles if t.snapshot != "open_meteo"]
         assert k.count('panel tile') == len(shown), a.id

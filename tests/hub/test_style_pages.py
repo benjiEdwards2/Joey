@@ -1,7 +1,8 @@
 """MediaHub restyle, Phase 4 of 4 (2026-10-06): Hub, area/Calendar, Server and Weather on the Media recipes.
 (a) the superseded classes are gone from the templates and the stylesheet, (b) no per-area --accent anywhere,
 (c) the four pages render stats strips / panels / rows with no literal colours, (d) the guide's "2h 47m" runtime,
-(e) the Server Update now / Ignore forms still render as .btn-primary / .btn-ghost, (f) no sideways-scroll traps."""
+(e) the Server Update now / Ignore forms render as .btn-secondary (E3, 2026-10-13; was .btn-primary) / .btn-ghost,
+(f) no sideways-scroll traps."""
 import re
 from pathlib import Path
 
@@ -71,7 +72,7 @@ def test_the_four_pages_render_on_recipes_without_accent_or_literal_colours(site
 
 
 def test_server_bands_use_the_stats_strip_and_status_words(site):  # noqa: F811
-    _, body = site("/server")
+    _, body = site("/server", lan=True)   # E3: the down card (Prowlarr) is a LAN-only link
     assert body.count('class="stats"') == 1 and 'class="bar"' in body
     # 2026-10-12: the Monitors band (plain st-down / st-up words, tinted rows) is gone; the Services cards carry them
     dot = '<span class="svc-dot" aria-hidden="true"></span>'
@@ -96,7 +97,10 @@ def test_server_update_and_ignore_forms_render_as_primary_and_ghost_buttons(env)
     with env() as client:
         page = client.get("/server").text.split("<main", 1)[1]
         confirm = client.get("/server/updates/vaultwarden/run?step=confirm").text.split("<main", 1)[1]
-    assert re.search(r'<a class="btn btn-primary btn-sm" href="/server/updates/vaultwarden/run\?step=confirm">Update now</a>', page)
+    # E3 (U12, 2026-10-13): a row's Update now is secondary; "Update all" is the page's one primary
+    assert re.search(r'<a class="btn btn-secondary btn-sm" href="/server/updates/vaultwarden/run\?step=confirm">Update now</a>', page)
+    assert '<a class="btn btn-primary btn-sm" href="/server/updates/all/run?step=confirm">Update all</a>' in page
+    assert page.count("btn-primary") == 1
     assert re.search(r'<form method="post" hx-swap="innerHTML show:none" action="/server/updates/[\w-]+/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button>', page)
     assert '<span class="badge badge-wait">' in page      # pending = amber outline badge
     assert 'class="btn btn-primary" type="submit">Update vaultwarden now' in confirm and 'class="btn btn-ghost"' in confirm

@@ -248,7 +248,7 @@ def test_rows_show_update_now_and_excluded_rows_keep_the_manual_chip(env):
     kuma = b.split(">uptime-kuma<", 1)[1].split('<div class="row has-form">', 1)[0]
     vault = b.split(">vaultwarden<", 1)[1].split('<div class="row has-form">', 1)[0]
     assert 'class="btn btn-ghost btn-sm" type="submit">Ignore<' in kuma         # Ignore is a ghost button
-    assert 'class="btn btn-primary btn-sm" href="/server/updates/vaultwarden/run?step=confirm">Update now' in vault
+    assert 'class="btn btn-secondary btn-sm" href="/server/updates/vaultwarden/run?step=confirm">Update now' in vault   # E3: secondary
     assert "Manual · excluded" in kuma and "Ignore" in kuma
     assert 'href="/server/updates/uptime-kuma/run?step=confirm">Update now' in kuma
     assert "Manual · excluded" not in vault

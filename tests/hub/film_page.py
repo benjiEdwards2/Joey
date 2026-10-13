@@ -33,7 +33,7 @@ def element(text: str, name: str) -> tuple[int, int, int, int] | None:
 def parts(fragment: str) -> dict[str, str]:
     """{name: inner html} of a part response."""
     out = {}
-    for name in re.findall(r'<div class="fpart" id="fp-([a-z]+)" hx-swap-oob="true">', fragment):
+    for name in re.findall(r'<div class="fpart" id="fp-([a-z]+(?:-[a-z]+)?)" hx-swap-oob="true">', fragment):   # E4: fp-actions-more
         _, a, b, _ = element(fragment, name)
         out[name] = fragment[a:b]
     return out

@@ -535,6 +535,11 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
    read at about 11 px on a phone. Under 1100 px the 7 days and the hours come before the map. */
 @media (max-width: 639px) { .wxchart text { font-size: 24px; } }
 @media (max-width: 1099px) { .wxapp > .wxweek { order: 1; } .wxapp > .wxhourly { order: 2; } .wxapp > .wxradar { order: 3; } }
+/* E3 (U10, 2026-10-13): the Today strip never breaks a value inside itself ("18.3 / °C", "24.5 / km/h", "05:57 · /
+   20:44" at 375 px): values keep to one line, and below 640 px the strip is 2 columns (at 3 the "Now" stat — glyph +
+   "18.3 °C" — still needs more than a third of a 430 px screen). */
+.wxstats .stat-number, .wxstats .stat-word { white-space: nowrap; }
+@media (max-width: 639px) { .wxstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wxhours .row { padding-top: 6px; padding-bottom: 6px; }
 
 /* Rain radar (RADAR SUPERSESSION, 2026-10-07): a Windy embed iframe in a square slot, capped to the viewport

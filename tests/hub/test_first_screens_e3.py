@@ -207,3 +207,18 @@ def test_media_brand_reads_back_to_joey_and_the_phone_bar_is_sticky(sample_clien
     assert ".brand-back { display: none; }" in flat
     assert ("@media (max-width: 767px) { .topbar:has(.topswap) { position: sticky; top: 0; } "
             ".topbar:has(.topswap) .topbar-in { height: 48px; } .brand-back { display: inline;") in flat
+
+
+# 4. Weather page on a phone (U10 remainder) -----------------------------------------------------------------------
+
+def test_weather_today_strip_fits_a_phone_and_labels_drop_the_place(sample_client):
+    with sample_client as c:
+        html = c.get("/weather").text
+    body = html.split("<main", 1)[1]
+    assert '<h2 class="seclabel">Today</h2>' in body and '<h2 class="seclabel">Rain radar</h2>' in body
+    place = re.search(r'<p class="pagehead-sub">(.*?)</p>', body).group(1)            # the place stays in the head
+    assert place and place not in body.split('<h2 class="seclabel">Today</h2>', 1)[1].split("</section>", 1)[0]
+    assert '<div class="stats wxstats">' in body
+    flat = rules()
+    assert ".wxstats .stat-number, .wxstats .stat-word { white-space: nowrap; }" in flat
+    assert "@media (max-width: 639px) { .wxstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }" in flat

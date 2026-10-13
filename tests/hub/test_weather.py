@@ -207,7 +207,9 @@ def test_place_name_comes_from_weather_place(app_factory, monkeypatch):
         monkeypatch.setenv("WEATHER_PLACE", "Castlemaine VIC")
         hub, page = client.get("/").text, client.get("/weather").text
     assert "Newport VIC" not in hub + page
-    assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 4
+    # E3 (U10, 2026-10-13): the "Today" and "Rain radar" labels no longer repeat the place (4 -> 2: the page head's
+    # sub-line and the Windy caption)
+    assert hub.count("Castlemaine VIC") >= 2 and page.count("Castlemaine VIC") == 2
 
 
 # ---- Windy radar embed (RADAR SUPERSESSION, 2026-10-07; moved from test_weather_radar.py 2026-10-09 when the

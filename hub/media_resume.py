@@ -189,7 +189,7 @@ def season_episodes(show_id, season_id: str) -> list[dict]:
     """The episodes of one season from the show's item data (media_item's cache — the page just rendered it)."""
     if not media_item.ITEM_RE.match(str(show_id or "")):
         return []
-    data = media_item._data(str(show_id)) or {}
+    data = media_item._data(str(show_id), stale_ok=False) or {}   # E1: a write path reads today's state, never a stale entry
     season = next((s for s in data.get("seasons") or [] if str(s.get("id")) == season_id), None)
     return list((season or {}).get("episodes") or [])
 
@@ -226,7 +226,7 @@ def _apply(request: Request, jf_id: str, action: str, form: dict):
                                 status_code=303)
     for hid in _to_hide(action, scope, jf_id, form.get("show")):
         media_hidden.hide(GROUP, key(owner, hid))
-    media_item._cache.clear()  # the film / episode / show pages re-read the new watch state
+    media_item.invalidate()  # the film / episode / show pages re-read the new watch state (and an in-flight read isn't kept)
     done = f"season-{action}" if scope else action
     return RedirectResponse(f"{back}?" + urlencode({"done": done, **keep}), status_code=303)
 

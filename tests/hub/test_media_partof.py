@@ -96,6 +96,11 @@ def test_film_page_has_no_episode_banner(env):
 def two_seasons(monkeypatch):
     monkeypatch.setattr(tmi, "SEASONS", [{"Id": "sea0", "Name": "Season 3", "IndexNumber": 3},
                                          {"Id": "sea1", "Name": "Season 4", "IndexNumber": 4}])
+    # E1 (2026-10-13): the show's episodes come from ONE read and name their season, so Season 3 needs its own rows
+    # (the old per-season fake answered every season with the same six)
+    third = [{**e, "Id": "s3" + e["Id"], "SeasonId": "sea0", "SeasonName": "Season 3", "ParentIndexNumber": 3}
+             for e in tmi.EPISODES]
+    monkeypatch.setattr(tmi, "EPISODES", third + tmi.EPISODES)
 
 
 def opened(b):

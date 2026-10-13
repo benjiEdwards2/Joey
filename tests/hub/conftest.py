@@ -69,5 +69,6 @@ def clear_media_caches() -> None:
 def _fresh_media_caches():
     clear_media_caches()
     yield
-    from hub import media_film   # F2: a film page's background read finishes inside its own test, never the next one's
+    from hub import media_film, media_item   # F2: a film page's background read finishes inside its own test, never the next one's
     media_film.drain_extras()
+    media_item.drain_refresh()   # E1: so does a stale item's background re-read

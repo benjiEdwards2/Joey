@@ -59,8 +59,10 @@ def _server_alerts_loop():
 
 def _media_warmup_loop():
     """media-speed: warm the film pages behind the Media home shelves ~60 s after startup, then every few
-    hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it."""
-    return _every("media warm-up", media_warmup.FIRST_DELAY_S, media_warmup.EVERY_S, lambda: media_warmup.run_pass())
+    hours (hub/media_warmup.py). Sequential and paced inside the thread; MEDIA_WARMUP=off disables it. E1: the loop
+    ticks every minute — the full pass still runs every EVERY_S, and each new jellyfin snapshot warms the shelf
+    titles' Jellyfin item reads (media_warmup.tick)."""
+    return _every("media warm-up", media_warmup.FIRST_DELAY_S, media_warmup.TICK_S, lambda: media_warmup.tick())
 
 
 def _media_follow_loop():

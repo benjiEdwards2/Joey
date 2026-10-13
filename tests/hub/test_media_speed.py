@@ -57,22 +57,32 @@ def test_cold_movie_open_overlaps_jellyfin_and_jellyseerr(env, monkeypatch):
     assert 'class="fpart-load"' in page
 
 
-def test_seasons_episode_reads_run_side_by_side(monkeypatch):
-    seasons = [{"Id": f"s{i}", "Name": f"Season {i}", "IndexNumber": i} for i in range(1, 6)]
+def test_every_seasons_episodes_come_from_one_read(monkeypatch):
+    """E1 (2026-10-13; was "...episode_reads_run_side_by_side"): ONE /Shows/{id}/Episodes read replaces /Seasons + a
+    read per season - each episode names its season, so the list is grouped from that one answer, in season order
+    (Specials first), at most MAX_SEASONS."""
+    eps = [{"Id": f"e{n}-{i}", "Name": "E", "IndexNumber": i, "UserData": {}, "SeasonId": f"s{n}",
+            "SeasonName": "Specials" if n == 0 else f"Season {n}", "ParentIndexNumber": n}
+           for n in (2, 1, 0, 3) for i in (1, 2)]
+    calls = []
 
     def fake_get(base, headers, path, params=None):
+        calls.append((path, params))
         time.sleep(LAT)
-        if path.endswith("/Seasons"):
-            return {"Items": seasons}
-        return {"Items": [{"Id": f"e-{params['seasonId']}", "Name": "E", "IndexNumber": 1, "UserData": {}}]}
+        return {"Items": eps}
 
     monkeypatch.setattr(media_item.media_files, "_get", fake_get)
     t0 = time.perf_counter()
     out = media_item._seasons("b", {}, "u1", "ser1", "2026-10-07")
     took = time.perf_counter() - t0
-    assert [s["number"] for s in out] == [1, 2, 3, 4, 5]                  # order kept
-    assert [s["episodes"][0]["jf_id"] for s in out] == [f"e-s{i}" for i in range(1, 6)]
-    assert took < 4 * LAT                                                  # 1 + 5 sequential would be 6 x LAT
+    assert calls == [("/Shows/ser1/Episodes", {"userId": "u1", "Fields": "UserData,PremiereDate,RunTimeTicks,People"})]
+    assert [(s["number"], s["name"], s["id"]) for s in out] == [(0, "Specials", "s0"), (1, "Season 1", "s1"),
+                                                                 (2, "Season 2", "s2"), (3, "Season 3", "s3")]
+    assert [e["jf_id"] for e in out[1]["episodes"]] == ["e1-1", "e1-2"] and out[1]["watched_text"] == "0 of 2 watched"
+    assert took < 2 * LAT                                                  # one hop, not 1 + one per season
+    many = [{**eps[0], "Id": f"x{n}", "SeasonId": f"z{n}", "ParentIndexNumber": n} for n in range(1, 20)]
+    monkeypatch.setattr(media_item.media_files, "_get", lambda *a, **k: {"Items": many})
+    assert len(media_item._seasons("b", {}, "u1", "ser1", "2026-10-07")) == media_item.MAX_SEASONS
 
 
 # ---- nothing read twice ----
@@ -90,7 +100,7 @@ def test_episode_reads_its_show_once(env):
     with client:
         assert client.get("/media/item/ep3").status_code == 200
     jf = paths(both, URL)
-    assert jf.count("/Users/u1/Items/ser1") == 1 and jf.count("/Shows/ser1/Seasons") == 1
+    assert jf.count("/Users/u1/Items/ser1") == 1 and jf.count("/Shows/ser1/Seasons") == 0   # E1: no /Seasons read
     # the season's episode list + the file panel's ONE episodes read by the known series id (M-45; it used to list
     # every series, then every episode of the match, through /Users/{uid}/Items)
     assert jf.count("/Shows/ser1/Episodes") == 2 and "/Users/u1/Items" not in jf
@@ -162,6 +172,9 @@ def test_metadata_long_request_state_short(env, monkeypatch):
         client.get("/media/title/movie/603")
         clock[0] += 11 * 60                                               # past the 10 min request-state TTL
         client.get("/media/title/movie/603")
+        # E1: the stale Jellyfin item no longer holds the page up, so the (F2 background) Seerr re-read may still be
+        # running when the page returns - wait for it before counting
+        media_film.drain_extras()
         s = paths(both, SEERR)
         assert s.count("/api/v1/movie/603") == 2                          # title body (status) re-read
         assert s.count("/api/v1/movie/603/similar") == 2                  # shelves carry availability: short

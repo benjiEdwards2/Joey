@@ -1170,3 +1170,23 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
   .sechead > a { padding: 10px 0 10px 12px; margin: -10px 0; }
   .seg a, .sectabs a { min-height: 36px; }
 }
+
+/* ---- E5 features (2026-10-13) ---- */
+/* Weather glimpse (W1 + BACKLOG "7-day forecast on the weather glimpse"): one extra row, seven equal cells of day letter
+   over glyph over max temperature; the rain words sit in the meta line. A value never breaks between number and unit
+   (the markup joins them with a non-breaking space; nowrap here). Under 400 px the four stats keep one row by taking
+   18 px numbers, a wider Now column and a 24 px Now glyph (option b of the 375 px eyes-on: Now · Low · High · Rain stay
+   four stats; merging Low–High into one 24 px value did not fit a third of 343 px either). */
+.wxglimpse .stat-number { white-space: nowrap; }
+.wxstrip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 8px 0 0; padding: 0;
+  list-style: none; text-align: center; }
+.wxstrip li { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.wxstrip-day { font-size: 11px; color: var(--text-5); }
+.wxstrip .glyph svg.ic { width: 20px; height: 20px; }
+.wxstrip-max { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--text-3); white-space: nowrap; }
+@media (max-width: 399px) {
+  .wxglimpse .stats { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+  .wxglimpse .stat-number { font-size: 18px; }
+  .wxglimpse .wxnow { gap: 6px; }
+  .wxglimpse .wxnow .glyph svg.ic { width: 24px; height: 24px; }
+}

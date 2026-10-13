@@ -5,13 +5,13 @@ its 24-hour chart and 7-day strip, and the Windy radar embed (the parked BOM rad
 from __future__ import annotations
 
 import os
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from hub import shell
-from hub.ids import WEATHER_SNAPSHOT_ID
+from hub.ids import WEATHER_SNAPSHOT_ID, home_now
 from hub.store import connected, data_of, tile_state
 
 router = APIRouter()
@@ -41,14 +41,65 @@ def weather_glyph(condition_text) -> str:
     return "wx-cloud"
 
 
-def find_weather(snaps) -> dict | None:
-    """The hub glimpse card: first registry tile reading the weather snapshot."""
+RAIN_LIKELY_PCT = 30   # E5 (W1, 2026-10-13): an hour at or above this chance is "rain"; below it all day is "dry"
+
+
+def _rain_today(hourly, now: datetime) -> list[tuple[str, int]] | None:
+    """(HH:MM, chance) for the snapshot's hours from now's hour to the end of now's day (home-local ISO times); None
+    when the snapshot carries no such hour (no hourly data, or a snapshot from yesterday)."""
+    floor = now.replace(tzinfo=None, minute=0, second=0, microsecond=0)
+    out = []
+    for h in hourly or []:
+        if not isinstance(h, dict):
+            continue
+        try:
+            at = datetime.fromisoformat(str(h.get("time"))[:16])
+        except ValueError:
+            continue
+        pct = h.get("rain_prob_pct")
+        if at.date() == floor.date() and at >= floor and isinstance(pct, int) and not isinstance(pct, bool):
+            out.append((f"{at:%H:%M}", pct))
+    return out or None
+
+
+def rain_words(hourly, now: datetime, short: bool = False) -> str | None:
+    """Rain timing in words (E5, W1): the first hour left today at RAIN_LIKELY_PCT or more and the day's peak chance —
+    "Rain likely from 15:00 · 70%" (short, for the hub's Today line: "Rain from 15:00"); "Dry until tomorrow" ("Dry
+    today") when every hour left today is under it; None without hourly data (a missing feed drops the words)."""
+    hours = _rain_today(hourly, now)
+    if hours is None:
+        return None
+    wet = [(t, p) for t, p in hours if p >= RAIN_LIKELY_PCT]
+    if not wet:
+        return "Dry today" if short else "Dry until tomorrow"
+    start, peak = wet[0][0], max(p for _, p in wet)
+    return f"Rain from {start}" if short else f"Rain likely from {start} · {peak}%"
+
+
+def week_strip(data: dict) -> list[dict]:
+    """The glimpse's 7-day row (E5; BACKLOG "7-day forecast on the weather glimpse"): one day letter, glyph, condition
+    word (for the screen reader) and max temperature per day, from the same `days` the /weather strip reads."""
+    out = []
+    for i, d in enumerate([d for d in (data.get("days") or []) if isinstance(d, dict)][:7]):
+        try:
+            day = date.fromisoformat(str(d.get("date")))
+        except ValueError:
+            continue
+        out.append({"letter": f"{day:%a}"[0], "name": "Today" if i == 0 else f"{day:%A}",
+                    "glyph": weather_glyph(d.get("condition_text")), "word": d.get("condition_text") or "—",
+                    "max": _wx_num(d.get("max_c"))})
+    return out
+
+
+def find_weather(snaps, now: datetime | None = None) -> dict | None:
+    """The hub glimpse card: first registry tile reading the weather snapshot (E5: plus its rain words and 7-day row)."""
     for a in shell.registry.areas:
         for t in a.tiles:
             if t.snapshot == WEATHER_SNAPSHOT_ID:
                 data = data_of(snaps.get(WEATHER_SNAPSHOT_ID))
                 return {"tile": t, "st": tile_state(t, snaps),
-                        "glyph": weather_glyph(data.get("condition_text")), "data": data}
+                        "glyph": weather_glyph(data.get("condition_text")), "data": data,
+                        "rain": rain_words(data.get("hourly"), now or home_now()), "week": week_strip(data)}
     return None
 
 

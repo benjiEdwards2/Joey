@@ -1,6 +1,10 @@
 {# Weather glimpse (hub band + Calendar band; restyle Phase 4, 2026-10-06): a .stats strip — temperature as a
    .stat-number with its glyph and the condition WORD beside it (never icon-only), then low / high / rain chance.
-   Expects `w` (find_weather). Stale = an amber badge (something to do); not connected = a muted grey word. #}
+   Expects `w` (find_weather). Stale = an amber badge (something to do); not connected = a muted grey word.
+   E5 (2026-10-13): the rain timing in words joins the meta line ("Rain likely from 15:00 · 70%" / "Dry until tomorrow";
+   absent without hourly data), and ONE extra row shows the 7 days (day letter, glyph, max temperature; the day name and
+   condition word are in the label, so the glyph is never the only encoding). Every number sits with its unit behind a
+   non-breaking space, and the CSS keeps a value on one line (a 375 px phone wrapped "18.3 / °C"). #}
 {% import "_icons.html" as ic %}
 {% from "_rows.html" import updated %}
 <section class="sec wxglimpse" aria-label="Weather">
@@ -12,13 +16,18 @@
   <div class="stats">
     <div class="stat">
       <div class="microlabel">Now</div>
-      <div class="wxnow"><div class="glyph">{{ ic.icon(w.glyph) }}</div><div class="stat-number">{{ (d.get("now_c") ~ " °C") if d.get("now_c") is not none else "—" }}</div></div>
+      <div class="wxnow"><div class="glyph">{{ ic.icon(w.glyph) }}</div><div class="stat-number">{% if d.get("now_c") is not none %}{{ d.now_c }}&nbsp;°C{% else %}—{% endif %}</div></div>
       <div class="wxword">{{ d.get("condition_text") or "—" }}</div>
     </div>
-    <div class="stat"><div class="microlabel">Low</div><div class="stat-number">{{ (d.get("today_min_c") ~ " °C") if d.get("today_min_c") is not none else "—" }}</div></div>
-    <div class="stat"><div class="microlabel">High</div><div class="stat-number">{{ (d.get("today_max_c") ~ " °C") if d.get("today_max_c") is not none else "—" }}</div></div>
+    <div class="stat"><div class="microlabel">Low</div><div class="stat-number">{% if d.get("today_min_c") is not none %}{{ d.today_min_c }}&nbsp;°C{% else %}—{% endif %}</div></div>
+    <div class="stat"><div class="microlabel">High</div><div class="stat-number">{% if d.get("today_max_c") is not none %}{{ d.today_max_c }}&nbsp;°C{% else %}—{% endif %}</div></div>
     {% if d.get("rain_prob_pct") is not none %}<div class="stat"><div class="microlabel">Rain</div><div class="stat-number">{{ d.rain_prob_pct }}%</div></div>{% endif %}
   </div>
-  <p class="metaline">{{ updated(w.st) }}</p>
+  {% if w.week %}
+  <ol class="wxstrip" aria-label="Next {{ w.week | length }} days">
+    {% for day in w.week %}<li><span class="vh">{{ day.name }} · {{ day.word }}{% if day.max %} · {{ day.max }} °C{% endif %}</span><span class="wxstrip-day" aria-hidden="true">{{ day.letter }}</span><span class="glyph" aria-hidden="true">{{ ic.icon(day.glyph) }}</span><span class="wxstrip-max" aria-hidden="true">{{ (day.max ~ "°") if day.max else "—" }}</span></li>{% endfor %}
+  </ol>
+  {% endif %}
+  <p class="metaline">{% if w.rain %}<span class="wxrain">{{ w.rain }}</span>{% if w.st.age_text %}<span class="sep"> · </span>{% endif %}{% endif %}{{ updated(w.st) }}</p>
   {% endif %}
 </section>

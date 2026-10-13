@@ -136,7 +136,8 @@ def test_weather_band_card_shows_glyph_word_and_today_range(hub):
     wx = re.search(r'<section class="sec wxglimpse".*?</section>', body, re.S).group(0)
     d = SAMPLE_DATA["open_meteo"]
     assert '<div class="glyph">' in wx and f'<div class="wxword">{d["condition_text"]}</div>' in wx
-    assert f'{d["today_min_c"]} °C' in wx and f'{d["today_max_c"]} °C' in wx and f'{d["rain_prob_pct"]}%' in wx
+    # E5 (2026-10-13): number and unit joined by a non-breaking space (a 375 px phone wrapped them)
+    assert f'{d["today_min_c"]}&nbsp;°C' in wx and f'{d["today_max_c"]}&nbsp;°C' in wx and f'{d["rain_prob_pct"]}%' in wx
 
 
 def test_continue_watching_shelf_renders_up_next_with_posters(hub):

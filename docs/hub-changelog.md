@@ -946,3 +946,17 @@ Wrapped page has no Year tab (reached from the Diary's Month in Review card; lig
 to-rate count sits on the Activity slot; "To Rate" reads "To rate" everywhere (style guide lines 15–16); E3's sticky
 48 px Media bar is keyed on `.brand-back`; the Diary page runs E1's memoised history sync and nav-tidy's Mine / Everyone
 scope together. Suite 2,322.
+
+## 2026-10-14 — Awards ballot (Plan C)
+B. chose Plan C of the awards UX review (review/2026-10-13-awards-ux/AWARDS_UX_REVIEW.md; decisions in BALLOT_DECISIONS.md,
+all defaults). The Awards page is now a ballot of films / shows (described under "Decisions pinned by tests" in
+`hub/README.md`): WP-C1 built the context (`awards_ctx` `ballot`: the edition pivoted by work, filters, sorts, shorts,
+progress, people, `/awards/part/rows`), WP-C2 the templates, the picker sheet and one dated CSS tail block, WP-C3 the
+worded Watchlist button on a row (`_watchlist_btn.html` `style="ballot"`, handed back by the watchlist routes), pills that
+name a person only for acting and directing, "Writing (Original Screenplay)" → "Orig. Screenplay", the row year fallback
+(the edition's "films of" year), the rows sentinel inside the list, and a phone row whose pills take the full width.
+**Reversal:** the awards-ui visual pass (2026-10-09) backdrop hero and Most wins podium are removed (decision B5: the
+winner was shown twice; the first row is the headline winner and "Most wins" is the sort), along with the ceremony tile
+row, the year stepper and the native year dropdown (all now inside the picker). Eyes-on at 375 px (sample seed, Oscars
+2025): the picker at 235 px from the top; the default view 3,166 px tall (target 2,500 — open); every filter / sort /
+ceremony / year change keeps the scroll and does not re-fetch posters already on screen.

@@ -84,7 +84,8 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
         tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
                  "what": "to rate" if h.endswith("/to-rate") else "to get"}
                 for (label, h), sc in zip(section["tabs"], scores)]
-        if section.get("tabs_only_on") and not top:
+        # E4 (U5, 2026-10-13): an item / title page (a forced section) is no tab's own either, so it shows no sub-tab row
+        if (section.get("tabs_only_on") or forced) and not top:
             tabs = []
     # E3 (U4, 2026-10-13): the page names itself — the active tab's label ("My films", "Diary", "Requests"), else the
     # section's ("Discover" on a person page, which draws its own H1 instead); None outside every section.

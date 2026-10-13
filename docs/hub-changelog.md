@@ -821,3 +821,27 @@ against it. Not done here (Python outside this WP): "N h this month" on Diary �
 `tests/hub/test_first_screens_e3.py`.
 
 **Awards page weight (WP E7, 2026-10-13).** `/media/movies/awards` was the heaviest page (130 KB, 154 posters; 0.5 s on the NAS). The page now draws the first screen only (Coming up, tiles, year stepper, hero, Most wins podium, the first 4 category cards, `FIRST_CARDS`) and ends in a sentinel `.awrest` that fetches every other card (the remaining core categories, then "More categories") in ONE request, `GET /media/{movies,tv}/awards/part/categories?body=&year=&unseen=` (`hx-trigger="revealed"`, `hx-swap="outerHTML"`, its own `hx-indicator` so the page load bar stays off). Without JS the sentinel is the plain link "All categories" to `?all=1`, which renders the whole page as before; a ceremony with nothing past the first 4 cards has no sentinel. The part route reads the same data as the page (same edition, the Not seen filter included) and queues no poster fill (the page already does). Category cards get `content-visibility: auto; contain-intrinsic-size: auto 320px` (a gold winner glow can clip at a card's edge while the card is off screen); winner-row posters in category cards use the 120 px fetch size (they show at 44-56 px; nominee thumbnails already did, and every poster is `loading="lazy" decoding="async"` through `_poster.html`). Local preview (Oscars 2025): HTML 143.5 KB to 43.2 KB, `<img>` 187 to 34 on the first load, the part carrying the other 100.6 KB / 153; server time 30 ms to 22 ms (the part 25 ms). The optional Cloudflare edge-cache checklist for `/static/*` and `/img/*` is in `docs/setup.md` ("Edge caching behind Access", unverified). Tests: `tests/hub/test_awards_weight_e7.py`.
+## 2026-10-13 — Film page order + action row (WP E4; review_ui.md U5, U7; EVALUATION_2026-10-12 §4.2 "U5–U7")
+B. fixed the order on 2026-10-13. **Order (U5)** the hero reads poster → episode code / name (episode pages) → title →
+tagline → facts line → status line (+ upgrade note, note, search / upgrade flashes) → the ONE action row → "More" →
+Directed by / Created by cards (+ a show's directors, Follow show) → an episode's overview; one DOM, so desktop reads the
+same: the poster still leads beside the text column from 640 px, and the makers moved from above the status line to under
+the row there too (they were in the text column before, not beside the facts). The phone poster is `width: 50%;
+max-width: 200px` (under 640 px; was 62 % / 260 px). **Sub-tabs** an item / title page (a forced section,
+`request.state.media_section`) draws no sub-tab row — `media_nav.nav_context` treats a forced section like
+`tabs_only_on` when no tab matches; the page still names the section (Movies / TV Shows) in the pill row. **Action row
+(U7)** at most four md (36 px) controls: Play (`btn-white`; Request as the white primary when there is no Play) · Trailer
+(glass) · watchlist (icon) · Seerr (icon). Everything else is under `<details class="fold heromore">` "More", whose panel
+is the guide's inline `.confirm` (as the cards' "Move on"): Mark watched / Reset progress, Mark (un)watched, Request beside
+Play (a secondary), Search now / Search for upgrade. Every form, route and hx attribute is unchanged (the resume forms keep
+E2's `hx-swap="innerHTML show:none"`). The actions part draws into two slots (`_film_actions.html` `slot`: `row` = Request
+without Play + the late Trailer; `more` = Request beside Play), so `_film_parts.html` answers `fp-actions` and, beside
+Play, `fp-actions-more`; `_film_wait.html` `wait(name, pending, slot)` names the second placeholder. The More fold hides
+itself while its panel holds no form / link / button / line (`:has`), so a title Radarr / Sonarr does not have shows no
+empty "More" once the Search now fragment comes back empty. In the panel every button is 36 px and outlined (ghost ones
+get the hairline). **Site pills** IMDb / TMDB / Letterboxd (`_film_macros.html` `sitepills()`) left the hero for the
+Scores strip, on a line under the score pills; a title with no strip gets a Details "Links" row. **Verified, not redone
+(E2):** no runtime / certificate in the facts line, Details values without their verb, no Rate star button (the "Yours ·
+Rate" pill in the strip is the one way to the picker, so no Rate link was added to More). CSS: one tail block under
+`/* ---- E4 film page (2026-10-13) ---- */`; the E2 tap-target pin now allows later tail blocks that leave its controls
+alone. Tests: `tests/hub/test_film_page_e4.py` (and `film_page.whole` splices `fp-actions-more`).

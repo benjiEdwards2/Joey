@@ -120,7 +120,8 @@ answer is not cached is in `film.pending` — drawn by `_film_wait.html` as a `<
 `hx-swap="none"`) asks `GET /media/{item/{jf_id}|title/{kind}/{tmdb}}/part/all?p=<names>`; `build_parts` answers with
 each part wrapped in its placeholder's id and `hx-swap-oob="true"`. Parts are `media_film.PARTS` (makers, actions,
 scores, collection, crew, dates, cast, providers, shelves), each one template `_film_<name>.html` that the page includes
-inline when cached; `/part/<name>` serves one. The upstream read runs in a bounded background pool (`warm_extras`, one
+inline when cached; `/part/<name>` serves one. The actions part has two slots (E4, 2026-10-13): `fp-actions` in the
+hero's action row and `fp-actions-more` under its More fold (Request beside Play), each part answer filling both. The upstream read runs in a bounded background pool (`warm_extras`, one
 job per title, started as soon as the TMDB id is known); part requests wait for it (`EXTRAS_WAIT`) and never read
 Jellyfin (`media_item.peek`). Scripts and tests calling `build_film` without `defer` get the whole page, waiting as
 before. **Prefetch:** `static/joey.js` sends `X-Joey-Prefetch: 1` to a film / show link on touch or a 60 ms hover (once

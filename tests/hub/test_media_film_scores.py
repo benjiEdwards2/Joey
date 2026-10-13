@@ -318,9 +318,9 @@ def test_site_links_are_neutral_logo_pills(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    hero = b.split("</header>", 1)[0]
+    strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]   # E4: in the Scores strip
     sites = re.findall(r'<a class="scorepill sitepill" href="([^"]+)" target="_blank" rel="noopener"><img class="sp-logo" '
-                       r'src="([^"]+)" alt="" width="16" height="16">([^<]+)</a>', hero)
+                       r'src="([^"]+)" alt="" width="16" height="16">([^<]+)</a>', strip)
     assert [(s[1], s[2]) for s in sites] == [("/static/logos/imdb.svg", "IMDb"), ("/static/logos/tmdb.svg", "TMDB"),
                                              ("/static/logos/lbxd.svg", "Letterboxd")]
     assert sites[1][0] == "https://www.themoviedb.org/movie/603" and sites[2][0] == "https://letterboxd.com/tmdb/603"

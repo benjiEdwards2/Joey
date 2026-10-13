@@ -78,7 +78,9 @@ def test_film_page_renders_the_detail_hero(film_env):
     assert hero.index("hero-detail-poster") < hero.index('<h1 class="hero-detail-title">')   # the poster leads
     assert 'class="facts-line"' in hero and 'id="status-line"' in hero
     assert hero.count("btn-white") == 1 and "btn-icon" in hero
-    assert 'class="scorepill sitepill"' in hero and '<nav class="sectabs"' in hero  # media-ux4 (2026-10-08, B.): one pill style (site links)
+    assert '<nav class="sectabs"' in hero
+    # media-ux4 (2026-10-08, B.): one pill style (site links); E4 (2026-10-13): they sit in the Scores strip, not the hero
+    assert 'class="scorepill sitepill"' not in hero and 'class="scorepill sitepill"' in b.split("</header>", 1)[1]
     assert '<div class="stats numbers">' in b
 
 

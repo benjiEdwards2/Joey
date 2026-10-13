@@ -134,7 +134,11 @@ def test_phone_tap_targets_come_last_in_the_file():
     assert ".btn-mini { padding: 12px; margin: -8px; }" in tail
     assert ".sechead > a { padding: 10px 0 10px 12px; margin: -10px 0; }" in tail
     assert ".seg a, .sectabs a { min-height: 36px; }" in tail
-    assert tail.count("@media") == 1                                  # the block is last, so it beats the base rules above
+    # the block beats the base rules above; E4 (2026-10-13): later dated tail blocks (E4 film page, ...) may follow it as
+    # long as none of them restyles these controls again
+    after = tail.split(".seg a, .sectabs a { min-height: 36px; } }", 1)[1]
+    for sel in (".ratepick .chip", ".ratepick {", ".btn-mini {", ".sechead > a", ".seg a", ".sectabs a"):
+        assert sel not in after, sel
 
 
 def test_weather_phone_order_and_chart_text():

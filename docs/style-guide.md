@@ -19,6 +19,11 @@ bottom tab bar already holds the same six sections) and the amber to-rate count 
 top bar is sticky at 48 px there and the brand reads "‹ Joey"; the Movies / TV Grid / List switch is one icon link to the
 other layout; the weather page's Today strip is 2 columns under 640 px (the guide's strip is 3); the owner word on
 tiles and rows is shown only for You / Her (no "Shared"). The plain-page 24 px / 600 title is the guide's own value.
+2026-10-13 (film page order, WP E4, B.): on a phone the detail-hero poster is `50%` / max 200 px (the guide's 62 % / 260 px
+put Play below the fold); the hero reads title, tagline / facts, the status line, then the ONE row of buttons, then the
+"Directed by" / "Created by" cards (the guide puts credits above the status line) on every width; the row holds only
+Play · Trailer · watchlist · Seerr, and the other actions sit under a "More" fold opening the guide's inline confirm panel;
+the IMDb / TMDB / Letterboxd pills sit in the Scores strip, not the hero; item and title pages show no sub-tab row.
 
 # MediaHub style guide
 

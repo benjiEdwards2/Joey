@@ -3,9 +3,10 @@
 {# The film page (F10, Cinema layout; restyle Phase 3: guide 6 "Detail hero"). One page for every title, on the
    server or not. The header IS the detail hero: the backdrop across the window under the darkening gradient, the
    Media tabs on it, the poster leading (centred above a centred title on a phone, beside it from 640 px), then
-   tagline, facts line, credits with link chips, the status line (emerald + drive icon when on the server) and ONE
-   row of buttons: one white primary + square icon buttons. Below: the stats card (your rating, community, IMDb,
-   RT, runtime, rating), overview, seasons (TV), file, crew, details, cast, where to watch, shelves. A perfect 10 glows gold. #}
+   tagline, facts line, the status line (emerald + drive icon when on the server), ONE row of buttons (one white
+   primary + Trailer + square icon buttons), "More", then the Directed by / Created by cards (E4, 2026-10-13). Below:
+   the stats card (scores + site pills, runtime, rating), overview, seasons (TV), file, crew, details, cast, where to
+   watch, shelves. A perfect 10 glows gold. #}
 {% block pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% from "_poster.html" import poster %}
@@ -25,7 +26,6 @@
         {# media-ux4 (2026-10-08): no "Episode of <Show>" line — the part-of banner under the hero leads to the show. #}
         <p class="row-title">{% if film.episode.code %}{{ film.episode.code }} · {% endif %}{{ film.episode.title }}</p>
         {{ meta([("Aired " ~ film.episode.air_date) if film.episode.air_date else none, film.episode.runtime], "metaline") }}
-        {% if film.episode.overview %}<p class="overview">{{ film.episode.overview }}</p>{% endif %}
         {% endif %}
         <h1 class="hero-detail-title">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
@@ -33,6 +33,44 @@
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
+        {# E4 (U5-U7, 2026-10-13, B.): poster, title, tagline / facts, the status line (+ upgrade note, flashes), ONE action
+           row, then the makers - Play is above the fold on a phone. The site pills moved to the Scores strip. #}
+        <p class="statusline{{ ' st-good' if film.on_server and not film.jf_failed }}">{% if film.on_server and not film.jf_failed %}{{ icon("drive") }}{% endif %}<span id="status-line">{{ film.status_line }}</span></p>
+        {# F4b (2026-10-12): "Upgrade available · <have> → <want>" from the arr snapshot (no call); the button is in the Search-now fragment #}
+        {% from "_upgrade_note.html" import upnote %}{{ upnote(film.upgrade, "p") }}
+        {% if film.note %}<p class="metaline">{{ film.note }}</p>{% endif %}
+        {% if film.search_flash and film.search_flash[0] %}<p class="metaline st-good" role="status">{{ film.search_flash[0] }}</p>{% elif film.search_flash and film.search_flash[1] %}<p class="metaline st-warn" role="status">{{ film.search_flash[1] }}</p>{% endif %}
+        {% if film.upgrade_flash and film.upgrade_flash[0] %}<p class="metaline st-good" role="status">{{ film.upgrade_flash[0] }}</p>{% elif film.upgrade_flash and film.upgrade_flash[1] %}<p class="metaline st-warn" role="status">{{ film.upgrade_flash[1] }}</p>{% endif %}
+        {# E4 (U7): ONE row of md (36 px) controls - Play (white; Request when not on the server) · Trailer · watchlist ·
+           Seerr - everything else under "More" below it. #}
+        <div class="hero-detail-btns">
+          {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
+          {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
+          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
+          {% call wait("actions", film.pending) %}{% with slot = "row" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}
+          {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
+             in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
+          {% if film.trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.trailer }}" target="_blank" rel="noopener"{% if film.trailer_key %} data-yt="{{ film.trailer_key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}
+          {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
+          {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
+          {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
+        </div>
+        {# E4 (U7): "More" - an inline panel (guide 6: never a browser dialog), the same .confirm panel as the cards' Move on:
+           Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
+           Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
+        {% set more_req = film.play and film.play.href and (film.show_request or "actions" in film.pending) %}
+        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req %}
+        <details class="fold heromore">
+          <summary>More</summary>
+          <div class="confirm heromore-acts">
+          {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
+          {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
+          {% if more_req %}{% call wait("actions", film.pending, "more") %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}{% endif %}
+          {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
+          {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
+          </div>
+        </details>
+        {% endif %}
         {% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
            (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
@@ -45,36 +83,7 @@
         </div>
         {% endif %}
         {% include "_follow_show.html" %}
-        {% if film.tmdb and film.kind in ("movie", "tv") %}
-        <div class="credits sitepills">
-          {# media-ux4: the site links are neutral logo pills, the same family as the score pills #}
-          <a class="scorepill sitepill" href="https://www.imdb.com/find/?q={{ (film.title ~ (' ' ~ film.year if film.year else ''))|urlencode }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.imdb }}" alt="" width="16" height="16">IMDb</a>
-          <a class="scorepill sitepill" href="https://www.themoviedb.org/{{ film.kind }}/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.tmdb }}" alt="" width="16" height="16">TMDB</a>
-          {% if film.kind == "movie" %}<a class="scorepill sitepill" href="https://letterboxd.com/tmdb/{{ film.tmdb }}" target="_blank" rel="noopener"><img class="sp-logo" src="{{ film.logos.lbxd }}" alt="" width="16" height="16">Letterboxd</a>{% endif %}
-        </div>
-        {% endif %}
-        <p class="statusline{{ ' st-good' if film.on_server and not film.jf_failed }}">{% if film.on_server and not film.jf_failed %}{{ icon("drive") }}{% endif %}<span id="status-line">{{ film.status_line }}</span></p>
-        {# F4b (2026-10-12): "Upgrade available · <have> → <want>" from the arr snapshot (no call); the button is in the Search-now fragment #}
-        {% from "_upgrade_note.html" import upnote %}{{ upnote(film.upgrade, "p") }}
-        {% if film.note %}<p class="metaline">{{ film.note }}</p>{% endif %}
-        {% if film.search_flash and film.search_flash[0] %}<p class="metaline st-good" role="status">{{ film.search_flash[0] }}</p>{% elif film.search_flash and film.search_flash[1] %}<p class="metaline st-warn" role="status">{{ film.search_flash[1] }}</p>{% endif %}
-        {% if film.upgrade_flash and film.upgrade_flash[0] %}<p class="metaline st-good" role="status">{{ film.upgrade_flash[0] }}</p>{% elif film.upgrade_flash and film.upgrade_flash[1] %}<p class="metaline st-warn" role="status">{{ film.upgrade_flash[1] }}</p>{% endif %}
-        <div class="hero-detail-btns">
-          {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
-          {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
-          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
-          {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
-          {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
-          {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
-          {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
-          {% call wait("actions", film.pending) %}{% include "_film_actions.html" %}{% endcall %}
-          {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
-          {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
-          {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
-             in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
-          {% if film.trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.trailer }}" target="_blank" rel="noopener"{% if film.trailer_key %} data-yt="{{ film.trailer_key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}
-          {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
-        </div>
+        {% if film.episode and film.episode.overview %}<p class="overview">{{ film.episode.overview }}</p>{% endif %}
       </div>
     </div>
   </div>
@@ -87,8 +96,9 @@
 {% from "_award_icons.html" import award_badge %}
 {% import "_rate.html" as rate %}
 {% from "_film_wait.html" import wait %}
-{% from "_film_macros.html" import banner_bg, sp with context %}
+{% from "_film_macros.html" import banner_bg, sp, sitepills with context %}
 {% set n = film.numbers %}
+{% set sites = film.tmdb and film.kind in ("movie", "tv") %}
 {# "Part of" banners (media-ux3, 2026-10-08): a wide card with the show's / film series' backdrop under the guide's
    gradient scrim (text and glass buttons sit on the dark side), the poster, one " · " line in words and the actions.
    No backdrop -> a plain panel. Phone (<= 640 px): stacked, buttons full width. #}
@@ -122,7 +132,7 @@
     {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
-  </div></div>{% endif %}
+  </div>{% if sites %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
@@ -230,7 +240,8 @@
 
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
-{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or "dates" in film.pending %}
+{% set sites_row = sites and not any_score %}
+{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending %}
 <section class="sec">
   <h2 class="seclabel">Details</h2>
   <dl class="kvrows details">
@@ -239,6 +250,7 @@
     {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>{{ f.added }}</dd></div>{% endif %}
     {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>{{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
     {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>{{ film.requested_when }}{% if film.requested_by %} · {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
+    {% if sites_row %}<div class="kv"><dt>Links</dt><dd class="sitepills">{{ sitepills() }}</dd></div>{% endif %}
   </dl>
 </section>
 {% endif %}

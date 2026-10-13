@@ -1,5 +1,9 @@
 {# The hero's Request block (and, from a part request, the TMDB trailer when Jellyfin has none) - a deferred part since F2
-   (2026-10-12): both come from the Jellyseerr title body. #}
+   (2026-10-12): both come from the Jellyseerr title body.
+   E4 (U7, 2026-10-13): drawn in two slots - "row" (the action row: Request as the white primary when there is no Play,
+   and the late Trailer) and "more" (under More: Request beside Play, a secondary). Exactly one slot draws the block. #}
 {% from "_icons.html" import icon %}
-{% if film.show_request %}{% with t = film.t, state = film.req_state, msg = film.req_msg, future = film.req_future, req_primary = not (film.play and film.play.href) %}{% include "_request_block.html" %}{% endwith %}{% endif %}
-{% if film.late_trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.late_trailer.href }}" target="_blank" rel="noopener"{% if film.late_trailer.key %} data-yt="{{ film.late_trailer.key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}
+{% set at = slot | default("row") %}
+{% set beside_play = true if film.play and film.play.href else false %}
+{% if film.show_request and beside_play == (at == "more") %}{% with t = film.t, state = film.req_state, msg = film.req_msg, future = film.req_future, req_primary = not beside_play %}{% include "_request_block.html" %}{% endwith %}{% endif %}
+{% if at == "row" and film.late_trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.late_trailer.href }}" target="_blank" rel="noopener"{% if film.late_trailer.key %} data-yt="{{ film.late_trailer.key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}

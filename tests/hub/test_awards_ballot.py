@@ -331,10 +331,10 @@ def test_rows_part_brings_the_rows_after_the_first_twelve(oscars97):
         bad = client.get("/media/movies/awards/part/rows?body=%3Cb%3E&year=zz&f=%3Ci%3E&s=1")
         tv = client.get("/media/tv/awards/part/rows?body=emmys&year=2025")
     assert r.status_code == 200 and "<html" not in r.text
-    got = re.findall(r'<div class="awfilm">([^<]*)</div>', r.text)
+    got = re.findall(r'class="awfilm-title"[^>]*>([^<]*)<', r.text)       # WP-C2's row macro (merge, 2026-10-14)
     assert [g.replace("&#39;", "'") for g in got] == want[12:] and got
-    assert len(re.findall('class="awfilm"', plain.text)) == 28
-    assert len(re.findall('class="awfilm"', legacy.text)) == 28
+    assert len(re.findall(r'<article class="awfilm', plain.text)) == 28
+    assert len(re.findall(r'<article class="awfilm', legacy.text)) == 28
     assert bad.status_code == 200 and "<b>" not in bad.text and "<i>" not in bad.text
     assert tv.status_code == 200 and tv.text.strip() == ""
 

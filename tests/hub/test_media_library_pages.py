@@ -75,7 +75,7 @@ def test_movies_page_in_frame_with_head_groups_and_words(env):
         html, b = body(c, "/media/movies?view=list")   # media-ux4: grid is the default; the row words live in List
     assert current(html, "sectabs sectabs-page") == ["Movies"] and current(html, "sectabs sub") == ["My films"]
     assert "4 films · 2 watched · 2 to watch" in b
-    assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")
+    assert ">Watched · 2<" not in b and ">Not yet watched · 2<" not in b   # 2026-10-13: one flat list, no group labels
     assert "1h 52m" in b and "Watched 3d ago" in b and "Not watched" in b and "45m" in b
     assert "7.8" in b and "TMDB" in b and "Drama, Crime" in b
     assert 'class="poster row-poster' in b
@@ -115,15 +115,17 @@ def test_search_and_group_off(env):
 
 
 def test_new_this_week_strip_present_and_absent(env):
+    # 2026-10-13: "New this week" is the Suggestions carousel's default set; empty is one line, the switch stays
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         _, m = body(c, "/media/movies")
         _, t = body(c, "/media/tv")
-    assert ">New this week</h2>" in m and "Fresh Movie" in m and "yesterday" in m and "Old Movie" not in m
+    assert ">Suggestions</h2>" in m and "Fresh Movie" in m and "yesterday" in m and "Old Movie" not in m
     assert "New Series" in t and "Fresh Movie" not in t
     main = env(jellyfin=jelly(), arr={"summary": "x", "arrived": []})
     with TestClient(main.app) as c:
-        assert "New this week" not in body(c, "/media/movies")[1]
+        b = body(c, "/media/movies")[1]
+    assert "New this week" not in b and '<p class="empty">Nothing new this week</p>' in b and len(switch(b)) == 3
 
 
 def test_tv_page_groups_words_and_head(env):
@@ -132,7 +134,7 @@ def test_tv_page_groups_words_and_head(env):
         html, b = body(c, "/media/tv?view=list")   # media-ux4: grid is the default; the row words live in List
     assert current(html, "sectabs sectabs-page") == ["TV shows"] and current(html, "sectabs sub") == ["My shows"]
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
-    assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
+    assert ">Watching · 1<" not in b and ">Finished · 1<" not in b   # 2026-10-13: one flat list, no group labels
     assert "Continuing" in b and "26 episodes · 6 left" in b and "8 episodes · All watched" in b   # E5 (M2): was "6 to watch"
     assert "Last watched 24h ago" in b and 'href="/media/item/jtmdb-21"' in b
 
@@ -284,7 +286,7 @@ ARRL = {"summary": "x", "arrived": [
 
 def strip(b):
     # media-ux4: ends where the toolbar starts (the toolbar now holds the Grid / List links)
-    return b.split('<div class="carousel">', 1)[1].split('<form class="toolbar"', 1)[0] if "New this week" in b else ""
+    return b.split('<div class="carousel">', 1)[1].split('<form class="toolbar"', 1)[0] if '<div class="carousel">' in b else ""
 
 
 def test_new_this_week_items_link_item_title_or_nothing(env):
@@ -443,7 +445,7 @@ def test_grid_is_the_default_with_shelf_sized_cards_and_state_words(env):
     assert set(got) == {m["title"] for m in MOVIES}
     assert got["Alpha Film"] == ("/media/item/jtmdb-11", "240", "2020 · Watched")
     assert got["Bravo Film"] == ("/media/item/jtmdb-12", "240", "2022 · Not watched")
-    assert b.index(">Watched · 2<") < b.index(">Not yet watched · 2<")    # grouping kept
+    assert ">Watched · 2<" not in b and ">Not yet watched · 2<" not in b   # 2026-10-13: one flat grid
     assert 'width="160" height="240"' in b
 
 
@@ -465,7 +467,6 @@ def test_tv_cards_say_watched_in_progress_not_watched(env):
     words = {title: re.sub(r"\s+", " ", meta) for _, _, title, meta in cards(b)}
     # E5 (M2): a show being watched adds its progress line under the state ("6 left"; no runtime recorded here)
     assert words == {"Echo Show": "2019 · In progress 6 left", "Foxtrot Show": "2021 · Not watched", "Golf Show": "2015 · Watched"}
-    assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
 
 
 def test_switch_links_keep_search_sort_and_grouping(env):
@@ -554,3 +555,199 @@ def test_tv_shows_list_counts_match_both_views(env):
         _, lst = body(c, "/media/tv?view=list")
     assert len(cards(g)) == len(SHOWS) and lst.count('class="poster row-poster') == len(SHOWS)
     assert "3 shows · 1 watching · 1 not started · 1 finished" in g and "3 shows" in lst
+
+
+# ---- library round (2026-10-13, B., "go for all"): Suggestions carousel, one flat grid + filter chips, more sorts ----
+
+SUGG_COOKIE = "media_libsugg"
+RESUME = [{"title": "Bravo Film", "kind": "movie", "remaining_text": "32 min left", "jf_id": "jtmdb-12"},
+          {"title": "Charlie Film", "kind": "movie", "remaining_text": "Next episode", "jf_id": "jjf-13"}]
+CHIP_RE = r'<a class="chip( on)?" href="([^"]*)"( aria-current="true")?>([^<]+)</a>'
+
+
+def switch(b):
+    """The Suggestions switch: [(href, label, on)]."""
+    nav = b.split('<nav class="chips" aria-label="Suggestions">', 1)[1].split("</nav>", 1)[0]
+    return [(h, label, bool(on)) for on, h, _, label in re.findall(CHIP_RE, nav)]
+
+
+def chips(b):
+    """The toolbar filter chips: [(href, label, on)]; an "on" chip must carry aria-current."""
+    nav = b.split('<nav class="chips" aria-label="Show">', 1)[1].split("</nav>", 1)[0]
+    found = re.findall(CHIP_RE, nav)
+    assert all(bool(on) == bool(cur) for on, _, cur, _ in found)
+    return [(h, label, bool(on)) for on, h, _, label in found]
+
+
+def carousel_titles(b):
+    return re.findall(r'<span class="row-title">([^<]+)</span>', strip(b))
+
+
+def test_suggestion_switch_has_three_choices_and_the_cookie_remembers_it(env):
+    main = env(jellyfin=jelly(up_next=RESUME), arr=ARRV)
+    with TestClient(main.app) as c:
+        first = c.get("/media/movies?sort=title")
+        r = c.get("/media/movies?s=continue&sort=title")
+        again = c.get("/media/tv").text.split("<main", 1)[1]           # no query: the cookie decides
+        junk = c.get("/media/movies?s=bogus")
+    b = first.text.split("<main", 1)[1]
+    assert SUGG_COOKIE not in first.headers.get("set-cookie", "")      # the default sets nothing
+    assert switch(b) == [("/media/movies?sort=title&amp;s=new", "New", True),
+                         ("/media/movies?sort=title&amp;s=continue", "Continue watching", False),
+                         ("/media/movies?sort=title&amp;s=unwatched", "Not yet watched", False)]
+    cookie = r.headers.get("set-cookie", "")
+    assert f"{SUGG_COOKIE}=continue" in cookie and "Path=/media" in cookie and "SameSite=lax" in cookie
+    assert [label for _, label, on in switch(again) if on] == ["Continue watching"]
+    assert SUGG_COOKIE not in junk.headers.get("set-cookie", "")
+    assert [label for _, label, on in switch(junk.text) if on] == ["Continue watching"]   # junk ignored, cookie kept
+
+
+def test_each_suggestion_set_for_films(env):
+    main = env(jellyfin=jelly(up_next=RESUME), arr=ARRV)
+    with TestClient(main.app) as c:
+        new = body(c, "/media/movies?s=new")[1]
+        cont = body(c, "/media/movies?s=continue")[1]
+        todo = body(c, "/media/movies?s=unwatched")[1]
+    assert carousel_titles(new) == ["Fresh Movie"]
+    # "Next episode" is a next-up suggestion, not a resume: Charlie is not in progress
+    assert carousel_titles(cont) == ["Bravo Film"] and 'class="row-meta">32 min left<' in strip(cont)
+    assert 'href="/media/item/jtmdb-12"' in strip(cont)
+    assert carousel_titles(todo) == ["Charlie Film"]       # Bravo is in progress, Alpha / Delta watched
+
+
+def test_each_suggestion_set_for_shows_and_empty_lines_keep_the_switch(env):
+    main = env(jellyfin=jelly(), arr={"summary": "x", "arrived": []})
+    with TestClient(main.app) as c:
+        cont = body(c, "/media/tv?s=continue")[1]
+        todo = body(c, "/media/tv?s=unwatched")[1]
+        none = body(c, "/media/movies?s=continue")[1]       # no resume list
+    assert carousel_titles(cont) == ["Echo Show"] and carousel_titles(todo) == ["Foxtrot Show"]
+    assert '<p class="empty">Nothing in progress</p>' in none and len(switch(none)) == 3 and not strip(none)
+
+
+def test_suggestions_are_pure_ordered_and_capped():
+    rows = film_rows([movie(f"F{i:02d}", 2000, f"tmdb:{i}", added=i) for i in range(1, 16)]
+                     + [movie("Seen", 2000, "tmdb:99", played=True)])
+    got = media_library.suggestions(rows, "movie", "unwatched")
+    assert len(got) == media_library.SUGGEST_MAX == 12 and got[0]["title"] == "F01" and got[-1]["title"] == "F12"
+    resume = [{"jf_id": "jtmdb-3", "remaining_text": "5 min left"}, {"jf_id": "jtmdb-1", "remaining_text": "9 min left"}]
+    assert [(s["title"], s["when"]) for s in media_library.suggestions(rows, "movie", "continue", resume)] == [
+        ("F03", "5 min left"), ("F01", "9 min left")]                      # the resume list's order
+    assert "F01" not in [s["title"] for s in media_library.suggestions(rows, "movie", "unwatched", resume)]
+    shows = media_library.show_rows(
+        [show("Old", 2020, "tmdb:1", 10, 4, last=iso(9)), show("Recent", 2020, "tmdb:2", 10, 2, last=iso(1)),
+         show("Never", 2020, "tmdb:3", 10, 3)], {}, lambda v: "", lambda r, k: (None, False))
+    assert [s["title"] for s in media_library.suggestions(shows, "tv", "continue")] == ["Recent", "Old", "Never"]
+    assert media_library.suggestions(rows, "movie", "unwatched", marks=False) == []
+
+
+def test_no_grouped_chip_and_no_group_sections(env):
+    main = env(jellyfin=jelly(), arr=ARRV)
+    with TestClient(main.app) as c:
+        for path in ("/media/movies", "/media/tv", "/media/movies?group=1", "/media/tv?view=list&group=0"):
+            r = c.get(path)
+            b = r.text.split("<main", 1)[1]
+            assert r.status_code == 200 and "Grouped" not in b and 'name="group"' not in b
+            assert b.count('<section class="sec">') == 2 and 'seclabel">Suggestions<' in b   # carousel + one flat grid
+            for label in ("Watched · ", "Not yet watched · ", "Watching · ", "Not started · ", "Finished · "):
+                assert f">{label}" not in b
+
+
+def test_film_filter_chips_rows_label_and_active_chip(env):
+    main = env(jellyfin=jelly(up_next=RESUME), arr=ARRV)
+    with TestClient(main.app) as c:
+        got = {f: body(c, "/media/movies?sort=title" + (f"&f={f}" if f else ""))[1]
+               for f in ("", "continue", "unwatched", "watched")}
+    titles = {f: [t for _, _, t, _ in cards(b)] for f, b in got.items()}
+    assert titles == {"": ["Alpha Film", "Bravo Film", "Charlie Film", "Delta Film"], "continue": ["Bravo Film"],
+                      "unwatched": ["Charlie Film"], "watched": ["Alpha Film", "Delta Film"]}
+    assert chips(got["unwatched"]) == [("/media/movies?sort=title", "All", False),
+                                       ("/media/movies?sort=title&amp;f=continue", "Continue watching", False),
+                                       ("/media/movies?sort=title&amp;f=unwatched", "Not yet watched", True),
+                                       ("/media/movies?sort=title&amp;f=watched", "Watched", False)]
+    assert [label for _, label, on in chips(got[""]) if on] == ["All"]
+    assert '<h2 class="seclabel">Not yet watched · 1</h2>' in got["unwatched"]
+    assert '<h2 class="seclabel">Watched · 2</h2>' in got["watched"]
+    assert "4 films · 2 watched · 2 to watch" in got["watched"]                 # the head line counts everything
+    assert 'seclabel">All' not in got[""]
+    assert '<input type="hidden" name="f" value="unwatched">' in got["unwatched"] and 'name="f"' not in got[""]
+
+
+def test_show_filter_chips_rows(env):
+    main = env(jellyfin=jelly(), arr=ARRV)
+    with TestClient(main.app) as c:
+        got = {f: body(c, f"/media/tv?view=list&f={f}")[1] for f in ("all", "watching", "not_started", "finished")}
+        junk = body(c, "/media/tv?f=bogus&view=grid")[1]
+    assert [label for _, label, _ in chips(got["all"])] == ["All", "Watching", "Not started", "Finished"]
+    assert row_titles(got["watching"]) == ["Echo Show"] and row_titles(got["not_started"]) == ["Foxtrot Show"]
+    assert row_titles(got["finished"]) == ["Golf Show"] and len(row_titles(got["all"])) == 3
+    assert '<h2 class="seclabel">Not started · 1</h2>' in got["not_started"]
+    assert [label for _, label, on in chips(got["finished"]) if on] == ["Finished"]
+    assert [label for _, label, on in chips(junk) if on] == ["All"] and len(cards(junk)) == 3
+
+
+def test_filter_chips_keep_search_sort_view_and_suggestion(env):
+    main = env(jellyfin=jelly(), arr=ARRV)
+    with TestClient(main.app) as c:
+        b = body(c, "/media/movies?q=film&sort=year&s=unwatched&view=list&f=watched")[1]
+    links = {label: h for h, label, _ in chips(b)}
+    assert links["All"] == "/media/movies?q=film&amp;sort=year&amp;s=unwatched&amp;view=list"
+    assert links["Continue watching"] == "/media/movies?q=film&amp;sort=year&amp;s=unwatched&amp;view=list&amp;f=continue"
+    assert {label: h for h, label, _ in switch(b)}["New"] == \
+        "/media/movies?q=film&amp;sort=year&amp;view=list&amp;f=watched&amp;s=new"
+
+
+def test_her_view_without_her_list_has_no_filter_chips(env):
+    main = env(jellyfin=jelly(her=None), arr=ARRV)
+    with TestClient(main.app) as c:
+        b = body(c, "/media/movies?owner_view=her&f=watched&s=unwatched&view=grid")[1]
+    assert 'aria-label="Show"' not in b and len(cards(b)) == 4 and "Nothing left to watch" in b
+
+
+def test_new_sorts_order_a_small_fixture():
+    rows = film_rows([
+        movie("Bee", 2001, "tmdb:1", played=True, runtime=120, last=iso(5), genres=["Drama"]),
+        movie("Ant", 1999, "tmdb:2", played=True, runtime=None, last=iso(1), genres=["Comedy", "Drama"]),
+        movie("Cat", None, "tmdb:3", runtime=80, genres=[]),
+        movie("Dog", 1999, "tmdb:4", runtime=95, genres=["Action"]),
+    ])
+
+    def order(sort):
+        return [r["title"] for r in media_library.sort_rows(rows, sort)]
+    assert order("last") == ["Ant", "Bee", "Cat", "Dog"]               # most recent first, never watched last (A-Z)
+    assert order("runtime_short") == ["Cat", "Dog", "Bee", "Ant"]      # unknown runtime last
+    assert order("runtime_long") == ["Bee", "Dog", "Cat", "Ant"]
+    assert order("oldest") == ["Ant", "Dog", "Bee", "Cat"]             # unknown year last
+    assert order("genre") == ["Dog", "Ant", "Bee", "Cat"]              # first genre, then title; no genre last
+    shows = media_library.show_rows([show("Zed", 2020, "tmdb:1", 10, 3), show("Abe", 2020, "tmdb:2", 10, 3),
+                                     show("Max", 2020, "tmdb:3", 20, 9), show("Nil", 2020, "tmdb:4", 5, 0)],
+                                    {}, lambda v: "", lambda r, k: (None, False))
+    assert [r["title"] for r in media_library.sort_rows(shows, "to_watch")] == ["Max", "Abe", "Zed", "Nil"]
+
+
+def test_shuffle_is_a_permutation_that_changes():
+    rows = film_rows([movie(f"T{i}", 2000, f"tmdb:{i}") for i in range(12)])
+    everyone = sorted(r["title"] for r in rows)
+    runs = [[r["title"] for r in media_library.sort_rows(rows, "shuffle", random.Random(s))] for s in range(6)]
+    assert all(sorted(run) == everyone for run in runs) and len({tuple(run) for run in runs}) > 1
+    assert sorted(r["title"] for r in media_library.sort_rows(rows, "shuffle")) == everyone
+
+
+def test_new_sorts_are_offered_and_most_to_watch_only_on_tv(env):
+    main = env(jellyfin=jelly(), arr=ARRV)
+    with TestClient(main.app) as c:
+        m = body(c, "/media/movies")[1]
+        t = body(c, "/media/tv?sort=to_watch&view=list")[1]
+        m_tw = body(c, "/media/movies?sort=to_watch")[1]
+        shuffled = body(c, "/media/movies?sort=shuffle&view=grid")[1]
+
+    def opts(b):
+        return re.findall(r'<option value="(\w+)"( selected)?>([^<]+)</option>', b)
+    assert [(k, label) for k, _, label in opts(m)] == [
+        ("score", "Your score"), ("title", "A-Z"), ("year", "Newest release"), ("added", "Recently added"),
+        ("rating", "Community rating"), ("last", "Last watched"), ("runtime_short", "Shortest first"),
+        ("runtime_long", "Longest first"), ("oldest", "Oldest release"), ("genre", "Genre A-Z"), ("shuffle", "Shuffle")]
+    assert ("to_watch", " selected", "Most to watch") in opts(t)
+    assert row_titles(t) == ["Foxtrot Show", "Echo Show", "Golf Show"]      # 10 · 6 · 0 left
+    assert [k for k, sel, _ in opts(m_tw) if sel] == ["score"] and 'value="to_watch"' not in m_tw
+    assert sorted(t for _, _, t, _ in cards(shuffled)) == sorted(mv["title"] for mv in MOVIES)

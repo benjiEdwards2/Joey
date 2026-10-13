@@ -242,7 +242,8 @@ def test_library_toolbar_applies_on_change_and_apply_is_noscript_only(sample_cli
             assert 'hx-trigger="submit, change, search, keyup changed delay:400ms from:find input[type=search]"' in attrs
             assert '<input class="input" id="libq" type="search" name="q"' in inner          # focus survives the swap
             assert '<noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>' in inner
-            assert inner.count("<a ") == 1 and 'aria-label="Show as list"' in inner         # one icon toggle
+            # one icon toggle; the rest are the filter chips (2026-10-13, in place of Grouped)
+            assert inner.count("<a ") - inner.count('<a class="chip') == 1 and 'aria-label="Show as list"' in inner
             assert 'name="view"' not in inner                                              # the cookie keeps the choice
 
 

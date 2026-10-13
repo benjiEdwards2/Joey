@@ -1,10 +1,10 @@
 {% from "_poster.html" import poster %}
 {% from "_library_row.html" import row, card %}
 {% from "_icons.html" import icon %}
-{# Shared body of /media/movies and /media/tv (restyle Phase 3): a "New this week" carousel, the guide's toolbar
-   (search with its icon, the Grouped chip, sort, the Grid / List switch), then the titles grouped under section labels —
-   poster cards (the default, media-ux4) or rows. #}
-{# The toolbar (search, Grouped, sort, Grid / List) keeps the scroll position on a swap (hx-swap show:none, F1 2026-10-12). #}
+{# Shared body of /media/movies and /media/tv (restyle Phase 3): a Suggestions carousel, the guide's toolbar
+   (search with its icon, the filter chips, sort, the Grid / List switch), then every title in one sorted grid —
+   poster cards (the default, media-ux4) or rows. 2026-10-13 (B.): the Grouped chip and its sections are gone. #}
+{# The toolbar (search, sort, Grid / List) keeps the scroll position on a swap (hx-swap show:none, F1 2026-10-12). #}
 {# To rate moved to its own tab beside Tonight (media-ux4, 2026-10-08: /media/movies/to-rate, /media/tv/to-rate). #}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
@@ -13,11 +13,17 @@
 {% else %}
 <p class="metaline">{{ head_line }}</p>
 {% if not marks %}<p class="metaline">Her watch marks and scores aren't available yet</p>{% endif %}
-{% if new_week %}
+{# Suggestions (2026-10-13, B.; was "New this week"): New · Continue watching · Not yet watched, three chip links that
+   keep the search / sort / filter; the choice is remembered in the media_libsugg cookie (media_pages.library_suggest).
+   The switch always shows; an empty set is one short line in the carousel's place. #}
 <section class="sec">
-  <h2 class="seclabel">New this week</h2>
+  <h2 class="seclabel">Suggestions</h2>
+  <nav class="chips" aria-label="Suggestions">
+    {% for k, label in suggestions.items() %}<a class="chip{{ ' on' if k == suggest }}" href="{{ suggest_links[k] }}"{% if k == suggest %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  {% if suggested %}
   <div class="carousel">
-  {% for r in new_week %}
+  {% for r in suggested %}
   <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
     <span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span>
     <span class="row-title">{{ r.title }}</span>
@@ -25,8 +31,8 @@
   </{{ "a" if r.href else "div" }}>
   {% endfor %}
   </div>
+  {% else %}<p class="empty">{{ suggest_empty }}</p>{% endif %}
 </section>
-{% endif %}
 {# E3 (U14, 2026-10-13): the toolbar applies itself — any change, a cleared search or a pause in typing re-requests this page
    (htmx GET of the same URL, the boosted-body swap that keeps the scroll position, the URL pushed so Back works); Enter
    still submits. The search box keeps focus across the swap (htmx restores focus by id). Apply is for no-JS only. The
@@ -36,25 +42,30 @@
 <form class="toolbar" method="get" hx-get="{{ request.url.path }}" hx-target="body" hx-swap="innerHTML show:none" hx-push-url="true"
       hx-trigger="submit, change, search, keyup changed delay:400ms from:find input[type=search]">
   <div class="search">{{ icon("search") }}<input class="input" id="libq" type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles"></div>
-  {% if marks %}<input type="hidden" name="group" value="0"><label class="chip{{ ' on' if group }}"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %}>Grouped</label>{% endif %}
+  {# Filter chips (2026-10-13, B.; in place of Grouped): links keeping the search / sort / suggestion; the form carries
+     the current filter so a search or sort keeps it. #}
+  {% if marks %}<nav class="chips" aria-label="Show">
+    {% for k, label in filters.items() %}<a class="chip{{ ' on' if k == filter }}" href="{{ filter_links[k] }}"{% if k == filter %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>{% if filter != "all" %}<input type="hidden" name="f" value="{{ filter }}">{% endif %}{% endif %}
   <select class="select" name="sort" aria-label="Sort by">
     {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
   <noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>
-  {# Grid / List (media-ux4, 2026-10-08): a plain link keeping the search / sort / grouping; the choice is a cookie, so the
+  {# Grid / List (media-ux4, 2026-10-08): a plain link keeping the search / sort / filter; the choice is a cookie, so the
      server draws the right layout on the next visit (no flash). Grid is the default. #}
   <nav class="seg" aria-label="Layout">
     <a href="{{ libview_links[other] }}" aria-label="Show as {{ other }}" title="Show as {{ other }}">{{ icon(other) }}</a>
   </nav>
 </form>
-{% for g in groups %}
+{% if shown or filter != "all" %}
 <section class="sec">
-  {% if g.label %}<h2 class="seclabel">{{ g.label }} · {{ g.rows|length }}</h2>{% endif %}
-  {% if libview == "list" %}<div class="listbox libposters">{% for r in g.rows %}{{ row(r) }}{% endfor %}</div>
-  {% else %}<div class="poster-grid libgrid">{% for r in g.rows %}{{ card(r) }}{% endfor %}</div>{% endif %}
+  {% if filter != "all" %}<h2 class="seclabel">{{ filters[filter] }} · {{ shown|length }}</h2>{% endif %}
+  {% if not shown %}<p class="empty">{{ "Nothing matches that search." if q else "Nothing here yet." }}</p>
+  {% elif libview == "list" %}<div class="listbox libposters">{% for r in shown %}{{ row(r) }}{% endfor %}</div>
+  {% else %}<div class="poster-grid libgrid">{% for r in shown %}{{ card(r) }}{% endfor %}</div>{% endif %}
 </section>
 {% else %}
 <p class="empty">{{ "Nothing matches that search." if q else "Nothing in the library yet." }}</p>
-{% endfor %}
+{% endif %}
 {% endif %}
 {% include "_detail_foot.html" %}

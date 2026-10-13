@@ -3,14 +3,20 @@ lists. No I/O: the caller passes ratings, an `ago` formatter and an `href_of` re
 tests can drive every rule directly. `deal_tonight` takes a random.Random (deterministic tests)."""
 from __future__ import annotations
 
+import random
 import re
 from datetime import datetime, timedelta, timezone
 
 from hub import media_text
 
-SORTS = ("score", "title", "year", "added", "rating")
+# Library round (2026-10-13, B.): six more sorts; "Most to watch" is offered on the TV page only (sort_labels).
+SORTS = ("score", "title", "year", "added", "rating", "last", "runtime_short", "runtime_long", "oldest", "genre",
+         "shuffle", "to_watch")
 SORT_LABELS = {"score": "Your score", "title": "A-Z", "year": "Newest release",
-               "added": "Recently added", "rating": "Community rating"}
+               "added": "Recently added", "rating": "Community rating", "last": "Last watched",
+               "runtime_short": "Shortest first", "runtime_long": "Longest first", "oldest": "Oldest release",
+               "genre": "Genre A-Z", "shuffle": "Shuffle", "to_watch": "Most to watch"}
+TV_ONLY_SORTS = ("to_watch",)
 SHORT_MIN = 105
 ARRIVED_DAYS = 7
 OLD_FAVOURITE_MIN = 8
@@ -85,7 +91,13 @@ def show_rows(items, ratings, ago, href_of, marks=True, runtimes=None) -> list[d
     return _library_rows(items, ratings, "tv", ago, href_of, marks, runtimes)
 
 
-def sort_rows(rows, sort: str) -> list[dict]:
+def sort_labels(kind: str) -> dict:
+    """The sort select's {key: label} for this page: every sort, less the TV-only ones on the films page."""
+    return {k: v for k, v in SORT_LABELS.items() if kind == "tv" or k not in TV_ONLY_SORTS}
+
+
+def sort_rows(rows, sort: str, rng=None) -> list[dict]:
+    """`rng` (a random.Random) only for "shuffle": a fresh order each request unless a test passes a seeded one."""
     title = lambda r: r["title"].lower()
     year = lambda r: r["year"] or 0
     if sort == "title":
@@ -96,24 +108,83 @@ def sort_rows(rows, sort: str) -> list[dict]:
         return sorted(rows, key=lambda r: (-(parse_ts(r["added_at"]) or _EPOCH).timestamp(), title(r)))
     if sort == "rating":
         return sorted(rows, key=lambda r: (r["community"] is None, -(r["community"] or 0), title(r)))
+    if sort == "last":   # never watched last
+        last = lambda r: parse_ts(r.get("last_played_at"))
+        return sorted(rows, key=lambda r: (last(r) is None, -(last(r) or _EPOCH).timestamp(), title(r)))
+    if sort in ("runtime_short", "runtime_long"):   # unknown runtime last either way
+        sign = 1 if sort == "runtime_short" else -1
+        mins = lambda r: r["runtime_min"] if isinstance(r.get("runtime_min"), (int, float)) and r["runtime_min"] > 0 else None
+        return sorted(rows, key=lambda r: (mins(r) is None, sign * (mins(r) or 0), title(r)))
+    if sort == "oldest":   # unknown year last
+        return sorted(rows, key=lambda r: (not r["year"], year(r), title(r)))
+    if sort == "genre":    # by the first genre, then title; no genre last
+        first = lambda r: (r.get("genres") or "").split(", ")[0].lower()
+        return sorted(rows, key=lambda r: (not first(r), first(r), title(r)))
+    if sort == "shuffle":
+        out = list(rows)
+        (rng or random.Random()).shuffle(out)
+        return out
+    if sort == "to_watch":
+        return sorted(rows, key=lambda r: (-(r.get("unplayed") or 0), title(r)))
     return sorted(rows, key=lambda r: (r["score"] is None, -(r["score"] or 0), -year(r), title(r)))
 
 
-GROUPS = {"movie": [("Watched", lambda r: r["played"]), ("Not yet watched", lambda r: not r["played"])],
-          "tv": [("Watching", lambda r: r["state"] == "watching"),
-                 ("Not started", lambda r: r["state"] == "not_started"),
-                 ("Finished", lambda r: r["state"] == "finished")]}
+# Library round (2026-10-13, B.): the Grouped chip and its sections are gone - one flat grid, narrowed by a filter chip.
+# Films: "continue" = in the viewer's resume list; "unwatched" = not played and not in it; "watched" = played.
+FILTERS = {"movie": {"all": "All", "continue": "Continue watching", "unwatched": "Not yet watched", "watched": "Watched"},
+           "tv": {"all": "All", "watching": "Watching", "not_started": "Not started", "finished": "Finished"}}
 
 
-def arrange(rows, q: str, sort: str, group: bool, kind: str, marks: bool = True) -> list[dict]:
-    """Filter by title substring, sort, optionally group -> [{label, rows}] (label None = ungrouped)."""
+def _in_filter(r, f: str, resume_ids) -> bool:
+    if r.get("kind") == "movie":
+        resumed = str(r.get("jf_id")) in resume_ids
+        return {"continue": resumed, "unwatched": not r["played"] and not resumed,
+                "watched": bool(r["played"])}.get(f, True)
+    return r.get("state") == f if f in FILTERS["tv"] and f != "all" else True
+
+
+def arrange(rows, q: str, sort: str, f: str, kind: str, resume_ids=frozenset(), rng=None) -> list[dict]:
+    """Filter by title substring and the filter chip (`f`, a FILTERS key; anything else = all), then sort."""
     q = (q or "").strip().lower()
-    rows = [r for r in rows if q in r["title"].lower()]
-    rows = sort_rows(rows, sort if sort in SORTS else "score")
-    if not group or not marks:
-        return [{"label": None, "rows": rows}] if rows else []
-    out = [{"label": label, "rows": [r for r in rows if test(r)]} for label, test in GROUPS[kind]]
-    return [g for g in out if g["rows"]]
+    f = f if f in FILTERS[kind] else "all"
+    rows = [r for r in rows if q in r["title"].lower() and (f == "all" or _in_filter(r, f, resume_ids))]
+    return sort_rows(rows, sort if sort in sort_labels(kind) else "score", rng)
+
+
+# Suggestions carousel (2026-10-13, B.): New (the arr's arrivals this week) · Continue watching · Not yet watched.
+SUGGESTIONS = {"new": "New", "continue": "Continue watching", "unwatched": "Not yet watched"}
+SUGGESTION_EMPTY = {"new": "Nothing new this week", "continue": "Nothing in progress",
+                    "unwatched": "Nothing left to watch"}
+SUGGEST_MAX = 12
+
+
+def suggestions(rows, kind: str, which: str, resume=(), marks: bool = True) -> list[dict]:
+    """Carousel items {title, poster, href, when} for "continue" / "unwatched" (the caller passes "new" itself).
+    Films continue = the viewer's resume rows (`resume`, in_progress only, Jellyfin's most-recently-played-first
+    order) that are in the library; shows = state watching, latest last_played_at first. Unwatched = films not played
+    and not resumed / shows not started, most recently added first. Up to SUGGEST_MAX; nothing without watch marks
+    (her view before her own list exists), except her own resume list."""
+    def item(r, when):
+        return {"title": r["title"], "poster": r["poster"], "href": r["href"], "when": when}
+    if which == "continue" and kind == "movie":
+        by_id = {str(r.get("jf_id")): r for r in rows if r.get("jf_id")}
+        out = [item(by_id[str(x.get("jf_id"))], x.get("remaining_text") or "") for x in resume
+               if str(x.get("jf_id")) in by_id]
+    elif not marks:
+        return []
+    elif which == "continue":
+        last = lambda r: parse_ts(r.get("last_played_at"))
+        picked = sorted((r for r in rows if r["state"] == "watching"),
+                        key=lambda r: (last(r) is None, -(last(r) or _EPOCH).timestamp(), r["title"].lower()))
+        out = [item(r, r.get("progress") or "") for r in picked]
+    elif which == "unwatched":
+        resumed = {str(x.get("jf_id")) for x in resume}
+        keep = ((lambda r: not r["played"] and str(r.get("jf_id")) not in resumed) if kind == "movie"
+                else (lambda r: r["state"] == "not_started"))
+        out = [item(r, str(r["year"] or "")) for r in sort_rows([r for r in rows if keep(r)], "added")]
+    else:
+        return []
+    return out[:SUGGEST_MAX]
 
 
 def head_line(rows, kind: str, marks: bool = True) -> str:

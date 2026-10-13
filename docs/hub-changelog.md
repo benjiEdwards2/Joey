@@ -946,3 +946,21 @@ Wrapped page has no Year tab (reached from the Diary's Month in Review card; lig
 to-rate count sits on the Activity slot; "To Rate" reads "To rate" everywhere (style guide lines 15–16); E3's sticky
 48 px Media bar is keyed on `.brand-back`; the Diary page runs E1's memoised history sync and nav-tidy's Mine / Everyone
 scope together. Suite 2,322.
+
+## 2026-10-13 — Library pages: Suggestions, one flat grid, more sorts, diary picker
+B. ("go for all"). **Suggestions** `/media/movies` and `/media/tv` open with a "Suggestions" carousel (was "New this
+week") under a chip switch New · Continue watching · Not yet watched (`?s=new|continue|unwatched`, remembered in the
+`media_libsugg` cookie, path `/media`, like Grid / List; default New). New = the arr arrivals this week; Continue watching
+= films in the viewer's resume list in Jellyfin's most-recently-played order (the card says "32 min left") / shows in state
+watching, latest watch first; Not yet watched = films not played and not in progress / shows not started, newest added
+first; at most 12 (`media_library.suggestions`, `SUGGEST_MAX`). An empty set is one line ("Nothing in progress"); the
+switch never hides. **One flat grid** the Grouped chip and its section labels are gone: grid and list show every title
+in one sorted section, narrowed by toolbar filter chips (`?f=`, links keeping q / sort / s / view; films All · Continue
+watching · Not yet watched · Watched, shows All · Watching · Not started · Finished; active chip `on` + `aria-current`;
+the form carries `f` so a search keeps it). A filter adds the section label "Not yet watched · 35"; All adds nothing.
+`arrange()` is filter + sort; an old `group=` is ignored. Without her own list (her view) there are no chips.
+**Sorts** Last watched, Shortest first, Longest first (unknown runtime last), Oldest release, Genre A-Z (first genre, no
+genre last), Shuffle (fresh each request) and, on TV only, Most to watch (`sort_labels(kind)`); Your score stays the
+default. **Diary** in Everyone, the other person's rows carry no 1-10 picker and no score (`row["theirs"]`); the viewer's
+own rows keep both. Tests: `test_media_library_pages.py` (library round block), `test_media_diary.py`, one count in
+`test_first_screens_e3.py`.

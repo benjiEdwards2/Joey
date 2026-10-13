@@ -1,7 +1,8 @@
 {# One diary line (2026-10-05, grouped per episode run 2026-10-06 F8; restyle Phase 3 row recipe). Expects: row (a
    group_diary line), score (int|None). Episode names ride in a title= tooltip and show in the meta line when there
    are <= 3. Rated: the score big on the right; unrated: the 1-10 picker drops to its own line. row.who (2026-10-13,
-   "Show: Everyone" only): whose watch it is, a word in the meta line. #}
+   "Show: Everyone" only): whose watch it is, a word in the meta line; row.theirs: the other person's row carries no
+   score and no picker (the viewer's own score is not a rating of her watch). #}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
@@ -17,7 +18,8 @@
              "Jellyfin" if row.source == "jellyfin" else "Logged" ~ (" · " ~ row.place if row.place else "")]) }}
   </div>
   {% if ih %}</a>{% endif %}
-  {% if score %}{{ rate.score(score) }}
+  {% if row.theirs %}
+  {% elif score %}{{ rate.score(score) }}
   {% elif ratings is defined and ratings.level == "season" and row.season_key %}{{ rate.picker({"item_key": row.season_key, "kind": row.kind, "level": "season", "title": row.title, "year": row.year, "poster": row.poster}) }}
   {% else %}{{ rate.picker(row) }}{% endif %}
 </div>

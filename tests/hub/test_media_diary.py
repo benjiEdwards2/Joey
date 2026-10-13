@@ -302,3 +302,25 @@ def test_group_diary_keeps_two_owners_rows_of_one_episode_apart(env):
     lines = media_db.group_diary(media_db.list_diary(owner=None))
     assert len(lines) == 2 and sorted(l["owner"] for l in lines) == ["her", "you"]
     assert all(l["count"] == 1 and l["sub"] == "S4 E1" for l in lines)
+
+
+def test_everyone_view_her_rows_carry_no_picker_or_score_while_mine_do(env, monkeypatch):
+    # 2026-10-13 (B.): the 1-10 picker / score is the viewer's own; her watch line shows without it
+    monkeypatch.delenv("OWNER_NAME_HER", raising=False)
+    build, _ = env
+    today = date.today().isoformat()
+    media_db.add_manual_watch("tmdb:2", "movie", "Ronin", watched_on=today, owner="her")
+    media_db.add_manual_watch("tmdb:5", "movie", "Collateral", watched_on=today, owner="her")
+    media_db.add_manual_watch("tmdb:6", "movie", "Thief", watched_on=today)
+    media_db.set_rating("tmdb:5", 9, "movie", "Collateral")                      # the viewer's own score of her film
+    with build(jelly_data([recent_row("tmdb:1", "Heat", 1)])) as client:
+        client.post(SCOPE_FORM, data={"value": "everyone"}, follow_redirects=False)
+        body = main_of(client.get("/media/diary").text)
+
+    def line(title):
+        return body.split(f">{title}", 1)[1].split("diaryrow", 1)[0]
+    for title in ("Ronin", "Collateral"):
+        assert 'class="row-meta">Georgina<' in line(title)
+        assert "ratepick" not in line(title) and "row-score" not in line(title)
+    assert 'class="row-meta">You<' in line("Thief") and 'class="ratepick"' in line("Thief")
+    assert 'class="ratepick"' in line("Heat")

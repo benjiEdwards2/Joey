@@ -68,7 +68,7 @@
   <h2 class="seclabel">{{ g.label }}</h2>
   <div class="listbox libposters">
   {% for row in g.rows %}
-  {% with score = score_for(row, ratings) %}{% include "_diary_row.html" %}{% endwith %}
+  {% with score = none if row.theirs else score_for(row, ratings) %}{% include "_diary_row.html" %}{% endwith %}
   {% endfor %}
   </div>
 </section>

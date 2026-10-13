@@ -250,6 +250,7 @@ def media_diary_page(request: Request):
         for row in lines:
             if everyone:
                 row["who"] = "You" if row.get("owner") == owner else her_name
+                row["theirs"] = row.get("owner") != owner   # 2026-10-13: no 1-10 picker / score on her rows
             label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")
             if not months or months[-1]["label"] != label:
                 months.append({"label": label, "rows": []})
@@ -363,20 +364,42 @@ def library_view(request: Request) -> tuple[str, bool]:
 
 
 def library_view_links(request: Request) -> dict:
-    """{grid: href, list: href} — this page with the same search / sort / grouping and the other layout."""
-    keep = [(k, v) for k, v in request.query_params.multi_items() if k != "view"]
-    return {v: request.url.path + "?" + urlencode(keep + [("view", v)]) for v in LIBVIEWS}
+    """{grid: href, list: href} — this page with the same search / sort / filter and the other layout."""
+    return _links_with(request, "view", LIBVIEWS)
+
+
+def _links_with(request: Request, name: str, values, drop=None) -> dict:
+    """{value: href} — this page with every other query param kept and `name` set to each value (`drop`: omitted)."""
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k != name]
+    return {v: request.url.path + ("?" + urlencode(keep + ([] if v == drop else [(name, v)]))
+                                   if keep or v != drop else "") for v in values}
+
+
+# Suggestions carousel (2026-10-13, B.): New · Continue watching · Not yet watched; `?s=` wins and is remembered in a
+# cookie scoped to /media like the Grid / List choice, else the cookie, else New.
+SUGGEST_COOKIE = "media_libsugg"
+
+
+def library_suggest(request: Request) -> tuple[str, bool]:
+    q = request.query_params.get("s")
+    if q in media_library.SUGGESTIONS:
+        return q, True
+    c = request.cookies.get(SUGGEST_COOKIE)
+    return (c if c in media_library.SUGGESTIONS else "new"), False
 
 
 def _library_page(request: Request, kind: str):
     template = "media_movies.html" if kind == "movie" else "media_tv.html"
     libview, view_from_query = library_view(request)
+    suggest, suggest_from_query = library_suggest(request)
 
     def build(data, view):
         items, marks, rows = _library_rows(data, view, kind)
         # media-ux4: each grid card says Watched / Not watched / In progress (a film is in progress while it sits in the
-        # viewer's resume list)
-        resume = {str(r.get("jf_id")) for r in data.get("up_next") or [] if media_resume.in_progress(r) and r.get("jf_id")}
+        # viewer's resume list). 2026-10-13: the list keeps its order (Jellyfin's most recently played first) for
+        # the Continue watching suggestions.
+        resume_rows = [r for r in data.get("up_next") or [] if media_resume.in_progress(r) and r.get("jf_id")]
+        resume = {str(r["jf_id"]) for r in resume_rows}
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
@@ -387,20 +410,31 @@ def _library_page(request: Request, kind: str):
         arrived = media_library.arrived_this_week((arr.data if arr else {}).get("arrived"), kind)
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: media_home.item_href(jf))
         q = request.query_params.get("q", "")
+        sorts = media_library.sort_labels(kind)
         sort = request.query_params.get("sort", "score")
-        sort = sort if sort in media_library.SORTS else "score"
-        group = (request.query_params.getlist("group") or ["1"])[-1] != "0"
+        sort = sort if sort in sorts else "score"
+        # 2026-10-13 (B.): one flat grid narrowed by a filter chip (the Grouped chip is gone; an old `group=` is ignored)
+        filters = media_library.FILTERS[kind]
+        f = request.query_params.get("f", "all")
+        f = f if marks and f in filters else "all"
+        shown = media_library.arrange(rows or [], q, sort, f, kind, resume)
+        suggested = arrived if suggest == "new" else media_library.suggestions(rows or [], kind, suggest, resume_rows, marks)
         return {
-            "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "group": group,
-            "sorts": media_library.SORT_LABELS, "new_week": arrived,
+            "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "sorts": sorts,
             "head_line": media_library.head_line(rows or [], kind, marks),
-            "groups": media_library.arrange(rows or [], q, sort, group, kind, marks),
+            "filters": filters, "filter": f, "filter_links": _links_with(request, "f", filters, drop="all"),
+            "shown": shown,
+            "suggest": suggest, "suggestions": media_library.SUGGESTIONS, "suggested": suggested,
+            "suggest_links": _links_with(request, "s", media_library.SUGGESTIONS),
+            "suggest_empty": media_library.SUGGESTION_EMPTY[suggest],
             "ratings": media_home._ratings(view, arrived),
             "libview": libview, "libview_links": library_view_links(request),
         }
     resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
     if view_from_query:
         resp.set_cookie(LIBVIEW_COOKIE, libview, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
+    if suggest_from_query:
+        resp.set_cookie(SUGGEST_COOKIE, suggest, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
     return resp
 
 

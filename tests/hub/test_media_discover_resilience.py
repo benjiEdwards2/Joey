@@ -51,8 +51,8 @@ def test_a_failed_refresh_serves_the_last_good_rows_with_their_age(env, monkeypa
         r = client.get("/media/discover")
     body = main_of(r.text)
     assert r.status_code == 200 and "Discover unavailable" not in body
-    assert '<div class="seclabel">Trending · 12m ago</div>' in body
-    assert '<div class="seclabel">Popular films · 12m ago</div>' in body and "Film Five" in body
+    assert '<h2 class="seclabel">Trending · 12m ago</h2>' in body
+    assert '<h2 class="seclabel">Popular films · 12m ago</h2>' in body and "Film Five" in body
     assert FAKE_KEY not in r.text and "secret-host" not in r.text
 
 
@@ -70,7 +70,7 @@ def test_the_failure_is_remembered_a_minute_then_read_again(env, monkeypatch):
         later(monkeypatch, 11 * 60 + md.FAIL_TTL + 1)
         r = client.get("/media/discover")
     assert len(shelf_gets(fake)) == n + 5             # the minute is up: read again, fresh rows, no age
-    assert '<div class="seclabel">Trending</div>' in main_of(r.text)
+    assert '<h2 class="seclabel">Trending</h2>' in main_of(r.text)
 
 
 def test_last_good_rows_survive_a_restart_on_disk(env, monkeypatch):
@@ -82,12 +82,12 @@ def test_last_good_rows_survive_a_restart_on_disk(env, monkeypatch):
     with client:
         fresh = client.get("/media/discover")
     assert shelf_gets(fake)[5:] == []                 # under 10 min on disk: served as fresh, no read
-    assert '<div class="seclabel">Trending</div>' in main_of(fresh.text) and "Trend Film" in fresh.text
+    assert '<h2 class="seclabel">Trending</h2>' in main_of(fresh.text) and "Trend Film" in fresh.text
     md.clear_cache()
     later(monkeypatch, 3 * 3600)
     with client:
         old = client.get("/media/discover")
-    assert '<div class="seclabel">Trending · 3h ago</div>' in main_of(old.text)
+    assert '<h2 class="seclabel">Trending · 3h ago</h2>' in main_of(old.text)
     assert "Discover unavailable" not in old.text
 
 

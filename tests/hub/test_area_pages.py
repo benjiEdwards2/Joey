@@ -116,7 +116,7 @@ def test_connected_area_has_no_quiet_sentence(site):
 
 def test_weather_page_is_a_stats_strip_and_pages_have_no_literal_hex(site):
     _, body = site("/weather")
-    assert re.search(r'<section class="sec wxpage"', body) and 'class="stats"' in body
+    assert re.search(r'<section class="sec wxpage"', body) and 'class="stats wxstats"' in body   # E3: .wxstats (U10)
     assert "Newport VIC" in body and "°C" in body
     for route in ("/weather", "/a/calendar", "/a/house", "/a/money", "/a/desk", "/a/kitchen"):
         assert not HEX.search(site(route)[1]), route

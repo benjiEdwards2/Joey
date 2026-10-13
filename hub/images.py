@@ -8,6 +8,7 @@ Warnings name the ref kind and a status/type only — never a URL or key.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import hashlib
 import html
@@ -16,8 +17,10 @@ import os
 import re
 import tempfile
 import time
+import weakref
 from pathlib import Path
 
+import anyio
 import requests
 from fastapi import APIRouter, Response
 
@@ -38,6 +41,15 @@ EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/we
 MIME = {ext: mime for mime, ext in EXT.items() if mime != "image/jpg"}
 
 REF_RE = re.compile(r"^(?:(jf|jfb|radarr|sonarr):([A-Za-z0-9-]+)|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
+
+
+# E1 (2026-10-13): a cold-poster burst must never stall pages. /img is async: a cache hit is read in a short worker
+# call; a MISS waits (without holding a thread) for one of MISS_SLOTS upstream slots, then fetches + stores in a
+# worker of its own limiter, so the shared threadpool pages use is never filled by slow upstreams. A miss that has
+# waited MISS_WAIT_S for a slot gets the fallback card (FALLBACK_CACHE) instead of hanging.
+MISS_SLOTS = 6
+MISS_WAIT_S = 8.0
+_limiters: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()   # event loop -> (slot gate, worker limiter)
 
 
 def cache_dir() -> Path:
@@ -188,8 +200,45 @@ def _store(stem: str, ext: str, body: bytes) -> None:
                 os.unlink(tmp)
 
 
+def _miss_limiters() -> tuple[anyio.CapacityLimiter, anyio.CapacityLimiter]:
+    """This event loop's (slot gate, worker limiter); one pair per loop (tests run several loops)."""
+    loop = asyncio.get_running_loop()
+    pair = _limiters.get(loop)
+    if pair is None:
+        pair = _limiters[loop] = (anyio.CapacityLimiter(MISS_SLOTS), anyio.CapacityLimiter(MISS_SLOTS))
+    return pair
+
+
+def _fetch_and_store(stem: str, kind: str, ident: str, size: int) -> tuple[bytes, str] | None:
+    """A miss, in a worker thread: re-check the cache (a request ahead in the queue may have fetched it), else fetch
+    and store. -> (body, ext) or None (upstream failure)."""
+    hit = _cached(stem)
+    if hit is not None:
+        return hit
+    got = _fetch(kind, ident, size)
+    if got is not None:
+        _store(stem, got[1], got[0])
+    return got
+
+
+async def _miss(stem: str, kind: str, ident: str, size: int) -> tuple[bytes, str] | None | bool:
+    """-> (body, ext), None (upstream failure) or False (no slot within MISS_WAIT_S)."""
+    gate, workers = _miss_limiters()
+    slot = False
+    with anyio.move_on_after(MISS_WAIT_S):
+        await gate.acquire()   # waits on the event loop, holding no thread
+        slot = True
+    if not slot:
+        log.warning("image upstream busy (%s): fallback served", kind)
+        return False
+    try:
+        return await anyio.to_thread.run_sync(_fetch_and_store, stem, kind, ident, size, limiter=workers)
+    finally:
+        gate.release()
+
+
 @router.get("/img/{ref:path}")
-def image(ref: str, h: str = "", t: str = ""):
+async def image(ref: str, h: str = "", t: str = ""):
     title = t[:80]
     if ref == "none":
         return _fallback(title)
@@ -201,13 +250,13 @@ def image(ref: str, h: str = "", t: str = ""):
     size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
 
     stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
-    hit = _cached(stem)
+    hit = await anyio.to_thread.run_sync(_cached, stem) if _cache_path(stem) else None   # a stat, then a short read
     if hit is None:
-        got = _fetch(kind, ident, size)
-        if got is None:
+        if _upstreams(kind, ident, size) is None:   # nothing configured: the card at once, no slot, no thread
             return _fallback(title)
-        _store(stem, got[1], got[0])
-        hit = got
+        hit = await _miss(stem, kind, ident, size)
+        if not hit:
+            return _fallback(title)
     return Response(hit[0], media_type=MIME[hit[1]], headers={"Cache-Control": HIT_CACHE})
 
 

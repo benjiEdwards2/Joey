@@ -97,7 +97,7 @@ def test_server_update_and_ignore_forms_render_as_primary_and_ghost_buttons(env)
         page = client.get("/server").text.split("<main", 1)[1]
         confirm = client.get("/server/updates/vaultwarden/run?step=confirm").text.split("<main", 1)[1]
     assert re.search(r'<a class="btn btn-primary btn-sm" href="/server/updates/vaultwarden/run\?step=confirm">Update now</a>', page)
-    assert re.search(r'<form method="post" action="/server/updates/[\w-]+/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button>', page)
+    assert re.search(r'<form method="post" hx-swap="innerHTML show:none" action="/server/updates/[\w-]+/ignore"><button class="btn btn-ghost btn-sm" type="submit">Ignore</button>', page)
     assert '<span class="badge badge-wait">' in page      # pending = amber outline badge
     assert 'class="btn btn-primary" type="submit">Update vaultwarden now' in confirm and 'class="btn btn-ghost"' in confirm
 

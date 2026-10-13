@@ -285,7 +285,7 @@ def test_created_by_row_follows_a_creator_as_a_tv_maker(son_env):
     with client:
         page = whole(client, "/media/title/tv/100")
         row = page.split('<div class="microlabel">Created by</div>', 1)[1].split('<div class="makers', 1)[0]
-        assert ('<form method="post" action="/media/follow/person/77"><input type="hidden" name="back" '
+        assert ('<form method="post" hx-swap="innerHTML show:none" action="/media/follow/person/77"><input type="hidden" name="back" '
                 'value="/media/title/tv/100"><input type="hidden" name="name" value="Cass Creator">'
                 '<input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">'
                 'Follow Cass Creator</button></form>') in row
@@ -380,7 +380,7 @@ def test_following_tab_groups_shows_and_counts_films_and_shows(son_env):
         shows = shows.split("Recently added by follows", 1)[0]
         assert '<a class="rowlink" href="/media/title/tv/100">' in shows and "Quiet Show" in shows
         assert "qs.jpg" in shows                                                      # the show poster
-        assert ('<form method="post" action="/media/follow/show/100/unfollow"><input type="hidden" name="back" '
+        assert ('<form method="post" hx-swap="innerHTML show:none" action="/media/follow/show/100/unfollow"><input type="hidden" name="back" '
                 'value="/media/following"><button class="btn btn-ghost btn-sm" type="submit">Unfollow</button></form>') in shows
         recent = b.split("Recently added by follows", 1)[1]
         assert '<a class="row" href="/media/title/tv/501">' in recent and '<a class="row" href="/media/title/movie/507">' in recent

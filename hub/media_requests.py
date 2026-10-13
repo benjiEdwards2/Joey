@@ -17,12 +17,14 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
+import time
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_requests.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from hub import media_discover as md, media_hidden, media_text, shell
+from hub import media_discover as md, media_hidden, media_text, shell, upstream
 from hub.ids import JELLYSEERR_SNAPSHOT_ID
 from hub.media_write import flash_keys, same_origin
 
@@ -32,6 +34,33 @@ router = APIRouter()
 PAGE = "/media/requests"
 GROUP = "request"
 TIMEOUT = 8
+# E1 (2026-10-13): the film page's lazy "Search now" fragment looks the title up in Radarr / Sonarr on every view (for
+# a show without a TheTVDB id that is the whole series list). Its answers - found or not there - are kept LOOKUP_TTL;
+# a failed lookup is not kept, and every Joey write to an *arr app or a Seerr request drops them all (forget_lookups).
+# Write paths themselves always read the app live (`_find`), never this cache.
+LOOKUP_TTL = 300
+_lookups: dict[tuple, tuple[float, dict | None]] = {}
+_lookups_lock = threading.Lock()
+
+
+def forget_lookups() -> None:
+    with _lookups_lock:
+        _lookups.clear()
+
+
+def find_kept(app: str, base: str, headers: dict, tmdb: int, tvdb: int | None) -> dict | None:
+    """_find through the LOOKUP_TTL cache (the Search now fragment only); raises like _find on a failed read."""
+    key = (app, base, tmdb, tvdb)
+    with _lookups_lock:
+        hit = _lookups.get(key)
+    if hit is not None and time.monotonic() - hit[0] < LOOKUP_TTL:
+        return hit[1]
+    entry = _find(app, base, headers, tmdb, tvdb)
+    with _lookups_lock:
+        if len(_lookups) > 256:
+            _lookups.clear()
+        _lookups[key] = (time.monotonic(), entry)
+    return entry
 ON_DISK_WORDS = ("Available", "Partly available")
 APPS = {"movie": "radarr", "tv": "sonarr"}
 DONE = {"removed": "Removed",
@@ -99,13 +128,13 @@ def _arr_creds(app: str) -> tuple[str, dict] | None:
 def _find(app: str, base: str, headers: dict, tmdb: int, tvdb: int | None) -> dict | None:
     """The Radarr movie / Sonarr series for this title, or None when the app doesn't have it."""
     if app == "radarr":
-        resp = requests.get(f"{base}/api/v3/movie", params={"tmdbId": tmdb}, headers=headers, timeout=TIMEOUT)
+        resp = upstream.session("arr").get(f"{base}/api/v3/movie", params={"tmdbId": tmdb}, headers=headers, timeout=TIMEOUT)
         match = lambda m: m.get("tmdbId") == tmdb
     elif tvdb:
-        resp = requests.get(f"{base}/api/v3/series", params={"tvdbId": tvdb}, headers=headers, timeout=TIMEOUT)
+        resp = upstream.session("arr").get(f"{base}/api/v3/series", params={"tvdbId": tvdb}, headers=headers, timeout=TIMEOUT)
         match = lambda s: s.get("tvdbId") == tvdb
     else:
-        resp = requests.get(f"{base}/api/v3/series", headers=headers, timeout=TIMEOUT)
+        resp = upstream.session("arr").get(f"{base}/api/v3/series", headers=headers, timeout=TIMEOUT)
         match = lambda s: s.get("tmdbId") == tmdb
     if not 200 <= resp.status_code < 300:
         raise RuntimeError(f"HTTP {resp.status_code}")
@@ -138,7 +167,8 @@ def stop_search(kind: str, tmdb: int, tvdb: int | None = None) -> str:
         if not entry.get("monitored"):
             return "stopped"            # already not searching
         path = "movie" if app == "radarr" else "series"
-        resp = requests.put(f"{base}/api/v3/{path}/{int(entry['id'])}", json={**entry, "monitored": False},
+        forget_lookups()
+        resp = upstream.session("arr").put(f"{base}/api/v3/{path}/{int(entry['id'])}", json={**entry, "monitored": False},
                             headers=headers, timeout=TIMEOUT)
         if not 200 <= resp.status_code < 300:
             raise RuntimeError(f"HTTP {resp.status_code}")
@@ -156,7 +186,7 @@ def delete_request(rid: int) -> tuple[str | None, int | None]:
     if creds is None:
         return "unset", None
     try:
-        resp = requests.delete(f"{creds[0]}/api/v1/request/{rid}", headers={"X-Api-Key": creds[1]}, timeout=TIMEOUT)
+        resp = upstream.session("seerr").delete(f"{creds[0]}/api/v1/request/{rid}", headers={"X-Api-Key": creds[1]}, timeout=TIMEOUT)
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("jellyseerr request delete failed: %s", type(exc).__name__)
         return "unreachable", None

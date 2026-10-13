@@ -33,12 +33,12 @@ import logging
 import re
 from urllib.parse import urlencode
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_resume.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell
+from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell, upstream
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_resume")
@@ -131,11 +131,11 @@ def _her_user_id(base: str, headers: dict) -> str | None:
 
 
 def _post(base, headers, path, params=None, body=None):
-    return requests.post(f"{base}{path}", params=params, json=body, headers=headers, timeout=TIMEOUT)
+    return upstream.session("jellyfin").post(f"{base}{path}", params=params, json=body, headers=headers, timeout=TIMEOUT)
 
 
 def _delete(base, headers, path, params=None):
-    return requests.delete(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
+    return upstream.session("jellyfin").delete(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
 
 
 def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:

@@ -11,7 +11,9 @@ from __future__ import annotations
 import os
 import time
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_jellyfin.requests (E1: via tests/hub/conftest)
+
+from hub import upstream
 
 TIMEOUT = 8
 UID_TTL = 3600
@@ -33,7 +35,7 @@ def creds() -> tuple[str, dict] | None:
 
 def get(base: str, headers: dict, path: str, params: dict | None = None):
     """GET a Jellyfin JSON path; raises on no answer, and RuntimeError("HTTP nnn") on a non-2xx."""
-    resp = requests.get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
+    resp = upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
     if not 200 <= resp.status_code < 300:
         raise RuntimeError(f"HTTP {resp.status_code}")
     return resp.json()

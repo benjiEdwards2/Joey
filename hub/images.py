@@ -21,8 +21,11 @@ import weakref
 from pathlib import Path
 
 import anyio
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.images.requests (E1: via tests/hub/conftest)
+
 from fastapi import APIRouter, Response
+
+from hub import upstream
 
 log = logging.getLogger("hub.images")
 router = APIRouter()
@@ -39,6 +42,8 @@ FALLBACK_CACHE = "public, max-age=3600"
 EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp",
        "image/gif": ".gif"}
 MIME = {ext: mime for mime, ext in EXT.items() if mime != "image/jpg"}
+
+_UPSTREAM = {"jf": "jellyfin", "jfb": "jellyfin", "radarr": "arr", "sonarr": "arr", "tmdb": "tmdb"}   # E1: keep-alive
 
 REF_RE = re.compile(r"^(?:(jf|jfb|radarr|sonarr):([A-Za-z0-9-]+)|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
 
@@ -132,7 +137,7 @@ def _fetch(kind: str, ident: str, h: int) -> tuple[bytes, str] | None:
     reason = "no answer"
     for url, params, headers in candidates:
         try:
-            resp = requests.get(url, params=params or None, headers=headers or None, timeout=TIMEOUT,
+            resp = upstream.session(_UPSTREAM[kind]).get(url, params=params or None, headers=headers or None, timeout=TIMEOUT,
                                 stream=True)
         except Exception as exc:
             reason = _reason(exc)

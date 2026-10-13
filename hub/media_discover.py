@@ -19,12 +19,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import parse_qs, quote
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_discover.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_awards_badges, media_files, media_text, shell
+from hub import media_awards_badges, media_files, media_text, shell, upstream
 from hub.ids import ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 from hub.images import REF_RE, cache_dir
 from hub.media_cache import LRU
@@ -129,7 +129,7 @@ def _fetch(path: str, timeout: float = TIMEOUT) -> tuple[object, int | None]:
     if not creds:
         return None, None
     try:
-        resp = requests.get(f"{creds[0]}{path}", headers={"X-Api-Key": creds[1]}, timeout=timeout)
+        resp = upstream.session("seerr").get(f"{creds[0]}{path}", headers={"X-Api-Key": creds[1]}, timeout=timeout)
         if not 200 <= resp.status_code < 300:
             log.warning("jellyseerr read failed: HTTP %s", resp.status_code)
             return None, resp.status_code
@@ -636,7 +636,7 @@ def _send(kind: str, tmdb_id: int, seasons: list[int] | str) -> str | None:
     if kind == "tv":
         payload["seasons"] = seasons
     try:
-        resp = requests.post(f"{creds[0]}/api/v1/request", json=payload,
+        resp = upstream.session("seerr").post(f"{creds[0]}/api/v1/request", json=payload,
                              headers={"X-Api-Key": creds[1]}, timeout=TIMEOUT)
     except Exception as exc:  # type only — requests errors embed the URL
         log.warning("jellyseerr request failed: %s", type(exc).__name__)
@@ -661,6 +661,8 @@ def _request_title(request: Request, kind: str, tmdb_id: int, seasons):
     future = None
     if code is None:
         _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)  # the film page re-reads the new request status
+        from hub import media_requests   # late: it imports this module
+        media_requests.forget_lookups()   # E1: the title is on its way into Radarr / Sonarr - Search now re-reads
         if seasons == "all":   # media-ux5 item 7: Sonarr follows new seasons too, then searches
             from hub import media_arr_search  # late: it imports this module
             future = media_arr_search.follow_all(tmdb_id)

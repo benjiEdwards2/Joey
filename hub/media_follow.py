@@ -35,14 +35,14 @@ import threading
 from contextlib import closing
 from datetime import date
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_follow.requests (E1: via tests/hub/conftest)
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from hub import (media_arr_search, media_db, media_discover as md, media_requests as mr, media_store, media_text,
-                 server_alerts, shell)
+                 server_alerts, shell, upstream)
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_follow")
@@ -438,7 +438,8 @@ def sonarr_note(code) -> dict | None:
 def _sonarr_put(entry: dict, **fields) -> None:
     """PUT the series back as Sonarr's own resource with `fields` changed (every other field kept)."""
     base, headers = mr._arr_creds("sonarr")
-    media_arr_search._ok(requests.put(f"{base}/api/v3/series/{int(entry['id'])}", json={**entry, **fields},
+    mr.forget_lookups()   # E1: the Search now fragment re-reads the series
+    media_arr_search._ok(upstream.session("arr").put(f"{base}/api/v3/series/{int(entry['id'])}", json={**entry, **fields},
                                       headers=headers, timeout=media_arr_search.TIMEOUT))
 
 
@@ -469,7 +470,7 @@ def _keep_shows(rows: list[dict]) -> int:
         return 0
     base, headers = creds
     try:
-        resp = requests.get(f"{base}/api/v3/series", headers=headers, timeout=media_arr_search.TIMEOUT)
+        resp = upstream.session("arr").get(f"{base}/api/v3/series", headers=headers, timeout=media_arr_search.TIMEOUT)
         media_arr_search._ok(resp)
         body = resp.json()
     except Exception as exc:

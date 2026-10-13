@@ -23,9 +23,9 @@ import threading
 import time
 from datetime import datetime, timezone
 
-import requests
+import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_omdb.requests (E1: via tests/hub/conftest)
 
-from hub import media_discover as md
+from hub import media_discover as md, upstream
 from hub.media_cache import LRU
 
 log = logging.getLogger("hub.media_omdb")
@@ -121,7 +121,7 @@ def metascore(imdb_id) -> int | None:
         if not _budget():
             return None
         try:
-            resp = requests.get(URL, params={"i": imdb, "apikey": key}, timeout=TIMEOUT)
+            resp = upstream.session("omdb").get(URL, params={"i": imdb, "apikey": key}, timeout=TIMEOUT)
         except Exception as exc:  # type only — the exception text holds the URL, which holds the key
             log.warning("omdb lookup failed: %s", type(exc).__name__)
             _remember(imdb, None, failed=True)

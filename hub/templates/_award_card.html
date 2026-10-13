@@ -24,9 +24,11 @@
   </div>
 </{{ "a" if c.href else "div" }}>
 {%- endmacro %}
-{# One category card: its mark + name, winner(s), up to `shown` nominee thumbnails, the rest under "+N more". #}
+{# One category card: its mark + name, winner(s), up to `shown` nominee thumbnails, the rest under "+N more".
+   The cards sit inside #awmain (awards ballot, 2026-10-14), which boosts links into itself; their links go to other pages, so
+   the card resets hx-target / hx-select / hx-swap to a plain boosted navigation. #}
 {% macro category(c) -%}
-<div class="panel awcat{{ ' is-dim' if c.dim }}">
+<div class="panel awcat{{ ' is-dim' if c.dim }}" hx-target="body" hx-select="unset" hx-swap="innerHTML show:window:top">
   <div class="awcat-head">{{ award_icon(c.icon or "trophy", 16, deco=true) }}<div class="awcat-name">{{ c.name }}</div></div>
   {% for w in c.winners %}{{ winner(w) }}{% endfor %}
   {% if c.nominees %}

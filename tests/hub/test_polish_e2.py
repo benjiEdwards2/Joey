@@ -242,8 +242,8 @@ def test_backdrops_carry_a_small_size_for_tmdb_but_not_jellyfin_refs():
     assert "?h=1280" in jf and "--bd-sm" not in jf and "h=600" not in jf      # /img sizes a jfb: backdrop at 1280 anyway
     for name in ("media_film.html", "_film_macros.html"):
         assert "--bd-sm: url('/img/" in tpl(name) and "startswith('jfb:')" in tpl(name), name
-    awards = tpl("media_awards.html")
-    assert '<source media="(max-width: 767px)" srcset="/img/{{ hbd }}?h=600">' in awards and "startswith('jfb:')" in awards
+    awards = tpl("media_awards.html")      # awards ballot (2026-10-14): the hero and its backdrop are gone, nothing sized here
+    assert "hbd" not in awards and "<picture>" not in awards and "awhero" not in awards
 
 
 def test_backdrop_gradients_paint_the_picked_size():

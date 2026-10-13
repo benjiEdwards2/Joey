@@ -132,3 +132,11 @@ def test_a_missing_media_network_fails_the_gate_before_the_stack_is_touched():
     check = SCRIPT.index("docker network inspect media-server_default")
     assert check < SCRIPT.index("== build + converge ==")
     assert 'gate_fail "network media-server_default missing' in SCRIPT[check:check + 200]
+
+
+def test_pull_retries_three_times_and_git_container_gets_resolver_retries():
+    """2026-10-13: three deploys aborted on 'Could not resolve hostname github.com' (UDP DNS loss under NAS load)."""
+    assert "--dns-opt attempts:3 --dns-opt timeout:2" in SCRIPT
+    assert "for attempt in 1 2 3; do" in SCRIPT
+    assert "if GIT pull --ff-only; then break; fi" in SCRIPT
+    assert "pull failed (attempt $attempt/3) — retrying in 5 s" in SCRIPT

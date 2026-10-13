@@ -5,7 +5,7 @@
 #
 # NAS notes (DECISIONS 2026-08-31): BusyBox sh (no bash, no brace expansion);
 # git has no host binary — every git call goes through an alpine/git container
-# with the joey_deploy key; the full suite runs in the union life-test image
+# with the joey_deploy key (resolver retries on; the pull itself retries 3x, 5 s apart); the full suite runs in the union life-test image
 # (production images carry only their own deps).
 #
 # Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
@@ -31,7 +31,7 @@ case "${1:-}" in
 esac
 
 GIT() {
-    docker run --rm -v "$REPO":/work -v /root/.ssh:/root/.ssh:ro -w /work \
+    docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 -v "$REPO":/work -v /root/.ssh:/root/.ssh:ro -w /work \
         -e GIT_SSH_COMMAND='ssh -i /root/.ssh/joey_deploy' alpine/git "$@"
 }
 
@@ -76,7 +76,13 @@ cd "$REPO"
 PREV_SHA=$(GIT rev-parse --short HEAD)
 
 echo "== pull (ff-only) =="
-GIT pull --ff-only
+# intermittent container DNS loss under NAS load (2026-10-13): 3 attempts, 5 s apart; the 3rd failure aborts (ABORTED line via the EXIT trap)
+for attempt in 1 2 3; do
+    if GIT pull --ff-only; then break; fi
+    if [ "$attempt" -eq 3 ]; then echo "pull failed (attempt 3/3) — aborting" >&2; exit 1; fi
+    echo "pull failed (attempt $attempt/3) — retrying in 5 s"
+    sleep 5
+done
 NEW_SHA=$(GIT rev-parse --short HEAD)
 if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$FORCE" -eq 0 ]; then
     log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy)"

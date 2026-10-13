@@ -7,7 +7,7 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   yet, asks, then runs deploy.sh over ssh. `--list` (no deploy), `--search WORD` (pending updates mentioning WORD),
   `--all [N]` (last N updates, deployed or not), `--history [N]` (last N deploys), `--yes` (no question). Mac / Linux /
   Git Bash on Windows.
-- **What it does:** lock → `git pull --ff-only` → `compose config` → build `life-test` and run the full suite offline
+- **What it does:** lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → build `life-test` and run the full suite offline
   (`--network none`) → `compose build` + `up -d` → smoke (`/healthz`, `tests/deploy/smoke.py`, nothing restarting) → prune.
   A red gate resets the tree to the previous SHA and leaves the live stack alone; a failed build/up/smoke rolls back.
 - **History:** `tail deploy/history.log` — one line per run: `PASS`, `NOTHING-TO-DEPLOY`, `GATE-FAIL`, `ROLLED-BACK`,

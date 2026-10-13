@@ -271,13 +271,13 @@ def test_warmup_fetches_once_then_is_cheap(env, monkeypatch, tmp_path):
     _, both, fetched = warm_env(env, monkeypatch, tmp_path)
     first = media_warmup.warm_once(pause=0)
     assert first["titles"] == 2                                     # the show (3 episodes up next) + the film
-    # poster + backdrop per title, plus the film's one cast photo with a profile path
-    assert first["fetched"] == 5 and len(fetched) == 5
+    # poster + backdrop (desktop and, E1, the phone's h=600) per title, plus the film's one cast photo with a profile path
+    assert first["fetched"] == 7 and len(fetched) == 7
     assert any(u.endswith("/w500/ada.jpg") for u in fetched)     # film-quality: the portrait-card size (h=400)
     n_seerr = len(paths(both, SEERR))
     md.clear_cache()
     second = media_warmup.warm_once(pause=0)
-    assert second["fetched"] == 0 and second["cached"] == 5 and len(fetched) == 5   # idempotent: images stay put
+    assert second["fetched"] == 0 and second["cached"] == 7 and len(fetched) == 7   # idempotent: images stay put
     seerr = paths(both, SEERR)[n_seerr:]
     assert not [p for p in seerr if "ratings" in p]                 # ratings came from the meta cache
     # and the film page now finds the ratings warm

@@ -7,6 +7,7 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
+from hub import images
 from hub.main import app
 
 JF_URL, JF_KEY = "http://jelly.example.invalid:8096", "JFSECRETkey"
@@ -93,9 +94,20 @@ def test_fetch_is_cached_and_second_call_skips_upstream(client, jelly, upstream,
 
 
 def test_backdrop_uses_the_backdrop_endpoint(client, jelly, upstream):
-    client.get("/img/jfb:abc123")
+    client.get("/img/jfb:abc123?h=1280")   # E1: the width now follows h (the desktop backdrop asks h=1280)
     assert upstream[0][0]["url"].endswith("/Items/abc123/Images/Backdrop/0")
     assert upstream[0][0]["params"] == {"maxWidth": 1280, "quality": 85}
+
+
+@pytest.mark.parametrize("h, width", [("120", 320), ("240", 480), ("400", 640), ("600", 800), ("1280", 1280),
+                                      ("", 640), ("999", 640)])
+def test_a_jellyfin_backdrop_is_sized_by_the_asked_height(client, jelly, upstream, h, width):
+    """E1 (2026-10-13): jfb: was 1280 wide whatever h said; now h picks the width (the phone's h=600 -> 800 wide),
+    an unknown or missing h is the default size (400 -> 640), and each size is its own cache entry."""
+    calls, _ = upstream
+    client.get(f"/img/jfb:abc123?h={h}")
+    assert calls[0]["params"] == {"maxWidth": width, "quality": 85}
+    assert sorted(images.JF_BACKDROP_WIDTH) == list(images.SIZES)
 
 
 def test_radarr_falls_back_to_poster_jpg(client, monkeypatch, upstream):

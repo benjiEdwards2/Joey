@@ -33,6 +33,9 @@ router = APIRouter()
 SIZES = (120, 240, 400, 600, 1280)
 DEFAULT_SIZE = 400
 TMDB_WIDTH = {120: "w185", 240: "w342", 400: "w500", 600: "w780", 1280: "w1280"}  # TMDB serves w1280; "original" is multi-MB
+# E1 (2026-10-13): a Jellyfin backdrop (jfb:) is sized by the asked h too - it was 1280 wide whatever h said - so the
+# phone backdrop (h=600) is a genuinely smaller file
+JF_BACKDROP_WIDTH = {120: 320, 240: 480, 400: 640, 600: 800, 1280: 1280}
 TIMEOUT = 8
 MAX_BYTES = 5 * 1024 * 1024
 CHUNK = 64 * 1024
@@ -99,7 +102,7 @@ def _upstreams(kind: str, ident: str, h: int) -> list[tuple[str, dict, dict]] | 
         headers = {"Authorization": f"MediaBrowser Token={key}"}
         if kind == "jf":
             return [(f"{url}/Items/{ident}/Images/Primary", {"maxHeight": h, "quality": 90}, headers)]
-        return [(f"{url}/Items/{ident}/Images/Backdrop/0", {"maxWidth": 1280, "quality": 85}, headers)]
+        return [(f"{url}/Items/{ident}/Images/Backdrop/0", {"maxWidth": JF_BACKDROP_WIDTH[h], "quality": 85}, headers)]
     if kind in ("radarr", "sonarr"):
         env = _env(f"{kind.upper()}_URL", f"{kind.upper()}_API_KEY")
         if not env:

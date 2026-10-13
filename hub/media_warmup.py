@@ -43,6 +43,7 @@ MAX_TITLES = 60
 PAUSE_S = 0.5
 CAST_WARM = CAST_MAX    # the film page shows CAST_MAX (8) cast photos
 POSTER_H, BACKDROP_H, CAST_H = 600, 1280, FILM_CAST_H   # the sizes media_film.html asks /img for (cast: portrait cards)
+BACKDROP_PHONE_H = 600   # E1: the phone backdrop (h=600 -> a Jellyfin backdrop 800 wide, images.JF_BACKDROP_WIDTH)
 LIST_POSTER_H = 240   # media-ux2: the Movies / TV Shows list rows' poster (_library_row.html asks h=240)
 
 
@@ -153,6 +154,7 @@ def warm_once(snaps=None, pause: float = PAUSE_S, limit: int = MAX_TITLES) -> di
             if jf:
                 img(f"jf:{t['art']}", POSTER_H)
                 img(f"jfb:{t['art']}", BACKDROP_H)
+                img(f"jfb:{t['art']}", BACKDROP_PHONE_H)
             if seerr:
                 body = media_film._cget(f"/api/v1/{t['kind']}/{t['tmdb']}")
                 media_film._ratings(t["kind"], t["tmdb"])
@@ -204,6 +206,7 @@ def warm_library(snaps=None, pause: float = LIBRARY_PAUSE_S) -> dict:
         try:
             if jf:
                 for ref, h in ((f"jf:{t['art']}", POSTER_H), (f"jfb:{t['art']}", BACKDROP_H),
+                               (f"jfb:{t['art']}", BACKDROP_PHONE_H),
                                (f"jf:{t['art']}", LIST_POSTER_H)):
                     if img(ref, h) == "fetched":
                         rest()

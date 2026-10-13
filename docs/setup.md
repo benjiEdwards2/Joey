@@ -90,3 +90,16 @@ set `PLAY_RECORDER=off` to stop it. It needs the same `JELLYFIN_URL` + `JELLYFIN
 - `HUB_DEV` — `1` re-reads templates on every render, for local template editing (hub; default off).
 - `SYSTEM_VOLUMES` / `SYSTEM_VOLUME_LABELS` — set in `docker-compose.yml`, not `.env`: statvfs targets (the snapshots dir,
   which reports `/volume1`'s numbers) and the `path=label[,path=label]` names the Server area shows.
+
+## Edge caching behind Access (optional)
+
+**Unverified and reversible** (WP E7, 2026-10-13): nothing here has been tried on joeyhome.net, and the hub works exactly the same without it. It only saves repeat downloads of poster and static bytes through the tunnel; the first view of each file is unchanged. Do it in the Cloudflare dashboard (B.'s hands), then run the check below.
+
+What the origin already says: `/static/…?v=…` and `/static/fonts/…` are `Cache-Control: public, max-age=31536000, immutable`, a poster hit from `/img/…` is `public, max-age=2592000, immutable`, un-versioned static files (manifests) get `public, max-age=3600`, and every HTML page is `no-store` (`hub/shell.py` `cache_control`, `hub/images.py`).
+
+1. Cloudflare dashboard, the `joeyhome.net` zone: **Caching → Cache Rules → Create rule**.
+2. Name it "Joey static + img". Under "If incoming requests match…" choose **Custom filter expression** and set it to `(starts_with(http.request.uri.path, "/static/")) or (starts_with(http.request.uri.path, "/img/"))`, with host `joeyhome.net`.
+3. Under "Then…": **Cache eligibility → Eligible for cache**. Leave **Edge TTL** on **Use cache-control header if present** (respect the origin headers, so the `immutable` lifetimes above apply and nothing is cached longer than the hub says). Leave Browser TTL on **Respect origin**, and the cache key on its default (the query string is part of it: `?v=` and `?h=120` are different files, which is correct).
+4. Do not extend the rule to `/` or any HTML page: pages are per-viewer (the Access email picks the view) and are `no-store` on purpose.
+5. **Check Access still gates the cached responses.** In a signed-out browser (a private window, no Access session) open `https://joeyhome.net/static/control-surface.css` after the rule is live and after a signed-in browser has already fetched it once. Expected: you are redirected to the Cloudflare Access login. If the file is served without a login, **delete the rule** (Caching → Cache Rules → Delete) and stop: do not keep an edge cache that bypasses Access. Repeat with an `/img/…` URL copied from a signed-in page.
+6. To confirm it is doing anything, in a signed-in browser's dev tools the response header `cf-cache-status` reads `HIT` on a second request for a poster (`MISS` the first time).

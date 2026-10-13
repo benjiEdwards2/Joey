@@ -1,0 +1,6 @@
+{# E7 (2026-10-13): the Awards page's deferred category cards - one htmx response that replaces the page's sentinel
+   (hx-swap outerHTML): the core cards after the first screen's, then "More categories". Same cards as the page drew
+   before E7. #}
+{% import "_award_card.html" as aw %}
+{% if cats %}<div class="awgrid awgrid-rest">{% for c in cats %}{{ aw.category(c) }}{% endfor %}</div>{% endif %}
+{% if more %}{{ aw.more_categories(more) }}{% endif %}

@@ -13,7 +13,8 @@
    Not seen chip (awards-year, 2026-10-09: the tiles keep the year; a "Current year" chip back to the latest synced
    year unless already there; the ceremony tiles, stepper, year select and chips keep the scroll position — hx-swap "show:none", F1 2026-10-12; a muted "No <Ceremony> in <year> · showing <year2>" note when the year fell back); the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
    "Won N of M nominations" in gold, the nominees row); every category as a card in curated rank order; shorts /
-   documentary / technical fold under "More categories". Gold means won (style guide: colour for meaning). #}
+   documentary / technical fold under "More categories". Gold means won (style guide: colour for meaning). E7
+   (2026-10-13): only the first 4 category cards are in the page, the rest load in one htmx request (see the sentinel at the end). #}
 {# E3 (U4, 2026-10-13): the page head's H1 already says "Awards" (the tab label) — no second title here. #}
 <section class="sec awhead">
   <p class="metaline">{% if sync.failed %}<span class="badge badge-wait">Sync failed · retrying</span> {% endif %}{{ sync.text }}</p>
@@ -88,10 +89,13 @@
 <div class="awgrid">{% for c in cats %}{{ aw.category(c) }}{% endfor %}</div>
 {% endif %}
 {% if more %}
-<details class="showmore awmorecats"><summary>More categories · {{ more | length }}</summary>
-<div class="awgrid">{% for c in more %}{{ aw.category(c) }}{% endfor %}</div>
-</details>
+{{ aw.more_categories(more) }}
 {% endif %}
-{% if not hero and not cats and not more %}<p class="empty">{{ "Everything here is seen." if unseen else "Nothing recorded for this ceremony yet." }}</p>{% endif %}
+{# E7: the first screen ends here; the rest of the cards come in ONE request when this sentinel scrolls into view
+   (hx-swap outerHTML: it is replaced by the cards); without JS it is the plain link to the whole page. #}
+{% if rest %}
+<div class="awrest" hx-get="{{ part_href }}" hx-trigger="revealed" hx-swap="outerHTML" hx-indicator="this"><a class="btn btn-glass btn-sm" href="{{ all_href }}">All categories</a></div>
+{% endif %}
+{% if not hero and not cats and not more and not rest %}<p class="empty">{{ "Everything here is seen." if unseen else "Nothing recorded for this ceremony yet." }}</p>{% endif %}
 {% endif %}
 {% endblock %}

@@ -9,6 +9,11 @@ jellyfin snapshot (on-server posters, the viewer's own played flag, Q4) plus the
 and portraits come from Jellyseerr's cached metadata reads (media_discover.meta_get, 6 h + disk), all after the
 response (M-46, F2 2026-10-12): the hero category's first (≤ HERO_READS), then the rest of the visible edition
 (≤ POSTER_READS in all), each stored on its award_entity row so it is read once and drawn from the next view on. Never calls the award hosts.
+
+Page weight (E7, 2026-10-13): the first screen (tiles, Coming up, year stepper, hero, podium and the first FIRST_CARDS
+category cards) is the page; every other card - the rest of the core categories and "More categories" - comes in ONE
+htmx request (`/media/{movies,tv}/awards/part/categories`, `hx-trigger="revealed"` on a sentinel that swaps itself
+out). Without JS the sentinel is the plain link "All categories" (`?all=1`: the whole page, as before).
 """
 
 from __future__ import annotations
@@ -28,15 +33,17 @@ from hub import media_awards_db as adb
 from hub import media_awards_badges as badges
 from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
-from hub import media_db, media_discover as md, media_item, media_pages, media_text
+from hub import media_db, media_discover as md, media_home, media_item, media_pages, media_text, shell
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
 log = logging.getLogger("hub.media_awards_pages")
 router = APIRouter()
 
 PATHS = {"movie": "/media/movies/awards", "tv": "/media/tv/awards"}
+PARTS = {k: v + "/part/categories" for k, v in PATHS.items()}
 AKIND = {"movie": "film", "tv": "tv"}
 POSTER_READS, HERO_READS, READ_WORKERS = 60, 12, 4
+FIRST_CARDS = 4             # category cards on the first screen (E7); the rest load through the part route
 NOMINEES_SHOWN = 4          # nominee thumbnails on a category card; the rest fold under "+N more"
 PEOPLE_SHOWN = 3
 EMPTY = "Nothing recorded for this ceremony yet."
@@ -237,9 +244,9 @@ def fill_posters(ents: list[dict], limit: int) -> int:
 
 # ---- the page ----
 
-def _href(kind: str, body: str, year: int | None, unseen: bool) -> str:
-    q = [("body", body)] + ([("year", str(year))] if year else []) + ([("unseen", "1")] if unseen else [])
-    return PATHS[kind] + "?" + urlencode(q)
+def _href(kind: str, body: str, year: int | None, unseen: bool, path: str | None = None, all_: bool = False) -> str:
+    q = [("body", body)] + ([("year", str(year))] if year else []) + ([("unseen", "1")] if unseen else [])         + ([("all", "1")] if all_ else [])
+    return (path or PATHS[kind]) + "?" + urlencode(q)
 
 
 def _edition_line(body_id: str, ed: dict | None, kind: str) -> str | None:
@@ -312,8 +319,11 @@ def tile_month(body_id: str, held: dict[str, int]) -> str | None:
     return date(2000, m, 1).strftime("%b") if m else None
 
 
-def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str) -> tuple[dict, list, list]:
-    """-> (context, entities still to fill after the response, meta paths to read after it)."""
+def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, view: str,
+               show_all: bool = True) -> tuple[dict, list, list]:
+    """-> (context, entities still to fill after the response, meta paths to read after it). `show_all` False is the
+    page (E7): `cats` holds the first FIRST_CARDS cards, `more` is empty and `rest` says how many cards the part
+    request will bring; the part request itself asks for everything and slices (`categories_part`)."""
     akind = AKIND[kind]
     bodies = adb.bodies(akind)
     ids = [b["id"] for b in bodies]
@@ -376,6 +386,8 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     elif not page["categories"]:
         empty = PENDING if state in ("pending", None) else EMPTY
     held = adb.held_months(year)
+    first_n = len(cats) if show_all else FIRST_CARDS
+    rest = len(cats[first_n:]) + len(more)
     ctx = {
         "kind": kind, "akind": akind, "base": PATHS[kind], "body": body, "year": year, "unseen": unseen,
         "bodies": [{**b, "on": b["id"] == body, "href": _href(kind, b["id"], year, unseen), "logo": icons.override(b["id"]),
@@ -389,27 +401,30 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         "prev": {"year": prev_y, "href": _href(kind, body, prev_y, unseen)} if prev_y else None,
         "next": {"year": next_y, "href": _href(kind, body, next_y, unseen)} if next_y else None,
         "unseen_href": _href(kind, body, year, not unseen),
-        "hero": hero, "cats": cats, "more": more, "empty": empty,
+        "hero": hero, "cats": cats[:first_n], "more": more if show_all else [], "empty": empty,
+        "rest": 0 if show_all else rest,
+        "part_href": _href(kind, body, year, unseen, PARTS[kind]), "all_href": _href(kind, body, year, unseen, all_=True),
+        "cats_rest": cats[FIRST_CARDS:], "more_all": more,
         "podium": podium(page, tally, seen, kind, won_by) if page else [],
         "coming": coming, "sync": st,
     }
     return ctx, later, warm_paths
 
 
-def _page(request: Request, kind: str, body: str, year: str, unseen: str):
+def _page(request: Request, kind: str, body: str, year: str, unseen: str, all_: str = ""):
     later: list = []
     warm_paths: list = []
 
     def build(data, view):
         nonlocal later, warm_paths
         try:
-            ctx, later, warm_paths = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view)
+            ctx, later, warm_paths = awards_ctx(kind, body[:20], year[:4], unseen == "1", data, view, show_all=all_ == "1")
         except (sqlite3.Error, OSError) as exc:
             log.warning("awards page degraded: %s", type(exc).__name__)
             ctx = {"kind": kind, "bodies": [], "years": [], "podium": [], "hero": None, "cats": [], "more": [], "coming": [],
                    "empty": EMPTY, "sync": {"text": PENDING, "failed": False}, "edition_line": None,
                    "prev": None, "next": None, "unseen": False, "unseen_href": PATHS[kind],
-                   "year_note": None, "current": None}
+                   "year_note": None, "current": None, "rest": 0}
         return ctx
 
     resp = media_pages._detail_page(request, "media_awards.html", JELLYFIN_SNAPSHOT_ID, build, always_build=True)
@@ -419,13 +434,40 @@ def _page(request: Request, kind: str, body: str, year: str, unseen: str):
 
 
 @router.get("/media/movies/awards", response_class=HTMLResponse)
-def movies_awards(request: Request, body: str = "", year: str = "", unseen: str = ""):
-    return _page(request, "movie", body, year, unseen)
+def movies_awards(request: Request, body: str = "", year: str = "", unseen: str = "", all: str = ""):
+    return _page(request, "movie", body, year, unseen, all[:1])
 
 
 @router.get("/media/tv/awards", response_class=HTMLResponse)
-def tv_awards(request: Request, body: str = "", year: str = "", unseen: str = ""):
-    return _page(request, "tv", body, year, unseen)
+def tv_awards(request: Request, body: str = "", year: str = "", unseen: str = "", all: str = ""):
+    return _page(request, "tv", body, year, unseen, all[:1])
+
+
+def categories_part(request: Request, kind: str, body: str, year: str, unseen: str):
+    """The page's ONE deferred request (E7): every category card the first screen did not draw (the core cards after
+    the first FIRST_CARDS, then "More categories"), as a fragment that replaces the sentinel. The same body / year /
+    unseen query as the page, so it is the same edition; no poster fill is queued here (the page already did)."""
+    view, _ = shell.resolve_owner_view(request)
+    src = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, shell.get_snapshots(request=request))
+    ctx: dict = {"cats_rest": [], "more_all": []}
+    if src is not None:
+        try:
+            ctx, _later, _paths = awards_ctx(kind, body[:20], year[:4], unseen == "1",
+                                             media_home.view_jelly(src["data"], view), view)
+        except (sqlite3.Error, OSError) as exc:
+            log.warning("awards part degraded: %s", type(exc).__name__)
+    return shell.templates.TemplateResponse(request, "_award_cats_part.html",
+                                            {"cats": ctx.get("cats_rest") or [], "more": ctx.get("more_all") or []})
+
+
+@router.get("/media/movies/awards/part/categories", response_class=HTMLResponse)
+def movies_awards_part(request: Request, body: str = "", year: str = "", unseen: str = ""):
+    return categories_part(request, "movie", body, year, unseen)
+
+
+@router.get("/media/tv/awards/part/categories", response_class=HTMLResponse)
+def tv_awards_part(request: Request, body: str = "", year: str = "", unseen: str = ""):
+    return categories_part(request, "tv", body, year, unseen)
 
 
 _count = media_text.plural   # '1 win' / '3 nominations'

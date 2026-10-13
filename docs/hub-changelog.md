@@ -819,3 +819,44 @@ counts leave out zero parts (template-side); the Diary › To Rate section label
 deviation line). **U17** `shelf_max` (= `media_home.SHELF_MAX`) is a Jinja global and the hub / Media home shelves compare
 against it. Not done here (Python outside this WP): "N h this month" on Diary › To Rate (`media_pages.py`). Tests:
 `tests/hub/test_first_screens_e3.py`.
+
+**Features batch 1 (E5, 2026-10-13; review_features H1, W1, M2, M3, H2, B. approved).** **Today line (H1)** `hub/today.py`
+`today_line(snaps, upcoming, weather, server_card, view, now)`: one sentence after the hub's date in the page head
+("Tue 13 Oct · Rain from 15:00 · 2 events · first 9:30 Dentist · New: Severance S02E03"), clauses joined by " · ", each
+from data the hub already holds and dropped when its source has nothing: rain timing (`weather.rain_words`, short form;
+nothing without hourly data), today's events from the Next 7 days groups ("Nothing on today" only while the calendar is
+connected; media release rows never count), arr `arrived` rows whose `at` is since the start of yesterday (two titles,
+"Severance S02E03" form, then "+N more"), and "<Server area's name> needs attention" only when the Server card is `warn`
+(the card is found by `layout: server`, the name comes from the registry). Feed problems still follow it. **Rain words +
+7 days on the glimpse (W1, BACKLOG "7-day forecast on the weather glimpse")** `weather.rain_words(hourly, now, short)`:
+the first hour left today at 30 % or more and the day's peak — "Rain likely from 15:00 · 70%" / "Dry until tomorrow" (the
+glimpse's meta line, before "Updated …"); `weather.week_strip` draws ONE extra row of seven cells (day letter, glyph, max;
+the day name and condition word are visually hidden text, so the glyph is never the only encoding; class `.wxstrip`, not
+the /weather page's `.wxweek`). The percentage reads "70%" like the glimpse's own Rain stat (the review wrote "70 %").
+**375 px fix** (eyes-on of the merged eval): the glimpse's four 24 px stats wrapped "18.3 / °C". Option (b) chosen: every
+value is number + `&nbsp;` + unit with `white-space: nowrap`, and under 400 px the numbers are 18 px, the Now column 1.4fr
+and its glyph 24 px — four stats still fit one row (merging Low–High into one 24 px value did not fit a third of the
+width either). **Show progress in words (M2)** `media_text.progress_words(unplayed, episodes, next_runtime_min)`: "4 left ·
+~3h 10m" — hours only when a runtime is known, from `media_plays_db.show_runtimes` (the recorded plays' average episode
+runtime per `show_key`); "All watched" at 0; nothing when the counts are unknown or a show has 0 episodes. Shown on
+Continue watching cards after the remaining time (`media_home.continue_progress`: the view owner's own library counts —
+her view without her list says nothing; a next-up show never says "All watched"), on My shows rows ("26 episodes · 6
+left · ~4h 30m", was "· 6 to watch") and under a watching show's grid card; a Jinja global `progress_words` so the show
+hero (E4's file) can use it. **To rate: Skip / Skip show (M3)** media.db `user_version` 4 (`media_store` step
+`_rating_skip` → `media_db.migrate_skip`): `rating_skip(owner, key, kind, forever, created_at, title, poster)` — title and
+poster added so the Skipped group needs no read. `POST /media/rate/skip` (the inbox row's rating key), `/media/rate/skip-
+show` (the show's key, `forever` 1: every season and episode, later ones too), `/media/rate/unskip`; `same_origin`,
+threadpooled, plain forms with `hx-swap="innerHTML show:none"`, 303 back to the To rate page (`RATE_BACK`) with
+`?skip=item|show|unskip|failed` → "Skipped" / "Show skipped" / "Back in To Rate" / "Couldn't save that". A movie or a
+season / episode row offers Skip; a TV row offers Skip show (at the show level that is its only button). `Ratings`
+carries its owner and reads the skips once when an inbox is built, so the inbox, the Diary badge and the Movies / TV
+"To Rate" tab counts all drop together. A "Skipped · N" group at the foot of Movies / TV / Diary To Rate lists them with
+Unskip. **Media releases in Next 7 days (H2)** `Tile.show_media_releases` (default false; on for the gcal tile in
+`config/areas.yaml`) merges the arr snapshot's `this_week` rows while some registry tile reads `arr`: films as Radarr's
+calendar returns them (monitored only), episodes only for shows watched in the last 30 days (the jellyfin `shows` rows),
+in progress (`up_next`) or followed (`media_follows`, kind show), matched on the normalised show title. They follow each
+day's own events as `.upc-release` rows: "Premiere" / "Finale" / "New episode" / "Digital release" / "In cinemas" / "On
+disc" in the When column and a "Media" word chip in the Owner column. The Calendar card's per-day bars and Next up stay
+calendar only. **CSS** one block at the end of `control-surface.css` ("E5 features"); E2's tap-target pin now checks that
+nothing after its block touches those selectors (instead of "no @media after it"). Tests: `test_today_line.py`,
+`test_weather_glimpse_e5.py`, `test_show_progress_words.py`, `test_to_rate_skip.py`, `test_media_releases_upcoming.py`.

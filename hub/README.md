@@ -13,7 +13,8 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `main.py` | App creation, middleware, `/static` mount, router includes, Hub page (`/`), Area pages (`/a/{id}`, `/server`), `/healthz`, `/whoami`; re-exports the moved names so old `hub.main.X` paths keep working |
 | `shell.py` | What every router imports instead of `hub.main`: THE one `Jinja2Templates` instance and its globals (`static_v`, `weather_place()`, `img_letters`, `identity`, `from_lan(request)`, `duration`; `shelf_max` is set by `media_home`), the registry holder (`load_areas`, `registry`), `get_snapshots` (once per request), the owner view, `build_status`, `find_detail_source`, `render_page` / `not_found_page` (the one base context and 404), `ShellMiddleware` (Cache-Control + request log), `Compress` (gzip) |
 | `tasks.py` | The app lifespan (loads the registry) and the background loops, all through `_every` |
-| `weather.py`, `upcoming.py` | Weather glimpse, `/weather` forecast + Windy radar embed; the Next 7 days list and hub card |
+| `weather.py`, `upcoming.py` | Weather glimpse (E5: rain words `rain_words`, the 7-day row), `/weather` forecast + Windy radar embed; the Next 7 days list and hub card (E5: media releases from the arr calendar behind `show_media_releases`) |
+| `today.py` | The hub's Today line (E5, 2026-10-13): one sentence after the date from the hub's own data — rain timing · today's events · new arrivals · Server state when not fine |
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
 | `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary, Movies / TV grid, Tonight |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
@@ -25,7 +26,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
-| `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / log / search routes, play recorder and History, resume actions, hide-until-next-sweep |
+| `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / skip / log / search routes, play recorder and History (E5: `show_runtimes` for the progress words), resume actions, hide-until-next-sweep |
 | `media_awards*.py` | Awards: sync, parsers, seeds, store, pages, badges and icons |
 | `media_warmup.py`, `media_backup.py` | Film-page cache warm-up (plus the Jellyfin item reads after each new jellyfin snapshot); nightly media.db backups |
 | `seed_demo.py` | Writes demo snapshots for local runs |
@@ -38,7 +39,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 
 | Route | Module | Notes |
 |---|---|---|
-| `GET /` | main | Hub: summary tiles, Next 7 days, weather glimpse, Recently watched |
+| `GET /` | main | Hub: the Today line under the greeting (E5), summary tiles, Next 7 days, weather glimpse, Recently watched |
 | `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server; grid = tiles + Next 7 days, its Media sections removed 2026-10-09, decision 2); hidden areas still serve |
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
@@ -55,6 +56,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
 | `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
+| `POST /media/rate/skip`, `/media/rate/skip-show`, `/media/rate/unskip` | media_write | To rate: Skip this entry / the whole show (media.db `rating_skip`, v4), Unskip (E5, 2026-10-13) |
 | `POST /media/settings/rating_level` | media_write | Rating scale |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
 | `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person, a film series or a show (`kind` person / collection / show) |

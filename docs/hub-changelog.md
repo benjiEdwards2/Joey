@@ -20,7 +20,7 @@ amber counts, the active section as `class="on"` — the bar keeps one `aria-cur
 section row carries a 1 px `.dock-sentinel`; an IntersectionObserver in `base.html` (re-attached after every htmx settle,
 so boosted navigations work) adds `.topbar.is-docked` once the sentinel is under the 56 px sticky bar, and CSS slides the
 pills out and the Media row in within the same grid cell (no height change; no transition under reduced motion). Phones
-keep the bottom bar; no layout is built in JS. Media pages also link
+keep the bottom bar; no layout is built in JS. **Superseded 2026-10-13 (nav-tidy, desktop):** the scroll-docking is gone (no `.topswap`, `.topdock`, `.dock-sentinel`, `.is-docked`, observer). On Media pages the bar renders the Media row as its own `.toplinks` nav (`media_bar()`, active = `aria-current="page"`) instead of the Joey pills, from the start; the in-page section row (`.sectabs-page`) is hidden from 768 px; the first tab sits flush left; `.waitcount` is a fixed 18 px box with a 6 px left margin. Media pages also link
 `static/manifest-media.webmanifest` ("Joey Media", `start_url` `/a/media`, `scope` `/`, shortcuts Movies/TV/Server/
 Discover) and set `apple-mobile-web-app-title` "Joey Media"; every other page keeps `static/manifest.webmanifest`. Boosts
 swap only `<body>`, so the `htmx:beforeSwap` script in `base.html` copies the response's manifest link + iOS title into `<head>`. No
@@ -159,6 +159,13 @@ and `.filters` rules. Phase 4 then removed `.uplist/.uprow`, `.medialist`, `.pos
 and puts the section tabs **Home · Movies · TV Shows · Diary · Server · Discover** on the page header, with sub-tabs and
 amber waiting counts; the phone tab bar stays Joey's. The section map is one module, `media_nav.py`; Home is
 the registry area with `layout: shelves`. Movies/TV "My films / My shows / Tonight" went live in F3 (below).
+**Nav tidy (2026-10-13, B.).** Five sections: **Overview** (was Home; id / href / icon unchanged) · Movies · TV shows ·
+Activity · Discover, every section and tab label sentence case (supersedes the awards-year "To Rate"). Movies / TV tabs:
+My films|My shows · To rate · Awards (Watchlist and Tonight left the nav; their routes, pages and the title-page
+Watchlist button stay). The Diary section folded into Activity: Live · History (`/media/diary`, title "History") ·
+To rate (`/media/history`, carrying the amber to-rate count, as does the Activity section) · Library · Downloads ·
+Requests · Health. The play recorder `/media/server/history` ("Play stats") keeps its URL with no tab, linked from a
+metaline on the diary page.
 Rows are whole-row links everywhere (2026-10-06): the row is the `<a class="row">` (title plain `.row-title` text); rows holding a 1-10 picker use an `a.rowlink` overlay instead; rows with nothing to resolve stay a plain `<div>`.
 
 **Media library pages (F3, 2026-10-06).** `/media/movies`, `/media/movies/tonight`, `/media/tv`, `/media/tv/tonight` and `/media/years?kind=movie|tv`, built from the jellyfin `movies`/`shows` arrays by `media_library.py` (`film_rows`, `show_rows`, `deal_tonight`); "New this week" uses the arr `at` field. Absent arrays render "Library list not available yet". The "By year" tab was dropped from the Movies / TV Shows tab rows (media-ux2, 2026-10-08): `/media/years` and its year pages stay served and reachable by URL only (nothing else in the app linked to it; the Movies / TV "to place" waiting count still counts unranked years).
@@ -872,7 +879,7 @@ hero (E4's file) can use it. **To rate: Skip / Skip show (M3)** media.db `user_v
 poster added so the Skipped group needs no read. `POST /media/rate/skip` (the inbox row's rating key), `/media/rate/skip-
 show` (the show's key, `forever` 1: every season and episode, later ones too), `/media/rate/unskip`; `same_origin`,
 threadpooled, plain forms with `hx-swap="innerHTML show:none"`, 303 back to the To rate page (`RATE_BACK`) with
-`?skip=item|show|unskip|failed` → "Skipped" / "Show skipped" / "Back in To Rate" / "Couldn't save that". A movie or a
+`?skip=item|show|unskip|failed` → "Skipped" / "Show skipped" / "Back in To rate" / "Couldn't save that". A movie or a
 season / episode row offers Skip; a TV row offers Skip show (at the show level that is its only button). `Ratings`
 carries its owner and reads the skips once when an inbox is built, so the inbox, the Diary badge and the Movies / TV
 "To Rate" tab counts all drop together. A "Skipped · N" group at the foot of Movies / TV / Diary To Rate lists them with
@@ -924,3 +931,18 @@ label reads "Days watched"; the first hours rule (plays from the recorder's star
 films the recorder missed, hence the "no play covers it" rule above. CSS: one tail block `/* ---- E6 wrapped (2026-10-13)
 ---- */` (tokens only). Tests: `test_wrapped.py`, `test_month_in_review.py`, `test_show_hero_progress.py` (builders and the
 `wrap` fixture in `tests/hub/helpers.py`).
+## 2026-10-13 — Diary: Show Mine / Everyone
+B.: a per-owner setting `diary_scope` (`mine` default / `everyone`), set by a "Show" chip form in the diary toolbar
+(`POST /media/settings/diary_scope`, 400 on any other value). Like Jellyfin, where only the admin sees every user's
+history, only owner "you" (and the not-signed-in local view, as `owner_of`) may pick Everyone; Georgina never sees the
+toggle and her POST is 403. Everyone lists both owners' rows (`list_diary(owner=None)`; `group_diary` already folds per
+owner and now carries `owner`), each naming whose it is in words ("You" / `OWNER_NAME_HER`). Stats, streak, Log a watch,
+On this day and the Jellyfin sync stay the viewer's own.
+
+## 2026-10-13 — Merge: evaluation round (E1–E7) × nav-tidy
+B.'s nav-tidy (five Media sections, Diary folded into Activity, sentence-case labels, permanent Media top bar) landed on
+main while E1–E7 were built, and it wins on navigation structure and labels. The round's features were re-homed: the
+Wrapped page has no Year tab (reached from the Diary's Month in Review card; lights Activity › History); the phone bar's
+to-rate count sits on the Activity slot; "To Rate" reads "To rate" everywhere (style guide lines 15–16); E3's sticky
+48 px Media bar is keyed on `.brand-back`; the Diary page runs E1's memoised history sync and nav-tidy's Mine / Everyone
+scope together. Suite 2,322.

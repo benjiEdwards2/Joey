@@ -136,6 +136,28 @@ def _set_rating_level(request: Request, f: dict):
     return RedirectResponse("/media/history", status_code=303)
 
 
+@router.post("/media/settings/diary_scope", dependencies=[Depends(same_origin)])
+async def set_diary_scope(request: Request):
+    """Diary "Show: Mine / Everyone" (2026-10-13); back to the diary it reshapes."""
+    return await run_in_threadpool(_set_diary_scope, request, await form_of(request))
+
+
+def _set_diary_scope(request: Request, f: dict):
+    """Only owner 'you' may set it (Jellyfin's admin sees everyone's history); her POST is refused, nothing stored."""
+    owner = owner_for(request)
+    if owner != "you":
+        raise HTTPException(403, "Only the admin can show everyone's diary")
+    value = f.get("value") or ""
+    if value not in media_db.DIARY_SCOPES:
+        raise HTTPException(400, "Invalid diary scope")
+    try:
+        media_db.set_setting(owner, "diary_scope", value)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("setting not saved: %s", type(exc).__name__)
+        raise HTTPException(503, "Couldn't save the setting") from None
+    return RedirectResponse("/media/diary", status_code=303)
+
+
 @router.post("/media/rate", dependencies=[Depends(same_origin)])
 async def rate(request: Request):
     return await run_in_threadpool(_rate, request, await form_of(request))
@@ -190,7 +212,7 @@ def unrate_form(request: Request, item_key: str):
 
 # To rate: Skip / Skip show (E5, M3, 2026-10-13). Plain forms (hx-swap "innerHTML show:none": the boosted 303 re-renders
 # the page in place, scroll kept); owner-scoped like ratings; back to the To rate page the form came from.
-SKIP_FLASH = {"item": ("Skipped", None), "show": ("Show skipped", None), "unskip": ("Back in To Rate", None),
+SKIP_FLASH = {"item": ("Skipped", None), "show": ("Show skipped", None), "unskip": ("Back in To rate", None),
               "failed": (None, "Couldn't save that")}
 flash_keys("skip")
 

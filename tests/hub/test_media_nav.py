@@ -1,8 +1,10 @@
-"""media-ux5 item 1 (2026-10-09): on desktop the Media section row docks into the top bar once it scrolls under it.
-The docked copy is rendered server-side inside the top bar on Media pages only (same sections, counts and active
-section as the page's own row), the row carries the sentinel, base.html carries the observer, CSS does the swap."""
+"""nav-tidy items 1, 3, 7 (B., 2026-10-13; supersedes media-ux5 item 1's scroll-docking): inside Media the top bar is
+docked from the start, permanently — brand + the Media section row (the active section aria-current="page", the filled
+pill) + user chip, and NO Joey section pills. The in-page section row carries .sectabs-page (hidden from 768 px); the
+scroll-docking machinery (sentinel, .is-docked, the observer) is gone. Non-Media pages keep the Joey pills."""
 import re
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,14 +16,15 @@ from tests.hub.test_media_frame import current, env, LABELS, nav_html, ROUTES  #
 
 
 CSS = (Path(__file__).resolve().parents[2] / "hub" / "static" / "control-surface.css").read_text(encoding="utf-8")
+PAGE_ROW = r'<nav class="sectabs sectabs-page" aria-label="Media sections">.*?</nav>'
 
 
 def topbar(html):
     return re.search(r'<header class="topbar">.*?</header>', html, re.S).group(0)
 
 
-def dock(html):
-    found = re.findall(r'<nav class="toplinks topdock" aria-label="Media sections \(docked\)">(.*?)</nav>', topbar(html), re.S)
+def media_row(html):
+    found = re.findall(r'<nav class="toplinks" aria-label="Media sections">(.*?)</nav>', topbar(html), re.S)
     assert len(found) == 1
     return found[0]
 
@@ -31,70 +34,94 @@ def links(nav):
 
 
 @pytest.mark.parametrize("route", list(ROUTES))
-def test_media_pages_render_the_docked_row_in_the_top_bar(env, route):
+def test_media_pages_render_the_media_row_in_the_top_bar_without_joey_pills(env, route):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
         html = c.get(route).text
     bar = topbar(html)
-    assert '<div class="topswap">' in bar
-    assert bar.index('<nav class="toplinks" aria-label="Sections">') < bar.index("topdock") < bar.index("userchip")
-    got = links(dock(html))
+    assert 'aria-label="Sections"' not in bar and "topswap" not in bar and "topdock" not in bar   # no Joey pills
+    assert bar.index('class="brand"') < bar.index('aria-label="Media sections"') < bar.index("userchip")
+    got = links(media_row(html))
     assert [label for _, _, label in got] == list(LABELS.values())
-    on = [label for _, attrs, label in got if 'class="on"' in attrs]
-    assert on == [LABELS[ROUTES[route][0]]]                       # the active section carried across
-    assert "aria-current" not in dock(html)                        # the bar keeps ONE aria-current (its Media pill)
-    assert '<a class="brand" href="/" aria-label="Joey home">' in bar  # brand stays: Joey home is one click
+    on = [label for _, attrs, label in got if 'aria-current="page"' in attrs]
+    assert on == [LABELS[ROUTES[route][0]]]                       # the active section carries aria-current
+    assert bar.count("aria-current") == 1                         # ... and the bar has exactly one
+    assert 'class="on"' not in bar
+    assert '<a class="brand" href="/" aria-label="Joey home">' in bar  # brand stays: Joey home is the way out
 
 
-def test_docked_row_carries_the_same_hrefs_and_counts_as_the_section_row(env):
+def test_media_row_in_the_bar_carries_the_same_hrefs_and_counts_as_the_page_row(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
         html = c.get("/media/movies").text
-    row = re.search(r'<nav class="sectabs" aria-label="Media sections">.*?</nav>', html, re.S).group(0)
-    d = dock(html)
+    row = re.search(PAGE_ROW, html, re.S).group(0)
+    d = media_row(html)
     assert [h for h, _, _ in links(d)] == [h for h, _, _ in links(row)]
     counts = lambda s: re.findall(r'<span class="waitcount">(\d+)<span class="vh"> ([a-z ]+)</span>', s)
     assert counts(d) == counts(row)
 
 
 @pytest.mark.parametrize("route", list(ROUTES))
-def test_section_row_carries_the_sentinel_once(env, route):
+def test_page_section_row_carries_the_hide_class_and_the_sub_row_does_not(env, route):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
         html = c.get(route).text
-    row = re.search(r'<nav class="sectabs" aria-label="Media sections">.*?</nav>', html, re.S).group(0)
-    assert html.count('class="dock-sentinel"') == 1
-    assert '<span class="dock-sentinel" aria-hidden="true"></span>' in row
+    assert html.count('class="sectabs sectabs-page"') == 1
+    assert re.search(PAGE_ROW, html, re.S)
+    assert "sectabs-page" not in re.sub(PAGE_ROW, "", html, flags=re.S)   # the sub-tab row (if any) never carries it
+    assert "dock-sentinel" not in html
 
 
 @pytest.mark.parametrize("route", ["/", "/a/beta", "/weather"])
-def test_non_media_pages_have_no_dock(env, route):
+def test_non_media_pages_keep_the_joey_pills_and_have_no_media_row(env, route):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
         html = c.get(route).text
+    bar = topbar(html)
+    assert '<nav class="toplinks" aria-label="Sections">' in bar and "Media sections" not in bar
     body = html.split("</head>", 1)[1]
     assert "topdock" not in body and "topswap" not in body and "dock-sentinel" not in body
 
 
-def test_observer_script_hook_in_base(env):
+def test_joey_pills_on_a_media_page_are_not_rendered_at_all(env):
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as c:
+        media = topbar(c.get("/media/movies").text)
+        hub = topbar(c.get("/").text)
+    assert '<a href="/weather"' in hub and '<a href="/weather"' not in media
+
+
+def test_scroll_docking_script_is_gone(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as c:
         script = shell_script(c, c.get("/media/movies").text)   # H-57: /static/joey.js
-    assert "new IntersectionObserver(" in script and "document.querySelector('.dock-sentinel')" in script
-    assert "bar.classList.toggle('is-docked'" in script
-    assert "addEventListener('htmx:afterSettle', init)" in script and "addEventListener('htmx:load', init)" in script
-    assert "rootMargin: '-56px 0px 0px 0px'" in script            # the 56 px sticky bar
+    assert "IntersectionObserver" not in script and "dock-sentinel" not in script and "is-docked" not in script
 
 
-def test_dock_css_swaps_in_one_cell_with_reduced_motion():
-    assert ".topswap { display: none; }" in CSS                    # phone: no dock, the bottom bar stays
-    m = re.search(r"@media \(min-width: 768px\) \{\n  \.topswap \{ display: grid;.*?\n\}\n", CSS, re.S)
-    assert m and "grid-area: 1 / 1" in m.group(0)                  # pills and dock share a cell: no height change
-    assert ".topbar.is-docked .topswap > .topdock { visibility: visible; opacity: 1; transform: none;" in m.group(0)
-    assert ".topbar.is-docked .topswap > .toplinks:not(.topdock) { visibility: hidden; opacity: 0;" in m.group(0)
-    rm = re.search(r"@media \(prefers-reduced-motion: reduce\) \{\n  \.topbar \.topswap > \.toplinks.*?\}\n\}", CSS, re.S)
-    assert rm and "transition: none; transform: none;" in rm.group(0)
-    assert ".dock-sentinel { display: block; height: 1px; margin-top: -1px;" in CSS
+def test_bar_css_is_plain_and_the_docking_css_is_gone():
+    for gone in (".topswap", ".topdock", ".is-docked", ".dock-sentinel"):
+        assert gone not in CSS, gone
+    assert ".toplinks a[aria-current] { background: var(--pill-on); color: var(--text-1); }" in CSS
+    assert ".toplinks { display: none; }" in CSS                      # phone: neither pills nor Media row in the bar
+    assert ".topbar-in { display: flex; align-items: center; gap: 16px; height: 56px;" in CSS
+    assert ".toplinks { display: flex; gap: 4px; min-width: 0; overflow: hidden; }" in CSS   # no wrap
+
+
+def test_page_section_row_is_hidden_from_768_and_the_sub_row_is_underlined_not_pilled():
+    head, _, tail = CSS.partition("@media (min-width: 768px) {\n  .sectabs-row {")
+    assert tail
+    block = tail.split("\n}\n", 1)[0]
+    assert "  .sectabs-page { display: none; }" in block
+    assert ".sectabs a[aria-current] { color: var(--text-1); background: none; border-bottom-color: var(--tab-on); }" in block
+    assert ".sectabs-row a:first-child { padding-left: 0; }" in block   # first tab flush with the page column
+    assert ".sectabs-page {" not in head                                 # visible below 768 px (phone pills stay)
+
+
+def test_waitcount_has_a_fixed_box():
+    rule = " ".join(re.findall(r"(?m)^\.waitcount \{([^}]*)\}", CSS))
+    assert "height: 18px;" in rule and "min-width: 18px;" in rule and "margin-left: 6px;" in rule
+    assert "font-variant-numeric: tabular-nums;" in rule
+    assert ".topdock .waitcount" not in CSS and not re.search(r"\.sectabs a \{[^}]*\bgap:", CSS)   # one margin, no doubled gap
 
 
 # ---- merged from test_media_ux5_no_zoom.py ----
@@ -217,9 +244,68 @@ def test_tab_bar_is_a_direct_child_of_body(env, route):
 
 def test_movies_and_tv_tabs_have_no_by_year():
     tabs = {s["id"]: [label for label, _ in s["tabs"]] for s in media_nav.SECTIONS}
-    assert tabs["movies"] == ["My films", "Watchlist", "Tonight", "To Rate", "Awards"]   # media-ux4: + To rate; 2026-10-08: + Awards
-    assert tabs["tv"] == ["My shows", "Watchlist", "Tonight", "To Rate", "Awards"]
+    assert tabs["movies"] == ["My films", "To rate", "Awards"]   # nav-tidy (2026-10-13): Watchlist + Tonight left the nav
+    assert tabs["tv"] == ["My shows", "To rate", "Awards"]
     assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h.startswith("/media/years")]
+
+
+# ---- nav-tidy (2026-10-13, B.): five sections, Diary folded into Activity, sentence-case labels ----
+
+def test_five_sections_and_no_diary():
+    assert [(s["id"], s["label"], s["short"]) for s in media_nav.SECTIONS] == [
+        ("home", "Overview", "Overview"), ("movies", "Movies", "Movies"), ("tv", "TV shows", "TV"),
+        ("server", "Activity", "Activity"), ("discover", "Discover", "Discover")]
+    home = media_nav.SECTIONS[0]
+    assert (home["icon"], home["href"]) == ("house", None)   # Overview: label only, id / href / icon unchanged
+
+
+def test_movies_and_tv_have_exactly_three_tabs():
+    tabs = {s["id"]: s["tabs"] for s in media_nav.SECTIONS}
+    assert tabs["movies"] == [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]
+    assert tabs["tv"] == [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
+
+
+def test_activity_has_seven_tabs_with_history_on_the_diary():
+    server = next(s for s in media_nav.SECTIONS if s["id"] == "server")
+    assert server["tabs"] == [("Live", "/media/playing"), ("History", "/media/diary"), ("To rate", "/media/history"),
+                              ("Library", "/media/library"), ("Downloads", "/media/downloads"),
+                              ("Requests", "/media/requests"), ("Health", "/media/apps")]
+    assert {"/media/diary", "/media/history"} <= set(server["prefixes"])
+    assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h == "/media/server/history"]   # play stats: no tab
+
+
+def test_every_section_and_tab_label_is_sentence_case():
+    """docs/style-guide.md: sentence case for labels; "TV" stays an acronym."""
+    labels = [s["label"] for s in media_nav.SECTIONS] + [label for s in media_nav.SECTIONS for label, _ in s["tabs"]]
+    for label in labels:
+        words = label.split()
+        assert words[0] == "TV" or (words[0][0].isupper() and words[0][1:] == words[0][1:].lower()), label
+        assert all(w == "TV" or w == w.lower() for w in words[1:]), label
+
+
+def test_to_rate_count_sits_on_activity_and_its_to_rate_tab():
+    req = SimpleNamespace(url=SimpleNamespace(path="/media/history", query=""))
+    reg = SimpleNamespace(areas=[SimpleNamespace(layout="shelves", id="alpha")])
+    ctx = media_nav.nav_context(req, reg, {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
+    assert {s["id"]: s["count"] for s in ctx["sections"]} == {"home": 0, "movies": 0, "tv": 0, "server": 3, "discover": 0}
+    tabs = {t["href"]: (t["label"], t["on"], t["count"], t["what"]) for t in ctx["tabs"]}
+    assert tabs["/media/history"] == ("To rate", True, 3, "to rate")
+    assert tabs["/media/diary"] == ("History", False, 0, "to get")
+    movies = media_nav.nav_context(SimpleNamespace(url=SimpleNamespace(path="/media/movies", query="")), reg,
+                                   {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
+    assert [(t["label"], t["count"], t["what"]) for t in movies["tabs"]] == [
+        ("My films", 0, "to get"), ("To rate", 2, "to rate"), ("Awards", 0, "to get")]
+
+
+def test_activity_section_shows_the_to_rate_count_on_the_page(env):
+    main = env(jellyfin=JELLY, arr=ARR)   # the fixture history carries titles nobody has rated yet
+    with TestClient(main.app) as c:
+        html = c.get("/media/history").text
+    row = nav_html(html, "sectabs sectabs-page")
+    assert re.search(r'href="/media/playing"[^>]*>Activity <span class="waitcount">\d+<span class="vh"> to rate</span>', row)
+    sub = nav_html(html, "sectabs sub")
+    assert re.search(r'href="/media/history" aria-current="page">To rate <span class="waitcount">\d+', sub)
+    assert "Diary" not in row
 
 
 @pytest.mark.parametrize("route", ["/media/movies", "/media/tv", "/media/movies/tonight", "/media/tv/watchlist"])

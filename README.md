@@ -26,14 +26,15 @@ type, and every page built from the same few recipes (rows, stats strips, panels
 area + Weather), Next 7 days, a weather glimpse and Recently watched posters (Continue watching lives on Media home since 2026-10-08); area pages are a row of tiles per registry
 tile (except the weather tile, which renders on the hub and /weather only — 2026-10-08).
 
-**Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Home · Movies · TV Shows ·
-Diary · Activity (Live, History, Library, Downloads live from qBittorrent, Requests, Health; renamed from "Server"
-2026-10-09, decision 4) · Discover; Movies and TV Shows end with an Awards tab
-(2026-10-08: ceremonies from Wikidata / Wikipedia, synced into media.db). See `hub/README.md`; feeds in
+**Media** (Jellyfin + the arr-stack) renders inside that shell with its own section nav — Overview · Movies (My films,
+To rate, Awards) · TV shows (My shows, To rate, Awards) · Activity (Live, History = the watch diary, To rate, Library,
+Downloads live from qBittorrent, Requests, Health; renamed from "Server" 2026-10-09, decision 4) · Discover (nav-tidy
+2026-10-13: Diary folded into Activity, sentence-case labels; Watchlist, Tonight and Play stats keep their URLs off the
+tabs). Awards (2026-10-08): ceremonies from Wikidata / Wikipedia, synced into media.db. See `hub/README.md`; feeds in
 `docs/connector-contract.md`, env in `docs/setup.md`.
 
-**Pin Media pages on your phone (2026-10-07).** Inside Media the phone's bottom bar is Media's own six sections
-(Home · Movies · TV · Diary · Activity · Discover); tap the Joey logo at the top to go back to the overall hub. To keep a
+**Pin Media pages on your phone (2026-10-07).** Inside Media the phone's bottom bar is Media's own five sections
+(Overview · Movies · TV · Activity · Discover; Diary folded into Activity 2026-10-13); tap the Joey logo at the top to go back to the overall hub. To keep a
 Media-focused app on your home screen, open any Media page first, then: iOS Safari: Share → Add to Home Screen (it is
 named "Joey Media"); Android Chrome: ⋮ menu → Install app / Add to Home screen (long-press the icon for Movies, TV,
 Activity and Discover shortcuts). Pages pinned from outside Media install the normal "Joey" app.

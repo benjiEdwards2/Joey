@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}To Rate · Joey{% endblock %}
+{% block title %}To rate · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
@@ -17,7 +17,7 @@
 {% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
 
 <section class="sec">
-  <h2 class="seclabel">To Rate</h2>{# E3: Title Case like the tab (B., 2026-10-09; style guide deviations) #}
+  <h2 class="seclabel">To rate</h2>{# nav-tidy (2026-10-13): sentence case like the tab #}
   <form class="chips" method="post" action="/media/settings/rating_level" aria-label="Rate TV by">
     <span class="microlabel">Rate TV by</span>
     {% for lv in rating_levels %}

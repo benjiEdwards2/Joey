@@ -82,7 +82,7 @@ def test_inbox_lists_unrated_recent_titles_once_each(env):
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")
     with build() as client:
         body = main_of(client.get("/media/history").text)
-    inbox = body.split(">To Rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
+    inbox = body.split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
     assert inbox.count('class="ratepick"') == 2           # Heat + the show, once
     assert "Heat" in inbox and "Quiet Show" in inbox and "S01E02" not in inbox
     assert "Already Rated" not in inbox and "Long Ago" not in inbox
@@ -226,7 +226,7 @@ TV = [
 
 
 def inbox_of(html):
-    return main_of(html).split(">To Rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
+    return main_of(html).split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
 
 
 @pytest.mark.parametrize("level, count, titles, key", [
@@ -311,7 +311,7 @@ def test_to_rate_rows_wrap_so_the_title_keeps_its_width(env):
     build, db_file = env
     with build() as client:
         body = main_of(client.get("/media/history").text)
-    inbox = body.split(">To Rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
+    inbox = body.split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
     rows = inbox.split('<div class="row has-form">')[1:]
     assert len(rows) == 3
     assert all('class="ratepick"' in r for r in rows)

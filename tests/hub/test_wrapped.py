@@ -324,21 +324,24 @@ def test_page_is_owner_scoped(wrap):
 
 # ---- navigation ----
 
-def test_diary_tabs_gain_year_pointing_at_this_years_wrapped():
-    tabs = {s["id"]: [label for label, _ in s["tabs"]] for s in media_nav.SECTIONS}
-    assert tabs["diary"] == ["Diary", "To Rate", "Year"]            # deliberate pin (E6): the Year tab is last
+def test_no_year_tab_after_nav_tidy_and_the_href_helper_stays():
+    # nav-tidy (B., 2026-10-13) folded the Diary section into Activity: Wrapped has no tab, it is reached from the
+    # Month in Review card ("All of <year> →"); YEAR_TAB / tab_href stay as the href helper.
+    assert "diary" not in {s["id"] for s in media_nav.SECTIONS}
+    assert all(not h.startswith(media_nav.YEAR_TAB) for s in media_nav.SECTIONS for _, h in s["tabs"])
     assert media_nav.tab_href(media_nav.YEAR_TAB) == f"/media/diary/year/{home_now().year}"
     assert media_nav.tab_href("/media/diary") == "/media/diary"
 
 
-def test_year_tab_is_lit_on_any_wrapped_page(wrap):
+def test_any_wrapped_page_lights_activity_history(wrap):
     build, _ = wrap
     with build() as client:
         b = client.get("/media/diary/year/2024").text
-        d = client.get("/media/diary").text
+    row = b.split('<nav class="sectabs sectabs-page"', 1)[1].split("</nav>", 1)[0]
+    assert '<a href="/media/playing" aria-current="page">Activity' in row
     sub = b.split('<nav class="sectabs sub"', 1)[1].split("</nav>", 1)[0]
-    assert f'<a href="/media/diary/year/{home_now().year}" aria-current="page">Year</a>' in sub
-    assert '<a href="/media/diary" aria-current="page">' in d.split('<nav class="sectabs sub"', 1)[1].split("</nav>", 1)[0]
+    assert '<a href="/media/diary" aria-current="page">History</a>' in sub        # prefix match: /media/diary/year/...
+    assert sub.count('aria-current="page"') == 1 and ">Year<" not in sub
 
 
 def test_year_without_a_number_goes_to_this_year(wrap):

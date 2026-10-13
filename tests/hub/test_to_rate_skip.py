@@ -81,14 +81,14 @@ def test_rows_offer_skip_and_skip_show_as_scroll_keeping_forms(env):
 def test_skip_a_film_drops_it_and_the_count_then_unskip_brings_it_back(env):
     build, _ = env
     with build() as client:
-        assert subtabs(client.get("/media/movies").text)[3][3] == (2, "to rate")
+        assert subtabs(client.get("/media/movies").text)[1][3] == (2, "to rate")   # nav-tidy: My films · To rate · Awards
         r = post(client, "/media/rate/skip", item_key="tmdb:1", kind="movie", title="Heat", poster="jf:p-1",
                  back="/media/movies/to-rate")
         assert r.status_code == 303 and r.headers["location"] == "/media/movies/to-rate?skip=item"
         html = client.get("/media/movies/to-rate?skip=item").text
         body = main_of(html)
         assert '<p class="metaline st-good" role="status">Skipped</p>' in body
-        assert subtabs(html)[3][3] == (1, "to rate")                            # the amber count drops
+        assert subtabs(html)[1][3] == (1, "to rate")                            # the amber count drops
         inbox = section(html).split('<section class="sec skipped">', 1)[0]
         assert "Heat" not in inbox
         skipped = body.split('<section class="sec skipped">', 1)[1]
@@ -114,7 +114,7 @@ def test_skip_show_hides_every_episode_and_later_ones(env):
     later = TV + [tv_row("cfa", "cfas3", 3, "cfae20", 1, "New Season", 0)]
     with build(jelly_data(later)) as client:
         assert section(client.get("/media/tv/to-rate").text) is None             # a later episode stays skipped
-        diary = client.get("/media/history").text.split(">To Rate</h2>", 1)[1]
+        diary = client.get("/media/history").text.split(">To rate</h2>", 1)[1]
         assert "Colin from Accounts" not in diary.split('<section class="sec skipped">', 1)[0]
 
 

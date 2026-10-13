@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}Diary · Joey{% endblock %}
+{% block title %}History · Joey{% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
@@ -10,6 +10,8 @@
    poster size (.listbox.libposters, h=240; media-ux4, 2026-10-08). E6 (2026-10-13): the Month in Review card leads. #}
 {% if month %}{% include "_month_card.html" %}{% endif %}
 <p class="metaline">{{ stats_text }}</p>
+{# nav-tidy (2026-10-13): this page is Activity > History; the play recorder keeps its URL, linked here (no tab). #}
+<p class="metaline"><a href="/media/server/history">Play stats</a></p>
 {% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
 {% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}
 
@@ -19,6 +21,15 @@
     <a class="chip{{ ' on' if kind == k }}" href="/media/diary{{ '?kind=' ~ k if k }}"{% if kind == k %} aria-current="true"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
+  {# Diary scope (2026-10-13): only the eligible owner ("you") sees Mine / Everyone; rows then name whose they are. #}
+  {% if scope_eligible %}
+  <form class="chips" method="post" action="/media/settings/diary_scope" aria-label="Show">
+    <span class="microlabel">Show</span>
+    {% for label, v in (("Mine", "mine"), ("Everyone", "everyone")) %}
+    <button type="submit" name="value" value="{{ v }}" class="chip{{ ' on' if diary_scope == v }}"{% if diary_scope == v %} aria-current="true"{% endif %}>{{ label }}</button>
+    {% endfor %}
+  </form>
+  {% endif %}
 </div>
 <details class="logwatch">
   <summary class="btn btn-secondary">{{ icon("plus") }}Log a watch</summary>

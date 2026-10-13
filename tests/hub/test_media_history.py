@@ -33,10 +33,10 @@ def test_history_page_renders_every_section_in_main(app_factory):
         resp = client.get("/media/history")
     assert resp.status_code == 200
     title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
-    assert title == "To Rate · Joey"   # D-45 separator; the tab page keeps B.'s title case
+    assert title == "To rate · Joey"   # D-45 separator; nav-tidy (2026-10-13): Activity > To rate, sentence case
     body = main_of(resp.text)
     assert "8 this week · 16 this month · 18.7 h this month · 45.1 h all time" in body
-    order = [body.index(f">{h}</h2>") for h in ("To Rate", "Recently watched")]   # E3: Title Case like the tab
+    order = [body.index(f">{h}</h2>") for h in ("To rate", "Recently watched")]   # nav-tidy (2026-10-13): sentence case like the tab
     assert order == sorted(order)
     assert "Most played" not in body   # M-22 (W2): Most played comes from the play recorder (Server › History) only
     assert "Quiet Coast · S02E04 · Late Tide" in body and "2 hours ago" in body

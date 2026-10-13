@@ -6,36 +6,36 @@ from __future__ import annotations
 from hub import ids
 
 HOME_ID = "home"
-# E6 (2026-10-13): the Diary's "Year" tab — lit on every /media/diary/year/<y> page, its href this home-time year's
-# Wrapped (`tab_href`), so the map stays static.
+# E6 (2026-10-13): the Wrapped page's href helper — after nav-tidy (B., same day) the Diary section and its Year tab are
+# gone, so Wrapped is reached from the Diary's Month in Review card ("All of <year>") and lights Activity > History.
 YEAR_TAB = "/media/diary/year"
 
 SECTIONS: list[dict] = [
-    {"id": "home", "label": "Home", "short": "Home", "icon": "house", "href": None, "prefixes": [], "tabs": []},
+    {"id": "home", "label": "Overview", "short": "Overview", "icon": "house", "href": None, "prefixes": [], "tabs": []},
     {"id": "movies", "label": "Movies", "short": "Movies", "icon": "film", "href": "/media/movies", "prefixes": ["/media/movies"],
-     "tabs": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
-              ("Tonight", "/media/movies/tonight"), ("To Rate", "/media/movies/to-rate"),
-              ("Awards", "/media/movies/awards")]},
-    {"id": "tv", "label": "TV Shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
-     "tabs": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"),
-              ("Tonight", "/media/tv/tonight"), ("To Rate", "/media/tv/to-rate"),
-              ("Awards", "/media/tv/awards")]},
-    {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
-     "tabs": [("Diary", "/media/diary"), ("To Rate", "/media/history"), ("Year", YEAR_TAB)]},
+     "tabs": [("My films", "/media/movies"), ("To rate", "/media/movies/to-rate"), ("Awards", "/media/movies/awards")]},
+    {"id": "tv", "label": "TV shows", "short": "TV", "icon": "tv", "href": "/media/tv", "prefixes": ["/media/tv"],
+     "tabs": [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]},
     # decision 4 (2026-10-09): the Media section reads "Activity" (the hub AREA stays "Server"); id + URLs unchanged.
+    # nav-tidy (2026-10-13, B.): the Diary section folded in here — History = the diary, To rate = the Jellyfin
+    # recent-watch page with the rating inbox; the play recorder (/media/server/history) has no tab, the diary links it.
     {"id": "server", "label": "Activity", "short": "Activity", "icon": "server", "href": "/media/playing",
-     "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps"],
-     "tabs": [("Live", "/media/playing"), ("History", "/media/server/history"), ("Library", "/media/library"), ("Downloads", "/media/downloads"),
-              ("Requests", "/media/requests"), ("Health", "/media/apps")]},
+     "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps",
+                  "/media/diary", "/media/history"],
+     "tabs": [("Live", "/media/playing"), ("History", "/media/diary"), ("To rate", "/media/history"), ("Library", "/media/library"),
+              ("Downloads", "/media/downloads"), ("Requests", "/media/requests"), ("Health", "/media/apps")]},
     {"id": "discover", "label": "Discover", "short": "Discover", "icon": "compass", "href": "/media/discover",
      "prefixes": ["/media/discover", "/media/following", "/media/title", "/media/person"],
      # Follow (2026-10-07): Discover / Following; a title or person page shows no sub-tab row (none is its own)
      "tabs": [("Discover", "/media/discover"), ("Following", "/media/following")], "tabs_only_on": True},
 ]
-# awards-year (2026-10-09, B.): the tab label reads "To Rate" (Movies, TV Shows and Diary); body copy stays sentence case.
-# Awards (2026-10-08): the Awards tab follows To rate on Movies and TV Shows (hub/media_awards_pages.py).
-# media-ux4 (2026-10-08): "To rate" is a tab beside Tonight (the films / TV inbox, count when > 0); the To rate section
-# left the top of the list pages.
+# nav-tidy (2026-10-13, B.): five sections (Overview · Movies · TV shows · Activity · Discover); every section and tab
+# label is sentence case (docs/style-guide.md), superseding awards-year's "To Rate" (2026-10-09). Movies / TV tabs are
+# My films|My shows · To rate · Awards: Watchlist and Tonight left the nav (routes, pages and the title-page Watchlist
+# button stay, reachable by URL).
+# Awards (2026-10-08): the Awards tab follows To rate on Movies and TV shows (hub/media_awards_pages.py).
+# media-ux4 (2026-10-08): "To rate" is a tab (the films / TV inbox, count when > 0); the To rate section left the top
+# of the list pages.
 # By-year rankings removed 2026-10-09 (decision 1).
 
 
@@ -59,7 +59,7 @@ def active_section(path: str, home_href: str | None = None) -> dict | None:
 
 
 def tab_href(href: str) -> str:
-    """A tab's link: the Year tab points at this home-time year's Wrapped; every other tab is its own path."""
+    """A link's href: YEAR_TAB points at this home-time year's Wrapped (no tab since nav-tidy); any other href is itself."""
     if href == YEAR_TAB:
         return f"{YEAR_TAB}/{ids.home_now().year}"
     return href
@@ -81,7 +81,7 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
     if forced:
         section = next((s for s in SECTIONS if s["id"] == forced), section)
     waiting = waiting or {}
-    counts = {"diary": waiting.get("to_rate", 0)}
+    counts = {"server": waiting.get("to_rate", 0)}  # nav-tidy (2026-10-13): the to-rate count moved with To rate to Activity
     sections = [{"id": s["id"], "label": s["label"], "short": s["short"], "icon": s["icon"], "href": home_href if s["id"] == HOME_ID else s["href"],
                  "on": section is not None and s["id"] == section["id"],
                  "count": counts.get(s["id"], 0) or 0} for s in SECTIONS]
@@ -89,17 +89,16 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
     if section:
         scores = [_tab_on(h, path) for _, h in section["tabs"]]
         top = max(scores, default=0)
-        tab_counts = {"/media/movies/watchlist": waiting.get("wl_movie", 0),
-                      "/media/tv/watchlist": waiting.get("wl_tv", 0),
-                      "/media/movies/to-rate": waiting.get("to_rate_movie", 0),
-                      "/media/tv/to-rate": waiting.get("to_rate_tv", 0)}
-        tabs = [{"label": label, "href": tab_href(h), "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
-                 "what": "to rate" if h.endswith("/to-rate") else "to get"}
+        tab_counts = {"/media/movies/to-rate": waiting.get("to_rate_movie", 0),
+                      "/media/tv/to-rate": waiting.get("to_rate_tv", 0),
+                      "/media/history": waiting.get("to_rate", 0)}
+        tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
+                 "what": "to rate" if h.endswith("/to-rate") or h == "/media/history" else "to get"}
                 for (label, h), sc in zip(section["tabs"], scores)]
         # E4 (U5, 2026-10-13): an item / title page (a forced section) is no tab's own either, so it shows no sub-tab row
         if (section.get("tabs_only_on") or forced) and not top:
             tabs = []
-    # E3 (U4, 2026-10-13): the page names itself — the active tab's label ("My films", "Diary", "Requests"), else the
+    # E3 (U4, 2026-10-13): the page names itself — the active tab's label ("My films", "History", "Requests"), else the
     # section's ("Discover" on a person page, which draws its own H1 instead); None outside every section.
     on = next((t for t in tabs if t["on"]), None)
     title = on["label"] if on else (section["label"] if section else None)

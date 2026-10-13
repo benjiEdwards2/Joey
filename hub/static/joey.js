@@ -54,27 +54,6 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
 ['gesturestart', 'gesturechange'].forEach(function (t) {
   document.addEventListener(t, function (e) { e.preventDefault(); }, {passive: false});
 });
-/* Docked Media sections (media-ux5, 2026-10-09; desktop): once the page's section row (its .dock-sentinel) has scrolled
-   under the sticky top bar, the bar gets .is-docked and CSS swaps its section pills for the server-rendered Media row
-   (.topdock). Boosts swap <body>, so the observer re-attaches after every settle when the sentinel changed. */
-(function () {
-  var io = null, seen = null;
-  function init() {
-    var s = document.querySelector('.dock-sentinel'), bar = document.querySelector('.topbar');
-    if (s === seen) return;
-    seen = s;
-    if (io) { io.disconnect(); io = null; }
-    if (!s || !bar || !bar.querySelector('.topdock') || !('IntersectionObserver' in window)) return;
-    io = new IntersectionObserver(function (entries) {
-      var e = entries[entries.length - 1], top = e.rootBounds ? e.rootBounds.top : 56;
-      bar.classList.toggle('is-docked', !e.isIntersecting && e.boundingClientRect.bottom <= top);
-    }, {rootMargin: '-56px 0px 0px 0px'});
-    io.observe(s);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  document.addEventListener('htmx:afterSettle', init);
-  document.addEventListener('htmx:load', init);
-})();
 /* ---- F2 fast item pages (2026-10-12): warm a film / show page on touch or hover ----
    A finger landing on (or a pointer resting 60 ms over) a link to a film / show page sends that page a GET with
    X-Joey-Prefetch: 1 and throws the answer away (an empty 204): the server reads Jellyfin and starts the Jellyseerr /

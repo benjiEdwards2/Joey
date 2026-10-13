@@ -55,14 +55,15 @@
 {% set fits = sections | length <= 5 %}
 <header class="topbar">
   <div class="topbar-in">
-    {# E3 (U9 option a, 2026-10-13): in Media mode a phone shows the brand as "‹ Joey" (the way out of Media) and the bar
-       stays at the top (CSS: sticky, 48 px, under 768 px only); desktop and the other pages are unchanged. #}
     <a class="brand" href="/" aria-label="Joey home">{% if media_mode %}<span class="brand-back" aria-hidden="true">‹</span>{% endif %}<img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
-    {% if media_mode %}<div class="topswap">{% endif %}
+    {# Media top bar (nav-tidy, B., 2026-10-13; supersedes the media-ux5 scroll-docking): inside Media the bar shows the
+       Media section row (_media_tabs.html media_bar(), a .toplinks nav) INSTEAD of the Joey pills, from the first paint,
+       permanently. The Joey brand is the way out, as on the phone. Phones show neither (.toplinks is display:none). #}
+    {% if media_mode %}{% from "_media_tabs.html" import media_bar with context %}{{ media_bar() }}{% else %}
     <nav class="toplinks" aria-label="Sections">
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
     </nav>
-    {% if media_mode %}{% from "_media_tabs.html" import media_dock with context %}{{ media_dock() }}</div>{% endif %}
+    {% endif %}
     <div class="userchip"{% if who.email %} title="{{ who.email }}"{% endif %}><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email or "Local preview" }}</small></div>
   </div>
 </header>
@@ -76,11 +77,11 @@
 </main>
 
 {% if media_mode %}
-{# Media mode (B., 2026-10-07): inside Media the phone bar is the six Media sections (media_nav.py, the same active
-   rule as the section tabs), six equal slots, no More. Links scroll the window to the top after the boosted swap
+{# Media mode (B., 2026-10-07): inside Media the phone bar is the five Media sections (media_nav.py, the same active
+   rule as the section tabs), five equal slots, no More (five since nav-tidy 2026-10-13). Links scroll the window to the top after the boosted swap
    (htmx 2.0.4 does show:top for boosts already; stated here so tapping Home on Media home always lands at the top).
    The way out is the "‹ Joey" brand in the sticky top bar (E3, U9). E3 (2026-10-13): the amber to-rate count sits on
-   the Diary icon here, because the page head's section pill row is hidden on a phone (the bar is the same six). #}
+   the Activity icon here (nav-tidy moved it), because the page head's section pill row is hidden on a phone (the bar is the same five). #}
 {% set mnav = media_nav(request) %}
 <nav class="tabbar" aria-label="Media sections (phone)" hx-swap="innerHTML show:window:top">
   {% for s in mnav.sections %}

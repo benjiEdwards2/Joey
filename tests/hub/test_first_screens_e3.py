@@ -108,11 +108,13 @@ def h1s(html):
 
 
 @pytest.mark.parametrize("route, title", [
-    ("/media/movies", "My films"), ("/media/tv", "My shows"), ("/media/movies/watchlist", "Watchlist"),
-    ("/media/diary", "Diary"), ("/media/history", "To Rate"), ("/media/requests", "Requests"),
+    ("/media/movies", "My films"), ("/media/tv", "My shows"), ("/media/movies/watchlist", "My films"),
+    ("/media/diary", "History"), ("/media/history", "To rate"), ("/media/requests", "Requests"),
     ("/media/playing", "Live"), ("/media/discover", "Discover"), ("/media/following", "Following"),
     ("/media/movies/awards", "Awards")])
 def test_media_page_head_is_the_active_tab_label(sample_client, route, title):
+    # nav-tidy (2026-10-13): the Diary is Activity › History, To rate is sentence case, and the Watchlist (no tab of its
+    # own) lights My films, so its head reads the lit tab
     with sample_client as c:
         html = c.get(route).text
     assert h1s(html) == [title], route                                            # one H1, and it names the page
@@ -137,7 +139,7 @@ def test_person_page_h1_is_the_name(env):
         html = client.get("/media/person/55").text
     assert h1s(html) == ["Ada Actor"]
     assert '<h1 class="hero-detail-title">Ada Actor</h1>' in html
-    assert '<nav class="sectabs" aria-label="Media sections">' in html             # the band still carries the tabs
+    assert '<nav class="sectabs sectabs-page" aria-label="Media sections">' in html  # the band still carries the tabs
 
 
 def test_awards_page_has_no_second_title():
@@ -160,7 +162,7 @@ def test_plain_page_head_css():
     assert "min-height: 170px" in flat and ".pagehead h1 { font-size: 48px; line-height: 1.05; }" in flat   # backdrop keeps it
 
 
-# 2b. Phone: no section pill row in Media, the to-rate count on the bar's Diary icon -----------------------------------
+# 2b. Phone: no section pill row in Media, the to-rate count on the bar's Activity icon (nav-tidy, 2026-10-13) -----------------------------------
 
 def test_phone_hides_the_media_section_pills_but_keeps_sub_tabs():
     flat = rules()
@@ -169,7 +171,7 @@ def test_phone_hides_the_media_section_pills_but_keeps_sub_tabs():
     assert ".tabbar > a > .waitcount { position: absolute;" in flat
 
 
-def test_diary_slot_of_the_phone_bar_carries_the_to_rate_count(tmp_path, monkeypatch):
+def test_activity_slot_of_the_phone_bar_carries_the_to_rate_count(tmp_path, monkeypatch):
     import importlib
 
     from fastapi.testclient import TestClient
@@ -184,13 +186,13 @@ def test_diary_slot_of_the_phone_bar_carries_the_to_rate_count(tmp_path, monkeyp
     importlib.reload(hub.main)
     with TestClient(hub.main.app) as c:
         html = c.get("/media/movies").text
-    row = re.search(r'<nav class="sectabs" aria-label="Media sections">.*?</nav>', html, re.S).group(0)
-    n = re.search(r'href="/media/diary"[^>]*>Diary <span class="waitcount">(\d+)<', row)
+    row = re.search(r'<nav class="sectabs sectabs-page" aria-label="Media sections">.*?</nav>', html, re.S).group(0)
+    n = re.search(r'href="/media/playing"[^>]*>Activity <span class="waitcount">(\d+)<', row)
     assert n, "the sample needs something to rate"
     bar = re.search(r'<nav class="tabbar"[^>]*>.*?</nav>', html, re.S).group(0)
-    diary = re.search(r'<a href="/media/diary"[^>]*>(.*?)</a>', bar, re.S).group(1)
-    assert f'<span class="waitcount">{n.group(1)}<span class="vh"> to rate</span></span><span>Diary</span>' in diary
-    assert bar.count('class="waitcount"') == 1                                      # only the Diary slot
+    slot = re.search(r'<a href="/media/playing"[^>]*>(.*?)</a>', bar, re.S).group(1)
+    assert f'<span class="waitcount">{n.group(1)}<span class="vh"> to rate</span></span><span>Activity</span>' in slot
+    assert bar.count('class="waitcount"') == 1                                      # only the Activity slot
 
 
 # 3. The way out of Media on a phone (U9 option a) ---------------------------------------------------------------
@@ -205,8 +207,9 @@ def test_media_brand_reads_back_to_joey_and_the_phone_bar_is_sticky(sample_clien
     assert "brand-back" not in brand(hub_page)                                      # outside Media: unchanged
     flat = rules()
     assert ".brand-back { display: none; }" in flat
-    assert ("@media (max-width: 767px) { .topbar:has(.topswap) { position: sticky; top: 0; } "
-            ".topbar:has(.topswap) .topbar-in { height: 48px; } .brand-back { display: inline;") in flat
+    # nav-tidy (2026-10-13) removed .topswap with the docking, so the Media-mode hook is the brand's .brand-back
+    assert ("@media (max-width: 767px) { .topbar:has(.brand-back) { position: sticky; top: 0; } "
+            ".topbar:has(.brand-back) .topbar-in { height: 48px; } .brand-back { display: inline;") in flat
 
 
 # 4. Weather page on a phone (U10 remainder) -----------------------------------------------------------------------
@@ -362,9 +365,11 @@ def test_rated_line_says_the_number_once():
 
 
 def test_to_rate_label_matches_the_tab_and_the_guide_records_it():
-    assert '<h2 class="seclabel">To Rate</h2>' in tpl("media_history.html")
+    assert '<h2 class="seclabel">To rate</h2>' in tpl("media_history.html")          # nav-tidy (2026-10-13): sentence case
     guide = (HUB.parent / "docs" / "style-guide.md").read_text(encoding="utf-8").split("# MediaHub style guide", 1)[0]
-    assert '"To Rate"' in guide                                                        # the dated deviation line
+    flat = " ".join(guide.split())
+    assert ('nav-tidy (B., 2026-10-13) superseded it: every section and tab label is sentence case again ("To rate", '
+            '"TV shows"), including the section label under that tab.') in flat           # the dated supersession line
 
 
 def test_requests_counts_leave_out_zero_parts():

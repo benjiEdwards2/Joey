@@ -33,7 +33,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `seed_demo.py` | Writes demo snapshots for local runs |
 
 Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`
-(`static/joey.js` is the frame's script: boost guard, history replace, flash strip, pinch guard, docked Media row).
+(`static/joey.js` is the frame's script: boost guard, history replace, flash strip, pinch guard). Inside Media the top bar carries the Media section row instead of the Joey pills (`_media_tabs.html` `media_bar()`, nav-tidy 2026-10-13); no JS involved.
 Routers are included in `main.py`; every write route carries `Depends(same_origin)` (403 unless htmx or same Origin).
 
 ## Routes
@@ -44,12 +44,12 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /a/{area_id}` | main | Area page (`layout` grid, shelves or server; grid = tiles + Next 7 days, its Media sections removed 2026-10-09, decision 2); hidden areas still serve |
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
-| `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
-| `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1); E6: the Month in Review card leads |
 | `GET /media/diary/year/{year}`, `/media/diary/year` | media_pages | Wrapped (E6, 2026-10-13): one year in words, a summary not a ranking; the bare path redirects to this year |
-| `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
 | `GET /media/{movies,tv}/awards/part/categories` | awards_pages | Awards page's deferred category cards (E7): one htmx request on `revealed`, same `body` / `year` / `unseen` query; `/awards?all=1` is the whole page (no-JS fallback) |
-| `GET /media/server/history` | media_plays | History tab: plays recorded from Jellyfin sessions |
+| `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, To rate (`/media/history`), Library, Downloads, Requests, Health |
+| `GET /media/diary` | media_pages | Activity > History: the watch diary (E6: the Month in Review card leads, linking the Wrapped page) (the Diary section folded into Activity 2026-10-13; By-year rankings removed 2026-10-09, decision 1). "Show: Mine / Everyone" 2026-10-13 — only owner "you" may list everyone's rows, each then named "You" / `OWNER_NAME_HER` in its meta line; her diary is always her own |
+| `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), To rate, Awards tabs; Tonight and Watchlist serve by URL with no tab (2026-10-13) |
+| `GET /media/server/history` | media_plays | Play stats: plays recorded from Jellyfin sessions (no tab since 2026-10-13; linked from the diary) |
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
 | `GET /media/search` | media_write | Title search behind the Log form |
 | `GET /media/title/{kind}/{tmdb_id}`, `/media/item/{jf_id}`, `/media/person/{person_id}` | media_film, media_person | Film / series page by TMDB id or Jellyfin id; person page |
@@ -60,7 +60,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/rate/skip`, `/media/rate/skip-show`, `/media/rate/unskip` | media_write | To rate: Skip this entry / the whole show (media.db `rating_skip`, v4), Unskip (E5, 2026-10-13) |
-| `POST /media/settings/rating_level` | media_write | Rating scale |
+| `POST /media/settings/rating_level`, `/media/settings/diary_scope` | media_write | Rating scale; diary scope (2026-10-13: `mine` / `everyone`, 403 for her) |
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
 | `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person, a film series or a show (`kind` person / collection / show) |
 | `POST /media/requests/{rid}/remove` | media_requests | Remove a Jellyseerr request |

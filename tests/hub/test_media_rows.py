@@ -93,7 +93,7 @@ def test_watched_rows_are_whole_row_links_and_rateable_rows_use_the_overlay(env)
         body = main_of(client.get("/media/history").text)
     recent = between(body, ">Recently watched<")
     assert row_of(recent, "Quiet Show").startswith('<a class="row" href="/media/item/e2">')
-    to_rate = between(body, ">To Rate<", ">Recently watched<")   # E3
+    to_rate = between(body, ">To rate<", ">Recently watched<")   # E3; sentence case since nav-tidy (2026-10-13)
     assert "row has-form" in to_rate  # the inbox row carries the picker form
     assert '<a class="rowlink" href="/media/item/e2">' in to_rate and "<form" in to_rate
     assert not re.search(r'<a class="rowlink"[^>]*>(?:(?!</a>).)*<form', to_rate, re.S)  # form never inside

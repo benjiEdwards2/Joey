@@ -279,7 +279,7 @@ def test_episode_route_shows_episode_header_over_show_page(env):
     assert b.index("S04E03 · Penny for Your Thoughts") < b.index("Quiet Show (2020)")
     assert "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Episode of" not in b      # media-ux4 (2026-10-08, B.): the line is gone; the part-of banner links the show
-    assert "Cass Creator" in b and 'aria-current="page">TV Shows' in b
+    assert "Cass Creator" in b and 'aria-current="page">TV shows' in b
 
 
 # ---- failure and safety ----

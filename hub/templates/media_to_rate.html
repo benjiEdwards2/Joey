@@ -1,12 +1,12 @@
 {% extends "media_base.html" %}
-{% block title %}To Rate · Joey{% endblock %}
+{% block title %}To rate · Joey{% endblock %}
 {% block content %}
 {% import "_to_rate.html" as torate %}
 {# Movies / TV Shows > To rate (media-ux4, 2026-10-08): a tab beside Tonight holding the viewer's rating inbox for this
    kind (the Diary > To rate rows: poster + title one whole link, the 1-10 picker outside it). A plain-form rating
    returns to this tab; htmx swaps the row in place. #}
 {% set noun = "film" if kind == "movie" else "title" %}
-{% set sf = skip_flash(request) %}{# E5 (M3): "Skipped" / "Show skipped" / "Back in To Rate" after a Skip form #}
+{% set sf = skip_flash(request) %}{# E5 (M3): "Skipped" / "Show skipped" / "Back in To rate" after a Skip form #}
 {% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>

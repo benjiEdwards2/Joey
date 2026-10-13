@@ -188,15 +188,15 @@ def test_site_pills_fall_back_to_a_details_row_without_a_scores_strip():
 
 # ---- U5: no sub-tab row on item / title pages ----
 
-@pytest.mark.parametrize("path, section", [("/media/item/mov1", "Movies"), ("/media/item/ser1", "TV Shows"),
-                                           ("/media/item/ep3", "TV Shows"), ("/media/title/movie/603", "Movies"),
+@pytest.mark.parametrize("path, section", [("/media/item/mov1", "Movies"), ("/media/item/ser1", "TV shows"),
+                                           ("/media/item/ep3", "TV shows"), ("/media/title/movie/603", "Movies"),
                                            ("/media/title/movie/701", "Discover")])
 def test_item_and_title_pages_have_no_sub_tab_row(env, path, section):
     client, _ = env()
     with client:
         html = client.get(path).text
     assert 'class="sectabs sub"' not in html
-    assert f'aria-current="page">{section}' in html.split('<nav class="sectabs" aria-label="Media sections">', 1)[1]
+    assert f'aria-current="page">{section}' in html.split('<nav class="sectabs sectabs-page" aria-label="Media sections">', 1)[1]
 
 
 def test_nav_context_drops_the_tabs_for_a_forced_section_only_when_no_tab_matches():

@@ -14,6 +14,11 @@ and a seed check). Now:
     from there.
   * `ranking` (media_db.SCHEMA): retained, unused since 2026-10-09 — the By-year rankings were removed (decision 1);
     its rows stay in media.db so the feature can come back.
+  * E1 (2026-10-13): `reader()` hands each thread ONE kept connection, reused across every read of every request that
+    thread serves (a Media page used to open 5-10, each paying connect + schema re-read + the WAL close checkpoint).
+    Its close() only ends any open transaction, so `with closing(db)` callers are unchanged; it is replaced when the
+    file's identity changes (a test's new MEDIA_DB_PATH, a restored backup) and closed when its thread ends or on
+    `reset()`. Writes keep `connect()`: a fresh connection each, closed after.
 """
 
 from __future__ import annotations
@@ -22,12 +27,14 @@ import logging
 import os
 import sqlite3
 import threading
+import weakref
 from pathlib import Path
 
 log = logging.getLogger("hub.media_store")
 
 DEFAULT_DB_PATH = "/data/sqlite/media.db"
 BUSY_MS = 5000
+READER_CACHE_KIB = 1024   # page cache per kept reader (SQLite's default is 2000 KiB; up to ~40 threads keep one)
 
 INDEXES = (   # step 2 (M-34): the per-page queries' own indexes
     "CREATE INDEX IF NOT EXISTS diary_owner_watched ON diary(owner, watched_on)",
@@ -89,8 +96,37 @@ def migrate(db) -> int:
     return start
 
 
-def _open(path: Path) -> sqlite3.Connection:
-    db = sqlite3.connect(path, timeout=BUSY_MS / 1000)
+class _Kept(sqlite3.Connection):
+    """A thread's kept reader: close() ends any open transaction and keeps the connection; _shut() really closes."""
+
+    shut = False
+
+    def close(self) -> None:
+        if not self.shut:
+            try:
+                self.rollback()
+            except sqlite3.Error:
+                pass
+
+    def _shut(self) -> None:
+        self.shut = True
+        try:
+            super().close()
+        except sqlite3.Error:
+            pass
+
+
+_local = threading.local()                  # .held = (generation, file key, _Kept)
+_all_kept: "weakref.WeakSet[_Kept]" = weakref.WeakSet()   # every live kept reader, for reset(); a dead thread's goes
+_gen = [0]
+
+
+def _open(path: Path, kept: bool = False) -> sqlite3.Connection:
+    if kept:   # any thread may _shut() it (reset), so the same-thread check is off; only its own thread queries it
+        db = sqlite3.connect(path, timeout=BUSY_MS / 1000, factory=_Kept, check_same_thread=False)
+        db.execute(f"PRAGMA cache_size=-{READER_CACHE_KIB}")
+    else:
+        db = sqlite3.connect(path, timeout=BUSY_MS / 1000)
     db.row_factory = sqlite3.Row
     db.execute(f"PRAGMA busy_timeout={BUSY_MS}")
     key = _file_key(path)
@@ -100,7 +136,7 @@ def _open(path: Path) -> sqlite3.Connection:
                 try:
                     migrate(db)
                 except BaseException:
-                    db.close()
+                    db._shut() if kept else db.close()
                     raise
                 _ready.add(key)
     return db
@@ -114,16 +150,38 @@ def connect() -> sqlite3.Connection:
 
 
 def reader() -> sqlite3.Connection | None:
-    """An open connection for a read, or None when there is no DB file yet (reads never create it) or it can't be
-    opened (logged by type)."""
+    """This thread's kept connection for a read, or None when there is no DB file yet (reads never create it) or it
+    can't be opened (logged by type)."""
     path = db_path()
     if not path.is_file():
         return None
     try:
-        return _open(path)
+        key = _file_key(path)
+        held = getattr(_local, "held", None)
+        if held is not None:
+            if held[0] == _gen[0] and held[1] == key and not held[2].shut:
+                return held[2]
+            held[2]._shut()
+            _local.held = None
+        db = _open(path, kept=True)
+        _local.held = (_gen[0], key, db)
+        with _lock:
+            _all_kept.add(db)
+        return db
     except (sqlite3.Error, OSError) as exc:
         log.warning("media db unreadable: %s", type(exc).__name__)
         return None
+
+
+def reset() -> None:
+    """Close every thread's kept reader (tests between cases; anything that swaps the file under the hub). Each
+    thread opens a new one on its next read."""
+    with _lock:
+        _gen[0] += 1
+        kept = list(_all_kept)
+        _all_kept.clear()
+    for db in kept:
+        db._shut()
 
 
 def forget() -> None:

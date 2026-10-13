@@ -596,7 +596,8 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .diaryrow .row-body { flex-basis: 0; }  /* a long facts line wraps beside the poster instead of dropping under it */
 @media (min-width: 640px) { .listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 84px; } }
 /* Grid view on the Movies / TV Shows lists (media-ux4, 2026-10-08, the default): poster cards at the Media home shelf size
-   (116 px phone / 144 px from 640 px) in as many columns as fit. .seg is the Grid / List switch in the toolbar. */
+   (116 px phone / 144 px from 640 px) in as many columns as fit. .seg is the Grid / List switch in the toolbar (E3,
+   2026-10-13: one icon link to the other layout). */
 .poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 20px 12px; }
 @media (min-width: 640px) { .poster-grid.libgrid { grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)); } }
 /* media-ux5 (2026-10-09): on a phone exactly three columns that always fit (320 px: 3 x 89 px + two 10 px gaps). */
@@ -605,7 +606,6 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .seg a { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 6px; font-size: 13px;
   font-weight: 500; color: var(--text-4); text-decoration: none; transition: color .15s, background-color .15s; }
 .seg a:hover { color: var(--text-2); }
-.seg a[aria-current] { background: var(--pill-on); color: var(--text-1); }
 .seg svg.ic { width: 16px; height: 16px; }
 label.row { cursor: pointer; }
 label.row input[type=radio] { flex-shrink: 0; }

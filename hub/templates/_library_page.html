@@ -27,18 +27,24 @@
   </div>
 </section>
 {% endif %}
-<form class="toolbar" method="get" hx-swap="innerHTML show:none">
-  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles"></div>
+{# E3 (U14, 2026-10-13): the toolbar applies itself — any change, a cleared search or a pause in typing re-requests this page
+   (htmx GET of the same URL, the boosted-body swap that keeps the scroll position, the URL pushed so Back works); Enter
+   still submits. The search box keeps focus across the swap (htmx restores focus by id). Apply is for no-JS only. The
+   Grid / List switch is one icon link to the other layout (`?view=` sets the media_libview cookie, media_pages.library_view);
+   the form never sends `view`, so the cookie keeps the current choice. #}
+{% set other = "list" if libview == "grid" else "grid" %}
+<form class="toolbar" method="get" hx-get="{{ request.url.path }}" hx-target="body" hx-swap="innerHTML show:none" hx-push-url="true"
+      hx-trigger="submit, change, search, keyup changed delay:400ms from:find input[type=search]">
+  <div class="search">{{ icon("search") }}<input class="input" id="libq" type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles"></div>
   {% if marks %}<input type="hidden" name="group" value="0"><label class="chip{{ ' on' if group }}"><input type="checkbox" name="group" value="1"{% if group %} checked{% endif %}>Grouped</label>{% endif %}
   <select class="select" name="sort" aria-label="Sort by">
     {% for k, label in sorts.items() %}<option value="{{ k }}"{% if k == sort %} selected{% endif %}>{{ label }}</option>{% endfor %}
   </select>
-  <button type="submit" class="btn btn-secondary">Apply</button>
-  {# Grid / List (media-ux4, 2026-10-08): plain links keeping the search / sort / grouping; the choice is a cookie, so the
+  <noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>
+  {# Grid / List (media-ux4, 2026-10-08): a plain link keeping the search / sort / grouping; the choice is a cookie, so the
      server draws the right layout on the next visit (no flash). Grid is the default. #}
   <nav class="seg" aria-label="Layout">
-    <a href="{{ libview_links.grid }}"{% if libview == "grid" %} aria-current="true"{% endif %}>{{ icon("grid") }}Grid</a>
-    <a href="{{ libview_links.list }}"{% if libview == "list" %} aria-current="true"{% endif %}>{{ icon("list") }}List</a>
+    <a href="{{ libview_links[other] }}" aria-label="Show as {{ other }}" title="Show as {{ other }}">{{ icon(other) }}</a>
   </nav>
 </form>
 {% for g in groups %}

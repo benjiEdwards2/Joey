@@ -222,3 +222,40 @@ def test_weather_today_strip_fits_a_phone_and_labels_drop_the_place(sample_clien
     flat = rules()
     assert ".wxstats .stat-number, .wxstats .stat-word { white-space: nowrap; }" in flat
     assert "@media (max-width: 639px) { .wxstats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }" in flat
+
+
+# 5. Toolbars apply themselves (U14) -------------------------------------------------------------------------------
+
+AUTO = ('hx-target="body" hx-swap="innerHTML show:none" hx-push-url="true"')
+
+
+def test_library_toolbar_applies_on_change_and_apply_is_noscript_only(sample_client):
+    with sample_client as c:
+        for path in ("/media/movies", "/media/tv"):
+            html = c.get(path).text
+            form = re.search(r'<form class="toolbar"([^>]*)>(.*?)</form>', html, re.S)
+            attrs, inner = form.group(1), form.group(2)
+            assert f'hx-get="{path}" {AUTO}' in attrs, path
+            assert 'hx-trigger="submit, change, search, keyup changed delay:400ms from:find input[type=search]"' in attrs
+            assert '<input class="input" id="libq" type="search" name="q"' in inner          # focus survives the swap
+            assert '<noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>' in inner
+            assert inner.count("<a ") == 1 and 'aria-label="Show as list"' in inner         # one icon toggle
+            assert 'name="view"' not in inner                                              # the cookie keeps the choice
+
+
+def test_watchlist_sort_applies_on_change(sample_client):
+    with sample_client as c:
+        html = c.get("/media/movies/watchlist").text
+    src = tpl("media_watchlist.html")
+    assert f'hx-get="{{{{ request.url.path }}}}" {AUTO}' in src and 'hx-trigger="submit, change"' in src
+    assert '<noscript><button type="submit" class="btn btn-secondary">Apply</button></noscript>' in src
+    if '<form class="toolbar"' in html:                                                    # rows present
+        assert 'hx-get="/media/movies/watchlist"' in html
+
+
+def test_libview_cookie_route_still_sets_the_choice(sample_client):
+    with sample_client as c:
+        r = c.get("/media/movies?view=list")
+        assert "media_libview=list" in r.headers.get("set-cookie", "")
+        again = c.get("/media/movies?sort=title").text                                    # what the toolbar sends
+    assert "listbox libposters" in again and 'aria-label="Show as grid"' in again

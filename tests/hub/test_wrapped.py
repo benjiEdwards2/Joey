@@ -326,7 +326,7 @@ def test_page_numbers_are_stats(wrap):
         seed_year()
         _, b = page(client)
     n = sec(b, "Numbers")
-    for label in ("Films", "Episodes", "Hours", "Days with a watch", "Longest streak", "Busiest month",
+    for label in ("Films", "Episodes", "Hours", "Days watched", "Longest streak", "Busiest month",   # E6 eyes-on: fits 375 px
                   "Busiest weekday", "Busiest hour"):
         assert f'<div class="stat"><div class="microlabel">{label}</div>' in n
     assert '<div class="stat-word">5h 20m</div><div class="row-meta">Plays since 6 Oct + film runtimes</div>' in n

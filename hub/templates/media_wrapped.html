@@ -29,7 +29,7 @@
     <div class="stat"><div class="microlabel">Films</div><div class="stat-number">{{ w.films }}</div></div>
     <div class="stat"><div class="microlabel">Episodes</div><div class="stat-number">{{ w.episodes }}</div></div>
     <div class="stat"><div class="microlabel">Hours</div><div class="stat-word{{ ' blank' if not w.minutes }}">{{ w.hours_text }}</div>{% if w.hours_note %}<div class="row-meta">{{ w.hours_note }}</div>{% endif %}</div>
-    <div class="stat"><div class="microlabel">Days with a watch</div><div class="stat-number">{{ w.days }}</div></div>
+    <div class="stat"><div class="microlabel">Days watched</div><div class="stat-number">{{ w.days }}</div></div>
     <div class="stat"><div class="microlabel">Longest streak</div><div class="stat-word">{{ w.streak }} day{{ '' if w.streak == 1 else 's' }}</div></div>
     <div class="stat"><div class="microlabel">Busiest month</div>{% if w.busiest_month %}<div class="stat-word">{{ w.busiest_month.text }}</div><div class="row-meta">{{ w.busiest_month.note }}</div>{% else %}<div class="stat-word blank">—</div>{% endif %}</div>
     <div class="stat"><div class="microlabel">Busiest weekday</div>{% if w.busiest_weekday %}<div class="stat-word">{{ w.busiest_weekday.text }}</div><div class="row-meta">{{ w.busiest_weekday.note }}</div>{% else %}<div class="stat-word blank">—</div>{% endif %}</div>

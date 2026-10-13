@@ -263,6 +263,19 @@ def held_months(year: int | None) -> dict[str, int]:
     return out
 
 
+def data_years(body_id: str, kind: str) -> set[int]:
+    """Ceremony years of a body that have nominations of this kind ('film' | 'tv') - the picker's year strip
+    (`has_data`, Awards ballot 2026-10-14). Empty without a DB."""
+    db = _reader()
+    if db is None:
+        return set()
+    with closing(db):
+        return {r["year"] for r in db.execute(
+            "SELECT DISTINCT e.year FROM award_edition e WHERE e.body_id = ? AND e.year IS NOT NULL AND EXISTS (SELECT 1 "
+            "FROM award_nomination n JOIN award_category c ON c.body_id = n.body_id AND c.cat_key = n.cat_key WHERE "
+            "n.body_id = e.body_id AND n.ordinal = e.ordinal AND c.kind = ?)", (body_id, kind))}
+
+
 def latest_synced_year(body_id: str, kind: str) -> int | None:
     """The newest year with nominations of this kind for the body (else the newest known year)."""
     db = _reader()

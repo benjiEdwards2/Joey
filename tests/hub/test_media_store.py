@@ -41,7 +41,7 @@ def test_a_new_file_gets_every_table_index_and_the_version(db):
             "media_follow_adds", "award_body", "award_edition", "award_sync"} <= tables
     assert {"diary_owner_watched", "play_owner_started", "play_jf_finished"} <= _names(db, "index")
     with closing(sqlite3.connect(db)) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 3
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 4
         assert conn.execute("SELECT COUNT(*) FROM award_body").fetchone()[0] > 0      # the awards seed
 
 

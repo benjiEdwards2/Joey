@@ -132,4 +132,5 @@ def test_a_show_with_no_episodes_is_not_all_watched():
     from hub import media_library
     row = media_library.show_rows([{"title": "Empty", "episodes": 0, "unplayed": 0}], {}, str,
                                   lambda it, kind: ("/x", False))[0]
-    assert (row["played"], row["state"], row["eps_text"]) == (False, "not_started", "0 episodes · 0 to watch")
+    # E5 (M2): progress words say nothing for a show with no episodes (was "0 episodes · 0 to watch")
+    assert (row["played"], row["state"], row["eps_text"]) == (False, "not_started", "0 episodes")

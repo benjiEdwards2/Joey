@@ -54,6 +54,9 @@ class Tile(BaseModel):
     snapshot: Optional[str] = None
     stale_after_minutes: Optional[int] = None
     setup_note: Optional[str] = None
+    # E5 (H2, 2026-10-13): on a tile reading the gcal snapshot, merge the arr snapshot's coming releases (followed or
+    # recently watched shows, monitored films) into its Next 7 days list as their own labelled rows.
+    show_media_releases: bool = False
 
 
 class Area(BaseModel):

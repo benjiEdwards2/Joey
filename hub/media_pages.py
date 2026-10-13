@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
+                 media_plays_db, media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -197,6 +197,7 @@ def media_history_page(request: Request):
             "history": history,
             "ratings": ratings,
             "to_rate": media_home._to_rate(recent, ratings),
+            "skipped": media_db.skips(ratings.owner),   # E5 (M3): the Skipped group, Unskip each
             "rating_levels": media_db.LEVELS,
             "rating_level": ratings.level,
             "numbers": " · ".join([
@@ -295,9 +296,11 @@ def _library_rows(data: dict, view: str, kind: str):
     items, marks = _library_lists(data, view, kind)
     if items is None:
         return None, marks, None
-    maker = media_library.film_rows if kind == "movie" else media_library.show_rows
-    return items, marks, maker(items, media_home._ratings(view, items), lambda v: media_home._ago_text(v, now),
-                               _lib_href(), marks)
+    ratings, ago = media_home._ratings(view, items), lambda v: media_home._ago_text(v, now)
+    if kind == "movie":
+        return items, marks, media_library.film_rows(items, ratings, ago, _lib_href(), marks)
+    runtimes = media_plays_db.show_runtimes(f"jf:{i.get('jf_id')}" for i in items if i.get("jf_id")) if marks else {}
+    return items, marks, media_library.show_rows(items, ratings, ago, _lib_href(), marks, runtimes)   # E5 (M2)
 
 
 def _cached_tvdb(row: dict):
@@ -377,7 +380,8 @@ def _to_rate_page(request: Request, kind: str):
     def build(data, view):
         recent = (data.get("history") or {}).get("recent") or []   # the viewer's own history (view_jelly)
         rows = [{**r, "back": request.url.path} for r in media_home._to_rate(recent, media_home._ratings(view, recent)) if r["kind"] == kind]
-        return {"kind": kind, "to_rate": rows}
+        skipped = [s for s in media_db.skips(media_db.owner_of(view)) if s["kind"] == kind]   # E5 (M3)
+        return {"kind": kind, "to_rate": rows, "skipped": skipped}
     return _detail_page(request, "media_to_rate.html", JELLYFIN_SNAPSHOT_ID, build)
 
 

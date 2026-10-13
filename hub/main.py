@@ -25,7 +25,7 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub import media_home, media_pages, shell, tasks, weather
+from hub import media_home, media_pages, shell, tasks, today, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
     DIARY_PAGE, LIBVIEWS, LIBVIEW_COOKIE, LIBVIEW_MAX_AGE, MILESTONES_MAX, _arr_linker, _detail_page,
@@ -153,9 +153,10 @@ def hub_page(request: Request):
     view, from_query = shell.resolve_owner_view(request)
     snaps = shell.get_snapshots(request=request)
     backup = media_backup.current_status()  # once per request: the Server card and the backup line (H-49)
-    cards, shelf = [], None
+    cards, shelf, server_card = [], None, None
     upcoming = hub_upcoming(snaps, view)
     now = shell._now_home()
+    wx = weather.find_weather(snaps, now)
     for a in shell.registry.visible_areas:
         summary = next(t for t in a.tiles if t.id == a.summary_tile)
         if not shell.owner_visible(summary, view):
@@ -171,6 +172,7 @@ def hub_page(request: Request):
                 card["st"] = server_card_state(card["st"], snaps, backup)  # WP-U2: the card's own words
             except Exception as exc:  # a malformed envelope never 500s the hub: the plain tile state stays (H-63)
                 log.warning("server hub card skipped: %s", type(exc).__name__)
+            server_card = {"name": a.name, "state": card["st"]["state"]}   # E5: the Today line's state word
         if a.layout == "shelves":  # hero content keyed by layout, never by area name
             link = next((st["href"] for t in a.tiles if shell.owner_visible(t, view)
                          for st in [tile_state(t, snaps)] if st["state"] == "link"), None)
@@ -186,11 +188,12 @@ def hub_page(request: Request):
     cards.sort(key=lambda c: c["area"].hub_rank)  # stable; the area order itself is untouched
     resp = shell.render_page(request, "hub.html", {
         "cards": cards,
-        "status": shell.build_status(snaps), "weather": weather.find_weather(snaps),  # status: hub.html only (H-50)
+        "status": shell.build_status(snaps), "weather": wx,  # status: hub.html only (H-50)
         "upcoming": upcoming, "shelf": shelf,
         "backup_warn": backup["warning"],
         "greeting": hub_greeting(now, shell.identity_of(request).owner and shell.identity_of(request).name),
         "today": f"{now:%a} {now.day} {now:%b}",   # "Mon 13 Oct" (guide §9: no zero padding)
+        "today_line": today.today_line(snaps, upcoming, wx, server_card, view, now),   # E5 (H1): rain · events · new
     })
     return shell._maybe_set_cookie(resp, view, from_query)
 

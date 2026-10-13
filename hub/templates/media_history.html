@@ -13,6 +13,8 @@
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <p class="metaline">{{ numbers }}</p>
+{% set sf = skip_flash(request) %}{# E5 (M3) #}
+{% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
 
 <section class="sec">
   <h2 class="seclabel">To Rate</h2>{# E3: Title Case like the tab (B., 2026-10-09; style guide deviations) #}
@@ -24,6 +26,7 @@
   </form>
   {% if to_rate %}{{ torate.rows(to_rate) }}{% else %}<p class="empty">Nothing waiting to be rated.</p>{% endif %}
 </section>
+{{ torate.skipped(skipped) }}
 
 <section class="sec">
   <h2 class="seclabel">Recently watched</h2>

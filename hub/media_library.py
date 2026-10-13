@@ -27,7 +27,8 @@ def _watched_text(played, last, ago) -> str:
     return f"Watched {ago(last)}".strip() if last else "Watched"
 
 
-def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
+def _library_rows(items, ratings, kind, ago, href_of, marks, runtimes=None) -> list[dict]:
+    """`runtimes` (E5, M2): {show_key: average episode minutes} for the progress words' hours (media_plays_db)."""
     rows = []
     for it in items or []:
         key = it.get("item_key")
@@ -40,6 +41,8 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
         href, external = href_of(it, kind)
         cr = it.get("community_rating")
         last = it.get("last_played_at") if marks else None
+        progress = (media_text.progress_words(unplayed, eps, (runtimes or {}).get(f"jf:{it.get('jf_id')}"))
+                    if marks and kind == "tv" else None)
         rows.append({
             "kind": kind, "title": it.get("title") or "Untitled", "year": it.get("year"), "jf_id": it.get("jf_id"),
             "item_key": key, "poster": it.get("poster"), "href": href, "external": external,
@@ -51,9 +54,10 @@ def _library_rows(items, ratings, kind, ago, href_of, marks) -> list[dict]:
             "score": ratings.get(key) if marks and key else None,
             "genres": ", ".join(it.get("genres") or []),
             "status_word": it.get("status_word"), "episodes": eps, "unplayed": unplayed, "state": state,
+            # E5 (M2): "26 episodes · 6 left · ~4h 30m" (was "· 6 to watch"); "· All watched" as before
             "eps_text": "" if kind == "movie" else (
-                f"{eps} episode{'' if eps == 1 else 's'}"
-                + ((" · All watched" if played else f" · {unplayed} to watch") if marks else "")),
+                f"{eps} episode{'' if eps == 1 else 's'}" + (f" · {progress}" if progress else "")),
+            "progress": progress,
             "last_text": f"Last watched {ago(last)}" if marks and kind == "tv" and last else "",
         })
     return rows
@@ -77,8 +81,8 @@ def film_rows(items, ratings, ago, href_of, marks=True) -> list[dict]:
     return _library_rows(items, ratings, "movie", ago, href_of, marks)
 
 
-def show_rows(items, ratings, ago, href_of, marks=True) -> list[dict]:
-    return _library_rows(items, ratings, "tv", ago, href_of, marks)
+def show_rows(items, ratings, ago, href_of, marks=True, runtimes=None) -> list[dict]:
+    return _library_rows(items, ratings, "tv", ago, href_of, marks, runtimes)
 
 
 def sort_rows(rows, sort: str) -> list[dict]:

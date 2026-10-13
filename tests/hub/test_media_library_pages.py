@@ -133,7 +133,7 @@ def test_tv_page_groups_words_and_head(env):
     assert current(html, "sectabs") == ["TV Shows"] and current(html, "sectabs sub") == ["My shows"]
     assert "3 shows · 1 watching · 1 not started · 1 finished" in b
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
-    assert "Continuing" in b and "26 episodes · 6 to watch" in b and "8 episodes · All watched" in b
+    assert "Continuing" in b and "26 episodes · 6 left" in b and "8 episodes · All watched" in b   # E5 (M2): was "6 to watch"
     assert "Last watched 24h ago" in b and 'href="/media/item/jtmdb-21"' in b
 
 
@@ -458,8 +458,9 @@ def test_tv_cards_say_watched_in_progress_not_watched(env):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         _, b = body(c, "/media/tv")
-    words = {title: meta for _, _, title, meta in cards(b)}
-    assert words == {"Echo Show": "2019 · In progress", "Foxtrot Show": "2021 · Not watched", "Golf Show": "2015 · Watched"}
+    words = {title: re.sub(r"\s+", " ", meta) for _, _, title, meta in cards(b)}
+    # E5 (M2): a show being watched adds its progress line under the state ("6 left"; no runtime recorded here)
+    assert words == {"Echo Show": "2019 · In progress 6 left", "Foxtrot Show": "2021 · Not watched", "Golf Show": "2015 · Watched"}
     assert b.index(">Watching · 1<") < b.index(">Not started · 1<") < b.index(">Finished · 1<")
 
 

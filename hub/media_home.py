@@ -40,8 +40,19 @@ LEVEL_KEYS = ("item_key", "show_key", "season_key", "episode_key")
 
 
 class Ratings(dict):
-    """{key: score} plus the owner's rating level, so templates can call score_for(row, ratings)."""
+    """{key: score} plus the owner's rating level, so templates can call score_for(row, ratings). E5: `owner`, so the
+    rating inbox can read that owner's skips once (`skipped`, loaded on first use)."""
     level = "show"
+    owner = None
+    _skipped = None
+
+    @property
+    def skipped(self) -> dict:
+        """{key: forever} of the owner's To rate skips (E5, M3): one media.db read per Ratings, only when an inbox is
+        built; {} without an owner."""
+        if self._skipped is None:
+            self._skipped = {r["key"]: bool(r["forever"]) for r in media_db.skips(self.owner)} if self.owner else {}
+        return self._skipped
 
 
 def _ratings(view: str, *row_lists) -> Ratings:
@@ -51,6 +62,7 @@ def _ratings(view: str, *row_lists) -> Ratings:
     out = Ratings(media_db.get_ratings((r.get(k) for rows in row_lists for r in rows or [] for k in LEVEL_KEYS),
                                        owner))
     out.level = media_db.rating_level(owner)
+    out.owner = owner
     return out
 
 
@@ -175,6 +187,8 @@ def media_frame(request: Request) -> dict:
 shell.templates.env.globals["media_nav"] = media_frame
 shell.templates.env.globals["shelf_max"] = SHELF_MAX   # E3 (U17, 2026-10-13): a full shelf's count is a cap, not a total
 shell.templates.env.globals["item_href"] = item_href
+# E5 (M2, 2026-10-13): "4 left · ~3h 10m" for any template holding a show's counts (the show hero can call it)
+shell.templates.env.globals["progress_words"] = media_text.progress_words
 shell.templates.env.globals["row_href"] = row_href
 shell.templates.env.globals["resume_flash"] = lambda request: media_resume.flash_text(request.query_params) if request else (None, None)
 
@@ -277,10 +291,12 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
                    media_downloads.merge_downloading(arr.get("downloading"), data_of(QBIT_SNAPSHOT_ID))][:SHELF_MAX]
 
     ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
+    progress = continue_progress(jelly, view, up_next[:SHELF_MAX])   # E5 (M2): "4 left · ~3h 10m" per show
 
     unset_text = "Her Jellyfin account isn't set up yet"
     add("continue", "Continue watching", PLAYING_DETAIL,
-        [jf_item(n, n.get("remaining_text"), PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
+        [jf_item(n, " · ".join(x for x in (n.get("remaining_text"), progress.get(n.get("show_key"))) if x),
+                 PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
          for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
@@ -317,6 +333,26 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     }
 
 
+def continue_progress(jelly: dict, view: str, rows) -> dict[str, str]:
+    """{show_key: progress words} for Continue watching rows (E5, M2): the show's unplayed / episode counts from the
+    view owner's library rows (her view: her own list, else nothing — B.'s counts would be wrong for her), the hours
+    from the recorded plays' average runtime. Only shows with episodes left: a next-up suggestion never says "All
+    watched"."""
+    shows = (jelly.get("her") or {}).get("shows") if view == "her" else jelly.get("shows")
+    by_id = {f"jf:{s.get('jf_id')}": s for s in shows or [] if s.get("jf_id")}
+    keys = [r.get("show_key") for r in rows or [] if r.get("show_key") in by_id]
+    if not keys:
+        return {}
+    runtimes = media_plays_db.show_runtimes(keys)
+    out = {}
+    for k in keys:
+        s = by_id[k]
+        words = media_text.progress_words(s.get("unplayed"), s.get("episodes"), runtimes.get(k))
+        if words and words != "All watched":
+            out[k] = words
+    return out
+
+
 def _to_rate_title(r: dict, kind: str, level: str) -> str:
     """Inbox title for a TV row at its rating level; a row missing the numbers falls back."""
     if level == "season" and r.get("show_title") and r.get("season") is not None:
@@ -329,8 +365,10 @@ def _to_rate_title(r: dict, kind: str, level: str) -> str:
 def _to_rate(recent, ratings) -> list[dict]:
     """The rating inbox: unrated titles watched in the last TO_RATE_DAYS, one per rating key.
     TV rows follow the owner's level (ratings.level): one entry per show / season / episode
-    (a row without that level's key falls back to its show); movies are always one title."""
+    (a row without that level's key falls back to its show); movies are always one title. E5 (M3): a skipped key is
+    left out, and so is every row of a show skipped forever (Skip show)."""
     level = getattr(ratings, "level", "show")
+    skipped = getattr(ratings, "skipped", None) or {}
     cutoff = datetime.now(timezone.utc) - timedelta(days=TO_RATE_DAYS)
     seen, rows = set(), []
     for r in recent:
@@ -341,12 +379,15 @@ def _to_rate(recent, ratings) -> list[dict]:
             fresh = _parse_ts(r["watched_at"]) >= cutoff
         except Exception:
             continue
-        if not key or key in ratings or key in seen or not fresh:
+        show_key = (r.get("show_key") or r.get("item_key")) if kind == "tv" else None
+        if not key or key in ratings or key in seen or not fresh or key in skipped or skipped.get(show_key):
             continue
         seen.add(key)
         rows.append({"item_key": key, "kind": kind, "year": None, "level": row_level,
                      "title": _to_rate_title(r, kind, row_level),
-                     "poster": r.get("poster"), "when": r.get("when", ""), "jf_id": r.get("jf_id")})
+                     "poster": r.get("poster"), "when": r.get("when", ""), "jf_id": r.get("jf_id"),
+                     "show_key": show_key,
+                     "show_title": (r.get("show_title") or media_db.base_title(r["title"], kind)) if show_key else None})
     return rows
 
 

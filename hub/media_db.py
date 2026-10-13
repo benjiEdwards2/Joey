@@ -50,6 +50,20 @@ CREATE TABLE IF NOT EXISTS nextup_hidden(
 """
 
 
+# To rate: Skip / Skip show (E5, M3, 2026-10-13; media.db user_version 4, media_store.STEPS). One row per owner + key:
+# `key` is the inbox row's rating key (Skip) or the show's key (Skip show, forever = 1: every season and episode of it,
+# later ones too). `kind` is movie / tv; title + poster let the To rate page list what was skipped without a read.
+SKIP_DDL = """CREATE TABLE IF NOT EXISTS rating_skip(
+  owner TEXT NOT NULL, key TEXT NOT NULL, kind TEXT, forever INT NOT NULL DEFAULT 0, created_at TEXT,
+  title TEXT, poster TEXT, PRIMARY KEY(owner, key))"""
+
+
+def migrate_skip(db) -> None:
+    """media.db step 4 (E5): the rating_skip table. Idempotent."""
+    db.execute(SKIP_DDL)
+    db.commit()
+
+
 def db_path() -> Path:
     return media_store.db_path()
 
@@ -241,6 +255,37 @@ def delete_rating(item_key: str, owner: str = "you") -> None:
         return
     with closing(connect()) as db, db:
         db.execute("DELETE FROM rating WHERE item_key = ? AND owner = ?", (item_key, owner))
+
+
+def skip(owner: str, key: str, kind: str, title: str, poster=None, forever: bool = False) -> None:
+    """Skip an inbox entry (forever = the whole show). Skipping again replaces the row (a later Skip show widens it)."""
+    with closing(connect()) as db, db:
+        db.execute("INSERT INTO rating_skip(owner, key, kind, forever, created_at, title, poster) VALUES(?,?,?,?,?,?,?) "
+                   "ON CONFLICT(owner, key) DO UPDATE SET kind = excluded.kind, forever = excluded.forever, "
+                   "created_at = excluded.created_at, title = excluded.title, poster = excluded.poster",
+                   (owner, key, norm_kind(kind), 1 if forever else 0, _now().isoformat(), title, poster))
+
+
+def unskip(owner: str, key: str) -> None:
+    if not db_path().is_file():
+        return
+    with closing(connect()) as db, db:
+        db.execute("DELETE FROM rating_skip WHERE owner = ? AND key = ?", (owner, key))
+
+
+def skips(owner: str) -> list[dict]:
+    """The owner's skipped entries, newest first; [] with no DB (reads never create it) or on any error."""
+    db = _read()
+    if db is None:
+        return []
+    try:
+        with closing(db):
+            return [dict(r) for r in db.execute(
+                "SELECT key, kind, forever, created_at, title, poster FROM rating_skip WHERE owner = ? "
+                "ORDER BY created_at DESC, key", (owner,))]
+    except sqlite3.Error as exc:
+        log.warning("skips read failed: %s", type(exc).__name__)
+        return []
 
 
 def base_title(title: str, kind: str) -> str:

@@ -52,6 +52,23 @@ def why(exc: BaseException) -> str:
     return str(exc) if isinstance(exc, RuntimeError) and _HTTP.fullmatch(str(exc)) else type(exc).__name__
 
 
+def _count(v) -> int | None:
+    return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else None
+
+
+def progress_words(unplayed, episodes, next_runtime_min=None) -> str | None:
+    """A show's progress in words (E5, M2, 2026-10-13): "4 left · ~3h 10m" — the hours only when an episode runtime is
+    known (unplayed × runtime, so "~"); "All watched" at 0 left; None when the counts are unknown or the show has no
+    episodes (never a guess)."""
+    left, total = _count(unplayed), _count(episodes)
+    if left is None or not total:
+        return None
+    if left == 0:
+        return "All watched"
+    rt = next_runtime_min if isinstance(next_runtime_min, (int, float)) and not isinstance(next_runtime_min, bool) else 0
+    return f"{left} left" + (f" · ~{duration(left * rt)}" if rt > 0 else "")
+
+
 def duration(minutes) -> str:
     """Lengths as the guide writes them: 112 -> '1h 52m', 47 -> '47m', 120 -> '2h', missing -> '—'."""
     if not isinstance(minutes, (int, float)) or isinstance(minutes, bool) or minutes <= 0:

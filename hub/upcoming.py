@@ -8,8 +8,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from hub import shell
-from hub.ids import GCAL_SNAPSHOT_ID
-from hub.store import tile_state
+from hub.ids import ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID
+from hub.store import connected, data_of, parse_utc, tile_state
 
 
 # Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
@@ -76,21 +76,103 @@ def build_upcoming(events, view: str, now: datetime, days: int = UPCOMING_DAYS) 
     return groups
 
 
+# Media releases in Next 7 days (E5, H2, 2026-10-13). A gcal tile with `show_media_releases: true` (areas.yaml) merges
+# the arr snapshot's `this_week` calendar rows into its list while some registry tile reads the arr snapshot. Films are
+# what Radarr's calendar returns (monitored only); an episode only for a show watched in the last RELEASE_RECENT_DAYS
+# (the jellyfin snapshot's library rows), in progress (its up-next rows) or followed (media.db `media_follows`).
+# Matched on the normalised show title: Sonarr rows carry TheTVDB keys, Jellyfin rows their own ids. The rows say
+# what they are in words ("Premiere", "Digital release"; the template adds its word chip) and never count as events.
+RELEASE_RECENT_DAYS = 30
+RELEASE_WORDS = {"Premiere": "Premiere", "Finale": "Finale", "Digital": "Digital release", "Disc": "On disc",
+                 "Cinemas": "In cinemas"}
+
+
+def _wants_releases(tile) -> bool:
+    return bool(getattr(tile, "show_media_releases", False)) and any(
+        t.snapshot == ARR_SNAPSHOT_ID for a in shell.registry.areas for t in a.tiles)
+
+
+def watched_shows(snaps, view: str, now: datetime) -> set[str]:
+    """Normalised titles of the shows the owner view is following along: watched in the last RELEASE_RECENT_DAYS, in
+    progress, or followed. Snapshot reads plus one small media.db read; an unreadable source adds nothing."""
+    from hub import media_follow
+    from hub.media_upgrades import norm_title
+
+    jelly = data_of(snaps.get(JELLYFIN_SNAPSHOT_ID))
+    her = jelly.get("her") or {}
+    profiles = {"you": [jelly], "her": [her]}.get(view, [jelly, her])
+    cut = now - timedelta(days=RELEASE_RECENT_DAYS)
+    titles: set[str] = set()
+    for p in profiles:
+        for s in p.get("shows") or []:
+            at = parse_utc(s.get("last_played_at"))
+            if at is not None and at >= cut:
+                titles.add(norm_title(s.get("title")))
+        titles.update(norm_title(r.get("show_title")) for r in p.get("up_next") or [] if r.get("show_title"))
+    try:
+        titles.update(norm_title(f.get("name")) for f in media_follow.follows() if f.get("kind") == "show")
+    except Exception:   # the follow list is a nicety here: never break the calendar
+        pass
+    titles.discard("")
+    return titles
+
+
+def release_rows(snaps, view: str, now: datetime, days: int = UPCOMING_DAYS) -> list[tuple[date, dict]]:
+    """(day, row) for the arr calendar rows inside the window that pass the filter above; [] when not connected."""
+    from hub.media_upgrades import norm_title
+
+    snap = snaps.get(ARR_SNAPSHOT_ID)
+    if not connected(snap) or not isinstance(snap.data, dict):
+        return []
+    today = now.date()
+    shows = None
+    out = []
+    for r in snap.data.get("this_week") or []:
+        try:
+            day = date.fromisoformat(str(r["date"]))
+            title = str(r["title"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not today <= day < today + timedelta(days=days):
+            continue
+        if r.get("kind") != "movie":
+            shows = watched_shows(snaps, view, now) if shows is None else shows
+            if norm_title(title.split(" · ", 1)[0]) not in shows:
+                continue
+        word = RELEASE_WORDS.get(r.get("label") or "") or ("Release" if r.get("kind") == "movie" else "New episode")
+        out.append((day, {"title": title, "time_text": word, "start_text": word, "owner": "shared", "release": True}))
+    return out
+
+
+def merge_releases(groups: list[dict], releases, today: date) -> list[dict]:
+    """build_upcoming's groups with the release rows added after each day's own events (new days slotted in order)."""
+    by_day = {g["day"]: g for g in groups}
+    for day, row in releases:
+        if day not in by_day:
+            by_day[day] = {"day": day, "label": _day_label(day, today), "events": []}
+        by_day[day]["events"].append(row)
+    return [by_day[d] for d in sorted(by_day)]
+
+
 def find_upcoming(tiles, snaps, view: str):
     """The area's upcoming list: present when a visible tile reads the gcal
-    snapshot and that snapshot holds data (fresh or stale — never fabricated)."""
+    snapshot and that snapshot holds data (fresh or stale — never fabricated). E5: plus the media releases when the
+    tile asks for them (show_media_releases)."""
     for row in tiles:
         if row["tile"].snapshot == GCAL_SNAPSHOT_ID and row["st"]["state"] in ("fresh", "stale"):
             snap = snaps.get(GCAL_SNAPSHOT_ID)
-            return {"groups": build_upcoming(snap.data.get("events", []), view,
-                                             datetime.now().astimezone()),
-                    "st": row["st"], "days": UPCOMING_DAYS}
+            now = datetime.now().astimezone()
+            groups = build_upcoming(snap.data.get("events", []), view, now)
+            if _wants_releases(row["tile"]):
+                groups = merge_releases(groups, release_rows(snaps, view, now), now.date())
+            return {"groups": groups, "st": row["st"], "days": UPCOMING_DAYS}
     return None
 
 
 def per_day_counts(groups, today: date, days: int = UPCOMING_DAYS) -> list[int]:
-    """Events per day for today + the next days-1, from build_upcoming's groups (Calendar KPI bars)."""
-    by_day = {g["day"]: len(g["events"]) for g in groups}
+    """Events per day for today + the next days-1, from build_upcoming's groups (Calendar KPI bars). E5: media release
+    rows are not events, so the bars stay calendar only."""
+    by_day = {g["day"]: sum(1 for e in g["events"] if not e.get("release")) for g in groups}
     return [by_day.get(today + timedelta(days=i), 0) for i in range(days)]
 
 

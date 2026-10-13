@@ -1,7 +1,9 @@
 {# "Next 7 days" (hub + Calendar; restyle Phase 4, 2026-10-06): build_upcoming's groups as .row rows. From 640 px each
    row is a grid (When · Event · Owner) under uppercase column heads; on a phone the same markup stacks: title and
    owner, then "Today · 10:00" as the meta line — never a sideways scroll. The owner is a WORD (You / Her); a shared
-   event leaves the cell empty (E3, 2026-10-13).
+   event leaves the cell empty (E3, 2026-10-13). E5 (H2, 2026-10-13): a media release row (`e.release`, from the arr
+   calendar when the tile has show_media_releases) is its own row type: "Premiere" / "New episode" / "Digital release"
+   in the When column and a "Media" word chip where the owner goes — the word, not a colour, says what it is.
    Expects: upcoming. #}
 {% from "_rows.html" import updated %}
 <section class="sec upcoming" aria-label="Next {{ upcoming.days }} days">
@@ -18,10 +20,10 @@
   <div class="upc-head seclabel" aria-hidden="true"><span>When</span><span>Event</span><span>Owner</span></div>
   <div class="listbox">
     {% for g in upcoming.groups %}{% for e in g.events %}
-    <div class="row upc">
+    <div class="row upc{{ ' upc-release' if e.release }}">
       <span class="upc-when"><span class="upc-day">{{ g.label }}</span><span class="sep"> · </span>{{ e.time_text }}</span>
       <div class="row-body"><div class="row-title">{{ e.title }}</div></div>
-      <span class="row-side">{% if e.owner != "shared" %}{{ e.owner | title }}{% endif %}</span>
+      <span class="row-side">{% if e.release %}<span class="upc-chip">Media</span>{% elif e.owner != "shared" %}{{ e.owner | title }}{% endif %}</span>
     </div>
     {% endfor %}{% endfor %}
   </div>

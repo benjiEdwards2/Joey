@@ -1,0 +1,24 @@
+{# The ceremony + year picker (awards ballot, 2026-10-14). ONE <details class="awpick">: the summary is the button (mark +
+   ceremony + year + chevron); the panel holds the ceremony tiles (the picked one gold), the year strip (prev / the years /
+   next as chips; a year with no edition is aria-disabled and dim; "Latest" when not on the latest synced year) and Done.
+   On a phone the panel is a bottom sheet over a scrim, from 640 px a dropdown under the button. No JS: every choice is a
+   link inside #awmain, so it swaps the block (which re-renders this <details> closed); the scrim and Done are links to
+   the current view, not state. The year keeps its fallback rules (awards-year 2026-10-09) - the server builds the links. #}
+{% from "_award_icons.html" import award_icon %}
+{% set close_href = (view_hrefs or {}).get(view or "films") or base %}
+<details class="awpick">
+  <summary class="awpick-btn" aria-label="Choose ceremony and year: {{ picker.name }} {{ picker.year }}">{{ award_icon(picker.body_id, 18, src=picker.logo, deco=true) }}<span class="awpick-name">{{ picker.name }}</span>{% if picker.year %} <span class="awpick-year">{{ picker.year }}</span>{% endif %}<svg class="awchev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9l6 6 6-6"/></svg></summary>
+  <a class="awscrim" href="{{ close_href }}" hx-push-url="false" aria-label="Close"></a>
+  <div class="awsheet">
+    <h2 class="seclabel">Ceremony</h2>
+    <nav class="awtilegrid" aria-label="Ceremonies">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span>{% if b.month %}<span class="awtile-month">{{ b.month }}</span>{% endif %}</a>{% endfor %}</nav>
+    <h2 class="seclabel">Year</h2>
+    <nav class="awyears" aria-label="Ceremony year">
+      {% if prev %}<a class="chip" href="{{ prev.href }}" aria-label="Previous ceremony, {{ prev.year }}">‹ {{ prev.year }}</a>{% endif %}
+      {% for y in years_list %}{% if y.has_data %}<a class="chip{{ ' on' if y.on }}" href="{{ y.href }}"{% if y.on %} aria-current="true"{% endif %}>{{ y.year }}</a>{% else %}<span class="chip is-off" aria-disabled="true">{{ y.year }}</span>{% endif %}{% endfor %}
+      {% if next %}<a class="chip" href="{{ next.href }}" aria-label="Next ceremony, {{ next.year }}">{{ next.year }} ›</a>{% endif %}
+      {% if current %}<a class="chip awcur" href="{{ current.href }}" aria-label="Latest year, {{ current.year }}">Latest</a>{% endif %}
+    </nav>
+    <div class="awsheet-done"><a class="btn btn-glass btn-sm" href="{{ close_href }}" hx-push-url="false">Done</a></div>
+  </div>
+</details>

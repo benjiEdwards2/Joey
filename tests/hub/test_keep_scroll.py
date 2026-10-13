@@ -22,28 +22,20 @@ def awards_html(rate_env):
         return client.get("/media/movies/awards?body=oscars&year=2024").text
 
 
-def test_awards_tiles_and_stepper_keep_scroll(rate_env):
-    html = awards_html(rate_env)
-    tiles = re.search(r'<nav class="awtiles"[^>]*>', html).group(0)
-    step = re.search(r'<div class="awstep"[^>]*>(.*?)</form>.*?</div>\n', html, re.S)
-    assert KEEP in tiles and KEEP in re.search(r'<div class="awstep"[^>]*>', html).group(0)
-    # the year form, Current year and Not seen chips, prev / next all sit inside the .awstep that carries it
-    assert 'class="awyearform"' in step.group(0)
-    awstep = html.split('<div class="awstep"', 1)[1].split("\n</div>", 1)[0]
-    assert 'class="chip' in awstep and "Not seen" in awstep and "Current year" in awstep
-    assert KEEP not in html.split('<div class="awstep"', 1)[1].split("\n</div>", 1)[1]   # nothing past the controls
-
-
-def test_awards_year_select_submits_through_htmx_not_a_native_reload(rate_env):
-    html = awards_html(rate_env)
-    sel = re.search(r'<select class="select awyear"[^>]*>', html).group(0)
-    assert 'onchange="this.form.requestSubmit()"' in sel   # fires the submit event htmx boosts; form.submit() would not
-    assert "this.form.submit()" not in html
+def test_awards_controls_keep_scroll():
+    """Awards ballot (2026-10-14): ONE swap block, #awmain, carries `show:none` (picker, year, view, filter, sort links all
+    swap it and keep the reader's place); rows, cards and the people strip leave it as ordinary navigation (to the top)."""
+    from tests.hub.test_awards_ballot_templates import page
+    p = page()
+    assert re.search(r'<div id="awmain"[^>]*hx-swap="outerHTML show:none"', p)
+    assert p.count("show:none") == 1                                         # only the block, nothing inside re-declares it
+    assert p.count('hx-swap="innerHTML show:window:top"') >= 5               # 4 rows + the people strip leave #awmain
+    assert "<select" not in p and "onchange=" not in p                       # the year is chips in the sheet now
 
 
 def test_awards_posters_and_section_tabs_still_go_to_the_top(rate_env):
     html = awards_html(rate_env)
-    assert html.count("show:none") == 2                      # the tiles nav and the stepper row, nothing else
+    assert html.count("show:none") == 1                      # the #awmain block, nothing else
     for tabs in re.findall(r'<nav class="sectabs[^"]*"[^>]*>', html):
         assert "hx-swap" not in tabs
     assert 'hx-swap="innerHTML show:window:top"' in html     # the phone bar is unchanged

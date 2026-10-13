@@ -1,0 +1,4 @@
+{# Awards ballot (2026-10-14): the films view's deferred rows - one htmx response that replaces the page's sentinel
+   (hx-swap outerHTML), the same rows the page would have drawn. Context: {"rows": [...], "kind": kind}. #}
+{% import "_award_ballot.html" as b %}
+{% for r in rows %}{{ b.row(r, kind) }}{% endfor %}

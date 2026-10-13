@@ -6,8 +6,7 @@ from datetime import date
 
 from hub import media_db, media_store, media_wrapped
 from tests.hub.conftest import main_of
-from tests.hub.test_media_rate import env  # noqa: F401  (env: the Diary fixture, under wrap)
-from tests.hub.test_wrapped import diary, eps, jelly, local, play, seed_year, wrap  # noqa: F401  (wrap: fixture)
+from tests.hub.helpers import diary, eps, local, play, seed_year, wrap  # noqa: F401  (wrap: the fixture)
 
 
 def card(b):

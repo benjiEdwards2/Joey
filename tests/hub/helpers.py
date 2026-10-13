@@ -3,6 +3,7 @@ import — snapshot envelopes, registry/area/tile builders, the Jellyfin / Jelly
 The modules that used to define them still re-export them, so old `from tests.hub.test_store import write_envelope`
 style imports keep working; new code imports from here."""
 import importlib
+from contextlib import closing
 import json
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -339,3 +340,96 @@ def env(tmp_path, monkeypatch):
         return TestClient(hub.main.app), both
 
     return build
+
+
+# ---- Month in Review + Wrapped (E6, 2026-10-13): media.db builders, samples and the Diary fixture ----
+
+WRAP_NOW = datetime(2026, 10, 13, 20, 0)
+
+
+def local(day: date, hour=20, minute=0) -> datetime:
+    from hub import media_wrapped
+    return media_wrapped._local(day) + timedelta(hours=hour, minutes=minute)
+
+
+def diary(key, kind, title, day, owner="you", source="jellyfin", year=None, poster=None, show_key=None,
+          show_title=None, season=None, episode=None):
+    from hub import media_store
+    with closing(media_store.connect()) as db, db:
+        db.execute("INSERT INTO diary(item_key, kind, title, year, poster, watched_on, source, owner, created_at, show_key,"
+                   " season, episode, show_title) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                   (key, kind, title, year, poster, day, source, owner, "2026-01-01T00:00:00", show_key, season,
+                    episode, show_title))
+
+
+def play(jf_id, kind, title, start: datetime, minutes, runtime=None, owner="you", item_key=None, show_key=None,
+         show_title=None):
+    from hub import media_plays_db, media_store
+    end = start + timedelta(minutes=minutes)
+    with closing(media_store.connect()) as db, db:
+        db.execute("INSERT INTO play(user_name, owner, jf_id, item_key, show_key, title, show_title, kind, runtime_min,"
+                   " started_at, last_seen_at, position_pct, finished) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                   ("u", owner, jf_id, item_key, show_key, title, show_title, kind, runtime,
+                    media_plays_db._iso(start), media_plays_db._iso(end), 100, 1))
+
+
+def eps(show_key, show_title, days, start_ep=1, owner="you"):
+    for i, d in enumerate(days):
+        diary(f"{show_key}e{start_ep + i}", "tv", show_title, d, owner=owner, show_key=show_key, show_title=show_title,
+              season=1, episode=start_ep + i, poster=f"jf:{show_key[3:]}")
+
+
+WRAP_MOVIES = [{"item_key": "tmdb:1", "jf_id": "anora1", "title": "Anora", "year": 2024, "poster": "jf:anora1", "runtime_min": 139},
+          {"item_key": "tmdb:2", "jf_id": "old1", "title": "Old Film", "year": 1959, "poster": "jf:old1", "runtime_min": 100},
+          {"item_key": "tmdb:3", "jf_id": "mid1", "title": "Mid Film", "year": 2001, "poster": "jf:mid1"}]
+WRAP_SHOWS = [{"item_key": "tmdb:100", "jf_id": "ser1", "title": "Quiet Show", "episodes": 26, "unplayed": 6,
+          "poster": "jf:ser1"},
+         {"item_key": "tmdb:200", "jf_id": "ser2", "title": "Done Show", "episodes": 4, "unplayed": 0, "poster": "jf:ser2"}]
+
+
+def jelly(movies=WRAP_MOVIES, shows=WRAP_SHOWS):
+    return {"summary": "x", "server_id": "srv-1", "history": {"recent": []}, "movies": movies, "shows": shows}
+
+
+@pytest.fixture()
+def wrap(tmp_path, monkeypatch):
+    """(client builder, db file) for the Diary and Wrapped pages, "today" pinned to Tue 13 Oct 2026, 20:00 at home; the
+    jellyfin snapshot carries MOVIES / SHOWS and no history (so no sync adds rows of its own)."""
+    from hub import media_wrapped   # lazy: keep helpers import-light
+    area = make_area("alpha", "play-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/playing")
+    area["tiles"] += [make_tile("hist-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/history", owner="you"),
+                      make_tile("diary-t", snapshot="jellyfin", stale_after_minutes=10, detail="/media/diary", owner="you")]
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, area)))
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "data" / "media.db"))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    monkeypatch.setattr(media_wrapped, "_now", lambda: local(WRAP_NOW.date(), 20))
+    media_wrapped.clear()
+
+    def build(**kw):
+        write_envelope(tmp_path / "snaps", "jellyfin", age_minutes=1, data=jelly(**kw))
+        import hub.main
+        importlib.reload(hub.main)
+        return TestClient(hub.main.app)
+    return build, tmp_path / "data" / "media.db"
+
+
+def seed_year():
+    """2026: Anora (rated 9, a rewatch), Old Film (rated 7), Mid Film (no runtime, rated 10); Quiet Show x5 episodes,
+    Done Show x2; one hand-logged film; plays from 6 Oct (the recorder's start) on Sunday nights."""
+    from hub import media_db, media_store
+    media_store.connect().close()
+    diary("tmdb:1", "movie", "Anora", "2025-12-30")                                 # last year: makes 2026's a rewatch
+    diary("tmdb:2", "movie", "Old Film", "2026-01-02", poster="jf:old1")
+    diary("tmdb:3", "movie", "Mid Film", "2026-03-10")
+    diary("tmdb:1", "movie", "Anora", "2026-10-06", poster="jf:anora1")                # the play below covers it
+    diary("tmdb:9", "movie", "Hand Logged", "2026-10-12", source="manual", year=2026)
+    eps("jf:ser1", "Quiet Show", ["2026-03-10", "2026-03-11", "2026-03-12", "2026-10-11", "2026-10-12"])
+    eps("jf:ser2", "Done Show", ["2026-03-14", "2026-03-15"])
+    media_db.set_rating("tmdb:1", 9, "movie", "Anora")
+    media_db.set_rating("tmdb:2", 7, "movie", "Old Film")
+    media_db.set_rating("tmdb:3", 10, "movie", "Mid Film")
+    play("anora1", "movie", "Anora", local(date(2026, 10, 6), 21), 130, runtime=139, item_key="tmdb:1")
+    play("ep4", "episode", "Quiet Show · S01E04", local(date(2026, 10, 11), 21), 45, runtime=45, item_key="jf:ep4",
+         show_key="jf:ser1", show_title="Quiet Show")
+    play("ep5", "episode", "Quiet Show · S01E05", local(date(2026, 10, 11), 22), 45, runtime=45, item_key="jf:ep5",
+         show_key="jf:ser1", show_title="Quiet Show")

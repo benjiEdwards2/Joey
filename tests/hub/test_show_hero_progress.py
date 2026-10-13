@@ -2,11 +2,16 @@
 reads "On server · 6 episodes · 2 left · ~1h 30m · S4 E4 next" — the hours from the recorded plays' average episode
 runtime of that show (media_plays_db.show_runtimes), "2 left" without one, "all watched" at 0, unchanged on an episode
 page. Jellyfin and Jellyseerr are faked (tests/hub/helpers)."""
+import html
+import re
 from contextlib import closing
 
 from hub import media_store
 from tests.hub.helpers import env  # noqa: F401  (env: the film-page fixture)
-from tests.hub.test_media_film import status
+
+
+def status(page):
+    return html.unescape(re.search(r'id="status-line">([^<]*)<', page).group(1))
 
 
 def recorded(show_key, runtime):

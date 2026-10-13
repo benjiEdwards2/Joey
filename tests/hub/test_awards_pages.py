@@ -98,7 +98,10 @@ def test_hero_tally_seen_tags_and_links(env):
     assert '<div class="awcat-name">Best Actor</div>' in grid
     assert re.search(r'<div class="row-title">Ann Actor</div>\s*<div class="row-meta"><span class="aw-won"><svg[^>]*>.*?</svg>Won</span>'
                      r'<span class="sep"> · </span>Alpha<span class="sep"> · </span><span class="st-good">Seen ✓</span>', grid)
-    more = b.split('<details class="showmore awmorecats"><summary>More categories · 1</summary>', 1)[1]
+    assert "More categories" not in b                                       # E7: folded categories come in the deferred part
+    with build(jelly(ALPHA)) as client:
+        whole = page(client, "/media/movies/awards?all=1")                  # ... or all at once on the no-JS link
+    more = whole.split('<details class="showmore awmorecats"><summary>More categories · 1</summary>', 1)[1]
     assert "Best Live Action Short Film" in more
 
 

@@ -14,10 +14,10 @@
   {% if c.sub %}<span class="row-meta">{{ c.sub }}</span>{% endif %}
 </{{ "a" if c.href else "div" }}>
 {%- endmacro %}
-{# A winner inside a category card: gold-framed poster / photo, name, "Won" · film / people, seen. #}
-{% macro winner(c) -%}
+{# A winner inside a category card: gold-framed poster / photo, name, "Won" · film / people, seen. Shown 44-56 px wide, so the 120 px fetch size (E7; was 240). #}
+{% macro winner(c, h=120) -%}
 <{{ "a" if c.href else "div" }} class="row awrow"{% if c.href %} href="{{ c.href }}"{% endif %}>
-  <span class="awframe is-won{{ ' is-portrait' if c.portrait }}">{{ poster(c.poster, c.title, 240, "row-poster") }}</span>
+  <span class="awframe is-won{{ ' is-portrait' if c.portrait }}">{{ poster(c.poster, c.title, h, "row-poster") }}</span>
   <div class="row-body">
     <div class="row-title">{{ c.title }}</div>
     <div class="row-meta"><span class="aw-won">{{ award_icon("laurel", 13, deco=true) }}Won</span>{% if c.sub %}<span class="sep"> · </span>{{ c.sub }}{% endif %}{% if c.seen %}<span class="sep"> · </span><span class="st-good">Seen ✓</span>{% endif %}</div>
@@ -38,6 +38,12 @@
   {% endif %}
   {% elif not c.winners %}<p class="metaline">—</p>{% endif %}
 </div>
+{%- endmacro %}
+{# "More categories" (shorts / documentary / technical): folded, on the page or in the deferred part (E7). #}
+{% macro more_categories(more) -%}
+<details class="showmore awmorecats"><summary>More categories · {{ more | length }}</summary>
+<div class="awgrid">{% for c in more %}{{ category(c) }}{% endfor %}</div>
+</details>
 {%- endmacro %}
 {# Film / TV page and person page Awards sections (awards-ui item 5): one group per ceremony — its mark, name and
    tally — then whole-link lines; a won category is a gold pill with the laurel mark, a nomination a neutral pill, and

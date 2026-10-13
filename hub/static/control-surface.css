@@ -1170,3 +1170,12 @@ a.awpod-in:hover .row-title { color: var(--text-2); }
   .sechead > a { padding: 10px 0 10px 12px; margin: -10px 0; }
   .seg a, .sectabs a { min-height: 36px; }
 }
+
+/* ---- E7 awards (2026-10-13) ---- */
+/* Page weight: category cards paint only near the viewport (the browser skips layout + paint for the rest; 320 px is the
+   remembered-height guess until a card has been seen). The cards the page defers load through ONE htmx request that
+   replaces .awrest; its link is the no-JS way to the whole page. */
+.awcat { content-visibility: auto; contain-intrinsic-size: auto 320px; }
+.awgrid-rest { margin-top: 12px; }
+.awrest { display: flex; justify-content: center; margin-top: 12px; min-height: 36px; }
+.awrest.htmx-request .btn { opacity: .6; }

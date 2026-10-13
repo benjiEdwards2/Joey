@@ -45,6 +45,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, Library, Downloads, Requests, Health (`/media/history` = To rate) |
 | `GET /media/diary` | media_pages | Diary (By-year rankings removed 2026-10-09, decision 1) |
 | `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), Tonight, To rate, Watchlist, Awards tabs |
+| `GET /media/{movies,tv}/awards/part/categories` | awards_pages | Awards page's deferred category cards (E7): one htmx request on `revealed`, same `body` / `year` / `unseen` query; `/awards?all=1` is the whole page (no-JS fallback) |
 | `GET /media/server/history` | media_plays | History tab: plays recorded from Jellyfin sessions |
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
 | `GET /media/search` | media_write | Title search behind the Log form |

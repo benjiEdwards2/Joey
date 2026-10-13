@@ -11,10 +11,10 @@ from datetime import date, datetime, timezone
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_requests, media_resume, media_upgrades, media_write, shell, upcoming)
+                 media_plays_db, media_requests, media_resume, media_upgrades, media_wrapped, media_write, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -263,6 +263,34 @@ def media_diary_page(request: Request):
             "ratings": media_home._ratings(view, lines, on_this_day),
         }
     return _detail_page(request, "media_diary.html", JELLYFIN_SNAPSHOT_ID, build,
+                        detail=media_home.DIARY_DETAIL, always_build=True)
+
+
+WRAPPED_YEARS = (1900, 2100)
+
+
+@router.get("/media/diary/year", response_class=HTMLResponse)
+def media_wrapped_now(request: Request):
+    """The Diary's Year tab without a year: this home-time year's Wrapped."""
+    return RedirectResponse(f"/media/diary/year/{media_wrapped._now().year}", status_code=307)
+
+
+@router.get("/media/diary/year/{year}", response_class=HTMLResponse)
+def media_wrapped_page(request: Request, year: str):
+    """Wrapped (E6, 2026-10-13; review_features M1): one year in words — Numbers, Top rated, Most watched shows, Firsts
+    and lasts, Rewatches, Award winners you saw and where the numbers come from. A summary, never a ranking UI."""
+    if not year.isdigit() or not WRAPPED_YEARS[0] <= int(year) <= WRAPPED_YEARS[1]:
+        return shell.not_found_page(request)
+    y = int(year)
+
+    def build(data, view):
+        history = data.get("history") or {}
+        jsnap = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
+        stamp = jsnap.updated_at if jsnap else None
+        _diary_sync_and_stats(history.get("recent"), media_db.owner_of(view), stamp)   # the year counts today's history
+        w = media_wrapped.summary(view, jsnap.data if jsnap else {}, y, None, stamp)
+        return {"w": w, "year": y, "step": media_wrapped.stepper(view, y)}
+    return _detail_page(request, "media_wrapped.html", JELLYFIN_SNAPSHOT_ID, build,
                         detail=media_home.DIARY_DETAIL, always_build=True)
 
 

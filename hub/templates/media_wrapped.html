@@ -1,0 +1,116 @@
+{% extends "media_base.html" %}
+{% block title %}{{ year }} · Joey{% endblock %}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead(year | string) %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
+{% from "_award_icons.html" import award_badge %}
+{% import "_rate.html" as rate %}
+{# Wrapped (E6, 2026-10-13; review_features M1): one year in words. A SUMMARY, never a ranking UI (the By-year rankings
+   were deleted 2026-10-09): no position numbers, no podium. Sections in order — Numbers, Top rated, Most watched shows,
+   Firsts and lasts, Rewatches, Award winners you saw — each a .sec with an h2.seclabel, then one quiet line naming the
+   data sources. Poster shelves are the .carousel recipe; everything stacks on a phone. Data: media_wrapped.py. #}
+<nav class="wrapstep" aria-label="Years">
+  {% if step.prev %}<a class="btn btn-secondary btn-sm" href="/media/diary/year/{{ step.prev }}" aria-label="Previous year, {{ step.prev }}">‹ {{ step.prev }}</a>{% else %}<span class="btn btn-secondary btn-sm" aria-disabled="true">‹</span>{% endif %}
+  <span class="wrapyear" aria-current="page">{{ year }}</span>
+  {% if step.next %}<a class="btn btn-secondary btn-sm" href="/media/diary/year/{{ step.next }}" aria-label="Next year, {{ step.next }}">{{ step.next }} ›</a>{% else %}<span class="btn btn-secondary btn-sm" aria-disabled="true">›</span>{% endif %}
+</nav>
+
+{% if w.empty %}
+<p class="empty">Nothing watched in {{ year }}</p>
+{% else %}
+<section class="sec">
+  <h2 class="seclabel">Numbers</h2>
+  <div class="stats">
+    <div class="stat"><div class="microlabel">Films</div><div class="stat-number">{{ w.films }}</div></div>
+    <div class="stat"><div class="microlabel">Episodes</div><div class="stat-number">{{ w.episodes }}</div></div>
+    <div class="stat"><div class="microlabel">Hours</div><div class="stat-word{{ ' blank' if not w.minutes }}">{{ w.hours_text }}</div>{% if w.hours_note %}<div class="row-meta">{{ w.hours_note }}</div>{% endif %}</div>
+    <div class="stat"><div class="microlabel">Days with a watch</div><div class="stat-number">{{ w.days }}</div></div>
+    <div class="stat"><div class="microlabel">Longest streak</div><div class="stat-word">{{ w.streak }} day{{ '' if w.streak == 1 else 's' }}</div></div>
+    <div class="stat"><div class="microlabel">Busiest month</div>{% if w.busiest_month %}<div class="stat-word">{{ w.busiest_month.text }}</div><div class="row-meta">{{ w.busiest_month.note }}</div>{% else %}<div class="stat-word blank">—</div>{% endif %}</div>
+    <div class="stat"><div class="microlabel">Busiest weekday</div>{% if w.busiest_weekday %}<div class="stat-word">{{ w.busiest_weekday.text }}</div><div class="row-meta">{{ w.busiest_weekday.note }}</div>{% else %}<div class="stat-word blank">—</div>{% endif %}</div>
+    <div class="stat"><div class="microlabel">Busiest hour</div>{% if w.busiest_hour %}<div class="stat-number">{{ w.busiest_hour.text }}</div><div class="row-meta">{{ w.busiest_hour.note }}</div>{% else %}<div class="stat-word blank">—</div>{% endif %}</div>
+  </div>
+  {% if w.sentence %}<p class="monthline">{{ w.sentence }}</p>{% endif %}
+</section>
+
+<section class="sec">
+  <h2 class="seclabel">Top rated</h2>
+  <p class="metaline">{% if w.rated %}{{ w.rated }} film{{ '' if w.rated == 1 else 's' }} rated · average {{ w.average_text }}{% else %}No films rated{% endif %}</p>
+  {% if w.top_rated %}
+  <div class="carousel">
+    {% for r in w.top_rated %}
+    <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
+      <span class="card-pic">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false)) }}</span>
+      <span class="row-title">{{ r.title }}</span>
+      <span class="row-meta"><span class="{{ rate.grade(r.score) }}" title="Your rating: {{ r.score }} out of 10">{{ r.score }}</span><span class="sep"> · </span>{{ r.when }}</span>
+    </{{ "a" if r.href else "div" }}>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+{% if w.shows %}
+<section class="sec">
+  <h2 class="seclabel">Most watched shows</h2>
+  <div class="listbox libposters">
+    {% for g in w.shows %}
+    <{{ "a" if g.href else "div" }} class="row"{% if g.href %} href="{{ g.href }}"{% endif %}>
+      {{ poster(g.poster, g.title, 240, "row-poster") }}
+      <div class="row-body"><div class="row-title">{{ g.title }}</div>{{ meta([g.episodes ~ " episode" ~ ("" if g.episodes == 1 else "s"), g.progress]) }}</div>
+    </{{ "a" if g.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if w.firsts %}
+<section class="sec">
+  <h2 class="seclabel">Firsts and lasts</h2>
+  <div class="listbox libposters">
+    {% for f in w.firsts %}
+    <{{ "a" if f.href else "div" }} class="row"{% if f.href %} href="{{ f.href }}"{% endif %}>
+      {{ poster(f.poster, f.title, 240, "row-poster") }}
+      <div class="row-body"><div class="microlabel">{{ f.label }}</div><div class="row-title">{{ f.title }}</div>{{ meta([f.note]) }}</div>
+    </{{ "a" if f.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if w.rewatches.count %}
+<section class="sec">
+  <h2 class="seclabel">Rewatches · {{ w.rewatches.count }}</h2>
+  <div class="carousel">
+    {% for r in w.rewatches.rows %}
+    <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
+      <span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span>
+      <span class="row-title">{{ r.title }}</span>
+      <span class="row-meta">{{ r.when }}</span>
+    </{{ "a" if r.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if w.winners %}
+<section class="sec">
+  <h2 class="seclabel">Award winners you saw · {{ w.winners | length }}</h2>
+  <div class="carousel">
+    {% for r in w.winners %}
+    <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
+      <span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240) }}{{ award_badge(r.award) }}</span>
+      <span class="row-title">{{ r.title }}</span>
+      {% if r.award %}<span class="row-meta">{{ r.award.label }}</span>{% endif %}
+    </{{ "a" if r.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% if w.sources %}<p class="metaline wrapfoot">{{ w.sources }}</p>{% endif %}
+{% endblock %}

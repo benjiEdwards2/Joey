@@ -3,7 +3,12 @@ Pure: no area name lives here — Home resolves to the registry's first `layout:
 """
 from __future__ import annotations
 
+from hub import ids
+
 HOME_ID = "home"
+# E6 (2026-10-13): the Diary's "Year" tab — lit on every /media/diary/year/<y> page, its href this home-time year's
+# Wrapped (`tab_href`), so the map stays static.
+YEAR_TAB = "/media/diary/year"
 
 SECTIONS: list[dict] = [
     {"id": "home", "label": "Home", "short": "Home", "icon": "house", "href": None, "prefixes": [], "tabs": []},
@@ -16,7 +21,7 @@ SECTIONS: list[dict] = [
               ("Tonight", "/media/tv/tonight"), ("To Rate", "/media/tv/to-rate"),
               ("Awards", "/media/tv/awards")]},
     {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary", "prefixes": ["/media/diary", "/media/history"],
-     "tabs": [("Diary", "/media/diary"), ("To Rate", "/media/history")]},
+     "tabs": [("Diary", "/media/diary"), ("To Rate", "/media/history"), ("Year", YEAR_TAB)]},
     # decision 4 (2026-10-09): the Media section reads "Activity" (the hub AREA stays "Server"); id + URLs unchanged.
     {"id": "server", "label": "Activity", "short": "Activity", "icon": "server", "href": "/media/playing",
      "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps"],
@@ -53,6 +58,13 @@ def active_section(path: str, home_href: str | None = None) -> dict | None:
     return best
 
 
+def tab_href(href: str) -> str:
+    """A tab's link: the Year tab points at this home-time year's Wrapped; every other tab is its own path."""
+    if href == YEAR_TAB:
+        return f"{YEAR_TAB}/{ids.home_now().year}"
+    return href
+
+
 def _tab_on(tab_href: str, path: str) -> int:
     """Match strength of a tab for this page (0 = no match; longer path wins)."""
     tpath = tab_href.partition("?")[0]
@@ -81,7 +93,7 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
                       "/media/tv/watchlist": waiting.get("wl_tv", 0),
                       "/media/movies/to-rate": waiting.get("to_rate_movie", 0),
                       "/media/tv/to-rate": waiting.get("to_rate_tv", 0)}
-        tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
+        tabs = [{"label": label, "href": tab_href(h), "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
                  "what": "to rate" if h.endswith("/to-rate") else "to get"}
                 for (label, h), sc in zip(section["tabs"], scores)]
         # E4 (U5, 2026-10-13): an item / title page (a forced section) is no tab's own either, so it shows no sub-tab row

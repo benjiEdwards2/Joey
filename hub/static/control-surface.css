@@ -1227,3 +1227,15 @@ details.heromore > summary:hover { color: var(--text-1); }
 /* To rate Skip / Skip show (M3): two small ghost buttons after the 1-10 picker, on the row's right; the Skipped group
    at the page foot is plain rows with Unskip. */
 .skipacts { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; position: relative; z-index: 1; }
+
+/* ---- E6 wrapped (2026-10-13) ---- */
+/* Month in Review (the Diary's first block): one .panel holding its label + "All of 2026 →", a stats strip that sits
+   flat inside the panel (no second box), and one sentence. Wrapped (/media/diary/year/{y}): the ‹ year › stepper, the
+   sections, a quiet sources line. "—" (a value with no source) is the guide's dimmest grey. */
+.monthcard { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.monthcard .stats { border: 0; background: none; padding: 0; }
+.monthline { font-size: 14px; color: var(--text-3); overflow-wrap: anywhere; }
+.stat .blank { color: var(--text-6); }
+.wrapstep { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.wrapyear { min-width: 3.5em; text-align: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wrapfoot { margin-top: 8px; }

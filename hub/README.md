@@ -19,14 +19,15 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
-| `images.py` | `GET /img/{ref}` poster proxy with a 30-day disk cache and generated fallback cards |
+| `images.py` | `GET /img/{ref}` poster proxy (async; at most 6 upstream misses at once) with a 30-day disk cache and generated fallback cards |
+| `upstream.py` | One keep-alive `requests.Session` per upstream (jellyfin, seerr, arr, omdb, tmdb) for the Media modules and `/img` |
 | `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Restart + update media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
 | `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
 | `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / log / search routes, play recorder and History, resume actions, hide-until-next-sweep |
 | `media_awards*.py` | Awards: sync, parsers, seeds, store, pages, badges and icons |
-| `media_warmup.py`, `media_backup.py` | Film-page cache warm-up; nightly media.db backups |
+| `media_warmup.py`, `media_backup.py` | Film-page cache warm-up (plus the Jellyfin item reads after each new jellyfin snapshot); nightly media.db backups |
 | `seed_demo.py` | Writes demo snapshots for local runs |
 
 Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`
@@ -64,7 +65,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET/POST /server/stack/run` | server_stack | Restart + update media stack through stackctl (GET `?step=confirm` = what happens) |
 | `GET /img/{ref:path}` | images | Poster / backdrop / cast proxy, sizes 120 / 240 / 400 / 600 / 1280 |
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
-| `/static/*` | StaticFiles | `?v=` content hash: `immutable` for a year; un-versioned: one hour |
+| `/static/*` | StaticFiles | `?v=` content hash and `/static/fonts/*`: `immutable` for a year; other un-versioned files: one hour |
 
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 
@@ -91,7 +92,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | media.db backup (`media_backup`) | 30 s | 1 h (skips while a backup under 20 h old exists) |
 | Play recorder (`media_plays`) | 15 s | `PLAY_POLL_SECONDS` |
 | Server alerts + history sample (`_server_tick`) | 60 s | 5 min |
-| Film warm-up (`media_warmup`) | 60 s | 3 h (full-library pass at most once per 24 h) |
+| Film warm-up (`media_warmup.tick`) | 60 s | ticks every 60 s: the full pass every 3 h (full-library pass at most once per 24 h); the item pass on each new jellyfin snapshot |
 | Follow (`media_follow`) | 2 min | 6 h |
 | Awards (`media_awards`) | 3 min | hourly check, a pass only when one is due |
 
@@ -100,9 +101,16 @@ The connectors run in their own container: Media / Server feeds every 2 min, eve
 
 ## Caches
 
-Snapshots: parsed once per `(mtime_ns, size)`, read once per request (`request.state.snaps`). Hub Server card: 60 s.
-Discover lists: 10 min; Jellyseerr meta (bodies, ratings, season lists): 6 h in memory and on disk; providers 24 h.
-Posters: 30 days on disk. HTML pages are `no-store` so Back and Forward never show a stale page.
+Snapshots: parsed once per `(mtime_ns, size)`, read once per request (`request.state.snaps`), and once at startup
+(`tasks.prewarm`, with every template compiled). Hub Server card: 60 s. Runner history tail: kept in memory per file
+identity + size + mtime, extended by appended bytes only (`store.get_runner_history`; shared by the card and `/server`).
+stackctl status: 30 s (good or unreachable). Discover lists: 10 min fresh, the last good rows kept on disk and served
+with their age when a refresh fails, a failed read remembered 60 s; Jellyseerr meta (bodies, ratings, season lists): 6 h
+in memory and on disk; providers 24 h (last list kept on failure). Jellyfin item data: 10 min fresh, served up to 6 h
+old while a background re-read runs (`media_item`; Joey's watch marks drop it). Search now lookups: 5 min (dropped by
+Joey's *arr / Seerr writes). Diary: history sync once per jellyfin snapshot, stats per diary change. media.db: one kept
+reader connection per thread (`media_store.reader`). Posters: 30 days on disk. HTML pages are `no-store` so Back and
+Forward never show a stale page.
 
 **Film pages render first, upstream sections after (F2, 2026-10-12).** `media_film.build_film(..., defer=True)` (the
 routes) never waits on Jellyseerr or OMDb: it renders from Jellyfin + the caches (`peek_extras`), and each section whose
@@ -116,7 +124,16 @@ job per title, started as soon as the TMDB id is known); part requests wait for 
 Jellyfin (`media_item.peek`). Scripts and tests calling `build_film` without `defer` get the whole page, waiting as
 before. **Prefetch:** `static/joey.js` sends `X-Joey-Prefetch: 1` to a film / show link on touch or a 60 ms hover (once
 per link, one at a time); the route runs the reads and answers 204 with no body, no cookie and a log line without the
-path.
+path. A prefetch's background read runs in its own 1-worker lane (at most one more waits there, later ones are skipped),
+and a tap on a title whose prefetch has not started takes it over in the page lane (E1, 2026-10-13).
+
+**Resilience + per-request costs (E1, 2026-10-13).** Discover never blocks: shelf and provider-list reads wait 3 s, a
+failed refresh serves the last good rows with their age in the shelf heading ("Trending · 12m ago"), a failure is
+remembered 60 s, nothing stored = "Discover unavailable" at once. `/img` is async: hits never wait, misses take one of 6
+upstream slots without holding a thread and fall back to the card (1 h cache) after 8 s without a slot; a `jfb:`
+backdrop's width follows `h` (h=600 -> 800 wide). Series pages read one `/Shows/{id}/Episodes` for every season. The
+Server page reads stackctl at most every 30 s and reuses the card's parsed sweep history. Details and measured numbers:
+`docs/hub-changelog.md` (2026-10-13).
 
 ## Decisions pinned by tests
 

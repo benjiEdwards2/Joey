@@ -60,7 +60,7 @@ def test_cold_item_page_waits_for_no_jellyseerr_or_omdb_call(gated):
         go.set()
         frag = client.get(href).text
     got = parts(frag)
-    assert set(got) == set(media_film.PARTS)
+    assert set(got) == set(media_film.PARTS) | {"actions-more"}   # E4: the actions part's second slot (under More, beside Play)
     assert '<span class="sp-name">IMDb</span><b class="sp-val">7.9</b>' in got["scores"] and "sp-mc-good" in got["scores"]
     assert "tmdb:/ada.jpg" in got["cast"] and ">Netflix</a>" in got["providers"] and "Similar One" in got["shelves"]
     assert "Harbour Collection" in got["collection"] and "<dt>Cinematography</dt>" in got["crew"]

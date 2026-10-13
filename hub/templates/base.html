@@ -50,11 +50,14 @@
 <header class="topbar">
   <div class="topbar-in">
     <a class="brand" href="/" aria-label="Joey home"><img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
-    {% if media_mode %}<div class="topswap">{% endif %}
+    {# Media top bar (nav-tidy, B., 2026-10-13; supersedes the media-ux5 scroll-docking): inside Media the bar shows the
+       Media section row (_media_tabs.html media_bar(), a .toplinks nav) INSTEAD of the Joey pills, from the first paint,
+       permanently. The Joey brand is the way out, as on the phone. Phones show neither (.toplinks is display:none). #}
+    {% if media_mode %}{% from "_media_tabs.html" import media_bar with context %}{{ media_bar() }}{% else %}
     <nav class="toplinks" aria-label="Sections">
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
     </nav>
-    {% if media_mode %}{% from "_media_tabs.html" import media_dock with context %}{{ media_dock() }}</div>{% endif %}
+    {% endif %}
     <div class="userchip"{% if who.email %} title="{{ who.email }}"{% endif %}><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email or "Local preview" }}</small></div>
   </div>
 </header>

@@ -97,9 +97,11 @@ def test_current_section_marked_once_in_both_bars(main, route, current):
     with TestClient(main.app) as c:
         html = c.get(route).text
     bar = topbar_of(html)
-    assert f'<a href="{current}" aria-current="page">' in bar and bar.count("aria-current") == 1
-    if current == "/a/alpha":   # Media pages carry the Media phone bar (2026-10-07, test_media_phone_nav.py)
+    if current == "/a/alpha":   # Media pages carry the Media phone bar (2026-10-07, test_media_phone_nav.py) and, from
+        # 2026-10-13 (nav-tidy), the Media section row in the top bar INSTEAD of the Joey pills (test_media_nav.py)
+        assert 'aria-label="Sections"' not in bar and ">Alpha<" not in bar and bar.count("aria-current") == 1
         return
+    assert f'<a href="{current}" aria-current="page">' in bar and bar.count("aria-current") == 1
     assert re.search(rf'<a href="{current}" aria-current="page">', tabbar_of(html))
 
 
@@ -183,9 +185,9 @@ def test_media_pages_carry_section_tabs_in_the_header(main):
     with TestClient(main.app) as c:
         body = c.get("/media/movies").text.split("<main", 1)[1]
     head = re.search(r'<header class="pagehead">.*?</header>', body, re.S).group(0)
-    assert '<nav class="sectabs" aria-label="Media sections">' in head
+    assert '<nav class="sectabs sectabs-page" aria-label="Media sections">' in head
     assert '<nav class="sectabs sub"' in head
-    assert head.index('class="sectabs"') < head.index("<h1>")   # tabs on the band, title at its foot
+    assert head.index('class="sectabs sectabs-page"') < head.index("<h1>")   # tabs on the band, title at its foot
 
 
 # (d) tokens on one dark :root block; no literal colour anywhere else

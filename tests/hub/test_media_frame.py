@@ -72,11 +72,11 @@ def test_media_pages_use_the_frame(env, route):
     tabs_bar = html.split('<nav class="tabbar"', 1)[1]                 # Media phone bar (2026-10-07): Media's six
     assert "/a/beta" not in tabs_bar and "<span>Diary</span>" in tabs_bar and "mediatabs" not in html
     assert "Return to Joey" not in html and "returnjoey" not in html
-    sections = nav_html(html, "sectabs")
+    sections = nav_html(html, "sectabs sectabs-page")
     for label in LABELS.values():
         assert f">{label}" in sections
     assert sections.count('aria-current="page"') == 1
-    assert current(html, "sectabs") == [LABELS[section]]
+    assert current(html, "sectabs sectabs-page") == [LABELS[section]]
     if tab:
         assert current(html, "sectabs sub") == [tab]
     else:
@@ -88,7 +88,7 @@ def test_six_sections_and_home_resolves_via_registry(env):
     main = env(jellyfin=JELLY, arr=ARR)
     with TestClient(main.app) as client:
         html = client.get("/media/movies").text
-    assert len(re.findall(r"<a href=", nav_html(html, "sectabs"))) == 6
+    assert len(re.findall(r"<a href=", nav_html(html, "sectabs sectabs-page"))) == 6
     assert '<a href="/a/alpha">Home</a>' in html
 
 
@@ -109,7 +109,7 @@ def test_waiting_counts_are_text_and_absent_at_zero(env):
         media_db.set_rating("m2", 8, "movie", "Rated One", year=2024)
         media_db.set_rating("m3", 7, "movie", "Old One")
         html = client.get("/media/movies").text
-    bar = nav_html(html, "sectabs")
+    bar = nav_html(html, "sectabs sectabs-page")
     assert "waitcount" not in bar.split("Diary")[1].split("Activity")[0]   # nothing to rate: Diary has no count
     assert "to place" not in bar                                            # decision 1: no By-year badge
 
@@ -170,7 +170,7 @@ def test_switcher_keeps_the_query_string(env):
         disc = client.get("/media/discover?q=foo").text
     # 2026-10-06: no switcher to carry the query any more; the pages still render their nav
     assert "owner_view=" not in disc
-    assert current(disc, "sectabs") == ["Discover"]
+    assert current(disc, "sectabs sectabs-page") == ["Discover"]
 
 
 def test_waitcount_has_hidden_words(env):
@@ -192,9 +192,10 @@ def test_media_pages_in_shell_carry_six_labels_and_no_return_link(env, route):
     with TestClient(main.app) as client:
         html = client.get(route).text
     body = html.split("<main", 1)[1]
-    sections = nav_html(body, "sectabs")                 # in-content, under the page heading
+    sections = nav_html(body, "sectabs sectabs-page")                 # in-content, under the page heading
     labels = [x.strip() for x in re.findall(r'<a href="[^"]*"[^>]*>([^<]*)', sections)]
     assert labels == list(LABELS.values())
-    assert body.index('<header class="pagehead">') < body.index('<nav class="sectabs"') < body.index("<h1>")
+    assert body.index('<header class="pagehead">') < body.index('<nav class="sectabs sectabs-page"') < body.index("<h1>")
     assert "Return to Joey" not in html and "mediabar" not in html
-    assert '<a href="/a/alpha" aria-current="page">Alpha</a>' in html  # the top bar marks Media
+    bar = re.search(r'<header class="topbar">.*?</header>', html, re.S).group(0)
+    assert 'aria-label="Sections"' not in bar and ">Alpha<" not in bar   # nav-tidy (2026-10-13): the bar carries the Media row, not the Joey pills

@@ -207,7 +207,7 @@ def test_service_page_sits_under_discover_in_the_nav(env):
     wire(fake)
     with client:
         html = client.get("/media/discover/service/8").text
-    assert current(html, "sectabs") == ["Discover"]
+    assert current(html, "sectabs sectabs-page") == ["Discover"]
     assert current(html, "sectabs sub") == ["Discover"]
 
 

@@ -20,7 +20,7 @@ amber counts, the active section as `class="on"` — the bar keeps one `aria-cur
 section row carries a 1 px `.dock-sentinel`; an IntersectionObserver in `base.html` (re-attached after every htmx settle,
 so boosted navigations work) adds `.topbar.is-docked` once the sentinel is under the 56 px sticky bar, and CSS slides the
 pills out and the Media row in within the same grid cell (no height change; no transition under reduced motion). Phones
-keep the bottom bar; no layout is built in JS. Media pages also link
+keep the bottom bar; no layout is built in JS. **Superseded 2026-10-13 (nav-tidy, desktop):** the scroll-docking is gone (no `.topswap`, `.topdock`, `.dock-sentinel`, `.is-docked`, observer). On Media pages the bar renders the Media row as its own `.toplinks` nav (`media_bar()`, active = `aria-current="page"`) instead of the Joey pills, from the start; the in-page section row (`.sectabs-page`) is hidden from 768 px; the first tab sits flush left; `.waitcount` is a fixed 18 px box with a 6 px left margin. Media pages also link
 `static/manifest-media.webmanifest` ("Joey Media", `start_url` `/a/media`, `scope` `/`, shortcuts Movies/TV/Server/
 Discover) and set `apple-mobile-web-app-title` "Joey Media"; every other page keeps `static/manifest.webmanifest`. Boosts
 swap only `<body>`, so the `htmx:beforeSwap` script in `base.html` copies the response's manifest link + iOS title into `<head>`. No

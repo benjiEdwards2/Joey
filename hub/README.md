@@ -30,7 +30,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `seed_demo.py` | Writes demo snapshots for local runs |
 
 Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`
-(`static/joey.js` is the frame's script: boost guard, history replace, flash strip, pinch guard, docked Media row).
+(`static/joey.js` is the frame's script: boost guard, history replace, flash strip, pinch guard). Inside Media the top bar carries the Media section row instead of the Joey pills (`_media_tabs.html` `media_bar()`, nav-tidy 2026-10-13); no JS involved.
 Routers are included in `main.py`; every write route carries `Depends(same_origin)` (403 unless htmx or same Origin).
 
 ## Routes

@@ -141,6 +141,7 @@ HISTORY_MAX_BYTES = 2 * 1024 * 1024
 _HISTORY: dict[tuple[str, int], dict] = {}
 _HISTORY_LOCK = threading.Lock()
 _HISTORY_MAX = 8   # tests use many temp dirs; production has one
+HISTORY_ANCHOR = 64   # bytes before the kept offset that a later call re-reads to prove the file only grew
 
 
 def _parse_line(raw: bytes):
@@ -187,6 +188,12 @@ def get_runner_history(snapshot_dir: str | Path | None = None,
             start = max(0, size - max_bytes)
             grown = (kept is not None and kept["sig"][:2] == sig[:2] and kept["sig"][2] <= size
                      and kept["rest"] >= start and (kept["sig"][2] < size or kept["sig"][3] == sig[3]))
+            if grown and kept["anchor"]:
+                # A rotation can keep the file's identity (os.replace reusing it, or a rewrite in place) and still end
+                # up at least as big as before — then it is NOT growth. The bytes just before the kept offset are the
+                # proof: different bytes there mean different content, so read afresh (flaked under -n 4, 2026-10-13).
+                fh.seek(kept["rest"] - len(kept["anchor"]))
+                grown = fh.read(len(kept["anchor"])) == kept["anchor"]
             if grown:
                 new, rest = _history_lines(fh, kept["rest"], size)
                 recs = kept["recs"] + new
@@ -196,6 +203,8 @@ def get_runner_history(snapshot_dir: str | Path | None = None,
             if rest < size:   # a last line not yet newline-terminated: read now, re-read when the file grows
                 fh.seek(rest)
                 tail = _parse_line(fh.read(size - rest))
+            fh.seek(max(0, rest - HISTORY_ANCHOR))   # the bytes a later call checks before trusting "grown"
+            anchor = fh.read(rest - max(0, rest - HISTORY_ANCHOR))
     except Exception:
         return None
     # the first line of the window is cut mid-way unless the window starts at the file's beginning (a line starting
@@ -208,7 +217,8 @@ def get_runner_history(snapshot_dir: str | Path | None = None,
     with _HISTORY_LOCK:
         if key not in _HISTORY and len(_HISTORY) >= _HISTORY_MAX:
             _HISTORY.clear()
-        _HISTORY[key] = {"sig": sig, "recs": recs, "rest": rest, "out": out, "max_lines": max_lines}
+        _HISTORY[key] = {"sig": sig, "recs": recs, "rest": rest, "out": out, "max_lines": max_lines,
+                         "anchor": anchor}
     return out
 
 

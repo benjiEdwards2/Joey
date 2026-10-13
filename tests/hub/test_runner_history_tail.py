@@ -132,3 +132,16 @@ def test_the_server_page_reuses_the_hub_cards_parsed_history(tmp_path, monkeypat
         assert client.get("/server").status_code == 200
         assert client.get("/server").status_code == 200
     assert len(reads) == 1
+
+
+def test_a_rewrite_that_keeps_identity_size_order_and_mtime_is_not_mistaken_for_growth(tmp_path):
+    """A rotation can leave the file with the same identity and an mtime in the same tick, and bigger than before:
+    the kept offset then points into DIFFERENT bytes. The anchor check (2026-10-13) must force a fresh read."""
+    path = tmp_path / store.HISTORY_NAME
+    path.write_text("".join(sweep(i) for i in range(20)), encoding="utf-8")
+    first = store.get_runner_history(tmp_path)
+    assert first == reference(path)
+    st = os.stat(path)
+    path.write_text("".join(sweep(100 + i, 7) for i in range(24)), encoding="utf-8")   # new content, larger
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))                                # same mtime tick
+    assert store.get_runner_history(tmp_path) == reference(path)

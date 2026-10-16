@@ -271,3 +271,33 @@ def test_mixed_shapes_take_every_block_in_page_order_once():
                                                          ("Best Song", None)]
     assert len(blocks[0]["entries"]) == 2                         # the table's duplicate Best Film cell is dropped
     assert [e["won"] for e in blocks[1]["entries"]] == [True, False] and blocks[2]["entries"][0]["won"]
+
+
+# ---- WP-D3 (2026-10-16): the winner on a bare bold line inside an {{Award category}} block ----
+
+def test_critics_2005_winners_sit_on_a_bare_bold_line_under_each_header():
+    blocks = parsed("wp_critics_10.json")
+    assert len(blocks) == 18
+    for b in blocks:                                              # one winner, first, then the `*` nominees
+        assert [e["won"] for e in b["entries"]] == [True] + [False] * (len(b["entries"]) - 1), b["label"]
+        assert b["entries"][0]["pos"] == 0
+    by = {b["label"]: b for b in blocks}
+    assert lead_names(by["Best Picture"])[0] == (True, "work", "Sideways", [])     # '''''[[Sideways]]'''''
+    assert len(by["Best Picture"]["entries"]) == 10
+    assert lead_names(by["Best Actor"])[0] == (True, "person", "Ray", ["Jamie Foxx"])   # '''[[Jamie Foxx]] – ''[[Ray]]'''''
+
+
+def test_a_bare_bold_winner_line_never_double_marks_and_other_bare_lines_stay_ignored():
+    text = ("{{Award category|#fff|[[X Award for Best Film|Best Film]]}}\n'''''[[A (film)|A]]'''''\n"
+            "* ''[[B]]''\n* ''[[C]]''\n[[File:A.jpg|thumb]]\n{{Clear}}\n<ref>x</ref>\n''[[D]]''\n"
+            "{{Award category|#fff|[[X Award for Best Actor|Best Actor]]}}\n'''[[Jo Bloggs]] – ''[[A (film)|A]]'''''\n"
+            "* [[Al Smith]] – ''[[B]]''\n")
+    film, actor = ap.parse_award_blocks(text)["blocks"]
+    assert lead_names(film) == [(True, "work", "A", []), (False, "work", "B", []), (False, "work", "C", [])]
+    assert lead_names(actor) == [(True, "person", "A", ["Jo Bloggs"]), (False, "person", "B", ["Al Smith"])]
+
+
+@pytest.mark.parametrize("name,winners", [("wp_globes_82.json", 27), ("wp_bafta_78.json", 26), ("wp_emmys_77.json", 26),
+                                          ("wp_sag_31.json", 15), ("wp_critics_30.json", 42)])
+def test_award_category_pages_keep_their_winner_counts(name, winners):
+    assert sum(e["won"] for b in parsed(name) for e in b["entries"]) == winners

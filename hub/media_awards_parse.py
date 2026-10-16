@@ -326,7 +326,9 @@ def _add(cur: dict, line: str, in_split: bool = False, won: bool | None = None) 
 
 
 def _award_category_blocks(lines: list[str]) -> list[dict]:
-    """Today's shape: a `{{Award category|…|[[page|label]]}}` header, then `* '''winner'''` / `** nominee` lines."""
+    """Today's shape: a `{{Award category|…|[[page|label]]}}` header, then `* '''winner'''` / `** nominee` lines.
+    WP-D3 (2026-10-16): Critics' Choice 2002–2018 and BAFTA 1965–1972 put the winner on a bare bold line (not a list
+    item) under the header, nominees as `*` lines — that line is the block's winner."""
     blocks: list[dict] = []
     heading_kind, cur = None, None
     for at, line in enumerate(lines):
@@ -347,6 +349,8 @@ def _award_category_blocks(lines: list[str]) -> list[dict]:
             continue
         if line.startswith("*"):
             _add(cur, line)
+        elif line.startswith("'''"):
+            _add(cur, line, won=True)
     return blocks
 
 

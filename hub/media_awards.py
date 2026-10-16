@@ -22,7 +22,8 @@ Failures: 429 -> wait Retry-After (max 120 s) once, a second 429 ends the pass (
 stays pending with the status / type as its note, the pass goes on; a page no parser shape reads -> skipped;
 a parser exception -> failed. Logs carry counts and HTTP status / exception type only — never a URL or a title.
 Parser bumps (WP-D1, 2026-10-16): `PARSER_V` is stored in award_sync as `parser_v`; when it differs at the start of a pass,
-every edition skipped as "no page shape …" goes back to pending and re-enters the normal backlog (newest first, CAP a pass).
+every edition skipped as "no page shape …" goes back to pending and re-enters the normal backlog (newest first, CAP a pass);
+WP-D3 (same bump) also re-queues `done` Wikipedia-sourced editions that have nominations but no winner.
 `MEDIA_AWARDS=off` disables the loop; without `AWARDS_CONTACT` (the User-Agent contact the WDQS policy requires)
 nothing is ever called.
 """
@@ -441,15 +442,24 @@ def pull_wp(db, client: Client, ed: dict) -> tuple[str, int, str | None]:
 # ---- the pass ----
 
 def requeue_on_parser_bump(db) -> int:
-    """A new PARSER_V: editions skipped for their page shape go back to pending (once per bump). -> editions re-queued."""
+    """A new PARSER_V: editions skipped for their page shape go back to pending, and so do `done` Wikipedia-sourced
+    editions with nominations but no winner (WP-D3: a winner line the old parser dropped) — once per bump. A re-pulled
+    edition is rewritten whole by `write_edition`. -> editions re-queued (both kinds)."""
     if adb.get_sync(db, "parser_v") == str(PARSER_V):
         return 0
+    wp = [b["id"] for b in seed.BODIES if b["source"] == "wp"]
     with db:
-        n = db.execute("UPDATE award_edition SET state = 'pending', note = NULL "
-                       "WHERE state = 'skipped' AND note LIKE 'no page shape%'").rowcount
+        shapeless = db.execute("UPDATE award_edition SET state = 'pending', note = NULL "
+                               "WHERE state = 'skipped' AND note LIKE 'no page shape%'").rowcount
+        winnerless = db.execute(
+            "UPDATE award_edition SET state = 'pending', note = NULL "
+            f"WHERE state = 'done' AND body_id IN ({','.join('?' * len(wp))}) AND EXISTS ("
+            "SELECT 1 FROM award_nomination n WHERE n.body_id = award_edition.body_id "
+            "AND n.ordinal = award_edition.ordinal GROUP BY n.body_id, n.ordinal HAVING MAX(n.won) = 0)", wp).rowcount
     adb.set_sync(db, "parser_v", PARSER_V)
-    log.info("awards: parser v%s, %s editions re-queued", PARSER_V, n)
-    return n
+    log.info("awards: parser v%s, %s shapeless skips, %s winner-less editions re-queued", PARSER_V, shapeless,
+             winnerless)
+    return shapeless + winnerless
 
 
 def _est_date(ed: dict) -> date | None:

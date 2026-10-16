@@ -34,6 +34,8 @@ WP_PAGES = {  # file -> (Award category headers, page title after redirects)
     "wp_critics_6.json": (0, "6th Critics' Choice Awards"),
     "wp_bafta_17.json": (0, "17th British Academy Film Awards"),
     "wp_bafta_12.json": (0, "12th British Academy Film Awards"),
+    # WP-D3 (2026-10-16): winners on a bare bold line under each header (recorded 2026-10-16, formatversion 2)
+    "wp_critics_10.json": (18, "10th Critics' Choice Awards"),
 }
 
 

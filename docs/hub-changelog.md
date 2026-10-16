@@ -970,5 +970,9 @@ the award page's QID across years), `* '''Best Actor:'''` bold-label lists (Crit
 only when nothing else reads, `===Category===` headings with a bare bold winner line ("[[Person]] in [[Film]]" read like a
 dash; page-structure headings are never categories). `{{Award category}}` pages parse exactly as before. `PARSER_V = 2`
 (`media_awards.py`, stored as `award_sync.parser_v`): the first pass after a bump puts every "no page shape" skip back to
-pending, so they re-enter the normal backlog. Tests: `tests/hub/test_awards_parse.py` (one per shape, ten recorded pages
-under `tests/hub/fixtures/awards/`), `tests/hub/test_awards_sync.py` (table page pulled done, the re-queue).
+pending, so they re-enter the normal backlog. WP-D3 (same day, same bump): inside an `{{Award category}}` block a bare bold
+line (not a list item) is the block's winner — Critics' Choice 2002–2018 and BAFTA 1965–1972 write the winner that way and
+had landed `done` with nominations but no winners — and the bump also re-queues every `done` Wikipedia-sourced edition
+with nominations and no winner (logged as two counts; the re-pull rewrites the edition whole). Tests:
+`tests/hub/test_awards_parse.py` (one per shape, eleven recorded pages under `tests/hub/fixtures/awards/`),
+`tests/hub/test_awards_sync.py` (table page pulled done, the re-queue of both kinds).

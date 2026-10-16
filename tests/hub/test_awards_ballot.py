@@ -265,11 +265,21 @@ def test_years_list_marks_years_with_data(oscars97):
         adb.upsert_editions(db, "oscars", [{"ordinal": 98, "year": 2026}, {"ordinal": 96, "year": 2024}])
     c = ctx_of(f="unseen")
     assert c["years_list"] == [
-        {"year": 2026, "href": "/media/movies/awards?body=oscars&year=2026&f=unseen", "on": False, "has_data": False},
-        {"year": 2025, "href": "/media/movies/awards?body=oscars&year=2025&f=unseen", "on": True, "has_data": True},
-        {"year": 2024, "href": "/media/movies/awards?body=oscars&year=2024&f=unseen", "on": False, "has_data": False}]
+        {"year": 2026, "decade": 2020, "href": "/media/movies/awards?body=oscars&year=2026&f=unseen", "on": False, "has_data": False},
+        {"year": 2025, "decade": 2020, "href": "/media/movies/awards?body=oscars&year=2025&f=unseen", "on": True, "has_data": True},
+        {"year": 2024, "decade": 2020, "href": "/media/movies/awards?body=oscars&year=2024&f=unseen", "on": False, "has_data": False}]
     assert c["picker"] == {"name": "Oscars", "body_id": "oscars", "logo": None, "year": 2025}
     assert adb.data_years("oscars", "film") == {2025} and adb.data_years("oscars", "tv") == set()
+
+
+def test_years_list_leaves_out_far_future_years_and_carries_the_decade(oscars97):
+    this = date.today().year
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "oscars", [{"ordinal": 100, "year": this + 1}, {"ordinal": 101, "year": this + 2},
+                                           {"ordinal": 40, "year": 1968}])
+    years = {y["year"]: y["decade"] for y in ctx_of()["years_list"]}
+    assert this + 1 in years and this + 2 not in years                   # next year stays, later is hidden
+    assert years[1968] == 1960 and years[this + 1] == (this + 1) // 10 * 10
 
 
 def test_next_up_is_the_first_coming_event(oscars97):

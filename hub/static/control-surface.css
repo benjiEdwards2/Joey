@@ -1196,10 +1196,15 @@ details.heromore > summary:hover { color: var(--text-1); }
   border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; background: var(--zinc-900); box-shadow: var(--shadow-float); }
 .awsheet .seclabel { margin: 4px 0 0; }
 .awtilegrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.awyears { display: flex; flex-wrap: wrap; gap: 6px; }
+/* awards-years (2026-10-16): the year strip is one row per decade (newest first), "Latest" sits beside the Year heading. */
+.awyears-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.awyears-head .seclabel { margin: 4px 0 0; }
+.awyears { display: flex; flex-direction: column; gap: 8px; }
+.awdecade { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.awdecade-label { flex: none; width: 44px; }
 .awyears .chip[aria-current] { background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold); }
 .awyears .chip.is-off { opacity: .35; }
-@media (max-width: 767px) { .awyears .chip { height: 36px; } }
+@media (max-width: 767px) { .awyears .chip, .awyears-head .chip { height: 40px; } }
 .awsheet-done { display: flex; justify-content: flex-end; }
 @media (min-width: 640px) {
   .awpick { position: relative; }

@@ -87,10 +87,12 @@ BASE = {
                {"id": "critics", "name": "Critics Choice", "on": False,
                 "href": "/media/movies/awards?body=critics&year=2025", "logo": None, "month": "Jan"}],
     "years": [2026, 2025, 2024, 2023],
-    "years_list": [{"year": 2026, "href": "/media/movies/awards?body=oscars&year=2026", "on": False, "has_data": True},
-                   {"year": 2025, "href": "/media/movies/awards?body=oscars&year=2025", "on": True, "has_data": True},
-                   {"year": 2024, "href": "/media/movies/awards?body=oscars&year=2024", "on": False, "has_data": True},
-                   {"year": 2023, "href": "/media/movies/awards?body=oscars&year=2023", "on": False, "has_data": False}],
+    "years_list": [{"year": 2026, "decade": 2020, "href": "/media/movies/awards?body=oscars&year=2026", "on": False, "has_data": True},
+                   {"year": 2025, "decade": 2020, "href": "/media/movies/awards?body=oscars&year=2025", "on": True, "has_data": True},
+                   {"year": 2024, "decade": 2020, "href": "/media/movies/awards?body=oscars&year=2024", "on": False, "has_data": True},
+                   {"year": 2019, "decade": 2010, "href": "/media/movies/awards?body=oscars&year=2019", "on": False, "has_data": False},
+                   {"year": 2010, "decade": 2010, "href": "/media/movies/awards?body=oscars&year=2010", "on": False, "has_data": True},
+                   {"year": 2009, "decade": 2000, "href": "/media/movies/awards?body=oscars&year=2009", "on": False, "has_data": False}],
     "picker": {"name": "Oscars", "body_id": "oscars", "logo": None, "year": 2025},
     "year_note": None, "current": {"year": 2026, "href": "/media/movies/awards?body=oscars"},
     "body_name": "Oscars", "edition_line": "97th Academy Awards · 2 Mar 2025",
@@ -364,20 +366,28 @@ def test_sheet_ceremony_tiles_keep_the_marks_months_and_the_picked_one_current()
     assert tiles[1][1] == "/media/movies/awards?body=bafta&amp;year=2025"       # the server's links, year kept
 
 
-def test_sheet_year_strip_prev_years_next_latest():
+def test_sheet_year_strip_decade_rows_newest_first_with_latest_by_the_heading():
     s = render("_award_sheet.html", ctx())
-    strip = re.search(r'<nav class="awyears" aria-label="Ceremony year">(.*?)</nav>', s, re.S).group(1)
-    items = re.findall(r'<(a|span) class="(chip[^"]*)"([^>]*)>([^<]+)</(?:a|span)>', strip)
-    assert [i[3] for i in items] == ["‹ 2024", "2026", "2025", "2024", "2023", "2026 ›", "Latest"]
+    strip = re.search(r'<nav class="awyears" aria-label="Ceremony year">(.*?)</nav>\s*<div class="awsheet-done">', s, re.S).group(1)
+    rows = re.findall(r'<div class="awdecade"><span class="microlabel awdecade-label">(\d+)s</span>(.*?)</div>', strip, re.S)
+    assert [r[0] for r in rows] == ["2020", "2010", "2000"]                    # decades newest first
+    chips = {r[0]: re.findall(r'<(a|span) class="(chip[^"]*)"([^>]*)>([^<]+)</(?:a|span)>', r[1]) for r in rows}
+    assert [i[3] for i in chips["2020"]] == ["2026", "2025", "2024"]           # years newest first under their decade
+    assert [i[3] for i in chips["2010"]] == ["2019", "2010"] and [i[3] for i in chips["2000"]] == ["2009"]
+    items = [i for r in chips.values() for i in r]
     by = {i[3]: i for i in items}
-    assert 'aria-label="Previous ceremony, 2024"' in by["‹ 2024"][2] and 'aria-label="Next ceremony, 2026"' in by["2026 ›"][2]
     assert 'aria-current="true"' in by["2025"][2] and by["2025"][1] == "chip on"
     assert all("aria-current" not in i[2] for i in items if i[3] != "2025")   # only the picked year
-    assert by["2023"][0] == "span" and 'aria-disabled="true"' in by["2023"][2] and "href" not in by["2023"][2]   # no data
-    assert by["2024"][0] == "a" and 'href="/media/movies/awards?body=oscars&amp;year=2024"' in by["2024"][2]
-    assert 'aria-label="Latest year, 2026"' in by["Latest"][2] and "awcur" in by["Latest"][1]
-    bare = render("_award_sheet.html", ctx(prev=None, next=None, current=None))
-    assert "‹" not in bare and "›" not in bare and "Latest" not in bare
+    assert by["2019"][0] == "span" and 'aria-disabled="true"' in by["2019"][2] and "href" not in by["2019"][2]   # no data
+    assert by["2010"][0] == "a" and 'href="/media/movies/awards?body=oscars&amp;year=2010"' in by["2010"][2]
+    assert "‹" not in s and "›" not in s and "Previous ceremony" not in s and "Next ceremony" not in s   # the stray chips are gone
+    assert "Latest" not in strip                                               # not in the strip: beside the heading
+    head = re.search(r'<div class="awyears-head">(.*?)</div>', s, re.S).group(1)
+    assert head.startswith('<h2 class="seclabel">Year</h2>') and 'aria-label="Latest year, 2026"' in head and "awcur" in head
+    bare = render("_award_sheet.html", ctx(current=None))
+    assert "Latest" not in bare and 'class="awyears-head"' in bare
+    only_off = render("_award_sheet.html", ctx(years_list=[{"year": 2029, "decade": 2020, "href": "/x", "on": False, "has_data": False}]))
+    assert "2020s</span>" in only_off and 'aria-disabled="true">2029' in only_off   # an all-dim decade still renders
 
 
 def test_scrim_and_done_close_the_sheet_by_re_rendering_the_current_view():

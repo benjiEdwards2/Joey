@@ -1,0 +1,14 @@
+{
+  "Title": "Quiet Show",
+  "Season": "4",
+  "totalSeasons": "4",
+  "Episodes": [
+    {"Title": "One", "Released": "2026-09-14", "Episode": "1", "imdbRating": "7.8", "imdbID": "tt9200401"},
+    {"Title": "Two", "Released": "2026-09-21", "Episode": "2", "imdbRating": "8.1", "imdbID": "tt9200402"},
+    {"Title": "Three", "Released": "2026-09-28", "Episode": "3", "imdbRating": "8.4", "imdbID": "tt9200403"},
+    {"Title": "Four", "Released": "2026-10-05", "Episode": "4", "imdbRating": "7.6", "imdbID": "tt9200404"},
+    {"Title": "Five", "Released": "2026-10-12", "Episode": "5", "imdbRating": "9.0", "imdbID": "tt9200405"},
+    {"Title": "Six", "Released": "2026-10-26", "Episode": "6", "imdbRating": "N/A", "imdbID": "tt9200406"}
+  ],
+  "Response": "True"
+}

@@ -24,8 +24,10 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
+from starlette.background import BackgroundTask
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import media_episode_ratings
 from hub import media_home, media_text, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import runtime_text
@@ -1002,6 +1004,17 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         f["episode_season"] = ep["season_no"]
     else:
         f["episode"] = None
+    # TV episode flow (WP-E1, 2026-10-16): per-episode ratings from media.db / the caches only; the reads they still
+    # need run as the response's BackgroundTask (`ratings_later`, attached by the routes after the render). A show
+    # Jellyfin does not have (an off-server /media/title/tv/... page) gets none for now.
+    f["ratings"], f["ratings_later"] = None, None
+    if kind == "tv" and item and item["kind"] == "series" and seasons:
+        try:
+            f["ratings"], f["ratings_later"] = media_episode_ratings.build_ratings(
+                item, f["seasons"], (page_item or item)["kind"], page_season, lambda i: f"/media/item/{i}",
+                page_episode=ep["episode_no"] if ep else None)
+        except Exception as exc:  # the page never fails on the ratings block
+            log.warning("episode ratings skipped: %s", type(exc).__name__)
     # Move on (2026-10-08): Mark watched / Reset progress beside "Resume ▶". The page's watch state is read as
     # JELLYFIN_USER, so the buttons show in B.'s views only (Georgina moves on from her Continue watching shelf).
     resume_id = (ep["id"] if ep and ep["in_progress"] else
@@ -1154,8 +1167,11 @@ def film_awards(kind, tmdb_id, jelly: dict, jf_item_id) -> list[dict]:
 # ---- routes ----
 
 def _render(request: Request, src, film: dict, view, from_query, snaps=None):
+    later = film.pop("ratings_later", None)
     resp = shell.render_page(request, "media_film.html", {
         "status": shell.build_status(shell.get_snapshots() if snaps is None else snaps), "src": src, "film": film})
+    if later is not None:   # WP-E1: the episode ratings' missing reads, after the response - never before the render
+        resp.background = BackgroundTask(later)
     return shell._maybe_set_cookie(resp, view, from_query)
 
 

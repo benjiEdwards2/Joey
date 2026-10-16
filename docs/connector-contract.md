@@ -178,6 +178,14 @@ one call per 7 days, restarts included; a process makes at most 800 calls a UTC 
 OMDb's own limit stops calls for the rest of the day without marking any title. The warm-up never calls OMDb. No key or any
 failure ⇒ no pill, never a 500. The request URL carries the key, so logs carry the HTTP status or exception type only —
 never a URL, message or body — and the page never carries the key.
+Extended by WP-E1 (2026-10-16, TV episode flow, `hub/media_episode_ratings.py`): a show / season / episode page of an
+on-server show also asks `GET …?i={series imdb id}&Season={n}&apikey=…` (every episode's `imdbRating` + id, one call per
+season, at most 12 seasons) and, for the page's current season only, `GET …?i={episode imdb id}&apikey=…` (`imdbVotes`, at
+most 12 per view). Only in the response's BackgroundTask, after the render; same key, daily cap and refusal stop. Answers
+are stored in media.db `episode_rating` (v5) and re-read after 7 days only while the season is airing (an episode aired
+within 120 days, or none yet), else kept; "not found" is remembered 7 days, a failed call (incl. HTTP 401) 10 minutes
+(memory + the meta cache). Without an IMDb id or any OMDb answer the TMDB fallback is the Jellyseerr season read
+(`/api/v1/tv/{id}/season/{n}`, `voteAverage`). Logs carry counts and status words only.
 
 **Trailer player (media-ux4, 2026-10-08) — a recorded privacy exception, like the Windy radar.** The film page's
 Trailer button opens an in-page player: a `<dialog>` into which a small inline script inserts

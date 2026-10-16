@@ -15,20 +15,27 @@
 {% import "_rate.html" as rate %}
 {% from "_film_wait.html" import wait %}
 {% from "_film_macros.html" import makercards with context %}
+{# TV episode flow (WP-E2, 2026-10-16): `film.ratings` / `film.nav` / `film.guests` / `film.crew_ep` (contract section 2).
+   Each piece is guarded, so a page without them renders exactly as before. #}
+{% import "_episode_flow.html" as ef %}
+{% set epnav = film.nav %}
 <header class="pagehead hero-detail">
   {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280'){% if not film.backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
+    {% if film.episode %}{{ ef.crumbs(epnav) }}{% endif %}
     <div class="hero-detail-in">
       {{ poster(film.poster, film.title, 600, "hero-detail-poster" ~ rate.glow(film.score)) }}
       <div class="hero-detail-text">
         {% if film.episode %}
+        {{ ef.eyebrow(epnav) }}
         {# media-ux4 (2026-10-08): no "Episode of <Show>" line — the part-of banner under the hero leads to the show. #}
         <p class="row-title">{% if film.episode.code %}{{ film.episode.code }} · {% endif %}{{ film.episode.title }}</p>
         {{ meta([("Aired " ~ film.episode.air_date) if film.episode.air_date else none, film.episode.runtime], "metaline") }}
         {% endif %}
         <h1 class="hero-detail-title">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
+        {% if film.episode %}{{ ef.epscore(film.ratings) }}{% elif epnav %}{{ ef.seasonswitch(epnav) }}{% endif %}
         {# U6 (2026-10-13): runtime and the certificate are said once, in the Numbers strip below, not here and in Details too. #}
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
@@ -97,6 +104,9 @@
 {% import "_rate.html" as rate %}
 {% from "_film_wait.html" import wait %}
 {% from "_film_macros.html" import banner_bg, sp, sitepills with context %}
+{% import "_episode_flow.html" as ef %}
+{% set ratings = film.ratings %}
+{% set epnav = film.nav %}
 {% set n = film.numbers %}
 {% set sites = film.tmdb and film.kind in ("movie", "tv") %}
 {# "Part of" banners (media-ux3, 2026-10-08): a wide card with the show's / film series' backdrop under the guide's
@@ -162,6 +172,20 @@
 </section>
 {% endif %}
 
+{# TV episode flow (WP-E2, 2026-10-16). Series: "Seasons compared" + the current season's strip. Season: this season's
+   strip (its head carries the S1 / S2 switch). Episode: Guests + the episode's Crew. All absent without the context. #}
+{% if ratings and not film.episode %}
+{% if not epnav %}{{ ef.compare(ratings) }}{% endif %}
+{% set cur = ratings.seasons|selectattr("n", "equalto", ratings.current)|first %}
+{% if cur %}
+<section class="sec" id="rating-strip">
+  <div class="eflow-hd"><h2 class="seclabel">{% if epnav %}Episode ratings{% else %}Season {{ cur.n }}{% endif %}</h2>{% if not epnav %}<a class="chip" href="?season={{ cur.n }}#season-{{ cur.n }}">All episodes ›</a>{% else %}<span class="eflow-sub">{{ ratings.source }} · tap a bar</span>{% endif %}</div>
+  {{ ef.strip(cur) }}
+</section>
+{% endif %}
+{% endif %}
+{% if film.episode %}{{ ef.guests(film.guests) }}{{ ef.crew(film.crew_ep) }}{% endif %}
+
 {% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}
 
 {# Seasons (2026-10-08): directly under Overview on a TV page. Each season is a <details> (the page's / next
@@ -174,6 +198,9 @@
   {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
   <div class="listbox">
   {% for s in film.seasons %}
+  {# TV episode flow (2026-10-16): this season's ratings by episode number, for the "★ 8.1 · above avg" on its rows #}
+  {% set rs = (ratings.seasons|selectattr("n", "equalto", s.n)|first) if ratings else none %}
+  {% set rbn = {} %}{% if rs %}{% for r in rs.eps %}{% set _ = rbn.update({r.number: r}) %}{% endfor %}{% endif %}
   <details class="seasonbox epseason" id="season-{{ s.n }}"{% if s.open %} open{% endif %}>
     <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span></div></div></summary>
     {% if film.watch_owner and s.id and s.episodes %}<div class="seasonacts">{{ wa.season_toggle(s, film.watch_owner, film.show_id, request.url.path) }}</div>{% endif %}
@@ -187,6 +214,7 @@
           {{ meta([e.air_date, e.runtime]) }}
           <div class="epstate {{ e.state.cls }}">{{ e.state.word }}</div>
         </div>
+        {% if rs %}{{ ef.rowrate(rbn.get(e.number), rs.avg) }}{% endif %}
       </a>
       {% set wt = film.watch_owner and e.aired %}
       {% if e.play or wt %}<span class="row-side">{% if e.play %}<a class="btn btn-secondary btn-sm" href="{{ e.play.href }}" target="_blank" rel="noopener">{{ e.play.label }}</a>{% endif %}{% if wt %}{{ wa.toggle(e.jf_id, e.played, film.watch_owner, request.url.path, s.n) }}{% endif %}</span>{% endif %}
@@ -256,6 +284,18 @@
 {% endif %}
 
 {% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
+
+{# Episode page (2026-10-16): where this episode sits in its season (the page's bar gold), then Previous / Next. #}
+{% if film.episode and ratings %}
+{% set cur = ratings.seasons|selectattr("n", "equalto", ratings.current)|first %}
+{% if cur %}
+<section class="sec" id="season-place">
+  <div class="eflow-hd"><h2 class="seclabel">Where this sits in Season {{ cur.n }}</h2>{% if cur.avg is not none %}<span class="eflow-sub">avg {{ "%.1f"|format(cur.avg) }}{% if ratings.episode and ratings.episode.vs_avg %} · this one {{ ratings.episode.vs_avg }}{% endif %}</span>{% endif %}</div>
+  {{ ef.strip(cur, ef.epnum(epnav)|int if epnav else none, true) }}
+</section>
+{% endif %}
+{% endif %}
+{% if film.episode and epnav %}{{ ef.prevnext(epnav) }}{% endif %}
 
 {% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
 

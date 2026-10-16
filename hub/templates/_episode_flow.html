@@ -1,0 +1,137 @@
+{# TV episode flow pieces (WP-E2, 2026-10-16; contract: review/2026-10-16-episodes-ux/EPISODES_CONTRACT.md section 2).
+   Every macro takes the contract's own dicts and draws nothing for an empty one, so a page without `ratings` / `nav` /
+   `guests` / `crew_ep` renders exactly as before. Rating scale: bars and lines run from 6 up to 10 so differences read.
+   Colour only ever sits beside words (style guide): gold = the picked one, emerald = seen. #}
+{% from "_poster.html" import poster %}
+
+{# 3.6K, 842 - a vote count in one short word #}
+{% macro votes(n) -%}
+{%- if n and n >= 1000 %}{{ (n / 1000)|round(1) }}K{% elif n %}{{ n }}{% endif -%}
+{%- endmacro %}
+
+{# The page's episode number from nav.position ("E6 of 10" -> 6); 0 when it cannot be read. #}
+{% macro epnum(nav) -%}
+{{- (nav.position or "").split(" of ")[0][1:]|int(0) -}}
+{%- endmacro %}
+
+{# Crumbs on an episode page: the show (all seasons), Season N, here. Two links back. #}
+{% macro crumbs(nav) -%}
+{% if nav and nav.show and nav.season %}
+<nav class="crumbs" aria-label="Back to">
+  <a href="{{ nav.show.href }}">‹ {{ nav.show.title }}</a><span class="sep" aria-hidden="true">›</span>
+  <a href="{{ nav.season.href }}">Season {{ nav.season.n }}</a><span class="sep" aria-hidden="true">›</span>
+  <span class="here" aria-current="page">E{{ epnum(nav) }}</span>
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{# The line above the episode title: "Landman · S1 · E6 of 10". #}
+{% macro eyebrow(nav) -%}
+{% if nav and nav.show and nav.season %}<p class="epeyebrow">{{ nav.show.title }}<span class="sep"> · </span>S{{ nav.season.n }}{% if nav.position %}<span class="sep"> · </span>{{ nav.position }}{% endif %}</p>{% endif %}
+{%- endmacro %}
+
+{# The S1 / S2 / S3 switch in a season page's head (nav.seasons, the current one `on`). #}
+{% macro seasonswitch(nav) -%}
+{% if nav and nav.seasons and nav.seasons|length > 1 %}
+<nav class="seg seasonseg" aria-label="Seasons">{% for s in nav.seasons %}<a href="{{ s.href }}"{% if s.on %} class="on" aria-current="page"{% endif %}>S{{ s.n }}</a>{% endfor %}</nav>
+{% endif %}
+{%- endmacro %}
+
+{# The episode's own score line: "★ 8.6 · 3.6K ratings · above the season average" (ratings.episode). #}
+{% macro epscore(ratings) -%}
+{% set e = ratings.episode if ratings else none %}
+{% if e and e.rating is not none %}<p class="eprating"><b>★ {{ "%.1f"|format(e.rating) }}</b>{% if e.votes %}<span>{{ votes(e.votes) }} ratings</span>{% endif %}{% if e.vs_avg %}<span>{{ e.vs_avg }} the season average</span>{% endif %}<span class="eprating-src">{{ ratings.source }}</span></p>{% endif %}
+{%- endmacro %}
+
+{# Season rows: "★ 8.1" + "above avg" / "below avg" beside an episode row. `r` = the episode's ratings entry (or none),
+   `avg` = that season's average. Nothing when the episode has no rating. #}
+{% macro rowrate(r, avg) -%}
+{% if r and r.rating is not none %}<span class="eprow-r"><span class="vh">Rated </span>★ {{ "%.1f"|format(r.rating) }}{% if avg is not none and r.rating != avg %}<small>{{ "above" if r.rating > avg else "below" }} avg</small>{% endif %}</span>{% endif %}
+{%- endmacro %}
+
+{# Seasons compared: one row per season on the shared 6-10 scale (dashed = 8.0), average + "seen of total" at the right,
+   the current season gold; under it the best episode and the season trend. #}
+{% macro compare(ratings) -%}
+{% if ratings and ratings.seasons %}
+<section class="sec" id="compare">
+  <div class="eflow-hd"><h2 class="seclabel">Seasons compared</h2><span class="eflow-sub">{{ ratings.source }} episode ratings · scale 6–10 · dashed = 8.0</span></div>
+  <div class="compare">
+  {% for s in ratings.seasons %}
+  {% set slots = [s.eps|length, 10]|max %}
+  {% set pts = [] %}
+  {% for e in s.eps if e.rating is not none %}{% set _ = pts.append([(6 + (e.number - 1) * 288 / (slots - 1))|round(1), ([[40 - (e.rating - 6) * 9, 2]|max, 42]|min)|round(1)]) %}{% endfor %}
+  <a class="cmprow{{ ' is-on' if s.n == ratings.current }}" href="?season={{ s.n }}#season-{{ s.n }}">
+    <span class="cmplab">S{{ s.n }}{% if s.year %}<small>{{ s.year }}</small>{% endif %}</span>
+    <svg class="cmpsvg" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true" focusable="false"><line class="cmpref" x1="0" y1="22" x2="300" y2="22"/>{% if pts|length > 1 %}<polyline class="cmpline" points="{% for p in pts %}{{ p[0] }},{{ p[1] }}{{ ' ' if not loop.last }}{% endfor %}"/>{% endif %}{% for p in pts %}<path class="cmpdot" d="M{{ p[0] }} {{ p[1] }}h.01"/>{% endfor %}</svg>
+    <span class="cmpavg">{{ "%.1f"|format(s.avg) if s.avg is not none else "–" }}<small>{% if s.avg is not none %}avg · {{ s.seen }} of {{ s.total }} seen{% elif s.aired %}no ratings yet{% else %}not aired{% endif %}</small></span>
+  </a>
+  {% endfor %}
+  </div>
+  {% if ratings.best or ratings.trend %}
+  <p class="cmptrend">{% if ratings.best %}<span>Best episode: <b>S{{ ratings.best.season }}.E{{ ratings.best.number }} {{ ratings.best.name }} · {{ "%.1f"|format(ratings.best.rating) }}</b></span>{% endif %}{% if ratings.trend %}<span>Season trend: <b>{{ ratings.trend }}</b></span>{% endif %}</p>
+  {% endif %}
+</section>
+{% endif %}
+{%- endmacro %}
+
+{# The rating strip of one season (an entry of ratings.seasons): a bar per episode - value on top, E{n} below, a link per
+   bar. Classes: is-seen (emerald), is-on (gold, the page's episode), is-unaired (dashed). `mini` = the small one on an
+   episode page (no legend). #}
+{% macro strip(season, on_number=none, mini=false) -%}
+{% if season and season.eps %}
+<div class="ratestrip{{ ' is-mini' if mini }}" role="group" aria-label="Season {{ season.n }} episode ratings">
+  <div class="rbars">
+  {% for e in season.eps %}
+  {% set h = (([[(e.rating - 6) * 25, 4]|max, 100]|min)|round|int) if e.rating is not none else 20 %}
+  {% set cls = "rbar" ~ (" is-on" if on_number is not none and e.number == on_number else "") ~ (" is-seen" if e.seen else "") ~ (" is-unaired" if not e.aired else "") %}
+  {% set words %}<span class="vh">Episode {{ e.number }}{% if e.name %}, {{ e.name }}{% endif %}{% if e.rating is not none %}, rated {{ "%.1f"|format(e.rating) }}{% endif %}{% if e.seen %}, seen{% elif e.in_progress %}, in progress{% endif %}{% if not e.aired %}, not aired{% endif %}</span>{% endset %}
+  {% set inner %}<b aria-hidden="true">{{ "%.1f"|format(e.rating) if e.rating is not none else "–" }}</b><i style="height: {{ h }}%"></i><small aria-hidden="true">E{{ e.number }}</small>{{ words }}{% endset %}
+  {% if e.href %}<a class="{{ cls }}" href="{{ e.href }}" title="{{ e.name }}">{{ inner }}</a>{% else %}<span class="{{ cls }}" title="{{ e.name }}">{{ inner }}</span>{% endif %}
+  {% endfor %}
+  </div>
+</div>
+{% if not mini %}
+<p class="ratelegend">{% if on_number is not none %}<span><i class="lg-on"></i>this episode</span>{% endif %}<span><i class="lg-seen"></i>seen</span><span><i class="lg-todo"></i>not seen</span><span><i class="lg-unaired"></i>not aired</span></p>
+{% endif %}
+{% endif %}
+{%- endmacro %}
+
+{# Guests: circle portraits, the role, and "k eps this season". Nothing for an empty list. #}
+{% macro guests(list) -%}
+{% if list %}
+<section class="sec" id="guests">
+  <h2 class="seclabel">Guests</h2>
+  <div class="guests">
+    {% for g in list %}
+    <{{ "a" if g.href else "div" }} class="guest"{% if g.href %} href="{{ g.href }}"{% endif %}>
+      {% if g.poster %}{{ poster(g.poster, g.name, 120, "guest-pic") }}{% else %}<span class="guest-pic initials" aria-hidden="true">{% for w in g.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+      <span class="guest-name">{{ g.name }}</span>{% if g.role %}<span class="guest-role">{{ g.role }}</span>{% endif %}{% if g.eps_this_season %}<span class="guest-eps">{{ g.eps_this_season }} ep{{ "s" if g.eps_this_season != 1 }} this season</span>{% endif %}
+    </{{ "a" if g.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{# The episode's crew: Directed by / Written by rows, the same kv recipe as the show's Crew. A person without a page
+   searches Discover, as the show's Crew does. #}
+{% macro crew(rows) -%}
+{% if rows %}
+<section class="sec" id="crew-ep">
+  <h2 class="seclabel">Crew</h2>
+  <dl class="crewgrid">
+    {% for c in rows %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}<a href="{{ m.href or ('/media/discover?q=' ~ (m.name|urlencode)) }}">{{ m.name }}</a>{% endfor %}</dd></div>{% endfor %}
+  </dl>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{# Previous / Next episode: two cards (a missing side leaves its half empty). #}
+{% macro prevnext(nav) -%}
+{% if nav and (nav.prev or nav.next) %}
+<nav class="epnav" aria-label="Neighbouring episodes">
+  {% if nav.prev %}<a class="epnav-card is-prev" href="{{ nav.prev.href }}"><span class="epnav-k">‹ Previous</span><span class="epnav-t">E{{ nav.prev.number }} · {{ nav.prev.name }}</span></a>{% endif %}
+  {% if nav.next %}<a class="epnav-card is-next" href="{{ nav.next.href }}"><span class="epnav-k">Next ›</span><span class="epnav-t">E{{ nav.next.number }} · {{ nav.next.name }}</span></a>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}

@@ -805,6 +805,96 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
             "all_href": f"{show}#seasons"}
 
 
+# ---- TV episode flow: nav, guests, crew_ep (WP-E3, 2026-10-16; EPISODES_CONTRACT section 2) ----
+# Season and episode pages only (on-server Jellyfin items). Everything comes from the page's own item read and the
+# show's cached season list (media_item._seasons, which carries each episode's People) - no extra Jellyfin call.
+# Jellyfin's People entries carry no ProviderIds (Name, Id, Role, Type, PrimaryImageTag only), so a guest's or a
+# crew member's `href` (/media/person/{tmdb}) is None: there is no TMDB person id without a per-person read.
+
+CREW_EP = (("Director", "Directed by"), ("Writer", "Written by"))
+
+
+def _item_href(jf_id) -> str | None:
+    return f"/media/item/{jf_id}" if jf_id and media_item.ITEM_RE.match(str(jf_id)) else None
+
+
+def _page_season(page: dict, seasons: list[dict]) -> dict | None:
+    """The episode_list season a season / episode page belongs to: by the season's id, or the season listing the
+    episode's id, else by season number."""
+    if page["kind"] == "season":
+        hit = next((s for s in seasons if s.get("id") == page["id"]), None)
+    else:
+        hit = next((s for s in seasons if any(e.get("jf_id") == page["id"] for e in s.get("episodes") or [])), None)
+    if hit is None and page.get("season_no") is not None:
+        hit = next((s for s in seasons if s.get("n") == page["season_no"]), None)
+    return hit
+
+
+def episode_nav(page: dict, show: dict | None, seasons: list[dict]) -> dict:
+    """`nav`: the show link, the S1 / S2 switch (`on` = the page's season); on an episode also its season (n, link,
+    episodes listed), Previous / Next within the season in list order and "E6 of 10". Episode-only keys are None on
+    a season page."""
+    season = _page_season(page, seasons)
+    nav = {"show": {"title": (show or {}).get("title") or page.get("show_title") or "Show",
+                    "href": _item_href(page.get("show_id"))},
+           "seasons": [{"n": s["n"], "href": _item_href(s.get("id")), "on": s is season} for s in seasons],
+           "season": None, "prev": None, "next": None, "position": None}
+    if page["kind"] != "episode" or season is None:
+        return nav
+    eps = season.get("episodes") or []
+    i = next((k for k, e in enumerate(eps) if e.get("jf_id") == page["id"]), None)
+    if i is None and page.get("episode_no") is not None:
+        i = next((k for k, e in enumerate(eps) if e.get("number") == page["episode_no"]), None)
+    nav["season"] = {"n": season["n"], "href": _item_href(season.get("id")), "total": len(eps)}
+
+    def card(e):
+        return {"number": e["number"], "name": e["name"], "href": _item_href(e.get("jf_id"))}
+    if i is not None:
+        nav["prev"] = card(eps[i - 1]) if i > 0 else None
+        nav["next"] = card(eps[i + 1]) if i + 1 < len(eps) else None
+    number = eps[i]["number"] if i is not None else page.get("episode_no")
+    nav["position"] = f"E{number} of {len(eps)}" if number is not None else None
+    return nav
+
+
+def episode_guests(ep: dict, cast: list[dict] | None, show_people: list[dict] | None, season: dict | None) -> list[dict]:
+    """`guests`: the episode's GuestStar People not in the show's main cast (the page's `cast`, plus the series'
+    Actor People), each with how many of the season's episodes list them (any Type; at least this one)."""
+    main = {c.get("name") for c in cast or []} | {p.get("name") for p in show_people or [] if p.get("type") == "Actor"}
+    listed = [set(e.get("people_names") or ()) for e in (season or {}).get("episodes") or []]
+    out: dict[str, dict] = {}
+    for p in ep.get("people") or []:
+        name = p.get("name")
+        if p.get("type") == "GuestStar" and name and name not in main and name not in out:
+            out[name] = {"name": name, "role": p.get("role") or None, "poster": p.get("ref"), "href": None,
+                         "eps_this_season": max(1, sum(1 for names in listed if name in names))}
+    return list(out.values())
+
+
+def episode_crew(ep: dict) -> list[dict]:
+    """`crew_ep`: the episode's own Director / Writer People as "Directed by" / "Written by" rows, de-duplicated."""
+    out = []
+    for typ, role in CREW_EP:
+        names = list(dict.fromkeys(p["name"] for p in ep.get("people") or [] if p.get("type") == typ and p.get("name")))
+        if names:
+            out.append({"role": role, "people": [{"name": n, "href": None} for n in names]})
+    return out
+
+
+def episode_flow(page: dict | None, ep: dict | None, item: dict | None, seasons: list[dict], cast) -> dict:
+    """{nav} for a season page, {nav, guests, crew_ep} for an episode page; {} otherwise (a film, a show page, an
+    off-server title) - the keys are then absent from the page's dict. `ep` is the page's episode as listed_episode
+    gave it, `item` the base item (the show when its read answered)."""
+    if not page or page.get("kind") not in ("season", "episode"):
+        return {}
+    show = item if item and item.get("kind") == "series" else None
+    here = ep if page["kind"] == "episode" and ep else page
+    out = {"nav": episode_nav(here, show, seasons)}
+    if page["kind"] == "episode":
+        out["guests"] = episode_guests(here, cast, (show or {}).get("people"), _page_season(here, seasons))
+        out["crew_ep"] = episode_crew(here)
+    return out
+
 def _jellyfin_side(kind, tmdb_id, jf_id, jelly: dict, read, on_tmdb=None) -> dict:
     """The Jellyfin side: base (film / series), plus the episode when the page is for one. `read` is media_item._data
     (the page) or media_item.peek (a part request: never a second Jellyfin read, F2)."""
@@ -1088,6 +1178,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
            "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending}
     _sections(f, [p for p in PARTS if p not in pending], ctx, ex)
     _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
+    f.update(episode_flow(page_item, ep, item, f["seasons"], f.get("cast")))   # TV episode flow (WP-E3, 2026-10-16)
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
     f["back"] = request.url.path

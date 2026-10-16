@@ -170,6 +170,10 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
                                               and ITEM_RE.match(str(c["Id"])) else None)}
                                      for c in e.get("People") or []
                                      if isinstance(c, dict) and c.get("Name") and c.get("Type") in CREW_TYPES],
+                            # TV episode flow (WP-E3, 2026-10-16): everyone the episode lists, any Type - an episode
+                            # page counts a guest's "k eps this season" from these (same read, no extra call)
+                            "people_names": [str(c["Name"])[:80] for c in (e.get("People") or [])[:100]
+                                             if isinstance(c, dict) and c.get("Name")],
                             **state})
         done = sum(1 for e in eps if e["played"])
         out.append({"id": s["Id"], "number": _int(s.get("IndexNumber")), "name": str(s.get("Name") or "Season")[:100], "episodes": eps,

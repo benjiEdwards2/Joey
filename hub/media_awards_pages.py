@@ -566,7 +566,8 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         "bodies": [{**b, "on": b["id"] == body, "href": nav(body=b["id"]), "logo": icons.override(b["id"]),
                     "month": tile_month(b["id"], held)} for b in bodies],
         "years": years,
-        "years_list": [{"year": y, "href": nav(year=y), "on": y == year, "has_data": y in has_data} for y in years],
+        "years_list": [{"year": y, "decade": y // 10 * 10, "href": nav(year=y), "on": y == year, "has_data": y in has_data}
+                       for y in years if y <= today.year + 1],      # awards-years: far-future editions stay out of the picker
         "year_note": (f"No {body_name} in {missing['asked']} · showing {missing['shown']}") if missing else None,
         "current": {"year": latest, "href": nav(year=None)} if latest and year != latest else None,
         "body_name": body_name,

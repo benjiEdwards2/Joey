@@ -126,7 +126,8 @@ def test_coming_up_has_a_mark_per_ceremony_and_flags_the_next_one():
 def test_year_strip_current_year_is_gold_and_a_phone_tap_target():
     assert re.search(r"\.awyears \.chip\[aria-current\] \{[^}]*var\(--gold-soft\)[^}]*var\(--gold\)", TAIL)
     assert re.search(r"\.awyears \.chip\.is-off \{ opacity: \.35; \}", TAIL)    # no edition: dim (and aria-disabled in the markup)
-    assert re.search(r"@media \(max-width: 767px\) \{ \.awyears \.chip \{ height: 36px; \} \}", TAIL)
+    assert re.search(r"@media \(max-width: 767px\) \{ \.awyears \.chip, \.awyears-head \.chip \{ height: 40px; \} \}", TAIL)
+    assert re.search(r"\.awdecade \{[^}]*flex-wrap: wrap;[^}]*gap: 8px;", TAIL) and "awards-years (2026-10-16)" in TAIL   # decade rows
     assert "<select" not in render("_award_sheet.html", ctx()) and "awyearform" not in ballot_page()   # the year select is gone
 
 

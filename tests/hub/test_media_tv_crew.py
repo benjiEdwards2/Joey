@@ -28,7 +28,10 @@ def test_episode_and_show_pages_name_their_directors(env, monkeypatch):
     with client:
         ep_page = main_of(client.get("/media/item/ep3").text)
         show_page = main_of(client.get("/media/item/ser1").text)
-    assert crew(ep_page)["Director"] == ["Eppy Director"] and crew(ep_page)["Writer"] == ["Eppy Writer"]
+    # TV episode flow (2026-10-16): an episode page's Crew block is its own rows ("Directed by" / "Written by"); the
+    # show-level Director / Writer block is skipped there so the names never appear twice
+    assert crew(ep_page)["Directed by"] == ["Eppy Director"] and crew(ep_page)["Written by"] == ["Eppy Writer"]
+    assert "<dt>Director</dt>" not in ep_page
     assert crew(show_page)["Director"] == ["Dir A", "Dir B"]          # most episodes first
     assert "Writer" not in crew(show_page)
 

@@ -264,7 +264,9 @@
 </section>
 {% endif %}
 
-{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}
+{# Episode flow merge (2026-10-16): an episode page with its own Crew rows (crew_ep) skips the show-level Crew block —
+   the same directors would otherwise appear twice. #}
+{% if not (film.episode and film.crew_ep) %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
 
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}

@@ -73,8 +73,10 @@ def test_mixed_pages_split_film_and_tv_by_section():
         assert (kinds.count("film"), kinds.count("tv")) == (film, tv), name
 
 
-def test_old_globes_page_and_a_redirect_are_reported_not_guessed():
-    assert ap.parse_award_blocks(wikitext("wp_globes_40.json")) == {"shape": "none", "redirect": None, "blocks": []}
+def test_a_shapeless_page_and_a_redirect_are_reported_not_guessed():
+    # WP-D1 (2026-10-16): the 40th Globes page (tables) parses now; prose with no category shape is still "none"
+    prose = "Prose only.\n==See also==\n* [[Somewhere]]\n===Notes===\n* a note"
+    assert ap.parse_award_blocks(prose) == {"shape": "none", "redirect": None, "blocks": []}
     got = ap.parse_award_blocks(wikitext("wp_redirect_raw.json"))
     assert got["shape"] == "redirect" and got["redirect"] == "82nd Golden Globes"
     assert ap.parse_award_blocks("")["shape"] == "none"
@@ -137,3 +139,135 @@ def test_entry_details():
     assert a["won"] and a["work"]["label"] == "A" and not a["people"]
     assert [x["label"] for x in b["people"]] == ["Jo Bloggs", "Al Smith"] and not b["won"]
     assert c["lead"] == "person" and c["people"] == [{"title": "Ann Lee", "label": "Ann Lee"}] and c["work"]["label"] == "C"
+
+
+# ---- WP-D1 (2026-10-16): the three older page shapes, on real pages recorded 2026-10-16 ----
+
+def parsed(name):
+    got = ap.parse_award_blocks(wikitext(name))
+    assert got["shape"] == ap.SHAPE_OK and got["redirect"] is None
+    return got["blocks"]
+
+
+def lead_names(b):
+    return [(e["won"], e["lead"], (e["work"] or {}).get("label"), [p["label"] for p in e["people"]]) for e in b["entries"]]
+
+
+@pytest.mark.parametrize("name,count,film,tv", [("wp_globes_80.json", 27, 14, 13), ("wp_globes_60.json", 24, 13, 11),
+                                                ("wp_globes_20.json", 18, 14, 4), ("wp_globes_40.json", 26, 15, 11),
+                                                ("wp_sag_26.json", 15, 6, 9), ("wp_sag_2.json", 13, 5, 8)])
+def test_table_pages_give_one_block_per_header_cell_each_with_one_winner(name, count, film, tv):
+    blocks = parsed(name)
+    assert len(blocks) == count
+    assert ([b["kind"] for b in blocks].count("film"), [b["kind"] for b in blocks].count("tv")) == (film, tv)
+    for b in blocks:
+        assert b["entries"] and sum(e["won"] for e in b["entries"]) == 1, b["label"]
+
+
+def test_table_labels_are_the_link_target_without_its_award_prefix_and_captions_are_not_categories():
+    blocks = parsed("wp_globes_80.json")
+    by = {b["label"]: b for b in blocks}
+    drama = by["Best Motion Picture – Drama"]                     # the cell reads "Drama"
+    assert drama["page"] == "Golden Globe Award for Best Motion Picture – Drama" and drama["kind"] == "film"
+    assert lead_names(drama)[0] == (True, "work", "The Fabelmans", [])
+    assert [e["work"]["label"] for e in drama["entries"][1:]] == ["Avatar: The Way of Water", "Elvis", "Tár",
+                                                                    "Top Gun: Maverick"]
+    actor = by["Best Actor in a Motion Picture – Drama"]          # the cell reads "Actor"
+    assert lead_names(actor)[0] == (True, "person", "Elvis", ["Austin Butler"]) and len(actor["entries"]) == 5
+    assert "Best Motion Picture" not in by and "Drama" not in by and "Actor" not in by   # caption / fragments
+    assert by["Best Television Series – Drama"]["kind"] == "tv"
+
+
+def test_sag_tables_lead_with_the_actor_and_cast_rows_carry_the_whole_cast():
+    by = {b["label"]: b for b in parsed("wp_sag_26.json")}
+    lead = by["Outstanding Performance by a Male Actor in a Leading Role"]
+    assert lead["page"] == "Screen Actors Guild Award for Outstanding Performance by a Male Actor in a Leading Role"
+    assert lead_names(lead)[0] == (True, "person", "Joker", ["Joaquin Phoenix"]) and len(lead["entries"]) == 5
+    cast = by["Outstanding Performance by a Cast in a Motion Picture"]   # a colspan=2 cell under a colspan=2 header
+    win = cast["entries"][0]
+    assert win["won"] and win["lead"] == "work" and win["work"]["label"] == "Parasite" and len(win["people"]) == 10
+    early = {b["label"]: b for b in parsed("wp_sag_2.json")}["Outstanding Performance by a Cast in a Motion Picture"]
+    assert early["entries"][0]["work"]["label"] == "Apollo 13" and "Tom Hanks" in [
+        p["label"] for p in early["entries"][0]["people"]]
+
+
+def test_globes_1963_keeps_unlinked_full_names_and_both_split_categories_on_one_page():
+    blocks = parsed("wp_globes_20.json")
+    by = {b["label"]: b for b in blocks}
+    assert lead_names(by["Best Motion Picture – Drama"])[0][2] == "Lawrence of Arabia"
+    assert len(by["Best Motion Picture – Drama"]["entries"]) == 10
+    assert "Best Film Promoting International Understanding" in by           # unlinked, no "Other – " caption prefix
+    comedy = [b for b in blocks if b["page"] == "Golden Globe Award for Best Motion Picture – Musical or Comedy"]
+    assert [b["entries"][0]["work"]["label"] for b in comedy] == ["That Touch of Mink", "The Music Man"]
+
+
+def test_unlinked_header_cells_take_their_caption_and_a_winner_written_in_the_cell():
+    by = {b["label"]: b for b in parsed("wp_globes_40.json")}
+    series = by["Best Television Series – Drama"]                 # "! colspan=2 |Best Television Series" then "!Drama"
+    assert series["page"] is None and lead_names(series)[0] == (True, "work", "Hill Street Blues", [])
+    assert len(series["entries"]) == 5
+    assert "Best Performance in a Television Series – Drama – Actor" in by
+    assert "Actor" not in by                                      # three different "Actor" cells never collide
+
+
+def test_bold_list_pages_give_winners_only_blocks():
+    by = {b["label"]: b for b in parsed("wp_critics_6.json")}
+    assert len(by) == 15 and all(len(b["entries"]) == 1 and b["entries"][0]["won"] for b in by.values())
+    assert lead_names(by["Best Picture"]) == [(True, "work", "Gladiator", [])] and by["Best Picture"]["page"] is None
+    assert lead_names(by["Best Actor"]) == [(True, "person", "Gladiator", ["Russell Crowe"])]
+    assert "Top 11 films" not in by                               # a heading list is never read on a list-shape page
+    first = {b["label"]: b for b in parsed("wp_critics_1.json")}
+    assert len(first) == 10 and lead_names(first["Best Picture"])[0][2] == "Sense and Sensibility"
+    tie = first["Best Supporting Actor"]["entries"]
+    assert [(e["won"], e["people"][0]["label"]) for e in tie] == [(True, "Ed Harris"), (True, "Kevin Spacey")]
+
+
+def test_heading_pages_bafta_1964_winner_line_nominees_and_person_in_film():
+    blocks = parsed("wp_bafta_17.json")
+    assert [b["label"] for b in blocks] == ["Best Film", "Best British Film", "Best Foreign Actor", "Best British Actor",
+                                            "Best British Actress", "Best Foreign Actress", "Best British Screenplay",
+                                            "Best Animated Film"]
+    best = blocks[0]
+    assert lead_names(best)[0] == (True, "work", "Tom Jones", []) and len(best["entries"]) == 12
+    assert best["entries"][0]["work"]["title"] == "Tom Jones (1963 film)" and sum(e["won"] for e in best["entries"]) == 1
+    foreign = blocks[2]                                           # ''' ''[[Person]] in [[Film]]'' ''' (all italic)
+    assert lead_names(foreign)[0] == (True, "person", "Divorce, Italian Style", ["Marcello Mastroianni"])
+    assert lead_names(foreign)[1] == (False, "person", "David and Lisa", ["Howard Da Silva"])
+    assert lead_names(blocks[6]) == [(True, "work", "Tom Jones", ["John Osborne"])]
+    assert lead_names(blocks[7])[0] == (True, "work", "Automania 2000", [])
+
+
+def test_heading_pages_bafta_1959_and_globes_1946():
+    by = {b["label"]: b for b in parsed("wp_bafta_12.json")}
+    assert len(by) == 7 and lead_names(by["Best Foreign Actor"])[0] == (True, "person", "The Defiant Ones",
+                                                                       ["Sidney Poitier"])
+    assert len(by["Best Foreign Actor"]["entries"]) == 10 and len(by["Best Film"]["entries"]) == 14
+    globes = parsed("wp_globes_3.json")                           # "==Winners==": every entry won
+    assert len(globes) == 7 and all(e["won"] for b in globes for e in b["entries"])
+    first = globes[0]                                             # a linked heading: the stripped target is the label
+    assert first["label"] == "Best Motion Picture – Drama" and first["page"].endswith("Best Motion Picture – Drama")
+    assert lead_names(first) == [(True, "work", "The Lost Weekend", [])]
+    assert lead_names(globes[1]) == [(True, "person", "The Lost Weekend", ["Ray Milland"])]
+
+
+def test_structural_headings_are_never_categories():
+    text = ("==Winners and nominees==\n===Film===\n====Best Picture====\n'''''[[A]]'''''\n* ''[[B]]''\n"
+            "====Best Actor====\n'''[[Jo Bloggs]] in ''[[A]]'''''\n* Ann Lee in ''[[B]]''\n"
+            "===Multiple nominations===\n* ''[[A]]'' – 3\n===Presenters===\n* [[Some Host]]\n"
+            "===Empty Category===\nNo list here.\n==See also==\n* [[Elsewhere]]\n==References==\n* [[Ref]]\n")
+    blocks = ap.parse_award_blocks(text)["blocks"]
+    assert [(b["label"], b["kind"]) for b in blocks] == [("Best Picture", "film"), ("Best Actor", "film")]
+    assert lead_names(blocks[1]) == [(True, "person", "A", ["Jo Bloggs"]), (False, "person", "B", ["Ann Lee"])]
+
+
+def test_mixed_shapes_take_every_block_in_page_order_once():
+    text = ("{{Award category|#fff|[[X Award for Best Film|Best Film]]}}\n* '''''[[A]]'''''\n** ''[[B]]''\n"
+            "{| class=wikitable\n|-\n! [[X Award for Best Film|Film]] !! [[X Award for Best Director|Director]]\n|-\n"
+            "| valign=top |\n* '''''[[A]]'''''\n| valign=top |\n* '''[[Jo Bloggs]] – ''[[A]]'''''\n"
+            "** [[Al Smith]] – ''[[B]]''\n|}\n* '''Best Song:'''\n** \"Tune\" – ''[[A]]''\n")
+    blocks = ap.parse_award_blocks(text)["blocks"]
+    assert [(b["label"], b["page"]) for b in blocks] == [("Best Film", "X Award for Best Film"),
+                                                         ("Best Director", "X Award for Best Director"),
+                                                         ("Best Song", None)]
+    assert len(blocks[0]["entries"]) == 2                         # the table's duplicate Best Film cell is dropped
+    assert [e["won"] for e in blocks[1]["entries"]] == [True, False] and blocks[2]["entries"][0]["won"]

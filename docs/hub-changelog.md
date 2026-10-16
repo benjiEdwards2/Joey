@@ -960,3 +960,15 @@ winner was shown twice; the first row is the headline winner and "Most wins" is 
 row, the year stepper and the native year dropdown (all now inside the picker). Eyes-on at 375 px (sample seed, Oscars
 2025): the picker at 235 px from the top; the default view 3,166 px tall (target 2,500 — open); every filter / sort /
 ceremony / year change keeps the scroll and does not re-fetch posters already on screen.
+
+**Awards older page shapes (WP-D1, 2026-10-16).** Live on the NAS the sync had finished with most older editions
+`skipped` as "no page shape (none)" (Globes 80 of 84, SAG 26 of 33, Critics' Choice 6 of 32, BAFTA 17 of 80): the parser
+only read the `{{Award category}}` shape. `parse_award_blocks` now also reads wikitables whose `!` header cells name the
+categories (Globes to 2023, SAG to 2020, early BAFTA; a header row followed by another is a group caption; a linked cell's
+label is the link target minus "<…> Award for ", so "Drama" becomes "Best Motion Picture – Drama" and the category key stays
+the award page's QID across years), `* '''Best Actor:'''` bold-label lists (Critics' Choice 1996–2001, winners only) and,
+only when nothing else reads, `===Category===` headings with a bare bold winner line ("[[Person]] in [[Film]]" read like a
+dash; page-structure headings are never categories). `{{Award category}}` pages parse exactly as before. `PARSER_V = 2`
+(`media_awards.py`, stored as `award_sync.parser_v`): the first pass after a bump puts every "no page shape" skip back to
+pending, so they re-enter the normal backlog. Tests: `tests/hub/test_awards_parse.py` (one per shape, ten recorded pages
+under `tests/hub/fixtures/awards/`), `tests/hub/test_awards_sync.py` (table page pulled done, the re-queue).

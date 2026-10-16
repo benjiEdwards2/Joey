@@ -976,3 +976,23 @@ had landed `done` with nominations but no winners — and the bump also re-queue
 with nominations and no winner (logged as two counts; the re-pull rewrites the edition whole). Tests:
 `tests/hub/test_awards_parse.py` (one per shape, eleven recorded pages under `tests/hub/fixtures/awards/`),
 `tests/hub/test_awards_sync.py` (table page pulled done, the re-queue of both kinds).
+
+**TV episode flow (2026-10-16).** Show, season and episode pages (`media_film.html`, kinds series / season / episode) gain
+the episode-rating layer and the episode drill-down B. asked for from an IMDb screenshot (review/2026-10-16-episodes-ux:
+shell, notes, contract). Ratings (`hub/media_episode_ratings.py`, WP-E1): one OMDb `?i=<series imdb>&Season=<n>` call per
+season (every episode's imdbRating), votes for the current season only (≤ 12 per-episode calls), stored in media.db v5
+`episode_rating`, refreshed every 7 days while a season is airing and never afterwards, FAIL_TTL memo, a 401 stops OMDb
+for the day, the 800/day budget shared with the Metacritic pill, TMDB `voteAverage` (Jellyseerr season read) as the
+fallback; all reads run in a BackgroundTask after the render (0 calls on a warm view; `ratings` is None until a first
+view has queued them). Pages (WP-E2, `_episode_flow.html`): the show page's "Seasons compared" (one SVG line per season
+on a shared 6–10 scale, dashed 8.0, average + seen of total, the current season gold, best episode + trend) and the
+IMDb-style rating strip (a bar per episode, green = seen, gold = the page's episode, dashed = not aired); the season page's
+S-switch + strip + rated rows ("above avg" / "below avg"); the episode page's crumbs (the show and the season as the two
+ways back), the "Show · S4 · E3 of 6" eyebrow, the ★ score line, Guests (GuestStar people not in the main cast, with
+"k eps this season"), Crew (Directed by / Written by — the show-level Crew block is skipped there), the "where this sits"
+mini strip and Previous / Next. People and navigation (WP-E3): `nav` / `guests` / `crew_ep` from the Jellyfin People the
+pages already read (`people_names` kept on the season episodes read; no extra calls); person hrefs stay None because
+Jellyfin People carry no TMDB id. Two earlier rules superseded: the media-ux4 "no series link in the episode hero" (the
+crumbs are that link now) and the episode page's show-level Director / Writer block (its own rows replace it). Tests:
+`tests/hub/test_episode_ratings.py`, `test_episode_flow_templates.py`, `test_episode_flow_nav.py`; schema pins moved
+to v5.

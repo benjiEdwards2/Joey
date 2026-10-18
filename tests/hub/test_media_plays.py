@@ -230,6 +230,59 @@ def test_top_lists_group_episodes_by_show(tmp_path, monkeypatch):
     assert pdb.hours_text(1) == "1 hour" and pdb.hours_text(12.5) == "12.5 hours"
 
 
+def seed_with_friend(tmp_path, monkeypatch):
+    """One finished film each for you and her, and two for a friend (Joey TV Q15): one of the same film, a day before
+    the household's first play, and an episode of a show nobody else watched. Fixed clock (T0)."""
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+
+    def play(owner, jf, title, at, kind="movie", show=None):
+        base = {"user_name": "u", "owner": owner, "jf_id": jf, "item_key": f"jf:{jf}", "title": title,
+                "show_key": f"jf:{show}" if show else None, "show_title": show, "kind": kind, "runtime_min": 60,
+                "poster": f"jf:{jf}"}
+        pdb.record_sighting({**base, "position_pct": 1}, at)
+        pdb.record_sighting({**base, "position_pct": 100}, at + timedelta(minutes=60))
+    play("you", "m1", "Long Road", T0)
+    play("her", "m2", "Old Film", T0 + timedelta(hours=3))
+    play(FRIEND_KEY, "m1", "Long Road", T0 - timedelta(days=1))
+    play(FRIEND_KEY, "e9", "Friend Episode", T0 + timedelta(hours=6), kind="episode", show="Friend Show")
+
+
+def test_private_reads_never_count_a_friends_play(tmp_path, monkeypatch):
+    seed_with_friend(tmp_path, monkeypatch)
+    later = T0 + timedelta(days=1)
+    both, you, her = (pdb.stats("all", o, later) for o in (None, "you", "her"))
+    assert (both["plays"], both["hours"]) == (2, 2.0)                                     # History + Hours
+    assert [e["title"] for e in both["top_movies"]] == ["Long Road", "Old Film"] and both["top_shows"] == []
+    assert both["top_movies"][0]["plays"] == 1
+    assert (you["plays"], her["plays"]) == (1, 1) and sum(both["by_hour"]) == 2
+    for owner in (None, "you", "her"):                                                    # Most played
+        shows, movies = pdb.most_played_30(owner, later)
+        assert shows == [] and all(m["plays"] == 1 for m in movies)
+    assert (pdb.watch_count("m1"), pdb.watch_count("m1", "you"), pdb.watch_count("m1", "her")) == (1, 1, 0)
+    assert pdb.watch_count("e9") == 0
+    assert pdb.first_run_date() == "2026-10-06"                                           # the friend's 5 Oct is not it
+    assert pdb.show_runtimes(["jf:Friend Show"]) == {}
+
+
+def test_history_page_never_shows_a_friends_play(env, tmp_path, monkeypatch):
+    seed_with_friend(tmp_path, monkeypatch)
+    with TestClient(env.app) as client:
+        for view in ("both", "you", "her"):
+            body = main_html(client.get(f"/media/server/history?w=all&owner_view={view}").text)
+            assert "Friend Show" not in body and "Friend Episode" not in body
+        both = main_html(client.get("/media/server/history?w=all&owner_view=both").text)
+        assert '>Plays</div><div class="stat-number">2</div>' in both
+
+
+def test_everyone_diary_scope_skips_friend_rows(tmp_path, monkeypatch):
+    from hub import media_db
+    from tests.hub.helpers import diary
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    diary("tmdb:1", "movie", "Long Road", "2026-10-05")
+    diary("tmdb:2", "movie", "Friend Film", "2026-10-05", owner=FRIEND_KEY)
+    assert [r["title"] for r in media_db.list_diary(owner=None)] == ["Long Road"]
+
+
 def test_stats_with_no_db_is_quiet(tmp_path, monkeypatch):
     monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "none.db"))
     s = pdb.stats(30)

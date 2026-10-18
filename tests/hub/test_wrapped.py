@@ -111,6 +111,24 @@ def test_owner_scoped_and_both_counts_a_shared_watch_once(wrap):
     assert (you["films"], her["films"], both["films"]) == (1, 2, 2)
 
 
+def test_friends_plays_never_reach_wrapped(wrap):
+    """Joey TV Q15 (WP-A2): a friend's play (owner jf:<id>) counts in no view — hours, sources, years."""
+    build, _ = wrap
+    friend = "jf:" + "ab" * 16
+    with build():
+        media_store.connect().close()
+        play("a", "movie", "A", local(date(2026, 10, 11), 21), 60)
+        play("f1", "movie", "Friend Film", local(date(2026, 10, 12), 21), 90, owner=friend)
+        play("f2", "movie", "Earlier Friend Film", local(date(2026, 9, 1), 21), 90, owner=friend)
+        play("f3", "movie", "Old Friend Film", local(date(2025, 5, 1), 21), 90, owner=friend)
+        for view in ("both", "you", "her"):
+            w = media_wrapped.summary(view, jelly(), 2026)
+            assert w["minutes"] == (pytest.approx(60) if view != "her" else None)
+            assert "Sep 2026" not in w["sources"] and "2025" not in w["sources"]
+            assert 2025 not in media_wrapped.years(view)
+        assert media_wrapped.summary("both", jelly(), 2026)["sources"].startswith("Plays recorded by Joey since 11 Oct 2026")
+
+
 def test_top_rated_is_nines_and_tens_and_the_average(wrap):
     build, _ = wrap
     with build():

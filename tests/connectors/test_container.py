@@ -19,8 +19,8 @@ def compose() -> dict:
 
 
 def test_compose_parses_and_defines_the_stack_services():
-    # grew from {hub, connectors} at WP11 (cloudflared tunnel added)
-    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared", "macromates"}
+    # grew from {hub, connectors} at WP11 (cloudflared tunnel added); swag + ddns: Joey TV WP-A3 edge (2026-10-18)
+    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared", "macromates", "swag", "ddns"}
 
 
 def test_compose_records_the_nas_host_decision():
@@ -82,7 +82,9 @@ def test_hub_and_connectors_join_the_media_stack_network():
     """N-09 (2026-10-09): service-name URLs (jellyfin:8096, gluetun:8080, ...) need the media
     stack's network; `default` stays so cloudflared still reaches hub:8000."""
     doc = compose()
-    assert doc["networks"] == {"media": {"external": True, "name": "media-server_default"}}
+    assert doc["networks"] == {"media": {"external": True, "name": "media-server_default"},
+                               # Joey TV WP-A3 (Q45): swag <-> jellyfin only; hub/connectors never join it
+                               "joey-edge": {"external": True, "name": "joey-edge"}}
     for name in ("hub", "connectors"):
         assert doc["services"][name]["networks"] == ["default", "media"], name
     for name in ("cloudflared", "macromates"):

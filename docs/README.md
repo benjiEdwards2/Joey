@@ -1,6 +1,7 @@
 # docs
 
 - `setup.md` - dev clone, env files, signed-in user, Media / Awards / play-recorder settings.
+- `public-edge.md` - the Jellyfin public edge (SWAG + DDNS behind compose profiles): request path, `edge.env`, first bring-up, kill switch, moving Jellyfin to another host.
 - `connector-contract.md` - the frozen envelope, every feed, and the numbered live-call exceptions.
 - `style-guide.md` - the MediaHub style guide Joey adopted, with Joey's dated deviations.
 - `hub-changelog.md` - the dated narrative of how the hub got its current shape (architecture: `hub/README.md`).

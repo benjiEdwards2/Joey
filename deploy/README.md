@@ -15,8 +15,19 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
 - **Manual rollback:** take a `prev=` SHA from history.log, then
   `docker run --rm -v /volume1/Docker/joey/life-dashboard:/work -w /work alpine/git reset --hard <sha>` and, in `deploy/`,
   `docker compose build && docker compose up -d --remove-orphans`. The next `deploy.sh` pulls forward again.
+- **Edge profiles (Joey TV WP-A3):** `swag` (profile `edge`, `joey-swag`, the only published port, 443) and `ddns` (profile
+  `ddns`, `joey-ddns`) start only when `COMPOSE_PROFILES` in `deploy/.env` names them (`edge`; `ddns` never while the WAN IP is
+  static). Unset, a deploy is unchanged. With `edge` on, the gate also needs the `joey-edge` network
+  (`nas_scripts/jellyfin_edge_net.sh`) and the smoke step runs `nginx -t`, `nginx -s reload` and the `/health` curl
+  (up to 120 s). Token and `STAGING` live in the NAS-only `deploy/edge.env`, read by swag and ddns only. Runbook and
+  kill switch: `docs/public-edge.md`.
+  - **Rollback to a pre-edge SHA removes swag:** that tree has no `swag` service, so `up -d --remove-orphans` takes
+    `joey-swag` away. `COMPOSE_PROFILES` in `.env` is not in git and **survives rollbacks**, so rolling forward brings
+    swag back by itself.
+  - **Never toggle `COMPOSE_PROFILES` off without runbook R3** (the kill switch in `docs/public-edge.md`): a deploy with
+    the profile off may remove `joey-swag` mid-stream (Q47; checked live at the first edge deploy).
 - **Stale lock:** "another deploy is running" with nothing running → `rmdir /tmp/joey-deploy.lock` (auto-cleared after 30 min).
 - **Env files:** `.env` (all keys today; `TUNNEL_TOKEN` for compose) plus optional `hub.env` / `connectors.env`, which
-  override `.env` per service — the split is at the top of `.env.example`; keep them all `chmod 600`. Setting notes:
+  override `.env` per service, and the NAS-only `edge.env` (Cloudflare token for swag and ddns) — the split is at the top of `.env.example`; keep them all `chmod 600`. Setting notes:
   `docs/setup.md`.
 - **Volumes:** hub backups land in `/volume1/Docker/joey/backups/media` (uid 1000); connectors see only the snapshots dir.

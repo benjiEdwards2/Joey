@@ -37,6 +37,11 @@ container can carry only its own keys; a key there overrides the same key in `.e
 at the top of `deploy/.env.example`. Once `.env` holds only `TUNNEL_TOKEN`, remove `- .env` from both
 `env_file` lists so no app container carries the tunnel token. Keep all three files `chmod 600`.
 
+`deploy/edge.env` (Joey TV WP-A3, 2026-10-18) is a fourth NAS-only file, `chmod 600`: the Cloudflare token (`CLOUDFLARE_API_TOKEN`)
+and `STAGING` for the public edge. Only swag and ddns read it; it is never in `deploy/.env`, git or an image. Created with
+`nas_scripts/append_env.sh <path to edge.env>`; `COMPOSE_PROFILES` (`edge`, `ddns`) is the one edge key that goes in `deploy/.env`.
+See `public-edge.md`.
+
 ## Signed-in user (deploy/.env, on the NAS only)
 
 Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`

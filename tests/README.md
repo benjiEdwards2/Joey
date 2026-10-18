@@ -24,7 +24,7 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
 
 `tests/deploy/test_edge.py` (Joey TV WP-A3, 2026-10-18) pins the public edge offline: one published port (443), one `server_name` and one
-upstream (`jellyfin:8096` by name), AU-only geo with our own `$joey_country`, the 444 catch-all, the `jellyfin-auth` fail2ban jail
+upstream (`jellyfin:8096` by name), AU + NZ geo with our own `$joey_country`, the 444 catch-all, the `jellyfin-auth` fail2ban jail
 (5/600/3600, regex fixtures, stock `nginx-unauthorized` off), `edge.env` ignored by git and docker, and no Cloudflare token value
 anywhere in `deploy/`. `test_deploy_script` gained the edge gate and smoke checks; `test_compose_limits` gained swag 192m and ddns 32m.
 Two older pins were extended (not weakened) for the edge, each with a dated DECISIONS line (2026-10-18): the top-level networks pin in

@@ -16,8 +16,8 @@ friend TV -> router :443 -> NAS 0.0.0.0:443 -> joey-swag -> jellyfin:8096   (joe
   SNI or bare IP hits the catch-all in `deploy/swag/site-confs/default.conf` and gets nginx 444 (connection closed).
 - The upstream is `jellyfin:8096` **by name**, the only `proxy_pass` target nginx has. `/metrics` returns 404. There is
   no port 80 (not published, not listened on) and no `listen [::]` or QUIC anywhere.
-- AU-only: `deploy/swag/site-confs/00-geo-au.conf` sets `$joey_country` from the db-ip database (downloaded by the
-  `swag-dbip` mod) and allows AU plus the private ranges 192.168.0.0/16, 10.0.0.0/8 and 172.16.0.0/12. Anyone else gets
+- AU + NZ only (file name is historical): `deploy/swag/site-confs/00-geo-au.conf` sets `$joey_country` from the db-ip database (downloaded by the
+  `swag-dbip` mod) and allows AU and NZ plus the private ranges 192.168.0.0/16, 10.0.0.0/8 and 172.16.0.0/12. Anyone else gets
   403. The variable names are our own so they cannot collide with the mod's own geoip2 block.
 - TLS: a Let's Encrypt wildcard `*.joeyhome.net` (DNS-01 through Cloudflare, `ONLY_SUBDOMAINS=true`). No `EMAIL` key:
   Let's Encrypt stopped expiry e-mails in 2025, so Kuma's certificate-expiry notification replaces them.

@@ -140,7 +140,7 @@ services:
     # the kill-switch runbook R3 (docs/public-edge.md, Q47). Bridge mode (Q44 = b, WP0 probe: the real client IP
     # survives docker-proxy): the ONLY published port in this file (E1); joins joey-edge alone (Q7 = a), never
     # Joey's default network (the hub trusts a header) nor media-server_default. One server_name, one upstream,
-    # AU-only geo, fail2ban on Jellyfin auth 401s: the five ./swag confs below, bind-mounted read-only.
+    # AU + NZ geo, fail2ban on Jellyfin auth 401s: the five ./swag confs below, bind-mounted read-only.
     # Pinned (Q10): manual updates only; joey-* containers are held from WUD runs (hub.server.update_hold).
     image: lscr.io/linuxserver/swag:5.8.0-ls490
     container_name: joey-swag

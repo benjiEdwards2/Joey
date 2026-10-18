@@ -2,7 +2,7 @@
 profiles, network mode (b) BRIDGE (WP0 probe (k): the real client IP survives docker-proxy on the NAS).
 
 Pins the edge requirements R4-E1…E9 offline: one published port (443 -> swag), one server_name and one upstream
-(`jellyfin:8096` by name, rule 14), AU-only geo with our own `$joey_country` variable, the fail2ban auth jail, and
+(`jellyfin:8096` by name, rule 14), AU + NZ geo with our own `$joey_country` variable, the fail2ban auth jail, and
 the Cloudflare token reaching only swag + ddns through the NAS-only `deploy/edge.env` (Q6). `nginx -t`, certbot and
 fail2ban-regex only run live (WP-A4); these tests pin the file shapes they run against.
 """
@@ -156,7 +156,7 @@ def test_proxy_conf_single_upstream_and_geo_gated():
     assert re.search(r'add_header\s+Strict-Transport-Security\s+"max-age=\d+', code)  # HSTS
 
 
-# ---- E6: AU-only, plus the private ranges for the mode ----
+# ---- E6: AU + NZ, plus the private ranges for the mode ----
 
 def test_geo_au_plus_private():
     code = _code(GEO_CONF)
@@ -166,7 +166,7 @@ def test_geo_au_plus_private():
     blocks = _blocks(code)
     country = blocks["$joey_country_allowed"]
     assert country.pop("default") == "0"
-    assert {k for k, v in country.items() if v == "1"} == {"AU"} and set(country.values()) == {"1"}
+    assert {k for k, v in country.items() if v == "1"} == {"AU", "NZ"} and set(country.values()) == {"1"}
     private = blocks["$joey_private"]
     assert private.pop("default") == "0"
     assert set(private) == E6_PRIVATE and set(private.values()) == {"1"}
@@ -180,6 +180,7 @@ def test_geo_au_plus_private():
         return combine.get(p + c, combine["default"])
 
     assert allowed("1.1.1.1", "AU") == "1"
+    assert allowed("203.0.113.9", "NZ") == "1"  # B., 2026-10-18: NZ added
     assert allowed("8.8.8.8", "US") == "0"
     assert allowed("192.168.68.55", "") == "1"  # LAN client (WP0 probe address)
     assert allowed("172.31.250.1", "") == "1"  # joey-edge gateway (host-side smoke via docker-proxy)

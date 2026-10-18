@@ -55,14 +55,15 @@ def _tz():
 
 def record_sighting(play: dict, now: datetime) -> str:
     """One poll's sighting of one session. `play` carries user_name, owner, jf_id, keys,
-    titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'."""
+    titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'. An open play is
+    matched on `owner` (Joey TV WP-A2), never the renamable `user_name`: a renamed friend stays one play."""
     pct = max(0, min(100, int(play.get("position_pct") or 0)))
     stamp = _iso(now)
     with closing(_connect()) as db:
         row = db.execute(
-            "SELECT id, position_pct FROM play WHERE user_name IS ? AND jf_id IS ? AND finished = 0"
+            "SELECT id, position_pct FROM play WHERE owner IS ? AND jf_id IS ? AND finished = 0"
             " AND last_seen_at >= ? ORDER BY last_seen_at DESC LIMIT 1",
-            (play["user_name"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
+            (play["owner"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
         if row is not None and row["position_pct"] < FINISHED_PCT:
             db.execute("UPDATE play SET last_seen_at = ?, position_pct = ?, finished = ? WHERE id = ?",
                        (stamp, pct, 1 if pct >= FINISHED_PCT else 0, row["id"]))

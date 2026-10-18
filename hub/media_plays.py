@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
+from hub import identity, media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
 
 log = logging.getLogger("hub.media_plays")
 
@@ -40,9 +40,13 @@ def disabled() -> bool:
     return os.environ.get("PLAY_RECORDER", "").strip().lower() == "off" or _creds() is None
 
 
-def _owner(user_name) -> str:
-    her = jellyfin.her_name()
-    return "her" if her and user_name == her else "you"
+def _owner(user_id) -> str | None:
+    """The play's owner by Jellyfin user ID (Joey TV WP-A2: a friend is jf:<id>, never "you"); None for a session
+    without a well-formed UserId. identity.OwnerUnresolved (no /Users read yet) propagates: the poll records nothing."""
+    try:
+        return identity.owner_for_jellyfin(user_id) if user_id else None
+    except ValueError:
+        return None
 
 
 def _key(item: dict) -> str | None:
@@ -56,6 +60,9 @@ def play_from_session(session: dict) -> dict | None:
     item = session.get("NowPlayingItem")
     if not isinstance(item, dict) or item.get("Type") not in ("Movie", "Episode") or not item.get("Id"):
         return None
+    owner = _owner(session.get("UserId"))
+    if owner is None:
+        return None
     user = session.get("UserName")
     ticks = item.get("RunTimeTicks") or 0
     pos = (session.get("PlayState") or {}).get("PositionTicks") or 0
@@ -63,7 +70,7 @@ def play_from_session(session: dict) -> dict | None:
     series = item.get("SeriesId")
     art = series if episode and series else item["Id"]
     return {
-        "user_name": user, "owner": _owner(user), "jf_id": item["Id"],
+        "user_name": user, "owner": owner, "jf_id": item["Id"],
         "item_key": f"jf:{series}" if episode and series else _key(item),
         "show_key": f"jf:{series}" if episode and series else None,
         "season_key": f"jf:{item['SeasonId']}" if episode and item.get("SeasonId") else None,

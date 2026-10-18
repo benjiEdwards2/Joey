@@ -12,7 +12,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
-from hub import media_store, media_text
+from hub import media_db, media_store, media_text
 from hub.ids import home_tz
 
 log = logging.getLogger("hub.media_plays_db")
@@ -55,14 +55,15 @@ def _tz():
 
 def record_sighting(play: dict, now: datetime) -> str:
     """One poll's sighting of one session. `play` carries user_name, owner, jf_id, keys,
-    titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'."""
+    titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'. An open play is
+    matched on `owner` (Joey TV WP-A2), never the renamable `user_name`: a renamed friend stays one play."""
     pct = max(0, min(100, int(play.get("position_pct") or 0)))
     stamp = _iso(now)
     with closing(_connect()) as db:
         row = db.execute(
-            "SELECT id, position_pct FROM play WHERE user_name IS ? AND jf_id IS ? AND finished = 0"
+            "SELECT id, position_pct FROM play WHERE owner IS ? AND jf_id IS ? AND finished = 0"
             " AND last_seen_at >= ? ORDER BY last_seen_at DESC LIMIT 1",
-            (play["user_name"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
+            (play["owner"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
         if row is not None and row["position_pct"] < FINISHED_PCT:
             db.execute("UPDATE play SET last_seen_at = ?, position_pct = ?, finished = ? WHERE id = ?",
                        (stamp, pct, 1 if pct >= FINISHED_PCT else 0, row["id"]))
@@ -116,6 +117,8 @@ def _rows(window, owner, now):
     if owner in ("you", "her"):
         sql += " AND owner = ?"
         args.append(owner)
+    else:
+        sql += " AND " + media_db.household_sql()
     try:   # M-52: a query error degrades (no Most played, an empty History) instead of a 500
         with closing(db):
             return db.execute(sql, args).fetchall()
@@ -132,6 +135,8 @@ def watch_count(jf_id: str, owner: str | None = None) -> int:
     sql, args = "SELECT COUNT(*) FROM play WHERE jf_id = ? AND finished = 1", [jf_id]
     if owner in ("you", "her"):
         sql, args = sql + " AND owner = ?", [*args, owner]
+    else:
+        sql += " AND " + media_db.household_sql()
     try:
         with closing(db):
             return int(db.execute(sql, args).fetchone()[0])
@@ -190,7 +195,7 @@ def show_runtimes(show_keys) -> dict[str, float]:
             marks = ",".join("?" * len(keys))
             return {r["show_key"]: float(r["rt"]) for r in db.execute(
                 f"SELECT show_key, AVG(runtime_min) AS rt FROM play WHERE show_key IN ({marks}) AND runtime_min > 0"
-                " GROUP BY show_key", keys)}
+                f" AND {media_db.household_sql()} GROUP BY show_key", keys)}
     except sqlite3.Error as exc:
         log.warning("show runtimes failed: %s", type(exc).__name__)
         return {}
@@ -203,7 +208,7 @@ def first_run_date() -> str | None:
         return None
     try:
         with closing(db):
-            row = db.execute("SELECT MIN(started_at) AS m FROM play").fetchone()
+            row = db.execute(f"SELECT MIN(started_at) AS m FROM play WHERE {media_db.household_sql()}").fetchone()
     except sqlite3.Error as exc:
         log.warning("plays first date failed: %s", type(exc).__name__)
         return None

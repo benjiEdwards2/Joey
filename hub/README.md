@@ -85,7 +85,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `OWNER_EMAIL_YOU`, `OWNER_NAME_YOU`, `OWNER_NAME_HER` | unset, Benji, Georgina | Access email that is "you" (any other is "her"); chip and greeting names |
 | `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE` | Windy radar falls back to Newport, `Newport VIC` | Windy radar centre (the weather connector reads the same pair) and the place name in weather labels |
 | `HUB_DEV` | off | `1` re-reads templates on every render (local template editing) |
-| `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER` | unset | Live item reads, play recorder, her profile |
+| `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER`, `JELLYFIN_USER_ALIASES` | unset | Live item reads, play recorder, her profile; aliases = B.'s extra Jellyfin user names (comma-separated), recorded as "you" |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |
 | `WUD_URL`, `WUD_USER`, `WUD_PASS`, `SERVER_DISCORD_WEBHOOK` | unset | Update now / Ignore; Attention push |
 | `STACKCTL_URL`, `STACKCTL_TOKEN` | unset | Update and restart media stack and its status line (`stackctl/NAS_INSTALL.md`); unset = button hidden, "Not connected" |
@@ -144,6 +144,11 @@ Server page reads stackctl at most every 30 s and reuses the card's parsed sweep
 `docs/hub-changelog.md` (2026-10-13).
 
 ## Decisions pinned by tests
+
+**Play owners (Joey TV WP-A2, 2026-10-18):** plays keyed jf:<id> for non-household Jellyfin users — the recorder names
+a play's owner by Jellyfin user ID (`identity.owner_for_jellyfin`, names resolved once via `/Users`; `JELLYFIN_USER`
+unset = nobody is "you"), the frozen format is `identity.OWNER_KEY_RE` (`jf:<32 lowercase hex>`), and every private
+read (`you` / `her` / `both`) skips `jf:` rows (`media_db.household_sql`).
 
 **Awards ballot (Plan C, 2026-10-14; review/2026-10-13-awards-ux/BALLOT_DECISIONS.md):** Movies / TV shows › Awards
 (`media_awards_pages.py`, `media_awards.html`, `_award_body.html`, `_award_ballot.html`, `_award_sheet.html`) is a ballot:

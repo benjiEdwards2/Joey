@@ -78,6 +78,12 @@ def owner_filter(view: str) -> str | None:
     return view if view in ("you", "her") else None
 
 
+def household_sql(col: str = "owner") -> str:
+    """The SQL condition every private read adds when it is not filtered to 'you' / 'her' (Joey TV Q15, WP-A2): rows of
+    a friend's Jellyfin user (owner `jf:<id>`, hub.identity.OWNER_KEY_RE) never reach B.'s private views."""
+    return f"IFNULL({col}, '') NOT LIKE 'jf:%'"
+
+
 def _old_shapes(db) -> tuple[bool, bool]:
     """(rating, diary) still in the pre-owner shape: rating keyed by item_key alone,
     diary UNIQUE without owner. Absent tables count as new."""
@@ -383,6 +389,8 @@ def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
     if owner is not None:
         conds.append("d.owner = ?")
         args.append(owner)
+    else:
+        conds.append(household_sql("d.owner"))
     if kind in ("movie", "tv"):
         conds.append("d.kind = ?")
         args.append(kind)

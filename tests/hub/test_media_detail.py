@@ -62,6 +62,42 @@ def test_apps_page_lists_every_app_with_words_and_links(app_factory):
     assert "--accent" not in body                                   # restyle Phase 3: Media drops the area accent
 
 
+def test_health_rows_carry_the_service_logo_and_the_gated_hostname(app_factory):
+    """WP-H1 (2026-10-19): each Health row has the Server grid's logo (initial tile when the id has none); the gated
+    hostname from areas.yaml wins over the snapshot's LAN address; the row stays one new-tab link."""
+    from hub import shell
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    apps = APPS + [{"id": "mystery", "name": "Mystery", "href": "http://nas.example.invalid:1",
+                    "up": True, "status_text": "Up", "note": None}]
+    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "x", "apps": apps})
+    with build(snaps) as client:
+        shell.registry.gated_hrefs = {"jellyfin": "https://jelly.example.invalid"}
+        body = main_of(client.get("/media/apps").text)
+    import re
+    assert re.search(r'<img class="svc-logo row-logo" src="/static/svc/jellyfin\.svg\?v=[0-9a-f]+" alt="" width="32" height="32">', body)
+    assert "/static/svc/prowlarr.svg" in body
+    assert body.count('class="svc-logo svc-fallback row-logo" aria-hidden="true"><span class="svc-initial">M</span>') == 1
+    assert 'href="https://jelly.example.invalid" target="_blank" rel="noopener"' in body    # gated beats the LAN one
+    assert "http://nas.example.invalid:8096" not in body
+    assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body  # no gated entry: snapshot's
+    assert body.count('<a class="row') == 3                                                  # three whole-row links
+
+
+def test_health_backup_row_is_unchanged_and_has_no_logo(app_factory, monkeypatch):
+    from hub import media_backup
+    monkeypatch.setattr(media_backup, "current_status",
+                        lambda: {"state": "ok", "age_text": "2h ago", "size_text": "1 MB", "note": None})
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "x", "apps": APPS})
+    with build(snaps) as client:
+        body = main_of(client.get("/media/apps").text)
+    row = body.split('backuprow">', 1)[1]
+    assert "Joey media backup" in row and "Backed up" in row and "row-logo" not in row
+    assert '<div class="row backuprow">' in body            # still a plain div row, not a link
+
+
 def test_playing_page_sections_render_in_main(app_factory):
     build, tmp_path = app_factory
     snaps = tmp_path / "snaps"

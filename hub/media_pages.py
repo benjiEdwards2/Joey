@@ -15,7 +15,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_requests, media_resume, media_upgrades, media_wrapped, media_write, shell, upcoming)
+                 media_plays_db, media_requests, media_resume, media_upgrades, media_wrapped, media_write, server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -75,8 +75,12 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
 
 @router.get("/media/apps", response_class=HTMLResponse)
 def media_apps_page(request: Request):
+    # 2026-10-19 (WP-H1): each row takes the Server card's logo / initial and gated hostname (one `service_card`).
+    gated = shell.registry.gated_hrefs if shell.registry else {}
     return _detail_page(request, "media_apps.html", MEDIA_STATUS_SNAPSHOT_ID, always_build=True,
-                        build=lambda data, view: {"backup": media_backup.current_status()})
+                        build=lambda data, view: {"backup": media_backup.current_status(),
+                                                  "health_apps": [server.service_card(a, [], gated)
+                                                                  for a in data.get("apps", [])]})
 
 
 @router.get("/media/playing", response_class=HTMLResponse)

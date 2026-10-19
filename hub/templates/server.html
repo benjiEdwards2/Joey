@@ -11,8 +11,8 @@
    Services, Updates, Sweeps · 24 h, Counts (the Monitors band, WP-S4, was removed 2026-10-12: it repeated Services;
    Uptime Kuma still feeds the cards' ms, the Monitors tile and Attention). Each band degrades to "Not connected" on its
    own. Up/Down are WORDS (.st-up emerald / .st-down red) beside the tinted row: colour is never the only encoding. Amber
-   only where there is something to do. A LAN-only link (tile or card) shows only to a request from the LAN
-   (`from_lan(request)`). #}
+   only where there is something to do. A LAN-only link TILE shows only to a request from the LAN
+   (`from_lan(request)`); the Services cards always show (2026-10-19). #}
 {% from "_kpi.html" import kpi %}
 {% from "_rows.html" import meta, updated %}
 {% set lan = from_lan(request) %}
@@ -104,15 +104,15 @@
      Up/Down is a WORD beside the dot; Uptime Kuma response ms when a monitor's name matches. #}
   {% import "_icons.html" as ic %}
   {% for g in svc.groups %}
-  {% set apps = g.apps if lan else (g.apps | rejectattr("lan") | list) %}
+  {% set apps = g.apps %}
   {% if apps %}
   <section class="sec">
     <div class="sechead"><h2 class="seclabel">{{ g.label }}</h2></div>
     <div class="svc-grid">
     {% for a in apps %}
     {# 2026-10-10 (reverses H-71): a LAN-only app (no gated hostname in areas.yaml) still links to its LAN address
-       and says "LAN" — it opens on the home network only; E3 (2026-10-13): so it is shown only on the LAN. An app with
-       no href at all is a plain card. #}
+       and says "LAN" — it opens on the home network only. 2026-10-19, B.: a card must open the server it monitors from
+       anywhere — reverses E3's off-LAN hiding, back to the 2026-10-10 rule. An app with no href at all is a plain card. #}
     {% set tag = "a" if a.href else "div" %}
     <{{ tag }} class="svc-card{{ ' is-down' if not a.up }}"{% if a.href %} href="{{ a.href }}" target="_blank" rel="noopener"{% endif %}>
       {% if a.logo %}<img class="svc-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="40" height="40">

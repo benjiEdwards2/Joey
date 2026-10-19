@@ -1383,3 +1383,8 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .epnav-card.is-next { grid-column: 2; text-align: right; }
 .epnav-k { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-5); }
 .epnav-t { font-size: 14px; font-weight: 600; color: var(--text-1); overflow-wrap: anywhere; }
+
+/* Health logos (2026-10-19) */
+.row-logo { width: 32px; height: 32px; padding: 4px; }
+.row-logo.svc-fallback { padding: 0; }
+.row-logo.svc-fallback .svc-initial { font-size: 14px; }

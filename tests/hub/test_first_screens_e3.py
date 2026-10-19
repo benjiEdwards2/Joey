@@ -306,15 +306,19 @@ def test_update_now_is_secondary_and_update_all_the_one_primary(tmp_path, monkey
 
 
 def test_lan_only_links_show_on_the_lan_only(tmp_path, monkeypatch):
+    """2026-10-19 (WP-H1, B.): the Services CARDS now show from anywhere and link to their LAN address with the "LAN"
+    word — this reverses E3's off-LAN hiding (back to the 2026-10-10 rule). Link TILES (the tile row) still show only to
+    a request from the LAN."""
     on = server_page(tmp_path, monkeypatch, lan=True)
     off = server_page(tmp_path, monkeypatch, lan=False)
     tunnel = server_page(tmp_path, monkeypatch, lan=True, headers={"Cf-Access-Authenticated-User-Email": "a@b.c"})
     assert '<div class="microlabel">Portainer</div>' in on and "svc-sub\">Media server · LAN<" in on
     for page in (off, tunnel):                                   # outside, or through the tunnel from a LAN-ish hop
-        assert '<div class="microlabel">Portainer</div>' not in page and "· LAN<" not in page
-        cards = re.findall(r'<(?:a|div) class="svc-card.*?</(?:a|div)>\s*(?=<(?:a|div) class="svc-card|</div>)', on, re.S)
-        gated = [c for c in cards if "· LAN<" not in c and ">LAN<" not in c]
-        assert page.count('class="svc-card') == len(gated)        # cards with a gated hostname (or none) still show
+        assert '<div class="microlabel">Portainer</div>' not in page      # the tile stays LAN-only
+        assert page.count('class="svc-card') == on.count('class="svc-card')     # every card shows
+        assert "svc-sub\">Media server · LAN<" in page                    # ... with its LAN word
+        lan_cards = re.findall(r'<a class="svc-card[^>]*href="[^"]+"[^>]*>(?:(?!</a>).)*· LAN<', page, re.S)
+        assert lan_cards                                                  # ... as a link to the LAN address
     assert "192.168." not in tpl("server.html") and "10." not in re.sub(r"\d+\.\d+\.\d+", "", tpl("server.html"))
 
 

@@ -996,3 +996,11 @@ Jellyfin People carry no TMDB id. Two earlier rules superseded: the media-ux4 "n
 crumbs are that link now) and the episode page's show-level Director / Writer block (its own rows replace it). Tests:
 `tests/hub/test_episode_ratings.py`, `test_episode_flow_templates.py`, `test_episode_flow_nav.py`; schema pins moved
 to v5.
+
+Health logos + Server app links (2026-10-19, WP-H1). Each row on Media › Health now shows the Server grid's service logo
+(32 px, `alt=""`; the neutral initial tile when the id has none) and takes the gated hostname from areas.yaml when there
+is one — the page decorates the snapshot's apps through `server.service_card`; the backup row is unchanged. On the Server
+page every Services card now shows from anywhere and links to its gated hostname or LAN address (the "LAN" word stays in
+the subtitle): this reverses E3's off-LAN hiding of cards (back to the 2026-10-10 rule); the summary link tiles (Portainer)
+still show only on the LAN. Tests: `test_media_detail.py` (two Health tests added), `test_first_screens_e3.py`
+(`test_lan_only_links_show_on_the_lan_only` re-pointed).

@@ -3,15 +3,18 @@
 {% block content %}
 {% from "_rows.html" import meta %}
 {# Detail behind the apps tile (2026-10-05; restyle Phase 3 row recipe). Up/Down is a WORD; a Down app is an
-   .is-down row (red tint + bar). #}
+   .is-down row (red tint + bar). WP-H1 (2026-10-19, B.): a logo (or initial tile) at the left and the gated hostname
+   when areas.yaml has one — `health_apps` is the snapshot's apps through `server.service_card`. #}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
 <div class="listbox">
-{% for a in src.data.get("apps", []) %}
+{% for a in health_apps %}
 {% set word %}<span class="{{ 'st-up' if a.up else 'st-down' }}">{{ a.status_text }}</span>{% endset %}
 <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
+  {% if a.logo %}<img class="svc-logo row-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="32" height="32">
+  {% else %}<span class="svc-logo svc-fallback row-logo" aria-hidden="true"><span class="svc-initial">{{ a.initial }}</span></span>{% endif %}
   <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, a.note if not a.up else none]) }}</div>
 </a>
 {% endfor %}

@@ -125,3 +125,43 @@ def test_updates_line_is_stale_only_past_the_tiles_interval(env, tmp_path):
             assert f'<span class="st-warn">Stale · {words}</span>' in line
         else:
             assert words in txt(line) and "Stale" not in line
+
+
+# ---- S3 / S5 and the hub card -----------------------------------------------------------------------------------
+
+def test_portainer_is_a_lan_link_card_in_services_system(env):
+    with env(lan=False) as client:
+        body = main_of(client.get("/server").text)
+    system = body.split('id="services"', 1)[1].split('<h2 class="seclabel">System</h2>', 1)[1].split("</section>", 1)[0]
+    card = next(c for c in system.split("</a>") if '<span class="svc-name">Portainer</span>' in c)
+    assert '<a class="svc-card" href="http://nas.local:9000" target="_blank" rel="noopener">' in card
+    assert '<span class="svc-sub">Docker management · LAN</span>' in card
+
+
+def test_sweep_summary_words():
+    row = lambda cid, failing=False, nc=False: {"id": cid, "failing": failing, "not_configured": nc}  # noqa: E731
+    last = {"text": "12m ago", "stale": False}
+    ok = server.sweep_summary([row("a"), row("b")], last)
+    assert ok == {"parts": ["2 connectors", "all sweeps OK"], "failing": None, "not_configured": None,
+                  "last": "Last sweep 12m ago", "stale": False, "open": False}
+    bad = server.sweep_summary([row("gcal", True), row("ha", True, True), row("x")], {"text": "2h ago", "stale": True})
+    assert bad["parts"] == ["3 connectors"] and bad["failing"] == "1 failing: gcal"
+    assert bad["not_configured"] == "1 not configured" and bad["stale"] and bad["open"]
+    assert server.sweep_summary([], None) is None
+    assert server.sweep_summary([], last)["parts"] == [] and server.sweep_summary(None, last)["last"]
+
+
+def test_hub_card_is_unchanged_on_the_samples():
+    """The hub card (hub_card) is pinned on the committed sample snapshots: WP-T3 changed the page, not the card."""
+    import shutil
+    import tempfile
+
+    from hub.store import get_snapshots
+    from tests.hub.test_server import SAMPLES
+    with tempfile.TemporaryDirectory() as d:
+        for p in SAMPLES.glob("*.json"):
+            if not p.stem.startswith("_"):
+                shutil.copy(p, Path(d) / p.name)
+        card = server.hub_card(get_snapshots(Path(d)), set(), {"warning": None})
+    assert card == {"summary": "1 down · Prowlarr", "secondary": "2 updates · disk 74% · 1 monitor down",
+                    "state": "warn"}

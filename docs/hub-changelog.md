@@ -1004,3 +1004,25 @@ page every Services card now shows from anywhere and links to its gated hostname
 the subtitle): this reverses E3's off-LAN hiding of cards (back to the 2026-10-10 rule); the summary link tiles (Portainer)
 still show only on the LAN. Tests: `test_media_detail.py` (two Health tests added), `test_first_screens_e3.py`
 (`test_lan_only_links_show_on_the_lan_only` re-pointed).
+
+Server clean-up (2026-10-19, WP-T3; review/2026-10-19-server/SERVER_REVIEW.md §1, S1–S9). The Server page is five bands:
+Attention → System → Services → Updates → Last 24 h. Gone: the tile row (S3; it only linked down the page, the hub card
+is the summary — Portainer is already a `media_status` app, so its LAN link tile simply dropped and its Services › System
+card stays; `_tile_row` and `.srvtiles` removed) and the Counts band (S1 + S2; Requests / Torrents / arr downloading
+repeated Activity, the arr disk bars repeated System's volumes; `_counts` and `.cols` removed). The Counts band's unique
+figures are ONE "Library health" line under Services › Downloads (`library_health`: "Radarr 2 wanted · 3 missing ·
+Sonarr 7 wanted · Prowlarr 3 failed grabs", only the non-zero parts, "all clear" otherwise, amber on failed grabs, and a
+Search missing link to `/media/requests?sweep_ask=missing` when anything is wanted or missing). The "Media stack" line
+shows only when stackctl is connected (S4). Sweeps · 24 h is one line under System ("7 connectors · all sweeps OK · Last
+sweep 12m ago" / "1 failing: gcal" / "2 not configured"; `sweep_summary`) with the rows in a fold that opens itself on a
+failing or not-configured row; the Last sweep stat moved into that line (S5). The disk projection (`disk_days`, lifted
+out of `disk_trend`) joins the PAGE's Attention under 30 days ("/volume1 reaches 85% in 23 days at this rate") — not
+`attention_items`, so the hub card and the Discord push are unchanged (the hub loop has no samples); Last 24 h is the
+last band, a `<details>` open on a desktop and closed on a phone (`data-phone-closed`, a small `joey.js` hook) (S6).
+Attention items carry their action (`attention_action`, S7): a down service "Open" (its card link, new tab) or
+"Services"; an Uptime Kuma monitor "Services"; a failing sweep "Sweeps" (#system). The Updates line reads "17 monitored
+· 2 updates · checked 2h ago", amber "Stale · checked …" only past the Updates tile's `stale_after_minutes` (S9). Tests:
+`tests/hub/test_server_cleanup.py` (new), `test_server_library_health.py` (was `test_server_counts.py`), and
+re-pointed `test_server.py`, `test_server_cards.py`, `test_server_history.py`, `test_server_not_configured.py`,
+`test_server_stack.py`, `test_server_updates.py`, `test_first_screens_e3.py`, `test_area_pages.py`,
+`test_style_pages.py`.

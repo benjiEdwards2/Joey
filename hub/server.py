@@ -17,6 +17,9 @@ WP-U4 (2026-10-06): "Last 24 h" band (`history_band`) from media.db `server_syst
 (hub/server_history.py) — CPU / RAM / fullest-volume sparklines and a 7-day disk trend line.
 WP-U3 (2026-10-07): not-configured connectors (`not_configured`) stay out of Attention, and
 Services is a card grid (`service_card`: logo, subtitle, gated href, Uptime Kuma ms).
+WP-T3 (2026-10-19, Server clean-up): no tile row and no Counts band; `library_health` (one line under Downloads),
+`sweep_summary` (System's sweeps line), `disk_days` (the forecast that joins the page's Attention under 30 days) and
+`attention_action` (each page Attention item with its action). `attention_items` and `hub_card` are unchanged.
 """
 
 from __future__ import annotations

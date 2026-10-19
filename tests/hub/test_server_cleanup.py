@@ -92,3 +92,36 @@ def test_five_bands_in_order_and_nothing_shown_twice(env):
         assert gone not in body, gone
     system = body.split('id="system"', 1)[1].split('id="services"', 1)[0]
     assert body.count('class="bar" role="img"') == system.count('class="bar" role="img"') == 3   # System's volumes only
+
+
+# ---- S9: the Updates line says when WUD was checked; "Stale" only past the tile's interval --------------------------
+
+def _updates_line(body):
+    band = body.split('id="updates"', 1)[1].split("</section>", 1)[0]
+    return next(line for line in band.split("</p>") if "monitored" in line)
+
+
+def test_updates_line_says_checked_n_ago(env):
+    with env() as client:
+        line = _updates_line(main_of(client.get("/server").text))
+    assert txt(line).strip().endswith("17 monitored · 2 updates · checked 1m ago")
+    assert "Stale" not in line and "Updated" not in line
+
+
+def test_updates_line_is_stale_only_past_the_tiles_interval(env, tmp_path):
+    import json
+
+    from tests.hub.helpers import write_envelope
+    from tests.hub.test_server import SAMPLES
+    wud = json.loads((SAMPLES / "wud.json").read_text(encoding="utf-8"))["data"]
+    client = env()
+    stale_after = next(t for t in area().tiles if t.id == "updates").stale_after_minutes      # 180
+    for age, stale in ((stale_after - 1, False), (stale_after + 60, True)):
+        write_envelope(tmp_path / "snaps", "wud", age_minutes=age, data=wud)
+        with client:
+            line = _updates_line(main_of(client.get("/server").text))
+        words = f"checked {server.ago_text(age)}"
+        if stale:
+            assert f'<span class="st-warn">Stale · {words}</span>' in line
+        else:
+            assert words in txt(line) and "Stale" not in line

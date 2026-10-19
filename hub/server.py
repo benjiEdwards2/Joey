@@ -608,6 +608,11 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
         [c for c in ud.get("containers") or [] if isinstance(c, dict) and c.get("update_available")],
         ignores, requested)
     updates["n_eligible"] = sum(1 for c in updates["pending"] if not c["hold"])   # Update all is shown from 1
+    # WP-T3 (2026-10-19, S9): "checked 2h ago" — the age of the WUD snapshot; "Stale" only past the Updates tile's own
+    # stale_after_minutes (tile_state's rule, the one every band uses), never on a fresh one.
+    snap = snaps.get(WUD_SNAPSHOT_ID)
+    updates["checked"] = ({"text": "checked " + ago_text(snap.age_minutes), "stale": updates["st"]["state"] == "stale"}
+                          if updates["st"]["state"] in ("fresh", "stale") and snap is not None else None)
 
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)

@@ -81,12 +81,14 @@ def env(tmp_path, monkeypatch):
     return build
 
 
-def test_no_env_hides_the_button_says_not_connected_and_calls_nothing(env):
+def test_no_env_hides_the_button_and_the_line_and_calls_nothing(env):
+    """WP-T3 (2026-10-19, S4): without STACKCTL_URL/TOKEN neither the button nor the "Media stack" line renders (was:
+    the line said "Media stack · Not connected" on every visit)."""
     with env(stack_env=False) as client:
         b = band(client.get("/server").text)
         g = main_of(client.get("/server/stack/run?step=confirm").text)
         p = client.post("/server/stack/run", follow_redirects=False)
-    assert "restart media stack" not in b and "Media stack · Not connected" in txt(b)
+    assert "restart media stack" not in b and "Media stack" not in b
     assert "stackctl is not connected" in g and 'action="/server/stack/run"' not in g
     assert p.status_code == 303 and p.headers["location"] == "/server#updates"
     assert env.calls == []

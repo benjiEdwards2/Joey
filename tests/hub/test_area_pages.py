@@ -46,6 +46,9 @@ def test_each_area_renders_one_kpi_card_per_tile(site):
     main, _ = site("/")
     for a in non_media(main):
         _, body = site(f"/a/{a.id}", lan=True)   # E3: on the LAN, so the Server page's LAN-only tile shows too
+        if a.layout == "server":   # WP-T3 (2026-10-19, S3): the Server page has no tile row; the hub card summarises it
+            assert 'class="tiles areatiles' not in body
+            continue
         k = re.search(r'<section class="tiles areatiles[^"]*".*?</section>', body, re.S).group(0)   # E3: + srvtiles
         # weather renders on the hub and /weather only (2026-10-08) — never as an area tile
         shown = [t for t in a.tiles if t.snapshot != "open_meteo"]

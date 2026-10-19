@@ -404,9 +404,6 @@ h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap:
 
 /* ---- Pages (restyle Phase 4, 2026-10-06): layout helpers shared by the Hub, Server, area and Weather pages. ---- */
 .narrow { max-width: 32rem; }
-/* Side-by-side groups: as many 20rem columns as fit, one on a phone (min(100%, 20rem) never exceeds the page). */
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 20px; align-items: start; min-width: 0; }
-.cols > * { min-width: 0; }
 .panel-warn { display: flex; flex-direction: column; gap: 6px; border-color: var(--warn-line); background: var(--warn-soft); }
 /* .kv: a panel of label / value lines (the guide's spec-sheet lines, grid 6.5rem + minmax(0,1fr)). */
 .kv { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -458,8 +455,6 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
 @media (max-width: 640px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 /* E3 (U3, 2026-10-13): on a phone the tiles that repeat the band below (Calendar, Weather) drop out. */
 @media (max-width: 639px) { .tiles > .dup { display: none; } }
-/* E3 (U12, 2026-10-13): the Server page's tile row only links to bands further down the same page — not on a phone. */
-@media (max-width: 639px) { .srvtiles { display: none; } }
 
 /* "Next 7 days": one .row per event. Phone: title + owner, then "Today · 10:00" as the meta line. From 640 px a grid
    (When · Event · Owner) under uppercase column heads. The owner is a word; no colour is needed to read it. */
@@ -1398,3 +1393,7 @@ a.guest:hover .guest-name { text-decoration: underline; }
 @media (max-width: 639px) { .hubtiles, .hubtiles.few { grid-template-columns: minmax(0, 1fr); } }
 .hubband { grid-template-columns: minmax(0, 1fr); align-items: start; }
 .hubband > .sec { min-width: 0; }
+/* Server clean-up (2026-10-19, WP-T3): the Library health line under Services › Downloads carries an inline
+   Search missing button, and an Attention item its action button. (.srvtiles and .cols went with their markup: the tile row and the Counts band.) */
+.libhealth { margin-top: 8px; }
+.libhealth .btn, .attn-item .btn { margin-left: 8px; vertical-align: middle; }

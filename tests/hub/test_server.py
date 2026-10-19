@@ -90,17 +90,15 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "17 monitored · 2 updates" in txt(body) and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
-    # 5 Counts
-    assert ">Pending<" in body and ">Seeding<" in body and ">This week<" in body
-    # link tiles: the LAN one (Portainer) is a plain "LAN" tile (H-71)
-    assert "192.168.68.59" not in body
-    tiles = body.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
-    portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
-    assert '<div class="tile-value stat-word">LAN' in portainer
+    # 5 Library health (WP-T3, 2026-10-19, S1 + S2: replaces the Counts band — no Requests / Torrents / arr disk here)
+    assert 'id="counts"' not in body and ">Pending<" not in body and ">Seeding<" not in body and ">This week<" not in body
+    assert "Library health · Radarr 2 wanted · 3 missing · Sonarr 7 wanted · Prowlarr 3 failed grabs" in txt(body)
+    # WP-T3 (2026-10-19, S3): no tile row; Portainer is its Services › System card (a LAN link), never the registry IP
+    assert "192.168.68.59" not in body and 'class="tiles areatiles' not in body
     # band order, top to bottom
     marks = [body.index(m) for m in   # E3 (U12, 2026-10-13): Attention first, right under the page head
-             ('class="pagehead"', 'id="attention"', 'aria-label="Server tiles"', 'id="system"', 'id="services"',
-              'id="updates"', 'id="counts"')]
+             ('class="pagehead"', 'id="attention"', 'id="system"', 'id="services"',
+              'id="updates"', 'id="history"')]   # WP-T3 (2026-10-19, S8): five bands, Last 24 h last
     assert marks == sorted(marks)
 
 
@@ -109,7 +107,8 @@ def test_server_page_with_no_snapshots_degrades_band_by_band(env):
         r = client.get("/server")
     assert r.status_code == 200
     body = main_of(r.text)
-    assert body.count("Not connected") >= 6   # system, services, updates, 3 count sources
+    assert body.count("Not connected") >= 3   # system, services, updates (the Counts band went, WP-T3 2026-10-19)
+    assert "Library health" not in body       # no arr snapshot: no line at all
     assert "All clear" in body
 
 
@@ -138,7 +137,9 @@ def test_attention_lists_full_volumes_and_unknown_apps_land_in_system(env):
 def test_build_server_adds_the_backup_warning():
     area = load_registry(AREAS_YAML).areas[-1]
     out = server.build_server(area, {}, {"warning": "Media backup: none in 40 hours"})
-    assert out["attention"] == ["Media backup: none in 40 hours"]
+    # WP-T3 (2026-10-19, S7): page items carry their action — the backup has none on this page (was: a list of texts)
+    assert out["attention"] == [{"text": "Media backup: none in 40 hours", "href": None, "action": None,
+                                 "new_tab": False}]
     assert server.build_server(area, {}, {"warning": None})["attention"] == []
 
 
@@ -191,7 +192,7 @@ def test_no_monitors_band_but_kuma_still_feeds_attention_cards_and_the_tile(env)
     assert marks == sorted(marks)
     assert "Uptime Kuma: Prowlarr is Down" in body
     assert "38 ms" in body.split('id="services"', 1)[1].split('id="updates"', 1)[0]   # Jellyfin's card
-    assert 'href="/server#services"' in body and 'href="/server#monitors"' not in body   # the KPI tile
+    assert 'href="/server#monitors"' not in body   # (the Monitors KPI tile went with the tile row, WP-T3 2026-10-19)
     assert "Last sweep" not in body                          # no _runner.json -> omitted
 
 
@@ -213,7 +214,7 @@ def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(
     assert "wud sweep failed: WUD containers failed (HTTP 401)" in body
     assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
     assert "system sweep failed" not in body
-    sweep = body.split("Last sweep", 1)[1].split("</div></div>", 1)[0]
+    sweep = body.split("Last sweep", 1)[1].split("</div>", 1)[0]   # WP-T3 (2026-10-19, S5): System's sweeps line
     assert "4m ago" in sweep and "Stale" not in sweep
 
 
@@ -221,7 +222,7 @@ def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
     client = env()
     write_runner(tmp_path / "snaps", "2026-01-01T00:00:00+00:00")
     with client:
-        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div></div>", 1)[0]
+        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div>", 1)[0]   # WP-T3: the line
         assert "d ago" in sweep and "Stale" in sweep
         for junk in ("{not json", "[]", '{"ran_at": "yesterday", "results": "nope"}'):
             (tmp_path / "snaps" / "_runner.json").write_text(junk, encoding="utf-8")
@@ -382,10 +383,13 @@ def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp
                           (2, {"system": "ok", "gcal": "ok"})], junk=["{broken"])
     with client:
         body = main_of(client.get("/server").text)
-    att = body.split('id="attention"', 1)[1].split('id="sweeps"', 1)[0]
+    att = body.split('id="attention"', 1)[1].split('id="system"', 1)[0]
     assert "wud failed 2 of the last 2 sweeps · WUD containers failed (HTTP 401)" in att
     assert "gcal" not in att and "SECRETKEY" not in body                     # recovered -> table only
-    sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
+    # WP-T3 (2026-10-19, S5): the table is the fold under System's sweeps line, open because wud is failing
+    assert "3 connectors · 1 failing: wud · Last sweep" in txt(body)
+    assert '<details class="fold" id="sweeps" open>' in body
+    sweeps = body.split('id="sweeps"', 1)[1].split("</details>", 1)[0]
     assert "Sweeps · 24 h" in body and ">gcal</div>" in sweeps and "2 runs · 1 failed" in txt(sweeps)
     assert ">system</div>" in sweeps and ">wud</div>" in sweeps and "Last OK none in 24 h" in txt(sweeps)
     (snaps / "_runner_history.jsonl").write_text("{junk\n[]\n", encoding="utf-8")
@@ -405,12 +409,12 @@ def test_container_names_are_urlencoded_in_update_links(env):
     assert 'action="/server/updates/odd%20name%26x/ignore"' in body and "odd name&amp;x" in body
 
 
-def test_services_tile_and_hub_card_say_the_same_words(env):
-    """H-73: the Server page's Services tile and the hub's Server card share one vocabulary."""
+def test_hub_card_says_the_services_words_and_the_page_has_no_tile_row(env):
+    """H-73: the hub's Server card says the services_words vocabulary. WP-T3 (2026-10-19, S3): the Server page's tile
+    row (whose Services tile repeated those words) is gone — the hub card is the summary. (Was: tile and card compared.)"""
     with env() as client:
         page = main_of(client.get("/server").text)
         hub = main_of(client.get("/").text)
-    tiles = page.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
     card = hub.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
-    assert "1 down · Prowlarr" in tiles and "1 down · Prowlarr" in card
-    assert " of 11 up" not in tiles + card
+    assert "1 down · Prowlarr" in card and " of 11 up" not in card
+    assert 'class="tiles areatiles' not in page and 'aria-label="Server tiles"' not in page

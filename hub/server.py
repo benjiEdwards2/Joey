@@ -17,6 +17,9 @@ WP-U4 (2026-10-06): "Last 24 h" band (`history_band`) from media.db `server_syst
 (hub/server_history.py) — CPU / RAM / fullest-volume sparklines and a 7-day disk trend line.
 WP-U3 (2026-10-07): not-configured connectors (`not_configured`) stay out of Attention, and
 Services is a card grid (`service_card`: logo, subtitle, gated href, Uptime Kuma ms).
+WP-T3 (2026-10-19, Server clean-up): no tile row and no Counts band; `library_health` (one line under Downloads),
+`sweep_summary` (System's sweeps line), `disk_days` (the forecast that joins the page's Attention under 30 days) and
+`attention_action` (each page Attention item with its action). `attention_items` and `hub_card` are unchanged.
 """
 
 from __future__ import annotations
@@ -222,6 +225,25 @@ def sweep_rows(stats, now: datetime | None = None, live: set[str] | None = None)
             for cid, st in sorted((stats or {}).items())]
 
 
+def sweep_summary(rows, last) -> dict | None:
+    """WP-T3 (2026-10-19, S5): System's ONE sweeps line in place of the Sweeps · 24 h band (its rows fold under it):
+    {parts ["7 connectors", "all sweeps OK"], failing "1 failing: gcal" | None, not_configured "2 not configured" | None,
+    last "Last sweep 12m ago" | None, stale, open (the fold opens itself on a failing or not-configured row)}. `rows`
+    are `sweep_rows`, `last` is `last_sweep`; None when there is neither."""
+    rows = rows or []
+    if not rows and not last:
+        return None
+    failing = [r["id"] for r in rows if r["failing"] and not r["not_configured"]]
+    n_nc = sum(1 for r in rows if r["not_configured"])
+    parts = [f"{len(rows)} connector{'' if len(rows) == 1 else 's'}"] if rows else []
+    if rows and not failing and not n_nc:
+        parts.append("all sweeps OK")
+    return {"parts": parts, "failing": f"{len(failing)} failing: {', '.join(failing)}" if failing else None,
+            "not_configured": f"{n_nc} not configured" if n_nc else None,
+            "last": f"Last sweep {last['text']}" if last else None, "stale": bool(last and last["stale"]),
+            "open": bool(failing or n_nc)}
+
+
 def _tile(area, snapshot_id):
     return next((t for t in area.tiles if t.snapshot == snapshot_id), None)
 
@@ -258,33 +280,37 @@ def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> 
             "response_ms": ms}
 
 
-def _counts(snaps) -> dict:
-    """Jellyseerr / qBittorrent / arr counts. None per source when absent; the arr
-    library/indexer objects (`radarr`, `sonarr`, `prowlarr`, WP-S3) are None when the
-    snapshot predates them or the connector nulled them (partial-ok)."""
-    def data(cid):
-        return data_of(snaps.get(cid)) or None
+# WP-T3 (2026-10-19, S1 + S2): the Counts band is gone — Requests / Torrents / arr downloading repeated Activity, and
+# the arr disk bars repeated System's volumes. Its unique figures (Radarr / Sonarr wanted + missing, Prowlarr failed
+# grabs) are ONE "Library health" line under Services › Downloads (or at the end of Services without that group).
+HEALTH_GROUP = "Downloads"
+SEARCH_MISSING_HREF = "/media/requests?sweep_ask=missing"   # media_arr_search: the page draws the confirm card
 
-    seerr, qb, arr = data(JELLYSEERR_SNAPSHOT_ID), data(QBIT_SNAPSHOT_ID), data(ARR_SNAPSHOT_ID)
-    totals = (qb or {}).get("totals") or {}
-    return {
-        "requests": (seerr or {}).get("counts") if seerr else None,
-        "torrents": {
-            "downloading": len(qb.get("active") or []),
-            "seeding": qb.get("seeding", 0),
-            "dl_text": totals.get("dl_text", "0 B/s"),
-            "up_text": totals.get("up_text", "0 B/s"),
-        } if qb else None,
-        "arr": {
-            "downloading": len(arr.get("downloading") or []),
-            "this_week": len(arr.get("this_week") or []),
-            "disk": [{**d, "free_text": _gb(d.get("free_gb")), "total_text": _gb(d.get("total_gb"))}
-                     for d in arr.get("disk") or []],
-        } if arr else None,
-        "radarr": (arr or {}).get("radarr") or None,
-        "sonarr": (arr or {}).get("sonarr") or None,
-        "prowlarr": (arr or {}).get("prowlarr") or None,
-    }
+
+def library_health(snaps) -> dict | None:
+    """{parts, failed, search} from the arr snapshot's `radarr` / `sonarr` / `prowlarr` objects (WP-S3), or None when
+    the snapshot carries none of them. parts: the non-zero counts in words ("Radarr 2 wanted", "3 missing",
+    "Sonarr 7 wanted"); failed: "Prowlarr 3 failed grabs" when that count is non-zero (amber: something to look at);
+    search: the Search missing href when anything is wanted or missing, else None. No parts and no failed ⇒
+    the template says "all clear"."""
+    arr = _data(snaps, ARR_SNAPSHOT_ID)
+    radarr, sonarr, prowlarr = (arr.get(k) if isinstance(arr.get(k), dict) else None
+                                for k in ("radarr", "sonarr", "prowlarr"))
+    if not (radarr or sonarr or prowlarr):
+        return None
+
+    def n(d, key) -> int:
+        v = _num((d or {}).get(key))
+        return max(0, int(v)) if v is not None else 0
+
+    parts = []
+    for name, d, keys in (("Radarr", radarr, ("wanted", "missing")), ("Sonarr", sonarr, ("wanted",))):
+        words = [f"{n(d, k)} {k}" for k in keys if n(d, k)]
+        if words:
+            parts += [f"{name} {words[0]}", *words[1:]]
+    failed = n(prowlarr, "failed_grabs")
+    return {"parts": parts, "failed": f"Prowlarr {failed} failed grab{'' if failed == 1 else 's'}" if failed else None,
+            "search": SEARCH_MISSING_HREF if parts else None}
 
 
 # Pending rows the hub never sends to WUD (one definition; server_updates imports these): WUD itself (B. updates it by
@@ -387,9 +413,27 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
     return items
 
 
+def attention_action(item: dict, cards: dict) -> dict:
+    """WP-T3 (2026-10-19, S7): a page Attention item with its action — {text, href, action, new_tab}. A down service
+    opens its card's link ("Open", new tab; the gated hostname or the LAN address, as on the card) or, with no link,
+    jumps to Services; an Uptime Kuma monitor jumps to Services; a failing sweep to System (its sweeps line + fold).
+    Disk, backup and the disk forecast carry no action (none exists on this page). `cards`: Services cards by app id."""
+    kind, _, ident = str(item.get("key") or "").partition(":")
+    href = action = None
+    new_tab = False
+    if kind == "down":
+        href = (cards.get(ident) or {}).get("href")
+        href, action, new_tab = (href, "Open", True) if href else ("#services", "Services", False)
+    elif kind == "kuma":
+        href, action = "#services", "Services"
+    elif kind == "sweep":
+        href, action = "#system", "Sweeps"
+    return {"text": item["text"], "href": href, "action": action, "new_tab": new_tab}
+
+
 def services_words(snaps) -> str:
-    """"All up" / "2 down · Prowlarr · Sonarr" / "Not connected" — the Services words of the hub card AND the Server
-    page's Services tile (H-73: one vocabulary, guide §9 " · " joins)."""
+    """"All up" / "2 down · Prowlarr · Sonarr" / "Not connected" — the Services words of the hub card (H-73: one
+    vocabulary, guide §9 " · " joins; the Server page's Services tile went with the tile row, WP-T3 2026-10-19)."""
     if not connected(snaps.get(MEDIA_STATUS_SNAPSHOT_ID)) or not _data(snaps, MEDIA_STATUS_SNAPSHOT_ID):
         return "Not connected"
     down = [str(a.get("name", a.get("id", "?"))) for a in _apps(snaps) if not a.get("up")]
@@ -425,6 +469,7 @@ SPARK_MIN_SPAN = 1.0  # % — a flat series draws as a flat line, not amplified 
 DISK_TARGET_PCT = DISK_ATTENTION_PCT
 PROJECTION_MAX_DAYS = 3650  # 10 years: beyond that the trend reads "flat"
 COLLECTING = "Collecting history · first chart after a few sweeps"
+FORECAST_ATTENTION_DAYS = 30   # WP-T3 (2026-10-19, S6): a projection under this joins the page's Attention
 
 
 def _spark(label: str, points: list, start: datetime, digits: int = 0) -> dict | None:
@@ -458,40 +503,60 @@ def _span_text(seconds: float) -> str:
     return f"{max(1, round(seconds / 3600))} h"
 
 
-def disk_trend(points: list) -> str | None:
-    """'Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate' (least-squares slope,
-    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits."""
+def disk_days(points: list) -> float | None:
+    """Days until the volume reaches DISK_TARGET_PCT at the least-squares rate over `points` [(at, pct)], or None:
+    under 24 h of history, already at or over the target, flat or falling, or PROJECTION_MAX_DAYS and beyond
+    (WP-T3, 2026-10-19: lifted out of `disk_trend` so the projection can also reach Attention)."""
     if len(points) < 2:
         return None
     t0 = points[0][0]
     xs = [(at - t0).total_seconds() / 86400 for at, _ in points]
     ys = [v for _, v in points]
-    span_s = (points[-1][0] - t0).total_seconds()
+    if (points[-1][0] - t0).total_seconds() < 86400 or ys[-1] >= DISK_TARGET_PCT:
+        return None
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    var = sum((x - mx) ** 2 for x in xs)
+    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
+    if slope <= 0:
+        return None
+    days = (DISK_TARGET_PCT - ys[-1]) / slope
+    return days if days < PROJECTION_MAX_DAYS else None
+
+
+def _days_text(days: float) -> str:
+    n = max(1, round(days))
+    return f"{n:,} day{'' if n == 1 else 's'}"
+
+
+def disk_trend(points: list) -> str | None:
+    """'Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate' (least-squares slope,
+    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits."""
+    if len(points) < 2:
+        return None
+    ys = [v for _, v in points]
+    span_s = (points[-1][0] - points[0][0]).total_seconds()
     head = f"Disk: {ys[0]:.1f} % → {ys[-1]:.1f} % over {_span_text(span_s)}"
     if span_s < 86400:
         return head + " · projection after 24 h of history"
     if ys[-1] >= DISK_TARGET_PCT:
         return head + f" · at or over {DISK_TARGET_PCT} %"
-    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
-    var = sum((x - mx) ** 2 for x in xs)
-    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
-    if slope > 0:
-        days = (DISK_TARGET_PCT - ys[-1]) / slope
-        if days < PROJECTION_MAX_DAYS:
-            n = max(1, round(days))
-            return head + f" · ~{n:,} day{'' if n == 1 else 's'} to {DISK_TARGET_PCT} % at this rate"
+    days = disk_days(points)
+    if days is not None:
+        return head + f" · ~{_days_text(days)} to {DISK_TARGET_PCT} % at this rate"
     return head + " · flat"
 
 
 def history_band(samples, now: datetime | None = None) -> dict:
     """The "Last 24 h" band from server_history.recent() rows (oldest first): {collecting,
-    sparks [CPU, RAM, fullest volume], trend}. Fewer than 2 samples in 24 h ⇒ collecting."""
+    sparks [CPU, RAM, fullest volume], trend, forecast}. Fewer than 2 samples in 24 h ⇒ collecting.
+    forecast (WP-T3, 2026-10-19, S6): {key, text} when the fullest volume reaches DISK_TARGET_PCT in under
+    FORECAST_ATTENTION_DAYS at this rate ("/volume1 reaches 85% in 23 days at this rate"), else None."""
     now = now or datetime.now(timezone.utc)
     start = now.timestamp() - 86400
     rows = [s for s in samples or [] if isinstance(s, dict) and s.get("at") is not None]
     day = [s for s in rows if s["at"].timestamp() >= start]
     if len(day) < 2:
-        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None}
+        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None, "forecast": None}
     t_start = datetime.fromtimestamp(start, timezone.utc)
 
     def series(key, among):
@@ -500,25 +565,19 @@ def history_band(samples, now: datetime | None = None) -> dict:
     sparks = [_spark("CPU", series("cpu_pct", day), t_start),
               _spark("RAM", series("ram_pct_used", day), t_start)]
     vols = [v for v in day[-1].get("volumes") or [] if isinstance(v.get("pct_used"), (int, float))]
-    trend = None
+    trend = forecast = None
     if vols:
         path = max(vols, key=lambda v: v["pct_used"])["path"]
         pts = [(s["at"], p) for s in day if (p := _vol_pct(s, path)) is not None]
         sparks.append(_spark(f"Disk {path}", pts, t_start, digits=1))
-        trend = disk_trend([(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None])
-    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend}
-
-
-def _tile_row(tile, snaps, gated: dict | None) -> dict:
-    """{tile, st} for the page's tile row: a link tile takes its gated hostname, or loses its link (`lan`) when it
-    points at a LAN address; the Services tile says what the hub card says (H-73)."""
-    st = tile_state(tile, snaps)
-    if st["state"] == "link":
-        href = (gated or {}).get(tile.id) or st["href"]
-        st = {**st, "href": None, "lan": True} if is_lan(href) else {**st, "href": href}
-    elif tile.snapshot == MEDIA_STATUS_SNAPSHOT_ID and st["state"] != "off":
-        st = {**st, "value": services_words(snaps)}
-    return {"tile": tile, "st": st}
+        week = [(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None]
+        trend = disk_trend(week)
+        days = disk_days(week)
+        if days is not None and days < FORECAST_ATTENTION_DAYS:
+            forecast = {"key": f"forecast:{path}",
+                        "text": f"{path} reaches {DISK_TARGET_PCT}% in {_days_text(days)} at this rate"}
+    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend,
+            "forecast": forecast}
 
 
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
@@ -544,18 +603,31 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     # 2026-10-12: no Monitors band any more (it repeated Services); the Kuma rows still give each card its ms.
     apps = [a for a in services["data"].get("apps") or [] if isinstance(a, dict)]
     services["groups"] = group_services([service_card(a, _monitors(snaps), gated) for a in apps])
+    services["health"] = library_health(snaps)   # WP-T3 (S1 + S2)
+    services["health_in"] = next((g["label"] for g in services["groups"] if g["label"] == HEALTH_GROUP), None)
 
     ud = updates["data"]
     updates["pending"], updates["ignored"] = split_updates(
         [c for c in ud.get("containers") or [] if isinstance(c, dict) and c.get("update_available")],
         ignores, requested)
     updates["n_eligible"] = sum(1 for c in updates["pending"] if not c["hold"])   # Update all is shown from 1
+    # WP-T3 (2026-10-19, S9): "checked 2h ago" — the age of the WUD snapshot; "Stale" only past the Updates tile's own
+    # stale_after_minutes (tile_state's rule, the one every band uses), never on a fresh one.
+    snap = snaps.get(WUD_SNAPSHOT_ID)
+    updates["checked"] = ({"text": "checked " + ago_text(snap.age_minutes), "stale": updates["st"]["state"] == "stale"}
+                          if updates["st"]["state"] in ("fresh", "stale") and snap is not None else None)
 
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)
+    rows = sweep_rows(stats, live=live)
+    history = history_band(samples)
+    # WP-T3 (2026-10-19, S6): the disk projection joins the PAGE's Attention only. `attention_items` (the hub card's
+    # warn state and the Discord push) stays as it was: the hub loop's check has no samples, so a page-only key would
+    # be inserted by the render and purged by the loop, re-posting every few minutes.
+    page_items = items + ([history["forecast"]] if history["forecast"] else [])
+    cards = {a.get("id"): a for g in services["groups"] for a in g["apps"]}
 
-    return {"tiles": [_tile_row(t, snaps, gated) for t in area.tiles],
-            "system": system, "services": services, "updates": updates,
-            "attention": [i["text"] for i in items], "attention_items": items,
-            "sweeps": sweep_rows(stats, live=live), "counts": _counts(snaps),
-            "history": history_band(samples)}
+    return {"system": system, "services": services, "updates": updates,
+            "attention": [attention_action(i, cards) for i in page_items], "attention_items": items,
+            "sweeps": rows, "sweep_line": sweep_summary(rows, system["last_sweep"]),
+            "history": history}

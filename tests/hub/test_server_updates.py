@@ -71,7 +71,8 @@ def txt(html):
 
 
 def band(html):
-    return main_of(html).split('id="updates"', 1)[1].split('id="attention"', 1)[0]
+    """The Updates band, to its own end: the Last 24 h fold follows it since WP-T3 (2026-10-19, S6; was: to Attention)."""
+    return main_of(html).split('id="updates"', 1)[1].split("</section>", 1)[0]
 
 
 def runs():

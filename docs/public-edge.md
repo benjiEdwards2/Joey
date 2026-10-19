@@ -122,6 +122,8 @@ from the host's `/etc/resolv.conf` if a named upstream is ever added.
   10.0.0.0/8, 192.168.0.0/16, 127.0.0.1/32, the geo gate's local set).
 - SWAG's stock **`nginx-unauthorized` jail is disabled**: it bans on any 401, and Jellyfin answers every request from a TV
   holding a stale token with 401, so it would ban friends' households.
+- Bans are **DROP** rules in the host's nft `ip filter` table (`nft list chain ip filter f2b-jellyfin-auth` shows them);
+  REJECT is unsupported on the ADM kernel (iptables-nft "Extension REJECT revision 0 not supported").
 - Live check: `docker exec joey-swag fail2ban-regex /config/log/nginx/access.log /etc/fail2ban/filter.d/jellyfin-auth.local`.
 
 ## Verify from outside

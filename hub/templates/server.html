@@ -34,9 +34,6 @@
       <div class="stat"><div class="microlabel">CPU</div><div class="stat-number">{{ sys.cpu_text }}</div>{{ meta([sys.load_text]) }}</div>
       <div class="stat"><div class="microlabel">RAM</div><div class="stat-word">{{ sys.ram_text }}</div>{{ meta([sys.ram_sub]) }}</div>
       <div class="stat"><div class="microlabel">Uptime</div><div class="stat-word">{{ sys.uptime_text }}</div></div>
-      {% if sys.last_sweep %}
-      <div class="stat"><div class="microlabel">Last sweep</div><div class="stat-word">{{ sys.last_sweep.text }}</div>{% if sys.last_sweep.stale %}<div class="row-meta"><span class="st-warn">Stale</span></div>{% endif %}</div>
-      {% endif %}
       {% for v in sys.volumes %}
       <div class="stat wide">
         <div class="microlabel">{{ v.path }}</div><div class="stat-word">{{ v.free_text }} free</div>
@@ -48,6 +45,30 @@
       {% endfor %}
     </div>
     <p class="metaline">{{ updated(sys.st) }}</p>
+  {% endif %}
+  {# WP-T3 (2026-10-19, S5): the sweeps in ONE line ("7 connectors · all sweeps OK · Last sweep 12m ago"); the per-
+     connector rows (WP-U2: _runner_history.jsonl, last 24 h; a connector that failed and has since recovered shows
+     here only, not in Attention) fold under it and open by themselves on a failing or not-configured row. #}
+  {% set sw = sv.sweep_line %}
+  {% if sw %}
+  {% set failing %}{% if sw.failing %}<span class="st-down">{{ sw.failing }}</span>{% endif %}{% endset %}
+  {% set stale %}{% if sw.stale %}<span class="st-warn">Stale</span>{% endif %}{% endset %}
+  {{ meta(sw.parts + [failing, sw.not_configured, sw.last, stale], "metaline sweepline") }}
+  {% endif %}
+  {% if sv.sweeps %}
+  <details class="fold" id="sweeps"{% if sw.open %} open{% endif %}>
+    <summary class="seclabel">Sweeps · 24 h</summary>
+    <div class="listbox">
+    {% for w in sv.sweeps %}
+    <div class="row">
+      <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "Last OK " ~ w.last_ok_text]) }}</div>
+      {# WP-U3: a not-configured connector (missing credential / parked area) is a setup task, not a failure. #}
+      {% if w.not_configured %}<span class="row-side st-off">Not configured</span>
+      {% elif w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
+    </div>
+    {% endfor %}
+    </div>
+  </details>
   {% endif %}
 </section>
 
@@ -179,23 +200,5 @@
     {% endif %}
   {% endif %}
 </section>
-
-{# WP-U2: per-connector sweep record from _runner_history.jsonl (last 24 h). A connector that failed and has
-   since recovered shows here only, not in Attention. E3 (2026-10-13): its own section now that Attention leads. #}
-{% if sv.sweeps %}
-<section class="sec" id="sweeps" aria-label="Sweeps">
-  <h2 class="seclabel">Sweeps · 24 h</h2>
-  <div class="listbox">
-  {% for w in sv.sweeps %}
-  <div class="row">
-    <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "Last OK " ~ w.last_ok_text]) }}</div>
-    {# WP-U3: a not-configured connector (missing credential / parked area) is a setup task, not a failure. #}
-    {% if w.not_configured %}<span class="row-side st-off">Not configured</span>
-    {% elif w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
-  </div>
-  {% endfor %}
-  </div>
-</section>
-{% endif %}
 
 {% endblock %}

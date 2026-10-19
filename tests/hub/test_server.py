@@ -212,7 +212,7 @@ def test_pending_monitor_and_runner_errors_reach_attention_and_last_sweep_shows(
     assert "wud sweep failed: WUD containers failed (HTTP 401)" in body
     assert "gcal sweep failed: runner-level ValueError" in body and "SECRETKEY" not in body
     assert "system sweep failed" not in body
-    sweep = body.split("Last sweep", 1)[1].split("</div></div>", 1)[0]
+    sweep = body.split("Last sweep", 1)[1].split("</div>", 1)[0]   # WP-T3 (2026-10-19, S5): System's sweeps line
     assert "4m ago" in sweep and "Stale" not in sweep
 
 
@@ -220,7 +220,7 @@ def test_old_sweep_reads_stale_and_bad_runner_files_never_500(env, tmp_path):
     client = env()
     write_runner(tmp_path / "snaps", "2026-01-01T00:00:00+00:00")
     with client:
-        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div></div>", 1)[0]
+        sweep = main_of(client.get("/server").text).split("Last sweep", 1)[1].split("</div>", 1)[0]   # WP-T3: the line
         assert "d ago" in sweep and "Stale" in sweep
         for junk in ("{not json", "[]", '{"ran_at": "yesterday", "results": "nope"}'):
             (tmp_path / "snaps" / "_runner.json").write_text(junk, encoding="utf-8")
@@ -381,10 +381,13 @@ def test_history_drives_attention_and_sweeps_table_with_runner_fallback(env, tmp
                           (2, {"system": "ok", "gcal": "ok"})], junk=["{broken"])
     with client:
         body = main_of(client.get("/server").text)
-    att = body.split('id="attention"', 1)[1].split('id="sweeps"', 1)[0]
+    att = body.split('id="attention"', 1)[1].split('id="system"', 1)[0]
     assert "wud failed 2 of the last 2 sweeps · WUD containers failed (HTTP 401)" in att
     assert "gcal" not in att and "SECRETKEY" not in body                     # recovered -> table only
-    sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
+    # WP-T3 (2026-10-19, S5): the table is the fold under System's sweeps line, open because wud is failing
+    assert "3 connectors · 1 failing: wud · Last sweep" in txt(body)
+    assert '<details class="fold" id="sweeps" open>' in body
+    sweeps = body.split('id="sweeps"', 1)[1].split("</details>", 1)[0]
     assert "Sweeps · 24 h" in body and ">gcal</div>" in sweeps and "2 runs · 1 failed" in txt(sweeps)
     assert ">system</div>" in sweeps and ">wud</div>" in sweeps and "Last OK none in 24 h" in txt(sweeps)
     (snaps / "_runner_history.jsonl").write_text("{junk\n[]\n", encoding="utf-8")

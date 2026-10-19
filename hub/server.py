@@ -222,6 +222,25 @@ def sweep_rows(stats, now: datetime | None = None, live: set[str] | None = None)
             for cid, st in sorted((stats or {}).items())]
 
 
+def sweep_summary(rows, last) -> dict | None:
+    """WP-T3 (2026-10-19, S5): System's ONE sweeps line in place of the Sweeps · 24 h band (its rows fold under it):
+    {parts ["7 connectors", "all sweeps OK"], failing "1 failing: gcal" | None, not_configured "2 not configured" | None,
+    last "Last sweep 12m ago" | None, stale, open (the fold opens itself on a failing or not-configured row)}. `rows`
+    are `sweep_rows`, `last` is `last_sweep`; None when there is neither."""
+    rows = rows or []
+    if not rows and not last:
+        return None
+    failing = [r["id"] for r in rows if r["failing"] and not r["not_configured"]]
+    n_nc = sum(1 for r in rows if r["not_configured"])
+    parts = [f"{len(rows)} connector{'' if len(rows) == 1 else 's'}"] if rows else []
+    if rows and not failing and not n_nc:
+        parts.append("all sweeps OK")
+    return {"parts": parts, "failing": f"{len(failing)} failing: {', '.join(failing)}" if failing else None,
+            "not_configured": f"{n_nc} not configured" if n_nc else None,
+            "last": f"Last sweep {last['text']}" if last else None, "stale": bool(last and last["stale"]),
+            "open": bool(failing or n_nc)}
+
+
 def _tile(area, snapshot_id):
     return next((t for t in area.tiles if t.snapshot == snapshot_id), None)
 
@@ -547,8 +566,9 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
 
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)
+    rows = sweep_rows(stats, live=live)
 
     return {"system": system, "services": services, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
-            "sweeps": sweep_rows(stats, live=live),
+            "sweeps": rows, "sweep_line": sweep_summary(rows, system["last_sweep"]),
             "history": history_band(samples)}

@@ -92,14 +92,11 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Counts
     assert ">Pending<" in body and ">Seeding<" in body and ">This week<" in body
-    # link tiles: the LAN one (Portainer) is a plain "LAN" tile (H-71)
-    assert "192.168.68.59" not in body
-    tiles = body.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
-    portainer = tiles.split('<div class="microlabel">Portainer</div>', 1)[1].split("</div>", 1)[0]
-    assert '<div class="tile-value stat-word">LAN' in portainer
+    # WP-T3 (2026-10-19, S3): no tile row; Portainer is its Services › System card (a LAN link), never the registry IP
+    assert "192.168.68.59" not in body and 'class="tiles areatiles' not in body
     # band order, top to bottom
     marks = [body.index(m) for m in   # E3 (U12, 2026-10-13): Attention first, right under the page head
-             ('class="pagehead"', 'id="attention"', 'aria-label="Server tiles"', 'id="system"', 'id="services"',
+             ('class="pagehead"', 'id="attention"', 'id="system"', 'id="services"',
               'id="updates"', 'id="counts"')]
     assert marks == sorted(marks)
 
@@ -191,7 +188,7 @@ def test_no_monitors_band_but_kuma_still_feeds_attention_cards_and_the_tile(env)
     assert marks == sorted(marks)
     assert "Uptime Kuma: Prowlarr is Down" in body
     assert "38 ms" in body.split('id="services"', 1)[1].split('id="updates"', 1)[0]   # Jellyfin's card
-    assert 'href="/server#services"' in body and 'href="/server#monitors"' not in body   # the KPI tile
+    assert 'href="/server#monitors"' not in body   # (the Monitors KPI tile went with the tile row, WP-T3 2026-10-19)
     assert "Last sweep" not in body                          # no _runner.json -> omitted
 
 
@@ -405,12 +402,12 @@ def test_container_names_are_urlencoded_in_update_links(env):
     assert 'action="/server/updates/odd%20name%26x/ignore"' in body and "odd name&amp;x" in body
 
 
-def test_services_tile_and_hub_card_say_the_same_words(env):
-    """H-73: the Server page's Services tile and the hub's Server card share one vocabulary."""
+def test_hub_card_says_the_services_words_and_the_page_has_no_tile_row(env):
+    """H-73: the hub's Server card says the services_words vocabulary. WP-T3 (2026-10-19, S3): the Server page's tile
+    row (whose Services tile repeated those words) is gone — the hub card is the summary. (Was: tile and card compared.)"""
     with env() as client:
         page = main_of(client.get("/server").text)
         hub = main_of(client.get("/").text)
-    tiles = page.split('aria-label="Server tiles"', 1)[1].split("</section>", 1)[0]
     card = hub.split('href="/a/server"', 1)[1].split("</a>", 1)[0]
-    assert "1 down · Prowlarr" in tiles and "1 down · Prowlarr" in card
-    assert " of 11 up" not in tiles + card
+    assert "1 down · Prowlarr" in card and " of 11 up" not in card
+    assert 'class="tiles areatiles' not in page and 'aria-label="Server tiles"' not in page

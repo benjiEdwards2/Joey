@@ -458,8 +458,6 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
 @media (max-width: 640px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 /* E3 (U3, 2026-10-13): on a phone the tiles that repeat the band below (Calendar, Weather) drop out. */
 @media (max-width: 639px) { .tiles > .dup { display: none; } }
-/* E3 (U12, 2026-10-13): the Server page's tile row only links to bands further down the same page — not on a phone. */
-@media (max-width: 639px) { .srvtiles { display: none; } }
 
 /* "Next 7 days": one .row per event. Phone: title + owner, then "Today · 10:00" as the meta line. From 640 px a grid
    (When · Event · Owner) under uppercase column heads. The owner is a word; no colour is needed to read it. */

@@ -388,8 +388,8 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
 
 
 def services_words(snaps) -> str:
-    """"All up" / "2 down · Prowlarr · Sonarr" / "Not connected" — the Services words of the hub card AND the Server
-    page's Services tile (H-73: one vocabulary, guide §9 " · " joins)."""
+    """"All up" / "2 down · Prowlarr · Sonarr" / "Not connected" — the Services words of the hub card (H-73: one
+    vocabulary, guide §9 " · " joins; the Server page's Services tile went with the tile row, WP-T3 2026-10-19)."""
     if not connected(snaps.get(MEDIA_STATUS_SNAPSHOT_ID)) or not _data(snaps, MEDIA_STATUS_SNAPSHOT_ID):
         return "Not connected"
     down = [str(a.get("name", a.get("id", "?"))) for a in _apps(snaps) if not a.get("up")]
@@ -509,18 +509,6 @@ def history_band(samples, now: datetime | None = None) -> dict:
     return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend}
 
 
-def _tile_row(tile, snaps, gated: dict | None) -> dict:
-    """{tile, st} for the page's tile row: a link tile takes its gated hostname, or loses its link (`lan`) when it
-    points at a LAN address; the Services tile says what the hub card says (H-73)."""
-    st = tile_state(tile, snaps)
-    if st["state"] == "link":
-        href = (gated or {}).get(tile.id) or st["href"]
-        st = {**st, "href": None, "lan": True} if is_lan(href) else {**st, "href": href}
-    elif tile.snapshot == MEDIA_STATUS_SNAPSHOT_ID and st["state"] != "off":
-        st = {**st, "value": services_words(snaps)}
-    return {"tile": tile, "st": st}
-
-
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
                  ignores=None, requested=None, history=None, samples=None,
                  live: set[str] | None = None, gated: dict | None = None) -> dict:
@@ -554,8 +542,7 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)
 
-    return {"tiles": [_tile_row(t, snaps, gated) for t in area.tiles],
-            "system": system, "services": services, "updates": updates,
+    return {"system": system, "services": services, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
             "sweeps": sweep_rows(stats, live=live), "counts": _counts(snaps),
             "history": history_band(samples)}

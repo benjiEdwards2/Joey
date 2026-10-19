@@ -15,7 +15,6 @@
    (`from_lan(request)`); the Services cards always show (2026-10-19). #}
 {% from "_kpi.html" import kpi %}
 {% from "_rows.html" import meta, updated %}
-{% set lan = from_lan(request) %}
 {% if sv.attention %}
 <section class="sec" id="attention" aria-label="Attention">
   <div class="sechead"><h2 class="seclabel">Attention</h2></div>
@@ -24,21 +23,6 @@
   </div>
 </section>
 {% endif %}
-{# Summary tiles: one per registry tile, as on every area page. E3 (U12): hidden under 640 px — on this page every tile
-   only links to a band further down. #}
-<section class="tiles areatiles srvtiles" aria-label="{{ area.name }} tiles">
-  {% for row in sv.tiles %}
-    {% set t = row.tile %}{% set st = row.st %}
-    {% if st.state == "link" and st.lan %}
-      {% if lan %}{{ kpi(none, t.label, none, area.icon, st, t.owner.value, value="LAN") }}{% endif %}{# home network only #}
-    {% elif st.state == "link" %}
-      {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true) }}
-    {% else %}
-      {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value) }}
-    {% endif %}
-  {% endfor %}
-</section>
-
 {% set sys = sv.system %}
 <section class="sec" id="system" aria-label="System">
   <div class="sechead"><h2 class="seclabel">System</h2></div>

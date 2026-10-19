@@ -294,9 +294,9 @@ def server_page(tmp_path, monkeypatch, lan, headers=None):
 def test_attention_leads_the_server_page(tmp_path, monkeypatch):
     body = server_page(tmp_path, monkeypatch, lan=True)
     assert "Prowlarr is Down (timeout)" in body
-    assert body.index("</header>") < body.index('id="attention"') < body.index('class="tiles areatiles srvtiles"') \
-        < body.index('id="system"')
-    assert "@media (max-width: 639px) { .srvtiles { display: none; } }" in rules()
+    assert body.index("</header>") < body.index('id="attention"') < body.index('id="system"')
+    # WP-T3 (2026-10-19, S3): the tile row (was hidden on phones, .srvtiles) is gone from the Server page altogether
+    assert "srvtiles" not in body and "srvtiles" not in rules()
 
 
 def test_update_now_is_secondary_and_update_all_the_one_primary(tmp_path, monkeypatch):
@@ -307,14 +307,18 @@ def test_update_now_is_secondary_and_update_all_the_one_primary(tmp_path, monkey
 
 def test_lan_only_links_show_on_the_lan_only(tmp_path, monkeypatch):
     """2026-10-19 (WP-H1, B.): the Services CARDS now show from anywhere and link to their LAN address with the "LAN"
-    word — this reverses E3's off-LAN hiding (back to the 2026-10-10 rule). Link TILES (the tile row) still show only to
-    a request from the LAN."""
+    word — this reverses E3's off-LAN hiding (back to the 2026-10-10 rule). WP-T3 (2026-10-19, S3): the tile row is
+    gone, so the LAN-only Portainer TILE is too; Portainer is its Services › System card, shown like every card."""
     on = server_page(tmp_path, monkeypatch, lan=True)
     off = server_page(tmp_path, monkeypatch, lan=False)
     tunnel = server_page(tmp_path, monkeypatch, lan=True, headers={"Cf-Access-Authenticated-User-Email": "a@b.c"})
-    assert '<div class="microlabel">Portainer</div>' in on and "svc-sub\">Media server · LAN<" in on
-    for page in (off, tunnel):                                   # outside, or through the tunnel from a LAN-ish hop
-        assert '<div class="microlabel">Portainer</div>' not in page      # the tile stays LAN-only
+    assert "svc-sub\">Media server · LAN<" in on
+    for page in (on, off, tunnel):                               # outside, or through the tunnel from a LAN-ish hop
+        assert '<div class="microlabel">Portainer</div>' not in page      # no tile row, no Portainer tile
+        portainer = re.search(r'<a class="svc-card[^"]*" href="[^"]+"[^>]*>(?:(?!</a>).)*>Portainer<(?:(?!</a>).)*</a>',
+                              page, re.S)
+        assert portainer and "Docker management · LAN<" in portainer.group(0)   # a link card saying "LAN"
+    for page in (off, tunnel):
         assert page.count('class="svc-card') == on.count('class="svc-card')     # every card shows
         assert "svc-sub\">Media server · LAN<" in page                    # ... with its LAN word
         lan_cards = re.findall(r'<a class="svc-card[^>]*href="[^"]+"[^>]*>(?:(?!</a>).)*· LAN<', page, re.S)

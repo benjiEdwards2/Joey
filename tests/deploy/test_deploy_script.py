@@ -151,8 +151,9 @@ def _body(name: str) -> str:
 
 
 def test_smoke_checks_the_edge_only_when_swag_is_running():
-    """SWAG stays "running" when nginx inside it fails, so `--status restarting` cannot see a broken conf; and a
-    bind-mounted conf change is never picked up without a reload. Skipped when the edge profile is off."""
+    """SWAG stays "running" when nginx inside it fails, so `--status restarting` cannot see a broken conf. The confs
+    are single-file binds, so recreate_swag (not this reload) applies a conf change; the reload is harmless. Skipped
+    when the edge profile is off."""
     assert SCRIPT.index("edge_smoke() {") < SCRIPT.index("smoke() {" + chr(10) + "    wait_for_hub")
     assert "&& edge_smoke" in _body("smoke")
     edge = _body("edge_smoke")
@@ -179,18 +180,27 @@ def test_host_mode_edge_needs_no_network_gate():
     assert "docker network inspect media-server_default" in SCRIPT  # the media network gate is unchanged
 
 
-def test_edge_profile_force_recreates_swag_after_up_and_on_rollback():
-    """WP-A4 (2026-10-19, PR #5 deployed but not live): the five swag confs are single-FILE `:ro` binds, which pin the
+def test_edge_profile_recreates_swag_after_up_and_on_rollback_only_on_swag_changes():
+    """WP-A4 (2026-10-19, PR #5 deployed but not live): the six swag confs are single-FILE `:ro` binds, which pin the
     inode; `git pull` writes new inodes, so a running swag keeps the old conf and `nginx -s reload` cannot help. Under
-    the edge profile (edge_active, no longer dead code) swag is force-recreated after the main `up` and before the
-    edge smoke, and the rollback recreates it too so a rolled-back conf takes effect. A failed recreate rolls back."""
+    the edge profile swag is force-recreated after the main `up` and before the edge smoke, and the rollback recreates
+    it too so a rolled-back conf takes effect. A failed recreate rolls back.
+    P6 (2026-10-19): only when the deploy changed a file under deploy/swag/ (each recreate is a ~10 s edge blip). The
+    rollback crosses the same PREV..NEW range, so the same diff decides there. --force, or a diff git cannot answer,
+    recreates to be safe. A change to the swag service in compose needs nothing here: `compose up` recreates it."""
+    changed = _body("swag_confs_changed")
+    force = changed.index('if [ "$FORCE" -eq 1 ]; then return 0; fi')
+    diff = changed.index('! GIT diff --quiet "$PREV_SHA" "$NEW_SHA" -- deploy/swag')
+    assert force < diff
     recreate = _body("recreate_swag")
-    guard = recreate.index("if edge_active; then")
+    guard = recreate.index("if edge_active && swag_confs_changed; then")  # edge_active stays the outer guard
     assert guard < recreate.index("docker compose up -d --force-recreate swag")
     up = SCRIPT.index('docker compose up -d --remove-orphans || rollback "compose up failed"')
     call = SCRIPT.index('recreate_swag || rollback "swag recreate failed"')
-    assert SCRIPT.index("edge_active() {") < SCRIPT.index("recreate_swag() {") < SCRIPT.index("rollback() {")
+    assert (SCRIPT.index("edge_active() {") < SCRIPT.index("swag_confs_changed() {") < SCRIPT.index("recreate_swag() {")
+            < SCRIPT.index("rollback() {"))
     assert up < call < SCRIPT.index('smoke || rollback "smoke failed"')
     back = _body("rollback")
     assert (back.index("docker compose up -d --remove-orphans") < back.index("&& recreate_swag")
             < back.index("&& smoke; then"))
+    assert "every deploy" not in SCRIPT  # the always-recreate wording is gone

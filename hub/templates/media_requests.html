@@ -28,7 +28,7 @@
 <div class="row has-form reqrow" id="req-{{ r.id }}">
   <a class="rowlink" href="{{ r.href }}" target="_blank" rel="noopener">
   {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
-  <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, "TV" if r.kind == "tv" else "Film", r.requested_by, r.when]) }}{{ upnote(r.upgrade) }}</div>
+  <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, r.state_word, "TV" if r.kind == "tv" else "Film", r.requested_by, r.when]) }}{{ upnote(r.upgrade) }}</div>
   {{ rate.score_key(r.item_key, ratings) }}
   </a>
   <details class="confirm-wrap reqremove">

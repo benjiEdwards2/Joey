@@ -202,7 +202,7 @@
   {% set rs = (ratings.seasons|selectattr("n", "equalto", s.n)|first) if ratings else none %}
   {% set rbn = {} %}{% if rs %}{% for r in rs.eps %}{% set _ = rbn.update({r.number: r}) %}{% endfor %}{% endif %}
   <details class="seasonbox epseason" id="season-{{ s.n }}"{% if s.open %} open{% endif %}>
-    <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span></div></div></summary>
+    <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span>{% if s.state_word %}<span class="sep"> · </span><span class="seasonstate">{{ s.state_word }}</span>{% endif %}</div></div></summary>
     {% if film.watch_owner and s.id and s.episodes %}<div class="seasonacts">{{ wa.season_toggle(s, film.watch_owner, film.show_id, request.url.path) }}</div>{% endif %}
     <div class="eplist">
     {% for e in s.episodes %}

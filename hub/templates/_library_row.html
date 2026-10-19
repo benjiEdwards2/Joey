@@ -31,6 +31,7 @@
   <span class="row-title">{{ r.title }}</span>
   <span class="row-meta">{% if r.year %}{{ r.year }}{% endif %}{% if r.year and r.card_state %}<span class="sep"> · </span>{% endif %}{% if r.card_state %}<span class="{{ r.card_state.cls }}">{{ r.card_state.word }}</span>{% endif %}</span>
   {% if r.kind == "tv" and r.state == "watching" and r.progress %}<span class="row-meta card-progress">{{ r.progress }}</span>{% endif %}
+  {% if r.kind == "tv" and r.state == "caught_up" and r.sonarr_word %}<span class="row-meta card-progress">{{ r.sonarr_word }}</span>{% endif %}
   {{ upnote(r.upgrade, "span") }}
 </{{ tag }}>
 {% endmacro %}

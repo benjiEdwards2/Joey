@@ -27,10 +27,10 @@ from fastapi.responses import HTMLResponse, Response
 from starlette.background import BackgroundTask
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
-from hub import media_episode_ratings
+from hub import media_episode_ratings, media_season_state as mss
 from hub import media_home, media_text, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
-from hub.media_library import runtime_text
+from hub.media_library import empty_series, runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
 log = logging.getLogger("hub.media_film")
@@ -581,9 +581,19 @@ def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict 
 
 
 def status_line(f: dict) -> str:
-    """The words-first line: what we know about this title, in one sentence of ' · ' pieces."""
+    """The words-first line: what we know about this title, in one sentence of ' · ' pieces. A show (WP-T1,
+    2026-10-19) also says what Sonarr still expects ("3 of 8 episodes · all watched · 5 to come · next airs 2 Nov"),
+    and one with no episode on the server reads "Requested · waiting for the first episode · airs 5 Dec"."""
     if f["jf_failed"]:
         return media_item.DOWN_TEXT
+    son = f.get("sonarr")
+    if not f["on_server"] and f["kind"] == "tv" and (f.get("empty_show") or mss.waiting(son)):
+        word = (son or {}).get("word") or ""
+        parts = [f"Requested {f['requested_when']}" if f.get("requested_when") else "Requested",
+                 mss.waiting_words(son) if not word or word.startswith("Waiting") else word]
+        if f.get("downloading_pct") is not None:
+            parts.append(media_downloads.badge_text({"pct": f["downloading_pct"]}))
+        return " · ".join(parts)
     if not f["on_server"]:
         parts = ["Not on server"]
         if f.get("requested_when"):
@@ -597,10 +607,12 @@ def status_line(f: dict) -> str:
     if f["kind"] == "tv":
         s = f.get("series")
         if s:
-            parts.append(f"{s['episodes']} episode{'s' if s['episodes'] != 1 else ''}")
+            parts.append(mss.episodes_words(son, f"{s['episodes']} episode{'s' if s['episodes'] != 1 else ''}"))
             parts.append(s.get("progress") or (f"{s['to_watch']} to watch" if s["to_watch"] else "all watched"))
             if f.get("next_ep"):
                 parts.append(f"{f['next_ep']['label']} next")
+        if son and son.get("word") and not mss.waiting(son):   # WP-T1: never "all watched" last while more is due
+            parts.append(son["word"])
     else:
         res = next((b["word"] for b in (f.get("files") or {}).get("video", []) if b["icon"] == "res"), None)
         hdr = next((b["word"] for b in (f.get("files") or {}).get("video", []) if b["icon"] == "hdr"), None)
@@ -620,7 +632,8 @@ def status_line(f: dict) -> str:
 
 def _jf_from_snapshot(jelly: dict, kind: str, tmdb: int) -> dict | None:
     for r in jelly.get("movies" if kind == "movie" else "shows") or []:
-        if isinstance(r, dict) and r.get("item_key") == f"tmdb:{tmdb}" and media_item.ITEM_RE.match(str(r.get("jf_id") or "")):
+        if isinstance(r, dict) and r.get("item_key") == f"tmdb:{tmdb}" and media_item.ITEM_RE.match(str(r.get("jf_id") or "")) \
+                and not empty_series(r):   # WP-T1: a show with no episode is not a library entry
             return r
     return None
 
@@ -797,7 +810,7 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
     season = next((s for s in seasons if s.get("n") == n), None) if n is not None else None
     line = [f"Season {n}" if n is not None else None,
             f"Episode {page['episode_no']}" if page["kind"] == "episode" and page.get("episode_no") is not None else None,
-            (season or {}).get("watched_text")]
+            (season or {}).get("watched_text"), (season or {}).get("state_word")]   # WP-T1: "5 to come · next airs 2 Nov"
     show = f"/media/item/{item['id']}"
     return {"title": item["title"], "line": [x for x in line if x], "poster": item["poster"],
             "backdrop": item["backdrop"] if item.get("has_backdrop") else None,
@@ -1030,7 +1043,16 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     if files is None and t and t["status_word"] in md.ON_DISK and not item:
         files = media_files.file_summary(kind, tmdb_id, snaps=snaps)
     on_server = bool(item or row or jf_id and not f["jf_failed"] or (t and t["status_word"] in md.ON_DISK))
-    f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"))
+    # WP-T1 (2026-10-19): a show is on the server only with an episode file. A series Jellyfin lists with no episode
+    # (Sonarr made its folder before any file arrived) and a show Sonarr holds no file of (whatever Seerr says) is not.
+    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    tvdb = ext.get("tvdbId") or (item or {}).get("tvdb")   # F2: Jellyfin's TheTVDB id while the body is pending
+    sonarr = mss.season_states(tvdb, tmdb_id) if kind == "tv" else None
+    empty_show = bool(kind == "tv" and item and item["kind"] == "series" and not any(s.get("episodes") for s in seasons))
+    if empty_show or (kind == "tv" and not item and mss.waiting(sonarr)):
+        on_server = False
+    f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"), sonarr=sonarr,
+             empty_show=empty_show)
     title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title")
              or ("Jellyfin item" if jf_id else "Title unavailable"))
     year = (item["year"] if item else (t or {}).get("year") or (row or {}).get("year"))
@@ -1074,7 +1096,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         if jf_item_id:
             f["play"] = ({"href": href_of(nxt["jf_id"]), "label": f"Next to watch: {nxt['label']} ▶"} if nxt
                          else {"href": href_of(jf_item_id), "label": "Play ▶"})
-    elif jf_item_id or f["jf_failed"]:
+    elif (jf_item_id or f["jf_failed"]) and not empty_show:   # WP-T1: nothing to play in an empty show
         pid = jf_item_id or jf_id
         label = (f"Resume ▶ · {left}" if left else "Resume ▶") if in_progress else "Play again ▶" if played else "Play ▶"
         f["play"] = {"href": href_of(pid), "label": label}
@@ -1082,6 +1104,10 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     page_season = (open_season if open_season is not None
                    else page_item["season_no"] if page_item and page_item["kind"] in ("episode", "season") else None)
     f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None, page_season, f["next_ep"])
+    for s in f["seasons"]:   # WP-T1: "Season 4 · 3 of 6 watched · 5 to come · next airs 2 Nov"
+        s["state_word"] = ((sonarr or {}).get("by_n", {}).get(s["n"]) or {}).get("word")
+    # WP-T1: Sonarr's reads for these words run after the response (never before the render); the next view has them
+    f["state_later"] = mss.later([(tvdb, tmdb_id)], detail=True) if kind == "tv" else None
     f["part_of"] = part_of(page_item, item, f["seasons"])
     if ep:
         ep = listed_episode(ep, seasons)  # media-ux4: one watch state per page (hero = banner = rows)
@@ -1145,8 +1171,6 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     req = _requested(snaps, tmdb_id) if tmdb_id else None
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
-    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
-    tvdb = ext.get("tvdbId") or (item or {}).get("tvdb")   # F2: Jellyfin's TheTVDB id while the body is pending
     dl_keys = ([f"tmdb:{tmdb_id}"] if kind == "movie" and tmdb_id else
                [f"tvdb:{tvdb}"] if kind == "tv" and str(tvdb or "").isdigit() else [])
     f["downloading_pct"] = md._dl_pct(dl_keys, snaps) if dl_keys and not f["jf_failed"] else None   # M-50: by key
@@ -1258,7 +1282,7 @@ def film_awards(kind, tmdb_id, jelly: dict, jf_item_id) -> list[dict]:
 # ---- routes ----
 
 def _render(request: Request, src, film: dict, view, from_query, snaps=None):
-    later = film.pop("ratings_later", None)
+    later = mss.chain(film.pop("ratings_later", None), film.pop("state_later", None))
     resp = shell.render_page(request, "media_film.html", {
         "status": shell.build_status(shell.get_snapshots() if snaps is None else snaps), "src": src, "film": film})
     if later is not None:   # WP-E1: the episode ratings' missing reads, after the response - never before the render

@@ -1004,3 +1004,27 @@ page every Services card now shows from anywhere and links to its gated hostname
 the subtitle): this reverses E3's off-LAN hiding of cards (back to the 2026-10-10 rule); the summary link tiles (Portainer)
 still show only on the LAN. Tests: `test_media_detail.py` (two Health tests added), `test_first_screens_e3.py`
 (`test_lan_only_links_show_on_the_lan_only` re-pointed).
+
+Season state words (2026-10-19, WP-T1). B.: WAR (2026) read "all watched" with 3 of 8 episodes on disk and 5 still to
+air. New `hub/media_season_state.py` reads Sonarr live from the hub (no connector change): ONE `GET /api/v3/series`
+(the whole list, statistics per season, matched by TheTVDB id then TMDB id, never by title) serves every show on every
+page, and a show / season / episode page adds `GET /api/v3/episode?seriesId=&seasonNumber=` for each incomplete season
+(the latest 3) for exact aired / to-come counts and the next air date; both kept 10 min, a failed read keeps the last
+good answer and is not retried for 60 s. Pages never call Sonarr before the render: they draw from the cache and queue
+the reads as the response's BackgroundTask (the first view may lack the words, the next has them; a Sonarr failure
+never fails a page). Words: "Complete" · "5 to come · next airs 2 Nov" ("date TBA") · "2 aired, not downloaded" ·
+"Waiting for the first episode · airs 5 Dec" · "Season 3 announced"; a series with everything Sonarr knows of says
+"Complete" when Sonarr calls it ended, else "Up to date". Where they show: the show hero status line ("On server · 3 of 8
+episodes · all watched · 5 to come · next airs 2 Nov" — the state is always the last word), each Seasons row head
+("Season 4 · 3 of 6 watched · 5 to come · …"), the season / episode page "part of" line, My shows (a fully watched show
+with more due is "Caught up", grouped "Caught up · more to come", not "Finished"; the head line adds "N caught up" only
+when there are any), and Requests (a partly downloaded show: "Partly available · 3 of 8 episodes · 5 to come · …").
+On-server rule: a show is "On server" only with an episode file. A series Jellyfin lists with 0 episodes (Sonarr's
+folder before the first file; the connector already drops a counted 0, the hub now guards too via
+`media_library.empty_series`) is no library entry — left out of My shows (listed under "Waiting for the first episode"
+instead), the library keys (watchlist "On disk", shelf / collection "On server"), the Activity › Library links and the
+title page's library row; its item page and a Sonarr-only show's title page read "Requested · waiting for the first
+episode · airs 5 Dec" (no Play), and its Requests row says "Requested" whatever Seerr's word. Without Sonarr connected,
+or for a show Sonarr does not have, every page keeps its words. Tests: `tests/hub/test_season_state.py` (new, 25);
+`test_media_follow_shows.py`, `test_media_discover_search_now.py`, `test_media_requests_remove.py` re-pointed (their
+"no call at all" pins now allow the one background series-list read, `helpers.not_season_state`).

@@ -13,9 +13,11 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.background import BackgroundTask
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_requests, media_resume, media_upgrades, media_wrapped, media_write, server, shell, upcoming)
+                 media_plays_db, media_requests, media_resume, media_season_state, media_upgrades, media_wrapped, media_write,
+                 server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -184,12 +186,35 @@ def media_requests_page(request: Request):
         # match rows by identity, and the snapshot's own dicts stay untouched)
         rows = [dict(r) for r in rows]
         media_upgrades.attach(rows, shell.get_snapshots(request=request), None, lambda r: r.get("tvdb_id"))
+        tv = [r for r in rows if r.get("kind") == "tv"]
+        for r in tv:   # WP-T1: Sonarr's words (cache only; the read runs after the response)
+            request_words(r, media_season_state.season_states(r.get("tvdb_id"), r.get("tmdb_id")))
+        later[0] = media_season_state.later([(r.get("tvdb_id"), r.get("tmdb_id")) for r in tv])
         good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
                 "rows": rows, "flash": good, "flash_warn": warn,
                 "ratings": media_home._ratings(view, rows)}
-    return _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
+    later = [None]
+    resp = _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
+    if later[0] is not None:
+        resp.background = BackgroundTask(later[0])
+    return resp
+
+
+def request_words(row: dict, state: dict | None) -> None:
+    """WP-T1 (2026-10-19): a TV request row's Sonarr words, in place. A show Sonarr holds no file of reads "Requested"
+    (even when Seerr says Available - nothing is on disk) with "Waiting for the first episode · airs 5 Dec" beside it;
+    a partly downloaded one keeps Seerr's word and gains "3 of 8 episodes · 5 to come · next airs 2 Nov". Without a
+    state (Sonarr not connected / not read yet / not there) the row is unchanged."""
+    if not state or not state.get("word"):
+        return
+    if media_season_state.waiting(state):
+        if row.get("status_text") not in ("Pending", "Declined", "Failed"):
+            row["status_text"] = "Requested"
+        row["state_word"] = state["word"]
+    elif state.get("to_come") or state.get("missing"):
+        row["state_word"] = " · ".join(x for x in (media_season_state.episodes_words(state, ""), state["word"]) if x)
 
 
 @router.get("/media/history", response_class=HTMLResponse)
@@ -323,8 +348,7 @@ def _lib_href():
     return href_of
 
 
-def _library_lists(data: dict, view: str, kind: str):
-    """(items | None, marks): her view reads her own list; without it the shared list has no marks."""
+def _all_lists(data: dict, view: str, kind: str):
     field = "movies" if kind == "movie" else "shows"
     if view == "her":
         mine = (data.get("her") or {}).get(field)
@@ -332,6 +356,39 @@ def _library_lists(data: dict, view: str, kind: str):
             return mine, True
         return data.get(field), False
     return data.get(field), True
+
+
+def _library_lists(data: dict, view: str, kind: str):
+    """(items | None, marks): her view reads her own list; without it the shared list has no marks. WP-T1 (2026-10-19):
+    a show with no episode yet (Sonarr's empty folder, media_library.empty_series) is not a library entry - it is left
+    out here, so the grids, the counts, the Activity links and the awards matches never treat it as one."""
+    items, marks = _all_lists(data, view, kind)
+    return (None if items is None else [i for i in items if not media_library.empty_series(i)]), marks
+
+
+def _show_keys(row: dict) -> tuple:
+    """(tvdb, tmdb) for a library show row: its item_key, plus the TheTVDB id its page has cached (no read)."""
+    key = str(row.get("item_key") or "")
+    tvdb = key[5:] if key.startswith("tvdb:") else _cached_tvdb(row)
+    return tvdb, key[5:] if key.startswith("tmdb:") else None
+
+
+def waiting_shows(data: dict, view: str) -> list[dict]:
+    """WP-T1: the shows Jellyfin lists with no episode yet, as rows for My shows' "Waiting for the first episode"
+    block: "Requested · waiting for the first episode · airs 5 Dec" (Sonarr's cached state; "date TBA" without a date,
+    the bare words without Sonarr)."""
+    items, _marks = _all_lists(data, view, "tv")
+    out = []
+    for it in items or []:
+        if not media_library.empty_series(it):
+            continue
+        st = media_season_state.season_states(*_show_keys(it))
+        word = (st or {}).get("word") or ""
+        out.append({"title": it.get("title") or "Untitled", "year": it.get("year"), "poster": it.get("poster"),
+                    "href": media_home.item_href(it.get("jf_id")), "keys": _show_keys(it),
+                    "word": "Requested · " + (media_season_state.waiting_words(st)
+                                              if not word or word.startswith("Waiting") else word)})
+    return out
 
 
 def _library_rows(data: dict, view: str, kind: str):
@@ -378,6 +435,11 @@ def _library_page(request: Request, kind: str):
 
     def build(data, view):
         items, marks, rows = _library_rows(data, view, kind)
+        waiting = []
+        if kind == "tv":   # WP-T1: Sonarr's words from its cache; the reads run after the response
+            media_library.apply_season_state(rows, lambda r: media_season_state.season_states(*_show_keys(r)))
+            waiting = waiting_shows(data, view)
+            later[0] = media_season_state.later([_show_keys(r) for r in rows or []] + [w["keys"] for w in waiting])
         # media-ux4: each grid card says Watched / Not watched / In progress (a film is in progress while it sits in the
         # viewer's resume list)
         resume = {str(r.get("jf_id")) for r in data.get("up_next") or [] if media_resume.in_progress(r) and r.get("jf_id")}
@@ -400,9 +462,12 @@ def _library_page(request: Request, kind: str):
             "head_line": media_library.head_line(rows or [], kind, marks),
             "groups": media_library.arrange(rows or [], q, sort, group, kind, marks),
             "ratings": media_home._ratings(view, arrived),
-            "libview": libview, "libview_links": library_view_links(request),
+            "libview": libview, "libview_links": library_view_links(request), "waiting": waiting,
         }
+    later = [None]
     resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
+    if later[0] is not None:
+        resp.background = BackgroundTask(later[0])
     if view_from_query:
         resp.set_cookie(LIBVIEW_COOKIE, libview, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
     return resp

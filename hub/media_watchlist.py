@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_watchlist_db as wl, shell
+from hub.media_library import empty_series
 from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_write import bad, clean_item, form_of, is_htmx, owner_for, same_origin
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
@@ -35,7 +36,8 @@ def keys_for(request: Request, keys) -> set:
 
 
 def on_server_keys(jelly: dict, kind: str) -> set:
-    return {i.get("item_key") for i in (jelly or {}).get(FIELD[kind]) or [] if i.get("item_key")}
+    """The library keys of one kind. WP-T1: a show with no episode yet (media_library.empty_series) is not on the server."""
+    return {i.get("item_key") for i in (jelly or {}).get(FIELD[kind]) or [] if i.get("item_key") and not empty_series(i)}
 
 
 def tab_counts(owner: str, jelly: dict | None) -> dict:

@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from hub import media_hidden
 from tests.hub.helpers import make_area, FakeResponse as R, write_envelope
+from tests.hub.helpers import not_season_state  # WP-T1
 from tests.hub.conftest import main_of  # noqa: F401  (shared helper; other test modules import it from here)
 
 SAMPLE = json.loads((Path(__file__).resolve().parents[2] / "config" / "sample_snapshots" / "jellyseerr.json")
@@ -240,7 +241,7 @@ def test_unknown_request_is_refused_without_any_call(env):
     with client:
         r = remove(client, 999)
         page = main_of(client.get(r.headers["location"]).text)
-    assert r.headers["location"] == "/media/requests?error=missing" and fake.calls == []
+    assert r.headers["location"] == "/media/requests?error=missing" and not_season_state(fake.calls) == []   # WP-T1
     assert "That request is no longer listed" in page
 
 
@@ -251,7 +252,7 @@ def test_remove_requires_same_origin(env):
     with client:
         r = client.post("/media/requests/13/remove", headers=ORIGIN_BAD, follow_redirects=False)
         page = main_of(client.get("/media/requests").text)
-    assert r.status_code == 403 and fake.calls == []
+    assert r.status_code == 403 and not_season_state(fake.calls) == []   # WP-T1: the page's background list read only
     assert "Midnight Harbour" in page
 
 

@@ -21,6 +21,12 @@ parse_ts = media_text.parse          # ISO -> aware datetime, None when it is no
 runtime_text = media_text.duration   # 112 -> "1h 52m", 47 -> "47m", 120 -> "2h", missing -> "—"
 
 
+def empty_series(row) -> bool:
+    """WP-T1 (2026-10-19): a library show row with a counted 0 episodes - Sonarr's folder before any file arrived. It
+    is not a library entry and not "On server". A row without an `episodes` count (older snapshots) is not empty."""
+    return isinstance(row, dict) and "episodes" in row and not row.get("episodes")
+
+
 def _watched_text(played, last, ago) -> str:
     if not played:
         return "Not watched"
@@ -72,9 +78,25 @@ def card_state(row: dict, resume_ids=frozenset()) -> dict | None:
     if row.get("kind") == "movie":
         key = "watched" if row["played"] else "progress" if str(row.get("jf_id")) in resume_ids else "todo"
     else:
-        key = {"finished": "watched", "watching": "progress"}.get(row.get("state"), "todo")
+        key = {"finished": "watched", "watching": "progress", "caught_up": "caught_up"}.get(row.get("state"), "todo")
     return {"watched": {"word": "Watched", "cls": "st-good"}, "progress": {"word": "In progress", "cls": "st-progress"},
+            "caught_up": {"word": "Caught up", "cls": "st-good"},   # WP-T1: every episode watched, more still due
             "todo": {"word": "Not watched", "cls": "st-todo"}}[key]
+
+
+def apply_season_state(rows, state_of) -> None:
+    """WP-T1 (2026-10-19): Sonarr's words on show rows, in place. `state_of(row)` -> media_season_state's cached state or
+    None. A show with episodes still to come or aired-but-missing gains them after its episode words ("6 episodes · All
+    watched · 2 to come · next airs 2 Nov"), and a fully watched one is "Caught up", not "Finished", while more is due.
+    Rows without a state keep their words."""
+    for r in rows or []:
+        st = state_of(r) if r.get("kind") == "tv" else None
+        if not st or not st.get("word") or not (st.get("to_come") or st.get("missing")):
+            continue
+        r["sonarr_word"] = st["word"]
+        r["eps_text"] = (r["eps_text"] + " · " if r.get("eps_text") else "") + st["word"]
+        if r.get("state") == "finished":
+            r["state"] = "caught_up"
 
 
 def film_rows(items, ratings, ago, href_of, marks=True) -> list[dict]:
@@ -102,6 +124,7 @@ def sort_rows(rows, sort: str) -> list[dict]:
 GROUPS = {"movie": [("Watched", lambda r: r["played"]), ("Not yet watched", lambda r: not r["played"])],
           "tv": [("Watching", lambda r: r["state"] == "watching"),
                  ("Not started", lambda r: r["state"] == "not_started"),
+                 ("Caught up · more to come", lambda r: r["state"] == "caught_up"),   # WP-T1
                  ("Finished", lambda r: r["state"] == "finished")]}
 
 
@@ -128,7 +151,8 @@ def head_line(rows, kind: str, marks: bool = True) -> str:
     if not marks:
         return base
     c = lambda s: sum(1 for r in rows if r["state"] == s)
-    return f"{base} · {c('watching')} watching · {c('not_started')} not started · {c('finished')} finished"
+    caught = f" · {c('caught_up')} caught up" if c("caught_up") else ""   # WP-T1: only when Sonarr says more is due
+    return f"{base} · {c('watching')} watching · {c('not_started')} not started{caught} · {c('finished')} finished"
 
 
 def arrived_this_week(arrived, kind: str) -> list[dict]:

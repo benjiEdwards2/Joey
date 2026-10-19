@@ -12,6 +12,7 @@ import requests
 
 from hub import media_arr_search, media_follow, media_store
 from tests.hub.conftest import main_of
+from tests.hub.helpers import not_season_state  # WP-T1
 from tests.hub.film_page import whole
 from tests.hub.helpers import env, FakeResponse as R, SEERR_URL as SEERR, SKEY  # noqa: F401
 
@@ -230,8 +231,9 @@ def test_cold_show_page_draws_the_line_before_any_upstream_call(son_env, monkeyp
     with client:
         page = client.get("/media/item/ser1").text
         # WP-E1 (2026-10-16): the episode ratings' TMDB season read is the response's BackgroundTask - after the
-        # render, but TestClient runs it before get() returns, so it is the one Jellyseerr call allowed here
-        assert not [c for c in both.calls if c.startswith(SEERR) and "/season/" not in c] and son.calls == []
+        # render, but TestClient runs it before get() returns, so it is the one Jellyseerr call allowed here.
+        # WP-T1 (2026-10-19): likewise the season-state words' one Sonarr series-list read.
+        assert not [c for c in both.calls if c.startswith(SEERR) and "/season/" not in c] and not_season_state(son.calls) == []
         go.set()
     assert 'action="/media/follow/show/100/unfollow"' in page and "Following ✓ · future seasons" in page
 

@@ -1004,3 +1004,5 @@ page every Services card now shows from anywhere and links to its gated hostname
 the subtitle): this reverses E3's off-LAN hiding of cards (back to the 2026-10-10 rule); the summary link tiles (Portainer)
 still show only on the LAN. Tests: `test_media_detail.py` (two Health tests added), `test_first_screens_e3.py`
 (`test_lan_only_links_show_on_the_lan_only` re-pointed).
+
+2026-10-19 (WP-T2): the hub's Weather tile left the top row (now the three area cards in three equal columns, one on a phone) and the weather glimpse runs full width directly under "Next 7 days", its 7-day strip spreading across the row; tests: `test_hub_page.py` (two added, one re-pointed), `test_first_screens_e3.py` / `test_hidden_areas.py` / `test_weather.py` (re-pointed), `test_style_pages.py` (CSS block test added).

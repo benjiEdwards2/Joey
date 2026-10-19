@@ -65,14 +65,15 @@ def test_hub_sub_names_a_stale_feed(tmp_path, monkeypatch):
     assert sub.endswith(" · Calendar stale") and "Feeds" not in sub             # stale is still live: no count
 
 
-def test_calendar_and_weather_tiles_are_marked_dup_and_hidden_on_a_phone(hub):
+def test_calendar_tile_is_marked_dup_and_hidden_on_a_phone(hub):
+    """Re-pointed 2026-10-19 (WP-T2): the Weather tile left the hub row, so Calendar is the only .dup card (three cards)."""
     _, body = hub()
     tiles = kpis_of(body)
-    assert '<a class="panel tile dup" href="/a/calendar"' in tiles and '<a class="panel tile dup" href="/weather"' in tiles
+    assert '<a class="panel tile dup" href="/a/calendar"' in tiles and 'href="/weather"' not in tiles
     classes = re.findall(r'<(?:a|div) class="(panel tile[^"]*)"', tiles)
-    assert len(classes) == 4 and sum("dup" in c.split() for c in classes) == 2   # Media and Server stay on a phone
+    assert len(classes) == 3 and sum("dup" in c.split() for c in classes) == 1   # Media and Server stay on a phone
     assert "@media (max-width: 639px) { .tiles > .dup { display: none; } }" in rules()
-    assert body.index('class="tiles') < body.index('class="band a"')            # the band follows the tiles
+    assert body.index('class="tiles') < body.index('class="band hubband"')         # the band follows the tiles
 
 
 def test_calendar_card_value_is_the_title_and_the_day_time_is_meta(hub):

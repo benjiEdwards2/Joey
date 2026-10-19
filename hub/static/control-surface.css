@@ -1388,3 +1388,13 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .row-logo { width: 32px; height: 32px; padding: 4px; }
 .row-logo.svc-fallback { padding: 0; }
 .row-logo.svc-fallback .svc-initial { font-size: 14px; }
+
+/* Hub: weather row (2026-10-19) */
+/* WP-T2: the hub's tile row holds the area cards only, three equal columns from 640 px (two when the row is few, a lone
+   card spanning both), one column on a phone. "Next 7 days" and the weather glimpse stack full width in one band; the
+   glimpse's 7-day strip already spreads as seven equal columns, so it fills the row on a desktop. */
+.hubtiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hubtiles.few { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 639px) { .hubtiles, .hubtiles.few { grid-template-columns: minmax(0, 1fr); } }
+.hubband { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.hubband > .sec { min-width: 0; }

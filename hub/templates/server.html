@@ -130,14 +130,15 @@
   {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
   {# 2026-10-12: Update all (every pending, non-ignored row that may run — no wud / joey-*) and Update and restart
      media stack (stackctl: pull + recreate the whole media-server compose; hidden without STACKCTL_URL/TOKEN). Each
-     has its own confirm page. The stack line is stackctl's last run, in words. #}
+     has its own confirm page. The stack line is stackctl's last run, in words — WP-T3 (2026-10-19, S4): only when
+     stackctl is connected; not configured means no line at all (was "Media stack · Not connected" on every visit). #}
   {% if up.n_eligible or stack.connected %}
   <div class="confirm-btns">
     {% if up.n_eligible %}<a class="btn btn-primary btn-sm" href="/server/updates/all/run?step=confirm">Update all</a>{% endif %}
     {% if stack.connected %}<a class="btn btn-secondary btn-sm" href="/server/stack/run?step=confirm">Update and restart media stack</a>{% endif %}
   </div>
   {% endif %}
-  <p class="metaline">Media stack<span class="sep"> · </span><span class="{{ {'running': 'st-warn', 'failed': 'st-down', 'unreachable': 'st-warn', 'off': 'st-off'}.get(stack.state, '') }}">{{ stack.text }}</span></p>
+  {% if stack.connected %}<p class="metaline">Media stack<span class="sep"> · </span><span class="{{ {'running': 'st-warn', 'failed': 'st-down', 'unreachable': 'st-warn'}.get(stack.state, '') }}">{{ stack.text }}</span></p>{% endif %}
   {% if up.st.state == "off" %}
     <p class="empty">Not connected</p>
     {% if up.st.note %}<p class="metaline">{{ up.st.note }}</p>{% endif %}

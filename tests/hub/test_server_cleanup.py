@@ -79,3 +79,16 @@ def test_attention_panel_renders_the_action_links(env):
             'href="http://nas.local:9696" target="_blank" rel="noopener">Open</a></p>') in att
     assert '<p class="st-warn attn-item">Uptime Kuma: Prowlarr is Down <a class="btn btn-ghost btn-sm" ' \
            'href="#services">Services</a></p>' in att
+
+
+# ---- S8: five bands, in order -----------------------------------------------------------------------------------
+
+def test_five_bands_in_order_and_nothing_shown_twice(env):
+    with env() as client:
+        body = main_of(client.get("/server").text).split("</main>", 1)[0]
+    bands = ['id="attention"', 'id="system"', 'id="services"', 'id="updates"', 'id="history"']
+    assert [body.index(b) for b in bands] == sorted(body.index(b) for b in bands)
+    for gone in ('id="counts"', 'class="tiles areatiles', '<section class="sec" id="sweeps"', 'microlabel">Last sweep<'):
+        assert gone not in body, gone
+    system = body.split('id="system"', 1)[1].split('id="services"', 1)[0]
+    assert body.count('class="bar" role="img"') == system.count('class="bar" role="img"') == 3   # System's volumes only

@@ -6,14 +6,18 @@
 {{ pagehead(area.name, sub=sub) }}
 {% endblock %}
 {% block content %}
-{# Server area (WP-S1, 2026-10-06; restyle Phase 4): bands, top to bottom: Attention (E3, U12, 2026-10-13: first, and
-   only when something needs it — "All clear" is said once, in the sub-line), the tiles, System, Last 24 h (WP-U4),
-   Services, Updates, Sweeps · 24 h, Counts (the Monitors band, WP-S4, was removed 2026-10-12: it repeated Services;
-   Uptime Kuma still feeds the cards' ms, the Monitors tile and Attention). Each band degrades to "Not connected" on its
-   own. Up/Down are WORDS (.st-up emerald / .st-down red) beside the tinted row: colour is never the only encoding. Amber
-   only where there is something to do. A LAN-only link TILE shows only to a request from the LAN
-   (`from_lan(request)`); the Services cards always show (2026-10-19). #}
-{% from "_kpi.html" import kpi %}
+{# Server area (WP-S1, 2026-10-06; restyle Phase 4). Server clean-up (WP-T3, 2026-10-19) — five bands, top to bottom:
+   Attention (E3, U12, 2026-10-13: first, and only when something needs it — "All clear" is said once, in the sub-line;
+   each item with its action, S7; the disk forecast under 30 days, S6) → System (CPU, RAM, uptime, the ONE disk block;
+   the sweeps line + its fold, S5, replacing the Sweeps · 24 h band and the Last sweep stat) → Services (the card grid;
+   the Library health line under Downloads, S1 + S2, replacing the Counts band) → Updates ("checked N ago", S9; the
+   Media stack line only when stackctl is connected, S4) → Last 24 h (a fold, open on a desktop, closed on a phone; S6,
+   moved from under System). Gone: the tile row (S3; the hub card is the summary, Portainer is its Services card) and
+   the Counts band (S2; Requests / Torrents / arr downloading repeated Activity, the arr disk bars repeated System). The
+   Monitors band went 2026-10-12 (it repeated Services; Uptime Kuma still feeds the cards' ms and Attention). Each band
+   degrades to "Not connected" on its own. Up/Down are WORDS (.st-up emerald / .st-down red) beside the tinted row:
+   colour is never the only encoding. Amber only where there is something to do. The Services cards show from
+   anywhere (2026-10-19). #}
 {% from "_rows.html" import meta, updated %}
 {% if sv.attention %}
 <section class="sec" id="attention" aria-label="Attention">

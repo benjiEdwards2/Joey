@@ -98,7 +98,7 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     # band order, top to bottom
     marks = [body.index(m) for m in   # E3 (U12, 2026-10-13): Attention first, right under the page head
              ('class="pagehead"', 'id="attention"', 'id="system"', 'id="services"',
-              'id="updates"')]
+              'id="updates"', 'id="history"')]   # WP-T3 (2026-10-19, S8): five bands, Last 24 h last
     assert marks == sorted(marks)
 
 

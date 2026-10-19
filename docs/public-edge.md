@@ -2,15 +2,21 @@
 
 Joey TV WP-A3 (2026-10-18). Friends' TVs reach Jellyfin directly through one nginx (SWAG), not through Cloudflare Access
 and not through the hub. This page says what exists in the repo and how to run it. Everything is **dark** until B. sets
-`COMPOSE_PROFILES=edge` on the NAS (WP-A4) and the router forwards 443 (WP-A5). Requirements: R4-E1…E9 in the Joey TV
+`COMPOSE_PROFILES=edge` on the NAS (WP-A4) and the router forwards external 8443 to NAS 443 (WP-A5). Requirements: R4-E1…E9 in the Joey TV
 MASTER_PLAN.
 
 ## Request path
 
 ```
-friend TV -> router :443 -> NAS host :443 = joey-swag's nginx (host network) -> 127.0.0.1:8096 -> docker-proxy -> jellyfin
+friend TV -> router external :8443 -> NAS host :443 = joey-swag's nginx (host network) -> 127.0.0.1:8096 -> docker-proxy -> jellyfin
 ```
 
+- **Why 8443 outside.** The public address is `https://jellyfin.joeyhome.net:8443`, not :443. The TP-Link Deco X50 router
+  drops external TCP 80 and 443 before they reach the NAS (they are the Deco's own web/API ports), while external 8443
+  forwards fine, so the router's only forward is external 8443 -> NAS 443. Nothing on the NAS changes: SWAG still
+  listens on 443, and the LAN and loopback checks keep using 443. Two consequences: a TLS grader must be port-capable
+  (SSL Labs only tests 443), and client apps (the official Jellyfin app, the TV shell) need the `:8443` in the server
+  address.
 - `media.joeyhome.net` is **not** on this path. It is tunnel-routed (Cloudflare) and arrives in Phase B.
 - SWAG answers one name, `jellyfin.joeyhome.net` (`deploy/swag/proxy-confs/jellyfin.subdomain.conf`). Every other Host,
   SNI or bare IP hits the catch-all in `deploy/swag/site-confs/default.conf` and gets nginx 444 (connection closed).
@@ -71,7 +77,9 @@ can work, but not deterministically after a deploy. Host mode removes the depend
 Compose reads `COMPOSE_PROFILES` from `deploy/.env`. Unset, both stay dark and a deploy behaves exactly as before.
 Images are pinned (manual updates only; `joey-*` containers are held from WUD). When swag is running, `deploy.sh`'s
 smoke step runs `nginx -t`, `nginx -s reload` and a `/health` curl to `127.0.0.1:443` from a host-network curl container
-(see `deploy/README.md`). **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
+(see `deploy/README.md`). The six repo confs are single-file `:ro` binds, so a running swag sees new conf only after a
+recreate: `deploy.sh` force-recreates swag on every deploy while the edge profile is on, and a manual conf change
+outside `deploy.sh` needs `docker compose up -d --force-recreate swag`, not `nginx -s reload`. **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
 deploy with the profile off may remove `joey-swag` mid-stream.
 
 ## edge.env keys
@@ -111,6 +119,9 @@ included), so a stray one could only come from an extra file in `/volume1/Docker
 `/config/nginx/resolver.conf` may still hold Docker's bridge-mode resolver (127.0.0.11), which does not exist on the
 host network. Nothing uses it while the upstream is a literal IP; delete the file and restart swag to regenerate it
 from the host's `/etc/resolv.conf` if a named upstream is ever added.
+In host mode SWAG's bundled php-fpm (stock pool `listen = 127.0.0.1:9000`) clashed with Portainer's published host 9000
+("Address in use (98)" every second, WP-A5): `deploy/swag/php/www2.conf`, bound `:ro` to `/config/php/www2.conf` (the base
+image's pool override, included after `php-fpm.d/*.conf`), moves the `[www]` pool to the unix socket `/var/run/php-fpm.sock`.
 
 ## Geo and fail2ban
 
@@ -122,6 +133,8 @@ from the host's `/etc/resolv.conf` if a named upstream is ever added.
   10.0.0.0/8, 192.168.0.0/16, 127.0.0.1/32, the geo gate's local set).
 - SWAG's stock **`nginx-unauthorized` jail is disabled**: it bans on any 401, and Jellyfin answers every request from a TV
   holding a stale token with 401, so it would ban friends' households.
+- Bans are **DROP** rules in the host's nft `ip filter` table (`nft list chain ip filter f2b-jellyfin-auth` shows them);
+  REJECT is unsupported on the ADM kernel (iptables-nft "Extension REJECT revision 0 not supported").
 - Live check: `docker exec joey-swag fail2ban-regex /config/log/nginx/access.log /etc/fail2ban/filter.d/jellyfin-auth.local`.
 
 ## Verify from outside
@@ -130,7 +143,7 @@ Run from a phone hotspot (not the home network, which can hairpin to the LAN add
 
 ```
 nslookup jellyfin.joeyhome.net. 1.1.1.1
-curl -sI --doh-url https://cloudflare-dns.com/dns-query https://jellyfin.joeyhome.net/health
+curl -sI --doh-url https://cloudflare-dns.com/dns-query https://jellyfin.joeyhome.net:8443/health
 ```
 
 `nslookup` must return the home WAN address (a grey-cloud A record, no AAAA). The curl resolves through Cloudflare's
@@ -160,7 +173,7 @@ set up by WP-A3.)
 
 Runbook R3. Either step closes the public door within a minute; B. knows both before any port opens.
 
-- **(a) Router:** B. disables the 443 port forward on the router.
+- **(a) Router:** B. disables the router's 8443 forward (external 8443 -> NAS 443).
 - **(b) NAS:** `docker compose stop swag` in `/volume1/Docker/joey/life-dashboard/deploy`.
 - **For `media.joeyhome.net`** (Phase B): delete the tunnel public hostname in Cloudflare.
 

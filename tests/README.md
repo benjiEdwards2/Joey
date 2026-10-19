@@ -23,13 +23,15 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 | `tests/money/` | The money pre-commit guard only (the money importer was never built) |
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
 
-`tests/deploy/test_edge.py` (Joey TV WP-A3, 2026-10-18) pins the public edge offline: one published port (443), one `server_name` and one
-upstream (`jellyfin:8096` by name), AU + NZ geo with our own `$joey_country`, the 444 catch-all, the `jellyfin-auth` fail2ban jail
-(5/600/3600, regex fixtures, stock `nginx-unauthorized` off), `edge.env` ignored by git and docker, and no Cloudflare token value
-anywhere in `deploy/`. `test_deploy_script` gained the edge gate and smoke checks; `test_compose_limits` gained swag 192m and ddns 32m.
-Two older pins were extended (not weakened) for the edge, each with a dated DECISIONS line (2026-10-18): the top-level networks pin in
-`tests/deploy/test_cloudflared.py` is `{"media", "joey-edge"}`, and `tests/connectors/test_container.py`'s exact services set gains
-`swag` and `ddns` and its networks dict gains `joey-edge`. `nginx -t`, certbot and `fail2ban-regex` run only live (WP-A4).
+`tests/deploy/test_edge.py` (Joey TV WP-A3, 2026-10-18; host network mode since WP-A4, 2026-10-19) pins the public edge offline: swag in
+`network_mode: host` with no `ports`/`networks` and no service publishing a port, no port 80, one `server_name` and one upstream
+(`127.0.0.1:8096`, the only IPv4 literal allowed), AU + NZ geo with our own `$joey_country` plus 192.168/16, 10/8 and 127.0.0.1 (no
+172.16/12), the 444 catch-all, the `jellyfin-auth` fail2ban jail (5/600/3600, regex fixtures, stock `nginx-unauthorized` off, `ignoreip`
+= the geo gate's local set), `edge.env` ignored by git and docker, and no Cloudflare token value anywhere in `deploy/`.
+`test_deploy_script` gained the edge smoke checks (and pins that the gate no longer checks `joey-edge`); `test_compose_limits` gained
+swag 192m and ddns 32m. `tests/connectors/test_container.py`'s exact services set gains `swag` and `ddns`. The top-level networks pins in
+`tests/deploy/test_cloudflared.py` (`{"media"}`) and `test_container.py` (`media` only) are back to their original exact form: WP-A3
+extended them for `joey-edge`, which host mode no longer declares. `nginx -t`, certbot and `fail2ban-regex` run only live (WP-A4).
 
 `tests/hub/` by theme (file prefixes):
 

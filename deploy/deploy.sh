@@ -105,15 +105,11 @@ docker compose config -q || gate_fail "compose config invalid"
 # hub + connectors join the media stack's network (N-09); `up` fails without it, so check first
 docker network inspect media-server_default >/dev/null 2>&1 \
     || gate_fail "network media-server_default missing — start the media stack first"
-# Edge profile on (COMPOSE_PROFILES in deploy/.env enables swag; Joey TV WP-A3): swag joins the external joey-edge
-# network, which nas_scripts/jellyfin_edge_net.sh creates (Q45) — `up` fails without it, so check first.
+# Edge profile on (COMPOSE_PROFILES in deploy/.env enables swag; Joey TV WP-A3). swag runs in host network mode
+# (WP-A4, Q44 = a), so it needs no Docker network and the gate has nothing extra to check for it.
 edge_active() {
     docker compose config --services 2>/dev/null | grep -qx swag
 }
-if edge_active; then
-    docker network inspect joey-edge >/dev/null 2>&1 \
-        || gate_fail "network joey-edge missing — run nas_scripts/jellyfin_edge_net.sh first"
-fi
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.

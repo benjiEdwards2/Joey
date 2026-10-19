@@ -71,7 +71,7 @@ can work, but not deterministically after a deploy. Host mode removes the depend
 Compose reads `COMPOSE_PROFILES` from `deploy/.env`. Unset, both stay dark and a deploy behaves exactly as before.
 Images are pinned (manual updates only; `joey-*` containers are held from WUD). When swag is running, `deploy.sh`'s
 smoke step runs `nginx -t`, `nginx -s reload` and a `/health` curl to `127.0.0.1:443` from a host-network curl container
-(see `deploy/README.md`). The five repo confs are single-file `:ro` binds, so a running swag sees new conf only after a
+(see `deploy/README.md`). The six repo confs are single-file `:ro` binds, so a running swag sees new conf only after a
 recreate: `deploy.sh` force-recreates swag on every deploy while the edge profile is on, and a manual conf change
 outside `deploy.sh` needs `docker compose up -d --force-recreate swag`, not `nginx -s reload`. **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
 deploy with the profile off may remove `joey-swag` mid-stream.
@@ -113,6 +113,9 @@ included), so a stray one could only come from an extra file in `/volume1/Docker
 `/config/nginx/resolver.conf` may still hold Docker's bridge-mode resolver (127.0.0.11), which does not exist on the
 host network. Nothing uses it while the upstream is a literal IP; delete the file and restart swag to regenerate it
 from the host's `/etc/resolv.conf` if a named upstream is ever added.
+In host mode SWAG's bundled php-fpm (stock pool `listen = 127.0.0.1:9000`) clashed with Portainer's published host 9000
+("Address in use (98)" every second, WP-A5): `deploy/swag/php/www2.conf`, bound `:ro` to `/config/php/www2.conf` (the base
+image's pool override, included after `php-fpm.d/*.conf`), moves the `[www]` pool to the unix socket `/var/run/php-fpm.sock`.
 
 ## Geo and fail2ban
 

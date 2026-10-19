@@ -19,6 +19,17 @@ Joey makes.
   remove `media-server_default`. Compose warns that the network has active endpoints. A
   media-stack `up` reuses the existing network. To fully recreate it, stop Joey first.
 
+## The `joey-edge` network (Joey TV WP-A3, 2026-10-18)
+
+- A second external network, `joey-edge` (`172.31.250.0/29`), joined by `joey-swag` and `jellyfin` only. Not the hub,
+  not Kuma, not Joey's `default`, not `media-server_default`. It is declared `external: true, name: joey-edge` and
+  created by `nas_scripts/jellyfin_edge_net.sh`, never by Joey's compose, which also attaches jellyfin to it in the
+  media compose. Jellyfin's Known proxies value is this subnet.
+- `joey-swag` is the one container that publishes a port (`0.0.0.0:443:443`), and only while `COMPOSE_PROFILES=edge`.
+  Nothing else here changes: the hub and connectors still use `media-server_default` as above.
+- `deploy.sh` checks `joey-edge` exists, with the same gate wording as for `media-server_default`, only when the edge
+  profile is on. Full description, bring-up order and kill switch: `public-edge.md`.
+
 Until the `.env` changes below, nothing behaves differently: the `*_URL` keys still point at
 the LAN IP, and that path keeps working.
 

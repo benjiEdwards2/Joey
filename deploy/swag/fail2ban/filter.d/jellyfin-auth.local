@@ -1,0 +1,12 @@
+## Joey TV WP-A3 (2026-10-18) — E7 filter for the jellyfin-auth jail (jail.local). Bind-mounted read-only.
+## Matches SWAG's access log (nginx "combined" format) on a 401 answer to a sign-in POST only:
+##   POST /Users/AuthenticateByName and POST /Users/AuthenticateWithQuickConnect (any letter case: Jellyfin's
+##   routes are case-insensitive). A GET 401 (a stale token on a TV) or a 200 never matches.
+## fail2ban cuts the timestamp out of the line before matching, so the brackets may be empty.
+## Live check (WP-A4): docker exec joey-swag fail2ban-regex /config/log/nginx/access.log /etc/fail2ban/filter.d/jellyfin-auth.local
+
+[Definition]
+
+failregex = ^<HOST> \S+ \S+ \[[^\]]*\] "POST /[Uu]sers/(?:[Aa]uthenticate[Bb]y[Nn]ame|[Aa]uthenticate[Ww]ith[Qq]uick[Cc]onnect)(?:\?\S*)? HTTP/[0-9.]+" 401
+
+ignoreregex =

@@ -19,9 +19,17 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 |---|---|
 | `tests/hub/` | The hub: shell, registry, identity, store, every Media / Server / Weather / Awards page and its routes |
 | `tests/connectors/` | Envelope and per-feed schemas, fixture tests per connector, the sample snapshots, the contract doc |
-| `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script and cloudflared checks |
+| `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script, cloudflared and public-edge checks (`test_edge.py`) |
 | `tests/money/` | The money pre-commit guard only (the money importer was never built) |
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
+
+`tests/deploy/test_edge.py` (Joey TV WP-A3, 2026-10-18) pins the public edge offline: one published port (443), one `server_name` and one
+upstream (`jellyfin:8096` by name), AU + NZ geo with our own `$joey_country`, the 444 catch-all, the `jellyfin-auth` fail2ban jail
+(5/600/3600, regex fixtures, stock `nginx-unauthorized` off), `edge.env` ignored by git and docker, and no Cloudflare token value
+anywhere in `deploy/`. `test_deploy_script` gained the edge gate and smoke checks; `test_compose_limits` gained swag 192m and ddns 32m.
+Two older pins were extended (not weakened) for the edge, each with a dated DECISIONS line (2026-10-18): the top-level networks pin in
+`tests/deploy/test_cloudflared.py` is `{"media", "joey-edge"}`, and `tests/connectors/test_container.py`'s exact services set gains
+`swag` and `ddns` and its networks dict gains `joey-edge`. `nginx -t`, certbot and `fail2ban-regex` run only live (WP-A4).
 
 `tests/hub/` by theme (file prefixes):
 

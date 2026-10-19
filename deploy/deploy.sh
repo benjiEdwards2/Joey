@@ -105,6 +105,15 @@ docker compose config -q || gate_fail "compose config invalid"
 # hub + connectors join the media stack's network (N-09); `up` fails without it, so check first
 docker network inspect media-server_default >/dev/null 2>&1 \
     || gate_fail "network media-server_default missing — start the media stack first"
+# Edge profile on (COMPOSE_PROFILES in deploy/.env enables swag; Joey TV WP-A3): swag joins the external joey-edge
+# network, which nas_scripts/jellyfin_edge_net.sh creates (Q45) — `up` fails without it, so check first.
+edge_active() {
+    docker compose config --services 2>/dev/null | grep -qx swag
+}
+if edge_active; then
+    docker network inspect joey-edge >/dev/null 2>&1 \
+        || gate_fail "network joey-edge missing — run nas_scripts/jellyfin_edge_net.sh first"
+fi
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.
@@ -129,10 +138,32 @@ wait_for_hub() {
     echo "hub did not answer /healthz within 90 s" >&2
     return 1
 }
+# The public edge (Joey TV WP-A3), only when swag is running (edge profile on). SWAG stays "running" even when
+# nginx inside it fails, so `--status restarting` cannot catch a broken conf, and a bind-mounted conf change is
+# never picked up without a reload. Up to 120 s: a fresh swag installs its mods and certificate before nginx starts.
+# The health curl runs from the host network (a pinned curl image; the NAS has no curl guarantee) to 127.0.0.1:443.
+edge_smoke() {
+    if [ -z "$(docker compose ps --status running -q swag 2>/dev/null)" ]; then
+        return 0
+    fi
+    i=0
+    while [ $i -lt 24 ]; do
+        if docker compose exec -T swag nginx -t >/dev/null 2>&1 \
+            && docker compose exec -T swag nginx -s reload >/dev/null 2>&1 \
+            && [ "$(docker run --rm --network host curlimages/curl:8.23.0 -sk --max-time 10 --resolve jellyfin.joeyhome.net:443:127.0.0.1 https://jellyfin.joeyhome.net/health)" = "Healthy" ]; then
+            return 0
+        fi
+        i=$((i + 1)); sleep 5
+    done
+    echo "edge: nginx -t / reload / https://jellyfin.joeyhome.net/health not healthy within 120 s" >&2
+    docker compose exec -T swag nginx -t >&2 || true
+    return 1
+}
 smoke() {
     wait_for_hub \
         && docker compose exec -T hub python tests/deploy/smoke.py \
-        && [ -z "$(docker compose ps --status restarting -q)" ]
+        && [ -z "$(docker compose ps --status restarting -q)" ] \
+        && edge_smoke
 }
 # One rollback path for every post-gate failure (compose build, compose up, smoke) — review
 # D-03: under `set -e` a failing build/up used to exit with no rollback and no history line.

@@ -134,6 +134,69 @@ services:
       - media
     entrypoint: ["sh", "-c", "python -m connectors.run_all; (while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do sleep 3600; python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; done"]
 
+  swag:
+    # Joey TV WP-A3 (2026-10-18) — the public edge for Jellyfin: https://jellyfin.joeyhome.net -> jellyfin:8096.
+    # DARK until COMPOSE_PROFILES=edge is set in the NAS deploy/.env (WP-A4); never toggle it off again without
+    # the kill-switch runbook R3 (docs/public-edge.md, Q47). Bridge mode (Q44 = b, WP0 probe: the real client IP
+    # survives docker-proxy): the ONLY published port in this file (E1); joins joey-edge alone (Q7 = a), never
+    # Joey's default network (the hub trusts a header) nor media-server_default. One server_name, one upstream,
+    # AU + NZ geo, fail2ban on Jellyfin auth 401s: the five ./swag confs below, bind-mounted read-only.
+    # Pinned (Q10): manual updates only; joey-* containers are held from WUD runs (hub.server.update_hold).
+    image: lscr.io/linuxserver/swag:5.8.0-ls490
+    container_name: joey-swag
+    profiles: [edge]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 192m
+    cap_add:
+      - NET_ADMIN  # fail2ban's iptables bans inside the container
+    # Q6: the Cloudflare token lives in the NAS-only deploy/edge.env (chmod 600), read by swag and ddns only.
+    # certbot reads it from /config/dns-conf/cloudflare.ini, written by nas_scripts/edge_cf_ini.sh before the first
+    # start; STAGING=true for the first issuance goes in edge.env too, never here.
+    env_file:
+      - path: edge.env
+        required: false
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ:-Australia/Melbourne}
+      URL: joeyhome.net
+      SUBDOMAINS: wildcard
+      ONLY_SUBDOMAINS: "true"
+      VALIDATION: dns
+      DNSPLUGIN: cloudflare
+      DOCKER_MODS: linuxserver/mods:swag-dbip
+    ports:
+      - "0.0.0.0:443:443"
+    networks:
+      - joey-edge
+    volumes:
+      - /volume1/Docker/joey/swag:/config
+      - ./swag/site-confs/00-geo-au.conf:/config/nginx/site-confs/00-geo-au.conf:ro
+      - ./swag/site-confs/default.conf:/config/nginx/site-confs/default.conf:ro
+      - ./swag/proxy-confs/jellyfin.subdomain.conf:/config/nginx/proxy-confs/jellyfin.subdomain.conf:ro
+      - ./swag/fail2ban/jail.local:/config/fail2ban/jail.local:ro
+      - ./swag/fail2ban/filter.d/jellyfin-auth.local:/config/fail2ban/filter.d/jellyfin-auth.local:ro
+
+  ddns:
+    # Joey TV WP-A3 (2026-10-18) — keeps the grey-cloud A record jellyfin.joeyhome.net on the WAN IP (E5). Only that
+    # name: never the apex, media. or macromates. (tunnel-routed). Built and tested but NEVER enabled while the
+    # WAN IP is static (Q3): it starts only if COMPOSE_PROFILES gains `ddns`.
+    image: favonia/cloudflare-ddns:1.17.1
+    container_name: joey-ddns
+    profiles: [ddns]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 32m
+    env_file:
+      - path: edge.env
+        required: false
+    environment:
+      DOMAINS: jellyfin.joeyhome.net
+      PROXIED: "false"
+      IP6_PROVIDER: none
+      UPDATE_CRON: "@every 5m"
+
 networks:
   # Shared Docker network (N-09, 2026-10-09): the media stack's compose network, joined by the hub
   # and connectors so they reach jellyfin:8096, radarr:7878, ... and gluetun:8080/9696 (qBittorrent
@@ -143,3 +206,9 @@ networks:
   media:
     external: true
     name: media-server_default
+  # Joey TV WP-A3 (Q45): swag <-> jellyfin only, subnet 172.31.250.0/29 (Jellyfin's Known proxies value). Created by
+  # nas_scripts/jellyfin_edge_net.sh, never by this compose (a project-owned network would be deploy_joey-edge, and
+  # rollbacks / `down` would fail while jellyfin is attached). deploy.sh checks it exists when the edge profile is on.
+  joey-edge:
+    external: true
+    name: joey-edge

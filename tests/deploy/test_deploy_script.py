@@ -6,6 +6,7 @@ the captured PREV_SHA, and every outcome appends to history.log. smoke.py
 itself is exercised for real by the deploy (and its unit shape here).
 """
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -140,3 +141,40 @@ def test_pull_retries_three_times_and_git_container_gets_resolver_retries():
     assert "for attempt in 1 2 3; do" in SCRIPT
     assert "if GIT pull --ff-only; then break; fi" in SCRIPT
     assert "pull failed (attempt $attempt/3) — retrying in 5 s" in SCRIPT
+
+
+# ---- Joey TV WP-A3 (2026-10-18): the public edge (swag, `edge` profile) ----
+
+def _body(name: str) -> str:
+    body = SCRIPT[SCRIPT.index(chr(10) + name + "() {") + 1:]  # at a line start: "smoke" is not "edge_smoke"
+    return body[:body.index(chr(10) + "}" + chr(10))]
+
+
+def test_smoke_checks_the_edge_only_when_swag_is_running():
+    """SWAG stays "running" when nginx inside it fails, so `--status restarting` cannot see a broken conf; and a
+    bind-mounted conf change is never picked up without a reload. Skipped when the edge profile is off."""
+    assert SCRIPT.index("edge_smoke() {") < SCRIPT.index("smoke() {" + chr(10) + "    wait_for_hub")
+    assert "&& edge_smoke" in _body("smoke")
+    edge = _body("edge_smoke")
+    guard = edge.index('if [ -z "$(docker compose ps --status running -q swag 2>/dev/null)" ]; then')
+    assert "return 0" in edge[guard:guard + 200]  # profile off: nothing to check
+    test = edge.index("docker compose exec -T swag nginx -t")
+    reload_ = edge.index("docker compose exec -T swag nginx -s reload")
+    health = edge.index("--resolve jellyfin.joeyhome.net:443:127.0.0.1 https://jellyfin.joeyhome.net/health")
+    assert guard < test < reload_ < health
+    assert '= "Healthy"' in edge[health:health + 120]
+    # the host-side curl runs from a pinned image (no curl binary assumed on the NAS), host network = 127.0.0.1:443
+    assert re.search(r"docker run --rm --network host curlimages/curl:[0-9][^ ]* ", edge)
+    assert "curlimages/curl:latest" not in SCRIPT
+    assert "return 1" in edge  # a failed edge check fails smoke -> the one rollback path
+
+
+def test_joey_edge_network_is_gated_only_when_the_edge_profile_is_active():
+    """Mode (b): swag joins the external joey-edge network (created by nas_scripts/jellyfin_edge_net.sh, Q45);
+    `up` fails without it, so the gate checks it first — but only when COMPOSE_PROFILES enables swag."""
+    active = _body("edge_active")
+    assert "docker compose config --services" in active and "grep -qx swag" in active
+    check = SCRIPT.index("docker network inspect joey-edge")
+    assert SCRIPT.rindex("if edge_active; then", 0, check) > SCRIPT.index("docker network inspect media-server_default")
+    assert check < SCRIPT.index("== build test image + FULL SUITE GATE")
+    assert 'gate_fail "network joey-edge missing' in SCRIPT[check:check + 200]

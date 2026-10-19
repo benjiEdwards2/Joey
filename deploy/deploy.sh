@@ -155,6 +155,14 @@ edge_smoke() {
     docker compose exec -T swag nginx -t >&2 || true
     return 1
 }
+# The five ./swag confs are single-FILE `:ro` binds, which pin the inode: `git pull` writes new files (new inodes), so a
+# running swag keeps the old conf and `nginx -s reload` cannot help (WP-A4, 2026-10-19: PR #5 deployed, jail.local not
+# live). Under the edge profile, swag is always force-recreated (a ~10 s edge blip per deploy, accepted 2026-10-16).
+recreate_swag() {
+    if edge_active; then
+        docker compose up -d --force-recreate swag
+    fi
+}
 smoke() {
     wait_for_hub \
         && docker compose exec -T hub python tests/deploy/smoke.py \
@@ -170,6 +178,7 @@ rollback() {
     if GIT reset --hard "$PREV_SHA" \
         && docker compose build \
         && docker compose up -d --remove-orphans \
+        && recreate_swag \
         && smoke; then
         log_history "ROLLED-BACK" "$1 on new SHA; previous SHA healthy"
         echo "############ ROLLED BACK to $PREV_SHA ############" >&2
@@ -184,6 +193,7 @@ echo "== build + converge =="
 cd "$DEPLOY_DIR"
 docker compose build || rollback "compose build failed"
 docker compose up -d --remove-orphans || rollback "compose up failed"
+recreate_swag || rollback "swag recreate failed"
 
 echo "== smoke =="
 smoke || rollback "smoke failed"

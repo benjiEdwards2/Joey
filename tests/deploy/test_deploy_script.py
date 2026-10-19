@@ -177,3 +177,20 @@ def test_host_mode_edge_needs_no_network_gate():
     assert SCRIPT.index("edge_active() {") < SCRIPT.index("== build test image + FULL SUITE GATE")
     assert "joey-edge" not in SCRIPT
     assert "docker network inspect media-server_default" in SCRIPT  # the media network gate is unchanged
+
+
+def test_edge_profile_force_recreates_swag_after_up_and_on_rollback():
+    """WP-A4 (2026-10-19, PR #5 deployed but not live): the five swag confs are single-FILE `:ro` binds, which pin the
+    inode; `git pull` writes new inodes, so a running swag keeps the old conf and `nginx -s reload` cannot help. Under
+    the edge profile (edge_active, no longer dead code) swag is force-recreated after the main `up` and before the
+    edge smoke, and the rollback recreates it too so a rolled-back conf takes effect. A failed recreate rolls back."""
+    recreate = _body("recreate_swag")
+    guard = recreate.index("if edge_active; then")
+    assert guard < recreate.index("docker compose up -d --force-recreate swag")
+    up = SCRIPT.index('docker compose up -d --remove-orphans || rollback "compose up failed"')
+    call = SCRIPT.index('recreate_swag || rollback "swag recreate failed"')
+    assert SCRIPT.index("edge_active() {") < SCRIPT.index("recreate_swag() {") < SCRIPT.index("rollback() {")
+    assert up < call < SCRIPT.index('smoke || rollback "smoke failed"')
+    back = _body("rollback")
+    assert (back.index("docker compose up -d --remove-orphans") < back.index("&& recreate_swag")
+            < back.index("&& smoke; then"))

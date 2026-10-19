@@ -20,6 +20,9 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   static). Unset, a deploy is unchanged. With `edge` on, the smoke step runs `nginx -t`, `nginx -s reload` and the `/health` curl
   (up to 120 s). Token and `STAGING` live in the NAS-only `deploy/edge.env`, read by swag and ddns only. Runbook and
   kill switch: `docs/public-edge.md`.
+  - **Conf changes need a recreate, not a reload:** the swag confs are single-file `:ro` binds, so a running swag sees
+    new conf only after a recreate. `deploy.sh` force-recreates swag on every deploy while `edge` is on; for a manual
+    conf change outside `deploy.sh`, run `docker compose up -d --force-recreate swag`, not `nginx -s reload`.
   - **Rollback to a pre-edge SHA removes swag:** that tree has no `swag` service, so `up -d --remove-orphans` takes
     `joey-swag` away. `COMPOSE_PROFILES` in `.env` is not in git and **survives rollbacks**, so rolling forward brings
     swag back by itself.

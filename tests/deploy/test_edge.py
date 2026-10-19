@@ -171,7 +171,19 @@ def test_proxy_conf_single_upstream_and_geo_gated():
     assert re.search(r"if\s*\(\$geo_allowed\s*=\s*0\)\s*\{\s*return\s+403;\s*\}", code)  # E6
     assert "include /config/nginx/proxy.conf;" in code  # SWAG's websocket Upgrade/Connection headers
     assert "include /config/nginx/ssl.conf;" in code
-    assert re.search(r'add_header\s+Strict-Transport-Security\s+"max-age=\d+', code)  # HSTS
+
+
+def test_proxy_conf_sends_exactly_one_hsts_header():
+    """G3 (2026-10-19) saw two Strict-Transport-Security headers. Both came from nginx: SWAG's ssl.conf (included at
+    server level) adds `max-age=63072000` (2 y), and this conf added its own `max-age=31536000` (1 y) at the same level.
+    Jellyfin sends none (its Startup.cs has no UseHsts). The single header is SWAG's: no add_header here, and
+    proxy_hide_header at server level (no location overrides it) keeps any future upstream HSTS out."""
+    code = _code(PROXY_CONF)
+    assert "include /config/nginx/ssl.conf;" in code  # SWAG's HSTS lives there
+    assert not re.search(r"add_header\s+Strict-Transport-Security", code)
+    server_level = code[:code.index("location ")]
+    assert re.search(r"\bproxy_hide_header\s+Strict-Transport-Security;", server_level)
+    assert len(re.findall(r"\bproxy_hide_header\b", code)) == 1  # a location-level one would drop the inherited
 
 
 # ---- E6: AU + NZ, plus the private ranges for the mode ----

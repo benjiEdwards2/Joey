@@ -135,8 +135,9 @@ wait_for_hub() {
     return 1
 }
 # The public edge (Joey TV WP-A3), only when swag is running (edge profile on). SWAG stays "running" even when
-# nginx inside it fails, so `--status restarting` cannot catch a broken conf, and a bind-mounted conf change is
-# never picked up without a reload. Up to 120 s: a fresh swag installs its mods and certificate before nginx starts.
+# nginx inside it fails, so `--status restarting` cannot catch a broken conf. The confs are single-file binds, so
+# recreate_swag (below), not this reload, applies a conf change; the reload is harmless. Up to 120 s: a fresh swag
+# installs its mods and certificate before nginx starts.
 # The health curl runs from the host network (a pinned curl image; the NAS has no curl guarantee) to 127.0.0.1:443.
 edge_smoke() {
     if [ -z "$(docker compose ps --status running -q swag 2>/dev/null)" ]; then
@@ -157,9 +158,16 @@ edge_smoke() {
 }
 # The six ./swag confs are single-FILE `:ro` binds, which pin the inode: `git pull` writes new files (new inodes), so a
 # running swag keeps the old conf and `nginx -s reload` cannot help (WP-A4, 2026-10-19: PR #5 deployed, jail.local not
-# live). Under the edge profile, swag is always force-recreated (a ~10 s edge blip per deploy, accepted 2026-10-16).
+# live). Under the edge profile, swag is force-recreated (a ~10 s edge blip) only when the deploy changed a file under
+# deploy/swag/ (P6, 2026-10-19). The rollback crosses the same PREV..NEW range, so the same diff decides there.
+# --force, or a diff git cannot answer, recreates to be safe. A change to the swag service in docker-compose.yml needs
+# nothing here: `compose up` recreates a service whose config changed.
+swag_confs_changed() {
+    if [ "$FORCE" -eq 1 ]; then return 0; fi
+    ! GIT diff --quiet "$PREV_SHA" "$NEW_SHA" -- deploy/swag
+}
 recreate_swag() {
-    if edge_active; then
+    if edge_active && swag_confs_changed; then
         docker compose up -d --force-recreate swag
     fi
 }

@@ -71,7 +71,9 @@ can work, but not deterministically after a deploy. Host mode removes the depend
 Compose reads `COMPOSE_PROFILES` from `deploy/.env`. Unset, both stay dark and a deploy behaves exactly as before.
 Images are pinned (manual updates only; `joey-*` containers are held from WUD). When swag is running, `deploy.sh`'s
 smoke step runs `nginx -t`, `nginx -s reload` and a `/health` curl to `127.0.0.1:443` from a host-network curl container
-(see `deploy/README.md`). **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
+(see `deploy/README.md`). The five repo confs are single-file `:ro` binds, so a running swag sees new conf only after a
+recreate: `deploy.sh` force-recreates swag on every deploy while the edge profile is on, and a manual conf change
+outside `deploy.sh` needs `docker compose up -d --force-recreate swag`, not `nginx -s reload`. **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
 deploy with the profile off may remove `joey-swag` mid-stream.
 
 ## edge.env keys

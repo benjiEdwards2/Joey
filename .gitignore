@@ -2,6 +2,8 @@
 .env
 *.env
 !*.env.example
+# NAS one-shot backups of .env / edge.env (nas_scripts/*.sh) can carry secrets
+*.bak-*
 
 # SQLite — lives on the box SSD, never in git
 *.db

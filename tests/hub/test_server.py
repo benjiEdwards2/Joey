@@ -90,14 +90,15 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "17 monitored · 2 updates" in txt(body) and "uptime-kuma" in body and "1.23.16 → 2.0.2" in body
     # 4 Attention: prowlarr is Down in the media_status fixture
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
-    # 5 Counts
-    assert ">Pending<" in body and ">Seeding<" in body and ">This week<" in body
+    # 5 Library health (WP-T3, 2026-10-19, S1 + S2: replaces the Counts band — no Requests / Torrents / arr disk here)
+    assert 'id="counts"' not in body and ">Pending<" not in body and ">Seeding<" not in body and ">This week<" not in body
+    assert "Library health · Radarr 2 wanted · 3 missing · Sonarr 7 wanted · Prowlarr 3 failed grabs" in txt(body)
     # WP-T3 (2026-10-19, S3): no tile row; Portainer is its Services › System card (a LAN link), never the registry IP
     assert "192.168.68.59" not in body and 'class="tiles areatiles' not in body
     # band order, top to bottom
     marks = [body.index(m) for m in   # E3 (U12, 2026-10-13): Attention first, right under the page head
              ('class="pagehead"', 'id="attention"', 'id="system"', 'id="services"',
-              'id="updates"', 'id="counts"')]
+              'id="updates"')]
     assert marks == sorted(marks)
 
 
@@ -106,7 +107,8 @@ def test_server_page_with_no_snapshots_degrades_band_by_band(env):
         r = client.get("/server")
     assert r.status_code == 200
     body = main_of(r.text)
-    assert body.count("Not connected") >= 6   # system, services, updates, 3 count sources
+    assert body.count("Not connected") >= 3   # system, services, updates (the Counts band went, WP-T3 2026-10-19)
+    assert "Library health" not in body       # no arr snapshot: no line at all
     assert "All clear" in body
 
 

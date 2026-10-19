@@ -258,33 +258,37 @@ def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> 
             "response_ms": ms}
 
 
-def _counts(snaps) -> dict:
-    """Jellyseerr / qBittorrent / arr counts. None per source when absent; the arr
-    library/indexer objects (`radarr`, `sonarr`, `prowlarr`, WP-S3) are None when the
-    snapshot predates them or the connector nulled them (partial-ok)."""
-    def data(cid):
-        return data_of(snaps.get(cid)) or None
+# WP-T3 (2026-10-19, S1 + S2): the Counts band is gone — Requests / Torrents / arr downloading repeated Activity, and
+# the arr disk bars repeated System's volumes. Its unique figures (Radarr / Sonarr wanted + missing, Prowlarr failed
+# grabs) are ONE "Library health" line under Services › Downloads (or at the end of Services without that group).
+HEALTH_GROUP = "Downloads"
+SEARCH_MISSING_HREF = "/media/requests?sweep_ask=missing"   # media_arr_search: the page draws the confirm card
 
-    seerr, qb, arr = data(JELLYSEERR_SNAPSHOT_ID), data(QBIT_SNAPSHOT_ID), data(ARR_SNAPSHOT_ID)
-    totals = (qb or {}).get("totals") or {}
-    return {
-        "requests": (seerr or {}).get("counts") if seerr else None,
-        "torrents": {
-            "downloading": len(qb.get("active") or []),
-            "seeding": qb.get("seeding", 0),
-            "dl_text": totals.get("dl_text", "0 B/s"),
-            "up_text": totals.get("up_text", "0 B/s"),
-        } if qb else None,
-        "arr": {
-            "downloading": len(arr.get("downloading") or []),
-            "this_week": len(arr.get("this_week") or []),
-            "disk": [{**d, "free_text": _gb(d.get("free_gb")), "total_text": _gb(d.get("total_gb"))}
-                     for d in arr.get("disk") or []],
-        } if arr else None,
-        "radarr": (arr or {}).get("radarr") or None,
-        "sonarr": (arr or {}).get("sonarr") or None,
-        "prowlarr": (arr or {}).get("prowlarr") or None,
-    }
+
+def library_health(snaps) -> dict | None:
+    """{parts, failed, search} from the arr snapshot's `radarr` / `sonarr` / `prowlarr` objects (WP-S3), or None when
+    the snapshot carries none of them. parts: the non-zero counts in words ("Radarr 2 wanted", "3 missing",
+    "Sonarr 7 wanted"); failed: "Prowlarr 3 failed grabs" when that count is non-zero (amber: something to look at);
+    search: the Search missing href when anything is wanted or missing, else None. No parts and no failed ⇒
+    the template says "all clear"."""
+    arr = _data(snaps, ARR_SNAPSHOT_ID)
+    radarr, sonarr, prowlarr = (arr.get(k) if isinstance(arr.get(k), dict) else None
+                                for k in ("radarr", "sonarr", "prowlarr"))
+    if not (radarr or sonarr or prowlarr):
+        return None
+
+    def n(d, key) -> int:
+        v = _num((d or {}).get(key))
+        return max(0, int(v)) if v is not None else 0
+
+    parts = []
+    for name, d, keys in (("Radarr", radarr, ("wanted", "missing")), ("Sonarr", sonarr, ("wanted",))):
+        words = [f"{n(d, k)} {k}" for k in keys if n(d, k)]
+        if words:
+            parts += [f"{name} {words[0]}", *words[1:]]
+    failed = n(prowlarr, "failed_grabs")
+    return {"parts": parts, "failed": f"Prowlarr {failed} failed grab{'' if failed == 1 else 's'}" if failed else None,
+            "search": SEARCH_MISSING_HREF if parts else None}
 
 
 # Pending rows the hub never sends to WUD (one definition; server_updates imports these): WUD itself (B. updates it by
@@ -532,6 +536,8 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     # 2026-10-12: no Monitors band any more (it repeated Services); the Kuma rows still give each card its ms.
     apps = [a for a in services["data"].get("apps") or [] if isinstance(a, dict)]
     services["groups"] = group_services([service_card(a, _monitors(snaps), gated) for a in apps])
+    services["health"] = library_health(snaps)   # WP-T3 (S1 + S2)
+    services["health_in"] = next((g["label"] for g in services["groups"] if g["label"] == HEALTH_GROUP), None)
 
     ud = updates["data"]
     updates["pending"], updates["ignored"] = split_updates(
@@ -544,5 +550,5 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
 
     return {"system": system, "services": services, "updates": updates,
             "attention": [i["text"] for i in items], "attention_items": items,
-            "sweeps": sweep_rows(stats, live=live), "counts": _counts(snaps),
+            "sweeps": sweep_rows(stats, live=live),
             "history": history_band(samples)}

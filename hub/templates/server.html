@@ -76,6 +76,15 @@
 </section>
 
 {% set svc = sv.services %}
+{# WP-T3 (2026-10-19, S1 + S2): "Library health" — the Counts band's unique figures in one line, under Downloads (or at
+   the end of Services when that group is absent). Only the non-zero counts; amber only on Prowlarr failed grabs. #}
+{% set lh = svc.health %}
+{% set lh_line %}{% if lh %}<p class="metaline libhealth">Library health<span class="sep"> · </span>
+  {%- for p in lh.parts %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}
+  {%- if lh.failed %}{% if lh.parts %}<span class="sep"> · </span>{% endif %}<span class="st-warn">{{ lh.failed }}</span>{% endif %}
+  {%- if not lh.parts and not lh.failed %}all clear{% endif %}
+  {%- if lh.search %} <a class="btn btn-ghost btn-sm" href="{{ lh.search }}">Search missing</a>{% endif %}</p>
+{%- endif %}{% endset %}
 <div class="sec" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}
   <div class="sechead"><h2 class="seclabel">Services</h2></div>
@@ -107,10 +116,12 @@
     </{{ tag }}>
     {% endfor %}
     </div>
+    {% if g.label == svc.health_in %}{{ lh_line }}{% endif %}
   </section>
   {% endif %}
   {% endfor %}
 {% endif %}
+{% if not svc.health_in %}{{ lh_line }}{% endif %}
 </div>
 
 {% set up = sv.updates %}
@@ -186,47 +197,4 @@
 </section>
 {% endif %}
 
-{% set n = sv.counts %}
-<section class="sec" id="counts" aria-label="Counts">
-  <div class="sechead"><h2 class="seclabel">Counts</h2></div>
-  <div class="cols">
-    <div class="panel kv">
-      <h3 class="seclabel">Requests</h3>
-      {% if n.requests %}
-      <dl><dt>Pending</dt><dd>{{ n.requests.pending }}</dd><dt>Approved</dt><dd>{{ n.requests.approved }}</dd><dt>Available</dt><dd>{{ n.requests.available }}</dd></dl>
-      {% else %}<p class="st-off">Not connected</p>{% endif %}
-    </div>
-    <div class="panel kv">
-      <h3 class="seclabel">Torrents</h3>
-      {% if n.torrents %}
-      <dl><dt>Downloading</dt><dd>{{ n.torrents.downloading }}</dd><dt>Seeding</dt><dd>{{ n.torrents.seeding }}</dd><dt>Speed</dt><dd>↓ {{ n.torrents.dl_text }} · ↑ {{ n.torrents.up_text }}</dd></dl>
-      {% else %}<p class="st-off">Not connected</p>{% endif %}
-    </div>
-    <div class="panel kv">
-      <h3 class="seclabel">Radarr / Sonarr</h3>
-      {% if n.arr %}
-      <dl><dt>Downloading</dt><dd>{{ n.arr.downloading }}</dd><dt>This week</dt><dd>{{ n.arr.this_week }}</dd></dl>
-      {% for d in n.arr.disk %}
-      <div>
-        <div class="metaline">{{ d.path }}<span class="sep"> · </span>{{ d.free_text }} free<span class="sep"> · </span>{{ d.pct_used }}% used</div>
-        <div class="bar" role="img" aria-label="{{ d.pct_used }}% used"><span style="width: {{ d.pct_used }}%"></span></div>
-      </div>
-      {% endfor %}
-      {% else %}<p class="st-off">Not connected</p>{% endif %}
-      {# WP-S3: library + indexer counts, only when the arr snapshot carries them. #}
-      {% if n.radarr %}
-      <div class="microlabel">Radarr</div>
-      <dl><dt>Wanted</dt><dd>{{ n.radarr.wanted }}</dd><dt>Missing</dt><dd>{{ n.radarr.missing }}</dd><dt>Queued</dt><dd>{{ n.radarr.queued }}</dd><dt>Movies</dt><dd>{{ n.radarr.movies }}</dd></dl>
-      {% endif %}
-      {% if n.sonarr %}
-      <div class="microlabel">Sonarr</div>
-      <dl><dt>Wanted</dt><dd>{{ n.sonarr.wanted }}</dd><dt>Queued</dt><dd>{{ n.sonarr.queued }}</dd><dt>Series</dt><dd>{{ n.sonarr.series }}</dd></dl>
-      {% endif %}
-      {% if n.prowlarr %}
-      <div class="microlabel">Prowlarr</div>
-      <dl><dt>Grabs</dt><dd>{{ n.prowlarr.grabs }}</dd><dt>Queries</dt><dd>{{ n.prowlarr.queries }}</dd><dt>Failed grabs</dt><dd>{{ n.prowlarr.failed_grabs }}</dd><dt>Failed queries</dt><dd>{{ n.prowlarr.failed_queries }}</dd></dl>
-      {% endif %}
-    </div>
-  </div>
-</section>
 {% endblock %}

@@ -404,9 +404,6 @@ h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap:
 
 /* ---- Pages (restyle Phase 4, 2026-10-06): layout helpers shared by the Hub, Server, area and Weather pages. ---- */
 .narrow { max-width: 32rem; }
-/* Side-by-side groups: as many 20rem columns as fit, one on a phone (min(100%, 20rem) never exceeds the page). */
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 20px; align-items: start; min-width: 0; }
-.cols > * { min-width: 0; }
 .panel-warn { display: flex; flex-direction: column; gap: 6px; border-color: var(--warn-line); background: var(--warn-soft); }
 /* .kv: a panel of label / value lines (the guide's spec-sheet lines, grid 6.5rem + minmax(0,1fr)). */
 .kv { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -1386,3 +1383,8 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .row-logo { width: 32px; height: 32px; padding: 4px; }
 .row-logo.svc-fallback { padding: 0; }
 .row-logo.svc-fallback .svc-initial { font-size: 14px; }
+
+/* Server clean-up (2026-10-19, WP-T3): the Library health line under Services › Downloads carries an inline
+   Search missing button. (.srvtiles and .cols went with their markup: the tile row and the Counts band.) */
+.libhealth { margin-top: 8px; }
+.libhealth .btn { margin-left: 8px; vertical-align: middle; }

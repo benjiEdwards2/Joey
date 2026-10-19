@@ -250,6 +250,17 @@ def test_swags_catch_all_401_jail_is_off():
     assert ignore == E6_PRIVATE  # never ban what the geo gate treats as local: the LAN and loopback
 
 
+def test_fail2ban_bans_are_drop_not_reject():
+    """The ADM 6.6 kernel lacks the REJECT extension for iptables-nft ("revision 0 not supported"), so fail2ban's default
+    REJECT verdict records bans but never enforces them. DROP is a native nft verdict (WP-A4 step 11). Every jail
+    inherits [DEFAULT]'s banaction unless it sets its own; neither may use the REJECT default."""
+    jail = _jail()
+    assert "blocktype=DROP" in jail["jellyfin-auth"]["banaction"]
+    for name in jail.sections():
+        if jail.has_option(name, "banaction"):  # a jail's own banaction must be DROP too
+            assert "blocktype=DROP" in jail[name]["banaction"], name
+
+
 # ---- E8: edge.env never reaches git or an image; the template names its keys ----
 
 def test_edge_env_never_in_git_or_images():

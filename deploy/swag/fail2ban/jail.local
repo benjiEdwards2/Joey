@@ -13,7 +13,9 @@ ignoreip = 10.0.0.0/8
            127.0.0.1/32
 
 # Changes the default ban action from "iptables-multiport", which causes issues on some platforms, to "iptables-allports".
-banaction = iptables-allports
+# DROP, not the stock REJECT: the ADM 6.6 kernel lacks the REJECT extension for iptables-nft ("revision 0 not supported"),
+# so REJECT bans are recorded but never enforced; DROP is a native nft verdict (Joey TV WP-A4 step 11, 2026-10-19).
+banaction = iptables-allports[blocktype=DROP]
 
 # "bantime" is the number of seconds that a host is banned.
 bantime  = 600

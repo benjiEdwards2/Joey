@@ -137,7 +137,9 @@ def test_attention_lists_full_volumes_and_unknown_apps_land_in_system(env):
 def test_build_server_adds_the_backup_warning():
     area = load_registry(AREAS_YAML).areas[-1]
     out = server.build_server(area, {}, {"warning": "Media backup: none in 40 hours"})
-    assert out["attention"] == ["Media backup: none in 40 hours"]
+    # WP-T3 (2026-10-19, S7): page items carry their action — the backup has none on this page (was: a list of texts)
+    assert out["attention"] == [{"text": "Media backup: none in 40 hours", "href": None, "action": None,
+                                 "new_tab": False}]
     assert server.build_server(area, {}, {"warning": None})["attention"] == []
 
 

@@ -6,6 +6,7 @@ from pathlib import Path
 from hub import server
 from hub.registry import load_registry
 from tests.hub.helpers import AREAS_YAML
+from tests.hub.test_server import env, main_of, txt  # noqa: F401  (env is a fixture)
 from tests.hub.test_server_history import NOW, _samples
 
 JS = (Path(server.__file__).resolve().parent / "static" / "joey.js").read_text(encoding="utf-8")
@@ -44,7 +45,7 @@ def test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items(
     monkeypatch.setattr(server, "history_band", lambda samples, now=None: {
         "collecting": True, "text": "", "sparks": [], "trend": None, "forecast": forecast})
     out = server.build_server(area(), {}, {"warning": None})
-    assert out["attention"] == [forecast["text"]]
+    assert out["attention"] == [{"text": forecast["text"], "href": None, "action": None, "new_tab": False}]
     assert out["attention_items"] == []
 
 
@@ -53,3 +54,28 @@ def test_last_24h_is_marked_to_close_on_a_phone():
     assert "matchMedia('(max-width: 639px)')" in hook and "details[data-phone-closed]" in hook
     assert "addEventListener('htmx:load'" in hook
     assert JS.index("Server clean-up (WP-T3") < JS.index("F2 fast item pages")   # the node harness runs F2 alone
+
+
+# ---- S7: Attention items carry their action ---------------------------------------------------------------------
+
+def test_attention_action_mapping():
+    cards = {"prowlarr": {"href": "http://nas.example.invalid:9696"}, "sonarr": {"href": None}}
+    act = lambda key: server.attention_action({"key": key, "text": "t"}, cards)  # noqa: E731
+    assert act("down:prowlarr") == {"text": "t", "href": "http://nas.example.invalid:9696", "action": "Open",
+                                    "new_tab": True}
+    assert act("down:sonarr")["href"] == "#services" and act("down:sonarr")["action"] == "Services"
+    assert act("down:unknown")["href"] == "#services"
+    assert (act("kuma:Prowlarr")["href"], act("kuma:Prowlarr")["action"]) == ("#services", "Services")
+    assert (act("sweep:wud")["href"], act("sweep:wud")["action"]) == ("#system", "Sweeps")
+    for key in ("disk:/volume1", "backup", "forecast:/volume1"):
+        assert act(key)["href"] is None and act(key)["action"] is None
+
+
+def test_attention_panel_renders_the_action_links(env):
+    with env() as client:
+        body = main_of(client.get("/server").text)
+    att = body.split('id="attention"', 1)[1].split("</section>", 1)[0]
+    assert ('<p class="st-warn attn-item">Prowlarr is Down (timeout) <a class="btn btn-ghost btn-sm" '
+            'href="http://nas.local:9696" target="_blank" rel="noopener">Open</a></p>') in att
+    assert '<p class="st-warn attn-item">Uptime Kuma: Prowlarr is Down <a class="btn btn-ghost btn-sm" ' \
+           'href="#services">Services</a></p>' in att

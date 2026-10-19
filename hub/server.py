@@ -410,6 +410,24 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
     return items
 
 
+def attention_action(item: dict, cards: dict) -> dict:
+    """WP-T3 (2026-10-19, S7): a page Attention item with its action — {text, href, action, new_tab}. A down service
+    opens its card's link ("Open", new tab; the gated hostname or the LAN address, as on the card) or, with no link,
+    jumps to Services; an Uptime Kuma monitor jumps to Services; a failing sweep to System (its sweeps line + fold).
+    Disk, backup and the disk forecast carry no action (none exists on this page). `cards`: Services cards by app id."""
+    kind, _, ident = str(item.get("key") or "").partition(":")
+    href = action = None
+    new_tab = False
+    if kind == "down":
+        href = (cards.get(ident) or {}).get("href")
+        href, action, new_tab = (href, "Open", True) if href else ("#services", "Services", False)
+    elif kind == "kuma":
+        href, action = "#services", "Services"
+    elif kind == "sweep":
+        href, action = "#system", "Sweeps"
+    return {"text": item["text"], "href": href, "action": action, "new_tab": new_tab}
+
+
 def services_words(snaps) -> str:
     """"All up" / "2 down · Prowlarr · Sonarr" / "Not connected" — the Services words of the hub card (H-73: one
     vocabulary, guide §9 " · " joins; the Server page's Services tile went with the tile row, WP-T3 2026-10-19)."""
@@ -599,8 +617,9 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     # warn state and the Discord push) stays as it was: the hub loop's check has no samples, so a page-only key would
     # be inserted by the render and purged by the loop, re-posting every few minutes.
     page_items = items + ([history["forecast"]] if history["forecast"] else [])
+    cards = {a.get("id"): a for g in services["groups"] for a in g["apps"]}
 
     return {"system": system, "services": services, "updates": updates,
-            "attention": [i["text"] for i in page_items], "attention_items": items,
+            "attention": [attention_action(i, cards) for i in page_items], "attention_items": items,
             "sweeps": rows, "sweep_line": sweep_summary(rows, system["last_sweep"]),
             "history": history}

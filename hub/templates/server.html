@@ -19,7 +19,8 @@
 <section class="sec" id="attention" aria-label="Attention">
   <div class="sechead"><h2 class="seclabel">Attention</h2></div>
   <div class="panel panel-warn">
-    {% for item in sv.attention %}<p class="st-warn">{{ item }}</p>{% endfor %}
+    {# WP-T3 (2026-10-19, S7): each item carries its action where one exists (hub/server.py attention_action). #}
+    {% for item in sv.attention %}<p class="st-warn attn-item">{{ item.text }}{% if item.href %} <a class="btn btn-ghost btn-sm" href="{{ item.href }}"{% if item.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ item.action }}</a>{% endif %}</p>{% endfor %}
   </div>
 </section>
 {% endif %}

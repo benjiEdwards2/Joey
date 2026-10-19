@@ -1385,6 +1385,6 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .row-logo.svc-fallback .svc-initial { font-size: 14px; }
 
 /* Server clean-up (2026-10-19, WP-T3): the Library health line under Services › Downloads carries an inline
-   Search missing button. (.srvtiles and .cols went with their markup: the tile row and the Counts band.) */
+   Search missing button, and an Attention item its action button. (.srvtiles and .cols went with their markup: the tile row and the Counts band.) */
 .libhealth { margin-top: 8px; }
-.libhealth .btn { margin-left: 8px; vertical-align: middle; }
+.libhealth .btn, .attn-item .btn { margin-left: 8px; vertical-align: middle; }

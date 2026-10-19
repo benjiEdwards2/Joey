@@ -138,7 +138,7 @@ services:
     # Joey TV WP-A3 (2026-10-18) — the public edge for Jellyfin: https://jellyfin.joeyhome.net -> 127.0.0.1:8096.
     # DARK until COMPOSE_PROFILES=edge is set in the NAS deploy/.env (WP-A4); never toggle it off again without
     # the kill-switch runbook R3 (docs/public-edge.md, Q47). One server_name, one upstream, AU + NZ geo, fail2ban
-    # on Jellyfin auth 401s: the five ./swag confs below, bind-mounted read-only.
+    # on Jellyfin auth 401s: the six ./swag confs below, bind-mounted read-only.
     # HOST network mode (Q44 = a, WP-A4 2026-10-19): nginx binds host 443 itself (E1; no `ports:`, no networks) and
     # sees the real client IP natively. Why not bridge: dockerd runs --iptables=false on this NAS, and the nft DNAT
     # rule that keeps the client IP on a published port is written by ADM Defender (defenderd, on docker events),
@@ -181,6 +181,7 @@ services:
       - ./swag/proxy-confs/jellyfin.subdomain.conf:/config/nginx/proxy-confs/jellyfin.subdomain.conf:ro
       - ./swag/fail2ban/jail.local:/config/fail2ban/jail.local:ro
       - ./swag/fail2ban/filter.d/jellyfin-auth.local:/config/fail2ban/filter.d/jellyfin-auth.local:ro
+      - ./swag/php/www2.conf:/config/php/www2.conf:ro  # php-fpm off 127.0.0.1:9000 (Portainer; WP-A5)
 
   ddns:
     # Joey TV WP-A3 (2026-10-18) — keeps the grey-cloud A record jellyfin.joeyhome.net on the WAN IP (E5). Only that

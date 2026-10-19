@@ -28,15 +28,17 @@ GEO_CONF = SWAG / "site-confs" / "00-geo-au.conf"
 DEFAULT_CONF = SWAG / "site-confs" / "default.conf"
 JAIL = SWAG / "fail2ban" / "jail.local"
 FILTER = SWAG / "fail2ban" / "filter.d" / "jellyfin-auth.local"
+PHP_POOL = SWAG / "php" / "www2.conf"
 NGINX_CONFS = (PROXY_CONF, GEO_CONF, DEFAULT_CONF)
 
-# the five repo confs and where SWAG reads them (bind-mounted file by file, read-only)
+# the six repo confs and where SWAG reads them (bind-mounted file by file, read-only)
 CONF_BINDS = {
     "./swag/site-confs/00-geo-au.conf": "/config/nginx/site-confs/00-geo-au.conf",
     "./swag/site-confs/default.conf": "/config/nginx/site-confs/default.conf",
     "./swag/proxy-confs/jellyfin.subdomain.conf": "/config/nginx/proxy-confs/jellyfin.subdomain.conf",
     "./swag/fail2ban/jail.local": "/config/fail2ban/jail.local",
     "./swag/fail2ban/filter.d/jellyfin-auth.local": "/config/fail2ban/filter.d/jellyfin-auth.local",
+    "./swag/php/www2.conf": "/config/php/www2.conf",
 }
 
 # E6, mode (a) host: the LAN ranges, plus loopback. No external client can arrive as a Docker bridge address in host
@@ -104,6 +106,25 @@ def test_swag_shape():
     for src, dst in CONF_BINDS.items():
         assert f"{src}:{dst}:ro" in swag["volumes"], src
         assert (DEPLOY / src).is_file(), src
+
+
+# ---- host mode: swag's bundled php-fpm must not bind 127.0.0.1:9000 (Portainer publishes host 9000) ----
+
+def test_php_fpm_pool_stays_off_port_9000():
+    """WP-A5 (2026-10-19): in host mode php-fpm's stock pool (`listen = 127.0.0.1:9000` in /etc/php85/php-fpm.d/www.conf)
+    clashed with Portainer's published 0.0.0.0:9000: "Address in use (98)" every second and s6 restart-looping
+    svc-php-fpm. The base image appends `include=/config/php/*.conf` to php-fpm.conf AFTER php-fpm.d/*.conf, and php-fpm
+    merges a repeated `[www]` section into the existing pool, so /config/php/www2.conf overrides `listen`. A unix
+    socket takes no port at all; no conf of ours has a fastcgi_pass (test_default_444_keeps_include), so nothing
+    talks to the pool."""
+    lines = [ln.split(";", 1)[0].strip() for ln in PHP_POOL.read_text(encoding="utf-8").splitlines()]
+    lines = [ln for ln in lines if ln]
+    assert lines[0] == "[www]"  # the stock pool's name: merged into it, not a second pool
+    assert [ln for ln in lines if ln.startswith("[")] == ["[www]"]
+    listen = [re.split(r"\s*=\s*", ln, maxsplit=1)[1] for ln in lines if re.match(r"listen\s*=", ln)]
+    assert listen == ["/var/run/php-fpm.sock"]  # a socket: no TCP port, so no clash in the host netns
+    for conf in NGINX_CONFS:
+        assert "fastcgi_pass" not in _code(conf), conf.name  # nothing of ours needs the old 127.0.0.1:9000
 
 
 # ---- E5: DDNS only for jellyfin., never proxied, no IPv6 ----

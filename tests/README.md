@@ -27,7 +27,8 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 `network_mode: host` with no `ports`/`networks` and no service publishing a port, no port 80, one `server_name` and one upstream
 (`127.0.0.1:8096`, the only IPv4 literal allowed), AU + NZ geo with our own `$joey_country` plus 192.168/16, 10/8 and 127.0.0.1 (no
 172.16/12), the 444 catch-all, the `jellyfin-auth` fail2ban jail (5/600/3600, regex fixtures, stock `nginx-unauthorized` off, `ignoreip`
-= the geo gate's local set), `edge.env` ignored by git and docker, and no Cloudflare token value anywhere in `deploy/`.
+= the geo gate's local set), php-fpm's `[www]` pool on a unix socket via the `:ro` `www2.conf` bind (WP-A5: off Portainer's
+127.0.0.1:9000 in host mode), `edge.env` ignored by git and docker, and no Cloudflare token value anywhere in `deploy/`.
 `test_deploy_script` gained the edge smoke checks (and pins that the gate no longer checks `joey-edge`); `test_compose_limits` gained
 swag 192m and ddns 32m. `tests/connectors/test_container.py`'s exact services set gains `swag` and `ddns`. The top-level networks pins in
 `tests/deploy/test_cloudflared.py` (`{"media"}`) and `test_container.py` (`media` only) are back to their original exact form: WP-A3

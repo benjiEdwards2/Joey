@@ -155,7 +155,7 @@ edge_smoke() {
     docker compose exec -T swag nginx -t >&2 || true
     return 1
 }
-# The five ./swag confs are single-FILE `:ro` binds, which pin the inode: `git pull` writes new files (new inodes), so a
+# The six ./swag confs are single-FILE `:ro` binds, which pin the inode: `git pull` writes new files (new inodes), so a
 # running swag keeps the old conf and `nginx -s reload` cannot help (WP-A4, 2026-10-19: PR #5 deployed, jail.local not
 # live). Under the edge profile, swag is always force-recreated (a ~10 s edge blip per deploy, accepted 2026-10-16).
 recreate_swag() {

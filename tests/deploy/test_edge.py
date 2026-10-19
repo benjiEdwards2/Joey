@@ -1,8 +1,10 @@
 """Joey TV WP-A3 (2026-10-18) — the public edge: SWAG (`joey-swag`) + DDNS (`joey-ddns`), dark behind compose
-profiles, network mode (b) BRIDGE (WP0 probe (k): the real client IP survives docker-proxy on the NAS).
+profiles. Network mode (a) HOST since WP-A4 (2026-10-19): on this NAS the DNAT rule that keeps the real client IP on a
+published port is written by ADM Defender, not dockerd, and a container started right after another one stops gets
+none, so a bridge-mode swag saw every client as the bridge gateway after deploy.sh. In host mode nginx binds 443 itself.
 
-Pins the edge requirements R4-E1…E9 offline: one published port (443 -> swag), one server_name and one upstream
-(`jellyfin:8096` by name, rule 14), AU + NZ geo with our own `$joey_country` variable, the fail2ban auth jail, and
+Pins the edge requirements R4-E1…E9 offline: no published port (swag binds host 443 itself), one server_name and one
+upstream (`127.0.0.1:8096`, Jellyfin's published port: the rule-14 exception), AU + NZ geo with our own `$joey_country` variable, the fail2ban auth jail, and
 the Cloudflare token reaching only swag + ddns through the NAS-only `deploy/edge.env` (Q6). `nginx -t`, certbot and
 fail2ban-regex only run live (WP-A4); these tests pin the file shapes they run against.
 """
@@ -37,8 +39,10 @@ CONF_BINDS = {
     "./swag/fail2ban/filter.d/jellyfin-auth.local": "/config/fail2ban/filter.d/jellyfin-auth.local",
 }
 
-# E6, mode (b) bridge: the LAN ranges plus Docker's 172.16/12 (the joey-edge gateway sits in it)
-E6_PRIVATE = {"192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12"}
+# E6, mode (a) host: the LAN ranges, plus loopback. No external client can arrive as a Docker bridge address in host
+# mode, so 172.16/12 is gone. 127.0.0.1 can only be a local process: deploy.sh's host-network smoke curl, which would
+# otherwise be geo-403'd and roll the deploy back. fail2ban's ignoreip mirrors this set.
+E6_PRIVATE = {"192.168.0.0/16", "10.0.0.0/8", "127.0.0.1/32"}
 
 TOKEN_KEY = "CLOUDFLARE_API_TOKEN"  # never written next to "=" with a value in this file (rule 20)
 
@@ -61,15 +65,14 @@ def _blocks(code: str) -> dict:
     return out
 
 
-# ---- E1: exactly one published port, 443 -> swag; nothing on 80 ----
+# ---- E1: one inbound port, host 443 bound by swag's nginx itself; nothing on 80 ----
 
 def test_edge_publish_shape():
     swag = SERVICES["swag"]
-    assert swag["ports"] == ["0.0.0.0:443:443"]  # Q5: 443 free on the NAS (WP0 (a))
-    assert "network_mode" not in swag  # Q44 = (b) bridge, not host networking
+    assert swag["network_mode"] == "host"  # Q44 = (a): nginx listens on host 443 (Q5: free on the NAS, WP0 (a))
+    assert "ports" not in swag and "networks" not in swag  # host mode has neither
     for name, svc in SERVICES.items():
-        if name != "swag":
-            assert "ports" not in svc, name
+        assert "ports" not in svc, name  # no service publishes a port at all
     assert not re.search(r":80(?!\d)", COMPOSE_TEXT)  # no port-80 mapping anywhere (hub:8000 is fine)
     for conf in NGINX_CONFS:
         code = _code(conf)
@@ -88,9 +91,6 @@ def test_swag_shape():
     assert swag["cap_add"] == ["NET_ADMIN"]  # fail2ban's iptables bans inside the container
     assert swag["restart"] == "unless-stopped"
     assert swag["env_file"] == [{"path": "edge.env", "required": False}]  # Q6
-    # (b) + Q7 = a: the dedicated joey-edge network only, never Joey's default (hub) nor media-server_default
-    assert swag["networks"] == ["joey-edge"]
-    assert COMPOSE["networks"]["joey-edge"] == {"external": True, "name": "joey-edge"}  # Q45: script-owned
     env = swag["environment"]
     assert env["URL"] == "joeyhome.net"
     assert env["SUBDOMAINS"] == "wildcard"  # E3: *.joeyhome.net
@@ -137,19 +137,16 @@ def test_token_reaches_only_edge_containers():
     assert "env_file" not in SERVICES["cloudflared"] and "env_file" not in SERVICES["macromates"]
 
 
-# ---- E2: one server_name, one upstream (jellyfin:8096 by name), geo-gated ----
+# ---- E2: one server_name, one upstream (127.0.0.1:8096, the rule-14 exception), geo-gated ----
 
 def test_proxy_conf_single_upstream_and_geo_gated():
     code = _code(PROXY_CONF)
     assert re.findall(r"\bserver_name\s+([^;]+);", code) == ["jellyfin.joeyhome.net"]
-    assert set(re.findall(r"\bproxy_pass\s+([^;]+);", code)) == {"$upstream_proto://$upstream_app:$upstream_port"}
-    sets = {var: set(re.findall(rf"\bset\s+\${var}\s+([^;]+);", code))
-            for var in ("upstream_proto", "upstream_app", "upstream_port")}
-    targets = {f"{p}://{a}:{n}" for p in sets["upstream_proto"] for a in sets["upstream_app"]
-               for n in sets["upstream_port"]}
-    assert targets == {"http://jellyfin:8096"}  # rule 14: a name, never an IP
+    # mode (a): Jellyfin's published port on loopback, as a literal: the one proxy target, no resolver needed
+    assert set(re.findall(r"\bproxy_pass\s+([^;]+);", code)) == {"http://127.0.0.1:8096"}
+    assert not re.search(r"\bset\s+\$upstream_", code)  # no variable upstream that could point elsewhere
     assert not re.search(r"\bupstream\s+\S+\s*\{", code)  # no upstream{} block with other targets
-    assert not re.search(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", code)  # no IPv4 literal outside comments
+    assert set(re.findall(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", code)) == {"127.0.0.1"}  # the only IPv4 literal
     assert re.search(r"if\s*\(\$geo_allowed\s*=\s*0\)\s*\{\s*return\s+403;\s*\}", code)  # E6
     assert "include /config/nginx/proxy.conf;" in code  # SWAG's websocket Upgrade/Connection headers
     assert "include /config/nginx/ssl.conf;" in code
@@ -183,8 +180,10 @@ def test_geo_au_plus_private():
     assert allowed("203.0.113.9", "NZ") == "1"  # B., 2026-10-18: NZ added
     assert allowed("8.8.8.8", "US") == "0"
     assert allowed("192.168.68.55", "") == "1"  # LAN client (WP0 probe address)
-    assert allowed("172.31.250.1", "") == "1"  # joey-edge gateway (host-side smoke via docker-proxy)
-    assert allowed("127.0.0.1", "") == "0"
+    assert allowed("10.1.2.3", "") == "1"
+    assert allowed("127.0.0.1", "") == "1"  # deploy.sh's host-network smoke curl (--resolve ...:127.0.0.1)
+    assert allowed("172.31.250.1", "") == "0"  # mode (a): no client arrives as a bridge address any more
+    assert allowed("172.18.0.5", "") == "0"
     assert allowed("100.104.0.1", "") == "0"  # CGNAT is not private for E6
 
 
@@ -248,7 +247,7 @@ def test_swags_catch_all_401_jail_is_off():
     jail = _jail()
     assert jail["nginx-unauthorized"]["enabled"] == "false"
     ignore = set(jail["DEFAULT"]["ignoreip"].split())
-    assert ignore == E6_PRIVATE  # never ban the LAN or the Docker gateways
+    assert ignore == E6_PRIVATE  # never ban what the geo gate treats as local: the LAN and loopback
 
 
 # ---- E8: edge.env never reaches git or an image; the template names its keys ----

@@ -2,13 +2,15 @@
 ## Bind-mounted read-only at /config/fail2ban/jail.local; SWAG's init copies it to /etc/fail2ban at every start.
 ## Changes from the default: the jellyfin-auth jail (E7); nginx-unauthorized switched OFF — it bans on ANY 401, and
 ## Jellyfin answers every request from a TV holding a stale token with 401, so it would ban friends' households.
-## Bans need the REAL client IP in SWAG's access log: bridge mode keeps it (WP0 probe (k)); live check WP-A5 G5.
+## Bans need the REAL client IP in SWAG's access log: host network mode has it natively (WP-A4, Q44 = a), and the
+## iptables bans land in the host netns (live check WP-A4 step 11, WP-A5 G5).
 
 [DEFAULT]
-# Prevents banning LAN subnets and the Docker gateways
+# Prevents banning the LAN and loopback (deploy.sh's smoke curl): the same set the geo gate treats as local. No client
+# arrives as a Docker bridge address in host mode, so 172.16/12 is not ignored.
 ignoreip = 10.0.0.0/8
            192.168.0.0/16
-           172.16.0.0/12
+           127.0.0.1/32
 
 # Changes the default ban action from "iptables-multiport", which causes issues on some platforms, to "iptables-allports".
 banaction = iptables-allports

@@ -169,12 +169,11 @@ def test_smoke_checks_the_edge_only_when_swag_is_running():
     assert "return 1" in edge  # a failed edge check fails smoke -> the one rollback path
 
 
-def test_joey_edge_network_is_gated_only_when_the_edge_profile_is_active():
-    """Mode (b): swag joins the external joey-edge network (created by nas_scripts/jellyfin_edge_net.sh, Q45);
-    `up` fails without it, so the gate checks it first — but only when COMPOSE_PROFILES enables swag."""
+def test_host_mode_edge_needs_no_network_gate():
+    """Mode (a) host (WP-A4, 2026-10-19): swag joins no Docker network, so the pre-gate no longer checks joey-edge
+    (jellyfin stays attached to it on the NAS, outside this compose). edge_active() stays, defined before the gate."""
     active = _body("edge_active")
     assert "docker compose config --services" in active and "grep -qx swag" in active
-    check = SCRIPT.index("docker network inspect joey-edge")
-    assert SCRIPT.rindex("if edge_active; then", 0, check) > SCRIPT.index("docker network inspect media-server_default")
-    assert check < SCRIPT.index("== build test image + FULL SUITE GATE")
-    assert 'gate_fail "network joey-edge missing' in SCRIPT[check:check + 200]
+    assert SCRIPT.index("edge_active() {") < SCRIPT.index("== build test image + FULL SUITE GATE")
+    assert "joey-edge" not in SCRIPT
+    assert "docker network inspect media-server_default" in SCRIPT  # the media network gate is unchanged

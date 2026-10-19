@@ -15,10 +15,9 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
 - **Manual rollback:** take a `prev=` SHA from history.log, then
   `docker run --rm -v /volume1/Docker/joey/life-dashboard:/work -w /work alpine/git reset --hard <sha>` and, in `deploy/`,
   `docker compose build && docker compose up -d --remove-orphans`. The next `deploy.sh` pulls forward again.
-- **Edge profiles (Joey TV WP-A3):** `swag` (profile `edge`, `joey-swag`, the only published port, 443) and `ddns` (profile
+- **Edge profiles (Joey TV WP-A3):** `swag` (profile `edge`, `joey-swag`, host network mode: nginx binds host 443 itself) and `ddns` (profile
   `ddns`, `joey-ddns`) start only when `COMPOSE_PROFILES` in `deploy/.env` names them (`edge`; `ddns` never while the WAN IP is
-  static). Unset, a deploy is unchanged. With `edge` on, the gate also needs the `joey-edge` network
-  (`nas_scripts/jellyfin_edge_net.sh`) and the smoke step runs `nginx -t`, `nginx -s reload` and the `/health` curl
+  static). Unset, a deploy is unchanged. With `edge` on, the smoke step runs `nginx -t`, `nginx -s reload` and the `/health` curl
   (up to 120 s). Token and `STAGING` live in the NAS-only `deploy/edge.env`, read by swag and ddns only. Runbook and
   kill switch: `docs/public-edge.md`.
   - **Rollback to a pre-edge SHA removes swag:** that tree has no `swag` service, so `up -d --remove-orphans` takes

@@ -21,14 +21,16 @@ Joey makes.
 
 ## The `joey-edge` network (Joey TV WP-A3, 2026-10-18)
 
-- A second external network, `joey-edge` (`172.31.250.0/29`), joined by `joey-swag` and `jellyfin` only. Not the hub,
-  not Kuma, not Joey's `default`, not `media-server_default`. It is declared `external: true, name: joey-edge` and
-  created by `nas_scripts/jellyfin_edge_net.sh`, never by Joey's compose, which also attaches jellyfin to it in the
-  media compose. Jellyfin's Known proxies value is this subnet.
-- `joey-swag` is the one container that publishes a port (`0.0.0.0:443:443`), and only while `COMPOSE_PROFILES=edge`.
-  Nothing else here changes: the hub and connectors still use `media-server_default` as above.
-- `deploy.sh` checks `joey-edge` exists, with the same gate wording as for `media-server_default`, only when the edge
-  profile is on. Full description, bring-up order and kill switch: `public-edge.md`.
+- **swag does not use it any more** (WP-A4, 2026-10-19). `joey-swag` runs in host network mode: nginx binds the NAS's
+  port 443 itself and reaches Jellyfin at `127.0.0.1:8096`. Joey's compose no longer declares `joey-edge`, and
+  `deploy.sh` no longer checks it. Why (ADM Defender's unreliable DNAT for published ports): `public-edge.md`,
+  "Network mode".
+- The network itself stays on the NAS: `joey-edge` (`172.31.250.0/29`), created by `nas_scripts/jellyfin_edge_net.sh`,
+  which also attaches jellyfin to it in the media compose. Jellyfin stays attached on purpose: docker-proxy then
+  carries swag's `127.0.0.1:8096` connections in from the `joey-edge` gateway, 172.31.250.1, which is the first of
+  Jellyfin's Known proxies (`172.31.250.1, 172.18.0.1`; the second applies if jellyfin is ever detached).
+- No Joey container publishes a port. The hub and connectors still use `media-server_default` as above. Full
+  description, bring-up order and kill switch: `public-edge.md`.
 
 Until the `.env` changes below, nothing behaves differently: the `*_URL` keys still point at
 the LAN IP, and that path keeps working.

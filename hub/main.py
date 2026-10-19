@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTasks
 
-from hub import media_backup
+from hub import access_jwt, media_backup
 from hub.images import router as images_router
 from hub.media_discover import router as media_discover_router
 from hub import media_film, media_person, media_plays
@@ -76,6 +76,11 @@ logging.getLogger("uvicorn.access").disabled = True
 
 app = FastAPI(title="Joey hub", lifespan=tasks.lifespan)
 
+
+# Cloudflare Access JWT gate (Joey TV WP-A6a, Q25b): FIRST add_middleware call = innermost, so the request line below
+# still logs its 401. Off unless ACCESS_JWT_VERIFY is set; a flag without ACCESS_AUD stops the import here.
+app.add_middleware(access_jwt.AccessGate)
+access_jwt.check_config()
 
 # Request log + Cache-Control (pages no-store, /static/ immutable when ?v= versioned, else an hour) in one pure
 # ASGI layer; text bodies gzipped (hub/shell.py).

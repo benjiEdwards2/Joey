@@ -72,30 +72,6 @@
   {% endif %}
 </section>
 
-{# WP-U4 (2026-10-06): "Last 24 h": sparklines from media.db server_system_samples (inline SVG, no JS, the weather
-   chart's conventions). Every value is also text; colour is never the only encoding. #}
-{% set hist = sv.history %}
-<section class="sec spark-band" id="history" aria-label="Last 24 h">
-  <div class="sechead"><h2 class="seclabel">Last 24 h</h2></div>
-  {% if hist.collecting %}
-    <p class="empty">{{ hist.text }}</p>
-  {% else %}
-  <div class="panel">
-    {% for sp in hist.sparks %}
-    <div class="spark-row">
-      <span class="spark-text">{{ sp.text }}</span>
-      <svg class="spark-svg" viewBox="0 0 {{ sp.w }} {{ sp.h }}" role="img" aria-labelledby="spark-t{{ loop.index }}">
-        <title id="spark-t{{ loop.index }}">Last 24 hours: {{ sp.text }}</title>
-        <line class="spark-base" x1="{{ sp.pad }}" y1="{{ sp.base }}" x2="{{ sp.w - sp.pad }}" y2="{{ sp.base }}"/>
-        <polyline class="spark-line" points="{{ sp.line }}"/>
-      </svg>
-    </div>
-    {% endfor %}
-    {% if hist.trend %}<p class="metaline spark-trend">{{ hist.trend }}</p>{% endif %}
-  </div>
-  {% endif %}
-</section>
-
 {% set svc = sv.services %}
 {# WP-T3 (2026-10-19, S1 + S2): "Library health" — the Counts band's unique figures in one line, under Downloads (or at
    the end of Services when that group is absent). Only the non-zero counts; amber only on Prowlarr failed grabs. #}
@@ -201,4 +177,28 @@
   {% endif %}
 </section>
 
+{# WP-U4 (2026-10-06): "Last 24 h": sparklines from media.db server_system_samples (inline SVG, no JS, the weather
+   chart's conventions). Every value is also text; colour is never the only encoding. WP-T3 (2026-10-19, S6): the last
+   band, folded — open on a desktop, closed on a phone (`data-phone-closed`, closed by joey.js under 640 px). #}
+{% set hist = sv.history %}
+<details class="sec fold spark-band" id="history" aria-label="Last 24 h" open data-phone-closed>
+  <summary class="seclabel">Last 24 h</summary>
+  {% if hist.collecting %}
+    <p class="empty">{{ hist.text }}</p>
+  {% else %}
+  <div class="panel">
+    {% for sp in hist.sparks %}
+    <div class="spark-row">
+      <span class="spark-text">{{ sp.text }}</span>
+      <svg class="spark-svg" viewBox="0 0 {{ sp.w }} {{ sp.h }}" role="img" aria-labelledby="spark-t{{ loop.index }}">
+        <title id="spark-t{{ loop.index }}">Last 24 hours: {{ sp.text }}</title>
+        <line class="spark-base" x1="{{ sp.pad }}" y1="{{ sp.base }}" x2="{{ sp.w - sp.pad }}" y2="{{ sp.base }}"/>
+        <polyline class="spark-line" points="{{ sp.line }}"/>
+      </svg>
+    </div>
+    {% endfor %}
+    {% if hist.trend %}<p class="metaline spark-trend">{{ hist.trend }}</p>{% endif %}
+  </div>
+  {% endif %}
+</details>
 {% endblock %}

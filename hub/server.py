@@ -448,6 +448,7 @@ SPARK_MIN_SPAN = 1.0  # % — a flat series draws as a flat line, not amplified 
 DISK_TARGET_PCT = DISK_ATTENTION_PCT
 PROJECTION_MAX_DAYS = 3650  # 10 years: beyond that the trend reads "flat"
 COLLECTING = "Collecting history · first chart after a few sweeps"
+FORECAST_ATTENTION_DAYS = 30   # WP-T3 (2026-10-19, S6): a projection under this joins the page's Attention
 
 
 def _spark(label: str, points: list, start: datetime, digits: int = 0) -> dict | None:
@@ -481,40 +482,60 @@ def _span_text(seconds: float) -> str:
     return f"{max(1, round(seconds / 3600))} h"
 
 
-def disk_trend(points: list) -> str | None:
-    """'Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate' (least-squares slope,
-    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits."""
+def disk_days(points: list) -> float | None:
+    """Days until the volume reaches DISK_TARGET_PCT at the least-squares rate over `points` [(at, pct)], or None:
+    under 24 h of history, already at or over the target, flat or falling, or PROJECTION_MAX_DAYS and beyond
+    (WP-T3, 2026-10-19: lifted out of `disk_trend` so the projection can also reach Attention)."""
     if len(points) < 2:
         return None
     t0 = points[0][0]
     xs = [(at - t0).total_seconds() / 86400 for at, _ in points]
     ys = [v for _, v in points]
-    span_s = (points[-1][0] - t0).total_seconds()
+    if (points[-1][0] - t0).total_seconds() < 86400 or ys[-1] >= DISK_TARGET_PCT:
+        return None
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    var = sum((x - mx) ** 2 for x in xs)
+    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
+    if slope <= 0:
+        return None
+    days = (DISK_TARGET_PCT - ys[-1]) / slope
+    return days if days < PROJECTION_MAX_DAYS else None
+
+
+def _days_text(days: float) -> str:
+    n = max(1, round(days))
+    return f"{n:,} day{'' if n == 1 else 's'}"
+
+
+def disk_trend(points: list) -> str | None:
+    """'Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate' (least-squares slope,
+    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits."""
+    if len(points) < 2:
+        return None
+    ys = [v for _, v in points]
+    span_s = (points[-1][0] - points[0][0]).total_seconds()
     head = f"Disk: {ys[0]:.1f} % → {ys[-1]:.1f} % over {_span_text(span_s)}"
     if span_s < 86400:
         return head + " · projection after 24 h of history"
     if ys[-1] >= DISK_TARGET_PCT:
         return head + f" · at or over {DISK_TARGET_PCT} %"
-    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
-    var = sum((x - mx) ** 2 for x in xs)
-    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
-    if slope > 0:
-        days = (DISK_TARGET_PCT - ys[-1]) / slope
-        if days < PROJECTION_MAX_DAYS:
-            n = max(1, round(days))
-            return head + f" · ~{n:,} day{'' if n == 1 else 's'} to {DISK_TARGET_PCT} % at this rate"
+    days = disk_days(points)
+    if days is not None:
+        return head + f" · ~{_days_text(days)} to {DISK_TARGET_PCT} % at this rate"
     return head + " · flat"
 
 
 def history_band(samples, now: datetime | None = None) -> dict:
     """The "Last 24 h" band from server_history.recent() rows (oldest first): {collecting,
-    sparks [CPU, RAM, fullest volume], trend}. Fewer than 2 samples in 24 h ⇒ collecting."""
+    sparks [CPU, RAM, fullest volume], trend, forecast}. Fewer than 2 samples in 24 h ⇒ collecting.
+    forecast (WP-T3, 2026-10-19, S6): {key, text} when the fullest volume reaches DISK_TARGET_PCT in under
+    FORECAST_ATTENTION_DAYS at this rate ("/volume1 reaches 85% in 23 days at this rate"), else None."""
     now = now or datetime.now(timezone.utc)
     start = now.timestamp() - 86400
     rows = [s for s in samples or [] if isinstance(s, dict) and s.get("at") is not None]
     day = [s for s in rows if s["at"].timestamp() >= start]
     if len(day) < 2:
-        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None}
+        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None, "forecast": None}
     t_start = datetime.fromtimestamp(start, timezone.utc)
 
     def series(key, among):
@@ -523,13 +544,19 @@ def history_band(samples, now: datetime | None = None) -> dict:
     sparks = [_spark("CPU", series("cpu_pct", day), t_start),
               _spark("RAM", series("ram_pct_used", day), t_start)]
     vols = [v for v in day[-1].get("volumes") or [] if isinstance(v.get("pct_used"), (int, float))]
-    trend = None
+    trend = forecast = None
     if vols:
         path = max(vols, key=lambda v: v["pct_used"])["path"]
         pts = [(s["at"], p) for s in day if (p := _vol_pct(s, path)) is not None]
         sparks.append(_spark(f"Disk {path}", pts, t_start, digits=1))
-        trend = disk_trend([(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None])
-    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend}
+        week = [(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None]
+        trend = disk_trend(week)
+        days = disk_days(week)
+        if days is not None and days < FORECAST_ATTENTION_DAYS:
+            forecast = {"key": f"forecast:{path}",
+                        "text": f"{path} reaches {DISK_TARGET_PCT}% in {_days_text(days)} at this rate"}
+    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend,
+            "forecast": forecast}
 
 
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
@@ -567,8 +594,13 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
     stats = sweep_stats(history)
     items = attention_items(snaps, backup, runner, stats, live)
     rows = sweep_rows(stats, live=live)
+    history = history_band(samples)
+    # WP-T3 (2026-10-19, S6): the disk projection joins the PAGE's Attention only. `attention_items` (the hub card's
+    # warn state and the Discord push) stays as it was: the hub loop's check has no samples, so a page-only key would
+    # be inserted by the render and purged by the loop, re-posting every few minutes.
+    page_items = items + ([history["forecast"]] if history["forecast"] else [])
 
     return {"system": system, "services": services, "updates": updates,
-            "attention": [i["text"] for i in items], "attention_items": items,
+            "attention": [i["text"] for i in page_items], "attention_items": items,
             "sweeps": rows, "sweep_line": sweep_summary(rows, system["last_sweep"]),
-            "history": history_band(samples)}
+            "history": history}

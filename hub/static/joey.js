@@ -54,6 +54,17 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
 ['gesturestart', 'gesturechange'].forEach(function (t) {
   document.addEventListener(t, function (e) { e.preventDefault(); }, {passive: false});
 });
+/* Server clean-up (WP-T3, 2026-10-19): a fold marked data-phone-closed (the Server page's Last 24 h) is rendered open
+   for a desktop and starts closed on a phone (under 640 px), on load and after a boosted swap.
+   Kept above the F2 block: test_polish_e2 runs that block alone under node. */
+(function () {
+  function closeOnPhone(root) {
+    if (!window.matchMedia || !window.matchMedia('(max-width: 639px)').matches) return;
+    (root || document).querySelectorAll('details[data-phone-closed]').forEach(function (d) { d.open = false; });
+  }
+  closeOnPhone();
+  document.addEventListener('htmx:load', function (e) { closeOnPhone(e.target); });
+})();
 /* ---- F2 fast item pages (2026-10-12): warm a film / show page on touch or hover ----
    A finger landing on (or a pointer resting 60 ms over) a link to a film / show page sends that page a GET with
    X-Joey-Prefetch: 1 and throws the answer away (an empty 204): the server reads Jellyfin and starts the Jellyseerr /

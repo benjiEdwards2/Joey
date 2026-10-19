@@ -136,14 +136,15 @@ def test_page_renders_three_sparklines_with_text(client_for):
         r = client.get("/server")
     assert r.status_code == 200
     body = r.text.split("<main", 1)[1]
-    band = body.split('id="history"', 1)[1].split("</section>", 1)[0]
+    band = body.split('id="history"', 1)[1].split("</details>", 1)[0]
     assert band.count('<svg class="spark-svg"') == 3 and band.count("<polyline") == 3
     assert "<script" not in band
     assert "CPU 4–38 %, now 15 %" in band and "RAM 70–75 %, now 72 %" in band
     assert "Disk /volume1 8.0–8.4 %, now 8.4 %" in band
     assert "projection after 24 h of history" in band  # 20 h of history only
-    # the band sits right after System
-    assert body.index('id="system"') < body.index('id="history"') < body.index('id="services"')
+    # WP-T3 (2026-10-19, S6): the band is the LAST one, a fold open on a desktop and marked to close on a phone
+    assert body.index('id="updates"') < body.index('id="history"')
+    assert '<details class="sec fold spark-band" id="history" aria-label="Last 24 h" open data-phone-closed>' in body
 
 
 def test_page_collecting_with_fewer_than_two_samples(client_for):

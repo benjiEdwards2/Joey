@@ -1028,3 +1028,4 @@ episode · airs 5 Dec" (no Play), and its Requests row says "Requested" whatever
 or for a show Sonarr does not have, every page keeps its words. Tests: `tests/hub/test_season_state.py` (new, 25);
 `test_media_follow_shows.py`, `test_media_discover_search_now.py`, `test_media_requests_remove.py` re-pointed (their
 "no call at all" pins now allow the one background series-list read, `helpers.not_season_state`).
+2026-10-19 (WP-T2): the hub's Weather tile left the top row (now the three area cards in three equal columns, one on a phone) and the weather glimpse runs full width directly under "Next 7 days", its 7-day strip spreading across the row; tests: `test_hub_page.py` (two added, one re-pointed), `test_first_screens_e3.py` / `test_hidden_areas.py` / `test_weather.py` (re-pointed), `test_style_pages.py` (CSS block test added).

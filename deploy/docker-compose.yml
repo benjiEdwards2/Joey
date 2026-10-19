@@ -135,7 +135,7 @@ services:
     entrypoint: ["sh", "-c", "python -m connectors.run_all; (while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do sleep 3600; python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; done"]
 
   swag:
-    # Joey TV WP-A3 (2026-10-18) — the public edge for Jellyfin: https://jellyfin.joeyhome.net -> 127.0.0.1:8096.
+    # Joey TV WP-A3 (2026-10-18) — the public edge for Jellyfin: https://jellyfin.joeyhome.net:8443 (router external 8443 -> NAS 443; the Deco drops WAN 443) -> 127.0.0.1:8096.
     # DARK until COMPOSE_PROFILES=edge is set in the NAS deploy/.env (WP-A4); never toggle it off again without
     # the kill-switch runbook R3 (docs/public-edge.md, Q47). One server_name, one upstream, AU + NZ geo, fail2ban
     # on Jellyfin auth 401s: the six ./swag confs below, bind-mounted read-only.

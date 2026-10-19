@@ -2,15 +2,21 @@
 
 Joey TV WP-A3 (2026-10-18). Friends' TVs reach Jellyfin directly through one nginx (SWAG), not through Cloudflare Access
 and not through the hub. This page says what exists in the repo and how to run it. Everything is **dark** until B. sets
-`COMPOSE_PROFILES=edge` on the NAS (WP-A4) and the router forwards 443 (WP-A5). Requirements: R4-E1…E9 in the Joey TV
+`COMPOSE_PROFILES=edge` on the NAS (WP-A4) and the router forwards external 8443 to NAS 443 (WP-A5). Requirements: R4-E1…E9 in the Joey TV
 MASTER_PLAN.
 
 ## Request path
 
 ```
-friend TV -> router :443 -> NAS host :443 = joey-swag's nginx (host network) -> 127.0.0.1:8096 -> docker-proxy -> jellyfin
+friend TV -> router external :8443 -> NAS host :443 = joey-swag's nginx (host network) -> 127.0.0.1:8096 -> docker-proxy -> jellyfin
 ```
 
+- **Why 8443 outside.** The public address is `https://jellyfin.joeyhome.net:8443`, not :443. The TP-Link Deco X50 router
+  drops external TCP 80 and 443 before they reach the NAS (they are the Deco's own web/API ports), while external 8443
+  forwards fine, so the router's only forward is external 8443 -> NAS 443. Nothing on the NAS changes: SWAG still
+  listens on 443, and the LAN and loopback checks keep using 443. Two consequences: a TLS grader must be port-capable
+  (SSL Labs only tests 443), and client apps (the official Jellyfin app, the TV shell) need the `:8443` in the server
+  address.
 - `media.joeyhome.net` is **not** on this path. It is tunnel-routed (Cloudflare) and arrives in Phase B.
 - SWAG answers one name, `jellyfin.joeyhome.net` (`deploy/swag/proxy-confs/jellyfin.subdomain.conf`). Every other Host,
   SNI or bare IP hits the catch-all in `deploy/swag/site-confs/default.conf` and gets nginx 444 (connection closed).
@@ -137,7 +143,7 @@ Run from a phone hotspot (not the home network, which can hairpin to the LAN add
 
 ```
 nslookup jellyfin.joeyhome.net. 1.1.1.1
-curl -sI --doh-url https://cloudflare-dns.com/dns-query https://jellyfin.joeyhome.net/health
+curl -sI --doh-url https://cloudflare-dns.com/dns-query https://jellyfin.joeyhome.net:8443/health
 ```
 
 `nslookup` must return the home WAN address (a grey-cloud A record, no AAAA). The curl resolves through Cloudflare's
@@ -167,7 +173,7 @@ set up by WP-A3.)
 
 Runbook R3. Either step closes the public door within a minute; B. knows both before any port opens.
 
-- **(a) Router:** B. disables the 443 port forward on the router.
+- **(a) Router:** B. disables the router's 8443 forward (external 8443 -> NAS 443).
 - **(b) NAS:** `docker compose stop swag` in `/volume1/Docker/joey/life-dashboard/deploy`.
 - **For `media.joeyhome.net`** (Phase B): delete the tunnel public hostname in Cloudflare.
 

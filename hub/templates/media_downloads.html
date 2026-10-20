@@ -9,6 +9,7 @@
 {# Downloads (2026-10-06; restyle Phase 3 row recipe): qBittorrent, read-only. State and percentage are WORDS beside
    the hairline bar — colour is never the only encoding. Finished torrents are Complete rows (emerald, guide 6). #}
 {% set done %}<span class="badge badge-complete">{{ icon("check") }}Complete</span>{% endset %}
+{% include "_app_link.html" %}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}

@@ -1050,3 +1050,5 @@ Attention items carry their action (`attention_action`, S7): a down service "Ope
 re-pointed `test_server.py`, `test_server_cards.py`, `test_server_history.py`, `test_server_not_configured.py`,
 `test_server_stack.py`, `test_server_updates.py`, `test_first_screens_e3.py`, `test_area_pages.py`,
 `test_style_pages.py`.
+
+**App links (WP-L1, 2026-10-21).** Activity › Downloads and Activity › Requests carry a small "Open qBittorrent ↗" / "Open Seerr ↗" glass button under the page head (`templates/_app_link.html`, `media_pages.app_link`): the Health row's logo (or initial tile) and the gated hostname, else the media_status snapshot's LAN address with a "LAN" word; nothing when that snapshot or the app is absent. Tests: `tests/hub/test_app_links.py` (new).

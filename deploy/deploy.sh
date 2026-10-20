@@ -9,6 +9,7 @@
 # (production images carry only their own deps).
 #
 # Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
+# It detaches from your ssh session and logs to deploy/logs/deploy-<UTC>-<pid>.log (re-attach: tail -f <log>).
 # Every run that takes the lock appends ONE line to history.log (review D-03, 2026-10-09):
 # PASS | NOTHING-TO-DEPLOY | GATE-FAIL | ROLLED-BACK | ROLLBACK-FAILED | ABORTED.
 set -eu
@@ -30,6 +31,43 @@ case "${1:-}" in
     *) echo "usage: deploy.sh [--force]" >&2; exit 64 ;;
 esac
 
+# Survive the ssh session (2026-10-20: the laptop lid closed, ssh dropped, SIGHUP killed deploy.sh during
+# `compose up`, hub sat "Created" and joeyhome.net answered 502 for 11 h). The first run re-execs itself under setsid:
+# a new session has no controlling terminal, so neither the tty hangup nor sshd's killpg reaches it (ignoring HUP alone
+# is not enough: `docker run` re-arms SIGHUP for its signal proxy). HUP is ignored too, stdin is /dev/null and all
+# output goes to deploy/logs/deploy-<UTC>-<pid>.log. This shell only follows the log and returns the child's exit code; if it
+# dies with the session (or on Ctrl-C) the deploy carries on. The re-exec runs before the lock and the pull, so the
+# child is this same pre-pull script, as an undetached run would be.
+if [ -z "${JOEY_DEPLOY_DETACHED:-}" ]; then
+    LOG_DIR=$DEPLOY_DIR/logs
+    mkdir -p "$LOG_DIR"
+    LOG=$LOG_DIR/deploy-$(date -u '+%Y%m%dT%H%M%SZ')-$$.log   # pid: two starts in one second never share a log
+    : > "$LOG"
+    DETACH=
+    if command -v setsid >/dev/null 2>&1; then
+        DETACH=setsid
+    else
+        echo "!! setsid not found: HUP is ignored, but a dropped ssh session can still stop a docker run step. Keep the session open. !!" >&2
+    fi
+    JOEY_DEPLOY_DETACHED=1
+    JOEY_DEPLOY_LOG=$LOG
+    export JOEY_DEPLOY_DETACHED JOEY_DEPLOY_LOG
+    ( trap '' HUP; exec $DETACH sh "$0" "$@" ) </dev/null >"$LOG" 2>&1 &
+    CHILD=$!
+    echo "deploy running detached (pid $CHILD), log: $LOG"
+    echo "safe to disconnect or Ctrl-C: the deploy carries on. Re-attach: tail -f $LOG"
+    tail -n +1 -f "$LOG" &
+    TAIL=$!
+    trap 'kill "$TAIL" 2>/dev/null; echo; echo "stopped watching, the deploy carries on (pid $CHILD). re-attach: tail -f $LOG"; exit 130' INT HUP TERM
+    rc=0
+    wait "$CHILD" || rc=$?
+    sleep 2   # BusyBox tail -f polls once a second: let it print the last lines
+    kill "$TAIL" 2>/dev/null || true
+    trap - INT HUP TERM
+    echo "== deploy.sh exited $rc, full log: $LOG =="
+    exit "$rc"
+fi
+
 GIT() {
     docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 -v "$REPO":/work -v /root/.ssh:/root/.ssh:ro -w /work \
         -e GIT_SSH_COMMAND='ssh -i /root/.ssh/joey_deploy' alpine/git "$@"
@@ -41,19 +79,29 @@ log_history() {
 }
 
 # One deploy at a time (2026-10-06: two concurrent deploys made smoke race the hub's
-# startup and forced a rollback). mkdir is the atomic lock on BusyBox; a stale lock
-# (older than 30 min) is removed. The traps release it on every exit path, Ctrl-C and
-# kill included (`trap EXIT` alone does not fire on a signal in ash), and log ABORTED
-# when the run dies before an outcome line was written (e.g. `set -e` on a failed pull).
+# startup and forced a rollback). mkdir is the atomic lock on BusyBox. The holder's pid
+# and log go into the lock dir (2026-10-20, detached deploys): a live holder always blocks,
+# a dead one is stale at once, and only a pid-less lock (pre-pid, or the instant between
+# mkdir and the write) falls back to "stale after 30 min" — a gate + rollback can run longer.
+# The traps release it on every exit path, kill included (`trap EXIT` alone does not fire
+# on a signal in ash), and log ABORTED when the run dies before an outcome line was
+# written (e.g. `set -e` on a failed pull).
 LOCK=/tmp/joey-deploy.lock
 if ! mkdir "$LOCK" 2>/dev/null; then
-    if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; then
-        echo "stale deploy lock (>30 min) — removing"; rmdir "$LOCK"; mkdir "$LOCK"
-    else
-        echo "!! another deploy is running (lock $LOCK) — try again when it finishes !!"
+    holder=$(cat "$LOCK/pid" 2>/dev/null || true)
+    if { [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; } \
+        || { [ -z "$holder" ] && [ -z "$(find "$LOCK" -maxdepth 0 -mmin +30 2>/dev/null)" ]; }; then
+        held_log=$(cat "$LOCK/log" 2>/dev/null || true)
+        echo "!! another deploy is running (pid ${holder:-?}, lock $LOCK) — try again when it finishes !!"
+        echo "watch it: tail -f ${held_log:-$DEPLOY_DIR/logs/<newest>}"
         exit 2
     fi
+    echo "stale deploy lock (holder ${holder:-unknown} is gone) — removing"
+    rm -rf "$LOCK"
+    mkdir "$LOCK" 2>/dev/null || { echo "!! another deploy took the lock first — try again when it finishes !!"; exit 2; }
 fi
+echo "$$" > "$LOCK/pid"
+echo "${JOEY_DEPLOY_LOG:-}" > "$LOCK/log"
 on_exit() {
     rc=$?
     trap - EXIT INT TERM
@@ -65,6 +113,7 @@ on_exit() {
         fi
         log_history "ABORTED" "$note" || true
     fi
+    rm -f "$LOCK/pid" "$LOCK/log"
     rmdir "$LOCK" 2>/dev/null || true
     exit "$rc"
 }
@@ -135,8 +184,9 @@ wait_for_hub() {
     return 1
 }
 # The public edge (Joey TV WP-A3), only when swag is running (edge profile on). SWAG stays "running" even when
-# nginx inside it fails, so `--status restarting` cannot catch a broken conf, and a bind-mounted conf change is
-# never picked up without a reload. Up to 120 s: a fresh swag installs its mods and certificate before nginx starts.
+# nginx inside it fails, so `--status restarting` cannot catch a broken conf. The confs are single-file binds, so
+# recreate_swag (below), not this reload, applies a conf change; the reload is harmless. Up to 120 s: a fresh swag
+# installs its mods and certificate before nginx starts.
 # The health curl runs from the host network (a pinned curl image; the NAS has no curl guarantee) to 127.0.0.1:443.
 edge_smoke() {
     if [ -z "$(docker compose ps --status running -q swag 2>/dev/null)" ]; then
@@ -157,9 +207,16 @@ edge_smoke() {
 }
 # The six ./swag confs are single-FILE `:ro` binds, which pin the inode: `git pull` writes new files (new inodes), so a
 # running swag keeps the old conf and `nginx -s reload` cannot help (WP-A4, 2026-10-19: PR #5 deployed, jail.local not
-# live). Under the edge profile, swag is always force-recreated (a ~10 s edge blip per deploy, accepted 2026-10-16).
+# live). Under the edge profile, swag is force-recreated (a ~10 s edge blip) only when the deploy changed a file under
+# deploy/swag/ (P6, 2026-10-19). The rollback crosses the same PREV..NEW range, so the same diff decides there.
+# --force, or a diff git cannot answer, recreates to be safe. A change to the swag service in docker-compose.yml needs
+# nothing here: `compose up` recreates a service whose config changed.
+swag_confs_changed() {
+    if [ "$FORCE" -eq 1 ]; then return 0; fi
+    ! GIT diff --quiet "$PREV_SHA" "$NEW_SHA" -- deploy/swag
+}
 recreate_swag() {
-    if edge_active; then
+    if edge_active && swag_confs_changed; then
         docker compose up -d --force-recreate swag
     fi
 }

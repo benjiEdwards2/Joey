@@ -78,8 +78,8 @@ Compose reads `COMPOSE_PROFILES` from `deploy/.env`. Unset, both stay dark and a
 Images are pinned (manual updates only; `joey-*` containers are held from WUD). When swag is running, `deploy.sh`'s
 smoke step runs `nginx -t`, `nginx -s reload` and a `/health` curl to `127.0.0.1:443` from a host-network curl container
 (see `deploy/README.md`). The six repo confs are single-file `:ro` binds, so a running swag sees new conf only after a
-recreate: `deploy.sh` force-recreates swag on every deploy while the edge profile is on, and a manual conf change
-outside `deploy.sh` needs `docker compose up -d --force-recreate swag`, not `nginx -s reload`. **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
+recreate: while the edge profile is on, `deploy.sh` force-recreates swag only when the deploy changed a file under
+`deploy/swag/` (or on `--force`; the rollback uses the same diff), and a manual conf change outside `deploy.sh` needs `docker compose up -d --force-recreate swag`, not `nginx -s reload`. **Never take `edge` out of `COMPOSE_PROFILES` without the "Kill switch" runbook below:** a
 deploy with the profile off may remove `joey-swag` mid-stream.
 
 ## edge.env keys
@@ -168,6 +168,34 @@ that folder is lost: re-run `edge_cf_ini.sh`, start swag, and certbot re-issues 
 `STAGING=true` while testing, because production issuance is rate-limited. `edge.env` itself is NAS-only and not in git:
 keep the token in B.'s password manager. (Whether `/volume1/Docker/joey/swag` is covered by any NAS backup is not
 set up by WP-A3.)
+
+## Restore media.db
+
+Joey TV WP-A6b (2026-10-20). Friends' plays live in `media.db`, so one copy leaves the house: `deploy/media_offsite.sh`
+encrypts the newest `media-*.db.gz` from `/volume1/Docker/joey/backups/media/` (and nothing else) to a public age key
+and pushes it to the private repo `benjiEdwards2/joey-offsite-backup` as `media/<dump>.age`, keeping the newest 14.
+It runs on the NAS host as root (`sh deploy/media_offsite.sh`, or `--dry-run` to see the one file it would send);
+the optional cron hook is `nas_scripts/media_offsite_cron.sh`. The age private key is in B.'s password manager ("Joey
+media.db offsite key") and in `/volume1/Docker/joey/secrets/` on the NAS; the script never reads it. The drill uses the
+password-manager copy, because that is the one left if the NAS dies. Any Docker host works; this is the NAS form.
+
+1. Laptop (Git Bash): fetch the newest ciphertext, and save the password-manager key file as `$TEMP/offsite.key`.
+   ```
+   N=$(gh api repos/benjiEdwards2/joey-offsite-backup/contents/media --jq '.[].name' | sort | tail -n 1)
+   gh api -H 'Accept: application/vnd.github.raw' "repos/benjiEdwards2/joey-offsite-backup/contents/media/$N" > "$TEMP/$N"
+   ssh root@192.168.68.59 'mkdir -m 700 /tmp/mediarestore'
+   scp "$TEMP/$N" "$TEMP/offsite.key" root@192.168.68.59:/tmp/mediarestore/
+   ```
+2. NAS: decrypt and unpack in a throwaway container, then check it read-only.
+   ```
+   docker run --rm -v /tmp/mediarestore:/r alpine:3.24.2 sh -c \
+     'apk add -q --no-cache age && age -d -i /r/offsite.key -o /r/media.db.gz /r/media-*.age && gunzip /r/media.db.gz'
+   docker run --rm -v /tmp/mediarestore:/r:ro python:3.12-alpine python -c "import sqlite3; c=sqlite3.connect('file:/r/media.db?mode=ro', uri=True); print(c.execute('pragma integrity_check').fetchone()[0]); print(c.execute('select owner, count(*) from play group by owner').fetchall())"
+   ```
+   Pass: `ok`, and the owner counts include the `jf:` rows (compare with the live `media.db`).
+3. Delete every temp copy: `ssh root@192.168.68.59 'rm -rf /tmp/mediarestore'` and `rm "$TEMP/$N" "$TEMP/offsite.key"`.
+
+For a real restore, put the decrypted `media.db` back the same way as an on-NAS dump (runbook R5).
 
 ## Kill switch
 

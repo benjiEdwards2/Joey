@@ -1074,3 +1074,5 @@ budget: a title view 0 before render, then ≤1 lookup (shared, 5 min) + ≤2 pr
 validation read (cached) and, non-default only, ≤3 lookups + ≤1 PUT + ≤1 command. Tests: `tests/hub/test_media_quality.py`
 (new, 49 cases), `helpers.not_quality` (new), `conftest` (clears the profile cache), re-pointed `test_media_episodes.py` (confirm
 step reads the profiles), `test_media_requests_remove.py` (two call-list pins), `test_season_state.py` (Requests page pin).
+
+**App links (WP-L1, 2026-10-21).** Activity › Downloads and Activity › Requests carry a small "Open qBittorrent ↗" / "Open Seerr ↗" glass button under the page head (`templates/_app_link.html`, `media_pages.app_link`): the Health row's logo (or initial tile) and the gated hostname, else the media_status snapshot's LAN address with a "LAN" word; nothing when that snapshot or the app is absent. Tests: `tests/hub/test_app_links.py` (new).

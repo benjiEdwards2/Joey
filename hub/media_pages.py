@@ -75,6 +75,16 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     return shell._maybe_set_cookie(resp, view, from_query)
 
 
+def app_link(request: Request, app_id: str) -> dict | None:
+    """WP-L1 (2026-10-21): the Health row's card for one app (`server.service_card`: logo, gated hostname else the
+    snapshot's address with `lan`), read from the media_status snapshot - None when that snapshot or the app is absent."""
+    snap = shell.get_snapshots(request=request).get(MEDIA_STATUS_SNAPSHOT_ID)
+    app = next((a for a in ((snap.data if snap else None) or {}).get("apps") or [] if a.get("id") == app_id), None)
+    if app is None:
+        return None
+    return server.service_card(app, [], shell.registry.gated_hrefs if shell.registry else {})
+
+
 @router.get("/media/apps", response_class=HTMLResponse)
 def media_apps_page(request: Request):
     # 2026-10-19 (WP-H1): each row takes the Server card's logo / initial and gated hostname (one `service_card`).
@@ -140,6 +150,7 @@ def media_downloads_page(request: Request):
         if upgrades and upgrades.get("rows"):
             upgrades["rows"] = link(upgrades["rows"])
         return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades,
+                "app_link": app_link(request, "qbittorrent"),
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
                                f" · {data.get('seeding', 0)} seeding"}
     return _detail_page(request, "media_downloads.html", QBIT_SNAPSHOT_ID, build)
@@ -196,7 +207,7 @@ def media_requests_page(request: Request):
         good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
-                "rows": rows, "flash": good, "flash_warn": warn,
+                "rows": rows, "flash": good, "flash_warn": warn, "app_link": app_link(request, "jellyseerr"),
                 "ratings": media_home._ratings(view, rows)}
     later = [None]
     resp = _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)

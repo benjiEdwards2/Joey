@@ -1406,3 +1406,9 @@ a.guest:hover .guest-name { text-decoration: underline; }
 /* Request quality (2026-10-21, WP-R1): the hero's "Quality · 1080p" line with its Switch button. (The Request confirm's
    Quality row is radio chips: the shared .chip recipe, extended beside its checkbox rule.) */
 .qualityblock .metaline .btn { margin-left: 8px; vertical-align: middle; }
+
+/* App links (2026-10-21) */
+.applinkrow { margin: 0 0 12px; }
+.applink img, .applink .svc-fallback { width: 20px; height: 20px; padding: 2px; border-radius: 5px; }
+.applink .svc-fallback { padding: 0; }
+.applink .svc-initial { font-size: 11px; }

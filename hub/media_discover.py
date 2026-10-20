@@ -574,7 +574,10 @@ def request_step(request: Request, kind: str, tmdb_id: int, step: str = ""):
     t = _title(kind, tmdb_id)
     if t is None:
         return _partial(request, "_request_block.html", **_block(_stub(kind, tmdb_id), "error", "Title unavailable"))
-    return _partial(request, "_request_block.html", **_block(t, "confirm" if step == "confirm" else "idle"))
+    if step != "confirm":
+        return _partial(request, "_request_block.html", **_block(t, "idle"))
+    from hub import media_quality   # late: it imports this module
+    return _partial(request, "_request_block.html", **_block(t, "confirm"), profiles=media_quality.choices(kind))
 
 
 # ---- Season episodes (lazy, TV only) ----
@@ -632,15 +635,27 @@ async def _seasons_of(request: Request) -> list[int] | str:
     return nums
 
 
-def _send(kind: str, tmdb_id: int, seasons: list[int] | str) -> str | None:
+async def _profile_of(request: Request) -> str | None:
+    """The Request form's `profile` (WP-R1: the Quality chips), or None when it sent none. Validated in _request_title."""
+    body = await request.body()   # Starlette keeps the body: _seasons_of may have read it already
+    if len(body) > MAX_BODY:
+        raise bad("Too large")
+    values = parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True).get("profile", [])
+    return values[-1] if values and values[-1] != "" else None
+
+
+def _send(kind: str, tmdb_id: int, seasons: list[int] | str, profile_id: int | None = None) -> str | None:
     """POST the request to Jellyseerr -> None on success, else an ERRORS code. `seasons` may be "all" (TV): the API's
-    `seasons: number[] | "all"` (seerr-api.yml, POST /request) — every season, Specials excepted."""
+    `seasons: number[] | "all"` (seerr-api.yml, POST /request) — every season, Specials excepted. `profile_id`
+    (WP-R1): the arr quality profile; Seerr applies it to its default server without a `serverId`."""
     creds = _creds()
     if not creds:
         return "network"
     payload: dict = {"mediaType": kind, "mediaId": tmdb_id}
     if kind == "tv":
         payload["seasons"] = seasons
+    if profile_id is not None:
+        payload["profileId"] = profile_id
     try:
         resp = upstream.session("seerr").post(f"{creds[0]}/api/v1/request", json=payload,
                              headers={"X-Api-Key": creds[1]}, timeout=TIMEOUT)
@@ -659,16 +674,31 @@ async def request_title(request: Request, kind: str, tmdb_id: int):
     worker thread, so a slow upstream never stalls other requests or /healthz (M-40)."""
     kind = _kind(kind)
     seasons = await _seasons_of(request) if kind == "tv" else []
-    return await run_in_threadpool(_request_title, request, kind, tmdb_id, seasons)
+    profile = await _profile_of(request)
+    return await run_in_threadpool(_request_title, request, kind, tmdb_id, seasons, profile)
 
 
-def _request_title(request: Request, kind: str, tmdb_id: int, seasons):
-    code = _send(kind, tmdb_id, seasons)
-    future = None
+def _tvdb_cached(kind: str, tmdb_id: int) -> int | None:
+    """A show's TheTVDB id from the cached title body (the confirm step read it), else None - never a call."""
+    hit = _cache.get(f"film:/api/v1/{kind}/{tmdb_id}") if kind == "tv" else None
+    body = hit[1] if isinstance(hit, tuple) and len(hit) == 2 else None
+    v = ((body or {}).get("externalIds") or {}).get("tvdbId") if isinstance(body, dict) else None
+    return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+
+
+def _request_title(request: Request, kind: str, tmdb_id: int, seasons, profile=None):
+    from hub import media_quality   # late: it imports this module
+    prof = media_quality.pick(kind, profile)   # WP-R1: 422 for a profile the app does not offer
+    code = _send(kind, tmdb_id, seasons, prof["id"] if prof else None)
+    future = qnet = None
+    special = prof if prof and not prof["default"] else None
     if code is None:
+        tvdb = _tvdb_cached(kind, tmdb_id)
         _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)  # the film page re-reads the new request status
         from hub import media_requests   # late: it imports this module
         media_requests.forget_lookups()   # E1: the title is on its way into Radarr / Sonarr - Search now re-reads
+        if special:   # WP-R1 safety net: the arr entry carries the picked profile (before Sonarr's follow searches)
+            qnet = media_quality.ensure(kind, tmdb_id, special["id"], tvdb)
         if seasons == "all":   # media-ux5 item 7: Sonarr follows new seasons too, then searches
             from hub import media_arr_search  # late: it imports this module
             future = media_arr_search.follow_all(tmdb_id)
@@ -677,8 +707,10 @@ def _request_title(request: Request, kind: str, tmdb_id: int, seasons):
         if code is None:
             from hub import media_arr_search
             return _partial(request, "_request_block.html", **_block(stub, "done"),
-                            future=media_arr_search.future_note(future))
+                            future=media_arr_search.future_note(future), quality=(special or {}).get("name"),
+                            qnote=media_quality.net_note(qnet, kind))
         return _partial(request, "_request_block.html", **_block(stub, "error", ERRORS[code]))
-    done = "requested=1" + (f"&future={future}" if future else "")
+    done = ("requested=1" + (f"&future={future}" if future else "") + (f"&quality={special['id']}" if special else "")
+            + (f"&qnet={qnet}" if media_quality.net_note(qnet, kind) else ""))
     return RedirectResponse(f"/media/title/{kind}/{tmdb_id}?" + (done if code is None else f"error={code}"),
                             status_code=303)

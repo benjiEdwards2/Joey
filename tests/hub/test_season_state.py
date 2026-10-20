@@ -435,4 +435,5 @@ def test_requests_page_says_requested_and_waiting_and_how_much_is_to_come(frame_
     assert f">Requested</span> · Waiting for the first episode · airs {words(47)} · TV" in warm
     assert f">Partly available</span> · 3 of 8 episodes · 5 to come · next airs {words(5)} · TV" in warm
     assert ">Approved</span> · TV" in warm                                                   # not in Sonarr: unchanged
-    assert [c[0] for c in sonarr.calls] == ["/api/v3/series"]
+    # WP-R1: the page's background task also reads the quality profiles once (the "4K" chip); the series list stays one read
+    assert [c[0] for c in sonarr.calls if c[0] != "/api/v3/qualityprofile"] == ["/api/v3/series"]

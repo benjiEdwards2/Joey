@@ -45,6 +45,10 @@
         <p class="statusline{{ ' st-good' if film.on_server and not film.jf_failed }}">{% if film.on_server and not film.jf_failed %}{{ icon("drive") }}{% endif %}<span id="status-line">{{ film.status_line }}</span></p>
         {# F4b (2026-10-12): "Upgrade available · <have> → <want>" from the arr snapshot (no call); the button is in the Search-now fragment #}
         {% from "_upgrade_note.html" import upnote %}{{ upnote(film.upgrade, "p") }}
+        {# Quality (WP-R1, 2026-10-21): "Quality · 1080p" + Switch, filled in after load by media_quality.py only for a title
+           Radarr / Sonarr has; the no-JS confirm step (?quality_ask=1) is drawn here. #}
+        {% if film.quality_block %}{% with q = film.quality_block %}{% include "_quality_block.html" %}{% endwith %}{% elif film.quality_href %}<div id="quality-block" hidden hx-get="{{ film.quality_href }}" hx-trigger="load" hx-swap="outerHTML"></div>{% endif %}
+        {% if film.quality_flash and film.quality_flash[0] %}<p class="metaline st-good" role="status">{{ film.quality_flash[0] }}</p>{% elif film.quality_flash and film.quality_flash[1] %}<p class="metaline st-warn" role="status">{{ film.quality_flash[1] }}</p>{% endif %}
         {% if film.note %}<p class="metaline">{{ film.note }}</p>{% endif %}
         {% if film.search_flash and film.search_flash[0] %}<p class="metaline st-good" role="status">{{ film.search_flash[0] }}</p>{% elif film.search_flash and film.search_flash[1] %}<p class="metaline st-warn" role="status">{{ film.search_flash[1] }}</p>{% endif %}
         {% if film.upgrade_flash and film.upgrade_flash[0] %}<p class="metaline st-good" role="status">{{ film.upgrade_flash[0] }}</p>{% elif film.upgrade_flash and film.upgrade_flash[1] %}<p class="metaline st-warn" role="status">{{ film.upgrade_flash[1] }}</p>{% endif %}

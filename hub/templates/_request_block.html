@@ -5,13 +5,14 @@
 {% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
 <div id="request-block" class="requestblock">
 {% if state == "done" %}
-  <p class="statusline st-good">Requested ✓ — shows in Requests within the hour</p>
+  <p class="statusline st-good">Requested{% if quality %} in {{ quality }}{% endif %} ✓ — shows in Requests within the hour</p>
+  {% if qnote %}<p class="metaline st-warn">{{ qnote }}</p>{% endif %}
   {% if future %}<p class="metaline {{ 'st-good' if future.ok else 'st-warn' }}">{{ future.text }}</p>{% endif %}
 {% elif state == "error" %}
   <p class="statusline st-warn">{{ msg }}</p>
   <a class="btn btn-secondary" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Try again</a>
 {% elif state == "confirm" %}
-  <form class="confirm" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#request-block" hx-swap="outerHTML"{% if t.kind == "tv" %} onchange="var a=this.querySelector('input[value=all]'),t=event.target;if(t===a){if(a.checked)this.querySelectorAll('.seasonpick input').forEach(function(i){i.checked=false})}else if(t.checked){a.checked=false}"{% endif %}>
+  <form class="confirm" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#request-block" hx-swap="outerHTML"{% if t.kind == "tv" %} onchange="var a=this.querySelector('input[value=all]'),t=event.target;if(t===a){if(a.checked)this.querySelectorAll('.seasonpick input').forEach(function(i){i.checked=false})}else if(t.name==='seasons'&&t.checked){a.checked=false}"{% endif %}>
     {% if t.kind == "tv" %}
     <div>Request which seasons of {{ t.title }}?</div>
     {# media-ux5 (2026-10-09): "All seasons + future" requests every season and has Sonarr follow new ones. Unticked by
@@ -26,6 +27,13 @@
     </div>
     {% else %}
     <div>Request {{ t.title }}{% if t.year %} ({{ t.year }}){% endif %}?</div>
+    {% endif %}
+    {# WP-R1 (2026-10-21): the arr quality profile, as Seerr's Advanced › Quality Profile - one radio chip per profile,
+       the Seerr default preselected. No row with one profile or when the list could not be read. #}
+    {% if profiles and profiles | length > 1 %}
+    <div class="chips qualitypick" role="radiogroup" aria-label="Quality"><span class="microlabel">Quality</span>
+      {% for p in profiles %}<label class="chip"><input type="radio" name="profile" value="{{ p.id }}"{{ " checked" if p.default }}>{{ p.name }}{% if p.default %} · Default{% endif %}</label>{% endfor %}
+    </div>
     {% endif %}
     <div class="confirm-btns">
       <button class="btn btn-primary btn-sm" type="submit">Confirm request</button>

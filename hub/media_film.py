@@ -28,7 +28,7 @@ from starlette.background import BackgroundTask
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub import media_episode_ratings, media_season_state as mss
-from hub import media_home, media_text, media_upgrades, shell
+from hub import media_home, media_quality, media_text, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import empty_series, runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -1211,6 +1211,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, tvdb, request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
+    # Quality (WP-R1): "Quality · 1080p" + Switch, lazy-loaded like Search now; drawn here only for the no-JS confirm step
+    f["quality_href"] = media_quality.lazy_href(kind, tmdb_id, tvdb, request.url.path) if not ep else None
+    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True)
+                          if f["quality_href"] and request.query_params.get("quality_ask") == "1" else None)
+    f["quality_flash"] = media_quality.flash_text(request.query_params)
     f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only
     f["upgrade_flash"] = media_arr_search.upgrade_flash(request.query_params)
     f["status_line"] = status_line(f)
@@ -1303,7 +1308,7 @@ def _prefetched(what: str) -> Response:
 
 @router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
 def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "", error: str = "",
-               future: str = ""):
+               future: str = "", quality: str = "", qnet: str = ""):
     kind = md._kind(kind)
     view, from_query = shell.resolve_owner_view(request)
     snaps = shell.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
@@ -1316,6 +1321,10 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
     if is_prefetch(request):
         return _prefetched("title")
     film["req_future"] = media_arr_search.future_note(future) if state == "done" else None   # media-ux5 item 7
+    # WP-R1: the Quality chips on the no-JS confirm step; "Requested in 4K" + the safety net's warning when done
+    film["req_profiles"] = media_quality.choices(kind) if state == "confirm" and film.get("show_request") else []
+    film["req_quality"] = media_quality.name_of(kind, quality) if state == "done" else None
+    film["req_qnote"] = media_quality.net_note(qnet, kind) if state == "done" else None
     return _render(request, src, film, view, from_query, snaps)
 
 

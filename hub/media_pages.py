@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_requests, media_resume, media_season_state, media_upgrades, media_wrapped, media_write,
+                 media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
@@ -189,7 +189,10 @@ def media_requests_page(request: Request):
         tv = [r for r in rows if r.get("kind") == "tv"]
         for r in tv:   # WP-T1: Sonarr's words (cache only; the read runs after the response)
             request_words(r, media_season_state.season_states(r.get("tvdb_id"), r.get("tmdb_id")))
-        later[0] = media_season_state.later([(r.get("tvdb_id"), r.get("tmdb_id")) for r in tv])
+        # WP-R1: a "4K" chip on a row whose arr entry is not on the default profile - caches only, the reads after
+        later[0] = media_season_state.chain(media_season_state.later([(r.get("tvdb_id"), r.get("tmdb_id")) for r in tv]),
+                                            media_quality.later(rows))
+        media_quality.attach(rows)
         good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),

@@ -60,6 +60,8 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/title/{kind}/{tmdb_id}/request`, `/search` | media_discover, media_arr_search | Jellyseerr request; Search now (Radarr / Sonarr command) |
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
 | `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
+| `GET /media/title/{kind}/{tmdb_id}/quality` | media_quality | "Quality · 1080p" + Switch, lazy-loaded under the hero's status line (`?step=confirm` = the inline confirm; no-JS 303 to the page's `?quality_ask=1`) |
+| `POST /media/title/{kind}/{tmdb_id}/quality` | media_quality | Switch quality: PUT the Radarr movie / Sonarr series with the new `qualityProfileId`, then `MoviesSearch` / `SeriesSearch` |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/rate/skip`, `/media/rate/skip-show`, `/media/rate/unskip` | media_write | To rate: Skip this entry / the whole show (media.db `rating_skip`, v4), Unskip (E5, 2026-10-13) |
 | `POST /media/settings/rating_level`, `/media/settings/diary_scope` | media_write | Rating scale; diary scope (2026-10-13: `mine` / `everyone`, 403 for her) |

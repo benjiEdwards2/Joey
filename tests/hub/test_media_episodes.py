@@ -278,7 +278,7 @@ def test_confirm_step_offers_all_seasons_plus_future_unticked_first(tv_env):
     assert confirm.index('value="all"') < confirm.index('<div class="seasonpick">') < confirm.index('value="4"')
     assert 'value="all" checked' not in confirm and "checked" not in confirm.split('<div class="seasonpick">')[1]
     assert "onchange=" in confirm
-    assert son.calls == []
+    assert tmi.not_quality(son.calls) == []   # WP-R1: the confirm step reads the quality profiles
 
 
 def test_all_plus_specific_season_prefers_the_specific_season(tv_env):

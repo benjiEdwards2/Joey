@@ -20,7 +20,7 @@ from hub.media_discover import router as media_discover_router
 from hub import media_film, media_person, media_plays
 from hub import media_write as _media_write
 from hub.media_write import router as media_write_router
-from hub import media_arr_search, media_follow, media_requests, media_resume
+from hub import media_arr_search, media_follow, media_quality, media_requests, media_resume
 from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
@@ -102,6 +102,7 @@ app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)
 app.include_router(media_resume.router)
 app.include_router(media_arr_search.router)   # media-ux5: Search now
+app.include_router(media_quality.router)   # WP-R1: Quality · 1080p / Switch to 4K
 app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
 app.include_router(weather.router)

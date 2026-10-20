@@ -614,6 +614,12 @@ label.row input[type=radio] { flex-shrink: 0; }
 /* Filter chips: a 1-10 score chip keeps its grade colour; a chip holding a checkbox hides the box. */
 .chip[class*="score-"] { font-variant-numeric: tabular-nums; min-width: 32px; justify-content: center; padding: 0 8px; }
 .chip > input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+/* WP-R1 (2026-10-21): a radio chip (the Request confirm's Quality row) fills white while picked; the word "Default"
+   names Seerr's own pick, so colour is never the only cue. */
+.chip:has(> input[type=radio]) { position: relative; cursor: pointer; }
+.chip > input[type=radio] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.chip:has(> input:checked) { background: var(--zinc-100); border-color: var(--zinc-100); color: var(--zinc-900); }
+.chip:has(> input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none; cursor: pointer; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 
@@ -1397,3 +1403,6 @@ a.guest:hover .guest-name { text-decoration: underline; }
    Search missing button, and an Attention item its action button. (.srvtiles and .cols went with their markup: the tile row and the Counts band.) */
 .libhealth { margin-top: 8px; }
 .libhealth .btn, .attn-item .btn { margin-left: 8px; vertical-align: middle; }
+/* Request quality (2026-10-21, WP-R1): the hero's "Quality · 1080p" line with its Switch button. (The Request confirm's
+   Quality row is radio chips: the shared .chip recipe, extended beside its checkbox rule.) */
+.qualityblock .metaline .btn { margin-left: 8px; vertical-align: middle; }

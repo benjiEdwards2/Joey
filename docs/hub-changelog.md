@@ -1050,3 +1050,27 @@ Attention items carry their action (`attention_action`, S7): a down service "Ope
 re-pointed `test_server.py`, `test_server_cards.py`, `test_server_history.py`, `test_server_not_configured.py`,
 `test_server_stack.py`, `test_server_updates.py`, `test_first_screens_e3.py`, `test_area_pages.py`,
 `test_style_pages.py`.
+Request quality profile (2026-10-21, WP-R1). Seerr has one Radarr and one Sonarr server (neither 4K), so 1080p / 4K is the
+arr app's quality profile, as Seerr's Advanced › Quality Profile. New `hub/media_quality.py`: `profiles(kind)` (Radarr /
+Sonarr `GET /api/v3/qualityprofile`, names as the app has them, `is_4k` from the name — 4k / 2160 / uhd — and the default
+from Seerr's `GET /api/v1/settings/radarr|sonarr` `activeProfileId`, else the first non-4K; kept 10 min, a failure keeps
+the last good list and is not retried for 60 s, never raises). The Request confirm step shows a "Quality" row of radio
+chips ("1080p · Default" preselected, "4K"; none with one profile or a failed read; TV: under the seasons picker, and
+the seasons onchange no longer unticks "All seasons + future" for a quality click); the POST validates `profile` (422
+"Pick a quality" for an id the app does not offer) and sends `profileId` to Seerr — no `serverId` needed (Seerr's
+MediaRequestSubscriber applies a profileId to the default server). Safety net: after a non-default request the arr
+entry is read back (3 reads, 2 s apart, before Sonarr's "All seasons + future" follow) and PUT + searched when its
+profile differs; the done line says "Requested in 4K ✓ — shows in Requests within the hour", plus a warning when the app
+had not added it yet. The title / item page lazy-loads `GET /media/title/{kind}/{tmdb}/quality` under the status line:
+"Quality · 1080p" from the arr entry's `qualityProfileId` (never a request's stored id) and "Switch to 4K" (a 4K title:
+"Switch to 1080p"), an inline confirm ("Radarr will look for a 4K file and keep the 1080p one until it arrives."), then
+the same-origin `POST …/quality` PUTs the app's own resource with the new profile and sends MoviesSearch / SeriesSearch
+("Switched to 4K · searching" / the failure word); no-JS: `?quality_ask=1` draws the panel, the POST 303s with
+`?qswitch=&qk=&qp=`. Requests page: a "4K" badge after a row's title when its arr profile is not the default — from
+caches only (Sonarr's series list the season words keep; media_requests' Radarr lookups), the missing reads (profile
+lists, up to 10 film lookups) in the response's BackgroundTask. `media_requests.find_kept` now shares one in-flight read
+between concurrent askers (the Search now and Quality fragments load together), and `kept()` peeks its cache. Call
+budget: a title view 0 before render, then ≤1 lookup (shared, 5 min) + ≤2 profile reads (10 min); a request +1
+validation read (cached) and, non-default only, ≤3 lookups + ≤1 PUT + ≤1 command. Tests: `tests/hub/test_media_quality.py`
+(new, 49 cases), `helpers.not_quality` (new), `conftest` (clears the profile cache), re-pointed `test_media_episodes.py` (confirm
+step reads the profiles), `test_media_requests_remove.py` (two call-list pins), `test_season_state.py` (Requests page pin).

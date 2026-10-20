@@ -19,7 +19,7 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 |---|---|
 | `tests/hub/` | The hub: shell, registry, identity, store, every Media / Server / Weather / Awards page and its routes |
 | `tests/connectors/` | Envelope and per-feed schemas, fixture tests per connector, the sample snapshots, the contract doc |
-| `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script, cloudflared and public-edge checks (`test_edge.py`) |
+| `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script, cloudflared, public-edge (`test_edge.py`) and off-box media.db push (`test_media_offsite.py`) checks |
 | `tests/money/` | The money pre-commit guard only (the money importer was never built) |
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
 

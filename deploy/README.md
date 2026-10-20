@@ -45,3 +45,6 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   override `.env` per service, and the NAS-only `edge.env` (Cloudflare token for swag and ddns) — the split is at the top of `.env.example`; keep them all `chmod 600`. Setting notes:
   `docs/setup.md`.
 - **Volumes:** hub backups land in `/volume1/Docker/joey/backups/media` (uid 1000); connectors see only the snapshots dir.
+- **Off-box media.db (Joey TV WP-A6b):** `sh deploy/media_offsite.sh` on the NAS as root pushes the newest dump from
+  `backups/media/`, age-encrypted, to the private repo `benjiEdwards2/joey-offsite-backup` (`media/`, newest 14);
+  `--dry-run` shows the one file it would send. Not run by `deploy.sh`. Restore drill: `docs/public-edge.md` "Restore media.db".

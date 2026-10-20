@@ -204,3 +204,83 @@ def test_edge_profile_recreates_swag_after_up_and_on_rollback_only_on_swag_chang
     assert (back.index("docker compose up -d --remove-orphans") < back.index("&& recreate_swag")
             < back.index("&& smoke; then"))
     assert "every deploy" not in SCRIPT  # the always-recreate wording is gone
+
+
+# ---- 2026-10-20 incident: the laptop lid closed, ssh dropped, SIGHUP killed deploy.sh during `compose up`, hub sat
+# "Created" and joeyhome.net answered 502 for 11 h. deploy.sh now detaches itself, logs to a file and keeps the lock. ----
+
+def _detach_block() -> str:
+    start = SCRIPT.index('if [ -z "${JOEY_DEPLOY_DETACHED:-}" ]; then')
+    return SCRIPT[start:SCRIPT.index(chr(10) + "fi" + chr(10), start)]
+
+
+def test_deploy_detaches_into_its_own_session_before_the_lock_and_the_pull():
+    """The first run re-execs itself (marker JOEY_DEPLOY_DETACHED) under setsid: a new session has no controlling
+    terminal, so neither the tty hangup nor sshd's killpg on the old process group reaches it. Ignoring HUP alone is not
+    enough: `docker run` (GIT, the gate, the edge curl) re-arms SIGHUP for its signal proxy. The re-exec comes after the
+    argument check and BEFORE the lock and the pull, so the child is this same pre-pull script (no re-exec ordering
+    problem with the self-update), and the parent never holds the lock."""
+    block = _detach_block()
+    assert SCRIPT.index("usage: deploy.sh [--force]") < SCRIPT.index(block) < SCRIPT.index('mkdir "$LOCK"')
+    assert SCRIPT.index(block) < SCRIPT.index("== pull (ff-only) ==")
+    assert "command -v setsid" in block and "DETACH=setsid" in block
+    assert "JOEY_DEPLOY_DETACHED=1" in block and "export JOEY_DEPLOY_DETACHED JOEY_DEPLOY_LOG" in block
+    assert """( trap '' HUP; exec $DETACH sh "$0" "$@" ) </dev/null >"$LOG" 2>&1 &""" in block
+
+
+def test_detached_deploy_ignores_hup_and_reads_nothing_from_the_terminal():
+    """Belt and braces under setsid (and the whole defence when setsid is missing, with a loud warning): HUP is ignored,
+    which children such as `docker compose` inherit, stdin is /dev/null and stdout/stderr go only to the log, so a dead
+    terminal can neither signal the deploy nor fail one of its writes (EIO/EPIPE under `set -e`)."""
+    block = _detach_block()
+    assert "trap '' HUP" in block and "</dev/null" in block and '>"$LOG" 2>&1' in block
+    assert "setsid not found" in block  # the weaker fallback is never silent
+
+
+def test_foreground_follows_the_log_and_returns_the_childs_exit_code():
+    """B. still watches live: the parent tails the log from line 1 and exits with the child's code (push.sh and the
+    history line stay meaningful). Ctrl-C or a dropped session only stops the watcher and prints the re-attach line."""
+    block = _detach_block()
+    assert 'tail -n +1 -f "$LOG" &' in block
+    assert 'wait "$CHILD" || rc=$?' in block and 'exit "$rc"' in block
+    trap = block.index("trap 'kill \"$TAIL\" 2>/dev/null;")
+    assert "re-attach: tail -f $LOG" in block[trap:trap + 200] and "INT HUP TERM" in block[trap:trap + 200]
+    assert block.index('wait "$CHILD"') < block.index('kill "$TAIL" 2>/dev/null || true')
+
+
+def test_deploy_log_lives_in_deploy_logs_and_is_ignored_by_git_and_docker():
+    """deploy/logs/deploy-<UTC>-<pid>.log, one per run. Never committed and never in the life-test build context (the log of
+    the running deploy is being written while `docker build .` reads the context)."""
+    block = _detach_block()
+    assert "LOG_DIR=$DEPLOY_DIR/logs" in block
+    assert "LOG=$LOG_DIR/deploy-$(date -u '+%Y%m%dT%H%M%SZ')-$$.log" in block
+    git = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    docker = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    assert "/deploy/logs/" in git and "deploy/logs/" in docker
+
+
+def test_deploy_log_never_gets_secrets():
+    """The log takes everything deploy.sh prints: no shell tracing, no env dump, compose config only in quiet mode."""
+    assert "set -x" not in SCRIPT and "set -o xtrace" not in SCRIPT
+    assert "printenv" not in SCRIPT and not re.search(r"^\s*env\s*$", SCRIPT, re.M)
+    assert re.findall(r"docker compose config(?! -q| --services)", SCRIPT) == []
+
+
+def test_lock_records_its_holder_and_only_a_dead_holder_or_an_old_pidless_lock_is_stale():
+    """A detached deploy makes overlap likelier, and a legit deploy (gate + rollback) can pass 30 min, so age alone no
+    longer breaks the lock: the holder's pid (and log) are written into the lock dir; a live pid always blocks, a dead
+    one is stale at once, and only a pid-less lock (pre-pid, or the instant between mkdir and the write) falls back to
+    the 30-min rule. A lost race for the fresh lock exits 2 instead of running."""
+    lock = SCRIPT[SCRIPT.index("LOCK=/tmp/joey-deploy.lock"):SCRIPT.index("on_exit() {")]
+    assert 'holder=$(cat "$LOCK/pid" 2>/dev/null || true)' in lock
+    assert 'kill -0 "$holder"' in lock and "-mmin +30" in lock
+    assert lock.index('kill -0 "$holder"') < lock.index('rm -rf "$LOCK"') < lock.index('echo "$$" > "$LOCK/pid"')
+    assert 'mkdir "$LOCK" 2>/dev/null || {' in lock  # the re-take after a stale break never runs unlocked
+    assert '"${JOEY_DEPLOY_LOG:-}" > "$LOCK/log"' in lock and "tail -f" in lock  # the refusal says how to watch
+    assert 'rm -f "$LOCK/pid" "$LOCK/log"' in _body("on_exit")
+
+
+def test_detach_uses_only_busybox_safe_forms():
+    """BusyBox ash/applets: no bash-isms, no util-linux-only setsid flags, no GNU `tail --pid`, no disown."""
+    for bad in ("setsid -w", "setsid -f", "--pid", "disown", "[[", "<<<", "$(<"):
+        assert bad not in SCRIPT, bad

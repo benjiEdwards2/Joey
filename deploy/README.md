@@ -3,11 +3,20 @@
 Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (rule 13). Runbook:
 
 - **Deploy:** `ssh root@<nas> /volume1/Docker/joey/life-dashboard/deploy/deploy.sh` (`--force` redeploys an unchanged SHA).
+- **Detached + logged (2026-10-20):** deploy.sh re-runs itself under `setsid` (own session, HUP ignored, stdin
+  `/dev/null`) and writes everything to `deploy/logs/deploy-<UTC>-<pid>.log` (ignored by git and docker). Your terminal
+  just follows that log and ends with the deploy's exit code. Closing the laptop, a dropped ssh session or Ctrl-C only
+  stops the watching: the deploy, rollback included, runs to the end. **Re-attach:** `ssh root@<nas>` then
+  `tail -f /volume1/Docker/joey/life-dashboard/deploy/logs/<newest>.log` (`ls -t deploy/logs | head -1`); the outcome
+  line still lands in `history.log`. A second deploy started meanwhile prints the running one's pid and log path, then exits 2.
+  If the NAS has no `setsid`, deploy.sh warns that only HUP is ignored: keep that session open. Stop a running deploy
+  only if you must, with `kill <pid>` (TERM, logged `ABORTED`); never mid `compose up`. For a plain foreground run,
+  `JOEY_DEPLOY_DETACHED=1 deploy.sh`.
 - **From your computer:** `JOEY_NAS=root@<nas> deploy/push.sh` lists every update on GitHub main the NAS is not running
   yet, asks, then runs deploy.sh over ssh. `--list` (no deploy), `--search WORD` (pending updates mentioning WORD),
   `--all [N]` (last N updates, deployed or not), `--history [N]` (last N deploys), `--yes` (no question). Mac / Linux /
   Git Bash on Windows.
-- **What it does:** lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → build `life-test` and run the full suite offline
+- **What it does:** detach (log file) → lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → build `life-test` and run the full suite offline
   (`--network none`) → `compose build` + `up -d` → smoke (`/healthz`, `tests/deploy/smoke.py`, nothing restarting) → prune.
   A red gate resets the tree to the previous SHA and leaves the live stack alone; a failed build/up/smoke rolls back.
 - **History:** `tail deploy/history.log` — one line per run: `PASS`, `NOTHING-TO-DEPLOY`, `GATE-FAIL`, `ROLLED-BACK`,
@@ -29,7 +38,9 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
     swag back by itself.
   - **Never toggle `COMPOSE_PROFILES` off without runbook R3** (the kill switch in `docs/public-edge.md`): a deploy with
     the profile off may remove `joey-swag` mid-stream (Q47; checked live at the first edge deploy).
-- **Stale lock:** "another deploy is running" with nothing running → `rmdir /tmp/joey-deploy.lock` (auto-cleared after 30 min).
+- **Stale lock:** the lock (`/tmp/joey-deploy.lock`) holds the running deploy's pid and log path. A lock whose pid is
+  dead is cleared by the next deploy at once; a lock with no pid is cleared after 30 min. By hand, only when nothing is
+  running: `rm -rf /tmp/joey-deploy.lock`.
 - **Env files:** `.env` (all keys today; `TUNNEL_TOKEN` for compose) plus optional `hub.env` / `connectors.env`, which
   override `.env` per service, and the NAS-only `edge.env` (Cloudflare token for swag and ddns) — the split is at the top of `.env.example`; keep them all `chmod 600`. Setting notes:
   `docs/setup.md`.

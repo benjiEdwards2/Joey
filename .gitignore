@@ -29,6 +29,8 @@ __pycache__/
 
 # NAS-side deploy log (deploy.sh appends; never committed)
 /deploy/history.log
+# one log per deploy.sh run (detached deploys, 2026-10-20)
+/deploy/logs/
 
 # Local eyes-on previews (scripts/render_film_preview.py) — generated, never committed
 /.preview/

@@ -18,6 +18,8 @@ docs/*
 # NAS one-shot backups of .env / edge.env (nas_scripts/*.sh) can carry secrets, e.g. deploy/edge.env.bak-<date>-<HHMM>
 **/*.bak-*
 deploy/history.log
+# the running deploy writes its log here while `docker build .` reads the context
+deploy/logs/
 .preview/
 drop/
 connectors/money/samples/

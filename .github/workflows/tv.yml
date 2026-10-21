@@ -1,5 +1,8 @@
-# Joey TV shell (tv/): debug build on every tv/** change (WP-B7 step 2, debug half).
-# The release half (signed APK, GitHub Release on main) is WP-B8 step 3.
+# Joey TV shell (tv/): debug build on every tv/** change (WP-B7 step 2) + the release half (WP-B8 step 3).
+# Release half: DORMANT until the repo secrets TV_KEYSTORE_B64 + TV_KEYSTORE_PASSWORD exist (WP-B9 step 2). While
+# dormant, the build job proves the release build fails closed (no keystore = no APK) and stays green with a notice.
+# With the secrets: signed sideload release APK + version.json (artifact), and on main the `release` job creates the
+# GitHub Release tv-<versionCode> that deploy.sh's tv_publish pulls onto the NAS.
 # No pull_request trigger: branch pushes already build. Third-party actions are pinned by full commit SHA.
 name: tv
 
@@ -8,6 +11,7 @@ on:
     paths:
       - "tv/**"
       - ".github/workflows/tv.yml"
+      - "deploy/tv_version.py"   # the release half runs it
   workflow_dispatch:
 
 permissions:
@@ -15,14 +19,37 @@ permissions:
 
 concurrency:
   group: tv-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}   # never cancel a main run mid-release
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
+    env:
+      # Secrets cannot be read in `if:`; this flag can. 'true' only when BOTH release secrets exist.
+      HAS_KEYSTORE: ${{ secrets.TV_KEYSTORE_B64 != '' && secrets.TV_KEYSTORE_PASSWORD != '' }}
+    outputs:
+      signed: ${{ steps.meta.outputs.signed }}
+      code: ${{ steps.meta.outputs.code }}
+      name: ${{ steps.meta.outputs.name }}
+      apk: ${{ steps.meta.outputs.apk }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint this workflow (actionlint)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -shellcheck= -pyflakes= .github/workflows/tv.yml
+
+      - name: Keystore guard (git tracks only the public debug key)
+        run: |
+          tracked="$(git ls-files '*.jks' '*.keystore' '*.p12')"
+          echo "tracked keystores: ${tracked}"
+          if [ "$tracked" != "tv/app/debug-signing/joeytv-debug.p12" ]; then
+            echo "::error::only tv/app/debug-signing/joeytv-debug.p12 may be tracked"
+            exit 1
+          fi
+
+      - name: Release metadata (tv/VERSION, tv/NOTES.txt)
+        run: python3 deploy/tv_version.py check
 
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -38,14 +65,16 @@ jobs:
         with:
           gradle-version: "9.7.1"
 
-      - name: Lint, JVM tests, debug APK
-        run: gradle -p tv lint testSideloadDebugUnitTest assembleSideloadDebug --stacktrace
+      - name: Lint, JVM tests, debug APKs (sideload + store)
+        run: gradle -p tv lint testSideloadDebugUnitTest assembleSideloadDebug assembleStoreDebug --stacktrace
 
-      - name: APK checks (badging, permissions, banner, TV lint)
+      - name: APK checks (badging, permissions, banner, TV lint, store flavor, secret scan)
         run: |
           apk="$(ls tv/app/build/outputs/apk/sideload/debug/*.apk | head -1)"
           lint_xml="$(ls tv/app/build/reports/lint-results*.xml | head -1)"
           bash tv/ci/check_apk.sh "$apk" net.joeyhome.media.debug tv/app/src/main/res/drawable-xhdpi/banner.png "$lint_xml"
+          bash tv/ci/check_store_apk.sh "$(ls tv/app/build/outputs/apk/store/debug/*.apk | head -1)"
+          python3 deploy/tv_version.py scan "$apk"
           mkdir -p dist && cp "$apk" dist/app-debug.apk
           ls -l dist
 
@@ -55,6 +84,97 @@ jobs:
           path: dist/app-debug.apk
           retention-days: 14
           if-no-files-found: error
+
+      # ---- release half (WP-B8 step 3) ----
+
+      - name: Release dormant - prove the release build fails closed
+        if: env.HAS_KEYSTORE != 'true'
+        run: |
+          echo "::notice title=TV release dormant::TV_KEYSTORE_B64 / TV_KEYSTORE_PASSWORD are not set (WP-B9 step 2). No signed APK, no GitHub Release."
+          set +e
+          out="$(gradle -p tv :app:assembleSideloadRelease 2>&1)"
+          rc=$?
+          set -e
+          echo "$out" | tail -n 25
+          if [ "$rc" -eq 0 ]; then echo "::error::a release APK was built without the keystore"; exit 1; fi
+          if ! echo "$out" | grep -q "Refusing to build an unsigned release APK"; then
+            echo "::error::the release build failed, but not at the keystore guard"
+            exit 1
+          fi
+          if ls tv/app/build/outputs/apk/sideload/release/*.apk >/dev/null 2>&1; then
+            echo "::error::an APK exists after the refused release build"
+            exit 1
+          fi
+          echo "PASS release build fails closed without TV_KEYSTORE_PATH / TV_KEYSTORE_PASSWORD"
+
+      - name: Decode the release keystore
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          TV_KEYSTORE_B64: ${{ secrets.TV_KEYSTORE_B64 }}
+        run: |
+          umask 077
+          printf '%s' "$TV_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/joey-tv.p12"
+
+      - name: Keystore fingerprint == tv/SIGNING_CERT_SHA256 (before Gradle)
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          TV_KEYSTORE_PASSWORD: ${{ secrets.TV_KEYSTORE_PASSWORD }}
+        run: |
+          if [ ! -f tv/SIGNING_CERT_SHA256 ]; then echo "::error::tv/SIGNING_CERT_SHA256 is missing (WP-B9 step 1)"; exit 1; fi
+          want="$(tr -d '[:space:]' < tv/SIGNING_CERT_SHA256)"
+          got="$(keytool -list -v -storetype PKCS12 -keystore "$RUNNER_TEMP/joey-tv.p12" -alias joeytv \
+            -storepass:env TV_KEYSTORE_PASSWORD | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' | head -1 | tr -d ':' | tr 'A-F' 'a-f')"
+          if [ -z "$got" ] || [ "$got" != "$want" ]; then
+            echo "::error::keystore certificate SHA-256 '${got:-none}' != tv/SIGNING_CERT_SHA256"
+            exit 1
+          fi
+          echo "PASS keystore fingerprint matches tv/SIGNING_CERT_SHA256"
+
+      - name: Cut-date guard (versionCode at most one day after today, UTC)
+        if: env.HAS_KEYSTORE == 'true'
+        run: python3 deploy/tv_version.py check-date --today "$(date -u +%F)"
+
+      - name: Release JVM tests + signed sideload release APK
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          TV_KEYSTORE_PATH: ${{ runner.temp }}/joey-tv.p12
+          TV_KEYSTORE_PASSWORD: ${{ secrets.TV_KEYSTORE_PASSWORD }}
+        run: gradle -p tv :app:testSideloadReleaseUnitTest :app:assembleSideloadRelease --stacktrace
+
+      - name: Verify signature, name, version.json, secret scan
+        id: meta
+        run: |
+          if [ "$HAS_KEYSTORE" != "true" ]; then echo "signed=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          bt="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          src="$(ls tv/app/build/outputs/apk/sideload/release/*.apk | head -1)"
+          case "$src" in *unsigned*) echo "::error::unsigned release APK: $src"; exit 1 ;; esac
+          want="$(tr -d '[:space:]' < tv/SIGNING_CERT_SHA256)"
+          got="$("$bt/apksigner" verify --print-certs "$src" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+          if [ "$got" != "$want" ]; then echo "::error::APK signer '${got:-none}' != tv/SIGNING_CERT_SHA256"; exit 1; fi
+          name="$(python3 deploy/tv_version.py apk-name)"
+          mkdir -p release
+          cp "$src" "release/$name"
+          python3 deploy/tv_version.py scan "release/$name"
+          python3 deploy/tv_version.py meta --apk "release/$name" --out release/version.json
+          sha256sum release/*
+          {
+            echo "signed=true"
+            echo "apk=$name"
+            echo "code=$(sed -n 's/^versionCode=//p' tv/VERSION | tr -d '[:space:]')"
+            echo "name=$(sed -n 's/^versionName=//p' tv/VERSION | tr -d '[:space:]')"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: env.HAS_KEYSTORE == 'true'
+        with:
+          name: joey-media-release
+          path: release/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Remove the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/joey-tv.p12"
 
       - name: Upload lint + test reports
         if: always()
@@ -66,3 +186,44 @@ jobs:
             tv/app/build/test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/main' && needs.build.outputs.signed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: tv-release
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CODE: ${{ needs.build.outputs.code }}
+      NAME: ${{ needs.build.outputs.name }}
+      APK: ${{ needs.build.outputs.apk }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: joey-media-release
+          path: release
+
+      - name: Refuse a used or lower versionCode
+        run: |
+          if gh release view "tv-$CODE" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::release tv-$CODE already exists - bump tv/VERSION (versionCode) for any tv/ change on main"
+            exit 1
+          fi
+          highest="$(gh release list -R "$GITHUB_REPOSITORY" --limit 1000 --json tagName -q '.[].tagName' \
+            | sed -n 's/^tv-\([0-9]\{10\}\)$/\1/p' | sort -n | tail -1)"
+          if [ -n "$highest" ] && [ "$CODE" -le "$highest" ]; then
+            echo "::error::versionCode $CODE is not above the highest release tv-$highest - Android never downgrades"
+            exit 1
+          fi
+          echo "PASS tv-$CODE is new and above ${highest:-no earlier release}"
+
+      - name: Create the GitHub Release
+        run: |
+          python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["notes"])' release/version.json > notes.txt
+          gh release create "tv-$CODE" "release/$APK" release/version.json -R "$GITHUB_REPOSITORY" \
+            --title "Joey Media $NAME ($CODE)" --notes-file notes.txt --target "$GITHUB_SHA"

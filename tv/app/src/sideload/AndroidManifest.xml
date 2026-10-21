@@ -2,4 +2,12 @@
 <!-- Sideload flavor only: the self-updater (WP-B8 step 7) installs new APKs. The store flavor never has this. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!-- PackageInstaller session status. Not exported: only our own PendingIntent (filled by the system) reaches
+             it, so no other app can forge a status or an EXTRA_INTENT. -->
+        <receiver
+            android:name=".UpdateStatusReceiver"
+            android:exported="false" />
+    </application>
 </manifest>

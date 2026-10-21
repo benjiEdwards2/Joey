@@ -20,7 +20,7 @@ class Screens(
     private val host: FrameLayout,
     private val onOpenChanged: (open: Boolean) -> Unit,
 ) {
-    enum class Kind { SPLASH, OFFLINE, SETTINGS, JELLYFIN_MISSING, UPDATE }
+    enum class Kind { SPLASH, OFFLINE, SETTINGS, JELLYFIN_MISSING, UPDATE, MESSAGE }
 
     private class Entry(val kind: Kind, val view: View, val focus: View, val onBack: () -> Unit)
 
@@ -83,8 +83,9 @@ class Screens(
         push(Kind.JELLYFIN_MISSING, view, get) { pop() }
     }
 
-    /** WP-B8 step 7 decides when to call this; [onExit] is Back on a forced prompt. */
-    fun showUpdate(offer: UpdateOffer, onUpdate: () -> Unit, onExit: () -> Unit) {
+    /** WP-B8 step 7 (MainActivity) decides when to call this; [onLater] = Later/Back on an optional prompt (before the
+     *  pop), [onExit] = Back on a forced prompt. */
+    fun showUpdate(offer: UpdateOffer, onUpdate: () -> Unit, onLater: () -> Unit, onExit: () -> Unit) {
         val view = inflate(R.layout.screen_update)
         view.findViewById<TextView>(R.id.update_title)
             .setText(if (offer.forced) R.string.update_title_forced else R.string.update_title)
@@ -97,8 +98,25 @@ class Screens(
         val now = view.findViewById<Button>(R.id.update_now)
         now.setOnClickListener { onUpdate() }
         val later = view.findViewById<Button>(R.id.update_later)
-        if (offer.forced) later.visibility = View.GONE else later.setOnClickListener { pop() }
-        push(Kind.UPDATE, view, now) { if (offer.forced) onExit() else pop() }
+        if (offer.forced) later.visibility = View.GONE else later.setOnClickListener { onLater(); pop() }
+        push(Kind.UPDATE, view, now) {
+            if (offer.forced) {
+                onExit()
+            } else {
+                onLater()
+                pop()
+            }
+        }
+    }
+
+    /** A plain explainer (e.g. the unknown-sources path on Fire OS). OK and Back close it. */
+    fun showMessage(title: Int, body: String) {
+        val view = inflate(R.layout.screen_message)
+        view.findViewById<TextView>(R.id.message_title).setText(title)
+        view.findViewById<TextView>(R.id.message_body).text = body
+        val ok = view.findViewById<Button>(R.id.message_ok)
+        ok.setOnClickListener { pop() }
+        push(Kind.MESSAGE, view, ok) { pop() }
     }
 
     fun showSettings(model: SettingsModel, actions: SettingsActions) {

@@ -39,8 +39,8 @@ def shelves_id(registry=AREAS) -> str:
     ("GET", "/media/server/history", False),               # Q18: the household play log is PRIVATE
     ("POST", "/media/title/movie/603/search", False),      # Q19
     ("GET", "/media/title/movie/603/arr", False),
-    ("GET", "/media/title/movie/603/request", False),      # RESERVED until WP-B4
-    ("POST", "/media/title/movie/603/request", False),
+    ("GET", "/media/title/movie/603/request", True),       # GUEST since WP-B4 (friend requests, X-Api-User)
+    ("POST", "/media/title/movie/603/request", True),
     ("GET", "/signin", True),                              # GUEST since WP-B2 (sign-in, public)
     ("POST", "/signin/password", True),
     ("POST", "/signin/qc/start", True),

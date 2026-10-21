@@ -18,7 +18,7 @@ FORGED = {IDENTITY_HEADER: "forged@example.test"}
 FRIEND = Identity(owner="jf:" + "f00d" * 8, name="Sample Friend", jf_user_id="f00d" * 8)   # a well-formed key (WP-B2: malformed jf: owners fail closed)
 DENIED_GETS = ["/server", "/whoami", "/weather", "/a/calendar", "/docs", "/openapi.json", "/media/downloads",
                "/media/apps", "/media/following", "/media/server/history", "/money", "/signin/anything-else",
-               "/media/title/movie/603/request"]
+               "/media/requests", "/media/title/movie/603/arr"]   # WP-B4: the request route is GUEST now
 
 
 @pytest.fixture()

@@ -48,7 +48,9 @@ def shelves_id(registry=AREAS) -> str:
     ("POST", "/signout", True),
     ("GET", "/signin/anything-else", False),               # only the WP-B2 routes, nothing under them
     ("GET", "/signout", False),
-    ("GET", "/app/version.json", False),                   # RESERVED until WP-B8
+    ("GET", "/app/version.json", True),                    # WP-B8: public (Q37)
+    ("HEAD", "/app", True),
+    ("POST", "/app/version.json", False),
     ("GET", "/", False),                                   # GuestGate redirects / before asking allows()
     ("GET", "/no-such-page-xyz", False),
     ("PUT", "/media/rate", False),

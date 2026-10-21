@@ -284,3 +284,49 @@ def test_detach_uses_only_busybox_safe_forms():
     """BusyBox ash/applets: no bash-isms, no util-linux-only setsid flags, no GNU `tail --pid`, no disown."""
     for bad in ("setsid -w", "setsid -f", "--pid", "disown", "[[", "<<<", "$(<"):
         assert bad not in SCRIPT, bad
+
+
+# ---- Joey TV WP-B8 step 5 (Q38 = automatic): deploy.sh publishes the tv-<code> release after smoke passes ----
+
+def test_tv_publish_runs_after_smoke_and_on_nothing_to_deploy_only():
+    """After smoke PASSES (after the prunes, right before the PASS line) and in the NOTHING-TO-DEPLOY path; never in
+    rollback() / gate_fail() / recreate_swag(), and never before smoke."""
+    body = _body("tv_publish")
+    assert ('docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 --env-file "$DEPLOY_DIR/tv.env"' in body
+            and '-v "$REPO":/repo:ro -v "$TV_APP_DIR":/out life-hub python /repo/deploy/tv_publish.py' in body)
+    assert "TV_APP_DIR=/volume1/Docker/joey/data/tv-app" in SCRIPT
+    calls = [i for i in range(len(SCRIPT)) if SCRIPT.startswith("TV=$(tv_publish)", i)]
+    assert len(calls) == 2
+    nothing = SCRIPT.index('if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$FORCE" -eq 0 ]; then')
+    assert nothing < calls[0] < SCRIPT.index('log_history "NOTHING-TO-DEPLOY"') < SCRIPT.index("== compose validate ==")
+    assert (SCRIPT.index('smoke || rollback "smoke failed"') < SCRIPT.index("docker builder prune -f")
+            < calls[1] < SCRIPT.index('log_history "PASS"'))
+    for name in ("rollback", "gate_fail", "recreate_swag", "smoke", "media_smoke", "edge_smoke", "on_exit"):
+        assert "tv_publish" not in _body(name), name
+    assert SCRIPT.index("tv_publish() {") < nothing   # defined before its first use
+
+
+def test_tv_status_lands_in_the_single_history_line():
+    assert 'log_history "PASS" "suite green, smoke ok tv=$TV"' in SCRIPT
+    assert 'log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy) tv=$TV"' in SCRIPT
+    assert SCRIPT.count('log_history "PASS"') == 1 and SCRIPT.count('log_history "NOTHING-TO-DEPLOY"') == 1
+
+
+def test_tv_publish_never_fails_the_deploy_and_skips_without_a_token():
+    body = _body("tv_publish")
+    guard = body.index('if [ ! -f "$DEPLOY_DIR/tv.env" ]; then')
+    assert 'echo "skipped:no-token"' in body[guard:guard + 120]
+    assert guard < body.index("docker run")
+    assert ") || true" in body                    # a failed container is a status, not a `set -e` abort
+    assert 'echo "${tv_status:-FAIL:no-status}" | tail -n 1' in body
+    assert "exit" not in body and "return 1" not in body
+    assert 'chown 1000:1000 "$TV_APP_DIR"' in body   # the life-hub image runs as uid 1000
+
+
+def test_tv_token_file_is_never_committed_or_in_the_build_context():
+    git = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    docker = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    assert "*.env" in git and "!*.env.example" in git          # deploy/tv.env ignored, the template kept
+    assert "**/*.env" in docker and "!**/*.env.example" in docker
+    example = (REPO_ROOT / "deploy" / "tv.env.example").read_text(encoding="utf-8")
+    assert re.search(r"^GH_TV_TOKEN=$", example, re.M)            # empty in the template

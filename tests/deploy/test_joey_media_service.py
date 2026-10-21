@@ -160,3 +160,34 @@ def test_smoke_front_private_fails_against_the_media_front():
     assert smoke.main(["--front", "private", "--base", "http://127.0.0.1:8850"]) == 1
     smoke.fetch = _fake_front("private", {"/": 303}, [])   # the private hub never passes the media smoke
     assert smoke.main(["--front", "media"]) == 1
+
+
+# ---- Joey TV WP-B8 step 6: joey-media serves the published TV release read-only, and its smoke checks it ----
+
+def test_joey_media_mounts_the_tv_app_dir_read_only():
+    s = svc()
+    assert "/volume1/Docker/joey/data/tv-app:/data/tv-app:ro" in s["volumes"]
+    assert s["environment"]["TV_APP_DIR"] == "/data/tv-app"
+    hub = COMPOSE["services"]["hub"]
+    assert not [v for v in hub.get("volumes", []) if "tv-app" in v]   # the private hub never serves /app
+    assert "TV_APP_DIR=/volume1/Docker/joey/data/tv-app" in SCRIPT     # the same host dir deploy.sh publishes to
+
+
+def test_smoke_front_media_accepts_version_json_or_404_only():
+    smoke, seen = _smoke_module(), []
+    smoke.fetch = _fake_front("media", {"/": 303}, seen)       # /app/version.json -> 404: nothing published yet
+    assert smoke.main(["--front", "media"]) == 0
+    assert "http://127.0.0.1:8000/app/version.json" in [u for u, _ in seen]
+
+    def published(body: bytes, status: int = 200):
+        base = _fake_front("media", {"/": 303}, [])
+        return lambda url, headers=None: (status, body) if url.endswith("/app/version.json") else base(url, headers)
+
+    smoke.fetch = published(b'{"versionCode": 2026110302, "url": "joey-media-1.4.0-2026110302.apk"}')
+    assert smoke.main(["--front", "media"]) == 0
+    smoke.fetch = published(b"<html>not json</html>")
+    assert smoke.main(["--front", "media"]) == 1
+    smoke.fetch = published(b'{"versionCode": "2026110302"}')   # the code must be an integer
+    assert smoke.main(["--front", "media"]) == 1
+    smoke.fetch = published(b"", 500)
+    assert smoke.main(["--front", "media"]) == 1

@@ -15,11 +15,13 @@
       <p class="partof-line"><span class="partof-title">{{ c.title }}</span>{% for x in c.line %}<span class="sep"> · </span>{{ x }}{% endfor %}</p>
       {# Follow (2026-10-07): follow the film series — its NEW films get requested automatically. #}
       {% set base = "/media/follow/collection/" ~ c.collection_id %}
+      {% if c.followable is not sameas false and guest_allows(base, "POST") %}{# Joey TV WP-B3: no Follow on the guest front (Q19) #}
       <form class="followform partof-btns" method="post" hx-swap="innerHTML show:none" action="{{ base }}{{ '/unfollow' if c.following }}">
         <input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ c.title }}">
         {% if c.following %}<span class="st-good">Following series ✓</span> <button class="btn btn-glass btn-sm" type="submit">Unfollow</button>
         {% else %}<button class="btn btn-glass" type="submit">{{ icon("plus") }}Follow series</button>{% endif %}
       </form>
+      {% endif %}
       {% if film.follow_flash %}<p class="metaline st-good" role="status">{{ film.follow_flash }}</p>{% endif %}
     </div>
   </div>

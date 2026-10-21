@@ -2,7 +2,7 @@
 {% if film.providers %}
 <section class="sec">
   <h2 class="seclabel">Where to watch</h2>
-  {% for g in film.providers %}<div class="chips"><span class="microlabel">{{ g.label }}</span>{% for name in g.names %}<a class="chip" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% endfor %}</div>{% endfor %}
+  {% for g in film.providers %}<div class="chips"><span class="microlabel">{{ g.label }}</span>{% for name in g.names %}{% if g.href %}<a class="chip" href="{{ g.href }}" target="_blank" rel="noopener">{{ name }}</a>{% else %}<span class="chip">{{ name }}</span>{% endif %}{% endfor %}</div>{% endfor %}
 </section>
 {% elif "providers" in film.pending %}
 <section class="sec">

@@ -11,7 +11,7 @@
 {% if month %}{% include "_month_card.html" %}{% endif %}
 <p class="metaline">{{ stats_text }}</p>
 {# nav-tidy (2026-10-13): this page is Activity > History; the play recorder keeps its URL, linked here (no tab). #}
-<p class="metaline"><a href="/media/server/history">Play stats</a></p>
+{% if guest_allows("/media/server/history") %}<p class="metaline"><a href="/media/server/history">Play stats</a></p>{% endif %}
 {% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
 {% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}
 

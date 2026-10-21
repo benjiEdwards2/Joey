@@ -55,9 +55,9 @@
         {# E4 (U7): ONE row of md (36 px) controls - Play (white; Request when not on the server) · Trailer · watchlist ·
            Seerr - everything else under "More" below it. #}
         <div class="hero-detail-btns">
-          {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener">{{ film.episode.play.label }}</a>{% endif %}
+          {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener"{% if film.episode.play.jf_id and guest(request) %} data-jf-id="{{ film.episode.play.jf_id }}"{% endif %}>{{ film.episode.play.label }}</a>{% endif %}
           {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
-          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener">{{ film.play.label }}</a>{% endif %}
+          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener"{% if film.play.jf_id and guest(request) %} data-jf-id="{{ film.play.jf_id }}"{% endif %}>{{ film.play.label }}</a>{% endif %}
           {% call wait("actions", film.pending) %}{% with slot = "row" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}
           {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
              in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
@@ -112,7 +112,8 @@
 {% set ratings = film.ratings %}
 {% set epnav = film.nav %}
 {% set n = film.numbers %}
-{% set sites = film.tmdb and film.kind in ("movie", "tv") %}
+{# Joey TV WP-B3: no off-site links on the guest front (the exposure crawl allows the Jellyfin edge, YouTube and TMDB images only) #}
+{% set sites = film.tmdb and film.kind in ("movie", "tv") and not guest(request) %}
 {# "Part of" banners (media-ux3, 2026-10-08): a wide card with the show's / film series' backdrop under the guide's
    gradient scrim (text and glass buttons sit on the dark side), the poster, one " · " line in words and the actions.
    No backdrop -> a plain panel. Phone (<= 640 px): stacked, buttons full width. #}

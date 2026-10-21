@@ -386,7 +386,7 @@ ssh -t -i $env:USERPROFILE\.ssh\joey_nas root@192.168.68.59 "docker exec -i joey
    `EnableAllFolders = False`, `EnableContentDownloading = False`, `EnableSharedDeviceControl = False`, `RemoteClientBitrateLimit = 20000000`,
    `MaxActiveSessions = 2`, `LoginAttemptsBeforeLockout = 10`, `EnabledFolders = 2`, and `IsDisabled = False` (or True if you used `--disable`).
    If the script printed FAIL, do not invite; run it again, and if it fails a second time stop and tell Claude (circuit breaker).
-   *UNTESTED as a documented sequence — prove at WP-A6 step 1 (re-apply on joeytest) and step 8.*
+   *UNTESTED as a documented sequence — prove at WP-A6 step 8 (step 1 tested 2026-10-20: template re-applied on joeytest, Quick Connect drill passed).*
 
 3. If you are enabling a previously prepared (disabled) account: Dashboard, Users, the user, **Profile**, untick **Disable this user**, Save.
    The Profile tab keeps the template, but never save the **Access** tab.

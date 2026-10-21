@@ -55,13 +55,16 @@ owner, and the hub logs one warning — nothing is written as "her" by accident.
 The other person's email address is never recorded — not in `.env`, the repo, tests or docs.
 Without the header (local dev on port 8800, tests) the page shows "Not signed in" and the old
 `?owner_view=` query + cookie still pick the view; send the header with curl to preview the signed-in state.
-Access JWT verification (Joey TV WP-A6a, 2026-10-19; `hub/access_jwt.py`): with `ACCESS_JWT_VERIFY` set, the hub
-first checks Cloudflare's signed `Cf-Access-Jwt-Assertion` (RS256, team `ACCESS_TEAM`, default `joeyhomeed`) against
-`ACCESS_AUD` (the joeyhome.net Access app's AUD tag, comma-separated for several; in the new Zero Trust layout find it under Access controls, Applications, the app, **Additional settings** tab) and requires the header to equal the
-token's email. Unset / `0` = off (the default: the header alone decides, as above); `audit` = verify and log
-`access_jwt: audit FAIL reason=…`, never refuse; `1` = enforce (401 plain text; 503 if the team's keys cannot be read).
-A set flag without `ACCESS_AUD` stops the hub at startup. `/healthz` and loopback peers are exempt, so local dev on
-`127.0.0.1` and `smoke.py` keep working with the flag on. Rollback: flag back to `0`, `docker compose up -d hub`.
+Access JWT verification (Joey TV WP-A6a, `hub/access_jwt.py`; live in enforce since 2026-10-21): the hub first checks Cloudflare's signed
+`Cf-Access-Jwt-Assertion` (RS256, signing keys from the Access team's certs) and requires the header to equal the token's email.
+- `ACCESS_JWT_VERIFY`: unset or `0` = off (the default: the header alone decides, as above); `audit` = verify and log
+  `access_jwt: audit FAIL reason=…`, never refuse; `1` = enforce: a bad or missing token gets a plain-text 401, and 503 `no_keys` if the
+  team's certs cannot be read and none are cached.
+- `ACCESS_AUD`: the joeyhome.net Access app's AUD tag (comma-separated for several). Required once the flag is set: a set flag without it
+  stops the hub at startup. Copy it from Zero Trust, Access controls, Applications, the app, **Additional settings** tab (the new layout; the old Overview tab is gone).
+- `ACCESS_TEAM`: the Access team name (default `joeyhomeed`).
+- Exempt: `/healthz` and loopback peers, so local dev on `127.0.0.1` and `smoke.py` keep working with the flag on.
+- Rollback: unset the flag (or set it to `0`) in `deploy/.env`, then `docker compose up -d hub`.
 
 ## Media env (deploy/.env, on the NAS only)
 

@@ -61,8 +61,8 @@ can work, but not deterministically after a deploy. Host mode removes the depend
   nginx cannot start, and the edge is down until one of them moves.
 - **Residual isolation risk (recorded for Phase A):** in the host network namespace swag can reach every bridge address,
   `joey-hub`'s included. Isolation rests on nginx having exactly one upstream (pinned offline by
-  `tests/deploy/test_edge.py`), `joey-hub` publishing no host port, and Q25b JWT verification, which only arrives in
-  Phase B (WP-B5). An exploited swag sits in the host namespace with `NET_ADMIN`.
+  `tests/deploy/test_edge.py`), `joey-hub` publishing no host port, and Q25b JWT verification (live since WP-A6a, 2026-10-21; forged-header probes get 401).
+  Residual: replay of a captured token within its lifetime, and compromise of the hub container. An exploited swag sits in the host namespace with `NET_ADMIN`.
 - The internet-sourced client IP is re-checked at WP-A5 G4/G5 (geo, fail2ban) before any friend is invited. If
   `docker exec joey-swag tail -n 3 /config/log/nginx/access.log` shows a 172.x or 127.0.0.1 address for a request from
   outside, close the forward at once (see "Kill switch") and reopen the network-mode question.
@@ -258,7 +258,7 @@ never names, IPs or keys. They use the header `Authorization: MediaBrowser Token
 - **The admin user is refused on the public `:8443` address, even from home** (admin remote access is off, and hairpin NAT presents a home client as the router's WAN IP). The admin uses the LAN address `http://192.168.68.59:8096`.
   Every friend-path test (Quick Connect, playback, sessions, revoke) uses **joeytest** on the public address, never the admin.
 - TV platforms: Android TV / Google TV only. Fire TV is untested. Samsung households use a Google TV stick.
-- **The first real friend invite is blocked until the dated line "Q25b LIVE in Phase A (WP-A6a)" exists in the Joey TV DECISIONS.md.**
+- **The first real friend invite is blocked until the dated line "Q25b LIVE in Phase A (WP-A6a)" exists in the Joey TV DECISIONS.md** (it has existed since 2026-10-21).
 - Privacy (rule 20): no usernames, emails, passwords, tokens or real names in any file, log or chat. Friends are recorded by Jellyfin user id only.
 - Who does what: every NAS write, Cloudflare click and Jellyfin dashboard click is B.'s (rule 10). Claude does read-only checks.
 - "UNTESTED — prove at WP-A6 step N" marks anything not yet run end to end.
@@ -329,7 +329,7 @@ The joeytest id and the friend ids are recorded in the Joey TV DECISIONS.md, not
 Phase A only: no Joey Media app yet (the "R1-B Phase B additions" stub at the end of this runbook).
 
 **Before you start (all must be true):**
-- **The line "Q25b LIVE in Phase A (WP-A6a)" is in the Joey TV DECISIONS.md** (WP-A6 step 8 is blocked until it is).
+- **The line "Q25b LIVE in Phase A (WP-A6a)" is in the Joey TV DECISIONS.md** (dated 2026-10-21; WP-A6 step 8 was blocked until it existed).
 - WP-A5 is DONE and WP-A6 steps 1 to 3 and 6 passed (Quick Connect drill, revoke drill, lockout note, restore drill). NAS 24/7 (step 7, F7) is done on the invite day itself.
 - You have pasted the helpers from R0 into this PowerShell window.
 - The household has a **Google TV / Android TV** device. Samsung (Tizen) households need a Google TV stick first (step 0). Fire TV is untested.

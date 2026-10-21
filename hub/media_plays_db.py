@@ -26,6 +26,7 @@ DDL = (
 )
 OPEN_GAP = timedelta(hours=2)
 FINISHED_PCT = 90
+RESTART_PCT = 10   # a finished play seen again below this is a re-watch from the start (a new row), not the same watch
 TOP_N = 10
 
 
@@ -56,14 +57,25 @@ def _tz():
 def record_sighting(play: dict, now: datetime) -> str:
     """One poll's sighting of one session. `play` carries user_name, owner, jf_id, keys,
     titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'. An open play is
-    matched on `owner` (Joey TV WP-A2), never the renamable `user_name`: a renamed friend stays one play."""
+    matched on `owner` (Joey TV WP-A2), never the renamable `user_name`: a renamed friend stays one play.
+
+    The latest row of the same owner + jf_id seen within OPEN_GAP is the candidate. A FINISHED one (>= FINISHED_PCT) seen
+    again at >= RESTART_PCT is the same watch (playfix, 2026-10-21): its last_seen_at / position_pct are updated and it
+    stays finished, so a session parked on the credits is one play, not one per poll. Below RESTART_PCT (a re-watch from
+    the start) or after OPEN_GAP it is a new row."""
     pct = max(0, min(100, int(play.get("position_pct") or 0)))
     stamp = _iso(now)
     with closing(_connect()) as db:
         row = db.execute(
-            "SELECT id, position_pct FROM play WHERE owner IS ? AND jf_id IS ? AND finished = 0"
-            " AND last_seen_at >= ? ORDER BY last_seen_at DESC LIMIT 1",
+            "SELECT id, position_pct, finished FROM play WHERE owner IS ? AND jf_id IS ?"
+            " AND last_seen_at >= ? ORDER BY last_seen_at DESC, id DESC LIMIT 1",
             (play["owner"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
+        if row is not None and row["finished"]:
+            if pct >= RESTART_PCT:   # the finished watch seen again: same row
+                db.execute("UPDATE play SET last_seen_at = ?, position_pct = ? WHERE id = ?", (stamp, pct, row["id"]))
+                db.commit()
+                return "updated"
+            row = None               # re-watch from the start: a new row below
         if row is not None and row["position_pct"] < FINISHED_PCT:
             db.execute("UPDATE play SET last_seen_at = ?, position_pct = ?, finished = ? WHERE id = ?",
                        (stamp, pct, 1 if pct >= FINISHED_PCT else 0, row["id"]))

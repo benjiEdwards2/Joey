@@ -98,6 +98,31 @@ def test_closes_at_90_and_next_sighting_is_a_new_play(rec, tmp_path):
     assert len(rows(tmp_path)) == 2
 
 
+# ---- a finished play seen again (playfix, 2026-10-21): the session still at >= 90 % on later polls is the same watch ----
+
+def test_a_finished_play_seen_again_is_not_a_second_row(rec, tmp_path):
+    for minute, pos in enumerate((50, 95, 97, 100)):
+        rec([session(pos_min=pos)], T0 + timedelta(minutes=minute))
+    r = rows(tmp_path)
+    assert [(x["position_pct"], x["finished"]) for x in r] == [(100, 1)]
+    assert r[0]["last_seen_at"] == pdb._iso(T0 + timedelta(minutes=3))
+    assert pdb.watch_count("m1") == 1
+
+
+def test_a_rewatch_from_the_start_is_a_new_row(rec, tmp_path):
+    for minute, pos in enumerate((50, 95, 97)):
+        rec([session(pos_min=pos)], T0 + timedelta(minutes=minute))
+    rec([session(pos_min=2)], T0 + timedelta(minutes=3))
+    assert [(x["position_pct"], x["finished"]) for x in rows(tmp_path)] == [(97, 1), (2, 0)]
+
+
+def test_a_sighting_after_the_open_gap_is_a_new_row(rec, tmp_path):
+    for minute, pos in enumerate((50, 95, 97)):
+        rec([session(pos_min=pos)], T0 + timedelta(minutes=minute))
+    rec([session(pos_min=96)], T0 + timedelta(minutes=2) + pdb.OPEN_GAP + timedelta(minutes=1))
+    assert [(x["position_pct"], x["finished"]) for x in rows(tmp_path)] == [(97, 1), (96, 1)]
+
+
 def test_two_hour_gap_starts_a_new_play(rec, tmp_path):
     rec([session(pos_min=10)], T0)
     rec([session(pos_min=12)], T0 + timedelta(hours=2, minutes=1))

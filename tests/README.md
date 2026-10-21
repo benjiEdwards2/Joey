@@ -49,6 +49,24 @@ The guest front (Joey TV WP-B1, 2026-10-21) is pinned offline by:
   `:ro` snapshots, no ports, networks, `media.env`) and that `media.env.example` and compose carry no forbidden key.
 - `tests/deploy/test_route_sweep.py`: `route_sweep.py` plans every PRIVATE pair with its own verb (the sweep itself runs live, WP-B5).
 
+Guest sign-in and fail-closed owners (Joey TV WP-B2, 2026-10-21):
+
+- `tests/hub/fake_jellyfin.py`: a fake Jellyfin 12.2 installed over `requests.get` / `post` / `delete`. Bodies are built from the
+  redacted real shapes the W3 probe captured; users, secrets and tokens are invented. It enforces the 12.2 `MediaBrowser`
+  Authorization header (a bare `X-Emby-Token` is refused, as the real server does).
+- `tests/hub/fixtures/jellyfin_qc_*.json` (`initiate`, `connect_pending`, `connect_ok`, `authenticate`, `users_me`, `logout`): the
+  `jellyfin_qc_*` fixtures from the W3 probe, loaded by the fake.
+- `tests/hub/test_guest_owner.py`: `owner_of` / `owner_filter` fail closed (malformed `jf:` raises; on the media front nothing but
+  you / her / a friend key names an owner), the friend's own rows or nothing, P3 (the signed-in user's id and token, never the
+  admin's), `resolve_owner_view` ignoring query and cookie.
+- `tests/hub/test_guest_auth.py`: the session cookie as a Jellyfin token, the 60 s verdict cache and stale grace, P1 refusals,
+  unreachable = 503 with the cookie kept, the one owner mapping.
+- `tests/hub/test_guest_signin.py`: Quick Connect and password sign-in, the three cookies, the 5-in-15-min counter (Jellyfin not
+  called once blocked), sign-out revoking the token, and that no username, password, token or secret is logged.
+- `tests/hub/test_guest_no_leak.py`: the sentinel sweep. B.'s and Georgina's rows carry `SENTINEL_` markers; every GUEST GET
+  route is requested as a friend four ways (plain, `?owner_view=both`, cookie, spoofed Access header) and no body may carry one.
+  A control run as B.'s alias user proves the sweep can see data.
+
 `tests/hub/` by theme (file prefixes):`tests/hub/` by theme (file prefixes):
 
 - **Shell and look:** `test_hub_shell`, `test_hub_core`, `test_shell`, `test_hub_page`, `test_area_pages` (top bar, tab bar, hub tiles, area pages; formerly `test_apex_*` — the Apex rail and theme-toggle tests are historical, rewritten for the MediaHub shell), `test_style_*`, `test_styling`, `test_pwa`, `test_hidden_areas`, `test_history_*`, `test_routes`.

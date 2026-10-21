@@ -1135,3 +1135,10 @@ anything else under `/app` is the ordinary byte-identical 404. They read `TV_APP
 `/volume1/Docker/joey/data/tv-app`), which `deploy.sh`'s `deploy/tv_publish.py` fills from the GitHub Release `tv-<versionCode>`. In
 `hub/guest.py` GET `/app` and `/app/{rest:path}` moved from RESERVED to GUEST and PUBLIC (Q37: no sign-in); on the private front every
 `/app` path is the same 404. Tests: `tests/hub/test_tv_app_routes.py`. Docs: `docs/tv-release.md`, `hub/README.md` "Guest front".
+
+**Recorder: a finished play seen again is not a second play row (Joey TV playfix, 2026-10-21).** After a play crossed
+`FINISHED_PCT` (90 %), every later poll that still saw the session at >= 90 % inserted a new `play` row, inflating play counts,
+History stats and `watch_count` (found by WP-B3). `media_plays_db.record_sighting` now takes the latest row of the same `owner` +
+`jf_id` seen within `OPEN_GAP`; a finished one seen again at >= `RESTART_PCT` (10 %) only has its `last_seen_at` / `position_pct`
+updated and stays finished. Below 10 % (a re-watch from the start) or after `OPEN_GAP` it is still a new row. Schema unchanged;
+the friend diary (WP-B3) stays one row. Tests: four new in `tests/hub/test_media_plays.py` and `tests/hub/test_friend_diary.py`.

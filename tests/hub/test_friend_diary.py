@@ -47,6 +47,23 @@ def test_a_92_percent_friend_play_writes_one_diary_row(monkeypatch):
     assert len(media_db.list_diary(owner=FRIEND)) == 1
 
 
+def test_a_finished_friend_play_polled_on_is_one_play_row_and_one_diary_row(monkeypatch):
+    """playfix (2026-10-21): the polls after the finish line update the finished play, never a second play row, and the
+    diary keeps the one row the first finished poll wrote."""
+    from datetime import timedelta
+    from hub import media_store
+    for minute, pct in enumerate((50, 92, 95, 97, 100)):
+        assert poll(monkeypatch, session(FRIEND_ID, pct), now=NOW + timedelta(minutes=minute)) == 1
+    db = media_store.reader()
+    try:
+        plays = db.execute("SELECT position_pct, finished FROM play WHERE owner = ?", (FRIEND,)).fetchall()
+    finally:
+        db.close()
+    assert [tuple(p) for p in plays] == [(100, 1)]
+    (row,) = media_db.list_diary(owner=FRIEND)
+    assert (row["item_key"], row["watched_on"][:10]) == ("tmdb:603", "2026-10-21")
+
+
 def test_an_80_percent_friend_play_writes_none(monkeypatch):
     poll(monkeypatch, session(FRIEND_ID, 80))
     assert media_db.list_diary(owner=FRIEND) == []

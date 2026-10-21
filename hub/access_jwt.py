@@ -14,6 +14,8 @@ Checks: `alg` exactly RS256 (never `none` / HS256), a known `kid`, the signature
 `exp` / `nbf` / `iat` present and in window (60 s leeway), and the `email` claim equal to the header (any case), so
 identity comes from the signed claim. Refusals: 401 plain text; 503 `no_keys` when the certs cannot be read and no key
 is cached. Exempt: `/healthz` and loopback peers (smoke.py, `docker exec` reads, local dev) - nothing else.
+The media front (JOEY_FRONT=media, joey-media, Joey TV WP-B1) is not gated here by design: its visitors never pass
+Cloudflare Access, `ACCESS_*` is never in media.env (Q23), and hub.guest.GuestGate owns that front.
 Reason codes: missing, alg, kid, sig, iss, aud, exp (also nbf / iat), email, no_keys. Logs carry the reason, the path,
 8 characters of the kid and the owner word - never the email or the token (rule 20).
 Not closed: replay of a captured token within its lifetime, and a compromised hub container.
@@ -32,6 +34,7 @@ import requests
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
 
+from hub import guest
 from hub.identity import IDENTITY_HEADER, resolve_identity
 
 JWT_HEADER = "Cf-Access-Jwt-Assertion"
@@ -185,7 +188,8 @@ def verify(headers) -> Verdict:
     return Verdict(True, email=email, kid=kid)
 
 
-# ---- the ASGI gate (registered FIRST in hub.main = innermost, so ShellMiddleware logs its 401) ----
+# ---- the ASGI gate (registered right after hub.guest.GuestGate in hub.main: innermost but one, so ShellMiddleware
+# logs its 401; the two act on different fronts) ----
 
 async def _refuse(send, status: int, text: str) -> None:
     body = text.encode()
@@ -200,7 +204,7 @@ class AccessGate:
         self.app = app
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or (current := mode()) == "off":
+        if scope["type"] != "http" or guest.is_media() or (current := mode()) == "off":
             await self.app(scope, receive, send)
             return
         path = scope.get("path", "")

@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from hub import media_awards, media_backup, media_follow, media_plays, media_warmup, shell
+from hub import guest, media_awards, media_backup, media_follow, media_plays, media_warmup, shell
 from hub import server as server_area
 from hub import server_alerts, server_history
 from hub.store import get_snapshots as _read_snapshots
@@ -98,10 +98,14 @@ def prewarm() -> dict:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Load the registry at startup (shell.load_areas), failing fast with the aggregated violation list; then
-    pre-compile the templates and pre-parse the snapshots (E1) in a worker thread."""
+    pre-compile the templates and pre-parse the snapshots (E1) in a worker thread.
+    Joey TV WP-B1 (Q24): JOEY_FRONT is validated first (ValueError for an unknown value), and the media front starts
+    ZERO loops whatever the env says - joey-hub stays the single background writer against the shared media.db
+    (_server_alerts_loop has no env switch, so this guard is in code)."""
+    media = guest.startup() == guest.MEDIA_FRONT
     shell.load_areas()
     await asyncio.to_thread(prewarm)
-    tasks = [
+    tasks = [] if media else [
         None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
         media_plays.start_recorder(),  # F7 play recorder; None when off
         asyncio.create_task(_server_alerts_loop()),

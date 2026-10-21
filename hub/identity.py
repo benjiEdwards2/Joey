@@ -11,13 +11,18 @@ one warning is logged on first use.
 Jellyfin owners (Joey TV WP-A2, 2026-10-18; D-P14 refines D-P6): `owner_for_jellyfin(user_id)` names the owner of a
 Jellyfin user's play by user ID, never by the renamable display name — "her" = the JELLYFIN_USER_HER user, "you" = the
 JELLYFIN_USER user or a JELLYFIN_USER_ALIASES user (comma-separated names), anyone else = `jf:<32 lowercase hex>`.
+
+Media front (Joey TV WP-B1, 2026-10-21): with JOEY_FRONT=media the Access header is ignored entirely - the identity is
+the one hub.guest.GuestGate stored at scope['state']['identity'] (WP-B2's Jellyfin sign-in), else not signed in.
+`Identity(owner, name, email=None, jf_user_id=None, jf_token=None)` is FROZEN (Joey TV §4 rule 9): the new fields have
+defaults so every private construction is unchanged; the token never appears in repr.
 """
 from __future__ import annotations
 
 import logging
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 IDENTITY_HEADER = "Cf-Access-Authenticated-User-Email"
 
@@ -110,12 +115,17 @@ def owner_for_jellyfin(user_id, users_of=None) -> str:
 
 @dataclass(frozen=True)
 class Identity:
-    email: str | None
-    owner: str | None  # "you" | "her" | None (not signed in)
+    owner: str | None  # "you" | "her" | "jf:<id>" (media front) | None (not signed in)
     name: str
+    email: str | None = None
+    jf_user_id: str | None = None   # media front: the signed-in Jellyfin user (WP-B2)
+    jf_token: str | None = field(default=None, repr=False)   # media front: that user's token - never logged
 
 
 def resolve_identity(request) -> Identity:
+    from hub import guest   # lazy: hub.guest imports this module
+    if guest.is_media():
+        return guest.identity_in_scope(getattr(request, "scope", None)) or Identity(owner=None, name="Not signed in")
     email = (request.headers.get(IDENTITY_HEADER) or "").strip() if request is not None else ""
     if not email:
         return Identity(email=None, owner=None, name="Not signed in")

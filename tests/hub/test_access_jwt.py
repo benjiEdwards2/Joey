@@ -160,10 +160,12 @@ def test_flag_off_still_trusts_a_bare_header(client, fetches, monkeypatch, caplo
 
 
 def test_gate_is_the_innermost_middleware(hub):
-    """FIRST add_middleware call = innermost, so ShellMiddleware's request line still logs the gate's 401."""
+    """Innermost of the gates' group, so ShellMiddleware's request line still logs the gate's 401. Joey TV WP-B1
+    (2026-10-21) registers hub.guest.GuestGate before it (the two act on different fronts), so AccessGate is second."""
     classes = [m.cls for m in hub.user_middleware]
-    assert classes[-1] is access_jwt.AccessGate
-    assert classes[-2].__name__ == "ShellMiddleware"
+    assert classes[-1].__name__ == "GuestGate"
+    assert classes[-2] is access_jwt.AccessGate
+    assert classes[-3].__name__ == "ShellMiddleware"
 
 
 # 2. enforce: a valid token passes and the signed claim is "you"

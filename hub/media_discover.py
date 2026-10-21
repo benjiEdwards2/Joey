@@ -773,6 +773,7 @@ def _request_title(request: Request, kind: str, tmdb_id: int, seasons, profile=N
     # effects, Q19); a friend's request is theirs (X-Api-User) and pending - never the bare key.
     prof = None if on_media else media_quality.pick(kind, profile)   # WP-R1: 422 for a profile the app does not offer
     code, seerr_id = None, None
+    shown = _title(kind, tmdb_id) if panel else None   # the panel keeps its poster / title / overview after the answer (screen 10); read before the cache is dropped
     try:
         friend = mgr.friend_id(request)
     except mgr.Refused:
@@ -786,8 +787,8 @@ def _request_title(request: Request, kind: str, tmdb_id: int, seasons, profile=N
     if panel:
         if code is None:
             _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)
-            return _guest_panel(request, kind, tmdb_id, None, "pending" if friend else "sent")
-        return _guest_panel(request, kind, tmdb_id, None, "error", ERRORS[code])
+            return _guest_panel(request, kind, tmdb_id, shown, "pending" if friend else "sent")
+        return _guest_panel(request, kind, tmdb_id, shown, "error", ERRORS[code])
     future = qnet = None
     special = prof if prof and not prof["default"] else None
     if code is None:

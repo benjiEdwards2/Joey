@@ -416,7 +416,7 @@ check "Kill switch" (R3) above and `docker ps --filter name=joey-swag` before bl
 Nothing to do in Phase A. Seerr is not on the public hostname. From Phase B the friend's Seerr user is **auto-imported on their first request** (Q29/D-P19: `joey-media` calls the import for that friend only).
 If WP-B4 finds the import endpoint fails on Seerr 3.5.0, the fallback is a manual import at grant time (Seerr, Settings, Users, Import Jellyfin Users); that would be a dated DECISIONS line and a new step here.
 
-**Verify:** none needed now.
+**Verify:** none needed now. From Phase B (WP-B4 live), after the friend's first request: in Seerr, **Users**, the friend, **Permissions** show **Request only (32)**, with **no Auto-Approve** and **no Manage Requests** (a user with any of those is refused before a request is sent, and would auto-approve if it were not).
 
 ### Step 5: Send the friend their details (private message, two parts)
 

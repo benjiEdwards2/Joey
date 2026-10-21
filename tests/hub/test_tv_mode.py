@@ -11,6 +11,7 @@ import pytest
 
 from hub import guest
 from tests.hub.fake_jellyfin import FRIEND_ID
+from tests.hub.fake_seerr import FakeSeerr, res
 from tests.hub.guest_pages import TV_UA, guest_client, sign_in
 
 
@@ -124,3 +125,33 @@ def test_tv_title_page_has_synopsis_and_rating_chips_only_in_tv_mode(gc):
     assert tv.count('name="score"') == 10 and "Your rating" in tv
     assert 'id="rate"' not in tv                                                         # no second picker below the fold
     assert 'class="tv-syn">A synopsis line.' in tv and "Chip Film (2001)" not in tv
+
+
+def test_tv_discover_is_the_six_column_grid_with_chips_and_the_panel(monkeypatch, tmp_path):
+    """WP-B4 follow-on: Discover in TV mode = WP-M screen 10. The grid takes tv.css's six-column helper, every poster has
+    its chip, the panel is the dialog; the rules are tv.css's own (html.tv scope, no :hover) - the page carries none."""
+    client, fake = guest_client(monkeypatch, tmp_path, {"jellyseerr": {"summary": "x", "requests": []}})
+    seerr = FakeSeerr().install(monkeypatch)
+    seerr.add_user(7, FRIEND_ID)
+    seerr.titles[("movie", 701)] = {**res(701, "Harvest Moon Rising"), "tagline": "", "genres": []}
+    seerr.shelves = {"/api/v1/discover/trending": [res(701, "Harvest Moon Rising"), res(603, "Salt and Static", status=5),
+                                                   res(702, "Pale Horizon", status=2)],
+                     "/api/v1/discover/movies": [], "/api/v1/discover/tv": [],
+                     "/api/v1/discover/movies/upcoming": [], "/api/v1/discover/tv/upcoming": []}
+    with client as c:
+        sign_in(c, fake, FRIEND_ID)
+        tv = c.get("/media/discover", headers={"User-Agent": TV_UA}).text
+        assert is_tv(tv) and 'class="poster-grid reqgrid"' in tv
+        for tid, word in (("movie-701", "Request"), ("movie-603", "In library"), ("movie-702", "Requested")):
+            assert re.search(rf'id="chip-{tid}"[^>]*>{word}<', tv)
+        assert '<dialog id="req-dialog"' in tv and "data-req-open" in tv
+        inline = "".join(re.findall(r"<style>(.*?)</style>", tv, flags=re.S))
+        assert "html.tv" not in inline and ":hover" not in inline          # the TV look lives in tv.css only
+        css = re.sub(r"/\*.*?\*/", "", c.get("/static/tv.css").text, flags=re.S)
+        assert re.search(r"\.poster-grid\.reqgrid \{ grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)", css)
+        assert ".reqdlg" in css and ".reqchip" in css and ":hover" not in css
+        # the answer keeps the poster / title / overview and says it is waiting (screen 10: Done focused)
+        done = c.post("/media/title/movie/701/request", content="panel=1", headers={
+            "HX-Request": "true", "content-type": "application/x-www-form-urlencoded"}).text
+        assert "Requested — waiting for approval" in done and "Harvest Moon Rising" in done and "Overview of Harvest Moon Rising." in done
+        assert re.search(r"<button[^>]*data-close data-first[^>]*>Done</button>", done)

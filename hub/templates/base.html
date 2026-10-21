@@ -1,12 +1,19 @@
 <!DOCTYPE html>
-<html lang="en">
+{# Joey TV WP-B3: `guest` = the media front (hub/media_front.py); `tv` = the 10-foot TV mode (the shell's JoeyTV/ user agent,
+   or the ?tv=1 cookie) - class "tv" on <html>, /static/tv.css + tv.js linked only then. #}
+{% set is_guest = guest(request) %}{% set tv = tv_mode(request) %}
+<html lang="en"{% if tv %} class="tv"{% endif %}>
 <head>
 <meta charset="utf-8">
 {# No zoom (media-ux5, B.'s explicit choice 2026-10-09): pinch / focus zoom kept getting stuck on the iPhone. iOS ignores
    user-scalable=no, so the gesture guard below blocks pinch there; trade-off documented in hub/README.md. #}
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>{% block title %}Joey{% endblock %}</title>
-{% if media_mode %}
+<title>{% filter brand_title %}{% block title %}Joey{% endblock %}{% endfilter %}</title>
+{% if is_guest %}
+<link rel="manifest" href="/static/manifest-guest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="Joey Media">
+<meta name="joey-home" content="{{ guest_home() }}">
+{% elif media_mode %}
 <link rel="manifest" href="/static/manifest-media.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Joey Media">
 {% else %}
@@ -29,6 +36,10 @@
 {# The shell script (H-57): cached in /static/joey.js; the one value it needs from the server is the flash keys. #}
 <meta name="joey-flash-params" content='{{ (flash_params or []) | list | tojson }}'>
 <script src="/static/joey.js?v={{ static_v }}" defer></script>
+{% if tv %}
+<link rel="stylesheet" href="/static/tv.css?v={{ static_v }}">
+<script src="/static/tv.js?v={{ static_v }}" defer></script>
+{% endif %}
 </head>
 <body hx-boost="true" hx-indicator="#loadbar">
 {# Load bar (U2, 2026-10-13): htmx marks it .htmx-request during every boosted navigation / action; CSS shows it after 150 ms. #}
@@ -55,16 +66,27 @@
 {% set fits = sections | length <= 5 %}
 <header class="topbar">
   <div class="topbar-in">
+    {% if is_guest %}
+    {# Guest branding (DECISIONS C): "Joey Media" + the kangaroo, linking to the guest home; no "‹ Joey" way out, no hub. #}
+    <a class="brand" href="{{ guest_home() }}" aria-label="Joey Media home"><img class="mark" src="/static/icon-192.png?v=3" alt="" width="24" height="24"><b>Joey Media</b></a>
+    {% else %}
     <a class="brand" href="/" aria-label="Joey home">{% if media_mode %}<span class="brand-back" aria-hidden="true">‹</span>{% endif %}<img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
+    {% endif %}
     {# Media top bar (nav-tidy, B., 2026-10-13; supersedes the media-ux5 scroll-docking): inside Media the bar shows the
        Media section row (_media_tabs.html media_bar(), a .toplinks nav) INSTEAD of the Joey pills, from the first paint,
        permanently. The Joey brand is the way out, as on the phone. Phones show neither (.toplinks is display:none). #}
-    {% if media_mode %}{% from "_media_tabs.html" import media_bar with context %}{{ media_bar() }}{% else %}
+    {# Joey TV WP-B3: on the media front the Media row is drawn on EVERY page (the 404 page included), never the area pills. #}
+    {% if media_mode or is_guest %}{% from "_media_tabs.html" import media_bar with context %}{{ media_bar() }}{% else %}
     <nav class="toplinks" aria-label="Sections">
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
     </nav>
     {% endif %}
+    {% if is_guest %}
+    {# The guest chip names the signed-in Jellyfin user only - no email (the media front never has one). #}
+    <div class="userchip"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span></div>
+    {% else %}
     <div class="userchip"{% if who.email %} title="{{ who.email }}"{% endif %}><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email or "Local preview" }}</small></div>
+    {% endif %}
   </div>
 </header>
 
@@ -76,7 +98,7 @@
   {% block content %}{% endblock %}
 </main>
 
-{% if media_mode %}
+{% if media_mode or is_guest %}
 {# Media mode (B., 2026-10-07): inside Media the phone bar is the five Media sections (media_nav.py, the same active
    rule as the section tabs), five equal slots, no More (five since nav-tidy 2026-10-13). Links scroll the window to the top after the boosted swap
    (htmx 2.0.4 does show:top for boosts already; stated here so tapping Home on Media home always lands at the top).

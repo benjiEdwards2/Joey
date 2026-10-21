@@ -67,9 +67,7 @@ android {
 
     lint {
         abortOnError = true
-        checkReleaseBuilds = false
-        xmlReport = true
-        htmlReport = true
+        checkReleaseBuilds = false // XML + HTML reports are always written (tv-reports artifact)
     }
 
     testOptions {

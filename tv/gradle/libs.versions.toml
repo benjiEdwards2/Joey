@@ -1,0 +1,11 @@
+# One place for every version in the TV shell. AGP 9 compiles Kotlin itself (built-in Kotlin),
+# so there is no separate Kotlin plugin. The Gradle version is pinned in .github/workflows/tv.yml.
+[versions]
+agp = "9.4.1"
+junit = "4.13.2"
+
+[libraries]
+junit = { module = "junit:junit", version.ref = "junit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }

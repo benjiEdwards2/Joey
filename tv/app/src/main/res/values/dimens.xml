@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 10-foot sizes: a 1080p TV is 960x540 dp, matching the mockup's 960x540 design viewport. -->
+<resources>
+    <dimen name="joey_overscan_x">48dp</dimen>
+    <dimen name="joey_overscan_y">27dp</dimen>
+    <dimen name="joey_h1">32sp</dimen>
+    <dimen name="joey_body">21sp</dimen>
+    <dimen name="joey_meta">18sp</dimen>
+    <dimen name="joey_icon">56dp</dimen>
+    <dimen name="joey_button_height">64dp</dimen>
+    <dimen name="joey_gap">16dp</dimen>
+    <dimen name="joey_dialog_width">640dp</dimen>
+</resources>

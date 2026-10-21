@@ -15,6 +15,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
+from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
                  media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
@@ -318,7 +319,7 @@ def media_diary_page(request: Request):
                 f"{streak}-day streak" if streak else "no current streak"]),
             "milestones": stats["milestones"][:MILESTONES_MAX],
             "months": months, "kind": kind or "", "today": date.today().isoformat(), "places": media_write.PLACES,
-            "on_this_day": on_this_day, "scope_eligible": owner == "you", "diary_scope": scope,
+            "on_this_day": on_this_day, "scope_eligible": owner == "you" and not guest.is_media(), "diary_scope": scope,
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,
             "ratings": media_home._ratings(view, lines, on_this_day),

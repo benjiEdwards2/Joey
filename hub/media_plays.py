@@ -85,6 +85,33 @@ def play_from_session(session: dict) -> dict | None:
     }
 
 
+def diary_row(play: dict, now: datetime) -> dict:
+    """A finished play as the history-row shape media_db.sync_diary_from_history takes: an episode is one per-episode
+    row (episode_key, show / season columns, 'Show · S01E04 · Name' so the episode title survives), a film its own key."""
+    episode = play["kind"] == "episode"
+    title = play.get("title") or ""
+    if episode and play.get("show_title"):
+        code = (f"S{play['season']:02d}E{play['episode']:02d}"
+                if isinstance(play.get("season"), int) and isinstance(play.get("episode"), int) else "")
+        title = " · ".join(x for x in (play["show_title"], code, play.get("title")) if x)
+    return {"item_key": play.get("item_key"), "kind": "tv" if episode else "movie", "title": title,
+            "episode_key": play.get("episode_key"), "show_key": play.get("show_key"),
+            "season_key": play.get("season_key"), "season": play.get("season"), "episode": play.get("episode"),
+            "show_title": play.get("show_title"), "poster": play.get("poster"),
+            "watched_at": now.astimezone(timezone.utc).isoformat()}
+
+
+def friend_diary(play: dict, now: datetime) -> int:
+    """Joey TV WP-B3 step 3 (Q21 default): a FRIEND's play (owner `jf:<id>`) at >= FINISHED_PCT writes one diary row
+    owned by `jf:<id>` - idempotent (the diary's UNIQUE: one row per title per day, so the finished play's later polls
+    add nothing). You / her are never written here: their diary comes from the Jellyfin history sweep. Returns rows
+    inserted; never raises."""
+    owner = play.get("owner") or ""
+    if not owner.startswith("jf:") or (play.get("position_pct") or 0) < pdb.FINISHED_PCT:
+        return 0
+    return media_db.sync_diary_from_history([diary_row(play, now)], owner=owner)
+
+
 def poll_once(now: datetime | None = None) -> int:
     """One poll. Returns how many sessions were recorded; never raises."""
     creds = _creds()
@@ -99,6 +126,7 @@ def poll_once(now: datetime | None = None) -> int:
             play = play_from_session(s) if isinstance(s, dict) else None
             if play:
                 pdb.record_sighting(play, now)
+                friend_diary(play, now)
                 count += 1
         return count
     except Exception as exc:

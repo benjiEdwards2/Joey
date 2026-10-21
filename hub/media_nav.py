@@ -38,6 +38,38 @@ SECTIONS: list[dict] = [
 # of the list pages.
 # By-year rankings removed 2026-10-09 (decision 1).
 
+# Joey TV WP-B3 (2026-10-21): the media front's section row is Overview · Movies · TV shows · Diary · Discover (the WP-M
+# mockup B. signed off, call 1). It is DERIVED from SECTIONS: the Activity section becomes Diary (its own History = the
+# diary and To rate, Q18), Movies / TV shows draw the mockup's five tabs (Watchlist and Tonight are tabs again there),
+# and then every section and tab whose href hub.guest.allows() does not serve is dropped (Discover > Following, Q19).
+GUEST_TABS = {
+    "movies": [("My films", "/media/movies"), ("Watchlist", "/media/movies/watchlist"),
+               ("Tonight", "/media/movies/tonight"), ("To rate", "/media/movies/to-rate"),
+               ("Awards", "/media/movies/awards")],
+    "tv": [("My shows", "/media/tv"), ("Watchlist", "/media/tv/watchlist"), ("Tonight", "/media/tv/tonight"),
+           ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")],
+}
+GUEST_DIARY = {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary",
+               "prefixes": ["/media/diary", "/media/history"],
+               "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]}
+
+
+def _guest_sections() -> list[dict]:
+    from hub import guest
+    out = []
+    for s in SECTIONS:
+        s = dict(GUEST_DIARY) if s["id"] == "server" else {**s, "tabs": GUEST_TABS.get(s["id"], s["tabs"])}
+        if s["href"] is not None and not guest.href_allowed(s["href"]):
+            continue
+        out.append({**s, "tabs": [(label, h) for label, h in s["tabs"] if guest.href_allowed(h)]})
+    return out
+
+
+def sections() -> list[dict]:
+    """The section table for this process's front: SECTIONS on the private front, the guest row on the media front."""
+    from hub import guest
+    return _guest_sections() if guest.is_media() else SECTIONS
+
 
 def shelves_area(registry):
     return next((a for a in registry.areas if a.layout == "shelves"), None) if registry else None
@@ -50,7 +82,7 @@ def _under(path: str, prefix: str) -> bool:
 def active_section(path: str, home_href: str | None = None) -> dict | None:
     """Longest-prefix section for `path`."""
     best, best_len = None, -1
-    for s in SECTIONS:
+    for s in sections():
         prefixes = [home_href] if s["id"] == HOME_ID and home_href else s["prefixes"]
         for p in prefixes:
             if _under(path, p) and len(p) > best_len:
@@ -78,13 +110,15 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
     home_href = f"/a/{area.id}" if area else "/"
     section = active_section(path, home_href if area else None)
     forced = getattr(getattr(request, "state", None), "media_section", None)  # F9: item pages pick Movies / TV Shows by kind
+    table = sections()
     if forced:
-        section = next((s for s in SECTIONS if s["id"] == forced), section)
+        section = next((s for s in table if s["id"] == forced), section)
     waiting = waiting or {}
-    counts = {"server": waiting.get("to_rate", 0)}  # nav-tidy (2026-10-13): the to-rate count moved with To rate to Activity
-    sections = [{"id": s["id"], "label": s["label"], "short": s["short"], "icon": s["icon"], "href": home_href if s["id"] == HOME_ID else s["href"],
-                 "on": section is not None and s["id"] == section["id"],
-                 "count": counts.get(s["id"], 0) or 0} for s in SECTIONS]
+    # nav-tidy (2026-10-13): the to-rate count moved with To rate to Activity (on the media front: Diary, WP-B3)
+    counts = {"server": waiting.get("to_rate", 0), "diary": waiting.get("to_rate", 0)}
+    rows = [{"id": s["id"], "label": s["label"], "short": s["short"], "icon": s["icon"], "href": home_href if s["id"] == HOME_ID else s["href"],
+             "on": section is not None and s["id"] == section["id"],
+             "count": counts.get(s["id"], 0) or 0} for s in table]
     tabs = []
     if section:
         scores = [_tab_on(h, path) for _, h in section["tabs"]]
@@ -102,4 +136,4 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
     # section's ("Discover" on a person page, which draws its own H1 instead); None outside every section.
     on = next((t for t in tabs if t["on"]), None)
     title = on["label"] if on else (section["label"] if section else None)
-    return {"sections": sections, "section": section, "tabs": tabs, "home_href": home_href, "title": title}
+    return {"sections": rows, "section": section, "tabs": tabs, "home_href": home_href, "title": title}

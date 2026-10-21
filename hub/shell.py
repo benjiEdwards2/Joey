@@ -26,7 +26,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
 
-from hub import guest
+from hub import guest, media_front
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.ids import areas_path, home_now
 from hub.images import fallback_letters
@@ -72,6 +72,13 @@ templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
 templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
+# Joey TV WP-B3 (2026-10-21): the guest surface's globals (hub/media_front.py) - every one answers on the private front too
+templates.env.globals["guest"] = media_front.is_guest
+templates.env.globals["guest_allows"] = media_front.guest_allows
+templates.env.globals["brand"] = media_front.brand
+templates.env.globals["guest_home"] = media_front.guest_home
+templates.env.globals["tv_mode"] = media_front.tv_mode
+templates.env.filters["brand_title"] = media_front.brand_title
 
 
 # ---- response headers (T3, 2026-10-09: H-56, N-48, N-49) ----
@@ -314,16 +321,29 @@ def build_status(snaps) -> dict:
     }
 
 
+def public_jellyfin() -> str | None:
+    """JELLYFIN_PUBLIC_URL without a trailing slash (port kept verbatim), or None when unset."""
+    return (os.environ.get("JELLYFIN_PUBLIC_URL") or "").strip().rstrip("/") or None
+
+
+def jellyfin_link(registry_href: str | None) -> str | None:
+    """THE Jellyfin link seam (Joey TV WP-B3): the base of every Jellyfin link a page draws (Play, Open in Jellyfin, the
+    deep links `_deep_link` builds). On the media front it is JELLYFIN_PUBLIC_URL - port kept verbatim, since the TV
+    shell's UrlPolicy matches scheme + host + port (`:8443`) - and None when that is unset (no link rather than a
+    LAN one): never the registry's `jellyfin-app` launcher. The private front keeps the registry href."""
+    return public_jellyfin() if guest.is_media() else registry_href
+
+
 def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
     """The page behind a `detail` tile: the first registry tile reading the
     snapshot (the one whose `detail` route matches, when several tiles share a
     snapshot), its area and the area's first LINK tile (the app
-    launcher). None when no tile reads the snapshot."""
+    launcher), through the jellyfin_link seam. None when no tile reads the snapshot."""
     for a in registry.areas:
         for t in a.tiles:
             if t.snapshot == snapshot_id and (detail is None or t.detail == detail):
                 snap = snaps.get(snapshot_id)
-                href = next((x.href for x in a.tiles if x.tier.value == "link"), None)
+                href = jellyfin_link(next((x.href for x in a.tiles if x.tier.value == "link"), None))
                 return {"tile": t, "st": tile_state(t, snaps),
                         "data": snap.data if snap else {}, "href": href}
     return None

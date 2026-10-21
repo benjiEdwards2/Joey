@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}{{ area.name }} · Joey{% endblock %}
+{% block title %}{{ "Overview" if guest(request) else area.name }} · Joey{% endblock %}
 {# Media home (shelves layout, 2026-10-05; restyle Phase 3, 2026-10-06). "Playing now" lives in the page header:
    the eyebrow is the state word, the title the playing title, one sub-line of facts joined by " · ", the backdrop
    drifts behind it, and "Open in Jellyfin" is the header's glass button. Shelves are deliberate carousels (snap-x)
@@ -7,6 +7,10 @@
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
+{% if guest(request) %}
+{# Joey TV WP-B3: the guest Overview has no hero (WP-M call 4) - a plain head, then three shelves. #}
+{% call pagehead("Overview") %}{{ media_tabs() }}{% endcall %}
+{% else %}
 {% set h = sh.hero %}
 {% if h and h.user %}{% set sub = [h.user, h.play_method, (h.progress_pct ~ "%") if h.progress_pct is not none else none] | select | join(" · ") %}
 {% elif h %}{% set sub = h.sub %}
@@ -15,12 +19,27 @@
 {% call pagehead(h.title if h else area.name, sub=sub, eyebrow=(sh.kind_word if h else area.name),
                  backdrop=(h.backdrop if h else none), drift=true,
                  actions=([{"href": open, "label": "Open in Jellyfin", "new_tab": true}] if open else none)) %}{{ media_tabs() }}{% endcall %}
+{% endif %}
 {% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
 {% import "_resume_acts.html" as resume %}
 {% from "_waiting.html" import waitchips %}
+{% if setup %}
+{# Joey TV WP-B3 step 7 (Q39): the one-time Set up Jellyfin card - the official app needs the server address WITH its port. #}
+<section class="sec setup-card" aria-labelledby="setup-h">
+  <h2 class="seclabel" id="setup-h">Set up Jellyfin</h2>
+  <p>Playing a film opens the Jellyfin app. Sign in to it once:</p>
+  <ol class="setup-steps">
+    <li>Open the <b>Jellyfin</b> app and choose <b>Add server</b>.</li>
+    <li>Type the server address <code class="setup-addr">{{ setup.server }}</code></li>
+    <li>Sign in with <b>Quick Connect</b> or your Jellyfin username and password.</li>
+  </ol>
+  <p><a class="btn btn-primary" href="{{ setup.done_href }}" data-first>Done</a></p>
+</section>
+{% endif %}
+{% if not guest(request) %}
 <p class="metaline">
   {%- if sh.freshness and sh.freshness.state == "stale" %}<span class="st-warn">{{ sh.freshness.age_text }}</span>
   {%- elif sh.freshness and sh.freshness.state == "fresh" %}Updated {{ sh.freshness.age_text }}
@@ -28,19 +47,20 @@
   {%- if backup_warn %}<span class="sep"> · </span><span class="st-warn">{{ backup_warn }}</span>{% endif %}
   {%- if sh.waiting and sh.waiting.to_rate %}<span class="sep"> · </span>{{ waitchips(sh.waiting) }}{% endif -%}
 </p>
+{% endif %}
 
 {% for s in sh.shelves %}
 <section class="sec">
   <div class="sechead">
     <h2 class="seclabel">{{ s.title }}{% if s["items"] and s["items"] | length < shelf_max %}<span class="sep"> · </span>{{ s["items"] | length }}{% endif %}</h2>
-    <a href="{{ s.see_all_href }}">All</a>
+    {% if s.see_all_href %}<a href="{{ s.see_all_href }}">All</a>{% endif %}
   </div>
   {% if s["items"] %}
   <div class="carousel">
     {% for i in s["items"] %}
     {% if i.acts %}<div class="card-wrap">{% endif %}
     <a class="card-poster" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
-      <span class="card-pic">{{ poster(i.poster, i.title, 240, rate.glow(i.score, false)) }}{{ rate.pscore(i.score) }}</span>
+      <span class="card-pic">{{ poster(i.poster, i.title, 240, rate.glow(i.score, false)) }}{{ rate.pscore(i.score) }}{% if i.pct %}<span class="bar" role="img" aria-label="{{ i.pct }}% watched"><span style="width: {{ i.pct }}%"></span></span>{% endif %}</span>
       <span class="row-title">{{ i.title }}</span>
       {% if i.sub %}<span class="row-meta">{{ i.sub }}</span>{% endif %}
     </a>

@@ -1,0 +1,69 @@
+/* Joey Media TV mode (Joey TV WP-B3, 2026-10-21) - the WP-M 10-foot spec over the live Joey styles. Linked ONLY in TV
+   mode (html.tv: the shell's JoeyTV/ user agent, or the ?tv=1 cookie). FIRST PASS by the build (WP-B3 Opus): layout,
+   type scale, overscan, the focus ring and the off-origin rule; the look is polished against
+   JoeyTV\mockups\tv-mode.html by the Sonnet follow-on (rule 19).
+
+   Spec (MASTER_PLAN WP-M; mockups\README.md): 960x540 CSS px viewport (1920x1080 at 320 dpi on the TCL); base type x1.5
+   (21 px), nothing under 16 px; 5 % overscan margins (48 / 27 px); NO hover states; 4 px white focus ring + 1.06
+   poster scale; no phone tab bar; one-line captions with an ellipsis; shelves centre the focused poster, clamped
+   (tv.js); focus order: section row, sub-tabs, shelves, page body. Q41: every off-origin link is hidden except
+   YouTube trailers and the Jellyfin hand-off links (`/web/#/details?id=`). */
+html.tv { --tv-mx: 48px; --tv-my: 27px; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto; }
+html.tv body { font-size: 21px; line-height: 1.3; }
+html.tv body::before { display: none; }
+
+/* Focus: one ring, no hover. tv.js sets .tv-focus on the focused control (also where :focus-visible would not match). */
+html.tv :focus { outline: none; }
+html.tv :focus-visible, html.tv .tv-focus { outline: 4px solid var(--tv-ring); outline-offset: 3px; }
+html.tv .card-poster:focus-visible, html.tv .card-poster.tv-focus { outline: none; transform: scale(1.06); position: relative; z-index: 5; }
+html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: 4px solid var(--tv-ring); outline-offset: 3px; border-radius: 10px; }
+html.tv .card-poster { transition: transform .12s ease-out; }
+
+/* Off-origin links (Q41): hidden; YouTube and the Jellyfin hand-off stay. */
+html.tv a[href^="http"]:not([href*="/web/#/details"]):not([href*="youtube.com/"]):not([href*="youtu.be/"]),
+html.tv a[href^="//"] { display: none !important; }
+
+/* No phone tab bar; the in-page section row is the top bar's. */
+html.tv .tabbar, html.tv .sectabs-page { display: none !important; }
+
+/* Top bar: brand, Media section row, user chip - inside the overscan margins. */
+html.tv .topbar { position: sticky; top: 0; border-bottom: 0; background: var(--bg); }
+html.tv .topbar-in { max-width: none; height: auto; margin: 0; padding: var(--tv-my) var(--tv-mx) 8px; gap: 20px; }
+html.tv .brand { font-size: 22px; gap: 10px; }
+html.tv .brand .mark { width: 36px; height: 36px; border-radius: 9px; }
+html.tv .toplinks { display: flex; gap: 4px; }
+html.tv .toplinks a { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 20px; }
+html.tv .userchip { margin-left: auto; font-size: 18px; }
+html.tv .userchip small { display: none; }
+
+/* Page frame. */
+html.tv .page { max-width: none; padding: 8px var(--tv-mx) var(--tv-my); }
+html.tv .pagehead { margin: 0 calc(-1 * var(--tv-mx)); min-height: 0; }
+html.tv .pagehead-in { max-width: none; padding: 8px var(--tv-mx) 12px; }
+html.tv .pagehead h1 { font-size: 32px; }
+html.tv .sectabs { margin: 0; padding: 0; }
+html.tv .sectabs.sub a { font-size: 19px; padding: 8px 16px; }
+
+/* Shelves: 132 px posters, 20 px gaps, one-line captions; no snap (tv.js centres the focused poster). */
+html.tv .sec { margin-top: 14px; }
+html.tv .seclabel, html.tv h2.seclabel { font-size: 16px; }
+html.tv .sechead a { display: none; }
+html.tv .carousel { gap: 20px; scroll-snap-type: none; padding: 14px 8px 10px; margin: 0 -8px; }
+html.tv .carousel > * { flex: 0 0 132px; width: 132px; }
+html.tv .card-poster .row-title { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.tv .card-poster .row-meta { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Nothing under 16 px. */
+html.tv small, html.tv .microlabel, html.tv .eyebrow, html.tv .metaline, html.tv .row-meta { font-size: 16px; }
+
+/* Buttons: 56 px targets. */
+html.tv .btn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; }
+html.tv .btn-sm { min-height: 44px; padding: 0 18px; font-size: 18px; }
+
+/* The Set up Jellyfin card (Q39): the address at 34 px mono. */
+html.tv .setup-addr { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 34px; font-weight: 600; }
+
+/* Sign-in (Q33: the TV signs in on the web page): the WP-M screen 1 layout inside the overscan. */
+html.tv .signin { max-width: none; min-height: 100vh; padding: var(--tv-my) var(--tv-mx); grid-template-columns: 300px 1fr; gap: 40px; align-items: center; }
+html.tv .signin-brand h1 { font-size: 42px; }
+html.tv .qc-code { font-size: 92px; }

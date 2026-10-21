@@ -4,6 +4,7 @@
 <section class="sec narrow">
   <div class="sechead"><h1 class="seclabel">404</h1></div>
   <p class="empty">{{ missing_text or "No page here" }}</p>
-  <p class="metaline"><a href="/">Back to Hub</a></p>
+  {% if guest(request) %}<p class="metaline"><a href="{{ guest_home() }}">Back to Joey Media</a></p>{# Joey TV WP-B3 #}
+  {% else %}<p class="metaline"><a href="/">Back to Hub</a></p>{% endif %}
 </section>
 {% endblock %}

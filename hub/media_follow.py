@@ -686,6 +686,9 @@ def show_ctx(request, film) -> dict | None:
     tmdb = film.get("tmdb") if isinstance(film, dict) else None
     if not isinstance(tmdb, int) or tmdb <= 0 or film.get("kind") != "tv" or film.get("episode"):
         return None
+    from hub import guest
+    if guest.is_media() and not guest.allows("POST", f"/media/follow/show/{tmdb}"):
+        return None   # Joey TV WP-B3: no Follow on the guest front (Q19)
     try:
         on = get("show", tmdb) is not None
     except Exception as exc:  # the page never fails on the follow lookup

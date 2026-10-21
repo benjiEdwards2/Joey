@@ -56,7 +56,7 @@ def app_with(tmp_path, monkeypatch, *areas):
 
 def clear_media_caches() -> None:
     """Every Media module's in-process cache, emptied."""
-    from hub import (guest_auth, identity, media_awards_badges, media_awards_icons, media_discover, media_episode_ratings,
+    from hub import (guest_auth, identity, media_guest_home, media_awards_badges, media_awards_icons, media_discover, media_episode_ratings,
                      media_files, media_film, media_hidden, media_item, media_jellyfin, media_omdb, media_pages,
                      media_quality, media_rank, media_requests, media_resume, media_season_state, media_upgrade_why,
                      server_stack)
@@ -71,7 +71,8 @@ def clear_media_caches() -> None:
                   media_quality.clear_cache,   # WP-R1: the arr quality profile lists
                   media_upgrade_why.clear_cache,   # WP-U1: the kept Why? answers
                   identity.clear_jellyfin_owners,  # Joey TV WP-A2: the household's Jellyfin ids
-                  guest_auth.clear):  # Joey TV WP-B2: guest session verdicts + password failure counters
+                  guest_auth.clear,  # Joey TV WP-B2: guest session verdicts + password failure counters
+                  media_guest_home.clear_cache):  # Joey TV WP-B3: the guest Overview's per-user shelf reads
         clear()
 
 

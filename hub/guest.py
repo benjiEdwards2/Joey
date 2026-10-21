@@ -325,6 +325,8 @@ class GuestGate:
                 return
             await self.app(scope, receive, send)
             return
+        from hub import media_front   # Joey TV WP-B3: `?tv=1` / `?tv=0` persists TV mode in a cookie (Q34)
+        send = media_front.wrap_tv_send(scope, send)
         method, path = scope.get("method", "GET"), scope.get("path", "")
         if path == "/" and _verb(method) == "GET":
             home = home_path()

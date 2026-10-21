@@ -39,7 +39,7 @@ from hub import media_awards_db as adb
 from hub import media_awards_badges as badges
 from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
-from hub import media_db, media_discover as md, media_home, media_item, media_pages, media_text, shell
+from hub import guest, media_db, media_discover as md, media_home, media_item, media_pages, media_text, shell
 from hub import media_watchlist_db as wl
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
@@ -494,6 +494,9 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     v = v if v in VIEWS else "films"
     f = f if f in FILTERS else "all"
     f = "unseen" if unseen and f == "all" else f
+    no_seen = guest.is_media()   # Joey TV WP-B3 (Q20): no played state for friends in v1 - no Seen marks, no Not seen
+    if no_seen and f == "unseen":
+        f = "all"
     s = s if s in SORTS else "wins"
     unseen = f == "unseen"
     akind = AKIND[kind]
@@ -507,7 +510,10 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     missing = {"asked": asked, "shown": year} if asked and year and year != asked else None
     page = adb.edition_page(body, year, akind) if year else None
     owner = media_db.owner_of(view)
-    seen = Seen(_library(data, view, kind), _diary_keys(owner), kind)
+    lib = _library(data, view, kind)
+    if no_seen:
+        lib = {k: {**r, "played": False} for k, r in lib.items()}
+    seen = Seen(lib, set() if no_seen else _diary_keys(owner), kind)
     ed = (page or {}).get("edition")
 
     def nav(**over) -> str:
@@ -528,6 +534,9 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
     if v == "films":
         the_ballot, first_q = ballot(page, seen, kind, won_by, owner, f, s, nav, empty, show_all,
                                      _films_of(body, ed, kind))
+        if no_seen:
+            the_ballot["filters"] = [x for x in the_ballot["filters"] if x["key"] != "unseen"]
+            the_ballot["progress"] = None
     for c in ((page or {}).get("categories") or []) if v == "categories" else []:
         cards = [card(e, c["lead"], seen, kind) for e in c["entries"]]
         for x in cards:

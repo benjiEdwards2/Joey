@@ -175,6 +175,10 @@ def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None, to_rate_rows
 def media_frame(request: Request) -> dict:
     """Template global `media_nav(request)`: the Media bar/tabs context (cached per request)."""
     cached = getattr(request.state, "media_nav", None)
+    if cached is None and shell.resolve_owner_view(request)[0] == shell.NO_VIEW:
+        # Joey TV WP-B3: the media front's 404 page and /signin have no identity - the bar draws, with no counts (no
+        # owner helper accepts NO_VIEW, and nobody's numbers belong on a page without a viewer)
+        cached = request.state.media_nav = media_nav.nav_context(request, shell.registry, {})
     if cached is None:
         view, _ = shell.resolve_owner_view(request)
         area = media_nav.shelves_area(shell.registry)

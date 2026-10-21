@@ -28,7 +28,7 @@ from starlette.background import BackgroundTask
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
 from hub import media_episode_ratings, media_season_state as mss
-from hub import media_home, media_quality, media_text, media_upgrades, shell
+from hub import guest, media_home, media_quality, media_text, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import empty_series, runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -1076,6 +1076,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     server = media_item._server_id(*creds, snap_server) if creds and (jf_item_id or jf_id) else snap_server
     href_of = lambda i: shell._deep_link((jsrc or {}).get("href"), i, server)
     f["play"] = None
+    play_ids: dict = {}   # Joey TV WP-B3: the item id behind each Play href (data-jf-id)
     f["series"], f["next_ep"] = None, None
     if kind == "tv" and seasons:
         eps = [e for s in seasons for e in s["episodes"]]
@@ -1096,10 +1097,12 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         if jf_item_id:
             f["play"] = ({"href": href_of(nxt["jf_id"]), "label": f"Next to watch: {nxt['label']} ▶"} if nxt
                          else {"href": href_of(jf_item_id), "label": "Play ▶"})
+            play_ids["play"] = nxt["jf_id"] if nxt else jf_item_id
     elif (jf_item_id or f["jf_failed"]) and not empty_show:   # WP-T1: nothing to play in an empty show
         pid = jf_item_id or jf_id
         label = (f"Resume ▶ · {left}" if left else "Resume ▶") if in_progress else "Play again ▶" if played else "Play ▶"
         f["play"] = {"href": href_of(pid), "label": label}
+        play_ids["play"] = pid
     # media-ux3: `?season=N` (the banner's "This season") opens that season; else the page's episode / season
     page_season = (open_season if open_season is not None
                    else page_item["season_no"] if page_item and page_item["kind"] in ("episode", "season") else None)
@@ -1118,6 +1121,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                                  else "Play again ▶" if ep["played"] else "Play ▶"},
                         "show_href": f"/media/item/{item['id']}" if item and item["kind"] == "series" else None}
         f["episode_season"] = ep["season_no"]
+        play_ids["episode"] = ep["id"]
     else:
         f["episode"] = None
     # TV episode flow (WP-E1, 2026-10-16): per-episode ratings from media.db / the caches only; the reads they still
@@ -1224,7 +1228,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["parts_href"] = (f"{request.url.path}/part/all?p=" + ",".join(p for p in PARTS if p in pending)) if pending else None
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in
         request.state.media_section = "movies" if kind == "movie" else "tv"
-    return f
+    _play_ids(f, play_ids)
+    return guest_controls(f, kind, tmdb_id)
 
 
 def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
@@ -1256,12 +1261,41 @@ def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_i
     on_server = bool(item or row or (jf_id and not side["jf_failed"]) or (t and t["status_word"] in md.ON_DISK))
     jf_item_id = item["id"] if item else (row["jf_id"] if row else None)
     f.update(t=t, title=title, year=(item or {}).get("year") or (t or {}).get("year"),
-             play={"href": shell._deep_link((jsrc or {}).get("href"), jf_item_id, None)} if jf_item_id else None)
+             play={"href": shell._deep_link((jsrc or {}).get("href"), jf_item_id, None), "jf_id": jf_item_id}
+             if jf_item_id else None)
     ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": (item or {}).get("people") or [],
            "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
            "lib_keys": on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv"), "arr": arr,
            "jf_trailer": (item or {}).get("trailer"), "pending": set(), "late": True}
     _sections(f, names, ctx, ex)
+    return guest_controls(f, kind, tmdb_id)
+
+
+def _play_ids(f: dict, play_ids: dict) -> None:
+    """Each Play button carries `jf_id` - the Jellyfin item id its href names - for the template's `data-jf-id` (the TV
+    shell hands that id to the Jellyfin app, WP-B6 route 1b)."""
+    for slot, jf in play_ids.items():
+        target = f.get(slot) if slot == "play" else (f.get("episode") or {}).get("play")
+        if target and target.get("href") and jf:
+            target["jf_id"] = str(jf)
+
+
+def guest_controls(f: dict, kind, tmdb_id) -> dict:
+    """Joey TV WP-B3 step 4 (Q19): on the media front a title / item page carries no household control - no Search now,
+    Quality, upgrade note, file-strip badges, Follow (show / collection) or Jellyseerr link, and the Request block only
+    where hub.guest.allows() serves the request route (RESERVED until WP-B4). Private front: `f` untouched."""
+    if not guest.is_media():
+        return f
+    f.update(arr_search=None, quality_href=None, quality_block=None, upgrade=None, jellyseerr_href=None)
+    if f.get("file"):
+        f["file"] = {**f["file"], "badges": []}
+    if f.get("collection"):
+        f["collection"] = {**f["collection"], "followable": False}
+    f["providers"] = [{**g, "href": None} for g in f.get("providers") or []]   # names stay, no JustWatch link
+    if f.get("trailer") and not f.get("trailer_key"):   # a trailer only as a YouTube video (Q41), never another site
+        f["trailer"] = None
+    if not (kind in ("movie", "tv") and tmdb_id and guest.allows("GET", f"/media/title/{kind}/{tmdb_id}/request")):
+        f["show_request"] = False
     return f
 
 

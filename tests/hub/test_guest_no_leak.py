@@ -46,7 +46,10 @@ class Args:
 
 
 def guest_gets() -> list[str]:
-    return list(dict.fromkeys(route_sweep.fill(t, Args) for m, t in guest.GUEST if m == "GET")) + [guest.home_path()]
+    # WP-B3: plus the Overview in TV mode, its Set-up-card dismissal, the 404 page and /signin
+    home = guest.home_path()
+    return list(dict.fromkeys(route_sweep.fill(t, Args) for m, t in guest.GUEST if m == "GET")) + [
+        home, home + "?tv=1", home + "?setup=done", "/no-such-page", "/signin"]
 
 
 @pytest.fixture()

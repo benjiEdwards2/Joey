@@ -2,16 +2,21 @@
 {# Joey TV WP-B2 (2026-10-21): the media front's sign-in page. Standalone on purpose - it does not extend base.html, so it
    never renders the private tab bar or any data. Layout from the WP-M mockup (tv-mode-1-signin): the Quick Connect code
    first, the password form as the fallback. WP-B3 adds the 10-foot TV styling under the JoeyTV/ user agent. #}
-<html lang="en">
+{% set tv = tv_mode(request) %}
+<html lang="en"{% if tv %} class="tv"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sign in · Joey Media</title>
 <meta name="theme-color" content="#09090b">
 <link rel="icon" href="/static/icon-192.png?v=3">
-<link rel="manifest" href="/static/manifest-media.webmanifest">
+<link rel="manifest" href="/static/manifest-guest.webmanifest">
 <link rel="stylesheet" href="/static/control-surface.css?v={{ static_v }}">
 <script src="/static/htmx.min.js?v={{ static_v }}" defer></script>
+{% if tv %}{# Joey TV WP-B3: the TV signs in on this page (Q33) - the 10-foot styling and D-pad focus #}
+<link rel="stylesheet" href="/static/tv.css?v={{ static_v }}">
+<script src="/static/tv.js?v={{ static_v }}" defer></script>
+{% endif %}
 <style>
   .signin { max-width: 56rem; margin: 0 auto; padding: 2rem 1rem; display: grid; gap: 2rem; }
   @media (min-width: 52rem) { .signin { grid-template-columns: 1fr 1.6fr; align-items: center; min-height: 90vh; } }

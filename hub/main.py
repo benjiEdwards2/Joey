@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTasks
 
 from hub import access_jwt, guest, guest_signin, media_backup
+from hub import media_front, media_guest_home   # Joey TV WP-B3: the guest surface
 from hub.images import router as images_router
 from hub.media_discover import router as media_discover_router
 from hub import media_film, media_person, media_plays
@@ -252,6 +253,16 @@ def area_page(request: Request, area_id: str):
     snaps = shell.get_snapshots(request=request)
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
              for t in area.tiles if shell.owner_visible(t, view)]
+    if area.layout == "shelves" and guest.is_media():
+        # Joey TV WP-B3: the guest Overview - three shelves, the viewer's own live reads, no household rows, no
+        # backup warning; the one-time Set up Jellyfin card until `?setup=done` sets its cookie (Q39)
+        resp = shell.render_page(request, "area_shelves.html", {
+            "area": area, "sh": media_guest_home.build(request, snaps, view), "backup_warn": None,
+            "setup": media_front.setup_card(request, shell.public_jellyfin()),
+        }, active_id=area.id)
+        if media_front.setup_dismissed_now(request):
+            resp.headers.append("set-cookie", media_front.setup_cookie_header())
+        return resp
     if area.layout == "shelves":
         resp = shell.render_page(request, "area_shelves.html", {
             "area": area,

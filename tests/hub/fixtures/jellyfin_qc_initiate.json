@@ -1,0 +1,15 @@
+{
+  "method": "POST",
+  "path": "/QuickConnect/Initiate",
+  "http_status": 200,
+  "body": {
+    "Authenticated": false,
+    "Secret": "REDACTED",
+    "Code": "REDACTED",
+    "DeviceId": "REDACTED",
+    "DeviceName": "probe",
+    "AppName": "JoeyTVProbe",
+    "AppVersion": "1",
+    "DateAdded": "2026-10-21T02:16:47.9960209Z"
+  }
+}

@@ -15,9 +15,9 @@ from hub.identity import IDENTITY_HEADER, Identity
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FORGED = {IDENTITY_HEADER: "forged@example.test"}
-FRIEND = Identity(owner="jf:f00d", name="Sample Friend", jf_user_id="f00d")
+FRIEND = Identity(owner="jf:" + "f00d" * 8, name="Sample Friend", jf_user_id="f00d" * 8)   # a well-formed key (WP-B2: malformed jf: owners fail closed)
 DENIED_GETS = ["/server", "/whoami", "/weather", "/a/calendar", "/docs", "/openapi.json", "/media/downloads",
-               "/media/apps", "/media/following", "/media/server/history", "/money", "/signin",
+               "/media/apps", "/media/following", "/media/server/history", "/money", "/signin/anything-else",
                "/media/title/movie/603/request"]
 
 
@@ -165,7 +165,7 @@ def test_owner_word_is_the_stored_identity_never_the_name(media, friend, client,
     with caplog.at_level(logging.INFO, logger="hub"):
         get(client, "/media/movies", headers=FORGED)
     lines = [r.getMessage() for r in caplog.records]
-    assert any(ln.startswith("GET /media/movies owner=jf:f00d -> ") for ln in lines), lines
+    assert any(ln.startswith(f"GET /media/movies owner={FRIEND.owner} -> ") for ln in lines), lines
     assert not any("Sample Friend" in ln or "forged@" in ln for ln in lines)
 
 

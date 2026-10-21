@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from hub import media_store, media_text
+from hub.identity import OWNER_KEY_RE
 
 log = logging.getLogger("hub.media_db")
 
@@ -68,13 +69,46 @@ def db_path() -> Path:
     return media_store.db_path()
 
 
+_FRIEND_KEY = re.compile(OWNER_KEY_RE)
+
+
+def friend_key(view) -> str | None:
+    """`view` when it is a well-formed friend owner key (`jf:<32 lowercase hex>`, hub.identity.OWNER_KEY_RE), None when
+    it is not a `jf:` value at all; ValueError for any other `jf:` value (Joey TV WP-B2: fail closed - a malformed
+    friend key is never read or written as anyone's rows)."""
+    if not (isinstance(view, str) and view.startswith("jf:")):
+        return None
+    if not _FRIEND_KEY.match(view):
+        raise ValueError("malformed friend owner key")
+    return view
+
+
+def _media_front_guard(view) -> None:
+    """Media front (Joey TV WP-B2): only you / her / a friend key name an owner - 'both', None or anything else never
+    falls back to B.'s rows there (the private front keeps its old meanings)."""
+    from hub import guest   # lazy: guest imports hub.identity only, but keep this module import-light
+    if view not in ("you", "her") and guest.is_media():
+        raise ValueError("no owner on the media front")
+
+
 def owner_of(view: str) -> str:
-    """The data owner behind an owner view: 'her' sees her own rows, anything else is B.'s."""
+    """The data owner behind an owner view: 'her' sees her own rows, a friend (`jf:<id>`, Joey TV WP-B2) theirs,
+    anything else is B.'s. Fails closed: a malformed `jf:` value raises, and on the media front so does any view that
+    is not you / her / a friend key."""
+    friend = friend_key(view)
+    if friend:
+        return friend
+    _media_front_guard(view)
     return "her" if view == "her" else "you"
 
 
 def owner_filter(view: str) -> str | None:
-    """The owner a cross-owner read filters on: 'you' / 'her', or None for the 'both' view (everyone's rows)."""
+    """The owner a cross-owner read filters on: 'you' / 'her' / a friend key, or None for the 'both' view (the
+    household's rows). Fails closed like owner_of: never None (= everyone) for a `jf:` value or on the media front."""
+    friend = friend_key(view)
+    if friend:
+        return friend
+    _media_front_guard(view)
     return view if view in ("you", "her") else None
 
 
@@ -254,8 +288,10 @@ DIARY_SCOPES = ("mine", "everyone")  # the diary's "Show" choice (2026-10-13); o
 
 
 def diary_scope(owner: str) -> str:
-    """The owner's diary scope: 'everyone' only for owner 'you' who set it; 'mine' otherwise (her: always mine)."""
-    value = get_setting(owner, "diary_scope", "mine") if owner == "you" else "mine"
+    """The owner's diary scope: 'everyone' only for owner 'you' who set it; 'mine' otherwise (her: always mine). The media
+    front is always 'mine' (Joey TV WP-B2: B.'s private choice never widens the guest diary)."""
+    from hub import guest
+    value = get_setting(owner, "diary_scope", "mine") if owner == "you" and not guest.is_media() else "mine"
     return value if value in DIARY_SCOPES else "mine"
 
 

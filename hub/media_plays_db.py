@@ -105,18 +105,30 @@ def _hours(r) -> float:
     return minutes / 60
 
 
+def _one_owner(owner) -> str | None:
+    """The single owner a play read filters on - you / her / a friend key (Joey TV WP-B2) - or None for the household
+    (private 'both' / not signed in). ValueError (media_db.owner_filter) for a malformed `jf:` value or no owner on the
+    media front: the caller then answers empty, never the household."""
+    return media_db.owner_filter(owner)
+
+
 def _rows(window, owner, now):
     db = _read()
     if db is None:
+        return []
+    try:
+        mine = _one_owner(owner)
+    except ValueError:   # a malformed friend key / no owner on the media front: nothing (Joey TV WP-B2)
+        db.close()
         return []
     cut = _since(window, now)
     sql, args = "SELECT * FROM play WHERE 1=1", []
     if cut:
         sql += " AND started_at >= ?"
         args.append(cut)
-    if owner in ("you", "her"):
+    if mine:
         sql += " AND owner = ?"
-        args.append(owner)
+        args.append(mine)
     else:
         sql += " AND " + media_db.household_sql()
     try:   # M-52: a query error degrades (no Most played, an empty History) instead of a 500
@@ -132,9 +144,14 @@ def watch_count(jf_id: str, owner: str | None = None) -> int:
     db = _read()
     if db is None:
         return 0
+    try:
+        mine = _one_owner(owner)
+    except ValueError:   # fail closed (Joey TV WP-B2)
+        db.close()
+        return 0
     sql, args = "SELECT COUNT(*) FROM play WHERE jf_id = ? AND finished = 1", [jf_id]
-    if owner in ("you", "her"):
-        sql, args = sql + " AND owner = ?", [*args, owner]
+    if mine:
+        sql, args = sql + " AND owner = ?", [*args, mine]
     else:
         sql += " AND " + media_db.household_sql()
     try:

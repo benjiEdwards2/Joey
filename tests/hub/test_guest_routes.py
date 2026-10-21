@@ -41,7 +41,13 @@ def shelves_id(registry=AREAS) -> str:
     ("GET", "/media/title/movie/603/arr", False),
     ("GET", "/media/title/movie/603/request", False),      # RESERVED until WP-B4
     ("POST", "/media/title/movie/603/request", False),
-    ("GET", "/signin", False),                             # RESERVED until WP-B2
+    ("GET", "/signin", True),                              # GUEST since WP-B2 (sign-in, public)
+    ("POST", "/signin/password", True),
+    ("POST", "/signin/qc/start", True),
+    ("GET", "/signin/qc/poll", True),
+    ("POST", "/signout", True),
+    ("GET", "/signin/anything-else", False),               # only the WP-B2 routes, nothing under them
+    ("GET", "/signout", False),
     ("GET", "/app/version.json", False),                   # RESERVED until WP-B8
     ("GET", "/", False),                                   # GuestGate redirects / before asking allows()
     ("GET", "/no-such-page-xyz", False),

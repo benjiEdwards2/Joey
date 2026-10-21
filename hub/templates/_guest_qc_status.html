@@ -1,0 +1,17 @@
+{# Joey TV WP-B2: the Quick Connect status line. While waiting (or Jellyfin is slow) it re-polls itself every 3 s; once
+   the phone approves, the poll answers HX-Redirect instead of this fragment. #}
+{% set polling = state in ("waiting", "trying") %}
+<p id="qc-status" class="metaline" role="status"
+   {% if polling %}hx-get="{{ poll_url }}" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  {% if state == "waiting" %}Waiting for approval · the code expires in 10 minutes
+  {% elif state == "trying" %}Still waiting for Jellyfin…
+  {% elif state == "expired" %}That code expired. Get a new code.
+  {% elif state == "refused" %}This Jellyfin account can't sign in here.
+  {% else %}No code yet. Get a new code.{% endif %}
+</p>
+{% if not polling %}
+<form hx-post="/signin/qc/start" hx-target="#qc" hx-swap="outerHTML" method="post" action="/signin/qc/start">
+  <input type="hidden" name="next" value="{{ next_path }}">
+  <button type="submit" class="btn">Get a new code</button>
+</form>
+{% endif %}

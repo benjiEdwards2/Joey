@@ -3,6 +3,7 @@ U9 (a), U10, U12, U14, U17, U27): the hub's first screen, Media page heads and p
 toolbar auto-apply, the Server page order, copy fixes and SHELF_MAX as a Jinja global. Rendered pages where the
 behaviour is in the markup; stylesheet pins where it is in the CSS."""
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from tests.hub.test_hub_page import SAMPLE_DATA, cards_of, hub, kpis_of  # noqa: F401  (fixture: hub(view=..., **data))
@@ -76,8 +77,22 @@ def test_calendar_tile_is_marked_dup_and_hidden_on_a_phone(hub):
     assert body.index('class="tiles') < body.index('class="band hubband"')         # the band follows the tiles
 
 
-def test_calendar_card_value_is_the_title_and_the_day_time_is_meta(hub):
-    _, body = hub()
+FROZEN_NOW = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)   # fixed (rule 13): midday UTC is the same date in any zone
+
+
+class _FrozenDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return FROZEN_NOW.astimezone(tz)
+
+
+def test_calendar_card_value_is_the_title_and_the_day_time_is_meta(hub, monkeypatch):
+    from hub import upcoming
+    monkeypatch.setattr(upcoming, "datetime", _FrozenDateTime)   # the hub's calendar clock; events built from the same instant
+    today = FROZEN_NOW.astimezone().date()
+    events = [{"title": "Bins out", "start": today.isoformat(), "end": (today + timedelta(days=1)).isoformat(),
+               "all_day": True, "owner": "shared"}]
+    _, body = hub(gcal={**SAMPLE_DATA["gcal"], "events": events})
     card = cards_of(body)["/a/calendar"]
     assert '<div class="tile-value stat-word">Bins out</div>' in card
     assert '<div class="row-meta">Next up<span class="sep"> · </span>Today · All day</div>' in card

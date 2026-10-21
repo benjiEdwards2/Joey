@@ -170,18 +170,35 @@ gate() {
 }
 gate || gate_fail "test build or suite red"
 
-# Wait for the hub to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the
+# Wait for a service to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the
 # hub's startup on a NAS that had just built two images (2026-10-06, two false rollbacks).
-wait_for_hub() {
+wait_for() {
     i=0
     while [ $i -lt 18 ]; do
-        if docker compose exec -T hub python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)" 2>/dev/null; then
+        if docker compose exec -T "$1" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)" 2>/dev/null; then
             return 0
         fi
         i=$((i + 1)); sleep 5
     done
-    echo "hub did not answer /healthz within 90 s" >&2
+    echo "$1 did not answer /healthz within 90 s" >&2
     return 1
+}
+wait_for_hub() {
+    wait_for hub
+}
+# The guest front (Joey TV WP-B1): joey-media runs only when COMPOSE_PROFILES carries `media` (WP-B5 step 1).
+# edge_active()'s twin: `config --services` lists only active-profile services (proven on Compose v5.3.1, WP-A4).
+media_active() {
+    docker compose config --services 2>/dev/null | grep -qx joey-media
+}
+# Same image as the hub, so the same build and the same rollback path; its own smoke checks the media front
+# (/healthz front=media, private paths 404, / -> 303) from inside the container.
+media_smoke() {
+    if ! media_active; then
+        return 0
+    fi
+    wait_for joey-media \
+        && docker compose exec -T joey-media python tests/deploy/smoke.py --front media
 }
 # The public edge (Joey TV WP-A3), only when swag is running (edge profile on). SWAG stays "running" even when
 # nginx inside it fails, so `--status restarting` cannot catch a broken conf. The confs are single-file binds, so
@@ -223,6 +240,7 @@ recreate_swag() {
 smoke() {
     wait_for_hub \
         && docker compose exec -T hub python tests/deploy/smoke.py \
+        && media_smoke \
         && [ -z "$(docker compose ps --status restarting -q)" ] \
         && edge_smoke
 }

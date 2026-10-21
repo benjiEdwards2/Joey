@@ -19,8 +19,9 @@ def compose() -> dict:
 
 
 def test_compose_parses_and_defines_the_stack_services():
-    # grew from {hub, connectors} at WP11 (cloudflared tunnel added); swag + ddns: Joey TV WP-A3 edge (2026-10-18)
-    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared", "macromates", "swag", "ddns"}
+    # grew from {hub, connectors} at WP11 (cloudflared tunnel added); swag + ddns: Joey TV WP-A3 edge (2026-10-18);
+    # joey-media: Joey TV WP-B1 guest front (2026-10-21, dark behind profiles: [media])
+    assert set(compose()["services"]) == {"hub", "connectors", "cloudflared", "macromates", "swag", "ddns", "joey-media"}
 
 
 def test_compose_records_the_nas_host_decision():

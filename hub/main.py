@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTasks
 
-from hub import access_jwt, media_backup
+from hub import access_jwt, guest, media_backup
 from hub.images import router as images_router
 from hub.media_discover import router as media_discover_router
 from hub import media_film, media_person, media_plays
@@ -77,8 +77,13 @@ logging.getLogger("uvicorn.access").disabled = True
 app = FastAPI(title="Joey hub", lifespan=tasks.lifespan)
 
 
-# Cloudflare Access JWT gate (Joey TV WP-A6a, Q25b): FIRST add_middleware call = innermost, so the request line below
-# still logs its 401. Off unless ACCESS_JWT_VERIFY is set; a flag without ACCESS_AUD stops the import here.
+# Guest front gate (Joey TV WP-B1): the FIRST add_middleware call = the innermost layer (Starlette makes the last-added
+# outermost), so the request line below logs its 404 / 303 and sees the identity it stored. JOEY_FRONT=media
+# (joey-media): deny-by-default route allow-list (hub/guest.py); the private front: the media-host guard only (Q25a).
+app.add_middleware(guest.GuestGate)
+# Cloudflare Access JWT gate (Joey TV WP-A6a, Q25b): second = innermost but one, so the request line below still logs
+# its 401. Private front only (the media front passes straight through). Off unless ACCESS_JWT_VERIFY is set; a flag
+# without ACCESS_AUD stops the import here.
 app.add_middleware(access_jwt.AccessGate)
 access_jwt.check_config()
 
@@ -265,11 +270,17 @@ def area_page(request: Request, area_id: str):
 
 @app.get("/healthz")
 def healthz():
-    return {
+    """`front` names the process (private / media); on the media front `home` is the guest home `/a/<shelves id>` -
+    the contract the TV shell's BackPolicy reads (D-P18)."""
+    out = {
         "status": "ok",
         "areas": len(shell.registry.areas) if shell.registry else 0,
         "registry_loaded_at": shell.registry_loaded_at,
+        "front": guest.front(),
     }
+    if out["front"] == guest.MEDIA_FRONT:
+        out["home"] = guest.home_path()
+    return out
 
 
 @app.get("/whoami")

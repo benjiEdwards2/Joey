@@ -26,6 +26,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
 
+from hub import guest
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.ids import areas_path, home_now
 from hub.images import fallback_letters
@@ -112,7 +113,11 @@ class _HeaderView:
 
 
 def owner_word(scope) -> str:
-    """'you' / 'her' / 'none' (not signed in) — what the request log says instead of the email."""
+    """'you' / 'her' / 'none' (not signed in) — what the request log says instead of the email. The media front (Joey TV
+    WP-B1) reads only the identity GuestGate stored (`jf:<id>` / you / her / none): no header, no network call."""
+    if guest.is_media():
+        ident = guest.identity_in_scope(scope)
+        return (ident.owner if ident else None) or "none"
     return resolve_identity(_HeaderView(scope)).owner or "none"
 
 
@@ -191,7 +196,10 @@ def get_snapshots(snapshot_dir=None, request=None):
     """Every envelope (hub.store), with resume items just marked watched / reset left out of the jellyfin
     `up_next` lists until a newer sweep (media_resume, 2026-10-08) — so every shelf, hero and list drops them.
     With `request`: read once per request — the first call keeps it on request.state.snaps, where the page's
-    builders and media_frame find it (H-48)."""
+    builders and media_frame find it (H-48).
+    Joey TV WP-B1 (Q22 (c)): THE media-front scrub point - with JOEY_FRONT=media only jellyfin / jellyseerr / arr come
+    back, reduced to hub.guest's key allow-lists. Request paths read snapshots only through here
+    (tests/hub/test_guest_snapshots.py pins it)."""
     from hub import media_resume  # function-level: media_resume's own imports reach back into this module
 
     state = getattr(request, "state", None)
@@ -199,6 +207,8 @@ def get_snapshots(snapshot_dir=None, request=None):
     if cached is not None:
         return cached
     snaps = media_resume.apply_hidden(_read_snapshots(snapshot_dir), "jellyfin")
+    if guest.is_media():
+        snaps = guest.scrub_snapshots(snaps)
     if state is not None:
         state.snaps = snaps
     return snaps
@@ -227,8 +237,9 @@ def from_lan(request) -> bool:
     """Template global `from_lan(request)` (E3, U12, 2026-10-13): True when the request came from the home network — it
     has NO Cloudflare Access header (every request through the tunnel carries one) and the client address is a home
     (RFC 1918 / IPv6 ULA) or loopback address. A link only the LAN can open (`server.is_lan`) is hidden from everyone else: off the home network it is
-    a dead link."""
-    if request is None or request.headers.get(IDENTITY_HEADER):
+    a dead link. Never on the media front (Joey TV WP-B1): every visitor there arrives through cloudflared from a
+    bridge address."""
+    if request is None or guest.is_media() or request.headers.get(IDENTITY_HEADER):
         return False
     try:
         ip = ipaddress.ip_address(request.client.host if request.client else "")

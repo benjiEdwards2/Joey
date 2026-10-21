@@ -58,6 +58,53 @@ services:
       - default
       - media
 
+  joey-media:
+    # Joey TV WP-B1 (2026-10-21) — the GUEST front: the same life-hub image with JOEY_FRONT=media, served by the
+    # tunnel at https://media.joeyhome.net (no Access policy; its own Jellyfin sign-in from WP-B2). Deny-by-default route
+    # allow-list in hub/guest.py; unknown and private paths answer the ordinary Joey 404.
+    # DARK until COMPOSE_PROFILES gains `media` in the NAS deploy/.env (WP-B5 step 1, D-P18); never take it out again
+    # without the kill-switch runbook (Q47: a profile toggled off is untested with --remove-orphans).
+    # No build and no pull: it runs the image the hub service just built (deploy.sh builds once). depends_on
+    # service_healthy serialises the media.db migration: hub migrates first on every up and rollback.
+    # NO ports: cloudflared reaches it as joey-media:8000 on the compose default network (and a published port on this
+    # NAS would depend on ADM Defender's DNAT rule, WP-A4). Snapshots read-only (Q22); NO backups mount (joey-hub stays
+    # the one backup writer); zero background loops (enforced in code, backed by the five offs below, Q24).
+    # Secrets: ONLY deploy/media.env (NAS-only, chmod 600, Q23 guest keys; template deploy/media.env.example). It never
+    # reads .env / hub.env, so it never carries TUNNEL_TOKEN, ACCESS_*, *arr/qbit keys or Discord webhooks.
+    image: life-hub
+    pull_policy: never
+    container_name: joey-media
+    profiles: [media]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 384m   # a ceiling, not a reservation: expect ~90-150 MiB; re-cap after measuring (review D-04, P4)
+    depends_on:
+      hub:
+        condition: service_healthy
+    env_file:
+      - path: media.env
+        required: false
+    environment:
+      JOEY_FRONT: media
+      SNAPSHOT_DIR: /data/snapshots
+      IMG_CACHE_DIR: /data/cache/img
+      MEDIA_DB_PATH: /data/sqlite/media.db
+      MEDIA_BACKUP: "off"
+      PLAY_RECORDER: "off"
+      MEDIA_WARMUP: "off"
+      MEDIA_FOLLOW: "off"
+      MEDIA_AWARDS: "off"
+    volumes:
+      - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
+      - /volume1/Docker/joey/data/cache/img:/data/cache/img
+      - /volume1/Docker/joey/data/sqlite:/data/sqlite
+    expose:
+      - "8000"
+    # default: cloudflared reaches it as joey-media:8000. media: jellyfin:8096 / jellyseerr:5055 by name (N-09).
+    networks:
+      - default
+      - media
+
   cloudflared:
     # WP11 — remotely-managed Cloudflare tunnel (`joey-nas` in Zero Trust).
     # Fronts the hub over the compose network as http://hub:8000; the token

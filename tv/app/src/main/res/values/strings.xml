@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Joey Media</string>
+
+    <string name="splash_connecting">Connecting…</string>
+
+    <string name="offline_title">Can\'t reach Joey Media</string>
+    <string name="offline_body">Check that this TV is online, then try again.</string>
+    <string name="offline_retry">Retry</string>
+    <string name="offline_open_jellyfin">Open Jellyfin anyway</string>
+
+    <string name="nojf_title">Jellyfin isn\'t on this TV yet</string>
+    <string name="nojf_body">Joey Media plays your film in the Jellyfin app. Install it once, then come back and press Play.</string>
+    <string name="nojf_get">Get Jellyfin</string>
+    <string name="nojf_back">Back</string>
+    <string name="nojf_store_play">Opens Google Play on this TV.</string>
+    <string name="nojf_store_amazon">Opens the Amazon Appstore on this TV.</string>
+    <string name="nojf_server">Then add the server %1$s in Jellyfin.</string>
+    <string name="nojf_store_failed">No app store found on this TV</string>
+
+    <string name="update_title">Update available</string>
+    <string name="update_title_forced">Update required</string>
+    <string name="update_body">Joey Media %1$s is ready. This TV has %2$s.</string>
+    <string name="update_body_forced">This version of Joey Media is too old to keep working. Update to continue.</string>
+    <string name="update_now">Update now</string>
+    <string name="update_later">Later</string>
+
+    <string name="settings_title">Joey TV settings</string>
+    <string name="settings_hint">Hidden screen for testing. Leave blank to use the built-in addresses.</string>
+    <string name="settings_ui_host">Joey Media address</string>
+    <string name="settings_jellyfin_host">Jellyfin address</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_reset">Use defaults</string>
+    <string name="settings_laptop">Laptop via adb reverse</string>
+    <string name="settings_check_update">Check for update now</string>
+    <string name="settings_clear_signin">Clear sign-in</string>
+    <string name="settings_item_id">Jellyfin item id (blank = app home)</string>
+    <string name="settings_test_handoff">Test hand-off</string>
+    <string name="settings_close">Close</string>
+    <string name="settings_signed_out">Signed out on this TV</string>
+    <string name="settings_update_pending">Update check arrives with WP-B8</string>
+
+    <string name="toast_not_on_tv">Not available on TV</string>
+    <string name="toast_youtube_missing">YouTube isn\'t available on this TV</string>
+</resources>

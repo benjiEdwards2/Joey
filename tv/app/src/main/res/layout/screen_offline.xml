@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Offline (DECISIONS D, mockup screen 5): Retry focused; "Open Jellyfin anyway" = route 3. Back exits. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/JoeyScreen"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <ImageView
+        style="@style/JoeyIcon"
+        android:src="@drawable/ic_offline" />
+
+    <TextView
+        style="@style/JoeyText.H1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/offline_title" />
+
+    <TextView
+        style="@style/JoeyText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="28dp"
+        android:text="@string/offline_body" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/offline_retry"
+            style="@style/JoeyButton.Primary"
+            android:text="@string/offline_retry" />
+
+        <Button
+            android:id="@+id/offline_open_jellyfin"
+            style="@style/JoeyButton.Secondary"
+            android:text="@string/offline_open_jellyfin" />
+    </LinearLayout>
+</LinearLayout>

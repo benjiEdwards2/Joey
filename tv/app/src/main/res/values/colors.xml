@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Joey tokens (WP-M mockup / control-surface.css). Restyle the native screens here first. -->
+<resources>
+    <color name="joey_bg">#FF09090B</color>
+    <color name="joey_card">#FF18181B</color>
+    <color name="joey_dim">#D9000000</color>
+    <color name="joey_primary">#FF6366F1</color>
+    <color name="joey_icon">#FF818CF8</color>
+    <color name="joey_ring">#FFFFFFFF</color>
+    <color name="joey_surface_2">#0FFFFFFF</color>
+    <color name="joey_line">#1FFFFFFF</color>
+    <color name="joey_text_1">#FFFAFAFA</color>
+    <color name="joey_text_2">#FFE4E4E7</color>
+    <color name="joey_text_4">#FFA1A1AA</color>
+</resources>

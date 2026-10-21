@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hidden settings (DECISIONS D): opened by holding OK for 2 s on Splash or Offline. Initial focus = Save (a button,
+     so the OK key-up that ends the hold never lands on a text field and pops the keyboard). -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/JoeyScreen"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            style="@style/JoeyText.H1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title" />
+
+        <TextView
+            style="@style/JoeyText.Meta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:text="@string/settings_hint" />
+
+        <TextView
+            android:id="@+id/settings_ui_label"
+            style="@style/JoeyText.Meta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:labelFor="@+id/settings_ui"
+            android:text="@string/settings_ui_host" />
+
+        <EditText
+            android:id="@+id/settings_ui"
+            style="@style/JoeyField" />
+
+        <TextView
+            android:id="@+id/settings_jf_label"
+            style="@style/JoeyText.Meta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:labelFor="@+id/settings_jf"
+            android:text="@string/settings_jellyfin_host" />
+
+        <EditText
+            android:id="@+id/settings_jf"
+            style="@style/JoeyField" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/settings_save"
+                style="@style/JoeyButton.Primary"
+                android:text="@string/settings_save" />
+
+            <Button
+                android:id="@+id/settings_reset"
+                style="@style/JoeyButton.Secondary"
+                android:text="@string/settings_reset" />
+
+            <Button
+                android:id="@+id/settings_laptop"
+                style="@style/JoeyButton.Secondary"
+                android:text="@string/settings_laptop" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/settings_check_update"
+                style="@style/JoeyButton.Secondary"
+                android:text="@string/settings_check_update" />
+
+            <Button
+                android:id="@+id/settings_clear_signin"
+                style="@style/JoeyButton.Secondary"
+                android:text="@string/settings_clear_signin" />
+
+            <Button
+                android:id="@+id/settings_close"
+                style="@style/JoeyButton.Secondary"
+                android:text="@string/settings_close" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/settings_item_label"
+            style="@style/JoeyText.Meta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:labelFor="@+id/settings_item"
+            android:text="@string/settings_item_id" />
+
+        <EditText
+            android:id="@+id/settings_item"
+            style="@style/JoeyField"
+            android:inputType="text" />
+
+        <Button
+            android:id="@+id/settings_test_handoff"
+            style="@style/JoeyButton.Secondary"
+            android:layout_marginBottom="20dp"
+            android:text="@string/settings_test_handoff" />
+
+        <TextView
+            android:id="@+id/settings_info"
+            style="@style/JoeyText.Meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textIsSelectable="false" />
+    </LinearLayout>
+</ScrollView>

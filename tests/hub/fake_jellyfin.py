@@ -23,6 +23,7 @@ import requests
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 URL = "http://jellyfin.test:8096"
 KEY = "admin-key-SECRET-0001"
+PUBLIC_URL = "https://jellyfin.example.test:8443"   # JELLYFIN_PUBLIC_URL in tests: a port, like production's :8443
 
 FRIEND_ID = "f00d" * 8
 OTHER_ID = "beef" * 8
@@ -73,6 +74,9 @@ class FakeJellyfin:
         self.byname_raises: type[Exception] | None = None
         self.items: dict[str, dict] = {}      # jf id -> a minimal item body (GET /Users/{uid}/Items/{id})
         self.played: dict[str, set] = {}      # user id -> the item ids that user has watched
+        self.resume: dict[str, list] = {}     # user id -> GET /UserItems/Resume Items (WP-B3 guest Overview)
+        self.history: dict[str, list] = {}    # user id -> GET /Items?IsPlayed=true&SortBy=DatePlayed Items
+        self.shelf_raises: type[Exception] | None = None   # the two shelf reads raise this (Jellyfin down)
 
     # ---- test helpers ----
     def token_for(self, uid: str) -> str:
@@ -155,6 +159,14 @@ class FakeJellyfin:
                 return Resp(None, 404)
             name = "connect_ok" if self.qc[query["secret"]]["uid"] else "connect_pending"
             return Resp(self._qc_body(name, query["secret"]))
+        if path in ("/UserItems/Resume", "/Items") and (auth.get("Token") or "") in self.tokens:
+            if self.shelf_raises:
+                raise self.shelf_raises(f"Read timed out: {url}")
+            uid = self.tokens[auth["Token"]]
+            if str(query.get("userId")) != uid or not self._client_ok(auth):
+                return Resp(None, 401)
+            rows = (self.resume if path == "/UserItems/Resume" else self.history).get(uid, [])
+            return Resp({"Items": copy.deepcopy(rows), "TotalRecordCount": len(rows), "StartIndex": 0})
         m = re.fullmatch(r"/Users/([0-9a-f]{32})/Items/([A-Za-z0-9-]+)", path)
         if m and m.group(2) in self.items:
             played = m.group(2) in self.played.get(m.group(1), set())
@@ -211,6 +223,7 @@ def media_env(monkeypatch, aliases: str | None = "Sample Alias") -> None:
     monkeypatch.setenv("JELLYFIN_URL", URL)
     monkeypatch.setenv("JELLYFIN_API_KEY", KEY)
     monkeypatch.setenv("JELLYFIN_USER", "Sample Admin")
+    monkeypatch.setenv("JELLYFIN_PUBLIC_URL", PUBLIC_URL)
     monkeypatch.delenv("JELLYFIN_USER_HER", raising=False)
     monkeypatch.delenv("JOEY_COOKIE_SECURE", raising=False)
     monkeypatch.delenv("OWNER_EMAIL_YOU", raising=False)

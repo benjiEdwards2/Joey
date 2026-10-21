@@ -259,7 +259,6 @@ def test_logs_never_carry_a_name_password_token_or_secret(client, fake, caplog):
 
 # ---- step 4: the TV sign-in is this web page (Q33) ----
 
-@pytest.mark.xfail(reason="WP-B3 adds TV mode (tv.css class under the JoeyTV/ user agent)", strict=False)
-def test_signin_renders_in_tv_mode_under_the_tv_user_agent(client):
+def test_signin_renders_in_tv_mode_under_the_tv_user_agent(client):   # WP-B3: TV mode (was an xfail in WP-B2)
     r = client.get("/signin", headers={"User-Agent": "Mozilla/5.0 JoeyTV/1.0.0 (2026102101)"})
     assert 'class="tv' in r.text

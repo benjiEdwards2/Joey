@@ -4,10 +4,16 @@ it; nothing here logs a URL or a key (callers log the exception type only).
 
 Owners: "you" = JELLYFIN_USER by name, else the first administrator, else the first user; "her" = exactly
 JELLYFIN_USER_HER — never a fallback to the admin (None while it is unset).
+
+Media front (Joey TV WP-B2, P3 accepted 2026-10-19): the signed-in Jellyfin user is the ONLY Jellyfin identity -
+`user_id` answers the viewer that hub.guest.GuestGate bound for this request (`bind_viewer`, a context variable), for
+`you` (the alias user) exactly as for a friend, and None outside a signed-in request. JELLYFIN_USER (the admin) and
+JELLYFIN_USER_HER are never substituted there.
 """
 
 from __future__ import annotations
 
+import contextvars
 import os
 import time
 
@@ -21,8 +27,25 @@ UID_TTL = 3600
 _uid: dict[str, tuple[float, str, str]] = {}   # owner -> (fetched_at, the name it was resolved for, user id)
 
 
+_viewer: contextvars.ContextVar = contextvars.ContextVar("jellyfin_viewer", default=None)
+
+
 def clear_cache() -> None:
     _uid.clear()
+
+
+def bind_viewer(user_id: str | None):
+    """Media front: the signed-in Jellyfin user id for the rest of this request (returns the reset token)."""
+    return _viewer.set(user_id)
+
+
+def reset_viewer(token) -> None:
+    _viewer.reset(token)
+
+
+def viewer() -> str | None:
+    """The Jellyfin user id bound for this request on the media front, else None."""
+    return _viewer.get()
 
 
 def creds() -> tuple[str, dict] | None:
@@ -60,7 +83,10 @@ def pick_user(users, preferred: str | None) -> str | None:
 
 def user_id(owner: str, base: str, headers: dict, users_of=None) -> str | None:
     """The owner's Jellyfin user id (cached UID_TTL per owner and wanted name). `users_of(base, headers)` reads
-    /Users (default: get)."""
+    /Users (default: get). Media front: the bound viewer or None, whatever the owner (P3, fail closed)."""
+    from hub import guest   # lazy: guest -> identity -> (lazily) this module
+    if guest.is_media():
+        return viewer()
     name = her_name() if owner == "her" else os.environ.get("JELLYFIN_USER", "").strip()
     if owner == "her" and not name:
         return None

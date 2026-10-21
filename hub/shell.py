@@ -253,6 +253,7 @@ templates.env.globals["from_lan"] = from_lan
 OWNER_VIEWS = ("both", "you", "her")
 OWNER_COOKIE = "owner_view"
 OWNER_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days, per device (WP19)
+NO_VIEW = "none"   # media front without an identity: media_db.owner_of / owner_filter raise on it (WP-B2)
 
 
 def resolve_owner_view(request: Request) -> tuple[str, bool]:
@@ -262,7 +263,13 @@ def resolve_owner_view(request: Request) -> tuple[str, bool]:
 
     Semantics per Q9 (answered 2026-08-25): you = you+shared, her = her+shared.
     Returns (view, came_from_query).
+
+    Media front (Joey TV WP-B2): the view IS the signed-in identity's owner (`jf:<id>` / you) - query and cookie are
+    ignored, the cookie is never set, never 'both'. No identity there = NO_VIEW, which no owner helper accepts.
     """
+    if guest.is_media():
+        ident = guest.identity_in_scope(getattr(request, "scope", None))
+        return (ident.owner if ident and ident.owner else NO_VIEW), False
     who = resolve_identity(request)
     if who.owner:
         return who.owner, False

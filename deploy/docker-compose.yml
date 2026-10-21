@@ -147,7 +147,8 @@ services:
     # swag missed its 443 rule and geo + fail2ban were silently void.
     # Residual risk (recorded, Phase A): in the host netns swag can reach every bridge IP, the hub's included. The
     # isolation rests on nginx having exactly one upstream (tests/deploy/test_edge.py), joey-hub publishing no host
-    # port, and Q25b JWT verification (Phase B, WP-B5). An exploited swag sits in the host netns with NET_ADMIN.
+    # port, and Q25b JWT verification (live since WP-A6a, 2026-10-21; residual = replay of a captured token within its
+    # lifetime, and hub-container compromise). An exploited swag sits in the host netns with NET_ADMIN.
     # Pinned (Q10): manual updates only; joey-* containers are held from WUD runs (hub.server.update_hold).
     image: lscr.io/linuxserver/swag:5.8.0-ls490
     container_name: joey-swag

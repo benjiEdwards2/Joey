@@ -3,16 +3,31 @@ Jellyfin / Jellyseerr / Discord are faked at `requests.get` / `requests.post` vi
 import re
 from datetime import date, timedelta
 
+import pytest
+
 from hub import media_follow
 from tests.hub.film_page import whole
 from tests.hub.helpers import env, SEERR_URL as SEERR, SKEY  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
 from tests.hub.conftest import main_of  # noqa: F401
 
-TODAY = date.today()
+TODAY = date(2026, 10, 20)   # fixed (rule 13: never build fixtures from the real clock); `frozen_today` pins the app to it
 PAST = (TODAY - timedelta(days=400)).isoformat()
 SOON = (TODAY + timedelta(days=90)).isoformat()
 HOOK = "https://discord.invalid/api/webhooks/1/secret-token"
 ORIGIN_BAD = {"Origin": "https://evil.invalid"}
+
+
+class _FrozenDate(date):
+    @classmethod
+    def today(cls):
+        return cls(TODAY.year, TODAY.month, TODAY.day)
+
+
+@pytest.fixture(autouse=True)
+def frozen_today(monkeypatch):
+    """media_follow stamps and compares with date.today() (container clock): pin it so a run across 00:00 UTC, or any
+    real date, sees the same TODAY / PAST / SOON."""
+    monkeypatch.setattr(media_follow, "date", _FrozenDate)
 
 
 def film(i, title, when=SOON, **extra):

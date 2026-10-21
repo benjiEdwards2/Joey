@@ -18,6 +18,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
 | `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary (+ its Month in Review card), Wrapped, Movies / TV grid, Tonight |
 | `media_wrapped.py` | Month in Review + Wrapped (E6, 2026-10-13): one month's / year's summary from media.db (diary, plays, ratings, award wins) + the jellyfin snapshot's runtimes and years; the data-source rules are its docstring; kept in memory per row signature |
+| `guest.py` | The guest front (Joey TV WP-B1, 2026-10-21): `front()` (`JOEY_FRONT`), the GUEST / PRIVATE / RESERVED route tables, `allows()`, the `GuestGate` middleware, the media-mode snapshot scrub, `TV_UA_TOKEN`; see "Guest front" below |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
@@ -80,6 +81,40 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
 | `/static/*` | StaticFiles | `?v=` content hash and `/static/fonts/*`: `immutable` for a year; other un-versioned files: one hour |
 
+## Guest front (`JOEY_FRONT`, Joey TV WP-B1, 2026-10-21)
+
+One image, two processes. `joey-hub` runs with `JOEY_FRONT` unset or `private` (today's Joey, behind Cloudflare Access).
+`joey-media` runs the same `life-hub` image with `JOEY_FRONT=media`, reached at `media.joeyhome.net` through the tunnel
+(`deploy/README.md`). `hub/guest.py` is the single source of truth for what the media front serves; its module docstring
+is the full contract.
+
+- **`JOEY_FRONT`** is `private` (unset or blank) or `media`. `front()` reads it on every call; any other value raises
+  `ValueError`, and the lifespan calls it first, so a typo stops the container at startup.
+- **Deny by default.** Media front: `/` answers 303 to the guest home (`/a/<id>` of the first `layout: shelves` area,
+  resolved at runtime); an allowed route without a signed-in identity answers 303 `/signin?next=` (only `/healthz` and
+  `/static` are public); everything else, unknown paths included, gets the one ordinary Joey 404 page, byte-identical for
+  every denied path. The media front ignores `Cf-Access-Authenticated-User-Email`. Private front: unchanged, except that a
+  request whose Host is `MEDIA_PUBLIC_HOST` (default in code `media.joeyhome.net`) gets the 404, so a tunnel typo can never
+  publish private Joey ungated.
+- **Every new route must be classified in `hub/guest.py`.** Each (method, path template) must sit in exactly one of
+  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST: `/signin*`,
+  `/signout`, `/app/*`, Request). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
+  unclassified route, naming it**. A new route is PRIVATE until someone decides otherwise; add it to `GUEST` only on
+  purpose, and never put a private page behind it.
+- **One scrub point.** On the media front `shell.get_snapshots` keeps only `jellyfin`, `jellyseerr` and `arr`, each cut to
+  an allow-list of keys with B.'s played state and the requester's name removed from rows. A module that serves a request
+  must read snapshots through `shell.get_snapshots`, never `hub.store.get_snapshots` (a test enforces it).
+- **No background loops** run on the media front (`tasks.lifespan` starts none, in code).
+- **Frozen interfaces** (Joey TV plan §4 rule 9; WP-B2 and WP-B7 build on them, change them only with a dated decision):
+  - `hub.identity.Identity(owner, name, email=None, jf_user_id=None, jf_token=None)`. The new fields default to `None`, so
+    private-front constructions are unchanged. The owner-key format is `OWNER_KEY_RE` in `hub/identity.py` (WP-A2); `guest.py`
+    imports it and never redefines it.
+  - `guest.TV_UA_TOKEN = "JoeyTV/"`: the TV shell's user agent carries ` JoeyTV/<semver> (<versionCode>)` and the server
+    matches the substring.
+- **Dev seam.** `GUEST_DEV_OWNER` (e.g. `jf:devfriend`) signs every media-front request in as that owner, only when
+  `HUB_DEV=1` and `JOEY_FRONT=media` (one startup warning). Compose must never carry it (a test pins that).
+- `GET /healthz` adds `"front"`, and on the media front `"home": "/a/<shelves id>"` (read by the TV shell's back policy).
+
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 
 | Variable | Default | Does |
@@ -91,6 +126,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `OWNER_EMAIL_YOU`, `OWNER_NAME_YOU`, `OWNER_NAME_HER` | unset, Benji, Georgina | Access email that is "you" (any other is "her"); chip and greeting names |
 | `ACCESS_JWT_VERIFY`, `ACCESS_AUD`, `ACCESS_TEAM` | off, unset, `joeyhomeed` | Access JWT gate: `audit` logs verdicts only, `1` refuses a missing/forged token (401; 503 if the team's keys cannot be read); `ACCESS_AUD` = comma-separated AUD tags, required once the flag is set (the hub will not start without it); find it under Zero Trust, Access controls, Applications, the app, **Additional settings** tab. JWT verification live since WP-A6a (2026-10-21); residual = replay of a captured token within its lifetime, and hub-container compromise |
 | `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE` | Windy radar falls back to Newport, `Newport VIC` | Windy radar centre (the weather connector reads the same pair) and the place name in weather labels |
+| `JOEY_FRONT`, `MEDIA_PUBLIC_HOST` | unset (= `private`), `media.joeyhome.net` | `media` makes this process the guest front ("Guest front" above; set only on `joey-media`); any other value stops startup. `MEDIA_PUBLIC_HOST` = the Host the private front answers with 404 |
 | `HUB_DEV` | off | `1` re-reads templates on every render (local template editing) |
 | `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER`, `JELLYFIN_USER_ALIASES` | unset | Live item reads, play recorder, her profile; aliases = B.'s extra Jellyfin user names (comma-separated), recorded as "you" |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |

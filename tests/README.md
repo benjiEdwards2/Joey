@@ -34,7 +34,22 @@ swag 192m and ddns 32m. `tests/connectors/test_container.py`'s exact services se
 `tests/deploy/test_cloudflared.py` (`{"media"}`) and `test_container.py` (`media` only) are back to their original exact form: WP-A3
 extended them for `joey-edge`, which host mode no longer declares. `nginx -t`, certbot and `fail2ban-regex` run only live (WP-A4).
 
-`tests/hub/` by theme (file prefixes):
+The guest front (Joey TV WP-B1, 2026-10-21) is pinned offline by:
+
+- `tests/hub/test_guest_routes.py`: `allows()` unit cases, the `JOEY_FRONT` values, and the **route-classification gate** (every
+  route of `hub.main.app` in exactly one of GUEST / PRIVATE / RESERVED, a throwaway extra route reported by name), plus the frozen
+  `Identity` fields and `TV_UA_TOKEN`, and that `guest.py` imports `OWNER_KEY_RE` rather than redefining it.
+- `tests/hub/test_guest_surface.py`: with `JOEY_FRONT=media`, private paths answer the same 404 body as an unknown path, `/` and
+  the guest home 303, a forged Access header does not sign anyone in, `/healthz` front and home, the private-front Host guard
+  (`MEDIA_PUBLIC_HOST`), and middleware order in the request log.
+- `tests/hub/test_guest_snapshots.py`: the media-mode scrub allow-lists, and the AST check that only the named modules import
+  `get_snapshots` from `hub.store`.
+- `tests/hub/test_guest_lifespan.py`: on the media front the six loop starters are never called.
+- `tests/deploy/test_joey_media_service.py`: the `joey-media` compose service (profile, image, `depends_on`, the five loop offs,
+  `:ro` snapshots, no ports, networks, `media.env`) and that `media.env.example` and compose carry no forbidden key.
+- `tests/deploy/test_route_sweep.py`: `route_sweep.py` plans every PRIVATE pair with its own verb (the sweep itself runs live, WP-B5).
+
+`tests/hub/` by theme (file prefixes):`tests/hub/` by theme (file prefixes):
 
 - **Shell and look:** `test_hub_shell`, `test_hub_core`, `test_shell`, `test_hub_page`, `test_area_pages` (top bar, tab bar, hub tiles, area pages; formerly `test_apex_*` — the Apex rail and theme-toggle tests are historical, rewritten for the MediaHub shell), `test_style_*`, `test_styling`, `test_pwa`, `test_hidden_areas`, `test_history_*`, `test_routes`.
 - **Registry, identity, owners:** `test_registry`, `test_identity`, `test_owner_filter`, `test_store`, `test_tiles`, `test_images`.

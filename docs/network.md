@@ -32,6 +32,17 @@ Joey makes.
 - No Joey container publishes a port. The hub and connectors still use `media-server_default` as above. Full
   description, bring-up order and kill switch: `public-edge.md`.
 
+## `joey-media`, the guest front (Joey TV WP-B1, 2026-10-21)
+
+- `joey-media` (profile `media`, dark until WP-B5) is on `default` and `media-server_default` (`media`): `default` is where
+  `cloudflared` reaches it as `joey-media:8000`, `media` is where it reaches `jellyfin:8096` and `jellyseerr:5055` by name.
+- **No host port** (`expose: 8000` only). It does not touch the swag edge, and a published port on this NAS would depend
+  on ADM Defender's DNAT rule (`public-edge.md`, "Network mode").
+- The public name `media.joeyhome.net` is a Cloudflare tunnel public hostname pointing at `http://joey-media:8000`,
+  added at Phase B go-live (WP-B5). It carries no Access policy; its own sign-in arrives in WP-B2. The hub answers 404
+  on that Host, so the name can never reach private Joey.
+- Secrets: `deploy/media.env` only (`docs/setup.md`); the container never sees `TUNNEL_TOKEN` or `ACCESS_*`.
+
 Until the `.env` changes below, nothing behaves differently: the `*_URL` keys still point at
 the LAN IP, and that path keeps working.
 

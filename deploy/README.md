@@ -38,6 +38,22 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
     swag back by itself.
   - **Never toggle `COMPOSE_PROFILES` off without runbook R3** (the kill switch in `docs/public-edge.md`): a deploy with
     the profile off may remove `joey-swag` mid-stream (Q47; checked live at the first edge deploy).
+- **Guest front `joey-media` (Joey TV WP-B1):** the same `life-hub` image run with `JOEY_FRONT=media`, served by the tunnel at
+  `media.joeyhome.net` (`docs/network.md`). It sits behind `profiles: [media]`, so it is **dark** until `COMPOSE_PROFILES` in
+  the NAS `deploy/.env` gains `media` (WP-B5 step 1). **Never enable it before WP-B2**, which makes the owner helpers
+  fail-closed; until then a friend session would not be separated from B.'s data. It has no build, no pull and no published
+  port, `depends_on` `hub` healthy (hub migrates `media.db` first), snapshots `:ro`, no backups mount, a 384m ceiling.
+  - **`media.env`:** NAS-only, `chmod 600`, the only secrets file it reads (never `.env` or `hub.env`). Template
+    `deploy/media.env.example`, built on the NAS by `nas_scripts/media_env.sh` (`docs/setup.md`).
+  - **Restart rule:** `media.env` is an `env_file`, read at container start, and owner ids are resolved once per process.
+    After editing `media.env`, a new `JELLYFIN_USER_ALIASES` entry or a new friend user, run
+    `docker compose up -d hub joey-media` (both), not a reload.
+  - **Smoke:** when the profile is on, `deploy.sh` waits for `joey-media` and runs `tests/deploy/smoke.py --front media`
+    inside it (`/healthz` front, private paths 404, `/` 303). The live route sweep for the go-live gate is
+    `tests/deploy/route_sweep.py --base https://media.joeyhome.net`.
+  - **Same rule as swag:** never take `media` out of `COMPOSE_PROFILES` without the kill-switch runbook (`docs/public-edge.md`).
+  - **Never bind a single file `:ro` into it.** A single-file bind pins the file's inode: an editor or `git pull` that
+    replaces the file leaves the container on the old copy until a recreate (the swag confs, above). Mount directories.
 - **Stale lock:** the lock (`/tmp/joey-deploy.lock`) holds the running deploy's pid and log path. A lock whose pid is
   dead is cleared by the next deploy at once; a lock with no pid is cleared after 30 min. By hand, only when nothing is
   running: `rm -rf /tmp/joey-deploy.lock`.

@@ -95,7 +95,8 @@ tv_publish() {
         echo "FAIL:tv-app-dir"
         return 0
     fi
-    tv_status=$(docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 --env-file "$DEPLOY_DIR/tv.env"         -v "$REPO":/repo:ro -v "$TV_APP_DIR":/out life-hub python /repo/deploy/tv_publish.py) || true
+    tv_status=$(docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 --env-file "$DEPLOY_DIR/tv.env" \
+        -v "$REPO":/repo:ro -v "$TV_APP_DIR":/out life-hub python /repo/deploy/tv_publish.py) || true
     echo "${tv_status:-FAIL:no-status}" | tail -n 1
 }
 

@@ -110,17 +110,25 @@ returns `true` when it handled Back. D-pad focus inside pages is the page's job 
 Only main-frame navigations are checked; sub-frames are the page's business. A main-frame network error or HTTP
 5xx shows the Offline screen.
 
-### Hand-off
+### Hand-off (WP-B6 decision: route 1, variant 1b)
 
-`JellyfinLauncher.open(itemId)`: Jellyfin missing → the "Jellyfin isn't on this TV yet" card (Google Play, or the
-Amazon Appstore when the `amazon.hardware.fire_tv` feature is present); an item id with a route intent → start it;
-no route, `ActivityNotFoundException` or `SecurityException` → route 3 (the Jellyfin app home via its leanback launch
-intent). Each successful start marks "returning from playback", and the next `onResume` reloads the last UI URL.
-Settings → "Test hand-off" uses the same call.
+`JellyfinLauncher.open(itemId)` runs `HandOff.plan` (`policy/HandOff.kt`) in order:
 
-**Step 7 seam:** the item route is `PlaybackRoute` in `policy/HandOff.kt`. `PendingPlaybackRoute` (TODO WP-B7
-step 7) returns no intent, so every hand-off opens the Jellyfin app home until the WP-B6 decision line is recorded.
-Step 7 replaces it with the recorded component, extras and flags, plus a JVM test on the `IntentSpec`.
+1. Jellyfin package missing → the "Jellyfin isn't on this TV yet" card (`market://details?id=org.jellyfin.androidtv`,
+   then the https Play fallback; the Amazon Appstore when the `amazon.hardware.fire_tv` feature is present);
+2. a well-formed item id (32 hex or dashed UUID) → route 1b: explicit component
+   `org.jellyfin.androidtv/org.jellyfin.androidtv.ui.startup.StartupActivity`, no action, String extra `ItemId`,
+   `FLAG_ACTIVITY_NEW_TASK` → the item's details page (one OK plays or resumes);
+3. no or malformed id, or `ActivityNotFoundException` / `SecurityException` → route 3, the Jellyfin app home via
+   `getLeanbackLaunchIntentForPackage` (needs the `<queries>` package entry);
+4. route 3 failing too → the card.
+
+Only send ids the server got from the Jellyfin API: a valid-looking id Jellyfin does not know opens an empty details
+page. The implicit VIEW / `-p` launcher intents and the `.startup.StartupActivity` alias do not resolve (spike), so
+they are never used. Back from Jellyfin takes two presses and lands on the Google TV launcher (Jellyfin's
+`TASK_ON_HOME`), never Joey Media; that is expected. Each successful start marks "returning from playback", and the
+next `onResume` reloads the last UI URL. Settings → "Test hand-off" uses the same call. Evidence:
+`JoeyTV\spike\SPIKE_RESULTS.md` (12/12 cells PASS, TCL, Android 14, Jellyfin app 0.19.10).
 
 ### Keys
 

@@ -4,23 +4,24 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import net.joeyhome.media.policy.HandOff
+import net.joeyhome.media.policy.HandOffStep
 import net.joeyhome.media.policy.IntentSpec
 import net.joeyhome.media.policy.Jellyfin
+import net.joeyhome.media.policy.JellyfinItemRoute
 import net.joeyhome.media.policy.PlaybackRoute
 
 /**
- * Hand-off launcher. Order: Jellyfin missing → the store card; item id + [route] intent → start it; on no route,
- * ActivityNotFoundException or SecurityException → route 3 (the app home via its leanback launch intent);
- * route 3 failing too → the store card. Every successful start marks "returning from playback" so onResume reloads.
- *
- * Step-7 seam: [route] is [net.joeyhome.media.policy.PendingPlaybackRoute] until the WP-B6 decision line lands
- * (see the TODO there). Settings → "Test hand-off" calls [open] too, so it always exercises the same code path.
+ * Hand-off launcher (WP-B7 step 7): executes [HandOff.plan] in order. Route 1b item intent → route 3 app home →
+ * the store card. Every successful start marks "returning from playback" so the next onResume reloads the page.
+ * Back from Jellyfin lands on the Google TV launcher (its MainActivity uses TASK_ON_HOME); that is expected.
+ * Settings → "Test hand-off" calls [open] too, so it always exercises the same code path.
  */
 class JellyfinLauncher(
     private val activity: Activity,
-    private val route: PlaybackRoute,
     private val onMissing: () -> Unit,
     private val onLaunched: () -> Unit,
+    private val route: PlaybackRoute = JellyfinItemRoute,
 ) {
     fun isInstalled(): Boolean = try {
         @Suppress("DEPRECATION")
@@ -31,17 +32,19 @@ class JellyfinLauncher(
     }
 
     fun open(itemId: String?) {
-        if (!isInstalled()) {
-            onMissing()
-            return
+        HandOff.run(HandOff.plan(isInstalled(), itemId, route)) { step ->
+            when (step) {
+                is HandOffStep.Item -> start(step.spec.toIntent())
+                HandOffStep.AppHome -> openAppHome()
+                HandOffStep.MissingCard -> {
+                    onMissing()
+                    true
+                }
+            }
         }
-        val spec = itemId?.trim()?.takeIf { it.isNotEmpty() }?.let { route.itemIntent(it) }
-        if (spec != null && start(spec.toIntent())) return
-        if (openAppHome()) return
-        onMissing()
     }
 
-    /** Route 3 (research F4): the explicit leanback launch component, NEW_TASK. */
+    /** Route 3: the explicit leanback launch component, NEW_TASK (never the implicit `-p` form). */
     private fun openAppHome(): Boolean {
         val pm = activity.packageManager
         val home = pm.getLeanbackLaunchIntentForPackage(Jellyfin.PACKAGE)

@@ -31,7 +31,6 @@ import net.joeyhome.media.policy.HostCheck
 import net.joeyhome.media.policy.HostConfig
 import net.joeyhome.media.policy.Jellyfin
 import net.joeyhome.media.policy.KeyPolicy
-import net.joeyhome.media.policy.PendingPlaybackRoute
 import net.joeyhome.media.policy.UrlDecision
 import net.joeyhome.media.policy.UrlPolicy
 import net.joeyhome.media.policy.UserAgent
@@ -71,8 +70,7 @@ class MainActivity : Activity() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         screens = Screens(this, findViewById(R.id.overlay)) { open -> onOverlayChanged(open) }
         launcher = JellyfinLauncher(
-            activity = this,
-            route = PendingPlaybackRoute, // step-7 seam: swap for the WP-B6 route
+            activity = this, // route 1b by default (WP-B6 decision line)
             onMissing = { showJellyfinMissing() },
             onLaunched = { prefs.returningFromPlayback = true },
         )

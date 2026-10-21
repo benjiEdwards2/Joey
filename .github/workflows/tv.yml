@@ -1,0 +1,68 @@
+# Joey TV shell (tv/): debug build on every tv/** change (WP-B7 step 2, debug half).
+# The release half (signed APK, GitHub Release on main) is WP-B8 step 3.
+# No pull_request trigger: branch pushes already build. Third-party actions are pinned by full commit SHA.
+name: tv
+
+on:
+  push:
+    paths:
+      - "tv/**"
+      - ".github/workflows/tv.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+        with:
+          log-accepted-android-sdk-licenses: false
+
+      # No committed wrapper jar yet (no binary downloads on the laptop); Gradle is pinned here instead.
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: "9.7.1"
+
+      - name: Lint, JVM tests, debug APK
+        run: gradle -p tv lint testSideloadDebugUnitTest assembleSideloadDebug --stacktrace
+
+      - name: APK checks (badging, permissions, banner, TV lint)
+        run: |
+          apk="$(ls tv/app/build/outputs/apk/sideload/debug/*.apk | head -1)"
+          lint_xml="$(ls tv/app/build/reports/lint-results*.xml | head -1)"
+          bash tv/ci/check_apk.sh "$apk" net.joeyhome.media.debug tv/app/src/main/res/drawable-xhdpi/banner.png "$lint_xml"
+          mkdir -p dist && cp "$apk" dist/app-debug.apk
+          ls -l dist
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-debug.apk
+          path: dist/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Upload lint + test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tv-reports
+          path: |
+            tv/app/build/reports/
+            tv/app/build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

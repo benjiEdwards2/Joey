@@ -240,7 +240,8 @@ row's `sample`) — in a worker thread with a 90 s timeout. It hits every indexe
 process for 1 h per row (a second Why? inside the hour makes no call) and rendered as counts, grouped rejection reasons
 and the top 5 releases. "Grab anyway" on a listed release is a second inline confirm, then `same_origin` POST
 `/media/upgrades/why/{app}/{arr_id}/grab` sends `POST /api/v3/release` `{"guid", "indexerId"}` from the kept answer
-(never from the form), 30 s timeout; the app downloads it even though it rejected it. Release titles are shown to B. only:
+(never from the form), 30 s timeout; the app downloads it even though it rejected it (a 404 — the app dropped its own
+release cache — also drops the kept answer). Release titles are shown to B. only:
 logs and flashes carry the HTTP status or exception type, never a title, guid, URL or key. The page render never calls.
 
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`

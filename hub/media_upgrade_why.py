@@ -242,6 +242,9 @@ def grab(app: str, arr_id: int, pick: int | None) -> tuple[str, int | None]:
     if 200 <= resp.status_code < 300:
         return "sent", None
     log.warning("%s grab failed: HTTP %s", app, resp.status_code)
+    if resp.status_code == 404:   # the app's own release cache (~30 min) dropped it: the next Why? searches afresh
+        with _lock:
+            _memo.pop((app, arr_id), None)
     return ("gone" if resp.status_code == 404 else "refused"), resp.status_code
 
 

@@ -387,6 +387,18 @@ def test_grab_failures_are_words(site, caplog, setup, word):
         assert secret not in caplog.text
 
 
+def test_a_404_grab_forgets_the_kept_answer_so_why_searches_again(site):
+    """Sonarr keeps interactive-search releases ~30 min; past that a grab is 404 and the next Why? must not reuse ours."""
+    client, arr = site()
+    arr.post_status = 404
+    with client:
+        ask(client, **HX)
+        out = htmllib.unescape(grab(client, 0, **HX).text)
+        assert "Sonarr no longer holds that release · ask Why? again" in out and ">Why?</a>" in out
+        ask(client, **HX)
+    assert len(arr.gets) == 2
+
+
 def test_grab_without_a_kept_answer_or_a_bad_pick_sends_nothing(site):
     client, arr = site()
     with client:

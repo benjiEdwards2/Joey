@@ -1090,7 +1090,7 @@ grouped reasons, the custom-format hint, top 5 releases with "Grab anyway" (conf
 guid + indexer id; "Grab sent · check Downloads in a minute" or the failure word). The connector also adds `profile` to
 every row and `episode_id` to Sonarr rows (the episode Why? searches). Arr call budget: page render 0; Why? confirm 0;
 Why? 1 interactive search per row per hour; Grab 1 POST; connector +1 small call per app per 120 s sweep. Tests: new
-`tests/hub/test_media_upgrade_why.py` (27); `tests/connectors/test_arr_upgrades.py` (+6, 3 re-pointed),
+`tests/hub/test_media_upgrade_why.py` (28); `tests/connectors/test_arr_upgrades.py` (+6, 3 re-pointed),
 `test_contract_doc.py` (+1), call counts in `test_arr.py`, `test_arr_counts.py`, `test_http.py`; the three F4b hub files
 re-pointed to the new wording (dated docstrings); `conftest` clears the Why? cache; `config/sample_snapshots/arr.json`
 regenerated.

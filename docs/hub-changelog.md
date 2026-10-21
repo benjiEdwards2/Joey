@@ -1111,3 +1111,18 @@ token; both are frozen interfaces (`hub/README.md`). `/healthz` adds `front` and
 that is not in one of the three tables fails `tests/hub/test_guest_routes.py` by name. Tests: new `test_guest_routes`,
 `test_guest_surface`, `test_guest_snapshots`, `test_guest_lifespan`, `tests/deploy/test_joey_media_service.py` and
 `test_route_sweep.py` (`tests/README.md`); `test_compose_limits` and `tests/connectors/test_container.py` gained the service.
+
+**Guest sign-in and fail-closed owners (Joey TV WP-B2, 2026-10-21).** The media front now has its own sign-in. A guest signs
+in with Jellyfin Quick Connect (code on the page, approved on a phone) or username and password; the Jellyfin access token is
+the session, kept in `__Host-jm_session` (90 days absolute) beside `__Host-jm_qc` (10 min) and `__Host-jm_dev` (the device id).
+`hub/guest_auth.py` re-validates it against Jellyfin `/Users/Me` (verdict kept 60 s, up to 300 s more while Jellyfin does not
+answer; a dead token clears the cookie, an unreachable Jellyfin is a 503 with the cookie kept) and refuses a disabled user, an
+administrator or a user with remote access off (P1). Wrong passwords are counted per username, 5 in 15 min, in process, and
+refused without calling Jellyfin so Jellyfin's own lockout is never reached. The five routes (`GET /signin`, `POST /signin/qc/start`,
+`GET /signin/qc/poll`, `POST /signin/password`, `POST /signout`) replaced the RESERVED `/signin*` entries; `GET /signout` is a 404.
+`media_db.owner_of` / `owner_filter` now raise on a malformed `jf:` key and, on the media front, on any view that is not
+`you` / `her` / a friend key, so a friend can never read or write B.'s rows (the gate flagged in WP-B1 before the `media` profile
+is enabled); plays, home shelves, resume, `shell.resolve_owner_view` and the diary scope follow. P3: on the media front Jellyfin
+reads and resume writes use the signed-in user's own id and token, never the admin's. `GUEST_DEV_OWNER` must now be a
+well-formed `jf:<32 hex>` key. Tests: new `test_guest_owner`, `test_guest_auth`, `test_guest_signin`, `test_guest_no_leak`
+and the fake Jellyfin `tests/hub/fake_jellyfin.py` (`tests/README.md`). Docs: `hub/README.md` "Guest sign-in", `docs/setup.md`.

@@ -19,6 +19,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary (+ its Month in Review card), Wrapped, Movies / TV grid, Tonight |
 | `media_wrapped.py` | Month in Review + Wrapped (E6, 2026-10-13): one month's / year's summary from media.db (diary, plays, ratings, award wins) + the jellyfin snapshot's runtimes and years; the data-source rules are its docstring; kept in memory per row signature |
 | `guest.py` | The guest front (Joey TV WP-B1, 2026-10-21): `front()` (`JOEY_FRONT`), the GUEST / PRIVATE / RESERVED route tables, `allows()`, the `GuestGate` middleware, the media-mode snapshot scrub, `TV_UA_TOKEN`; see "Guest front" below |
+| `guest_auth.py`, `guest_signin.py` | Guest sign-in on the media front (Joey TV WP-B2, 2026-10-21): the one Jellyfin auth client (session cookie, `/Users/Me` verdict cache, P1 refusals, password failure counter) and the five sign-in / sign-out routes; see "Guest sign-in" below |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
@@ -97,8 +98,8 @@ is the full contract.
   request whose Host is `MEDIA_PUBLIC_HOST` (default in code `media.joeyhome.net`) gets the 404, so a tunnel typo can never
   publish private Joey ungated.
 - **Every new route must be classified in `hub/guest.py`.** Each (method, path template) must sit in exactly one of
-  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST: `/signin*`,
-  `/signout`, `/app/*`, Request). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
+  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST: `/app/*`,
+  Request; the sign-in routes left RESERVED in WP-B2). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
   unclassified route, naming it**. A new route is PRIVATE until someone decides otherwise; add it to `GUEST` only on
   purpose, and never put a private page behind it.
 - **One scrub point.** On the media front `shell.get_snapshots` keeps only `jellyfin`, `jellyseerr` and `arr`, each cut to
@@ -111,9 +112,49 @@ is the full contract.
     imports it and never redefines it.
   - `guest.TV_UA_TOKEN = "JoeyTV/"`: the TV shell's user agent carries ` JoeyTV/<semver> (<versionCode>)` and the server
     matches the substring.
-- **Dev seam.** `GUEST_DEV_OWNER` (e.g. `jf:devfriend`) signs every media-front request in as that owner, only when
-  `HUB_DEV=1` and `JOEY_FRONT=media` (one startup warning). Compose must never carry it (a test pins that).
+- **Dev seam.** `GUEST_DEV_OWNER` signs every media-front request in as that owner, only when `HUB_DEV=1` and
+  `JOEY_FRONT=media` (one startup warning). It must be a well-formed owner key, `jf:` plus 32 lowercase hex
+  (`OWNER_KEY_RE`); a looser value such as `jf:devfriend` now raises in the owner helpers (WP-B2, fail-closed). Compose
+  must never carry it (a test pins that).
 - `GET /healthz` adds `"front"`, and on the media front `"home": "/a/<shelves id>"` (read by the TV shell's back policy).
+
+### Guest sign-in (Joey TV WP-B2, 2026-10-21)
+
+`hub/guest_auth.py` is the one Jellyfin auth client of `joey-media`; `hub/guest_signin.py` holds the routes and
+`templates/guest_signin.html` (+ `_guest_qc*.html`) the page. Jellyfin is the session store: the access token it returns
+is the session, so disabling or deleting a friend in Jellyfin, or signing the device out, ends their Joey Media session.
+
+- **Routes** (all GUEST and PUBLIC; every one is the ordinary 404 on the private front; POSTs carry `same_origin`):
+  `GET /signin` (the page: Quick Connect code, password form as the fallback), `POST /signin/qc/start` (new code),
+  `GET /signin/qc/poll` (htmx, every 3 s; sets the session cookie and `HX-Redirect`s once the phone approves),
+  `POST /signin/password`, `POST /signout` (Jellyfin `/Sessions/Logout`, best effort, then the cookie is cleared and
+  303 `/signin`). `GET /signout` is a 404: sign-out is POST only. Nothing else under `/signin` is served.
+- **Cookies** (`HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure`, `__Host-` prefix): `__Host-jm_session` (the Jellyfin token,
+  90 days absolute from sign-in, never extended), `__Host-jm_qc` (the Quick Connect secret, 10 min, never in the page),
+  `__Host-jm_dev` (this browser's Jellyfin DeviceId, 400 days). `JOEY_COOKIE_SECURE=0` drops `__Host-` and `Secure` for
+  plain-http previews only; unset or any other value = secure. Compose must never carry it (a test pins that).
+- **Re-validation.** On each guest request the token is checked against Jellyfin `GET /Users/Me`; the verdict is kept
+  60 s per token (one call at a time per token, so a page's poster burst shares it). A 4xx clears the cookie and goes to
+  `/signin`. Jellyfin slow or down (timeout, 5xx) is a 503 page with the cookie kept and nothing cached; a verdict that
+  WAS valid is still served up to 300 s past its 60 s while Jellyfin does not answer, never a verdict Jellyfin refused.
+- **P1 refusals.** A valid Jellyfin user is refused (cookie cleared; at sign-in the fresh token is logged out at once)
+  when the policy is missing, disabled, an administrator, or has remote access off: `joey-media` reaches Jellyfin from
+  the LAN bridge, so Jellyfin never applies the remote-access flag to it and the hub enforces it. The admin can never
+  hold a guest session.
+- **Password failures.** 5 per username in 15 minutes (keyed by a hash of the lower-cased username), then the next try is
+  refused without calling Jellyfin, so the guest path never reaches Jellyfin's own lockout (which disables the user).
+  The counter is in-process: a `joey-media` restart resets it. A wrong password, a refused user and a resting username
+  all read "Wrong username or password", after a 1 s delay. An unreachable Jellyfin is not counted.
+- **Owner.** `hub.identity.owner_for_jellyfin(user id)` is the one mapping (B.'s alias user is `you`, anyone else
+  `jf:<32 hex>`); the household lookup failing is a 503, never a guessed owner. Logs carry `jf:<id>` or a username-hash
+  prefix, never a username, password, token or Quick Connect secret.
+- **Fail-closed owners.** `media_db.owner_of` / `owner_filter` pass a well-formed `jf:<32 hex>` through and raise on any
+  other `jf:` value. On the media front they also raise for anything that is not `you` / `her` / a friend key, so `both`,
+  `None` and unknown views never fall back to B.'s rows; the plays, home-shelf, resume, `shell.resolve_owner_view` and
+  diary-scope paths follow, and the media front reads only the signed-in user's own rows. The private front keeps its
+  old meanings.
+- **P3 binding.** On the media front every Jellyfin read and write for a viewer (resume, item reads, the user id) uses
+  the signed-in user's own id and token, never the admin key or `JELLYFIN_USER`; the item cache is per viewer there.
 
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 
@@ -127,6 +168,7 @@ is the full contract.
 | `ACCESS_JWT_VERIFY`, `ACCESS_AUD`, `ACCESS_TEAM` | off, unset, `joeyhomeed` | Access JWT gate: `audit` logs verdicts only, `1` refuses a missing/forged token (401; 503 if the team's keys cannot be read); `ACCESS_AUD` = comma-separated AUD tags, required once the flag is set (the hub will not start without it); find it under Zero Trust, Access controls, Applications, the app, **Additional settings** tab. JWT verification live since WP-A6a (2026-10-21); residual = replay of a captured token within its lifetime, and hub-container compromise |
 | `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE` | Windy radar falls back to Newport, `Newport VIC` | Windy radar centre (the weather connector reads the same pair) and the place name in weather labels |
 | `JOEY_FRONT`, `MEDIA_PUBLIC_HOST` | unset (= `private`), `media.joeyhome.net` | `media` makes this process the guest front ("Guest front" above; set only on `joey-media`); any other value stops startup. `MEDIA_PUBLIC_HOST` = the Host the private front answers with 404 |
+| `JOEY_COOKIE_SECURE`, `GUEST_DEV_OWNER` | `1`, unset | Guest sign-in ("Guest sign-in" above). `JOEY_COOKIE_SECURE=0` = plain cookie names without `Secure`, for http previews only; `GUEST_DEV_OWNER` = a `jf:<32 hex>` dev identity, honoured only with `HUB_DEV=1` on the media front. Neither belongs in compose or `media.env` |
 | `HUB_DEV` | off | `1` re-reads templates on every render (local template editing) |
 | `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER`, `JELLYFIN_USER_ALIASES` | unset | Live item reads, play recorder, her profile; aliases = B.'s extra Jellyfin user names (comma-separated), recorded as "you" |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |

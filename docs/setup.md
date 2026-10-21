@@ -49,6 +49,12 @@ nothing else. Keys (names only): `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `JELLYFIN_U
 `sh nas_scripts/media_env.sh` (copy it to `/tmp` first; `--force` rebuilds it after a key rotation): it copies the guest keys out
 of `deploy/.env` and prints key names and a count, never a value. After any change run `docker compose up -d hub joey-media`.
 
+Guest sign-in (Joey TV WP-B2, 2026-10-21) adds no new `media.env` key: it uses `JELLYFIN_URL` (Quick Connect and password sign-in
+both go to Jellyfin there; unset = sign-in shows "Couldn't reach Jellyfin") and `JELLYFIN_USER_ALIASES` (B.'s own Jellyfin user
+signs in as `you`). Two optional keys exist for local development only and must never reach the NAS or compose: `JOEY_COOKIE_SECURE=0`
+(plain-http previews: cookie names lose `__Host-` and `Secure`) and `GUEST_DEV_OWNER` (a `jf:<32 hex>` key, honoured only with `HUB_DEV=1`).
+The sign-in counter (5 wrong passwords per username in 15 min) lives in the process, so restarting `joey-media` clears it. Details: `hub/README.md`, "Guest sign-in".
+
 ## Signed-in user (deploy/.env, on the NAS only)
 
 Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`

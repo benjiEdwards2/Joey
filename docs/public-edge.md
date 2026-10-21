@@ -253,6 +253,7 @@ never names, IPs or keys. They use the header `Authorization: MediaBrowser Token
 - Public URL is always `https://jellyfin.joeyhome.net:8443`. The router forwards external 8443 to NAS 443; external 80/443 are dead. LAN and `--resolve` checks use 443.
 - **The terminal is Windows PowerShell 5.1.** No `&&` (use `;`, or separate lines), no `$(...)` in a double-quoted `ssh` string (use single quotes so the NAS expands it), and `$env:TEMP` can be empty in the Claude terminal panel, so use full paths.
   Commands wrapped as `ssh -i $env:USERPROFILE\.ssh\joey_nas root@192.168.68.59 "<cmd>"` work; docker exists only on the NAS.
+- Copy files to the NAS with `scp`, not a `tr | ssh` pipe (PowerShell 5.1 pipes mangle the bytes). Delete a temp copy only AFTER the integrity check passes.
 - Friend template: `MaxActiveSessions = 2`, lockout 10, 20 Mbps cap. The household **alias** user is `MaxActiveSessions = 0` (unlimited), set by hand (or `nas_scripts\jellyfin_set_max_sessions.py <id> 0`); **never run `joeytest_policy.py` on the alias.**
 - **The admin user is refused on the public `:8443` address, even from home** (admin remote access is off, and hairpin NAT presents a home client as the router's WAN IP). The admin uses the LAN address `http://192.168.68.59:8096`.
   Every friend-path test (Quick Connect, playback, sessions, revoke) uses **joeytest** on the public address, never the admin.
@@ -517,10 +518,10 @@ Use it to remove a friend, to pause one, or to rehearse (joeytest, WP-A6 step 2)
 
 ### Lockout: "the user is Disabled and I did not do it"
 
-*UNTESTED — prove at WP-A6 step 3 (10 wrong passwords on joeytest, failures 6 to 10 from a second address).*
+*Tested 2026-10-21 (drill on joeytest): the fail2ban IP ban at 5 failures fires before the Jellyfin user lockout at 10.*
 
 Jellyfin's lockout **disables the user** after the configured failed sign-ins. Friends are set to **10** (Q28), deliberately above fail2ban's 5, so on the open port the **IP ban fires first**
-(5 failures in 10 minutes bans the address for 1 hour). The lockout can therefore only be reached from a second address. Revoke and lockout look identical in the dashboard, so check before re-enabling:
+(5 failures in 10 minutes bans the address for 1 hour). The lockout can therefore only be reached from a second address, or by tries on the LAN address `http://192.168.68.59:8096`, which bypass SWAG (and so fail2ban). Revoke and lockout look identical in the dashboard, so check before re-enabling:
 
 1. **Was it the friend?** Ask them whether they typed the password wrong repeatedly (a TV remembering an old password counts).
 2. **Look for guessing.**
@@ -530,10 +531,10 @@ Jellyfin's lockout **disables the user** after the configured failed sign-ins. F
    ```
    **Verify:** the first prints `Currently banned` and `Total banned` counts. A ban of a **friend's** address means they did it themselves (the ban is 1 hour and lifts alone).
    Many 401 lines on `/Users/AuthenticateByName` from addresses that are not the friend's mean someone is guessing the username: tell the friend, change nothing else, and consider disabling until it stops.
-3. **Re-enable** with "Re-enable one user" above. If the friend did it: tell them to wait for their ban to lift if applicable, then use the right password or Quick Connect.
+3. **Re-enable** with "Re-enable one user" above (Profile, untick **Disable this user**). First check `fail2ban-client status jellyfin-auth` and the user's `InvalidLoginAttemptCount`: a lockout the friend did not cause means someone is guessing that username from more than one address. If the friend did it: tell them to wait for their ban to lift if applicable, then use the right password or Quick Connect.
    Phase B note: the guest sign-in path (`hub/guest_auth.py`) keeps its own counter and refuses before Jellyfin is called, so the guest UI alone can never cause a lockout. That counter does not exist until WP-B2; ignore it in Phase A.
 
-**Drill result to paste here after WP-A6 step 3:** which address range you used for failures 6 to 10 (the hotspot or phone on cellular), whether lockout showed as Disabled, and whether re-enabling resets Jellyfin's failed-attempt counter. (Placeholder: filled by the drill.)
+**Drill result (2026-10-21, joeytest):** phase 1, 5 wrong passwords from a phone on cellular via `:8443`: fail2ban `jellyfin-auth` total banned went 0 to 1, the phone's address was dropped for 3600 s, the home WAN address was untouched. Phase 2, 5 wrong passwords on the LAN address `:8096` (bypasses SWAG, so no second ban): the user showed `IsDisabled = True` with `InvalidLoginAttemptCount` 11 against `LoginAttemptsBeforeLockout` 10. Order proven: the IP ban at 5 fires before the user lockout at 10, so a real lockout needs two or more source addresses, or LAN tries. Whether re-enabling resets the failed-attempt counter was not recorded.
 
 ### joeytest (the test account), rule 22
 
@@ -688,9 +689,10 @@ Steps:
 2. **Deploy**, detached as above (add `--force` only to redeploy an unchanged SHA, which also recreates swag). Before any deploy, confirm the NAS clone's HEAD equals origin/main (rule 9).
 3. **After it, LAN `/health` first** (A3 step 3.1 and 3.2), then `tail -n 3 /volume1/Docker/joey/life-dashboard/deploy/history.log` shows `PASS`, then the outside curl (A3 step 3.6).
    **Verify:** `Healthy` on both LAN checks, `PASS`, `HTTP/1.1 200` outside.
-4. **Never "Update all" in WUD, and never take `edge` out of `COMPOSE_PROFILES`** (R3: a deploy with the profile off can remove `joey-swag` mid-stream). Use R3's kill switch only to close the door, then decide.
-5. **Deploy-with-stream drill (WP-A6 step 10):** with joeytest streaming remotely, run `deploy.sh --force` (detached). Pass (B., 2026-10-20): the stream survives the ~10 s swag recreate, or resumes after ONE client retry or press of play; record which.
-   `docker ps` shows `joey-swag` Up with a **new** start time, history.log PASS. **Result to paste here:** (placeholder, filled by the drill). *UNTESTED — prove at WP-A6 step 10.*
+4. **Never start a deploy in the 15 minutes before 00:00 UTC (11:00 AEDT / 10:00 AEST).** The test gate runs on UTC, and tests that read the real date can fail across midnight (GATE-FAIL 2026-10-21; the same commit passed 20 minutes later). A clock-freeze fix for those tests is in progress.
+5. **Never "Update all" in WUD, and never take `edge` out of `COMPOSE_PROFILES`** (R3: a deploy with the profile off can remove `joey-swag` mid-stream). Use R3's kill switch only to close the door, then decide.
+6. **Deploy-with-stream drill (WP-A6 step 10, PASS 2026-10-21):** with joeytest streaming remotely, run `deploy.sh --force` (detached). Pass (B., 2026-10-20): the stream survives the ~10 s swag recreate, or resumes after ONE client retry or press of play; record which.
+   `docker ps` shows `joey-swag` Up with a **new** start time, history.log PASS. **Result (drill 2026-10-21, 1080p HEVC DirectPlay on the public address):** a deploy's swag recreate does not interrupt a direct-play remote stream (no visible pause, no client retry); transcoded streams untested.
 
 ## F7 NAS 24/7
 

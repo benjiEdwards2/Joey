@@ -57,7 +57,7 @@ Without the header (local dev on port 8800, tests) the page shows "Not signed in
 `?owner_view=` query + cookie still pick the view; send the header with curl to preview the signed-in state.
 Access JWT verification (Joey TV WP-A6a, 2026-10-19; `hub/access_jwt.py`): with `ACCESS_JWT_VERIFY` set, the hub
 first checks Cloudflare's signed `Cf-Access-Jwt-Assertion` (RS256, team `ACCESS_TEAM`, default `joeyhomeed`) against
-`ACCESS_AUD` (the joeyhome.net Access app's AUD tag, comma-separated for several) and requires the header to equal the
+`ACCESS_AUD` (the joeyhome.net Access app's AUD tag, comma-separated for several; in the new Zero Trust layout find it under Access controls, Applications, the app, **Additional settings** tab) and requires the header to equal the
 token's email. Unset / `0` = off (the default: the header alone decides, as above); `audit` = verify and log
 `access_jwt: audit FAIL reason=…`, never refuse; `1` = enforce (401 plain text; 503 if the team's keys cannot be read).
 A set flag without `ACCESS_AUD` stops the hub at startup. `/healthz` and loopback peers are exempt, so local dev on

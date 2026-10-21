@@ -1094,3 +1094,20 @@ Why? 1 interactive search per row per hour; Grab 1 POST; connector +1 small call
 `test_contract_doc.py` (+1), call counts in `test_arr.py`, `test_arr_counts.py`, `test_http.py`; the three F4b hub files
 re-pointed to the new wording (dated docstrings); `conftest` clears the Why? cache; `config/sample_snapshots/arr.json`
 regenerated.
+
+**Guest front: `joey-media`, `JOEY_FRONT`, route classification (Joey TV WP-B1, 2026-10-21).** The hub image can now run as a
+second, guest-facing process. `hub/guest.py` holds `front()` (`JOEY_FRONT` = unset / `private` / `media`, anything else stops
+startup), the GUEST / PRIVATE / RESERVED route tables, `allows()` (deny by default, HEAD = GET, the guest home `/a/<shelves id>`
+resolved at runtime), the `GuestGate` middleware (registered first, so it is innermost and the request log sees its answers)
+and the media-mode snapshot scrub. On the media front `/` redirects to the guest home, an allowed route without an identity
+redirects to `/signin?next=`, and every other path, unknown ones included, gets the same Joey 404 page; the media front
+ignores the Cloudflare Access email header. The private front only gains a Host guard: a request for `MEDIA_PUBLIC_HOST`
+(default `media.joeyhome.net`) answers 404. `shell.get_snapshots` is the one read point and, on the media front, keeps only
+`jellyfin`, `jellyseerr` and `arr` with B.'s played state and the requester name removed; `tasks.lifespan` starts no loop there.
+`Identity` gained `jf_user_id` and `jf_token` (default `None`) and `guest.TV_UA_TOKEN = "JoeyTV/"` is the TV shell's user-agent
+token; both are frozen interfaces (`hub/README.md`). `/healthz` adds `front` and, on the media front, `home`. Compose gained
+`joey-media` behind `profiles: [media]`: dark, no published port, snapshots `:ro`, no backups mount, 384m, `media.env` only
+(`deploy/README.md`, `docs/network.md`, `docs/setup.md`); `deploy.sh` runs its smoke only when the profile is active. A route
+that is not in one of the three tables fails `tests/hub/test_guest_routes.py` by name. Tests: new `test_guest_routes`,
+`test_guest_surface`, `test_guest_snapshots`, `test_guest_lifespan`, `tests/deploy/test_joey_media_service.py` and
+`test_route_sweep.py` (`tests/README.md`); `test_compose_limits` and `tests/connectors/test_container.py` gained the service.

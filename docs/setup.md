@@ -42,6 +42,13 @@ and `STAGING` for the public edge. Only swag and ddns read it; it is never in `d
 `nas_scripts/append_env.sh <path to edge.env>`; `COMPOSE_PROFILES` (`edge`, `ddns`) is the one edge key that goes in `deploy/.env`.
 See `public-edge.md`.
 
+`deploy/media.env` (Joey TV WP-B1, 2026-10-21) is a fifth NAS-only file, `chmod 600`: the guest container `joey-media` reads it and
+nothing else. Keys (names only): `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `JELLYFIN_USER`, `JELLYFIN_USER_ALIASES`, `JELLYFIN_USER_HER`
+(unset on the NAS), `JELLYSEERR_URL`, `JELLYSEERR_API_KEY`, `OMDB_API_KEY`, `JELLYFIN_PUBLIC_URL`. Never `TUNNEL_TOKEN`, `ACCESS_*`,
+`*arr` / qBittorrent keys, webhooks, `HUB_DEV` or `GUEST_DEV_OWNER`. Template: `deploy/media.env.example`. Build it on the NAS with
+`sh nas_scripts/media_env.sh` (copy it to `/tmp` first; `--force` rebuilds it after a key rotation): it copies the guest keys out
+of `deploy/.env` and prints key names and a count, never a value. After any change run `docker compose up -d hub joey-media`.
+
 ## Signed-in user (deploy/.env, on the NAS only)
 
 Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`

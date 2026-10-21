@@ -24,3 +24,9 @@ deploy/logs/
 drop/
 connectors/money/samples/
 connectors/money/golden_local/
+# Joey TV shell (WP-B7/B8): the Android project never enters the life-test image, including the public debug p12.
+# The gate reads only the three release-metadata files (tests/tv/test_version_file.py, tests/deploy/test_tv_context.py).
+tv/*
+!tv/VERSION
+!tv/NOTES.txt
+!tv/SIGNING_CERT_SHA256

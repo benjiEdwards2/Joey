@@ -13,7 +13,8 @@
 {% else %}
 <p class="metaline">{{ head_line }}</p>
 {% if not marks %}<p class="metaline">Her watch marks and scores aren't available yet</p>{% endif %}
-{% if new_week %}
+{# Joey TV WP-B3: no "New this week" carousel on the TV - the WP-M Movies screen is the sub-tabs and the grid. #}
+{% if new_week and not tv_mode(request) %}
 <section class="sec">
   <h2 class="seclabel">New this week</h2>
   <div class="carousel">

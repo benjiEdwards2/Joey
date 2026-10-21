@@ -185,6 +185,43 @@ Friends request through Discover and every friend request waits for B.'s approva
   waiting for approval" and updates the chip (`hx-swap-oob`). Done, Esc or the TV's Back close it and focus returns to
   the poster (`tv.js` `joeyTV.back()` honours the dialog's `_opener`).
 
+### Guest surface and TV mode (Joey TV WP-B3, 2026-10-21)
+
+What a signed-in friend sees on the media front, and the 10-foot TV skin the Android TV shell loads.
+
+- **The pages.** Overview (`/a/<shelves id>`): exactly three shelves, Continue watching and Recently watched (live reads of the
+  viewer's own Jellyfin state with their own token, `hub/media_guest_home.py`) and Recently added (the scrubbed snapshot); no hero,
+  no household shelves. The section row is Overview, Movies, TV shows, Diary, Discover. Title pages draw no off-site links (the
+  exposure crawl allows only the Jellyfin edge, YouTube and TMDB images).
+- **The `shell.jellyfin_link` seam.** `hub/shell.py` `jellyfin_link(registry_href)` is the one base of every Jellyfin link a page
+  draws (Play, "Open in Jellyfin", the `_deep_link` item links). On the media front it is `JELLYFIN_PUBLIC_URL` with its port kept
+  verbatim (`:8443`: the TV shell's UrlPolicy matches scheme + host + port) and `None` when unset (no link rather than a LAN one);
+  on the private front it is the registry href. Never build a Jellyfin link any other way.
+- **The one-time "Set up Jellyfin" card (Q39).** Shown on the Overview until `?setup=done` (cookie `jm_setup`, one year); it
+  carries `JELLYFIN_PUBLIC_URL` and `templates/area_shelves.html` wraps its `:port` in `<em>` (the whole address is also in the
+  `aria-label`). In TV mode it is a full-screen card and `tv.js` keeps the D-pad on it while it is up.
+- **The friend diary.** The play recorder (`hub/media_plays.py` `friend_diary`) writes one diary row, owned by `jf:<id>`, when a
+  friend's play reaches `FINISHED_PCT` (90 %, `hub/media_plays_db.py`); one row per title per day, so later polls add nothing. B.'s
+  and her diary still come from the Jellyfin history sweep.
+- **TV mode** (`hub.media_front.tv_mode(request)`, Jinja global `tv_mode`; media front only, the private front ignores it). On when
+  the user agent contains `guest.TV_UA_TOKEN` (`JoeyTV/`, the shell's ` JoeyTV/<semver> (<versionCode>)`) or the `tv=1` cookie is
+  set; `?tv=1` sets that cookie (one year, `SameSite=Lax`) and `?tv=0` clears it, handled in `GuestGate` so it works on every
+  media-front page, the 404 and `/signin`. `<html>` then carries class `tv` and the page links `/static/tv.css` and
+  `/static/tv.js` (vendored, no external asset); neither is linked, and the private CSS bytes are unchanged, without it.
+  - `tv.css` is the signed-off WP-M mockup (`JoeyTV/mockups/tv-mode.html`): 960 x 540 CSS px design viewport (1920 x 1080 at
+    320 dpi), 21 px base type, 16 px floor, 48 / 27 px overscan margins, a 4 px white focus ring with 1.06 poster scale, **no
+    `:hover` rule at all** (a test pins it), no phone tab bar. Per screen: Overview has no head band; Movies / TV shows are a
+    sticky section row + sub-tabs over a six-column grid (no search / sort toolbar, no "New this week", no freshness lines); the
+    title page is a 170 px poster beside title, facts, a three-line synopsis, Play / Trailer / Watchlist and the 1-10 rating chips
+    (templates carry the extra lines only when `tv_mode(request)`, `media_film.html`). Every off-origin link except YouTube trailers
+    and the Jellyfin hand-off (`/web/#/details?id=`) is hidden (Q41).
+  - `tv.js` owns what a Chromium WebView lacks: geometric D-pad focus, first focus (`[data-first]`, else Play, else the first
+    poster), clamped shelf centring, scroll-into-view under the sticky bars, focus restore after an htmx swap.
+  - **`window.joeyTV.back()`** is the contract with the shell's BackPolicy (WP-B7): it closes an open `<dialog>` (the trailer
+    modal) and returns `true`; with nothing to close it returns `false` and the shell goes back or exits. `joeyTV.focusFirst()`
+    re-runs first focus.
+  - A trailer on the TV is a plain navigation to its YouTube URL (the shell hands it to the YouTube app), not the in-page player.
+
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 
 | Variable | Default | Does |

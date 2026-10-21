@@ -8,8 +8,9 @@
 {% from "_pagehead.html" import pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% if guest(request) %}
-{# Joey TV WP-B3: the guest Overview has no hero (WP-M call 4) - a plain head, then three shelves. #}
-{% call pagehead("Overview") %}{{ media_tabs() }}{% endcall %}
+{# Joey TV WP-B3: the guest Overview has no hero (WP-M call 4) - a plain head, then three shelves. On the TV the head
+   band is dropped altogether (the top bar already names the section), so three shelves fit with the third peeking. #}
+{% if not tv_mode(request) %}{% call pagehead("Overview") %}{{ media_tabs() }}{% endcall %}{% endif %}
 {% else %}
 {% set h = sh.hero %}
 {% if h and h.user %}{% set sub = [h.user, h.play_method, (h.progress_pct ~ "%") if h.progress_pct is not none else none] | select | join(" · ") %}
@@ -33,7 +34,9 @@
   <p>Playing a film opens the Jellyfin app. Sign in to it once:</p>
   <ol class="setup-steps">
     <li>Open the <b>Jellyfin</b> app and choose <b>Add server</b>.</li>
-    <li>Type the server address <code class="setup-addr">{{ setup.server }}</code></li>
+    {# the address is one string for a screen reader; TV mode paints its :port gold (the part friends mistype) #}
+    {% set sv = setup.server.rsplit(":", 1) %}
+    <li>Type the server address <code class="setup-addr" aria-label="Server address {{ setup.server }}">{% if sv | length == 2 and sv[1].isdigit() %}{{ sv[0] }}<em>:{{ sv[1] }}</em>{% else %}{{ setup.server }}{% endif %}</code></li>
     <li>Sign in with <b>Quick Connect</b> or your Jellyfin username and password.</li>
   </ol>
   <p><a class="btn btn-primary" href="{{ setup.done_href }}" data-first>Done</a></p>

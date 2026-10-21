@@ -38,6 +38,7 @@ ALLOWED_NETLOCS = {
     "image.tmdb.org",
 }
 XMLNS = re.compile(r'\sxmlns(?::\w+)?="[^"]*"')
+PORT_EM = re.compile(r"<em>(:\d+)</em>")
 ABSOLUTE = re.compile(r"""https?://[^\s"'<>)\\]+""")
 
 
@@ -96,7 +97,8 @@ def problems_of(path: str, status: int, body: str) -> list[str]:
         if parts.netloc == "testserver":
             if not guest.allows(method, parts.path or "/"):
                 out.append(f"{path}: {attr} {method} {parts.path} not served on the media front")
-    for url in ABSOLUTE.findall(XMLNS.sub("", body)):
+    # The Set up Jellyfin card paints the address's port gold (`...test<em>:8443</em>`): rejoin it, so the scan sees the whole URL.
+    for url in ABSOLUTE.findall(PORT_EM.sub(r"\1", XMLNS.sub("", body))):
         netloc = urlsplit(url).netloc.lower()
         if netloc not in ALLOWED_NETLOCS:
             out.append(f"{path}: foreign URL {url[:80]}")

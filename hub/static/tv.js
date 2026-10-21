@@ -39,7 +39,15 @@
     return d && visible(d) ? d : null;
   }
 
-  function scope() { return openDialog() || document; }
+  /* The one-time Set up Jellyfin card is a full-screen overlay (WP-M screen 9): while it is up the D-pad stays on it. */
+  function modal() {
+    var d = openDialog();
+    if (d) return d;
+    var card = document.querySelector('.setup-card');
+    return card && visible(card) ? card : null;
+  }
+
+  function scope() { return modal() || document; }
 
   function candidates() {
     return Array.prototype.filter.call(scope().querySelectorAll(FOCUSABLE), visible);
@@ -56,7 +64,7 @@
   }
 
   function first() {
-    var d = openDialog();
+    var d = modal();
     if (d) return firstIn(d);
     return firstIn(document.querySelector('main')) || firstIn(document.body);
   }
@@ -70,11 +78,20 @@
     shelf.scrollLeft += (i.left + i.width / 2) - (s.left + s.width / 2);   /* the browser clamps at both ends */
   }
 
+  /* Bottom edge of everything pinned to the top: the top bar and, on Movies / TV shows, the sticky sub-tab row. */
+  function stuckBottom() {
+    var low = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('.topbar, .pagehead'), function (b) {
+      if (getComputedStyle(b).position === 'sticky') low = Math.max(low, b.getBoundingClientRect().bottom);
+    });
+    return low;
+  }
+
   function keepRowInView(el) {
-    if (el.closest('header, .topbar')) { window.scrollTo(0, 0); return; }
+    if (el.closest('.topbar')) { window.scrollTo(0, 0); return; }
+    if (el.closest('.pagehead') && getComputedStyle(el.closest('.pagehead')).position === 'sticky') return;   /* sub-tabs stay put */
     var box = (el.closest('.carousel') || el).getBoundingClientRect();
-    var bar = document.querySelector('.topbar');
-    var top = (bar && getComputedStyle(bar).position !== 'static' ? bar.getBoundingClientRect().bottom : 0) + PAD;
+    var top = stuckBottom() + PAD;
     var bottom = window.innerHeight - OVERSCAN_Y;
     if (box.top < top) window.scrollBy(0, box.top - top);
     else if (box.bottom > bottom) window.scrollBy(0, Math.min(box.bottom - bottom, box.top - top));

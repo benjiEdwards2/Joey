@@ -34,7 +34,7 @@
 {%- endmacro %}
 {# 1-10 picker: a plain form (works without JS, 303 back to history, or to r.back: Movies / TV Shows, media-ux2) that htmx upgrades
    to a swap. `r` carries item_key/kind/title/year/poster. Each number is a chip in its grade colour. #}
-{% macro picker(r) %}
+{% macro picker(r, label="Rate") %}
 <form class="ratepick" method="post" action="/media/rate" hx-post="/media/rate" hx-target="this" hx-swap="outerHTML">
   <input type="hidden" name="item_key" value="{{ r.item_key }}">
   <input type="hidden" name="kind" value="{{ r.kind }}">
@@ -43,7 +43,7 @@
   <input type="hidden" name="year" value="{{ r.year or '' }}">
   <input type="hidden" name="poster" value="{{ r.poster or '' }}">
   {% if r.back %}<input type="hidden" name="back" value="{{ r.back }}">{% endif %}
-  <span class="microlabel">Rate</span>
+  <span class="microlabel">{{ label }}</span>
   {% for n in range(1, 11) %}<button type="submit" class="chip {{ grade(n) }}" name="score" value="{{ n }}" aria-label="Rate {{ n }} out of 10">{{ n }}</button>{% endfor %}
 </form>
 {% endmacro %}

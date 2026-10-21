@@ -86,3 +86,41 @@ def test_the_tv_assets_are_served_and_self_contained(gc):
 
 def test_tv_token_is_the_frozen_substring():
     assert guest.TV_UA_TOKEN == "JoeyTV/" and guest.TV_UA_TOKEN in TV_UA
+
+
+# ---- the look (WP-B3 follow-on): tv.css is the WP-M mockup; none of it leaks into the shared sheet ----
+
+def test_tv_css_has_no_hover_rule_and_keeps_the_floor(gc):
+    css = re.sub(r"/\*.*?\*/", "", gc.get("/static/tv.css").text, flags=re.S)       # rules, not comments
+    assert ":hover" not in css, "WP-M spec: no hover states anywhere in the TV UI"
+    assert "(hover" not in css
+    sizes = [float(x) for x in re.findall(r"font-size:\s*([\d.]+)px", css)]
+    assert sizes and min(sizes) >= 16, "WP-M spec: nothing under 16 px"
+    assert re.search(r"\.brand b \{[^}]*font-size: 22px; font-weight: 700", css)        # brand text, 22 px bold
+    assert "--tv-bar-fill: #f97316" in css                                              # the mockup's progress colour
+
+
+def test_the_shared_sheet_carries_no_tv_rule(gc):
+    shared = gc.get("/static/control-surface.css").text
+    assert "html.tv" not in shared and ".tv-focus" not in shared
+    assert gc.get("/static/control-surface.css", headers={"User-Agent": TV_UA}).text == shared   # TV mode adds a sheet, never edits one
+
+
+def test_tv_overview_drops_the_head_band_and_paints_the_port(gc):
+    plain = gc.get("/a/media").text
+    tv = gc.get("/a/media", headers={"User-Agent": TV_UA}).text
+    assert '<header class="pagehead">' in plain and '<header class="pagehead">' not in tv
+    for html in (plain, tv):
+        assert "<em>:8443</em>" in html and 'aria-label="Server address https://' in html and html.count("setup-addr") == 1
+
+
+def test_tv_title_page_has_synopsis_and_rating_chips_only_in_tv_mode(gc):
+    item = "f11f" * 8
+    gc.fake.items[item] = {"Id": item, "Type": "Movie", "Name": "Chip Film", "ProductionYear": 2001,
+                           "Overview": "A synopsis line.", "ProviderIds": {"Tmdb": "777"}, "RunTimeTicks": 100 * 600_000_000}
+    plain = gc.get(f"/media/item/{item}").text
+    tv = gc.get(f"/media/item/{item}", headers={"User-Agent": TV_UA}).text
+    assert "tv-syn" not in plain and "tv-rate" not in plain and "Chip Film (2001)" in plain
+    assert tv.count('name="score"') == 10 and "Your rating" in tv
+    assert 'id="rate"' not in tv                                                         # no second picker below the fold
+    assert 'class="tv-syn">A synopsis line.' in tv and "Chip Film (2001)" not in tv

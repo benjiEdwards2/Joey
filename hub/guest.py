@@ -9,7 +9,9 @@ This module is the single source of truth for what the media front serves:
 * GUEST / PRIVATE / RESERVED are tables of (method, path template), the templates spelled exactly as the routes are
   declared. HEAD counts as GET. `allows()` is deny-by-default: a request is allowed only when a GUEST template matches,
   no PRIVATE or RESERVED template matches, or it is the guest home. RESERVED entries are denied until their WP moves
-  them to GUEST (D-P7): /signin* and /signout (WP-B2), /app/* (WP-B8, public per Q37), Request (WP-B4).
+  them to GUEST (D-P7): /app/* (WP-B8, public per Q37), Request (WP-B4). WP-B2 (2026-10-21) moved the sign-in routes
+  (exactly GET /signin, POST /signin/qc/start, GET /signin/qc/poll, POST /signin/password, POST /signout) to GUEST and
+  PUBLIC; nothing else under /signin is served.
 * The guest home is `/a/<id of the registry's first layout: shelves area>`, resolved at runtime (no area name here).
 * Every route of hub.main.app must sit in exactly one table: tests/hub/test_guest_routes.py fails the suite on an
   unclassified route, naming it. A new route is PRIVATE until someone decides otherwise.
@@ -18,8 +20,12 @@ This module is the single source of truth for what the media front serves:
   log line (hub.shell.ShellMiddleware) sees its 404 / 303 and the identity it stored.
 
 Media front: `/` -> 303 guest home; not allowed -> the ordinary Joey 404 page, rendered for a fixed neutral path so
-every denied or unknown path gets byte-identical HTML (no hint, DECISIONS C); allowed but no identity (except
-PUBLIC paths) -> 303 /signin?next=...; the identity is stored at scope['state']['identity']. The media front ignores
+every denied or unknown path gets byte-identical HTML (no hint, DECISIONS C); PUBLIC paths pass with no identity and
+no Jellyfin call; otherwise the session cookie is resolved (hub.guest_auth, in a worker thread): valid -> the identity
+is stored at scope['state']['identity'] and its Jellyfin user bound for the request (media_jellyfin.bind_viewer, P3);
+no session -> 303 /signin?next=...; a session Jellyfin refused -> 303 /signin with the cookie cleared; Jellyfin
+unreachable -> a 503 page with no data, the cookie kept. An htmx request gets `HX-Redirect: /signin` (200) instead of
+a 303 the XHR would follow silently. The media front ignores
 Cf-Access-Authenticated-User-Email entirely (hub.identity), and hub.access_jwt.AccessGate passes it through by design:
 joey-media never carries ACCESS_* (Q23) and its visitors never pass Cloudflare Access.
 Private front: pass-through, except the Host guard (Q25a): a request whose Host is MEDIA_PUBLIC_HOST (default IN CODE
@@ -31,9 +37,10 @@ Frozen interfaces (§4 rule 9; WP-B2 / WP-B7 build on them):
   matches the substring.
 * The owner-key format is NOT defined here: `OWNER_KEY_RE` is imported from hub.identity (WP-A2).
 
-Identity until WP-B2: `identity_provider` (a callable scope -> Identity | None) is the seam; WP-B2 sets it to the
-session-cookie read, tests set it directly. The dev seam GUEST_DEV_OWNER (Q31) is honoured only when HUB_DEV=1 AND
-the front is media; tests/deploy/test_joey_media_service.py forbids it in compose.
+Identity: the session cookie (hub.guest_auth, WP-B2). `identity_provider` (a callable scope -> Identity | None) stays
+as the test seam and wins when set. The dev seam GUEST_DEV_OWNER (Q31) is honoured only when HUB_DEV=1 AND the front
+is media; tests/deploy/test_joey_media_service.py forbids it in compose. Owners are frozen as OWNER_KEY_RE keys:
+hub.media_db.owner_of raises on a malformed `jf:` owner, so a dev owner must be `jf:<32 lowercase hex>`.
 """
 from __future__ import annotations
 
@@ -83,6 +90,9 @@ def _each(methods: str, *paths: str) -> tuple:
     return tuple((m, p) for p in paths for m in methods.split())
 
 
+SIGNIN: tuple = (("GET", "/signin"), ("POST", "/signin/qc/start"), ("GET", "/signin/qc/poll"),
+                 ("POST", "/signin/password"), ("POST", "/signout"))   # WP-B2: hub/guest_signin.py
+
 _MOVIES_TV = tuple(f"/media/{s}{tail}" for s in ("movies", "tv")
                    for tail in ("", "/watchlist", "/tonight", "/to-rate", "/awards",
                                 "/awards/part/categories", "/awards/part/rows"))
@@ -98,6 +108,7 @@ GUEST: tuple = (
     ("POST", "/media/rate"), ("DELETE", "/media/rate/{item_key}"), ("POST", "/media/rate/{item_key}/delete"),
     *_each("POST", "/media/rate/skip", "/media/rate/skip-show", "/media/rate/unskip"),   # the To rate inbox's own buttons
     ("POST", "/media/log"), ("POST", "/media/settings/rating_level"),
+    *SIGNIN,
     *_each("POST", "/media/watchlist/add", "/media/watchlist/remove"),
     *_each("POST", *(f"/media/resume/{{jf_id}}/{a}" for a in ("watched", "unwatched", "reset", "hide"))),
 )
@@ -122,13 +133,12 @@ PRIVATE: tuple = (
 )
 
 RESERVED: tuple = (
-    *_each("GET POST", "/signin", "/signin/{rest:path}", "/signout"),   # WP-B2
     *_each("GET", "/app", "/app/{rest:path}"),                            # WP-B8 (public per Q37)
     *_each("GET POST", "/media/title/{kind}/{tmdb_id}/request"),         # WP-B4
 )
 
 # Served without an identity on the media front (everything else that is allowed needs one).
-PUBLIC: tuple = (("GET", "/healthz"), ("GET", "/static/{path:path}"))
+PUBLIC: tuple = (("GET", "/healthz"), ("GET", "/static/{path:path}"), *SIGNIN)
 
 
 @lru_cache(maxsize=None)
@@ -228,10 +238,18 @@ def dev_identity() -> Identity | None:
     return Identity(owner=owner, name=DEV_NAME)
 
 
-def request_identity(scope) -> Identity | None:
+async def _resolve(scope) -> tuple[str, Identity | None]:
+    """(verdict, identity): the test seam, else the dev seam, else the session cookie (hub.guest_auth.resolve_scope,
+    which may wait on Jellyfin - run in a worker thread so the event loop never blocks)."""
     if identity_provider is not None:
-        return identity_provider(scope)
-    return dev_identity()
+        ident = identity_provider(scope)
+        return ("ok", ident) if ident is not None else ("none", None)
+    dev = dev_identity()
+    if dev is not None:
+        return "ok", dev
+    import anyio
+    from hub import guest_auth
+    return await anyio.to_thread.run_sync(guest_auth.resolve_scope, scope)
 
 
 def identity_in_scope(scope) -> Identity | None:
@@ -251,11 +269,29 @@ def startup() -> str:
 
 # ---- the gate ----
 
-async def _redirect(send, location: str) -> None:
-    await send({"type": "http.response.start", "status": 303,
-                "headers": [(b"location", location.encode("latin-1")), (b"content-length", b"0"),
-                            (b"cache-control", b"no-store")]})
+async def _redirect(send, location: str, set_cookie: str | None = None, htmx: bool = False) -> None:
+    """303 to `location`, or for htmx a 200 carrying `HX-Redirect` (an XHR follows a 303 silently)."""
+    headers = [(b"hx-redirect", location.encode("latin-1"))] if htmx else [(b"location", location.encode("latin-1"))]
+    headers += [(b"content-length", b"0"), (b"cache-control", b"no-store")]
+    if set_cookie:
+        headers.append((b"set-cookie", set_cookie.encode("latin-1")))
+    await send({"type": "http.response.start", "status": 200 if htmx else 303, "headers": headers})
     await send({"type": "http.response.body", "body": b""})
+
+
+UNAVAILABLE_HTML = ('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+                    '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Joey Media</title>'
+                    '</head><body style="background:#09090b;color:#e4e4e7;font-family:system-ui,sans-serif;'
+                    'padding:2rem"><h1>Joey Media</h1><p>Can\u2019t reach the media server right now. Try again in a '
+                    'minute.</p></body></html>').encode("utf-8")
+
+
+async def unavailable(send) -> None:
+    """The 503 while Jellyfin cannot confirm the session: no data, no nav, the cookie untouched."""
+    await send({"type": "http.response.start", "status": 503,
+                "headers": [(b"content-type", b"text/html; charset=utf-8"), (b"cache-control", b"no-store"),
+                            (b"retry-after", b"30"), (b"content-length", str(len(UNAVAILABLE_HTML)).encode())]})
+    await send({"type": "http.response.body", "body": UNAVAILABLE_HTML})
 
 
 async def not_found(scope, receive, send) -> None:
@@ -296,11 +332,27 @@ class GuestGate:
         if not allows(method, path):
             await not_found(scope, receive, send)
             return
-        ident = request_identity(scope)
-        if ident is not None:
-            scope.setdefault("state", {})["identity"] = ident
-        elif not is_public(method, path):
-            query = scope.get("query_string", b"").decode("latin-1")
-            await _redirect(send, "/signin?next=" + quote(path + ("?" + query if query else ""), safe=""))
+        if is_public(method, path):
+            await self.app(scope, receive, send)
             return
-        await self.app(scope, receive, send)
+        verdict, ident = await _resolve(scope)
+        if verdict == "ok":
+            from hub import media_jellyfin
+            scope.setdefault("state", {})["identity"] = ident
+            bound = media_jellyfin.bind_viewer(ident.jf_user_id)   # P3: the only Jellyfin identity of this request
+            try:
+                await self.app(scope, receive, send)
+            finally:
+                media_jellyfin.reset_viewer(bound)
+            return
+        if verdict == "unreachable":
+            await unavailable(send)
+            return
+        htmx = Headers(scope=scope).get("hx-request") == "true"
+        if verdict == "invalid":
+            from hub import guest_auth
+            await _redirect(send, "/signin", guest_auth.clear_cookie_header(guest_auth.SESSION), htmx)
+            return
+        query = scope.get("query_string", b"").decode("latin-1")
+        await _redirect(send, "/signin" if htmx else
+                        "/signin?next=" + quote(path + ("?" + query if query else ""), safe=""), htmx=htmx)

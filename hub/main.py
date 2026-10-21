@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTasks
 
-from hub import access_jwt, guest, media_backup
+from hub import access_jwt, guest, guest_signin, media_backup
 from hub.images import router as images_router
 from hub.media_discover import router as media_discover_router
 from hub import media_film, media_person, media_plays
@@ -118,6 +118,7 @@ app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
 app.include_router(weather.router)
 app.include_router(media_pages.router)
+app.include_router(guest_signin.router)   # Joey TV WP-B2: the media front's sign-in (404 on the private front)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 

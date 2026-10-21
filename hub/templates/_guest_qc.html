@@ -1,0 +1,15 @@
+{# Joey TV WP-B2: the Quick Connect panel - the code (never the secret) and the status line that polls. #}
+<div id="qc">
+  <p class="seclabel">Sign in with Quick Connect</p>
+  {% if code %}
+  <p class="qc-code" aria-label="Quick Connect code">{{ code }}</p>
+  <p>On your phone, open <b>Jellyfin</b> › your <b>profile</b> › <b>Quick Connect</b>, then enter this code.</p>
+  {% set state = "waiting" %}{% include "_guest_qc_status.html" %}
+  {% else %}
+  <p class="signin-error" role="alert">{{ qc_error }}</p>
+  {% endif %}
+  <form hx-post="/signin/qc/start" hx-target="#qc" hx-swap="outerHTML" method="post" action="/signin/qc/start">
+    <input type="hidden" name="next" value="{{ next_path }}">
+    <button type="submit" class="btn">Get a new code</button>
+  </form>
+</div>

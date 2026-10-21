@@ -49,6 +49,11 @@ nothing else. Keys (names only): `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `JELLYFIN_U
 `sh nas_scripts/media_env.sh` (copy it to `/tmp` first; `--force` rebuilds it after a key rotation): it copies the guest keys out
 of `deploy/.env` and prints key names and a count, never a value. After any change run `docker compose up -d hub joey-media`.
 
+`deploy/tv.env` (Joey TV WP-B8, 2026-10-21) is a sixth NAS-only file, `chmod 600`: one key, `GH_TV_TOKEN` (a fine-grained GitHub token,
+Contents read-only on `life-dashboard` only, 1-year expiry). Only `deploy/tv_publish.py` reads it, through `docker run --env-file` in
+`deploy.sh`; it is not a compose `env_file`, so no container keeps it. Missing = the history line says `tv=skipped:no-token`. Template
+`deploy/tv.env.example`; saved through the secrets routine; renewal: `docs/tv-release.md`, "NAS token renewal".
+
 Guest sign-in (Joey TV WP-B2, 2026-10-21) adds no new `media.env` key: it uses `JELLYFIN_URL` (Quick Connect and password sign-in
 both go to Jellyfin there; unset = sign-in shows "Couldn't reach Jellyfin") and `JELLYFIN_USER_ALIASES` (B.'s own Jellyfin user
 signs in as `you`). Two optional keys exist for local development only and must never reach the NAS or compose: `JOEY_COOKIE_SECURE=0`

@@ -575,6 +575,7 @@ Expect a line `"wud.trigger.exclude": "dockercompose.local"`. If it is missing, 
 2. **SWAG.** Glance at https://github.com/linuxserver/docker-swag/releases for a new tag (format `5.8.0-lsNNN` or newer) and whether the notes mention nginx, OpenSSL or certbot security fixes.
 3. **Decide.** Suggested rule (not in the plan; confirm or change it): security fixes within the same week; other releases after about a week of soak; never on an evening a friend streams (check `JfSessions`, see Part B).
 4. **Record** in HANDOVER.md or DECISIONS only when you actually update: `<date> Jellyfin updated <old> to <new>` or `<date> swag tag <old> to <new>`.
+5. **Joey TV app (WP-B8).** `ssh -i $env:USERPROFILE\.ssh\joey_nas root@192.168.68.59 "tail -1 /volume1/Docker/joey/life-dashboard/deploy/history.log"`: the line ends `tv=current`. A lingering `tv=pending` means a deploy was missed after a release (deploy again); `tv=FAIL:auth` means the NAS token needs renewing. Meaning of every token and what to do: [`tv-release.md`](tv-release.md), "History tokens". (A TV release alone does not recreate swag, so it needs no R4 timing; only a `deploy/swag/**` change does.)
 
 **Verify (weekly):** you looked at both pages and wrote down "checked, nothing" or "updating on <day>". If you skip two weeks in a row there is a CVE window; set a calendar reminder.
 

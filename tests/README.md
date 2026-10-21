@@ -20,6 +20,7 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 | `tests/hub/` | The hub: shell, registry, identity, store, every Media / Server / Weather / Awards page and its routes |
 | `tests/connectors/` | Envelope and per-feed schemas, fixture tests per connector, the sample snapshots, the contract doc |
 | `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script, cloudflared, public-edge (`test_edge.py`) and off-box media.db push (`test_media_offsite.py`) checks |
+| `tests/tv/` | The Joey TV app's release metadata only (`test_version_file.py`: `tv/VERSION`, `tv/NOTES.txt`, `tv/SIGNING_CERT_SHA256`); the Kotlin app's own tests are JVM tests under `tv/`, run in Actions |
 | `tests/money/` | The money pre-commit guard only (the money importer was never built) |
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
 
@@ -67,7 +68,16 @@ Guest sign-in and fail-closed owners (Joey TV WP-B2, 2026-10-21):
   route is requested as a friend four ways (plain, `?owner_view=both`, cookie, spoofed Access header) and no body may carry one.
   A control run as B.'s alias user proves the sweep can see data.
 
-`tests/hub/` by theme (file prefixes):`tests/hub/` by theme (file prefixes):
+Joey TV release pipeline (WP-B8, 2026-10-21; docs: `docs/tv-release.md`), all offline:
+
+- `tests/tv/test_version_file.py`: `tv/VERSION` (three keys, semver, `YYYYMMDDnn` with a real calendar date, at most 2,100,000,000, `minVersionCode` at most `versionCode`), `tv/NOTES.txt` (non-empty, at most 500 characters) and `tv/SIGNING_CERT_SHA256` (64 lowercase hex; **one skip until WP-B9 commits it**). The rules are spelled out independently of `deploy/tv_version.py` and must agree with it on every case. No real clock (the gate runs on UTC, the cut date is Sydney).
+- `tests/deploy/test_tv_version.py`: `deploy/tv_version.py` (the `version.json` the release job writes, the APK secret scan, the cut-date typo guard, the CLI the workflow calls) on synthetic zip APKs.
+- `tests/deploy/test_tv_publish.py`: `deploy/tv_publish.py` against a loopback fake of the GitHub API (127.0.0.1 only, so it runs under `--network none`): published (`version.json` written last), current (no HTTP), pending, hash and versionCode mismatch, downgrade refused, 401 naming the token, retention 3, the token never following the storage redirect, a half-uploaded release, no token.
+- `tests/deploy/test_deploy_script.py` (WP-B8 additions): the `tv_publish` hook runs after smoke and on NOTHING-TO-DEPLOY only, never inside `rollback()` / `gate_fail()`, never fails the deploy, and `tv=<status>` lands in the single history line.
+- `tests/deploy/test_tv_context.py`: the Docker build context carries only the three `tv/` release-metadata files (never the Android project or the debug p12), and git tracks exactly one keystore, the labelled debug key.
+- `tests/hub/test_tv_app_routes.py`: `/app` on the media front without a sign-in (page, `version.json`, `latest.apk`, a versioned APK, exact headers), traversal and look-alike names 404, writes refused, an empty dir, a `version.json` naming a missing APK, and every `/app` path 404 on the private front. `tests/deploy/smoke.py --front media` checks `/app/version.json` (200 JSON, or 404 before the first release).
+
+`tests/hub/` by theme (file prefixes):
 
 - **Shell and look:** `test_hub_shell`, `test_hub_core`, `test_shell`, `test_hub_page`, `test_area_pages` (top bar, tab bar, hub tiles, area pages; formerly `test_apex_*` — the Apex rail and theme-toggle tests are historical, rewritten for the MediaHub shell), `test_style_*`, `test_styling`, `test_pwa`, `test_hidden_areas`, `test_history_*`, `test_routes`.
 - **Registry, identity, owners:** `test_registry`, `test_identity`, `test_owner_filter`, `test_store`, `test_tiles`, `test_images`.

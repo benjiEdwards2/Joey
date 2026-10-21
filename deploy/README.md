@@ -54,6 +54,13 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   - **Same rule as swag:** never take `media` out of `COMPOSE_PROFILES` without the kill-switch runbook (`docs/public-edge.md`).
   - **Never bind a single file `:ro` into it.** A single-file bind pins the file's inode: an editor or `git pull` that
     replaces the file leaves the container on the old copy until a recreate (the swag confs, above). Mount directories.
+- **Joey TV app releases (Joey TV WP-B8, 2026-10-21):** after smoke passes (and on NOTHING-TO-DEPLOY) `deploy.sh` runs
+  `deploy/tv_publish.py` in the `life-hub` image: it pulls the GitHub Release `tv-<versionCode>` for the tree's `tv/VERSION` into
+  `/volume1/Docker/joey/data/tv-app`, which `joey-media` mounts read-only (`TV_APP_DIR=/data/tv-app`, served at
+  `https://media.joeyhome.net/app/` by `hub/tv_app.py`). The token is `GH_TV_TOKEN` in the NAS-only `deploy/tv.env`
+  (template `deploy/tv.env.example`; absent = `tv=skipped:no-token`). It never fails a deploy and never runs inside rollback: the
+  history line ends `tv=<token>` (`published:<code>`, `current`, `pending:<code>`, `skipped:no-token`, `FAIL:<reason>`). A TV
+  release alone does not recreate swag. Cut a release, tokens, signing key, token renewal: `docs/tv-release.md`.
 - **Stale lock:** the lock (`/tmp/joey-deploy.lock`) holds the running deploy's pid and log path. A lock whose pid is
   dead is cleared by the next deploy at once; a lock with no pid is cleared after 30 min. By hand, only when nothing is
   running: `rm -rf /tmp/joey-deploy.lock`.

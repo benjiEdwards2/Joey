@@ -152,7 +152,7 @@ class ShellMiddleware:
 
 
 # Already-compressed bodies (posters, icons, fonts) skip gzip: no gain, NAS CPU spent.
-NO_GZIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".woff2", ".ico")
+NO_GZIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".woff2", ".ico", ".apk")   # .apk: Joey TV /app (a zip)
 GZIP_MIN_BYTES = 1024
 GZIP_LEVEL = 6
 

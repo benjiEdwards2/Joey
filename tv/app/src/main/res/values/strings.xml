@@ -24,6 +24,13 @@
     <string name="update_body_forced">This version of Joey Media is too old to keep working. Update to continue.</string>
     <string name="update_now">Update now</string>
     <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading the update…</string>
+    <string name="update_failed">Update failed – try again later</string>
+    <string name="update_up_to_date">Joey Media is up to date</string>
+    <string name="update_check_failed">Couldn\'t check for updates</string>
+    <string name="update_allow_title">Allow updates</string>
+    <string name="update_allow_body">This TV can\'t open the setting directly. Open Settings → Apps → Joey Media → Install unknown apps (on Fire TV: Settings → My Fire TV → Developer options → Install unknown apps), allow Joey Media, then come back and choose Update now.</string>
+    <string name="message_ok">OK</string>
 
     <string name="settings_title">Joey TV settings</string>
     <string name="settings_hint">Hidden screen for testing. Leave blank to use the built-in addresses.</string>
@@ -38,7 +45,6 @@
     <string name="settings_test_handoff">Test hand-off</string>
     <string name="settings_close">Close</string>
     <string name="settings_signed_out">Signed out on this TV</string>
-    <string name="settings_update_pending">Update check arrives with WP-B8</string>
 
     <string name="toast_not_on_tv">Not available on TV</string>
     <string name="toast_youtube_missing">YouTube isn\'t available on this TV</string>

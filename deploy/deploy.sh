@@ -11,7 +11,8 @@
 # Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
 # It detaches from your ssh session and logs to deploy/logs/deploy-<UTC>-<pid>.log (re-attach: tail -f <log>).
 # Every run that takes the lock appends ONE line to history.log (review D-03, 2026-10-09):
-# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | ROLLED-BACK | ROLLBACK-FAILED | ABORTED.
+# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | ROLLED-BACK | ROLLBACK-FAILED | ABORTED. PASS and NOTHING-TO-DEPLOY also carry
+# tv=<status> (Joey TV release publishing, WP-B8).
 set -eu
 set -o pipefail
 
@@ -78,6 +79,27 @@ log_history() {
     LOGGED=1
 }
 
+# Joey TV releases (WP-B8; Q36 = a, Q38 = automatic): after smoke PASSES, and on NOTHING-TO-DEPLOY, publish the GitHub
+# Release for the tree's tv/VERSION into the tv-app dir that joey-media serves at https://media.joeyhome.net/app/.
+# NEVER inside rollback() or gate_fail(). It prints ONE status token for the history line (`tv=<token>`:
+# published:<code> | current | pending:<code> | skipped:no-token | FAIL:<reason>) and never fails the deploy - the
+# token is the signal (runbook R4: a lingering tv=pending means a deploy was missed after a release). The token file
+# deploy/tv.env is NAS-only; the container runs as the image's uid 1000, so the dir is created and handed to it.
+TV_APP_DIR=/volume1/Docker/joey/data/tv-app
+tv_publish() {
+    if [ ! -f "$DEPLOY_DIR/tv.env" ]; then
+        echo "skipped:no-token"
+        return 0
+    fi
+    if ! { mkdir -p "$TV_APP_DIR" && chown 1000:1000 "$TV_APP_DIR"; }; then
+        echo "FAIL:tv-app-dir"
+        return 0
+    fi
+    tv_status=$(docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 --env-file "$DEPLOY_DIR/tv.env" \
+        -v "$REPO":/repo:ro -v "$TV_APP_DIR":/out life-hub python /repo/deploy/tv_publish.py) || true
+    echo "${tv_status:-FAIL:no-status}" | tail -n 1
+}
+
 # One deploy at a time (2026-10-06: two concurrent deploys made smoke race the hub's
 # startup and forced a rollback). mkdir is the atomic lock on BusyBox. The holder's pid
 # and log go into the lock dir (2026-10-20, detached deploys): a live holder always blocks,
@@ -134,8 +156,9 @@ for attempt in 1 2 3; do
 done
 NEW_SHA=$(GIT rev-parse --short HEAD)
 if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$FORCE" -eq 0 ]; then
-    log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy)"
-    echo "NOTHING-TO-DEPLOY: already at $NEW_SHA (deploy.sh --force to redeploy)"
+    TV=$(tv_publish)
+    log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy) tv=$TV"
+    echo "NOTHING-TO-DEPLOY: already at $NEW_SHA (deploy.sh --force to redeploy), tv=$TV"
     exit 0
 fi
 
@@ -276,6 +299,8 @@ smoke || rollback "smoke failed"
 # Reclaim what each build leaves behind (review D-08): dangling images and week-old build cache.
 docker image prune -f >/dev/null || true
 docker builder prune -f --filter until=168h >/dev/null || true
-log_history "PASS" "suite green, smoke ok"
-echo "DEPLOY OK: $PREV_SHA -> $NEW_SHA"
+echo "== tv release =="
+TV=$(tv_publish)
+log_history "PASS" "suite green, smoke ok tv=$TV"
+echo "DEPLOY OK: $PREV_SHA -> $NEW_SHA, tv=$TV"
 exit 0

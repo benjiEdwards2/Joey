@@ -22,6 +22,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_RETURNING, false)
         set(value) = sp.edit().putBoolean(KEY_RETURNING, value).apply()
 
+    /** When the last update check got a valid version.json (epoch ms), or null: the 24 h throttle (WP-B8). */
+    var lastUpdateCheck: Long?
+        get() = if (sp.contains(KEY_UPDATE_CHECK)) sp.getLong(KEY_UPDATE_CHECK, 0L) else null
+        set(value) = sp.edit().apply { if (value == null) remove(KEY_UPDATE_CHECK) else putLong(KEY_UPDATE_CHECK, value) }.apply()
+
     /** Reads and clears the mark in one go. */
     fun consumeReturningFromPlayback(): Boolean = returningFromPlayback.also { if (it) returningFromPlayback = false }
 
@@ -34,5 +39,6 @@ class Prefs(context: Context) {
         const val KEY_JF = "jellyfin_host"
         const val KEY_LAST_URL = "last_url"
         const val KEY_RETURNING = "returning_from_playback"
+        const val KEY_UPDATE_CHECK = "last_update_check"
     }
 }

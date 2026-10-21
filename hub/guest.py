@@ -9,9 +9,10 @@ This module is the single source of truth for what the media front serves:
 * GUEST / PRIVATE / RESERVED are tables of (method, path template), the templates spelled exactly as the routes are
   declared. HEAD counts as GET. `allows()` is deny-by-default: a request is allowed only when a GUEST template matches,
   no PRIVATE or RESERVED template matches, or it is the guest home. RESERVED entries are denied until their WP moves
-  them to GUEST (D-P7): /app/* (WP-B8, public per Q37), Request (WP-B4). WP-B2 (2026-10-21) moved the sign-in routes
+  them to GUEST (D-P7): Request (WP-B4). WP-B2 (2026-10-21) moved the sign-in routes
   (exactly GET /signin, POST /signin/qc/start, GET /signin/qc/poll, POST /signin/password, POST /signout) to GUEST and
-  PUBLIC; nothing else under /signin is served.
+  PUBLIC; nothing else under /signin is served. WP-B8 (2026-10-21) moved GET /app and GET /app/{rest:path} (the TV
+  app download + version.json, hub/tv_app.py) to GUEST and PUBLIC (Q37); hub/tv_app.py 404s anything but its files.
 * The guest home is `/a/<id of the registry's first layout: shelves area>`, resolved at runtime (no area name here).
 * Every route of hub.main.app must sit in exactly one table: tests/hub/test_guest_routes.py fails the suite on an
   unclassified route, naming it. A new route is PRIVATE until someone decides otherwise.
@@ -92,6 +93,7 @@ def _each(methods: str, *paths: str) -> tuple:
 
 SIGNIN: tuple = (("GET", "/signin"), ("POST", "/signin/qc/start"), ("GET", "/signin/qc/poll"),
                  ("POST", "/signin/password"), ("POST", "/signout"))   # WP-B2: hub/guest_signin.py
+TV_APP: tuple = (("GET", "/app"), ("GET", "/app/{rest:path}"))   # WP-B8: hub/tv_app.py, public per Q37
 
 _MOVIES_TV = tuple(f"/media/{s}{tail}" for s in ("movies", "tv")
                    for tail in ("", "/watchlist", "/tonight", "/to-rate", "/awards",
@@ -109,6 +111,7 @@ GUEST: tuple = (
     *_each("POST", "/media/rate/skip", "/media/rate/skip-show", "/media/rate/unskip"),   # the To rate inbox's own buttons
     ("POST", "/media/log"), ("POST", "/media/settings/rating_level"),
     *SIGNIN,
+    *TV_APP,
     *_each("POST", "/media/watchlist/add", "/media/watchlist/remove"),
     *_each("POST", *(f"/media/resume/{{jf_id}}/{a}" for a in ("watched", "unwatched", "reset", "hide"))),
 )
@@ -133,12 +136,11 @@ PRIVATE: tuple = (
 )
 
 RESERVED: tuple = (
-    *_each("GET", "/app", "/app/{rest:path}"),                            # WP-B8 (public per Q37)
     *_each("GET POST", "/media/title/{kind}/{tmdb_id}/request"),         # WP-B4
 )
 
 # Served without an identity on the media front (everything else that is allowed needs one).
-PUBLIC: tuple = (("GET", "/healthz"), ("GET", "/static/{path:path}"), *SIGNIN)
+PUBLIC: tuple = (("GET", "/healthz"), ("GET", "/static/{path:path}"), *SIGNIN, *TV_APP)
 
 
 @lru_cache(maxsize=None)

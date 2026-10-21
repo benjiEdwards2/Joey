@@ -19,8 +19,10 @@ There is no local JDK or Android SDK on the laptop. Every push to a `joeytv-*` b
 `.github/workflows/tv.yml` runs `.github/workflows/tv.yml`:
 
 ```
-gradle -p tv lint testSideloadDebugUnitTest assembleSideloadDebug
-bash tv/ci/check_apk.sh ...   # aapt2 badging: package, sdkVersion 28, leanback launcher; permissions; 320x180 banner; TV lint ids
+gradle -p tv lint testSideloadDebugUnitTest assembleSideloadDebug assembleStoreDebug
+bash tv/ci/check_apk.sh ...        # aapt2 badging: package, sdkVersion 28, leanback launcher; permissions; 320x180 banner; TV lint ids
+bash tv/ci/check_store_apk.sh ...  # store flavor: no REQUEST_INSTALL_PACKAGES, no updater receiver
+python3 deploy/tv_version.py scan  # no token-shaped strings in the APK
 ```
 
 Watch and fetch from PowerShell:
@@ -37,6 +39,18 @@ The `tv-reports` artifact holds the lint HTML/XML and the JVM test results. Grad
 
 Debug builds are signed with the committed, public DEBUG key in `app/debug-signing/` (see its README), so every
 CI debug APK has the same signature. The release key never enters git (WP-B8/B9).
+
+Release half (WP-B8): with the repo secrets `TV_KEYSTORE_B64` + `TV_KEYSTORE_PASSWORD` the build job also makes the
+signed sideload release APK `joey-media-<versionName>-<versionCode>.apk` + `version.json` (artifact
+`joey-media-release`), and on `main` the `release` job creates the GitHub Release `tv-<versionCode>`; `deploy.sh`
+then publishes it to `https://media.joeyhome.net/app/`. Without the secrets the release half is dormant: the run
+stays green with a notice and proves `assembleSideloadRelease` refuses to build (no keystore = no APK). Every tv/
+change merged to `main` needs a higher `versionCode` in `tv/VERSION`. Cut-a-release steps: `docs/tv-release.md`.
+
+Updater (sideload flavor only): on launch, at most once a day, the app reads `<ui>/app/version.json` (5 s); a newer
+versionCode shows the update prompt (forced when the installed code is below `min_version`), the APK is streamed to
+`cacheDir/updates` with a SHA-256 check and installed through a PackageInstaller session. Settings → "Check for update
+now" skips the daily throttle. Logic in `app/src/main/java/net/joeyhome/media/update/` (JVM-tested).
 
 ## Install with adb
 

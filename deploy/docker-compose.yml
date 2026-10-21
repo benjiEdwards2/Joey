@@ -94,10 +94,13 @@ services:
       MEDIA_WARMUP: "off"
       MEDIA_FOLLOW: "off"
       MEDIA_AWARDS: "off"
+      TV_APP_DIR: /data/tv-app
     volumes:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
       - /volume1/Docker/joey/data/cache/img:/data/cache/img
       - /volume1/Docker/joey/data/sqlite:/data/sqlite
+      # Joey TV releases (WP-B8): deploy.sh's tv_publish writes here, joey-media serves it read-only at /app/
+      - /volume1/Docker/joey/data/tv-app:/data/tv-app:ro
     expose:
       - "8000"
     # default: cloudflared reaches it as joey-media:8000. media: jellyfin:8096 / jellyseerr:5055 by name (N-09).

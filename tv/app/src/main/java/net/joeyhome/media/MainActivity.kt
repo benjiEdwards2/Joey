@@ -22,6 +22,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.Toast
+import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import net.joeyhome.media.policy.BackAction
@@ -34,6 +35,10 @@ import net.joeyhome.media.policy.KeyPolicy
 import net.joeyhome.media.policy.UrlDecision
 import net.joeyhome.media.policy.UrlPolicy
 import net.joeyhome.media.policy.UserAgent
+import net.joeyhome.media.update.CheckResult
+import net.joeyhome.media.update.DownloadResult
+import net.joeyhome.media.update.UpdateDecision
+import net.joeyhome.media.update.UpdateFlow
 
 /**
  * The single Activity: a full-screen WebView over the Joey Media UI plus the native screens (Screens) above it.
@@ -60,6 +65,14 @@ class MainActivity : Activity() {
 
     private val main = Handler(Looper.getMainLooper())
     private val io: ExecutorService = Executors.newSingleThreadExecutor()
+
+    /** The sideload updater (WP-B8 step 7): its own thread, so a download never delays a Splash probe. */
+    private val updateIo: ExecutorService = Executors.newSingleThreadExecutor()
+    private var updates: UpdateFlow? = null
+    private var activeUpdate: ActiveUpdate? = null
+    private var updating = false
+
+    private class ActiveUpdate(val offer: UpdateDecision.Offer, val versionUrl: String)
     private var backCallback: Any? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,6 +98,7 @@ class MainActivity : Activity() {
         } else {
             startSplash()
         }
+        if (BuildConfig.UPDATER) startUpdater()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -122,6 +136,7 @@ class MainActivity : Activity() {
         unregisterBackCallback()
         main.removeCallbacksAndMessages(null)
         io.shutdownNow()
+        updateIo.shutdownNow()
         web?.destroy()
         web = null
         super.onDestroy()
@@ -238,6 +253,7 @@ class MainActivity : Activity() {
             ?.takeIf { urlPolicy.decide(it) == UrlDecision.Load }
         pendingUrl = null
         if (target != null) web?.loadUrl(target) else loadUi("/")
+        showActiveUpdate() // an offer that arrived during the Splash
     }
 
     private fun showOffline() {
@@ -267,6 +283,89 @@ class MainActivity : Activity() {
         toast(R.string.nojf_store_failed)
     }
 
+    // ---- Updater (sideload flavor, WP-B8 step 7; DECISIONS F) ---------------------------------------------------
+
+    private fun updatesDir() = File(cacheDir, "updates")
+
+    /** On launch: clear last run's APK, then check (at most once a day) in parallel with the WebView load. */
+    private fun startUpdater() {
+        updates = UpdateFlow(AndroidUpdatePorts(this, userAgent()), BuildConfig.VERSION_CODE.toLong()) {
+            System.currentTimeMillis()
+        }
+        val dir = updatesDir()
+        updateIo.execute { UpdateFlow.clear(dir) }
+        checkForUpdate(manual = false)
+    }
+
+    /** [manual] = Settings → "Check for update now": skips the 24 h throttle and reports every outcome. */
+    private fun checkForUpdate(manual: Boolean) {
+        val flow = updates ?: return
+        val ui = hosts.ui
+        val last = prefs.lastUpdateCheck
+        updateIo.execute {
+            val result = flow.check(ui, last, force = manual)
+            main.post { onUpdateCheck(result, manual) }
+        }
+    }
+
+    private fun onUpdateCheck(result: CheckResult, manual: Boolean) {
+        if (isDestroyed) return
+        when (result) {
+            CheckResult.Skipped -> Unit
+            CheckResult.Failed -> if (manual) toast(R.string.update_check_failed) // silent on launch
+            is CheckResult.Done -> {
+                prefs.lastUpdateCheck = result.checkedAt
+                when (val decision = result.decision) {
+                    UpdateDecision.None -> if (manual) toast(R.string.update_up_to_date)
+                    is UpdateDecision.Offer -> {
+                        activeUpdate = ActiveUpdate(decision, result.versionUrl)
+                        showActiveUpdate()
+                    }
+                }
+            }
+        }
+    }
+
+    /** Shown above the page or Settings, never over Splash/Offline (they clear the overlay); re-shown after the next
+     *  Splash until Later (optional) or forever (forced). */
+    private fun showActiveUpdate() {
+        val active = activeUpdate ?: return
+        when (screens.top) {
+            Screens.Kind.SPLASH, Screens.Kind.OFFLINE, Screens.Kind.UPDATE, Screens.Kind.MESSAGE -> return
+            else -> Unit
+        }
+        val remote = active.offer.remote
+        screens.showUpdate(
+            UpdateOffer(remote.versionName, BuildConfig.VERSION_NAME, remote.notes, active.offer.forced),
+            onUpdate = { startUpdate(active) },
+            onLater = { activeUpdate = null },
+            onExit = { finish() },
+        )
+    }
+
+    private fun startUpdate(active: ActiveUpdate) {
+        val flow = updates ?: return
+        if (!InstallPermission.granted(this)) {
+            // Per-app "Install unknown apps"; Fire OS has no such screen → the explainer. The prompt stays open, so
+            // the user comes back and presses Update now again.
+            if (!InstallPermission.openSettings(this)) {
+                screens.showMessage(R.string.update_allow_title, getString(R.string.update_allow_body))
+            }
+            return
+        }
+        if (updating) return
+        updating = true
+        toast(R.string.update_downloading)
+        val dir = updatesDir()
+        updateIo.execute {
+            val result = flow.downloadAndInstall(active.offer.remote, active.versionUrl, dir)
+            main.post {
+                updating = false
+                if (result is DownloadResult.Failed && !isDestroyed) toast(R.string.update_failed)
+            }
+        }
+    }
+
     // ---- Hidden settings -------------------------------------------------------------------------------------
 
     private fun openSettings() {
@@ -290,7 +389,7 @@ class MainActivity : Activity() {
                 return settingsModel()
             }
 
-            override fun checkForUpdate() = toast(R.string.settings_update_pending) // WP-B8 step 7
+            override fun checkForUpdate() = checkForUpdate(manual = true)
 
             override fun clearSignIn() {
                 CookieManager.getInstance().removeAllCookies(null)

@@ -25,7 +25,7 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub import media_home, media_pages, shell, tasks, today, weather
+from hub import media_home, media_pages, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
     DIARY_PAGE, LIBVIEWS, LIBVIEW_COOKIE, LIBVIEW_MAX_AGE, MILESTONES_MAX, _arr_linker, _detail_page,
@@ -118,6 +118,7 @@ app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
 app.include_router(weather.router)
 app.include_router(media_pages.router)
+app.include_router(tv_app.router)   # Joey TV WP-B8: /app download + version.json (media front only)
 app.include_router(guest_signin.router)   # Joey TV WP-B2: the media front's sign-in (404 on the private front)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 

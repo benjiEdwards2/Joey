@@ -1126,3 +1126,12 @@ is enabled); plays, home shelves, resume, `shell.resolve_owner_view` and the dia
 reads and resume writes use the signed-in user's own id and token, never the admin's. `GUEST_DEV_OWNER` must now be a
 well-formed `jf:<32 hex>` key. Tests: new `test_guest_owner`, `test_guest_auth`, `test_guest_signin`, `test_guest_no_leak`
 and the fake Jellyfin `tests/hub/fake_jellyfin.py` (`tests/README.md`). Docs: `hub/README.md` "Guest sign-in", `docs/setup.md`.
+
+**TV app download and update endpoints: `/app` (Joey TV WP-B8, 2026-10-21).** The media front gains `hub/tv_app.py`: `GET /app` (plain HTML,
+no JS: version, notes, one big Download link, Downloader steps; "No build published yet" while empty), `GET /app/version.json`
+(`Cache-Control: no-cache`, the app's daily update check), `GET /app/latest.apk` (302 to the versioned APK, `no-store`, a short URL for
+Downloader) and `GET /app/<joey-media-semver-code.apk>` (`application/vnd.android.package-archive`, `public, max-age=31536000, immutable`);
+anything else under `/app` is the ordinary byte-identical 404. They read `TV_APP_DIR` (`/data/tv-app`, mounted `:ro` from
+`/volume1/Docker/joey/data/tv-app`), which `deploy.sh`'s `deploy/tv_publish.py` fills from the GitHub Release `tv-<versionCode>`. In
+`hub/guest.py` GET `/app` and `/app/{rest:path}` moved from RESERVED to GUEST and PUBLIC (Q37: no sign-in); on the private front every
+`/app` path is the same 404. Tests: `tests/hub/test_tv_app_routes.py`. Docs: `docs/tv-release.md`, `hub/README.md` "Guest front".

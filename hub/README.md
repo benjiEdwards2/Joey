@@ -98,10 +98,14 @@ is the full contract.
   request whose Host is `MEDIA_PUBLIC_HOST` (default in code `media.joeyhome.net`) gets the 404, so a tunnel typo can never
   publish private Joey ungated.
 - **Every new route must be classified in `hub/guest.py`.** Each (method, path template) must sit in exactly one of
-  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST: `/app/*`,
-  Request; the sign-in routes left RESERVED in WP-B2). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
+  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST: the title Request
+  routes; the sign-in routes left RESERVED in WP-B2, `/app/*` in WP-B8). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
   unclassified route, naming it**. A new route is PRIVATE until someone decides otherwise; add it to `GUEST` only on
   purpose, and never put a private page behind it.
+- **`/app` (Joey TV WP-B8, 2026-10-21):** `GET /app` and `GET /app/{rest:path}` (`hub/tv_app.py`: the TV app page, `version.json`,
+  `latest.apk`, the versioned APKs) are GUEST and PUBLIC (no sign-in, Q37), media front only; on the private front they are the ordinary
+  404. Headers are exactly those in the `hub/tv_app.py` docstring (`no-cache` on `version.json`, `no-store` on the `latest.apk` 302,
+  `immutable` on a versioned APK). Operations: `docs/tv-release.md`.
 - **One scrub point.** On the media front `shell.get_snapshots` keeps only `jellyfin`, `jellyseerr` and `arr`, each cut to
   an allow-list of keys with B.'s played state and the requester's name removed from rows. A module that serves a request
   must read snapshots through `shell.get_snapshots`, never `hub.store.get_snapshots` (a test enforces it).

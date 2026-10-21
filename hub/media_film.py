@@ -1283,7 +1283,8 @@ def _play_ids(f: dict, play_ids: dict) -> None:
 def guest_controls(f: dict, kind, tmdb_id) -> dict:
     """Joey TV WP-B3 step 4 (Q19): on the media front a title / item page carries no household control - no Search now,
     Quality, upgrade note, file-strip badges, Follow (show / collection) or Jellyseerr link, and the Request block only
-    where hub.guest.allows() serves the request route (RESERVED until WP-B4). Private front: `f` untouched."""
+    where hub.guest.allows() serves the request route (GUEST since WP-B4), with the signed-in friend's own request
+    state (`req_mine`: pending / approved / declined, hub.media_guest_requests). Private front: `f` untouched."""
     if not guest.is_media():
         return f
     f.update(arr_search=None, quality_href=None, quality_block=None, upgrade=None, jellyseerr_href=None)
@@ -1296,6 +1297,9 @@ def guest_controls(f: dict, kind, tmdb_id) -> dict:
         f["trailer"] = None
     if not (kind in ("movie", "tv") and tmdb_id and guest.allows("GET", f"/media/title/{kind}/{tmdb_id}/request")):
         f["show_request"] = False
+    if f.get("show_request"):
+        from hub import media_guest_requests   # late: it imports media_discover
+        f["req_mine"] = media_guest_requests.title_mine(kind, tmdb_id)
     return f
 
 
@@ -1356,7 +1360,8 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
         return _prefetched("title")
     film["req_future"] = media_arr_search.future_note(future) if state == "done" else None   # media-ux5 item 7
     # WP-R1: the Quality chips on the no-JS confirm step; "Requested in 4K" + the safety net's warning when done
-    film["req_profiles"] = media_quality.choices(kind) if state == "confirm" and film.get("show_request") else []
+    film["req_profiles"] = (media_quality.choices(kind) if state == "confirm" and film.get("show_request")
+                            and not guest.is_media() else [])   # Joey TV WP-B4: no Quality on the media front (Q19)
     film["req_quality"] = media_quality.name_of(kind, quality) if state == "done" else None
     film["req_qnote"] = media_quality.net_note(qnet, kind) if state == "done" else None
     return _render(request, src, film, view, from_query, snaps)

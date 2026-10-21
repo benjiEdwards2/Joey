@@ -165,7 +165,8 @@
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();
-      setFocus(first());
+      /* Joey TV WP-B4: a dialog that knows its opener (the Discover request panel: the poster) gives focus back to it */
+      setFocus(d._opener && visible(d._opener) ? d._opener : first());
       return true;
     },
     focusFirst: function () { setFocus(first()); }

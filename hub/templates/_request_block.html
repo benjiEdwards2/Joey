@@ -1,10 +1,16 @@
 {# Request block (2026-10-05; restyle Phase 3): idle -> confirm -> done, two steps and no browser dialog — the
    confirm step is an inline panel (guide 6) with Confirm (primary, sm) + Cancel (ghost, sm). Every form/link also
    works without JS; the hx- attributes upgrade it. `req_primary` (set by the film page when there is no Play)
-   makes Request the hero's one white button. #}
+   makes Request the hero's one white button.
+   Joey TV WP-B4 (2026-10-21), media front only: `mine` is the signed-in friend's own request of this title (pending /
+   approved / declined, hub.media_guest_requests) - every friend request waits for B.'s approval (DECISIONS B #19); no
+   "shows in Requests" (that page is private), no Quality chips, and "All seasons" without "+ future" (no Sonarr follow). #}
 {% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
+{% set on_media = guest(request) %}
 <div id="request-block" class="requestblock">
-{% if state == "done" %}
+{% if state == "done" and on_media %}
+  <p class="statusline st-good">{% if mine == "pending" %}Requested — waiting for approval{% else %}Requested ✓{% endif %}</p>
+{% elif state == "done" %}
   <p class="statusline st-good">Requested{% if quality %} in {{ quality }}{% endif %} ✓ — shows in Requests within the hour</p>
   {% if qnote %}<p class="metaline st-warn">{{ qnote }}</p>{% endif %}
   {% if future %}<p class="metaline {{ 'st-good' if future.ok else 'st-warn' }}">{{ future.text }}</p>{% endif %}
@@ -18,7 +24,8 @@
     {# media-ux5 (2026-10-09): "All seasons + future" requests every season and has Sonarr follow new ones. Unticked by
        default (2026-10-12: a default-on box swamped a single Season tick); ticking a season unticks it and vice versa
        (form onchange, works on htmx-swapped content). If both still arrive, the server prefers the specific seasons. #}
-    <label class="seasonall"><input type="checkbox" name="seasons" value="all"> All seasons + future <span class="metaline">every season, and new ones as they air</span></label>
+    {% if on_media %}<label class="seasonall"><input type="checkbox" name="seasons" value="all"> All seasons</label>
+    {% else %}<label class="seasonall"><input type="checkbox" name="seasons" value="all"> All seasons + future <span class="metaline">every season, and new ones as they air</span></label>{% endif %}
     <div class="seasonpick">
       {% for s in t.seasons %}
       <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " checked" if s.ticked }}{{ " disabled" if s.disabled }}>
@@ -42,6 +49,12 @@
   </form>
 {% elif t.code == 5 %}
   <p class="statusline st-good">Available — nothing to request</p>
+{% elif mine == "pending" %}
+  <p class="statusline st-warn">Requested — waiting for approval</p>
+{% elif mine == "approved" %}
+  <p class="statusline st-good">Approved — on its way</p>
+{% elif mine == "declined" %}
+  <p class="statusline st-warn">Declined</p>
 {% else %}
   <a class="btn {{ 'btn-white' if req_primary else 'btn-secondary' }}" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Request</a>
 {% endif %}

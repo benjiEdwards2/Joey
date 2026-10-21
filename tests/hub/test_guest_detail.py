@@ -2,7 +2,7 @@
 
 As a friend a title / item page carries no household control (Q19): no Search now (`/arr`), no upgrade note or Search
 for upgrade (`/upgrade`), no Quality, no file-strip badges, no Follow (`/media/follow`), no Jellyseerr link, and the
-Request block only where hub.guest.allows() serves the request route (denied until WP-B4). The person page has no
+Request block only where hub.guest.allows() serves the request route (GUEST since WP-B4: tests/hub/test_guest_requests.py). The person page has no
 Follow; the diary has no owner switch and no Play stats link (PRIVATE).
 
 The seam: on the media front every Jellyfin link (Play, the shelves' links) is built on JELLYFIN_PUBLIC_URL - port kept
@@ -57,7 +57,7 @@ def test_film_page_guest_controls(friend, path):
     r = friend.get(path)
     assert r.status_code == 200, path
     html = r.text
-    for bad in ("/arr", "/upgrade", "/media/follow", "/quality", "/search", "/request"):
+    for bad in ("/arr", "/upgrade", "/media/follow", "/quality", "/search"):   # /request: GUEST since WP-B4
         assert not [a for a in actions(html) if bad in a], (path, bad, actions(html))
     assert "jellyseerr" not in html.lower() and "SENTINEL_DISK" not in html and "1999-01-01" not in html
     assert 'class="fmtbadges"' not in html                         # the file strip's badges are off

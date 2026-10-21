@@ -9,7 +9,9 @@ This module is the single source of truth for what the media front serves:
 * GUEST / PRIVATE / RESERVED are tables of (method, path template), the templates spelled exactly as the routes are
   declared. HEAD counts as GET. `allows()` is deny-by-default: a request is allowed only when a GUEST template matches,
   no PRIVATE or RESERVED template matches, or it is the guest home. RESERVED entries are denied until their WP moves
-  them to GUEST (D-P7): Request (WP-B4). WP-B2 (2026-10-21) moved the sign-in routes
+  them to GUEST (D-P7); none is left: WP-B4 (2026-10-21) moved GET + POST /media/title/{kind}/{tmdb_id}/request to
+  GUEST (a friend's request is sent as their own Seerr user and waits for approval, hub/media_guest_requests.py; the
+  admin request paths - Requests, Remove, Follow, Search now, Quality - stay PRIVATE, Q19). WP-B2 moved the sign-in routes
   (exactly GET /signin, POST /signin/qc/start, GET /signin/qc/poll, POST /signin/password, POST /signout) to GUEST and
   PUBLIC; nothing else under /signin is served. WP-B8 (2026-10-21) moved GET /app and GET /app/{rest:path} (the TV
   app download + version.json, hub/tv_app.py) to GUEST and PUBLIC (Q37); hub/tv_app.py 404s anything but its files.
@@ -114,6 +116,8 @@ GUEST: tuple = (
     *TV_APP,
     *_each("POST", "/media/watchlist/add", "/media/watchlist/remove"),
     *_each("POST", *(f"/media/resume/{{jf_id}}/{a}" for a in ("watched", "unwatched", "reset", "hide"))),
+    # WP-B4: Request, as the friend's own Seerr user (X-Api-User) and always pending (hub/media_guest_requests.py)
+    *_each("GET POST", "/media/title/{kind}/{tmdb_id}/request"),
 )
 
 PRIVATE: tuple = (
@@ -135,9 +139,7 @@ PRIVATE: tuple = (
     ("POST", "/media/settings/diary_scope"),   # "Show: Everyone" is hidden for friends (DECISIONS C)
 )
 
-RESERVED: tuple = (
-    *_each("GET POST", "/media/title/{kind}/{tmdb_id}/request"),         # WP-B4
-)
+RESERVED: tuple = ()   # empty since WP-B4 moved the request route to GUEST; kept for the next route a WP builds dark
 
 # Served without an identity on the media front (everything else that is allowed needs one).
 PUBLIC: tuple = (("GET", "/healthz"), ("GET", "/static/{path:path}"), *SIGNIN, *TV_APP)

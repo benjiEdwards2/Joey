@@ -160,8 +160,13 @@ class FakeSeerr:
                          "results": copy.deepcopy(rows)})
         if path.startswith("/api/v1/search"):
             return Resp({"page": 1, "totalPages": 1, "totalResults": len(self.search), "results": self.search})
-        if path in self.shelves:
-            return Resp({"page": 1, "totalPages": 1, "results": copy.deepcopy(self.shelves[path])})
+        if path in self.shelves:   # a result carries the title's live mediaInfo, as Seerr's do
+            rows = copy.deepcopy(self.shelves[path])
+            for r in rows:
+                live = self.titles.get((r.get("mediaType"), r.get("id")))
+                if live and "mediaInfo" in live:
+                    r["mediaInfo"] = {"status": live["mediaInfo"].get("status")}
+            return Resp({"page": 1, "totalPages": 1, "results": rows})
         if path.startswith("/api/v1/watchproviders/"):
             return Resp([])
         bits = path.split("/")

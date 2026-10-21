@@ -232,8 +232,8 @@ def test_decline_is_hidden_and_a_declined_request_shows_declined(friend):
         ("/media/discover", {}), ("/media/title/movie/701", {}), ("/media/title/movie/701/request?panel=1", HX),
         ("/media/title/movie/701/request", HX), ("/media/title/movie/701/part/all?p=actions", {}))]
     for html in pages:
-        assert "decline" not in html.lower() and "approve" not in html.lower().replace("approval", "")
-        assert not [u for m, u, a in links_of(html) if "/media/requests" in u]
+        assert not [u for m, u, a in links_of(html) if re.search(r"decline|approve|/media/requests", u, re.I)]
+        assert not re.search(r">\s*(Decline|Approve|Remove)( request)?\s*<", html)
     assert seerr.count("POST", f"/api/v1/request/{rid}/decline") == 0
     media_guest_requests.clear()
     seerr.decline(rid)            # B., in Seerr's own UI

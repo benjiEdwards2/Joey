@@ -160,6 +160,31 @@ is the session, so disabling or deleting a friend in Jellyfin, or signing the de
 - **P3 binding.** On the media front every Jellyfin read and write for a viewer (resume, item reads, the user id) uses
   the signed-in user's own id and token, never the admin key or `JELLYFIN_USER`; the item cache is per viewer there.
 
+### Requests (Joey TV WP-B4, 2026-10-21)
+
+Friends request through Discover and every friend request waits for B.'s approval in Seerr (DECISIONS B #19).
+`hub/media_guest_requests.py` holds the Seerr side; the one request POST stays `media_discover._send`.
+
+- **Route.** `GET` + `POST /media/title/{kind}/{tmdb_id}/request` moved from RESERVED to GUEST (`RESERVED` is now empty).
+  Requests, Remove request, Follow, Search now and Quality stay PRIVATE on the media front (Q19).
+- **As the friend.** A `jf:` owner's request carries the admin `X-Api-Key` plus `X-Api-User: <their Seerr id>`, so Seerr
+  creates it as them, pending. The id comes from `GET /api/v1/user?take=500` by `jellyfinUserId` (dash-less, lower case),
+  cached 1 h. No Seerr user yet: one `POST /api/v1/user/import-from-jellyfin` for that friend only, on their first
+  request (never on a page view), then one re-lookup; still none = "Requests aren't set up for you yet". A failed lookup
+  sends nothing: never the bare key for a friend.
+- **Pending only.** A friend whose Seerr user has ADMIN, MANAGE_REQUESTS or any AUTO_APPROVE bit is refused before sending
+  (fix it in Seerr → Users → Permissions). On the media front no quality profile is sent or enforced and Sonarr never
+  follows an "All seasons" request. B.'s own request (private front, or the household alias on the media front) is
+  unchanged: admin key only.
+- **Status, not controls.** Nothing on the media front approves, declines or removes. A friend sees their own requests
+  (`GET /api/v1/request?requestedBy=<id>`, cached 60 s) as Requested / Approved / Declined on the title page and as
+  Discover chips.
+- **Discover screen** (WP-M screen 10): `media_discover_guest.html` + `_guest_discover_grid.html`: a search box and one
+  poster grid (trending, popular films, popular TV, de-duplicated, max 36) with In library / Requested / Request /
+  Declined chips. A poster opens `_guest_request_panel.html` (`?panel=1`) in a `<dialog>`; Request answers "Requested —
+  waiting for approval" and updates the chip (`hx-swap-oob`). Done, Esc or the TV's Back close it and focus returns to
+  the poster (`tv.js` `joeyTV.back()` honours the dialog's `_opener`).
+
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 
 | Variable | Default | Does |

@@ -1,0 +1,66 @@
+{% extends "media_base.html" %}
+{% block title %}Discover · Joey{% endblock %}
+{% block content %}
+{% from "_icons.html" import icon %}
+{# Joey TV WP-B4 (2026-10-21): Discover on the media front = WP-M screen 10 (JoeyTV mockups/tv-mode.html, signed off
+   2026-10-21). A search box, one poster grid with state chips, and the request panel in a <dialog>: a poster opens it,
+   Request turns it into "Requested — waiting for approval" and the grid chip follows; Done / Esc / the TV's Back close
+   it and focus returns to the poster (tv.js window.joeyTV.back). No service tiles, no Following (Q19). #}
+<style>
+.reqgrid .card-pic { position: relative; }
+.reqchip { position: absolute; top: 8px; left: 8px; padding: 1px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; line-height: 1.6; }
+.reqchip-request { background: var(--brand); color: var(--brand-fg); }
+.reqchip-lib { background: var(--good); color: var(--zinc-900); }
+.reqchip-pending, .reqchip-sent, .reqchip-approved, .reqchip-requested { background: var(--amber); color: var(--zinc-900); }
+.reqchip-declined { background: var(--text-6); color: var(--text-2); }
+.reqdlg { width: min(720px, calc(100vw - 32px)); max-width: none; margin: auto; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: inherit; }
+.reqdlg::backdrop { background: color-mix(in srgb, var(--zinc-950) 75%, transparent); }
+.reqpanel { display: grid; grid-template-columns: 160px 1fr; gap: 24px; align-items: start; }
+.reqpanel-pic img { width: 100%; height: auto; border-radius: 10px; }
+.reqpanel-title { margin: 0 0 4px; font-size: 24px; }
+.reqpanel-ov { margin: 12px 0; }
+.reqpanel-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+@media (max-width: 520px) { .reqpanel { grid-template-columns: 96px 1fr; gap: 16px; } }
+html.tv .reqchip { font-size: 16px; }
+html.tv .reqdlg { width: 760px; padding: 32px; }
+html.tv .reqpanel { grid-template-columns: 220px 1fr; }
+html.tv .reqpanel-title { font-size: 32px; }
+</style>
+{% if not connected %}
+<p class="empty">Not connected</p>
+{% else %}
+<form class="toolbar" method="get" action="/media/discover">
+  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV"
+         hx-get="/media/discover/search" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-grid" hx-swap="outerHTML"></div>
+  <noscript><button class="btn btn-secondary" type="submit">Search</button></noscript>
+</form>
+{% include "_guest_discover_grid.html" %}
+<dialog id="req-dialog" class="reqdlg" aria-label="Request"><div id="req-panel"></div></dialog>
+<script>
+(function () {
+  if (window.joeyReqPanel) return;   /* boosted navigations re-run this script: bind once */
+  window.joeyReqPanel = true;
+  var opener = null;
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('[data-req-open]') : null;
+    if (a) opener = a;
+  }, true);
+  document.addEventListener('htmx:afterSwap', function (e) {
+    var d = document.getElementById('req-dialog'), p = document.getElementById('req-panel');
+    if (!d || !p || !e.detail || e.detail.target !== p) return;
+    d._opener = opener;   /* tv.js window.joeyTV.back() returns focus here */
+    if (!d.open) d.showModal();
+    var f = d.querySelector('[data-first]');
+    if (f) f.focus();
+  });
+  document.addEventListener('close', function (e) {
+    var d = e.target;
+    if (!d || d.id !== 'req-dialog') return;
+    var p = document.getElementById('req-panel');
+    if (p) p.innerHTML = '';
+    if (d._opener && d._opener.isConnected) d._opener.focus();
+  }, true);
+})();
+</script>
+{% endif %}
+{% endblock %}

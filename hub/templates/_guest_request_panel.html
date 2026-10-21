@@ -1,0 +1,26 @@
+{# Joey TV WP-B4 (2026-10-21): the request panel of the guest Discover screen (WP-M screen 10), swapped into
+   #req-panel inside #req-dialog. Poster, title, year, one overview line and Request (focused, data-first); or the
+   title's status ("Already in the library", "Requested — waiting for approval", "Declined", ...) with Done. A show is
+   requested whole (seasons=all; on the media front Sonarr never follows - Q19). Every friend request waits for B.'s
+   approval in Seerr (DECISIONS B #19); nothing here approves, declines or removes. `oob` re-draws the grid chip. #}
+{% from "_poster.html" import poster %}
+{% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
+<div class="reqpanel">
+  <div class="reqpanel-pic">{{ poster(t.poster, t.title or "?", 360) }}</div>
+  <div class="reqpanel-body">
+    {% if t.title %}<h2 class="reqpanel-title">{{ t.title }}</h2>{% endif %}
+    {% if t.year or t.title %}<p class="metaline">{% if t.year %}{{ t.year }}<span class="sep"> · </span>{% endif %}{{ "TV" if t.kind == "tv" else "Film" }}</p>{% endif %}
+    {% if t.overview %}<p class="reqpanel-ov">{{ t.overview | truncate(220) }}</p>{% endif %}
+    {% if state == "request" %}
+    <form class="reqpanel-btns" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#req-panel" hx-swap="innerHTML">
+      <input type="hidden" name="panel" value="1">{% if t.kind == "tv" %}<input type="hidden" name="seasons" value="all">{% endif %}
+      <button class="btn btn-white" type="submit" data-first>Request</button>
+      <button class="btn btn-ghost" type="button" data-close onclick="this.closest('dialog').close()">Cancel</button>
+    </form>
+    {% else %}
+    <p class="statusline {{ 'st-good' if state in ('lib', 'approved', 'sent') else 'st-warn' }}">{{ msg or words }}</p>
+    <div class="reqpanel-btns"><button class="btn btn-white" type="button" data-close data-first onclick="this.closest('dialog').close()">Done</button></div>
+    {% endif %}
+  </div>
+</div>
+{% if oob %}<span id="chip-{{ t.kind }}-{{ t.tmdb_id }}" class="reqchip reqchip-{{ state }}" hx-swap-oob="true">{{ chip }}</span>{% endif %}

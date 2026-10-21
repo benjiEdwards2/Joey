@@ -1153,3 +1153,15 @@ label). Set up Jellyfin: a full-screen card, `:8443` gold and underlined. Sign-i
 "Get a new code" button. Brand 22 px bold; 16 px floor; no `:hover`. `tv.js`: the D-pad stays on the Set up card, scroll-into-view
 accounts for the sticky sub-tabs. Guest manifest shortcuts read Movies / TV shows / Discover. Tests: `test_tv_mode.py` pins no
 `:hover` in `tv.css` and that the private front links no TV asset. Docs: `hub/README.md` "Guest surface and TV mode".
+
+**Friend requests through Seerr (Joey TV WP-B4, 2026-10-21; TV styling follow-on same day).** `GET` + `POST
+/media/title/{kind}/{tmdb_id}/request` moved from RESERVED to GUEST (`RESERVED` is now empty): a friend's request is sent
+with the admin key plus `X-Api-User: <their Seerr id>` so Seerr creates it AS them, pending (DECISIONS B #19). The Seerr id is
+looked up by `jellyfinUserId` (1 h cache); a friend with none is imported on their first request (that friend only, Q29). A
+friend whose Seerr user could approve is refused before sending; no quality profile and no Sonarr follow on the media front
+(Q19); nothing approves, declines or removes (B. declines in Seerr; the friend sees Declined). New `hub/media_guest_requests.py`;
+the one POST stays `media_discover._send`. The Discover screen (WP-M screen 10) is a poster grid with In library / Requested /
+Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css` styles Discover and the panel to the mockup
+(six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
+Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
+`docs/public-edge.md` R1 step 4.

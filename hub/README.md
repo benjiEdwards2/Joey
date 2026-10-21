@@ -98,8 +98,8 @@ is the full contract.
   request whose Host is `MEDIA_PUBLIC_HOST` (default in code `media.joeyhome.net`) gets the 404, so a tunnel typo can never
   publish private Joey ungated.
 - **Every new route must be classified in `hub/guest.py`.** Each (method, path template) must sit in exactly one of
-  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST: the title Request
-  routes; the sign-in routes left RESERVED in WP-B2, `/app/*` in WP-B8). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
+  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST; `RESERVED` is empty since WP-B4: the sign-in routes left it in
+  WP-B2, `/app/*` in WP-B8, the title Request routes in WP-B4). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
   unclassified route, naming it**. A new route is PRIVATE until someone decides otherwise; add it to `GUEST` only on
   purpose, and never put a private page behind it.
 - **`/app` (Joey TV WP-B8, 2026-10-21):** `GET /app` and `GET /app/{rest:path}` (`hub/tv_app.py`: the TV app page, `version.json`,
@@ -183,7 +183,12 @@ Friends request through Discover and every friend request waits for B.'s approva
   poster grid (trending, popular films, popular TV, de-duplicated, max 36) with In library / Requested / Request /
   Declined chips. A poster opens `_guest_request_panel.html` (`?panel=1`) in a `<dialog>`; Request answers "Requested —
   waiting for approval" and updates the chip (`hx-swap-oob`). Done, Esc or the TV's Back close it and focus returns to
-  the poster (`tv.js` `joeyTV.back()` honours the dialog's `_opener`).
+  the poster (`tv.js` `joeyTV.back()` honours the dialog's `_opener`). The answer panel keeps the poster, title and
+  overview (`_request_title` reads the title before dropping its cache). In TV mode `tv.css` styles all of it to screen 10:
+  the grid takes the six-column helper (`.poster-grid.reqgrid`), the one-tab sub-tab row is dropped, chips are In library
+  teal / Requested amber / Request indigo (Declined grey), the panel is a 780 px card (150 px poster, 38 px title, 3-line
+  synopsis, amber 22 px status line, Request then Done focused). Those rules live only in `tv.css` (`html.tv` scope, no
+  `:hover`); the page's inline `<style>` carries none.
 
 ### Guest surface and TV mode (Joey TV WP-B3, 2026-10-21)
 

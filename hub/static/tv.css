@@ -89,10 +89,40 @@ html.tv .card-pic > .bar > span { border-radius: 3px; background: var(--tv-bar-f
 
 /* Library grid (Movies / TV shows): six columns, 22 / 16 px gaps; the search / Grouped / sort / layout toolbar, the
    list switch and the freshness lines are phone / desktop furniture (a remote cannot type), hidden here. */
-html.tv .poster-grid.libgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px 16px; padding: 14px 0 8px; }
+html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px 16px; padding: 14px 0 8px; }
 html.tv form.toolbar, html.tv main > p.metaline:last-child:not([role]),
 html.tv main > p.metaline:has(+ form.toolbar), html.tv main > p.metaline:has(+ p.metaline + form.toolbar) { display: none; }
 html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the year only, as in the mockup (the state words need the list view) */
+
+/* Discover (Joey TV WP-B4 follow-on; WP-M screen 10): the guest request grid. Same six columns as the library grid; the
+   sub-tab row is a single tab here, so it is dropped (the section row already says Discover) and the poster grid sits
+   straight under the "Discover - n" label. Each poster carries its state chip (In library / Requested / Request, plus
+   the grey Declined); the card's caption is title then "year - Film / TV" stacked, as on the library grid. */
+html.tv .pagehead:has(.sectabs.sub[aria-label="Discover"]) { display: none; }
+html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
+html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
+html.tv .reqgrid .reqchip { z-index: 2; top: 8px; left: 8px; padding: 1px 10px; font-size: 16px; font-weight: 700; line-height: 1.5; }
+html.tv .reqgrid .reqchip-lib { background: rgba(52, 211, 153, .95); }
+html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: #fbbf24; }
+html.tv .reqgrid .reqchip-request { background: var(--primary); color: #fff; }
+
+/* The request panel (mockup: 780 px card on #18181b, 150 px poster, 38 px title, a 3-line synopsis, 22 px status line,
+   Request focused -> "Requested - waiting for approval" with Done focused). Back / Done / Esc close it (tv.js back()). */
+html.tv .reqdlg { width: 780px; padding: 28px 32px; border: 1px solid var(--tv-line); border-radius: 20px; background: #18181b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
+html.tv .reqdlg::backdrop { background: rgba(9, 9, 11, .82); }
+html.tv .reqpanel { grid-template-columns: 150px 1fr; gap: 28px; }
+html.tv .reqpanel-pic img { border-radius: 10px; }
+html.tv .reqpanel-title { font-size: 38px; line-height: 1.08; letter-spacing: -.01em; margin: 0; }
+html.tv .reqpanel .metaline { margin: 6px 0 0; font-size: 19px; color: var(--tv-t4); }
+html.tv .reqpanel-ov {
+  margin: 12px 0 0; font-size: 19px; line-height: 1.3; color: var(--tv-t3);
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+html.tv .reqpanel .statusline { margin: 20px 0 0; font-size: 22px; font-weight: 600; }
+html.tv .reqpanel .statusline.st-warn { color: var(--amber); }
+html.tv .reqpanel-btns { gap: 14px; margin-top: 20px; }
+html.tv .reqpanel-btns .btn-white { background: var(--primary); color: #fff; border-color: transparent; }
+html.tv .reqpanel-btns .btn-ghost { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 
 /* Nothing under 16 px (the WP-M floor). */
 html.tv small, html.tv .microlabel, html.tv .eyebrow, html.tv .metaline, html.tv .row-meta, html.tv .empty,

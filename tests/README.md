@@ -68,6 +68,18 @@ Guest sign-in and fail-closed owners (Joey TV WP-B2, 2026-10-21):
   route is requested as a friend four ways (plain, `?owner_view=both`, cookie, spoofed Access header) and no body may carry one.
   A control run as B.'s alias user proves the sweep can see data.
 
+Friend requests through Seerr (Joey TV WP-B4, 2026-10-21):
+
+- `tests/hub/fake_seerr.py`: a fake Seerr 3.5.0 installed over `requests.get` / `post` (anything not on the Seerr URL goes to the
+  fake Jellyfin installed before it). Bodies are built from the redacted real shapes the W3 probe captured; users and ids are invented.
+  It enforces the probe's rules: the import answers 201 with only the newly created users (permissions 32), a request with
+  `X-Api-User` is created as that user (pending for REQUEST only, approved for an auto-approver), decline needs MANAGE_REQUESTS.
+  `res(...)` builds a discover / search result; `FakeSeerr` records every call (`calls`, `posts_to`, `count`).
+- `tests/hub/fixtures/seerr_*.json` (`status`, `import`, `request`, `decline`): the `seerr_*` fixtures from the W3 probe, loaded by the fake.
+- `tests/hub/test_guest_requests.py`: the request is the friend's own (`X-Api-User`, never the bare key), the first-request import,
+  pending only (an approver is refused first), no quality / Sonarr side effects, no decline / approve control on any guest page, the
+  Declined chip, B.'s own request byte-identical, and the Discover grid and request panel (screen 10).
+
 Joey TV release pipeline (WP-B8, 2026-10-21; docs: `docs/tv-release.md`), all offline:
 
 - `tests/tv/test_version_file.py`: `tv/VERSION` (three keys, semver, `YYYYMMDDnn` with a real calendar date, at most 2,100,000,000, `minVersionCode` at most `versionCode`), `tv/NOTES.txt` (non-empty, at most 500 characters) and `tv/SIGNING_CERT_SHA256` (64 lowercase hex; **one skip until WP-B9 commits it**). The rules are spelled out independently of `deploy/tv_version.py` and must agree with it on every case. No real clock (the gate runs on UTC, the cut date is Sydney).

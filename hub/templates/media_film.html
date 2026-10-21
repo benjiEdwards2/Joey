@@ -19,6 +19,9 @@
    Each piece is guarded, so a page without them renders exactly as before. #}
 {% import "_episode_flow.html" as ef %}
 {% set epnav = film.nav %}
+{# Joey TV WP-B3 follow-on: `tvm` = the 10-foot TV mode. The WP-M title page is the same hero with a synopsis line under the
+   facts and the 1-10 rating chips under the buttons; tv.css hides the rest. Off the TV nothing here changes. #}
+{% set tvm = tv_mode(request) %}
 <header class="pagehead hero-detail">
   {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280'){% if not film.backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
@@ -33,13 +36,17 @@
         <p class="row-title">{% if film.episode.code %}{{ film.episode.code }} · {% endif %}{{ film.episode.title }}</p>
         {{ meta([("Aired " ~ film.episode.air_date) if film.episode.air_date else none, film.episode.runtime], "metaline") }}
         {% endif %}
-        <h1 class="hero-detail-title">{{ film.title }}{% if film.year %} ({{ film.year }}){% endif %}</h1>
+        <h1 class="hero-detail-title">{{ film.title }}{% if film.year and not tvm %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
         {% if film.episode %}{{ ef.epscore(film.ratings) }}{% elif epnav %}{{ ef.seasonswitch(epnav) }}{% endif %}
         {# U6 (2026-10-13): runtime and the certificate are said once, in the Numbers strip below, not here and in Details too. #}
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
+        {% if tvm %}
+        {{ meta([film.year, film.numbers.runtime, film.official] + (film.genres or []), "facts-line tv-facts") }}
+        {% if film.overview %}<p class="tv-syn">{{ film.overview }}</p>{% endif %}
+        {% endif %}
         {# E4 (U5-U7, 2026-10-13, B.): poster, title, tagline / facts, the status line (+ upgrade note, flashes), ONE action
            row, then the makers - Play is above the fold on a phone. The site pills moved to the Scores strip. #}
         <p class="statusline{{ ' st-good' if film.on_server and not film.jf_failed }}">{% if film.on_server and not film.jf_failed %}{{ icon("drive") }}{% endif %}<span id="status-line">{{ film.status_line }}</span></p>
@@ -63,9 +70,11 @@
              in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
           {% if film.trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.trailer }}" target="_blank" rel="noopener"{% if film.trailer_key %} data-yt="{{ film.trailer_key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}
           {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
-          {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
+          {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false, style = ("ballot" if tvm else none) %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
         </div>
+        {# TV mode: the 1-10 chips (or the rated number + Undo) sit under the buttons, as in the WP-M title page. #}
+        {% if tvm and film.rating %}<div class="tv-rate">{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div>{% endif %}
         {# E4 (U7): "More" - an inline panel (guide 6: never a browser dialog), the same .confirm panel as the cards' Move on:
            Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
@@ -152,7 +161,7 @@
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
 {% endif %}
-{% if film.rating and not film.score %}
+{% if film.rating and not film.score and not tv_mode(request) %}
 <section class="sec" id="rate">
   <h2 class="seclabel">Your rating</h2>
   {{ rate.picker(film.rating) }}

@@ -134,7 +134,7 @@ def test_guest_manifest_offers_movies_tv_and_discover_only(gc):
     assert r.status_code == 200
     m = json.loads(r.text)
     assert m["name"] == "Joey Media" and m["start_url"] == guest.home_path()
-    assert [s["name"] for s in m["shortcuts"]] == ["Movies", "TV Shows", "Discover"]
+    assert [s["name"] for s in m["shortcuts"]] == ["Movies", "TV shows", "Discover"]
     assert all(guest.href_allowed(s["url"]) for s in m["shortcuts"])
     assert all(i["src"].startswith("/static/") for i in m["icons"])
 

@@ -1142,3 +1142,14 @@ History stats and `watch_count` (found by WP-B3). `media_plays_db.record_sightin
 `jf_id` seen within `OPEN_GAP`; a finished one seen again at >= `RESTART_PCT` (10 %) only has its `last_seen_at` / `position_pct`
 updated and stays finished. Below 10 % (a re-watch from the start) or after `OPEN_GAP` it is still a new row. Schema unchanged;
 the friend diary (WP-B3) stays one row. Tests: four new in `tests/hub/test_media_plays.py` and `tests/hub/test_friend_diary.py`.
+
+**TV mode matched to the signed-off mockup (Joey TV WP-B3 follow-on, 2026-10-21).** The WP-B3 build shipped TV mode as a first
+pass; `hub/static/tv.css` now follows `JoeyTV/mockups/tv-mode.html`. Overview: no page-head band (the template skips it in TV
+mode), shelves run edge to edge with 14 / 10 px padding, an orange 5 px progress bar over the poster foot. Movies / TV shows: the
+head band shrinks to a sticky sub-tab row under the top bar, a six-column grid, the search / Grouped / sort toolbar, "New this week"
+and the freshness lines hidden, grid captions show the year only. Title page: hero layout with a three-line synopsis, the worded
+Watchlist button and the 1-10 chips (`media_film.html` branches on `tv_mode(request)`; `_rate.html` `picker(r, label)` takes the
+label). Set up Jellyfin: a full-screen card, `:8443` gold and underlined. Sign-in: spacing around the waiting line and the
+"Get a new code" button. Brand 22 px bold; 16 px floor; no `:hover`. `tv.js`: the D-pad stays on the Set up card, scroll-into-view
+accounts for the sticky sub-tabs. Guest manifest shortcuts read Movies / TV shows / Discover. Tests: `test_tv_mode.py` pins no
+`:hover` in `tv.css` and that the private front links no TV asset. Docs: `hub/README.md` "Guest surface and TV mode".

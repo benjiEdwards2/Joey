@@ -639,7 +639,7 @@ def _jf_from_snapshot(jelly: dict, kind: str, tmdb: int) -> dict | None:
 
 
 def _upgrade(snaps, jelly: dict, kind, tmdb, tvdb, title) -> str | None:
-    """F4b: "Upgrade available · …" for the hero, from the arr snapshot's cutoff-unmet lists - no call. A show matches
+    """F4b: "Below cutoff · …" (WP-U1) for the hero, from the arr snapshot's cutoff-unmet lists - no call. A show matches
     its TheTVDB id, else its title when the library holds that title once."""
     if kind not in ("movie", "tv"):
         return None

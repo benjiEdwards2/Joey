@@ -25,7 +25,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `images.py` | `GET /img/{ref}` poster proxy (async; at most 6 upstream misses at once) with a 30-day disk cache and generated fallback cards |
 | `upstream.py` | One keep-alive `requests.Session` per upstream (jellyfin, seerr, arr, omdb, tmdb) for the Media modules and `/img` |
 | `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Update and restart media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
-| `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
+| `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py`, `media_upgrade_why.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Below cutoff (arr cutoff unmet) + last library search; Why? / Grab anyway (arr interactive search) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_episode_ratings.py` | TV episode flow ratings (WP-E1, 2026-10-16): per-episode IMDb ratings via OMDb (one call per season; vote counts for the current season only), TMDB fallback from the Jellyseerr season read; media.db `episode_rating` (v5); the film page's `film.ratings`, missing reads in the response's BackgroundTask |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
@@ -62,6 +62,9 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
 | `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
 | `GET /media/title/{kind}/{tmdb_id}/quality` | media_quality | "Quality · 1080p" + Switch, lazy-loaded under the hero's status line (`?step=confirm` = the inline confirm; no-JS 303 to the page's `?quality_ask=1`) |
+| `GET /media/upgrades/why/{app}/{arr_id}` | media_upgrade_why | One Downloads › Upgrades row's Why? area (`?step=confirm` = the inline ask, `result`, `grab&pick=<n>` = a release's Grab confirm, `idle`); no call. No-JS: 303 to `/media/downloads?why=<app>:<id>&why_step=…`, which draws the same |
+| `POST /media/upgrades/why/{app}/{arr_id}` | media_upgrade_why | Why?: the app's interactive search (`GET /api/v3/release?movieId=` / `?episodeId=`, 90 s, threadpooled), kept 1 h per row; 404 for a row not on the snapshot's list |
+| `POST /media/upgrades/why/{app}/{arr_id}/grab` | media_upgrade_why | Grab anyway: `POST /api/v3/release {guid, indexerId}` for release `pick` of the kept answer (30 s); flash `?grab=sent|gone|expired|refused|unreachable` |
 | `POST /media/title/{kind}/{tmdb_id}/quality` | media_quality | Switch quality: PUT the Radarr movie / Sonarr series with the new `qualityProfileId`, then `MoviesSearch` / `SeriesSearch` |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/rate/skip`, `/media/rate/skip-show`, `/media/rate/unskip` | media_write | To rate: Skip this entry / the whole show (media.db `rating_skip`, v4), Unskip (E5, 2026-10-13) |
@@ -207,6 +210,17 @@ or a request's `tvdb_id`), else its normalised title when unique on both sides. 
 Search-now fragment when the app's own id is on the list: an inline confirm, then `POST …/upgrade` (`same_origin`,
 threadpooled) sends `MoviesSearch` / `SeriesSearch`; `?upgrade=started|failed` flashes "Upgrade search started" /
 "Couldn't start the search". The app grabs the best release its profile allows; picking a release is not offered (v2).
+**Below cutoff + Why? (WP-U1, 2026-10-21):** the label is now "Below cutoff · HDTV-1080p → wants WEB/Bluray 1080p" — the
+file is below the profile's cutoff, which does not mean a better release exists (the connector names a cutoff GROUP by
+its members, never its own name such as "Default"). Activity › Downloads adds, under the Search buttons, one line per app
+from `upgrades.last_search` ("Last upgrade search · Sonarr · 21 Oct 00:59 · 1 searched · 0 downloaded", the amber words
+when nothing was downloaded or the search failed). Each Upgrades row is now `.row.has-form` with a "Why?" beside it
+(`media_upgrade_why.py`, `_upgrade_why.html`): an inline ask, then the app's interactive search (Radarr `?movieId=`, Sonarr
+`?episodeId=` of the row's `sample` episode; 90 s, kept 1 h) drawn as "S01E01 · 30 releases · all rejected", the
+reasons grouped ("30 × custom-format score below the profile minimum (1000)", "7 × quality not wanted in profile", …), a
+hint when the custom-format minimum rejects every release, and the top 5 releases (quality · size · seeders · indexer ·
+group, then the first rejection), each with "Grab anyway" — its own inline confirm, then `POST /api/v3/release` with the
+guid / indexer id from the kept answer. Page renders make no arr call; logs carry the app and a status / type only.
 
 ## Run locally
 

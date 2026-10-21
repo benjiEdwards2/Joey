@@ -232,6 +232,16 @@ down is a partial word). Nothing is read; the arrs do the searching and grabbing
 a two-step confirm then `POST /media/title/{kind}/{tmdb}/upgrade` behind `same_origin` repeats the Search-now lookup and
 sends the same per-title `MoviesSearch` / `SeriesSearch` command; the app replaces the file only with a release its
 profile ranks higher.
+*Why? + Grab anyway (2026-10-21, WP-U1, `hub/media_upgrade_why.py`):* each row of the Activity › Downloads "Upgrades"
+block carries "Why?". It opens an inline confirm (no call); its `same_origin` POST `/media/upgrades/why/{app}/{arr_id}`
+(the row must be on the snapshot's `upgrades` list) runs the app's interactive search — Radarr
+`GET /api/v3/release?movieId=<arr_id>`, Sonarr `GET /api/v3/release?episodeId=<the row's episode_id>` (one episode, the
+row's `sample`) — in a worker thread with a 90 s timeout. It hits every indexer and grabs nothing. The answer is kept in
+process for 1 h per row (a second Why? inside the hour makes no call) and rendered as counts, grouped rejection reasons
+and the top 5 releases. "Grab anyway" on a listed release is a second inline confirm, then `same_origin` POST
+`/media/upgrades/why/{app}/{arr_id}/grab` sends `POST /api/v3/release` `{"guid", "indexerId"}` from the kept answer
+(never from the form), 30 s timeout; the app downloads it even though it rejected it. Release titles are shown to B. only:
+logs and flashes carry the HTTP status or exception type, never a title, guid, URL or key. The page render never calls.
 
 **`media.db` additions (2026-10-06).** WP-U1: `server_update_ignores(container, tag, ignored_at)`, key `(container, tag)`
 (tag = new tag, or the current tag for a digest update), and `server_update_runs(container, tag, requested_at, outcome,
@@ -432,6 +442,19 @@ the `radarr` / `sonarr` count objects gain the same optional `upgrades` (= `tota
 cutoff call nulls only that app's list (`partial_errors["<app>_upgrades"]`, no `app_errors` entry, no `upgrades`
 count) and skips its profile call; a failed profile call only nulls `want`; an app that is down has a null list.
 `summary` / `secondary` are unchanged (the hub renders the label). Older envelopes lack `upgrades` and stay valid.
+
+**Arr upgrades: honest words + last search (WP-U1, 2026-10-21).** Additive, all optional in the schema. (1) A cutoff
+that is a quality GROUP is now named by its members, collapsed: "WEBRip-1080p, WEBDL-1080p, Bluray-1080p" →
+`want: "WEB/Bluray 1080p"` (WEBRip / WEBDL → WEB, sources joined per resolution, "-<res>p" names only; SDTV / DVD keep
+their name), never the group's own name (live Sonarr calls its group "Default"); a group with no members falls back to
+its name; a plain quality keeps its name. (2) Every row gains `profile` — the quality profile's own name ("1080p"), null
+when unknown. (3) Sonarr rows gain `episode_id` — the Sonarr episode id of `sample` (the hub's "Why?" searches that
+episode). (4) `upgrades.last_search` = `[{name: "upgrades"|"missing", app: "radarr"|"sonarr", status, ended, message}]`:
+per app (Radarr first) the newest `CutoffUnmetMoviesSearch` / `CutoffUnmetEpisodeSearch` / `MissingMoviesSearch` /
+`MissingEpisodeSearch` on `GET /api/v3/command` (one call per app per sweep, no params; newest by `queued`), `status`
+lower-cased (`completed`, `started`, `failed`, …), `ended` the app's ISO stamp or null while running, `message` the app's
+own summary ("Completed search for 1 episodes. 0 reports downloaded.", ≤ 200 characters). An app with no such command,
+or whose command call failed (logged as a warning, no `partial_errors` entry), is left out; `[]` when neither has one.
 
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a

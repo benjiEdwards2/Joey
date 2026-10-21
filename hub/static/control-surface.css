@@ -1412,3 +1412,17 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .applink img, .applink .svc-fallback { width: 20px; height: 20px; padding: 2px; border-radius: 5px; }
 .applink .svc-fallback { padding: 0; }
 .applink .svc-initial { font-size: 11px; }
+
+/* Why? (2026-10-21, WP-U1): Activity › Downloads › Upgrades rows are .row.has-form; the Why? area sits above the row's
+   link at the right and, once it holds an ask, an answer or a flash, drops to its own full-width line. */
+#upgrades .row.has-form > div.rowlink { display: contents; }
+#upgrades .row.has-form > .upwhy { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
+#upgrades .row.has-form > .upwhy.is-open { flex: 1 0 100%; margin-left: 0; }
+.upwhy .confirm { margin-top: 8px; }
+.whyres { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; align-items: flex-start; }
+.whyreasons { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-2); }
+.whycand { align-self: stretch; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  padding: 8px 0; border-top: 1px solid var(--line); }
+.whycand-title { font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
+.whycand > .confirm { align-self: stretch; }
+.lastsearch { margin-top: -4px; }

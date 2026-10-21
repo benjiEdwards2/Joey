@@ -107,7 +107,7 @@ def test_a_failed_count_call_nulls_only_that_app(live, monkeypatch, raw):
     assert data["sonarr"] is None and data["radarr"] == {"movies": 6, "wanted": 2, "missing": 3, "queued": 1, "upgrades": 3}
     assert data["downloading"] and data["arrived"]  # the feed itself is untouched
     jsonschema.validate(data, SCHEMA)
-    assert len(calls) == 14 and SKEY not in json.dumps(envelope)
+    assert len(calls) == 16 and SKEY  # WP-U1 (2026-10-21): + each app's /api/v3/command not in json.dumps(envelope)
 
 
 def test_an_app_down_means_its_counts_are_null_and_not_fetched(live, monkeypatch, raw):

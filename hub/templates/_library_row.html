@@ -22,7 +22,7 @@
 {% endmacro %}
 {# Grid view card (media-ux4, 2026-10-08): the Media home shelf card size (a .card-poster, poster fetched at h=240) with the
    title, the year and the state in words — Watched / Not watched / In progress; your score as the poster badge. One whole
-   link (the title page), else plain. F4b: a light-blue "Upgrade available" line under it when the arr says so.
+   link (the title page), else plain. F4b: a light-blue "Below cutoff" line (WP-U1) under it when the arr says so.
    E5 (M2, 2026-10-13): a show being watched adds its progress in words under it ("4 left · ~3h 10m"). #}
 {% macro card(r) %}
 {% set tag = "a" if r.href else "div" %}

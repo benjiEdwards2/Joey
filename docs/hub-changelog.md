@@ -1076,3 +1076,21 @@ validation read (cached) and, non-default only, ≤3 lookups + ≤1 PUT + ≤1 c
 step reads the profiles), `test_media_requests_remove.py` (two call-list pins), `test_season_state.py` (Requests page pin).
 
 **App links (WP-L1, 2026-10-21).** Activity › Downloads and Activity › Requests carry a small "Open qBittorrent ↗" / "Open Seerr ↗" glass button under the page head (`templates/_app_link.html`, `media_pages.app_link`): the Health row's logo (or initial tile) and the gated hostname, else the media_status snapshot's LAN address with a "LAN" word; nothing when that snapshot or the app is absent. Tests: `tests/hub/test_app_links.py` (new).
+
+**Below cutoff + Why? (WP-U1, 2026-10-21).** B. saw "Upgrade available" on Brothers (2026) S01E01 (HDTV-1080p) after
+"Search upgrades" had run — Sonarr's own words: "Completed search for 1 episodes. 0 reports downloaded." — and its
+interactive search showed why: 30 releases, all rejected, nearly all by the "1080p" profile's minimum custom-format score
+(1000) that nothing reaches. So: (1) the label reads "Below cutoff · <have> → wants <want>" on every surface (list rows,
+cards, hero, Requests, Downloads; `media_upgrades.LABEL`), and the `arr` connector names a cutoff quality GROUP by its
+members ("WEB/Bluray 1080p", never "Default"). (2) The connector reads each app's `GET /api/v3/command` (one call per app
+per sweep) into `upgrades.last_search`; Downloads shows "Last upgrade search · Sonarr · 21 Oct 00:59 · 1 searched ·
+0 downloaded" under the Search buttons. (3) Each Downloads › Upgrades row gets "Why?" (`media_upgrade_why.py`,
+`_upgrade_why.html`, `.upwhy` CSS): confirm → the app's interactive search (90 s, threadpooled, kept 1 h) → summary,
+grouped reasons, the custom-format hint, top 5 releases with "Grab anyway" (confirm → `POST /api/v3/release` with the kept
+guid + indexer id; "Grab sent · check Downloads in a minute" or the failure word). The connector also adds `profile` to
+every row and `episode_id` to Sonarr rows (the episode Why? searches). Arr call budget: page render 0; Why? confirm 0;
+Why? 1 interactive search per row per hour; Grab 1 POST; connector +1 small call per app per 120 s sweep. Tests: new
+`tests/hub/test_media_upgrade_why.py` (27); `tests/connectors/test_arr_upgrades.py` (+6, 3 re-pointed),
+`test_contract_doc.py` (+1), call counts in `test_arr.py`, `test_arr_counts.py`, `test_http.py`; the three F4b hub files
+re-pointed to the new wording (dated docstrings); `conftest` clears the Why? cache; `config/sample_snapshots/arr.json`
+regenerated.

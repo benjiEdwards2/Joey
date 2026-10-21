@@ -6,6 +6,9 @@
 {% from "_poster.html" import poster %}
 {% from "_upgrade_note.html" import upnote %}
 {% include "_arr_sweep.html" %}{# F3 (2026-10-12): Search missing / upgrades, Radarr · Sonarr #}
+{# WP-U1 (2026-10-21): what the last library search found, per app, from the arr snapshot (no call) - "0 downloaded"
+   and "failed" are amber words. #}
+{% for l in last_search %}<p class="metaline lastsearch">{{ l.parts | join(" · ") }}{% if l.warn %} · <span class="st-warn">{{ l.warn }}</span>{% endif %}</p>{% endfor %}
 {# Downloads (2026-10-06; restyle Phase 3 row recipe): qBittorrent, read-only. State and percentage are WORDS beside
    the hairline bar — colour is never the only encoding. Finished torrents are Complete rows (emerald, guide 6). #}
 {% set done %}<span class="badge badge-complete">{{ icon("check") }}Complete</span>{% endset %}
@@ -44,7 +47,9 @@
 </section>
 
 {# F4b (2026-10-12): Upgrades - titles whose file is below the Radarr / Sonarr quality cutoff (arr snapshot), each row
-   linked to its page, where "Search for upgrade" asks the app to look. Absent for an older arr envelope. #}
+   linked to its page, where "Search for upgrade" asks the app to look. Absent for an older arr envelope.
+   WP-U1 (2026-10-21): "Below cutoff · <have> → wants <want>", and a "Why?" beside each row (_upgrade_why.html) - the
+   row is now .row.has-form (the poster + title an a.rowlink, Why? above it), the answer drops to its own line. #}
 {% if upgrades %}
 <section class="sec" id="upgrades">
   <h2 class="seclabel">Upgrades</h2>
@@ -53,10 +58,13 @@
   <p class="metaline">{{ upgrades.totals_text }}{% for a in upgrades.off %} · {{ a }} not connected{% endfor %}</p>
   {% if upgrades.rows %}<div class="listbox">
   {% for r in upgrades.rows %}
-  <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
+  <div class="row has-form">
+  <{{ "a" if r.href else "div" }} class="rowlink"{% if r.href %} href="{{ r.href }}"{% endif %}>
     {{ poster(r.poster, r.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ upnote(r.note) }}</div>
   </{{ "a" if r.href else "div" }}>
+  {% if why.get(r.why_key) %}{% with w = why[r.why_key] %}{% include "_upgrade_why.html" %}{% endwith %}{% endif %}
+  </div>
   {% endfor %}
   </div>{% else %}<p class="empty">Nothing to upgrade.</p>{% endif %}
   {% endif %}

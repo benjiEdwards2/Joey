@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_upgrades, media_wrapped, media_write,
+                 media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
@@ -146,10 +146,16 @@ def media_downloads_page(request: Request):
                                                   if r.get("kind") not in ("movie", "tv")]})
         totals = data.get("totals") or {}
         # F4b: the "Upgrades" block - the arr snapshot's cutoff-unmet titles, each row linked like the rows above
-        upgrades = media_upgrades.block(shell.get_snapshots(request=request))
+        snaps = shell.get_snapshots(request=request)
+        upgrades = media_upgrades.block(snaps)
+        why = {}
         if upgrades and upgrades.get("rows"):
-            upgrades["rows"] = link(upgrades["rows"])
-        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades,
+            upgrades["rows"] = [{**r, "why_key": ("radarr:" if r.get("kind") == "movie" else "sonarr:") + str(r.get("arr_id"))}
+                                for r in link(upgrades["rows"])]
+            # WP-U1: each row's "Why?" (the kept answer only for the row ?why= names - never a call)
+            why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"])
+        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades, "why": why,
+                "last_search": media_upgrades.last_search(snaps),
                 "app_link": app_link(request, "qbittorrent"),
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
                                f" · {data.get('seeding', 0)} seeding"}
@@ -193,7 +199,7 @@ def media_requests_page(request: Request):
         snap = shell.get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
         rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
         c = media_requests.visible_counts(data, rows)
-        # F4b: "Upgrade available" on a request whose title is on the arr cutoff-unmet lists (copies: the counts above
+        # F4b: "Below cutoff" on a request whose title is on the arr cutoff-unmet lists (copies: the counts above
         # match rows by identity, and the snapshot's own dicts stay untouched)
         rows = [dict(r) for r in rows]
         media_upgrades.attach(rows, shell.get_snapshots(request=request), None, lambda r: r.get("tvdb_id"))
@@ -460,7 +466,7 @@ def _library_page(request: Request, kind: str):
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
-        # F4b: "Upgrade available" under the title - the arr snapshot's cutoff-unmet lists; a show also by the TheTVDB id
+        # F4b: "Below cutoff" under the title - the arr snapshot's cutoff-unmet lists; a show also by the TheTVDB id
         # its page has cached (media_item.peek, no read), else its unique title
         media_upgrades.attach(rows, shell.get_snapshots(request=request), kind, _cached_tvdb)
         arr = shell.get_snapshots(request=request).get(ARR_SNAPSHOT_ID)

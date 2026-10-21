@@ -1,0 +1,5 @@
+[
+  {"id": 900, "name": "MissingEpisodeSearch", "commandName": "Missing Episode Search", "message": "Completed search for 4 episodes. 2 reports downloaded.", "status": "completed", "result": "successful", "queued": "2025-12-30T10:00:00Z", "started": "2025-12-30T10:00:01Z", "ended": "2025-12-30T10:00:30Z", "trigger": "manual"},
+  {"id": 903, "name": "CutoffUnmetEpisodeSearch", "commandName": "Cutoff Unmet Episode Search", "message": "Completed search for 1 episodes. 0 reports downloaded.", "status": "completed", "result": "successful", "queued": "2025-12-31T23:59:00Z", "started": "2025-12-31T23:59:01Z", "ended": "2026-01-01T00:00:00Z", "trigger": "manual"},
+  {"id": 904, "name": "RssSync", "commandName": "RSS Sync", "message": "RSS Sync Completed. Reports found: 12, Reports grabbed: 0", "status": "completed", "queued": "2026-01-01T00:00:00Z", "started": "2026-01-01T00:00:00Z", "ended": "2026-01-01T00:00:02Z", "trigger": "scheduled"}
+]

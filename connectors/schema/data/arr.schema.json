@@ -141,6 +141,7 @@
               "arr_id": {"type": ["integer", "null"]},
               "have": {"type": ["string", "null"]},
               "want": {"type": ["string", "null"]},
+              "profile": {"type": ["string", "null"], "description": "WP-U1 (2026-10-21): the quality profile's own name; absent in older envelopes."},
               "poster": {"type": ["string", "null"]}
             }
           }
@@ -159,8 +160,27 @@
               "episodes": {"type": "integer", "minimum": 1},
               "have": {"type": ["string", "null"]},
               "want": {"type": ["string", "null"]},
+              "profile": {"type": ["string", "null"], "description": "WP-U1 (2026-10-21): the quality profile's own name; absent in older envelopes."},
               "sample": {"type": ["string", "null"], "pattern": "^S[0-9]{2}(E[0-9]{2,})?$"},
+              "episode_id": {"type": ["integer", "null"], "description": "WP-U1 (2026-10-21): the Sonarr episode id of `sample` (the hub's Why? searches it); absent in older envelopes."},
               "poster": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "last_search": {
+          "description": "WP-U1 (2026-10-21): per app (Radarr first), the newest whole-library upgrade / missing search on GET /api/v3/command; an app without one, or whose command call failed, is left out. Absent in older envelopes.",
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["name", "app", "status", "ended", "message"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {"enum": ["upgrades", "missing"]},
+              "app": {"enum": ["radarr", "sonarr"]},
+              "status": {"type": "string"},
+              "ended": {"type": ["string", "null"]},
+              "message": {"type": ["string", "null"], "maxLength": 200}
             }
           }
         },

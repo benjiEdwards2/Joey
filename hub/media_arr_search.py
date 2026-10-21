@@ -323,7 +323,7 @@ async def sweep_now(request: Request):
 
 # ---- Search for upgrade (F4b, 2026-10-12) ----
 # B.: "show me if an upgrade is available … and allow me to decide if I want to download that upgrade." The film / show
-# hero says "Upgrade available · <have> → <want>" from the arr snapshot; the Search-now fragment adds the button when
+# hero says "Below cutoff · <have> → wants <want>" (WP-U1) from the arr snapshot; the Search-now fragment adds the button when
 # the app's own id for this title is on the snapshot's cutoff-unmet list (exact, whatever key Jellyfin uses).
 
 flash_keys("upgrade")

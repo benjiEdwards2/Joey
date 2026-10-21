@@ -1,7 +1,8 @@
 """F4b (2026-10-12): where "Upgrade available" renders — Movies / TV list rows (grid and list), Requests rows and the
 Activity › Downloads "Upgrades" block — from the arr snapshot's `data.upgrades` only (no upstream call), and nothing
 (no 500) for an older envelope without it. The film / show page and its "Search for upgrade" button:
-test_media_upgrades_film.py."""
+test_media_upgrades_film.py.
+Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>"."""
 import importlib
 import re
 
@@ -20,9 +21,9 @@ UP = {"radarr": [{"item_key": "tmdb:11", "title": "Alpha Film", "year": 2020, "a
                  {"item_key": "tvdb:7023", "title": "Golf Show", "arr_id": 4, "episodes": 1, "have": "HDTV-720p",
                   "want": "Bluray-1080p", "sample": "S02E01", "poster": None}],
       "totals": {"movies": 2, "episodes": 4, "series": 2}}
-FILM_NOTE = "Upgrade available · WEBDL-720p → Bluray-1080p"
-ECHO_NOTE = "Upgrade available · 3 episodes · SDTV → WEB 1080p"
-GOLF_NOTE = "Upgrade available · 1 episode · HDTV-720p → Bluray-1080p"
+FILM_NOTE = "Below cutoff · WEBDL-720p → wants Bluray-1080p"
+ECHO_NOTE = "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
+GOLF_NOTE = "Below cutoff · 1 episode · HDTV-720p → wants Bluray-1080p"
 
 
 def movie(title, year, key):
@@ -167,7 +168,7 @@ def test_downloads_block_lists_titles_with_totals_and_links(site):
     assert '<h2 class="seclabel">Upgrades</h2>' in blk
     assert '<p class="metaline">2 films · 2 shows</p>' in blk
     assert f'<div class="upnote">{FILM_NOTE}</div>' in blk and ECHO_NOTE in blk and GOLF_NOTE in blk
-    assert "Upgrade available · DVD" not in blk and "Upgrade available</div>" in blk   # unknown cutoff: no arrow part
+    assert "Below cutoff · DVD" not in blk and "Below cutoff</div>" in blk   # unknown cutoff: no arrow part
     alpha = blk.split("Alpha Film (2020)", 1)[0].rsplit("<a ", 1)[1]
     assert 'href="/media/item/jtmdb-11"' in alpha                              # the Joey item page (library title)
     assert 'href="/media/title/movie/99"' in blk                               # not in the library: the title page

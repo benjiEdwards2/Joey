@@ -12,10 +12,11 @@ result() { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((f
 
 echo "aapt2: $aapt2"
 badging="$("$aapt2" dump badging "$apk")"
-echo "$badging" | grep -E "^(package|sdkVersion|targetSdkVersion|application-label|leanback-launchable-activity|launchable-activity|uses-permission|uses-feature)" || true
+echo "$badging" | grep -E "^(package|[a-zA-Z]*dkVersion|application-label|leanback-launchable-activity|launchable-activity|uses-permission|uses-feature)" || true
 
 grep -q "^package: name='${pkg}'" <<<"$badging"; result $? "package is ${pkg}"
-grep -q "^sdkVersion:'28'" <<<"$badging"; result $? "minSdk 28"
+# aapt2 37 prints minSdkVersion:'28'; older aapt2 prints sdkVersion:'28'.
+grep -Eq "^(min)?[sS]dkVersion:'28'" <<<"$badging"; result $? "minSdk 28"
 grep -q "^leanback-launchable-activity:" <<<"$badging"; result $? "leanback-launchable-activity present"
 
 perms="$("$aapt2" dump permissions "$apk" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"

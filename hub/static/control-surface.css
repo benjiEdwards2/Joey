@@ -33,6 +33,7 @@
   --scrim: rgba(9, 9, 11, .9);
   --stage: #000000; --stage-fg: #ffffff; --stage-btn: #222222; --stage-line: #555555;
   --badge-ink: #000000; --badge-fg: #ffffff;
+  --signout: #f97316; --signout-hover: #fb923c; --signout-fg: #1a0a00;  /* sign-out P2 button: the mockup's orange, dark text */
   /* Guide tokens (section 2) */
   --surface: rgba(255, 255, 255, .03); --line: rgba(255, 255, 255, .1);
   --line-soft: rgba(255, 255, 255, .05); --line-hover: rgba(255, 255, 255, .2); --line-focus: rgba(255, 255, 255, .25);
@@ -262,13 +263,23 @@ a.row:hover { background: var(--soft); }
   background: var(--soft); color: var(--text-3); font-size: 11px; font-weight: 600; }
 .userchip .uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .userchip small { display: none; font-size: 12px; white-space: nowrap; }
-/* Guest sign-out (Joey TV, 2026-10-22): on the media front the chip is a button opening a small confirm <dialog>. */
-button.userchip { padding: 0; border: 0; background: none; font: inherit; font-size: 12px; color: var(--text-5); cursor: pointer; }
+/* Sign-out (Joey TV, 2026-10-22; option D + pop-up P2): with a signed-in identity the chip is one bordered pill (avatar,
+   name, exit icon) opening a small confirm <dialog>. The name stops at 12em with an ellipsis so the bar never overflows. */
+button.userchip { padding: 3px 10px 3px 3px; border: 1px solid var(--line); border-radius: 999px; background: none; font: inherit;
+  font-size: 12px; color: var(--text-5); cursor: pointer; transition: color .15s, background-color .15s; }
+button.userchip:hover { background: var(--hover); color: var(--text-3); }
+button.userchip .uname { max-width: 12em; }
+button.userchip svg.ic { width: 14px; height: 14px; flex: none; color: var(--text-4); }
+button.userchip .xlbl { display: none; }
 .signoutdlg { width: min(360px, calc(100vw - 32px)); margin: auto; padding: 20px; border-radius: 16px;
   border: 1px solid var(--line); background: var(--zinc-950); color: var(--text-1); }
 .signoutdlg::backdrop { background: var(--scrim); }
 .signout-q { margin: 0; font-size: 16px; font-weight: 600; }
-.signoutdlg .metaline { margin: 4px 0 16px; }
+.signout-body { margin: 8px 0 16px; font-size: 13px; line-height: 1.5; color: var(--text-4); overflow-wrap: anywhere; }
+.btn-signout { background: var(--signout); color: var(--signout-fg); }
+.btn-signout:hover { background: var(--signout-hover); }
+.btn-stay { border-color: var(--line); background: var(--surface); color: var(--text-2); }
+.btn-stay:hover { background: var(--hover); }
 @media (min-width: 640px) { .topbar-in { padding: 0 24px; } }
 /* E3 (U9 option a, 2026-10-13): Media mode on a phone (the brand holds .brand-back only in Media mode; it keyed on the
    media-ux5 docking swap until nav-tidy removed it) — the brand reads "‹ Joey" and the bar stays at the top, 48 px

@@ -83,32 +83,34 @@
     {% endif %}
     {% if is_guest and who.owner %}
     {# The guest chip names the signed-in Jellyfin user only - no email (the media front never has one). Sign-out (Joey TV,
-       2026-10-22): the chip opens a confirm <dialog>; "Sign out" is a plain full-page POST /signout (hx-boost off, so the
-       303 to /signin loads the standalone sign-in page; the browser's same-host Origin passes same_origin). Focus starts
-       on Cancel so a double press on the remote never signs out; Back / Esc / Cancel close it (tv.js joeyTV.back()). #}
-    <button class="userchip" type="button" aria-haspopup="dialog" aria-controls="signout-dlg" onclick="var d=document.getElementById('signout-dlg');d._opener=this;d.showModal()"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span></button>
-    <dialog id="signout-dlg" class="signoutdlg" aria-labelledby="signout-q">
+       2026-10-22; option D + pop-up P2 from JoeyTV\mockups\signout-options.html): one pill = avatar initial + name + an
+       exit icon, labelled "Sign out <name>"; on TV the focused pill also shows the words "Sign out" (tv.css). It opens a
+       confirm <dialog>; "Sign out" is a plain full-page POST /signout (hx-boost off, so the 303 to /signin loads the
+       standalone sign-in page; the browser's same-host Origin passes same_origin). Focus starts on "Stay signed in" so a
+       double press on the remote never signs out; Back / Esc / "Stay signed in" close it (tv.js joeyTV.back()). #}
+    <button class="userchip" type="button" aria-haspopup="dialog" aria-controls="signout-dlg" aria-label="Sign out {{ who.name }}" title="Sign out {{ who.name }}" onclick="var d=document.getElementById('signout-dlg');d._opener=this;d.showModal()"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><span class="xlbl" aria-hidden="true">Sign out</span>{{ ic.icon("signout") }}</button>
+    <dialog id="signout-dlg" class="signoutdlg" aria-labelledby="signout-q" aria-describedby="signout-body">
       <p id="signout-q" class="signout-q">Sign out of Joey Media?</p>
-      <p class="metaline">Signed in as {{ who.name }}</p>
+      <p id="signout-body" class="signout-body">You're signed in as {{ who.name }} on this device. To come back you'll need a new Quick Connect code (or your password).</p>
       <form class="confirm-btns" method="post" action="/signout" hx-boost="false">
-        <button class="btn btn-white" type="submit">Sign out</button>
-        <button class="btn btn-ghost" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Cancel</button>
+        <button class="btn btn-signout" type="submit">{{ ic.icon("signout") }}<span>Sign out</span></button>
+        <button class="btn btn-stay" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Stay signed in</button>
       </form>
     </dialog>
     {% elif is_guest %}
     <div class="userchip"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span></div>
     {% elif who.email %}
-    {# Private sign-out (2026-10-22): same chip button + confirm as the guest front, but "Sign out" is a plain GET to
-       Cloudflare Access's own logout (/cdn-cgi/access/logout, served by Cloudflare's edge, never by this app: it clears
-       the CF_Authorization cookie and shows Access's logged-out page). hx-boost off so htmx leaves the navigation alone.
-       Only with an Access identity; local preview keeps the static chip below. #}
-    <button class="userchip" title="{{ who.email }}" type="button" aria-haspopup="dialog" aria-controls="signout-dlg" onclick="var d=document.getElementById('signout-dlg');d._opener=this;d.showModal()"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email }}</small></button>
-    <dialog id="signout-dlg" class="signoutdlg" aria-labelledby="signout-q">
+    {# Private sign-out (2026-10-22): the same pill + confirm as the guest front (option D + P2), but "Sign out" is a plain
+       GET to Cloudflare Access's own logout (/cdn-cgi/access/logout, served by Cloudflare's edge, never by this app: it
+       clears the CF_Authorization cookie and shows Access's logged-out page). hx-boost off so htmx leaves the navigation
+       alone. Only with an Access identity; local preview keeps the static chip below. #}
+    <button class="userchip" type="button" aria-haspopup="dialog" aria-controls="signout-dlg" aria-label="Sign out {{ who.email }}" title="Sign out {{ who.email }}" onclick="var d=document.getElementById('signout-dlg');d._opener=this;d.showModal()"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email }}</small><span class="xlbl" aria-hidden="true">Sign out</span>{{ ic.icon("signout") }}</button>
+    <dialog id="signout-dlg" class="signoutdlg" aria-labelledby="signout-q" aria-describedby="signout-body">
       <p id="signout-q" class="signout-q">Sign out of Joey?</p>
-      <p class="metaline">Signed in as {{ who.email }}</p>
+      <p id="signout-body" class="signout-body">You're signed in as {{ who.email }} on this device. To come back you'll need a new e-mail code.</p>
       <div class="confirm-btns">
-        <a class="btn btn-white" href="/cdn-cgi/access/logout" hx-boost="false">Sign out</a>
-        <button class="btn btn-ghost" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Cancel</button>
+        <a class="btn btn-signout" href="/cdn-cgi/access/logout" hx-boost="false">{{ ic.icon("signout") }}<span>Sign out</span></a>
+        <button class="btn btn-stay" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Stay signed in</button>
       </div>
     </dialog>
     {% else %}

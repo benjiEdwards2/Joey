@@ -121,7 +121,7 @@ def topbar_of(html):
 def test_top_bar_chip_shows_the_signed_in_user(client):  # noqa: F811
     html = client.get("/", headers=AS_YOU).text
     bar = topbar_of(html)
-    assert f'class="userchip" title="{YOU}"' in bar and '<span class="uname">Benji</span>' in bar
+    assert f'title="Sign out {YOU}"' in bar and '<span class="uname">Benji</span>' in bar   # the sign-out pill (2026-10-22)
     assert '<span class="avatar" aria-hidden="true">B</span>' in bar and f"<small>{YOU}</small>" in bar
     assert bar.index("toplinks") < bar.index("userchip")   # section pills, then the chip at the right
     her = client.get("/", headers=AS_HER).text

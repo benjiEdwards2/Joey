@@ -39,21 +39,33 @@ html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding:
 html.tv .brand { gap: 10px; }
 html.tv .brand b { font-size: 22px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
 html.tv .brand .mark { width: 36px; height: 36px; border-radius: 9px; }
-html.tv .toplinks { display: flex; gap: 4px; }
-html.tv .toplinks a { height: 40px; padding: 0 14px; border-radius: 10px; font-size: 20px; color: var(--tv-t4); }
+html.tv .toplinks { display: flex; gap: 4px; flex-shrink: 0; }
+html.tv .toplinks a { height: 40px; padding: 0 10px; border-radius: 10px; font-size: 20px; color: var(--tv-t4); }
 html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
 html.tv .userchip { margin-left: auto; height: 40px; padding: 0 12px 0 4px; border-radius: 999px; font-size: 18px; color: var(--tv-t3); }
 html.tv .userchip .avatar { width: 32px; height: 32px; font-size: 17px; background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }
-/* Sign-out confirm (2026-10-22): the chip is focusable (Enter opens it); the card matches the request panel; Cancel
-   starts focused, Left reaches Sign out; Back / Cancel / Esc close it (tv.js back()). */
+/* Sign-out (2026-10-22; option D + pop-up P2): the pill is one D-pad stop (Enter opens the confirm); with focus it also
+   shows the words "Sign out" before the exit icon. The section row never shrinks (flex-shrink 0 above; its pills are
+   10 px a side, not 14, which leaves ~176 px for the pill), so only the pill gives way: its name ellipsises (max 150 px)
+   and, on focus, folds away for the words (the avatar initial stays; the aria-label keeps the name); nothing moves. The card matches the request panel; "Stay signed
+   in" starts focused, Left reaches Sign out; Back / Esc / "Stay signed in" close it (tv.js back()). */
+html.tv button.userchip { padding: 0 10px 0 4px; border-color: var(--tv-line); }
+html.tv button.userchip .uname { max-width: 150px; transition: max-width .18s ease-out, margin .18s ease-out; }
+html.tv button.userchip svg.ic { width: 22px; height: 22px; color: var(--tv-t4); }
+html.tv button.userchip .xlbl { display: inline; flex: none; max-width: 0; margin-right: -8px; overflow: hidden; white-space: nowrap;
+  font-weight: 600; color: var(--tv-t1); transition: max-width .18s ease-out, margin .18s ease-out; }
+html.tv button.userchip:focus-visible .xlbl, html.tv button.userchip.tv-focus .xlbl { max-width: 110px; margin-right: 0; }
+html.tv button.userchip:focus-visible .uname, html.tv button.userchip.tv-focus .uname { max-width: 0; margin-right: -8px; }
 html.tv .signoutdlg { width: 520px; padding: 28px 32px; border: 1px solid var(--tv-line); border-radius: 20px; background: #18181b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
 html.tv .signoutdlg::backdrop { background: rgba(9, 9, 11, .82); }
 html.tv .signout-q { font-size: 30px; line-height: 1.15; }
-html.tv .signoutdlg .metaline { margin: 8px 0 22px; font-size: 19px; color: var(--tv-t4); }
+html.tv .signout-body { margin: 10px 0 24px; font-size: 20px; line-height: 1.35; color: var(--tv-t3); }
 html.tv .signoutdlg .confirm-btns { gap: 14px; }
-html.tv .signoutdlg .btn-white { background: var(--primary); color: #fff; border-color: transparent; }
-html.tv .signoutdlg .btn-ghost { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
+html.tv .signoutdlg .btn { gap: 10px; }
+html.tv .signoutdlg .btn svg.ic { width: 24px; height: 24px; }
+html.tv .signoutdlg .btn-signout { background: #f97316; color: #1a0a00; border-color: transparent; }
+html.tv .signoutdlg .btn-stay { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 
 /* Page frame: the content column is the safe area; shelves run edge to edge inside it (below). */
 html.tv .page { max-width: none; width: auto; margin: 0; padding: 0 var(--tv-mx) var(--tv-my); gap: 14px; }

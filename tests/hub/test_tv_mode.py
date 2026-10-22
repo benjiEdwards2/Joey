@@ -186,3 +186,17 @@ def test_a_focus_the_webview_puts_on_the_top_bar_before_any_key_goes_to_the_firs
     assert "if (f && f !== e.target && !f.closest('.topbar')) { setFocus(f); return; }" in fi
     kd = js[js.index("document.addEventListener('keydown'"):]
     assert kd.index("keyed = true;") < kd.index("if (!KEYS[e.key]")
+
+
+def test_a_top_bar_focus_already_held_when_tv_js_starts_goes_to_the_first_target(gc):
+    """W5 2026-10-22 (real TCL): OK on a poster is a full page load of /media/item/<id>; the WebView focused the brand
+    before the deferred tv.js added its focusin listener, and restore() kept any existing focus, so the next OK went to
+    Overview instead of Resume/Play. restore() (initial run, DOMContentLoaded, every htmx swap) now also replaces a
+    top-bar focus by first() until the first remote key, unless first() is itself in the top bar."""
+    js = gc.get("/static/tv.js").text
+    rs = js[js.index("function restore() {"):]
+    rs = rs[:rs.index("\n  }") + 4]
+    assert "var a = active(), f = first();" in rs
+    assert "if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);" in rs
+    assert "if (!active()) setFocus(first());" not in rs
+    assert "document.addEventListener('DOMContentLoaded', restore);\n  else restore();" in js

@@ -194,7 +194,10 @@
 
   function restore() {
     dropBlankTargets(document);
-    if (!active()) setFocus(first());
+    /* a full page load (OK on a poster opens /media/item/<id>): the WebView can focus the brand before this deferred
+       script adds its focusin listener, so a top-bar focus found here before any key is also replaced by first() */
+    var a = active(), f = first();
+    if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);
   }
 
   window.joeyTV = {

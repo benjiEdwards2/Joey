@@ -133,6 +133,10 @@ is the session, so disabling or deleting a friend in Jellyfin, or signing the de
   `GET /signin/qc/poll` (htmx, every 3 s; sets the session cookie and `HX-Redirect`s once the phone approves),
   `POST /signin/password`, `POST /signout` (Jellyfin `/Sessions/Logout`, best effort, then the cookie is cleared and
   303 `/signin`). `GET /signout` is a 404: sign-out is POST only. Nothing else under `/signin` is served.
+- **Sign-out control (2026-10-22).** On every signed-in guest page the top-bar user chip (avatar initial + name) is a
+  button opening a confirm `<dialog id="signout-dlg">` (`base.html`): "Sign out" is a plain full-page form POST `/signout`
+  (`hx-boost="false"`), "Cancel" starts focused and closes it, as do Back on the TV (tv.js `joeyTV.back()`) and Esc.
+  Not on `/signin`, not for a visitor who is not signed in, never on the private front (`test_guest_signout_chip.py`).
 - **Cookies** (`HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure`, `__Host-` prefix): `__Host-jm_session` (the Jellyfin token,
   90 days absolute from sign-in, never extended), `__Host-jm_qc` (the Quick Connect secret, 10 min, never in the page),
   `__Host-jm_dev` (this browser's Jellyfin DeviceId, 400 days). `JOEY_COOKIE_SECURE=0` drops `__Host-` and `Secure` for

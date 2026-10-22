@@ -262,6 +262,13 @@ a.row:hover { background: var(--soft); }
   background: var(--soft); color: var(--text-3); font-size: 11px; font-weight: 600; }
 .userchip .uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .userchip small { display: none; font-size: 12px; white-space: nowrap; }
+/* Guest sign-out (Joey TV, 2026-10-22): on the media front the chip is a button opening a small confirm <dialog>. */
+button.userchip { padding: 0; border: 0; background: none; font: inherit; font-size: 12px; color: var(--text-5); cursor: pointer; }
+.signoutdlg { width: min(360px, calc(100vw - 32px)); margin: auto; padding: 20px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--zinc-950); color: var(--text-1); }
+.signoutdlg::backdrop { background: var(--scrim); }
+.signout-q { margin: 0; font-size: 16px; font-weight: 600; }
+.signoutdlg .metaline { margin: 4px 0 16px; }
 @media (min-width: 640px) { .topbar-in { padding: 0 24px; } }
 /* E3 (U9 option a, 2026-10-13): Media mode on a phone (the brand holds .brand-back only in Media mode; it keyed on the
    media-ux5 docking swap until nav-tidy removed it) — the brand reads "‹ Joey" and the bar stays at the top, 48 px

@@ -97,8 +97,22 @@
     </dialog>
     {% elif is_guest %}
     <div class="userchip"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span></div>
+    {% elif who.email %}
+    {# Private sign-out (2026-10-22): same chip button + confirm as the guest front, but "Sign out" is a plain GET to
+       Cloudflare Access's own logout (/cdn-cgi/access/logout, served by Cloudflare's edge, never by this app: it clears
+       the CF_Authorization cookie and shows Access's logged-out page). hx-boost off so htmx leaves the navigation alone.
+       Only with an Access identity; local preview keeps the static chip below. #}
+    <button class="userchip" title="{{ who.email }}" type="button" aria-haspopup="dialog" aria-controls="signout-dlg" onclick="var d=document.getElementById('signout-dlg');d._opener=this;d.showModal()"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email }}</small></button>
+    <dialog id="signout-dlg" class="signoutdlg" aria-labelledby="signout-q">
+      <p id="signout-q" class="signout-q">Sign out of Joey?</p>
+      <p class="metaline">Signed in as {{ who.email }}</p>
+      <div class="confirm-btns">
+        <a class="btn btn-white" href="/cdn-cgi/access/logout" hx-boost="false">Sign out</a>
+        <button class="btn btn-ghost" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Cancel</button>
+      </div>
+    </dialog>
     {% else %}
-    <div class="userchip"{% if who.email %} title="{{ who.email }}"{% endif %}><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email or "Local preview" }}</small></div>
+    <div class="userchip"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>Local preview</small></div>
     {% endif %}
   </div>
 </header>

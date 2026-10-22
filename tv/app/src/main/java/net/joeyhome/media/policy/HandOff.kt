@@ -27,6 +27,11 @@ fun interface PlaybackRoute {
  * Route 1b (WP-B6 decision line): explicit component `org.jellyfin.androidtv/.ui.startup.StartupActivity`, NO action,
  * String extra `ItemId`, FLAG_ACTIVITY_NEW_TASK. Opens the item's details page (one OK plays or resumes).
  *
+ * W5 (2026-10-22, on the TCL): dropping FLAG_ACTIVITY_NEW_TASK does NOT bring Back to Joey Media.
+ * StartupActivity does start inside our task, but it hands over to `ui.browsing.MainActivity` in Jellyfin's own task
+ * (affinity org.jellyfin.androidtv), so Back from Jellyfin always ends on the TV's home screen; reopening Joey Media
+ * shows the same page. The flag stays (the WP-B6 decision line, 12/12 spike cells).
+ *
  * Only well-formed ids (32 hex, or the dashed UUID form) get an item intent; anything else goes to route 3. The ids
  * come from the page's Jellyfin links, which the server builds from Jellyfin API ids: a valid-looking id Jellyfin does
  * not know would open an EMPTY details page (spike), so never synthesise one.

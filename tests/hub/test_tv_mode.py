@@ -155,3 +155,20 @@ def test_tv_discover_is_the_six_column_grid_with_chips_and_the_panel(monkeypatch
             "HX-Request": "true", "content-type": "application/x-www-form-urlencoded"}).text
         assert "Requested — waiting for approval" in done and "Harvest Moon Rising" in done and "Overview of Harvest Moon Rising." in done
         assert re.search(r"<button[^>]*data-close data-first[^>]*>Done</button>", done)
+
+
+def test_focus_growth_and_ring_stay_inside_the_overscan_margin(gc):
+    """W5 2026-10-22 (real TCL): a focused poster (scale 1.06 + 4 px ring 3 px out) reached 96 % of the height and
+    4.6 % from the left. tv.js now keeps room for that growth when it scrolls a row into view, and grows first/last
+    column posters inward; its constants must match tv.css."""
+    js = gc.get("/static/tv.js").text
+    css = gc.get("/static/tv.css").text
+    scale = float(re.search(r"\.card-poster\.tv-focus \{[^}]*transform: scale\(([\d.]+)\)", css).group(1))
+    ring = re.search(r"\.card-poster\.tv-focus \.card-pic \{[^}]*outline: (\d+)px solid[^}]*outline-offset: (\d+)px", css)
+    assert re.search(r"POSTER_GROW = ([\d.]+)", js) and abs(float(re.search(r"POSTER_GROW = ([\d.]+)", js).group(1))
+                                                           - (scale - 1) / 2) < 1e-9
+    assert int(re.search(r"RING = (\d+)", js).group(1)) == int(ring.group(1)) + int(ring.group(2))
+    assert "var bottom = window.innerHeight - OVERSCAN_Y - grow;" in js and "PAD + grow" in js
+    assert re.search(r"OVERSCAN_Y = 27, OVERSCAN_X = 48", js) and "--tv-mx: 48px; --tv-my: 27px" in css
+    assert "transformOrigin = b.left - grow < OVERSCAN_X ? 'left center'" in js and "'right center'" in js
+    assert js.index("centreInShelf(el);") < js.index("edgeOrigin(el);   /*") < js.index("keepRowInView(el);\n  }")

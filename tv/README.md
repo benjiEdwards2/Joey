@@ -139,8 +139,9 @@ Only main-frame navigations are checked; sub-frames are the page's business. A m
 
 Only send ids the server got from the Jellyfin API: a valid-looking id Jellyfin does not know opens an empty details
 page. The implicit VIEW / `-p` launcher intents and the `.startup.StartupActivity` alias do not resolve (spike), so
-they are never used. Back from Jellyfin takes two presses and lands on the Google TV launcher (Jellyfin's
-`TASK_ON_HOME`), never Joey Media; that is expected. Each successful start marks "returning from playback", and the
+they are never used. Back from Jellyfin lands on the TV's home screen, never Joey Media; reopening Joey Media shows
+the same page. Tried without `FLAG_ACTIVITY_NEW_TASK` (W5, 2026-10-22): no change, because Jellyfin's StartupActivity
+hands over to its `ui.browsing.MainActivity` in Jellyfin's own task. Each successful start marks "returning from playback", and the
 next `onResume` reloads the last UI URL. Settings → "Test hand-off" uses the same call. Evidence:
 `JoeyTV\spike\SPIKE_RESULTS.md` (12/12 cells PASS, TCL, Android 14, Jellyfin app 0.19.10).
 

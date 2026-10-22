@@ -1,1 +1,1 @@
-First build.
+Joey Media 1.0.0 - the first signed release. Browse the library, keep a watchlist and diary, request films and shows, and press Play to watch in the Jellyfin app.

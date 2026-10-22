@@ -12,7 +12,9 @@ Parts: `tv/VERSION` + `tv/NOTES.txt` (the inputs), `.github/workflows/tv.yml` (b
 (rules, `version.json`, APK secret scan), `deploy/tv_publish.py` (NAS side), `hub/tv_app.py` (the `/app` routes), `tv/README.md`
 (the app itself).
 
-**State at 2026-10-21: the release half is dormant** until the signing key exists and the two GitHub secrets are set (WP-B9).
+**State at 2026-10-22: the release half is live.** WP-B9 created the release keystore (NAS secrets dir + password manager),
+set the two GitHub secrets and committed `tv/SIGNING_CERT_SHA256`; 1.0.0 (`2026102201`) is the first signed release.
+(Before that, 2026-10-21: dormant until the signing key existed and the two GitHub secrets were set.)
 Until then no signed APK, no GitHub Release; each deploy shows `tv=skipped:no-token` or `tv=pending:<code>` (see "History tokens").
 Everything marked "UNTESTED" below is proven at WP-B9 (or W5, the first friend install), not before.
 

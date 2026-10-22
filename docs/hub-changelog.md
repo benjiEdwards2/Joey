@@ -1192,3 +1192,20 @@ Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css
 (six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
 Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
 `docs/public-edge.md` R1 step 4.
+
+## 2026-10-22 — P2 Overnight digest
+
+One Discord message a day with the night's state in words (assistant idea P2, `review/2026-10-19-server`; B. accepted the
+defaults 2026-10-22: 07:30 hub-local, the existing Discord channel). New `hub/server_digest.py`: `build(snaps, now)` joins
+" · " parts from the snapshots the hub already holds — "Joey digest · Thu 23 Oct · Arrived: 3 episodes, 1 film · 1 update
+pending · Disk 71 % · All 11 services up · 2 torrents stalled" (arrivals = the arr snapshot's `arrived` rows from the last 24 h,
+a `season` row counted by its "N episodes"; updates = WUD rows through `server.split_updates` with the ignores; disk = the
+fullest volume; services = media_status apps, "Down: Radarr, WUD" when any; torrents = qBittorrent "Stalled" rows, else
+"N downloading"). A part whose snapshot is missing is left out, none at all ⇒ no message; at most 300 characters. `tick()` runs
+on a new 5-minute loop in `hub/tasks.py` (first check 90 s after startup): it posts through `server_alerts.post` to
+`SERVER_DISCORD_WEBHOOK` once per hub-local day once the time reaches `DIGEST_AT` (default 07:30), records `media.db`
+`server_digest_sent(day, at, text)` only after a successful post, retries a failed post on the next tick (at most 3 per day),
+and does nothing without a webhook or with `DIGEST=off`. A hub that starts at 09:00 still sends that day. The Server page's
+System band gets one line under the sweeps line — "Digest · sent 07:31" / "Digest · not sent today" / nothing without a
+webhook (`last_sent`, passed from the `/server` route as `digest`). `deploy/.env.example`: `DIGEST_AT`, `DIGEST`. Tests:
+`tests/hub/test_server_digest.py`.

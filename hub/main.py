@@ -25,6 +25,7 @@ from hub import media_arr_search, media_follow, media_quality, media_requests, m
 from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
+from hub import server_digest  # P2 (2026-10-22)
 from hub.media_watchlist import router as media_watchlist_router
 from hub import media_home, media_pages, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
@@ -228,6 +229,7 @@ def _server_response(request: Request, area, view: str, from_query: bool):
         "area": area, "sv": sv,
         "flash": server_updates.flash_text(request.query_params) or server_stack.flash_text(request.query_params),
         "stack": server_stack.status(),   # 2026-10-12: stackctl's last run (2 s cap; no env = no call)
+        "digest": server_digest.last_sent(),   # P2 (2026-10-22): "Digest · sent 07:31" / None without a webhook
     }, active_id=area.id)
     resp.background = after
     return shell._maybe_set_cookie(resp, view, from_query)

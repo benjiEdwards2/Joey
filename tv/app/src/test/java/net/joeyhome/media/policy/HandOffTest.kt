@@ -15,7 +15,7 @@ class HandOffTest {
         assertEquals("org.jellyfin.androidtv.ui.startup.StartupActivity", spec.className)
         assertNull(spec.action) // no action: VIEW / MAIN are not needed and implicit forms don't resolve
         assertEquals(mapOf("ItemId" to id), spec.extras)
-        assertEquals(0x10000000, spec.flags) // FLAG_ACTIVITY_NEW_TASK only
+        assertEquals(0, spec.flags) // no FLAG_ACTIVITY_NEW_TASK: Jellyfin stacks on our task, Back returns here (W5)
     }
 
     @Test

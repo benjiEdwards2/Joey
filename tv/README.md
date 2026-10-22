@@ -132,15 +132,16 @@ Only main-frame navigations are checked; sub-frames are the page's business. A m
    then the https Play fallback; the Amazon Appstore when the `amazon.hardware.fire_tv` feature is present);
 2. a well-formed item id (32 hex or dashed UUID) → route 1b: explicit component
    `org.jellyfin.androidtv/org.jellyfin.androidtv.ui.startup.StartupActivity`, no action, String extra `ItemId`,
-   `FLAG_ACTIVITY_NEW_TASK` → the item's details page (one OK plays or resumes);
+   no flags (1.0.1; 1.0.0 used `FLAG_ACTIVITY_NEW_TASK`) → the item's details page (one OK plays or resumes);
 3. no or malformed id, or `ActivityNotFoundException` / `SecurityException` → route 3, the Jellyfin app home via
    `getLeanbackLaunchIntentForPackage` (needs the `<queries>` package entry);
 4. route 3 failing too → the card.
 
 Only send ids the server got from the Jellyfin API: a valid-looking id Jellyfin does not know opens an empty details
 page. The implicit VIEW / `-p` launcher intents and the `.startup.StartupActivity` alias do not resolve (spike), so
-they are never used. Back from Jellyfin takes two presses and lands on the Google TV launcher (Jellyfin's
-`TASK_ON_HOME`), never Joey Media; that is expected. Each successful start marks "returning from playback", and the
+they are never used. Since 1.0.1 Jellyfin is started without `FLAG_ACTIVITY_NEW_TASK`, so it stacks on Joey Media's
+task and Back from Jellyfin returns to the Joey Media page (W5, 2026-10-22; with the flag, 1.0.0, Back landed on the TV's
+home screen). Each successful start marks "returning from playback", and the
 next `onResume` reloads the last UI URL. Settings → "Test hand-off" uses the same call. Evidence:
 `JoeyTV\spike\SPIKE_RESULTS.md` (12/12 cells PASS, TCL, Android 14, Jellyfin app 0.19.10).
 

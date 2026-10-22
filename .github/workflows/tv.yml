@@ -149,7 +149,7 @@ jobs:
           src="$(ls tv/app/build/outputs/apk/sideload/release/*.apk | head -1)"
           case "$src" in *unsigned*) echo "::error::unsigned release APK: $src"; exit 1 ;; esac
           want="$(tr -d '[:space:]' < tv/SIGNING_CERT_SHA256)"
-          got="$("$bt/apksigner" verify --print-certs "$src" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+          got="$("$bt/apksigner" verify --print-certs "$src" | tee /dev/stderr | sed -n 's/^Signer.* certificate SHA-256 digest: //p' | head -1)"
           if [ "$got" != "$want" ]; then echo "::error::APK signer '${got:-none}' != tv/SIGNING_CERT_SHA256"; exit 1; fi
           name="$(python3 deploy/tv_version.py apk-name)"
           mkdir -p release

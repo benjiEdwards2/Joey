@@ -1,101 +1,40 @@
 {% extends "media_base.html" %}
 {% block title %}Awards · Joey{% endblock %}
 {% block content %}
-{% from "_poster.html" import poster %}
-{% from "_icons.html" import icon %}
-{% from "_award_icons.html" import award_icon, award_badge %}
-{% import "_award_card.html" as aw %}
-{# Movies / TV Shows > Awards (AWARDS_PLAN A4, 2026-10-08; visual pass awards-ui item 2, 2026-10-09). Top to bottom:
-   title + the one staleness line; Coming up (a stats strip by month, each ceremony with its mark, the next one
-   outlined and saying "Next", teal when the date is known); the ceremony tiles (mark + name + a muted month line — awards-year item 3: the selected year's
-   edition date, else the usual month — the picked one gold;
-   a sideways-scrolling row inside its own box on a phone); the year stepper (‹ native year select ›) + edition line +
-   Not seen chip (awards-year, 2026-10-09: the tiles keep the year; a "Current year" chip back to the latest synced
-   year unless already there; the ceremony tiles, stepper, year select and chips keep the scroll position — hx-swap "show:none", F1 2026-10-12; a muted "No <Ceremony> in <year> · showing <year2>" note when the year fell back); the Most wins podium; the hero category on the winner's backdrop (gold-framed poster, gold pill,
-   "Won N of M nominations" in gold, the nominees row); every category as a card in curated rank order; shorts /
-   documentary / technical fold under "More categories". Gold means won (style guide: colour for meaning). E7
-   (2026-10-13): only the first 4 category cards are in the page, the rest load in one htmx request (see the sentinel at the end). #}
-{# E3 (U4, 2026-10-13): the page head's H1 already says "Awards" (the tab label) — no second title here. #}
+{% from "_award_icons.html" import award_icon %}
+{# Movies / TV Shows > Awards. The awards ballot (2026-10-14, B. chose Plan C; supersedes the hero / podium / category-first
+   page of AWARDS_PLAN A4 and awards-ui). Top to bottom: the staleness line; then ONE htmx block, #awmain - the sticky
+   control row (the picker button -> _award_sheet.html, the edition line, Films · Categories), the muted "No <Ceremony> in
+   <year>" note when the year fell back, the Next up line (its "All dates" fold holds the month grid of Coming up), and
+   _award_body.html (the films ballot, or the category cards). Every link inside #awmain swaps the whole block and pushes
+   the URL, so Back works and the scroll stays (show:none); links that leave the page reset that on their own container
+   (_award_ballot.html). Gold means won (style guide: colour for meaning, always beside words). #}
+{# E3 (U4, 2026-10-13): the page head's H1 already says "Awards" (the tab label) - no second title here. #}
 <section class="sec awhead">
   <p class="metaline">{% if sync.failed %}<span class="badge badge-wait">Sync failed · retrying</span> {% endif %}{{ sync.text }}</p>
 </section>
-{% if coming %}
-<section class="sec">
-  <h2 class="seclabel">Coming up</h2>
-  <div class="stats awcoming">
-    {% for m in coming %}<div class="stat"><div class="microlabel">{{ m.month }}</div><div class="awcoming-names">{% for i in m.events %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}<span class="awev{{ ' is-next' if i.next }}">{{ award_icon(i.body_id, 14, src=i.logo, deco=true) }}{% if i.date %}<span class="aw-date">{{ i.name }} · {{ i.date }}</span>{% else %}{{ i.name }}{% endif %}{% if i.next %} <span class="awnext">Next</span>{% endif %}</span>{% endfor %}</div></div>{% endfor %}
-  </div>
-</section>
-{% endif %}
-{% if bodies %}
-<nav class="awtiles" aria-label="Ceremonies" hx-swap="innerHTML show:none"><div class="awtiles-row">{% for b in bodies %}<a class="awtile{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="page"{% endif %}>{{ award_icon(b.id, 28, src=b.logo, deco=true) }}<span class="awtile-name">{{ b.name }}</span>{% if b.month %}<span class="awtile-month">{{ b.month }}</span>{% endif %}</a>{% endfor %}</div></nav>
-<div class="awstep" hx-swap="innerHTML show:none">
-  {% if prev %}<a class="btn btn-glass btn-sm" href="{{ prev.href }}" aria-label="Previous ceremony, {{ prev.year }}">‹ {{ prev.year }}</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">‹</span>{% endif %}
-  {% if years %}
-  <form class="awyearform" method="get" action="{{ base }}">
-    <input type="hidden" name="body" value="{{ body }}">{% if unseen %}<input type="hidden" name="unseen" value="1">{% endif %}
-    <label class="vh" for="awyear">Ceremony year</label>
-    <select class="select awyear" id="awyear" name="year" onchange="this.form.requestSubmit()">{% for y in years %}<option value="{{ y }}"{% if y == year %} selected{% endif %}>{{ y }}</option>{% endfor %}</select>
-    <noscript><button class="btn btn-secondary btn-sm" type="submit">Go</button></noscript>
-  </form>
-  {% else %}<span class="awyear">—</span>{% endif %}
-  {% if next %}<a class="btn btn-glass btn-sm" href="{{ next.href }}" aria-label="Next ceremony, {{ next.year }}">{{ next.year }} ›</a>{% else %}<span class="btn btn-glass btn-sm" aria-disabled="true">›</span>{% endif %}
-  {% if current %}<a class="chip awcur" href="{{ current.href }}" aria-label="Current year, {{ current.year }}">Current year</a>{% endif %}
+<div id="awmain" class="awmain" hx-boost="true" hx-target="#awmain" hx-select="#awmain" hx-swap="outerHTML show:none" hx-push-url="true">
+{% if bodies and picker %}
+<div class="awctl">
+  {% include "_award_sheet.html" %}
   {% if edition_line %}<span class="metaline awed">{{ edition_line }}</span>{% endif %}
-  <a class="chip{{ ' on' if unseen }}" href="{{ unseen_href }}" aria-pressed="{{ 'true' if unseen else 'false' }}">{{ icon("eye") }}Not seen</a>
+  <nav class="seg awview" aria-label="View">
+    <a href="{{ view_hrefs.films }}"{% if view != "categories" %} aria-current="page"{% endif %}>Films</a>
+    <a href="{{ view_hrefs.categories }}"{% if view == "categories" %} aria-current="page"{% endif %}>Categories</a>
+  </nav>
 </div>
 {% if year_note %}<p class="metaline awyearnote">{{ year_note }}</p>{% endif %}
 {% endif %}
-{% if empty %}
-<p class="empty">{{ empty }}</p>
-{% else %}
-{% if podium %}
-<section class="sec">
-  <h2 class="seclabel">Most wins</h2>
-  <ol class="awpodium">{% for s in podium %}<li class="awpod awpod-{{ s.place }}"><{{ "a" if s.href else "div" }} class="awpod-in"{% if s.href %} href="{{ s.href }}"{% endif %}>
-    <span class="card-pic awframe is-place-{{ s.place }}">{{ poster(s.poster, s.title, 240) }}{{ aw.tag(s) }}{{ award_badge(s.award) }}</span>
-    <span class="row-title">{{ s.title }}</span>
-    <span class="row-meta">{{ s.line }}</span>
-    <span class="awpod-step"><span class="vh">Place </span>{{ s.place }}</span>
-  </{{ "a" if s.href else "div" }}></li>{% endfor %}</ol>
-</section>
-{% endif %}
-{% if hero %}
-{% set w = hero.winners[0] if hero.winners else none %}{% set hbd = hero.backdrop %}
-<section class="sec awhero{{ ' has-bd' if hbd }}">
-  {% if hbd %}{% if hbd.startswith('jfb:') %}<img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async">{% else %}<picture><source media="(max-width: 767px)" srcset="/img/{{ hbd }}?h=600"><img class="awhero-bd" src="/img/{{ hbd }}?h=1280" alt="" decoding="async"></picture>{% endif %}{% endif %}
-  {% if w %}
-  <{{ "a" if w.href else "div" }} class="awwin"{% if w.href %} href="{{ w.href }}"{% endif %}>
-    <span class="card-pic awframe is-won">{{ poster(w.poster, w.title, 400, "awwin-poster") }}{{ aw.tag(w) }}{{ award_badge(w.award) }}</span>
-    <span class="awwin-text">
-      <span class="awpill is-won">{{ award_icon("trophy", 14, deco=true) }}{{ hero.name }}</span>
-      <span class="awwin-title">{{ w.title }}</span>
-      {% if w.sub %}<span class="row-meta">{{ w.sub }}</span>{% endif %}
-      {% if hero.tally %}<span class="awtally">{{ award_icon("laurel", 16, deco=true) }}{{ hero.tally }}</span>{% endif %}
-      {% if w.seen %}<span class="awseen st-good">{{ award_icon("seen", 14, deco=true) }}Seen</span>{% endif %}
-    </span>
-  </{{ "a" if w.href else "div" }}>
-  {% for extra in hero.winners[1:] %}{{ aw.winner(extra) }}{% endfor %}
-  {% else %}
-  <span class="awpill">{{ award_icon("trophy", 14, deco=true) }}{{ hero.name }}</span>
+{% if next_up or coming %}
+<details class="awnextup">
+  <summary>{% if next_up %}<span class="awnextup-line">{{ award_icon(next_up.body_id, 16, src=next_up.logo, deco=true) }}<b>Next up:</b> {{ next_up.name }}{% if next_up.date %} · <span class="aw-date">{{ next_up.date }}</span>{% endif %}{% if next_up.days is not none %} · {% if next_up.days == 0 %}today{% elif next_up.days == 1 %}tomorrow{% else %}in {{ next_up.days }} days{% endif %}{% endif %}</span>{% else %}<span class="awnextup-line"><b>Coming up</b></span>{% endif %}<span class="awnextup-all">All dates</span></summary>
+  {% if coming %}
+  <div class="stats awcoming">
+    {% for m in coming %}<div class="stat"><div class="microlabel">{{ m.month }}</div><div class="awcoming-names">{% for i in m.events %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}<span class="awev{{ ' is-next' if i.next }}">{{ award_icon(i.body_id, 14, src=i.logo, deco=true) }}{% if i.date %}<span class="aw-date">{{ i.name }} · {{ i.date }}</span>{% else %}{{ i.name }}{% endif %}{% if i.next %} <span class="awnext">Next</span>{% endif %}</span>{% endfor %}</div></div>{% endfor %}
+  </div>
   {% endif %}
-  {% if hero.nominees %}
-  <div class="microlabel awhero-label">Nominated · {{ hero.nominees | length }}</div>
-  <div class="carousel awhero-noms">{% for c in hero.nominees %}{{ aw.thumb(c) }}{% endfor %}</div>
-  {% endif %}
-</section>
+</details>
 {% endif %}
-{% if cats %}
-<div class="awgrid">{% for c in cats %}{{ aw.category(c) }}{% endfor %}</div>
-{% endif %}
-{% if more %}
-{{ aw.more_categories(more) }}
-{% endif %}
-{# E7: the first screen ends here; the rest of the cards come in ONE request when this sentinel scrolls into view
-   (hx-swap outerHTML: it is replaced by the cards); without JS it is the plain link to the whole page. #}
-{% if rest %}
-<div class="awrest" hx-get="{{ part_href }}" hx-trigger="revealed" hx-swap="outerHTML" hx-indicator="this"><a class="btn btn-glass btn-sm" href="{{ all_href }}">All categories</a></div>
-{% endif %}
-{% if not hero and not cats and not more and not rest %}<p class="empty">{{ "Everything here is seen." if unseen else "Nothing recorded for this ceremony yet." }}</p>{% endif %}
-{% endif %}
+{% include "_award_body.html" %}
+</div>
 {% endblock %}

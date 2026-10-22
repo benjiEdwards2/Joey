@@ -3,8 +3,10 @@
 * `parse_award_blocks(wikitext)` reads a Wikipedia ceremony page in the shape every page since the mid-2000s uses:
   a `{{Award category|<colour>|[[<category page>|<label>]]}}` header, then `* '''winner'''` and `** nominee` lines
   ("''[[Film]]'' – [[People]]" for work categories, "[[Person]] – ''[[Film]]'' as Role" for people; Emmys mark the
-  winner with `{{double dagger}}`; "(Network)" / "(Country)" parentheticals are dropped). A redirect page or a page
-  without a single `{{Award category}}` is reported, never guessed at.
+  winner with `{{double dagger}}`; "(Network)" / "(Country)" parentheticals are dropped). WP-D1 (2026-10-16) adds the
+  three older shapes: wikitables whose `!` header cells name the categories (Globes ≤ 2023, SAG ≤ 2020, early BAFTA),
+  `* '''Best Actor:'''` bold-label lists (Critics' Choice 1996–2001) and `===Category===` headings (BAFTA 1949–1964,
+  Globes 1946). A redirect page or a page none of them reads is reported, never guessed at.
 * `sparql_rows(answer)` flattens a SPARQL CSV (or JSON) answer; `wd_nominations(rows, ...)` turns the Oscars edition answer (or a
   winners-only category answer) into categories + nominations + entities.
 * `qids_from_pageprops(json)` maps enwiki titles -> QIDs (redirects and normalisation followed); `entities_from(json)`
@@ -218,8 +220,6 @@ def category_kind(label: str, heading_kind: str | None, default: str | None = No
     return default or "film"
 
 
-# ---- the page parser ----
-
 def _award_header(line: str) -> tuple[str, str | None] | None:
     i = line.find("{{Award category")
     if i < 0:
@@ -246,7 +246,9 @@ def _award_header(line: str) -> tuple[str, str | None] | None:
     return got["label"], got["title"]
 
 
-def _entry(content: str) -> dict | None:
+def _entry(content: str, in_split: bool = False) -> dict | None:
+    """One nominee line -> {won, lead, work, people}. `in_split` (the heading shape's old BAFTA / Globes pages): with no
+    dash on the line, "[[Person]] in ''[[Film]]''" splits on " in " like a dash (a wholly italic line is unwrapped)."""
     won = "double dagger" in content.lower() or "'''" in content
     text = _COMMENT_RE.sub("", content)
     text = _REF_RE.sub("", text)
@@ -256,6 +258,10 @@ def _entry(content: str) -> dict | None:
     text = _drop_parens(text).strip()
     if not text:
         return None
+    if in_split:
+        got = _in_split(text)
+        if got:
+            return {"won": won, **got}
     first, rest = text, ""
     for dash in _DASHES:
         parts = _split_top(text, dash)
@@ -279,21 +285,53 @@ def _entry(content: str) -> dict | None:
     return {"won": won, "lead": lead, "work": work, "people": people}
 
 
-def parse_award_blocks(wikitext: str | None) -> dict:
-    """-> {shape: ok | none | redirect, redirect: title | None, blocks: [{label, page, kind, entries: [...]}]}.
-    `kind` is the section heading's film / tv (None when the heading says neither); entries carry `won`, `lead`
-    (work | person), `work` ({title, label} | None), `people` ([{title, label}]) and `pos`."""
-    text = str(wikitext or "")
-    m = _REDIRECT_RE.match(text)
-    if m:
-        return {"shape": SHAPE_REDIRECT, "redirect": _clip(m.group(1)), "blocks": []}
-    if "award category" not in text.lower():
-        return {"shape": SHAPE_NONE, "redirect": None, "blocks": []}
-    text = _COMMENT_RE.sub("", text)
+_PEOPLE_RE = re.compile(r"\[\[[^\[\]]+\]\](?:\s*(?:,|,?\s*and|&)\s*\[\[[^\[\]]+\]\])*")
+
+
+def _in_split(text: str) -> dict | None:
+    """"[[Person]] in ''[[Film]]''" (or the whole line in italics) -> person-led; None when the line is not that."""
+    if any(len(_split_top(text, d)) > 1 for d in _DASHES):
+        return None
+    bare, unwrapped = text.strip(), False
+    if bare.startswith("''") and bare.endswith("''") and bare.count("''") == 2:
+        bare, unwrapped = bare[2:-2].strip(), True
+    parts = _split_top(bare, " in ")
+    if len(parts) < 2:
+        return None
+    who = parts[0].strip()
+    linked = bool(_PEOPLE_RE.fullmatch(who))
+    plain = not unwrapped and "[[" not in who and "''" not in who and 0 < len(who.split()) <= 6
+    if not (linked or plain):
+        return None
+    rest = " in ".join(parts[1:])
+    inner, _ = _italic(rest)
+    people = _names(who)
+    if not people:
+        return None
+    return {"lead": "person", "work": _link(inner or rest), "people": people}
+
+
+# ---- the page parser: four page shapes ----
+
+def _add(cur: dict, line: str, in_split: bool = False, won: bool | None = None) -> None:
+    """One list (or bare bold) line -> an entry of `cur`."""
+    level = len(line) - len(line.lstrip("*"))
+    got = _entry(line[level:], in_split)
+    if got:
+        if won is not None:
+            got["won"] = won
+        got["pos"] = len(cur["entries"])
+        cur["entries"].append(got)
+        cur["_levels"].append(level)
+
+
+def _award_category_blocks(lines: list[str]) -> list[dict]:
+    """Today's shape: a `{{Award category|…|[[page|label]]}}` header, then `* '''winner'''` / `** nominee` lines.
+    WP-D3 (2026-10-16): Critics' Choice 2002–2018 and BAFTA 1965–1972 put the winner on a bare bold line (not a list
+    item) under the header, nominees as `*` lines — that line is the block's winner."""
     blocks: list[dict] = []
     heading_kind, cur = None, None
-    for raw in text.splitlines():
-        line = raw.strip()
+    for at, line in enumerate(lines):
         h = _HEADING_RE.match(line)
         if h:
             heading_kind = _kind_of_heading(h.group(2))
@@ -301,7 +339,7 @@ def parse_award_blocks(wikitext: str | None) -> dict:
             continue
         header = _award_header(line) if "ward category" in line else None
         if header:
-            cur = {"label": header[0], "page": header[1], "kind": heading_kind, "entries": [], "_levels": []}
+            cur = {"label": header[0], "page": header[1], "kind": heading_kind, "entries": [], "_levels": [], "_at": at}
             blocks.append(cur)
             continue
         if cur is None:
@@ -309,15 +347,220 @@ def parse_award_blocks(wikitext: str | None) -> dict:
         if line.startswith(("{|", "|}", "|", "!")):
             cur = None
             continue
+        if line.startswith("*"):
+            _add(cur, line)
+        elif line.startswith("'''"):
+            _add(cur, line, won=True)
+    return blocks
+
+
+_FULL_NAME_RE = re.compile(r"(?:best|outstanding|most)\b|.*\baward\b", re.I)    # a label that needs no caption
+_COLSPAN_RE = re.compile(r"colspan\s*=\s*[\"']?\s*(\d+)", re.I)
+_AWARD_FOR_RE = re.compile(r"^.*?\bAward for\s+", re.I)
+
+
+def _cell(raw: str) -> tuple[int, str]:
+    """One table cell ('attrs | content' or 'content') -> (colspan, content)."""
+    parts = _split_top(raw, "|")
+    if len(parts) > 1 and "[[" not in parts[0]:
+        attrs, content = parts[0], "|".join(parts[1:])
+    else:
+        attrs, content = "", raw
+    m = _COLSPAN_RE.search(attrs)
+    return (max(1, min(int(m.group(1)), 20)) if m else 1), content.strip()
+
+
+def _category_of(text: str) -> tuple[str, str | None] | None:
+    """A table header cell / a heading -> (label, page). Linked: the page is the link target and the label is that target
+    minus its leading "<…> Award for " (the visible text is a fragment like "Drama" / "Actor"), else the visible text."""
+    clean = _TAG_RE.sub("", _strip_templates(_REF_RE.sub("", text)))
+    for m in _LINK_RE.finditer(clean):
+        target = (m.group(1) or "").split("#", 1)[0].strip().replace("_", " ")
+        if not target or target.lower().startswith(_SKIP_TARGETS):
+            continue
+        visible = _plain(m.group(2) if m.group(2) is not None else target)
+        label = _clip(_AWARD_FOR_RE.sub("", target, count=1)) if _AWARD_FOR_RE.match(target) else visible
+        return (label or visible or _clip(target)), _clip(target)
+    label = _plain(clean)
+    return (label, None) if label else None
+
+
+def _table_blocks(lines: list[str]) -> list[dict]:
+    """Old Globes / SAG / BAFTA tables: a header row of `!` cells names the categories (a header row followed by another
+    header row is a group caption, prefixed to the next row's unlinked labels: "Drama" -> "Best Television Series –
+    Drama"), the next row's `|` cells carry the entries, cell i under header i (colspan kept). In a cell, `*` lines are
+    entries and a bare bold line (or bold cell text) is a winner."""
+    blocks: list[dict] = []
+    stack: list[dict] = []
+    heading_kind = None
+    for at, line in enumerate(lines):
+        h = _HEADING_RE.match(line)
+        if h:
+            heading_kind = _kind_of_heading(h.group(2))
+            continue
+        if line.startswith("{|"):
+            stack.append({"heads": [], "row": None, "prev": None, "col": 0, "cell": None})
+            continue
+        if not stack:
+            continue
+        t = stack[-1]
+        if line.startswith("|}"):
+            stack.pop()
+            continue
+        if line.startswith("|-"):
+            t["prev"], t["row"], t["col"], t["cell"] = t["row"], None, 0, None
+            continue
+        if line.startswith("|+"):
+            continue
+        if line.startswith("!"):
+            t["cell"] = None
+            if t["row"] == "data":          # a row-header cell inside a data row
+                continue
+            if t["row"] != "head":
+                caption = t["heads"][0][2] if t["prev"] == "head" and len(t["heads"]) == 1 else None
+                t["row"], t["heads"], t["col"], t["caption"] = "head", [], 0, caption and caption[0]
+            for raw in _split_top(line[1:], "!!"):
+                span, content = _cell(raw)
+                cat = None if "award category" in content.lower() else _category_of(content)
+                if cat and not cat[1] and t["caption"] and not _FULL_NAME_RE.match(cat[0]):
+                    cat = (_clip(f"{t['caption']} – {cat[0]}"), None)
+                t["heads"].append((t["col"], span, cat))
+                t["col"] += span
+            continue
+        if line.startswith("|"):
+            if t["row"] != "data":
+                t["row"], t["col"] = "data", 0
+            for raw in _split_top(line[1:], "||"):
+                span, content = _cell(raw)
+                head = next((c for s, n, c in t["heads"] if s <= t["col"] < s + n), None)
+                t["col"] += span
+                t["cell"] = None
+                if head and "award category" not in content.lower():
+                    t["cell"] = {"label": head[0], "page": head[1], "kind": heading_kind, "entries": [], "_levels": [],
+                                 "_at": at}
+                    if "'''" in content and "[[" in content:     # the winner written in the cell itself
+                        _add(t["cell"], content, won=True)
+                        if t["cell"]["entries"]:
+                            blocks.append(t["cell"])
+            continue
+        cur = t["cell"]
+        if cur is not None and line.startswith(("*", "'''")):
+            _add(cur, line, won=True if line.startswith("'''") else None)
+            if cur["entries"] and not any(b is cur for b in blocks):
+                blocks.append(cur)
+    return blocks
+
+
+_BOLD_LABEL_RE = re.compile(r"'''\s*([^'\[\]{}|]+?)\s*:?\s*'''\s*:?")
+
+
+def _bold_list_blocks(lines: list[str]) -> list[dict]:
+    """Early Critics' Choice: `* '''Best Actor:'''` (bold, no link) names the category, its `**` lines are the winners."""
+    blocks: list[dict] = []
+    heading_kind, cur = None, None
+    for at, line in enumerate(lines):
+        h = _HEADING_RE.match(line)
+        if h:
+            heading_kind = _kind_of_heading(h.group(2))
+            cur = None
+            continue
+        if line.startswith(("{|", "|", "!")):
+            cur = None
+            continue
         if not line.startswith("*"):
             continue
         level = len(line) - len(line.lstrip("*"))
-        got = _entry(line[level:])
-        if got:
-            got["pos"] = len(cur["entries"])
-            cur["entries"].append(got)
-            cur["_levels"].append(level)
+        if level == 1:
+            m = _BOLD_LABEL_RE.fullmatch(line[1:].strip())
+            if m:
+                cur = {"label": _clip(m.group(1)), "page": None, "kind": heading_kind, "entries": [], "_levels": [],
+                       "_at": at}
+                blocks.append(cur)
+            elif cur is not None and "'''" in line and "[[" in line:
+                _add(cur, line, won=True)          # a bold linked level-1 line is a winner of the current block
+            else:
+                cur = None
+            continue
+        if cur is not None:
+            _add(cur, line, won=True)              # these pages list the winners only
+    return [b for b in blocks if b["entries"]]
+
+
+_STRUCTURAL_RE = re.compile(
+    r"^(?:winners?|nominees?|winners and nominees|nominations?|awards?|films?|television|tv|motion pictures?|movies?|"
+    r"(?:film|television|tv) awards?|ceremony(?: information)?|background|presenters?(?: and performers)?|performers?|"
+    r"in memoriam|see also|references|notes|external links|further reading|sources|statistics|controvers(?:y|ies)|"
+    r"reception|broadcast|ratings|hosts?|summary|top \d+ films)$|"
+    r"^(?:multiple|most|films with|programs with|series with|networks with|shows with|presenters|ceremony)\b", re.I)
+
+
+def _heading_blocks(lines: list[str]) -> list[dict]:
+    """Old BAFTA / Globes pages with no table: a `===Category===` heading, then a bare bold line (the winner) and `*`
+    nominees. Page-structure headings (Film, Winners and nominees, See also, Multiple nominations, …) are not categories;
+    under a 'Winners' section (no nominees listed) every entry won, and a category's lone entry won."""
+    blocks: list[dict] = []
+    cur, section_kind, winners_only = None, None, False
+    for at, line in enumerate(lines):
+        h = _HEADING_RE.match(line)
+        if h:
+            cur = None
+            level, title = len(h.group(1)), h.group(2)
+            plain = _plain(_strip_templates(title))
+            if level <= 2:
+                low = plain.lower()
+                winners_only = low.startswith("winner") and "nomin" not in low
+                section_kind = _kind_of_heading(title)
+                continue
+            if _STRUCTURAL_RE.search(plain):
+                section_kind = _kind_of_heading(title) or section_kind
+                continue
+            cat = _category_of(title)
+            if cat:
+                cur = {"label": cat[0], "page": cat[1], "kind": _kind_of_heading(title) or section_kind, "entries": [],
+                       "_levels": [], "_at": at, "_winners_only": winners_only}
+                blocks.append(cur)
+            continue
+        if cur is None:
+            continue
+        if line.startswith(("{|", "|", "!")):
+            cur = None
+        elif line.startswith("*"):
+            _add(cur, line, in_split=True)
+        elif line.startswith("'''"):
+            _add(cur, line, in_split=True, won=True)
+    blocks = [b for b in blocks if b["entries"]]
     for b in blocks:
+        only = b.pop("_winners_only")
+        if not any(e["won"] for e in b["entries"]) and (only or len(b["entries"]) == 1):
+            for e in b["entries"]:
+                e["won"] = True
+    return blocks
+
+
+def parse_award_blocks(wikitext: str | None) -> dict:
+    """-> {shape: ok | none | redirect, redirect: title | None, blocks: [{label, page, kind, entries: [...]}]}.
+    `kind` is the section heading's film / tv (None when the heading says neither); entries carry `won`, `lead`
+    (work | person), `work` ({title, label} | None), `people` ([{title, label}]) and `pos`.
+    Shapes, in this order: `{{Award category}}` (unchanged) -> tables -> bold-label lists; a page may mix them, so every
+    shape's blocks with entries are taken in page order, a later shape's block dropped when its page or label is already
+    there. Headings are read only when none of those gave a block."""
+    text = str(wikitext or "")
+    m = _REDIRECT_RE.match(text)
+    if m:
+        return {"shape": SHAPE_REDIRECT, "redirect": _clip(m.group(1)), "blocks": []}
+    text = _COMMENT_RE.sub("", text)
+    lines = [raw.strip() for raw in text.splitlines()]
+    blocks = _award_category_blocks(lines) if "award category" in text.lower() else []
+    for extra in (_table_blocks(lines), _bold_list_blocks(lines)):
+        pages = {b["page"].lower() for b in blocks if b["page"]}
+        labels = {b["label"].lower() for b in blocks}
+        blocks += [b for b in extra if b["entries"] and (b["page"] or "").lower() not in pages
+                   and b["label"].lower() not in labels]
+    if not blocks:
+        blocks = _heading_blocks(lines)
+    blocks.sort(key=lambda b: b["_at"])
+    for b in blocks:
+        del b["_at"]
         levels = b.pop("_levels")
         if b["entries"] and not any(e["won"] for e in b["entries"]) and 1 in levels and any(lv > 1 for lv in levels):
             for e, lv in zip(b["entries"], levels):

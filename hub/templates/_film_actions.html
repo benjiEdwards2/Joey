@@ -5,5 +5,5 @@
 {% from "_icons.html" import icon %}
 {% set at = slot | default("row") %}
 {% set beside_play = true if film.play and film.play.href else false %}
-{% if film.show_request and beside_play == (at == "more") %}{% with t = film.t, state = film.req_state, msg = film.req_msg, future = film.req_future, req_primary = not beside_play %}{% include "_request_block.html" %}{% endwith %}{% endif %}
+{% if film.show_request and beside_play == (at == "more") %}{% with t = film.t, state = film.req_state, msg = film.req_msg, future = film.req_future, req_primary = not beside_play, profiles = film.req_profiles, quality = film.req_quality, qnote = film.req_qnote, mine = film.req_mine %}{% include "_request_block.html" %}{% endwith %}{% endif %}
 {% if at == "row" and film.late_trailer %}<a class="btn btn-glass trailer-btn" href="{{ film.late_trailer.href }}" target="_blank" rel="noopener"{% if film.late_trailer.key %} data-yt="{{ film.late_trailer.key }}" aria-haspopup="dialog"{% endif %}>{{ icon("film") }}Trailer</a>{% endif %}

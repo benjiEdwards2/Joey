@@ -16,6 +16,7 @@ live Media and Server feeds, which refresh every 2 minutes.
 | `stackctl/` | NAS helper behind Server → "Restart + update media stack" (pull + recreate the media-server compose); runs in the media stack, not Joey's — `stackctl/NAS_INSTALL.md` |
 | `scripts/` | Dev and maintenance tools: icons, awards sync CLI, profiling, the money pre-commit guard and hooks |
 | `docs/` | Setup, connector contract, style guide, hub changelog, Server-updates live check; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
+| `tv/` | Joey TV: the Android TV / Google TV shell (Kotlin WebView app, built only in GitHub Actions) — see [`tv/README.md`](tv/README.md) |
 | `tests/` | Cumulative pytest suite — append-only, grows with every WP; test-only deps in `requirements-dev.txt` |
 
 **Look (2026-10-06, MediaHub style guide).** One dark theme, no rail and no theme toggle: a top bar (section pills + the

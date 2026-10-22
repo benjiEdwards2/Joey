@@ -2,6 +2,8 @@
 .env
 *.env
 !*.env.example
+# NAS one-shot backups of .env / edge.env (nas_scripts/*.sh) can carry secrets
+*.bak-*
 
 # SQLite — lives on the box SSD, never in git
 *.db
@@ -27,6 +29,21 @@ __pycache__/
 
 # NAS-side deploy log (deploy.sh appends; never committed)
 /deploy/history.log
+# one log per deploy.sh run (detached deploys, 2026-10-20)
+/deploy/logs/
 
 # Local eyes-on previews (scripts/render_film_preview.py) — generated, never committed
 /.preview/
+
+# Joey TV shell (tv/, WP-B7): signing material and Gradle output never reach git.
+# The ONE exception is the clearly labelled public debug key (tv/app/debug-signing/README.md).
+*.jks
+*.keystore
+*.p12
+keystore.properties
+!/tv/app/debug-signing/joeytv-debug.p12
+# no trailing slash: `git check-ignore tv/app/build` must match before the directory exists
+/tv/**/build
+/tv/.gradle
+/tv/.kotlin
+/tv/local.properties

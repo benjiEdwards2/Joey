@@ -22,6 +22,20 @@ WP_PAGES = {  # file -> (Award category headers, page title after redirects)
     "wp_sag_31.json": (15, "31st Screen Actors Guild Awards"),
     "wp_critics_30.json": (41, "30th Critics' Choice Awards"),
     "wp_globes_40.json": (0, "40th Golden Globes"),
+    # WP-D1 (2026-10-16): the older page shapes, recorded 2026-10-16 (formatversion 1 answers stored in the
+    # formatversion 2 shape the sync asks for: `wikitext` is the string itself; nothing else changed)
+    "wp_globes_80.json": (0, "80th Golden Globes"),
+    "wp_globes_60.json": (0, "60th Golden Globes"),
+    "wp_globes_20.json": (0, "20th Golden Globes"),
+    "wp_globes_3.json": (0, "3rd Golden Globe Awards"),
+    "wp_sag_26.json": (0, "26th Screen Actors Guild Awards"),
+    "wp_sag_2.json": (0, "2nd Screen Actors Guild Awards"),
+    "wp_critics_1.json": (0, "1st Critics' Choice Awards"),
+    "wp_critics_6.json": (0, "6th Critics' Choice Awards"),
+    "wp_bafta_17.json": (0, "17th British Academy Film Awards"),
+    "wp_bafta_12.json": (0, "12th British Academy Film Awards"),
+    # WP-D3 (2026-10-16): winners on a bare bold line under each header (recorded 2026-10-16, formatversion 2)
+    "wp_critics_10.json": (18, "10th Critics' Choice Awards"),
 }
 
 

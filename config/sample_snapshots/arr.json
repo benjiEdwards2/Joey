@@ -172,12 +172,29 @@
       }
     ],
     "upgrades": {
+      "last_search": [
+        {
+          "app": "radarr",
+          "ended": "2025-12-31T20:00:40Z",
+          "message": "Completed search for 2 movies. 1 reports downloaded.",
+          "name": "missing",
+          "status": "completed"
+        },
+        {
+          "app": "sonarr",
+          "ended": "2026-01-01T00:00:00Z",
+          "message": "Completed search for 1 episodes. 0 reports downloaded.",
+          "name": "upgrades",
+          "status": "completed"
+        }
+      ],
       "radarr": [
         {
           "arr_id": 3,
           "have": null,
           "item_key": "tmdb:1003",
           "poster": "radarr:3",
+          "profile": null,
           "title": "Copper Sky",
           "want": null,
           "year": 2019
@@ -187,8 +204,9 @@
           "have": "Bluray-1080p",
           "item_key": "tmdb:1002",
           "poster": "radarr:2",
+          "profile": "Ultra-HD",
           "title": "Desert Crossing",
-          "want": "Bluray + Remux 2160p",
+          "want": "Bluray/Remux 2160p",
           "year": 2024
         },
         {
@@ -196,6 +214,7 @@
           "have": "WEBDL-720p",
           "item_key": "tmdb:1001",
           "poster": "radarr:1",
+          "profile": "HD-1080p",
           "title": "Harbour Lights",
           "want": "Bluray-1080p",
           "year": 2025
@@ -204,20 +223,24 @@
       "sonarr": [
         {
           "arr_id": 2,
+          "episode_id": 3201,
           "episodes": 1,
           "have": "WEBDL-720p",
           "item_key": "tvdb:2002",
           "poster": "sonarr:2",
+          "profile": "Bluray-1080p",
           "sample": "S01E01",
           "title": "Iron Valley",
           "want": "Bluray-1080p"
         },
         {
           "arr_id": 1,
+          "episode_id": 3103,
           "episodes": 3,
           "have": "SDTV",
           "item_key": "tvdb:2001",
           "poster": "sonarr:1",
+          "profile": "HD-1080p",
           "sample": "S01E02",
           "title": "Quiet Coast",
           "want": "WEB 1080p"

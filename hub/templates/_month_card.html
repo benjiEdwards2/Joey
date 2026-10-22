@@ -4,7 +4,7 @@
    Hours with no source are "—" here and left out of the sentence (never guessed). #}
 {% set s = month.s %}
 <section class="panel monthcard" aria-labelledby="monthcard-h">
-  <div class="sechead"><h2 class="seclabel" id="monthcard-h">{{ month.label }}</h2><a href="{{ month.href }}">{{ month.link_text }}</a></div>
+  <div class="sechead"><h2 class="seclabel" id="monthcard-h">{{ month.label }}</h2>{% if guest_allows(month.href) %}<a href="{{ month.href }}">{{ month.link_text }}</a>{% endif %}</div>
   {% if s %}
   <div class="stats">
     <div class="stat"><div class="microlabel">Films</div><div class="stat-number">{{ s.films }}</div></div>

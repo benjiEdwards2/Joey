@@ -13,9 +13,12 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.background import BackgroundTask
 
+from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_requests, media_resume, media_upgrades, media_wrapped, media_write, shell, upcoming)
+                 media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_upgrade_why, media_upgrades, media_wrapped, media_write,
+                 server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -73,10 +76,24 @@ def _detail_page(request: Request, template: str, snapshot_id: str, build=None, 
     return shell._maybe_set_cookie(resp, view, from_query)
 
 
+def app_link(request: Request, app_id: str) -> dict | None:
+    """WP-L1 (2026-10-21): the Health row's card for one app (`server.service_card`: logo, gated hostname else the
+    snapshot's address with `lan`), read from the media_status snapshot - None when that snapshot or the app is absent."""
+    snap = shell.get_snapshots(request=request).get(MEDIA_STATUS_SNAPSHOT_ID)
+    app = next((a for a in ((snap.data if snap else None) or {}).get("apps") or [] if a.get("id") == app_id), None)
+    if app is None:
+        return None
+    return server.service_card(app, [], shell.registry.gated_hrefs if shell.registry else {})
+
+
 @router.get("/media/apps", response_class=HTMLResponse)
 def media_apps_page(request: Request):
+    # 2026-10-19 (WP-H1): each row takes the Server card's logo / initial and gated hostname (one `service_card`).
+    gated = shell.registry.gated_hrefs if shell.registry else {}
     return _detail_page(request, "media_apps.html", MEDIA_STATUS_SNAPSHOT_ID, always_build=True,
-                        build=lambda data, view: {"backup": media_backup.current_status()})
+                        build=lambda data, view: {"backup": media_backup.current_status(),
+                                                  "health_apps": [server.service_card(a, [], gated)
+                                                                  for a in data.get("apps", [])]})
 
 
 @router.get("/media/playing", response_class=HTMLResponse)
@@ -130,10 +147,17 @@ def media_downloads_page(request: Request):
                                                   if r.get("kind") not in ("movie", "tv")]})
         totals = data.get("totals") or {}
         # F4b: the "Upgrades" block - the arr snapshot's cutoff-unmet titles, each row linked like the rows above
-        upgrades = media_upgrades.block(shell.get_snapshots(request=request))
+        snaps = shell.get_snapshots(request=request)
+        upgrades = media_upgrades.block(snaps)
+        why = {}
         if upgrades and upgrades.get("rows"):
-            upgrades["rows"] = link(upgrades["rows"])
-        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades,
+            upgrades["rows"] = [{**r, "why_key": ("radarr:" if r.get("kind") == "movie" else "sonarr:") + str(r.get("arr_id"))}
+                                for r in link(upgrades["rows"])]
+            # WP-U1: each row's "Why?" (the kept answer only for the row ?why= names - never a call)
+            why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"])
+        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades, "why": why,
+                "last_search": media_upgrades.last_search(snaps),
+                "app_link": app_link(request, "qbittorrent"),
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
                                f" · {data.get('seeding', 0)} seeding"}
     return _detail_page(request, "media_downloads.html", QBIT_SNAPSHOT_ID, build)
@@ -176,16 +200,42 @@ def media_requests_page(request: Request):
         snap = shell.get_snapshots(request=request).get(JELLYSEERR_SNAPSHOT_ID)
         rows = media_requests.visible_rows(data, snap.updated_at if snap else None)
         c = media_requests.visible_counts(data, rows)
-        # F4b: "Upgrade available" on a request whose title is on the arr cutoff-unmet lists (copies: the counts above
+        # F4b: "Below cutoff" on a request whose title is on the arr cutoff-unmet lists (copies: the counts above
         # match rows by identity, and the snapshot's own dicts stay untouched)
         rows = [dict(r) for r in rows]
         media_upgrades.attach(rows, shell.get_snapshots(request=request), None, lambda r: r.get("tvdb_id"))
+        tv = [r for r in rows if r.get("kind") == "tv"]
+        for r in tv:   # WP-T1: Sonarr's words (cache only; the read runs after the response)
+            request_words(r, media_season_state.season_states(r.get("tvdb_id"), r.get("tmdb_id")))
+        # WP-R1: a "4K" chip on a row whose arr entry is not on the default profile - caches only, the reads after
+        later[0] = media_season_state.chain(media_season_state.later([(r.get("tvdb_id"), r.get("tmdb_id")) for r in tv]),
+                                            media_quality.later(rows))
+        media_quality.attach(rows)
         good, warn = media_requests.flash_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
-                "rows": rows, "flash": good, "flash_warn": warn,
+                "rows": rows, "flash": good, "flash_warn": warn, "app_link": app_link(request, "jellyseerr"),
                 "ratings": media_home._ratings(view, rows)}
-    return _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
+    later = [None]
+    resp = _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)
+    if later[0] is not None:
+        resp.background = BackgroundTask(later[0])
+    return resp
+
+
+def request_words(row: dict, state: dict | None) -> None:
+    """WP-T1 (2026-10-19): a TV request row's Sonarr words, in place. A show Sonarr holds no file of reads "Requested"
+    (even when Seerr says Available - nothing is on disk) with "Waiting for the first episode · airs 5 Dec" beside it;
+    a partly downloaded one keeps Seerr's word and gains "3 of 8 episodes · 5 to come · next airs 2 Nov". Without a
+    state (Sonarr not connected / not read yet / not there) the row is unchanged."""
+    if not state or not state.get("word"):
+        return
+    if media_season_state.waiting(state):
+        if row.get("status_text") not in ("Pending", "Declined", "Failed"):
+            row["status_text"] = "Requested"
+        row["state_word"] = state["word"]
+    elif state.get("to_come") or state.get("missing"):
+        row["state_word"] = " · ".join(x for x in (media_season_state.episodes_words(state, ""), state["word"]) if x)
 
 
 @router.get("/media/history", response_class=HTMLResponse)
@@ -270,7 +320,7 @@ def media_diary_page(request: Request):
                 f"{streak}-day streak" if streak else "no current streak"]),
             "milestones": stats["milestones"][:MILESTONES_MAX],
             "months": months, "kind": kind or "", "today": date.today().isoformat(), "places": media_write.PLACES,
-            "on_this_day": on_this_day, "scope_eligible": owner == "you", "diary_scope": scope,
+            "on_this_day": on_this_day, "scope_eligible": owner == "you" and not guest.is_media(), "diary_scope": scope,
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,
             "ratings": media_home._ratings(view, lines, on_this_day),
@@ -320,8 +370,7 @@ def _lib_href():
     return href_of
 
 
-def _library_lists(data: dict, view: str, kind: str):
-    """(items | None, marks): her view reads her own list; without it the shared list has no marks."""
+def _all_lists(data: dict, view: str, kind: str):
     field = "movies" if kind == "movie" else "shows"
     if view == "her":
         mine = (data.get("her") or {}).get(field)
@@ -329,6 +378,39 @@ def _library_lists(data: dict, view: str, kind: str):
             return mine, True
         return data.get(field), False
     return data.get(field), True
+
+
+def _library_lists(data: dict, view: str, kind: str):
+    """(items | None, marks): her view reads her own list; without it the shared list has no marks. WP-T1 (2026-10-19):
+    a show with no episode yet (Sonarr's empty folder, media_library.empty_series) is not a library entry - it is left
+    out here, so the grids, the counts, the Activity links and the awards matches never treat it as one."""
+    items, marks = _all_lists(data, view, kind)
+    return (None if items is None else [i for i in items if not media_library.empty_series(i)]), marks
+
+
+def _show_keys(row: dict) -> tuple:
+    """(tvdb, tmdb) for a library show row: its item_key, plus the TheTVDB id its page has cached (no read)."""
+    key = str(row.get("item_key") or "")
+    tvdb = key[5:] if key.startswith("tvdb:") else _cached_tvdb(row)
+    return tvdb, key[5:] if key.startswith("tmdb:") else None
+
+
+def waiting_shows(data: dict, view: str) -> list[dict]:
+    """WP-T1: the shows Jellyfin lists with no episode yet, as rows for My shows' "Waiting for the first episode"
+    block: "Requested · waiting for the first episode · airs 5 Dec" (Sonarr's cached state; "date TBA" without a date,
+    the bare words without Sonarr)."""
+    items, _marks = _all_lists(data, view, "tv")
+    out = []
+    for it in items or []:
+        if not media_library.empty_series(it):
+            continue
+        st = media_season_state.season_states(*_show_keys(it))
+        word = (st or {}).get("word") or ""
+        out.append({"title": it.get("title") or "Untitled", "year": it.get("year"), "poster": it.get("poster"),
+                    "href": media_home.item_href(it.get("jf_id")), "keys": _show_keys(it),
+                    "word": "Requested · " + (media_season_state.waiting_words(st)
+                                              if not word or word.startswith("Waiting") else word)})
+    return out
 
 
 def _library_rows(data: dict, view: str, kind: str):
@@ -395,6 +477,11 @@ def _library_page(request: Request, kind: str):
 
     def build(data, view):
         items, marks, rows = _library_rows(data, view, kind)
+        waiting = []
+        if kind == "tv":   # WP-T1: Sonarr's words from its cache; the reads run after the response
+            media_library.apply_season_state(rows, lambda r: media_season_state.season_states(*_show_keys(r)))
+            waiting = waiting_shows(data, view)
+            later[0] = media_season_state.later([_show_keys(r) for r in rows or []] + [w["keys"] for w in waiting])
         # media-ux4: each grid card says Watched / Not watched / In progress (a film is in progress while it sits in the
         # viewer's resume list). 2026-10-13: the list keeps its order (Jellyfin's most recently played first) for
         # the Continue watching suggestions.
@@ -403,7 +490,7 @@ def _library_page(request: Request, kind: str):
         for r in rows or []:
             r["card_state"] = media_library.card_state(r, resume)
         media_awards_badges.attach(rows, kind)   # awards-ui item 3: one query for every poster on the page
-        # F4b: "Upgrade available" under the title - the arr snapshot's cutoff-unmet lists; a show also by the TheTVDB id
+        # F4b: "Below cutoff" under the title - the arr snapshot's cutoff-unmet lists; a show also by the TheTVDB id
         # its page has cached (media_item.peek, no read), else its unique title
         media_upgrades.attach(rows, shell.get_snapshots(request=request), kind, _cached_tvdb)
         arr = shell.get_snapshots(request=request).get(ARR_SNAPSHOT_ID)
@@ -428,9 +515,12 @@ def _library_page(request: Request, kind: str):
             "suggest_links": _links_with(request, "s", media_library.SUGGESTIONS),
             "suggest_empty": media_library.SUGGESTION_EMPTY[suggest],
             "ratings": media_home._ratings(view, arrived),
-            "libview": libview, "libview_links": library_view_links(request),
+            "libview": libview, "libview_links": library_view_links(request), "waiting": waiting,
         }
+    later = [None]
     resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
+    if later[0] is not None:
+        resp.background = BackgroundTask(later[0])
     if view_from_query:
         resp.set_cookie(LIBVIEW_COOKIE, libview, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
     if suggest_from_query:

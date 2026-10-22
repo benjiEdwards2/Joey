@@ -75,7 +75,12 @@ def _rating_skip(db) -> None:
     media_db.migrate_skip(db)
 
 
-STEPS = (_baseline, _indexes, _follow_shows, _rating_skip)   # STEPS[n] takes a file from user_version n to n + 1
+def _episode_rating(db) -> None:   # WP-E1 (2026-10-16): the TV episode flow's per-episode IMDb / OMDb ratings
+    from hub import media_episode_ratings
+    media_episode_ratings.migrate(db)
+
+
+STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating)   # STEPS[n]: user_version n -> n + 1
 SCHEMA_VERSION = len(STEPS)
 
 _ready: set[tuple] = set()      # files already brought up to date by this process

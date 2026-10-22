@@ -331,7 +331,8 @@ def jf_for(kind: str, tmdb_id: int, snaps=None) -> str | None:
     """The Jellyfin id of a film / show from the jellyfin snapshot's library lists (both profiles), or None when the
     title isn't there (off-server, or no snapshot)."""
     from hub.ids import JELLYFIN_SNAPSHOT_ID
-    from hub.store import data_of, get_snapshots
+    from hub.shell import get_snapshots   # the one scrub point (Joey TV WP-B1, Q22), never hub.store directly
+    from hub.store import data_of
 
     data = data_of((get_snapshots() if snaps is None else snaps).get(JELLYFIN_SNAPSHOT_ID))
     field, key = ("movies" if kind == "movie" else "shows"), f"tmdb:{tmdb_id}"

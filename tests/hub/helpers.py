@@ -190,6 +190,21 @@ EPISODES = [ep(1, "One", True), ep(2, "Two", True), ep(3, "Three", True), ep(4, 
             ep(5, "Five"), ep(6, "Six", premiere=TOMORROW)]
 
 
+def not_season_state(calls):
+    """The calls minus WP-T1's one Sonarr series-list read (2026-10-19): the season-state words' BackgroundTask runs after
+    the render, but TestClient runs it before get() returns. Asserts it is at most that one read."""
+    rest = [c for c in calls if not (c[0] == "GET" and c[1].endswith("/api/v3/series") and not c[2])]
+    assert len(calls) - len(rest) <= 1
+    return rest
+
+
+def not_quality(calls):
+    """The calls minus WP-R1's quality reads (2026-10-21): the arr quality-profile lists (the Request confirm step, the
+    Requests page's BackgroundTask) and that task's Radarr lookups of film rows (TestClient runs it before get() returns)."""
+    return [c for c in calls if not (c[0] == "GET" and (c[1].endswith("/api/v3/qualityprofile")
+                                                        or (c[1].endswith("/api/v3/movie") and "tmdbId" in (c[2] or {}))))]
+
+
 class JellyfinFake:
     def __init__(self):
         self.calls, self.fail = [], False

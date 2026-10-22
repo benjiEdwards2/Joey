@@ -58,6 +58,56 @@ services:
       - default
       - media
 
+  joey-media:
+    # Joey TV WP-B1 (2026-10-21) — the GUEST front: the same life-hub image with JOEY_FRONT=media, served by the
+    # tunnel at https://media.joeyhome.net (no Access policy; its own Jellyfin sign-in from WP-B2). Deny-by-default route
+    # allow-list in hub/guest.py; unknown and private paths answer the ordinary Joey 404.
+    # DARK until COMPOSE_PROFILES gains `media` in the NAS deploy/.env (WP-B5 step 1, D-P18); never take it out again
+    # without the kill-switch runbook (Q47: a profile toggled off is untested with --remove-orphans).
+    # No build and no pull: it runs the image the hub service just built (deploy.sh builds once). depends_on
+    # service_healthy serialises the media.db migration: hub migrates first on every up and rollback.
+    # NO ports: cloudflared reaches it as joey-media:8000 on the compose default network (and a published port on this
+    # NAS would depend on ADM Defender's DNAT rule, WP-A4). Snapshots read-only (Q22); NO backups mount (joey-hub stays
+    # the one backup writer); zero background loops (enforced in code, backed by the five offs below, Q24).
+    # Secrets: ONLY deploy/media.env (NAS-only, chmod 600, Q23 guest keys; template deploy/media.env.example). It never
+    # reads .env / hub.env, so it never carries TUNNEL_TOKEN, ACCESS_*, *arr/qbit keys or Discord webhooks.
+    image: life-hub
+    pull_policy: never
+    container_name: joey-media
+    profiles: [media]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 384m   # a ceiling, not a reservation: expect ~90-150 MiB; re-cap after measuring (review D-04, P4)
+    depends_on:
+      hub:
+        condition: service_healthy
+    env_file:
+      - path: media.env
+        required: false
+    environment:
+      JOEY_FRONT: media
+      SNAPSHOT_DIR: /data/snapshots
+      IMG_CACHE_DIR: /data/cache/img
+      MEDIA_DB_PATH: /data/sqlite/media.db
+      MEDIA_BACKUP: "off"
+      PLAY_RECORDER: "off"
+      MEDIA_WARMUP: "off"
+      MEDIA_FOLLOW: "off"
+      MEDIA_AWARDS: "off"
+      TV_APP_DIR: /data/tv-app
+    volumes:
+      - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
+      - /volume1/Docker/joey/data/cache/img:/data/cache/img
+      - /volume1/Docker/joey/data/sqlite:/data/sqlite
+      # Joey TV releases (WP-B8): deploy.sh's tv_publish writes here, joey-media serves it read-only at /app/
+      - /volume1/Docker/joey/data/tv-app:/data/tv-app:ro
+    expose:
+      - "8000"
+    # default: cloudflared reaches it as joey-media:8000. media: jellyfin:8096 / jellyseerr:5055 by name (N-09).
+    networks:
+      - default
+      - media
+
   cloudflared:
     # WP11 — remotely-managed Cloudflare tunnel (`joey-nas` in Zero Trust).
     # Fronts the hub over the compose network as http://hub:8000; the token
@@ -133,6 +183,75 @@ services:
       - default
       - media
     entrypoint: ["sh", "-c", "python -m connectors.run_all; (while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do sleep 3600; python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; done"]
+
+  swag:
+    # Joey TV WP-A3 (2026-10-18) — the public edge for Jellyfin: https://jellyfin.joeyhome.net:8443 (router external 8443 -> NAS 443; the Deco drops WAN 443) -> 127.0.0.1:8096.
+    # DARK until COMPOSE_PROFILES=edge is set in the NAS deploy/.env (WP-A4); never toggle it off again without
+    # the kill-switch runbook R3 (docs/public-edge.md, Q47). One server_name, one upstream, AU + NZ geo, fail2ban
+    # on Jellyfin auth 401s: the six ./swag confs below, bind-mounted read-only.
+    # HOST network mode (Q44 = a, WP-A4 2026-10-19): nginx binds host 443 itself (E1; no `ports:`, no networks) and
+    # sees the real client IP natively. Why not bridge: dockerd runs --iptables=false on this NAS, and the nft DNAT
+    # rule that keeps the client IP on a published port is written by ADM Defender (defenderd, on docker events),
+    # not dockerd. A container started seconds after another one stops gets no rule and falls back to docker-proxy,
+    # which re-sources every client as the bridge gateway. deploy.sh recreates hub/connectors in the same `up`, so
+    # swag missed its 443 rule and geo + fail2ban were silently void.
+    # Residual risk (recorded, Phase A): in the host netns swag can reach every bridge IP, the hub's included. The
+    # isolation rests on nginx having exactly one upstream (tests/deploy/test_edge.py), joey-hub publishing no host
+    # port, and Q25b JWT verification (live since WP-A6a, 2026-10-21; residual = replay of a captured token within its
+    # lifetime, and hub-container compromise). An exploited swag sits in the host netns with NET_ADMIN.
+    # Pinned (Q10): manual updates only; joey-* containers are held from WUD runs (hub.server.update_hold).
+    image: lscr.io/linuxserver/swag:5.8.0-ls490
+    container_name: joey-swag
+    profiles: [edge]
+    network_mode: host
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 192m
+    cap_add:
+      - NET_ADMIN  # fail2ban's iptables bans (host mode: they land in the host netns)
+    # Q6: the Cloudflare token lives in the NAS-only deploy/edge.env (chmod 600), read by swag and ddns only.
+    # certbot reads it from /config/dns-conf/cloudflare.ini, written by nas_scripts/edge_cf_ini.sh before the first
+    # start; STAGING=true for the first issuance goes in edge.env too, never here.
+    env_file:
+      - path: edge.env
+        required: false
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: ${TZ:-Australia/Melbourne}
+      URL: joeyhome.net
+      SUBDOMAINS: wildcard
+      ONLY_SUBDOMAINS: "true"
+      VALIDATION: dns
+      DNSPLUGIN: cloudflare
+      DOCKER_MODS: linuxserver/mods:swag-dbip
+    volumes:
+      - /volume1/Docker/joey/swag:/config
+      - ./swag/site-confs/00-geo-au.conf:/config/nginx/site-confs/00-geo-au.conf:ro
+      - ./swag/site-confs/default.conf:/config/nginx/site-confs/default.conf:ro
+      - ./swag/proxy-confs/jellyfin.subdomain.conf:/config/nginx/proxy-confs/jellyfin.subdomain.conf:ro
+      - ./swag/fail2ban/jail.local:/config/fail2ban/jail.local:ro
+      - ./swag/fail2ban/filter.d/jellyfin-auth.local:/config/fail2ban/filter.d/jellyfin-auth.local:ro
+      - ./swag/php/www2.conf:/config/php/www2.conf:ro  # php-fpm off 127.0.0.1:9000 (Portainer; WP-A5)
+
+  ddns:
+    # Joey TV WP-A3 (2026-10-18) — keeps the grey-cloud A record jellyfin.joeyhome.net on the WAN IP (E5). Only that
+    # name: never the apex, media. or macromates. (tunnel-routed). Built and tested but NEVER enabled while the
+    # WAN IP is static (Q3): it starts only if COMPOSE_PROFILES gains `ddns`.
+    image: favonia/cloudflare-ddns:1.17.1
+    container_name: joey-ddns
+    profiles: [ddns]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 32m
+    env_file:
+      - path: edge.env
+        required: false
+    environment:
+      DOMAINS: jellyfin.joeyhome.net
+      PROXIED: "false"
+      IP6_PROVIDER: none
+      UPDATE_CRON: "@every 5m"
 
 networks:
   # Shared Docker network (N-09, 2026-10-09): the media stack's compose network, joined by the hub

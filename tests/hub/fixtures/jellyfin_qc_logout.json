@@ -1,0 +1,6 @@
+{
+  "method": "POST",
+  "path": "/Sessions/Logout",
+  "http_status": 204,
+  "body": null
+}

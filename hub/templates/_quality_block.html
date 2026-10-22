@@ -1,0 +1,23 @@
+{# Quality (WP-R1, 2026-10-21; hub/media_quality.py): "Quality · 1080p" under the hero's status line, from the title's
+   Radarr / Sonarr entry, with "Switch to 4K" (or back to the default) opening an inline confirm panel (guide 6: never a
+   browser dialog) - Confirm (primary, sm) + Cancel (ghost, sm). Every link / form works without JS (the page draws the
+   panel from ?quality_ask=1); the hx- attributes upgrade it. Lazy-loaded: the page itself makes no *arr call. #}
+{% set qbase = "/media/title/" ~ q.kind ~ "/" ~ q.tmdb ~ "/quality" %}
+{% set qargs = "back=" ~ (q.back | urlencode) ~ ("&tvdb=" ~ q.tvdb if q.tvdb else "") %}
+<div id="quality-block" class="qualityblock">
+{% if q.current %}
+  <p class="metaline">Quality · {{ q.current.name }}{% if q.target and not q.ask %} <a class="btn btn-secondary btn-sm" href="{{ q.back }}?quality_ask=1" hx-get="{{ qbase }}?step=confirm&{{ qargs }}" hx-target="#quality-block" hx-swap="outerHTML">Switch to {{ q.target.name }}</a>{% endif %}</p>
+{% endif %}
+{% if q.flash and q.flash[0] %}<p class="metaline st-good" role="status">{{ q.flash[0] }}</p>{% elif q.flash and q.flash[1] %}<p class="metaline st-warn" role="status">{{ q.flash[1] }}</p>{% endif %}
+{% if q.ask and q.target %}
+  <form class="confirm" method="post" action="{{ qbase }}" hx-post="{{ qbase }}" hx-target="#quality-block" hx-swap="outerHTML">
+    <input type="hidden" name="profile" value="{{ q.target.id }}"><input type="hidden" name="back" value="{{ q.back }}">{% if q.tvdb %}<input type="hidden" name="tvdb" value="{{ q.tvdb }}">{% endif %}
+    <div>Switch {{ q.title }} to {{ q.target.name }}?</div>
+    <div class="metaline">{% if q.kind == "tv" %}{{ q.app }} will look for {{ q.target.name }} episodes and keep the {{ q.current.name }} ones until they arrive.{% else %}{{ q.app }} will look for a {{ q.target.name }} file and keep the {{ q.current.name }} one until it arrives.{% endif %}</div>
+    <div class="confirm-btns">
+      <button class="btn btn-primary btn-sm" type="submit">Switch to {{ q.target.name }}</button>
+      <a class="btn btn-ghost btn-sm" href="{{ q.back }}" hx-get="{{ qbase }}?{{ qargs }}" hx-target="#quality-block" hx-swap="outerHTML">Cancel</a>
+    </div>
+  </form>
+{% endif %}
+</div>

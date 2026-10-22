@@ -71,9 +71,8 @@ def test_every_registry_area_is_a_kpi_card_and_weather_links_to_its_page(hub):
     for a in main.shell.registry.visible_areas:   # parked (hidden) areas have no hub card (2026-10-06)
         assert f"/a/{a.id}" in cards, a.id
         assert f'<div class="microlabel">{a.name}</div>' in cards[f"/a/{a.id}"]
-    assert '<a class="panel tile dup" href="/weather"' in kpis_of(body)   # E3: .dup — hidden under 640 px
-    assert '<div class="microlabel">Weather</div>' in cards["/weather"]
-    assert len(cards) == len(main.shell.registry.visible_areas) + 1
+    assert "/weather" not in cards                                        # WP-T2 (2026-10-19): Weather is the band row now
+    assert len(cards) == len(main.shell.registry.visible_areas)
 
 
 def test_not_connected_card_keeps_the_anatomy_without_a_spark(hub):
@@ -138,6 +137,23 @@ def test_weather_band_card_shows_glyph_word_and_today_range(hub):
     assert '<div class="glyph">' in wx and f'<div class="wxword">{d["condition_text"]}</div>' in wx
     # E5 (2026-10-13): number and unit joined by a non-breaking space (a 375 px phone wrapped them)
     assert f'{d["today_min_c"]}&nbsp;°C' in wx and f'{d["today_max_c"]}&nbsp;°C' in wx and f'{d["rain_prob_pct"]}%' in wx
+
+
+def test_weather_row_sits_full_width_under_next_7_days(hub):
+    """WP-T2 (2026-10-19): one stacked band — Next 7 days first, the weather glimpse (with its 7-day strip) directly
+    beneath it, both before Recently watched; the tiles row is three area cards on a .hubtiles grid, no Weather tile."""
+    _, body = hub()
+    band = body.split('class="band hubband"', 1)[1].split('id="recent"', 1)[0]
+    assert band.index('class="sec upcoming"') < band.index('class="sec wxglimpse"')
+    assert 'class="wxstrip"' in band and 'class="band a"' not in body
+    assert body.index('class="tiles hubtiles') < body.index('class="band hubband"') < body.index('id="recent"')
+    assert '<a href="/weather">All</a>' in band                                   # the glimpse still links to /weather
+    assert len(re.findall(r'<(?:a|div) class="panel tile', kpis_of(body))) == 3
+
+
+def test_weather_row_leaves_no_empty_frame(hub):
+    _, body = hub(drop=("gcal", "open_meteo"))
+    assert 'class="band hubband"' not in body or 'class="sec ' in body.split('class="band hubband"', 1)[1]  # absent, or holds a section
 
 
 def test_continue_watching_shelf_renders_up_next_with_posters(hub):

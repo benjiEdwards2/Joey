@@ -80,10 +80,23 @@ shell.templates.env.globals["score_for"] = score_for
 shell.templates.env.globals["status_of"] = media_status_words.status   # M-19: a status word's colour class
 
 
+def _not_household(view) -> bool:
+    """A viewer the snapshot's per-user rows never belong to (Joey TV WP-B2): a friend (`jf:` owner, any shape) or
+    anyone on the media front - there `you` is the alias user and the snapshot's rows are the admin's (P3)."""
+    from hub import guest
+    return (isinstance(view, str) and view.startswith("jf:")) or guest.is_media()
+
+
 def view_jelly(jelly: dict, view: str) -> dict:
     """The Jellyfin data as the owner view sees it. In the her view up_next/history are
     Georgina's own (empty when her block is null — never B.'s), `her_missing` says so;
-    sessions, latest and library stay server-wide. Other views are returned untouched."""
+    sessions, latest and library stay server-wide. Other views are returned untouched.
+    A friend, or anyone on the media front (Joey TV WP-B2, fail closed): only the shared library keys (hub.guest's
+    allow-list, rows without played state) and empty up_next / history / sessions - nothing of B.'s or Georgina's."""
+    if _not_household(view):
+        from hub import guest
+        return {**guest.scrub_data("jellyfin", jelly or {}), "up_next": [], "history": {}, "now_playing": [],
+                "her_missing": False}
     if view != "her" or not jelly:
         return jelly
     her = jelly.get("her")
@@ -162,6 +175,10 @@ def to_rate_tab_counts(snaps, view: str, recent=None, ratings=None, to_rate_rows
 def media_frame(request: Request) -> dict:
     """Template global `media_nav(request)`: the Media bar/tabs context (cached per request)."""
     cached = getattr(request.state, "media_nav", None)
+    if cached is None and shell.resolve_owner_view(request)[0] == shell.NO_VIEW:
+        # Joey TV WP-B3: the media front's 404 page and /signin have no identity - the bar draws, with no counts (no
+        # owner helper accepts NO_VIEW, and nobody's numbers belong on a page without a viewer)
+        cached = request.state.media_nav = media_nav.nav_context(request, shell.registry, {})
     if cached is None:
         view, _ = shell.resolve_owner_view(request)
         area = media_nav.shelves_area(shell.registry)
@@ -393,7 +410,10 @@ def _to_rate(recent, ratings) -> list[dict]:
 
 def _profile_rows(jelly: dict, view: str, pick) -> list[tuple[dict, str]]:
     """(row, owner) pairs from B.'s and Georgina's Jellyfin profiles as the owner view sees
-    them: you = B.'s, her = hers, both = B.'s then hers. `pick(profile_dict)` -> rows."""
+    them: you = B.'s, her = hers, both = B.'s then hers. `pick(profile_dict)` -> rows. A friend or the media front:
+    none (Joey TV WP-B2, fail closed)."""
+    if _not_household(view):
+        return []
     mine = [(r, "you") for r in pick(jelly)]
     hers = [(r, "her") for r in pick(jelly.get("her") or {})]
     return {"you": mine, "her": hers}.get(view, mine + hers)

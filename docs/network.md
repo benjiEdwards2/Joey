@@ -19,6 +19,30 @@ Joey makes.
   remove `media-server_default`. Compose warns that the network has active endpoints. A
   media-stack `up` reuses the existing network. To fully recreate it, stop Joey first.
 
+## The `joey-edge` network (Joey TV WP-A3, 2026-10-18)
+
+- **swag does not use it any more** (WP-A4, 2026-10-19). `joey-swag` runs in host network mode: nginx binds the NAS's
+  port 443 itself and reaches Jellyfin at `127.0.0.1:8096`. Joey's compose no longer declares `joey-edge`, and
+  `deploy.sh` no longer checks it. Why (ADM Defender's unreliable DNAT for published ports): `public-edge.md`,
+  "Network mode".
+- The network itself stays on the NAS: `joey-edge` (`172.31.250.0/29`), created by `nas_scripts/jellyfin_edge_net.sh`,
+  which also attaches jellyfin to it in the media compose. Jellyfin stays attached on purpose: docker-proxy then
+  carries swag's `127.0.0.1:8096` connections in from the `joey-edge` gateway, 172.31.250.1, which is the first of
+  Jellyfin's Known proxies (`172.31.250.1, 172.18.0.1`; the second applies if jellyfin is ever detached).
+- No Joey container publishes a port. The hub and connectors still use `media-server_default` as above. Full
+  description, bring-up order and kill switch: `public-edge.md`.
+
+## `joey-media`, the guest front (Joey TV WP-B1, 2026-10-21)
+
+- `joey-media` (profile `media`, dark until WP-B5) is on `default` and `media-server_default` (`media`): `default` is where
+  `cloudflared` reaches it as `joey-media:8000`, `media` is where it reaches `jellyfin:8096` and `jellyseerr:5055` by name.
+- **No host port** (`expose: 8000` only). It does not touch the swag edge, and a published port on this NAS would depend
+  on ADM Defender's DNAT rule (`public-edge.md`, "Network mode").
+- The public name `media.joeyhome.net` is a Cloudflare tunnel public hostname pointing at `http://joey-media:8000`,
+  added at Phase B go-live (WP-B5). It carries no Access policy; its own sign-in arrives in WP-B2. The hub answers 404
+  on that Host, so the name can never reach private Joey.
+- Secrets: `deploy/media.env` only (`docs/setup.md`); the container never sees `TUNNEL_TOKEN` or `ACCESS_*`.
+
 Until the `.env` changes below, nothing behaves differently: the `*_URL` keys still point at
 the LAN IP, and that path keeps working.
 

@@ -1,0 +1,49 @@
+{# Why? (WP-U1, 2026-10-21; hub/media_upgrade_why.py): one Upgrades row's question to Radarr / Sonarr. Idle = the "Why?"
+   link; confirm = the inline ask (the search hits every indexer, up to a minute); result = the kept answer (summary,
+   grouped reasons, the profile hint, the top releases each with "Grab anyway" and its own inline confirm). Every link /
+   form works without JS (the Downloads page draws the same from ?why=<app>:<id>); the hx- attributes swap this block.
+   Words, never colour alone. `w` = media_upgrade_why.ctx(). #}
+{% set hx %}hx-target="#{{ w.dom }}" hx-swap="outerHTML"{% endset %}
+<div id="{{ w.dom }}" class="upwhy{% if w.res or w.ask or w.flash[0] or w.flash[1] %} is-open{% endif %}">
+{% if w.flash[0] %}<p class="metaline st-good" role="status">{{ w.flash[0] }}</p>{% endif %}
+{% if w.flash[1] %}<p class="metaline st-warn" role="status">{{ w.flash[1] }}</p>{% endif %}
+{% if w.res %}
+  <div class="whyres">
+    <p class="metaline">{{ w.res.summary }} · {{ w.ago }}</p>
+    {% if w.res.reasons %}<ul class="whyreasons">{% for r in w.res.reasons %}<li>{{ r.n }} × {{ r.text }}</li>{% endfor %}</ul>{% endif %}
+    {% if w.res.hint %}<p class="metaline st-warn">{{ w.res.hint }}</p>{% endif %}
+    {% for c in w.res.candidates %}
+    <div class="whycand">
+      <div class="whycand-title">{{ c.title }}</div>
+      <div class="metaline">{{ c.facts | join(" · ") }}</div>
+      {% if c.first %}<div class="metaline st-warn">Rejected · {{ c.first }}</div>{% else %}<div class="metaline st-good">Accepted</div>{% endif %}
+      {% if w.pick == loop.index0 %}
+      <form class="confirm" method="post" action="{{ w.url }}/grab" hx-post="{{ w.url }}/grab" {{ hx }} hx-disabled-elt="find button">
+        <input type="hidden" name="pick" value="{{ loop.index0 }}">
+        <div>Grab {{ c.title }} from {{ c.indexer }}?</div>
+        <div class="metaline">{% if c.rejected %}{{ w.app_name }} will download it even though it rejected it; an '{{ w.unknown_word }}' release may still fail to import.{% else %}{{ w.app_name }} will download it now.{% endif %}</div>
+        <div class="confirm-btns">
+          <button class="btn btn-primary btn-sm" type="submit">{{ "Grab anyway" if c.rejected else "Grab" }}</button>
+          <a class="btn btn-ghost btn-sm" href="{{ w.back }}?why={{ w.key }}#{{ w.dom }}" hx-get="{{ w.url }}?step=result" {{ hx }}>Cancel</a>
+        </div>
+      </form>
+      {% else %}
+      <a class="btn btn-secondary btn-sm" href="{{ w.back }}?why={{ w.key }}&amp;why_step=grab&amp;pick={{ loop.index0 }}#{{ w.dom }}" hx-get="{{ w.url }}?step=grab&amp;pick={{ loop.index0 }}" {{ hx }}>{{ "Grab anyway" if c.rejected else "Grab" }}</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+    <a class="btn btn-ghost btn-sm" href="{{ w.back }}#upgrades" hx-get="{{ w.url }}?step=idle" {{ hx }}>Close</a>
+  </div>
+{% elif w.ask %}
+  <form class="confirm" method="post" action="{{ w.url }}" hx-post="{{ w.url }}" {{ hx }} hx-disabled-elt="find button">
+    <div>Ask {{ w.app_name }} to search the indexers now? Takes up to a minute.</div>
+    <div class="metaline">It lists what it found and why it said no. Nothing is downloaded.</div>
+    <div class="confirm-btns">
+      <button class="btn btn-primary btn-sm" type="submit">Search now</button>
+      <a class="btn btn-ghost btn-sm" href="{{ w.back }}#upgrades" hx-get="{{ w.url }}?step=idle" {{ hx }}>Cancel</a>
+    </div>
+  </form>
+{% else %}
+  <a class="btn btn-ghost btn-sm" href="{{ w.back }}?why={{ w.key }}&amp;why_step=confirm#{{ w.dom }}" hx-get="{{ w.url }}?step=confirm" {{ hx }}>Why?</a>
+{% endif %}
+</div>

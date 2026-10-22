@@ -18,14 +18,18 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_home.py` | Shared Media helpers: one ratings read (`_ratings`, `score_for`), `view_jelly`, Media home shelves, rating inbox and waiting counts, the Media frame (`media_nav`), the hub's Media card |
 | `media_pages.py` | The `/media/*` detail pages behind registry tiles (`_detail_page`): Live, Library, Downloads, Requests, Health, To rate, Diary (+ its Month in Review card), Wrapped, Movies / TV grid, Tonight |
 | `media_wrapped.py` | Month in Review + Wrapped (E6, 2026-10-13): one month's / year's summary from media.db (diary, plays, ratings, award wins) + the jellyfin snapshot's runtimes and years; the data-source rules are its docstring; kept in memory per row signature |
+| `guest.py` | The guest front (Joey TV WP-B1, 2026-10-21): `front()` (`JOEY_FRONT`), the GUEST / PRIVATE / RESERVED route tables, `allows()`, the `GuestGate` middleware, the media-mode snapshot scrub, `TV_UA_TOKEN`; see "Guest front" below |
+| `guest_auth.py`, `guest_signin.py` | Guest sign-in on the media front (Joey TV WP-B2, 2026-10-21): the one Jellyfin auth client (session cookie, `/Users/Me` verdict cache, P1 refusals, password failure counter) and the five sign-in / sign-out routes; see "Guest sign-in" below |
 | `ids.py` | Snapshot ids, `home_tz()` / `home_now()` (Australia/Melbourne), `areas_path()` |
 | `store.py` | Snapshot reader: parse once per `(mtime_ns, size)`, `connected()`, `parse_utc()`, `ago_text()` |
 | `registry.py`, `identity.py` | `areas.yaml` loader (fails fast, lists every violation); who is signed in (Cloudflare Access header) |
+| `access_jwt.py` | `AccessGate` (Joey TV WP-A6a): verifies Cloudflare's signed `Cf-Access-Jwt-Assertion` (RS256, team JWKS, AUD) before the email header is believed; off unless `ACCESS_JWT_VERIFY` is set (enforce live since WP-A6a, 2026-10-21); `/healthz` and loopback exempt |
 | `images.py` | `GET /img/{ref}` poster proxy (async; at most 6 upstream misses at once) with a 30-day disk cache and generated fallback cards |
 | `upstream.py` | One keep-alive `requests.Session` per upstream (jellyfin, seerr, arr, omdb, tmdb) for the Media modules and `/img` |
 | `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Update and restart media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
-| `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py` | Media section map; library list helpers (sorts, filters, suggestions); downloads join; file-quality strip; library rank; Upgrade available (arr cutoff unmet) |
+| `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py`, `media_upgrade_why.py` | Media section map; library list helpers (sorts, filters, suggestions); downloads join; file-quality strip; library rank; Below cutoff (arr cutoff unmet) + last library search; Why? / Grab anyway (arr interactive search) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
+| `media_episode_ratings.py` | TV episode flow ratings (WP-E1, 2026-10-16): per-episode IMDb ratings via OMDb (one call per season; vote counts for the current season only), TMDB fallback from the Jellyseerr season read; media.db `episode_rating` (v5); the film page's `film.ratings`, missing reads in the response's BackgroundTask |
 | `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
 | `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / skip / log / search routes, play recorder and History (E5: `show_runtimes` for the progress words), resume actions, hide-until-next-sweep |
 | `media_awards*.py` | Awards: sync, parsers, seeds, store, pages, badges and icons |
@@ -45,10 +49,11 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
 | `GET /media/diary/year/{year}`, `/media/diary/year` | media_pages | Wrapped (E6, 2026-10-13): one year in words, a summary not a ranking; the bare path redirects to this year |
-| `GET /media/{movies,tv}/awards/part/categories` | awards_pages | Awards page's deferred category cards (E7): one htmx request on `revealed`, same `body` / `year` / `unseen` query; `/awards?all=1` is the whole page (no-JS fallback) |
+| `GET /media/{movies,tv}/awards/part/rows` | awards_pages | Awards ballot's deferred rows (2026-10-14): the films view's rows after the first 12, one htmx request on `revealed`, same `body` / `year` / `f` / `s` query |
+| `GET /media/{movies,tv}/awards/part/categories` | awards_pages | Awards categories view's deferred cards (E7): one htmx request on `revealed`, same `body` / `year` / `unseen` query; `/awards?v=categories&all=1` is the whole view (no-JS fallback) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, To rate (`/media/history`), Library, Downloads, Requests, Health |
 | `GET /media/diary` | media_pages | Activity > History: the watch diary (E6: the Month in Review card leads, linking the Wrapped page) (the Diary section folded into Activity 2026-10-13; By-year rankings removed 2026-10-09, decision 1). "Show: Mine / Everyone" 2026-10-13 — only owner "you" may list everyone's rows, each then named "You" / `OWNER_NAME_HER` in its meta line; her diary is always her own |
-| `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), To rate, Awards tabs; Tonight and Watchlist serve by URL with no tab (2026-10-13). The library page (2026-10-13): a Suggestions carousel (`?s=new\|continue\|unwatched`, cookie `media_libsugg`), then one flat sorted grid / list narrowed by filter chips (`?f=`; films All · Continue watching · Not yet watched · Watched, shows All · Watching · Not started · Finished) and 11 sorts (12 on TV: Most to watch); Grid / List is cookie `media_libview`; no grouping |
+| `GET /media/{movies,tv}`, `/tonight`, `/to-rate`, `/watchlist`, `/awards` | main, watchlist, awards_pages | Library (grid / list), To rate, Awards tabs; Tonight and Watchlist serve by URL with no tab (2026-10-13). The library page (2026-10-13): a Suggestions carousel (`?s=new\|continue\|unwatched`, cookie `media_libsugg`), then one flat sorted grid / list narrowed by filter chips (`?f=`; films All · Continue watching · Not yet watched · Watched, shows All · Watching · Not started · Caught up · Finished) and 11 sorts (12 on TV: Most to watch); Grid / List is cookie `media_libview`; no grouping |
 | `GET /media/server/history` | media_plays | Play stats: plays recorded from Jellyfin sessions (no tab since 2026-10-13; linked from the diary) |
 | `GET /media/discover`, `/discover/search`, `/discover/service/{provider_id}`, `/media/following` | media_discover, media_follow | Discover shelves, search box, a streaming service's shelves, Following |
 | `GET /media/search` | media_write | Title search behind the Log form |
@@ -58,6 +63,11 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/title/{kind}/{tmdb_id}/request`, `/search` | media_discover, media_arr_search | Jellyseerr request; Search now (Radarr / Sonarr command) |
 | `GET/POST /media/arr/sweep` | media_arr_search | Search missing / Search upgrades across Radarr + Sonarr (GET `?step=confirm` = the inline confirm card) |
 | `POST /media/title/{kind}/{tmdb_id}/upgrade` | media_arr_search, media_upgrades | Search for upgrade: the title's Radarr `MoviesSearch` / Sonarr `SeriesSearch` (the button sits in the `/arr` fragment) |
+| `GET /media/title/{kind}/{tmdb_id}/quality` | media_quality | "Quality · 1080p" + Switch, lazy-loaded under the hero's status line (`?step=confirm` = the inline confirm; no-JS 303 to the page's `?quality_ask=1`) |
+| `GET /media/upgrades/why/{app}/{arr_id}` | media_upgrade_why | One Downloads › Upgrades row's Why? area (`?step=confirm` = the inline ask, `result`, `grab&pick=<n>` = a release's Grab confirm, `idle`); no call. No-JS: 303 to `/media/downloads?why=<app>:<id>&why_step=…`, which draws the same |
+| `POST /media/upgrades/why/{app}/{arr_id}` | media_upgrade_why | Why?: the app's interactive search (`GET /api/v3/release?movieId=` / `?episodeId=`, 90 s, threadpooled), kept 1 h per row; 404 for a row not on the snapshot's list |
+| `POST /media/upgrades/why/{app}/{arr_id}/grab` | media_upgrade_why | Grab anyway: `POST /api/v3/release {guid, indexerId}` for release `pick` of the kept answer (30 s); flash `?grab=sent|gone|expired|refused|unreachable` |
+| `POST /media/title/{kind}/{tmdb_id}/quality` | media_quality | Switch quality: PUT the Radarr movie / Sonarr series with the new `qualityProfileId`, then `MoviesSearch` / `SeriesSearch` |
 | `POST /media/rate`, `/media/rate/{key}/delete`, `DELETE /media/rate/{key}`, `POST /media/log` | media_write | Rate, un-rate, log a watch |
 | `POST /media/rate/skip`, `/media/rate/skip-show`, `/media/rate/unskip` | media_write | To rate: Skip this entry / the whole show (media.db `rating_skip`, v4), Unskip (E5, 2026-10-13) |
 | `POST /media/settings/rating_level`, `/media/settings/diary_scope` | media_write | Rating scale; diary scope (2026-10-13: `mine` / `everyone`, 403 for her) |
@@ -72,6 +82,158 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
 | `/static/*` | StaticFiles | `?v=` content hash and `/static/fonts/*`: `immutable` for a year; other un-versioned files: one hour |
 
+## Guest front (`JOEY_FRONT`, Joey TV WP-B1, 2026-10-21)
+
+One image, two processes. `joey-hub` runs with `JOEY_FRONT` unset or `private` (today's Joey, behind Cloudflare Access).
+`joey-media` runs the same `life-hub` image with `JOEY_FRONT=media`, reached at `media.joeyhome.net` through the tunnel
+(`deploy/README.md`). `hub/guest.py` is the single source of truth for what the media front serves; its module docstring
+is the full contract.
+
+- **`JOEY_FRONT`** is `private` (unset or blank) or `media`. `front()` reads it on every call; any other value raises
+  `ValueError`, and the lifespan calls it first, so a typo stops the container at startup.
+- **Deny by default.** Media front: `/` answers 303 to the guest home (`/a/<id>` of the first `layout: shelves` area,
+  resolved at runtime); an allowed route without a signed-in identity answers 303 `/signin?next=` (only `/healthz` and
+  `/static` are public); everything else, unknown paths included, gets the one ordinary Joey 404 page, byte-identical for
+  every denied path. The media front ignores `Cf-Access-Authenticated-User-Email`. Private front: unchanged, except that a
+  request whose Host is `MEDIA_PUBLIC_HOST` (default in code `media.joeyhome.net`) gets the 404, so a tunnel typo can never
+  publish private Joey ungated.
+- **Every new route must be classified in `hub/guest.py`.** Each (method, path template) must sit in exactly one of
+  `GUEST` (guests may use it), `PRIVATE` (B. only) or `RESERVED` (denied until a later WP moves it to GUEST; `RESERVED` is empty since WP-B4: the sign-in routes left it in
+  WP-B2, `/app/*` in WP-B8, the title Request routes in WP-B4). `tests/hub/test_guest_routes.py` walks `hub.main.app.routes` and **fails the suite on an
+  unclassified route, naming it**. A new route is PRIVATE until someone decides otherwise; add it to `GUEST` only on
+  purpose, and never put a private page behind it.
+- **`/app` (Joey TV WP-B8, 2026-10-21):** `GET /app` and `GET /app/{rest:path}` (`hub/tv_app.py`: the TV app page, `version.json`,
+  `latest.apk`, the versioned APKs) are GUEST and PUBLIC (no sign-in, Q37), media front only; on the private front they are the ordinary
+  404. Headers are exactly those in the `hub/tv_app.py` docstring (`no-cache` on `version.json`, `no-store` on the `latest.apk` 302,
+  `immutable` on a versioned APK). Operations: `docs/tv-release.md`.
+- **One scrub point.** On the media front `shell.get_snapshots` keeps only `jellyfin`, `jellyseerr` and `arr`, each cut to
+  an allow-list of keys with B.'s played state and the requester's name removed from rows. A module that serves a request
+  must read snapshots through `shell.get_snapshots`, never `hub.store.get_snapshots` (a test enforces it).
+- **No background loops** run on the media front (`tasks.lifespan` starts none, in code).
+- **Frozen interfaces** (Joey TV plan §4 rule 9; WP-B2 and WP-B7 build on them, change them only with a dated decision):
+  - `hub.identity.Identity(owner, name, email=None, jf_user_id=None, jf_token=None)`. The new fields default to `None`, so
+    private-front constructions are unchanged. The owner-key format is `OWNER_KEY_RE` in `hub/identity.py` (WP-A2); `guest.py`
+    imports it and never redefines it.
+  - `guest.TV_UA_TOKEN = "JoeyTV/"`: the TV shell's user agent carries ` JoeyTV/<semver> (<versionCode>)` and the server
+    matches the substring.
+- **Dev seam.** `GUEST_DEV_OWNER` signs every media-front request in as that owner, only when `HUB_DEV=1` and
+  `JOEY_FRONT=media` (one startup warning). It must be a well-formed owner key, `jf:` plus 32 lowercase hex
+  (`OWNER_KEY_RE`); a looser value such as `jf:devfriend` now raises in the owner helpers (WP-B2, fail-closed). Compose
+  must never carry it (a test pins that).
+- `GET /healthz` adds `"front"`, and on the media front `"home": "/a/<shelves id>"` (read by the TV shell's back policy).
+
+### Guest sign-in (Joey TV WP-B2, 2026-10-21)
+
+`hub/guest_auth.py` is the one Jellyfin auth client of `joey-media`; `hub/guest_signin.py` holds the routes and
+`templates/guest_signin.html` (+ `_guest_qc*.html`) the page. Jellyfin is the session store: the access token it returns
+is the session, so disabling or deleting a friend in Jellyfin, or signing the device out, ends their Joey Media session.
+
+- **Routes** (all GUEST and PUBLIC; every one is the ordinary 404 on the private front; POSTs carry `same_origin`):
+  `GET /signin` (the page: Quick Connect code, password form as the fallback), `POST /signin/qc/start` (new code),
+  `GET /signin/qc/poll` (htmx, every 3 s; sets the session cookie and `HX-Redirect`s once the phone approves),
+  `POST /signin/password`, `POST /signout` (Jellyfin `/Sessions/Logout`, best effort, then the cookie is cleared and
+  303 `/signin`). `GET /signout` is a 404: sign-out is POST only. Nothing else under `/signin` is served.
+- **Sign-out control (2026-10-22).** On every signed-in guest page the top-bar user chip (avatar initial + name) is a
+  button opening a confirm `<dialog id="signout-dlg">` (`base.html`): "Sign out" is a plain full-page form POST `/signout`
+  (`hx-boost="false"`), "Cancel" starts focused and closes it, as do Back on the TV (tv.js `joeyTV.back()`) and Esc.
+  Not on `/signin`, not for a visitor who is not signed in, never on the private front (`test_guest_signout_chip.py`).
+- **Private sign-out (2026-10-22).** On joeyhome.net, with an Access identity, the same chip button + confirm dialog ends in
+  Cloudflare Access logout: "Sign out" is a plain GET link to `/cdn-cgi/access/logout` (`hx-boost="false"`; Cloudflare's
+  edge serves it and clears `CF_Authorization`, no app route). Local preview keeps the static chip (`test_private_signout_chip.py`).
+- **Cookies** (`HttpOnly`, `SameSite=Lax`, `Path=/`, `Secure`, `__Host-` prefix): `__Host-jm_session` (the Jellyfin token,
+  90 days absolute from sign-in, never extended), `__Host-jm_qc` (the Quick Connect secret, 10 min, never in the page),
+  `__Host-jm_dev` (this browser's Jellyfin DeviceId, 400 days). `JOEY_COOKIE_SECURE=0` drops `__Host-` and `Secure` for
+  plain-http previews only; unset or any other value = secure. Compose must never carry it (a test pins that).
+- **Re-validation.** On each guest request the token is checked against Jellyfin `GET /Users/Me`; the verdict is kept
+  60 s per token (one call at a time per token, so a page's poster burst shares it). A 4xx clears the cookie and goes to
+  `/signin`. Jellyfin slow or down (timeout, 5xx) is a 503 page with the cookie kept and nothing cached; a verdict that
+  WAS valid is still served up to 300 s past its 60 s while Jellyfin does not answer, never a verdict Jellyfin refused.
+- **P1 refusals.** A valid Jellyfin user is refused (cookie cleared; at sign-in the fresh token is logged out at once)
+  when the policy is missing, disabled, an administrator, or has remote access off: `joey-media` reaches Jellyfin from
+  the LAN bridge, so Jellyfin never applies the remote-access flag to it and the hub enforces it. The admin can never
+  hold a guest session.
+- **Password failures.** 5 per username in 15 minutes (keyed by a hash of the lower-cased username), then the next try is
+  refused without calling Jellyfin, so the guest path never reaches Jellyfin's own lockout (which disables the user).
+  The counter is in-process: a `joey-media` restart resets it. A wrong password, a refused user and a resting username
+  all read "Wrong username or password", after a 1 s delay. An unreachable Jellyfin is not counted.
+- **Owner.** `hub.identity.owner_for_jellyfin(user id)` is the one mapping (B.'s alias user is `you`, anyone else
+  `jf:<32 hex>`); the household lookup failing is a 503, never a guessed owner. Logs carry `jf:<id>` or a username-hash
+  prefix, never a username, password, token or Quick Connect secret.
+- **Fail-closed owners.** `media_db.owner_of` / `owner_filter` pass a well-formed `jf:<32 hex>` through and raise on any
+  other `jf:` value. On the media front they also raise for anything that is not `you` / `her` / a friend key, so `both`,
+  `None` and unknown views never fall back to B.'s rows; the plays, home-shelf, resume, `shell.resolve_owner_view` and
+  diary-scope paths follow, and the media front reads only the signed-in user's own rows. The private front keeps its
+  old meanings.
+- **P3 binding.** On the media front every Jellyfin read and write for a viewer (resume, item reads, the user id) uses
+  the signed-in user's own id and token, never the admin key or `JELLYFIN_USER`; the item cache is per viewer there.
+
+### Requests (Joey TV WP-B4, 2026-10-21)
+
+Friends request through Discover and every friend request waits for B.'s approval in Seerr (DECISIONS B #19).
+`hub/media_guest_requests.py` holds the Seerr side; the one request POST stays `media_discover._send`.
+
+- **Route.** `GET` + `POST /media/title/{kind}/{tmdb_id}/request` moved from RESERVED to GUEST (`RESERVED` is now empty).
+  Requests, Remove request, Follow, Search now and Quality stay PRIVATE on the media front (Q19).
+- **As the friend.** A `jf:` owner's request carries the admin `X-Api-Key` plus `X-Api-User: <their Seerr id>`, so Seerr
+  creates it as them, pending. The id comes from `GET /api/v1/user?take=500` by `jellyfinUserId` (dash-less, lower case),
+  cached 1 h. No Seerr user yet: one `POST /api/v1/user/import-from-jellyfin` for that friend only, on their first
+  request (never on a page view), then one re-lookup; still none = "Requests aren't set up for you yet". A failed lookup
+  sends nothing: never the bare key for a friend.
+- **Pending only.** A friend whose Seerr user has ADMIN, MANAGE_REQUESTS or any AUTO_APPROVE bit is refused before sending
+  (fix it in Seerr → Users → Permissions). On the media front no quality profile is sent or enforced and Sonarr never
+  follows an "All seasons" request. B.'s own request (private front, or the household alias on the media front) is
+  unchanged: admin key only.
+- **Status, not controls.** Nothing on the media front approves, declines or removes. A friend sees their own requests
+  (`GET /api/v1/request?requestedBy=<id>`, cached 60 s) as Requested / Approved / Declined on the title page and as
+  Discover chips.
+- **Discover screen** (WP-M screen 10): `media_discover_guest.html` + `_guest_discover_grid.html`: a search box and one
+  poster grid (trending, popular films, popular TV, de-duplicated, max 36) with In library / Requested / Request /
+  Declined chips. A poster opens `_guest_request_panel.html` (`?panel=1`) in a `<dialog>`; Request answers "Requested —
+  waiting for approval" and updates the chip (`hx-swap-oob`). Done, Esc or the TV's Back close it and focus returns to
+  the poster (`tv.js` `joeyTV.back()` honours the dialog's `_opener`). The answer panel keeps the poster, title and
+  overview (`_request_title` reads the title before dropping its cache). In TV mode `tv.css` styles all of it to screen 10:
+  the grid takes the six-column helper (`.poster-grid.reqgrid`), the one-tab sub-tab row is dropped, chips are In library
+  teal / Requested amber / Request indigo (Declined grey), the panel is a 780 px card (150 px poster, 38 px title, 3-line
+  synopsis, amber 22 px status line, Request then Done focused). Those rules live only in `tv.css` (`html.tv` scope, no
+  `:hover`); the page's inline `<style>` carries none.
+
+### Guest surface and TV mode (Joey TV WP-B3, 2026-10-21)
+
+What a signed-in friend sees on the media front, and the 10-foot TV skin the Android TV shell loads.
+
+- **The pages.** Overview (`/a/<shelves id>`): exactly three shelves, Continue watching and Recently watched (live reads of the
+  viewer's own Jellyfin state with their own token, `hub/media_guest_home.py`) and Recently added (the scrubbed snapshot); no hero,
+  no household shelves. The section row is Overview, Movies, TV shows, Diary, Discover. Title pages draw no off-site links (the
+  exposure crawl allows only the Jellyfin edge, YouTube and TMDB images).
+- **The `shell.jellyfin_link` seam.** `hub/shell.py` `jellyfin_link(registry_href)` is the one base of every Jellyfin link a page
+  draws (Play, "Open in Jellyfin", the `_deep_link` item links). On the media front it is `JELLYFIN_PUBLIC_URL` with its port kept
+  verbatim (`:8443`: the TV shell's UrlPolicy matches scheme + host + port) and `None` when unset (no link rather than a LAN one);
+  on the private front it is the registry href. Never build a Jellyfin link any other way.
+- **The one-time "Set up Jellyfin" card (Q39).** Shown on the Overview until `?setup=done` (cookie `jm_setup`, one year); it
+  carries `JELLYFIN_PUBLIC_URL` and `templates/area_shelves.html` wraps its `:port` in `<em>` (the whole address is also in the
+  `aria-label`). In TV mode it is a full-screen card and `tv.js` keeps the D-pad on it while it is up.
+- **The friend diary.** The play recorder (`hub/media_plays.py` `friend_diary`) writes one diary row, owned by `jf:<id>`, when a
+  friend's play reaches `FINISHED_PCT` (90 %, `hub/media_plays_db.py`); one row per title per day, so later polls add nothing. B.'s
+  and her diary still come from the Jellyfin history sweep.
+- **TV mode** (`hub.media_front.tv_mode(request)`, Jinja global `tv_mode`; media front only, the private front ignores it). On when
+  the user agent contains `guest.TV_UA_TOKEN` (`JoeyTV/`, the shell's ` JoeyTV/<semver> (<versionCode>)`) or the `tv=1` cookie is
+  set; `?tv=1` sets that cookie (one year, `SameSite=Lax`) and `?tv=0` clears it, handled in `GuestGate` so it works on every
+  media-front page, the 404 and `/signin`. `<html>` then carries class `tv` and the page links `/static/tv.css` and
+  `/static/tv.js` (vendored, no external asset); neither is linked, and the private CSS bytes are unchanged, without it.
+  - `tv.css` is the signed-off WP-M mockup (`JoeyTV/mockups/tv-mode.html`): 960 x 540 CSS px design viewport (1920 x 1080 at
+    320 dpi), 21 px base type, 16 px floor, 48 / 27 px overscan margins, a 4 px white focus ring with 1.06 poster scale, **no
+    `:hover` rule at all** (a test pins it), no phone tab bar. Per screen: Overview has no head band; Movies / TV shows are a
+    sticky section row + sub-tabs over a six-column grid (no search / sort toolbar, no "New this week", no freshness lines); the
+    title page is a 170 px poster beside title, facts, a three-line synopsis, Play / Trailer / Watchlist and the 1-10 rating chips
+    (templates carry the extra lines only when `tv_mode(request)`, `media_film.html`). Every off-origin link except YouTube trailers
+    and the Jellyfin hand-off (`/web/#/details?id=`) is hidden (Q41).
+  - `tv.js` owns what a Chromium WebView lacks: geometric D-pad focus, first focus (`[data-first]`, else Play, else the first
+    poster), clamped shelf centring, scroll-into-view under the sticky bars, focus restore after an htmx swap.
+  - **`window.joeyTV.back()`** is the contract with the shell's BackPolicy (WP-B7): it closes an open `<dialog>` (the trailer
+    modal) and returns `true`; with nothing to close it returns `false` and the shell goes back or exits. `joeyTV.focusFirst()`
+    re-runs first focus.
+  - A trailer on the TV is a plain navigation to its YouTube URL (the shell hands it to the YouTube app), not the in-page player.
+
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 
 | Variable | Default | Does |
@@ -81,9 +243,12 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `IMG_CACHE_DIR` / `META_CACHE_DIR` | `/data/cache/img` / `<IMG_CACHE_DIR>/meta` | Poster cache; 6 h Jellyseerr / title meta cache |
 | `AREAS_PATH` | `config/areas.yaml` | Registry file |
 | `OWNER_EMAIL_YOU`, `OWNER_NAME_YOU`, `OWNER_NAME_HER` | unset, Benji, Georgina | Access email that is "you" (any other is "her"); chip and greeting names |
+| `ACCESS_JWT_VERIFY`, `ACCESS_AUD`, `ACCESS_TEAM` | off, unset, `joeyhomeed` | Access JWT gate: `audit` logs verdicts only, `1` refuses a missing/forged token (401; 503 if the team's keys cannot be read); `ACCESS_AUD` = comma-separated AUD tags, required once the flag is set (the hub will not start without it); find it under Zero Trust, Access controls, Applications, the app, **Additional settings** tab. JWT verification live since WP-A6a (2026-10-21); residual = replay of a captured token within its lifetime, and hub-container compromise |
 | `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE` | Windy radar falls back to Newport, `Newport VIC` | Windy radar centre (the weather connector reads the same pair) and the place name in weather labels |
+| `JOEY_FRONT`, `MEDIA_PUBLIC_HOST` | unset (= `private`), `media.joeyhome.net` | `media` makes this process the guest front ("Guest front" above; set only on `joey-media`); any other value stops startup. `MEDIA_PUBLIC_HOST` = the Host the private front answers with 404 |
+| `JOEY_COOKIE_SECURE`, `GUEST_DEV_OWNER` | `1`, unset | Guest sign-in ("Guest sign-in" above). `JOEY_COOKIE_SECURE=0` = plain cookie names without `Secure`, for http previews only; `GUEST_DEV_OWNER` = a `jf:<32 hex>` dev identity, honoured only with `HUB_DEV=1` on the media front. Neither belongs in compose or `media.env` |
 | `HUB_DEV` | off | `1` re-reads templates on every render (local template editing) |
-| `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER` | unset | Live item reads, play recorder, her profile |
+| `JELLYFIN_URL`, `_API_KEY`, `_USER`, `JELLYFIN_USER_HER`, `JELLYFIN_USER_ALIASES` | unset | Live item reads, play recorder, her profile; aliases = B.'s extra Jellyfin user names (comma-separated), recorded as "you" |
 | `JELLYSEERR_*`, `RADARR_*`, `SONARR_*` (`_URL`, `_API_KEY`), `OMDB_API_KEY` | unset | Requests, Search now, Request remove; Metacritic pill (7-day cache, 800 calls a day) |
 | `WUD_URL`, `WUD_USER`, `WUD_PASS`, `SERVER_DISCORD_WEBHOOK` | unset | Update now / Ignore; Attention push |
 | `STACKCTL_URL`, `STACKCTL_TOKEN` | unset | Update and restart media stack and its status line (`stackctl/NAS_INSTALL.md`); unset = button hidden, "Not connected" |
@@ -143,6 +308,28 @@ Server page reads stackctl at most every 30 s and reuses the card's parsed sweep
 
 ## Decisions pinned by tests
 
+**Play owners (Joey TV WP-A2, 2026-10-18):** plays keyed jf:<id> for non-household Jellyfin users — the recorder names
+a play's owner by Jellyfin user ID (`identity.owner_for_jellyfin`, names resolved once via `/Users`; `JELLYFIN_USER`
+unset = nobody is "you"), the frozen format is `identity.OWNER_KEY_RE` (`jf:<32 lowercase hex>`), and every private
+read (`you` / `her` / `both`) skips `jf:` rows (`media_db.household_sql`).
+
+**Awards ballot (Plan C, 2026-10-14; review/2026-10-13-awards-ux/BALLOT_DECISIONS.md):** Movies / TV shows › Awards
+(`media_awards_pages.py`, `media_awards.html`, `_award_body.html`, `_award_ballot.html`, `_award_sheet.html`) is a ballot:
+one row per nominated film or show, the default **Films** view; the category cards are the second view (`?v=categories`,
+E7's lazy tail kept). A sticky control row holds the picker (`<details class="awpick">`: ceremony tiles + year chips with
+"‹ 2024" / "2026 ›" and Latest; a bottom sheet on a phone, a dropdown from 640 px; a choice, Done or the scrim re-renders
+the block closed), the edition line and Films · Categories; "Next up" folds the dates grid. The films view: a progress
+ring ("Seen 5 of 35 nominated films", the headline category, on your server and unseen, on your watchlist), then filter
+chips (All · the headline category · Acting · Direction & writing · Craft · Not seen · On your server) and sort chips
+(Most wins · Most nominations · A to Z), all URL state (`f`, `s`; the old `unseen=1` = `f=unseen`) swapped into `#awmain`
+by htmx with the URL pushed and the scroll kept; Not seen says "Hiding N seen". A row: poster (gold frame + winner badge),
+title + year (the server's, else the edition's "films of" year), "5 wins · 6 nominations", up to five pills (won first;
+acting / directing pills name the person), the action (emerald "Seen ✓", or the worded Watchlist button — the same
+`/media/watchlist/add|remove`, `style=ballot`, swapped in place) and a Details fold with every category and its people.
+The first 12 rows render; the rest come through `/awards/part/rows`. Short-film categories fold under "Shorts · N" (out of
+the rows, filters and progress); acting / directing winners close the page as a people strip. Nothing calls the award
+hosts from a page; posters fill after the response (F2), the first rows first.
+
 **No zoom (media-ux5, B.'s explicit choice 2026-10-09):** Joey cannot be pinch- or focus-zoomed on a phone (viewport
 `maximum-scale=1`, 16 px inputs, Safari gesture events cancelled in `static/joey.js`). The accessibility trade-off (WCAG 1.4.4)
 is accepted for this private two-person app; undo by restoring the old viewport meta and removing the gesture guard.
@@ -179,6 +366,17 @@ or a request's `tvdb_id`), else its normalised title when unique on both sides. 
 Search-now fragment when the app's own id is on the list: an inline confirm, then `POST …/upgrade` (`same_origin`,
 threadpooled) sends `MoviesSearch` / `SeriesSearch`; `?upgrade=started|failed` flashes "Upgrade search started" /
 "Couldn't start the search". The app grabs the best release its profile allows; picking a release is not offered (v2).
+**Below cutoff + Why? (WP-U1, 2026-10-21):** the label is now "Below cutoff · HDTV-1080p → wants WEB/Bluray 1080p" — the
+file is below the profile's cutoff, which does not mean a better release exists (the connector names a cutoff GROUP by
+its members, never its own name such as "Default"). Activity › Downloads adds, under the Search buttons, one line per app
+from `upgrades.last_search` ("Last upgrade search · Sonarr · 21 Oct 00:59 · 1 searched · 0 downloaded", the amber words
+when nothing was downloaded or the search failed). Each Upgrades row is now `.row.has-form` with a "Why?" beside it
+(`media_upgrade_why.py`, `_upgrade_why.html`): an inline ask, then the app's interactive search (Radarr `?movieId=`, Sonarr
+`?episodeId=` of the row's `sample` episode; 90 s, kept 1 h) drawn as "S01E01 · 30 releases · all rejected", the
+reasons grouped ("30 × custom-format score below the profile minimum (1000)", "7 × quality not wanted in profile", …), a
+hint when the custom-format minimum rejects every release, and the top 5 releases (quality · size · seeders · indexer ·
+group, then the first rejection), each with "Grab anyway" — its own inline confirm, then `POST /api/v3/release` with the
+guid / indexer id from the kept answer. Page renders make no arr call; logs carry the app and a status / type only.
 
 ## Run locally
 

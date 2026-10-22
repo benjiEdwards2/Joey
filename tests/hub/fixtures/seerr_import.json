@@ -1,0 +1,27 @@
+{
+  "method": "POST",
+  "path": "/api/v1/user/import-from-jellyfin",
+  "http_status": 201,
+  "body": [
+    {
+      "permissions": 32,
+      "warnings": [],
+      "jellyfinUsername": "REDACTED",
+      "jellyfinUserId": "0dd9fd89…",
+      "avatar": "REDACTED",
+      "userType": 3,
+      "plexUsername": null,
+      "username": null,
+      "recoveryLinkExpirationDate": null,
+      "avatarETag": null,
+      "avatarVersion": null,
+      "movieQuotaLimit": null,
+      "movieQuotaDays": null,
+      "tvQuotaLimit": null,
+      "tvQuotaDays": null,
+      "id": 2,
+      "createdAt": "2026-10-21T02:15:18.000Z",
+      "updatedAt": "2026-10-21T02:15:18.000Z"
+    }
+  ]
+}

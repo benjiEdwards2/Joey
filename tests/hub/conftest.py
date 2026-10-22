@@ -56,16 +56,24 @@ def app_with(tmp_path, monkeypatch, *areas):
 
 def clear_media_caches() -> None:
     """Every Media module's in-process cache, emptied."""
-    from hub import (media_awards_badges, media_awards_icons, media_discover, media_files, media_film, media_hidden,
-                     media_item, media_jellyfin, media_omdb, media_pages, media_rank, media_requests, media_resume,
+    from hub import (guest_auth, identity, media_guest_home, media_awards_badges, media_awards_icons, media_discover, media_episode_ratings,
+                     media_files, media_film, media_guest_requests, media_hidden, media_item, media_jellyfin, media_omdb, media_pages,
+                     media_quality, media_rank, media_requests, media_resume, media_season_state, media_upgrade_why,
                      server_stack)
     for clear in (media_discover.clear_cache, media_item.clear_cache, media_files.clear_cache, media_jellyfin.clear_cache,
-                  media_omdb.clear_cache, media_hidden.clear, media_rank.clear_cache, media_resume.clear_cache,
+                  media_omdb.clear_cache, media_episode_ratings.clear_cache, media_hidden.clear, media_rank.clear_cache, media_resume.clear_cache,
                   media_awards_badges._cache.clear, media_awards_icons.override.cache_clear,
                   media_film._override_in.cache_clear,
                   server_stack.clear_cache,    # E1: the 30 s stackctl status answer
                   media_pages.clear_diary_memo,    # E1: the diary sync / stats memo
-                  media_requests.forget_lookups):  # E1: the Search now lookups
+                  media_requests.forget_lookups,   # E1: the Search now lookups
+                  media_season_state.clear_cache,   # WP-T1: the Sonarr series list + episode lists
+                  media_quality.clear_cache,   # WP-R1: the arr quality profile lists
+                  media_upgrade_why.clear_cache,   # WP-U1: the kept Why? answers
+                  identity.clear_jellyfin_owners,  # Joey TV WP-A2: the household's Jellyfin ids
+                  guest_auth.clear,  # Joey TV WP-B2: guest session verdicts + password failure counters
+                  media_guest_home.clear_cache,  # Joey TV WP-B3: the guest Overview's per-user shelf reads
+                  media_guest_requests.clear):  # Joey TV WP-B4: the Seerr user lookup + each friend's own requests
         clear()
 
 

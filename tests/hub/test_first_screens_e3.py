@@ -3,6 +3,7 @@ U9 (a), U10, U12, U14, U17, U27): the hub's first screen, Media page heads and p
 toolbar auto-apply, the Server page order, copy fixes and SHELF_MAX as a Jinja global. Rendered pages where the
 behaviour is in the markup; stylesheet pins where it is in the CSS."""
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from tests.hub.test_hub_page import SAMPLE_DATA, cards_of, hub, kpis_of  # noqa: F401  (fixture: hub(view=..., **data))
@@ -65,18 +66,33 @@ def test_hub_sub_names_a_stale_feed(tmp_path, monkeypatch):
     assert sub.endswith(" · Calendar stale") and "Feeds" not in sub             # stale is still live: no count
 
 
-def test_calendar_and_weather_tiles_are_marked_dup_and_hidden_on_a_phone(hub):
+def test_calendar_tile_is_marked_dup_and_hidden_on_a_phone(hub):
+    """Re-pointed 2026-10-19 (WP-T2): the Weather tile left the hub row, so Calendar is the only .dup card (three cards)."""
     _, body = hub()
     tiles = kpis_of(body)
-    assert '<a class="panel tile dup" href="/a/calendar"' in tiles and '<a class="panel tile dup" href="/weather"' in tiles
+    assert '<a class="panel tile dup" href="/a/calendar"' in tiles and 'href="/weather"' not in tiles
     classes = re.findall(r'<(?:a|div) class="(panel tile[^"]*)"', tiles)
-    assert len(classes) == 4 and sum("dup" in c.split() for c in classes) == 2   # Media and Server stay on a phone
+    assert len(classes) == 3 and sum("dup" in c.split() for c in classes) == 1   # Media and Server stay on a phone
     assert "@media (max-width: 639px) { .tiles > .dup { display: none; } }" in rules()
-    assert body.index('class="tiles') < body.index('class="band a"')            # the band follows the tiles
+    assert body.index('class="tiles') < body.index('class="band hubband"')         # the band follows the tiles
 
 
-def test_calendar_card_value_is_the_title_and_the_day_time_is_meta(hub):
-    _, body = hub()
+FROZEN_NOW = datetime(2026, 10, 20, 12, 0, tzinfo=timezone.utc)   # fixed (rule 13): midday UTC is the same date in any zone
+
+
+class _FrozenDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return FROZEN_NOW.astimezone(tz)
+
+
+def test_calendar_card_value_is_the_title_and_the_day_time_is_meta(hub, monkeypatch):
+    from hub import upcoming
+    monkeypatch.setattr(upcoming, "datetime", _FrozenDateTime)   # the hub's calendar clock; events built from the same instant
+    today = FROZEN_NOW.astimezone().date()
+    events = [{"title": "Bins out", "start": today.isoformat(), "end": (today + timedelta(days=1)).isoformat(),
+               "all_day": True, "owner": "shared"}]
+    _, body = hub(gcal={**SAMPLE_DATA["gcal"], "events": events})
     card = cards_of(body)["/a/calendar"]
     assert '<div class="tile-value stat-word">Bins out</div>' in card
     assert '<div class="row-meta">Next up<span class="sep"> · </span>Today · All day</div>' in card
@@ -295,9 +311,9 @@ def server_page(tmp_path, monkeypatch, lan, headers=None):
 def test_attention_leads_the_server_page(tmp_path, monkeypatch):
     body = server_page(tmp_path, monkeypatch, lan=True)
     assert "Prowlarr is Down (timeout)" in body
-    assert body.index("</header>") < body.index('id="attention"') < body.index('class="tiles areatiles srvtiles"') \
-        < body.index('id="system"')
-    assert "@media (max-width: 639px) { .srvtiles { display: none; } }" in rules()
+    assert body.index("</header>") < body.index('id="attention"') < body.index('id="system"')
+    # WP-T3 (2026-10-19, S3): the tile row (was hidden on phones, .srvtiles) is gone from the Server page altogether
+    assert "srvtiles" not in body and "srvtiles" not in rules()
 
 
 def test_update_now_is_secondary_and_update_all_the_one_primary(tmp_path, monkeypatch):
@@ -307,15 +323,23 @@ def test_update_now_is_secondary_and_update_all_the_one_primary(tmp_path, monkey
 
 
 def test_lan_only_links_show_on_the_lan_only(tmp_path, monkeypatch):
+    """2026-10-19 (WP-H1, B.): the Services CARDS now show from anywhere and link to their LAN address with the "LAN"
+    word — this reverses E3's off-LAN hiding (back to the 2026-10-10 rule). WP-T3 (2026-10-19, S3): the tile row is
+    gone, so the LAN-only Portainer TILE is too; Portainer is its Services › System card, shown like every card."""
     on = server_page(tmp_path, monkeypatch, lan=True)
     off = server_page(tmp_path, monkeypatch, lan=False)
     tunnel = server_page(tmp_path, monkeypatch, lan=True, headers={"Cf-Access-Authenticated-User-Email": "a@b.c"})
-    assert '<div class="microlabel">Portainer</div>' in on and "svc-sub\">Media server · LAN<" in on
-    for page in (off, tunnel):                                   # outside, or through the tunnel from a LAN-ish hop
-        assert '<div class="microlabel">Portainer</div>' not in page and "· LAN<" not in page
-        cards = re.findall(r'<(?:a|div) class="svc-card.*?</(?:a|div)>\s*(?=<(?:a|div) class="svc-card|</div>)', on, re.S)
-        gated = [c for c in cards if "· LAN<" not in c and ">LAN<" not in c]
-        assert page.count('class="svc-card') == len(gated)        # cards with a gated hostname (or none) still show
+    assert "svc-sub\">Media server · LAN<" in on
+    for page in (on, off, tunnel):                               # outside, or through the tunnel from a LAN-ish hop
+        assert '<div class="microlabel">Portainer</div>' not in page      # no tile row, no Portainer tile
+        portainer = re.search(r'<a class="svc-card[^"]*" href="[^"]+"[^>]*>(?:(?!</a>).)*>Portainer<(?:(?!</a>).)*</a>',
+                              page, re.S)
+        assert portainer and "Docker management · LAN<" in portainer.group(0)   # a link card saying "LAN"
+    for page in (off, tunnel):
+        assert page.count('class="svc-card') == on.count('class="svc-card')     # every card shows
+        assert "svc-sub\">Media server · LAN<" in page                    # ... with its LAN word
+        lan_cards = re.findall(r'<a class="svc-card[^>]*href="[^"]+"[^>]*>(?:(?!</a>).)*· LAN<', page, re.S)
+        assert lan_cards                                                  # ... as a link to the LAN address
     assert "192.168." not in tpl("server.html") and "10." not in re.sub(r"\d+\.\d+\.\d+", "", tpl("server.html"))
 
 

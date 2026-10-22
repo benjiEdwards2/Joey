@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from tests.hub.helpers import make_area, write_registry
 
 WAIT_S = 5.0
+JOIN_AFTER_RELEASE_S = 30.0
 
 
 @pytest.fixture
@@ -66,7 +67,13 @@ def test_a_stuck_upstream_does_not_block_healthz(client, monkeypatch, name):
         elapsed = time.monotonic() - t0
     finally:
         release.set()
-        worker.join(WAIT_S * 2)
+        # Generous join: the route's return after release is not the behaviour under test. The 2026-10-21 NAS deploy
+        # gate (load avg 13, heavy swap) let the `follow` worker overrun a WAIT_S*2 join, leaving `out` empty
+        # and failing with KeyError: 'resp' after the real proof (healthz elapsed) had already passed.
+        worker.join(JOIN_AFTER_RELEASE_S)
     assert health.status_code == 200
     assert elapsed < 1.5, f"/healthz waited {elapsed:.1f}s behind {name}"
+    assert not worker.is_alive(), (
+        f"worker still running after release: the route did not return within {JOIN_AFTER_RELEASE_S:.0f}s"
+    )
     assert out["resp"].status_code in (200, 303)

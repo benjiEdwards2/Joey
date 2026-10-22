@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
+from hub import identity, media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
 
 log = logging.getLogger("hub.media_plays")
 
@@ -40,9 +40,13 @@ def disabled() -> bool:
     return os.environ.get("PLAY_RECORDER", "").strip().lower() == "off" or _creds() is None
 
 
-def _owner(user_name) -> str:
-    her = jellyfin.her_name()
-    return "her" if her and user_name == her else "you"
+def _owner(user_id) -> str | None:
+    """The play's owner by Jellyfin user ID (Joey TV WP-A2: a friend is jf:<id>, never "you"); None for a session
+    without a well-formed UserId. identity.OwnerUnresolved (no /Users read yet) propagates: the poll records nothing."""
+    try:
+        return identity.owner_for_jellyfin(user_id) if user_id else None
+    except ValueError:
+        return None
 
 
 def _key(item: dict) -> str | None:
@@ -56,6 +60,9 @@ def play_from_session(session: dict) -> dict | None:
     item = session.get("NowPlayingItem")
     if not isinstance(item, dict) or item.get("Type") not in ("Movie", "Episode") or not item.get("Id"):
         return None
+    owner = _owner(session.get("UserId"))
+    if owner is None:
+        return None
     user = session.get("UserName")
     ticks = item.get("RunTimeTicks") or 0
     pos = (session.get("PlayState") or {}).get("PositionTicks") or 0
@@ -63,7 +70,7 @@ def play_from_session(session: dict) -> dict | None:
     series = item.get("SeriesId")
     art = series if episode and series else item["Id"]
     return {
-        "user_name": user, "owner": _owner(user), "jf_id": item["Id"],
+        "user_name": user, "owner": owner, "jf_id": item["Id"],
         "item_key": f"jf:{series}" if episode and series else _key(item),
         "show_key": f"jf:{series}" if episode and series else None,
         "season_key": f"jf:{item['SeasonId']}" if episode and item.get("SeasonId") else None,
@@ -76,6 +83,33 @@ def play_from_session(session: dict) -> dict | None:
         "position_pct": round(100 * pos / ticks) if ticks else 0,
         "poster": f"jf:{art}",
     }
+
+
+def diary_row(play: dict, now: datetime) -> dict:
+    """A finished play as the history-row shape media_db.sync_diary_from_history takes: an episode is one per-episode
+    row (episode_key, show / season columns, 'Show · S01E04 · Name' so the episode title survives), a film its own key."""
+    episode = play["kind"] == "episode"
+    title = play.get("title") or ""
+    if episode and play.get("show_title"):
+        code = (f"S{play['season']:02d}E{play['episode']:02d}"
+                if isinstance(play.get("season"), int) and isinstance(play.get("episode"), int) else "")
+        title = " · ".join(x for x in (play["show_title"], code, play.get("title")) if x)
+    return {"item_key": play.get("item_key"), "kind": "tv" if episode else "movie", "title": title,
+            "episode_key": play.get("episode_key"), "show_key": play.get("show_key"),
+            "season_key": play.get("season_key"), "season": play.get("season"), "episode": play.get("episode"),
+            "show_title": play.get("show_title"), "poster": play.get("poster"),
+            "watched_at": now.astimezone(timezone.utc).isoformat()}
+
+
+def friend_diary(play: dict, now: datetime) -> int:
+    """Joey TV WP-B3 step 3 (Q21 default): a FRIEND's play (owner `jf:<id>`) at >= FINISHED_PCT writes one diary row
+    owned by `jf:<id>` - idempotent (the diary's UNIQUE: one row per title per day, so the finished play's later polls
+    add nothing). You / her are never written here: their diary comes from the Jellyfin history sweep. Returns rows
+    inserted; never raises."""
+    owner = play.get("owner") or ""
+    if not owner.startswith("jf:") or (play.get("position_pct") or 0) < pdb.FINISHED_PCT:
+        return 0
+    return media_db.sync_diary_from_history([diary_row(play, now)], owner=owner)
 
 
 def poll_once(now: datetime | None = None) -> int:
@@ -92,6 +126,7 @@ def poll_once(now: datetime | None = None) -> int:
             play = play_from_session(s) if isinstance(s, dict) else None
             if play:
                 pdb.record_sighting(play, now)
+                friend_diary(play, now)
                 count += 1
         return count
     except Exception as exc:

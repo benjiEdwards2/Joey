@@ -1,0 +1,5 @@
+[
+  {"id": 401, "name": "MissingMoviesSearch", "commandName": "Missing Movies Search", "message": "Completed search for 2 movies. 1 reports downloaded.", "status": "completed", "result": "successful", "queued": "2025-12-31T20:00:00Z", "started": "2025-12-31T20:00:01Z", "ended": "2025-12-31T20:00:40Z", "trigger": "manual"},
+  {"id": 402, "name": "RefreshMovie", "commandName": "Refresh Movie", "message": "Completed", "status": "completed", "queued": "2025-12-31T22:00:00Z", "started": "2025-12-31T22:00:00Z", "ended": "2025-12-31T22:00:05Z", "trigger": "scheduled"},
+  {"id": 399, "name": "CutoffUnmetMoviesSearch", "commandName": "Cutoff Unmet Movies Search", "message": "Completed search for 3 movies. 0 reports downloaded.", "status": "completed", "result": "successful", "queued": "2025-12-30T09:00:00Z", "started": "2025-12-30T09:00:01Z", "ended": "2025-12-30T09:01:00Z", "trigger": "manual"}
+]

@@ -1,5 +1,5 @@
 """Radarr + Sonarr (+ optional Prowlarr stats): arrivals, upgrades, this week, the queue,
-disk space, library counts and the titles below their quality cutoff (upgrade available)."""
+disk space, library counts and the titles below their quality cutoff (below cutoff), plus the last library search."""
 
 from __future__ import annotations
 
@@ -39,6 +39,12 @@ ARR_UPGRADE_ENDPOINTS = {
                  "includeSeries": "true", "includeEpisodeFile": "true"}),
                ("raw_sonarr_qualityprofile", "/api/v3/qualityprofile", {})),
 }
+# Last search (WP-U1, 2026-10-21): each app's recent command list (`GET /api/v3/command`, one small call per app,
+# partial-ok: a failure only leaves that app out) -> its newest whole-library upgrade / missing search, so the hub can
+# say what the last "Search upgrades" actually found ("1 searched · 0 downloaded").
+ARR_COMMAND_PATH = "/api/v3/command"
+LAST_SEARCH = {"CutoffUnmetMoviesSearch": "upgrades", "CutoffUnmetEpisodeSearch": "upgrades",
+               "MissingMoviesSearch": "missing", "MissingEpisodeSearch": "missing"}
 # Prowlarr is optional: env unset or the call failing -> `prowlarr: null`, the run stays ok.
 PROWLARR_ENV = ("PROWLARR_URL", "PROWLARR_API_KEY")
 PROWLARR_STATS = (("grabs", "numberOfGrabs"), ("queries", "numberOfQueries"),
@@ -164,6 +170,10 @@ class Arr(Connector):
                     if key.endswith("_cutoff"):  # no list: the profile lookup is not needed
                         raw.setdefault("upgrade_errors", {})[app] = exc.reason
                         break
+            try:  # WP-U1: the last whole-library search, partial-ok (no note: the hub's line is just absent)
+                raw[f"raw_{app}_command"] = http_json(app, base + ARR_COMMAND_PATH, headers=headers, session=client)
+            except RuntimeError as exc:
+                log.warning("arr: %s command list failed (%s)", app, exc.reason)
         if len(errors) == len(ARR_APPS):
             raise RuntimeError(
                 "both apps failed (" + ", ".join(f"{a}: {r}" for a, r in sorted(errors.items())) + ")"
@@ -327,19 +337,66 @@ class Arr(Connector):
         return rows
 
     @staticmethod
-    def _cutoff_names(profiles) -> dict[Any, str]:
-        """qualityProfileId -> its cutoff's name. The cutoff id names a quality, or a quality
-        group (a top-level item with its own id and name, no `quality`)."""
+    def _group_words(names: list[str]) -> str | None:
+        """A cutoff quality GROUP's members in a few words (WP-U1, 2026-10-21): "WEBRip-1080p, WEBDL-1080p,
+        Bluray-1080p" -> "WEB/Bluray 1080p"; "Bluray-2160p, Remux-2160p" -> "Bluray/Remux 2160p". Sources collapse
+        (WEBRip / WEBDL -> WEB) per resolution, resolutions in member order; a name without "-<res>p" (SDTV, DVD) stays
+        as it is. None for no members."""
+        by_res: dict[str, list[str]] = {}
+        for name in names:
+            m = re.fullmatch(r"(.+?)-(\d{3,4}p)", name)
+            src, res = (m.group(1), m.group(2)) if m else (name, "")
+            src = "WEB" if src.upper().startswith("WEB") else src
+            if src not in by_res.setdefault(res, []):
+                by_res[res].append(src)
+        return "/".join(" ".join(p for p in ("/".join(srcs), res) if p) for res, srcs in by_res.items()) or None
+
+    @classmethod
+    def _cutoff_names(cls, profiles) -> dict[Any, str]:
+        """qualityProfileId -> its cutoff in words. The cutoff id names a quality (its name), or a quality group (a
+        top-level item with its own id, no `quality`): then its members collapsed (_group_words) - never the group's
+        own name ("Default" says nothing; live Sonarr, 2026-10-21) - the group name only when it lists no members."""
         names: dict[Any, str] = {}
         for p in profiles if isinstance(profiles, list) else []:
             for item in p.get("items") or []:
                 own = item.get("quality") or {}
                 if (own.get("id") if own else item.get("id")) == p.get("cutoff"):
-                    name = own.get("name") if own else item.get("name")
+                    if own:
+                        name = own.get("name")
+                    else:
+                        members = [str(q["name"]) for q in ((i.get("quality") or {}) for i in item.get("items") or [])
+                                   if q.get("name")]
+                        name = cls._group_words(members) or item.get("name")
                     if name:
                         names[p.get("id")] = str(name)
                     break
         return names
+
+    @staticmethod
+    def _profile_names(profiles) -> dict[Any, str]:
+        """qualityProfileId -> the profile's own name ("1080p"), for the hub's Why? hint (WP-U1)."""
+        if not isinstance(profiles, list):
+            return {}
+        return {p.get("id"): str(p["name"]) for p in profiles if isinstance(p, dict) and p.get("name")}
+
+    @staticmethod
+    def _last_search(raw: dict) -> list[dict]:
+        """Per app, the newest whole-library upgrade / missing search on its command list (WP-U1, 2026-10-21):
+        [{name: upgrades|missing, app, status, ended, message}], Radarr first; an app without one (or whose command
+        call failed) is left out. `message` is the app's own summary ("Completed search for 1 episodes. 0 reports
+        downloaded."), at most 200 characters."""
+        out = []
+        for app in ("radarr", "sonarr"):
+            cmds = [c for c in raw.get(f"raw_{app}_command") or [] if isinstance(c, dict)
+                    and str(c.get("name") or c.get("commandName") or "") in LAST_SEARCH]
+            if not cmds:
+                continue
+            c = max(cmds, key=lambda c: (str(c.get("queued") or c.get("started") or ""), int(c.get("id") or 0)))
+            out.append({"name": LAST_SEARCH[str(c.get("name") or c.get("commandName"))], "app": app,
+                        "status": str(c.get("status") or "unknown").lower(),
+                        "ended": str(c["ended"]) if c.get("ended") else None,
+                        "message": str(c.get("message") or "")[:200] or None})
+        return out
 
     @classmethod
     def _upgrades(cls, raw: dict) -> dict:
@@ -351,6 +408,7 @@ class Arr(Connector):
         radarr = sonarr = None
         if raw.get("raw_radarr_cutoff") is not None:
             want = cls._cutoff_names(raw.get("raw_radarr_qualityprofile"))
+            profile = cls._profile_names(raw.get("raw_radarr_qualityprofile"))
             # Radarr's cutoff records carry movieFileId but no movieFile (verified live, Radarr 6.4):
             # the held quality comes from the library list fetched for the counts, joined on id.
             files = {m.get("id"): m.get("movieFile") for m in raw.get("raw_radarr_movie") or []
@@ -359,10 +417,11 @@ class Arr(Connector):
                 {"item_key": _arr_key("radarr", m, movie=True), "title": m.get("title") or "Unknown",
                  "year": m.get("year") or None, "arr_id": m.get("id"),
                  "have": quality(m.get("movieFile") or files.get(m.get("id"))).get("name"), "want": want.get(m.get("qualityProfileId")),
-                 "poster": _arr_ref("radarr", m, movie=True)}
+                 "profile": profile.get(m.get("qualityProfileId")), "poster": _arr_ref("radarr", m, movie=True)}
                 for m in _records(raw["raw_radarr_cutoff"])), key=lambda r: (r["title"].casefold(), r["arr_id"] or 0))
         if raw.get("raw_sonarr_cutoff") is not None:
             want = cls._cutoff_names(raw.get("raw_sonarr_qualityprofile"))
+            profile = cls._profile_names(raw.get("raw_sonarr_qualityprofile"))
             groups: dict[Any, list[dict]] = {}
             for e in _records(raw["raw_sonarr_cutoff"]):
                 groups.setdefault((e.get("series") or {}).get("id") or e.get("seriesId"), []).append(e)
@@ -376,13 +435,15 @@ class Arr(Connector):
                     "item_key": _arr_key("sonarr", {"series": series}), "title": series.get("title") or "Unknown",
                     "arr_id": sid, "episodes": len(eps), "have": lowest.get("name"),
                     "want": want.get(series.get("qualityProfileId")),
+                    "profile": profile.get(series.get("qualityProfileId")),
                     "sample": _episode_code(first.get("seasonNumber"), first.get("episodeNumber")),
+                    "episode_id": first.get("id") if isinstance(first.get("id"), int) else None,
                     "poster": _arr_ref("sonarr", {"series": series, "seriesId": sid})})
             sonarr.sort(key=lambda r: (r["title"].casefold(), r["arr_id"] or 0))
         totals = {"movies": cls._total(raw["raw_radarr_cutoff"]) if radarr is not None else 0,
                   "episodes": cls._total(raw["raw_sonarr_cutoff"]) if sonarr is not None else 0,
                   "series": len(sonarr or [])}
-        return {"radarr": radarr, "sonarr": sonarr, "totals": totals}
+        return {"radarr": radarr, "sonarr": sonarr, "totals": totals, "last_search": cls._last_search(raw)}
 
     def transform(self, raw: dict) -> dict:
         now = _now()

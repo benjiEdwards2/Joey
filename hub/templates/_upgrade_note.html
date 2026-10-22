@@ -1,4 +1,5 @@
-{# Upgrade available (F4b, 2026-10-12; hub/media_upgrades.py): the small light-blue line under a title whose file is
-   below its Radarr / Sonarr quality cutoff — "Upgrade available · WEBDL-720p → Bluray-1080p". Words, not colour alone.
+{# Below cutoff (F4b, 2026-10-12; worded WP-U1, 2026-10-21; hub/media_upgrades.py): the small light-blue line under a
+   title whose file is below its Radarr / Sonarr quality cutoff — "Below cutoff · WEBDL-720p → wants Bluray-1080p".
+   Words, not colour alone.
    Nothing when `text` is empty. `tag` = span inside a link card, div / p elsewhere. #}
 {% macro upnote(text, tag="div") %}{% if text %}<{{ tag }} class="upnote">{{ text }}</{{ tag }}>{% endif %}{% endmacro %}

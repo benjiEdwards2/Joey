@@ -14,18 +14,19 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTasks
 
-from hub import media_backup
+from hub import access_jwt, guest, guest_signin, media_backup
+from hub import media_front, media_guest_home   # Joey TV WP-B3: the guest surface
 from hub.images import router as images_router
 from hub.media_discover import router as media_discover_router
 from hub import media_film, media_person, media_plays
 from hub import media_write as _media_write
 from hub.media_write import router as media_write_router
-from hub import media_arr_search, media_follow, media_requests, media_resume
+from hub import media_arr_search, media_follow, media_quality, media_requests, media_resume, media_upgrade_why
 from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
 from hub.media_watchlist import router as media_watchlist_router
-from hub import media_home, media_pages, shell, tasks, today, weather
+from hub import media_home, media_pages, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
     DIARY_PAGE, LIBVIEWS, LIBVIEW_COOKIE, LIBVIEW_MAX_AGE, MILESTONES_MAX, _arr_linker, _detail_page,
@@ -77,6 +78,16 @@ logging.getLogger("uvicorn.access").disabled = True
 app = FastAPI(title="Joey hub", lifespan=tasks.lifespan)
 
 
+# Guest front gate (Joey TV WP-B1): the FIRST add_middleware call = the innermost layer (Starlette makes the last-added
+# outermost), so the request line below logs its 404 / 303 and sees the identity it stored. JOEY_FRONT=media
+# (joey-media): deny-by-default route allow-list (hub/guest.py); the private front: the media-host guard only (Q25a).
+app.add_middleware(guest.GuestGate)
+# Cloudflare Access JWT gate (Joey TV WP-A6a, Q25b): second = innermost but one, so the request line below still logs
+# its 401. Private front only (the media front passes straight through). Off unless ACCESS_JWT_VERIFY is set; a flag
+# without ACCESS_AUD stops the import here.
+app.add_middleware(access_jwt.AccessGate)
+access_jwt.check_config()
+
 # Request log + Cache-Control (pages no-store, /static/ immutable when ?v= versioned, else an hour) in one pure
 # ASGI layer; text bodies gzipped (hub/shell.py).
 app.add_middleware(ShellMiddleware)
@@ -102,10 +113,14 @@ app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)
 app.include_router(media_resume.router)
 app.include_router(media_arr_search.router)   # media-ux5: Search now
+app.include_router(media_quality.router)   # WP-R1: Quality · 1080p / Switch to 4K
+app.include_router(media_upgrade_why.router)   # WP-U1: Why? + Grab anyway on Downloads › Upgrades
 app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
 app.include_router(weather.router)
 app.include_router(media_pages.router)
+app.include_router(tv_app.router)   # Joey TV WP-B8: /app download + version.json (media front only)
+app.include_router(guest_signin.router)   # Joey TV WP-B2: the media front's sign-in (404 on the private front)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 
@@ -238,6 +253,16 @@ def area_page(request: Request, area_id: str):
     snaps = shell.get_snapshots(request=request)
     tiles = [{"tile": t, "st": tile_state(t, snaps)}
              for t in area.tiles if shell.owner_visible(t, view)]
+    if area.layout == "shelves" and guest.is_media():
+        # Joey TV WP-B3: the guest Overview - three shelves, the viewer's own live reads, no household rows, no
+        # backup warning; the one-time Set up Jellyfin card until `?setup=done` sets its cookie (Q39)
+        resp = shell.render_page(request, "area_shelves.html", {
+            "area": area, "sh": media_guest_home.build(request, snaps, view), "backup_warn": None,
+            "setup": media_front.setup_card(request, shell.public_jellyfin()),
+        }, active_id=area.id)
+        if media_front.setup_dismissed_now(request):
+            resp.headers.append("set-cookie", media_front.setup_cookie_header())
+        return resp
     if area.layout == "shelves":
         resp = shell.render_page(request, "area_shelves.html", {
             "area": area,
@@ -258,11 +283,17 @@ def area_page(request: Request, area_id: str):
 
 @app.get("/healthz")
 def healthz():
-    return {
+    """`front` names the process (private / media); on the media front `home` is the guest home `/a/<shelves id>` -
+    the contract the TV shell's BackPolicy reads (D-P18)."""
+    out = {
         "status": "ok",
         "areas": len(shell.registry.areas) if shell.registry else 0,
         "registry_loaded_at": shell.registry_loaded_at,
+        "front": guest.front(),
     }
+    if out["front"] == guest.MEDIA_FRONT:
+        out["home"] = guest.home_path()
+    return out
 
 
 @app.get("/whoami")

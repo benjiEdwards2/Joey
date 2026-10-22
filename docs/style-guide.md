@@ -7,6 +7,10 @@ by its band); director / creators are headshot cards ("Directed by"); the Movies
 a Grid / List switch; the Trailer button opens an in-page player. awards-ui (2026-10-09) — brand gold gains one more
 meaning, "won an award" (Awards pages, poster winner badges, Won pills), with silver / bronze only on the Most wins podium;
 toast/textarea/live-dot recipes not carried (2026-10-09).
+2026-10-14 (Awards ballot, Plan C): the Awards page has a progress ring (an SVG ring stroked `--good` with the percentage
+inside; the numbers are also in words beside it), its ceremony / year picker is a bottom sheet on a phone (fixed, scrim,
+safe-area padding) and a dropdown panel from 640 px, and the awards-ui backdrop hero and Most wins podium are removed
+(the first ballot row is the headline winner; "Most wins" is the sort), so silver / bronze have no use left (the tokens stay).
 2026-10-13 (contrast, U15; phone tap targets and load bar, WP E2): `--text-5` is lightened from zinc-500 to about #82828b (about
 5:1 on the page ground, was 4.1:1), inactive phone tab labels and `.btn-mini` sit on `--text-4`, and no text is under
 10 px (`.fmt small` was 7.5 px); under 768 px the rating chips are 40 px, `.btn-mini` / section "All" links get a ~40 px hit

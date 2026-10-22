@@ -66,15 +66,14 @@ def test_kuma_response_ms_when_a_monitor_name_matches(env):
     assert " ms</span>" not in card(body, "Portainer")             # no matching monitor
 
 
-def test_link_tile_takes_its_gated_hostname():
-    """The gated-hostname path for link tiles (was pinned through the Homepage tile, retired 2026-10-09, decision 9)."""
-    from types import SimpleNamespace
-    tile = SimpleNamespace(id="portainer", tier=SimpleNamespace(value="link"), href="http://192.168.68.59:9000",
-                           snapshot=None, label="Portainer")
-    gated = server._tile_row(tile, {}, {"portainer": "https://portainer.example.org"})["st"]
-    assert gated["href"] == "https://portainer.example.org" and not gated.get("lan")
-    lan = server._tile_row(tile, {}, {})["st"]
-    assert lan["href"] is None and lan["lan"] is True
+def test_service_card_takes_its_gated_hostname():
+    """The gated-hostname path (was pinned through the link tile row's `_tile_row`, removed with the row in WP-T3,
+    2026-10-19): a gated hostname beats the LAN address; without one the card keeps the LAN link and says "LAN"."""
+    app = {"id": "portainer", "name": "Portainer", "href": "http://192.168.68.59:9000", "up": True}
+    gated = server.service_card(app, [], {"portainer": "https://portainer.example.org"})
+    assert gated["href"] == "https://portainer.example.org" and gated["lan"] is False
+    lan = server.service_card(app, [], {})
+    assert lan["href"] == "http://192.168.68.59:9000" and lan["lan"] is True
 
 
 def test_unknown_app_gets_the_fallback_tile_and_no_subtitle(env):

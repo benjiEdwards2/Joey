@@ -37,6 +37,29 @@ container can carry only its own keys; a key there overrides the same key in `.e
 at the top of `deploy/.env.example`. Once `.env` holds only `TUNNEL_TOKEN`, remove `- .env` from both
 `env_file` lists so no app container carries the tunnel token. Keep all three files `chmod 600`.
 
+`deploy/edge.env` (Joey TV WP-A3, 2026-10-18) is a fourth NAS-only file, `chmod 600`: the Cloudflare token (`CLOUDFLARE_API_TOKEN`)
+and `STAGING` for the public edge. Only swag and ddns read it; it is never in `deploy/.env`, git or an image. Created with
+`nas_scripts/append_env.sh <path to edge.env>`; `COMPOSE_PROFILES` (`edge`, `ddns`) is the one edge key that goes in `deploy/.env`.
+See `public-edge.md`.
+
+`deploy/media.env` (Joey TV WP-B1, 2026-10-21) is a fifth NAS-only file, `chmod 600`: the guest container `joey-media` reads it and
+nothing else. Keys (names only): `JELLYFIN_URL`, `JELLYFIN_API_KEY`, `JELLYFIN_USER`, `JELLYFIN_USER_ALIASES`, `JELLYFIN_USER_HER`
+(unset on the NAS), `JELLYSEERR_URL`, `JELLYSEERR_API_KEY`, `OMDB_API_KEY`, `JELLYFIN_PUBLIC_URL`. Never `TUNNEL_TOKEN`, `ACCESS_*`,
+`*arr` / qBittorrent keys, webhooks, `HUB_DEV` or `GUEST_DEV_OWNER`. Template: `deploy/media.env.example`. Build it on the NAS with
+`sh nas_scripts/media_env.sh` (copy it to `/tmp` first; `--force` rebuilds it after a key rotation): it copies the guest keys out
+of `deploy/.env` and prints key names and a count, never a value. After any change run `docker compose up -d hub joey-media`.
+
+`deploy/tv.env` (Joey TV WP-B8, 2026-10-21) is a sixth NAS-only file, `chmod 600`: one key, `GH_TV_TOKEN` (a fine-grained GitHub token,
+Contents read-only on `life-dashboard` only, 1-year expiry). Only `deploy/tv_publish.py` reads it, through `docker run --env-file` in
+`deploy.sh`; it is not a compose `env_file`, so no container keeps it. Missing = the history line says `tv=skipped:no-token`. Template
+`deploy/tv.env.example`; saved through the secrets routine; renewal: `docs/tv-release.md`, "NAS token renewal".
+
+Guest sign-in (Joey TV WP-B2, 2026-10-21) adds no new `media.env` key: it uses `JELLYFIN_URL` (Quick Connect and password sign-in
+both go to Jellyfin there; unset = sign-in shows "Couldn't reach Jellyfin") and `JELLYFIN_USER_ALIASES` (B.'s own Jellyfin user
+signs in as `you`). Two optional keys exist for local development only and must never reach the NAS or compose: `JOEY_COOKIE_SECURE=0`
+(plain-http previews: cookie names lose `__Host-` and `Secure`) and `GUEST_DEV_OWNER` (a `jf:<32 hex>` key, honoured only with `HUB_DEV=1`).
+The sign-in counter (5 wrong passwords per username in 15 min) lives in the process, so restarting `joey-media` clears it. Details: `hub/README.md`, "Guest sign-in".
+
 ## Signed-in user (deploy/.env, on the NAS only)
 
 Since 2026-10-06 the hub reads who is looking from Cloudflare Access's `Cf-Access-Authenticated-User-Email`
@@ -50,6 +73,16 @@ owner, and the hub logs one warning — nothing is written as "her" by accident.
 The other person's email address is never recorded — not in `.env`, the repo, tests or docs.
 Without the header (local dev on port 8800, tests) the page shows "Not signed in" and the old
 `?owner_view=` query + cookie still pick the view; send the header with curl to preview the signed-in state.
+Access JWT verification (Joey TV WP-A6a, `hub/access_jwt.py`; live in enforce since 2026-10-21): the hub first checks Cloudflare's signed
+`Cf-Access-Jwt-Assertion` (RS256, signing keys from the Access team's certs) and requires the header to equal the token's email.
+- `ACCESS_JWT_VERIFY`: unset or `0` = off (the default: the header alone decides, as above); `audit` = verify and log
+  `access_jwt: audit FAIL reason=…`, never refuse; `1` = enforce: a bad or missing token gets a plain-text 401, and 503 `no_keys` if the
+  team's certs cannot be read and none are cached.
+- `ACCESS_AUD`: the joeyhome.net Access app's AUD tag (comma-separated for several). Required once the flag is set: a set flag without it
+  stops the hub at startup. Copy it from Zero Trust, Access controls, Applications, the app, **Additional settings** tab (the new layout; the old Overview tab is gone).
+- `ACCESS_TEAM`: the Access team name (default `joeyhomeed`).
+- Exempt: `/healthz` and loopback peers, so local dev on `127.0.0.1` and `smoke.py` keep working with the flag on.
+- Rollback: unset the flag (or set it to `0`) in `deploy/.env`, then `docker compose up -d hub`.
 
 ## Media env (deploy/.env, on the NAS only)
 

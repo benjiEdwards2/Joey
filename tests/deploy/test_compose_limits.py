@@ -8,7 +8,9 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = yaml.safe_load((REPO_ROOT / "deploy" / "docker-compose.yml").read_text(encoding="utf-8"))
 SERVICES = COMPOSE["services"]
-LIMITS = {"hub": "384m", "connectors": "256m", "cloudflared": "128m", "macromates": "32m"}
+LIMITS = {"hub": "384m", "connectors": "256m", "cloudflared": "128m", "macromates": "32m",
+          "swag": "192m", "ddns": "32m",  # swag + ddns: Joey TV WP-A3 edge (2026-10-18)
+          "joey-media": "384m"}  # Joey TV WP-B1 guest front (2026-10-21): a ceiling; re-cap after measuring (P4)
 
 
 def test_every_service_rotates_its_json_file_log():

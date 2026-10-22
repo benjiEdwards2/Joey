@@ -6,39 +6,28 @@
 {{ pagehead(area.name, sub=sub) }}
 {% endblock %}
 {% block content %}
-{# Server area (WP-S1, 2026-10-06; restyle Phase 4): bands, top to bottom: Attention (E3, U12, 2026-10-13: first, and
-   only when something needs it — "All clear" is said once, in the sub-line), the tiles, System, Last 24 h (WP-U4),
-   Services, Updates, Sweeps · 24 h, Counts (the Monitors band, WP-S4, was removed 2026-10-12: it repeated Services;
-   Uptime Kuma still feeds the cards' ms, the Monitors tile and Attention). Each band degrades to "Not connected" on its
-   own. Up/Down are WORDS (.st-up emerald / .st-down red) beside the tinted row: colour is never the only encoding. Amber
-   only where there is something to do. A LAN-only link (tile or card) shows only to a request from the LAN
-   (`from_lan(request)`). #}
-{% from "_kpi.html" import kpi %}
+{# Server area (WP-S1, 2026-10-06; restyle Phase 4). Server clean-up (WP-T3, 2026-10-19) — five bands, top to bottom:
+   Attention (E3, U12, 2026-10-13: first, and only when something needs it — "All clear" is said once, in the sub-line;
+   each item with its action, S7; the disk forecast under 30 days, S6) → System (CPU, RAM, uptime, the ONE disk block;
+   the sweeps line + its fold, S5, replacing the Sweeps · 24 h band and the Last sweep stat) → Services (the card grid;
+   the Library health line under Downloads, S1 + S2, replacing the Counts band) → Updates ("checked N ago", S9; the
+   Media stack line only when stackctl is connected, S4) → Last 24 h (a fold, open on a desktop, closed on a phone; S6,
+   moved from under System). Gone: the tile row (S3; the hub card is the summary, Portainer is its Services card) and
+   the Counts band (S2; Requests / Torrents / arr downloading repeated Activity, the arr disk bars repeated System). The
+   Monitors band went 2026-10-12 (it repeated Services; Uptime Kuma still feeds the cards' ms and Attention). Each band
+   degrades to "Not connected" on its own. Up/Down are WORDS (.st-up emerald / .st-down red) beside the tinted row:
+   colour is never the only encoding. Amber only where there is something to do. The Services cards show from
+   anywhere (2026-10-19). #}
 {% from "_rows.html" import meta, updated %}
-{% set lan = from_lan(request) %}
 {% if sv.attention %}
 <section class="sec" id="attention" aria-label="Attention">
   <div class="sechead"><h2 class="seclabel">Attention</h2></div>
   <div class="panel panel-warn">
-    {% for item in sv.attention %}<p class="st-warn">{{ item }}</p>{% endfor %}
+    {# WP-T3 (2026-10-19, S7): each item carries its action where one exists (hub/server.py attention_action). #}
+    {% for item in sv.attention %}<p class="st-warn attn-item">{{ item.text }}{% if item.href %} <a class="btn btn-ghost btn-sm" href="{{ item.href }}"{% if item.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ item.action }}</a>{% endif %}</p>{% endfor %}
   </div>
 </section>
 {% endif %}
-{# Summary tiles: one per registry tile, as on every area page. E3 (U12): hidden under 640 px — on this page every tile
-   only links to a band further down. #}
-<section class="tiles areatiles srvtiles" aria-label="{{ area.name }} tiles">
-  {% for row in sv.tiles %}
-    {% set t = row.tile %}{% set st = row.st %}
-    {% if st.state == "link" and st.lan %}
-      {% if lan %}{{ kpi(none, t.label, none, area.icon, st, t.owner.value, value="LAN") }}{% endif %}{# home network only #}
-    {% elif st.state == "link" %}
-      {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true) }}
-    {% else %}
-      {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value) }}
-    {% endif %}
-  {% endfor %}
-</section>
-
 {% set sys = sv.system %}
 <section class="sec" id="system" aria-label="System">
   <div class="sechead"><h2 class="seclabel">System</h2></div>
@@ -50,9 +39,6 @@
       <div class="stat"><div class="microlabel">CPU</div><div class="stat-number">{{ sys.cpu_text }}</div>{{ meta([sys.load_text]) }}</div>
       <div class="stat"><div class="microlabel">RAM</div><div class="stat-word">{{ sys.ram_text }}</div>{{ meta([sys.ram_sub]) }}</div>
       <div class="stat"><div class="microlabel">Uptime</div><div class="stat-word">{{ sys.uptime_text }}</div></div>
-      {% if sys.last_sweep %}
-      <div class="stat"><div class="microlabel">Last sweep</div><div class="stat-word">{{ sys.last_sweep.text }}</div>{% if sys.last_sweep.stale %}<div class="row-meta"><span class="st-warn">Stale</span></div>{% endif %}</div>
-      {% endif %}
       {% for v in sys.volumes %}
       <div class="stat wide">
         <div class="microlabel">{{ v.path }}</div><div class="stat-word">{{ v.free_text }} free</div>
@@ -65,33 +51,42 @@
     </div>
     <p class="metaline">{{ updated(sys.st) }}</p>
   {% endif %}
-</section>
-
-{# WP-U4 (2026-10-06): "Last 24 h": sparklines from media.db server_system_samples (inline SVG, no JS, the weather
-   chart's conventions). Every value is also text; colour is never the only encoding. #}
-{% set hist = sv.history %}
-<section class="sec spark-band" id="history" aria-label="Last 24 h">
-  <div class="sechead"><h2 class="seclabel">Last 24 h</h2></div>
-  {% if hist.collecting %}
-    <p class="empty">{{ hist.text }}</p>
-  {% else %}
-  <div class="panel">
-    {% for sp in hist.sparks %}
-    <div class="spark-row">
-      <span class="spark-text">{{ sp.text }}</span>
-      <svg class="spark-svg" viewBox="0 0 {{ sp.w }} {{ sp.h }}" role="img" aria-labelledby="spark-t{{ loop.index }}">
-        <title id="spark-t{{ loop.index }}">Last 24 hours: {{ sp.text }}</title>
-        <line class="spark-base" x1="{{ sp.pad }}" y1="{{ sp.base }}" x2="{{ sp.w - sp.pad }}" y2="{{ sp.base }}"/>
-        <polyline class="spark-line" points="{{ sp.line }}"/>
-      </svg>
+  {# WP-T3 (2026-10-19, S5): the sweeps in ONE line ("7 connectors · all sweeps OK · Last sweep 12m ago"); the per-
+     connector rows (WP-U2: _runner_history.jsonl, last 24 h; a connector that failed and has since recovered shows
+     here only, not in Attention) fold under it and open by themselves on a failing or not-configured row. #}
+  {% set sw = sv.sweep_line %}
+  {% if sw %}
+  {% set failing %}{% if sw.failing %}<span class="st-down">{{ sw.failing }}</span>{% endif %}{% endset %}
+  {% set stale %}{% if sw.stale %}<span class="st-warn">Stale</span>{% endif %}{% endset %}
+  {{ meta(sw.parts + [failing, sw.not_configured, sw.last, stale], "metaline sweepline") }}
+  {% endif %}
+  {% if sv.sweeps %}
+  <details class="fold" id="sweeps"{% if sw.open %} open{% endif %}>
+    <summary class="seclabel">Sweeps · 24 h</summary>
+    <div class="listbox">
+    {% for w in sv.sweeps %}
+    <div class="row">
+      <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "Last OK " ~ w.last_ok_text]) }}</div>
+      {# WP-U3: a not-configured connector (missing credential / parked area) is a setup task, not a failure. #}
+      {% if w.not_configured %}<span class="row-side st-off">Not configured</span>
+      {% elif w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
     </div>
     {% endfor %}
-    {% if hist.trend %}<p class="metaline spark-trend">{{ hist.trend }}</p>{% endif %}
-  </div>
+    </div>
+  </details>
   {% endif %}
 </section>
 
 {% set svc = sv.services %}
+{# WP-T3 (2026-10-19, S1 + S2): "Library health" — the Counts band's unique figures in one line, under Downloads (or at
+   the end of Services when that group is absent). Only the non-zero counts; amber only on Prowlarr failed grabs. #}
+{% set lh = svc.health %}
+{% set lh_line %}{% if lh %}<p class="metaline libhealth">Library health<span class="sep"> · </span>
+  {%- for p in lh.parts %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}
+  {%- if lh.failed %}{% if lh.parts %}<span class="sep"> · </span>{% endif %}<span class="st-warn">{{ lh.failed }}</span>{% endif %}
+  {%- if not lh.parts and not lh.failed %}all clear{% endif %}
+  {%- if lh.search %} <a class="btn btn-ghost btn-sm" href="{{ lh.search }}">Search missing</a>{% endif %}</p>
+{%- endif %}{% endset %}
 <div class="sec" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}
   <div class="sechead"><h2 class="seclabel">Services</h2></div>
@@ -104,15 +99,15 @@
      Up/Down is a WORD beside the dot; Uptime Kuma response ms when a monitor's name matches. #}
   {% import "_icons.html" as ic %}
   {% for g in svc.groups %}
-  {% set apps = g.apps if lan else (g.apps | rejectattr("lan") | list) %}
+  {% set apps = g.apps %}
   {% if apps %}
   <section class="sec">
     <div class="sechead"><h2 class="seclabel">{{ g.label }}</h2></div>
     <div class="svc-grid">
     {% for a in apps %}
     {# 2026-10-10 (reverses H-71): a LAN-only app (no gated hostname in areas.yaml) still links to its LAN address
-       and says "LAN" — it opens on the home network only; E3 (2026-10-13): so it is shown only on the LAN. An app with
-       no href at all is a plain card. #}
+       and says "LAN" — it opens on the home network only. 2026-10-19, B.: a card must open the server it monitors from
+       anywhere — reverses E3's off-LAN hiding, back to the 2026-10-10 rule. An app with no href at all is a plain card. #}
     {% set tag = "a" if a.href else "div" %}
     <{{ tag }} class="svc-card{{ ' is-down' if not a.up }}"{% if a.href %} href="{{ a.href }}" target="_blank" rel="noopener"{% endif %}>
       {% if a.logo %}<img class="svc-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="40" height="40">
@@ -123,10 +118,12 @@
     </{{ tag }}>
     {% endfor %}
     </div>
+    {% if g.label == svc.health_in %}{{ lh_line }}{% endif %}
   </section>
   {% endif %}
   {% endfor %}
 {% endif %}
+{% if not svc.health_in %}{{ lh_line }}{% endif %}
 </div>
 
 {% set up = sv.updates %}
@@ -135,20 +132,22 @@
   {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
   {# 2026-10-12: Update all (every pending, non-ignored row that may run — no wud / joey-*) and Update and restart
      media stack (stackctl: pull + recreate the whole media-server compose; hidden without STACKCTL_URL/TOKEN). Each
-     has its own confirm page. The stack line is stackctl's last run, in words. #}
+     has its own confirm page. The stack line is stackctl's last run, in words — WP-T3 (2026-10-19, S4): only when
+     stackctl is connected; not configured means no line at all (was "Media stack · Not connected" on every visit). #}
   {% if up.n_eligible or stack.connected %}
   <div class="confirm-btns">
     {% if up.n_eligible %}<a class="btn btn-primary btn-sm" href="/server/updates/all/run?step=confirm">Update all</a>{% endif %}
     {% if stack.connected %}<a class="btn btn-secondary btn-sm" href="/server/stack/run?step=confirm">Update and restart media stack</a>{% endif %}
   </div>
   {% endif %}
-  <p class="metaline">Media stack<span class="sep"> · </span><span class="{{ {'running': 'st-warn', 'failed': 'st-down', 'unreachable': 'st-warn', 'off': 'st-off'}.get(stack.state, '') }}">{{ stack.text }}</span></p>
+  {% if stack.connected %}<p class="metaline">Media stack<span class="sep"> · </span><span class="{{ {'running': 'st-warn', 'failed': 'st-down', 'unreachable': 'st-warn'}.get(stack.state, '') }}">{{ stack.text }}</span></p>{% endif %}
   {% if up.st.state == "off" %}
     <p class="empty">Not connected</p>
     {% if up.st.note %}<p class="metaline">{{ up.st.note }}</p>{% endif %}
   {% else %}
     {% set n_up = up.pending | length %}
-    <p class="metaline">{{ up.data.get("monitoring", 0) }} monitored<span class="sep"> · </span>{{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %}<span class="sep"> · </span>{{ up.ignored | length }} ignored{% endif %}<span class="sep"> · </span>{{ updated(up.st) }}</p>
+    <p class="metaline">{{ up.data.get("monitoring", 0) }} monitored<span class="sep"> · </span>{{ n_up }} update{{ "" if n_up == 1 else "s" }}{% if up.ignored %}<span class="sep"> · </span>{{ up.ignored | length }} ignored{% endif %}
+      {%- if up.checked %}<span class="sep"> · </span>{% if up.checked.stale %}<span class="st-warn">Stale · {{ up.checked.text }}</span>{% else %}{{ up.checked.text }}{% endif %}{% endif %}</p>
     {# WP-U1: Update now on every row; rows excluded from WUD's dockercompose.local trigger (`auto` false) run the
        manual-only dockercompose.manual trigger and keep the "Manual · excluded" chip. WUD itself is updated by hand
        and joey-* containers on the next Joey deploy (`c.hold_text`, no button; Ignore still offered).
@@ -184,65 +183,28 @@
   {% endif %}
 </section>
 
-{# WP-U2: per-connector sweep record from _runner_history.jsonl (last 24 h). A connector that failed and has
-   since recovered shows here only, not in Attention. E3 (2026-10-13): its own section now that Attention leads. #}
-{% if sv.sweeps %}
-<section class="sec" id="sweeps" aria-label="Sweeps">
-  <h2 class="seclabel">Sweeps · 24 h</h2>
-  <div class="listbox">
-  {% for w in sv.sweeps %}
-  <div class="row">
-    <div class="row-body"><div class="row-title">{{ w.id }}</div>{{ meta([w.runs ~ " run" ~ ("" if w.runs == 1 else "s"), w.failures ~ " failed", "Last OK " ~ w.last_ok_text]) }}</div>
-    {# WP-U3: a not-configured connector (missing credential / parked area) is a setup task, not a failure. #}
-    {% if w.not_configured %}<span class="row-side st-off">Not configured</span>
-    {% elif w.failing %}<span class="row-side st-down">Failing</span>{% endif %}
-  </div>
-  {% endfor %}
-  </div>
-</section>
-{% endif %}
-
-{% set n = sv.counts %}
-<section class="sec" id="counts" aria-label="Counts">
-  <div class="sechead"><h2 class="seclabel">Counts</h2></div>
-  <div class="cols">
-    <div class="panel kv">
-      <h3 class="seclabel">Requests</h3>
-      {% if n.requests %}
-      <dl><dt>Pending</dt><dd>{{ n.requests.pending }}</dd><dt>Approved</dt><dd>{{ n.requests.approved }}</dd><dt>Available</dt><dd>{{ n.requests.available }}</dd></dl>
-      {% else %}<p class="st-off">Not connected</p>{% endif %}
+{# WP-U4 (2026-10-06): "Last 24 h": sparklines from media.db server_system_samples (inline SVG, no JS, the weather
+   chart's conventions). Every value is also text; colour is never the only encoding. WP-T3 (2026-10-19, S6): the last
+   band, folded — open on a desktop, closed on a phone (`data-phone-closed`, closed by joey.js under 640 px). #}
+{% set hist = sv.history %}
+<details class="sec fold spark-band" id="history" aria-label="Last 24 h" open data-phone-closed>
+  <summary class="seclabel">Last 24 h</summary>
+  {% if hist.collecting %}
+    <p class="empty">{{ hist.text }}</p>
+  {% else %}
+  <div class="panel">
+    {% for sp in hist.sparks %}
+    <div class="spark-row">
+      <span class="spark-text">{{ sp.text }}</span>
+      <svg class="spark-svg" viewBox="0 0 {{ sp.w }} {{ sp.h }}" role="img" aria-labelledby="spark-t{{ loop.index }}">
+        <title id="spark-t{{ loop.index }}">Last 24 hours: {{ sp.text }}</title>
+        <line class="spark-base" x1="{{ sp.pad }}" y1="{{ sp.base }}" x2="{{ sp.w - sp.pad }}" y2="{{ sp.base }}"/>
+        <polyline class="spark-line" points="{{ sp.line }}"/>
+      </svg>
     </div>
-    <div class="panel kv">
-      <h3 class="seclabel">Torrents</h3>
-      {% if n.torrents %}
-      <dl><dt>Downloading</dt><dd>{{ n.torrents.downloading }}</dd><dt>Seeding</dt><dd>{{ n.torrents.seeding }}</dd><dt>Speed</dt><dd>↓ {{ n.torrents.dl_text }} · ↑ {{ n.torrents.up_text }}</dd></dl>
-      {% else %}<p class="st-off">Not connected</p>{% endif %}
-    </div>
-    <div class="panel kv">
-      <h3 class="seclabel">Radarr / Sonarr</h3>
-      {% if n.arr %}
-      <dl><dt>Downloading</dt><dd>{{ n.arr.downloading }}</dd><dt>This week</dt><dd>{{ n.arr.this_week }}</dd></dl>
-      {% for d in n.arr.disk %}
-      <div>
-        <div class="metaline">{{ d.path }}<span class="sep"> · </span>{{ d.free_text }} free<span class="sep"> · </span>{{ d.pct_used }}% used</div>
-        <div class="bar" role="img" aria-label="{{ d.pct_used }}% used"><span style="width: {{ d.pct_used }}%"></span></div>
-      </div>
-      {% endfor %}
-      {% else %}<p class="st-off">Not connected</p>{% endif %}
-      {# WP-S3: library + indexer counts, only when the arr snapshot carries them. #}
-      {% if n.radarr %}
-      <div class="microlabel">Radarr</div>
-      <dl><dt>Wanted</dt><dd>{{ n.radarr.wanted }}</dd><dt>Missing</dt><dd>{{ n.radarr.missing }}</dd><dt>Queued</dt><dd>{{ n.radarr.queued }}</dd><dt>Movies</dt><dd>{{ n.radarr.movies }}</dd></dl>
-      {% endif %}
-      {% if n.sonarr %}
-      <div class="microlabel">Sonarr</div>
-      <dl><dt>Wanted</dt><dd>{{ n.sonarr.wanted }}</dd><dt>Queued</dt><dd>{{ n.sonarr.queued }}</dd><dt>Series</dt><dd>{{ n.sonarr.series }}</dd></dl>
-      {% endif %}
-      {% if n.prowlarr %}
-      <div class="microlabel">Prowlarr</div>
-      <dl><dt>Grabs</dt><dd>{{ n.prowlarr.grabs }}</dd><dt>Queries</dt><dd>{{ n.prowlarr.queries }}</dd><dt>Failed grabs</dt><dd>{{ n.prowlarr.failed_grabs }}</dd><dt>Failed queries</dt><dd>{{ n.prowlarr.failed_queries }}</dd></dl>
-      {% endif %}
-    </div>
+    {% endfor %}
+    {% if hist.trend %}<p class="metaline spark-trend">{{ hist.trend }}</p>{% endif %}
   </div>
-</section>
+  {% endif %}
+</details>
 {% endblock %}

@@ -10,6 +10,7 @@ import pytest
 import requests
 
 from tests.hub.helpers import env, FakeResponse as R  # noqa: F401  (re-export: defined in tests/hub/helpers.py)
+from tests.hub.helpers import not_season_state  # WP-T1
 
 RADARR = "http://radarr.secret-host.invalid:7878"
 RKEY = "r-SECRET-radarr-key"
@@ -86,7 +87,8 @@ def test_title_pages_lazy_load_the_search_button(arr_env, path, want):
     with client:
         html = client.get(path).text
     assert lazy(html) == want
-    assert not arr.calls                                   # the page itself never waits on Radarr / Sonarr
+    assert not not_season_state(arr.calls)                 # the page itself never waits on Radarr / Sonarr (WP-T1:
+    # the season-state words' series-list read is the response's BackgroundTask, after the render)
     assert RKEY not in html and TKEY not in html and "radarr.secret-host" not in html
 
 

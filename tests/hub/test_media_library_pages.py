@@ -678,7 +678,7 @@ def test_show_filter_chips_rows(env):
     with TestClient(main.app) as c:
         got = {f: body(c, f"/media/tv?view=list&f={f}")[1] for f in ("all", "watching", "not_started", "finished")}
         junk = body(c, "/media/tv?f=bogus&view=grid")[1]
-    assert [label for _, label, _ in chips(got["all"])] == ["All", "Watching", "Not started", "Finished"]
+    assert [label for _, label, _ in chips(got["all"])] == ["All", "Watching", "Not started", "Caught up", "Finished"]
     assert row_titles(got["watching"]) == ["Echo Show"] and row_titles(got["not_started"]) == ["Foxtrot Show"]
     assert row_titles(got["finished"]) == ["Golf Show"] and len(row_titles(got["all"])) == 3
     assert '<h2 class="seclabel">Not started · 1</h2>' in got["not_started"]

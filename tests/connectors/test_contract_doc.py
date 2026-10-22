@@ -60,3 +60,16 @@ def test_awards_exception_is_documented():
                    "Retry-After", "award_nomination", "status / exception type only"):
         assert needle in para, needle
     assert "@" not in para          # the contact address itself never appears in the repo
+
+
+def test_arr_wp_u1_fields_and_why_exception_are_documented():
+    """WP-U1 (2026-10-21): the additive `upgrades` fields and the hub's interactive search + grab live paths."""
+    text = doc_text()
+    para = text.split("**Arr upgrades: honest words + last search (WP-U1, 2026-10-21).**", 1)[1].split("\n\n", 1)[0]
+    for needle in ("WEB/Bluray 1080p", "`profile`", "`episode_id`", "`upgrades.last_search`", "GET /api/v3/command",
+                   "CutoffUnmetEpisodeSearch", "MissingMoviesSearch", "200 characters", "no `partial_errors` entry"):
+        assert needle in para, needle
+    why = text.split("*Why? + Grab anyway (2026-10-21, WP-U1, `hub/media_upgrade_why.py`):*", 1)[1].split("\n\n", 1)[0]
+    for needle in ("GET /api/v3/release?movieId=", "GET /api/v3/release?episodeId=", "90 s", "1 h", "POST /api/v3/release",
+                   "never from the form", "same_origin", "The page render never calls"):
+        assert needle in why, needle

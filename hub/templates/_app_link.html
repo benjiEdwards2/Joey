@@ -1,0 +1,8 @@
+{# WP-L1 (2026-10-21): "Open <app> ↗" under a page head - the Health row's logo (or initial tile) and the gated
+   hostname, in the glass-button recipe. `app_link` is `media_pages.app_link(...)`, None without the app: nothing. #}
+{% if app_link and app_link.href %}
+<p class="applinkrow"><a class="btn btn-glass btn-sm applink" href="{{ app_link.href }}" target="_blank" rel="noopener">
+  {% if app_link.logo %}<img class="svc-logo" src="/static/svc/{{ app_link.logo }}?v={{ static_v }}" alt="" width="20" height="20">
+  {% else %}<span class="svc-logo svc-fallback" aria-hidden="true"><span class="svc-initial">{{ app_link.initial }}</span></span>{% endif %}
+  Open {{ app_link.name }} ↗{% if app_link.lan %} <span class="metaline">LAN</span>{% endif %}</a></p>
+{% endif %}

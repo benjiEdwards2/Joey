@@ -68,14 +68,14 @@ def test_parked_page_still_serves(monkeypatch, tmp_path):
     assert r.status_code == 200 and "<h1>Money</h1>" in r.text
 
 
-def test_hub_row_is_media_weather_calendar_and_spans_calendar(monkeypatch, tmp_path):
+def test_hub_row_is_the_area_cards_only(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as c:
         body = c.get("/").text.split("<main", 1)[1]
     row = re.search(r'<section class="tiles[^"]*".*?</section>', body, re.S).group(0)
-    # Server area (2026-10-06) makes it four cards: a full row, so no `few` / span2 any more
-    assert re.match(r'<section class="tiles"', row)
+    # WP-T2 (2026-10-19): the Weather tile left the row — three area cards, three columns (.hubtiles), no `few` / span2
+    assert re.match(r'<section class="tiles hubtiles"', row)
     names = re.findall(r'<div class="microlabel">([^<]+)</div>', row)
-    assert names == ["Media", "Calendar", "Weather", "Server"]  # Weather sits before the last card
+    assert names == ["Media", "Calendar", "Server"]
     assert re.search(r'<a class="panel tile" href="/a/server"', row)
     assert row.count("span2") == 0
     for name in ("Food", "Money", "Desk", "House", "Car"):

@@ -26,6 +26,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
 
+from hub import guest, media_front
 from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.ids import areas_path, home_now
 from hub.images import fallback_letters
@@ -71,6 +72,13 @@ templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
 templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
+# Joey TV WP-B3 (2026-10-21): the guest surface's globals (hub/media_front.py) - every one answers on the private front too
+templates.env.globals["guest"] = media_front.is_guest
+templates.env.globals["guest_allows"] = media_front.guest_allows
+templates.env.globals["brand"] = media_front.brand
+templates.env.globals["guest_home"] = media_front.guest_home
+templates.env.globals["tv_mode"] = media_front.tv_mode
+templates.env.filters["brand_title"] = media_front.brand_title
 
 
 # ---- response headers (T3, 2026-10-09: H-56, N-48, N-49) ----
@@ -112,7 +120,11 @@ class _HeaderView:
 
 
 def owner_word(scope) -> str:
-    """'you' / 'her' / 'none' (not signed in) — what the request log says instead of the email."""
+    """'you' / 'her' / 'none' (not signed in) — what the request log says instead of the email. The media front (Joey TV
+    WP-B1) reads only the identity GuestGate stored (`jf:<id>` / you / her / none): no header, no network call."""
+    if guest.is_media():
+        ident = guest.identity_in_scope(scope)
+        return (ident.owner if ident else None) or "none"
     return resolve_identity(_HeaderView(scope)).owner or "none"
 
 
@@ -147,7 +159,7 @@ class ShellMiddleware:
 
 
 # Already-compressed bodies (posters, icons, fonts) skip gzip: no gain, NAS CPU spent.
-NO_GZIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".woff2", ".ico")
+NO_GZIP_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".woff2", ".ico", ".apk")   # .apk: Joey TV /app (a zip)
 GZIP_MIN_BYTES = 1024
 GZIP_LEVEL = 6
 
@@ -191,7 +203,10 @@ def get_snapshots(snapshot_dir=None, request=None):
     """Every envelope (hub.store), with resume items just marked watched / reset left out of the jellyfin
     `up_next` lists until a newer sweep (media_resume, 2026-10-08) — so every shelf, hero and list drops them.
     With `request`: read once per request — the first call keeps it on request.state.snaps, where the page's
-    builders and media_frame find it (H-48)."""
+    builders and media_frame find it (H-48).
+    Joey TV WP-B1 (Q22 (c)): THE media-front scrub point - with JOEY_FRONT=media only jellyfin / jellyseerr / arr come
+    back, reduced to hub.guest's key allow-lists. Request paths read snapshots only through here
+    (tests/hub/test_guest_snapshots.py pins it)."""
     from hub import media_resume  # function-level: media_resume's own imports reach back into this module
 
     state = getattr(request, "state", None)
@@ -199,6 +214,8 @@ def get_snapshots(snapshot_dir=None, request=None):
     if cached is not None:
         return cached
     snaps = media_resume.apply_hidden(_read_snapshots(snapshot_dir), "jellyfin")
+    if guest.is_media():
+        snaps = guest.scrub_snapshots(snaps)
     if state is not None:
         state.snaps = snaps
     return snaps
@@ -227,8 +244,9 @@ def from_lan(request) -> bool:
     """Template global `from_lan(request)` (E3, U12, 2026-10-13): True when the request came from the home network — it
     has NO Cloudflare Access header (every request through the tunnel carries one) and the client address is a home
     (RFC 1918 / IPv6 ULA) or loopback address. A link only the LAN can open (`server.is_lan`) is hidden from everyone else: off the home network it is
-    a dead link."""
-    if request is None or request.headers.get(IDENTITY_HEADER):
+    a dead link. Never on the media front (Joey TV WP-B1): every visitor there arrives through cloudflared from a
+    bridge address."""
+    if request is None or guest.is_media() or request.headers.get(IDENTITY_HEADER):
         return False
     try:
         ip = ipaddress.ip_address(request.client.host if request.client else "")
@@ -242,6 +260,7 @@ templates.env.globals["from_lan"] = from_lan
 OWNER_VIEWS = ("both", "you", "her")
 OWNER_COOKIE = "owner_view"
 OWNER_COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days, per device (WP19)
+NO_VIEW = "none"   # media front without an identity: media_db.owner_of / owner_filter raise on it (WP-B2)
 
 
 def resolve_owner_view(request: Request) -> tuple[str, bool]:
@@ -251,7 +270,13 @@ def resolve_owner_view(request: Request) -> tuple[str, bool]:
 
     Semantics per Q9 (answered 2026-08-25): you = you+shared, her = her+shared.
     Returns (view, came_from_query).
+
+    Media front (Joey TV WP-B2): the view IS the signed-in identity's owner (`jf:<id>` / you) - query and cookie are
+    ignored, the cookie is never set, never 'both'. No identity there = NO_VIEW, which no owner helper accepts.
     """
+    if guest.is_media():
+        ident = guest.identity_in_scope(getattr(request, "scope", None))
+        return (ident.owner if ident and ident.owner else NO_VIEW), False
     who = resolve_identity(request)
     if who.owner:
         return who.owner, False
@@ -296,16 +321,29 @@ def build_status(snaps) -> dict:
     }
 
 
+def public_jellyfin() -> str | None:
+    """JELLYFIN_PUBLIC_URL without a trailing slash (port kept verbatim), or None when unset."""
+    return (os.environ.get("JELLYFIN_PUBLIC_URL") or "").strip().rstrip("/") or None
+
+
+def jellyfin_link(registry_href: str | None) -> str | None:
+    """THE Jellyfin link seam (Joey TV WP-B3): the base of every Jellyfin link a page draws (Play, Open in Jellyfin, the
+    deep links `_deep_link` builds). On the media front it is JELLYFIN_PUBLIC_URL - port kept verbatim, since the TV
+    shell's UrlPolicy matches scheme + host + port (`:8443`) - and None when that is unset (no link rather than a
+    LAN one): never the registry's `jellyfin-app` launcher. The private front keeps the registry href."""
+    return public_jellyfin() if guest.is_media() else registry_href
+
+
 def find_detail_source(snapshot_id, snaps, detail=None) -> dict | None:
     """The page behind a `detail` tile: the first registry tile reading the
     snapshot (the one whose `detail` route matches, when several tiles share a
     snapshot), its area and the area's first LINK tile (the app
-    launcher). None when no tile reads the snapshot."""
+    launcher), through the jellyfin_link seam. None when no tile reads the snapshot."""
     for a in registry.areas:
         for t in a.tiles:
             if t.snapshot == snapshot_id and (detail is None or t.detail == detail):
                 snap = snaps.get(snapshot_id)
-                href = next((x.href for x in a.tiles if x.tier.value == "link"), None)
+                href = jellyfin_link(next((x.href for x in a.tiles if x.tier.value == "link"), None))
                 return {"tile": t, "st": tile_state(t, snaps),
                         "data": snap.data if snap else {}, "href": href}
     return None

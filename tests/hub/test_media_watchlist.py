@@ -120,6 +120,19 @@ def test_add_remove_routes_htmx_and_plain(env):
                       headers=FORM).status_code == 422
 
 
+def test_ballot_style_comes_back_from_the_routes(env):
+    """Awards ballot E1 (2026-10-14): a row's worded button posts style=ballot and gets the same style back."""
+    main = env(jellyfin=jelly(), jellyseerr=REQS)
+    body = form(tmdb_id=556, kind="movie", title="Anora", year=2024, poster="", style="ballot")
+    with TestClient(main.app) as c:
+        on = c.post("/media/watchlist/add", content=body, headers={**HX, **FORM}).text
+        assert '<span id="wl-movie-556" class="wlbtn wlbtn-ballot">' in on and 'hx-post="/media/watchlist/remove"' in on
+        assert 'aria-pressed="true"' in on and "✓ Watchlisted</button>" in on and 'name="style" value="ballot"' in on
+        off = c.post("/media/watchlist/remove", content=body + "&item_key=tmdb:556", headers={**HX, **FORM}).text
+        assert 'class="wlbtn wlbtn-ballot"' in off and 'aria-pressed="false"' in off and "Watchlist</button>" in off
+        assert wl.rows("you") == []
+
+
 def test_foreign_origin_is_refused(env):
     main = env(jellyfin=jelly(), jellyseerr=REQS)
     with TestClient(main.app) as c:

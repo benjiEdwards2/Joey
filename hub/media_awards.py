@@ -19,8 +19,11 @@ each edition written in one transaction. Backlog newest first, ≤ CAP editions 
 exists, then weekly (Sunday ≥ 09:00 local); the NAS-off window (22:00–07:00 local) is skipped. A weekly pass also
 re-pulls editions held within the last 120 days or still to come (synced ≥ 6 days ago).
 Failures: 429 -> wait Retry-After (max 120 s) once, a second 429 ends the pass (state kept); 5xx / timeout -> the edition
-stays pending with the status / type as its note, the pass goes on; a page without one {{Award category}} -> skipped;
+stays pending with the status / type as its note, the pass goes on; a page no parser shape reads -> skipped;
 a parser exception -> failed. Logs carry counts and HTTP status / exception type only — never a URL or a title.
+Parser bumps (WP-D1, 2026-10-16): `PARSER_V` is stored in award_sync as `parser_v`; when it differs at the start of a pass,
+every edition skipped as "no page shape …" goes back to pending and re-enters the normal backlog (newest first, CAP a pass);
+WP-D3 (same bump) also re-queues `done` Wikipedia-sourced editions that have nominations but no winner.
 `MEDIA_AWARDS=off` disables the loop; without `AWARDS_CONTACT` (the User-Agent contact the WDQS policy requires)
 nothing is ever called.
 """
@@ -60,6 +63,7 @@ BACKLOG_EVERY = timedelta(hours=6)
 WEEKLY_DAY, WEEKLY_HOUR = 6, 9          # Sunday, from 09:00 local
 OFF_FROM, OFF_TO = 22, 7                # the NAS is off 22:00–07:00 local
 FIRST_DELAY_S = 180
+PARSER_V = 2                            # bump when parse_award_blocks learns a page shape: re-queues the shapeless skips
 TICK_S = 3600
 
 # "Nothing there yet" answers: not backlog (they would hold the 6-hourly cadence forever); the weekly refresh of recent /
@@ -437,6 +441,27 @@ def pull_wp(db, client: Client, ed: dict) -> tuple[str, int, str | None]:
 
 # ---- the pass ----
 
+def requeue_on_parser_bump(db) -> int:
+    """A new PARSER_V: editions skipped for their page shape go back to pending, and so do `done` Wikipedia-sourced
+    editions with nominations but no winner (WP-D3: a winner line the old parser dropped) — once per bump. A re-pulled
+    edition is rewritten whole by `write_edition`. -> editions re-queued (both kinds)."""
+    if adb.get_sync(db, "parser_v") == str(PARSER_V):
+        return 0
+    wp = [b["id"] for b in seed.BODIES if b["source"] == "wp"]
+    with db:
+        shapeless = db.execute("UPDATE award_edition SET state = 'pending', note = NULL "
+                               "WHERE state = 'skipped' AND note LIKE 'no page shape%'").rowcount
+        winnerless = db.execute(
+            "UPDATE award_edition SET state = 'pending', note = NULL "
+            f"WHERE state = 'done' AND body_id IN ({','.join('?' * len(wp))}) AND EXISTS ("
+            "SELECT 1 FROM award_nomination n WHERE n.body_id = award_edition.body_id "
+            "AND n.ordinal = award_edition.ordinal GROUP BY n.body_id, n.ordinal HAVING MAX(n.won) = 0)", wp).rowcount
+    adb.set_sync(db, "parser_v", PARSER_V)
+    log.info("awards: parser v%s, %s shapeless skips, %s winner-less editions re-queued", PARSER_V, shapeless,
+             winnerless)
+    return shapeless + winnerless
+
+
 def _est_date(ed: dict) -> date | None:
     try:
         return date.fromisoformat(str(ed.get("held_on") or "")[:10])
@@ -485,6 +510,7 @@ def run_pass(cap: int = CAP, client: Client | None = None, today: date | None = 
     try:
         with closing(adb.ensure()) as db:
             try:
+                counts["requeued"] = requeue_on_parser_bump(db)
                 last = adb.get_sync(db, "discovered_at")
                 stale = not last or datetime.fromisoformat(last) < datetime.now(timezone.utc) - DISCOVER_AFTER
                 if discover_now if discover_now is not None else (stale and only is None):

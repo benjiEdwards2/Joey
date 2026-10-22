@@ -6,6 +6,7 @@ the captured PREV_SHA, and every outcome appends to history.log. smoke.py
 itself is exercised for real by the deploy (and its unit shape here).
 """
 
+import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -140,3 +141,192 @@ def test_pull_retries_three_times_and_git_container_gets_resolver_retries():
     assert "for attempt in 1 2 3; do" in SCRIPT
     assert "if GIT pull --ff-only; then break; fi" in SCRIPT
     assert "pull failed (attempt $attempt/3) — retrying in 5 s" in SCRIPT
+
+
+# ---- Joey TV WP-A3 (2026-10-18): the public edge (swag, `edge` profile) ----
+
+def _body(name: str) -> str:
+    body = SCRIPT[SCRIPT.index(chr(10) + name + "() {") + 1:]  # at a line start: "smoke" is not "edge_smoke"
+    return body[:body.index(chr(10) + "}" + chr(10))]
+
+
+def test_smoke_checks_the_edge_only_when_swag_is_running():
+    """SWAG stays "running" when nginx inside it fails, so `--status restarting` cannot see a broken conf. The confs
+    are single-file binds, so recreate_swag (not this reload) applies a conf change; the reload is harmless. Skipped
+    when the edge profile is off."""
+    assert SCRIPT.index("edge_smoke() {") < SCRIPT.index("smoke() {" + chr(10) + "    wait_for_hub")
+    assert "&& edge_smoke" in _body("smoke")
+    edge = _body("edge_smoke")
+    guard = edge.index('if [ -z "$(docker compose ps --status running -q swag 2>/dev/null)" ]; then')
+    assert "return 0" in edge[guard:guard + 200]  # profile off: nothing to check
+    test = edge.index("docker compose exec -T swag nginx -t")
+    reload_ = edge.index("docker compose exec -T swag nginx -s reload")
+    health = edge.index("--resolve jellyfin.joeyhome.net:443:127.0.0.1 https://jellyfin.joeyhome.net/health")
+    assert guard < test < reload_ < health
+    assert '= "Healthy"' in edge[health:health + 120]
+    # the host-side curl runs from a pinned image (no curl binary assumed on the NAS), host network = 127.0.0.1:443
+    assert re.search(r"docker run --rm --network host curlimages/curl:[0-9][^ ]* ", edge)
+    assert "curlimages/curl:latest" not in SCRIPT
+    assert "return 1" in edge  # a failed edge check fails smoke -> the one rollback path
+
+
+def test_host_mode_edge_needs_no_network_gate():
+    """Mode (a) host (WP-A4, 2026-10-19): swag joins no Docker network, so the pre-gate no longer checks joey-edge
+    (jellyfin stays attached to it on the NAS, outside this compose). edge_active() stays, defined before the gate."""
+    active = _body("edge_active")
+    assert "docker compose config --services" in active and "grep -qx swag" in active
+    assert SCRIPT.index("edge_active() {") < SCRIPT.index("== build test image + FULL SUITE GATE")
+    assert "joey-edge" not in SCRIPT
+    assert "docker network inspect media-server_default" in SCRIPT  # the media network gate is unchanged
+
+
+def test_edge_profile_recreates_swag_after_up_and_on_rollback_only_on_swag_changes():
+    """WP-A4 (2026-10-19, PR #5 deployed but not live): the six swag confs are single-FILE `:ro` binds, which pin the
+    inode; `git pull` writes new inodes, so a running swag keeps the old conf and `nginx -s reload` cannot help. Under
+    the edge profile swag is force-recreated after the main `up` and before the edge smoke, and the rollback recreates
+    it too so a rolled-back conf takes effect. A failed recreate rolls back.
+    P6 (2026-10-19): only when the deploy changed a file under deploy/swag/ (each recreate is a ~10 s edge blip). The
+    rollback crosses the same PREV..NEW range, so the same diff decides there. --force, or a diff git cannot answer,
+    recreates to be safe. A change to the swag service in compose needs nothing here: `compose up` recreates it."""
+    changed = _body("swag_confs_changed")
+    force = changed.index('if [ "$FORCE" -eq 1 ]; then return 0; fi')
+    diff = changed.index('! GIT diff --quiet "$PREV_SHA" "$NEW_SHA" -- deploy/swag')
+    assert force < diff
+    recreate = _body("recreate_swag")
+    guard = recreate.index("if edge_active && swag_confs_changed; then")  # edge_active stays the outer guard
+    assert guard < recreate.index("docker compose up -d --force-recreate swag")
+    up = SCRIPT.index('docker compose up -d --remove-orphans || rollback "compose up failed"')
+    call = SCRIPT.index('recreate_swag || rollback "swag recreate failed"')
+    assert (SCRIPT.index("edge_active() {") < SCRIPT.index("swag_confs_changed() {") < SCRIPT.index("recreate_swag() {")
+            < SCRIPT.index("rollback() {"))
+    assert up < call < SCRIPT.index('smoke || rollback "smoke failed"')
+    back = _body("rollback")
+    assert (back.index("docker compose up -d --remove-orphans") < back.index("&& recreate_swag")
+            < back.index("&& smoke; then"))
+    assert "every deploy" not in SCRIPT  # the always-recreate wording is gone
+
+
+# ---- 2026-10-20 incident: the laptop lid closed, ssh dropped, SIGHUP killed deploy.sh during `compose up`, hub sat
+# "Created" and joeyhome.net answered 502 for 11 h. deploy.sh now detaches itself, logs to a file and keeps the lock. ----
+
+def _detach_block() -> str:
+    start = SCRIPT.index('if [ -z "${JOEY_DEPLOY_DETACHED:-}" ]; then')
+    return SCRIPT[start:SCRIPT.index(chr(10) + "fi" + chr(10), start)]
+
+
+def test_deploy_detaches_into_its_own_session_before_the_lock_and_the_pull():
+    """The first run re-execs itself (marker JOEY_DEPLOY_DETACHED) under setsid: a new session has no controlling
+    terminal, so neither the tty hangup nor sshd's killpg on the old process group reaches it. Ignoring HUP alone is not
+    enough: `docker run` (GIT, the gate, the edge curl) re-arms SIGHUP for its signal proxy. The re-exec comes after the
+    argument check and BEFORE the lock and the pull, so the child is this same pre-pull script (no re-exec ordering
+    problem with the self-update), and the parent never holds the lock."""
+    block = _detach_block()
+    assert SCRIPT.index("usage: deploy.sh [--force]") < SCRIPT.index(block) < SCRIPT.index('mkdir "$LOCK"')
+    assert SCRIPT.index(block) < SCRIPT.index("== pull (ff-only) ==")
+    assert "command -v setsid" in block and "DETACH=setsid" in block
+    assert "JOEY_DEPLOY_DETACHED=1" in block and "export JOEY_DEPLOY_DETACHED JOEY_DEPLOY_LOG" in block
+    assert """( trap '' HUP; exec $DETACH sh "$0" "$@" ) </dev/null >"$LOG" 2>&1 &""" in block
+
+
+def test_detached_deploy_ignores_hup_and_reads_nothing_from_the_terminal():
+    """Belt and braces under setsid (and the whole defence when setsid is missing, with a loud warning): HUP is ignored,
+    which children such as `docker compose` inherit, stdin is /dev/null and stdout/stderr go only to the log, so a dead
+    terminal can neither signal the deploy nor fail one of its writes (EIO/EPIPE under `set -e`)."""
+    block = _detach_block()
+    assert "trap '' HUP" in block and "</dev/null" in block and '>"$LOG" 2>&1' in block
+    assert "setsid not found" in block  # the weaker fallback is never silent
+
+
+def test_foreground_follows_the_log_and_returns_the_childs_exit_code():
+    """B. still watches live: the parent tails the log from line 1 and exits with the child's code (push.sh and the
+    history line stay meaningful). Ctrl-C or a dropped session only stops the watcher and prints the re-attach line."""
+    block = _detach_block()
+    assert 'tail -n +1 -f "$LOG" &' in block
+    assert 'wait "$CHILD" || rc=$?' in block and 'exit "$rc"' in block
+    trap = block.index("trap 'kill \"$TAIL\" 2>/dev/null;")
+    assert "re-attach: tail -f $LOG" in block[trap:trap + 200] and "INT HUP TERM" in block[trap:trap + 200]
+    assert block.index('wait "$CHILD"') < block.index('kill "$TAIL" 2>/dev/null || true')
+
+
+def test_deploy_log_lives_in_deploy_logs_and_is_ignored_by_git_and_docker():
+    """deploy/logs/deploy-<UTC>-<pid>.log, one per run. Never committed and never in the life-test build context (the log of
+    the running deploy is being written while `docker build .` reads the context)."""
+    block = _detach_block()
+    assert "LOG_DIR=$DEPLOY_DIR/logs" in block
+    assert "LOG=$LOG_DIR/deploy-$(date -u '+%Y%m%dT%H%M%SZ')-$$.log" in block
+    git = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    docker = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    assert "/deploy/logs/" in git and "deploy/logs/" in docker
+
+
+def test_deploy_log_never_gets_secrets():
+    """The log takes everything deploy.sh prints: no shell tracing, no env dump, compose config only in quiet mode."""
+    assert "set -x" not in SCRIPT and "set -o xtrace" not in SCRIPT
+    assert "printenv" not in SCRIPT and not re.search(r"^\s*env\s*$", SCRIPT, re.M)
+    assert re.findall(r"docker compose config(?! -q| --services)", SCRIPT) == []
+
+
+def test_lock_records_its_holder_and_only_a_dead_holder_or_an_old_pidless_lock_is_stale():
+    """A detached deploy makes overlap likelier, and a legit deploy (gate + rollback) can pass 30 min, so age alone no
+    longer breaks the lock: the holder's pid (and log) are written into the lock dir; a live pid always blocks, a dead
+    one is stale at once, and only a pid-less lock (pre-pid, or the instant between mkdir and the write) falls back to
+    the 30-min rule. A lost race for the fresh lock exits 2 instead of running."""
+    lock = SCRIPT[SCRIPT.index("LOCK=/tmp/joey-deploy.lock"):SCRIPT.index("on_exit() {")]
+    assert 'holder=$(cat "$LOCK/pid" 2>/dev/null || true)' in lock
+    assert 'kill -0 "$holder"' in lock and "-mmin +30" in lock
+    assert lock.index('kill -0 "$holder"') < lock.index('rm -rf "$LOCK"') < lock.index('echo "$$" > "$LOCK/pid"')
+    assert 'mkdir "$LOCK" 2>/dev/null || {' in lock  # the re-take after a stale break never runs unlocked
+    assert '"${JOEY_DEPLOY_LOG:-}" > "$LOCK/log"' in lock and "tail -f" in lock  # the refusal says how to watch
+    assert 'rm -f "$LOCK/pid" "$LOCK/log"' in _body("on_exit")
+
+
+def test_detach_uses_only_busybox_safe_forms():
+    """BusyBox ash/applets: no bash-isms, no util-linux-only setsid flags, no GNU `tail --pid`, no disown."""
+    for bad in ("setsid -w", "setsid -f", "--pid", "disown", "[[", "<<<", "$(<"):
+        assert bad not in SCRIPT, bad
+
+
+# ---- Joey TV WP-B8 step 5 (Q38 = automatic): deploy.sh publishes the tv-<code> release after smoke passes ----
+
+def test_tv_publish_runs_after_smoke_and_on_nothing_to_deploy_only():
+    """After smoke PASSES (after the prunes, right before the PASS line) and in the NOTHING-TO-DEPLOY path; never in
+    rollback() / gate_fail() / recreate_swag(), and never before smoke."""
+    body = _body("tv_publish")
+    assert ('docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 --env-file "$DEPLOY_DIR/tv.env"' in body
+            and '-v "$REPO":/repo:ro -v "$TV_APP_DIR":/out life-hub python /repo/deploy/tv_publish.py' in body)
+    assert "TV_APP_DIR=/volume1/Docker/joey/data/tv-app" in SCRIPT
+    calls = [i for i in range(len(SCRIPT)) if SCRIPT.startswith("TV=$(tv_publish)", i)]
+    assert len(calls) == 2
+    nothing = SCRIPT.index('if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$FORCE" -eq 0 ]; then')
+    assert nothing < calls[0] < SCRIPT.index('log_history "NOTHING-TO-DEPLOY"') < SCRIPT.index("== compose validate ==")
+    assert (SCRIPT.index('smoke || rollback "smoke failed"') < SCRIPT.index("docker builder prune -f")
+            < calls[1] < SCRIPT.index('log_history "PASS"'))
+    for name in ("rollback", "gate_fail", "recreate_swag", "smoke", "media_smoke", "edge_smoke", "on_exit"):
+        assert "tv_publish" not in _body(name), name
+    assert SCRIPT.index("tv_publish() {") < nothing   # defined before its first use
+
+
+def test_tv_status_lands_in_the_single_history_line():
+    assert 'log_history "PASS" "suite green, smoke ok tv=$TV"' in SCRIPT
+    assert 'log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy) tv=$TV"' in SCRIPT
+    assert SCRIPT.count('log_history "PASS"') == 1 and SCRIPT.count('log_history "NOTHING-TO-DEPLOY"') == 1
+
+
+def test_tv_publish_never_fails_the_deploy_and_skips_without_a_token():
+    body = _body("tv_publish")
+    guard = body.index('if [ ! -f "$DEPLOY_DIR/tv.env" ]; then')
+    assert 'echo "skipped:no-token"' in body[guard:guard + 120]
+    assert guard < body.index("docker run")
+    assert ") || true" in body                    # a failed container is a status, not a `set -e` abort
+    assert 'echo "${tv_status:-FAIL:no-status}" | tail -n 1' in body
+    assert "exit" not in body and "return 1" not in body
+    assert 'chown 1000:1000 "$TV_APP_DIR"' in body   # the life-hub image runs as uid 1000
+
+
+def test_tv_token_file_is_never_committed_or_in_the_build_context():
+    git = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    docker = (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+    assert "*.env" in git and "!*.env.example" in git          # deploy/tv.env ignored, the template kept
+    assert "**/*.env" in docker and "!**/*.env.example" in docker
+    example = (REPO_ROOT / "deploy" / "tv.env.example").read_text(encoding="utf-8")
+    assert re.search(r"^GH_TV_TOKEN=$", example, re.M)            # empty in the template

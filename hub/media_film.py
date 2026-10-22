@@ -24,11 +24,13 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
+from starlette.background import BackgroundTask
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
-from hub import media_home, media_text, media_upgrades, shell
+from hub import media_episode_ratings, media_season_state as mss
+from hub import guest, media_home, media_quality, media_text, media_upgrades, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
-from hub.media_library import runtime_text
+from hub.media_library import empty_series, runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
 
 log = logging.getLogger("hub.media_film")
@@ -579,9 +581,19 @@ def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict 
 
 
 def status_line(f: dict) -> str:
-    """The words-first line: what we know about this title, in one sentence of ' · ' pieces."""
+    """The words-first line: what we know about this title, in one sentence of ' · ' pieces. A show (WP-T1,
+    2026-10-19) also says what Sonarr still expects ("3 of 8 episodes · all watched · 5 to come · next airs 2 Nov"),
+    and one with no episode on the server reads "Requested · waiting for the first episode · airs 5 Dec"."""
     if f["jf_failed"]:
         return media_item.DOWN_TEXT
+    son = f.get("sonarr")
+    if not f["on_server"] and f["kind"] == "tv" and (f.get("empty_show") or mss.waiting(son)):
+        word = (son or {}).get("word") or ""
+        parts = [f"Requested {f['requested_when']}" if f.get("requested_when") else "Requested",
+                 mss.waiting_words(son) if not word or word.startswith("Waiting") else word]
+        if f.get("downloading_pct") is not None:
+            parts.append(media_downloads.badge_text({"pct": f["downloading_pct"]}))
+        return " · ".join(parts)
     if not f["on_server"]:
         parts = ["Not on server"]
         if f.get("requested_when"):
@@ -595,10 +607,12 @@ def status_line(f: dict) -> str:
     if f["kind"] == "tv":
         s = f.get("series")
         if s:
-            parts.append(f"{s['episodes']} episode{'s' if s['episodes'] != 1 else ''}")
+            parts.append(mss.episodes_words(son, f"{s['episodes']} episode{'s' if s['episodes'] != 1 else ''}"))
             parts.append(s.get("progress") or (f"{s['to_watch']} to watch" if s["to_watch"] else "all watched"))
             if f.get("next_ep"):
                 parts.append(f"{f['next_ep']['label']} next")
+        if son and son.get("word") and not mss.waiting(son):   # WP-T1: never "all watched" last while more is due
+            parts.append(son["word"])
     else:
         res = next((b["word"] for b in (f.get("files") or {}).get("video", []) if b["icon"] == "res"), None)
         hdr = next((b["word"] for b in (f.get("files") or {}).get("video", []) if b["icon"] == "hdr"), None)
@@ -618,13 +632,14 @@ def status_line(f: dict) -> str:
 
 def _jf_from_snapshot(jelly: dict, kind: str, tmdb: int) -> dict | None:
     for r in jelly.get("movies" if kind == "movie" else "shows") or []:
-        if isinstance(r, dict) and r.get("item_key") == f"tmdb:{tmdb}" and media_item.ITEM_RE.match(str(r.get("jf_id") or "")):
+        if isinstance(r, dict) and r.get("item_key") == f"tmdb:{tmdb}" and media_item.ITEM_RE.match(str(r.get("jf_id") or "")) \
+                and not empty_series(r):   # WP-T1: a show with no episode is not a library entry
             return r
     return None
 
 
 def _upgrade(snaps, jelly: dict, kind, tmdb, tvdb, title) -> str | None:
-    """F4b: "Upgrade available · …" for the hero, from the arr snapshot's cutoff-unmet lists - no call. A show matches
+    """F4b: "Below cutoff · …" (WP-U1) for the hero, from the arr snapshot's cutoff-unmet lists - no call. A show matches
     its TheTVDB id, else its title when the library holds that title once."""
     if kind not in ("movie", "tv"):
         return None
@@ -795,13 +810,103 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
     season = next((s for s in seasons if s.get("n") == n), None) if n is not None else None
     line = [f"Season {n}" if n is not None else None,
             f"Episode {page['episode_no']}" if page["kind"] == "episode" and page.get("episode_no") is not None else None,
-            (season or {}).get("watched_text")]
+            (season or {}).get("watched_text"), (season or {}).get("state_word")]   # WP-T1: "5 to come · next airs 2 Nov"
     show = f"/media/item/{item['id']}"
     return {"title": item["title"], "line": [x for x in line if x], "poster": item["poster"],
             "backdrop": item["backdrop"] if item.get("has_backdrop") else None,
             "season_href": f"{show}?season={n}#season-{n}" if page["kind"] == "episode" and n is not None else None,
             "all_href": f"{show}#seasons"}
 
+
+# ---- TV episode flow: nav, guests, crew_ep (WP-E3, 2026-10-16; EPISODES_CONTRACT section 2) ----
+# Season and episode pages only (on-server Jellyfin items). Everything comes from the page's own item read and the
+# show's cached season list (media_item._seasons, which carries each episode's People) - no extra Jellyfin call.
+# Jellyfin's People entries carry no ProviderIds (Name, Id, Role, Type, PrimaryImageTag only), so a guest's or a
+# crew member's `href` (/media/person/{tmdb}) is None: there is no TMDB person id without a per-person read.
+
+CREW_EP = (("Director", "Directed by"), ("Writer", "Written by"))
+
+
+def _item_href(jf_id) -> str | None:
+    return f"/media/item/{jf_id}" if jf_id and media_item.ITEM_RE.match(str(jf_id)) else None
+
+
+def _page_season(page: dict, seasons: list[dict]) -> dict | None:
+    """The episode_list season a season / episode page belongs to: by the season's id, or the season listing the
+    episode's id, else by season number."""
+    if page["kind"] == "season":
+        hit = next((s for s in seasons if s.get("id") == page["id"]), None)
+    else:
+        hit = next((s for s in seasons if any(e.get("jf_id") == page["id"] for e in s.get("episodes") or [])), None)
+    if hit is None and page.get("season_no") is not None:
+        hit = next((s for s in seasons if s.get("n") == page["season_no"]), None)
+    return hit
+
+
+def episode_nav(page: dict, show: dict | None, seasons: list[dict]) -> dict:
+    """`nav`: the show link, the S1 / S2 switch (`on` = the page's season); on an episode also its season (n, link,
+    episodes listed), Previous / Next within the season in list order and "E6 of 10". Episode-only keys are None on
+    a season page."""
+    season = _page_season(page, seasons)
+    nav = {"show": {"title": (show or {}).get("title") or page.get("show_title") or "Show",
+                    "href": _item_href(page.get("show_id"))},
+           "seasons": [{"n": s["n"], "href": _item_href(s.get("id")), "on": s is season} for s in seasons],
+           "season": None, "prev": None, "next": None, "position": None}
+    if page["kind"] != "episode" or season is None:
+        return nav
+    eps = season.get("episodes") or []
+    i = next((k for k, e in enumerate(eps) if e.get("jf_id") == page["id"]), None)
+    if i is None and page.get("episode_no") is not None:
+        i = next((k for k, e in enumerate(eps) if e.get("number") == page["episode_no"]), None)
+    nav["season"] = {"n": season["n"], "href": _item_href(season.get("id")), "total": len(eps)}
+
+    def card(e):
+        return {"number": e["number"], "name": e["name"], "href": _item_href(e.get("jf_id"))}
+    if i is not None:
+        nav["prev"] = card(eps[i - 1]) if i > 0 else None
+        nav["next"] = card(eps[i + 1]) if i + 1 < len(eps) else None
+    number = eps[i]["number"] if i is not None else page.get("episode_no")
+    nav["position"] = f"E{number} of {len(eps)}" if number is not None else None
+    return nav
+
+
+def episode_guests(ep: dict, cast: list[dict] | None, show_people: list[dict] | None, season: dict | None) -> list[dict]:
+    """`guests`: the episode's GuestStar People not in the show's main cast (the page's `cast`, plus the series'
+    Actor People), each with how many of the season's episodes list them (any Type; at least this one)."""
+    main = {c.get("name") for c in cast or []} | {p.get("name") for p in show_people or [] if p.get("type") == "Actor"}
+    listed = [set(e.get("people_names") or ()) for e in (season or {}).get("episodes") or []]
+    out: dict[str, dict] = {}
+    for p in ep.get("people") or []:
+        name = p.get("name")
+        if p.get("type") == "GuestStar" and name and name not in main and name not in out:
+            out[name] = {"name": name, "role": p.get("role") or None, "poster": p.get("ref"), "href": None,
+                         "eps_this_season": max(1, sum(1 for names in listed if name in names))}
+    return list(out.values())
+
+
+def episode_crew(ep: dict) -> list[dict]:
+    """`crew_ep`: the episode's own Director / Writer People as "Directed by" / "Written by" rows, de-duplicated."""
+    out = []
+    for typ, role in CREW_EP:
+        names = list(dict.fromkeys(p["name"] for p in ep.get("people") or [] if p.get("type") == typ and p.get("name")))
+        if names:
+            out.append({"role": role, "people": [{"name": n, "href": None} for n in names]})
+    return out
+
+
+def episode_flow(page: dict | None, ep: dict | None, item: dict | None, seasons: list[dict], cast) -> dict:
+    """{nav} for a season page, {nav, guests, crew_ep} for an episode page; {} otherwise (a film, a show page, an
+    off-server title) - the keys are then absent from the page's dict. `ep` is the page's episode as listed_episode
+    gave it, `item` the base item (the show when its read answered)."""
+    if not page or page.get("kind") not in ("season", "episode"):
+        return {}
+    show = item if item and item.get("kind") == "series" else None
+    here = ep if page["kind"] == "episode" and ep else page
+    out = {"nav": episode_nav(here, show, seasons)}
+    if page["kind"] == "episode":
+        out["guests"] = episode_guests(here, cast, (show or {}).get("people"), _page_season(here, seasons))
+        out["crew_ep"] = episode_crew(here)
+    return out
 
 def _jellyfin_side(kind, tmdb_id, jf_id, jelly: dict, read, on_tmdb=None) -> dict:
     """The Jellyfin side: base (film / series), plus the episode when the page is for one. `read` is media_item._data
@@ -938,7 +1043,16 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     if files is None and t and t["status_word"] in md.ON_DISK and not item:
         files = media_files.file_summary(kind, tmdb_id, snaps=snaps)
     on_server = bool(item or row or jf_id and not f["jf_failed"] or (t and t["status_word"] in md.ON_DISK))
-    f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"))
+    # WP-T1 (2026-10-19): a show is on the server only with an episode file. A series Jellyfin lists with no episode
+    # (Sonarr made its folder before any file arrived) and a show Sonarr holds no file of (whatever Seerr says) is not.
+    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
+    tvdb = ext.get("tvdbId") or (item or {}).get("tvdb")   # F2: Jellyfin's TheTVDB id while the body is pending
+    sonarr = mss.season_states(tvdb, tmdb_id) if kind == "tv" else None
+    empty_show = bool(kind == "tv" and item and item["kind"] == "series" and not any(s.get("episodes") for s in seasons))
+    if empty_show or (kind == "tv" and not item and mss.waiting(sonarr)):
+        on_server = False
+    f.update(on_server=on_server, files=files, status_word=(t or {}).get("status_word"), sonarr=sonarr,
+             empty_show=empty_show)
     title = (item["title"] if item else (t or {}).get("title") or (row or {}).get("title")
              or ("Jellyfin item" if jf_id else "Title unavailable"))
     year = (item["year"] if item else (t or {}).get("year") or (row or {}).get("year"))
@@ -962,6 +1076,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     server = media_item._server_id(*creds, snap_server) if creds and (jf_item_id or jf_id) else snap_server
     href_of = lambda i: shell._deep_link((jsrc or {}).get("href"), i, server)
     f["play"] = None
+    play_ids: dict = {}   # Joey TV WP-B3: the item id behind each Play href (data-jf-id)
     f["series"], f["next_ep"] = None, None
     if kind == "tv" and seasons:
         eps = [e for s in seasons for e in s["episodes"]]
@@ -982,14 +1097,20 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         if jf_item_id:
             f["play"] = ({"href": href_of(nxt["jf_id"]), "label": f"Next to watch: {nxt['label']} ▶"} if nxt
                          else {"href": href_of(jf_item_id), "label": "Play ▶"})
-    elif jf_item_id or f["jf_failed"]:
+            play_ids["play"] = nxt["jf_id"] if nxt else jf_item_id
+    elif (jf_item_id or f["jf_failed"]) and not empty_show:   # WP-T1: nothing to play in an empty show
         pid = jf_item_id or jf_id
         label = (f"Resume ▶ · {left}" if left else "Resume ▶") if in_progress else "Play again ▶" if played else "Play ▶"
         f["play"] = {"href": href_of(pid), "label": label}
+        play_ids["play"] = pid
     # media-ux3: `?season=N` (the banner's "This season") opens that season; else the page's episode / season
     page_season = (open_season if open_season is not None
                    else page_item["season_no"] if page_item and page_item["kind"] in ("episode", "season") else None)
     f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None, page_season, f["next_ep"])
+    for s in f["seasons"]:   # WP-T1: "Season 4 · 3 of 6 watched · 5 to come · next airs 2 Nov"
+        s["state_word"] = ((sonarr or {}).get("by_n", {}).get(s["n"]) or {}).get("word")
+    # WP-T1: Sonarr's reads for these words run after the response (never before the render); the next view has them
+    f["state_later"] = mss.later([(tvdb, tmdb_id)], detail=True) if kind == "tv" else None
     f["part_of"] = part_of(page_item, item, f["seasons"])
     if ep:
         ep = listed_episode(ep, seasons)  # media-ux4: one watch state per page (hero = banner = rows)
@@ -1000,8 +1121,20 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                                  else "Play again ▶" if ep["played"] else "Play ▶"},
                         "show_href": f"/media/item/{item['id']}" if item and item["kind"] == "series" else None}
         f["episode_season"] = ep["season_no"]
+        play_ids["episode"] = ep["id"]
     else:
         f["episode"] = None
+    # TV episode flow (WP-E1, 2026-10-16): per-episode ratings from media.db / the caches only; the reads they still
+    # need run as the response's BackgroundTask (`ratings_later`, attached by the routes after the render). A show
+    # Jellyfin does not have (an off-server /media/title/tv/... page) gets none for now.
+    f["ratings"], f["ratings_later"] = None, None
+    if kind == "tv" and item and item["kind"] == "series" and seasons:
+        try:
+            f["ratings"], f["ratings_later"] = media_episode_ratings.build_ratings(
+                item, f["seasons"], (page_item or item)["kind"], page_season, lambda i: f"/media/item/{i}",
+                page_episode=ep["episode_no"] if ep else None)
+        except Exception as exc:  # the page never fails on the ratings block
+            log.warning("episode ratings skipped: %s", type(exc).__name__)
     # Move on (2026-10-08): Mark watched / Reset progress beside "Resume ▶". The page's watch state is read as
     # JELLYFIN_USER, so the buttons show in B.'s views only (Georgina moves on from her Continue watching shelf).
     resume_id = (ep["id"] if ep and ep["in_progress"] else
@@ -1042,8 +1175,6 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     req = _requested(snaps, tmdb_id) if tmdb_id else None
     f["requested_when"] = req.get("when") if req else None
     f["requested_by"] = req.get("requested_by") if req else None
-    ext = raw.get("externalIds") if isinstance(raw.get("externalIds"), dict) else {}
-    tvdb = ext.get("tvdbId") or (item or {}).get("tvdb")   # F2: Jellyfin's TheTVDB id while the body is pending
     dl_keys = ([f"tmdb:{tmdb_id}"] if kind == "movie" and tmdb_id else
                [f"tvdb:{tvdb}"] if kind == "tv" and str(tvdb or "").isdigit() else [])
     f["downloading_pct"] = md._dl_pct(dl_keys, snaps) if dl_keys and not f["jf_failed"] else None   # M-50: by key
@@ -1075,6 +1206,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
            "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending}
     _sections(f, [p for p in PARTS if p not in pending], ctx, ex)
     _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
+    f.update(episode_flow(page_item, ep, item, f["seasons"], f.get("cast")))   # TV episode flow (WP-E3, 2026-10-16)
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
     f["back"] = request.url.path
@@ -1083,6 +1215,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, tvdb, request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
+    # Quality (WP-R1): "Quality · 1080p" + Switch, lazy-loaded like Search now; drawn here only for the no-JS confirm step
+    f["quality_href"] = media_quality.lazy_href(kind, tmdb_id, tvdb, request.url.path) if not ep else None
+    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True)
+                          if f["quality_href"] and request.query_params.get("quality_ask") == "1" else None)
+    f["quality_flash"] = media_quality.flash_text(request.query_params)
     f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only
     f["upgrade_flash"] = media_arr_search.upgrade_flash(request.query_params)
     f["status_line"] = status_line(f)
@@ -1091,7 +1228,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["parts_href"] = (f"{request.url.path}/part/all?p=" + ",".join(p for p in PARTS if p in pending)) if pending else None
     if kind and (jf_id or on_server):  # an off-server title keeps the Discover section it was found in
         request.state.media_section = "movies" if kind == "movie" else "tv"
-    return f
+    _play_ids(f, play_ids)
+    return guest_controls(f, kind, tmdb_id)
 
 
 def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_id: str | None = None, *,
@@ -1123,12 +1261,45 @@ def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_i
     on_server = bool(item or row or (jf_id and not side["jf_failed"]) or (t and t["status_word"] in md.ON_DISK))
     jf_item_id = item["id"] if item else (row["jf_id"] if row else None)
     f.update(t=t, title=title, year=(item or {}).get("year") or (t or {}).get("year"),
-             play={"href": shell._deep_link((jsrc or {}).get("href"), jf_item_id, None)} if jf_item_id else None)
+             play={"href": shell._deep_link((jsrc or {}).get("href"), jf_item_id, None), "jf_id": jf_item_id}
+             if jf_item_id else None)
     ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": (item or {}).get("people") or [],
            "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
            "lib_keys": on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv"), "arr": arr,
            "jf_trailer": (item or {}).get("trailer"), "pending": set(), "late": True}
     _sections(f, names, ctx, ex)
+    return guest_controls(f, kind, tmdb_id)
+
+
+def _play_ids(f: dict, play_ids: dict) -> None:
+    """Each Play button carries `jf_id` - the Jellyfin item id its href names - for the template's `data-jf-id` (the TV
+    shell hands that id to the Jellyfin app, WP-B6 route 1b)."""
+    for slot, jf in play_ids.items():
+        target = f.get(slot) if slot == "play" else (f.get("episode") or {}).get("play")
+        if target and target.get("href") and jf:
+            target["jf_id"] = str(jf)
+
+
+def guest_controls(f: dict, kind, tmdb_id) -> dict:
+    """Joey TV WP-B3 step 4 (Q19): on the media front a title / item page carries no household control - no Search now,
+    Quality, upgrade note, file-strip badges, Follow (show / collection) or Jellyseerr link, and the Request block only
+    where hub.guest.allows() serves the request route (GUEST since WP-B4), with the signed-in friend's own request
+    state (`req_mine`: pending / approved / declined, hub.media_guest_requests). Private front: `f` untouched."""
+    if not guest.is_media():
+        return f
+    f.update(arr_search=None, quality_href=None, quality_block=None, upgrade=None, jellyseerr_href=None)
+    if f.get("file"):
+        f["file"] = {**f["file"], "badges": []}
+    if f.get("collection"):
+        f["collection"] = {**f["collection"], "followable": False}
+    f["providers"] = [{**g, "href": None} for g in f.get("providers") or []]   # names stay, no JustWatch link
+    if f.get("trailer") and not f.get("trailer_key"):   # a trailer only as a YouTube video (Q41), never another site
+        f["trailer"] = None
+    if not (kind in ("movie", "tv") and tmdb_id and guest.allows("GET", f"/media/title/{kind}/{tmdb_id}/request")):
+        f["show_request"] = False
+    if f.get("show_request"):
+        from hub import media_guest_requests   # late: it imports media_discover
+        f["req_mine"] = media_guest_requests.title_mine(kind, tmdb_id)
     return f
 
 
@@ -1154,8 +1325,11 @@ def film_awards(kind, tmdb_id, jelly: dict, jf_item_id) -> list[dict]:
 # ---- routes ----
 
 def _render(request: Request, src, film: dict, view, from_query, snaps=None):
+    later = mss.chain(film.pop("ratings_later", None), film.pop("state_later", None))
     resp = shell.render_page(request, "media_film.html", {
         "status": shell.build_status(shell.get_snapshots() if snaps is None else snaps), "src": src, "film": film})
+    if later is not None:   # WP-E1: the episode ratings' missing reads, after the response - never before the render
+        resp.background = BackgroundTask(later)
     return shell._maybe_set_cookie(resp, view, from_query)
 
 
@@ -1172,7 +1346,7 @@ def _prefetched(what: str) -> Response:
 
 @router.get("/media/title/{kind}/{tmdb_id}", response_class=HTMLResponse)
 def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", requested: str = "", error: str = "",
-               future: str = ""):
+               future: str = "", quality: str = "", qnet: str = ""):
     kind = md._kind(kind)
     view, from_query = shell.resolve_owner_view(request)
     snaps = shell.get_snapshots(request=request)  # media-speed: one snapshot read per request, shared
@@ -1185,6 +1359,11 @@ def title_page(request: Request, kind: str, tmdb_id: int, step: str = "", reques
     if is_prefetch(request):
         return _prefetched("title")
     film["req_future"] = media_arr_search.future_note(future) if state == "done" else None   # media-ux5 item 7
+    # WP-R1: the Quality chips on the no-JS confirm step; "Requested in 4K" + the safety net's warning when done
+    film["req_profiles"] = (media_quality.choices(kind) if state == "confirm" and film.get("show_request")
+                            and not guest.is_media() else [])   # Joey TV WP-B4: no Quality on the media front (Q19)
+    film["req_quality"] = media_quality.name_of(kind, quality) if state == "done" else None
+    film["req_qnote"] = media_quality.net_note(qnet, kind) if state == "done" else None
     return _render(request, src, film, view, from_query, snaps)
 
 

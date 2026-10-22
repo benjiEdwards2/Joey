@@ -964,3 +964,222 @@ genre last), Shuffle (fresh each request) and, on TV only, Most to watch (`sort_
 default. **Diary** in Everyone, the other person's rows carry no 1-10 picker and no score (`row["theirs"]`); the viewer's
 own rows keep both. Tests: `test_media_library_pages.py` (library round block), `test_media_diary.py`, one count in
 `test_first_screens_e3.py`.
+
+## 2026-10-14 — Awards ballot (Plan C)
+B. chose Plan C of the awards UX review (review/2026-10-13-awards-ux/AWARDS_UX_REVIEW.md; decisions in BALLOT_DECISIONS.md,
+all defaults). The Awards page is now a ballot of films / shows (described under "Decisions pinned by tests" in
+`hub/README.md`): WP-C1 built the context (`awards_ctx` `ballot`: the edition pivoted by work, filters, sorts, shorts,
+progress, people, `/awards/part/rows`), WP-C2 the templates, the picker sheet and one dated CSS tail block, WP-C3 the
+worded Watchlist button on a row (`_watchlist_btn.html` `style="ballot"`, handed back by the watchlist routes), pills that
+name a person only for acting and directing, "Writing (Original Screenplay)" → "Orig. Screenplay", the row year fallback
+(the edition's "films of" year), the rows sentinel inside the list, and a phone row whose pills take the full width.
+**Reversal:** the awards-ui visual pass (2026-10-09) backdrop hero and Most wins podium are removed (decision B5: the
+winner was shown twice; the first row is the headline winner and "Most wins" is the sort), along with the ceremony tile
+row, the year stepper and the native year dropdown (all now inside the picker). Eyes-on at 375 px (sample seed, Oscars
+2025): the picker at 235 px from the top; the default view 3,166 px tall (target 2,500 — open); every filter / sort /
+ceremony / year change keeps the scroll and does not re-fetch posters already on screen.
+
+**Awards older page shapes (WP-D1, 2026-10-16).** Live on the NAS the sync had finished with most older editions
+`skipped` as "no page shape (none)" (Globes 80 of 84, SAG 26 of 33, Critics' Choice 6 of 32, BAFTA 17 of 80): the parser
+only read the `{{Award category}}` shape. `parse_award_blocks` now also reads wikitables whose `!` header cells name the
+categories (Globes to 2023, SAG to 2020, early BAFTA; a header row followed by another is a group caption; a linked cell's
+label is the link target minus "<…> Award for ", so "Drama" becomes "Best Motion Picture – Drama" and the category key stays
+the award page's QID across years), `* '''Best Actor:'''` bold-label lists (Critics' Choice 1996–2001, winners only) and,
+only when nothing else reads, `===Category===` headings with a bare bold winner line ("[[Person]] in [[Film]]" read like a
+dash; page-structure headings are never categories). `{{Award category}}` pages parse exactly as before. `PARSER_V = 2`
+(`media_awards.py`, stored as `award_sync.parser_v`): the first pass after a bump puts every "no page shape" skip back to
+pending, so they re-enter the normal backlog. WP-D3 (same day, same bump): inside an `{{Award category}}` block a bare bold
+line (not a list item) is the block's winner — Critics' Choice 2002–2018 and BAFTA 1965–1972 write the winner that way and
+had landed `done` with nominations but no winners — and the bump also re-queues every `done` Wikipedia-sourced edition
+with nominations and no winner (logged as two counts; the re-pull rewrites the edition whole). Tests:
+`tests/hub/test_awards_parse.py` (one per shape, eleven recorded pages under `tests/hub/fixtures/awards/`),
+`tests/hub/test_awards_sync.py` (table page pulled done, the re-queue of both kinds).
+
+**TV episode flow (2026-10-16).** Show, season and episode pages (`media_film.html`, kinds series / season / episode) gain
+the episode-rating layer and the episode drill-down B. asked for from an IMDb screenshot (review/2026-10-16-episodes-ux:
+shell, notes, contract). Ratings (`hub/media_episode_ratings.py`, WP-E1): one OMDb `?i=<series imdb>&Season=<n>` call per
+season (every episode's imdbRating), votes for the current season only (≤ 12 per-episode calls), stored in media.db v5
+`episode_rating`, refreshed every 7 days while a season is airing and never afterwards, FAIL_TTL memo, a 401 stops OMDb
+for the day, the 800/day budget shared with the Metacritic pill, TMDB `voteAverage` (Jellyseerr season read) as the
+fallback; all reads run in a BackgroundTask after the render (0 calls on a warm view; `ratings` is None until a first
+view has queued them). Pages (WP-E2, `_episode_flow.html`): the show page's "Seasons compared" (one SVG line per season
+on a shared 6–10 scale, dashed 8.0, average + seen of total, the current season gold, best episode + trend) and the
+IMDb-style rating strip (a bar per episode, green = seen, gold = the page's episode, dashed = not aired); the season page's
+S-switch + strip + rated rows ("above avg" / "below avg"); the episode page's crumbs (the show and the season as the two
+ways back), the "Show · S4 · E3 of 6" eyebrow, the ★ score line, Guests (GuestStar people not in the main cast, with
+"k eps this season"), Crew (Directed by / Written by — the show-level Crew block is skipped there), the "where this sits"
+mini strip and Previous / Next. People and navigation (WP-E3): `nav` / `guests` / `crew_ep` from the Jellyfin People the
+pages already read (`people_names` kept on the season episodes read; no extra calls); person hrefs stay None because
+Jellyfin People carry no TMDB id. Two earlier rules superseded: the media-ux4 "no series link in the episode hero" (the
+crumbs are that link now) and the episode page's show-level Director / Writer block (its own rows replace it). Tests:
+`tests/hub/test_episode_ratings.py`, `test_episode_flow_templates.py`, `test_episode_flow_nav.py`; schema pins moved
+to v5.
+
+Health logos + Server app links (2026-10-19, WP-H1). Each row on Media › Health now shows the Server grid's service logo
+(32 px, `alt=""`; the neutral initial tile when the id has none) and takes the gated hostname from areas.yaml when there
+is one — the page decorates the snapshot's apps through `server.service_card`; the backup row is unchanged. On the Server
+page every Services card now shows from anywhere and links to its gated hostname or LAN address (the "LAN" word stays in
+the subtitle): this reverses E3's off-LAN hiding of cards (back to the 2026-10-10 rule); the summary link tiles (Portainer)
+still show only on the LAN. Tests: `test_media_detail.py` (two Health tests added), `test_first_screens_e3.py`
+(`test_lan_only_links_show_on_the_lan_only` re-pointed).
+
+Season state words (2026-10-19, WP-T1). B.: WAR (2026) read "all watched" with 3 of 8 episodes on disk and 5 still to
+air. New `hub/media_season_state.py` reads Sonarr live from the hub (no connector change): ONE `GET /api/v3/series`
+(the whole list, statistics per season, matched by TheTVDB id then TMDB id, never by title) serves every show on every
+page, and a show / season / episode page adds `GET /api/v3/episode?seriesId=&seasonNumber=` for each incomplete season
+(the latest 3) for exact aired / to-come counts and the next air date; both kept 10 min, a failed read keeps the last
+good answer and is not retried for 60 s. Pages never call Sonarr before the render: they draw from the cache and queue
+the reads as the response's BackgroundTask (the first view may lack the words, the next has them; a Sonarr failure
+never fails a page). Words: "Complete" · "5 to come · next airs 2 Nov" ("date TBA") · "2 aired, not downloaded" ·
+"Waiting for the first episode · airs 5 Dec" · "Season 3 announced"; a series with everything Sonarr knows of says
+"Complete" when Sonarr calls it ended, else "Up to date". Where they show: the show hero status line ("On server · 3 of 8
+episodes · all watched · 5 to come · next airs 2 Nov" — the state is always the last word), each Seasons row head
+("Season 4 · 3 of 6 watched · 5 to come · …"), the season / episode page "part of" line, My shows (a fully watched show
+with more due is "Caught up", grouped "Caught up · more to come", not "Finished"; the head line adds "N caught up" only
+when there are any), and Requests (a partly downloaded show: "Partly available · 3 of 8 episodes · 5 to come · …").
+On-server rule: a show is "On server" only with an episode file. A series Jellyfin lists with 0 episodes (Sonarr's
+folder before the first file; the connector already drops a counted 0, the hub now guards too via
+`media_library.empty_series`) is no library entry — left out of My shows (listed under "Waiting for the first episode"
+instead), the library keys (watchlist "On disk", shelf / collection "On server"), the Activity › Library links and the
+title page's library row; its item page and a Sonarr-only show's title page read "Requested · waiting for the first
+episode · airs 5 Dec" (no Play), and its Requests row says "Requested" whatever Seerr's word. Without Sonarr connected,
+or for a show Sonarr does not have, every page keeps its words. Tests: `tests/hub/test_season_state.py` (new, 25);
+`test_media_follow_shows.py`, `test_media_discover_search_now.py`, `test_media_requests_remove.py` re-pointed (their
+"no call at all" pins now allow the one background series-list read, `helpers.not_season_state`).
+2026-10-19 (WP-T2): the hub's Weather tile left the top row (now the three area cards in three equal columns, one on a phone) and the weather glimpse runs full width directly under "Next 7 days", its 7-day strip spreading across the row; tests: `test_hub_page.py` (two added, one re-pointed), `test_first_screens_e3.py` / `test_hidden_areas.py` / `test_weather.py` (re-pointed), `test_style_pages.py` (CSS block test added).
+Server clean-up (2026-10-19, WP-T3; review/2026-10-19-server/SERVER_REVIEW.md §1, S1–S9). The Server page is five bands:
+Attention → System → Services → Updates → Last 24 h. Gone: the tile row (S3; it only linked down the page, the hub card
+is the summary — Portainer is already a `media_status` app, so its LAN link tile simply dropped and its Services › System
+card stays; `_tile_row` and `.srvtiles` removed) and the Counts band (S1 + S2; Requests / Torrents / arr downloading
+repeated Activity, the arr disk bars repeated System's volumes; `_counts` and `.cols` removed). The Counts band's unique
+figures are ONE "Library health" line under Services › Downloads (`library_health`: "Radarr 2 wanted · 3 missing ·
+Sonarr 7 wanted · Prowlarr 3 failed grabs", only the non-zero parts, "all clear" otherwise, amber on failed grabs, and a
+Search missing link to `/media/requests?sweep_ask=missing` when anything is wanted or missing). The "Media stack" line
+shows only when stackctl is connected (S4). Sweeps · 24 h is one line under System ("7 connectors · all sweeps OK · Last
+sweep 12m ago" / "1 failing: gcal" / "2 not configured"; `sweep_summary`) with the rows in a fold that opens itself on a
+failing or not-configured row; the Last sweep stat moved into that line (S5). The disk projection (`disk_days`, lifted
+out of `disk_trend`) joins the PAGE's Attention under 30 days ("/volume1 reaches 85% in 23 days at this rate") — not
+`attention_items`, so the hub card and the Discord push are unchanged (the hub loop has no samples); Last 24 h is the
+last band, a `<details>` open on a desktop and closed on a phone (`data-phone-closed`, a small `joey.js` hook) (S6).
+Attention items carry their action (`attention_action`, S7): a down service "Open" (its card link, new tab) or
+"Services"; an Uptime Kuma monitor "Services"; a failing sweep "Sweeps" (#system). The Updates line reads "17 monitored
+· 2 updates · checked 2h ago", amber "Stale · checked …" only past the Updates tile's `stale_after_minutes` (S9). Tests:
+`tests/hub/test_server_cleanup.py` (new), `test_server_library_health.py` (was `test_server_counts.py`), and
+re-pointed `test_server.py`, `test_server_cards.py`, `test_server_history.py`, `test_server_not_configured.py`,
+`test_server_stack.py`, `test_server_updates.py`, `test_first_screens_e3.py`, `test_area_pages.py`,
+`test_style_pages.py`.
+Request quality profile (2026-10-21, WP-R1). Seerr has one Radarr and one Sonarr server (neither 4K), so 1080p / 4K is the
+arr app's quality profile, as Seerr's Advanced › Quality Profile. New `hub/media_quality.py`: `profiles(kind)` (Radarr /
+Sonarr `GET /api/v3/qualityprofile`, names as the app has them, `is_4k` from the name — 4k / 2160 / uhd — and the default
+from Seerr's `GET /api/v1/settings/radarr|sonarr` `activeProfileId`, else the first non-4K; kept 10 min, a failure keeps
+the last good list and is not retried for 60 s, never raises). The Request confirm step shows a "Quality" row of radio
+chips ("1080p · Default" preselected, "4K"; none with one profile or a failed read; TV: under the seasons picker, and
+the seasons onchange no longer unticks "All seasons + future" for a quality click); the POST validates `profile` (422
+"Pick a quality" for an id the app does not offer) and sends `profileId` to Seerr — no `serverId` needed (Seerr's
+MediaRequestSubscriber applies a profileId to the default server). Safety net: after a non-default request the arr
+entry is read back (3 reads, 2 s apart, before Sonarr's "All seasons + future" follow) and PUT + searched when its
+profile differs; the done line says "Requested in 4K ✓ — shows in Requests within the hour", plus a warning when the app
+had not added it yet. The title / item page lazy-loads `GET /media/title/{kind}/{tmdb}/quality` under the status line:
+"Quality · 1080p" from the arr entry's `qualityProfileId` (never a request's stored id) and "Switch to 4K" (a 4K title:
+"Switch to 1080p"), an inline confirm ("Radarr will look for a 4K file and keep the 1080p one until it arrives."), then
+the same-origin `POST …/quality` PUTs the app's own resource with the new profile and sends MoviesSearch / SeriesSearch
+("Switched to 4K · searching" / the failure word); no-JS: `?quality_ask=1` draws the panel, the POST 303s with
+`?qswitch=&qk=&qp=`. Requests page: a "4K" badge after a row's title when its arr profile is not the default — from
+caches only (Sonarr's series list the season words keep; media_requests' Radarr lookups), the missing reads (profile
+lists, up to 10 film lookups) in the response's BackgroundTask. `media_requests.find_kept` now shares one in-flight read
+between concurrent askers (the Search now and Quality fragments load together), and `kept()` peeks its cache. Call
+budget: a title view 0 before render, then ≤1 lookup (shared, 5 min) + ≤2 profile reads (10 min); a request +1
+validation read (cached) and, non-default only, ≤3 lookups + ≤1 PUT + ≤1 command. Tests: `tests/hub/test_media_quality.py`
+(new, 49 cases), `helpers.not_quality` (new), `conftest` (clears the profile cache), re-pointed `test_media_episodes.py` (confirm
+step reads the profiles), `test_media_requests_remove.py` (two call-list pins), `test_season_state.py` (Requests page pin).
+
+**App links (WP-L1, 2026-10-21).** Activity › Downloads and Activity › Requests carry a small "Open qBittorrent ↗" / "Open Seerr ↗" glass button under the page head (`templates/_app_link.html`, `media_pages.app_link`): the Health row's logo (or initial tile) and the gated hostname, else the media_status snapshot's LAN address with a "LAN" word; nothing when that snapshot or the app is absent. Tests: `tests/hub/test_app_links.py` (new).
+
+**Below cutoff + Why? (WP-U1, 2026-10-21).** B. saw "Upgrade available" on Brothers (2026) S01E01 (HDTV-1080p) after
+"Search upgrades" had run — Sonarr's own words: "Completed search for 1 episodes. 0 reports downloaded." — and its
+interactive search showed why: 30 releases, all rejected, nearly all by the "1080p" profile's minimum custom-format score
+(1000) that nothing reaches. So: (1) the label reads "Below cutoff · <have> → wants <want>" on every surface (list rows,
+cards, hero, Requests, Downloads; `media_upgrades.LABEL`), and the `arr` connector names a cutoff quality GROUP by its
+members ("WEB/Bluray 1080p", never "Default"). (2) The connector reads each app's `GET /api/v3/command` (one call per app
+per sweep) into `upgrades.last_search`; Downloads shows "Last upgrade search · Sonarr · 21 Oct 00:59 · 1 searched ·
+0 downloaded" under the Search buttons. (3) Each Downloads › Upgrades row gets "Why?" (`media_upgrade_why.py`,
+`_upgrade_why.html`, `.upwhy` CSS): confirm → the app's interactive search (90 s, threadpooled, kept 1 h) → summary,
+grouped reasons, the custom-format hint, top 5 releases with "Grab anyway" (confirm → `POST /api/v3/release` with the kept
+guid + indexer id; "Grab sent · check Downloads in a minute" or the failure word). The connector also adds `profile` to
+every row and `episode_id` to Sonarr rows (the episode Why? searches). Arr call budget: page render 0; Why? confirm 0;
+Why? 1 interactive search per row per hour; Grab 1 POST; connector +1 small call per app per 120 s sweep. Tests: new
+`tests/hub/test_media_upgrade_why.py` (28); `tests/connectors/test_arr_upgrades.py` (+6, 3 re-pointed),
+`test_contract_doc.py` (+1), call counts in `test_arr.py`, `test_arr_counts.py`, `test_http.py`; the three F4b hub files
+re-pointed to the new wording (dated docstrings); `conftest` clears the Why? cache; `config/sample_snapshots/arr.json`
+regenerated.
+
+**Guest front: `joey-media`, `JOEY_FRONT`, route classification (Joey TV WP-B1, 2026-10-21).** The hub image can now run as a
+second, guest-facing process. `hub/guest.py` holds `front()` (`JOEY_FRONT` = unset / `private` / `media`, anything else stops
+startup), the GUEST / PRIVATE / RESERVED route tables, `allows()` (deny by default, HEAD = GET, the guest home `/a/<shelves id>`
+resolved at runtime), the `GuestGate` middleware (registered first, so it is innermost and the request log sees its answers)
+and the media-mode snapshot scrub. On the media front `/` redirects to the guest home, an allowed route without an identity
+redirects to `/signin?next=`, and every other path, unknown ones included, gets the same Joey 404 page; the media front
+ignores the Cloudflare Access email header. The private front only gains a Host guard: a request for `MEDIA_PUBLIC_HOST`
+(default `media.joeyhome.net`) answers 404. `shell.get_snapshots` is the one read point and, on the media front, keeps only
+`jellyfin`, `jellyseerr` and `arr` with B.'s played state and the requester name removed; `tasks.lifespan` starts no loop there.
+`Identity` gained `jf_user_id` and `jf_token` (default `None`) and `guest.TV_UA_TOKEN = "JoeyTV/"` is the TV shell's user-agent
+token; both are frozen interfaces (`hub/README.md`). `/healthz` adds `front` and, on the media front, `home`. Compose gained
+`joey-media` behind `profiles: [media]`: dark, no published port, snapshots `:ro`, no backups mount, 384m, `media.env` only
+(`deploy/README.md`, `docs/network.md`, `docs/setup.md`); `deploy.sh` runs its smoke only when the profile is active. A route
+that is not in one of the three tables fails `tests/hub/test_guest_routes.py` by name. Tests: new `test_guest_routes`,
+`test_guest_surface`, `test_guest_snapshots`, `test_guest_lifespan`, `tests/deploy/test_joey_media_service.py` and
+`test_route_sweep.py` (`tests/README.md`); `test_compose_limits` and `tests/connectors/test_container.py` gained the service.
+
+**Guest sign-in and fail-closed owners (Joey TV WP-B2, 2026-10-21).** The media front now has its own sign-in. A guest signs
+in with Jellyfin Quick Connect (code on the page, approved on a phone) or username and password; the Jellyfin access token is
+the session, kept in `__Host-jm_session` (90 days absolute) beside `__Host-jm_qc` (10 min) and `__Host-jm_dev` (the device id).
+`hub/guest_auth.py` re-validates it against Jellyfin `/Users/Me` (verdict kept 60 s, up to 300 s more while Jellyfin does not
+answer; a dead token clears the cookie, an unreachable Jellyfin is a 503 with the cookie kept) and refuses a disabled user, an
+administrator or a user with remote access off (P1). Wrong passwords are counted per username, 5 in 15 min, in process, and
+refused without calling Jellyfin so Jellyfin's own lockout is never reached. The five routes (`GET /signin`, `POST /signin/qc/start`,
+`GET /signin/qc/poll`, `POST /signin/password`, `POST /signout`) replaced the RESERVED `/signin*` entries; `GET /signout` is a 404.
+`media_db.owner_of` / `owner_filter` now raise on a malformed `jf:` key and, on the media front, on any view that is not
+`you` / `her` / a friend key, so a friend can never read or write B.'s rows (the gate flagged in WP-B1 before the `media` profile
+is enabled); plays, home shelves, resume, `shell.resolve_owner_view` and the diary scope follow. P3: on the media front Jellyfin
+reads and resume writes use the signed-in user's own id and token, never the admin's. `GUEST_DEV_OWNER` must now be a
+well-formed `jf:<32 hex>` key. Tests: new `test_guest_owner`, `test_guest_auth`, `test_guest_signin`, `test_guest_no_leak`
+and the fake Jellyfin `tests/hub/fake_jellyfin.py` (`tests/README.md`). Docs: `hub/README.md` "Guest sign-in", `docs/setup.md`.
+
+**TV app download and update endpoints: `/app` (Joey TV WP-B8, 2026-10-21).** The media front gains `hub/tv_app.py`: `GET /app` (plain HTML,
+no JS: version, notes, one big Download link, Downloader steps; "No build published yet" while empty), `GET /app/version.json`
+(`Cache-Control: no-cache`, the app's daily update check), `GET /app/latest.apk` (302 to the versioned APK, `no-store`, a short URL for
+Downloader) and `GET /app/<joey-media-semver-code.apk>` (`application/vnd.android.package-archive`, `public, max-age=31536000, immutable`);
+anything else under `/app` is the ordinary byte-identical 404. They read `TV_APP_DIR` (`/data/tv-app`, mounted `:ro` from
+`/volume1/Docker/joey/data/tv-app`), which `deploy.sh`'s `deploy/tv_publish.py` fills from the GitHub Release `tv-<versionCode>`. In
+`hub/guest.py` GET `/app` and `/app/{rest:path}` moved from RESERVED to GUEST and PUBLIC (Q37: no sign-in); on the private front every
+`/app` path is the same 404. Tests: `tests/hub/test_tv_app_routes.py`. Docs: `docs/tv-release.md`, `hub/README.md` "Guest front".
+
+**Recorder: a finished play seen again is not a second play row (Joey TV playfix, 2026-10-21).** After a play crossed
+`FINISHED_PCT` (90 %), every later poll that still saw the session at >= 90 % inserted a new `play` row, inflating play counts,
+History stats and `watch_count` (found by WP-B3). `media_plays_db.record_sighting` now takes the latest row of the same `owner` +
+`jf_id` seen within `OPEN_GAP`; a finished one seen again at >= `RESTART_PCT` (10 %) only has its `last_seen_at` / `position_pct`
+updated and stays finished. Below 10 % (a re-watch from the start) or after `OPEN_GAP` it is still a new row. Schema unchanged;
+the friend diary (WP-B3) stays one row. Tests: four new in `tests/hub/test_media_plays.py` and `tests/hub/test_friend_diary.py`.
+
+**TV mode matched to the signed-off mockup (Joey TV WP-B3 follow-on, 2026-10-21).** The WP-B3 build shipped TV mode as a first
+pass; `hub/static/tv.css` now follows `JoeyTV/mockups/tv-mode.html`. Overview: no page-head band (the template skips it in TV
+mode), shelves run edge to edge with 14 / 10 px padding, an orange 5 px progress bar over the poster foot. Movies / TV shows: the
+head band shrinks to a sticky sub-tab row under the top bar, a six-column grid, the search / Grouped / sort toolbar, "New this week"
+and the freshness lines hidden, grid captions show the year only. Title page: hero layout with a three-line synopsis, the worded
+Watchlist button and the 1-10 chips (`media_film.html` branches on `tv_mode(request)`; `_rate.html` `picker(r, label)` takes the
+label). Set up Jellyfin: a full-screen card, `:8443` gold and underlined. Sign-in: spacing around the waiting line and the
+"Get a new code" button. Brand 22 px bold; 16 px floor; no `:hover`. `tv.js`: the D-pad stays on the Set up card, scroll-into-view
+accounts for the sticky sub-tabs. Guest manifest shortcuts read Movies / TV shows / Discover. Tests: `test_tv_mode.py` pins no
+`:hover` in `tv.css` and that the private front links no TV asset. Docs: `hub/README.md` "Guest surface and TV mode".
+
+**Friend requests through Seerr (Joey TV WP-B4, 2026-10-21; TV styling follow-on same day).** `GET` + `POST
+/media/title/{kind}/{tmdb_id}/request` moved from RESERVED to GUEST (`RESERVED` is now empty): a friend's request is sent
+with the admin key plus `X-Api-User: <their Seerr id>` so Seerr creates it AS them, pending (DECISIONS B #19). The Seerr id is
+looked up by `jellyfinUserId` (1 h cache); a friend with none is imported on their first request (that friend only, Q29). A
+friend whose Seerr user could approve is refused before sending; no quality profile and no Sonarr follow on the media front
+(Q19); nothing approves, declines or removes (B. declines in Seerr; the friend sees Declined). New `hub/media_guest_requests.py`;
+the one POST stays `media_discover._send`. The Discover screen (WP-M screen 10) is a poster grid with In library / Requested /
+Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css` styles Discover and the panel to the mockup
+(six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
+Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
+`docs/public-edge.md` R1 step 4.

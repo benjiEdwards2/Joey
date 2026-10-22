@@ -159,12 +159,16 @@ def hero(html):
 
 # ---- item 5: no "Episode of" line ----
 
-def test_episode_hero_has_no_episode_of_line_but_keeps_the_rest(env):
+def test_episode_hero_carries_the_crumbs_and_position_and_keeps_the_rest(env):
+    """media-ux4 dropped the "Episode of <Show>" line; the TV episode flow (2026-10-16) puts crumbs in the hero instead:
+    the show (all seasons) and the season are the two ways back, and the eyebrow says where the episode sits."""
     client, _ = env()
     with client:
         h = hero(client.get("/media/item/ep3").text)
         b = main_of(client.get("/media/item/ep3").text)
-    assert "Episode of" not in h and 'href="/media/item/ser1"' not in h
+    assert "Episode of" not in h
+    assert '<nav class="crumbs"' in h and 'href="/media/item/ser1">' in h and 'href="/media/item/sea1">Season 4</a>' in h
+    assert "E3 of 6" in h
     assert "S04E03 · Penny for Your Thoughts" in h and "Coins go missing." in h and "Quiet Show (2020)" in h
     assert 'href="/media/item/ser1#seasons"' in b                     # the banner still leads to the show
 
@@ -274,7 +278,7 @@ def test_confirm_step_offers_all_seasons_plus_future_unticked_first(tv_env):
     assert confirm.index('value="all"') < confirm.index('<div class="seasonpick">') < confirm.index('value="4"')
     assert 'value="all" checked' not in confirm and "checked" not in confirm.split('<div class="seasonpick">')[1]
     assert "onchange=" in confirm
-    assert son.calls == []
+    assert tmi.not_quality(son.calls) == []   # WP-R1: the confirm step reads the quality profiles
 
 
 def test_all_plus_specific_season_prefers_the_specific_season(tv_env):

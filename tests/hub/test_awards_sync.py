@@ -196,9 +196,12 @@ def test_timeout_and_5xx_leave_the_edition_pending_and_the_pass_goes_on(setup):
 
 
 def test_a_page_without_award_categories_is_skipped_and_a_missing_old_page_too(setup):
+    shapeless = {"parse": {"title": "78th British Academy Film Awards", "pageid": 1,   # WP-D1: old pages parse now
+                           "wikitext": "Prose only.\n==See also==\n* [[Somewhere]]"}}
+
     def old_shape(kind, params):
         if kind == "parse" and params["page"].startswith("78th"):
-            return Resp(body=load("wp_globes_40.json"))
+            return Resp(body=shapeless)
         return None
     client, _, _ = setup(old_shape)
     with closing(adb.ensure()) as db:
@@ -208,6 +211,84 @@ def test_a_page_without_award_categories_is_skipped_and_a_missing_old_page_too(s
     assert states()[("sag", 12)] == ("skipped", "no page") and counts["skipped"] == 2
     second = ma.run_pass(client=setup(editions=False)[0], today=TODAY)
     assert second["skipped"] == 0                          # skipped editions are never retried
+
+
+def test_a_table_shape_page_is_pulled_done_with_its_nominations(setup):
+    """WP-D1 (2026-10-16): the 80th Globes page (tables, no {{Award category}}) lands as a done edition."""
+    def globes_80(kind, params):
+        if kind == "parse" and params["page"] == "80th Golden Globe Awards":
+            return Resp(body=load("wp_globes_80.json"))
+        return None
+    client, _, _ = setup(globes_80, editions=False)
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "globes", [{"ordinal": 80, "year": 2023}])
+    counts = ma.run_pass(client=client, today=TODAY)
+    assert counts["editions"] == 1 and counts["skipped"] == 0 and states()[("globes", 80)] == ("done", None)
+    assert counts["rows"] == nom_count() > 100
+    film = adb.edition_page("globes", 2023, "film")
+    drama = film["categories"][0]                                   # the hero: best-motion-picture-drama
+    assert drama["name"] == "Best Motion Picture – Drama" and drama["rank"] == 0
+    assert drama["cat_key"] == qid_for("Golden Globe Award for Best Motion Picture – Drama")
+    assert drama["entries"][0]["won"] and drama["entries"][0]["work"]["title"] == "The Fabelmans"
+    assert len(drama["entries"]) == 5 and sum(e["won"] for e in drama["entries"]) == 1
+    tv = adb.edition_page("globes", 2023, "tv")
+    assert tv["categories"][0]["name"] == "Best Television Series – Drama"
+
+
+def test_a_parser_bump_requeues_shapeless_skips_once(setup, caplog):
+    """WP-D1: a stored parser_v older than PARSER_V puts every 'no page shape' skip back to pending (once); other
+    skips and done editions are untouched; the re-queued edition is then pulled by the normal backlog.
+    WP-D3: the same bump re-queues a `done` Wikipedia-sourced edition with nominations but no winner (a done one with a
+    winner, or with no nominations, stays); the pass rewrites it whole, winners included."""
+    caplog.set_level("INFO", logger="hub.media_awards")
+    pages = {"40th Golden Globe Awards": "wp_globes_40.json", "10th Critics' Choice Awards": "wp_critics_10.json"}
+
+    def old_pages(kind, params):
+        if kind == "parse" and params["page"] in pages:
+            return Resp(body=load(pages[params["page"]]))
+        return None
+
+    def winnerless(db):
+        adb.set_state(db, "critics", 10, "done", None, synced=True)
+        with db:
+            db.execute("DELETE FROM award_nomination WHERE body_id = 'critics' AND ordinal = 10")
+            db.executemany("INSERT INTO award_nomination(body_id, ordinal, cat_key, work_qid, work_title, won, pos, "
+                           "source) VALUES('critics', 10, 'stale', ?, ?, 0, ?, 'wp')", [("~a", "A", 0), ("~b", "B", 1)])
+    client, _, _ = setup(old_pages, editions=False)
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "globes", [{"ordinal": 40, "year": 1983}, {"ordinal": 41, "year": 1984}])
+        adb.upsert_editions(db, "sag", [{"ordinal": 12, "year": 2006}])
+        adb.upsert_editions(db, "critics", [{"ordinal": 10, "year": 2005}, {"ordinal": 11, "year": 2006}])
+        adb.set_state(db, "globes", 40, "skipped", "no page shape (none)", synced=True)
+        adb.set_state(db, "globes", 41, "done", None, synced=True)
+        adb.set_state(db, "sag", 12, "skipped", "no page", synced=True)
+        winnerless(db)
+        adb.set_state(db, "critics", 11, "done", None, synced=True)
+        with db:
+            db.executemany("INSERT INTO award_nomination(body_id, ordinal, cat_key, work_qid, work_title, won, pos, "
+                           "source) VALUES('critics', 11, 'x', ?, ?, ?, ?, 'wp')", [("~c", "C", 1, 0), ("~d", "D", 0, 1)])
+        adb.set_sync(db, "parser_v", 1)
+        assert ma.requeue_on_parser_bump(db) == 2
+        assert adb.get_sync(db, "parser_v") == str(ma.PARSER_V)
+        assert ma.requeue_on_parser_bump(db) == 0                   # once per bump
+    assert "1 shapeless skips, 1 winner-less editions re-queued" in caplog.text
+    assert states()[("globes", 40)] == ("pending", None) and states()[("critics", 10)] == ("pending", None)
+    assert states()[("globes", 41)] == ("done", None) and states()[("sag", 12)] == ("skipped", "no page")
+    assert states()[("critics", 11)] == ("done", None)
+    with closing(adb.ensure()) as db:                              # a pass does the same on its own
+        adb.set_state(db, "globes", 40, "skipped", "no page shape (none)", synced=True)
+        winnerless(db)
+        adb.set_sync(db, "parser_v", 1)
+    counts = ma.run_pass(client=client, today=TODAY)
+    assert counts["requeued"] == 2 and counts["editions"] == 2 and states()[("globes", 40)] == ("done", None)
+    assert states()[("critics", 10)] == ("done", None)
+    with closing(adb.ensure()) as db:
+        rows = db.execute("SELECT cat_key, won FROM award_nomination WHERE body_id = 'critics' AND ordinal = 10").fetchall()
+    assert "stale" not in {r["cat_key"] for r in rows}             # rewritten whole
+    assert len({r["cat_key"] for r in rows if r["won"]}) == 18
+    best = next(c for c in adb.edition_page("critics", 2005, "film")["categories"] if c["name"] == "Best Picture")
+    assert best["entries"][0]["won"] and best["entries"][0]["work"]["title"] == "Sideways"
+    assert ma.run_pass(client=setup(editions=False)[0], today=TODAY)["requeued"] == 0
 
 
 def test_a_parser_exception_marks_failed_and_logs_the_type_only(setup, monkeypatch, caplog):

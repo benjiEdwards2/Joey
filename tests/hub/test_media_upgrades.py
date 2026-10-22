@@ -1,6 +1,7 @@
 """F4b (2026-10-12): "Upgrade available" — the hub side of the arr snapshot's `data.upgrades` (Radarr / Sonarr cutoff
 unmet). Unit tests for hub/media_upgrades.py: the index, the note, the show bridging (tvdb key, a known TheTVDB id,
-the unique title) and the Downloads block. Pages and the per-title search: test_media_upgrades_pages.py."""
+the unique title) and the Downloads block. Pages and the per-title search: test_media_upgrades_pages.py.
+Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>"."""
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,12 +20,12 @@ def snaps(upgrades=..., **extra):
 
 
 def test_note_film_show_and_unknown_cutoff():
-    assert mu.note({"have": "WEBDL-720p", "want": "Bluray-1080p"}) == "Upgrade available · WEBDL-720p → Bluray-1080p"
+    assert mu.note({"have": "WEBDL-720p", "want": "Bluray-1080p"}) == "Below cutoff · WEBDL-720p → wants Bluray-1080p"
     assert (mu.note({"episodes": 3, "have": "SDTV", "want": "WEB 1080p"})
-            == "Upgrade available · 3 episodes · SDTV → WEB 1080p")
-    assert mu.note({"episodes": 1, "have": "SDTV", "want": None}) == "Upgrade available · 1 episode"
-    assert mu.note({"have": None, "want": None}) == "Upgrade available"
-    assert mu.note({"have": None, "want": "Bluray-1080p"}) == "Upgrade available · to Bluray-1080p"
+            == "Below cutoff · 3 episodes · SDTV → wants WEB 1080p")
+    assert mu.note({"episodes": 1, "have": "SDTV", "want": None}) == "Below cutoff · 1 episode"
+    assert mu.note({"have": None, "want": None}) == "Below cutoff"
+    assert mu.note({"have": None, "want": "Bluray-1080p"}) == "Below cutoff · wants Bluray-1080p"
     assert mu.note(None) == ""
 
 
@@ -32,8 +33,8 @@ def test_index_keys_both_lists_by_item_key():
     idx = mu.index(snaps(SAMPLE))
     assert set(idx) == {"tmdb:1001", "tmdb:1002", "tmdb:1003", "tvdb:2001", "tvdb:2002"}
     assert idx["tmdb:1001"]["app"] == "radarr" and idx["tvdb:2001"]["app"] == "sonarr"
-    assert idx["tmdb:1001"]["note"] == "Upgrade available · WEBDL-720p → Bluray-1080p"
-    assert idx["tvdb:2001"]["note"] == "Upgrade available · 3 episodes · SDTV → WEB 1080p"
+    assert idx["tmdb:1001"]["note"] == "Below cutoff · WEBDL-720p → wants Bluray-1080p"
+    assert idx["tvdb:2001"]["note"] == "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
 
 
 def test_index_is_empty_without_upgrades_or_with_null_lists():
@@ -72,11 +73,11 @@ def test_attach_labels_rows_and_needs_a_unique_library_title():
              {"item_key": "tmdb:5", "title": "Garden Lane"}, {"item_key": "tmdb:6", "title": "Night Ferry"},
              {"item_key": "tmdb:7", "title": "Night Ferry"}]
     mu.attach(shows, snaps(SAMPLE), "tv")
-    assert [r["upgrade"] for r in shows] == ["Upgrade available · 3 episodes · SDTV → WEB 1080p",
-                                             "Upgrade available · 1 episode · WEBDL-720p → Bluray-1080p", "", "", ""]
+    assert [r["upgrade"] for r in shows] == ["Below cutoff · 3 episodes · SDTV → wants WEB 1080p",
+                                             "Below cutoff · 1 episode · WEBDL-720p → wants Bluray-1080p", "", "", ""]
     films = [{"item_key": "tmdb:1001", "title": "Harbour Lights"}, {"item_key": "jf:x", "title": "Desert Crossing"}]
     mu.attach(films, snaps(SAMPLE), "movie")
-    assert films[0]["upgrade"].startswith("Upgrade available") and films[1]["upgrade"] == ""   # films: key only
+    assert films[0]["upgrade"].startswith("Below cutoff") and films[1]["upgrade"] == ""   # films: key only
     old = [{"item_key": "tmdb:1001", "title": "Harbour Lights"}]
     mu.attach(old, snaps(), "movie")
     assert old[0]["upgrade"] == ""
@@ -94,7 +95,7 @@ def test_block_states():
     b = mu.block(snaps(SAMPLE))
     assert b["state"] == "ok" and b["totals_text"] == "3 films · 2 shows" and b["off"] == []
     assert [(r["kind"], r["title"]) for r in b["rows"]][:1] == [("movie", "Copper Sky")]
-    assert b["rows"][-1]["kind"] == "tv" and b["rows"][-1]["note"].startswith("Upgrade available · 3 episodes")
+    assert b["rows"][-1]["kind"] == "tv" and b["rows"][-1]["note"].startswith("Below cutoff · 3 episodes")
     half = mu.block(snaps({"radarr": SAMPLE["radarr"], "sonarr": None, "totals": {"movies": 1}}))
     assert half["totals_text"] == "1 film" and half["off"] == ["Sonarr"]
 

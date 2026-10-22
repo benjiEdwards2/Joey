@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from hub import media_db, media_watchlist_db as wl, shell
+from hub.media_library import empty_series
 from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_write import bad, clean_item, form_of, is_htmx, owner_for, same_origin
 from hub.shell import templates  # the ONE shared Jinja env (M-23 / H-31)
@@ -35,7 +36,8 @@ def keys_for(request: Request, keys) -> set:
 
 
 def on_server_keys(jelly: dict, kind: str) -> set:
-    return {i.get("item_key") for i in (jelly or {}).get(FIELD[kind]) or [] if i.get("item_key")}
+    """The library keys of one kind. WP-T1: a show with no episode yet (media_library.empty_series) is not on the server."""
+    return {i.get("item_key") for i in (jelly or {}).get(FIELD[kind]) or [] if i.get("item_key") and not empty_series(i)}
 
 
 def tab_counts(owner: str, jelly: dict | None) -> dict:
@@ -53,8 +55,10 @@ def _item(f: dict) -> dict:
     return {**item, "tmdb_id": int(tmdb)}
 
 
-def _button(request: Request, item: dict, on: bool, compact: bool):
-    return templates.TemplateResponse(request, "_watchlist_btn.html", {"w": item, "on": on, "compact": compact})
+def _button(request: Request, item: dict, on: bool, compact: bool, style: str | None = None):
+    """The button fragment in the style it was posted from (compact "+", the ballot row's worded button, or the icon)."""
+    return templates.TemplateResponse(request, "_watchlist_btn.html",
+                                      {"w": item, "on": on, "compact": compact, "style": style})
 
 
 def _back(request: Request, kind: str) -> RedirectResponse:
@@ -82,7 +86,7 @@ def _apply(request: Request, adding: bool, f: dict):
         log.warning("watchlist not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the watchlist") from None
     if is_htmx(request):
-        return _button(request, item, adding, f.get("compact") == "1")
+        return _button(request, item, adding, f.get("compact") == "1", "ballot" if f.get("style") == "ballot" else None)
     return _back(request, item["kind"])
 
 

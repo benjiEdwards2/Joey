@@ -262,6 +262,13 @@ a.row:hover { background: var(--soft); }
   background: var(--soft); color: var(--text-3); font-size: 11px; font-weight: 600; }
 .userchip .uname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .userchip small { display: none; font-size: 12px; white-space: nowrap; }
+/* Guest sign-out (Joey TV, 2026-10-22): on the media front the chip is a button opening a small confirm <dialog>. */
+button.userchip { padding: 0; border: 0; background: none; font: inherit; font-size: 12px; color: var(--text-5); cursor: pointer; }
+.signoutdlg { width: min(360px, calc(100vw - 32px)); margin: auto; padding: 20px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--zinc-950); color: var(--text-1); }
+.signoutdlg::backdrop { background: var(--scrim); }
+.signout-q { margin: 0; font-size: 16px; font-weight: 600; }
+.signoutdlg .metaline { margin: 4px 0 16px; }
 @media (min-width: 640px) { .topbar-in { padding: 0 24px; } }
 /* E3 (U9 option a, 2026-10-13): Media mode on a phone (the brand holds .brand-back only in Media mode; it keyed on the
    media-ux5 docking swap until nav-tidy removed it) — the brand reads "‹ Joey" and the bar stays at the top, 48 px
@@ -404,9 +411,6 @@ h2 { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap:
 
 /* ---- Pages (restyle Phase 4, 2026-10-06): layout helpers shared by the Hub, Server, area and Weather pages. ---- */
 .narrow { max-width: 32rem; }
-/* Side-by-side groups: as many 20rem columns as fit, one on a phone (min(100%, 20rem) never exceeds the page). */
-.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: 20px; align-items: start; min-width: 0; }
-.cols > * { min-width: 0; }
 .panel-warn { display: flex; flex-direction: column; gap: 6px; border-color: var(--warn-line); background: var(--warn-soft); }
 /* .kv: a panel of label / value lines (the guide's spec-sheet lines, grid 6.5rem + minmax(0,1fr)). */
 .kv { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -458,8 +462,6 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
 @media (max-width: 640px) { .tiles { grid-template-columns: minmax(0, 1fr); } }
 /* E3 (U3, 2026-10-13): on a phone the tiles that repeat the band below (Calendar, Weather) drop out. */
 @media (max-width: 639px) { .tiles > .dup { display: none; } }
-/* E3 (U12, 2026-10-13): the Server page's tile row only links to bands further down the same page — not on a phone. */
-@media (max-width: 639px) { .srvtiles { display: none; } }
 
 /* "Next 7 days": one .row per event. Phone: title + owner, then "Today · 10:00" as the meta line. From 640 px a grid
    (When · Event · Owner) under uppercase column heads. The owner is a word; no colour is needed to read it. */
@@ -619,6 +621,12 @@ label.row input[type=radio] { flex-shrink: 0; }
 /* Filter chips: a 1-10 score chip keeps its grade colour; a chip holding a checkbox hides the box. */
 .chip[class*="score-"] { font-variant-numeric: tabular-nums; min-width: 32px; justify-content: center; padding: 0 8px; }
 .chip > input[type=checkbox] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+/* WP-R1 (2026-10-21): a radio chip (the Request confirm's Quality row) fills white while picked; the word "Default"
+   names Seerr's own pick, so colour is never the only cue. */
+.chip:has(> input[type=radio]) { position: relative; cursor: pointer; }
+.chip > input[type=radio] { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.chip:has(> input:checked) { background: var(--zinc-100); border-color: var(--zinc-100); color: var(--zinc-900); }
+.chip:has(> input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
 button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none; cursor: pointer; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 
@@ -984,44 +992,24 @@ div.svc-card:not(.is-down):hover { background: var(--surface); border-color: var
 .svc-note { font-size: 12px; font-weight: 400; color: var(--text-5); font-variant-numeric: tabular-nums; }
 
 /* Awards (AWARDS_PLAN A4, 2026-10-08): Movies / TV Shows > Awards. Coming up is a .stats strip (teal when the date is
-   known); the ceremony picker is .chips; the stepper is two glass buttons around the year; the hero winner is a big
-   poster beside its name, the nominees a carousel; categories are .panel cards (1 / 2 / 3 columns) with a winner row
-   and a 4-up row of small nominee thumbnails. Seen is an emerald tag; "Won" the emerald word. Film / person pages
-   reuse .awlines rows. */
+   known); categories are .panel cards (1 / 2 / 3 columns) with a winner row and a 4-up row of small nominee thumbnails.
+   Seen is an emerald tag; "Won" the emerald word. Film / person pages reuse .awlines rows. The page itself is the films
+   ballot since 2026-10-14: its rules sit in the "Awards ballot (2026-10-14)" block at the end of this file (the hero,
+   podium, ceremony-tile row, year stepper and native year dropdown of awards-ui were removed then). */
 .awcoming-names { min-height: 32px; padding-top: 4px; font-size: 14px; font-weight: 600; line-height: 1.4;
   color: var(--text-2); overflow-wrap: anywhere; }
 .awcoming-names .sep { color: var(--text-6); }
 @media (max-width: 639px) { .awcoming-names { font-size: 13px; } }
 .aw-date { color: var(--teal); }
-.awstep { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-.awyear { min-width: 3.5em; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums;
-  color: var(--text-1); }
-.awstep .chip { margin-left: auto; }
-/* awards-ui item 2 (2026-10-09): the reference layout. The year is a native select between the arrows (18 px, over 16 so a
-   phone never zooms); the edition line sits beside it; Not seen keeps to the right. */
-.awyearform { display: flex; align-items: center; gap: 6px; margin: 0; }
-.awyearform .awyear { height: 32px; min-width: 0; padding: 0 8px; font-size: 18px; font-weight: 600; color: var(--text-1); }
-.awstep .awed { min-width: 0; overflow-wrap: anywhere; }
-/* awards-year (2026-10-09): "Current year" sits beside the stepper (Not seen alone keeps to the right); the fallback
-   note under the stepper is plain muted metaline text. */
-.awstep .awcur { margin-left: 0; }
 .awyearnote { margin-top: 6px; }
-@media (max-width: 639px) { .awstep .awed { flex: 1 1 100%; order: 5; } }
 /* Coming up: each ceremony with its mark; the next one outlined + the word "Next". */
 .awev .awic { margin-right: 4px; }
 .awev.is-next { color: var(--text-1); text-decoration: underline 2px var(--teal); text-underline-offset: 4px; }
 .awnext { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--teal);
   text-decoration: none; display: inline-block; }
-/* Ceremony tiles: mark over name; the picked one gold-outlined with a gold mark. On a phone the row scrolls sideways
-   inside its own box (the page itself never does). */
-.awtiles { min-width: 0; margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; }
-.awtiles::-webkit-scrollbar { display: none; }
-@media (min-width: 640px) { .awtiles { margin: 0 -24px; padding: 0 24px; } }
-@media (min-width: 1024px) { .awtiles { margin: 0; padding: 0; overflow: visible; } }
-.awtiles-row { display: flex; gap: 8px; width: max-content; padding: 2px 0 4px; }
-@media (min-width: 1024px) { .awtiles-row { width: auto; flex-wrap: wrap; } }
-.awtile { display: flex; flex: 0 0 96px; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  width: 96px; min-height: 84px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--line);
+/* Ceremony tiles (now in the picker sheet's grid): mark over name; the picked one gold-outlined with a gold mark. */
+.awtile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; min-height: 84px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--line);
   background: var(--surface); color: var(--text-4); text-decoration: none; text-align: center;
   transition: border-color .15s, color .15s; }
 .awtile:hover { border-color: var(--line-hover); color: var(--text-2); }
@@ -1036,38 +1024,11 @@ div.svc-card:not(.is-down):hover { background: var(--surface); border-color: var
 .awframe.is-won > img { box-shadow: 0 0 0 2px var(--gold), 0 0 16px var(--gold-glow); }
 .awthumb .card-pic > img { box-shadow: var(--shadow-poster), 0 0 0 1px var(--line); }
 .aw-won { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); font-weight: 600; }
-.awpill { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; min-height: 24px;
-  padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--text-3); font-size: 11px;
-  font-weight: 700; text-transform: uppercase; letter-spacing: .08em; overflow-wrap: anywhere; }
-.awpill.is-won { border-color: var(--gold); background: var(--gold); color: var(--zinc-950); }
-.awtally { display: inline-flex; align-items: center; gap: 6px; color: var(--gold); font-size: 14px; font-weight: 600; }
-.awseen { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; }
-/* The hero: the winner's backdrop under the page-header scrim (else a faint gold glow), a big gold-framed poster. */
-.awhero { position: relative; isolation: isolate; overflow: hidden; padding: 16px; border-radius: 16px;
-  border: 1px solid var(--border); background: radial-gradient(40rem 20rem at 15% 0%, var(--gold-soft), transparent), var(--surface); }
-@media (min-width: 640px) { .awhero { padding: 24px; } }
-.awhero-bd { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
-.awhero.has-bd { border-color: var(--line); }
-.awhero.has-bd::before { content: ""; position: absolute; inset: 0; z-index: -1;
-  background: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 45%, var(--pagehead-fade-2) 100%); }
-@media (min-width: 640px) { .awhero.has-bd::before {
-  background: linear-gradient(90deg, var(--pagehead-side-0) 0%, var(--pagehead-side-1) 45%, var(--pagehead-side-2) 85%),
-    linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-foot-1) 32%, var(--pagehead-foot-2) 68%); } }
-.awhero .awwin-title { text-shadow: var(--title-shadow); }
-.awhero .awwin .card-pic > img { border-radius: 10px; }
-.awhero-label { margin-top: 4px; }
 /* Category cards: mark + name head; the winner's poster bigger, in its gold frame. */
 .awcat-head { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-4); }
 .awcat .awrow .row-poster { width: 56px; border-radius: 6px; }
 .awcat .awrow .awframe.is-portrait .row-poster { border-radius: 999px; aspect-ratio: 1; object-position: center 20%; }
 .poster-tag.is-seen { background: var(--good); }
-.awwin { display: flex; align-items: flex-end; gap: 16px; min-width: 0; color: inherit; text-decoration: none; }
-.awwin .card-pic { flex: 0 0 140px; width: 140px; }
-@media (min-width: 640px) { .awwin .card-pic { flex-basis: 200px; width: 200px; } }
-.awwin-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.awwin-title { font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: var(--text-1); overflow-wrap: anywhere; }
-.awwin:hover .awwin-title { color: var(--text-2); }
-.awwin .row-meta { font-size: 13px; }
 .awgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 @media (min-width: 768px) { .awgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (min-width: 1024px) { .awgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
@@ -1103,27 +1064,6 @@ a.awline:hover { background: var(--soft); }
 .awbadge-n { font-weight: 700; }
 .awnoms .awbadge { right: 3px; bottom: 3px; min-width: 20px; height: 20px; padding: 0 3px; }
 .awnoms .awbadge .awic { width: 12px; height: 12px; }
-/* Most wins podium (awards-ui item 4): the top three of the edition, set out 2nd · 1st · 3rd (the list stays 1-2-3
-   for screen readers), each poster framed gold / silver / bronze over its numbered step, 1st tallest. Three across on
-   every width (minmax(0, 1fr)), capped so the posters stay poster-sized on a desktop. */
-.awpodium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 10px;
-  width: 100%; max-width: 34rem; margin: 0 auto; padding: 0; list-style: none; }
-.awpod { min-width: 0; grid-row: 1; }
-.awpod-1 { grid-column: 2; } .awpod-2 { grid-column: 1; } .awpod-3 { grid-column: 3; }
-.awpod-in { display: flex; flex-direction: column; min-width: 0; color: inherit; text-decoration: none; }
-.awpod-in .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; }
-.awpod-in .row-title { display: block; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--text-1);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.awpod-in .row-meta { display: block; font-size: 11px; overflow-wrap: anywhere; }
-a.awpod-in:hover .row-title { color: var(--text-2); }
-.awframe.is-place-1 > img { box-shadow: 0 0 0 2px var(--gold), 0 0 16px var(--gold-glow); }
-.awframe.is-place-2 > img { box-shadow: 0 0 0 2px var(--silver); }
-.awframe.is-place-3 > img { box-shadow: 0 0 0 2px var(--bronze); }
-.awpod-step { display: flex; align-items: center; justify-content: center; margin-top: 8px; border-radius: 10px 10px 4px 4px;
-  font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.awpod-1 .awpod-step { height: 64px; background: var(--gold-soft); border-top: 2px solid var(--gold); color: var(--gold); }
-.awpod-2 .awpod-step { height: 44px; background: var(--silver-soft); border-top: 2px solid var(--silver); color: var(--silver); }
-.awpod-3 .awpod-step { height: 30px; background: var(--bronze-soft); border-top: 2px solid var(--bronze); color: var(--bronze); }
 /* Film / TV and person Awards sections (awards-ui item 5): a group per ceremony (mark + name + tally), whole-link lines
    with category pills - won gold with the laurel mark, nominated neutral. One column on a phone, two from a tablet. */
 .awgroups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 24px; }
@@ -1229,3 +1169,267 @@ details.heromore > summary:hover { color: var(--text-1); }
 .wrapstep { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .wrapyear { min-width: 3.5em; text-align: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .wrapfoot { margin-top: 8px; }
+
+/* Awards ballot (2026-10-14) */
+/* Movies / TV Shows > Awards is the films ballot (B. chose Plan C): a sticky control row (picker button + edition line +
+   Films / Categories), the Next up fold, then the progress ring, one scrolling chip row (filters | sorts) and one row per
+   nominated film. The picker is a bottom sheet on a phone and a dropdown from 640 px. Gold = won, emerald = seen, sky = on
+   your server - always beside words. Tokens only; the sheet and the control row carry NO backdrop-filter or transform
+   (either would make the fixed sheet fixed to the row instead of the screen, as the phone tab bar's rule notes). */
+.awmain { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+/* Control row: sticks just under the Media top bar (48 px under 768 px - E3 - or 56 px from 768 px, plus its 1 px border and, from 768 px, the safe area). */
+.awctl { --aw-top: 49px; position: sticky; top: var(--aw-top); z-index: 30; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 4px 8px; margin: 0 -16px; padding: 8px 16px; background: var(--bar); border-bottom: 1px solid var(--line-soft); }
+@media (min-width: 640px) { .awctl { margin-inline: -24px; padding-inline: 24px; } }
+@media (min-width: 768px) { .awctl { --aw-top: calc(57px + env(safe-area-inset-top, 0px)); } }
+@media (min-width: 1024px) { .awctl { margin-inline: 0; padding-inline: 0; } }
+.awctl .awed { order: 3; flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 640px) { .awctl .awed { order: 0; flex: 1 1 0; } }
+.awctl .seg { margin-left: auto; }
+.awview a[aria-current] { background: var(--pill-on); color: var(--text-1); }
+/* Picker: the summary is the button; its panel is the sheet. */
+.awpick-btn { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 8px; height: 36px; max-width: 100%;
+  padding: 0 12px; border-radius: 10px; border: 1px solid var(--glass-line); background: var(--glass-bg); color: var(--text-1);
+  font-size: 15px; font-weight: 700; list-style: none; cursor: pointer; }
+.awpick-btn::-webkit-details-marker { display: none; }
+.awpick-btn:hover { background: var(--glass-bg-hover); }
+.awpick-btn .awic { color: var(--gold); }
+.awpick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.awpick-year { flex: none; color: var(--text-4); font-weight: 600; }
+.awchev { flex: none; transition: transform .15s; }
+.awpick[open] .awchev { transform: rotate(180deg); }
+.awscrim { position: fixed; inset: 0; z-index: 1; background: var(--scrim); }
+.awsheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-direction: column; gap: 10px;
+  max-height: 75vh; max-height: 75dvh; overflow-y: auto; padding: 16px 16px calc(16px + 56px + var(--tab-lift) + env(safe-area-inset-bottom));
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; background: var(--zinc-900); box-shadow: var(--shadow-float); }
+.awsheet .seclabel { margin: 4px 0 0; }
+.awtilegrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* awards-years (2026-10-16): the year strip is one row per decade (newest first), "Latest" sits beside the Year heading. */
+.awyears-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.awyears-head .seclabel { margin: 4px 0 0; }
+.awyears { display: flex; flex-direction: column; gap: 8px; }
+.awdecade { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.awdecade-label { flex: none; width: 44px; }
+.awyears .chip[aria-current] { background: var(--gold-soft); border-color: var(--gold-line); color: var(--gold); }
+.awyears .chip.is-off { opacity: .35; }
+@media (max-width: 767px) { .awyears .chip, .awyears-head .chip { height: 40px; } }
+.awsheet-done { display: flex; justify-content: flex-end; }
+@media (min-width: 640px) {
+  .awpick { position: relative; }
+  .awscrim { background: transparent; }
+  .awsheet { position: absolute; top: calc(100% + 8px); left: 0; right: auto; bottom: auto; width: min(420px, calc(100vw - 48px));
+    max-height: min(70vh, 560px); padding: 16px; border: 1px solid var(--line); border-radius: 16px; }
+  .awtilegrid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+/* Next up: one line, its "All dates" fold holds the month grid. */
+.awnextup > summary { display: flex; align-items: center; gap: 12px; min-height: 36px; list-style: none; cursor: pointer;
+  font-size: 13px; color: var(--text-3); }
+.awnextup > summary::-webkit-details-marker { display: none; }
+.awnextup-line { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.awnextup-line b { color: var(--text-1); font-weight: 600; }
+.awnextup-line .awic { margin-right: 6px; }
+.awnextup-all { flex: none; color: var(--text-4); text-decoration: underline; text-underline-offset: 3px; }
+.awnextup[open] > .awcoming { margin-top: 4px; }
+/* Progress head: the ring (stroke = --good) with its percentage inside, the numbers in words beside it. */
+.awprog { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; align-items: center; }
+.awring { width: 72px; height: 72px; }
+.awring circle { fill: none; stroke-width: 6; }
+.awring .trk { stroke: var(--bar-track); }
+.awring .val { stroke: var(--good); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
+.awring text { fill: var(--text-1); font-size: 16px; font-weight: 700; text-anchor: middle; }
+.awprog-big { font-size: 17px; font-weight: 700; color: var(--text-1); }
+.awprog-lines { display: grid; gap: 2px; margin-top: 2px; font-size: 12px; color: var(--text-4); }
+.awprog-lines b { color: var(--text-2); font-weight: 600; }
+/* Filter chips, a divider, then sort chips: one row that scrolls sideways inside its own box on a phone. */
+.awfilters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; }
+.awfilters::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) { .awfilters { margin-inline: -24px; padding-inline: 24px; } }
+@media (min-width: 1024px) { .awfilters { flex-wrap: wrap; overflow: visible; margin-inline: 0; padding-inline: 0; } }
+@media (max-width: 767px) { .awfilters .chip { height: 32px; } }
+.awdiv { flex: none; width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
+.awhiding { margin-top: -4px; }
+/* One row per film / show. */
+.awfilms-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.awfilm { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; min-width: 0;
+  padding: 10px; border-radius: 14px; border: 1px solid var(--line-soft); background: var(--surface); }
+.awfilm.is-won { border-color: var(--gold-line); }
+.awfilm-pic { width: 56px; }
+.awfilm-pic > img { width: 100%; height: auto; border-radius: 6px; }
+.awfilm-main { display: grid; gap: 4px; min-width: 0; }
+.awfilm-tt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; min-width: 0; }
+.awfilm-title { font-size: 15px; font-weight: 700; color: var(--text-1); text-decoration: none; overflow-wrap: anywhere; }
+a.awfilm-title:hover { color: var(--text-2); }
+.awfilm-year { font-size: 12px; color: var(--text-5); }
+.awfilm-tally { font-size: 12px; color: var(--text-4); }
+.awfilm-tally .sep { color: var(--text-6); }
+.awfilm-srv { color: var(--sky); }
+.awfilm-pills { margin-top: 2px; }
+.awmore { border-color: transparent; background: var(--pill-on); color: var(--text-5); }
+.awfilm-act { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 0; font-size: 12px; }
+.awfilm-seen { font-weight: 500; white-space: nowrap; }
+/* The row's watchlist button (E1): small and worded; on the list it tints sky like the icon button's is-on. */
+.wlbtn-ballot .btn.is-on { border-color: transparent; background: var(--sky-tint); color: var(--sky); }
+/* Phone (WP-C3 eyes-on): the action sits beside the title only, so the tally and pills take the full width under it
+   (a full-height action column squeezed the pills to one per line). */
+@media (max-width: 639px) {
+  .awfilm-main { display: contents; }
+  .awfilm-pic { grid-row: 1 / span 3; }
+  .awfilm-tt { grid-column: 2; grid-row: 1; align-self: center; }
+  .awfilm-act { grid-column: 3; grid-row: 1; }
+  .awfilm-tally, .awfilm-pills { grid-column: 2 / -1; }
+}
+.awfilm .awdetail { grid-column: 1 / -1; margin: 0; border-top: 1px solid var(--line-soft); }
+.awdetail > summary { display: flex; align-items: center; min-height: 36px; padding: 0; font-size: 12px; color: var(--text-4); }
+.awdetail-row { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; padding: 4px 0; font-size: 12px; }
+.awdetail-k { color: var(--text-5); }
+.awdetail-k.is-won { color: var(--gold); font-weight: 600; }
+.awdetail-v { color: var(--text-2); overflow-wrap: anywhere; }
+.awshorts > .awfilms-list { margin-top: 8px; }
+/* Winners as people: round gold-framed photos in a strip. */
+.awpeople { margin-top: 8px; }
+.awpeople-strip { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 8px 0 4px; }
+.awpeople-strip::-webkit-scrollbar { display: none; }
+.awperson { flex: 0 0 96px; display: grid; justify-items: center; align-content: start; gap: 4px; min-width: 0; text-align: center;
+  color: inherit; text-decoration: none; }
+.awperson-pic { width: 56px; }
+.awperson-pic > img { width: 100%; height: auto; aspect-ratio: 1; border-radius: 50%; object-fit: cover; object-position: center 20%; }
+.awperson-name { font-size: 12px; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+.awperson-cat { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-5); }
+/* TV episode flow (2026-10-16) */
+/* The show page's "Seasons compared" + rating strip, the season page's head switch + strip + rated rows, and the episode
+   page's crumbs / eyebrow / guests / crew / mini strip / previous-next. Tokens only. Gold = the picked season or episode,
+   emerald = seen - always beside words. The strip scrolls sideways inside its own box on a phone (the chip row's margin
+   trick); from 640 px the bars share the width equally. Phone first (375), 40 px tap targets. */
+.eflow-hd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; min-width: 0; }
+.eflow-sub { font-size: 12px; color: var(--text-5); text-align: right; }
+/* Episode head: two ways back, the eyebrow, the episode's own score line. */
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; padding: 0 0 8px; font-size: 13px; color: var(--text-4); }
+.crumbs a { display: inline-flex; align-items: center; min-height: 40px; color: var(--text-3); text-decoration: none; }
+.crumbs a:hover { color: var(--text-1); }
+.crumbs .sep { color: var(--text-6); }
+.crumbs .here { color: var(--text-1); font-weight: 600; }
+.epeyebrow { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-4); overflow-wrap: anywhere; }
+.epeyebrow .sep { color: var(--text-6); }
+.eprating { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; font-size: 13px; color: var(--text-4); }
+.eprating b { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gold); }
+.eprating-src { color: var(--text-5); }
+/* Season page head: the S1 / S2 switch is the shared .seg with the current season marked. */
+.seasonseg { margin-left: 0; }
+.seasonseg a[aria-current] { background: var(--pill-on); color: var(--text-1); }
+@media (max-width: 767px) { .seasonseg a { height: 40px; padding: 0 14px; } }
+/* Seasons compared: one row per season - a 44 px label column, a stretching line, the average at the right. */
+.compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.cmprow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 52px;
+  padding: 6px 8px; border-radius: 10px; color: inherit; text-decoration: none; }
+.cmprow:hover { background: var(--hover); }
+.cmprow.is-on { background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold-line); }
+.cmplab { font-size: 13px; font-weight: 700; color: var(--text-1); }
+.cmplab small { display: block; font-size: 10px; font-weight: 500; color: var(--text-5); }
+.cmpsvg { display: block; width: 100%; height: 44px; }
+.cmpref { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.cmpline { fill: none; stroke: var(--text-5); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.cmpdot { fill: none; stroke: var(--text-3); stroke-width: 6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.cmprow.is-on .cmpline, .cmprow.is-on .cmpdot { stroke: var(--gold); }
+.cmpavg { min-width: 72px; text-align: right; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-1); }
+.cmprow.is-on .cmpavg { color: var(--gold); }
+.cmpavg small { display: block; font-size: 10px; font-weight: 500; color: var(--text-5); }
+.cmptrend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-4); }
+.cmptrend b { font-weight: 600; color: var(--text-2); }
+/* Rating strip: a bar per episode, the value on top and E{n} below. */
+.ratestrip { margin: 0 -16px; padding: 0 16px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.ratestrip::-webkit-scrollbar { display: none; }
+@media (min-width: 640px) { .ratestrip { margin-inline: -24px; padding-inline: 24px; } }
+@media (min-width: 1024px) { .ratestrip { margin-inline: 0; padding-inline: 0; } }
+.rbars { display: flex; align-items: stretch; gap: 6px; width: max-content; min-width: 100%; height: 128px; }
+.rbar { position: relative; flex: 0 0 44px; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center;
+  min-width: 0; padding-top: 18px; color: inherit; text-decoration: none; }
+@media (min-width: 640px) { .rbar { flex: 1 1 0; min-width: 44px; } }
+.rbar > i { display: block; align-self: end; width: 100%; border-radius: 6px 6px 0 0; border: 1px solid var(--line); border-bottom: 0;
+  background: var(--line-hover); transition: background-color .15s; }
+.rbar > b { position: absolute; top: 0; left: 0; right: 0; text-align: center; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.rbar > small { margin-top: 4px; font-size: 11px; font-weight: 600; color: var(--text-5); }
+a.rbar:hover > i { background: var(--text-5); }
+.rbar.is-seen > i { background: var(--good-soft); border-color: var(--good); }
+.rbar.is-on > i, a.rbar.is-on:hover > i { background: var(--gold); border-color: var(--gold); }
+.rbar.is-on > b, .rbar.is-on > small { color: var(--gold); }
+.rbar.is-unaired > i { background: transparent; border-style: dashed; }
+.rbar.is-unaired > b { color: var(--text-6); }
+.ratelegend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-5); }
+.ratelegend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; border: 1px solid var(--line); vertical-align: -1px; }
+.ratelegend .lg-on { background: var(--gold); border-color: var(--gold); }
+.ratelegend .lg-seen { background: var(--good-soft); border-color: var(--good); }
+.ratelegend .lg-todo { background: var(--line-hover); }
+.ratelegend .lg-unaired { background: transparent; border-style: dashed; }
+/* The small strip on an episode page. */
+.ratestrip.is-mini .rbars { height: 88px; }
+.ratestrip.is-mini .rbar { padding-top: 14px; }
+.ratestrip.is-mini .rbar { flex-basis: 40px; }
+@media (min-width: 640px) { .ratestrip.is-mini .rbar { min-width: 40px; } }
+.ratestrip.is-mini .rbar > b, .ratestrip.is-mini .rbar > small { font-size: 10px; }
+/* Season rows: "★ 8.1" and "above avg" / "below avg" at the right of the row. */
+.eprow-r { flex: none; align-self: center; text-align: right; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+  white-space: nowrap; color: var(--text-2); }
+.eprow-r small { display: block; font-size: 10px; font-weight: 500; color: var(--text-5); }
+/* Guests: circle portraits in a row that scrolls inside itself (wraps from 1024 px). */
+.guests { display: flex; gap: 12px; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-bottom: 6px; }
+.guests::-webkit-scrollbar { display: none; }
+@media (min-width: 1024px) { .guests { flex-wrap: wrap; overflow: visible; } }
+.guest { flex: 0 0 104px; display: grid; justify-items: center; align-content: start; gap: 4px; min-width: 0; text-align: center;
+  color: inherit; text-decoration: none; }
+.guest-pic { display: block; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: center 20%;
+  background: var(--surface); border: 1px solid var(--line-soft); box-shadow: none; }
+.guest-pic.initials { display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: var(--text-5); }
+.guest-name { font-size: 12px; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
+a.guest:hover .guest-name { text-decoration: underline; }
+.guest-role { font-size: 11px; color: var(--text-5); overflow-wrap: anywhere; }
+.guest-eps { margin-top: 2px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: 10px; color: var(--text-4); white-space: nowrap; }
+/* Previous / Next: two cards; a lone Next keeps the right-hand half. */
+.epnav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.epnav-card { display: grid; align-content: center; gap: 2px; min-width: 0; min-height: 56px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line); color: inherit; text-decoration: none; }
+.epnav-card:hover { border-color: var(--line-hover); }
+.epnav-card.is-next { grid-column: 2; text-align: right; }
+.epnav-k { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-5); }
+.epnav-t { font-size: 14px; font-weight: 600; color: var(--text-1); overflow-wrap: anywhere; }
+
+/* Health logos (2026-10-19) */
+.row-logo { width: 32px; height: 32px; padding: 4px; }
+.row-logo.svc-fallback { padding: 0; }
+.row-logo.svc-fallback .svc-initial { font-size: 14px; }
+
+/* Hub: weather row (2026-10-19) */
+/* WP-T2: the hub's tile row holds the area cards only, three equal columns from 640 px (two when the row is few, a lone
+   card spanning both), one column on a phone. "Next 7 days" and the weather glimpse stack full width in one band; the
+   glimpse's 7-day strip already spreads as seven equal columns, so it fills the row on a desktop. */
+.hubtiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hubtiles.few { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 639px) { .hubtiles, .hubtiles.few { grid-template-columns: minmax(0, 1fr); } }
+.hubband { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.hubband > .sec { min-width: 0; }
+/* Server clean-up (2026-10-19, WP-T3): the Library health line under Services › Downloads carries an inline
+   Search missing button, and an Attention item its action button. (.srvtiles and .cols went with their markup: the tile row and the Counts band.) */
+.libhealth { margin-top: 8px; }
+.libhealth .btn, .attn-item .btn { margin-left: 8px; vertical-align: middle; }
+/* Request quality (2026-10-21, WP-R1): the hero's "Quality · 1080p" line with its Switch button. (The Request confirm's
+   Quality row is radio chips: the shared .chip recipe, extended beside its checkbox rule.) */
+.qualityblock .metaline .btn { margin-left: 8px; vertical-align: middle; }
+
+/* App links (2026-10-21) */
+.applinkrow { margin: 0 0 12px; }
+.applink img, .applink .svc-fallback { width: 20px; height: 20px; padding: 2px; border-radius: 5px; }
+.applink .svc-fallback { padding: 0; }
+.applink .svc-initial { font-size: 11px; }
+
+/* Why? (2026-10-21, WP-U1): Activity › Downloads › Upgrades rows are .row.has-form; the Why? area sits above the row's
+   link at the right and, once it holds an ask, an answer or a flash, drops to its own full-width line. */
+#upgrades .row.has-form > div.rowlink { display: contents; }
+#upgrades .row.has-form > .upwhy { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
+#upgrades .row.has-form > .upwhy.is-open { flex: 1 0 100%; margin-left: 0; }
+.upwhy .confirm { margin-top: 8px; }
+.whyres { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; align-items: flex-start; }
+.whyreasons { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-2); }
+.whycand { align-self: stretch; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  padding: 8px 0; border-top: 1px solid var(--line); }
+.whycand-title { font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
+.whycand > .confirm { align-self: stretch; }
+.lastsearch { margin-top: -4px; }

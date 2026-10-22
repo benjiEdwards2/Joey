@@ -24,7 +24,7 @@ import requests  # noqa: F401 - kept: tests fake upstreams at hub.media_requests
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from hub import media_discover as md, media_hidden, media_text, shell, upstream
+from hub import media_discover as md, media_hidden, media_item, media_text, shell, upstream
 from hub.ids import JELLYSEERR_SNAPSHOT_ID
 from hub.media_write import flash_keys, same_origin
 
@@ -55,12 +55,25 @@ def find_kept(app: str, base: str, headers: dict, tmdb: int, tvdb: int | None) -
         hit = _lookups.get(key)
     if hit is not None and time.monotonic() - hit[0] < LOOKUP_TTL:
         return hit[1]
-    entry = _find(app, base, headers, tmdb, tvdb)
+    # WP-R1 (2026-10-21): the Search now and Quality fragments load together - concurrent askers share one read
+    entry = media_item.once(("arr-find", *key), lambda: _find(app, base, headers, tmdb, tvdb))
     with _lookups_lock:
         if len(_lookups) > 256:
             _lookups.clear()
         _lookups[key] = (time.monotonic(), entry)
     return entry
+
+
+def kept(app: str, base: str, tmdb: int, tvdb: int | None) -> tuple[bool, dict | None]:
+    """find_kept's answer from the cache alone (WP-R1, the Requests page): (True, entry or None) while kept, else
+    (False, None) - never a call."""
+    with _lookups_lock:
+        hit = _lookups.get((app, base, tmdb, tvdb))
+    if hit is not None and time.monotonic() - hit[0] < LOOKUP_TTL:
+        return True, hit[1]
+    return False, None
+
+
 ON_DISK_WORDS = ("Available", "Partly available")
 APPS = {"movie": "radarr", "tv": "sonarr"}
 DONE = {"removed": "Removed",

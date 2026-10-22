@@ -16,6 +16,8 @@
 {# Suggestions (2026-10-13, B.; was "New this week"): New · Continue watching · Not yet watched, three chip links that
    keep the search / sort / filter; the choice is remembered in the media_libsugg cookie (media_pages.library_suggest).
    The switch always shows; an empty set is one short line in the carousel's place. #}
+{# Joey TV WP-B3: no carousel on the TV - the WP-M Movies screen is the sub-tabs and the grid. #}
+{% if not tv_mode(request) %}
 <section class="sec">
   <h2 class="seclabel">Suggestions</h2>
   <nav class="chips" aria-label="Suggestions">
@@ -33,6 +35,7 @@
   </div>
   {% else %}<p class="empty">{{ suggest_empty }}</p>{% endif %}
 </section>
+{% endif %}
 {# E3 (U14, 2026-10-13): the toolbar applies itself — any change, a cleared search or a pause in typing re-requests this page
    (htmx GET of the same URL, the boosted-body swap that keeps the scroll position, the URL pushed so Back works); Enter
    still submits. The search box keeps focus across the swap (htmx restores focus by id). Apply is for no-JS only. The
@@ -66,6 +69,21 @@
 </section>
 {% else %}
 <p class="empty">{{ "Nothing matches that search." if q else "Nothing in the library yet." }}</p>
+{% endif %}
+{# WP-T1 (2026-10-19): shows Jellyfin lists with no episode yet (Sonarr's folder before the first file) are not library
+   entries; they wait here in words: "Requested · waiting for the first episode · airs 5 Dec". #}
+{% if waiting %}
+<section class="sec" id="waiting">
+  <h2 class="seclabel">Waiting for the first episode · {{ waiting|length }}</h2>
+  <div class="listbox">
+  {% for w in waiting %}
+  <{{ "a" if w.href else "div" }} class="row"{% if w.href %} href="{{ w.href }}"{% endif %}>
+    {{ poster(w.poster, w.title, 240, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ w.title }}{% if w.year %} ({{ w.year }}){% endif %}</div><span class="row-meta">{{ w.word }}</span></div>
+  </{{ "a" if w.href else "div" }}>
+  {% endfor %}
+  </div>
+</section>
 {% endif %}
 {% endif %}
 {% include "_detail_foot.html" %}

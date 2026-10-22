@@ -10,13 +10,13 @@
 {{ pagehead(greeting, sub=sub) }}
 {% endblock %}
 {% block content %}
-{# Hub (restyle Phase 4, 2026-10-06): a row of summary tiles (one per area + Weather), then "Next 7 days" beside the
-   weather glimpse, then Recently watched. Real snapshot data only. #}
+{# Hub (restyle Phase 4, 2026-10-06): a row of summary tiles (one per area), then "Next 7 days" and the weather glimpse stacked full width,
+   then Recently watched. Real snapshot data only. #}
 {% from "_kpi.html" import kpi %}
 {% from "_shelf.html" import shelfrow %}
 {% if backup_warn %}<p class="metaline"><span class="st-warn">{{ backup_warn }}</span></p>{% endif %}
 {# E3 (2026-10-13): the playing hero's word is NOT repeated as the first meta fact (the snapshot's "2 playing now"
-   already says it). A card that repeats the band below (`c.dup`: the calendar feed's card; the Weather tile) carries
+   already says it). A card that repeats the band below (`c.dup`: the calendar feed's card) carries
    .dup, which the CSS hides under 640 px. The calendar card's value is the next event's title, its day / time the meta. #}
 {% macro areacard(c, cls="") %}
   {% set cls = (cls ~ " dup") | trim if c.dup else cls %}
@@ -33,24 +33,21 @@
            bars=c.per_day, cls=cls) }}
   {% endif %}
 {% endmacro %}
-{# Order: the area cards in hub_rank order (registry order on ties), with the Weather tile slotted in before the last
-   card; with <= 3 cards in all the last one spans two columns so it fills the right half of the row (2026-10-06).
-   Under 640 px the .dup cards drop out and the band (Next 7 days + weather) follows the rest directly. #}
-{% set few = cards|length + 1 <= 3 %}
-<section class="tiles{% if few %} few{% endif %}" aria-label="Area summaries">
+{# Order: the area cards in hub_rank order (registry order on ties). WP-T2 (2026-10-19): the Weather tile left this row
+   (the full-width weather row under "Next 7 days" carries it, and its "All" link goes to /weather), so the row is the
+   area cards only: three columns from 640 px (.hubtiles). With <= 2 cards (`few`) it is two columns and a lone card
+   spans both. Under 640 px the .dup card (Calendar) drops out and the band follows the rest directly. #}
+{% set few = cards|length <= 2 %}
+<section class="tiles hubtiles{% if few %} few{% endif %}" aria-label="Area summaries">
   {% for c in cards %}
-  {% if loop.last and cards|length > 1 and weather %}
-    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value, cls="dup") }}
-  {% endif %}
-  {{ areacard(c, "span2" if loop.last and few else "") }}
+  {{ areacard(c, "span2" if loop.last and cards|length == 1 else "") }}
   {% endfor %}
-  {% if weather and cards|length <= 1 %}
-    {{ kpi("/weather", "Weather", weather_place(), weather.glyph, weather.st, weather.tile.owner.value, cls="dup") }}
-  {% endif %}
 </section>
 
+{# WP-T2 (2026-10-19): one stacked band — "Next 7 days" full width, then the weather glimpse as its own full-width row
+   beneath it (on a phone the same order, then Recently watched). Neither renders an empty frame. #}
 {% if upcoming or weather %}
-<section class="band a">
+<section class="band hubband">
   {% if upcoming %}{% include "_upcoming_table.html" %}{% endif %}
   {% if weather %}{% set w = weather %}{% include "_weather_glimpse.html" %}{% endif %}
 </section>

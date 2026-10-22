@@ -97,7 +97,9 @@ def test_page_and_hub_card_stay_clear_and_sweeps_say_not_configured(env, tmp_pat
     # E3 (U12, 2026-10-13): nothing to attend to = no Attention band; "All clear" is the sub-line, said once
     assert 'id="attention"' not in body and body.count("All clear") == 1
     assert '<p class="pagehead-sub">All clear</p>' in body
-    sweeps = body.split('id="sweeps"', 1)[1].split("</section>", 1)[0]
+    # WP-T3 (2026-10-19, S5): System's sweeps line + the fold, open on a not-configured row
+    assert "4 connectors · 3 not configured" in txt(body) and '<details class="fold" id="sweeps" open>' in body
+    sweeps = body.split('id="sweeps"', 1)[1].split("</details>", 1)[0]
     assert ">home_assistant</div>" in sweeps and ">jellyseerr</div>" in sweeps
     assert txt(sweeps).count("Not configured") == 3 and "Failing" not in sweeps
     assert "Needs attention" not in card and "All up" in card

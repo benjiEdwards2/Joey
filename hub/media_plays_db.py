@@ -12,7 +12,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
-from hub import media_store, media_text
+from hub import media_db, media_store, media_text
 from hub.ids import home_tz
 
 log = logging.getLogger("hub.media_plays_db")
@@ -26,6 +26,7 @@ DDL = (
 )
 OPEN_GAP = timedelta(hours=2)
 FINISHED_PCT = 90
+RESTART_PCT = 10   # a finished play seen again below this is a re-watch from the start (a new row), not the same watch
 TOP_N = 10
 
 
@@ -55,14 +56,26 @@ def _tz():
 
 def record_sighting(play: dict, now: datetime) -> str:
     """One poll's sighting of one session. `play` carries user_name, owner, jf_id, keys,
-    titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'."""
+    titles, kind, season, episode, runtime_min, poster, position_pct. Returns 'new' or 'updated'. An open play is
+    matched on `owner` (Joey TV WP-A2), never the renamable `user_name`: a renamed friend stays one play.
+
+    The latest row of the same owner + jf_id seen within OPEN_GAP is the candidate. A FINISHED one (>= FINISHED_PCT) seen
+    again at >= RESTART_PCT is the same watch (playfix, 2026-10-21): its last_seen_at / position_pct are updated and it
+    stays finished, so a session parked on the credits is one play, not one per poll. Below RESTART_PCT (a re-watch from
+    the start) or after OPEN_GAP it is a new row."""
     pct = max(0, min(100, int(play.get("position_pct") or 0)))
     stamp = _iso(now)
     with closing(_connect()) as db:
         row = db.execute(
-            "SELECT id, position_pct FROM play WHERE user_name IS ? AND jf_id IS ? AND finished = 0"
-            " AND last_seen_at >= ? ORDER BY last_seen_at DESC LIMIT 1",
-            (play["user_name"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
+            "SELECT id, position_pct, finished FROM play WHERE owner IS ? AND jf_id IS ?"
+            " AND last_seen_at >= ? ORDER BY last_seen_at DESC, id DESC LIMIT 1",
+            (play["owner"], play["jf_id"], _iso(now - OPEN_GAP))).fetchone()
+        if row is not None and row["finished"]:
+            if pct >= RESTART_PCT:   # the finished watch seen again: same row
+                db.execute("UPDATE play SET last_seen_at = ?, position_pct = ? WHERE id = ?", (stamp, pct, row["id"]))
+                db.commit()
+                return "updated"
+            row = None               # re-watch from the start: a new row below
         if row is not None and row["position_pct"] < FINISHED_PCT:
             db.execute("UPDATE play SET last_seen_at = ?, position_pct = ?, finished = ? WHERE id = ?",
                        (stamp, pct, 1 if pct >= FINISHED_PCT else 0, row["id"]))
@@ -104,18 +117,32 @@ def _hours(r) -> float:
     return minutes / 60
 
 
+def _one_owner(owner) -> str | None:
+    """The single owner a play read filters on - you / her / a friend key (Joey TV WP-B2) - or None for the household
+    (private 'both' / not signed in). ValueError (media_db.owner_filter) for a malformed `jf:` value or no owner on the
+    media front: the caller then answers empty, never the household."""
+    return media_db.owner_filter(owner)
+
+
 def _rows(window, owner, now):
     db = _read()
     if db is None:
+        return []
+    try:
+        mine = _one_owner(owner)
+    except ValueError:   # a malformed friend key / no owner on the media front: nothing (Joey TV WP-B2)
+        db.close()
         return []
     cut = _since(window, now)
     sql, args = "SELECT * FROM play WHERE 1=1", []
     if cut:
         sql += " AND started_at >= ?"
         args.append(cut)
-    if owner in ("you", "her"):
+    if mine:
         sql += " AND owner = ?"
-        args.append(owner)
+        args.append(mine)
+    else:
+        sql += " AND " + media_db.household_sql()
     try:   # M-52: a query error degrades (no Most played, an empty History) instead of a 500
         with closing(db):
             return db.execute(sql, args).fetchall()
@@ -129,9 +156,16 @@ def watch_count(jf_id: str, owner: str | None = None) -> int:
     db = _read()
     if db is None:
         return 0
+    try:
+        mine = _one_owner(owner)
+    except ValueError:   # fail closed (Joey TV WP-B2)
+        db.close()
+        return 0
     sql, args = "SELECT COUNT(*) FROM play WHERE jf_id = ? AND finished = 1", [jf_id]
-    if owner in ("you", "her"):
-        sql, args = sql + " AND owner = ?", [*args, owner]
+    if mine:
+        sql, args = sql + " AND owner = ?", [*args, mine]
+    else:
+        sql += " AND " + media_db.household_sql()
     try:
         with closing(db):
             return int(db.execute(sql, args).fetchone()[0])
@@ -190,7 +224,7 @@ def show_runtimes(show_keys) -> dict[str, float]:
             marks = ",".join("?" * len(keys))
             return {r["show_key"]: float(r["rt"]) for r in db.execute(
                 f"SELECT show_key, AVG(runtime_min) AS rt FROM play WHERE show_key IN ({marks}) AND runtime_min > 0"
-                " GROUP BY show_key", keys)}
+                f" AND {media_db.household_sql()} GROUP BY show_key", keys)}
     except sqlite3.Error as exc:
         log.warning("show runtimes failed: %s", type(exc).__name__)
         return {}
@@ -203,7 +237,7 @@ def first_run_date() -> str | None:
         return None
     try:
         with closing(db):
-            row = db.execute("SELECT MIN(started_at) AS m FROM play").fetchone()
+            row = db.execute(f"SELECT MIN(started_at) AS m FROM play WHERE {media_db.household_sql()}").fetchone()
     except sqlite3.Error as exc:
         log.warning("plays first date failed: %s", type(exc).__name__)
         return None

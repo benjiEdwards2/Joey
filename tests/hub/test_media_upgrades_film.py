@@ -1,7 +1,8 @@
 """F4b (2026-10-12): the film / show page says "Upgrade available · <have> → <want>" under the status line, inline in
 the hero core from the arr snapshot (no upstream call - F2's fast page stays fast), and the lazy Search-now fragment
 adds "Search for upgrade" (inline confirm, then a same-origin POST sending MoviesSearch / SeriesSearch on the app's
-own id). Jellyfin + Jellyseerr are the film-page fakes; Radarr / Sonarr the Search-now fakes. No network."""
+own id). Jellyfin + Jellyseerr are the film-page fakes; Radarr / Sonarr the Search-now fakes. No network.
+Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>"."""
 import html as htmllib
 import logging
 
@@ -17,8 +18,8 @@ UP = {"radarr": [{"item_key": "tmdb:603", "title": "Harbour Lights", "year": 201
       "sonarr": [{"item_key": "tvdb:1100", "title": "Quiet Show", "arr_id": 21, "episodes": 3, "have": "SDTV",
                   "want": "WEB 1080p", "sample": "S04E01", "poster": "sonarr:21"}],
       "totals": {"movies": 1, "episodes": 3, "series": 1}}
-FILM_NOTE = "Upgrade available · WEBDL-720p → Bluray-1080p"
-SHOW_NOTE = "Upgrade available · 3 episodes · SDTV → WEB 1080p"
+FILM_NOTE = "Below cutoff · WEBDL-720p → wants Bluray-1080p"
+SHOW_NOTE = "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
 
 
 def hero(html):

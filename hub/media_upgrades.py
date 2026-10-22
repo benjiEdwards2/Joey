@@ -6,6 +6,10 @@ quality profile's cutoff — it does NOT mean a better release is out there; "Se
 No I/O: callers pass the snapshots. The label renders under list rows (Movies / TV, grid and list), in the film / show
 hero under the status line, on Requests rows and as the Upgrades block on Activity › Downloads.
 
+WP-U1 (2026-10-21): the label is now "Below cutoff · HDTV-1080p → wants WEB/Bluray 1080p" (B. saw "Upgrade available"
+on a title for which every release on the indexers was rejected); `last_search` words the snapshot's last library search,
+and Downloads' "Why?" (hub/media_upgrade_why.py) asks the app what it would grab and why not.
+
 Keys: Radarr rows are `tmdb:<id>` like the library's films. Sonarr rows are `tvdb:<id>` while Jellyfin's show rows
 prefer `tmdb:<id>`, so a show is matched by (1) its own `tvdb:` key, (2) a TheTVDB id the caller knows (the Jellyfin
 item's ProviderIds.Tvdb, cached by the show page — media_item.peek — or a Jellyseerr request's tvdb_id), else (3) the
@@ -32,17 +36,22 @@ def upgrades(snaps) -> dict | None:
     return up if isinstance(up, dict) else None
 
 
+LABEL = "Below cutoff"   # WP-U1 (2026-10-21): was "Upgrade available" - the file is below the profile's cutoff, which
+#                           does not mean a better release exists (live: every Brothers release rejected)
+
+
 def note(row: dict | None) -> str:
-    """'Upgrade available · WEBDL-720p → Bluray-1080p'; a show: 'Upgrade available · 3 episodes · SDTV → WEB 1080p'.
-    The quality part is left out when `want` is unknown; without `have` it reads 'to Bluray-1080p'."""
+    """'Below cutoff · WEBDL-720p → wants Bluray-1080p'; a show: 'Below cutoff · 3 episodes · SDTV → wants WEB 1080p'
+    (WP-U1, 2026-10-21; was 'Upgrade available · … → …'). The quality part is left out when `want` is unknown; without
+    `have` it reads 'wants Bluray-1080p'."""
     if not row:
         return ""
-    parts = ["Upgrade available"]
+    parts = [LABEL]
     n = row.get("episodes")
     if isinstance(n, int) and not isinstance(n, bool) and n > 0:
         parts.append(f"{n} episode{'' if n == 1 else 's'}")
     if row.get("want"):
-        parts.append(f"{row['have']} → {row['want']}" if row.get("have") else f"to {row['want']}")
+        parts.append(f"{row['have']} → wants {row['want']}" if row.get("have") else f"wants {row['want']}")
     return " · ".join(parts)
 
 
@@ -117,6 +126,56 @@ def attach(rows, snaps, kind: str | None, tvdb_of=lambda r: None) -> None:
         k = kind or ("tv" if r.get("kind") == "tv" else "movie")
         hit = find(idx, k, r.get("item_key"), tvdb_of(r), r.get("title") if unique else None, titles)
         r["upgrade"] = hit["note"] if hit else ""
+
+
+SEARCH_WORDS = {"upgrades": "Last upgrade search", "missing": "Last missing search"}
+_SEARCH_MSG = re.compile(r"search for (\d+) \w+\. (\d+) reports? downloaded", re.I)
+
+
+def _when(stamp) -> str | None:
+    """'21 Oct 01:00' in the household's zone from an ISO stamp, else None."""
+    from datetime import datetime
+    from hub.ids import home_tz
+    try:
+        dt = datetime.fromisoformat(str(stamp).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(home_tz())
+    return f"{dt.day} {dt:%b %H:%M}"
+
+
+def last_search(snaps) -> list[dict]:
+    """Activity › Downloads, under the Search buttons (WP-U1, 2026-10-21): one line per app from the snapshot's
+    `upgrades.last_search` -> [{parts, warn}]: parts 'Last upgrade search', 'Sonarr', '21 Oct 01:00', '1 searched', and
+    `warn` the amber words — '0 downloaded' when it found nothing, 'failed' — else None. A message the pattern does not
+    fit is shown verbatim; a running search reads 'running'. [] for an older envelope or no search yet."""
+    out = []
+    for s in (upgrades(snaps) or {}).get("last_search") or []:
+        if not isinstance(s, dict) or s.get("name") not in SEARCH_WORDS or s.get("app") not in APPS.values():
+            continue
+        parts, warn = [SEARCH_WORDS[s["name"]], "Radarr" if s["app"] == "radarr" else "Sonarr"], None
+        status = str(s.get("status") or "")
+        if status in ("queued", "started"):
+            parts.append("running")
+        else:
+            when = _when(s.get("ended")) if s.get("ended") else None
+            if when:
+                parts.append(when)
+            m = _SEARCH_MSG.search(str(s.get("message") or ""))
+            if status == "failed":
+                warn = "failed"
+            elif m:
+                parts.append(f"{m.group(1)} searched")
+                got = int(m.group(2))
+                if got:
+                    parts.append(f"{got} downloaded")
+                else:
+                    warn = "0 downloaded"
+            elif s.get("message"):
+                parts.append(str(s["message"]))
+        out.append({"parts": parts, "warn": warn})
+    return out
 
 
 def block(snaps) -> dict | None:

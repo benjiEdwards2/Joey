@@ -1,0 +1,11 @@
+{
+  "Title": "Quiet Show",
+  "Season": "3",
+  "totalSeasons": "4",
+  "Episodes": [
+    {"Title": "Return", "Released": "2025-03-02", "Episode": "1", "imdbRating": "7.9", "imdbID": "tt9200301"},
+    {"Title": "Low Tide", "Released": "2025-03-09", "Episode": "2", "imdbRating": "7.7", "imdbID": "tt9200302"},
+    {"Title": "The Ledger", "Released": "2025-03-16", "Episode": "3", "imdbRating": "8.0", "imdbID": "tt9200303"}
+  ],
+  "Response": "True"
+}

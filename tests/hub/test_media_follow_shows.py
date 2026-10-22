@@ -12,6 +12,7 @@ import requests
 
 from hub import media_arr_search, media_follow, media_store
 from tests.hub.conftest import main_of
+from tests.hub.helpers import not_season_state  # WP-T1
 from tests.hub.film_page import whole
 from tests.hub.helpers import env, FakeResponse as R, SEERR_URL as SEERR, SKEY  # noqa: F401
 
@@ -48,7 +49,7 @@ def test_step_three_rebuilds_the_follow_tables_and_keeps_rows(tmp_path, monkeypa
     media_store.forget()
     assert media_follow.get("person", 55)["name"] == "Ada"                              # the first open migrates
     with closing(sqlite3.connect(path)) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 4
+        assert db.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 5
         assert db.execute("SELECT media, tmdb_id, outcome FROM media_follow_adds").fetchall() == [("movie", 603, "requested")]
     media_follow.follow("show", 603, "Same Number Show")                                # 'show' now passes the CHECK
     assert {f["kind"] for f in media_follow.follows()} == {"person", "show"}
@@ -229,7 +230,10 @@ def test_cold_show_page_draws_the_line_before_any_upstream_call(son_env, monkeyp
     monkeypatch.setattr(media_film, "_load_extras", lambda *a: go.wait(5) and real(*a))
     with client:
         page = client.get("/media/item/ser1").text
-        assert not [c for c in both.calls if c.startswith(SEERR)] and son.calls == []
+        # WP-E1 (2026-10-16): the episode ratings' TMDB season read is the response's BackgroundTask - after the
+        # render, but TestClient runs it before get() returns, so it is the one Jellyseerr call allowed here.
+        # WP-T1 (2026-10-19): likewise the season-state words' one Sonarr series-list read.
+        assert not [c for c in both.calls if c.startswith(SEERR) and "/season/" not in c] and not_season_state(son.calls) == []
         go.set()
     assert 'action="/media/follow/show/100/unfollow"' in page and "Following ✓ · future seasons" in page
 

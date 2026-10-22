@@ -13,29 +13,43 @@ from tests.hub.test_media_shelves import ids, main_html
 
 T0 = datetime(2026, 10, 6, 2, 0, tzinfo=timezone.utc)
 MIN = 600_000_000  # ticks per minute
+# Jellyfin user ids (Joey TV WP-A2: plays are attributed by UserId, never by the renamable UserName)
+USER_IDS = {"Sample Person": "11111111111111111111111111111111", "Sample Partner": "22222222222222222222222222222222",
+            "Sample Friend": "ABCDEF0123456789ABCDEF0123456789"}
+USERS = [{"Name": name, "Id": uid.lower()} for name, uid in USER_IDS.items()]
+FRIEND_KEY = "jf:abcdef0123456789abcdef0123456789"
 
 
-def session(user="Sample Person", item_id="m1", kind="Movie", pos_min=10, run_min=100, **extra):
+def session(user="Sample Person", item_id="m1", kind="Movie", pos_min=10, run_min=100, uid=None, **extra):
     item = {"Id": item_id, "Name": "The Long Road Home", "Type": kind, "RunTimeTicks": run_min * MIN,
             "ProviderIds": {"Tmdb": "101"}}
     if kind == "Episode":
         item.update(SeriesName="Quiet Coast", SeriesId="s1", SeasonId="se1", ParentIndexNumber=2,
                     IndexNumber=4, Name="Late Tide")
     item.update(extra)
-    return {"UserName": user, "NowPlayingItem": item, "PlayState": {"PositionTicks": pos_min * MIN}}
+    return {"UserName": user, "UserId": uid or USER_IDS.get(user), "NowPlayingItem": item,
+            "PlayState": {"PositionTicks": pos_min * MIN}}
 
 
 class FakeGet:
-    def __init__(self, sessions=None, error=None):
+    def __init__(self, sessions=None, error=None, users=USERS, users_error=None):
         self.sessions, self.error, self.calls = sessions or [], error, 0
+        self.users, self.users_error, self.user_calls = users, users_error, 0
 
     def __call__(self, url, headers=None, timeout=None, **kw):
         self.calls += 1
-        assert url.endswith("/Sessions") and headers["Authorization"].startswith("MediaBrowser Token=")
-        if self.error:
-            raise self.error
-        fake = self
-        return type("R", (), {"status_code": 200, "json": lambda s: fake.sessions})()
+        assert headers["Authorization"].startswith("MediaBrowser Token=")
+        if url.endswith("/Users"):
+            self.user_calls += 1
+            if self.users_error:
+                raise self.users_error
+            body = self.users
+        else:
+            assert url.endswith("/Sessions")
+            if self.error:
+                raise self.error
+            body = self.sessions
+        return type("R", (), {"status_code": 200, "json": lambda s: body})()
 
 
 @pytest.fixture()
@@ -43,11 +57,13 @@ def rec(tmp_path, monkeypatch):
     monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
     monkeypatch.setenv("JELLYFIN_URL", "http://jf.invalid")
     monkeypatch.setenv("JELLYFIN_API_KEY", "k")
+    monkeypatch.setenv("JELLYFIN_USER", "Sample Person")
     monkeypatch.setenv("JELLYFIN_USER_HER", "Sample Partner")
+    monkeypatch.delenv("JELLYFIN_USER_ALIASES", raising=False)
     monkeypatch.delenv("PLAY_RECORDER", raising=False)
 
-    def poll(sessions, at):
-        monkeypatch.setattr(mp.jellyfin.requests, "get", FakeGet(sessions))
+    def poll(sessions, at, **fake):
+        monkeypatch.setattr(mp.jellyfin.requests, "get", FakeGet(sessions, **fake))
         return mp.poll_once(at)
     return poll
 
@@ -82,6 +98,31 @@ def test_closes_at_90_and_next_sighting_is_a_new_play(rec, tmp_path):
     assert len(rows(tmp_path)) == 2
 
 
+# ---- a finished play seen again (playfix, 2026-10-21): the session still at >= 90 % on later polls is the same watch ----
+
+def test_a_finished_play_seen_again_is_not_a_second_row(rec, tmp_path):
+    for minute, pos in enumerate((50, 95, 97, 100)):
+        rec([session(pos_min=pos)], T0 + timedelta(minutes=minute))
+    r = rows(tmp_path)
+    assert [(x["position_pct"], x["finished"]) for x in r] == [(100, 1)]
+    assert r[0]["last_seen_at"] == pdb._iso(T0 + timedelta(minutes=3))
+    assert pdb.watch_count("m1") == 1
+
+
+def test_a_rewatch_from_the_start_is_a_new_row(rec, tmp_path):
+    for minute, pos in enumerate((50, 95, 97)):
+        rec([session(pos_min=pos)], T0 + timedelta(minutes=minute))
+    rec([session(pos_min=2)], T0 + timedelta(minutes=3))
+    assert [(x["position_pct"], x["finished"]) for x in rows(tmp_path)] == [(97, 1), (2, 0)]
+
+
+def test_a_sighting_after_the_open_gap_is_a_new_row(rec, tmp_path):
+    for minute, pos in enumerate((50, 95, 97)):
+        rec([session(pos_min=pos)], T0 + timedelta(minutes=minute))
+    rec([session(pos_min=96)], T0 + timedelta(minutes=2) + pdb.OPEN_GAP + timedelta(minutes=1))
+    assert [(x["position_pct"], x["finished"]) for x in rows(tmp_path)] == [(97, 1), (96, 1)]
+
+
 def test_two_hour_gap_starts_a_new_play(rec, tmp_path):
     rec([session(pos_min=10)], T0)
     rec([session(pos_min=12)], T0 + timedelta(hours=2, minutes=1))
@@ -89,10 +130,58 @@ def test_two_hour_gap_starts_a_new_play(rec, tmp_path):
 
 
 def test_owner_mapping_and_ignored_sessions(rec, tmp_path):
-    idle = {"UserName": "Sample Person", "PlayState": {}}
+    idle = {"UserName": "Sample Person", "UserId": USER_IDS["Sample Person"], "PlayState": {}}
     music = session(kind="Audio", item_id="a1")
     assert rec([session(user="Sample Partner"), session(user="Sample Person", item_id="m2"), idle, music], T0) == 2
     assert {r["user_name"]: r["owner"] for r in rows(tmp_path)} == {"Sample Partner": "her", "Sample Person": "you"}
+
+
+# ---- owner keys (Joey TV WP-A2, 2026-10-18): a friend is jf:<id>, never "you" ----
+
+def test_friend_play_is_keyed_by_lowercase_user_id(rec, tmp_path):                         # (a)
+    assert rec([session(user="Sample Friend", uid=USER_IDS["Sample Friend"])], T0) == 1
+    r = rows(tmp_path)
+    assert [(x["owner"], x["user_name"]) for x in r] == [(FRIEND_KEY, "Sample Friend")]
+
+
+def test_session_without_user_id_is_skipped(rec, tmp_path):                                 # (c)
+    no_id = session(item_id="m2")
+    del no_id["UserId"]
+    blank = {**session(item_id="m3"), "UserId": ""}
+    bad = session(item_id="m4", uid="not-a-jellyfin-id")
+    assert rec([no_id, blank, bad, session()], T0) == 1
+    assert [(x["jf_id"], x["owner"]) for x in rows(tmp_path)] == [("m1", "you")]
+
+
+def test_renamed_friend_is_one_play(rec, tmp_path):                                         # (d)
+    friend = USER_IDS["Sample Friend"]
+    rec([session(user="Sample Friend", uid=friend, pos_min=10)], T0)
+    rec([session(user="Sample Friend Renamed", uid=friend, pos_min=30)], T0 + timedelta(minutes=1))
+    r = rows(tmp_path)
+    assert len(r) == 1 and r[0]["owner"] == FRIEND_KEY and r[0]["position_pct"] == 30
+
+
+def test_unset_jellyfin_user_records_nobody_as_you(rec, tmp_path, monkeypatch):            # (e)
+    monkeypatch.delenv("JELLYFIN_USER")
+    rec([session(), session(user="Sample Partner", item_id="m2")], T0)
+    assert {x["user_name"]: x["owner"] for x in rows(tmp_path)} == {
+        "Sample Person": "jf:" + USER_IDS["Sample Person"], "Sample Partner": "her"}
+
+
+def test_users_read_failing_records_nothing_then_the_next_poll_retries(rec, tmp_path):      # (i)
+    assert rec([session()], T0, users_error=ConnectionError("http://jf.invalid secret")) == 0
+    assert not (tmp_path / "media.db").exists() or rows(tmp_path) == []
+    assert rec([session()], T0 + timedelta(minutes=1)) == 1
+    assert [x["owner"] for x in rows(tmp_path)] == ["you"]
+
+
+def test_household_ids_are_read_once_across_polls(rec, tmp_path, monkeypatch):            # (h, recorder side)
+    fake = FakeGet([session()])
+    monkeypatch.setattr(mp.jellyfin.requests, "get", fake)
+    mp.poll_once(T0)
+    fake.users = [{"Name": "Brand New Name", "Id": USER_IDS["Sample Person"]}]          # B. renamed in Jellyfin
+    mp.poll_once(T0 + timedelta(minutes=1))
+    assert fake.user_calls == 1 and [x["owner"] for x in rows(tmp_path)] == ["you"]
 
 
 def test_upstream_failure_does_not_crash(rec, tmp_path, monkeypatch):
@@ -164,6 +253,59 @@ def test_top_lists_group_episodes_by_show(tmp_path, monkeypatch):
     shows, movies = pdb.most_played_30()
     assert len(shows) == 1 and len(movies) == 1
     assert pdb.hours_text(1) == "1 hour" and pdb.hours_text(12.5) == "12.5 hours"
+
+
+def seed_with_friend(tmp_path, monkeypatch):
+    """One finished film each for you and her, and two for a friend (Joey TV Q15): one of the same film, a day before
+    the household's first play, and an episode of a show nobody else watched. Fixed clock (T0)."""
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+
+    def play(owner, jf, title, at, kind="movie", show=None):
+        base = {"user_name": "u", "owner": owner, "jf_id": jf, "item_key": f"jf:{jf}", "title": title,
+                "show_key": f"jf:{show}" if show else None, "show_title": show, "kind": kind, "runtime_min": 60,
+                "poster": f"jf:{jf}"}
+        pdb.record_sighting({**base, "position_pct": 1}, at)
+        pdb.record_sighting({**base, "position_pct": 100}, at + timedelta(minutes=60))
+    play("you", "m1", "Long Road", T0)
+    play("her", "m2", "Old Film", T0 + timedelta(hours=3))
+    play(FRIEND_KEY, "m1", "Long Road", T0 - timedelta(days=1))
+    play(FRIEND_KEY, "e9", "Friend Episode", T0 + timedelta(hours=6), kind="episode", show="Friend Show")
+
+
+def test_private_reads_never_count_a_friends_play(tmp_path, monkeypatch):
+    seed_with_friend(tmp_path, monkeypatch)
+    later = T0 + timedelta(days=1)
+    both, you, her = (pdb.stats("all", o, later) for o in (None, "you", "her"))
+    assert (both["plays"], both["hours"]) == (2, 2.0)                                     # History + Hours
+    assert [e["title"] for e in both["top_movies"]] == ["Long Road", "Old Film"] and both["top_shows"] == []
+    assert both["top_movies"][0]["plays"] == 1
+    assert (you["plays"], her["plays"]) == (1, 1) and sum(both["by_hour"]) == 2
+    for owner in (None, "you", "her"):                                                    # Most played
+        shows, movies = pdb.most_played_30(owner, later)
+        assert shows == [] and all(m["plays"] == 1 for m in movies)
+    assert (pdb.watch_count("m1"), pdb.watch_count("m1", "you"), pdb.watch_count("m1", "her")) == (1, 1, 0)
+    assert pdb.watch_count("e9") == 0
+    assert pdb.first_run_date() == "2026-10-06"                                           # the friend's 5 Oct is not it
+    assert pdb.show_runtimes(["jf:Friend Show"]) == {}
+
+
+def test_history_page_never_shows_a_friends_play(env, tmp_path, monkeypatch):
+    seed_with_friend(tmp_path, monkeypatch)
+    with TestClient(env.app) as client:
+        for view in ("both", "you", "her"):
+            body = main_html(client.get(f"/media/server/history?w=all&owner_view={view}").text)
+            assert "Friend Show" not in body and "Friend Episode" not in body
+        both = main_html(client.get("/media/server/history?w=all&owner_view=both").text)
+        assert '>Plays</div><div class="stat-number">2</div>' in both
+
+
+def test_everyone_diary_scope_skips_friend_rows(tmp_path, monkeypatch):
+    from hub import media_db
+    from tests.hub.helpers import diary
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    diary("tmdb:1", "movie", "Long Road", "2026-10-05")
+    diary("tmdb:2", "movie", "Friend Film", "2026-10-05", owner=FRIEND_KEY)
+    assert [r["title"] for r in media_db.list_diary(owner=None)] == ["Long Road"]
 
 
 def test_stats_with_no_db_is_quiet(tmp_path, monkeypatch):

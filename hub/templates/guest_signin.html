@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+{# Joey TV WP-B2 (2026-10-21): the media front's sign-in page. Standalone on purpose - it does not extend base.html, so it
+   never renders the private tab bar or any data. Layout from the WP-M mockup (tv-mode-1-signin): the Quick Connect code
+   first, the password form as the fallback. WP-B3 adds the 10-foot TV styling under the JoeyTV/ user agent. #}
+{% set tv = tv_mode(request) %}
+<html lang="en"{% if tv %} class="tv"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · Joey Media</title>
+<meta name="theme-color" content="#09090b">
+<link rel="icon" href="/static/icon-192.png?v=3">
+<link rel="manifest" href="/static/manifest-guest.webmanifest">
+<link rel="stylesheet" href="/static/control-surface.css?v={{ static_v }}">
+<script src="/static/htmx.min.js?v={{ static_v }}" defer></script>
+{% if tv %}{# Joey TV WP-B3: the TV signs in on this page (Q33) - the 10-foot styling and D-pad focus #}
+<link rel="stylesheet" href="/static/tv.css?v={{ static_v }}">
+<script src="/static/tv.js?v={{ static_v }}" defer></script>
+{% endif %}
+<style>
+  .signin { max-width: 56rem; margin: 0 auto; padding: 2rem 1rem; display: grid; gap: 2rem; }
+  @media (min-width: 52rem) { .signin { grid-template-columns: 1fr 1.6fr; align-items: center; min-height: 90vh; } }
+  .signin-brand img { width: 5rem; height: 5rem; border-radius: 1.2rem; }
+  .signin-panel { border: 1px solid rgba(255,255,255,.08); border-radius: 1.2rem; padding: 1.6rem; }
+  .qc-code { font-size: clamp(2.6rem, 9vw, 5rem); font-weight: 700; letter-spacing: .08em; margin: .4rem 0; }
+  .signin-form { display: grid; gap: .6rem; margin-top: .8rem; }
+  .signin-form input { font: inherit; padding: .6rem .7rem; border-radius: .5rem; border: 1px solid rgba(255,255,255,.16);
+                       background: transparent; color: inherit; }
+  .signin-error { color: #f87171; }
+</style>
+</head>
+<body>
+<main class="signin">
+  <section class="signin-brand">
+    <img src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="80" height="80">
+    <h1>Joey Media</h1>
+    <p class="metaline">Sign in to see your films and shows.</p>
+  </section>
+  <section class="signin-panel">
+    {% if code or qc_error %}{% include "_guest_qc.html" %}{% else %}
+    <div id="qc" hx-post="/signin/qc/start" hx-trigger="load" hx-swap="outerHTML"
+         hx-vals='{{ {"next": next_path} | tojson }}'>
+      <p class="seclabel">Sign in with Quick Connect</p>
+      <form method="post" action="/signin/qc/start">
+        <input type="hidden" name="next" value="{{ next_path }}">
+        <button type="submit" class="btn">Show a code</button>
+      </form>
+    </div>
+    {% endif %}
+    <details {% if error %}open{% endif %}>
+      <summary>Use username and password instead</summary>
+      {% if error %}<p class="signin-error" role="alert">{{ error }}</p>{% endif %}
+      <form class="signin-form" method="post" action="/signin/password">
+        <input type="hidden" name="next" value="{{ next_path }}">
+        <label>Username <input name="username" autocomplete="username" autocapitalize="none" required></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="btn">Sign in</button>
+      </form>
+    </details>
+  </section>
+</main>
+</body>
+</html>

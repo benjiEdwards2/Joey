@@ -1,7 +1,9 @@
 {# Episodes of one season (2026-10-06; restyle Phase 3 row recipe), lazy-loaded into the title page's <details>.
    Expects: episodes (list|None), note (str|None). Every state is a WORD; "On disk" only when Jellyfin says that
-   episode's file exists. #}
+   episode's file exists. Optional (TV episode flow, 2026-10-16): `rated` = {episode number: ratings entry} and `avg` = the
+   season's average - a row with a rating gains "★ 8.1 · above avg"; without them the rows are as before. #}
 {% from "_rows.html" import meta %}
+{% import "_episode_flow.html" as ef %}
 {% if note %}<p class="metaline">{{ note }}</p>{% endif %}
 {% for e in episodes or [] %}
 {% set disk %}{% if e.on_disk %}<span class="st-available">On disk</span>{% endif %}{% endset %}
@@ -12,5 +14,6 @@
     {{ meta([("airs " if e.future else "") ~ e.date_text if e.date_text else none, disk]) }}
     {% if e.overview %}<p class="ep-over">{{ e.overview }}</p>{% endif %}
   </div>
+  {% if rated %}{{ ef.rowrate(rated.get(e.number), avg|default(none)) }}{% endif %}
 </div>
 {% endfor %}

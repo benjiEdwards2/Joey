@@ -1,0 +1,62 @@
+{# The Awards page body (awards ballot, 2026-10-14; supersedes the hero / podium / category-first page of awards-ui).
+   films view (default): the progress head (ring + words), one scrolling chip row (filters, a divider, sorts), "Hiding N
+   seen", one row per film / show (the first FIRST_ROWS, the rest arrive through ONE htmx request - the sentinel at the
+   end, E7 pattern), the shorts fold, the winners-as-people strip. categories view: the category cards of before
+   (_award_card.html), "More categories" and the E7 sentinel, unchanged. Lives inside #awmain (media_awards.html); links
+   that leave the page reset hx-target / hx-select (see _award_ballot.html). #}
+{% import "_award_card.html" as aw %}
+{% import "_award_ballot.html" as b %}
+{% if view == "categories" %}
+{% if empty %}
+<p class="empty">{{ empty }}</p>
+{% else %}
+{% if cats %}
+<div class="awgrid">{% for c in cats %}{{ aw.category(c) }}{% endfor %}</div>
+{% endif %}
+{% if more %}
+{{ aw.more_categories(more) }}
+{% endif %}
+{# E7: the first screen ends here; the rest of the cards come in ONE request when this sentinel scrolls into view
+   (hx-swap outerHTML: it is replaced by the cards). The sentinel sits inside #awmain, so it must not inherit its
+   target / select / push-url. Without JS it is the plain link to the whole page. #}
+{% if rest %}
+<div class="awrest" hx-get="{{ part_href }}" hx-trigger="revealed" hx-target="this" hx-select="unset" hx-swap="outerHTML" hx-push-url="false" hx-indicator="this"><a class="btn btn-glass btn-sm" href="{{ all_href }}">All categories</a></div>
+{% endif %}
+{% if not cats and not more and not rest %}<p class="empty">{{ "Everything here is seen." if unseen else "Nothing recorded for this ceremony yet." }}</p>{% endif %}
+{% endif %}
+{% elif ballot %}
+<section class="sec awfilms">
+  {% if ballot.progress and ballot.progress.total %}{{ b.progress(ballot.progress, kind) }}{% endif %}
+  {% if ballot.filters or ballot.sorts %}
+  <div class="chips awfilters" role="group" aria-label="Filter and sort">
+    {% for f in ballot.filters %}<a class="chip{{ ' on' if f.on }}" href="{{ f.href }}" aria-pressed="{{ 'true' if f.on else 'false' }}">{{ f.label }}</a>{% endfor %}
+    {% if ballot.filters and ballot.sorts %}<span class="awdiv" aria-hidden="true"></span>{% endif %}
+    {% if ballot.sorts %}<span class="vh">Sort by</span>{% endif %}
+    {% for s in ballot.sorts %}<a class="chip{{ ' on' if s.on }}" href="{{ s.href }}" aria-pressed="{{ 'true' if s.on else 'false' }}">{{ s.label }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  {% if ballot.hidden_seen %}<p class="metaline awhiding">Hiding {{ ballot.hidden_seen }} seen</p>{% endif %}
+  {% if ballot.rows %}
+  <div class="awfilms-list">{% for r in ballot.rows %}{{ b.row(r, kind) }}{% endfor %}
+  {#- Films sentinel (E7 pattern): the rows after the first screen come in ONE request that replaces this block. It sits
+      INSIDE the list so the rows it brings join the list's grid (WP-C3 eyes-on: outside it they lost the row gap). #}
+  {% if ballot.rest %}
+  <div class="awrest" hx-get="{{ ballot.part_rows_href }}" hx-trigger="revealed" hx-target="this" hx-select="unset" hx-swap="outerHTML" hx-push-url="false" hx-indicator="this"><a class="btn btn-glass btn-sm" href="{{ ballot.part_rows_href }}" hx-boost="false">Show {{ ballot.rest }} more</a></div>
+  {% endif %}</div>
+  {% endif %}
+  {% if ballot.empty %}<p class="empty">{{ ballot.empty }}</p>{% endif %}
+  {% if ballot.shorts %}
+  <details class="showmore awshorts"><summary>Shorts · {{ ballot.shorts | length }}</summary>
+    <div class="awfilms-list">{% for r in ballot.shorts %}{{ b.row(r, kind) }}{% endfor %}</div>
+  </details>
+  {% endif %}
+  {% if ballot.people %}
+  <div class="awpeople" hx-target="body" hx-select="unset" hx-swap="innerHTML show:window:top">
+    <h2 class="seclabel">Winners · people</h2>
+    <div class="awpeople-strip">{% for x in ballot.people %}{{ b.person(x) }}{% endfor %}</div>
+  </div>
+  {% endif %}
+</section>
+{% elif empty %}
+<p class="empty">{{ empty }}</p>
+{% endif %}

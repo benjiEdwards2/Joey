@@ -79,122 +79,97 @@ def test_icon_css_is_a_token_free_recipe():
     assert re.search(r"\.awic \{[^}]*flex-shrink: 0", css)
 
 
-# ---- item 2: the page layout ----
+# ---- item 2 (rewritten 2026-10-14, awards ballot): the picker sheet, the control row, the rows ----
+# The hero / podium / ceremony-tile row / year stepper / year select of awards-ui are gone; these pin their replacements
+# against the contract-shaped context kept in test_awards_ballot_templates.py (the whole-page tests that need the Python
+# side live in test_awards_pages.py, WP-C1).
 from tests.hub.film_page import whole
-from tests.hub.test_awards_pages import ALPHA, jelly, page, seeded  # noqa: E402
-from tests.hub.test_media_rate import env  # noqa: E402,F401  (env is a fixture)
-from hub import media_discover as md  # noqa: E402
+from tests.hub.test_awards_ballot_templates import CARD, body, ctx, page as ballot_page, render, row as ballot_row
 
 CSS = (TEMPLATES.parent / "static" / "control-surface.css").read_text(encoding="utf-8")
+TAIL = CSS.split("/* Awards ballot (2026-10-14) */", 1)[1]      # ONE dated tail block holds the ballot's rules
 
 
-def hero_of(b):
-    return re.search(r'<section class="sec awhero[^"]*">.*?</section>', b, re.S).group(0)
-
-
-def test_ceremony_tiles_carry_marks_and_the_picked_one_is_gold(env):
-    build, _ = env
-    seeded()
-    with build(jelly(ALPHA)) as client:
-        b = page(client, "/media/movies/awards?body=bafta")
-    nav = re.search(r'<nav class="awtiles" aria-label="Ceremonies"[^>]*><div class="awtiles-row">(.*?)</div></nav>', b, re.S).group(1)
-    tiles = re.findall(r'<a class="(awtile[^"]*)" href="[^"]*body=(\w+)"[^>]*><svg class="awic awic-(\w+)"[^>]*'
+def test_sheet_tiles_carry_marks_and_the_picked_one_is_gold():
+    s = render("_award_sheet.html", ctx())
+    nav = re.search(r'<nav class="awtilegrid" aria-label="Ceremonies">(.*?)</nav>', s, re.S).group(1)
+    tiles = re.findall(r'<a class="(awtile[^"]*)" href="[^"]*body=(\w+)[^"]*"[^>]*><svg class="awic awic-(\w+)"[^>]*'
                        r'aria-hidden="true"[^>]*>.*?</svg><span class="awtile-name">([^<]+)</span>'
                        r'<span class="awtile-month">\w+</span></a>', nav, re.S)   # awards-year item 3: + the month line
-    assert [(t[1], t[2]) for t in tiles] == [(x, x) for x in ("oscars", "globes", "bafta", "critics", "sag", "dga", "pga",
-                                                              "wga", "cannes")]
-    assert [t[1] for t in tiles if t[0] == "awtile on"] == ["bafta"] and "Critics&#39; Choice" in nav
+    assert [(t[1], t[2]) for t in tiles] == [("oscars", "oscars"), ("bafta", "bafta"), ("critics", "critics")]
+    assert [t[1] for t in tiles if t[0] == "awtile on"] == ["oscars"]
     assert re.search(r"\.awtile\.on \{[^}]*border-color: var\(--gold\)", CSS)
     assert re.search(r"\.awtile\.on \.awic \{ color: var\(--gold\); \}", CSS)
-    assert re.search(r"\.awtiles \{[^}]*overflow-x: auto", CSS)                # scrolls inside its own box
+    assert re.search(r"\.awtilegrid \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)", TAIL)   # a grid in the sheet
+    assert not re.search(r"\.awtile \{[^}]*(width: 96px|flex: 0 0 96px)", CSS)       # no fixed-width scrolling row any more
 
 
-def test_override_logo_replaces_a_tile_mark(env, tmp_path, monkeypatch):
-    monkeypatch.setattr(icons, "OVERRIDE_DIR", tmp_path)
-    icons.override.cache_clear()
-    (tmp_path / "bafta.png").write_bytes(b"\x89PNG")
-    build, _ = env
-    seeded()
-    try:
-        with build(jelly(ALPHA)) as client:
-            b = page(client, "/media/movies/awards")
-    finally:
-        icons.override.cache_clear()
+def test_override_logo_replaces_a_tile_and_the_picker_mark():
+    c = ctx()
+    c["bodies"][1]["logo"] = "/static/awards/bafta.png"
+    c["picker"] = {**c["picker"], "name": "BAFTA", "body_id": "bafta", "logo": "/static/awards/bafta.png"}
+    s = render("_award_sheet.html", c)
     assert '<img class="awic awlogo" src="/static/awards/bafta.png" width="28" height="28" alt="">' \
-           '<span class="awtile-name">BAFTA</span>' in b
-    assert "awic-oscars" in b                                                 # the others keep their drawings
+           '<span class="awtile-name">BAFTA</span>' in s
+    assert '<img class="awic awlogo" src="/static/awards/bafta.png" width="18" height="18" alt=""><span class="awpick-name">BAFTA' in s
+    assert "awic-oscars" in s                                                # the others keep their drawings
 
 
-def test_coming_up_has_a_mark_per_ceremony_and_flags_the_next_one(env):
-    build, _ = env
-    seeded()
-    with build(jelly(ALPHA)) as client:
-        b = page(client, "/media/movies/awards")
-    strip = b.split('<div class="stats awcoming">', 1)[1].split("</section>", 1)[0]
-    evs = re.findall(r'<span class="awev( is-next)?"><svg class="awic awic-(\w+)"[^>]*aria-hidden="true"', strip)
-    assert len(evs) >= 4 and [e for e in evs if e[0]] == [evs[0]]               # exactly one, the soonest
-    assert strip.count('<span class="awnext">Next</span>') == 1                 # a word, not colour alone
+def test_coming_up_has_a_mark_per_ceremony_and_flags_the_next_one():
+    p = ballot_page()
+    fold = p.split('<div class="stats awcoming">', 1)[1].split("</details>", 1)[0]
+    evs = re.findall(r'<span class="awev( is-next)?"><svg class="awic awic-(\w+)"[^>]*aria-hidden="true"', fold)
+    assert [e[1] for e in evs] == ["globes", "critics"] and [e for e in evs if e[0]] == [evs[0]]   # exactly one, the soonest
+    assert fold.count('<span class="awnext">Next</span>') == 1               # a word, not colour alone
 
 
-def test_year_select_keeps_body_and_not_seen(env):
-    build, _ = env
-    seeded()
-    with build(jelly(ALPHA)) as client:
-        b = page(client, "/media/movies/awards?body=oscars&year=2024&unseen=1")
-    form = re.search(r'<form class="awyearform" method="get" action="/media/movies/awards">(.*?)</form>', b, re.S).group(1)
-    assert '<input type="hidden" name="body" value="oscars"><input type="hidden" name="unseen" value="1">' in form
-    assert '<label class="vh" for="awyear">Ceremony year</label>' in form
-    assert re.findall(r'<option value="(\d+)"( selected)?>', form) == [("2026", ""), ("2025", ""), ("2024", " selected")]
-    assert 'onchange="this.form.requestSubmit()"' in form and "<noscript>" in form   # works without JS too
-    assert re.search(r"\.awyearform \.awyear \{[^}]*font-size: (1[6-9]|2\d)px", CSS)  # >= 16 px: no zoom on a phone
-    assert b.index("‹ 2024") < b.index("awyearform") < b.index("2025 ›") < b.index("97th Academy Awards") \
-        if "‹ 2024" in b else b.index("awyearform") < b.index("2025 ›")
+def test_year_strip_current_year_is_gold_and_a_phone_tap_target():
+    assert re.search(r"\.awyears \.chip\[aria-current\] \{[^}]*var\(--gold-soft\)[^}]*var\(--gold\)", TAIL)
+    assert re.search(r"\.awyears \.chip\.is-off \{ opacity: \.35; \}", TAIL)    # no edition: dim (and aria-disabled in the markup)
+    assert re.search(r"@media \(max-width: 767px\) \{ \.awyears \.chip, \.awyears-head \.chip \{ height: 40px; \} \}", TAIL)
+    assert re.search(r"\.awdecade \{[^}]*flex-wrap: wrap;[^}]*gap: 8px;", TAIL) and "awards-years (2026-10-16)" in TAIL   # decade rows
+    assert "<select" not in render("_award_sheet.html", ctx()) and "awyearform" not in ballot_page()   # the year select is gone
 
 
-def test_hero_is_gold_framed_on_the_winners_backdrop(env, monkeypatch):
-    build, _ = env
-    seeded()
-    with build(jelly({**ALPHA, "backdrop": "jfb:jfalpha"})) as client:
-        hero = hero_of(page(client, "/media/movies/awards"))
-    assert hero.startswith('<section class="sec awhero has-bd">')
-    assert '<img class="awhero-bd" src="/img/jfb:jfalpha?h=1280" alt=""' in hero
-    assert '<span class="card-pic awframe is-won">' in hero
-    assert re.search(r'<span class="awtally"><svg class="awic awic-laurel"[^>]*aria-hidden="true"[^>]*>.*?</svg>'
-                     r'Won 2 of 2 nominations</span>', hero, re.S)
-    assert re.search(r'<span class="awseen st-good"><svg[^>]*>.*?</svg>Seen</span>', hero, re.S)
-    assert '<div class="microlabel awhero-label">Nominated · ' in hero
-    with build(jelly(ALPHA)) as client:                                      # no library backdrop, no Jellyseerr
-        hero = hero_of(page(client, "/media/movies/awards"))
-    assert hero.startswith('<section class="sec awhero">') and "awhero-bd" not in hero
+def test_picker_is_a_bottom_sheet_on_a_phone_and_a_dropdown_from_640px():
+    sheet = re.search(r"\.awsheet \{([^}]*)\}", TAIL).group(1)
+    assert "position: fixed" in sheet and "bottom: 0" in sheet and "overflow-y: auto" in sheet
+    assert "env(safe-area-inset-bottom)" in sheet and "var(--tab-lift)" in sheet   # clears the phone tab bar and the home bar
+    assert re.search(r"\.awscrim \{[^}]*position: fixed;[^}]*var\(--scrim\)", TAIL)
+    wide = re.search(r"@media \(min-width: 640px\) \{(.*?)\n\}", TAIL, re.S).group(1)
+    assert re.search(r"\.awsheet \{ position: absolute; top: calc\(100% \+ 8px\);", wide) and "background: transparent" in wide
+    row = re.search(r"\.awctl \{([^}]*)\}", TAIL).group(1)
+    assert "position: sticky" in row and "top: var(--aw-top)" in row
+    assert "--aw-top: 49px" in row and "--aw-top: calc(57px + env(safe-area-inset-top, 0px))" in TAIL   # under the Media bar (E3)
+    z = int(re.search(r"z-index: (\d+)", row).group(1))
+    assert z < int(re.search(r"\.topbar \{[^}]*z-index: (\d+)", CSS).group(1))      # never over the Media bar
+    assert not re.search(r"(backdrop-filter|transform|filter):", row)          # a fixed sheet inside it would be fixed to the row
 
 
-def test_hero_backdrop_comes_from_the_meta_cache_for_an_off_server_winner(env, monkeypatch):
-    build, _ = env
-    seeded()
-    reads, cache = [], {}
-    monkeypatch.setattr(md, "_creds", lambda: ("http://seerr.invalid", "k"))
-
-    def meta_get(path, ttl=None):
-        reads.append(path)
-        cache[path] = {"backdropPath": "/wide.jpg", "posterPath": "/p.jpg"}
-        return cache[path]
-
-    monkeypatch.setattr(md, "meta_get", meta_get)
-    monkeypatch.setattr(md, "meta_peek", lambda path, ttl=None: cache.get(path, md.MISSING))
-    with build(jelly()) as client:                                           # Alpha is not on the server
-        first = hero_of(page(client, "/media/movies/awards"))
-        hero = hero_of(page(client, "/media/movies/awards"))
-    # M-46 / F2 (2026-10-12): the render reads the meta cache only; the BackgroundTask reads it for the next view
-    assert "awhero-bd" not in first
-    assert '<img class="awhero-bd" src="/img/tmdb:/wide.jpg?h=1280"' in hero and "/api/v1/movie/11" in reads
+def test_ballot_css_is_one_dated_block_with_tokens_only():
+    assert CSS.count("/* Awards ballot (2026-10-14) */") == 1
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", TAIL)
+    for gone in ("awhero", "awpodium", "awpod", "awwin", "awtally", "awseen", "awtiles", "awstep", "awyearform", "awpill"):
+        assert not re.search(rf"\.{gone}\b", CSS), gone
+    assert not re.search(r"\.awyear[ ,{]", CSS)                                  # the select's rules; .awyears / .awyearnote stay
+    root = CSS.split(":root {", 1)[1].split("}", 1)[0]
+    for tok in ("--silver:", "--bronze:", "--silver-soft:", "--bronze-soft:"):
+        assert root.count(tok) == 1 and CSS.count(tok) == 1, tok              # the tokens outlive the podium
 
 
-def test_category_cards_have_a_mark_and_gold_winners(env):
-    build, _ = env
-    seeded()
-    with build(jelly(ALPHA)) as client:
-        b = page(client, "/media/movies/awards")
-    grid = b.split('<div class="awgrid">', 1)[1]
+def test_ballot_layout_css_phone_first_no_sideways_page():
+    assert re.search(r"\.awfilters \{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto;", TAIL)      # scrolls inside its own box
+    assert re.search(r"@media \(min-width: 1024px\) \{ \.awfilters \{ flex-wrap: wrap; overflow: visible;", TAIL)
+    assert re.search(r"\.awfilm \{ display: grid; grid-template-columns: 56px minmax\(0, 1fr\) auto;", TAIL)   # 56 px poster
+    assert re.search(r"\.awfilm\.is-won \{ border-color: var\(--gold-line\); \}", TAIL)
+    assert re.search(r"\.awfilm-srv \{ color: var\(--sky\); \}", TAIL)
+    assert re.search(r"\.awring \.val \{ stroke: var\(--good\);", TAIL)         # the ring is --good, the words carry the numbers
+    assert re.search(r"\.awctl \.awed \{ order: 3; flex: 1 1 100%;", TAIL)      # phone: the edition line takes its own line
+    assert re.search(r"\.awfilm \.awdetail \{ grid-column: 1 / -1;", TAIL)
+
+
+def test_category_cards_have_a_mark_and_gold_winners():
+    grid = body(view="categories", ballot=None, cats=[CARD]).split('<div class="awgrid">', 1)[1]
     assert re.search(r'<div class="awcat-head"><svg class="awic awic-person"[^>]*aria-hidden="true"[^>]*>.*?</svg>'
                      r'<div class="awcat-name">Best Actor</div></div>', grid, re.S)
     assert '<span class="awframe is-won' in grid
@@ -297,15 +272,12 @@ def test_badge_css_sits_bottom_right_with_tokens():
     assert re.search(r"\.card-pic\.is-won > img \{[^}]*var\(--gold\)", CSS)
 
 
-def test_awards_page_posters_carry_badges_by_qid(env):
-    build, _ = env
-    seeded()
-    badges._cache.clear()
-    with build(jelly(ALPHA)) as client:
-        b = page(client, "/media/movies/awards")
-    hero = hero_of(b)
-    assert 'aria-label="Won Best Picture · Oscars 2025"' in hero              # the hero winner's poster
-    assert hero.count('class="awbadge"') == 1                                 # Beta / Gamma / Delta: nominees only
+def test_ballot_row_posters_carry_the_winner_badge_and_a_nominee_none():
+    b = body()
+    assert 'aria-label="Won Best Picture · Oscars 2025"' in ballot_row("Anora", b)       # the winner's poster
+    assert b.count('class="awbadge"') == 1                                                # Conclave / Nickel Boys: nominees only
+    conclave = ballot_row("Conclave", b)
+    assert "awbadge" not in conclave and "awfilm-pic is-won" not in conclave
 
 
 from tests.hub import test_media_discover as disc  # noqa: E402
@@ -350,78 +322,7 @@ def test_film_page_similar_rows_badge_winners(film_env):
     assert "awbadge" not in card_of(b, "Similar Two") and "awbadge" not in card_of(b, "Rec One")
 
 
-# ---- item 4: the Most wins podium ----
-def podium_seed(body="bafta", spec=None):
-    """spec: {title: [(category, won)]} -> one 2025 edition; works Q95xx with TMDB ids 950x."""
-    spec = spec or {"Alpha": [("Best Film", 1), ("Best Director", 1), ("Best Actor", 1), ("Best Editing", 0)],
-                    "Beta": [("Best Film", 0), ("Best Screenplay", 1), ("Best Score", 0)],
-                    "Delta": [("Best Director", 0), ("Best Actress", 1), ("Best Sound", 0)],
-                    "Charlie": [("Best Costume", 1)], "Echo": [("Best Film", 0)]}
-    cats, noms, ents = {}, [], {}
-    for i, (title, rows) in enumerate(spec.items()):
-        q = f"Q95{i:02d}"
-        ents[q] = {"qid": q, "kind": "film", "label": title, "tmdb_movie": 9500 + i}
-        for pos, (cat, won) in enumerate(rows):
-            key = cat.lower().replace(" ", "-")
-            cats[key] = {"cat_key": key, "name": cat, "kind": "film", "lead": "work"}
-            noms.append({"cat_key": key, "work_qid": q, "work_title": title, "won": won, "pos": i * 10 + pos})
-    with closing(adb.ensure()) as db:
-        adb.upsert_editions(db, body, [{"ordinal": 78, "year": 2025}])
-        adb.write_edition(db, body, 78, list(cats.values()), noms, ents, "done", "wp")
-
-
-def podium_of(b):
-    m = re.search(r'<ol class="awpodium">(.*?)</ol>', b, re.S)
-    return m.group(1) if m else None
-
-
-def test_podium_top_three_by_wins_then_nominations_then_title(env):
-    build, _ = env
-    podium_seed()
-    badges._cache.clear()
-    with build(jelly()) as client:
-        b = page(client, "/media/movies/awards?body=bafta&year=2025")
-    pod = podium_of(b)
-    assert pod and '<h2 class="seclabel">Most wins</h2>' in b
-    steps = re.findall(r'<li class="awpod awpod-(\d)"><a class="awpod-in" href="(/media/title/movie/\d+)">.*?'
-                       r'<span class="card-pic awframe is-place-\1">.*?<span class="row-title">([^<]+)</span>\s*'
-                       r'<span class="row-meta">([^<]+)</span>\s*<span class="awpod-step"><span class="vh">Place </span>\1</span>',
-                       pod, re.S)
-    assert [(s[0], s[2], s[3]) for s in steps] == [("1", "Alpha", "3 wins · 4 nominations"),
-                                                   ("2", "Beta", "1 win · 3 nominations"),      # Beta = Delta on both
-                                                   ("3", "Delta", "1 win · 3 nominations")]     # counts: title decides
-    assert steps[0][1] == "/media/title/movie/9500" and "Charlie" not in pod
-    assert b.index("awpodium") < b.index("awhero")                            # at the top of the ceremony page
-
-
-def test_podium_hidden_for_winners_only_ceremonies_and_single_winners(env):
-    build, _ = env
-    podium_seed("cannes", {"One": [("Palme d'Or", 1)], "Two": [("Grand Prix", 1)], "Three": [("Jury Prize", 1)]})
-    podium_seed("bafta", {"Solo": [("Best Film", 1), ("Best Director", 1)], "Other": [("Best Film", 0)]})
-    with build(jelly()) as client:
-        cannes = page(client, "/media/movies/awards?body=cannes&year=2025")
-        solo = page(client, "/media/movies/awards?body=bafta&year=2025")
-    assert podium_of(cannes) is None and "Most wins" not in cannes            # three 1-win ties: no story
-    assert podium_of(solo) is None                                            # one winner is not a podium
-
-
-def test_podium_with_two_works_keeps_the_middle_for_first(env):
-    build, _ = env
-    podium_seed("bafta", {"Big": [("Best Film", 1), ("Best Director", 1)], "Small": [("Best Score", 1)]})
-    with build(jelly()) as client:
-        pod = podium_of(page(client, "/media/movies/awards?body=bafta&year=2025"))
-    assert re.findall(r'awpod-(\d)"', pod) == ["1", "2"]
-
-
-def test_podium_css_is_three_across_on_every_width_with_tokens():
-    assert re.search(r"\.awpodium \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)", CSS)
-    assert re.search(r"\.awpod-1 \{ grid-column: 2; \} \.awpod-2 \{ grid-column: 1; \} \.awpod-3 \{ grid-column: 3; \}", CSS)
-    root = CSS.split(":root {", 1)[1].split("}", 1)[0]
-    for tok in ("--silver:", "--bronze:", "--silver-soft:", "--bronze-soft:"):
-        assert root.count(tok) == 1 and CSS.count(tok) == 1, tok
-    heights = {n: int(re.search(rf"\.awpod-{n} \.awpod-step \{{ height: (\d+)px", CSS).group(1)) for n in (1, 2, 3)}
-    assert heights[1] > heights[2] > heights[3]                               # 1st tallest
-    assert not re.search(r"@media[^{]*\{[^}]*\.awpodium \{[^}]*grid-template-columns", CSS)   # no phone override
+# ---- item 4 (the Most wins podium) removed 2026-10-14: the ballot ranks by wins (the default sort); see the ballot tests ----
 
 
 # ---- item 5: film / TV and person Awards sections ----

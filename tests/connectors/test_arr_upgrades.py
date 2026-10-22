@@ -29,13 +29,17 @@ def failing(monkeypatch, raw, suffix, app=None, outcome=None):
 
 
 def test_radarr_rows_name_the_held_quality_and_the_profile_cutoff(raw):
+    """WP-U1 (2026-10-21): a cutoff GROUP is its members in words ("Bluray/Remux 2160p", not the group's own name) and
+    each row carries the profile's own name."""
     data = Arr().transform(raw)
     jsonschema.validate(data, SCHEMA)
     rows = data["upgrades"]["radarr"]
     assert [r["title"] for r in rows] == ["Copper Sky", "Desert Crossing", "Harbour Lights"]  # by title
     assert rows[2] == {"item_key": "tmdb:1001", "title": "Harbour Lights", "year": 2025, "arr_id": 1,
-                       "have": "WEBDL-720p", "want": "Bluray-1080p", "poster": "radarr:1"}
-    assert rows[1]["want"] == "Bluray + Remux 2160p"  # the cutoff is a quality group: its name
+                       "have": "WEBDL-720p", "want": "Bluray-1080p", "profile": "HD-1080p",
+                       "poster": "radarr:1"}
+    assert rows[1]["want"] == "Bluray/Remux 2160p"    # the cutoff is a quality group: its members, collapsed
+    assert rows[1]["profile"] == "Ultra-HD" and rows[0]["profile"] is None
     assert rows[0]["want"] is None                    # profile 9 is not in the profile list
     assert rows[0]["have"] is None                    # Copper Sky is not in the movie list
 
@@ -52,10 +56,12 @@ def test_radarr_have_joins_the_movie_list_and_falls_back_to_the_records_own_file
 
 
 def test_sonarr_episodes_group_per_series_with_the_lowest_quality(raw):
+    """WP-U1 (2026-10-21): + `profile` and `episode_id` (the `sample` episode's id, the hub's Why? searches it)."""
     rows = Arr().transform(raw)["upgrades"]["sonarr"]
     assert [r["title"] for r in rows] == ["Iron Valley", "Quiet Coast"]
     assert rows[1] == {"item_key": "tvdb:2001", "title": "Quiet Coast", "arr_id": 1, "episodes": 3,
-                       "have": "SDTV", "want": "WEB 1080p", "sample": "S01E02", "poster": "sonarr:1"}
+                       "have": "SDTV", "want": "WEB 1080p", "profile": "HD-1080p", "sample": "S01E02",
+                       "episode_id": 3103, "poster": "sonarr:1"}
     assert (rows[0]["episodes"], rows[0]["have"], rows[0]["want"]) == (1, "WEBDL-720p", "Bluray-1080p")
 
 
@@ -80,11 +86,12 @@ def test_missing_profiles_or_files_leave_want_and_have_null(raw):
 
 
 def test_no_cutoff_payload_means_null_lists_and_no_upgrades_count(raw):
-    old = {k: v for k, v in raw.items() if "cutoff" not in k and "qualityprofile" not in k}
+    """WP-U1 (2026-10-21): `last_search` is an empty list when no command list was fetched either."""
+    old = {k: v for k, v in raw.items() if "cutoff" not in k and "qualityprofile" not in k and "command" not in k}
     data = Arr().transform(old)
     jsonschema.validate(data, SCHEMA)
     assert data["upgrades"] == {"radarr": None, "sonarr": None,
-                                "totals": {"movies": 0, "episodes": 0, "series": 0}}
+                                "totals": {"movies": 0, "episodes": 0, "series": 0}, "last_search": []}
     assert "upgrades" not in data["radarr"] and "upgrades" not in data["sonarr"]
 
 
@@ -151,3 +158,81 @@ def test_an_app_down_fetches_no_upgrades_for_it(live, monkeypatch, raw):
 def test_fixture_mode_upgrades_are_byte_stable(snapshots):
     first = json.dumps(Arr().run()["data"]["upgrades"], sort_keys=True)
     assert json.dumps(Arr().run()["data"]["upgrades"], sort_keys=True) == first
+
+
+# ---- WP-U1 (2026-10-21): honest `want` words + the last whole-library search ----
+
+LIVE_1080P = [{"id": 7, "name": "1080p", "cutoff": 1003, "items": [   # live Sonarr profile 7, 2026-10-21 (trimmed)
+    {"quality": {"id": 4, "name": "HDTV-1080p", "resolution": 1080}, "items": [], "allowed": False},
+    {"id": 1003, "name": "Default", "allowed": True, "items": [
+        {"quality": {"id": 15, "name": "WEBRip-1080p", "resolution": 1080}, "items": [], "allowed": True},
+        {"quality": {"id": 3, "name": "WEBDL-1080p", "resolution": 1080}, "items": [], "allowed": True},
+        {"quality": {"id": 7, "name": "Bluray-1080p", "resolution": 1080}, "items": [], "allowed": True}]}]}]
+
+
+def test_a_cutoff_group_is_its_members_in_words_never_the_group_name():
+    assert Arr._cutoff_names(LIVE_1080P) == {7: "WEB/Bluray 1080p"}
+    assert Arr._profile_names(LIVE_1080P) == {7: "1080p"}
+    assert Arr._group_words(["WEBRip-1080p", "WEBDL-1080p"]) == "WEB 1080p"
+    assert Arr._group_words(["Bluray-2160p", "Remux-2160p"]) == "Bluray/Remux 2160p"
+    assert Arr._group_words(["WEBDL-720p", "Bluray-1080p"]) == "WEB 720p/Bluray 1080p"
+    assert Arr._group_words(["SDTV", "DVD"]) == "SDTV/DVD"
+    assert Arr._group_words([]) is None
+    empty = [{"id": 2, "name": "x", "cutoff": 50, "items": [{"id": 50, "name": "Empty group", "items": []}]}]
+    assert Arr._cutoff_names(empty) == {2: "Empty group"}       # no members: the group's own name is all there is
+    plain = [{"id": 3, "name": "y", "cutoff": 7, "items": [{"quality": {"id": 7, "name": "Bluray-1080p"}}]}]
+    assert Arr._cutoff_names(plain) == {3: "Bluray-1080p"}     # a plain quality keeps its name
+
+
+def test_last_search_is_the_newest_library_search_per_app(raw):
+    last = Arr().transform(raw)["upgrades"]["last_search"]
+    assert last == [
+        {"name": "missing", "app": "radarr", "status": "completed", "ended": "2025-12-31T20:00:40Z",
+         "message": "Completed search for 2 movies. 1 reports downloaded."},     # newer than its CutoffUnmet; RefreshMovie ignored
+        {"name": "upgrades", "app": "sonarr", "status": "completed", "ended": "2026-01-01T00:00:00Z",
+         "message": "Completed search for 1 episodes. 0 reports downloaded."}]   # RssSync (newer) ignored
+
+
+def test_last_search_running_long_message_and_apps_without_one(raw):
+    raw = copy.deepcopy(raw)
+    raw["raw_radarr_command"] = [{"id": 1, "name": "RefreshMovie", "status": "completed", "queued": "2026-01-01T00:00:00Z"}]
+    raw["raw_sonarr_command"] = [{"id": 5, "name": "CutoffUnmetEpisodeSearch", "status": "Started",
+                                  "queued": "2026-01-01T00:00:00Z", "message": "x" * 300}]
+    last = Arr().transform(raw)["upgrades"]["last_search"]
+    assert last == [{"name": "upgrades", "app": "sonarr", "status": "started", "ended": None, "message": "x" * 200}]
+    raw.pop("raw_sonarr_command")
+    data = Arr().transform(raw)
+    assert data["upgrades"]["last_search"] == []
+    jsonschema.validate(data, SCHEMA)
+
+
+def test_a_failed_command_call_only_drops_that_apps_last_search(live, monkeypatch, raw):
+    failing(monkeypatch, raw, "/api/v3/command", app="radarr")
+    envelope = Arr().run()
+    data = envelope["data"]
+    assert envelope["status"] == "ok" and "partial_errors" not in data
+    assert [s["app"] for s in data["upgrades"]["last_search"]] == ["sonarr"]
+    assert len(data["upgrades"]["radarr"]) == 3
+    jsonschema.validate(data, SCHEMA)
+    for secret in (RKEY, SKEY, "example.invalid"):
+        assert secret not in json.dumps(envelope)
+
+
+def test_older_upgrades_without_the_wp_u1_fields_stay_valid(raw):
+    data = Arr().transform(raw)
+    data["upgrades"].pop("last_search")
+    for app in ("radarr", "sonarr"):
+        for r in data["upgrades"][app]:
+            r.pop("profile")
+            r.pop("episode_id", None)
+    jsonschema.validate(data, SCHEMA)
+
+
+def test_live_command_calls_are_one_bare_call_per_app(live, monkeypatch, raw):
+    calls = fake_requests(monkeypatch, raw)
+    data = Arr().run()["data"]
+    cmd = [c for c in calls if c["url"].endswith("/api/v3/command")]
+    assert [(c["app"], c["url"], c["params"], c["timeout"]) for c in cmd] == [
+        ("radarr", f"{RADARR}/api/v3/command", None, 10), ("sonarr", f"{SONARR}/api/v3/command", None, 10)]
+    assert cmd[0]["headers"] == {"X-Api-Key": RKEY} and cmd[1]["headers"] == {"X-Api-Key": SKEY}
+    assert [s["app"] for s in data["upgrades"]["last_search"]] == ["radarr", "sonarr"]

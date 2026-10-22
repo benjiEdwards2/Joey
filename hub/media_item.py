@@ -7,6 +7,7 @@ the exception TYPE only.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import re
 import threading
@@ -38,7 +39,7 @@ CREW_TYPES = ("Director", "Writer")
 DOWN_TEXT = "Couldn't reach Jellyfin — showing what Joey knows"
 KINDS = {"Movie": "movie", "Episode": "episode", "Series": "series", "Season": "season"}
 
-_cache: LRU = LRU()   # jf_id -> (fetched_at, item + seasons); bounded (M-42)
+_cache: LRU = LRU()   # _ck(jf_id) -> (fetched_at, item + seasons); bounded (M-42)
 _server: list = [0.0, None]  # [fetched_at, server id]
 _flights: dict = {}           # key -> Future of the one read in flight (F2 fast pages, 2026-10-12)
 _flight_lock = threading.Lock()
@@ -68,6 +69,19 @@ def once(key, fn):
     finally:
         with _flight_lock:
             _flights.pop(key, None)
+
+
+def _ck(jf_id: str):
+    """The cache key of an item read: its id; on the media front (viewer, id) - the read carries that viewer's watch
+    state (UserData), so one friend's entry is never served to another, and none exists outside a signed-in request
+    (Joey TV WP-B2, P3)."""
+    from hub import guest, media_jellyfin
+    return (media_jellyfin.viewer(), jf_id) if guest.is_media() else jf_id
+
+
+def _in_context(pool, fn, *args):
+    """pool.submit that carries this request's context (the media front's bound viewer) into the worker thread."""
+    return pool.submit(contextvars.copy_context().run, fn, *args)
 
 
 def clear_cache() -> None:
@@ -170,6 +184,10 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
                                               and ITEM_RE.match(str(c["Id"])) else None)}
                                      for c in e.get("People") or []
                                      if isinstance(c, dict) and c.get("Name") and c.get("Type") in CREW_TYPES],
+                            # TV episode flow (WP-E3, 2026-10-16): everyone the episode lists, any Type - an episode
+                            # page counts a guest's "k eps this season" from these (same read, no extra call)
+                            "people_names": [str(c["Name"])[:80] for c in (e.get("People") or [])[:100]
+                                             if isinstance(c, dict) and c.get("Name")],
                             **state})
         done = sum(1 for e in eps if e["played"])
         out.append({"id": s["Id"], "number": _int(s.get("IndexNumber")), "name": str(s.get("Name") or "Season")[:100], "episodes": eps,
@@ -181,6 +199,8 @@ def _build(jf_id: str) -> dict:
     """The page data for one item, straight from Jellyfin; raises on any upstream failure."""
     base, headers = media_files._creds()
     uid = media_files._user_id(base, headers)
+    if not uid:   # the media front outside a signed-in request (P3): no read as anyone else
+        raise LookupError("no Jellyfin user")
     raw = media_files._get(base, headers, f"/Users/{uid}/Items/{jf_id}", {"Fields": FIELDS})
     kind = KINDS.get(str(raw.get("Type")))
     if kind is None:
@@ -194,9 +214,9 @@ def _build(jf_id: str) -> dict:
         # media-speed: the independent reads after the item run side by side. An episode / season reads its
         # SHOW through _data (cached), which carries the show's TMDB id and seasons — the film page then
         # finds the show already cached instead of reading it (and its seasons) a second time.
-        show_f = pool.submit(_data, series_id) if kind in ("episode", "season") and series_id else None
-        seasons_f = pool.submit(_seasons, base, headers, uid, series_id, today) if kind == "series" else None
-        files_f = (pool.submit(media_files.file_summary, "tv", int(tmdb), raw["Id"])   # M-45: the series id is known
+        show_f = _in_context(pool, _data, series_id) if kind in ("episode", "season") and series_id else None
+        seasons_f = _in_context(pool, _seasons, base, headers, uid, series_id, today) if kind == "series" else None
+        files_f = (_in_context(pool, media_files.file_summary, "tv", int(tmdb), raw["Id"])   # M-45: the series id is known
                    if kind == "series" and str(tmdb).isdigit()
                    else None)
         if show_f is not None:
@@ -255,7 +275,7 @@ def _data(jf_id: str, stale_ok: bool = True) -> dict | None:
     """The item's page data. Fresh (under FRESH_S): from the cache. Older but under CACHE_TTL: from the cache at once
     and re-read in the background (`stale_ok`; False = read now, as a write path that needs today's state does).
     Otherwise one blocking read, shared by concurrent callers."""
-    hit = _cache.get(jf_id)
+    hit = _cache.get(_ck(jf_id))
     if hit:
         age = time.time() - hit[0]
         if age < FRESH_S:
@@ -265,11 +285,12 @@ def _data(jf_id: str, stale_ok: bool = True) -> dict | None:
             return hit[1]
     if not media_files._creds():
         return None
-    return once(("item", jf_id), lambda: _read(jf_id))
+    return once(("item", _ck(jf_id)), lambda: _read(jf_id))
 
 
 def _read(jf_id: str, force: bool = False) -> dict | None:
-    hit = _cache.get(jf_id)   # a caller that queued behind a read that has just finished
+    key = _ck(jf_id)
+    hit = _cache.get(key)   # a caller that queued behind a read that has just finished
     if not force and hit and time.time() - hit[0] < FRESH_S:
         return hit[1]
     gen = _gen[0]
@@ -280,40 +301,42 @@ def _read(jf_id: str, force: bool = False) -> dict | None:
         return None   # a background refresh that fails keeps the entry it was refreshing
     with _flight_lock:
         if gen == _gen[0]:   # not across an invalidation: the read may predate Joey's own write
-            _cache[jf_id] = (time.time(), out)
+            _cache[key] = (time.time(), out)
     return out
 
 
 def _refresh_later(jf_id: str) -> None:
     """Queue one background re-read of a stale item (the bounded refresh pool; a second ask while queued is a no-op)."""
+    key = _ck(jf_id)
     with _flight_lock:
-        if jf_id in _refreshing:
+        if key in _refreshing:
             return
-        _refreshing.add(jf_id)
+        _refreshing.add(key)
 
     def run():
         try:
-            once(("item", jf_id), lambda: _read(jf_id, force=True))
+            once(("item", key), lambda: _read(jf_id, force=True))
         finally:
             with _flight_lock:
-                _refreshing.discard(jf_id)
-    _refresh_pool.submit(run)
+                _refreshing.discard(key)
+    ctx = contextvars.copy_context()   # the media front's bound viewer rides along (one zero-arg callable, as before)
+    _refresh_pool.submit(lambda: ctx.run(run))
 
 
 def warm(jf_id: str) -> str:
     """The warm-up's item read (E1): 'cached' when the item is fresh, else read now -> 'fetched' or 'failed'."""
-    hit = _cache.get(jf_id)
+    hit = _cache.get(_ck(jf_id))
     if hit and time.time() - hit[0] < FRESH_S:
         return "cached"
     if not media_files._creds():
         return "failed"
-    return "fetched" if once(("item", jf_id), lambda: _read(jf_id, force=True)) is not None else "failed"
+    return "fetched" if once(("item", _ck(jf_id)), lambda: _read(jf_id, force=True)) is not None else "failed"
 
 
 def peek(jf_id: str | None) -> dict | None:
     """The cached page data for an item, however old, WITHOUT a Jellyfin read — the film page's deferred parts
     (F2, 2026-10-12) use what the page itself just read and never read Jellyfin again."""
-    hit = _cache.get(jf_id) if jf_id else None
+    hit = _cache.get(_ck(jf_id)) if jf_id else None
     return hit[1] if hit else None
 
 

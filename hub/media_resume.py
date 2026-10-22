@@ -10,6 +10,9 @@ and Media home Continue watching shelves, Activity → Live's Up next, and the f
 The Jellyfin user is the viewer's: "you" = JELLYFIN_USER (media_files._user_id: by name, else the first admin),
 "her" = exactly JELLYFIN_USER_HER (never a fallback to the admin). A signed-in viewer always acts as themselves;
 only the local, not-signed-in "both" view may name the owner of a row (the form's `owner`).
+Media front (Joey TV WP-B2, P3): the owner is the signed-in identity's (the form is ignored) and the Jellyfin user is
+the signed-in one - its own id AND its own token (hub.guest_auth.user_creds), for `you` (the alias user) exactly as for
+a friend; the admin key and JELLYFIN_USER are never used for these writes there.
 
 After success the item leaves the cached resume list at once (media_hidden, until a newer jellyfin snapshot) and the
 page flashes "Marked watched" / "Progress reset". A watched mark reaches Joey's diary through the usual path: the next
@@ -38,7 +41,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell, upstream
+from hub import guest, media_db, media_files, media_hidden, media_item, media_jellyfin as jellyfin, shell, upstream
 from hub.media_write import flash_keys, form_of, safe_back, same_origin
 
 log = logging.getLogger("hub.media_resume")
@@ -138,14 +141,22 @@ def _delete(base, headers, path, params=None):
     return upstream.session("jellyfin").delete(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
 
 
-def act(action: str, owner: str, jf_id: str) -> tuple[str | None, int | None]:
-    """Run one action as the owner's Jellyfin user -> (None, None) on success, else (ERRORS code, HTTP status)."""
-    creds = media_files._creds()
-    if creds is None:
-        return "jfunset", None
-    base, headers = creds
+def act(action: str, owner: str, jf_id: str, user: tuple | None = None) -> tuple[str | None, int | None]:
+    """Run one action as the owner's Jellyfin user -> (None, None) on success, else (ERRORS code, HTTP status).
+    Media front: `user` = (base, headers, user id) of the signed-in user (guest_auth.user_creds) - required there."""
+    if guest.is_media():
+        if user is None:
+            return "jfuser", None
+        base, headers, uid = user
+    else:
+        creds = media_files._creds()
+        if creds is None:
+            return "jfunset", None
+        base, headers = creds
+        uid = None
     try:
-        uid = media_files._user_id(base, headers) if owner == "you" else _her_user_id(base, headers)
+        if uid is None:
+            uid = media_files._user_id(base, headers) if owner == "you" else _her_user_id(base, headers)
         if not uid:
             return "jfuser", None
         if action == "watched":
@@ -178,10 +189,13 @@ def _back(value) -> str:
 
 
 def owner_of(request: Request, form: dict) -> str:
-    """The signed-in viewer's own owner; the local 'both' view may pick the row's owner."""
+    """The signed-in viewer's own owner; the local 'both' view may pick the row's owner. A friend key passes through
+    and the media front never reads the form (Joey TV WP-B2: media_db.owner_of fails closed)."""
     view = shell.resolve_owner_view(request)[0]
     if view in ("you", "her"):
         return view
+    if guest.is_media() or str(view or "").startswith("jf:"):
+        return media_db.owner_of(view)
     return form.get("owner") if form.get("owner") in ("you", "her") else "you"
 
 
@@ -220,7 +234,11 @@ def _apply(request: Request, jf_id: str, action: str, form: dict):
     scope = "season" if form.get("scope") == "season" and action in ("watched", "unwatched") else None
     season = str(form.get("season") or "")
     keep = {"season": season} if re.fullmatch(r"\d{1,3}", season) else {}  # the episode list reopens that season
-    code, status = act(action, owner, jf_id)
+    user = None
+    if guest.is_media():
+        from hub import guest_auth
+        user = guest_auth.user_creds(request)
+    code, status = act(action, owner, jf_id, user)
     if code is not None:
         return RedirectResponse(f"{back}?" + urlencode({"error": code, **({"code": status} if status else {}), **keep}),
                                 status_code=303)

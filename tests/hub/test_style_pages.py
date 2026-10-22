@@ -127,5 +127,15 @@ def test_no_fixed_widths_over_360px_and_no_min_width_over_the_viewport_outside_m
         assert float(m.group(1)) <= 360, m.group(0)
     for m in re.finditer(r"min-width:\s*(\d+(?:\.\d+)?)(vw|rem)", plain):
         assert (float(m.group(1)) <= 100 if m.group(2) == "vw" else float(m.group(1)) * 16 <= 360), m.group(0)
-    for sel in (".tile ", ".row ", ".row-body ", ".cols > *", ".stat "):
+    for sel in (".tile ", ".row ", ".row-body ", ".stat "):   # ".cols > *" went with the Counts band (WP-T3, 2026-10-19)
         assert re.search(re.escape(sel) + r"[^{]*\{[^}]*min-width:\s*0", flat), sel
+
+
+def test_hub_weather_row_css_block_is_dated_tokens_only_and_three_columns():
+    """WP-T2 (2026-10-19): one dated tail block; no literal colours; hub tiles are three columns, one on a phone."""
+    block = CSS.split("/* Hub: weather row (2026-10-19) */", 1)[1]
+    assert not HEX.findall(block) and "rgb(" not in block
+    flat = re.sub(r"\s+", " ", re.sub(r"/\*.*?\*/", "", block, flags=re.S))
+    assert ".hubtiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }" in flat
+    assert "@media (max-width: 639px) { .hubtiles, .hubtiles.few { grid-template-columns: minmax(0, 1fr); } }" in flat
+    assert ".hubband { grid-template-columns: minmax(0, 1fr);" in flat

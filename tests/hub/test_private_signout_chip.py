@@ -1,6 +1,6 @@
 """Private sign-out (2026-10-22): joeyhome.net had no way to sign out. With a Cloudflare Access identity the top-bar user
-chip is the same button + confirm <dialog> as the guest front (test_guest_signout_chip.py), but "Sign out" is a plain
-GET link to Cloudflare Access's own logout, /cdn-cgi/access/logout (served by Cloudflare's edge, never by this app),
+chip is the same pill + confirm <dialog> as the guest front (option D + pop-up P2, test_guest_signout_chip.py), but
+"Sign out" is a plain GET link to Cloudflare Access's own logout, /cdn-cgi/access/logout (served by Cloudflare's edge, never by this app),
 with hx-boost off. Local preview (no Access identity) keeps the static chip. The guest front never renders the Access
 logout link, and the private front never the /signout form."""
 import re
@@ -26,20 +26,29 @@ def topbar(html: str) -> str:
     return re.search(r'<header class="topbar">(.*?)</header>', html, re.S).group(1)
 
 
+P2_BODY = f"You're signed in as {YOU} on this device. To come back you'll need a new e-mail code."
+EXIT_ICON = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>'
+
+
 @pytest.mark.parametrize("path", ["/", "/weather"])
 def test_signed_in_private_page_has_the_chip_and_the_access_logout(client, path):  # noqa: F811
     r = client.get(path, headers={IDENTITY_HEADER: YOU})
     assert r.status_code == 200
     top = topbar(r.text)
     chip = re.search(r'<button class="userchip"[^>]*>(.*?)</button>', top, re.S)
-    assert chip and f'title="{YOU}"' in chip.group(0) and 'aria-controls="signout-dlg"' in chip.group(0)
+    assert chip and 'aria-controls="signout-dlg"' in chip.group(0)
+    assert f'aria-label="Sign out {YOU}"' in chip.group(0) and f'title="Sign out {YOU}"' in chip.group(0)
     assert "showModal()" in chip.group(0) and f"<small>{YOU}</small>" in chip.group(1)
+    assert chip.group(1).endswith("</svg>") and EXIT_ICON in chip.group(1)          # the exit icon, last in the pill
+    assert '<span class="xlbl" aria-hidden="true">Sign out</span>' in chip.group(1)
     dlg = re.search(r'<dialog id="signout-dlg"[^>]*>(.*?)</dialog>', top, re.S).group(1)
-    assert "Sign out of Joey?" in dlg and f"Signed in as {YOU}" in dlg
-    link = re.search(r'<a [^>]*>Sign out</a>', dlg).group(0)
-    assert f'href="{LOGOUT}"' in link and 'hx-boost="false"' in link
-    cancel = re.search(r'<button [^>]*>Cancel</button>', dlg).group(0)
-    assert "data-close" in cancel and "autofocus" in cancel and 'type="button"' in cancel
+    assert "Sign out of Joey?" in dlg and P2_BODY in dlg and "Cancel" not in dlg
+    link = re.search(r'<a [^>]*>.*?</a>', dlg, re.S).group(0)
+    assert f'href="{LOGOUT}"' in link and 'hx-boost="false"' in link and 'class="btn btn-signout"' in link
+    assert EXIT_ICON in link and link.endswith("<span>Sign out</span></a>")
+    stay = re.search(r'<button [^>]*>Stay signed in</button>', dlg).group(0)
+    assert "data-close" in stay and "data-first" in stay and "autofocus" in stay and 'type="button"' in stay
+    assert dlg.count("autofocus") == 1 and "autofocus" not in link
     assert 'action="/signout"' not in r.text and "<form" not in dlg      # never the guest POST /signout
     assert top.count('class="userchip"') == 1
 

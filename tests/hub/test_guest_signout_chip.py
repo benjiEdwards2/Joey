@@ -1,8 +1,9 @@
 """Joey TV sign-out control (2026-10-22): POST /signout existed (WP-B2) but no page reached it. On the media front a
-signed-in guest's top-bar user chip (avatar initial + name, the WP-M mockup) is a button opening a confirm <dialog>:
-"Sign out" is a plain full-page form POST /signout (hx-boost off), "Cancel" closes it (data-close: tv.js back() clicks
-it on the remote's Back) and starts focused. No chip button or dialog on /signin, for a visitor who is not signed in,
-or on the private front."""
+signed-in guest's top-bar user chip is a button opening a confirm <dialog>. Option D + pop-up P2
+(JoeyTV/mockups/signout-options.html): one pill = avatar initial + name + an exit icon, labelled "Sign out <name>";
+the pop-up explains what signing out costs; "Sign out" (orange, exit icon) is a plain full-page form POST /signout
+(hx-boost off); "Stay signed in" closes it (data-close: tv.js back() clicks it on the remote's Back) and starts focused.
+No chip button or dialog on /signin, for a visitor who is not signed in, or on the private front."""
 import re
 from html.parser import HTMLParser
 
@@ -55,23 +56,86 @@ def signout_form(html: str) -> dict:
     return form
 
 
+EXIT_ICON = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>'
+P2_BODY = ("You're signed in as Sample Friend on this device. To come back you'll need a new Quick Connect code "
+           "(or your password).")
+
+
+def chip_of(html: str) -> re.Match:
+    return re.search(r'<button class="userchip"[^>]*>(.*?)</button>', topbar(html), re.S)
+
+
+def dialog_of(html: str) -> str:
+    return re.search(r'<dialog id="signout-dlg"[^>]*>(.*?)</dialog>', topbar(html), re.S).group(1)
+
+
 @pytest.mark.parametrize("path", ["/a/media", "/media/movies", "/media/discover"])
 @pytest.mark.parametrize("ua", [None, TV_UA])
 def test_a_signed_in_guest_page_has_the_chip_and_the_confirm(friend, path, ua):
     r = friend.get(path, headers={"User-Agent": ua} if ua else {})
     assert r.status_code == 200
     top = topbar(r.text)
-    chip = re.search(r'<button class="userchip"[^>]*>(.*?)</button>', top, re.S)
+    chip = chip_of(r.text)
     assert chip and 'aria-controls="signout-dlg"' in chip.group(0) and "showModal()" in chip.group(0)
     assert '<span class="avatar" aria-hidden="true">S</span><span class="uname">Sample Friend</span>' in chip.group(1)
-    dlg = re.search(r'<dialog id="signout-dlg"[^>]*>(.*?)</dialog>', top, re.S).group(1)
-    assert "Sign out of Joey Media?" in dlg and "Signed in as Sample Friend" in dlg
-    assert re.search(r'<button class="btn btn-white" type="submit">Sign out</button>', dlg)
-    cancel = re.search(r'<button [^>]*>Cancel</button>', dlg).group(0)
-    assert "data-close" in cancel and "data-first" in cancel and "autofocus" in cancel and 'type="button"' in cancel
+    dlg = dialog_of(r.text)
+    assert "Sign out of Joey Media?" in dlg
+    assert P2_BODY in dlg
+    assert re.search(r'<button class="btn btn-signout" type="submit"><svg class="ic"[^>]*aria-hidden="true">.*?</svg>'
+                     r'<span>Sign out</span></button>', dlg, re.S)
+    stay = re.search(r'<button [^>]*>Stay signed in</button>', dlg).group(0)
+    assert "data-close" in stay and "data-first" in stay and "autofocus" in stay and 'type="button"' in stay
+    assert "Cancel" not in dlg and "metaline" not in dlg
     form = signout_form(r.text)["attrs"]
     assert (form.get("method"), form.get("hx-boost")) == ("post", "false")
     assert top.count('class="userchip"') == 1
+
+
+def test_the_pill_is_labelled_sign_out_and_carries_the_exit_icon(friend):
+    chip = chip_of(friend.get("/media/movies", headers={"User-Agent": TV_UA}).text)
+    assert 'aria-label="Sign out Sample Friend"' in chip.group(0) and 'title="Sign out Sample Friend"' in chip.group(0)
+    inner = chip.group(1)
+    assert inner.endswith("</svg>") and EXIT_ICON in inner                  # the exit icon, last, hidden from AT
+    assert '<span class="xlbl" aria-hidden="true">Sign out</span>' in inner  # the words TV shows on focus
+    assert inner.index('class="uname"') < inner.index('class="xlbl"') < inner.index("<svg")
+
+
+def test_only_stay_signed_in_is_autofocused(friend):
+    dlg = dialog_of(friend.get("/media/movies").text)
+    buttons = re.findall(r"<button [^>]*>", dlg)
+    assert len(buttons) == 2
+    signout, stay = buttons
+    assert "autofocus" not in signout and "data-first" not in signout and "data-close" not in signout
+    assert "autofocus" in stay and "data-first" in stay
+    assert dlg.count("autofocus") == 1 and dlg.index("btn-signout") < dlg.index("Stay signed in")
+
+
+def test_a_long_name_truncates_in_the_pill(friend):
+    friend.fake.users[FRIEND_ID]["Name"] = long = "Alexandra Montgomery-Smithson the Third"
+    sign_in(friend, friend.fake, FRIEND_ID)
+    chip = chip_of(friend.get("/media/movies", headers={"User-Agent": TV_UA}).text)
+    assert f'<span class="uname">{long}</span>' in chip.group(1) and f'aria-label="Sign out {long}"' in chip.group(0)
+    shared = friend.get("/static/control-surface.css").text
+    assert re.search(r"\.userchip \.uname \{[^}]*overflow: hidden; text-overflow: ellipsis; white-space: nowrap", shared)
+    assert re.search(r"button\.userchip \.uname \{ max-width: 12em; \}", shared)
+    tv = friend.get("/static/tv.css").text
+    assert re.search(r"html\.tv button\.userchip \.uname \{ max-width: 150px;", tv)
+    # the TV section row never shrinks, so only the pill gives way (its name ellipsises) and nothing in the row moves
+    assert re.search(r"html\.tv \.toplinks \{[^}]*flex-shrink: 0", tv)
+
+
+def test_the_pop_up_buttons_are_styled_like_the_mockup(friend):
+    shared = friend.get("/static/control-surface.css").text
+    assert "--signout: #f97316;" in shared and "--signout-fg: #1a0a00;" in shared
+    assert ".btn-signout { background: var(--signout); color: var(--signout-fg); }" in shared
+    tv = re.sub(r"/\*.*?\*/", "", friend.get("/static/tv.css").text, flags=re.S)
+    assert ".btn-signout { background: #f97316; color: #1a0a00;" in tv
+    # TV: the focused pill shows the words "Sign out" (tv.js marks D-pad focus with .tv-focus)
+    assert re.search(r"html\.tv button\.userchip:focus-visible \.xlbl, html\.tv button\.userchip\.tv-focus \.xlbl \{ "
+                     r"max-width: 110px", tv)
+    # ...and the name folds away for them (no half-cut name beside the avatar initial)
+    assert re.search(r"html\.tv button\.userchip:focus-visible \.uname, html\.tv button\.userchip\.tv-focus \.uname \{ "
+                     r"max-width: 0", tv)
 
 
 def test_tv_css_styles_the_confirm(friend):

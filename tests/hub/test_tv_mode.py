@@ -172,3 +172,17 @@ def test_focus_growth_and_ring_stay_inside_the_overscan_margin(gc):
     assert re.search(r"OVERSCAN_Y = 27, OVERSCAN_X = 48", js) and "--tv-mx: 48px; --tv-my: 27px" in css
     assert "transformOrigin = b.left - grow < OVERSCAN_X ? 'left center'" in js and "'right center'" in js
     assert js.index("centreInShelf(el);") < js.index("edgeOrigin(el);   /*") < js.index("keepRowInView(el);\n  }")
+
+
+def test_a_focus_the_webview_puts_on_the_top_bar_before_any_key_goes_to_the_first_target(gc):
+    """W5 2026-10-22 (release build on the TCL): when the shell focused the WebView after a load, Android put DOM focus
+    on the first focusable (the brand link), tv.js accepted it, and OK on a title page went to Overview instead of Play.
+    Until the first remote key on a page, a top-bar focusin is redirected to first() (WP-M: title = Play, Overview =
+    first poster) unless first() is itself in the top bar."""
+    js = gc.get("/static/tv.js").text
+    assert "var keyed = false;" in js
+    fi = js[js.index("document.addEventListener('focusin'"):]
+    assert fi.index("if (!keyed && e.target && e.target.closest && e.target.closest('.topbar'))") < fi.index("current = e.target;")
+    assert "if (f && f !== e.target && !f.closest('.topbar')) { setFocus(f); return; }" in fi
+    kd = js[js.index("document.addEventListener('keydown'"):]
+    assert kd.index("keyed = true;") < kd.index("if (!KEYS[e.key]")

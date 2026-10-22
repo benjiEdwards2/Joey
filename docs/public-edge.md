@@ -461,7 +461,15 @@ Add one dated line to the Joey TV DECISIONS.md (or ask Claude to): `<date> frien
 
 ### R1-B Phase B additions
 
-(Stub, filled in WP-B9.) Install Joey Media (Downloader short URL or ADB, DECISIONS #36); Quick Connect inside Joey Media; one-time "Set up Jellyfin" card (Q39).
+Install Joey Media on the friend's TV with **Downloader** (proven W5, 2026-10-23; ADB is B.'s own option, DECISIONS #36), then Quick Connect inside Joey Media and the one-time "Set up Jellyfin" card (Q39). Friend-facing text (full detail in `docs/tv-release.md`, "First install - Downloader"):
+
+> 1. On your TV, open the **Play Store** and install **Downloader**. Open it.
+> 2. If the TV asks, **allow Downloader to install unknown apps**.
+> 3. In Downloader, type `media.joeyhome.net/app` exactly, then choose **Go**.
+> 4. Choose **Install**, then **Open**.
+> 5. In **Joey Media**, sign in with **Quick Connect** (a code appears on the TV; approve it on your phone).
+> If you can't find the Play Store on your home screen (some launchers, such as Projectivy, hide it), go to the TV's **Settings, then Apps** (or search for "Downloader") to reach it.
+
 Nothing here applies until the dated "GO Phase B" line and the WP-B5 security gate PASS exist; no friend receives `media.joeyhome.net` or the APK before that (rule 17).
 
 ### Facts to keep in mind while onboarding

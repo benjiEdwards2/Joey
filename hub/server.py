@@ -417,7 +417,8 @@ def attention_action(item: dict, cards: dict) -> dict:
     """WP-T3 (2026-10-19, S7): a page Attention item with its action — {text, href, action, new_tab}. A down service
     opens its card's link ("Open", new tab; the gated hostname or the LAN address, as on the card) or, with no link,
     jumps to Services; an Uptime Kuma monitor jumps to Services; a failing sweep to System (its sweeps line + fold).
-    Disk, backup and the disk forecast carry no action (none exists on this page). `cards`: Services cards by app id."""
+    Disk and backup carry no action (none exists on this page); the disk forecast opens Free space (P1a, 2026-10-22:
+    `/server/space`, hub/server_space.py, a list only). `cards`: Services cards by app id."""
     kind, _, ident = str(item.get("key") or "").partition(":")
     href = action = None
     new_tab = False
@@ -428,6 +429,8 @@ def attention_action(item: dict, cards: dict) -> dict:
         href, action = "#services", "Services"
     elif kind == "sweep":
         href, action = "#system", "Sweeps"
+    elif kind == "forecast":   # P1a free space (2026-10-22)
+        href, action = "/server/space", "Free space"
     return {"text": item["text"], "href": href, "action": action, "new_tab": new_tab}
 
 

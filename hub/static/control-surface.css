@@ -1439,3 +1439,7 @@ a.guest:hover .guest-name { text-decoration: underline; }
   .libchips { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .libchips::-webkit-scrollbar { display: none; }
 }
+
+/* P1a free space (2026-10-22): the System disk block's small "Free space" link and the Free space page's head line. */
+.spacelink { margin-top: 8px; }
+.spacehead { margin-bottom: 8px; }

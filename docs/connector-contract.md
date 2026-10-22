@@ -457,6 +457,15 @@ lower-cased (`completed`, `started`, `failed`, …), `ended` the app's ISO stamp
 own summary ("Completed search for 1 episodes. 0 reports downloaded.", ≤ 200 characters). An app with no such command,
 or whose command call failed (logged as a warning, no `partial_errors` entry), is left out; `[]` when neither has one.
 
+**Arr library sizes (P1a, 2026-10-22).** Additive, optional in the schema. `library_sizes` = `{radarr, sonarr}`, each a
+list biggest first (ties by title), built from the library lists the counts already fetch — no extra call.
+`radarr`: `[{tmdb_id, title, year, size_bytes}]` from `GET /api/v3/movie`, only movies with `hasFile`; `size_bytes` is
+`sizeOnDisk` (else `statistics.sizeOnDisk`, else `movieFile.size`). `sonarr`: `[{tvdb_id, tmdb_id, title, size_bytes,
+ended}]` from `GET /api/v3/series`; `size_bytes` is `statistics.sizeOnDisk`, `ended` is the series' `ended` (else
+`status` "ended"). A title with 0 bytes on disk is left out; ids are null when the app has none; an app whose list was
+not fetched (down, or its count call failed) is null. The hub's Free space page (`GET /server/space`, list only) joins
+these to the Jellyfin library rows by `item_key` (`tmdb:<id>` / `tvdb:<id>`), never by title.
+
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a
 runner-registered task rather than a `Connector` subclass (D14), and an empty

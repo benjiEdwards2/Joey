@@ -1192,3 +1192,21 @@ Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css
 (six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
 Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
 `docs/public-edge.md` R1 step 4.
+
+## 2026-10-22 — P1a Free space page
+
+**Free space (P1a, B.'s decision 2026-10-22: LIST ONLY).** New owner-only `GET /server/space` (`hub/server_space.py`,
+`server_space.html`; PRIVATE in `hub/guest.py`, so the media front 404s it): the 10 biggest watched films and the 10
+biggest finished shows still on disk, one list by size. Row: title, year · "12.4 GB" · "Watched 3 Mar" / "Finished ·
+8 episodes", the whole row linking to the Joey item page (`row_href`). Head line "Removing all 20 frees ~84 GB", plus
+"(≈ 19 days at this rate)" when the Server page's disk forecast exists (the freed share of that volume over the
+`disk_days` rate); empty state "Nothing watched is taking space yet"; "Not connected" without sizes or Jellyfin. No
+delete, no form, no button that changes anything. A watched film is a Jellyfin `played` row; a finished show has episodes,
+`unplayed == 0` and Sonarr `ended`. Joined by provider ids (`item_key` `tmdb:` / `tvdb:` against the arr rows'
+`tmdb_id` / `tvdb_id`), never by title. Sizes: the arr connector's new `library_sizes` block (radarr `tmdb_id, title,
+year, size_bytes` from `/api/v3/movie` `hasFile` + `sizeOnDisk`; sonarr `tvdb_id, tmdb_id, title, size_bytes, ended`
+from `/api/v3/series` `statistics.sizeOnDisk`), built from the lists the counts already fetch (no extra call); contract
+doc, schema, fixtures and `config/sample_snapshots/arr.json` updated. Links: the Attention disk-forecast item's action is
+now "Free space" (`attention_action`), and the System band's first disk block has a small "Free space" link. Tests:
+`tests/hub/test_server_space.py`, `tests/connectors/test_arr_library_sizes.py`, a contract-doc pin; the two WP-T3
+forecast-has-no-action assertions in `test_server_cleanup.py` now expect Free space.

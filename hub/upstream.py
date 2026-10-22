@@ -5,7 +5,8 @@ a new connection each time. The Media modules now call `session(<upstream>)`, so
 connection. Upstreams: "jellyfin", "seerr", "arr" (Radarr + Sonarr), "omdb", "tmdb" (the poster CDN). The sessions are
 stateless - they keep no cookies - and carry nothing but the pool: each call still passes its own headers, params and
 timeout, and errors still log by exception type only (the callers' rule). The Server side (stackctl, WUD, Discord)
-keeps plain `requests` calls: rare, and not on a page's path.
+keeps plain `requests` calls: rare, and not on a page's path. P4 (2026-10-22): "qbittorrent" (Server's Quiet mode) — its
+login cookie is passed on each call (`cookies=`), never kept on the Session.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from http.cookiejar import DefaultCookiePolicy
 import requests
 from requests.adapters import HTTPAdapter
 
-UPSTREAMS = ("jellyfin", "seerr", "arr", "omdb", "tmdb")
+UPSTREAMS = ("jellyfin", "seerr", "arr", "omdb", "tmdb", "qbittorrent")
 POOL = 8   # connections kept per host (Discover reads six shelves side by side; a burst past it opens extra ones)
 
 _sessions: dict[str, requests.Session] = {}

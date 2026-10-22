@@ -52,6 +52,8 @@
         "state_text": "Stalled"
       }
     ],
+    "dl_limit_bps": 0,
+    "dl_limit_text": "Unlimited",
     "finished": [
       {
         "hash": "0987654321098765432109876543210987654321",

@@ -107,6 +107,18 @@ with a flash word (started / busy / refused / unreachable). The `/server` render
 for one status line. Server-side only; the token never reaches a page, redirect or log; failures log the HTTP status or
 exception type only. Env unset ⇒ no call, no button, "Not connected".
 
+**Nineteenth exception (2026-10-22): Server → Downloads Quiet mode (`hub/server_quiet.py`, P4).** A live WRITE to
+qBittorrent's global download cap, server-side only, with the connector's own env names (`QBIT_URL`, `QBIT_USER`,
+`QBIT_PASS` — the hub service must receive them too). `GET /server/downloads/cap?mode=quiet|full` says what happens (no
+call); the `same_origin` POST logs in exactly as the feed does (`POST /api/v2/auth/login`, `Referer` = the base URL; the
+`SID` / `QBT_SID*` cookie is passed on each call, never kept on the `upstream.session("qbittorrent")`), sends
+`POST /api/v2/transfer/setDownloadLimit` `limit=<bytes/s>` (Quiet = `QUIET_MBPS`, default 5 Mbps = 625000; Full = 0),
+re-reads `GET /api/v2/transfer/info` and only counts the change when `dl_rate_limit` reads back as the same words
+(qBittorrent keeps KiB/s, so 625000 returns 624640 = "5 Mbps"); 10 s per call, then 303 to `/server?cap=quiet|full|failed
+#downloads`. The `/server` render makes no call: the row reads the snapshot's `dl_limit_bps`, and a confirmed change is
+kept in process until a newer snapshot lands. Flashes and logs carry the HTTP status or exception type only — never the
+URL, user or password. Not a GUEST route. Env unset or a snapshot without `dl_limit_bps` ⇒ no row, no call.
+
 **Eleventh exception (2026-10-06): Server → Discord push (`hub/server_alerts.py`, WP-U2).** An outbound live call: when
 `SERVER_DISCORD_WEBHOOK` is set, each NEW `/server` Attention item is POSTed once to that Discord webhook as plain text
 ("Joey Server: <item>", max 5 per cycle, 10 s timeout), after a `/server` render and on a 5-minute hub loop. Keys live in
@@ -456,6 +468,12 @@ per app (Radarr first) the newest `CutoffUnmetMoviesSearch` / `CutoffUnmetEpisod
 lower-cased (`completed`, `started`, `failed`, …), `ended` the app's ISO stamp or null while running, `message` the app's
 own summary ("Completed search for 1 episodes. 0 reports downloaded.", ≤ 200 characters). An app with no such command,
 or whose command call failed (logged as a warning, no `partial_errors` entry), is left out; `[]` when neither has one.
+
+**qBittorrent download cap (P4, 2026-10-22).** Additive, optional in the schema. `qbittorrent` data gains
+`dl_limit_bps` — `GET /api/v2/transfer/info` `dl_rate_limit` (already fetched; bytes/s, 0 = no cap, negative read as 0,
+null when the answer lacks the key) — and `dl_limit_text`: "Unlimited" for 0, else bits per second as people say them
+("5 Mbps"; one decimal under 10 Mbps with a trailing .0 dropped, whole numbers from 10, kbps under 0.1 Mbps), null with a
+null limit. The hub's Quiet mode row (nineteenth exception) reads it. Older envelopes lack both and stay valid.
 
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a

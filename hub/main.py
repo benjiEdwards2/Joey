@@ -25,6 +25,7 @@ from hub import media_arr_search, media_follow, media_quality, media_requests, m
 from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
+from hub import server_quiet   # P4 quiet mode (2026-10-22)
 from hub.media_watchlist import router as media_watchlist_router
 from hub import media_home, media_pages, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
@@ -117,6 +118,7 @@ app.include_router(media_quality.router)   # WP-R1: Quality · 1080p / Switch to
 app.include_router(media_upgrade_why.router)   # WP-U1: Why? + Grab anyway on Downloads › Upgrades
 app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
+app.include_router(server_quiet.router)   # P4 (2026-10-22): Downloads Quiet (5 Mbps) / Full speed
 app.include_router(weather.router)
 app.include_router(media_pages.router)
 app.include_router(tv_app.router)   # Joey TV WP-B8: /app download + version.json (media front only)
@@ -228,6 +230,7 @@ def _server_response(request: Request, area, view: str, from_query: bool):
         "area": area, "sv": sv,
         "flash": server_updates.flash_text(request.query_params) or server_stack.flash_text(request.query_params),
         "stack": server_stack.status(),   # 2026-10-12: stackctl's last run (2 s cap; no env = no call)
+        "quiet": server_quiet.page(snaps, request.query_params),   # P4 (2026-10-22): the cap row; no call, the snapshot
     }, active_id=area.id)
     resp.background = after
     return shell._maybe_set_cookie(resp, view, from_query)

@@ -78,6 +78,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET/POST /server/updates/{name}/run`, `POST .../ignore`, `.../unignore` | server_updates | Update now (GET = confirm page), Ignore |
 | `GET/POST /server/updates/all/run` | server_updates | Update all: every eligible pending row in turn, gluetun first (GET `?step=confirm` = the list) |
 | `GET/POST /server/stack/run` | server_stack | Update and restart media stack through stackctl (GET `?step=confirm` = what happens) |
+| `GET/POST /server/downloads/cap` | server_quiet | P4 (2026-10-22): Downloads "Quiet (5 Mbps) · Full speed" — qBittorrent's global download cap (GET `?mode=quiet\|full` = confirm; POST → `/server?cap=…#downloads`); env `QBIT_URL`/`_USER`/`_PASS` on the hub, `QUIET_MBPS` (5), `NAS_SLEEP_WINDOW` (22:00–07:00) |
 | `GET /img/{ref:path}` | images | Poster / backdrop / cast proxy, sizes 120 / 240 / 400 / 600 / 1280 |
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
 | `/static/*` | StaticFiles | `?v=` content hash and `/static/fonts/*`: `immutable` for a year; other un-versioned files: one hour |

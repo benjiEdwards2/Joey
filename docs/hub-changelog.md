@@ -1192,3 +1192,23 @@ Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css
 (six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
 Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
 `docs/public-edge.md` R1 step 4.
+
+## 2026-10-22 — P4 Quiet mode
+
+**Server › Downloads: "Quiet (5 Mbps) · Full speed" (P4, SERVER_REVIEW §2; B. accepted the defaults 2026-10-22).** The
+2026-10-12 evaluation's biggest cause of slow pages was qBittorrent saturating the download link (E0: B. capped it by hand);
+the knob is now on the Server page. One row under Services › Downloads, right after the Library health line: "Downloads"
+then two chips — the active mode filled, the other a link to its confirm — plus "NAS sleeps 22:00–07:00" in muted text
+(`NAS_SLEEP_WINDOW`, words only). A cap set elsewhere ("custom") shows "Capped at 2 Mbps" with both chips as links. No row
+when the hub lacks `QBIT_URL` / `QBIT_USER` / `QBIT_PASS` or the snapshot has no `dl_limit_bps`. New `hub/server_quiet.py`
+(the server_stack pattern): `GET /server/downloads/cap?mode=quiet|full` = confirm card (`server_quiet.html`), `same_origin`
+POST = the feed's login, `POST /api/v2/transfer/setDownloadLimit` (Quiet = `QUIET_MBPS`, default 5 Mbps = 625000 B/s; Full =
+0), then `transfer/info` re-read to confirm (modes compare by words: qBittorrent keeps KiB/s, so 625000 reads back 624640),
+303 to `/server?cap=quiet|full|failed#downloads` with "Quiet mode on" / "Full speed" / "Couldn't reach qBittorrent". The
+render makes no call; a confirmed change is kept until a newer snapshot lands, so the page after the redirect already shows
+it. `upstream.UPSTREAMS` gains "qbittorrent" (the SID cookie is passed per call; the Session stays stateless). The
+connector adds `dl_limit_bps` / `dl_limit_text` from the `transfer/info` it already reads (schema, contract doc, sample
+snapshot). The routes are PRIVATE in `hub/guest.py`, never GUEST. CSS: one dated tail block (`.quietrow*`, the shared
+`.chip` recipe reused). `deploy/.env.example`: `QUIET_MBPS=5`, `NAS_SLEEP_WINDOW=22:00–07:00`; QBIT_* moved to the "both
+files" line of the env split. Tests: `tests/hub/test_server_quiet.py`. Not tried live: qBittorrent 5.2.4's real answer to
+`setDownloadLimit`.

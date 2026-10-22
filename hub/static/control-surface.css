@@ -1439,3 +1439,9 @@ a.guest:hover .guest-name { text-decoration: underline; }
   .libchips { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .libchips::-webkit-scrollbar { display: none; }
 }
+
+/* P4 quiet mode (2026-10-22): Server › Downloads "Quiet (5 Mbps) · Full speed" row under the Library health line. The
+   chips are the shared .chip / .chip.on recipe; only the row is new. */
+.quietrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.quietrow-label { font-size: 12px; color: var(--text-4); }
+.quietrow-flash { flex: 1 0 100%; margin: 0; }

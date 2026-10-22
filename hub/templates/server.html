@@ -87,6 +87,22 @@
   {%- if not lh.parts and not lh.failed %}all clear{% endif %}
   {%- if lh.search %} <a class="btn btn-ghost btn-sm" href="{{ lh.search }}">Search missing</a>{% endif %}</p>
 {%- endif %}{% endset %}
+{# P4 quiet mode (2026-10-22) — ONE control row for the qBittorrent download cap, appended to lh_line so it lands where the
+   Library health line does (under Services › Downloads, else the end of Services): "Downloads · Quiet (5 Mbps) · Full
+   speed" as two chips, the active one filled (a plain span), the other a link to its GET confirm; "custom" (a cap set
+   elsewhere) shows its words with both chips as links; the NAS sleep window in muted text; the flash word after the POST.
+   Nothing when the hub lacks QBIT_* or the qbittorrent snapshot has no dl_limit_bps (hub/server_quiet.py). #}
+{% set q = quiet %}
+{% set lh_line %}{{ lh_line }}{% if q and q.configured %}<div class="quietrow" id="downloads">
+  <span class="quietrow-label">Downloads</span>
+  {%- for m, label in (("quiet", "Quiet (" ~ q.quiet_label ~ ")"), ("full", "Full speed")) %}
+  {% if q.mode == m %}<span class="chip on" aria-current="true">{{ label }}</span>
+  {%- else %}<a class="chip" href="/server/downloads/cap?mode={{ m }}">{{ label }}</a>{% endif %}
+  {%- endfor %}
+  {% if q.mode == "custom" %}<span class="metaline">{{ q.text }}</span>{% endif %}
+  <span class="metaline">NAS sleeps {{ q.sleep }}</span>
+  {% if q.flash %}<p class="metaline quietrow-flash {{ 'st-warn' if q.flash_bad else 'st-good' }}" role="status">{{ q.flash }}</p>{% endif %}
+</div>{% endif %}{% endset %}
 <div class="sec" id="services" aria-label="Services">
 {% if svc.st.state == "off" %}
   <div class="sechead"><h2 class="seclabel">Services</h2></div>

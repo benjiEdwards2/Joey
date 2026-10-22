@@ -1,4 +1,4 @@
-"""qBittorrent Web API, read only: downloading, finished in 24 h, seeding, transfer speeds."""
+"""qBittorrent Web API, read only: downloading, finished in 24 h, seeding, transfer speeds, the global download cap."""
 
 from __future__ import annotations
 
@@ -35,6 +35,19 @@ def _bytes_text(n) -> str:
         if value < 999.5 or unit == "TB":
             break
     return f"{value:.0f} {unit}" if unit == "kB" or value >= 99.95 else f"{value:.1f} {unit}"
+
+
+def _limit_text(bps) -> str | None:
+    """P4 (2026-10-22): the global download cap in bits, as qBittorrent's users say it: 0 -> 'Unlimited',
+    625000 B/s -> '5 Mbps' (one decimal under 10 Mbps, trailing .0 dropped), under 0.1 Mbps in kbps. None stays None."""
+    if bps is None:
+        return None
+    if bps <= 0:
+        return "Unlimited"
+    mbps = bps * 8 / 1e6
+    if mbps < 0.1:
+        return f"{round(bps * 8 / 1000)} kbps"
+    return f"{mbps:.0f} Mbps" if mbps >= 9.95 else f"{mbps:.1f}".rstrip("0").rstrip(".") + " Mbps"
 
 
 def _eta_text(seconds) -> str:
@@ -134,6 +147,10 @@ class QBittorrent(Connector):
         dl, up = int(transfer.get("dl_info_speed") or 0), int(transfer.get("up_info_speed") or 0)
         totals = {"dl_bps": dl, "up_bps": up,
                   "dl_text": f"{_bytes_text(dl)}/s", "up_text": f"{_bytes_text(up)}/s"}
+        try:   # P4 (2026-10-22): transfer/info's dl_rate_limit (bytes/s, 0 = no cap); null when the answer lacks it
+            dl_limit = max(0, int(transfer["dl_rate_limit"]))
+        except (KeyError, TypeError, ValueError):
+            dl_limit = None
 
         if active:
             summary = f"{len(active)} downloading" + (f" · {totals['dl_text']}" if dl > 0 else "")
@@ -147,4 +164,6 @@ class QBittorrent(Connector):
             "finished": finished,
             "seeding": seeding,
             "totals": totals,
+            "dl_limit_bps": dl_limit,
+            "dl_limit_text": _limit_text(dl_limit),
         }

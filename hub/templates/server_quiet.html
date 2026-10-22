@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ "Quiet mode" if mode == "quiet" else "Full speed" }} · Joey{% endblock %}
+{% block content %}
+{# P4 quiet mode (2026-10-22): Server → Downloads "Quiet (5 Mbps) · Full speed", the confirm step (the stack run's look).
+   Plain form POST behind the same-origin guard; no JS. The hub logs in to qBittorrent server-side; no login reaches this
+   page. #}
+<section class="sec narrow" id="cap-confirm" aria-label="{{ 'Quiet mode' if mode == 'quiet' else 'Full speed' }}">
+  <div class="sechead"><h1 class="seclabel">{{ ("Quiet mode (" ~ quiet ~ ")") if mode == "quiet" else "Full speed" }}</h1></div>
+  {% for line in lines %}<p class="metaline{{ ' st-warn' if mode == 'full' and loop.index == 2 }}">{{ line }}</p>{% endfor %}
+  {% if st.configured %}<p class="metaline">Downloads<span class="sep"> · </span>{{ st.text }}</p>{% endif %}
+  {% if msg %}
+  <p class="metaline">{{ msg }}</p>
+  <div class="confirm-btns"><a class="btn btn-secondary" href="/server#downloads">Back to Server</a></div>
+  {% else %}
+  <form method="post" action="/server/downloads/cap" class="confirm-btns">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    <button class="btn btn-primary" type="submit">{{ "Turn on Quiet mode" if mode == "quiet" else "Go full speed" }}</button>
+    <a class="btn btn-ghost" href="/server#downloads">Cancel</a>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

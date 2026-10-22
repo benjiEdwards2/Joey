@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/qbittorrent.schema.json",
   "title": "qbittorrent data block",
-  "description": "qBittorrent, read only: active downloads, torrents finished in the last 24 h, the seeding count and global transfer speeds. The shape is a contract with the hub's Media downloads view (2026-10-06). `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "description": "qBittorrent, read only: active downloads, torrents finished in the last 24 h, the seeding count and global transfer speeds. The shape is a contract with the hub's Media downloads view (2026-10-06). `summary`/`secondary` are the hub display convention (D17, WP18). P4 (2026-10-22) adds the optional global download cap: `dl_limit_bps` (transfer/info `dl_rate_limit`, bytes/s, 0 = unlimited, null when absent) and `dl_limit_text` ('5 Mbps' / 'Unlimited').",
   "type": "object",
   "required": ["summary", "secondary", "active", "finished", "seeding", "totals"],
   "additionalProperties": false,
@@ -57,6 +57,8 @@
         "dl_text": {"type": "string"},
         "up_text": {"type": "string"}
       }
-    }
+    },
+    "dl_limit_bps": {"type": ["integer", "null"], "minimum": 0},
+    "dl_limit_text": {"type": ["string", "null"]}
   }
 }

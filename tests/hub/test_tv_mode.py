@@ -5,7 +5,10 @@
 and `?tv=0` clears it - handled in GuestGate, so it works on every media-front page, the 404 page and /signin. In TV
 mode `<html>` carries class `tv` and the page links /static/tv.css + /static/tv.js (vendored, no external asset). The
 private front ignores all of it. tv.js exposes `window.joeyTV.back()` (the shell's BackPolicy asks it first, WP-B7)."""
+import json
 import re
+import shutil
+import subprocess
 
 import pytest
 
@@ -200,3 +203,154 @@ def test_a_top_bar_focus_already_held_when_tv_js_starts_goes_to_the_first_target
     assert "if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);" in rs
     assert "if (!active()) setFocus(first());" not in rs
     assert "document.addEventListener('DOMContentLoaded', restore);\n  else restore();" in js
+
+
+def test_a_boosted_page_swap_or_back_resets_the_first_key_guard(gc):
+    """W5 2026-10-22 (CDP focus/key log on the real TCL): OK on a poster in /media/movies is NOT a full page load but an
+    hx-boost swap of /media/item/<id> into the same document. The Enter keydown set `keyed` on Movies, the WebView then
+    focused the brand (the focused poster was gone) and both guards above let it stay, so OK went to Overview instead
+    of Play. A boosted response that htmx swaps in, and an htmx history restore (Back), now reset `keyed`; a partial
+    swap (request panel, dialog, shelf load) does not, so a user who moved into the top bar stays there."""
+    js = gc.get("/static/tv.js").text
+    bs = js[js.index("document.addEventListener('htmx:beforeSwap'"):]
+    bs = bs[:bs.index("});") + 3]
+    assert "if (e.detail.boosted && e.detail.shouldSwap) keyed = false;" in bs
+    assert js.count("keyed = false;") == 3 and js.count("keyed = true;") == 1   # the declaration + these two resets
+    # reset before the swap (so before the WebView's focusin on the brand) and before afterSettle's restore()
+    assert js.index("'htmx:beforeSwap'") < js.index("document.addEventListener('htmx:afterSettle', restore);")
+    assert "document.addEventListener('htmx:historyRestore', function () { keyed = false; restore(); });" in js
+    assert "document.addEventListener('htmx:historyRestore', restore);" not in js
+    # the vendored htmx 2.0.4 merges the request's `boosted` into the beforeSwap detail and reads shouldSwap after it
+    htmx = gc.get("/static/htmx.min.js").text
+    assert 'version:"2.0.4"' in htmx
+    assert "const H={xhr:p,target:c,requestConfig:C,etc:i,boosted:_," in htmx
+    assert "var m=ce({shouldSwap:a,serverResponse:p,isError:f,ignoreTitle:h,selectOverride:d,swapOverride:g},i);" in htmx
+    assert 'if(!he(l,"htmx:beforeSwap",m))return;' in htmx and "if(m.shouldSwap){" in htmx
+    assert ('Ve(r,n,o);Te();Kt(o.tasks);E().setTimeout(function(){window.scrollTo(0,t.scroll)},0);Bt=e;'
+            'he(ne().body,"htmx:historyRestore"') in htmx                     # history restore fires after the swap
+    # tv.js loads after joey.js, so its beforeSwap listener sees joey.js's asset-version shouldSwap = false
+    page = gc.get("/media/movies", headers={"User-Agent": TV_UA}).text
+    assert page.index("/static/joey.js?v=") < page.index("/static/tv.js?v=")
+
+
+# A fake DOM just big enough for tv.js: elements, simple selectors, focus() firing focusin, document listeners.
+FOCUS_HARNESS = r"""
+var listeners = {};
+function fire(name, ev) { (listeners[name] || []).forEach(function (f) { f(ev); }); }
+function El(tag, opts) {
+  opts = opts || {};
+  this.tagName = tag.toUpperCase(); this.name = opts.name || tag; this.attrs = opts.attrs || {};
+  this.cls = new Set(opts.cls || []); this.top = opts.top == null ? 300 : opts.top;
+  this.parentElement = null; this.children = []; this.style = {};
+  var self = this;
+  this.classList = { add: function (c) { self.cls.add(c); }, remove: function (c) { self.cls.delete(c); },
+                     contains: function (c) { return self.cls.has(c); } };
+  (opts.kids || []).forEach(function (k) { self.append(k); });
+}
+El.prototype.append = function (k) { k.parentElement = this; this.children.push(k); };
+El.prototype.getAttribute = function (a) { return a in this.attrs ? this.attrs[a] : null; };
+El.prototype.removeAttribute = function (a) { delete this.attrs[a]; };
+Object.defineProperty(El.prototype, 'isConnected', { get: function () {
+  var p = this; while (p.parentElement) p = p.parentElement; return p === html; } });
+El.prototype.getBoundingClientRect = function () {
+  return { left: 100, top: this.top, width: 100, height: 40, right: 200, bottom: this.top + 40 };
+};
+function simple(el, s) {
+  var m = /^([a-z]+)?(.*)$/.exec(s), part, re = /\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]|:not\(([^)]*)\)/g;
+  if (m[1] && el.tagName !== m[1].toUpperCase()) return false;
+  while ((part = re.exec(m[2]))) {
+    if (part[1] && !el.cls.has(part[1])) return false;
+    if (part[2] && (!(part[2] in el.attrs) || (part[3] != null && el.attrs[part[2]] !== part[3]))) return false;
+    if (part[4] && simple(el, part[4])) return false;
+  }
+  return true;
+}
+function matches(el, sel) { return sel.split(',').some(function (s) { return simple(el, s.trim()); }); }
+function all(root, sel) {
+  var out = [];
+  (function walk(n) { n.children.forEach(function (k) { if (matches(k, sel)) out.push(k); walk(k); }); })(root);
+  return out;
+}
+El.prototype.querySelectorAll = function (sel) { return all(this, sel); };
+El.prototype.querySelector = function (sel) { return all(this, sel)[0] || null; };
+El.prototype.closest = function (sel) { for (var p = this; p; p = p.parentElement) if (matches(p, sel)) return p; return null; };
+El.prototype.contains = function (o) { for (var p = o; p; p = p.parentElement) if (p === this) return true; return false; };
+El.prototype.focus = function () { document.activeElement = this; fire('focusin', { target: this }); };
+var html = new El('html'), body = new El('body');
+html.append(body);
+var document = {
+  readyState: 'complete', documentElement: html, body: body, activeElement: body,
+  addEventListener: function (n, f) { (listeners[n] = listeners[n] || []).push(f); },
+  querySelectorAll: function (s) { return all(html, s); },
+  querySelector: function (s) { return all(html, s)[0] || null; },
+  contains: function (o) { return o.isConnected; }
+};
+var window = { innerHeight: 1080, innerWidth: 1920, scrollTo: function () {}, scrollBy: function () {}, location: {} };
+function getComputedStyle(el) {
+  return { visibility: 'visible', display: 'block', position: el.cls.has('topbar') ? 'sticky' : 'static' };
+}
+var brand;
+function page(kind) {   /* a new page in <body>, as a boosted swap or a history restore puts it there */
+  body.children.forEach(function (k) { k.parentElement = null; });
+  body.children = [];
+  if (!document.activeElement.isConnected) document.activeElement = body;
+  brand = new El('a', { name: 'brand', cls: ['brand'], attrs: { href: '/a/media' }, top: 10 });
+  body.append(new El('header', { cls: ['topbar'], kids: [brand] }));
+  var main = new El('main', { cls: ['page'] });
+  if (kind === 'title') {
+    main.append(new El('a', { name: 'play', attrs: { href: '/jf/play', 'data-jf-id': 'x' } }));
+    main.append(new El('a', { name: 'overview-link', attrs: { href: '/a/media' }, top: 400 }));
+  } else {
+    main.append(new El('a', { name: 'poster', cls: ['card-poster'], attrs: { href: '/media/item/1' } }));
+  }
+  body.append(main);
+}
+function key(k) { fire('keydown', { key: k, preventDefault: function () {} }); }
+function now() { return document.activeElement === body ? 'body' : document.activeElement.name; }
+page('movies');
+/*TV_JS*/
+var out = {};
+/* 1. the TCL log: OK on a poster -> boosted swap of the title page -> afterSettle -> the WebView focuses the brand */
+key('Enter');
+fire('htmx:beforeSwap', { detail: { boosted: true, shouldSwap: true } });
+page('title'); fire('htmx:afterSettle', {}); brand.focus();
+out.boosted_late_brand = now();
+/* 2. the same, the brand focused during the swap (before afterSettle's restore()) */
+page('movies'); key('Enter');
+fire('htmx:beforeSwap', { detail: { boosted: true, shouldSwap: true } });
+page('title'); brand.focus(); fire('htmx:afterSettle', {});
+out.boosted_early_brand = now();
+/* 3. the user moves up into the top bar, then a partial swap (shelf / request panel): the focus stays there */
+key('ArrowUp');
+out.moved_up = now();
+fire('htmx:beforeSwap', { detail: { boosted: false, shouldSwap: true } });
+fire('htmx:afterSettle', {}); brand.focus();
+out.partial_swap = now();
+/* 4. a boosted response htmx does not swap (joey.js's asset-version reload, an error status) changes nothing */
+fire('htmx:beforeSwap', { detail: { boosted: true, shouldSwap: false } });
+brand.focus();
+out.unswapped_boost = now();
+/* 5. Back: the cached Movies body is restored, the brand focused during the restore / after it */
+key('Enter'); page('movies'); brand.focus(); fire('htmx:historyRestore', { detail: {} });
+out.back_early_brand = now();
+key('Enter'); page('movies'); fire('htmx:historyRestore', { detail: {} }); brand.focus();
+out.back_late_brand = now();
+console.log(JSON.stringify(out));
+"""
+
+
+def test_the_first_key_guard_follows_boosted_swaps_under_node(gc, tmp_path):
+    """The reset above, run: tv.js in a fake DOM. The W5 sequence (key, boosted swap, brand focus) and Back land on
+    first() (title page: Play, Movies: the first poster); a partial or unswapped response leaves the top bar alone.
+    Before the fix every case ended on the brand."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    script = tmp_path / "focus.js"
+    script.write_text(FOCUS_HARNESS.replace("/*TV_JS*/", gc.get("/static/tv.js").text), encoding="utf-8")
+    out = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=30)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout) == {
+        "boosted_late_brand": "play", "boosted_early_brand": "play",
+        "moved_up": "brand", "partial_swap": "brand", "unswapped_boost": "brand",
+        "back_early_brand": "poster", "back_late_brand": "poster"}

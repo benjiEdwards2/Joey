@@ -90,16 +90,21 @@ Full steps (TV developer-options wording, what to say to a friend) are filled in
 
 ## First install - Downloader
 
-**UNTESTED - proven at WP-B9 / W5.** For a friend at their own TV, no computer needed. Needs the `media` compose profile on and at
-least one published release (otherwise `/app` says "No build published yet").
+**Proven W5, 2026-10-23** (a real install from `/app` with no adb: `originatingPackageName=com.esaba.downloader`, version 1.0.1, then Quick Connect
+sign-in). For a friend at their own TV, no computer needed. Needs the `media` compose profile on and at least one published release
+(otherwise `/app` says "No build published yet"). Friend-facing steps, in plain words:
 
-1. On the TV install **Downloader** (by AFTVnews) from the app store.
-2. Allow Downloader to install unknown apps (Settings, Apps, Security & restrictions; the wording differs by TV).
-3. In Downloader type `https://media.joeyhome.net/app/latest.apk` and Go. (`https://media.joeyhome.net/app` is the same thing
-   as a page with a Download button.)
-4. Install, then open **Joey Media** from the apps row.
+1. On the TV open the **Play Store** and install **Downloader** (by AFTVnews). Then open it.
+2. If the TV asks whether Downloader may install unknown apps, choose **Allow** (or **Settings**, then switch it on for Downloader).
+3. In Downloader's home bar ("Click here to enter a URL, Short Code, or Search Term...") type `media.joeyhome.net/app` exactly, then choose **Go**.
+4. Choose **Install** (and **Install** again if asked), then **Open**. Joey Media is now in your apps row.
+5. Open **Joey Media** and sign in with **Quick Connect**: a code shows on the TV, you approve it on your phone.
 
-Full wording and screenshots are filled in at WP-B9. After the first install the app updates itself (see "Updater behaviour").
+**Some launchers hide the Play Store.** Launchers such as Projectivy show only app icons, so there is no Play Store icon to press. The friend gets to the
+store from the TV's **Settings, then Apps** (or by searching for "Downloader" with the remote's voice or search button), and installs Downloader from there.
+(Seen on B.'s own TCL TV, 2026-10-23.)
+
+After the first install the app updates itself (see "Updater behaviour").
 
 ## Signing key
 

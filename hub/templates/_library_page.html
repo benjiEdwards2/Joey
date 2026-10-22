@@ -47,7 +47,7 @@
   <div class="search">{{ icon("search") }}<input class="input" id="libq" type="search" name="q" value="{{ q }}" placeholder="Search titles" aria-label="Search titles"></div>
   {# Filter chips (2026-10-13, B.; in place of Grouped): links keeping the search / sort / suggestion; the form carries
      the current filter so a search or sort keeps it. #}
-  {% if marks %}<nav class="chips" aria-label="Show">
+  {% if marks %}<nav class="chips libchips" aria-label="Show">
     {% for k, label in filters.items() %}<a class="chip{{ ' on' if k == filter }}" href="{{ filter_links[k] }}"{% if k == filter %} aria-current="true"{% endif %}>{{ label }}</a>{% endfor %}
   </nav>{% if filter != "all" %}<input type="hidden" name="f" value="{{ filter }}">{% endif %}{% endif %}
   <select class="select" name="sort" aria-label="Sort by">

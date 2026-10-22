@@ -964,6 +964,15 @@ genre last), Shuffle (fresh each request) and, on TV only, Most to watch (`sort_
 default. **Diary** in Everyone, the other person's rows carry no 1-10 picker and no score (`row["theirs"]`); the viewer's
 own rows keep both. Tests: `test_media_library_pages.py` (library round block), `test_media_diary.py`, one count in
 `test_first_screens_e3.py`.
+**2026-10-22 — merged onto main 5d3c536** (the awards ballot, TV episode flow, WP-T1 season words, request
+quality, Why?, Joey TV rounds). What moved: WP-T1's "Caught up · more to come" group became a fifth TV filter chip,
+"Caught up" (All · Watching · Not started · Caught up · Finished; `?f=caught_up`, label "Caught up · 1"); the
+Suggestions carousel keeps Joey TV WP-B3's rule (none in TV mode; the TV hides the toolbar, so no chips there either);
+the "Waiting for the first episode" block sits after the flat grid. Two opens closed: on a phone (< 640 px) the filter
+chips are one row that scrolls sideways like the Media section pills (`.libchips`, a dated tail block in
+`control-surface.css`); her shows' Continue watching without her own list reads "No marks for her yet", not "Nothing in
+progress". Tests re-pointed: `test_season_state.py` (caught-up label under `?f=caught_up`), the chip lists in
+`test_media_library_pages.py`.
 
 ## 2026-10-14 — Awards ballot (Plan C)
 B. chose Plan C of the awards UX review (review/2026-10-13-awards-ux/AWARDS_UX_REVIEW.md; decisions in BALLOT_DECISIONS.md,

@@ -179,6 +179,7 @@ def arrange(rows, q: str, sort: str, f: str, kind: str, resume_ids=frozenset(), 
 SUGGESTIONS = {"new": "New", "continue": "Continue watching", "unwatched": "Not yet watched"}
 SUGGESTION_EMPTY = {"new": "Nothing new this week", "continue": "Nothing in progress",
                     "unwatched": "Nothing left to watch"}
+NO_MARKS_EMPTY = "No marks for her yet"   # 2026-10-22: her shows' Continue watching before her own list exists
 SUGGEST_MAX = 12
 
 

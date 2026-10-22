@@ -1433,3 +1433,9 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .whycand-title { font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
 .whycand > .confirm { align-self: stretch; }
 .lastsearch { margin-top: -4px; }
+
+/* Library filter chips (2026-10-22, library-grid): on a phone one row that scrolls sideways, like the Media section pills. */
+@media (max-width: 639px) {
+  .libchips { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .libchips::-webkit-scrollbar { display: none; }
+}

@@ -513,7 +513,9 @@ def _library_page(request: Request, kind: str):
             "shown": shown,
             "suggest": suggest, "suggestions": media_library.SUGGESTIONS, "suggested": suggested,
             "suggest_links": _links_with(request, "s", media_library.SUGGESTIONS),
-            "suggest_empty": media_library.SUGGESTION_EMPTY[suggest],
+            # 2026-10-22: her shows' Continue watching, empty only for want of her marks, says so
+            "suggest_empty": media_library.NO_MARKS_EMPTY if not marks and kind == "tv" and suggest == "continue"
+                             else media_library.SUGGESTION_EMPTY[suggest],
             "ratings": media_home._ratings(view, arrived),
             "libview": libview, "libview_links": library_view_links(request), "waiting": waiting,
         }

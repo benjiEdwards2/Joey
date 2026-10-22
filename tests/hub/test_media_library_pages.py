@@ -573,7 +573,7 @@ def switch(b):
 
 def chips(b):
     """The toolbar filter chips: [(href, label, on)]; an "on" chip must carry aria-current."""
-    nav = b.split('<nav class="chips" aria-label="Show">', 1)[1].split("</nav>", 1)[0]
+    nav = b.split('<nav class="chips libchips" aria-label="Show">', 1)[1].split("</nav>", 1)[0]
     found = re.findall(CHIP_RE, nav)
     assert all(bool(on) == bool(cur) for on, _, cur, _ in found)
     return [(h, label, bool(on)) for on, h, _, label in found]
@@ -702,6 +702,24 @@ def test_her_view_without_her_list_has_no_filter_chips(env):
     with TestClient(main.app) as c:
         b = body(c, "/media/movies?owner_view=her&f=watched&s=unwatched&view=grid")[1]
     assert 'aria-label="Show"' not in b and len(cards(b)) == 4 and "Nothing left to watch" in b
+
+
+def test_her_shows_continue_without_her_list_says_no_marks_yet(env):
+    # 2026-10-22 (library-grid open b): no marks for her is not "nothing in progress"; with marks the words stay
+    main = env(jellyfin=jelly(her=None), arr=ARRV)
+    with TestClient(main.app) as c:
+        her = body(c, "/media/tv?owner_view=her&s=continue")[1]
+        her_films = body(c, "/media/movies?owner_view=her&s=continue")[1]
+    assert '<p class="empty">No marks for her yet</p>' in her and "Nothing in progress" not in her
+    assert "No marks for her yet" not in her_films        # films' Continue watching is her resume list, not marks
+
+
+def test_library_filter_chips_scroll_in_one_row_on_a_phone():
+    # 2026-10-22 (library-grid open a): like the Media section pills (.sectabs), never two lines at 375 px
+    block = CSS.split("/* Library filter chips (2026-10-22, library-grid)", 1)[1]
+    rule = re.search(r"@media \(max-width: 639px\) \{\s*\.libchips \{([^}]*)\}", block).group(1)
+    assert "flex-wrap: nowrap" in rule and "overflow-x: auto" in rule and "scrollbar-width: none" in rule
+    assert "margin: 0 -16px" in rule and "padding: 0 16px" in rule
 
 
 def test_new_sorts_order_a_small_fixture():

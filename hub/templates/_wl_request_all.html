@@ -1,0 +1,22 @@
+{# WP-RQ3 (2026-10-22): Request all's inline confirm panel (guide 6: never a browser dialog) for Everyone's watchlist as
+   filtered. `p` = media_watchlist_everyone._panel_ctx: the batch (at most CAP titles, Not on server and not requested,
+   once each), ONE Quality chip row per kind in it (the Seerr default preselected; no row with one profile), and
+   `shows` (shows are requested whole: all seasons). A plain boosted POST; the page comes back with the words. #}
+<form class="confirm rqall-panel" method="post" action="/media/watchlist/everyone/request-all">
+  <input type="hidden" name="who" value="{{ p.who }}"><input type="hidden" name="kind" value="{{ p.kind }}">
+  <div>Request {{ p.batch | length }} title{{ "s" if p.batch | length != 1 }}?</div>
+  <ul class="rqall-list">
+    {% for r in p.batch %}<li>{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %} <span class="metaline">{{ "TV" if r.kind == "tv" else "Film" }}</span></li>{% endfor %}
+  </ul>
+  {% if p.more %}<div class="metaline">{{ p.more }} more after these · Request all again</div>{% endif %}
+  {% if p.shows %}<div class="metaline">Shows: all seasons</div>{% endif %}
+  {% for q in p.qrows if q.profiles and q.profiles | length > 1 %}
+  <div class="chips qualitypick" role="radiogroup" aria-label="Quality for {{ q.label }}"><span class="microlabel">Quality · {{ q.label }}</span>
+    {% for pr in q.profiles %}<label class="chip"><input type="radio" name="profile_{{ q.kind }}" value="{{ pr.id }}"{{ " checked" if pr.default }}>{{ pr.name }}{% if pr.default %} · Default{% endif %}</label>{% endfor %}
+  </div>
+  {% endfor %}
+  <div class="confirm-btns">
+    <button class="btn btn-primary btn-sm" type="submit">Request {{ p.batch | length }}</button>
+    <a class="btn btn-ghost btn-sm" href="{{ p.back }}" onclick="this.closest('.rqall-panel').remove();return false">Cancel</a>
+  </div>
+</form>

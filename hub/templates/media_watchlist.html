@@ -10,6 +10,8 @@
 <p class="empty">Watchlist unavailable</p>
 {% else %}
 <p class="metaline">{{ head_line }}</p>
+{# WP-RQ3 (2026-10-22): every person's list, owner "you" on the private front only. #}
+{% if owner == "you" and not guest(request) %}<p class="metaline"><a href="/media/watchlist/everyone">Everyone's watchlist</a></p>{% endif %}
 {% if left %}<p class="metaline">{{ left }} watched title{{ "s" if left != 1 }} left the list</p>{% endif %}
 {% if rows %}
 {# E3 (U14, 2026-10-13): the sort applies on change (htmx GET of the same URL, scroll kept, URL pushed); Apply is no-JS only. #}

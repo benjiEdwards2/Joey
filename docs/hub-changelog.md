@@ -1165,3 +1165,21 @@ Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css
 (six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
 Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
 `docs/public-edge.md` R1 step 4.
+
+**Everyone's watchlist + Request all (WP-RQ3, 2026-10-22).** B. (owner "you", private front only) sees every watchlist in
+media.db at `GET /media/watchlist/everyone` (new `hub/media_watchlist_everyone.py`, `media_watchlist_everyone.html`): rows
+grouped You · Georgina · each friend by their Jellyfin display name, with person chips (All · each person) and Films / TV
+chips, each row's status word (On disk / Requested / Processing / Not on server, as the per-owner pages), kind and "Added
+<date>". A title on several lists is a row under each person (the page is grouped by person; Request all sends it once).
+The page renders from media.db and the snapshots only: friend names come from an in-process copy of Jellyfin `/Users`
+(1 h), read after the response while cold (the group reads "Friend" until the next view); names are never logged. A row
+Not on server has Request, which draws the normal confirm step (`_request_block.html`: Quality chips, season ticks) in the
+row via the existing private `GET /media/title/{kind}/{tmdb}/request?step=confirm` (one `#request-block` at a time).
+Request all (`GET` + `POST /media/watchlist/everyone/request-all`, same-origin) covers the list as filtered: titles Not on
+server and not requested, once each; its inline confirm panel lists them, has one Quality chip row per kind in the batch,
+and says "Shows: all seasons" (`seasons: "all"`, no Sonarr follow). It sends at most 20 per submit through
+`media_discover._send` as B. (admin key), and the page comes back with words ("Requested 7 · 1 failed: Already
+requested · 3 left · Request all again"); a sent title reads Requested for an hour until the jellyseerr snapshot has it,
+and the quality safety net for a non-default pick runs after the answer. Linked ("Everyone's watchlist") from Activity ›
+Requests and the Movies / TV watchlist pages for owner "you" only. Georgina gets the 404 page; the routes are PRIVATE in
+`hub/guest.py` (media-front 404). New `media_watchlist_db.all_rows`. Tests: `tests/hub/test_media_watchlist_everyone.py`.

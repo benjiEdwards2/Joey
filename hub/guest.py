@@ -137,6 +137,8 @@ PRIVATE: tuple = (
            "/media/upgrades/why/{app}/{arr_id}/grab"),
     *_each("GET", "/media/diary/year", "/media/diary/year/{year}"),   # Wrapped reads the household's history (Q18)
     ("POST", "/media/settings/diary_scope"),   # "Show: Everyone" is hidden for friends (DECISIONS C)
+    # WP-RQ3 (2026-10-22): Everyone's watchlist and its Request all - owner "you" on the private front only
+    ("GET", "/media/watchlist/everyone"), *_each("GET POST", "/media/watchlist/everyone/request-all"),
 )
 
 RESERVED: tuple = ()   # empty since WP-B4 moved the request route to GUEST; kept for the next route a WP builds dark

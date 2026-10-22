@@ -63,6 +63,18 @@ def rows(owner: str, kind: str | None = None) -> list[dict]:
         return [dict(r) for r in db.execute(sql + " ORDER BY added_at DESC, item_key", args)]
 
 
+def all_rows(kind: str | None = None) -> list[dict]:
+    """Every owner's rows (WP-RQ3 (2026-10-22): Everyone's watchlist, owner "you" only - the route gates it)."""
+    sql, args = "SELECT * FROM watchlist", []
+    if kind:
+        sql, args = sql + " WHERE kind = ?", [media_db.norm_kind(kind)]
+    db = _reader()
+    if db is None:
+        return []
+    with closing(db):
+        return [dict(r) for r in db.execute(sql + " ORDER BY added_at DESC, owner, item_key", args)]
+
+
 def contains(owner: str, keys) -> set:
     keys = sorted({k for k in keys if k})
     if not keys:

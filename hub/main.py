@@ -26,6 +26,7 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
 from hub.media_watchlist import router as media_watchlist_router
+from hub import media_watchlist_everyone
 from hub import media_home, media_pages, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
@@ -108,6 +109,7 @@ app.include_router(media_plays.router)
 app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
+app.include_router(media_watchlist_everyone.router)   # WP-RQ3: Everyone's watchlist (owner you)
 app.include_router(media_follow.router)
 app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)

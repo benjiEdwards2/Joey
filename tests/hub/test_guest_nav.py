@@ -108,7 +108,7 @@ def test_branding_title_home_meta_manifest_and_user_chip(friend):
     brand = re.search(r'<a class="brand"[^>]*>.*?</a>', top, re.S).group(0)
     assert 'href="/a/media"' in brand and "Joey Media" in brand and "/static/icon-192.png" in brand
     assert "brand-back" not in brand and "brand-joey" not in brand        # no "‹ Joey" (DECISIONS C)
-    chip = re.search(r'<div class="userchip".*?</div>', top, re.S).group(0)
+    chip = re.search(r'<button class="userchip".*?</button>', top, re.S).group(0)   # a button since sign-out (2026-10-22)
     assert "Sample Friend" in chip and "@" not in chip and "Local preview" not in chip and "title=" not in chip
     assert '<nav class="toplinks" aria-label="Sections">' not in html        # no Joey area pills
 

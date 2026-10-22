@@ -45,6 +45,15 @@ html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color:
 html.tv .userchip { margin-left: auto; height: 40px; padding: 0 12px 0 4px; border-radius: 999px; font-size: 18px; color: var(--tv-t3); }
 html.tv .userchip .avatar { width: 32px; height: 32px; font-size: 17px; background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }
+/* Sign-out confirm (2026-10-22): the chip is focusable (Enter opens it); the card matches the request panel; Cancel
+   starts focused, Left reaches Sign out; Back / Cancel / Esc close it (tv.js back()). */
+html.tv .signoutdlg { width: 520px; padding: 28px 32px; border: 1px solid var(--tv-line); border-radius: 20px; background: #18181b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
+html.tv .signoutdlg::backdrop { background: rgba(9, 9, 11, .82); }
+html.tv .signout-q { font-size: 30px; line-height: 1.15; }
+html.tv .signoutdlg .metaline { margin: 8px 0 22px; font-size: 19px; color: var(--tv-t4); }
+html.tv .signoutdlg .confirm-btns { gap: 14px; }
+html.tv .signoutdlg .btn-white { background: var(--primary); color: #fff; border-color: transparent; }
+html.tv .signoutdlg .btn-ghost { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 
 /* Page frame: the content column is the safe area; shelves run edge to edge inside it (below). */
 html.tv .page { max-width: none; width: auto; margin: 0; padding: 0 var(--tv-mx) var(--tv-my); gap: 14px; }

@@ -81,8 +81,21 @@
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
     </nav>
     {% endif %}
-    {% if is_guest %}
-    {# The guest chip names the signed-in Jellyfin user only - no email (the media front never has one). #}
+    {% if is_guest and who.owner %}
+    {# The guest chip names the signed-in Jellyfin user only - no email (the media front never has one). Sign-out (Joey TV,
+       2026-10-22): the chip opens a confirm <dialog>; "Sign out" is a plain full-page POST /signout (hx-boost off, so the
+       303 to /signin loads the standalone sign-in page; the browser's same-host Origin passes same_origin). Focus starts
+       on Cancel so a double press on the remote never signs out; Back / Esc / Cancel close it (tv.js joeyTV.back()). #}
+    <button class="userchip" type="button" aria-haspopup="dialog" aria-controls="signout-dlg" onclick="var d=document.getElementById('signout-dlg');d._opener=this;d.showModal()"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span></button>
+    <dialog id="signout-dlg" class="signoutdlg" aria-labelledby="signout-q">
+      <p id="signout-q" class="signout-q">Sign out of Joey Media?</p>
+      <p class="metaline">Signed in as {{ who.name }}</p>
+      <form class="confirm-btns" method="post" action="/signout" hx-boost="false">
+        <button class="btn btn-white" type="submit">Sign out</button>
+        <button class="btn btn-ghost" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Cancel</button>
+      </form>
+    </dialog>
+    {% elif is_guest %}
     <div class="userchip"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span></div>
     {% else %}
     <div class="userchip"{% if who.email %} title="{{ who.email }}"{% endif %}><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>{{ who.email or "Local preview" }}</small></div>

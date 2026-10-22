@@ -205,6 +205,8 @@ class FakeSeerr:
             perms = acting["permissions"]
             auto = perms & (ADMIN | AUTO_APPROVE | (AUTO_APPROVE_MOVIE if kind == "movie" else AUTO_APPROVE_TV))
             body = self._request_body(self.next_request, kind, tmdb, 2 if auto else 1, acting, json.get("seasons"))
+            if json.get("profileId") is not None:   # WP-RQ2: Seerr 3.5 keeps the body's profileId (MediaRequest.ts)
+                body["profileId"] = json["profileId"]
             self.next_request += 1
             self.requests.append(body)
             title = self.titles.get((kind, tmdb))

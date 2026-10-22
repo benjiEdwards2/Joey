@@ -1165,3 +1165,20 @@ Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css
 (six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
 Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
 `docs/public-edge.md` R1 step 4.
+
+**Friends pick quality and seasons (WP-RQ2, 2026-10-22).** A friend's request on the media front now works like Seerr's
+request dialog. The Discover request panel (`_guest_request_panel.html`) and the title page's confirm step
+(`_request_block.html`, its media-front "no Quality chips" exclusion removed) carry the Quality chips
+(`media_quality.profiles`, the default preselected). A show gets the title page's season ticks in the panel instead of a
+hidden `seasons=all`: "All seasons" ticked, no "+ future", seasons on disk disabled, Specials not offered. The pick rides
+the friend's own pending POST (`X-Api-User`, `profileId`, `seasons`). Verified in the Seerr 3.5.0 source:
+`MediaRequest.createRequest` keeps `requestBody.profileId` for a REQUEST-only user, and only an override rule replaces it.
+When the 201 answer carries another profile, the new `media_guest_requests.keep_pick` PUTs the pick with the admin key
+alone (`PUT /api/v1/request/{id}`; pending only, status untouched). Server-side checks: an unknown profile id falls back to
+the default (no 422 on the media front). Only ticked seasons the show has that are not on disk are sent; when none are
+left the answer is "Pick a season that isn't here yet". The quality safety net and Sonarr's follow still never run there.
+Words: "Requested in 4K · Seasons 1–2 — waiting for approval". TV mode: `tv.js` OK (Enter) toggles a focused tick or
+radio chip and scrolls the focused control into its scrolling box. `tv.css` rings the label, caps the panel at the
+viewport and scrolls the season list inside it; Request keeps `data-first`. `tv/` unchanged. Tests:
+`test_guest_request_picks.py` (new), `test_guest_requests.py` (the Q19 "no profile" pins updated), `fake_seerr.py`
+(stores the POST's `profileId`). Docs: `hub/README.md` "Requests".

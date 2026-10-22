@@ -214,3 +214,21 @@ html.tv .signin-error { font-size: 18px; }
 @keyframes tv-pulse { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { html.tv .signin-panel #qc-status::before { animation: none; } html.tv .card-poster { transition: none; } }
 html.tv .signin-panel #qc .btn { background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
+
+/* Request picks (WP-RQ2, 2026-10-22): the panel's Quality chips and season ticks, Seerr's request dialog on the TV. The
+   card never outgrows the 960x540 viewport (it scrolls; tv.js keeps the focused control in view); with season ticks the
+   synopsis drops to 2 lines and the ticks wrap as 40 px boxes in a 2-row list that scrolls inside the panel. The focus
+   ring sits on the tick's / chip's label, never on the 1 px radio. */
+html.tv .reqdlg { max-height: calc(100vh - 2 * var(--tv-my)); overflow-y: auto; }
+html.tv .reqpanel:has(.seasonpick) .reqpanel-ov { -webkit-line-clamp: 2; line-clamp: 2; }
+html.tv .reqpanel-form { gap: 12px; margin-top: 16px; }
+html.tv .reqpanel-form .reqpanel-btns { margin-top: 4px; }
+html.tv .reqpanel .seasonpick { flex-direction: row; flex-wrap: wrap; gap: 8px 10px; max-height: 112px; overflow-y: auto; padding: 8px; margin: -8px; }
+html.tv .reqpanel .seasonall, html.tv .reqpanel .seasonpick label {
+  width: fit-content; min-height: 40px; padding: 0 12px; border: 1px solid var(--tv-line); border-radius: 10px;
+  background: var(--tv-surface); font-size: 18px; color: var(--tv-t2);
+}
+html.tv .reqpanel .seasonpick .metaline { margin: 0; font-size: 16px; }
+html.tv .qualitypick .chip { height: 40px; padding: 0 16px; border-radius: 10px; font-size: 18px; }
+html.tv label:has(> input.tv-focus), html.tv label:has(> input:focus-visible) { outline: 4px solid var(--tv-ring); outline-offset: 3px; }
+html.tv label > input.tv-focus, html.tv label > input:focus-visible { outline: none; }

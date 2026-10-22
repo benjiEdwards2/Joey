@@ -4,12 +4,14 @@
    makes Request the hero's one white button.
    Joey TV WP-B4 (2026-10-21), media front only: `mine` is the signed-in friend's own request of this title (pending /
    approved / declined, hub.media_guest_requests) - every friend request waits for B.'s approval (DECISIONS B #19); no
-   "shows in Requests" (that page is private), no Quality chips, and "All seasons" without "+ future" (no Sonarr follow). #}
+   "shows in Requests" (that page is private), and "All seasons" without "+ future" (no Sonarr follow).
+   WP-RQ2 (2026-10-22): the media front shows the Quality chips too (a friend picks, B. approves); `sent` is the done line
+   ("Requested in 4K · Seasons 1–2 — waiting for approval"). #}
 {% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
 {% set on_media = guest(request) %}
 <div id="request-block" class="requestblock">
 {% if state == "done" and on_media %}
-  <p class="statusline st-good">{% if mine == "pending" %}Requested — waiting for approval{% else %}Requested ✓{% endif %}</p>
+  <p class="statusline st-good">{% if sent %}{{ sent }}{% elif mine == "pending" %}Requested — waiting for approval{% else %}Requested ✓{% endif %}</p>
 {% elif state == "done" %}
   <p class="statusline st-good">Requested{% if quality %} in {{ quality }}{% endif %} ✓ — shows in Requests within the hour</p>
   {% if qnote %}<p class="metaline st-warn">{{ qnote }}</p>{% endif %}

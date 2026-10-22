@@ -1,16 +1,18 @@
 {
-  "pageInfo": {"pages": 1, "pageSize": 50, "results": 4, "page": 1},
+  "pageInfo": {"pages": 1, "pageSize": 100, "results": 4, "page": 1},
   "results": [
-    {"id": 14, "status": 2, "type": "tv", "createdAt": "2025-12-31T20:30:00.000Z",
+    {"id": 14, "status": 2, "type": "tv", "createdAt": "2025-12-31T20:30:00.000Z", "profileId": 6,
+     "seasons": [{"id": 31, "seasonNumber": 2, "status": 2}, {"id": 30, "seasonNumber": 1, "status": 2}],
      "media": {"tmdbId": 2002, "tvdbId": 82002, "mediaType": "tv", "status": 2},
      "requestedBy": {"id": 2, "displayName": "Sample Partner"}},
-    {"id": 13, "status": 1, "type": "movie", "createdAt": "2025-12-31T22:15:00.000Z",
+    {"id": 13, "status": 1, "type": "movie", "createdAt": "2025-12-31T22:15:00.000Z", "profileId": null,
      "media": {"tmdbId": 1001, "mediaType": "movie", "status": 2},
      "requestedBy": {"id": 1, "displayName": "Sample Person"}},
-    {"id": 12, "status": 2, "type": "movie", "createdAt": "2025-12-30T21:00:00.000Z",
+    {"id": 12, "status": 2, "type": "movie", "createdAt": "2025-12-30T21:00:00.000Z", "profileId": 4,
      "media": {"tmdbId": 1003, "mediaType": "movie", "status": 5},
      "requestedBy": {"id": 1, "displayName": "Sample Person"}},
-    {"id": 11, "status": 3, "type": "tv", "createdAt": "2025-12-27T18:45:00.000Z",
+    {"id": 11, "status": 3, "type": "tv", "createdAt": "2025-12-27T18:45:00.000Z", "profileId": null,
+     "seasons": [{"id": 20, "seasonNumber": 1, "status": 3}],
      "media": {"tmdbId": 2004, "tvdbId": 82004, "mediaType": "tv", "status": 1},
      "requestedBy": {"id": 2, "displayName": "Sample Partner"}}
   ]

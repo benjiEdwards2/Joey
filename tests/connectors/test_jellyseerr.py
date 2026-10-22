@@ -70,8 +70,8 @@ def fake_requests(monkeypatch, raw, fail=None):
             return Resp(code=outcome)
         if path == "/api/v1/request/count":
             return Resp(raw["raw_count"])
-        if path == "/api/v1/request":
-            return Resp(raw["raw_requests"])
+        if path == "/api/v1/request":   # WP-RQ1: the pending list is its own read
+            return Resp(raw["raw_pending"] if (params or {}).get("filter") == "pending" else raw["raw_requests"])
         kind, tmdb = path.split("/")[-2:]
         return Resp(raw["raw_titles"][f"{kind}:{tmdb}"])
 
@@ -83,8 +83,8 @@ def test_requires_env_names_the_url_and_key():
     assert Jellyseerr.requires_env == ("JELLYSEERR_URL", "JELLYSEERR_API_KEY")
 
 
-def test_fixture_dir_is_count_requests_titles(raw):
-    assert set(raw) == {"raw_count", "raw_requests", "raw_titles"}
+def test_fixture_dir_is_count_requests_pending_titles(raw):
+    assert set(raw) == {"raw_count", "raw_requests", "raw_pending", "raw_titles"}
 
 
 def test_rows_are_pending_first_then_newest_with_a_status_word(data):
@@ -95,7 +95,8 @@ def test_rows_are_pending_first_then_newest_with_a_status_word(data):
     assert rows[0] == {"id": 13, "kind": "movie", "tmdb_id": 1001, "title": "Midnight Harbour",
                        "year": 2025, "requested_by": "Sample Person", "status_text": "Pending",
                        "when": "1 hour ago", "href": "http://nas.local:5055/movie/1001",
-                       "poster": "tmdb:/fixture1001.jpg", "item_key": "tmdb:1001"}
+                       "poster": "tmdb:/fixture1001.jpg", "item_key": "tmdb:1001",
+                       "profile_id": None, "requested_by_id": 1}
     assert rows[1]["kind"] == "tv" and rows[1]["year"] == 2023
     assert rows[1]["href"] == "http://nas.local:5055/tv/2002"
     assert data["counts"] == {"pending": 1, "approved": 2, "available": 1, "declined": 1, "total": 4}
@@ -122,16 +123,56 @@ def test_no_open_requests_summary(raw):
     raw = copy.deepcopy(raw)
     raw["raw_count"] = {"total": 0}
     raw["raw_requests"]["results"] = []
+    raw["raw_pending"]["results"] = []
     data = Jellyseerr().transform(raw)
     assert data["summary"] == "No open requests" and data["secondary"] == "" and data["requests"] == []
     jsonschema.validate(data, SCHEMA)
 
 
-def test_rows_are_capped_at_thirty(raw):
+def test_rows_besides_pending_are_capped_at_sixty(raw):
     raw = copy.deepcopy(raw)
     template = raw["raw_requests"]["results"][0]
-    raw["raw_requests"]["results"] = [{**template, "id": 100 + i} for i in range(40)]
-    assert len(Jellyseerr().transform(raw)["requests"]) == 30
+    raw["raw_requests"]["results"] = [{**template, "id": 100 + i} for i in range(70)]
+    raw["raw_pending"]["results"] = []
+    assert len(Jellyseerr().transform(raw)["requests"]) == 60
+
+
+def test_every_pending_request_is_kept_whatever_the_cap(raw):
+    """WP-RQ1 (2026-10-22): 70 approved newer rows and 80 old pending ones - all 80 pending stay, first."""
+    raw = copy.deepcopy(raw)
+    approved, pending = raw["raw_requests"]["results"][0], raw["raw_pending"]["results"][0]
+    raw["raw_requests"]["results"] = [{**approved, "id": 100 + i, "createdAt": "2025-12-31T23:00:00.000Z"}
+                                      for i in range(70)]
+    raw["raw_pending"]["results"] = [{**pending, "id": 500 + i, "createdAt": "2025-01-01T00:00:00.000Z"}
+                                     for i in range(80)]
+    data = Jellyseerr().transform(raw)
+    jsonschema.validate(data, SCHEMA)
+    rows = data["requests"]
+    assert len(rows) == 140 and [r["status_text"] for r in rows[:80]] == ["Pending"] * 80
+    assert {r["id"] for r in rows[:80]} == set(range(500, 580))
+
+
+def test_a_pending_request_in_both_lists_is_one_row(data):
+    assert [r["id"] for r in data["requests"]].count(13) == 1 and len(data["requests"]) == 4
+
+
+def test_rows_carry_the_requested_profile_seasons_and_requester_id(data):
+    """WP-RQ1: Seerr's stored profileId (null = the server default), TV season numbers sorted, the Seerr user id."""
+    by_id = {r["id"]: r for r in data["requests"]}
+    assert by_id[14]["profile_id"] == 6 and by_id[14]["seasons"] == [1, 2] and by_id[14]["requested_by_id"] == 2
+    assert by_id[13]["profile_id"] is None and "seasons" not in by_id[13] and by_id[13]["requested_by_id"] == 1
+    assert by_id[11]["seasons"] == [1]
+
+
+def test_odd_profile_and_user_ids_are_null(raw):
+    raw = copy.deepcopy(raw)
+    tv = raw["raw_requests"]["results"][0]
+    tv.update(profileId=True, seasons=[{"seasonNumber": "2"}, {"seasonNumber": 3}, "x"])
+    tv["requestedBy"] = {"displayName": "Sample Partner"}
+    out = Jellyseerr().transform(raw)
+    jsonschema.validate(out, SCHEMA)
+    row = next(r for r in out["requests"] if r["id"] == 14)
+    assert row["profile_id"] is None and row["seasons"] == [3] and row["requested_by_id"] is None
 
 
 def test_fixture_mode_touches_no_network(snapshots, monkeypatch):
@@ -148,10 +189,11 @@ def test_live_run_calls_count_list_and_one_lookup_per_title(live, monkeypatch, r
     envelope = Jellyseerr().run()
     assert envelope["status"] == "ok", envelope["error"]
     assert [c["path"] for c in calls] == [
-        "/api/v1/request/count", "/api/v1/request", "/api/v1/tv/2002", "/api/v1/movie/1001",
-        "/api/v1/movie/1003", "/api/v1/tv/2004"]
+        "/api/v1/request/count", "/api/v1/request", "/api/v1/request", "/api/v1/movie/1001", "/api/v1/tv/2002",
+        "/api/v1/movie/1003", "/api/v1/tv/2004"]   # pending titles first (WP-RQ1)
     assert all(c["timeout"] == 10 and c["headers"] == {"X-Api-Key": KEY} for c in calls)
-    assert calls[1]["params"] == {"take": 50, "skip": 0, "sort": "added", "filter": "all"}
+    assert calls[1]["params"] == {"take": 100, "skip": 0, "sort": "added", "filter": "all"}
+    assert calls[2]["params"] == {"take": 200, "skip": 0, "sort": "added", "filter": "pending"}
     rows = envelope["data"]["requests"]
     assert rows[0]["href"] == f"{URL}/movie/1001"  # trailing slash on the env var stripped
     jsonschema.validate(envelope["data"], SCHEMA)
@@ -162,7 +204,7 @@ def test_titles_from_the_previous_envelope_are_not_looked_up_again(live, monkeyp
     Jellyseerr().run()
     calls = fake_requests(monkeypatch, raw)
     envelope = Jellyseerr().run()
-    assert [c["path"] for c in calls] == ["/api/v1/request/count", "/api/v1/request"]
+    assert [c["path"] for c in calls] == ["/api/v1/request/count", "/api/v1/request", "/api/v1/request"]
     first = envelope["data"]["requests"][0]
     assert (first["title"], first["year"]) == ("Midnight Harbour", 2025)
 
@@ -178,7 +220,7 @@ def test_a_new_request_costs_exactly_one_lookup(live, monkeypatch, raw):
     more["raw_titles"]["movie:1005"] = {"title": "Glass Harbour", "releaseDate": "2013-04-05"}
     calls = fake_requests(monkeypatch, more)
     Jellyseerr().run()
-    assert [c["path"] for c in calls][2:] == ["/api/v1/movie/1005"]
+    assert [c["path"] for c in calls][3:] == ["/api/v1/movie/1005"]
 
 
 def test_one_failed_lookup_leaves_a_tmdb_row_and_the_run_ok(live, monkeypatch, raw):
@@ -201,6 +243,7 @@ def test_lookups_are_capped_per_sweep(live, monkeypatch, raw):
     big["raw_requests"]["results"] = [
         {**template, "id": 200 + i, "media": {"tmdbId": 5000 + i, "mediaType": "tv", "status": 2}}
         for i in range(25)]
+    big["raw_pending"]["results"] = []
     big["raw_titles"] = {f"tv:{5000 + i}": {"name": f"Show {i}", "firstAirDate": "2020-01-01"}
                          for i in range(25)}
     calls = fake_requests(monkeypatch, big)
@@ -276,6 +319,7 @@ def test_seerr_v3_completed_is_available_failed_is_named_unknown_is_open(raw):
     assert _seerr_status_text({"status": 99}) == "Approved"
     raw = copy.deepcopy(raw)
     raw["raw_requests"]["results"][1]["status"] = 5      # the pending fixture request is now Completed
+    raw["raw_pending"]["results"] = []                   # ... so Seerr's pending list no longer has it
     data = Jellyseerr().transform(raw)
     jsonschema.validate(data, SCHEMA)
     assert data["requests"][0]["status_text"] != "Pending"

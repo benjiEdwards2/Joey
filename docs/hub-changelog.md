@@ -1165,3 +1165,19 @@ Request / Declined chips and a request panel in a `<dialog>`. Follow-on: `tv.css
 (six columns, the one-tab sub-tab row dropped, 780 px panel card), and the panel's answer keeps its poster, title and overview.
 Tests: `test_guest_requests.py`, `fake_seerr.py`, `test_tv_mode.py` (Discover pin). Docs: `hub/README.md` "Requests",
 `docs/public-edge.md` R1 step 4.
+
+**Approve / Decline requests on the Requests page (WP-RQ1, 2026-10-22).** B. sees every Seerr request (friends',
+Georgina's, his own), pending first, and decides the pending ones in Joey. The `jellyseerr` connector reads the pending
+list on its own (`filter=pending`, take 200) beside the newest 100 of every status, keeps every pending request, caps the
+rest at 60 (was 30 of 50) and adds `profile_id`, `requested_by_id` and, TV only, `seasons` per row (schema, sample
+snapshot, `docs/connector-contract.md` nineteenth exception). New `hub/media_requests_approve.py`: a pending row says what
+was asked ("4K · Seasons 1–2", the profile named from `media_quality`'s cached list) and carries Approve (inline panel:
+Quality chips with the asked profile checked; TV season ticks, the show's whole list lazy-loaded on open from the cached
+Seerr title body) and Decline (inline confirm). Approve reads the request live, `PUT`s Seerr's edit only when the
+profile or seasons changed — carrying the stored `serverId` / `rootFolder` / `languageProfileId` / `tags`, since Seerr
+3.5's edit assigns them from the body — then approves, and runs `media_quality.ensure` after a non-default profile.
+Decline posts Seerr's decline. Owner "you" only (403 for her; the routes are PRIVATE in `hub/guest.py`; the media-front
+scrub drops `requested_by_id`). The decided row shows Approved / Declined at once until the next sweep, the counts
+follow, and the film page cache, the Search now lookups and the friend's own-request list are dropped. On a phone the
+three buttons take their own line (`.reqbreak`). Tests: `tests/hub/test_media_requests_approve.py` (new),
+`tests/connectors/test_jellyseerr.py`, `tests/connectors/test_contract_doc.py`.

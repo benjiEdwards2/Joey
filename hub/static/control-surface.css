@@ -1433,3 +1433,10 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .whycand-title { font-size: 13px; color: var(--text-1); overflow-wrap: anywhere; }
 .whycand > .confirm { align-self: stretch; }
 .lastsearch { margin-top: -4px; }
+
+/* Approve / Decline (2026-10-22, WP-RQ1): a pending request row carries Approve and Decline (.reqdecide) beside Remove -
+   the first keeps the row's auto margin, the others sit 8 px after it. */
+details.reqdecide.confirm-wrap ~ details.confirm-wrap { margin-left: 8px; }   /* outranks .row.has-form's auto margin */
+details.reqdecide.confirm-wrap[open] + details.confirm-wrap { margin-left: auto; }   /* the next button leads its line */
+.reqbreak { display: none; }
+@media (max-width: 639px) { .reqbreak { display: block; flex-basis: 100%; height: 0; } }   /* phone: buttons on a line of their own */

@@ -22,6 +22,7 @@ from hub import media_film, media_person, media_plays
 from hub import media_write as _media_write
 from hub.media_write import router as media_write_router
 from hub import media_arr_search, media_follow, media_quality, media_requests, media_resume, media_upgrade_why
+from hub import media_requests_approve   # WP-RQ1: Approve / Decline on the Requests page
 from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
@@ -111,6 +112,7 @@ app.include_router(media_watchlist_router)
 app.include_router(media_follow.router)
 app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)
+app.include_router(media_requests_approve.router)   # WP-RQ1: Approve / Decline a pending request
 app.include_router(media_resume.router)
 app.include_router(media_arr_search.router)   # media-ux5: Search now
 app.include_router(media_quality.router)   # WP-R1: Quality · 1080p / Switch to 4K

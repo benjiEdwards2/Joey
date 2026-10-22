@@ -73,3 +73,14 @@ def test_arr_wp_u1_fields_and_why_exception_are_documented():
     for needle in ("GET /api/v3/release?movieId=", "GET /api/v3/release?episodeId=", "90 s", "1 h", "POST /api/v3/release",
                    "never from the form", "same_origin", "The page render never calls"):
         assert needle in why, needle
+
+
+def test_approve_decline_exception_and_jellyseerr_fields_are_documented():
+    """WP-RQ1 (2026-10-22): the Approve / Decline live writes and the jellyseerr block's pending rule + new row fields."""
+    text = doc_text()
+    para = text.split("**Nineteenth exception (2026-10-22): Approve / Decline a request", 1)[1].split("\n\n", 1)[0]
+    for needle in ("GET /api/v1/request/{id}", "PUT /api/v1/request/{id}", "POST /api/v1/request/{id}/approve",
+                   "POST /api/v1/request/{id}/decline", "serverId", "rootFolder", "languageProfileId", "userId", "202",
+                   "same_origin", "filter=pending", "`profile_id`", "`requested_by_id`", "`seasons`", "capped at 60",
+                   "status or exception type only"):
+        assert needle in para, needle

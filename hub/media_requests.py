@@ -84,7 +84,10 @@ DONE = {"removed": "Removed",
 ERRORS = {"missing": "That request is no longer listed",
           "unset": "Seerr is not connected",
           "unreachable": "Couldn't reach Seerr",
-          "refused": "Seerr refused"}
+          "refused": "Seerr refused",
+          # WP-RQ1 (2026-10-22): Approve / Decline (hub/media_requests_approve.py)
+          "notpending": "That request is no longer pending",
+          "noseasons": "Seerr has no seasons left to request — another request or the library holds them"}
 COUNT_OF = {"Pending": "pending", "Approved": "approved", "Processing": "approved", "Partly available": "approved",
             "Available": "available", "Declined": "declined"}
 

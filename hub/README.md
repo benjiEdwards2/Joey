@@ -30,7 +30,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py`, `media_upgrade_why.py` | Media section map; library list helpers; downloads join; file-quality strip; library rank; Below cutoff (arr cutoff unmet) + last library search; Why? / Grab anyway (arr interactive search) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
 | `media_episode_ratings.py` | TV episode flow ratings (WP-E1, 2026-10-16): per-episode IMDb ratings via OMDb (one call per season; vote counts for the current season only), TMDB fallback from the Jellyseerr season read; media.db `episode_rating` (v5); the film page's `film.ratings`, missing reads in the response's BackgroundTask |
-| `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, watchlist |
+| `media_discover.py`, `media_follow.py`, `media_requests.py`, `media_requests_approve.py`, `media_watchlist*.py` | Discover and request, Follow, Remove request, Approve / Decline a pending request, watchlist |
 | `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / skip / log / search routes, play recorder and History (E5: `show_runtimes` for the progress words), resume actions, hide-until-next-sweep |
 | `media_awards*.py` | Awards: sync, parsers, seeds, store, pages, badges and icons |
 | `media_warmup.py`, `media_backup.py` | Film-page cache warm-up (plus the Jellyfin item reads after each new jellyfin snapshot); nightly media.db backups |
@@ -74,6 +74,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `POST /media/watchlist/{add,remove}` | media_watchlist | Watchlist |
 | `POST /media/follow/{kind}/{tmdb_id}[/unfollow]` | media_follow | Follow a person, a film series or a show (`kind` person / collection / show) |
 | `POST /media/requests/{rid}/remove` | media_requests | Remove a Jellyseerr request |
+| `POST /media/requests/{rid}/approve`, `/decline`; `GET /media/requests/{rid}/seasons` | media_requests_approve | Approve (edit first when the quality / seasons changed) or Decline a pending request; the Approve panel's season ticks (htmx). Owner "you" only: 403 for her, PRIVATE on the media front (WP-RQ1) |
 | `POST /media/resume/{jf_id}/{watched,unwatched,reset,hide}` | media_resume | Move on from Continue watching |
 | `GET/POST /server/updates/{name}/run`, `POST .../ignore`, `.../unignore` | server_updates | Update now (GET = confirm page), Ignore |
 | `GET/POST /server/updates/all/run` | server_updates | Update all: every eligible pending row in turn, gluetun first (GET `?step=confirm` = the list) |
@@ -196,6 +197,25 @@ Friends request through Discover and every friend request waits for B.'s approva
   teal / Requested amber / Request indigo (Declined grey), the panel is a 780 px card (150 px poster, 38 px title, 3-line
   synopsis, amber 22 px status line, Request then Done focused). Those rules live only in `tv.css` (`html.tv` scope, no
   `:hover`); the page's inline `<style>` carries none.
+
+### Approve / Decline (WP-RQ1, 2026-10-22)
+
+Activity › Requests lists every Seerr request (friends', Georgina's, B.'s), pending first; the jellyseerr connector keeps
+every pending request whatever the row cap. `hub/media_requests_approve.py`:
+
+- **What was asked.** A pending row's meta line says the requester's choice: the quality profile (the request's
+  `profileId` named from `media_quality`'s cached list; null = the Seerr server's default) and, for TV, "Seasons 1–2".
+- **Approve** (owner "you" only; Georgina gets no buttons and a 403, the media front a 404): an inline panel with the
+  Quality chips (the asked profile checked) and, for TV, the season ticks — the asked seasons drawn with the page, the
+  show's whole list (`GET /media/requests/{id}/seasons`, Seerr's cached title body, Specials left out; a season another
+  request holds or on disk is shown but locked) swapped in on open (`hx-trigger="toggle once"`). The POST reads the request
+  live, `PUT`s Seerr's edit only when the profile or the seasons differ (carrying the stored `serverId`, `rootFolder`,
+  `languageProfileId`, `tags`: Seerr assigns them from the body), then approves; a non-default profile runs
+  `media_quality.ensure`. Flash "Approved · 4K · Seasons 1–2".
+- **Decline**: an inline confirm, then `POST …/decline`; flash "Declined".
+- **At once.** The decided row reads Approved / Declined, without its buttons, until a jellyseerr snapshot taken after the
+  decision (media_hidden's clock); the counts follow. Failures: "Couldn't reach Seerr", "Seerr refused (HTTP n)", "That
+  request is no longer pending" (Seerr's 409), "Seerr has no seasons left to request …" (the edit's 202).
 
 ### Guest surface and TV mode (Joey TV WP-B3, 2026-10-21)
 

@@ -474,6 +474,14 @@ or whose command call failed (logged as a warning, no `partial_errors` entry), i
 null when the answer lacks the key) — and `dl_limit_text`: "Unlimited" for 0, else bits per second as people say them
 ("5 Mbps"; one decimal under 10 Mbps with a trailing .0 dropped, whole numbers from 10, kbps under 0.1 Mbps), null with a
 null limit. The hub's Quiet mode row (nineteenth exception) reads it. Older envelopes lack both and stay valid.
+**Arr library sizes (P1a, 2026-10-22).** Additive, optional in the schema. `library_sizes` = `{radarr, sonarr}`, each a
+list biggest first (ties by title), built from the library lists the counts already fetch — no extra call.
+`radarr`: `[{tmdb_id, title, year, size_bytes}]` from `GET /api/v3/movie`, only movies with `hasFile`; `size_bytes` is
+`sizeOnDisk` (else `statistics.sizeOnDisk`, else `movieFile.size`). `sonarr`: `[{tvdb_id, tmdb_id, title, size_bytes,
+ended}]` from `GET /api/v3/series`; `size_bytes` is `statistics.sizeOnDisk`, `ended` is the series' `ended` (else
+`status` "ended"). A title with 0 bytes on disk is left out; ids are null when the app has none; an app whose list was
+not fetched (down, or its count call failed) is null. The hub's Free space page (`GET /server/space`, list only) joins
+these to the Jellyfin library rows by `item_key` (`tmdb:<id>` / `tvdb:<id>`), never by title.
 
 The **money** data schema is Track E's — WP32 authors it under
 `connectors/money/`. The money envelope is written by the importer, a

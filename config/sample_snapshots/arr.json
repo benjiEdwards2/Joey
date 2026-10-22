@@ -78,6 +78,38 @@
         "title": "Quiet Coast \u00b7 S02E04 \u00b7 Late Tide"
       }
     ],
+    "library_sizes": {
+      "radarr": [
+        {
+          "size_bytes": 13314398618,
+          "title": "Desert Crossing",
+          "tmdb_id": 1002,
+          "year": 2024
+        },
+        {
+          "size_bytes": 4831838208,
+          "title": "Harbour Lights",
+          "tmdb_id": 1001,
+          "year": 2025
+        }
+      ],
+      "sonarr": [
+        {
+          "ended": true,
+          "size_bytes": 21474836480,
+          "title": "Quiet Coast",
+          "tmdb_id": 3001,
+          "tvdb_id": 2001
+        },
+        {
+          "ended": false,
+          "size_bytes": 6442450944,
+          "title": "Iron Valley",
+          "tmdb_id": 3002,
+          "tvdb_id": 2002
+        }
+      ]
+    },
     "prowlarr": {
       "failed_grabs": 3,
       "failed_queries": 52,

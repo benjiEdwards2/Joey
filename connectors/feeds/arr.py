@@ -1,5 +1,6 @@
 """Radarr + Sonarr (+ optional Prowlarr stats): arrivals, upgrades, this week, the queue,
-disk space, library counts and the titles below their quality cutoff (below cutoff), plus the last library search."""
+disk space, library counts and the titles below their quality cutoff (below cutoff), plus the last library search
+and each title's size on disk (P1a, 2026-10-22)."""
 
 from __future__ import annotations
 
@@ -445,6 +446,46 @@ class Arr(Connector):
                   "series": len(sonarr or [])}
         return {"radarr": radarr, "sonarr": sonarr, "totals": totals, "last_search": cls._last_search(raw)}
 
+    @staticmethod
+    def _library_sizes(raw: dict) -> dict:
+        """Per-title size on disk (P1a, 2026-10-22) for the hub's Free space page, from the library lists the counts
+        already fetch (no extra call): Radarr movies with a file (`sizeOnDisk`, else `statistics.sizeOnDisk`, else the
+        movie file's `size`), Sonarr series with episodes on disk (`statistics.sizeOnDisk`; `ended` from the series'
+        `ended`, else `status` "ended"). Biggest first; an app whose list was not fetched is null."""
+        def size(*values) -> int:
+            for v in values:
+                try:
+                    n = int(v or 0)
+                except (TypeError, ValueError):
+                    continue
+                if n > 0:
+                    return n
+            return 0
+
+        def num(v) -> int | None:
+            return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+
+        def biggest(rows) -> list[dict]:
+            return sorted(rows, key=lambda r: (-r["size_bytes"], r["title"].casefold()))
+
+        radarr = sonarr = None
+        movies = raw.get("raw_radarr_movie")
+        if isinstance(movies, list):
+            radarr = biggest(
+                {"tmdb_id": num(m.get("tmdbId")), "title": str(m.get("title") or "Unknown"), "year": num(m.get("year")),
+                 "size_bytes": n}
+                for m in movies if isinstance(m, dict) and m.get("hasFile")
+                and (n := size(m.get("sizeOnDisk"), (m.get("statistics") or {}).get("sizeOnDisk"),
+                               (m.get("movieFile") or {}).get("size"))))
+        series = raw.get("raw_sonarr_series")
+        if isinstance(series, list):
+            sonarr = biggest(
+                {"tvdb_id": num(s.get("tvdbId")), "tmdb_id": num(s.get("tmdbId")),
+                 "title": str(s.get("title") or "Unknown"), "size_bytes": n,
+                 "ended": s.get("ended") is True or str(s.get("status") or "").lower() == "ended"}
+                for s in series if isinstance(s, dict) and (n := size((s.get("statistics") or {}).get("sizeOnDisk"))))
+        return {"radarr": radarr, "sonarr": sonarr}
+
     def transform(self, raw: dict) -> dict:
         now = _now()
         arrived: list[tuple[datetime, dict]] = []
@@ -494,6 +535,7 @@ class Arr(Connector):
         }
         data["radarr"], data["sonarr"], data["prowlarr"] = self._counts(raw)
         data["upgrades"] = self._upgrades(raw)
+        data["library_sizes"] = self._library_sizes(raw)   # P1a (2026-10-22): the hub's Free space page
         if raw.get("app_errors"):
             data["app_errors"] = dict(raw["app_errors"])
             for app, why in sorted(raw["app_errors"].items()):

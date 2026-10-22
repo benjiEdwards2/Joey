@@ -1445,3 +1445,6 @@ a.guest:hover .guest-name { text-decoration: underline; }
 .quietrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .quietrow-label { font-size: 12px; color: var(--text-4); }
 .quietrow-flash { flex: 1 0 100%; margin: 0; }
+/* P1a free space (2026-10-22): the System disk block's small "Free space" link and the Free space page's head line. */
+.spacelink { margin-top: 8px; }
+.spacehead { margin-bottom: 8px; }

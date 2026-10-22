@@ -1,5 +1,8 @@
 [
-  {"id": 1, "title": "Quiet Coast", "tvdbId": 2001, "monitored": true},
-  {"id": 2, "title": "Iron Valley", "tvdbId": 2002, "monitored": true},
-  {"id": 3, "title": "Paper Moons", "tvdbId": 2003, "monitored": false}
+  {"id": 1, "title": "Quiet Coast", "tvdbId": 2001, "tmdbId": 3001, "monitored": true, "status": "ended", "ended": true,
+   "statistics": {"episodeFileCount": 8, "sizeOnDisk": 21474836480}},
+  {"id": 2, "title": "Iron Valley", "tvdbId": 2002, "tmdbId": 3002, "monitored": true, "status": "continuing", "ended": false,
+   "statistics": {"episodeFileCount": 3, "sizeOnDisk": 6442450944}},
+  {"id": 3, "title": "Paper Moons", "tvdbId": 2003, "monitored": false, "status": "ended", "ended": true,
+   "statistics": {"episodeFileCount": 0, "sizeOnDisk": 0}}
 ]

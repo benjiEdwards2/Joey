@@ -45,7 +45,9 @@ def test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items(
     monkeypatch.setattr(server, "history_band", lambda samples, now=None: {
         "collecting": True, "text": "", "sparks": [], "trend": None, "forecast": forecast})
     out = server.build_server(area(), {}, {"warning": None})
-    assert out["attention"] == [{"text": forecast["text"], "href": None, "action": None, "new_tab": False}]
+    # P1a (2026-10-22): the forecast's action is Free space (was no action, WP-T3)
+    assert out["attention"] == [{"text": forecast["text"], "href": "/server/space", "action": "Free space",
+                                 "new_tab": False}]
     assert out["attention_items"] == []
 
 
@@ -67,8 +69,10 @@ def test_attention_action_mapping():
     assert act("down:unknown")["href"] == "#services"
     assert (act("kuma:Prowlarr")["href"], act("kuma:Prowlarr")["action"]) == ("#services", "Services")
     assert (act("sweep:wud")["href"], act("sweep:wud")["action"]) == ("#system", "Sweeps")
-    for key in ("disk:/volume1", "backup", "forecast:/volume1"):
+    for key in ("disk:/volume1", "backup"):
         assert act(key)["href"] is None and act(key)["action"] is None
+    # P1a (2026-10-22): the forecast opens Free space (was no action, WP-T3)
+    assert (act("forecast:/volume1")["href"], act("forecast:/volume1")["action"]) == ("/server/space", "Free space")
 
 
 def test_attention_panel_renders_the_action_links(env):

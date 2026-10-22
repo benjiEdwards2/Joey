@@ -73,3 +73,11 @@ def test_arr_wp_u1_fields_and_why_exception_are_documented():
     for needle in ("GET /api/v3/release?movieId=", "GET /api/v3/release?episodeId=", "90 s", "1 h", "POST /api/v3/release",
                    "never from the form", "same_origin", "The page render never calls"):
         assert needle in why, needle
+
+
+def test_arr_library_sizes_are_documented():
+    """P1a (2026-10-22): the additive `library_sizes` block and the field names it reads."""
+    para = doc_text().split("**Arr library sizes (P1a, 2026-10-22).**", 1)[1].split("\n\n", 1)[0]
+    for needle in ("`library_sizes`", "GET /api/v3/movie", "`hasFile`", "`sizeOnDisk`", "GET /api/v3/series",
+                   "`statistics.sizeOnDisk`", "`ended`", "no extra call", "never by title", "`GET /server/space`"):
+        assert needle in para, needle

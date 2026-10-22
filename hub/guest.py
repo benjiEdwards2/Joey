@@ -127,6 +127,7 @@ PRIVATE: tuple = (
     *_each("POST", "/server/updates/all/run", "/server/updates/{name}/run", "/server/updates/{name}/ignore",
            "/server/updates/{name}/unignore", "/server/stack/run"),
     *_each("GET POST", "/server/downloads/cap"),   # P4 quiet mode (2026-10-22): private only, never a GUEST entry
+    ("GET", "/server/space"),   # P1a free space (2026-10-22): owner-only, list only
     *_each("GET", "/media/apps", "/media/playing", "/media/downloads", "/media/library", "/media/requests",
            "/media/server/history", "/media/following"),
     ("POST", "/media/requests/{rid}/remove"),

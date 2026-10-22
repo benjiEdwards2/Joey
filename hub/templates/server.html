@@ -44,6 +44,8 @@
         <div class="microlabel">{{ v.path }}</div><div class="stat-word">{{ v.free_text }} free</div>
         {{ meta(["of " ~ v.total_text, v.pct_used ~ "% used"]) }}
         <div class="bar" role="img" aria-label="{{ v.pct_used }}% used"><span style="width: {{ v.pct_used }}%"></span></div>
+        {# P1a free space (2026-10-22): one small link, on the first disk block — the list of watched titles on disk. #}
+        {% if loop.first %}<a class="btn btn-ghost btn-sm spacelink" href="/server/space">Free space</a>{% endif %}
       </div>
       {% else %}
       <div class="stat"><div class="microlabel">Volumes</div><div class="stat-word st-off">—</div></div>

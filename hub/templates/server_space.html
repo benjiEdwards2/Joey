@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Free space · Joey{% endblock %}
+{% block content %}
+{# P1a free space (2026-10-22): the biggest watched films and finished shows on disk, one list by size (hub/server_space.py).
+   LIST ONLY (B., 2026-10-22): no delete, no button that changes anything — each whole row opens the Joey item page. #}
+{% from "_rows.html" import meta %}
+<section class="sec" id="space" aria-label="Free space">
+  <div class="sechead"><h1 class="seclabel">Free space</h1></div>
+  {% if sp.head %}<p class="metaline spacehead">{{ sp.head }}</p>{% endif %}
+  {% if sp.rows %}
+  <div class="listbox">
+  {% for r in sp.rows %}
+    {% set tag = "a" if r.href else "div" %}
+    <{{ tag }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
+      <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.year, r.size_text, r.state_text]) }}</div>
+    </{{ tag }}>
+  {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">{{ sp.empty }}</p>
+  {% endif %}
+  <div class="confirm-btns"><a class="btn btn-ghost btn-sm" href="/server#system">Back to Server</a></div>
+</section>
+{% endblock %}

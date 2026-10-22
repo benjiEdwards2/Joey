@@ -193,6 +193,43 @@
         }
       }
     },
+    "library_sizes": {
+      "description": "P1a (2026-10-22): per-title size on disk for the hub's Free space page, biggest first, from the library lists the counts already fetch (no extra call). An app whose list was not fetched is null. Absent in older envelopes.",
+      "type": "object",
+      "required": ["radarr", "sonarr"],
+      "additionalProperties": false,
+      "properties": {
+        "radarr": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "required": ["tmdb_id", "title", "year", "size_bytes"],
+            "additionalProperties": false,
+            "properties": {
+              "tmdb_id": {"type": ["integer", "null"]},
+              "title": {"type": "string"},
+              "year": {"type": ["integer", "null"]},
+              "size_bytes": {"type": "integer", "minimum": 1}
+            }
+          }
+        },
+        "sonarr": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "required": ["tvdb_id", "tmdb_id", "title", "size_bytes", "ended"],
+            "additionalProperties": false,
+            "properties": {
+              "tvdb_id": {"type": ["integer", "null"]},
+              "tmdb_id": {"type": ["integer", "null"]},
+              "title": {"type": "string"},
+              "size_bytes": {"type": "integer", "minimum": 1},
+              "ended": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
     "app_errors": {
       "type": "object",
       "additionalProperties": false,

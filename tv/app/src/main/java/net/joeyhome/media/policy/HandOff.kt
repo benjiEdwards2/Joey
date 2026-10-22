@@ -25,12 +25,12 @@ fun interface PlaybackRoute {
 
 /**
  * Route 1b (WP-B6 decision line): explicit component `org.jellyfin.androidtv/.ui.startup.StartupActivity`, NO action,
- * String extra `ItemId`, NO flags. Opens the item's details page (one OK plays or resumes).
+ * String extra `ItemId`, FLAG_ACTIVITY_NEW_TASK. Opens the item's details page (one OK plays or resumes).
  *
- * No FLAG_ACTIVITY_NEW_TASK (W5, 2026-10-22): with it Jellyfin opened as its own task, so Back after watching left
- * the viewer on the TV's home screen; started from our Activity without it, Jellyfin's details/player stack on top of
- * Joey Media's task and Back returns to the Joey Media page the viewer came from. JellyfinLauncher starts it with
- * the Activity context, so no flag is required.
+ * W5 (2026-10-22, on the TCL): dropping FLAG_ACTIVITY_NEW_TASK does NOT bring Back to Joey Media.
+ * StartupActivity does start inside our task, but it hands over to `ui.browsing.MainActivity` in Jellyfin's own task
+ * (affinity org.jellyfin.androidtv), so Back from Jellyfin always ends on the TV's home screen; reopening Joey Media
+ * shows the same page. The flag stays (the WP-B6 decision line, 12/12 spike cells).
  *
  * Only well-formed ids (32 hex, or the dashed UUID form) get an item intent; anything else goes to route 3. The ids
  * come from the page's Jellyfin links, which the server builds from Jellyfin API ids: a valid-looking id Jellyfin does
@@ -55,7 +55,7 @@ object JellyfinItemRoute : PlaybackRoute {
             className = CLASS_NAME,
             action = null,
             extras = mapOf(EXTRA_ITEM_ID to id),
-            flags = 0,
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK,
         )
     }
 }

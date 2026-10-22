@@ -194,8 +194,9 @@
 
   function restore() {
     dropBlankTargets(document);
-    /* a full page load (OK on a poster opens /media/item/<id>): the WebView can focus the brand before this deferred
-       script adds its focusin listener, so a top-bar focus found here before any key is also replaced by first() */
+    /* a new page (a full load, or a boosted swap / Back, which reset keyed - below): the WebView can focus the brand
+       before this deferred script adds its focusin listener, so a top-bar focus found here before any key is also
+       replaced by first() */
     var a = active(), f = first();
     if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);
   }
@@ -215,8 +216,16 @@
     focusFirst: function () { setFocus(first()); }
   };
 
+  /* A boosted navigation is a new page in the same document (W5 2026-10-22, CDP log on the TCL: OK on a poster in
+     /media/movies set keyed, htmx swapped in /media/item/<id>, the WebView then focused the brand and both guards let
+     it stay, so OK went to Overview instead of Play). Reset keyed when a boosted response is swapped in (htmx 2.0.4:
+     beforeSwap detail.boosted / shouldSwap, read after joey.js's asset check) and on Back (historyRestore), so the
+     brand focus and restore() go to first(). A partial swap (request panel, dialog, shelf) keeps keyed. */
+  document.addEventListener('htmx:beforeSwap', function (e) {
+    if (e.detail.boosted && e.detail.shouldSwap) keyed = false;
+  });
   document.addEventListener('htmx:afterSettle', restore);
-  document.addEventListener('htmx:historyRestore', restore);
+  document.addEventListener('htmx:historyRestore', function () { keyed = false; restore(); });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
   else restore();
 })();

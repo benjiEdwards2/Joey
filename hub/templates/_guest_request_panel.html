@@ -1,8 +1,14 @@
 {# Joey TV WP-B4 (2026-10-21): the request panel of the guest Discover screen (WP-M screen 10), swapped into
    #req-panel inside #req-dialog. Poster, title, year, one overview line and Request (focused, data-first); or the
-   title's status ("Already in the library", "Requested — waiting for approval", "Declined", ...) with Done. A show is
-   requested whole (seasons=all; on the media front Sonarr never follows - Q19). Every friend request waits for B.'s
-   approval in Seerr (DECISIONS B #19); nothing here approves, declines or removes. `oob` re-draws the grid chip. #}
+   title's status ("Already in the library", "Requested — waiting for approval", "Declined", ...) with Done. Every
+   friend request waits for B.'s approval in Seerr (DECISIONS B #19); nothing here approves, declines or removes. `oob`
+   re-draws the grid chip.
+   WP-RQ2 (2026-10-22): as Seerr's request dialog - the Quality chips (`profiles`, the default preselected; no row with one
+   profile) and, for a show, the title page's season ticks ("All seasons" ticked so one click still requests the show;
+   no "+ future": Sonarr never follows here, Q19; seasons on disk disabled; Specials left out - the form check refuses
+   season 0). Request keeps data-first. The season list scrolls inside the panel.
+   JY-231 (2026-10-27): desktop and phone only. In TV mode the panel stays as it was (Request + Cancel, a show whole);
+   B.: "stop any tv development please" - the TV picks are deferred. #}
 {% from "_poster.html" import poster %}
 {% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
 <div class="reqpanel">
@@ -11,11 +17,36 @@
     {% if t.title %}<h2 class="reqpanel-title">{{ t.title }}</h2>{% endif %}
     {% if t.year or t.title %}<p class="metaline">{% if t.year %}{{ t.year }}<span class="sep"> · </span>{% endif %}{{ "TV" if t.kind == "tv" else "Film" }}</p>{% endif %}
     {% if t.overview %}<p class="reqpanel-ov">{{ t.overview | truncate(220) }}</p>{% endif %}
-    {% if state == "request" %}
+    {% if state == "request" and tv_mode(request) %}{# JY-231 (B., 2026-10-27: "stop any tv development please"): TV mode keeps the panel it had before RQ2 #}
     <form class="reqpanel-btns" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#req-panel" hx-swap="innerHTML">
       <input type="hidden" name="panel" value="1">{% if t.kind == "tv" %}<input type="hidden" name="seasons" value="all">{% endif %}
       <button class="btn btn-white" type="submit" data-first>Request</button>
       <button class="btn btn-ghost" type="button" data-close onclick="this.closest('dialog').close()">Cancel</button>
+    </form>
+    {% elif state == "request" %}
+    <form class="reqpanel-form" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#req-panel" hx-swap="innerHTML"{% if t.kind == "tv" %} onchange="var a=this.querySelector('input[value=all]'),t=event.target;if(t===a){if(a.checked)this.querySelectorAll('.seasonpick input').forEach(function(i){i.checked=false})}else if(t.name==='seasons'&&t.checked){a.checked=false}"{% endif %}>
+      <input type="hidden" name="panel" value="1">
+      {% if t.kind == "tv" %}
+      {% set picks = t.seasons | selectattr("number", "gt", 0) | list %}
+      {% if picks %}
+      <label class="seasonall"><input type="checkbox" name="seasons" value="all" checked> All seasons</label>
+      <div class="seasonpick" data-tv-scroll>
+        {% for s in picks %}
+        <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " disabled" if s.disabled }}>
+          {{ s.name }} <span class="metaline {{ status_of(s.status_word).cls }}">{{ s.status_word }}</span></label>
+        {% endfor %}
+      </div>
+      {% else %}<input type="hidden" name="seasons" value="all">{% endif %}
+      {% endif %}
+      {% if profiles and profiles | length > 1 %}
+      <div class="chips qualitypick" role="radiogroup" aria-label="Quality"><span class="microlabel">Quality</span>
+        {% for p in profiles %}<label class="chip"><input type="radio" name="profile" value="{{ p.id }}"{{ " checked" if p.default }}>{{ p.name }}{% if p.default %} · Default{% endif %}</label>{% endfor %}
+      </div>
+      {% endif %}
+      <div class="reqpanel-btns">
+        <button class="btn btn-white" type="submit" data-first>Request</button>
+        <button class="btn btn-ghost" type="button" data-close onclick="this.closest('dialog').close()">Cancel</button>
+      </div>
     </form>
     {% else %}
     <p class="statusline {{ 'st-good' if state in ('lib', 'approved', 'sent') else 'st-warn' }}">{{ msg or words }}</p>

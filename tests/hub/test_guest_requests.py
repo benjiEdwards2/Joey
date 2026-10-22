@@ -9,7 +9,8 @@ fixtures tests/hub/fixtures/seerr_*.json, fake tests/hub/fake_seerr.py) proved t
   a friend with no Seerr user is imported on their first request (`POST /api/v1/user/import-from-jellyfin`, that
   friend only, Q29), then looked up once more; still none -> "Requests aren't set up for you yet" and no request;
 * pending only: a friend whose Seerr user could approve (ADMIN / MANAGE_REQUESTS / AUTO_APPROVE*) is refused before
-  anything is sent; quality profiles and Sonarr's follow (admin side effects, Q19) never run on the media front;
+  anything is sent; the quality safety net and Sonarr's follow (admin side effects, Q19) never run on the media front
+  (WP-RQ2, 2026-10-22: the friend's quality pick rides their own pending request - tests/hub/test_guest_request_picks.py);
 * decline is B.'s, in Seerr: no guest page carries a decline / approve / remove control and the hub never calls
   `/decline`; once B. declines, the friend's title page and Discover chip say Declined;
 * the request route is GUEST (moved from RESERVED); every admin path stays PRIVATE; B.'s own request (private front,
@@ -186,15 +187,16 @@ def test_a_friend_request_is_pending_and_says_so(friend):
 
 
 def test_no_admin_side_effects_for_a_friend(friend, follows):
-    """'All seasons' by a friend: Seerr's seasons "all", but no Sonarr follow; a quality profile is never sent or
-    enforced, and the confirm step offers no Quality chips (Q19)."""
+    """'All seasons' by a friend: Seerr's seasons "all", but no Sonarr follow and no quality safety net (Q19).
+    WP-RQ2 (2026-10-22): the confirm step now offers the Quality chips and the pick rides the friend's own request."""
     friend.seerr.add_user(FRIEND_SEERR, FRIEND_ID)
     confirm = friend.get("/media/title/tv/100/request?step=confirm", headers=HX).text
-    assert "Confirm request" in confirm and 'name="profile"' not in confirm and "+ future" not in confirm
+    assert "Confirm request" in confirm and 'name="profile"' in confirm and "+ future" not in confirm
     post(friend, "/media/title/tv/100/request", "seasons=all&profile=5")
     post(friend, "/media/title/movie/701/request", "profile=5")
-    assert [p[3] for p in request_posts(friend.seerr)] == [{"mediaType": "tv", "mediaId": 100, "seasons": "all"},
-                                                            {"mediaType": "movie", "mediaId": 701}]
+    assert [p[3] for p in request_posts(friend.seerr)] == [
+        {"mediaType": "tv", "mediaId": 100, "seasons": "all", "profileId": 5},
+        {"mediaType": "movie", "mediaId": 701, "profileId": 5}]
     assert follows == []
 
 
@@ -326,7 +328,7 @@ def test_panel_for_a_show_requests_every_season(friend, follows):
     panel = friend.get("/media/title/tv/100/request?panel=1", headers=HX).text
     assert 'name="seasons" value="all"' in panel
     post(friend, "/media/title/tv/100/request", "panel=1&seasons=all")
-    assert request_posts(friend.seerr)[0][3] == {"mediaType": "tv", "mediaId": 100, "seasons": "all"}
+    assert request_posts(friend.seerr)[0][3] == {"mediaType": "tv", "mediaId": 100, "seasons": "all", "profileId": 4}
     assert follows == []
 
 

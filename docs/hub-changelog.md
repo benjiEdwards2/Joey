@@ -1302,3 +1302,29 @@ and the quality safety net for a non-default pick runs after the answer. Linked 
 Requests and the Movies / TV watchlist pages for owner "you" only. Georgina gets the 404 page; the routes are PRIVATE in
 `hub/guest.py` (media-front 404). New `media_watchlist_db.all_rows`. Spec `docs/specs/JY-232-rq3-everyone-watchlist.md`;
 tests: `tests/hub/test_media_watchlist_everyone.py`.
+
+## 2026-10-27 — JY-231 Friends pick quality and seasons (RQ2)
+
+**Friends pick quality and seasons (WP-RQ2, 2026-10-22).** A friend's request on the media front now works like Seerr's
+request dialog. The Discover request panel (`_guest_request_panel.html`) and the title page's confirm step
+(`_request_block.html`, its media-front "no Quality chips" exclusion removed) carry the Quality chips
+(`media_quality.profiles`, the default preselected). A show gets the title page's season ticks in the panel instead of a
+hidden `seasons=all`: "All seasons" ticked, no "+ future", seasons on disk disabled, Specials not offered. The pick rides
+the friend's own pending POST (`X-Api-User`, `profileId`, `seasons`). Verified in the Seerr 3.5.0 source:
+`MediaRequest.createRequest` keeps `requestBody.profileId` for a REQUEST-only user, and only an override rule replaces it.
+When the 201 answer carries another profile, the new `media_guest_requests.keep_pick` PUTs the pick with the admin key
+alone (`PUT /api/v1/request/{id}`; pending only, status untouched). Server-side checks: an unknown profile id falls back to
+the default (no 422 on the media front). Only ticked seasons the show has that are not on disk are sent; when none are
+left the answer is "Pick a season that isn't here yet". The quality safety net and Sonarr's follow still never run there.
+Words: "Requested in 4K · Seasons 1–2 — waiting for approval". Desktop and phone only: TV mode is unchanged (below).
+Tests:
+`test_guest_request_picks.py` (new), `test_guest_requests.py` (the Q19 "no profile" pins updated), `fake_seerr.py`
+(stores the POST's `profileId`). Docs: `hub/README.md` "Requests".
+
+JY-231 (2026-10-27) brings WP-RQ2 (`joey-rq2-friendpick` 2428063) onto main, for desktop and phone only. B., 2026-10-27:
+"stop any tv development please". RQ2's TV-mode work (`tv.js` OK toggles ticks and chips, the scroll-in-box helper, the
+`tv.css` panel rules) is left out, and `tv.js` / `tv.css` are as on main. In TV mode (`media_discover._tv`) the panel is
+Request + Cancel (a show whole), the confirm step has no Quality chips, and no profile is sent, as before. B., 2026-10-27:
+"JY-231: go approve" - the 4K policy stays approval only. New pins in `test_guest_request_picks.py`: the 4K + seasons
+pick lands pending as the friend's own request, nothing on the friend path approves, and TV mode keeps the old flow.
+Spec `docs/specs/JY-231-rq2-friend-pick.md`.

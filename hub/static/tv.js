@@ -6,7 +6,8 @@
    * geometric D-pad focus: an arrow key moves focus to the nearest focusable in that direction (the WP-M mockup's
      scoring: a sideways move stays in its row, an up/down move prefers the column it is in); inside an open dialog only
      the dialog's own controls take part;
-   * first focus on load: [data-first], else the Play button ([data-jf-id]), else the first poster in <main>, else the
+   * first focus on load (also when the WebView itself focuses the top bar before any key): [data-first], else the Play
+     button ([data-jf-id]), else the first poster in <main>, else the
      first focusable in <main>, else the first on the page (WP-M spec: Overview = first poster, title = Play);
    * scroll-into-view: the focused poster is centred in its shelf, clamped at both ends (WP-M call 2 - the browser
      clamps scrollLeft), and its row is kept inside the 5 % overscan margin; focus in the top bar scrolls to the top;
@@ -27,6 +28,10 @@
   var POSTER_GROW = 0.03, RING = 7;
   var KEYS = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1 };
   var current = null;
+  /* no remote key yet on this page: Android's WebView puts DOM focus on the first focusable (the brand link in the top
+     bar) when the shell focuses the view after a load, which beat the WP-M first-focus rule (W5 2026-10-22, release
+     build on the TCL: OK on a title page went to Overview instead of Play) */
+  var keyed = false;
 
   function visible(el) {
     if (!el || !el.isConnected) return false;
@@ -151,6 +156,7 @@
   }
 
   document.addEventListener('keydown', function (e) {
+    keyed = true;
     if (!KEYS[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
     var a = document.activeElement;
     if (typing(a) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;   /* the caret moves in a text box */
@@ -160,6 +166,10 @@
   }, true);
 
   document.addEventListener('focusin', function (e) {
+    if (!keyed && e.target && e.target.closest && e.target.closest('.topbar')) {
+      var f = first();
+      if (f && f !== e.target && !f.closest('.topbar')) { setFocus(f); return; }
+    }
     if (e.target && e.target.classList && e.target !== current && visible(e.target)) {
       if (current) current.classList.remove('tv-focus');
       current = e.target;

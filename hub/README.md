@@ -135,8 +135,11 @@ is the session, so disabling or deleting a friend in Jellyfin, or signing the de
   303 `/signin`). `GET /signout` is a 404: sign-out is POST only. Nothing else under `/signin` is served.
 - **Sign-out control (2026-10-22).** On every signed-in guest page the top-bar user chip (avatar initial + name) is a
   button opening a confirm `<dialog id="signout-dlg">` (`base.html`): "Sign out" is a plain full-page form POST `/signout`
-  (`hx-boost="false"`), "Cancel" starts focused and closes it, as do Back on the TV (tv.js `joeyTV.back()`) and Esc.
+  (`hx-boost="false"`), "Stay signed in" starts focused and closes it, as do Back on the TV (tv.js `joeyTV.back()`) and Esc.
   Not on `/signin`, not for a visitor who is not signed in, never on the private front (`test_guest_signout_chip.py`).
+  Look = option D + pop-up P2 (`JoeyTV\mockups\signout-options.html`): the chip is one pill with an exit icon, labelled
+  "Sign out <name>" (the name ellipsises; on TV the focused pill also shows "Sign out", and the section row never shrinks);
+  the pop-up says what coming back takes and its "Sign out" is orange with the exit icon.
 - **Private sign-out (2026-10-22).** On joeyhome.net, with an Access identity, the same chip button + confirm dialog ends in
   Cloudflare Access logout: "Sign out" is a plain GET link to `/cdn-cgi/access/logout` (`hx-boost="false"`; Cloudflare's
   edge serves it and clears `CF_Authorization`, no app route). Local preview keeps the static chip (`test_private_signout_chip.py`).

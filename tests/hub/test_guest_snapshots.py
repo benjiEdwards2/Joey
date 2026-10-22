@@ -86,9 +86,10 @@ def _store_get_snapshots_importers(path: Path) -> bool:
 
 def test_only_known_modules_read_hub_store_get_snapshots():
     readers = {p.name for p in (REPO_ROOT / "hub").glob("*.py") if _store_get_snapshots_importers(p)}
-    # shell.py IS the scrub point. The other four are lifespan-loop modules: the media front starts zero loops
+    # shell.py IS the scrub point. The others are lifespan-loop modules (server_digest.py: P2, 2026-10-22 - its tick runs on the hub loop only): the media front starts zero loops
     # (hub.tasks.lifespan, Q24), so none of them reads on joey-media.
-    assert readers == {"shell.py", "media_warmup.py", "tasks.py", "server_alerts.py", "server_history.py"}
+    assert readers == {"shell.py", "media_warmup.py", "tasks.py", "server_alerts.py", "server_history.py",
+                       "server_digest.py"}
 
 
 def test_no_endpoint_module_reads_hub_store_directly():

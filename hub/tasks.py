@@ -1,5 +1,6 @@
 """The hub's background work (W3 split of hub/main.py, H-44): the media.db backup, the Server sample + alert
-check, the Media warm-up, Follow and Awards loops, all run by one `_every` helper (H-23), and the app lifespan
+check, the Media warm-up, Follow and Awards loops, all run by one `_every` helper (H-23), the 07:30 Discord digest
+(P2, 2026-10-22: `_server_digest_loop`, hub/server_digest.py), and the app lifespan
 that loads the registry (shell.load_areas) and starts / cancels them.
 """
 
@@ -13,7 +14,7 @@ from fastapi import FastAPI
 
 from hub import guest, media_awards, media_backup, media_follow, media_plays, media_warmup, shell
 from hub import server as server_area
-from hub import server_alerts, server_history
+from hub import server_alerts, server_digest, server_history
 from hub.store import get_snapshots as _read_snapshots
 
 log = logging.getLogger("hub")
@@ -55,6 +56,12 @@ def _server_tick() -> None:
 
 def _server_alerts_loop():
     return _every("server alerts", server_alerts.FIRST_DELAY_S, server_alerts.EVERY_S, _server_tick)
+
+
+def _server_digest_loop():
+    """P2 (2026-10-22): the overnight digest (hub/server_digest.py) - checked ~90 s after startup, then every 5 min; it
+    posts once per hub-local day from DIGEST_AT (07:30). No webhook or DIGEST=off => the tick does nothing."""
+    return _every("server digest", server_digest.FIRST_DELAY_S, server_digest.EVERY_S, server_digest.tick)
 
 
 def _media_warmup_loop():
@@ -109,6 +116,7 @@ async def lifespan(_: FastAPI):
         None if media_backup.disabled() else asyncio.create_task(_backup_loop()),
         media_plays.start_recorder(),  # F7 play recorder; None when off
         asyncio.create_task(_server_alerts_loop()),
+        asyncio.create_task(_server_digest_loop()),  # P2 (2026-10-22)
         None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop()),
         None if media_follow.disabled() else asyncio.create_task(_media_follow_loop()),
         None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),

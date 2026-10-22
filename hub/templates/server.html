@@ -60,6 +60,9 @@
   {% set stale %}{% if sw.stale %}<span class="st-warn">Stale</span>{% endif %}{% endset %}
   {{ meta(sw.parts + [failing, sw.not_configured, sw.last, stale], "metaline sweepline") }}
   {% endif %}
+  {# P2 digest (2026-10-22) #}
+  {% if digest %}<p class="metaline digestline">{{ digest }}</p>{% endif %}
+  {# /P2 digest #}
   {% if sv.sweeps %}
   <details class="fold" id="sweeps"{% if sw.open %} open{% endif %}>
     <summary class="seclabel">Sweeps · 24 h</summary>

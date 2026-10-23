@@ -1,0 +1,44 @@
+# Joey hub + connectors test suite (JY-006): the full pytest suite on every PR and every push to main.
+# Mirrors the life-test gate image (deploy/test.Dockerfile): Python 3.12, the same three requirement files, git on
+# PATH. Differences from the gate: -n auto instead of -n 2 (the NAS RAM limit does not apply here), the runner has
+# network and node (the node-only tests that skip in the gate run here). No path filter: tests/tv and tests/deploy
+# read tv/ files, so tv-only PRs run the suite too (tv.yml still builds the Android shell).
+# Third-party actions are pinned by full commit SHA.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            hub/requirements.txt
+            connectors/requirements.txt
+            requirements-dev.txt
+
+      - name: Install the gate image's requirements
+        run: python -m pip install -r hub/requirements.txt -r connectors/requirements.txt -r requirements-dev.txt
+
+      - name: pytest (full suite)
+        run: python -m pytest -q -n auto tests/

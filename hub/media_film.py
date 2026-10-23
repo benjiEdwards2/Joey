@@ -288,7 +288,9 @@ def pending_parts(ex: dict | None, kind: str | None) -> set:
         out.add("scores")
     if kind == "movie" and ex["collection"] is MISSING:
         out.add("collection")
-    if ex["similar"] is MISSING or ex["recs"] is MISSING:
+    # the shelves are drawn only with the title body too (_sections): similar / recommendations answered before the body
+    # must not draw them empty for good (JY-006, 2026-10-23: a CI race lost the Similar shelf)
+    if ex["similar"] is MISSING or ex["recs"] is MISSING or ex["raw"] is MISSING:
         out.add("shelves")
     return out
 

@@ -11,13 +11,13 @@ One item = one spec, one branch, one PR, one builder. Each step has an owner.
 
 1. **Idea.** One line in the HITLIST Inbox. Anyone, any time. TODO(JY-004): `HITLIST.md` does not exist yet.
 2. **Spec.** The orchestrator writes `docs/specs/JY-###-slug.md` from `docs/specs/_template.md`. B.'s questions come last in the spec, before its Shipped notes.
-3. **Options.** Anything new on a screen gets 2 to 4 built-out options on a private artifact page. Tiny changes that follow an existing pattern skip this.
+3. **Options.** Anything new on a screen gets 2 to 4 built-out options on a private artifact page. Each option is shown at four sizes, built from the real hub markup and CSS: desktop (1440 px), iPad (1024 px), phone (390 px) and TV (1920 × 1080, TV mode). Tiny changes that follow an existing pattern skip this.
 4. **B. marks it ready and picks.** The pick and B.'s words go into the spec, with the date. Status becomes `ready`.
 5. **Build.** The orchestrator briefs a builder in its own worktree and opens a draft PR when the builder starts, so the labels have a home. The builder codes, writes tests, and hands back a report.
 6. **Review.** A different agent reads the diff against the spec. Must-fix findings go back to the same builder. Aim for one fix round. The orchestrator also posts the review as a PR comment.
 7. **Full check.** The orchestrator runs the whole suite and the budgets on a quiet machine. The output goes in the PR, with the commit tested. TODO(JY-006): the fast CI check on GitHub does not exist yet. Until it merges, "green CI" means this local run.
 8. **Preview.** B. can try the branch before it merges. TODO(JY-012): the preview slot. Until it merges there is no slot, and the PR says how B. can see the change.
-9. **B. accepts.** B. walks the spec's accept checklist and says `accepted`, or what to change, in one message.
+9. **B. accepts.** B. walks the spec's accept checklist and says `accepted`, or what to change, in one message. Anything with a screen is shown at the same four sizes (desktop, iPad, phone, TV), and the file to review is attached to the message that asks.
 10. **Merge and deploy.** Only on green CI, a review by a different agent, and B.'s accept (`CLAUDE.md` rule 11). Squash merge, then `deploy/deploy.sh`. Claude does both.
 11. **Close-out.** See "Close-out" below.
 
@@ -39,7 +39,7 @@ If feedback only fixes bugs against the existing criteria, it is a fix round, no
 | Who | Does | Never does |
 |---|---|---|
 | B. | Adds ideas, marks specs ready, picks options, accepts builds, reorders the backlog, does the hands items | Writes code, commits, pushes, opens or merges PRs |
-| Orchestrator (one long session) | Specs, options pages, builder briefs, full checks, pushes, PRs, merges, deploys, keeps HITLIST and notes current. Edits `CLAUDE.md` and this file only with B.'s OK | Builds large items itself while builders sit idle |
+| Orchestrator (one long session) | Specs, options pages, builder briefs, full checks, pushes, PRs, merges, deploys, keeps HITLIST and notes current. Keeps every item that does not wait on B. moving in parallel, and stops only when all remaining work waits on him. Edits `CLAUDE.md` and this file only with B.'s OK | Builds large items itself while builders sit idle; reports finished work unasked (B. asks for a summary when he wants one) |
 | Builder (subagent, own worktree) | Builds one item to its spec, with tests; reports what it built, tested, measured and skipped | Edits HITLIST, PLAN, PROCESS, `CLAUDE.md` or the tokens; touches files outside the area; runs tests before "machine free" |
 | Reviewer (separate subagent, read only) | Reads the diff against the spec; reports must-fix and should-fix, each with file, line and failure case | Reviews its own code; edits anything |
 
@@ -147,4 +147,5 @@ Remote Control is paused: the org policy disables it on the work account. B. wil
 
 ## Changelog
 
+- 2026-10-24: B.: "I need the desktop, ipad, phone and tv looks for all of them" (options and accept pages at four sizes); "run as many things as you can until you physically cannot run anymore and are awaiting my confirmation" (orchestrator keeps work parallel); "I need less messages about what you have completed" (summaries on request).
 - 2026-10-23: first version (JY-002). Review fixes: round 2 status path, draft PR at build start, merged-check wording, TODO markers, deploy window wording.

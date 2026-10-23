@@ -410,7 +410,8 @@ def test_dispatcher_is_thin_and_import_does_no_work(monkeypatch):
     import joey
     importlib.reload(joey)
     # 2026-10-23 JY-012: re-pinned from {"worktree"}: the spec adds the preview command (still an exact set)
-    assert set(joey.COMMANDS) == {"worktree", "preview"}
+    # 2026-10-23 JY-011: re-pinned again: close-out joins the dispatcher (still an exact set)
+    assert set(joey.COMMANDS) == {"worktree", "preview", "close-out"}
     assert joey.COMMANDS["worktree"].__name__ == "joey_worktree"
     assert calls == []
 

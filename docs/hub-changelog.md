@@ -1254,7 +1254,8 @@ the hub card (`forecast_peek`, no media.db read), `/server`, `/server/space` and
 one item, so they build the same Attention key set. Hysteresis: an episode opens under 30 days and ends only over 45
 days or on a flat or shrinking disk; at or over 85 % an open episode stays open and silent; "collecting" (fewer than 2
 samples in 24 h) keeps the state; after a restart a `forecast:<path>` seen row means the episode is open. Card meta
-"reaches 85% in about N days" (whole days rounded down, at least 1) with the amber "Needs attention"; Discord, once per
+"reaches 85% in about N days" (whole days rounded down, at least 1, as in the Last 24 h trend line, which shows the
+cached item's days, and Free space) with the amber "Needs attention"; Discord, once per
 episode, "Joey Server: Disk: reaches 85% in about N days (Volume 1, 412 GB free)" (any path under `/volumeN` reads
 "Volume N"); no resolved post. A failed first compute skips the forecast for that tick and keeps its seen row
 (`sync(keep=)`). Tests: `tests/hub/test_server_forecast.py`; re-pinned with dated reasons in the spec:

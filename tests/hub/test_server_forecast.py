@@ -63,7 +63,7 @@ def seen_rows():
 def test_forecast_item_words_volume_name_and_rounding():
     item = server.forecast_item("/volume1", 23.0, 412.0)
     assert item == {"key": "forecast:/volume1", "text": "Disk: reaches 85% in about 23 days (Volume 1, 412 GB free)",
-                    "words": "reaches 85% in about 23 days"}
+                    "words": "reaches 85% in about 23 days", "days": 23.0}
     assert server.forecast_item("/volume2", 22.6, 2130.7)["text"] == (
         "Disk: reaches 85% in about 22 days (Volume 2, 2,131 GB free)")
     # N days (fix round 2026-10-23): whole days rounded DOWN, at least 1, so an item opened under 30 never reads 30
@@ -353,9 +353,9 @@ def test_free_space_days_follow_the_cached_forecast(tmp_path, monkeypatch):
     st = server.forecast_step(None, samples, NOW)
     with_days = server_space.build(space_snaps(system=system), samples, NOW, forecast=st["item"])["head"]
     assert with_days.startswith("Removing all 4 frees ~85 GB (≈ ") and with_days.endswith(" at this rate)")
-    # 35 days: history_band has no forecast (over 30), but an open episode does - Free space follows the episode
+    # 35 days: a fresh step would not open (over 30), but the open episode does - Free space follows the episode
     open35 = server.forecast_step(st, linear(35), NOW)["item"]
-    assert server.history_band(linear(35), NOW)["forecast"] is None and open35 is not None
+    assert server.forecast_step(None, linear(35), NOW)["item"] is None and open35 is not None
     assert "(≈ " in server_space.build(space_snaps(system=system), linear(35), NOW, forecast=open35)["head"]
     assert "(≈ " not in server_space.build(space_snaps(system=system), samples, NOW, forecast=None)["head"]
 
@@ -367,3 +367,43 @@ def test_free_space_page_reads_the_cache(tmp_path, monkeypatch):
     with client:
         assert client.get("/server/space").status_code == 200
     assert calls == [1]
+
+
+# ---- verifier round (2026-10-23): one rounding for the projected days everywhere --------------------------------
+
+TREND_22 = "Disk: 55.4 % → 62.4 % over 7 days · ~22 days to 85 % at this rate"
+
+
+def test_a_fractional_projection_reads_the_same_day_everywhere(posts, tmp_path, monkeypatch):
+    """22.6 days: Attention, the trend line, the hub card and Discord all say 22 (floor; the trend used round, 23)."""
+    main, client = _hub(tmp_path, monkeypatch, samples=False, media_status=ALL_UP, system=SYSTEM)
+    _seed(linear(22.6, now=LATER))
+    monkeypatch.setattr(server_history, "_now", lambda: LATER)
+    with client:
+        main._server_tick()
+        card = _server_card(client.get("/").text)
+        page = main_of(client.get("/server").text)
+    assert 22 < server_history._forecast["days"] < 23
+    assert disk_posts(posts) == ["Joey Server: Disk: reaches 85% in about 22 days (Volume 1, 412 GB free)"]
+    assert "disk 74% · reaches 85% in about 22 days" in txt(card)
+    assert "Disk: reaches 85% in about 22 days (Volume 1, 412 GB free)" in page
+    assert TREND_22 in page and "23 day" not in page
+    # with no cached item the trend line floors too
+    assert server.disk_trend([(s["at"], s["volumes"][0]["pct_used"]) for s in linear(22.6)]) == TREND_22
+
+
+def test_an_open_episode_at_37_days_reads_37_in_attention_and_the_trend():
+    """At 37.x days a fresh projection would not open, but the open episode stays; both lines say 37."""
+    from tests.hub.test_server_cleanup import area
+    st = server.forecast_step(None, linear(25), NOW)
+    st = server.forecast_step(st, linear(37.4), NOW)
+    assert st["open"] and 37 < st["days"] < 38
+    sv = server.build_server(area(), {}, {"warning": None}, samples=linear(37.4), forecast=st["item"], now=NOW)
+    assert [a["text"] for a in sv["attention"]] == ["Disk: reaches 85% in about 37 days (Volume 1, 412 GB free)"]
+    assert sv["history"]["trend"].endswith(" · ~37 days to 85 % at this rate")
+    # the trend takes the cached item's days (the same 5-minute step), not its own fit
+    cached = server.forecast_item("/volume1", 30.2, 412.0)
+    band = server.history_band(linear(37.4), NOW, cached)
+    assert band["trend"].endswith(" · ~30 days to 85 % at this rate")
+    assert server.history_band(linear(37.4), NOW, server.forecast_item("/volume2", 30.2))["trend"].endswith(
+        " · ~37 days to 85 % at this rate")                 # another volume's item is not this trend's number

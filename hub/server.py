@@ -546,13 +546,17 @@ def _slope(points: list) -> float:
 
 
 def _days_text(days: float) -> str:
-    n = max(1, round(days))
+    """Whole days rounded DOWN, at least 1 (JY-031, 2026-10-23: the one rounding for every projected number - the
+    Attention item, the hub card, Discord, the trend line and Free space - so an item opened under 30 never reads 30
+    and two places never differ by a day; was round())."""
+    n = max(1, math.floor(days))
     return f"{n:,} day{'' if n == 1 else 's'}"
 
 
-def disk_trend(points: list) -> str | None:
+def disk_trend(points: list, days: float | None = None) -> str | None:
     """'Disk: 8.0 % → 8.4 % over 7 days · ~N days to 85 % at this rate' (least-squares slope,
-    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits."""
+    positive and < 10 years) else '… · flat'; under 24 h of history the projection waits. `days` (JY-031): the cached
+    forecast item's projection, shown instead of this line's own so the trend and Attention say the same number."""
     if len(points) < 2:
         return None
     ys = [v for _, v in points]
@@ -560,25 +564,26 @@ def disk_trend(points: list) -> str | None:
     head = f"Disk: {ys[0]:.1f} % → {ys[-1]:.1f} % over {_span_text(span_s)}"
     if span_s < 86400:
         return head + " · projection after 24 h of history"
-    if ys[-1] >= DISK_TARGET_PCT:
+    if days is None and ys[-1] >= DISK_TARGET_PCT:
         return head + f" · at or over {DISK_TARGET_PCT} %"
-    days = disk_days(points)
+    if days is None:
+        days = disk_days(points)
     if days is not None:
         return head + f" · ~{_days_text(days)} to {DISK_TARGET_PCT} % at this rate"
     return head + " · flat"
 
 
-def history_band(samples, now: datetime | None = None) -> dict:
+def history_band(samples, now: datetime | None = None, forecast: dict | None = None) -> dict:
     """The "Last 24 h" band from server_history.recent() rows (oldest first): {collecting,
-    sparks [CPU, RAM, fullest volume], trend, forecast}. Fewer than 2 samples in 24 h ⇒ collecting.
-    forecast (WP-T3, 2026-10-19, S6): {key, text} when the fullest volume reaches DISK_TARGET_PCT in under
-    FORECAST_ATTENTION_DAYS at this rate ("/volume1 reaches 85% in 23 days at this rate"), else None."""
+    sparks [CPU, RAM, fullest volume], trend}. Fewer than 2 samples in 24 h ⇒ collecting.
+    `forecast` (JY-031): the cached forecast item; while it carries a projection for the trend's volume, the trend line
+    says its days. (Its own "forecast" field, WP-T3's page-only item, went in JY-031: the cached item replaced it.)"""
     now = now or datetime.now(timezone.utc)
     start = now.timestamp() - 86400
     rows = [s for s in samples or [] if isinstance(s, dict) and s.get("at") is not None]
     day = [s for s in rows if s["at"].timestamp() >= start]
     if len(day) < 2:
-        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None, "forecast": None}
+        return {"collecting": True, "text": COLLECTING, "sparks": [], "trend": None}
     t_start = datetime.fromtimestamp(start, timezone.utc)
 
     def series(key, among):
@@ -587,19 +592,15 @@ def history_band(samples, now: datetime | None = None) -> dict:
     sparks = [_spark("CPU", series("cpu_pct", day), t_start),
               _spark("RAM", series("ram_pct_used", day), t_start)]
     vols = [v for v in day[-1].get("volumes") or [] if isinstance(v.get("pct_used"), (int, float))]
-    trend = forecast = None
+    trend = None
     if vols:
         path = max(vols, key=lambda v: v["pct_used"])["path"]
         pts = [(s["at"], p) for s in day if (p := _vol_pct(s, path)) is not None]
         sparks.append(_spark(f"Disk {path}", pts, t_start, digits=1))
         week = [(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None]
-        trend = disk_trend(week)
-        days = disk_days(week)
-        if days is not None and days < FORECAST_ATTENTION_DAYS:
-            forecast = {"key": f"forecast:{path}",
-                        "text": f"{path} reaches {DISK_TARGET_PCT}% in {_days_text(days)} at this rate"}
-    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend,
-            "forecast": forecast}
+        cached = forecast.get("days") if forecast and forecast.get("key") == f"forecast:{path}" else None
+        trend = disk_trend(week, cached)
+    return {"collecting": False, "text": None, "sparks": [s for s in sparks if s], "trend": trend}
 
 
 def volume_name(path) -> str:
@@ -609,16 +610,10 @@ def volume_name(path) -> str:
     return f"Volume {m.group(1)}" if m else str(path)
 
 
-def _floor_days_text(days: float) -> str:
-    """Whole days, rounded DOWN, at least 1 (JY-031 fix round): an item that opened under 30 never reads 30."""
-    n = max(1, math.floor(days))
-    return f"{n:,} day{'' if n == 1 else 's'}"
-
-
 def forecast_item(path: str, days: float | None, free_gb=None, full: bool = False) -> dict:
     """The disk forecast's Attention item (JY-031): {key `forecast:<path>`, text, words (the hub card's meta)}.
     text "Disk: reaches 85% in about 23 days (Volume 1, 412 GB free)" (Discord adds "Joey Server: "); N days is
-    `_floor_days_text`. Two words without a number, for an episode kept open with no projection: `full` (at or over
+    `_days_text` (floor, at least 1); `days` is carried for the trend line. Two words without a number, for an episode kept open with no projection: `full` (at or over
     the target, the "is 85% full" item speaks) "at or over 85%"; no projection yet (a restart while collecting)
     "filling fast"."""
     if full:
@@ -626,10 +621,10 @@ def forecast_item(path: str, days: float | None, free_gb=None, full: bool = Fals
     elif days is None:
         words = "filling fast"
     else:
-        words = f"reaches {DISK_TARGET_PCT}% in about {_floor_days_text(days)}"
+        words = f"reaches {DISK_TARGET_PCT}% in about {_days_text(days)}"
     free = _num(free_gb)
     where = volume_name(path) + (f", {free:,.0f} GB free" if free is not None else "")
-    return {"key": f"forecast:{path}", "text": f"Disk: {words} ({where})", "words": words}
+    return {"key": f"forecast:{path}", "text": f"Disk: {words} ({where})", "words": words, "days": days}
 
 
 def _week(rows: list, path) -> list:
@@ -708,7 +703,8 @@ def forecast_step(prev: dict | None, samples, now: datetime | None = None) -> di
 
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
                  ignores=None, requested=None, history=None, samples=None,
-                 live: set[str] | None = None, gated: dict | None = None, forecast: dict | None = None) -> dict:
+                 live: set[str] | None = None, gated: dict | None = None, forecast: dict | None = None,
+                 now: datetime | None = None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     updates = _band(area, snaps, WUD_SNAPSHOT_ID)
@@ -745,11 +741,11 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
 
     stats = sweep_stats(history)
     # JY-031 (2026-10-23): the disk forecast is the hub loop's cached item (`forecast`, hub/server_history.py), the same
-    # one the hub card and the loop's Discord check use, so all three build one key set. (WP-T3 put history_band's own
-    # forecast on the page only, because the loop had no samples; the band keeps it for the Free space page.)
+    # one the hub card, the loop's Discord check and Free space use, so all build one key set; the trend line in the
+    # Last 24 h band says its days. (WP-T3's page-only forecast from history_band is gone.)
     items = attention_items(snaps, backup, runner, stats, live, forecast)
     rows = sweep_rows(stats, live=live)
-    history = history_band(samples)
+    history = history_band(samples, now, forecast)
     cards = {a.get("id"): a for g in services["groups"] for a in g["apps"]}
 
     return {"system": system, "services": services, "updates": updates,

@@ -23,6 +23,7 @@ and runs the same suite offline (`--network none`) against the code that ships, 
 | `tests/tv/` | The Joey TV app's release metadata only (`test_version_file.py`: `tv/VERSION`, `tv/NOTES.txt`, `tv/SIGNING_CERT_SHA256`); the Kotlin app's own tests are JVM tests under `tv/`, run in Actions |
 | `tests/money/` | The money pre-commit guard only (the money importer was never built) |
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
+| `tests/scripts/` | `scripts/budgets.py` (JY-013): p95 maths, parsers, verdicts and exit codes, the page payload against a loopback fake hub (ssh faked) |
 
 `tests/deploy/test_edge.py` (Joey TV WP-A3, 2026-10-18; host network mode since WP-A4, 2026-10-19) pins the public edge offline: swag in
 `network_mode: host` with no `ports`/`networks` and no service publishing a port, no port 80, one `server_name` and one upstream

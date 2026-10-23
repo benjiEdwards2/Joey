@@ -108,7 +108,7 @@ html.tv .poster-score { top: 8px; right: 8px; padding: 1px 8px; border-radius: 8
 html.tv .card-pic > .bar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 5px; margin: 0; z-index: 2; border-radius: 3px; background: var(--tv-bar-track); }
 html.tv .card-pic > .bar > span { border-radius: 3px; background: var(--tv-bar-fill); }
 
-/* Library grid (Movies / TV shows): six columns, 22 / 16 px gaps; the search / Grouped / sort / layout toolbar, the
+/* Library grid (Movies / TV shows): six columns, 22 / 16 px gaps; the search / filter chips / sort / layout toolbar, the
    list switch and the freshness lines are phone / desktop furniture (a remote cannot type), hidden here. */
 html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px 16px; padding: 14px 0 8px; }
 html.tv form.toolbar, html.tv main > p.metaline:last-child:not([role]),

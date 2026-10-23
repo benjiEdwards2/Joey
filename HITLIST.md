@@ -30,9 +30,9 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-010 | `joey.py worktree new/remove` | Tooling | M | [x] shipped | One worktree per item, safe removal · PR #47 | [spec](docs/specs/JY-010-worktree.md) |
 | JY-011 | `joey.py close-out` (merge, deploy, verify) | Tooling | L | review | Claude merges and deploys with checks · PR #50 | — |
-| JY-012 | Preview slot `joey-preview` on the NAS | NAS/deploy | L | review | B. accepts on a preview before merge · PR #51 | — |
+| JY-012 | Preview slot `joey-preview` on the NAS | NAS/deploy | L | [x] shipped | B. accepts on a preview before merge · PR #51; live up/down PASS | [spec](docs/specs/JY-012-preview.md) |
 | JY-013 | `scripts/budgets.py` (perf budgets) | Tooling | M | [x] shipped | Speed limits become a check · PR #48; found JY-226, JY-227 | [spec](docs/specs/JY-013-budgets.md) |
-| JY-014 | Hands bundle: allow rules, preview hostname, "full permission" | B.'s hands | S | idea | Unblocks push, merge, deploy by Claude | — |
+| JY-014 | Hands bundle: allow rules, preview hostname, "full permission" | B.'s hands | S | ready | Unblocks push, merge, deploy by Claude · bundle sent to B. 2026-10-23 | — |
 
 ### Phase 3 — Clean slate
 
@@ -191,6 +191,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-208 | TailScale container running on the NAS | NAS | S | idea | Flagged only; keep or remove | — |
 | JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | idea | Unpublish LAN ports 9000/7878/8989/3001/3030/3000; drop the Homepage hostname; B. or Claude in a NAS window | — |
 | JY-227 | Full deploy gate over its 10 min budget (15.3 min) | NAS/deploy | M | idea | `scripts/budgets.py` 2026-10-23: last PASS took 918 s; find where the time goes (image build, suite `-n 2`, smoke) | — |
+| JY-228 | Preview slot hardening: take the deploy lock during the build, pin `JOEY_FRONT`, reason wording | NAS/deploy | S | idea | JY-012 verifier should-fixes | — |
 
 ### Housekeeping
 

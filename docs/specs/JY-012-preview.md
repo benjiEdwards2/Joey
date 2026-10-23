@@ -1,6 +1,6 @@
 # JY-012 Preview slot `joey-preview` on the NAS
 
-Status: building
+Status: shipped 2026-10-23
 Size: L
 Live risk: NAS write (a second compose project; live data read-only)
 Area: `deploy/preview/`, `scripts/joey_preview.py`, one line in `scripts/joey.py`, `tests/scripts/`, `tests/deploy/` (preview compose checks), `deploy/README.md` (one section)
@@ -46,4 +46,13 @@ Connector previews (sample data, a later item). Cloudflare hostname and Access (
 None. (If the read-only key list in 3 leaves a screen B. would want to try on the preview unusable, the builder notes it and the orchestrator asks.)
 
 ## Shipped notes
-(filled at close-out)
+- PR #51, squash commit `d6fb047`. Builder Opus. Reviews: A (live safety, Sonnet) FAIL with 2 must-fix, B (correctness, Sonnet) PASS; one fix round; Opus verifier PASS. 125 tests in `tests/scripts/` + `tests/deploy/test_preview_compose.py`.
+- Orchestrator decisions in the fix round: the live `JELLYFIN_URL` is the NAS LAN IP (reachable from `deploy_default`, so no `media` network); `JELLYFIN_API_KEY` is OUT under rule 7, because it reaches live writes in `hub/media_resume.py`. Posters show from the live img cache mounted `:ro` (cache hits only); Jellyfin-backed rows fail visibly on the preview.
+- Also fixed in `scripts/joey_common.py`: `ssh_run` sends stdin as UTF-8 bytes (Windows text mode turned LF into CRLF) and scrubs the NAS user and host from its error.
+- Rule 4, dated: three JY-010 assertions in `tests/scripts/test_joey_worktree.py` were re-pinned from text-mode to bytes stdin, and the pinned COMMANDS set gained `preview`. Each has a dated comment in the test; none is weaker.
+- Accept: B. in the orchestrator session: "Yes: merge Phase 2 PRs on green CI plus a clean separate-agent review, without asking me for accepted each time. Record my accept as this message."
+- Live run, inside the window, at commit 26de4e6: `preview up main` PASS=15 (`/healthz` after 2 polls; NAS available 1677 MB before, 1589 MB after; joey-preview 73.51 MiB of 256); `status` PASS; `down` PASS=5, nothing left; a second `status` shows not running, NAS available 1663 MB.
+- Deployed: history `PASS prev=387511d new=d6fb047 suite green, smoke ok`. The old close-out script's `verify.2` read joey-media "starting" once more; a read-only re-check 2 minutes later showed all three containers healthy. JY-011's wait-and-retry covers this.
+- NAS clone remote repointed from `benjiEdwards2/life-dashboard` to `benjiEdwards2/Joey` in the same window; `ls-remote` over the deploy key returns main.
+- Not yet checked: `curl -I https://preview.joeyhome.net` (needs B.'s JY-014 hostname).
+- Follow-ups: JY-228 (preview takes the deploy lock during its build; pin `JOEY_FRONT: ""`; fix the JELLYFIN_URL reason wording). A hub read-only switch, if B. wants Jellyfin rows on the preview, would be its own item.

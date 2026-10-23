@@ -1,5 +1,6 @@
 # docs
 
+- `PLAN.md` - why Joey exists: vision, areas, architecture in brief, phases, open decisions, risks.
 - `setup.md` - dev clone, env files, signed-in user, Media / Awards / play-recorder settings.
 - `public-edge.md` - the Jellyfin public edge (SWAG + DDNS behind compose profiles): request path, `edge.env`, first bring-up, kill switch, moving Jellyfin to another host.
 - `tv-release.md` - the Joey TV Android app release runbook: cut a release, roll forward, first install (ADB, Downloader), signing key, NAS token renewal, `tv=` history tokens, updater behaviour.

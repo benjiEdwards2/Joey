@@ -15,7 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "deploy"))
 import tv_publish  # noqa: E402
 
-SLUG = "benjiEdwards2/life-dashboard"
+SLUG = "benjiEdwards2/Joey"
 CODE = 2026110302
 APK = f"joey-media-1.4.0-{CODE}.apk"
 APK_BYTES = b"PK\x03\x04 fake apk body " * 100

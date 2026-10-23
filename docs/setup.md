@@ -3,7 +3,7 @@
 Hooks don't clone with a repo — every fresh clone does this once:
 
 ```
-git clone https://github.com/benjiEdwards2/life-dashboard.git
+git clone https://github.com/benjiEdwards2/Joey.git
 cd life-dashboard
 pip install --user -r hub/requirements.txt -r requirements-dev.txt
 git config core.hooksPath scripts/hooks

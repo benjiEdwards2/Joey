@@ -46,7 +46,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-030 | Stale "Grouped" toolbar comment in `tv.css` | Joey TV | S | building | Small chore to prove the loop · PR #58 | — |
+| JY-030 | Stale "Grouped" toolbar comment in `tv.css` | Joey TV | S | [x] shipped | Small chore to prove the loop · PR #58 | [spec](docs/specs/JY-030-tvcss-comment.md) |
 | JY-031 | P1b disk forecast on hub card + Discord | Server | L | spec | Forecast reaches the hub and Discord · live; options page + B.'s questions first | — |
 
 ### Phase 5 — Media player

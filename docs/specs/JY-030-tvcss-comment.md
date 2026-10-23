@@ -1,6 +1,6 @@
 # JY-030 Stale "Grouped" toolbar comment in `tv.css`
 
-Status: building
+Status: shipped 2026-10-23
 Size: S
 Live risk: none
 Area: `hub/static/tv.css` (comments only)
@@ -38,4 +38,8 @@ Any other stale comment or CSS clean-up (note it in the PR instead).
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #58, squash-merged as `d5c9530` (d5c9530dd18765b0d9500d2bdab16759e3805dbe).
+- Deploy: `2026-10-23T10:07:54Z PASS prev=7383455 new=d5c9530 suite green, smoke ok tv=current end=2026-10-23T10:23:13Z dur=919s`
+- Accept: in chat: "B., orchestrator session, 2026-10-23: accepted JY-030"
+- Follow-ups: none

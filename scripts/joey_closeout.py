@@ -25,7 +25,7 @@ Run it from the main clone, not from the item's worktree (the last step removes 
 A FAIL stops everything after it; once the merge has happened the summary lists what is left. A failure after the
 merge is finished by hand (re-running finds no open PR). --dry-run runs the read-only checks and prints DRY with the
 command for every change. The NAS host comes from JOEY_NAS and is never printed.
-Test seams: gh_run, nas, utc_now and sleep are module attributes that tests replace.
+Test seams: gh_run, nas, utc_now and sleep are module attributes that tests replace (and joey_common.ssh_run).
 """
 import argparse
 import datetime as dt
@@ -90,10 +90,11 @@ def nas(cmd, stdin=None, timeout=60):
 
 
 def ssh_change(r, cmd, stdin=None, timeout=60):
-    """A state change on the NAS: write_guard first (DRY in a dry run), then nas(). Local stand-in for the shared
-    Runner.ssh_change that JY-010's fix round adds; switch over after the rebase."""
-    r.write_guard(f"ssh <nas> '{cmd}'")
-    return nas(cmd, stdin=stdin, timeout=timeout)
+    """A state change on the NAS through joey_common's Runner.ssh_change (DRY in a dry run); stdout, host masked."""
+    try:
+        return r.ssh_change(cmd, stdin=stdin, timeout=timeout).stdout.strip()
+    except RuntimeError as e:
+        raise RuntimeError(_mask_host(str(e))) from None
 
 
 def _mask_host(text):

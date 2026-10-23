@@ -2,7 +2,7 @@
 
 Most tests call joey_closeout.main() in-process with its seams replaced: gh_run (and joey_common.gh_json, which the
 worktree-remove step uses) go to FakeGh, nas() to FakeNas, utc_now/sleep to a fake clock that sleep() advances. FakeGh
-squash-merges for real into the bare origin, so the read-back, the docs PR and worktree remove see real git state. One
+squash-merges for real into the bare origin; Runner.ssh_change reaches FakeNas through joey_common.ssh_run, so the read-back, the docs PR and worktree remove see real git state. One
 test runs the CLI as a subprocess through JOEY_GH, as a user would. Skips when git is not on PATH."""
 import datetime as dt
 import json
@@ -217,7 +217,6 @@ class World:
         self.git("remote", "add", "origin", GH_URL)
         self.git("config", f"url.{self.origin.as_posix()}.insteadOf", GH_URL)
         self.git("push", "-q", "-u", "origin", "main")
-        self.git("clone", "-q", str(self.origin), str(self.server), cwd=tmp_path)
 
         self.clock = Clock()
         self.gh = FakeGh(self)
@@ -225,6 +224,8 @@ class World:
         monkeypatch.setattr(jco, "gh_run", self.gh)
         monkeypatch.setattr(joey_common, "gh_json", self.gh.gh_json)
         monkeypatch.setattr(jco, "nas", self.nas)
+        monkeypatch.setattr(joey_common, "ssh_run", lambda cmd, stdin=None, timeout=60: subprocess.CompletedProcess(
+            cmd, 0, stdout=self.nas(cmd, stdin, timeout), stderr=""))
         monkeypatch.setattr(jco, "utc_now", self.clock.now)
         monkeypatch.setattr(jco, "sleep", self.clock.sleep)
         monkeypatch.chdir(self.clone)
@@ -240,6 +241,8 @@ class World:
 
     def squash(self, branch, msg):
         s = self.server
+        if not s.exists():  # cloned on the first merge only: most tests never merge
+            self.git("clone", "-q", str(self.origin), str(s), cwd=self.root)
         self.git("fetch", "-q", "origin", cwd=s)
         self.git("checkout", "-q", "-B", "main", "origin/main", cwd=s)
         self.git("merge", "-q", "--squash", f"origin/{branch}", cwd=s)

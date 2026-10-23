@@ -20,6 +20,10 @@ Services is a card grid (`service_card`: logo, subtitle, gated href, Uptime Kuma
 WP-T3 (2026-10-19, Server clean-up): no tile row and no Counts band; `library_health` (one line under Downloads),
 `sweep_summary` (System's sweeps line), `disk_days` (the forecast that joins the page's Attention under 30 days) and
 `attention_action` (each page Attention item with its action). `attention_items` and `hub_card` are unchanged.
+JY-031 (2026-10-23): the disk forecast reaches the hub card and Discord. `forecast_step` runs once per hub loop tick
+(hub/server_history.py keeps its state in memory) with hysteresis: an episode starts under FORECAST_ATTENTION_DAYS (30)
+and ends only over FORECAST_END_DAYS (45) or when the disk is flat or shrinking. Its item goes into `attention_items`
+(`forecast=`) on all three paths (hub card, /server, the loop's check), so they build the same key set.
 """
 
 from __future__ import annotations
@@ -378,13 +382,14 @@ def _monitors(snaps) -> list[dict]:
 
 
 def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
-                    live: set[str] | None = None) -> list[dict]:
+                    live: set[str] | None = None, forecast: dict | None = None) -> list[dict]:
     """[{key, text}] — what needs B.'s attention. Keys are stable (`down:<app id>`,
     `disk:<path>`, `kuma:<monitor>`, `backup`, `sweep:<connector>`) so hub/server_alerts.py
     can tell a NEW item from one already pushed. Sweep items come from the 24 h history
     (`stats`, failing now) and fall back to `_runner.json` when there is no history.
     Not-configured connectors (`not_configured`, WP-U3) never become sweep items; `live`
-    is `live_snapshot_ids(registry)`."""
+    is `live_snapshot_ids(registry)`. `forecast` (JY-031): the cached disk forecast item
+    (`forecast_step`'s "item", key `forecast:<path>`), placed after the disk items."""
     items: list[dict] = []
     for a in _apps(snaps):
         if not a.get("up"):
@@ -396,6 +401,8 @@ def attention_items(snaps, backup: dict, runner: dict | None = None, stats=None,
         if pct is not None and int(pct) >= DISK_ATTENTION_PCT:
             items.append({"key": f"disk:{v.get('path', '?')}",
                           "text": f"{v.get('path', '?')} is {pct:g}% full ({v['free_text']} free)"})
+    if forecast:
+        items.append(forecast)
     for m in _monitors(snaps):
         if m.get("status") in ("down", "pending"):
             items.append({"key": f"kuma:{m.get('name', '?')}",
@@ -444,11 +451,12 @@ def services_words(snaps) -> str:
 
 
 def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=None,
-             now: datetime | None = None, live: set[str] | None = None) -> dict:
+             now: datetime | None = None, live: set[str] | None = None, forecast: dict | None = None) -> dict:
     """The Server area's hub card in words: {summary, secondary, state: ok|warn}.
     summary: "All up" / "2 down · Prowlarr · Sonarr"; secondary: "N updates" (ignored ones
-    excluded) · "disk N%" (fullest volume) · "N monitors down". `warn` whenever Attention
-    is non-empty. "Not connected" when the services snapshot is missing."""
+    excluded) · "disk N%" (fullest volume) · "reaches 85% in about N days" (JY-031: while the cached
+    `forecast` item is open) · "N monitors down". `warn` whenever Attention is non-empty (the forecast
+    included). "Not connected" when the services snapshot is missing."""
     summary = services_words(snaps)
     parts = []
     rows = [c for c in _data(snaps, WUD_SNAPSHOT_ID).get("containers") or []
@@ -459,10 +467,12 @@ def hub_card(snaps, ignores, backup: dict, runner: dict | None = None, history=N
     pcts = [int(p) for v in _volumes(snaps) if (p := _num(v.get("pct_used"))) is not None]
     if pcts:
         parts.append(f"disk {max(pcts)}%")
+    if forecast:
+        parts.append(forecast["words"])
     n_down = sum(1 for m in _monitors(snaps) if m.get("status") == "down")
     if n_down:
         parts.append(f"{n_down} monitor{'' if n_down == 1 else 's'} down")
-    attention = attention_items(snaps, backup, runner, sweep_stats(history, now), live)
+    attention = attention_items(snaps, backup, runner, sweep_stats(history, now), live, forecast)
     return {"summary": summary, "secondary": " · ".join(parts) or None,
             "state": "warn" if attention else "ok"}
 
@@ -473,6 +483,8 @@ DISK_TARGET_PCT = DISK_ATTENTION_PCT
 PROJECTION_MAX_DAYS = 3650  # 10 years: beyond that the trend reads "flat"
 COLLECTING = "Collecting history · first chart after a few sweeps"
 FORECAST_ATTENTION_DAYS = 30   # WP-T3 (2026-10-19, S6): a projection under this joins the page's Attention
+FORECAST_END_DAYS = 45   # JY-031 (2026-10-23, B. 3a): an open forecast episode ends only over this (or flat/shrinking)
+_VOLUME_RE = re.compile(r"/volume(\d+)")
 
 
 def _spark(label: str, points: list, start: datetime, digits: int = 0) -> dict | None:
@@ -583,9 +595,82 @@ def history_band(samples, now: datetime | None = None) -> dict:
             "forecast": forecast}
 
 
+def volume_name(path) -> str:
+    """'/volume1' -> 'Volume 1', the NAS's own name for the volume (JY-031); any other path as it is."""
+    m = _VOLUME_RE.fullmatch(str(path))
+    return f"Volume {m.group(1)}" if m else str(path)
+
+
+def forecast_item(path: str, days: float, free_gb=None) -> dict:
+    """The disk forecast's Attention item (JY-031): {key `forecast:<path>`, text "Disk: reaches 85% in about 23 days
+    (Volume 1, 412 GB free)" (Discord adds "Joey Server: "), words "reaches 85% in about 23 days" (hub card meta)}.
+    N days is `_days_text`: the nearest whole day (Python round, a tie to the even day), at least 1."""
+    words = f"reaches {DISK_TARGET_PCT}% in about {_days_text(days)}"
+    free = _num(free_gb)
+    where = volume_name(path) + (f", {free:,.0f} GB free" if free is not None else "")
+    return {"key": f"forecast:{path}", "text": f"Disk: {words} ({where})", "words": words}
+
+
+def _week(rows: list, path) -> list:
+    return [(s["at"], p) for s in rows if (p := _vol_pct(s, path)) is not None]
+
+
+def _vol_free(rows: list, path):
+    """The newest sample's free GB for `path`, else None."""
+    for s in reversed(rows):
+        for v in s.get("volumes") or []:
+            if isinstance(v, dict) and v.get("path") == path:
+                return v.get("free_gb")
+    return None
+
+
+def _forecast_keep(prev: dict, rows: list) -> dict:
+    """Collecting, or under 24 h of history: nothing new to judge, so the episode keeps its state. A cold start (open,
+    no item: restored from the seen-row) rebuilds its item from the 7-day projection; with none, it closes."""
+    path = prev.get("path")
+    if prev.get("open") and prev.get("item"):
+        return {**prev, "collecting": True}
+    days = disk_days(_week(rows, path)) if prev.get("open") and path else None
+    if days is None:
+        return {"open": False, "path": path, "days": None, "collecting": True, "item": None}
+    return {"open": True, "path": path, "days": days, "collecting": True,
+            "item": forecast_item(path, days, _vol_free(rows, path))}
+
+
+def forecast_step(prev: dict | None, samples, now: datetime | None = None) -> dict:
+    """One hub-loop tick of the disk forecast episode (JY-031, B.'s pick 2026-10-23: 1A 2a 3a 4a).
+    prev: the last state, or None; samples: server_history.recent() rows (7 days, oldest first).
+    -> {open, path, days, collecting, item}; item (`forecast_item`) only while the episode is open.
+    - Collecting (fewer than 2 samples in the last 24 h, history_band's rule) or under 24 h of history: the state is
+      kept, so an open episode stays open and a return after an outage does not post again.
+    - Else the fullest volume's 7-day projection (`disk_days`): a closed episode opens under FORECAST_ATTENTION_DAYS
+      (30); an open one ends only over FORECAST_END_DAYS (45), or when `disk_days` is None (flat, shrinking, at or
+      over the target, or 10 years and more). A projection between 30 and 45 days keeps whatever state it had."""
+    now = now or datetime.now(timezone.utc)
+    prev = prev or {}
+    rows = [s for s in samples or [] if isinstance(s, dict) and isinstance(s.get("at"), datetime)]
+    start = now.timestamp() - 86400
+    day = [s for s in rows if s["at"].timestamp() >= start]
+    vols = [v for v in (day[-1].get("volumes") or [] if day else [])
+            if isinstance(v, dict) and isinstance(v.get("pct_used"), (int, float))]
+    if len(day) < 2 or not vols:
+        return _forecast_keep(prev, rows)
+    path = max(vols, key=lambda v: v["pct_used"])["path"]
+    week = _week(rows, path)
+    if len(week) < 2 or (week[-1][0] - week[0][0]).total_seconds() < 86400:
+        return _forecast_keep(prev, rows)
+    days = disk_days(week)
+    if prev.get("open") and prev.get("path") == path:
+        is_open = days is not None and days <= FORECAST_END_DAYS
+    else:
+        is_open = days is not None and days < FORECAST_ATTENTION_DAYS
+    return {"open": is_open, "path": path, "days": days, "collecting": False,
+            "item": forecast_item(path, days, _vol_free(rows, path)) if is_open else None}
+
+
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
                  ignores=None, requested=None, history=None, samples=None,
-                 live: set[str] | None = None, gated: dict | None = None) -> dict:
+                 live: set[str] | None = None, gated: dict | None = None, forecast: dict | None = None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     updates = _band(area, snaps, WUD_SNAPSHOT_ID)
@@ -621,16 +706,15 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
                           if updates["st"]["state"] in ("fresh", "stale") and snap is not None else None)
 
     stats = sweep_stats(history)
-    items = attention_items(snaps, backup, runner, stats, live)
+    # JY-031 (2026-10-23): the disk forecast is the hub loop's cached item (`forecast`, hub/server_history.py), the same
+    # one the hub card and the loop's Discord check use, so all three build one key set. (WP-T3 put history_band's own
+    # forecast on the page only, because the loop had no samples; the band keeps it for the Free space page.)
+    items = attention_items(snaps, backup, runner, stats, live, forecast)
     rows = sweep_rows(stats, live=live)
     history = history_band(samples)
-    # WP-T3 (2026-10-19, S6): the disk projection joins the PAGE's Attention only. `attention_items` (the hub card's
-    # warn state and the Discord push) stays as it was: the hub loop's check has no samples, so a page-only key would
-    # be inserted by the render and purged by the loop, re-posting every few minutes.
-    page_items = items + ([history["forecast"]] if history["forecast"] else [])
     cards = {a.get("id"): a for g in services["groups"] for a in g["apps"]}
 
     return {"system": system, "services": services, "updates": updates,
-            "attention": [attention_action(i, cards) for i in page_items], "attention_items": items,
+            "attention": [attention_action(i, cards) for i in items], "attention_items": items,
             "sweeps": rows, "sweep_line": sweep_summary(rows, system["last_sweep"]),
             "history": history}

@@ -34,6 +34,7 @@ From B.'s pick (1A 2a 3a 4a, 2026-10-23):
 
 ## Data
 No schema change expected: `server_attention_seen` already holds the key. The episode end rule needs the last projection in memory or a column on the seen row: decide in the build, note it here.
+Build decision (2026-10-23): no schema change. The episode state (open, path, last projection, item) lives in memory (`hub/server_history.py`). Because the hub restarts every morning (NAS off 22:00–07:00) and on every deploy, the first step after a start treats an existing `forecast:<path>` seen row as an open episode, so a projection between 30 and 45 days after a restart does not post again.
 
 ## Performance budget
 Hub page render, warm p95 ≤ 50 ms (row 1); measured inside joey-hub with `scripts/budgets.py`.
@@ -62,3 +63,4 @@ Reply in one message, e.g. "JY-031: 1A 2a 3a 4a, ready".
 
 ## Shipped notes
 (filled at close-out)
+- 2026-10-23 (build, rule 4): `tests/hub/test_server_cleanup.py` `test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items` re-pinned as `test_build_server_puts_the_cached_forecast_in_attention_and_in_the_keyed_items`. It pinned the WP-T3 split (forecast on the page only, because the hub loop had no samples). Criterion 1 removes that split on purpose: the loop caches the forecast and all three paths carry it. The new pin also checks that `history_band`'s own forecast no longer reaches Attention.

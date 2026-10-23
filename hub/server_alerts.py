@@ -1,7 +1,7 @@
 """Server → Discord push of NEW Attention items (WP-U2, 2026-10-06).
 
 Every Attention item (hub/server.py `attention_items`) carries a stable key (`down:prowlarr`,
-`disk:/volume1`, `kuma:Prowlarr`, `sweep:wud`, `backup`). `media.db` table
+`disk:/volume1`, `kuma:Prowlarr`, `sweep:wud`, `backup`, and JY-031's `forecast:/volume1`). `media.db` table
 `server_attention_seen(key, first_seen, last_seen, notified_at)` remembers which keys are
 current: a key with no `notified_at` gets ONE plain Discord message "Joey Server: <text>"
 (at most 5 per cycle, 10 s timeout), and a key that leaves Attention loses its row so a
@@ -116,6 +116,23 @@ def sync(items: list[dict], now: datetime | None = None) -> int:
     return sent
 
 
+def seen_keys(prefix: str) -> set[str]:
+    """Keys in server_attention_seen that start with `prefix` (JY-031: an open disk forecast episode outlives a hub
+    restart). No media.db or no table => empty. Never creates the file, never raises."""
+    if not media_db.db_path().is_file():
+        return set()
+    try:
+        with closing(media_db.connect()) as db:
+            if not db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'server_attention_seen'"
+                              ).fetchone():
+                return set()
+            return {r[0] for r in db.execute("SELECT key FROM server_attention_seen WHERE substr(key, 1, ?) = ?",
+                                             (len(prefix), prefix))}
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("server attention seen-rows unreadable: %s", type(exc).__name__)
+        return set()
+
+
 def _live_from_config() -> set[str] | None:
     """`live_snapshot_ids` of the registry on disk (AREAS_PATH or config/areas.yaml); None
     when it cannot load (rule (b) then stays off, rule (a) still applies)."""
@@ -134,15 +151,16 @@ def check_once(live: set[str] | None = None, snaps=None) -> int:
     """Build Attention from the current snapshots (as /server does) and sync it. `live` is
     `server.live_snapshot_ids(registry)` (hub/main.py passes the loaded one); not-configured
     connectors (WP-U3) are left out, so their seen-rows are purged like any item gone. `snaps`: the
-    caller's own read (the hub loop shares one with server_history.sample), else read here."""
+    caller's own read (the hub loop shares one with server_history.sample), else read here. The disk forecast is
+    the hub loop's cached item (JY-031, server_history.forecast), as on the hub card and the /server render."""
     if not webhook():
         return 0
-    from hub import media_backup, server
+    from hub import media_backup, server, server_history
     from hub.store import get_runner, get_runner_history, get_snapshots
 
     if live is None:
         live = _live_from_config()
     items = server.attention_items(get_snapshots() if snaps is None else snaps, media_backup.current_status(),
                                    get_runner(),
-                                   server.sweep_stats(get_runner_history()), live)
+                                   server.sweep_stats(get_runner_history()), live, server_history.forecast())
     return sync(items)

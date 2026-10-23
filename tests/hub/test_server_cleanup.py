@@ -38,17 +38,23 @@ def test_disk_projection_over_30_days_or_flat_stays_out():
     assert server.history_band([], NOW)["forecast"] is None
 
 
-def test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items(monkeypatch):
-    """The keyed items feed the hub card and the Discord push; the hub loop has no samples, so the forecast stays a
-    page item (else the loop would purge and the render re-post it)."""
-    forecast = {"key": "forecast:/volume1", "text": "/volume1 reaches 85% in 12 days at this rate"}
+def test_build_server_puts_the_cached_forecast_in_attention_and_in_the_keyed_items(monkeypatch):
+    """Re-pinned 2026-10-23 (JY-031, spec Shipped notes): was `..._in_attention_but_not_in_the_keyed_items` (WP-T3),
+    which pinned the forecast as a page-only item because the hub loop had no samples. The loop now computes the
+    forecast once per tick and caches it, and the page, the hub card and the Discord push all take that one item, so
+    they build the same key set. history_band's own forecast no longer reaches Attention (the band keeps it for the
+    Free space page)."""
+    band = {"key": "forecast:/volume1", "text": "/volume1 reaches 85% in 12 days at this rate"}
     monkeypatch.setattr(server, "history_band", lambda samples, now=None: {
-        "collecting": True, "text": "", "sparks": [], "trend": None, "forecast": forecast})
-    out = server.build_server(area(), {}, {"warning": None})
+        "collecting": True, "text": "", "sparks": [], "trend": None, "forecast": band})
+    alone = server.build_server(area(), {}, {"warning": None})
+    assert alone["attention"] == [] and alone["attention_items"] == []
+    cached = server.forecast_item("/volume1", 12, 412.0)
+    out = server.build_server(area(), {}, {"warning": None}, forecast=cached)
     # P1a (2026-10-22): the forecast's action is Free space (was no action, WP-T3)
-    assert out["attention"] == [{"text": forecast["text"], "href": "/server/space", "action": "Free space",
-                                 "new_tab": False}]
-    assert out["attention_items"] == []
+    assert out["attention"] == [{"text": "Disk: reaches 85% in about 12 days (Volume 1, 412 GB free)",
+                                 "href": "/server/space", "action": "Free space", "new_tab": False}]
+    assert out["attention_items"] == [cached]
 
 
 def test_last_24h_is_marked_to_close_on_a_phone():

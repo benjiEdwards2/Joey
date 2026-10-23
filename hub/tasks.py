@@ -45,12 +45,17 @@ def _backup_loop():
 def _server_tick() -> None:
     """WP-U4: sample the `system` snapshot into media.db (server_history); WP-U2: push NEW Server Attention items
     to Discord (no-op without the webhook). A failed sample never skips the alert check. One snapshot read
-    serves both (H-53)."""
+    serves both (H-53). JY-031: between the two, the disk forecast is computed once and cached (the hub card, the
+    /server render and the check read it); a failed refresh keeps the last cached state."""
     snaps = _read_snapshots()
     try:
         server_history.sample(snaps)
     except Exception as exc:
         log.warning("server history task error: %s", type(exc).__name__)
+    try:
+        server_history.refresh_forecast()
+    except Exception as exc:
+        log.warning("server forecast task error: %s", type(exc).__name__)
     server_alerts.check_once(server_area.live_snapshot_ids(shell.registry), snaps)
 
 

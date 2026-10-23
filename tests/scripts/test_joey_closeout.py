@@ -535,10 +535,15 @@ def test_blocked_commit_is_a_fail_with_the_hook_message(w):
     w.item(files=("docs/a.md",))
     hooks = w.root / "hooks"
     hooks.mkdir()
-    (hooks / "pre-commit").write_text("#!/bin/sh\necho 'money guard: a date and an amount on one line' >&2\nexit 1\n",
-                                      encoding="utf-8", newline="\n")
+    marker = w.root / "hook_ran"
+    hook = hooks / "pre-commit"
+    hook.write_text(f"#!/bin/sh\necho ran > '{marker.as_posix()}'\n"
+                    "echo 'money guard: a date and an amount on one line' >&2\nexit 1\n",
+                    encoding="utf-8", newline="\n")
+    os.chmod(hook, 0o755)  # Linux git skips a non-executable hook silently (Windows ignores the bit)
     w.git("config", "core.hooksPath", hooks.as_posix())
     rc, out = w.run()
+    assert marker.exists(), "the pre-commit hook never ran"
     assert rc == 1 and "FAIL  docs.3 write, check, commit, push - git commit blocked: money guard" in out
 
 

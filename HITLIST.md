@@ -39,7 +39,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-020 | Archive old DECISIONS / HANDOVER / BACKLOG / PLAN files | Housekeeping | S | [x] shipped | 8 files to `archive/` with a banner; both folder CLAUDE.md files are pointers; fresh-agent test answered from HITLIST alone | — |
-| JY-021 | Remove merged worktrees (incl. 5 old other-session ones) | Housekeeping | S | ready | 43 of 49 removable with proof (`joey.py worktree list`); waits for B.'s "go" | — |
+| JY-021 | Remove merged worktrees (incl. 5 old other-session ones) | Housekeeping | S | [x] shipped | B.'s go 2026-10-23: 43 removed with `joey.py worktree remove` (proof each); 49 → 6 (clone, wt-hitlist, wt-b4-tvdocs, wt-rq1-3); clone back on `main` | — |
 | JY-022 | Memory notes cut to pointers; add `project_joeyv2` | Housekeeping | S | [x] shipped | lifedashboard, joeytv, joeyv2 notes + index lines point at the repo | — |
 
 ### Phase 4 — Pilot

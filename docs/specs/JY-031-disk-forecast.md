@@ -1,6 +1,6 @@
 # JY-031 P1b: disk forecast on the hub card and in Discord
 
-Status: spec
+Status: building
 Size: L
 Live risk: deploy (Discord posts from production)
 Area: `hub/server.py`, `hub/server_alerts.py`, `hub/server_history.py`, `hub/tasks.py`, `hub/main.py` (hub card data), `hub/server_digest.py` (option B only), `tests/hub/`
@@ -23,7 +23,7 @@ The NAS is RAID0 and fills at a known rate. Joey already works out when the full
 - Tests that pin it: `tests/hub/test_server_cleanup.py:24,34,41` (`:41` pins the split and must be re-pinned with a dated line), `test_server_history.py`, `test_server_alerts.py`, `test_server.py:281-295`, `test_hub_core.py`, `test_server_space.py`.
 
 ## Acceptance criteria
-Filled in from B.'s pick. Draft, for the recommended answers (1A 2a 3a 4a):
+From B.'s pick (1A 2a 3a 4a, 2026-10-23):
 1. The forecast is computed once per hub loop tick and cached in memory; the hub render, the `/server` render and `check_once` read the cache, so all three build the same key set. No `recent()` call on a hub render.
 2. Hub Server card: the meta line gains "reaches 85% in about N days" and the amber "Needs attention" badge shows while the forecast is an Attention item.
 3. Discord: one post per episode, "Joey Server: Disk: reaches 85% in about N days (Volume 1, 412 GB free)". No resolved post.
@@ -43,7 +43,7 @@ Options page: https://claude.ai/artifact/GD2DE6D3PiPkxd1UC8eiBN
 - A (recommended): amber card + one Discord post per episode, hysteresis 30 / 45 days.
 - B: words on the card, forecast in the 07:30 digest, one alert under 7 days.
 - C: posts at 30, 14 and 7 days, plus a "no longer filling fast" post.
-B.'s pick: (pending)
+B.'s pick, 2026-10-23, in the orchestrator session: "go with all recommended please." = 1A (amber card + one Discord post per episode), 2a (say "reaches 85%"), 3a (episode ends over 45 days or flat/shrinking), 4a (no resolved post). Marked ready the same day.
 
 ## Out of scope
 The "free space" list of biggest watched films (SERVER_REVIEW P1 part 2). Forecasts for every volume (only the fullest, as today). JY-226 (the `/a/server` speed).

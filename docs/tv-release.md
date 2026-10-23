@@ -35,14 +35,14 @@ Conventions: PowerShell 5.1 (no `&&`, full paths). NAS lines are ssh-wrapped. Th
    `python deploy/tv_version.py check` checks the file locally; `python -m pytest -q tests/tv/ tests/deploy/test_tv_version.py` checks the rules.
 4. **Merge** (a normal merge commit; the PR's own CI run must be green first):
    ```powershell
-   gh pr ready <n> -R benjiEdwards2/life-dashboard
-   gh pr merge <n> -R benjiEdwards2/life-dashboard --merge
+   gh pr ready <n> -R benjiEdwards2/Joey
+   gh pr merge <n> -R benjiEdwards2/Joey --merge
    ```
 5. **Watch the Actions run on `main` until the `release` job is green.** The release only exists then.
    ```powershell
-   gh run watch $(gh run list -R benjiEdwards2/life-dashboard -w tv.yml -b main -L 1 --json databaseId -q '.[0].databaseId') -R benjiEdwards2/life-dashboard
+   gh run watch $(gh run list -R benjiEdwards2/Joey -w tv.yml -b main -L 1 --json databaseId -q '.[0].databaseId') -R benjiEdwards2/Joey
    ```
-   **Verify:** `gh release view tv-<versionCode> -R benjiEdwards2/life-dashboard` lists the APK `joey-media-<versionName>-<versionCode>.apk`
+   **Verify:** `gh release view tv-<versionCode> -R benjiEdwards2/Joey` lists the APK `joey-media-<versionName>-<versionCode>.apk`
    and `version.json`.
 6. **Only then deploy.** A release reaches `/app` only when `deploy.sh` runs **after** the `release` job finished. Run before it, the
    history line says `tv=pending:<code>`; just deploy again later.
@@ -79,7 +79,7 @@ fix is ready, there is no switch: ship the fixed higher code quickly. A friend w
 `net.joeyhome.media.debug` and installs next to it; a debug build cannot be updated in place by a release because the signature differs).
 
 ```powershell
-gh release download tv-<versionCode> -R benjiEdwards2/life-dashboard -p "joey-media-*.apk" -D C:\Users\b.edwards\Desktop\jm
+gh release download tv-<versionCode> -R benjiEdwards2/Joey -p "joey-media-*.apk" -D C:\Users\b.edwards\Desktop\jm
 adb pair <tv-address>:<pair-port>
 adb connect <tv-address>:<port>
 adb install -r C:\Users\b.edwards\Desktop\jm\joey-media-<versionName>-<versionCode>.apk
@@ -113,7 +113,7 @@ After the first install the app updates itself (see "Updater behaviour").
 - **Where it lives:** two copies of the `.p12` plus its password, **never in a repo or in `Desktop\Claude`** (that folder syncs to
   GitHub): B.'s password manager, and the NAS `/volume1/Docker/joey/secrets/` (root-only, `chmod 600`). CI guards that git tracks
   only the debug key.
-- **GitHub secrets** (repo `benjiEdwards2/life-dashboard`, names only): `TV_KEYSTORE_B64` (the `.p12`, base64) and
+- **GitHub secrets** (repo `benjiEdwards2/Joey`, names only): `TV_KEYSTORE_B64` (the `.p12`, base64) and
   `TV_KEYSTORE_PASSWORD`. Set through the secrets routine (MASTER_PLAN rule 11): values are never typed into chat or a file in the repo.
   With either one missing the release half stays dormant.
 - **`tv/SIGNING_CERT_SHA256`** is the certificate's SHA-256, 64 lowercase hex characters, no colons. It is public and
@@ -156,7 +156,7 @@ inside a rollback; the token is the only signal.
 |---|---|---|
 | `published:<code>` | The release `tv-<code>` was downloaded, verified and is now served at `/app`. | Nothing. Check `https://media.joeyhome.net/app/version.json` if you want to see it. |
 | `current` | The NAS already serves this tree's `versionCode`. | Nothing. This is the normal weekly state ([R4](public-edge.md)). |
-| `pending:<code>` | No complete release `tv-<code>` exists yet: the Actions `release` job has not finished (or is still uploading), or this tree's `versionCode` was never released (release half dormant, or `tv/VERSION` bumped without a release run). | Check `gh release view tv-<code> -R benjiEdwards2/life-dashboard` and the `tv.yml` run on `main`. When the release exists, deploy again. A `pending` that lingers after a release means a deploy was missed. |
+| `pending:<code>` | No complete release `tv-<code>` exists yet: the Actions `release` job has not finished (or is still uploading), or this tree's `versionCode` was never released (release half dormant, or `tv/VERSION` bumped without a release run). | Check `gh release view tv-<code> -R benjiEdwards2/Joey` and the `tv.yml` run on `main`. When the release exists, deploy again. A `pending` that lingers after a release means a deploy was missed. |
 | `skipped:no-token` | No `deploy/tv.env` (or `GH_TV_TOKEN` empty) on the NAS. | Expected until WP-B9. Then: make `tv.env` (see "NAS token renewal"). |
 | `FAIL:auth` | GitHub rejected the token (401/403): expired, revoked or wrong scope. | Renew `GH_TV_TOKEN` (above). |
 | `FAIL:downgrade` | The tree's `versionCode` is below the one served. | Never go back: ship a higher `versionCode` ("Roll forward"). |

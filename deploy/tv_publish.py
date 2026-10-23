@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tv_version  # noqa: E402
 
 API = "https://api.github.com"
-SLUG = "benjiEdwards2/life-dashboard"
+SLUG = "benjiEdwards2/Joey"
 KEEP_APKS = 3
 STAGING = ".staging"
 USER_AGENT = "joey-tv-publish"

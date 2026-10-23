@@ -28,9 +28,9 @@ python3 deploy/tv_version.py scan  # no token-shaped strings in the APK
 Watch and fetch from PowerShell:
 
 ```
-gh run list -R benjiEdwards2/life-dashboard -w tv.yml -L 3
-gh run watch -R benjiEdwards2/life-dashboard <run-id>
-gh run download -R benjiEdwards2/life-dashboard <run-id> -n app-debug.apk -D $env:TEMP\jm
+gh run list -R benjiEdwards2/Joey -w tv.yml -L 3
+gh run watch -R benjiEdwards2/Joey <run-id>
+gh run download -R benjiEdwards2/Joey <run-id> -n app-debug.apk -D $env:TEMP\jm
 ```
 
 The `tv-reports` artifact holds the lint HTML/XML and the JVM test results. Gradle is pinned in the workflow

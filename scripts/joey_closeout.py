@@ -1,37 +1,45 @@
 """joey.py close-out JY-### (JY-011): gates -> squash merge -> deploy -> verify -> shipped notes -> labels -> worktree.
 
   python scripts/joey.py close-out JY-### [--accepted-in-chat "<B.'s words, dated>"] [--deploy auto|yes|no]
-                                          [--after-fail] [--timeout MIN] [--note TEXT ...] [--dry-run]
+                                          [--after-fail] [--timeout MIN] [--note TEXT ...] [--resume] [--dry-run]
 
 Run it from the main clone, not from the item's worktree (the last step removes that worktree).
 
-1. Find the one OPEN PR whose head is feat/JY-###-*.
-2. Gates (all checked, one FAIL row each, then a refusal with nothing changed): (a) open, not a draft, mergeable, base
-   main; (b) the `ci` check on the head SHA concluded success; (c) a comment whose first line is `Review: ... PASS`,
-   posted after the last push (the later of the head commit's date and its ci run's start); (d) B.'s accept: the
-   `accepted` label, a comment that is exactly `accepted`, or --accepted-in-chat with B.'s words and a YYYY-MM-DD date.
-3. Deploy decision: --deploy auto deploys unless every changed file is Markdown or under .github/.
-   When deploying, the read-only NAS preflight runs BEFORE the merge, so its refusals change nothing: deploy window
-   (07:00-21:30 Melbourne, not 23:45-00:00 UTC), wait for a running deploy, available memory >= 1,200 MB, last
-   history.log line PASS / NOTHING-TO-DEPLOY (else --after-fail, the one retry).
-4. --accepted-in-chat is posted as a PR comment; then ONE `gh pr merge N --squash --match-head-commit <sha>`.
-   Read-back: state MERGED, merge commit on origin/main after git fetch.
+1. Find the one OPEN PR whose head is feat/JY-###-*. With --resume and no open PR: the newest MERGED one into main
+   whose merge commit is on origin/main; gates and merge are skipped (a failure after an earlier merge is finished
+   this way). Without --resume, the refusal names it when a merged PR exists.
+2. Gates (every gate reported, one FAIL row each, then a refusal with nothing changed): (a) open, not a draft,
+   mergeable, base main; (b) the `ci` check on the head SHA concluded success; (c) a comment whose first line is
+   `Review: PASS`, posted after the last push (the later of the head commit's date and its ci run's start), and no
+   `Review: ... FAIL` first line after that push (a fresh FAIL vetoes a PASS); (d) B.'s accept: the `accepted` label,
+   a comment that is exactly `accepted`, or --accepted-in-chat with B.'s words and a YYYY-MM-DD date. An accept older
+   than the last push prints WARN but passes (B.'s standing accepts cover later pushes).
+3. Deploy decision: --deploy auto deploys unless every changed file (and a rename's old path) is Markdown or under
+   .github/. With --resume, a PASS history line that already includes the merge SHA skips the deploy (verify runs).
+   The read-only NAS preflight runs BEFORE the merge, so its refusals change nothing: deploy window (07:00-21:30
+   Melbourne, not 23:45-00:00 UTC; checked again after any wait), wait for a running deploy, available memory
+   >= 1,200 MB, last history.log line PASS / NOTHING-TO-DEPLOY (else --after-fail, the one retry).
+4. --accepted-in-chat is posted as a PR comment; then ONE `gh pr merge N --squash --match-head-commit <sha>`. If that
+   call fails, the PR state is read: MERGED carries on. Read-back: MERGED, merge commit on origin/main after a fetch.
 5. Deploy: start deploy.sh (it detaches), wait for a new history line: PASS and new=<merge sha>.
 6. Verify: NAS tree on the merge SHA; joey-hub / joey-media / joey-swag running and healthy (polls 10 s, up to 120 s,
    while any is `starting`); COMPOSE_PROFILES=edge,media; in-container smoke; /healthz inside joey-hub.
-7. Shipped notes on chore/JY-###-shipped from origin/main (spec Status + Shipped notes, HITLIST row), PR, wait for
-   its ci, squash-merge. 8. Labels: drop building/review/accept/accepted, add shipped. 9. joey.py worktree remove.
+   Reads in the history poll and verify retry an ssh failure (exit 255) up to 3 times, 10 s apart.
+7. Shipped notes on chore/JY-###-shipped from origin/main (spec Status + Shipped notes, HITLIST row), checked with
+   scripts/hitlist_seed_check.py, committed (hooks run; a blocked commit is a FAIL), PR, wait for its ci,
+   squash-merge. An existing chore branch is reused (open PR), skipped (merged PR) or removed when it holds no
+   unpushed work. 8. Labels: drop building/review/accept/accepted, add shipped. 9. joey.py worktree remove.
 
-A FAIL stops everything after it; once the merge has happened the summary lists what is left. A failure after the
-merge is finished by hand (re-running finds no open PR). --dry-run runs the read-only checks and prints DRY with the
-command for every change. The NAS host comes from JOEY_NAS and is never printed.
-Test seams: gh_run, nas, utc_now and sleep are module attributes that tests replace (and joey_common.ssh_run).
+A FAIL stops everything after it; once the merge has happened the summary lists what is left. --dry-run runs the
+read-only checks and prints DRY with the command for every change. The NAS host comes from JOEY_NAS and is never
+printed. Test seams: gh_run, nas, utc_now and sleep (and joey_common.ssh_run) are replaced by the tests.
 """
 import argparse
 import datetime as dt
 import json
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -40,7 +48,8 @@ import joey_worktree
 
 ID_RE = re.compile(r"^JY-\d{3}$")
 DATE_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
-REVIEW_RE = re.compile(r"^Review:.*\bPASS\b")
+REVIEW_PASS_RE = re.compile(r"^Review:\s*PASS\b")
+REVIEW_FAIL_RE = re.compile(r"^Review:.*\bFAIL\b")
 
 REPO_NAS = "/volume1/Docker/joey/life-dashboard"
 DEPLOY = REPO_NAS + "/deploy"
@@ -54,11 +63,13 @@ HEALTH_POLL_S, HEALTH_MAX_S = 10, 120
 DEPLOY_POLL_S = 60
 CI_POLL_S = 30
 READBACK_S = 60
-FILES_LIMIT = 100  # gh pr view --json files returns at most 100 files
+SSH_RETRIES, SSH_RETRY_S = 3, 10
+FILES_LIMIT = 3000  # the GitHub pull-files API lists at most 3,000 files
 STATUS_LABELS = ("building", "review", "accept", "accepted")
 PR_FIELDS = ("number,title,state,isDraft,mergeable,mergeStateStatus,baseRefName,headRefName,headRefOid,labels,"
-             "comments,commits,files,statusCheckRollup")
+             "comments,commits,statusCheckRollup,mergeCommit")
 MELBOURNE = "Australia/Melbourne"
+TRAILER = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 
 # ---------- seams (tests replace these) ----------
@@ -143,12 +154,16 @@ def _ts(s):
     return dt.datetime.fromisoformat(str(s).replace("Z", "+00:00")) if s else None
 
 
-# ---------- gates (pure: a `gh pr view` dict in, (ok, detail) out) ----------
+def _z(t):
+    return f"{t:%Y-%m-%dT%H:%MZ}" if t else "unknown"
+
+
+# ---------- gates (pure: a `gh pr view` dict in, (ok, detail, warnings) out) ----------
 def gate_open(v):
     ok = (v.get("state") == "OPEN" and not v.get("isDraft") and v.get("mergeable") == "MERGEABLE"
           and v.get("baseRefName") == "main")
     return ok, (f"state={v.get('state')} draft={v.get('isDraft')} mergeable={v.get('mergeable')} "
-                f"({v.get('mergeStateStatus')}) base={v.get('baseRefName')}")
+                f"({v.get('mergeStateStatus')}) base={v.get('baseRefName')}"), []
 
 
 def ci_checks(v):
@@ -166,17 +181,17 @@ def gate_ci(v):
     checks = ci_checks(v)
     sha = (v.get("headRefOid") or "")[:7]
     if not checks:
-        return False, f"no ci check on the head {sha}"
+        return False, f"no ci check on the head {sha}", []
     bad = [c for c in checks if c.get("status") != "COMPLETED" or c.get("conclusion") != "SUCCESS"]
     if bad:
         return False, "ci on the head {} is {}".format(
-            sha, ", ".join(f"{c.get('status')}/{c.get('conclusion') or '-'}" for c in bad))
-    return True, f"ci SUCCESS on the head {sha}"
+            sha, ", ".join(f"{c.get('status')}/{c.get('conclusion') or '-'}" for c in bad)), []
+    return True, f"ci SUCCESS on the head {sha}", []
 
 
 def push_time(v):
     """When the head was pushed: the later of the head commit's committedDate and its ci run's start (CI starts on
-    the push, so a commit dated before a review but pushed after it still counts as later)."""
+    the push, so a commit dated before a review but pushed after it still counts as later). None when unknown."""
     head = v.get("headRefOid")
     commits = v.get("commits") or []
     hit = [c for c in commits if c.get("oid") == head] or commits
@@ -193,47 +208,74 @@ def _first_line(text):
 
 def gate_review(v):
     pushed = push_time(v)
-    reviews = [c for c in v.get("comments") or [] if REVIEW_RE.match(_first_line(c.get("body")))]
-    if not reviews:
-        return False, "no `Review: ... PASS` comment"
-    fresh = [c for c in reviews if pushed is None or _ts(c.get("createdAt")) > pushed]
-    if not fresh:
-        return False, (f"{len(reviews)} Review PASS comment(s), all before the last push "
-                       f"({pushed:%Y-%m-%dT%H:%MZ}); a later commit needs a fresh review")
-    return True, f"Review PASS at {fresh[-1].get('createdAt')} (last push {pushed:%Y-%m-%dT%H:%MZ})"
+    warns = [] if pushed else ["no push time on the PR: a Review comment of any age counts"]
+    fresh = [c for c in v.get("comments") or []
+             if _first_line(c.get("body")).startswith("Review:")
+             and (pushed is None or (_ts(c.get("createdAt")) or pushed) > pushed)]
+    fails = [c for c in fresh if REVIEW_FAIL_RE.match(_first_line(c.get("body")))]
+    passes = [c for c in fresh if REVIEW_PASS_RE.match(_first_line(c.get("body")))]
+    if fails:
+        return False, (f"a Review FAIL after the last push ({fails[-1].get('createdAt')}) vetoes "
+                       f"{len(passes)} PASS"), warns
+    if not passes:
+        older = [c for c in v.get("comments") or [] if REVIEW_PASS_RE.match(_first_line(c.get("body")))]
+        if older:
+            return False, (f"{len(older)} `Review: PASS` comment(s), all before the last push ({_z(pushed)}); "
+                           "a later commit needs a fresh review"), warns
+        return False, "no `Review: PASS` comment", warns
+    return True, f"Review PASS at {passes[-1].get('createdAt')} (last push {_z(pushed)})", warns
 
 
-def gate_accept(v, in_chat):
-    """(ok, detail, source for the shipped notes)."""
+def gate_accept(v, in_chat, label_time=None):
+    """(ok, detail, warnings, source for the shipped notes). An accept older than the last push only warns."""
+    pushed = push_time(v)
+
+    def stale(t, what):
+        if pushed is None:
+            return []
+        if t is None:
+            return [f"{what}: time unknown, cannot compare with the last push ({_z(pushed)})"]
+        return [f"{what} ({_z(t)}) is older than the last push ({_z(pushed)})"] if t < pushed else []
+
     if any(lab.get("name") == "accepted" for lab in v.get("labels") or []):
-        return True, "label accepted", "the `accepted` label on the PR"
+        return True, "label accepted", stale(label_time, "the accepted label"), "the `accepted` label on the PR"
     for c in v.get("comments") or []:
         if (c.get("body") or "").strip().lower() == "accepted":
-            return True, f"PR comment accepted ({c.get('createdAt')})", f"PR comment `accepted` ({c.get('createdAt')})"
+            t = _ts(c.get("createdAt"))
+            return (True, f"PR comment accepted ({c.get('createdAt')})", stale(t, "the accepted comment"),
+                    f"PR comment `accepted` ({c.get('createdAt')})")
     if in_chat is not None:
         words = in_chat.strip()
         if not words:
-            return False, "--accepted-in-chat is empty", None
-        if not DATE_RE.search(words):
-            return False, "--accepted-in-chat needs B.'s words with a YYYY-MM-DD date", None
-        return True, "accepted in chat (quoted, dated)", f'in chat: "{words}"'
-    return False, "no `accepted` label, no `accepted` comment, no --accepted-in-chat", None
+            return False, "--accepted-in-chat is empty", [], None
+        dates = DATE_RE.findall(words)
+        if not dates:
+            return False, "--accepted-in-chat needs B.'s words with a YYYY-MM-DD date", [], None
+        warns = []
+        if pushed is not None and max(dates) < f"{pushed:%Y-%m-%d}":
+            warns = [f"the chat accept is dated {max(dates)}, before the last push ({_z(pushed)})"]
+        return True, "accepted in chat (quoted, dated)", warns, f'in chat: "{words}"'
+    return False, "no `accepted` label, no `accepted` comment, no --accepted-in-chat", [], None
+
+
+def _doc_path(p):
+    return p.lower().endswith(".md") or p.startswith(".github/")
 
 
 def deploy_decision(mode, paths):
-    """(deploy?, reason)."""
+    """(deploy?, reason). `paths` holds every changed path and every rename's previous path."""
     if mode == "yes":
         return True, "--deploy yes"
     if mode == "no":
         return False, "--deploy no"
-    if len(paths) >= FILES_LIMIT:
-        return True, f"the PR lists {len(paths)} files (gh caps at {FILES_LIMIT}): doc-only cannot be proven"
-    other = [p for p in paths if not (p.lower().endswith(".md") or p.startswith(".github/"))]
     if not paths:
         return True, "the PR lists no files: doc-only cannot be proven"
+    if len(paths) >= FILES_LIMIT:
+        return True, f"the PR lists {len(paths)} paths (the API caps at {FILES_LIMIT}): doc-only cannot be proven"
+    other = [p for p in paths if not _doc_path(p)]
     if not other:
         return False, "every changed file is Markdown or under .github/"
-    return True, f"{len(other)} changed file(s) beyond Markdown and .github/, e.g. {other[0]}"
+    return True, f"{len(other)} changed path(s) beyond Markdown and .github/, e.g. {other[0]}"
 
 
 # ---------- NAS parsing ----------
@@ -261,10 +303,24 @@ def judge_containers(out):
     return verdict, "; ".join(words)
 
 
+def history_new(line):
+    m = re.search(r"\bnew=([0-9a-f]{7,40})\b", line)
+    return m.group(1) if m else None
+
+
 def history_ok(line, sha):
     """A history.log line that says PASS with new=<prefix of sha>."""
-    m = re.search(r"\bnew=([0-9a-f]{7,40})\b", line)
-    return bool(re.match(r"^\S+ PASS ", line) and m and sha.startswith(m.group(1)))
+    new = history_new(line)
+    return bool(re.match(r"^\S+ PASS ", line) and new and sha.startswith(new))
+
+
+def includes(clone, sha, other):
+    """sha is `other` or an ancestor of it (local git, after a fetch)."""
+    if not other:
+        return False
+    if sha.startswith(other) or other.startswith(sha):
+        return True
+    return jc.run(["git", "merge-base", "--is-ancestor", sha, other], cwd=clone).returncode == 0
 
 
 # ---------- shipped-notes edits (pure) ----------
@@ -294,13 +350,14 @@ def edit_hitlist(text, item, pr, spec_path):
     cells[4] = "[x] shipped"
     if f"PR #{pr}" not in cells[5]:
         cells[5] = f"{cells[5]} · PR #{pr}"
-    cells[6] = f"[{item}]({spec_path})"
+    cells[6] = f"[spec]({spec_path})"
     lines[rows[0]] = "| " + " | ".join(cells) + " |"
     return "\n".join(lines) + "\n"
 
 
-def shipped_notes(pr, sha, deploy_line, accept, notes, date):
-    out = [f"- Shipped {date} with `scripts/joey.py close-out`.",
+def shipped_notes(pr, sha, deploy_line, accept, notes):
+    """Note lines. No date here (it is in Status:), so a date and a number never share a line for the money guard."""
+    out = ["- Closed out with `scripts/joey.py close-out`.",
            f"- PR: #{pr}, squash-merged as `{sha[:7]}` ({sha}).",
            f"- Deploy: {deploy_line}",
            f"- Accept: {accept}"]
@@ -308,10 +365,29 @@ def shipped_notes(pr, sha, deploy_line, accept, notes, date):
     return out
 
 
+def _tail(p, n=3):
+    text = (p.stderr or "") + (p.stdout or "")
+    return " | ".join(x.strip() for x in text.strip().splitlines()[-n:] if x.strip()) or f"exit {p.returncode}"
+
+
 # ---------- the run ----------
 def close_out(r, a, st):
     item = a.id
     dry = r.dry
+
+    def warn(msg):
+        r.log(f"WARN  {msg}")
+
+    def nas_retry(cmd, stdin=None, timeout=60):
+        """A NAS read that survives a transient ssh failure (exit 255): up to 3 retries, 10 s apart."""
+        for attempt in range(SSH_RETRIES + 1):
+            try:
+                return nas(cmd, stdin=stdin, timeout=timeout)
+            except RuntimeError as e:
+                if attempt == SSH_RETRIES or "ssh to the NAS failed" not in str(e):
+                    raise
+                warn(f"ssh failed, retry {attempt + 1}/{SSH_RETRIES} in {SSH_RETRY_S} s: {e}")
+                sleep(SSH_RETRY_S)
 
     def find_clone():
         if not ID_RE.match(item):
@@ -326,62 +402,129 @@ def close_out(r, a, st):
 
     def find_pr():
         prs = json.loads(gh_run(["pr", "list", "--repo", st["slug"], "--state", "all", "--limit", "200",
-                                 "--json", "number,state,headRefName"]))
+                                 "--json", "number,state,headRefName,baseRefName"]))
         mine = [p for p in prs if p["headRefName"].startswith(f"feat/{item}-")]
         open_ = [p for p in mine if p["state"] == "OPEN"]
         if len(open_) > 1:
             raise jc.Refused(f"{len(open_)} open PRs from feat/{item}-*: " + ", ".join(f"#{p['number']}" for p in open_))
-        if not open_:
-            other = ", ".join(f"#{p['number']} {p['state']}" for p in sorted(mine, key=lambda p: -p["number"]))
+        if open_:
+            st["pr"], st["branch"], st["resume"] = open_[0]["number"], open_[0]["headRefName"], False
+            return f"PR #{st['pr']} from {st['branch']}" + (" (open: --resume not needed)" if a.resume else "")
+        merged = sorted((p for p in mine if p["state"] == "MERGED" and p.get("baseRefName", "main") == "main"),
+                        key=lambda p: -p["number"])
+        other = ", ".join(f"#{p['number']} {p['state']}" for p in sorted(mine, key=lambda p: -p["number"]))
+        if not merged:
             raise jc.Refused(f"no open PR from feat/{item}-*" + (f" ({other})" if other else ""))
-        st["pr"] = open_[0]["number"]
-        st["branch"] = open_[0]["headRefName"]
-        return f"PR #{st['pr']} from {st['branch']}"
+        if not a.resume:
+            raise jc.Refused(f"no open PR from feat/{item}-* ({other}); to finish the close-out of "
+                             f"#{merged[0]['number']}, run again with --resume")
+        st["pr"], st["branch"], st["resume"] = merged[0]["number"], merged[0]["headRefName"], True
+        return f"--resume: PR #{st['pr']} from {st['branch']} is MERGED"
 
     def read_pr():
         for _ in range(3):  # GitHub computes mergeable lazily: UNKNOWN right after a push
             v = json.loads(gh_run(["pr", "view", str(st["pr"]), "--repo", st["slug"], "--json", PR_FIELDS]))
-            if v.get("mergeable") != "UNKNOWN":
+            if st["resume"] or v.get("mergeable") != "UNKNOWN":
                 break
             sleep(5)
         st["view"] = v
-        return f"#{v['number']} '{v.get('title', '')}' head {v['headRefOid'][:7]}, {len(v.get('files') or [])} files"
+        if any(lab.get("name") == "accepted" for lab in v.get("labels") or []):
+            try:
+                out = gh_run(["api", f"repos/{st['slug']}/issues/{st['pr']}/events", "--paginate", "--jq",
+                              '.[] | select(.event=="labeled" and .label.name=="accepted") | .created_at'])
+                times = [_ts(x.strip()) for x in out.splitlines() if x.strip()]
+                st["label_time"] = max(times) if times else None
+            except Exception:  # noqa: BLE001 - only feeds a WARN
+                st["label_time"] = None
+        return f"#{v['number']} '{v.get('title', '')}' {v.get('state')}, head {v['headRefOid'][:7]}"
+
+    def read_files():
+        out = gh_run(["api", f"repos/{st['slug']}/pulls/{st['pr']}/files", "--paginate", "--jq",
+                      '.[] | [.filename, (.previous_filename // "")] | @tsv'])
+        paths, renames = [], 0
+        for line in out.splitlines():
+            cur, _, prev = line.partition("\t")
+            if cur.strip():
+                paths.append(cur.strip())
+            if prev.strip():
+                paths.append(prev.strip())
+                renames += 1
+        st["paths"] = paths
+        return f"{len(paths)} path(s)" + (f", {renames} rename(s): old paths count too" if renames else "")
 
     r.step("find main clone", find_clone)
-    r.step("find the open PR", find_pr)
+    r.step("find the PR", find_pr)
     r.step("read the PR", read_pr)
+    r.step("read the changed files", read_files)
 
     v = st["view"]
-    failed = []
+    clone, slug, pr = st["clone"], st["slug"], str(st["pr"])
+    try:
+        accept = gate_accept(v, a.accepted_in_chat, st.get("label_time"))
+    except Exception as e:  # noqa: BLE001 - reported as gate d's FAIL, never a traceback
+        accept = (False, f"{type(e).__name__}: {e}", [], None)
+    st["accept"] = accept[3] if accept[0] else "not found on the PR (merged before this close-out)"
 
-    def gate(letter, fn):
-        def run():
-            ok, detail = fn()[:2]
-            if not ok:
-                failed.append(letter)
-            return ("PASS" if ok else "FAIL"), detail
-        return run
+    if not st["resume"]:
+        failed = []
 
-    accept = gate_accept(v, a.accepted_in_chat)
-    st["accept"] = accept[2]
-    r.step("gate a: open, not draft, mergeable, base main", gate("a", lambda: gate_open(v)))
-    r.step("gate b: ci success on the head SHA", gate("b", lambda: gate_ci(v)))
-    r.step("gate c: Review PASS after the last push", gate("c", lambda: gate_review(v)))
-    r.step("gate d: B.'s accept", gate("d", lambda: accept))
+        def gate(letter, fn):
+            def run():
+                try:
+                    ok, detail, warns = fn()[:3]
+                except Exception as e:  # noqa: BLE001 - one broken gate must not hide the others
+                    ok, detail, warns = False, f"{type(e).__name__}: {e}", []
+                for x in warns:
+                    warn(x)
+                if not ok:
+                    failed.append(letter)
+                return ("PASS" if ok else "FAIL"), detail
+            return run
 
-    def gates():
-        if failed:
-            raise jc.Refused(f"{len(failed)} gate(s) failed ({', '.join(failed)}): not merging")
-        return "all four gates hold"
+        r.step("gate a: open, not draft, mergeable, base main", gate("a", lambda: gate_open(v)))
+        r.step("gate b: ci success on the head SHA", gate("b", lambda: gate_ci(v)))
+        r.step("gate c: Review PASS after the last push, no fresh FAIL", gate("c", lambda: gate_review(v)))
+        r.step("gate d: B.'s accept", gate("d", lambda: accept))
 
-    r.step("gates", gates)
+        def gates():
+            if failed:
+                raise jc.Refused(f"{len(failed)} gate(s) failed ({', '.join(failed)}): not merging")
+            return "all four gates hold"
 
-    paths = [f["path"] for f in v.get("files") or []]
-    st["deploy"], st["deploy_reason"] = deploy_decision(a.deploy, paths)
-    r.step("deploy decision", lambda: ("PASS", "deploy: " + st["deploy_reason"]) if st["deploy"]
+        r.step("gates", gates)
+    else:
+        def fetch():
+            r.change(["git", "fetch", "origin"], cwd=clone)
+            return "origin fetched"
+
+        def on_main():
+            sha = (v.get("mergeCommit") or {}).get("oid") or ""
+            if not sha:
+                raise jc.Refused(f"PR #{pr} is MERGED but reports no merge commit")
+            if jc.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], cwd=clone).returncode != 0:
+                raise jc.Refused(f"merge commit {sha[:7]} is not on origin/main")
+            st["sha"], st["merged"] = sha, True
+            return f"merged as {sha[:7]}, on origin/main: gates and merge skipped"
+
+        r.step("git fetch origin", fetch)
+        r.step("resume: merge commit on origin/main", on_main)
+
+    want, st["deploy_reason"] = deploy_decision(a.deploy, st["paths"])
+    st["deploy"] = st["verify"] = want
+    r.step("deploy decision", lambda: ("PASS", "deploy: " + st["deploy_reason"]) if want
            else ("SKIP", "no deploy: " + st["deploy_reason"]))
-    st["left"] = (["merge"] + (["deploy", "verify"] if st["deploy"] else [])
-                  + ["shipped notes", "labels", "worktree"])
+
+    if st["resume"] and want:
+        def deployed():
+            last = nas(f"grep -E '^[^ ]+ PASS ' {HISTORY} | tail -1").strip()
+            if last and includes(clone, st["sha"], history_new(last)):
+                st["deploy"], st["history"] = False, last
+                return "SKIP", f"already deployed: {last}"
+            return f"not deployed yet (last PASS: {last or 'none'})"
+        r.step("deploy.0 already deployed?", deployed)
+
+    st["left"] = ([] if st["resume"] else ["merge"]) + (["deploy"] if st["deploy"] else []) + \
+        (["verify"] if st["verify"] else []) + ["shipped notes", "labels", "worktree"]
 
     # ---- deploy preflight (read-only, before the merge) ----
     if st["deploy"]:
@@ -394,16 +537,23 @@ def close_out(r, a, st):
         lock_cmd = f"p=$(cat {LOCK}/pid 2>/dev/null); [ -n \"$p\" ] && kill -0 \"$p\" 2>/dev/null && echo $p || true"
 
         def idle():
-            t0 = utc_now()
+            t0, waited = utc_now(), False
             while True:
                 pid = nas(lock_cmd).strip()
                 if not pid:
-                    return "no deploy running"
+                    break
                 if dry:
                     return f"a deploy is running (pid {pid}); a real run would wait up to {a.timeout} min"
                 if (utc_now() - t0).total_seconds() >= a.timeout * 60:
                     raise jc.Refused(f"a deploy still holds {LOCK} after {a.timeout} min")
+                waited = True
                 sleep(DEPLOY_POLL_S)
+            if waited:
+                why = window_problem(utc_now())
+                if why:
+                    raise jc.Refused(f"after waiting for the running deploy: {why}")
+                return f"no deploy running (waited {int((utc_now() - t0).total_seconds() // 60)} min, window ok)"
+            return "no deploy running"
 
         def memory():
             out = nas("free -m | awk 'NR==2{print $7}'").strip()
@@ -425,51 +575,61 @@ def close_out(r, a, st):
         r.step("deploy.4 last deploy green", last_green)
 
     # ---- merge ----
-    pr, slug, head = str(st["pr"]), st["slug"], v["headRefOid"]
+    if not st["resume"]:
+        head = v["headRefOid"]
+        if a.accepted_in_chat is not None and st["accept"].startswith("in chat"):
+            def record_accept():
+                body = f"accepted in chat: {a.accepted_in_chat.strip()}"
+                r.write_guard(f"gh pr comment {pr} --body \"{body}\"")
+                gh_run(["pr", "comment", pr, "--repo", slug, "--body", body])
+                return "B.'s words posted as a PR comment"
+            r.step("record the accept from chat", record_accept)
 
-    if a.accepted_in_chat is not None and st["accept"] and st["accept"].startswith("in chat"):
-        def record_accept():
-            body = f"accepted in chat: {a.accepted_in_chat.strip()}"
-            r.write_guard(f"gh pr comment {pr} --body \"{body}\"")
-            gh_run(["pr", "comment", pr, "--repo", slug, "--body", body])
-            return "B.'s words posted as a PR comment"
-        r.step("record the accept from chat", record_accept)
+        def merge():
+            cmd = ["pr", "merge", pr, "--repo", slug, "--squash", "--match-head-commit", head]
+            r.write_guard("gh " + jc.cmd_text(cmd))
+            try:
+                gh_run(cmd)  # ONE call, no retries
+            except Exception as e:  # noqa: BLE001 - a timeout may still have merged: read the state first
+                try:
+                    state = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", "state"])).get("state")
+                except Exception:  # noqa: BLE001
+                    state = "UNKNOWN"
+                st["merge_state"] = state
+                if state == "MERGED":
+                    st["merged"] = True
+                    return "PASS", f"gh pr merge failed ({e}) but the PR is MERGED: carrying on"
+                raise jc.Refused(f"{e} (PR state now {state})") from None
+            st["merged"] = True
+            return "gh pr merge exit 0"
 
-    def merge():
-        cmd = ["pr", "merge", pr, "--repo", slug, "--squash", "--match-head-commit", head]
-        r.write_guard("gh " + jc.cmd_text(cmd))
-        gh_run(cmd)  # ONE call, no retries
-        st["merged"] = True
-        return "gh pr merge exit 0"
+        def readback():
+            r.write_guard(f"gh pr view {pr} --json state,mergeCommit; git fetch origin; "
+                          "git merge-base --is-ancestor <merge sha> origin/main")
+            t0 = utc_now()
+            while True:
+                m = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", "state,mergeCommit"]))
+                if m.get("state") == "MERGED":
+                    break
+                if (utc_now() - t0).total_seconds() >= READBACK_S:
+                    raise jc.Refused(f"PR #{pr} is {m.get('state')} {READBACK_S} s after the merge call")
+                sleep(5)
+            sha = (m.get("mergeCommit") or {}).get("oid") or ""
+            if not sha:
+                raise jc.Refused("MERGED but no merge commit reported")
+            jc.git("fetch", "origin", cwd=clone)
+            if jc.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], cwd=clone).returncode != 0:
+                raise jc.Refused(f"merge commit {sha[:7]} is not on origin/main after git fetch")
+            st["sha"] = sha
+            return f"MERGED as {sha[:7]}, on origin/main"
 
-    def readback():
-        r.write_guard(f"gh pr view {pr} --json state,mergeCommit; git fetch origin; "
-                      "git merge-base --is-ancestor <merge sha> origin/main")
-        t0 = utc_now()
-        while True:
-            m = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", "state,mergeCommit"]))
-            if m.get("state") == "MERGED":
-                break
-            if (utc_now() - t0).total_seconds() >= READBACK_S:
-                raise jc.Refused(f"PR #{pr} is {m.get('state')} {READBACK_S} s after the merge call")
-            sleep(5)
-        sha = (m.get("mergeCommit") or {}).get("oid") or ""
-        if not sha:
-            raise jc.Refused("MERGED but no merge commit reported")
-        jc.git("fetch", "origin", cwd=st["clone"])
-        rc = jc.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], cwd=st["clone"]).returncode
-        if rc != 0:
-            raise jc.Refused(f"merge commit {sha[:7]} is not on origin/main after git fetch")
-        st["sha"] = sha
-        return f"MERGED as {sha[:7]}, on origin/main"
-
-    r.step("merge.1 gh pr merge --squash (one call)", merge)
-    r.step("merge.2 read-back: MERGED, on origin/main", readback)
-    st["left"].remove("merge")
+        r.step("merge.1 gh pr merge --squash (one call)", merge)
+        r.step("merge.2 read-back: MERGED, on origin/main", readback)
+        st["left"].remove("merge")
     sha = st.get("sha", "")
     show_sha = sha[:7] or "<merge sha>"
 
-    # ---- deploy + verify ----
+    # ---- deploy ----
     if st["deploy"]:
         def start():
             cmd = (f"n=$(wc -l < {HISTORY}); cd {DEPLOY} && (sh deploy.sh > {START_OUT} 2>&1 &) ; sleep 8; "
@@ -486,16 +646,18 @@ def close_out(r, a, st):
             r.write_guard(f"poll {HISTORY} every {DEPLOY_POLL_S} s, up to {a.timeout} min, for PASS new={show_sha}")
             t0, last = utc_now(), ""
             while (utc_now() - t0).total_seconds() < a.timeout * 60:
-                n = int(nas(f"wc -l < {HISTORY}").strip() or 0)
+                n = int(nas_retry(f"wc -l < {HISTORY}").strip() or 0)
                 if n > st["hist_n"]:
-                    line = nas(f"tail -1 {HISTORY}").strip()
+                    line = nas_retry(f"tail -1 {HISTORY}").strip()
                     st["history"] = line
-                    if not history_ok(line, sha):
-                        tail = nas(f"grep -E 'FAIL|Error|passed|failed' {st['deploy_log']} | tail -8")
+                    ok = history_ok(line, sha) or (st["resume"] and re.match(r"^\S+ PASS ", line)
+                                                   and includes(clone, sha, history_new(line)))
+                    if not ok:
+                        tail = nas_retry(f"grep -E 'FAIL|Error|passed|failed' {st['deploy_log']} | tail -8")
                         r.log("deploy log tail:\n" + tail)
                         raise jc.Refused(f"history line is not PASS on {sha[:7]}: {line}")
                     return line
-                prog = nas(f"grep -E '^== ' {st['deploy_log']} | tail -1").strip()
+                prog = nas_retry(f"grep -E '^== ' {st['deploy_log']} | tail -1").strip()
                 if prog and prog != last:
                     r.log(f"  deploy: {prog[-90:]}")
                     last = prog
@@ -506,20 +668,24 @@ def close_out(r, a, st):
         r.step("deploy.6 history line PASS on the merge SHA", wait)
         st["left"].remove("deploy")
 
+    # ---- verify ----
+    if st["verify"]:
         def tree():
             cmd = f"docker run --rm -v {REPO_NAS}:/work -w /work alpine/git rev-parse HEAD"
             r.write_guard(f"ssh <nas> '{cmd}' == {show_sha}")
-            got = nas(cmd, timeout=120).splitlines()[-1].strip()
-            if got != sha:
-                raise jc.Refused(f"NAS tree on {got[:7]}, expected {sha[:7]}")
-            return f"NAS tree on {sha[:7]}"
+            got = nas_retry(cmd, timeout=120).splitlines()[-1].strip()
+            if got == sha:
+                return f"NAS tree on {sha[:7]}"
+            if st["resume"] and includes(clone, sha, got):
+                return f"NAS tree on {got[:7]}, which includes {sha[:7]}"
+            raise jc.Refused(f"NAS tree on {got[:7]}, expected {sha[:7]}")
 
         def containers():
-            r.write_guard(f"ssh <nas> docker inspect {' '.join(CONTAINERS)} (poll {HEALTH_POLL_S} s while starting, "
+            r.write_guard(f"ssh <nas> \"{CONTAINER_CMD}\" (poll {HEALTH_POLL_S} s while starting, "
                           f"up to {HEALTH_MAX_S} s)")
             waited = 0
             while True:
-                verdict, detail = judge_containers(nas(CONTAINER_CMD))
+                verdict, detail = judge_containers(nas_retry(CONTAINER_CMD))
                 if verdict == "ok":
                     return detail + (f" (after {waited} s)" if waited else "")
                 if verdict == "fail":
@@ -532,7 +698,7 @@ def close_out(r, a, st):
         def profiles():
             cmd = f"grep -E '^COMPOSE_PROFILES=' {DEPLOY}/.env"
             r.write_guard(f"ssh <nas> \"{cmd}\" == {PROFILES_LINE}")
-            line = nas(cmd).strip()
+            line = nas_retry(cmd).strip()
             if line != PROFILES_LINE:
                 raise jc.Refused(f"{line or 'no COMPOSE_PROFILES line'} (want {PROFILES_LINE})")
             return line
@@ -541,7 +707,7 @@ def close_out(r, a, st):
             cmd = (f"cd {DEPLOY} && docker compose exec -T joey-media python tests/deploy/smoke.py --front media 2>&1; "
                    "echo rc=$?")
             r.write_guard(f"ssh <nas> '{cmd}'")
-            out = nas(cmd, timeout=120)
+            out = nas_retry(cmd, timeout=120)
             tail = " ".join(out.split())[-160:]
             if not out.strip().endswith("rc=0"):
                 raise jc.Refused(tail)
@@ -552,7 +718,7 @@ def close_out(r, a, st):
 
         def healthz():
             r.write_guard("ssh <nas> 'docker exec -i joey-hub python -' < GET http://127.0.0.1:8000/healthz")
-            out = nas("docker exec -i joey-hub python -", stdin=healthz_py)
+            out = nas_retry("docker exec -i joey-hub python -", stdin=healthz_py)
             try:
                 h = json.loads(out.splitlines()[-1])
             except (ValueError, IndexError):
@@ -563,7 +729,9 @@ def close_out(r, a, st):
             if key is None:
                 r.log("INFO  the hub's /healthz exposes no commit SHA; NAS tree checked in verify.1 instead")
                 return f"status ok, front {h.get('front')}"
-            if not str(sha).startswith(str(h[key])[:7]):
+            reported = str(h[key])
+            match = includes(clone, sha, reported) if st["resume"] else sha.startswith(reported[:7])
+            if not match:
                 raise jc.Refused(f"/healthz {key}={str(h[key])[:12]}, expected {sha[:7]}")
             return f"status ok, {key} {str(h[key])[:7]}"
 
@@ -575,10 +743,44 @@ def close_out(r, a, st):
         st["left"].remove("verify")
 
     # ---- shipped notes ----
-    clone = st["clone"]
     chore = f"chore/{item}-shipped"
     docs_wt = clone.parent / f"wt-{item}-shipped"
     date = f"{melbourne(utc_now()):%Y-%m-%d}"
+
+    def docs_existing():
+        prs = json.loads(gh_run(["pr", "list", "--repo", slug, "--head", chore, "--state", "all",
+                                 "--json", "number,state,headRefOid"]))
+        done = [p for p in prs if p["state"] == "MERGED"]
+        if done:
+            st["docs_done"] = done[0]["number"]
+            return "SKIP", f"docs PR #{done[0]['number']} from {chore} is already merged"
+        open_ = [p for p in prs if p["state"] == "OPEN"]
+        if open_:
+            st["docs_pr"], st["docs_head"] = str(open_[0]["number"]), open_[0]["headRefOid"]
+            return f"reusing the open docs PR #{st['docs_pr']} at {st['docs_head'][:7]}"
+        st["remote_chore"] = jc.git("ls-remote", "--heads", "origin", f"refs/heads/{chore}", cwd=clone).split("\t")[0]
+        registered = any(joey_worktree.norm(w["path"]) == joey_worktree.norm(docs_wt)
+                         for w in joey_worktree.worktrees(clone))
+        local_br = jc.run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{chore}"], cwd=clone).returncode == 0
+        if docs_wt.exists() and not registered:
+            raise jc.Refused(f"{docs_wt.name} exists but is not a git worktree: look first")
+        said = []
+        if registered or local_br:
+            dirty = joey_worktree.dirty_count(docs_wt) if registered else 0
+            base = f"origin/{chore}" if st["remote_chore"] else "origin/main"
+            ahead = int(jc.git("rev-list", "--count", f"{base}..refs/heads/{chore}", cwd=clone)) if local_br else 0
+            if dirty or ahead:
+                raise jc.Refused(f"{docs_wt.name} / {chore} holds unpushed work ({dirty} changed files, {ahead} "
+                                 f"commits not on {base}): look first")
+            if registered:
+                r.change(["git", "worktree", "remove", str(docs_wt)], cwd=clone)
+            if local_br:
+                r.change(["git", "branch", "-D", chore], cwd=clone)
+            said.append(f"removed the stale local {docs_wt.name if registered else ''}"
+                        f"{' and ' if registered and local_br else ''}{chore if local_br else ''} (no unpushed work)")
+        if st["remote_chore"]:
+            said.append(f"{chore} is on origin without a PR: it will be replaced (force-with-lease)")
+        return "; ".join(said) or f"no {chore} yet"
 
     def docs_find():
         names = jc.git("ls-tree", "--name-only", "origin/main", "docs/specs/", cwd=clone).splitlines()
@@ -588,15 +790,11 @@ def close_out(r, a, st):
         st["spec_path"] = specs[0]
         deploy_line = (f"`{st['history']}`" if st.get("history") else
                        "(dry run: the history line goes here)" if st["deploy"] else f"skipped: {st['deploy_reason']}")
-        notes = shipped_notes(st["pr"], sha or "<merge sha>", deploy_line, st["accept"], a.note or [], date)
+        notes = shipped_notes(st["pr"], sha or "<merge sha>", deploy_line, st["accept"], a.note or [])
         spec_old = jc.git("show", f"origin/main:{specs[0]}", cwd=clone) + "\n"
         hit_old = jc.git("show", "origin/main:HITLIST.md", cwd=clone) + "\n"
         st["spec_new"] = edit_spec(spec_old, date, notes)
         st["hit_new"] = edit_hitlist(hit_old, item, st["pr"], specs[0])
-        if jc.run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{chore}"], cwd=clone).returncode == 0:
-            raise jc.Refused(f"branch {chore} already exists locally")
-        if docs_wt.exists():
-            raise jc.Refused(f"{docs_wt.name} already exists")
         return f"{specs[0]} and the HITLIST row for {item} found on origin/main"
 
     def docs_branch():
@@ -604,14 +802,22 @@ def close_out(r, a, st):
         return f"{docs_wt.name} on {chore} from origin/main"
 
     def docs_commit():
-        r.write_guard(f"write {st['spec_path']} + HITLIST.md, commit, git push origin {chore}")
+        r.write_guard(f"write {st['spec_path']} + HITLIST.md, scripts/hitlist_seed_check.py, commit, push {chore}")
         (docs_wt / st["spec_path"]).write_text(st["spec_new"], encoding="utf-8", newline="\n")
         (docs_wt / "HITLIST.md").write_text(st["hit_new"], encoding="utf-8", newline="\n")
+        check = jc.run([sys.executable, "scripts/hitlist_seed_check.py"], cwd=docs_wt)
+        if check.returncode != 0:
+            raise jc.Refused("scripts/hitlist_seed_check.py failed on the new HITLIST: " + _tail(check))
         jc.git("add", st["spec_path"], "HITLIST.md", cwd=docs_wt)
-        jc.git("commit", "-q", "-m", f"{item}: shipped (PR #{st['pr']})", cwd=docs_wt)
-        jc.git("push", "-q", "origin", chore, cwd=docs_wt)
+        c = jc.run(["git", "commit", "-q", "-m", f"{item}: shipped (PR #{st['pr']})", "-m", TRAILER], cwd=docs_wt)
+        if c.returncode != 0:  # hooks run (never --no-verify): the money guard can block a notes line
+            raise jc.Refused("git commit blocked: " + _tail(c))
+        push = ["git", "push", "-q"]
+        if st.get("remote_chore"):
+            push.append(f"--force-with-lease=refs/heads/{chore}:{st['remote_chore']}")
+        jc.git(*push[1:], "origin", chore, cwd=docs_wt)
         st["docs_head"] = jc.git("rev-parse", "HEAD", cwd=docs_wt)
-        return f"pushed {chore} at {st['docs_head'][:7]}"
+        return f"hitlist check PASS, pushed {chore} at {st['docs_head'][:7]}"
 
     def docs_pr():
         body = (f"Close-out of {item} (PR #{st['pr']}): spec Status and Shipped notes, HITLIST row shipped.\n\n"
@@ -636,7 +842,7 @@ def close_out(r, a, st):
             checks = ci_checks(dv)
             if dv.get("headRefOid") == st["docs_head"] and checks and \
                     all(c.get("status") == "COMPLETED" for c in checks):
-                ok, detail = gate_ci(dv)
+                ok, detail, _ = gate_ci(dv)
                 if not ok:
                     raise jc.Refused(detail)
                 return detail
@@ -655,17 +861,27 @@ def close_out(r, a, st):
         return f"docs PR #{st['docs_pr']} MERGED"
 
     def docs_cleanup():
-        r.change(["git", "worktree", "remove", str(docs_wt)], cwd=clone)
-        r.change(["git", "branch", "-D", chore], cwd=clone)
+        registered = any(joey_worktree.norm(w["path"]) == joey_worktree.norm(docs_wt)
+                         for w in joey_worktree.worktrees(clone))
+        local_br = jc.run(["git", "show-ref", "--verify", "--quiet", f"refs/heads/{chore}"], cwd=clone).returncode == 0
+        if not (registered or local_br or dry):
+            return "SKIP", f"no local {docs_wt.name} or {chore}"
+        if registered or dry:
+            r.change(["git", "worktree", "remove", str(docs_wt)], cwd=clone)
+        if local_br:
+            r.change(["git", "branch", "-D", chore], cwd=clone)
         return f"{docs_wt.name} and {chore} removed locally"
 
-    r.step("docs.1 find the spec and the HITLIST row", docs_find)
-    r.step("docs.2 branch chore/JY-###-shipped", docs_branch)
-    r.step("docs.3 write, commit, push", docs_commit)
-    r.step("docs.4 open the docs PR", docs_pr)
-    r.step("docs.5 docs PR ci success", docs_ci)
-    r.step("docs.6 squash-merge the docs PR", docs_merge)
-    r.step("docs.7 remove the docs worktree", docs_cleanup)
+    r.step("docs.0 existing chore/JY-###-shipped", docs_existing)
+    if not st.get("docs_done"):
+        if not st.get("docs_pr"):  # an open docs PR is reused from its ci check on
+            r.step("docs.1 find the spec and the HITLIST row", docs_find)
+            r.step("docs.2 branch chore/JY-###-shipped", docs_branch)
+            r.step("docs.3 write, check, commit, push", docs_commit)
+            r.step("docs.4 open the docs PR", docs_pr)
+        r.step("docs.5 docs PR ci success", docs_ci)
+        r.step("docs.6 squash-merge the docs PR", docs_merge)
+        r.step("docs.7 remove the docs worktree", docs_cleanup)
     st["left"].remove("shipped notes")
 
     # ---- labels ----
@@ -707,6 +923,8 @@ def build_parser():
                    help="deploy although the last history.log line is not green (the one retry)")
     p.add_argument("--timeout", type=int, default=90, help="minutes to wait for a deploy or the docs PR's ci (90)")
     p.add_argument("--note", action="append", help="a follow-up for the shipped notes (repeatable)")
+    p.add_argument("--resume", action="store_true",
+                   help="no open PR: finish the close-out of the newest MERGED one (gates and merge skipped)")
     p.add_argument("--dry-run", action="store_true", help="read-only checks run; every change prints DRY")
     return p
 
@@ -726,6 +944,8 @@ def main(argv):
         except jc.Stop:
             if st.get("merged"):
                 runner.log("not done: " + ", ".join(st.get("left") or []))
+            elif st.get("merge_state") == "UNKNOWN":
+                runner.log("the PR state is unknown after the merge call: check `gh pr view` before running again")
             else:
                 runner.log("nothing changed: the PR is not merged")
             raise

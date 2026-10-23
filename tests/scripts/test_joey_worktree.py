@@ -132,8 +132,8 @@ def repo(tmp_path):
     return Repo(tmp_path)
 
 
-def pr(number, state, branch, oid):
-    return {"number": number, "state": state, "headRefName": branch, "headRefOid": oid}
+def pr(number, state, branch, oid, base="main"):
+    return {"number": number, "state": state, "headRefName": branch, "headRefOid": oid, "baseRefName": base}
 
 
 # ---------- new ----------
@@ -229,7 +229,7 @@ def test_remove_on_merged_pr_at_tip_squash(repo):
     repo.set_prs([pr(5, "MERGED", branch, tip)])
     r = repo.joey("worktree", "remove", "JY-020")
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "PASS  merged proof - PR #5 MERGED at the local tip" in r.stdout
+    assert "PASS  merged proof - PR #5 MERGED into main at the local tip" in r.stdout
     assert not repo.has_worktree(path) and not path.exists()
     assert branch not in repo.branches()
 
@@ -387,14 +387,19 @@ def test_log_lands_in_clone_and_never_holds_a_token(tmp_path):
     assert any("example/joey" in c for c in repo.gh_calls()[-1])
 
 
-def test_redact_masks_secrets_and_home():
-    home = os.path.expanduser("~")
+def test_redact_masks_secrets():
     line = (f"Bearer abc.def X-Api-Key: k123 Token=\"t456\" {TOKEN} github_pat_ABC_123 "
-            f"https://user:pw@github.com/o/r a.b@example.com api_key=zzz {home}{os.sep}Desktop")
+            f"https://user:pw@github.com/o/r a.b@example.com api_key=zzz")
     out = joey_common.redact(line)
     for secret in ("abc.def", "k123", "t456", TOKEN, "github_pat_ABC", "user:pw", "a.b@example.com", "zzz"):
         assert secret not in out, secret
-    assert f"~{os.sep}Desktop" in out
+
+
+def test_redact_masks_home():
+    home = os.path.expanduser("~")
+    if not home or home in ("~", "/") or (os.name != "nt" and os.environ.get("HOME") in (None, "", "/")):
+        pytest.skip("no real home folder (gate image)")
+    assert joey_common.redact(f"at {home}{os.sep}Desktop") == f"at ~{os.sep}Desktop"
 
 
 # ---------- the dispatcher and helpers ----------
@@ -433,3 +438,133 @@ def test_ssh_uses_batchmode_key_and_utf8(monkeypatch):
 def test_repo_slug_strips_credentials(tmp_path):
     repo = Repo(tmp_path, origin_url=f"https://x-access-token:{TOKEN}@github.com/example/joey.git")
     assert joey_common.repo_slug(repo.clone) == "example/joey"
+
+
+# ---------- review fixes (2026-10-23) ----------
+def test_remove_refuses_pr_merged_into_a_stacked_branch(repo):
+    path, branch, tip = repo.item("JY-028", "stacked")
+    repo.set_prs([pr(13, "MERGED", branch, tip, base="feat/JY-027-base")])
+    r = repo.joey("worktree", "remove", "JY-028")
+    assert r.returncode == 1 and "REFUSED: PR #13 MERGED into feat/JY-027-base, not main" in r.stdout
+    assert repo.has_worktree(path) and branch in repo.branches()
+
+
+def test_new_and_remove_with_spaces_in_the_path(tmp_path):
+    root = tmp_path / "my repos"
+    root.mkdir()
+    repo = Repo(root)
+    path, branch, tip = repo.item("JY-060", "spaces")
+    assert " " in str(path) and (path / ".env").exists()
+    repo.set_prs([pr(14, "MERGED", branch, tip)])
+    r = repo.joey("worktree", "remove", "JY-060")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert not repo.has_worktree(path) and branch not in repo.branches()
+
+
+def test_remove_refuses_detached_worktree(repo):
+    det = repo.root / "wt-detached"
+    repo.git("worktree", "add", "-q", "--detach", str(det), "origin/main")
+    r = repo.joey("worktree", "remove", "--path", str(det))
+    assert r.returncode == 1 and "REFUSED: wt-detached has no branch (detached HEAD)" in r.stdout
+    assert repo.has_worktree(det)
+
+
+def test_remove_gh_failure_on_a_non_jy_branch_falls_back_to_ancestry(repo):
+    old = repo.root / "wt-older"
+    repo.git("worktree", "add", "-q", str(old), "-b", "older", "origin/main")
+    (old / "o.txt").write_text("o\n", encoding="utf-8")
+    repo.git("add", "o.txt", cwd=old)
+    repo.git("commit", "-q", "-m", "older work", cwd=old)
+    repo.git("merge", "-q", "--no-ff", "-m", "merge older", "older")
+    repo.git("push", "-q", "origin", "main")
+    r = repo.joey("worktree", "remove", "--path", str(old), FAKE_GH_FAIL="HTTP 502")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "SKIP  gh pr list" in r.stdout and "is an ancestor of origin/main" in r.stdout
+    assert not repo.has_worktree(old) and "older" not in repo.branches()
+
+
+def test_missing_worktree_folder_gives_a_clear_refusal(repo):
+    path, branch, tip = repo.item("JY-061", "gone")
+    repo.set_prs([pr(15, "MERGED", branch, tip)])
+    shutil.rmtree(path)
+    r = repo.joey("worktree", "remove", "JY-061")
+    assert r.returncode == 1 and "REFUSED: wt-JY-061: the folder is missing; run git worktree prune" in r.stdout
+    assert branch in repo.branches()
+    rows = [line for line in repo.joey("worktree", "list").stdout.splitlines() if line.startswith("wt-JY-061")]
+    assert rows and rows[0].endswith("removable no (folder missing: git worktree prune)")
+
+
+def test_new_says_clearly_when_env_write_fails_after_add(repo, monkeypatch, capsys):
+    import joey_worktree
+    for key in ("GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
+                "GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM", "JOEY_GH"):
+        monkeypatch.setenv(key, repo.env[key])
+    monkeypatch.chdir(repo.clone)
+    real = Path.write_text
+
+    def boom(self, *a, **k):
+        if self.name == ".env":
+            raise OSError("disk full")
+        return real(self, *a, **k)
+
+    monkeypatch.setattr(Path, "write_text", boom)
+    assert joey_worktree.main(["new", "JY-062", "x"]) == 1
+    out = capsys.readouterr().out
+    assert "wt-JY-062 and feat/JY-062-x WERE created, but writing .env failed (disk full)" in out
+    assert repo.has_worktree(repo.wt("JY-062"))  # no auto-cleanup
+
+
+def test_id_and_slug_must_match_fully(repo):
+    for args in (("JY-012\n", "x"), ("JY-012", "x\n")):
+        r = repo.joey("worktree", "new", *args)
+        assert r.returncode == 1 and "REFUSED: bad" in r.stdout
+
+
+class _FakeRun:
+    def __init__(self, rc=0, exc=None):
+        self.rc, self.exc, self.calls = rc, exc, []
+
+    def __call__(self, cmd, **kw):
+        self.calls.append((cmd, kw))
+        if self.exc:
+            raise self.exc
+        return subprocess.CompletedProcess(cmd, self.rc, stdout="out\n", stderr="err line\n")
+
+
+def test_ssh_run_returns_the_completed_process_and_raises_clearly(monkeypatch):
+    fake = _FakeRun(rc=3)
+    monkeypatch.setattr(joey_common.subprocess, "run", fake)
+    r = joey_common.ssh_run("false")
+    assert (r.returncode, r.stdout, r.stderr) == (3, "out\n", "err line\n")
+    cmd, kw = fake.calls[-1]
+    assert "BatchMode=yes" in cmd and "ConnectTimeout=10" in cmd and kw["encoding"] == "utf-8"
+    assert kw["stdin"] is subprocess.DEVNULL and "input" not in kw
+    joey_common.ssh_run("cat", stdin="x")
+    assert fake.calls[-1][1]["input"] == "x" and "stdin" not in fake.calls[-1][1]
+    monkeypatch.setattr(joey_common.subprocess, "run", _FakeRun(rc=255))
+    with pytest.raises(RuntimeError, match="ssh to the NAS failed"):
+        joey_common.ssh_run("true")
+    monkeypatch.setattr(joey_common.subprocess, "run", _FakeRun(exc=FileNotFoundError("ssh")))
+    for fn in (joey_common.ssh_run, joey_common.ssh):
+        with pytest.raises(RuntimeError, match="ssh is not on PATH"):
+            fn("true")
+
+
+def test_runner_ssh_change_never_reaches_the_nas_in_a_dry_run(monkeypatch):
+    fake = _FakeRun()
+    monkeypatch.setattr(joey_common.subprocess, "run", fake)
+    with pytest.raises(joey_common.DryRun, match="ssh NAS: docker restart x"):
+        joey_common.Runner("t", dry_run=True).ssh_change("docker restart x")
+    assert fake.calls == []
+    assert joey_common.Runner("t").ssh_change("docker restart x").returncode == 0
+    assert fake.calls[-1][0][-1] == "docker restart x"
+
+
+def test_run_closes_stdin_and_disables_git_prompts(monkeypatch):
+    fake = _FakeRun()
+    monkeypatch.setattr(joey_common.subprocess, "run", fake)
+    joey_common.run(["git", "fetch"])
+    kw = fake.calls[-1][1]
+    assert kw["stdin"] is subprocess.DEVNULL and kw["env"]["GIT_TERMINAL_PROMPT"] == "0"
+    joey_common.run(["cat"], stdin="hi")
+    assert fake.calls[-1][1]["input"] == "hi"

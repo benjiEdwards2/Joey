@@ -6,7 +6,7 @@
 - --dry-run: read-only commands still run (so refusals still show); every state change goes through
   Runner.write_guard() / Runner.change(), which in a dry run records DRY with the command it would have run.
 - run() wraps subprocess (UTF-8, captured), git() returns stdout, gh_json() runs `gh ... --json` (JOEY_GH points at a
-  fake in tests), ssh() runs one command on the NAS.
+  fake in tests), ssh_run() / ssh() run one command on the NAS, Runner.ssh_change() is the guarded NAS write.
 - redact() masks tokens, Bearer / X-Api-Key values, URL credentials, e-mail addresses and the home folder in every
   line that is printed or logged.
 Stdlib only, Python 3.12. Importing this module does no work.
@@ -75,9 +75,11 @@ def cmd_text(cmd):
 
 
 def run(cmd, cwd=None, check=False, stdin=None, timeout=120):
-    """subprocess.run with UTF-8 text in and out. check=True raises RuntimeError with the first output line."""
-    r = subprocess.run([str(c) for c in cmd], cwd=cwd, input=stdin, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace", timeout=timeout)
+    """subprocess.run with UTF-8 text in and out. check=True raises RuntimeError with the first output line.
+    No stdin text -> stdin is DEVNULL; GIT_TERMINAL_PROMPT=0, so git never waits on a credential prompt."""
+    extra = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+    r = subprocess.run([str(c) for c in cmd], cwd=cwd, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=timeout, env=dict(os.environ, GIT_TERMINAL_PROMPT="0"), **extra)
     if check and r.returncode != 0:
         msg = (r.stderr.strip() or r.stdout.strip() or "no output").splitlines()[0]
         raise RuntimeError(f"{cmd_text(cmd)} exited {r.returncode}: {msg}")
@@ -109,18 +111,29 @@ def gh_json(args, cwd=None, timeout=60):
     return json.loads(r.stdout or "null")
 
 
-def ssh(cmd, stdin=None, timeout=60):
+def ssh_run(cmd, stdin=None, timeout=60):
     """One command on the NAS (JOEY_NAS, default root@nas.local as deploy/push.sh; key JOEY_NAS_KEY, default
     ~/.ssh/joey_nas). BatchMode, 10 s connect timeout, stdin encoded UTF-8 (cp1252 once broke a NAS script).
-    Returns stdout stripped; raises RuntimeError when ssh itself fails (exit 255)."""
+    Returns the CompletedProcess (returncode, stdout, stderr) of the remote command. Raises RuntimeError when ssh
+    itself fails (exit 255) or the ssh binary is missing."""
     nas = os.environ.get("JOEY_NAS") or "root@nas.local"
     key = os.path.expanduser(os.environ.get("JOEY_NAS_KEY") or "~/.ssh/joey_nas")
-    r = subprocess.run(["ssh", "-i", key, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", nas, cmd], input=stdin,
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+    extra = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+    try:
+        r = subprocess.run(["ssh", "-i", key, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", nas, cmd],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
+                           **extra)
+    except FileNotFoundError:
+        raise RuntimeError("ssh is not on PATH (install the OpenSSH client)") from None
     if r.returncode == 255:
         first = (r.stderr.strip() or "no output").splitlines()[0]
         raise RuntimeError("ssh to the NAS failed (NAS off 22:00-07:00, or off the home LAN?): " + first)
-    return r.stdout.strip()
+    return r
+
+
+def ssh(cmd, stdin=None, timeout=60):
+    """ssh_run(), returning stdout stripped (the remote exit code is not checked)."""
+    return ssh_run(cmd, stdin=stdin, timeout=timeout).stdout.strip()
 
 
 # ---------- repo facts ----------
@@ -195,6 +208,12 @@ class Runner:
         """A state-changing command: guarded, then run; raises on a non-zero exit."""
         self.write_guard(cmd_text(cmd))
         return run(cmd, cwd=cwd, check=True)
+
+    def ssh_change(self, cmd, stdin=None, timeout=60):
+        """A state-changing NAS command: guarded (a dry run never reaches the NAS), then ssh_run(); returns the
+        CompletedProcess. The remote exit code is the caller's to check."""
+        self.write_guard(f"ssh NAS: {cmd}" + (" <stdin payload>" if stdin is not None else ""))
+        return ssh_run(cmd, stdin=stdin, timeout=timeout)
 
     def summary(self, refused=None):
         counts = {s: sum(1 for r in self.rows if r[1] == s) for s in STATUSES}

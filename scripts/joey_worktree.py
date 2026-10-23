@@ -19,10 +19,10 @@ from pathlib import Path
 
 import joey_common as jc
 
-ID_RE = re.compile(r"^JY-(\d{3})$")
-SLUG_RE = re.compile(r"^[a-z0-9-]+$")
-JY_BRANCH_RE = re.compile(r"^feat/JY-\d{3}-")
-PR_FIELDS = "number,state,headRefName,headRefOid"
+ID_RE = re.compile(r"JY-([0-9]{3})")  # used with fullmatch
+SLUG_RE = re.compile(r"[a-z0-9-]+")  # used with fullmatch
+JY_BRANCH_RE = re.compile(r"^feat/JY-[0-9]{3}-")
+PR_FIELDS = "number,state,headRefName,headRefOid,baseRefName"
 LIST_LIMIT = 300
 
 
@@ -82,11 +82,14 @@ def pr_verdict(branch, tip, prs):
     """(True|False|None, why) from the PRs whose head is `branch`. None = no PR, look at ancestry."""
     mine = [p for p in prs if p.get("headRefName", branch) == branch]
     for p in mine:
-        if p["state"] == "MERGED" and p["headRefOid"] == tip:
-            return True, f"PR #{p['number']} MERGED at the local tip {tip[:7]}"
+        if p["state"] == "MERGED" and p["headRefOid"] == tip and p.get("baseRefName") == "main":
+            return True, f"PR #{p['number']} MERGED into main at the local tip {tip[:7]}"
     for p in mine:
         if p["state"] == "OPEN":
             return False, f"PR #{p['number']} is OPEN"
+    for p in mine:
+        if p["state"] == "MERGED" and p.get("baseRefName") != "main":
+            return False, f"PR #{p['number']} MERGED into {p.get('baseRefName') or '?'}, not main (stacked branch)"
     for p in mine:
         if p["state"] == "MERGED":
             return False, (f"PR #{p['number']} MERGED at {p['headRefOid'][:7]} but the local tip is {tip[:7]} "
@@ -110,14 +113,14 @@ def proof(clone, branch, tip, prs, gh_error, jy):
 
 # ---------- new ----------
 def cmd_new(r, a):
-    m = ID_RE.match(a.id)
+    m = ID_RE.fullmatch(a.id)
     branch = f"feat/{a.id}-{a.slug}"
     st = {}
 
     def check_args():
         if not m:
             raise jc.Refused(f"bad id {a.id!r}: want JY- and 3 digits, e.g. JY-010")
-        if not SLUG_RE.match(a.slug):
+        if not SLUG_RE.fullmatch(a.slug):
             raise jc.Refused(f"bad slug {a.slug!r}: want lower-case letters, digits and dashes")
         return f"{a.id}, branch {branch}"
 
@@ -167,9 +170,13 @@ def cmd_new(r, a):
     def write_env():
         env = env_values()
         r.write_guard(f"write {st['wt'].name}/.env (HUB_PORT={port}) and create data/dev/")
-        for key in ("MEDIA_BACKUP_DIR", "META_CACHE_DIR"):
-            Path(env[key]).mkdir(parents=True, exist_ok=True)
-        (st["wt"] / ".env").write_text("".join(f"{k}={v}\n" for k, v in env.items()), encoding="utf-8")
+        try:
+            for key in ("MEDIA_BACKUP_DIR", "META_CACHE_DIR"):
+                Path(env[key]).mkdir(parents=True, exist_ok=True)
+            (st["wt"] / ".env").write_text("".join(f"{k}={v}\n" for k, v in env.items()), encoding="utf-8")
+        except OSError as e:
+            raise RuntimeError(f"{st['wt'].name} and {branch} WERE created, but writing .env failed ({e}); "
+                               "write .env by hand, or remove the worktree and branch") from None
         return f".env written, HUB_PORT={port}"
 
     def start_line():
@@ -197,7 +204,7 @@ def cmd_remove(r, a):
     st = {}
 
     def find_clone():
-        if a.id and not ID_RE.match(a.id):
+        if a.id and not ID_RE.fullmatch(a.id):
             raise jc.Refused(f"bad id {a.id!r}: want JY- and 3 digits, e.g. JY-010")
         st["clone"] = jc.clone_root()
         return f"main clone {st['clone'].name}"
@@ -215,6 +222,8 @@ def cmd_remove(r, a):
             raise jc.Refused(f"{show(hit['path'], clone)} has no branch (detached HEAD)")
         if hit["locked"]:
             raise jc.Refused(f"{show(hit['path'], clone)} is locked")
+        if hit["prunable"] or not os.path.isdir(hit["path"]):
+            raise jc.Refused(f"{show(hit['path'], clone)}: the folder is missing; run git worktree prune")
         st["path"], st["branch"] = hit["path"], hit["branch"]
         st["tip"] = jc.git("rev-parse", f"refs/heads/{hit['branch']}", cwd=clone)
         st["jy"] = bool(a.id) or bool(JY_BRANCH_RE.match(hit["branch"]))

@@ -267,6 +267,7 @@ SOURCES = [
     ("JY-013 live run (2026-10-23)", "/a/server warm p95 over 50 ms", "JY-226", "measured twice: 52 and 56 ms"),
     ("JY-013 live run (2026-10-23)", "full deploy gate 15.3 min over 10 min", "JY-227", "history.log dur=918s"),
     ("JY-012 Opus verifier (2026-10-23)", "preview should-fixes: deploy lock, JOEY_FRONT pin", "JY-228", "not blocking the merge"),
+    ("JY-011 first live use (2026-10-23)", "dry-run docs.1 FAIL before merge; slow tests/scripts", "JY-229", "close-out PASS=42 otherwise"),
 ]
 
 

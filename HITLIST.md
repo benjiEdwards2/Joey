@@ -29,7 +29,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-010 | `joey.py worktree new/remove` | Tooling | M | [x] shipped | One worktree per item, safe removal · PR #47 | [spec](docs/specs/JY-010-worktree.md) |
-| JY-011 | `joey.py close-out` (merge, deploy, verify) | Tooling | L | review | Claude merges and deploys with checks · PR #50 | — |
+| JY-011 | `joey.py close-out` (merge, deploy, verify) | Tooling | L | [x] shipped | Claude merges and deploys with checks · PR #50 | [spec](docs/specs/JY-011-close-out.md) |
 | JY-012 | Preview slot `joey-preview` on the NAS | NAS/deploy | L | [x] shipped | B. accepts on a preview before merge · PR #51; live up/down PASS | [spec](docs/specs/JY-012-preview.md) |
 | JY-013 | `scripts/budgets.py` (perf budgets) | Tooling | M | [x] shipped | Speed limits become a check · PR #48; found JY-226, JY-227 | [spec](docs/specs/JY-013-budgets.md) |
 | JY-014 | Hands bundle: allow rules, preview hostname, "full permission" | B.'s hands | S | ready | Unblocks push, merge, deploy by Claude · bundle sent to B. 2026-10-23 | — |
@@ -216,4 +216,3 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-221 | Re-enable home_assistant / macromates / nas_stats | Connectors | M | parked | Areas hidden; wrong env names in example (decision) | — |
 | JY-222 | Posters: TMDB + fanart.tv best-rated pick | Media | M | parked | ThePosterDB has no API; B. said stay as is (decision) | — |
 | JY-223 | Georgina's account / her Media view | Media | S | parked | Wiring done; B. creates the account (decision) | — |
-

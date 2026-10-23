@@ -1,6 +1,6 @@
 # JY-011 `joey.py close-out JY-###` (merge, deploy, verify, shipped notes)
 
-Status: building
+Status: shipped 2026-10-23
 Size: L
 Live risk: deploy
 Area: `scripts/joey_closeout.py`, one line in `scripts/joey.py`, `tests/scripts/`
@@ -51,4 +51,8 @@ Changing `deploy.sh`. The preview slot (JY-012). Running `scripts/budgets.py` (J
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #50, squash-merged as `7383455` (738345534fc1676da3a4c393ae640cd58cdd8285).
+- Deploy: `2026-10-23T05:46:15Z PASS prev=d6fb047 new=7383455 suite green, smoke ok tv=current end=2026-10-23T06:01:22Z dur=907s`
+- Accept: in chat: "B., orchestrator session, 2026-10-23: Yes: merge Phase 2 PRs on green CI plus a clean separate-agent review, without asking me for accepted each time. Record my accept as this message."
+- Follow-ups: none

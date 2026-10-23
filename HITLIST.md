@@ -16,13 +16,13 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-001 | Repo `CLAUDE.md` (rules, stack, definition of done) | Docs | S | [x] shipped | Rules live in the repo · PR #38 | — |
 | JY-002 | `docs/PROCESS.md`, spec template, PR template | Docs | S | [x] shipped | One loop everyone follows · PR #41 | — |
-| JY-003 | `docs/PLAN.md` (vision, areas, open decisions) | Docs | M | idea | One page for where Joey is going | — |
+| JY-003 | `docs/PLAN.md` (vision, areas, open decisions) | Docs | M | building | One page for where Joey is going | — |
 | JY-004 | `HITLIST.md` seeded + check script | Docs | M | building | One backlog for every open item | — |
-| JY-005 | `docs/reference/tech-notes.md` (gotchas by area) | Docs | M | idea | Stop re-learning old traps | — |
-| JY-006 | CI fast check on PR and `main` | CI | M | review | Catch breakage before merge · PR #37 | — |
+| JY-005 | `docs/reference/tech-notes.md` (gotchas by area) | Docs | M | building | Stop re-learning old traps | — |
+| JY-006 | CI fast check on PR and `main` | CI | M | [x] shipped | Catch breakage before merge · PR #37; also fixed a film-page shelves race | — |
 | JY-007 | Repo settings + labels | GitHub | S | [x] shipped | Squash only, labels set | — |
 | JY-008 | JoeyV2 docs into the repo (`docs/joeyv2/`) | Docs | S | [x] shipped | B. reads the plan on GitHub · PR #39 | — |
-| JY-009 | Repo renamed to Joey (`benjiEdwards2/Joey`); update repo-name references | docs/deploy/tv | S | review | B. asked; PR #40 | — |
+| JY-009 | Repo renamed to Joey (`benjiEdwards2/Joey`); update repo-name references | docs/deploy/tv | S | [x] shipped | B. asked; PR #40 | — |
 
 ### Phase 2 — Tooling
 
@@ -202,6 +202,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-215 | Stale preview entries in `launch.json` | Housekeeping | S | idea | Three point at purged scratch scripts | — |
 | JY-216 | Archive the three awards review mockups | Housekeeping | S | idea | Reference only now | — |
 | JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | idea | Nav-tidy leftover | — |
+| JY-224 | Flaky test: `test_media_speed::test_metadata_long_request_state_short` | Tests | S | idea | Fails 3 in 8 under load; doesn't drain the first visit's background read | — |
+| JY-225 | Flaky test: `test_runner_history_tail` 2 ms wall-clock limit | Tests | S | idea | Fails 2 in 8 under load; timing assert too tight | — |
 
 ### Parked features
 

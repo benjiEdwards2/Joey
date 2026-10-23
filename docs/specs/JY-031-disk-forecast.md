@@ -3,7 +3,7 @@
 Status: building
 Size: L
 Live risk: deploy (Discord posts from production)
-Area: `hub/server.py`, `hub/server_alerts.py`, `hub/server_history.py`, `hub/tasks.py`, `hub/main.py` (hub card data), `hub/server_digest.py` (option B only), `tests/hub/`
+Area: `hub/server.py`, `hub/server_alerts.py`, `hub/server_history.py`, `hub/tasks.py`, `hub/main.py` (hub card data), `hub/server_digest.py` (option B only), `tests/hub/`; added in the fix round (orchestrator, 2026-10-23): `hub/server_space.py`, `hub/README.md`, `docs/hub-changelog.md`
 Needs: Phases 1–3 (shipped)
 Options page: https://claude.ai/artifact/GD2DE6D3PiPkxd1UC8eiBN (private)
 
@@ -35,6 +35,7 @@ From B.'s pick (1A 2a 3a 4a, 2026-10-23):
 ## Data
 No schema change expected: `server_attention_seen` already holds the key. The episode end rule needs the last projection in memory or a column on the seen row: decide in the build, note it here.
 Build decision (2026-10-23): no schema change. The episode state (open, path, last projection, item) lives in memory (`hub/server_history.py`). Because the hub restarts every morning (NAS off 22:00–07:00) and on every deploy, the first step after a start treats an existing `forecast:<path>` seen row as an open episode, so a projection between 30 and 45 days after a restart does not post again.
+Fix round (orchestrator decisions, 2026-10-23): at or over 85 % an open episode stays open and silent (words "at or over 85%") while the disk still grows, so 84.9 → 85.1 → 84.9 posts once; it ends on a flat or shrinking disk, or once below 85 % with a projection over 45 days. An episode restored after a restart that lands in "collecting" stays open even with no 7-day projection (words "filling fast"). A failed first compute skips the forecast for that tick and keeps its seen row (`server_alerts.sync(keep=)`). N days are whole days rounded down, at least 1 (29.6 → "29 days"). Any path under `/volumeN` reads "Volume N". Free space's "(≈ N days)" follows the cached item.
 
 ## Performance budget
 Hub page render, warm p95 ≤ 50 ms (row 1); measured inside joey-hub with `scripts/budgets.py`.
@@ -64,3 +65,5 @@ Reply in one message, e.g. "JY-031: 1A 2a 3a 4a, ready".
 ## Shipped notes
 (filled at close-out)
 - 2026-10-23 (build, rule 4): `tests/hub/test_server_cleanup.py` `test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items` re-pinned as `test_build_server_puts_the_cached_forecast_in_attention_and_in_the_keyed_items`. It pinned the WP-T3 split (forecast on the page only, because the hub loop had no samples). Criterion 1 removes that split on purpose: the loop caches the forecast and all three paths carry it. The new pin also checks that `history_band`'s own forecast no longer reaches Attention.
+- 2026-10-23 (fix round, rule 4): `tests/hub/test_server_space.py` `test_head_line_with_the_forecast_adds_the_days_it_buys_back` and `test_a_slow_disk_has_no_forecast_and_no_days` now pass the cached forecast item into `server_space.build` (was read from `history_band` inside it), so Free space and the Server page's Attention never disagree. Same assertions on the head line.
+- 2026-10-23 (fix round): `tests/hub/test_server_forecast.py` rounding pins moved from nearest day to floor (22.6 → "22 days"), and `/volume1/Docker` now reads "Volume 1" (orchestrator decisions).

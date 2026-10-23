@@ -26,7 +26,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `access_jwt.py` | `AccessGate` (Joey TV WP-A6a): verifies Cloudflare's signed `Cf-Access-Jwt-Assertion` (RS256, team JWKS, AUD) before the email header is believed; off unless `ACCESS_JWT_VERIFY` is set (enforce live since WP-A6a, 2026-10-21); `/healthz` and loopback exempt |
 | `images.py` | `GET /img/{ref}` poster proxy (async; at most 6 upstream misses at once) with a 30-day disk cache and generated fallback cards |
 | `upstream.py` | One keep-alive `requests.Session` per upstream (jellyfin, seerr, arr, omdb, tmdb) for the Media modules and `/img` |
-| `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Update and restart media stack (live stackctl call); Discord push of new Attention items; 24 h health history |
+| `server.py`, `server_updates.py`, `server_stack.py`, `server_alerts.py`, `server_history.py` | Server area bands; Update now / Update all / Ignore (live What's Up Docker call); Update and restart media stack (live stackctl call); Discord push of new Attention items; 24 h health history and the disk forecast (JY-031: computed once per `_server_tick` and kept in memory, `server_history.refresh_forecast`; the hub card reads `forecast_peek`, `/server`, `/server/space` and the Discord check read `forecast`) |
 | `server_digest.py` | Overnight digest (P2, 2026-10-22): one Discord message a day from `DIGEST_AT` (07:30 hub-local) built from the snapshots (arrivals last 24 h, updates pending, fullest disk, services, stalled torrents); `media.db` `server_digest_sent`; `DIGEST=off` stops it; the Server page's "Digest · sent 07:31" line |
 | `media_nav.py`, `media_library.py`, `media_downloads.py`, `media_files.py`, `media_rank.py`, `media_upgrades.py`, `media_upgrade_why.py` | Media section map; library list helpers (sorts, filters, suggestions); downloads join; file-quality strip; library rank; Below cutoff (arr cutoff unmet) + last library search; Why? / Grab anyway (arr interactive search) |
 | `media_film.py`, `media_item.py`, `media_person.py`, `media_omdb.py`, `media_arr_search.py` | The Cinema film page, item data, person pages, Metacritic pill, Search now |
@@ -267,7 +267,7 @@ What a signed-in friend sees on the media front, and the 10-foot TV skin the And
 |---|---|---|
 | media.db backup (`media_backup`) | 30 s | 1 h (skips while a backup under 20 h old exists) |
 | Play recorder (`media_plays`) | 15 s | `PLAY_POLL_SECONDS` |
-| Server alerts + history sample (`_server_tick`) | 60 s | 5 min |
+| Server alerts + history sample + disk forecast (`_server_tick`) | 60 s | 5 min |
 | Film warm-up (`media_warmup.tick`) | 60 s | ticks every 60 s: the full pass every 3 h (full-library pass at most once per 24 h); the item pass on each new jellyfin snapshot |
 | Follow (`media_follow`) | 2 min | 6 h |
 | Awards (`media_awards`) | 3 min | hourly check, a pass only when one is due |

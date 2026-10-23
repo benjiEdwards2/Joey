@@ -5,7 +5,8 @@ The slice guarantee is the point: the script reads ONE file, the newest media-*.
 dedicated private repo benjiEdwards2/joey-offsite-backup under media/, keeping the newest 14. The only
 secrets path it names is the GitHub deploy key, mounted read-only; the age PRIVATE key is never named.
 The NAS runs BusyBox sh, so the shell forms are pinned too. Behaviour tests run the script under the
-local `sh` (dry run / library mode only — never docker) and skip where no `sh` exists.
+local `sh`, or another POSIX shell with pipefail where `sh` lacks it (dry run / library mode only — never docker),
+and skip where no such shell exists.
 """
 
 import os
@@ -21,8 +22,22 @@ SCRIPT_PATH = REPO_ROOT / "deploy" / "media_offsite.sh"
 SCRIPT = SCRIPT_PATH.read_text(encoding="utf-8")
 SRC_LITERAL = "/volume1/Docker/joey/backups/media/"
 AGE_PUBLIC_KEY = "age1eca287tm02jhu05j2dn9rka6kx262cdvpfd5mermd875uxrc5sqsq4274p"  # JoeyTV DECISIONS 2026-10-20
-SH = shutil.which("sh")
-needs_sh = pytest.mark.skipif(SH is None, reason="no POSIX sh on this host")
+
+
+def _pipefail_sh():
+    """The first local POSIX shell that, like the NAS's BusyBox sh, accepts `set -o pipefail`: `sh` on the laptop
+    (Git Bash) and in the gate image (Debian dash >= 0.5.12-7), else BusyBox, else bash in POSIX mode. Ubuntu 24.04's
+    dash (the GitHub runner's sh) predates pipefail and rejects the script at line 18 (JY-006, 2026-10-23)."""
+    for argv in (["sh"], ["busybox", "sh"], ["bash", "--posix"]):
+        exe = shutil.which(argv[0])
+        if exe and subprocess.run([exe, *argv[1:], "-c", "set -o pipefail"],
+                                  capture_output=True, timeout=30).returncode == 0:
+            return [exe, *argv[1:]]
+    return None
+
+
+SH = _pipefail_sh()
+needs_sh = pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
 
 
 def _code_lines():
@@ -43,7 +58,7 @@ def _run(args, env_extra=None, script=None, cwd=None):
     env = dict(os.environ)
     env.update(env_extra or {})
     return subprocess.run(
-        [SH, str(script or SCRIPT_PATH), *args],
+        [*SH, str(script or SCRIPT_PATH), *args],
         capture_output=True, text=True, env=env, cwd=cwd, timeout=60,
     )
 
@@ -52,7 +67,7 @@ def _lib(call, *args):
     """Source the script in library mode (main not run) and call one function."""
     env = dict(os.environ, MEDIA_OFFSITE_LIB="1")
     return subprocess.run(
-        [SH, "-c", '. "$0"; ' + call, str(SCRIPT_PATH), *args],
+        [*SH, "-c", '. "$0"; ' + call, str(SCRIPT_PATH), *args],
         capture_output=True, text=True, env=env, timeout=60,
     )
 
@@ -78,7 +93,7 @@ def test_script_is_busybox_safe_and_strict():
 
 @needs_sh
 def test_sh_n_parses():
-    r = subprocess.run([SH, "-n", str(SCRIPT_PATH)], capture_output=True, text=True, timeout=30)
+    r = subprocess.run([*SH, "-n", str(SCRIPT_PATH)], capture_output=True, text=True, timeout=30)
     assert r.returncode == 0, r.stderr
 
 

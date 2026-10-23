@@ -143,6 +143,14 @@ def test_whole_page_equals_the_cached_page(env):
         assert (want in late) == (want in cached), want
 
 
+def test_shelves_wait_for_the_title_body_too():
+    """JY-006 (2026-10-23, CI race): Jellyseerr answered similar / recommendations before the title body and the page
+    drew the shelves (which need the body) empty, with no part to fill them - the Similar shelf was lost for good."""
+    m = media_film.MISSING
+    ex = {"raw": m, "ratings": {}, "similar": {"results": []}, "recs": {"results": []}, "collection": m, "mc": None}
+    assert "shelves" in media_film.pending_parts(ex, "movie")
+
+
 # ---- prefetch ----
 
 def test_prefetch_warms_both_sides_and_renders_nothing(env):

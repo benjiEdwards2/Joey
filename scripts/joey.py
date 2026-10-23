@@ -9,10 +9,12 @@ Importing this module does no work.
 import argparse
 import sys
 
+import joey_preview
 import joey_worktree
 
 COMMANDS = {
     "worktree": joey_worktree,
+    "preview": joey_preview,
 }
 
 

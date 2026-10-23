@@ -262,6 +262,8 @@ SOURCES = [
     (SR, "P8 What changed since your last visit", "JY-134", ""),
     (SR, "P9 Per-person notifications", "JY-135", ""),
     (SR, "P10 Weekly summary", "JY-136", ""),
+    ("JY-006 builder report (2026-10-23)", "flaky test_metadata_long_request_state_short", "JY-224", "found under -n 16 load"),
+    ("JY-006 builder report (2026-10-23)", "flaky test_runner_history_tail 2 ms limit", "JY-225", "found under -n 16 load"),
 ]
 
 

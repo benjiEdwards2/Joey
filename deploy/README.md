@@ -71,3 +71,9 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
 - **Off-box media.db (Joey TV WP-A6b):** `sh deploy/media_offsite.sh` on the NAS as root pushes the newest dump from
   `backups/media/`, age-encrypted, to the private repo `benjiEdwards2/joey-offsite-backup` (`media/`, newest 14);
   `--dry-run` shows the one file it would send. Not run by `deploy.sh`. Restore drill: `docs/public-edge.md` "Restore media.db".
+- **Preview slot `joey-preview` (JY-012):** `python scripts/joey.py preview up <branch | PR>` / `down` / `status` from the
+  laptop runs one preview hub beside the stack: its own compose project (`deploy/preview/docker-compose.yml`, so
+  `--remove-orphans` here never touches it), joined to `deploy_default`, live snapshots `:ro`, a media.db copy from the
+  newest backup, allow-listed keys only, every background loop off. Window 07:00-21:30, refused while a deploy holds the
+  lock or under 1,400 MB available. Before a `docker compose down` of this stack, run `preview down`. Runbook and the
+  env key list: `deploy/preview/README.md`.

@@ -111,23 +111,41 @@ def gh_json(args, cwd=None, timeout=60):
     return json.loads(r.stdout or "null")
 
 
+def _utf8(b):
+    """Process output as text: bytes decoded UTF-8 (errors replaced); str (test fakes) passes through."""
+    return b.decode("utf-8", "replace") if isinstance(b, bytes) else (b or "")
+
+
+def _scrub_nas(text, nas):
+    """The ssh target's user and host out of an ssh error line (ssh names the host it could not reach)."""
+    user, _, host = nas.rpartition("@")
+    text = text.replace(nas, "<nas>")
+    if host:
+        text = text.replace(host, "<nas>")
+    if user:
+        text = text.replace(user + "@", "")
+    return text
+
+
 def ssh_run(cmd, stdin=None, timeout=60):
     """One command on the NAS (JOEY_NAS, default root@nas.local as deploy/push.sh; key JOEY_NAS_KEY, default
-    ~/.ssh/joey_nas). BatchMode, 10 s connect timeout, stdin encoded UTF-8 (cp1252 once broke a NAS script).
-    Returns the CompletedProcess (returncode, stdout, stderr) of the remote command. Raises RuntimeError when ssh
-    itself fails (exit 255) or the ssh binary is missing."""
+    ~/.ssh/joey_nas). BatchMode, 10 s connect timeout, stdin sent as UTF-8 BYTES (cp1252 once broke a NAS script, and
+    Windows text-mode stdin turns every LF into CRLF, which breaks `sh -s`: JY-012 review, 2026-10-23).
+    Returns the CompletedProcess (returncode, stdout, stderr as str) of the remote command. Raises RuntimeError when ssh
+    itself fails (exit 255; the NAS user and host are scrubbed from the message) or the ssh binary is missing."""
     nas = os.environ.get("JOEY_NAS") or "root@nas.local"
     key = os.path.expanduser(os.environ.get("JOEY_NAS_KEY") or "~/.ssh/joey_nas")
-    extra = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+    extra = {"input": stdin.encode("utf-8")} if stdin is not None else {"stdin": subprocess.DEVNULL}
     try:
         r = subprocess.run(["ssh", "-i", key, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", nas, cmd],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout,
-                           **extra)
+                           capture_output=True, timeout=timeout, **extra)
     except FileNotFoundError:
         raise RuntimeError("ssh is not on PATH (install the OpenSSH client)") from None
+    r = subprocess.CompletedProcess(r.args, r.returncode, _utf8(r.stdout), _utf8(r.stderr))
     if r.returncode == 255:
         first = (r.stderr.strip() or "no output").splitlines()[0]
-        raise RuntimeError("ssh to the NAS failed (NAS off 22:00-07:00, or off the home LAN?): " + first)
+        raise RuntimeError("ssh to the NAS failed (NAS off 22:00-07:00, or off the home LAN?): "
+                           + _scrub_nas(first, nas))
     return r
 
 

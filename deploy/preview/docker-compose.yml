@@ -31,6 +31,7 @@ services:
     environment:
       SNAPSHOT_DIR: /data/snapshots
       IMG_CACHE_DIR: /data/cache/img
+      META_CACHE_DIR: /data/meta
       MEDIA_DB_PATH: /data/sqlite/media.db
       MEDIA_BACKUP_DIR: /data/no-backups
       MEDIA_BACKUP: "off"
@@ -46,8 +47,10 @@ services:
       - /volume1/Docker/joey/data/snapshots:/data/snapshots:ro
       # the media.db COPY (newest daily backup, restored by preview up); the live sqlite dir is never mounted
       - /volume1/Docker/joey/preview/sqlite:/data/sqlite
-      # preview-only poster and meta cache
-      - /volume1/Docker/joey/preview/cache:/data/cache
+      # posters: the live img cache, read only (a miss is never stored: images._store logs the OSError)
+      - /volume1/Docker/joey/data/cache/img:/data/cache/img:ro
+      # preview-only meta cache (Seerr / ratings bodies)
+      - /volume1/Docker/joey/preview/meta:/data/meta
     # NO ports. The tunnel reaches it as http://joey-preview:8000 on the main stack's default network.
     expose:
       - "8000"

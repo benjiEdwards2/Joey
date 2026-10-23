@@ -12,10 +12,14 @@ Set `JOEY_NAS=root@<nas>` (and `JOEY_NAS_KEY` if the key is not `~/.ssh/joey_nas
   up; the old commit is printed). Then: exact commit into `/volume1/Docker/joey/preview/src` (alpine/git + the read-only
   deploy key, as `deploy.sh`), `docker build` to `life-hub-preview`, newest daily media.db backup restored as a copy,
   `preview.env` built from the allow-list below, `up -d`, poll `/healthz` inside the container (up to 120 s). It prints
-  the commit, the URL and the memory readings. Under 1,200 MB available after the start, or no `/healthz`: it tears
-  the slot down and FAILs.
+  the commit, the URL and the memory readings. The deploy lock is checked again just before `up -d` (a deploy can
+  start during the build). From the media.db restore on, any FAIL (no `/healthz`, under 1,200 MB available after the
+  start, a held lock, an ssh error, a failed `up`) tears the slot down, so no container, media.db copy or `preview.env`
+  is left. `--dry-run` records a check that would stop a real run (window, lock, memory, NAS unreachable) and goes on,
+  so every step and NAS script prints.
 - `python scripts/joey.py preview down`: `docker compose -p joey-preview down`, removes the image, the media.db copy and
-  `preview.env`, then checks and prints that no container, network or image named for the preview is left.
+  `preview.env`, then checks and prints that no container, network or image named for the preview, no media.db copy and
+  no `preview.env` is left.
 - `python scripts/joey.py preview status`: running or not, commit, uptime, memory use, NAS available memory.
 
 ## What runs on the NAS
@@ -26,9 +30,10 @@ Set `JOEY_NAS=root@<nas>` (and `JOEY_NAS_KEY` if the key is not `~/.ssh/joey_nas
 | `/volume1/Docker/joey/preview/preview.env` | allow-listed keys only, chmod 600, NAS only; removed by `preview down` |
 | `/volume1/Docker/joey/preview/src` | the previewed commit (detached checkout, kept for the next fetch) |
 | `/volume1/Docker/joey/preview/sqlite/media.db` | the copy, from the newest `backups/media/media-YYYY-MM-DD_HHMM.db.gz`; removed by `preview down` |
-| `/volume1/Docker/joey/preview/cache` | preview-only poster and meta cache |
+| `/volume1/Docker/joey/preview/meta` | preview-only meta cache (`META_CACHE_DIR`) |
 
-- Mounts: live snapshots `:ro`, the media.db copy, the preview cache. Never the live sqlite dir, never the backups dir.
+- Mounts: live snapshots `:ro`, the live poster cache `/volume1/Docker/joey/data/cache/img` `:ro`, the media.db copy, the
+  preview meta dir. Never the live sqlite dir, never the backups dir.
 - Network: the main stack's default network `deploy_default` (external), so the tunnel reaches `http://joey-preview:8000`.
   No ports. The service is named `joey-preview`, never a main service name: on a shared network the service name is a
   DNS alias, and `hub` would make cloudflared's `hub:8000` resolve to the preview too.
@@ -56,11 +61,12 @@ the compose `environment:` (which wins over `env_file`). The server alerts loop 
 ## Not usable on the preview (by design)
 
 - Requests, Discover's request button, Follow, Log-a-watch title search and request removal (no Seerr key).
-- Search, upgrade, quality and Why?/Grab (no Radarr/Sonarr keys); Radarr/Sonarr posters fall back to Jellyfin or TMDB.
+- Search, upgrade, quality and Why?/Grab (no Radarr/Sonarr keys).
 - Quiet mode, Restart + update media stack, WUD updates (no qBittorrent, stackctl or WUD keys).
+- Jellyfin-backed reads: up next, resume, Continue watching and its buttons (no Jellyfin key: its writes, mark watched /
+  unwatched / reset, reach the live Jellyfin, rule 7). Posters show for live-cache hits only; a miss falls back and is
+  never stored (the cache is `:ro`). A hub read-only switch that would let the key back in is a separate item.
 - Each fails visibly ("not configured" or "Couldn't reach"), never against the live system.
-- Caution: the Jellyfin key is in (posters, lists, up next), and Continue watching's mark watched / unwatched / reset
-  buttons write to the live Jellyfin with it. Do not press them on the preview.
 
 ## Env keys: in or out
 
@@ -79,11 +85,10 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `WEATHER_LAT` | in | Open-Meteo, keyless read |
 | `WEATHER_LON` | in | Open-Meteo, keyless read |
 | `WEATHER_PLACE` | in | place name in the weather labels |
-| `JELLYFIN_URL` | in | posters, lists, up next (reads) |
-| `JELLYFIN_API_KEY` | in | posters, lists, up next (reads); see the Continue watching note |
-| `JELLYFIN_USER` | in | whose up next to show |
-| `JELLYFIN_USER_HER` | in | her Jellyfin display name |
-| `JELLYFIN_USER_ALIASES` | in | extra Jellyfin names (not in .env.example; read only) |
+| `JELLYFIN_URL` | in | a LAN address, no credential; without the key every Jellyfin call is refused |
+| `JELLYFIN_USER` | in | a display name (owner mapping), no credential |
+| `JELLYFIN_USER_HER` | in | a display name (owner mapping), no credential |
+| `JELLYFIN_USER_ALIASES` | in | display names (not in .env.example), no credential |
 | `OMDB_API_KEY` | in | Metacritic pill, read-only lookups |
 | `QUIET_MBPS` | in | a number on the Quiet mode row; nothing is sent without QBIT_* |
 | `NAS_SLEEP_WINDOW` | in | words on the Quiet mode row |
@@ -93,6 +98,7 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `STAGING` | out | certificate flag (edge.env, swag only) |
 | `ICS_URL_YOU` | out | connectors only; the URL is the credential |
 | `ICS_URL_HER` | out | connectors only; the URL is the credential |
+| `JELLYFIN_API_KEY` | out | write: Continue watching marks watched / unwatched / reset on the live Jellyfin (rule 7) |
 | `MEDIA_STATUS_HOST` | out | connectors only |
 | `RADARR_URL` | out | write: search, quality, unmonitor, grab |
 | `RADARR_API_KEY` | out | write: search, quality, unmonitor, grab |
@@ -123,7 +129,7 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `MEDIA_WARMUP` | out | forced off in compose (warm-up loop) |
 | `PLAY_RECORDER` | out | forced off in compose (play-history poller) |
 | `PLAY_POLL_SECONDS` | out | the play recorder is off |
-| `META_CACHE_DIR` | out | the preview keeps its own cache under its data dir |
+| `META_CACHE_DIR` | out | set in compose to a preview-only dir |
 | `JELLYFIN_LIBRARY_EVERY_S` | out | connectors only |
 | `MEDIA_STATUS_HOSTS` | out | connectors only |
 | `AREAS_PATH` | out | the image default; a host path would not exist in the preview |

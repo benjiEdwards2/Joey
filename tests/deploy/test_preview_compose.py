@@ -75,6 +75,15 @@ def test_mounts_live_snapshots_read_only_and_never_the_live_sqlite_or_backups():
         assert host.startswith(PREVIEW_ROOT) or rest.endswith(":ro"), v  # writable mounts only under preview/
         assert "/data/sqlite" not in host and "/backups" not in host, v
     assert f"{PREVIEW_ROOT}sqlite:/data/sqlite" in vols
+    # posters from the live img cache, read only (JY-012 review: no Jellyfin key, so the cache is the poster source)
+    assert f"{LIVE_ROOT}/data/cache/img:/data/cache/img:ro" in vols
+
+
+def test_meta_cache_is_preview_only():
+    env = SVC["environment"]
+    assert env["IMG_CACHE_DIR"] == "/data/cache/img"
+    mounts = {v.split(":")[1]: v.split(":")[0] for v in SVC["volumes"]}
+    assert mounts[env["META_CACHE_DIR"]].startswith(PREVIEW_ROOT)
 
 
 def test_env_file_is_the_preview_env_only():

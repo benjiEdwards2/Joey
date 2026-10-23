@@ -430,7 +430,9 @@ def test_ssh_uses_batchmode_key_and_utf8(monkeypatch):
     assert cmd[0] == "ssh" and cmd[-2:] == ["root@nas.local", "uptime"]
     assert cmd[cmd.index("-i") + 1] == os.path.expanduser("~/.ssh/joey_nas")
     assert "BatchMode=yes" in cmd and "ConnectTimeout=10" in cmd
-    assert seen["kw"]["encoding"] == "utf-8" and seen["kw"]["input"] == "café"
+    # 2026-10-23 JY-012 review: re-pinned from text mode (encoding="utf-8", str input): stdin now goes as UTF-8 bytes,
+    # since Windows text-mode stdin turned LF into CRLF (tests/scripts/test_joey_preview.py proves the LF payload)
+    assert "encoding" not in seen["kw"] and seen["kw"]["input"] == "café".encode("utf-8")
     monkeypatch.setenv("JOEY_NAS", "root@other")
     joey_common.ssh("true")
     assert seen["cmd"][-2] == "root@other"
@@ -538,10 +540,11 @@ def test_ssh_run_returns_the_completed_process_and_raises_clearly(monkeypatch):
     r = joey_common.ssh_run("false")
     assert (r.returncode, r.stdout, r.stderr) == (3, "out\n", "err line\n")
     cmd, kw = fake.calls[-1]
-    assert "BatchMode=yes" in cmd and "ConnectTimeout=10" in cmd and kw["encoding"] == "utf-8"
+    # 2026-10-23 JY-012 review: re-pinned from kw["encoding"] == "utf-8": binary pipes, decoded by ssh_run
+    assert "BatchMode=yes" in cmd and "ConnectTimeout=10" in cmd and "encoding" not in kw
     assert kw["stdin"] is subprocess.DEVNULL and "input" not in kw
     joey_common.ssh_run("cat", stdin="x")
-    assert fake.calls[-1][1]["input"] == "x" and "stdin" not in fake.calls[-1][1]
+    assert fake.calls[-1][1]["input"] == b"x" and "stdin" not in fake.calls[-1][1]  # bytes since 2026-10-23 (JY-012)
     monkeypatch.setattr(joey_common.subprocess, "run", _FakeRun(rc=255))
     with pytest.raises(RuntimeError, match="ssh to the NAS failed"):
         joey_common.ssh_run("true")

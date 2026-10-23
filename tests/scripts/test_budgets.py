@@ -81,6 +81,15 @@ class FakeHub:
         self.server.server_close()
 
 
+@pytest.fixture
+def generous_budgets(monkeypatch):
+    """Exit-0 tests must not hang on loopback timing (CI -n auto, Windows): raise the page budgets out of reach.
+    The slow-page test keeps the real ones."""
+    monkeypatch.setattr(budgets, "HUB_P95_MS", 60000.0)
+    monkeypatch.setattr(budgets, "MEDIA_P95_MS", 60000.0)
+    monkeypatch.setattr(budgets, "DISCOVER_MS", 60000.0)
+
+
 def area_ids():
     return budgets.read_area_ids((REPO_ROOT / "config" / "areas.yaml").read_text(encoding="utf-8"))
 
@@ -157,9 +166,9 @@ class FakeNas:
     """Stands in for ssh: answers each read-only NAS command; the page payload really runs from stdin."""
 
     def __init__(self, hub_url="", inspect=(0, "true\n"), mem="123.4MiB / 384MiB\n", free=FREE_M,
-                 history=HISTORY_PASS + "\n", refuse=False):
+                 history=HISTORY_PASS + "\n", refuse=False, history_rc=0):
         self.hub_url, self.inspect, self.mem, self.free, self.history = hub_url, inspect, mem, free, history
-        self.refuse = refuse
+        self.refuse, self.history_rc = refuse, history_rc
         self.commands: list[str] = []
 
     def __call__(self, cmd, stdin=None, timeout=60.0):
@@ -172,8 +181,9 @@ class FakeNas:
             return 0, self.free, ""
         if cmd.startswith("docker stats"):
             return 0, self.mem, ""
-        if cmd.startswith("grep "):
-            return 0, self.history, ""
+        if cmd.startswith("test -r "):
+            assert "|| exit 3;" in cmd
+            return (3, "", "") if self.history_rc == 3 else (0, self.history, "")
         if cmd.startswith("docker exec -i joey-hub python - "):
             args = cmd.split()[6:] + ["--base", self.hub_url]
             proc = subprocess.run([sys.executable, "-", *args], input=stdin, capture_output=True, timeout=120)
@@ -181,7 +191,7 @@ class FakeNas:
         raise AssertionError(f"unexpected NAS command: {cmd}")
 
 
-def test_nas_run_all_pass_exit_0_and_read_only(capsys):
+def test_nas_run_all_pass_exit_0_and_read_only(capsys, generous_budgets):
     with FakeHub() as hub:
         nas = FakeNas(hub.url)
         code = budgets.main(["-n", "2"], runner=nas)
@@ -190,14 +200,14 @@ def test_nas_run_all_pass_exit_0_and_read_only(capsys):
     assert out.count("PASS") >= 7 and "123.4 MiB" in out and "1,650 MB" in out and "7.0 min" in out
     assert {m for m, _ in hub.hits} == {"GET"}
     allowed = ("docker inspect ", "docker exec -i joey-hub python - ", "docker stats --no-stream ", "free -m",
-               "grep -E ")
+               "test -r ")
     assert all(c.startswith(allowed) for c in nas.commands), nas.commands
     assert all(">" not in c and " rm " not in c for c in nas.commands)
     assert nas.commands.count("free -m") == 2
     assert len(nas.commands) == 6   # one login per check
 
 
-def test_nas_over_budget_exit_1(capsys):
+def test_nas_over_budget_exit_1(capsys, generous_budgets):
     with FakeHub() as hub:
         code = budgets.main(["-n", "2"], runner=FakeNas(hub.url, mem="250MiB / 384MiB"))
     out = capsys.readouterr().out
@@ -227,7 +237,7 @@ def test_container_missing_exit_2(capsys):
     assert nas.commands == [nas.commands[0]]   # nothing else runs once the container is gone
 
 
-def test_history_without_duration_is_info_not_fail(capsys):
+def test_history_without_duration_is_info_not_fail(capsys, generous_budgets):
     with FakeHub() as hub:
         code = budgets.main(["-n", "1"], runner=FakeNas(hub.url, history="2026-10-01T00:00:00Z PASS prev=a new=b\n"))
     out = capsys.readouterr().out
@@ -235,9 +245,35 @@ def test_history_without_duration_is_info_not_fail(capsys):
     assert "not recorded" in out and "INFO" in out
 
 
+def test_history_log_missing_is_error_not_info(capsys, generous_budgets):
+    with FakeHub() as hub:
+        code = budgets.main(["-n", "1", "--json"], runner=FakeNas(hub.url, history_rc=3))
+    report = json.loads(capsys.readouterr().out)
+    gate = report["rows"][-1]
+    assert code == 2
+    assert (gate["verdict"], gate["value"]) == ("ERROR", "history.log not readable")
+
+
+@pytest.mark.parametrize("nas, stderr", [
+    ("root@nas.local", b"ssh: Could not resolve hostname nas.local: Name or service not known\r\n"),
+    ("root@nas.local", b"ssh: connect to host nas.local port 22: Connection timed out\n"),
+    ("192.168.68.59", b"ssh: connect to host 192.168.68.59 port 22: Connection refused\n"),
+])
+def test_ssh_errors_never_print_the_bare_host(capsys, monkeypatch, nas, stderr):
+    class Proc:
+        returncode, stdout = 255, b""
+    Proc.stderr = stderr
+    monkeypatch.setattr(budgets.subprocess, "run", lambda *a, **k: Proc())
+    code = budgets.main(["-n", "1"], runner=budgets.ssh_runner(nas, ""))
+    out = capsys.readouterr().out
+    host = nas.split("@")[-1]
+    assert code == 2 and "<nas>" in out
+    assert host not in out and "root" not in out
+
+
 # ---------------------------------------------------------------- --local and the payload (criteria 2, 6, 9)
 
-def test_local_run_times_every_page_with_warmup(capsys):
+def test_local_run_times_every_page_with_warmup(capsys, generous_budgets):
     areas = area_ids()
     with FakeHub() as hub:
         code = budgets.main(["--local", hub.url, "-n", "3"])

@@ -260,10 +260,13 @@ class NasError(Exception):
 
 
 def scrub(text: str, nas: str = "") -> str:
-    """Last stderr line, with the login and any user@host / e-mail removed."""
+    """Last stderr line, with the login, the bare NAS host and any user@host / e-mail removed."""
     last = next((ln.strip() for ln in reversed(text.splitlines()) if ln.strip()), "")
     if nas:
         last = last.replace(nas, "<nas>")
+        host = nas.split("@", 1)[-1]   # the whole value when there is no @
+        if host:
+            last = last.replace(host, "<nas>")
     last = re.sub(r"[\w.+-]+@[\w.-]+", "<nas>", last)
     return last[:100]
 
@@ -347,8 +350,12 @@ def measure_nas(run, area_ids: list[str], n: int, scrub_nas: str = "") -> list[d
 
     line, gate_err = None, ""
     try:
-        rc, out, err = run(f"grep -E '^[^ ]+ PASS ' {HISTORY_LOG} | tail -n 1")
-        line = out.strip() or None
+        # tail's exit code hides a missing log, so test it first (BusyBox sh, no pipefail needed)
+        rc, out, err = run(f"test -r {HISTORY_LOG} || exit 3; grep -E '^[^ ]+ PASS ' {HISTORY_LOG} | tail -n 1")
+        if rc == 3:
+            gate_err = "history.log not readable"
+        else:
+            line = out.strip() or None
     except NasError as exc:
         gate_err = str(exc)
 

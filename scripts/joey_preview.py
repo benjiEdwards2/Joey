@@ -12,15 +12,14 @@ preview env from an allow-list of the live .env keys (ENV_IN; never a copy, chmo
 deploy/preview/docker-compose.yml next to it, starts the slot and polls /healthz inside the container. Available memory
 under 1,200 MB after the start tears the slot down again (FAIL).
 
-NAS scripts go over ssh as `sh -s` on stdin, sent as UTF-8 bytes with LF line ends (Windows text-mode stdin sends CRLF,
-which breaks sh). Each script starts with `# joey-preview:<op>`, which the tests' fake NAS dispatches on.
+NAS scripts go over joey_common.ssh_run as `tr -d '\\r' | sh -s` on stdin (Windows text-mode stdin sends CRLF, which
+breaks sh). Changes are guarded here, not with Runner.ssh_change, so a dry run prints each whole script. Each script
+starts with `# joey-preview:<op>`, which the tests' fake NAS dispatches on.
 Stdlib only, Python 3.12. Importing this module does no work.
 """
 import argparse
 import datetime as dt
-import os
 import re
-import subprocess
 import time
 from pathlib import Path
 
@@ -161,28 +160,10 @@ def in_window(now_utc):
 
 
 # ---------- ssh ----------
-def ssh_run(cmd, stdin=None, timeout=60):
-    """Local stand-in for JY-010's joey_common.ssh_run (switch after the rebase): one command on the NAS, stdin sent as
-    UTF-8 bytes with LF line ends. Returns CompletedProcess (text stdout/stderr); RuntimeError when ssh itself fails."""
-    nas = os.environ.get("JOEY_NAS") or "root@nas.local"
-    key = os.path.expanduser(os.environ.get("JOEY_NAS_KEY") or "~/.ssh/joey_nas")
-    data = None if stdin is None else stdin.replace("\r\n", "\n").encode("utf-8")
-    try:
-        r = subprocess.run(["ssh", "-i", key, "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", nas, cmd],
-                           input=data, capture_output=True, timeout=timeout)
-    except FileNotFoundError:
-        raise RuntimeError("ssh is not on PATH") from None
-    out = subprocess.CompletedProcess(r.args, r.returncode, r.stdout.decode("utf-8", "replace"),
-                                      r.stderr.decode("utf-8", "replace"))
-    if out.returncode == 255:
-        first = (out.stderr.strip() or "no output").splitlines()[0]
-        raise RuntimeError("ssh to the NAS failed (NAS off 22:00-07:00, or off the home LAN?): " + first)
-    return out
-
-
 def nas_sh(script, timeout=60):
-    """Run one sh script on the NAS -> (rc, stdout, stderr), stripped."""
-    r = ssh_run("sh -s", stdin=script, timeout=timeout)
+    """Run one sh script on the NAS -> (rc, stdout, stderr), stripped. joey_common.ssh_run sends stdin in text mode,
+    which on Windows turns every LF into CRLF: `tr -d '\\r'` on the NAS strips them before sh reads the script."""
+    r = jc.ssh_run("tr -d '\\r' | sh -s", stdin=script, timeout=timeout)
     return r.returncode, r.stdout.strip(), r.stderr.strip()
 
 

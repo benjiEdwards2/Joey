@@ -307,3 +307,20 @@ def test_status_running(capsys):
 def test_status_absent(capsys):
     rc, nas, out, _ = run(["status"], capsys=capsys)
     assert rc == 0 and "not running" in out and "stats" not in nas.ops
+
+
+# ---------- the ssh transport ----------
+def test_nas_sh_uses_the_shared_ssh_run_and_strips_crlf(monkeypatch):
+    calls = []
+    monkeypatch.setattr(jp.jc, "ssh_run", lambda cmd, stdin=None, timeout=60: calls.append((cmd, stdin)) or
+                        subprocess.CompletedProcess(cmd, 0, " ok \n", ""))
+    assert jp.nas_sh(jp.s_mem()) == (0, "ok", "")
+    assert calls == [("tr -d '\\r' | sh -s", jp.s_mem())]
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="no sh")
+def test_the_remote_command_survives_crlf_stdin():
+    # Windows text-mode stdin turns LF into CRLF; `set -eu\r` alone would fail in sh
+    r = subprocess.run(["sh", "-c", "tr -d '\\r' | sh -s"], input=b"set -eu\r\necho ok\r\n", capture_output=True,
+                       timeout=30)
+    assert r.returncode == 0 and r.stdout.decode().strip() == "ok", r.stderr

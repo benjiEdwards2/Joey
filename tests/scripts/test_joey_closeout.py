@@ -97,6 +97,7 @@ class FakeGh:
     def __init__(self, world):
         self.w, self.calls, self.prs = world, [], {}
         self.merge_mode = "ok"  # ok | fail | timeout-but-merged
+        self.merge_secs = 0  # how long the item merge "takes" on the fake clock
         self.label_time = "2026-10-23T05:30:00Z"
 
     def __call__(self, args, timeout=120):
@@ -141,6 +142,8 @@ class FakeGh:
         p = self.prs[n]
         p["mergeCommit"] = {"oid": self.w.squash(p["headRefName"], f"{p['title']} (#{n})")}
         p["state"] = "MERGED"
+        if n == 50:
+            self.w.clock.sleep(self.merge_secs)
 
     def gh_json(self, args, cwd=None, timeout=60):
         return json.loads(self(args))
@@ -167,6 +170,7 @@ class FakeNas:
         self.smoke = "smoke ok\nrc=0"
         self.healthz = '{"status": "ok", "areas": 4, "front": "private"}'
         self.raise_on, self.transient = None, 0
+        self.on_wait = None  # called once when a lock read reports a running deploy
 
     @staticmethod
     def _pop(seq):
@@ -184,7 +188,11 @@ class FakeNas:
             self.transient -= 1
             raise RuntimeError("ssh to the NAS failed (NAS off 22:00-07:00, or off the home LAN?): reset by peer")
         if "joey-deploy.lock" in cmd:
-            return self._pop(self.lock)
+            pid = self._pop(self.lock)
+            if pid and self.on_wait:
+                self.on_wait()
+                self.on_wait = None
+            return pid
         if cmd.startswith("free -m"):
             return self.free
         if "sh deploy.sh" in cmd:
@@ -475,6 +483,27 @@ def test_wrong_profiles_fail(w):
     assert rc == 1 and "FAIL  verify.3 COMPOSE_PROFILES=edge,media - COMPOSE_PROFILES=edge (want" in out
 
 
+def test_window_rechecked_before_starting_deploy_sh(w):
+    w.item()
+    w.clock.t = dt.datetime(2026, 10, 23, 10, 29, tzinfo=dt.timezone.utc)  # 21:29 Melbourne at the preflight
+    w.gh.merge_secs = 120  # the merge takes two minutes
+    rc, out = w.run()
+    assert rc == 1 and "PASS  deploy.1 deploy window" in out
+    assert ("FAIL  deploy.5 start deploy.sh (self-detaching) - Melbourne time 21:31 is outside the deploy window "
+            "07:00-21:30: not starting deploy.sh") in out
+    assert not w.nas.started
+    assert "not done: deploy, verify, shipped notes, labels, worktree" in out
+    assert f"finish later with: python scripts/joey.py close-out {ITEM} --resume" in out
+
+
+def test_healthz_non_sha_version_is_info(w):
+    w.item()
+    w.nas.healthz = '{"status": "ok", "version": "v2.3"}'
+    rc, out = w.run()
+    assert rc == 0, out
+    assert "INFO  /healthz version='v2.3' is not a commit SHA" in out
+
+
 def test_healthz_sha_compared_when_exposed(w):
     w.item()
     w.nas.healthz = '{"status": "ok", "sha": "deadbee"}'
@@ -549,6 +578,32 @@ def test_existing_chore_branch(w, setup, expect, rc_want):
         assert docs_wt.exists() and "not done: shipped notes, labels, worktree" in out
 
 
+@pytest.mark.parametrize("setup, expect, rc_want", [
+    ("remote-only", "chore/JY-011-shipped is on origin without a PR: it will be replaced (force-with-lease)", 0),
+    ("local-ahead", "holds unpushed work (0 changed files, 1 commits not on origin/main)", 1),
+])
+def test_chore_branch_remote_only_or_local_ahead(w, setup, expect, rc_want):
+    w.item(files=("docs/a.md",))
+    docs_wt = w.root / f"wt-{ITEM}-shipped"
+    w.git("worktree", "add", "-q", str(docs_wt), "-b", CHORE, "origin/main")
+    (docs_wt / "notes.md").write_text("earlier run\n", encoding="utf-8")
+    w.git("add", "notes.md", cwd=docs_wt)
+    w.git("commit", "-q", "-m", "earlier docs", cwd=docs_wt)
+    w.git("worktree", "remove", str(docs_wt))
+    if setup == "remote-only":
+        w.git("push", "-q", "origin", CHORE)
+        w.git("branch", "-D", CHORE)
+    rc, out = w.run()
+    assert rc == rc_want, out
+    assert expect in out
+    if setup == "remote-only":
+        assert "PASS  docs.3 write, check, commit, push" in out and "PASS  docs.6 squash-merge the docs PR" in out
+        assert "Status: shipped" in w.origin_file(SPEC)
+        assert "notes.md" not in w.git("ls-tree", "--name-only", "origin/main")  # the old push was replaced
+    else:
+        assert CHORE in w.git("branch") and not [c for c in w.gh.calls if c[:2] == ["pr", "create"]]
+
+
 # ---------- --resume (3) ----------
 def test_resume_deploys_when_not_deployed_yet(w):
     w.item()
@@ -574,6 +629,20 @@ def test_resume_already_deployed_skips_the_deploy_but_verifies(w):
     assert not w.nas.started and "deploy.1" not in out
     assert "PASS  verify.5 /healthz inside joey-hub" in out
     assert f"- Deploy: `{w.nas.pass_line}`" in w.origin_file(SPEC)
+
+
+def test_resume_rechecks_deployed_after_waiting(w):
+    w.item()
+    w.gh.merge(50)
+    sha = w.gh.prs[50]["mergeCommit"]["oid"]
+    w.nas.lock = ["4242", ""]
+    line = f"2026-10-23T01:05:00Z PASS prev=aaaaaaa new={sha[:7]} suite green, smoke ok tv=current"
+    w.nas.on_wait = lambda: setattr(w.nas, "pass_line", line)  # the running deploy shipped it
+    rc, out = w.run("--resume")
+    assert rc == 0, out
+    assert "PASS  deploy.0 already deployed? - not deployed yet" in out
+    assert f"SKIP  deploy.0 already deployed? (again, after the wait) - already deployed: {line}" in out
+    assert not w.nas.started and "deploy.3" not in out and "PASS  verify.1 NAS tree on the merge SHA" in out
 
 
 def test_resume_refuses_a_merge_commit_not_on_main(w):
@@ -665,6 +734,7 @@ def test_cli_dry_run_through_joey_py_with_fake_gh(tmp_path):
     ({"comments": []}, "c"),
     ({"comments": [review("Review: FAIL (earlier run said PASS)")]}, "c"),
     ({"comments": [review("Review: must-fix 1; not PASS")]}, "c"),
+    ({"comments": [review("Review: PASS (0 FAIL)")]}, "c"),  # any FAIL word vetoes (module docstring)
     ({"comments": [review("Looks good. Review: PASS")]}, "c"),
     ({"comments": [review(at="2026-10-23T03:00:00Z")]}, "c"),  # before the last commit
     ({"comments": [review(), review("Review: FAIL, must-fix 2", at="2026-10-23T05:20:00Z")]}, "c"),  # fresh FAIL vetoes
@@ -784,6 +854,27 @@ def test_waits_for_a_running_deploy(lw):
     rc, out = lw.run()
     assert "PASS  deploy.2 no deploy running (waits) - no deploy running (waited 2 min, window ok)" in out
     assert lw.clock.slept >= 2 * jco.DEPLOY_POLL_S
+
+
+@pytest.mark.parametrize("change, gate", [
+    (lambda p: p["comments"].append(review("Review: FAIL, must-fix 1", at="2026-10-23T06:00:00Z")), "c"),
+    (lambda p: p.update(labels=[{"name": "review"}]), "d"),
+])
+def test_gates_c_and_d_reread_after_waiting(lw, change, gate):
+    lw.item()
+    lw.nas.lock = ["4242", ""]
+    lw.nas.on_wait = lambda: change(lw.gh.prs[50])
+    rc, out = lw.run()
+    assert rc == 1 and f"FAIL  gates c and d again, after the wait - after the wait: gate {gate}:" in out
+    assert_unchanged(lw)
+
+
+def test_gates_still_hold_after_waiting(lw):
+    lw.item()
+    lw.nas.lock = ["4242", ""]
+    lw.gh.merge_mode = "fail"  # stop right after the re-check
+    rc, out = lw.run()
+    assert "PASS  gates c and d again, after the wait - gates c and d still hold after the wait" in out
 
 
 def test_running_deploy_past_the_timeout_refuses(lw):

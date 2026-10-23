@@ -11,26 +11,30 @@ Run it from the main clone, not from the item's worktree (the last step removes 
 2. Gates (every gate reported, one FAIL row each, then a refusal with nothing changed): (a) open, not a draft,
    mergeable, base main; (b) the `ci` check on the head SHA concluded success; (c) a comment whose first line is
    `Review: PASS`, posted after the last push (the later of the head commit's date and its ci run's start), and no
-   `Review: ... FAIL` first line after that push (a fresh FAIL vetoes a PASS); (d) B.'s accept: the `accepted` label,
+   `Review: ... FAIL` first line after that push (a fresh FAIL vetoes a PASS). Any FAIL word in a `Review:` first
+   line is a veto, so "Review: PASS (0 FAIL)" vetoes: reviewers write PASS lines without the word FAIL; (d) B.'s accept: the `accepted` label,
    a comment that is exactly `accepted`, or --accepted-in-chat with B.'s words and a YYYY-MM-DD date. An accept older
    than the last push prints WARN but passes (B.'s standing accepts cover later pushes).
 3. Deploy decision: --deploy auto deploys unless every changed file (and a rename's old path) is Markdown or under
    .github/. With --resume, a PASS history line that already includes the merge SHA skips the deploy (verify runs).
    The read-only NAS preflight runs BEFORE the merge, so its refusals change nothing: deploy window (07:00-21:30
    Melbourne, not 23:45-00:00 UTC; checked again after any wait), wait for a running deploy, available memory
-   >= 1,200 MB, last history.log line PASS / NOTHING-TO-DEPLOY (else --after-fail, the one retry).
+   >= 1,200 MB, last history.log line PASS / NOTHING-TO-DEPLOY (else --after-fail, the one retry). After a wait for
+   a running deploy, gates c and d are read again (a Review FAIL or a removed accept stops the merge) and, with
+   --resume, the already-deployed check runs again.
 4. --accepted-in-chat is posted as a PR comment; then ONE `gh pr merge N --squash --match-head-commit <sha>`. If that
    call fails, the PR state is read: MERGED carries on. Read-back: MERGED, merge commit on origin/main after a fetch.
-5. Deploy: start deploy.sh (it detaches), wait for a new history line: PASS and new=<merge sha>.
+5. Deploy: re-check the window (the merge can take minutes), start deploy.sh (it detaches), wait for a new history line: PASS and new=<merge sha>.
 6. Verify: NAS tree on the merge SHA; joey-hub / joey-media / joey-swag running and healthy (polls 10 s, up to 120 s,
-   while any is `starting`); COMPOSE_PROFILES=edge,media; in-container smoke; /healthz inside joey-hub.
+   while any is `starting`); COMPOSE_PROFILES=edge,media; in-container smoke; /healthz inside joey-hub (a reported
+   value is compared only when it looks like a hex SHA, else INFO).
    Reads in the history poll and verify retry an ssh failure (exit 255) up to 3 times, 10 s apart.
 7. Shipped notes on chore/JY-###-shipped from origin/main (spec Status + Shipped notes, HITLIST row), checked with
    scripts/hitlist_seed_check.py, committed (hooks run; a blocked commit is a FAIL), PR, wait for its ci,
    squash-merge. An existing chore branch is reused (open PR), skipped (merged PR) or removed when it holds no
    unpushed work. 8. Labels: drop building/review/accept/accepted, add shipped. 9. joey.py worktree remove.
 
-A FAIL stops everything after it; once the merge has happened the summary lists what is left. --dry-run runs the
+A FAIL stops everything after it; once the merge has happened the summary lists what is left and names --resume. --dry-run runs the
 read-only checks and prints DRY with the command for every change. The NAS host comes from JOEY_NAS and is never
 printed. Test seams: gh_run, nas, utc_now and sleep (and joey_common.ssh_run) are replaced by the tests.
 """
@@ -546,7 +550,7 @@ def close_out(r, a, st):
                     return f"a deploy is running (pid {pid}); a real run would wait up to {a.timeout} min"
                 if (utc_now() - t0).total_seconds() >= a.timeout * 60:
                     raise jc.Refused(f"a deploy still holds {LOCK} after {a.timeout} min")
-                waited = True
+                waited = st["waited"] = True
                 sleep(DEPLOY_POLL_S)
             if waited:
                 why = window_problem(utc_now())
@@ -569,10 +573,26 @@ def close_out(r, a, st):
                 raise jc.Refused(f"last history line is not green: {last} - look first; --after-fail is the one retry")
             return f"last history line: {last}" + ("" if green else " (--after-fail: the one retry)")
 
+        def regates():
+            v2 = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", PR_FIELDS]))
+            ok_c, detail_c, _ = gate_review(v2)
+            ok_d, detail_d = gate_accept(v2, a.accepted_in_chat, st.get("label_time"))[:2]
+            bad = ([f"gate c: {detail_c}"] if not ok_c else []) + ([f"gate d: {detail_d}"] if not ok_d else [])
+            if bad:
+                raise jc.Refused("after the wait: " + "; ".join(bad) + ": not merging")
+            return "gates c and d still hold after the wait"
+
         r.step("deploy.1 deploy window", window)
         r.step("deploy.2 no deploy running (waits)", idle)
-        r.step("deploy.3 NAS available memory", memory)
-        r.step("deploy.4 last deploy green", last_green)
+        if st.get("waited") and st["resume"]:
+            r.step("deploy.0 already deployed? (again, after the wait)", deployed)
+            if not st["deploy"]:
+                st["left"].remove("deploy")
+        if st["deploy"]:
+            r.step("deploy.3 NAS available memory", memory)
+            r.step("deploy.4 last deploy green", last_green)
+        if st.get("waited") and not st["resume"]:
+            r.step("gates c and d again, after the wait", regates)
 
     # ---- merge ----
     if not st["resume"]:
@@ -632,6 +652,9 @@ def close_out(r, a, st):
     # ---- deploy ----
     if st["deploy"]:
         def start():
+            why = window_problem(utc_now())  # the merge and read-back since deploy.1 can take minutes
+            if why:
+                raise jc.Refused(f"{why}: not starting deploy.sh")
             cmd = (f"n=$(wc -l < {HISTORY}); cd {DEPLOY} && (sh deploy.sh > {START_OUT} 2>&1 &) ; sleep 8; "
                    f"echo \"lines=$n\"; head -3 {START_OUT}")
             out = ssh_change(r, cmd, timeout=60)
@@ -730,6 +753,9 @@ def close_out(r, a, st):
                 r.log("INFO  the hub's /healthz exposes no commit SHA; NAS tree checked in verify.1 instead")
                 return f"status ok, front {h.get('front')}"
             reported = str(h[key])
+            if not re.fullmatch(r"[0-9a-f]{7,40}", reported):
+                r.log(f"INFO  /healthz {key}={reported[:20]!r} is not a commit SHA; NAS tree checked in verify.1")
+                return f"status ok, {key} {reported[:20]}"
             match = includes(clone, sha, reported) if st["resume"] else sha.startswith(reported[:7])
             if not match:
                 raise jc.Refused(f"/healthz {key}={str(h[key])[:12]}, expected {sha[:7]}")
@@ -944,6 +970,7 @@ def main(argv):
         except jc.Stop:
             if st.get("merged"):
                 runner.log("not done: " + ", ".join(st.get("left") or []))
+                runner.log(f"finish later with: python scripts/joey.py close-out {a.id} --resume")
             elif st.get("merge_state") == "UNKNOWN":
                 runner.log("the PR state is unknown after the merge call: check `gh pr view` before running again")
             else:

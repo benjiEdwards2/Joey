@@ -1,6 +1,6 @@
 # JY-010 `joey.py worktree new / remove / list`
 
-Status: building
+Status: shipped 2026-10-23
 Size: M
 Live risk: none
 Area: `scripts/joey.py`, `scripts/joey_common.py`, `scripts/joey_worktree.py`, `tests/scripts/`, `.gitignore` (one line)
@@ -48,4 +48,8 @@ Removing the 48 old worktrees (JY-021 uses this tool). `close-out` (JY-011). `pr
 None.
 
 ## Shipped notes
-(filled at close-out)
+- PR #47, squash commit `387511d` (2026-10-23). Builder Opus; review separate Sonnet agent: PASS, 0 must-fix; one fix round (proof 4a needs base `main`; additive `ssh_run()` and `Runner.ssh_change()`; `run()` closes stdin and sets `GIT_TERMINAL_PROMPT=0`; more tests). 42 tests in `tests/scripts/test_joey_worktree.py`.
+- Accept: B. in the orchestrator session, 2026-10-23: "Yes: merge Phase 2 PRs on green CI plus a clean separate-agent review, without asking me for accepted each time. Record my accept as this message."
+- Deployed with JY-013: history `2026-10-23T04:36:05Z PASS prev=1dcb7b9 new=387511d suite green, smoke ok`, dur 899 s; NAS tree, containers, profile and smoke all PASS.
+- First real use: `worktree remove JY-013` and `worktree remove JY-010` removed both worktrees and branches (proof: PR MERGED into main at the local tip). `worktree list` reads 51 worktrees in about 4.5 s.
+- Follow-ups: `CLAUDE.md` Commands and `docs/PROCESS.md` "Branches and worktrees" TODO(JY-010) lines should name `python scripts/joey.py worktree new|remove|list` (B. edits those files). `tests/scripts/` adds about 2 min serial on Windows (git subprocesses); watch gate time (JY-227).

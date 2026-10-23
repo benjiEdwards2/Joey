@@ -28,10 +28,10 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-010 | `joey.py worktree new/remove` | Tooling | M | building | One worktree per item, safe removal · PR #47 | — |
-| JY-011 | `joey.py close-out` (merge, deploy, verify) | Tooling | L | idea | Claude merges and deploys with checks | — |
-| JY-012 | Preview slot `joey-preview` on the NAS | NAS/deploy | L | idea | B. accepts on a preview before merge | — |
-| JY-013 | `scripts/budgets.py` (perf budgets) | Tooling | M | building | Speed limits become a check · PR #48 | — |
+| JY-010 | `joey.py worktree new/remove` | Tooling | M | [x] shipped | One worktree per item, safe removal · PR #47 | [spec](docs/specs/JY-010-worktree.md) |
+| JY-011 | `joey.py close-out` (merge, deploy, verify) | Tooling | L | review | Claude merges and deploys with checks · PR #50 | — |
+| JY-012 | Preview slot `joey-preview` on the NAS | NAS/deploy | L | review | B. accepts on a preview before merge · PR #51 | — |
+| JY-013 | `scripts/budgets.py` (perf budgets) | Tooling | M | [x] shipped | Speed limits become a check · PR #48; found JY-226, JY-227 | [spec](docs/specs/JY-013-budgets.md) |
 | JY-014 | Hands bundle: allow rules, preview hostname, "full permission" | B.'s hands | S | idea | Unblocks push, merge, deploy by Claude | — |
 
 ### Phase 3 — Clean slate
@@ -125,6 +125,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-142 | WUD real check interval vs 180-min Stale rule | Server | S | idea | Verify live, then adjust | — |
 | JY-143 | Prowlarr indexerstats window | Server | S | idea | If cumulative, amber never clears; verify live | — |
 | JY-144 | "Uptime Kuma metrics failed" on Joey /server | Server | S | idea | Pre-existing payload error | — |
+| JY-226 | Server page render over budget (p95 52-56 ms, budget 50) | Server | S | idea | `scripts/budgets.py` 2026-10-23: `/a/server` warm p95 52 ms then 56 ms, max ~125 ms; profile it | — |
 
 ### Awards
 
@@ -189,6 +190,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-207 | Cloudflare edge-cache rule (optional) | NAS | S | idea | Cache /static and /img; see `docs/setup.md` | — |
 | JY-208 | TailScale container running on the NAS | NAS | S | idea | Flagged only; keep or remove | — |
 | JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | idea | Unpublish LAN ports 9000/7878/8989/3001/3030/3000; drop the Homepage hostname; B. or Claude in a NAS window | — |
+| JY-227 | Full deploy gate over its 10 min budget (15.3 min) | NAS/deploy | M | idea | `scripts/budgets.py` 2026-10-23: last PASS took 918 s; find where the time goes (image build, suite `-n 2`, smoke) | — |
 
 ### Housekeeping
 

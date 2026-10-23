@@ -28,10 +28,10 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-010 | `joey.py worktree new/remove` | Tooling | M | idea | One worktree per item, safe removal | — |
+| JY-010 | `joey.py worktree new/remove` | Tooling | M | building | One worktree per item, safe removal · PR #47 | — |
 | JY-011 | `joey.py close-out` (merge, deploy, verify) | Tooling | L | idea | Claude merges and deploys with checks | — |
 | JY-012 | Preview slot `joey-preview` on the NAS | NAS/deploy | L | idea | B. accepts on a preview before merge | — |
-| JY-013 | `scripts/budgets.py` (perf budgets) | Tooling | M | idea | Speed limits become a check | — |
+| JY-013 | `scripts/budgets.py` (perf budgets) | Tooling | M | building | Speed limits become a check · PR #48 | — |
 | JY-014 | Hands bundle: allow rules, preview hostname, "full permission" | B.'s hands | S | idea | Unblocks push, merge, deploy by Claude | — |
 
 ### Phase 3 — Clean slate

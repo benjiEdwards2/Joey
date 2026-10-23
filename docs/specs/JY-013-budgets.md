@@ -1,6 +1,6 @@
 # JY-013 `scripts/budgets.py` (measure the performance budgets)
 
-Status: building
+Status: shipped 2026-10-23
 Size: M
 Live risk: none (read-only GETs inside joey-hub and read-only NAS commands; nothing is written)
 Area: `scripts/budgets.py`, `tests/scripts/`
@@ -48,4 +48,8 @@ Failing deploys on budgets (`deploy.sh` stays as it is). Preview-slot measuremen
 None.
 
 ## Shipped notes
-(filled at close-out)
+- PR #48, squash commit `4b1499b` (2026-10-23). Builder Opus; review separate Sonnet agent: PASS, 0 must-fix; one fix round (bare NAS host scrubbed from ssh errors; missing `history.log` is ERROR; exit-0 tests use generous budgets). 20 tests.
+- Accept: B.'s standing instruction relayed by the JoeyV2 coordinator, confirmed by B. in the orchestrator session on 2026-10-23 (see JY-010's notes for his words).
+- Deployed with JY-010 at `387511d` (history PASS, dur 899 s).
+- Live run on production (afternoon of the ship date), n=20: hub pages p95 52 ms (`/a/server`; 56 ms on a re-run) FAIL; media list/item p95 26 ms PASS; Discover 1.80 s cold / 0.03 s warm PASS; joey-hub 111.8 MiB PASS; NAS available 1,632 MB PASS; full gate 15.3 min FAIL. Exit 1.
+- Follow-ups: JY-226 (`/a/server` over 50 ms), JY-227 (full gate over 10 min). `CLAUDE.md` TODO(JY-013) line (B. edits): "`python scripts/budgets.py` measures the budgets on the NAS (`--local URL` for a dev hub; exit 0 ok / 1 over / 2 not measured)."

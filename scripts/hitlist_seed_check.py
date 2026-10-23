@@ -264,6 +264,8 @@ SOURCES = [
     (SR, "P10 Weekly summary", "JY-136", ""),
     ("JY-006 builder report (2026-10-23)", "flaky test_metadata_long_request_state_short", "JY-224", "found under -n 16 load"),
     ("JY-006 builder report (2026-10-23)", "flaky test_runner_history_tail 2 ms limit", "JY-225", "found under -n 16 load"),
+    ("JY-013 live run (2026-10-23)", "/a/server warm p95 over 50 ms", "JY-226", "measured twice: 52 and 56 ms"),
+    ("JY-013 live run (2026-10-23)", "full deploy gate 15.3 min over 10 min", "JY-227", "history.log dur=918s"),
 ]
 
 

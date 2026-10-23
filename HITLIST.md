@@ -16,9 +16,9 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-001 | Repo `CLAUDE.md` (rules, stack, definition of done) | Docs | S | [x] shipped | Rules live in the repo · PR #38 | — |
 | JY-002 | `docs/PROCESS.md`, spec template, PR template | Docs | S | [x] shipped | One loop everyone follows · PR #41 | — |
-| JY-003 | `docs/PLAN.md` (vision, areas, open decisions) | Docs | M | building | One page for where Joey is going | — |
-| JY-004 | `HITLIST.md` seeded + check script | Docs | M | building | One backlog for every open item | — |
-| JY-005 | `docs/reference/tech-notes.md` (gotchas by area) | Docs | M | building | Stop re-learning old traps | — |
+| JY-003 | `docs/PLAN.md` (vision, areas, open decisions) | Docs | M | [x] shipped | One page for where Joey is going | — |
+| JY-004 | `HITLIST.md` seeded + check script | Docs | M | [x] shipped | One backlog for every open item | — |
+| JY-005 | `docs/reference/tech-notes.md` (gotchas by area) | Docs | M | [x] shipped | Stop re-learning old traps | — |
 | JY-006 | CI fast check on PR and `main` | CI | M | [x] shipped | Catch breakage before merge · PR #37; also fixed a film-page shelves race | — |
 | JY-007 | Repo settings + labels | GitHub | S | [x] shipped | Squash only, labels set | — |
 | JY-008 | JoeyV2 docs into the repo (`docs/joeyv2/`) | Docs | S | [x] shipped | B. reads the plan on GitHub · PR #39 | — |

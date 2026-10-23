@@ -16,19 +16,22 @@ from tests.hub.test_server_alerts import posts  # noqa: F401  (the fake webhook 
 
 NOW = datetime(2026, 10, 20, 2, 0, tzinfo=timezone.utc)
 DISCORD = "Joey Server: Disk: reaches 85% in about 23 days (Volume 1, 412 GB free)"
+# The hub-level tests freeze server_history's clock here (fix round 2026-10-23: no real datetime.now()). It lies after
+# any envelope a test writes, so the tick's own system sample is never newer than the seeded line and is skipped.
+LATER = datetime(2099, 1, 1, 3, 0, tzinfo=timezone.utc)
 
 
-def linear(days_left, now=NOW, free=412.0, gap_h=0, path="/volume1"):
-    """15 samples 12 h apart over 7 days, +1 %/day, ending at 85 - days_left (so disk_days == days_left exactly);
-    the newest is `gap_h` hours old (over 24 => collecting)."""
-    last = 85 - days_left
+def linear(days_left, now=NOW, free=412.0, gap_h=0, path="/volume1", slope=1.0):
+    """15 samples 12 h apart over 7 days, +`slope` %/day, ending at 85 - days_left * slope (so disk_days ==
+    days_left); the newest is `gap_h` hours old (over 24 => collecting). A negative days_left ends over 85 %."""
+    last = 85 - days_left * slope
     return [{"at": now - timedelta(hours=12 * k + gap_h), "cpu_pct": 5.0, "ram_pct_used": 70, "ram_free_gb": 2.0,
-             "load_1m": 0.1, "volumes": [{"path": path, "pct_used": last - k / 2, "free_gb": free}]}
+             "load_1m": 0.1, "volumes": [{"path": path, "pct_used": last - k / 2 * slope, "free_gb": free}]}
             for k in range(14, -1, -1)]
 
 
-def flat(now=NOW, gap_h=0):
-    return [{**s, "volumes": [{"path": "/volume1", "pct_used": 60.0, "free_gb": 412.0}]}
+def flat(now=NOW, gap_h=0, pct=60.0):
+    return [{**s, "volumes": [{"path": "/volume1", "pct_used": pct, "free_gb": 412.0}]}
             for s in linear(23, now, gap_h=gap_h)]
 
 
@@ -62,14 +65,21 @@ def test_forecast_item_words_volume_name_and_rounding():
     assert item == {"key": "forecast:/volume1", "text": "Disk: reaches 85% in about 23 days (Volume 1, 412 GB free)",
                     "words": "reaches 85% in about 23 days"}
     assert server.forecast_item("/volume2", 22.6, 2130.7)["text"] == (
-        "Disk: reaches 85% in about 23 days (Volume 2, 2,131 GB free)")
-    # N days: nearest whole day (Python round: a tie goes to the even day), at least 1
-    assert server.forecast_item("/volume1", 22.5)["words"] == "reaches 85% in about 22 days"
-    assert server.forecast_item("/volume1", 0.3)["words"] == "reaches 85% in about 1 day"
+        "Disk: reaches 85% in about 22 days (Volume 2, 2,131 GB free)")
+    # N days (fix round 2026-10-23): whole days rounded DOWN, at least 1, so an item opened under 30 never reads 30
+    words = {d: server.forecast_item("/volume1", d)["words"] for d in (29.6, 22.5, 1.2, 0.3, 1000.9)}
+    assert words == {29.6: "reaches 85% in about 29 days", 22.5: "reaches 85% in about 22 days",
+                     1.2: "reaches 85% in about 1 day", 0.3: "reaches 85% in about 1 day",
+                     1000.9: "reaches 85% in about 1,000 days"}
+    # no number: kept open at or over the target, or restored with no projection yet
+    assert server.forecast_item("/volume1", None, 3, full=True)["text"] == "Disk: at or over 85% (Volume 1, 3 GB free)"
+    assert server.forecast_item("/volume1", None)["words"] == "filling fast"
     # a path that is not /volumeN stays the path; no free number => no free words
     assert server.forecast_item("/data/snapshots", 9, None)["text"] == (
         "Disk: reaches 85% in about 9 days (/data/snapshots)")
-    assert server.volume_name("/volume12") == "Volume 12" and server.volume_name("/volume1/Docker") == "/volume1/Docker"
+    # fix round (2026-10-23): any path under /volumeN is that volume, so the sample data reads "(Volume 1, ...)"
+    assert [server.volume_name(p) for p in ("/volume12", "/volume1/Docker", "/volume1x", "/data/volume1")] == [
+        "Volume 12", "Volume 1", "/volume1x", "/data/volume1"]
 
 
 def test_discord_message_is_exact_against_a_fake_webhook(posts):
@@ -202,7 +212,8 @@ def test_hub_page_card_shows_the_forecast_and_needs_attention(tmp_path, monkeypa
 
 def test_hub_card_server_page_and_loop_build_the_same_key_set(posts, tmp_path, monkeypatch):
     main, client = _hub(tmp_path, monkeypatch)
-    _seed(linear(23, now=datetime.now(timezone.utc).replace(microsecond=0)))   # newer than the system snapshot
+    _seed(linear(23, now=LATER))
+    monkeypatch.setattr(server_history, "_now", lambda: LATER)
     real_items, real_recent = server.attention_items, server_history.recent
     keysets, reads = [], []
 
@@ -239,7 +250,8 @@ def test_server_page_shows_the_cached_forecast_in_attention(tmp_path, monkeypatc
 def test_cold_start_server_render_computes_once_then_reads_the_cache(tmp_path, monkeypatch):
     """The minute after a start (no tick yet): the /server render computes from its own samples, once."""
     _, client = _hub(tmp_path, monkeypatch)
-    _seed(linear(23, now=datetime.now(timezone.utc).replace(microsecond=0)))
+    _seed(linear(23, now=LATER))
+    monkeypatch.setattr(server_history, "_now", lambda: LATER)
     steps = []
     real_step = server.forecast_step
     monkeypatch.setattr(server, "forecast_step", lambda *a, **k: steps.append(1) or real_step(*a, **k))
@@ -251,7 +263,8 @@ def test_cold_start_server_render_computes_once_then_reads_the_cache(tmp_path, m
 
 def test_hub_render_before_the_first_tick_has_no_forecast_and_reads_no_history(tmp_path, monkeypatch):
     _, client = _hub(tmp_path, monkeypatch)
-    _seed(linear(23, now=datetime.now(timezone.utc).replace(microsecond=0)))
+    _seed(linear(23, now=LATER))
+    monkeypatch.setattr(server_history, "_now", lambda: LATER)
     reads = []
     monkeypatch.setattr(server_history, "recent", lambda *a, **k: reads.append(1) or [])
     with client:
@@ -264,3 +277,93 @@ def test_seen_keys_never_creates_media_db():
     media_db.db_path().parent.mkdir(parents=True, exist_ok=True)
     sqlite3.connect(media_db.db_path()).close()        # a db without the table
     assert server_alerts.seen_keys("forecast:") == set()
+
+
+# ---- fix round (2026-10-23) ---------------------------------------------------------------------------------------
+
+def test_reaching_85_while_open_stays_one_silent_episode(posts):
+    """84.9 -> 85.1 -> 84.9 while still filling: one post in all (the orchestrator's answer to B.'s question)."""
+    for days in (0.1, -0.1, 0.1, -0.1, 0.1):
+        tick(linear(days))
+    assert disk_posts(posts) == ["Joey Server: Disk: reaches 85% in about 1 day (Volume 1, 412 GB free)"]
+    tick(linear(-0.1))
+    assert server_history.forecast()["words"] == "at or over 85%" and seen_rows() == ["forecast:/volume1"]
+
+
+def test_at_85_a_closed_episode_does_not_open():
+    st = server.forecast_step(None, linear(-0.1), NOW)
+    assert not st["open"] and st["item"] is None
+
+
+def test_the_85_episode_clears_on_a_flat_disk_or_on_a_slow_projection_below_85(posts):
+    tick(linear(0.1))
+    tick(linear(-0.1))
+    tick(flat(pct=86.0))                                 # flat while full: ends
+    assert seen_rows() == [] and len(disk_posts(posts)) == 1
+    tick(linear(0.1))                                    # filling fast again: a new episode
+    tick(linear(-0.1))
+    tick(linear(40, slope=0.02))                         # under 85 again, filling slowly: 40 days keeps it open
+    assert seen_rows() == ["forecast:/volume1"] and len(disk_posts(posts)) == 2
+    tick(linear(50, slope=0.02))                         # the full item cleared and the projection is over 45: ends
+    assert seen_rows() == [] and len(disk_posts(posts)) == 2
+
+
+def test_a_restart_while_collecting_with_no_projection_keeps_the_episode(posts):
+    tick(linear(25))
+    server_history.reset_forecast()                      # restart, then the NAS was off: collecting, flat history
+    tick(flat(gap_h=40))
+    st = server_history._forecast
+    assert st["open"] and st["collecting"] and st["item"]["text"] == "Disk: filling fast (Volume 1, 412 GB free)"
+    assert seen_rows() == ["forecast:/volume1"] and len(disk_posts(posts)) == 1
+    tick(flat())                                         # a real computed flat projection ends it
+    assert seen_rows() == [] and len(disk_posts(posts)) == 1
+
+
+def test_a_failed_first_compute_skips_the_forecast_and_keeps_the_rest(posts, monkeypatch, caplog):
+    import logging
+    tick(linear(25))                                     # an episode is open and posted
+    server_history.reset_forecast()
+    monkeypatch.setattr(server, "forecast_step", lambda *a, **k: 1 / 0)
+    item = {"key": "down:prowlarr", "text": "Prowlarr is Down"}
+    monkeypatch.setattr(server, "attention_items", lambda *a, **k: [item] + ([a[5]] if len(a) > 5 and a[5] else []))
+    with caplog.at_level(logging.WARNING, logger="hub.server_alerts"):
+        assert server_alerts.check_once(set(), {}) == 1  # the other alert still goes
+    assert posts[-1]["text"] == "Joey Server: Prowlarr is Down"
+    assert seen_rows() == ["forecast:/volume1"] and len(disk_posts(posts)) == 1   # the forecast row stays
+    assert "disk forecast skipped this time: ZeroDivisionError" in caplog.text and "SECRET" not in caplog.text
+
+
+def test_server_render_with_a_failed_forecast_still_renders_and_keeps_the_row(posts, tmp_path, monkeypatch):
+    tick(linear(25))
+    server_history.reset_forecast()
+    _, client = _hub(tmp_path, monkeypatch)
+    monkeypatch.setattr(server, "forecast_step", lambda *a, **k: 1 / 0)
+    with client:
+        assert client.get("/server").status_code == 200
+        assert client.get("/server/space").status_code == 200
+    assert seen_rows() == ["forecast:/volume1"] and len(disk_posts(posts)) == 1
+
+
+def test_free_space_days_follow_the_cached_forecast(tmp_path, monkeypatch):
+    """Free space's "(≈ N days)" appears exactly when the Server page's Attention has the forecast (reviewer B)."""
+    from hub import server_space
+    from tests.hub.test_server_space import snaps as space_snaps
+    system = {"volumes": [{"path": "/volume1", "total_gb": 1000.0, "free_gb": 412.0, "pct_used": 62}]}
+    samples = linear(23)
+    st = server.forecast_step(None, samples, NOW)
+    with_days = server_space.build(space_snaps(system=system), samples, NOW, forecast=st["item"])["head"]
+    assert with_days.startswith("Removing all 4 frees ~85 GB (≈ ") and with_days.endswith(" at this rate)")
+    # 35 days: history_band has no forecast (over 30), but an open episode does - Free space follows the episode
+    open35 = server.forecast_step(st, linear(35), NOW)["item"]
+    assert server.history_band(linear(35), NOW)["forecast"] is None and open35 is not None
+    assert "(≈ " in server_space.build(space_snaps(system=system), linear(35), NOW, forecast=open35)["head"]
+    assert "(≈ " not in server_space.build(space_snaps(system=system), samples, NOW, forecast=None)["head"]
+
+
+def test_free_space_page_reads_the_cache(tmp_path, monkeypatch):
+    _, client = _hub(tmp_path, monkeypatch)
+    calls = []
+    monkeypatch.setattr(server_history, "forecast", lambda *a, **k: calls.append(1) or None)
+    with client:
+        assert client.get("/server/space").status_code == 200
+    assert calls == [1]

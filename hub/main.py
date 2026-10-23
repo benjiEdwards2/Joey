@@ -225,14 +225,15 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     """The `layout: server` page (WP-S1, 2026-10-06): bands built by hub/server.py."""
     snaps = shell.get_snapshots(request=request)
     samples = server_history.recent()
+    forecast, keep = server_alerts.forecast_or_keep(server_history.forecast, samples)   # JY-031: the loop's cache
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
                                   get_runner_history(), samples,
                                   live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
                                   gated=shell.registry.gated_hrefs,
-                                  forecast=server_history.forecast(samples))   # JY-031: the loop's cached forecast
+                                  forecast=forecast)
     after = BackgroundTasks()
-    after.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
+    after.add_task(server_alerts.sync, sv["attention_items"], keep=keep)  # WP-U2: Discord push after the page
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = shell.render_page(request, "server.html", {
         "area": area, "sv": sv,

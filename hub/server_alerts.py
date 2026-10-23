@@ -42,6 +42,7 @@ MAX_FAILS = 3   # H-67: a key whose push failed this often is not retried until 
 FIRST_DELAY_S = 60
 EVERY_S = 300
 PREFIX = "Joey Server: "
+FORECAST_PREFIX = "forecast:"   # JY-031: the disk forecast's keys (hub/server.py forecast_item)
 
 DDL = """CREATE TABLE IF NOT EXISTS server_attention_seen(
   key TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, notified_at TEXT, fails INTEGER NOT NULL DEFAULT 0)"""
@@ -72,9 +73,10 @@ def post(url: str, text: str) -> bool:
     return False
 
 
-def sync(items: list[dict], now: datetime | None = None) -> int:
+def sync(items: list[dict], now: datetime | None = None, keep: tuple[str, ...] = ()) -> int:
     """Reconcile `items` ([{key, text}]) with server_attention_seen and push new ones.
-    Returns the number of messages sent. No webhook ⇒ 0, untouched. Never raises."""
+    Returns the number of messages sent. No webhook ⇒ 0, untouched. Never raises. `keep` (JY-031): key prefixes
+    whose rows stay even when absent (a forecast that could not be worked out this time is unknown, not gone)."""
     url = webhook()
     if not url:
         return 0
@@ -91,6 +93,8 @@ def sync(items: list[dict], now: datetime | None = None) -> int:
                         db.execute("SELECT key, notified_at, fails FROM server_attention_seen")}
                 with db:
                     for key in set(rows) - set(current):
+                        if keep and key.startswith(keep):
+                            continue
                         db.execute("DELETE FROM server_attention_seen WHERE key = ?", (key,))
                     for key in current:
                         db.execute("INSERT INTO server_attention_seen(key, first_seen, last_seen) "
@@ -160,7 +164,19 @@ def check_once(live: set[str] | None = None, snaps=None) -> int:
 
     if live is None:
         live = _live_from_config()
+    forecast, keep = forecast_or_keep(server_history.forecast)
     items = server.attention_items(get_snapshots() if snaps is None else snaps, media_backup.current_status(),
                                    get_runner(),
-                                   server.sweep_stats(get_runner_history()), live, server_history.forecast())
-    return sync(items)
+                                   server.sweep_stats(get_runner_history()), live, forecast)
+    return sync(items, keep=keep) if keep else sync(items)
+
+
+def forecast_or_keep(read, *args) -> tuple[dict | None, tuple[str, ...]]:
+    """(the cached forecast item, ()) from `read(*args)`; when it raises (a failed first compute), (None, the forecast
+    prefix) with one log line naming the error type only, so the other alerts still go and the forecast's seen-row
+    stays (JY-031 fix round)."""
+    try:
+        return read(*args), ()
+    except Exception as exc:
+        log.warning("disk forecast skipped this time: %s", type(exc).__name__)
+        return None, (FORECAST_PREFIX,)

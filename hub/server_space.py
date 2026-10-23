@@ -9,8 +9,9 @@ snapshot's `library_sizes` (connectors/feeds/arr.py), watch state from the jelly
   TMDB id (Jellyfin's show key prefers TMDB, Sonarr's own key is TheTVDB), and Sonarr says the series has `ended`.
 * Joined by provider ids from the rows' `item_key` (`tmdb:<id>` / `tvdb:<id>`), never by title.
 * The TOP biggest of each, then one list by size. The head line adds "(≈ N days at this rate)" only when the Server
-  page's disk forecast exists (`server.history_band(...)["forecast"]`, under 30 days): the freed share of the
-  forecast volume over its least-squares rate (`server.disk_days`).
+  page's disk forecast exists: the freed share of the forecast volume over its least-squares rate (`server.disk_days`).
+  JY-031 (2026-10-23, fix round): the forecast is the hub loop's cached item (hub/server_history.py `forecast`), the
+  one in the Server page's Attention, so the two never disagree (was `server.history_band(...)["forecast"]`).
 
 Owner-only: PRIVATE in hub/guest.py (the media front 404s it). Watch state is the owner's ("you") Jellyfin rows.
 """
@@ -21,7 +22,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import server, server_history, shell
+from hub import server, server_alerts, server_history, shell
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, SYSTEM_SNAPSHOT_ID, home_tz
 from hub.media_home import row_href
 from hub.media_text import plural, short_date
@@ -101,9 +102,9 @@ def _biggest(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda r: (-r["size"], str(r["title"]).casefold()))
 
 
-def freed_days(freed_bytes: int, samples, snaps, now: datetime | None = None) -> float | None:
-    """Days of growth the freed bytes buy back at the forecast's rate, or None when the Server page has no forecast."""
-    forecast = server.history_band(samples, now)["forecast"]
+def freed_days(freed_bytes: int, samples, snaps, forecast: dict | None = None) -> float | None:
+    """Days of growth the freed bytes buy back at the forecast's rate, or None when the Server page has no forecast.
+    `forecast`: the cached forecast item (JY-031), the one the Server page's Attention shows."""
     if not forecast or freed_bytes <= 0:
         return None
     path = forecast["key"].partition(":")[2]
@@ -118,8 +119,10 @@ def freed_days(freed_bytes: int, samples, snaps, now: datetime | None = None) ->
     return (freed_bytes / GIB) / total * 100 / rate if rate > 0 else None
 
 
-def build(snaps, samples=None, now: datetime | None = None) -> dict:
-    """{connected, rows, head, empty}. `rows`: [{kind, title, year, size, size_text, state_text, href}] biggest first."""
+def build(snaps, samples=None, now: datetime | None = None, forecast: dict | None = None) -> dict:
+    """{connected, rows, head, empty}. `rows`: [{kind, title, year, size, size_text, state_text, href}] biggest first.
+    `forecast`: the cached disk forecast item (JY-031), else no "(≈ N days)". `now`: unused since JY-031 (the cache
+    holds the clock), kept for callers."""
     sizes = data_of(snaps.get(ARR_SNAPSHOT_ID)).get("library_sizes")
     if not isinstance(sizes, dict) or not connected(snaps.get(JELLYFIN_SNAPSHOT_ID)):
         return {"connected": False, "rows": [], "head": None, "empty": NOT_CONNECTED}
@@ -134,7 +137,7 @@ def build(snaps, samples=None, now: datetime | None = None) -> dict:
     gb = freed / GIB
     head = (f"Removing {'it' if len(rows) == 1 else f'all {len(rows)}'} frees ~"
             + (f"{gb:,.0f} GB" if gb >= 10 else f"{gb:.1f} GB"))
-    days = freed_days(freed, samples, snaps, now)
+    days = freed_days(freed, samples, snaps, forecast)
     if days is not None:
         head += f" (≈ {server._days_text(days)} at this rate)"
     return {"connected": True, "rows": rows, "head": head, "empty": None}
@@ -145,5 +148,7 @@ def space_page(request: Request):
     area = next((a for a in shell.registry.areas if a.layout == server.SERVER_LAYOUT), None)
     if area is None:
         return shell.not_found_page(request)
-    sp = build(shell.get_snapshots(request=request), server_history.recent())
+    samples = server_history.recent()
+    forecast, _ = server_alerts.forecast_or_keep(server_history.forecast, samples)   # JY-031: as on the Server page
+    sp = build(shell.get_snapshots(request=request), samples, forecast=forecast)
     return shell.render_page(request, "server_space.html", {"area": area, "sp": sp}, active_id=area.id)

@@ -484,7 +484,7 @@ PROJECTION_MAX_DAYS = 3650  # 10 years: beyond that the trend reads "flat"
 COLLECTING = "Collecting history · first chart after a few sweeps"
 FORECAST_ATTENTION_DAYS = 30   # WP-T3 (2026-10-19, S6): a projection under this joins the page's Attention
 FORECAST_END_DAYS = 45   # JY-031 (2026-10-23, B. 3a): an open forecast episode ends only over this (or flat/shrinking)
-_VOLUME_RE = re.compile(r"/volume(\d+)")
+_VOLUME_RE = re.compile(r"/volume(\d+)(?:/|$)")
 
 
 def _spark(label: str, points: list, start: datetime, digits: int = 0) -> dict | None:
@@ -524,18 +524,25 @@ def disk_days(points: list) -> float | None:
     (WP-T3, 2026-10-19: lifted out of `disk_trend` so the projection can also reach Attention)."""
     if len(points) < 2:
         return None
+    if (points[-1][0] - points[0][0]).total_seconds() < 86400 or points[-1][1] >= DISK_TARGET_PCT:
+        return None
+    slope = _slope(points)
+    if slope <= 0:
+        return None
+    days = (DISK_TARGET_PCT - points[-1][1]) / slope
+    return days if days < PROJECTION_MAX_DAYS else None
+
+
+def _slope(points: list) -> float:
+    """The least-squares rate of `points` [(at, pct)], in % per day (0.0 when it cannot be worked out)."""
+    if len(points) < 2:
+        return 0.0
     t0 = points[0][0]
     xs = [(at - t0).total_seconds() / 86400 for at, _ in points]
     ys = [v for _, v in points]
-    if (points[-1][0] - t0).total_seconds() < 86400 or ys[-1] >= DISK_TARGET_PCT:
-        return None
     mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
     var = sum((x - mx) ** 2 for x in xs)
-    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
-    if slope <= 0:
-        return None
-    days = (DISK_TARGET_PCT - ys[-1]) / slope
-    return days if days < PROJECTION_MAX_DAYS else None
+    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var if var else 0.0
 
 
 def _days_text(days: float) -> str:
@@ -596,16 +603,30 @@ def history_band(samples, now: datetime | None = None) -> dict:
 
 
 def volume_name(path) -> str:
-    """'/volume1' -> 'Volume 1', the NAS's own name for the volume (JY-031); any other path as it is."""
-    m = _VOLUME_RE.fullmatch(str(path))
+    """'/volume1' or anything under it ('/volume1/Docker') -> 'Volume 1', the NAS's own name for the volume (JY-031);
+    any other path as it is."""
+    m = _VOLUME_RE.match(str(path))
     return f"Volume {m.group(1)}" if m else str(path)
 
 
-def forecast_item(path: str, days: float, free_gb=None) -> dict:
-    """The disk forecast's Attention item (JY-031): {key `forecast:<path>`, text "Disk: reaches 85% in about 23 days
-    (Volume 1, 412 GB free)" (Discord adds "Joey Server: "), words "reaches 85% in about 23 days" (hub card meta)}.
-    N days is `_days_text`: the nearest whole day (Python round, a tie to the even day), at least 1."""
-    words = f"reaches {DISK_TARGET_PCT}% in about {_days_text(days)}"
+def _floor_days_text(days: float) -> str:
+    """Whole days, rounded DOWN, at least 1 (JY-031 fix round): an item that opened under 30 never reads 30."""
+    n = max(1, math.floor(days))
+    return f"{n:,} day{'' if n == 1 else 's'}"
+
+
+def forecast_item(path: str, days: float | None, free_gb=None, full: bool = False) -> dict:
+    """The disk forecast's Attention item (JY-031): {key `forecast:<path>`, text, words (the hub card's meta)}.
+    text "Disk: reaches 85% in about 23 days (Volume 1, 412 GB free)" (Discord adds "Joey Server: "); N days is
+    `_floor_days_text`. Two words without a number, for an episode kept open with no projection: `full` (at or over
+    the target, the "is 85% full" item speaks) "at or over 85%"; no projection yet (a restart while collecting)
+    "filling fast"."""
+    if full:
+        words = f"at or over {DISK_TARGET_PCT}%"
+    elif days is None:
+        words = "filling fast"
+    else:
+        words = f"reaches {DISK_TARGET_PCT}% in about {_floor_days_text(days)}"
     free = _num(free_gb)
     where = volume_name(path) + (f", {free:,.0f} GB free" if free is not None else "")
     return {"key": f"forecast:{path}", "text": f"Disk: {words} ({where})", "words": words}
@@ -624,28 +645,39 @@ def _vol_free(rows: list, path):
     return None
 
 
+def _closed(path=None, days=None, collecting=False) -> dict:
+    return {"open": False, "path": path, "days": days, "collecting": collecting, "item": None}
+
+
 def _forecast_keep(prev: dict, rows: list) -> dict:
-    """Collecting, or under 24 h of history: nothing new to judge, so the episode keeps its state. A cold start (open,
-    no item: restored from the seen-row) rebuilds its item from the 7-day projection; with none, it closes."""
-    path = prev.get("path")
-    if prev.get("open") and prev.get("item"):
+    """Collecting, or under 24 h of history: nothing new to judge, so the episode keeps its state (rule 5). An open
+    episode keeps its item; one restored from the seen-row (open, no item yet) gets one from what the 7-day history
+    can say (a projection, at or over the target, else "filling fast") and stays open either way: only a real
+    computed projection over 45 days, or a flat or shrinking disk, ends it."""
+    if not prev.get("open"):
+        return _closed(prev.get("path"), prev.get("days"), collecting=True)
+    if prev.get("item"):
         return {**prev, "collecting": True}
-    days = disk_days(_week(rows, path)) if prev.get("open") and path else None
-    if days is None:
-        return {"open": False, "path": path, "days": None, "collecting": True, "item": None}
+    path = prev.get("path")
+    week = _week(rows, path)
+    days = disk_days(week)
+    full = bool(week) and week[-1][1] >= DISK_TARGET_PCT
     return {"open": True, "path": path, "days": days, "collecting": True,
-            "item": forecast_item(path, days, _vol_free(rows, path))}
+            "item": forecast_item(path, days, _vol_free(rows, path), full=full and days is None)}
 
 
 def forecast_step(prev: dict | None, samples, now: datetime | None = None) -> dict:
-    """One hub-loop tick of the disk forecast episode (JY-031, B.'s pick 2026-10-23: 1A 2a 3a 4a).
-    prev: the last state, or None; samples: server_history.recent() rows (7 days, oldest first).
+    """One hub-loop tick of the disk forecast episode (JY-031, B.'s pick 2026-10-23: 1A 2a 3a 4a; fix round the same
+    day). prev: the last state, or None; samples: server_history.recent() rows (7 days, oldest first).
     -> {open, path, days, collecting, item}; item (`forecast_item`) only while the episode is open.
     - Collecting (fewer than 2 samples in the last 24 h, history_band's rule) or under 24 h of history: the state is
-      kept, so an open episode stays open and a return after an outage does not post again.
-    - Else the fullest volume's 7-day projection (`disk_days`): a closed episode opens under FORECAST_ATTENTION_DAYS
-      (30); an open one ends only over FORECAST_END_DAYS (45), or when `disk_days` is None (flat, shrinking, at or
-      over the target, or 10 years and more). A projection between 30 and 45 days keeps whatever state it had."""
+      kept (`_forecast_keep`), so an open episode stays open and a return after an outage does not post again.
+    - At or over the target (85 %) while open: the episode stays open and silent (same key, words "at or over 85%")
+      while the disk still grows, so 84.9 -> 85.1 -> 84.9 posts once; a closed one does not open (the "is 85% full"
+      item speaks). Flat or shrinking ends it.
+    - Below the target, the fullest volume's 7-day projection (`disk_days`): a closed episode opens under
+      FORECAST_ATTENTION_DAYS (30); an open one ends only over FORECAST_END_DAYS (45), or when it is flat or shrinking
+      (or 10 years and more). A projection between 30 and 45 days keeps whatever state it had."""
     now = now or datetime.now(timezone.utc)
     prev = prev or {}
     rows = [s for s in samples or [] if isinstance(s, dict) and isinstance(s.get("at"), datetime)]
@@ -659,8 +691,14 @@ def forecast_step(prev: dict | None, samples, now: datetime | None = None) -> di
     week = _week(rows, path)
     if len(week) < 2 or (week[-1][0] - week[0][0]).total_seconds() < 86400:
         return _forecast_keep(prev, rows)
+    same = bool(prev.get("open")) and prev.get("path") == path
+    if week[-1][1] >= DISK_TARGET_PCT:
+        if same and _slope(week) > 0:
+            return {"open": True, "path": path, "days": None, "collecting": False,
+                    "item": forecast_item(path, None, _vol_free(rows, path), full=True)}
+        return _closed(path)
     days = disk_days(week)
-    if prev.get("open") and prev.get("path") == path:
+    if same:
         is_open = days is not None and days <= FORECAST_END_DAYS
     else:
         is_open = days is not None and days < FORECAST_ATTENTION_DAYS

@@ -268,6 +268,9 @@ SOURCES = [
     ("JY-013 live run (2026-10-23)", "full deploy gate 15.3 min over 10 min", "JY-227", "history.log dur=918s"),
     ("JY-012 Opus verifier (2026-10-23)", "preview should-fixes: deploy lock, JOEY_FRONT pin", "JY-228", "not blocking the merge"),
     ("JY-011 first live use (2026-10-23)", "dry-run docs.1 FAIL before merge; slow tests/scripts", "JY-229", "close-out PASS=42 otherwise"),
+    ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq1 worktree", "JY-230", "built 2026-10-22, never reviewed"),
+    ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq2 worktree", "JY-231", "built 2026-10-22, never reviewed"),
+    ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq3 worktree", "JY-232", "built 2026-10-22, never reviewed"),
 ]
 
 

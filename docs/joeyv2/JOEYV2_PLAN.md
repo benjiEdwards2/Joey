@@ -1,6 +1,6 @@
 # JoeyV2 — running Joey the MediaHub way
 
-2026-10-23 · status: **questions answered (all recommended, DECISIONS.md) — awaiting B.'s go for Phase 1** · source workflow: `Desktop\Claude\MediaHubWorkflow.md` (Jack's doc)
+2026-10-23 · status: **Phases 1–2 shipped; Phase 3 shipped except JY-021 (waits for B.'s go); live status is `HITLIST.md`** · source workflow: `Desktop\Claude\MediaHubWorkflow.md` (Jack's doc)
 
 **Goal.** Keep the Joey app as it is (FastAPI hub, connectors, NAS, 3,000+ tests). Change how work gets done. B. only decides: he marks specs ready, picks options, and accepts on a preview, whenever suits him. Claude runs everything else: specs, builds, reviews, checks, PRs, merges, deploys. Work is cut into small JY items (§4), each one spec, one branch, one PR, one agent. "V2" means the operating model, not a rewrite (Q1 A).
 

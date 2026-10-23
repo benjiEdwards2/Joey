@@ -38,9 +38,9 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-020 | Archive old DECISIONS / HANDOVER / BACKLOG / PLAN files | Housekeeping | S | idea | A fresh session starts from HITLIST | — |
-| JY-021 | Remove merged worktrees (incl. 5 old other-session ones) | Housekeeping | S | idea | 48 worktrees is too many | — |
-| JY-022 | Memory notes cut to pointers; add `project_joeyv2` | Housekeeping | S | idea | Memory points at the repo | — |
+| JY-020 | Archive old DECISIONS / HANDOVER / BACKLOG / PLAN files | Housekeeping | S | [x] shipped | 8 files to `archive/` with a banner; both folder CLAUDE.md files are pointers; fresh-agent test answered from HITLIST alone | — |
+| JY-021 | Remove merged worktrees (incl. 5 old other-session ones) | Housekeeping | S | ready | 43 of 49 removable with proof (`joey.py worktree list`); waits for B.'s "go" | — |
+| JY-022 | Memory notes cut to pointers; add `project_joeyv2` | Housekeeping | S | [x] shipped | lifedashboard, joeytv, joeyv2 notes + index lines point at the repo | — |
 
 ### Phase 4 — Pilot
 
@@ -105,6 +105,9 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-121 | Merge play stats into History | Media | S | idea | Nav-tidy leftover | — |
 | JY-122 | Manifest shortcut "TV Shows" | Media | S | idea | Nav-tidy leftover | — |
 | JY-123 | Naming: Movies / My films / TV show; "Not on server" vs "Not on your server" | Media | S | parked | Left open in the 2026-10-09 tidy review (decision) | — |
+| JY-230 | RQ1 Approve / Decline pending Seerr requests on Activity (edit quality + seasons first) | Media | L | spec | Built 2026-10-22 on `joey-rq1-approve` (37032e8, never reviewed); B.'s asks in archived LD DECISIONS; Seerr write · live | — |
+| JY-231 | RQ2 Friends pick quality and seasons when requesting (incl. TV mode) | Media | L | spec | Built 2026-10-22 on `joey-rq2-friendpick` (2428063, never reviewed); Seerr write · live | — |
+| JY-232 | RQ3 Everyone's watchlist + Request all (sent as B.) | Media | L | spec | Built 2026-10-22 on `joey-rq3-everyone-wl` (dbc18b1, never reviewed); Seerr write · live | — |
 
 ### Server
 

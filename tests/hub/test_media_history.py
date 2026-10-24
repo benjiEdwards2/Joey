@@ -35,7 +35,7 @@ def test_history_page_renders_every_section_in_main(app_factory):
     title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
     assert title == "To rate · Joey"   # D-45 separator; nav-tidy (2026-10-13): Activity > To rate, sentence case
     body = main_of(resp.text)
-    assert "8 this week · 16 this month · 18.7 h this month · 45.1 h all time" in body
+    assert "8 this week · 16 this month · 18h 42m this month · 45h 6m all time" in body
     order = [body.index(f">{h}</h2>") for h in ("To rate", "Recently watched")]   # nav-tidy (2026-10-13): sentence case like the tab
     assert order == sorted(order)
     assert "Most played" not in body   # M-22 (W2): Most played comes from the play recorder (Server › History) only
@@ -61,7 +61,7 @@ def test_quiet_words_when_history_is_empty_or_absent(app_factory):
         resp = client.get("/media/history")
         assert resp.status_code == 200
         body = main_of(resp.text)
-        assert "0 this week · 0 this month · 0 h this month · 0 h all time" in body
+        assert "0 this week · 0 this month · 0m this month · 0m all time" in body
         for words in ("Nothing watched yet", "Nothing waiting to be rated"):
             assert words in body
 

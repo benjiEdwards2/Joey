@@ -17,7 +17,7 @@ from starlette.background import BackgroundTask
 
 from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_upgrade_why, media_upgrades, media_wrapped, media_write,
+                 media_plays_db, media_quality, media_requests, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
@@ -238,6 +238,12 @@ def request_words(row: dict, state: dict | None) -> None:
         row["state_word"] = " · ".join(x for x in (media_season_state.episodes_words(state, ""), state["word"]) if x)
 
 
+def _hours_words(hours) -> str:
+    """JY-101: watch time in the guide's duration words ("18h 42m"; "0m" when none), from the snapshot's decimal hours."""
+    minutes = round(hours * 60) if isinstance(hours, (int, float)) and not isinstance(hours, bool) else 0
+    return media_text.duration(minutes) if minutes > 0 else "0m"
+
+
 @router.get("/media/history", response_class=HTMLResponse)
 def media_history_page(request: Request):
     def build(data, view):
@@ -254,8 +260,8 @@ def media_history_page(request: Request):
             "numbers": " · ".join([
                 f"{history.get('week_count', 0)} this week",
                 f"{history.get('month_count', 0)} this month",
-                f"{history.get('hours_month', 0)} h this month",
-                f"{history.get('hours_total', 0)} h all time"]),
+                f"{_hours_words(history.get('hours_month'))} this month",
+                f"{_hours_words(history.get('hours_total'))} all time"]),
         }
     return _detail_page(request, "media_history.html", JELLYFIN_SNAPSHOT_ID, build, detail=media_home.HISTORY_DETAIL)
 

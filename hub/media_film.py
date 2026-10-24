@@ -1084,10 +1084,12 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         eps = [e for s in seasons for e in s["episodes"]]
         nxt = _next_episode(seasons)
         f["series"] = {"episodes": len(eps), "to_watch": sum(1 for e in eps if not e["played"] and e["aired"])}
-        # E6 (2026-10-13; E5's M2 words on the show hero): "6 left · ~4h 30m" — the hours from the recorded plays'
-        # average episode runtime of this show (media_plays_db.show_runtimes), else "6 left"; never on an episode page
+        # E6 (2026-10-13; E5's M2 words on the show hero): "6 left · ~4h 30m" — the hours from the average runtime of
+        # this show's episodes in the read above (JY-104), else the recorded plays' (media_plays_db.show_runtimes),
+        # else "6 left"; never on an episode page
         if not ep and jf_item_id and f["series"]["to_watch"]:
-            rt = media_plays_db.show_runtimes([f"jf:{jf_item_id}"]).get(f"jf:{jf_item_id}")
+            rt = (media_item.episode_runtime(seasons)
+                  or media_plays_db.show_runtimes([f"jf:{jf_item_id}"]).get(f"jf:{jf_item_id}"))
             f["series"]["progress"] = media_text.progress_words(f["series"]["to_watch"], len(eps), rt)
         f["next_ep"] = nxt
         title_key = f"{title} · "

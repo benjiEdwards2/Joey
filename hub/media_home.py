@@ -353,14 +353,14 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
 def continue_progress(jelly: dict, view: str, rows) -> dict[str, str]:
     """{show_key: progress words} for Continue watching rows (E5, M2): the show's unplayed / episode counts from the
     view owner's library rows (her view: her own list, else nothing — B.'s counts would be wrong for her), the hours
-    from the recorded plays' average runtime. Only shows with episodes left: a next-up suggestion never says "All
+    from the show's Jellyfin episode runtimes in its cached item read, else the recorded plays' average (JY-104). Only shows with episodes left: a next-up suggestion never says "All
     watched"."""
     shows = (jelly.get("her") or {}).get("shows") if view == "her" else jelly.get("shows")
     by_id = {f"jf:{s.get('jf_id')}": s for s in shows or [] if s.get("jf_id")}
     keys = [r.get("show_key") for r in rows or [] if r.get("show_key") in by_id]
     if not keys:
         return {}
-    runtimes = media_plays_db.show_runtimes(keys)
+    runtimes = media_item.show_runtimes(keys)
     out = {}
     for k in keys:
         s = by_id[k]

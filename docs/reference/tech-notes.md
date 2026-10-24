@@ -46,6 +46,8 @@ Source tags: LD = project `LifeDashboard/DECISIONS.md`, JT = project `JoeyTV/DEC
 - Stacked branches: when A is squash-merged, rebase B with `git rebase --onto origin/main <A's old tip>`. (where: `docs/PROCESS.md`)
 - Run the full suite on the merge itself: two older tests failed only on the combination. Re-point them as dated decisions, never weaken them silently. (where: LD 2026-10-16)
 - Several agents appending to the changelog, README or the CSS tail produce keep-both conflicts. Give each agent its own dated CSS tail block; resolve by keeping both. (where: LD 2026-10-13, 2026-10-19)
+- `git stash` is shared by every worktree of a clone: a `stash pop` in one worktree can apply another builder's stash. Never stash in item worktrees; commit to the item branch instead. (where: JY-153/JY-224 builds, 2026-10-24)
+- Under heavy CPU load (several builders running suites) the Windows git credential helper (`gh auth git-credential`) can time out and return nothing, so `git push` falls back to a terminal prompt and fails. Keep one heavy run at a time; retry pushes with `GIT_TERMINAL_PROMPT=0` once load drops. (where: orchestrator, 2026-10-24)
 - Run `git status` and `git fetch` before every commit and stage only your item's files; another session edits the same repo constantly. (where: LD 2026-10-05, `CLAUDE.md`)
 
 ## Windows laptop, PowerShell and the Bash tool

@@ -1,6 +1,6 @@
 # JY-235 Gate ≤ 10 min on the NAS (proof after JY-227)
 
-Status: building
+Status: shipped 2026-10-24
 Size: M
 Live risk: deploy (measures real deploys; may change the gate's worker count)
 Area: `deploy/deploy.sh` (the gate's `docker run` only: tmpfs /tmp, criterion 2), `tests/` (any NAS-only hot spot found), this spec
@@ -42,4 +42,8 @@ CI speed; NAS hardware; moving tests out of the gate (JY-227 answer 2a).
 Answers carried from JY-227 (B., 2026-10-24: "Approve all changes … just close it out"): 1a, 2a, 3a.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #103, squash-merged as `d94660a` (d94660ac09384e5869942fb15555e6f742e7484e).
+- Deploy: `2026-10-24T07:49:28Z PASS prev=1fe6af0 new=d94660a suite green, smoke ok tv=current end=2026-10-24T08:07:19Z dur=1071s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -729,23 +729,28 @@ def test_real_holder_gives_the_lock_up_by_itself(nas_tmp, monkeypatch):
 
 def test_real_zombie_holder_counts_as_dead_fake_proc(nas_tmp, tmp_path):
     # reviewer B: the gate container (no --init) never reaps the orphaned holder and kill -0 succeeds on a zombie.
-    # A live process stands in for the zombie; a fake /proc says its state is Z.
+    # A live process stands in for the zombie; a fake /proc says its state is Z. Like a zombie, it does not die on the
+    # release's TERM (TERM ignored), so the release can only succeed by counting it dead: otherwise it ends "holder
+    # did not stop", exit 1. JY-239, 2026-10-24: this replaces a wall-clock "< 4 s" check that failed under load.
     sh = nas_tmp
-    zombie = sh.background("sleep 30")
-    proc = tmp_path / "proc"
-    (proc / zombie).mkdir(parents=True)
-    (proc / zombie / "stat").write_text(f"{zombie} (sh) Z 1 {zombie} {zombie} 0 -1 4194560\n")
-    fake = proc.as_posix()
-    assert sh.alive(zombie) and not sh.alive(zombie, proc=fake)
-    fake_lock(sh, zombie, owner=TOKEN)
-    t0 = time.monotonic()
-    rc, out, err = sh(jp.s_lock_release(TOKEN), proc=fake)
-    assert (rc, out) == (0, "released"), err
-    assert not sh.lock.exists() and time.monotonic() - t0 < 4  # no 5 s wait, no "did not stop"
-    fake_lock(sh, zombie)  # a zombie's lock is stale for the next take, too
-    rc, out, err = sh(jp.s_lock_take(SHA, TOKEN), proc=fake)
-    assert rc == 0 and out.endswith(f"stale {zombie}"), (out, err)
-    assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+    zombie = sh.background("""sh -c 'trap "" TERM; exec sleep 60'""")
+    try:
+        proc = tmp_path / "proc"
+        (proc / zombie).mkdir(parents=True)
+        (proc / zombie / "stat").write_text(f"{zombie} (sh) Z 1 {zombie} {zombie} 0 -1 4194560\n")
+        fake = proc.as_posix()
+        sh(f"kill {zombie}")
+        assert sh.alive(zombie) and not sh.alive(zombie, proc=fake)  # TERM did not stop it
+        fake_lock(sh, zombie, owner=TOKEN)
+        rc, out, err = sh(jp.s_lock_release(TOKEN), proc=fake)
+        assert (rc, out) == (0, "released"), err
+        assert not sh.lock.exists() and sh.alive(zombie)
+        fake_lock(sh, zombie)  # a zombie's lock is stale for the next take, too
+        rc, out, err = sh(jp.s_lock_take(SHA, TOKEN), proc=fake)
+        assert rc == 0 and out.endswith(f"stale {zombie}"), (out, err)
+        assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+    finally:
+        sh(f"kill -9 {zombie} 2>/dev/null; true")
 
 
 LINUX_PROC = sys.platform.startswith("linux") and Path("/proc/self/stat").exists()

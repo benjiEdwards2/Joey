@@ -32,6 +32,8 @@ import net.joeyhome.media.policy.HostCheck
 import net.joeyhome.media.policy.HostConfig
 import net.joeyhome.media.policy.Jellyfin
 import net.joeyhome.media.policy.KeyPolicy
+import net.joeyhome.media.policy.OfflineKind
+import net.joeyhome.media.policy.OfflinePolicy
 import net.joeyhome.media.policy.UrlDecision
 import net.joeyhome.media.policy.UrlPolicy
 import net.joeyhome.media.policy.UserAgent
@@ -242,7 +244,7 @@ class MainActivity : Activity() {
             return
         }
         if (!result.reachable) {
-            showOffline()
+            showOffline(OfflineKind.NETWORK)
             return
         }
         homePath = result.homePath
@@ -256,9 +258,10 @@ class MainActivity : Activity() {
         showActiveUpdate() // an offer that arrived during the Splash
     }
 
-    private fun showOffline() {
+    private fun showOffline(kind: OfflineKind) {
         splashGeneration++
         screens.showOffline(
+            kind,
             onRetry = { startSplash() },
             onOpenJellyfin = { launcher.open(null) }, // route 3
             onSettings = { openSettings() },
@@ -522,10 +525,21 @@ class MainActivity : Activity() {
             return true
         }
 
+        /** JY-191 (V2): re-probe /healthz behind the Splash, so a bad page is not reported as "this TV is offline". */
         private fun goOffline(view: WebView, request: WebResourceRequest) {
             pendingUrl = request.url.toString().takeIf { urlPolicy.decide(it) == UrlDecision.Load }
             view.stopLoading()
-            showOffline()
+            val generation = ++splashGeneration
+            screens.showSplash(onSettings = { openSettings() }, onBack = { finish() })
+            val ui = hosts.ui
+            val ua = userAgent()
+            io.execute {
+                val result = HealthCheck.probe(ui, ua)
+                main.post {
+                    if (isDestroyed || generation != splashGeneration || screens.top != Screens.Kind.SPLASH) return@post
+                    showOffline(OfflinePolicy.kind(result.reachable))
+                }
+            }
         }
     }
 

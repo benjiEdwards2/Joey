@@ -19,6 +19,11 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
 - **What it does:** detach (log file) → lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → build `life-test` and run the full suite offline
   (`--network none`) → `compose build` + `up -d` → smoke (`/healthz`, `tests/deploy/smoke.py`, nothing restarting) → prune.
   A red gate resets the tree to the previous SHA and leaves the live stack alone; a failed build/up/smoke rolls back.
+- **Gate /tmp is in RAM (JY-235, 2026-10-24):** the gate runs `life-test` with `--tmpfs /tmp:rw,exec,size=512m,mode=1777
+  -e TMPDIR=/tmp` and `pytest -q -n 2 -o tmp_path_retention_policy=failed tests/`. On the NAS overlay disk the SQLite-heavy
+  tests took the suite to 996 s; on tmpfs it is 192 s (quiet NAS, available ≥ 1,381 MB, swap ≤ 1,010 MB). Keep `exec`:
+  Docker's tmpfs is noexec by default and git then skips a test's hook (a red gate). Retention=failed keeps only failing
+  tests' tmp dirs, so 512m holds the run.
 - **History:** `tail deploy/history.log` — one line per run: `PASS`, `NOTHING-TO-DEPLOY`, `GATE-FAIL`, `ROLLED-BACK`,
   `ROLLBACK-FAILED` (both SHAs unhealthy: act now) or `ABORTED` (died early; tree reset, just rerun), with `dur=NNNs`.
 - **Manual rollback:** take a `prev=` SHA from history.log, then

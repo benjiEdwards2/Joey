@@ -11,8 +11,8 @@
 # Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
 # It detaches from your ssh session and logs to deploy/logs/deploy-<UTC>-<pid>.log (re-attach: tail -f <log>).
 # Every run that takes the lock appends ONE line to history.log (review D-03, 2026-10-09):
-# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | ROLLED-BACK | ROLLBACK-FAILED | ABORTED. PASS and NOTHING-TO-DEPLOY also carry
-# tv=<status> (Joey TV release publishing, WP-B8).
+# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | SKIPPED-LOW-MEMORY | ROLLED-BACK | ROLLBACK-FAILED | ABORTED. PASS and
+# NOTHING-TO-DEPLOY also carry tv=<status> (Joey TV release publishing, WP-B8).
 set -eu
 set -o pipefail
 
@@ -24,6 +24,13 @@ START=$(date +%s)
 PREV_SHA=?
 NEW_SHA=?
 LOGGED=0
+
+# Pre-gate memory floor (JY-240, 2026-10-24). The gate costs ~400-450 MB of available memory (JY-235: start 1,791 MB,
+# min 1,271-1,381 MB), so it starts only when available >= 1,650 MB (1,650 - 450 = the 1,200 MB floor in CLAUDE.md)
+# and swap used <= 1,273 MB. Below either, the gate does not run: SKIPPED-LOW-MEMORY (see mem_check / gate_skip).
+GATE_MIN_AVAIL_MB=1650
+GATE_MAX_SWAP_MB=1273
+MEMINFO=/proc/meminfo
 
 FORCE=0
 case "${1:-}" in
@@ -171,6 +178,34 @@ gate_fail() {
     exit 1
 }
 
+# A low-memory NAS skips the gate instead of pushing it under the floor (JY-240). Same tree handling as gate_fail
+# (the next run's PREV_SHA stays tested code), its own outcome word: close-out tools treat only PASS / NOTHING-TO-DEPLOY
+# as green, so the next close-out refuses until --after-fail or a later green run.
+gate_skip() {
+    GIT reset --hard "$PREV_SHA" || echo "!! git reset to $PREV_SHA failed — reset the tree by hand !!" >&2
+    log_history "SKIPPED-LOW-MEMORY" "$1 — gate not run, tree reset to prev, live stack untouched"
+    echo "SKIPPED-LOW-MEMORY ($1) — gate not run, tree back on $PREV_SHA, live stack untouched. Free memory, then rerun deploy.sh." >&2
+    exit 1
+}
+# Available and swap used in MB from /proc/meminfo (BusyBox awk; `free` column layout varies between BusyBox builds).
+# Prints "<avail> <swap_used>"; fails when MemAvailable is missing.
+mem_now() {
+    awk '/^MemAvailable:/ {a = $2} /^SwapTotal:/ {t = $2} /^SwapFree:/ {f = $2}
+        END {if (a == "") exit 1; print int(a / 1024), int((t - f) / 1024)}' "$MEMINFO"
+}
+mem_check() {
+    mem=$(mem_now) || gate_skip "could not read MemAvailable from $MEMINFO"
+    avail=${mem% *}
+    swap=${mem#* }
+    echo "memory: available $avail MB (gate needs >= $GATE_MIN_AVAIL_MB), swap used $swap MB (max $GATE_MAX_SWAP_MB)"
+    if [ "$avail" -lt "$GATE_MIN_AVAIL_MB" ]; then
+        gate_skip "available $avail MB < $GATE_MIN_AVAIL_MB MB before the gate"
+    fi
+    if [ "$swap" -gt "$GATE_MAX_SWAP_MB" ]; then
+        gate_skip "swap used $swap MB > $GATE_MAX_SWAP_MB MB before the gate"
+    fi
+}
+
 echo "== compose validate =="
 cd "$DEPLOY_DIR"   # picks up docker-compose.yml + any local override
 docker compose config -q || gate_fail "compose config invalid"
@@ -194,6 +229,8 @@ gate() {
     docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
         && docker run --rm --network none --tmpfs /tmp:rw,exec,size=512m,mode=1777 -e TMPDIR=/tmp life-test python -m pytest -q -n 2 -o tmp_path_retention_policy=failed tests/
 }
+echo "== memory check (JY-240) =="
+mem_check
 gate || gate_fail "test build or suite red"
 
 # Wait for a service to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the

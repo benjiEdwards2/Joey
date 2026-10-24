@@ -208,7 +208,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-214 | Live checks: Server rounds | Housekeeping | S | idea | Quiet tap, first digest, Free space, Updates age, Prowlarr count | — |
 | JY-215 | Stale preview entries in `launch.json` | Housekeeping | S | idea | Three point at purged scratch scripts | — |
 | JY-216 | Archive the three awards review mockups | Housekeeping | S | idea | Reference only now | — |
-| JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | idea | Nav-tidy leftover | — |
+| JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | [x] shipped | Nav-tidy leftover · PR #84 | [spec](docs/specs/JY-217-drop-watchlist-tab-counts.md) |
 | JY-224 | Flaky test: `test_media_speed::test_metadata_long_request_state_short` | Tests | S | [x] shipped | Fails 3 in 8 under load; doesn't drain the first visit's background read · PR #77 | [spec](docs/specs/JY-224-flaky-metadata-ttl-test.md) |
 | JY-225 | Flaky test: `test_runner_history_tail` 2 ms wall-clock limit | Tests | S | [x] shipped | Fails 2 in 8 under load; timing assert too tight · PR #79 | [spec](docs/specs/JY-225-flaky-runner-history-tail-test.md) |
 | JY-229 | close-out polish: dry run shows docs.1 as DRY before the merge; `tests/scripts/` takes ~7 min serial on Windows (git subprocesses) | Tooling | S | [x] shipped | JY-011 first live use, 2026-10-23 · PR #64 | [spec](docs/specs/JY-229-closeout-polish.md) |

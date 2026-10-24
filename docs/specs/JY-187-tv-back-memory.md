@@ -28,6 +28,8 @@ None apply (client-side focus only; no server change).
 ## Options and the pick
 None needed: rules from the plan, no visual choice.
 
+J8 (question 1): **A**, B. 2026-10-24 in chat: "JY-187: accept 6". The sign-out pill stays 6 presses from Overview (2 to 6 elsewhere); no shortcut.
+
 ## Out of scope
 P6 and X1 (other `tv.js` geometry items in the evaluation), U8 Discover search, the shell (`tv/`), any CSS.
 
@@ -35,6 +37,6 @@ P6 and X1 (other `tv.js` geometry items in the evaluation), U8 Discover search, 
 Device run by the orchestrator (`JoeyTV\scripts\tv_ui_capture.py journeys`): J3 and J4 PASS (focus and scroll restored after Back), J5 Up lands on the current pill, J8 presses to the sign-out pill (see question 1), J9 Down from the title buttons lands on chip 1.
 
 ## Questions for B.
-1. The plan's J8 target is "4 presses or fewer to the sign-out pill". With rule 2 the walk is Up + one Right per section to the right of the open one + one more: from Overview that is 6 (was 7), from Discover 2. Reaching the pill in 4 from Overview needs a new navigation shortcut, which is a design choice. **A (recommended):** accept rule 2 as is (6 from Overview, 2 to 6 elsewhere). **B:** add a shortcut later as its own item (for example Up from the current pill jumps to the sign-out pill), with an options page.
+None open (question 1 answered: A, see Options and the pick).
 
 ## Shipped notes

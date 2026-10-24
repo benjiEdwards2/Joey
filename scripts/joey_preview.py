@@ -26,6 +26,7 @@ Stdlib only, Python 3.12. Importing this module does no work.
 import argparse
 import datetime as dt
 import re
+import secrets
 import time
 from pathlib import Path
 
@@ -53,6 +54,13 @@ LOCK = "/tmp/joey-deploy.lock"
 LOCK_NOTE = f"{BASE}/lock.log"  # LOCK/log points here: deploy.sh prints it as "watch it: tail -f <log>" when refused
 LOCK_HOLD_S = 3600    # the holder releases the lock by itself after this, whatever happens to the laptop
 PID_RE = re.compile(r"^[0-9]+$")
+# Shell helpers for the lock scripts (BusyBox ash and dash). alive: kill -0 succeeds on a zombie, and in the gate
+# container (no --init) nothing reaps an orphaned holder, so a pid whose /proc/<pid>/stat state is Z counts as dead
+# (JY-228 review). The state is the first field after "(comm) ". nap: a short pause; falls back to 1 s where sleep
+# takes whole seconds only.
+SH_ALIVE = ("alive() { kill -0 \"$1\" 2>/dev/null || return 1; "
+            "z=$(sed 's/^.*) //' \"/proc/$1/stat\" 2>/dev/null | cut -d' ' -f1); [ \"$z\" != Z ]; }")
+SH_NAP = "nap() { sleep 0.1 2>/dev/null || sleep 1; }"
 
 WINDOW = (dt.time(7, 0), dt.time(21, 30))
 MEM_START_MB = 1400   # 1,200 floor + preview headroom
@@ -201,23 +209,28 @@ else
 fi""")
 
 
-def s_lock_take(sha):
-    """mkdir the deploy lock exactly as deploy.sh does (same stale rule), then start a detached holder that writes its
-    own pid into LOCK/pid and removes the lock when it exits: TERM from s_lock_release, or LOCK_HOLD_S running out.
-    Prints `held <pid|?>` (nothing changed), or `taken <holder pid>` (+ ` stale <old pid>` when a dead holder's lock was
-    cleared). The holder script is in single quotes, so it holds none."""
-    holder = (f'echo $$ > {LOCK}/pid; s=; '
+def s_lock_take(sha, token):
+    """mkdir the deploy lock exactly as deploy.sh does (same stale rule; a zombie holder is dead), write this run's
+    token to LOCK/owner, then start a detached holder that writes its own pid into LOCK/pid and removes the lock when
+    it exits: TERM from s_lock_release, or LOCK_HOLD_S running out. The holder only writes its pid, and only removes
+    the lock, while LOCK/owner is this run's token. Prints `held <pid|?>` (nothing changed), or `taken <holder pid>`
+    (+ ` stale <old pid>` when a dead holder's lock was cleared). The holder script is in single quotes, so it holds
+    none."""
+    own = f'[ "$(cat {LOCK}/owner 2>/dev/null)" = "{token}" ]'
+    holder = (f'{own} || exit 0; echo $$ > {LOCK}/pid; s=; '
               f'rel() {{ [ -z "$s" ] || kill "$s" 2>/dev/null; '
-              f'if [ "$(cat {LOCK}/pid 2>/dev/null)" = "$$" ]; then '
-              f'rm -f {LOCK}/pid {LOCK}/log; rmdir {LOCK} 2>/dev/null; fi; }}; '
+              f'if {own} && [ "$(cat {LOCK}/pid 2>/dev/null)" = "$$" ]; then '
+              f'rm -f {LOCK}/pid {LOCK}/log {LOCK}/owner; rmdir {LOCK} 2>/dev/null; fi; }}; '
               f'trap rel EXIT; trap "exit 143" TERM; trap "exit 130" INT; '
               f'sleep {LOCK_HOLD_S} & s=$!; wait "$s"')
     return script("lock-take", f"""
 L={LOCK}
+{SH_ALIVE}
+{SH_NAP}
 note=
 if ! mkdir "$L" 2>/dev/null; then
     holder=$(cat "$L/pid" 2>/dev/null || true)
-    if {{ [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; }} \\
+    if {{ [ -n "$holder" ] && alive "$holder"; }} \\
         || {{ [ -z "$holder" ] && [ -z "$(find "$L" -maxdepth 0 -mmin +30 2>/dev/null)" ]; }}; then
         echo "held ${{holder:-?}}"
         exit 0
@@ -226,6 +239,7 @@ if ! mkdir "$L" 2>/dev/null; then
     mkdir "$L" 2>/dev/null || {{ echo "held ?"; exit 0; }}
     note=" stale ${{holder:-?}}"
 fi
+echo {token} > "$L/owner"
 mkdir -p {BASE}
 echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') preview up {short(sha)} holds the deploy lock while it builds" > {LOCK_NOTE}
 echo {LOCK_NOTE} > "$L/log"
@@ -235,33 +249,39 @@ if command -v setsid >/dev/null 2>&1; then DETACH=setsid; fi
 i=0
 while :; do
     p=$(cat "$L/pid" 2>/dev/null || true)
-    if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then echo "taken $p$note"; exit 0; fi
+    if [ -n "$p" ] && alive "$p"; then echo "taken $p$note"; exit 0; fi
     i=$((i + 1))
-    [ "$i" -le 10 ] || break
-    sleep 1
+    [ "$i" -le 50 ] || break
+    nap
 done
-rm -f "$L/pid" "$L/log"
+rm -f "$L/pid" "$L/log" "$L/owner"
 rmdir "$L" 2>/dev/null || true
 echo "the lock holder did not start" >&2
 exit 1""")
 
 
-def s_lock_release(pid):
-    """Stop our holder (its EXIT trap removes the lock). A lock still carrying our pid with the holder gone (killed
-    hard) is removed here, so a dead-pid lock is never left. A lock holding any other pid is never touched."""
+def s_lock_release(token):
+    """Release the lock this run took, found by its token in LOCK/owner (so it also works after a take whose answer was
+    lost): stop the holder (its EXIT trap removes the lock), wait until it is gone or a zombie, then remove whatever of
+    the lock is left, so a dead-pid lock is never left. A lock without this run's token is never touched."""
     return script("lock-release", f"""
 L={LOCK}
-p={pid}
-if [ "$(cat "$L/pid" 2>/dev/null)" = "$p" ]; then
+t={token}
+{SH_ALIVE}
+{SH_NAP}
+if [ "$(cat "$L/owner" 2>/dev/null)" != "$t" ]; then echo "not ours"; exit 0; fi
+p=$(cat "$L/pid" 2>/dev/null || true)
+if [ -n "$p" ]; then
     kill "$p" 2>/dev/null || true
     i=0
-    while kill -0 "$p" 2>/dev/null && [ "$i" -lt 10 ]; do sleep 1; i=$((i + 1)); done
-    if [ "$(cat "$L/pid" 2>/dev/null)" = "$p" ] && ! kill -0 "$p" 2>/dev/null; then
-        rm -f "$L/pid" "$L/log"
-        rmdir "$L" 2>/dev/null || true
-    fi
+    while alive "$p" && [ "$i" -lt 50 ]; do nap; i=$((i + 1)); done
+    if alive "$p"; then echo "holder $p did not stop" >&2; exit 1; fi
 fi
-if [ "$(cat "$L/pid" 2>/dev/null)" = "$p" ]; then echo "holder $p did not stop" >&2; exit 1; fi
+if [ "$(cat "$L/owner" 2>/dev/null)" = "$t" ]; then
+    rm -f "$L/pid" "$L/log" "$L/owner"
+    rmdir "$L" 2>/dev/null || true
+fi
+if [ -d "$L" ] && [ "$(cat "$L/owner" 2>/dev/null)" = "$t" ]; then echo "lock still held" >&2; exit 1; fi
 echo released""")
 
 
@@ -528,7 +548,8 @@ def down_steps(r, d, prefix="", best_effort=False):
 
 # ---------- up ----------
 def cmd_up(r, a, d):
-    st = {"sha": UNRESOLVED, "label": a.ref, "slot": {"status": "absent", "started": "", "commit": ""}}
+    st = {"sha": UNRESOLVED, "label": a.ref, "slot": {"status": "absent", "started": "", "commit": ""},
+          "token": secrets.token_hex(8)}  # this run's mark in LOCK/owner: release touches only its own lock
 
     def window():
         now = d.now()
@@ -551,8 +572,10 @@ def cmd_up(r, a, d):
         return "stale lock (holder gone), no deploy running" if out == "stale" else "no deploy running"
 
     def take():
-        out = change(r, d, s_lock_take(st["sha"]), 60).split()
+        st["took"] = True  # from here a holder may exist, whatever the answer: the finally releases by token
+        out = change(r, d, s_lock_take(st["sha"], st["token"]), 60).split()
         if out[:1] == ["held"]:
+            st["took"] = False  # a deploy's lock: nothing of ours to release
             pid = out[1] if len(out) > 1 else "?"
             raise jc.Refused(f"a deploy holds {LOCK} (pid {pid}); try again when it finishes")
         if out[:1] != ["taken"] or len(out) < 2 or not PID_RE.match(out[1]):
@@ -570,8 +593,8 @@ def cmd_up(r, a, d):
         return f"still held by this preview (pid {st['lock_pid']})"
 
     def release():
-        out = change(r, d, s_lock_release(st.get("lock_pid", "<holder-pid>")), 60)
-        return f"{LOCK} {out}"
+        out = change(r, d, s_lock_release(st["token"]), 60)
+        return f"{LOCK} released" if out == "released" else "this run holds no lock (nothing to release)"
 
     def current():
         st["slot"] = slot(d)
@@ -591,11 +614,11 @@ def cmd_up(r, a, d):
     check(r, f"resolve {a.ref}", resolve)
     if r.dry:
         check(r, "deploy lock", lock)
-    r.step("take the deploy lock", take)
     try:
+        r.step("take the deploy lock", take)
         locked_up(r, a, d, st, current, mem_before, lock_again)
     finally:
-        if st.get("lock_pid") or r.dry:
+        if st.get("took") or r.dry:
             try:
                 r.step("release the deploy lock", release)
             except jc.Stop:  # FAIL row recorded (exit 1); never hides the error that got us here

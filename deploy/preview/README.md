@@ -10,10 +10,10 @@ Set `JOEY_NAS=root@<nas>` (and `JOEY_NAS_KEY` if the key is not `~/.ssh/joey_nas
 - `python scripts/joey.py preview up <branch | PR number>`: refuses outside 07:00-21:30 Melbourne time, while a deploy
   holds `/tmp/joey-deploy.lock`, or when NAS available memory is under 1,400 MB. A running slot is replaced (down, then
   up; the old commit is printed). First it takes `/tmp/joey-deploy.lock` itself, in `deploy.sh`'s format (a directory
-  with the pid of a detached holder on the NAS), so a `deploy.sh` started meanwhile exits 2 and `close-out` waits: one
-  `docker build` at a time on the NAS (JY-228). The lock is released on success, on failure and after a teardown; the
-  holder removes it by itself after 60 min if the laptop goes away. Then: exact commit into
-  `/volume1/Docker/joey/preview/src` (alpine/git + the read-only deploy key, as `deploy.sh`), `docker build` to
+  with the pid of a detached holder on the NAS, plus this run's token in `owner`), so a `deploy.sh` started meanwhile
+  exits 2 and `close-out` waits: one `docker build` at a time on the NAS (JY-228). The lock is released on success, on
+  failure and after a teardown; the holder removes it by itself after 60 min if the laptop goes away. Then: exact commit
+  into `/volume1/Docker/joey/preview/src` (alpine/git + the read-only deploy key, as `deploy.sh`), `docker build` to
   `life-hub-preview`, newest daily media.db backup restored as a copy, `preview.env` built from the allow-list below,
   `up -d`, poll `/healthz` inside the container (up to 120 s). It prints the commit, the URL and the memory readings.
   The deploy lock is checked again just before `up -d` (it must still be this preview's). From the media.db restore on,

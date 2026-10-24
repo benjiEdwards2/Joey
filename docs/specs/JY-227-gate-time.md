@@ -1,6 +1,6 @@
 # JY-227 Full deploy gate within 10 minutes
 
-Status: spec
+Status: building
 Size: M
 Live risk: deploy (the gate itself)
 Area: `tests/` (fixtures and slow tests), `deploy/deploy.sh` (pytest worker count only, if B. agrees), `tests/README.md`
@@ -53,6 +53,7 @@ CI speed; NAS hardware; moving tests out of the gate (unless B. answers question
 - CI green; reviews posted; three deploy history lines with dur ≤ 600 s and the memory samples in the PR.
 
 ## Questions for B.
+Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance." = every recommended answer below, and ready.
 1. Order of work? **a (recommended):** profile first and fix the hot spots, then try `-n 3` only if still over 10 min. **b:** try `-n 3` first.
 2. The tooling tests (`tests/scripts/`) test laptop-only scripts that never run on the NAS, yet cost 58 % of the suite. **a (recommended):** keep them in the gate and make them fast first (criterion 2); revisit only if the gate is still over 10 min. **b:** run them in CI only, not in the NAS gate (gate drops roughly 4–7 min at once; bends rule 13's "full suite").
 3. May one deploy run with `--durations` on a quiet NAS to profile the real gate? **a (recommended):** yes, with qBittorrent capped. **b:** no, profile on the laptop only.

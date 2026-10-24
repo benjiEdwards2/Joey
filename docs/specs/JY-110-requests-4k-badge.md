@@ -1,6 +1,6 @@
 # JY-110 Requests page 4K badge lags
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: hub/media_quality.py, hub/media_season_state.py, tests/hub/test_media_quality.py
@@ -62,3 +62,8 @@ None: follows the existing "last good answer, served however old, re-read after 
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #106, squash-merged as `01028e5` (01028e550deccb3e95f84dc3407a5da4bf3cb1c0).
+- Deploy: `2026-10-24T07:06:27Z PASS prev=e930710 new=01028e5 suite green, smoke ok tv=current end=2026-10-24T07:24:29Z dur=1082s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

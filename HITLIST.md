@@ -92,7 +92,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-107 | Favourites synced to Jellyfin | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
 | JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | idea | Hint may not show when only some releases fail | — |
 | JY-109 | Per-episode Why? on Upgrades | Media | S | idea | Only if ever needed; Why? checks one episode | — |
-| JY-110 | Requests page 4K badge lags | Media | S | idea | Shows lag 10 min; films fill on second view | — |
+| JY-110 | Requests page 4K badge lags | Media | S | [x] shipped | Shows lag 10 min; films fill on second view · PR #106 | [spec](docs/specs/JY-110-requests-4k-badge.md) |
 | JY-111 | Old arr profile id shows no Quality line | Media | S | parked | One-off re-save or a fallback (decision) | — |
 | JY-112 | Quality chips hide when profile list unreadable | Media | S | parked | Also Seerr's folder/tags options (decision) | — |
 | JY-113 | Sonarr-only seasons get no Seasons row | Media | S | [x] shipped | Only a "Season N announced" word · PR #90 | [spec](docs/specs/JY-113-sonarr-seasons.md) |

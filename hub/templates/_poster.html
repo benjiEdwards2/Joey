@@ -1,7 +1,10 @@
 {# Poster thumbnail (2026-10-05). `ref` is a connector poster ref (jf:/radarr:/sonarr:/tmdb:);
    null points at /img/none, the proxy fallback card. `h` is the fetch size (an allowed
    /img height); display size comes from CSS (.poster.sm, .poster-grid). `t=` carries the title's two letters
-   (img_letters), never the whole title, so the placeholder URL is shared and cached (N-33). #}
-{% macro poster(ref, title, h=120, cls="") -%}
+   (img_letters), never the whole title, so the placeholder URL is shared and cached (N-33).
+   JY-189: `tv` (the caller's tv_mode(request)) fetches h=400 instead of `h` - cards drawn at ~270 device px on the TV
+   were upscaled from 160x240 files. Desktop and phone never pass it. 400 is an allowed /img size. #}
+{% macro poster(ref, title, h=120, cls="", tv=false) -%}
+{% if tv %}{% set h = 400 %}{% endif -%}
 <img class="poster {{ cls }}" src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}" alt="" loading="lazy" decoding="async" width="{{ (h * 2 / 3)|round|int }}" height="{{ h }}">
 {%- endmacro %}

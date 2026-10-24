@@ -2,11 +2,11 @@
    one whole link to its Joey page. A progress .bar sits under the picture only where the snapshot carries a
    percentage. #}
 {% from "_poster.html" import poster %}
-{% macro shelfrow(items) -%}
+{% macro shelfrow(items, tv=false) -%}
 <div class="carousel">
   {% for i in items %}
   <a class="card-poster" href="{{ i.href }}">
-    <span class="card-pic">{{ poster(i.poster, i.title, 240) }}</span>
+    <span class="card-pic">{{ poster(i.poster, i.title, 240, "", tv) }}</span>
     {% if i.pct is not none %}<span class="bar" role="img" aria-label="{{ i.pct }}% watched"><span style="width: {{ i.pct }}%"></span></span>{% endif %}
     <span class="row-title">{{ i.title }}</span>
     {% if i.sub %}<span class="row-meta">{{ i.sub }}</span>{% endif %}

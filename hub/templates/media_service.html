@@ -1,5 +1,12 @@
 {% extends "media_base.html" %}
 {% block title %}{{ service.name }} · Joey{% endblock %}
+{# JY-102 (2026-10-24): the service name is the page's H1 (below), so the band carries the section tabs only, like the
+   person page; it used to read "Discover". #}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead(none) %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
 {% block content %}
 {% from "_discover_item.html" import item %}
 {# One streaming service (media-ux2, 2026-10-08): Popular films · Popular TV · New this month · Top rated from
@@ -7,7 +14,7 @@
    On server / Requested words). A failed shelf says "Unavailable", an empty one "Nothing to show right now". #}
 <div class="prov-head">
   {% if service.logo %}<img class="prov-logo" src="/img/{{ service.logo }}?h=120&amp;t={{ img_letters(service.name)|urlencode }}" alt="" width="56" height="56">{% endif %}
-  <h2 class="prov-title">{{ service.name }}</h2>
+  <h1 class="prov-title">{{ service.name }}</h1>
 </div>
 {% if not connected %}
 <p class="empty">Not connected</p>

@@ -31,6 +31,7 @@ from hub.identity import IDENTITY_HEADER, Identity, resolve_identity
 from hub.ids import areas_path, home_now
 from hub.images import fallback_letters
 from hub.media_text import duration
+from hub.server import LAN_WORD
 from hub.registry import Registry, load_registry
 from hub.store import get_snapshots as _read_snapshots, tile_state
 
@@ -70,6 +71,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 templates.env.auto_reload = dev_mode()
 templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
+templates.env.globals["lan_word"] = LAN_WORD   # JY-238: the one source for the word a home-network-only link carries
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
 templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
 # Joey TV WP-B3 (2026-10-21): the guest surface's globals (hub/media_front.py) - every one answers on the private front too

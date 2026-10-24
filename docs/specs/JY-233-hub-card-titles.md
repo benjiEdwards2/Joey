@@ -1,6 +1,6 @@
 # JY-233 Hub card titles easier to see
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/static/control-surface.css` (the `.tile` rules, not the `:root` tokens), `hub/static/tv.css` (TV size line), `hub/templates/_kpi.html` (only if the option needs markup), `tests/hub/`
@@ -54,4 +54,8 @@ Area page headers; the Joey TV shell's own screens (JY-042).
 1. (Round 2) Which option? **A (recommended):** coloured icon on a tinted chip before a bigger white title. **B:** solid coloured chip with a dark icon. **C:** large app-icon tile; Calendar shows today's date. Picking any of them brings per-area colour back for the hub icons (removed 2026-10-06).
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #67, squash-merged as `651ccd6` (651ccd617cc9830c82e4d4a0480e59b29fe1f366).
+- Deploy: `2026-10-24T02:50:41Z PASS prev=3b20517 new=5ba6859 suite green, smoke ok tv=current end=2026-10-24T03:14:56Z dur=1455s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -48,7 +48,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-030 | Stale "Grouped" toolbar comment in `tv.css` | Joey TV | S | [x] shipped | Small chore to prove the loop · PR #58 | [spec](docs/specs/JY-030-tvcss-comment.md) |
 | JY-031 | P1b disk forecast on hub card + Discord | Server | L | [x] shipped | Forecast reaches the hub and Discord · live; options page + B.'s questions first · PR #60 | [spec](docs/specs/JY-031-disk-forecast.md) |
-| JY-233 | Hub card titles: coloured area chip beside a bigger title | Hub | S | building | B. 2026-10-24: titles easier to see; round 2 pick B (solid chip) · PR #67 | — |
+| JY-233 | Hub card titles: coloured area chip beside a bigger title | Hub | S | [x] shipped | B. 2026-10-24: titles easier to see; round 2 pick B (solid chip) · PR #67 | [spec](docs/specs/JY-233-hub-card-titles.md) |
 
 ### Phase 5 — Media player
 

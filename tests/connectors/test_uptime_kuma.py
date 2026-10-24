@@ -73,6 +73,27 @@ def test_live_fetch_is_one_basic_auth_get_with_empty_user(live, monkeypatch):
     assert envelope["data"]["summary"] == "5 of 6 up"
 
 
+def test_kuma2_sibling_families_are_skipped_not_rejected(live, monkeypatch):
+    """JY-144 (2026-10-24): Kuma 2.x adds `monitor_response_time_seconds{...,window=..}`,
+    which shares the `monitor_response_time` prefix. It made every live sweep fail with
+    "unexpected payload". It must be skipped, and must never overwrite the ms reading."""
+    assert "monitor_response_time_seconds{" in FIXTURE and 'monitor_id="' in FIXTURE
+    fake_get(monkeypatch, Resp(FIXTURE))
+    envelope = UptimeKuma().run()
+    assert envelope["status"] == "ok", envelope.get("error")
+    data = envelope["data"]
+    assert data["summary"] == "5 of 6 up"
+    assert {m["name"]: m["response_ms"] for m in data["monitors"]}["Jellyfin"] == 38
+    seconds_first = "\n".join(
+        ['monitor_response_time_seconds{monitor_id="1",monitor_name="X",monitor_type="http",window="1d"} 0.5',
+         'monitor_status_extra{monitor_id="1",monitor_name="X",monitor_type="http"} 9',
+         'monitor_status{monitor_id="1",monitor_name="X",monitor_type="http"} 1',
+         'monitor_response_time{monitor_id="1",monitor_name="X",monitor_type="http"} 12'])
+    fake_get(monkeypatch, Resp(seconds_first))
+    assert UptimeKuma().run()["data"]["monitors"] == [
+        {"name": "X", "type": "http", "status": "up", "response_ms": 12}]
+
+
 def test_pending_maintenance_and_urls_never_leak(live, monkeypatch):
     secret_url = "https://lan.example.invalid/hook?token=TOPSECRETtoken123"
     text = "\n".join([

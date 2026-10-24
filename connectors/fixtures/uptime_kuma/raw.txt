@@ -1,25 +1,73 @@
-# Uptime Kuma 1.23 GET /metrics (Prometheus text exposition), trimmed to the monitor_* families.
-# monitor_url schemes are dropped here only because the fixtures pack forbids URLs.
+# Uptime Kuma 2.5.6 GET /metrics (Prometheus text exposition), trimmed and sanitised (JY-144,
+# 2026-10-24: shape taken from the live NAS, names and values invented). 2.x adds the monitor_id
+# label, app_version, and the monitor_uptime_ratio / monitor_response_time_seconds families with a
+# window label. monitor_url schemes are dropped only because the fixtures pack forbids URLs.
+# HELP app_version The version of Uptime Kuma
+# TYPE app_version gauge
+app_version{version="2.5.6",major="2",minor="5",patch="6"} 1
 # HELP monitor_cert_days_remaining The number of days remaining until the certificate expires
 # TYPE monitor_cert_days_remaining gauge
 # HELP monitor_cert_is_valid Is the certificate still valid? (1 = Yes, 0= No)
 # TYPE monitor_cert_is_valid gauge
+# HELP monitor_uptime_ratio Uptime ratio calculated over sliding window specified by the 'window' label. (0.0 - 1.0)
+# TYPE monitor_uptime_ratio gauge
+monitor_uptime_ratio{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null",window="1d"} 1
+monitor_uptime_ratio{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null",window="1d"} 0.9993
+monitor_uptime_ratio{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null",window="1d"} 1
+monitor_uptime_ratio{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null",window="1d"} 1
+monitor_uptime_ratio{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null",window="1d"} 0.8125
+monitor_uptime_ratio{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null",window="1d"} 1
+monitor_uptime_ratio{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null",window="30d"} 1
+monitor_uptime_ratio{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null",window="30d"} 0.9993
+monitor_uptime_ratio{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null",window="30d"} 1
+monitor_uptime_ratio{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null",window="30d"} 1
+monitor_uptime_ratio{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null",window="30d"} 0.8125
+monitor_uptime_ratio{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null",window="30d"} 1
+monitor_uptime_ratio{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null",window="365d"} 1
+monitor_uptime_ratio{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null",window="365d"} 0.9993
+monitor_uptime_ratio{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null",window="365d"} 1
+monitor_uptime_ratio{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null",window="365d"} 1
+monitor_uptime_ratio{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null",window="365d"} 0.8125
+monitor_uptime_ratio{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null",window="365d"} 1
+# HELP monitor_response_time_seconds Average response time in seconds calculated over sliding window specified by the 'window' label.
+# TYPE monitor_response_time_seconds gauge
+monitor_response_time_seconds{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null",window="1d"} 0.041
+monitor_response_time_seconds{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null",window="1d"} 0.055
+monitor_response_time_seconds{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null",window="1d"} 0.029
+monitor_response_time_seconds{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null",window="1d"} 0.033
+monitor_response_time_seconds{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null",window="1d"} 0.047
+monitor_response_time_seconds{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null",window="1d"} 0.001
+monitor_response_time_seconds{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null",window="30d"} 0.041
+monitor_response_time_seconds{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null",window="30d"} 0.055
+monitor_response_time_seconds{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null",window="30d"} 0.029
+monitor_response_time_seconds{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null",window="30d"} 0.033
+monitor_response_time_seconds{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null",window="30d"} 0.047
+monitor_response_time_seconds{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null",window="30d"} 0.001
+monitor_response_time_seconds{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null",window="365d"} 0.041
+monitor_response_time_seconds{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null",window="365d"} 0.055
+monitor_response_time_seconds{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null",window="365d"} 0.029
+monitor_response_time_seconds{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null",window="365d"} 0.033
+monitor_response_time_seconds{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null",window="365d"} 0.047
+monitor_response_time_seconds{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null",window="365d"} 0.001
 # HELP monitor_response_time Monitor Response Time (ms)
 # TYPE monitor_response_time gauge
-monitor_response_time{monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null"} 38
-monitor_response_time{monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null"} 51
-monitor_response_time{monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null"} 27
-monitor_response_time{monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null"} 31
-monitor_response_time{monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null"} -1
-monitor_response_time{monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null"} 1
+monitor_response_time{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null"} 38
+monitor_response_time{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null"} 51
+monitor_response_time{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null"} 27
+monitor_response_time{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null"} 31
+monitor_response_time{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null"} -1
+monitor_response_time{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null"} 1
 # HELP monitor_status Monitor Status (1 = UP, 0= DOWN, 2= PENDING, 3= MAINTENANCE)
 # TYPE monitor_status gauge
-monitor_status{monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null"} 1
-monitor_status{monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null"} 1
-monitor_status{monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null"} 1
-monitor_status{monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null"} 1
-monitor_status{monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null"} 0
-monitor_status{monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null"} 1
+monitor_status{monitor_id="1",monitor_name="Jellyfin",monitor_type="http",monitor_url="nas.local:8096/health",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_id="2",monitor_name="Jellyseerr",monitor_type="http",monitor_url="nas.local:5055",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_id="3",monitor_name="Radarr",monitor_type="http",monitor_url="nas.local:7878/ping",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_id="4",monitor_name="Sonarr",monitor_type="http",monitor_url="nas.local:8989/ping",monitor_hostname="null",monitor_port="null"} 1
+monitor_status{monitor_id="5",monitor_name="Prowlarr",monitor_type="http",monitor_url="nas.local:9696/ping",monitor_hostname="null",monitor_port="null"} 0
+monitor_status{monitor_id="6",monitor_name="NAS",monitor_type="ping",monitor_url="",monitor_hostname="nas.local",monitor_port="null"} 1
 # HELP process_cpu_user_seconds_total Total user CPU time spent in seconds.
 # TYPE process_cpu_user_seconds_total counter
 process_cpu_user_seconds_total 412.53
+# HELP nodejs_version_info Node.js version info.
+# TYPE nodejs_version_info gauge
+nodejs_version_info{version="v20.19.5",major="20",minor="19",patch="5"} 1

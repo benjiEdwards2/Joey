@@ -792,8 +792,8 @@ def test_real_zombie_holder_counts_as_dead(nas_tmp):
 
 
 def test_a_pid_gone_from_proc_counts_as_dead(nas_tmp, tmp_path):
-    # JY-239: kill -0 can pass just before the pid is reaped; a stat file missing where /proc is mounted means dead.
-    # A fake /proc holds only `self/stat`, so a live pid's stat is "missing" there.
+    # JY-239: kill -0 can pass just before the pid is reaped; with /proc mounted, a missing /proc/<pid> means dead.
+    # A fake /proc holds only `self/stat`, so a live pid's directory is "gone" there.
     sh = nas_tmp
     live = sh.background("sleep 30")
     try:
@@ -802,6 +802,28 @@ def test_a_pid_gone_from_proc_counts_as_dead(nas_tmp, tmp_path):
         (proc / "self" / "stat").write_text("1 (sh) S 0\n")
         assert sh.alive(live) and not sh.alive(live, proc=proc.as_posix())
         assert sh.alive(live, proc=(tmp_path / "no-proc").as_posix())  # no /proc at all: kill -0 decides
+    finally:
+        sh(f"kill {live} 2>/dev/null; true")
+
+
+@pytest.mark.parametrize("stat", ["", None], ids=["empty-stat", "no-stat-file"])
+def test_a_pid_whose_stat_cannot_be_read_counts_as_alive(nas_tmp, tmp_path, stat):
+    # JY-239 fix round (orchestrator must-fix): /proc/<pid> exists but its stat reads empty (a failed sed/cut fork
+    # under load, an unreadable file): fail safe, ALIVE, so a live deploy's lock is never taken as stale.
+    sh = nas_tmp
+    live = sh.background("sleep 30")
+    try:
+        proc = tmp_path / "proc"
+        (proc / "self").mkdir(parents=True)
+        (proc / "self" / "stat").write_text("1 (sh) S 0\n")
+        (proc / live).mkdir()
+        if stat is not None:
+            (proc / live / "stat").write_text(stat)
+        fake = proc.as_posix()
+        assert sh.alive(live, proc=fake)
+        fake_lock(sh, live)
+        assert sh(jp.s_lock_take(SHA, TOKEN), proc=fake)[1] == f"held {live}"  # the deploy's lock stands
+        assert (sh.lock / "pid").read_text().strip() == live
     finally:
         sh(f"kill {live} 2>/dev/null; true")
 

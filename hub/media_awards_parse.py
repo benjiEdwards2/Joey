@@ -325,8 +325,8 @@ def _song(text: str) -> dict | None:
     rest = m.group(2)
     people = []
     for part in _split_top(_first_paren(rest), ";"):
-        if not _PERFORMED_RE.search(part):
-            people += _names(_CREDIT_RE.sub("", part, count=1))
+        cut = _PERFORMED_RE.search(part)           # the writers before "performed by" stay, the performers go
+        people += _names(_CREDIT_RE.sub("", part[:cut.start()] if cut else part, count=1))
     rest = _drop_parens(rest)
     for dash in _DASHES:
         parts = _split_top(rest, dash)

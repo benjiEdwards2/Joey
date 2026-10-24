@@ -379,13 +379,13 @@ def _side(ref: dict | None, qids: dict[str, str], by_label: dict[str, str]) -> t
 
 
 def named_keys(db, body_id: str) -> dict[tuple[str, str], str]:
-    """{(kind, lower-cased name): QID cat_key} of a body's linked categories; a name two of them share is left out."""
+    """{(kind, case-folded name): QID cat_key} of a body's linked categories; a name two of them share is left out."""
     out: dict[tuple[str, str], str] = {}
     seen: set[tuple[str, str]] = set()
     for r in db.execute("SELECT cat_key, name, kind FROM award_category WHERE body_id = ?", (body_id,)):
         if not adb.is_qid(r["cat_key"]):
             continue
-        k = (r["kind"], str(r["name"] or "").lower())
+        k = (r["kind"], str(r["name"] or "").casefold())
         if k in seen:
             out.pop(k, None)
         else:
@@ -413,7 +413,7 @@ def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str],
     for order, blk in enumerate(blocks):
         kind = kinds[0] if len(kinds) == 1 else ap.category_kind(blk["label"], blk.get("kind"))
         cq = qids.get(blk.get("page") or "", "")
-        cat_key = (cq if adb.is_qid(cq) else (named or {}).get((kind, blk["label"].lower()))
+        cat_key = (cq if adb.is_qid(cq) else (named or {}).get((kind, blk["label"].casefold()))
                    or ap.slug(blk["label"]) or f"cat-{order}")
         leads = [e["lead"] for e in blk["entries"]]
         lead = "person" if leads.count("person") > leads.count("work") else "work"

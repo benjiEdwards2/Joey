@@ -330,6 +330,12 @@ def test_song_lines_lead_with_the_writers_and_the_film_never_the_song():
         True, "person", "RRR", ["M. M. Keeravani", "Chandrabose"])
 
 
+def test_a_song_credit_part_keeps_the_writers_before_performed_by():
+    text = ("{{Award category|#fff|[[X Award for Best Song|Best Song]]}}\n"
+            "* '''\"[[S]]\" ([[A]], performed by [[B]]) – ''[[F]]'''''\n")
+    assert lead_names(ap.parse_award_blocks(text)["blocks"][0]) == [(True, "person", "F", ["A"])]
+
+
 @pytest.mark.parametrize("name", ["wp_globes_82.json", "wp_globes_80.json", "wp_globes_60.json", "wp_globes_40.json",
                                   "wp_critics_30.json", "wp_critics_10.json", "wp_critics_6.json"])
 def test_no_song_title_is_ever_a_person(name):

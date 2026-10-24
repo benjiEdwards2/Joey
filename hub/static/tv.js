@@ -6,9 +6,14 @@
    * geometric D-pad focus: an arrow key moves focus to the nearest focusable in that direction (the WP-M mockup's
      scoring: a sideways move stays in its row, an up/down move prefers the column it is in); inside an open dialog only
      the dialog's own controls take part;
-   * first focus on load (also when the WebView itself focuses the top bar before any key): [data-first], else the Play
-     button ([data-jf-id]), else the first poster in <main>, else the
-     first focusable in <main>, else the first on the page (WP-M spec: Overview = first poster, title = Play);
+   * first focus on load (also when the WebView itself focuses the top bar before any key): the page's remembered link
+     (Back memory, below), else [data-first], else the Play button ([data-jf-id]), else the first poster in <main>, else
+     the current sub-tab (JY-187 G3: an empty Watchlist / To rate tab), else the first focusable in <main>, else the
+     first on the page (WP-M spec: Overview = first poster, title = Play);
+   * Back memory (JY-187 B1): per URL, the link last reached with a remote key in <main> and the scroll offset, put back
+     on every new page (Back's reload, a boosted swap, the hand-off reopen, a back-forward-cache pageshow);
+   * Up from the page into the top bar lands on the open section's pill; Down from the title buttons into the rating
+     chips lands on chip 1 (JY-187 B2/B3, P5);
    * scroll-into-view: the focused poster is centred in its shelf, clamped at both ends (WP-M call 2 - the browser
      clamps scrollLeft), and its row is kept inside the 5 % overscan margin; focus in the top bar scrolls to the top;
    * focus restore after every htmx swap: when the swap removed or hid the focused element, focus goes back to the first
@@ -63,7 +68,7 @@
 
   function firstIn(root) {
     if (!root) return null;
-    var picks = ['[data-first]', '[data-jf-id]', '.card-poster', FOCUSABLE];
+    var picks = ['[data-first]', '[data-jf-id]', '.card-poster', '.sectabs.sub [aria-current]', FOCUSABLE];
     for (var i = 0; i < picks.length; i++) {
       var found = Array.prototype.filter.call(root.querySelectorAll(picks[i]), visible);
       if (found.length) return found[0];
@@ -71,10 +76,50 @@
     return null;
   }
 
+  /* JY-187 (B1, 2026-10-24): Back memory. Back reloads the page (base.html: historyCacheSize 0 + refreshOnHistoryMiss)
+     and focus went to the first poster at the top. Per URL (path + query) sessionStorage keeps the link last reached
+     with a remote key inside <main> (its href and which of the links with that href it was) and the scroll offset; a
+     page new to this document (restore() below) focuses that link and scrolls back. A move into the top bar or a
+     dialog is never kept, so going Up to a pill and on to another section still comes back to the poster. */
+  var MEMORY = 'joeyTV.back', MEMORY_URLS = 40;
+  var page = null;   /* the URL restore() last set up */
+
+  function here() { return window.location.pathname + window.location.search; }
+
+  function memory() {
+    try { return JSON.parse(window.sessionStorage.getItem(MEMORY)) || {}; } catch (e) { return {}; }
+  }
+
+  function linksTo(href) {
+    var main = document.querySelector('main');
+    return main ? Array.prototype.filter.call(main.querySelectorAll('a[href]'), function (l) {
+      return l.getAttribute('href') === href && visible(l);
+    }) : [];
+  }
+
+  function remember(el) {
+    var main = document.querySelector('main'), href = el.tagName === 'A' && el.getAttribute('href');
+    if (!href || !main || !main.contains(el) || modal()) return;
+    var m = memory(), url = here();
+    delete m[url];   /* added again at the end: the oldest URL goes first */
+    m[url] = { h: href, n: Math.max(0, linksTo(href).indexOf(el)), y: window.scrollY };
+    var urls = Object.keys(m);
+    if (urls.length > MEMORY_URLS) delete m[urls[0]];
+    try { window.sessionStorage.setItem(MEMORY, JSON.stringify(m)); } catch (e) { /* storage off or full: no memory */ }
+  }
+
+  function recall() {
+    var e = memory()[here()];
+    if (!e) return null;
+    var links = linksTo(e.h), el = links[e.n] || links[0];
+    return el ? { el: el, y: e.y } : null;
+  }
+
   function first() {
     var d = modal();
     if (d) return firstIn(d);
-    return firstIn(document.querySelector('main')) || firstIn(document.body);
+    var m = recall();   /* JY-187: this page's remembered link comes before the WP-M rule */
+    return m ? m.el : firstIn(document.querySelector('main')) || firstIn(document.body);
   }
 
   function centreInShelf(el) {
@@ -148,7 +193,18 @@
       }
       if (score < bs) { bs = score; best = c; }
     });
-    if (best) setFocus(best);
+    /* JY-187 (B2/B3): Up from the page into the top bar lands on the open section's pill, not the nearest control (the
+       brand), so another section or the sign-out pill is one Up and a few Rights away */
+    if (best && dir === 'ArrowUp' && best.closest('.topbar') && !a.closest('.topbar')) {
+      var pill = document.querySelector('.toplinks a[aria-current]');
+      if (pill && visible(pill)) best = pill;
+    }
+    /* JY-187 (P5): Down from the title buttons into the rating row lands on its first control (chip 1), not the chip
+       nearest the button */
+    if (best && dir === 'ArrowDown' && a.closest('.hero-detail-btns') && best.closest('.tv-rate')) {
+      best = firstIn(best.closest('.tv-rate')) || best;
+    }
+    if (best) { setFocus(best); remember(best); }
   }
 
   function typing(el) {
@@ -194,6 +250,16 @@
 
   function restore() {
     dropBlankTargets(document);
+    /* JY-187 (B1): a page this document has not set up yet (a full load, a boosted swap to another URL, Back, the
+       pageshow below) gets its remembered link and scroll back. htmx scrolls a boosted page to the top after
+       afterSettle, so the scroll is applied once more after that has run. */
+    var m = page !== here() ? recall() : null;
+    page = here();
+    if (m) {
+      window.scrollTo(0, m.y);
+      setFocus(m.el);
+      setTimeout(function () { if (current === m.el) { window.scrollTo(0, m.y); keepRowInView(m.el); } }, 0);
+    }
     /* a new page (a full load, or a boosted swap / Back, which reset keyed - below): the WebView can focus the brand
        before this deferred script adds its focusin listener, so a top-bar focus found here before any key is also
        replaced by first() */
@@ -226,6 +292,8 @@
   });
   document.addEventListener('htmx:afterSettle', restore);
   document.addEventListener('htmx:historyRestore', function () { keyed = false; restore(); });
+  /* JY-187 (B1): a page shown again from the back-forward cache is set up again (memory focus + scroll) */
+  window.addEventListener('pageshow', function (e) { if (e.persisted) { page = null; restore(); } });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
   else restore();
 })();

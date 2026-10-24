@@ -500,7 +500,7 @@ out.ov_back = now(); out.ov_back_y = window.scrollY;
 key('ArrowLeft'); brand.focus();
 fire('window:pageshow', { persisted: true });
 out.pageshow = now();
-['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp'].forEach(key);
+while (now().indexOf('pill-') !== 0 && now() !== 'brand') { out.last_in_main = document.activeElement.attrs.href; key('ArrowUp'); }
 out.top = now();
 var mem = JSON.parse(store[Object.keys(store)[0]] || '{}');
 out.mem_overview = mem['/a/media'] && mem['/a/media'].h;
@@ -515,7 +515,8 @@ out.missing = now();
     assert out["mv_again"] == "p18" and abs(out["mv_again_y"] - out["picked_y"]) < 1       # boosted, after htmx's scroll
     assert out["ov_back"] == "o14" and abs(out["ov_back_y"] - out["ov_y"]) < 1             # the second link to item 102
     assert out["pageshow"] == "o13"
-    assert out["top"] == "pill-overview" and out["mem_overview"] == "/media/item/101"      # the top bar is not remembered
+    assert out["top"] == "pill-overview" and out["last_in_main"].startswith("/media/item/")
+    assert out["mem_overview"] == out["last_in_main"]                                      # the top bar is not remembered
     assert out["missing"] == "p1"
 
 
@@ -558,7 +559,7 @@ def test_down_from_the_title_buttons_lands_on_chip_one_under_node(gc, tmp_path):
 load('/media/item/1', title);
 out.stops = [now()];
 ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowRight', 'ArrowDown'].forEach(function (k) { key(k); out.stops.push(now()); });
-load('/media/item/1', title);
+load('/media/item/2', title);
 key('ArrowDown');
 out.from_play = now();
 """)

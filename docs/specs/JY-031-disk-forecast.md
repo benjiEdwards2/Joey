@@ -1,6 +1,6 @@
 # JY-031 P1b: disk forecast on the hub card and in Discord
 
-Status: building
+Status: shipped 2026-10-24
 Size: L
 Live risk: deploy (Discord posts from production)
 Area: `hub/server.py`, `hub/server_alerts.py`, `hub/server_history.py`, `hub/tasks.py`, `hub/main.py` (hub card data), `hub/server_digest.py` (option B only), `tests/hub/`; added in the fix round (orchestrator, 2026-10-23): `hub/server_space.py`, `hub/README.md`, `docs/hub-changelog.md`
@@ -63,8 +63,8 @@ The "free space" list of biggest watched films (SERVER_REVIEW P1 part 2). Foreca
 Reply in one message, e.g. "JY-031: 1A 2a 3a 4a, ready".
 
 ## Shipped notes
-(filled at close-out)
-- 2026-10-23 (build, rule 4): `tests/hub/test_server_cleanup.py` `test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items` re-pinned as `test_build_server_puts_the_cached_forecast_in_attention_and_in_the_keyed_items`. It pinned the WP-T3 split (forecast on the page only, because the hub loop had no samples). Criterion 1 removes that split on purpose: the loop caches the forecast and all three paths carry it. The new pin also checks that `history_band`'s own forecast no longer reaches Attention.
-- 2026-10-23 (fix round, rule 4): `tests/hub/test_server_space.py` `test_head_line_with_the_forecast_adds_the_days_it_buys_back` and `test_a_slow_disk_has_no_forecast_and_no_days` now pass the cached forecast item into `server_space.build` (was read from `history_band` inside it), so Free space and the Server page's Attention never disagree. Same assertions on the head line.
-- 2026-10-23 (fix round): `tests/hub/test_server_forecast.py` rounding pins moved from nearest day to floor (22.6 → "22 days"), and `/volume1/Docker` now reads "Volume 1" (orchestrator decisions).
-- 2026-10-23 (verifier round, rule 4): `history_band`'s own "forecast" field (WP-T3's page-only item) is removed; production no longer read it. Re-pinned in `tests/hub/test_server_cleanup.py`: `test_disk_projection_under_30_days_joins_the_page_attention_only` and `test_disk_projection_over_30_days_or_flat_stays_out` assert the same cases through `server.forecast_step` (the cached item); the build_server re-pin's fake band drops the field. One rounding for projected days everywhere: `server._days_text` now floors (min 1) and is used by the Attention item, hub card, Discord, the trend line and Free space; the trend line shows the cached item's days when one exists.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #60, squash-merged as `3a7270b` (3a7270b9a9498f901b482aefdd654b0449377b9f).
+- Deploy: `2026-10-24T00:01:29Z PASS prev=d5c9530 new=3a7270b suite green, smoke ok tv=current end=2026-10-24T00:18:37Z dur=1028s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24, after reviewing the JY-031 screenshots: Looks good."
+- Follow-ups: none

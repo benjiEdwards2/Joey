@@ -1,6 +1,6 @@
 # JY-050 Media player: spec + questions
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
 Area: `docs/specs/` only (writing; no code, no live system touched)
@@ -35,6 +35,7 @@ Done for the player programme, checked per device on the JY-051 test files (H.26
 Choosing the player technology (JY-051); the screen's look (JY-052); buying or installing the box (JY-049, JY-059); library, Seerr or arr changes; streaming through Cloudflare; Samsung/LG native apps; casting.
 
 ## Questions for B.
+Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance." = every recommended answer below, and ready.
 **1. Which devices first?** A) PC browser, then phone, then TV. B) TV first. C) PC and phone together, TV last. *Recommend A: it matches JY-054 then JY-057, and the TV shell ships once.*
 
 **2. Household only, or friends too?** A) Household only now; friends keep the official Jellyfin app and JY-058 stays parked. B) Household first, friends after JY-057 (the pilot friend's Google TV). C) Friends from the start. *Recommend A, reopen after JY-057: friends add a security gate and the 20 Mbps cap.*

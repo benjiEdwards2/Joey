@@ -40,13 +40,6 @@ def on_server_keys(jelly: dict, kind: str) -> set:
     return {i.get("item_key") for i in (jelly or {}).get(FIELD[kind]) or [] if i.get("item_key") and not empty_series(i)}
 
 
-def tab_counts(owner: str, jelly: dict | None) -> dict:
-    """{'wl_movie': n, 'wl_tv': n} not-on-server counts for the nav tabs; {} with no library data."""
-    if not jelly:
-        return {}
-    return {f"wl_{k}": wl.count_not_on_server(owner, k, on_server_keys(jelly, k)) for k in PAGES}
-
-
 def _item(f: dict) -> dict:
     tmdb = f.get("tmdb_id", "")
     if not re.fullmatch(r"\d{1,9}", tmdb):

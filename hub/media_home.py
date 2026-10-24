@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Request
 
 from hub import (media_db, media_discover, media_downloads, media_follow, media_item, media_nav, media_plays_db,
-                 media_resume, media_status_words, media_text, media_watchlist, shell)
+                 media_resume, media_status_words, media_text, shell)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 from hub.store import ago_text, data_of, parse_utc, tile_state
 
@@ -188,11 +188,6 @@ def media_frame(request: Request) -> dict:
         ratings = _ratings(view, recent) if area or recent else None  # H-29: ONE ratings read for both counts
         inbox = _to_rate(recent, ratings) if recent and ratings is not None else []   # M-24: ONE inbox for both
         waiting = area_waiting(area, snaps, view, recent, ratings, inbox) if area else {}
-        try:
-            jelly = snaps.get(JELLYFIN_SNAPSHOT_ID)
-            waiting = {**waiting, **media_watchlist.tab_counts(media_db.owner_of(view), jelly.data if jelly else None)}
-        except Exception as exc:  # the Watchlist count is a nicety: never break the frame
-            log.warning("watchlist count skipped: %s", type(exc).__name__)
         try:
             waiting = {**waiting, **to_rate_tab_counts(snaps, view, recent, ratings, inbox)}
         except Exception as exc:  # the To rate tab count is a nicety too (media-ux4)

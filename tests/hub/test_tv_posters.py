@@ -1,4 +1,4 @@
-"""JY-189 (U3; TV_UI_EVALUATION G2, T1, T2): in TV mode posters on shelves, grids and Tonight are fetched at h=400
+"""JY-189 (U3; TV_UI_EVALUATION G2, T1, T2): in TV mode posters on shelves, grids and Tonight are fetched at h=600
 (they were upscaled from 160x240 files); desktop and phone keep h=240; Tonight carries its TV layout hooks and tv.css
 holds the matching rules. TV mode is forced here by patching the `tv_mode` Jinja global (the real trigger, the
 JoeyTV/ user agent or cookie, is covered in test_tv_mode.py and only runs on the guest front)."""
@@ -28,19 +28,19 @@ PAGES = ["/media/movies/tonight", "/media/movies?view=grid", "/a/alpha"]
 
 
 @pytest.mark.parametrize("path", PAGES)
-def test_tv_mode_asks_for_400_and_normal_mode_is_unchanged(env, tv, path):
+def test_tv_mode_asks_for_600_and_normal_mode_is_unchanged(env, tv, path):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         tv(False)
         plain = body(c, path)[1]
         tv(True)
         big = body(c, path)[1]
-    assert "240" in heights(plain) and "400" not in heights(plain), path     # non-TV: exactly as before
-    assert heights(big) == {"400"}, path                                       # TV: every card poster is 400
-    assert 'width="267" height="400"' in big
+    assert "240" in heights(plain) and "600" not in heights(plain), path     # non-TV: exactly as before
+    assert heights(big) == {"600"}, path                                       # TV: every card poster is 600
+    assert 'width="400" height="600"' in big
 
 
-def test_tonight_has_its_tv_hooks_in_both_modes(env, tv):
+def test_tonight_has_its_tv_hooks_in_tv_mode(env, tv):
     main = env(jellyfin=jelly(), arr=ARRV)
     with TestClient(main.app) as c:
         tv(True)
@@ -53,7 +53,7 @@ def test_poster_macro_only_changes_with_the_tv_flag(env):
     from hub import shell
     tpl = shell.templates.env.from_string('{% from "_poster.html" import poster %}{{ poster("jf:ab", "Ab", 240) }}|{{ poster("jf:ab", "Ab", 240, "", true) }}|{{ poster("jf:ab", "Ab", 120, "row-poster") }}')
     a, b, c = tpl.render().split("|")
-    assert "?h=240&amp;" in a and "?h=400&amp;" in b and "?h=120&amp;" in c
+    assert "?h=240&amp;" in a and "?h=600&amp;" in b and "?h=120&amp;" in c
 
 
 def test_tv_css_carries_the_tonight_rules_without_touching_the_shared_sheet():

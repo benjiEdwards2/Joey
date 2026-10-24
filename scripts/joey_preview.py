@@ -56,10 +56,12 @@ LOCK_HOLD_S = 3600    # the holder releases the lock by itself after this, whate
 PID_RE = re.compile(r"^[0-9]+$")
 # Shell helpers for the lock scripts (BusyBox ash and dash). alive: kill -0 succeeds on a zombie, and in the gate
 # container (no --init) nothing reaps an orphaned holder, so a pid whose /proc/<pid>/stat state is Z counts as dead
-# (JY-228 review). The state is the first field after "(comm) ". nap: a short pause; falls back to 1 s where sleep
-# takes whole seconds only.
+# (JY-228 review). The state is the first field after "(comm) ". A pid reaped between kill -0 and the read has no stat
+# file: dead too, wherever /proc is mounted (JY-239); with no /proc at all, kill -0 decides. nap: a short pause; falls
+# back to 1 s where sleep takes whole seconds only.
 SH_ALIVE = ("alive() { kill -0 \"$1\" 2>/dev/null || return 1; "
-            "z=$(sed 's/^.*) //' \"/proc/$1/stat\" 2>/dev/null | cut -d' ' -f1); [ \"$z\" != Z ]; }")
+            "z=$(sed 's/^.*) //' \"/proc/$1/stat\" 2>/dev/null | cut -d' ' -f1); "
+            "[ -n \"$z\" ] || { [ ! -r \"/proc/self/stat\" ]; return; }; [ \"$z\" != Z ]; }")
 SH_NAP = "nap() { sleep 0.1 2>/dev/null || sleep 1; }"
 
 WINDOW = (dt.time(7, 0), dt.time(21, 30))

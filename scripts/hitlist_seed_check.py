@@ -271,6 +271,8 @@ SOURCES = [
     ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq1 worktree", "JY-230", "built 2026-10-22, never reviewed"),
     ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq2 worktree", "JY-231", "built 2026-10-22, never reviewed"),
     ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq3 worktree", "JY-232", "built 2026-10-22, never reviewed"),
+    ("B. in the orchestrator session (2026-10-24)", "hub card titles easier to see", "JY-233", "options round 2, pick B"),
+    ("JY-228 Opus verifier (2026-10-24)", "preview lock should-fixes", "JY-234", "not blocking the merge"),
 ]
 
 

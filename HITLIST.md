@@ -48,6 +48,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-030 | Stale "Grouped" toolbar comment in `tv.css` | Joey TV | S | [x] shipped | Small chore to prove the loop · PR #58 | [spec](docs/specs/JY-030-tvcss-comment.md) |
 | JY-031 | P1b disk forecast on hub card + Discord | Server | L | [x] shipped | Forecast reaches the hub and Discord · live; options page + B.'s questions first · PR #60 | [spec](docs/specs/JY-031-disk-forecast.md) |
+| JY-233 | Hub card titles: coloured area chip beside a bigger title | Hub | S | building | B. 2026-10-24: titles easier to see; round 2 pick B (solid chip) · PR #67 | — |
 
 ### Phase 5 — Media player
 
@@ -211,6 +212,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-224 | Flaky test: `test_media_speed::test_metadata_long_request_state_short` | Tests | S | idea | Fails 3 in 8 under load; doesn't drain the first visit's background read | — |
 | JY-225 | Flaky test: `test_runner_history_tail` 2 ms wall-clock limit | Tests | S | idea | Fails 2 in 8 under load; timing assert too tight | — |
 | JY-229 | close-out polish: dry run shows docs.1 as DRY before the merge; `tests/scripts/` takes ~7 min serial on Windows (git subprocesses) | Tooling | S | idea | JY-011 first live use, 2026-10-23 | — |
+| JY-234 | Preview lock follow-ups: PID-reuse guard via the holder's token, owner/pid write races, hold vs teardown timeouts | NAS/deploy | S | idea | JY-228 Opus verifier should-fixes (low probability) | — |
 
 ### Parked features
 

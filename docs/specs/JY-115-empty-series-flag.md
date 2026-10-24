@@ -1,6 +1,6 @@
 # JY-115 Connector: flag series with 0 Jellyfin episodes at source (flag half already done; missing-count fix)
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `connectors/feeds/jellyfin.py`, `connectors/schema/data/jellyfin.schema.json`, `hub/media_library.py`, `tests/connectors/`, `tests/hub/`
@@ -51,4 +51,8 @@ No visible change: My shows, Requests and an empty show's item page read exactly
 Answer as "1A".
 
 ## Shipped notes
-- 2026-10-24: built on B.'s orchestrator's 1A. `tests/connectors` + `tests/hub/test_season_state.py` + `test_media_library.py`: 476 passed; `-n 4 tests/hub/`: 2757 passed.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #129, squash-merged as `26b38cb` (26b38cb16899b967abe2e22c68bb1f599f8ca8dd).
+- Deploy: `2026-10-24T10:01:07Z PASS prev=2db664b new=26b38cb suite green, smoke ok tv=current end=2026-10-24T10:06:03Z dur=296s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -3,8 +3,12 @@
 gh is a fake script (JOEY_GH -> fake_gh.py, run with this Python): it answers `pr list` from a JSON file and logs every
 call, so nothing touches the network. origin's URL is a github.com URL that `url.<bare>.insteadOf` maps onto the bare
 repo, so repo_slug() and git fetch/push both work offline. The CLI runs as a subprocess, as a user would run it.
+JY-227: the origin + clone are built once per session and copied per test, and setup-only `worktree new` calls
+(Repo.item) run joey_worktree.main in-process; every test of a subcommand still runs the CLI.
 Skips when git is not on PATH. Runs on Windows (laptop) and Linux (CI, gate image as user joey)."""
+import contextlib
 import datetime as dt
+import io
 import json
 import os
 import re
@@ -24,6 +28,8 @@ pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is not 
 
 GH_URL = "https://github.com/example/joey.git"
 TOKEN = "ghp_FAKE0123456789abcdefABCDEF0123456789"
+# JY-227: no background `git maintenance run --auto` after each commit, fetch and push (one process less each)
+GITCONFIG = "[maintenance]\n\tauto = false\n[receive]\n\tautogc = false\n"
 
 FAKE_GH = r'''
 import json, os, sys
@@ -55,7 +61,7 @@ class Repo:
         fake = tmp_path / "fake_gh.py"
         fake.write_text(FAKE_GH, encoding="utf-8")
         gitconfig = tmp_path / "gitconfig"
-        gitconfig.write_text("", encoding="utf-8")
+        gitconfig.write_text(GITCONFIG, encoding="utf-8")
         self.env = dict(os.environ)
         self.env.update({
             "GIT_AUTHOR_NAME": "Joey Test", "GIT_AUTHOR_EMAIL": "joey@example.invalid",
@@ -66,15 +72,33 @@ class Repo:
         for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "FAKE_GH_FAIL"):
             self.env.pop(k, None)
         self.set_prs([])
-        self.git("init", "-q", "--bare", "-b", "main", str(self.origin), cwd=tmp_path)
-        self.git("init", "-q", "-b", "main", str(self.clone), cwd=tmp_path)
-        (self.clone / ".gitignore").write_text(".env\n/data/\n/.joey/\n", encoding="utf-8")
-        (self.clone / "README.md").write_text("joey\n", encoding="utf-8")
-        self.git("add", ".")
-        self.git("commit", "-q", "-m", "init")
-        self.git("remote", "add", "origin", origin_url)
-        self.git("config", f"url.{self.origin.as_posix()}.insteadOf", origin_url)
-        self.git("push", "-q", "-u", "origin", "main")
+        src = self.template(origin_url)
+        for name in (self.origin.name, self.clone.name):
+            shutil.copytree(src / name, tmp_path / name, ignore=shutil.ignore_patterns("*.sample"))
+        config = self.clone / ".git" / "config"  # point url.<origin>.insteadOf at this copy's origin
+        text = config.read_text(encoding="utf-8")
+        config.write_text(text.replace((src / self.origin.name).as_posix(), self.origin.as_posix()), encoding="utf-8")
+
+    templates_root = None  # set once per session by the _templates fixture
+    templates = {}
+
+    def template(self, origin_url):
+        """JY-227: the bare origin + clone, built once per worker (session) per origin URL and copied per test."""
+        if origin_url not in Repo.templates:
+            src = Repo.templates_root / f"t{len(Repo.templates)}"
+            src.mkdir()
+            origin, clone = src / self.origin.name, src / self.clone.name
+            self.git("init", "-q", "--bare", "-b", "main", str(origin), cwd=src)
+            self.git("init", "-q", "-b", "main", str(clone), cwd=src)
+            (clone / ".gitignore").write_text(".env\n/data/\n/.joey/\n", encoding="utf-8")
+            (clone / "README.md").write_text("joey\n", encoding="utf-8")
+            self.git("add", ".", cwd=clone)
+            self.git("commit", "-q", "-m", "init", cwd=clone)
+            self.git("remote", "add", "origin", origin_url, cwd=clone)
+            self.git("config", f"url.{origin.as_posix()}.insteadOf", origin_url, cwd=clone)
+            self.git("push", "-q", "-u", "origin", "main", cwd=clone)
+            Repo.templates[origin_url] = src
+        return Repo.templates[origin_url]
 
     def git(self, *args, cwd=None):
         r = subprocess.run(["git", *args], cwd=cwd or self.clone, env=self.env, capture_output=True, text=True,
@@ -108,10 +132,27 @@ class Repo:
     def has_worktree(self, path):
         return os.path.normcase(os.path.realpath(path)) in self.worktree_paths()
 
+    def joey_here(self, *args):
+        """Setup only (JY-227): joey_worktree.main in this process, with this repo's env and cwd, so a setup step does
+        not pay a Python start-up. The tests of each subcommand still run the CLI as a subprocess (joey())."""
+        import joey_worktree
+        env, cwd, out = dict(os.environ), os.getcwd(), io.StringIO()
+        os.environ.clear()
+        os.environ.update(self.env)
+        os.chdir(self.clone)
+        try:
+            with contextlib.redirect_stdout(out):
+                rc = joey_worktree.main(list(args))
+        finally:
+            os.chdir(cwd)
+            os.environ.clear()
+            os.environ.update(env)
+        return rc, out.getvalue()
+
     def item(self, item, slug, commit=True, push=True):
         """A JY worktree made by the tool, with one commit on its branch (pushed). Returns (path, branch, tip)."""
-        r = self.joey("worktree", "new", item, slug)
-        assert r.returncode == 0, r.stdout + r.stderr
+        rc, out = self.joey_here("new", item, slug)
+        assert rc == 0, out
         path, branch = self.wt(item), f"feat/{item}-{slug}"
         if commit:
             (path / f"{slug}.txt").write_text("work\n", encoding="utf-8")
@@ -125,6 +166,11 @@ class Repo:
         logs = list((self.clone / ".joey" / "logs").glob("joey_*.log"))
         assert logs, "no log written"
         return "\n".join(p.read_text(encoding="utf-8") for p in logs)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _templates(tmp_path_factory):
+    Repo.templates_root, Repo.templates = tmp_path_factory.mktemp("joey-repos"), {}
 
 
 @pytest.fixture

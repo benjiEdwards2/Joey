@@ -1,6 +1,6 @@
 # JY-101 "N h this month" uses the old duration format
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_pages.py`, `tests/hub/test_media_history.py`
@@ -34,3 +34,8 @@ Open Activity > To rate: the numbers line reads "Xh Ym this month · Xh Ym all t
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #81, squash-merged as `219f96e` (219f96e5659ac13a37edc5b4a76b77f49c407b90).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

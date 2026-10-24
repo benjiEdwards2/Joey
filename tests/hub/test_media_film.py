@@ -423,6 +423,7 @@ def test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links(env, m
         assert button(b)[0] == "https://youtu.be/AAAAAAAAAAA" and 'data-yt="AAAAAAAAAAA"' in button(b)[1]
         monkeypatch.setitem(ITEMS["mov1"], "RemoteTrailers", [{"Url": "https://vimeo.com/12345"}])
         media_item.clear_cache()
+        media_film.drain_extras()   # JY-236: the first (cold) page queued the Jellyseerr read; wait for it, or a slow machine renders before raw is cached
         b = main_of(client.get("/media/item/mov1").text)
     assert button(b)[0] == f"https://www.youtube.com/watch?v={KEY_ux4_trailer}"     # the keyed Jellyseerr video beats a non-YouTube link
 

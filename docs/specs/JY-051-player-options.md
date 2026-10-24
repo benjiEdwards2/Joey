@@ -55,6 +55,28 @@ Same procedure per device, per file, per network (LAN, then remote on mobile dat
 ## Needs B.'s hands (one TV window)
 One sitting: install the throwaway test APK on the TCL by adb (as in `tv/README.md`), play every test file under T1, T2 and T3 in one pass, uninstall. Phone and PC need a short session with the test account. Wake the TCL first (deep standby drops it off the LAN).
 
+## Hands bundle: one TV + phone sitting (draft, 2026-10-24)
+At most 30 minutes, one sitting, one state window (TV awake on the LAN, study account live). Files: the 12 in
+`docs/specs/JY-051-inventory.md` ("Test-file set"). Claude drives the timing; B. presses Play and says what he sees.
+
+**Before the sitting (B., about 5 minutes, any time earlier)**
+1. Jellyfin web (`jellyfin.<domain>:8443`) > Dashboard > Users > + : user `joeystudy`, a password of your choice, Library access: all libraries; Features: allow media playback, allow video transcoding and remuxing; no admin, no deletion, no downloads. Save.
+2. Sign in as `joeystudy` in a private Chrome window. Press F12 > Console, type `ApiClient.accessToken()` and Enter. Copy the 32-character value into a new file `C:\Users\b.edwards\.joey\jy051_token.txt` (outside the repo). Close the window without signing out (signing out kills the token).
+3. Tell Claude "study account ready". Claude then runs the PC PlaybackInfo table (`scripts/player_study.py playback --token-file ...`) and builds the test page and test APK. Nothing else is needed from you until the sitting.
+4. Tell Claude your phone (Android + Chrome, or iPhone + Safari): it changes what P1 can play.
+
+**The sitting**
+| Min | Where | What B. does | What is recorded |
+|---|---|---|---|
+| 0-2 | TV | Press the remote's power button, wait for the home screen. Say "TV awake". | Claude checks adb sees the TV, installs the test APK. |
+| 2-9 | PC | Open the study page link (sent before). Press Play on each of the 12 rows; the page plays W1 then W2 and times click to first frame 3 times by itself. For rows 4, 6, 7, 9, 12 say whether picture, sound and subtitles look right. Then open row 2 and row 7 in Jellyfin web (W3) once each. | First-frame median per file and engine; play method from PlaybackInfo and the Dashboard session. |
+| 9-16 | Phone, Wi-Fi | Open the same link, Add to Home screen, open it from there. Run rows 1, 2, 3, 4, 5, 6 (auto-timed). Rotate once and go full screen on row 2. | LAN first frame, fullscreen and rotation, HEVC on the phone. |
+| 16-19 | Phone, mobile data | Turn Wi-Fi off. Run rows 1, 2 and 4. Turn Wi-Fi back on. | Remote first frame (the 10 s budget), one transcode remotely. |
+| 19-28 | TV | Open "Joey Study" from the apps row. It plays each file for 10 s under T1 (WebView), then T2 (ExoPlayer), then T2 + ffmpeg, timing itself. Watch rows 6, 7, 8, 11, 12 and press OK if picture and sound are right, Back if not. Then open rows 1 and 7 in the Jellyfin app (T3). | logcat first-frame per file per engine; your OK/Back per hard file. |
+| 28-30 | TV, then phone | Stop row 1 on the TV at about 5:00. Open row 1 on the phone and check it offers to resume within 10 s of 5:00. | Resume across devices. |
+
+**After (Claude, no hands):** uninstall the test APK by adb; read NAS CPU and available RAM logged during the transcode rows (must stay at or above 1,200 MB); fill the matrix. Delete `joeystudy` and the token file once B. accepts the study (B. clicks Dashboard > Users > joeystudy > Delete, or OKs Claude doing it by API).
+
 ## Out of scope
 Choosing the screen's look (JY-052); the hub playback endpoints (JY-053); any shipped player or signed release; friends' devices, downloads, casting; the transcode box (JY-049/059: transcode numbers here are J4125 worst case); library, arr or Seerr changes.
 

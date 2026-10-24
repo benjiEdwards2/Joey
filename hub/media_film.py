@@ -1111,6 +1111,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["seasons"] = episode_list(seasons, href_of if (jf_item_id or jf_id) else None, page_season, f["next_ep"])
     for s in f["seasons"]:   # WP-T1: "Season 4 · 3 of 6 watched · 5 to come · next airs 2 Nov"
         s["state_word"] = ((sonarr or {}).get("by_n", {}).get(s["n"]) or {}).get("word")
+    # JY-113: seasons only Sonarr has (announced / monitored, nothing on the server) end the same Seasons list
+    f["seasons_sonarr"] = mss.sonarr_only_seasons(sonarr, [s["n"] for s in f["seasons"]])
     # WP-T1: Sonarr's reads for these words run after the response (never before the render); the next view has them
     f["state_later"] = mss.later([(tvdb, tmdb_id)], detail=True) if kind == "tv" else None
     f["part_of"] = part_of(page_item, item, f["seasons"])

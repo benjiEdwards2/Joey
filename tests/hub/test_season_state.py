@@ -437,3 +437,66 @@ def test_requests_page_says_requested_and_waiting_and_how_much_is_to_come(frame_
     assert ">Approved</span> · TV" in warm                                                   # not in Sonarr: unchanged
     # WP-R1: the page's background task also reads the quality profiles once (the "4K" chip); the series list stays one read
     assert [c[0] for c in sonarr.calls if c[0] != "/api/v3/qualityprofile"] == ["/api/v3/series"]
+
+
+# ---- 6. JY-113: seasons only Sonarr has get a row in the show page's Seasons list ----
+
+def jy113_series():
+    unmon = lambda s: dict(s, monitored=False)                                          # noqa: E731
+    return series(1, "Quiet Show", [
+        season(0, 0, 3, prev=False),                                  # specials: never
+        season(2, 0, 8, aired=8),                                     # an older gap in the library: no row
+        season(4, 6, 6),                                              # on the server (Jellyfin's Season 4)
+        season(5, 0, 1, aired=0, nxt=at(47), prev=False),             # Sonarr's placeholder: announced, with a date
+        season(6, 0, 9, aired=0, prev=False),                         # monitored, nothing aired yet
+        unmon(season(7, 0, 10, aired=0, prev=False)),                 # unmonitored, not a placeholder: no row
+        unmon(season(8, 0, 1, aired=0, prev=False)),                  # an unmonitored placeholder: still announced
+        season(9, 2, 8, aired=2, nxt=at(5)),                          # Sonarr has files (Jellyfin not scanned): no row
+    ], tmdb=100)
+
+
+def test_sonarr_only_seasons_pick_and_words():
+    state = mss.build(jy113_series())
+    rows = mss.sonarr_only_seasons(state, {4})
+    assert [(r["n"], r["name"], r["count_word"], r["state_word"]) for r in rows] == [
+        (5, "Season 5", "Not on server yet", f"Announced · airs {words(47)}"),
+        (6, "Season 6", "Not on server yet", "Waiting for the first episode · date TBA"),
+        (8, "Season 8", "Not on server yet", "Announced"),
+    ]
+    assert mss.sonarr_only_seasons(state, {4, 5, 6, 8, 9}) == []      # nothing newer than the last on the server
+    assert mss.sonarr_only_seasons(None, {4}) == []                    # no Sonarr answer: no rows
+    assert mss.sonarr_only_seasons(state, set()) == []                 # no Jellyfin season: the page keeps Seerr's rows
+
+
+def test_show_page_lists_sonarr_only_seasons_after_jellyfins(env, sonarr):
+    sonarr.entries = [jy113_series()]
+    sonarr.episodes = {}
+    client, _ = env()
+    sonarr.install()
+    mss.refresh([], True, [])
+    calls = len(sonarr.calls)
+    with client:
+        r = client.get("/media/item/ser1")
+    assert r.status_code == 200
+    seasons = main_of(r.text).split('id="seasons"')[1].split("</section>")[0]
+    s4 = seasons.index('id="season-4"')
+    row5 = ('<div class="row" id="season-5"><div class="row-body"><div class="row-title">Season 5 · '   # main_of drops .sep
+            '<span class="seasoncount">Not on server yet</span> · '
+            f'<span class="seasonstate">Announced · airs {words(47)}</span></div></div></div>')
+    assert row5 in seasons and seasons.index(row5) > s4
+    assert ('<span class="seasoncount">Not on server yet</span> · '
+            '<span class="seasonstate">Waiting for the first episode · date TBA</span>') in seasons
+    assert seasons.index('id="season-5"') < seasons.index('id="season-6"') < seasons.index('id="season-8"')
+    for n in (2, 7, 9):
+        assert f'id="season-{n}"' not in seasons
+    # the rows came from the cached list: the page made no Sonarr call before its render (any after it are the
+    # BackgroundTask's episode-list reads, never the series list again)
+    assert all(c[0] == "/api/v3/episode" for c in sonarr.calls[calls:])
+
+
+def test_show_page_without_sonarr_has_no_sonarr_only_rows(env, sonarr, monkeypatch):
+    monkeypatch.delenv("SONARR_URL")
+    client, _ = env()
+    with client:
+        page = main_of(client.get("/media/item/ser1").text)
+    assert "Not on server yet" not in page and 'id="season-4"' in page

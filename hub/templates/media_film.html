@@ -237,6 +237,10 @@
     </div>
   </details>
   {% endfor %}
+  {# JY-113: seasons only Sonarr has - the same row, no <details> (no episodes to open) #}
+  {% for s in film.seasons_sonarr %}
+  <div class="row" id="season-{{ s.n }}"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.count_word }}</span><span class="sep"> · </span><span class="seasonstate">{{ s.state_word }}</span></div></div></div>
+  {% endfor %}
   </div>
 </section>
 {% elif film.kind == "tv" and film.t and film.t.seasons %}

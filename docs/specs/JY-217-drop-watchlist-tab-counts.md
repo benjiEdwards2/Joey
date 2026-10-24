@@ -1,6 +1,6 @@
 # JY-217 Remove unused watchlist `tab_counts()` read in `media_frame()`
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_home.py`, `hub/media_watchlist.py`, `tests/hub/test_media_phone_nav.py`
@@ -34,3 +34,8 @@ Media pages and their nav counts look the same.
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #84, squash-merged as `4d54c68` (4d54c68852bfdc8303545516a36e3b35336e6055).
+- Deploy: `2026-10-24T05:32:28Z PASS prev=d0a8cad new=4d54c68 suite green, smoke ok tv=current end=2026-10-24T05:58:19Z dur=1551s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -610,7 +610,7 @@ def status_line(f: dict) -> str:
         s = f.get("series")
         if s:
             parts.append(mss.episodes_words(son, f"{s['episodes']} episode{'s' if s['episodes'] != 1 else ''}"))
-            parts.append(s.get("progress") or (f"{s['to_watch']} to watch" if s["to_watch"] else "all watched"))
+            parts.append(s.get("progress") or (f"{s['to_watch']} left" if s["to_watch"] else "all watched"))
             if f.get("next_ep"):
                 parts.append(f"{f['next_ep']['label']} next")
         if son and son.get("word") and not mss.waiting(son):   # WP-T1: never "all watched" last while more is due

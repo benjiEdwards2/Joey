@@ -733,8 +733,13 @@ def test_real_zombie_holder_counts_as_dead_fake_proc(nas_tmp, tmp_path):
     # release's TERM (TERM ignored), so the release can only succeed by counting it dead: otherwise it ends "holder
     # did not stop", exit 1. JY-239, 2026-10-24: this replaces a wall-clock "< 4 s" check that failed under load.
     sh = nas_tmp
-    zombie = sh.background("""sh -c 'trap "" TERM; exec sleep 60'""")
+    ready = tmp_path / "ready"  # written once TERM is ignored: a TERM sent before that would kill it (JY-239)
+    zombie = sh.background(f"""sh -c 'trap "" TERM; : > {ready.as_posix()}; exec sleep 60'""")
     try:
+        deadline = time.monotonic() + 60
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert ready.exists()
         proc = tmp_path / "proc"
         (proc / zombie).mkdir(parents=True)
         (proc / zombie / "stat").write_text(f"{zombie} (sh) Z 1 {zombie} {zombie} 0 -1 4194560\n")

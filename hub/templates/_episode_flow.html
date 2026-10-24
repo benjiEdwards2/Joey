@@ -30,6 +30,14 @@
 {% if nav and nav.show and nav.season %}<p class="epeyebrow">{{ nav.show.title }}<span class="sep"> · </span>S{{ nav.season.n }}{% if nav.position %}<span class="sep"> · </span>{{ nav.position }}{% endif %}</p>{% endif %}
 {%- endmacro %}
 
+{# The line above a season page's show title: "Season 2 of 4" (JY-116, 2026-10-24, B.: "JY-116: A"). The season is the
+   `on` entry of nav.seasons, "of" is the highest season number there (the list length when numbering has no gaps).
+   Nothing for Specials (number 0), for no `on` season, or for an empty list. Same .epeyebrow style as the episode page. #}
+{% macro seasonline(nav) -%}
+{% set cur = (nav.seasons|selectattr("on")|first) if nav and nav.seasons else none %}
+{% if cur and cur.n %}<p class="epeyebrow">Season {{ cur.n }} of {{ nav.seasons|map(attribute="n")|max }}</p>{% endif %}
+{%- endmacro %}
+
 {# The S1 / S2 / S3 switch in a season page's head (nav.seasons, the current one `on`). #}
 {% macro seasonswitch(nav) -%}
 {% if nav and nav.seasons and nav.seasons|length > 1 %}

@@ -1,6 +1,6 @@
 # JY-241 joey.py crashes printing non-cp1252 text to a Windows pipe
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `scripts/joey.py`, `scripts/joey_common.py`, `scripts/budgets.py`, `tests/scripts/`
@@ -31,3 +31,8 @@ Other entry points (`deploy/`, hub code); only the two CLIs under `scripts/` nam
 `PYTHONIOENCODING=cp1252` and a piped `joey.py close-out` on a PR with a non-ASCII title finishes.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #112, squash-merged as `c7c5eed` (c7c5eed4f3e95f1e4698a6d2ae97f466fed00047).
+- Deploy: `2026-10-24T08:25:11Z PASS prev=89b4620 new=c7c5eed suite green, smoke ok tv=current end=2026-10-24T08:29:52Z dur=281s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -219,7 +219,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | [x] shipped | JY-140 review should-fix, 2026-10-24 · PR #105 | [spec](docs/specs/JY-238-lan-word.md) |
 | JY-239 | Flaky JY-228 lock tests on Linux CI (holder self-expiry timing; /proc race) | Tests | S | [x] shipped | Turned three unrelated PRs red on 2026-10-24 · PR #97 | [spec](docs/specs/JY-239-preview-test-flakes.md) |
 | JY-240 | Pre-gate free-memory check in deploy.sh (warn/abort below ~1,400 MB available) | NAS/deploy | S | idea | JY-235 review should-fix, 2026-10-24 | — |
-| JY-241 | joey.py crashes printing non-cp1252 text (e.g. "≤" in a PR title) to a Windows pipe | Tooling | S | idea | Broke JY-235's first close-out, 2026-10-24; workaround PYTHONIOENCODING=utf-8 | — |
+| JY-241 | joey.py crashes printing non-cp1252 text (e.g. "≤" in a PR title) to a Windows pipe | Tooling | S | [x] shipped | Broke JY-235's first close-out, 2026-10-24; workaround PYTHONIOENCODING=utf-8 · PR #112 | [spec](docs/specs/JY-241-utf8-output.md) |
 
 ### Parked features
 

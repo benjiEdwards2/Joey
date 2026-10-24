@@ -101,3 +101,15 @@ def test_boosted_navigation_carries_the_manifest_across(env):
         script = shell_script(c, c.get("/").text)   # H-57: /static/joey.js
     assert "htmx:beforeSwap" in script and 'link[rel="manifest"]' in script
     assert "apple-mobile-web-app-title" in script
+
+
+def test_media_frame_reads_no_watchlist_counts(env, monkeypatch):
+    """JY-217 (2026-10-24): nothing in the nav reads a watchlist count (the Watchlist tab left the nav in nav-tidy), so
+    drawing a Media page runs no watchlist count query."""
+    from hub import media_watchlist_db as wl
+    calls = []
+    monkeypatch.setattr(wl, "count_not_on_server", lambda *a, **k: calls.append(a) or 0)
+    main = env(jellyfin=JELLY, arr=ARR)
+    with TestClient(main.app) as c:
+        assert c.get("/media/movies").status_code == 200
+    assert calls == []

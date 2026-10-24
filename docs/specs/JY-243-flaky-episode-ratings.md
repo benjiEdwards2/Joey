@@ -1,6 +1,6 @@
 # JY-243 Flaky tests: JY-119 episode-ratings tests fail on a loaded CI runner
 
-Status: review
+Status: shipped 2026-10-25
 Size: S
 Live risk: none
 Area: tests/hub/test_episode_ratings.py
@@ -40,3 +40,8 @@ Method: "slowed" = a throwaway pytest plugin that sleeps before `media_film._loa
 - After, the CI command `python -m pytest -q -n auto tests/`, 3 runs: 3716 passed twice; once 1 failed (the out-of-scope partof test above), 3715 passed.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #145, squash-merged as `22bbd0b` (22bbd0b7815b79e8ae59d5746764a82c632eeff1).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

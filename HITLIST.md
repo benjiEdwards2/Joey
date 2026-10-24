@@ -194,7 +194,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-207 | Cloudflare edge-cache rule (optional) | NAS | S | idea | Cache /static and /img; see `docs/setup.md` | — |
 | JY-208 | TailScale container running on the NAS | NAS | S | idea | Flagged only; keep or remove | — |
 | JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | idea | Unpublish LAN ports 9000/7878/8989/3001/3030/3000; drop the Homepage hostname; B. or Claude in a NAS window | — |
-| JY-227 | Full deploy gate over its 10 min budget (15.3 min) | NAS/deploy | M | idea | `scripts/budgets.py` 2026-10-23: last PASS took 918 s; find where the time goes (image build, suite `-n 2`, smoke) | — |
+| JY-227 | Full deploy gate over its 10 min budget (15.3 min) | NAS/deploy | M | [x] shipped | `scripts/budgets.py` 2026-10-23: last PASS took 918 s; find where the time goes (image build, suite `-n 2`, smoke) · PR #65 | [spec](docs/specs/JY-227-gate-time.md) |
 | JY-228 | Preview slot hardening: take the deploy lock during the build, pin `JOEY_FRONT`, reason wording | NAS/deploy | S | [x] shipped | JY-012 verifier should-fixes · PR #63 | [spec](docs/specs/JY-228-preview-hardening.md) |
 
 ### Housekeeping

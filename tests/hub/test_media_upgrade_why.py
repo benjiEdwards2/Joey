@@ -154,14 +154,46 @@ def test_summarize_the_live_answer():
     assert c[1]["first"] == CF[1] and c[1]["rejected"] and not c[1]["unknown"]
 
 
-def test_summarize_hint_only_when_the_minimum_rejects_everything():
-    assert why.summarize(thirty(unknown_has_cf=False), "sonarr", "1080p")["hint"] is None   # one rejected otherwise
+def test_summarize_hint_all_but_one_and_not_when_something_is_accepted():
+    # JY-108 (B., 2026-10-24: "1A 2A") rewrites the old "every rejection" rule on purpose; see the spec.
+    one_other = why.summarize(thirty(unknown_has_cf=False), "sonarr", "1080p")   # 29 of 30 carry the minimum
+    assert one_other["hint"] == ("The 1080p profile's minimum custom-format score (1000) rejects 29 of 30 releases for "
+                                 "this title — lower it in Sonarr › Settings › Profiles, or grab one anyway.")
     mixed = thirty() + [rel(30, [], approved=True)]
-    res = why.summarize(mixed, "sonarr", None)
+    res = why.summarize(mixed, "sonarr", None)                        # something accepted: still no hint
     assert res["hint"] is None and res["summary"] == "31 releases · 1 accepted · 30 rejected"
     assert res["candidates"][0]["guid"] == "guid-30" and res["candidates"][0]["first"] is None   # accepted first
     assert why.summarize(thirty(), "radarr", None)["hint"].startswith("The profile's minimum custom-format score (1000)")
     assert "Radarr › Settings › Profiles" in why.summarize(thirty(), "radarr", None)["hint"]
+
+
+def test_summarize_hint_first_release_rule():
+    rels = [rel(0, [CF[0]])] + [rel(i, ["Unknown Series"]) for i in range(1, 5)]   # 1 of 5: below half, but the best one
+    assert why.summarize(rels, "sonarr", "1080p")["hint"].startswith(
+        "The 1080p profile's minimum custom-format score (1000) rejects 1 of 5 releases for this title")
+
+
+def test_summarize_hint_half_rule():
+    other = ["Unknown Series"]
+    two_of_four = [rel(0, other), rel(1, [CF[0]]), rel(2, other), rel(3, [CF[1]])]   # exactly half, best one is not it
+    assert "rejects 2 of 4 releases for this title" in why.summarize(two_of_four, "sonarr", None)["hint"]
+    three_of_five = [rel(0, other), rel(1, other), rel(2, [CF[0]]), rel(3, [CF[1]]), rel(4, [CF[2]])]
+    assert "rejects 3 of 5 releases for this title" in why.summarize(three_of_five, "sonarr", None)["hint"]
+
+
+def test_summarize_no_hint_below_half_and_not_the_best():
+    other = ["Unknown Series"]
+    two_of_five = [rel(0, other), rel(1, other), rel(2, other), rel(3, [CF[0]]), rel(4, [CF[1]])]
+    assert why.summarize(two_of_five, "sonarr", None)["hint"] is None
+    none_at_all = [rel(i, other) for i in range(4)]
+    assert why.summarize(none_at_all, "sonarr", None)["hint"] is None
+
+
+def test_summarize_hint_says_every_release_only_when_n_equals_m():
+    every = why.summarize([rel(i, [CF[i % 3]]) for i in range(3)], "sonarr", None)["hint"]
+    assert "rejects every release for this title" in every and " of 3 " not in every
+    partial = why.summarize([rel(0, [CF[0]]), rel(1, [CF[1]]), rel(2, ["Unknown Series"])], "sonarr", None)["hint"]
+    assert "rejects 2 of 3 releases for this title" in partial and "every release" not in partial
 
 
 def test_summarize_edges():

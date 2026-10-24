@@ -11,7 +11,7 @@ Each row of Activity › Downloads › Upgrades carries "Why?" (`_upgrade_why.ht
    `GET /api/v3/release?episodeId=<the row's episode_id>` (the row's `sample` episode - one search, the profile is the
    series'). It hits every indexer and grabs NOTHING; 10-60 s live, so a worker thread with a 90 s timeout. The answer
    is kept 1 h per row (`_memo`) and drawn as counts, grouped reasons, a hint when the profile's custom-format minimum
-   rejects everything, and the top 5 releases.
+   rejects the best release or half of them ("N of M releases"), and the top 5 releases.
 3. "Grab anyway" on a listed release: GET ?step=grab&pick=<n> draws its confirm (no call), the same_origin POST .../grab
    sends `POST /api/v3/release {"guid", "indexerId"}` taken from the kept answer (never from the form) - the app
    downloads it even though it rejected it ("Unknown Series" may still fail at import, and the card says so).
@@ -140,7 +140,7 @@ def summarize(releases, app: str, profile: str | None = None, sample: str | None
 
     counts: Counter = Counter()
     words: dict[str, str] = {}
-    cf_every, cf_min = bool(bad) and not ok, Counter()
+    cf_min, cf_rows, cf_first = Counter(), 0, False
     for i in sorted(bad):
         r, seen = rels[i], set()
         for rej in r.get("rejections") or []:
@@ -150,15 +150,18 @@ def summarize(releases, app: str, profile: str | None = None, sample: str | None
         counts.update(seen)
         cf = [k for k in seen if k.startswith("cf:")]
         cf_min.update(cf)
-        if not cf:
-            cf_every = False
+        if cf:
+            cf_rows += 1
+            cf_first = cf_first or i == min(bad)
     reasons = [{"n": c, "text": words[k]} for k, c in counts.most_common()]
 
     hint = None
-    if cf_every and cf_min:
+    # JY-108: nothing accepted, and the minimum is a reason on the best (first) rejected release or on at least half of them.
+    if bad and not ok and cf_min and (cf_first or cf_rows * 2 >= len(bad)):
         minimum = cf_min.most_common(1)[0][0][3:]
         whose = f"The {profile} profile's" if profile else "The profile's"
-        hint = (f"{whose} minimum custom-format score ({minimum}) rejects every release for this title — lower it in "
+        which = "every release" if cf_rows == n else f"{cf_rows} of {n} releases"
+        hint = (f"{whose} minimum custom-format score ({minimum}) rejects {which} for this title — lower it in "
                 f"{NAMES[app]} › Settings › Profiles, or grab one anyway.")
 
     order = sorted(range(n), key=lambda i: (i in bad, i))

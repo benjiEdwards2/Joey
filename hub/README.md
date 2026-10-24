@@ -380,7 +380,8 @@ when nothing was downloaded or the search failed). Each Upgrades row is now `.ro
 (`media_upgrade_why.py`, `_upgrade_why.html`): an inline ask, then the app's interactive search (Radarr `?movieId=`, Sonarr
 `?episodeId=` of the row's `sample` episode; 90 s, kept 1 h) drawn as "S01E01 · 30 releases · all rejected", the
 reasons grouped ("30 × custom-format score below the profile minimum (1000)", "7 × quality not wanted in profile", …), a
-hint when the custom-format minimum rejects every release, and the top 5 releases (quality · size · seeders · indexer ·
+hint when nothing is accepted and the custom-format minimum is a reason on the best rejected release or on at least half
+of them ("rejects N of M releases for this title", "every release" only when N = M; JY-108), and the top 5 releases (quality · size · seeders · indexer ·
 group, then the first rejection), each with "Grab anyway" — its own inline confirm, then `POST /api/v3/release` with the
 guid / indexer id from the kept answer. Page renders make no arr call; logs carry the app and a status / type only.
 

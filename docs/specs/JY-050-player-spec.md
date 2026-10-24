@@ -19,7 +19,7 @@ B. decided (2026-10-23) that "Joey gets its own media player on every device (we
 ## Acceptance criteria
 Done for this spec:
 1. B. has answered every question below, and each answer is in DECISIONS.md, dated.
-2. The device list is final, each with a role (household or friend) and an order.
+2. The device list is final, each with a role (household or friend) and an order. With Q2 A (household only): PC browser, phone, then the household TCL Google TV through the Joey TV shell. The pilot friend's Google TV stick (Samsung household) stays on the official Jellyfin app until friends are reopened after JY-057.
 3. A direct play / remux / transcode policy and bitrate cap is written per device.
 4. Status moves to `ready` (Round 2 first if answers change the design), and JY-051's device and test-file list comes from it.
 
@@ -40,7 +40,7 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 
 **2. Household only, or friends too?** A) Household only now; friends keep the official Jellyfin app and JY-058 stays parked. B) Household first, friends after JY-057 (the pilot friend's Google TV). C) Friends from the start. *Recommend A, reopen after JY-057: friends add a security gate and the 20 Mbps cap.*
 
-**3. Direct play or transcode?** A) Direct play first, remux when only the container is wrong, transcode only when a codec or audio cannot play, remote cap 20 Mbps. B) Always transcode remote streams to 1080p. C) Never transcode; show "can't play here". *Recommend A: it keeps the NAS CPU idle and works before the box arrives.*
+**3. Direct play or transcode?** A) Direct play first, remux when only the container is wrong, transcode only when a codec or audio cannot play, remote cap 20 Mbps for friend accounts (the household follows its Jellyfin user setting, unlimited today). B) Always transcode remote streams to 1080p. C) Never transcode; show "can't play here". *Recommend A: it keeps the NAS CPU idle and works before the box arrives.*
 
 **4. Offline downloads?** A) None, online only. B) Phone downloads later, as its own item. C) In v1. *Recommend A: a separate feature with storage and licence questions.*
 
@@ -54,3 +54,5 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 
 ## Shipped notes
 Not yet.
+
+- 2026-10-24: answers recorded (B.: "Approve all changes …" = all recommended). Review should-fixes applied: AC2 names the household devices and parks the pilot friend's Google TV stick with friends; Q3's 20 Mbps cap applies to friend accounts only (matches `docs/public-edge.md`). DECISIONS entry added in `docs/joeyv2/DECISIONS.md`.

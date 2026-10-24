@@ -99,14 +99,18 @@ class FakeGh:
         self.merge_mode = "ok"  # ok | fail | timeout-but-merged
         self.merge_secs = 0  # how long the item merge "takes" on the fake clock
         self.label_time = "2026-10-23T05:30:00Z"
-        self.pushed_at = None  # GitHub's push time for the head commit; None = it gives none
+        # GitHub reality: Commit.pushedDate is null; the push time shows only as a force-push event and as the head's
+        # check suite created_at (before any run starts). None = GitHub gives none.
+        self.force_pushed_at, self.suite_at = None, None
         self.head_specs = []  # file names under docs/specs on the PR head
 
     def __call__(self, args, timeout=120):
         a = list(args)
         self.calls.append(a)
-        if a[:2] == ["api", "graphql"]:  # the head commit's push time (JY-229)
-            return f"{self.prs[50]['headRefOid']}\t{self.pushed_at}\n" if self.pushed_at else ""
+        if a[:2] == ["api", "graphql"]:  # the head's force-push events (JY-229)
+            return f"{self.prs[50]['headRefOid']}\t{self.force_pushed_at}\n" if self.force_pushed_at else ""
+        if a[0] == "api" and a[1].endswith("/check-suites"):  # the head SHA's check suites (JY-229)
+            return f"{self.suite_at}\n" if self.suite_at and self.prs[50]["headRefOid"] in a[1] else ""
         if a[0] == "api":
             if "/contents/docs/specs?ref=" in a[1]:  # the spec listing on the PR head (JY-229)
                 return "".join(f"{n}\n" for n in self.head_specs)
@@ -812,20 +816,49 @@ def test_fail_before_the_push_then_a_fresh_pass_is_a_fix_round(lw):
 def test_review_before_the_push_is_stale_even_when_the_commit_is_older(lw):
     """The commit is dated before the review but GitHub's push time is after it: a fresh review is needed."""
     lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
-    lw.gh.pushed_at = "2026-10-23T04:45:00Z"
+    lw.gh.suite_at = "2026-10-23T04:45:00Z"
     rc, out = lw.run()
     assert rc == 1 and "FAIL  gate c" in out and "a later commit needs a fresh review" in out
 
 
 def test_review_after_the_push_but_before_the_ci_run_starts_passes(lw):
-    """JY-229: pushed 04:00, review 04:00:30, ci run starts 04:01: the review is fresh (ci start is not the push)."""
+    """JY-229: the check suite is created at the push (04:00:10), the review follows (04:00:30), the ci run starts at
+    04:01: the review is fresh (the ci run start is not the push)."""
     lw.item(comments=[review(at="2026-10-23T04:00:30Z")])
-    lw.gh.pushed_at = "2026-10-23T04:00:00Z"
+    lw.gh.suite_at = "2026-10-23T04:00:10Z"
     rc, out = lw.run("--deploy", "no", "--dry-run")
-    assert "PASS  gate c: Review PASS after the last push, no fresh FAIL" in out, out
-    lw.gh.pushed_at = None  # GitHub gives no push time: the committer date (04:00) is the fallback, still fresh
+    assert ("PASS  gate c: Review PASS after the last push, no fresh FAIL - Review PASS at 2026-10-23T04:00:30Z "
+            "(last push 2026-10-23T04:00Z)") in out, out
+    lw.gh.suite_at = None  # GitHub gives no suite: the committer date (04:00) is the fallback, still fresh
     rc, out = lw.run("--deploy", "no", "--dry-run")
-    assert "PASS  gate c: Review PASS after the last push, no fresh FAIL - Review PASS at 2026-10-23T04:00:30Z (last push 2026-10-23T04:00Z)" in out, out
+    assert "PASS  gate c: Review PASS after the last push" in out, out
+
+
+def test_commit_then_review_then_push_does_not_count_the_review(lw):
+    """B committed 10:02, a Review PASS (for A) at 10:05, B pushed 10:07 (the check suite is created then)."""
+    lw.item(comments=[review(at="2026-10-23T10:05:00Z")])
+    lw.gh.prs[50]["commits"][0]["committedDate"] = "2026-10-23T10:02:00Z"
+    lw.gh.prs[50]["statusCheckRollup"][0]["startedAt"] = "2026-10-23T10:07:30Z"
+    lw.gh.suite_at = "2026-10-23T10:07:00Z"
+    rc, out = lw.run("--deploy", "no")
+    assert rc == 1 and "FAIL  gate c" in out and "a later commit needs a fresh review" in out, out
+    assert "all before the last push (2026-10-23T10:07Z)" in out
+
+
+def test_force_push_with_an_old_committer_date_does_not_count_an_older_review(lw):
+    """The head commit is dated 04:00 (a rebase keeps dates) but was force-pushed at 04:45, after the review at 04:30."""
+    lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
+    lw.gh.force_pushed_at = "2026-10-23T04:45:00Z"
+    rc, out = lw.run("--deploy", "no")
+    assert rc == 1 and "FAIL  gate c" in out and "all before the last push (2026-10-23T04:45Z)" in out, out
+
+
+def test_push_sources_are_read_for_the_head_sha_only(lw):
+    lw.item()
+    lw.gh.force_pushed_at, lw.gh.suite_at = "2026-10-23T04:45:00Z", "2026-10-23T04:00:10Z"
+    got = jco.read_push_sources("example/joey", 50, FAKE_OID)
+    assert got == {"force": jco._ts("2026-10-23T04:45:00Z"), "suite": jco._ts("2026-10-23T04:00:10Z")}
+    assert jco.read_push_sources("example/joey", 50, "2" * 40) == {"force": None, "suite": None}
 
 
 def test_all_failed_gates_listed_one_line_each(lw):
@@ -1129,3 +1162,9 @@ def test_window_uses_the_fallback_without_a_tz_database(monkeypatch):
     assert jco.melbourne(NOON_AEDT).hour == 12
     assert jco.window_problem(NOON_AEDT) is None
     assert "21:31" in jco.window_problem(dt.datetime(2026, 10, 23, 10, 31, tzinfo=dt.timezone.utc))
+
+
+def test_stale_accept_warning_uses_the_same_push_time():
+    v = _v(headPush={"force": None, "suite": jco._ts("2026-10-23T05:40:00Z")})
+    ok, _, warns, _ = jco.gate_accept(v, None, jco._ts("2026-10-23T05:30:00Z"))
+    assert ok and len(warns) == 1 and "older than the last push (2026-10-23T05:40Z)" in warns[0], warns

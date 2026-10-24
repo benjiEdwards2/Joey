@@ -193,42 +193,47 @@ def gate_ci(v):
     return True, f"ci SUCCESS on the head {sha}", []
 
 
-PUSH_QUERY = ("query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){"
-              "timelineItems(last:50,itemTypes:[PULL_REQUEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT]){nodes{"
-              "__typename ... on PullRequestCommit{commit{oid pushedDate}} "
-              "... on HeadRefForcePushedEvent{createdAt afterCommit{oid}}}}}}}")
-PUSH_JQ = (".data.repository.pullRequest.timelineItems.nodes[] | "
-           'if .__typename=="HeadRefForcePushedEvent" then [.afterCommit.oid, .createdAt] '
-           "else [.commit.oid, .commit.pushedDate] end | select(.[1]) | @tsv")
+# GitHub reality (checked against real PRs, JY-229): Commit.pushedDate is always null, there is no push event on the PR
+# timeline for an ordinary push, and a ci run's startedAt is later than the push (a review posted in between would look
+# stale). What GitHub does record at push time: the HeadRefForcePushedEvent (force-pushes only) and the head SHA's
+# check suites, which are created when the push arrives, before any run starts.
+FORCE_QUERY = ("query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){"
+               "timelineItems(last:50,itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT]){nodes{"
+               "... on HeadRefForcePushedEvent{createdAt afterCommit{oid}}}}}}}")
+FORCE_JQ = (".data.repository.pullRequest.timelineItems.nodes[] | select(.afterCommit) | "
+            "[.afterCommit.oid, .createdAt] | @tsv")
 
 
-def read_push_time(slug, pr, head):
-    """JY-229: when GitHub says the head commit was pushed (timeline pushedDate / force-push event); None when it gives
-    no time. Never the CI run start: a review posted right after the push but before ci starts must still count."""
+def read_push_sources(slug, pr, head):
+    """GitHub's two push-time signals for the head commit: {"force": the latest force-push event that made it the
+    head, "suite": its earliest check suite's created_at}; each None when GitHub gives none (or the read fails)."""
     owner, _, name = slug.partition("/")
+    got = {"force": None, "suite": None}
     try:
-        out = gh_run(["api", "graphql", "-f", f"query={PUSH_QUERY}", "-f", f"owner={owner}", "-f", f"name={name}",
-                      "-F", f"n={pr}", "--jq", PUSH_JQ])
-    except RuntimeError:
-        return None
-    times = []
-    for line in out.splitlines():
-        oid, _, t = line.partition("\t")
-        if oid.strip() == head and t.strip():
-            try:
-                times.append(_ts(t.strip()))
-            except ValueError:
-                pass
-    return max(times) if times else None
+        out = gh_run(["api", "graphql", "-f", f"query={FORCE_QUERY}", "-f", f"owner={owner}", "-f", f"name={name}",
+                      "-F", f"n={pr}", "--jq", FORCE_JQ])
+        times = [_ts(t.strip()) for oid, _, t in (ln.partition("\t") for ln in out.splitlines())
+                 if oid.strip() == head and t.strip()]
+        got["force"] = max(times) if times else None
+    except (RuntimeError, ValueError):
+        pass
+    try:
+        out = gh_run(["api", f"repos/{slug}/commits/{head}/check-suites", "--jq", ".check_suites[].created_at"])
+        times = [_ts(t.strip()) for t in out.splitlines() if t.strip()]
+        got["suite"] = min(times) if times else None
+    except (RuntimeError, ValueError):
+        pass
+    return got
 
 
 def push_time(v):
-    """When the head was pushed: GitHub's push time for the head commit (v["headPushedAt"], from read_push_time), else
-    the head commit's committedDate. Never the ci run start. None when unknown."""
+    """When the head was pushed: the latest of the head commit's committer date, the force-push event that made it the
+    head (v["headPush"]["force"]) and its earliest check suite's created_at (v["headPush"]["suite"]); see the note
+    above. Never the ci run start. None when none is known."""
     head = v.get("headRefOid")
     commits = v.get("commits") or []
     hit = [c for c in commits if c.get("oid") == head] or commits
-    times = [_ts(c.get("committedDate")) for c in hit] + [v.get("headPushedAt")]
+    times = [_ts(c.get("committedDate")) for c in hit] + list((v.get("headPush") or {}).values())
     times = [t for t in times if t]
     return max(times) if times else None
 
@@ -459,7 +464,7 @@ def close_out(r, a, st):
             if st["resume"] or v.get("mergeable") != "UNKNOWN":
                 break
             sleep(5)
-        v["headPushedAt"] = read_push_time(st["slug"], st["pr"], v["headRefOid"])
+        v["headPush"] = read_push_sources(st["slug"], st["pr"], v["headRefOid"])
         st["view"] = v
         if any(lab.get("name") == "accepted" for lab in v.get("labels") or []):
             try:
@@ -604,7 +609,7 @@ def close_out(r, a, st):
 
         def regates():
             v2 = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", PR_FIELDS]))
-            v2["headPushedAt"] = read_push_time(slug, pr, v2["headRefOid"])
+            v2["headPush"] = read_push_sources(slug, pr, v2["headRefOid"])
             ok_c, detail_c, _ = gate_review(v2)
             ok_d, detail_d = gate_accept(v2, a.accepted_in_chat, st.get("label_time"))[:2]
             bad = ([f"gate c: {detail_c}"] if not ok_c else []) + ([f"gate d: {detail_d}"] if not ok_d else [])

@@ -84,6 +84,30 @@ def test_health_rows_carry_the_service_logo_and_the_gated_hostname(app_factory):
     assert body.count('<a class="row') == 3                                                  # three whole-row links
 
 
+def test_health_rows_say_lan_for_lan_only_apps(app_factory):
+    """JY-140: like the Server card, a Health row whose link is a LAN address says "LAN" after its status word; a
+    gated hostname drops it; a Down row keeps its note after it."""
+    from hub import shell
+    build, tmp_path = app_factory
+    snaps = tmp_path / "snaps"
+    apps = [{"id": "jellyfin", "name": "Jellyfin", "href": "http://192.168.1.10:8096",
+             "up": True, "status_text": "Up", "note": None},
+            {"id": "prowlarr", "name": "Prowlarr", "href": "http://192.168.1.10:9696",
+             "up": False, "status_text": "Down", "note": "timeout"},
+            {"id": "radarr", "name": "Radarr", "href": "http://192.168.1.10:7878",
+             "up": True, "status_text": "Up", "note": None}]
+    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "x", "apps": apps})
+    with build(snaps) as client:
+        shell.registry.gated_hrefs = {"radarr": "https://radarr.example.invalid"}
+        body = main_of(client.get("/media/apps").text)
+    rows = {n: body.split(f'<div class="row-title">{n}</div>', 1)[1].split("</a>", 1)[0]
+            for n in ("Jellyfin", "Prowlarr", "Radarr")}
+    sep = '<span class="sep"> · </span>'
+    assert f'<span class="st-up">Up</span>{sep}LAN</div>' in rows["Jellyfin"]
+    assert f'<span class="st-down">Down</span>{sep}LAN{sep}timeout</div>' in rows["Prowlarr"]
+    assert "LAN" not in rows["Radarr"]                                              # gated hostname: no LAN word
+
+
 def test_health_backup_row_is_unchanged_and_has_no_logo(app_factory, monkeypatch):
     from hub import media_backup
     monkeypatch.setattr(media_backup, "current_status",

@@ -1,6 +1,6 @@
 # JY-117 Previous / Next cards: verify on a real episode
 
-Status: accept
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `docs/specs/` only (verification; no code change)
@@ -34,19 +34,8 @@ Open any mid-season episode on the live hub: "‹ Previous" and "Next ›" cards
 None.
 
 ## Shipped notes
-Live evidence, 2026-10-24 (GET `/media/item/<episode id>` from inside `joey-hub`, HTTP 200 each time; no secrets, cookies or user names read or printed):
-
-| Show (season) | Episode | Eyebrow | Cards drawn |
-|---|---|---|---|
-| Ted Lasso S4 | first | "Ted Lasso · S4 · E1 of 10" | Next "E2 · Curiouser and Curiouser!" only |
-| Ted Lasso S2 | mid-season | "Ted Lasso · S2 · E3 of 12" | Previous "E2 · Lavender" and Next "E4 · Carol of the Bells" |
-| Ted Lasso S3 | last | "Ted Lasso · S3 · E12 of 12" | Previous "E11 · Mom City" only |
-| Slow Horses S1 | first | "Slow Horses · S1 · E1 of 6" | Next "E2 · Work Drinks" only |
-| Slow Horses S4 | first | "Slow Horses · S4 · E1 of 6" | Next "E2 · A Stranger Comes to Town" only |
-| Slow Horses S6 | last | "Slow Horses · S6 · E6 of 6" | Previous "E5 · Sayonara" only |
-
-Why the preview did not show them: the cards need `film.nav` from `episode_nav()` (`hub/media_film.py`), which needs the show's seasons read from Jellyfin (`media_item`). The code conditions are sound: `nav.prev` / `nav.next` are set from the episode's place in its season's list, `prevnext()` in `hub/templates/_episode_flow.html` draws nothing only when both are empty, and `media_film.html` calls it when `film.episode and epnav`. The demo snapshots (`hub.seed_demo`) hold only a Jellyfin summary line (no shows), and a demo hub has no `JELLYFIN_URL`, so a demo-data preview has no seasons and no neighbours to link. This is preview data, not a condition bug. Not reproduced in a preview hub (machine rule: builders run no hub), so the cause is read from code and from the live result.
-
-Existing tests that pin the behaviour: `tests/hub/test_episode_flow_nav.py` (first episode has no Previous, last has no Next) and `tests/hub/test_episode_flow_templates.py`.
-
-Result: verified, no change. Closes as "verified, no change".
+- Closed out with `scripts/joey.py close-out`.
+- PR: #133, squash-merged as `9207882` (92078820a78b1d475e3170f34a1403382614e42c).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

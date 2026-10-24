@@ -294,7 +294,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         if key in seen:
             continue
         seen.add(key)
-        added.append(jf_item(r, sub, LIBRARY_DETAIL) if from_jf else item(r, sub, LIBRARY_DETAIL))
+        kind = {"row_kind": r.get("type") if from_jf else r.get("kind")}   # JY-114: which rows are shows
+        added.append(jf_item(r, sub, LIBRARY_DETAIL, **kind) if from_jf else item(r, sub, LIBRARY_DETAIL, **kind))
     added = added[:SHELF_MAX]
     arr = data_of(ARR_SNAPSHOT_ID)
     # media-ux2 (2026-10-08, B.): "This week" and "Recently watched" left Media home (Activity → Library keeps This week,
@@ -331,18 +332,62 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     if most:  # F7: not behind a registry tile, so it skips add()'s detail gate
         shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
                         "items": most, "quiet_text": ""})
+    season_keys = shelf_season_state(jelly, view, shelves)   # JY-114: before LEVEL_KEYS are dropped
     for sh in shelves:
         for it in sh["items"]:
             it["score"] = score_for(it, ratings)
-            for k in LEVEL_KEYS:
+            for k in (*LEVEL_KEYS, "row_kind"):
                 it.pop(k, None)
 
     return {
-        "hero": hero, "kind_word": kind_word, "shelves": shelves,
+        "hero": hero, "kind_word": kind_word, "shelves": shelves, "season_keys": season_keys,
         "waiting": waiting_counts(recent, ratings, set(by_detail)),
         "open_href": link,
         "freshness": jelly_row["st"] if jelly_row else None,
     }
+
+
+SHOW_KINDS = {"episode", "season", "series"}   # Jellyfin `type` / arr `kind` words of a show row (lower case)
+
+
+def show_keys_of(row: dict, by_jf: dict) -> tuple | None:
+    """JY-114: (tvdb, tmdb) of a shelf row's show for media_season_state, or None. An episode row (or any row with a
+    `show_key`) goes through its series' library row (`by_jf`: Jellyfin series id -> shows row); a series or Sonarr
+    arrival row by its own tvdb: / tmdb: key. Films and rows of unknown kind never (a film's TMDB id is not a show's)."""
+    from hub import media_pages   # late: media_pages imports this module
+    kind = str(row.get("row_kind") or row.get("type") or row.get("kind") or "").lower()
+    if kind not in SHOW_KINDS and not row.get("show_key"):
+        return None
+    key = str(row.get("show_key") or row.get("item_key") or "")
+    if key.startswith("jf:"):
+        show = by_jf.get(key[3:])
+        return media_pages._show_keys(show) if show else None
+    return media_pages._show_keys(row) if key.startswith(("tvdb:", "tmdb:")) else None
+
+
+def shelf_season_state(jelly: dict, view: str, shelves) -> list[tuple]:
+    """JY-114 (2026-10-24): the Continue watching and Recently added cards of a show with episodes still to come or
+    aired but not downloaded gain Sonarr's word as `state_word` ("3 to come · next airs 2 Nov"; the My shows grid card's
+    rule, media_library.apply_season_state). Cache only - no call. -> the shows' keys, for media_season_state.later
+    (the page's BackgroundTask)."""
+    from hub import media_season_state as mss
+    if _not_household(view) or not mss.connected():
+        return []
+    by_jf = {str(s["jf_id"]): s for s in (jelly.get("shows") or []) + ((jelly.get("her") or {}).get("shows") or [])
+             if isinstance(s, dict) and s.get("jf_id")}
+    keys = []
+    for sh in shelves:
+        if sh["id"] not in ("continue", "added"):
+            continue
+        for it in sh["items"]:
+            k = show_keys_of(it, by_jf)
+            if k is None:
+                continue
+            keys.append(k)
+            st = mss.season_states(*k)
+            if st and st.get("word") and (st.get("to_come") or st.get("missing")):
+                it["state_word"] = st["word"]
+    return keys
 
 
 def continue_progress(jelly: dict, view: str, rows) -> dict[str, str]:

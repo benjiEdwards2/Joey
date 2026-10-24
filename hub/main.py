@@ -12,7 +12,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.background import BackgroundTasks
+from starlette.background import BackgroundTask, BackgroundTasks
 
 from hub import access_jwt, guest, guest_signin, media_backup
 from hub import media_front, media_guest_home   # Joey TV WP-B3: the guest surface
@@ -29,7 +29,7 @@ from hub import server_quiet   # P4 quiet mode (2026-10-22)
 from hub import server_digest  # P2 (2026-10-22)
 from hub import server_space   # P1a free space (2026-10-22)
 from hub.media_watchlist import router as media_watchlist_router
-from hub import media_home, media_pages, shell, tasks, today, tv_app, weather
+from hub import media_home, media_pages, media_season_state, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
     DIARY_PAGE, LIBVIEWS, LIBVIEW_COOKIE, LIBVIEW_MAX_AGE, MILESTONES_MAX, _arr_linker, _detail_page,
@@ -277,11 +277,15 @@ def area_page(request: Request, area_id: str):
             resp.headers.append("set-cookie", media_front.setup_cookie_header())
         return resp
     if area.layout == "shelves":
+        sh = media_home.build_shelves(area, tiles, snaps, view)
         resp = shell.render_page(request, "area_shelves.html", {
             "area": area,
-            "sh": media_home.build_shelves(area, tiles, snaps, view),
+            "sh": sh,
             "backup_warn": media_backup.current_status()["warning"],
         }, active_id=area.id)
+        later = media_season_state.later(sh["season_keys"])   # JY-114: Sonarr's list re-read after the page, when stale
+        if later is not None:
+            resp.background = BackgroundTask(later)
         return shell._maybe_set_cookie(resp, view, from_query)
     upcoming = find_upcoming(tiles, snaps, view)
     # Weather renders on the hub and /weather only (2026-10-08, B. — supersedes the

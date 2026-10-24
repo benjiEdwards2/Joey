@@ -206,7 +206,7 @@ def test_following_state_inside_the_banner(env):
     client, _ = env()
     with client:
         client.post("/media/follow/collection/9", data={"back": "/media/title/movie/603"})
-        head = collection(main_of(client.get("/media/title/movie/603").text)).split("partof-parts", 1)[0]
+        head = collection(main_of(whole(client, "/media/title/movie/603"))).split("partof-parts", 1)[0]   # JY-244: the collection is a deferred part; read it as the browser does
     assert 'action="/media/follow/collection/9/unfollow"' in head and "Following series ✓" in head
 
 

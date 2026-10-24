@@ -31,6 +31,8 @@ from __future__ import annotations
 import ipaddress
 import math
 import re
+import threading
+from bisect import bisect_left
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
@@ -177,24 +179,28 @@ def _runner_error_items(runner, live: set[str] | None = None) -> list[dict]:
 SWEEP_WINDOW_HOURS = 24
 
 
-def sweep_stats(history, now: datetime | None = None) -> dict[str, dict] | None:
-    """Per connector over the last 24 h of `_runner_history.jsonl` lines (oldest first):
-    {runs, failures, failing (latest run errored), reason (last error, sanitised),
-    last_ok (datetime | None)}. None when there is no usable history (caller falls back to
-    `_runner.json`); malformed lines are skipped."""
-    if not history:
-        return None
-    now = now or datetime.now(timezone.utc)
-    since = now.timestamp() - SWEEP_WINDOW_HOURS * 3600
-    stats: dict[str, dict] = {}
-    usable = False
+# JY-226 (2026-10-24): the runner history list is kept by hub/store.get_runner_history (E1) and handed back as the same
+# object while the file is unchanged, so its parsed lines and its 24 h stats are kept with it: the stats are recomputed
+# only when the list changes (another object, or another length) or the window's start passes a line.
+_SWEEP_LOCK = threading.Lock()
+_SWEEP_MEMO: dict = {}
+
+
+def _usable_lines(history) -> list:
+    """[(ran_at, line)] for the lines with a `results` dict and a readable `ran_at`, in history order."""
+    out = []
     for line in history:
         if not isinstance(line, dict) or not isinstance(line.get("results"), dict):
             continue
         at = parse_utc(line.get("ran_at"))
-        if at is None:
-            continue
-        usable = True
+        if at is not None:
+            out.append((at, line))
+    return out
+
+
+def _sweep_window(lines, since: float) -> dict[str, dict]:
+    stats: dict[str, dict] = {}
+    for at, line in lines:
         if at.timestamp() < since:
             continue
         for cid, res in line["results"].items():
@@ -211,11 +217,41 @@ def sweep_stats(history, now: datetime | None = None) -> dict[str, dict] | None:
                 st["_at"], st["failing"] = at, failed
                 if failed:
                     st["reason"] = _reason(res)
-    if not usable:
-        return None
     for st in stats.values():
         st.pop("_at")
     return stats
+
+
+def sweep_stats(history, now: datetime | None = None) -> dict[str, dict] | None:
+    """Per connector over the last 24 h of `_runner_history.jsonl` lines (oldest first):
+    {runs, failures, failing (latest run errored), reason (last error, sanitised),
+    last_ok (datetime | None)}. None when there is no usable history (caller falls back to
+    `_runner.json`); malformed lines are skipped. Memoised on the history list (JY-226): the list is read-only, as
+    get_runner_history hands it out; each call gets its own copy of the stats."""
+    if not history:
+        return None
+    now = now or datetime.now(timezone.utc)
+    since = now.timestamp() - SWEEP_WINDOW_HOURS * 3600
+    with _SWEEP_LOCK:
+        memo = _SWEEP_MEMO.get("kept")
+        if memo is None or memo["history"] is not history or memo["n"] != len(history):
+            lines = _usable_lines(history)
+            memo = {"history": history, "n": len(history), "lines": lines,
+                    "ats": sorted(at.timestamp() for at, _ in lines), "cut": None, "stats": None}
+            _SWEEP_MEMO["kept"] = memo
+        if not memo["lines"]:
+            return None
+        cut = bisect_left(memo["ats"], since)   # how many lines lie before the window: the same count, the same lines
+        if memo["cut"] != cut:
+            memo["stats"], memo["cut"] = _sweep_window(memo["lines"], since), cut
+        stats = memo["stats"]
+    return {cid: dict(st) for cid, st in stats.items()}
+
+
+def clear_sweep_memo() -> None:
+    """Forget the kept sweep stats (tests)."""
+    with _SWEEP_LOCK:
+        _SWEEP_MEMO.clear()
 
 
 def sweep_rows(stats, now: datetime | None = None, live: set[str] | None = None) -> list[dict]:

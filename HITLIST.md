@@ -225,7 +225,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-244 | Flaky `test_following_state_inside_the_banner` (same race) | Tests | S | [x] shipped | Seen in JY-243's proof runs, 2026-10-25 · PR #152 | [spec](docs/specs/JY-244-partof-banner-race.md) |
 | JY-245 | Warm-up prefetch of episode ratings (watchlist + requested shows) | Media | M | idea | JY-119 picked A (fill after first view); prefetch left as its own idea | — |
 | JY-246 | Server page: "Prowlarr N failed grabs" says "this week" | Server | S | idea | JY-143 now counts 7 days; spec question 1, not blocking | — |
-| JY-247 | Friend summary: household earliest play date (and runtimes) leftovers | Media | S | idea | JY-190 verifier nit, 2026-10-25 | — |
+| JY-247 | Friend summary: household earliest play date (and runtimes) leftovers | Media | S | [x] shipped | JY-190 verifier nit, 2026-10-25 · PR #156 | [spec](docs/specs/JY-247-friend-summary-leftovers.md) |
 
 ### Parked features
 

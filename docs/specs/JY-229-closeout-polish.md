@@ -1,6 +1,6 @@
 # JY-229 close-out polish
 
-Status: spec
+Status: building
 Size: S
 Live risk: none (dry-run reporting and tests only; the merge and deploy paths do not change)
 Area: `scripts/joey_closeout.py`, `tests/scripts/`
@@ -34,6 +34,7 @@ Any change to gates, merge, deploy or verify.
 - CI green; review posted; a dry run against an open PR ends with exit 0 (output in the PR).
 
 ## Questions for B.
+Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance." = every recommended answer below, and ready.
 None.
 
 ## Shipped notes

@@ -1,6 +1,6 @@
 # JY-108 Upgrades: loosen the profile-minimum hint
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_upgrade_why.py`, `hub/templates/_upgrade_why.html` (only if the wording changes), `tests/hub/test_media_upgrade_why.py`
@@ -44,4 +44,8 @@ Grouped reasons, the top-5 list, Grab anyway, and the reason regexes.
 Ask Why? on a title whose search answer has mixed rejections: the hint shows, reads plainly, and names the minimum.
 
 ## Shipped notes
-Built 2026-10-24 on PR #128 (draft). `summarize()` in `hub/media_upgrade_why.py` carries the 1A rule and the 2A sentence; `hub/README.md` describes it. 2026-10-24: `test_summarize_hint_only_when_the_minimum_rejects_everything` pinned the old "every rejection" rule; it is replaced by `test_summarize_hint_all_but_one_and_not_when_something_is_accepted` plus new tests for the first-release rule, the half rule, the below-half case and the N-of-M wording. The rendered-card test is unchanged (all 30 carry the minimum, so "every release" still shows).
+- Closed out with `scripts/joey.py close-out`.
+- PR: #128, squash-merged as `ede027a` (ede027aa5834a00765ab9001c90dba77f1523236).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

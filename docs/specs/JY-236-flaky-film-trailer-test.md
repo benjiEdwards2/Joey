@@ -1,6 +1,6 @@
 # JY-236 Flaky test: trailer-wins test fails on a slow machine
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: tests/hub/test_media_film.py
@@ -37,3 +37,8 @@ Method: load = `pytest tests/hub -n 4` in the background while the single test l
 - After: 20/20 pass with the read slowed 0.1 s; 20/20 pass looping beside a full `-n 4` tests/hub run (2635 passed).
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #107, squash-merged as `574ff88` (574ff887d010b70df05d31fd6f0fe84ba6db0d28).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

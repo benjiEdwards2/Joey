@@ -99,7 +99,7 @@ TV_APP: tuple = (("GET", "/app"), ("GET", "/app/{rest:path}"))   # WP-B8: hub/tv
 
 _MOVIES_TV = tuple(f"/media/{s}{tail}" for s in ("movies", "tv")
                    for tail in ("", "/watchlist", "/tonight", "/to-rate", "/awards",
-                                "/awards/part/categories", "/awards/part/rows"))
+                                "/awards/part/categories", "/awards/part/rows", "/awards/part/watchlisted"))
 
 GUEST: tuple = (
     *_each("GET", *_MOVIES_TV),

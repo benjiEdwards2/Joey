@@ -32,7 +32,7 @@ from datetime import date, datetime, timezone
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from starlette.background import BackgroundTask
 
 from hub import media_awards_db as adb
@@ -49,6 +49,7 @@ router = APIRouter()
 PATHS = {"movie": "/media/movies/awards", "tv": "/media/tv/awards"}
 PARTS = {k: v + "/part/categories" for k, v in PATHS.items()}
 ROW_PARTS = {k: v + "/part/rows" for k, v in PATHS.items()}
+WL_PARTS = {k: v + "/part/watchlisted" for k, v in PATHS.items()}      # JY-153: the count line's own fetch
 AKIND = {"movie": "film", "tv": "tv"}
 POSTER_READS, FIRST_READS, READ_WORKERS = 60, 12, 4
 FIRST_CARDS = 4             # category cards on the first screen (E7); the rest load through the part route
@@ -392,7 +393,7 @@ def no_ballot(empty: str | None) -> dict:
     """A ballot with nothing in it (the degraded page): every key the template reads, empty."""
     return {"progress": {"pct": 0, "seen": 0, "total": 0, "headline": None, "server_unseen": 0, "watchlisted": 0},
             "filters": [], "sorts": [], "hidden_seen": None, "rows": [], "rest": 0, "part_rows_href": "",
-            "shorts": [], "people": [], "empty": empty}
+            "shorts": [], "people": [], "empty": empty, "part_wl_href": ""}
 
 
 def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f: str, s: str, nav,
@@ -442,6 +443,7 @@ def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f
         "rows": [r for r, _ in picked[:first_n]],
         "rest": max(0, len(picked) - first_n),
         "part_rows_href": nav(path=ROW_PARTS[kind]),
+        "part_wl_href": nav(path=WL_PARTS[kind]),
         "shorts": [ballot_row(w, seen, kind, won_by, wl_keys, films_of) for w in short_works],
         "people": people,
         "empty": empty or (None if picked or not total else ALL_SEEN if f == "unseen" else NO_MATCH),
@@ -690,6 +692,27 @@ def movies_awards_rows(request: Request, body: str = "", year: str = "", unseen:
 @router.get("/media/tv/awards/part/rows", response_class=HTMLResponse)
 def tv_awards_rows(request: Request, body: str = "", year: str = "", unseen: str = "", f: str = "", s: str = ""):
     return rows_part(request, "tv", body, year, unseen, f, s)
+
+
+def watchlisted_part(request: Request, kind: str, body: str, year: str):
+    """The count line's deferred request (JY-153): "N on your watchlist" read fresh for the page's edition, as a
+    fragment that replaces the line. 204 (no swap) when the snapshot or media.db cannot be read."""
+    ctx = _part_ctx(request, kind, body, year, "")
+    if not ctx:
+        return Response(status_code=204)
+    b = ctx["ballot"]
+    return shell.templates.TemplateResponse(request, "_award_wlcount_part.html",
+                                            {"n": b["progress"]["watchlisted"], "href": b["part_wl_href"]})
+
+
+@router.get("/media/movies/awards/part/watchlisted", response_class=HTMLResponse)
+def movies_awards_wl(request: Request, body: str = "", year: str = ""):
+    return watchlisted_part(request, "movie", body, year)
+
+
+@router.get("/media/tv/awards/part/watchlisted", response_class=HTMLResponse)
+def tv_awards_wl(request: Request, body: str = "", year: str = ""):
+    return watchlisted_part(request, "tv", body, year)
 
 
 _count = media_text.plural   # '1 win' / '3 nominations'

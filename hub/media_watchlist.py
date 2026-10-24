@@ -86,7 +86,11 @@ def _apply(request: Request, adding: bool, f: dict):
         log.warning("watchlist not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the watchlist") from None
     if is_htmx(request):
-        return _button(request, item, adding, f.get("compact") == "1", "ballot" if f.get("style") == "ballot" else None)
+        ballot = f.get("style") == "ballot"
+        resp = _button(request, item, adding, f.get("compact") == "1", "ballot" if ballot else None)
+        if ballot:      # JY-153: the Awards count line listens for this and re-reads its number
+            resp.headers["HX-Trigger"] = "watchlist-changed"
+        return resp
     return _back(request, item["kind"])
 
 

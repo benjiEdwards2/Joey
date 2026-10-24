@@ -26,7 +26,7 @@
 {% endif %}
 {% elif ballot %}
 <section class="sec awfilms">
-  {% if ballot.progress and ballot.progress.total %}{{ b.progress(ballot.progress, kind) }}{% endif %}
+  {% if ballot.progress and ballot.progress.total %}{{ b.progress(ballot.progress, kind, ballot.part_wl_href) }}{% endif %}
   {% if ballot.filters or ballot.sorts %}
   <div class="chips awfilters" role="group" aria-label="Filter and sort">
     {% for f in ballot.filters %}<a class="chip{{ ' on' if f.on }}" href="{{ f.href }}" aria-pressed="{{ 'true' if f.on else 'false' }}">{{ f.label }}</a>{% endfor %}

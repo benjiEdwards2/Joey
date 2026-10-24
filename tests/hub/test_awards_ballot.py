@@ -363,6 +363,32 @@ def test_rows_part_brings_the_rows_after_the_first_twelve(oscars97):
     assert tv.status_code == 200 and tv.text.strip() == ""
 
 
+def test_watchlist_toggle_refreshes_the_count_line_without_a_reload(oscars97, monkeypatch):
+    """JY-153: a ballot button's add / remove fires `watchlist-changed`; the count line listens and re-reads its
+    number from the watchlisted part, so it moves with the button."""
+    build, _ = oscars97
+    form = {"tmdb_id": str(tmdb("Wicked")), "kind": "movie", "title": "Wicked", "style": "ballot"}
+    hx = {"HX-Request": "true"}
+    count = lambda c, path="movies": re.search(r"<b>(\d+)</b> on your watchlist",
+                                               c.get(f"/media/{path}/awards/part/watchlisted?body=oscars&year=2025").text).group(1)
+    with build(jelly()) as client:
+        page = client.get("/media/movies/awards?body=oscars&year=2025").text
+        assert 'id="awprog-wl"' in page and 'hx-get="/media/movies/awards/part/watchlisted?' in page
+        assert 'hx-trigger="watchlist-changed from:body"' in page and "<b>0</b> on your watchlist" in page
+        assert count(client) == "0"
+        added = client.post("/media/watchlist/add", data=form, headers=hx)
+        assert added.headers["HX-Trigger"] == "watchlist-changed" and count(client) == "1"
+        removed = client.post("/media/watchlist/remove", data={**form, "item_key": f"tmdb:{form['tmdb_id']}"}, headers=hx)
+        assert removed.headers["HX-Trigger"] == "watchlist-changed" and count(client) == "0"
+        plain = client.post("/media/watchlist/add", data={k: v for k, v in form.items() if k != "style"}, headers=hx)
+        assert "HX-Trigger" not in plain.headers                    # the title page and Discover buttons are unchanged
+        assert count(client) == "1"                                  # the shared database is the truth, not the page
+        assert "<b>0</b>" in client.get("/media/tv/awards/part/watchlisted?body=emmys&year=2025").text
+    monkeypatch.setattr(adb, "edition_page", lambda *a, **k: (_ for _ in ()).throw(sqlite3.OperationalError("x")))
+    with build(jelly()) as client:                                  # media.db unreadable: no swap, the old line stays
+        assert client.get("/media/movies/awards/part/watchlisted").status_code == 204
+
+
 def test_the_page_answers_every_view_filter_and_sort(oscars97):
     build, _ = oscars97
     with build(jelly()) as client:

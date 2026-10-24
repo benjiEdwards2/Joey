@@ -15,7 +15,7 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 
-from hub import media_db, media_files
+from hub import media_db, media_files, media_plays_db
 from hub.media_cache import LRU
 from hub.media_discover import _date_words
 from hub.media_library import runtime_text
@@ -175,6 +175,7 @@ def _seasons(base, headers, uid, series_id: str, today: str) -> list[dict]:
                             "name": str(e.get("Name") or "Episode")[:200], "jf_id": e["Id"],
                             "air_date": _date_words(e.get("PremiereDate"))[0] if e.get("PremiereDate") else None,
                             "runtime": runtime_text(ticks / TICKS_PER_MINUTE) if ticks else None,
+                            "runtime_min": round(ticks / TICKS_PER_MINUTE, 1) if ticks else None,   # JY-104
                             "left_min": max(0, ticks - pos) // TICKS_PER_MINUTE if state["in_progress"] and ticks else None,
                             "still": f"jf:{e['Id']}" if ITEM_RE.match(str(e["Id"])) else None,
                             # TV directors (2026-10-10): the show page's Director / Writer rows add these up
@@ -331,6 +332,27 @@ def warm(jf_id: str) -> str:
     if not media_files._creds():
         return "failed"
     return "fetched" if once(("item", _ck(jf_id)), lambda: _read(jf_id, force=True)) is not None else "failed"
+
+
+def episode_runtime(seasons) -> float | None:
+    """Average episode runtime in minutes of a show's episodes from Jellyfin (their RunTimeTicks, JY-104); episodes
+    without one are left out; None when none has one."""
+    mins = [e["runtime_min"] for s in seasons or [] for e in s.get("episodes") or [] if e.get("runtime_min")]
+    return sum(mins) / len(mins) if mins else None
+
+
+def show_runtimes(show_keys) -> dict[str, float]:
+    """{show_key: average episode runtime in minutes} for the progress words (JY-104): from the show's Jellyfin episodes
+    in its cached item read (`peek`, never a Jellyfin read), else the recorded plays' average
+    (media_plays_db.show_runtimes); a show with neither is absent."""
+    out, rest = {}, []
+    for k in {k for k in show_keys if k}:
+        rt = episode_runtime((peek(k[3:]) or {}).get("seasons")) if k.startswith("jf:") else None
+        if rt:
+            out[k] = rt
+        else:
+            rest.append(k)
+    return {**media_plays_db.show_runtimes(rest), **out} if rest else out
 
 
 def peek(jf_id: str | None) -> dict | None:

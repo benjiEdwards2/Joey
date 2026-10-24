@@ -1,6 +1,6 @@
 # JY-247 Friend summary leftovers
 
-Status: building
+Status: shipped 2026-10-25
 Size: S
 Live risk: none
 Area: hub/media_wrapped.py, tests/hub
@@ -36,3 +36,8 @@ Nothing to try on a screen: the friend's Wrapped hours note reads "Plays since <
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #156, squash-merged as `5a0c746` (5a0c746a905a221b4c51ad73390b9b8ab71b94fe).
+- Deploy: `2026-10-24T22:53:29Z PASS prev=35c5217 new=5a0c746 suite green, smoke ok tv=current gate=-n2 avail=1985 end=2026-10-24T23:01:29Z dur=480s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -72,13 +72,38 @@ Stream indexes are Jellyfin `MediaStream.Index`; "on" means the study selects th
 | 12 | `b171da2503dbcb65d7e9aeffee75b9f0` | Movie | Highest bitrate: H.264 45.6 Mbps, DTS-HD MA 7.1, five AC3 tracks, PGS #7 default on | 24.3 GB, 45.6 Mbps, 88 min |
 
 ## PC browser PlaybackInfo (scripts/player_study.py playback)
-Not measured yet. A real read with the container's API key failed on every item with HTTP 400: Jellyfin 12.2 looks up the
-caller's user when a DeviceProfile is posted (`MediaInfoHelper.SetDeviceSpecificData` -> `GetUserById`, "Guid can't be
-empty") and an API key has no user. PlaybackInfo without a profile works (the control item answers DirectPlay) but
-uses Jellyfin's default profile, which says nothing about Chrome. The harness therefore needs the study account's
-token (answer 2A): `python scripts/player_study.py playback --token-file <file>`.
+Measured 2026-10-24 12:04 (Melbourne) inside joey-hub with `python scripts/player_study.py playback`: the container's
+API key acting for joeytest through `POST /Items/{id}/PlaybackInfo?userId=<joeytest id>` (+ `UserId` in the body;
+the id resolved by its prefix `0dd9fd89` from `GET /Users`, only the prefix printed). Jellyfin 12.2 accepts this: all
+12 items answered, so the PC table needs no user token. (The bare API key without a user had failed on every item
+with HTTP 400, "Guid can't be empty".) Read only: no stream was requested. DeviceProfile: the stated desktop-Chrome
+profile in `scripts/player_study.py` (the sitting replaces it with what each browser really decodes).
 
-Predicted from the stated profile (desktop Chrome, hardware HEVC, SDR monitor, no MKV, no AC3/EAC3/DTS decode, no PGS
+| # | Item id | Method | Reasons | Out video / audio | Subs |
+|---|---|---|---|---|---|
+| 1 | `dcd12e5bf6856e60c225472186cd6cb6` | DirectPlay | - | - | - |
+| 2 | `d64f611c17a8d1e628dc0baf8625c536` | Remux + audio transcode | ContainerNotSupported, AudioCodecNotSupported | hevc,h264 / aac,mp3,opus,flac | - |
+| 3 | `ff2240b0477c0f0e53772543e772988d` | Remux + audio transcode | ContainerNotSupported, AudioCodecNotSupported | hevc,h264 / aac,mp3,opus,flac | Encode |
+| 4 | `8e272a6eab2388ea32b247333da9794a` | Remux | ContainerNotSupported | hevc,h264 / aac | - |
+| 5 | `91c55b10825a46ea01cdf50ea760a6ea` | DirectPlay | - | - | - |
+| 6 | `2da3a189e2c7f9d7166cb63aeb849b23` | Video transcode | AudioCodecNotSupported, VideoRangeTypeNotSupported | hevc,h264 / aac,mp3,opus,flac | - |
+| 7 | `0fc19ee50e310c68987dd14714e824da` | Video transcode | AudioCodecNotSupported, ContainerBitrateExceedsLimit | hevc,h264 / aac,mp3,opus,flac | - |
+| 8 | `fdbb56885c9e44e039ca5c0aa056d2d4` | Remux + audio transcode | ContainerNotSupported, AudioCodecNotSupported | hevc,h264 / aac,mp3,opus,flac | - |
+| 9 | `910c6153145342b775e9fbaa911d11aa` | Remux | ContainerNotSupported | hevc,h264 / aac | - |
+| 10 | `75bd8094149b87b7ea659542df28341f` | Remux | ContainerNotSupported | hevc,h264 / aac | - |
+| 11 | `51a2003ebcbce12e58ae829bf58d7e58` | Remux + audio transcode | ContainerNotSupported, AudioChannelsNotSupported | hevc,h264 / aac,mp3,opus,flac | Encode |
+| 12 | `b171da2503dbcb65d7e9aeffee75b9f0` | Video transcode | AudioCodecNotSupported, ContainerBitrateExceedsLimit | hevc,h264 / aac,mp3,opus,flac | Encode |
+
+Against the prediction below: every method as predicted except rows 4 and 9 (remux, not a video transcode). Open
+questions for the sitting:
+- Rows 7 and 12 give `ContainerBitrateExceedsLimit` (34 and 45.6 Mbps) although the profile allows 120 Mbps: joeytest's
+  friend policy cap (20 Mbps remote) seems to apply to this in-container call, so Jellyfin may see the Docker bridge as
+  remote here. On the LAN in the sitting the cap should not apply; the PC rows 7 and 12 show which.
+- Rows 4 and 9 (PGS, VobSub selected) remux with no `SubtitleMethod` in the URL instead of burning in, and rows 3 and
+  11 say `Encode` for a text subtitle (row 3) and for no chosen subtitle (row 11). The sitting shows what is really on
+  screen.
+
+Predicted from the stated profile (before the measurement) (desktop Chrome, hardware HEVC, SDR monitor, no MKV, no AC3/EAC3/DTS decode, no PGS
 or VobSub renderer), to be replaced by the measured table:
 
 | # | Predicted | Why |

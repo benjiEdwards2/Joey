@@ -219,11 +219,56 @@ def test_dry_run_sends_nothing(capsys, monkeypatch):
     assert ps.main(["inventory", "--dry-run"]) == 0
 
 
-def test_playback_needs_a_token_file(monkeypatch):
+# Re-pointed 2026-10-24 (spec, change to answer 2): playback no longer needs a token file. It runs with the
+# container's API key acting for joeytest through ?userId= (resolved by prefix inside joey-hub); a token file
+# stays optional. The pin is now: no token goes over ssh, the user prefix does, and a bad prefix is refused.
+def test_playback_without_a_token_file_uses_the_api_key_and_user_prefix(monkeypatch):
     monkeypatch.delenv("JY051_TOKEN_FILE", raising=False)
-    monkeypatch.setattr(ps, "run_remote", lambda *a, **k: pytest.fail("must not ssh without a token"))
+    seen = {}
+
+    def fake_remote(args, nas, key, token="", timeout=900.0):
+        seen.update(args=args, token=token)
+        return []
+    monkeypatch.setattr(ps, "run_remote", fake_remote)
+    assert ps.main(["playback", "--token-file", "", "--user-prefix", "0DD9FD89"]) == 0
+    assert seen["token"] == ""
+    assert seen["args"][:3] == ["playback", "--user-prefix", "0dd9fd89"] and len(seen["args"]) == 3 + len(ps.TEST_ITEMS)
     with pytest.raises(SystemExit):
-        ps.main(["playback", "--token-file", ""])
+        ps.main(["playback", "--user-prefix", "zz"])
+
+
+def test_resolve_user_needs_exactly_one_match():
+    users = [{"Id": "0dd9fd89" + "a" * 24}, {"Id": "11111111-2222-3333-4444-555555555555"}, {"Id": "0dd9fe00" + "b" * 24}]
+    assert ps.resolve_user(users, "0dd9fd89") == "0dd9fd89" + "a" * 24
+    assert ps.resolve_user(users, "11111111") == "11111111222233334444555555555555"
+    with pytest.raises(SystemExit) as exc:
+        ps.resolve_user(users, "0dd9f")
+    assert "a" * 24 not in str(exc.value)
+    with pytest.raises(SystemExit):
+        ps.resolve_user(users, "ffffff")
+
+
+def test_payload_playback_sends_user_id_with_the_api_key(monkeypatch):
+    calls = []
+
+    def fake_jf(user_token=""):
+        assert user_token == ""   # the API key path
+
+        def call(path, body=None, timeout=120.0):
+            calls.append((path, body))
+            if path == "/Users":
+                return [{"Id": "0dd9fd89" + "c" * 24}]
+            if path.startswith("/Items?"):
+                return {"Items": [{"MediaSources": [source()]}]}
+            return {"MediaSources": [{"SupportsDirectPlay": True}], "PlaySessionId": "x"}
+        return call
+    monkeypatch.setattr(ps, "_jf", fake_jf)
+    monkeypatch.setattr(ps, "STUDY_TOKEN", "")
+    rows = ps.payload_playback([ps.TEST_ITEMS[0]], "0dd9fd89")
+    assert rows[0]["decision"]["method"] == "DirectPlay"
+    path, body = calls[-1]
+    assert path == f"/Items/{ps.TEST_ITEMS[0][0]}/PlaybackInfo?userId=0dd9fd89{'c' * 24}"
+    assert body["UserId"] == "0dd9fd89" + "c" * 24
 
 
 def test_bad_ids_refused():

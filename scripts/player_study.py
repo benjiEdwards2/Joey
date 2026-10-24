@@ -13,9 +13,12 @@ login, the Jellyfin address, the key, a user, a title or a file path; only item 
 What it sends to Jellyfin (env JELLYFIN_URL, else http://jellyfin:8096):
 - inventory: GET /Items (Movie + Episode, paged, Fields=MediaSources,MediaStreams) with the container's
   JELLYFIN_API_KEY (`MediaBrowser Token=`). GETs only.
-- playback: with the study account's access token (12.2 answers PlaybackInfo-with-DeviceProfile only for a user;
-  the API key has none and gets HTTP 400). The token is read from a local file (--token-file or env
-  JY051_TOKEN_FILE), travels only inside the piped copy over ssh, and is never written or printed. Per item one
+- playback (default, B. 2026-10-24: the study uses the existing `joeytest` user): the container's JELLYFIN_API_KEY
+  plus `?userId=` of joeytest (12.2 answers PlaybackInfo-with-DeviceProfile only for a user; the bare API key has
+  none and got HTTP 400). The user id is resolved inside joey-hub from GET /Users by its prefix (--user-prefix,
+  default the spec's joeytest prefix); only the prefix is ever printed, never a name or the full id.
+  Alternative: a user's own access token from a local file (--token-file or env JY051_TOKEN_FILE), which travels
+  only inside the piped copy over ssh and is never written or printed. Per item one
   GET /Items?Ids=<id> (guard: skip an item with no probed audio/video streams, because PlaybackInfo would then
   trigger a media probe, which is a library write), then POST /Items/<id>/PlaybackInfo with the DeviceProfile and
   AutoOpenLiveStream=false. PlaybackInfo only answers what the server would do; no stream is requested, so no
@@ -43,6 +46,8 @@ PAGE = 200
 ID_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 TOKEN_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 STUDY_TOKEN = ""       # filled in the piped copy only (from --token-file); never written to disk or printed
+USER_PREFIX = "0dd9fd89"   # joeytest (spec, change to answer 2); the full id is resolved inside joey-hub
+PREFIX_RE = re.compile(r"^[0-9a-f]{6,32}$")
 SAMPLES = 3            # item ids kept per combination / flag
 TOP = 15
 
@@ -454,10 +459,25 @@ def payload_inventory() -> dict:
     return inv
 
 
-def payload_playback(items: list[tuple[str, str, int | None, int | None]]) -> list[dict]:
-    if not TOKEN_RE.match(STUDY_TOKEN):
-        raise SystemExit("playback needs the study account's token (--token-file)")
-    call = _jf(STUDY_TOKEN)
+def resolve_user(users: list, prefix: str) -> str:
+    """The one user id (dashes ignored) starting with prefix; anything else is an error naming only counts."""
+    ids = [str(u.get("Id") or "").replace("-", "").lower() for u in users if isinstance(u, dict)]
+    hits = [i for i in ids if prefix and i.startswith(prefix.lower())]
+    if len(hits) != 1:
+        raise SystemExit(f"user prefix {prefix} matches {len(hits)} of {len(ids)} users (need exactly one)")
+    return hits[0]
+
+
+def payload_playback(items: list[tuple[str, str, int | None, int | None]], user_prefix: str = USER_PREFIX) -> list[dict]:
+    if STUDY_TOKEN:
+        if not TOKEN_RE.match(STUDY_TOKEN):
+            raise SystemExit("the piped token is malformed")
+        call, query, user_id = _jf(STUDY_TOKEN), "", ""
+    else:
+        call = _jf()   # the container's API key, acting for one user through ?userId=
+        users = call("/Users")
+        user_id = resolve_user(users if isinstance(users, list) else [], user_prefix)
+        query = "?" + urllib.parse.urlencode({"userId": user_id})
     rows = []
     for item_id, tests, a_idx, s_idx in items:
         row = {"id": item_id, "tests": tests, "audio_index": a_idx, "sub_index": s_idx}
@@ -470,7 +490,10 @@ def payload_playback(items: list[tuple[str, str, int | None, int | None]]) -> li
                 row["error"] = "skipped: no probed audio/video streams (PlaybackInfo would probe = write)"
             else:
                 row["source"] = describe(sources[0])
-                ans = call(f"/Items/{item_id}/PlaybackInfo", playback_body(a_idx, s_idx))
+                body = playback_body(a_idx, s_idx)
+                if user_id:
+                    body["UserId"] = user_id
+                ans = call(f"/Items/{item_id}/PlaybackInfo{query}", body)
                 ms = ans.get("MediaSources") or []
                 if ans.get("ErrorCode") or not ms:
                     row["error"] = f"ErrorCode {ans.get('ErrorCode') or 'none'}, sources {len(ms)}"
@@ -533,9 +556,11 @@ def plan_text(items: list[tuple[str, str, int | None, int | None]]) -> str:
     p = CHROME_PROFILE
     lines = ["DRY RUN: nothing is sent.",
              f"Route: ssh <nas> docker exec -i {HUB_CONTAINER} python - --payload playback (this file on stdin)",
-             "Per item, inside joey-hub, to Jellyfin with header MediaBrowser Token=<study account token>:",
+             "Once, inside joey-hub, with the container's API key: GET /Users -> the one id starting with the user prefix",
+             "Per item, inside joey-hub, to Jellyfin with header MediaBrowser Token=<API key> (or a user token file):",
              "  1. GET /Items?Ids=<id>&Fields=MediaSources,MediaStreams (skip if no probed audio/video streams)",
-             "  2. POST /Items/<id>/PlaybackInfo  body: DeviceProfile + AutoOpenLiveStream=false, no stream request",
+             "  2. POST /Items/<id>/PlaybackInfo?userId=<user>  body: DeviceProfile + UserId + AutoOpenLiveStream=false,",
+             "     no stream request",
              f"DeviceProfile: {p['Name']}; max streaming {p['MaxStreamingBitrate'] // 1_000_000} Mbps",
              "  direct play: " + "; ".join(f"{d['Container']} [{d.get('VideoCodec', '-')} / {d.get('AudioCodec', '-')}]"
                                             for d in p["DirectPlayProfiles"] if d["Type"] == "Video"),
@@ -559,15 +584,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--token-file", default=os.environ.get("JY051_TOKEN_FILE", ""),
                     help="playback: local file holding the study account's Jellyfin access token "
                          "(default env JY051_TOKEN_FILE)")
+    ap.add_argument("--user-prefix", default=os.environ.get("JY051_USER_PREFIX", USER_PREFIX),
+                    help="playback with the API key: id prefix of the user to act for (default joeytest's)")
     ap.add_argument("--payload", action="store_true", help=argparse.SUPPRESS)   # inside joey-hub
     args = ap.parse_args(argv)
+    if not PREFIX_RE.match(args.user_prefix.lower()):
+        ap.error("--user-prefix is 6 to 32 hex characters")
     bad = [i for i in args.ids if not ID_RE.match(i)]
     if bad:
         ap.error("item ids are 32 hex characters")
     items = test_items(args.ids)
 
     if args.payload:
-        print(json.dumps(payload_inventory() if args.mode == "inventory" else payload_playback(items)))
+        print(json.dumps(payload_inventory() if args.mode == "inventory" else payload_playback(items, args.user_prefix)))
         return 0
     if args.dry_run:
         print(plan_text(items) if args.mode == "playback" else
@@ -576,18 +605,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.mode == "playback" and not items:
         ap.error("no test items: pass ids or fill TEST_ITEMS")
-    if args.mode == "playback" and not args.token_file:
-        ap.error("playback needs --token-file (PlaybackInfo with a DeviceProfile needs a user; the API key has none)")
-    token = read_token(args.token_file) if args.mode == "playback" else ""
+    token = read_token(args.token_file) if args.mode == "playback" and args.token_file else ""
     nas = os.environ.get("JOEY_NAS", "root@nas.local")
     key = os.path.expanduser(os.environ.get("JOEY_NAS_KEY", "~/.ssh/joey_nas"))
-    remote_args = [args.mode] + [i for i, *_ in items] if args.mode == "playback" else [args.mode]
+    remote_args = ([args.mode, "--user-prefix", args.user_prefix.lower()] + [i for i, *_ in items]
+                   if args.mode == "playback" else [args.mode])
     data = run_remote(remote_args, nas, key, token)
     if args.json:
         print(json.dumps(data, indent=2))
     elif args.mode == "inventory":
         print(render_inventory(data))
     else:
+        who = "the token file's user" if token else f"user {args.user_prefix.lower()}... via the API key + userId"
+        print(f"PlaybackInfo for {who}")
         print(render_playback(data))
     return 0
 

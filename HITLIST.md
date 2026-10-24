@@ -173,7 +173,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-188 | U2 Hero scrim, 18 px type floor, card scale | Joey TV | M | idea | Rows and cards too large; needs the scale pick | — |
 | JY-189 | U3 Posters at 400 px + Tonight layout | Joey TV | M | [x] shipped | Blurry posters; Tonight unstyled · PR #148 | [spec](docs/specs/JY-189-tv-posters-tonight.md) |
 | JY-190 | U4 Server fixes (sign-out device, 404, Diary scope) | Joey TV | M | [x] shipped | Stale device blocks sign-in · live · PR #149 | [spec](docs/specs/JY-190-tv-server-fixes.md) |
-| JY-191 | U5 Shell Back + Offline wording (release 1.0.2) | Joey TV | M | idea | Back on sign-in should exit · live | — |
+| JY-191 | U5 Shell Back + Offline wording (release 1.0.2) | Joey TV | M | idea | Built + reviewed (PR #151); merge publishes TV app 1.0.2, so merge in the TV session with B. | — |
 | JY-192 | U6 Series + episodes layout | Joey TV | L | idea | Episode lists unstyled; needs picks | — |
 | JY-193 | U7 Shelves + TMDB title page + person page | Joey TV | M | idea | Off-server shelves; needs picks | — |
 | JY-194 | U8 Discover search on TV | Joey TV | M | idea | No search on TV today | — |
@@ -225,6 +225,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-244 | Flaky `test_following_state_inside_the_banner` (same race) | Tests | S | [x] shipped | Seen in JY-243's proof runs, 2026-10-25 · PR #152 | [spec](docs/specs/JY-244-partof-banner-race.md) |
 | JY-245 | Warm-up prefetch of episode ratings (watchlist + requested shows) | Media | M | idea | JY-119 picked A (fill after first view); prefetch left as its own idea | — |
 | JY-246 | Server page: "Prowlarr N failed grabs" says "this week" | Server | S | idea | JY-143 now counts 7 days; spec question 1, not blocking | — |
+| JY-247 | Friend summary: household earliest play date (and runtimes) leftovers | Media | S | idea | JY-190 verifier nit, 2026-10-25 | — |
 
 ### Parked features
 

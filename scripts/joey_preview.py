@@ -73,11 +73,15 @@ SH_ALIVE = ("alive() { kill -0 \"$1\" 2>/dev/null || return 1; "
 SH_NAP = "nap_s=0.1; naps=50; sleep 0.1 2>/dev/null || { nap_s=1; naps=10; }; nap() { sleep \"$nap_s\"; }"
 # ours: the pid is alive AND its command line carries this run's token ($t). The holder is `sh -c '<script>'` and its
 # script holds the token, so a pid the kernel has handed to another process since (PID reuse) is never signalled
-# (JY-234). An unreadable or empty cmdline (a zombie, no /proc, a failed tr fork) is not ours: the release then treats
-# the holder as gone and removes the lock; a holder that was in fact alive only sleeps on, harmless, as its own trap
-# removes nothing once the owner file is gone.
-SH_OURS = ("ours() { alive \"$1\" || return 1; "
-           "tr '\\000' '\\n' < \"/proc/$1/cmdline\" 2>/dev/null | grep -qF -- \"$t\"; }")
+# (JY-234). A cmdline that reads but lacks the token (another process, or empty: a kernel thread) is not ours, and with
+# no /proc/<pid> at all nothing proves it is: the release then treats the holder as gone and removes the lock; a holder
+# that was in fact alive only sleeps on, harmless, as its own trap removes nothing once the owner file is gone. Fail
+# safe, as JY-239: a live pid whose /proc/<pid> exists but whose cmdline cannot be read (unreadable, a failed tr fork
+# under load) counts as ours, so the release signals it and waits rather than drop a live holder's lock.
+SH_OURS = ("ours() { alive \"$1\" || return 1; [ -e \"/proc/$1\" ] || return 1; "
+           "[ -r \"/proc/$1/cmdline\" ] || return 0; "
+           "c=$(tr '\\000' '\\n' < \"/proc/$1/cmdline\" 2>/dev/null) || return 0; "
+           "case \"$c\" in *\"$t\"*) return 0;; esac; return 1; }")
 
 WINDOW = (dt.time(7, 0), dt.time(21, 30))
 MEM_START_MB = 1400   # 1,200 floor + preview headroom

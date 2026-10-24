@@ -865,7 +865,9 @@ def test_the_hold_outlasts_every_step_timeout_and_close_out_waits_longer(over):
     worst = lock_window_s(nas, sleeps)
     assert worst > 60 * 60  # the measure saw the 30 min build and the 14 min health poll
     assert worst + 5 * 60 <= jp.LOCK_HOLD_S, (worst, jp.LOCK_HOLD_S)  # at least 5 min to spare
-    assert jp.LOCK_HOLD_S < joey_closeout.build_parser().parse_args(["JY-001"]).timeout * 60
+    # close-out polls the lock every DEPLOY_POLL_S, so it sees the lock gone up to one poll after the hold ends
+    wait_s = joey_closeout.build_parser().parse_args(["JY-001"]).timeout * 60
+    assert jp.LOCK_HOLD_S + joey_closeout.DEPLOY_POLL_S < wait_s, (jp.LOCK_HOLD_S, joey_closeout.DEPLOY_POLL_S, wait_s)
     assert f"sleep {jp.LOCK_HOLD_S} " in jp.s_lock_take(SHA, TOKEN)
 
 
@@ -921,7 +923,10 @@ def fake_proc(tmp_path, cmdline, state="S"):
     (proc / "self" / "stat").write_text("1 (sh) S 0\n")
     (proc / FAKE_PID).mkdir()
     (proc / FAKE_PID / "stat").write_text(f"{FAKE_PID} (sh) {state} 1 {FAKE_PID} {FAKE_PID} 0 -1 4194560\n")
-    (proc / FAKE_PID / "cmdline").write_bytes(cmdline)
+    if cmdline == "dir":  # exists and passes -r, but reading it fails (as a failed tr would)
+        (proc / FAKE_PID / "cmdline").mkdir()
+    elif cmdline is not None:  # None: /proc/<pid> exists, its cmdline does not (unreadable)
+        (proc / FAKE_PID / "cmdline").write_bytes(cmdline)
     return proc.as_posix()
 
 
@@ -939,12 +944,13 @@ def log_lines(path):
     return path.read_text().splitlines() if path.exists() else []
 
 
-@pytest.mark.parametrize("cmdline", [b"sleep\x0030\x00", None], ids=["reused-pid", "no-proc"])
+@pytest.mark.parametrize("cmdline", [b"sleep\x0030\x00", b"", "no-proc"], ids=["reused-pid", "empty-cmdline", "no-proc"])
 def test_release_never_signals_a_pid_that_is_not_its_holder(nas_tmp, tmp_path, cmdline):
-    # point 1: the pid in LOCK/pid now belongs to another process (its command line lacks this run's token), or there
-    # is no /proc to prove it: never signalled; the holder counts as gone and the lock is removed
+    # point 1: the pid in LOCK/pid now belongs to another process (its command line lacks this run's token, or reads
+    # empty as a kernel thread's does), or there is no /proc to prove it: never signalled; the holder counts as gone
+    # and the lock is removed
     sh = nas_tmp
-    proc = fake_proc(tmp_path, cmdline) if cmdline else (tmp_path / "no-proc").as_posix()
+    proc = (tmp_path / "no-proc").as_posix() if cmdline == "no-proc" else fake_proc(tmp_path, cmdline)
     fns, kills, _ = stand_ins(tmp_path)
     fake_lock(sh, FAKE_PID, owner=TOKEN)
     rc, out, err = sh(fns + jp.s_lock_release(TOKEN), proc=proc)
@@ -968,6 +974,21 @@ def test_release_signals_its_holder_and_gives_up_well_inside_the_ssh_timeout(nas
     assert FAKE_PID in log_lines(kills)  # the TERM went to our own holder
     assert log_lines(nap_log) == naps and sum(float(x) for x in naps) <= 10.5
     assert sh.lock.exists()  # a holder that did not stop keeps its lock
+
+
+@pytest.mark.parametrize("cmdline", [None, "dir"], ids=["unreadable", "read-fails"])
+def test_release_counts_a_live_pid_whose_cmdline_cannot_be_read_as_its_holder(nas_tmp, tmp_path, cmdline):
+    # JY-234 fix round (fail safe, as JY-239): /proc/<pid> exists and the pid is alive, but its cmdline cannot be read.
+    # It may be our live holder, so it is signalled and waited for; it never stops here (stand-in kill), so the release
+    # fails and the lock stays, rather than dropping a live holder's lock.
+    sh = nas_tmp
+    proc = fake_proc(tmp_path, cmdline)
+    fns, kills, _ = stand_ins(tmp_path)
+    fake_lock(sh, FAKE_PID, owner=TOKEN)
+    rc, out, err = sh(fns + jp.s_lock_release(TOKEN), proc=proc)
+    assert rc == 1 and f"holder {FAKE_PID} did not stop" in err, (out, err)
+    assert FAKE_PID in log_lines(kills)
+    assert sh.lock.exists()
 
 
 def test_release_counts_a_zombie_holder_as_gone_without_signalling_it(nas_tmp, tmp_path):

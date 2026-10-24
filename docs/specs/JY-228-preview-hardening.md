@@ -1,6 +1,6 @@
 # JY-228 Preview slot hardening
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: NAS write (the preview slot only; reviewed as L)
 Area: `scripts/joey_preview.py`, `deploy/preview/`, `tests/scripts/test_joey_preview.py`, `tests/deploy/test_preview_compose.py`
@@ -39,4 +39,8 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #63, squash-merged as `de1dd30` (de1dd3093206d1ac04e4da47e167c2b67a9b8585).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

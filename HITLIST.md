@@ -211,7 +211,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | idea | Nav-tidy leftover | — |
 | JY-224 | Flaky test: `test_media_speed::test_metadata_long_request_state_short` | Tests | S | idea | Fails 3 in 8 under load; doesn't drain the first visit's background read | — |
 | JY-225 | Flaky test: `test_runner_history_tail` 2 ms wall-clock limit | Tests | S | idea | Fails 2 in 8 under load; timing assert too tight | — |
-| JY-229 | close-out polish: dry run shows docs.1 as DRY before the merge; `tests/scripts/` takes ~7 min serial on Windows (git subprocesses) | Tooling | S | idea | JY-011 first live use, 2026-10-23 | — |
+| JY-229 | close-out polish: dry run shows docs.1 as DRY before the merge; `tests/scripts/` takes ~7 min serial on Windows (git subprocesses) | Tooling | S | [x] shipped | JY-011 first live use, 2026-10-23 · PR #64 | [spec](docs/specs/JY-229-closeout-polish.md) |
 | JY-234 | Preview lock follow-ups: PID-reuse guard via the holder's token, owner/pid write races, hold vs teardown timeouts | NAS/deploy | S | idea | JY-228 Opus verifier should-fixes (low probability) | — |
 
 ### Parked features

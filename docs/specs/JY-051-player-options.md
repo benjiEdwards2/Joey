@@ -1,6 +1,6 @@
 # JY-051 Player options study (per-device matrix)
 
-Status: spec
+Status: building
 Size: M
 Live risk: none (read-only playback tests against Jellyfin with a test account)
 Area: `docs/joeyv2/research/` (the study write-up), a throwaway test harness outside the repo's shipped code
@@ -59,6 +59,7 @@ One sitting: install the throwaway test APK on the TCL by adb (as in `tv/README.
 Choosing the screen's look (JY-052); the hub playback endpoints (JY-053); any shipped player or signed release; friends' devices, downloads, casting; the transcode box (JY-049/059: transcode numbers here are J4125 worst case); library, arr or Seerr changes.
 
 ## Questions for B.
+Answers: B., orchestrator session, 2026-10-24: "JY-051: 1A 2A 3A, ready".
 **1. TV engines in the study?** A) T1, T2 (with and without ffmpeg extension) and T3; T4 only if T2 fails a file. B) Also test libVLC and mpv up front. *Recommend A: it keeps the TV sitting short, and Jellyfin's own app already uses ExoPlayer.*
 
 **2. Test account?** A) A new read-only household-policy Jellyfin user made for the study, deleted afterwards. B) Use your own account (progress writes land on your history). *Recommend A: stops test plays polluting your resume and watched records.*

@@ -56,7 +56,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-049 | Transcoding box: requirements + shortlist | Media player | M | [x] shipped | Research done (`docs/joeyv2/research/JY-049_TRANSCODE_BOX.md`) | — |
 | JY-050 | Player spec + questions | Media player | S | [x] shipped | Devices, friends or not, what done means · PR #66 | [spec](docs/specs/JY-050-player-spec.md) |
-| JY-051 | Player options study (per-device matrix) | Media player | M | idea | Measure what each device plays | — |
+| JY-051 | Player options study (per-device matrix) | Media player | M | building | Inventory + PC playback table + study page + test TV app built (PR #70); the TV/phone sitting waits on JY-014's hostname | — |
 | JY-052 | Options page: player screen (PC, phone, TV) | Media player | S | idea | B. picks the look first | — |
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | idea | Contract before the players | — |
 | JY-054 | Web/phone player | Media player | L | idea | Joey plays the film itself · live | — |
@@ -215,9 +215,11 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-234 | Preview lock follow-ups: PID-reuse guard via the holder's token, owner/pid write races, hold vs teardown timeouts | NAS/deploy | S | idea | JY-228 Opus verifier should-fixes (low probability) | — |
 | JY-235 | Gate ≤ 10 min on the NAS: quiet-NAS `--durations` profile, `-n 3` trial only if still over, three deploys ≤ 600 s | NAS/deploy | M | [x] shipped | JY-227 split (criteria 3–5 + NAS half of 1), 2026-10-24 · PR #103 | [spec](docs/specs/JY-235-gate-nas-proof.md) |
 | JY-236 | Flaky test: `test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links` | Tests | S | [x] shipped | Failed under load twice on 2026-10-24 (JY-101, JY-153 builds); passes alone · PR #107 | [spec](docs/specs/JY-236-flaky-film-trailer-test.md) |
-| JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | idea | 2 errors on main under load (JY-104 build, 2026-10-24); pass alone | — |
+| JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | parked | Not reproducible in 50+ tries (2026-10-24); spec + hypotheses on PR #108 | — |
 | JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | [x] shipped | JY-140 review should-fix, 2026-10-24 · PR #105 | [spec](docs/specs/JY-238-lan-word.md) |
 | JY-239 | Flaky JY-228 lock tests on Linux CI (holder self-expiry timing; /proc race) | Tests | S | [x] shipped | Turned three unrelated PRs red on 2026-10-24 · PR #97 | [spec](docs/specs/JY-239-preview-test-flakes.md) |
+| JY-240 | Pre-gate free-memory check in deploy.sh (warn/abort below ~1,400 MB available) | NAS/deploy | S | idea | JY-235 review should-fix, 2026-10-24 | — |
+| JY-241 | joey.py crashes printing non-cp1252 text (e.g. "≤" in a PR title) to a Windows pipe | Tooling | S | idea | Broke JY-235's first close-out, 2026-10-24; workaround PYTHONIOENCODING=utf-8 | — |
 
 ### Parked features
 

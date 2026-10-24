@@ -278,6 +278,8 @@ SOURCES = [
     ("orchestrator sweep (2026-10-24)", "flaky small-waste file", "JY-237", "errors under -n 4"),
     ("orchestrator sweep (2026-10-24)", "LAN word single source", "JY-238", "JY-140 review"),
     ("orchestrator sweep (2026-10-24)", "flaky JY-228 lock tests on CI", "JY-239", "three PRs red"),
+    ("orchestrator sweep 2 (2026-10-24)", "pre-gate memory check", "JY-240", "JY-235 review"),
+    ("orchestrator sweep 2 (2026-10-24)", "joey.py cp1252 crash", "JY-241", "JY-235 close-out"),
 ]
 
 

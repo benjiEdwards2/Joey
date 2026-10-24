@@ -1,6 +1,6 @@
 # JY-244 Flaky tests: partof banner and media-speed tests race the page's background read
 
-Status: review
+Status: shipped 2026-10-25
 Size: S
 Live risk: none
 Area: tests/hub/test_media_partof.py, tests/hub/test_media_speed.py
@@ -36,3 +36,8 @@ Method: "slowed" = a plugin that sleeps before `media_film._load_extras`.
 - CI command `python -m pytest -q -n auto tests/`, twice: 3722 passed, 1 skipped, both times.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #152, squash-merged as `ab6351d` (ab6351d37f16ae697235966ffe77b528280521ce).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

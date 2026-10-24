@@ -1,6 +1,6 @@
 # JY-142 WUD real check interval vs the 180-minute Stale rule
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/server.py` (the Updates "refreshed" word), `hub/templates/server.html` (comment), `tests/hub/test_server_cleanup.py`, `docs/hub-changelog.md`.
@@ -45,4 +45,8 @@ Showing WUD's real next check time ("next check 08:00"). That needs the cron val
 Open Server: the Updates line reads "... · refreshed Nm ago" (no "checked"); with a snapshot older than 180 minutes it reads amber "Stale · refreshed ...".
 
 ## Shipped notes
-Built 2026-10-24 on PR #132 (draft). `hub/server.py` says "refreshed" (the `updates["checked"]` key keeps its name); comments in `hub/server.py` and `hub/templates/server.html` and the S9 line in `docs/hub-changelog.md` follow. 2026-10-24: `test_updates_line_says_checked_n_ago` is renamed `test_updates_line_says_refreshed_n_ago` and the stale test's expected words change from "checked" to "refreshed", because the word is the item. Threshold unchanged (180).
+- Closed out with `scripts/joey.py close-out`.
+- PR: #132, squash-merged as `6a0ca25` (6a0ca258a3d78c142ae10175d22e603b069d7a72).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -1,6 +1,6 @@
 # JY-226 Server page within its render budget
 
-Status: building
+Status: shipped 2026-10-24
 Size: M
 Live risk: none
 Area: `hub/server_history.py`, `hub/server.py` (`sweep_stats`, `history_band` callers), `hub/server_space.py` (reads `recent()`), `tests/hub/`
@@ -52,4 +52,8 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 1. How far to go? **A + C (recommended):** about 31 ms on the laptop, no visible change at all. **A + B + C:** about 18 ms, but the Server page's sparklines redraw at most once a minute.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #68, squash-merged as `8ffae27` (8ffae276895948737b83ab82e86c21cbbc85f49e).
+- Deploy: `2026-10-24T01:07:20Z PASS prev=651ccd6 new=8ffae27 suite green, smoke ok tv=current end=2026-10-24T01:23:28Z dur=968s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

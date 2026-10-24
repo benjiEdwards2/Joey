@@ -26,11 +26,11 @@
     {{ kpi("/a/" ~ c.area.id, c.area.name, (none if playing else (h.kind_word if h else c.tile.label)), c.area.icon, c.st,
            c.tile.owner.value, value=(h.title if h else none), sub=(c.st.value if h else none),
            extra=c.downloading, waiting=c.waiting, cls=cls,
-           jump=(h.href if h else none), pct=(h.progress_pct if playing else none)) }}
+           jump=(h.href if h else none), pct=(h.progress_pct if playing else none), tone=c.area.tone) }}
   {% else %}
     {{ kpi("/a/" ~ c.area.id, c.area.name, c.tile.label, c.area.icon, c.st, c.tile.owner.value,
            value=(c.next.title if c.next else none), sub=(c.next.when if c.next else none),
-           bars=c.per_day, cls=cls) }}
+           bars=c.per_day, cls=cls, tone=c.area.tone) }}
   {% endif %}
 {% endmacro %}
 {# Order: the area cards in hub_rank order (registry order on ties). WP-T2 (2026-10-19): the Weather tile left this row

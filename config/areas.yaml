@@ -9,6 +9,8 @@
 #   open_meteo gcal clickup macromates home_assistant jellyfin nas_stats money
 #   media_status arr jellyseerr qbittorrent system wud uptime_kuma
 # detail: optional hub route (starts with /) — the whole embed card links to it.
+# tone: optional colour token name (orange sky teal fuchsia gold) for the area's icon chip on its summary tile (JY-233);
+#   none = the neutral chip.
 # `hidden: true` parks an area: no rail, tab or hub card; its page still serves.
 # `layout: server` renders /a/<id> as the /server bands page (2026-10-06).
 # Tiles for sources not yet built still render — as "Not connected" (by design).
@@ -76,6 +78,7 @@ areas:
   - id: calendar
     name: Calendar
     icon: calendar
+    tone: sky                                       # icon chip colour on the hub card (JY-233, B. 2026-10-24)
     summary_tile: next-event
     tiles:
       - id: next-event
@@ -102,6 +105,7 @@ areas:
   - id: media
     name: Media
     icon: media
+    tone: orange                                       # icon chip colour on the hub card (JY-233, B. 2026-10-24)
     summary_tile: watching
     rail_section: home                               # rail: Home group, between Hub and Weather (B., 2026-10-06)
     hub_rank: 1                                      # first hub card (2026-10-05)
@@ -211,6 +215,7 @@ areas:
   - id: server
     name: Server
     icon: server
+    tone: teal                                       # icon chip colour on the hub card (JY-233, B. 2026-10-24)
     summary_tile: services
     layout: server                                   # /a/server renders the /server bands page
     tiles:

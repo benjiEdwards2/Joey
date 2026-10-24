@@ -82,7 +82,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-100 | Episode pages: "N to watch" → "N left" | Media | S | idea | Wording matches show pages | — |
+| JY-100 | Episode pages: "N to watch" → "N left" | Media | S | [x] shipped | Wording matches show pages · PR #76 | [spec](docs/specs/JY-100-episode-n-left.md) |
 | JY-101 | "N h this month" uses the old duration format | Media | S | idea | `media_pages.py:175` | — |
 | JY-102 | Service page H1 = service name | Media | S | idea | Discover service page says "Discover" | — |
 | JY-103 | Georgina's scores in the "both" view | Media | M | parked | Needs her account (decision) | — |

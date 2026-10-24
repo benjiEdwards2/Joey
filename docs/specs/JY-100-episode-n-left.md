@@ -1,6 +1,6 @@
 # JY-100 Episode pages: "N to watch" becomes "N left"
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_film.py`, `tests/hub/test_show_hero_progress.py`
@@ -34,3 +34,8 @@ Open an episode page: the status line says "N left".
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #76, squash-merged as `d2ce00b` (d2ce00b7e63a94a9b5a24cf7692ed87ff39e3d55).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

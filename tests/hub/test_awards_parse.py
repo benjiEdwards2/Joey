@@ -57,8 +57,8 @@ def test_emmys_drama_winner_is_marked_by_the_double_dagger_and_networks_are_stri
     assert [p["label"] for p in d["people"]] == ["Seth Rogen", "Evan Goldberg"]
 
 
-@pytest.mark.parametrize("name,count", [("wp_bafta_78.json", 26), ("wp_globes_82.json", 27), ("wp_emmys_77.json", 26),
-                                        ("wp_sag_31.json", 15), ("wp_critics_30.json", 41)])
+@pytest.mark.parametrize("name,count", [("wp_bafta_78.json", 27), ("wp_globes_82.json", 29), ("wp_emmys_77.json", 26),
+                                        ("wp_sag_31.json", 16), ("wp_critics_30.json", 41)])   # JY-242: + honorary
 def test_every_category_is_parsed_with_exactly_one_or_more_winner(name, count):
     parsed = ap.parse_award_blocks(wikitext(name))
     assert len(parsed["blocks"]) == count
@@ -68,7 +68,7 @@ def test_every_category_is_parsed_with_exactly_one_or_more_winner(name, count):
 
 
 def test_mixed_pages_split_film_and_tv_by_section():
-    for name, film, tv in (("wp_sag_31.json", 6, 9), ("wp_critics_30.json", 21, 20), ("wp_globes_82.json", 15, 12)):
+    for name, film, tv in (("wp_sag_31.json", 6, 9), ("wp_critics_30.json", 21, 20), ("wp_globes_82.json", 16, 13)):   # JY-242: + DeMille, Burnett
         kinds = [b["kind"] for b in ap.parse_award_blocks(wikitext(name))["blocks"]]
         assert (kinds.count("film"), kinds.count("tv")) == (film, tv), name
 
@@ -85,7 +85,7 @@ def test_a_shapeless_page_and_a_redirect_are_reported_not_guessed():
 def test_titles_of_lists_category_pages_works_and_people_once():
     blocks = ap.parse_award_blocks(wikitext("wp_bafta_78.json"))["blocks"]
     titles = ap.titles_of(blocks)
-    assert titles[0] == "BAFTA Award for Best Film" and titles.count("Anora") == 1
+    assert titles[:2] == ["Warwick Davis", "BAFTA Award for Best Film"] and titles.count("Anora") == 1   # JY-242
     assert "Bob Dylan" not in titles and len(titles) == len(set(titles))
 
 
@@ -153,9 +153,10 @@ def lead_names(b):
     return [(e["won"], e["lead"], (e["work"] or {}).get("label"), [p["label"] for p in e["people"]]) for e in b["entries"]]
 
 
-@pytest.mark.parametrize("name,count,film,tv", [("wp_globes_80.json", 27, 14, 13), ("wp_globes_60.json", 24, 13, 11),
-                                                ("wp_globes_20.json", 18, 14, 4), ("wp_globes_40.json", 26, 15, 11),
-                                                ("wp_sag_26.json", 15, 6, 9), ("wp_sag_2.json", 13, 5, 8)])
+@pytest.mark.parametrize("name,count,film,tv", [("wp_globes_80.json", 29, 14, 14), ("wp_globes_60.json", 25, 13, 11),
+                                                ("wp_globes_20.json", 19, 14, 4), ("wp_globes_40.json", 27, 15, 11),
+                                                ("wp_sag_26.json", 16, 6, 9), ("wp_sag_2.json", 14, 5, 8)])
+# JY-242 (2026-10-24): each count + its honorary block(s), one winner each; a heading-less one has no kind (film later)
 def test_table_pages_give_one_block_per_header_cell_each_with_one_winner(name, count, film, tv):
     blocks = parsed(name)
     assert len(blocks) == count
@@ -297,8 +298,8 @@ def test_a_bare_bold_winner_line_never_double_marks_and_other_bare_lines_stay_ig
     assert lead_names(actor) == [(True, "person", "A", ["Jo Bloggs"]), (False, "person", "B", ["Al Smith"])]
 
 
-@pytest.mark.parametrize("name,winners", [("wp_globes_82.json", 27), ("wp_bafta_78.json", 26), ("wp_emmys_77.json", 26),
-                                          ("wp_sag_31.json", 15), ("wp_critics_30.json", 42)])
+@pytest.mark.parametrize("name,winners", [("wp_globes_82.json", 29), ("wp_bafta_78.json", 27), ("wp_emmys_77.json", 26),
+                                          ("wp_sag_31.json", 16), ("wp_critics_30.json", 42)])   # JY-242: + honorary
 def test_award_category_pages_keep_their_winner_counts(name, winners):
     assert sum(e["won"] for b in parsed(name) for e in b["entries"]) == winners
 
@@ -343,3 +344,60 @@ def test_no_song_title_is_ever_a_person(name):
              "My Funny Friend and Me", "Lose Yourself", "Beautiful That Way", "Mi camino", "Carolina"}
     people = {p["label"] for b in parsed(name) for e in b["entries"] for p in e["people"]}
     assert not people & songs
+
+
+# ---- JY-242 (2026-10-24, B.: "JY-242: A A"): honorary awards, a winners-only category on every page shape ----
+
+DEMILLE, BURNETT = "Golden Globe Cecil B. DeMille Award", "Golden Globe Carol Burnett Award"
+
+
+@pytest.mark.parametrize("name,label,page,kind,who", [
+    ("wp_globes_82.json", "Cecil B. DeMille Award", DEMILLE, "film", "Viola Davis"),   # "* [[award]]: [[Person]]" under
+    ("wp_globes_82.json", "Carol Burnett Award", BURNETT, "tv", "Ted Danson"),         # "Honorary award recipient"
+    ("wp_globes_80.json", "Cecil B. DeMille Award", None, None, "Eddie Murphy"),       # ===Award===, prose, * [[Person]]
+    ("wp_globes_80.json", "Carol Burnett Award", None, "tv", "Ryan Murphy"),           # Burnett is the television honour
+    ("wp_globes_60.json", "Cecil B. DeMille Award", DEMILLE, None, "Gene Hackman"),    # linked heading, bare [[Person]]
+    ("wp_globes_40.json", "Cecil B. DeMille Award", DEMILLE, None, "Laurence Olivier"),
+    ("wp_globes_20.json", "Cecil B. DeMille Award", DEMILLE, None, "Bob Hope"),        # bold label line, bold recipient
+    ("wp_sag_31.json", "Screen Actors Guild Life Achievement Award", None, None, "Jane Fonda"),
+    ("wp_sag_26.json", "Screen Actors Guild Life Achievement Award", None, None, "Robert De Niro"),
+    ("wp_sag_2.json", "Screen Actors Guild Life Achievement Award", None, None, "Robert Redford"),
+    ("wp_bafta_78.json", "BAFTA Fellowship", None, None, "Warwick Davis"),             # {{Main}}, prose, * '''[[Person]]'''
+])
+def test_each_honorary_heading_is_a_winners_only_category(name, label, page, kind, who):
+    got = [b for b in parsed(name) if b["label"] == label]
+    assert len(got) == 1, label
+    b = got[0]
+    assert (b["page"], b["kind"]) == (page, kind)
+    assert lead_names(b) == [(True, "person", None, [who])]
+    assert ap.is_honorary(b["label"], b["page"])
+
+
+def test_honorary_words_elsewhere_are_never_a_category():
+    """A nominee named Carol Burnett, prose, the presenters table, Mr. Golden Globe and a film title with "Fellowship"
+    in a colon list stay unread; a page with only an honorary section is still shapeless (nothing else to read)."""
+    labels40 = [b["label"] for b in parsed("wp_globes_40.json")]
+    assert labels40.count("Cecil B. DeMille Award") == 1 and "Carol Burnett" not in labels40
+    assert not [b for b in parsed("wp_globes_60.json") if "Golden Globe" in b["label"]]      # Mr. / Miss Golden Globe
+    assert [b["label"] for b in parsed("wp_globes_80.json") if ap.is_honorary(b["label"], b["page"])] == [
+        "Cecil B. DeMille Award", "Carol Burnett Award"]                                    # once each: not the presenters
+    text = ("{{Award category|#fff|[[X Award for Best Film|Best Film]]}}\n* '''''[[A]]'''''\n"
+            "===Multiple nominations===\n* ''[[The Lord of the Rings: The Fellowship of the Ring]]'': 13\n"
+            "* [[Carol Burnett]]: 2\n")
+    assert [b["label"] for b in ap.parse_award_blocks(text)["blocks"]] == ["Best Film"]
+    only = "==Film==\n* [[Golden Globe Cecil B. DeMille Award|Cecil B. DeMille Award]]: [[Someone]]\n"
+    assert ap.parse_award_blocks(only)["shape"] == ap.SHAPE_NONE
+    assert not any(ap.is_honorary(x) for x in ("Best Actress", "Carol Burnett", "The Fellowship of the Ring",
+                                               "Bob Hope Humanitarian Award", "Mr. Golden Globe"))
+
+
+def test_a_prose_line_under_an_honorary_heading_is_never_a_recipient():
+    """JY-242 review (2026-10-24): a line starting with a link is a recipient only when it is that link alone (a bare
+    `[[Person]]`); a sentence that opens with a link is prose."""
+    text = ("{{Award category|#fff|[[X Award for Best Film|Best Film]]}}\n* '''''[[A]]'''''\n"
+            "===Cecil B. DeMille Award===\n"
+            "[[Cecil B. DeMille]] was its first recipient. It goes to [[Someone]] for a career in film.\n\n"
+            "===Carol Burnett Award===\n[[Ted Danson]]\n")
+    blocks = ap.parse_award_blocks(text)["blocks"]
+    assert [(b["label"], lead_names(b)) for b in blocks] == [
+        ("Best Film", [(True, "work", "A", [])]), ("Carol Burnett Award", [(True, "person", None, ["Ted Danson"])])]

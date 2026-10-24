@@ -6,7 +6,8 @@
   winner with `{{double dagger}}`; "(Network)" / "(Country)" parentheticals are dropped). WP-D1 (2026-10-16) adds the
   three older shapes: wikitables whose `!` header cells name the categories (Globes ≤ 2023, SAG ≤ 2020, early BAFTA),
   `* '''Best Actor:'''` bold-label lists (Critics' Choice 1996–2001) and `===Category===` headings (BAFTA 1949–1964,
-  Globes 1946). A redirect page or a page none of them reads is reported, never guessed at.
+  Globes 1946). A redirect page or a page none of them reads is reported, never guessed at. JY-242 (2026-10-24) adds
+  the honorary awards (Cecil B. DeMille, Carol Burnett, SAG Life Achievement, BAFTA Fellowship) as winners-only blocks.
 * `sparql_rows(answer)` flattens a SPARQL CSV (or JSON) answer; `wd_nominations(rows, ...)` turns the Oscars edition answer (or a
   winners-only category answer) into categories + nominations + entities.
 * `qids_from_pageprops(json)` maps enwiki titles -> QIDs (redirects and normalisation followed); `entities_from(json)`
@@ -592,13 +593,94 @@ def _heading_blocks(lines: list[str]) -> list[dict]:
     return blocks
 
 
+# JY-242 (2026-10-24, B.: 1A): the honorary awards. One person, no film, no nominees: read as a winners-only category
+# on every page shape. Recognised by name only (the heading, a bold label line, or the part before ":" of a list line).
+HONORARY_RE = re.compile(r"\bcecil b\.? ?de ?mille award\b|\bcarol burnett award\b|\blife achievement award\b|"
+                         r"^(?:the )?(?:bafta |academy )?fellowship$", re.I)
+_HONORARY_TV_RE = re.compile(r"\bcarol burnett award\b", re.I)    # the Globes' television honour
+_BOLD_LINK_RE = re.compile(r"'''\s*(\[\[[^\[\]]+\]\])\s*'''")
+
+
+def is_honorary(label: str | None, page: str | None = None) -> bool:
+    return any(HONORARY_RE.search(_plain(x)) for x in (label, page) if x)
+
+
+def _honorary_cat(text: str) -> tuple[str, str | None] | None:
+    cat = _category_of(text)
+    return cat if cat and is_honorary(*cat) else None
+
+
+def _honorary_blocks(lines: list[str]) -> list[dict]:
+    """Honorary sections in their three shapes: `===<award>===` (linked or not) over prose and a `* [[Person]]`, bold or
+    bare `[[Person]]` line (Globes, SAG, BAFTA); `* [[<award>]]: [[Person]]` (today's Globes, under "Honorary award
+    recipient"); a bold `'''[[<award>]]'''` line over a bold `'''[[Person]]'''` (old Globes "Special awards"). Every
+    recipient won; the work is dropped. Kind: the nearest film / TV heading above, else TV for the Burnett award."""
+    blocks: list[dict] = []
+    cur, kinds = None, {}
+
+    def kind_now(label: str) -> str | None:
+        k = next((kinds[lv] for lv in sorted(kinds, reverse=True) if kinds[lv]), None)
+        return k or ("tv" if _HONORARY_TV_RE.search(label) else None)
+
+    def start(cat: tuple[str, str | None], at: int) -> dict:
+        b = {"label": cat[0], "page": cat[1], "kind": kind_now(cat[0]), "entries": [], "_levels": [], "_at": at}
+        blocks.append(b)
+        return b
+
+    def recipient(b: dict, text: str) -> None:
+        people = [p for p in (_entry(text) or {}).get("people") or [] if not is_honorary(p["label"], p["title"])]
+        if people:
+            b["entries"].append({"won": True, "lead": "person", "work": None, "people": people,
+                                 "pos": len(b["entries"])})
+            b["_levels"].append(1)
+
+    for at, line in enumerate(lines):
+        h = _HEADING_RE.match(line)
+        if h:
+            level = len(h.group(1))
+            kinds = {lv: k for lv, k in kinds.items() if lv < level}
+            kinds[level] = _kind_of_heading(h.group(2))
+            cat = _honorary_cat(h.group(2))
+            cur = start(cat, at) if cat else None
+            continue
+        if not line:
+            if cur is not None and cur["entries"]:      # a recipient list ends at the first blank line after it
+                cur = None
+            continue
+        if line.startswith(("{|", "|", "!")):
+            cur = None
+            continue
+        if line.startswith("*"):
+            parts = _split_top(line.lstrip("*"), ":")
+            cat = _honorary_cat(parts[0]) if len(parts) > 1 else None
+            if cat:
+                recipient(start(cat, at), ":".join(parts[1:]))
+                cur = None
+                continue
+        bold = _BOLD_LINK_RE.fullmatch(line)
+        cat = _honorary_cat(bold.group(1)) if bold else None
+        if cat:
+            cur = start(cat, at)
+            continue
+        if cur is None or not line.startswith(("*", "'''", "[[")):
+            continue
+        if line.startswith("[["):    # a bare line counts only as one link alone; a sentence opening with one is prose
+            bare = _strip_templates(_REF_RE.sub("", line)).strip()
+            m = _LINK_RE.fullmatch(bare)
+            if m is None or (m.group(1) or "").strip().lower().startswith(_SKIP_TARGETS):
+                continue
+        recipient(cur, line.lstrip("*"))
+    return [b for b in blocks if b["entries"]]
+
+
 def parse_award_blocks(wikitext: str | None) -> dict:
     """-> {shape: ok | none | redirect, redirect: title | None, blocks: [{label, page, kind, entries: [...]}]}.
     `kind` is the section heading's film / tv (None when the heading says neither); entries carry `won`, `lead`
     (work | person), `work` ({title, label} | None), `people` ([{title, label}]) and `pos`.
     Shapes, in this order: `{{Award category}}` (unchanged) -> tables -> bold-label lists; a page may mix them, so every
     shape's blocks with entries are taken in page order, a later shape's block dropped when its page or label is already
-    there. Headings are read only when none of those gave a block."""
+    there. Headings are read only when none of those gave a block. JY-242: the honorary awards (`_honorary_blocks`) are
+    added on any page that gave a block, unless a shape already read them; alone they never make a page readable."""
     text = str(wikitext or "")
     m = _REDIRECT_RE.match(text)
     if m:
@@ -613,6 +695,11 @@ def parse_award_blocks(wikitext: str | None) -> dict:
                    and b["label"].lower() not in labels]
     if not blocks:
         blocks = _heading_blocks(lines)
+    if blocks:                       # JY-242: the honorary awards ride along on any page a shape read, once each
+        pages = {b["page"].lower() for b in blocks if b["page"]}
+        labels = {b["label"].lower() for b in blocks}
+        blocks += [b for b in _honorary_blocks(lines) if (b["page"] or "").lower() not in pages
+                   and b["label"].lower() not in labels]
     blocks.sort(key=lambda b: b["_at"])
     for b in blocks:
         del b["_at"]

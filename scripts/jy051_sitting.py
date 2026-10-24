@@ -308,7 +308,7 @@ class Runner:
         return f.read_text(encoding="utf-8").strip() if f.is_file() else ""
 
     def log(self, msg: str):
-        line = f"{dt.datetime.now():%H:%M:%S} {msg}"
+        line = f"{dt.datetime.now():%H:%M:%S} {'(dry run) ' if self.dry else ''}{msg}"
         print(line)
         if not self.dry:
             self.dir.mkdir(parents=True, exist_ok=True)

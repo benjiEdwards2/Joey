@@ -2,9 +2,10 @@
    each poster with its state chip (In library green, Requested amber, Request indigo; Declined grey for the friend's own
    declined request). A poster opens the request panel in #req-dialog (htmx); without JS its href is the title page,
    which carries the same Request block. The chip's id lets the panel's answer update it in place (hx-swap-oob).
-   Shared by the page and the search partial (/media/discover/search swaps the whole #discover-grid). #}
+   Shared by the page and the search partial (/media/discover/search swaps the whole #discover-grid). data-q is the
+   query the grid shows (tv.js, JY-194: Enter does not search again for the query already shown). #}
 {% from "_poster.html" import poster %}
-<div id="discover-grid" class="reqgrid-wrap">
+<div id="discover-grid" class="reqgrid-wrap" data-q="{{ q }}">
   <h2 class="seclabel">{{ "Results" if q else "Discover" }} · {{ rows | length }}</h2>
   {% if note %}<p class="metaline">{{ note }}</p>{% endif %}
   {% if rows %}

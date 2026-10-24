@@ -14,6 +14,11 @@
      on every new page (Back's reload, a boosted swap, the hand-off reopen, a back-forward-cache pageshow);
    * Up from the page into the top bar lands on the open section's pill; Down from the title buttons into the rating
      chips lands on chip 1 (JY-187 B2/B3, P5);
+   * Discover search (JY-194, R2): the friends' search field ([data-tv-search]) is the stop between the grid and the top
+     bar (Up from the first row; Down from it = the first poster). It stays read-only while only focused, so passing it
+     never raises the keyboard; OK makes it editable (the TV keyboard). Typing uses its own htmx trigger (debounced);
+     Enter never submits the form: it fires that trigger only when the grid does not already show the query, then goes
+     to the first result. Back with a query clears it to the trending grid, the field focused;
    * scroll-into-view: the focused poster is centred in its shelf, clamped at both ends (WP-M call 2 - the browser
      clamps scrollLeft), and its row is kept inside the 5 % overscan margin; focus in the top bar scrolls to the top;
    * focus restore after every htmx swap: when the swap removed or hid the focused element, focus goes back to the first
@@ -122,6 +127,53 @@
     return m ? m.el : firstIn(document.querySelector('main')) || firstIn(document.body);
   }
 
+  /* JY-194 (U8, R2): the Discover search field and the grid it fills (#discover-grid, data-q = the query it shows) */
+  var SEARCH = '[data-tv-search]', GRID = '.reqgrid-wrap';
+  var opening = false;       /* OK is re-focusing the field: its blur must not lock it again */
+  var wantResults = false;   /* Enter sent a search: the swap's first poster takes the focus */
+
+  function isSearch(el) { return !!(el && el.getAttribute && el.getAttribute('data-tv-search') !== null); }
+
+  function searchField() {
+    var s = document.querySelector(SEARCH);
+    return s && visible(s) ? s : null;
+  }
+
+  function grid() { return document.querySelector(GRID); }
+
+  function shownQuery() { var g = grid(); return g ? g.getAttribute('data-q') || '' : ''; }
+
+  /* Enter on the field (OK on the remote, or the keyboard's search key). Never the form's submit (a page load). */
+  function searchEnter(e, s) {
+    e.preventDefault();
+    if (s.readOnly) {   /* OK: editable, then focused again, so the WebView raises the TV keyboard */
+      s.readOnly = false;
+      opening = true;
+      s.blur();
+      s.focus();
+      opening = false;
+      return;
+    }
+    if (shownQuery() !== s.value.trim()) {   /* the debounce has not fetched this query yet: the field's own trigger */
+      wantResults = true;
+      s.dispatchEvent(new Event('search'));
+    }
+    s.readOnly = true;
+    setFocus(firstIn(grid()) || s);
+  }
+
+  /* Back with a query: the empty query through the same trigger (the cached trending shelves), the field focused */
+  function clearSearch() {
+    var s = searchField();
+    if (!s || !(s.value || shownQuery())) return false;
+    s.value = '';
+    s.readOnly = true;
+    wantResults = false;
+    s.dispatchEvent(new Event('search'));
+    setFocus(s);
+    return true;
+  }
+
   function centreInShelf(el) {
     var shelf = el.closest('.carousel');
     if (!shelf) return;
@@ -196,9 +248,13 @@
     /* JY-187 (B2/B3): Up from the page into the top bar lands on the open section's pill, not the nearest control (the
        brand), so another section or the sign-out pill is one Up and a few Rights away */
     if (best && dir === 'ArrowUp' && best.closest('.topbar') && !a.closest('.topbar')) {
-      var pill = document.querySelector('.toplinks a[aria-current]');
-      if (pill && visible(pill)) best = pill;
+      var pill = document.querySelector('.toplinks a[aria-current]'), s = searchField();
+      /* JY-194: the Discover search field above the page comes first */
+      if (s && s !== a && s.getBoundingClientRect().bottom <= r.top) best = s;
+      else if (pill && visible(pill)) best = pill;
     }
+    /* JY-194: Down from the search field lands on the grid's first poster */
+    if (dir === 'ArrowDown' && isSearch(a)) best = firstIn(grid()) || best;
     /* JY-187 (P5): Down from the title buttons into the rating row lands on its first control (chip 1), not the chip
        nearest the button */
     if (best && dir === 'ArrowDown' && a.closest('.hero-detail-btns') && best.closest('.tv-rate')) {
@@ -213,8 +269,9 @@
 
   document.addEventListener('keydown', function (e) {
     keyed = true;
-    if (!KEYS[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
     var a = document.activeElement;
+    if (e.key === 'Enter' && isSearch(a) && !e.altKey && !e.ctrlKey && !e.metaKey) { searchEnter(e, a); return; }
+    if (!KEYS[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
     if (typing(a) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;   /* the caret moves in a text box */
     if (a && a.tagName === 'SELECT') return;
     e.preventDefault();
@@ -231,6 +288,11 @@
       current = e.target;
       current.classList.add('tv-focus');
     }
+  });
+
+  /* JY-194: leaving the search field locks it again (read-only until the next OK) */
+  document.addEventListener('focusout', function (e) {
+    if (isSearch(e.target) && !opening) e.target.readOnly = true;
   });
 
   /* Q41: the trailer goes to the YouTube app, not the in-page player (capture: runs before the page's own handler). */
@@ -263,15 +325,25 @@
     /* a new page (a full load, or a boosted swap / Back, which reset keyed - below): the WebView can focus the brand
        before this deferred script adds its focusin listener, so a top-bar focus found here before any key is also
        replaced by first() */
+    /* JY-194: the search field is read-only unless it is being typed in; after Enter's search the results' first
+       poster takes the focus once they land (unless focus has moved on outside the grid) */
+    var s = searchField();
+    if (s && s !== document.activeElement) s.readOnly = true;
+    if (wantResults) {
+      wantResults = false;
+      var r = firstIn(grid()), held = active();
+      if (r && (!held || held.closest(GRID))) { setFocus(r); return; }
+    }
     var a = active(), f = first();
     if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);
   }
 
   window.joeyTV = {
-    /* The shell's Back key: true = a web dialog was closed here (stay on the page); false = nothing to close. */
+    /* The shell's Back key: true = a web dialog was closed, or a Discover search cleared (JY-194), here (stay on the
+       page); false = nothing to close. */
     back: function () {
       var d = openDialog();
-      if (!d) return false;
+      if (!d) return clearSearch();   /* JY-194: results showing -> the trending grid, field focused; else false */
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();

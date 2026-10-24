@@ -1,6 +1,6 @@
 # JY-224 Flaky test: test_metadata_long_request_state_short
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `tests/hub/test_media_speed.py`
@@ -38,4 +38,8 @@ Any change in `hub/`. The TTL behaviour is right; only the test's timing was wro
 CI green; the before/after rates in the PR.
 
 ## Shipped notes
-PR and the after-fix rate are in the PR description.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #77, squash-merged as `dd03c82` (dd03c82af7fccaba477c08b70dd22083ec53aa9a).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

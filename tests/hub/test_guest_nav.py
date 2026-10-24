@@ -168,6 +168,12 @@ def test_awards_has_no_seen_marks_or_not_seen_chip_for_a_friend(friend):
     assert "Alpha" in main
 
 
+def test_the_awards_count_part_is_not_a_guest_route(friend):
+    """JY-153: friends never see the count line (no progress head), so its part route is private: the guest not-found."""
+    for kind in ("movies", "tv"):
+        assert friend.get(f"/media/{kind}/awards/part/watchlisted").status_code == 404
+
+
 def test_awards_seen_marks_stay_on_the_private_front(monkeypatch):
     monkeypatch.setenv("JOEY_FRONT", "private")
     with closing(adb.ensure()) as db:

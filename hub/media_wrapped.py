@@ -119,7 +119,7 @@ def _signature(db) -> tuple | None:
 
 
 def _read(db, owner, start: date, end: date) -> tuple[list[dict], list[dict], str | None]:
-    """(diary rows up to `end`, oldest first; the window's plays; the earliest play stamp of any household owner)."""
+    """(diary rows up to `end`, oldest first; the window's plays; the earliest play stamp: the friend's own, else any household owner's)."""
     osql, oargs = _owner_sql(owner)
     diary = [dict(r) for r in db.execute(
         "SELECT id, owner, item_key, kind, title, year, poster, watched_on, source, show_key, season, episode, show_title"
@@ -129,7 +129,9 @@ def _read(db, owner, start: date, end: date) -> tuple[list[dict], list[dict], st
         "SELECT owner, jf_id, item_key, show_key, kind, title, show_title, runtime_min, started_at, last_seen_at, poster"
         " FROM play WHERE started_at >= ? AND started_at < ?" + osql + " ORDER BY started_at",
         [media_plays_db._iso(_local(start)), media_plays_db._iso(_local(end)), *oargs])]
-    first = db.execute(f"SELECT MIN(started_at) FROM play WHERE {media_db.household_sql()}").fetchone()[0]
+    # JY-247: a friend's earliest play is their own; only the private views read the household's
+    first_sql, first_args = (("owner = ?", [owner]) if media_db.friend_key(owner) else (media_db.household_sql(), []))
+    first = db.execute(f"SELECT MIN(started_at) FROM play WHERE {first_sql}", first_args).fetchone()[0]
     return diary, plays, first
 
 

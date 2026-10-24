@@ -95,3 +95,20 @@ def test_a_friends_shows_carry_no_household_progress_words(wrap):
         you = media_wrapped.summary("you", jelly(), today.year)
     assert [(g["title"], g["episodes"], g["progress"]) for g in w["shows"]] == [("Quiet Show", 2, None)]
     assert you["shows"] == []
+
+
+def test_a_friends_summary_never_carries_the_households_earliest_date(wrap):
+    """JY-247: `recorder_start` was the household's earliest play; a friend's is their own, or None with no plays."""
+    build, _ = wrap
+    today = media_wrapped._now().date()
+    early = date(today.year, 1, 3)
+    with build():
+        media_store.connect().close()
+        play("h0", "movie", "Anora", local(early, 20), 130, runtime=139)
+        play("f1", "movie", "Friend Film", local(today, 21), 100, runtime=100, owner=FRIEND, item_key="tmdb:603")
+        mine = media_wrapped.summary(FRIEND, jelly(), today.year)
+        none = media_wrapped.summary("jf:" + "cafe" * 8, jelly(), today.year)
+        house = media_wrapped.summary("both", jelly(), today.year)
+    assert mine["recorder_start"] == today
+    assert none["recorder_start"] is None
+    assert house["recorder_start"] == early                                  # the private front: unchanged

@@ -281,6 +281,10 @@ SOURCES = [
     ("orchestrator sweep 2 (2026-10-24)", "pre-gate memory check", "JY-240", "JY-235 review"),
     ("orchestrator sweep 2 (2026-10-24)", "joey.py cp1252 crash", "JY-241", "JY-235 close-out"),
     ("orchestrator sweep 3 (2026-10-24)", "awards honorary + re-pull split from JY-152", "JY-242", "two questions for B."),
+    ("orchestrator sweep 5 (2026-10-25)", "flaky episode-ratings tests", "JY-243", "JY-142 docs PR ci"),
+    ("orchestrator sweep 5 (2026-10-25)", "flaky partof banner test", "JY-244", "JY-243 proof runs"),
+    ("orchestrator sweep 5 (2026-10-25)", "warm-up episode ratings prefetch", "JY-245", "JY-119 spec"),
+    ("orchestrator sweep 5 (2026-10-25)", "Prowlarr failed grabs this week", "JY-246", "JY-143 spec Q1"),
 ]
 
 

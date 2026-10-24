@@ -12,7 +12,9 @@ Set `JOEY_NAS=root@<nas>` (and `JOEY_NAS_KEY` if the key is not `~/.ssh/joey_nas
   up; the old commit is printed). First it takes `/tmp/joey-deploy.lock` itself, in `deploy.sh`'s format (a directory
   with the pid of a detached holder on the NAS, plus this run's token in `owner`), so a `deploy.sh` started meanwhile
   exits 2 and `close-out` waits: one `docker build` at a time on the NAS (JY-228). The lock is released on success, on
-  failure and after a teardown; the holder removes it by itself after 60 min if the laptop goes away. Then: exact commit
+  failure and after a teardown; the holder removes it by itself after 88 min if the laptop goes away (longer than all
+  of a run's step timeouts put together, shorter than close-out's 90 min wait; JY-234). The release signals only a
+  holder whose command line carries this run's token, so a reused pid is never killed (JY-234). Then: exact commit
   into `/volume1/Docker/joey/preview/src` (alpine/git + the read-only deploy key, as `deploy.sh`), `docker build` to
   `life-hub-preview`, newest daily media.db backup restored as a copy, `preview.env` built from the allow-list below,
   `up -d`, poll `/healthz` inside the container (up to 120 s). It prints the commit, the URL and the memory readings.

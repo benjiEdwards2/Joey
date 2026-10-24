@@ -52,18 +52,36 @@ BACKUPS = "/volume1/Docker/joey/backups/media"
 BACKUP_RE = r"^media-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}\.db\.gz$"  # hub/media_backup.py NAME_RE
 LOCK = "/tmp/joey-deploy.lock"
 LOCK_NOTE = f"{BASE}/lock.log"  # LOCK/log points here: deploy.sh prints it as "watch it: tail -f <log>" when refused
-LOCK_HOLD_S = 3600    # the holder releases the lock by itself after this, whatever happens to the laptop
+# The holder releases the lock by itself after this, whatever happens to the laptop. JY-234: it outlasts the worst case
+# of every step timeout from the take to the release (replace, build, health poll, teardown: about 77 min, pinned by
+# tests/scripts/test_joey_preview.py), so the lock never lapses while a run is still working; and it stays under
+# close-out's 90 min wait for the lock, so a close-out started meanwhile still gets its turn after a dead laptop.
+LOCK_HOLD_S = 88 * 60
 PID_RE = re.compile(r"^[0-9]+$")
 # Shell helpers for the lock scripts (BusyBox ash and dash). alive: kill -0 succeeds on a zombie, and in the gate
 # container (no --init) nothing reaps an orphaned holder, so a pid whose /proc/<pid>/stat state is Z counts as dead
 # (JY-228 review). The state is the first field after "(comm) ". With /proc mounted, a pid whose /proc/<pid> directory
 # is gone was reaped between kill -0 and the check: dead (JY-239). Fail safe: a /proc/<pid> that exists but whose stat
 # reads empty (a failed fork of sed/cut under load, a missing tool) is ALIVE, so a live deploy's lock is never taken.
-# With no /proc at all, kill -0 decides. nap: a short pause; falls back to 1 s where sleep takes whole seconds only.
+# With no /proc at all, kill -0 decides.
 SH_ALIVE = ("alive() { kill -0 \"$1\" 2>/dev/null || return 1; "
             "if [ -r \"/proc/self/stat\" ] && [ ! -e \"/proc/$1\" ]; then return 1; fi; "
             "z=$(sed 's/^.*) //' \"/proc/$1/stat\" 2>/dev/null | cut -d' ' -f1); [ \"$z\" != Z ]; }")
-SH_NAP = "nap() { sleep 0.1 2>/dev/null || sleep 1; }"
+# nap: one pause of a wait loop that runs at most $naps times. JY-234: where sleep takes whole seconds only (sleep 0.1
+# fails), 50 naps of 1 s came close to the 60 s ssh timeout; then it is 10 naps of 1 s. Either way a loop waits at most
+# 10 s.
+SH_NAP = "nap_s=0.1; naps=50; sleep 0.1 2>/dev/null || { nap_s=1; naps=10; }; nap() { sleep \"$nap_s\"; }"
+# ours: the pid is alive AND its command line carries this run's token ($t). The holder is `sh -c '<script>'` and its
+# script holds the token, so a pid the kernel has handed to another process since (PID reuse) is never signalled
+# (JY-234). A cmdline that reads but lacks the token (another process, or empty: a kernel thread) is not ours, and with
+# no /proc/<pid> at all nothing proves it is: the release then treats the holder as gone and removes the lock; a holder
+# that was in fact alive only sleeps on, harmless, as its own trap removes nothing once the owner file is gone. Fail
+# safe, as JY-239: a live pid whose /proc/<pid> exists but whose cmdline cannot be read (unreadable, a failed tr fork
+# under load) counts as ours, so the release signals it and waits rather than drop a live holder's lock.
+SH_OURS = ("ours() { alive \"$1\" || return 1; [ -e \"/proc/$1\" ] || return 1; "
+           "[ -r \"/proc/$1/cmdline\" ] || return 0; "
+           "c=$(tr '\\000' '\\n' < \"/proc/$1/cmdline\" 2>/dev/null) || return 0; "
+           "case \"$c\" in *\"$t\"*) return 0;; esac; return 1; }")
 
 WINDOW = (dt.time(7, 0), dt.time(21, 30))
 MEM_START_MB = 1400   # 1,200 floor + preview headroom
@@ -218,12 +236,22 @@ def s_lock_take(sha, token):
     it exits: TERM from s_lock_release, or LOCK_HOLD_S running out. The holder only writes its pid, and only removes
     the lock, while LOCK/owner is this run's token. Prints `held <pid|?>` (nothing changed), or `taken <holder pid>`
     (+ ` stale <old pid>` when a dead holder's lock was cleared). The holder script is in single quotes, so it holds
-    none."""
+    none.
+
+    JY-234, the pid write: the holder writes its pid to LOCK/.pid.<pid>, checks the owner, then renames it to LOCK/pid
+    (mv is atomic). If the lock dir was replaced after the check (a deploy cleared it and took its own), the temp file
+    went with the old dir and the mv fails, so the holder never writes its pid into someone else's lock, and a reader
+    never sees a half-written pid. What remains, in the holder's exit trap and in s_lock_release, is a check of
+    LOCK/owner followed by rm: a deploy.sh that clears this lock as stale and takes its own in the microseconds
+    between the two would lose its pid file. That needs the holder already dead at that instant, and it is the same
+    class as deploy.sh's own stale check followed by rm -rf; sh has no atomic compare-and-remove."""
     own = f'[ "$(cat {LOCK}/owner 2>/dev/null)" = "{token}" ]'
-    holder = (f'{own} || exit 0; echo $$ > {LOCK}/pid; s=; '
+    tmp = f"{LOCK}/.pid.$$"
+    holder = (f'{own} || exit 0; echo $$ > {tmp} || exit 0; '
+              f'if {own}; then mv -f {tmp} {LOCK}/pid 2>/dev/null || exit 0; else rm -f {tmp}; exit 0; fi; s=; '
               f'rel() {{ [ -z "$s" ] || kill "$s" 2>/dev/null; '
               f'if {own} && [ "$(cat {LOCK}/pid 2>/dev/null)" = "$$" ]; then '
-              f'rm -f {LOCK}/pid {LOCK}/log {LOCK}/owner; rmdir {LOCK} 2>/dev/null; fi; }}; '
+              f'rm -f {LOCK}/pid {LOCK}/log {LOCK}/owner {LOCK}/.pid.*; rmdir {LOCK} 2>/dev/null; fi; }}; '
               f'trap rel EXIT; trap "exit 143" TERM; trap "exit 130" INT; '
               f'sleep {LOCK_HOLD_S} & s=$!; wait "$s"')
     return script("lock-take", f"""
@@ -254,10 +282,10 @@ while :; do
     p=$(cat "$L/pid" 2>/dev/null || true)
     if [ -n "$p" ] && alive "$p"; then echo "taken $p$note"; exit 0; fi
     i=$((i + 1))
-    [ "$i" -le 50 ] || break
+    [ "$i" -le "$naps" ] || break
     nap
 done
-rm -f "$L/pid" "$L/log" "$L/owner"
+rm -f "$L/pid" "$L/log" "$L/owner" "$L"/.pid.*
 rmdir "$L" 2>/dev/null || true
 echo "the lock holder did not start" >&2
 exit 1""")
@@ -266,22 +294,25 @@ exit 1""")
 def s_lock_release(token):
     """Release the lock this run took, found by its token in LOCK/owner (so it also works after a take whose answer was
     lost): stop the holder (its EXIT trap removes the lock), wait until it is gone or a zombie, then remove whatever of
-    the lock is left, so a dead-pid lock is never left. A lock without this run's token is never touched."""
+    the lock is left, so a dead-pid lock is never left. A lock without this run's token is never touched. JY-234: the
+    pid in LOCK/pid is signalled only while it is `ours` (its command line carries the token); a reused pid is never
+    signalled, and counts as a holder that is gone. The owner check before the rm is the race s_lock_take documents."""
     return script("lock-release", f"""
 L={LOCK}
 t={token}
 {SH_ALIVE}
 {SH_NAP}
+{SH_OURS}
 if [ "$(cat "$L/owner" 2>/dev/null)" != "$t" ]; then echo "not ours"; exit 0; fi
 p=$(cat "$L/pid" 2>/dev/null || true)
-if [ -n "$p" ]; then
+if [ -n "$p" ] && ours "$p"; then
     kill "$p" 2>/dev/null || true
     i=0
-    while alive "$p" && [ "$i" -lt 50 ]; do nap; i=$((i + 1)); done
-    if alive "$p"; then echo "holder $p did not stop" >&2; exit 1; fi
+    while ours "$p" && [ "$i" -lt "$naps" ]; do nap; i=$((i + 1)); done
+    if ours "$p"; then echo "holder $p did not stop" >&2; exit 1; fi
 fi
 if [ "$(cat "$L/owner" 2>/dev/null)" = "$t" ]; then
-    rm -f "$L/pid" "$L/log" "$L/owner"
+    rm -f "$L/pid" "$L/log" "$L/owner" "$L"/.pid.*
     rmdir "$L" 2>/dev/null || true
 fi
 if [ -d "$L" ] && [ "$(cat "$L/owner" 2>/dev/null)" = "$t" ]; then echo "lock still held" >&2; exit 1; fi

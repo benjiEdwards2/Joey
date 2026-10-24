@@ -280,6 +280,7 @@ SOURCES = [
     ("orchestrator sweep (2026-10-24)", "flaky JY-228 lock tests on CI", "JY-239", "three PRs red"),
     ("orchestrator sweep 2 (2026-10-24)", "pre-gate memory check", "JY-240", "JY-235 review"),
     ("orchestrator sweep 2 (2026-10-24)", "joey.py cp1252 crash", "JY-241", "JY-235 close-out"),
+    ("orchestrator sweep 3 (2026-10-24)", "awards honorary + re-pull split from JY-152", "JY-242", "two questions for B."),
 ]
 
 

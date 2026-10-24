@@ -138,6 +138,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-150 | Ballot page height at 375 px | Awards | S | parked | 3,166 px vs 2,500 target (decision) | — |
 | JY-151 | Long TV pill names | Awards | S | parked | Add a strip rule in `short_name` (decision) | — |
 | JY-152 | Awards parser leftovers (5 small) | Awards | M | [x] shipped | Song people, table headers, honorary, re-queue, fixture · PR #119 | [spec](docs/specs/JY-152-awards-parser-leftovers.md) |
+| JY-242 | Awards: honorary awards + re-pull old years with the fixed parser | Awards | M | spec | Split from JY-152, 2026-10-24; two questions for B. | [spec](docs/specs/JY-242-awards-honorary-and-repull.md) |
 | JY-153 | Watchlist count line refreshes only on reload | Awards | S | [x] shipped | Button swaps itself only · PR #78 | [spec](docs/specs/JY-153-watchlist-count.md) |
 | JY-154 | Awards backlog fill: kick sync, watch posters + coverage | Awards | S | idea | B. runs the sync; dim years may be real gaps | — |
 
@@ -218,7 +219,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | parked | Not reproducible in 50+ tries (2026-10-24); spec + hypotheses on PR #108 | — |
 | JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | [x] shipped | JY-140 review should-fix, 2026-10-24 · PR #105 | [spec](docs/specs/JY-238-lan-word.md) |
 | JY-239 | Flaky JY-228 lock tests on Linux CI (holder self-expiry timing; /proc race) | Tests | S | [x] shipped | Turned three unrelated PRs red on 2026-10-24 · PR #97 | [spec](docs/specs/JY-239-preview-test-flakes.md) |
-| JY-240 | Pre-gate free-memory check in deploy.sh (warn/abort below ~1,400 MB available) | NAS/deploy | S | idea | JY-235 review should-fix, 2026-10-24 | — |
+| JY-240 | Pre-gate free-memory check in deploy.sh (warn/abort below ~1,400 MB available) | NAS/deploy | S | spec | Built + 2 reviews PASS (PR #117); waits for B.: adapt (-n 1 between ~1,460 and ~1,720 MB) or skip | — |
 | JY-241 | joey.py crashes printing non-cp1252 text (e.g. "≤" in a PR title) to a Windows pipe | Tooling | S | [x] shipped | Broke JY-235's first close-out, 2026-10-24; workaround PYTHONIOENCODING=utf-8 · PR #112 | [spec](docs/specs/JY-241-utf8-output.md) |
 
 ### Parked features

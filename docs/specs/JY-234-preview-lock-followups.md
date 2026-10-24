@@ -1,6 +1,6 @@
 # JY-234 Preview lock follow-ups
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: NAS write (the preview lock scripts only; reviewed as L)
 Area: `scripts/joey_preview.py` (lock scripts, `LOCK_HOLD_S`), `tests/scripts/test_joey_preview.py`, `deploy/preview/README.md`
@@ -44,3 +44,8 @@ A heartbeat that extends the hold while the laptop is alive (more ssh round trip
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #118, squash-merged as `c6ddec5` (c6ddec5309fd2ee0976d8aa5c7191e0c4d1195b3).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

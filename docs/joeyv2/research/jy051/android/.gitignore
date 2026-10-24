@@ -1,0 +1,6 @@
+.gradle/
+build/
+app/build/
+local.properties
+# copied from hub/static/jy051/study.html by .github/workflows/jy051-study.yml before the build
+app/src/main/assets/

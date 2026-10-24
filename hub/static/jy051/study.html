@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>JY-051 player study</title>
+<!--
+  JY-051 player options study page (throwaway test harness, not a Joey screen; removed when the study is accepted).
+  W1 = native <video> on Jellyfin's direct stream (/Videos/{id}/stream?static=true), the file as is.
+  W2 = <video> + hls.js on Jellyfin's HLS (PlaybackInfo with this browser's DeviceProfile, direct play off).
+  Talks straight to the Jellyfin edge (https://jellyfin.joeyhome.net:8443), never the Cloudflare tunnel.
+  The study account's token is entered on the page (or read from the Joey Study app's bridge on the TV); it is kept in
+  this browser's localStorage only and never printed, logged or put in the results.
+  Served from the preview slot (hub/static/jy051/) and bundled into the Joey Study APK (T1). Spec: docs/specs/JY-051-player-options.md.
+-->
+<style>
+:root { --bg:#f6f7f8; --fg:#16181d; --muted:#5d6470; --line:#d6d9de; --card:#fff; --ok:#1d7a3e; --bad:#b3261e; --warn:#8a5a00; --accent:#2457c5; }
+@media (prefers-color-scheme: dark) { :root { --bg:#111317; --fg:#e8eaee; --muted:#9aa1ad; --line:#2c3038; --card:#1a1d23; --ok:#5fcf86; --bad:#ff8a80; --warn:#f0b64a; --accent:#8ab0ff; color-scheme: dark; } }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding:12px max(16px, env(safe-area-inset-left)) 40px max(16px, env(safe-area-inset-right)); }
+h1 { font-size:20px; margin:4px 0 2px; } h2 { font-size:16px; margin:0 0 8px; }
+.sub { color:var(--muted); font-size:13px; }
+section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; margin:12px 0; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px 12px; }
+label { display:flex; flex-direction:column; gap:3px; font-size:13px; color:var(--muted); }
+input, select, button, textarea { font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; }
+button { cursor:pointer; background:var(--accent); color:#fff; border-color:var(--accent); }
+button.ghost { background:transparent; color:var(--accent); }
+button:disabled { opacity:.5; cursor:default; }
+button:focus-visible, input:focus-visible { outline:3px solid var(--accent); outline-offset:2px; }
+.row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.state { font-weight:600; } .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+.tablewrap { overflow-x:auto; }
+table { border-collapse:collapse; width:100%; font-size:13px; font-variant-numeric:tabular-nums; }
+th, td { border-bottom:1px solid var(--line); padding:6px; text-align:left; vertical-align:top; }
+video { width:100%; max-height:56vh; background:#000; border-radius:6px; }
+#now { font-weight:600; margin:6px 0; }
+textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, monospace; }
+.tv body, .tv { font-size:18px; }
+</style>
+</head>
+<body>
+<h1>JY-051 player study</h1>
+<div class="sub">Press Play on a row: the page plays it with W1 (direct file) then W2 (Jellyfin HLS), times press to first frame, and keeps the results below.</div>
+
+<section id="setup">
+  <h2>Setup</h2>
+  <div class="grid">
+    <label>Jellyfin address <input id="jf" autocomplete="off" spellcheck="false"></label>
+    <label>Device <select id="device"><option>PC</option><option>Phone</option><option>TV</option></select></label>
+    <label>Network <select id="network"><option>LAN</option><option>Remote</option></select></label>
+    <label>Runs per engine <input id="runs" type="number" min="1" max="5" value="3"></label>
+    <label>Hold after first frame (s) <input id="hold" type="number" min="0" max="30" step="0.5" value="1"></label>
+  </div>
+  <div class="grid" style="margin-top:8px">
+    <label>Study account token (from the token file) <input id="token" type="password" autocomplete="off" spellcheck="false"></label>
+    <label>or user name <input id="user" autocomplete="username" spellcheck="false"></label>
+    <label>and password <input id="pass" type="password" autocomplete="current-password"></label>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button id="save">Save and check</button>
+    <button id="signin" class="ghost">Sign in with name and password</button>
+    <button id="forget" class="ghost">Forget token on this device</button>
+    <span id="status" class="state">Not checked yet</span>
+  </div>
+</section>
+
+<section>
+  <h2>This browser can decode</h2>
+  <div id="caps" class="sub">Checking...</div>
+</section>
+
+<section>
+  <h2>Player</h2>
+  <div id="now">Idle</div>
+  <video id="v" playsinline controls crossorigin="anonymous"></video>
+</section>
+
+<section>
+  <h2>Test files</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Tests</th><th></th><th>W1 median</th><th>W2 median</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+  <div class="row" style="margin-top:8px"><button id="runall" class="ghost">Play every row</button><button id="stop" class="ghost">Stop</button></div>
+</section>
+
+<section>
+  <h2>Resume check (row 1)</h2>
+  <div class="row"><button id="resume" class="ghost">Read saved position and resume</button><span id="resumeOut" class="state">Not checked yet</span></div>
+</section>
+
+<section>
+  <h2>Results</h2>
+  <div class="sub">Copy and paste into the chat with Claude. Kept on this device until you press Clear.</div>
+  <div class="row" style="margin:8px 0"><button id="copy">Copy results</button><button id="clear" class="ghost">Clear</button><span id="count" class="sub"></span></div>
+  <textarea id="out" readonly></textarea>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script id="jy051-logic">
+/* Pure logic (no DOM). tests/scripts/test_jy051_study_page.py runs this block under node. */
+(function (root) {
+  "use strict";
+  var JY = {};
+  JY.VERSION = 1;
+  JY.DEFAULT_JF = "https://jellyfin.joeyhome.net:8443";
+  // Same set as TEST_ITEMS in scripts/player_study.py (a test keeps them equal). a/s = audio/subtitle MediaStream.Index.
+  JY.ITEMS = [
+    {n: 1, id: "dcd12e5bf6856e60c225472186cd6cb6", tests: "control: MP4 H.264 8-bit + AAC 2.0, no subs", a: null, s: null},
+    {n: 2, id: "d64f611c17a8d1e628dc0baf8625c536", tests: "top combo: MKV H.264 + EAC3 5.1, SRT on", a: null, s: 2},
+    {n: 3, id: "ff2240b0477c0f0e53772543e772988d", tests: "MKV HEVC 10-bit SDR + EAC3 5.1, SRT on", a: null, s: 2},
+    {n: 4, id: "8e272a6eab2388ea32b247333da9794a", tests: "MKV HEVC 10-bit + AAC 5.1, PGS on", a: null, s: 2},
+    {n: 5, id: "91c55b10825a46ea01cdf50ea760a6ea", tests: "MP4 HEVC 10-bit + AAC 5.1", a: null, s: null},
+    {n: 6, id: "2da3a189e2c7f9d7166cb63aeb849b23", tests: "MP4 2160p Dolby Vision/HDR10 + EAC3, mov_text on", a: null, s: 3},
+    {n: 7, id: "0fc19ee50e310c68987dd14714e824da", tests: "MKV 2160p DV/HDR10 34 Mbps + DTS-HD MA, PGS on", a: null, s: 5},
+    {n: 8, id: "fdbb56885c9e44e039ca5c0aa056d2d4", tests: "MKV H.264 + DTS 5.1, external SRT on", a: null, s: 0},
+    {n: 9, id: "910c6153145342b775e9fbaa911d11aa", tests: "MKV HEVC 10-bit + AAC, VobSub on", a: null, s: 3},
+    {n: 10, id: "75bd8094149b87b7ea659542df28341f", tests: "multi-audio: second track (eng) chosen", a: 2, s: null},
+    {n: 11, id: "51a2003ebcbce12e58ae829bf58d7e58", tests: "AAC 7.1 (8 ch)", a: null, s: null},
+    {n: 12, id: "b171da2503dbcb65d7e9aeffee75b9f0", tests: "MKV H.264 45.6 Mbps + DTS-HD MA 7.1, PGS default on", a: null, s: 7}
+  ];
+  // Mirrors scripts/player_study.py decision() (a test compares the two).
+  JY.CONTAINER_ONLY = ["ContainerNotSupported", "DirectPlayError", "ContainerBitrateExceedsLimit_static"];
+  JY.AUDIO_REASONS = ["AudioCodecNotSupported", "AudioChannelsNotSupported", "AudioProfileNotSupported",
+    "AudioSampleRateNotSupported", "AudioBitDepthNotSupported", "AudioBitrateNotSupported", "AudioIsExternal",
+    "SecondaryAudioNotSupported", "UnknownAudioStreamInfo"];
+  JY.URL_KEEP = ["TranscodeReasons", "VideoCodec", "AudioCodec", "SubtitleMethod", "SegmentContainer"];
+
+  JY.median = function (xs) {
+    var v = xs.filter(function (x) { return typeof x === "number" && isFinite(x); }).sort(function (a, b) { return a - b; });
+    if (!v.length) return null;
+    var m = Math.floor(v.length / 2);
+    return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+  };
+
+  // Whitelisted query values of a TranscodingUrl; the URL itself (it carries the token) is never kept.
+  JY.urlFacts = function (url) {
+    if (!url) return {};
+    var q = url.indexOf("?") >= 0 ? url.slice(url.indexOf("?") + 1) : "";
+    var path = url.split("?")[0];
+    var low = {};
+    q.split("&").forEach(function (kv) {
+      if (!kv) return;
+      var i = kv.indexOf("=");
+      var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i)).toLowerCase();
+      if (!(k in low)) low[k] = decodeURIComponent((i < 0 ? "" : kv.slice(i + 1)).replace(/\+/g, " "));
+    });
+    var out = {};
+    JY.URL_KEEP.forEach(function (k) { if (k.toLowerCase() in low) out[k] = low[k.toLowerCase()]; });
+    out.Endpoint = /\.m3u8$/.test(path) ? "hls" : "progressive";
+    return out;
+  };
+
+  // The key query parameter a TranscodingUrl uses (ApiKey on newer servers, the older underscore form on old ones).
+  JY.keyParamOf = function (url) {
+    var m = /[?&](ApiKey|api[_]key)=/i.exec(url || "");
+    return m ? m[1] : null;
+  };
+
+  JY.classify = function (source) {
+    var facts = JY.urlFacts(source.TranscodingUrl);
+    var reasons = (facts.TranscodeReasons || "").split(",").filter(Boolean);
+    var within = function (set) { return reasons.length && reasons.every(function (r) { return set.indexOf(r) >= 0; }); };
+    var method, detail;
+    if (source.SupportsDirectPlay) { method = "DirectPlay"; detail = "file as is"; }
+    else if (source.SupportsDirectStream && !source.TranscodingUrl) { method = "DirectStream"; detail = "file as is via stream endpoint"; }
+    else if (source.TranscodingUrl) {
+      if (within(JY.CONTAINER_ONLY)) { method = "Remux"; detail = "video + audio copied"; }
+      else if (within(JY.CONTAINER_ONLY.concat(JY.AUDIO_REASONS))) { method = "Remux+Audio"; detail = "video copied, audio transcoded"; }
+      else { method = "Transcode"; detail = "video transcoded"; }
+    } else { method = "None"; detail = "no play method offered"; }
+    return {method: method, detail: detail, reasons: reasons, vcodec_out: facts.VideoCodec || "",
+      acodec_out: facts.AudioCodec || "", sub_method: facts.SubtitleMethod || "", endpoint: facts.Endpoint || ""};
+  };
+
+  JY.join = function (map) { return Object.keys(map).filter(function (k) { return map[k]; }).join(","); };
+
+  // DeviceProfile from detected capabilities. caps: {mp4:{h264,hevc,av1,vp9}, mkv, audio:{aac,mp3,opus,flac,ac3,eac3,dts},
+  // mse:{h264,hevc,aac,ac3,eac3}, hdr, maxCh}.
+  JY.buildProfile = function (caps) {
+    var vids = JY.join({h264: caps.mp4.h264, hevc: caps.mp4.hevc, av1: caps.mp4.av1, vp9: caps.mp4.vp9});
+    var auds = JY.join({aac: caps.audio.aac, mp3: caps.audio.mp3, opus: caps.audio.opus, flac: caps.audio.flac,
+      ac3: caps.audio.ac3, eac3: caps.audio.eac3, dts: caps.audio.dts});
+    var direct = [{Container: "mp4,m4v", Type: "Video", VideoCodec: vids, AudioCodec: auds}];
+    if (caps.mkv) direct.push({Container: "mkv", Type: "Video", VideoCodec: vids, AudioCodec: auds});
+    var hlsV = (caps.mse.hevc ? "hevc," : "") + "h264";
+    var hlsA = "aac" + (caps.mse.ac3 ? ",ac3" : "") + (caps.mse.eac3 ? ",eac3" : "");
+    var ch = String(caps.maxCh || 6);
+    var range = caps.hdr ? "SDR|HDR10|HLG" : "SDR";
+    return {
+      Name: "JY-051 study: " + (caps.label || "browser"),
+      MaxStreamingBitrate: 120000000, MaxStaticBitrate: 100000000, MusicStreamingTranscodingBitrate: 384000,
+      DirectPlayProfiles: direct,
+      TranscodingProfiles: [
+        {Container: "mp4", Type: "Video", VideoCodec: hlsV, AudioCodec: hlsA, Context: "Streaming", Protocol: "hls",
+          MaxAudioChannels: ch, MinSegments: "1", BreakOnNonKeyFrames: true},
+        {Container: "ts", Type: "Video", VideoCodec: "h264", AudioCodec: "aac", Context: "Streaming", Protocol: "hls",
+          MaxAudioChannels: ch, MinSegments: "1", BreakOnNonKeyFrames: true}
+      ],
+      ContainerProfiles: [],
+      CodecProfiles: [
+        {Type: "Video", Codec: "h264", Conditions: [
+          {Condition: "LessThanEqual", Property: "VideoBitDepth", Value: "8", IsRequired: false},
+          {Condition: "EqualsAny", Property: "VideoRangeType", Value: "SDR", IsRequired: false}]},
+        {Type: "Video", Codec: "hevc", Conditions: [
+          {Condition: "EqualsAny", Property: "VideoProfile", Value: "main|main 10", IsRequired: false},
+          {Condition: "EqualsAny", Property: "VideoRangeType", Value: range, IsRequired: false}]},
+        {Type: "VideoAudio", Conditions: [
+          {Condition: "LessThanEqual", Property: "AudioChannels", Value: ch, IsRequired: false}]}
+      ],
+      SubtitleProfiles: ["vtt", "srt", "subrip", "ass", "ssa"].map(function (f) { return {Format: f, Method: "External"}; }),
+      ResponseProfiles: [{Type: "Video", Container: "m4v", MimeType: "video/mp4"}]
+    };
+  };
+
+  JY.w2Body = function (userId, profile, item, msid) {
+    var body = {UserId: userId, DeviceProfile: profile, MaxStreamingBitrate: profile.MaxStreamingBitrate,
+      StartTimeTicks: 0, MediaSourceId: msid || item.id, EnableDirectPlay: false, EnableDirectStream: false,
+      EnableTranscoding: true, AllowVideoStreamCopy: true, AllowAudioStreamCopy: true, AutoOpenLiveStream: false};
+    if (item.a !== null && item.a !== undefined) body.AudioStreamIndex = item.a;
+    if (item.s !== null && item.s !== undefined) body.SubtitleStreamIndex = item.s;
+    return body;
+  };
+
+  JY.IMAGE_SUBS = ["pgssub", "pgs", "dvdsub", "vobsub", "dvbsub", "dvb_subtitle", "hdmv_pgs_subtitle", "xsub"];
+  JY.subKind = function (streams, index) {
+    if (index === null || index === undefined) return "none";
+    var s = (streams || []).filter(function (x) { return x.Index === index && x.Type === "Subtitle"; })[0];
+    if (!s) return "missing";
+    return JY.IMAGE_SUBS.indexOf(String(s.Codec || "").toLowerCase()) >= 0 ? "image" : "text";
+  };
+
+  JY.authHeader = function (device, deviceId, token) {
+    var h = 'MediaBrowser Client="Joey Study", Device="' + device + '", DeviceId="' + deviceId + '", Version="0.1.0"';
+    return token ? h + ', Token="' + token + '"' : h;
+  };
+
+  // One run's record. No URL, token or title goes in it.
+  JY.runRecord = function (ctx, r) {
+    return {kind: "run", device: ctx.device, network: ctx.network, engine: r.engine, n: r.n, id: r.id, run: r.run,
+      ok: !!r.ok, err: r.err || "", ms_frame: r.ms_frame, ms_playing: r.ms_playing, ms_pi: r.ms_pi === undefined ? null : r.ms_pi,
+      method: r.method || "", reasons: r.reasons || [], sub: r.sub || "", audio: r.audio || "", w: r.w || 0, h: r.h || 0,
+      dropped: r.dropped === undefined ? null : r.dropped};
+  };
+
+  JY.rowSummary = function (runs, n, engine) {
+    var mine = runs.filter(function (r) { return r.kind === "run" && r.n === n && r.engine === engine; });
+    if (!mine.length) return "";
+    var ok = mine.filter(function (r) { return r.ok; });
+    var med = JY.median(ok.map(function (r) { return r.ms_frame !== null && r.ms_frame !== undefined ? r.ms_frame : r.ms_playing; }));
+    var last = mine[mine.length - 1];
+    var what = last.method ? " " + last.method : "";
+    if (!ok.length) return "failed (" + (last.err || "?") + ")" + what;
+    return (med / 1000).toFixed(2) + " s" + what + (ok.length < mine.length ? " (" + ok.length + "/" + mine.length + " ok)" : "");
+  };
+
+  root.JY = JY;
+})(typeof window !== "undefined" ? window : globalThis);
+</script>
+<script>
+(function () {
+  "use strict";
+  var JY = window.JY;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var bridge = window.JY051Bridge || null;
+  var AUTO = params.get("auto") === "1";
+  var store = {
+    get: function (k) { try { return localStorage.getItem("jy051." + k); } catch (e) { return null; } },
+    set: function (k, v) { try { if (v === null) localStorage.removeItem("jy051." + k); else localStorage.setItem("jy051." + k, v); } catch (e) { /* storage off */ } }
+  };
+  var state = {token: "", userId: "", keyParam: "ApiKey", caps: null, profile: null, runs: [], stop: false, busy: false, items: {}};
+  var deviceId = store.get("deviceId");
+  if (!deviceId) { deviceId = "jy051-" + Math.random().toString(16).slice(2) + Date.now().toString(16); store.set("deviceId", deviceId); }
+  try { state.runs = JSON.parse(store.get("runs") || "[]"); } catch (e) { state.runs = []; }
+
+  function jf() { return ($("jf").value || JY.DEFAULT_JF).replace(/\/+$/, ""); }
+  function ctx() { return {device: $("device").value, network: $("network").value}; }
+  function setStatus(text, cls) { var s = $("status"); s.textContent = text; s.className = "state " + (cls || ""); }
+  function emit(obj) {
+    if (bridge && bridge.emit) { try { bridge.emit(JSON.stringify(obj)); } catch (e) { /* bridge gone */ } }
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    var headers = {"Authorization": JY.authHeader(ctx().device, deviceId, state.token), "Accept": "application/json"};
+    if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+    var resp = await fetch(jf() + path, {method: opts.method || (opts.body !== undefined ? "POST" : "GET"), headers: headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined, mode: "cors", credentials: "omit"});
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    var t = await resp.text();
+    return t ? JSON.parse(t) : null;
+  }
+
+  // ---- capabilities
+  function detectCaps() {
+    var v = document.createElement("video");
+    var can = function (t) { try { return v.canPlayType(t) !== ""; } catch (e) { return false; } };
+    var mse = function (t) { try { return !!(window.MediaSource && MediaSource.isTypeSupported(t)); } catch (e) { return false; } };
+    var caps = {
+      label: ctx().device,
+      mp4: {h264: can('video/mp4; codecs="avc1.640028"'), hevc: can('video/mp4; codecs="hvc1.2.4.L120.90"') || can('video/mp4; codecs="hev1.2.4.L120.90"'),
+        hevc8: can('video/mp4; codecs="hvc1.1.6.L120.90"'), av1: can('video/mp4; codecs="av01.0.08M.08"'), vp9: can('video/mp4; codecs="vp09.00.40.08"')},
+      mkv: can("video/x-matroska") || can('video/x-matroska; codecs="avc1.640028"'),
+      audio: {aac: can('audio/mp4; codecs="mp4a.40.2"'), mp3: can("audio/mpeg"), opus: can('audio/mp4; codecs="opus"'),
+        flac: can('audio/mp4; codecs="flac"'), ac3: can('audio/mp4; codecs="ac-3"'), eac3: can('audio/mp4; codecs="ec-3"'),
+        dts: can('audio/mp4; codecs="dtsc"')},
+      mse: {h264: mse('video/mp4; codecs="avc1.640028"'), hevc: mse('video/mp4; codecs="hvc1.2.4.L120.90"'),
+        aac: mse('audio/mp4; codecs="mp4a.40.2"'), ac3: mse('audio/mp4; codecs="ac-3"'), eac3: mse('audio/mp4; codecs="ec-3"')},
+      hls_js: !!(window.Hls && window.Hls.isSupported()), hls_native: can("application/vnd.apple.mpegurl"),
+      hdr: !!(window.matchMedia && matchMedia("(dynamic-range: high)").matches),
+      maxCh: 6,
+      connection: (navigator.connection && (navigator.connection.type || navigator.connection.effectiveType)) || ""
+    };
+    return caps;
+  }
+  function renderCaps(c) {
+    var yes = function (m) { return Object.keys(m).filter(function (k) { return m[k]; }).join(", ") || "none"; };
+    $("caps").innerHTML = "";
+    var lines = [
+      "MP4 video: " + yes(c.mp4), "MKV claimed: " + (c.mkv ? "yes" : "no"), "Audio: " + yes(c.audio),
+      "HLS segments (MSE): " + yes(c.mse), "hls.js: " + (c.hls_js ? "yes" : "no") + ", native HLS: " + (c.hls_native ? "yes" : "no"),
+      "HDR display: " + (c.hdr ? "yes" : "no") + (c.connection ? ", connection: " + c.connection : "")
+    ];
+    lines.forEach(function (l) { var d = document.createElement("div"); d.textContent = l; $("caps").appendChild(d); });
+  }
+
+  // ---- rows
+  function renderRows() {
+    var tb = $("rows"); tb.innerHTML = "";
+    JY.ITEMS.forEach(function (it) {
+      var tr = document.createElement("tr");
+      tr.innerHTML = "<td>" + it.n + "</td><td></td><td><button class='ghost' data-n='" + it.n + "'>Play</button></td><td id='w1-" + it.n + "'></td><td id='w2-" + it.n + "'></td>";
+      tr.children[1].textContent = it.tests;
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll("button[data-n]").forEach(function (b) {
+      b.addEventListener("click", function () { runRows([+b.dataset.n], ["W1", "W2"]); });
+    });
+    refreshSummaries();
+  }
+  function refreshSummaries() {
+    var mine = state.runs.filter(function (r) { return r.device === ctx().device && r.network === ctx().network; });
+    JY.ITEMS.forEach(function (it) {
+      $("w1-" + it.n).textContent = JY.rowSummary(mine, it.n, "W1");
+      $("w2-" + it.n).textContent = JY.rowSummary(mine, it.n, "W2");
+    });
+    var blob = {v: JY.VERSION, kind: "jy051-web", session: session(), runs: state.runs};
+    $("out").value = JSON.stringify(blob);
+    $("count").textContent = state.runs.length + " runs kept";
+  }
+  function session() {
+    return {kind: "session", device: ctx().device, network: ctx().network, ua: navigator.userAgent, caps: state.caps,
+      when: new Date().toISOString(), screen: [screen.width, screen.height, window.devicePixelRatio || 1]};
+  }
+
+  // ---- playing one run
+  var video = $("v"), hls = null;
+  function teardown() {
+    if (hls) { try { hls.destroy(); } catch (e) { /* ignore */ } hls = null; }
+    try { video.pause(); } catch (e) { /* ignore */ }
+    while (video.firstChild) video.removeChild(video.firstChild);
+    video.removeAttribute("src");
+    try { video.load(); } catch (e) { /* ignore */ }
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  async function itemFacts(it) {
+    if (state.items[it.id]) return state.items[it.id];
+    var q = "Ids=" + it.id + "&Fields=MediaSources,MediaStreams&EnableImages=false&EnableUserData=false";
+    var res = await api("/Items?" + q);
+    var item = ((res && res.Items) || [])[0];
+    var src = item && (item.MediaSources || [])[0];
+    var streams = (src && src.MediaStreams) || [];
+    var hasAV = streams.some(function (s) { return s.Type === "Video"; }) && streams.some(function (s) { return s.Type === "Audio"; });
+    if (!src || !hasAV) throw new Error("no probed streams (skipped, a probe would write)");
+    state.items[it.id] = {msid: src.Id || it.id, streams: streams, container: src.Container || ""};
+    return state.items[it.id];
+  }
+
+  function directUrl(it, facts) {
+    return jf() + "/Videos/" + it.id + "/stream?static=true&MediaSourceId=" + encodeURIComponent(facts.msid) +
+      "&DeviceId=" + encodeURIComponent(deviceId) + "&" + state.keyParam + "=" + encodeURIComponent(state.token);
+  }
+  function addTrack(url) {
+    var t = document.createElement("track");
+    t.kind = "subtitles"; t.src = url; t.default = true; t.srclang = "en"; t.label = "study";
+    video.appendChild(t);
+    t.addEventListener("load", function () { try { t.track.mode = "showing"; } catch (e) { /* ignore */ } });
+  }
+
+  async function runOnce(it, engine, run, holdMs) {
+    var r = {engine: engine, n: it.n, id: it.id, run: run, ok: false, ms_frame: null, ms_playing: null};
+    var playSession = null;
+    teardown();
+    $("now").textContent = "Row " + it.n + " - " + engine + " - run " + run;
+    var t0 = performance.now();
+    try {
+      var facts = await itemFacts(it);
+      var url;
+      if (engine === "W1") {
+        r.method = "Direct (as is)";
+        url = directUrl(it, facts);
+        var kind = JY.subKind(facts.streams, it.s);
+        if (kind === "text") {
+          addTrack(jf() + "/Videos/" + it.id + "/" + encodeURIComponent(facts.msid) + "/Subtitles/" + it.s + "/0/Stream.vtt?" + state.keyParam + "=" + encodeURIComponent(state.token));
+          r.sub = "sidecar vtt";
+        } else if (kind === "image") { r.sub = "image subs: not shown (W1 cannot burn in)"; }
+        else if (kind === "missing") { r.sub = "subtitle index missing"; }
+        if (it.a !== null) r.audio_note = "W1 plays the default audio track (no track choice in <video>)";
+        video.src = url;
+      } else {
+        var t1 = performance.now();
+        var pi = await api("/Items/" + it.id + "/PlaybackInfo?UserId=" + encodeURIComponent(state.userId),
+          {body: JY.w2Body(state.userId, state.profile, it, facts.msid)});
+        r.ms_pi = Math.round(performance.now() - t1);
+        var ms = (pi && pi.MediaSources || [])[0];
+        if (!ms || pi.ErrorCode) throw new Error("PlaybackInfo " + ((pi && pi.ErrorCode) || "no source"));
+        playSession = pi.PlaySessionId || null;
+        var c = JY.classify(ms);
+        r.method = c.method; r.reasons = c.reasons; r.sub = c.sub_method ? "method " + c.sub_method : r.sub;
+        var kp = JY.keyParamOf(ms.TranscodingUrl);
+        if (kp) state.keyParam = kp;
+        if (!ms.TranscodingUrl) throw new Error("no HLS offered (" + c.method + ")");
+        url = jf() + ms.TranscodingUrl;
+        if (it.s !== null && c.sub_method === "External") {
+          var sub = (ms.MediaStreams || []).filter(function (s) { return s.Index === it.s; })[0];
+          if (sub && sub.DeliveryUrl) {
+            var du = sub.DeliveryUrl.indexOf("http") === 0 ? sub.DeliveryUrl : jf() + sub.DeliveryUrl;
+            if (!JY.keyParamOf(du)) du += (du.indexOf("?") >= 0 ? "&" : "?") + state.keyParam + "=" + encodeURIComponent(state.token);
+            addTrack(du);
+          }
+        }
+        if (window.Hls && Hls.isSupported()) {
+          hls = new Hls({enableWorker: true, debug: false});
+          hls.loadSource(url); hls.attachMedia(video);
+          hls.on(Hls.Events.ERROR, function (_e, d) { if (d && d.fatal) video.dispatchEvent(new CustomEvent("jyfatal", {detail: d.type + "/" + d.details})); });
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = url; r.hls = "native"; }
+        else throw new Error("no HLS support");
+      }
+      await new Promise(function (resolve) {
+        var done = false;
+        var finish = function (err) {
+          if (done) return; done = true;
+          clearTimeout(timer);
+          ["playing", "error", "jyfatal"].forEach(function (ev) { video.removeEventListener(ev, handlers[ev]); });
+          if (err) r.err = err;
+          resolve();
+        };
+        var handlers = {
+          playing: function () { r.ms_playing = Math.round(performance.now() - t0); setTimeout(function () { finish(); }, 50); },
+          error: function () { var e = video.error; finish("media error " + (e ? e.code : "?")); },
+          jyfatal: function (ev) { finish("hls " + ev.detail); }
+        };
+        Object.keys(handlers).forEach(function (ev) { video.addEventListener(ev, handlers[ev]); });
+        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(function () { r.ms_frame = Math.round(performance.now() - t0); });
+        var timer = setTimeout(function () { finish("no first frame in 30 s"); }, 30000);
+        var p = video.play();
+        if (p && p.catch) p.catch(function (e) { finish("play() " + (e && e.name || "refused")); });
+      });
+      if (!r.err) {
+        await sleep(Math.max(holdMs, 300));
+        if (r.ms_frame === null && r.ms_playing !== null) r.frame_note = "no requestVideoFrameCallback: playing event used";
+        r.w = video.videoWidth; r.h = video.videoHeight;
+        r.ok = r.w > 0;
+        if (!r.ok) r.err = "no video frames";
+        if (typeof video.webkitAudioDecodedByteCount === "number") r.audio = video.webkitAudioDecodedByteCount > 0 ? "decoded" : "none decoded";
+        else if (typeof video.mozHasAudio === "boolean") r.audio = video.mozHasAudio ? "decoded" : "none";
+        else if (video.audioTracks) r.audio = "tracks " + video.audioTracks.length;
+        else r.audio = "unknown";
+        var q = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : null;
+        if (q) r.dropped = q.droppedVideoFrames;
+      }
+    } catch (e) {
+      r.err = String(e && e.message || e).replace(/https?:\/\/\S+/g, "<url>").slice(0, 120);
+    }
+    teardown();
+    if (playSession) {
+      // stop this run's transcode at once (the J4125 must never hold two); a runtime job, not library data
+      try { await api("/Videos/ActiveEncodings?DeviceId=" + encodeURIComponent(deviceId) + "&PlaySessionId=" + encodeURIComponent(playSession), {method: "DELETE"}); } catch (e) { /* job may be gone */ }
+    }
+    var rec = JY.runRecord(ctx(), r);
+    if (r.audio_note) rec.note = r.audio_note;
+    if (r.frame_note) rec.note = (rec.note ? rec.note + "; " : "") + r.frame_note;
+    state.runs.push(rec);
+    store.set("runs", JSON.stringify(state.runs));
+    emit(rec);
+    refreshSummaries();
+    return rec;
+  }
+
+  async function runRows(ns, engines) {
+    if (state.busy) return;
+    if (!state.token || !state.profile) { setStatus("Save a token first", "bad"); return; }
+    state.busy = true; state.stop = false;
+    var runs = Math.max(1, Math.min(5, +$("runs").value || 3));
+    var hold = Math.max(0, +$("hold").value || 0) * 1000;
+    // By hand, the last run of every row holds 6 s so the picture, sound and subtitles can be judged; in auto mode
+    // (TV app) only the rows in ?look= do.
+    var look = (params.get("look") || "").split(",").filter(Boolean).map(Number);
+    for (var i = 0; i < ns.length && !state.stop; i++) {
+      var it = JY.ITEMS.filter(function (x) { return x.n === ns[i]; })[0];
+      var longHold = !AUTO || look.indexOf(it.n) >= 0;
+      for (var e = 0; e < engines.length && !state.stop; e++) {
+        for (var k = 1; k <= runs && !state.stop; k++) {
+          await runOnce(it, engines[e], k, k === runs && longHold ? Math.max(hold, 6000) : hold);
+          await sleep(500);
+        }
+      }
+    }
+    state.busy = false;
+    $("now").textContent = state.stop ? "Stopped" : "Done";
+  }
+
+  // ---- auth
+  async function check() {
+    setStatus("Checking...", "");
+    try {
+      var pub = await fetch(jf() + "/System/Info/Public", {mode: "cors", credentials: "omit"});
+      if (!pub.ok) throw new Error("HTTP " + pub.status);
+    } catch (e) { setStatus("Jellyfin edge not reachable from this page (" + (e.message || e) + "): CORS or network", "bad"); return false; }
+    if (!state.token) { setStatus("Edge reachable (CORS ok). No token yet", "warn"); return false; }
+    try {
+      var me = await api("/Users/Me");
+      state.userId = me.Id;
+      state.caps = detectCaps(); renderCaps(state.caps);
+      state.profile = JY.buildProfile(state.caps);
+      setStatus("Ready: edge reachable, token accepted", "ok");
+      emit(session());
+      return true;
+    } catch (e) { setStatus("Token refused (" + (e.message || e) + ")", "bad"); return false; }
+  }
+  async function signin() {
+    var name = $("user").value.trim(), pw = $("pass").value;
+    if (!name) { setStatus("Enter the user name", "bad"); return; }
+    try {
+      state.token = "";
+      var res = await api("/Users/AuthenticateByName", {body: {Username: name, Pw: pw}});
+      state.token = res.AccessToken || "";
+      $("pass").value = "";
+      store.set("token", state.token);
+      await check();
+    } catch (e) { setStatus("Sign-in refused (" + (e.message || e) + ")", "bad"); }
+  }
+
+  async function resumeCheck() {
+    var out = $("resumeOut");
+    if (!state.userId) { out.textContent = "Save a token first"; return; }
+    var it = JY.ITEMS[0];
+    try {
+      var res = await api("/Items?Ids=" + it.id + "&UserId=" + encodeURIComponent(state.userId) + "&EnableUserData=true&Fields=MediaSources");
+      var item = ((res && res.Items) || [])[0] || {};
+      var ticks = (item.UserData && item.UserData.PlaybackPositionTicks) || 0;
+      var sec = Math.round(ticks / 1e7);
+      out.textContent = "Saved position " + Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") + " (target 5:00, pass within 10 s)";
+      var facts = await itemFacts(it);
+      teardown();
+      var t0 = performance.now();
+      video.src = directUrl(it, facts) + "#t=" + sec;
+      video.addEventListener("playing", function once() {
+        video.removeEventListener("playing", once);
+        var rec = {kind: "resume", device: ctx().device, network: ctx().network, n: 1, id: it.id, saved_s: sec,
+          started_s: Math.round(video.currentTime), ms_playing: Math.round(performance.now() - t0)};
+        state.runs.push(rec); store.set("runs", JSON.stringify(state.runs)); emit(rec); refreshSummaries();
+        out.textContent += ", resumed at " + Math.round(video.currentTime) + " s";
+      });
+      await video.play();
+    } catch (e) { out.textContent = "Resume check failed (" + (e.message || e) + ")"; }
+  }
+
+  // ---- wiring
+  $("jf").value = store.get("jf") || params.get("jf") || JY.DEFAULT_JF;
+  if (params.get("device")) $("device").value = params.get("device");
+  else if (store.get("device")) $("device").value = store.get("device");
+  else if (/Android|iPhone|iPad/.test(navigator.userAgent)) $("device").value = "Phone";
+  if (params.get("network")) $("network").value = params.get("network");
+  else if (store.get("network")) $("network").value = store.get("network");
+  if (params.get("runs")) $("runs").value = params.get("runs");
+  if (params.get("hold")) $("hold").value = params.get("hold");
+  ["device", "network"].forEach(function (k) { $(k).addEventListener("change", function () { store.set(k, $(k).value); refreshSummaries(); emit(session()); }); });
+  state.token = (bridge && bridge.token && bridge.token()) || store.get("token") || "";
+  $("save").addEventListener("click", function () {
+    var t = $("token").value.trim();
+    if (t) { state.token = t; store.set("token", t); $("token").value = ""; }
+    store.set("jf", jf());
+    check();
+  });
+  $("signin").addEventListener("click", signin);
+  $("forget").addEventListener("click", function () { state.token = ""; store.set("token", null); setStatus("Token forgotten on this device", "warn"); });
+  $("runall").addEventListener("click", function () { runRows(JY.ITEMS.map(function (x) { return x.n; }), ["W1", "W2"]); });
+  $("stop").addEventListener("click", function () { state.stop = true; teardown(); });
+  $("resume").addEventListener("click", resumeCheck);
+  $("copy").addEventListener("click", function () {
+    var t = $("out").value;
+    var fallback = function () { $("out").focus(); $("out").select(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(function () { $("count").textContent = "Copied " + state.runs.length + " runs"; }, fallback);
+    else fallback();
+  });
+  $("clear").addEventListener("click", function () { state.runs = []; store.set("runs", null); refreshSummaries(); });
+  if (AUTO) document.documentElement.classList.add("tv");
+  state.caps = detectCaps(); renderCaps(state.caps);
+  renderRows();
+  check().then(function (ok) {
+    if (!AUTO) return;
+    if (!ok) { emit({kind: "done", engine: "T1", aborted: "page not ready"}); if (bridge && bridge.done) bridge.done(); return; }
+    var engines = (params.get("engines") || "W1,W2").split(",").filter(Boolean);
+    var rows = (params.get("rows") || "").split(",").filter(Boolean).map(Number);
+    runRows(rows.length ? rows : JY.ITEMS.map(function (x) { return x.n; }), engines).then(function () {
+      emit({kind: "done", engine: "T1"});
+      if (bridge && bridge.done) bridge.done();
+    });
+  });
+})();
+</script>
+</body>
+</html>

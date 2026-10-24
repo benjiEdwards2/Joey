@@ -193,6 +193,23 @@ def _entry(tvdb=None, tmdb=None) -> dict | None:
         return hit or (_index["tmdb"].get(_key(tmdb)) if _key(tmdb) else None)
 
 
+def put(entry) -> None:
+    """JY-110: a series entry Joey itself just read or wrote (a request's quality safety net, a quality switch) goes
+    into the kept list at once, so the Requests page's "4K" chip does not wait up to TTL for the next read. No call."""
+    if not isinstance(entry, dict) or not entry.get("id"):
+        return
+    with _lock:
+        for field, index in (("tvdbId", _index["tvdb"]), ("tmdbId", _index["tmdb"])):
+            if _key(entry.get(field)):
+                index[_key(entry[field])] = entry
+
+
+def expire() -> None:
+    """JY-110: the kept list is due again (a requested show Sonarr had not added yet): the next page re-reads it."""
+    with _lock:
+        _index["at"] = None
+
+
 def season_states(tvdb=None, tmdb=None) -> dict | None:
     """The show's state from the cache alone - never a Sonarr call. None when Sonarr is not connected, the list has not
     been read yet, or Sonarr does not have the show (then every page keeps its words unchanged)."""

@@ -17,8 +17,10 @@ Seerr's 4K flag. Reads and writes (server-side only; creds as media_requests._ar
 
 Pages never wait on these before a render except an explicit step (the Request confirm, the Switch confirm): the
 title page lazy-loads GET /media/title/{kind}/{tmdb}/quality, and the Requests page reads caches only (`attach`)
-with the missing reads run after the response (`later`). Failures are words; logs carry an HTTP status or an
-exception TYPE only.
+with the missing reads run after the response (`later`). JY-110: a film's last seen profile is kept however old
+(`_films`, re-read after the response as before), and Joey's own request / switch puts the entry it just read or wrote
+straight into the caches (`_seen`), so a new 4K title has its chip on the next view. Failures are words; logs carry
+an HTTP status or an exception TYPE only.
 """
 from __future__ import annotations
 
@@ -47,12 +49,32 @@ NAMES = mas.NAMES
 
 _lock = threading.Lock()
 _memo: dict[str, dict] = {}   # kind -> {"at", "rows", "failed_at"} (the last good rows kept)
+_films: dict[int, int | None] = {}   # JY-110: tmdb -> the Radarr entry's last seen qualityProfileId (None: not there)
 _clock = time.monotonic
 
 
 def clear_cache() -> None:
     with _lock:
         _memo.clear()
+        _films.clear()
+
+
+def _film(tmdb, pid) -> None:
+    if isinstance(tmdb, int) and tmdb > 0:
+        with _lock:
+            if len(_films) > 1024:
+                _films.clear()
+            _films[tmdb] = pid
+
+
+def _seen(kind: str, entry: dict, pid: int | None = None) -> None:
+    """JY-110: a title's arr entry Joey just read or wrote (with `pid` once PUT) into the Requests page's caches."""
+    entry = {**entry, "qualityProfileId": pid} if pid is not None else entry
+    if kind == "tv":
+        from hub import media_season_state as mss   # late, as _row_pid
+        mss.put(entry)
+    else:
+        _film(entry.get("tmdbId"), entry.get("qualityProfileId"))
 
 
 def _app(kind: str) -> str:
@@ -205,11 +227,13 @@ def _switch(kind: str, tmdb: int, pid: int, tvdb: int | None = None) -> tuple[st
         if entry is None:
             return "missing", None
         if entry.get("qualityProfileId") == pid:
+            _seen(kind, entry)
             return "same", None
         try:
             _put(app, base, headers, entry, pid)
         finally:
             mr.forget_lookups()
+        _seen(kind, entry, pid)
     except Exception as exc:
         why = media_text.why(exc)
         log.warning("%s quality switch failed: %s", app, why)
@@ -258,13 +282,18 @@ def ensure(kind: str, tmdb: int, pid: int, tvdb: int | None = None) -> str:
             if entry is not None:
                 break
         if entry is None:
+            if kind == "tv":
+                from hub import media_season_state as mss   # late, as _row_pid
+                mss.expire()
             return "notyet"
         if entry.get("qualityProfileId") == pid:
+            _seen(kind, entry)
             return "ok"
         try:
             _put(app, base, headers, entry, pid)
         finally:
             mr.forget_lookups()
+        _seen(kind, entry, pid)
     except Exception as exc:
         log.warning("%s quality safety net failed: %s", app, media_text.why(exc))
         return "failed"
@@ -369,12 +398,16 @@ def _row_pid(kind: str, r: dict):
     tmdb = r.get("tmdb_id")
     if creds is None or not isinstance(tmdb, int) or tmdb <= 0:
         return None
-    return (mr.kept("radarr", creds[0], tmdb, None)[1] or {}).get("qualityProfileId")
+    hit, entry = mr.kept("radarr", creds[0], tmdb, None)
+    if hit:
+        _film(tmdb, (entry or {}).get("qualityProfileId"))
+    with _lock:
+        return _films.get(tmdb)
 
 
 def attach(rows: list[dict]) -> None:
     """Each row's `quality`: the profile name when it is not the default, from caches only (the Sonarr series list
-    the page keeps for its season words, the Radarr lookups, the last good profile list). Never a call."""
+    the page keeps for its season words, the films' last seen profiles, the last good profile list). Never a call."""
     for r in rows:
         kind = "tv" if r.get("kind") == "tv" else "movie"
         p = by_id(peek(kind), _row_pid(kind, r))
@@ -410,5 +443,8 @@ def later(rows: list[dict]):
             profiles(k)
         for tmdb in films:
             mas.find("movie", tmdb, None, kept=True)   # logs and swallows its own failures
+            hit, entry = mr.kept("radarr", creds[0], tmdb, None)   # a failed read is not kept: the last seen stays
+            if hit:
+                _film(tmdb, (entry or {}).get("qualityProfileId"))
     run.plan = {"profiles": stale, "films": films}   # tests read it
     return run

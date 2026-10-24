@@ -10,7 +10,7 @@ import re
 import pytest
 import requests
 
-from hub import media_arr_search, media_quality, media_requests
+from hub import media_arr_search, media_quality, media_requests, media_season_state
 from tests.hub.helpers import env, FakeResponse as R, not_season_state  # noqa: F401  (fixture re-export)
 from tests.hub.test_media_discover import env as discover_env, FAKE_KEY, FORM, HX  # noqa: F401
 from tests.hub.test_media_requests_remove import env as req_env  # noqa: F401  (fixture re-export)
@@ -564,3 +564,78 @@ def test_switch_api_returns_words_and_ok(film_env):
         assert media_quality.switch("movie", 603, 9) == ("Already 4K", True)
         arr.movies = []
         assert media_quality.switch("movie", 603, 8) == ("Not in Radarr", False)
+
+
+# ---- JY-110: the "4K" chip without the lag (films on the second view, shows after the 10-minute Sonarr list) ----
+
+FILM, SHOW = {"kind": "movie", "tmdb_id": 1001}, {"kind": "tv", "tmdb_id": 2002, "tvdb_id": 82002}
+
+
+def chip_of(fake, *rows):
+    """attach on copies of `rows` -> each row's chip; attach itself never makes a call."""
+    rows, n = [dict(r) for r in rows], len(fake.calls)
+    media_quality.attach(rows)
+    assert len(fake.calls) == n
+    return [r["quality"] for r in rows]
+
+
+def test_a_film_keeps_its_chip_when_the_lookups_drop_and_is_still_re_read(rq):
+    client, fake = rq()
+    with client:
+        media_quality.later([FILM])()
+        assert chip_of(fake, FILM) == ["4K"]
+        media_requests.forget_lookups()            # any Joey write (a request, a Remove, a switch) or LOOKUP_TTL
+        assert chip_of(fake, FILM) == ["4K"]       # was None until the read after the response: "second view"
+        assert media_quality.later([FILM]).plan == {"profiles": [], "films": [1001]}   # still re-read after it
+        fake.movies[0]["qualityProfileId"] = 8     # moved to the default outside Joey
+        media_quality.later([FILM])()
+        assert chip_of(fake, FILM) == [None]
+
+
+def test_a_4k_film_request_has_its_chip_on_the_first_view(rq):
+    client, fake = rq()
+    fake.movies.append({"id": 12, "tmdbId": 1004, "title": "New Film", "monitored": True, "hasFile": False,
+                        "qualityProfileId": 8})     # Radarr added it on the default: the safety net corrects it
+    new = {"kind": "movie", "tmdb_id": 1004}
+    with client:
+        assert chip_of(fake, new) == [None]
+        r = client.post("/media/title/movie/1004/request", content="profile=9", headers=FORM, follow_redirects=False)
+        assert r.status_code == 303 and "quality=9" in r.headers["location"]
+        assert [c[1] for c in fake.of("PUT")] == [f"{trr.RADARR}/api/v3/movie/12"]
+        assert chip_of(fake, new) == ["4K"]
+
+
+def test_a_4k_show_request_has_its_chip_without_waiting_for_the_sonarr_list(rq, sleeps):
+    client, fake = rq()
+    with client:
+        media_quality.profiles("tv")
+        media_season_state.refresh([])            # the list the page keeps, read before the request
+        fake.series.append({"id": 30, "tvdbId": 83003, "tmdbId": 3003, "title": "New Show", "monitored": True,
+                            "qualityProfileId": 7, "statistics": {"episodeFileCount": 0, "sizeOnDisk": 0}})
+        new = {"kind": "tv", "tmdb_id": 3003, "tvdb_id": 83003}
+        assert chip_of(fake, new) == [None]
+        assert media_quality.ensure("tv", 3003, 8, 83003) == "set"
+        assert chip_of(fake, new) == ["4K"]        # was None for up to TTL (10 min)
+        assert media_season_state.later([(83003, 3003)]) is None   # no extra read: the list is still fresh
+
+
+def test_a_show_sonarr_has_not_added_yet_makes_the_list_due(rq, sleeps):
+    client, fake = rq()
+    with client:
+        media_quality.profiles("tv")
+        media_season_state.refresh([])
+        assert media_season_state.later([(84004, 4004)]) is None
+        assert media_quality.ensure("tv", 4004, 8, 84004) == "notyet"
+        assert media_season_state.later([(84004, 4004)]).plan["index"] is True   # the next page re-reads it
+
+
+def test_a_switch_moves_the_chip_at_once(rq):
+    client, fake = rq()
+    with client:
+        media_quality.profiles("tv"), media_quality.profiles("movie")
+        media_season_state.refresh([])
+        media_quality.later([FILM])()
+        assert chip_of(fake, FILM, SHOW) == ["4K", "4K"]
+        assert media_quality.switch("tv", 2002, 7, 82002)[1] is True
+        assert media_quality.switch("movie", 1001, 8)[1] is True
+        assert chip_of(fake, FILM, SHOW) == [None, None]

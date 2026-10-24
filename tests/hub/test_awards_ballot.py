@@ -387,6 +387,9 @@ def test_watchlist_toggle_refreshes_the_count_line_without_a_reload(oscars97, mo
     monkeypatch.setattr(adb, "edition_page", lambda *a, **k: (_ for _ in ()).throw(sqlite3.OperationalError("x")))
     with build(jelly()) as client:                                  # media.db unreadable: no swap, the old line stays
         assert client.get("/media/movies/awards/part/watchlisted").status_code == 204
+    monkeypatch.setattr(ap, "_part_ctx", lambda *a, **k: {"ballot": {"progress": None, "part_wl_href": "x"}})
+    with build(jelly()) as client:                                  # a page with no progress head (a friend's): no swap, no 500
+        assert client.get("/media/movies/awards/part/watchlisted").status_code == 204
 
 
 def test_the_page_answers_every_view_filter_and_sort(oscars97):

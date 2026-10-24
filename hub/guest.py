@@ -99,7 +99,7 @@ TV_APP: tuple = (("GET", "/app"), ("GET", "/app/{rest:path}"))   # WP-B8: hub/tv
 
 _MOVIES_TV = tuple(f"/media/{s}{tail}" for s in ("movies", "tv")
                    for tail in ("", "/watchlist", "/tonight", "/to-rate", "/awards",
-                                "/awards/part/categories", "/awards/part/rows", "/awards/part/watchlisted"))
+                                "/awards/part/categories", "/awards/part/rows"))
 
 GUEST: tuple = (
     *_each("GET", *_MOVIES_TV),
@@ -127,6 +127,7 @@ PRIVATE: tuple = (
     *_each("POST", "/server/updates/all/run", "/server/updates/{name}/run", "/server/updates/{name}/ignore",
            "/server/updates/{name}/unignore", "/server/stack/run"),
     *_each("GET POST", "/server/downloads/cap"),   # P4 quiet mode (2026-10-22): private only, never a GUEST entry
+    *_each("GET", "/media/movies/awards/part/watchlisted", "/media/tv/awards/part/watchlisted"),   # JY-153: friends have no count line
     ("GET", "/server/space"),   # P1a free space (2026-10-22): owner-only, list only
     *_each("GET", "/media/apps", "/media/playing", "/media/downloads", "/media/library", "/media/requests",
            "/media/server/history", "/media/following"),

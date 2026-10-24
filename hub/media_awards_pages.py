@@ -443,7 +443,7 @@ def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f
         "rows": [r for r, _ in picked[:first_n]],
         "rest": max(0, len(picked) - first_n),
         "part_rows_href": nav(path=ROW_PARTS[kind]),
-        "part_wl_href": nav(path=WL_PARTS[kind]),
+        "part_wl_href": nav(path=WL_PARTS[kind], v="films", f="all", s="wins"),   # body + year only
         "shorts": [ballot_row(w, seen, kind, won_by, wl_keys, films_of) for w in short_works],
         "people": people,
         "empty": empty or (None if picked or not total else ALL_SEEN if f == "unseen" else NO_MATCH),
@@ -696,11 +696,10 @@ def tv_awards_rows(request: Request, body: str = "", year: str = "", unseen: str
 
 def watchlisted_part(request: Request, kind: str, body: str, year: str):
     """The count line's deferred request (JY-153): "N on your watchlist" read fresh for the page's edition, as a
-    fragment that replaces the line. 204 (no swap) when the snapshot or media.db cannot be read."""
-    ctx = _part_ctx(request, kind, body, year, "")
-    if not ctx:
+    fragment that replaces the line. 204 (no swap) when the snapshot or media.db cannot be read, or the page has no progress head."""
+    b = _part_ctx(request, kind, body, year, "").get("ballot")
+    if not b or not b.get("progress"):      # unreadable, or a friend's page (Q20: no progress head)
         return Response(status_code=204)
-    b = ctx["ballot"]
     return shell.templates.TemplateResponse(request, "_award_wlcount_part.html",
                                             {"n": b["progress"]["watchlisted"], "href": b["part_wl_href"]})
 

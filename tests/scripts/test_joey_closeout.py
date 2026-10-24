@@ -99,11 +99,26 @@ class FakeGh:
         self.merge_mode = "ok"  # ok | fail | timeout-but-merged
         self.merge_secs = 0  # how long the item merge "takes" on the fake clock
         self.label_time = "2026-10-23T05:30:00Z"
+        # GitHub reality: Commit.pushedDate is null; the push time shows only as a force-push event and as the head's
+        # check suite created_at (before any run starts). None = GitHub gives none.
+        self.force_pushed_at, self.suite_at = None, "2026-10-23T04:00:05Z"
+        self.suites_raise = self.force_raise = False  # the two reads fail (fail closed)
+        self.head_specs = []  # file names under docs/specs on the PR head
 
     def __call__(self, args, timeout=120):
         a = list(args)
         self.calls.append(a)
+        if a[:2] == ["api", "graphql"]:  # the head's force-push events (JY-229)
+            if self.force_raise:
+                raise RuntimeError("gh api exited 1: HTTP 502 Bad Gateway")
+            return f"{self.prs[50]['headRefOid']}\t{self.force_pushed_at}\n" if self.force_pushed_at else ""
+        if a[0] == "api" and a[1].endswith("/check-suites"):  # the head SHA's check suites (JY-229)
+            if self.suites_raise:
+                raise RuntimeError("gh api exited 1: HTTP 502 Bad Gateway")
+            return f"{self.suite_at}\n" if self.suite_at and self.prs[50]["headRefOid"] in a[1] else ""
         if a[0] == "api":
+            if "/contents/docs/specs?ref=" in a[1]:  # the spec listing on the PR head (JY-229)
+                return "".join(f"{n}\n" for n in self.head_specs)
             n = int(a[1].split("/")[4])
             if a[1].endswith("/events"):
                 return self.label_time + "\n" if self.label_time else ""
@@ -696,6 +711,46 @@ def test_dry_run_on_a_doc_only_pr_changes_nothing(w):
     assert w.wt.exists() and not (w.root / f"wt-{ITEM}-shipped").exists()
 
 
+@pytest.fixture
+def no_spec_on_main(lw, monkeypatch):
+    """Light world, dry run before the merge: origin/main has no spec for the item (it comes with the PR)."""
+    real = joey_common.git
+
+    def git(*args, **kw):
+        if args[:1] == ("ls-tree",):
+            return ""
+        if args[:1] == ("ls-remote",):
+            return ""
+        return real(*args, **kw)
+
+    monkeypatch.setattr(joey_common, "git", git)
+    monkeypatch.setattr(jco.joey_worktree, "worktrees", lambda clone: [])
+    return lw
+
+
+def test_dry_run_finds_the_spec_on_the_pr_head_before_the_merge(no_spec_on_main):
+    lw = no_spec_on_main
+    lw.item(files=("docs/a.md",))
+    lw.gh.head_specs = ["JY-011-close-out.md", "JY-012-other.md"]
+    rc, out = lw.run("--dry-run")
+    assert rc == 0, out
+    assert (f"DRY   docs.1 find the spec and the HITLIST row - would find {SPEC} after the merge "
+            f"(it is on the PR head, not on origin/main yet)") in out
+    assert not [x for x in rows(out) if x.startswith("FAIL")], out
+    assert ["api", f"repos/example/joey/contents/docs/specs?ref={FAKE_OID}", "--jq", ".[].name"] in lw.gh.calls
+    assert lw.gh.writes() == []
+
+
+def test_dry_run_still_fails_when_the_spec_is_on_neither_main_nor_the_pr_head(no_spec_on_main):
+    lw = no_spec_on_main
+    lw.item(files=("docs/a.md",))
+    lw.gh.head_specs = ["JY-012-other.md"]
+    rc, out = lw.run("--dry-run")
+    assert rc == 1, out
+    assert (f"FAIL  docs.1 find the spec and the HITLIST row - 0 spec files docs/specs/{ITEM}-*.md on origin/main "
+            f"or the PR head (want 1)") in out
+
+
 def test_dry_run_on_a_code_pr_reads_the_nas_but_changes_nothing(w):
     w.item()
     w.nas.lock = ["4242"]
@@ -764,11 +819,66 @@ def test_fail_before_the_push_then_a_fresh_pass_is_a_fix_round(lw):
 
 
 def test_review_before_the_push_is_stale_even_when_the_commit_is_older(lw):
-    """The commit is dated before the review but its ci run (the push) started after it: a fresh review is needed."""
+    """The commit is dated before the review but GitHub's push time is after it: a fresh review is needed."""
     lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
-    lw.gh.prs[50]["statusCheckRollup"][0]["startedAt"] = "2026-10-23T04:45:00Z"
+    lw.gh.suite_at = "2026-10-23T04:45:00Z"
     rc, out = lw.run()
     assert rc == 1 and "FAIL  gate c" in out and "a later commit needs a fresh review" in out
+
+
+def test_review_after_the_push_but_before_the_ci_run_starts_passes(lw):
+    """JY-229: the check suite is created at the push (04:00:10), the review follows (04:00:30), the ci run starts at
+    04:01: the review is fresh (the ci run start is not the push)."""
+    lw.item(comments=[review(at="2026-10-23T04:00:30Z")])
+    lw.gh.suite_at = "2026-10-23T04:00:10Z"
+    rc, out = lw.run("--deploy", "no", "--dry-run")
+    assert ("PASS  gate c: Review PASS after the last push, no fresh FAIL - Review PASS at 2026-10-23T04:00:30Z "
+            "(last push 2026-10-23T04:00Z)") in out, out
+    lw.gh.force_pushed_at = None  # no force-push events at all: normal
+    rc, out = lw.run("--deploy", "no", "--dry-run")
+    assert "PASS  gate c: Review PASS after the last push" in out, out
+
+
+@pytest.mark.parametrize("how, reason", [
+    ("suites_raise", "check-suites read failed: gh api exited 1: HTTP 502 Bad Gateway"),
+    ("suite_at", "check-suites read failed: no check suite on the head SHA"),
+    ("force_raise", "force-push read failed: gh api exited 1: HTTP 502 Bad Gateway"),
+])
+def test_gate_c_fails_closed_when_the_push_time_cannot_be_read(lw, how, reason):
+    lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
+    setattr(lw.gh, how, None if how == "suite_at" else True)
+    rc, out = lw.run("--deploy", "no")
+    assert rc == 1, out
+    assert f"FAIL  gate c: Review PASS after the last push, no fresh FAIL - cannot read the push time ({reason}); not merging" in out
+    assert "REFUSED: 1 gate(s) failed (c): not merging" in out and lw.gh.writes() == []
+
+
+def test_commit_then_review_then_push_does_not_count_the_review(lw):
+    """B committed 10:02, a Review PASS (for A) at 10:05, B pushed 10:07 (the check suite is created then)."""
+    lw.item(comments=[review(at="2026-10-23T10:05:00Z")])
+    lw.gh.prs[50]["commits"][0]["committedDate"] = "2026-10-23T10:02:00Z"
+    lw.gh.prs[50]["statusCheckRollup"][0]["startedAt"] = "2026-10-23T10:07:30Z"
+    lw.gh.suite_at = "2026-10-23T10:07:00Z"
+    rc, out = lw.run("--deploy", "no")
+    assert rc == 1 and "FAIL  gate c" in out and "a later commit needs a fresh review" in out, out
+    assert "all before the last push (2026-10-23T10:07Z)" in out
+
+
+def test_force_push_with_an_old_committer_date_does_not_count_an_older_review(lw):
+    """The head commit is dated 04:00 (a rebase keeps dates) but was force-pushed at 04:45, after the review at 04:30."""
+    lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
+    lw.gh.force_pushed_at = "2026-10-23T04:45:00Z"
+    rc, out = lw.run("--deploy", "no")
+    assert rc == 1 and "FAIL  gate c" in out and "all before the last push (2026-10-23T04:45Z)" in out, out
+
+
+def test_push_sources_are_read_for_the_head_sha_only(lw):
+    lw.item()
+    lw.gh.force_pushed_at, lw.gh.suite_at = "2026-10-23T04:45:00Z", "2026-10-23T04:00:10Z"
+    got = jco.read_push_sources("example/joey", 50, FAKE_OID)
+    assert got == {"force": jco._ts("2026-10-23T04:45:00Z"), "suite": jco._ts("2026-10-23T04:00:10Z"), "errors": []}
+    other = jco.read_push_sources("example/joey", 50, "2" * 40)
+    assert other["force"] is None and other["suite"] is None and len(other["errors"]) == 1
 
 
 def test_all_failed_gates_listed_one_line_each(lw):
@@ -980,7 +1090,7 @@ def test_stale_label_warns_in_a_run(lw):
     lw.gh.label_time = "2026-10-23T03:00:00Z"
     lw.gh.merge_mode = "fail"
     rc, out = lw.run()
-    assert "WARN  the accepted label (2026-10-23T03:00Z) is older than the last push (2026-10-23T04:01Z)" in out
+    assert "WARN  the accepted label (2026-10-23T03:00Z) is older than the last push (2026-10-23T04:00Z)" in out
     assert "PASS  gate d: B.'s accept - label accepted" in out
 
 
@@ -1072,3 +1182,9 @@ def test_window_uses_the_fallback_without_a_tz_database(monkeypatch):
     assert jco.melbourne(NOON_AEDT).hour == 12
     assert jco.window_problem(NOON_AEDT) is None
     assert "21:31" in jco.window_problem(dt.datetime(2026, 10, 23, 10, 31, tzinfo=dt.timezone.utc))
+
+
+def test_stale_accept_warning_uses_the_same_push_time():
+    v = _v(headPush={"force": None, "suite": jco._ts("2026-10-23T05:40:00Z"), "errors": []})
+    ok, _, warns, _ = jco.gate_accept(v, None, jco._ts("2026-10-23T05:30:00Z"))
+    assert ok and len(warns) == 1 and "older than the last push (2026-10-23T05:40Z)" in warns[0], warns

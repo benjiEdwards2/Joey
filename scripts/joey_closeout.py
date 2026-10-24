@@ -193,14 +193,58 @@ def gate_ci(v):
     return True, f"ci SUCCESS on the head {sha}", []
 
 
+# GitHub reality (checked against real PRs, JY-229): Commit.pushedDate is always null, there is no push event on the PR
+# timeline for an ordinary push, and a ci run's startedAt is later than the push (a review posted in between would look
+# stale). What GitHub does record at push time: the HeadRefForcePushedEvent (force-pushes only) and the head SHA's
+# check suites, which are created when the push arrives, before any run starts.
+FORCE_QUERY = ("query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){"
+               "timelineItems(last:50,itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT]){nodes{"
+               "... on HeadRefForcePushedEvent{createdAt afterCommit{oid}}}}}}}")
+FORCE_JQ = (".data.repository.pullRequest.timelineItems.nodes[] | select(.afterCommit) | "
+            "[.afterCommit.oid, .createdAt] | @tsv")
+
+
+def _short(e):
+    """The first line of an error, cut short: gh's own message names no URL or token."""
+    return (str(e).strip().splitlines() or ["no output"])[0][:100]
+
+
+def read_push_sources(slug, pr, head):
+    """GitHub's push-time signals for the head commit: {"force": the latest force-push event that made it the head
+    (None when there is none: normal), "suite": its earliest check suite's created_at, "errors": what could not be
+    read}. FAIL CLOSED: gate b needs a ci run on the head SHA, so a check suite must exist; a failed read of it, or no
+    suite, or a failed read of the force-push events, goes in "errors" and gate c refuses (a silent fallback to the
+    committer date would let a review posted between commit and push count for the unreviewed head)."""
+    owner, _, name = slug.partition("/")
+    got = {"force": None, "suite": None, "errors": []}
+    try:
+        out = gh_run(["api", "graphql", "-f", f"query={FORCE_QUERY}", "-f", f"owner={owner}", "-f", f"name={name}",
+                      "-F", f"n={pr}", "--jq", FORCE_JQ])
+        times = [_ts(t.strip()) for oid, _, t in (ln.partition("\t") for ln in out.splitlines())
+                 if oid.strip() == head and t.strip()]
+        got["force"] = max(times) if times else None
+    except (RuntimeError, ValueError) as e:
+        got["errors"].append(f"force-push read failed: {_short(e)}")
+    try:
+        out = gh_run(["api", f"repos/{slug}/commits/{head}/check-suites", "--jq", ".check_suites[].created_at"])
+        times = [_ts(t.strip()) for t in out.splitlines() if t.strip()]
+        got["suite"] = min(times) if times else None
+        if not times:
+            got["errors"].append("check-suites read failed: no check suite on the head SHA")
+    except (RuntimeError, ValueError) as e:
+        got["errors"].append(f"check-suites read failed: {_short(e)}")
+    return got
+
+
 def push_time(v):
-    """When the head was pushed: the later of the head commit's committedDate and its ci run's start (CI starts on
-    the push, so a commit dated before a review but pushed after it still counts as later). None when unknown."""
+    """When the head was pushed: the latest of the head commit's committer date, the force-push event that made it the
+    head (v["headPush"]["force"]) and its earliest check suite's created_at (v["headPush"]["suite"]); see the note
+    above. Never the ci run start. None when none is known."""
     head = v.get("headRefOid")
     commits = v.get("commits") or []
     hit = [c for c in commits if c.get("oid") == head] or commits
-    times = [_ts(c.get("committedDate")) for c in hit]
-    times += [_ts(c.get("startedAt")) for c in ci_checks(v)]
+    push = v.get("headPush") or {}
+    times = [_ts(c.get("committedDate")) for c in hit] + [push.get("force"), push.get("suite")]
     times = [t for t in times if t]
     return max(times) if times else None
 
@@ -211,6 +255,9 @@ def _first_line(text):
 
 
 def gate_review(v):
+    errors = (v.get("headPush") or {}).get("errors")
+    if errors:
+        return False, f"cannot read the push time ({'; '.join(errors)}); not merging", []
     pushed = push_time(v)
     warns = [] if pushed else ["no push time on the PR: a Review comment of any age counts"]
     fresh = [c for c in v.get("comments") or []
@@ -431,6 +478,7 @@ def close_out(r, a, st):
             if st["resume"] or v.get("mergeable") != "UNKNOWN":
                 break
             sleep(5)
+        v["headPush"] = read_push_sources(st["slug"], st["pr"], v["headRefOid"])
         st["view"] = v
         if any(lab.get("name") == "accepted" for lab in v.get("labels") or []):
             try:
@@ -575,6 +623,7 @@ def close_out(r, a, st):
 
         def regates():
             v2 = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", PR_FIELDS]))
+            v2["headPush"] = read_push_sources(slug, pr, v2["headRefOid"])
             ok_c, detail_c, _ = gate_review(v2)
             ok_d, detail_d = gate_accept(v2, a.accepted_in_chat, st.get("label_time"))[:2]
             bad = ([f"gate c: {detail_c}"] if not ok_c else []) + ([f"gate d: {detail_d}"] if not ok_d else [])
@@ -811,6 +860,19 @@ def close_out(r, a, st):
     def docs_find():
         names = jc.git("ls-tree", "--name-only", "origin/main", "docs/specs/", cwd=clone).splitlines()
         specs = [n for n in names if Path(n).name.startswith(f"{item}-") and n.endswith(".md")]
+        if not specs and dry and not st["resume"]:
+            # JY-229: before the merge the spec reaches origin/main only with the PR, so a dry run looks on the PR head
+            try:
+                listing = gh_run(["api", f"repos/{slug}/contents/docs/specs?ref={st['view']['headRefOid']}",
+                                  "--jq", ".[].name"]).splitlines()
+            except RuntimeError:
+                listing = []
+            on_head = [f"docs/specs/{n.strip()}" for n in listing
+                       if n.strip().startswith(f"{item}-") and n.strip().endswith(".md")]
+            if len(on_head) == 1:
+                st["spec_path"] = on_head[0]  # docs.3's write guard names it
+                return "DRY", f"would find {on_head[0]} after the merge (it is on the PR head, not on origin/main yet)"
+            raise jc.Refused(f"{len(on_head)} spec files docs/specs/{item}-*.md on origin/main or the PR head (want 1)")
         if len(specs) != 1:
             raise jc.Refused(f"{len(specs)} spec files docs/specs/{item}-*.md on origin/main (want 1)")
         st["spec_path"] = specs[0]

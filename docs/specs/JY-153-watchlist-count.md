@@ -1,6 +1,6 @@
 # JY-153 Watchlist count line refreshes only on reload
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_watchlist.py`, `hub/media_awards_pages.py`, `hub/templates/_award_ballot.html` (+ one small part template), `tests/hub/`
@@ -36,3 +36,8 @@ On the preview, open Awards, press "Watchlist" on a row: the button flips and th
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #78, squash-merged as `5ba6859` (5ba6859a930be35d335e3f3f099948678691f53b).
+- Deploy: `2026-10-24T02:50:41Z PASS prev=3b20517 new=5ba6859 suite green, smoke ok tv=current end=2026-10-24T03:14:56Z dur=1455s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

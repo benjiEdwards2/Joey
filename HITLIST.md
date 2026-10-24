@@ -138,7 +138,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-150 | Ballot page height at 375 px | Awards | S | parked | 3,166 px vs 2,500 target (decision) | — |
 | JY-151 | Long TV pill names | Awards | S | parked | Add a strip rule in `short_name` (decision) | — |
 | JY-152 | Awards parser leftovers (5 small) | Awards | M | idea | Song people, table headers, honorary, re-queue, fixture | — |
-| JY-153 | Watchlist count line refreshes only on reload | Awards | S | idea | Button swaps itself only | — |
+| JY-153 | Watchlist count line refreshes only on reload | Awards | S | [x] shipped | Button swaps itself only · PR #78 | [spec](docs/specs/JY-153-watchlist-count.md) |
 | JY-154 | Awards backlog fill: kick sync, watch posters + coverage | Awards | S | idea | B. runs the sync; dim years may be real gaps | — |
 
 ### Weather / Calendar

@@ -1,6 +1,6 @@
 # JY-104 Episode runtimes from Jellyfin item data
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_item.py`, `hub/media_film.py`, `hub/media_home.py`, `hub/media_pages.py`, `tests/hub/`
@@ -53,4 +53,8 @@ Answer (orchestrator, 2026-10-24, under B.'s standing instruction "Approve all c
    (additive, optional; Jellyfin fills it from metadata, so some shows may still lack it).
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #86, squash-merged as `d0a8cad` (d0a8cad4569022ff499c1243e96f4b84add972fa).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

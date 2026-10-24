@@ -86,7 +86,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-101 | "N h this month" uses the old duration format | Media | S | [x] shipped | `media_pages.py:175` · PR #81 | [spec](docs/specs/JY-101-history-duration-format.md) |
 | JY-102 | Service page H1 = service name | Media | S | [x] shipped | Discover service page says "Discover" · PR #82 | [spec](docs/specs/JY-102-service-page-h1.md) |
 | JY-103 | Georgina's scores in the "both" view | Media | M | parked | Needs her account (decision) | — |
-| JY-104 | Episode runtimes from Jellyfin item data | Media | S | idea | Today from recorded plays only | — |
+| JY-104 | Episode runtimes from Jellyfin item data | Media | S | [x] shipped | Today from recorded plays only · PR #86 | [spec](docs/specs/JY-104-episode-runtimes.md) |
 | JY-105 | "Because you rated X 9" shelf | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
 | JY-106 | Read-only "leaving soon" list | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
 | JY-107 | Favourites synced to Jellyfin | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |

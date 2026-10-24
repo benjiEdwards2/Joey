@@ -47,3 +47,5 @@ Answers carried from JY-227 (B., 2026-10-24: "Approve all changes … just close
 - Deploy: `2026-10-24T07:49:28Z PASS prev=1fe6af0 new=d94660a suite green, smoke ok tv=current end=2026-10-24T08:07:19Z dur=1071s`
 - Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
 - Follow-ups: none
+
+- 2026-10-24, criterion 4 proven (three consecutive PASS deploys on the new gate, quiet NAS, memory sampled every 10 s): ab71bf7 dur=299 s (min available 1,309 MB, max swap 969 MB); 89b4620 dur=279 s (1,347 MB, 972 MB); c7c5eed dur=281 s (1,328 MB, 970 MB). Before: 899–1,565 s. The close-out deploy itself (d94660a, 1,071 s) still ran the old gate because deploy.sh executes the copy it read before its own git pull. Follow-up: JY-240 (pre-gate free-memory check).

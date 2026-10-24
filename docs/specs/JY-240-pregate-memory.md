@@ -1,6 +1,6 @@
 # JY-240 Pre-gate free-memory check in deploy.sh
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: deploy (changes `deploy/deploy.sh`, the only path to production)
 Area: `deploy/deploy.sh` (one check before the gate), `tests/deploy/test_deploy_script.py`, `tests/scripts/test_joey_closeout.py` (pins only, no close-out code change), `deploy/README.md`, `docs/reference/tech-notes.md`, this spec
@@ -56,3 +56,8 @@ Monitoring memory during the gate; freeing memory automatically; the preview's o
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #117, squash-merged as `9586cde` (9586cde12313431a1096698e1616244c53620ab7).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

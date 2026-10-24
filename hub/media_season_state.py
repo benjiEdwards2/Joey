@@ -167,6 +167,7 @@ def build(entry: dict, episodes: dict | None = None, now: datetime | None = None
         one = (_season_from_episodes(n, eps, now) if eps   # an empty list (an unread or odd answer): the statistics
                else _season_from_stats(n, s.get("statistics") or {}))
         one["placeholder"] = one["total"] <= 1 and one["aired"] == 0 and one["files"] == 0
+        one["monitored"] = bool(s.get("monitored"))   # JY-113: which Sonarr-only seasons get a row
         one["word"] = season_word(n, one["files"], one["total"], one["aired"], one["to_come"], one["missing"],
                                   one["next_air"])
         seasons.append(one)
@@ -354,6 +355,24 @@ def chain(*jobs):
 
 
 # ---- words the pages share ----
+
+def sonarr_only_seasons(state: dict | None, have) -> list[dict]:
+    """JY-113 (2026-10-24): the show page's Seasons rows for seasons only Sonarr has - newer than the last season on the
+    server (`have`: Jellyfin's season numbers), no file in Sonarr, and either Sonarr's placeholder ("announced") or
+    monitored. Older gaps, seasons Jellyfin has not scanned yet and unmonitored aired seasons get none. From the cached
+    state only (no call). Words: "Not on server yet" · "Announced" (" · airs 5 Dec") or the season's own word."""
+    have = {n for n in have or () if isinstance(n, int)}
+    if not state or not have:
+        return []
+    out = []
+    for s in state.get("seasons") or []:
+        if s["n"] <= max(have) or s["files"] > 0 or not (s["placeholder"] or s.get("monitored")) or not s["word"]:
+            continue
+        word = (("Announced" + (f" · {_when(s['next_air'], 'airs')}" if s["next_air"] else "")) if s["placeholder"]
+                else s["word"])
+        out.append({"n": s["n"], "name": f"Season {s['n']}", "count_word": "Not on server yet", "state_word": word})
+    return out
+
 
 def episodes_words(state: dict | None, fallback: str) -> str:
     """'3 of 8 episodes' while Sonarr has fewer files than episodes, else the page's own words."""

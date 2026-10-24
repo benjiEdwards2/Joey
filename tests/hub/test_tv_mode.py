@@ -9,6 +9,7 @@ import json
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -288,7 +289,19 @@ El.prototype.querySelectorAll = function (sel) { return all(this, sel); };
 El.prototype.querySelector = function (sel) { return all(this, sel)[0] || null; };
 El.prototype.closest = function (sel) { for (var p = this; p; p = p.parentElement) if (matches(p, sel)) return p; return null; };
 El.prototype.contains = function (o) { for (var p = o; p; p = p.parentElement) if (p === this) return true; return false; };
-El.prototype.focus = function () { document.activeElement = this; fire('focusin', { target: this }); };
+El.prototype.focus = function () {
+  var was = document.activeElement;
+  if (was === this) return;
+  document.activeElement = this;
+  if (was && was !== body) fire('focusout', { target: was });
+  fire('focusin', { target: this });
+};
+/* JY-194: blur() and dispatchEvent() (records the event types an element was sent, e.g. htmx's 'search' trigger) */
+El.prototype.blur = function () {
+  if (document.activeElement !== this) return;
+  document.activeElement = body; fire('focusout', { target: this });
+};
+El.prototype.dispatchEvent = function (ev) { (this.sent = this.sent || []).push(ev.type); return true; };
 var html = new El('html'), body = new El('body');
 html.append(body);
 var document = {
@@ -436,6 +449,35 @@ function title() {
   for (var i = 1; i <= 10; i++) pick.append(new El('button', { name: 'chip' + i, attrs: { name: 'score' }, top: 380, left: 100 + (i - 1) * 70 }));
   main.append(new El('div', { cls: ['tv-rate'], kids: [pick] }));
   poster(main, 's1', 900, 1, 0);
+}
+/* JY-194: the friends' Discover page in TV mode: the search field (a full-width pill above the grid; this fake box is
+   100 px wide, so it is put mid-screen as the real pill's centre is) and #discover-grid (.reqgrid-wrap, data-q = the
+   query it shows) with 3 rows of 4 posters. results(q) is the htmx swap of the grid for a query. */
+var field;
+function discover(q) {
+  var main = shell('discover');
+  field = new El('input', { name: 'field', attrs: { type: 'search', name: 'q', 'data-tv-search': '' }, top: 110, left: 860 });
+  field.value = q || '';
+  main.append(new El('form', { cls: ['toolbar', 'discover-search'], top: 110, kids: [
+    new El('div', { cls: ['search'], top: 110, kids: [field] })] }));
+  results(q);
+}
+var gen = 0;
+function results(q) {
+  var main = document.querySelector('main'), old = main.querySelector('.reqgrid-wrap');
+  if (old) { main.children.splice(main.children.indexOf(old), 1); old.parentElement = null; }
+  var grid = new El('div', { name: 'grid', cls: ['reqgrid-wrap'], attrs: { id: 'discover-grid', 'data-q': q || '' }, top: 180 });
+  gen++;
+  for (var n = 1; n <= 12; n++) grid.append(new El('a', { name: (q ? 'r' : 'd') + n, cls: ['card-poster'],
+    attrs: { href: '/media/title/movie/' + (q ? 500 : 100) + n, 'data-gen': String(gen) },
+    top: 200 + Math.floor((n - 1) / 4) * 400, left: 100 + ((n - 1) % 4) * 200 }));
+  main.append(grid);
+}
+function swapped(q) { results(q); fire('htmx:afterSettle', {}); flush(); }   /* the search partial lands */
+function press(k) {   /* a key; true when tv.js prevented its default (no form submit, no native 'search' event) */
+  var stopped = false;
+  fire('keydown', { key: k, preventDefault: function () { stopped = true; } });
+  return stopped;
 }
 function key(k) { fire('keydown', { key: k, preventDefault: function () {} }); }
 function now() { return document.activeElement === body ? 'body' : document.activeElement.name; }
@@ -588,3 +630,133 @@ def test_the_tv_pages_carry_what_the_jy187_rules_read(gc):
     for needle in (".toplinks a[aria-current]", "'.sectabs.sub [aria-current]'", "'.hero-detail-btns'", "'.tv-rate'",
                    "window.sessionStorage", "addEventListener('pageshow'"):
         assert needle in js, needle
+
+
+# ---- JY-194 (U8, 2026-10-25): Discover search on the TV (finding R2; tv-v2 shell 04-discover screens 1 to 3) ----
+
+def test_up_from_the_grid_reaches_the_search_field_and_down_comes_back_under_node(gc, tmp_path):
+    """First focus stays on the first poster (or the JY-187 memory). Up from the first row lands on the search field,
+    not the top bar (from poster 1 the brand scored nearer); Up from the field is JY-187's current pill; Down from the
+    field is the first poster. Passing over the field never makes it editable (no keyboard pops up)."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+out.first = now();
+key('ArrowUp'); out.up = now(); out.locked = field.readOnly === true;
+key('ArrowUp'); out.up2 = now();
+load('/media/discover', function () { discover(''); });
+key('ArrowUp'); key('ArrowDown'); out.down = now();
+key('ArrowRight'); key('ArrowRight'); key('ArrowRight'); key('ArrowUp'); out.up_from_4 = now();
+key('ArrowDown'); out.down_again = now(); out.still_locked = field.readOnly === true;
+""")
+    assert out == {"first": "d1", "up": "field", "locked": True, "up2": "pill-discover", "down": "d1",
+                   "up_from_4": "field", "down_again": "d1", "still_locked": True}
+
+
+def test_ok_opens_the_keyboard_and_enter_shows_the_results_under_node(gc, tmp_path):
+    """OK on the read-only field makes it editable (the Android TV keyboard comes up for an editable focused input) and
+    stops the form submit. A results swap while typing leaves focus and the keyboard alone. Enter in the editable field
+    never submits the form: it fires the field's own htmx 'search' trigger only when the grid does not already show
+    that query (no second call after the debounce), then focus goes to the first result; leaving locks the field."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+key('ArrowUp');
+out.ok_stopped = press('Enter'); out.ok_editable = field.readOnly === false; out.ok_on = now();
+field.value = 'apothecary';
+swapped('apothecary');                         /* the debounced keyup trigger's swap lands while typing */
+out.typing_on = now(); out.typing_editable = field.readOnly === false;
+out.enter_stopped = press('Enter'); out.enter_sent = (field.sent || []).length;
+out.enter_on = now(); out.enter_locked = field.readOnly === true;
+key('ArrowUp'); press('Enter');
+field.value = 'apothecary diaries';            /* Enter before the debounce fired: the 'search' trigger runs now */
+out.enter2_stopped = press('Enter'); out.enter2_sent = (field.sent || []).slice();
+swapped('apothecary diaries');
+out.after_swap = now(); out.after_swap_gen = document.activeElement.attrs['data-gen'] === String(gen);
+""")
+    assert out == {"ok_stopped": True, "ok_editable": True, "ok_on": "field",
+                   "typing_on": "field", "typing_editable": True,
+                   "enter_stopped": True, "enter_sent": 0, "enter_on": "r1", "enter_locked": True,
+                   "enter2_stopped": True, "enter2_sent": ["search"], "after_swap": "r1", "after_swap_gen": True}
+
+
+def test_back_from_results_returns_to_trending_with_the_field_focused_under_node(gc, tmp_path):
+    """Back (the shell asks window.joeyTV.back() first) with a query showing clears the field, fires its 'search'
+    trigger with no query (the cached trending grid), focuses the field and returns true; with no query it returns
+    false as before (the shell goes back). Also for a page loaded with ?q=."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+key('ArrowUp'); press('Enter'); field.value = 'apothecary'; swapped('apothecary'); press('Enter');
+out.back = window.joeyTV.back(); out.value = field.value; out.sent = (field.sent || []).slice(); out.on = now();
+out.locked = field.readOnly === true;
+swapped('');
+out.trending_on = now();
+out.back_again = window.joeyTV.back();
+load('/media/discover', function () { discover('apothecary'); });
+out.loaded_q_first = now();
+out.loaded_back = window.joeyTV.back(); out.loaded_on = now(); out.loaded_value = field.value;
+""")
+    assert out == {"back": True, "value": "", "sent": ["search"], "on": "field", "locked": True,
+                   "trending_on": "field", "back_again": False,
+                   "loaded_q_first": "r1", "loaded_back": True, "loaded_on": "field", "loaded_value": ""}
+
+
+def test_tv_discover_shows_the_search_field_on_the_existing_trigger(monkeypatch, tmp_path):
+    """Gate-run (no node): the friends' TV Discover page carries the field tv.js reads, on the existing endpoint and the
+    existing debounce (keyup changed delay:400ms, plus the 'search' event); the grid says which query it shows; tv.css
+    shows this one toolbar (every other stays hidden) as the 56 px pill; the household Discover is untouched."""
+    client, fake = guest_client(monkeypatch, tmp_path, {"jellyseerr": {"summary": "x", "requests": []}})
+    seerr = FakeSeerr().install(monkeypatch)
+    seerr.add_user(7, FRIEND_ID)
+    seerr.shelves = {"/api/v1/discover/trending": [res(701, "Harvest Moon Rising")],
+                     "/api/v1/discover/movies": [], "/api/v1/discover/tv": [],
+                     "/api/v1/discover/movies/upcoming": [], "/api/v1/discover/tv/upcoming": []}
+    with client as c:
+        sign_in(c, fake, FRIEND_ID)
+        tv = c.get("/media/discover", headers={"User-Agent": TV_UA}).text
+        assert is_tv(tv)
+        form = re.search(r'<form class="toolbar discover-search"[^>]*>(.*?)</form>', tv, flags=re.S)
+        assert form, "the search form carries the class tv.css shows"
+        field = re.search(r"<input[^>]*data-tv-search[^>]*>", form.group(1), flags=re.S).group(0)
+        assert 'hx-get="/media/discover/search"' in field and 'hx-trigger="keyup changed delay:400ms, search"' in field
+        assert 'hx-target="#discover-grid"' in field and "readonly" not in field     # tv.js locks it, only in TV mode
+        assert '<div id="discover-grid" class="reqgrid-wrap" data-q="">' in tv
+        part = c.get("/media/discover/search?q=harvest", headers={"User-Agent": TV_UA, "HX-Request": "true"}).text
+        assert '<div id="discover-grid" class="reqgrid-wrap" data-q="harvest">' in part
+        css = re.sub(r"/\*.*?\*/", "", c.get("/static/tv.css").text, flags=re.S)
+        js = c.get("/static/tv.js").text
+    assert re.search(r"html\.tv form\.toolbar[,{ ]", css)                                 # the other toolbars stay hidden
+    assert re.search(r"html\.tv form\.toolbar\.discover-search \{[^}]*display: block", css)
+    assert re.search(r"html\.tv \.discover-search \.input \{[^}]*height: 56px", css)
+    for needle in ("'[data-tv-search]'", "'.reqgrid-wrap'", "'data-q'", "new Event('search')"):
+        assert needle in js, needle
+    household = (Path(guest.__file__).parent / "templates" / "media_discover.html").read_text(encoding="utf-8")
+    assert "data-tv-search" not in household and "discover-search" not in household
+
+
+def test_enter_before_the_debounce_sends_one_request_under_node(gc, tmp_path):
+    """Review should-fix (2026-10-25): type fast and press Enter within 400 ms, and Enter's search ran, then the pending
+    keyup debounce sent the same query again. tv.js now cancels (htmx:beforeRequest) a keyup request from the field for
+    the query Enter already sent or the grid already shows; the 'search' requests and a new query still go out, also
+    the same query typed again after Back."""
+    out = run_tv_pages(gc, tmp_path, r"""
+function request(type) {   /* htmx asks before it sends; true = tv.js cancelled it */
+  var stopped = false;
+  fire('htmx:beforeRequest', { detail: { elt: field, requestConfig: { triggeringEvent: { type: type } } },
+                               preventDefault: function () { stopped = true; } });
+  return stopped;
+}
+load('/media/discover', function () { discover(''); });
+key('ArrowUp'); press('Enter');
+field.value = 'apothecary';
+press('Enter');
+out.enter_search = request('search');
+out.late_keyup = request('keyup');
+swapped('apothecary');
+out.keyup_after_swap = request('keyup');
+key('ArrowUp'); press('Enter'); field.value = 'apothecary diaries';
+out.new_query = request('keyup');
+window.joeyTV.back(); out.back_search = request('search'); swapped('');
+press('Enter'); field.value = 'apothecary';
+out.same_again = request('keyup');
+""")
+    assert out == {"enter_search": False, "late_keyup": True, "keyup_after_swap": True, "new_query": False,
+                   "back_search": False, "same_again": False}

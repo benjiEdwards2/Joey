@@ -5,7 +5,9 @@
 {# Joey TV WP-B4 (2026-10-21): Discover on the media front = WP-M screen 10 (JoeyTV mockups/tv-mode.html, signed off
    2026-10-21). A search box, one poster grid with state chips, and the request panel in a <dialog>: a poster opens it,
    Request turns it into "Requested — waiting for approval" and the grid chip follows; Done / Esc / the TV's Back close
-   it and focus returns to the poster (tv.js window.joeyTV.back). No service tiles, no Following (Q19). #}
+   it and focus returns to the poster (tv.js window.joeyTV.back). No service tiles, no Following (Q19).
+   JY-194 (U8, R2): in TV mode the search box is shown too (tv.css .discover-search), the first stop above the grid; tv.js
+   keeps it read-only until OK (the TV keyboard), and Back with a query clears it to the trending grid ([data-tv-search]). #}
 <style>
 .reqgrid .card-pic { position: relative; }
 .reqchip { position: absolute; top: 8px; left: 8px; padding: 1px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; line-height: 1.6; }
@@ -25,8 +27,8 @@
 {% if not connected %}
 <p class="empty">Not connected</p>
 {% else %}
-<form class="toolbar" method="get" action="/media/discover">
-  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV"
+<form class="toolbar discover-search" method="get" action="/media/discover">
+  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV" data-tv-search
          hx-get="/media/discover/search" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-grid" hx-swap="outerHTML"></div>
   <noscript><button class="btn btn-secondary" type="submit">Search</button></noscript>
 </form>

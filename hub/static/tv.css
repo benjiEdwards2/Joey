@@ -131,6 +131,13 @@ html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the yea
    straight under the "Discover - n" label. Each poster carries its state chip (In library / Requested / Request, plus
    the grey Declined); the card's caption is title then "year - Film / TV" stacked, as on the library grid. */
 html.tv .pagehead:has(.sectabs.sub[aria-label="Discover"]) { display: none; }
+/* Discover search (JY-194, R2; tv-v2 shell 04-discover screen 1): the one toolbar shown on the TV, a full-width 56 px
+   pill above the grid - magnifier, 21 px text, the 4 px ring when focused. tv.js keeps it read-only until OK. */
+html.tv form.toolbar.discover-search { display: block; margin: 6px 0 0; }
+html.tv .discover-search .search { max-width: none; }
+html.tv .discover-search .search > svg.ic { left: 22px; width: 28px; height: 28px; color: var(--tv-t3); }
+html.tv .discover-search .input { height: 56px; padding: 0 22px 0 64px; border-radius: 28px; border: 1px solid var(--tv-line); background: var(--tv-surface-2); font-size: 21px; color: var(--tv-t1); }
+html.tv .discover-search .input::placeholder { color: var(--tv-t4); }
 html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
 html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
 html.tv .reqgrid .reqchip { z-index: 2; top: 8px; left: 8px; padding: 1px 10px; font-size: 16px; font-weight: 700; line-height: 1.5; }

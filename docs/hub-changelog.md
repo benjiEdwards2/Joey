@@ -1245,3 +1245,18 @@ doc, schema, fixtures and `config/sample_snapshots/arr.json` updated. Links: the
 now "Free space" (`attention_action`), and the System band's first disk block has a small "Free space" link. Tests:
 `tests/hub/test_server_space.py`, `tests/connectors/test_arr_library_sizes.py`, a contract-doc pin; the two WP-T3
 forecast-has-no-action assertions in `test_server_cleanup.py` now expect Free space.
+
+## 2026-10-23 — JY-031 disk forecast on the hub card and in Discord
+
+The disk forecast (the fullest volume reaching 85 %) reaches the hub's Server card and Discord, not only the Server
+page. `server_history.refresh_forecast` runs once per `_server_tick` and keeps `server.forecast_step`'s state in memory;
+the hub card (`forecast_peek`, no media.db read), `/server`, `/server/space` and `server_alerts.check_once` all use that
+one item, so they build the same Attention key set. Hysteresis: an episode opens under 30 days and ends only over 45
+days or on a flat or shrinking disk; at or over 85 % an open episode stays open and silent; "collecting" (fewer than 2
+samples in 24 h) keeps the state; after a restart a `forecast:<path>` seen row means the episode is open. Card meta
+"reaches 85% in about N days" (whole days rounded down, at least 1, as in the Last 24 h trend line, which shows the
+cached item's days, and Free space) with the amber "Needs attention"; Discord, once per
+episode, "Joey Server: Disk: reaches 85% in about N days (Volume 1, 412 GB free)" (any path under `/volumeN` reads
+"Volume N"); no resolved post. A failed first compute skips the forecast for that tick and keeps its seen row
+(`sync(keep=)`). Tests: `tests/hub/test_server_forecast.py`; re-pinned with dated reasons in the spec:
+`test_server_cleanup.py` (the WP-T3 page-only split) and `test_server_space.py` (Free space takes the cached item).

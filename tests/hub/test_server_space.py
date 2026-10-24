@@ -112,10 +112,13 @@ def test_head_line_without_a_forecast():
 
 
 def test_head_line_with_the_forecast_adds_the_days_it_buys_back():
+    """Re-pinned 2026-10-23 (JY-031 fix round, spec Shipped notes): the forecast is now the hub loop's cached item,
+    passed in (was read from history_band inside build), so Free space and the Server page's Attention agree."""
     samples = _samples(lambda i: [60, 62, 64, 67.5, 69, 70][i], [168, 120, 72, 23, 12, 0])
     system = {"volumes": [{"path": "/volume1", "total_gb": 1000.0, "free_gb": 300.0, "pct_used": 70}]}
-    assert server.history_band(samples, NOW)["forecast"] is not None
-    sp = server_space.build(snaps(system=system), samples=samples, now=NOW)
+    forecast = server.forecast_step(None, samples, NOW)["item"]
+    assert forecast is not None
+    sp = server_space.build(snaps(system=system), samples=samples, now=NOW, forecast=forecast)
     week = [(s["at"], s["volumes"][0]["pct_used"]) for s in samples]
     rate = (server.DISK_TARGET_PCT - 70) / server.disk_days(week)
     freed = sum(r["size"] for r in sp["rows"]) / GIB
@@ -126,7 +129,10 @@ def test_head_line_with_the_forecast_adds_the_days_it_buys_back():
 def test_a_slow_disk_has_no_forecast_and_no_days():
     samples = _samples(lambda i: [8.0, 8.1, 8.2, 8.3, 8.35, 8.4][i], [168, 120, 72, 23, 12, 0])
     system = {"volumes": [{"path": "/volume1", "total_gb": 1000.0}]}
-    assert server_space.build(snaps(system=system), samples=samples, now=NOW)["head"] == "Removing all 4 frees ~85 GB"
+    forecast = server.forecast_step(None, samples, NOW)["item"]   # JY-031: the cached item (None for a slow disk)
+    assert forecast is None
+    assert server_space.build(snaps(system=system), samples=samples, now=NOW,
+                              forecast=forecast)["head"] == "Removing all 4 frees ~85 GB"
 
 
 def test_one_row_and_small_totals_read_naturally():

@@ -11,6 +11,12 @@ snapshot is missing, empty or `status != ok`.
 
 Runs on the WP-U2 paths: after each `/server` render (a response background task) and on the
 hub's 5-minute Server loop (`_server_alerts_loop` in hub/main.py). Never raises.
+
+JY-031 (2026-10-23): the disk forecast, in memory. `refresh_forecast` runs once per hub loop tick (hub/tasks.py):
+one `recent()` read and one `server.forecast_step`. The hub render reads it with `forecast_peek` (never media.db);
+the /server render and `server_alerts.check_once` with `forecast`, which computes once only when nothing is cached
+yet (the minute after a start). The open episode outlives a restart (the NAS is off every night): the first
+compute after a start treats a `forecast:<path>` row in server_attention_seen as an open episode.
 """
 
 from __future__ import annotations
@@ -18,10 +24,12 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import threading
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 from hub import media_db
+from hub import server as _server
 from hub.ids import SYSTEM_SNAPSHOT_ID  # noqa: F401
 from hub.store import parse_utc
 
@@ -97,7 +105,7 @@ def recent(now: datetime | None = None, days: int = 7) -> list[dict]:
     ram_free_gb, load_1m, volumes (list)}. No media.db (or unreadable) ⇒ []. Never creates it."""
     if not media_db.db_path().is_file():
         return []
-    since = _iso((now or datetime.now(timezone.utc)) - timedelta(days=days))
+    since = _iso((now or _now()) - timedelta(days=days))
     try:
         with closing(media_db.connect()) as db:
             ensure(db)
@@ -116,3 +124,54 @@ def recent(now: datetime | None = None, days: int = 7) -> list[dict]:
                     "ram_free_gb": r["ram_free_gb"], "load_1m": r["load_1m"],
                     "volumes": [v for v in vols if isinstance(v, dict)]})
     return out
+
+
+# ---- JY-031: the disk forecast, once per hub loop tick -------------------------------------------------------------
+
+_forecast_lock = threading.Lock()
+_forecast: dict | None = None   # server.forecast_step's last state; None until the first compute after a start
+
+
+def _now() -> datetime:
+    """The one clock of recent() and the forecast step (JY-031: tests freeze it here)."""
+    return datetime.now(timezone.utc)
+
+
+def _restored() -> dict | None:
+    """After a start: an open episode as the seen-row left it (server_alerts), else None."""
+    from hub import server_alerts
+    keys = sorted(server_alerts.seen_keys(server_alerts.FORECAST_PREFIX))
+    return {"open": True, "path": keys[0].partition(":")[2], "item": None} if keys else None
+
+
+def refresh_forecast(samples: list | None = None, now: datetime | None = None) -> dict:
+    """One forecast step over `samples` (recent() when None), cached. The hub loop calls it once per tick."""
+    global _forecast
+    now = now or _now()
+    with _forecast_lock:
+        prev = _forecast if _forecast is not None else _restored()
+        _forecast = _server.forecast_step(prev, recent(now) if samples is None else samples, now)
+        return _forecast
+
+
+def forecast(samples: list | None = None, now: datetime | None = None) -> dict | None:
+    """The cached forecast item ({key, text, words}) or None; computes once only when nothing is cached yet. A failed
+    compute raises: the callers (server_alerts.check_once, the /server render) then skip the forecast and keep its
+    seen-row."""
+    state = _forecast
+    if state is None:
+        state = refresh_forecast(samples, now)
+    return state.get("item")
+
+
+def forecast_peek() -> dict | None:
+    """The hub render's read: the cached item or None. Never touches media.db."""
+    state = _forecast
+    return state.get("item") if state else None
+
+
+def reset_forecast() -> None:
+    """Forget the cached forecast (tests; the next read starts as after a hub start)."""
+    global _forecast
+    with _forecast_lock:
+        _forecast = None

@@ -145,13 +145,16 @@ _hub_card_cache: tuple | None = None   # (monotonic time, key, card)
 
 def _server_hub_card(snaps, backup: dict) -> dict:
     global _hub_card_cache
-    key = (tuple(sorted((cid, s.updated_at, s.status) for cid, s in snaps.items())), backup.get("warning"))
+    forecast = server_history.forecast_peek()   # JY-031: the hub loop's cached disk forecast; no media.db read here
+    key = (tuple(sorted((cid, s.updated_at, s.status) for cid, s in snaps.items())), backup.get("warning"),
+           forecast and forecast["text"])
     now = time.monotonic()
     hit = _hub_card_cache
     if hit and hit[1] == key and now - hit[0] < HUB_CARD_TTL_S:
         return hit[2]
     card = server_area.hub_card(snaps, server_updates.get_ignores(), backup, get_runner(), get_runner_history(),
-                                live=server_area.live_snapshot_ids(shell.registry))  # WP-U3
+                                live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
+                                forecast=forecast)
     _hub_card_cache = (now, key, card)
     return card
 
@@ -221,13 +224,16 @@ def hub_page(request: Request):
 def _server_response(request: Request, area, view: str, from_query: bool):
     """The `layout: server` page (WP-S1, 2026-10-06): bands built by hub/server.py."""
     snaps = shell.get_snapshots(request=request)
+    samples = server_history.recent()
+    forecast, keep = server_alerts.forecast_or_keep(server_history.forecast, samples)   # JY-031: the loop's cache
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
                                   server_updates.get_ignores(), server_updates.last_requested(),
-                                  get_runner_history(), server_history.recent(),
+                                  get_runner_history(), samples,
                                   live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
-                                  gated=shell.registry.gated_hrefs)
+                                  gated=shell.registry.gated_hrefs,
+                                  forecast=forecast)
     after = BackgroundTasks()
-    after.add_task(server_alerts.sync, sv["attention_items"])  # WP-U2: Discord push after the page
+    after.add_task(server_alerts.sync, sv["attention_items"], keep=keep)  # WP-U2: Discord push after the page
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
     resp = shell.render_page(request, "server.html", {
         "area": area, "sv": sv,

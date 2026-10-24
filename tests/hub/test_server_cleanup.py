@@ -22,33 +22,46 @@ FAST = [168, 120, 72, 23, 12, 0]                  # a week of samples
 
 
 def test_disk_projection_under_30_days_joins_the_page_attention_only():
-    band = server.history_band(_samples(lambda i: [60, 62, 64, 67.5, 69, 70][i], FAST), NOW)
-    assert band["forecast"]["key"] == "forecast:/volume1"
-    assert band["forecast"]["text"].startswith("/volume1 reaches 85% in ") and band["forecast"]["text"].endswith(
-        " days at this rate")
+    """Re-pinned 2026-10-23 (JY-031 verifier round, spec Shipped notes): history_band's own "forecast" field is gone;
+    the projection reaches Attention as the hub loop's cached item, made by `server.forecast_step` (asserted here
+    instead). Was: band["forecast"] {key, text "/volume1 reaches 85% in N days at this rate"}."""
+    samples = _samples(lambda i: [60, 62, 64, 67.5, 69, 70][i], FAST)
+    assert "forecast" not in server.history_band(samples, NOW)
+    item = server.forecast_step(None, samples, NOW)["item"]
+    assert item["key"] == "forecast:/volume1"
+    assert item["text"].startswith("Disk: reaches 85% in about ") and item["text"].endswith(" days (Volume 1, 1 GB free)")
     days = server.disk_days([(s["at"], s["volumes"][0]["pct_used"])
                              for s in _samples(lambda i: [60, 62, 64, 67.5, 69, 70][i], FAST)])
     assert 0 < days < server.FORECAST_ATTENTION_DAYS
 
 
 def test_disk_projection_over_30_days_or_flat_stays_out():
-    slow = server.history_band(_samples(lambda i: [8.0, 8.1, 8.2, 8.3, 8.35, 8.4][i], FAST), NOW)
-    assert slow["forecast"] is None and "days to 85 % at this rate" in slow["trend"]   # the trend line still says it
-    assert server.history_band(_samples(lambda i: 8.0, [168, 72, 10, 0]), NOW)["forecast"] is None
-    assert server.history_band([], NOW)["forecast"] is None
+    """Re-pinned 2026-10-23 (JY-031 verifier round): the same three cases through `server.forecast_step` (the cached
+    item) instead of history_band's removed "forecast" field."""
+    slow_samples = _samples(lambda i: [8.0, 8.1, 8.2, 8.3, 8.35, 8.4][i], FAST)
+    assert server.forecast_step(None, slow_samples, NOW)["item"] is None
+    assert "days to 85 % at this rate" in server.history_band(slow_samples, NOW)["trend"]   # the trend line still says it
+    assert server.forecast_step(None, _samples(lambda i: 8.0, [168, 72, 10, 0]), NOW)["item"] is None
+    assert server.forecast_step(None, [], NOW)["item"] is None
 
 
-def test_build_server_puts_the_forecast_in_attention_but_not_in_the_keyed_items(monkeypatch):
-    """The keyed items feed the hub card and the Discord push; the hub loop has no samples, so the forecast stays a
-    page item (else the loop would purge and the render re-post it)."""
-    forecast = {"key": "forecast:/volume1", "text": "/volume1 reaches 85% in 12 days at this rate"}
-    monkeypatch.setattr(server, "history_band", lambda samples, now=None: {
-        "collecting": True, "text": "", "sparks": [], "trend": None, "forecast": forecast})
-    out = server.build_server(area(), {}, {"warning": None})
+def test_build_server_puts_the_cached_forecast_in_attention_and_in_the_keyed_items(monkeypatch):
+    """Re-pinned 2026-10-23 (JY-031, spec Shipped notes): was `..._in_attention_but_not_in_the_keyed_items` (WP-T3),
+    which pinned the forecast as a page-only item because the hub loop had no samples. The loop now computes the
+    forecast once per tick and caches it, and the page, the hub card and the Discord push all take that one item, so
+    they build the same key set. history_band's own forecast no longer reaches Attention (the band keeps it for the
+    Free space page). 2026-10-23 (verifier round): history_band no longer has a "forecast" field at all, so the fake
+    band below has none either."""
+    monkeypatch.setattr(server, "history_band", lambda samples, now=None, forecast=None: {
+        "collecting": True, "text": "", "sparks": [], "trend": None})
+    alone = server.build_server(area(), {}, {"warning": None})
+    assert alone["attention"] == [] and alone["attention_items"] == []
+    cached = server.forecast_item("/volume1", 12, 412.0)
+    out = server.build_server(area(), {}, {"warning": None}, forecast=cached)
     # P1a (2026-10-22): the forecast's action is Free space (was no action, WP-T3)
-    assert out["attention"] == [{"text": forecast["text"], "href": "/server/space", "action": "Free space",
-                                 "new_tab": False}]
-    assert out["attention_items"] == []
+    assert out["attention"] == [{"text": "Disk: reaches 85% in about 12 days (Volume 1, 412 GB free)",
+                                 "href": "/server/space", "action": "Free space", "new_tab": False}]
+    assert out["attention_items"] == [cached]
 
 
 def test_last_24h_is_marked_to_close_on_a_phone():

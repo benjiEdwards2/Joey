@@ -99,11 +99,14 @@ class FakeGh:
         self.merge_mode = "ok"  # ok | fail | timeout-but-merged
         self.merge_secs = 0  # how long the item merge "takes" on the fake clock
         self.label_time = "2026-10-23T05:30:00Z"
+        self.head_specs = []  # file names under docs/specs on the PR head
 
     def __call__(self, args, timeout=120):
         a = list(args)
         self.calls.append(a)
         if a[0] == "api":
+            if "/contents/docs/specs?ref=" in a[1]:  # the spec listing on the PR head (JY-229)
+                return "".join(f"{n}\n" for n in self.head_specs)
             n = int(a[1].split("/")[4])
             if a[1].endswith("/events"):
                 return self.label_time + "\n" if self.label_time else ""
@@ -694,6 +697,46 @@ def test_dry_run_on_a_doc_only_pr_changes_nothing(w):
     assert w.gh.writes() == [] and w.nas.calls == []
     assert (w.git("rev-parse", "origin/main"), w.origin_sha("main"), w.git("branch")) == before
     assert w.wt.exists() and not (w.root / f"wt-{ITEM}-shipped").exists()
+
+
+@pytest.fixture
+def no_spec_on_main(lw, monkeypatch):
+    """Light world, dry run before the merge: origin/main has no spec for the item (it comes with the PR)."""
+    real = joey_common.git
+
+    def git(*args, **kw):
+        if args[:1] == ("ls-tree",):
+            return ""
+        if args[:1] == ("ls-remote",):
+            return ""
+        return real(*args, **kw)
+
+    monkeypatch.setattr(joey_common, "git", git)
+    monkeypatch.setattr(jco.joey_worktree, "worktrees", lambda clone: [])
+    return lw
+
+
+def test_dry_run_finds_the_spec_on_the_pr_head_before_the_merge(no_spec_on_main):
+    lw = no_spec_on_main
+    lw.item(files=("docs/a.md",))
+    lw.gh.head_specs = ["JY-011-close-out.md", "JY-012-other.md"]
+    rc, out = lw.run("--dry-run")
+    assert rc == 0, out
+    assert (f"DRY   docs.1 find the spec and the HITLIST row - would find {SPEC} after the merge "
+            f"(it is on the PR head, not on origin/main yet)") in out
+    assert not [x for x in rows(out) if x.startswith("FAIL")], out
+    assert ["api", f"repos/example/joey/contents/docs/specs?ref={FAKE_OID}", "--jq", ".[].name"] in lw.gh.calls
+    assert lw.gh.writes() == []
+
+
+def test_dry_run_still_fails_when_the_spec_is_on_neither_main_nor_the_pr_head(no_spec_on_main):
+    lw = no_spec_on_main
+    lw.item(files=("docs/a.md",))
+    lw.gh.head_specs = ["JY-012-other.md"]
+    rc, out = lw.run("--dry-run")
+    assert rc == 1, out
+    assert (f"FAIL  docs.1 find the spec and the HITLIST row - 0 spec files docs/specs/{ITEM}-*.md on origin/main "
+            f"or the PR head (want 1)") in out
 
 
 def test_dry_run_on_a_code_pr_reads_the_nas_but_changes_nothing(w):

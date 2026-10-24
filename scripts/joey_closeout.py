@@ -811,6 +811,19 @@ def close_out(r, a, st):
     def docs_find():
         names = jc.git("ls-tree", "--name-only", "origin/main", "docs/specs/", cwd=clone).splitlines()
         specs = [n for n in names if Path(n).name.startswith(f"{item}-") and n.endswith(".md")]
+        if not specs and dry and not st["resume"]:
+            # JY-229: before the merge the spec reaches origin/main only with the PR, so a dry run looks on the PR head
+            try:
+                listing = gh_run(["api", f"repos/{slug}/contents/docs/specs?ref={st['view']['headRefOid']}",
+                                  "--jq", ".[].name"]).splitlines()
+            except RuntimeError:
+                listing = []
+            on_head = [f"docs/specs/{n.strip()}" for n in listing
+                       if n.strip().startswith(f"{item}-") and n.strip().endswith(".md")]
+            if len(on_head) == 1:
+                st["spec_path"] = on_head[0]  # docs.3's write guard names it
+                return "DRY", f"would find {on_head[0]} after the merge (it is on the PR head, not on origin/main yet)"
+            raise jc.Refused(f"{len(on_head)} spec files docs/specs/{item}-*.md on origin/main or the PR head (want 1)")
         if len(specs) != 1:
             raise jc.Refused(f"{len(specs)} spec files docs/specs/{item}-*.md on origin/main (want 1)")
         st["spec_path"] = specs[0]

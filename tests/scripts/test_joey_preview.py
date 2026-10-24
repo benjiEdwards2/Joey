@@ -716,58 +716,116 @@ def test_real_release_removes_the_lock_of_a_holder_killed_hard(nas_tmp):
 
 
 def test_real_holder_gives_the_lock_up_by_itself(nas_tmp, monkeypatch):
+    # JY-239: the holder removes the lock in its EXIT trap and exits a moment later, so under CI load "lock gone" can
+    # come before "holder gone". Poll for both (a generous deadline, never a fixed wait), then assert both.
     sh = nas_tmp
     monkeypatch.setattr(jp, "LOCK_HOLD_S", 1)
     pid = sh(jp.s_lock_take(SHA, TOKEN))[1].split()[1]
-    deadline = time.monotonic() + 10
-    while sh.lock.exists() and time.monotonic() < deadline:
-        time.sleep(0.05)
+    deadline = time.monotonic() + 60
+    while (sh.lock.exists() or sh.alive(pid)) and time.monotonic() < deadline:
+        time.sleep(0.1)
     assert not sh.lock.exists() and not sh.alive(pid)
 
 
 def test_real_zombie_holder_counts_as_dead_fake_proc(nas_tmp, tmp_path):
     # reviewer B: the gate container (no --init) never reaps the orphaned holder and kill -0 succeeds on a zombie.
-    # A live process stands in for the zombie; a fake /proc says its state is Z.
+    # A live process stands in for the zombie; a fake /proc says its state is Z. Like a zombie, it does not die on the
+    # release's TERM (TERM ignored), so the release can only succeed by counting it dead: otherwise it ends "holder
+    # did not stop", exit 1. JY-239, 2026-10-24: this replaces a wall-clock "< 4 s" check that failed under load.
     sh = nas_tmp
-    zombie = sh.background("sleep 30")
-    proc = tmp_path / "proc"
-    (proc / zombie).mkdir(parents=True)
-    (proc / zombie / "stat").write_text(f"{zombie} (sh) Z 1 {zombie} {zombie} 0 -1 4194560\n")
-    fake = proc.as_posix()
-    assert sh.alive(zombie) and not sh.alive(zombie, proc=fake)
-    fake_lock(sh, zombie, owner=TOKEN)
-    t0 = time.monotonic()
-    rc, out, err = sh(jp.s_lock_release(TOKEN), proc=fake)
-    assert (rc, out) == (0, "released"), err
-    assert not sh.lock.exists() and time.monotonic() - t0 < 4  # no 5 s wait, no "did not stop"
-    fake_lock(sh, zombie)  # a zombie's lock is stale for the next take, too
-    rc, out, err = sh(jp.s_lock_take(SHA, TOKEN), proc=fake)
-    assert rc == 0 and out.endswith(f"stale {zombie}"), (out, err)
-    assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+    ready = tmp_path / "ready"  # written once TERM is ignored: a TERM sent before that would kill it (JY-239)
+    zombie = sh.background(f"""sh -c 'trap "" TERM; : > {ready.as_posix()}; exec sleep 60'""")
+    try:
+        deadline = time.monotonic() + 60
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert ready.exists()
+        proc = tmp_path / "proc"
+        (proc / zombie).mkdir(parents=True)
+        (proc / zombie / "stat").write_text(f"{zombie} (sh) Z 1 {zombie} {zombie} 0 -1 4194560\n")
+        fake = proc.as_posix()
+        sh(f"kill {zombie}")
+        assert sh.alive(zombie) and not sh.alive(zombie, proc=fake)  # TERM did not stop it
+        fake_lock(sh, zombie, owner=TOKEN)
+        rc, out, err = sh(jp.s_lock_release(TOKEN), proc=fake)
+        assert (rc, out) == (0, "released"), err
+        assert not sh.lock.exists() and sh.alive(zombie)
+        fake_lock(sh, zombie)  # a zombie's lock is stale for the next take, too
+        rc, out, err = sh(jp.s_lock_take(SHA, TOKEN), proc=fake)
+        assert rc == 0 and out.endswith(f"stale {zombie}"), (out, err)
+        assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+    finally:
+        sh(f"kill -9 {zombie} 2>/dev/null; true")
 
 
 LINUX_PROC = sys.platform.startswith("linux") and Path("/proc/self/stat").exists()
 
 
+def proc_state(pid):
+    """The state letter from /proc/<pid>/stat; "" once the pid is gone (reaped) or not readable."""
+    try:
+        return Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1][:1]
+    except (OSError, IndexError):
+        return ""
+
+
 @pytest.mark.skipif(not LINUX_PROC, reason="needs Linux /proc")
-def test_real_zombie_holder_counts_as_dead(nas_tmp, tmp_path):
+def test_real_zombie_holder_counts_as_dead(nas_tmp):
+    # JY-239: the zombie is this test's own child, never waited for until the end, so nothing can reap it mid-test (the
+    # old sh-made zombie could be reaped by its shell, then reading its /proc stat raised FileNotFoundError).
     sh = nas_tmp
-    zfile = (tmp_path / "zombie.pid").as_posix()
-    # the subshell starts a child, then execs sleep, which never waits: the child stays a zombie until sleep ends
-    parent = sh.background(f"( sleep 0 </dev/null >/dev/null 2>&1 & echo $! > {zfile}; exec sleep 5 )")
-    deadline = time.monotonic() + 5
-    zombie = ""
-    while time.monotonic() < deadline:
-        zombie = Path(zfile).read_text().strip() if Path(zfile).exists() else ""
-        if zombie and Path(f"/proc/{zombie}/stat").read_text().rsplit(") ", 1)[1].startswith("Z"):
-            break
-        time.sleep(0.05)
-    assert sh(f"kill -0 {zombie} && echo yes")[1] == "yes" and not sh.alive(zombie)
-    fake_lock(sh, zombie, owner=TOKEN)
-    rc, out, err = sh(jp.s_lock_release(TOKEN))
-    assert (rc, out) == (0, "released"), err
-    assert not sh.lock.exists()
-    sh(f"kill {parent} 2>/dev/null; true")
+    child = subprocess.Popen(["sleep", "0"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+    try:
+        zombie = str(child.pid)
+        deadline = time.monotonic() + 60
+        while proc_state(zombie) != "Z" and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert proc_state(zombie) == "Z"
+        assert sh(f"kill -0 {zombie} && echo yes")[1] == "yes" and not sh.alive(zombie)
+        fake_lock(sh, zombie, owner=TOKEN)
+        rc, out, err = sh(jp.s_lock_release(TOKEN))
+        assert (rc, out) == (0, "released"), err
+        assert not sh.lock.exists()
+    finally:
+        child.wait(timeout=60)
+
+
+def test_a_pid_gone_from_proc_counts_as_dead(nas_tmp, tmp_path):
+    # JY-239: kill -0 can pass just before the pid is reaped; with /proc mounted, a missing /proc/<pid> means dead.
+    # A fake /proc holds only `self/stat`, so a live pid's directory is "gone" there.
+    sh = nas_tmp
+    live = sh.background("sleep 30")
+    try:
+        proc = tmp_path / "proc"
+        (proc / "self").mkdir(parents=True)
+        (proc / "self" / "stat").write_text("1 (sh) S 0\n")
+        assert sh.alive(live) and not sh.alive(live, proc=proc.as_posix())
+        assert sh.alive(live, proc=(tmp_path / "no-proc").as_posix())  # no /proc at all: kill -0 decides
+    finally:
+        sh(f"kill {live} 2>/dev/null; true")
+
+
+@pytest.mark.parametrize("stat", ["", None], ids=["empty-stat", "no-stat-file"])
+def test_a_pid_whose_stat_cannot_be_read_counts_as_alive(nas_tmp, tmp_path, stat):
+    # JY-239 fix round (orchestrator must-fix): /proc/<pid> exists but its stat reads empty (a failed sed/cut fork
+    # under load, an unreadable file): fail safe, ALIVE, so a live deploy's lock is never taken as stale.
+    sh = nas_tmp
+    live = sh.background("sleep 30")
+    try:
+        proc = tmp_path / "proc"
+        (proc / "self").mkdir(parents=True)
+        (proc / "self" / "stat").write_text("1 (sh) S 0\n")
+        (proc / live).mkdir()
+        if stat is not None:
+            (proc / live / "stat").write_text(stat)
+        fake = proc.as_posix()
+        assert sh.alive(live, proc=fake)
+        fake_lock(sh, live)
+        assert sh(jp.s_lock_take(SHA, TOKEN), proc=fake)[1] == f"held {live}"  # the deploy's lock stands
+        assert (sh.lock / "pid").read_text().strip() == live
+    finally:
+        sh(f"kill {live} 2>/dev/null; true")
 
 
 def test_jellyfin_url_reason_is_accurate():

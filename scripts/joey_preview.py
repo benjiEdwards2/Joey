@@ -56,9 +56,12 @@ LOCK_HOLD_S = 3600    # the holder releases the lock by itself after this, whate
 PID_RE = re.compile(r"^[0-9]+$")
 # Shell helpers for the lock scripts (BusyBox ash and dash). alive: kill -0 succeeds on a zombie, and in the gate
 # container (no --init) nothing reaps an orphaned holder, so a pid whose /proc/<pid>/stat state is Z counts as dead
-# (JY-228 review). The state is the first field after "(comm) ". nap: a short pause; falls back to 1 s where sleep
-# takes whole seconds only.
+# (JY-228 review). The state is the first field after "(comm) ". With /proc mounted, a pid whose /proc/<pid> directory
+# is gone was reaped between kill -0 and the check: dead (JY-239). Fail safe: a /proc/<pid> that exists but whose stat
+# reads empty (a failed fork of sed/cut under load, a missing tool) is ALIVE, so a live deploy's lock is never taken.
+# With no /proc at all, kill -0 decides. nap: a short pause; falls back to 1 s where sleep takes whole seconds only.
 SH_ALIVE = ("alive() { kill -0 \"$1\" 2>/dev/null || return 1; "
+            "if [ -r \"/proc/self/stat\" ] && [ ! -e \"/proc/$1\" ]; then return 1; fi; "
             "z=$(sed 's/^.*) //' \"/proc/$1/stat\" 2>/dev/null | cut -d' ' -f1); [ \"$z\" != Z ]; }")
 SH_NAP = "nap() { sleep 0.1 2>/dev/null || sleep 1; }"
 

@@ -170,6 +170,9 @@ def test_metadata_long_request_state_short(env, monkeypatch):
     monkeypatch.setattr(time, "time", lambda: clock[0])
     with client:
         client.get("/media/title/movie/603")
+        # JY-224: the first visit's background Seerr read must be over before the clock moves, else it joins or lands
+        # after the jump and the re-read count comes out short (1 == 2) under load
+        media_film.drain_extras()
         clock[0] += 11 * 60                                               # past the 10 min request-state TTL
         client.get("/media/title/movie/603")
         # E1: the stale Jellyfin item no longer holds the page up, so the (F2 background) Seerr re-read may still be

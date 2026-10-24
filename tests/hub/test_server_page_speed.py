@@ -18,6 +18,15 @@ from tests.hub.test_server import env, main_of  # noqa: F401  (env is a fixture)
 T = datetime.now(timezone.utc).replace(microsecond=0)
 
 
+@pytest.fixture(autouse=True)
+def fresh_clock():
+    """T is each test's own start, never the import's: under xdist a test runs minutes after collection, the system
+    envelope (written at the real clock) was then newer than the newest seeded sample, and every render's background
+    sample() added a row between two renders (CI, 2026-10-24)."""
+    global T
+    T = datetime.now(timezone.utc).replace(microsecond=0)
+
+
 class _AnyDatetime(type):
     def __instancecheck__(cls, obj):   # server.py's isinstance(x, datetime) checks still see real datetimes
         return isinstance(obj, datetime)
@@ -98,9 +107,10 @@ def _iso(dt):
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def seed_samples(every_min=30, days=8, newest=T):
+def seed_samples(every_min=30, days=8, newest=None):
     """One row per `every_min` over `days` (some older than the 7-day window), the newest at `newest` (after the system
     envelope, so a render's own sample() adds nothing). /volume1 grows ~1.4 %/day: the forecast episode is open."""
+    newest = newest or T
     rows, k = [], 0
     t = newest - timedelta(days=days)
     while t <= newest:

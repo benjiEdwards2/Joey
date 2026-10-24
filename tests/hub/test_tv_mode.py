@@ -234,13 +234,18 @@ def test_a_boosted_page_swap_or_back_resets_the_first_key_guard(gc):
 
 
 # A fake DOM just big enough for tv.js: elements, simple selectors, focus() firing focusin, document listeners.
-FOCUS_HARNESS = r"""
-var listeners = {};
-function fire(name, ev) { (listeners[name] || []).forEach(function (f) { f(ev); }); }
+# JY-187 (2026-10-24): also descendant selectors ("a b"), an x position, a window scroll offset (the top bar is pinned),
+# window listeners (fire('window:pageshow', ...)), sessionStorage and a timer queue run by flush().
+FAKE_DOM = r"""
+var listeners = {}, timers = [], store = {};
+function fire(name, ev) { (listeners[name] || []).slice().forEach(function (f) { f(ev); }); }
+function setTimeout(f) { timers.push(f); }
+function flush() { while (timers.length) timers.shift()(); }
 function El(tag, opts) {
   opts = opts || {};
   this.tagName = tag.toUpperCase(); this.name = opts.name || tag; this.attrs = opts.attrs || {};
   this.cls = new Set(opts.cls || []); this.top = opts.top == null ? 300 : opts.top;
+  this.left = opts.left == null ? 100 : opts.left;
   this.parentElement = null; this.children = []; this.style = {};
   var self = this;
   this.classList = { add: function (c) { self.cls.add(c); }, remove: function (c) { self.cls.delete(c); },
@@ -253,7 +258,8 @@ El.prototype.removeAttribute = function (a) { delete this.attrs[a]; };
 Object.defineProperty(El.prototype, 'isConnected', { get: function () {
   var p = this; while (p.parentElement) p = p.parentElement; return p === html; } });
 El.prototype.getBoundingClientRect = function () {
-  return { left: 100, top: this.top, width: 100, height: 40, right: 200, bottom: this.top + 40 };
+  var t = this.top - (this.closest('.topbar') ? 0 : window.scrollY);
+  return { left: this.left, top: t, width: 100, height: 40, right: this.left + 100, bottom: t + 40 };
 };
 function simple(el, s) {
   var m = /^([a-z]+)?(.*)$/.exec(s), part, re = /\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]|:not\(([^)]*)\)/g;
@@ -265,7 +271,14 @@ function simple(el, s) {
   }
   return true;
 }
-function matches(el, sel) { return sel.split(',').some(function (s) { return simple(el, s.trim()); }); }
+function matches(el, sel) {
+  return sel.split(',').some(function (s) {
+    var parts = s.trim().split(/\s+/), i = parts.length - 1;
+    if (!simple(el, parts[i--])) return false;
+    for (var p = el.parentElement; p && i >= 0; p = p.parentElement) if (simple(p, parts[i])) i--;
+    return i < 0;
+  });
+}
 function all(root, sel) {
   var out = [];
   (function walk(n) { n.children.forEach(function (k) { if (matches(k, sel)) out.push(k); walk(k); }); })(root);
@@ -285,10 +298,21 @@ var document = {
   querySelector: function (s) { return all(html, s)[0] || null; },
   contains: function (o) { return o.isConnected; }
 };
-var window = { innerHeight: 1080, innerWidth: 1920, scrollTo: function () {}, scrollBy: function () {}, location: {} };
+var window = {
+  innerHeight: 1080, innerWidth: 1920, scrollY: 0,
+  scrollTo: function (x, y) { window.scrollY = Math.max(0, y); },
+  scrollBy: function (x, y) { window.scrollY = Math.max(0, window.scrollY + y); },
+  location: { pathname: '/media/movies', search: '' },
+  addEventListener: function (n, f) { (listeners['window:' + n] = listeners['window:' + n] || []).push(f); },
+  sessionStorage: { getItem: function (k) { return k in store ? store[k] : null; },
+                    setItem: function (k, v) { store[k] = String(v); } }
+};
 function getComputedStyle(el) {
   return { visibility: 'visible', display: 'block', position: el.cls.has('topbar') ? 'sticky' : 'static' };
 }
+"""
+
+FOCUS_HARNESS = FAKE_DOM + r"""
 var brand;
 function page(kind) {   /* a new page in <body>, as a boosted swap or a history restore puts it there */
   body.children.forEach(function (k) { k.parentElement = null; });
@@ -354,3 +378,213 @@ def test_the_first_key_guard_follows_boosted_swaps_under_node(gc, tmp_path):
         "boosted_late_brand": "play", "boosted_early_brand": "play",
         "moved_up": "brand", "partial_swap": "brand", "unswapped_boost": "brand",
         "back_early_brand": "poster", "back_late_brand": "poster"}
+
+
+# ---- JY-187 (U1, 2026-10-24): Back memory, Up to the current pill, first focus on an empty tab, Down to chip 1 ----
+# Findings B1/B2/B3/G3/P5 in JoeyTV\review\TV_UI_EVALUATION_2026-10-23.md. The pages below are the TV layouts in small:
+# the top bar (brand, the five guest sections, the sign-out pill), Movies (sticky sub-tabs + a 4-column grid), Overview
+# (rows of posters, one title twice) and a title page (Play / Trailer / Watchlist, the 1-10 chips, a shelf). load() runs
+# tv.js as a new document does (a full load: Back's reload, the hand-off reopen); boosted() is an htmx boosted swap.
+TV_PAGES = FAKE_DOM + r"""
+var brand;
+function shell(open) {
+  body.children.forEach(function (k) { k.parentElement = null; });
+  body.children = [];
+  if (!document.activeElement.isConnected) document.activeElement = body;
+  brand = new El('a', { name: 'brand', cls: ['brand'], attrs: { href: '/a/media' }, top: 10, left: 50 });
+  var bar = new El('nav', { cls: ['toplinks'], top: 10, left: 300 });
+  [['overview', '/a/media'], ['movies', '/media/movies'], ['tv', '/media/tv'], ['diary', '/media/diary'],
+   ['discover', '/media/discover']].forEach(function (s, i) {
+    var attrs = { href: s[1] };
+    if (s[0] === open) attrs['aria-current'] = 'page';
+    bar.append(new El('a', { name: 'pill-' + s[0], attrs: attrs, top: 10, left: 300 + i * 150 }));
+  });
+  var chip = new El('button', { name: 'userchip', cls: ['userchip'], top: 10, left: 1500 });
+  body.append(new El('header', { cls: ['topbar'], top: 0, kids: [brand, bar, chip] }));
+  var main = new El('main', { cls: ['page'], top: 60 });
+  body.append(main);
+  return main;
+}
+function poster(main, name, id, row, col) {
+  main.append(new El('a', { name: name, cls: ['card-poster'], attrs: { href: '/media/item/' + id }, top: 200 + row * 400,
+                            left: 100 + col * 200 }));
+}
+function movies(rows, tab) {
+  var main = shell('movies'), sub = new El('nav', { cls: ['sectabs', 'sub'], top: 90, left: 100 });
+  [['myfilms', '/media/movies'], ['watchlist', '/media/movies/watchlist'], ['torate', '/media/movies/to-rate']]
+    .forEach(function (t, i) {
+      var attrs = { href: t[1] };
+      if (t[0] === (tab || 'myfilms')) attrs['aria-current'] = 'page';
+      sub.append(new El('a', { name: 'tab-' + t[0], attrs: attrs, top: 90, left: 100 + i * 150 }));
+    });
+  main.append(new El('header', { cls: ['pagehead'], top: 80, kids: [sub] }));
+  if (!rows) main.append(new El('a', { name: 'empty-link', cls: ['btn'], attrs: { href: '/media/discover' }, top: 300 }));
+  for (var n = 1; n <= rows * 4; n++) poster(main, 'p' + n, n, Math.floor((n - 1) / 4), (n - 1) % 4);
+}
+function overview() {   /* 4 rows of 4; o14 (row 4, column 2) is the same title as o2 */
+  var main = shell('overview');
+  for (var n = 1; n <= 16; n++) poster(main, 'o' + n, n === 14 ? 102 : 100 + n, Math.floor((n - 1) / 4), (n - 1) % 4);
+}
+function title() {
+  var main = shell('movies');
+  main.append(new El('div', { cls: ['hero-detail-btns'], kids: [
+    new El('a', { name: 'play', attrs: { href: '/jf/play', 'data-jf-id': 'x' }, top: 300, left: 100 }),
+    new El('a', { name: 'trailer', attrs: { href: '/trailer' }, top: 300, left: 300 }),
+    new El('button', { name: 'watchlist', top: 300, left: 500 })] }));
+  var pick = new El('form', { cls: ['ratepick'], kids: [new El('input', { attrs: { type: 'hidden' }, top: 380 }),
+                                                        new El('span', { cls: ['microlabel'], top: 380 })] });
+  for (var i = 1; i <= 10; i++) pick.append(new El('button', { name: 'chip' + i, attrs: { name: 'score' }, top: 380, left: 100 + (i - 1) * 70 }));
+  main.append(new El('div', { cls: ['tv-rate'], kids: [pick] }));
+  poster(main, 's1', 900, 1, 0);
+}
+function key(k) { fire('keydown', { key: k, preventDefault: function () {} }); }
+function now() { return document.activeElement === body ? 'body' : document.activeElement.name; }
+function boot() {
+/*TV_JS*/
+}
+function load(path, build) {   /* a full page load: Back (historyCacheSize 0 + refreshOnHistoryMiss), the hand-off reopen */
+  listeners = {}; timers = []; window.scrollY = 0; window.location.pathname = path;
+  document.activeElement = body; build(); boot(); flush();
+}
+function boosted(path, build) {   /* OK on a link: htmx swaps the body, pushes the URL, settles, then scrolls to the top */
+  key('Enter');
+  fire('htmx:beforeSwap', { detail: { boosted: true, shouldSwap: true } });
+  window.location.pathname = path; build();
+  fire('htmx:afterSettle', {});
+  window.scrollTo(0, 0);
+  flush();
+}
+var out = {};
+/*SCENARIO*/
+console.log(JSON.stringify(out));
+"""
+
+
+def run_tv_pages(gc, tmp_path, scenario: str) -> dict:
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    script = tmp_path / "pages.js"
+    script.write_text(TV_PAGES.replace("/*TV_JS*/", gc.get("/static/tv.js").text).replace("/*SCENARIO*/", scenario),
+                      encoding="utf-8")
+    run = subprocess.run([node, str(script)], capture_output=True, text=True, timeout=30)
+    assert run.returncode == 0, run.stderr
+    return json.loads(run.stdout)
+
+
+def test_back_restores_the_focused_poster_and_the_scroll_under_node(gc, tmp_path):
+    """B1 (J3/J4 FAIL on the TCL): Back reloads the page and focus went to poster 1 at scroll 0. tv.js now remembers,
+    per URL in sessionStorage, the link last focused with a key inside <main> and the scroll offset, and puts both back
+    on a full load (Back, the hand-off reopen), a boosted swap (also after htmx's own scroll to the top) and a pageshow
+    from the back-forward cache. A top-bar focus is never remembered; a link no longer on the page falls back to
+    first(); of two links to the same title the remembered one comes back."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/movies', function () { movies(5); });
+out.fresh = now();
+['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight'].forEach(key);
+out.picked = now(); out.picked_y = window.scrollY;
+boosted('/media/item/18', title);
+out.title = now();
+load('/media/movies', function () { movies(5); });
+out.back = now(); out.back_y = window.scrollY;
+brand.focus();
+out.back_late_brand = now();
+boosted('/a/media', overview);
+out.ov_fresh = now();
+['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowRight'].forEach(key);
+out.ov_picked = now(); out.ov_y = window.scrollY;
+boosted('/media/movies', function () { movies(5); });
+out.mv_again = now(); out.mv_again_y = window.scrollY;
+boosted('/a/media', overview);
+out.ov_back = now(); out.ov_back_y = window.scrollY;
+key('ArrowLeft'); brand.focus();
+fire('window:pageshow', { persisted: true });
+out.pageshow = now();
+while (now().indexOf('pill-') !== 0 && now() !== 'brand') { out.last_in_main = document.activeElement.attrs.href; key('ArrowUp'); }
+out.top = now();
+var mem = JSON.parse(store[Object.keys(store)[0]] || '{}');
+out.mem_overview = mem['/a/media'] && mem['/a/media'].h;
+load('/media/movies', function () { movies(2); });
+out.missing = now();
+""")
+    assert out["fresh"] == "p1" and out["picked"] == "p18" and out["picked_y"] > 700
+    assert out["title"] == "play"
+    assert out["back"] == "p18" and abs(out["back_y"] - out["picked_y"]) < 1                 # J3/J4: focus + scroll
+    assert out["back_late_brand"] == "p18"                                                 # the WebView's brand focus
+    assert out["ov_fresh"] == "o1" and out["ov_picked"] == "o14" and out["ov_y"] > 300
+    assert out["mv_again"] == "p18" and abs(out["mv_again_y"] - out["picked_y"]) < 1       # boosted, after htmx's scroll
+    assert out["ov_back"] == "o14" and abs(out["ov_back_y"] - out["ov_y"]) < 1             # the second link to item 102
+    assert out["pageshow"] == "o13"
+    assert out["top"] == "pill-overview" and out["last_in_main"].startswith("/media/item/")
+    assert out["mem_overview"] == out["last_in_main"]                                      # the top bar is not remembered
+    assert out["missing"] == "p1"
+
+
+def test_up_from_the_page_lands_on_the_current_section_pill_under_node(gc, tmp_path):
+    """B2/B3 (J5, J8): Up from the sub-tabs or a poster went to the nearest top-bar control, the brand logo, so the
+    sign-out pill was 7 presses from an Overview poster. Up into the top bar now lands on `.toplinks a[aria-current]`
+    (the open section); inside the top bar Up / Left / Right are unchanged."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/movies', function () { movies(2); });
+out.stops = [];
+['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowRight'].forEach(function (k) { key(k); out.stops.push(now()); });
+load('/a/media', overview);
+out.signout = [];
+['ArrowUp', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight'].forEach(function (k) {
+  key(k); out.signout.push(now());
+});
+""")
+    assert out["stops"] == ["tab-myfilms", "pill-movies", "pill-movies", "pill-tv"]
+    assert out["signout"] == ["pill-overview", "pill-movies", "pill-tv", "pill-diary", "pill-discover", "userchip"]
+
+
+def test_first_focus_on_an_empty_tab_is_the_current_sub_tab_under_node(gc, tmp_path):
+    """G3: on an empty Watchlist / To rate tab first focus landed on "My films" (the first focusable). With no Play and
+    no poster it is now the current sub-tab; a poster still wins when there is one."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/movies/watchlist', function () { movies(0, 'watchlist'); });
+out.empty = now();
+load('/media/movies/to-rate', function () { movies(0, 'torate'); });
+out.empty_torate = now();
+load('/media/movies', function () { movies(1); });
+out.with_posters = now();
+""")
+    assert out == {"empty": "tab-watchlist", "empty_torate": "tab-torate", "with_posters": "p1"}
+
+
+def test_down_from_the_title_buttons_lands_on_chip_one_under_node(gc, tmp_path):
+    """P5 (J9): Down from the title buttons landed on the nearest rating chip (8 from Watchlist). Down from a
+    `.hero-detail-btns` control into `.tv-rate` now lands on its first control; the rest of the walk is unchanged."""
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/item/1', title);
+out.stops = [now()];
+['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowRight', 'ArrowDown'].forEach(function (k) { key(k); out.stops.push(now()); });
+load('/media/item/2', title);
+key('ArrowDown');
+out.from_play = now();
+""")
+    assert out["stops"] == ["play", "trailer", "watchlist", "chip1", "chip2", "s1"]
+    assert out["from_play"] == "chip1"
+
+
+def test_the_tv_pages_carry_what_the_jy187_rules_read(gc):
+    """The node tests above skip in the gate (no node there); this one runs everywhere. The rules read the current
+    section pill (`.toplinks a[aria-current]`) and sub-tab (`.sectabs.sub [aria-current]`) on a TV Movies tab and the
+    title buttons (`.hero-detail-btns`) above the chips (`.tv-rate`); tv.js names those selectors and keeps its memory
+    in sessionStorage, restored on pageshow too."""
+    tv = {"User-Agent": TV_UA}
+    page = gc.get("/media/movies/to-rate", headers=tv).text
+    assert is_tv(page)
+    bar = re.search(r'<nav class="toplinks"[^>]*>(.*?)</nav>', page, flags=re.S).group(1)
+    assert re.findall(r'<a href="([^"]+)" aria-current="page">', bar) == ["/media/movies"]
+    sub = re.search(r'<nav class="sectabs sub"[^>]*>(.*?)</nav>', page, flags=re.S).group(1)
+    assert re.findall(r'<a href="([^"]+)" aria-current="page">', sub) == ["/media/movies/to-rate"]
+    item = "f11f" * 8
+    gc.fake.items[item] = {"Id": item, "Type": "Movie", "Name": "Chip Film", "ProductionYear": 2001,
+                           "Overview": "A synopsis line.", "ProviderIds": {"Tmdb": "777"}, "RunTimeTicks": 100 * 600_000_000}
+    film = gc.get(f"/media/item/{item}", headers=tv).text
+    assert film.index('class="hero-detail-btns"') < film.index('<div class="tv-rate">')
+    js = gc.get("/static/tv.js").text
+    for needle in (".toplinks a[aria-current]", "'.sectabs.sub [aria-current]'", "'.hero-detail-btns'", "'.tv-rate'",
+                   "window.sessionStorage", "addEventListener('pageshow'"):
+        assert needle in js, needle

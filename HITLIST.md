@@ -184,8 +184,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-200 | Uptime Kuma 1 → 2 upgrade | NAS | S | idea | Pending since 2026-10-05; B. runs it | — |
-| JY-201 | Jellyseerr image frozen → Seerr | NAS | S | idea | Verify the move; Seerr 3.5.0 may mean done | — |
+| JY-200 | Uptime Kuma 1 → 2 upgrade | NAS | S | [x] shipped | Verified 2026-10-24 (read-only): uptime-kuma runs `louislam/uptime-kuma:2` (2.5.6); JY-144 fixed the parser for 2.x | — |
+| JY-201 | Jellyseerr image frozen → Seerr | NAS | S | [x] shipped | Verified 2026-10-24 (read-only): Seerr runs `ghcr.io/seerr-team/seerr:v3.5.1`; old Jellyseerr image still on disk (cleanup is B.'s) | — |
 | JY-202 | Other NAS tidy items (WUD, ADM cron, docker.sock, ports) | NAS | M | idea | N-34, N-35, N-43, N-52, N-53; deploy.sh pull retry is JY-206 | — |
 | JY-203 | qBittorrent queue limits | NAS | S | idea | Raise to 8 / 12, skip slow torrents | — |
 | JY-204 | qBittorrent bound to tun0; gluetun DNS blocklist off | NAS | S | idea | 0 seeds + tracker errors; check against the Proton switch | — |
@@ -213,6 +213,11 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-225 | Flaky test: `test_runner_history_tail` 2 ms wall-clock limit | Tests | S | idea | Fails 2 in 8 under load; timing assert too tight | — |
 | JY-229 | close-out polish: dry run shows docs.1 as DRY before the merge; `tests/scripts/` takes ~7 min serial on Windows (git subprocesses) | Tooling | S | [x] shipped | JY-011 first live use, 2026-10-23 · PR #64 | [spec](docs/specs/JY-229-closeout-polish.md) |
 | JY-234 | Preview lock follow-ups: PID-reuse guard via the holder's token, owner/pid write races, hold vs teardown timeouts | NAS/deploy | S | idea | JY-228 Opus verifier should-fixes (low probability) | — |
+| JY-235 | Gate ≤ 10 min on the NAS: quiet-NAS `--durations` profile, `-n 3` trial only if still over, three deploys ≤ 600 s | NAS/deploy | M | idea | JY-227 split (criteria 3–5 + NAS half of 1), 2026-10-24 | — |
+| JY-236 | Flaky test: `test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links` | Tests | S | idea | Failed under load twice on 2026-10-24 (JY-101, JY-153 builds); passes alone | — |
+| JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | idea | 2 errors on main under load (JY-104 build, 2026-10-24); pass alone | — |
+| JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | idea | JY-140 review should-fix, 2026-10-24 | — |
+| JY-239 | Flaky JY-228 lock tests on Linux CI (holder self-expiry timing; /proc race) | Tests | S | building | Turned three unrelated PRs red on 2026-10-24 | — |
 
 ### Parked features
 

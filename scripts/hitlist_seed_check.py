@@ -273,6 +273,11 @@ SOURCES = [
     ("JY-021 worktree list (2026-10-23)", "unmerged wt-rq3 worktree", "JY-232", "built 2026-10-22, never reviewed"),
     ("B. in the orchestrator session (2026-10-24)", "hub card titles easier to see", "JY-233", "options round 2, pick B"),
     ("JY-228 Opus verifier (2026-10-24)", "preview lock should-fixes", "JY-234", "not blocking the merge"),
+    ("orchestrator sweep (2026-10-24)", "gate time NAS proof split from JY-227", "JY-235", "criteria 3-5"),
+    ("orchestrator sweep (2026-10-24)", "flaky trailer test", "JY-236", "seen twice under load"),
+    ("orchestrator sweep (2026-10-24)", "flaky small-waste file", "JY-237", "errors under -n 4"),
+    ("orchestrator sweep (2026-10-24)", "LAN word single source", "JY-238", "JY-140 review"),
+    ("orchestrator sweep (2026-10-24)", "flaky JY-228 lock tests on CI", "JY-239", "three PRs red"),
 ]
 
 

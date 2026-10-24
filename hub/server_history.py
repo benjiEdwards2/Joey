@@ -17,6 +17,9 @@ one `recent()` read and one `server.forecast_step`. The hub render reads it with
 the /server render and `server_alerts.check_once` with `forecast`, which computes once only when nothing is cached
 yet (the minute after a start). The open episode outlives a restart (the NAS is off every night): the first
 compute after a start treats a `forecast:<path>` row in server_attention_seen as an open episode.
+
+JY-226 (2026-10-24): `recent()` keeps the decoded rows in memory and re-reads the table only when its key (db path,
+`MAX(ts)`, `COUNT(*)`) changes, so a new sample or a prune shows on the next read; `since` is filtered in Python.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ import json
 import logging
 import sqlite3
 import threading
+from bisect import bisect_left
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
@@ -100,30 +104,58 @@ def sample(snaps=None) -> bool:
         return False
 
 
+_rows_lock = threading.Lock()
+_rows_kept: dict | None = None   # {"key": (db path, MAX(ts), COUNT(*)), "ts": [ts, ...], "rows": [decoded row, ...]}
+
+
+def _decode(rows) -> tuple[list[str], list[dict]]:
+    """All table rows (ORDER BY ts) -> (their ts, the recent() dicts). A NULL ts never matched `ts >= since`."""
+    stamps, out = [], []
+    for r in rows:
+        if r["ts"] is None:
+            continue
+        try:
+            vols = json.loads(r["volumes"] or "[]")
+        except ValueError:
+            vols = []
+        stamps.append(r["ts"])
+        out.append({"at": parse_utc(r["ts"]), "cpu_pct": r["cpu_pct"], "ram_pct_used": r["ram_pct_used"],
+                    "ram_free_gb": r["ram_free_gb"], "load_1m": r["load_1m"],
+                    "volumes": [v for v in vols if isinstance(v, dict)]})
+    return stamps, out
+
+
 def recent(now: datetime | None = None, days: int = 7) -> list[dict]:
     """Samples of the last `days` days, oldest first: {at (datetime), cpu_pct, ram_pct_used,
-    ram_free_gb, load_1m, volumes (list)}. No media.db (or unreadable) ⇒ []. Never creates it."""
-    if not media_db.db_path().is_file():
+    ram_free_gb, load_1m, volumes (list)}. No media.db (or unreadable) ⇒ []. Never creates it.
+    JY-226: the rows are decoded once and kept; each read asks only for the table's key (db path, MAX(ts), COUNT(*))
+    and re-reads the whole table when it changed. The list is new on every call; the dicts in it are shared, read-only."""
+    global _rows_kept
+    path = media_db.db_path()
+    if not path.is_file():
         return []
     since = _iso((now or _now()) - timedelta(days=days))
     try:
         with closing(media_db.connect()) as db:
             ensure(db)
-            rows = db.execute("SELECT * FROM server_system_samples WHERE ts >= ? ORDER BY ts",
-                              (since,)).fetchall()
+            key = (str(path), *db.execute("SELECT MAX(ts), COUNT(*) FROM server_system_samples").fetchone())
+            with _rows_lock:
+                kept = _rows_kept
+                if kept is None or kept["key"] != key:
+                    # A write between the key and this read only makes the next call read again: never stale.
+                    stamps, rows = _decode(db.execute("SELECT * FROM server_system_samples ORDER BY ts").fetchall())
+                    kept = _rows_kept = {"key": key, "ts": stamps, "rows": rows}
     except (sqlite3.Error, OSError) as exc:
         log.warning("server history unreadable: %s", type(exc).__name__)
         return []
-    out = []
-    for r in rows:
-        try:
-            vols = json.loads(r["volumes"] or "[]")
-        except ValueError:
-            vols = []
-        out.append({"at": parse_utc(r["ts"]), "cpu_pct": r["cpu_pct"], "ram_pct_used": r["ram_pct_used"],
-                    "ram_free_gb": r["ram_free_gb"], "load_1m": r["load_1m"],
-                    "volumes": [v for v in vols if isinstance(v, dict)]})
-    return out
+    return kept["rows"][bisect_left(kept["ts"], since):]
+
+
+def clear_cache() -> None:
+    """Forget the kept rows (tests; the next recent() reads the table afresh)."""
+    global _rows_kept
+    with _rows_lock:
+        _rows_kept = None
 
 
 # ---- JY-031: the disk forecast, once per hub loop tick -------------------------------------------------------------

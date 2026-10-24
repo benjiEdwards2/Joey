@@ -408,7 +408,8 @@ probes run six at a time (5 s timeout each), so a filtered port no longer stretc
 `radarr` (`movies` = all, `missing` = monitored without a file, `wanted` = those also released/available, `queued` =
 the queue's `totalRecords`) from `GET /api/v3/movie`; `sonarr` (`series`, `wanted` = `/api/v3/wanted/missing`
 `totalRecords`, `queued`) from `GET /api/v3/series` + that paged call; and `prowlarr` (`grabs`, `queries`,
-`failed_grabs`, `failed_queries` summed over `GET /api/v1/indexerstats` indexers, plus `indexers` = count).
+`failed_grabs`, `failed_queries` summed over `GET /api/v1/indexerstats` indexers, plus `indexers` = count; the call
+passes `startDate` / `endDate` for the last 7 days, because without them Prowlarr answers all-time, JY-143).
 `queued` reuses the queue the feed already fetches. **Partial-ok, like gcal's one-feed-down rule:** a failed
 count call nulls only that app's object (logged with a sanitised reason, no `app_errors` entry), an app that is
 down has no counts, and `PROWLARR_URL`/`PROWLARR_API_KEY` unset means `prowlarr: null` — none of these fails

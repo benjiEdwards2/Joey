@@ -47,6 +47,9 @@ ARR_COMMAND_PATH = "/api/v3/command"
 LAST_SEARCH = {"CutoffUnmetMoviesSearch": "upgrades", "CutoffUnmetEpisodeSearch": "upgrades",
                "MissingMoviesSearch": "missing", "MissingEpisodeSearch": "missing"}
 # Prowlarr is optional: env unset or the call failing -> `prowlarr: null`, the run stays ok.
+# JY-143 (2026-10-24): `/api/v1/indexerstats` is cumulative unless it gets startDate / endDate (verified live), so the
+# call asks for the last ARR_WINDOW_DAYS: a failed grab ages out and the hub's amber clears.
+STATS_TS = "%Y-%m-%dT%H:%M:%SZ"
 PROWLARR_ENV = ("PROWLARR_URL", "PROWLARR_API_KEY")
 PROWLARR_STATS = (("grabs", "numberOfGrabs"), ("queries", "numberOfQueries"),
                   ("failed_grabs", "numberOfFailedGrabs"), ("failed_queries", "numberOfFailedQueries"))
@@ -185,7 +188,9 @@ class Arr(Connector):
             try:
                 raw["raw_prowlarr_indexerstats"] = http_json(
                     "prowlarr", os.environ["PROWLARR_URL"].rstrip("/") + "/api/v1/indexerstats",
-                    headers={"X-Api-Key": os.environ["PROWLARR_API_KEY"]}, session=client)
+                    headers={"X-Api-Key": os.environ["PROWLARR_API_KEY"]}, session=client,
+                    params={"startDate": (now - timedelta(days=ARR_WINDOW_DAYS)).astimezone(timezone.utc).strftime(STATS_TS),
+                            "endDate": now.astimezone(timezone.utc).strftime(STATS_TS)})
             except RuntimeError as exc:
                 log.warning("arr: prowlarr stats failed (%s)", exc.reason)
         return raw

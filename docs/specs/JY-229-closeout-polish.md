@@ -1,6 +1,6 @@
 # JY-229 close-out polish
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none (dry-run reporting and tests only; the merge and deploy paths do not change)
 Area: `scripts/joey_closeout.py`, `tests/scripts/`
@@ -38,4 +38,8 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #64, squash-merged as `0e8e863` (0e8e86388f658ba5f2b20bc8cb3c9f3225415d00).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

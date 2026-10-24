@@ -126,6 +126,7 @@ def test_tv_title_never_asks_for_ratingscombined(env):
     with client:
         client.get("/media/item/ser1")
         client.get("/media/title/tv/100")
+        media_film.drain_extras()   # JY-244: the page's background read (film-extras pool) must land before the count
     seerr = paths(both, SEERR)
     assert not [p for p in seerr if p.endswith("ratingscombined")]
     assert seerr.count("/api/v1/tv/100/ratings") == 1
@@ -135,9 +136,11 @@ def test_a_404_is_remembered_across_cache_clears_and_restarts(env):
     client, both = env()
     with client:
         client.get("/media/title/tv/100")
+        media_film.drain_extras()   # JY-244: the page's background read (film-extras pool) must land before the caches are cleared
         md.clear_cache()            # memory gone (as after a deploy restart); the meta files stay on disk
         media_item.clear_cache()
         client.get("/media/title/tv/100")
+        media_film.drain_extras()   # JY-244: the page's background read (film-extras pool) must land before the count
     assert paths(both, SEERR).count("/api/v1/tv/100/ratings") == 1        # the 404 answer came from disk
     assert paths(both, SEERR).count("/api/v1/tv/100") == 2                # the title body (request state) did not
 
@@ -146,8 +149,10 @@ def test_short_cache_remembers_a_404_too(env):
     client, both = env()
     with client:
         client.get("/media/item/ser1")
+        media_film.drain_extras()   # JY-244: the page's background read (film-extras pool) must land before the cache is cleared
         media_item.clear_cache()
         client.get("/media/item/ser1")
+        media_film.drain_extras()   # JY-244: the page's background read (film-extras pool) must land before the count
     assert paths(both, SEERR).count("/api/v1/tv/100/similar") == 1
 
 
@@ -184,6 +189,7 @@ def test_metadata_long_request_state_short(env, monkeypatch):
         assert s.count("/api/v1/movie/603/ratingscombined") == 1          # ratings: long
         clock[0] += md.META_TTL
         client.get("/media/title/movie/603")
+        media_film.drain_extras()   # JY-244: the page's background read (film-extras pool) must land before the count
     assert paths(both, SEERR).count("/api/v1/movie/603/ratingscombined") == 2
 
 

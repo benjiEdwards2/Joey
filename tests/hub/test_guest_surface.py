@@ -75,6 +75,25 @@ def test_signed_in_friend_gets_the_same_404(media, friend, client):
         assert get(client, path).content == unknown.content, path
 
 
+HOUSEHOLD = Identity(owner="you", name="Sample Alias", jf_user_id="a1" * 16)
+
+
+@pytest.mark.parametrize("who", [FRIEND, HOUSEHOLD], ids=["friend", "household"])
+def test_the_404_names_who_is_signed_in(media, client, monkeypatch, who):
+    """JY-190 (F1, TV UI review 2026-10-23): the 404 said "Not signed in" over a valid session. A denied path and an
+    unknown one are still the same page, now with the signed-in user's chip."""
+    monkeypatch.setattr(guest, "identity_provider", lambda scope: who)
+    unknown = get(client, "/no-such-page-xyz")
+    denied = get(client, "/server")
+    assert (unknown.status_code, denied.status_code) == (404, 404) and denied.content == unknown.content
+    assert who.name in unknown.text and "Not signed in" not in unknown.text
+
+
+def test_the_404_without_a_session_stays_not_signed_in(media, client):
+    r = get(client, "/server")
+    assert r.status_code == 404 and "Sample Friend" not in r.text
+
+
 def test_root_redirects_to_the_guest_home(media, client):
     r = get(client, "/")
     assert r.status_code == 303 and r.headers["location"] == home() == "/a/media"

@@ -9,8 +9,9 @@ in hub.guest_auth; this module is the five routes (hub.guest.SIGNIN, all PUBLIC)
 * POST /signin/password   username + password (Jellyfin /Users/AuthenticateByName); a refusal of any kind reads
                           "Wrong username or password" after WRONG_DELAY_S; 5 failures per username in 15 min are
                           refused without calling Jellyfin (Q28).
-* POST /signout           Jellyfin /Sessions/Logout with the token (best effort), the verdict evicted, the cookie
-                          cleared, 303 /signin.
+* POST /signout           Jellyfin /Sessions/Logout with the token (best effort), the verdict evicted, then (JY-190,
+                          L4) a friend's own Jellyfin device deleted with the admin key (best effort,
+                          guest_auth.remove_device), the cookie cleared, 303 /signin.
 
 The TV signs in on this same page (Q33: the shell has no native sign-in screen); WP-B3 adds the 10-foot TV styling.
 Every POST passes hub.media_write.same_origin. On the private front every route is the ordinary 404.
@@ -175,6 +176,15 @@ async def password_signin(request: Request):
     return resp
 
 
+def _whose(token: str, device: str, tv: bool):
+    """The signing-out session's identity (the cached verdict, else /Users/Me), or None when Jellyfin cannot say."""
+    try:
+        return guest_auth.validate(token, device, tv)
+    except Unreachable as exc:
+        log.warning("guest: sign-out identity unknown (%s)", exc)
+        return None
+
+
 @router.post("/signout", dependencies=[Depends(same_origin)])
 async def signout(request: Request):
     if not guest.is_media():
@@ -182,10 +192,13 @@ async def signout(request: Request):
     cookies = guest_auth.cookies_of(request.headers)
     token = cookies.get(guest_auth.cookie_name(SESSION)) or ""
     if guest_auth.TOKEN_RE.match(token):
-        await run_in_threadpool(guest_auth.logout, token, guest_auth.device_of(cookies),
-                                guest_auth.is_tv(request.headers))
+        device, tv = guest_auth.device_of(cookies), guest_auth.is_tv(request.headers)
+        ident = await run_in_threadpool(_whose, token, device, tv)   # before the logout: the token still answers
+        await run_in_threadpool(guest_auth.logout, token, device, tv)
         guest_auth.forget(token)   # after the logout: a request racing it cannot re-cache a valid verdict
         log.info("guest: signed out")
+        if ident is not None:
+            await run_in_threadpool(guest_auth.remove_device, device, ident)
     resp = RedirectResponse("/signin", status_code=303)
     resp.headers.append("set-cookie", guest_auth.clear_cookie_header(SESSION))
     return resp

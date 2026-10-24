@@ -77,6 +77,11 @@ class FakeJellyfin:
         self.resume: dict[str, list] = {}     # user id -> GET /UserItems/Resume Items (WP-B3 guest Overview)
         self.history: dict[str, list] = {}    # user id -> GET /Items?IsPlayed=true&SortBy=DatePlayed Items
         self.shelf_raises: type[Exception] | None = None   # the two shelf reads raise this (Jellyfin down)
+        # JY-190 (L4): Jellyfin's device list. A sign-in adds its DeviceId (LastUserId in the dashed GUID form the API
+        # returns); /Sessions/Logout leaves it behind, as 12.2 does; only the admin key may read or delete one.
+        self.devices: dict[str, dict] = {}
+        self.devices_raises: type[Exception] | None = None   # GET /Devices/Info raises this
+        self.device_delete_status = 204                    # DELETE /Devices answers this status
 
     # ---- test helpers ----
     def token_for(self, uid: str) -> str:
@@ -114,7 +119,14 @@ class FakeJellyfin:
         body["SessionInfo"].update(UserId=uid, UserName=self.users[uid]["Name"], DeviceId=auth.get("DeviceId"),
                                    Client=auth.get("Client"), DeviceName=auth.get("Device"))
         body.update(AccessToken=token, ServerId="srv-fake")
+        self.add_device(auth.get("DeviceId"), uid, auth.get("Client"))
         return body
+
+    def add_device(self, device_id: str, uid: str, app: str = "Joey Media") -> None:
+        dashed = "-".join((uid[:8], uid[8:12], uid[12:16], uid[16:20], uid[20:]))
+        self.devices[device_id] = {"Id": device_id, "Name": "Joey Media TV", "AppName": app, "AppVersion": "1.0.0",
+                                   "LastUserName": self.users[uid]["Name"], "LastUserId": dashed,
+                                   "DateLastActivity": "2026-10-23T09:00:00.0000000Z"}
 
     def _qc_body(self, name: str, secret: str) -> dict:
         body = copy.deepcopy(fixture(name)["body"])
@@ -167,6 +179,13 @@ class FakeJellyfin:
                 return Resp(None, 401)
             rows = (self.resume if path == "/UserItems/Resume" else self.history).get(uid, [])
             return Resp({"Items": copy.deepcopy(rows), "TotalRecordCount": len(rows), "StartIndex": 0})
+        if path == "/Devices/Info":
+            if auth != {"Token": KEY}:
+                return Resp(None, 401)
+            if self.devices_raises:
+                raise self.devices_raises(f"Read timed out: {url}")
+            dev = self.devices.get(str(query.get("id")))
+            return Resp(copy.deepcopy(dev)) if dev else Resp(None, 404)
         m = re.fullmatch(r"/Users/([0-9a-f]{32})/Items/([A-Za-z0-9-]+)", path)
         if m and m.group(2) in self.items:
             played = m.group(2) in self.played.get(m.group(1), set())
@@ -207,6 +226,12 @@ class FakeJellyfin:
     def delete(self, url, params=None, headers=None, timeout=None, **kw):
         assert timeout
         path, auth, query = self._record("DELETE", url, headers, params=params)
+        if path == "/Devices":
+            if auth != {"Token": KEY}:
+                return Resp(None, 401)
+            if self.device_delete_status < 300:
+                self.devices.pop(str(query.get("id")), None)
+            return Resp(None, self.device_delete_status)
         return Resp({}, 200)
 
 

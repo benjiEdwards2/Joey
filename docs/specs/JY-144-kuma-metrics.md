@@ -1,6 +1,6 @@
 # JY-144 Uptime Kuma metrics failed on /server
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `connectors/feeds/uptime_kuma.py`, `connectors/fixtures/uptime_kuma/raw.txt`, `tests/connectors/test_uptime_kuma.py`
@@ -40,4 +40,8 @@ None: one obvious fix (exact name match instead of prefix).
 None.
 
 ## Shipped notes
-Build check 2026-10-24: the fixed parser run read-only against the live payload inside `joey-connectors` parsed 14 monitors (12 up, 2 pending at the time), 11 with a response time. Counts only were printed.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #73, squash-merged as `3b20517` (3b205178282a6b354b251824cc264b98f013080e).
+- Deploy: `2026-10-24T01:59:26Z PASS prev=8ffae27 new=3b20517 suite green, smoke ok tv=current end=2026-10-24T02:25:45Z dur=1579s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

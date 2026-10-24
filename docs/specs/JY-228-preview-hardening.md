@@ -1,6 +1,6 @@
 # JY-228 Preview slot hardening
 
-Status: spec
+Status: building
 Size: S
 Live risk: NAS write (the preview slot only; reviewed as L)
 Area: `scripts/joey_preview.py`, `deploy/preview/`, `tests/scripts/test_joey_preview.py`, `tests/deploy/test_preview_compose.py`
@@ -35,6 +35,7 @@ A preview timer or auto-teardown. Connector previews.
 - CI green; reviews posted; the live check output in the PR.
 
 ## Questions for B.
+Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance." = every recommended answer below, and ready.
 None.
 
 ## Shipped notes

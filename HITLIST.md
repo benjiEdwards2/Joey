@@ -95,7 +95,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-110 | Requests page 4K badge lags | Media | S | idea | Shows lag 10 min; films fill on second view | — |
 | JY-111 | Old arr profile id shows no Quality line | Media | S | parked | One-off re-save or a fallback (decision) | — |
 | JY-112 | Quality chips hide when profile list unreadable | Media | S | parked | Also Seerr's folder/tags options (decision) | — |
-| JY-113 | Sonarr-only seasons get no Seasons row | Media | S | idea | Only a "Season N announced" word | — |
+| JY-113 | Sonarr-only seasons get no Seasons row | Media | S | [x] shipped | Only a "Season N announced" word · PR #90 | [spec](docs/specs/JY-113-sonarr-seasons.md) |
 | JY-114 | Season state on Recently added + hub progress words | Media | S | idea | Rows have no episode count | — |
 | JY-115 | Connector: flag series with 0 Jellyfin episodes at source | Media | S | idea | Hub already treats them as waiting | — |
 | JY-116 | Season page head: "Season N" eyebrow + S-switch check | Media | S | idea | Switch did not show in the preview | — |

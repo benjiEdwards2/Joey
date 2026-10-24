@@ -1,6 +1,6 @@
 # JY-113 Sonarr-only seasons get no Seasons row
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_season_state.py`, `hub/media_film.py` (the show page's Seasons data), `hub/templates/media_film.html` (the Seasons section), `tests/hub/`
@@ -38,4 +38,8 @@ Answer (orchestrator, 2026-10-24, under B.'s standing instruction to close out d
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #90, squash-merged as `58bdc13` (58bdc136e700a1e3b9fe3b2478eae839b907c81c).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

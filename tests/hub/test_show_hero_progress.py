@@ -42,4 +42,5 @@ def test_episode_page_keeps_its_own_line(env):
     with client:
         recorded("jf:ser1", 45)
         line = status(client.get("/media/item/ep3").text)
-    assert "left" not in line and "~" not in line
+    # JY-100 (2026-10-24): an episode page says "2 left" like the show page (was "2 to watch"); still no hours
+    assert line == "On server · 6 episodes · 2 left · S4 E4 next" and "to watch" not in line and "~" not in line

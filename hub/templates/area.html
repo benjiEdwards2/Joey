@@ -14,11 +14,11 @@
   {% for row in tiles %}
     {% set t = row.tile %}{% set st = row.st %}
     {% if st.state == "link" %}
-      {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true) }}
+      {{ kpi(st.href, t.label, none, area.icon, st, t.owner.value, value="Open ↗", sub="New tab", new_tab=true, tone=area.tone) }}
     {% elif t.detail %}
-      {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value) }}
+      {{ kpi(t.detail, t.label, none, area.icon, st, t.owner.value, tone=area.tone) }}
     {% else %}
-      {{ kpi(none, t.label, none, area.icon, st, t.owner.value) }}
+      {{ kpi(none, t.label, none, area.icon, st, t.owner.value, tone=area.tone) }}
     {% endif %}
   {% endfor %}
 </section>

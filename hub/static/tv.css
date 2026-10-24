@@ -151,6 +151,11 @@ html.tv .chip, html.tv .statusline, html.tv .facts-line, html.tv .tagline, html.
 html.tv .label, html.tv .awpick-name, html.tv .awtile-name, html.tv .awtile-month, html.tv .awnext, html.tv .awnextup, html.tv .awnextup *,
 html.tv .awev, html.tv .awev *, html.tv .seg a { font-size: 16px; }
 
+/* JY-233: the hub tile's icon chip and title scale up for 10-foot viewing. */
+html.tv .tile-icon { width: 60px; height: 60px; border-radius: 14px; }
+html.tv .tile-icon svg.ic { width: 34px; height: 34px; }
+html.tv .tile-main .microlabel { font-size: 26px; }
+
 /* Buttons: 56 px targets. */
 html.tv .btn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600; }
 html.tv .btn-sm { min-height: 44px; padding: 0 18px; font-size: 18px; }

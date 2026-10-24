@@ -1,7 +1,7 @@
 {# Hub / area / Server summary tile (restyle Phase 4, 2026-10-06; guide 6 "Stats strip" look). A .panel holding a
    .microlabel, one big value (.stat-number for a number, else .stat-word), ONE .row-meta line (label · detail · owner;
    E3 2026-10-13: the owner word only when it is You or Her — "Shared" says nothing once everything is shared)
-   and the area icon at the right. Amber (.badge-wait) only when something is stale or `warn` (the
+   and the area icon in a chip before the title (JY-233). Amber (.badge-wait) only when something is stale or `warn` (the
    Server card's "Needs attention") = something to do; "Not
    connected" is a muted grey .st-off word (guide 9: no amber that never goes away). Optional: a progress .bar
    (pct) or a tiny per-day bar chart (bars) from real snapshot data, "waiting on you" badges, and `jump` (an app
@@ -10,7 +10,7 @@
 {% from "_rows.html" import meta %}
 {% from "_waiting.html" import waitchips %}
 {% macro kpi(href, micro, label, icon, st, owner, value=none, sub=none, extra=none, waiting=none, jump=none,
-             bars=none, pct=none, new_tab=false, cls="") -%}
+             bars=none, pct=none, new_tab=false, cls="", tone=none) -%}
 {% set off = st.state == "off" %}
 {% set val = "Not connected" if off else (value if value is not none else st.value) %}
 {# U22 (2026-10-13): the big 24 px .stat-number only for a number (digits, "," "." "%"); every word is the 18 px .stat-word, so
@@ -19,12 +19,12 @@
 {% set detail = st.note if off else (sub if sub is not none else st.secondary) %}
 {% set body %}
   <div class="tile-top">
+    <span class="tile-icon">{{ ic.icon(icon) }}</span>
     <div class="tile-main">
       <div class="microlabel">{{ micro }}</div>
       <div class="tile-value {{ 'stat-word st-off' if off else ('stat-number' if numeric else 'stat-word') }}">{{ val }}</div>
       {{ meta([label, detail, (extra if not off else none), ((owner | title) if owner != "shared" else none)]) }}
     </div>
-    <span class="tile-icon">{{ ic.icon(icon) }}</span>
   </div>
   {% if not off and bars %}{% set top = [bars|max, 1]|max %}
   <svg class="tile-spark" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true">
@@ -35,6 +35,10 @@
   <div class="bar" role="img" aria-label="{{ pct }}% watched"><span style="width: {{ pct }}%"></span></div>
   {% endif %}
 {% endset %}
+{# JY-233: `tone` is a colour token name from the area's config (`tone:` in areas.yaml, validated by hub/registry.py); the
+   tile carries it as --tone, which the icon chip fills with. No tone: no data-tone, no style, the neutral chip. #}
+{% set tcls = (" " ~ cls) if cls else "" %}
+{% set tstyle %}{% if tone %} data-tone="{{ tone }}" style="--tone: var(--{{ tone }})"{% endif %}{% endset %}
 {% set wc %}{{ waitchips(waiting) }}{% endset %}
 {% set foot %}
   {% if st.state in ("stale", "warn") or wc|trim or jump %}
@@ -46,13 +50,13 @@
   {% endif %}
 {% endset %}
 {% if href is none %}
-<div class="panel tile{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">{{ body }}{{ foot }}</div>
+<div class="panel tile{{ tcls }}" data-owner="{{ owner }}"{{ tstyle }}>{{ body }}{{ foot }}</div>
 {% elif jump %}
-<div class="panel tile split{% if cls %} {{ cls }}{% endif %}" data-owner="{{ owner }}">
+<div class="panel tile split{{ tcls }}" data-owner="{{ owner }}"{{ tstyle }}>
   <a class="tile-body" href="{{ href }}">{{ body }}</a>
   {{ foot }}
 </div>
 {% else %}
-<a class="panel tile{% if cls %} {{ cls }}{% endif %}" href="{{ href }}"{% if new_tab %} target="_blank" rel="noopener"{% endif %} data-owner="{{ owner }}">{{ body }}{{ foot }}</a>
+<a class="panel tile{{ tcls }}" href="{{ href }}"{% if new_tab %} target="_blank" rel="noopener"{% endif %} data-owner="{{ owner }}"{{ tstyle }}>{{ body }}{{ foot }}</a>
 {% endif %}
 {%- endmacro %}

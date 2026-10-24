@@ -441,21 +441,27 @@ details.fold[open] > summary::before { content: "- "; }
 .stat.wide { grid-column: 1 / -1; }
 @media (min-width: 640px) { .stat.wide { grid-column: auto; flex: 1 1 12rem; min-width: 12rem; } }
 
-/* Summary tiles (hub, area, Server): a .panel with a .microlabel, one value, one .row-meta line and the icon at the
-   right. A link tile gets a hover border; a tile with a "Jump back in" button is a div holding sibling anchors. */
+/* Summary tiles (hub, area, Server): a .panel with a .microlabel, one value and one .row-meta line. JY-233 (B., 2026-10-24,
+   round 2 B): the area icon sits in a solid 44 px chip before the title (17 px semibold, title case); the value and the
+   meta line run full width below. The chip's fill is the area's `tone:` from config (a token name), carried on the tile
+   as --tone; a tile with no tone keeps the neutral chip. A link tile gets a hover border; a tile with a "Jump back in"
+   button is a div holding sibling anchors. */
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .tiles.few > .span2 { grid-column: span 2; }
 .tile { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px 16px; color: inherit;
   text-decoration: none; transition: border-color .15s; }
 a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
-.tile-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; min-width: 0; }
-.tile-main { flex: 1 1 auto; min-width: 0; }
-.tile-main .microlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tile-value { margin-top: 2px; line-height: 1.2; overflow-wrap: anywhere; }
+.tile-top { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 12px; min-width: 0; }
+.tile-main { display: contents; }
+.tile-main .microlabel { grid-row: 1; grid-column: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 17px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text-1); }
+.tile-value, .tile-main .row-meta { grid-column: 1 / -1; }
+.tile-value { margin-top: 10px; line-height: 1.2; overflow-wrap: anywhere; }
 .tile-main .row-meta { margin-top: 4px; }
-.tile-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 10px;
-  background: var(--soft); color: var(--text-3); }
-.tile-icon svg.ic { width: 20px; height: 20px; }
+.tile-icon { grid-row: 1; grid-column: 1; display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 12px; background: var(--tone, var(--soft)); color: var(--text-3); }
+.tile[data-tone] .tile-icon { color: var(--zinc-950); }
+.tile-icon svg.ic { width: 24px; height: 24px; stroke-width: 2.2; }
 .tile-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; }
 .tile.split > a.tile-body { display: block; min-width: 0; color: inherit; text-decoration: none; }
 .tile-spark { display: block; width: 100%; height: 36px; }

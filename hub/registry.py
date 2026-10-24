@@ -64,6 +64,9 @@ class Area(BaseModel):
     name: str
     icon: str  # (per-area `accent` removed 2026-10-06 — colour is for meaning only, MediaHub guide §1.2)
     summary_tile: str
+    # JY-233 (B., 2026-10-24): the colour of the area's icon chip on its summary tile, a design-token name (the hub writes
+    # --tone: var(--<tone>)); no tone = the neutral chip. Colour here is identity only; states keep amber and green.
+    tone: Optional[Literal["orange", "sky", "teal", "fuchsia", "gold"]] = None
     hub_rank: int = 100  # hub card order only (lower first); areas.yaml order drives rail/tabs (2026-10-05)
     layout: Literal["grid", "shelves", "server"] = "grid"  # "shelves" = hero + poster shelves (2026-10-05);
     # "server" = the /server bands page instead of tile cards (2026-10-06)

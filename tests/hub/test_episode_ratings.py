@@ -460,3 +460,231 @@ def test_off_server_tv_title_has_no_ratings(env, monkeypatch, tmp_path):
     with client:
         client.get("/media/title/tv/555")
     assert (seen[-1] if seen else {}).get("ratings") is None and fake.ep_calls() == []
+
+
+# ---- JY-119 (2026-10-24, B.: "JY-119: A"): a show that is not on the server gets episode ratings too ----
+
+OFF_IMDB = "tt9100777"
+OFF_SHOW = {"id": 777, "name": "Far Show", "firstAirDate": "2021-03-01", "numberOfSeasons": 2, "numberOfEpisodes": 12,
+            "posterPath": "/fs.jpg", "mediaInfo": {"status": 1}, "externalIds": {"imdbId": OFF_IMDB},
+            "seasons": [{"seasonNumber": 0, "name": "Specials", "episodeCount": 2, "airDate": "2021-01-01"},
+                        {"seasonNumber": 1, "name": "Season 1", "episodeCount": 6, "airDate": "2021-03-01"},
+                        {"seasonNumber": 2, "name": "Season 2", "episodeCount": 6, "airDate": "2022-03-01"}]}
+
+
+def wire_off(env, monkeypatch, tmp_path, show=None, seasons=None, tmdb=None):
+    """`wire` plus a show Jellyseerr knows (tmdb 777) and Jellyfin does not. `tmdb` = {season n: Jellyseerr season body}."""
+    client, fake, seen = wire(env, monkeypatch, tmp_path)
+    fake.seasons = {1: fixture("season_s4"), 2: fixture("season_s3")} if seasons is None else seasons
+    table = {"/api/v1/tv/777": show or OFF_SHOW}
+    for n, body in (tmdb or {}).items():
+        table[f"/api/v1/tv/777/season/{n}"] = body
+    inner = requests.get
+
+    def route(url, **kw):
+        path = url[len(SEERR_URL):] if url.startswith(SEERR_URL) else None
+        if path in table:
+            return R(table[path])
+        return inner(url, **kw)
+    monkeypatch.setattr(requests, "get", route)
+    media_discover.clear_cache()
+    return client, fake, seen
+
+
+def test_off_server_cold_page_draws_no_block_and_queues_the_reads(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path)
+    with client:
+        r = client.get("/media/title/tv/777")
+    assert r.status_code == 200 and seen[-1]["ratings"] is None and "ratings_later" not in seen[-1]
+    assert "Seasons compared" not in r.text and 'id="compare"' not in r.text            # nothing stored: nothing drawn
+    assert fake.season_calls()[:2] == [1, 2]                                            # Seerr's seasons, Specials left out: the BackgroundTask
+    assert 0 not in fake.season_calls()
+
+
+def test_off_server_render_reads_nothing_it_only_hands_the_job_to_the_background_task(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path)
+    jobs = []
+    monkeypatch.setattr(er, "fill", lambda *a: jobs.append(a) or {})
+    with client:
+        assert client.get("/media/title/tv/777").status_code == 200
+    assert fake.season_calls() == [] and [i for i in fake.vote_calls() if i != OFF_IMDB] == [] and len(jobs) == 1
+    # ^ no episode read in the render (OFF_IMDB alone is the Metacritic pill's own lookup, as on any title page)
+    imdb, tmdb, seasons, current, votes, jf_seasons = jobs[0]
+    assert (imdb, tmdb, seasons, jf_seasons) == (OFF_IMDB, 777, [1, 2], [1, 2])
+
+
+def test_off_server_next_view_draws_seasons_compared_from_stored_rows(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path)
+    with client:
+        client.get("/media/title/tv/777")
+        fake.calls.clear()
+        r = client.get("/media/title/tv/777")
+    assert fake.ep_calls() == []                                                        # warm: stored rows only
+    ratings = seen[-1]["ratings"]
+    assert ratings["source"] == "IMDb" and [s["n"] for s in ratings["seasons"]] == [1, 2]
+    assert 'id="compare"' in r.text and "Seasons compared" in r.text and "IMDb episode ratings" in r.text
+    assert 'id="rating-strip"' in r.text and r.text.count('class="cmprow') == 2
+
+
+def test_off_server_compare_rows_land_on_the_seasons_list(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path)
+    with client:
+        client.get("/media/title/tv/777")
+        r = client.get("/media/title/tv/777")
+    assert 'href="?season=2#season-2"' in r.text and 'id="season-2"' in r.text          # the row's #season-N anchor exists
+
+
+def test_off_server_ratings_carry_no_watch_state_and_no_episode_links(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path)
+    with client:
+        client.get("/media/title/tv/777")
+        client.get("/media/title/tv/777")
+    eps = [e for s in seen[-1]["ratings"]["seasons"] for e in s["eps"]]
+    assert eps and not any(e["seen"] or e["in_progress"] or e["jf_id"] or e["href"] for e in eps)
+    assert all(s["seen"] == 0 for s in seen[-1]["ratings"]["seasons"])
+
+
+def test_off_server_tmdb_fallback_with_no_imdb_id(env, monkeypatch, tmp_path):
+    show = {**OFF_SHOW, "externalIds": {}}
+    s1 = {"episodes": [{"episodeNumber": 1, "name": "One", "voteAverage": 7.25, "voteCount": 12, "airDate": "2021-03-01"},
+                       {"episodeNumber": 2, "name": "Two", "voteAverage": 8.0, "voteCount": 30, "airDate": "2021-03-08"}]}
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path, show=show, tmdb={1: s1, 2: {"episodes": []}})
+    with client:
+        client.get("/media/title/tv/777")
+        r = client.get("/media/title/tv/777")
+    assert fake.ep_calls() == []                                                        # no IMDb id: OMDb is never asked
+    assert seen[-1]["ratings"]["source"] == "TMDB" and "TMDB episode ratings" in r.text
+
+
+def test_off_server_without_an_omdb_key_falls_back_to_tmdb(env, monkeypatch, tmp_path):
+    s1 = {"episodes": [{"episodeNumber": 1, "name": "One", "voteAverage": 7.25, "voteCount": 12, "airDate": "2021-03-01"}]}
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path, tmdb={1: s1, 2: {"episodes": []}})
+    monkeypatch.delenv("OMDB_API_KEY", raising=False)
+    with client:
+        client.get("/media/title/tv/777")
+        client.get("/media/title/tv/777")
+    assert fake.ep_calls() == [] and seen[-1]["ratings"]["source"] == "TMDB"
+
+
+def test_off_server_seasons_are_capped_and_specials_left_out(env, monkeypatch, tmp_path):
+    many = {**OFF_SHOW, "seasons": [{"seasonNumber": n, "name": f"Season {n}", "episodeCount": 3, "airDate": "2010-01-01"}
+                                    for n in range(0, 16)]}
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path, show=many, seasons={})
+    jobs = []
+    monkeypatch.setattr(er, "fill", lambda *a: jobs.append(a) or {})
+    with client:
+        client.get("/media/title/tv/777")
+    assert jobs[0][2] == list(range(1, er.SEASONS_MAX + 1))
+
+
+def test_off_server_failing_omdb_never_fails_the_page(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path)
+    fake.exc = requests.Timeout("t")
+    with client:
+        assert client.get("/media/title/tv/777").status_code == 200
+        fake.calls.clear()
+        assert client.get("/media/title/tv/777").status_code == 200
+    assert seen[-1]["ratings"] is None and fake.ep_calls() == []                        # remembered FAIL_TTL
+
+
+def test_on_server_show_page_is_unchanged_by_the_off_server_path(env, monkeypatch, tmp_path):
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path, seasons={4: fixture("season_s4"), 3: fixture("season_s3")})
+    with client:
+        client.get("/media/item/ser1")
+        client.get("/media/item/ser1")
+    r = seen[-1]["ratings"]
+    assert r["source"] == "IMDb" and [s["n"] for s in r["seasons"]] == [3, 4]           # its own show, its Jellyfin seasons
+    assert any(e["jf_id"] for s in r["seasons"] for e in s["eps"])
+
+
+# ---- JY-119 review round (2026-10-24): friends never start the ratings fill ----
+
+def _friend_on_off_server_show(monkeypatch, tmp_path, jobs):
+    """A signed-in friend (the media front) with Jellyseerr knowing tmdb 777 and the OMDb key set; `er.fill` recorded."""
+    from tests.hub.fake_jellyfin import FRIEND_ID
+    from tests.hub.guest_pages import guest_client, sign_in
+    lib = {"server_id": "srv-1", "library": {"movies": 0, "episodes": 0}, "movies": [], "shows": [], "latest": []}
+    client, jf = guest_client(monkeypatch, tmp_path, {"jellyfin": lib})
+    monkeypatch.setenv("JELLYSEERR_URL", SEERR_URL)
+    monkeypatch.setenv("JELLYSEERR_API_KEY", "k")
+    monkeypatch.setenv("OMDB_API_KEY", KEY)
+    monkeypatch.setenv("META_CACHE_DIR", str(tmp_path / "meta"))
+    inner = requests.get
+
+    def route(url, **kw):
+        return R(OFF_SHOW) if url == f"{SEERR_URL}/api/v1/tv/777" else inner(url, **kw)
+    monkeypatch.setattr(requests, "get", route)
+    monkeypatch.setattr(er, "fill", lambda *a: jobs.append(a) or {})
+    media_discover.clear_cache()
+    client.__enter__()
+    sign_in(client, jf, FRIEND_ID)
+    return client
+
+
+def test_a_friend_viewing_an_off_server_show_starts_no_ratings_fill(monkeypatch, tmp_path):
+    jobs = []
+    client = _friend_on_off_server_show(monkeypatch, tmp_path, jobs)
+    try:
+        r = client.get("/media/title/tv/777")
+    finally:
+        client.__exit__(None, None, None)
+    assert r.status_code == 200 and "Far Show" in r.text
+    assert jobs == []                                                                   # OMDb's day cap is the household's
+
+
+def test_a_friend_still_sees_the_stored_ratings(monkeypatch, tmp_path, db):
+    jobs = []
+    rows = [{"episode": n, "rating": 8.0 + n / 10, "episode_imdb": None, "title": f"E{n}", "released": "2021-03-01"}
+            for n in (1, 2, 3)]
+    er._store_season(OFF_IMDB, 1, rows)
+    client = _friend_on_off_server_show(monkeypatch, tmp_path, jobs)
+    monkeypatch.setenv("MEDIA_DB_PATH", str(db))
+    try:
+        r = client.get("/media/title/tv/777")
+    finally:
+        client.__exit__(None, None, None)
+    assert 'id="compare"' in r.text and "Seasons compared" in r.text and jobs == []
+
+
+def test_a_failed_seerr_season_read_is_not_retried_on_every_view(env, monkeypatch, tmp_path):
+    show = {**OFF_SHOW, "externalIds": {}}                                              # no IMDb id: the TMDB path
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path, show=show)
+    inner, season_reads = requests.get, []
+
+    def route(url, **kw):
+        if "/season/" in url:
+            season_reads.append(url)
+            return R({}, 500)
+        return inner(url, **kw)
+    monkeypatch.setattr(requests, "get", route)
+    with client:
+        client.get("/media/title/tv/777")
+        first = len(season_reads)
+        client.get("/media/title/tv/777")
+        client.get("/media/title/tv/777")
+    assert first == 2 and len(season_reads) == first                                    # asked once per season, then FAIL_TTL
+    assert seen[-1]["ratings"] is None
+
+
+def test_jellyfin_listing_the_show_with_no_seasons_draws_one_block_and_unique_season_ids(env, monkeypatch, tmp_path):
+    import re
+    from tests.hub import helpers
+    monkeypatch.setattr(helpers, "EPISODES", [])
+    client, fake, seen = wire(env, monkeypatch, tmp_path)
+    with client:
+        client.get("/media/item/ser1")
+        r = client.get("/media/item/ser1")
+    assert r.status_code == 200 and seen[-1]["seasons"] == []                           # Jellyfin has the show, no seasons
+    assert seen[-1]["ratings"] is not None and seen[-1]["ratings"]["source"] == "IMDb"  # the new branch fired
+    assert r.text.count('id="compare"') == 1 and r.text.count('id="rating-strip"') == 1
+    ids = re.findall(r'\sid="(season-\d+)"', r.text)
+    assert ids and len(ids) == len(set(ids))
+
+
+def test_guest_controls_drop_the_ratings_job_on_the_friends_front_only(monkeypatch):
+    from hub import guest
+    job = lambda: None  # noqa: E731
+    monkeypatch.setattr(guest, "is_media", lambda: False)
+    assert media_film.guest_controls({"ratings_later": job}, "tv", 1)["ratings_later"] is job
+    monkeypatch.setattr(guest, "is_media", lambda: True)
+    assert media_film.guest_controls({"ratings_later": job}, "tv", 1)["ratings_later"] is None

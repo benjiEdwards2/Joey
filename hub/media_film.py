@@ -896,6 +896,13 @@ def episode_crew(ep: dict) -> list[dict]:
     return out
 
 
+def offserver_seasons(listing: list[dict]) -> list[dict]:
+    """The season shapes `build_ratings` takes for a show Jellyfin does not have: Jellyseerr's season list (`t["seasons"]`),
+    Specials left out, no episodes and so no watch state. The per-season rows come from the stored / cached ratings."""
+    return [{"n": s["number"], "number": s["number"], "episodes": []} for s in listing
+            if isinstance(s.get("number"), int) and s["number"] >= 1][:media_episode_ratings.SEASONS_MAX]
+
+
 def episode_flow(page: dict | None, ep: dict | None, item: dict | None, seasons: list[dict], cast) -> dict:
     """{nav} for a season page, {nav, guests, crew_ep} for an episode page; {} otherwise (a film, a show page, an
     off-server title) - the keys are then absent from the page's dict. `ep` is the page's episode as listed_episode
@@ -1132,13 +1139,20 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         f["episode"] = None
     # TV episode flow (WP-E1, 2026-10-16): per-episode ratings from media.db / the caches only; the reads they still
     # need run as the response's BackgroundTask (`ratings_later`, attached by the routes after the render). A show
-    # Jellyfin does not have (an off-server /media/title/tv/... page) gets none for now.
+    # Jellyfin does not have (an off-server /media/title/tv/... page) is rated from Jellyseerr's own season list (JY-119,
+    # 2026-10-24): same stored rows and cache peeks, the same BackgroundTask fill, no watch state.
     f["ratings"], f["ratings_later"] = None, None
     if kind == "tv" and item and item["kind"] == "series" and seasons:
         try:
             f["ratings"], f["ratings_later"] = media_episode_ratings.build_ratings(
                 item, f["seasons"], (page_item or item)["kind"], page_season, lambda i: f"/media/item/{i}",
                 page_episode=ep["episode_no"] if ep else None)
+        except Exception as exc:  # the page never fails on the ratings block
+            log.warning("episode ratings skipped: %s", type(exc).__name__)
+    elif kind == "tv" and tmdb_id and not f["seasons"] and t and t.get("seasons"):
+        try:
+            f["ratings"], f["ratings_later"] = media_episode_ratings.build_ratings(
+                {"imdb": imdb_id(raw, item), "tmdb": tmdb_id}, offserver_seasons(t["seasons"]), "series")
         except Exception as exc:  # the page never fails on the ratings block
             log.warning("episode ratings skipped: %s", type(exc).__name__)
     # Move on (2026-10-08): Mark watched / Reset progress beside "Resume ▶". The page's watch state is read as
@@ -1293,6 +1307,7 @@ def guest_controls(f: dict, kind, tmdb_id) -> dict:
     state (`req_mine`: pending / approved / declined, hub.media_guest_requests). Private front: `f` untouched."""
     if not guest.is_media():
         return f
+    f["ratings_later"] = None   # JY-119: a friend's view draws the stored ratings but never starts the OMDb / Seerr reads
     f.update(arr_search=None, quality_href=None, quality_block=None, upgrade=None, jellyseerr_href=None)
     if f.get("file"):
         f["file"] = {**f["file"], "badges": []}

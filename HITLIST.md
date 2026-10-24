@@ -101,7 +101,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-116 | Season page head: "Season N" eyebrow + S-switch check | Media | S | [x] shipped | Switch did not show in the preview · PR #134 | [spec](docs/specs/JY-116-season-head-verify.md) |
 | JY-117 | Previous / Next cards: verify on a real episode | Media | S | [x] shipped | Not seen in the preview · PR #133 | [spec](docs/specs/JY-117-prev-next-verify.md) |
 | JY-118 | Guest / crew names linked | Media | M | parked | Plain text now; costs extra reads (decision) | — |
-| JY-119 | Off-server shows get episode ratings | Media | S | idea | Warm-up prefetches no episode ratings today; B. picks A/B/C · PR #124 | — |
+| JY-119 | Off-server shows get episode ratings | Media | S | [x] shipped | Warm-up prefetches no episode ratings today; B. picks A/B/C · PR #124 | [spec](docs/specs/JY-119-offserver-episode-ratings.md) |
 | JY-120 | Her view with no list: wording | Media | S | parked | "Nothing left to watch" / "Nothing in progress" (decision) | — |
 | JY-121 | Merge play stats into History | Media | S | idea | Nav-tidy leftover | — |
 | JY-122 | Manifest shortcut "TV Shows" | Media | S | [x] shipped | Nav-tidy leftover · PR #83 | [spec](docs/specs/JY-122-manifest-tv-shows-word.md) |

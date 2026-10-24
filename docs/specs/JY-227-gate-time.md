@@ -1,6 +1,6 @@
 # JY-227 Full deploy gate within 10 minutes
 
-Status: building
+Status: shipped 2026-10-24
 Size: M
 Live risk: deploy (the gate itself)
 Area: `tests/` (fixtures and slow tests), `deploy/deploy.sh` (pytest worker count only, if B. agrees), `tests/README.md`
@@ -81,4 +81,8 @@ Laptop profile, 2026-10-24, `-n 4`, main 3b20517 vs this branch, run back to bac
 What is left in `tests/scripts/` is mostly the code under test: one `close-out` run makes ~29 git calls of its own, and the worktree tests run the CLI as a subprocess. The NAS share of `tests/scripts/` is unknown until the quiet-NAS profile run (criterion 1).
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #65, squash-merged as `432005e` (432005e389e2376736fbc0fcbd64f5c2971d4a97).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

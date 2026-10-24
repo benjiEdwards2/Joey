@@ -53,7 +53,7 @@ None: no screen.
 CI speed; NAS hardware; moving tests out of the gate (unless B. answers question 2 "yes").
 
 ## Accept checklist
-- CI green; reviews posted; three deploy history lines with dur ≤ 600 s and the memory samples in the PR.
+- CI green; reviews posted; laptop before/after numbers in the spec. (The three deploy history lines with dur ≤ 600 s and the memory samples are JY-235's accept check after the split.)
 
 ## Questions for B.
 Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance." = every recommended answer below, and ready.

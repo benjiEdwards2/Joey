@@ -171,7 +171,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-186 | TV UI Gate 1 picks (scale + picks 1–6) | Joey TV | S | idea | B.'s picks block U2 and U6–U10 | — |
 | JY-187 | U1 Back memory (focus + scroll) | Joey TV | M | idea | Built, review PASS (PR #125); waits on the TV device run (J3/J4/J5/J8/J9) and B.'s J8 pick (6 presses) | — |
 | JY-188 | U2 Hero scrim, 18 px type floor, card scale | Joey TV | M | idea | Rows and cards too large; needs the scale pick | — |
-| JY-189 | U3 Posters at 400 px + Tonight layout | Joey TV | M | idea | Blurry posters; Tonight unstyled | — |
+| JY-189 | U3 Posters at 400 px + Tonight layout | Joey TV | M | [x] shipped | Blurry posters; Tonight unstyled · PR #148 | [spec](docs/specs/JY-189-tv-posters-tonight.md) |
 | JY-190 | U4 Server fixes (sign-out device, 404, Diary scope) | Joey TV | M | idea | Stale device blocks sign-in · live | — |
 | JY-191 | U5 Shell Back + Offline wording (release 1.0.2) | Joey TV | M | idea | Back on sign-in should exit · live | — |
 | JY-192 | U6 Series + episodes layout | Joey TV | L | idea | Episode lists unstyled; needs picks | — |

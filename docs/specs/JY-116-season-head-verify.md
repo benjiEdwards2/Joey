@@ -1,6 +1,6 @@
 # JY-116 Season page head: "Season N" eyebrow + S-switch check
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/templates/media_film.html`, `hub/templates/_episode_flow.html`, `tests/hub/test_episode_flow_templates.py`
@@ -43,8 +43,8 @@ Crumbs on the season page. Changing the h1, the status line or the switch itself
 On a live season page: the eyebrow says which season at the top of the head; the switch is unchanged; an episode page is unchanged.
 
 ## Shipped notes
-Not shipped. Draft, built on `feat/JY-116-season-head-verify`:
-- New macro `seasonline` in `_episode_flow.html`, called from the head of `media_film.html` when the page has `nav` and no episode. Reuses `.epeyebrow`: no new CSS, no new colour. TV mode (`html.tv`) has no rule that hides `.epeyebrow`, so the line shows there as on the episode page.
-- No new read and no new data: it reads `nav.seasons`, which the page already holds (rule 7 not touched).
-- The existing season-head test asserted "no `epeyebrow`"; it now asserts "no episode eyebrow" (2026-10-24, because the season page now has its own eyebrow).
-- Edge rules the spec did not name, for the reviewer: "of" counts to the highest season number, not the list length (a show listed as S4, S5 reads "Season 5 of 5", never "Season 5 of 2"); Specials (season 0) get no eyebrow rather than "Season 0 of N".
+- Closed out with `scripts/joey.py close-out`.
+- PR: #134, squash-merged as `d3ed5a5` (d3ed5a57ba5cc72028958e7e1aea253bc962e099).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

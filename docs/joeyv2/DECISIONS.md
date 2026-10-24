@@ -29,3 +29,7 @@
 
 ## 2026-10-23 — Joey TV UI round added (B.: "add this into the joeyv2 addition … as a listed item to complete")
 - JY-042 added to JOEYV2_PLAN.md Phase 5: the Joey TV UI round (TV_UI_PLAN.md U1–U11, incl. the row + card scale change from `JoeyTV\mockups\tv-v2\08-density.html`). JY-004's seed sources now name TV_UI_PLAN.md, so each U-item gets its own JY-1xx row. Blocked on B.'s Gate 1 picks (scale B/C + picks 1–6). Source session: "Joey TV — TV UI review".
+
+## 2026-10-24 — JY-050 media player answers (B.: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance.")
+- All recommended answers in `docs/specs/JY-050-player-spec.md`: devices PC browser → phone → household TCL TV (Joey TV shell); household only, friends after JY-057; direct play → remux → transcode, 20 Mbps remote cap for friend accounts; no offline downloads in v1; subtitle/audio defaults follow each Jellyfin user; Jellyfin is the single resume record (JY-055); TV shell gets a new signed release after JY-042 with the Jellyfin app kept one release as fallback; success = start within 5 s LAN / 10 s remote, cross-device resume, a week without the Jellyfin app.
+

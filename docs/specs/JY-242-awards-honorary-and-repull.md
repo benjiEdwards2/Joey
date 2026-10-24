@@ -1,6 +1,6 @@
 # JY-242 Awards: honorary awards and a re-pull of old years
 
-Status: building
+Status: shipped 2026-10-24
 Size: M
 Live risk: none
 Area: `hub/media_awards.py`, `hub/media_awards_parse.py`, `hub/media_awards_seed.py`, `tests/hub/test_awards_*.py`
@@ -62,3 +62,8 @@ B.'s pick, 2026-10-24 in chat: "JY-242: A A". Question 1: A (read them on every 
    - **B:** no: only new pulls and the 120-day refresh pick the fixes up; old years keep the song as a person until a later bump.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #139, squash-merged as `f988007` (f988007c94caf620f88b11835389e5829242fb1d).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

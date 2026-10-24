@@ -301,3 +301,14 @@ def test_a_bare_bold_winner_line_never_double_marks_and_other_bare_lines_stay_ig
                                           ("wp_sag_31.json", 15), ("wp_critics_30.json", 42)])
 def test_award_category_pages_keep_their_winner_counts(name, winners):
     assert sum(e["won"] for b in parsed(name) for e in b["entries"]) == winners
+
+
+# ---- JY-152 (2026-10-24): the parser leftovers ----
+
+def test_bafta_1966_award_category_headers_inside_table_cells_each_carry_one_winner():
+    blocks = parsed("wp_bafta_19.json")
+    assert len(blocks) == 18 and all(sum(e["won"] for e in b["entries"]) == 1 for b in blocks)
+    best = blocks[0]
+    assert (best["label"], best["page"]) == ("Best Film", "BAFTA Award for Best Film")
+    assert lead_names(best)[0] == (True, "work", "My Fair Lady", ["George Cukor"]) and len(best["entries"]) == 5
+    assert [e["won"] for e in best["entries"]] == [True, False, False, False, False]

@@ -376,8 +376,27 @@ def _side(ref: dict | None, qids: dict[str, str], by_label: dict[str, str]) -> t
     return (q if adb.is_qid(q) else adb.local_key(ref["label"])), ref["label"]
 
 
-def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str]) -> tuple[list[dict], list[dict], dict]:
-    """Parsed blocks + resolved titles -> (categories, nominations, labels by QID)."""
+def named_keys(db, body_id: str) -> dict[tuple[str, str], str]:
+    """{(kind, lower-cased name): QID cat_key} of a body's linked categories; a name two of them share is left out."""
+    out: dict[tuple[str, str], str] = {}
+    seen: set[tuple[str, str]] = set()
+    for r in db.execute("SELECT cat_key, name, kind FROM award_category WHERE body_id = ?", (body_id,)):
+        if not adb.is_qid(r["cat_key"]):
+            continue
+        k = (r["kind"], str(r["name"] or "").lower())
+        if k in seen:
+            out.pop(k, None)
+        else:
+            seen.add(k)
+            out[k] = r["cat_key"]
+    return out
+
+
+def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str],
+                   named: dict[tuple[str, str], str] | None = None) -> tuple[list[dict], list[dict], dict]:
+    """Parsed blocks + resolved titles -> (categories, nominations, labels by QID). A category whose page gave no QID
+    takes the key of the one linked category with its kind and name (`named`, JY-152: unlinked table header cells),
+    else a slug."""
     b = seed.BY_ID[body_id]
     kinds = b["kinds"].split(",")
     by_label: dict[str, str] = {}
@@ -392,7 +411,8 @@ def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str]) -> tu
     for order, blk in enumerate(blocks):
         kind = kinds[0] if len(kinds) == 1 else ap.category_kind(blk["label"], blk.get("kind"))
         cq = qids.get(blk.get("page") or "", "")
-        cat_key = cq if adb.is_qid(cq) else ap.slug(blk["label"]) or f"cat-{order}"
+        cat_key = (cq if adb.is_qid(cq) else (named or {}).get((kind, blk["label"].lower()))
+                   or ap.slug(blk["label"]) or f"cat-{order}")
         leads = [e["lead"] for e in blk["entries"]]
         lead = "person" if leads.count("person") > leads.count("work") else "work"
         c = cats.setdefault(cat_key, {"cat_key": cat_key, "name": blk["label"], "kind": kind, "lead": lead,
@@ -433,7 +453,7 @@ def pull_wp(db, client: Client, ed: dict) -> tuple[str, int, str | None]:
     blocks = parsed["blocks"]
     titles = ap.titles_of(blocks)
     qids = resolve_titles(db, client, titles)
-    cats, noms, labels = wp_nominations(ed["body_id"], blocks, qids)
+    cats, noms, labels = wp_nominations(ed["body_id"], blocks, qids, named_keys(db, ed["body_id"]))
     resolve_entities(db, client, list(labels), labels)
     n = adb.write_edition(db, ed["body_id"], ed["ordinal"], cats, noms, [], "done", "wp")
     return "done", n, None

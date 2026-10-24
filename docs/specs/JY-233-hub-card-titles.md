@@ -1,6 +1,6 @@
 # JY-233 Hub card titles easier to see
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
 Area: `hub/static/control-surface.css` (the `.tile` rules, not the `:root` tokens), `hub/static/tv.css` (TV size line), `hub/templates/_kpi.html` (only if the option needs markup), `tests/hub/`
@@ -11,13 +11,15 @@ Options page: https://claude.ai/artifact/QXF4eYxr54ha2hfeHWxTcA (private; every 
 B., 2026-10-24: "can you please include logos for things closer to the 'media, calendar, server' titles or make the titles a little easier to see." Today each hub summary tile has a 10 px uppercase grey title (`.microlabel`, `--text-5`) at the top left and its area icon in a 36 px chip at the top right, far from the title.
 
 ## Acceptance criteria
-From B.'s pick (pending). For the recommended option C:
-1. Each hub summary tile shows the area icon in a 28 px chip directly before a 16 px semibold title-case title (`--text-2`); the value and the meta line run full width below.
-2. TV size (tv.css): icon chip 40 px, icon 24 px, title 24 px.
-3. Existing tokens and icons only; no `:root` token change (rule 9). The state word rules are unchanged.
-4. The other tiles that use `_kpi.html` (area pages, Server summary) keep working; check each page that renders a tile at the four sizes.
-5. Tests: a smoke test asserts the title and icon sit together in each hub tile; the existing tile tests stay green.
-6. Hub page render warm p95 ≤ 50 ms (CSS only; measured with `scripts/budgets.py` after deploy).
+From B.'s round 2 pick B (2026-10-24):
+1. Each hub summary tile shows its area icon in a solid 44 px chip filled with the area's colour, with a dark glyph, directly before a 17 px semibold title-case title; the value and the meta line run full width below. Desktop, iPad and phone as on the options page (round 2, option B).
+2. TV size (tv.css): the chip and title scale up for 10-foot viewing as on the options page's TV frame.
+3. The colour per area lives in config: `config/areas.yaml` gains `tone:` (a token name: Media `orange`, Calendar `sky`, Server `teal`; Weather `gold` if it gets a hub card), read through the area registry into `_kpi.html` as a `--tone` custom property. No area names in hub code; tokens only (existing `--orange`, `--sky`, `--teal`, `--gold`); no `:root` token change. An area with no `tone` falls back to today's neutral chip.
+4. The glyph keeps enough contrast on each colour (WCAG AA for graphics, 3:1); the title text is unchanged in meaning (colour never the only signal).
+5. Other pages that render `_kpi.html` tiles keep working and look right at the four sizes (check each).
+6. Tests: areas.yaml `tone` parsing and fallback; a smoke test that each hub tile renders the chip with its `--tone` next to the title; existing tile tests stay green.
+7. Hub page render warm p95 ≤ 50 ms after deploy (`scripts/budgets.py`).
+8. Accept review: screenshots of the hub at desktop, iPad, phone and TV sizes from the branch (PROCESS step 9).
 
 ## Data
 None.
@@ -31,7 +33,7 @@ Options page: https://claude.ai/artifact/QXF4eYxr54ha2hfeHWxTcA
 - B: the icon stays right; the title becomes title case, 15 px semibold, `--text-2`.
 - C (recommended): a 28 px icon chip inline before a 16 px semibold title-case title (`--text-2`).
 Note: the private hub never runs in TV mode today (TV mode is the media front's); the TV frames force TV mode onto the hub to show the TV-size line.
-B.'s pick: (pending)
+B.'s pick, 2026-10-24, round 2: "JY-233: B, ready. Prefer the chip." = B, the solid colour chip. This brings per-area colour back for the hub icons (B.'s pick is the OK for the 2026-10-06 removal).
 
 ### Round 2
 2026-10-24, B. on the round 1 page: "None of them are separable. Can you please find a coloured icon and make them slightly larger and try again." Round 1 (A, B, C above) is set aside. Round 2 options: coloured area icons, slightly larger, near the title, each option clearly different at a glance; same four sizes. Status stays `spec` until B. picks.

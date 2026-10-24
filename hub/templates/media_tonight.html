@@ -4,7 +4,7 @@
 {% from "_poster.html" import poster %}
 {% import "_rate.html" as rate %}
 {# Three for tonight (restyle Phase 3): three big poster cards, each the whole-card link (2026-10-06). #}
-<section class="sec">
+<section class="sec tn">
   <h2 class="seclabel">{{ heading }}</h2>
   {% if src.st.state == "off" %}
   <p class="empty">Not connected</p>
@@ -17,14 +17,14 @@
     {% for c in cards %}
     {% set r = c.row %}
     <{{ "a" if r.href else "div" }} class="card-poster tcard"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-      <span class="card-pic">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false) if r.href else "") }}{{ rate.pscore(r.score) }}</span>
+      <span class="card-pic">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false) if r.href else "", tv_mode(request)) }}{{ rate.pscore(r.score) }}</span>
       <span class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</span>
       <span class="row-meta">{{ r.runtime if r.kind == "movie" else r.eps_text }}<span class="sep"> · </span>{{ c.pile }}</span>
     </{{ "a" if r.href else "div" }}>
     {% endfor %}
   </div>
   {% if cards|length < 3 %}<p class="empty">Nothing else to deal.</p>{% endif %}
-  <div><a class="btn btn-secondary" href="{{ request.url.path }}">Deal again</a></div>
+  <div class="tn-deal"><a class="btn btn-secondary" href="{{ request.url.path }}">Deal again</a></div>
   {% endif %}
 </section>
 {% include "_detail_foot.html" %}

@@ -24,10 +24,10 @@
    title, the year and the state in words — Watched / Not watched / In progress; your score as the poster badge. One whole
    link (the title page), else plain. F4b: a light-blue "Below cutoff" line (WP-U1) under it when the arr says so.
    E5 (M2, 2026-10-13): a show being watched adds its progress in words under it ("4 left · ~3h 10m"). #}
-{% macro card(r) %}
+{% macro card(r, tv=false) %}
 {% set tag = "a" if r.href else "div" %}
 <{{ tag }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-  <span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false)) }}{{ rate.pscore(r.score) }}{{ award_badge(r.award) }}</span>
+  <span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false), tv) }}{{ rate.pscore(r.score) }}{{ award_badge(r.award) }}</span>
   <span class="row-title">{{ r.title }}</span>
   <span class="row-meta">{% if r.year %}{{ r.year }}{% endif %}{% if r.year and r.card_state %}<span class="sep"> · </span>{% endif %}{% if r.card_state %}<span class="{{ r.card_state.cls }}">{{ r.card_state.word }}</span>{% endif %}</span>
   {% if r.kind == "tv" and r.state == "watching" and r.progress %}<span class="row-meta card-progress">{{ r.progress }}</span>{% endif %}

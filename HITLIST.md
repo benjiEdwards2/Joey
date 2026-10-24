@@ -90,7 +90,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-105 | "Because you rated X 9" shelf | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
 | JY-106 | Read-only "leaving soon" list | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
 | JY-107 | Favourites synced to Jellyfin | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
-| JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | idea | Hint may not show when only some releases fail | — |
+| JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |
 | JY-109 | Per-episode Why? on Upgrades | Media | S | idea | Only if ever needed; Why? checks one episode | — |
 | JY-110 | Requests page 4K badge lags | Media | S | [x] shipped | Shows lag 10 min; films fill on second view · PR #106 | [spec](docs/specs/JY-110-requests-4k-badge.md) |
 | JY-111 | Old arr profile id shows no Quality line | Media | S | parked | One-off re-save or a fallback (decision) | — |

@@ -285,6 +285,7 @@ SOURCES = [
     ("orchestrator sweep 5 (2026-10-25)", "flaky partof banner test", "JY-244", "JY-243 proof runs"),
     ("orchestrator sweep 5 (2026-10-25)", "warm-up episode ratings prefetch", "JY-245", "JY-119 spec"),
     ("orchestrator sweep 5 (2026-10-25)", "Prowlarr failed grabs this week", "JY-246", "JY-143 spec Q1"),
+    ("orchestrator sweep 5 (2026-10-25)", "friend summary leftovers", "JY-247", "JY-190 verifier"),
 ]
 
 

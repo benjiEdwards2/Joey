@@ -129,7 +129,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-142 | WUD real check interval vs 180-min Stale rule | Server | S | idea | Verify live, then adjust | — |
 | JY-143 | Prowlarr indexerstats window | Server | S | idea | If cumulative, amber never clears; verify live | — |
 | JY-144 | "Uptime Kuma metrics failed" on Joey /server | Server | S | idea | Pre-existing payload error | — |
-| JY-226 | Server page render over budget (p95 52-56 ms, budget 50) | Server | S | idea | `scripts/budgets.py` 2026-10-23: `/a/server` warm p95 52 ms then 56 ms, max ~125 ms; profile it | — |
+| JY-226 | Server page render over budget (p95 52-56 ms, budget 50) | Server | S | [x] shipped | `scripts/budgets.py` 2026-10-23: `/a/server` warm p95 52 ms then 56 ms, max ~125 ms; profile it · PR #68 | [spec](docs/specs/JY-226-server-page-speed.md) |
 
 ### Awards
 

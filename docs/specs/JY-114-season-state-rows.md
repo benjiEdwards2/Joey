@@ -1,6 +1,6 @@
 # JY-114 Season state on Recently added + hub progress words
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/media_home.py` (Media home shelves), `hub/main.py` (the shelves route's BackgroundTask), `hub/templates/area_shelves.html` (the shelf card), `tests/hub/`
@@ -38,3 +38,8 @@ The hub page's own Media card and Recently watched band; the guest Overview; epi
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #123, squash-merged as `d65ad7f` (d65ad7fd1680c6e246cf56c46704934cb6234de6).
+- Deploy: `2026-10-24T09:31:55Z PASS prev=d9284ec new=d65ad7f suite green, smoke ok tv=current end=2026-10-24T09:37:00Z dur=305s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

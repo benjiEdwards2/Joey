@@ -1,6 +1,6 @@
 # JY-238 One source for the "LAN" word
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/shell.py`, `hub/templates/server.html`, `hub/templates/media_apps.html`, `hub/templates/_app_link.html`, `tests/hub/test_lan_word.py`
@@ -37,3 +37,8 @@ Comments that mention "LAN"; the Python `is_lan()` logic; guest/Joey TV template
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #105, squash-merged as `459f106` (459f10625dd7c090946670df7109b2caa6f5265e).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

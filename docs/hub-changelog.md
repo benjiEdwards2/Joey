@@ -1072,7 +1072,8 @@ out of `disk_trend`) joins the PAGE's Attention under 30 days ("/volume1 reaches
 last band, a `<details>` open on a desktop and closed on a phone (`data-phone-closed`, a small `joey.js` hook) (S6).
 Attention items carry their action (`attention_action`, S7): a down service "Open" (its card link, new tab) or
 "Services"; an Uptime Kuma monitor "Services"; a failing sweep "Sweeps" (#system). The Updates line reads "17 monitored
-· 2 updates · checked 2h ago", amber "Stale · checked …" only past the Updates tile's `stale_after_minutes` (S9). Tests:
+· 2 updates · refreshed 2h ago", amber "Stale · refreshed …" only past the Updates tile's `stale_after_minutes` (S9; the word
+was "checked" until JY-142, 2026-10-24: the age is Joey's poll of WUD, which itself checks once a day). Tests:
 `tests/hub/test_server_cleanup.py` (new), `test_server_library_health.py` (was `test_server_counts.py`), and
 re-pointed `test_server.py`, `test_server_cards.py`, `test_server_history.py`, `test_server_not_configured.py`,
 `test_server_stack.py`, `test_server_updates.py`, `test_first_screens_e3.py`, `test_area_pages.py`,

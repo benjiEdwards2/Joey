@@ -111,18 +111,18 @@ def test_five_bands_in_order_and_nothing_shown_twice(env):
     assert body.count('class="bar" role="img"') == system.count('class="bar" role="img"') == 3   # System's volumes only
 
 
-# ---- S9: the Updates line says when WUD was checked; "Stale" only past the tile's interval --------------------------
+# ---- S9 / JY-142: the Updates line says when Joey last refreshed WUD's list; "Stale" only past the tile's interval --------------------------
 
 def _updates_line(body):
     band = body.split('id="updates"', 1)[1].split("</section>", 1)[0]
     return next(line for line in band.split("</p>") if "monitored" in line)
 
 
-def test_updates_line_says_checked_n_ago(env):
+def test_updates_line_says_refreshed_n_ago(env):   # JY-142 (B., 2026-10-24: "1A"): was "checked"; the age is Joey's poll
     with env() as client:
         line = _updates_line(main_of(client.get("/server").text))
-    assert txt(line).strip().endswith("17 monitored · 2 updates · checked 1m ago")
-    assert "Stale" not in line and "Updated" not in line
+    assert txt(line).strip().endswith("17 monitored · 2 updates · refreshed 1m ago")
+    assert "Stale" not in line and "Updated" not in line and "checked" not in line
 
 
 def test_updates_line_is_stale_only_past_the_tiles_interval(env, tmp_path):
@@ -137,7 +137,7 @@ def test_updates_line_is_stale_only_past_the_tiles_interval(env, tmp_path):
         write_envelope(tmp_path / "snaps", "wud", age_minutes=age, data=wud)
         with client:
             line = _updates_line(main_of(client.get("/server").text))
-        words = f"checked {server.ago_text(age)}"
+        words = f"refreshed {server.ago_text(age)}"
         if stale:
             assert f'<span class="st-warn">Stale · {words}</span>' in line
         else:

@@ -7,14 +7,14 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Minimal Jellyfin client for the study account. Reads (GET /Users/Me, GET /Items, POST PlaybackInfo) plus the
- * study account's own playback reports (resume mode) and stopping its own transcode job. Blocking: call off the
+ * Minimal Jellyfin client acting as joeytest (signed in on the TV by B.). Reads (GET /Items, POST PlaybackInfo) plus
+ * joeytest's own sign-in / sign-out, playback reports (resume mode) and stopping its own transcode job. Blocking: call off the
  * main thread. Never logs a URL or the token.
  */
 class Jellyfin(private val base: String, private val token: String, private val deviceId: String) {
     val auth: String
-        get() = "MediaBrowser Client=\"Joey Study\", Device=\"TV\", DeviceId=\"$deviceId\", Version=\"0.1.0\", " +
-            "Token=\"$token\""
+        get() = "MediaBrowser Client=\"Joey Study\", Device=\"TV\", DeviceId=\"$deviceId\", Version=\"0.1.0\"" +
+            (if (token.isEmpty()) "" else ", Token=\"$token\"")
 
     fun get(path: String): JSONObject = call("GET", path, null)
     fun post(path: String, body: JSONObject): JSONObject = call("POST", path, body)
@@ -63,6 +63,19 @@ class Jellyfin(private val base: String, private val token: String, private val 
     }
 
     companion object {
+        /**
+         * Jellyfin AuthenticateByName with what B. typed: (session token, user id). Nothing is stored or logged; the
+         * caller keeps the token in memory and signs out (POST /Sessions/Logout) at the end.
+         */
+        fun authenticate(base: String, deviceId: String, user: String, password: String): Pair<String, String> {
+            val anon = Jellyfin(base, "", deviceId)
+            val res = anon.post("/Users/AuthenticateByName", JSONObject().put("Username", user).put("Pw", password))
+            val tok = res.optString("AccessToken", "")
+            val uid = res.optJSONObject("User")?.optString("Id", "") ?: ""
+            if (tok.isEmpty() || uid.isEmpty()) throw IOException("no session in the answer")
+            return tok to uid
+        }
+
         /** DeviceProfile for T2H: ExoPlayer on Jellyfin HLS (fMP4), the device's decoders plus the FFmpeg audio. */
         fun hlsProfile(videoCodecs: List<String>, audioCodecs: List<String>): JSONObject {
             val v = videoCodecs.filter { it == "hevc" || it == "h264" }.ifEmpty { listOf("h264") }.joinToString(",")

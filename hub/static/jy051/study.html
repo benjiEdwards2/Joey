@@ -10,8 +10,9 @@
   W1 = native <video> on Jellyfin's direct stream (/Videos/{id}/stream?static=true), the file as is.
   W2 = <video> + hls.js on Jellyfin's HLS (PlaybackInfo with this browser's DeviceProfile, direct play off).
   Talks straight to the Jellyfin edge (https://jellyfin.joeyhome.net:8443), never the Cloudflare tunnel.
-  The study account's token is entered on the page (or read from the Joey Study app's bridge on the TV); it is kept in
-  this browser's localStorage only and never printed, logged or put in the results.
+  B. signs in as joeytest on the page (Jellyfin's AuthenticateByName with what he types; on the TV the Joey Study app
+  signs in and hands the page its session token). The token lives in this page's memory only: nothing about the
+  sign-in is stored, printed, logged or put in the results. The admin key never comes near this page.
   Served from the preview slot (hub/static/jy051/) and bundled into the Joey Study APK (T1). Spec: docs/specs/JY-051-player-options.md.
 -->
 <style>
@@ -54,14 +55,13 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
     <label>Hold after first frame (s) <input id="hold" type="number" min="0" max="30" step="0.5" value="1"></label>
   </div>
   <div class="grid" style="margin-top:8px">
-    <label>Study account token (from the token file) <input id="token" type="password" autocomplete="off" spellcheck="false"></label>
-    <label>or user name <input id="user" autocomplete="username" spellcheck="false"></label>
-    <label>and password <input id="pass" type="password" autocomplete="current-password"></label>
+    <label>Jellyfin user name (joeytest) <input id="user" autocomplete="username" autocapitalize="off" spellcheck="false"></label>
+    <label>Password <input id="pass" type="password" autocomplete="current-password"></label>
   </div>
   <div class="row" style="margin-top:8px">
-    <button id="save">Save and check</button>
-    <button id="signin" class="ghost">Sign in with name and password</button>
-    <button id="forget" class="ghost">Forget token on this device</button>
+    <button id="signin">Sign in</button>
+    <button id="save" class="ghost">Check the edge</button>
+    <button id="forget" class="ghost">Sign out</button>
     <span id="status" class="state">Not checked yet</span>
   </div>
 </section>
@@ -251,7 +251,8 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
     var ok = mine.filter(function (r) { return r.ok; });
     var med = JY.median(ok.map(function (r) { return r.ms_frame !== null && r.ms_frame !== undefined ? r.ms_frame : r.ms_playing; }));
     var last = mine[mine.length - 1];
-    var what = last.method ? " " + last.method : "";
+    var named = mine.filter(function (r) { return r.method; }).pop();
+    var what = named ? " " + named.method : "";
     if (!ok.length) return "failed (" + (last.err || "?") + ")" + what;
     return (med / 1000).toFixed(2) + " s" + what + (ok.length < mine.length ? " (" + ok.length + "/" + mine.length + " ok)" : "");
   };
@@ -493,7 +494,7 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
 
   async function runRows(ns, engines) {
     if (state.busy) return;
-    if (!state.token || !state.profile) { setStatus("Save a token first", "bad"); return; }
+    if (!state.token || !state.profile) { setStatus("Sign in first", "bad"); return; }
     state.busy = true; state.stop = false;
     var runs = Math.max(1, Math.min(5, +$("runs").value || 3));
     var hold = Math.max(0, +$("hold").value || 0) * 1000;
@@ -521,13 +522,13 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
       var pub = await fetch(jf() + "/System/Info/Public", {mode: "cors", credentials: "omit"});
       if (!pub.ok) throw new Error("HTTP " + pub.status);
     } catch (e) { setStatus("Jellyfin edge not reachable from this page (" + (e.message || e) + "): CORS or network", "bad"); return false; }
-    if (!state.token) { setStatus("Edge reachable (CORS ok). No token yet", "warn"); return false; }
+    if (!state.token) { setStatus("Edge reachable (CORS ok). Sign in to start", "warn"); return false; }
     try {
       var me = await api("/Users/Me");
       state.userId = me.Id;
       state.caps = detectCaps(); renderCaps(state.caps);
       state.profile = JY.buildProfile(state.caps);
-      setStatus("Ready: edge reachable, token accepted", "ok");
+      setStatus("Ready: edge reachable, signed in", "ok");
       emit(session());
       return true;
     } catch (e) { setStatus("Token refused (" + (e.message || e) + ")", "bad"); return false; }
@@ -540,14 +541,13 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
       var res = await api("/Users/AuthenticateByName", {body: {Username: name, Pw: pw}});
       state.token = res.AccessToken || "";
       $("pass").value = "";
-      store.set("token", state.token);
       await check();
     } catch (e) { setStatus("Sign-in refused (" + (e.message || e) + ")", "bad"); }
   }
 
   async function resumeCheck() {
     var out = $("resumeOut");
-    if (!state.userId) { out.textContent = "Save a token first"; return; }
+    if (!state.userId) { out.textContent = "Sign in first"; return; }
     var it = JY.ITEMS[0];
     try {
       var res = await api("/Items?Ids=" + it.id + "&UserId=" + encodeURIComponent(state.userId) + "&EnableUserData=true&Fields=MediaSources");
@@ -580,15 +580,16 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
   if (params.get("runs")) $("runs").value = params.get("runs");
   if (params.get("hold")) $("hold").value = params.get("hold");
   ["device", "network"].forEach(function (k) { $(k).addEventListener("change", function () { store.set(k, $(k).value); refreshSummaries(); emit(session()); }); });
-  state.token = (bridge && bridge.token && bridge.token()) || store.get("token") || "";
-  $("save").addEventListener("click", function () {
-    var t = $("token").value.trim();
-    if (t) { state.token = t; store.set("token", t); $("token").value = ""; }
-    store.set("jf", jf());
-    check();
-  });
+  state.token = (bridge && bridge.token && bridge.token()) || "";   // the TV app's own sign-in; memory only
+  store.set("token", null);   // an earlier draft kept a token here: make sure none is left
+  $("save").addEventListener("click", function () { store.set("jf", jf()); check(); });
   $("signin").addEventListener("click", signin);
-  $("forget").addEventListener("click", function () { state.token = ""; store.set("token", null); setStatus("Token forgotten on this device", "warn"); });
+  $("pass").addEventListener("keydown", function (e) { if (e.key === "Enter") signin(); });
+  $("forget").addEventListener("click", async function () {
+    // ends this page's Jellyfin session (frees joeytest's session slot); the user itself is never changed
+    if (state.token && !bridge) { try { await api("/Sessions/Logout", {body: {}}); } catch (e) { /* already gone */ } }
+    state.token = ""; state.userId = ""; setStatus("Signed out", "warn");
+  });
   $("runall").addEventListener("click", function () { runRows(JY.ITEMS.map(function (x) { return x.n; }), ["W1", "W2"]); });
   $("stop").addEventListener("click", function () { state.stop = true; teardown(); });
   $("resume").addEventListener("click", resumeCheck);

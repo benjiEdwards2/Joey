@@ -18,7 +18,11 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.text.InputType
+import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -55,8 +59,10 @@ import java.util.UUID
 
 /**
  * JY-051 "Joey Study". Started by scripts/jy051_sitting.py with `adb shell am start` extras:
- *   token (study account token, kept in private prefs), jf, engines (T1,T2,T2F,T2H), runs, runs_t1, rows, look,
- *   hold_ms, look_ms, network, mode (matrix | resume), forget (wipe the token).
+ *   jf, engines (T1,T2,T2F,T2H), runs, runs_t1, rows, look, hold_ms, look_ms, network, mode (matrix | resume).
+ * B. signs in as joeytest on the app's first screen (Jellyfin AuthenticateByName with what he types). The session
+ * token lives in memory only (never stored, logged or passed in); the app signs out at the end to free the session
+ * slot. The admin key never reaches the TV. After the matrix the app offers the resume test (OK) or finishes (Back).
  * Every result is one logcat line, tag JY051, JSON (kind session | run | resume_stop | done). No URL or token is logged.
  */
 @OptIn(UnstableApi::class)
@@ -72,6 +78,7 @@ class StudyActivity : Activity() {
     private var userId = ""
     private var verdict: CompletableDeferred<String>? = null
     private var stopResume: CompletableDeferred<Unit>? = null
+    private var choice: CompletableDeferred<Boolean>? = null
     @Volatile private var aborted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,35 +107,92 @@ class StudyActivity : Activity() {
     private fun start() {
         val prefs = getSharedPreferences("jy051", MODE_PRIVATE)
         val x = intent
-        if (x.getBooleanExtra("forget", false)) {
-            prefs.edit().clear().apply()
-            say("Token forgotten. Close this app.")
-            emit(JSONObject().put("kind", "done").put("forgot", true))
-            return
-        }
-        x.getStringExtra("token")?.takeIf { TOKEN_RE.matches(it) }?.let { prefs.edit().putString("token", it).apply() }
-        token = prefs.getString("token", "") ?: ""
+        prefs.edit().remove("token").apply()   // an earlier draft kept a token here: make sure none is left
+        // a device id is not a credential: kept so repeated sign-ins reuse one Jellyfin device entry
         deviceId = prefs.getString("device", null) ?: ("jy051-tv-" + UUID.randomUUID().toString().take(8)).also {
             prefs.edit().putString("device", it).apply()
         }
         base = (x.getStringExtra("jf") ?: DEFAULT_JF).trimEnd('/')
         network = x.getStringExtra("network") ?: "LAN"
-        if (token.isEmpty()) {
-            say("No study token. Run the sitting script (install step) first.")
-            emit(JSONObject().put("kind", "done").put("aborted", "no token"))
-            return
-        }
-        val jf = Jellyfin(base, token, deviceId)
-        scope.launch {
-            try {
-                userId = withContext(Dispatchers.IO) { jf.get("/Users/Me").getString("Id") }
-            } catch (e: Exception) {
-                say("Jellyfin refused the token or is unreachable: ${e.message}")
-                emit(JSONObject().put("kind", "done").put("aborted", "token or edge: ${e.message}"))
-                return@launch
+        showSignIn { jf ->
+            scope.launch {
+                if (x.getStringExtra("mode") == "resume") {
+                    runResume(jf)
+                } else {
+                    runMatrix(jf, x)
+                    if (!aborted) {
+                        say("Matrix done. OK = start the resume test (row 1), Back = finish.")
+                        val c = CompletableDeferred<Boolean>()
+                        choice = c
+                        val go = c.await()
+                        choice = null
+                        if (go) runResume(jf)
+                    }
+                }
+                signOut(jf)
+                emit(JSONObject().put("kind", "done").put("aborted", aborted))
             }
-            if (x.getStringExtra("mode") == "resume") runResume(jf) else runMatrix(jf, x)
         }
+    }
+
+    /** First screen: user name + password, then AuthenticateByName. Nothing typed is stored or logged. */
+    private fun showSignIn(onReady: (Jellyfin) -> Unit) {
+        val form = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.BLACK)
+            setPadding(96, 54, 96, 54)
+            gravity = Gravity.CENTER
+        }
+        val title = TextView(this).apply { text = "Joey Study: sign in as joeytest"; textSize = 26f; setTextColor(Color.WHITE) }
+        val user = EditText(this).apply {
+            hint = "User name"; setSingleLine(); textSize = 22f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        }
+        val pass = EditText(this).apply {
+            hint = "Password"; setSingleLine(); textSize = 22f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val status = TextView(this).apply { textSize = 18f; setTextColor(Color.LTGRAY) }
+        val button = Button(this).apply { text = "Sign in"; textSize = 22f }
+        for (v in listOf(title, user, pass, button, status)) {
+            form.addView(v, LinearLayout.LayoutParams(900, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        root.addView(form, FrameLayout.LayoutParams(MATCH, MATCH))
+        user.requestFocus()
+        button.setOnClickListener {
+            val name = user.text.toString().trim()
+            val pw = pass.text.toString()
+            if (name.isEmpty()) {
+                status.text = "Type the user name"
+                return@setOnClickListener
+            }
+            button.isEnabled = false
+            status.text = "Signing in..."
+            scope.launch {
+                try {
+                    val (tok, uid) = withContext(Dispatchers.IO) { Jellyfin.authenticate(base, deviceId, name, pw) }
+                    token = tok
+                    userId = uid
+                    pass.setText("")
+                    root.removeView(form)
+                    onReady(Jellyfin(base, token, deviceId))
+                } catch (e: Exception) {
+                    // a wrong password, or joeytest's session limit is full (sign out elsewhere first)
+                    status.text = "Sign-in refused (${e.message}). Check the password; a full session limit also refuses."
+                    button.isEnabled = true
+                }
+            }
+        }
+    }
+
+    /** Ends this app's Jellyfin session (frees joeytest's session slot) and forgets the token; joeytest is unchanged. */
+    private suspend fun signOut(jf: Jellyfin) {
+        try {
+            withContext(Dispatchers.IO) { jf.post("/Sessions/Logout", JSONObject()) }
+        } catch (_: Exception) {
+        }
+        token = ""
+        say(if (aborted) "Stopped and signed out." else "Done and signed out. You can put the remote down.")
     }
 
     // ------------------------------------------------------------------ matrix
@@ -176,8 +240,7 @@ class StudyActivity : Activity() {
                 if (anyBad) failed.getOrPut(engine) { mutableSetOf() }.add(item.n)
             }
         }
-        say(if (aborted) "Stopped." else "Done. You can put the remote down.")
-        emit(JSONObject().put("kind", "done").put("aborted", aborted))
+        emit(JSONObject().put("kind", "done").put("phase", "matrix").put("aborted", aborted))
     }
 
     private fun record(engine: String, item: TestItem, k: Int): JSONObject =
@@ -397,7 +460,7 @@ class StudyActivity : Activity() {
     private suspend fun runResume(jf: Jellyfin) {
         val item = Study.ITEMS.first()
         val (msid, _) = try { withContext(Dispatchers.IO) { jf.facts(item.id) } } catch (e: Exception) {
-            emit(JSONObject().put("kind", "done").put("aborted", "facts: ${e.message}")); return
+            emit(JSONObject().put("kind", "resume_error").put("err", e.message ?: "facts")); return
         }
         val ps = UUID.randomUUID().toString().replace("-", "")
         val http = DefaultHttpDataSource.Factory().setDefaultRequestProperties(mapOf("Authorization" to jf.auth))
@@ -432,7 +495,6 @@ class StudyActivity : Activity() {
         emit(JSONObject().put("kind", "resume_stop").put("device", "TV").put("n", item.n).put("id", item.id)
             .put("position_s", pos / 1000))
         say("Stopped at ${pos / 60_000}:${"%02d".format((pos / 1000) % 60)}. Now open row 1 on the phone.")
-        emit(JSONObject().put("kind", "done").put("mode", "resume"))
     }
 
     // ------------------------------------------------------------------ keys, output
@@ -440,18 +502,22 @@ class StudyActivity : Activity() {
         val v = verdict
         if (event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
-                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER ->
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                     if (v != null) { v.complete("yes"); return true }
+                    choice?.let { it.complete(true); return true }
+                }
                 KeyEvent.KEYCODE_BACK -> {
+                    if (token.isEmpty() && v == null && choice == null) return super.dispatchKeyEvent(event)   // sign-in screen: exit
                     when {
                         v != null -> v.complete("no")
+                        choice != null -> choice?.complete(false)
                         stopResume != null -> stopResume?.complete(Unit)
                         else -> { aborted = true; say("Stopping after this run...") }
                     }
                     return true
                 }
             }
-        } else if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+        } else if (event.keyCode == KeyEvent.KEYCODE_BACK && token.isNotEmpty()) {
             return true
         }
         return super.dispatchKeyEvent(event)
@@ -485,6 +551,5 @@ class StudyActivity : Activity() {
         private const val TAG = "JY051"
         private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         private const val DEFAULT_JF = "https://jellyfin.joeyhome.net:8443"
-        private val TOKEN_RE = Regex("^[0-9a-fA-F]{32}$")
     }
 }

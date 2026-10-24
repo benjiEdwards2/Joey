@@ -222,7 +222,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-240 | Pre-gate free-memory check in deploy.sh (warn/abort below ~1,400 MB available) | NAS/deploy | S | [x] shipped | Built + 2 reviews PASS (PR #117); waits for B.: adapt (-n 1 between ~1,460 and ~1,720 MB) or skip | [spec](docs/specs/JY-240-pregate-memory.md) |
 | JY-241 | joey.py crashes printing non-cp1252 text (e.g. "≤" in a PR title) to a Windows pipe | Tooling | S | [x] shipped | Broke JY-235's first close-out, 2026-10-24; workaround PYTHONIOENCODING=utf-8 · PR #112 | [spec](docs/specs/JY-241-utf8-output.md) |
 | JY-243 | Flaky JY-119 tests: race with the background film-extras read | Tests | S | [x] shipped | Failed once on JY-142's docs PR, 2026-10-24 · PR #145 | [spec](docs/specs/JY-243-flaky-episode-ratings.md) |
-| JY-244 | Flaky `test_following_state_inside_the_banner` (same race) | Tests | S | idea | Seen in JY-243's proof runs, 2026-10-25 | — |
+| JY-244 | Flaky `test_following_state_inside_the_banner` (same race) | Tests | S | [x] shipped | Seen in JY-243's proof runs, 2026-10-25 · PR #152 | [spec](docs/specs/JY-244-partof-banner-race.md) |
 | JY-245 | Warm-up prefetch of episode ratings (watchlist + requested shows) | Media | M | idea | JY-119 picked A (fill after first view); prefetch left as its own idea | — |
 | JY-246 | Server page: "Prowlarr N failed grabs" says "this week" | Server | S | idea | JY-143 now counts 7 days; spec question 1, not blocking | — |
 

@@ -508,3 +508,78 @@ def test_nominee_lines_keep_co_writers_together_and_actors_apart(setup):
     adapted = oscars["Best Writing, Adapted Screenplay"]["entries"]
     unknown = [e for e in adapted if e["work"]["title"] == "A Complete Unknown"]
     assert len(unknown) == 1 and {p["name"] for p in unknown[0]["people"]} >= {"Jay Cocks", "James Mangold"}
+
+
+# ---- JY-242 (2026-10-24, B.: "JY-242: A A"): honorary awards land, fold and count; PARSER_V 3 re-pulls every page ----
+
+@pytest.mark.parametrize("body,kind,name", [("globes", "film", "Cecil B. DeMille Award"),
+                                            ("globes", "tv", "Carol Burnett Award"),
+                                            ("sag", "film", "Screen Actors Guild Life Achievement Award"),
+                                            ("bafta", "film", "BAFTA Fellowship")])
+def test_honorary_awards_always_fold_under_more_categories(body, kind, name):
+    from hub import media_awards_seed as seed
+    assert seed.FOLD.search(name), name
+    assert seed.rank_of(body, kind, name, ap.slug(name))[1] == "more"
+
+
+def test_honorary_awards_fold_on_the_ceremony_and_count_as_a_win_on_the_person_page(setup):
+    from hub import media_awards_pages as pages
+    from tests.hub.test_media_rate import jelly_data
+    client, _, _ = setup(editions=False)
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "globes", [{"ordinal": 82, "year": 2025}])
+        adb.upsert_editions(db, "sag", [{"ordinal": 31, "year": 2025}])
+    assert ma.run_pass(client=client, today=TODAY)["editions"] == 2
+    for body, kind, name, who in (("globes", "film", "Cecil B. DeMille Award", "Viola Davis"),
+                                  ("globes", "tv", "Carol Burnett Award", "Ted Danson"),
+                                  ("sag", "film", "Screen Actors Guild Life Achievement Award", "Jane Fonda")):
+        cat = next(c for c in adb.edition_page(body, 2025, kind)["categories"] if c["name"] == name)
+        assert (cat["grp"], cat["lead"]) == ("more", "person") and cat["rank"] >= 1000
+        assert [(e["won"], e["work"], [p["name"] for p in e["people"]]) for e in cat["entries"]] == [(1, None, [who])]
+    page = pages.awards_ctx("movie", "globes", "2025", False, jelly_data(), "both", show_all=True, v="categories")[0]
+    more = {c["name"]: c for c in page["more"]}
+    assert "Cecil B. DeMille Award" not in [c["name"] for c in page["cats"]]
+    assert [x["title"] for x in more["Cecil B. DeMille Award"]["winners"]] == ["Viola Davis"]
+    with closing(adb.ensure()) as db:
+        with db:
+            db.execute("UPDATE award_entity SET tmdb_person = 4242 WHERE qid = ?", (qid_for("Viola Davis"),))
+    got = adb.person_awards(4242)
+    assert (got["wins"], got["noms"]) == (1, 1)
+    assert [(r["body_id"], r["year"], r["cat"], r["won"], r["work"]) for r in got["rows"]] == [
+        ("globes", 2025, "Cecil B. DeMille Award", True, None)]
+    assert pages.person_rows(got)["head"] == "1 win · 1 nomination"
+
+
+def test_parser_v3_requeues_every_done_wikipedia_edition_exactly_once(setup, caplog):
+    """2A: PARSER_V 3 puts every `done` Wikipedia-sourced edition back to pending once (winners or not, rows or not),
+    with the shapeless skips; Wikidata-sourced (Oscars) and winners-only (Cannes) editions, other skips and pending
+    ones stay. The rows stay readable until the pass rewrites them; the next pass re-queues nothing."""
+    caplog.set_level("INFO", logger="hub.media_awards")
+    assert ma.PARSER_V == 3
+    setup(editions=False)
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "globes", [{"ordinal": 81, "year": 2024}, {"ordinal": 82, "year": 2025}])
+        adb.upsert_editions(db, "bafta", [{"ordinal": 78, "year": 2025}])
+        adb.upsert_editions(db, "emmys", [{"ordinal": 1, "year": 1949}, {"ordinal": 2, "year": 1950}])
+        adb.upsert_editions(db, "oscars", [{"ordinal": 97, "year": 2025}])
+        adb.upsert_editions(db, "cannes", [{"ordinal": 2024, "year": 2024}])
+        for body, n in (("globes", 81), ("globes", 82), ("bafta", 78), ("oscars", 97)):
+            adb.set_state(db, body, n, "done", None, synced=True)
+        adb.set_state(db, "cannes", 2024, "partial", None, synced=True)
+        adb.set_state(db, "emmys", 1, "skipped", "no page", synced=True)
+        adb.set_state(db, "emmys", 2, "skipped", "no page shape (none)", synced=True)
+        with db:
+            db.executemany("INSERT INTO award_nomination(body_id, ordinal, cat_key, work_qid, work_title, won, pos, "
+                           "source) VALUES(?, ?, 'x', '~a', 'A', ?, 0, 'wp')", [("globes", 82, 1), ("bafta", 78, 0)])
+        adb.set_sync(db, "parser_v", 2)
+        assert ma.requeue_on_parser_bump(db) == 4
+        assert adb.get_sync(db, "parser_v") == "3"
+        assert ma.requeue_on_parser_bump(db) == 0                                  # exactly once
+        rows = db.execute("SELECT COUNT(*) AS n FROM award_nomination").fetchone()["n"]
+    assert rows == 2                                                               # kept until the re-pull
+    st = states()
+    assert {k for k, v in st.items() if v == ("pending", None)} == {("globes", 81), ("globes", 82), ("bafta", 78),
+                                                                    ("emmys", 2)}
+    assert st[("oscars", 97)] == ("done", None) and st[("cannes", 2024)][0] == "partial"
+    assert st[("emmys", 1)] == ("skipped", "no page")
+    assert "parser v3, 1 shapeless skips, 3 done Wikipedia editions re-queued" in caplog.text

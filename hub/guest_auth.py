@@ -55,6 +55,7 @@ FALLBACK_DEVICE = "joey-media"   # a request without a __Host-jm_dev cookie (nev
 VERDICT_TTL = 60              # Q27
 STALE_GRACE = 300             # a valid verdict served this long past its TTL while Jellyfin does not answer
 VALIDATE_TIMEOUT = 10         # /Users/Me on a page's path (W3: the NAS can be slow under swap pressure)
+SIGNOUT_WHO_TIMEOUT = 3       # JY-190: sign-out's identity read (only to pick the device); a miss deletes nothing
 SIGNIN_TIMEOUT = 30           # sign-in calls: a friend waits for these, a page never does
 FAIL_LIMIT = 5                # Q28 / D-P15
 FAIL_WINDOW_S = 15 * 60
@@ -231,8 +232,8 @@ def forget(token: str | None) -> None:
             _verdicts.pop(_hash(token), None)
 
 
-def _check(token: str, device_id: str, tv: bool) -> Identity | None:
-    status, user = _call("GET", "/Users/Me", auth_header(device_id, tv, token), VALIDATE_TIMEOUT)
+def _check(token: str, device_id: str, tv: bool, timeout: float = VALIDATE_TIMEOUT) -> Identity | None:
+    status, user = _call("GET", "/Users/Me", auth_header(device_id, tv, token), timeout)
     if not 200 <= status < 300:
         return None   # 4xx: the token is dead (revoked, user deleted)
     if not isinstance(user, dict):
@@ -267,7 +268,7 @@ def _once(key: str, fn):
             _flights.pop(key, None)
 
 
-def validate(token: str, device_id: str, tv: bool = False) -> Identity | None:
+def validate(token: str, device_id: str, tv: bool = False, timeout: float = VALIDATE_TIMEOUT) -> Identity | None:
     """The token's Identity, or None when Jellyfin says it is not a guest session (dead token, disabled, admin, remote
     access off). Raises Unreachable when Jellyfin cannot say (nothing cached; a recent valid verdict is served for
     STALE_GRACE instead)."""
@@ -278,7 +279,7 @@ def validate(token: str, device_id: str, tv: bool = False) -> Identity | None:
     if hit and now - hit[0] < VERDICT_TTL:
         return hit[1]
     try:
-        ident = _once(key, lambda: _check(token, device_id, tv))
+        ident = _once(key, lambda: _check(token, device_id, tv, timeout))
     except Unreachable as exc:
         if hit and now - hit[0] < VERDICT_TTL + STALE_GRACE:
             log.warning("guest: jellyfin unreachable (%s), keeping a recent verdict for %s", exc, hit[1].owner)

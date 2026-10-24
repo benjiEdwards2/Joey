@@ -23,6 +23,8 @@ Three faults from the TV UI review of 2026-10-23 (`JoeyTV\review\TV_UI_EVALUATIO
 4. F1: on the media front the 404 page's user chip names the signed-in friend or household user. Denied and unknown paths still give the same page for the same visitor; no session still renders as not signed in. Tests: `test_the_404_names_who_is_signed_in[friend|household]`, `test_the_404_without_a_session_stays_not_signed_in`, and the existing `test_signed_in_friend_gets_the_same_404`.
 5. Y1: the Diary month card (and Wrapped's summary under it) for a friend reads only rows owned by that friend's `jf:<id>`: diary rows and recorded plays. With no rows of their own the card says "<Month> · nothing yet", never the household's month. The private front's you / her / both views are unchanged. Tests: `tests/hub/test_guest_month_card.py` (privacy: `test_the_friends_diary_page_never_shows_household_numbers`).
 
+6. Review should-fixes (2026-10-25): the device lookup and delete run as a BackgroundTask after the 303, and the identity read before the logout waits at most 3 s (`test_the_device_calls_run_after_the_response_is_sent`, `test_the_signout_identity_read_has_a_short_timeout`); a friend's shows in Wrapped's summary carry no household progress words (`test_a_friends_shows_carry_no_household_progress_words`).
+
 ## Data
 No schema change. Reads `diary` and `play` in media.db, filtered by `owner = 'jf:<id>'` for a friend. Jellyfin calls added: `GET /Devices/Info?id=` and `DELETE /Devices?id=` with `JELLYFIN_API_KEY` (already in `deploy/media.env`).
 

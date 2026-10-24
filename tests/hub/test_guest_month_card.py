@@ -81,3 +81,17 @@ def test_the_private_views_still_read_their_own_rows(wrap):
     assert (her["s"]["films"], her["s"]["episodes"]) == (1, 0)
     with closing(media_store.reader()) as db:
         assert db.execute("SELECT COUNT(*) FROM diary WHERE owner = ?", (FRIEND,)).fetchone()[0] == 1
+
+
+def test_a_friends_shows_carry_no_household_progress_words(wrap):
+    """Review should-fix (2026-10-25): the progress words ("6 left · ~4h 30m") come from the household's Jellyfin list,
+    so on a friend's card they would be B.'s state. A friend's shows carry none."""
+    build, _ = wrap
+    today = media_wrapped._now().date()
+    with build():
+        media_store.connect().close()
+        eps("tmdb:100", "Quiet Show", [today.isoformat(), (today - timedelta(days=1)).isoformat()], owner=FRIEND)
+        w = media_wrapped.summary(FRIEND, jelly(), today.year)
+        you = media_wrapped.summary("you", jelly(), today.year)
+    assert [(g["title"], g["episodes"], g["progress"]) for g in w["shows"]] == [("Quiet Show", 2, None)]
+    assert you["shows"] == []

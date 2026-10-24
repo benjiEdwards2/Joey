@@ -10,8 +10,8 @@ in hub.guest_auth; this module is the five routes (hub.guest.SIGNIN, all PUBLIC)
                           "Wrong username or password" after WRONG_DELAY_S; 5 failures per username in 15 min are
                           refused without calling Jellyfin (Q28).
 * POST /signout           Jellyfin /Sessions/Logout with the token (best effort), the verdict evicted, then (JY-190,
-                          L4) a friend's own Jellyfin device deleted with the admin key (best effort,
-                          guest_auth.remove_device), the cookie cleared, 303 /signin.
+                          L4) the cookie cleared, 303 /signin, and AFTER the response a friend's own Jellyfin
+                          device deleted with the admin key (best effort, guest_auth.remove_device, a BackgroundTask).
 
 The TV signs in on this same page (Q33: the shell has no native sign-in screen); WP-B3 adds the 10-foot TV styling.
 Every POST passes hub.media_write.same_origin. On the private front every route is the ordinary 404.
@@ -23,6 +23,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from hub import guest, guest_auth, shell
@@ -179,7 +180,7 @@ async def password_signin(request: Request):
 def _whose(token: str, device: str, tv: bool):
     """The signing-out session's identity (the cached verdict, else /Users/Me), or None when Jellyfin cannot say."""
     try:
-        return guest_auth.validate(token, device, tv)
+        return guest_auth.validate(token, device, tv, guest_auth.SIGNOUT_WHO_TIMEOUT)
     except Unreachable as exc:
         log.warning("guest: sign-out identity unknown (%s)", exc)
         return None
@@ -191,14 +192,15 @@ async def signout(request: Request):
         return _not_found(request)
     cookies = guest_auth.cookies_of(request.headers)
     token = cookies.get(guest_auth.cookie_name(SESSION)) or ""
+    after = None
     if guest_auth.TOKEN_RE.match(token):
         device, tv = guest_auth.device_of(cookies), guest_auth.is_tv(request.headers)
         ident = await run_in_threadpool(_whose, token, device, tv)   # before the logout: the token still answers
         await run_in_threadpool(guest_auth.logout, token, device, tv)
         guest_auth.forget(token)   # after the logout: a request racing it cannot re-cache a valid verdict
         log.info("guest: signed out")
-        if ident is not None:
-            await run_in_threadpool(guest_auth.remove_device, device, ident)
-    resp = RedirectResponse("/signin", status_code=303)
+        if ident is not None:   # after the 303 is sent: a slow Jellyfin never holds the sign-out up (JY-190 review)
+            after = BackgroundTask(guest_auth.remove_device, device, ident)
+    resp = RedirectResponse("/signin", status_code=303, background=after)
     resp.headers.append("set-cookie", guest_auth.clear_cookie_header(SESSION))
     return resp

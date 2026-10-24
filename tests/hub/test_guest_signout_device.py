@@ -111,3 +111,51 @@ def test_jellyfin_unreachable_for_the_device_check_still_signs_out(client, fake,
     sign_out(client)
     assert deletes(fake) == []
     assert "guest: device not removed" in caplog.text and DEV not in caplog.text and KEY not in caplog.text
+
+
+def test_the_device_calls_run_after_the_response_is_sent(fake, monkeypatch):
+    """Review should-fix (2026-10-25): the device lookup and delete run as a BackgroundTask after the 303, so a hung
+    Jellyfin never holds the sign-out up. The ASGI send is wrapped: the final body goes out before the lookup starts."""
+    from hub import guest_auth
+    monkeypatch.setattr(guest_auth, "sleep", lambda s: None)
+    events = []
+    app = reload_app()
+
+    async def wrapped(scope, receive, send):
+        async def rec(msg):
+            if (scope.get("path") == "/signout" and msg["type"] == "http.response.body"
+                    and not msg.get("more_body")):
+                events.append("response sent")
+            await send(msg)
+        await app(scope, receive, rec)
+
+    real_get = fake.get
+
+    def get(url, **kw):
+        if url.endswith("/Devices/Info"):
+            events.append("device lookup")
+        return real_get(url, **kw)
+    monkeypatch.setattr(requests, "get", get)
+    with TestClient(wrapped, base_url=HTTPS) as c:
+        c.cookies.set("__Host-jm_dev", DEV)
+        sign_in(c)
+        sign_out(c)
+    assert events == ["response sent", "device lookup"]
+    assert len(deletes(fake)) == 1 and DEV not in fake.devices
+
+
+def test_the_signout_identity_read_has_a_short_timeout(client, fake, monkeypatch):
+    from hub import guest_auth
+    sign_in(client)
+    guest_auth.clear()                                                    # no cached verdict: /Users/Me is asked
+    seen = []
+    real_get = fake.get
+
+    def get(url, **kw):
+        if url.endswith("/Users/Me"):
+            seen.append(kw.get("timeout"))
+        return real_get(url, **kw)
+    monkeypatch.setattr(requests, "get", get)
+    sign_out(client)
+    assert seen == [guest_auth.SIGNOUT_WHO_TIMEOUT] and guest_auth.SIGNOUT_WHO_TIMEOUT <= 3
+    assert len(deletes(fake)) == 1

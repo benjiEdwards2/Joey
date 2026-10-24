@@ -339,7 +339,9 @@ def _compute(db, view: str, jelly: dict, year: int, month: int | None) -> dict:
         g["episodes"] += 1
         g["poster"] = g["poster"] or r.get("poster")
         g["last"] = max(g["last"], r["watched_on"])
-    own = ((jelly or {}).get("her") or {}).get("shows") if view == "her" else (jelly or {}).get("shows")
+    # JY-190 review: the snapshot's lists are the household's; a friend (`jf:<id>`) has none here, so no progress words
+    own = (None if media_db.friend_key(view) else
+           ((jelly or {}).get("her") or {}).get("shows") if view == "her" else (jelly or {}).get("shows"))
     own_idx = _index({"shows": own or []})[1]
     shows = sorted(groups.values(), key=lambda g: (-g["episodes"], g["title"]))[:SHOWS_MAX]
     runtimes = media_plays_db.show_runtimes(

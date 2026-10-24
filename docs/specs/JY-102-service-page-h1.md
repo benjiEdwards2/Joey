@@ -1,6 +1,6 @@
 # JY-102 Service page H1 = service name
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/templates/media_service.html`, `hub/static/control-surface.css` (the `.prov-title` rule only), `tests/hub/test_media_services.py`
@@ -36,3 +36,8 @@ Open a service from Discover > Services: the heading is the service name, once, 
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #82, squash-merged as `2c7606d` (2c7606dc90483209540c698f82a2e56285122829).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

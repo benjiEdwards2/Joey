@@ -2,8 +2,9 @@
 HITLIST.md from this repo (the gate image drops docs/, and the real files change when items ship): inline fixtures.
 
 Two worlds. `lw` (light) has no git at all: clone_root/repo_slug are faked, so the gate, window and other refusals that
-stop before the merge cost no repo. `w` (full) builds a throwaway bare origin + clone; FakeGh squash-merges for real
-into it, so the read-back, --resume, the docs PR and worktree remove see real git state. Runner.ssh_change reaches
+stop before the merge cost no repo. `w` (full) gets a throwaway bare origin + clone (and the item's worktree), copied
+from a template built once per session (JY-227); FakeGh squash-merges for real into the bare origin (merge-tree +
+commit-tree), so the read-back, --resume, the docs PR and worktree remove see real git state. Runner.ssh_change reaches
 FakeNas through joey_common.ssh_run. Most tests call joey_closeout.main() in-process; one runs the CLI as a subprocess
 through JOEY_GH. Skips when git is not on PATH."""
 import datetime as dt
@@ -242,14 +243,100 @@ class FakeNas:
         raise AssertionError(f"unexpected NAS command {cmd}")
 
 
-class World:
-    """full=False: no git (clone_root/repo_slug faked). full=True: bare origin + clone, real squash merges."""
+GIT_ENV = {"GIT_AUTHOR_NAME": "Joey Test", "GIT_AUTHOR_EMAIL": "joey@example.invalid",
+           "GIT_COMMITTER_NAME": "Joey Test", "GIT_COMMITTER_EMAIL": "joey@example.invalid",
+           "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
+NO_GIT_ENV = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+# JY-227: no background `git maintenance run --auto` after each commit, fetch and push (one process less each)
+GITCONFIG = "[maintenance]\n\tauto = false\n[receive]\n\tautogc = false\n"
+REPOS = ("origin.git", "life-dashboard", f"wt-{ITEM}")  # what a full world holds on disk, in its root
 
-    def __init__(self, tmp_path, monkeypatch, capsys, full):
+
+def git_run(args, cwd, env=None):
+    r = subprocess.run(["git", *args], cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8",
+                       errors="replace")
+    assert r.returncode == 0, f"git {args}: {r.stderr}"
+    return r.stdout.strip()
+
+
+def copy_world(src, dst):
+    """Copy a world's repos from src to dst and point their absolute paths at dst (what `git worktree repair` and
+    `git config url.<origin>.insteadOf` would write), so the copy is the same git state as a fresh build there."""
+    for name in REPOS:
+        if (src / name).exists():
+            shutil.copytree(src / name, dst / name, ignore=shutil.ignore_patterns("*.sample"))
+    config = dst / "life-dashboard" / ".git" / "config"
+    text = config.read_text(encoding="utf-8")
+    start = text.index('[url "') + len('[url "')
+    config.write_text(text[:start] + (dst / "origin.git").as_posix() + text[text.index('"]', start):],
+                      encoding="utf-8")
+    wt = dst / f"wt-{ITEM}"
+    if wt.exists():
+        admin = dst / "life-dashboard" / ".git" / "worktrees" / wt.name
+        with open(wt / ".git", "r+", encoding="utf-8", newline="\n") as f:  # r+: Windows git marks .git hidden
+            f.write(f"gitdir: {admin.as_posix()}\n")
+            f.truncate()
+        (admin / "gitdir").write_text(f"{(wt / '.git').as_posix()}\n", encoding="utf-8")
+
+
+class Templates:
+    """JY-227: the full world's git repos, built once per worker (session) and copied per test. The base is the bare
+    origin + clone; each `files` variant adds the item's worktree with one pushed commit touching those files."""
+
+    def __init__(self, root):
+        self.root, self.made = root, {}
+        (root / "gitconfig").write_text(GITCONFIG, encoding="utf-8")
+        self.env = {k: v for k, v in os.environ.items() if k not in NO_GIT_ENV}
+        self.env.update(GIT_ENV, GIT_CONFIG_GLOBAL=str(root / "gitconfig"))
+
+    def get(self, files=None):
+        """(folder, item tip or None) for the base world (files=None) or the base world plus the item."""
+        if files not in self.made:
+            base = None if files is None else self.get(None)[0]
+            d = self.root / f"t{len(self.made)}"
+            d.mkdir()
+            self.made[files] = (d, self._base(d) if files is None else self._item(base, d, files))
+        return self.made[files]
+
+    def _base(self, d):
+        origin, clone = d / "origin.git", d / "life-dashboard"
+        git_run(["init", "-q", "--bare", "-b", "main", str(origin)], d, self.env)
+        git_run(["init", "-q", "-b", "main", str(clone)], d, self.env)
+        (clone / "docs" / "specs").mkdir(parents=True)
+        (clone / "scripts").mkdir()
+        (clone / ".gitignore").write_text(".env\n/data/\n/.joey/\n", encoding="utf-8")
+        (clone / "HITLIST.md").write_text(HITLIST_TEXT, encoding="utf-8")
+        (clone / SPEC).write_text(SPEC_TEXT, encoding="utf-8")
+        (clone / "scripts" / "hitlist_seed_check.py").write_text(HITLIST_CHECK, encoding="utf-8")
+        for args in (["add", "."], ["commit", "-q", "-m", "init"], ["remote", "add", "origin", GH_URL],
+                     ["config", f"url.{origin.as_posix()}.insteadOf", GH_URL], ["push", "-q", "-u", "origin", "main"]):
+            git_run(args, clone, self.env)
+        return None
+
+    def _item(self, base, d, files):
+        copy_world(base, d)
+        wt = d / f"wt-{ITEM}"
+        git_run(["worktree", "add", "-q", str(wt), "-b", BRANCH, "origin/main"], d / "life-dashboard", self.env)
+        for f in files:
+            p = wt / f
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("work\n", encoding="utf-8")
+        git_run(["add", *files], wt, self.env)
+        git_run(["commit", "-q", "-m", f"{ITEM}: work"], wt, self.env)
+        git_run(["push", "-q", "origin", BRANCH], wt, self.env)
+        return git_run(["rev-parse", "HEAD"], wt, self.env)
+
+
+class World:
+    """full=False: no git (clone_root/repo_slug faked). full=True: bare origin + clone, real squash merges. The full
+    world's repos are copied from Templates on first use (JY-227): item() as the first step copies the template that
+    already holds the item's commit; anything else first copies the base, and item() then builds the commit here."""
+
+    def __init__(self, tmp_path, monkeypatch, capsys, full, templates=None):
         self.root, self.capsys, self.full = tmp_path, capsys, full
+        self.monkeypatch, self.templates, self.made = monkeypatch, templates, False
         self.origin = tmp_path / "origin.git"
-        self.clone = tmp_path / "life-dashboard"
-        self.server = tmp_path / "server"
+        self._clone = tmp_path / "life-dashboard"
         self.wt = tmp_path / f"wt-{ITEM}"
         monkeypatch.setenv("JOEY_NAS", "root@10.9.8.7")
         monkeypatch.delenv("JOEY_GH", raising=False)
@@ -265,73 +352,70 @@ class World:
         monkeypatch.setattr(jco, "utc_now", self.clock.now)
         monkeypatch.setattr(jco, "sleep", self.clock.sleep)
         if not full:
-            self.clone.mkdir()
-            monkeypatch.setattr(joey_common, "clone_root", lambda cwd=None: self.clone)
+            self._clone.mkdir()
+            monkeypatch.setattr(joey_common, "clone_root", lambda cwd=None: self._clone)
             monkeypatch.setattr(joey_common, "repo_slug", lambda clone: "example/joey")
-            monkeypatch.chdir(self.clone)
+            monkeypatch.chdir(self._clone)
             return
         gitconfig = tmp_path / "gitconfig"
-        gitconfig.write_text("", encoding="utf-8")
-        for k, val in {"GIT_AUTHOR_NAME": "Joey Test", "GIT_AUTHOR_EMAIL": "joey@example.invalid",
-                       "GIT_COMMITTER_NAME": "Joey Test", "GIT_COMMITTER_EMAIL": "joey@example.invalid",
-                       "GIT_CONFIG_GLOBAL": str(gitconfig), "GIT_CONFIG_NOSYSTEM": "1",
-                       "GIT_TERMINAL_PROMPT": "0"}.items():
+        gitconfig.write_text(GITCONFIG, encoding="utf-8")
+        for k, val in dict(GIT_ENV, GIT_CONFIG_GLOBAL=str(gitconfig)).items():
             monkeypatch.setenv(k, val)
-        for k in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
+        for k in NO_GIT_ENV:
             monkeypatch.delenv(k, raising=False)
-        self.git("init", "-q", "--bare", "-b", "main", str(self.origin), cwd=tmp_path)
-        self.git("init", "-q", "-b", "main", str(self.clone), cwd=tmp_path)
-        (self.clone / "docs" / "specs").mkdir(parents=True)
-        (self.clone / "scripts").mkdir()
-        (self.clone / ".gitignore").write_text(".env\n/data/\n/.joey/\n", encoding="utf-8")
-        (self.clone / "HITLIST.md").write_text(HITLIST_TEXT, encoding="utf-8")
-        (self.clone / SPEC).write_text(SPEC_TEXT, encoding="utf-8")
-        (self.clone / "scripts" / "hitlist_seed_check.py").write_text(HITLIST_CHECK, encoding="utf-8")
-        self.git("add", ".")
-        self.git("commit", "-q", "-m", "init")
-        self.git("remote", "add", "origin", GH_URL)
-        self.git("config", f"url.{self.origin.as_posix()}.insteadOf", GH_URL)
-        self.git("push", "-q", "-u", "origin", "main")
-        monkeypatch.chdir(self.clone)
+
+    def _make(self, files=None):
+        """Copy the template repos in, once. Returns the item's tip when the copy already holds the item."""
+        if not self.full or self.made:
+            return None
+        self.made = True
+        src, tip = self.templates.get(files)
+        copy_world(src, self.root)
+        self.monkeypatch.chdir(self._clone)
+        return tip
+
+    @property
+    def clone(self):
+        self._make()
+        return self._clone
 
     def git(self, *args, cwd=None):
-        r = subprocess.run(["git", *args], cwd=cwd or self.clone, capture_output=True, text=True, encoding="utf-8",
-                           errors="replace")
-        assert r.returncode == 0, f"git {args}: {r.stderr}"
-        return r.stdout.strip()
+        self._make()
+        return git_run(args, cwd or self._clone)
 
     def origin_sha(self, ref):
         return self.git("--git-dir", str(self.origin), "rev-parse", f"refs/heads/{ref}", cwd=self.root)
 
     def squash(self, branch, msg):
-        s = self.server
-        if not s.exists():
-            self.git("clone", "-q", str(self.origin), str(s), cwd=self.root)
-        self.git("fetch", "-q", "origin", cwd=s)
-        self.git("checkout", "-q", "-B", "main", "origin/main", cwd=s)
-        self.git("merge", "-q", "--squash", f"origin/{branch}", cwd=s)
-        self.git("commit", "-q", "-m", msg, cwd=s)
-        self.git("push", "-q", "origin", "main", cwd=s)
-        return self.git("rev-parse", "HEAD", cwd=s)
+        """GitHub's squash merge, in the bare origin: the merged tree as one new commit on main (JY-227: was a
+        scratch clone + merge --squash + commit + push; same commit content, no clone). A conflict fails merge-tree."""
+        g = ("--git-dir", str(self.origin))
+        tree = self.git(*g, "merge-tree", "--write-tree", "refs/heads/main", f"refs/heads/{branch}", cwd=self.root)
+        sha = self.git(*g, "commit-tree", tree.splitlines()[0], "-p", "refs/heads/main", "-m", msg, cwd=self.root)
+        self.git(*g, "update-ref", "refs/heads/main", sha, cwd=self.root)
+        return sha
 
     def item(self, files=("scripts/joey_closeout.py",), **view):
         """Light: PR #50 only. Full: the item's worktree with one pushed commit touching `files`, and PR #50."""
         if not self.full:
             self.gh.prs[50] = pr_view(50, BRANCH, FAKE_OID, files=files, **view)
             return FAKE_OID
-        self.git("worktree", "add", "-q", str(self.wt), "-b", BRANCH, "origin/main")
-        for f in files:
-            p = self.wt / f
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text("work\n", encoding="utf-8")
-            self.git("add", f, cwd=self.wt)
-        self.git("commit", "-q", "-m", f"{ITEM}: work", cwd=self.wt)
-        self.git("push", "-q", "origin", BRANCH, cwd=self.wt)
-        tip = self.git("rev-parse", "HEAD", cwd=self.wt)
+        tip = self._make(tuple(files))
+        if tip is None:  # the base was copied earlier (the test changed main first): build the item here
+            self.git("worktree", "add", "-q", str(self.wt), "-b", BRANCH, "origin/main")
+            for f in files:
+                p = self.wt / f
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text("work\n", encoding="utf-8")
+                self.git("add", f, cwd=self.wt)
+            self.git("commit", "-q", "-m", f"{ITEM}: work", cwd=self.wt)
+            self.git("push", "-q", "origin", BRANCH, cwd=self.wt)
+            tip = self.git("rev-parse", "HEAD", cwd=self.wt)
         self.gh.prs[50] = pr_view(50, BRANCH, tip, files=files, **view)
         return tip
 
     def run(self, *args):
+        self._make()
         self.capsys.readouterr()
         rc = jco.main([ITEM, *args])
         return rc, self.capsys.readouterr().out
@@ -344,14 +428,19 @@ class World:
         return "\n".join(p.read_text(encoding="utf-8") for p in (self.clone / ".joey" / "logs").glob("joey_*.log"))
 
 
+@pytest.fixture(scope="session")
+def templates(tmp_path_factory):
+    return Templates(tmp_path_factory.mktemp("joey-worlds"))
+
+
 @pytest.fixture
 def lw(tmp_path, monkeypatch, capsys):
     return World(tmp_path, monkeypatch, capsys, full=False)
 
 
 @pytest.fixture
-def w(tmp_path, monkeypatch, capsys):
-    return World(tmp_path, monkeypatch, capsys, full=True)
+def w(tmp_path, monkeypatch, capsys, templates):
+    return World(tmp_path, monkeypatch, capsys, full=True, templates=templates)
 
 
 def rows(out):

@@ -55,6 +55,7 @@ FALLBACK_DEVICE = "joey-media"   # a request without a __Host-jm_dev cookie (nev
 VERDICT_TTL = 60              # Q27
 STALE_GRACE = 300             # a valid verdict served this long past its TTL while Jellyfin does not answer
 VALIDATE_TIMEOUT = 10         # /Users/Me on a page's path (W3: the NAS can be slow under swap pressure)
+SIGNOUT_WHO_TIMEOUT = 3       # JY-190: sign-out's identity read (only to pick the device); a miss deletes nothing
 SIGNIN_TIMEOUT = 30           # sign-in calls: a friend waits for these, a page never does
 FAIL_LIMIT = 5                # Q28 / D-P15
 FAIL_WINDOW_S = 15 * 60
@@ -146,6 +147,8 @@ def _call(method: str, path: str, headers: dict, timeout: float, body: dict | No
     try:
         if method == "GET":
             resp = session.get(f"{base}{path}", params=params, headers=headers, timeout=timeout)
+        elif method == "DELETE":
+            resp = session.delete(f"{base}{path}", params=params, headers=headers, timeout=timeout)
         else:
             resp = session.post(f"{base}{path}", params=params, json=body, headers=headers, timeout=timeout)
     except Exception as exc:
@@ -229,8 +232,8 @@ def forget(token: str | None) -> None:
             _verdicts.pop(_hash(token), None)
 
 
-def _check(token: str, device_id: str, tv: bool) -> Identity | None:
-    status, user = _call("GET", "/Users/Me", auth_header(device_id, tv, token), VALIDATE_TIMEOUT)
+def _check(token: str, device_id: str, tv: bool, timeout: float = VALIDATE_TIMEOUT) -> Identity | None:
+    status, user = _call("GET", "/Users/Me", auth_header(device_id, tv, token), timeout)
     if not 200 <= status < 300:
         return None   # 4xx: the token is dead (revoked, user deleted)
     if not isinstance(user, dict):
@@ -265,7 +268,7 @@ def _once(key: str, fn):
             _flights.pop(key, None)
 
 
-def validate(token: str, device_id: str, tv: bool = False) -> Identity | None:
+def validate(token: str, device_id: str, tv: bool = False, timeout: float = VALIDATE_TIMEOUT) -> Identity | None:
     """The token's Identity, or None when Jellyfin says it is not a guest session (dead token, disabled, admin, remote
     access off). Raises Unreachable when Jellyfin cannot say (nothing cached; a recent valid verdict is served for
     STALE_GRACE instead)."""
@@ -276,7 +279,7 @@ def validate(token: str, device_id: str, tv: bool = False) -> Identity | None:
     if hit and now - hit[0] < VERDICT_TTL:
         return hit[1]
     try:
-        ident = _once(key, lambda: _check(token, device_id, tv))
+        ident = _once(key, lambda: _check(token, device_id, tv, timeout))
     except Unreachable as exc:
         if hit and now - hit[0] < VERDICT_TTL + STALE_GRACE:
             log.warning("guest: jellyfin unreachable (%s), keeping a recent verdict for %s", exc, hit[1].owner)
@@ -359,6 +362,50 @@ def logout(token: str, device_id: str, tv: bool = False) -> bool:
         log.warning("guest: sign-out not confirmed by jellyfin (%s)", exc)
         return False
     return 200 <= status < 300
+
+
+def admin_headers() -> dict | None:
+    """The admin-key header (JELLYFIN_API_KEY, the 12.2 `MediaBrowser Token=` form), or None without a key."""
+    key = (os.environ.get("JELLYFIN_API_KEY") or "").strip()
+    return {"Authorization": f"MediaBrowser Token={key}"} if key else None
+
+
+def remove_device(device_id: str, ident: Identity | None) -> bool:
+    """JY-190 (L4): delete this browser's Jellyfin device after a friend signed out. /Sessions/Logout leaves the device
+    behind, and a friend capped at MaxActiveSessions 2 then cannot approve the next Quick Connect code (403).
+    Only for a friend (`jf:<id>`, never a household user), only a real `__Host-jm_dev` id, and only when Jellyfin
+    says the device was last used by THAT friend through Joey Media. Best effort: False on any refusal or failure,
+    logged with the friend's `jf:<id>` only (no name, token, key or device id). True once Jellyfin deleted it."""
+    if ident is None or not (ident.owner or "").startswith("jf:") or not ident.jf_user_id:
+        return False
+    if not DEV_RE.match(device_id or ""):
+        return False
+    who = f"jf:{ident.jf_user_id}"
+    headers = admin_headers()
+    if headers is None:
+        log.warning("guest: device not removed (no admin key) %s", who)
+        return False
+    try:
+        status, dev = _call("GET", "/Devices/Info", headers, VALIDATE_TIMEOUT, params={"id": device_id})
+        if not 200 <= status < 300 or not isinstance(dev, dict):
+            log.warning("guest: device not removed (lookup HTTP %s) %s", status, who)
+            return False
+        try:
+            last = identity._norm_id(dev.get("LastUserId"))
+        except ValueError:
+            last = None
+        if last != ident.jf_user_id or dev.get("AppName") != CLIENT:
+            log.warning("guest: device not removed (not this friend's Joey Media device) %s", who)
+            return False
+        status, _ = _call("DELETE", "/Devices", headers, VALIDATE_TIMEOUT, params={"id": device_id})
+    except Unreachable as exc:
+        log.warning("guest: device not removed (%s) %s", exc, who)
+        return False
+    if not 200 <= status < 300:
+        log.warning("guest: device not removed (HTTP %s) %s", status, who)
+        return False
+    log.info("guest: device removed %s", who)
+    return True
 
 
 def session_from(body, device_id: str, tv: bool) -> tuple[str, Identity] | None:

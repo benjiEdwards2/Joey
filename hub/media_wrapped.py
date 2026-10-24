@@ -18,7 +18,8 @@ Data-source rules (no fabricated number anywhere):
   * Award winners you saw: wins at the ceremonies HELD that year (award_edition.year) of a title in the diary (up to
     the end of that year) or the year's plays; the badge is media_awards_badges.badge_of over those wins.
   * The recorder's start date is the earliest `play` row (any owner), never a constant.
-Owner: media_db.owner_filter(view) — the signed-in owner; both when not signed in. Kept in memory per (file, owner,
+Owner: media_db.owner_filter(view) — the signed-in owner (a friend's `jf:<id>` on the media front reads only that
+friend's rows, JY-190); both when not signed in. Kept in memory per (file, owner,
 year, month, media.db row signature, jellyfin snapshot, today), at most CACHE_MAX entries.
 """
 
@@ -98,7 +99,9 @@ def _local_start(stamp) -> datetime | None:
 
 
 def _owner_sql(owner) -> tuple[str, list]:
-    return (" AND owner = ?", [owner]) if owner in ("you", "her") else (" AND " + media_db.household_sql(), [])
+    """One owner's rows (you / her / a friend's `jf:<id>`), or the household's for the both view (owner None).
+    JY-190 (Y1): a friend key used to fall through to the household's rows."""
+    return (" AND owner = ?", [owner]) if owner is not None else (" AND " + media_db.household_sql(), [])
 
 
 def _signature(db) -> tuple | None:
@@ -194,7 +197,7 @@ def _lines(rows: list[dict]) -> list[dict]:
 
 def _dedupe_plays(plays: list[dict], owner) -> list[dict]:
     """The both view: one play per (item, local day) — two profiles watching together are one watch (the longer)."""
-    if owner in ("you", "her"):
+    if owner is not None:
         return plays
     best: dict = {}
     for p in plays:
@@ -336,7 +339,9 @@ def _compute(db, view: str, jelly: dict, year: int, month: int | None) -> dict:
         g["episodes"] += 1
         g["poster"] = g["poster"] or r.get("poster")
         g["last"] = max(g["last"], r["watched_on"])
-    own = ((jelly or {}).get("her") or {}).get("shows") if view == "her" else (jelly or {}).get("shows")
+    # JY-190 review: the snapshot's lists are the household's; a friend (`jf:<id>`) has none here, so no progress words
+    own = (None if media_db.friend_key(view) else
+           ((jelly or {}).get("her") or {}).get("shows") if view == "her" else (jelly or {}).get("shows"))
     own_idx = _index({"shows": own or []})[1]
     shows = sorted(groups.values(), key=lambda g: (-g["episodes"], g["title"]))[:SHOWS_MAX]
     runtimes = media_plays_db.show_runtimes(

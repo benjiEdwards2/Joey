@@ -23,7 +23,8 @@ This module is the single source of truth for what the media front serves:
   log line (hub.shell.ShellMiddleware) sees its 404 / 303 and the identity it stored.
 
 Media front: `/` -> 303 guest home; not allowed -> the ordinary Joey 404 page, rendered for a fixed neutral path so
-every denied or unknown path gets byte-identical HTML (no hint, DECISIONS C); PUBLIC paths pass with no identity and
+every denied or unknown path gets byte-identical HTML for the same visitor (no hint, DECISIONS C; since JY-190 F1 the
+page's user chip names a signed-in visitor); PUBLIC paths pass with no identity and
 no Jellyfin call; otherwise the session cookie is resolved (hub.guest_auth, in a worker thread): valid -> the identity
 is stored at scope['state']['identity'] and its Jellyfin user bound for the request (media_jellyfin.bind_viewer, P3);
 no session -> 303 /signin?next=...; a session Jellyfin refused -> 303 /signin with the cookie cleared; Jellyfin
@@ -339,6 +340,11 @@ class GuestGate:
                 await _redirect(send, home)
                 return
         if not allows(method, path):
+            # JY-190 (F1): the 404 names who is signed in. Same page for every denied or unknown path; a session that
+            # is missing, refused or cannot be confirmed renders as not signed in (the cookie is left alone here).
+            verdict, ident = await _resolve(scope)
+            if verdict == "ok" and ident is not None:
+                scope.setdefault("state", {})["identity"] = ident
             await not_found(scope, receive, send)
             return
         if is_public(method, path):

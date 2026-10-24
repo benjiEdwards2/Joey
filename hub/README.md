@@ -136,6 +136,12 @@ is the session, so disabling or deleting a friend in Jellyfin, or signing the de
   `GET /signin/qc/poll` (htmx, every 3 s; sets the session cookie and `HX-Redirect`s once the phone approves),
   `POST /signin/password`, `POST /signout` (Jellyfin `/Sessions/Logout`, best effort, then the cookie is cleared and
   303 `/signin`). `GET /signout` is a 404: sign-out is POST only. Nothing else under `/signin` is served.
+- **Sign-out deletes the friend's device (JY-190, 2026-10-25).** `/Sessions/Logout` leaves the Jellyfin device behind,
+  and a friend capped at `MaxActiveSessions 2` could then not approve the next Quick Connect code (403). After the 303,
+  a BackgroundTask (`guest_auth.remove_device`) deletes this browser's device (`__Host-jm_dev`) with the admin key, only
+  for a friend (`jf:<id>`, never a household user) and only when `/Devices/Info` says that friend last used it through
+  Joey Media. Best effort: a failure logs `guest: device not removed (...) jf:<id>` and the sign-out stands. The
+  identity read before the logout waits at most `SIGNOUT_WHO_TIMEOUT` (3 s) (`test_guest_signout_device.py`).
 - **Sign-out control (2026-10-22).** On every signed-in guest page the top-bar user chip (avatar initial + name) is a
   button opening a confirm `<dialog id="signout-dlg">` (`base.html`): "Sign out" is a plain full-page form POST `/signout`
   (`hx-boost="false"`), "Stay signed in" starts focused and closes it, as do Back on the TV (tv.js `joeyTV.back()`) and Esc.
@@ -206,6 +212,12 @@ Friends request through Discover and every friend request waits for B.'s approva
 ### Guest surface and TV mode (Joey TV WP-B3, 2026-10-21)
 
 What a signed-in friend sees on the media front, and the 10-foot TV skin the Android TV shell loads.
+
+- **Identity on the 404 and a friend's own Diary (JY-190, 2026-10-25).** The media-front 404 resolves the session first, so
+  its user chip names the signed-in friend or household user (no session: not signed in; still one page for every denied
+  or unknown path per visitor). The Diary's month card and Wrapped's summary read only the friend's own `jf:<id>` rows,
+  and a friend's shows carry no progress words (those come from the household's Jellyfin lists), so a friend never sees
+  a household number (`test_guest_surface.py`, `test_guest_month_card.py`).
 
 - **The pages.** Overview (`/a/<shelves id>`): exactly three shelves, Continue watching and Recently watched (live reads of the
   viewer's own Jellyfin state with their own token, `hub/media_guest_home.py`) and Recently added (the scrubbed snapshot); no hero,

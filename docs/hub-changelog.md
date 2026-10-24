@@ -1261,3 +1261,11 @@ episode, "Joey Server: Disk: reaches 85% in about N days (Volume 1, 412 GB free)
 "Volume N"); no resolved post. A failed first compute skips the forecast for that tick and keeps its seen row
 (`sync(keep=)`). Tests: `tests/hub/test_server_forecast.py`; re-pinned with dated reasons in the spec:
 `test_server_cleanup.py` (the WP-T3 page-only split) and `test_server_space.py` (Free space takes the cached item).
+
+**Server fixes for friends on Joey TV (JY-190, TV UI review findings L4 / F1 / Y1, 2026-10-25).** Sign-out deletes the
+friend's own Jellyfin device after the 303 (a BackgroundTask, admin key, only when `/Devices/Info` says that friend last
+used it through Joey Media, never a household user), so a stale device no longer blocks the next Quick Connect approval
+under `MaxActiveSessions 2`. The media-front 404 names the signed-in friend or household user instead of "Not signed
+in". The Diary month card and Wrapped's summary read only a friend's own rows (`media_wrapped._owner_sql` used to fall
+through to the household's) and drop the household's show progress words for a friend. Tests:
+`test_guest_signout_device.py`, `test_guest_month_card.py`, two 404 tests in `test_guest_surface.py`.

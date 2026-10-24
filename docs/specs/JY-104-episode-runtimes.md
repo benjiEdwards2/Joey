@@ -46,6 +46,7 @@ None: no screen change.
 - After that, My shows (list view) and its Continue watching card show the same hours.
 
 ## Questions for B.
+Answer (orchestrator, 2026-10-24, under B.'s standing instruction "Approve all changes. If I dont need to review any directions of changes … just close it out"): question 1 takes the recommendation — unopened shows keep the recorded-plays fallback; no connector change. B. can reopen it as a new item.
 1. Library rows for shows whose page has not been opened (or warmed) since the hub started still fall back to recorded
    plays. **A (recommended): leave it**; the warm-up already reads the home-shelf titles, so Continue watching is covered.
    **B:** a follow-up item adds `runtime_min` to the jellyfin connector's show rows from the series `RunTimeTicks`

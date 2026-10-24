@@ -1,6 +1,6 @@
 # JY-152 Awards parser leftovers (5 small)
 
-Status: building
+Status: shipped 2026-10-24
 Size: M
 Live risk: none
 Area: `hub/media_awards.py`, `hub/media_awards_parse.py`, `tests/hub/test_awards_*.py`, `tests/hub/fixtures/awards/`
@@ -49,3 +49,8 @@ None: no screen change.
 Moved to JY-242 (2026-10-24): honorary awards; re-pull old years.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #119, squash-merged as `d9284ec` (d9284ecb93a7eb494bbf4278f5fe77aefaf85e30).
+- Deploy: `2026-10-24T09:05:57Z PASS prev=c7c5eed new=d9284ec suite green, smoke ok tv=current end=2026-10-24T09:10:57Z dur=300s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

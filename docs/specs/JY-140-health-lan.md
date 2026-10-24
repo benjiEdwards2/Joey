@@ -1,6 +1,6 @@
 # JY-140 Health rows say "LAN"
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/templates/media_apps.html`, `tests/hub/test_media_detail.py`
@@ -35,3 +35,8 @@ Open Media > Health on the preview: LAN-only apps (no gated hostname) show "Up Â
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #85, squash-merged as `2588cf7` (2588cf7f4bc03a36172e2b8d3c16f390626cbd9e).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

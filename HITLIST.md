@@ -124,7 +124,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-137 | Per-container RAM on Server | Server | M | parked | Evaluation feature #9 (decision) | — |
 | JY-138 | S.M.A.R.T. into Attention | Server | M | parked | Evaluation feature #10 (decision) | — |
 | JY-139 | Gated hostnames per app | Server | S | parked | App links are LAN-only; needs B.'s Cloudflare (decision) | — |
-| JY-140 | Health rows say "LAN" | Server | S | idea | Server cards already do | — |
+| JY-140 | Health rows say "LAN" | Server | S | [x] shipped | Server cards already do · PR #85 | [spec](docs/specs/JY-140-health-lan.md) |
 | JY-141 | Quiet-mode cap vs the live qBittorrent cap | Server | S | parked | Quiet 5 Mbps is ~8x tighter than 41 (decision) | — |
 | JY-142 | WUD real check interval vs 180-min Stale rule | Server | S | idea | Verify live, then adjust | — |
 | JY-143 | Prowlarr indexerstats window | Server | S | idea | If cumulative, amber never clears; verify live | — |

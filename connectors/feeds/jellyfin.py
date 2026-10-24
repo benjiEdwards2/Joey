@@ -279,7 +279,9 @@ class Jellyfin(Connector):
             rows.append({**cls._library_row(item), "item_key": key,
                          "status_word": {"Continuing": "Continuing", "Ended": "Ended"}.get(
                              item.get("Status"), "Unknown"),
-                         "episodes": int(item.get("RecursiveItemCount") or 0),
+                         # JY-115: no count from Jellyfin stays None (unknown), never 0 - the hub reads a 0 as an empty series
+                         "episodes": (None if item.get("RecursiveItemCount") is None
+                                      else int(item["RecursiveItemCount"])),
                          "unplayed": int((item.get("UserData") or {}).get("UnplayedItemCount") or 0)})
         return rows
 

@@ -1,6 +1,6 @@
-# JY-115 Connector: flag series with 0 Jellyfin episodes at source
+# JY-115 Connector: flag series with 0 Jellyfin episodes at source (flag half already done; missing-count fix)
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
 Area: `connectors/feeds/jellyfin.py`, `connectors/schema/data/jellyfin.schema.json`, `hub/media_library.py`, `tests/connectors/`, `tests/hub/`
@@ -19,18 +19,16 @@ A series Jellyfin lists with no episode (Sonarr made its folder before any file 
 4. The hub infers in two places, both pinned by tests: `media_library.empty_series(row)` (`"episodes" in row and not row["episodes"]`; used by My shows, watchlist keys, library links) and `empty_show` in `media_film.py` (no season has an episode, from the item's own read). The item page does not use the snapshot count at all.
 So "the connector keeps them" is not true. A flag on kept rows would only ever mark the missing-count case, which today is ambiguous: a missing count reads as 0, and `empty_series` then treats the show as empty although Jellyfin never said so.
 
-## Why this stops at the spec
-The item has readings that pull opposite ways, and the choice changes what the snapshot holds and what other pages see, so it is B.'s call:
-- Dropping at the source (today) means the hub never sees the empty series and cannot list it under "Waiting for the first episode" from Jellyfin data alone.
-- Flagging means keeping them in the snapshot with a field, then every reader of `library.shows` must honour it (My shows, counts, shelves, Activity links, TV).
+## Options and the pick
+1A, orchestrator 2026-10-24: bug fix, no new look. The flag half (explicit field for counted-0 series) is verified already done: the connector drops them at source since 2026-10-10 (`jellyfin.py` `_shows()`, `tests/connectors/test_jellyfin_library.py::test_show_with_zero_items_on_disk_is_left_out`), and the hub's `empty_series` guard (WP-T1, 2026-10-19) already handles any 0 that reaches it. No `empty` field is added.
 
-## Acceptance criteria (draft, for the option B. picks)
-1. (1B) The connector keeps a counted-0 series and sets an explicit field (for example `empty: true`); a series with a count above 0 has `empty: false`; a series with no count has the field absent and is not treated as empty. Schema updated, fixtures carry the field.
-2. `media_library.empty_series` reads the field, not `episodes`; rows without the field (older snapshots) are not empty, as today.
-3. No page changes: `tests/hub/test_season_state.py` section 4, `test_media_library.py` and `test_media_follow_shows.py` pass unchanged except fixtures gaining the field.
-4. A test on each side: the connector marks a counted 0 and leaves a missing count unmarked; the hub treats `empty: true` as waiting and `episodes: 0` without the field as not empty.
-5. Red tests first (field absent on old code).
-(1A instead: only the missing-count fix: `episodes` omitted when Jellyfin gave no count; red test: a series with no `RecursiveItemCount` must not be `empty_series`.)
+## Acceptance criteria (built)
+1. A series Jellyfin gives no `RecursiveItemCount` for has `episodes: null` in the snapshot (unknown), not 0. Schema (`episodes` is `integer|null`) and `docs/connector-contract.md` say so. A missing unplayed count still defaults to 0.
+2. `media_library.empty_series` is true only for a counted 0; None and an absent key are not empty.
+3. What the hub renders for such a series: it is a library show (My shows grid and counts, "On disk"/"On server" keys), not under "Waiting for the first episode"; its row says nothing about episodes (no "0 episodes"), because no count was given.
+4. Counted-0 series still wait, unchanged (existing tests untouched).
+5. Red tests first: `test_show_missing_episode_count_stays_unknown` (connector), `test_a_series_with_no_episode_count_is_not_empty` and `test_my_shows_lists_a_series_with_no_count_as_a_library_show` (hub) all failed on old code.
+Test edit (2026-10-24): `test_show_missing_counts_default_to_zero` became `test_show_missing_episode_count_stays_unknown` (episodes 0 -> None); this is the behaviour change itself.
 
 ## Data
 `connectors/schema/data/jellyfin.schema.json` (shows items) gains an optional boolean under 1B; `jellyfin.py` `_shows()`. No migration. The frozen envelope's contract doc line in `docs/` changes too (checked by `tests/connectors/test_contract_doc.py`).
@@ -44,7 +42,7 @@ The empty-show detection from an item's own season read (`empty_show`), and the 
 ## Accept checklist
 No visible change: My shows, Requests and an empty show's item page read exactly as before.
 
-## Questions for B.
+## Questions for B. (answered above: 1A)
 **1. What should the connector do with a counted-0 series?**
 - **1A (recommended):** leave as is (dropped at source) and close the flag half of JY-115 as already done; separately, make a missing count not read as 0 (`episodes` omitted, so `empty_series` stays false). Smallest and keeps behaviour.
 - **1B:** keep counted-0 series with `empty: true` and have the hub read it (criteria above). More code, every library-list reader must honour the flag, no visible gain today.
@@ -53,4 +51,4 @@ No visible change: My shows, Requests and an empty show's item page read exactly
 Answer as "1A".
 
 ## Shipped notes
-Not built. Spec only.
+- 2026-10-24: built on B.'s orchestrator's 1A. `tests/connectors` + `tests/hub/test_season_state.py` + `test_media_library.py`: 476 passed; `-n 4 tests/hub/`: 2757 passed.

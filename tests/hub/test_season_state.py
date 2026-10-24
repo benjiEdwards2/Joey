@@ -500,3 +500,27 @@ def test_show_page_without_sonarr_has_no_sonarr_only_rows(env, sonarr, monkeypat
     with client:
         page = main_of(client.get("/media/item/ser1").text)
     assert "Not on server yet" not in page and 'id="season-4"' in page
+
+
+# ---- 6. JY-115 (2026-10-24): a series with NO episode count is not an empty series ----
+
+NO_COUNT = {**lib_show("Unknown Count", "tmdb:302", None, 0, "ser7"), "played": False}
+
+
+def test_a_series_with_no_episode_count_is_not_empty():
+    from hub import media_library
+    assert not media_library.empty_series(NO_COUNT)                       # the connector's None: unknown, not 0
+    assert not media_library.empty_series({"title": "Old row, no count"})
+    assert media_library.empty_series(EMPTY_ROW)                           # a counted 0 still is
+
+
+def test_my_shows_lists_a_series_with_no_count_as_a_library_show(frame_env, sonarr):
+    main = frame_env(jellyfin={**helpers.JELLY, "server_id": "srv", "shows": SHOWS + [NO_COUNT], "movies": []})
+    sonarr.install()
+    with TestClient(main.app) as c:
+        body = main_of(c.get("/media/tv?view=list").text)
+    library = body.split('id="waiting"')[0]
+    assert "Unknown Count" in library and "3 shows ·" in body              # in the library, not left out
+    assert "Waiting for the first episode · 1" in body.split('id="waiting"')[1]   # only Empty Show waits
+    assert "Unknown Count" not in body.split('id="waiting"')[1]
+    assert "0 episodes" not in library                                     # no count is not "0 episodes"

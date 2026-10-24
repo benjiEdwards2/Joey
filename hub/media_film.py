@@ -1307,6 +1307,7 @@ def guest_controls(f: dict, kind, tmdb_id) -> dict:
     state (`req_mine`: pending / approved / declined, hub.media_guest_requests). Private front: `f` untouched."""
     if not guest.is_media():
         return f
+    f["ratings_later"] = None   # JY-119: a friend's view draws the stored ratings but never starts the OMDb / Seerr reads
     f.update(arr_search=None, quality_href=None, quality_block=None, upgrade=None, jellyseerr_href=None)
     if f.get("file"):
         f["file"] = {**f["file"], "badges": []}

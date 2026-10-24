@@ -595,3 +595,96 @@ def test_on_server_show_page_is_unchanged_by_the_off_server_path(env, monkeypatc
     r = seen[-1]["ratings"]
     assert r["source"] == "IMDb" and [s["n"] for s in r["seasons"]] == [3, 4]           # its own show, its Jellyfin seasons
     assert any(e["jf_id"] for s in r["seasons"] for e in s["eps"])
+
+
+# ---- JY-119 review round (2026-10-24): friends never start the ratings fill ----
+
+def _friend_on_off_server_show(monkeypatch, tmp_path, jobs):
+    """A signed-in friend (the media front) with Jellyseerr knowing tmdb 777 and the OMDb key set; `er.fill` recorded."""
+    from tests.hub.fake_jellyfin import FRIEND_ID
+    from tests.hub.guest_pages import guest_client, sign_in
+    lib = {"server_id": "srv-1", "library": {"movies": 0, "episodes": 0}, "movies": [], "shows": [], "latest": []}
+    client, jf = guest_client(monkeypatch, tmp_path, {"jellyfin": lib})
+    monkeypatch.setenv("JELLYSEERR_URL", SEERR_URL)
+    monkeypatch.setenv("JELLYSEERR_API_KEY", "k")
+    monkeypatch.setenv("OMDB_API_KEY", KEY)
+    monkeypatch.setenv("META_CACHE_DIR", str(tmp_path / "meta"))
+    inner = requests.get
+
+    def route(url, **kw):
+        return R(OFF_SHOW) if url == f"{SEERR_URL}/api/v1/tv/777" else inner(url, **kw)
+    monkeypatch.setattr(requests, "get", route)
+    monkeypatch.setattr(er, "fill", lambda *a: jobs.append(a) or {})
+    media_discover.clear_cache()
+    client.__enter__()
+    sign_in(client, jf, FRIEND_ID)
+    return client
+
+
+def test_a_friend_viewing_an_off_server_show_starts_no_ratings_fill(monkeypatch, tmp_path):
+    jobs = []
+    client = _friend_on_off_server_show(monkeypatch, tmp_path, jobs)
+    try:
+        r = client.get("/media/title/tv/777")
+    finally:
+        client.__exit__(None, None, None)
+    assert r.status_code == 200 and "Far Show" in r.text
+    assert jobs == []                                                                   # OMDb's day cap is the household's
+
+
+def test_a_friend_still_sees_the_stored_ratings(monkeypatch, tmp_path, db):
+    jobs = []
+    rows = [{"episode": n, "rating": 8.0 + n / 10, "episode_imdb": None, "title": f"E{n}", "released": "2021-03-01"}
+            for n in (1, 2, 3)]
+    er._store_season(OFF_IMDB, 1, rows)
+    client = _friend_on_off_server_show(monkeypatch, tmp_path, jobs)
+    monkeypatch.setenv("MEDIA_DB_PATH", str(db))
+    try:
+        r = client.get("/media/title/tv/777")
+    finally:
+        client.__exit__(None, None, None)
+    assert 'id="compare"' in r.text and "Seasons compared" in r.text and jobs == []
+
+
+def test_a_failed_seerr_season_read_is_not_retried_on_every_view(env, monkeypatch, tmp_path):
+    show = {**OFF_SHOW, "externalIds": {}}                                              # no IMDb id: the TMDB path
+    client, fake, seen = wire_off(env, monkeypatch, tmp_path, show=show)
+    inner, season_reads = requests.get, []
+
+    def route(url, **kw):
+        if "/season/" in url:
+            season_reads.append(url)
+            return R({}, 500)
+        return inner(url, **kw)
+    monkeypatch.setattr(requests, "get", route)
+    with client:
+        client.get("/media/title/tv/777")
+        first = len(season_reads)
+        client.get("/media/title/tv/777")
+        client.get("/media/title/tv/777")
+    assert first == 2 and len(season_reads) == first                                    # asked once per season, then FAIL_TTL
+    assert seen[-1]["ratings"] is None
+
+
+def test_jellyfin_listing_the_show_with_no_seasons_draws_one_block_and_unique_season_ids(env, monkeypatch, tmp_path):
+    import re
+    from tests.hub import helpers
+    monkeypatch.setattr(helpers, "EPISODES", [])
+    client, fake, seen = wire(env, monkeypatch, tmp_path)
+    with client:
+        client.get("/media/item/ser1")
+        r = client.get("/media/item/ser1")
+    assert r.status_code == 200 and seen[-1]["seasons"] == []                           # Jellyfin has the show, no seasons
+    assert seen[-1]["ratings"] is not None and seen[-1]["ratings"]["source"] == "IMDb"  # the new branch fired
+    assert r.text.count('id="compare"') == 1 and r.text.count('id="rating-strip"') == 1
+    ids = re.findall(r'\sid="(season-\d+)"', r.text)
+    assert ids and len(ids) == len(set(ids))
+
+
+def test_guest_controls_drop_the_ratings_job_on_the_friends_front_only(monkeypatch):
+    from hub import guest
+    job = lambda: None  # noqa: E731
+    monkeypatch.setattr(guest, "is_media", lambda: False)
+    assert media_film.guest_controls({"ratings_later": job}, "tv", 1)["ratings_later"] is job
+    monkeypatch.setattr(guest, "is_media", lambda: True)
+    assert media_film.guest_controls({"ratings_later": job}, "tv", 1)["ratings_later"] is None

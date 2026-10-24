@@ -100,6 +100,10 @@ def _season_key(imdb: str, n: int) -> str:
     return f"omdbep:{imdb}:{n}"
 
 
+def _tmdb_key(tmdb, n: int) -> str:
+    return f"tmdbep:{tmdb}:{n}"
+
+
 def _vote_key(ep_imdb: str) -> str:
     return f"omdbvote:{ep_imdb}"
 
@@ -450,7 +454,8 @@ def _plan(imdb, tmdb, jf_seasons: list[int], rows: dict, current, source):
         votes = votes[:VOTES_MAX]
     tmdb_need = []
     if source != "IMDb" and not seasons and tmdb and md._creds() is not None:
-        tmdb_need = [n for n in jf_seasons if md.meta_peek(_tmdb_path(tmdb, n)) is md.MISSING]
+        tmdb_need = [n for n in jf_seasons
+                     if md.meta_peek(_tmdb_path(tmdb, n)) is md.MISSING and _memo(_tmdb_key(tmdb, n)) is None]
     if not (seasons or votes or tmdb_need):
         return None
 
@@ -505,9 +510,11 @@ def fill(imdb, tmdb, seasons: list[int], current, votes: list[tuple[int, str]], 
                 counts["votes"] += 1
         if tmdb and md._creds() is not None and not any(stored(imdb).values()):
             for n in jf_seasons:
-                if md.meta_peek(_tmdb_path(tmdb, n)) is md.MISSING:
+                if md.meta_peek(_tmdb_path(tmdb, n)) is md.MISSING and _memo(_tmdb_key(tmdb, n)) is None:
                     md.meta_get(_tmdb_path(tmdb, n))
                     counts["tmdb"] += 1
+                    if md.meta_peek(_tmdb_path(tmdb, n)) is md.MISSING:   # no answer and no 404: wait FAIL_TTL (JY-119)
+                        _remember(_tmdb_key(tmdb, n), "failed")
     except Exception as exc:  # a background job never raises into the server log (type only: no URL, no id)
         log.warning("episode ratings fill failed: %s", type(exc).__name__)
         counts["failed"] += 1

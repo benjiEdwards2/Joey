@@ -517,6 +517,7 @@ def test_off_server_next_view_draws_seasons_compared_from_stored_rows(env, monke
     client, fake, seen = wire_off(env, monkeypatch, tmp_path)
     with client:
         client.get("/media/title/tv/777")
+        media_film.drain_extras()   # JY-243: the page's Metacritic lookup (film-extras pool) lands before the clear, not after
         fake.calls.clear()
         r = client.get("/media/title/tv/777")
     assert fake.ep_calls() == []                                                        # warm: stored rows only
@@ -582,6 +583,7 @@ def test_off_server_failing_omdb_never_fails_the_page(env, monkeypatch, tmp_path
     fake.exc = requests.Timeout("t")
     with client:
         assert client.get("/media/title/tv/777").status_code == 200
+        media_film.drain_extras()   # JY-243: the page's Metacritic lookup (film-extras pool) lands before the clear, not after
         fake.calls.clear()
         assert client.get("/media/title/tv/777").status_code == 200
     assert seen[-1]["ratings"] is None and fake.ep_calls() == []                        # remembered FAIL_TTL
@@ -672,6 +674,10 @@ def test_jellyfin_listing_the_show_with_no_seasons_draws_one_block_and_unique_se
     monkeypatch.setattr(helpers, "EPISODES", [])
     client, fake, seen = wire(env, monkeypatch, tmp_path)
     with client:
+        client.get("/media/item/ser1")
+        # JY-243: this branch needs Jellyseerr's title body cached at render, and the first (cold) view only queues that
+        # read (film-extras pool). Wait for it; the next view then queues the fill (if the first did not), the last draws.
+        media_film.drain_extras()
         client.get("/media/item/ser1")
         r = client.get("/media/item/ser1")
     assert r.status_code == 200 and seen[-1]["seasons"] == []                           # Jellyfin has the show, no seasons

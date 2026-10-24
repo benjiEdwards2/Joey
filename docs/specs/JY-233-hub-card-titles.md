@@ -35,6 +35,12 @@ B.'s pick: (pending)
 
 ### Round 2
 2026-10-24, B. on the round 1 page: "None of them are separable. Can you please find a coloured icon and make them slightly larger and try again." Round 1 (A, B, C above) is set aside. Round 2 options: coloured area icons, slightly larger, near the title, each option clearly different at a glance; same four sizes. Status stays `spec` until B. picks.
+Round 2 options (same page, version 2):
+- A (recommended): the area icon in its area colour (22 px) on a 40 px chip tinted 15 % in that colour, right before a 16 px white title.
+- B: a solid 44 px chip in the area colour with a dark glyph, 17 px title beside it.
+- C: a 56 px gradient app-icon tile at the card's left (Calendar shows today's date, e.g. "Sat 24").
+Colours from existing tokens: Media `--orange`, Calendar `--sky`, Server `--teal` (Weather `--gold` if it ever gets a hub card); amber and green stay for states. No new tokens. The colour lives in config: `config/areas.yaml` gets a `tone:` per area (C also `icon_face: date`), read through the area registry into `_kpi.html` as `--tone`; no area names in hub code.
+Needs B.'s OK: per-area colour was removed on 2026-10-06 (style guide §1.2); picking any round 2 option brings it back for the hub icons only.
 
 ## Out of scope
 Area page headers; the Joey TV shell's own screens (JY-042).
@@ -43,7 +49,7 @@ Area page headers; the Joey TV shell's own screens (JY-042).
 - The preview (or screenshots at the four sizes) shows the picked look on the hub.
 
 ## Questions for B.
-1. Which option? **C (recommended):** icon chip right before a bigger title. **A:** icon moves left beside a small uppercase title. **B:** bigger title, icon stays right.
+1. (Round 2) Which option? **A (recommended):** coloured icon on a tinted chip before a bigger white title. **B:** solid coloured chip with a dark icon. **C:** large app-icon tile; Calendar shows today's date. Picking any of them brings per-area colour back for the hub icons (removed 2026-10-06).
 
 ## Shipped notes
 (filled at close-out)

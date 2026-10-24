@@ -389,3 +389,15 @@ def test_honorary_words_elsewhere_are_never_a_category():
     assert ap.parse_award_blocks(only)["shape"] == ap.SHAPE_NONE
     assert not any(ap.is_honorary(x) for x in ("Best Actress", "Carol Burnett", "The Fellowship of the Ring",
                                                "Bob Hope Humanitarian Award", "Mr. Golden Globe"))
+
+
+def test_a_prose_line_under_an_honorary_heading_is_never_a_recipient():
+    """JY-242 review (2026-10-24): a line starting with a link is a recipient only when it is that link alone (a bare
+    `[[Person]]`); a sentence that opens with a link is prose."""
+    text = ("{{Award category|#fff|[[X Award for Best Film|Best Film]]}}\n* '''''[[A]]'''''\n"
+            "===Cecil B. DeMille Award===\n"
+            "[[Cecil B. DeMille]] was its first recipient. It goes to [[Someone]] for a career in film.\n\n"
+            "===Carol Burnett Award===\n[[Ted Danson]]\n")
+    blocks = ap.parse_award_blocks(text)["blocks"]
+    assert [(b["label"], lead_names(b)) for b in blocks] == [
+        ("Best Film", [(True, "work", "A", [])]), ("Carol Burnett Award", [(True, "person", None, ["Ted Danson"])])]

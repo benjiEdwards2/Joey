@@ -20,6 +20,9 @@ R2: on the TV, `html.tv form.toolbar { display: none }` hides the Discover searc
 5. **Back returns to trending.** With no dialog open and a query in the field or the grid, `window.joeyTV.back()` clears the field, fires its `search` trigger with an empty query (the cached trending shelves, `CACHE_TTL`), focuses the field and returns true. An open request panel is still closed first. With no query, Back behaves as before (false: the shell goes back).
 6. **Friends only.** The household Discover page (`media_discover.html`) and its routes are unchanged. Outside TV mode the friends' page behaves as before (the new attributes are inert; no `tv.js` there).
 7. Tests: each rule red on the old `tv.js` / markup and green after, in the JY-187 node fake-DOM harness (skips without node), plus gate-run markup and CSS tests. No existing test weakened.
+8. **One request per query** (review should-fix, 2026-10-25). Typing fast and pressing Enter within the 400 ms debounce fired Enter's search, then the pending keyup request sent the same query again. `tv.js` cancels (`htmx:beforeRequest`) a keyup request from the field for the query Enter sent or the grid already shows; `search` requests and new queries still go out.
+
+Red-first check (2026-10-25): the four JY-194 node tests, run against origin/main's `tv.js` (`5a0c746`, same `tv.js` as `35c5217`) in a scratch copy (`git archive` + this branch's test file): 4 failed, the 5 JY-187 node tests passed. On this branch: `tests/hub/test_tv_mode.py` 29 passed.
 
 ## Data
 None. Client-side only; reads `/media/discover/search` as today.

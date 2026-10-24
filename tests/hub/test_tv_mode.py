@@ -730,3 +730,33 @@ def test_tv_discover_shows_the_search_field_on_the_existing_trigger(monkeypatch,
         assert needle in js, needle
     household = (Path(guest.__file__).parent / "templates" / "media_discover.html").read_text(encoding="utf-8")
     assert "data-tv-search" not in household and "discover-search" not in household
+
+
+def test_enter_before_the_debounce_sends_one_request_under_node(gc, tmp_path):
+    """Review should-fix (2026-10-25): type fast and press Enter within 400 ms, and Enter's search ran, then the pending
+    keyup debounce sent the same query again. tv.js now cancels (htmx:beforeRequest) a keyup request from the field for
+    the query Enter already sent or the grid already shows; the 'search' requests and a new query still go out, also
+    the same query typed again after Back."""
+    out = run_tv_pages(gc, tmp_path, r"""
+function request(type) {   /* htmx asks before it sends; true = tv.js cancelled it */
+  var stopped = false;
+  fire('htmx:beforeRequest', { detail: { elt: field, requestConfig: { triggeringEvent: { type: type } } },
+                               preventDefault: function () { stopped = true; } });
+  return stopped;
+}
+load('/media/discover', function () { discover(''); });
+key('ArrowUp'); press('Enter');
+field.value = 'apothecary';
+press('Enter');
+out.enter_search = request('search');
+out.late_keyup = request('keyup');
+swapped('apothecary');
+out.keyup_after_swap = request('keyup');
+key('ArrowUp'); press('Enter'); field.value = 'apothecary diaries';
+out.new_query = request('keyup');
+window.joeyTV.back(); out.back_search = request('search'); swapped('');
+press('Enter'); field.value = 'apothecary';
+out.same_again = request('keyup');
+""")
+    assert out == {"enter_search": False, "late_keyup": True, "keyup_after_swap": True, "new_query": False,
+                   "back_search": False, "same_again": False}

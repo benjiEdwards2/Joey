@@ -131,6 +131,7 @@
   var SEARCH = '[data-tv-search]', GRID = '.reqgrid-wrap';
   var opening = false;       /* OK is re-focusing the field: its blur must not lock it again */
   var wantResults = false;   /* Enter sent a search: the swap's first poster takes the focus */
+  var sentQuery = null;      /* the query Enter's search sent, until Back clears the field */
 
   function isSearch(el) { return !!(el && el.getAttribute && el.getAttribute('data-tv-search') !== null); }
 
@@ -156,6 +157,7 @@
     }
     if (shownQuery() !== s.value.trim()) {   /* the debounce has not fetched this query yet: the field's own trigger */
       wantResults = true;
+      sentQuery = s.value.trim();
       s.dispatchEvent(new Event('search'));
     }
     s.readOnly = true;
@@ -169,6 +171,7 @@
     s.value = '';
     s.readOnly = true;
     wantResults = false;
+    sentQuery = null;
     s.dispatchEvent(new Event('search'));
     setFocus(s);
     return true;
@@ -288,6 +291,15 @@
       current = e.target;
       current.classList.add('tv-focus');
     }
+  });
+
+  /* JY-194 (review 2026-10-25): Enter within the 400 ms debounce sent the query, then the pending keyup request sent it
+     again. A keyup request from the field for the query Enter sent or the grid shows is cancelled. */
+  document.addEventListener('htmx:beforeRequest', function (e) {
+    var d = e.detail || {}, ev = d.requestConfig && d.requestConfig.triggeringEvent;
+    if (!isSearch(d.elt) || !ev || ev.type !== 'keyup') return;
+    var q = d.elt.value.trim();
+    if (q === sentQuery || q === shownQuery()) e.preventDefault();
   });
 
   /* JY-194: leaving the search field locks it again (read-only until the next OK) */

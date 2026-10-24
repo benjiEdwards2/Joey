@@ -34,7 +34,7 @@ WP-U1 (2026-10-06): each container also carries `id` (WUD container id; null if 
 `dockercompose.local` trigger applies, from WUD 9.3's `triggerInclude`/`triggerExclude`, labels as fallback) — the
 hub's Update now button is offered only on `auto` rows. Both optional in the schema.
 `arr` counts (WP-S3): optional `radarr {movies, wanted, missing, queued}`, `sonarr {series, wanted, queued}` and
-`prowlarr {grabs, queries, failed_grabs, failed_queries, indexers}` (optional env `PROWLARR_URL`, `PROWLARR_API_KEY`).
+`prowlarr {grabs, queries, failed_grabs, failed_queries, indexers}` (optional env `PROWLARR_URL`, `PROWLARR_API_KEY`; counted over the last 7 days, JY-143).
 Each is partial-ok — null when its call fails or (Prowlarr) its env is unset; the rest of `arr` stays `ok`.
 
 `uptime_kuma` (WP-S4, 2026-10-06): Uptime Kuma 1.23 monitors from one `GET {UPTIME_KUMA_URL}/metrics` (10 s) with HTTP

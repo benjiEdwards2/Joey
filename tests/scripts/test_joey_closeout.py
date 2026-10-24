@@ -101,15 +101,20 @@ class FakeGh:
         self.label_time = "2026-10-23T05:30:00Z"
         # GitHub reality: Commit.pushedDate is null; the push time shows only as a force-push event and as the head's
         # check suite created_at (before any run starts). None = GitHub gives none.
-        self.force_pushed_at, self.suite_at = None, None
+        self.force_pushed_at, self.suite_at = None, "2026-10-23T04:00:05Z"
+        self.suites_raise = self.force_raise = False  # the two reads fail (fail closed)
         self.head_specs = []  # file names under docs/specs on the PR head
 
     def __call__(self, args, timeout=120):
         a = list(args)
         self.calls.append(a)
         if a[:2] == ["api", "graphql"]:  # the head's force-push events (JY-229)
+            if self.force_raise:
+                raise RuntimeError("gh api exited 1: HTTP 502 Bad Gateway")
             return f"{self.prs[50]['headRefOid']}\t{self.force_pushed_at}\n" if self.force_pushed_at else ""
         if a[0] == "api" and a[1].endswith("/check-suites"):  # the head SHA's check suites (JY-229)
+            if self.suites_raise:
+                raise RuntimeError("gh api exited 1: HTTP 502 Bad Gateway")
             return f"{self.suite_at}\n" if self.suite_at and self.prs[50]["headRefOid"] in a[1] else ""
         if a[0] == "api":
             if "/contents/docs/specs?ref=" in a[1]:  # the spec listing on the PR head (JY-229)
@@ -829,9 +834,23 @@ def test_review_after_the_push_but_before_the_ci_run_starts_passes(lw):
     rc, out = lw.run("--deploy", "no", "--dry-run")
     assert ("PASS  gate c: Review PASS after the last push, no fresh FAIL - Review PASS at 2026-10-23T04:00:30Z "
             "(last push 2026-10-23T04:00Z)") in out, out
-    lw.gh.suite_at = None  # GitHub gives no suite: the committer date (04:00) is the fallback, still fresh
+    lw.gh.force_pushed_at = None  # no force-push events at all: normal
     rc, out = lw.run("--deploy", "no", "--dry-run")
     assert "PASS  gate c: Review PASS after the last push" in out, out
+
+
+@pytest.mark.parametrize("how, reason", [
+    ("suites_raise", "check-suites read failed: gh api exited 1: HTTP 502 Bad Gateway"),
+    ("suite_at", "check-suites read failed: no check suite on the head SHA"),
+    ("force_raise", "force-push read failed: gh api exited 1: HTTP 502 Bad Gateway"),
+])
+def test_gate_c_fails_closed_when_the_push_time_cannot_be_read(lw, how, reason):
+    lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
+    setattr(lw.gh, how, None if how == "suite_at" else True)
+    rc, out = lw.run("--deploy", "no")
+    assert rc == 1, out
+    assert f"FAIL  gate c: Review PASS after the last push, no fresh FAIL - cannot read the push time ({reason}); not merging" in out
+    assert "REFUSED: 1 gate(s) failed (c): not merging" in out and lw.gh.writes() == []
 
 
 def test_commit_then_review_then_push_does_not_count_the_review(lw):
@@ -857,8 +876,9 @@ def test_push_sources_are_read_for_the_head_sha_only(lw):
     lw.item()
     lw.gh.force_pushed_at, lw.gh.suite_at = "2026-10-23T04:45:00Z", "2026-10-23T04:00:10Z"
     got = jco.read_push_sources("example/joey", 50, FAKE_OID)
-    assert got == {"force": jco._ts("2026-10-23T04:45:00Z"), "suite": jco._ts("2026-10-23T04:00:10Z")}
-    assert jco.read_push_sources("example/joey", 50, "2" * 40) == {"force": None, "suite": None}
+    assert got == {"force": jco._ts("2026-10-23T04:45:00Z"), "suite": jco._ts("2026-10-23T04:00:10Z"), "errors": []}
+    other = jco.read_push_sources("example/joey", 50, "2" * 40)
+    assert other["force"] is None and other["suite"] is None and len(other["errors"]) == 1
 
 
 def test_all_failed_gates_listed_one_line_each(lw):
@@ -1165,6 +1185,6 @@ def test_window_uses_the_fallback_without_a_tz_database(monkeypatch):
 
 
 def test_stale_accept_warning_uses_the_same_push_time():
-    v = _v(headPush={"force": None, "suite": jco._ts("2026-10-23T05:40:00Z")})
+    v = _v(headPush={"force": None, "suite": jco._ts("2026-10-23T05:40:00Z"), "errors": []})
     ok, _, warns, _ = jco.gate_accept(v, None, jco._ts("2026-10-23T05:30:00Z"))
     assert ok and len(warns) == 1 and "older than the last push (2026-10-23T05:40Z)" in warns[0], warns

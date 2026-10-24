@@ -204,25 +204,35 @@ FORCE_JQ = (".data.repository.pullRequest.timelineItems.nodes[] | select(.afterC
             "[.afterCommit.oid, .createdAt] | @tsv")
 
 
+def _short(e):
+    """The first line of an error, cut short: gh's own message names no URL or token."""
+    return (str(e).strip().splitlines() or ["no output"])[0][:100]
+
+
 def read_push_sources(slug, pr, head):
-    """GitHub's two push-time signals for the head commit: {"force": the latest force-push event that made it the
-    head, "suite": its earliest check suite's created_at}; each None when GitHub gives none (or the read fails)."""
+    """GitHub's push-time signals for the head commit: {"force": the latest force-push event that made it the head
+    (None when there is none: normal), "suite": its earliest check suite's created_at, "errors": what could not be
+    read}. FAIL CLOSED: gate b needs a ci run on the head SHA, so a check suite must exist; a failed read of it, or no
+    suite, or a failed read of the force-push events, goes in "errors" and gate c refuses (a silent fallback to the
+    committer date would let a review posted between commit and push count for the unreviewed head)."""
     owner, _, name = slug.partition("/")
-    got = {"force": None, "suite": None}
+    got = {"force": None, "suite": None, "errors": []}
     try:
         out = gh_run(["api", "graphql", "-f", f"query={FORCE_QUERY}", "-f", f"owner={owner}", "-f", f"name={name}",
                       "-F", f"n={pr}", "--jq", FORCE_JQ])
         times = [_ts(t.strip()) for oid, _, t in (ln.partition("\t") for ln in out.splitlines())
                  if oid.strip() == head and t.strip()]
         got["force"] = max(times) if times else None
-    except (RuntimeError, ValueError):
-        pass
+    except (RuntimeError, ValueError) as e:
+        got["errors"].append(f"force-push read failed: {_short(e)}")
     try:
         out = gh_run(["api", f"repos/{slug}/commits/{head}/check-suites", "--jq", ".check_suites[].created_at"])
         times = [_ts(t.strip()) for t in out.splitlines() if t.strip()]
         got["suite"] = min(times) if times else None
-    except (RuntimeError, ValueError):
-        pass
+        if not times:
+            got["errors"].append("check-suites read failed: no check suite on the head SHA")
+    except (RuntimeError, ValueError) as e:
+        got["errors"].append(f"check-suites read failed: {_short(e)}")
     return got
 
 
@@ -233,7 +243,8 @@ def push_time(v):
     head = v.get("headRefOid")
     commits = v.get("commits") or []
     hit = [c for c in commits if c.get("oid") == head] or commits
-    times = [_ts(c.get("committedDate")) for c in hit] + list((v.get("headPush") or {}).values())
+    push = v.get("headPush") or {}
+    times = [_ts(c.get("committedDate")) for c in hit] + [push.get("force"), push.get("suite")]
     times = [t for t in times if t]
     return max(times) if times else None
 
@@ -244,6 +255,9 @@ def _first_line(text):
 
 
 def gate_review(v):
+    errors = (v.get("headPush") or {}).get("errors")
+    if errors:
+        return False, f"cannot read the push time ({'; '.join(errors)}); not merging", []
     pushed = push_time(v)
     warns = [] if pushed else ["no push time on the PR: a Review comment of any age counts"]
     fresh = [c for c in v.get("comments") or []

@@ -664,9 +664,11 @@ def _honorary_blocks(lines: list[str]) -> list[dict]:
             continue
         if cur is None or not line.startswith(("*", "'''", "[[")):
             continue
-        m = _LINK_RE.match(line)
-        if line.startswith("[[") and (m is None or (m.group(1) or "").strip().lower().startswith(_SKIP_TARGETS)):
-            continue
+        if line.startswith("[["):    # a bare line counts only as one link alone; a sentence opening with one is prose
+            bare = _strip_templates(_REF_RE.sub("", line)).strip()
+            m = _LINK_RE.fullmatch(bare)
+            if m is None or (m.group(1) or "").strip().lower().startswith(_SKIP_TARGETS):
+                continue
         recipient(cur, line.lstrip("*"))
     return [b for b in blocks if b["entries"]]
 

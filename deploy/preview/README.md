@@ -9,14 +9,17 @@ Set `JOEY_NAS=root@<nas>` (and `JOEY_NAS_KEY` if the key is not `~/.ssh/joey_nas
 
 - `python scripts/joey.py preview up <branch | PR number>`: refuses outside 07:00-21:30 Melbourne time, while a deploy
   holds `/tmp/joey-deploy.lock`, or when NAS available memory is under 1,400 MB. A running slot is replaced (down, then
-  up; the old commit is printed). Then: exact commit into `/volume1/Docker/joey/preview/src` (alpine/git + the read-only
-  deploy key, as `deploy.sh`), `docker build` to `life-hub-preview`, newest daily media.db backup restored as a copy,
-  `preview.env` built from the allow-list below, `up -d`, poll `/healthz` inside the container (up to 120 s). It prints
-  the commit, the URL and the memory readings. The deploy lock is checked again just before `up -d` (a deploy can
-  start during the build). From the media.db restore on, any FAIL (no `/healthz`, under 1,200 MB available after the
-  start, a held lock, an ssh error, a failed `up`) tears the slot down, so no container, media.db copy or `preview.env`
-  is left. `--dry-run` records a check that would stop a real run (window, lock, memory, NAS unreachable) and goes on,
-  so every step and NAS script prints.
+  up; the old commit is printed). First it takes `/tmp/joey-deploy.lock` itself, in `deploy.sh`'s format (a directory
+  with the pid of a detached holder on the NAS, plus this run's token in `owner`), so a `deploy.sh` started meanwhile
+  exits 2 and `close-out` waits: one `docker build` at a time on the NAS (JY-228). The lock is released on success, on
+  failure and after a teardown; the holder removes it by itself after 60 min if the laptop goes away. Then: exact commit
+  into `/volume1/Docker/joey/preview/src` (alpine/git + the read-only deploy key, as `deploy.sh`), `docker build` to
+  `life-hub-preview`, newest daily media.db backup restored as a copy, `preview.env` built from the allow-list below,
+  `up -d`, poll `/healthz` inside the container (up to 120 s). It prints the commit, the URL and the memory readings.
+  The deploy lock is checked again just before `up -d` (it must still be this preview's). From the media.db restore on,
+  any FAIL (no `/healthz`, under 1,200 MB available after the start, a held lock, an ssh error, a failed `up`) tears the
+  slot down, so no container, media.db copy or `preview.env` is left. `--dry-run` records a check that would stop a real
+  run (window, lock, memory, NAS unreachable) and goes on, so every step and NAS script prints.
 - `python scripts/joey.py preview down`: `docker compose -p joey-preview down`, removes the image, the media.db copy and
   `preview.env`, then checks and prints that no container, network or image named for the preview, no media.db copy and
   no `preview.env` is left.
@@ -85,7 +88,7 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `WEATHER_LAT` | in | Open-Meteo, keyless read |
 | `WEATHER_LON` | in | Open-Meteo, keyless read |
 | `WEATHER_PLACE` | in | place name in the weather labels |
-| `JELLYFIN_URL` | in | a LAN address, no credential; without the key every Jellyfin call is refused |
+| `JELLYFIN_URL` | in | a LAN address, no credential; with no key the Jellyfin-backed reads fail visibly, and guest sign-in is off (the preview runs the private front) |
 | `JELLYFIN_USER` | in | a display name (owner mapping), no credential |
 | `JELLYFIN_USER_HER` | in | a display name (owner mapping), no credential |
 | `JELLYFIN_USER_ALIASES` | in | display names (not in .env.example), no credential |

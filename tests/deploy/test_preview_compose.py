@@ -98,6 +98,15 @@ def test_every_background_loop_is_pinned_off():
     assert env["SNAPSHOT_DIR"] == "/data/snapshots"
 
 
+def test_the_private_front_is_pinned(monkeypatch):
+    # JY-228: environment wins over env_file, so a stray JOEY_FRONT=media can never make the preview the guest front
+    env = SVC["environment"]
+    assert "JOEY_FRONT" in env and env["JOEY_FRONT"] == ""
+    from hub import guest
+    monkeypatch.setenv("JOEY_FRONT", env["JOEY_FRONT"])
+    assert guest.front() == guest.PRIVATE_FRONT == "private"
+
+
 def test_main_stack_compose_is_untouched_by_the_preview():
     assert "joey-preview" not in (DEPLOY / "docker-compose.yml").read_text(encoding="utf-8")
     assert "preview" not in (DEPLOY / "deploy.sh").read_text(encoding="utf-8")

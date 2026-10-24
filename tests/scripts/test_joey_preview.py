@@ -1,14 +1,16 @@
 """JY-012: scripts/joey.py preview up / down / status against a fake NAS (no ssh, no network, no Docker).
 
 The fake answers each NAS script by its `# joey-preview:<op>` first line and records the ops in order. The clock and
-sleep are injected, so the window check and the /healthz poll run instantly. One test runs the real env-building
-script under `sh` against a temp .env (skipped when no `sh`)."""
+sleep are injected, so the window check and the /healthz poll run instantly. The fake also models the deploy lock
+(JY-228): lock-take / lock-release set and clear its holder, `lock` reads it, and deploy_sh() answers as deploy.sh's
+lock would. The real env-building and lock scripts also run under `sh` against temp paths (skipped when no `sh`)."""
 import datetime as dt
 import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -24,14 +26,21 @@ SHA = "0123456789abcdef0123456789abcdef01234567"
 OLD = "fedcba9876543210fedcba9876543210fedcba98"
 INSIDE = dt.datetime(2026, 10, 23, 3, 0, tzinfo=UTC)    # 14:00 AEDT
 OUTSIDE = dt.datetime(2026, 10, 23, 11, 0, tzinfo=UTC)  # 22:00 AEDT
-CHANGE_OPS = {"compose-down", "image-rm", "files-rm", "checkout", "build", "restore", "env", "compose-write", "up"}
+CHANGE_OPS = {"compose-down", "image-rm", "files-rm", "checkout", "build", "restore", "env", "compose-write", "up",
+              "lock-take", "lock-release"}
+HOLDER = "5151"  # the fake NAS's lock holder pid
 SECRET = "sk-preview-FAKE-VALUE-123"
 
 
 class FakeNas:
     def __init__(self, **over):
+        self.holder = None   # the deploy lock's holder pid while the preview holds it
+        self.held_at = {}    # op -> was the lock held when it (last) ran
+        self.on = {}         # op -> callback run when the op arrives
         self.resp = {
-            "lock": [(0, "free", "")],
+            "lock": None,          # None: answered from the modelled lock
+            "lock-take": None,
+            "lock-release": None,
             "inspect": [(0, "absent", "")],
             "mem": [(0, "1600", ""), (0, "1450", "")],
             "checkout": [(0, SHA, "")],
@@ -51,12 +60,33 @@ class FakeNas:
         self.resp.update(over)
         self.ops, self.scripts = [], []
 
+    def deploy_sh(self):
+        """What deploy.sh's lock does right now: 2 ("another deploy is running") while the preview holds it."""
+        return 2 if self.holder else 0
+
     def __call__(self, script, timeout=60):
         assert script.startswith("# joey-preview:")
         op = script.splitlines()[0].split(":", 1)[1]
         self.ops.append(op)
         self.scripts.append(script)
+        self.held_at[op] = self.holder is not None
+        if op in self.on:
+            self.on[op]()
         seq = self.resp[op]
+        if op == "lock-take":
+            self.token = re.search(r'echo ([0-9a-f]{16}) > "\$L/owner"', script).group(1)
+        if op == "lock-release":
+            assert f"t={self.token}\n" in script  # the release names the token this run's take wrote
+        if seq is None:
+            if op == "lock-take":
+                self.holder = HOLDER
+                return 0, f"taken {HOLDER}", ""
+            if op == "lock-release":
+                if self.holder is None:
+                    return 0, "not ours", ""
+                self.holder = None
+                return 0, "released", ""
+            return 0, (f"held {self.holder}" if self.holder else "free"), ""
         item = seq.pop(0) if len(seq) > 1 else seq[0]
         if isinstance(item, BaseException):
             raise item
@@ -186,20 +216,24 @@ def test_up_refuses_outside_the_window_before_touching_the_nas(capsys):
 
 
 def test_up_refuses_while_a_deploy_holds_the_lock(capsys):
-    rc, nas, out, _ = run(["up", "main"], nas=FakeNas(lock=[(0, "held 4242", "")]), capsys=capsys)
-    assert rc == 1 and nas.ops == ["lock"]
-    assert "a deploy holds /tmp/joey-deploy.lock" in out
+    rc, nas, out, _ = run(["up", "main"], nas=FakeNas(**{"lock-take": [(0, "held 4242", "")]}), capsys=capsys)
+    assert rc == 1 and nas.ops == ["lock-take"]  # nothing else ran, and nothing to release
+    assert "a deploy holds /tmp/joey-deploy.lock (pid 4242)" in out
 
 
 def test_a_stale_lock_does_not_refuse(capsys):
-    rc, nas, out, _ = run(["up", "main"], nas=FakeNas(lock=[(0, "stale", "")]), capsys=capsys)
-    assert rc == 0 and "stale lock" in out
+    nas = FakeNas(**{"lock-take": [(0, f"taken {HOLDER} stale 4242", "")], "lock": [(0, f"held {HOLDER}", "")],
+                     "lock-release": [(0, "released", "")]})
+    rc, nas, out, _ = run(["up", "main"], nas=nas, capsys=capsys)
+    assert rc == 0 and "cleared a stale lock (pid 4242 gone)" in out
 
 
 def test_up_refuses_under_1400_mb(capsys):
     rc, nas, out, _ = run(["up", "main"], nas=FakeNas(mem=[(0, "1399", "")]), capsys=capsys)
     assert rc == 1
-    assert not CHANGE_OPS & set(nas.ops)
+    assert not (CHANGE_OPS - {"lock-take", "lock-release"}) & set(nas.ops)
+    assert nas.ops == ["lock-take", "inspect", "mem", "lock-release"]  # only the lock changed, and it is released
+    assert nas.holder is None
     assert "1399 MB is under 1400 MB" in out
 
 
@@ -213,8 +247,9 @@ def test_up_refuses_a_bad_branch_name(capsys):
 def test_up_happy_path(capsys):
     rc, nas, out, sleeps = run(["up", "main"], capsys=capsys)
     assert rc == 0, out
-    assert nas.ops == ["lock", "inspect", "mem", "checkout", "build", "restore", "env", "compose-write", "lock", "up",
-                       "health", "mem", "stats"]
+    assert nas.ops == ["lock-take", "inspect", "mem", "checkout", "build", "restore", "env", "compose-write", "lock",
+                       "up", "health", "mem", "stats", "lock-release"]
+    assert nas.holder is None
     assert f"commit  {SHA} (branch main)" in out
     assert "URL     https://preview.joeyhome.net" in out
     assert "1600 MB before, 1450 MB after" in out and "131.2MiB" in out
@@ -229,7 +264,7 @@ def test_up_with_a_running_slot_replaces_it(capsys):
     nas = FakeNas(inspect=[(0, f"running|2026-10-23T01:00:00.1Z|{OLD}", "")])
     rc, nas, out, _ = run(["up", "main"], nas=nas, capsys=capsys)
     assert rc == 0, out
-    assert nas.ops[:7] == ["lock", "inspect", "compose-down", "image-rm", "files-rm", "leftovers", "mem"]
+    assert nas.ops[:7] == ["lock-take", "inspect", "compose-down", "image-rm", "files-rm", "leftovers", "mem"]
     assert nas.ops.index("compose-down") < nas.ops.index("checkout")
     assert f"replacing the running slot at {OLD[:7]} with {SHA[:7]}" in out
     assert f"replaced  {OLD[:7]}" in out
@@ -238,7 +273,7 @@ def test_up_with_a_running_slot_replaces_it(capsys):
 def test_memory_under_the_floor_after_start_tears_down(capsys):
     rc, nas, out, _ = run(["up", "main"], nas=FakeNas(mem=[(0, "1600", ""), (0, "1150", "")]), capsys=capsys)
     assert rc == 1
-    assert nas.ops[-5:] == ["mem", "compose-down", "image-rm", "files-rm", "leftovers"]
+    assert nas.ops[-6:] == ["mem", "compose-down", "image-rm", "files-rm", "leftovers", "lock-release"]
     assert "1150 MB available is under the 1200 MB floor" in out
 
 
@@ -247,7 +282,7 @@ def test_no_healthz_polls_then_tears_down(capsys):
     assert rc == 1
     assert nas.ops.count("health") == jp.HEALTH_TRIES
     assert sleeps == [jp.HEALTH_EVERY_S] * (jp.HEALTH_TRIES - 1)
-    assert nas.ops[-5:] == ["logs", "compose-down", "image-rm", "files-rm", "leftovers"]
+    assert nas.ops[-6:] == ["logs", "compose-down", "image-rm", "files-rm", "leftovers", "lock-release"]
     assert "log: boot line" in out
 
 
@@ -259,6 +294,7 @@ def test_healthz_after_a_few_polls():
 def test_a_failed_build_stops_before_start(capsys):
     rc, nas, out, _ = run(["up", "main"], nas=FakeNas(build=[(1, "", "ERROR: failed to solve")]), capsys=capsys)
     assert rc == 1 and "up" not in nas.ops
+    assert nas.ops[-2:] == ["build", "lock-release"]
     assert "failed to solve" in out
 
 
@@ -268,7 +304,8 @@ def test_dry_run_prints_every_step_and_changes_nothing(capsys):
     rc, nas, out, sleeps = run(["up", "main", "--dry-run"], nas=nas, capsys=capsys)
     assert rc == 0, out
     assert set(nas.ops) == {"lock", "inspect", "mem"}  # read-only checks only
-    for op in ("compose-down", "image-rm", "files-rm", "checkout", "build", "restore", "env", "compose-write", "up"):
+    for op in ("compose-down", "image-rm", "files-rm", "checkout", "build", "restore", "env", "compose-write", "up",
+               "lock-take", "lock-release"):
         assert f"# joey-preview:{op}" in out, op
     assert "DRY RUN: nothing changed" in out
     assert "docker build -q -f hub/Dockerfile" in out and "alpine/git" in out
@@ -334,7 +371,7 @@ def test_env_script_never_glues_a_hub_env_secret_onto_an_allowed_key(tmp_path):
     assert sorted(env.splitlines()) == ["JELLYFIN_URL=http://lan", "OMDB_API_KEY=ok", "TZ=Australia/Melbourne"]
 
 
-TEARDOWN = ["compose-down", "image-rm", "files-rm", "leftovers"]
+TEARDOWN = ["compose-down", "image-rm", "files-rm", "leftovers", "lock-release"]  # the lock goes last
 
 
 def test_a_failed_compose_up_tears_down(capsys):
@@ -354,7 +391,7 @@ def test_an_ssh_error_during_the_healthz_poll_tears_down(capsys):
 def test_a_timeout_during_the_healthz_poll_tears_down():
     nas = FakeNas(health=[subprocess.TimeoutExpired("ssh", 30)])
     rc, nas, _, _ = run(["up", "main"], nas=nas)
-    assert rc == 1 and nas.ops[-4:] == TEARDOWN
+    assert rc == 1 and nas.ops[-5:] == TEARDOWN
 
 
 def test_a_failed_env_build_tears_down_the_media_db_copy():
@@ -366,21 +403,23 @@ def test_a_failed_env_build_tears_down_the_media_db_copy():
 def test_teardown_runs_every_step_even_when_one_fails():
     nas = FakeNas(up=[(1, "", "boom")], **{"compose-down": [RuntimeError("ssh to the NAS failed")]})
     rc, nas, _, _ = run(["up", "main"], nas=nas)
-    assert rc == 1 and nas.ops[-4:] == TEARDOWN
+    assert rc == 1 and nas.ops[-5:] == TEARDOWN
 
 
 def test_a_failed_build_leaves_nothing_to_tear_down():
     rc, nas, _, _ = run(["up", "main"], nas=FakeNas(build=[(1, "", "ERROR")]))
-    assert rc == 1 and nas.ops[-1] == "build"
+    assert rc == 1 and nas.ops[-2:] == ["build", "lock-release"]
 
 
 def test_the_lock_is_checked_again_before_compose_up(capsys):
-    nas = FakeNas(lock=[(0, "free", ""), (0, "held 777", "")])
+    # JY-228: the preview holds the lock itself, so the second check asks "still ours?" (say the holder expired and a
+    # deploy took it): refuse and tear down
+    nas = FakeNas(lock=[(0, "held 777", "")])
     rc, nas, out, _ = run(["up", "main"], nas=nas, capsys=capsys)
     assert rc == 1
-    assert nas.ops.count("lock") == 2 and "up" not in nas.ops
-    assert nas.ops.index("lock", 1) > nas.ops.index("build")
-    assert nas.ops[-4:] == TEARDOWN and "pid 777" in out
+    assert nas.ops.count("lock") == 1 and "up" not in nas.ops
+    assert nas.ops.index("lock") > nas.ops.index("build")
+    assert nas.ops[-5:] == TEARDOWN and "no longer this preview's" in out and "held 777" in out
 
 
 def test_docker_commands_in_nas_scripts_read_dev_null():
@@ -462,3 +501,276 @@ def test_ssh_run_error_hides_the_nas_user_and_host(monkeypatch):
         jp.jc.ssh_run("true")
     msg = str(e.value)
     assert "192.0.2.10" not in msg and "admin" not in msg and "<nas>" in msg
+
+
+# ---------- JY-228: the preview holds the deploy lock while it checks out, builds and starts ----------
+HELD_OPS = ("inspect", "mem", "checkout", "build", "restore", "env", "compose-write", "lock", "up", "health", "stats")
+
+
+def test_the_lock_is_held_from_checkout_to_start_and_a_deploy_meanwhile_exits_2():
+    nas = FakeNas()
+    deploys = []
+    for op in ("checkout", "build", "up"):
+        nas.on[op] = lambda: deploys.append(nas.deploy_sh())  # a deploy.sh started during each step
+    rc, nas, _, _ = run(["up", "main"], nas=nas)
+    assert rc == 0
+    assert deploys == [2, 2, 2]
+    assert all(nas.held_at[op] for op in HELD_OPS), nas.held_at
+    assert nas.ops[0] == "lock-take" and nas.ops[-1] == "lock-release"
+    assert nas.holder is None and nas.deploy_sh() == 0  # released: the next deploy runs
+
+
+@pytest.mark.parametrize("over", [
+    {"build": [(1, "", "ERROR: failed to solve")]},                      # failure before the restore
+    {"checkout": [RuntimeError("ssh to the NAS failed")]},              # ssh error
+    {"health": [(1, "", "refused")]},                                   # teardown after the start
+    {"up": [(1, "", "boom")], "compose-down": [RuntimeError("ssh")]},   # teardown with a failing step
+    {"inspect": [(0, f"running|2026-10-23T01:00:00Z|{OLD}", "")],       # the replace fails
+     "leftovers": [(0, "container=joey-preview \nnetwork=\nimage=\nfiles=", "")]},
+])
+def test_the_lock_is_released_on_every_failure(over):
+    rc, nas, _, _ = run(["up", "main"], nas=FakeNas(**over))
+    assert rc == 1
+    assert nas.ops[-1] == "lock-release" and nas.ops.count("lock-release") == 1
+    assert nas.holder is None
+
+
+def test_the_lock_is_released_when_the_run_is_interrupted():
+    nas = FakeNas(build=[KeyboardInterrupt()])
+    with pytest.raises(KeyboardInterrupt):
+        run(["up", "main"], nas=nas)
+    assert nas.ops[-1] == "lock-release" and nas.holder is None
+
+
+def test_a_failed_release_fails_the_run_and_keeps_the_first_error(capsys):
+    nas = FakeNas(build=[(1, "", "ERROR: failed to solve")], **{"lock-release": [(1, "", "holder 5151 did not stop")]})
+    rc, _, out, _ = run(["up", "main"], nas=nas, capsys=capsys)
+    assert rc == 1
+    assert "FAIL  release the deploy lock - RuntimeError: exit 1: holder 5151 did not stop" in out
+    assert "REFUSED: RuntimeError: exit 1: ERROR: failed to solve" in out
+
+
+def test_a_failed_release_after_a_good_start_is_a_fail(capsys):
+    rc, _, out, _ = run(["up", "main"], nas=FakeNas(**{"lock-release": [(1, "", "holder 5151 did not stop")]}),
+                        capsys=capsys)
+    assert rc == 1 and "FAIL  release the deploy lock" in out
+
+
+def test_an_odd_lock_answer_fails_and_releases_by_token():
+    rc, nas, _, _ = run(["up", "main"], nas=FakeNas(**{"lock-take": [(0, "taken x;y", "")]}))
+    assert rc == 1 and nas.ops == ["lock-take", "lock-release"]  # a holder may have started: released by token
+
+
+@pytest.mark.parametrize("err", [subprocess.TimeoutExpired("ssh", 60), RuntimeError("ssh to the NAS failed")])
+def test_a_take_that_errors_is_released_by_token(err, capsys):
+    # reviewer A: the take's answer can be lost after the holder started; the release finds the lock by this run's token
+    rc, nas, out, _ = run(["up", "main"], nas=FakeNas(**{"lock-take": [err]}), capsys=capsys)
+    assert rc == 1 and nas.ops == ["lock-take", "lock-release"]
+    assert "this run holds no lock (nothing to release)" in out
+
+
+def test_each_run_has_its_own_token():
+    assert run(["up", "main"])[1].token != run(["up", "main"])[1].token
+
+
+TOKEN = "0123456789abcdef"
+OTHER = "fedcba9876543210"
+
+
+def test_lock_scripts_use_deploy_sh_format():
+    take, release = jp.s_lock_take(SHA, TOKEN), jp.s_lock_release(TOKEN)
+    deploy_sh = (REPO_ROOT / "deploy" / "deploy.sh").read_text(encoding="utf-8")
+    assert f"LOCK={jp.LOCK}" in deploy_sh and 'echo "$$" > "$LOCK/pid"' in deploy_sh
+    assert f"L={jp.LOCK}" in take and 'mkdir "$L"' in take
+    assert f"echo $$ > {jp.LOCK}/pid" in take  # the holder writes its own pid, as deploy.sh does
+    assert f'echo {jp.LOCK_NOTE} > "$L/log"' in take
+    assert f'echo {TOKEN} > "$L/owner"' in take and f"t={TOKEN}\n" in release
+    assert "-mmin +30" in take  # deploy.sh's stale rule for a pid-less lock
+    assert jp.SH_ALIVE in take and jp.SH_ALIVE in release  # a zombie holder is dead
+    holder = re.search(r"sh -c '([^']*)'", take).group(1)
+    assert "'" not in holder and f"sleep {jp.LOCK_HOLD_S}" in holder and TOKEN in holder
+    assert "docker" not in take.replace("/volume1/Docker", "") + release  # nothing can read the script's stdin
+
+
+# ---------- the lock scripts under a real sh (deploy.sh's own lock block decides) ----------
+def deploy_lock_block():
+    """deploy.sh's lock-taking lines, cut from the real file: from `LOCK=` to just before it writes its pid."""
+    text = (REPO_ROOT / "deploy" / "deploy.sh").read_text(encoding="utf-8")
+    start = text.index(f"LOCK={jp.LOCK}\n")
+    end = text.index('echo "$$" > "$LOCK/pid"', start)
+    return text[start:end]
+
+
+@pytest.fixture
+def nas_tmp(tmp_path):
+    """Runs a NAS script under sh with /tmp/joey-deploy.lock and /volume1/Docker/joey moved into tmp_path, and /proc
+    optionally swapped for a fake one. Every holder or helper process a test starts is killed at teardown."""
+    if shutil.which("sh") is None:
+        pytest.skip("no sh")
+    lock = (tmp_path / "joey-deploy.lock").as_posix()
+    root = (tmp_path / "joey").as_posix()
+    started = []
+
+    def sh(script, timeout=60, proc=None):
+        script = script.replace(jp.LOCK, lock).replace("/volume1/Docker/joey", root)
+        if proc:
+            script = script.replace('"/proc/', f'"{proc}/')
+        r = subprocess.run(["sh", "-s"], input=script.encode(), capture_output=True, timeout=timeout)
+        out = r.stdout.decode().strip()
+        if out.startswith("taken"):
+            started.append(out.split()[1])
+        return r.returncode, out, r.stderr.decode().strip()
+
+    def deploy():
+        block = deploy_lock_block().replace(jp.LOCK, lock)
+        return sh(f"DEPLOY_DIR={root}/life-dashboard/deploy\n{block}echo got-the-lock\n")
+
+    def background(cmd):
+        """Start cmd detached; return its pid (killed at teardown)."""
+        pid = sh(f"{cmd} </dev/null >/dev/null 2>&1 &\necho $!\n")[1]
+        started.append(pid)
+        return pid
+
+    def alive(pid, proc=None):
+        return sh(f"{jp.SH_ALIVE}\nalive {pid} && echo yes || echo no\n", proc=proc)[1] == "yes"
+
+    sh.deploy, sh.background, sh.alive, sh.lock, sh.started = deploy, background, alive, Path(lock), started
+    yield sh
+    if started:
+        sh(f"kill {' '.join(started)} 2>/dev/null; true")
+
+
+def fake_lock(sh, pid, owner=None):
+    sh.lock.mkdir()
+    (sh.lock / "pid").write_text(f"{pid}\n")
+    if owner:
+        (sh.lock / "owner").write_text(f"{owner}\n")
+
+
+def test_real_take_blocks_deploy_sh_and_release_frees_it(nas_tmp):
+    sh = nas_tmp
+    rc, out, err = sh(jp.s_lock_take(SHA, TOKEN))
+    assert rc == 0 and re.fullmatch(r"taken [0-9]+", out), (out, err)
+    pid = out.split()[1]
+    assert (sh.lock / "pid").read_text().strip() == pid and sh.alive(pid)
+    assert (sh.lock / "owner").read_text().strip() == TOKEN
+    assert (sh.lock / "log").read_text().strip().endswith("/preview/lock.log")
+    rc, out, _ = sh.deploy()
+    assert rc == 2 and f"another deploy is running (pid {pid}" in out
+    assert sh(jp.s_lock())[1] == f"held {pid}"  # what the second check reads
+    closeout_wait = f'p=$(cat {jp.LOCK}/pid 2>/dev/null); [ -n "$p" ] && kill -0 "$p" 2>/dev/null && echo $p || true'
+    assert sh(closeout_wait)[1] == pid  # scripts/joey_closeout.py's idle() lock_cmd: close-out waits
+    assert sh(jp.s_lock_take(SHA, OTHER))[1] == f"held {pid}"  # a second preview refuses too
+    rc, out, err = sh(jp.s_lock_release(TOKEN))
+    assert (rc, out) == (0, "released"), err
+    assert not sh.lock.exists() and not sh.alive(pid)
+    rc, out, _ = sh.deploy()
+    assert rc == 0 and out.endswith("got-the-lock")
+
+
+def test_real_take_refuses_a_live_deploy_and_leaves_its_lock(nas_tmp):
+    sh = nas_tmp
+    deploy_pid = sh.background("sleep 30")
+    try:
+        fake_lock(sh, deploy_pid)
+        assert sh(jp.s_lock_take(SHA, TOKEN))[1] == f"held {deploy_pid}"
+        assert sh(jp.s_lock_release(TOKEN))[1] == "not ours"  # a lock without our token is never touched
+        assert (sh.lock / "pid").read_text().strip() == deploy_pid and sh.alive(deploy_pid)
+    finally:
+        sh(f"kill {deploy_pid} 2>/dev/null; true")
+
+
+def test_real_release_never_touches_another_runs_lock(nas_tmp):
+    sh = nas_tmp
+    pid = sh(jp.s_lock_take(SHA, TOKEN))[1].split()[1]
+    assert sh(jp.s_lock_release(OTHER))[1] == "not ours"
+    assert (sh.lock / "pid").read_text().strip() == pid and sh.alive(pid)
+    assert sh(jp.s_lock_release(TOKEN))[1] == "released" and not sh.lock.exists()
+
+
+def test_real_release_after_a_lost_take_answer(nas_tmp):
+    # reviewer A: the take ran (holder up) but its answer never reached the laptop; the token still finds it
+    sh = nas_tmp
+    sh(jp.s_lock_take(SHA, TOKEN))
+    pid = (sh.lock / "pid").read_text().strip()
+    assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+    assert not sh.lock.exists() and not sh.alive(pid)
+
+
+def test_real_take_clears_a_stale_lock(nas_tmp):
+    sh = nas_tmp
+    dead = sh("sh -c 'exit 0' & p=$!; wait $p; echo $p\n")[1]  # a pid that has just died
+    fake_lock(sh, dead)
+    rc, out, err = sh(jp.s_lock_take(SHA, TOKEN))
+    assert rc == 0 and re.fullmatch(rf"taken [0-9]+ stale {dead}", out), (out, err)
+    assert sh(jp.s_lock_release(TOKEN))[1] == "released" and not sh.lock.exists()
+
+
+def test_real_release_removes_the_lock_of_a_holder_killed_hard(nas_tmp):
+    sh = nas_tmp
+    pid = sh(jp.s_lock_take(SHA, TOKEN))[1].split()[1]
+    sh(f"kill -9 {pid}")
+    assert sh.lock.exists()  # the holder could not clean up
+    assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+    assert not sh.lock.exists()  # never a dead-pid lock left
+
+
+def test_real_holder_gives_the_lock_up_by_itself(nas_tmp, monkeypatch):
+    sh = nas_tmp
+    monkeypatch.setattr(jp, "LOCK_HOLD_S", 1)
+    pid = sh(jp.s_lock_take(SHA, TOKEN))[1].split()[1]
+    deadline = time.monotonic() + 10
+    while sh.lock.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not sh.lock.exists() and not sh.alive(pid)
+
+
+def test_real_zombie_holder_counts_as_dead_fake_proc(nas_tmp, tmp_path):
+    # reviewer B: the gate container (no --init) never reaps the orphaned holder and kill -0 succeeds on a zombie.
+    # A live process stands in for the zombie; a fake /proc says its state is Z.
+    sh = nas_tmp
+    zombie = sh.background("sleep 30")
+    proc = tmp_path / "proc"
+    (proc / zombie).mkdir(parents=True)
+    (proc / zombie / "stat").write_text(f"{zombie} (sh) Z 1 {zombie} {zombie} 0 -1 4194560\n")
+    fake = proc.as_posix()
+    assert sh.alive(zombie) and not sh.alive(zombie, proc=fake)
+    fake_lock(sh, zombie, owner=TOKEN)
+    t0 = time.monotonic()
+    rc, out, err = sh(jp.s_lock_release(TOKEN), proc=fake)
+    assert (rc, out) == (0, "released"), err
+    assert not sh.lock.exists() and time.monotonic() - t0 < 4  # no 5 s wait, no "did not stop"
+    fake_lock(sh, zombie)  # a zombie's lock is stale for the next take, too
+    rc, out, err = sh(jp.s_lock_take(SHA, TOKEN), proc=fake)
+    assert rc == 0 and out.endswith(f"stale {zombie}"), (out, err)
+    assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+
+
+LINUX_PROC = sys.platform.startswith("linux") and Path("/proc/self/stat").exists()
+
+
+@pytest.mark.skipif(not LINUX_PROC, reason="needs Linux /proc")
+def test_real_zombie_holder_counts_as_dead(nas_tmp, tmp_path):
+    sh = nas_tmp
+    zfile = (tmp_path / "zombie.pid").as_posix()
+    # the subshell starts a child, then execs sleep, which never waits: the child stays a zombie until sleep ends
+    parent = sh.background(f"( sleep 0 </dev/null >/dev/null 2>&1 & echo $! > {zfile}; exec sleep 5 )")
+    deadline = time.monotonic() + 5
+    zombie = ""
+    while time.monotonic() < deadline:
+        zombie = Path(zfile).read_text().strip() if Path(zfile).exists() else ""
+        if zombie and Path(f"/proc/{zombie}/stat").read_text().rsplit(") ", 1)[1].startswith("Z"):
+            break
+        time.sleep(0.05)
+    assert sh(f"kill -0 {zombie} && echo yes")[1] == "yes" and not sh.alive(zombie)
+    fake_lock(sh, zombie, owner=TOKEN)
+    rc, out, err = sh(jp.s_lock_release(TOKEN))
+    assert (rc, out) == (0, "released"), err
+    assert not sh.lock.exists()
+    sh(f"kill {parent} 2>/dev/null; true")
+
+
+def test_jellyfin_url_reason_is_accurate():
+    reason = jp.ENV_IN["JELLYFIN_URL"]
+    assert "every Jellyfin call is refused" not in reason
+    assert "fail visibly" in reason and "guest sign-in is off" in reason and "private front" in reason

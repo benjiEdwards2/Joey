@@ -7,12 +7,16 @@
   check that would stop a real run (window, lock, memory, NAS unreachable) is recorded and the dry run goes on.
 
 up refuses outside 07:00-21:30 Melbourne time, while a deploy holds /tmp/joey-deploy.lock, or when NAS available memory
-is under 1,400 MB. It checks the commit out into /volume1/Docker/joey/preview/src (alpine/git + the read-only deploy key,
-as deploy.sh), builds `life-hub-preview`, restores the newest daily media.db backup into the preview data dir, builds the
-preview env from an allow-list of the live .env keys (ENV_IN; never a copy, chmod 600, never printed), writes this repo's
-deploy/preview/docker-compose.yml next to it, checks the deploy lock again, starts the slot and polls /healthz inside the
-container. From the media.db restore on, any FAIL (no /healthz, available memory under 1,200 MB after the start, an ssh
-error, a failed compose up) tears the slot down again, so no container, media.db copy or preview.env is left behind.
+is under 1,400 MB. Then it TAKES that lock in deploy.sh's own format (JY-228): a directory holding the pid of a detached
+holder process on the NAS, so a deploy.sh started meanwhile exits 2 and close-out waits; one docker build at a time.
+It is released on success, on failure and after a teardown; the holder removes it itself after LOCK_HOLD_S, so a dead
+laptop never leaves a lock. It checks the commit out into /volume1/Docker/joey/preview/src (alpine/git + the read-only
+deploy key, as deploy.sh), builds `life-hub-preview`, restores the newest daily media.db backup into the preview data
+dir, builds the preview env from an allow-list of the live .env keys (ENV_IN; never a copy, chmod 600, never printed),
+writes this repo's deploy/preview/docker-compose.yml next to it, checks the deploy lock is still its own, starts the
+slot and polls /healthz inside the container. From the media.db restore on, any FAIL (no /healthz, available memory
+under 1,200 MB after the start, an ssh error, a failed compose up) tears the slot down again, so no container, media.db
+copy or preview.env is left behind.
 
 NAS scripts go over joey_common.ssh_run as `sh -s` on stdin (UTF-8 bytes, LF kept). Docker commands inside them read
 </dev/null so they never eat the rest of the script. Changes are guarded here, not with Runner.ssh_change, so a dry run
@@ -22,6 +26,7 @@ Stdlib only, Python 3.12. Importing this module does no work.
 import argparse
 import datetime as dt
 import re
+import secrets
 import time
 from pathlib import Path
 
@@ -46,6 +51,16 @@ MAIN_NETWORK = "deploy_default"  # deploy.sh runs compose in deploy/ with no -p:
 BACKUPS = "/volume1/Docker/joey/backups/media"
 BACKUP_RE = r"^media-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}\.db\.gz$"  # hub/media_backup.py NAME_RE
 LOCK = "/tmp/joey-deploy.lock"
+LOCK_NOTE = f"{BASE}/lock.log"  # LOCK/log points here: deploy.sh prints it as "watch it: tail -f <log>" when refused
+LOCK_HOLD_S = 3600    # the holder releases the lock by itself after this, whatever happens to the laptop
+PID_RE = re.compile(r"^[0-9]+$")
+# Shell helpers for the lock scripts (BusyBox ash and dash). alive: kill -0 succeeds on a zombie, and in the gate
+# container (no --init) nothing reaps an orphaned holder, so a pid whose /proc/<pid>/stat state is Z counts as dead
+# (JY-228 review). The state is the first field after "(comm) ". nap: a short pause; falls back to 1 s where sleep
+# takes whole seconds only.
+SH_ALIVE = ("alive() { kill -0 \"$1\" 2>/dev/null || return 1; "
+            "z=$(sed 's/^.*) //' \"/proc/$1/stat\" 2>/dev/null | cut -d' ' -f1); [ \"$z\" != Z ]; }")
+SH_NAP = "nap() { sleep 0.1 2>/dev/null || sleep 1; }"
 
 WINDOW = (dt.time(7, 0), dt.time(21, 30))
 MEM_START_MB = 1400   # 1,200 floor + preview headroom
@@ -70,7 +85,8 @@ ENV_IN = {
     "WEATHER_LAT": "Open-Meteo, keyless read",
     "WEATHER_LON": "Open-Meteo, keyless read",
     "WEATHER_PLACE": "place name in the weather labels",
-    "JELLYFIN_URL": "a LAN address, no credential; without the key every Jellyfin call is refused",
+    "JELLYFIN_URL": ("a LAN address, no credential; with no key the Jellyfin-backed reads fail visibly, "
+                     "and guest sign-in is off (the preview runs the private front)"),
     "JELLYFIN_USER": "a display name (owner mapping), no credential",
     "JELLYFIN_USER_HER": "a display name (owner mapping), no credential",
     "JELLYFIN_USER_ALIASES": "display names (not in .env.example), no credential",
@@ -191,6 +207,82 @@ if [ -d {LOCK} ]; then
 else
     echo free
 fi""")
+
+
+def s_lock_take(sha, token):
+    """mkdir the deploy lock exactly as deploy.sh does (same stale rule; a zombie holder is dead), write this run's
+    token to LOCK/owner, then start a detached holder that writes its own pid into LOCK/pid and removes the lock when
+    it exits: TERM from s_lock_release, or LOCK_HOLD_S running out. The holder only writes its pid, and only removes
+    the lock, while LOCK/owner is this run's token. Prints `held <pid|?>` (nothing changed), or `taken <holder pid>`
+    (+ ` stale <old pid>` when a dead holder's lock was cleared). The holder script is in single quotes, so it holds
+    none."""
+    own = f'[ "$(cat {LOCK}/owner 2>/dev/null)" = "{token}" ]'
+    holder = (f'{own} || exit 0; echo $$ > {LOCK}/pid; s=; '
+              f'rel() {{ [ -z "$s" ] || kill "$s" 2>/dev/null; '
+              f'if {own} && [ "$(cat {LOCK}/pid 2>/dev/null)" = "$$" ]; then '
+              f'rm -f {LOCK}/pid {LOCK}/log {LOCK}/owner; rmdir {LOCK} 2>/dev/null; fi; }}; '
+              f'trap rel EXIT; trap "exit 143" TERM; trap "exit 130" INT; '
+              f'sleep {LOCK_HOLD_S} & s=$!; wait "$s"')
+    return script("lock-take", f"""
+L={LOCK}
+{SH_ALIVE}
+{SH_NAP}
+note=
+if ! mkdir "$L" 2>/dev/null; then
+    holder=$(cat "$L/pid" 2>/dev/null || true)
+    if {{ [ -n "$holder" ] && alive "$holder"; }} \\
+        || {{ [ -z "$holder" ] && [ -z "$(find "$L" -maxdepth 0 -mmin +30 2>/dev/null)" ]; }}; then
+        echo "held ${{holder:-?}}"
+        exit 0
+    fi
+    rm -rf "$L"
+    mkdir "$L" 2>/dev/null || {{ echo "held ?"; exit 0; }}
+    note=" stale ${{holder:-?}}"
+fi
+echo {token} > "$L/owner"
+mkdir -p {BASE}
+echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') preview up {short(sha)} holds the deploy lock while it builds" > {LOCK_NOTE}
+echo {LOCK_NOTE} > "$L/log"
+DETACH=
+if command -v setsid >/dev/null 2>&1; then DETACH=setsid; fi
+( trap '' HUP; exec $DETACH sh -c '{holder}' ) </dev/null >/dev/null 2>&1 &
+i=0
+while :; do
+    p=$(cat "$L/pid" 2>/dev/null || true)
+    if [ -n "$p" ] && alive "$p"; then echo "taken $p$note"; exit 0; fi
+    i=$((i + 1))
+    [ "$i" -le 50 ] || break
+    nap
+done
+rm -f "$L/pid" "$L/log" "$L/owner"
+rmdir "$L" 2>/dev/null || true
+echo "the lock holder did not start" >&2
+exit 1""")
+
+
+def s_lock_release(token):
+    """Release the lock this run took, found by its token in LOCK/owner (so it also works after a take whose answer was
+    lost): stop the holder (its EXIT trap removes the lock), wait until it is gone or a zombie, then remove whatever of
+    the lock is left, so a dead-pid lock is never left. A lock without this run's token is never touched."""
+    return script("lock-release", f"""
+L={LOCK}
+t={token}
+{SH_ALIVE}
+{SH_NAP}
+if [ "$(cat "$L/owner" 2>/dev/null)" != "$t" ]; then echo "not ours"; exit 0; fi
+p=$(cat "$L/pid" 2>/dev/null || true)
+if [ -n "$p" ]; then
+    kill "$p" 2>/dev/null || true
+    i=0
+    while alive "$p" && [ "$i" -lt 50 ]; do nap; i=$((i + 1)); done
+    if alive "$p"; then echo "holder $p did not stop" >&2; exit 1; fi
+fi
+if [ "$(cat "$L/owner" 2>/dev/null)" = "$t" ]; then
+    rm -f "$L/pid" "$L/log" "$L/owner"
+    rmdir "$L" 2>/dev/null || true
+fi
+if [ -d "$L" ] && [ "$(cat "$L/owner" 2>/dev/null)" = "$t" ]; then echo "lock still held" >&2; exit 1; fi
+echo released""")
 
 
 def s_mem():
@@ -456,7 +548,8 @@ def down_steps(r, d, prefix="", best_effort=False):
 
 # ---------- up ----------
 def cmd_up(r, a, d):
-    st = {"sha": UNRESOLVED, "label": a.ref, "slot": {"status": "absent", "started": "", "commit": ""}}
+    st = {"sha": UNRESOLVED, "label": a.ref, "slot": {"status": "absent", "started": "", "commit": ""},
+          "token": secrets.token_hex(8)}  # this run's mark in LOCK/owner: release touches only its own lock
 
     def window():
         now = d.now()
@@ -478,6 +571,31 @@ def cmd_up(r, a, d):
             raise jc.Refused(f"a deploy holds {LOCK} (pid {out.split()[-1]}); try again when it finishes")
         return "stale lock (holder gone), no deploy running" if out == "stale" else "no deploy running"
 
+    def take():
+        st["took"] = True  # from here a holder may exist, whatever the answer: the finally releases by token
+        out = change(r, d, s_lock_take(st["sha"], st["token"]), 60).split()
+        if out[:1] == ["held"]:
+            st["took"] = False  # a deploy's lock: nothing of ours to release
+            pid = out[1] if len(out) > 1 else "?"
+            raise jc.Refused(f"a deploy holds {LOCK} (pid {pid}); try again when it finishes")
+        if out[:1] != ["taken"] or len(out) < 2 or not PID_RE.match(out[1]):
+            raise RuntimeError(f"unexpected answer from the lock: {' '.join(out) or 'nothing'}")
+        st["lock_pid"] = out[1]
+        stale = f"; cleared a stale lock (pid {out[3]} gone)" if out[2:3] == ["stale"] and len(out) > 3 else ""
+        return f"held by this preview (holder pid {out[1]}, gives up after {LOCK_HOLD_S // 60} min){stale}"
+
+    def lock_again():
+        if r.dry:  # nothing was taken in a dry run: show whether a deploy would be in the way
+            return lock()
+        out = read(d, s_lock())
+        if out != f"held {st['lock_pid']}":
+            raise jc.Refused(f"the deploy lock is no longer this preview's (holder pid {st['lock_pid']}; lock: {out})")
+        return f"still held by this preview (pid {st['lock_pid']})"
+
+    def release():
+        out = change(r, d, s_lock_release(st["token"]), 60)
+        return f"{LOCK} released" if out == "released" else "this run holds no lock (nothing to release)"
+
     def current():
         st["slot"] = slot(d)
         s = st["slot"]
@@ -494,7 +612,21 @@ def cmd_up(r, a, d):
 
     check(r, "deploy window", window)
     check(r, f"resolve {a.ref}", resolve)
-    check(r, "deploy lock", lock)
+    if r.dry:
+        check(r, "deploy lock", lock)
+    try:
+        r.step("take the deploy lock", take)
+        locked_up(r, a, d, st, current, mem_before, lock_again)
+    finally:
+        if st.get("took") or r.dry:
+            try:
+                r.step("release the deploy lock", release)
+            except jc.Stop:  # FAIL row recorded (exit 1); never hides the error that got us here
+                pass
+
+
+def locked_up(r, a, d, st, current, mem_before, lock_again):
+    """Everything between taking and releasing the deploy lock: replace, checkout, build, start (or teardown)."""
     check(r, "current slot", current)
     if st["slot"]["status"] != "absent":
         old = short(st["slot"]["commit"])
@@ -507,7 +639,7 @@ def cmd_up(r, a, d):
     r.step(f"build {IMAGE}", lambda: then(change(r, d, s_build(sha), 1800), f"{IMAGE} built from {short(sha)}"))
     # From here the NAS holds a media.db copy, then preview.env and the slot: any FAIL tears it all down.
     try:
-        start_slot(r, d, st, lock)
+        start_slot(r, d, st, lock_again)
     except jc.Stop:
         if not r.dry:
             r.log("FAIL after the restore: tearing the slot down (container, image, media.db copy, preview.env)")
@@ -515,7 +647,7 @@ def cmd_up(r, a, d):
         raise
 
 
-def start_slot(r, d, st, lock):
+def start_slot(r, d, st, lock_again):
     sha = st["sha"]
     r.step("restore media.db copy", lambda: f"from {change(r, d, s_restore(), 300)}")
 
@@ -534,7 +666,7 @@ def start_slot(r, d, st, lock):
     r.step("build preview.env (allow-list)", env)
     r.step("write compose file",
            lambda: then(change(r, d, s_compose_write(COMPOSE_SRC.read_text(encoding="utf-8"))), COMPOSE_NAS))
-    check(r, "deploy lock (again, after the build)", lock)
+    check(r, "deploy lock (again, after the build)", lock_again)
     r.step("start joey-preview", lambda: then(change(r, d, s_up(sha), 180), f"{PROJECT} up"))
 
     def health():

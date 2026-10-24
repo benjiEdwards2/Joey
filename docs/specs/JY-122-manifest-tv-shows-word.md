@@ -1,6 +1,6 @@
 # JY-122 Manifest shortcut "TV Shows"
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `hub/static/manifest-media.webmanifest`, `tests/hub/test_media_phone_nav.py`
@@ -34,3 +34,8 @@ Home-screen shortcuts already installed on a phone keep the old name until the P
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #83, squash-merged as `f23911d` (f23911d18faa893c23ce77e2df5f41f42890615f).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

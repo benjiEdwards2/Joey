@@ -17,7 +17,8 @@ they progress while the SPARQL endpoint is down.
 Pacing: sequential, one requests.Session per pass, PACE_S between calls, timeout 30 s, one page in memory at a time,
 each edition written in one transaction. Backlog newest first, ≤ CAP editions a pass; passes every 6 h while a backlog
 exists, then weekly (Sunday ≥ 09:00 local); the NAS-off window (22:00–07:00 local) is skipped. A weekly pass also
-re-pulls editions held within the last 120 days or still to come (synced ≥ 6 days ago).
+re-pulls editions held within the last 120 days or still to come (synced ≥ 6 days ago), then done Wikipedia editions with
+nominations and no winner (synced ≥ 30 days ago, JY-152), so a page fixed later fills in without a parser bump.
 Failures: 429 -> wait Retry-After (max 120 s) once, a second 429 ends the pass (state kept); 5xx / timeout -> the edition
 stays pending with the status / type as its note, the pass goes on; a page no parser shape reads -> skipped;
 a parser exception -> failed. Logs carry counts and HTTP status / exception type only — never a URL or a title.
@@ -58,6 +59,7 @@ PAGEPROPS_BATCH = 50
 IDS_BATCH = 150
 RECENT_DAYS = 120
 REFRESH_AFTER = timedelta(days=6)
+WINNERLESS_AFTER = timedelta(days=30)   # a done Wikipedia edition with no winner is asked again this often (JY-152)
 DISCOVER_AFTER = timedelta(days=6)
 BACKLOG_EVERY = timedelta(hours=6)
 WEEKLY_DAY, WEEKLY_HOUR = 6, 9          # Sunday, from 09:00 local
@@ -376,8 +378,27 @@ def _side(ref: dict | None, qids: dict[str, str], by_label: dict[str, str]) -> t
     return (q if adb.is_qid(q) else adb.local_key(ref["label"])), ref["label"]
 
 
-def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str]) -> tuple[list[dict], list[dict], dict]:
-    """Parsed blocks + resolved titles -> (categories, nominations, labels by QID)."""
+def named_keys(db, body_id: str) -> dict[tuple[str, str], str]:
+    """{(kind, case-folded name): QID cat_key} of a body's linked categories; a name two of them share is left out."""
+    out: dict[tuple[str, str], str] = {}
+    seen: set[tuple[str, str]] = set()
+    for r in db.execute("SELECT cat_key, name, kind FROM award_category WHERE body_id = ?", (body_id,)):
+        if not adb.is_qid(r["cat_key"]):
+            continue
+        k = (r["kind"], str(r["name"] or "").casefold())
+        if k in seen:
+            out.pop(k, None)
+        else:
+            seen.add(k)
+            out[k] = r["cat_key"]
+    return out
+
+
+def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str],
+                   named: dict[tuple[str, str], str] | None = None) -> tuple[list[dict], list[dict], dict]:
+    """Parsed blocks + resolved titles -> (categories, nominations, labels by QID). A category whose page gave no QID
+    takes the key of the one linked category with its kind and name (`named`, JY-152: unlinked table header cells),
+    else a slug."""
     b = seed.BY_ID[body_id]
     kinds = b["kinds"].split(",")
     by_label: dict[str, str] = {}
@@ -392,7 +413,8 @@ def wp_nominations(body_id: str, blocks: list[dict], qids: dict[str, str]) -> tu
     for order, blk in enumerate(blocks):
         kind = kinds[0] if len(kinds) == 1 else ap.category_kind(blk["label"], blk.get("kind"))
         cq = qids.get(blk.get("page") or "", "")
-        cat_key = cq if adb.is_qid(cq) else ap.slug(blk["label"]) or f"cat-{order}"
+        cat_key = (cq if adb.is_qid(cq) else (named or {}).get((kind, blk["label"].casefold()))
+                   or ap.slug(blk["label"]) or f"cat-{order}")
         leads = [e["lead"] for e in blk["entries"]]
         lead = "person" if leads.count("person") > leads.count("work") else "work"
         c = cats.setdefault(cat_key, {"cat_key": cat_key, "name": blk["label"], "kind": kind, "lead": lead,
@@ -433,7 +455,7 @@ def pull_wp(db, client: Client, ed: dict) -> tuple[str, int, str | None]:
     blocks = parsed["blocks"]
     titles = ap.titles_of(blocks)
     qids = resolve_titles(db, client, titles)
-    cats, noms, labels = wp_nominations(ed["body_id"], blocks, qids)
+    cats, noms, labels = wp_nominations(ed["body_id"], blocks, qids, named_keys(db, ed["body_id"]))
     resolve_entities(db, client, list(labels), labels)
     n = adb.write_edition(db, ed["body_id"], ed["ordinal"], cats, noms, [], "done", "wp")
     return "done", n, None
@@ -489,7 +511,23 @@ def select_work(db, today: date, cap: int) -> tuple[list[dict], int]:
                and (_est_date(r) or date.min) >= cut and (not r["synced_at"] or r["synced_at"] < stale)]
         due.sort(key=lambda r: (_est_date(r) or date.min), reverse=True)
         picked += due[:cap - len(picked)]
+    if len(picked) < cap:                    # JY-152: a winner-less page, re-asked monthly (a later fix on Wikipedia)
+        ids = {(r["body_id"], r["ordinal"]) for r in picked}
+        lost = _winnerless(db)
+        retry_cut = (datetime.now(timezone.utc) - WINNERLESS_AFTER).isoformat(timespec="seconds")
+        retry = [r for r in rows if (r["body_id"], r["ordinal"]) in lost and (r["body_id"], r["ordinal"]) not in ids
+                 and r["state"] == "done" and (not r["synced_at"] or r["synced_at"] < retry_cut)]
+        retry.sort(key=lambda r: (-(r["year"] or 0), seed.BY_ID[r["body_id"]]["sort"]))
+        picked += retry[:cap - len(picked)]
     return picked, len(backlog)
+
+
+def _winnerless(db) -> set[tuple[str, int]]:
+    """(body_id, ordinal) of Wikipedia-sourced editions with nominations and no winner."""
+    wp = [b["id"] for b in seed.BODIES if b["source"] == "wp"]
+    return {(r["body_id"], r["ordinal"]) for r in db.execute(
+        f"SELECT body_id, ordinal FROM award_nomination WHERE body_id IN ({','.join('?' * len(wp))}) "
+        "GROUP BY body_id, ordinal HAVING MAX(won) = 0", wp)}
 
 
 def run_pass(cap: int = CAP, client: Client | None = None, today: date | None = None,

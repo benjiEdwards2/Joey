@@ -255,6 +255,9 @@ def _entry(content: str, in_split: bool = False) -> dict | None:
     text = _strip_templates(text)
     text = _TAG_RE.sub("", text)
     text = text.replace("'''''", "''").replace("'''", "")
+    song = _song(text)
+    if song:
+        return {"won": won, **song}
     text = _drop_parens(text).strip()
     if not text:
         return None
@@ -283,6 +286,58 @@ def _entry(content: str, in_split: bool = False) -> dict | None:
     if not work and not people:
         return None
     return {"won": won, "lead": lead, "work": work, "people": people}
+
+
+_SONG_RE = re.compile(r"^\s*[\"“](.+?)[\"”](.*)$", re.S)
+_CREDIT_RE = re.compile(r"^\s*(?:(?:music|lyrics|words|songs?)(?:\s+(?:and|&)\s+(?:music|lyrics|words))?|written|composed)"
+                        r"\s+by\s+", re.I)
+_PERFORMED_RE = re.compile(r"\b(?:performed|sung)\s+by\b", re.I)
+
+
+def _first_paren(text: str) -> str:
+    """The inside of the first (…) group outside links ('' when none)."""
+    depth, link, start, i = 0, 0, -1, 0
+    while i < len(text):
+        two = text[i:i + 2]
+        if two in ("[[", "]]"):
+            link = link + 1 if two == "[[" else max(0, link - 1)
+            i += 2
+            continue
+        if link == 0 and text[i] == "(":
+            depth += 1
+            if depth == 1:
+                start = i + 1
+        elif link == 0 and text[i] == ")" and depth:
+            depth -= 1
+            if depth == 0:
+                return text[start:i]
+        i += 1
+    return ""
+
+
+def _song(text: str) -> dict | None:
+    """JY-152 (2026-10-24): '"[[Song]]" (writers; performed by …) – ''[[Film]]''' -> the film is the work and the
+    writers in the first parenthesis are the people (credit words and the performers dropped); no writers -> work-led.
+    The song title is never a person. None when the line does not open with a quoted title."""
+    m = _SONG_RE.match(text)
+    if not m:
+        return None
+    rest = m.group(2)
+    people = []
+    for part in _split_top(_first_paren(rest), ";"):
+        cut = _PERFORMED_RE.search(part)           # the writers before "performed by" stay, the performers go
+        people += _names(_CREDIT_RE.sub("", part[:cut.start()] if cut else part, count=1))
+    rest = _drop_parens(rest)
+    for dash in _DASHES:
+        parts = _split_top(rest, dash)
+        if len(parts) > 1:
+            rest = dash.join(parts[1:])
+            break
+    inner, _ = _italic(rest)
+    work = _link(inner) if inner else None
+    if not work and not people:
+        return None
+    return {"lead": "person" if people else "work", "work": work, "people": people}
 
 
 _PEOPLE_RE = re.compile(r"\[\[[^\[\]]+\]\](?:\s*(?:,|,?\s*and|&)\s*\[\[[^\[\]]+\]\])*")

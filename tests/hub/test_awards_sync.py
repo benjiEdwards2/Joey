@@ -235,6 +235,42 @@ def test_a_table_shape_page_is_pulled_done_with_its_nominations(setup):
     assert tv["categories"][0]["name"] == "Best Television Series – Drama"
 
 
+def test_an_unlinked_category_takes_the_key_of_the_one_linked_category_with_its_name(setup):
+    """JY-152 (2026-10-24): the 40th Globes' TV header cells are unlinked ("Best Television Series" over "Drama"); its
+    "Best Television Series – Drama" joins the 80th's linked category (same name, same kind) instead of a slug key.
+    A name no linked category has keeps its slug; two linked categories with the name -> the slug (never a guess)."""
+    pages = {"80th Golden Globe Awards": "wp_globes_80.json", "40th Golden Globe Awards": "wp_globes_40.json"}
+
+    def globes(kind, params):
+        if kind == "parse" and params["page"] in pages:
+            return Resp(body=load(pages[params["page"]]))
+        return None
+    client, _, _ = setup(globes, editions=False)
+    with closing(adb.ensure()) as db:
+        adb.upsert_editions(db, "globes", [{"ordinal": 80, "year": 2023}, {"ordinal": 40, "year": 1983}])
+    assert ma.run_pass(client=client, today=TODAY)["editions"] == 2             # newest first: the 80th, then the 40th
+    key = qid_for("Golden Globe Award for Best Television Series – Drama")
+
+    def keys_of_1983():
+        with closing(adb.ensure()) as db:
+            return {r["cat_key"]: r["n"] for r in db.execute(
+                "SELECT cat_key, COUNT(*) AS n FROM award_nomination WHERE body_id = 'globes' AND ordinal = 40 "
+                "GROUP BY cat_key")}
+    got = keys_of_1983()
+    assert got[key] == 5 and "best-television-series-drama" not in got
+    assert "best-performance-in-a-television-series-drama-actor" in got          # no linked category has this name
+    with closing(adb.ensure()) as db:
+        assert not db.execute("SELECT 1 FROM award_category WHERE cat_key = 'best-television-series-drama'").fetchone()
+        series = next(c for c in adb.edition_page("globes", 1983, "tv")["categories"] if c["cat_key"] == key)
+        assert series["entries"][0]["won"] and series["entries"][0]["work"]["title"] == "Hill Street Blues"
+        with db:                                                                  # a second linked one: ambiguous
+            db.execute("INSERT INTO award_category(body_id, cat_key, name, kind, grp, rank, lead) VALUES('globes', "
+                       "'Q999999999', 'Best Television Series – Drama', 'tv', 'core', 10, 'work')")
+    assert ma.run_pass(client=client, today=TODAY, only=("globes", 40))["editions"] == 1
+    got = keys_of_1983()
+    assert "best-television-series-drama" in got and key not in got
+
+
 def test_a_parser_bump_requeues_shapeless_skips_once(setup, caplog):
     """WP-D1: a stored parser_v older than PARSER_V puts every 'no page shape' skip back to pending (once); other
     skips and done editions are untouched; the re-queued edition is then pulled by the normal backlog.
@@ -373,6 +409,43 @@ def test_recent_editions_are_refreshed_weekly(setup):
         assert {(w["body_id"], w["ordinal"]) for w in work} == {("oscars", 97), ("bafta", 78), ("emmys", 77)}
         work, _ = ma.select_work(db, date(2025, 8, 1), 40)   # Feb / Mar now older than 120 days
         assert {(w["body_id"], w["ordinal"]) for w in work} == {("emmys", 77)}
+
+
+def test_a_winnerless_done_page_is_re_pulled_monthly_after_the_backlog(setup):
+    """JY-152 (2026-10-24): a done Wikipedia edition with nominations and no winner is picked again once its last pull is
+    30+ days old (WINNERLESS_AFTER), after the backlog, inside the cap, and never counted as backlog. Not picked: one
+    pulled 10 days ago, one with a winner, a Wikidata-sourced one. The pass rewrites it with its winners."""
+    def critics_10(kind, params):
+        if kind == "parse" and params["page"] == "10th Critics' Choice Awards":
+            return Resp(body=load("wp_critics_10.json"))
+        return None
+    client, _, _ = setup(critics_10, editions=False)
+    ago = lambda days: (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    with closing(adb.ensure()) as db:
+        adb.set_sync(db, "parser_v", ma.PARSER_V)                                 # no bump: this is the monthly path
+        adb.upsert_editions(db, "critics", [{"ordinal": n, "year": 1995 + n} for n in (10, 11, 12)])
+        adb.upsert_editions(db, "oscars", [{"ordinal": 80, "year": 2008, "held_on": "2008-02-24", "wd_qid": "Q190006"}])
+        with db:
+            for body, n, won, days in (("critics", 10, 0, 31), ("critics", 11, 1, 31), ("critics", 12, 0, 10),
+                                       ("oscars", 80, 0, 31)):
+                db.executemany("INSERT INTO award_nomination(body_id, ordinal, cat_key, work_qid, work_title, won, pos, "
+                               "source) VALUES(?, ?, 'x', ?, ?, ?, ?, 'wp')",
+                               [(body, n, "~a", "A", won, 0), (body, n, "~b", "B", 0, 1)])
+                db.execute("UPDATE award_edition SET state = 'done', synced_at = ? WHERE body_id = ? AND ordinal = ?",
+                           (ago(days), body, n))
+        work, backlog = ma.select_work(db, TODAY, 40)
+        assert [(w["body_id"], w["ordinal"]) for w in work] == [("critics", 10)] and backlog == 0
+        adb.upsert_editions(db, "critics", [{"ordinal": 30, "year": 2025}])     # a pending one fills a cap of 1 first
+        work, backlog = ma.select_work(db, TODAY, 1)
+        assert [(w["body_id"], w["ordinal"]) for w in work] == [("critics", 30)] and backlog == 1
+        with db:
+            db.execute("DELETE FROM award_edition WHERE body_id = 'critics' AND ordinal = 30")
+    counts = ma.run_pass(client=client, today=TODAY)
+    assert counts["editions"] == 1 and states()[("critics", 10)] == ("done", None)
+    with closing(adb.ensure()) as db:
+        won = db.execute("SELECT COUNT(DISTINCT cat_key) AS n FROM award_nomination WHERE body_id = 'critics' "
+                         "AND ordinal = 10 AND won = 1").fetchone()["n"]
+        assert won == 18 and ma.select_work(db, TODAY, 40) == ([], 0)
 
 
 def test_cadence():

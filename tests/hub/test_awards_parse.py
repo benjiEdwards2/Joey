@@ -301,3 +301,45 @@ def test_a_bare_bold_winner_line_never_double_marks_and_other_bare_lines_stay_ig
                                           ("wp_sag_31.json", 15), ("wp_critics_30.json", 42)])
 def test_award_category_pages_keep_their_winner_counts(name, winners):
     assert sum(e["won"] for b in parsed(name) for e in b["entries"]) == winners
+
+
+# ---- JY-152 (2026-10-24): the parser leftovers ----
+
+def test_bafta_1966_award_category_headers_inside_table_cells_each_carry_one_winner():
+    blocks = parsed("wp_bafta_19.json")
+    assert len(blocks) == 18 and all(sum(e["won"] for e in b["entries"]) == 1 for b in blocks)
+    best = blocks[0]
+    assert (best["label"], best["page"]) == ("Best Film", "BAFTA Award for Best Film")
+    assert lead_names(best)[0] == (True, "work", "My Fair Lady", ["George Cukor"]) and len(best["entries"]) == 5
+    assert [e["won"] for e in best["entries"]] == [True, False, False, False, False]
+
+
+def test_song_lines_lead_with_the_writers_and_the_film_never_the_song():
+    song = {b["label"]: b for b in parsed("wp_globes_82.json")}["Best Original Song"]
+    assert lead_names(song)[0] == (True, "person", "Emilia Pérez", ["Clément Ducol", "Camille", "Jacques Audiard"])
+    assert song["entries"][0]["work"]["title"] == "Emilia Pérez"
+    assert lead_names(song)[-1] == (False, "person", "Emilia Pérez", ["Clément Ducol", "Camille"])   # "Mi camino", unlinked
+    critics = {b["label"]: b for b in parsed("wp_critics_30.json")}["Best Song"]       # "(Written by …; performed by …)"
+    assert lead_names(critics)[0] == (True, "person", "Emilia Pérez", ["Clément Ducol", "Camille", "Jacques Audiard"])
+    assert lead_names(critics)[1] == (False, "person", "The Last Showgirl", ["Andrew Wyatt", "Miley Cyrus", "Lykke Li"])
+    sting = {b["label"]: b for b in parsed("wp_critics_6.json")}["Best Song"]          # "performed by [[Sting]]"
+    assert lead_names(sting) == [(True, "work", "The Emperor's New Groove", [])]
+    bare = {b["label"]: b for b in parsed("wp_critics_10.json")}["Best Song"]          # "\"[[Song]]\" – ''[[Film]]''"
+    assert lead_names(bare)[0] == (True, "work", "Alfie", []) and len(bare["entries"]) == 3
+    assert lead_names({b["label"]: b for b in parsed("wp_globes_80.json")}["Best Original Song"])[0] == (
+        True, "person", "RRR", ["M. M. Keeravani", "Chandrabose"])
+
+
+def test_a_song_credit_part_keeps_the_writers_before_performed_by():
+    text = ("{{Award category|#fff|[[X Award for Best Song|Best Song]]}}\n"
+            "* '''\"[[S]]\" ([[A]], performed by [[B]]) – ''[[F]]'''''\n")
+    assert lead_names(ap.parse_award_blocks(text)["blocks"][0]) == [(True, "person", "F", ["A"])]
+
+
+@pytest.mark.parametrize("name", ["wp_globes_82.json", "wp_globes_80.json", "wp_globes_60.json", "wp_globes_40.json",
+                                  "wp_critics_30.json", "wp_critics_10.json", "wp_critics_6.json"])
+def test_no_song_title_is_ever_a_person(name):
+    songs = {"El Mal", "Naatu Naatu", "The Hands That Built America", "Eye of the Tiger", "Old Habits Die Hard",
+             "My Funny Friend and Me", "Lose Yourself", "Beautiful That Way", "Mi camino", "Carolina"}
+    people = {p["label"] for b in parsed(name) for e in b["entries"] for p in e["people"]}
+    assert not people & songs

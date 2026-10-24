@@ -36,6 +36,9 @@ WP_PAGES = {  # file -> (Award category headers, page title after redirects)
     "wp_bafta_12.json": (0, "12th British Academy Film Awards"),
     # WP-D3 (2026-10-16): winners on a bare bold line under each header (recorded 2026-10-16, formatversion 2)
     "wp_critics_10.json": (18, "10th Critics' Choice Awards"),
+    # JY-152 (2026-10-24): {{Award category}} inside wikitable cells, winner on a bare bold line (the 19th BAFTA page
+    # saved 2026-10-16 during WP-D3, formatversion 2; nothing changed)
+    "wp_bafta_19.json": (18, "19th British Academy Film Awards"),
 }
 
 

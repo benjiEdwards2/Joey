@@ -416,7 +416,12 @@ SEASON = {"seasonNumber": 1, "episodes": [
     {"episodeNumber": 3, "name": "Yet To Come", "airDate": "2999-03-14", "overview": ""}]}
 
 
-def test_title_page_lazy_hooks_per_season_and_no_episodes_inline(env):
+def test_title_page_lazy_hooks_per_season_and_no_episodes_inline(env, monkeypatch):
+    # JY-119 (2026-10-24): the page's own BackgroundTask now fills the episode ratings (Jellyseerr season reads when OMDb
+    # has no answer), after the response. That job is stubbed here so the test still pins "no season call from the
+    # page itself"; the job's reads are covered in tests/hub/test_episode_ratings.py.
+    from hub import media_episode_ratings
+    monkeypatch.setattr(media_episode_ratings, "fill", lambda *a: {})
     client, fake = env()
     with client:
         body = main_of(client.get("/media/title/tv/100").text)

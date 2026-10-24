@@ -193,14 +193,42 @@ def gate_ci(v):
     return True, f"ci SUCCESS on the head {sha}", []
 
 
+PUSH_QUERY = ("query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){"
+              "timelineItems(last:50,itemTypes:[PULL_REQUEST_COMMIT,HEAD_REF_FORCE_PUSHED_EVENT]){nodes{"
+              "__typename ... on PullRequestCommit{commit{oid pushedDate}} "
+              "... on HeadRefForcePushedEvent{createdAt afterCommit{oid}}}}}}}")
+PUSH_JQ = (".data.repository.pullRequest.timelineItems.nodes[] | "
+           'if .__typename=="HeadRefForcePushedEvent" then [.afterCommit.oid, .createdAt] '
+           "else [.commit.oid, .commit.pushedDate] end | select(.[1]) | @tsv")
+
+
+def read_push_time(slug, pr, head):
+    """JY-229: when GitHub says the head commit was pushed (timeline pushedDate / force-push event); None when it gives
+    no time. Never the CI run start: a review posted right after the push but before ci starts must still count."""
+    owner, _, name = slug.partition("/")
+    try:
+        out = gh_run(["api", "graphql", "-f", f"query={PUSH_QUERY}", "-f", f"owner={owner}", "-f", f"name={name}",
+                      "-F", f"n={pr}", "--jq", PUSH_JQ])
+    except RuntimeError:
+        return None
+    times = []
+    for line in out.splitlines():
+        oid, _, t = line.partition("\t")
+        if oid.strip() == head and t.strip():
+            try:
+                times.append(_ts(t.strip()))
+            except ValueError:
+                pass
+    return max(times) if times else None
+
+
 def push_time(v):
-    """When the head was pushed: the later of the head commit's committedDate and its ci run's start (CI starts on
-    the push, so a commit dated before a review but pushed after it still counts as later). None when unknown."""
+    """When the head was pushed: GitHub's push time for the head commit (v["headPushedAt"], from read_push_time), else
+    the head commit's committedDate. Never the ci run start. None when unknown."""
     head = v.get("headRefOid")
     commits = v.get("commits") or []
     hit = [c for c in commits if c.get("oid") == head] or commits
-    times = [_ts(c.get("committedDate")) for c in hit]
-    times += [_ts(c.get("startedAt")) for c in ci_checks(v)]
+    times = [_ts(c.get("committedDate")) for c in hit] + [v.get("headPushedAt")]
     times = [t for t in times if t]
     return max(times) if times else None
 
@@ -431,6 +459,7 @@ def close_out(r, a, st):
             if st["resume"] or v.get("mergeable") != "UNKNOWN":
                 break
             sleep(5)
+        v["headPushedAt"] = read_push_time(st["slug"], st["pr"], v["headRefOid"])
         st["view"] = v
         if any(lab.get("name") == "accepted" for lab in v.get("labels") or []):
             try:
@@ -575,6 +604,7 @@ def close_out(r, a, st):
 
         def regates():
             v2 = json.loads(gh_run(["pr", "view", pr, "--repo", slug, "--json", PR_FIELDS]))
+            v2["headPushedAt"] = read_push_time(slug, pr, v2["headRefOid"])
             ok_c, detail_c, _ = gate_review(v2)
             ok_d, detail_d = gate_accept(v2, a.accepted_in_chat, st.get("label_time"))[:2]
             bad = ([f"gate c: {detail_c}"] if not ok_c else []) + ([f"gate d: {detail_d}"] if not ok_d else [])

@@ -99,11 +99,14 @@ class FakeGh:
         self.merge_mode = "ok"  # ok | fail | timeout-but-merged
         self.merge_secs = 0  # how long the item merge "takes" on the fake clock
         self.label_time = "2026-10-23T05:30:00Z"
+        self.pushed_at = None  # GitHub's push time for the head commit; None = it gives none
         self.head_specs = []  # file names under docs/specs on the PR head
 
     def __call__(self, args, timeout=120):
         a = list(args)
         self.calls.append(a)
+        if a[:2] == ["api", "graphql"]:  # the head commit's push time (JY-229)
+            return f"{self.prs[50]['headRefOid']}\t{self.pushed_at}\n" if self.pushed_at else ""
         if a[0] == "api":
             if "/contents/docs/specs?ref=" in a[1]:  # the spec listing on the PR head (JY-229)
                 return "".join(f"{n}\n" for n in self.head_specs)
@@ -807,11 +810,22 @@ def test_fail_before_the_push_then_a_fresh_pass_is_a_fix_round(lw):
 
 
 def test_review_before_the_push_is_stale_even_when_the_commit_is_older(lw):
-    """The commit is dated before the review but its ci run (the push) started after it: a fresh review is needed."""
+    """The commit is dated before the review but GitHub's push time is after it: a fresh review is needed."""
     lw.item(comments=[review(at="2026-10-23T04:30:00Z")])
-    lw.gh.prs[50]["statusCheckRollup"][0]["startedAt"] = "2026-10-23T04:45:00Z"
+    lw.gh.pushed_at = "2026-10-23T04:45:00Z"
     rc, out = lw.run()
     assert rc == 1 and "FAIL  gate c" in out and "a later commit needs a fresh review" in out
+
+
+def test_review_after_the_push_but_before_the_ci_run_starts_passes(lw):
+    """JY-229: pushed 04:00, review 04:00:30, ci run starts 04:01: the review is fresh (ci start is not the push)."""
+    lw.item(comments=[review(at="2026-10-23T04:00:30Z")])
+    lw.gh.pushed_at = "2026-10-23T04:00:00Z"
+    rc, out = lw.run("--deploy", "no", "--dry-run")
+    assert "PASS  gate c: Review PASS after the last push, no fresh FAIL" in out, out
+    lw.gh.pushed_at = None  # GitHub gives no push time: the committer date (04:00) is the fallback, still fresh
+    rc, out = lw.run("--deploy", "no", "--dry-run")
+    assert "PASS  gate c: Review PASS after the last push, no fresh FAIL - Review PASS at 2026-10-23T04:00:30Z (last push 2026-10-23T04:00Z)" in out, out
 
 
 def test_all_failed_gates_listed_one_line_each(lw):
@@ -1023,7 +1037,7 @@ def test_stale_label_warns_in_a_run(lw):
     lw.gh.label_time = "2026-10-23T03:00:00Z"
     lw.gh.merge_mode = "fail"
     rc, out = lw.run()
-    assert "WARN  the accepted label (2026-10-23T03:00Z) is older than the last push (2026-10-23T04:01Z)" in out
+    assert "WARN  the accepted label (2026-10-23T03:00Z) is older than the last push (2026-10-23T04:00Z)" in out
     assert "PASS  gate d: B.'s accept - label accepted" in out
 
 

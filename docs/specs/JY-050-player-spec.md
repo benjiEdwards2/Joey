@@ -1,6 +1,6 @@
 # JY-050 Media player: spec + questions
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `docs/specs/` only (writing; no code, no live system touched)
@@ -53,6 +53,8 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 **8. What is the success measure?** A) A film starts within 5 s on the LAN and 10 s remote, resumes across two devices, and you don't open the Jellyfin app for a week. B) Only the JY-051 matrix passes. C) Your sign-off per device. *Recommend A: measurable, and it mirrors how Joey TV's production gate worked.*
 
 ## Shipped notes
-Not yet.
-
-- 2026-10-24: answers recorded (B.: "Approve all changes …" = all recommended). Review should-fixes applied: AC2 names the household devices and parks the pilot friend's Google TV stick with friends; Q3's 20 Mbps cap applies to friend accounts only (matches `docs/public-edge.md`). DECISIONS entry added in `docs/joeyv2/DECISIONS.md`.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #66, squash-merged as `76eab6a` (76eab6af7a980464af13d133602194d9be621fde).
+- Deploy: skipped: every changed file is Markdown or under .github/
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

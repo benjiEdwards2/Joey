@@ -1,6 +1,6 @@
 # JY-239 Preview lock tests: Linux CI flakes
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: NAS write (the preview lock scripts only: `SH_ALIVE` in `scripts/joey_preview.py` changes; reviewed as L)
 Area: `scripts/joey_preview.py` (`SH_ALIVE`), `tests/scripts/test_joey_preview.py`
@@ -42,4 +42,8 @@ Other flaky tests. The gate's `--init`.
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #97, squash-merged as `f512b29` (f512b29e1aeba604f4fc5bea899146c52a19a98c).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

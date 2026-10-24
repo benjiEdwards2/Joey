@@ -1,6 +1,6 @@
 # JY-226 Server page within its render budget
 
-Status: spec
+Status: building
 Size: M
 Live risk: none
 Area: `hub/server_history.py`, `hub/server.py` (`sweep_stats`, `history_band` callers), `hub/server_space.py` (reads `recent()`), `tests/hub/`
@@ -48,6 +48,7 @@ Template or CSS changes; the media.db schema; the sample cadence or retention; t
 - CI green; review posted; the three NAS budget runs in the PR.
 
 ## Questions for B.
+Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance." = every recommended answer below, and ready.
 1. How far to go? **A + C (recommended):** about 31 ms on the laptop, no visible change at all. **A + B + C:** about 18 ms, but the Server page's sparklines redraw at most once a minute.
 
 ## Shipped notes

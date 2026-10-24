@@ -411,6 +411,43 @@ def test_recent_editions_are_refreshed_weekly(setup):
         assert {(w["body_id"], w["ordinal"]) for w in work} == {("emmys", 77)}
 
 
+def test_a_winnerless_done_page_is_re_pulled_monthly_after_the_backlog(setup):
+    """JY-152 (2026-10-24): a done Wikipedia edition with nominations and no winner is picked again once its last pull is
+    30+ days old (WINNERLESS_AFTER), after the backlog, inside the cap, and never counted as backlog. Not picked: one
+    pulled 10 days ago, one with a winner, a Wikidata-sourced one. The pass rewrites it with its winners."""
+    def critics_10(kind, params):
+        if kind == "parse" and params["page"] == "10th Critics' Choice Awards":
+            return Resp(body=load("wp_critics_10.json"))
+        return None
+    client, _, _ = setup(critics_10, editions=False)
+    ago = lambda days: (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    with closing(adb.ensure()) as db:
+        adb.set_sync(db, "parser_v", ma.PARSER_V)                                 # no bump: this is the monthly path
+        adb.upsert_editions(db, "critics", [{"ordinal": n, "year": 1995 + n} for n in (10, 11, 12)])
+        adb.upsert_editions(db, "oscars", [{"ordinal": 80, "year": 2008, "held_on": "2008-02-24", "wd_qid": "Q190006"}])
+        with db:
+            for body, n, won, days in (("critics", 10, 0, 31), ("critics", 11, 1, 31), ("critics", 12, 0, 10),
+                                       ("oscars", 80, 0, 31)):
+                db.executemany("INSERT INTO award_nomination(body_id, ordinal, cat_key, work_qid, work_title, won, pos, "
+                               "source) VALUES(?, ?, 'x', ?, ?, ?, ?, 'wp')",
+                               [(body, n, "~a", "A", won, 0), (body, n, "~b", "B", 0, 1)])
+                db.execute("UPDATE award_edition SET state = 'done', synced_at = ? WHERE body_id = ? AND ordinal = ?",
+                           (ago(days), body, n))
+        work, backlog = ma.select_work(db, TODAY, 40)
+        assert [(w["body_id"], w["ordinal"]) for w in work] == [("critics", 10)] and backlog == 0
+        adb.upsert_editions(db, "critics", [{"ordinal": 30, "year": 2025}])     # a pending one fills a cap of 1 first
+        work, backlog = ma.select_work(db, TODAY, 1)
+        assert [(w["body_id"], w["ordinal"]) for w in work] == [("critics", 30)] and backlog == 1
+        with db:
+            db.execute("DELETE FROM award_edition WHERE body_id = 'critics' AND ordinal = 30")
+    counts = ma.run_pass(client=client, today=TODAY)
+    assert counts["editions"] == 1 and states()[("critics", 10)] == ("done", None)
+    with closing(adb.ensure()) as db:
+        won = db.execute("SELECT COUNT(DISTINCT cat_key) AS n FROM award_nomination WHERE body_id = 'critics' "
+                         "AND ordinal = 10 AND won = 1").fetchone()["n"]
+        assert won == 18 and ma.select_work(db, TODAY, 40) == ([], 0)
+
+
 def test_cadence():
     mel = timezone(timedelta(hours=11))
     sun10 = datetime(2026, 10, 11, 10, 0, tzinfo=mel)

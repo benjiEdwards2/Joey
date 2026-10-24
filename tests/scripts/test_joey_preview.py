@@ -58,7 +58,7 @@ class FakeNas:
             "leftovers": [(0, "container=\nnetwork=\nimage=\nfiles=", "")],
         }
         self.resp.update(over)
-        self.ops, self.scripts = [], []
+        self.ops, self.scripts, self.timeouts = [], [], []
 
     def deploy_sh(self):
         """What deploy.sh's lock does right now: 2 ("another deploy is running") while the preview holds it."""
@@ -69,6 +69,7 @@ class FakeNas:
         op = script.splitlines()[0].split(":", 1)[1]
         self.ops.append(op)
         self.scripts.append(script)
+        self.timeouts.append(timeout)
         self.held_at[op] = self.holder is not None
         if op in self.on:
             self.on[op]()
@@ -582,7 +583,9 @@ def test_lock_scripts_use_deploy_sh_format():
     deploy_sh = (REPO_ROOT / "deploy" / "deploy.sh").read_text(encoding="utf-8")
     assert f"LOCK={jp.LOCK}" in deploy_sh and 'echo "$$" > "$LOCK/pid"' in deploy_sh
     assert f"L={jp.LOCK}" in take and 'mkdir "$L"' in take
-    assert f"echo $$ > {jp.LOCK}/pid" in take  # the holder writes its own pid, as deploy.sh does
+    # the holder writes its own pid, as deploy.sh does. JY-234, 2026-10-24: via a temp file and an atomic mv after
+    # the owner check (was `echo $$ > LOCK/pid`), so it never lands in a lock someone else took meanwhile
+    assert f"echo $$ > {jp.LOCK}/.pid.$$" in take and f"mv -f {jp.LOCK}/.pid.$$ {jp.LOCK}/pid" in take
     assert f'echo {jp.LOCK_NOTE} > "$L/log"' in take
     assert f'echo {TOKEN} > "$L/owner"' in take and f"t={TOKEN}\n" in release
     assert "-mmin +30" in take  # deploy.sh's stale rule for a pid-less lock
@@ -832,3 +835,169 @@ def test_jellyfin_url_reason_is_accurate():
     reason = jp.ENV_IN["JELLYFIN_URL"]
     assert "every Jellyfin call is refused" not in reason
     assert "fail visibly" in reason and "guest sign-in is off" in reason and "private front" in reason
+
+
+# ---------- JY-234: the JY-228 verifier's low-probability should-fixes ----------
+import joey_closeout  # noqa: E402
+
+
+def lock_window_s(nas, sleeps):
+    """Worst-case seconds the lock is held for one run: every NAS call's timeout from the take to the release, as if
+    each step ran right up to it, plus the laptop's own sleeps."""
+    i, j = nas.ops.index("lock-take"), len(nas.ops) - 1 - nas.ops[::-1].index("lock-release")
+    return sum(nas.timeouts[i:j + 1]) + sum(sleeps)
+
+
+RUNNING = [(0, f"running|2026-10-23T01:00:00Z|{OLD}", "")]
+LAST_POLL = [(1, "", "")] * (jp.HEALTH_TRIES - 1) + [(0, "", "")]
+
+
+@pytest.mark.parametrize("over", [
+    {"inspect": RUNNING, "health": [(1, "", "refused")]},                                # no /healthz: logs + teardown
+    {"inspect": RUNNING, "health": list(LAST_POLL), "mem": [(0, "1600", ""), (0, "1150", "")]},  # last poll, floor
+    {"inspect": RUNNING, "health": list(LAST_POLL)},                                     # good, on the last poll
+], ids=["no-healthz", "under-floor", "last-poll"])
+def test_the_hold_outlasts_every_step_timeout_and_close_out_waits_longer(over):
+    # point 3: the holder must not give the lock up while the run can still be working (replace, build, health poll,
+    # teardown); and close-out's wait for the lock must outlast the hold, so a dead laptop never fails a close-out.
+    rc, nas, _, sleeps = run(["up", "main"], nas=FakeNas(**over))
+    assert nas.ops[-1] == "lock-release" and "compose-down" in nas.ops
+    worst = lock_window_s(nas, sleeps)
+    assert worst > 60 * 60  # the measure saw the 30 min build and the 14 min health poll
+    assert worst + 5 * 60 <= jp.LOCK_HOLD_S, (worst, jp.LOCK_HOLD_S)  # at least 5 min to spare
+    assert jp.LOCK_HOLD_S < joey_closeout.build_parser().parse_args(["JY-001"]).timeout * 60
+    assert f"sleep {jp.LOCK_HOLD_S} " in jp.s_lock_take(SHA, TOKEN)
+
+
+def holder_of(take):
+    return re.search(r"sh -c '([^']*)'", take).group(1)
+
+
+def test_real_take_leaves_no_temp_pid_file(nas_tmp):
+    # point 2: the pid goes in by rename; nothing else is left in the lock dir
+    sh = nas_tmp
+    pid = sh(jp.s_lock_take(SHA, TOKEN))[1].split()[1]
+    assert sorted(p.name for p in sh.lock.iterdir()) == ["log", "owner", "pid"]
+    assert (sh.lock / "pid").read_text().strip() == pid
+    assert sh(jp.s_lock_release(TOKEN))[1] == "released" and not sh.lock.exists()
+
+
+def test_holder_never_writes_its_pid_into_a_lock_replaced_before_the_rename(nas_tmp, monkeypatch):
+    # point 2: a deploy clears the lock and takes its own between the holder's owner check and its rename (a stand-in
+    # `mv` does that first, then the real mv). The temp file went with the old dir: the mv fails, the holder exits and
+    # the deploy's pid stands.
+    sh = nas_tmp
+    monkeypatch.setattr(jp, "LOCK_HOLD_S", 1)  # a holder that wrongly carried on gives up at once
+    fake_lock(sh, "1", owner=TOKEN)
+    (sh.lock / "pid").unlink()
+    deploy_takes = f'mv() {{ rm -rf {jp.LOCK}; mkdir {jp.LOCK}; echo 4242 > {jp.LOCK}/pid; command mv "$@"; }}'
+    rc, out, err = sh(f"{deploy_takes}\n{holder_of(jp.s_lock_take(SHA, TOKEN))}\n")
+    assert rc == 0, (out, err)
+    assert sorted(p.name for p in sh.lock.iterdir()) == ["pid"]
+    assert (sh.lock / "pid").read_text().strip() == "4242"
+
+
+def test_holder_whose_lock_changed_owner_after_the_temp_write_leaves_nothing(nas_tmp, monkeypatch):
+    # point 2: the owner changes between the temp write and the second check (a stand-in `echo` changes it right
+    # after writing): no pid written, the temp file removed
+    sh = nas_tmp
+    monkeypatch.setattr(jp, "LOCK_HOLD_S", 1)
+    fake_lock(sh, "1", owner=TOKEN)
+    (sh.lock / "pid").unlink()
+    swap = f"echo() {{ printf '%s\\n' \"$*\"; printf '%s\\n' {OTHER} > {jp.LOCK}/owner; }}"
+    rc, out, err = sh(f"{swap}\n{holder_of(jp.s_lock_take(SHA, TOKEN))}\n")
+    assert rc == 0, (out, err)
+    assert sorted(p.name for p in sh.lock.iterdir()) == ["owner"]
+    assert (sh.lock / "owner").read_text().strip() == OTHER
+
+
+FAKE_PID = "4242"
+
+
+def fake_proc(tmp_path, cmdline, state="S"):
+    """A fake /proc where FAKE_PID is alive (state S) with the given command line (NUL-separated, as the kernel)."""
+    proc = tmp_path / "proc"
+    (proc / "self").mkdir(parents=True)
+    (proc / "self" / "stat").write_text("1 (sh) S 0\n")
+    (proc / FAKE_PID).mkdir()
+    (proc / FAKE_PID / "stat").write_text(f"{FAKE_PID} (sh) {state} 1 {FAKE_PID} {FAKE_PID} 0 -1 4194560\n")
+    (proc / FAKE_PID / "cmdline").write_bytes(cmdline)
+    return proc.as_posix()
+
+
+def stand_ins(tmp_path, fractional=True):
+    """Shell functions that replace kill (every pid exists, nothing ever dies, each call is logged) and sleep (returns
+    at once, logs its argument; rejects a fractional one unless `fractional`, as a whole-seconds-only sleep does)."""
+    kills, naps = (tmp_path / "kills.log").as_posix(), (tmp_path / "naps.log").as_posix()
+    frac = "" if fractional else 'case "$1" in *.*) return 1;; esac; '
+    text = (f'kill() {{ printf "%s\\n" "$*" >> {kills}; return 0; }}\n'
+            f'sleep() {{ {frac}printf "%s\\n" "$1" >> {naps}; return 0; }}\n')
+    return text, Path(kills), Path(naps)
+
+
+def log_lines(path):
+    return path.read_text().splitlines() if path.exists() else []
+
+
+@pytest.mark.parametrize("cmdline", [b"sleep\x0030\x00", None], ids=["reused-pid", "no-proc"])
+def test_release_never_signals_a_pid_that_is_not_its_holder(nas_tmp, tmp_path, cmdline):
+    # point 1: the pid in LOCK/pid now belongs to another process (its command line lacks this run's token), or there
+    # is no /proc to prove it: never signalled; the holder counts as gone and the lock is removed
+    sh = nas_tmp
+    proc = fake_proc(tmp_path, cmdline) if cmdline else (tmp_path / "no-proc").as_posix()
+    fns, kills, _ = stand_ins(tmp_path)
+    fake_lock(sh, FAKE_PID, owner=TOKEN)
+    rc, out, err = sh(fns + jp.s_lock_release(TOKEN), proc=proc)
+    assert (rc, out) == (0, "released"), err
+    assert not sh.lock.exists()
+    assert log_lines(kills) and set(log_lines(kills)) == {f"-0 {FAKE_PID}"}  # kill -0 probes only, never a TERM
+
+
+@pytest.mark.parametrize("fractional,naps", [(True, ["0.1"] * 51), (False, ["1"] * 10)], ids=["sleep-0.1", "whole-s"])
+def test_release_signals_its_holder_and_gives_up_well_inside_the_ssh_timeout(nas_tmp, tmp_path, fractional, naps):
+    # points 1 and 4: the holder's command line carries the token, so it is signalled; it never stops (stand-in kill),
+    # so the wait loop runs out. With sleep 0.1 that is the probe + 50 naps of 0.1 s; where sleep takes whole seconds
+    # only it is 10 naps of 1 s (was 50 x 1 s, close to the 60 s ssh timeout). Counted, not timed.
+    sh = nas_tmp
+    cmdline = b"sh\x00-c\x00[ \"$(cat /tmp/joey-deploy.lock/owner)\" = \"" + TOKEN.encode() + b"\" ] || exit 0\x00"
+    proc = fake_proc(tmp_path, cmdline)
+    fns, kills, nap_log = stand_ins(tmp_path, fractional)
+    fake_lock(sh, FAKE_PID, owner=TOKEN)
+    rc, out, err = sh(fns + jp.s_lock_release(TOKEN), proc=proc)
+    assert rc == 1 and f"holder {FAKE_PID} did not stop" in err, (out, err)
+    assert FAKE_PID in log_lines(kills)  # the TERM went to our own holder
+    assert log_lines(nap_log) == naps and sum(float(x) for x in naps) <= 10.5
+    assert sh.lock.exists()  # a holder that did not stop keeps its lock
+
+
+def test_release_counts_a_zombie_holder_as_gone_without_signalling_it(nas_tmp, tmp_path):
+    # point 1 with JY-228's zombie rule: a zombie has an empty command line and state Z: gone, not signalled
+    sh = nas_tmp
+    proc = fake_proc(tmp_path, b"", state="Z")
+    fns, kills, _ = stand_ins(tmp_path)
+    fake_lock(sh, FAKE_PID, owner=TOKEN)
+    rc, out, err = sh(fns + jp.s_lock_release(TOKEN), proc=proc)
+    assert (rc, out) == (0, "released"), err
+    assert FAKE_PID not in log_lines(kills)
+
+
+def test_real_release_leaves_a_process_that_reused_the_pid_alone(nas_tmp):
+    # point 1 with real processes: LOCK/pid names a live process that is not the holder (no token on its command line)
+    sh = nas_tmp
+    if sh("[ -r /proc/self/cmdline ] && echo y")[1] != "y":
+        pytest.skip("no /proc cmdline")
+    other = sh.background("sleep 30")
+    try:
+        fake_lock(sh, other, owner=TOKEN)
+        assert sh(jp.s_lock_release(TOKEN))[1] == "released"
+        assert not sh.lock.exists() and sh.alive(other)
+    finally:
+        sh(f"kill {other} 2>/dev/null; true")
+
+
+def test_wait_loops_use_the_nap_budget():
+    # point 4: both wait loops count to $naps, which SH_NAP sets from whether sleep takes a fraction
+    take, release = jp.s_lock_take(SHA, TOKEN), jp.s_lock_release(TOKEN)
+    assert '[ "$i" -le "$naps" ] || break' in take and '[ "$i" -lt "$naps" ]' in release
+    assert jp.SH_NAP in take and jp.SH_NAP in release and jp.SH_OURS in release
+    assert not re.search(r"-l[te] 50\b", take + release)

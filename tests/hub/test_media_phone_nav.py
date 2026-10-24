@@ -83,7 +83,11 @@ def test_joey_media_manifest_is_valid_and_served(env):
     assert (m["name"], m["short_name"], m["scope"], m["display"]) == ("Joey Media", "Media", "/", "standalone")
     assert m["icons"] == main_manifest["icons"]
     assert [(s["name"], s["url"]) for s in m["shortcuts"]] == [
-        ("Movies", "/media/movies"), ("TV Shows", "/media/tv"), ("Activity", "/media/playing"), ("Discover", "/media/discover")]
+        ("Movies", "/media/movies"), ("TV shows", "/media/tv"), ("Activity", "/media/playing"), ("Discover", "/media/discover")]
+    # JY-122 (2026-10-24): each shortcut name is the nav's own section word ("TV shows", sentence case since nav-tidy)
+    from hub import media_nav
+    labels = {s["href"]: s["label"] for s in media_nav.SECTIONS if s["href"]}
+    assert all(labels[s["url"]] == s["name"] for s in m["shortcuts"])
 
 
 def test_manifest_start_url_is_the_real_media_home():

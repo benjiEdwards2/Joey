@@ -35,6 +35,8 @@
         {# media-ux4 (2026-10-08): no "Episode of <Show>" line — the part-of banner under the hero leads to the show. #}
         <p class="row-title">{% if film.episode.code %}{{ film.episode.code }} · {% endif %}{{ film.episode.title }}</p>
         {{ meta([("Aired " ~ film.episode.air_date) if film.episode.air_date else none, film.episode.runtime], "metaline") }}
+        {% elif epnav %}
+        {{ ef.seasonline(epnav) }}
         {% endif %}
         <h1 class="hero-detail-title">{{ film.title }}{% if film.year and not tvm %} ({{ film.year }}){% endif %}</h1>
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}

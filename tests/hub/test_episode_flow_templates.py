@@ -249,7 +249,62 @@ def test_season_head_has_the_season_switch_with_the_current_one_marked():
         [("/media/item/season1", "", "1"), ("/media/item/season2", ' class="on" aria-current="page"', "2"),
          ("/media/item/season3", "", "3")]
     assert h.index("seasonseg") > h.index("hero-detail-title")                        # in the text column, under the title
-    assert "crumbs" not in h and "epeyebrow" not in h                                 # crumbs and eyebrow are the episode page's
+    assert "crumbs" not in h and "S2<span" not in h                                   # crumbs and the episode eyebrow are the episode page's
+
+
+# JY-116 (2026-10-24, B.: "JY-116: A"): a season page's head says "Season 2 of 4" above the show title, in the episode
+# eyebrow's own style. The numbers come from nav.seasons, which the page already holds.
+def test_season_head_says_which_season_above_the_title():
+    h = head(season())
+    assert '<p class="epeyebrow">Season 2 of 3</p>' in h
+    assert h.index("epeyebrow") < h.index("hero-detail-title")
+    assert h.index("epeyebrow") < h.index("seasonseg")
+
+
+def test_a_one_season_show_reads_season_1_of_1_and_has_no_switch():
+    n = copy.deepcopy(NAV)
+    n["seasons"] = [{"n": 1, "href": "/media/item/season1", "on": True}]
+    h = head(film_dict(ratings=copy.deepcopy(RATINGS), nav=n))
+    assert '<p class="epeyebrow">Season 1 of 1</p>' in h and "seasonseg" not in h
+
+
+def test_season_eyebrow_counts_to_the_highest_season_number_not_the_list_length():
+    n = copy.deepcopy(NAV)
+    n["seasons"] = [{"n": 4, "href": "/media/item/season4", "on": False}, {"n": 5, "href": "/media/item/season5", "on": True}]
+    assert '<p class="epeyebrow">Season 5 of 5</p>' in head(film_dict(ratings=copy.deepcopy(RATINGS), nav=n))
+
+
+def test_season_eyebrow_is_not_drawn_for_specials_or_an_unknown_season():
+    n = copy.deepcopy(NAV)
+    n["seasons"] = [{"n": 0, "href": "/media/item/sp", "on": True}, {"n": 1, "href": "/media/item/season1", "on": False}]
+    assert "epeyebrow" not in head(film_dict(ratings=copy.deepcopy(RATINGS), nav=n))      # Specials: no "Season 0"
+    n["seasons"] = [{"n": 1, "href": "/media/item/season1", "on": False}, {"n": 2, "href": "/media/item/season2", "on": False}]
+    assert "epeyebrow" not in head(film_dict(ratings=copy.deepcopy(RATINGS), nav=n))      # none marked `on`
+    n["seasons"] = []
+    assert "epeyebrow" not in head(film_dict(ratings=copy.deepcopy(RATINGS), nav=n))      # the Jellyfin read gave no seasons
+
+
+def test_season_eyebrow_leaves_show_film_and_episode_pages_alone():
+    assert "Season 2 of" not in head(series())                                            # a show page
+    assert "epeyebrow" not in head(series())
+    assert "epeyebrow" not in head(film_dict(kind="movie", title="A Film"))               # a film
+    h = head(episode())
+    assert h.count("epeyebrow") == 1 and "Season 2 of" not in h                           # the episode page keeps "S2 · E2 of 4"
+    assert re.search(r'<p class="epeyebrow">Landman<span class="sep"> · </span>S2<span class="sep"> · </span>E2 of 4</p>', h)
+
+
+def test_season_eyebrow_reuses_the_episode_eyebrow_class_with_no_new_css():
+    assert ".seasonline" not in CSS and "Season N" not in TAIL
+    h = head(season())
+    assert 'class="epeyebrow"' in h
+
+
+def test_season_eyebrow_survives_tv_mode_markup(monkeypatch):
+    monkeypatch.setitem(ENV.globals, "tv_mode", lambda request: True)
+    h = head(season())
+    assert '<p class="epeyebrow">Season 2 of 3</p>' in h                                  # tv.css has no rule hiding .epeyebrow
+    tv = (Path(shell.__file__).resolve().parent / "static" / "tv.css").read_text(encoding="utf-8")
+    assert "epeyebrow" not in tv
 
 
 def test_season_page_has_the_strip_and_rated_rows_but_not_the_compare_block():

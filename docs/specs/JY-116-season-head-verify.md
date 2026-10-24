@@ -1,9 +1,9 @@
 # JY-116 Season page head: "Season N" eyebrow + S-switch check
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
-Area: `hub/templates/media_film.html`, `hub/templates/_episode_flow.html`, `hub/media_film.py`, `tests/hub/` (only if B. picks A or B below)
+Area: `hub/templates/media_film.html`, `hub/templates/_episode_flow.html`, `tests/hub/test_episode_flow_templates.py`
 Needs: none
 Options page: none: the options are one line of wording each and follow the episode page's existing eyebrow
 
@@ -21,10 +21,10 @@ Read-only GET of a season page from inside `joey-hub` on the NAS (no identity he
 Result: S-switch verified, no change. The eyebrow is a new line of wording on a screen, so it waits for B.
 
 ## Acceptance criteria
-Only if B. picks A or B:
-1. A season page's head shows the chosen eyebrow above the show title, in the episode page's existing eyebrow style (`.epeyebrow`; no new CSS, no new colour).
+B. picked A (2026-10-24):
+1. A season page's head shows "Season 2 of 4" above the show title, in the episode page's existing eyebrow style (`.epeyebrow`; no new CSS, no new colour).
 2. It uses the page's real season number. A show page, a film and an episode page are unchanged (the episode page keeps "Show · S2 · E3 of 12").
-3. A season page of a one-season show (no switch) still shows the eyebrow.
+3. A season page of a one-season show (no switch) shows "Season 1 of 1". The "of" number is the highest season number in `nav.seasons` (the list length when numbering has no gaps). Nothing is drawn for Specials (season 0), when no season is marked as the page's, or when the season list is empty.
 4. Red test first: render a season page through the app's Jinja env (as `tests/hub/test_episode_flow_templates.py` does) and assert the eyebrow is present; it fails on today's code. Plus one test for each unchanged page above.
 
 ## Data
@@ -34,7 +34,7 @@ None. `nav.seasons` already holds the season numbers and the season's episode li
 Media item page, warm p95 <= 150 ms. No new reads.
 
 ## Options and the pick
-None picked yet. See Questions.
+Picked 2026-10-24. B.: "JY-116: A" (A: "Season 2 of 4", the same quiet style as the episode eyebrow).
 
 ## Out of scope
 Crumbs on the season page. Changing the h1, the status line or the switch itself. The episode page.
@@ -42,13 +42,9 @@ Crumbs on the season page. Changing the h1, the status line or the switch itself
 ## Accept checklist
 On a live season page: the eyebrow says which season at the top of the head; the switch is unchanged; an episode page is unchanged.
 
-## Questions for B.
-1. What should a season page's head say above the show title?
-   - **A (recommended): "Season 2 of 4".** Same quiet style as the episode eyebrow ("Ted Lasso · S2 · E3 of 12"). Says where you are, and still reads right on a one-season show.
-   - **B: "Season 2 · 12 episodes".** Says what is on the page, but not how many seasons there are.
-   - **C: nothing.** Keep today's head; the highlighted S2 in the switch is the only season word (a one-season show would have none). Closes as "verified, no change".
-
-   Answer like "1A".
-
 ## Shipped notes
-Not shipped. Waiting on question 1.
+Not shipped. Draft, built on `feat/JY-116-season-head-verify`:
+- New macro `seasonline` in `_episode_flow.html`, called from the head of `media_film.html` when the page has `nav` and no episode. Reuses `.epeyebrow`: no new CSS, no new colour. TV mode (`html.tv`) has no rule that hides `.epeyebrow`, so the line shows there as on the episode page.
+- No new read and no new data: it reads `nav.seasons`, which the page already holds (rule 7 not touched).
+- The existing season-head test asserted "no `epeyebrow`"; it now asserts "no episode eyebrow" (2026-10-24, because the season page now has its own eyebrow).
+- Edge rules the spec did not name, for the reviewer: "of" counts to the highest season number, not the list length (a show listed as S4, S5 reads "Season 5 of 5", never "Season 5 of 2"); Specials (season 0) get no eyebrow rather than "Season 0 of N".

@@ -54,7 +54,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-049 | Transcoding box: requirements + shortlist | Media player | M | [x] shipped | Research done (`docs/joeyv2/research/JY-049_TRANSCODE_BOX.md`) | — |
-| JY-050 | Player spec + questions | Media player | S | idea | Devices, friends or not, what done means | — |
+| JY-050 | Player spec + questions | Media player | S | [x] shipped | Devices, friends or not, what done means · PR #66 | [spec](docs/specs/JY-050-player-spec.md) |
 | JY-051 | Player options study (per-device matrix) | Media player | M | idea | Measure what each device plays | — |
 | JY-052 | Options page: player screen (PC, phone, TV) | Media player | S | idea | B. picks the look first | — |
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | idea | Contract before the players | — |

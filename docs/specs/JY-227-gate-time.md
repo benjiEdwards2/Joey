@@ -60,5 +60,22 @@ Answers: B., orchestrator session, 2026-10-24: "Approve all changes. If I dont n
 
 Reply in one message, e.g. "JY-227: 1a 2a 3a, ready".
 
+## Build notes
+2026-10-24, criterion 2 (builder). Test setup changed, no test removed, skipped or weakened, every assertion kept (rule 4):
+- `test_joey_closeout.py`: the full world `w` copies a per-session template (`Templates`: base origin + clone, plus one variant per `files` tuple holding the item's worktree and pushed commit) with `shutil.copytree`, then rewrites the copy's absolute paths (`url.<origin>.insteadOf`, the worktree's `.git` and `gitdir` files). A test that changes main before `item()` gets the base copy and builds the item commit itself, as before. `FakeGh` squash-merges in the bare origin with `merge-tree --write-tree` + `commit-tree` + `update-ref` instead of a scratch clone + `merge --squash` + push. Refusal and gate tests were already on the light world.
+- `test_joey_worktree.py`: `Repo` copies a per-session origin + clone (one per origin URL). Setup-only `worktree new` in `Repo.item()` runs `joey_worktree.main` in-process; every test of `new`, `remove` and `list` still runs the CLI as a subprocess.
+- Both: the sandbox gitconfig sets `maintenance.auto=false` and `receive.autogc=false` (git spawned a `maintenance run --auto` after every commit, fetch and push).
+
+Laptop profile, 2026-10-24, `-n 4`, main 3b20517 vs this branch, run back to back (no other pytest running, except one other builder's run during the full "after"; Windows spawns a git process in ~130 ms, so git-heavy tests weigh far more here than on Linux):
+
+| Run | before | after |
+|---|---|---|
+| `tests/scripts/` wall | 136 s | 95 s |
+| `tests/scripts/` summed | 524 s (closeout 331, worktree 162) | 308 s (closeout 167, worktree 110) |
+| full `tests/` wall | 289 s | 222 s |
+| tests | 3,495 passed, 1 skipped | 3,495 passed, 1 skipped |
+
+What is left in `tests/scripts/` is mostly the code under test: one `close-out` run makes ~29 git calls of its own, and the worktree tests run the CLI as a subprocess. The NAS share of `tests/scripts/` is unknown until the quiet-NAS profile run (criterion 1).
+
 ## Shipped notes
 (filled at close-out)

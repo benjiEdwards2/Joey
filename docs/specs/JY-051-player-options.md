@@ -82,6 +82,7 @@ Choosing the screen's look (JY-052); the hub playback endpoints (JY-053); any sh
 
 ## Questions for B.
 Answers: B., orchestrator session, 2026-10-24: "JY-051: 1A 2A 3A, ready".
+Change to answer 2 (B., 2026-10-24): "Could you just use joeytest instead of study?" → the study uses the existing `joeytest` user (id prefix 0dd9fd89, ENABLED until the JY-040 revoke drill; never toggled here), not a new `joeystudy` user. Its friend policy caps remote streams at 20 Mbps (LAN unaffected), which matches the friend case.
 **1. TV engines in the study?** A) T1, T2 (with and without ffmpeg extension) and T3; T4 only if T2 fails a file. B) Also test libVLC and mpv up front. *Recommend A: it keeps the TV sitting short, and Jellyfin's own app already uses ExoPlayer.*
 
 **2. Test account?** A) A new read-only household-policy Jellyfin user made for the study, deleted afterwards. B) Use your own account (progress writes land on your history). *Recommend A: stops test plays polluting your resume and watched records.*

@@ -216,7 +216,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-235 | Gate ≤ 10 min on the NAS: quiet-NAS `--durations` profile, `-n 3` trial only if still over, three deploys ≤ 600 s | NAS/deploy | M | idea | JY-227 split (criteria 3–5 + NAS half of 1), 2026-10-24 | — |
 | JY-236 | Flaky test: `test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links` | Tests | S | [x] shipped | Failed under load twice on 2026-10-24 (JY-101, JY-153 builds); passes alone · PR #107 | [spec](docs/specs/JY-236-flaky-film-trailer-test.md) |
 | JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | idea | 2 errors on main under load (JY-104 build, 2026-10-24); pass alone | — |
-| JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | idea | JY-140 review should-fix, 2026-10-24 | — |
+| JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | [x] shipped | JY-140 review should-fix, 2026-10-24 · PR #105 | [spec](docs/specs/JY-238-lan-word.md) |
 | JY-239 | Flaky JY-228 lock tests on Linux CI (holder self-expiry timing; /proc race) | Tests | S | [x] shipped | Turned three unrelated PRs red on 2026-10-24 · PR #97 | [spec](docs/specs/JY-239-preview-test-flakes.md) |
 
 ### Parked features

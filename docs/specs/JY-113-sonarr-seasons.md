@@ -34,6 +34,7 @@ A show Jellyfin has no season of (an empty series, or the off-server title page)
 - A show with nothing new in Sonarr looks as before.
 
 ## Questions for B.
+Answer (orchestrator, 2026-10-24, under B.'s standing instruction to close out direction-free work): empty or off-server shows keep Seerr's rows; out of scope here. B. can reopen it as a new item.
 None.
 
 ## Shipped notes

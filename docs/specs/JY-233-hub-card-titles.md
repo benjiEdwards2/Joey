@@ -33,6 +33,9 @@ Options page: https://claude.ai/artifact/QXF4eYxr54ha2hfeHWxTcA
 Note: the private hub never runs in TV mode today (TV mode is the media front's); the TV frames force TV mode onto the hub to show the TV-size line.
 B.'s pick: (pending)
 
+### Round 2
+2026-10-24, B. on the round 1 page: "None of them are separable. Can you please find a coloured icon and make them slightly larger and try again." Round 1 (A, B, C above) is set aside. Round 2 options: coloured area icons, slightly larger, near the title, each option clearly different at a glance; same four sizes. Status stays `spec` until B. picks.
+
 ## Out of scope
 Area page headers; the Joey TV shell's own screens (JY-042).
 

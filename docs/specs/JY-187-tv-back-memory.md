@@ -1,6 +1,6 @@
 # JY-187 U1 Back memory (focus + scroll)
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `hub/static/tv.js`, `tests/hub/test_tv_mode.py`
@@ -40,3 +40,8 @@ Device run by the orchestrator (`JoeyTV\scripts\tv_ui_capture.py journeys`): J3 
 None open (question 1 answered: A, see Options and the pick).
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #125, squash-merged as `35c5217` (35c521776ea139697e0957adf2861ebb9a5d67cc).
+- Deploy: `2026-10-24T22:40:54Z PASS prev=7a4e1da new=35c5217 suite green, smoke ok tv=current gate=-n2 avail=2027 end=2026-10-24T22:48:36Z dur=462s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

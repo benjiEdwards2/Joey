@@ -101,7 +101,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-116 | Season page head: "Season N" eyebrow + S-switch check | Media | S | idea | Switch did not show in the preview | — |
 | JY-117 | Previous / Next cards: verify on a real episode | Media | S | idea | Not seen in the preview | — |
 | JY-118 | Guest / crew names linked | Media | M | parked | Plain text now; costs extra reads (decision) | — |
-| JY-119 | Off-server shows get episode ratings | Media | S | idea | Warm-up does not prefetch them | — |
+| JY-119 | Off-server shows get episode ratings | Media | S | idea | Warm-up prefetches no episode ratings today; B. picks A/B/C · PR #124 | — |
 | JY-120 | Her view with no list: wording | Media | S | parked | "Nothing left to watch" / "Nothing in progress" (decision) | — |
 | JY-121 | Merge play stats into History | Media | S | idea | Nav-tidy leftover | — |
 | JY-122 | Manifest shortcut "TV Shows" | Media | S | [x] shipped | Nav-tidy leftover · PR #83 | [spec](docs/specs/JY-122-manifest-tv-shows-word.md) |
@@ -169,7 +169,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-184 | Friend session visible in B.'s live now-playing view | Joey TV | S | idea | Follow-on from the edge work | — |
 | JY-185 | Delete old key files left on the Desktop | Joey TV | S | idea | After the password manager holds the key; B.'s hands | — |
 | JY-186 | TV UI Gate 1 picks (scale + picks 1–6) | Joey TV | S | idea | B.'s picks block U2 and U6–U10 | — |
-| JY-187 | U1 Back memory (focus + scroll) | Joey TV | M | idea | Back never restores focus or scroll | — |
+| JY-187 | U1 Back memory (focus + scroll) | Joey TV | M | idea | Built, review PASS (PR #125); waits on the TV device run (J3/J4/J5/J8/J9) and B.'s J8 pick (6 presses) | — |
 | JY-188 | U2 Hero scrim, 18 px type floor, card scale | Joey TV | M | idea | Rows and cards too large; needs the scale pick | — |
 | JY-189 | U3 Posters at 400 px + Tonight layout | Joey TV | M | idea | Blurry posters; Tonight unstyled | — |
 | JY-190 | U4 Server fixes (sign-out device, 404, Diary scope) | Joey TV | M | idea | Stale device blocks sign-in · live | — |
@@ -207,7 +207,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-212 | Phone checks only B. can do | Housekeeping | S | idea | Back scroll, swipe-back, iOS keyboard, ballot, Follow, Update now, manifest colour | — |
 | JY-213 | Live checks: Media rounds | Housekeeping | S | idea | Library grid, 4K request, Why? on Brothers, WAR, Caught up, logos | — |
 | JY-214 | Live checks: Server rounds | Housekeeping | S | idea | Quiet tap, first digest, Free space, Updates age, Prowlarr count | — |
-| JY-215 | Stale preview entries in `launch.json` | Housekeeping | S | idea | Three point at purged scratch scripts | — |
+| JY-215 | Stale preview entries in `launch.json` | Housekeeping | S | [x] shipped | Verified 2026-10-24: every launch.json entry points at a path that exists; nothing to remove | — |
 | JY-216 | Archive the three awards review mockups | Housekeeping | S | idea | Reference only now | — |
 | JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | [x] shipped | Nav-tidy leftover · PR #84 | [spec](docs/specs/JY-217-drop-watchlist-tab-counts.md) |
 | JY-224 | Flaky test: `test_media_speed::test_metadata_long_request_state_short` | Tests | S | [x] shipped | Fails 3 in 8 under load; doesn't drain the first visit's background read · PR #77 | [spec](docs/specs/JY-224-flaky-metadata-ttl-test.md) |

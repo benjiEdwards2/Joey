@@ -1,6 +1,6 @@
 # JY-190 Server fixes for friends on Joey TV (U4)
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: Jellyfin write (sign-out deletes the friend's own device, admin key)
 Area: hub/guest_signin.py, hub/guest_auth.py, hub/guest.py, hub/media_wrapped.py, tests/hub
@@ -48,3 +48,8 @@ None: no new screen. L4 takes the plan's default (delete the device on sign-out)
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #149, squash-merged as `7a4e1da` (7a4e1dae4d4660ceae0f7e3c33fccb7520c595d1).
+- Deploy: `2026-10-24T22:21:28Z PASS prev=81524f3 new=7a4e1da suite green, smoke ok tv=current gate=-n2 avail=1963 end=2026-10-24T22:28:43Z dur=435s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

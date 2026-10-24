@@ -350,7 +350,7 @@
             ]
           },
           "episodes": {
-            "type": "integer",
+            "type": ["integer", "null"],
             "minimum": 0
           },
           "unplayed": {

@@ -375,7 +375,7 @@ is unset or names no user.
   `backdrop` (refs, nullable), `runtime_min` (int|null), `played` (bool), `last_played_at`,
   `added_at` (ISO|null), `community_rating` (number|null), `genres` (≤ 3 strings).
 - shows: the same fields plus `status_word` (`Continuing` | `Ended` | `Unknown`), `episodes`
-  (int ≥ 0) and `unplayed` (int ≥ 0).
+  (int ≥ 0, or null when Jellyfin gave no count: unknown, never read as 0 / empty) and `unplayed` (int ≥ 0).
 
 Fetched in `connectors/feeds/jellyfin.py` (`Jellyfin`) with `GET /Users/{uid}/Items`,
 `IncludeItemTypes=Movie` / `Series`, `Recursive=true`, `SortBy=SortName`, `Limit=2000`

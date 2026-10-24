@@ -29,8 +29,9 @@ runtime_text = media_text.duration   # 112 -> "1h 52m", 47 -> "47m", 120 -> "2h"
 
 def empty_series(row) -> bool:
     """WP-T1 (2026-10-19): a library show row with a counted 0 episodes - Sonarr's folder before any file arrived. It
-    is not a library entry and not "On server". A row without an `episodes` count (older snapshots) is not empty."""
-    return isinstance(row, dict) and "episodes" in row and not row.get("episodes")
+    is not a library entry and not "On server". A row without an `episodes` count (older snapshots) or with an unknown
+    one (None, JY-115: Jellyfin gave no count) is not empty."""
+    return isinstance(row, dict) and row.get("episodes") == 0
 
 
 def _watched_text(played, last, ago) -> str:
@@ -68,7 +69,8 @@ def _library_rows(items, ratings, kind, ago, href_of, marks, runtimes=None) -> l
             "status_word": it.get("status_word"), "episodes": eps, "unplayed": unplayed, "state": state,
             # E5 (M2): "26 episodes · 6 left · ~4h 30m" (was "· 6 to watch"); "· All watched" as before
             "eps_text": "" if kind == "movie" else (
-                f"{eps} episode{'' if eps == 1 else 's'}" + (f" · {progress}" if progress else "")),
+                (f"{eps} episode{'' if eps == 1 else 's'}" if it.get("episodes") is not None else "")
+                + (f" · {progress}" if progress else "")),
             "progress": progress,
             "last_text": f"Last watched {ago(last)}" if marks and kind == "tv" and last else "",
         })

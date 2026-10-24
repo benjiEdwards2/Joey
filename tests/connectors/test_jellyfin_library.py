@@ -69,11 +69,13 @@ def test_show_item_key_prefers_tmdb_then_tvdb_then_jf(data):
     assert by == {"Quiet Coast": "tmdb:2201", "Night Ferry": "tvdb:7002", "Garden Lane": "jf:series-fixture-3"}
 
 
-def test_show_missing_counts_default_to_zero(snapshots, raw):
+def test_show_missing_episode_count_stays_unknown(snapshots, raw):
+    """JY-115 (2026-10-24; was "default to zero"): Jellyfin gave no RecursiveItemCount, so the count is None - the hub
+    must not read it as an empty series. A missing unplayed count still defaults to 0."""
     raw = copy.deepcopy(raw)
     raw["raw_shows"]["Items"] = [{"Id": "s1", "Name": "Bare", "Status": "Paused"}]
     row = Jellyfin().transform(raw)["shows"][0]
-    assert (row["episodes"], row["unplayed"], row["status_word"]) == (0, 0, "Unknown")
+    assert (row["episodes"], row["unplayed"], row["status_word"]) == (None, 0, "Unknown")
 
 
 def test_show_with_zero_items_on_disk_is_left_out(snapshots, raw):

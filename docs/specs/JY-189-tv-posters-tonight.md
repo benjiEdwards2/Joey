@@ -1,6 +1,6 @@
 # JY-189 TV posters at 600 px and the Tonight TV layout
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: hub/templates (_poster, _shelf, _library_row, _library_page, area_shelves, media_tonight), hub/static/tv.css, tests/hub
@@ -43,3 +43,8 @@ On the TCL TV (one grouped TV run, with the other TV_UI items): `tv_ui_capture.p
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #148, squash-merged as `81524f3` (81524f35e33be0daff20dae52d0b3d0dbac0a128).
+- Deploy: `2026-10-24T22:07:39Z PASS prev=dfaf871 new=81524f3 suite green, smoke ok tv=current gate=-n2 avail=1944 end=2026-10-24T22:14:52Z dur=433s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

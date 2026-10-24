@@ -1,6 +1,6 @@
 # JY-225 Flaky test: test_a_two_megabyte_tail_hit_takes_under_two_ms
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `tests/hub/test_runner_history_tail.py`
@@ -38,4 +38,8 @@ Any change in `hub/store.py`.
 CI green; the before/after rates in the PR.
 
 ## Shipped notes
-PR and the after-fix rate are in the PR description.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #79, squash-merged as `2d72272` (2d7227222b873a3a6cc04508d14f6f25ff035bab).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

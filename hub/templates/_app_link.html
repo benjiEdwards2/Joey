@@ -4,5 +4,5 @@
 <p class="applinkrow"><a class="btn btn-glass btn-sm applink" href="{{ app_link.href }}" target="_blank" rel="noopener">
   {% if app_link.logo %}<img class="svc-logo" src="/static/svc/{{ app_link.logo }}?v={{ static_v }}" alt="" width="20" height="20">
   {% else %}<span class="svc-logo svc-fallback" aria-hidden="true"><span class="svc-initial">{{ app_link.initial }}</span></span>{% endif %}
-  Open {{ app_link.name }} ↗{% if app_link.lan %} <span class="metaline">LAN</span>{% endif %}</a></p>
+  Open {{ app_link.name }} ↗{% if app_link.lan %} <span class="metaline">{{ lan_word }}</span>{% endif %}</a></p>
 {% endif %}

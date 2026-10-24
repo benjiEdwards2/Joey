@@ -16,7 +16,7 @@
 <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
   {% if a.logo %}<img class="svc-logo row-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="32" height="32">
   {% else %}<span class="svc-logo svc-fallback row-logo" aria-hidden="true"><span class="svc-initial">{{ a.initial }}</span></span>{% endif %}
-  <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, "LAN" if a.lan else none, a.note if not a.up else none]) }}</div>
+  <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, lan_word if a.lan else none, a.note if not a.up else none]) }}</div>
 </a>
 {% endfor %}
 </div>

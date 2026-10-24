@@ -387,6 +387,9 @@ def main(argv: list[str] | None = None, runner=None) -> int:
     ap.add_argument("--areas", default=None, help=argparse.SUPPRESS)
     ap.add_argument("--base", default=IN_CONTAINER_BASE, help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
+    for stream in (sys.stdout, sys.stderr):   # JY-241: never UnicodeEncodeError on a cp1252 Windows pipe
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     if args.n < 1:
         ap.error("-n must be at least 1")
 

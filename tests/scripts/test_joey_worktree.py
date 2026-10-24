@@ -619,3 +619,30 @@ def test_run_closes_stdin_and_disables_git_prompts(monkeypatch):
     assert kw["stdin"] is subprocess.DEVNULL and kw["env"]["GIT_TERMINAL_PROMPT"] == "0"
     joey_common.run(["cat"], stdin="hi")
     assert fake.calls[-1][1]["input"] == "hi"
+
+
+# ---------- JY-241: UTF-8 stdout on a cp1252 pipe ----------
+FUNNY = "PR title ≤ 5 😀"
+
+
+def test_cli_prints_non_cp1252_text_to_a_cp1252_pipe(repo):
+    """JY-241: stdout piped, PYTHONIOENCODING=cp1252, a worktree branch name carries a less-than-or-equal sign and
+    an emoji (it is printed in the list rows and the log)."""
+    branch = "feat/JY-241-≤😀"
+    repo.git("worktree", "add", "-q", "-b", branch, str(repo.root / "wt-funny"), "origin/main")
+    r = subprocess.run([sys.executable, str(JOEY), "worktree", "list"], cwd=repo.clone,
+                       env=dict(repo.env, PYTHONIOENCODING="cp1252"), capture_output=True, timeout=120)
+    out, err = r.stdout.decode("utf-8", "replace"), r.stderr.decode("utf-8", "replace")
+    assert "UnicodeEncodeError" not in err, err
+    assert r.returncode == 0, out + err
+    assert branch in out and branch in repo.log_text()
+
+
+def test_runner_log_prints_non_cp1252_text_after_utf8_stdio(tmp_path):
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import joey_common as jc; jc.utf8_stdio(); "
+            "jc.Runner('t', log_dir=sys.argv[2]).log(sys.argv[3])")
+    r = subprocess.run([sys.executable, "-c", code, str(REPO_ROOT / "scripts"), str(tmp_path), FUNNY],
+                       env=dict(os.environ, PYTHONIOENCODING="cp1252"), capture_output=True, timeout=60)
+    assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
+    assert FUNNY in r.stdout.decode("utf-8")
+    assert FUNNY in next(tmp_path.glob("joey_*.log")).read_text(encoding="utf-8")

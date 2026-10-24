@@ -314,3 +314,14 @@ def test_report_never_exceeds_20_lines():
     text = budgets.render(many, 20, "NAS")
     assert len(text.splitlines()) == budgets.MAX_LINES
     assert text.splitlines()[-1].startswith("Summary")
+
+
+def test_main_prints_non_cp1252_text_to_a_cp1252_pipe():
+    """JY-241: budgets.main makes stdout UTF-8 (errors replaced), so a cp1252 Windows pipe cannot crash the report."""
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import budgets; budgets.measure_local = lambda *a: []; "
+            "budgets.exit_code = lambda rows: 0; budgets.render = lambda *a: 'p95 \u2264 1 \U0001F600'; "
+            "sys.exit(budgets.main(['--local', 'http://127.0.0.1:1']))")
+    r = subprocess.run([sys.executable, "-c", code, str(REPO_ROOT / "scripts")],
+                       env={**__import__("os").environ, "PYTHONIOENCODING": "cp1252"}, capture_output=True, timeout=60)
+    assert r.returncode == 0, r.stderr.decode("utf-8", "replace")
+    assert "p95 ≤ 1 \U0001F600" in r.stdout.decode("utf-8")

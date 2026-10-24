@@ -38,6 +38,14 @@ class Stop(Exception):
     """Raised by Runner.step after a FAIL, so the caller stops before any later change."""
 
 
+def utf8_stdio():
+    """JY-241: stdout and stderr to UTF-8 with errors="replace", so printing a PR title with a non-cp1252 character
+    ("≤", an emoji) to a Windows pipe never raises UnicodeEncodeError mid-run. Called at the CLI entry points."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 # ---------- redaction ----------
 _SUBS = [
     (re.compile(r"(?i)\b(gh[pousr]_|github_pat_)[A-Za-z0-9_]+"), "<token>"),

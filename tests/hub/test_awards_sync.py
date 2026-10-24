@@ -275,7 +275,9 @@ def test_a_parser_bump_requeues_shapeless_skips_once(setup, caplog):
     """WP-D1: a stored parser_v older than PARSER_V puts every 'no page shape' skip back to pending (once); other
     skips and done editions are untouched; the re-queued edition is then pulled by the normal backlog.
     WP-D3: the same bump re-queues a `done` Wikipedia-sourced edition with nominations but no winner (a done one with a
-    winner, or with no nominations, stays); the pass rewrites it whole, winners included."""
+    winner, or with no nominations, stays); the pass rewrites it whole, winners included.
+    JY-242 (2026-10-24, 2A): a bump now re-queues every done Wikipedia-sourced edition, so the done ones with a winner
+    (critics 11) or with no nominations (globes 41) go back to pending too."""
     caplog.set_level("INFO", logger="hub.media_awards")
     pages = {"40th Golden Globe Awards": "wp_globes_40.json", "10th Critics' Choice Awards": "wp_critics_10.json"}
 
@@ -304,13 +306,13 @@ def test_a_parser_bump_requeues_shapeless_skips_once(setup, caplog):
             db.executemany("INSERT INTO award_nomination(body_id, ordinal, cat_key, work_qid, work_title, won, pos, "
                            "source) VALUES('critics', 11, 'x', ?, ?, ?, ?, 'wp')", [("~c", "C", 1, 0), ("~d", "D", 0, 1)])
         adb.set_sync(db, "parser_v", 1)
-        assert ma.requeue_on_parser_bump(db) == 2
+        assert ma.requeue_on_parser_bump(db) == 4
         assert adb.get_sync(db, "parser_v") == str(ma.PARSER_V)
         assert ma.requeue_on_parser_bump(db) == 0                   # once per bump
-    assert "1 shapeless skips, 1 winner-less editions re-queued" in caplog.text
+    assert "1 shapeless skips, 3 done Wikipedia editions re-queued" in caplog.text
     assert states()[("globes", 40)] == ("pending", None) and states()[("critics", 10)] == ("pending", None)
-    assert states()[("globes", 41)] == ("done", None) and states()[("sag", 12)] == ("skipped", "no page")
-    assert states()[("critics", 11)] == ("done", None)
+    assert states()[("globes", 41)] == ("pending", None) and states()[("sag", 12)] == ("skipped", "no page")
+    assert states()[("critics", 11)] == ("pending", None)
     with closing(adb.ensure()) as db:                              # a pass does the same on its own
         adb.set_state(db, "globes", 40, "skipped", "no page shape (none)", synced=True)
         winnerless(db)

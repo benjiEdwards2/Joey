@@ -57,8 +57,8 @@ def test_emmys_drama_winner_is_marked_by_the_double_dagger_and_networks_are_stri
     assert [p["label"] for p in d["people"]] == ["Seth Rogen", "Evan Goldberg"]
 
 
-@pytest.mark.parametrize("name,count", [("wp_bafta_78.json", 26), ("wp_globes_82.json", 27), ("wp_emmys_77.json", 26),
-                                        ("wp_sag_31.json", 15), ("wp_critics_30.json", 41)])
+@pytest.mark.parametrize("name,count", [("wp_bafta_78.json", 27), ("wp_globes_82.json", 29), ("wp_emmys_77.json", 26),
+                                        ("wp_sag_31.json", 16), ("wp_critics_30.json", 41)])   # JY-242: + honorary
 def test_every_category_is_parsed_with_exactly_one_or_more_winner(name, count):
     parsed = ap.parse_award_blocks(wikitext(name))
     assert len(parsed["blocks"]) == count
@@ -68,7 +68,7 @@ def test_every_category_is_parsed_with_exactly_one_or_more_winner(name, count):
 
 
 def test_mixed_pages_split_film_and_tv_by_section():
-    for name, film, tv in (("wp_sag_31.json", 6, 9), ("wp_critics_30.json", 21, 20), ("wp_globes_82.json", 15, 12)):
+    for name, film, tv in (("wp_sag_31.json", 6, 9), ("wp_critics_30.json", 21, 20), ("wp_globes_82.json", 16, 13)):   # JY-242: + DeMille, Burnett
         kinds = [b["kind"] for b in ap.parse_award_blocks(wikitext(name))["blocks"]]
         assert (kinds.count("film"), kinds.count("tv")) == (film, tv), name
 
@@ -85,7 +85,7 @@ def test_a_shapeless_page_and_a_redirect_are_reported_not_guessed():
 def test_titles_of_lists_category_pages_works_and_people_once():
     blocks = ap.parse_award_blocks(wikitext("wp_bafta_78.json"))["blocks"]
     titles = ap.titles_of(blocks)
-    assert titles[0] == "BAFTA Award for Best Film" and titles.count("Anora") == 1
+    assert titles[:2] == ["Warwick Davis", "BAFTA Award for Best Film"] and titles.count("Anora") == 1   # JY-242
     assert "Bob Dylan" not in titles and len(titles) == len(set(titles))
 
 
@@ -153,9 +153,10 @@ def lead_names(b):
     return [(e["won"], e["lead"], (e["work"] or {}).get("label"), [p["label"] for p in e["people"]]) for e in b["entries"]]
 
 
-@pytest.mark.parametrize("name,count,film,tv", [("wp_globes_80.json", 27, 14, 13), ("wp_globes_60.json", 24, 13, 11),
-                                                ("wp_globes_20.json", 18, 14, 4), ("wp_globes_40.json", 26, 15, 11),
-                                                ("wp_sag_26.json", 15, 6, 9), ("wp_sag_2.json", 13, 5, 8)])
+@pytest.mark.parametrize("name,count,film,tv", [("wp_globes_80.json", 29, 14, 14), ("wp_globes_60.json", 25, 13, 11),
+                                                ("wp_globes_20.json", 19, 14, 4), ("wp_globes_40.json", 27, 15, 11),
+                                                ("wp_sag_26.json", 16, 6, 9), ("wp_sag_2.json", 14, 5, 8)])
+# JY-242 (2026-10-24): each count + its honorary block(s), one winner each; a heading-less one has no kind (film later)
 def test_table_pages_give_one_block_per_header_cell_each_with_one_winner(name, count, film, tv):
     blocks = parsed(name)
     assert len(blocks) == count
@@ -297,8 +298,8 @@ def test_a_bare_bold_winner_line_never_double_marks_and_other_bare_lines_stay_ig
     assert lead_names(actor) == [(True, "person", "A", ["Jo Bloggs"]), (False, "person", "B", ["Al Smith"])]
 
 
-@pytest.mark.parametrize("name,winners", [("wp_globes_82.json", 27), ("wp_bafta_78.json", 26), ("wp_emmys_77.json", 26),
-                                          ("wp_sag_31.json", 15), ("wp_critics_30.json", 42)])
+@pytest.mark.parametrize("name,winners", [("wp_globes_82.json", 29), ("wp_bafta_78.json", 27), ("wp_emmys_77.json", 26),
+                                          ("wp_sag_31.json", 16), ("wp_critics_30.json", 42)])   # JY-242: + honorary
 def test_award_category_pages_keep_their_winner_counts(name, winners):
     assert sum(e["won"] for b in parsed(name) for e in b["entries"]) == winners
 

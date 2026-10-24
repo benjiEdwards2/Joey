@@ -58,8 +58,10 @@ BODIES: list[dict] = [
 BY_ID = {b["id"]: b for b in BODIES}
 
 # Curated ranks (Q2: every category shows; these come first, the rest fold under "More categories").
-# First matching rule wins; a name matching FOLD never ranks as core.
+# First matching rule wins; a name matching FOLD never ranks as core. JY-242 (2026-10-24): the honorary awards
+# (Cecil B. DeMille, Carol Burnett, SAG Life Achievement, BAFTA Fellowship) always fold.
 FOLD = re.compile(r"\b(short|documentary|guest|technical|special|honorary|humanitarian|lifetime|"
+                  r"demille|burnett|life achievement|fellowship|"
                   r"stunt|casting|rising star|newcomer|debut|young|juvenile|song|score|sound|makeup|make-up|hair|"
                   r"costume|visual effects|editing|cinematography|production design|art direction|"
                   r"choreography|main title|commercial|children|reality|talk|variety|game show|structured)\b", re.I)

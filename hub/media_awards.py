@@ -24,7 +24,9 @@ stays pending with the status / type as its note, the pass goes on; a page no pa
 a parser exception -> failed. Logs carry counts and HTTP status / exception type only — never a URL or a title.
 Parser bumps (WP-D1, 2026-10-16): `PARSER_V` is stored in award_sync as `parser_v`; when it differs at the start of a pass,
 every edition skipped as "no page shape …" goes back to pending and re-enters the normal backlog (newest first, CAP a pass);
-WP-D3 (same bump) also re-queues `done` Wikipedia-sourced editions that have nominations but no winner.
+WP-D3 (same bump) also re-queues `done` Wikipedia-sourced editions that have nominations but no winner; since JY-242
+(PARSER_V 3, 2026-10-24) a bump re-queues every `done` Wikipedia-sourced edition (about 300 pages), cleared by the
+normal 6-hourly backlog passes.
 `MEDIA_AWARDS=off` disables the loop; without `AWARDS_CONTACT` (the User-Agent contact the WDQS policy requires)
 nothing is ever called.
 """
@@ -65,7 +67,7 @@ BACKLOG_EVERY = timedelta(hours=6)
 WEEKLY_DAY, WEEKLY_HOUR = 6, 9          # Sunday, from 09:00 local
 OFF_FROM, OFF_TO = 22, 7                # the NAS is off 22:00–07:00 local
 FIRST_DELAY_S = 180
-PARSER_V = 2                            # bump when parse_award_blocks learns a page shape: re-queues the shapeless skips
+PARSER_V = 3                            # bump when parse_award_blocks changes: re-pulls every done Wikipedia page once
 TICK_S = 3600
 
 # "Nothing there yet" answers: not backlog (they would hold the 6-hourly cadence forever); the weekly refresh of recent /
@@ -464,24 +466,21 @@ def pull_wp(db, client: Client, ed: dict) -> tuple[str, int, str | None]:
 # ---- the pass ----
 
 def requeue_on_parser_bump(db) -> int:
-    """A new PARSER_V: editions skipped for their page shape go back to pending, and so do `done` Wikipedia-sourced
-    editions with nominations but no winner (WP-D3: a winner line the old parser dropped) — once per bump. A re-pulled
-    edition is rewritten whole by `write_edition`. -> editions re-queued (both kinds)."""
+    """A new PARSER_V: editions skipped for their page shape go back to pending, and so does every `done`
+    Wikipedia-sourced edition (JY-242 2A: a parser change can change any page; before it only winner-less ones went
+    back) — once per bump. The old rows stay readable until the normal backlog (newest first, CAP a pass, 6-hourly)
+    re-pulls the edition and `write_edition` rewrites it whole. -> editions re-queued (both kinds)."""
     if adb.get_sync(db, "parser_v") == str(PARSER_V):
         return 0
     wp = [b["id"] for b in seed.BODIES if b["source"] == "wp"]
     with db:
         shapeless = db.execute("UPDATE award_edition SET state = 'pending', note = NULL "
                                "WHERE state = 'skipped' AND note LIKE 'no page shape%'").rowcount
-        winnerless = db.execute(
-            "UPDATE award_edition SET state = 'pending', note = NULL "
-            f"WHERE state = 'done' AND body_id IN ({','.join('?' * len(wp))}) AND EXISTS ("
-            "SELECT 1 FROM award_nomination n WHERE n.body_id = award_edition.body_id "
-            "AND n.ordinal = award_edition.ordinal GROUP BY n.body_id, n.ordinal HAVING MAX(n.won) = 0)", wp).rowcount
+        done = db.execute("UPDATE award_edition SET state = 'pending', note = NULL "
+                          f"WHERE state = 'done' AND body_id IN ({','.join('?' * len(wp))})", wp).rowcount
     adb.set_sync(db, "parser_v", PARSER_V)
-    log.info("awards: parser v%s, %s shapeless skips, %s winner-less editions re-queued", PARSER_V, shapeless,
-             winnerless)
-    return shapeless + winnerless
+    log.info("awards: parser v%s, %s shapeless skips, %s done Wikipedia editions re-queued", PARSER_V, shapeless, done)
+    return shapeless + done
 
 
 def _est_date(ed: dict) -> date | None:

@@ -1,6 +1,6 @@
 # JY-194 U8 Discover search on the TV
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `hub/templates/media_discover_guest.html`, `hub/templates/_guest_discover_grid.html` (one `data-q` attribute), `hub/static/tv.css`, `hub/static/tv.js`, `tests/hub/test_tv_mode.py`
@@ -43,3 +43,8 @@ Device journey in the grouped TV session (orchestrator, `JoeyTV\scripts\tv_ui_ca
 None open.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #158, squash-merged as `62e533d` (62e533d95598bec5d80009fe88869ff19c52d369).
+- Deploy: `2026-10-24T23:05:48Z PASS prev=5a0c746 new=62e533d suite green, smoke ok tv=current gate=-n2 avail=1852 end=2026-10-24T23:13:23Z dur=455s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

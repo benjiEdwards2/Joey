@@ -11,6 +11,7 @@ import argparse
 import sys
 
 import joey_closeout
+import joey_common
 import joey_preview
 import joey_worktree
 
@@ -22,6 +23,7 @@ COMMANDS = {
 
 
 def main(argv=None):
+    joey_common.utf8_stdio()
     argv = list(sys.argv[1:] if argv is None else argv)
     p = argparse.ArgumentParser(prog="joey.py", description="Joey item-workflow commands.",
                                 epilog="Each command has its own --help, e.g. joey.py worktree --help")

@@ -37,6 +37,9 @@ The fix is mostly in the tooling tests (JY-010/011/012's own), not in the hub te
 4. Gate ≤ 10 min (dur ≤ 600 s) on 3 consecutive PASS deploys on a quiet NAS (qBittorrent capped); numbers in the PR.
 5. The full suite still runs before every deploy (rule 13).
 
+### Split (orchestrator, 2026-10-24)
+Criteria 1 (laptop profile, recorded above) and 2 (hot spots fixed without weakening tests) ship in this PR. Criteria 3–5 can only be proven on the NAS after this merges (deploy.sh runs from main): they move to **JY-235** ("Gate ≤ 10 min: measure after JY-227, `-n 3` trial only if still over, three deploys ≤ 600 s"), with the quiet-NAS `--durations` profile (B.'s answer 3a) as its first step. Recorded here per rule 4's spirit: no criterion is dropped, only moved.
+
 ## Data
 None.
 

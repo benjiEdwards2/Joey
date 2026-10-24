@@ -520,6 +520,16 @@ def test_after_fail_is_the_one_retry(w):
     assert "PASS  deploy.4 last deploy green - last history line: 2026-10-22T23:00:00Z ABORTED" in out
 
 
+def test_low_memory_skip_is_not_green_and_after_fail_retries(w):
+    """JY-240 (2026-10-24): deploy.sh skips the gate on a low-memory NAS and logs SKIPPED-LOW-MEMORY. That is not
+    green, so the next close-out needs --after-fail (or a later green run) to deploy."""
+    w.item()
+    w.nas.last = ["2026-10-24T05:00:00Z SKIPPED-LOW-MEMORY prev=a new=b available 1400 MB < 1460 MB before the gate"]
+    rc, out = w.run("--after-fail")
+    assert rc == 0, out
+    assert "PASS  deploy.4 last deploy green - last history line: 2026-10-24T05:00:00Z SKIPPED-LOW-MEMORY" in out
+
+
 def test_red_deploy_after_merge_stops_and_lists_what_is_left(w):
     w.item()
     w.nas.result = "ROLLED-BACK"
@@ -1105,6 +1115,15 @@ def test_red_last_deploy_refuses_without_after_fail(lw):
     assert_unchanged(lw)
 
 
+def test_low_memory_skip_refuses_without_after_fail(lw):
+    """JY-240: a SKIPPED-LOW-MEMORY line is not PASS / NOTHING-TO-DEPLOY, so close-out refuses until --after-fail."""
+    lw.item()
+    lw.nas.last = ["2026-10-24T05:00:00Z SKIPPED-LOW-MEMORY prev=a new=b available 1400 MB < 1460 MB before the gate"]
+    rc, out = lw.run()
+    assert rc == 1 and "last history line is not green" in out
+    assert_unchanged(lw)
+
+
 def test_failed_merge_never_deploys(lw):
     lw.item()
     lw.gh.merge_mode = "fail"
@@ -1227,6 +1246,7 @@ def test_mask_host(monkeypatch):
     ("2026-10-23T01:10:00Z PASS prev=aaaaaaa new=abcdef9 suite green", False),
     ("2026-10-23T01:10:00Z ROLLED-BACK prev=aaaaaaa new=abcdef1 smoke failed", False),
     ("2026-10-23T01:10:00Z NOTHING-TO-DEPLOY prev=abcdef1 new=abcdef1 already", False),
+    ("2026-10-24T05:00:00Z SKIPPED-LOW-MEMORY prev=aaaaaaa new=abcdef1 available 1400 MB < 1460 MB", False),
 ])
 def test_history_ok(line, ok):
     assert jco.history_ok(line, "abcdef1" + "0" * 33) is ok

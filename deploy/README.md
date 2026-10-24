@@ -16,7 +16,7 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   yet, asks, then runs deploy.sh over ssh. `--list` (no deploy), `--search WORD` (pending updates mentioning WORD),
   `--all [N]` (last N updates, deployed or not), `--history [N]` (last N deploys), `--yes` (no question). Mac / Linux /
   Git Bash on Windows.
-- **What it does:** detach (log file) → lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → build `life-test` and run the full suite offline
+- **What it does:** detach (log file) → lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → memory check → build `life-test` and run the full suite offline
   (`--network none`) → `compose build` + `up -d` → smoke (`/healthz`, `tests/deploy/smoke.py`, nothing restarting) → prune.
   A red gate resets the tree to the previous SHA and leaves the live stack alone; a failed build/up/smoke rolls back.
 - **Gate /tmp is in RAM (JY-235, 2026-10-24):** the gate runs `life-test` with `--tmpfs /tmp:rw,exec,size=512m,mode=1777
@@ -24,8 +24,24 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   tests took the suite to 996 s; on tmpfs it is 192 s (quiet NAS, available ≥ 1,381 MB, swap ≤ 1,010 MB). Keep `exec`:
   Docker's tmpfs is noexec by default and git then skips a test's hook (a red gate). Retention=failed keeps only failing
   tests' tmp dirs, so 512m holds the run.
-- **History:** `tail deploy/history.log` — one line per run: `PASS`, `NOTHING-TO-DEPLOY`, `GATE-FAIL`, `ROLLED-BACK`,
-  `ROLLBACK-FAILED` (both SHAs unhealthy: act now) or `ABORTED` (died early; tree reset, just rerun), with `dur=NNNs`.
+- **Memory check before the gate (JY-240, 2026-10-24):** the gate costs ~400–520 MB of available memory with `-n 2` but
+  ~243 MB with `-n 1` (JY-235 and the 2026-10-24 measurement), so `deploy.sh` reads `/proc/meminfo` first and adapts
+  (variables at the top of the script):
+
+  | Available just before the gate | Gate |
+  |---|---|
+  | ≥ 1,720 MB (`GATE_FULL_AVAIL_MB`) | `-n 2` |
+  | 1,460–1,719 MB (`GATE_MIN_AVAIL_MB`) | `-n 1` (about 342 s) |
+  | < 1,460 MB, or swap used > 1,273 MB (`GATE_MAX_SWAP_MB`), or MemAvailable unreadable | skipped |
+
+  The output and the history line carry the mode and the available MB: `gate=-n1 avail=1588` (or `gate=-n2 ...`,
+  `gate=skip avail=1400`). On `PASS` and `GATE-FAIL` the tag follows the existing text, so close-out and the budgets
+  readers (they match ` PASS `, `new=` and `dur=`) are unaffected. A skip prints `SKIPPED-LOW-MEMORY (<reason>)`, logs that
+  word, resets the tree to the previous SHA (as a red gate does), leaves the live stack alone and exits 1. Free memory (stop the preview, pause qBittorrent), then rerun `deploy.sh`. The
+  skip is not green: `scripts/joey.py close-out` refuses the next deploy until a later green run or `--after-fail`.
+- **History:** `tail deploy/history.log` — one line per run: `PASS`, `NOTHING-TO-DEPLOY`, `GATE-FAIL`,
+  `SKIPPED-LOW-MEMORY` (gate not run; free memory, rerun), `ROLLED-BACK`, `ROLLBACK-FAILED` (both SHAs unhealthy: act now)
+  or `ABORTED` (died early; tree reset, just rerun), with `dur=NNNs`.
 - **Manual rollback:** take a `prev=` SHA from history.log, then
   `docker run --rm -v /volume1/Docker/joey/life-dashboard:/work -w /work alpine/git reset --hard <sha>` and, in `deploy/`,
   `docker compose build && docker compose up -d --remove-orphans`. The next `deploy.sh` pulls forward again.

@@ -11,8 +11,8 @@
 # Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
 # It detaches from your ssh session and logs to deploy/logs/deploy-<UTC>-<pid>.log (re-attach: tail -f <log>).
 # Every run that takes the lock appends ONE line to history.log (review D-03, 2026-10-09):
-# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | ROLLED-BACK | ROLLBACK-FAILED | ABORTED. PASS and NOTHING-TO-DEPLOY also carry
-# tv=<status> (Joey TV release publishing, WP-B8).
+# PASS | NOTHING-TO-DEPLOY | GATE-FAIL | SKIPPED-LOW-MEMORY | ROLLED-BACK | ROLLBACK-FAILED | ABORTED. PASS and
+# NOTHING-TO-DEPLOY also carry tv=<status> (Joey TV release publishing, WP-B8).
 set -eu
 set -o pipefail
 
@@ -24,6 +24,18 @@ START=$(date +%s)
 PREV_SHA=?
 NEW_SHA=?
 LOGGED=0
+
+# Pre-gate memory check (JY-240, 2026-10-24; B.: "JY-240: adapt"). The gate costs ~400-520 MB of available memory with
+# `-n 2` (JY-235: start 1,791 MB, min 1,271-1,381 MB) but only ~243 MB with `-n 1` (measured 2026-10-24: 342 s). By NAS
+# available memory just before the gate: >= GATE_FULL_AVAIL_MB runs `-n 2`; GATE_MIN_AVAIL_MB up to just under
+# GATE_FULL_AVAIL_MB runs `-n 1`; below GATE_MIN_AVAIL_MB (or swap used over GATE_MAX_SWAP_MB) the gate does not run:
+# SKIPPED-LOW-MEMORY (see mem_check / gate_skip). The mode and the available MB go to the output and history.log.
+GATE_FULL_AVAIL_MB=1720
+GATE_MIN_AVAIL_MB=1460
+GATE_MAX_SWAP_MB=1273
+MEMINFO=/proc/meminfo
+GATE_N=2
+GATE_TAG="gate=none avail=?"
 
 FORCE=0
 case "${1:-}" in
@@ -166,9 +178,41 @@ fi
 # must be code that passed the gate (review D-02). The live stack is untouched here.
 gate_fail() {
     GIT reset --hard "$PREV_SHA" || echo "!! git reset to $PREV_SHA failed — reset the tree by hand !!" >&2
-    log_history "GATE-FAIL" "$1 — tree reset to prev, live stack untouched"
+    log_history "GATE-FAIL" "$1 — tree reset to prev, live stack untouched $GATE_TAG"
     echo "GATE FAILED ($1) — deploy aborted, tree back on $PREV_SHA, live stack untouched." >&2
     exit 1
+}
+
+# A low-memory NAS skips the gate instead of pushing it under the floor (JY-240). Same tree handling as gate_fail
+# (the next run's PREV_SHA stays tested code), its own outcome word: close-out tools treat only PASS / NOTHING-TO-DEPLOY
+# as green, so the next close-out refuses until --after-fail or a later green run.
+gate_skip() {
+    GIT reset --hard "$PREV_SHA" || echo "!! git reset to $PREV_SHA failed — reset the tree by hand !!" >&2
+    GATE_TAG="gate=skip avail=${avail:-?}"
+    log_history "SKIPPED-LOW-MEMORY" "$1 — gate not run, tree reset to prev, live stack untouched $GATE_TAG"
+    echo "SKIPPED-LOW-MEMORY ($1; $GATE_TAG) — gate not run, tree back on $PREV_SHA, live stack untouched. Free memory, then rerun deploy.sh." >&2
+    exit 1
+}
+# Available and swap used in MB from /proc/meminfo (BusyBox awk; `free` column layout varies between BusyBox builds).
+# Prints "<avail> <swap_used>"; fails when MemAvailable is missing.
+mem_now() {
+    awk '/^MemAvailable:/ {a = $2} /^SwapTotal:/ {t = $2} /^SwapFree:/ {f = $2}
+        END {if (a == "") exit 1; print int(a / 1024), int((t - f) / 1024)}' "$MEMINFO"
+}
+mem_check() {
+    mem=$(mem_now) || gate_skip "could not read MemAvailable from $MEMINFO"
+    avail=${mem% *}
+    swap=${mem#* }
+    echo "memory: available $avail MB (gate -n 2 at >= $GATE_FULL_AVAIL_MB, -n 1 at >= $GATE_MIN_AVAIL_MB), swap used $swap MB (max $GATE_MAX_SWAP_MB)"
+    if [ "$avail" -lt "$GATE_MIN_AVAIL_MB" ]; then
+        gate_skip "available $avail MB < $GATE_MIN_AVAIL_MB MB before the gate"
+    fi
+    if [ "$swap" -gt "$GATE_MAX_SWAP_MB" ]; then
+        gate_skip "swap used $swap MB > $GATE_MAX_SWAP_MB MB before the gate"
+    fi
+    if [ "$avail" -lt "$GATE_FULL_AVAIL_MB" ]; then GATE_N=1; else GATE_N=2; fi
+    GATE_TAG="gate=-n$GATE_N avail=$avail"
+    echo "memory check: $GATE_TAG"
 }
 
 echo "== compose validate =="
@@ -185,15 +229,17 @@ edge_active() {
 
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.
-# -n 2 (pytest-xdist, review N-44): two workers — -n auto (one per core) drove the 3.7 GB NAS to load 12 and 1.2 GB swap on 2026-10-09; the suite was ~9 of the ~10 minutes.
+# -n $GATE_N (pytest-xdist, review N-44; 2 or 1 by free memory, JY-240): two workers — -n auto (one per core) drove the 3.7 GB NAS to load 12 and 1.2 GB swap on 2026-10-09; the suite was ~9 of the ~10 minutes.
 # /tmp is a tmpfs (JY-235, 2026-10-24): on the NAS overlay disk the SQLite-heavy tests made the suite 996 s; in RAM it is
 # ~192 s. `exec` is required (Docker's tmpfs is noexec by default, so git skipped a test's hook and the gate went red);
 # TMPDIR points pytest's tmp_path there, and retention=failed keeps only failing tests' dirs so 512m is enough.
 cd "$REPO"
 gate() {
     docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
-        && docker run --rm --network none --tmpfs /tmp:rw,exec,size=512m,mode=1777 -e TMPDIR=/tmp life-test python -m pytest -q -n 2 -o tmp_path_retention_policy=failed tests/
+        && docker run --rm --network none --tmpfs /tmp:rw,exec,size=512m,mode=1777 -e TMPDIR=/tmp life-test python -m pytest -q -n $GATE_N -o tmp_path_retention_policy=failed tests/
 }
+echo "== memory check (JY-240) =="
+mem_check
 gate || gate_fail "test build or suite red"
 
 # Wait for a service to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the
@@ -304,6 +350,6 @@ docker image prune -f >/dev/null || true
 docker builder prune -f --filter until=168h >/dev/null || true
 echo "== tv release =="
 TV=$(tv_publish)
-log_history "PASS" "suite green, smoke ok tv=$TV"
+log_history "PASS" "suite green, smoke ok tv=$TV $GATE_TAG"
 echo "DEPLOY OK: $PREV_SHA -> $NEW_SHA, tv=$TV"
 exit 0

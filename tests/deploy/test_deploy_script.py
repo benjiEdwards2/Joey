@@ -6,8 +6,13 @@ the captured PREV_SHA, and every outcome appends to history.log. smoke.py
 itself is exercised for real by the deploy (and its unit shape here).
 """
 
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = (REPO_ROOT / "deploy" / "deploy.sh").read_text(encoding="utf-8")
@@ -43,7 +48,7 @@ def test_gate_runs_offline():
 def test_gate_runs_the_full_suite_in_parallel_with_a_pinned_xdist():
     """N-44 (2026-10-09): ~9 of a deploy's ~10 minutes were the suite; xdist spreads it over
     the cores. Still the FULL tests/ tree (rule 13), and xdist is pinned for the image."""
-    assert GATE_RUN + " python -m pytest -q -n 2 -o tmp_path_retention_policy=failed tests/" in SCRIPT
+    assert GATE_RUN + " python -m pytest -q -n $GATE_N -o tmp_path_retention_policy=failed tests/" in SCRIPT
     dev = (REPO_ROOT / "requirements-dev.txt").read_text(encoding="utf-8").splitlines()
     assert "pytest-xdist==3.8.0" in dev
 
@@ -329,7 +334,7 @@ def test_tv_publish_runs_after_smoke_and_on_nothing_to_deploy_only():
 
 
 def test_tv_status_lands_in_the_single_history_line():
-    assert 'log_history "PASS" "suite green, smoke ok tv=$TV"' in SCRIPT
+    assert 'log_history "PASS" "suite green, smoke ok tv=$TV $GATE_TAG"' in SCRIPT
     assert 'log_history "NOTHING-TO-DEPLOY" "already at $NEW_SHA (use --force to redeploy) tv=$TV"' in SCRIPT
     assert SCRIPT.count('log_history "PASS"') == 1 and SCRIPT.count('log_history "NOTHING-TO-DEPLOY"') == 1
 
@@ -352,3 +357,139 @@ def test_tv_token_file_is_never_committed_or_in_the_build_context():
     assert "**/*.env" in docker and "!**/*.env.example" in docker
     example = (REPO_ROOT / "deploy" / "tv.env.example").read_text(encoding="utf-8")
     assert re.search(r"^GH_TV_TOKEN=$", example, re.M)            # empty in the template
+
+
+# ---- JY-240 (2026-10-24): pre-gate memory check. The gate costs ~400-450 MB of available memory (JY-235), so it
+# starts only with swap used <= 1,273 MB and adapts to available memory (B.'s pick "JY-240: adapt", 2026-10-24):
+# >= 1,720 MB gate with -n 2; 1,460-1,719 MB gate with -n 1; below 1,460 MB SKIPPED-LOW-MEMORY, tree back on prev. ----
+
+def test_memory_floor_is_a_dated_variable_at_the_top():
+    top = SCRIPT[:SCRIPT.index('if [ -z "${JOEY_DEPLOY_DETACHED:-}" ]; then')]
+    assert "GATE_FULL_AVAIL_MB=1720" + chr(10) in top and "GATE_MIN_AVAIL_MB=1460" + chr(10) in top
+    assert "GATE_MAX_SWAP_MB=1273" + chr(10) in top
+    assert "MEMINFO=/proc/meminfo" + chr(10) in top
+    assert "JY-240, 2026-10-24" in top
+
+
+def test_memory_check_runs_right_before_the_gate_and_after_the_pull():
+    call = SCRIPT.index("mem_check" + chr(10) + 'gate || gate_fail "test build or suite red"')
+    assert SCRIPT.index("NEW_SHA=$(GIT rev-parse --short HEAD)") < SCRIPT.index("mem_check() {") < call
+    assert SCRIPT.index("== memory check (JY-240) ==") < call < SCRIPT.index("== build + converge ==")
+    assert SCRIPT.count("mem_check" + chr(10)) == 1  # one call: the gate path only, not NOTHING-TO-DEPLOY
+
+
+def test_gate_skip_resets_the_tree_logs_its_own_word_and_exits_non_zero():
+    body = _body("gate_skip")
+    assert body.index('GIT reset --hard "$PREV_SHA"') < body.index('log_history "SKIPPED-LOW-MEMORY"')
+    assert "exit 1" in body and "docker run" not in body
+    check = _body("mem_check")
+    assert '-lt "$GATE_MIN_AVAIL_MB"' in check and '-lt "$GATE_FULL_AVAIL_MB"' in check
+    assert '-gt "$GATE_MAX_SWAP_MB"' in check
+    assert 'gate_skip "could not read MemAvailable' in check  # unreadable memory fails closed
+    assert "SKIPPED-LOW-MEMORY" in SCRIPT[:SCRIPT.index("set -eu")]  # listed with the other outcome words
+
+
+def test_gate_worker_count_comes_from_the_memory_band_and_is_logged():
+    assert "-n $GATE_N " in _body("gate") and "-n 2 " not in _body("gate")
+    assert 'GATE_TAG="gate=-n$GATE_N avail=$avail"' in _body("mem_check")
+    assert 'GATE_TAG="gate=skip avail=${avail:-?}"' in _body("gate_skip")  # unreadable memory: avail=?
+    # the PASS line keeps its readable prefix (close-out, budgets and JoeyTV match ` PASS `, new=, dur=); the tag follows
+    assert 'log_history "PASS" "suite green, smoke ok tv=$TV $GATE_TAG"' in SCRIPT
+
+
+def _pipefail_sh():
+    """Same pick as tests/deploy/test_media_offsite.py: a local POSIX sh that, like NAS BusyBox sh, takes pipefail."""
+    for argv in (["sh"], ["busybox", "sh"], ["bash", "--posix"]):
+        exe = shutil.which(argv[0])
+        if exe and subprocess.run([exe, *argv[1:], "-c", "set -o pipefail"],
+                                  capture_output=True, timeout=30).returncode == 0:
+            return [exe, *argv[1:]]
+    return None
+
+
+SH = _pipefail_sh()
+
+# Fake docker: logs every call, answers the alpine/git rev-parse (prev, then new SHA) and turns the suite red, so a run
+# that reaches the gate stops at GATE-FAIL and never touches the live stack.
+FAKE_DOCKER = """#!/bin/sh
+echo "$*" >> "$FAKE_DIR/docker.log"
+case "$*" in
+    *rev-parse*)
+        n=$(cat "$FAKE_DIR/revs" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_DIR/revs"
+        if [ "$n" -eq 1 ]; then echo aaaaaaa; else echo bbbbbbb; fi ;;
+    *"life-test python"*) exit 1 ;;
+esac
+exit 0
+"""
+
+
+def _meminfo(avail_mb, swap_used_mb, swap_total_mb=4096):
+    lines = ["MemTotal:        3800000 kB", "MemFree:          200000 kB"]
+    if avail_mb is not None:
+        lines.append(f"MemAvailable:    {avail_mb * 1024} kB")
+    lines += [f"SwapTotal:       {swap_total_mb * 1024} kB",
+              f"SwapFree:        {(swap_total_mb - swap_used_mb) * 1024} kB"]
+    return chr(10).join(lines) + chr(10)
+
+
+def _run_deploy(tmp_path, avail_mb, swap_used_mb):
+    repo = tmp_path / "repo"
+    (repo / "deploy").mkdir(parents=True)
+    fake = tmp_path / "fake"
+    (fake / "bin").mkdir(parents=True)
+    (fake / "bin" / "docker").write_text(FAKE_DOCKER, encoding="utf-8", newline=chr(10))
+    (fake / "bin" / "docker").chmod(0o755)
+    (fake / "meminfo").write_text(_meminfo(avail_mb, swap_used_mb), encoding="utf-8", newline=chr(10))
+    script = SCRIPT
+    for old, new in (("REPO=/volume1/Docker/joey/life-dashboard", "REPO=" + repo.as_posix()),
+                     ("MEMINFO=/proc/meminfo", "MEMINFO=" + (fake / "meminfo").as_posix()),
+                     ("LOCK=/tmp/joey-deploy.lock", "LOCK=" + (tmp_path / "lock").as_posix())):
+        assert script.count(old + chr(10)) == 1, old
+        script = script.replace(old + chr(10), new + chr(10))
+    path = tmp_path / "deploy.sh"
+    path.write_text(script, encoding="utf-8", newline=chr(10))
+    env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(),
+               PATH=str(fake / "bin") + os.pathsep + os.environ.get("PATH", ""))
+    r = subprocess.run([*SH, str(path)], capture_output=True, text=True, env=env, timeout=120)
+    calls = (fake / "docker.log").read_text(encoding="utf-8") if (fake / "docker.log").exists() else ""
+    history = (repo / "deploy" / "history.log").read_text(encoding="utf-8").splitlines()
+    return r, calls, history
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+@pytest.mark.parametrize("avail, swap, workers, why", [
+    (1459, 500, None, "available 1459 MB < 1460 MB before the gate"),
+    (1300, 0, None, "available 1300 MB < 1460 MB before the gate"),
+    (1460, 1273, 1, None),                          # on the lower edge (and swap on its limit): gate with -n 1
+    (1588, 0, 1, None),                             # the measured NAS case: -n 1
+    (1719, 0, 1, None),
+    (1720, 0, 2, None),                             # on the upper edge: the full gate
+    (2000, 1273, 2, None),
+    (2000, 1274, None, "swap used 1274 MB > 1273 MB before the gate"),
+    (None, 0, None, "could not read MemAvailable"),  # unreadable: fail closed
+])
+def test_fake_meminfo_drives_skip_vs_gate(tmp_path, avail, swap, workers, why):
+    r, calls, history = _run_deploy(tmp_path, avail, swap)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, out
+    assert len(history) == 1, history
+    assert "compose build" not in calls and "up -d" not in calls  # the live stack is never touched
+    assert "pull --ff-only" in calls and "compose config -q" in calls
+    if workers:
+        assert "life-test python -m pytest" in calls
+        assert f"pytest -q -n {workers} " in calls and f"-n {3 - workers} " not in calls
+        tag = f"gate=-n{workers} avail={avail}"
+        assert tag in out  # printed in the output ...
+        assert " GATE-FAIL prev=aaaaaaa new=bbbbbbb " in history[0] and tag in history[0]  # ... and in history.log
+    else:
+        assert "life-test" not in calls  # neither the test-image build nor the suite
+        assert " SKIPPED-LOW-MEMORY prev=aaaaaaa new=bbbbbbb " in history[0] and why in history[0]
+        assert "gate not run, tree reset to prev, live stack untouched" in history[0]
+        assert "gate=skip avail=" in history[0] and "gate=skip avail=" in out
+        assert "reset --hard aaaaaaa" in calls
+        assert calls.index("compose config -q") < calls.index("reset --hard aaaaaaa")
+        assert "SKIPPED-LOW-MEMORY (" in out and "rerun deploy.sh" in out
+    # close-out's green test (scripts/joey_closeout.py last_green, JoeyTV pr_close_out.py): never green here
+    assert not re.match(r"^\S+ (PASS|NOTHING-TO-DEPLOY) ", history[0])
+    # the line stays parseable: new= and dur= are still found (scripts/joey_closeout.py, scripts/budgets.py)
+    assert re.search(r"\bnew=[0-9a-f]{7,40}\b", history[0]) and re.search(r"\bdur=\d+s\b", history[0])

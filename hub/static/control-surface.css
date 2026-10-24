@@ -685,7 +685,7 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 .prov-name { max-width: 100%; font-size: 12px; line-height: 1.25; font-weight: 500; color: var(--text-2);
   text-align: center; overflow-wrap: anywhere; }  /* wraps to a second line rather than cutting the name */
 .prov-head { display: flex; align-items: center; gap: 12px; }
-.prov-title { font-size: 20px; font-weight: 600; color: var(--text-1); }
+.prov-title { font-size: 24px; font-weight: 600; line-height: 1.25; color: var(--text-1); }  /* the page H1, as a plain page title */
 /* .card-cell: a poster card whose poster + title are an a.rowlink stretched over the card, with an action (x, +)
    beside the title — never over the picture (guide 6). */
 .card-cell { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;

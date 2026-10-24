@@ -112,7 +112,7 @@ def test_service_page_shelves_reuse_discover_cards(env):
         r = client.get("/media/discover/service/8")
     assert r.status_code == 200
     body = main_of(r.text)
-    assert '<h2 class="prov-title">Netflix</h2>' in body and "/img/tmdb:/netflix.jpg?h=120" in body
+    assert '<h1 class="prov-title">Netflix</h1>' in body and "/img/tmdb:/netflix.jpg?h=120" in body
     titles = re.findall(r'<h2 class="seclabel">([^<]+)</h2>', body)
     assert titles == ["Popular films", "Popular TV", "New this month", "Top rated"]
     pop_films = body.split(">Popular films</h2>", 1)[1].split("</section>", 1)[0]
@@ -131,6 +131,17 @@ def test_service_page_shelves_reuse_discover_cards(env):
     assert any("primaryReleaseDateGte=" in p and "primaryReleaseDateLte=" in p for p in sent)
     assert any("firstAirDateGte=" in p and "sortBy=first_air_date.desc" in p for p in sent)
     assert_no_secrets(r.text)
+
+
+def test_service_page_h1_is_the_service_name(env):
+    """JY-102 (2026-10-24): the page's one H1 is the service name (it read "Discover"); the logo and name head the
+    page body, the band above carries the section tabs only."""
+    client, fake = env()
+    wire(fake)
+    with client:
+        html = client.get("/media/discover/service/8").text
+    assert re.findall(r"<h1[^>]*>([^<]*)</h1>", html) == ["Netflix"]
+    assert '<h1 class="prov-title">Netflix</h1>' in main_of(html) and "<h2 class=\"prov-title\"" not in html
 
 
 def test_new_this_month_window_is_the_last_30_days():

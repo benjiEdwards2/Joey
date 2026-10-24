@@ -1,9 +1,9 @@
 # JY-142 WUD real check interval vs the 180-minute Stale rule
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
-Area: none changed in this PR (spec only). Any follow-up would touch `hub/server.py` (the Updates "checked" words) and `tests/hub/test_server_cleanup.py`.
+Area: `hub/server.py` (the Updates "refreshed" word), `hub/templates/server.html` (comment), `tests/hub/test_server_cleanup.py`, `docs/hub-changelog.md`.
 Needs: none
 Options page: none: no screen change proposed yet
 
@@ -22,7 +22,10 @@ HITLIST row: "WUD real check interval vs 180-min Stale rule. Verify live, then a
 - The word is wrong. "checked 2h ago" says WUD checked the registries 2 hours ago. WUD checked at 08:00 (or at its last start); the 2h is when Joey last asked WUD. Updates can show "checked 5m ago" for data up to a day old.
 
 ## Acceptance criteria
-None yet: this PR is evidence and a question. If B. answers 1A, the criteria become: (1) the line says "refreshed 2h ago" in place of "checked 2h ago" and the Stale words keep their rule; (2) `tests/hub/test_server_cleanup.py` expects the new word (dated line here saying so, per the suite rule); (3) the stale boundary test (179 vs 240 minutes) stays as is.
+1. The Updates line says "refreshed 2h ago" in place of "checked 2h ago"; the amber words read "Stale · refreshed 5h ago".
+2. The Stale rule is unchanged: the Updates tile's `stale_after_minutes` (180).
+3. `tests/hub/test_server_cleanup.py` expects the new word (dated line below, per the suite rule); the stale boundary test (179 vs 240 minutes) keeps its numbers.
+4. Red test first: the renamed test fails on the old code.
 
 ## Data
 None.
@@ -31,17 +34,15 @@ None.
 None apply.
 
 ## Options and the pick
-None yet.
+Options page: none. B. answered both questions in chat on 2026-10-24: "JY-142: 1A, keep 180".
+- **1A:** "refreshed 2h ago" (true to what the number is).
+- **2:** keep the 180-minute Stale rule.
 
 ## Out of scope
 Showing WUD's real next check time ("next check 08:00"). That needs the cron value passed to the hub (a new env on the NAS) and is not asked for.
 
 ## Accept checklist
-Nothing to try yet.
-
-## Questions for B.
-1. What should the Updates line call the age? A) "refreshed 2h ago" (recommended: true to what the number is, one word and one test line to change). B) Keep "checked 2h ago" and accept that it means the poll. C) Pass WUD's cron to the hub and say "WUD checks daily at 08:00 · refreshed 2h ago" (more words, needs a NAS env change, so a separate hands item).
-2. Threshold: confirm 180 minutes stays (recommended). The alternative, a day or more, only makes sense if you want the amber for WUD's own schedule, not for the connector.
+Open Server: the Updates line reads "... · refreshed Nm ago" (no "checked"); with a snapshot older than 180 minutes it reads amber "Stale · refreshed ...".
 
 ## Shipped notes
-PR: (draft, see the PR). Spec only; no code change, so it closes as "verified, threshold unchanged" unless B. picks 1A or 1C.
+Built 2026-10-24 on PR #132 (draft). `hub/server.py` says "refreshed" (the `updates["checked"]` key keeps its name); comments in `hub/server.py` and `hub/templates/server.html` and the S9 line in `docs/hub-changelog.md` follow. 2026-10-24: `test_updates_line_says_checked_n_ago` is renamed `test_updates_line_says_refreshed_n_ago` and the stale test's expected words change from "checked" to "refreshed", because the word is the item. Threshold unchanged (180).

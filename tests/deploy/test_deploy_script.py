@@ -21,8 +21,13 @@ def test_script_is_busybox_safe_and_strict():
     assert "{sqlite," not in SCRIPT  # no brace expansion under BusyBox
 
 
+# The gate's `docker run` prefix. Re-pointed 2026-10-24 (JY-235): the tmpfs /tmp flags now sit between
+# `--network none` and the image name; the offline, full-suite and -n 2 pins below are unchanged in substance.
+GATE_RUN = "docker run --rm --network none --tmpfs /tmp:rw,exec,size=512m,mode=1777 -e TMPDIR=/tmp life-test"
+
+
 def test_gate_runs_before_the_live_stack_is_touched():
-    gate = SCRIPT.index("docker run --rm --network none life-test")
+    gate = SCRIPT.index(GATE_RUN)
     converge = SCRIPT.index("up -d")
     assert gate < converge, "suite must gate BEFORE containers converge"
     assert "GATE-FAIL" in SCRIPT  # a red suite is logged and aborts
@@ -30,16 +35,33 @@ def test_gate_runs_before_the_live_stack_is_touched():
 
 def test_gate_runs_offline():
     """D-09 (2026-10-09): the suite is offline-clean, so the gate container gets no network."""
-    assert "docker run --rm --network none life-test" in SCRIPT
+    assert GATE_RUN in SCRIPT
+    assert GATE_RUN.startswith("docker run --rm --network none ")
     assert "docker run --rm life-test" not in SCRIPT
 
 
 def test_gate_runs_the_full_suite_in_parallel_with_a_pinned_xdist():
     """N-44 (2026-10-09): ~9 of a deploy's ~10 minutes were the suite; xdist spreads it over
     the cores. Still the FULL tests/ tree (rule 13), and xdist is pinned for the image."""
-    assert "docker run --rm --network none life-test python -m pytest -q -n 2 tests/" in SCRIPT
+    assert GATE_RUN + " python -m pytest -q -n 2 -o tmp_path_retention_policy=failed tests/" in SCRIPT
     dev = (REPO_ROOT / "requirements-dev.txt").read_text(encoding="utf-8").splitlines()
     assert "pytest-xdist==3.8.0" in dev
+
+
+def test_gate_tmp_is_an_exec_tmpfs_with_failed_only_retention():
+    """JY-235 (2026-10-24): on the NAS the container's /tmp sat on the slow overlay disk and the SQLite-heavy tests
+    made the suite 996 s; a tmpfs /tmp made it 192 s. Docker's tmpfs is noexec unless `exec` is given (git then skipped
+    a test's hook: 1 failure), TMPDIR must point pytest's tmp_path at it, and retention=failed keeps 512m enough."""
+    line = next(ln for ln in SCRIPT.splitlines() if GATE_RUN in ln)
+    tmpfs = re.search(r"--tmpfs (\S+)", line).group(1)
+    path, opts = tmpfs.split(":", 1)
+    opts = opts.split(",")
+    assert path == "/tmp"
+    assert "exec" in opts and "noexec" not in opts
+    assert "rw" in opts and "size=512m" in opts and "mode=1777" in opts
+    assert "-e TMPDIR=/tmp" in line
+    assert "-o tmp_path_retention_policy=failed" in line
+    assert line.index(GATE_RUN) < line.index("-o tmp_path_retention_policy=failed")  # a pytest option, not docker's
 
 
 def test_gate_fail_resets_the_tree_to_prev_sha():

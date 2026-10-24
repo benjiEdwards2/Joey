@@ -186,10 +186,13 @@ edge_active() {
 echo "== build test image + FULL SUITE GATE (rule 13) =="
 # --network none: the suite is offline-clean (review T-01), so the gate cannot reach the LAN.
 # -n 2 (pytest-xdist, review N-44): two workers — -n auto (one per core) drove the 3.7 GB NAS to load 12 and 1.2 GB swap on 2026-10-09; the suite was ~9 of the ~10 minutes.
+# /tmp is a tmpfs (JY-235, 2026-10-24): on the NAS overlay disk the SQLite-heavy tests made the suite 996 s; in RAM it is
+# ~192 s. `exec` is required (Docker's tmpfs is noexec by default, so git skipped a test's hook and the gate went red);
+# TMPDIR points pytest's tmp_path there, and retention=failed keeps only failing tests' dirs so 512m is enough.
 cd "$REPO"
 gate() {
     docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
-        && docker run --rm --network none life-test python -m pytest -q -n 2 tests/
+        && docker run --rm --network none --tmpfs /tmp:rw,exec,size=512m,mode=1777 -e TMPDIR=/tmp life-test python -m pytest -q -n 2 -o tmp_path_retention_policy=failed tests/
 }
 gate || gate_fail "test build or suite red"
 

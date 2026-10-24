@@ -1,6 +1,6 @@
 # JY-143 Prowlarr indexerstats window
 
-Status: building
+Status: shipped 2026-10-24
 Size: S
 Live risk: none
 Area: `connectors/feeds/arr.py`, `tests/connectors/`, `connectors/README.md`, `docs/connector-contract.md`
@@ -49,4 +49,8 @@ After deploy: Library health on `/server` shows no amber `Prowlarr N failed grab
 1. Should the Library health words say the window ("Prowlarr 2 failed grabs this week")? A) Yes, add "this week" (recommended: otherwise the count reads as all-time). B) No, leave the words. Not blocking: this PR does not change the words.
 
 ## Shipped notes
-PR: (draft, see the PR). Not merged or deployed.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #131, squash-merged as `2db664b` (2db664bc9583b88da52e5e1d9a5d67fe484c2ab0).
+- Deploy: `2026-10-24T09:51:44Z PASS prev=d65ad7f new=2db664b suite green, smoke ok tv=current end=2026-10-24T09:56:45Z dur=301s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

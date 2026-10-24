@@ -127,7 +127,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-140 | Health rows say "LAN" | Server | S | [x] shipped | Server cards already do · PR #85 | [spec](docs/specs/JY-140-health-lan.md) |
 | JY-141 | Quiet-mode cap vs the live qBittorrent cap | Server | S | parked | Quiet 5 Mbps is ~8x tighter than 41 (decision) | — |
 | JY-142 | WUD real check interval vs 180-min Stale rule | Server | S | idea | Verify live, then adjust | — |
-| JY-143 | Prowlarr indexerstats window | Server | S | idea | If cumulative, amber never clears; verify live | — |
+| JY-143 | Prowlarr indexerstats window | Server | S | [x] shipped | If cumulative, amber never clears; verify live · PR #131 | [spec](docs/specs/JY-143-prowlarr-stats-window.md) |
 | JY-144 | "Uptime Kuma metrics failed" on Joey /server | Server | S | [x] shipped | Pre-existing payload error · PR #73 | [spec](docs/specs/JY-144-kuma-metrics.md) |
 | JY-226 | Server page render over budget (p95 52-56 ms, budget 50) | Server | S | [x] shipped | `scripts/budgets.py` 2026-10-23: `/a/server` warm p95 52 ms then 56 ms, max ~125 ms; profile it · PR #68 | [spec](docs/specs/JY-226-server-page-speed.md) |
 

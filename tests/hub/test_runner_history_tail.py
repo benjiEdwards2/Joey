@@ -1,5 +1,5 @@
 """E1 (2026-10-13): `store.get_runner_history` keeps the parsed tail in memory keyed on the file's identity, size and
-mtime: an unchanged file is a lookup (< 2 ms on a 2 MB file), an appended one parses only the new bytes, a rotated
+mtime: an unchanged file is a lookup (no read, no parse: JY-225), an appended one parses only the new bytes, a rotated
 (replaced / shrunk) one is read afresh — and every answer equals what the old full re-read gave."""
 import json
 import os
@@ -96,21 +96,22 @@ def test_missing_or_unreadable_is_still_none(tmp_path):
     assert store.get_runner_history(tmp_path / "nope") is None
 
 
-def test_a_two_megabyte_tail_hit_takes_under_two_ms(tmp_path):
+def test_a_two_megabyte_tail_hit_reads_and_parses_nothing(tmp_path, monkeypatch):
+    """An unchanged 2 MB file is a lookup. JY-225 (2026-10-24): was a 2 ms median wall-clock limit, which failed under
+    load; the property it stood for is "no read, no parse", so that is what is counted now."""
     path = tmp_path / store.HISTORY_NAME
     line = sweep(0, 2000)
     path.write_text(line * (store.HISTORY_MAX_BYTES // len(line) + 50), encoding="utf-8")
     assert path.stat().st_size > store.HISTORY_MAX_BYTES
-    cold_t = time.perf_counter()
     cold = store.get_runner_history(tmp_path)
-    cold_s = time.perf_counter() - cold_t
-    hits = []
+    assert len(cold) > 900
+    work = []
+    real_lines, real_parse = store._history_lines, store._parse_line
+    monkeypatch.setattr(store, "_history_lines", lambda *a: work.append("lines") or real_lines(*a))
+    monkeypatch.setattr(store, "_parse_line", lambda raw: work.append("parse") or real_parse(raw))
     for _ in range(20):
-        t = time.perf_counter()
         assert store.get_runner_history(tmp_path) is cold
-        hits.append(time.perf_counter() - t)
-    hits.sort()
-    assert len(cold) > 900 and hits[len(hits) // 2] < 0.002, (cold_s, hits)
+    assert work == []
 
 
 def test_the_server_page_reuses_the_hub_cards_parsed_history(tmp_path, monkeypatch):

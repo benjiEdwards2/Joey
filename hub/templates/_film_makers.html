@@ -2,7 +2,8 @@
    when none), each ONE link to the person page (else a Discover search); a sideways row on a phone. A deferred part
    since F2 (2026-10-12): the cards come from the Jellyseerr title body.
    F5 (2026-10-12): under a show's "Created by" cards, one small Follow button per creator with a TMDB id (follows them
-   as a TV maker: new films AND shows) or "Following <name> ✓" - the state is one media.db read, no upstream call. #}
+   as a TV maker: new films AND shows) or "Following <name> ✓" - the state is one media.db read, no upstream call. Follows are the household's: never drawn on
+   the guest front (JY-251). #}
 {% from "_film_macros.html" import makercards with context %}
 {% if film.makers %}
 <div class="makers">
@@ -11,7 +12,7 @@
   {{ makercards(film.makers) }}
   </div>
   {% set creators = film.makers | selectattr("id") | list if film.kind == "tv" else [] %}
-  {% if creators %}{% set on = followed("person") %}
+  {% if creators and guest_allows("/media/follow/person/" ~ creators[0].id, "POST") %}{% set on = followed("person") %}{# JY-251: no household follow state or Follow on the guest front (Q19) #}
   <div class="followform">{% for m in creators %}{% if m.id in on %}<span class="st-good">Following {{ m.name }} ✓</span>{% else %}<form method="post" hx-swap="innerHTML show:none" action="/media/follow/person/{{ m.id }}"><input type="hidden" name="back" value="{{ film.back }}"><input type="hidden" name="name" value="{{ m.name }}"><input type="hidden" name="tv" value="1"><button class="btn btn-ghost btn-sm" type="submit">Follow {{ m.name }}</button></form>{% endif %}{% endfor %}</div>
   {% endif %}
 </div>

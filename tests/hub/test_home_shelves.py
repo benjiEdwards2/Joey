@@ -6,6 +6,7 @@ call on render, rule 7) and never carry household watch state. A brand-new frien
 empty Watchlist / To rate / Diary / Diary > To rate is one words-first state, not a grey box. Spec:
 docs/specs/JY-195-home-shelves.md."""
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -205,3 +206,26 @@ def test_the_tv_css_block_for_the_empty_state_and_welcome(fc):
     for sel in ("html.tv .bigempty", "html.tv .bigempty-h", "html.tv .welcome"):
         assert sel in block, sel
     assert "border:" not in re.search(r"html\.tv \.bigempty \{[^}]*\}", block).group(0)
+
+
+def test_two_renders_on_one_snapshot_scrub_and_sort_once(fc, monkeypatch):
+    # JY-195 review (2026-10-25): the scrub and the library shelves are memoised per snapshot version, view and day
+    media_guest_home.clear_cache()
+    calls = {"scrub": 0, "shelves": 0}
+    real_view, real_shelves = media_guest_home.media_home.view_jelly, media_guest_home.library_shelves
+
+    def view_spy(*a, **kw):
+        if sys._getframe(1).f_code.co_name == "_snapshot_view":   # Home's scrub, not other page parts
+            calls["scrub"] += 1
+        return real_view(*a, **kw)
+
+    def shelves_spy(*a, **kw):
+        calls["shelves"] += 1
+        return real_shelves(*a, **kw)
+
+    monkeypatch.setattr(media_guest_home.media_home, "view_jelly", view_spy)
+    monkeypatch.setattr(media_guest_home, "library_shelves", shelves_spy)
+    first, second = page(fc, guest.home_path()), page(fc, guest.home_path())
+    assert calls == {"scrub": 1, "shelves": 1}
+    assert shelf_titles(first) == shelf_titles(second)
+    assert first.count("Long Classic") == second.count("Long Classic") >= 1     # copies: decoration never leaks

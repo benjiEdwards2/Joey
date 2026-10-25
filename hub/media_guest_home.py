@@ -43,6 +43,7 @@ _lock = threading.Lock()
 def clear_cache() -> None:
     with _lock:
         _cache.clear()
+        _lib_memo.clear()
 
 
 def _params(shelf: str, uid: str) -> tuple[str, dict]:
@@ -173,16 +174,39 @@ def library_shelves(jelly: dict, now: datetime) -> list[dict]:
             for i, t, items in shelves if items]
 
 
+_lib_memo: dict = {}   # JY-195 review: (snapshot stamp, view, date) -> (scrubbed jelly, library shelves)
+
+
+def _snapshot_view(snap, view: str) -> tuple[dict, list[dict]]:
+    """The scrubbed jelly and the library shelves, worked out once per snapshot version (fetched_at + updated_at),
+    view and calendar day (the 30-day window moves daily). Each render gets copies of the shelf rows (build decorates
+    them); the scrubbed jelly is only read."""
+    now = datetime.now(timezone.utc)
+    key = (snap.fetched_at, snap.updated_at, view, now.date()) if snap else None
+    with _lock:
+        hit = _lib_memo.get(key) if key else None
+    if hit is None:
+        jelly = media_home.view_jelly(snap.data if snap else {}, view)
+        hit = (jelly, library_shelves(jelly, now))
+        if key:
+            with _lock:
+                if len(_lib_memo) >= 8:
+                    _lib_memo.clear()
+                _lib_memo[key] = hit
+    jelly, shelves = hit
+    return jelly, [{**s, "items": [dict(i) for i in s["items"]]} for s in shelves]
+
+
 def build(request, snaps, view: str) -> dict:
     """The guest Home's `sh` for area_shelves.html (JY-195 pick 4A): Continue watching, Recently added, the three
     library shelves, Recently watched - each left out when empty; no hero, no freshness line."""
     snap = snaps.get(JELLYFIN_SNAPSHOT_ID)
-    jelly = media_home.view_jelly(snap.data if snap else {}, view)   # the media front: scrubbed, no household rows
+    jelly, library = _snapshot_view(snap, view)   # the media front: scrubbed, no household rows (memoised)
     resume, watched, added = read_shelf(request, RESUME), read_shelf(request, WATCHED), _added(jelly)
     shelves = [{"id": "continue", "title": "Continue watching", "see_all_href": None, "items": resume or [],
                 "quiet_text": None},
                {"id": "added", "title": "Recently added", "see_all_href": None, "items": added, "quiet_text": None},
-               *library_shelves(jelly, datetime.now(timezone.utc)),
+               *library,
                {"id": "watched", "title": "Recently watched", "see_all_href": media_home.DIARY_DETAIL,
                 "items": watched or [], "quiet_text": None}]
     shelves = [s for s in shelves if s["items"]]   # JY-195: an empty shelf is left out (no grey box)

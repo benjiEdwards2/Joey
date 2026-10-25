@@ -56,6 +56,6 @@
 {% elif mine == "declined" %}
   <p class="statusline st-warn">Declined</p>
 {% else %}
-  <a class="btn {{ 'btn-white' if req_primary else 'btn-secondary' }}" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML">Request</a>
+  <a class="btn {{ 'btn-white' if req_primary else 'btn-secondary' }}" href="{{ base }}?step=confirm" hx-get="{{ base }}/request?step=confirm" hx-target="#request-block" hx-swap="outerHTML"{% if req_primary and on_media and tv_mode(request) %} data-first{% endif %}>Request</a>{# JY-193: the TV request page focuses it first #}
 {% endif %}
 </div>

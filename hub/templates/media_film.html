@@ -22,8 +22,12 @@
 {# Joey TV WP-B3 follow-on: `tvm` = the 10-foot TV mode. The WP-M title page is the same hero with a synopsis line under the
    facts and the 1-10 rating chips under the buttons; tv.css hides the rest. Off the TV nothing here changes. #}
 {% set tvm = tv_mode(request) %}
+{# JY-193 (U7, D1; tv-v2 shell 01-title screen 4): on the friends' TV a title that is not on the server is a request page -
+   poster, title, facts "... · Not in the library yet", synopsis, a note, then Request (focused: data-first in
+   _request_block.html) and Back; tv.css hides the rest. Off the TV and on the private front nothing changes. #}
+{% set tvreq = tvm and guest(request) and film.t and not film.on_server and not film.episode %}
 {# U6 (JY-192, 2026-10-25): on the TV a season / episode page names its series for Back (tv.js `data-tv-up`, X1). #}
-<header class="pagehead hero-detail"{% if tvm and epnav and epnav.show and epnav.show.href %} data-tv-up="{{ epnav.show.href }}"{% endif %}>
+<header class="pagehead hero-detail{{ ' tv-reqpage' if tvreq }}"{% if tvm and epnav and epnav.show and epnav.show.href %} data-tv-up="{{ epnav.show.href }}"{% endif %}>
   {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280'){% if not film.backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
@@ -70,8 +74,13 @@
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
         {% if tvm %}
+        {% if tvreq %}
+        {{ meta([film.year, "TV" if film.kind == "tv" else "Film"] + (film.genres or []) + ["Not in the library yet"], "facts-line tv-facts") }}
+        {% else %}
         {{ meta([film.year, film.numbers.runtime, film.official] + (film.genres or []), "facts-line tv-facts") }}
+        {% endif %}
         {% if film.overview %}<p class="tv-syn">{{ film.overview }}</p>{% endif %}
+        {% if tvreq %}<p class="tv-reqnote">Not on Joey yet, so there is nothing to play.</p>{% endif %}
         {% endif %}
         {# E4 (U5-U7, 2026-10-13, B.): poster, title, tagline / facts, the status line (+ upgrade note, flashes), ONE action
            row, then the makers - Play is above the fold on a phone. The site pills moved to the Scores strip. #}
@@ -99,6 +108,8 @@
           {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false, style = ("ballot" if tvm else none) %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
           {{ ratebtn }}
+          {# JY-193: Back is a button, not a link - tv.js Back memory keeps links only, so it never takes the focus from the request steps #}
+          {% if tvreq %}<button type="button" class="btn btn-glass tv-back" onclick="history.back()">Back</button>{% endif %}
         </div>
         {# TV mode: the 1-10 chips (or the rated number + Undo) sit under the buttons, as in the WP-M title page; since U6
            (JY-192, pick 1B) in a strip the Rate button opens (hidden until then). #}

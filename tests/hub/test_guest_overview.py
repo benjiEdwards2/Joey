@@ -128,10 +128,16 @@ def test_shelf_reads_use_a_3s_timeout_and_are_cached_60s_per_user(gc, monkeypatc
     assert len(seen) == 4 and media_guest_home.TTL == 60
 
 
-def test_an_empty_resume_list_keeps_the_heading_with_quiet_words(gc):
+def test_an_empty_resume_list_hides_its_shelf_and_welcomes_a_new_friend(gc):
+    # JY-195, 2026-10-25 (B.'s pick "4A"): was ..._keeps_the_heading_with_quiet_words - an empty shelf is now left out
     gc.fake.resume[FRIEND_ID] = []
     sign_in(gc, gc.fake, FRIEND_ID)
-    assert shelf_titles(home(gc)) == ["Continue watching", "Recently added", "Recently watched"]
+    html = home(gc)
+    assert shelf_titles(html) == ["Recently added", "Recently watched"]
+    assert "Nothing to continue" not in html and 'class="welcome"' not in html   # watched something: not new
+    gc.fake.history[FRIEND_ID] = []
+    media_guest_home.clear_cache()
+    assert 'class="welcome"' in home(gc)
 
 
 def test_private_front_overview_is_unchanged(monkeypatch, tmp_path):

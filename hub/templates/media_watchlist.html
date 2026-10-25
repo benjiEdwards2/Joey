@@ -9,7 +9,7 @@
 {% if failed %}
 <p class="empty">Watchlist unavailable</p>
 {% else %}
-<p class="metaline">{{ head_line }}</p>
+{% if rows or not tv_mode(request) %}<p class="metaline">{{ head_line }}</p>{% endif %}{# JY-195 (E2): no "0 on your watchlist" on the TV #}
 {% if left %}<p class="metaline">{{ left }} watched title{{ "s" if left != 1 }} left the list</p>{% endif %}
 {% if rows %}
 {# E3 (U14, 2026-10-13): the sort applies on change (htmx GET of the same URL, scroll kept, URL pushed); Apply is no-JS only. #}
@@ -37,6 +37,10 @@
   </div>
   {% endfor %}
 </div>
+{% elif tv_mode(request) %}
+{% from "_empty_state.html" import bigempty %}{# JY-195 (E1) #}
+{{ bigempty("bookmark", "Nothing on your watchlist yet", "Press + Watchlist on any " ~ ("film" if kind == "movie" else "show") ~ " to keep it here",
+            "/media/movies" if kind == "movie" else "/media/tv", "Browse films" if kind == "movie" else "Browse shows") }}
 {% else %}
 <p class="empty">Nothing on the watchlist.</p>
 {% endif %}

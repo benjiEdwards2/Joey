@@ -312,3 +312,15 @@ html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn {
   border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 html.tv .tv-ratebtn svg.ic { width: 24px; height: 24px; }
 html.tv .tv-rate[hidden] { display: none; }
+
+/* JY-195 (U9, 2026-10-25) - Home shelves (pick 4A) and the words-first empty states (E1/E2/Y4).
+   The welcome line for a brand-new friend sits above the shelves. The empty state (_empty_state.html bigempty) is
+   centred in the space under the bar and the sub-tabs: a 64 px line icon, a 30 px heading, one 21 px line, one 56 px
+   button. No border, no grey box. U10 (JY-196) lands after this block. */
+html.tv .welcome { margin: 6px 0 2px; font-size: 24px; line-height: 32px; font-weight: 600; color: var(--tv-t1); letter-spacing: -.01em; }
+html.tv .welcome span { font-weight: 400; color: var(--tv-t3); }
+html.tv .bigempty { min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my) - 120px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; }
+html.tv .bigempty svg.ic { width: 64px; height: 64px; stroke-width: 1.6; color: var(--tv-t4); margin-bottom: 4px; }
+html.tv .bigempty-h { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1); }
+html.tv .bigempty-p { margin: 0; max-width: 620px; font-size: 21px; color: var(--tv-t3); }
+html.tv .bigempty .btn { margin-top: 14px; background: var(--tv-primary); color: #fff; border-color: transparent; }

@@ -5,6 +5,7 @@ off) and the private front are unchanged. Seerr and Jellyfin are the fakes of te
 fake_jellyfin.py; no network."""
 import os
 import re
+import threading
 from pathlib import Path
 
 import pytest
@@ -82,22 +83,34 @@ def test_phone_friend_title_shelves_are_unchanged(friend):
     assert "/media/title/movie/803" in b and ">Not on server<" in b and "?h=600&amp;" not in b.split("Similar", 1)[1]
 
 
-def cold_calls(c, url, tv, meta_dir):
+def cold_calls(c, url, tv, meta_dir, monkeypatch):
     """The Seerr reads of ONE cold render (every Media cache emptied first): the page, then its deferred part request,
-    as htmx makes it, with the background read drained. Returns (the set of call paths, the page's part href)."""
+    as htmx makes it, with the background read drained. Returns (the set of call paths, the page's part href).
+    JY-249 (2026-10-25, failed once in CI: href None): the page starts the title's background read before its Jellyfin
+    reads and peeks the caches after them, so a read that lands in between leaves nothing pending and no part request.
+    The read is held until the page has rendered, as on a real cold page where Seerr is slower than Jellyfin."""
     from hub import media_film
     from tests.hub.conftest import clear_media_caches
     media_film.drain_extras()
     clear_media_caches()
     os.environ["META_CACHE_DIR"] = str(meta_dir)   # a fresh on-disk meta cache too (ratings, biographies)
     c.seerr.calls.clear()
+    rendered, real = threading.Event(), media_film._load_extras
+
+    def held(*args):
+        rendered.wait(media_film.EXTRAS_WAIT)
+        return real(*args)
+    monkeypatch.setattr(media_film, "_load_extras", held)
     c.headers.update(TV) if tv else c.headers.pop("User-Agent", None)
     try:
         href = parts_href(c.get(url).text)
+        rendered.set()
         if href:
             assert c.get(href).status_code == 200
         media_film.drain_extras()
     finally:
+        rendered.set()
+        monkeypatch.setattr(media_film, "_load_extras", real)
         c.headers.pop("User-Agent", None)
     return {x[1] for x in c.seerr.calls}, href
 
@@ -106,8 +119,8 @@ def test_tv_page_makes_no_more_upstream_calls_than_the_phone_page(friend, monkey
     """No live call on render: a cold TV render reads exactly what a cold phone render reads, and the shelves still
     come from the deferred part (not the page render)."""
     monkeypatch.setenv("META_CACHE_DIR", str(tmp_path / "meta0"))   # restored after the test
-    tv, tv_href = cold_calls(friend, "/media/title/movie/603", True, tmp_path / "meta-tv")
-    phone, phone_href = cold_calls(friend, "/media/title/movie/603", False, tmp_path / "meta-phone")
+    tv, tv_href = cold_calls(friend, "/media/title/movie/603", True, tmp_path / "meta-tv", monkeypatch)
+    phone, phone_href = cold_calls(friend, "/media/title/movie/603", False, tmp_path / "meta-phone", monkeypatch)
     assert phone, "a cold render reads Seerr"
     assert tv == phone
     assert "/api/v1/movie/603/similar" in tv and "/api/v1/movie/603/recommendations" in tv

@@ -304,7 +304,10 @@ def test_season_eyebrow_survives_tv_mode_markup(monkeypatch):
     h = head(season())
     assert '<p class="epeyebrow">Season 2 of 3</p>' in h                                  # tv.css has no rule hiding .epeyebrow
     tv = (Path(shell.__file__).resolve().parent / "static" / "tv.css").read_text(encoding="utf-8")
-    assert "epeyebrow" not in tv
+    # JY-250 (2026-10-25): tv.css now sizes .epeyebrow (18 px); no rule may hide it
+    rules = [body for sels, body in re.findall(r"([^{}]+)\{([^}]*)\}", re.sub(r"/\*.*?\*/", "", tv, flags=re.S))
+             if "epeyebrow" in sels]
+    assert rules and not any(re.search(r"display:\s*none|visibility:\s*hidden", b) for b in rules)
 
 
 def test_season_page_has_the_strip_and_rated_rows_but_not_the_compare_block():

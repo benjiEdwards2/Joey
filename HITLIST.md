@@ -175,7 +175,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-190 | U4 Server fixes (sign-out device, 404, Diary scope) | Joey TV | M | [x] shipped | Stale device blocks sign-in · live · PR #149 | [spec](docs/specs/JY-190-tv-server-fixes.md) |
 | JY-191 | U5 Shell Back + Offline wording (release 1.0.2) | Joey TV | M | idea | Built + reviewed (PR #151); merge publishes TV app 1.0.2, so merge in the TV session with B. | — |
 | JY-192 | U6 Series + episodes layout | Joey TV | L | [x] shipped | Episode lists unstyled; needs picks · PR #164 | [spec](docs/specs/JY-192-tv-series-episodes.md) |
-| JY-193 | U7 Shelves + TMDB title page + person page | Joey TV | M | idea | Off-server shelves; needs picks | — |
+| JY-193 | U7 Shelves + TMDB title page + person page | Joey TV | M | [x] shipped | Off-server shelves; needs picks · PR #168 | [spec](docs/specs/JY-193-tv-shelves-tmdb.md) |
 | JY-194 | U8 Discover search on TV | Joey TV | M | [x] shipped | No search on TV today · PR #158 | [spec](docs/specs/JY-194-tv-discover-search.md) |
 | JY-195 | U9 Overview + empty states | Joey TV | M | [x] shipped | Grey empty boxes; needs picks · PR #167 | [spec](docs/specs/JY-195-home-shelves.md) |
 | JY-196 | U10 Diary + Awards on TV | Joey TV | M | [x] shipped | Diary shows household stats; needs picks · PR #171 | [spec](docs/specs/JY-196-tv-awards-diary.md) |

@@ -221,7 +221,7 @@ What a signed-in friend sees on the media front, and the 10-foot TV skin the And
 
 - **The pages.** Overview (`/a/<shelves id>`): exactly three shelves, Continue watching and Recently watched (live reads of the
   viewer's own Jellyfin state with their own token, `hub/media_guest_home.py`) and Recently added (the scrubbed snapshot); no hero,
-  no household shelves. The section row is Overview, Movies, TV shows, Diary, Discover. Title pages draw no off-site links (the
+  no household shelves. The section row is Movies, TV shows, Diary, Discover; the "Joey Media" title is the way Home (JY-248). Title pages draw no off-site links (the
   exposure crawl allows only the Jellyfin edge, YouTube and TMDB images).
 - **The `shell.jellyfin_link` seam.** `hub/shell.py` `jellyfin_link(registry_href)` is the one base of every Jellyfin link a page
   draws (Play, "Open in Jellyfin", the `_deep_link` item links). On the media front it is `JELLYFIN_PUBLIC_URL` with its port kept

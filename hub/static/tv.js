@@ -12,7 +12,8 @@
      first on the page (WP-M spec: Overview = first poster, title = Play);
    * Back memory (JY-187 B1): per URL, the link last reached with a remote key in <main> and the scroll offset, put back
      on every new page (Back's reload, a boosted swap, the hand-off reopen, a back-forward-cache pageshow);
-   * Up from the page into the top bar lands on the open section's pill; Down from the title buttons into the rating
+   * Up from the page into the top bar lands on the open section's pill (JY-248: on Home, with no pill current, the
+     "Joey Media" title); Down from the title buttons into the rating
      chips lands on chip 1 (JY-187 B2/B3, P5);
    * Discover search (JY-194, R2): the friends' search field ([data-tv-search]) is the stop between the grid and the top
      bar (Up from the first row; Down from it = the first poster). It stays read-only while only focused, so passing it
@@ -255,6 +256,8 @@
       /* JY-194: the Discover search field above the page comes first */
       if (s && s !== a && s.getBoundingClientRect().bottom <= r.top) best = s;
       else if (pill && visible(pill)) best = pill;
+      /* JY-248: Home has no section pill (no Overview); the "Joey Media" title is its stop (OK = Home) */
+      else if (!pill) { var home = document.querySelector('.topbar .brand'); if (home && visible(home)) best = home; }
     }
     /* JY-194: Down from the search field lands on the grid's first poster */
     if (dir === 'ArrowDown' && isSearch(a)) best = firstIn(grid()) || best;

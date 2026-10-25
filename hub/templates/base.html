@@ -67,8 +67,10 @@
 <header class="topbar">
   <div class="topbar-in">
     {% if is_guest %}
-    {# Guest branding (DECISIONS C): "Joey Media" + the kangaroo, linking to the guest home; no "‹ Joey" way out, no hub. #}
-    <a class="brand" href="{{ guest_home() }}" aria-label="Joey Media home"><img class="mark" src="/static/icon-192.png?v=3" alt="" width="24" height="24"><b>Joey Media</b></a>
+    {# Guest branding (DECISIONS C): "Joey Media" + the kangaroo, linking to the guest home; no "‹ Joey" way out, no hub.
+       JY-248 (2026-10-25): no Overview pill, so this title is the way Home (a TV focus stop, tv.js Up rule) and carries
+       aria-current on Home. #}
+    <a class="brand brand-home" href="{{ guest_home() }}" aria-label="Joey Media home"{% if path == guest_home() %} aria-current="page"{% endif %}><img class="mark" src="/static/icon-192.png?v=3" alt="" width="24" height="24"><b>Joey Media</b></a>
     {% else %}
     <a class="brand" href="/" aria-label="Joey home">{% if media_mode %}<span class="brand-back" aria-hidden="true">‹</span>{% endif %}<img class="mark" src="/static/brand-joey.jpg?v={{ static_v }}" alt="" width="24" height="24"><b>Joey</b></a>
     {% endif %}

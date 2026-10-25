@@ -54,10 +54,14 @@ GUEST_DIARY = {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary
                "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]}
 
 
+# JY-248 (B., 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home"): the
+# media front has no Overview section; its "Joey Media" brand (base.html) is the way Home. The private front keeps it.
 def _guest_sections() -> list[dict]:
     from hub import guest
     out = []
     for s in SECTIONS:
+        if s["id"] == HOME_ID:
+            continue
         s = dict(GUEST_DIARY) if s["id"] == "server" else {**s, "tabs": GUEST_TABS.get(s["id"], s["tabs"])}
         if s["href"] is not None and not guest.href_allowed(s["href"]):
             continue

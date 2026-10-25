@@ -42,6 +42,10 @@ html.tv .brand .mark { width: 32px; height: 32px; border-radius: 8px; }
 html.tv .toplinks { display: flex; gap: 4px; flex-shrink: 0; }
 html.tv .toplinks a { height: 36px; padding: 0 10px; border-radius: 9px; font-size: 18px; color: var(--tv-t4); }
 html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
+/* JY-248 nav (2026-10-25): no Overview pill; the "Joey Media" title is the Home stop (Up from Home lands on it, tv.js),
+   a pill like the section row's (36 px, fits JY-188's 64 px compact bar: 27 + 36 + 1), filled like the current pill on Home. */
+html.tv .brand-home { height: 36px; padding: 0 12px 0 4px; border-radius: 9px; }
+html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .08); }
 html.tv .userchip { margin-left: auto; height: 36px; padding: 0 12px 0 4px; border-radius: 999px; font-size: 18px; color: var(--tv-t3); }
 html.tv .userchip .avatar { width: 28px; height: 28px; font-size: 18px; background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }

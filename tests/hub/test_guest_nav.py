@@ -56,8 +56,9 @@ def assert_no_private_link(html: str, where: str) -> None:
 
 def test_nav_sections_and_tabs_on_the_media_front(gc):
     nav = nav_at("/media/movies")
-    assert [s["id"] for s in nav["sections"]] == ["home", "movies", "tv", "diary", "discover"]
-    assert [s["label"] for s in nav["sections"]] == ["Overview", "Movies", "TV shows", "Diary", "Discover"]
+    # JY-248 (2026-10-25): no Overview section - the "Joey Media" title is the way Home
+    assert [s["id"] for s in nav["sections"]] == ["movies", "tv", "diary", "discover"]
+    assert [s["label"] for s in nav["sections"]] == ["Movies", "TV shows", "Diary", "Discover"]
     assert [t["label"] for t in nav["tabs"]] == ["My films", "Watchlist", "Tonight", "To rate", "Awards"]
     assert [t["label"] for t in nav_at("/media/tv")["tabs"]] == ["My shows", "Watchlist", "Tonight", "To rate", "Awards"]
     assert [t["label"] for t in nav_at("/media/discover")["tabs"]] == ["Discover"]   # Following hidden (Q19)
@@ -80,13 +81,13 @@ def test_private_front_sections_are_unchanged(monkeypatch, gc):
 def test_the_page_draws_the_guest_section_row_and_tabs(friend):
     html = friend.get("/media/movies").text
     row = re.search(r'<nav class="sectabs sectabs-page"[^>]*>(.*?)</nav>', html, re.S).group(1)
-    assert re.findall(r">([^<]+)</a>", row) == ["Overview", "Movies", "TV shows", "Diary", "Discover"]
+    assert re.findall(r">([^<]+)</a>", row) == ["Movies", "TV shows", "Diary", "Discover"]   # JY-248: no Overview
     sub = re.search(r'<nav class="sectabs sub"[^>]*>(.*?)</nav>', html, re.S).group(1)
     assert [re.sub(r"<[^>]+>", "", x).strip() for x in re.findall(r"<a [^>]*>(.*?)</a>", sub, re.S)] == \
         ["My films", "Watchlist", "Tonight", "To rate", "Awards"]
     phone = re.search(r'<nav class="tabbar"[^>]*>(.*?)</nav>', html, re.S).group(1)
-    assert re.findall(r'href="([^"]+)"', phone) == ["/a/media", "/media/movies", "/media/tv", "/media/diary",
-                                                     "/media/discover"]
+    assert re.findall(r'href="([^"]+)"', phone) == ["/media/movies", "/media/tv", "/media/diary",
+                                                     "/media/discover"]   # JY-248: no Overview tab
 
 
 # ---- branding, home, 404, sign-in ----
@@ -105,7 +106,7 @@ def test_branding_title_home_meta_manifest_and_user_chip(friend):
     assert 'href="/static/manifest-guest.webmanifest"' in head and "manifest-media" not in head
     assert re.search(r"<title>[^<]* · Joey Media</title>", head), re.search(r"<title>.*?</title>", head).group(0)
     top = re.search(r'<header class="topbar">(.*?)</header>', html, re.S).group(1)
-    brand = re.search(r'<a class="brand"[^>]*>.*?</a>', top, re.S).group(0)
+    brand = re.search(r'<a class="brand brand-home"[^>]*>.*?</a>', top, re.S).group(0)   # JY-248: the Home stop
     assert 'href="/a/media"' in brand and "Joey Media" in brand and "/static/icon-192.png" in brand
     assert "brand-back" not in brand and "brand-joey" not in brand        # no "‹ Joey" (DECISIONS C)
     chip = re.search(r'<button class="userchip".*?</button>', top, re.S).group(0)   # a button since sign-out (2026-10-22)

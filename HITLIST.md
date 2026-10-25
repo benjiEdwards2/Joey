@@ -180,7 +180,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-195 | U9 Overview + empty states | Joey TV | M | idea | Grey empty boxes; needs picks | — |
 | JY-196 | U10 Diary + Awards on TV | Joey TV | M | idea | Diary shows household stats; needs picks | — |
 | JY-197 | U11 TV docs sweep | Joey TV | S | idea | Release, README, mockups, handover | — |
-| JY-248 | Friends' nav: no Overview pill; "Joey Media" title goes Home (TV focus stop) | Joey TV | M | idea | B. 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home" | — |
+| JY-248 | Friends' nav: no Overview pill; "Joey Media" title goes Home (TV focus stop) | Joey TV | M | [x] shipped | B. 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home" · PR #163 | [spec](docs/specs/JY-248-joey-media-home.md) |
 
 ### NAS / stack
 

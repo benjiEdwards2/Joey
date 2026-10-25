@@ -131,7 +131,7 @@ def test_tv_title_page_has_synopsis_and_rating_chips_only_in_tv_mode(gc):
     assert 'class="tv-syn">A synopsis line.' in tv and "Chip Film (2001)" not in tv
 
 
-def test_tv_discover_is_the_six_column_grid_with_chips_and_the_panel(monkeypatch, tmp_path):
+def test_tv_discover_is_the_eight_column_grid_with_chips_and_the_panel(monkeypatch, tmp_path):
     """WP-B4 follow-on: Discover in TV mode = WP-M screen 10. The grid takes tv.css's six-column helper, every poster has
     its chip, the panel is the dialog; the rules are tv.css's own (html.tv scope, no :hover) - the page carries none."""
     client, fake = guest_client(monkeypatch, tmp_path, {"jellyseerr": {"summary": "x", "requests": []}})
@@ -152,7 +152,8 @@ def test_tv_discover_is_the_six_column_grid_with_chips_and_the_panel(monkeypatch
         inline = "".join(re.findall(r"<style>(.*?)</style>", tv, flags=re.S))
         assert "html.tv" not in inline and ":hover" not in inline          # the TV look lives in tv.css only
         css = re.sub(r"/\*.*?\*/", "", c.get("/static/tv.css").text, flags=re.S)
-        assert re.search(r"\.poster-grid\.reqgrid \{ grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)", css)
+        # JY-188 (2026-10-25, B.: "JY-186: scale B, chrome on"): six columns became eight (docs/specs/JY-188-tv-scale-b.md)
+        assert re.search(r"\.poster-grid\.reqgrid \{ grid-template-columns: repeat\(8, minmax\(0, 1fr\)\)", css)
         assert ".reqdlg" in css and ".reqchip" in css and ":hover" not in css
         # the answer keeps the poster / title / overview and says it is waiting (screen 10: Done focused)
         done = c.post("/media/title/movie/701/request", content="panel=1", headers={
@@ -760,3 +761,61 @@ out.same_again = request('keyup');
 """)
     assert out == {"enter_search": False, "late_keyup": True, "keyup_after_swap": True, "new_query": False,
                    "back_search": False, "same_again": False}
+
+
+# ---- JY-188 (U2): density B, compact chrome, the 18 px floor, scrim, contrast, sign-in collapse, 404 layout ----
+
+def _tv_css(gc) -> str:
+    return re.sub(r"/\*.*?\*/", "", gc.get("/static/tv.css").text, flags=re.S)
+
+
+def _lum(hexcolor: str) -> float:
+    rgb = [int(hexcolor[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def test_jy188_every_font_size_in_tv_css_is_at_least_18px(gc):
+    sizes = [float(x) for x in re.findall(r"font-size:\s*([\d.]+)px", _tv_css(gc))]
+    assert sizes and min(sizes) >= 18, f"JY-188 (O2/R4/Y3): nothing under 18 px, found {min(sizes)}"
+
+
+def test_jy188_density_b_with_compact_chrome(gc):
+    css = _tv_css(gc)
+    assert "--tv-bar: 64px" in css and re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my\) var\(--tv-mx\) 1px", css)   # 27 + 36 + 1
+    assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 64 + 4 + 36 = 104
+    assert re.search(r"\.carousel > \* \{ flex: 0 0 104px; width: 104px; \}", css)
+    assert re.search(r"\.carousel \{ gap: 14px;", css)
+    assert re.search(r"\.libgrid, html\.tv \.poster-grid\.reqgrid \{ grid-template-columns: repeat\(8, minmax\(0, 1fr\)\); gap: 8px 14px", css)
+    # caption: title 18 one line always; meta 18 under the focused card only
+    assert re.search(r"\.card-poster \.row-title \{[^}]*font-size: 18px; line-height: 20px; height: 20px", css)
+    assert re.search(r"\.card-poster \.row-meta \{[^}]*font-size: 18px;[^}]*visibility: hidden", css)
+    assert re.search(r"\.card-poster\.tv-focus \.row-meta \{ visibility: visible", css)
+    assert "repeat(6" not in css and "132px" not in css
+
+
+def test_jy188_scrim_and_text_greys(gc):
+    css = _tv_css(gc)
+    assert re.search(r"\.hero-detail-bd \{ background-image: linear-gradient\(90deg[^;]*var\(--bd-pick\)", css)
+    assert re.search(r"\.tv-facts \{[^}]*color: var\(--tv-t3\)", css)
+    assert re.search(r"\.tv-syn \{[^}]*color: var\(--tv-t2\)", css)
+    assert re.search(r"html\.tv \.sep[^{]*\{ color: var\(--tv-t4\)", css)
+
+
+def test_jy188_play_button_is_4_5_to_1_or_better(gc):
+    css = _tv_css(gc)
+    colour = re.search(r"--tv-primary: (#[0-9a-f]{6})", css).group(1)
+    ratio = (_lum("#ffffff") + 0.05) / (_lum(colour) + 0.05)
+    assert ratio >= 4.5, ratio
+    assert re.search(r"\.hero-detail-btns \.btn-white \{ background: var\(--tv-primary\)", css)
+
+
+def test_jy188_sign_in_form_collapses_the_quick_connect_block(gc):
+    assert re.search(r"\.signin-panel:has\(details\[open\]\) #qc \{ display: none; \}", _tv_css(gc))
+
+
+def test_jy188_404_has_a_tv_layout(gc):
+    css = _tv_css(gc)
+    assert re.search(r"\.sec\.nf \{[^}]*align-items: center", css) and re.search(r"\.sec\.nf \.nf-back \{[^}]*min-height: 56px", css)
+    html = gc.get("/nope-not-a-page", headers={"User-Agent": TV_UA}).text
+    assert 'class="sec narrow nf"' in html and 'class="nf-back"' in html

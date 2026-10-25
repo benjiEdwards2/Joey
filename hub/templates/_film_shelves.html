@@ -1,6 +1,21 @@
 {# Similar / Recommended - a deferred part since F2 (2026-10-12); waiting, one "Loading" line that holds some height. #}
 {% from "_poster.html" import poster %}
 {% from "_award_icons.html" import award_badge %}
+{% if tv_mode(request) and guest(request) %}
+{# JY-193 (U7, P2; B.'s Gate 1 pick "2A", 2026-10-25): on the friends' TV the shelves show on-server titles only - ONE
+   "More on Joey" shelf (Similar, then Recommended, each title once), posters at the warm h=600 (JY-189). Nothing on the
+   server: no shelf. Off the TV, and on the private front, the two shelves below are unchanged. #}
+{% set more = namespace(rows=[], seen=[]) %}
+{% for sh in film.shelves %}{% for r in sh.rows if r.on_server and r.href not in more.seen %}{% set more.rows = more.rows + [r] %}{% set more.seen = more.seen + [r.href] %}{% endfor %}{% endfor %}
+{% if more.rows %}
+<section class="sec tv-more">
+  <h2 class="seclabel">More on Joey</h2>
+  <div class="carousel">
+    {% for r in more.rows %}<a class="card-poster" href="{{ r.href }}"><span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240, "", true) }}{{ award_badge(r.award) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{{ r.year }}</span></a>{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% else %}
 {% for sh in film.shelves %}
 <section class="sec">
   <h2 class="seclabel">{{ sh.title }}</h2>
@@ -13,3 +28,4 @@
   <p class="metaline">Loading</p>
 </section>
 {% endif %}{% endfor %}
+{% endif %}

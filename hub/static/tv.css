@@ -352,3 +352,29 @@ html.tv .tvrate .ratepick { gap: 8px; padding-left: 0; }
 html.tv .tvrate .ratepick .chip { width: 46px; height: 46px; justify-content: center; padding: 0; border-radius: 10px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 20px; font-weight: 600; color: var(--tv-t3); }
 html.tv .tvrate .skipacts { display: flex; gap: 8px; }
 /* ==== end JY-196 block ==== */
+
+/* ==== JY-193 (U7; P2 / D1 / N1, Gate 1 pick 2A, 2026-10-25): title shelves, the TMDB request page, the person page ====
+   Shelves: the friends' title page draws one "More on Joey" shelf of on-server titles (template, _film_shelves.html);
+   it uses the shelf rules above unchanged. TMDB title page (tv-v2 shell 01-title screen 4): a title not on the server
+   is a request page - 220 px poster, title, facts, synopsis, the note, Request (focused, data-first) and Back; the
+   Trailer / Watchlist / Rate controls and everything below the hero step aside. Person page: a compact head (120 px
+   headshot, 2-line bio) so the head and the "On server" shelf fit one screen. */
+html.tv .tv-reqpage .hero-detail-poster { width: 220px; }
+html.tv .tv-reqpage .hero-detail-text .tv-facts { font-size: 20px; }
+html.tv .tv-reqpage .hero-detail-text .tv-syn { max-width: 600px; font-size: 21px; }
+html.tv .tv-reqpage .tv-reqnote { margin-top: 6px; max-width: 600px; font-size: 21px; line-height: 1.3; color: var(--tv-t2); }
+html.tv .tv-reqpage .trailer-btn, html.tv .tv-reqpage .wlbtn, html.tv .tv-reqpage .tv-ratebtn, html.tv .tv-reqpage .tv-rate,
+html.tv .page:has(> .tv-reqpage) > :not(.pagehead) { display: none; }
+html.tv .tv-reqpage .hero-detail-text .requestblock .statusline { display: block; flex: 1 0 100%; margin: 0; font-size: 22px; font-weight: 600; }
+html.tv .tv-reqpage .hero-detail-btns .tv-back { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tv .personhead { flex-direction: row; align-items: flex-start; gap: 28px; margin-top: 8px; }
+html.tv .personpic { width: 120px; height: 120px; }
+html.tv .personpic.initials { font-size: 40px; }
+html.tv .personhead .hero-detail-title { font-size: 44px; line-height: 1.08; letter-spacing: -.02em; }
+html.tv .personhead .facts-line { margin-top: 6px; font-size: 19px; color: var(--tv-t3); }
+html.tv .personhead .overview {
+  margin-top: 10px; max-width: 640px; font-size: 19px; line-height: 1.3; color: var(--tv-t2);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+html.tv .personhead .biomore { display: none; }
+/* ==== end JY-193 ==== */

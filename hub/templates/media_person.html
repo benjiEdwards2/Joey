@@ -8,9 +8,12 @@
 {% endblock %}
 {% block content %}
 {% from "_poster.html" import poster %}
+{# JY-193 (U7, N1; Gate 1 pick "2A", 2026-10-25): on the friends' TV the page is the head (tv.css: compact) and the "On
+   server" shelf only (posters at the warm h=600) - no "Everything else" grids of TMDB titles. Off the TV: unchanged. #}
+{% set tvf = tv_mode(request) and guest(request) %}
 {# Person page (F11; restyle Phase 3): round portrait beside the name, bio, then "On server" first as a
    carousel and Films / TV as poster grids. Every card: year · role · status WORD. #}
-{% macro card(r, href, word) %}<a class="card-poster" href="{{ href }}"><span class="card-pic">{{ poster(r.poster, r.title, 240) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% for p in [r.year, r.role] if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}{% if word %}{% if r.year or r.role %}<span class="sep"> · </span>{% endif %}<span class="{{ status_of(r.word).cls }}">{{ r.word }}</span>{% endif %}</span></a>{% endmacro %}
+{% macro card(r, href, word) %}<a class="card-poster" href="{{ href }}"><span class="card-pic">{{ poster(r.poster, r.title, 240, "", tvf) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{% for p in [r.year, r.role] if p %}{% if not loop.first %}<span class="sep"> · </span>{% endif %}{{ p }}{% endfor %}{% if word %}{% if r.year or r.role %}<span class="sep"> · </span>{% endif %}<span class="{{ status_of(r.word).cls }}">{{ r.word }}</span>{% endif %}</span></a>{% endmacro %}
 {% if person.down %}<p class="empty">{{ person.note }}</p>{% else %}
 <header class="personhead hero-detail">
   {% if person.ref %}<img class="personpic" src="/img/{{ person.ref }}?h=240" alt="" width="160" height="160">{% else %}<span class="personpic initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
@@ -48,7 +51,10 @@
   <h2 class="seclabel">On server</h2>
   <div class="carousel">{% for r in person.shelf %}{{ card(r, r.item_href, false) }}{% endfor %}</div>
 </section>
+{% elif tvf %}
+<p class="empty">Nothing with {{ person.name }} is on Joey yet.</p>
 {% endif %}
+{% if not tvf %}
 {% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
 <section class="sec">
   <h2 class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</h2>
@@ -60,5 +66,6 @@
   {% endif %}
 </section>
 {% endif %}{% endfor %}
+{% endif %}
 {% endif %}
 {% endblock %}

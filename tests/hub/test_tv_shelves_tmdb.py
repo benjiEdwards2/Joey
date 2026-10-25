@@ -3,6 +3,7 @@ show on-server titles only (one "More on Joey" shelf), a title that is not on th
 focused first, Back), and the person page has a TV layout with the on-server shelf only. Desktop / phone (TV mode
 off) and the private front are unchanged. Seerr and Jellyfin are the fakes of tests/hub/fake_seerr.py and
 fake_jellyfin.py; no network."""
+import os
 import re
 from pathlib import Path
 
@@ -11,8 +12,9 @@ import pytest
 from hub import media_person
 from tests.hub.fake_jellyfin import FRIEND_ID
 from tests.hub.fake_seerr import res
-from tests.hub.film_page import whole
+from tests.hub.film_page import parts_href, whole
 from tests.hub.guest_pages import TV_UA, sign_in
+from tests.hub.helpers import env  # noqa: F401 - the private (household) front fixture
 from tests.hub.test_guest_requests import FRIEND_SEERR, WAITING, post, start
 
 TV = {"User-Agent": TV_UA}
@@ -80,17 +82,37 @@ def test_phone_friend_title_shelves_are_unchanged(friend):
     assert "/media/title/movie/803" in b and ">Not on server<" in b and "?h=600&amp;" not in b.split("Similar", 1)[1]
 
 
-def test_tv_page_makes_no_more_upstream_calls_than_the_phone_page(friend):
-    page(friend, "/media/title/movie/603", tv=False)
-    page(friend, "/media/title/movie/701", tv=False)
-    friend.seerr.calls.clear()
-    page(friend, "/media/title/movie/603", tv=False)
-    page(friend, "/media/title/movie/701", tv=False)
-    phone = sorted(c[1] for c in friend.seerr.calls)
-    friend.seerr.calls.clear()
-    page(friend, "/media/title/movie/603", tv=True)
-    page(friend, "/media/title/movie/701", tv=True)
-    assert sorted(c[1] for c in friend.seerr.calls) == phone
+def cold_calls(c, url, tv, meta_dir):
+    """The Seerr reads of ONE cold render (every Media cache emptied first): the page, then its deferred part request,
+    as htmx makes it, with the background read drained. Returns (the set of call paths, the page's part href)."""
+    from hub import media_film
+    from tests.hub.conftest import clear_media_caches
+    media_film.drain_extras()
+    clear_media_caches()
+    os.environ["META_CACHE_DIR"] = str(meta_dir)   # a fresh on-disk meta cache too (ratings, biographies)
+    c.seerr.calls.clear()
+    c.headers.update(TV) if tv else c.headers.pop("User-Agent", None)
+    try:
+        href = parts_href(c.get(url).text)
+        if href:
+            assert c.get(href).status_code == 200
+        media_film.drain_extras()
+    finally:
+        c.headers.pop("User-Agent", None)
+    return {x[1] for x in c.seerr.calls}, href
+
+
+def test_tv_page_makes_no_more_upstream_calls_than_the_phone_page(friend, monkeypatch, tmp_path):
+    """No live call on render: a cold TV render reads exactly what a cold phone render reads, and the shelves still
+    come from the deferred part (not the page render)."""
+    monkeypatch.setenv("META_CACHE_DIR", str(tmp_path / "meta0"))   # restored after the test
+    tv, tv_href = cold_calls(friend, "/media/title/movie/603", True, tmp_path / "meta-tv")
+    phone, phone_href = cold_calls(friend, "/media/title/movie/603", False, tmp_path / "meta-phone")
+    assert phone, "a cold render reads Seerr"
+    assert tv == phone
+    assert "/api/v1/movie/603/similar" in tv and "/api/v1/movie/603/recommendations" in tv
+    for href in (phone_href, tv_href):
+        assert href and "/part/all?p=" in href and "shelves" in href.split("?p=", 1)[1].split(","), href
 
 
 # ---- D1: the TMDB title page is a request page, Request focused first ----
@@ -183,3 +205,51 @@ def test_tv_css_has_the_jy193_block():
     assert ".tv-reqpage" in block and ".personhead" in block
     assert re.search(r"html\.tv \.tv-reqpage \.hero-detail-poster \{[^}]*width: 220px", block)
     assert "JY-193" not in (root / "control-surface.css").read_text(encoding="utf-8")
+
+
+# ---- review should-fixes (2026-10-25): where data-first may appear; the household front ----
+
+def render_block(on_server, episode=None, req_primary=True, tv=True, monkeypatch=None):
+    from hub import shell
+    g = shell.templates.env.globals
+    monkeypatch.setitem(g, "tv_mode", lambda request: tv)
+    monkeypatch.setitem(g, "guest", lambda request=None: True)
+    t = {"kind": "movie", "tmdb_id": 701, "title": "X", "year": 2024, "code": 1, "seasons": []}
+    film = {"t": t, "on_server": on_server, "episode": episode}
+    return shell.templates.env.get_template("_request_block.html").render(
+        request=None, t=t, state="idle", req_primary=req_primary, film=film)
+
+
+@pytest.mark.parametrize("on_server, episode, req_primary, tv, first", [
+    (False, None, True, True, True),       # the TV request page: the one place
+    (True, None, True, True, False),       # an on-server title (a show with no Play) keeps the normal first focus
+    (False, {"code": "S1E1"}, True, True, False),
+    (False, None, False, True, False),     # Request beside Play (under More) is never first
+    (False, None, True, False, False),     # off the TV
+])
+def test_data_first_is_only_on_the_tv_request_page(monkeypatch, on_server, episode, req_primary, tv, first):
+    html = render_block(on_server, episode, req_primary, tv, monkeypatch)
+    assert (">Request</a>" in html) and (("data-first" in html) is first)
+
+
+def test_request_route_fragments_never_carry_data_first(friend):
+    for step in ("idle", "confirm"):
+        r = friend.get(f"/media/title/movie/701/request?step={step}", headers={**TV, "HX-Request": "true"})
+        assert r.status_code == 200 and "data-first" not in r.text, step
+
+
+def test_household_front_tv_title_pages_are_unchanged(env):
+    """The private (household) front ignores the TV user agent and cookie (tv_mode is media-front only), so the guest
+    gate keeps its title pages exactly as before: Similar / Recommended with their words, no request page."""
+    from tests.hub.conftest import main_of
+    client, _ = env()
+    with client:
+        for url in ("/media/title/movie/603", "/media/title/movie/701"):
+            whole(client, url)   # warm: both renders below then draw from the same caches
+            plain = main_of(whole(client, url))
+            client.cookies.set("tv", "1")
+            tv = main_of(page(client, url, tv=True))
+            client.cookies.delete("tv")
+            assert tv == plain, url
+            assert "More on Joey" not in tv and "tv-reqpage" not in tv and "data-first" not in tv and "tv-back" not in tv
+        assert "Similar" in main_of(whole(client, "/media/title/movie/603"))

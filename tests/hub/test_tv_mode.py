@@ -257,6 +257,7 @@ function El(tag, opts) {
 El.prototype.append = function (k) { k.parentElement = this; this.children.push(k); };
 El.prototype.getAttribute = function (a) { return a in this.attrs ? this.attrs[a] : null; };
 El.prototype.removeAttribute = function (a) { delete this.attrs[a]; };
+El.prototype.setAttribute = function (a, v) { this.attrs[a] = String(v); };   /* JY-192 */
 Object.defineProperty(El.prototype, 'isConnected', { get: function () {
   var p = this; while (p.parentElement) p = p.parentElement; return p === html; } });
 El.prototype.getBoundingClientRect = function () {
@@ -545,7 +546,7 @@ fire('window:pageshow', { persisted: true });
 out.pageshow = now();
 while (now().indexOf('pill-') !== 0 && now() !== 'brand') { out.last_in_main = document.activeElement.attrs.href; key('ArrowUp'); }
 out.top = now();
-var mem = JSON.parse(store[Object.keys(store)[0]] || '{}');
+var mem = JSON.parse(store['joeyTV.back'] || '{}');   /* JY-192: by name (tv.js keeps a second key, joeyTV.trail) */
 out.mem_overview = mem['/a/media'] && mem['/a/media'].h;
 load('/media/movies', function () { movies(2); });
 out.missing = now();
@@ -626,7 +627,7 @@ def test_the_tv_pages_carry_what_the_jy187_rules_read(gc):
     gc.fake.items[item] = {"Id": item, "Type": "Movie", "Name": "Chip Film", "ProductionYear": 2001,
                            "Overview": "A synopsis line.", "ProviderIds": {"Tmdb": "777"}, "RunTimeTicks": 100 * 600_000_000}
     film = gc.get(f"/media/item/{item}", headers=tv).text
-    assert film.index('class="hero-detail-btns"') < film.index('<div class="tv-rate">')
+    assert film.index('class="hero-detail-btns"') < film.index('<div class="tv-rate"')   # JY-192: the strip gains id + hidden
     js = gc.get("/static/tv.js").text
     for needle in (".toplinks a[aria-current]", "'.sectabs.sub [aria-current]'", "'.hero-detail-btns'", "'.tv-rate'",
                    "window.sessionStorage", "addEventListener('pageshow'"):

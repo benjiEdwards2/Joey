@@ -6,6 +6,8 @@
 
     <string name="offline_title">Can\'t reach Joey Media</string>
     <string name="offline_body">Check that this TV is online, then try again.</string>
+    <string name="offline_page_title">Couldn\'t open this page</string>
+    <string name="offline_page_body">Joey Media is up, but this page didn\'t load. Choose Retry to try it again.</string>
     <string name="offline_retry">Retry</string>
     <string name="offline_open_jellyfin">Open Jellyfin anyway</string>
 

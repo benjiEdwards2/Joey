@@ -12,12 +12,14 @@
         android:src="@drawable/ic_offline" />
 
     <TextView
+        android:id="@+id/offline_title"
         style="@style/JoeyText.H1"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/offline_title" />
 
     <TextView
+        android:id="@+id/offline_body"
         style="@style/JoeyText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

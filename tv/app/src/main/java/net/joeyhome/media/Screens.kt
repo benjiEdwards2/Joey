@@ -8,6 +8,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
+import net.joeyhome.media.policy.OfflineKind
 import net.joeyhome.media.policy.SettingsGesture
 
 /**
@@ -60,9 +61,20 @@ class Screens(
         push(Kind.SPLASH, view, root, onBack)
     }
 
-    fun showOffline(onRetry: () -> Unit, onOpenJellyfin: () -> Unit, onSettings: () -> Unit, onBack: () -> Unit) {
+    /** [kind] picks the wording (JY-191 V2): NETWORK = "Check that this TV is online", PAGE = the page failed. */
+    fun showOffline(
+        kind: OfflineKind,
+        onRetry: () -> Unit,
+        onOpenJellyfin: () -> Unit,
+        onSettings: () -> Unit,
+        onBack: () -> Unit,
+    ) {
         clear()
         val view = inflate(R.layout.screen_offline)
+        if (kind == OfflineKind.PAGE) {
+            view.findViewById<TextView>(R.id.offline_title).setText(R.string.offline_page_title)
+            view.findViewById<TextView>(R.id.offline_body).setText(R.string.offline_page_body)
+        }
         val retry = view.findViewById<Button>(R.id.offline_retry)
         val openJf = view.findViewById<Button>(R.id.offline_open_jellyfin)
         retry.setOnClickListener { onRetry() }

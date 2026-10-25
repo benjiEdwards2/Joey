@@ -13,7 +13,7 @@ enum class BackAction {
     /** WebView history back. */
     GO_BACK,
 
-    /** Leave the app (Back on Overview exits, DECISIONS D). */
+    /** Leave the app (Back on Overview exits, DECISIONS D; Back on sign-in exits, JY-191). */
     EXIT,
 
     /** Load the home path and clear history, so the next Back exits. */
@@ -26,6 +26,9 @@ enum class BackAction {
  * One deliberate difference from the plan's component table: "at home → exit" is checked BEFORE "canGoBack → back",
  * so Back on Overview always exits (DECISIONS D) even when history exists (Overview → Movies → Overview). The plan's
  * named cases (no history) behave the same either way.
+ *
+ * JY-191 (B4): Back on the sign-in page also exits. After sign-out, history still holds Overview, and going back to it
+ * 303s to `/signin` with a NEW Quick Connect code, burning the one on screen.
  */
 object BackPolicy {
 
@@ -42,10 +45,14 @@ object BackPolicy {
         val home = HomePath.normalise(homePath)
         val here = HomePath.normalise(currentPath)
         if (home != null && here == home) return BackAction.EXIT
+        if (here == SIGNIN_PATH) return BackAction.EXIT
         if (canGoBack) return BackAction.GO_BACK
         if (home == null) return BackAction.EXIT
         return BackAction.LOAD_HOME
     }
+
+    /** The hub's guest sign-in page (`hub/guest.py` SIGNIN routes): a fixed route, unlike the injected home path. */
+    const val SIGNIN_PATH = "/signin"
 
     /** The script the WebView evaluates for [BackAction.ASK_PAGE]; the result string is "true" when the page handled it. */
     const val PAGE_BACK_JS =

@@ -1,1 +1,1 @@
-Joey Media 1.0.1 - the focused poster now stays clear of the TV screen edges.
+Joey Media 1.0.2 - Back on the sign-in page now closes the app instead of making a new code, and a page that fails to load no longer says this TV is offline.

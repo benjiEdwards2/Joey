@@ -80,6 +80,38 @@ class BackPolicyTest(private val homePath: String) {
         assertEquals(BackAction.EXIT, afterPage("$homePath/", canGoBack = false))
     }
 
+    // JY-191 (B4): Back on the sign-in page exits instead of going back to a page that 303s to a NEW code.
+    @Test
+    fun signInExitsEvenWithHistory() {
+        assertEquals(BackAction.EXIT, afterPage("/signin", canGoBack = true))
+        assertEquals(BackAction.EXIT, afterPage("/signin", canGoBack = false))
+    }
+
+    @Test
+    fun signInWithQueryOrTrailingSlashExits() {
+        assertEquals(BackAction.EXIT, afterPage("/signin?next=%2Fa%2Fmedia", canGoBack = true))
+        assertEquals(BackAction.EXIT, afterPage("/signin/", canGoBack = true))
+    }
+
+    @Test
+    fun signInExitsWhenHomeIsUnknown() {
+        assertEquals(BackAction.EXIT, afterPage("/signin", canGoBack = true, home = null))
+    }
+
+    @Test
+    fun signInStillClosesOverlayAndAsksThePageFirst() {
+        assertEquals(BackAction.CLOSE_OVERLAY, BackPolicy.decide(true, null, true, "/signin", homePath))
+        assertEquals(BackAction.ASK_PAGE, BackPolicy.decide(false, null, true, "/signin", homePath))
+        assertEquals(BackAction.DONE, BackPolicy.decide(false, true, true, "/signin", homePath))
+    }
+
+    @Test
+    fun pathsThatOnlyStartWithSignInAreNotSignIn() {
+        assertEquals(BackAction.GO_BACK, afterPage("/signinx", canGoBack = true))
+        assertEquals(BackAction.GO_BACK, afterPage("/signin-help", canGoBack = true))
+        assertEquals(BackAction.LOAD_HOME, afterPage("/signinx", canGoBack = false))
+    }
+
     @Test
     fun unknownHomeWithNoHistoryExits() {
         assertEquals(BackAction.EXIT, afterPage("/media/movies", canGoBack = false, home = null))

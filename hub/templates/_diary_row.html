@@ -21,5 +21,6 @@
   {% if row.theirs %}
   {% elif score %}{{ rate.score(score) }}
   {% elif ratings is defined and ratings.level == "season" and row.season_key %}{{ rate.picker({"item_key": row.season_key, "kind": row.kind, "level": "season", "title": row.title, "year": row.year, "poster": row.poster}) }}
+  {% elif tv_mode(request) %}<details class="tvrate"><summary class="btn btn-ghost">OK to rate</summary>{{ rate.picker(row) }}</details>{# JY-196 (5A): OK opens the 1-10 strip #}
   {% else %}{{ rate.picker(row) }}{% endif %}
 </div>

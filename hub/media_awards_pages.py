@@ -39,7 +39,7 @@ from hub import media_awards_db as adb
 from hub import media_awards_badges as badges
 from hub import media_awards_icons as icons
 from hub import media_awards_seed as seed
-from hub import guest, media_db, media_discover as md, media_home, media_item, media_pages, media_text, shell
+from hub import guest, media_db, media_discover as md, media_front, media_home, media_item, media_pages, media_text, shell
 from hub import media_watchlist_db as wl
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
@@ -393,7 +393,7 @@ def no_ballot(empty: str | None) -> dict:
     """A ballot with nothing in it (the degraded page): every key the template reads, empty."""
     return {"progress": {"pct": 0, "seen": 0, "total": 0, "headline": None, "server_unseen": 0, "watchlisted": 0},
             "filters": [], "sorts": [], "hidden_seen": None, "rows": [], "rest": 0, "part_rows_href": "",
-            "shorts": [], "people": [], "empty": empty, "part_wl_href": ""}
+            "shorts": [], "people": [], "shelves": [], "empty": empty, "part_wl_href": ""}
 
 
 def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f: str, s: str, nav,
@@ -446,6 +446,11 @@ def ballot(page: dict | None, seen: Seen, kind: str, won_by: dict, owner: str, f
         "part_wl_href": nav(path=WL_PARTS[kind], v="films", f="all", s="wins"),   # body + year only
         "shorts": [ballot_row(w, seen, kind, won_by, wl_keys, films_of) for w in short_works],
         "people": people,
+        # JY-196 (3B): the TV view's shelves - every feature work once per group it belongs to (headline, acting,
+        # direction, craft; the filter groups), most wins first; empty groups are left out. Same rows, no new query.
+        "shelves": [{"key": k, "label": labels[k],
+                     "rows": sorted((r for r, g, _q in items if k in g), key=SORT_KEYS["wins"])}
+                    for k in ("headline", "acting", "direction", "craft") if any(k in g for _r, g, _q in items)],
         "empty": empty or (None if picked or not total else ALL_SEEN if f == "unseen" else NO_MATCH),
     }
     return out, {q for _, q in picked[:first_n]}
@@ -615,6 +620,8 @@ def degraded_ctx(kind: str, v: str) -> dict:
 def _page(request: Request, kind: str, body: str, year: str, unseen: str, all_: str = "", v: str = "", f: str = "",
           s: str = ""):
     later: list = []
+    if media_front.tv_mode(request):   # JY-196 (3B): the TV view is the films data as shelves, whatever the link said
+        v, f, s = "films", "all", "wins"
 
     def build(data, view):
         nonlocal later

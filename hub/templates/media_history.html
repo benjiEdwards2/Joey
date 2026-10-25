@@ -12,26 +12,27 @@
 <p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
-<p class="metaline">{{ numbers }}</p>
+{% set tv = tv_mode(request) %}
+{% if not tv %}<p class="metaline">{{ numbers }}</p>{% endif %}{# JY-196 (5A): no numbers line on the TV #}
 {% set sf = skip_flash(request) %}{# E5 (M3) #}
 {% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
 {# JY-195 (Y4): on the TV a section with nothing in it is left out (the Rate TV by chips go with To rate); both empty
    = one words-first state. #}
-{% set tv = tv_mode(request) %}
 {% if tv and not to_rate and not history.get("recent") %}
 {% from "_empty_state.html" import bigempty %}
 {{ bigempty("film", "Nothing watched yet", "Finish a film or episode and it shows up here", "/media/movies", "Browse films") }}
 {% endif %}
 {% if to_rate or not tv %}
 <section class="sec">
-  <h2 class="seclabel">To rate</h2>{# nav-tidy (2026-10-13): sentence case like the tab #}
-  <form class="chips" method="post" action="/media/settings/rating_level" aria-label="Rate TV by">
+  {% if tv %}<h2 class="seclabel">To rate<span class="sep"> · </span>{{ to_rate | length }}</h2>{% else %}<h2 class="seclabel">To rate</h2>{% endif %}{# nav-tidy (2026-10-13): sentence case like the tab #}
+  {# JY-196 (5A): no "Rate TV by" chips on the TV; each row folds its 1-10 strip under "OK to rate" #}
+  {% if not tv %}<form class="chips" method="post" action="/media/settings/rating_level" aria-label="Rate TV by">
     <span class="microlabel">Rate TV by</span>
     {% for lv in rating_levels %}
     <button type="submit" name="value" value="{{ lv }}" class="chip{{ ' on' if rating_level == lv }}"{% if rating_level == lv %} aria-current="true"{% endif %}>{{ lv|capitalize }}</button>
     {% endfor %}
-  </form>
-  {% if to_rate %}{{ torate.rows(to_rate) }}{% else %}<p class="empty">Nothing waiting to be rated.</p>{% endif %}
+  </form>{% endif %}
+  {% if to_rate %}{{ torate.rows(to_rate, tv) }}{% else %}<p class="empty">Nothing waiting to be rated.</p>{% endif %}
 </section>
 {% endif %}
 {{ torate.skipped(skipped) }}

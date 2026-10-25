@@ -1,6 +1,6 @@
 # JY-193 TV title shelves on-server only, the TMDB title page as a request page, the person page on the TV
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: hub/templates (`_film_shelves.html`, `media_film.html` guest TV branch, `media_person.html`; one `data-first` attribute in `_request_block.html`, outside the listed files - the Request anchor lives there), hub/static/tv.css (a commented "JY-193" block), tests/hub
@@ -52,3 +52,8 @@ The "Request chips" shelf (option 2B); private-front and phone shelves; Discover
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #168, squash-merged as `417ef98` (417ef9861e05de291da91add641048c82c40d820).
+- Deploy: `2026-10-25T03:10:13Z PASS prev=b0cec29 new=417ef98 suite green, smoke ok tv=current gate=-n2 avail=1779 end=2026-10-25T03:16:19Z dur=366s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

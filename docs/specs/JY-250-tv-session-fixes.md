@@ -1,6 +1,6 @@
 # JY-250 TV session fixes: 404 centring, Tonight safe area, season eyebrow, Back from episode, Diary month row
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: hub/static/tv.css, hub/static/tv.js, tests/hub/ (TV tests); JY-249: tests/hub/test_tv_shelves_tmdb.py
@@ -102,3 +102,8 @@ On the TV (next grouped session):
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #179, squash-merged as `d0c790e` (d0c790e4e41731b35a739b94b4c19bf42d57a349).
+- Deploy: `2026-10-25T06:31:26Z PASS prev=e3f5cc3 new=d0c790e suite green, smoke ok tv=current gate=-n1 avail=1629 end=2026-10-25T06:39:12Z dur=466s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

@@ -27,7 +27,8 @@
    * window.joeyTV.back(): the shell's Back key asks this first (tv/ BackPolicy, WP-B7). Closes an open <dialog> (the
      trailer modal) and returns true; returns false when nothing was closed (the shell then goes back / exits);
    * JY-192 (U6): the Rate button ([data-tv-rate]) opens / closes the rating strip (#tv-rate; Back closes it too), and on a
-     season / episode page ([data-tv-up]) Back goes to the series unless the page before was that series.
+     season / episode page ([data-tv-up]) Back goes to the series unless the page before was that series; JY-250: Back
+     on that series then goes to the page before the episode (history.back()).
    * Q41: a trailer opens the YouTube app - in TV mode a click on [data-yt] navigates to its youtube.com href (the
      shell's UrlPolicy hands YouTube to ACTION_VIEW) instead of the in-page player; target="_blank" is dropped from
      links so every navigation reaches the shell's UrlPolicy in this WebView. */
@@ -215,18 +216,38 @@
     try { return JSON.parse(window.sessionStorage.getItem(TRAIL)) || {}; } catch (e) { return {}; }
   }
 
+  function saveTrail(t) {
+    try { window.sessionStorage.setItem(TRAIL, JSON.stringify(t)); } catch (e) { /* storage off: no trail */ }
+  }
+
   function step() {
     var t = trail(), url = here();
     if (t.last === url) return;
     t.prev = t.last || null;
     t.last = url;
-    try { window.sessionStorage.setItem(TRAIL, JSON.stringify(t)); } catch (e) { /* storage off: no trail */ }
+    if (t.up && url.split('?')[0] !== t.up.to) delete t.up;   /* JY-250: the up-mark lives only on the series it named */
+    saveTrail(t);
   }
 
+  /* JY-250 (#15, TV session 2026-10-25): the series replaces the episode's history entry, so the entry before it is the
+     page before the episode (Home). The shell's Back there is WebView goBack(), which passes over an entry Chromium
+     marked skippable (a page that navigated without a user gesture), and so missed Home. goUp() leaves an up-mark;
+     Back on that series, straight after, is history.back() from the page, which never skips. */
   function goUp() {
-    var el = document.querySelector('[data-tv-up]'), up = el && el.getAttribute('data-tv-up');
-    if (!up || (trail().prev || '').split('?')[0] === up) return false;
+    var el = document.querySelector('[data-tv-up]'), up = el && el.getAttribute('data-tv-up'), t = trail();
+    if (!up || (t.prev || '').split('?')[0] === up) return false;
+    if (t.prev) { t.up = { to: up, from: here() }; saveTrail(t); }
     window.location.replace(up);
+    return true;
+  }
+
+  function upBack() {
+    var t = trail(), u = t.up;
+    if (!u) return false;
+    delete t.up;   /* used once */
+    saveTrail(t);
+    if (here().split('?')[0] !== u.to || t.prev !== u.from || !(window.history && window.history.length > 1)) return false;
+    window.history.back();
     return true;
   }
 
@@ -423,11 +444,12 @@
 
   window.joeyTV = {
     /* The shell's Back key: true = a web dialog was closed, the Rate strip closed (JY-192), a Discover search cleared
-       (JY-194), or a season / episode page replaced by its series (JY-192, X1); false = nothing to do here. */
+       (JY-194), or a season / episode page replaced by its series (JY-192, X1), or that series gone back from
+       (JY-250); false = nothing to do here. */
     back: function () {
       var d = openDialog();
       /* JY-194: results showing -> the trending grid, field focused */
-      if (!d) return closeRate() || clearSearch() || goUp();
+      if (!d) return closeRate() || clearSearch() || goUp() || upBack();
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();

@@ -124,10 +124,12 @@ html.tv .card-pic > .bar > span { border-radius: 3px; background: var(--tv-bar-f
 /* Library grid (Movies / TV shows): six columns, 22 / 16 px gaps; the search / filter chips / sort / layout toolbar, the
    list switch and the freshness lines are phone / desktop furniture (a remote cannot type), hidden here. */
 /* Tonight (JY-189; tv-v2 shell 02, T1/T2): label first in the body, three 200 px cards centred (posters fetched at h=400),
-   "Deal again" beside them in the same row so it needs no scroll. No 1.06 scale here: the body has no room, ring only. */
-html.tv .sec.tn { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: start; column-gap: 40px; }
+   "Deal again" beside them in the same row so it needs no scroll. No 1.06 scale here: the body has no room, ring only.
+   JY-250 (#9, 2026-10-25 TV session): 28 px gaps, not 40, so the row (3 x 200 + 3 x 28 + the 164 px button = 848 px,
+   + the 7 px rings) fits the 864 px safe area; at 40 px it was 884 px and 4 items sat outside it. */
+html.tv .sec.tn { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: start; column-gap: 28px; }
 html.tv .sec.tn > .seclabel, html.tv .sec.tn > .empty { grid-column: 1 / -1; }
-html.tv .poster-grid.big { display: flex; justify-content: center; align-items: flex-start; gap: 40px; padding: 23px 0 0; }
+html.tv .poster-grid.big { display: flex; justify-content: center; align-items: flex-start; gap: 28px; padding: 23px 0 0; }
 html.tv .poster-grid.big .card-poster { flex: 0 0 200px; width: 200px; }
 html.tv .poster-grid.big .card-poster:focus-visible, html.tv .poster-grid.big .card-poster.tv-focus { transform: none; }
 html.tv .poster-grid.big .row-title { font-size: 21px; line-height: 1.1; margin-top: 8px; }
@@ -272,8 +274,9 @@ html.tv .sep, html.tv .row-meta .sep, html.tv .metaline .sep, html.tv .facts-lin
 html.tv .signin-panel:has(details[open]) #qc { display: none; }
 html.tv .signin-panel:has(details[open]) details { margin-top: 0; }
 
-/* JY-188 (F1): the 404 page in TV mode - a centred message and one 56 px back button. */
-html.tv .sec.nf { min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+/* JY-188 (F1): the 404 page in TV mode - a centred message and one 56 px back button. JY-250 (#7): the section is also
+   .narrow (32rem), which held it left of centre; on the TV it spans the safe area. */
+html.tv .sec.nf { max-width: none; min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
 html.tv .sec.nf .seclabel { font-size: 38px; line-height: 1.1; font-weight: 700; text-transform: none; color: var(--tv-t1); }
 html.tv .sec.nf .empty { font-size: 24px; color: var(--tv-t3); margin: 0; }
 html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 56px; padding: 0 28px; border-radius: 12px; border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 21px; font-weight: 600; text-decoration: none; margin-top: 10px; }
@@ -307,6 +310,9 @@ html.tv .hero-detail-in > .tv-epstill {
   border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7);
 }
 html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+/* JY-250 (#13): the season page's "Season N of M" (.epeyebrow, 12 px off the TV) takes the same TV eyebrow look */
+html.tv .epeyebrow { font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+html.tv .epeyebrow .sep { color: var(--tv-t4); }
 html.tv .hero-detail-btns .wtoggle { display: contents; }
 html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600;
   border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
@@ -338,7 +344,7 @@ html.tv .awtv-shelf { margin-top: 10px; }
 html.tv .awtv-shelf .card-poster .row-meta { visibility: visible; color: var(--tv-t4); }
 html.tv .awtv-shelf .card-poster .row-meta.st-good { color: var(--good); }
 html.tv .awwin { position: absolute; top: 6px; left: 6px; z-index: 2; padding: 0 8px; border-radius: 999px; background: var(--tv-gold); color: #1a1200; font-size: 18px; font-weight: 700; line-height: 1.4; white-space: nowrap; }
-html.tv .tvmonth { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 28px; margin: 10px 0 0; padding: 12px 22px; border: 1px solid var(--tv-line); border-radius: 16px; background: var(--tv-surface); }
+html.tv .tvmonth { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px 28px; margin: 10px 0 0; padding: 12px 22px; border: 1px solid var(--tv-line); border-radius: 16px; background: var(--tv-surface); }
 html.tv .tvmonth .seclabel { margin: 0; color: var(--tv-t4); }
 html.tv .tvmonth-n { font-size: 18px; color: var(--tv-t4); }
 html.tv .tvmonth-n b { font-size: 30px; font-weight: 700; color: var(--tv-t1); margin-right: 4px; }

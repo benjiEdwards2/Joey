@@ -35,7 +35,7 @@ In the 2026-10-25 TV session the phone-width TMDB title page for Lupin (`/media/
 Friends have no Follow feature (Q19: Follow is a household admin control; a follow requests titles through the household's Seerr). So the friends' front shows neither the household's follow state nor any Follow control. No `jf:` owner scoping is added.
 
 ## Acceptance criteria
-1. As a friend, a show title page with a followed creator carries no "Following <name> ✓", no "Follow <name>" button and no `/media/follow` form. The show's library item page renders the same template part, so the same fix covers it (not tested separately). Tests: `tests/hub/test_guest_follow_scope.py`.
+1. As a friend, a show title page with a followed creator carries no "Following <name> ✓", no "Follow <name>" button and no `/media/follow` form. The show's library item page and its makers part (`/media/item/{jf_id}`, `/part/makers`) carry no follow state either (review round 1, 2026-10-25; in the test fixture the friend's item part renders empty). Tests: `tests/hub/test_guest_follow_scope.py`.
 2. As a friend, with the household following the person, the series and the show, the person page, film page and show page carry no "Following" text and no `/media/follow` action.
 3. As a friend, the home page and Discover carry no follow shelf and no Following tab or text.
 4. A friend's POST to every follow and unfollow path (person, collection, show; with a same-origin Origin header) is the 404 page, and `media_follows` is unchanged afterwards (rows added or removed: none).
@@ -45,7 +45,7 @@ Friends have no Follow feature (Q19: Follow is a household admin control; a foll
 None. `media_follows` is read only.
 
 ## Performance budget
-No change: one template condition, one fewer media.db read on the friends' front.
+No change: one template condition (`not guest()`, a front check), one fewer media.db read on the friends' front.
 
 ## Options and the pick
 None: same pattern as the other Follow controls.

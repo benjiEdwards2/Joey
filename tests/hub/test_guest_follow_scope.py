@@ -80,6 +80,22 @@ def test_friend_pages_carry_no_household_follow_state(friend, path):
     assert "/media/follow" not in page, path
 
 
+def test_private_library_show_item_shows_the_households_creator_follow(private):
+    """Control for the item tests below: the library show item (ser1 = TMDB 100) draws the Created by Follow row."""
+    assert "Following Cass Creator ✓" in whole(private, "/media/item/ser1")
+
+
+def test_friend_library_show_item_has_no_creator_follow(friend):
+    page = whole(friend, "/media/item/ser1")
+    assert "Following" not in page and "Follow Cass Creator" not in page and "/media/follow" not in page
+
+
+def test_friend_item_makers_part_alone_has_no_follow(friend):
+    r = friend.get("/media/item/ser1/part/makers")
+    assert r.status_code == 200
+    assert "Following" not in r.text and "/media/follow" not in r.text
+
+
 @pytest.mark.parametrize("path", ["/", "/media/discover"])
 def test_friend_home_and_discover_have_no_follow_shelf(friend, path):
     r = friend.get(path)

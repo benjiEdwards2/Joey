@@ -1,6 +1,6 @@
 # JY-192 U6 Series and episodes on the TV
 
-Status: review
+Status: shipped 2026-10-25
 Size: L
 Live risk: none
 Area: `hub/templates/media_film.html`, `hub/media_film.py`, `hub/static/tv.css` (one commented "U6" block), `hub/static/tv.js` (Rate strip + Back = series), `tests/hub/fake_jellyfin.py` (an Episodes read), `tests/hub/test_tv_series_episodes.py`, `tests/hub/test_tv_mode.py` (fake DOM gains `setAttribute`)
@@ -58,3 +58,8 @@ Device check for the grouped TV session (orchestrator, `JoeyTV\scripts\tv_ui_cap
 None open.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #164, squash-merged as `49096ca` (49096ca8f7d2439e631df10cb2bd8fd633940b5c).
+- Deploy: `2026-10-25T02:33:16Z PASS prev=42f9dd8 new=49096ca suite green, smoke ok tv=current gate=-n1 avail=1719 end=2026-10-25T02:42:08Z dur=532s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

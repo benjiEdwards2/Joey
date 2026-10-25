@@ -1,6 +1,6 @@
 # JY-251 Follow scope on the friends' front
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: hub/templates/_film_makers.html, tests/hub
@@ -61,3 +61,8 @@ Per-friend follows.
 1. Friends get no Follow feature (recommended, as Q19), or a per-friend Follow later (a new item)?
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #178, squash-merged as `e3f5cc3` (e3f5cc3d8209ddd61738e715150d8a6132b1159e).
+- Deploy: `2026-10-25T06:18:55Z PASS prev=18c0d86 new=e3f5cc3 suite green, smoke ok tv=current gate=-n1 avail=1634 end=2026-10-25T06:26:58Z dur=483s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

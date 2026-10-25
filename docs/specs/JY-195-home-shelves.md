@@ -1,6 +1,6 @@
 # JY-195 Home shelves and TV empty states (U9)
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `hub/media_guest_home.py` (the friends' Home data; the brief's `media_guest_overview.py`), `hub/templates/area_shelves.html`, a new `hub/templates/_empty_state.html` macro, the empty branches of `media_watchlist.html`, `media_to_rate.html`, `media_history.html` and `media_diary.html`, `hub/static/tv.css` (a commented "JY-195" block), tests in `tests/hub/`
@@ -78,3 +78,8 @@ Hub page render, warm, p95 <= 50 ms: shelves 3 to 5 are three sorts over the in-
 None open.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #167, squash-merged as `ac96013` (ac9601396dd03800456560a2716c690f637b3d7f).
+- Deploy: `2026-10-25T02:46:44Z PASS prev=49096ca new=ac96013 suite green, smoke ok tv=current gate=-n2 avail=1750 end=2026-10-25T02:52:34Z dur=350s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

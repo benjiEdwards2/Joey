@@ -1,0 +1,293 @@
+16:20:15 === tv_session_1025 2026-10-25 16:20 only=3 ===
+16:20:15 deploy lock present: waiting until it is gone (+60 s warm-up)
+16:25:20 === tv_session_1025 2026-10-25 16:25 only=3,29 ===
+16:25:20 deploy lock present: waiting until it is gone (+60 s warm-up)
+16:27:22 deploy lock gone after 122 s (incl. warm-up)
+16:27:31 MANUAL #3 J5 Up from Movies lands on the current pill - net.joeyhome.media.debug not running - launch it first
+16:27:41 MANUAL #29 Home poster: Up = 'Joey Media', Right x5 = sign-out pill (6 presses) - net.joeyhome.media.debug not running - launch it first
+16:27:41 === RESULTS by check number ===
+16:27:41 #3   MANUAL   net.joeyhome.media.debug not running - launch it first
+16:27:41 #29  MANUAL   net.joeyhome.media.debug not running - launch it first
+16:28:11 === tv_session_1025 2026-10-25 16:28 only=3,29 ===
+16:28:26 MANUAL #3 J5 Up from Movies lands on the current pill - keys do not reach the page: a native screen is open above the WebView (screenshot it, clear it)
+16:28:29 MANUAL #29 Home poster: Up = 'Joey Media', Right x5 = sign-out pill (6 presses) - keys do not reach the page: a native screen is open above the WebView (screenshot it, clear it)
+16:28:29 === RESULTS by check number ===
+16:28:29 #3   MANUAL   keys do not reach the page: a native screen is open above the WebView (screenshot it, clear it)
+16:28:29 #29  MANUAL   keys do not reach the page: a native screen is open above the WebView (screenshot it, clear it)
+16:29:15 === tv_session_1025 2026-10-25 16:29 only=3,29 ===
+16:29:31 MANUAL #3 J5 Up from Movies lands on the current pill - update dialog up but focus never reached Later - nothing pressed
+16:29:47 MANUAL #29 Home poster: Up = 'Joey Media', Right x5 = sign-out pill (6 presses) - update dialog up but focus never reached Later - nothing pressed
+16:29:47 === RESULTS by check number ===
+16:29:47 #3   MANUAL   update dialog up but focus never reached Later - nothing pressed
+16:29:47 #29  MANUAL   update dialog up but focus never reached Later - nothing pressed
+16:30:19 === tv_session_1025 2026-10-25 16:30 only=3,29 ===
+16:30:40 PASS   #3 J5 Up from Movies lands on the current pill - first a.card-poster.tv-focus 'Animals 2026'; Up x2 stops ["a.tv-focus 'My films'", "a.tv-focus 'Movies'"] (aria-current=page)
+16:31:05 PASS   #29 Home poster: Up = 'Joey Media', Right x5 = sign-out pill (6 presses) - first a.card-poster.tv-focus 'Slow Horses S1 E1 · 49m left'; Up -> a.brand.brand-home.tv-focus 'Joey Media'; Right x5 -> ['Movies', 'TV shows', 'Diary', 'Discover', 'j joeytest Sig'] (6 presses, pill reached True)
+16:31:05 === RESULTS by check number ===
+16:31:05 #3   PASS     first a.card-poster.tv-focus 'Animals 2026'; Up x2 stops ["a.tv-focus 'My films'", "a.tv-focus 'Movies'"] (aria-current=page)
+16:31:05 #29  PASS     first a.card-poster.tv-focus 'Slow Horses S1 E1 · 49m left'; Up -> a.brand.brand-home.tv-focus 'Joey Media'; Right x5 -> ['Movies', 'TV shows', 'Diary', 'Discover', 'j joeytest Sig'] (6 presses, pill reached True)
+16:31:12 === tv_session_1025 2026-10-25 16:31 only=all now-items ===
+16:32:15 PASS   device overview /a/media - 1244/8162 ms, first focus a.card-poster 'Slow Horses S1 E1 · 49m left', 50 focusables, downs 5; no automatic issue
+16:32:57 PASS   device movies /media/movies - 1293/1293 ms, first focus a.card-poster 'Animals 2026', 60 focusables, downs 7; no automatic issue
+16:33:11 PASS   device movies_watchlist /media/movies/watchlist - 1248/1248 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+16:33:28 INFO   device movies_tonight /media/movies/tonight - 1189/1189 ms, first focus a.card-poster 'Schindler's List (1993) 3h 15m ·', 15 focusables, downs 1; 4 outside safe area
+16:33:41 PASS   device movies_torate /media/movies/to-rate - 1239/1239 ms, first focus a.tv-focus 'To rate', 12 focusables, downs 2; no automatic issue
+16:34:25 PASS   device movies_awards /media/movies/awards - 1622/8624 ms, first focus a.chip 'Oscars', 83 focusables, downs 6; no automatic issue
+16:34:58 PASS   device tv /media/tv - 1305/1305 ms, first focus a.card-poster 'American Hostage 2026', 38 focusables, downs 4; no automatic issue
+16:35:12 PASS   device tv_watchlist /media/tv/watchlist - 1207/1207 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+16:35:35 PASS   device title_movie /media/item/ba8dd9108d7c6320aeb0d84ec42c780b - 1713/8114 ms, first focus a.btn 'Play ▶', 10 focusables, downs 1; no automatic issue
+16:36:07 PASS   device title_series /media/item/7b0bafd942c0f5e7ec927c0b060172fb - 1319/8424 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; no automatic issue
+16:36:38 INFO   device title_season /media/item/76a5bee6218fda74cdec05f769687ab9 - 1208/8169 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; 1 text <16px
+16:37:09 PASS   device title_episode /media/item/e1a4139073d2aec00a3eabf34c06691e - 1372/8380 ms, first focus a.btn 'Play ▶', 17 focusables, downs 3; no automatic issue
+16:37:21 PASS   device person /media/person/1216733 - 1814/2546 ms, first focus a.card-poster 'American Hostage 2026 · Executiv', 7 focusables, downs 1; no automatic issue
+16:37:45 PASS   device title_tmdb /media/title/tv/96677 - 1889/8238 ms, first focus a.btn 'Request', 8 focusables, downs 1; no automatic issue
+16:38:00 PASS   device diary /media/diary - 1557/1557 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+16:38:14 PASS   device diary_tv /media/diary?kind=tv - 1171/1171 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+16:38:27 PASS   device history /media/history - 1171/1171 ms, first focus a.tv-focus 'To rate', 9 focusables, downs 2; no automatic issue
+16:39:01 PASS   device discover /media/discover - 1252/1252 ms, first focus a.card-poster 'Request Lupin 2021 · TV', 43 focusables, downs 5; no automatic issue
+16:39:55 INFO   device discover_search /media/discover/search?q=star - 1811/8085 ms, first focus a.card-poster 'Request Star Wars 1977 · Film', 20 focusables, downs 14; 80 text 16-17px; 1 outside safe area; 61 low contrast; Up never reached the top bar
+16:40:39 INFO   device search /media/search?q=the - 1778/1778 ms, first focus input '', 8 focusables, downs 14; 16 text 16-17px; 6 outside safe area; 16 low contrast; Up never reached the top bar
+16:40:50 PASS   device notfound /media/nope-404 - 1291/1291 ms, first focus a.nf-back 'Back to Joey Media', 7 focusables, downs 1; no automatic issue
+16:41:10 PASS   #1 J3 Movies row 2 col 4 -> title -> Back: focus restored - focus ('/media/item/0a2f91af7c85b5ed6ff79794d87216d9', 17) -> OK -> /media/item/0a2f91af7c85b5ed6ff79794d87216d9 (759 ms) -> Back -> /media/movies (800 ms), focus ('/media/item/0a2f91af7c85b5ed6ff79794d87216d9', 23, 1)
+16:41:30 PASS   #2 J4 Movies row 5 -> title -> Back: scroll restored - focus ('/media/item/cffb08a94be0328d8881142c88727246', 604) -> OK -> /media/item/cffb08a94be0328d8881142c88727246 (765 ms) -> Back -> /media/movies (791 ms), focus ('/media/item/cffb08a94be0328d8881142c88727246', 610, 1)
+16:41:43 PASS   #3 J5 Up from Movies lands on the current pill - first a.card-poster.tv-focus 'Animals 2026'; Up x2 stops ["a.tv-focus 'My films'", "a.tv-focus 'Movies'"] (aria-current=page)
+16:42:32 PASS   #4 J9 Down from the title buttons lands on the first rating control - /media/item/ba8dd9108d7c6320aeb0d84ec42c780b: strip open focus button.chip.score-1.tv-focus '1'; Up -> a.btn.btn-white.tv-focus 'Play ▶'; Down -> button.chip.score-1.tv-focus '1' (want chip 1); strip closed, Down from Rate -> button.btn.btn-glass.tv-ratebtn 'Rate'
+16:42:32 PASS   #5 device title_movie,title_series,notfound,overview: 0 tiny, lowContrast <= 2 - title_movie tiny 0 lowC 0, title_series tiny 0 lowC 0, notfound tiny 0 lowC 0, overview tiny 0 lowC 0
+16:42:50 BYEYE  #6 by eye: Home 8 across, 64 px bar, meta only on the focused card - shots\device\by_eye_06_overview.png; bar 64 px, cards per row in view [1, 1, 2], card [110, 212], visible meta lines 1
+16:43:45 PASS   #8 poster probe Movies / Home / Tonight: naturalWidth >= device px - movies: 24 posters, min natural 400, max device px 203; overview: 4 posters, min natural 400, max device px 220; tonight: 3 posters, min natural 400, max device px 400
+16:43:59 FAIL   #9 Tonight: outsideSafe 0, offscreen [], label visible, Deal again reachable - outsideSafe 4, offscreen [], label {'found': True, 'top': 118, 'bottom': 136, 'sb': 104, 'visible': True}, Right stops ["a.card-poster.tcard.tv-focus 'Animals (2026) 1h 48m · Just arrived'", "a.card-poster.tcard.tv-focus 'Aftersun (2022) 1h 41m · Wildcard'", "a.card-poster.tcard.tv-focus 'Boiling Point (2021) 1h 35m · A short on'", "a.btn.btn-secondary.tv-focus 'Deal again'"] (Deal again after 3 Rights)
+16:44:05 PASS   #11 404 as joeytest: the bar shows joeytest's chip - chip True, chip names joeytest True, 'Not signed in' False; shots\device\by_eye_07_notfound.png
+16:44:14 PASS   #12 Diary month card = joeytest's own numbers (or nothing yet) - card 'THIS MONTH 0 films 0 episodes 4h 10m watched' -> films 0 eps 0; counts {'own_diary': 0, 'own_play_films': 0, 'own_play_eps': 0, 'hh_diary_films': 5, 'hh_diary_eps': 136}; shots\device\diary_month_card.png
+16:44:14 FAIL   #13 device title_series,title_season,title_episode: 0 tiny - title_series tiny 0 []; title_season tiny 1 ['p.epeyebrow|12']; title_episode tiny 0 []
+16:44:51 FAIL   #14 J6 OK on an episode card: Jellyfin plays that episode (then stopped) - Jellyfin app session user(s) ['other']: not joeytest, nothing played (stopped)
+16:45:26 FAIL   #15 Episode from Home: Back -> series, Back -> Home - Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb
+16:45:57 PASS   #16 Rate strip opens on 1; Back closes it (OK on 8 not pressed) - /media/item/ba8dd9108d7c6320aeb0d84ec42c780b: OK on Rate -> open True, focus button.chip.score-1.tv-focus '1' (want 1); Right x7 -> button.chip.score-8.tv-focus '8' (focus only, no OK); Back -> closed True, focus button.btn.btn-glass.tv-ratebtn 'Rate', label 'Rate'. 'OK on 8 -> Rated 8' DEFERRED: it writes a joeytest rating (no test-safe path)
+16:45:57 FAIL   #17 title_movie images_ms < 3000, shelf 'More on Joey' - ia/item/ba8dd9108d7c6320aeb0d84ec42c780b: images_ms 8114, headings ['Animals'], 'Not on server' in main False
+16:46:22 PASS   #18 title_tmdb: outsideSafe 0, Request focused, OK opens confirm (cancelled) - /media/title/tv/96677: outsideSafe 0, Request focused on load, OK -> confirm 'Request which seasons of Lupin? All seasons Season 1 Not in library Part 3 Not i', Cancel -> idle True. 'Requested, Back focused' DEFERRED (a real request downloads media)
+16:46:37 PASS   #19 Person page from a film's cast: name under the bar, first poster focused - /media/person/880: name {'top': 90, 'bottom': 138, 'bar': 64, 'visible': True, 'len': 11}, focus a.card-poster.tv-focus 'Animals 2026 · as Mark Kimball · Directo', first poster focused True; shots\device\person_from_cast.png
+16:46:48 PASS   #20 Discover: Up from the first poster focuses the field - first a.card-poster.rowlink.tv-focus 'Request Lupin 2021 · TV' -> Up -> input.input.tv-focus 'Search films and TV' (search 1, read-only 1)
+16:47:24 FAIL   #21 Discover: OK raises the keyboard, typing shows 'Results · n' - OK -> readOnly False, keyboard shown True (mInputShown=true   mIsInputViewShown=true mStatusIcon=0); typed -> grid q 'apothecary', label 'RESULTS · 9'
+16:47:31 PASS   #22 Discover: Enter moves focus to the first result - Enter -> focus a.card-poster.rowlink.tv-focus 'Request The Apothecary Diaries 2023 · TV' (in grid 1); keyboard still shown True
+16:47:50 FAIL   #23 Discover: Back -> trending + field focused; Back again leaves - Back -> focus a.card-poster.tv-focus 'Animals 2026 · as Mark Kimball · Directo', grid q 'None', field 'None' (one extra Back closed the keyboard first); Back -> /media/title/tv/96677
+16:48:05 PASS   #24 Home >= 4 shelves, no grey empty box - 5 shelves ['CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 MINUTES · 10'], grey .empty boxes 0, welcome line False
+16:48:20 PASS   #25 Watchlist / To rate: words-first state, no '0 on your watchlist' - watchlist: words 'Nothing on your watchlist yet Press + Watchlist on any film to keep it here Browse films', cards 0, grey 0, '0 on your watchlist' False (shots\device\empty_watchlist.png); to rate: words 'Nothing to rate right now Films you finish show up here so you can give them a score Brows', cards 0, grey 0, '0 on your watchlist' False (shots\device\empty_to_rate.png)
+16:48:20 PASS   #26 device diary,history,movies_awards: 0 tiny, outsideSafe 0 - diary tiny 0 outsideSafe 0 []; history tiny 0 outsideSafe 0 []; movies_awards tiny 0 outsideSafe 0 []
+16:48:40 PASS   #27 Awards: chips inside the safe area, current chip first focus, shelves by group - 9 chips in 2 row(s), x 48..857 (<= 912), current 'Oscars', first focus a.chip.on.tv-focus 'Oscars' (aria-current true), edition '98th Academy Awards · 15 Mar · films of 2025', shelves ['BEST PICTURE · 10', 'ACTING · 12', 'DIRECTION & WRITING · 10', 'CRAFT · 35']; shots\device\awards_tv.png
+16:48:55 PASS   #28 Diary: slim month row, All/Films/TV chips, OK to rate; To rate without 'Rate TV by' - month row 179 px; chips ['All', 'Films', 'TV']; Log a watch False; 'OK to rate' rows 0; no unrated row to open; empty 'Your diary is empty
+
+Films and episodes you finish are logged here
+
+Browse films'; To rate: 'Rate TV by' False, heads ['Nothing watched yet'], OK-to-rate rows 0; shots\device\diary_tv.png; shots\device\history_tv.png
+16:49:18 PASS   #29 Home poster: Up = 'Joey Media', Right x5 = sign-out pill (6 presses) - first a.card-poster.tv-focus 'Slow Horses S1 E1 · 49m left'; Up -> a.brand.brand-home.tv-focus 'Joey Media'; Right x5 -> ['Movies', 'TV shows', 'Diary', 'Discover', 'j joeytest Sig'] (6 presses, pill reached True)
+16:49:39 PASS   #30 Movies: Up = Movies pill, Left = 'Joey Media', OK = Home on the first poster - Up x2 -> a.tv-focus 'Movies'; Left -> a.brand.brand-home.tv-focus 'Joey Media'; OK -> /a/media in 745 ms, focus a.card-poster.tv-focus 'Slow Horses S1 E1 · 49m left', first poster True
+16:50:08 PASS   #31 Up from Movies / TV shows / Diary / Discover lands on that pill - Movies: a.card-poster.tv-focus 'Animals 2026' -> Up x2 -> a.tv-focus 'Movies'; TV shows: a.card-poster.tv-focus 'American Hostage 2026' -> Up x2 -> a.tv-focus 'TV shows'; Diary: a.tv-focus 'Diary' -> Up x1 -> a.tv-focus 'Diary'; Discover: a.card-poster.rowlink.tv-focus 'Request Lupin 2021 · TV' -> Up x2 -> a.tv-focus 'Discover'
+16:50:47 FAIL   #10 signin --allow-write without the stale-device step (no 403) - Joey Media devices before 2, after sign-out 1; signed out in 744 ms; QC approve -> true; back on /a/media in 3175 ms; devices now 2 (want 1)
+16:50:48 BYEYE  #7 by eye: sign-in password form fully shown; bad URL centred 'No page here' + Back - password field {'top': 270, 'bottom': 319, 'H': 540, 'full': True, 'qcShown': False} (shots\device\by_eye_07_signin_password.png); 404 shot shots\device\by_eye_07_notfound.png
+16:51:08 PASS   local overview /a/media - 300/300 ms, first focus a.card-poster 'Slow Horses S1 E1 · 49m left', 50 focusables, downs 5; no automatic issue
+16:51:17 PASS   local movies /media/movies - 316/316 ms, first focus a.card-poster 'Animals 2026', 60 focusables, downs 7; no automatic issue
+16:51:20 PASS   local movies_watchlist /media/movies/watchlist - 296/296 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+16:51:23 INFO   local movies_tonight /media/movies/tonight - 297/297 ms, first focus a.card-poster 'Aftersun (2022) 1h 41m · A short', 15 focusables, downs 1; 4 outside safe area
+16:51:26 PASS   local movies_torate /media/movies/to-rate - 300/300 ms, first focus a.tv-focus 'To rate', 12 focusables, downs 2; no automatic issue
+16:51:41 PASS   local movies_awards /media/movies/awards - 379/8167 ms, first focus a.chip 'Oscars', 83 focusables, downs 6; no automatic issue
+16:51:48 PASS   local tv /media/tv - 318/318 ms, first focus a.card-poster 'American Hostage 2026', 38 focusables, downs 4; no automatic issue
+16:51:51 PASS   local tv_watchlist /media/tv/watchlist - 329/329 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+16:52:02 PASS   local title_movie /media/item/ba8dd9108d7c6320aeb0d84ec42c780b - 307/8096 ms, first focus a.btn 'Play ▶', 10 focusables, downs 1; no automatic issue
+16:52:15 PASS   local title_series /media/item/7b0bafd942c0f5e7ec927c0b060172fb - 349/8139 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; no automatic issue
+16:52:28 INFO   local title_season /media/item/76a5bee6218fda74cdec05f769687ab9 - 313/8101 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; 1 text <16px
+16:52:41 PASS   local title_episode /media/item/e1a4139073d2aec00a3eabf34c06691e - 308/8100 ms, first focus a.btn 'Play ▶', 17 focusables, downs 3; no automatic issue
+16:52:44 PASS   local person /media/person/1216733 - 865/865 ms, first focus a.card-poster 'American Hostage 2026 · Executiv', 7 focusables, downs 1; no automatic issue
+16:52:55 PASS   local title_tmdb /media/title/tv/96677 - 304/8091 ms, first focus a.btn 'Request', 8 focusables, downs 1; no automatic issue
+16:52:58 PASS   local diary /media/diary - 360/360 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+16:53:01 PASS   local diary_tv /media/diary?kind=tv - 369/369 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+16:53:03 PASS   local history /media/history - 308/308 ms, first focus a.tv-focus 'To rate', 9 focusables, downs 2; no automatic issue
+16:53:10 PASS   local discover /media/discover - 332/332 ms, first focus a.card-poster 'Request Lupin 2021 · TV', 43 focusables, downs 5; no automatic issue
+16:53:20 INFO   local discover_search /media/discover/search?q=star - 820/8108 ms, first focus None 'None', 20 focusables, downs 1; 80 text 16-17px; 1 outside safe area; 61 low contrast; Up never reached the top bar
+16:53:23 INFO   local search /media/search?q=the - 797/797 ms, first focus None 'None', 8 focusables, downs 1; 16 text 16-17px; 6 outside safe area; 16 low contrast; Up never reached the top bar
+16:53:25 PASS   local notfound /media/nope-404 - 295/295 ms, first focus a.nf-back 'Back to Joey Media', 7 focusables, downs 1; no automatic issue
+16:53:25 PASS   local headless Chrome 960x540 - 3 cookies copied in memory; UA the TV's, 960x540
+16:54:53 PASS   browser headless Chrome 1280x800 - 3 cookies copied in memory; UA desktop's, 1280x800
+16:54:53 FAIL   #36 capture.json vs 2026-10-23: tiny / lowContrast / outsideSafe / offscreen do not rise - 62 page captures compared; rises: ['device/movies_tonight outSafe 0->4', 'local/movies_tonight outSafe 0->4', 'browser/overview tiny 20->102', 'browser/overview lowC 2->3', 'browser/movies tiny 218->221', 'browser/movies lowC 48->49', 'browser/tv tiny 129->140', 'browser/tv lowC 24->27', 'browser/person tiny 50->111', 'browser/person lowC 15->37', 'browser/title_tmdb tiny 167->189', 'browser/title_tmdb lowC 29->31']
+16:56:23 BYEYE  #38 desktop 1440 / phone 390: title, TMDB, person, Tonight as before - desktop/title_movie: tv False, overflow False; desktop/title_tmdb: tv False, overflow False; desktop/person: tv False, overflow False; desktop/movies_tonight: tv False, overflow False; phone/title_movie: tv False, overflow False; phone/title_tmdb: tv False, overflow False; phone/person: tv False, overflow False; phone/movies_tonight: tv False, overflow False; shots in C:\Users\b.edwards\Desktop\Claude\JoeyTV\review\tv-ui-2026-10-25\shots\(desktop|phone)
+16:56:23 BYEYE  #39 desktop / iPad / phone Home: same shelves + welcome, no Overview pill - desktop/overview: Overview link False, welcome False, heads ['Home', 'CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 MINUTES · 10'], title 'Home · Joey Media'; ipad/overview: Overview link False, welcome False, heads ['Home', 'CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 MINUTES · 10'], title 'Home · Joey Media'; phone/overview: Overview link False, welcome False, heads ['Home', 'CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 MINUTES · 10'], title 'Home · Joey Media'
+16:56:24 PASS   #37 screenshots saved to review\tv-ui-2026-10-25 - 232 screenshots under C:\Users\b.edwards\Desktop\Claude\JoeyTV\review\tv-ui-2026-10-25
+16:56:24 === RESULTS by check number ===
+16:56:24 #1   PASS     focus ('/media/item/0a2f91af7c85b5ed6ff79794d87216d9', 17) -> OK -> /media/item/0a2f91af7c85b5ed6ff79794d87216d9 (759 ms) -> Back -> /media/movies (800 ms), focus ('/media/item/0a2f91af7c85b5ed6ff79794d87216d9', 23, 1)
+16:56:24 #2   PASS     focus ('/media/item/cffb08a94be0328d8881142c88727246', 604) -> OK -> /media/item/cffb08a94be0328d8881142c88727246 (765 ms) -> Back -> /media/movies (791 ms), focus ('/media/item/cffb08a94be0328d8881142c88727246', 610, 1)
+16:56:24 #3   PASS     first a.card-poster.tv-focus 'Animals 2026'; Up x2 stops ["a.tv-focus 'My films'", "a.tv-focus 'Movies'"] (aria-current=page)
+16:56:24 #4   PASS     /media/item/ba8dd9108d7c6320aeb0d84ec42c780b: strip open focus button.chip.score-1.tv-focus '1'; Up -> a.btn.btn-white.tv-focus 'Play ▶'; Down -> button.chip.score-1.tv-focus '1' (want chip 1); strip closed, Down from Rate -> button.btn.btn-glass.tv-ratebtn 'Rate'
+16:56:24 #5   PASS     title_movie tiny 0 lowC 0, title_series tiny 0 lowC 0, notfound tiny 0 lowC 0, overview tiny 0 lowC 0
+16:56:24 #6   BYEYE    shots\device\by_eye_06_overview.png; bar 64 px, cards per row in view [1, 1, 2], card [110, 212], visible meta lines 1
+16:56:24 #7   BYEYE    password field {'top': 270, 'bottom': 319, 'H': 540, 'full': True, 'qcShown': False} (shots\device\by_eye_07_signin_password.png); 404 shot shots\device\by_eye_07_notfound.png
+16:56:24 #8   PASS     movies: 24 posters, min natural 400, max device px 203; overview: 4 posters, min natural 400, max device px 220; tonight: 3 posters, min natural 400, max device px 400
+16:56:24 #9   FAIL     outsideSafe 4, offscreen [], label {'found': True, 'top': 118, 'bottom': 136, 'sb': 104, 'visible': True}, Right stops ["a.card-poster.tcard.tv-focus 'Animals (2026) 1h 48m · Just arrived'", "a.card-poster.tcard.tv-focus 'Aftersun (2022) 1h 41m · Wildcard'", "a.card-poster.tcard.tv-focus 'Boiling Point (2021) 1h 35m · A short on'", "a.btn.btn-secondary.tv-focus 'Deal again'"] (Deal again after 3 R
+16:56:24 #10  FAIL     Joey Media devices before 2, after sign-out 1; signed out in 744 ms; QC approve -> true; back on /a/media in 3175 ms; devices now 2 (want 1)
+16:56:24 #11  PASS     chip True, chip names joeytest True, 'Not signed in' False; shots\device\by_eye_07_notfound.png
+16:56:24 #12  PASS     card 'THIS MONTH 0 films 0 episodes 4h 10m watched' -> films 0 eps 0; counts {'own_diary': 0, 'own_play_films': 0, 'own_play_eps': 0, 'hh_diary_films': 5, 'hh_diary_eps': 136}; shots\device\diary_month_card.png
+16:56:24 #13  FAIL     title_series tiny 0 []; title_season tiny 1 ['p.epeyebrow|12']; title_episode tiny 0 []
+16:56:24 #14  FAIL     Jellyfin app session user(s) ['other']: not joeytest, nothing played (stopped)
+16:56:24 #15  FAIL     Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb
+16:56:24 #16  PASS     /media/item/ba8dd9108d7c6320aeb0d84ec42c780b: OK on Rate -> open True, focus button.chip.score-1.tv-focus '1' (want 1); Right x7 -> button.chip.score-8.tv-focus '8' (focus only, no OK); Back -> closed True, focus button.btn.btn-glass.tv-ratebtn 'Rate', label 'Rate'. 'OK on 8 -> Rated 8' DEFERRED: it writes a joeytest rating (no test-safe path)
+16:56:24 #17  FAIL     ia/item/ba8dd9108d7c6320aeb0d84ec42c780b: images_ms 8114, headings ['Animals'], 'Not on server' in main False
+16:56:24 #18  PASS     /media/title/tv/96677: outsideSafe 0, Request focused on load, OK -> confirm 'Request which seasons of Lupin? All seasons Season 1 Not in library Part 3 Not i', Cancel -> idle True. 'Requested, Back focused' DEFERRED (a real request downloads media)
+16:56:24 #19  PASS     /media/person/880: name {'top': 90, 'bottom': 138, 'bar': 64, 'visible': True, 'len': 11}, focus a.card-poster.tv-focus 'Animals 2026 · as Mark Kimball · Directo', first poster focused True; shots\device\person_from_cast.png
+16:56:24 #20  PASS     first a.card-poster.rowlink.tv-focus 'Request Lupin 2021 · TV' -> Up -> input.input.tv-focus 'Search films and TV' (search 1, read-only 1)
+16:56:24 #21  FAIL     OK -> readOnly False, keyboard shown True (mInputShown=true   mIsInputViewShown=true mStatusIcon=0); typed -> grid q 'apothecary', label 'RESULTS · 9'
+16:56:24 #22  PASS     Enter -> focus a.card-poster.rowlink.tv-focus 'Request The Apothecary Diaries 2023 · TV' (in grid 1); keyboard still shown True
+16:56:24 #23  FAIL     Back -> focus a.card-poster.tv-focus 'Animals 2026 · as Mark Kimball · Directo', grid q 'None', field 'None' (one extra Back closed the keyboard first); Back -> /media/title/tv/96677
+16:56:24 #24  PASS     5 shelves ['CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 MINUTES · 10'], grey .empty boxes 0, welcome line False
+16:56:24 #25  PASS     watchlist: words 'Nothing on your watchlist yet Press + Watchlist on any film to keep it here Browse films', cards 0, grey 0, '0 on your watchlist' False (shots\device\empty_watchlist.png); to rate: words 'Nothing to rate right now Films you finish show up here so you can give them a score Brows', cards 0, grey 0, '0 on your watchlist' False (shots\device\empty_to_rate.png)
+16:56:24 #26  PASS     diary tiny 0 outsideSafe 0 []; history tiny 0 outsideSafe 0 []; movies_awards tiny 0 outsideSafe 0 []
+16:56:24 #27  PASS     9 chips in 2 row(s), x 48..857 (<= 912), current 'Oscars', first focus a.chip.on.tv-focus 'Oscars' (aria-current true), edition '98th Academy Awards · 15 Mar · films of 2025', shelves ['BEST PICTURE · 10', 'ACTING · 12', 'DIRECTION & WRITING · 10', 'CRAFT · 35']; shots\device\awards_tv.png
+16:56:24 #28  PASS     month row 179 px; chips ['All', 'Films', 'TV']; Log a watch False; 'OK to rate' rows 0; no unrated row to open; empty 'Your diary is empty
+
+Films and episodes you finish are logged here
+
+Browse films'; To rate: 'Rate TV by' False, heads ['Nothing watched yet'], OK-to-rate rows 0; shots\device\diary_tv.png; shots\device\history_tv.png
+16:56:24 #29  PASS     first a.card-poster.tv-focus 'Slow Horses S1 E1 · 49m left'; Up -> a.brand.brand-home.tv-focus 'Joey Media'; Right x5 -> ['Movies', 'TV shows', 'Diary', 'Discover', 'j joeytest Sig'] (6 presses, pill reached True)
+16:56:24 #30  PASS     Up x2 -> a.tv-focus 'Movies'; Left -> a.brand.brand-home.tv-focus 'Joey Media'; OK -> /a/media in 745 ms, focus a.card-poster.tv-focus 'Slow Horses S1 E1 · 49m left', first poster True
+16:56:24 #31  PASS     Movies: a.card-poster.tv-focus 'Animals 2026' -> Up x2 -> a.tv-focus 'Movies'; TV shows: a.card-poster.tv-focus 'American Hostage 2026' -> Up x2 -> a.tv-focus 'TV shows'; Diary: a.tv-focus 'Diary' -> Up x1 -> a.tv-focus 'Diary'; Discover: a.card-poster.rowlink.tv-focus 'Request Lupin 2021 · TV' -> Up x2 -> a.tv-focus 'Discover'
+16:56:24 #32  WAITING  shell 1.0.2 (JY-191): waits for the orchestrator's release message
+16:56:24 #33  WAITING  shell 1.0.2 (JY-191): waits for the orchestrator's release message
+16:56:24 #34  WAITING  shell 1.0.2 (JY-191): waits for the orchestrator's release message
+16:56:24 #35  WAITING  shell 1.0.2 (JY-191): waits for the orchestrator's release message
+16:56:24 #36  FAIL     62 page captures compared; rises: ['device/movies_tonight outSafe 0->4', 'local/movies_tonight outSafe 0->4', 'browser/overview tiny 20->102', 'browser/overview lowC 2->3', 'browser/movies tiny 218->221', 'browser/movies lowC 48->49', 'browser/tv tiny 129->140', 'browser/tv lowC 24->27', 'browser/person tiny 50->111', 'browser/person lowC 15->37', 'browser/title_tmdb tiny 167->189', 'browser/title
+16:56:24 #37  PASS     232 screenshots under C:\Users\b.edwards\Desktop\Claude\JoeyTV\review\tv-ui-2026-10-25
+16:56:24 #38  BYEYE    desktop/title_movie: tv False, overflow False; desktop/title_tmdb: tv False, overflow False; desktop/person: tv False, overflow False; desktop/movies_tonight: tv False, overflow False; phone/title_movie: tv False, overflow False; phone/title_tmdb: tv False, overflow False; phone/person: tv False, overflow False; phone/movies_tonight: tv False, overflow False; shots in C:\Users\b.edwards\Desktop\Cl
+16:56:24 #39  BYEYE    desktop/overview: Overview link False, welcome False, heads ['Home', 'CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 MINUTES · 10'], title 'Home · Joey Media'; ipad/overview: Overview link False, welcome False, heads ['Home', 'CONTINUE WATCHING · 2', 'RECENTLY ADDED · 2', 'NEW ON JOEY THIS MONTH', 'TOP RATED ON JOEY', 'FILMS UNDER 100 
+16:56:57 === tv_session_1025 2026-10-25 16:56 only=15,17,20,21,22,23 ===
+16:57:22    #15 series page data-tv-up=None trail={"prev":"/media/item/e1a4139073d2aec00a3eabf34c06691e","last":"/media/item/7b0bafd942c0f5e7ec927c0b060172fb"}
+16:57:40 FAIL   #15 Episode from Home: Back -> series, Back -> Home - Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/discover
+16:57:55 PASS   #17 title_movie images_ms < 3000, shelf 'More on Joey' - /media/item/2d6480a7bce2f51e4f66ab63832042d3: in-view images settled 2572 ms, heading 'MORE ON JOEY', 'Not on server' False; tried ['c42c780b 1127 ms shelf False', 'ff430053 1309 ms shelf False', '832042d3 2572 ms shelf True']
+16:58:06 PASS   #20 Discover: Up from the first poster focuses the field - first a.card-poster.rowlink.tv-focus 'Request Lupin 2021 · TV' -> Up -> input.input.tv-focus 'Search films and TV' (search 1, read-only 1)
+16:58:17 PASS   #21 Discover: OK raises the keyboard, typing shows 'Results · n' - OK -> readOnly False, keyboard shown True (mInputShown=true   mIsInputViewShown=true mStatusIcon=0); typed -> grid q 'apothecary', label 'RESULTS · 9'
+16:58:24 PASS   #22 Discover: Enter moves focus to the first result - Enter -> focus a.card-poster.rowlink.tv-focus 'Request The Apothecary Diaries 2023 · TV' (in grid 1); keyboard still shown True
+16:58:43 PASS   #23 Discover: Back -> trending + field focused; Back again leaves - Back -> focus input.input.tv-focus 'Search films and TV', grid q '', field '' (keyboard was still up after Enter; Back #1 -> /media/discover, q '', field '', focus input.input.tv-focus 'Search films and TV', keyboard True); Back -> /media/item/2d6480a7bce2f51e4f66ab63832042d3
+16:58:43 === RESULTS by check number ===
+16:58:43 #15  FAIL     Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/discover
+16:58:43 #17  PASS     /media/item/2d6480a7bce2f51e4f66ab63832042d3: in-view images settled 2572 ms, heading 'MORE ON JOEY', 'Not on server' False; tried ['c42c780b 1127 ms shelf False', 'ff430053 1309 ms shelf False', '832042d3 2572 ms shelf True']
+16:58:43 #20  PASS     first a.card-poster.rowlink.tv-focus 'Request Lupin 2021 · TV' -> Up -> input.input.tv-focus 'Search films and TV' (search 1, read-only 1)
+16:58:43 #21  PASS     OK -> readOnly False, keyboard shown True (mInputShown=true   mIsInputViewShown=true mStatusIcon=0); typed -> grid q 'apothecary', label 'RESULTS · 9'
+16:58:43 #22  PASS     Enter -> focus a.card-poster.rowlink.tv-focus 'Request The Apothecary Diaries 2023 · TV' (in grid 1); keyboard still shown True
+16:58:43 #23  PASS     Back -> focus input.input.tv-focus 'Search films and TV', grid q '', field '' (keyboard was still up after Enter; Back #1 -> /media/discover, q '', field '', focus input.input.tv-focus 'Search films and TV', keyboard True); Back -> /media/item/2d6480a7bce2f51e4f66ab63832042d3
+16:58:58 === tv_session_1025 2026-10-25 16:58 only=32,33,34,35 ===
+16:59:00 [release_check.py inside] exit 0
+16:59:00    16:58:59 PASS   inside in-container /app/version.json - versionCode=2026102501 problems=none
+16:59:00    16:59:00 PASS   inside NAS sha256sum == field - files=['joey-media-1.0.0-2026102201.apk', 'joey-media-1.0.1-2026102202.apk', 'joey-media-1.0.2-2026102501.apk', 'version.json'] NAS sha256 match=True
+16:59:00    16:59:00 PASS   inside history.log tv= status - tv=published:2026102501 (published:<code> or current)
+16:59:00    16:59:00 inside in-container /app/version.json  PASS   versionCode=2026102501 problems=none
+16:59:00    16:59:00 inside NAS sha256sum == field          PASS   files=['joey-media-1.0.0-2026102201.apk', 'joey-media-1.0.1-2026102202.apk', 'joey-media-1.0.2-2026102501.apk'
+16:59:00    16:59:00 inside history.log tv= status          PASS   tv=published:2026102501 (published:<code> or current)
+16:59:00    16:59:00 counts: PASS=3
+16:59:03 [release_check.py outside] exit 0
+16:59:03    16:59:01 PASS   outside version.json 200 JSON + headers - HTTP 200 content-type=application/json cache-control=no-cache cf-cache-status=DYNAMIC versionCode=2026102501
+16:59:03    16:59:01 PASS   outside version.json schema - version.json matches the WP-B8 contract
+16:59:03    16:59:01 PASS   outside latest.apk 302 -> 200 APK - 302 -> /app/joey-media-1.0.2-2026102501.apk (cache no-store) -> 200 application/vnd.android.package-archive (cache public, max-age=31536000, immutable)
+16:59:03    16:59:02 PASS   outside APK sha256/size == version.json - sha256 match=True size 2347758 vs 2347758 (C:\Users\B7191~1.EDW\AppData\Local\Temp\joeytv_windows\jm.apk)
+16:59:03    16:59:03 PASS   outside Kuma /app keyword monitor (LAN read) - /app monitors [(14, 1)]
+16:59:03    16:59:03 outside version.json 200 JSON + headers       PASS   HTTP 200 content-type=application/json cache-control=no-cache cf-cache-status=DYNAMIC versionCode=2026102501
+16:59:03    16:59:03 outside version.json schema                   PASS   version.json matches the WP-B8 contract
+16:59:03    16:59:03 outside latest.apk 302 -> 200 APK             PASS   302 -> /app/joey-media-1.0.2-2026102501.apk (cache no-store) -> 200 application/vnd.android.package-archive (c
+16:59:03    16:59:03 outside APK sha256/size == version.json       PASS   sha256 match=True size 2347758 vs 2347758 (C:\Users\B7191~1.EDW\AppData\Local\Temp\joeytv_windows\jm.apk)
+16:59:03    16:59:03 outside Kuma /app keyword monitor (LAN read)  PASS   /app monitors [(14, 1)]
+16:59:03    16:59:03 counts: PASS=5
+16:59:27 [wp_b9_device.py install --run-id 40165149330 --allow-write] exit 0
+16:59:27    16:59:27 PASS   install debug APK (laptop preset) - reverse=8850; install: Success; installed versionCode=2026102501
+16:59:27    16:59:27 install debug APK (laptop preset)  PASS   reverse=8850; install: Success; installed versionCode=2026102501
+16:59:27    16:59:27 counts: PASS=1
+16:59:39 FAIL   #32 1.0.2 published (release_check) and the TV updated to 1.0.2 - release_check inside exit 0, outside exit 0; release 2026102202: no update prompt on launch (throttle?); release build 2026102202 -> 2026102202; debug build 2026102202 -> 2026102501, UA JoeyTV/1.0.2 (2026102501), still signed in True
+17:01:41 [wp_b9_device.py back] exit 0
+17:01:41    17:00:01 PASS   back (a) Movies -> title -> Back = Movies - title /media/item/ba8dd9108d7c6320aeb0d84ec42c780b -> Back -> /media/movies (want /media/movies)
+17:01:41    17:00:10 PASS   back (b) Back on Overview exits - Back on Overview exits=True
+17:01:41    17:00:46 PASS   back (c) trailer -> YouTube app (Q41) -> reopen = same page - trailer -> top app com.google.android.youtube.tv; Home -> reopen Joey Media -> /media/item/ba8dd9108d7c6320aeb0d84ec42c780b (want /media/item/ba8dd9108d7c6320aeb0d84ec42c780b)
+17:01:41    17:01:24 PASS   back (d) process kill deep -> Back Overview -> exit - after kill: Back -> /a/media (want /a/media), Back -> exit=True
+17:01:41    17:01:41 MANUAL back (e) Settings -> Back -> Splash/Offline - Settings -> Back must land on Splash/Offline: judge C:\Users\B7191~1.EDW\AppData\Local\Temp\joeytv_windows\b9\170134_back_e_settings.png then C:\Users\B7191~1.EDW\AppData\Local\Temp\joeytv_windows\b9\170139_back_e_after.png
+17:01:41    17:01:41 back (a) Movies -> title -> Back = Movies                    PASS   title /media/item/ba8dd9108d7c6320aeb0d84ec42c780b -> Back -> /media/movies (want /media/movies)
+17:01:41    17:01:41 back (b) Back on Overview exits                              PASS   Back on Overview exits=True
+17:01:41    17:01:41 back (c) trailer -> YouTube app (Q41) -> reopen = same page  PASS   trailer -> top app com.google.android.youtube.tv; Home -> reopen Joey Media -> /media/item/ba8dd9108d7c6320aeb
+17:01:41    17:01:41 back (d) process kill deep -> Back Overview -> exit          PASS   after kill: Back -> /a/media (want /a/media), Back -> exit=True
+17:01:41    17:01:41 back (e) Settings -> Back -> Splash/Offline                  MANUAL Settings -> Back must land on Splash/Offline: judge C:\Users\B7191~1.EDW\AppData\Local\Temp\joeytv_windows\b9\
+17:01:41    17:01:41 counts: PASS=4, MANUAL=1
+17:01:52 PASS   #33 wp_b9_device.py back (a)-(d) on 1.0.2 - (a) PASS   back (a) Movies -> title -> Back = Movies - title /media/item/ba8dd9108d7c6320aeb0d84ec42c780b -> Back -> /media/ | (b) PASS   back (b) Back on Overview exits - Back on Overview exits=True | (c) PASS   back (c) trailer -> YouTube app (Q41) -> reopen = same page - trailer -> top app com.google.android.youtube.tv; H | (d) PASS   back (d) process kill deep -> Back Overview -> exit - after kill: Back -> /a/media (want /a/media), Back -> exit=
+17:02:41 FAIL   #34 case (f): Back on /signin exits; reopen = same flow, no second code - sign out -> /signin; Back -> app exited True; reopen -> /signin, same code False (no second code burnt); QC approve -> true; signed in again on /a/media; Joey Media devices 2
+17:03:10 PASS   #35 optional: bad URL shows 'Couldn't open this page' - native texts ["Couldn't open this page", "Joey Media is up, but this page didn't load. Choose Retry to try it again.", 'Retry', 'Open Jellyfin anyway']; shots\device\n_badurl_102.png
+17:03:10 === RESULTS by check number ===
+17:03:10 #32  FAIL     release_check inside exit 0, outside exit 0; release 2026102202: no update prompt on launch (throttle?); release build 2026102202 -> 2026102202; debug build 2026102202 -> 2026102501, UA JoeyTV/1.0.2 (2026102501), still signed in True
+17:03:10 #33  PASS     (a) PASS   back (a) Movies -> title -> Back = Movies - title /media/item/ba8dd9108d7c6320aeb0d84ec42c780b -> Back -> /media/ | (b) PASS   back (b) Back on Overview exits - Back on Overview exits=True | (c) PASS   back (c) trailer -> YouTube app (Q41) -> reopen = same page - trailer -> top app com.google.android.youtube.tv; H | (d) PASS   back (d) process kill deep -> Back Overview -> exit - after 
+17:03:10 #34  FAIL     sign out -> /signin; Back -> app exited True; reopen -> /signin, same code False (no second code burnt); QC approve -> true; signed in again on /a/media; Joey Media devices 2
+17:03:10 #35  PASS     native texts ["Couldn't open this page", "Joey Media is up, but this page didn't load. Choose Retry to try it again.", 'Retry', 'Open Jellyfin anyway']; shots\device\n_badurl_102.png
+17:43:43 === tv_session_1025 2026-10-25 17:43 only=cap,7,9,11,13,15,28,36,F ===
+17:44:55 PASS   device overview /a/media - 1648/8447 ms, first focus a.card-poster 'Slow Horses S1 E1 · 49m left', 50 focusables, downs 5; no automatic issue
+17:45:38 PASS   device movies /media/movies - 1236/1236 ms, first focus a.card-poster 'Animals 2026', 60 focusables, downs 7; no automatic issue
+17:45:51 PASS   device movies_watchlist /media/movies/watchlist - 1203/1203 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+17:46:08 PASS   device movies_tonight /media/movies/tonight - 1151/1151 ms, first focus a.card-poster 'Boiling Point (2021) 1h 35m · A ', 15 focusables, downs 1; no automatic issue
+17:46:22 PASS   device movies_torate /media/movies/to-rate - 1161/1161 ms, first focus a.tv-focus 'To rate', 12 focusables, downs 2; no automatic issue
+17:47:06 PASS   device movies_awards /media/movies/awards - 1410/8557 ms, first focus a.chip 'Oscars', 83 focusables, downs 6; no automatic issue
+17:47:38 PASS   device tv /media/tv - 1269/1269 ms, first focus a.card-poster 'American Hostage 2026', 38 focusables, downs 4; no automatic issue
+17:47:51 PASS   device tv_watchlist /media/tv/watchlist - 1200/1200 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+17:48:16 PASS   device title_movie /media/item/ba8dd9108d7c6320aeb0d84ec42c780b - 1396/8249 ms, first focus a.btn 'Play ▶', 10 focusables, downs 1; no automatic issue
+17:48:46 PASS   device title_series /media/item/7b0bafd942c0f5e7ec927c0b060172fb - 1252/8187 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; no automatic issue
+17:49:18 PASS   device title_season /media/item/76a5bee6218fda74cdec05f769687ab9 - 1173/8109 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; no automatic issue
+17:49:48 PASS   device title_episode /media/item/e1a4139073d2aec00a3eabf34c06691e - 1305/8259 ms, first focus a.btn 'Play ▶', 17 focusables, downs 3; no automatic issue
+17:50:00 PASS   device person /media/person/1216733 - 1871/1871 ms, first focus a.card-poster 'American Hostage 2026 · Executiv', 7 focusables, downs 1; no automatic issue
+17:50:25 PASS   device title_tmdb /media/title/tv/96677 - 1281/8160 ms, first focus a.btn 'Request', 8 focusables, downs 1; no automatic issue
+17:50:40 PASS   device diary /media/diary - 1375/1375 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+17:50:54 PASS   device diary_tv /media/diary?kind=tv - 1209/1209 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+17:51:07 PASS   device history /media/history - 1170/1170 ms, first focus a.tv-focus 'To rate', 9 focusables, downs 2; no automatic issue
+17:51:42 PASS   device discover /media/discover - 1284/1284 ms, first focus a.card-poster 'Request Lupin 2021 · TV', 43 focusables, downs 5; no automatic issue
+17:52:36 INFO   device discover_search /media/discover/search?q=star - 1703/8682 ms, first focus a.card-poster 'Request Star Wars 1977 · Film', 20 focusables, downs 14; 80 text 16-17px; 1 outside safe area; 61 low contrast; Up never reached the top bar
+17:53:20 INFO   device search /media/search?q=the - 1684/1684 ms, first focus input '', 8 focusables, downs 14; 16 text 16-17px; 6 outside safe area; 16 low contrast; Up never reached the top bar
+17:53:31 PASS   device notfound /media/nope-404 - 1273/1273 ms, first focus a.nf-back 'Back to Joey Media', 7 focusables, downs 1; no automatic issue
+17:53:44 PASS   #9 Tonight: outsideSafe 0, offscreen [], label visible, Deal again reachable - outsideSafe 0, offscreen [], label {'found': True, 'top': 118, 'bottom': 136, 'sb': 104, 'visible': True}, Right stops ["a.card-poster.tcard.tv-focus 'The Lion King (1994) 1h 28m · Acclaimed'", "a.card-poster.tcard.tv-focus 'The Dark Knight (2008) 2h 32m · Wildcard'", "a.card-poster.tcard.tv-focus 'Animals (2026) 1h 48m · Just arrived'", "a.btn.btn-secondary.tv-focus 'Deal again'"] (Deal again after 3 Rights)
+17:53:51 PASS   #11 404 as joeytest: the bar shows joeytest's chip - chip True, chip names joeytest True, 'Not signed in' False; shots\device\by_eye_07_notfound.png
+17:53:51 PASS   #13 device title_series,title_season,title_episode: 0 tiny - title_series tiny 0 []; title_season tiny 0 []; title_episode tiny 0 []
+17:54:11    #15 series page data-tv-up=None trail={"prev":"/media/item/e1a4139073d2aec00a3eabf34c06691e","last":"/media/item/7b0bafd942c0f5e7ec927c0b060172fb"}
+17:54:27 FAIL   #15 Episode from Home: Back -> series, Back -> Home - Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/nope-404
+17:54:42 PASS   #28 Diary: slim month row, All/Films/TV chips, OK to rate; To rate without 'Rate TV by' - month row 65 px; chips ['All', 'Films', 'TV']; Log a watch False; 'OK to rate' rows 0; no unrated row to open; empty 'Your diary is empty
+
+Films and episodes you finish are logged here
+
+Browse films'; To rate: 'Rate TV by' False, heads ['Nothing watched yet'], OK-to-rate rows 0; shots\device\diary_tv.png; shots\device\history_tv.png
+17:54:42 BYEYE  #7 by eye: sign-in password form fully shown; bad URL centred 'No page here' + Back - password field None (None); 404 shot shots\device\by_eye_07_notfound.png
+17:55:03 PASS   local overview /a/media - 551/551 ms, first focus a.card-poster 'Slow Horses S1 E1 · 49m left', 50 focusables, downs 5; no automatic issue
+17:55:12 PASS   local movies /media/movies - 344/344 ms, first focus a.card-poster 'Animals 2026', 60 focusables, downs 7; no automatic issue
+17:55:14 PASS   local movies_watchlist /media/movies/watchlist - 301/301 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+17:55:18 PASS   local movies_tonight /media/movies/tonight - 324/324 ms, first focus a.card-poster 'Citizen Vigilante (2026) 1h 29m ', 15 focusables, downs 1; no automatic issue
+17:55:21 PASS   local movies_torate /media/movies/to-rate - 292/292 ms, first focus a.tv-focus 'To rate', 12 focusables, downs 2; no automatic issue
+17:55:36 PASS   local movies_awards /media/movies/awards - 347/8136 ms, first focus a.chip 'Oscars', 83 focusables, downs 6; no automatic issue
+17:55:43 PASS   local tv /media/tv - 352/352 ms, first focus a.card-poster 'American Hostage 2026', 38 focusables, downs 4; no automatic issue
+17:55:46 PASS   local tv_watchlist /media/tv/watchlist - 306/306 ms, first focus a.tv-focus 'Watchlist', 12 focusables, downs 2; no automatic issue
+17:55:57 PASS   local title_movie /media/item/ba8dd9108d7c6320aeb0d84ec42c780b - 300/8091 ms, first focus a.btn 'Play ▶', 10 focusables, downs 1; no automatic issue
+17:56:10 PASS   local title_series /media/item/7b0bafd942c0f5e7ec927c0b060172fb - 341/8128 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; no automatic issue
+17:56:23 PASS   local title_season /media/item/76a5bee6218fda74cdec05f769687ab9 - 309/8099 ms, first focus a.btn 'Next to watch: S1 E1 ▶', 18 focusables, downs 3; no automatic issue
+17:56:36 PASS   local title_episode /media/item/e1a4139073d2aec00a3eabf34c06691e - 384/8174 ms, first focus a.btn 'Play ▶', 17 focusables, downs 3; no automatic issue
+17:56:38 PASS   local person /media/person/1216733 - 299/299 ms, first focus a.card-poster 'American Hostage 2026 · Executiv', 7 focusables, downs 1; no automatic issue
+17:56:50 PASS   local title_tmdb /media/title/tv/96677 - 341/8130 ms, first focus a.btn 'Request', 8 focusables, downs 1; no automatic issue
+17:56:52 PASS   local diary /media/diary - 356/356 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+17:56:55 PASS   local diary_tv /media/diary?kind=tv - 310/310 ms, first focus a.tv-focus 'Diary', 12 focusables, downs 3; no automatic issue
+17:56:57 PASS   local history /media/history - 291/291 ms, first focus a.tv-focus 'To rate', 9 focusables, downs 2; no automatic issue
+17:57:05 PASS   local discover /media/discover - 333/333 ms, first focus a.card-poster 'Request Lupin 2021 · TV', 43 focusables, downs 5; no automatic issue
+17:57:15 INFO   local discover_search /media/discover/search?q=star - 852/8141 ms, first focus None 'None', 20 focusables, downs 1; 80 text 16-17px; 1 outside safe area; 61 low contrast; Up never reached the top bar
+17:57:17 INFO   local search /media/search?q=the - 300/300 ms, first focus None 'None', 8 focusables, downs 1; 16 text 16-17px; 6 outside safe area; 16 low contrast; Up never reached the top bar
+17:57:19 PASS   local notfound /media/nope-404 - 291/291 ms, first focus a.nf-back 'Back to Joey Media', 7 focusables, downs 1; no automatic issue
+17:57:19 PASS   local headless Chrome 960x540 - 3 cookies copied in memory; UA the TV's, 960x540
+17:58:48 PASS   browser headless Chrome 1280x800 - 3 cookies copied in memory; UA desktop's, 1280x800
+17:58:48 FAIL   #36 capture.json vs 2026-10-23: tiny / lowContrast / outsideSafe / offscreen do not rise - 62 page captures compared; rises: ['browser/overview tiny 20->102', 'browser/overview lowC 2->3', 'browser/movies tiny 218->221', 'browser/movies lowC 48->49', 'browser/tv tiny 129->140', 'browser/tv lowC 24->27', 'browser/person tiny 50->111', 'browser/person lowC 15->37', 'browser/title_tmdb tiny 167->185', 'browser/title_tmdb lowC 29->31']
+18:00:41 PASS   #F phone/desktop TMDB + show page as joeytest: no household 'Following' - 'Following' occurrences per page (any device): {'desktop/title_movie': 0, 'desktop/title_tmdb': 0, 'desktop/title_series': 0, 'ipad/title_movie': 0, 'ipad/title_tmdb': 0, 'ipad/title_series': 0, 'phone/title_movie': 0, 'phone/title_tmdb': 0, 'phone/title_series': 0}
+18:00:41 === RESULTS by check number ===
+18:00:41 #7   BYEYE    password field None (None); 404 shot shots\device\by_eye_07_notfound.png
+18:00:41 #9   PASS     outsideSafe 0, offscreen [], label {'found': True, 'top': 118, 'bottom': 136, 'sb': 104, 'visible': True}, Right stops ["a.card-poster.tcard.tv-focus 'The Lion King (1994) 1h 28m · Acclaimed'", "a.card-poster.tcard.tv-focus 'The Dark Knight (2008) 2h 32m · Wildcard'", "a.card-poster.tcard.tv-focus 'Animals (2026) 1h 48m · Just arrived'", "a.btn.btn-secondary.tv-focus 'Deal again'"] (Deal again aft
+18:00:41 #11  PASS     chip True, chip names joeytest True, 'Not signed in' False; shots\device\by_eye_07_notfound.png
+18:00:41 #13  PASS     title_series tiny 0 []; title_season tiny 0 []; title_episode tiny 0 []
+18:00:41 #15  FAIL     Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/nope-404
+18:00:41 #28  PASS     month row 65 px; chips ['All', 'Films', 'TV']; Log a watch False; 'OK to rate' rows 0; no unrated row to open; empty 'Your diary is empty
+
+Films and episodes you finish are logged here
+
+Browse films'; To rate: 'Rate TV by' False, heads ['Nothing watched yet'], OK-to-rate rows 0; shots\device\diary_tv.png; shots\device\history_tv.png
+18:00:41 #36  FAIL     62 page captures compared; rises: ['browser/overview tiny 20->102', 'browser/overview lowC 2->3', 'browser/movies tiny 218->221', 'browser/movies lowC 48->49', 'browser/tv tiny 129->140', 'browser/tv lowC 24->27', 'browser/person tiny 50->111', 'browser/person lowC 15->37', 'browser/title_tmdb tiny 167->185', 'browser/title_tmdb lowC 29->31']
+18:00:41 #F   PASS     'Following' occurrences per page (any device): {'desktop/title_movie': 0, 'desktop/title_tmdb': 0, 'desktop/title_series': 0, 'ipad/title_movie': 0, 'ipad/title_tmdb': 0, 'ipad/title_series': 0, 'phone/title_movie': 0, 'phone/title_tmdb': 0, 'phone/title_series': 0}
+18:01:03 === tv_session_1025 2026-10-25 18:01 only=15 ===
+18:01:29    #15 series page data-tv-up=None trail={"prev":"/media/item/e1a4139073d2aec00a3eabf34c06691e","last":"/media/item/7b0bafd942c0f5e7ec927c0b060172fb"}
+18:01:45 FAIL   #15 Episode from Home: Back -> series, Back -> Home - Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/history
+18:01:45 === RESULTS by check number ===
+18:01:45 #15  FAIL     Home -> episode /media/item/e1a4139073d2aec00a3eabf34c06691e -> Back -> /media/item/7b0bafd942c0f5e7ec927c0b060172fb (series /media/item/7b0bafd942c0f5e7ec927c0b060172fb) -> Back -> /media/history

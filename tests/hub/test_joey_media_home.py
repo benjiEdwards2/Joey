@@ -58,6 +58,8 @@ def test_the_css_gives_the_title_hover_focus_and_a_tv_stop(friend):
     shared = friend.get("/static/control-surface.css").text
     block = shared.split("JY-248 nav", 1)[1]
     assert ".brand-home:hover" in block and ".topbar:has(.brand-home)" in block   # hover; sticky on a phone
+    # review 2026-10-25: below the notch in standalone mode, with an opaque band above it
+    assert "top: env(safe-area-inset-top, 0px);" in block and "calc(-1 * env(safe-area-inset-top, 0px)) 0 var(--bg)" in block
     tv = friend.get("/static/tv.css").text
     tvblock = tv.split("JY-248 nav", 1)[1]
     assert "html.tv .brand-home" in tvblock and ".brand-home[aria-current]" in tvblock

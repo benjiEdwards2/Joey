@@ -295,7 +295,12 @@ button.userchip .xlbl { display: none; }
    and on a phone its bar stays at the top (as the private "‹ Joey" bar does) so Home is always one tap away. */
 .brand-home { border-radius: 8px; transition: color .15s; }
 .brand-home:hover { color: var(--text-2); }
-@media (max-width: 767px) { .topbar:has(.brand-home) { position: sticky; top: 0; } }
+/* Standalone / PWA: it sticks below the notch (as the desktop rule) and an opaque band (an outer shadow, painted only
+   outside the bar) covers the strip above it, so nothing scrolls through there. */
+@media (max-width: 767px) {
+  .topbar:has(.brand-home) { position: sticky; top: env(safe-area-inset-top, 0px);
+    box-shadow: 0 calc(-1 * env(safe-area-inset-top, 0px)) 0 var(--bg); }
+}
 
 @media (min-width: 768px) {
   .topbar { position: sticky; top: env(safe-area-inset-top, 0px); }

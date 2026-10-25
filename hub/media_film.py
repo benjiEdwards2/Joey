@@ -917,6 +917,53 @@ def episode_flow(page: dict | None, ep: dict | None, item: dict | None, seasons:
         out["crew_ep"] = episode_crew(here)
     return out
 
+def _tv_chip(e: dict, nxt_id, this_id) -> str | None:
+    """The word on a TV episode still (JY-192): this page's episode, then watched / next / in progress / not aired."""
+    if this_id and e.get("jf_id") == this_id:
+        return "This one"
+    if e.get("played"):
+        return "Watched"
+    if nxt_id and e.get("jf_id") == nxt_id:
+        return "Next"
+    if e.get("in_progress"):
+        return "In progress"
+    return None if e.get("aired") else "Not aired"
+
+
+def tv_shelves(seasons: list[dict], page_season=None, this_id=None, next_ep: dict | None = None) -> dict:
+    """JY-192 (U6, 2026-10-25): the TV title page's Seasons and Episodes shelves, from the page's season list
+    (`episode_list` output: on the media front it was read as the signed-in viewer, so every word here is theirs) -
+    no read of its own. `page_season` = the season / episode page's season number (else the open season: the next
+    episode's, else the last); `this_id` = an episode page's own episode. Specials (number 0) keep Jellyfin's name."""
+    with_eps = [s for s in seasons or [] if s.get("episodes")]
+    cur = next((s for s in with_eps if s["n"] == page_season), None) if page_season is not None else None
+    cur = cur or next((s for s in with_eps if s.get("open")), None) or (with_eps[-1] if with_eps else None)
+    cards = []
+    for s in with_eps:
+        aired = [e for e in s["episodes"] if e.get("aired")]
+        done = sum(1 for e in aired if e.get("played"))
+        cards.append({"n": s["n"], "title": s.get("name") or f"Season {s['n']}", "href": _item_href(s.get("id")),
+                      "poster": f"jf:{s['id']}" if _item_href(s.get("id")) else None,
+                      "sub": s.get("watched_text"), "pct": round(100 * done / len(aired)) if aired else None,
+                      "here": page_season is not None and s is cur})
+    eps = None
+    if cur is not None:
+        nxt_id = (next_ep or {}).get("jf_id")
+        rows = []
+        for e in cur["episodes"]:
+            run, left = e.get("runtime_min"), e.get("left_min")
+            pct = (max(1, min(99, round(100 * (run - left) / run))) if e.get("in_progress") and run and left is not None
+                   else None)
+            play = e.get("play") or {}
+            rows.append({"title": f"E{e['number']} · {e['name']}", "still": e.get("still"),
+                         "href": play.get("href") or _item_href(e.get("jf_id")),
+                         "jf_id": e["jf_id"] if play.get("href") else None,
+                         "sub": " · ".join(x for x in (e.get("runtime"), f"{left}m left" if pct is not None and left else None) if x),
+                         "chip": _tv_chip(e, nxt_id, this_id), "pct": pct})
+        eps = {"label": cur.get("name") or f"Season {cur['n']}", "rows": rows}
+    return {"seasons": cards, "eps": eps}
+
+
 def _jellyfin_side(kind, tmdb_id, jf_id, jelly: dict, read, on_tmdb=None) -> dict:
     """The Jellyfin side: base (film / series), plus the episode when the page is for one. `read` is media_item._data
     (the page) or media_item.peek (a part request: never a second Jellyfin read, F2)."""
@@ -1133,6 +1180,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                                  "label": ("Resume ▶" + (f" · {ep['left_text']}" if ep["left_text"] else "")) if ep["in_progress"]
                                  else "Play again ▶" if ep["played"] else "Play ▶"},
                         "show_href": f"/media/item/{item['id']}" if item and item["kind"] == "series" else None}
+        # JY-192: the TV episode hero leads with the episode's own still (the /img proxy, never a call here)
+        f["episode"]["still"] = f"jf:{ep['id']}" if media_item.ITEM_RE.match(str(ep["id"])) else None
         f["episode_season"] = ep["season_no"]
         play_ids["episode"] = ep["id"]
     else:
@@ -1227,6 +1276,9 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     _sections(f, [p for p in PARTS if p not in pending], ctx, ex)
     _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
     f.update(episode_flow(page_item, ep, item, f["seasons"], f.get("cast")))   # TV episode flow (WP-E3, 2026-10-16)
+    # JY-192 (U6): the TV title page's Seasons + Episodes shelves (the template draws them in TV mode only)
+    f["tv"] = tv_shelves(f["seasons"], page_item["season_no"] if page_item and page_item["kind"] in ("episode", "season")
+                         else None, ep["id"] if ep else None, f["next_ep"])
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
     f["back"] = request.url.path

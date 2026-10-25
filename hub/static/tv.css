@@ -277,3 +277,38 @@ html.tv .sec.nf { min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); di
 html.tv .sec.nf .seclabel { font-size: 38px; line-height: 1.1; font-weight: 700; text-transform: none; color: var(--tv-t1); }
 html.tv .sec.nf .empty { font-size: 24px; color: var(--tv-t3); margin: 0; }
 html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 56px; padding: 0 28px; border-radius: 12px; border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 21px; font-weight: 600; text-decoration: none; margin-top: 10px; }
+
+/* ---- U6 (JY-192, 2026-10-25): series and episodes (findings S1, X1-X3; tv-v2 shell 01-title screens 2-3) ----
+   Seasons shelf (2:3 cards, "2 of 6 watched", a bar) and Episodes shelf (16:9 stills from /img, a word chip on the
+   still, the progress bar over its foot); the episode hero leads with a 16:9 still; no breadcrumb (Back = series in
+   tv.js); the part-of banner is redundant beside the shelves. The rating is one Rate button whose strip (#tv-rate)
+   stays hidden until it is pressed (Gate 1 pick 1B). Rebase note: sits after JY-188's density rules on purpose. */
+html.tv .crumbs, html.tv .partof-sec { display: none; }
+html.tv .tvshelf { margin-top: 18px; }
+html.tv .tvshelf-hd { display: flex; align-items: baseline; gap: 18px; }
+html.tv .tvshelf-hd .metaline { margin: 0; font-size: 18px; color: var(--tv-t4); }
+/* JY-188 shows a card caption only on focus; on these shelves the caption is the state ("2 of 6 watched", "This
+   season", runtime, "23m left"), so it is always shown */
+html.tv .tvshelf .card-poster .row-meta { font-size: 18px; visibility: visible; }
+html.tv .tv-seasons .card-poster.is-here .card-pic > img { box-shadow: 0 0 0 2px var(--tv-gold); }
+html.tv .tv-seasons .st-current { color: var(--tv-gold); }
+html.tv .tv-eps .carousel > * { flex: 0 0 236px; width: 236px; }
+html.tv .tv-eps .card-pic > img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; }
+html.tv .ep-chip {
+  position: absolute; top: 8px; left: 8px; z-index: 2; padding: 1px 10px; border-radius: 999px;
+  font-size: 18px; font-weight: 700; line-height: 1.4; background: var(--poster-badge-bg); color: var(--tv-t1);
+}
+html.tv .ep-chip.ep-watched { background: var(--good); color: var(--zinc-950); }
+html.tv .ep-chip.ep-next, html.tv .ep-chip.ep-this-one { background: var(--teal-chip); color: var(--zinc-950); }
+html.tv .ep-chip.ep-in-progress { background: var(--tv-bar-fill); color: var(--zinc-950); }
+html.tv .ep-chip.ep-not-aired { background: var(--tv-surface-2); color: var(--tv-t3); border: 1px solid var(--tv-line); }
+html.tv .hero-detail-in > .tv-epstill {
+  flex: 0 0 auto; width: 420px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7);
+}
+html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+html.tv .hero-detail-btns .wtoggle { display: contents; }
+html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600;
+  border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
+html.tv .tv-ratebtn svg.ic { width: 24px; height: 24px; }
+html.tv .tv-rate[hidden] { display: none; }

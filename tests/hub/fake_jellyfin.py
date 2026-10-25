@@ -74,6 +74,8 @@ class FakeJellyfin:
         self.byname_raises: type[Exception] | None = None
         self.items: dict[str, dict] = {}      # jf id -> a minimal item body (GET /Users/{uid}/Items/{id})
         self.played: dict[str, set] = {}      # user id -> the item ids that user has watched
+        self.episodes: dict[str, list] = {}   # JY-192: series id -> GET /Shows/{id}/Episodes Items (no UserData)
+        self.positions: dict[str, dict] = {}  # JY-192: user id -> {episode id: PlaybackPositionTicks}
         self.resume: dict[str, list] = {}     # user id -> GET /UserItems/Resume Items (WP-B3 guest Overview)
         self.history: dict[str, list] = {}    # user id -> GET /Items?IsPlayed=true&SortBy=DatePlayed Items
         self.shelf_raises: type[Exception] | None = None   # the two shelf reads raise this (Jellyfin down)
@@ -186,6 +188,14 @@ class FakeJellyfin:
                 raise self.devices_raises(f"Read timed out: {url}")
             dev = self.devices.get(str(query.get("id")))
             return Resp(copy.deepcopy(dev)) if dev else Resp(None, 404)
+        # JY-192: a show's episodes (media_item._seasons), each with the asking user's own UserData
+        m = re.fullmatch(r"/Shows/([A-Za-z0-9-]+)/Episodes", path)
+        if m and m.group(1) in self.episodes:
+            uid = str(query.get("userId"))
+            rows = [{**e, "UserData": {"Played": e["Id"] in self.played.get(uid, set()),
+                                       "PlaybackPositionTicks": self.positions.get(uid, {}).get(e["Id"], 0)}}
+                    for e in copy.deepcopy(self.episodes[m.group(1)])]
+            return Resp({"Items": rows, "TotalRecordCount": len(rows)})
         m = re.fullmatch(r"/Users/([0-9a-f]{32})/Items/([A-Za-z0-9-]+)", path)
         if m and m.group(2) in self.items:
             played = m.group(2) in self.played.get(m.group(1), set())

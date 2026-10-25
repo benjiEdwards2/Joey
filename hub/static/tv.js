@@ -25,7 +25,9 @@
    * focus restore after every htmx swap: when the swap removed or hid the focused element, focus goes back to the first
      focusable (the rule above) - a boosted navigation swaps the whole body, so it always lands on the new page's first;
    * window.joeyTV.back(): the shell's Back key asks this first (tv/ BackPolicy, WP-B7). Closes an open <dialog> (the
-     trailer modal) and returns true; returns false when nothing was closed (the shell then goes back / exits).
+     trailer modal) and returns true; returns false when nothing was closed (the shell then goes back / exits);
+   * JY-192 (U6): the Rate button ([data-tv-rate]) opens / closes the rating strip (#tv-rate; Back closes it too), and on a
+     season / episode page ([data-tv-up]) Back goes to the series unless the page before was that series.
    * Q41: a trailer opens the YouTube app - in TV mode a click on [data-yt] navigates to its youtube.com href (the
      shell's UrlPolicy hands YouTube to ACTION_VIEW) instead of the in-page player; target="_blank" is dropped from
      links so every navigation reaches the shell's UrlPolicy in this WebView. */
@@ -178,6 +180,56 @@
     return true;
   }
 
+  /* JY-192 (U6, Gate 1 pick 1B): the title page's rating is one Rate button ([data-tv-rate]) over the existing picker in
+     #tv-rate (hidden). OK opens the strip with its first control focused; picking a number (htmx swaps in the rated
+     form) closes it, the button then reads "Rated N" and keeps the focus; Back closes an open strip. */
+  function rateBtn() { return document.querySelector('[data-tv-rate]'); }
+
+  function rateStrip() { var b = rateBtn(); return b ? document.querySelector('[id="' + b.getAttribute('aria-controls') + '"]') : null; }
+
+  function rateOpen() { var s = rateStrip(); return !!(s && s.getAttribute('hidden') === null); }
+
+  function openRate() {
+    var s = rateStrip(), b = rateBtn();
+    if (!s || !b) return;
+    s.removeAttribute('hidden');
+    b.setAttribute('aria-expanded', 'true');
+    setFocus(firstIn(s) || b);
+  }
+
+  function closeRate() {
+    if (!rateOpen()) return false;
+    var b = rateBtn();
+    rateStrip().setAttribute('hidden', '');
+    b.setAttribute('aria-expanded', 'false');
+    setFocus(b);
+    return true;
+  }
+
+  /* JY-192 (X1): a season / episode page names its series ([data-tv-up]); Back goes there. When the page before this
+     one was that series, the shell's own Back already goes there (and JY-187 puts the focus back), so nothing is done.
+     The trail (this URL and the one before it) is kept in sessionStorage by restore(). */
+  var TRAIL = 'joeyTV.trail';
+
+  function trail() {
+    try { return JSON.parse(window.sessionStorage.getItem(TRAIL)) || {}; } catch (e) { return {}; }
+  }
+
+  function step() {
+    var t = trail(), url = here();
+    if (t.last === url) return;
+    t.prev = t.last || null;
+    t.last = url;
+    try { window.sessionStorage.setItem(TRAIL, JSON.stringify(t)); } catch (e) { /* storage off: no trail */ }
+  }
+
+  function goUp() {
+    var el = document.querySelector('[data-tv-up]'), up = el && el.getAttribute('data-tv-up');
+    if (!up || (trail().prev || '').split('?')[0] === up) return false;
+    window.location.replace(up);
+    return true;
+  }
+
   function centreInShelf(el) {
     var shelf = el.closest('.carousel');
     if (!shelf) return;
@@ -310,6 +362,21 @@
     if (isSearch(e.target) && !opening) e.target.readOnly = true;
   });
 
+  /* JY-192: OK on the Rate button opens / closes the strip; a swap inside an open strip (a number picked, or Undo) */
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-tv-rate]') : null;
+    if (!b) return;
+    e.preventDefault();
+    if (!closeRate()) openRate();
+  });
+
+  document.addEventListener('htmx:afterSwap', function () {
+    if (!rateOpen()) return;
+    var n = rateStrip().querySelector('.rated .stat-number'), label = rateBtn().querySelector('.tv-ratelbl');
+    if (label) label.textContent = n ? 'Rated ' + n.textContent.trim() : 'Rate';
+    if (n) closeRate(); else setFocus(firstIn(rateStrip()) || rateBtn());
+  });
+
   /* Q41: the trailer goes to the YouTube app, not the in-page player (capture: runs before the page's own handler). */
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[data-yt]') : null;
@@ -327,6 +394,7 @@
 
   function restore() {
     dropBlankTargets(document);
+    step();   /* JY-192: the trail Back = series reads */
     /* JY-187 (B1): a page this document has not set up yet (a full load, a boosted swap to another URL, Back, the
        pageshow below) gets its remembered link and scroll back. htmx scrolls a boosted page to the top after
        afterSettle, so the scroll is applied once more after that has run. */
@@ -354,11 +422,12 @@
   }
 
   window.joeyTV = {
-    /* The shell's Back key: true = a web dialog was closed, or a Discover search cleared (JY-194), here (stay on the
-       page); false = nothing to close. */
+    /* The shell's Back key: true = a web dialog was closed, the Rate strip closed (JY-192), a Discover search cleared
+       (JY-194), or a season / episode page replaced by its series (JY-192, X1); false = nothing to do here. */
     back: function () {
       var d = openDialog();
-      if (!d) return clearSearch();   /* JY-194: results showing -> the trending grid, field focused; else false */
+      /* JY-194: results showing -> the trending grid, field focused */
+      if (!d) return closeRate() || clearSearch() || goUp();
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();

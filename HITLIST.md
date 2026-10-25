@@ -182,7 +182,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-197 | U11 TV docs sweep | Joey TV | S | [x] shipped | Release, README, mockups, handover · PR #174 | [spec](docs/specs/JY-197-tv-docs-sweep.md) |
 | JY-248 | Friends' nav: no Overview pill; "Joey Media" title goes Home (TV focus stop) | Joey TV | M | [x] shipped | B. 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home" · PR #163 | [spec](docs/specs/JY-248-joey-media-home.md) |
 | JY-249 | Flaky `test_tv_shelves_tmdb` (failed once in CI, passed on rerun) | Tests | S | idea | Seen on JY-191's CI, 2026-10-25 | — |
-| JY-250 | TV session fixes: 404 centring, Tonight safe area, season eyebrow 12 px, Back from episode, Diary month row | Joey TV | M | idea | Grouped TV session 2026-10-25: checks 7, 9, 13, 15, 28, 36 | — |
+| JY-250 | TV session fixes: 404 centring, Tonight safe area, season eyebrow 12 px, Back from episode, Diary month row | Joey TV | M | [x] shipped | Grouped TV session 2026-10-25: checks 7, 9, 13, 15, 28, 36 · PR #179 | [spec](docs/specs/JY-250-tv-session-fixes.md) |
 | JY-251 | Friend sees household Follow state ("Following George Kay") on a TMDB title page | Media | M | [x] shipped | Grouped TV session 2026-10-25, phone width as joeytest · PR #178 | [spec](docs/specs/JY-251-follow-scope.md) |
 
 ### NAS / stack

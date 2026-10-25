@@ -177,7 +177,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-192 | U6 Series + episodes layout | Joey TV | L | [x] shipped | Episode lists unstyled; needs picks · PR #164 | [spec](docs/specs/JY-192-tv-series-episodes.md) |
 | JY-193 | U7 Shelves + TMDB title page + person page | Joey TV | M | idea | Off-server shelves; needs picks | — |
 | JY-194 | U8 Discover search on TV | Joey TV | M | [x] shipped | No search on TV today · PR #158 | [spec](docs/specs/JY-194-tv-discover-search.md) |
-| JY-195 | U9 Overview + empty states | Joey TV | M | idea | Grey empty boxes; needs picks | — |
+| JY-195 | U9 Overview + empty states | Joey TV | M | [x] shipped | Grey empty boxes; needs picks · PR #167 | [spec](docs/specs/JY-195-home-shelves.md) |
 | JY-196 | U10 Diary + Awards on TV | Joey TV | M | idea | Diary shows household stats; needs picks | — |
 | JY-197 | U11 TV docs sweep | Joey TV | S | idea | Release, README, mockups, handover | — |
 | JY-248 | Friends' nav: no Overview pill; "Joey Media" title goes Home (TV focus stop) | Joey TV | M | [x] shipped | B. 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home" · PR #163 | [spec](docs/specs/JY-248-joey-media-home.md) |

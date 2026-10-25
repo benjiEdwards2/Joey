@@ -324,3 +324,31 @@ html.tv .bigempty svg.ic { width: 64px; height: 64px; stroke-width: 1.6; color: 
 html.tv .bigempty-h { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1); }
 html.tv .bigempty-p { margin: 0; max-width: 620px; font-size: 21px; color: var(--tv-t3); }
 html.tv .bigempty .btn { margin-top: 14px; background: var(--tv-primary); color: #fff; border-color: transparent; }
+
+/* ==== JY-196 (U10, 2026-10-25) - B.'s Gate 1 "3B · 5A" ====
+   3B Awards TV view (_award_tv.html; JoeyTV\mockups\tv-v2\02-library.html Awards B): ceremony chips that wrap inside the
+   safe area, the edition line, density-B poster shelves with a gold "N wins" chip and On Joey / Not on Joey always shown.
+   5A slim Diary (media_diary.html; 05-diary.html A): the month card as one row, 44 px All / Films / TV chips, and the 1-10
+   strip folded under "OK to rate" (a <details>; tv.js focuses its summary, OK opens it). */
+html.tv .awtv-cer { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0 0; }
+html.tv .awtv-cer .chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 18px; color: var(--tv-t3); }
+html.tv .awtv-cer .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
+html.tv .awtv-ed { margin: 8px 0 4px; color: var(--tv-t4); }
+html.tv .awtv-shelf { margin-top: 10px; }
+html.tv .awtv-shelf .card-poster .row-meta { visibility: visible; color: var(--tv-t4); }
+html.tv .awtv-shelf .card-poster .row-meta.st-good { color: var(--good); }
+html.tv .awwin { position: absolute; top: 6px; left: 6px; z-index: 2; padding: 0 8px; border-radius: 999px; background: var(--tv-gold); color: #1a1200; font-size: 18px; font-weight: 700; line-height: 1.4; white-space: nowrap; }
+html.tv .tvmonth { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 28px; margin: 10px 0 0; padding: 12px 22px; border: 1px solid var(--tv-line); border-radius: 16px; background: var(--tv-surface); }
+html.tv .tvmonth .seclabel { margin: 0; color: var(--tv-t4); }
+html.tv .tvmonth-n { font-size: 18px; color: var(--tv-t4); }
+html.tv .tvmonth-n b { font-size: 30px; font-weight: 700; color: var(--tv-t1); margin-right: 4px; }
+html.tv .diarychips { gap: 10px; }
+html.tv .diarychips .chip { height: 44px; padding: 0 22px; border-radius: 999px; font-size: 20px; }
+html.tv .tvrate { flex: 0 0 auto; margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html.tv .tvrate[open] { flex: 0 0 100%; margin-left: 0; }
+html.tv .tvrate > summary { list-style: none; min-height: 44px; padding: 0 18px; font-size: 18px; color: var(--tv-t2); }
+html.tv .tvrate > summary::-webkit-details-marker { display: none; }
+html.tv .tvrate .ratepick { gap: 8px; padding-left: 0; }
+html.tv .tvrate .ratepick .chip { width: 46px; height: 46px; justify-content: center; padding: 0; border-radius: 10px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 20px; font-weight: 600; color: var(--tv-t3); }
+html.tv .tvrate .skipacts { display: flex; gap: 8px; }
+/* ==== end JY-196 block ==== */

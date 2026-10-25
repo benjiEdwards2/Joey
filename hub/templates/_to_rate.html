@@ -11,7 +11,8 @@
 {% macro skipform(action, key, kind, title, poster, back, label) -%}
 <form method="post" action="{{ action }}" hx-swap="innerHTML show:none"><input type="hidden" name="item_key" value="{{ key }}"><input type="hidden" name="kind" value="{{ kind }}"><input type="hidden" name="title" value="{{ title }}"><input type="hidden" name="poster" value="{{ poster or '' }}">{% if back %}<input type="hidden" name="back" value="{{ back }}">{% endif %}<button class="btn btn-ghost btn-sm" type="submit">{{ label }}</button></form>
 {%- endmacro %}
-{% macro rows(to_rate) %}
+{# JY-196 (5A): `tv` (the caller's tv_mode(request)) folds the picker and Skip under "OK to rate" - OK opens the 1-10 strip. #}
+{% macro rows(to_rate, tv=false) %}
 <div class="listbox libposters">
   {% for r in to_rate %}
   {% set ih = item_href(r.jf_id) %}
@@ -20,11 +21,13 @@
     {{ poster(r.poster, r.title, 240, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.when]) }}</div>
     {% if ih %}</a>{% endif %}
+    {% if tv %}<details class="tvrate"><summary class="btn btn-ghost">OK to rate</summary>{% endif %}
     {{ rate.picker(r) }}
     <div class="skipacts">
       {%- if r.kind != "tv" or r.level != "show" %}{{ skipform("/media/rate/skip", r.item_key, r.kind, r.title, r.poster, r.back, "Skip") }}{% endif %}
       {%- if r.show_key %}{{ skipform("/media/rate/skip-show", r.show_key, "tv", r.show_title, r.poster, r.back, "Skip show") }}{% endif -%}
     </div>
+    {% if tv %}</details>{% endif %}
   </div>
   {% endfor %}
   </div>

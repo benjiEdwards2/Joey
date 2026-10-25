@@ -8,21 +8,36 @@
 {# Watch diary (2026-10-05; restyle Phase 3): Jellyfin history synced in + watches logged by hand. Source and kind
    are words in every row's meta line — colour is never the only encoding. Every diary list uses the Movies list
    poster size (.listbox.libposters, h=240; media-ux4, 2026-10-08). E6 (2026-10-13): the Month in Review card leads. #}
+{# JY-196 (5A, B.'s Gate 1 2026-10-25; JoeyTV/mockups/tv-v2/05-diary.html option A): the slim Diary on the TV - the month
+   card as one row (films, episodes, hours; the friend's own, JY-190 / JY-247), the big All / Films / TV chips, the rows;
+   no stats line, milestones, Play stats, scope form or Log a watch (a remote cannot type). Desktop and phone unchanged. #}
+{% set tv = tv_mode(request) %}
+{% if tv %}
+{% if month %}{% set s = month.s %}
+<section class="panel monthcard tvmonth" aria-label="{{ month.label }}">
+  <h2 class="seclabel">{{ month.label }}</h2>
+  {% if s %}<span class="tvmonth-n"><b>{{ s.films }}</b> film{{ '' if s.films == 1 else 's' }}</span>
+  <span class="tvmonth-n"><b>{{ s.episodes }}</b> episode{{ '' if s.episodes == 1 else 's' }}</span>
+  {% if s.minutes %}<span class="tvmonth-n"><b>{{ s.hours_text }}</b> watched</span>{% endif %}{% endif %}
+</section>
+{% endif %}
+{% else %}
 {% if month %}{% include "_month_card.html" %}{% endif %}
 <p class="metaline">{{ stats_text }}</p>
 {# nav-tidy (2026-10-13): this page is Activity > History; the play recorder keeps its URL, linked here (no tab). #}
 {% if guest_allows("/media/server/history") %}<p class="metaline"><a href="/media/server/history">Play stats</a></p>{% endif %}
 {% if milestones %}<p class="metaline">Milestones: {{ milestones | join(" · ") }}</p>{% endif %}
+{% endif %}
 {% if src.st.state == "off" %}<p class="metaline">Jellyfin not connected — only watches you log appear here.</p>{% endif %}
 
 <div class="toolbar">
-  <nav class="chips" aria-label="Filter diary">
+  <nav class="chips{{ ' diarychips' if tv }}" aria-label="Filter diary">
     {% for label, k in (("All", ""), ("Films", "movie"), ("TV", "tv")) %}
     <a class="chip{{ ' on' if kind == k }}" href="/media/diary{{ '?kind=' ~ k if k }}"{% if kind == k %} aria-current="true"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
   {# Diary scope (2026-10-13): only the eligible owner ("you") sees Mine / Everyone; rows then name whose they are. #}
-  {% if scope_eligible %}
+  {% if scope_eligible and not tv %}
   <form class="chips" method="post" action="/media/settings/diary_scope" aria-label="Show">
     <span class="microlabel">Show</span>
     {% for label, v in (("Mine", "mine"), ("Everyone", "everyone")) %}
@@ -31,6 +46,7 @@
   </form>
   {% endif %}
 </div>
+{% if not tv %}
 <details class="logwatch">
   <summary class="btn btn-secondary">{{ icon("plus") }}Log a watch</summary>
   <form class="logform" method="post" action="/media/log" hx-post="/media/log" hx-target="#diary-new" hx-swap="afterbegin"
@@ -45,6 +61,7 @@
     <div><button type="submit" class="btn btn-primary">Add to diary</button></div>
   </form>
 </details>
+{% endif %}
 
 {% if on_this_day %}
 <section class="sec">

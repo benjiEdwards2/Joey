@@ -1,0 +1,27 @@
+{# JY-196 (3B, B.'s Gate 1 2026-10-25; JoeyTV\mockups\tv-v2\02-library.html Awards option B): the TV Awards view. A row of
+   ceremony chips (the current one lit and first focus; the links keep the year), the edition line, then one poster shelf
+   per category group (ballot.shelves: headline, acting, direction, craft), most wins first. A card is the poster, the
+   title, a gold "N wins" chip when it won, and the words On Joey / Not on Joey. No picker sheet, <select>, <details>,
+   view switch or filter chips: a remote drives chips and shelves only. Desktop and phone never include this. #}
+{% from "_poster.html" import poster %}
+{% if bodies %}
+<nav class="chips awtv-cer" aria-label="Ceremony">{% for b in bodies %}<a class="chip{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="true" data-first{% endif %}>{{ b.name }}</a>{% endfor %}</nav>
+{% endif %}
+{% if edition_line %}<p class="metaline awtv-ed">{{ edition_line }}</p>{% endif %}
+{% set shelves = (ballot or {}).get("shelves") or [] %}
+{% for sh in shelves %}
+<section class="sec awtv-shelf">
+  <h2 class="seclabel">{{ sh.label }}<span class="sep"> · </span>{{ sh.rows | length }}</h2>
+  <div class="carousel">
+    {% for r in sh.rows %}
+    <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
+      <span class="card-pic">{{ poster(r.poster, r.title, 240, "", true) }}{% if r.wins %}<span class="awwin">{{ r.wins }} win{{ '' if r.wins == 1 else 's' }}</span>{% endif %}</span>
+      <span class="row-title">{{ r.title }}</span>
+      <span class="row-meta{{ ' st-good' if r.on_server }}">{{ "On Joey" if r.on_server else "Not on Joey" }}</span>
+    </{{ "a" if r.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<p class="empty">{{ (ballot or {}).get("empty") or empty or "Nothing recorded for this ceremony yet." }}</p>
+{% endfor %}

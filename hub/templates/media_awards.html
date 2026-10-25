@@ -10,6 +10,7 @@
    the URL, so Back works and the scroll stays (show:none); links that leave the page reset that on their own container
    (_award_ballot.html). Gold means won (style guide: colour for meaning, always beside words). #}
 {# E3 (U4, 2026-10-13): the page head's H1 already says "Awards" (the tab label) - no second title here. #}
+{% if tv_mode(request) %}{% include "_award_tv.html" %}{# JY-196 (3B): the TV Awards view #}{% else %}
 <section class="sec awhead">
   <p class="metaline">{% if sync.failed %}<span class="badge badge-wait">Sync failed · retrying</span> {% endif %}{{ sync.text }}</p>
 </section>
@@ -37,4 +38,5 @@
 {% endif %}
 {% include "_award_body.html" %}
 </div>
+{% endif %}
 {% endblock %}

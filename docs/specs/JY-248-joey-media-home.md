@@ -1,6 +1,6 @@
 # JY-248 Joey Media title goes Home; no Overview pill
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `hub/media_nav.py`, `hub/templates/base.html` (guest brand only), `hub/static/tv.js` (the B2/B3 Up rule), `hub/static/tv.css` (a "JY-248 nav" block), `hub/static/control-surface.css` (a "JY-248 nav" block, no token change), tests in `tests/hub/`
@@ -67,3 +67,8 @@ None: B.'s instruction above is the pick (2026-10-25).
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #163, squash-merged as `42f9dd8` (42f9dd82da3b6fbb369abe2ad8df7ea57eb18fff).
+- Deploy: `2026-10-25T02:20:12Z PASS prev=37bac74 new=42f9dd8 suite green, smoke ok tv=current gate=-n1 avail=1617 end=2026-10-25T02:29:16Z dur=544s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

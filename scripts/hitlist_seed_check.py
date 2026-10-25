@@ -287,6 +287,9 @@ SOURCES = [
     ("orchestrator sweep 5 (2026-10-25)", "Prowlarr failed grabs this week", "JY-246", "JY-143 spec Q1"),
     ("orchestrator sweep 5 (2026-10-25)", "friend summary leftovers", "JY-247", "JY-190 verifier"),
     ("B. in chat (2026-10-25)", "Joey Media title goes Home, no Overview pill", "JY-248", ""),
+    ("grouped TV session (2026-10-25)", "flaky tv shelves tmdb test", "JY-249", ""),
+    ("grouped TV session (2026-10-25)", "TV session fixes", "JY-250", ""),
+    ("grouped TV session (2026-10-25)", "friend sees household follow state", "JY-251", ""),
 ]
 
 

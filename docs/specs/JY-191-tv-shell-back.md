@@ -1,6 +1,6 @@
 # JY-191 Joey TV shell: Back on sign-in exits, Offline wording for a page error
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `tv/` (shell: `policy/BackPolicy.kt`, new `policy/OfflinePolicy.kt`, `MainActivity.kt`, `Screens.kt`, `res/layout/screen_offline.xml`, `res/values/strings.xml`, JVM tests, `tv/VERSION`, `tv/NOTES.txt`)
@@ -53,3 +53,8 @@ In the TV session with B., after release 1.0.2 is published:
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #151, squash-merged as `18c0d86` (18c0d86003662948aff8e5c136bff31add478735).
+- Deploy: `2026-10-25T05:20:05Z PASS prev=417ef98 new=18c0d86 suite green, smoke ok tv=published:2026102501 gate=-n2 avail=1898 end=2026-10-25T05:26:09Z dur=364s`
+- Accept: in chat: "B., orchestrator session, 2026-10-25: The TV is free now: run the grouped TV session (merge and release JY-191 first, then the 40 checks)."
+- Follow-ups: none

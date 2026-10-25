@@ -18,6 +18,12 @@ set the two GitHub secrets and committed `tv/SIGNING_CERT_SHA256`; 1.0.0 (`20261
 Until then no signed APK, no GitHub Release; each deploy shows `tv=skipped:no-token` or `tv=pending:<code>` (see "History tokens").
 Everything marked "UNTESTED" below is proven at WP-B9 (or W5, the first friend install), not before.
 
+**State at 2026-10-25: 1.0.2 is pending.** The live release is still 1.0.1 (`2026102202`). JY-191 (shell 1.0.2, `versionCode`
+`2026102501`: Back on `/signin` exits, Offline wording for a page error) is built and held as draft PR #151. **Merging it is the release:**
+`tv.yml` fires on merge to `main`, its `release` job cuts GitHub Release `tv-2026102501`, and the next `deploy.sh` publishes it to `/app`.
+So #151 is merged only in a TV session with B. (steps 4 to 7 below, then `release_check.py`). The TV UI round (JY-187 to JY-196, JY-248) changed
+the hub only, no `tv/` file, so it needs no release.
+
 Conventions: PowerShell 5.1 (no `&&`, full paths). NAS lines are ssh-wrapped. The merge and the deploy are run by Claude
 (JoeyTV project rule 6); the lines are here for when a run is blocked and B. runs it.
 

@@ -252,6 +252,38 @@ What a signed-in friend sees on the media front, and the 10-foot TV skin the And
     modal) and returns `true`; with nothing to close it returns `false` and the shell goes back or exits. `joeyTV.focusFirst()`
     re-runs first focus.
   - A trailer on the TV is a plain navigation to its YouTube URL (the shell hands it to the YouTube app), not the in-page player.
+  - **TV UI round (2026-10-25, JY-187 to JY-196, JY-248; hub only, no `tv/` change).** Where this section's older lines above differ
+    (six-column grid, rating chips, an Overview pill), the lines below are current. Specs: `docs/specs/JY-187-*` to `JY-196-*`, `JY-248-*`.
+    - **Back memory (JY-187).** `tv.js` keeps the last focused `<main>` link and scroll per URL in `sessionStorage` (`joeyTV.back`, at most 40
+      URLs; never a top-bar or dialog focus) and restores them on Back, a boosted swap, `pageshow` and the shell's hand-off reopen. Up from
+      the page lands on the open section's pill (`.toplinks a[aria-current]`). With no Play or poster, first focus is the current sub-tab.
+      Down from the title buttons lands on the first rating control.
+    - **Density B and compact chrome (JY-188).** Cards are 104 x 156 css px, eight across; the top bar is 64 px and the sub-tab row 40 px; only
+      the focused card shows its meta line. Type floor 18 px. The title-page hero has a scrim, the 404 is a centred "No page here" with Back,
+      and the sign-in password field no longer sits below the fold. Focus scale stays 1.06.
+    - **Posters (JY-189).** TV mode fetches posters at `h=600` (the warm `POSTER_H` cache) on shelves, grids and Tonight. Tonight is a
+      three-card `.poster-grid.big` inside the safe area with "Deal again" reachable.
+    - **Server fixes (JY-190).** `POST /signout` for a friend revokes the token, then deletes that friend's own Jellyfin device after the
+      response (never a household or other-app device), so the two-device cap no longer blocks the next Quick Connect. The 404 shows the signed-in
+      identity. The Diary month card and Wrapped read only the friend's own rows.
+    - **Series and episodes (JY-192).** Series, season and episode pages show a Seasons shelf and an Episodes shelf (16:9 stills through `/img/jf:<id>`,
+      watched and progress words from the viewer's own state). OK on an aired episode hands it to Jellyfin. The episode page leads with the
+      episode. Back on a season or episode goes to the series. Rating is a **Rate** button ("Rated 8") that opens the picker in a strip under the
+      buttons; Back closes the strip.
+    - **Title shelves and request page (JY-193).** One "More on Joey" shelf, on-server titles only. A title not on Joey is a request page with
+      Request focused first (confirm, then "Requested", Back focused). The person page is a TV layout with an on-server shelf.
+    - **Discover search (JY-194).** The friends' Discover shows a 56 px search field above the grid. Up from the first row reaches it, OK
+      raises the keyboard, typing swaps in "Results · n", and Back returns to trending with the field focused.
+    - **Home (JY-195, every device).** Continue watching, Recently added, New on Joey this month, Top rated on Joey, Films under 100 minutes,
+      then Recently watched; empty shelves are left out, a brand-new friend gets a welcome line, an empty library gets one words-first state.
+      TV empty states use `_empty_state.html` (no grey box).
+    - **Awards and Diary (JY-196).** Awards on the TV are a ceremony chip row, the edition line and one poster shelf per category group (no
+      picker or `<select>`). The Diary is a slim month row, All / Films / TV chips and month-grouped rows; "Log a watch", stats, milestones
+      and the Mine / Everyone form are hidden. An unrated row says "OK to rate" and opens the strip. To rate drops the "Rate TV by" chips.
+    - **Nav (JY-248).** The section row is Movies, TV shows, Diary, Discover: no Overview pill. The "Joey Media" title is the way Home and a TV focus
+      stop (current on Home). Up from Home reaches it; Home to the sign-out pill is 6 presses.
+    - **Device checks** for all of the above run together in one grouped TV session, not yet run (2026-10-25). Shell 1.0.2 (JY-191, PR #151) is
+      held; see `docs/tv-release.md`.
 
 ## Environment (all read by the hub; secrets live in the NAS `deploy/.env`, see `deploy/.env.example`)
 

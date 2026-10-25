@@ -11,10 +11,10 @@
    title page = 170 px poster beside title, facts, synopsis, Play / Trailer / Watchlist and the 1-10 chips; Set up Jellyfin
    = a full-screen card with :8443 in gold; sign-in = the WP-M screen 1 card. */
 html.tv {
-  --tv-mx: 48px; --tv-my: 27px; --tv-bar: 84px; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
+  --tv-mx: 48px; --tv-my: 27px; --tv-bar: 64px; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
   --tv-surface: rgba(255, 255, 255, .03); --tv-surface-2: rgba(255, 255, 255, .06); --tv-line: rgba(255, 255, 255, .12);
   --tv-border: rgba(255, 255, 255, .07); --tv-t1: #fafafa; --tv-t2: #e4e4e7; --tv-t3: #d4d4d8; --tv-t4: #a1a1aa; --tv-t5: #82828b;
-  --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
+  --tv-primary: #4f46e5; --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
 }
 html.tv body { font-size: 21px; line-height: 1.3; }
 html.tv body::before { display: none; }
@@ -33,17 +33,17 @@ html.tv a[href^="//"] { display: none !important; }
 /* No phone tab bar; the in-page section row is the top bar's. */
 html.tv .tabbar, html.tv .sectabs-page { display: none !important; }
 
-/* Top bar: brand, Media section row, user chip - inside the overscan margins; 84 px tall (27 + 48 + 9). */
+/* Top bar: brand, Media section row, user chip - inside the overscan margins; 64 px tall (27 + 36 + 1) - JY-188 compact chrome. */
 html.tv .topbar { position: sticky; top: 0; z-index: 40; border-bottom: 0; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my) var(--tv-mx) 9px; gap: 20px; }
+html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my) var(--tv-mx) 1px; gap: 20px; }
 html.tv .brand { gap: 10px; }
 html.tv .brand b { font-size: 22px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
-html.tv .brand .mark { width: 36px; height: 36px; border-radius: 9px; }
+html.tv .brand .mark { width: 32px; height: 32px; border-radius: 8px; }
 html.tv .toplinks { display: flex; gap: 4px; flex-shrink: 0; }
-html.tv .toplinks a { height: 40px; padding: 0 10px; border-radius: 10px; font-size: 20px; color: var(--tv-t4); }
+html.tv .toplinks a { height: 36px; padding: 0 10px; border-radius: 9px; font-size: 18px; color: var(--tv-t4); }
 html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
-html.tv .userchip { margin-left: auto; height: 40px; padding: 0 12px 0 4px; border-radius: 999px; font-size: 18px; color: var(--tv-t3); }
-html.tv .userchip .avatar { width: 32px; height: 32px; font-size: 17px; background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
+html.tv .userchip { margin-left: auto; height: 36px; padding: 0 12px 0 4px; border-radius: 999px; font-size: 18px; color: var(--tv-t3); }
+html.tv .userchip .avatar { width: 28px; height: 28px; font-size: 18px; background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }
 /* Sign-out (2026-10-22; option D + pop-up P2): the pill is one D-pad stop (Enter opens the confirm); with focus it also
    shows the words "Sign out" before the exit icon. The section row never shrinks (flex-shrink 0 above; its pills are
@@ -82,27 +82,36 @@ html.tv .sectabs { margin: 0; padding: 0; overflow: visible; }
 html.tv .sectabs-row { gap: 4px; border-bottom: 0; }
 html.tv .sectabs.sub { margin: 0; }
 html.tv .sectabs.sub a {
-  height: 44px; padding: 0 16px; margin: 0; border: 0; border-radius: 10px; font-size: 19px; color: var(--tv-t4);
+  height: 36px; padding: 0 14px; margin: 0; border: 0; border-radius: 10px; font-size: 18px; color: var(--tv-t4);
   display: inline-flex; align-items: center;
 }
-html.tv .sectabs.sub a:first-child { padding-left: 16px; }
+html.tv .sectabs.sub a:first-child { padding-left: 14px; }
 html.tv .sectabs.sub a[aria-current] { background: none; color: var(--tv-t1); box-shadow: inset 0 -3px 0 var(--tab-on); border-radius: 10px 10px 0 0; }
 
 /* Sections and shelves: 132 px posters, 20 px gaps, 14 / 10 px shelf padding, one-line captions; no snap (tv.js centres
    the focused poster). A shelf runs to the screen edges (its first poster still starts at the 48 px margin). */
 html.tv .sec { margin: 0; gap: 0; }
-html.tv .seclabel, html.tv h2.seclabel { font-size: 16px; line-height: 1.3; }
 html.tv .sechead a { display: none; }
-html.tv .carousel {
-  gap: 20px; scroll-snap-type: none; scroll-padding-inline: var(--tv-mx);
-  margin: 0 calc(-1 * var(--tv-mx)); padding: 14px var(--tv-mx) 10px;
-}
-html.tv .carousel > * { flex: 0 0 132px; width: 132px; }
-html.tv .card-poster .row-title { margin-top: 9px; font-size: 18px; line-height: 1.3; font-weight: 400; color: var(--tv-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html.tv .card-poster .row-meta { margin-top: 0; font-size: 16px; line-height: 1.3; color: var(--tv-t5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-html.tv .card-pic > img { border-radius: 10px; }
-html.tv .poster-tag { top: 8px; left: 8px; padding: 1px 9px; border-radius: 999px; font-size: 16px; font-weight: 700; max-width: calc(100% - 16px); }
-html.tv .poster-score { top: 8px; right: 8px; padding: 1px 8px; border-radius: 8px; font-size: 17px; }
+html.tv .carousel { scroll-snap-type: none; scroll-padding-inline: var(--tv-mx); margin: 0 calc(-1 * var(--tv-mx)); }
+html.tv .card-poster .row-title { font-weight: 400; color: var(--tv-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.tv .card-poster .row-meta { margin-top: 0; color: var(--tv-t5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ==== JY-188 (U2): density B, compact chrome ON - the scale block ====
+   Shelves and grids: 104x156 cards, 14 px gaps, 8 across, two rows plus a peek. Title 18 px on one line always; the meta
+   line (18 px) shows under the focused card only (its height is kept, so nothing shifts). Mockup:
+   JoeyTV\mockups\tv-v2\08-density.html option B. Focus scale stays 1.06 (tv.js POSTER_GROW is pinned to it). */
+html.tv .seclabel, html.tv h2.seclabel { font-size: 18px; line-height: 18px; position: relative; z-index: 6; }
+html.tv .carousel { gap: 14px; padding: 14px var(--tv-mx) 6px; }
+html.tv .carousel > * { flex: 0 0 104px; width: 104px; }
+html.tv .card-poster .row-title { margin-top: 4px; font-size: 18px; line-height: 20px; height: 20px; }
+html.tv .card-poster .row-meta { font-size: 18px; line-height: 20px; height: 20px; visibility: hidden; }
+html.tv .card-poster:focus-visible .row-meta, html.tv .card-poster.tv-focus .row-meta { visibility: visible; overflow: visible; text-overflow: clip; }
+html.tv .poster-grid.big .row-meta { visibility: visible; }
+html.tv .card-pic > img { border-radius: 8px; }
+html.tv .page:not(:has(> .pagehead)) { padding-top: 12px; }
+/* ==== end JY-188 scale block ==== */
+html.tv .poster-tag { top: 6px; left: 6px; padding: 0 8px; border-radius: 999px; font-size: 18px; font-weight: 700; max-width: calc(100% - 12px); }
+html.tv .poster-score { top: 6px; right: 6px; padding: 0 6px; border-radius: 8px; font-size: 18px; }
 
 /* Progress bar over the poster foot (WP-M): 5 px orange fill on a pale track, 10 px in from the edges. */
 html.tv .card-pic > .bar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 5px; margin: 0; z-index: 2; border-radius: 3px; background: var(--tv-bar-track); }
@@ -121,7 +130,7 @@ html.tv .poster-grid.big .row-title { font-size: 21px; line-height: 1.1; margin-
 html.tv .poster-grid.big .row-meta { line-height: 1.1; }
 html.tv .sec.tn > .tn-deal { margin-top: 137px; }
 
-html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px 16px; padding: 14px 0 8px; }
+html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px 14px; padding: 16px 0 8px; }   /* JY-188: 8 across */
 html.tv form.toolbar, html.tv main > p.metaline:last-child:not([role]),
 html.tv main > p.metaline:has(+ form.toolbar), html.tv main > p.metaline:has(+ p.metaline + form.toolbar) { display: none; }
 html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the year only, as in the mockup (the state words need the list view) */
@@ -140,10 +149,10 @@ html.tv .discover-search .input { height: 56px; padding: 0 22px 0 64px; border-r
 html.tv .discover-search .input::placeholder { color: var(--tv-t4); }
 html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
 html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
-html.tv .reqgrid .reqchip { z-index: 2; top: 8px; left: 8px; padding: 1px 10px; font-size: 16px; font-weight: 700; line-height: 1.5; }
+html.tv .reqgrid .reqchip { z-index: 2; top: 6px; left: 6px; padding: 0 8px; font-size: 18px; font-weight: 700; line-height: 1.5; }
 html.tv .reqgrid .reqchip-lib { background: rgba(52, 211, 153, .95); }
 html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: #fbbf24; }
-html.tv .reqgrid .reqchip-request { background: var(--primary); color: #fff; }
+html.tv .reqgrid .reqchip-request { background: var(--tv-primary); color: #fff; }
 
 /* The request panel (mockup: 780 px card on #18181b, 150 px poster, 38 px title, a 3-line synopsis, 22 px status line,
    Request focused -> "Requested - waiting for approval" with Done focused). Back / Done / Esc close it (tv.js back()). */
@@ -160,14 +169,14 @@ html.tv .reqpanel-ov {
 html.tv .reqpanel .statusline { margin: 20px 0 0; font-size: 22px; font-weight: 600; }
 html.tv .reqpanel .statusline.st-warn { color: var(--amber); }
 html.tv .reqpanel-btns { gap: 14px; margin-top: 20px; }
-html.tv .reqpanel-btns .btn-white { background: var(--primary); color: #fff; border-color: transparent; }
+html.tv .reqpanel-btns .btn-white { background: var(--tv-primary); color: #fff; border-color: transparent; }
 html.tv .reqpanel-btns .btn-ghost { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 
-/* Nothing under 16 px (the WP-M floor). */
+/* Nothing under 18 px (JY-188 raised the WP-M 16 px floor; test_tv_css_text_floor_is_18px audits it). */
 html.tv small, html.tv .microlabel, html.tv .eyebrow, html.tv .metaline, html.tv .row-meta, html.tv .empty,
-html.tv .chip, html.tv .statusline, html.tv .facts-line, html.tv .tagline, html.tv .overview, html.tv .waitcount { font-size: 16px; }
+html.tv .chip, html.tv .statusline, html.tv .facts-line, html.tv .tagline, html.tv .overview, html.tv .waitcount { font-size: 18px; }
 html.tv .label, html.tv .awpick-name, html.tv .awtile-name, html.tv .awtile-month, html.tv .awnext, html.tv .awnextup, html.tv .awnextup *,
-html.tv .awev, html.tv .awev *, html.tv .seg a { font-size: 16px; }
+html.tv .awev, html.tv .awev *, html.tv .seg a { font-size: 18px; }
 
 /* JY-233: the hub tile's icon chip and title scale up for 10-foot viewing. */
 html.tv .tile-icon { width: 60px; height: 60px; border-radius: 14px; }
@@ -183,6 +192,8 @@ html.tv .btn-sm { min-height: 44px; padding: 0 18px; font-size: 18px; }
    a show keeps its Seasons list so its episodes stay reachable. */
 html.tv .pagehead.hero-detail { margin: 0 calc(-1 * var(--tv-mx)); min-height: 0; overflow: visible; }
 html.tv .pagehead.hero-detail:not(:has(.hero-detail-bd)) { background: radial-gradient(900px 420px at 80% 8%, hsl(215 55% 30% / .55), transparent 70%); }
+/* JY-188 (P1): a scrim over the title-page backdrop so the facts and synopsis never sit on the bare photo. */
+html.tv .hero-detail-bd { background-image: linear-gradient(90deg, rgba(9, 9, 11, .94), rgba(9, 9, 11, .8) 55%, rgba(9, 9, 11, .55)), linear-gradient(to bottom, transparent 60%, var(--bg)), var(--bd-pick); }
 html.tv .pagehead.hero-detail .pagehead-in { max-width: none; padding: 12px var(--tv-mx) 0; }
 html.tv .hero-detail-in { flex-direction: row; align-items: flex-start; gap: 32px; text-align: left; }
 html.tv .hero-detail-poster { width: 170px; max-width: none; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
@@ -192,18 +203,18 @@ html.tv .hero-detail-text > .facts-line:not(.tv-facts), html.tv .hero-detail-tex
 html.tv .hero-detail-text .makers, html.tv .hero-detail-text details.heromore, html.tv .hero-detail-text .upnote,
 html.tv .hero-detail-text .followform, html.tv .hero-detail-text #quality-block, html.tv .hero-detail-text .qualityblock,
 html.tv .hero-detail-text > .metaline:not([role]) { display: none; }
-html.tv .hero-detail-text .tv-facts { margin-top: 6px; font-size: 19px; color: var(--tv-t4); }
+html.tv .hero-detail-text .tv-facts { margin-top: 6px; font-size: 19px; color: var(--tv-t3); }
 html.tv .hero-detail-text .tv-syn {
-  margin-top: 14px; max-width: 640px; font-size: 19px; line-height: 1.3; color: var(--tv-t3);
+  margin-top: 14px; max-width: 640px; font-size: 19px; line-height: 1.3; color: var(--tv-t2);
   display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 html.tv .hero-detail-btns { gap: 14px; margin-top: 20px; justify-content: flex-start; }
-html.tv .hero-detail-btns .btn-white { background: var(--primary); color: #fff; border-color: transparent; }
+html.tv .hero-detail-btns .btn-white { background: var(--tv-primary); color: #fff; border-color: transparent; }
 html.tv .hero-detail-btns .btn-glass, html.tv .hero-detail-btns .wlbtn .btn { border-color: var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); -webkit-backdrop-filter: none; backdrop-filter: none; }
 html.tv .hero-detail-btns .wlbtn .btn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600; }
 html.tv .tv-rate { margin-top: 22px; }
 html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: 8px; }
-html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 16px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
+html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
 html.tv .tv-rate .ratepick .chip { width: 46px; height: 46px; justify-content: center; padding: 0; border-radius: 10px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 20px; font-weight: 600; color: var(--tv-t3); }
 html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec), html.tv .fp-shelf-wait { display: none; }
 
@@ -219,7 +230,7 @@ html.tv .setup-steps { list-style: none; counter-reset: s; display: grid; gap: 8
 html.tv .setup-steps li { counter-increment: s; position: relative; padding-left: 46px; min-height: 36px; }
 html.tv .setup-steps li::before {
   content: counter(s); position: absolute; left: 0; top: -1px; width: 32px; height: 32px; border-radius: 50%; background: var(--tv-surface-2); border: 1px solid var(--tv-line);
-  display: grid; place-items: center; font-size: 17px; font-weight: 600; color: var(--tv-t2);
+  display: grid; place-items: center; font-size: 18px; font-weight: 600; color: var(--tv-t2);
 }
 html.tv .setup-steps li b { color: var(--tv-t1); font-weight: 600; }
 html.tv .setup-addr {
@@ -249,3 +260,16 @@ html.tv .signin-error { font-size: 18px; }
 @keyframes tv-pulse { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { html.tv .signin-panel #qc-status::before { animation: none; } html.tv .card-poster { transition: none; } }
 html.tv .signin-panel #qc .btn { background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
+
+/* JY-188 (R4/Y3): the " . " separators were 2.57:1; they take the secondary grey. */
+html.tv .sep, html.tv .row-meta .sep, html.tv .metaline .sep, html.tv .facts-line .sep { color: var(--tv-t4); }
+
+/* JY-188 (L3): once the password form opens, the Quick Connect block steps aside so the form fits above the fold. */
+html.tv .signin-panel:has(details[open]) #qc { display: none; }
+html.tv .signin-panel:has(details[open]) details { margin-top: 0; }
+
+/* JY-188 (F1): the 404 page in TV mode - a centred message and one 56 px back button. */
+html.tv .sec.nf { min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
+html.tv .sec.nf .seclabel { font-size: 38px; line-height: 1.1; font-weight: 700; text-transform: none; color: var(--tv-t1); }
+html.tv .sec.nf .empty { font-size: 24px; color: var(--tv-t3); margin: 0; }
+html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 56px; padding: 0 28px; border-radius: 12px; border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 21px; font-weight: 600; text-decoration: none; margin-top: 10px; }

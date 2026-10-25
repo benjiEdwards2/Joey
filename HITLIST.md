@@ -170,7 +170,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-185 | Delete old key files left on the Desktop | Joey TV | S | idea | After the password manager holds the key; B.'s hands | — |
 | JY-186 | TV UI Gate 1 picks (scale + picks 1–6) | Joey TV | S | [x] shipped | B. 2026-10-25: "scale B, chrome on · 1B · 2A · 3B · 4A · 5A · 6 delete device" (6 = JY-190, live) | — |
 | JY-187 | U1 Back memory (focus + scroll) | Joey TV | M | [x] shipped | Built, review PASS (PR #125); waits on the TV device run (J3/J4/J5/J8/J9) and B.'s J8 pick (6 presses) | [spec](docs/specs/JY-187-tv-back-memory.md) |
-| JY-188 | U2 Hero scrim, 18 px type floor, card scale | Joey TV | M | idea | Rows and cards too large; needs the scale pick | — |
+| JY-188 | U2 Hero scrim, 18 px type floor, card scale | Joey TV | M | [x] shipped | Rows and cards too large; needs the scale pick · PR #162 | [spec](docs/specs/JY-188-tv-scale-b.md) |
 | JY-189 | U3 Posters at 400 px + Tonight layout | Joey TV | M | [x] shipped | Blurry posters; Tonight unstyled · PR #148 | [spec](docs/specs/JY-189-tv-posters-tonight.md) |
 | JY-190 | U4 Server fixes (sign-out device, 404, Diary scope) | Joey TV | M | [x] shipped | Stale device blocks sign-in · live · PR #149 | [spec](docs/specs/JY-190-tv-server-fixes.md) |
 | JY-191 | U5 Shell Back + Offline wording (release 1.0.2) | Joey TV | M | idea | Built + reviewed (PR #151); merge publishes TV app 1.0.2, so merge in the TV session with B. | — |

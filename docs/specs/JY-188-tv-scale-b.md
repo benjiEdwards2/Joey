@@ -1,6 +1,6 @@
 # JY-188 TV scale B, compact chrome (U2)
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `hub/static/tv.css`, `hub/templates/404.html`, `hub/templates/guest_signin.html` (no change needed), `tests/hub/test_tv_mode.py`
@@ -52,3 +52,8 @@ Nav row and `base.html` (JY-248), U6 (JY-192), option C, desktop / iPad / phone.
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #162, squash-merged as `37bac74` (37bac745763741233db6ca3fab47df69b003962d).
+- Deploy: `2026-10-25T02:08:49Z PASS prev=62e533d new=37bac74 suite green, smoke ok tv=current gate=-n2 avail=1962 end=2026-10-25T02:15:49Z dur=420s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

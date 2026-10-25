@@ -219,9 +219,10 @@ What a signed-in friend sees on the media front, and the 10-foot TV skin the And
   and a friend's shows carry no progress words (those come from the household's Jellyfin lists), so a friend never sees
   a household number (`test_guest_surface.py`, `test_guest_month_card.py`).
 
-- **The pages.** Overview (`/a/<shelves id>`): exactly three shelves, Continue watching and Recently watched (live reads of the
-  viewer's own Jellyfin state with their own token, `hub/media_guest_home.py`) and Recently added (the scrubbed snapshot); no hero,
-  no household shelves. The section row is Movies, TV shows, Diary, Discover; the "Joey Media" title is the way Home (JY-248). Title pages draw no off-site links (the
+- **The pages.** Home (`/a/<shelves id>`, JY-195): Continue watching and Recently watched (live reads of the
+  viewer's own Jellyfin state with their own token, `hub/media_guest_home.py`), Recently added, and New on Joey this month /
+  Top rated on Joey / Films under 100 minutes (the scrubbed snapshot only); an empty shelf is left out, a brand-new friend
+  gets a welcome line; no hero, no household shelves. TV empty states: `_empty_state.html`. The section row is Movies, TV shows, Diary, Discover; the "Joey Media" title is the way Home (JY-248). Title pages draw no off-site links (the
   exposure crawl allows only the Jellyfin edge, YouTube and TMDB images).
 - **The `shell.jellyfin_link` seam.** `hub/shell.py` `jellyfin_link(registry_href)` is the one base of every Jellyfin link a page
   draws (Play, "Open in Jellyfin", the `_deep_link` item links). On the media front it is `JELLYFIN_PUBLIC_URL` with its port kept

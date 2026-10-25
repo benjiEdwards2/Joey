@@ -1,0 +1,12 @@
+{% from "_icons.html" import icon %}
+{# JY-195 (U9, E1/E2/Y4): the TV's words-first empty state - a line icon, a big heading, one line saying what to do,
+   one button. No border, no grey box; the heading is not a .seclabel, so it never reads as a shelf. No data-first:
+   JY-187 G3 keeps first focus on the current sub-tab; Down reaches the button. Styles: tv.css "JY-195" block. #}
+{% macro bigempty(icon_id, heading, line, href, label) -%}
+<section class="sec bigempty" aria-label="{{ heading }}">
+  {{ icon(icon_id) }}
+  <h2 class="bigempty-h">{{ heading }}</h2>
+  <p class="bigempty-p">{{ line }}</p>
+  <a class="btn btn-primary" href="{{ href }}">{{ label }}</a>
+</section>
+{%- endmacro %}

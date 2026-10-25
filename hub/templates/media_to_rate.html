@@ -13,6 +13,10 @@
 {% elif to_rate %}
 <p class="metaline">{{ to_rate|length }} {{ noun }}{{ "" if to_rate|length == 1 else "s" }} watched in the last 30 days, not rated yet</p>
 {{ torate.rows(to_rate) }}
+{% elif tv_mode(request) %}
+{% from "_empty_state.html" import bigempty %}{# JY-195 (E1) #}
+{{ bigempty("star", "Nothing to rate right now", ("Films" if kind == "movie" else "Shows") ~ " you finish show up here so you can give them a score",
+            "/media/movies" if kind == "movie" else "/media/tv", "Browse films" if kind == "movie" else "Browse shows") }}
 {% else %}
 <p class="empty">Nothing to rate.</p>
 {% endif %}

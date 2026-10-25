@@ -73,7 +73,9 @@
   </div>
 </section>
 {% else %}
-<p class="empty">Nothing in the diary yet.</p>
+{% if tv_mode(request) %}{% from "_empty_state.html" import bigempty %}{# JY-195 #}
+{{ bigempty("film", "Your diary is empty", "Films and episodes you finish are logged here", "/media/movies", "Browse films") }}
+{% else %}<p class="empty">Nothing in the diary yet.</p>{% endif %}
 {% endfor %}
 {% if older %}<div><a class="btn btn-secondary" href="{{ older }}">Older</a></div>{% endif %}
 {% include "_detail_foot.html" %}

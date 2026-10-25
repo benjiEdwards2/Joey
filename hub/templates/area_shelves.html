@@ -1,5 +1,5 @@
 {% extends "media_base.html" %}
-{% block title %}{{ "Overview" if guest(request) else area.name }} · Joey{% endblock %}
+{% block title %}{{ "Home" if guest(request) else area.name }} · Joey{% endblock %}
 {# Media home (shelves layout, 2026-10-05; restyle Phase 3, 2026-10-06). "Playing now" lives in the page header:
    the eyebrow is the state word, the title the playing title, one sub-line of facts joined by " · ", the backdrop
    drifts behind it, and "Open in Jellyfin" is the header's glass button. Shelves are deliberate carousels (snap-x)
@@ -8,9 +8,10 @@
 {% from "_pagehead.html" import pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% if guest(request) %}
-{# Joey TV WP-B3: the guest Overview has no hero (WP-M call 4) - a plain head, then three shelves. On the TV the head
-   band is dropped altogether (the top bar already names the section), so three shelves fit with the third peeking. #}
-{% if not tv_mode(request) %}{% call pagehead("Overview") %}{{ media_tabs() }}{% endcall %}{% endif %}
+{# Joey TV WP-B3: the guest Home has no hero (WP-M call 4) - a plain head, then the shelves. On the TV the head
+   band is dropped altogether (the top bar already names the section). JY-195 (2026-10-25): the page is "Home" (JY-248
+   removed the Overview pill; "Joey Media" goes Home). #}
+{% if not tv_mode(request) %}{% call pagehead("Home") %}{{ media_tabs() }}{% endcall %}{% endif %}
 {% else %}
 {% set h = sh.hero %}
 {% if h and h.user %}{% set sub = [h.user, h.play_method, (h.progress_pct ~ "%") if h.progress_pct is not none else none] | select | join(" · ") %}
@@ -52,6 +53,14 @@
 </p>
 {% endif %}
 
+{% if sh.welcome %}
+{# JY-195: a brand-new friend (nothing to continue, nothing watched) - one line above the shelves (pick 4A). #}
+<p class="welcome">Welcome, {{ identity(request).name }} <span>— here’s what’s on Joey</span></p>
+{% endif %}
+{% if guest(request) and not sh.shelves %}
+{% from "_empty_state.html" import bigempty %}
+{{ bigempty("film", "Nothing on Joey yet", "New films and shows show up here as they arrive", "/media/discover", "Discover") }}
+{% endif %}
 {% for s in sh.shelves %}
 <section class="sec">
   <div class="sechead">

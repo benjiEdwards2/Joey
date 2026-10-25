@@ -1,6 +1,6 @@
 # JY-196 Diary and Awards on the TV (U10)
 
-Status: building
+Status: shipped 2026-10-25
 Size: M
 Live risk: none
 Area: `hub/templates/media_awards.html` and a new `_award_tv.html` (the TV Awards view), `hub/media_awards_pages.py` (the shelves data, TV forces the films view), `hub/templates/media_diary.html`, `hub/templates/media_history.html`, `hub/templates/_diary_row.html`, `_to_rate.html` and `media_to_rate.html` (the TV "OK to rate" fold), `hub/static/tv.css` (a commented "JY-196" block), tests in `tests/hub/`
@@ -68,3 +68,8 @@ The desktop / phone Awards page and Diary; Wrapped; the title page's rating stri
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #171, squash-merged as `b0cec29` (b0cec295add9c713aad748792f4c8ec2f16c293e).
+- Deploy: `2026-10-25T03:00:21Z PASS prev=ac96013 new=b0cec29 suite green, smoke ok tv=current gate=-n2 avail=1825 end=2026-10-25T03:06:29Z dur=368s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

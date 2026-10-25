@@ -1,6 +1,6 @@
 # JY-197 U11 TV docs sweep
 
-Status: review
+Status: shipped 2026-10-25
 Size: S
 Live risk: none
 Area: `docs/tv-release.md`, `hub/README.md`, this spec
@@ -30,3 +30,8 @@ None.
 1. Read the `hub/README.md` TV block and `docs/tv-release.md` state line; say `accepted` or what to change.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #174, squash-merged as `afef649` (afef649640ebef5806fc520bfe9a70ebe4658c74).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

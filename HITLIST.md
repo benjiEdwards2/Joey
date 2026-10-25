@@ -168,7 +168,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-183 | Revisit the 20 Mbps cap for 2 friend streams | Joey TV | S | idea | Upload is 32.5 Mbps; 1 stream today | — |
 | JY-184 | Friend session visible in B.'s live now-playing view | Joey TV | S | idea | Follow-on from the edge work | — |
 | JY-185 | Delete old key files left on the Desktop | Joey TV | S | idea | After the password manager holds the key; B.'s hands | — |
-| JY-186 | TV UI Gate 1 picks (scale + picks 1–6) | Joey TV | S | idea | B.'s picks block U2 and U6–U10 | — |
+| JY-186 | TV UI Gate 1 picks (scale + picks 1–6) | Joey TV | S | [x] shipped | B. 2026-10-25: "scale B, chrome on · 1B · 2A · 3B · 4A · 5A · 6 delete device" (6 = JY-190, live) | — |
 | JY-187 | U1 Back memory (focus + scroll) | Joey TV | M | [x] shipped | Built, review PASS (PR #125); waits on the TV device run (J3/J4/J5/J8/J9) and B.'s J8 pick (6 presses) | [spec](docs/specs/JY-187-tv-back-memory.md) |
 | JY-188 | U2 Hero scrim, 18 px type floor, card scale | Joey TV | M | idea | Rows and cards too large; needs the scale pick | — |
 | JY-189 | U3 Posters at 400 px + Tonight layout | Joey TV | M | [x] shipped | Blurry posters; Tonight unstyled · PR #148 | [spec](docs/specs/JY-189-tv-posters-tonight.md) |
@@ -180,6 +180,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-195 | U9 Overview + empty states | Joey TV | M | idea | Grey empty boxes; needs picks | — |
 | JY-196 | U10 Diary + Awards on TV | Joey TV | M | idea | Diary shows household stats; needs picks | — |
 | JY-197 | U11 TV docs sweep | Joey TV | S | idea | Release, README, mockups, handover | — |
+| JY-248 | Friends' nav: no Overview pill; "Joey Media" title goes Home (TV focus stop) | Joey TV | M | idea | B. 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home" | — |
 
 ### NAS / stack
 

@@ -9,6 +9,12 @@ if str(REPO_ROOT) not in sys.path:
 
 import pytest
 
+from tests import route_memo
+
+# JY-252 (2026-10-26): FastAPI's per-endpoint dependency analysis is done once per worker, not once per fresh app
+# (tests/route_memo.py; pinned by tests/hub/test_route_memo.py).
+route_memo.install()
+
 
 def _reset_media_readers():
     """E1 (2026-10-13): hub.media_store keeps one reader connection per thread; close them all so a test's media.db is

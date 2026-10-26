@@ -15,6 +15,10 @@ On the box `deploy/deploy.sh` builds the union `life-test` image (`deploy/test.D
 and runs the same suite offline (`--network none`) against the code that ships, then smoke-tests the live stack
 (`tests/deploy/smoke.py`). It is the only path to production and aborts on any failure.
 
+Speed (JY-252, 2026-10-26): most hub tests build a fresh app (`importlib.reload(hub.main)`), and FastAPI analyses every
+endpoint's parameters again for each one. `tests/conftest.py` installs `tests/route_memo.py`, which does that analysis
+once per worker and hands each app its own copy; only on the pinned FastAPI. `tests/hub/test_route_memo.py` pins it.
+
 | Dir | Owns |
 |---|---|
 | `tests/hub/` | The hub: shell, registry, identity, store, every Media / Server / Weather / Awards page and its routes |

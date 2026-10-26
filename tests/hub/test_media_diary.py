@@ -51,7 +51,9 @@ def test_stats_strip_in_words_and_month_grouping(env):
 
 def test_diary_is_activity_history_and_links_play_stats(env):
     """nav-tidy (2026-10-13, B.): the diary is Activity > History (no Diary section); the play recorder page keeps its
-    URL with no tab, linked from a metaline under the stats line."""
+    URL with no tab, linked from a metaline under the stats line.
+    JY-121 (2026-10-26, spec docs/specs/JY-121-play-stats-history.md): the metaline link became the Diary · Play stats
+    switch above the month card; the pin follows it (still linked, now from the switch)."""
     build, _ = env
     with build() as client:
         html = client.get("/media/diary").text
@@ -59,8 +61,9 @@ def test_diary_is_activity_history_and_links_play_stats(env):
     assert 'href="/media/playing" aria-current="page">Activity' in html.split('<nav class="sectabs sectabs-page"', 1)[1]
     assert 'href="/media/diary" aria-current="page">History</a>' in html.split('<nav class="sectabs sub"', 1)[1]
     body = main_of(html)
-    assert '<p class="metaline"><a href="/media/server/history">Play stats</a></p>' in body
-    assert body.index("this week · ") < body.index(">Play stats</a>")
+    switch = body.split('<nav class="seg histseg" aria-label="History view">', 1)[1].split("</nav>", 1)[0]
+    assert '<a href="/media/server/history">Play stats</a>' in switch
+    assert body.index('aria-label="History view"') < body.index("this week · ")
 
 
 def test_place_suggestions_come_from_media_write_places(env):

@@ -1,0 +1,7 @@
+{# JY-121 (2026-10-26, option A for B.'s pick): Activity > History has two views, the diary and the play recorder's
+   stats. One switch on both pages; `here` is "diary" or "plays". Private front only: the caller checks
+   guest_allows("/media/server/history"), so the friends' front never draws it. #}
+<nav class="seg histseg" aria-label="History view">
+  <a href="/media/diary"{% if here == "diary" %} aria-current="page"{% endif %}>Diary</a>
+  <a href="/media/server/history"{% if here == "plays" %} aria-current="page"{% endif %}>Play stats</a>
+</nav>

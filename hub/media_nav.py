@@ -9,6 +9,9 @@ HOME_ID = "home"
 # E6 (2026-10-13): the Wrapped page's href helper — after nav-tidy (B., same day) the Diary section and its Year tab are
 # gone, so Wrapped is reached from the Diary's Month in Review card ("All of <year>") and lights Activity > History.
 YEAR_TAB = "/media/diary/year"
+# JY-121 (2026-10-26, option A for B.'s pick): Play stats is History's second view (the Diary · Play stats switch), so
+# its page lights the History tab; it keeps its own URL (private only, hub/guest.py).
+TAB_ALIASES = {"/media/server/history": "/media/diary"}
 
 SECTIONS: list[dict] = [
     {"id": "home", "label": "Overview", "short": "Overview", "icon": "house", "href": None, "prefixes": [], "tabs": []},
@@ -18,7 +21,8 @@ SECTIONS: list[dict] = [
      "tabs": [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]},
     # decision 4 (2026-10-09): the Media section reads "Activity" (the hub AREA stays "Server"); id + URLs unchanged.
     # nav-tidy (2026-10-13, B.): the Diary section folded in here — History = the diary, To rate = the Jellyfin
-    # recent-watch page with the rating inbox; the play recorder (/media/server/history) has no tab, the diary links it.
+    # recent-watch page with the rating inbox; the play recorder (/media/server/history) has no tab of its own: it lights
+    # History (TAB_ALIASES, JY-121).
     {"id": "server", "label": "Activity", "short": "Activity", "icon": "server", "href": "/media/playing",
      "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps",
                   "/media/diary", "/media/history"],
@@ -125,7 +129,8 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
              "count": counts.get(s["id"], 0) or 0} for s in table]
     tabs = []
     if section:
-        scores = [_tab_on(h, path) for _, h in section["tabs"]]
+        tab_path = TAB_ALIASES.get(path, path)
+        scores = [_tab_on(h, tab_path) for _, h in section["tabs"]]
         top = max(scores, default=0)
         tab_counts = {"/media/movies/to-rate": waiting.get("to_rate_movie", 0),
                       "/media/tv/to-rate": waiting.get("to_rate_tv", 0),

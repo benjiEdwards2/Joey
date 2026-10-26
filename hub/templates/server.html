@@ -19,6 +19,8 @@
    colour is never the only encoding. Amber only where there is something to do. The Services cards show from
    anywhere (2026-10-19). #}
 {% from "_rows.html" import meta, updated %}
+{# JY-134 (P8, 2026-10-26): one sentence for the signed-in viewer, from stored data (hub/server_visits.py). #}
+{% if since_visit %}<p class="metaline sincevisit">{{ since_visit }}</p>{% endif %}
 {% if sv.attention %}
 <section class="sec" id="attention" aria-label="Attention">
   <div class="sechead"><h2 class="seclabel">Attention</h2></div>

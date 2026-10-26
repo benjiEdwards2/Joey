@@ -25,7 +25,7 @@ from hub import media_arr_search, media_follow, media_quality, media_requests, m
 from hub import media_requests_approve   # WP-RQ1: Approve / Decline on the Requests page
 from hub import media_awards_pages
 from hub import server as server_area
-from hub import server_alerts, server_history, server_stack, server_updates, server_uptime
+from hub import server_alerts, server_history, server_stack, server_updates, server_uptime, server_visits
 from hub import server_quiet   # P4 quiet mode (2026-10-22)
 from hub import server_digest  # P2 (2026-10-22)
 from hub import player_api   # JY-053: playback-session API, off unless PLAYER_API=on
@@ -232,18 +232,24 @@ def _server_response(request: Request, area, view: str, from_query: bool):
     snaps = shell.get_snapshots(request=request)
     samples = server_history.recent()
     forecast, keep = server_alerts.forecast_or_keep(server_history.forecast, samples)   # JY-031: the loop's cache
+    requested, history = server_updates.last_requested(), get_runner_history()
+    live = server_area.live_snapshot_ids(shell.registry)  # WP-U3
     sv = server_area.build_server(area, snaps, media_backup.current_status(), get_runner(),
-                                  server_updates.get_ignores(), server_updates.last_requested(),
-                                  get_runner_history(), samples,
-                                  live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
+                                  server_updates.get_ignores(), requested,
+                                  history, samples,
+                                  live=live,
                                   gated=shell.registry.gated_hrefs,
                                   forecast=forecast,
                                   uptime=server_uptime.peek())   # JY-133: memory only, summed on the hub loop
+    # JY-134 (P8, 2026-10-26): "Since your last visit …" for the signed-in viewer; read here, the visit written after.
+    owner = shell.identity_of(request).owner
+    since_visit = server_visits.sentence(owner, server_visits.since_for(owner), requested, history, live)
     after = BackgroundTasks()
     after.add_task(server_alerts.sync, sv["attention_items"], keep=keep)  # WP-U2: Discord push after the page
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
+    after.add_task(server_visits.touch, owner)  # JY-134: this view ends the viewer's visit so far
     resp = shell.render_page(request, "server.html", {
-        "area": area, "sv": sv,
+        "area": area, "sv": sv, "since_visit": since_visit,
         "flash": server_updates.flash_text(request.query_params) or server_stack.flash_text(request.query_params),
         "stack": server_stack.status(),   # 2026-10-12: stackctl's last run (2 s cap; no env = no call)
         "quiet": server_quiet.page(snaps, request.query_params),   # P4 (2026-10-22): the cap row; no call, the snapshot

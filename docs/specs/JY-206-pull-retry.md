@@ -1,6 +1,6 @@
 # JY-206 deploy.sh pull retry (E0, code part)
 
-Status: review
+Status: shipped 2026-10-26
 Size: S
 Live risk: deploy (changes `deploy/deploy.sh`, the only path to production)
 Area: `deploy/deploy.sh` (the pull step), `tests/deploy/test_deploy_script.py`, `deploy/README.md` (one line), this spec
@@ -42,4 +42,8 @@ None: no screen. The brief for this item fixed 3 tries, 20 s apart.
 None.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #183, squash-merged as `43a529a` (43a529a8d7ee2d181dd65f507e1e0d3540908773).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

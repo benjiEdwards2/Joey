@@ -198,7 +198,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-203 | qBittorrent queue limits | NAS | S | idea | Raise to 8 / 12, skip slow torrents | — |
 | JY-204 | qBittorrent bound to tun0; gluetun DNS blocklist off | NAS | S | idea | 0 seeds + tracker errors; check against the Proton switch | — |
 | JY-205 | Pin gluetun to v3 | NAS | S | idea | Runs the `latest` dev build | — |
-| JY-206 | ADM IPv6 DNS entry + deploy.sh pull retry (E0) | NAS | S | idea | `tidyup_t0.sh` already run 2026-10-18; ADM part is B.'s hands | — |
+| JY-206 | ADM IPv6 DNS entry + deploy.sh pull retry (E0) | NAS | S | [x] shipped | `tidyup_t0.sh` already run 2026-10-18; ADM part is B.'s hands · PR #183 | [spec](docs/specs/JY-206-pull-retry.md) |
 | JY-207 | Cloudflare edge-cache rule (optional) | NAS | S | idea | Cache /static and /img; see `docs/setup.md` | — |
 | JY-208 | TailScale container running on the NAS | NAS | S | idea | Flagged only; keep or remove | — |
 | JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | idea | Unpublish LAN ports 9000/7878/8989/3001/3030/3000; drop the Homepage hostname; B. or Claude in a NAS window | — |

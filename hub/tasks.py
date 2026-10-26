@@ -14,7 +14,7 @@ from fastapi import FastAPI
 
 from hub import guest, media_awards, media_backup, media_follow, media_plays, media_warmup, shell
 from hub import server as server_area
-from hub import server_alerts, server_digest, server_history, server_uptime
+from hub import server_alerts, server_digest, server_history, server_uptime, server_visits
 from hub.store import get_snapshots as _read_snapshots
 
 log = logging.getLogger("hub")
@@ -128,6 +128,7 @@ async def lifespan(_: FastAPI):
         None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),
     ]
     yield
+    server_visits.flush()   # JY-134: commit each viewer's in-memory last_seen (written at most once a minute)
     for task in reversed(tasks):  # newest first
         if task is not None:
             task.cancel()

@@ -134,7 +134,8 @@
       {% if a.logo %}<img class="svc-logo" src="/static/svc/{{ a.logo }}?v={{ static_v }}" alt="" width="40" height="40">
       {% else %}<span class="svc-logo svc-fallback" aria-hidden="true"><span class="svc-initial">{{ a.initial }}</span>{{ ic.icon(area.icon) }}</span>{% endif %}
       {% set sub = [a.subtitle, lan_word if a.lan else none] | select | join(" · ") %}
-      <span class="svc-body"><span class="svc-name">{{ a.name }}</span>{% if sub %}<span class="svc-sub">{{ sub }}</span>{% endif %}</span>
+      {# JY-133 (P7, 2026-10-26): the monitor's 7-day line ("99.4% up · 7 days · down 5h ago"), from memory only. #}
+      <span class="svc-body"><span class="svc-name">{{ a.name }}</span>{% if sub %}<span class="svc-sub">{{ sub }}</span>{% endif %}{% if a.uptime_text %}<span class="svc-sub svc-uptime">{{ a.uptime_text }}</span>{% endif %}</span>
       <span class="svc-side"><span class="{{ 'st-up' if a.up else 'st-down' }}"><span class="svc-dot" aria-hidden="true"></span>{{ a.status_text or ("Up" if a.up else "Down") }}</span>{% if not a.up and a.note %}<span class="svc-note">{{ a.note }}</span>{% elif a.response_ms is not none %}<span class="svc-note">{{ a.response_ms }} ms</span>{% endif %}</span>
     </{{ tag }}>
     {% endfor %}

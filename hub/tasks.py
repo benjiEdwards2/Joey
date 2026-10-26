@@ -14,7 +14,7 @@ from fastapi import FastAPI
 
 from hub import guest, media_awards, media_backup, media_follow, media_plays, media_warmup, shell
 from hub import server as server_area
-from hub import server_alerts, server_digest, server_history
+from hub import server_alerts, server_digest, server_history, server_uptime
 from hub.store import get_snapshots as _read_snapshots
 
 log = logging.getLogger("hub")
@@ -52,6 +52,7 @@ def _server_tick() -> None:
         server_history.sample(snaps)
     except Exception as exc:
         log.warning("server history task error: %s", type(exc).__name__)
+    server_uptime.tick(snaps)   # JY-133: Kuma states + the 7-day sum; never raises
     try:
         server_history.refresh_forecast()
     except Exception as exc:

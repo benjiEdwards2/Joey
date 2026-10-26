@@ -184,7 +184,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-249 | Flaky `test_tv_shelves_tmdb` (failed once in CI, passed on rerun) | Tests | S | [x] shipped | Fixed inside JY-250 (PR #179): test holds the background read until the page renders | — |
 | JY-250 | TV session fixes: 404 centring, Tonight safe area, season eyebrow 12 px, Back from episode, Diary month row | Joey TV | M | [x] shipped | Grouped TV session 2026-10-25: checks 7, 9, 13, 15, 28, 36 · PR #179 | [spec](docs/specs/JY-250-tv-session-fixes.md) |
 | JY-251 | Friend sees household Follow state ("Following George Kay") on a TMDB title page | Media | M | [x] shipped | Grouped TV session 2026-10-25, phone width as joeytest · PR #178 | [spec](docs/specs/JY-251-follow-scope.md) |
-| JY-252 | Deploy gate back toward ~5 min (it rose to ~7.5 min after the TV round) | Tooling | M | idea | NAS history.log dur 435-480 s vs 280-300 s on 2026-10-24 | — |
+| JY-252 | Deploy gate back toward ~5 min (it rose to ~7.5 min after the TV round) | Tooling | M | [x] shipped | NAS history.log dur 435-480 s vs 280-300 s on 2026-10-24 · PR #198 | [spec](docs/specs/JY-252-faster-gate.md) |
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
 

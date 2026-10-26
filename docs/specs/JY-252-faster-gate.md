@@ -1,6 +1,6 @@
 # JY-252 Bring the deploy gate back down
 
-Status: review
+Status: shipped 2026-10-26
 Size: M
 Live risk: none (tests only; deploy.sh and the hub are unchanged)
 Area: `tests/conftest.py`, `tests/route_memo.py` (new), `tests/hub/test_route_memo.py` (new), `tests/README.md`, this spec
@@ -79,3 +79,8 @@ None: no screen.
 1. The last two deploys ran `-n 1` because the NAS had 1,629–1,634 MB available before the gate (JY-240 band 1,460–1,719 MB). That alone costs ~100–170 s. A) Leave the bands as they are (recommended: they hold the 1,200 MB floor). B) Open an item to find what holds NAS memory at deploy time.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #198, squash-merged as `4a7e032` (4a7e0328f93e8b443486830cc56d4b80f75d3a54).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

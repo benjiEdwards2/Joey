@@ -36,6 +36,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / skip / log / search routes, play recorder and History (E5: `show_runtimes` for the progress words), resume actions, hide-until-next-sweep |
 | `media_awards*.py` | Awards: sync, parsers, seeds, store, pages, badges and icons |
 | `media_warmup.py`, `media_backup.py` | Film-page cache warm-up (plus the Jellyfin item reads after each new jellyfin snapshot); nightly media.db backups |
+| `player_api.py` | The playback-session API for Joey's own player (JY-053): sessions in process, Jellyfin PlaybackInfo / Sessions with each household member's own token, stream URLs on `JELLYFIN_PUBLIC_URL` with no key; behind `PLAYER_API` (off) |
 | `seed_demo.py` | Writes demo snapshots for local runs |
 
 Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`
@@ -84,6 +85,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /server/space` | server_space | Free space (P1a, 2026-10-22): the 10 biggest watched films + 10 biggest finished shows on disk, by size; list only, rows link to the item page |
 | `GET /img/{ref:path}` | images | Poster / backdrop / cast proxy, sizes 120 / 240 / 400 / 600 / 1280 |
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
+| `POST /api/play/sessions`, `.../{session_id}/stream`, `/progress`, `/stop`; `GET /api/play/items/{item_id}/tracks` | player_api | Playback-session API (JY-053): OFF unless `PLAYER_API=on` (off = the unknown-path 404); household only, PRIVATE on the media front; contract `docs/playback-contract.md` |
 | `/static/*` | StaticFiles | `?v=` content hash and `/static/fonts/*`: `immutable` for a year; other un-versioned files: one hour |
 
 ## Guest front (`JOEY_FRONT`, Joey TV WP-B1, 2026-10-21)
@@ -319,6 +321,7 @@ What a signed-in friend sees on the media front, and the 10-foot TV skin the And
 | `STACKCTL_URL`, `STACKCTL_TOKEN` | unset | Update and restart media stack and its status line (`stackctl/NAS_INSTALL.md`); unset = button hidden, "Not connected" |
 | `MEDIA_BACKUP`, `PLAY_RECORDER`, `MEDIA_WARMUP`, `MEDIA_FOLLOW`, `MEDIA_AWARDS` | on | `off` stops that background job (`MEDIA_WARMUP=shelves` keeps only the shelf pass) |
 | `PLAY_POLL_SECONDS`, `AWARDS_CONTACT` | 60, unset | Recorder poll; awards sync makes no call without a contact |
+| `PLAYER_API`, `JELLYFIN_PLAYER_TOKEN_YOU`, `_HER`, `JELLYFIN_PUBLIC_URL` | off, unset | The player API (JY-053): `on` serves `/api/play/*`; each member's own Jellyfin token; the stream host. Unset token or URL = `503 not_configured` |
 
 ## Background loops (started in `tasks.lifespan` through `_every(label, first_s, every_s, fn)`; errors log by type only)
 

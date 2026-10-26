@@ -27,6 +27,7 @@ from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates
 from hub import server_quiet   # P4 quiet mode (2026-10-22)
 from hub import server_digest  # P2 (2026-10-22)
+from hub import player_api   # JY-053: playback-session API, off unless PLAYER_API=on
 from hub import server_space   # P1a free space (2026-10-22)
 from hub.media_watchlist import router as media_watchlist_router
 from hub import media_watchlist_everyone
@@ -128,6 +129,7 @@ app.include_router(weather.router)
 app.include_router(media_pages.router)
 app.include_router(tv_app.router)   # Joey TV WP-B8: /app download + version.json (media front only)
 app.include_router(guest_signin.router)   # Joey TV WP-B2: the media front's sign-in (404 on the private front)
+app.include_router(player_api.router)   # JY-053: /api/play/* (docs/playback-contract.md), 404 while PLAYER_API is off
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 

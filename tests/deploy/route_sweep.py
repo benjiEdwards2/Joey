@@ -24,7 +24,7 @@ from hub import guest  # noqa: E402
 
 FIXED = {"kind": "movie", "tmdb_id": "603", "provider_id": "8", "person_id": "287", "name": "x", "n": "1",
          "item_key": "movie:603", "rid": "1", "app": "radarr", "arr_id": "1", "year": "2026", "path:path": "x",
-         "rest:path": "x"}
+         "rest:path": "x", "session_id": "x", "item_id": "0" * 32}   # JY-053: the /api/play/* paths
 UNKNOWN = "/no-such-page"
 
 

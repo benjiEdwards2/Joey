@@ -29,6 +29,7 @@ from hub import server_alerts, server_history, server_stack, server_updates, ser
 from hub import server_quiet   # P4 quiet mode (2026-10-22)
 from hub import server_digest  # P2 (2026-10-22)
 from hub import player_api   # JY-053: playback-session API, off unless PLAYER_API=on
+from hub import media_watch   # JY-054: the web / phone player page, off unless PLAYER_API=on
 from hub import server_space   # P1a free space (2026-10-22)
 from hub.media_watchlist import router as media_watchlist_router
 from hub import media_watchlist_everyone
@@ -132,6 +133,10 @@ app.include_router(media_pages.router)
 app.include_router(tv_app.router)   # Joey TV WP-B8: /app download + version.json (media front only)
 app.include_router(guest_signin.router)   # Joey TV WP-B2: the media front's sign-in (404 on the private front)
 app.include_router(player_api.router)   # JY-053: /api/play/* (docs/playback-contract.md), 404 while PLAYER_API is off
+app.include_router(media_watch.router)   # JY-054: /media/watch/<item>, 404 while PLAYER_API is off
+# JY-054 verifier: with PLAYER_API off, ANY method under /api/play and /media/watch is the unknown-path 404 (no 405 /
+# Allow); first in the router so it answers before the method-filtered routes, and never matches while the flag is on.
+app.router.routes[0:0] = player_api.flag_off_routes(player_api.PREFIX, media_watch.PREFIX)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 

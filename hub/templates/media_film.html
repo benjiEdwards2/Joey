@@ -97,9 +97,9 @@
         {# E4 (U7): ONE row of md (36 px) controls - Play (white; Request when not on the server) · Trailer · watchlist ·
            Seerr - everything else under "More" below it. #}
         <div class="hero-detail-btns">
-          {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}" target="_blank" rel="noopener"{% if film.episode.play.jf_id and guest(request) %} data-jf-id="{{ film.episode.play.jf_id }}"{% endif %}>{{ film.episode.play.label }}</a>{% endif %}
+          {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}"{% if film.episode.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}{% if film.episode.play.jf_id and guest(request) %} data-jf-id="{{ film.episode.play.jf_id }}"{% endif %}>{{ film.episode.play.label }}</a>{% endif %}
           {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
-          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}" target="_blank" rel="noopener"{% if film.play.jf_id and guest(request) %} data-jf-id="{{ film.play.jf_id }}"{% endif %}>{{ film.play.label }}</a>{% endif %}
+          {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}"{% if film.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}{% if film.play.jf_id and guest(request) %} data-jf-id="{{ film.play.jf_id }}"{% endif %}>{{ film.play.label }}</a>{% endif %}
           {% call wait("actions", film.pending) %}{% with slot = "row" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}
           {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
              in-page player below instead — the iframe is created only then, so nothing loads from YouTube until pressed. #}
@@ -303,7 +303,7 @@
         {% if rs %}{{ ef.rowrate(rbn.get(e.number), rs.avg) }}{% endif %}
       </a>
       {% set wt = film.watch_owner and e.aired %}
-      {% if e.play or wt %}<span class="row-side">{% if e.play %}<a class="btn btn-secondary btn-sm" href="{{ e.play.href }}" target="_blank" rel="noopener">{{ e.play.label }}</a>{% endif %}{% if wt %}{{ wa.toggle(e.jf_id, e.played, film.watch_owner, request.url.path, s.n) }}{% endif %}</span>{% endif %}
+      {% if e.play or wt %}<span class="row-side">{% if e.play %}<a class="btn btn-secondary btn-sm" href="{{ e.play.href }}"{% if e.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}>{{ e.play.label }}</a>{% endif %}{% if wt %}{{ wa.toggle(e.jf_id, e.played, film.watch_owner, request.url.path, s.n) }}{% endif %}</span>{% endif %}
     </div>
     {% endfor %}
     </div>

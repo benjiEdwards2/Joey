@@ -16,6 +16,8 @@ docs/playback-contract.md; this module follows it and nothing else does.
 * Wrong methods and unknown paths under /api/play hit `not_found` (a method-agnostic catch-all), so with the flag off
   no probe can tell the routes exist (no 405, no Allow header).
 * At most one Jellyfin call per request; the stream hand-out makes none. Timeouts are TIMEOUTS (connect CONNECT_S).
+  JY-054 (2026-10-27): a start with `resume: true` first reads the item with the member's own token (their resume
+  point and the chapters, `_item_facts`); without it the start is unchanged.
 * Sessions live in this process only (SESSIONS): a restart forgets them and the player starts a new one.
 * Logs carry the endpoint, the play method and the exception type or HTTP status only: never a URL, token, user or title.
 """
@@ -35,6 +37,7 @@ import requests
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
+from starlette.routing import Match, Route
 
 from hub import guest, upstream
 from hub.identity import resolve_identity
@@ -49,11 +52,12 @@ KINDS = ("web", "phone", "tv")
 HOUSEHOLD = ("you", "her")
 TOKEN_ENV = {"you": "JELLYFIN_PLAYER_TOKEN_YOU", "her": "JELLYFIN_PLAYER_TOKEN_HER"}
 CONNECT_S = 2.0
-TIMEOUTS = {"start": 4.0, "tracks": 4.0, "progress": 3.0, "stop": 3.0, "me": 3.0}   # read timeouts, seconds
+TIMEOUTS = {"start": 4.0, "tracks": 4.0, "progress": 3.0, "stop": 3.0, "me": 3.0, "item": 2.0}   # read timeouts, seconds
 HEARTBEAT_S = 10
 IDLE_S = 30 * 60            # a session with no call for this long is forgotten
 MAX_PER_OWNER = 4           # a fifth start drops that owner's oldest session
 MAX_BODY = 64 * 1024        # bytes; a DeviceProfile is a few KB
+MAX_CHAPTERS = 100          # JY-054: chapters handed to the player with `resume`
 UID_TTL = 3600
 METHODS = {"DirectPlay": "direct", "DirectStream": "remux", "Transcode": "transcode"}
 BROWSERS = ("web", "phone")   # no direct play: a <video src> / <track src> cannot send the header (Q4 A)
@@ -226,6 +230,26 @@ def _tracks(source: dict, public: str) -> dict:
             else source["DefaultSubtitleStreamIndex"]}
 
 
+def _item_facts(base: str, headers: dict, uid: str, item: str) -> dict:
+    """JY-054 (2026-10-27), the start's `resume` option: the member's own saved position and the item's chapters, from
+    one read with the member's own token (the hub's item cache holds B.'s watch state only). Never fails the start: any
+    failure is no resume point and no chapters."""
+    try:
+        raw = _call("item", "GET", f"{base}/Users/{uid}/Items/{item}", headers, params={"Fields": "Chapters"})
+    except PlayError:
+        return {"position": 0, "chapters": []}
+    raw = raw if isinstance(raw, dict) else {}
+    ud = raw.get("UserData") if isinstance(raw.get("UserData"), dict) else {}
+    pos = ud.get("PlaybackPositionTicks")
+    position = pos if isinstance(pos, int) and not isinstance(pos, bool) and pos > 0 and not ud.get("Played") else 0
+    chapters = []
+    for c in raw.get("Chapters") or []:
+        tick = c.get("StartPositionTicks") if isinstance(c, dict) else None
+        if isinstance(tick, int) and not isinstance(tick, bool) and tick >= 0:
+            chapters.append({"name": str(c.get("Name") or "")[:80], "start_ticks": tick})
+    return {"position": position, "chapters": chapters[:MAX_CHAPTERS]}
+
+
 def _first_source(info) -> dict:
     if not isinstance(info, dict):
         raise PlayError(502, "upstream_error", "Jellyfin sent an answer the hub can't read.")
@@ -336,6 +360,10 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
     base, public = _bases()
     headers = _auth(viewer, kind)
     uid = _user_id(viewer, base, headers)
+    facts = _item_facts(base, headers, uid, item) if opts.pop("resume", False) else {"position": 0, "chapters": []}
+    resumed = opts.get("start_ticks") is None and facts["position"] > 0
+    if resumed:
+        opts = {**opts, "start_ticks": facts["position"]}
     browser = kind in BROWSERS
     body = {"UserId": uid, "DeviceProfile": profile, "EnableDirectPlay": not browser, "EnableDirectStream": True,
             "EnableTranscoding": True, "AllowVideoStreamCopy": True, "AllowAudioStreamCopy": True,
@@ -373,7 +401,8 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
                  "runtime_ticks": source.get("RunTimeTicks"), "start_ticks": opts.get("start_ticks") or 0,
                  "audio_index": sess["audio_index"], "subtitle_index": sess["subtitle_index"],
                  "tracks": tracks, "heartbeat_s": HEARTBEAT_S,
-                 "stream": f"{PREFIX}/sessions/{sid}/stream"}
+                 "stream": f"{PREFIX}/sessions/{sid}/stream",
+                 "resumed": resumed, "chapters": facts["chapters"]}
 
 
 def _tracks_of(viewer: dict, item: str) -> dict:
@@ -419,6 +448,11 @@ async def start_session(request: Request):
         opts = {"start_ticks": _int(data, "start_ticks", 0), "audio_index": _int(data, "audio_index", 0),
                 "subtitle_index": _int(data, "subtitle_index", -1), "max_bitrate": _int(data, "max_bitrate", 1)}
         opts = {k: v for k, v in opts.items() if v is not None}
+        resume = data.get("resume")   # JY-054: the member's own resume point + chapters (one more read); null = left out
+        if resume is not None and not isinstance(resume, bool):
+            raise PlayError(400, "bad_request", "resume must be true or false.")
+        if resume:
+            opts["resume"] = True
         sid, answer = await run_in_threadpool(_start, viewer, item, device["kind"], device["profile"], opts)
     except PlayError as err:
         return _error(err)
@@ -484,6 +518,35 @@ async def tracks(request: Request, item_id: str):
     except PlayError as err:
         return _error(err)
     return _no_store(JSONResponse(answer))
+
+
+class FlagOffRoute(Route):
+    """JY-054 verifier must-fix (2026-10-27): while PLAYER_API is off, EVERY method on a player prefix (TRACE,
+    PROPFIND, a made-up one) answers what an unknown path answers. The method-filtered routes left those a 405 with an
+    Allow header naming the route. Registered FIRST in hub.main's router: off, it matches any method on its path and
+    raises the router's own 404 (the app's handler draws it, byte for byte the unknown path's); on, it never matches,
+    so the routes behind it answer exactly as before. Its `methods` mirror the catch-all's, so the guest tables
+    classify it with the same (method, path) pairs."""
+
+    def __init__(self, path: str):
+        super().__init__(path, endpoint=_flag_off, methods=ALL_METHODS, include_in_schema=False)
+
+    def matches(self, scope):
+        if scope.get("type") == "http" and not enabled() and self.path_regex.match(scope.get("path", "")):
+            return Match.FULL, {}
+        return Match.NONE, {}
+
+    async def handle(self, scope, receive, send):
+        raise HTTPException(404)
+
+
+async def _flag_off(request: Request):   # never called: FlagOffRoute.handle answers first
+    raise HTTPException(404)
+
+
+def flag_off_routes(*prefixes: str) -> list:
+    """`<prefix>` and `<prefix>/{rest:path}` for each player prefix (this API's and the player page's)."""
+    return [FlagOffRoute(p) for prefix in prefixes for p in (prefix, f"{prefix}/{{rest:path}}")]
 
 
 @router.api_route(PREFIX, methods=ALL_METHODS, include_in_schema=False)

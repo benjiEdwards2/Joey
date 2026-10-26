@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+{# JY-054 (2026-10-27): Joey's own web / phone player, look A "Classic overlay" (B., "JY-052: A";
+   JoeyTV/review/JY-052-player-options.html). A page of its own, not the shell: the picture fills the screen. Rendered
+   from the item cache only (hub/media_watch.py); hub/static/player.js starts the session after load. No token, Jellyfin
+   URL or key is ever in this page. #}
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>{{ title }}{% if line %} · {{ line }}{% endif %}</title>
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#000000">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="/static/icon-192.png?v=3">
+<link rel="preload" href="/static/fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/control-surface.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/player.css?v={{ static_v }}">
+<script src="/static/hls.min.js?v={{ static_v }}" defer></script>
+<script src="/static/player.js?v={{ static_v }}" defer></script>
+</head>
+<body class="pl-body">
+<svg width="0" height="0" class="pl-sprite" aria-hidden="true">
+  <symbol id="pl-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+  <symbol id="pl-play" viewBox="0 0 24 24"><path class="pl-solid" d="M7 4.6v14.8L19.5 12z"/></symbol>
+  <symbol id="pl-pause" viewBox="0 0 24 24"><rect class="pl-solid" x="6" y="4.5" width="4" height="15" rx="1"/><rect class="pl-solid" x="14" y="4.5" width="4" height="15" rx="1"/></symbol>
+  <symbol id="pl-rw" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6L3.5 8.5"/><path d="M3.5 3.5v5h5"/></symbol>
+  <symbol id="pl-ff" viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6l2.5 2.5"/><path d="M20.5 3.5v5h-5"/></symbol>
+  <symbol id="pl-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9.5 9.5 0 0 1 0 13"/></symbol>
+  <symbol id="pl-cc" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10.5 10.2a2.4 2.4 0 1 0 0 3.6M17 10.2a2.4 2.4 0 1 0 0 3.6"/></symbol>
+  <symbol id="pl-full" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="pl-sync" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.4 6.4L3 16M3 12a9 9 0 0 1 15.4-6.4L21 8M21 3v5h-5M3 21v-5h5"/></symbol>
+</svg>
+<main class="pl" id="player" data-item="{{ item_id }}">
+  <video class="pl-video" playsinline webkit-playsinline disableremoteplayback x-webkit-airplay="deny" preload="none"></video>
+  <div class="pl-hit" data-pl="hit" aria-hidden="true"></div>
+  <div class="pl-shade" aria-hidden="true"></div>
+
+  <div class="pl-top">
+    <a class="pl-ib" href="{{ back_href }}" data-pl="back" aria-label="Back to Joey"><svg class="pl-ic" aria-hidden="true"><use href="#pl-back"/></svg></a>
+    <div class="pl-ttl">
+      <h1 class="pl-t1">{{ title }}</h1>
+      {% if line %}<div class="pl-t2">{{ line }}</div>{% endif %}
+      <div class="pl-meta">{% for m in meta %}{% if not loop.first %}<span class="pl-sep" aria-hidden="true">·</span>{% endif %}<span>{{ m }}</span>{% endfor %}{% if meta %}<span class="pl-sep" aria-hidden="true">·</span>{% endif %}<span class="pl-method" data-pl="method" hidden></span></div>
+      <div class="pl-dbg" data-pl="frame" hidden></div>
+    </div>
+    <span class="pl-toast" data-pl="toast" role="status" hidden><svg class="pl-ic" aria-hidden="true"><use href="#pl-sync"/></svg><span data-pl="toast-text"></span></span>
+  </div>
+
+  <div class="pl-center">
+    <button type="button" class="pl-ib pl-big pl-plain" data-pl-seek="-10" aria-label="Back 10 seconds"><svg class="pl-ic" aria-hidden="true"><use href="#pl-rw"/></svg></button>
+    <button type="button" class="pl-ib pl-big pl-white pl-pp" data-pl="cplay" aria-label="Play"><svg class="pl-ic pl-i-play" aria-hidden="true"><use href="#pl-play"/></svg><svg class="pl-ic pl-i-pause" aria-hidden="true"><use href="#pl-pause"/></svg></button>
+    <button type="button" class="pl-ib pl-big pl-plain" data-pl-seek="10" aria-label="Forward 10 seconds"><svg class="pl-ic" aria-hidden="true"><use href="#pl-ff"/></svg></button>
+  </div>
+
+  <div class="pl-bot">
+    <div class="pl-chrow"><span class="pl-chl" data-pl="chapter"></span><span class="pl-tm" data-pl="left"></span></div>
+    <div class="pl-scrub">
+      <div class="pl-track" aria-hidden="true"><span class="pl-buf" data-pl="buf"></span><span class="pl-fill" data-pl="fill"></span><span class="pl-ticks" data-pl="ticks"></span><span class="pl-thumb" data-pl="thumb"></span></div>
+      <input class="pl-range" type="range" min="0" max="1000" step="1" value="0" data-pl="seek" aria-label="Seek">
+    </div>
+    <div class="pl-ctl">
+      <button type="button" class="pl-ib pl-white pl-pp pl-desk" data-pl="play" aria-label="Play"><svg class="pl-ic pl-i-play" aria-hidden="true"><use href="#pl-play"/></svg><svg class="pl-ic pl-i-pause" aria-hidden="true"><use href="#pl-pause"/></svg></button>
+      <button type="button" class="pl-ib pl-plain pl-desk" data-pl-seek="-10" aria-label="Back 10 seconds"><svg class="pl-ic" aria-hidden="true"><use href="#pl-rw"/></svg></button>
+      <button type="button" class="pl-ib pl-plain pl-desk" data-pl-seek="10" aria-label="Forward 10 seconds"><svg class="pl-ic" aria-hidden="true"><use href="#pl-ff"/></svg></button>
+      <button type="button" class="pl-ib pl-plain pl-desk" data-pl="mute" aria-label="Mute"><svg class="pl-ic" aria-hidden="true"><use href="#pl-vol"/></svg></button>
+      <span class="pl-tm" data-pl="time">0:00 / 0:00</span>
+      <span class="pl-gap"></span>
+      <button type="button" class="pl-pill" data-pl="tracks-btn" aria-haspopup="menu" aria-expanded="false" hidden><svg class="pl-ic" aria-hidden="true"><use href="#pl-cc"/></svg><span class="pl-pill-word">Audio &amp; subtitles</span></button>
+      <button type="button" class="pl-ib pl-plain" data-pl="full" aria-label="Full screen"><svg class="pl-ic" aria-hidden="true"><use href="#pl-full"/></svg></button>
+    </div>
+  </div>
+
+  <div class="pl-pop" data-pl="tracks" role="menu" aria-label="Audio and subtitles" hidden>
+    <div class="pl-grab" aria-hidden="true"></div>
+    <div class="pl-col"><h2 class="pl-micro">Audio</h2><div data-pl="audio"></div></div>
+    <div class="pl-col"><h2 class="pl-micro">Subtitles</h2><div data-pl="subs"></div></div>
+    <p class="pl-fnote">Defaults follow your Jellyfin settings.</p>
+    <button type="button" class="pl-close" data-pl="tracks-close">Close</button>
+  </div>
+
+  {% if up_next %}
+  <aside class="pl-end" data-pl="upnext" data-next="{{ up_next.href }}" aria-label="Up next" hidden>
+    <img class="pl-end-pic" src="/img/{{ up_next.still or 'none' }}?h=240" alt="" width="427" height="240" decoding="async">
+    <div class="pl-end-tx">
+      <div class="pl-micro" data-pl="count">Up next</div>
+      <b>{{ up_next.label }}</b>
+      {% if up_next.runtime %}<div class="pl-fnote">{{ up_next.runtime }}</div>{% endif %}
+      <div class="pl-end-bt">
+        <a class="pl-btn pl-btn-white" href="{{ up_next.href }}"><svg class="pl-ic" aria-hidden="true"><use href="#pl-play"/></svg>Play now</a>
+        <button type="button" class="pl-btn pl-btn-ghost" data-pl="credits">Watch credits</button>
+      </div>
+    </div>
+  </aside>
+  {% endif %}
+
+  <div class="pl-msg" data-pl="msg" role="alert" hidden>
+    <p data-pl="msg-text"></p>
+    <div class="pl-msg-bt"><button type="button" class="pl-btn pl-btn-white" data-pl="retry" hidden>Try again</button><a class="pl-btn pl-btn-ghost" href="{{ back_href }}">Back to Joey</a></div>
+  </div>
+  <noscript><div class="pl-msg"><p>The player needs JavaScript.</p></div></noscript>
+</main>
+</body>
+</html>

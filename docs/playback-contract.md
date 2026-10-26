@@ -15,7 +15,9 @@ ordinary Joey 404 page on the media front), before auth, body parsing or any Jel
 changes while it is off. The flag is read on every request: no restart is needed to turn it off. A wrong method on a
 real path, any other path under `/api/play/`, and bare `/api/play` land on a method-agnostic catch-all that answers the
 same 404, so there is never a `405`, an `Allow` header or a `307` to `/api/play/` to say a route exists (review rounds
-1 and 2, 2026-10-26).
+1 and 2, 2026-10-26). Since 2026-10-27 (JY-054 verifier) that holds for every method, TRACE, PROPFIND and
+made-up ones included: `player_api.FlagOffRoute`, first in the router, answers the router's own 404 while the flag is off
+and never matches while it is on.
 
 ## Who may call
 
@@ -78,6 +80,14 @@ Request:
 decodes, built by the player). `start_ticks`, `audio_index`, `subtitle_index` (`-1` = off) and `max_bitrate` (bits/s) are
 optional: left out, Jellyfin applies the user's saved defaults (JY-050 Q5 A) and the user's bitrate setting (Q3 A).
 
+`resume` (bool, optional, default false; added 2026-10-27 by JY-054, additive): true first reads
+`GET /Users/{uid}/Items/{id}?Fields=Chapters` with the member's own token (connect 2 s / read 2 s). When the player sent
+no `start_ticks` and that member's saved position is above 0 and the item is not played, the position becomes
+`StartTimeTicks` and the answer says `"resumed": true`. The same read gives `chapters`. A failed read never fails the
+start: no resume point, no chapters. Without `resume` nothing above changes. Every answer carries `"resumed"` (bool) and
+`"chapters"` (`[{"name": "...", "start_ticks": 0}]`, at most 100, empty without `resume`). Jellyfin's PlaybackInfo does
+not resume by itself, and the hub's item cache holds B.'s watch state only, so this is how `her` resumes at her own point.
+
 Jellyfin: `POST /Items/{id}/PlaybackInfo?userId=<uid>` with `UserId`, `DeviceProfile`, `EnableDirectStream`,
 `EnableTranscoding`, `AllowVideoStreamCopy`, `AllowAudioStreamCopy` all true, `EnableDirectPlay` true for `tv` and
 false for `web` and `phone` (Q4 A), `AutoOpenLiveStream` false, and the optional fields as `StartTimeTicks`, `AudioStreamIndex`, `SubtitleStreamIndex`,
@@ -89,7 +99,7 @@ false for `web` and `phone` (Q4 A), `AutoOpenLiveStream` false, and the optional
 {"session_id": "...", "item_id": "...", "play_method": "direct", "media_source_id": "...", "container": "mp4",
  "runtime_ticks": 26400000000, "start_ticks": 0, "audio_index": 1, "subtitle_index": -1,
  "tracks": {"...": "as endpoint 5, without item_id and media_source_id"},
- "heartbeat_s": 10, "stream": "/api/play/sessions/<session_id>/stream"}
+ "heartbeat_s": 10, "stream": "/api/play/sessions/<session_id>/stream", "resumed": false, "chapters": []}
 ```
 `play_method` (JY-050's words): `direct` = Jellyfin `SupportsDirectPlay` (`PlayMethod` DirectPlay); `remux` = a
 `TranscodingUrl` with `SupportsDirectStream` (DirectStream: container changed, codecs copied); `transcode` = a
@@ -184,7 +194,7 @@ most one Jellyfin call (two on the first start per token per hour, with `/Users/
 
 | Endpoint | Jellyfin calls | Connect / read timeout | Worst case answer |
 |---|---|---|---|
-| start | PlaybackInfo (+ `/Users/Me` once an hour) | 2 s / 4 s (`/Users/Me` 3 s) | about 6 s, then 504 |
+| start | PlaybackInfo (+ `/Users/Me` once an hour; + the item read with `resume`) | 2 s / 4 s (`/Users/Me` 3 s, item 2 s) | about 6 s, then 504 (about 10 s with `resume`) |
 | stream | none | none | hub only |
 | progress | Sessions/Playing or /Progress | 2 s / 3 s | about 5 s, then 504 |
 | stop | Sessions/Playing/Stopped | 2 s / 3 s | about 5 s, then 504 |

@@ -1,6 +1,6 @@
 # JY-246 Server page: "Prowlarr N failed grabs" says "this week"
 
-Status: spec (built as option A; waiting for B.'s pick)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/server.py`, `tests/hub/test_server_library_health.py`, `tests/hub/test_server.py`
@@ -34,4 +34,8 @@ The connector window (JY-143, shipped). The Radarr / Sonarr counts.
 `/server` Library health line: amber `Prowlarr 3 failed grabs this week` with the demo data; "all clear" with none.
 
 ## Shipped notes
-(none yet)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #185, squash-merged as `28fdf35` (28fdf35115a411f5a456cafadcefaaad315963c9).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: JY-246: A · JY-120: A · JY-151: A · JY-150: A · JY-121: A · JY-133: A · JY-134: A · JY-052: A · JY-053: A A A A · JY-230: go · JY-231: go approve · JY-232: go s1 · deploy"
+- Follow-ups: none

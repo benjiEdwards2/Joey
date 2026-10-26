@@ -701,7 +701,7 @@ def test_her_view_without_her_list_has_no_filter_chips(env):
     main = env(jellyfin=jelly(her=None), arr=ARRV)
     with TestClient(main.app) as c:
         b = body(c, "/media/movies?owner_view=her&f=watched&s=unwatched&view=grid")[1]
-    assert 'aria-label="Show"' not in b and len(cards(b)) == 4 and "Nothing left to watch" in b
+    assert 'aria-label="Show"' not in b and len(cards(b)) == 4 and "No marks for her yet" in b and "Nothing left to watch" not in b
 
 
 def test_her_shows_continue_without_her_list_says_no_marks_yet(env):
@@ -712,6 +712,23 @@ def test_her_shows_continue_without_her_list_says_no_marks_yet(env):
         her_films = body(c, "/media/movies?owner_view=her&s=continue")[1]
     assert '<p class="empty">No marks for her yet</p>' in her and "Nothing in progress" not in her
     assert "No marks for her yet" not in her_films        # films' Continue watching is her resume list, not marks
+
+
+def test_her_not_yet_watched_without_her_list_says_no_marks_yet_but_with_marks_keeps_its_words(env):
+    # JY-120 (2026-10-26): the same cause as her TV Continue watching (above): no list = no marks, not "all watched"
+    main = env(jellyfin=jelly(her=None), arr=ARRV)
+    with TestClient(main.app) as c:
+        her_tv = body(c, "/media/tv?owner_view=her&s=unwatched")[1]
+        her_films = body(c, "/media/movies?owner_view=her&s=unwatched")[1]
+        her_new = body(c, "/media/movies?owner_view=her&s=new")[1]
+        her_films_cont = body(c, "/media/movies?owner_view=her&s=continue")[1]
+    for b in (her_tv, her_films):
+        assert '<p class="empty">No marks for her yet</p>' in b and "Nothing left to watch" not in b
+    assert "No marks for her yet" not in her_new and "No marks for her yet" not in her_films_cont   # arrivals / her resume list
+    assert '<p class="empty">Nothing in progress</p>' in her_films_cont
+    main = env(jellyfin=jelly(movies=[]), arr=ARRV)                                   # household view, marks, nothing to list
+    with TestClient(main.app) as c:
+        assert '<p class="empty">Nothing left to watch</p>' in body(c, "/media/movies?s=unwatched")[1]
 
 
 def test_library_filter_chips_scroll_in_one_row_on_a_phone():

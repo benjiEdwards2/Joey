@@ -6,9 +6,11 @@ parameter). The endpoints themselves are module-level functions that the reload 
 ~55 ms on the laptop (more on the NAS) to analyse the same ~200 functions again.
 
 The memo keys on everything `get_dependant` reads (path, the endpoint itself, name, scopes, use_cache, scope) and hands
-out a fresh copy each time: `_populate_api_route_state` inserts the route's own `dependencies=[...]` into the copy's
+out a shallow copy each time: `_populate_api_route_state` inserts the route's own `dependencies=[...]` into the copy's
 list, and `dataclasses.replace` drops the cached properties that read that list (`_uses_scopes`,
-`_security_dependencies`). A reloaded or monkeypatched endpoint is a different function, so it is analysed afresh.
+`_security_dependencies`). Sub-dependants and parameter fields stay shared between copies: on 0.138.0 FastAPI only
+reads them after `get_dependant` returns. Entries (endpoint functions included) are held strongly for the worker's
+life: about 200 endpoints. A reloaded or monkeypatched endpoint is a different function, so it is analysed afresh.
 Requests, routing, validation and the dependencies themselves run unchanged; only the repeated analysis is skipped.
 
 Applied only on the pinned FastAPI (`hub/requirements.txt`); any other version runs unmemoised (slower, still correct).

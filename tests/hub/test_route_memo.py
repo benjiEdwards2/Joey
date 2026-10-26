@@ -24,6 +24,14 @@ def test_memo_is_on_for_the_pinned_fastapi():
     assert route_memo.install() is True  # idempotent: a second install keeps the one memo
 
 
+def test_another_fastapi_version_installs_nothing(monkeypatch):
+    real = fastapi.routing.get_dependant.real
+    monkeypatch.setattr(fastapi.routing, "get_dependant", real)  # as on a fresh worker, before install()
+    monkeypatch.setattr(fastapi, "__version__", "0.0.0")
+    assert route_memo.install() is False
+    assert fastapi.routing.get_dependant is real  # nothing patched: FastAPI's own analysis runs every time
+
+
 def _app(calls: list) -> FastAPI:
     """A fresh app over ONE module-level router, as a reload of hub.main builds."""
     app = FastAPI()

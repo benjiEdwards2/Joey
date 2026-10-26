@@ -1269,3 +1269,12 @@ under `MaxActiveSessions 2`. The media-front 404 names the signed-in friend or h
 in". The Diary month card and Wrapped's summary read only a friend's own rows (`media_wrapped._owner_sql` used to fall
 through to the household's) and drop the household's show progress words for a friend. Tests:
 `test_guest_signout_device.py`, `test_guest_month_card.py`, two 404 tests in `test_guest_surface.py`.
+
+## 2026-10-26 — JY-254 digest boot grace
+
+The digest no longer reports services as "Down" just because it went out right after boot (24-26 Oct digests: the
+`media_status` snapshot was pre-boot or from the boot sweep while containers started). `hub/server_digest.py`: `STARTED`
+(hub start = NAS boot) and `BOOT_GRACE` (15 min). `tick(now, booted=STARTED)` holds until a `media_status` sample taken
+since the start shows every app up, or the grace has passed, whichever comes first (`settled`). After the grace the text is
+unchanged, so a service still down shows "Down". Spec `docs/specs/JY-254-digest-boot-grace.md`; tests in
+`tests/hub/test_server_digest.py`.

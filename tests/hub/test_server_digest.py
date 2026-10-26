@@ -30,6 +30,12 @@ def _fresh_fails():
     server_digest._fails.clear()
 
 
+@pytest.fixture(autouse=True)
+def _hub_up_long(monkeypatch):
+    # JY-254: these tests run as a hub that started long ago, past the boot grace (the boot tests pass `booted`)
+    monkeypatch.setattr(server_digest, "STARTED", datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+
 def sample_data(cid):
     return json.loads((SAMPLES / f"{cid}.json").read_text(encoding="utf-8"))["data"]
 
@@ -250,3 +256,67 @@ def test_the_loop_is_registered_beside_the_alerts_loop():
     from hub import tasks
     assert (server_digest.FIRST_DELAY_S, server_digest.EVERY_S) == (90, 300)
     assert tasks._server_digest_loop.__doc__ and "server_digest.tick" in Path(tasks.__file__).read_text(encoding="utf-8")
+
+
+# ---- JY-254: the boot grace -------------------------------------------------------------------------------------
+
+BOOT = at(7, 28)   # the NAS (and joey-hub with it) came up at 07:28; DIGEST_AT 07:30 is due on the first tick
+
+
+def status_at(d, updated, apps):
+    """A media_status envelope whose last success is `updated` (aware), the rest from the samples."""
+    for cid in ("arr", "wud", "system", "qbittorrent"):
+        write_envelope(d, cid, age_minutes=1, data=sample_data(cid))
+    ts = updated.isoformat()
+    (d / "media_status.json").write_text(json.dumps({
+        "connector": "media_status", "schema_version": 1, "fetched_at": ts, "updated_at": ts, "status": "ok",
+        "consecutive_failures": 0, "error": None, "data": {"apps": apps}}), encoding="utf-8")
+
+
+DOWN_BEFORE_BOOT = [{"id": "jellyfin", "name": "Jellyfin", "up": False}, {"id": "radarr", "name": "Radarr", "up": False}]
+ALL_UP = [{"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "radarr", "name": "Radarr", "up": True}]
+ONE_DEAD = [{"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "radarr", "name": "Radarr", "up": False}]
+
+
+@pytest.fixture()
+def snapsdir(tmp_path, monkeypatch):
+    d = tmp_path / "snaps"
+    d.mkdir()
+    monkeypatch.setenv("SNAPSHOT_DIR", str(d))
+    return d
+
+
+def test_boot_plus_2_min_with_only_pre_boot_samples_does_not_say_down(snapsdir, posts):
+    status_at(snapsdir, BOOT - timedelta(hours=9), DOWN_BEFORE_BOOT)
+    assert server_digest.tick(BOOT + timedelta(minutes=2), booted=BOOT) is False
+    assert posts == [] and not rows()
+
+
+def test_boot_plus_5_min_with_a_fresh_all_up_sample_sends_at_once(snapsdir, posts):
+    status_at(snapsdir, BOOT + timedelta(minutes=4), ALL_UP)
+    assert server_digest.tick(BOOT + timedelta(minutes=5), booted=BOOT) is True
+    assert len(posts) == 1 and "All 2 services up" in posts[0]["text"] and "Down" not in posts[0]["text"]
+
+
+def test_boot_plus_5_min_with_a_service_still_starting_holds(snapsdir, posts):
+    status_at(snapsdir, BOOT + timedelta(minutes=4), ONE_DEAD)
+    assert server_digest.tick(BOOT + timedelta(minutes=5), booted=BOOT) is False
+    assert posts == [] and not rows()
+
+
+def test_boot_plus_30_min_a_dead_service_still_shows_down(snapsdir, posts):
+    status_at(snapsdir, BOOT + timedelta(minutes=29), ONE_DEAD)
+    assert server_digest.tick(BOOT + timedelta(minutes=30), booted=BOOT) is True
+    assert len(posts) == 1 and "Down: Radarr" in posts[0]["text"]
+
+
+def test_the_wait_is_capped_even_with_no_sample_after_boot(snapsdir, posts):
+    status_at(snapsdir, BOOT - timedelta(hours=9), DOWN_BEFORE_BOOT)
+    assert server_digest.tick(BOOT + timedelta(minutes=14), booted=BOOT) is False
+    assert server_digest.tick(BOOT + server_digest.BOOT_GRACE + timedelta(minutes=1), booted=BOOT) is True
+    assert len(posts) == 1 and "Down: Jellyfin, Radarr" in posts[0]["text"]
+
+
+def test_boot_grace_is_15_minutes_from_the_hub_start():
+    assert server_digest.BOOT_GRACE == timedelta(minutes=15)
+    assert server_digest.STARTED.tzinfo is not None

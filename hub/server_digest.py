@@ -10,6 +10,10 @@ logged) to the same webhook as the Server alerts; no webhook ⇒ nothing at all 
 `media.db` table `server_digest_sent(day, at, text)` holds a row only for a SUCCESSFUL post; a failed post retries
 on the next tick, at most MAX_FAILS times per day (in-process count, like server_alerts). `DIGEST=off` stops it.
 `last_sent(now)` is the Server page's one line ("Digest · sent 07:31" / "Digest · not sent today").
+JY-254 (2026-10-26): boot grace. joey-hub starts with the NAS, so its start time (`STARTED`) is the boot. Until the
+boot health settles - a `media_status` sample taken since the start with every app up, or BOOT_GRACE since the start,
+whichever comes first - the tick holds, so a digest is never built from pre-boot or still-starting "Down" samples.
+After the grace the text is whatever the snapshots say: a service still down shows "Down".
 """
 
 from __future__ import annotations
@@ -20,10 +24,10 @@ import re
 import sqlite3
 import threading
 from contextlib import closing
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from hub import media_db, media_store, server, server_alerts
-from hub.ids import ARR_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WUD_SNAPSHOT_ID
+from hub.ids import ARR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WUD_SNAPSHOT_ID
 from hub.store import parse_utc
 
 log = logging.getLogger("hub.server_digest")
@@ -36,6 +40,8 @@ EVERY_S = 300
 MAX_FAILS = 3        # failed posts per day before the digest gives up until tomorrow
 MAX_CHARS = 300
 WINDOW = timedelta(hours=24)
+BOOT_GRACE = timedelta(minutes=15)   # JY-254: the longest the digest waits for the boot health to settle
+STARTED = datetime.now(timezone.utc)   # JY-254: the hub start = the NAS boot (joey-hub starts with it)
 
 DDL = "CREATE TABLE IF NOT EXISTS server_digest_sent(day TEXT PRIMARY KEY, at TEXT, text TEXT)"
 
@@ -122,13 +128,25 @@ def build(snaps, now: datetime) -> str | None:
     return " · ".join([f"Joey digest · {now:%a} {now.day} {now:%b}", *parts])[:MAX_CHARS]
 
 
+def settled(snaps, now: datetime, booted: datetime) -> bool:
+    """JY-254: True once BOOT_GRACE has passed since `booted`, or a media_status sample taken at or after `booted`
+    shows every app up. Before that the services part could only repeat pre-boot or still-starting "Down"s."""
+    if now - booted >= BOOT_GRACE:
+        return True
+    snap = snaps.get(MEDIA_STATUS_SNAPSHOT_ID)
+    sampled = parse_utc(snap.updated_at) if snap is not None else None
+    apps = server._apps(snaps)
+    return sampled is not None and sampled >= booted and bool(apps) and all(a.get("up") for a in apps)
+
+
 def _local(now: datetime | None) -> datetime:
     """Hub-local time: the container's TZ (Australia/Melbourne). A caller-supplied aware `now` is taken as already local."""
     return now if now is not None else datetime.now().astimezone()
 
 
-def tick(now: datetime | None = None) -> bool:
-    """Send today's digest when due. True only when a message was posted this call. Never raises."""
+def tick(now: datetime | None = None, booted: datetime | None = None) -> bool:
+    """Send today's digest when due. True only when a message was posted this call. Never raises.
+    `booted` (JY-254): the boot to grace from; default STARTED."""
     url = server_alerts.webhook()
     if not url or disabled():
         return False
@@ -145,7 +163,10 @@ def tick(now: datetime | None = None) -> bool:
                 db.execute(DDL)
                 if db.execute("SELECT 1 FROM server_digest_sent WHERE day = ?", (day,)).fetchone():
                     return False
-                text = build(get_snapshots(), now)
+                snaps = get_snapshots()
+                if not settled(snaps, now, booted or STARTED):
+                    return False   # JY-254: boot health not settled yet; the next tick looks again
+                text = build(snaps, now)
                 if text is None:
                     return False
                 if not server_alerts.post(url, text):

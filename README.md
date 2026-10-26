@@ -11,11 +11,11 @@ live Media and Server feeds, which refresh every 2 minutes.
 |---|---|
 | `hub/` | FastAPI + Jinja/HTMX shell |
 | `connectors/` | Hourly connectors + the FROZEN envelope schema |
-| `deploy/` | Compose, `.env.example`, `deploy.sh` (the only path to production); `deploy/README.md` is the deploy runbook |
+| `deploy/` | Compose, `.env.example`, `deploy.sh` (the only path to production); `deploy/README.md` is the deploy script's detail; day-to-day operations are in [`docs/runbook.md`](docs/runbook.md) |
 | `config/` | Area registry, sample snapshots |
 | `stackctl/` | NAS helper behind Server → "Restart + update media stack" (pull + recreate the media-server compose); runs in the media stack, not Joey's — `stackctl/NAS_INSTALL.md` |
 | `scripts/` | Dev and maintenance tools: icons, awards sync CLI, profiling, the money pre-commit guard and hooks |
-| `docs/` | Setup, connector contract, style guide, hub changelog, Server-updates live check; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
+| `docs/` | The operations runbook (`docs/runbook.md`), setup, connector contract, style guide, hub changelog, Server-updates live check; `docs/mockup/` = the historical Control Surface goldens (superseded 2026-10-06) |
 | `tv/` | Joey TV: the Android TV / Google TV shell (Kotlin WebView app, built only in GitHub Actions) — see [`tv/README.md`](tv/README.md) |
 | `tests/` | Cumulative pytest suite — append-only, grows with every WP; test-only deps in `requirements-dev.txt` |
 

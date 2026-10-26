@@ -26,7 +26,7 @@ JOEY_NAS=root@<nas> deploy/push.sh                                           # f
 
 **Before:** inside the window (07:00 to 21:30 Melbourne, [below](#nas-power-schedule-and-the-deploy-window)); not in the 15 minutes before 00:00 UTC (10:00 AEST, 11:00 AEDT: tests that read the real date can fail across midnight); `git fetch` and confirm `origin/main` is the SHA you mean (a rejected push once went unnoticed and the NAS shipped another session's main).
 
-**What it does, in order:** detach into its own session and log to `deploy/logs/deploy-<UTC>-<pid>.log` (closing the laptop or dropping ssh only stops the watching) -> take the lock (`/tmp/joey-deploy.lock`; a second deploy exits 2 and names the running one) -> `git pull --ff-only` (3 tries, 20 s apart, each logged; JY-206) -> `compose config` -> **memory check** -> build `life-test` and run the full suite offline -> `compose build` + `up -d` -> smoke -> prune -> publish the TV release if one is waiting.
+**What it does, in order:** detach into its own session and log to `deploy/logs/deploy-<UTC>-<pid>.log` (closing the laptop or dropping ssh only stops the watching) -> take the lock (`/tmp/joey-deploy.lock`; a second deploy exits 2 and names the running one) -> `git pull --ff-only` (3 tries, 20 s apart, each logged; JY-206, once PR #183 is merged: until then 3 tries, 5 s apart) -> `compose config` -> **memory check** -> build `life-test` and run the full suite offline -> `compose build` + `up -d` -> smoke -> prune -> publish the TV release if one is waiting.
 
 **The memory gate (JY-240).** Just before the suite, deploy.sh reads `/proc/meminfo`:
 
@@ -52,7 +52,7 @@ ssh root@<nas> "tail -3 /volume1/Docker/joey/life-dashboard/deploy/history.log"
 | `SKIPPED-LOW-MEMORY` | not enough memory for the gate; same handling | free memory, rerun. Not green: close-out refuses until a green run or `--after-fail` |
 | `ROLLED-BACK` | build, up or smoke failed; the previous SHA is healthy again | read the log; fix forward |
 | `ROLLBACK-FAILED` | both SHAs unhealthy | **act now**: [rollback by hand](#rollback), check `docker ps` |
-| `ABORTED` | died early (for example the pull failed 3 times); tree reset | just rerun |
+| `ABORTED` | died before an outcome (for example the pull failed 3 times). The tree is reset to the previous SHA only if the pull had already moved it; a failed pull never moved it, so nothing needs undoing | just rerun |
 
 Each line also carries `prev=`, `new=` and `dur=` (budget: the full gate at most 10 min). Re-attach to a running deploy with `tail -f` on `ls -t deploy/logs | head -1`. Stop one only with `kill <pid>` (never mid `compose up`). A stale lock (holder gone) clears itself; by hand, only when nothing runs: `rm -rf /tmp/joey-deploy.lock`.
 
@@ -91,7 +91,7 @@ After B.'s accept, green CI and a different agent's `Review: PASS` comment. One 
 python scripts/joey.py close-out JY-### --accepted-in-chat "<B.'s words>, 2026-10-26"     # --dry-run first if unsure
 ```
 
-It checks the gates (open, not a draft, mergeable; `ci` green on the head SHA; `Review: PASS` after the last push and no later `FAIL`; B.'s accept), runs the read-only NAS preflight (window, no running deploy, 1,200 MB free, last `history.log` line green) **before** it merges, then squash-merges, deploys, verifies (tree on the merge SHA, hub / media / swag healthy, smoke, `/healthz`), writes the shipped notes PR, swaps labels and removes the worktree. Markdown-only changes skip the deploy (`--deploy auto`).
+It checks the gates (open, not a draft, mergeable; `ci` green on the head SHA; `Review: PASS` after the last push and no later `FAIL`; B.'s accept), runs the read-only NAS preflight (window, no running deploy, 1,200 MB free, last `history.log` line green) **before** it merges, then squash-merges, deploys, verifies (tree on the merge SHA, hub / media / swag healthy, smoke, `/healthz`), writes the shipped notes PR, swaps labels and removes the worktree. Changes that are all Markdown or all under `.github/` skip the deploy (`--deploy auto`).
 
 - Stopped part-way after the merge: `--resume` finishes it. Last deploy not green: `--after-fail` is the one retry.
 - Never apply the `accepted` label yourself: the classifier flagged that as self-approval. Use B.'s words in chat, or B. adds the label.
@@ -101,9 +101,9 @@ It checks the gates (open, not a draft, mergeable; `ci` green on the head SHA; `
 
 ## TV app release
 
-The Joey TV Android app (`tv/`) is built only in GitHub Actions. **Merging a `tv/` change to `main` is the release:** `.github/workflows/tv.yml` fires on the push to `main`; its `release` job cuts the GitHub Release `tv-<versionCode>`; the next `deploy.sh` publishes it to `https://media.joeyhome.net/app/`; each TV offers it on its next launch.
+The Joey TV Android app (`tv/`) is built only in GitHub Actions. **Merging a `tv/` change to `main` is the release:** `.github/workflows/tv.yml` fires on the push to `main` (it also fires on a change to the workflow file itself or to `deploy/tv_version.py`); its `release` job, which runs only when the signing-key secrets exist (`signed=true`), cuts the GitHub Release `tv-<versionCode>`; the next `deploy.sh` publishes it to `https://media.joeyhome.net/app/`; each TV offers it on its next launch.
 
-1. Bump `tv/VERSION` (`versionName`, `versionCode`, `minVersionCode`) and edit `tv/NOTES.txt` (500 characters at most). `versionCode` is the Australia/Sydney date as `YYYYMMDD` plus `nn`, and must be higher than every earlier release. **Every `tv/` change that reaches `main` needs a higher `versionCode`, docs-only edits included**, or the `release` job fails by design and `main` shows a red run. Check: `python deploy/tv_version.py check`.
+1. Bump `tv/VERSION` (`versionName`, `versionCode`, `minVersionCode`) and edit `tv/NOTES.txt` (500 characters at most). `versionCode` is the Australia/Sydney date as `YYYYMMDD` plus `nn`, and must be higher than every earlier release. **Every `tv/` change that reaches `main` needs a higher `versionCode`, docs-only edits included; so do changes to `.github/workflows/tv.yml` and `deploy/tv_version.py`, which trigger the same workflow**, or the `release` job fails by design and `main` shows a red run. Check: `python deploy/tv_version.py check`.
 2. Merge only in a TV session with B. (it ships to friends' TVs). Watch the run on `main` until `release` is green: `gh run watch ...` (`docs/tv-release.md`, step 5); `gh release view tv-<versionCode>` lists the APK and `version.json`.
 3. Then deploy. A deploy before the release finished ends `tv=pending:<code>`; just deploy again later. The history line ends `tv=published:<code>` when it worked (`current`, `pending`, `skipped:no-token`, `FAIL:<reason>` are the others; the TV step never fails a deploy).
 4. Verify: `curl -s https://media.joeyhome.net/app/version.json` shows the same `versionCode`.

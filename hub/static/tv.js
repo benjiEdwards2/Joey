@@ -31,7 +31,11 @@
      on that series then goes to the page before the episode (history.back()).
    * Q41: a trailer opens the YouTube app - in TV mode a click on [data-yt] navigates to its youtube.com href (the
      shell's UrlPolicy hands YouTube to ACTION_VIEW) instead of the in-page player; target="_blank" is dropped from
-     links so every navigation reaches the shell's UrlPolicy in this WebView. */
+     links so every navigation reaches the shell's UrlPolicy in this WebView.
+   * WP-RQ2 (2026-10-22), brought onto main by JY-255 (2026-10-27): OK (Enter; the WebView's DPAD_CENTER) on a focused
+     tick or radio chip (the request panel's season ticks and Quality chips) toggles it (a click, so the form's onchange
+     runs) instead of submitting the form; a control inside a scrolling box (the request panel's season list, the
+     dialog itself) is scrolled into that box, since focus never scrolls (preventScroll). */
 (function () {
   'use strict';
   var FOCUSABLE = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]),' +
@@ -288,6 +292,17 @@
       : (b.right + grow > window.innerWidth - OVERSCAN_X ? 'right center' : '');
   }
 
+  /* WP-RQ2 (JY-255): scroll each scrolling ancestor (up to the open dialog) just enough to show `el`. */
+  function keepInBoxes(el) {
+    var stop = openDialog();
+    for (var box = el.parentElement; box && stop && stop.contains(box); box = box.parentElement) {
+      if (box.scrollHeight <= box.clientHeight + 1 || !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) continue;
+      var b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+      if (r.top < b.top + PAD) box.scrollTop -= b.top + PAD - r.top;
+      else if (r.bottom > b.bottom - PAD) box.scrollTop += r.bottom - b.bottom + PAD;
+    }
+  }
+
   function setFocus(el) {
     if (!el) return;
     if (current && current !== el) current.classList.remove('tv-focus');
@@ -296,6 +311,7 @@
     try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
     centreInShelf(el);
     edgeOrigin(el);   /* after the shelf scroll; the .12 s scale transition has not grown it yet */
+    keepInBoxes(el);   /* JY-255: before the window check, which then reads the box's final scroll */
     keepRowInView(el);
   }
 
@@ -350,6 +366,9 @@
     keyed = true;
     var a = document.activeElement;
     if (e.key === 'Enter' && isSearch(a) && !e.altKey && !e.ctrlKey && !e.metaKey) { searchEnter(e, a); return; }
+    /* WP-RQ2 (JY-255): OK toggles a tick / chip; it never submits the request form */
+    if (e.key === 'Enter' && a && a.tagName === 'INPUT' && /^(checkbox|radio)$/i.test(a.type) && !e.altKey && !e.ctrlKey &&
+        !e.metaKey) { e.preventDefault(); a.click(); return; }
     if (!KEYS[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
     if (typing(a) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;   /* the caret moves in a text box */
     if (a && a.tagName === 'SELECT') return;

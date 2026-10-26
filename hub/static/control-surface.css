@@ -1494,7 +1494,7 @@ a.guest:hover .guest-name { text-decoration: underline; }
 
 /* Request picks (2026-10-22, WP-RQ2): the guest Discover request panel holds the Quality chips (the shared .chip radio
    recipe) and a show's season ticks (.seasonall / .seasonpick, as the title page's confirm step) above its buttons; a
-   long season list scrolls inside the panel. Not in TV mode (JY-231, B. 2026-10-27: TV deferred). */
+   long season list scrolls inside the panel. TV mode too since JY-255 (2026-10-27; its TV rules are in tv.css). */
 .reqpanel-form { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .reqpanel-form .reqpanel-btns { margin-top: 6px; }
 .reqpanel .seasonpick { max-height: 180px; overflow-y: auto; }

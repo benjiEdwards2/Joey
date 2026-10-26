@@ -208,10 +208,9 @@ Friends request through Discover and every friend request waits for B.'s approva
   side, an unknown profile id falls back to the default and only ticked seasons the show has that are not on disk are
   sent (none left = "Pick a season that isn't here yet"). B. sees the pick on the pending request (JY-230 / WP-RQ1 on
   Activity › Requests; until it merges, in Seerr's own UI). Nothing auto-approves (JY-231, B. 2026-10-27). The answer
-  reads "Requested in 4K · Seasons 1–2 — waiting for approval" (quality named when not the default). Desktop and phone
-  only (JY-231): in TV mode the panel, the confirm step and the request stay as before RQ2 (no Quality chips, a show
-  whole, no profile sent; `media_discover._tv`). B., 2026-10-27: "stop any tv development please"; the TV picks are
-  deferred.
+  reads "Requested in 4K · Seasons 1–2 — waiting for approval" (quality named when not the default). TV mode too
+  (JY-255, B. 2026-10-27: "Go for tv change again."): the same form; in `tv.js` Up from Request reaches the picks, OK
+  toggles a tick or chip (never a submit) and a focused tick is scrolled into the season list's box.
 - **Status, not controls.** Nothing on the media front approves, declines or removes. A friend sees their own requests
   (`GET /api/v1/request?requestedBy=<id>`, cached 60 s) as Requested / Approved / Declined on the title page and as
   Discover chips.

@@ -611,18 +611,10 @@ def request_step(request: Request, kind: str, tmdb_id: int, step: str = "", pane
         return _partial(request, "_request_block.html", **_block(_stub(kind, tmdb_id), "error", "Title unavailable"))
     if step != "confirm":
         return _partial(request, "_request_block.html", **_block(t, "idle"), mine=_guest_mine(kind, tmdb_id))
-    if _tv(request):   # JY-231: TV mode stays as before RQ2 - no Quality chips (Q19); B. 2026-10-27 "stop any tv development"
-        return _partial(request, "_request_block.html", **_block(t, "confirm"), profiles=[])
-    # WP-RQ2 (2026-10-22): the media front shows the Quality chips too - a friend picks, B. approves (was Q19: none)
+    # WP-RQ2 (2026-10-22): the media front shows the Quality chips too - a friend picks, B. approves (was Q19: none).
+    # JY-255 (B., 2026-10-27: "Go for tv change again."): TV mode too (JY-231 had deferred it).
     from hub import media_quality   # late: it imports this module
     return _partial(request, "_request_block.html", **_block(t, "confirm"), profiles=media_quality.choices(kind))
-
-
-def _tv(request: Request) -> bool:
-    """JY-231 (B., 2026-10-27: "stop any tv development please"): the friend's quality / season pick is desktop and
-    phone only; a TV-mode request (hub.media_front.tv_mode) keeps the flow it had before RQ2."""
-    from hub import media_front   # late, as the other hub imports here
-    return media_front.tv_mode(request)
 
 
 def _guest_mine(kind: str, tmdb_id: int) -> str | None:
@@ -649,7 +641,7 @@ def _guest_panel(request: Request, kind: str, tmdb_id: int, t: dict | None, stat
     words = "Requested" if state == "sent" else mgr.PANEL.get(state)
     return _partial(request, "_guest_request_panel.html", t=t or _stub(kind, tmdb_id), state=state, msg=msg,
                     words=words, chip=chip, oob=chip is not None and state != "request",
-                    profiles=media_quality.choices(kind) if state == "request" and not _tv(request) else [])
+                    profiles=media_quality.choices(kind) if state == "request" else [])
 
 
 # ---- Season episodes (lazy, TV only) ----
@@ -797,10 +789,9 @@ def _request_title(request: Request, kind: str, tmdb_id: int, seasons, profile=N
     # Q19); a friend's request is theirs (X-Api-User) and pending - never the bare key.
     # WP-RQ2 (2026-10-22): the media front sends the picked profile (an unknown id falls back to the default, no 422) and
     # only the ticked seasons the show has that are not on disk; B. sees both on the pending request.
-    # JY-231 (B., 2026-10-27): not in TV mode - there the request is sent as before RQ2 (no profile, seasons as posted).
-    tv = on_media and _tv(request)
-    picks = on_media and not tv
-    prof = None if tv else mgr.pick(kind, profile) if on_media else media_quality.pick(kind, profile)   # WP-R1: 422 off the media front
+    # JY-255 (B., 2026-10-27: "Go for tv change again."): in TV mode too (JY-231 had deferred it).
+    picks = on_media
+    prof = mgr.pick(kind, profile) if on_media else media_quality.pick(kind, profile)   # WP-R1: 422 off the media front
     code, seerr_id = None, None
     shown = _title(kind, tmdb_id) if panel or (picks and kind == "tv") else None   # the panel keeps its poster / title / overview after the answer (screen 10); read before the cache is dropped
     if picks and kind == "tv":

@@ -1,6 +1,6 @@
 # JY-231 RQ2 Friends pick quality and seasons when requesting (TV mode deferred)
 
-Status: building (B., 2026-10-27: "JY-231: go approve")
+Status: shipped 2026-10-27
 Size: L
 Live risk: arr/Seerr/qBittorrent write (Seerr: the friend's own pending POST, and the admin-key PUT that keeps the pick)
 Area: `hub/media_discover.py`, `hub/media_guest_requests.py`, `hub/templates/_guest_request_panel.html`, `hub/templates/_request_block.html`, `hub/static/control-surface.css` (one tail block, no tokens), `hub/README.md` "Requests", `docs/hub-changelog.md`, `tests/hub/test_guest_request_picks.py`, `tests/hub/test_guest_requests.py`, `tests/hub/fake_seerr.py`. Not `hub/static/tv.js` or `hub/static/tv.css` (TV mode deferred, below).
@@ -71,11 +71,8 @@ Deferred, not run in this item: an on-TV check (Discover panel, D-pad, OK on Req
 2. Settled 2026-10-27 by B.'s "JY-231: go approve" (4K is approval only): Seerr's 4K auto-approve bits (AUTO_APPROVE_4K = 32768, _4K_MOVIE = 65536, _4K_TV = 131072) are now in `NEVER`. A friend whose Seerr user holds any of them is refused on the same NOREQUESTS path until the permission is removed in Seerr (runbook R1). Joey also never sends `is4k` (pinned).
 
 ## Shipped notes
-PR, commit, backup name, measured numbers, anything left for a follow-up.
-
-- 2026-10-27, merge onto main (cherry-pick of 2428063), 4 conflicts:
-  - `docs/hub-changelog.md` and `control-surface.css` were tail appends. Both sides were kept.
-  - `tv.js` and `tv.css` were first hand-merged onto JY-187 / JY-192 / JY-194 / JY-248. Then, after B.'s "stop any tv development please" the same day, they were reverted to main.
-- RQ2's TV-only test (`test_tv_mode_panel_controls_are_real_focusable_inputs`) never reached main. `test_tv_mode_keeps_the_request_flow_from_before_rq2` replaces it and pins the deferral.
-- Follow-up: a TV item to bring back RQ2's TV mode (`tv.js` Enter handling merged with JY-194's search Enter, `keepInBoxes` before `keepRowInView`, the season status word at 18 px for JY-188), with an on-TV check.
-- 2026-10-27, review fixes, rebased onto origin/main `bf482db` (after JY-232). Tested at `191c8fe`; the next commit adds only this line. `test_guest_request_picks.py` + `test_guest_requests.py`: 71 passed. `-k "request or discover or quality or guest"` over `tests/hub/`: 610 passed. `-n 2 tests/hub/`: 3041 passed, 0 failed (about 3 min 15 s).
+- Closed out with `scripts/joey.py close-out`.
+- PR: #205, squash-merged as `bcfd1c4` (bcfd1c4bf082a55be620075ea0711a0ed4f93ec9).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

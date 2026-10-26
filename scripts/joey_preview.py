@@ -165,6 +165,10 @@ ENV_OUT = {
     "HA_URL": "parked connector",
     "HA_TOKEN": "parked connector",
     "NAS_SHARES_ROOT": "parked connector",
+    "PLAYER_API": "JY-053 player API stays off in the preview (it writes Jellyfin playback progress)",
+    "JELLYFIN_PLAYER_TOKEN_YOU": "write: a household member's own Jellyfin token (player progress); JY-053",
+    "JELLYFIN_PLAYER_TOKEN_HER": "write: a household member's own Jellyfin token (player progress); JY-053",
+    "JELLYFIN_PUBLIC_URL": "the player's stream host; the player API is off in the preview",
 }
 
 

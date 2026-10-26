@@ -144,3 +144,7 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `HA_URL` | out | parked connector |
 | `HA_TOKEN` | out | parked connector |
 | `NAS_SHARES_ROOT` | out | parked connector |
+| `PLAYER_API` | out | JY-053 player API stays off in the preview (it writes Jellyfin playback progress) |
+| `JELLYFIN_PLAYER_TOKEN_YOU` | out | write: a household member's own Jellyfin token (player progress); JY-053 |
+| `JELLYFIN_PLAYER_TOKEN_HER` | out | write: a household member's own Jellyfin token (player progress); JY-053 |
+| `JELLYFIN_PUBLIC_URL` | out | the player's stream host; the player API is off in the preview |

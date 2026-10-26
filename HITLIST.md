@@ -117,7 +117,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-130 | P3 One-tap fixes on Attention | Server | M | parked | Restart, re-run, resume, search missing (decision) | — |
 | JY-131 | P5 Internet health card | Server | M | parked | Tells slow Joey from a busy internet (decision) | — |
 | JY-132 | P6 Backups card | Server | M | parked | No page shows backup age today (decision) | — |
-| JY-133 | P7 Service history on the card | Server | S | parked | Kuma 7-day uptime per service (decision) | — |
+| JY-133 | P7 Service history on the card | Server | S | [x] shipped | Kuma 7-day uptime per service (decision) · PR #195 | [spec](docs/specs/JY-133-service-uptime.md) |
 | JY-134 | P8 What changed since your last visit | Server | S | parked | A sentence Georgina would want (decision) | — |
 | JY-135 | P9 Per-person notifications | Server | S | parked | Fewer Discord alerts for Georgina (decision) | — |
 | JY-136 | P10 Weekly summary card | Server | M | parked | "Joey this week" (decision) | — |

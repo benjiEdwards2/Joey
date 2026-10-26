@@ -26,7 +26,7 @@ YOU, HER = {IDENTITY_HEADER: "you@example.test"}, {IDENTITY_HEADER: "her@example
 ITEM = "dcd12e5bf6856e60c225472186cd6cb6"
 PROFILE = {"Name": "Test browser", "MaxStreamingBitrate": 120000000,
            "DirectPlayProfiles": [{"Container": "mp4", "Type": "Video", "VideoCodec": "h264", "AudioCodec": "aac"}]}
-START = {"item_id": ITEM, "device": {"kind": "web", "profile": PROFILE}}
+START = {"item_id": ITEM, "device": {"kind": "tv", "profile": PROFILE}}   # tv: the kind that may direct-play
 FRIEND = Identity(owner="jf:" + "f00d" * 8, name="Sample Friend", jf_user_id="f00d" * 8, jf_token="tok-friend")
 ALIAS = Identity(owner="you", name="Sample Alias", jf_user_id="c3" * 16, jf_token="tok-alias-555")
 ROUTES = [("POST", "/api/play/sessions"), ("POST", "/api/play/sessions/abc/stream"),
@@ -272,7 +272,7 @@ def test_start_direct_play(client, jf):
     me, info = jf.calls
     for c in jf.calls:
         auth = c["headers"]["Authorization"]
-        assert auth.startswith('MediaBrowser Client="Joey", Device="Joey player web", DeviceId="joey-player-you", ')
+        assert auth.startswith('MediaBrowser Client="Joey", Device="Joey player tv", DeviceId="joey-player-you", ')
         assert auth.endswith(f'Token="{TOKENS["you"]}"') and "X-Emby" not in str(c["headers"])
     assert info["method"] == "POST" and info["params"] == {"userId": UIDS[TOKENS["you"]]}
     sent = info["json"]
@@ -333,7 +333,7 @@ def test_start_refuses_non_json_and_oversized_bodies(client, jf):
     assert r.status_code == 400 and err(r) == "bad_request"
     r = client.post("/api/play/sessions", headers=YOU, json=[1, 2])
     assert r.status_code == 400
-    big = {**START, "device": {"kind": "web", "profile": {"pad": "x" * player_api.MAX_BODY}}}
+    big = {**START, "device": {"kind": "tv", "profile": {"pad": "x" * player_api.MAX_BODY}}}
     r = client.post("/api/play/sessions", headers=YOU, json=big)
     assert r.status_code == 413 and err(r) == "too_large"
     assert jf.calls == []
@@ -577,7 +577,7 @@ def test_logs_carry_no_token_url_or_user(client, jf, caplog):
     jf.fail = {"*": requests.ConnectionError}
     client.post("/api/play/sessions", headers=YOU, json=START)
     text = "\n".join(r.getMessage() for r in caplog.records)
-    assert "player: start web direct" in text
+    assert "player: start tv direct" in text
     for secret in (*TOKENS.values(), "jf-lan.test", "jf-public.test", "never-logged", "you@example.test",
                    "fake failure", UIDS[TOKENS["you"]], "tok-leak"):
         assert secret not in text, secret
@@ -602,3 +602,70 @@ def test_hub_overhead_is_inside_the_page_budget(client, jf):
     }
     print("hub overhead p95 ms:", {k: round(v, 1) for k, v in measured.items()})
     assert all(v <= 50 for v in measured.values()), measured
+
+
+# ---- review round 1 (2026-10-26) ----
+
+WRONG = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+
+@pytest.mark.parametrize("flag", ["off", "on"])
+def test_a_wrong_method_on_a_real_path_is_404_never_405(client, jf, env, flag):
+    """Security review: a 405 + Allow header told a prober the route exists while the flag was off."""
+    env.setenv("PLAYER_API", flag)
+    for right, path in ROUTES:
+        unknown = {m: call(client, m, "/api/play-nothing-here", YOU) for m in WRONG}
+        for method in WRONG:
+            if method == right or (right == "GET" and method == "HEAD"):
+                continue
+            r = call(client, method, path, YOU)
+            assert r.status_code == 404 and "allow" not in r.headers, (flag, method, path)
+            if flag == "off":
+                assert r.content == unknown[method].content, (method, path)
+    r = call(client, "POST", "/api/play/other/thing", YOU, START)
+    assert r.status_code == 404 and r.content == b'{"detail":"Not Found"}'
+    assert jf.calls == []
+
+
+def test_browsers_never_direct_play(client, jf):
+    """Q4 A: kind web / phone ask Jellyfin with EnableDirectPlay off and take the HLS URL even if direct play is offered."""
+    jf.info = {"MediaSources": [source(TranscodingUrl=REMUX_URL, TranscodingSubProtocol="hls")], "PlaySessionId": "ps1"}
+    for kind in ("web", "phone"):
+        body = start(client, device={"kind": kind, "profile": PROFILE})
+        assert jf.calls[-1]["json"]["EnableDirectPlay"] is False and body["play_method"] == "remux"
+        assert client.post(body["stream"], headers=YOU).json()["protocol"] == "hls"
+    body = start(client, device={"kind": "tv", "profile": PROFILE})
+    assert jf.calls[-1]["json"]["EnableDirectPlay"] is True and body["play_method"] == "direct"
+    jf.info = {"MediaSources": [source()], "PlaySessionId": "ps1"}   # direct only, no TranscodingUrl
+    r = client.post("/api/play/sessions", headers=YOU, json={**START, "device": {"kind": "web", "profile": PROFILE}})
+    assert r.status_code == 409 and r.json()["error"]["reason"] == "NoCompatibleStream"
+
+
+def test_stop_by_send_beacon_text_plain(client, jf):
+    """A closing tab sends stop with navigator.sendBeacon: text/plain JSON, same-origin Origin header."""
+    body = start(client)
+    r = client.post(body["stream"].replace("/stream", "/stop"), content=b'{"position_ticks": 42}',
+                    headers={**YOU, "content-type": "text/plain;charset=UTF-8", "origin": "http://testserver"})
+    assert r.status_code == 204
+    assert jf.calls[-1]["path"] == "/Sessions/Playing/Stopped" and jf.calls[-1]["json"]["PositionTicks"] == 42
+
+
+def test_an_oversized_content_length_is_refused_before_reading():
+    import asyncio
+    from starlette.requests import Request
+
+    async def receive():
+        raise AssertionError("the body must not be read")
+    scope = {"type": "http", "method": "POST", "path": "/api/play/sessions", "headers": [
+        (b"content-length", str(player_api.MAX_BODY + 1).encode())]}
+    with pytest.raises(player_api.PlayError) as e:
+        asyncio.run(player_api._body(Request(scope, receive)))
+    assert (e.value.status, e.value.code) == (413, "too_large")
+
+
+def test_a_null_subtitle_default_is_minus_one(client, jf):
+    jf.info = {"MediaSources": [source(DefaultSubtitleStreamIndex=None)], "PlaySessionId": "ps1"}
+    body = start(client)
+    assert body["subtitle_index"] == -1 and body["tracks"]["default_subtitle_index"] == -1
+    client.post(body["stream"].replace("/stream", "/progress"), headers=YOU, json={"position_ticks": 1})
+    assert jf.calls[-1]["json"]["SubtitleStreamIndex"] == -1

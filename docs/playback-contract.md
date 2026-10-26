@@ -12,7 +12,9 @@ plus the tests, never a silent edit: the players are built against this page.
 `PLAYER_API=on` (hub env; case and spaces forgiven) turns the API on. Any other value, or unset, is off. Off, every
 route below answers exactly what an unknown path answers (`404 {"detail":"Not Found"}` on the private front, the
 ordinary Joey 404 page on the media front), before auth, body parsing or any Jellyfin call. Nothing a user can see
-changes while it is off. The flag is read on every request: no restart is needed to turn it off.
+changes while it is off. The flag is read on every request: no restart is needed to turn it off. A wrong method on a
+real path, or any other path under `/api/play/`, lands on a method-agnostic catch-all that answers the same 404, so
+there is never a `405` or an `Allow` header to say a route exists (review round 1, 2026-10-26).
 
 ## Who may call
 
@@ -42,11 +44,20 @@ Every POST also passes the hub's `same_origin` guard (a cross-site POST is `403 
   (`https://jellyfin.joeyhome.net:8443`, the SWAG edge), **never the Cloudflare tunnel**. Unset = `503 not_configured`.
 - **No credential in a URL (Q2 A).** The hub strips `ApiKey` / `api_key` from every URL Jellyfin returns. The stream
   hand-out gives the player the header to send on every stream, playlist, segment and subtitle request (hls.js
-  `xhrSetup`, ExoPlayer `setDefaultRequestProperties`). A plain `<video src>` cannot send it; see Q2.
+  `xhrSetup`, ExoPlayer `setDefaultRequestProperties`).
+- **The web path (Q4 A).** A plain `<video src>` or `<track src>` cannot send a header, so browsers (`kind` `web` and
+  `phone`) never direct-play: the hub sends PlaybackInfo with `EnableDirectPlay: false` for them and ignores a direct-play
+  offer, so even a browser-ready MP4 comes as Jellyfin's HLS remux (video and audio copied, low CPU), played by hls.js
+  with the header. Subtitles reach a browser inside that HLS stream: the web profile lists every text format in
+  `SubtitleProfiles` with `Method: "Hls"` (image formats, PGS and VobSub, are burned in by Jellyfin, as today). Nothing
+  ever sits in a `<video src>` or `<track src>` URL. The TV (ExoPlayer) direct-plays with the header.
+- **The header carries the member's full Jellyfin token** (it is not scoped to one stream; Jellyfin has no scoped
+  tokens). JY-054 and JY-057 keep it in memory only: never `localStorage`, a cookie, a URL, a log or an error report.
 
 ## Endpoints
 
-All bodies are JSON (at most 64 KB). All answers carry `Cache-Control: no-store`. Ticks are Jellyfin ticks
+All bodies are JSON (at most 64 KB: a larger `Content-Length` is refused before the body is read; the
+`Content-Type` is not checked, so a `sendBeacon` text/plain body works). All answers carry `Cache-Control: no-store`. Ticks are Jellyfin ticks
 (10,000,000 per second). Item ids are Jellyfin ids, 32 hex (dashes and upper case accepted, answered lower case).
 
 ### 1. Start a session: `POST /api/play/sessions`
@@ -106,6 +117,12 @@ A failed heartbeat is not fatal: the player carries on and sends the next one.
 `{"position_ticks": 3000000000}`. `204`. Jellyfin: `POST /Sessions/Playing/Stopped` (same body, no `IsPaused`), which
 also ends any transcode for that `PlaySessionId`. The session is gone after this call whatever Jellyfin answered.
 
+When the tab closes, the web player sends stop with `navigator.sendBeacon(url, JSON.stringify({position_ticks}))`
+from `pagehide`. That posts a `text/plain` body with the page's own `Origin`, which the hub accepts: every body is read as
+JSON whatever its `Content-Type` (pinned by `test_stop_by_send_beacon_text_plain`). The beacon's answer is never read;
+if it is lost, Jellyfin keeps the last heartbeat's position (at most 10 s old) and the hub forgets the session after
+30 minutes.
+
 ### 5. Audio and subtitle tracks: `GET /api/play/items/{item_id}/tracks`
 
 Jellyfin: `GET /Items/{id}/PlaybackInfo?userId=<uid>` (no device profile, read only). `200`:
@@ -116,7 +133,9 @@ Jellyfin: `GET /Items/{id}/PlaybackInfo?userId=<uid>` (no device profile, read o
                 "forced": false, "external": true, "text": true, "delivery": "external",
                 "url": "https://jellyfin.joeyhome.net:8443/Videos/.../Stream.vtt"}]}
 ```
-`index` is Jellyfin's `MediaStream.Index`. `text: false` (PGS, VobSub) means a burn-in transcode when chosen.
+`index` is Jellyfin's `MediaStream.Index`; subtitle `-1` = off, and a null Jellyfin default is answered as `-1`.
+`text: false` (PGS, VobSub) means a burn-in transcode when chosen. `url` is for the TV only (ExoPlayer sends the
+header); a browser takes subtitles from the HLS stream (Q4 A).
 `delivery` and `url` come from Jellyfin when it has a delivery for that track (key removed). Changing a track mid-play
 = stop this session and start a new one at the current position with the new `audio_index` / `subtitle_index`
 (Jellyfin decides again whether that needs a transcode). JY-056 may add a lighter path.

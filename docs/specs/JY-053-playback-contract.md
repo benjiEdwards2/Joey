@@ -56,12 +56,12 @@ the transcode box (JY-049, JY-059).
 
 ## Accept checklist
 Nothing to try on a preview: the flag is off and there is no screen.
-- Read `docs/playback-contract.md` and answer the three questions below (or "all recommended").
+- Read `docs/playback-contract.md` and answer the four questions below (or "all recommended").
 - In the PR: the test output, and that with the flag off `/api/play/sessions` answers `404 {"detail":"Not Found"}`
   like any unknown path.
 
 ## Questions for B.
-Each was not settled by the JY-050 answers. The recommendation (A) is what is built.
+Each was not settled by the JY-050 answers. The recommendation (A) is what is built. Q4 was added in review round 1.
 
 **1. Which Jellyfin sign-in does a household play use on joeyhome.net?**
 A) One Jellyfin token per person (`JELLYFIN_PLAYER_TOKEN_YOU` / `_HER` in the NAS env), made once in JY-054 by a script
@@ -85,6 +85,30 @@ The Joey TV shell loads Joey Media (`media.joeyhome.net`), where friends also si
 JY-057 moves them to the media front for the household alias only (friends still refused, 403). B) Open them on the
 media front for the household now. *Recommend A: nothing on the friends' host changes until a player uses it, and the
 handler already refuses friends and plays as the signed-in household user there.*
+
+**4. How does a browser play a file it could direct-play, and show external subtitles?**
+A `<video src>` or `<track src>` cannot send the header (review round 1). A) Browsers never direct-play: the hub asks
+Jellyfin for HLS (a remux, video and audio copied, low CPU) and the web profile asks for subtitles inside the HLS
+stream, so hls.js sends the header for every byte. Costs a remux for the 4 % of files a browser could take as they are
+(the JY-051 inventory). B) A short-lived per-session stream token in the URL, scoped to that one stream: Jellyfin has
+no scoped tokens, so SWAG on :8443 would check it with `auth_request` against the hub (over the LAN, not the tunnel)
+and add the real header itself before passing to Jellyfin; a SWAG change, built in JY-054 with the deploy review.
+C) The hub proxies the video. *Recommend A: no new credential or edge change, no token in any URL; B only if the JY-051
+PC rows show the remux hurts the 5 s start. C is out: video would cross the Cloudflare tunnel and the hub's 200 MiB.*
+
+## Notes for JY-054
+- The `/stream` answer's `headers.Authorization` carries the member's **full** Jellyfin token, not one scoped to the
+  stream. The player keeps it in memory only (never `localStorage`, a cookie, a URL, a log or an error report) and
+  fetches it again from `/stream` after a reload.
+- Close the tab with `navigator.sendBeacon` to `/stop` (text/plain JSON; the contract's endpoint 4).
+
+## Review round 1 (2026-10-26)
+Security review FAIL, one must-fix: with the flag off, a wrong method on a real path answered 405 with an `Allow`
+header. Fixed with a method-agnostic 404 catch-all under `/api/play/` (PRIVATE in `hub/guest.py`), pinned by
+`test_a_wrong_method_on_a_real_path_is_404_never_405`. Should-fixes: `Content-Length` checked before the body is read;
+sendBeacon stop documented and tested; the web path defined (Q4, A built: browsers never direct-play); a null subtitle
+default answered as -1; the full-token note above; `_uids` written under the lock. Red first: 5 failed, 56 passed
+against the previous module.
 
 ## Shipped notes
 Not yet.

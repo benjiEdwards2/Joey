@@ -11,6 +11,10 @@ docs/playback-contract.md; this module follows it and nothing else does.
 * Every Jellyfin call sends the 12.2 header `Authorization: MediaBrowser Client=..., Device=..., DeviceId=..., Version=...,
   Token="..."` and goes to JELLYFIN_URL. Streams are handed out on JELLYFIN_PUBLIC_URL (the :8443 edge, never the tunnel)
   with no credential in the URL: the player sends the same header itself (JY-053 Q2 A).
+* Browsers (kind web / phone) never direct-play (JY-053 Q4 A): the hub asks PlaybackInfo with EnableDirectPlay off, so
+  every byte (HLS playlists, segments, subtitles) goes through hls.js, which can send the header.
+* Wrong methods and unknown paths under /api/play hit `not_found` (a method-agnostic catch-all), so with the flag off
+  no probe can tell the routes exist (no 405, no Allow header).
 * At most one Jellyfin call per request; the stream hand-out makes none. Timeouts are TIMEOUTS (connect CONNECT_S).
 * Sessions live in this process only (SESSIONS): a restart forgets them and the player starts a new one.
 * Logs carry the endpoint, the play method and the exception type or HTTP status only: never a URL, token, user or title.
@@ -52,6 +56,8 @@ MAX_PER_OWNER = 4           # a fifth start drops that owner's oldest session
 MAX_BODY = 64 * 1024        # bytes; a DeviceProfile is a few KB
 UID_TTL = 3600
 METHODS = {"DirectPlay": "direct", "DirectStream": "remux", "Transcode": "transcode"}
+BROWSERS = ("web", "phone")   # no direct play: a <video src> / <track src> cannot send the header (Q4 A)
+ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 TEXT_SUBS = {"srt", "subrip", "ass", "ssa", "webvtt", "vtt", "mov_text", "ttml", "smi", "sami"}
 _HEX32 = re.compile(r"[0-9a-f]{32}")
 _KEY_PARAMS = {"apikey", "api_key"}
@@ -72,7 +78,7 @@ class PlayError(Exception):
 def clear() -> None:
     with _lock:
         SESSIONS.clear()
-    _uids.clear()
+        _uids.clear()
 
 
 def enabled() -> bool:
@@ -176,14 +182,16 @@ def _user_id(viewer: dict, base: str, headers: dict) -> str:
     if viewer["user_id"]:
         return viewer["user_id"]
     key = hashlib.sha256(viewer["token"].encode()).hexdigest()[:16]
-    hit = _uids.get(key)
+    with _lock:
+        hit = _uids.get(key)
     if hit and time.time() - hit[0] < UID_TTL:
         return hit[1]
     me = _call("me", "GET", f"{base}/Users/Me", headers)
     uid = me.get("Id") if isinstance(me, dict) else None
     if not isinstance(uid, str) or not uid:
         raise PlayError(502, "upstream_error", "Jellyfin did not say who the player's sign-in is.")
-    _uids[key] = (time.time(), uid)
+    with _lock:
+        _uids[key] = (time.time(), uid)
     return uid
 
 
@@ -214,7 +222,8 @@ def _tracks(source: dict, public: str) -> dict:
             subs.append(sub)
     return {"audio": audio, "subtitles": subs,
             "default_audio_index": source.get("DefaultAudioStreamIndex"),
-            "default_subtitle_index": source.get("DefaultSubtitleStreamIndex")}
+            "default_subtitle_index": -1 if source.get("DefaultSubtitleStreamIndex") is None
+            else source["DefaultSubtitleStreamIndex"]}
 
 
 def _first_source(info) -> dict:
@@ -231,6 +240,13 @@ def _first_source(info) -> dict:
 # ---- request bodies ----
 
 async def _body(request: Request) -> dict:
+    """The JSON object body, whatever its Content-Type (navigator.sendBeacon posts text/plain)."""
+    try:
+        declared = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        raise PlayError(400, "bad_request", "Bad Content-Length.") from None
+    if declared > MAX_BODY:
+        raise PlayError(413, "too_large", "Request body over 64 KB.")
     raw = await request.body()
     if len(raw) > MAX_BODY:
         raise PlayError(413, "too_large", "Request body over 64 KB.")
@@ -314,7 +330,8 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
     base, public = _bases()
     headers = _auth(viewer, kind)
     uid = _user_id(viewer, base, headers)
-    body = {"UserId": uid, "DeviceProfile": profile, "EnableDirectPlay": True, "EnableDirectStream": True,
+    browser = kind in BROWSERS
+    body = {"UserId": uid, "DeviceProfile": profile, "EnableDirectPlay": not browser, "EnableDirectStream": True,
             "EnableTranscoding": True, "AllowVideoStreamCopy": True, "AllowAudioStreamCopy": True,
             "AutoOpenLiveStream": False}
     for key, name in (("StartTimeTicks", "start_ticks"), ("AudioStreamIndex", "audio_index"),
@@ -324,7 +341,7 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
     info = _call("start", "POST", f"{base}/Items/{item}/PlaybackInfo", headers, params={"userId": uid}, body=body,
                  not_found="item_not_found")
     source = _first_source(info)
-    if source.get("SupportsDirectPlay"):
+    if source.get("SupportsDirectPlay") and not browser:
         jf_method = "DirectPlay"
         query = {"static": "true", "mediaSourceId": source["Id"]}
         if info.get("PlaySessionId"):
@@ -341,6 +358,8 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
             "play_session_id": info.get("PlaySessionId"), "jf_method": jf_method, "url": url, "protocol": protocol,
             "audio_index": opts.get("audio_index", tracks["default_audio_index"]),
             "subtitle_index": opts.get("subtitle_index", tracks["default_subtitle_index"]), "reported": False}
+    if sess["subtitle_index"] is None:   # Jellyfin's "none" is a null default; the contract says -1 = off
+        sess["subtitle_index"] = -1
     sid = _keep(sess)
     log.info("player: start %s %s", kind, METHODS[jf_method])
     return sid, {"session_id": sid, "item_id": item, "play_method": METHODS[jf_method],
@@ -458,3 +477,11 @@ async def tracks(request: Request, item_id: str):
     except PlayError as err:
         return _error(err)
     return _no_store(JSONResponse(answer))
+
+
+@router.api_route(f"{PREFIX}/{{rest:path}}", methods=ALL_METHODS, include_in_schema=False)
+async def not_found(request: Request, rest: str):
+    """Registered LAST: a wrong method on a real path, or any other path under /api/play. Flag off: the unknown-path
+    404 (never a 405 with an Allow header, which would say the route exists). Flag on: the same 404."""
+    _gate(request)
+    raise HTTPException(404)

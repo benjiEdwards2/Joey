@@ -51,7 +51,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /server` | main | Server area (same page as `/a/server`) |
 | `GET /weather` | weather | Weather page (Windy radar embed; the parked BOM radar was removed 2026-10-09, decision 5) |
 | `GET /media/diary/year/{year}`, `/media/diary/year` | media_pages | Wrapped (E6, 2026-10-13): one year in words, a summary not a ranking; the bare path redirects to this year |
-| `GET /media/{movies,tv}/awards/part/rows` | awards_pages | Awards ballot's deferred rows (2026-10-14): the films view's rows after the first 12, one htmx request on `revealed`, same `body` / `year` / `f` / `s` query |
+| `GET /media/{movies,tv}/awards/part/rows` | awards_pages | Awards ballot's deferred rows (2026-10-14): the films view's rows after the first 7 (JY-150, was 12), one htmx request on `revealed`, same `body` / `year` / `f` / `s` query |
 | `GET /media/{movies,tv}/awards/part/categories` | awards_pages | Awards categories view's deferred cards (E7): one htmx request on `revealed`, same `body` / `year` / `unseen` query; `/awards?v=categories&all=1` is the whole view (no-JS fallback) |
 | `GET /media/playing`, `/history`, `/library`, `/downloads`, `/requests`, `/apps` | media_pages | Media Activity section (was "Server", renamed 2026-10-09, decision 4): Live, To rate (`/media/history`), Library, Downloads, Requests, Health |
 | `GET /media/diary` | media_pages | Activity > History: the watch diary (E6: the Month in Review card leads, linking the Wrapped page) (the Diary section folded into Activity 2026-10-13; By-year rankings removed 2026-10-09, decision 1). "Show: Mine / Everyone" 2026-10-13 — only owner "you" may list everyone's rows, each then named "You" / `OWNER_NAME_HER` in its meta line; her diary is always her own |
@@ -378,7 +378,7 @@ by htmx with the URL pushed and the scroll kept; Not seen says "Hiding N seen". 
 title + year (the server's, else the edition's "films of" year), "5 wins · 6 nominations", up to five pills (won first;
 acting / directing pills name the person), the action (emerald "Seen ✓", or the worded Watchlist button — the same
 `/media/watchlist/add|remove`, `style=ballot`, swapped in place) and a Details fold with every category and its people.
-The first 12 rows render; the rest come through `/awards/part/rows`. Short-film categories fold under "Shorts · N" (out of
+The first 7 rows render (JY-150: was 12, so the phone page stays under 2,500 px); the rest come through `/awards/part/rows`. Short-film categories fold under "Shorts · N" (out of
 the rows, filters and progress); acting / directing winners close the page as a people strip. Nothing calls the award
 hosts from a page; posters fill after the response (F2), the first rows first.
 

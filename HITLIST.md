@@ -59,7 +59,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-051 | Player options study (per-device matrix) | Media player | M | building | Inventory + PC playback table + study page + test TV app built (PR #70); the TV/phone sitting waits on JY-014's hostname | — |
 | JY-052 | Options page: player screen (PC, phone, TV) | Media player | S | [x] shipped | B. 2026-10-27: "JY-052: A" (Classic overlay); options page built 2026-10-26; JY-054 builds it | — |
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | [x] shipped | Contract before the players · PR #188 | [spec](docs/specs/JY-053-playback-contract.md) |
-| JY-054 | Web/phone player | Media player | L | idea | Joey plays the film itself · live | — |
+| JY-054 | Web/phone player | Media player | L | [x] shipped | Joey plays the film itself · live · PR #215 | [spec](docs/specs/JY-054-web-phone-player.md) |
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | idea | Stop on one device, resume on another | — |
 | JY-056 | Audio + subtitle track picker | Media player | M | idea | Pick tracks in the player | — |
 | JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live | — |

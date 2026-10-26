@@ -1,6 +1,6 @@
 # JY-054 Joey's own web and phone player (look A, Classic overlay)
 
-Status: building
+Status: shipped 2026-10-27
 Size: L
 Live risk: none while `PLAYER_API` is off (how this item ships). Turned on for the accept, the player writes the
 household's playback progress to Jellyfin as each member (JY-053) and needs the two player tokens (secrets).
@@ -158,4 +158,8 @@ prefix raises the router's own 404 (byte for byte the unknown path's); on, it ne
 `tests/hub/test_player_flag_methods.py` failed 3 of 6 before the fix. Nit: Watch credits clears the countdown to null.
 
 ## Shipped notes
-Not yet.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #215, squash-merged as `f4d8c95` (f4d8c95b9bf0136f6219229d1346086b58c061c2).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

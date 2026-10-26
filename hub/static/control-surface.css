@@ -1481,3 +1481,13 @@ a.guest:hover .guest-name { text-decoration: underline; }
 /* P1a free space (2026-10-22): the System disk block's small "Free space" link and the Free space page's head line. */
 .spacelink { margin-top: 8px; }
 .spacehead { margin-bottom: 8px; }
+
+/* Everyone's watchlist (WP-RQ3, 2026-10-22): rows are .row.has-form; a row's Request sits at the right above the row
+   link and, once the normal request block is in it, takes its own full-width line (its Request button hidden). The
+   Request all panel (.confirm) lists the titles it will send. */
+.wlerow > .wlreq { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
+.wlerow > .wlreq:has(.requestblock) { flex: 1 0 100%; margin-left: 0; }
+.wlreq:has(.requestblock) > .wlreq-open { display: none; }
+.wlerow .row-body { flex-basis: 0; }
+.rqall-list { margin: 0; padding-left: 18px; max-height: 240px; overflow-y: auto; font-size: 13px; color: var(--text-2); }
+.rqall-list .metaline { margin-left: 4px; }

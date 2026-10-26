@@ -1280,3 +1280,25 @@ since the start shows every app up, or the grace has passed. `server_digest.tick
 outage pushed before a restart is not pushed again. After the grace both behave as before: a service still down shows
 "Down". Spec `docs/specs/JY-254-digest-boot-grace.md`; tests in `tests/hub/test_server_digest.py`,
 `tests/hub/test_server_alerts.py` (one autouse fixture in `tests/hub/conftest.py` runs the suite as a long-running hub).
+
+## 2026-10-27 — JY-232 Everyone's watchlist + Request all
+
+**Everyone's watchlist + Request all (WP-RQ3, 2026-10-22).** B. (owner "you", private front only) sees every watchlist in
+media.db at `GET /media/watchlist/everyone` (new `hub/media_watchlist_everyone.py`, `media_watchlist_everyone.html`): rows
+grouped You · Georgina · each friend by their Jellyfin display name, with person chips (All · each person) and Films / TV
+chips, each row's status word (On disk / Requested / Processing / Not on server, as the per-owner pages), kind and "Added
+<date>". A title on several lists is a row under each person (the page is grouped by person; Request all sends it once).
+The page renders from media.db and the snapshots only: friend names come from an in-process copy of Jellyfin `/Users`
+(1 h), read after the response while cold (the group reads "Friend" until the next view); names are never logged. A row
+Not on server has Request, which draws the normal confirm step (`_request_block.html`: Quality chips, season ticks) in the
+row via the existing private `GET /media/title/{kind}/{tmdb}/request?step=confirm` (one `#request-block` at a time).
+Request all (`GET` + `POST /media/watchlist/everyone/request-all`, same-origin) covers the list as filtered: titles Not on
+server and not requested, once each; its inline confirm panel lists them, has one Quality chip row per kind in the batch,
+and says what goes ("Request 12 films · 8 shows (Season 1)?"). Shows go as **Season 1 only** (`seasons: [1]`, no Sonarr
+follow; JY-232, B. 2026-10-27: "JY-232: go s1"; built 2026-10-22 as all seasons). It sends at most 20 per submit through
+`media_discover._send` as B. (admin key), and the page comes back with words ("Requested 7 · 1 failed: Already
+requested · 3 left · Request all again"); a sent title reads Requested for an hour until the jellyseerr snapshot has it,
+and the quality safety net for a non-default pick runs after the answer. Linked ("Everyone's watchlist") from Activity ›
+Requests and the Movies / TV watchlist pages for owner "you" only. Georgina gets the 404 page; the routes are PRIVATE in
+`hub/guest.py` (media-front 404). New `media_watchlist_db.all_rows`. Spec `docs/specs/JY-232-rq3-everyone-watchlist.md`;
+tests: `tests/hub/test_media_watchlist_everyone.py`.

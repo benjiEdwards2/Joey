@@ -1,6 +1,6 @@
 # JY-254 Digest sent just after boot lists services as Down
 
-Status: review
+Status: shipped 2026-10-26
 Size: S
 Live risk: none
 Area: `hub/boot.py` (new), `hub/server_digest.py`, `hub/server_alerts.py`, `tests/hub/test_server_digest.py`, `tests/hub/test_server_alerts.py`, `tests/hub/conftest.py` (one autouse fixture), `docs/hub-changelog.md`, `hub/README.md`
@@ -59,3 +59,8 @@ After the next morning boot, the Discord digest arrives a few minutes after 07:3
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #186, squash-merged as `48c0e37` (48c0e37a717869a4236bb32a6c079092e6f1c763).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

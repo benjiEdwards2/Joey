@@ -106,7 +106,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-121 | Merge play stats into History | Media | S | [x] shipped | Nav-tidy leftover · PR #190 | [spec](docs/specs/JY-121-play-stats-history.md) |
 | JY-122 | Manifest shortcut "TV Shows" | Media | S | [x] shipped | Nav-tidy leftover · PR #83 | [spec](docs/specs/JY-122-manifest-tv-shows-word.md) |
 | JY-123 | Naming: Movies / My films / TV show; "Not on server" vs "Not on your server" | Media | S | parked | Left open in the 2026-10-09 tidy review (decision) | — |
-| JY-230 | RQ1 Approve / Decline pending Seerr requests on Activity (edit quality + seasons first) | Media | L | spec | Built 2026-10-22 on `joey-rq1-approve` (37032e8, never reviewed); B.'s asks in archived LD DECISIONS; Seerr write · live | — |
+| JY-230 | RQ1 Approve / Decline pending Seerr requests on Activity (edit quality + seasons first) | Media | L | [x] shipped | Built 2026-10-22 on `joey-rq1-approve` (37032e8, never reviewed); B.'s asks in archived LD DECISIONS; Seerr write · live · PR #202 | [spec](docs/specs/JY-230-rq1-approve-decline.md) |
 | JY-231 | RQ2 Friends pick quality and seasons when requesting (incl. TV mode) | Media | L | [x] shipped | Built 2026-10-22 on `joey-rq2-friendpick` (2428063, never reviewed); Seerr write · live · PR #205 | [spec](docs/specs/JY-231-rq2-friend-pick.md) |
 | JY-232 | RQ3 Everyone's watchlist + Request all (sent as B.) | Media | L | [x] shipped | Built 2026-10-22 on `joey-rq3-everyone-wl` (dbc18b1, never reviewed); Seerr write · live · PR #201 | [spec](docs/specs/JY-232-rq3-everyone-watchlist.md) |
 

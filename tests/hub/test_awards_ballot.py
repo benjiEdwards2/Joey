@@ -333,11 +333,12 @@ def test_every_link_carries_view_filter_and_sort(oscars97):
     assert ctx_of(v="junk", f="junk")["view"] == "films"
 
 
-def test_the_first_screen_holds_twelve_rows_and_the_rest_is_counted(oscars97):
+def test_the_first_screen_holds_seven_rows_and_the_rest_is_counted(oscars97):
+    # JY-150 (2026-10-26): 12 -> 7 so the phone page stays under the review's 2,500 px (3,197 px at 375 px with 12 rows)
     b = ctx_of()["ballot"]
-    assert len(b["rows"]) == ap.FIRST_ROWS == 12 and b["rest"] == 28
+    assert len(b["rows"]) == ap.FIRST_ROWS == 7 and b["rest"] == 33
     assert ctx_of(show_all=True)["ballot"]["rest"] == 0
-    assert ctx_of(f="headline")["ballot"]["rest"] == 0
+    assert ctx_of(f="headline")["ballot"]["rest"] == 10 - ap.FIRST_ROWS   # JY-150: ten Best Picture nominees, seven on screen
 
 
 def test_categories_view_keeps_the_cards_with_the_headline_first(oscars97):
@@ -352,10 +353,10 @@ def test_categories_view_keeps_the_cards_with_the_headline_first(oscars97):
 
 # ---- routes ----
 
-def test_rows_part_brings_the_rows_after_the_first_twelve(oscars97):
+def test_rows_part_brings_the_rows_after_the_first_seven(oscars97):
     build, _ = oscars97
     want = titles(all_rows(f="craft", s="az"))
-    assert len(want) > 12
+    assert len(want) > 7
     with build(jelly()) as client:
         r = client.get("/media/movies/awards/part/rows?body=oscars&year=2025&f=craft&s=az")
         plain = client.get("/media/movies/awards/part/rows?body=oscars&year=2025")
@@ -364,9 +365,9 @@ def test_rows_part_brings_the_rows_after_the_first_twelve(oscars97):
         tv = client.get("/media/tv/awards/part/rows?body=emmys&year=2025")
     assert r.status_code == 200 and "<html" not in r.text
     got = re.findall(r'class="awfilm-title"[^>]*>([^<]*)<', r.text)       # WP-C2's row macro (merge, 2026-10-14)
-    assert [g.replace("&#39;", "'") for g in got] == want[12:] and got
-    assert len(re.findall(r'<article class="awfilm', plain.text)) == 28
-    assert len(re.findall(r'<article class="awfilm', legacy.text)) == 28
+    assert [g.replace("&#39;", "'") for g in got] == want[7:] and got
+    assert len(re.findall(r'<article class="awfilm', plain.text)) == 33
+    assert len(re.findall(r'<article class="awfilm', legacy.text)) == 33
     assert bad.status_code == 200 and "<script" not in bad.text and "<i>" not in bad.text   # the Details fold uses <b> itself
     assert tv.status_code == 200 and tv.text.strip() == ""
 
@@ -482,3 +483,12 @@ def test_no_two_oscars_categories_share_a_short_name(oscars97):
         raw = [r[0] for r in db.execute("SELECT name FROM award_category WHERE body_id = 'oscars'")]
     shorts = [ap.short_name(n) for n in raw]
     assert raw and len(set(shorts)) == len(shorts)
+
+
+def test_the_ballot_page_draws_only_the_first_rows_so_the_phone_page_stays_short(oscars97):
+    # JY-150: the page itself (not the part route) holds FIRST_ROWS ballot rows in the main list, plus the folded shorts
+    build, _ = oscars97
+    with build(jelly()) as client:
+        html = client.get("/media/movies/awards?body=oscars&year=2025").text
+    first = html.split('class="awfilms-list"', 1)[1].split('class="showmore awshorts"', 1)[0]
+    assert len(re.findall(r'<article class="awfilm', first)) == ap.FIRST_ROWS == 7

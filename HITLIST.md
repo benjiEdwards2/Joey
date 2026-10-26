@@ -186,7 +186,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-251 | Friend sees household Follow state ("Following George Kay") on a TMDB title page | Media | M | [x] shipped | Grouped TV session 2026-10-25, phone width as joeytest · PR #178 | [spec](docs/specs/JY-251-follow-scope.md) |
 | JY-252 | Deploy gate back toward ~5 min (it rose to ~7.5 min after the TV round) | Tooling | M | idea | NAS history.log dur 435-480 s vs 280-300 s on 2026-10-24 | — |
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
-| JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | idea | Live checks 2026-10-26: 24-26 Oct digests false alarms | — |
+| JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
 
 ### NAS / stack
 

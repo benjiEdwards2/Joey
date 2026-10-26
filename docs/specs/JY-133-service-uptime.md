@@ -1,6 +1,6 @@
 # JY-133 P7 Service history on the card
 
-Status: spec (built as the recommended option for B.'s morning review, 2026-10-26)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/server_uptime.py` (new), `hub/server.py` (`service_card`, `build_server`), `hub/main.py` (`_server_response`), `hub/tasks.py` (`_server_tick`), `hub/templates/server.html` (the card), `hub/README.md`, `tests/hub/` (new `test_server_uptime.py`)
@@ -61,3 +61,8 @@ See "Questions for B.". Pending B.'s pick; built as A.
 - After a week the line says "7 days".
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #195, squash-merged as `8a8ff69` (8a8ff690f809e4ff4468814a2ed3dff69b51fe7a).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

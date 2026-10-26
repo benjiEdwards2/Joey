@@ -1,6 +1,6 @@
 # JY-150 Ballot page height at 375 px
 
-Status: spec (built as option A; waiting for B.'s pick)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/media_awards_pages.py` (`FIRST_ROWS`), `tests/hub/test_awards_ballot.py`, `hub/README.md` (two lines)
@@ -40,4 +40,8 @@ The row layout (option C), the TV pill names (JY-151), the year strip.
 `/media/movies/awards` on a phone: seven films, then the rest load as you scroll to the bottom of them; the page is about 2,400 px tall at 375 px. Desktop, iPad and TV widths show the same seven rows first and load the rest on scroll.
 
 ## Shipped notes
-(none yet)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #194, squash-merged as `936b440` (936b44028001a4d86a41124048fd979a2aeb8e6b).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

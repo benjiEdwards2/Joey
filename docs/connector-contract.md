@@ -119,6 +119,15 @@ re-reads `GET /api/v2/transfer/info` and only counts the change when `dl_rate_li
 kept in process until a newer snapshot lands. Flashes and logs carry the HTTP status or exception type only — never the
 URL, user or password. Not a GUEST route. Env unset or a snapshot without `dl_limit_bps` ⇒ no row, no call.
 
+**Twentieth exception (2026-10-26): the playback API (`hub/player_api.py`, JY-053).** OFF unless `PLAYER_API=on`; off,
+every route is the unknown-path 404 and nothing is called. On, the household's player (never a page render) calls
+`/api/play/*`, and each call makes at most one Jellyfin call with that member's own token (`JELLYFIN_PLAYER_TOKEN_YOU` /
+`_HER`, never the admin key): `POST|GET /Items/{id}/PlaybackInfo` (+ `GET /Users/Me` once an hour per token), and the
+WRITES `POST /Sessions/Playing`, `/Sessions/Playing/Progress`, `/Sessions/Playing/Stopped` (that user's own resume
+point). Timeouts 2 s connect, 3-4 s read. Streams are handed to the player on `JELLYFIN_PUBLIC_URL` with no key in the
+URL; the hub never carries video. Logs carry the status or exception type only. Not a GUEST route. The full contract
+is `docs/playback-contract.md`.
+
 **Eleventh exception (2026-10-06): Server → Discord push (`hub/server_alerts.py`, WP-U2).** An outbound live call: when
 `SERVER_DISCORD_WEBHOOK` is set, each NEW `/server` Attention item is POSTed once to that Discord webhook as plain text
 ("Joey Server: <item>", max 5 per cycle, 10 s timeout), after a `/server` render and on a 5-minute hub loop. Keys live in

@@ -143,6 +143,10 @@ PRIVATE: tuple = (
     ("POST", "/media/settings/diary_scope"),   # "Show: Everyone" is hidden for friends (DECISIONS C)
     # WP-RQ3 (2026-10-22): Everyone's watchlist and its Request all - owner "you" on the private front only
     ("GET", "/media/watchlist/everyone"), *_each("GET POST", "/media/watchlist/everyone/request-all"),
+    # JY-053 playback API (household only, JY-050 Q2 A): private until JY-057 moves it for the TV shell (JY-053 Q3)
+    *_each("POST", "/api/play/sessions", "/api/play/sessions/{session_id}/stream",
+           "/api/play/sessions/{session_id}/progress", "/api/play/sessions/{session_id}/stop"),
+    ("GET", "/api/play/items/{item_id}/tracks"),
 )
 
 RESERVED: tuple = ()   # empty since WP-B4 moved the request route to GUEST; kept for the next route a WP builds dark

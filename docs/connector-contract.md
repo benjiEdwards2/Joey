@@ -169,6 +169,27 @@ app's own resource back with `monitored: false` (`/api/v3/movie/{id}` or `/api/v
 hidden in memory until a jellyseerr snapshot taken after the removal (`hub/media_hidden.py`). The jellyseerr data block's TV
 rows gain `tvdb_id` (integer or null) for this. Flashes and logs carry the HTTP status or exception type only.
 
+**Twentieth exception (2026-10-22): Approve / Decline a request (`hub/media_requests_approve.py`, WP-RQ1).** Two
+`same_origin` POSTs from the Requests page's pending rows, owner "you" only (403 for her; PRIVATE in `hub/guest.py`, so the
+media front 404s them). Live and server-side, Jellyseerr admin `X-Api-Key` (verified against Seerr v3.5.0
+`server/routes/request.ts`): *Approve* reads `GET /api/v1/request/{id}` (still pending? its stored fields), and only when
+the chosen quality profile or TV seasons differ sends `PUT /api/v1/request/{id}` `{"mediaType", "profileId", "seasons":
+[ints] (TV), plus the stored "serverId", "rootFolder", "languageProfileId" (TV), "tags"}` — Seerr's edit assigns those
+from the body and keeps nothing; `userId` is omitted, so the requester is kept; a 202 means no season is left to request —
+then `POST /api/v1/request/{id}/approve`; after a non-default profile the seventeenth exception's Radarr / Sonarr lookup
+and PUT run as the quality safety net (`media_quality.ensure`). *Decline* reads `GET /api/v1/request/{id}` the same way, then sends `POST /api/v1/request/{id}/decline`
+(JY-230). A second approve or decline of the same id while one is being sent is refused in the hub. A
+409 (no longer pending) and a 404 are words. A lazy `GET /media/requests/{id}/seasons` fragment reads the show's season
+list from the film page's cached `GET /api/v1/tv/{tmdb}`; the page render itself makes no Seerr call. The decision shows
+in memory until a jellyseerr snapshot taken after it (`hub/media_hidden.py`'s clock). Flashes and logs carry the HTTP
+status or exception type only. The jellyseerr data block (additive, all optional in the schema): every **pending**
+request is kept (read on its own, `GET /api/v1/request?filter=pending&take=200`, besides the newest 100 of every status),
+the other rows capped at 60 (was 30 of 50); each row gains `profile_id` (Seerr's stored `profileId`, integer or null =
+the server default), `requested_by_id` (the requester's Seerr user id, integer or null), `requested_by_jf` (JY-230: the requester's
+Jellyfin user id, 32 lower-case hex or null, for the hub's "you" / "her" word; both dropped on the media front with
+`requested_by`, which is never an email: displayName, then jellyfinUsername, then username, skipping any with "@")
+and, TV only, `seasons` (the requested `seasonNumber`s, sorted integers).
+
 **Fourteenth exception (2026-10-08): Move on from Continue watching (`hub/media_resume.py`).** Two `same_origin`
 POSTs (`/media/resume/{jf_id}/watched`, `/media/resume/{jf_id}/reset`) write live to Jellyfin as the viewer's user
 ("you" = `JELLYFIN_USER` / first admin, "her" = exactly `JELLYFIN_USER_HER`, never the admin): `POST

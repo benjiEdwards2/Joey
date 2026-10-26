@@ -133,6 +133,9 @@ PRIVATE: tuple = (
     *_each("GET", "/media/apps", "/media/playing", "/media/downloads", "/media/library", "/media/requests",
            "/media/server/history", "/media/following"),
     ("POST", "/media/requests/{rid}/remove"),
+    # WP-RQ1 (2026-10-22): Approve / Decline are B.'s alone (403 for her as well); never on the media front
+    *_each("POST", "/media/requests/{rid}/approve", "/media/requests/{rid}/decline"),
+    ("GET", "/media/requests/{rid}/seasons"),
     *_each("POST", "/media/follow/{kind}/{tmdb_id}", "/media/follow/{kind}/{tmdb_id}/unfollow"),
     *_each("GET POST", "/media/arr/sweep", "/media/title/{kind}/{tmdb_id}/quality",
            "/media/upgrades/why/{app}/{arr_id}"),
@@ -204,7 +207,7 @@ ROW_DROP: dict = {   # per-row fields removed from list rows: B.'s played state 
     ("jellyfin", "latest"): ("played", "last_played_at", "unplayed"),
     ("jellyfin", "movies"): ("played", "last_played_at", "unplayed"),
     ("jellyfin", "shows"): ("played", "last_played_at", "unplayed"),
-    ("jellyseerr", "requests"): ("requested_by",),
+    ("jellyseerr", "requests"): ("requested_by", "requested_by_id", "requested_by_jf"),   # WP-RQ1 / JY-230: ids too
 }
 
 

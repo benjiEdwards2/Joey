@@ -161,7 +161,8 @@ def pick(kind: str, raw) -> dict | None:
     An id the app does not offer raises 422."""
     if raw is None:
         return None
-    got = by_id(profiles(kind), int(raw) if str(raw).isdigit() and len(str(raw)) <= 9 else None)
+    s = str(raw)   # JY-230: ASCII digits only - str.isdigit() is also True for a superscript two, which int() refuses
+    got = by_id(profiles(kind), int(s) if s.isascii() and s.isdigit() and len(s) <= 9 else None)
     if got is None:
         raise bad("Pick a quality")
     return got

@@ -81,3 +81,14 @@ def test_arr_library_sizes_are_documented():
     for needle in ("`library_sizes`", "GET /api/v3/movie", "`hasFile`", "`sizeOnDisk`", "GET /api/v3/series",
                    "`statistics.sizeOnDisk`", "`ended`", "no extra call", "never by title", "`GET /server/space`"):
         assert needle in para, needle
+
+
+def test_approve_decline_exception_and_jellyseerr_fields_are_documented():
+    """WP-RQ1 (2026-10-22): the Approve / Decline live writes and the jellyseerr block's pending rule + new row fields."""
+    text = doc_text()
+    para = text.split("**Twentieth exception (2026-10-22): Approve / Decline a request", 1)[1].split("\n\n", 1)[0]
+    for needle in ("GET /api/v1/request/{id}", "PUT /api/v1/request/{id}", "POST /api/v1/request/{id}/approve",
+                   "POST /api/v1/request/{id}/decline", "serverId", "rootFolder", "languageProfileId", "userId", "202",
+                   "same_origin", "filter=pending", "`profile_id`", "`requested_by_id`", "`seasons`", "capped at 60",
+                   "status or exception type only"):
+        assert needle in para, needle

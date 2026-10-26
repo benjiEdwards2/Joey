@@ -159,7 +159,8 @@ def test_the_default_quality_is_sent_and_not_named(friend):
     assert "Requested — waiting for approval" in done and "Requested in" not in done
 
 
-@pytest.mark.parametrize("raw", ["99", "abc", "", "-5", "1234567890", "4&profile=77"])
+@pytest.mark.parametrize("raw", ["99", "abc", "", "-5", "1234567890", "4&profile=77",
+                                 "%C2%B2", "%D9%A3"])   # JY-230: a superscript two / Arabic-Indic three, no 500
 def test_an_unknown_profile_falls_back_to_the_default(friend, raw):
     r = post(friend, "/media/title/movie/701/request", f"panel=1&profile={raw}")
     assert r.status_code == 200

@@ -1330,3 +1330,29 @@ pick lands pending as the friend's own request, nothing on the friend path appro
 Review fixes: Seerr's 4K auto-approve bits (AUTO_APPROVE_4K / _4K_MOVIE / _4K_TV) join `NEVER`, so such a friend is refused
 like any auto-approver; nothing ticked in the panel answers "Pick at least one season" in the form instead of a silent 422;
 the unused `data-tv-scroll` attribute is gone. Spec `docs/specs/JY-231-rq2-friend-pick.md`.
+
+## 2026-10-27 — JY-230 Approve / Decline requests
+
+**Approve / Decline requests on the Requests page (JY-230 / WP-RQ1, built 2026-10-22, merged onto main 2026-10-27).** B. sees every Seerr request (friends',
+Georgina's, his own), pending first, and decides the pending ones in Joey. The `jellyseerr` connector reads the pending
+list on its own (`filter=pending`, take 200) beside the newest 100 of every status, keeps every pending request, caps the
+rest at 60 (was 30 of 50) and adds `profile_id`, `requested_by_id` and, TV only, `seasons` per row (schema, sample
+snapshot, `docs/connector-contract.md` twentieth exception). New `hub/media_requests_approve.py`: a pending row says what
+was asked ("4K · Seasons 1–2", the profile named from `media_quality`'s cached list) and carries Approve (inline panel:
+Quality chips with the asked profile checked; TV season ticks, the show's whole list lazy-loaded on open from the cached
+Seerr title body) and Decline (inline confirm). Approve reads the request live, `PUT`s Seerr's edit only when the
+profile or seasons changed — carrying the stored `serverId` / `rootFolder` / `languageProfileId` / `tags`, since Seerr
+3.5's edit assigns them from the body — then approves, and runs `media_quality.ensure` after a non-default profile.
+Decline posts Seerr's decline. Owner "you" only (403 for her; the routes are PRIVATE in `hub/guest.py`; the media-front
+scrub drops `requested_by_id`). The decided row shows Approved / Declined at once until the next sweep, the counts
+follow, and the film page cache, the Search now lookups and the friend's own-request list are dropped. On a phone the
+three buttons take their own line (`.reqbreak`). Tests: `tests/hub/test_media_requests_approve.py` (new),
+`tests/connectors/test_jellyseerr.py`, `tests/connectors/test_contract_doc.py`.
+
+**JY-230 review fixes (2026-10-27).** Decline reads the request live first, as Approve does, so a request decided
+elsewhere says "That request is no longer pending" and nothing is sent. A second approve or decline of the same
+request while one is being sent says "Already sending that one". The "requested by" word on the Requests page is
+"you" / "her" for the household (by the new `requested_by_jf` Jellyfin id when the hub already holds the household
+ids, else by the `JELLYFIN_USER*` names), else the friend's name; the connector never stores an email there. The
+flash params accept ASCII digits only (a crafted superscript digit no longer 500s the page). The in-memory decision
+notes are dropped once the sweep shows the request decided.

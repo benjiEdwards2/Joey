@@ -102,7 +102,15 @@ def test_five_pills_won_first_with_the_rest_counted(oscars97):
     ("Writing (Original Screenplay)", "Orig. Screenplay"), ("Outstanding Writing for a Drama Series", "Writing for a Drama Series"),
     ("Best Animated Feature", "Animated"), ("Best International Feature Film", "International"),
     ("Outstanding Drama Series", "Drama Series"), ("Palme d'Or", "Palme d'Or"),
-    ("Best Original Score", "Orig. Score"), ("Outstanding Supporting Actor in a Comedy Series", "Supp. Actor in a Comedy Series"),
+    ("Best Original Score", "Orig. Score"), ("Outstanding Supporting Actor in a Comedy Series", "Supp. Actor (Comedy)"),   # JY-151 (2026-10-26): was "Supp. Actor in a Comedy Series"
+    ("Outstanding Supporting Actress in a Limited or Anthology Series or Movie", "Supp. Actress (Limited)"),
+    ("Outstanding Lead Actor in a Drama Series", "Lead Actor (Drama)"),
+    ("Outstanding Performance by a Male Actor in a Television Movie or Limited Series", "Performance by a Male Actor (Television Movie)"),
+    ("Outstanding Performance by a Male Actor in a Miniseries or Television Movie", "Performance by a Male Actor (Miniseries)"),
+    ("Best Actor in a Drama Series", "Actor (Drama)"),
+    ("Outstanding Limited or Anthology Series or Movie", "Limited or Anthology Series"),
+    ("Outstanding Casting for a Limited or Anthology Series or Movie", "Casting for a Limited or Anthology Series"),
+    ("Best Actor in a Leading Role", "Actor in a Leading Role"), ("Best Actor in a Supporting Role", "Actor in a Supp. Role"),
 ])
 def test_short_pill_names(name, short):
     assert ap.short_name(name) == short
@@ -449,3 +457,28 @@ def test_tv_ballot_uses_the_emmys_headline_and_tv_words(env, monkeypatch):
         ("headline", "Drama Series"), ("acting", "Acting"), ("direction", "Writing & directing")]
     assert {r["title"] for r in all_rows(kind="tv", body="emmys", f="headline")} >= {"The Pitt", "Severance"}
     assert all(r["year"] is None for r in all_rows(kind="tv", body="emmys"))           # TV: no "films of" year to borrow
+
+
+def test_no_two_categories_of_one_edition_share_a_short_name():
+    # JY-151: the " in a ... Series" strip keeps a genre marker, so Lead Actor (Drama / Comedy / Limited) stay apart on
+    # a pill and in the people strip; checked on every recorded Wikipedia edition page
+    from hub import media_awards_parse as pp
+    from tests.hub.test_awards_fixtures import WP_PAGES, wikitext
+    checked = 0
+    for fixture in WP_PAGES:
+        got = pp.parse_award_blocks(wikitext(fixture))
+        if got["shape"] != pp.SHAPE_OK:
+            continue
+        raw = sorted({b["label"] for b in got["blocks"]})        # the same raw name twice on one page is the page's own
+        shorts = [ap.short_name(n) for n in raw]
+        dupes = sorted({s for s in shorts if shorts.count(s) > 1})
+        assert not dupes, (fixture, dupes)
+        checked += 1
+    assert checked >= 10
+
+
+def test_no_two_oscars_categories_share_a_short_name(oscars97):
+    with closing(adb.ensure()) as db:
+        raw = [r[0] for r in db.execute("SELECT name FROM award_category WHERE body_id = 'oscars'")]
+    shorts = [ap.short_name(n) for n in raw]
+    assert raw and len(set(shorts)) == len(shorts)

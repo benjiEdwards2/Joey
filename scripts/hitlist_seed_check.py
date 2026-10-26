@@ -293,6 +293,7 @@ SOURCES = [
     ("orchestrator overnight (2026-10-26)", "deploy gate back toward 5 min", "JY-252", ""),
     ("orchestrator overnight (2026-10-26)", "play table row count check", "JY-253", ""),
     ("orchestrator overnight (2026-10-26)", "digest boot false alarms", "JY-254", ""),
+    ("B. in chat (2026-10-27)", "RQ2 friend pick in TV mode", "JY-255", "JY-231 TV deferral"),
 ]
 
 

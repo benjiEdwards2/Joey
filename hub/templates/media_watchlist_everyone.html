@@ -1,0 +1,65 @@
+{% extends "media_base.html" %}
+{% block title %}Everyone's watchlist · Joey{% endblock %}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead("Everyone's watchlist") %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{% from "_rows.html" import meta %}
+{# WP-RQ3 (2026-10-22): every watchlist (You, Georgina, each friend), owner "you" only. Rows group by person; a title on
+   several lists is a row under each. A row Not on server has Request: the normal confirm step (_request_block.html)
+   drawn inside the row. One #request-block at a time - the block's own buttons target that id - so opening another
+   row's drops an unanswered one (its Request button comes back); a finished one stays as words. Request all opens the
+   inline confirm panel (_wl_request_all.html) for the list as filtered. #}
+{% if failed %}
+<p class="empty">Watchlists unavailable</p>
+{% else %}
+{% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
+{% if flash_warn %}<p class="metaline st-warn" role="status">{{ flash_warn }}</p>{% endif %}
+<p class="metaline">{{ head_line }}</p>
+<div class="toolbar">
+  <nav class="chips" aria-label="Whose list">
+    <a class="chip{{ ' on' if not who_on }}" href="{{ chip_href('', kind_on) }}"{% if not who_on %} aria-current="true"{% endif %}>All</a>
+    {% for p in people %}
+    <a class="chip{{ ' on' if who_on == p.owner }}" href="{{ chip_href(p.owner, kind_on) }}"{% if who_on == p.owner %} aria-current="true"{% endif %}>{{ p.label }}</a>
+    {% endfor %}
+  </nav>
+  <nav class="chips" aria-label="Films or TV">
+    {% for k, label in (("movie", "Films"), ("tv", "TV")) %}
+    <a class="chip{{ ' on' if kind_on == k }}" href="{{ chip_href(who_on, '' if kind_on == k else k) }}"{% if kind_on == k %} aria-current="true"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% if pending %}
+  <a class="btn btn-primary btn-sm rqall-open" href="{{ all_href }}" hx-get="{{ all_get }}" hx-target="#rqall" hx-swap="innerHTML">Request all · {{ pending | length }}</a>
+  {% endif %}
+</div>
+<div id="rqall">{% if panel %}{% with p = panel %}{% include "_wl_request_all.html" %}{% endwith %}{% endif %}</div>
+{% for g in groups %}
+<section class="sec">
+  <h2 class="seclabel">{{ g.label }} · {{ g.rows | length }}</h2>
+  <div class="listbox">
+  {% for r in g.rows %}
+  {% set st %}<span class="{{ status_of(r.status_word).cls }}">{{ r.status_word }}</span>{% endset %}
+  <div class="row has-form wlerow">
+    <a class="rowlink" href="{{ r.href }}">
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ meta([st, "TV" if r.kind == "tv" else "Film", "Added " ~ r.added_text if r.added_text]) }}</div>
+    </a>
+    {% if r.can_request %}
+    <div class="wlreq">
+      <a class="btn btn-secondary btn-sm wlreq-open" href="{{ r.href }}?step=confirm" hx-get="{{ r.href }}/request?step=confirm" hx-target="next .wlreq-slot" hx-swap="innerHTML"
+         hx-on::before-request="document.querySelectorAll('#request-block').forEach(function(b){if(b.querySelector('form,a.btn'))b.remove();else b.removeAttribute('id')})">Request</a>
+      <div class="wlreq-slot"></div>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+  </div>
+</section>
+{% else %}
+<p class="empty">Nothing on anyone's watchlist.</p>
+{% endfor %}
+{% endif %}
+{% endblock %}

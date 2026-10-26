@@ -123,6 +123,7 @@ Hands first (one state window, on the preview, the flag on there only):
 
 Desktop Chrome (PC on the LAN):
 - [ ] A film page's Play opens `/media/watch/...` in the same tab; the picture starts within 5 s; the method word shows.
+  Record the "First frame N s after Play" line under the title (time from the Play press, this page's navigation).
 - [ ] Space, Left / Right, Up / Down, f and m do what they say; the seek bar shows chapter ticks where the file has chapters.
 - [ ] Audio & subtitles lists the tracks; picking one carries on at the same point with the new track.
 - [ ] Stop half way with Back to Joey; Play again shows "Resumed at ..." within 10 s of that point.
@@ -130,7 +131,7 @@ Desktop Chrome (PC on the LAN):
 - [ ] With the flag off on the preview, Play goes to Jellyfin as today and `/media/watch/...` is a 404.
 
 iPhone 15 Pro (Safari, then the Home Screen app), needs JY-014's preview hostname:
-- [ ] Play starts within 5 s on Wi-Fi and 10 s on mobile data; no AirPlay button.
+- [ ] Play starts within 5 s on Wi-Fi and 10 s on mobile data (record the "First frame N s after Play" line each time); no AirPlay button.
 - [ ] Tap shows / hides the controls; double tap left / right seeks 10 s.
 - [ ] Audio & subtitles opens as a bottom sheet; a text subtitle shows; rotation and fullscreen work.
 - [ ] Close the app mid-film; the position on the PC is within 10 s of it (the beacon or the last heartbeat).
@@ -141,6 +142,14 @@ iPhone 15 Pro (Safari, then the Home Screen app), needs JY-014's preview hostnam
 sign-in, a live write); this PR stays flag-off code. B) Add it to this PR. C) Make the two tokens by hand in Jellyfin's
 dashboard (API keys are admin-only, so a Quick Connect sign-in is still needed). *Recommend A: it keeps this PR free of
 live calls, and the accept window needs it only once.*
+
+## Review round 1 (2026-10-27)
+Both reviews passed. Should-fixes made: `Referrer-Policy: no-referrer` header and meta tag
+(`test_the_page_sends_no_referrer`); `mount()` driven under node on a fake DOM (resume toast, chapter ticks, up-next,
+`disableRemotePlayback` before hls.js attaches); a "First frame N s after Play" line (performance.now() at the first
+`playing`, no token) for the device checks; a page restored from the back-forward cache destroys hls.js and starts a
+fresh session at its position. Nits: one countdown at most, the up-next card hides again after seeking back, the
+retry / recovery allowance resets once playing again, the right mouse button never toggles play.
 
 ## Shipped notes
 Not yet.

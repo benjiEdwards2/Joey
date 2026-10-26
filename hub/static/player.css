@@ -58,6 +58,7 @@
 .pl-meta { font-size: var(--fs-s); color: var(--text-4); margin-top: 5px; display: flex; flex-wrap: wrap; gap: 2px 8px;
   align-items: center; }
 .pl-sep { color: var(--text-6); }
+.pl-dbg { margin-top: 4px; font-family: var(--font-mono); font-size: calc(var(--fs-s) * .92); color: var(--text-5); }
 .pl-method { padding: 0 8px; border-radius: 999px; background: var(--good-soft); color: var(--good); font-weight: 600; }
 .pl-toast { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--bar);
   border: 1px solid var(--line); font-size: var(--fs-s); color: var(--text-3); white-space: nowrap; flex: none; }

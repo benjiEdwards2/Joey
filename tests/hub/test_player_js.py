@@ -70,13 +70,15 @@ function world(opt) {
   FakeHls.prototype.on = function (ev, fn) { this.handlers[ev] = fn; };
   FakeHls.prototype.emit = function (ev, data) { this.handlers[ev] && this.handlers[ev](ev, data); };
   FakeHls.prototype.loadSource = function (u) { this.loaded = u; };
-  FakeHls.prototype.attachMedia = function (v) { this.media = v; };
+  FakeHls.prototype.attachMedia = function (v) { this.media = v; this.remoteOffAtAttach = v.disableRemotePlayback; };
   FakeHls.prototype.destroy = function () { this.destroyed = true; };
   FakeHls.prototype.startLoad = function () { this.startLoads += 1; };
   FakeHls.prototype.recoverMediaError = function () { this.recovers += 1; };
   w.Hls = FakeHls;
   var listeners = {};
-  w.video = {currentTime: 0, paused: true, ended: false, plays: 0,
+  w.video = {currentTime: 0, paused: true, ended: false, plays: 0, pauses: 0, duration: NaN, muted: false, volume: 1,
+    disableRemotePlayback: false, buffered: {length: 0},
+    pause: function () { this.pauses += 1; this.paused = true; },
     addEventListener: function (n, f) { (listeners[n] = listeners[n] || []).push(f); },
     fire: function (n) { (listeners[n] || []).forEach(function (f) { f({type: n}); }); },
     play: function () { this.plays += 1; this.paused = false; return Promise.resolve(); },
@@ -86,6 +88,7 @@ function world(opt) {
   w.clearInterval = function (id) { delete w.timers[id]; };
   w.tick = function () { Object.keys(w.timers).forEach(function (k) { w.timers[k].fn(); }); };
   w.sendBeacon = function (url, body) { w.beacons.push({url: url, body: body, type: typeof body}); return true; };
+  if (opt.noPlayer) return w;
   w.player = P.createPlayer({itemId: 'abc', kind: 'web', profile: P.deviceProfile('web', function () { return false; }),
     fetch: w.fetch, Hls: FakeHls, video: w.video, sendBeacon: w.sendBeacon, setInterval: w.setInterval,
     clearInterval: w.clearInterval, on: function (ev, data) { w.events.push([ev, data === undefined ? null : data]); }});
@@ -231,6 +234,172 @@ async function cannotPlay() {
           offline: offline.events.filter(function (e) { return e[0] === 'error'; }).map(function (e) { return e[1]; })};
 }
 
+async function recoverAgain() {   // a fatal error after the player got going again gets its retry again
+  var w = world();
+  await w.player.start(); await settle();
+  var h = w.hls[0];
+  h.emit('hlsError', {fatal: true, type: 'networkError'});
+  w.video.fire('playing');
+  h.emit('hlsError', {fatal: true, type: 'networkError'});
+  await settle();
+  return {startLoads: h.startLoads, errors: w.events.filter(function (e) { return e[0] === 'error'; }).length,
+          frames: w.events.filter(function (e) { return e[0] === 'firstframe'; }).length};
+}
+
+async function reviveAfterPagehide() {   // bfcache: a restored page starts a fresh session, never stays session-less
+  var w = world();
+  await w.player.start(); await settle();
+  w.video.currentTime = 500;
+  w.player.beacon();
+  await w.player.revive(); await settle();
+  var again = w.calls.length;
+  await w.player.revive(); await settle();   // a live session: nothing
+  var starts = w.calls.filter(function (c) { return c.url === '/api/play/sessions'; });
+  return {starts: starts.map(function (c) { return c.body; }), firstDestroyed: w.hls[0].destroyed, hls: w.hls.length,
+          sid: w.player.state().sid, stopped: w.player.state().stopped, extra: w.calls.length - again, leaks: leak(w)};
+}
+
+/* ---- mount(): the page, on a small fake DOM ---- */
+function El(tag, attrs) {
+  var el = this;
+  attrs = attrs || {};
+  el.tagName = tag.toUpperCase(); el.attrs = {}; el.children = []; el.listeners = {}; el.style = {}; el.value = '';
+  el.hidden = 'hidden' in attrs; el._text = ''; el.cls = {};
+  Object.keys(attrs).forEach(function (k) { if (k !== 'hidden') el.setAttribute(k, attrs[k]); });
+  el.classList = {
+    add: function () { for (var i = 0; i < arguments.length; i++) el.cls[arguments[i]] = 1; },
+    remove: function () { for (var i = 0; i < arguments.length; i++) delete el.cls[arguments[i]]; },
+    contains: function (c) { return !!el.cls[c]; },
+    toggle: function (c, f) { if (f === undefined) f = !el.cls[c]; if (f) el.cls[c] = 1; else delete el.cls[c]; return f; }
+  };
+}
+Object.defineProperty(El.prototype, 'className', {
+  get: function () { return Object.keys(this.cls).join(' '); },
+  set: function (v) { var el = this; el.cls = {}; String(v).split(/\s+/).filter(Boolean).forEach(function (c) { el.cls[c] = 1; }); }
+});
+Object.defineProperty(El.prototype, 'textContent', {
+  get: function () { return this._text + this.children.map(function (c) { return c.textContent; }).join(''); },
+  set: function (v) { this._text = String(v); this.children = []; }
+});
+El.prototype.setAttribute = function (k, v) { this.attrs[k] = String(v); if (k === 'class') this.className = v; };
+El.prototype.getAttribute = function (k) { return k in this.attrs ? this.attrs[k] : null; };
+El.prototype.appendChild = function (c) { this.children.push(c); return c; };
+El.prototype.addEventListener = function (n, f) { (this.listeners[n] = this.listeners[n] || []).push(f); };
+El.prototype.fire = function (n, ev) {
+  ev = ev || {}; ev.type = n; ev.preventDefault = function () {};
+  (this.listeners[n] || []).forEach(function (f) { f(ev); });
+};
+El.prototype.focus = function () {};
+El.prototype.getBoundingClientRect = function () { return {left: 0, width: 400}; };
+El.prototype.all = function () {
+  var out = [];
+  this.children.forEach(function (c) { out.push(c); if (c.all) out = out.concat(c.all()); });
+  return out;
+};
+function matches(el, sel) {
+  var m;
+  if ((m = /^\[([a-z-]+)="([^"]*)"\]$/.exec(sel))) return !!el.getAttribute && el.getAttribute(m[1]) === m[2];
+  if ((m = /^\[([a-z-]+)\]$/.exec(sel))) return !!el.getAttribute && el.getAttribute(m[1]) !== null;
+  if (/^\./.test(sel)) return !!el.cls && sel.slice(1).split('.').every(function (c) { return el.cls[c]; });
+  return el.tagName === sel.toUpperCase();
+}
+El.prototype.querySelectorAll = function (sel) { return this.all().filter(function (e) { return matches(e, sel); }); };
+El.prototype.querySelector = function (sel) { return this.querySelectorAll(sel)[0] || null; };
+
+function page(w) {
+  var root = new El('main', {id: 'player', 'data-item': 'abc'});
+  w.video.tagName = 'VIDEO';
+  root.appendChild(w.video);
+  var add = function (parent, tag, name, extra) {
+    return parent.appendChild(new El(tag, Object.assign({'data-pl': name}, extra || {})));
+  };
+  ['hit', 'method', 'frame', 'toast', 'toast-text', 'chapter', 'left', 'buf', 'fill', 'ticks', 'thumb', 'time', 'msg',
+   'msg-text'].forEach(function (n) { add(root, 'span', n, /^(method|frame|toast|msg)$/.test(n) ? {hidden: ''} : {}); });
+  add(root, 'a', 'back', {href: '/media/item/abc'});
+  ['cplay', 'play', 'mute', 'full', 'retry'].forEach(function (n) { add(root, 'button', n); });
+  add(root, 'button', 'tracks-btn', {hidden: ''});
+  add(root, 'input', 'seek', {type: 'range'});
+  root.appendChild(new El('button', {'data-pl-seek': '-10'}));
+  root.appendChild(new El('button', {'data-pl-seek': '10'}));
+  var tracks = add(root, 'div', 'tracks', {hidden: ''});
+  add(tracks, 'div', 'audio'); add(tracks, 'div', 'subs'); add(tracks, 'button', 'tracks-close');
+  var up = add(root, 'aside', 'upnext', {hidden: '', 'data-next': '/media/watch/next1'});
+  add(up, 'div', 'count'); add(up, 'button', 'credits');
+  return root;
+}
+
+async function mounted() {
+  var w = world({noPlayer: true});
+  var timers = {}, nid = 1, assigned = [], winL = {};
+  var doc = new El('doc');
+  doc.createElement = function (t) { return new El(t); };
+  doc.fullscreenElement = null;
+  var win = {document: doc, navigator: {userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/130', sendBeacon: w.sendBeacon},
+    matchMedia: function () { return {matches: false}; }, fetch: w.fetch, Hls: w.Hls,
+    MediaSource: {isTypeSupported: function () { return false; }},
+    performance: {now: function () { return 1840; }},
+    setInterval: function (f, ms) { var i = nid++; timers[i] = {f: f, ms: ms}; return i; },
+    clearInterval: function (i) { delete timers[i]; },
+    setTimeout: function (f, ms) { var i = nid++; timers[i] = {f: f, ms: ms, once: true}; return i; },
+    clearTimeout: function (i) { delete timers[i]; },
+    location: {assign: function (u) { assigned.push(u); }, reload: function () { assigned.push('reload'); }},
+    addEventListener: function (n, f) { (winL[n] = winL[n] || []).push(f); }};
+  var fireWin = function (n, ev) { (winL[n] || []).forEach(function (f) { f(ev || {}); }); };
+  var every = function (ms) { return Object.keys(timers).filter(function (k) { return timers[k].ms === ms && !timers[k].once; }); };
+  var sessions = function () { return w.calls.filter(function (c) { return c.url === '/api/play/sessions'; }); };
+  var root = page(w);
+  var q = function (n) { return root.querySelector('[data-pl="' + n + '"]'); };
+  var r = {remoteBefore: w.video.disableRemotePlayback};
+  P.mount(root, win);
+  await settle();
+  var h = w.hls[0];
+  r.remoteAtAttach = h.remoteOffAtAttach;
+  r.toast = [q('toast').hidden, q('toast-text').textContent];
+  r.method = [q('method').hidden, q('method').textContent];
+  r.ticks = q('ticks').children.map(function (i) { return [i.className, i.style.left]; });
+  r.audioRows = q('audio').children.length;
+  r.subRows = q('subs').children.map(function (b) { return [b.className, b.textContent]; });
+  r.tracksBtnHidden = q('tracks-btn').hidden;
+  r.frameBefore = q('frame').hidden;
+  w.video.paused = false;
+  w.video.fire('playing');
+  w.video.fire('playing');
+  r.frame = [q('frame').hidden, q('frame').textContent];
+  w.video.duration = 2640;
+  w.video.currentTime = 2600; w.video.fire('timeupdate');
+  r.upNear = q('upnext').hidden;
+  r.chapter = q('chapter').textContent;
+  w.video.currentTime = 1000; w.video.fire('seeked');
+  r.upBack = q('upnext').hidden;
+  w.video.currentTime = 2640; w.video.ended = true; w.video.paused = true;
+  w.video.fire('ended'); w.video.fire('ended');
+  r.countdowns = every(1000).length;
+  r.count = q('count').textContent;
+  r.upEnd = q('upnext').hidden;
+  for (var i = 0; i < 8; i++) every(1000).forEach(function (k) { if (timers[k]) timers[k].f(); });
+  r.assigned = assigned.slice();
+  r.countdownsAfter = every(1000).length;
+  var hit = q('hit');   // the right mouse button never toggles play; the left one does
+  var plays = w.video.plays, pauses = w.video.pauses;
+  hit.fire('pointerup', {button: 2, pointerType: 'mouse', clientX: 10});
+  r.rightClick = [w.video.plays - plays, w.video.pauses - pauses];
+  hit.fire('pointerup', {button: 0, pointerType: 'mouse', clientX: 10});
+  r.leftClick = [w.video.plays - plays, w.video.pauses - pauses];
+  var before = sessions().length;   // bfcache: a restore after the session stopped starts a fresh one
+  fireWin('pageshow', {persisted: false});
+  await settle();
+  r.pageshowPlain = sessions().length - before;
+  w.video.ended = false; w.video.currentTime = 2000;
+  fireWin('pageshow', {persisted: true});
+  await settle();
+  r.restored = [sessions().length - before, sessions()[sessions().length - 1].body.start_ticks, h.destroyed, w.hls.length];
+  fireWin('pagehide');
+  r.beacons = w.beacons.map(function (b) { return b.url; });
+  r.leaks = leak(w);
+  r.domToken = JSON.stringify(root.all().map(function (e) { return [e.attrs || null, e._text || null]; })).indexOf(TOKEN) >= 0;
+  return r;
+}
+
 async function fatalErrors() {
   var w = world();
   await w.player.start(); await settle();
@@ -283,6 +452,9 @@ function taps() {
   out.file = await fileProtocol();
   out.cannot = await cannotPlay();
   out.fatal = await fatalErrors();
+  out.again = await recoverAgain();
+  out.revive = await reviveAfterPagehide();
+  out.mount = await mounted();
   out.profile = profile();
   out.keys = keys();
   out.taps = taps();
@@ -429,3 +601,52 @@ def test_vendored_hls_is_the_pinned_build():
     assert hashlib.sha256(data).hexdigest() == "72b87a6e58db623feca73ab370970c1126ec06eb3dcd0a67fd14b47b6340b820"
     assert len(data) == 543_243
     assert "Apache License" in (REPO_ROOT / "hub" / "static" / "LICENSE-hls.js.txt").read_text(encoding="utf-8")
+
+
+def test_a_recovered_player_gets_its_retry_again_and_first_frame_is_reported_once(run):
+    assert run["again"] == {"startLoads": 2, "errors": 0, "frames": 1}
+
+
+def test_bfcache_restore_starts_a_fresh_session_at_the_position(run):
+    r = run["revive"]
+    assert len(r["starts"]) == 2 and r["starts"][1]["start_ticks"] == 5_000_000_000 and "resume" not in r["starts"][1]
+    assert r["firstDestroyed"] and r["hls"] == 2 and r["sid"] == "S2" and r["stopped"] is False
+    assert r["extra"] == 0 and r["leaks"] == []
+
+
+def test_mount_turns_airplay_off_before_hls_attaches(run):
+    r = run["mount"]
+    assert r["remoteBefore"] is False and r["remoteAtAttach"] is True
+
+
+def test_mount_shows_the_resume_toast_method_ticks_and_tracks(run):
+    r = run["mount"]
+    assert r["toast"] == [False, "Resumed at 23:41"] and r["method"] == [False, "Remux"]
+    assert len(r["ticks"]) == 1 and r["ticks"][0][0] == "pl-tick" and r["ticks"][0][1].startswith("14.35")
+    assert r["audioRows"] == 1 and r["tracksBtnHidden"] is False
+    assert [c for c, _ in r["subRows"]] == ["pl-trow on", "pl-trow"] and "English SRT" in r["subRows"][1][1]
+
+
+def test_mount_shows_the_first_frame_time_once(run):
+    r = run["mount"]
+    assert r["frameBefore"] is True and r["frame"] == [False, "First frame 1.8 s after Play"]
+
+
+def test_mount_up_next_shows_late_hides_after_seeking_back_and_counts_down_once(run):
+    r = run["mount"]
+    assert r["upNear"] is False and r["chapter"] == "Ch 2 of 2 · The ferry" and r["upBack"] is True
+    assert r["upEnd"] is False and r["count"] == "Up next in 8" and r["countdowns"] == 1
+    assert r["assigned"] == ["/media/watch/next1"] and r["countdownsAfter"] == 0
+
+
+def test_mount_ignores_the_right_mouse_button(run):
+    r = run["mount"]
+    assert r["rightClick"] == [0, 0] and r["leftClick"] == [1, 0]
+
+
+def test_mount_bfcache_restore_and_pagehide(run):
+    r = run["mount"]
+    assert r["pageshowPlain"] == 0
+    assert r["restored"] == [1, 20_000_000_000, True, 2]
+    assert r["beacons"] == ["/api/play/sessions/S2/stop"]
+    assert r["leaks"] == [] and r["domToken"] is False

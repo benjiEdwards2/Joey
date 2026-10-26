@@ -313,3 +313,14 @@ def test_resume_must_be_a_boolean(client, jf, value):
         assert r.status_code == 201
         return
     assert r.status_code == 400 and err(r) == "bad_request" and jf.calls == []
+
+
+def test_the_page_sends_no_referrer(client, jf):
+    """Review should-fix 1 (2026-10-27): nothing the page loads tells another host which item is playing."""
+    seed(ITEM, {"kind": "movie", "id": ITEM, "title": "Harbour Lights"})
+    r = client.get(f"/media/watch/{ITEM}", headers=YOU)
+    assert r.headers["referrer-policy"] == "no-referrer"
+    assert '<meta name="referrer" content="no-referrer">' in r.text
+    assert r.text.index('name="referrer"') < r.text.index("<script")
+    cold = client.get(f"/media/watch/{'ab' * 16}", headers=YOU)
+    assert cold.headers["referrer-policy"] == "no-referrer"

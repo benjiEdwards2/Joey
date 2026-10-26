@@ -10,6 +10,7 @@
 <title>{{ title }}{% if line %} · {{ line }}{% endif %}</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <meta name="theme-color" content="#000000">
+<meta name="referrer" content="no-referrer">
 <link rel="icon" href="/static/icon-192.png?v=3">
 <link rel="preload" href="/static/fonts/GeistVF.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/control-surface.css?v={{ static_v }}">
@@ -40,6 +41,7 @@
       <h1 class="pl-t1">{{ title }}</h1>
       {% if line %}<div class="pl-t2">{{ line }}</div>{% endif %}
       <div class="pl-meta">{% for m in meta %}{% if not loop.first %}<span class="pl-sep" aria-hidden="true">·</span>{% endif %}<span>{{ m }}</span>{% endfor %}{% if meta %}<span class="pl-sep" aria-hidden="true">·</span>{% endif %}<span class="pl-method" data-pl="method" hidden></span></div>
+      <div class="pl-dbg" data-pl="frame" hidden></div>
     </div>
     <span class="pl-toast" data-pl="toast" role="status" hidden><svg class="pl-ic" aria-hidden="true"><use href="#pl-sync"/></svg><span data-pl="toast-text"></span></span>
   </div>

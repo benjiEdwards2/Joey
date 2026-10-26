@@ -94,8 +94,9 @@
   function createPlayer(o) {
     var on = o.on || noop;
     var st = {sid: null, hls: null, timer: null, stopped: true, audio: null, sub: null, tracks: null, chapters: [],
-              runtime: 0, method: null, starting: false, retried: false, recovered: false};
+              runtime: 0, method: null, starting: false, retried: false, recovered: false, framed: false};
     var video = o.video;
+    var now = o.now || function () { return Date.now(); };
 
     function post(path, body, keepalive) {
       var init = {method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: {}};
@@ -241,9 +242,28 @@
     video.addEventListener('play', function () { beat(false); });
     video.addEventListener('seeked', function () { beat(video.paused); });
     video.addEventListener('ended', function () { stop(); on('ended'); });
+    video.addEventListener('playing', function () {
+      st.retried = st.recovered = false;   // playing again: a later fatal error gets its one retry / recovery again
+      if (!st.framed && st.sid) {          // press to first frame (JY-050 Q8 A): `now` is ms since the page's navigation
+        st.framed = true;
+        on('firstframe', Math.round(now()));
+      }
+    });
+
+    /* bfcache (JY-054 review): a page restored from the back-forward cache after pagehide / Back has a stopped or no
+       session; it never stays a session-less player: hls.js is destroyed and a fresh session starts at the position. */
+    function revive() {
+      if (st.sid && !st.stopped) return Promise.resolve();
+      var at = position(), a = st.audio, s = st.sub;
+      st.stopped = true;
+      teardown();
+      st.starting = false;
+      return start(at, a, s);
+    }
 
     return {
       start: function () { return start(); }, stop: stop, beacon: beacon, beat: beat, switchTracks: switchTracks,
+      revive: revive,
       position: position,
       state: function () {
         return {sid: st.sid, stopped: st.stopped, audio: st.audio, sub: st.sub, tracks: st.tracks,
@@ -283,6 +303,7 @@
       fetch: win.fetch.bind(win), Hls: win.Hls, video: video,
       sendBeacon: win.navigator.sendBeacon ? win.navigator.sendBeacon.bind(win.navigator) : null,
       setInterval: win.setInterval.bind(win), clearInterval: win.clearInterval.bind(win),
+      now: win.performance && win.performance.now ? win.performance.now.bind(win.performance) : null,
       on: function (ev, data) {
         if (ev === 'starting') message('Starting…');
         else if (ev === 'playing-soon') message('');
@@ -291,6 +312,10 @@
         else if (ev === 'resumed') toast('Resumed at ' + clock(data / TICKS));
         else if (ev === 'ended') ended();
         else if (ev === 'paused') paint();
+        else if (ev === 'firstframe') {   // B.'s device checks record this number (spec accept checklist)
+          text('frame', 'First frame ' + (data / 1000).toFixed(1) + ' s after Play');
+          show('frame', true);
+        }
       }
     });
 
@@ -353,7 +378,16 @@
       }
       var b = video.buffered;
       if (b && b.length && d) q('buf').style.width = Math.min(100, b.end(b.length - 1) / d * 100) + '%';
-      if (upnext && nextHref && !dismissed && d && d - t <= 60 && d - t > 0) upnext.hidden = false;
+      if (upnext && nextHref) {
+        var near = !!d && d - t <= 60;
+        if (!near && countdown !== null && !video.ended) {   // sought back during the countdown: call it off
+          win.clearInterval(countdown);
+          countdown = null;
+          text('count', 'Up next');
+        }
+        if (near && !dismissed) upnext.hidden = false;
+        else if (countdown === null) upnext.hidden = true;   // sought back out of the last minute
+      }
       q('mute').setAttribute('aria-label', video.muted ? 'Unmute' : 'Mute');
       rootEl.classList.toggle('pl-muted', !!video.muted);
     }
@@ -362,12 +396,13 @@
       paint();
       if (!upnext || !nextHref || dismissed) { rootEl.classList.add('pl-show'); return; }
       upnext.hidden = false;
+      if (countdown !== null) win.clearInterval(countdown);   // never two countdowns
       var left = 8;
       text('count', 'Up next in ' + left);
       countdown = win.setInterval(function () {
         left -= 1;
         text('count', 'Up next in ' + left);
-        if (left <= 0) { win.clearInterval(countdown); win.location.assign(nextHref); }
+        if (left <= 0) { win.clearInterval(countdown); countdown = null; win.location.assign(nextHref); }
       }, 1000);
     }
 
@@ -516,6 +551,7 @@
     });
     var hit = q('hit');
     hit.addEventListener('pointerup', function (e) {
+      if (e.button) return;   // right / middle click: the browser's own menu, never play / pause
       if (e.pointerType === 'mouse') { toggle(); reveal(); return; }
       var r = hit.getBoundingClientRect();
       tapper(e.clientX - r.left, r.width, Date.now());
@@ -547,6 +583,11 @@
     video.addEventListener('pause', function () { rootEl.classList.add('pl-show'); });
 
     win.addEventListener('pagehide', function () { ctl.beacon(); });
+    win.addEventListener('pageshow', function (e) {   // restored from the back-forward cache: a fresh session
+      if (!e.persisted) return;
+      if (countdown !== null) { win.clearInterval(countdown); countdown = null; }
+      ctl.revive();
+    });
 
     rootEl.classList.add('pl-show');
     paint();

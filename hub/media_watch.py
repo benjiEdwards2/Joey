@@ -91,6 +91,7 @@ def watch_page(request: Request, rest: str = ""):
     resp = shell.templates.TemplateResponse(request, "media_watch.html", {
         "item_id": jf_id, "back_href": f"/media/item/{jf_id}", **page})
     resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Referrer-Policy"] = "no-referrer"   # nothing on this page tells another host where it came from
     if data is None:   # rule 7: never a read before the render; the next load finds the words
         resp.background = BackgroundTask(media_item.warm, jf_id)
     return resp

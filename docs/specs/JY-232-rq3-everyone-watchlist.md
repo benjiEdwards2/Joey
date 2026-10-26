@@ -1,6 +1,6 @@
 # JY-232 Everyone's watchlist + Request all (RQ3)
 
-Status: building
+Status: shipped 2026-10-27
 Size: L
 Live risk: arr/Seerr/qBittorrent write
 Area: `hub/media_watchlist_everyone.py` (new), `hub/media_watchlist_db.py` (`all_rows`), `hub/guest.py` (PRIVATE rows), `hub/main.py` (router), `hub/templates/media_watchlist_everyone.html` + `_wl_request_all.html` (new), the link line in `media_watchlist.html` and `media_requests.html`, a commented tail block in `hub/static/control-surface.css` (no token change), `docs/hub-changelog.md`, `tests/hub/test_media_watchlist_everyone.py`
@@ -73,3 +73,8 @@ None.
 - 2026-10-27: The tests that asserted shows go as all seasons (`test_request_all_sends_each_once_with_the_picked_quality`, `test_request_all_reuses_the_single_send`) and the panel heading "Request 3 titles?" / "Shows: all seasons" (`test_request_all_panel_lists_deduplicated_titles_and_quality_rows`) now assert Season 1 and the new heading. This follows B.'s "JY-232: go s1"; no test was removed or skipped.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #201, squash-merged as `bf482db` (bf482db4c4093514a1de7a556f4ef768a3154c54).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

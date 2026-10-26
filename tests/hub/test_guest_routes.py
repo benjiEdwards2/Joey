@@ -190,7 +190,7 @@ def _sample(template: str) -> str:
     fill = {"kind": "movie", "tmdb_id": "603", "jf_id": "0123456789abcdef0123456789abcdef", "provider_id": "8",
             "person_id": "287", "name": "x", "n": "1", "item_key": "movie:603", "ref:path": "poster/x",
             "path:path": "joey.css", "area_id": "calendar", "rid": "1", "app": "radarr", "arr_id": "1",
-            "year": "2026", "rest:path": "x"}
+            "year": "2026", "rest:path": "x", "session_id": "abc", "item_id": "0123456789abcdef0123456789abcdef"}
     out = template
     for k, v in fill.items():
         out = out.replace("{" + k + "}", v)

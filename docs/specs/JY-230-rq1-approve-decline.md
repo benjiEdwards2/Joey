@@ -1,6 +1,6 @@
 # JY-230 Approve / Decline pending Seerr requests on Activity > Requests (RQ1)
 
-Status: building
+Status: shipped 2026-10-27
 Size: L
 Live risk: arr/Seerr/qBittorrent write
 Area: `hub/media_requests_approve.py` (new), `hub/media_requests.py` (two error words), `hub/media_pages.py` (the Requests route), `hub/templates/media_requests.html`, `hub/templates/_request_seasons.html` (new), `hub/guest.py` (PRIVATE rows, ROW_DROP), `hub/main.py` (router), `hub/static/control-surface.css` (one dated tail block), `connectors/feeds/jellyseerr.py` + schema + fixtures + `config/sample_snapshots/jellyseerr.json`, `docs/connector-contract.md`, `docs/hub-changelog.md`, `hub/README.md`, `tests/hub/test_media_requests_approve.py` (new), `tests/connectors/test_jellyseerr.py`, `tests/connectors/test_contract_doc.py`, `tests/hub/conftest.py` (cache clear list)
@@ -75,3 +75,8 @@ At four sizes (desktop 1440, iPad 1024, phone 390, TV 1920 × 1080) on the previ
 None open. Criterion 16 (overlay lost on restart) is the builder's call, accepted as is with the reason given; say if you want it persisted instead.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #202, squash-merged as `d675f8f` (d675f8f2c483d4458a9f7b2e6cc6471a76777841).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: JY-246: A · JY-120: A · JY-151: A · JY-150: A · JY-121: A · JY-133: A · JY-134: A · JY-052: A · JY-053: A A A A · JY-230: go · JY-231: go approve · JY-232: go s1 · deploy"
+- Follow-ups: none

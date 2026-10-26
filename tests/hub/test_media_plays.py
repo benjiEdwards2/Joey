@@ -336,10 +336,12 @@ def test_history_page_empty_in_frame(env, tmp_path):
         assert "No plays recorded yet — the recorder started on" in body
         for chip in ("7 days", "30 days", "90 days", "This year", "All time"):
             assert chip in body
-        # nav-tidy (2026-10-13, B.): "Play stats" — under Activity with no tab of its own (History is the diary now)
+        # nav-tidy (2026-10-13, B.): "Play stats" — under Activity with no tab of its own (History is the diary now).
+        # JY-121 (2026-10-26, spec docs/specs/JY-121-play-stats-history.md): Play stats is History's second view, so it
+        # now lights History (was: no tab lit). The title stays "Play stats · Joey".
         assert r.text.split("<title>", 1)[1].split("</title>", 1)[0] == "Play stats · Joey"
         sub = r.text.split('<nav class="sectabs sub"', 1)[1].split("</nav>", 1)[0]
-        assert 'href="/media/diary">History<' in sub and 'aria-current="page"' not in sub
+        assert 'href="/media/diary" aria-current="page">History<' in sub and sub.count('aria-current="page"') == 1
 
 
 def test_history_page_with_data(env, tmp_path, monkeypatch):

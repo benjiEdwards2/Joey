@@ -41,7 +41,8 @@ ROUTES = {
     "/media/tv/tonight": ("tv", "My shows"),
     "/media/diary": ("server", "History"),         # nav-tidy (2026-10-13): the Diary section folded into Activity
     "/media/history": ("server", "To rate"),
-    "/media/server/history": ("server", None),     # play stats: under Activity, no tab of its own
+    # play stats: under Activity, no tab of its own; JY-121 (2026-10-26, spec JY-121): it lights History (was None)
+    "/media/server/history": ("server", "History"),
     "/media/playing": ("server", "Live"),
     "/media/library": ("server", "Library"),
     "/media/requests": ("server", "Requests"),

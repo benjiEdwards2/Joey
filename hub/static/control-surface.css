@@ -1346,6 +1346,10 @@ a.awfilm-title:hover { color: var(--text-2); }
 .seasonseg { margin-left: 0; }
 .seasonseg a[aria-current] { background: var(--pill-on); color: var(--text-1); }
 @media (max-width: 767px) { .seasonseg a { height: 40px; padding: 0 14px; } }
+/* JY-121 (2026-10-26): Activity > History's Diary / Play stats switch, the same .seg with the current view marked. */
+.histseg { margin: 0 0 16px; width: fit-content; }
+.histseg a[aria-current] { background: var(--pill-on); color: var(--text-1); }
+@media (max-width: 767px) { .histseg a { height: 40px; padding: 0 14px; } }
 /* Seasons compared: one row per season - a 44 px label column, a stretching line, the average at the right. */
 .compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
 .cmprow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 52px;

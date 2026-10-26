@@ -17,3 +17,23 @@ Not measured yet: the sitting has not run.
 
 ## Notes from the sitting
 Not yet.
+
+## Phone column: iPhone 15 Pro (B., 2026-10-26: "My phone type is an iphone 15 pro.")
+Source: **M** measured by this study, **D** documentation (Apple, WebKit, Jellyfin), **V** to verify in the sitting.
+All iPhone entries are D until the sitting; the library counts are M (inventory 2026-10-24). Detail, the per-row
+predictions and the sitting script: `docs/specs/JY-051-player-options.md`, "iPhone 15 Pro". The PC and TV columns are filled
+from the sitting, not from documentation.
+
+| Area | Phone (iPhone 15 Pro, iOS 17/18, Safari/WebKit, A17 Pro) | Source |
+|---|---|---|
+| Containers | MP4, MOV, HLS (fMP4, TS) direct; MKV needs a remux to HLS | D |
+| H.264, HEVC | Hardware; HEVC includes 10-bit and HDR10; Dolby Vision 5 / 8.1 via HLS | D, V |
+| AV1 | Hardware on A17 Pro, Safari 17+ (about 85 % sure; none in the library) | D |
+| VP9 | Limited or software; not planned on (none in the library) | D |
+| Audio | AAC, AC-3, E-AC-3, FLAC in MP4; no DTS or TrueHD (transcode) | D |
+| Subtitles | WebVTT in HLS; PGS, VobSub, ASS burn in (video transcode) | D |
+| hls.js | Needs iOS 17.1+ (ManagedMediaSource); else native HLS | D |
+
+Library on the iPhone (536 items, default audio, no subtitle selected, LAN; 508 exact, 28 unlisted bounded):
+direct play 18 to 24, remux only 497 to 506, audio transcode 12 to 15, video transcode 0. An image subtitle turned on adds up to 165
+video transcodes; 7.1 audio could add up to 9 audio transcodes (V); the 3 items over 20 Mbps transcode on mobile data (M for the counts, D for the rules).

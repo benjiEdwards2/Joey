@@ -104,7 +104,7 @@ he sees. Account: joeytest (friend policy: remote capped at 20 Mbps, LAN unaffec
 **Before the sitting**
 1. B.: the JY-014 hands item (add `preview.joeyhome.net` to the tunnel and the existing Access application), if not
    already done.
-2. B.: tell Claude your phone (Android + Chrome, or iPhone + Safari): it changes what P1 can play.
+2. Phone: answered, B., 2026-10-26: "My phone type is an iphone 15 pro." So P1 runs on iOS Safari/WebKit (A17 Pro); see "iPhone 15 Pro" below. hls.js needs iOS 17.1 or later (ManagedMediaSource); on older iOS the page falls back to native HLS.
 3. Claude, no hands: `python scripts/jy051_sitting.py fetch-apk`, `python scripts/joey.py preview up 70`, then send the
    link `https://preview.joeyhome.net/static/jy051/study.html`.
 
@@ -113,8 +113,8 @@ he sees. Account: joeytest (friend policy: remote capped at 20 Mbps, LAN unaffec
 |---|---|---|---|
 | 0-2 | TV | Press the remote's power button, wait for the home screen. Say "TV awake". | Claude: `jy051_sitting.py check` then `install`. |
 | 2-10 | PC | Open the link, type joeytest and its password, Sign in. Press "Play every row" (or Play per row); each row plays W1 then W2, 3 runs each, and holds the last run 6 s: for rows 4, 6, 7, 9, 12 say whether picture, sound and subtitles look right. Then open rows 2 and 7 in Jellyfin web (W3) once each. Copy results, paste into the chat, press Sign out. | First-frame median per file and engine, play method, audio decoded, subtitle method. |
-| 10-17 | Phone, Wi-Fi | Open the link, Add to Home screen, open it from there, sign in as joeytest. Play rows 1 to 6. Rotate once and go full screen on row 2. | LAN first frame, fullscreen and rotation, HEVC on the phone. |
-| 17-20 | Phone, mobile data | Wi-Fi off, set Network to Remote, play rows 1, 2 and 4. Network back to LAN, Wi-Fi on. Stay signed in. | Remote first frame (the 10 s budget), one transcode remotely. |
+| 10-17 | iPhone 15 Pro, Wi-Fi | Safari: open the link, Share > Add to Home Screen, open it from the Home Screen icon, sign in as joeytest. Play the six iPhone rows (script in "iPhone 15 Pro" below). | LAN first frame, seeking, HDR, subtitles, fullscreen and rotation. |
+| 17-20 | iPhone, mobile data | Wi-Fi off, set Network to Remote, play rows 1, 2 and 4. Network back to LAN, Wi-Fi on. Stay signed in. | Remote first frame (the 10 s budget), one transcode remotely. |
 | 20-31 | TV | Claude runs `jy051_sitting.py tv`; "Joey Study" opens on its sign-in screen: type joeytest and the password with the remote, Sign in. It then plays each file under T1 (WebView), T2 (ExoPlayer), T2F (ExoPlayer + FFmpeg) and T2H where needed, timing itself. On rows 6, 7, 8, 11, 12 it asks: OK if picture and sound are right, Back if not. When it says "Matrix done", press OK for the resume test: press right on the progress bar until about 5:00 (30 s per press), then Back. Then open rows 1 and 7 in the Jellyfin app (T3). | logcat first frame per file per engine, decoders, track support, your OK/Back, the stop position. |
 | 31-33 | Phone | On the study page press "Read saved position and resume". Then Copy results, paste into the chat, Sign out. | Resume across devices (within 10 s of the TV's stop). |
 
@@ -123,6 +123,79 @@ NAS CPU and available RAM for the transcode rows (must stay at or above 1,200 MB
 it is (JY-040 owns it).
 
 Test pin re-pointed 2026-10-24 (joeytest change): `tests/scripts/test_player_study.py::test_playback_needs_a_token_file` became `test_playback_without_a_token_file_uses_the_api_key_and_user_prefix`, because playback now runs with the API key + joeytest `userId` and a token file is optional; no token crosses ssh on that path.
+
+## iPhone 15 Pro (B., 2026-10-26)
+B., 2026-10-26: "My phone type is an iphone 15 pro." (iOS 17/18, Safari/WebKit, Apple A17 Pro.) P1 (the web player as a Home Screen app) is
+tested on this phone. iOS WebKit is the only engine on an iPhone: every iPhone browser, Chrome included, is WebKit underneath.
+
+Source key (here and in `docs/specs/JY-051-matrix.md`): **M** = measured by this study (library inventory 2026-10-24, PC PlaybackInfo
+2026-10-24); **D** = from Apple, WebKit or Jellyfin documentation, not tested on this phone; **V** = to verify in the sitting.
+Nothing about the iPhone itself is M yet: every decode and play-method statement below is D until the sitting.
+
+**Capability column, iPhone 15 Pro** (all devices side by side: `docs/specs/JY-051-matrix.md`)
+| Area | iPhone 15 Pro | Source |
+|---|---|---|
+| Containers, direct | MP4, MOV; HLS with fMP4 or TS segments. MKV does not play in Safari: it needs a remux to HLS (Jellyfin does this, video and audio copied). | D |
+| H.264 | Hardware; 8-bit High profile. | D |
+| HEVC | Hardware, Main and Main 10, including 10-bit SDR and HDR10. In MP4 it needs the `hvc1` tag; an `hev1`-tagged file may not play. | D, tag V |
+| Dolby Vision | Profile 5 and 8.1 in HLS and MP4, on the phone's HDR display. A DV 8.1 file carries an HDR10 base layer. | D, V |
+| AV1 | Hardware decode on A17 Pro (the first Apple phone with it); Safari 17+ enables AV1 only where hardware decode exists. About 85 % sure: Apple's HLS mailing-list note and a vendor compatibility table say so, and I found no WebKit status page. The library has 0 AV1 items, so it changes no count. | D |
+| VP9 | Do not plan on it: iOS Safari support is partial, software or limited. Library: 0 items. | D |
+| Audio | AAC, AC-3 and E-AC-3 (Atmos plays as its E-AC-3 core), FLAC, ALAC, MP3 in MP4/fMP4. No DTS, DTS-HD or TrueHD: they transcode. | D |
+| Multichannel | The phone is stereo. Whether Jellyfin's Safari profile caps channels at 6 or downmixes a 7.1 AAC is unknown. | V |
+| Subtitles | WebVTT in HLS (and as a sidecar track). SRT, mov_text and external SRT become WebVTT at no video cost. PGS and VobSub (image) and ASS cannot be rendered: burn-in, which is a full video transcode. | D |
+| MSE / hls.js | `ManagedMediaSource` since iOS 17.1: hls.js 1.5 uses it. Earlier iOS has no MSE on iPhone and the page falls back to native HLS. The page records which ran (`r.hls`). | D |
+| AirPlay | The native `<video>` controls include AirPlay. Optional in the sitting. | D |
+
+**Library on the iPhone: how many of the 536 items take each path** (default audio track, no subtitle selected, LAN).
+The inventory lists 508 of the 536 items exactly (its top 15 combinations); the other 28 sit in 13 unlisted combinations. The count is
+exact for the 508 and bounded for the 28. Rules: MP4 with H.264/HEVC and AAC/AC-3/E-AC-3 = direct; MKV with the same codecs = remux;
+DTS default audio (no TrueHD in the library) = audio transcode; a video transcode only when video or range forces it.
+| Path on the iPhone | Items | Share | How |
+|---|---|---|---|
+| Direct play | 18 to 24 | 3.4 to 4.5 % | 18 exact (the two MP4 combinations: HEVC 10-bit AAC 5.1, H.264 AAC 2.0) + 0 to 6 of the 6 unlisted MP4s |
+| Remux only (container) | 497 to 506 | 92.7 to 94.4 % | 480 exact (every MKV with H.264/HEVC and AAC, AC-3 or E-AC-3) + 17 to 26 of the 28 unlisted |
+| Audio transcode (video copied) | 12 to 15 | 2.2 to 2.8 % | 10 exact (MKV, H.264, DTS 5.1 core) + 2 to 5 unlisted DTS defaults (test rows 7 and 12 are among them) |
+| Video transcode | 0 | 0 % | nothing in the library forces one with subtitles off: no AV1, no H.264 10-bit; the 3 DV 2160p files are D (copy in HLS) |
+| Added by an image subtitle | up to 165 | up to 30.8 % | the 157 PGS + 8 VobSub items burn in (video transcode, 1080p HEVC on the J4125 is the worst case) when that track is on. Text subtitles (401 SRT, 2 mov_text) cost nothing. |
+| Added by 7.1 audio, if the profile caps channels | up to 9 | up to 1.7 % | the 11 items with a 7.1 track, minus the DTS ones counted above (V) |
+| Added on mobile data | 3 | 0.6 % | the 3 items over 20 Mbps exceed joeytest's remote cap and would transcode remotely |
+
+Source: library counts M (inventory 2026-10-24); iPhone rules D. The exact split of the 28 unlisted items needs one read-only re-run of
+`python scripts/player_study.py inventory --json`; it was not run for this note (no live call). Reading: on the iPhone about 94 % of the
+library is "remux to HLS, copy video and audio"; any transcode is rare (under 3 %) until an image subtitle is switched on.
+
+**iPhone predictions per test row** (D until the sitting; the sitting's matrix replaces them)
+| Row | Predicted on the iPhone | Why | Source |
+|---|---|---|---|
+| 1 | Direct play | MP4, H.264, AAC | D |
+| 2, 3 | Remux | MKV to HLS fMP4, E-AC-3 copied, SRT to WebVTT | D |
+| 4 | Remux with the subtitle off; video transcode with PGS #2 on | PGS cannot render | D |
+| 5 | Direct play if the file is `hvc1` | HEVC Main 10 in MP4 | D, V |
+| 6 | Direct play or HLS copy, with HDR | DV 8.1 MP4, E-AC-3, mov_text becomes WebVTT | D, V |
+| 7 | Remux + audio transcode; video transcode with PGS #5 on | DTS-HD MA; 2160p DV copied | D |
+| 8 | Remux + audio transcode | DTS core to AAC; external SRT is free | D |
+| 9 | Remux with the subtitle off; video transcode with VobSub #3 on | burn-in | D |
+| 10 | Remux | default is Italian, the study picks English #2 | D |
+| 11 | Remux, possibly an audio downmix | AAC 7.1 | D, V |
+| 12 | Video transcode | PGS default on, 45.6 Mbps over the remote cap | D |
+
+**iPhone sitting script** (replaces the generic phone rows; about 10 of the 35 minutes)
+Dependency: it needs `https://preview.joeyhome.net/static/jy051/study.html`, so the JY-014 hands item (`preview` hostname on the tunnel and
+the Access application) and `python scripts/joey.py preview up 70` must be done first. Without them the iPhone cannot run the sitting
+(no laptop fallback: the laptop's firewall blocks the LAN). Do it in the same state window as the TV legs.
+Setup: same Wi-Fi as the NAS, Low Power Mode off, Auto-Lock Never, silent switch off, volume up, Home Screen icon added. On the page:
+Device = Phone, Network = LAN, runs per engine 3.
+| Row | Open | Look for |
+|---|---|---|
+| 1 (control) | MP4 H.264 AAC | Start time (first-frame median, W1 then W2); seek to the middle and to 90 %: how long until the picture returns; rotate once, go fullscreen. |
+| 2 (top combination) | MKV H.264 E-AC-3, SRT #2 | W1 should fail (MKV), W2 should play as a remux. Start time against the 5 s LAN budget; seek; subtitles on and off (WebVTT, no stall); audio decoded. |
+| 5 (HEVC MP4) | MP4 HEVC Main 10 | W1 direct play works, or fails on the tag; colours correct. |
+| 6 (DV/HDR) | 2160p DV + HDR10 MP4 | HDR: picture brighter than SDR, and the page reports the dynamic range; the second audio track; mov_text subtitles; start time at 15.6 Mbps. |
+| 4 (PGS burn-in) | MKV HEVC AAC, PGS #2 | Method is Transcode; start time during a J4125 transcode; subtitles burned in and readable; seeking while transcoding. Claude reads the NAS CPU. |
+| 8 (DTS) | MKV H.264 DTS, external SRT | Sound present (audio transcode); lip sync after a seek; page says audio decoded. |
+Then at minutes 17-20: rows 1, 2 and 4 on mobile data with Network = Remote. Optional if time allows: AirPlay row 1 to the TV from the
+native controls (does it start and keep playing). After each row say: picture OK, sound OK, subtitles OK. Copy results and paste to Claude at the end.
 
 ## Out of scope
 Choosing the screen's look (JY-052); the hub playback endpoints (JY-053); any shipped player or signed release; friends' devices, downloads, casting; the transcode box (JY-049/059: transcode numbers here are J4125 worst case); library, arr or Seerr changes.

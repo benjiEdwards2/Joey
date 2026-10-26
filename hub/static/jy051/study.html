@@ -71,6 +71,23 @@ textarea { width:100%; min-height:120px; font:12px/1.3 ui-monospace, Consolas, m
   <div id="caps" class="sub">Checking...</div>
 </section>
 
+<section id="iphone">
+  <h2>iPhone 15 Pro: what to expect (documentation, not measured yet)</h2>
+  <div class="sub">B., 2026-10-26: "My phone type is an iphone 15 pro." iOS 17/18, Safari/WebKit, A17 Pro. M = measured, D = documentation, V = check in the sitting.</div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Path on the iPhone</th><th>Library items (536)</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td>Direct play (MP4)</td><td>18 to 24</td><td>library M, rule D</td></tr>
+      <tr><td>Remux only (MKV to HLS, video and audio copied)</td><td>497 to 506</td><td>library M, rule D</td></tr>
+      <tr><td>Audio transcode (DTS)</td><td>12 to 15</td><td>library M, rule D</td></tr>
+      <tr><td>Video transcode (subtitles off)</td><td>0</td><td>library M, rule D</td></tr>
+      <tr><td>Added if an image subtitle (PGS, VobSub) is on: burn-in</td><td>up to 165</td><td>library M, rule D</td></tr>
+      <tr><td>Added if 7.1 audio is capped at 6 channels</td><td>up to 9</td><td>V</td></tr>
+    </tbody>
+  </table></div>
+  <div class="sub" style="margin-top:6px">Exact for 508 items, bounded for 28 unlisted. Video: H.264, HEVC incl. 10-bit and HDR10, Dolby Vision 5/8.1 via HLS (D, V); AV1 hardware on A17 Pro, about 85 % sure (none in the library). Audio: AAC, AC-3, E-AC-3, FLAC; no DTS or TrueHD. Subtitles: WebVTT; PGS, VobSub and ASS burn in. MKV never plays directly. hls.js needs iOS 17.1+, else native HLS. Six rows to play: 1, 2, 5, 6, 4, 8 (needs the preview hostname from JY-014). Details: docs/specs/JY-051-player-options.md.</div>
+</section>
+
 <section>
   <h2>Player</h2>
   <div id="now">Idle</div>

@@ -1,6 +1,6 @@
 # JY-120 Her view with no list: wording
 
-Status: spec (built as option A; waiting for B.'s pick)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/media_library.py`, `hub/media_pages.py`, `tests/hub/test_media_library_pages.py`
@@ -38,4 +38,8 @@ The filter chips (already hidden without marks). The Tonight picks.
 `/media/movies?owner_view=her&s=unwatched` and `/media/tv?owner_view=her&s=unwatched` with no list for her read "No marks for her yet". The household view is unchanged.
 
 ## Shipped notes
-(none yet)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #189, squash-merged as `7802f2f` (7802f2fc793ed2afa2929f9715d3bf00a755ca5d).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: JY-246: A · JY-120: A · JY-151: A · JY-150: A · JY-121: A · JY-133: A · JY-134: A · JY-052: A · JY-053: A A A A · JY-230: go · JY-231: go approve · JY-232: go s1 · deploy"
+- Follow-ups: none

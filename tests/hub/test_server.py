@@ -92,7 +92,7 @@ def test_server_page_renders_every_band_from_the_samples(env, route):
     assert "Prowlarr is Down (timeout)" in body and "All clear" not in body
     # 5 Library health (WP-T3, 2026-10-19, S1 + S2: replaces the Counts band — no Requests / Torrents / arr disk here)
     assert 'id="counts"' not in body and ">Pending<" not in body and ">Seeding<" not in body and ">This week<" not in body
-    assert "Library health · Radarr 2 wanted · 3 missing · Sonarr 7 wanted · Prowlarr 3 failed grabs" in txt(body)
+    assert "Library health · Radarr 2 wanted · 3 missing · Sonarr 7 wanted · Prowlarr 3 failed grabs this week" in txt(body)
     # WP-T3 (2026-10-19, S3): no tile row; Portainer is its Services › System card (a LAN link), never the registry IP
     assert "192.168.68.59" not in body and 'class="tiles areatiles' not in body
     # band order, top to bottom

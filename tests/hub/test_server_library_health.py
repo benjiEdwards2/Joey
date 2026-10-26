@@ -22,7 +22,7 @@ def test_library_health_line_sits_under_downloads_with_the_sample_counts(env):
         body = main_of(client.get("/server").text)
     line = downloads_of(body).split('class="metaline libhealth"', 1)[1].split("</p>", 1)[0]
     assert txt(line).startswith(">Library health · Radarr 2 wanted · 3 missing · Sonarr 7 wanted · ")
-    assert '<span class="st-warn">Prowlarr 3 failed grabs</span>' in line                  # amber: a failure count
+    assert '<span class="st-warn">Prowlarr 3 failed grabs this week</span>' in line                  # amber: a failure count
     assert '<a class="btn btn-ghost btn-sm" href="/media/requests?sweep_ask=missing">Search missing</a>' in line
     assert "Movies" not in line and "queued" not in txt(line) and "Queries" not in line    # the unique figures only
 
@@ -45,7 +45,7 @@ def test_library_health_words_zero_nonzero_and_amber():
     clear = server.library_health(snaps(**zero))
     assert clear == {"parts": [], "failed": None, "search": None}                             # "all clear"
     some = server.library_health(snaps(**{**zero, "sonarr": {"wanted": 1}, "prowlarr": {"failed_grabs": 1}}))
-    assert some == {"parts": ["Sonarr 1 wanted"], "failed": "Prowlarr 1 failed grab",
+    assert some == {"parts": ["Sonarr 1 wanted"], "failed": "Prowlarr 1 failed grab this week",
                     "search": server.SEARCH_MISSING_HREF}
     only_missing = server.library_health(snaps(radarr={"wanted": 0, "missing": 2}))
     assert only_missing["parts"] == ["Radarr 2 missing"] and only_missing["failed"] is None

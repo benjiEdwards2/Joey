@@ -669,3 +669,33 @@ def test_a_null_subtitle_default_is_minus_one(client, jf):
     assert body["subtitle_index"] == -1 and body["tracks"]["default_subtitle_index"] == -1
     client.post(body["stream"].replace("/stream", "/progress"), headers=YOU, json={"position_ticks": 1})
     assert jf.calls[-1]["json"]["SubtitleStreamIndex"] == -1
+
+
+# ---- verifier round (2026-10-26) ----
+
+@pytest.mark.parametrize("flag", ["off", "on"])
+def test_bare_prefix_is_the_unknown_path_404_not_a_redirect(client, jf, env, flag):
+    env.setenv("PLAYER_API", flag)
+    for method in WRONG:
+        unknown = call(client, method, "/api/play-nothing-here", YOU)
+        for path in ("/api/play", "/api/play/"):
+            r = call(client, method, path, YOU)
+            assert r.status_code == 404 and "location" not in r.headers and "allow" not in r.headers, (method, path)
+            assert r.content == unknown.content, (method, path)
+
+
+def test_a_chunked_body_is_capped_while_it_is_read():
+    import asyncio
+    from starlette.requests import Request
+    sent = {"n": 0}
+    piece = b"x" * 16384
+
+    async def receive():
+        sent["n"] += 1
+        if sent["n"] > 10:
+            raise AssertionError("kept reading past the cap")
+        return {"type": "http.request", "body": piece, "more_body": True}
+    scope = {"type": "http", "method": "POST", "path": "/api/play/sessions", "headers": []}
+    with pytest.raises(player_api.PlayError) as e:
+        asyncio.run(player_api._body(Request(scope, receive)))
+    assert (e.value.status, e.value.code) == (413, "too_large") and sent["n"] == 5

@@ -96,6 +96,10 @@ and add the real header itself before passing to Jellyfin; a SWAG change, built 
 C) The hub proxies the video. *Recommend A: no new credential or edge change, no token in any URL; B only if the JY-051
 PC rows show the remux hurts the 5 s start. C is out: video would cross the Cloudflare tunnel and the hub's 200 MiB.*
 
+*Note on Q4 for the iPhone (verifier, 2026-10-26):* with A, the phone player is hls.js 1.5+ over `ManagedMediaSource`
+(iOS 17.1+; your iPhone 15 Pro qualifies) with AirPlay switched off (`disableRemotePlayback`), and it never falls back
+to Safari's native HLS, which sends no header and would be refused. iOS below 17.1 and AirPlay wait for Q4 B.
+
 ## Notes for JY-054
 - The `/stream` answer's `headers.Authorization` carries the member's **full** Jellyfin token, not one scoped to the
   stream. The player keeps it in memory only (never `localStorage`, a cookie, a URL, a log or an error report) and
@@ -109,6 +113,13 @@ header. Fixed with a method-agnostic 404 catch-all under `/api/play/` (PRIVATE i
 sendBeacon stop documented and tested; the web path defined (Q4, A built: browsers never direct-play); a null subtitle
 default answered as -1; the full-token note above; `_uids` written under the lock. Red first: 5 failed, 56 passed
 against the previous module.
+
+## Review round 2 (2026-10-26, Opus verifier)
+Must-fix: the contract had no iOS Safari answer; added (hls.js over `ManagedMediaSource`, no native-HLS fallback, no
+AirPlay, iOS < 17.1 unsupported until Q4 B) and the note under Q4. Should-fixes: bare `/api/play` answered 307 to
+`/api/play/` on every method; now the unknown-path 404 (`test_bare_prefix_is_the_unknown_path_404_not_a_redirect`);
+endpoint 1's `EnableDirectPlay` text matches Q4; `EnableSubtitlesInManifest` added to "still to verify". Nits: a chunked
+body is capped while read (`test_a_chunked_body_is_capped_while_it_is_read`); `reported` is written under the lock.
 
 ## Shipped notes
 Not yet.

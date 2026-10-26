@@ -147,7 +147,7 @@ PRIVATE: tuple = (
     *_each("POST", "/api/play/sessions", "/api/play/sessions/{session_id}/stream",
            "/api/play/sessions/{session_id}/progress", "/api/play/sessions/{session_id}/stop"),
     ("GET", "/api/play/items/{item_id}/tracks"),
-    *_each("GET POST PUT PATCH DELETE OPTIONS", "/api/play/{rest:path}"),   # its 404 catch-all (no 405 leaks)
+    *_each("GET POST PUT PATCH DELETE OPTIONS", "/api/play", "/api/play/{rest:path}"),   # its 404 catch-all (no 405 / 307)
 )
 
 RESERVED: tuple = ()   # empty since WP-B4 moved the request route to GUEST; kept for the next route a WP builds dark

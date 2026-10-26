@@ -247,7 +247,13 @@ async def _body(request: Request) -> dict:
         raise PlayError(400, "bad_request", "Bad Content-Length.") from None
     if declared > MAX_BODY:
         raise PlayError(413, "too_large", "Request body over 64 KB.")
-    raw = await request.body()
+    chunks, size = [], 0
+    async for chunk in request.stream():   # capped while reading: a chunked body has no Content-Length
+        size += len(chunk)
+        if size > MAX_BODY:
+            raise PlayError(413, "too_large", "Request body over 64 KB.")
+        chunks.append(chunk)
+    raw = b"".join(chunks)
     if len(raw) > MAX_BODY:
         raise PlayError(413, "too_large", "Request body over 64 KB.")
     if not raw:
@@ -391,7 +397,8 @@ def _report(viewer: dict, sess: dict, position: int, paused: bool, stop: bool) -
         path, op, body = "/Sessions/Playing/Progress", "progress", _report_body(sess, position, paused)
     _call(op, "POST", f"{base}{path}", headers, body=body, want_json=False)
     if not stop:
-        sess["reported"] = True
+        with _lock:
+            sess["reported"] = True
 
 
 # ---- routes ----
@@ -479,9 +486,11 @@ async def tracks(request: Request, item_id: str):
     return _no_store(JSONResponse(answer))
 
 
+@router.api_route(PREFIX, methods=ALL_METHODS, include_in_schema=False)
 @router.api_route(f"{PREFIX}/{{rest:path}}", methods=ALL_METHODS, include_in_schema=False)
-async def not_found(request: Request, rest: str):
-    """Registered LAST: a wrong method on a real path, or any other path under /api/play. Flag off: the unknown-path
-    404 (never a 405 with an Allow header, which would say the route exists). Flag on: the same 404."""
+async def not_found(request: Request):
+    """Registered LAST: a wrong method on a real path, any other path under /api/play, and bare /api/play (else
+    redirect_slashes answers it 307 to /api/play/, naming the prefix). Flag off: the unknown-path 404 (never a 405 with
+    an Allow header, never a redirect). Flag on: the same 404."""
     _gate(request)
     raise HTTPException(404)

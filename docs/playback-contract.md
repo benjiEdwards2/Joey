@@ -13,8 +13,9 @@ plus the tests, never a silent edit: the players are built against this page.
 route below answers exactly what an unknown path answers (`404 {"detail":"Not Found"}` on the private front, the
 ordinary Joey 404 page on the media front), before auth, body parsing or any Jellyfin call. Nothing a user can see
 changes while it is off. The flag is read on every request: no restart is needed to turn it off. A wrong method on a
-real path, or any other path under `/api/play/`, lands on a method-agnostic catch-all that answers the same 404, so
-there is never a `405` or an `Allow` header to say a route exists (review round 1, 2026-10-26).
+real path, any other path under `/api/play/`, and bare `/api/play` land on a method-agnostic catch-all that answers the
+same 404, so there is never a `405`, an `Allow` header or a `307` to `/api/play/` to say a route exists (review rounds
+1 and 2, 2026-10-26).
 
 ## Who may call
 
@@ -51,12 +52,18 @@ Every POST also passes the hub's `same_origin` guard (a cross-site POST is `403 
   with the header. Subtitles reach a browser inside that HLS stream: the web profile lists every text format in
   `SubtitleProfiles` with `Method: "Hls"` (image formats, PGS and VobSub, are burned in by Jellyfin, as today). Nothing
   ever sits in a `<video src>` or `<track src>` URL. The TV (ExoPlayer) direct-plays with the header.
+- **iPhone and iPad (B.'s phone is an iPhone 15 Pro).** The `phone` player is hls.js 1.5 or later over
+  `ManagedMediaSource` (iOS 17.1+), with `disableRemotePlayback` set on the video element: no AirPlay for now. It never
+  falls back to Safari's native HLS (`canPlayType('application/vnd.apple.mpegurl')` with the URL in `src`): native HLS
+  sends no header, so every request would be a 401. iOS below 17.1 has no `ManagedMediaSource` and is unsupported until
+  Q4 B (an edge-checked stream token) is built; the player says so in words instead of trying. AirPlay comes with Q4 B too.
 - **The header carries the member's full Jellyfin token** (it is not scoped to one stream; Jellyfin has no scoped
   tokens). JY-054 and JY-057 keep it in memory only: never `localStorage`, a cookie, a URL, a log or an error report.
 
 ## Endpoints
 
-All bodies are JSON (at most 64 KB: a larger `Content-Length` is refused before the body is read; the
+All bodies are JSON (at most 64 KB: a larger `Content-Length` is refused before the body is read, and a chunked body
+is cut off as soon as it passes 64 KB; the
 `Content-Type` is not checked, so a `sendBeacon` text/plain body works). All answers carry `Cache-Control: no-store`. Ticks are Jellyfin ticks
 (10,000,000 per second). Item ids are Jellyfin ids, 32 hex (dashes and upper case accepted, answered lower case).
 
@@ -71,9 +78,9 @@ Request:
 decodes, built by the player). `start_ticks`, `audio_index`, `subtitle_index` (`-1` = off) and `max_bitrate` (bits/s) are
 optional: left out, Jellyfin applies the user's saved defaults (JY-050 Q5 A) and the user's bitrate setting (Q3 A).
 
-Jellyfin: `POST /Items/{id}/PlaybackInfo?userId=<uid>` with `UserId`, `DeviceProfile`, `EnableDirectPlay`,
-`EnableDirectStream`, `EnableTranscoding`, `AllowVideoStreamCopy`, `AllowAudioStreamCopy` all true,
-`AutoOpenLiveStream` false, and the optional fields as `StartTimeTicks`, `AudioStreamIndex`, `SubtitleStreamIndex`,
+Jellyfin: `POST /Items/{id}/PlaybackInfo?userId=<uid>` with `UserId`, `DeviceProfile`, `EnableDirectStream`,
+`EnableTranscoding`, `AllowVideoStreamCopy`, `AllowAudioStreamCopy` all true, `EnableDirectPlay` true for `tv` and
+false for `web` and `phone` (Q4 A), `AutoOpenLiveStream` false, and the optional fields as `StartTimeTicks`, `AudioStreamIndex`, `SubtitleStreamIndex`,
 `MaxStreamingBitrate`. The first `MediaSource` is used (no library item has more than one, JY-051 inventory).
 (Plus `GET /Users/Me` once per token per hour on the private front.)
 
@@ -198,3 +205,7 @@ Verified (JY-051 inventory, 2026-10-24): `POST /Items/{id}/PlaybackInfo?userId=`
 - `/Users/Me` and `/Sessions/Playing*` accept a user token with a constant `DeviceId` from several devices at once.
 - `Sessions/Playing/Stopped` ends the transcode job on 12.2 (else the hub adds `DELETE /Videos/ActiveEncodings`).
 - CORS on the :8443 edge for the browser player (JY-051: Jellyfin's own default, any origin).
+- The HLS master playlist carries the chosen text subtitle as a WebVTT rendition that hls.js shows; 12.2 may need
+  `EnableSubtitlesInManifest=true` on the `TranscodingUrl` (the hub would add it for `web` / `phone`).
+- hls.js over `ManagedMediaSource` on the iPhone 15 Pro: starts, sends the header on every request, and plays HEVC
+  remuxes (JY-051's phone leg).

@@ -270,27 +270,53 @@ def test_season_words():
     assert mgr.sent_words({"name": "1080p", "default": True}, [], False) == "Requested"
 
 
-# ---- TV mode: unchanged (JY-231, B. 2026-10-27: "stop any tv development please"; the TV picks are deferred) ----
+# ---- TV mode: the same picks (JY-255, B. 2026-10-27: "Go for tv change again."; JY-231 had deferred them) ----
+# 2026-10-27 (JY-255 spec, "Test changes"): this replaces test_tv_mode_keeps_the_request_flow_from_before_rq2, which
+# pinned JY-231's deferral ("stop any tv development please") that this item reverses.
 
-def test_tv_mode_keeps_the_request_flow_from_before_rq2(friend):
-    """Desktop and phone only: in TV mode the panel is Request + Cancel (a show whole, `seasons=all`), the confirm step
-    has no Quality chips, and a posted profile is ignored - the friend's request goes as it did before RQ2."""
+def test_tv_mode_carries_the_picks_like_the_web(friend):
+    """In TV mode the panel is JY-231's form (Quality chips, the season ticks, Request still data-first), the confirm
+    step has the chips, and the pick rides the friend's own pending request exactly as on the web."""
     tv = {"User-Agent": TV_UA}
     panel = friend.get("/media/title/tv/100/request?panel=1", headers={**HX, **tv}).text
-    assert '<form class="reqpanel-btns"' in panel and '<input type="hidden" name="seasons" value="all">' in panel
-    assert 'name="profile"' not in panel and 'type="checkbox"' not in panel and "reqpanel-form" not in panel
+    assert 'class="reqpanel-form"' in panel and '<form class="reqpanel-btns"' not in panel
+    assert '<input type="checkbox" name="seasons" value="all" checked> All seasons' in panel
+    assert re.search(r'<input type="checkbox" name="seasons" value="1">\s*Season 1', panel)
+    assert 'type="hidden" name="seasons"' not in panel and "+ future" not in panel and "Specials" not in panel
+    assert re.search(r'<input type="radio" name="profile" value="4" checked>1080p · Default', panel)
+    assert re.search(r'<input type="radio" name="profile" value="5">4K<', panel)
     assert re.search(r'<button[^>]*type="submit" data-first>Request</button>', panel)
-    confirm = friend.get("/media/title/tv/100/request?step=confirm", headers={**HX, **tv}).text
-    assert "Confirm request" in confirm and 'name="profile"' not in confirm and "+ future" not in confirm
-    done = friend.post("/media/title/tv/100/request", content="panel=1&seasons=all&profile=5",
+    film = friend.get("/media/title/movie/701/request?panel=1", headers={**HX, **tv}).text
+    assert 'name="profile"' in film and 'type="checkbox"' not in film
+    confirm = friend.get("/media/title/tv/200/request?step=confirm", headers={**HX, **tv}).text
+    assert "Confirm request" in confirm and 'name="profile"' in confirm and "+ future" not in confirm
+    assert re.search(r'value="3" disabled>', confirm)
+    done = friend.post("/media/title/tv/100/request", content="panel=1&seasons=1&seasons=2&profile=5",
                        headers={**HX, **FORM, **tv}, follow_redirects=False).text
+    friend.post("/media/title/movie/701/request", content="panel=1&profile=99", headers={**HX, **FORM, **tv},
+                follow_redirects=False)
+    assert [c[3] for c in sent(friend.seerr)] == [
+        {"mediaType": "tv", "mediaId": 100, "seasons": [1, 2], "profileId": 5},
+        {"mediaType": "movie", "mediaId": 701, "profileId": 4}]                     # an unknown id: the default
+    assert all(c[4] == {"X-Api-Key": KEY, "X-Api-User": str(FRIEND_SEERR)} for c in sent(friend.seerr))
+    assert friend.seerr.puts() == [] and friend.side == []                           # no safety net, no Sonarr follow
+    still_pending_and_theirs(friend.seerr)
+    assert "Requested in 4K · Seasons 1–2 — waiting for approval" in done
+
+
+def test_tv_mode_undoes_an_override_rule_and_answers_an_empty_pick(friend):
+    tv = {"User-Agent": TV_UA}
+    friend.seerr.override = 4
     friend.post("/media/title/movie/701/request", content="panel=1&profile=5", headers={**HX, **FORM, **tv},
                 follow_redirects=False)
-    assert [c[3] for c in sent(friend.seerr)] == [{"mediaType": "tv", "mediaId": 100, "seasons": "all"},
-                                                   {"mediaType": "movie", "mediaId": 701}]
-    assert friend.seerr.puts() == [] and friend.side == []
+    [put] = friend.seerr.puts()
+    assert put[4] == {"X-Api-Key": KEY} and put[3]["profileId"] == 5
+    assert friend.seerr.requests[-1]["profileId"] == 5
     still_pending_and_theirs(friend.seerr)
-    assert "Requested — waiting for approval" in done and "Requested in" not in done
+    r = friend.post("/media/title/tv/100/request", content="panel=1&profile=5", headers={**HX, **FORM, **tv},
+                    follow_redirects=False)
+    assert r.status_code == 200 and "Pick at least one season" in r.text and 'class="reqpanel-form"' in r.text
+    assert len(sent(friend.seerr)) == 1
 
 
 def test_panel_and_confirm_leak_nothing(friend):
@@ -308,7 +334,7 @@ def test_panel_and_confirm_leak_nothing(friend):
 # ---- JY-231 (2026-10-27): the 4K pick is marked for B.'s approval; nothing on the friend path approves ----
 # B., 2026-10-27: "JY-231: go approve" - the 4K policy stays approval only: nothing auto-approves, and B.'s approval on
 # Activity > Requests (JY-230) is the control. JY-230 reads the pending request's own profileId + seasons ("4K · Seasons
-# 1–2"); these pins prove the friend path writes exactly that, pending (desktop and phone; TV mode is unchanged).
+# 1–2"); these pins prove the friend path writes exactly that, pending (desktop, phone and, since JY-255, TV mode).
 
 def test_a_4k_seasons_pick_lands_pending_and_marked_for_b(friend):
     done = post(friend, "/media/title/tv/100/request", "panel=1&seasons=1&seasons=2&profile=5").text

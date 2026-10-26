@@ -7,8 +7,9 @@
    profile) and, for a show, the title page's season ticks ("All seasons" ticked so one click still requests the show;
    no "+ future": Sonarr never follows here, Q19; seasons on disk disabled; Specials left out - the form check refuses
    season 0). Request keeps data-first. The season list scrolls inside the panel.
-   JY-231 (2026-10-27): desktop and phone only. In TV mode the panel stays as it was (Request + Cancel, a show whole);
-   B.: "stop any tv development please" - the TV picks are deferred. #}
+   JY-231 (2026-10-27) deferred TV mode (B.: "stop any tv development please"); JY-255 (2026-10-27, B.: "Go for tv
+   change again.") brings it back: the same form in TV mode, where Up from Request reaches the picks and OK toggles a
+   tick or chip (tv.js). #}
 {% from "_poster.html" import poster %}
 {% set base = "/media/title/" ~ t.kind ~ "/" ~ t.tmdb_id %}
 <div class="reqpanel">
@@ -17,13 +18,7 @@
     {% if t.title %}<h2 class="reqpanel-title">{{ t.title }}</h2>{% endif %}
     {% if t.year or t.title %}<p class="metaline">{% if t.year %}{{ t.year }}<span class="sep"> · </span>{% endif %}{{ "TV" if t.kind == "tv" else "Film" }}</p>{% endif %}
     {% if t.overview %}<p class="reqpanel-ov">{{ t.overview | truncate(220) }}</p>{% endif %}
-    {% if state == "request" and tv_mode(request) %}{# JY-231 (B., 2026-10-27: "stop any tv development please"): TV mode keeps the panel it had before RQ2 #}
-    <form class="reqpanel-btns" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#req-panel" hx-swap="innerHTML">
-      <input type="hidden" name="panel" value="1">{% if t.kind == "tv" %}<input type="hidden" name="seasons" value="all">{% endif %}
-      <button class="btn btn-white" type="submit" data-first>Request</button>
-      <button class="btn btn-ghost" type="button" data-close onclick="this.closest('dialog').close()">Cancel</button>
-    </form>
-    {% elif state == "request" %}
+    {% if state == "request" %}
     <form class="reqpanel-form" method="post" action="{{ base }}/request" hx-post="{{ base }}/request" hx-target="#req-panel" hx-swap="innerHTML"{% if t.kind == "tv" %} onchange="var a=this.querySelector('input[value=all]'),t=event.target;if(t===a){if(a.checked)this.querySelectorAll('.seasonpick input').forEach(function(i){i.checked=false})}else if(t.name==='seasons'&&t.checked){a.checked=false}"{% endif %}>
       <input type="hidden" name="panel" value="1">
       {% if t.kind == "tv" %}

@@ -1356,3 +1356,18 @@ request while one is being sent says "Already sending that one". The "requested 
 ids, else by the `JELLYFIN_USER*` names), else the friend's name; the connector never stores an email there. The
 flash params accept ASCII digits only (a crafted superscript digit no longer 500s the page). The in-memory decision
 notes are dropped once the sweep shows the request decided.
+
+## 2026-10-27 — JY-255 RQ2 friend pick in TV mode
+
+B., 2026-10-27: "Go for tv change again." (JY-231 had deferred the TV picks: "stop any tv development please".) TV mode
+now gets JY-231's request form: the Discover panel carries the Quality chips and a show's season ticks, the title page's
+confirm step the chips, and the TV-mode request sends `profileId` and the open ticked `seasons` as the friend's own
+pending request, with `keep_pick` undoing an override rule. `media_discover._tv` and the panel's TV-only Request + Cancel
+branch are gone. Ported by hand from `joey-rq2-friendpick` 2428063 onto main's `tv.js` (JY-187 / 192 / 194 / 248 / 250):
+OK (Enter) on a focused tick or radio chip clicks it instead of submitting the form (after JY-194's search-field Enter),
+and `keepInBoxes` scrolls a focused control into its scrolling box inside the open dialog (the season list). `tv.css`
+gains RQ2's panel block (the dialog scrolls within the viewport, 40 px tick and chip boxes, the ring on the label, not
+the 1 px radio), with the season status words raised from 16 to 18 px (JY-188). Tests: `test_tv_mode.py` (four node
+tests on the shared fake page: D-pad walk, OK toggles, the season box scroll, Back closes onto the poster; a gate-run
+needle test), `test_guest_request_picks.py` (TV mode carries the picks; the JY-231 "TV mode unchanged" pin replaced, dated
+in the spec). Spec `docs/specs/JY-255-rq2-tv-mode.md`.

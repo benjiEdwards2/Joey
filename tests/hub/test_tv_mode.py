@@ -261,8 +261,9 @@ El.prototype.setAttribute = function (a, v) { this.attrs[a] = String(v); };   /*
 Object.defineProperty(El.prototype, 'isConnected', { get: function () {
   var p = this; while (p.parentElement) p = p.parentElement; return p === html; } });
 El.prototype.getBoundingClientRect = function () {
-  var t = this.top - (this.closest('.topbar') ? 0 : window.scrollY);
-  return { left: this.left, top: t, width: 100, height: 40, right: this.left + 100, bottom: t + 40 };
+  var t = this.top - (this.closest('.topbar') ? 0 : window.scrollY), h = this.h || 40;
+  for (var p = this.parentElement; p; p = p.parentElement) t -= p.scrollTop || 0;   /* JY-255: a scrolled box */
+  return { left: this.left, top: t, width: 100, height: h, right: this.left + 100, bottom: t + h };
 };
 function simple(el, s) {
   var m = /^([a-z]+)?(.*)$/.exec(s), part, re = /\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]|:not\(([^)]*)\)/g;
@@ -323,8 +324,24 @@ var window = {
                     setItem: function (k, v) { store[k] = String(v); } }
 };
 function getComputedStyle(el) {
-  return { visibility: 'visible', display: 'block', position: el.cls.has('topbar') ? 'sticky' : 'static' };
+  return { visibility: 'visible', display: 'block', position: el.cls.has('topbar') ? 'sticky' : 'static',
+           overflowY: el.style.overflowY || 'visible' };
 }
+/* JY-255: the request panel's form controls - an input's type, checked, and click() as the browser runs it (a tick
+   flips, a radio is set and its group cleared, then the element's own onclick) */
+Object.defineProperty(El.prototype, 'type', { get: function () { return this.attrs.type || ''; } });
+El.prototype.click = function () {
+  var self = this, t = this.attrs.type;
+  this.clicks = (this.clicks || 0) + 1;
+  if (this.tagName === 'INPUT' && t === 'checkbox') this.checked = !this.checked;
+  if (this.tagName === 'INPUT' && t === 'radio') {
+    (this.closest('form') || html).querySelectorAll('input').forEach(function (i) {
+      if (i.attrs.type === 'radio' && i.attrs.name === self.attrs.name) i.checked = false;
+    });
+    this.checked = true;
+  }
+  if (this.onclick) this.onclick();
+};
 """
 
 FOCUS_HARNESS = FAKE_DOM + r"""
@@ -792,6 +809,155 @@ out.same_again = request('keyup');
 """)
     assert out == {"enter_search": False, "late_keyup": True, "keyup_after_swap": True, "new_query": False,
                    "back_search": False, "same_again": False}
+
+
+# ---- JY-255 (2026-10-27): RQ2's friend pick in TV mode - the request panel's chips and ticks on the D-pad ----
+# B.: "Go for tv change again." The panel below is _guest_request_panel.html in TV mode, in small: inside the open
+# #req-dialog, "All seasons", a scrolling season list (Season 2 on disk = disabled; Season 6 below the box's bottom
+# edge), the Quality chips (1080p default, 4K), then Request (data-first) and Cancel (data-close; its onclick closes the
+# dialog). opened() is the Discover page's own script: the poster that opened it is the dialog's _opener.
+REQ_PANEL = r"""
+var dlg, box, req, cancel;
+function tick(name, value, top, left, extra) {
+  var attrs = { type: 'checkbox', name: 'seasons', value: value };
+  for (var k in (extra || {})) attrs[k] = extra[k];
+  var i = new El('input', { name: name, attrs: attrs, top: top, left: left });
+  return new El('label', { top: top, left: left, kids: [i] });
+}
+function chip(name, value, left, on) {
+  var i = new El('input', { name: name, attrs: { type: 'radio', name: 'profile', value: value }, top: 560, left: left });
+  i.checked = !!on;
+  return new El('label', { cls: ['chip'], top: 560, left: left, kids: [i] });
+}
+function opened(opener) {
+  box = new El('div', { cls: ['seasonpick'], top: 380, left: 100,
+    kids: [tick('s1', '1', 390, 100), tick('s2', '2', 390, 250, { disabled: '' }), tick('s3', '3', 440, 100),
+           tick('s4', '4', 440, 250), tick('s5', '5', 490, 100), tick('s6', '6', 490, 250)] });
+  var st = 0;   /* the browser clamps scrollTop to 0 .. scrollHeight - clientHeight */
+  Object.defineProperty(box, 'scrollTop', { get: function () { return st; },
+                                            set: function (v) { st = Math.max(0, Math.min(210, v)); } });
+  box.h = 90; box.scrollHeight = 300; box.clientHeight = 90; box.style.overflowY = 'auto';
+  var all = tick('all', 'all', 330, 100);
+  all.children[0].checked = true;
+  req = new El('button', { name: 'request', attrs: { type: 'submit', 'data-first': '' }, top: 620, left: 100 });
+  cancel = new El('button', { name: 'cancel', attrs: { type: 'button', 'data-close': '' }, top: 620, left: 300 });
+  var form = new El('form', { cls: ['reqpanel-form'], top: 330, kids: [all, box,
+    new El('div', { cls: ['chips', 'qualitypick'], top: 560, kids: [chip('q4', '4', 100, true), chip('q5', '5', 250)] }),
+    new El('div', { cls: ['reqpanel-btns'], top: 620, kids: [req, cancel] })] });
+  dlg = new El('dialog', { name: 'dialog', cls: ['reqdlg'], attrs: { id: 'req-dialog', open: '' }, top: 200,
+    kids: [new El('div', { attrs: { id: 'req-panel' }, top: 200, kids: [new El('div', { cls: ['reqpanel'], top: 200, kids: [form] })] })] });
+  dlg.open = true;
+  dlg.close = function () { delete dlg.attrs.open; dlg.open = false; };
+  cancel.onclick = function () { dlg.close(); };
+  dlg._opener = opener;
+  body.append(dlg);
+  req.focus();                                  /* media_discover_guest.html focuses [data-first] after the swap */
+  fire('htmx:afterSettle', {}); flush();
+}
+function el(name) { return all(html, '*').filter(function (e) { return e.name === name; })[0]; }
+function boxed(name) {   /* the tick's box inside the season list's visible area */
+  var r = el(name).getBoundingClientRect(), b = box.getBoundingClientRect();
+  return r.top >= b.top && r.bottom <= b.bottom;
+}
+"""
+
+
+def run_panel(gc, tmp_path, scenario: str) -> dict:
+    return run_tv_pages(gc, tmp_path, REQ_PANEL + scenario)
+
+
+def test_the_request_panel_chips_and_ticks_are_reachable_with_the_d_pad_under_node(gc, tmp_path):
+    """Request is focused first (one OK sends the defaults); Up reaches the Quality chips, then the season ticks (a
+    disabled season is passed over), then "All seasons"; Left / Right move between chips with the radio's own arrow
+    change prevented; Down comes back to Request. Only the dialog's controls take part."""
+    out = run_panel(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+key('ArrowRight'); var poster = document.activeElement;
+opened(poster);
+out.first = now();
+out.walk = [];
+['ArrowUp', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowUp', 'ArrowRight', 'ArrowUp', 'ArrowUp', 'ArrowDown']
+  .forEach(function (k) { key(k); out.walk.push(now()); });
+key('ArrowDown'); key('ArrowDown'); key('ArrowDown');
+out.arrow_stopped = press('ArrowRight');
+out.on_chip = now(); out.q4_still = el('q4').checked === true; out.q5_untouched = !el('q5').checked;
+key('ArrowLeft'); key('ArrowDown'); out.back_down = now();
+""")
+    assert out["first"] == "request"
+    assert out["walk"] == ["q4", "q5", "q4", "s5", "s3", "s4", "s1", "all", "s1"]   # s2 (on disk) is never a stop
+    assert out["arrow_stopped"] is True and out["on_chip"] == "q5"
+    assert out["q4_still"] and out["q5_untouched"]                                  # moving never picks
+    assert out["back_down"] == "request"
+
+
+def test_ok_toggles_a_tick_or_chip_and_never_submits_under_node(gc, tmp_path):
+    """OK (Enter) on a tick or a chip clicks it (the browser then runs the form's "All seasons" onchange) and stops the
+    implicit form submit; OK on Request is left to the browser (it submits). Enter on the search field is still JY-194's
+    search."""
+    out = run_panel(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+opened(document.activeElement);
+key('ArrowUp'); key('ArrowRight');
+out.on = now(); out.chip_stopped = press('Enter'); out.q5 = el('q5').checked; out.q4 = el('q4').checked;
+key('ArrowUp');
+out.tick_on = now(); out.tick_stopped = press('Enter'); out.tick = el(now()).checked === true;
+out.untick_stopped = press('Enter'); out.untick = !el(out.tick_on).checked; out.clicks = el(out.tick_on).clicks;
+key('ArrowDown'); key('ArrowLeft'); key('ArrowDown');
+out.req_on = now(); out.req_stopped = press('Enter'); out.req_clicks = req.clicks || 0;
+""")
+    assert out["on"] == "q5" and out["chip_stopped"] is True and out["q5"] is True and out["q4"] is False
+    assert out["tick_stopped"] is True and out["tick"] is True
+    assert out["untick_stopped"] is True and out["untick"] is True and out["clicks"] == 2
+    assert out["req_on"] == "request" and out["req_stopped"] is False and out["req_clicks"] == 0
+
+
+def test_a_tick_below_the_season_box_is_scrolled_into_it_under_node(gc, tmp_path):
+    """Focus never scrolls (preventScroll), so the focused tick is scrolled into the season list's box: Season 5 / 6
+    sit under the box's bottom edge until reached, and going back up scrolls the box back."""
+    out = run_panel(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+opened(document.activeElement);
+out.s5_before = boxed('s5');
+key('ArrowUp'); key('ArrowUp');
+out.on = now(); out.s5_after = boxed('s5'); out.scrolled = box.scrollTop;
+key('ArrowUp'); key('ArrowUp');
+out.top_on = now(); out.s1_shown = boxed('s1'); out.scroll_back = box.scrollTop;
+""")
+    assert out["s5_before"] is False
+    assert out["on"] == "s5" and out["s5_after"] is True and out["scrolled"] > 0
+    assert out["top_on"] == "s1" and out["s1_shown"] is True and out["scroll_back"] < out["scrolled"]
+
+
+def test_back_from_a_chip_or_tick_closes_the_panel_onto_its_poster_under_node(gc, tmp_path):
+    """Back (the shell asks window.joeyTV.back() first) inside the panel, from a chip or a tick, closes the dialog with
+    its Cancel and gives the focus back to the poster that opened it; nothing in the panel is remembered."""
+    out = run_panel(gc, tmp_path, r"""
+load('/media/discover', function () { discover(''); });
+key('ArrowRight'); key('ArrowRight'); var poster = document.activeElement;
+opened(poster);
+key('ArrowUp');
+out.from = now(); out.back = window.joeyTV.back(); out.open = dlg.open; out.on = now();
+opened(poster);
+key('ArrowUp'); key('ArrowUp');
+out.from2 = now(); out.back2 = window.joeyTV.back(); out.open2 = dlg.open; out.on2 = now();
+out.after = window.joeyTV.back();
+""")
+    assert out["from"] == "q4" and out["back"] is True and out["open"] is False and out["on"] == "d3"
+    assert out["from2"] == "s5" and out["back2"] is True and out["open2"] is False and out["on2"] == "d3"
+    assert out["after"] is False                                                     # the shell goes back then
+
+
+def test_the_tv_assets_carry_the_request_pick_rules(gc):
+    """Gate-run (no node in the gate): tv.js names the OK toggle and the scroll-in-box helper; tv.css carries the TV
+    panel rules (the dialog scrolls inside the viewport, the season list scrolls, the ring on the label, not the 1 px
+    radio) - all within the JY-188 floor (test_jy188_every_font_size_in_tv_css_is_at_least_18px)."""
+    js = gc.get("/static/tv.js").text
+    assert "/^(checkbox|radio)$/i.test(" in js and "function keepInBoxes(" in js and "keepInBoxes(el);" in js
+    css = _tv_css(gc)
+    assert re.search(r"html\.tv \.reqdlg \{ max-height: calc\(100vh - 2 \* var\(--tv-my\)\); overflow-y: auto; \}", css)
+    assert re.search(r"html\.tv \.reqpanel \.seasonpick \{[^}]*overflow-y: auto", css)
+    assert re.search(r"html\.tv label:has\(> input\.tv-focus\), html\.tv label:has\(> input:focus-visible\) \{ outline: 4px solid var\(--tv-ring\)", css)
+    assert re.search(r"html\.tv \.qualitypick \.chip \{[^}]*font-size: 18px", css)
 
 
 # ---- JY-188 (U2): density B, compact chrome, the 18 px floor, scrim, contrast, sign-in collapse, 404 layout ----

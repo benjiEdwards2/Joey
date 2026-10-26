@@ -187,7 +187,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-252 | Deploy gate back toward ~5 min (it rose to ~7.5 min after the TV round) | Tooling | M | [x] shipped | NAS history.log dur 435-480 s vs 280-300 s on 2026-10-24 · PR #198 | [spec](docs/specs/JY-252-faster-gate.md) |
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
-| JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | idea | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." | — |
+| JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | [x] shipped | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." · PR #212 | [spec](docs/specs/JY-255-rq2-tv-mode.md) |
 
 ### NAS / stack
 

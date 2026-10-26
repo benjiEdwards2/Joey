@@ -1,6 +1,6 @@
 # JY-255 RQ2 friend pick in TV mode
 
-Status: building
+Status: shipped 2026-10-27
 Size: M
 Live risk: arr/Seerr/qBittorrent write (the same Seerr writes as JY-231, now also sent from TV mode: the friend's own pending POST with `profileId` + `seasons`, and the admin-key PUT that keeps the pick)
 Area: `hub/static/tv.js`, `hub/static/tv.css` (one tail block, no tokens), `hub/media_discover.py` (the JY-231 TV-mode gate), `hub/templates/_guest_request_panel.html`, `hub/templates/_request_block.html` (comment), `hub/static/control-surface.css` (one comment line, no tokens), `hub/README.md` "Requests", `docs/hub-changelog.md`, `tests/hub/test_guest_request_picks.py`, `tests/hub/test_tv_mode.py`.
@@ -60,3 +60,8 @@ On the preview, as a friend:
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #212, squash-merged as `7726a92` (7726a9206940c68c1cc41752701a645d74124283).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

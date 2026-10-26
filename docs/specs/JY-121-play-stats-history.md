@@ -1,6 +1,6 @@
 # JY-121 Merge play stats into History
 
-Status: spec (built as the recommended option for B.'s morning review, 2026-10-26)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/media_nav.py`, `hub/templates/media_diary.html`, `hub/templates/media_server_history.html`, `hub/templates/_history_switch.html` (new), `hub/static/control-surface.css` (three `.histseg` lines, no token change), `hub/README.md`, `tests/hub/`
@@ -51,3 +51,8 @@ See "Questions for B.". Pending B.'s pick; built as A.
 - Phone: the switch fits on one line above the month card.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #190, squash-merged as `5c9fcd2` (5c9fcd218ec08b246628fd3d01375a8709f20b1f).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: JY-246: A · JY-120: A · JY-151: A · JY-150: A · JY-121: A · JY-133: A · JY-134: A · JY-052: A · JY-053: A A A A · JY-230: go · JY-231: go approve · JY-232: go s1 · deploy"
+- Follow-ups: none

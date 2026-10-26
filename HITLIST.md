@@ -103,7 +103,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-118 | Guest / crew names linked | Media | M | parked | Plain text now; costs extra reads (decision) | — |
 | JY-119 | Off-server shows get episode ratings | Media | S | [x] shipped | Warm-up prefetches no episode ratings today; B. picks A/B/C · PR #124 | [spec](docs/specs/JY-119-offserver-episode-ratings.md) |
 | JY-120 | Her view with no list: wording | Media | S | [x] shipped | "Nothing left to watch" / "Nothing in progress" (decision) · PR #189 | [spec](docs/specs/JY-120-her-view-no-list-wording.md) |
-| JY-121 | Merge play stats into History | Media | S | idea | Nav-tidy leftover | — |
+| JY-121 | Merge play stats into History | Media | S | [x] shipped | Nav-tidy leftover · PR #190 | [spec](docs/specs/JY-121-play-stats-history.md) |
 | JY-122 | Manifest shortcut "TV Shows" | Media | S | [x] shipped | Nav-tidy leftover · PR #83 | [spec](docs/specs/JY-122-manifest-tv-shows-word.md) |
 | JY-123 | Naming: Movies / My films / TV show; "Not on server" vs "Not on your server" | Media | S | parked | Left open in the 2026-10-09 tidy review (decision) | — |
 | JY-230 | RQ1 Approve / Decline pending Seerr requests on Activity (edit quality + seasons first) | Media | L | spec | Built 2026-10-22 on `joey-rq1-approve` (37032e8, never reviewed); B.'s asks in archived LD DECISIONS; Seerr write · live | — |

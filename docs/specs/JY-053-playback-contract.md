@@ -1,6 +1,6 @@
 # JY-053 Playback-session endpoints (contract first)
 
-Status: building
+Status: shipped 2026-10-27
 Size: M
 Live risk: none while `PLAYER_API` is off (the default, and how this item ships). Turned on, progress and stop write the household's playback state to Jellyfin: that switch belongs to JY-054, live.
 Area: `hub/player_api.py` (new), one router line in `hub/main.py`, the PRIVATE entries in `hub/guest.py`, `tests/hub/test_player_api.py` (new), two placeholders in `tests/hub/test_guest_routes.py`, `docs/playback-contract.md` (new), this spec, `hub/README.md`, `docs/connector-contract.md` (the twentieth exception), `deploy/.env.example` (three commented keys)
@@ -122,4 +122,8 @@ endpoint 1's `EnableDirectPlay` text matches Q4; `EnableSubtitlesInManifest` add
 body is capped while read (`test_a_chunked_body_is_capped_while_it_is_read`); `reported` is written under the lock.
 
 ## Shipped notes
-Not yet.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #188, squash-merged as `e2ecc8d` (e2ecc8d04fb249b2cedefe87978c08f29dc693dd).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

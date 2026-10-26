@@ -540,7 +540,7 @@
       q('credits').addEventListener('click', function () {
         dismissed = true;
         upnext.hidden = true;
-        if (countdown !== null) win.clearInterval(countdown);
+        if (countdown !== null) { win.clearInterval(countdown); countdown = null; }
       });
     }
 

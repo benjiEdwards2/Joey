@@ -37,6 +37,7 @@ import requests
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
+from starlette.routing import Match, Route
 
 from hub import guest, upstream
 from hub.identity import resolve_identity
@@ -517,6 +518,35 @@ async def tracks(request: Request, item_id: str):
     except PlayError as err:
         return _error(err)
     return _no_store(JSONResponse(answer))
+
+
+class FlagOffRoute(Route):
+    """JY-054 verifier must-fix (2026-10-27): while PLAYER_API is off, EVERY method on a player prefix (TRACE,
+    PROPFIND, a made-up one) answers what an unknown path answers. The method-filtered routes left those a 405 with an
+    Allow header naming the route. Registered FIRST in hub.main's router: off, it matches any method on its path and
+    raises the router's own 404 (the app's handler draws it, byte for byte the unknown path's); on, it never matches,
+    so the routes behind it answer exactly as before. Its `methods` mirror the catch-all's, so the guest tables
+    classify it with the same (method, path) pairs."""
+
+    def __init__(self, path: str):
+        super().__init__(path, endpoint=_flag_off, methods=ALL_METHODS, include_in_schema=False)
+
+    def matches(self, scope):
+        if scope.get("type") == "http" and not enabled() and self.path_regex.match(scope.get("path", "")):
+            return Match.FULL, {}
+        return Match.NONE, {}
+
+    async def handle(self, scope, receive, send):
+        raise HTTPException(404)
+
+
+async def _flag_off(request: Request):   # never called: FlagOffRoute.handle answers first
+    raise HTTPException(404)
+
+
+def flag_off_routes(*prefixes: str) -> list:
+    """`<prefix>` and `<prefix>/{rest:path}` for each player prefix (this API's and the player page's)."""
+    return [FlagOffRoute(p) for prefix in prefixes for p in (prefix, f"{prefix}/{{rest:path}}")]
 
 
 @router.api_route(PREFIX, methods=ALL_METHODS, include_in_schema=False)

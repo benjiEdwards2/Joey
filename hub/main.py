@@ -134,6 +134,9 @@ app.include_router(tv_app.router)   # Joey TV WP-B8: /app download + version.jso
 app.include_router(guest_signin.router)   # Joey TV WP-B2: the media front's sign-in (404 on the private front)
 app.include_router(player_api.router)   # JY-053: /api/play/* (docs/playback-contract.md), 404 while PLAYER_API is off
 app.include_router(media_watch.router)   # JY-054: /media/watch/<item>, 404 while PLAYER_API is off
+# JY-054 verifier: with PLAYER_API off, ANY method under /api/play and /media/watch is the unknown-path 404 (no 405 /
+# Allow); first in the router so it answers before the method-filtered routes, and never matches while the flag is on.
+app.router.routes[0:0] = player_api.flag_off_routes(player_api.PREFIX, media_watch.PREFIX)
 app.mount("/static", StaticFiles(directory=str(HUB_DIR / "static")), name="static")
 
 

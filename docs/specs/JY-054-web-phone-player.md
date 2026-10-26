@@ -151,5 +151,11 @@ Both reviews passed. Should-fixes made: `Referrer-Policy: no-referrer` header an
 fresh session at its position. Nits: one countdown at most, the up-next card hides again after seeking back, the
 retry / recovery allowance resets once playing again, the right mouse button never toggles play.
 
+## Opus verifier (2026-10-27)
+Must-fix: with the flag off, TRACE, PROPFIND and made-up methods on `/media/watch*` (and JY-053's `/api/play*`) answered
+405 with an Allow header. Fixed with `player_api.FlagOffRoute`, registered first in the router: off, any method on either
+prefix raises the router's own 404 (byte for byte the unknown path's); on, it never matches. Red first:
+`tests/hub/test_player_flag_methods.py` failed 3 of 6 before the fix. Nit: Watch credits clears the countdown to null.
+
 ## Shipped notes
 Not yet.

@@ -15,7 +15,9 @@ ordinary Joey 404 page on the media front), before auth, body parsing or any Jel
 changes while it is off. The flag is read on every request: no restart is needed to turn it off. A wrong method on a
 real path, any other path under `/api/play/`, and bare `/api/play` land on a method-agnostic catch-all that answers the
 same 404, so there is never a `405`, an `Allow` header or a `307` to `/api/play/` to say a route exists (review rounds
-1 and 2, 2026-10-26).
+1 and 2, 2026-10-26). Since 2026-10-27 (JY-054 verifier) that holds for every method, TRACE, PROPFIND and
+made-up ones included: `player_api.FlagOffRoute`, first in the router, answers the router's own 404 while the flag is off
+and never matches while it is on.
 
 ## Who may call
 

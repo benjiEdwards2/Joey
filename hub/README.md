@@ -193,9 +193,22 @@ Friends request through Discover and every friend request waits for B.'s approva
   request (never on a page view), then one re-lookup; still none = "Requests aren't set up for you yet". A failed lookup
   sends nothing: never the bare key for a friend.
 - **Pending only.** A friend whose Seerr user has ADMIN, MANAGE_REQUESTS or any AUTO_APPROVE bit is refused before sending
-  (fix it in Seerr → Users → Permissions). On the media front no quality profile is sent or enforced and Sonarr never
-  follows an "All seasons" request. B.'s own request (private front, or the household alias on the media front) is
-  unchanged: admin key only.
+  (fix it in Seerr → Users → Permissions). On the media front Sonarr never follows an "All seasons" request and the
+  quality safety net (`media_quality.ensure`) never runs. B.'s own request (private front, or the household alias on the
+  media front) is unchanged: admin key only.
+- **Quality and seasons (WP-RQ2, 2026-10-22).** As Seerr's request dialog: the Discover panel and the title page's
+  confirm step carry the Quality chips (`media_quality.profiles`, the default preselected) and, for a show, the season
+  ticks ("All seasons" ticked in the panel, no "+ future", seasons on disk disabled, Specials not offered). The pick
+  rides the friend's own POST (`profileId`, `seasons`): Seerr 3.5 keeps a REQUEST-only user's `profileId` (only an
+  override rule replaces it); if the 201 answer carries another profile, `media_guest_requests.keep_pick` PUTs the pick
+  with the admin key alone (`PUT /api/v1/request/{id}`, pending requests only; the status is never touched). Server
+  side, an unknown profile id falls back to the default and only ticked seasons the show has that are not on disk are
+  sent (none left = "Pick a season that isn't here yet"). B. sees the pick on the pending request (JY-230 / WP-RQ1 on
+  Activity › Requests; until it merges, in Seerr's own UI). Nothing auto-approves (JY-231, B. 2026-10-27). The answer
+  reads "Requested in 4K · Seasons 1–2 — waiting for approval" (quality named when not the default). Desktop and phone
+  only (JY-231): in TV mode the panel, the confirm step and the request stay as before RQ2 (no Quality chips, a show
+  whole, no profile sent; `media_discover._tv`). B., 2026-10-27: "stop any tv development please"; the TV picks are
+  deferred.
 - **Status, not controls.** Nothing on the media front approves, declines or removes. A friend sees their own requests
   (`GET /api/v1/request?requestedBy=<id>`, cached 60 s) as Requested / Approved / Declined on the title page and as
   Discover chips.

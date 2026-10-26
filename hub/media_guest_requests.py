@@ -9,13 +9,21 @@ Every friend request waits for B.'s approval. The W3 probe (JoeyTV DECISIONS 202
   the whole map cached USER_TTL. A friend with no Seerr user is imported on their FIRST REQUEST - never on a page view
   - by `POST /api/v1/user/import-from-jellyfin` `{"jellyfinUserIds": [<that friend only>]}` (201 with only the new
   users), then looked up once more; still none -> NOREQUESTS ("Requests aren't set up for you yet").
-* pending only: a friend whose Seerr user could approve (ADMIN, MANAGE_REQUESTS, AUTO_APPROVE*, see NEVER) is refused
+* pending only: a friend whose Seerr user could approve (ADMIN, MANAGE_REQUESTS, AUTO_APPROVE* incl. the 4K bits, see NEVER) is refused
   before anything is sent (NOREQUESTS); B. fixes the permissions in Seerr (runbook R1).
 * decline is B.'s, in Seerr: nothing here declines, approves or removes. A friend sees their own requests' state (their
   `GET /api/v1/request?requestedBy=<id>` list, MINE_TTL) as Requested / Approved / Declined.
 
 This module only reads Seerr and, for a request, imports one user; the request POST itself stays in
-hub.media_discover._send (one call path). Failures log the exception TYPE only (requests errors embed the URL)."""
+hub.media_discover._send (one call path). Failures log the exception TYPE only (requests errors embed the URL).
+
+WP-RQ2 (2026-10-22): a friend picks the quality (the arr profiles, hub.media_quality.profiles) and, for a show, the
+seasons - Seerr's request dialog. Both ride the friend's own POST (`profileId`, `seasons`): Seerr 3.5's createRequest
+keeps a REQUEST-only user's `profileId` (server/entity/MediaRequest.ts, `let profileId = requestBody.profileId`; only an
+override rule replaces it for a user without REQUEST_ADVANCED). When the 201 answer's `profileId` is not the pick
+anyway, `keep_pick` puts it back with the admin key alone (`PUT /api/v1/request/{id}`; server/routes/request.ts: needs
+MANAGE_REQUESTS for another user's request, edits PENDING requests only, never changes the status). Nothing here
+approves: the request stays pending for B., who sees the friend's choice on it (WP-RQ1 reads `profileId` + `seasons`)."""
 from __future__ import annotations
 
 import logging
@@ -35,7 +43,10 @@ IMPORT_PATH = "/api/v1/user/import-from-jellyfin"
 # Seerr permission bits (Overseerr's Permission enum, unchanged in Seerr 3.5): a friend holding any of these could
 # approve their own request, so they are refused instead (pending only, DECISIONS B #19).
 ADMIN, MANAGE_REQUESTS, AUTO_APPROVE, AUTO_APPROVE_MOVIE, AUTO_APPROVE_TV = 2, 16, 128, 256, 512
-NEVER = ADMIN | MANAGE_REQUESTS | AUTO_APPROVE | AUTO_APPROVE_MOVIE | AUTO_APPROVE_TV
+# JY-231 (B., 2026-10-27: "JY-231: go approve" - 4K is approval only): the 4K auto-approve bits are refused too.
+AUTO_APPROVE_4K, AUTO_APPROVE_4K_MOVIE, AUTO_APPROVE_4K_TV = 32768, 65536, 131072
+NEVER = (ADMIN | MANAGE_REQUESTS | AUTO_APPROVE | AUTO_APPROVE_MOVIE | AUTO_APPROVE_TV
+         | AUTO_APPROVE_4K | AUTO_APPROVE_4K_MOVIE | AUTO_APPROVE_4K_TV)
 
 JF_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _clock = time.monotonic   # test seam
@@ -194,6 +205,86 @@ def forget_mine(seerr_id: int | None) -> None:
 def viewer_mine() -> dict[tuple[str, int], int]:
     """The signed-in friend's own requests ({} for the household, the private front, or a friend not yet in Seerr)."""
     return mine(known_seerr_id(viewer_friend()))
+
+
+# ---- the friend's picks (WP-RQ2) ----
+
+def pick(kind: str, raw) -> dict | None:
+    """The quality a media-front request names (`raw`: the form's `profile` or None): one of
+    hub.media_quality.profiles(kind), else the default - never a 422 here; None when the profile list is unknown
+    (nothing is sent, Seerr's own default applies)."""
+    from hub import media_quality   # late: it imports media_discover, which this module imports
+    rows = media_quality.profiles(kind)
+    got = media_quality.by_id(rows, int(raw) if str(raw or "").isdigit() and len(str(raw)) <= 9 else None)
+    return got or next((r for r in rows if r.get("default")), None)
+
+
+def open_seasons(t: dict | None, seasons):
+    """The ticked seasons a friend may request: "all" as is; else the ints the show has that are not on disk
+    (`disabled`), in order. None when the show could not be read; [] when nothing ticked is requestable."""
+    if seasons == "all":
+        return "all"
+    if not isinstance(t, dict):
+        return None
+    ok = {s["number"] for s in t.get("seasons") or [] if not s.get("disabled")}
+    return [n for n in seasons if n in ok]
+
+
+def span_words(nums: list[int]) -> str:
+    """[1, 2, 3, 5] -> "Seasons 1–3, 5"; [4] -> "Season 4"."""
+    runs: list[list[int]] = []
+    for n in sorted(nums):
+        if runs and n == runs[-1][1] + 1:
+            runs[-1][1] = n
+        else:
+            runs.append([n, n])
+    text = ", ".join(f"{a}–{b}" if b > a else str(a) for a, b in runs)
+    return ("Seasons " if len(nums) > 1 else "Season ") + text
+
+
+def sent_words(prof: dict | None, seasons, pending: bool) -> str:
+    """The panel / title-page line after a media-front request: "Requested in 4K · Seasons 1–2 — waiting for approval".
+    The quality is named when it is not the default; the seasons when they are not "all"."""
+    text = "Requested" + (f" in {prof['name']}" if prof and not prof.get("default") else "")
+    if isinstance(seasons, list) and seasons:
+        text += " · " + span_words(seasons)
+    return text + (" — waiting for approval" if pending else "")
+
+
+def keep_pick(answer: dict, kind: str, pid: int) -> str:
+    """After the friend's POST (201 `answer`): when Seerr stored another `profileId` than the pick (an override rule),
+    PUT the pick with the admin key alone - the friend never holds that power. A request that is not pending is left
+    alone. -> "kept" | "put" | "skipped" | "failed"."""
+    if answer.get("profileId") == pid:
+        return "kept"
+    rid, status = answer.get("id"), answer.get("status")
+    if not isinstance(rid, int) or isinstance(rid, bool) or rid <= 0 or status != 1:
+        log.warning("friend request pick not applied: request not pending")
+        return "skipped"
+    body: dict = {"mediaType": kind, "profileId": pid}
+    for k in ("serverId", "rootFolder", "tags", "languageProfileId"):   # the PUT assigns each one: keep what Seerr chose
+        if answer.get(k) is not None:
+            body[k] = answer[k]
+    if kind == "tv":   # required by the PUT; the seasons Seerr stored for the friend, unchanged
+        nums = [s.get("seasonNumber") for s in answer.get("seasons") or [] if isinstance(s, dict)]
+        body["seasons"] = [n for n in nums if isinstance(n, int) and not isinstance(n, bool)]
+        if not body["seasons"]:
+            log.warning("friend request pick not applied: no seasons in the answer")
+            return "skipped"
+    creds = md._creds()
+    if not creds:
+        return "failed"
+    try:
+        resp = md.upstream.session("seerr").put(f"{creds[0]}/api/v1/request/{rid}", json=body,
+                                                headers={"X-Api-Key": creds[1]}, timeout=md.TIMEOUT)
+    except Exception as exc:  # type only
+        log.warning("friend request pick failed: %s", type(exc).__name__)
+        return "failed"
+    if not 200 <= resp.status_code < 300:
+        log.warning("friend request pick refused: HTTP %s", resp.status_code)
+        return "failed"
+    log.info("friend request pick applied by the admin key")   # never the id, the profile or the user
+    return "put"
 
 
 # ---- the words ----

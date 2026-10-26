@@ -56,7 +56,8 @@ SHELVES = (
 flash_keys("requested", "error", "future")   # the title page after a plain-form Request
 ERRORS = {"exists": "Already requested", "declined": "Seerr declined the request",
           "network": "Couldn't send the request",
-          "norequests": "Requests aren't set up for you yet"}   # Joey TV WP-B4: a friend with no usable Seerr user
+          "norequests": "Requests aren't set up for you yet",   # Joey TV WP-B4: a friend with no usable Seerr user
+          "noseasons": "Pick a season that isn't here yet"}      # WP-RQ2: every ticked season is already on disk
 
 # Long-lived metadata (2026-10-07, media-speed): responses that carry NO user state (ratings, a person's
 # biography, a season's episode list) are kept META_TTL in memory AND on disk (META_CACHE_DIR, one JSON file per
@@ -610,10 +611,18 @@ def request_step(request: Request, kind: str, tmdb_id: int, step: str = "", pane
         return _partial(request, "_request_block.html", **_block(_stub(kind, tmdb_id), "error", "Title unavailable"))
     if step != "confirm":
         return _partial(request, "_request_block.html", **_block(t, "idle"), mine=_guest_mine(kind, tmdb_id))
-    if guest.is_media():   # no Quality chips on the media front: quality is an admin choice (Q19)
+    if _tv(request):   # JY-231: TV mode stays as before RQ2 - no Quality chips (Q19); B. 2026-10-27 "stop any tv development"
         return _partial(request, "_request_block.html", **_block(t, "confirm"), profiles=[])
+    # WP-RQ2 (2026-10-22): the media front shows the Quality chips too - a friend picks, B. approves (was Q19: none)
     from hub import media_quality   # late: it imports this module
     return _partial(request, "_request_block.html", **_block(t, "confirm"), profiles=media_quality.choices(kind))
+
+
+def _tv(request: Request) -> bool:
+    """JY-231 (B., 2026-10-27: "stop any tv development please"): the friend's quality / season pick is desktop and
+    phone only; a TV-mode request (hub.media_front.tv_mode) keeps the flow it had before RQ2."""
+    from hub import media_front   # late, as the other hub imports here
+    return media_front.tv_mode(request)
 
 
 def _guest_mine(kind: str, tmdb_id: int) -> str | None:
@@ -627,8 +636,10 @@ def _guest_mine(kind: str, tmdb_id: int) -> str | None:
 def _guest_panel(request: Request, kind: str, tmdb_id: int, t: dict | None, state: str | None = None,
                  msg: str | None = None) -> HTMLResponse:
     """The request panel (WP-M screen 10): poster, title, year, an overview line and Request - or the title's status
-    and Done. After a POST `state` is "pending" (a friend's request, sent), "sent" (the household's) or "error"."""
-    from hub import media_guest_requests as mgr
+    and Done. After a POST `state` is "pending" (a friend's request, sent), "sent" (the household's) or "error".
+    WP-RQ2 (2026-10-22): Request carries the Quality chips and, for a show, the season ticks; `msg` after a POST is the
+    sent line ("Requested in 4K · Seasons 1–2 — waiting for approval")."""
+    from hub import media_guest_requests as mgr, media_quality
     if state is None:
         if t is None:
             state, msg = "error", "Title unavailable"
@@ -637,7 +648,8 @@ def _guest_panel(request: Request, kind: str, tmdb_id: int, t: dict | None, stat
     chip = mgr.CHIP.get("pending" if state == "sent" else state)
     words = "Requested" if state == "sent" else mgr.PANEL.get(state)
     return _partial(request, "_guest_request_panel.html", t=t or _stub(kind, tmdb_id), state=state, msg=msg,
-                    words=words, chip=chip, oob=chip is not None and state != "request")
+                    words=words, chip=chip, oob=chip is not None and state != "request",
+                    profiles=media_quality.choices(kind) if state == "request" and not _tv(request) else [])
 
 
 # ---- Season episodes (lazy, TV only) ----
@@ -705,12 +717,13 @@ async def _profile_of(request: Request) -> str | None:
 
 
 def _send(kind: str, tmdb_id: int, seasons: list[int] | str, profile_id: int | None = None,
-          user: int | None = None) -> str | None:
+          user: int | None = None, answer: dict | None = None) -> str | None:
     """POST the request to Jellyseerr -> None on success, else an ERRORS code. `seasons` may be "all" (TV): the API's
     `seasons: number[] | "all"` (seerr-api.yml, POST /request) — every season, Specials excepted. `profile_id`
     (WP-R1): the arr quality profile; Seerr applies it to its default server without a `serverId`.
     `user` (Joey TV WP-B4): a friend's Seerr user id, sent as `X-Api-User` beside the admin key so Seerr creates the
-    request AS the friend (pending, W3 probe 2026-10-21); None = the admin's request, headers exactly as before."""
+    request AS the friend (pending, W3 probe 2026-10-21); None = the admin's request, headers exactly as before.
+    `answer` (WP-RQ2, 2026-10-22): a dict filled with Seerr's 2xx body (the request id, status, profileId)."""
     creds = _creds()
     if not creds:
         return "network"
@@ -729,11 +742,15 @@ def _send(kind: str, tmdb_id: int, seasons: list[int] | str, profile_id: int | N
         log.warning("jellyseerr request failed: %s", type(exc).__name__)
         return "network"
     if 200 <= resp.status_code < 300:
-        if user is not None:   # pending only (DECISIONS B #19): a friend's request that did not land pending is logged
+        if user is not None or answer is not None:
             try:
-                status = resp.json().get("status")
+                body = resp.json()
             except Exception:
-                status = None
+                body = None
+            if answer is not None and isinstance(body, dict):
+                answer.update(body)
+        if user is not None:   # pending only (DECISIONS B #19): a friend's request that did not land pending is logged
+            status = body.get("status") if isinstance(body, dict) else None
             if status != 1:
                 log.warning("friend request not pending: status %s", status)
         return None
@@ -746,9 +763,16 @@ async def request_title(request: Request, kind: str, tmdb_id: int):
     """The body is read on the event loop; the Jellyseerr POST and Sonarr's follow (up to two 2 s waits) run in a
     worker thread, so a slow upstream never stalls other requests or /healthz (M-40)."""
     kind = _kind(kind)
-    seasons = await _seasons_of(request) if kind == "tv" else []
-    profile = await _profile_of(request)
     panel = await _panel_of(request)
+    try:
+        seasons = await _seasons_of(request) if kind == "tv" else []
+    except HTTPException:
+        if not panel:
+            raise
+        # JY-231: the htmx panel swallowed the 422 - the request form comes back with the message instead
+        return await run_in_threadpool(lambda: _guest_panel(request, kind, tmdb_id, _title(kind, tmdb_id), "request",
+                                                            "Pick at least one season"))
+    profile = await _profile_of(request)
     return await run_in_threadpool(_request_title, request, kind, tmdb_id, seasons, profile, panel)
 
 
@@ -769,28 +793,40 @@ def _tvdb_cached(kind: str, tmdb_id: int) -> int | None:
 def _request_title(request: Request, kind: str, tmdb_id: int, seasons, profile=None, panel: bool = False):
     from hub import media_guest_requests as mgr, media_quality   # late: they import this module
     on_media = guest.is_media()
-    # Joey TV WP-B4: on the media front no quality profile is sent or enforced and Sonarr never follows (admin side
-    # effects, Q19); a friend's request is theirs (X-Api-User) and pending - never the bare key.
-    prof = None if on_media else media_quality.pick(kind, profile)   # WP-R1: 422 for a profile the app does not offer
+    # Joey TV WP-B4: on the media front Sonarr never follows and the quality safety net never runs (admin side effects,
+    # Q19); a friend's request is theirs (X-Api-User) and pending - never the bare key.
+    # WP-RQ2 (2026-10-22): the media front sends the picked profile (an unknown id falls back to the default, no 422) and
+    # only the ticked seasons the show has that are not on disk; B. sees both on the pending request.
+    # JY-231 (B., 2026-10-27): not in TV mode - there the request is sent as before RQ2 (no profile, seasons as posted).
+    tv = on_media and _tv(request)
+    picks = on_media and not tv
+    prof = None if tv else mgr.pick(kind, profile) if on_media else media_quality.pick(kind, profile)   # WP-R1: 422 off the media front
     code, seerr_id = None, None
-    shown = _title(kind, tmdb_id) if panel else None   # the panel keeps its poster / title / overview after the answer (screen 10); read before the cache is dropped
+    shown = _title(kind, tmdb_id) if panel or (picks and kind == "tv") else None   # the panel keeps its poster / title / overview after the answer (screen 10); read before the cache is dropped
+    if picks and kind == "tv":
+        seasons = mgr.open_seasons(shown, seasons)
+        code = "network" if seasons is None else "noseasons" if not seasons else None
     try:
         friend = mgr.friend_id(request)
     except mgr.Refused:
         friend, code = None, mgr.NOREQUESTS
-    if friend:
+    if friend and code is None:
         seerr_id, code = mgr.seerr_user(friend)
+    answer: dict = {}
     if code is None:
-        code = _send(kind, tmdb_id, seasons, prof["id"] if prof else None, user=seerr_id)
+        code = _send(kind, tmdb_id, seasons, prof["id"] if prof else None, user=seerr_id, answer=answer)
     if code is None and seerr_id is not None:
         mgr.forget_mine(seerr_id)   # the friend's own list re-reads: the title now shows Requested
+        if prof:
+            mgr.keep_pick(answer, kind, prof["id"])   # WP-RQ2: the pick stays on the pending request
+    sent = mgr.sent_words(prof, seasons, bool(friend)) if picks else None
     if panel:
         if code is None:
             _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)
-            return _guest_panel(request, kind, tmdb_id, shown, "pending" if friend else "sent")
+            return _guest_panel(request, kind, tmdb_id, shown, "pending" if friend else "sent", sent)
         return _guest_panel(request, kind, tmdb_id, shown, "error", ERRORS[code])
     future = qnet = None
-    special = prof if prof and not prof["default"] else None
+    special = prof if prof and not prof["default"] and not on_media else None   # WP-RQ2: no safety net on the media front
     if code is None:
         tvdb = _tvdb_cached(kind, tmdb_id)
         _cache.pop(f"film:/api/v1/{kind}/{tmdb_id}", None)  # the film page re-reads the new request status
@@ -807,7 +843,7 @@ def _request_title(request: Request, kind: str, tmdb_id: int, seasons, profile=N
             from hub import media_arr_search
             return _partial(request, "_request_block.html", **_block(stub, "done"),
                             future=media_arr_search.future_note(future), quality=(special or {}).get("name"),
-                            qnote=media_quality.net_note(qnet, kind), mine="pending" if friend else None)
+                            qnote=media_quality.net_note(qnet, kind), mine="pending" if friend else None, sent=sent)
         return _partial(request, "_request_block.html", **_block(stub, "error", ERRORS[code]))
     done = ("requested=1" + (f"&future={future}" if future else "") + (f"&quality={special['id']}" if special else "")
             + (f"&qnet={qnet}" if media_quality.net_note(qnet, kind) else ""))

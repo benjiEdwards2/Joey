@@ -119,3 +119,67 @@ def test_fails_column_is_added_to_an_older_table(posts):
     assert server_alerts.sync([DOWN]) == 1
     with sqlite3.connect(media_db.db_path()) as db:
         assert [r[1] for r in db.execute("PRAGMA table_info(server_attention_seen)")][-1] == "fails"
+
+
+# ---- JY-254: the boot grace -------------------------------------------------------------------------------------
+
+def _status(d, updated, apps):
+    """A media_status envelope whose last success is `updated` (aware)."""
+    import json
+    d.mkdir(parents=True, exist_ok=True)
+    ts = updated.isoformat()
+    (d / "media_status.json").write_text(json.dumps({
+        "connector": "media_status", "schema_version": 1, "fetched_at": ts, "updated_at": ts, "status": "ok",
+        "consecutive_failures": 0, "error": None, "data": {"apps": apps}}), encoding="utf-8")
+    from hub import store
+    return store.get_snapshots(d)
+
+
+def _boot():
+    from datetime import datetime, timezone
+    return datetime(2026, 1, 1, 7, 0, tzinfo=timezone.utc)
+
+
+PROWLARR_DOWN = [{"id": "prowlarr", "name": "Prowlarr", "up": False, "note": "timeout"},
+                 {"id": "radarr", "name": "Radarr", "up": True}]
+
+
+def _downs(posts):
+    return [p["text"] for p in posts if " is Down" in p["text"]]
+
+
+def test_no_down_alert_at_boot_plus_2_min_without_a_fresh_sample(posts, tmp_path):
+    from datetime import timedelta
+    b = _boot()
+    snaps = _status(tmp_path / "snaps", b - timedelta(hours=9), PROWLARR_DOWN)
+    server_alerts.check_once(set(), snaps, now=b + timedelta(minutes=2), booted=b)
+    assert _downs(posts) == []
+    assert "down:prowlarr" not in server_alerts.seen_keys("down:")
+
+
+def test_a_dead_service_alerts_at_boot_plus_20_min(posts, tmp_path):
+    from datetime import timedelta
+    b = _boot()
+    snaps = _status(tmp_path / "snaps", b + timedelta(minutes=19), PROWLARR_DOWN)
+    assert server_alerts.check_once(set(), snaps, now=b + timedelta(minutes=20), booted=b) >= 1
+    assert _downs(posts) == ["Joey Server: Prowlarr is Down (timeout)"]
+
+
+def test_an_already_running_hub_alerts_a_real_outage_at_once(posts, tmp_path):
+    from datetime import timedelta
+    b = _boot()
+    snaps = _status(tmp_path / "snaps", b + timedelta(hours=5, minutes=-1), PROWLARR_DOWN)
+    server_alerts.check_once(set(), snaps, now=b + timedelta(hours=5), booted=b)
+    assert _downs(posts) == ["Joey Server: Prowlarr is Down (timeout)"]
+
+
+def test_an_outage_pushed_before_a_restart_is_kept_through_the_grace_and_not_pushed_again(posts, tmp_path):
+    from datetime import timedelta
+    b = _boot()
+    assert server_alerts.sync([DOWN]) == 1                                   # pushed before the restart
+    snaps = _status(tmp_path / "snaps", b - timedelta(minutes=30), PROWLARR_DOWN)
+    server_alerts.check_once(set(), snaps, now=b + timedelta(minutes=2), booted=b)
+    assert "down:prowlarr" in server_alerts.seen_keys("down:")              # held, not deleted
+    snaps = _status(tmp_path / "snaps", b + timedelta(minutes=19), PROWLARR_DOWN)
+    server_alerts.check_once(set(), snaps, now=b + timedelta(minutes=20), booted=b)
+    assert _downs(posts) == ["Joey Server: Prowlarr is Down (timeout)"]   # still the one push

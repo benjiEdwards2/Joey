@@ -18,6 +18,11 @@ hub's own loop (`lifespan` in hub/main.py, the media_backup pattern: first check
 after startup, then every 5 min). `SERVER_DISCORD_WEBHOOK` unset ⇒ nothing at all (no
 call, no table writes). Failures log the exception type / HTTP status only — the webhook
 URL is the credential and never appears in a log or on a page.
+
+JY-254 (2026-10-26): boot grace (hub/boot.py). Until the boot health settles - a `media_status` sample taken since the hub
+start with every app up, or BOOT_GRACE since the start - `check_once` holds the `down:` items: they are not pushed and
+their seen-rows are kept (no new row, no delete), so a pre-boot or still-starting "Down" never alerts and an outage
+already pushed before a restart is not pushed again. After the grace a still-down service alerts as before.
 """
 
 from __future__ import annotations
@@ -43,6 +48,8 @@ FIRST_DELAY_S = 60
 EVERY_S = 300
 PREFIX = "Joey Server: "
 FORECAST_PREFIX = "forecast:"   # JY-031: the disk forecast's keys (hub/server.py forecast_item)
+
+DOWN_PREFIX = "down:"   # JY-254: the media_status service items (hub/server.py attention_items)
 
 DDL = """CREATE TABLE IF NOT EXISTS server_attention_seen(
   key TEXT PRIMARY KEY, first_seen TEXT, last_seen TEXT, notified_at TEXT, fails INTEGER NOT NULL DEFAULT 0)"""
@@ -151,23 +158,29 @@ def _live_from_config() -> set[str] | None:
         return None
 
 
-def check_once(live: set[str] | None = None, snaps=None) -> int:
+def check_once(live: set[str] | None = None, snaps=None, now: datetime | None = None,
+               booted: datetime | None = None) -> int:
     """Build Attention from the current snapshots (as /server does) and sync it. `live` is
     `server.live_snapshot_ids(registry)` (hub/main.py passes the loaded one); not-configured
     connectors (WP-U3) are left out, so their seen-rows are purged like any item gone. `snaps`: the
     caller's own read (the hub loop shares one with server_history.sample), else read here. The disk forecast is
-    the hub loop's cached item (JY-031, server_history.forecast), as on the hub card and the /server render."""
+    the hub loop's cached item (JY-031, server_history.forecast), as on the hub card and the /server render.
+    JY-254: `now` / `booted` (default the clock / hub/boot.py STARTED) set the boot grace that holds the `down:` items."""
     if not webhook():
         return 0
-    from hub import media_backup, server, server_history
+    from hub import boot, media_backup, server, server_history
     from hub.store import get_runner, get_runner_history, get_snapshots
 
     if live is None:
         live = _live_from_config()
     forecast, keep = forecast_or_keep(server_history.forecast)
-    items = server.attention_items(get_snapshots() if snaps is None else snaps, media_backup.current_status(),
+    snaps = get_snapshots() if snaps is None else snaps
+    items = server.attention_items(snaps, media_backup.current_status(),
                                    get_runner(),
                                    server.sweep_stats(get_runner_history()), live, forecast)
+    if not boot.settled(snaps, now, booted):   # JY-254: hold the boot's "Down"s, keep their seen-rows
+        items = [i for i in items if not str(i["key"]).startswith(DOWN_PREFIX)]
+        keep = (*keep, DOWN_PREFIX)
     return sync(items, keep=keep) if keep else sync(items)
 
 

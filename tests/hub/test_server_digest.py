@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hub import media_db, server_alerts, server_digest, store
+from hub import boot, media_db, server_alerts, server_digest, store
 from tests.hub.helpers import write_envelope
 from tests.hub.test_server import env, main_of, txt  # noqa: F401  (env is a fixture)
 
@@ -28,12 +28,6 @@ def _fresh_fails():
     server_digest._fails.clear()
     yield
     server_digest._fails.clear()
-
-
-@pytest.fixture(autouse=True)
-def _hub_up_long(monkeypatch):
-    # JY-254: these tests run as a hub that started long ago, past the boot grace (the boot tests pass `booted`)
-    monkeypatch.setattr(server_digest, "STARTED", datetime(2025, 1, 1, tzinfo=timezone.utc))
 
 
 def sample_data(cid):
@@ -313,10 +307,29 @@ def test_boot_plus_30_min_a_dead_service_still_shows_down(snapsdir, posts):
 def test_the_wait_is_capped_even_with_no_sample_after_boot(snapsdir, posts):
     status_at(snapsdir, BOOT - timedelta(hours=9), DOWN_BEFORE_BOOT)
     assert server_digest.tick(BOOT + timedelta(minutes=14), booted=BOOT) is False
-    assert server_digest.tick(BOOT + server_digest.BOOT_GRACE + timedelta(minutes=1), booted=BOOT) is True
+    assert server_digest.tick(BOOT + boot.BOOT_GRACE + timedelta(minutes=1), booted=BOOT) is True
     assert len(posts) == 1 and "Down: Jellyfin, Radarr" in posts[0]["text"]
 
 
 def test_boot_grace_is_15_minutes_from_the_hub_start():
-    assert server_digest.BOOT_GRACE == timedelta(minutes=15)
-    assert server_digest.STARTED.tzinfo is not None
+    assert boot.BOOT_GRACE == timedelta(minutes=15)
+    assert boot.STARTED.tzinfo is not None
+
+
+def test_a_deploy_restart_after_todays_digest_posts_nothing(snapsdir, posts):
+    status_at(snapsdir, at(10, 0) - timedelta(minutes=1), ALL_UP)
+    assert server_digest.tick(at(7, 30)) is True and len(posts) == 1      # this morning's digest
+    restart = at(10, 0)                                                     # deploy restarts the hub mid-morning
+    for m in (2, 5, 20):
+        assert server_digest.tick(restart + timedelta(minutes=m), booted=restart) is False
+    assert len(posts) == 1 and len(rows()) == 1
+
+
+def test_a_restart_after_digest_at_with_no_row_holds_at_most_15_min_then_sends(snapsdir, posts):
+    restart = at(9, 0)
+    status_at(snapsdir, restart - timedelta(hours=10), DOWN_BEFORE_BOOT)  # no sample since the restart
+    for m in (0, 5, 10, 14):
+        assert server_digest.tick(restart + timedelta(minutes=m), booted=restart) is False
+    assert posts == [] and not rows()
+    assert server_digest.tick(restart + boot.BOOT_GRACE, booted=restart) is True
+    assert len(posts) == 1 and len(rows()) == 1

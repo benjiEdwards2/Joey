@@ -105,6 +105,16 @@ def _upstream_via_requests(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _hub_up_long(monkeypatch):
+    """JY-254: every test runs as a hub that started long ago, past the boot grace (hub/boot.py); the boot-grace tests
+    pass their own `booted`."""
+    from datetime import datetime, timezone
+
+    from hub import boot
+    monkeypatch.setattr(boot, "STARTED", datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+
+@pytest.fixture(autouse=True)
 def _fresh_media_caches():
     clear_media_caches()
     yield

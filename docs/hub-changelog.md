@@ -1272,9 +1272,11 @@ through to the household's) and drop the household's show progress words for a f
 
 ## 2026-10-26 — JY-254 digest boot grace
 
-The digest no longer reports services as "Down" just because it went out right after boot (24-26 Oct digests: the
-`media_status` snapshot was pre-boot or from the boot sweep while containers started). `hub/server_digest.py`: `STARTED`
-(hub start = NAS boot) and `BOOT_GRACE` (15 min). `tick(now, booted=STARTED)` holds until a `media_status` sample taken
-since the start shows every app up, or the grace has passed, whichever comes first (`settled`). After the grace the text is
-unchanged, so a service still down shows "Down". Spec `docs/specs/JY-254-digest-boot-grace.md`; tests in
-`tests/hub/test_server_digest.py`.
+The digest and the Server push alerts no longer report services as "Down" just because they ran right after boot (24-26 Oct
+digests: the `media_status` snapshot was pre-boot or from the boot sweep while containers started). New `hub/boot.py`:
+`STARTED` (hub start = NAS boot), `BOOT_GRACE` (15 min) and `settled(snaps, now, booted)`: a `media_status` sample taken
+since the start shows every app up, or the grace has passed. `server_digest.tick(now, booted)` holds until settled.
+`server_alerts.check_once(live, snaps, now, booted)` drops the `down:` items until settled and keeps their seen-rows, so an
+outage pushed before a restart is not pushed again. After the grace both behave as before: a service still down shows
+"Down". Spec `docs/specs/JY-254-digest-boot-grace.md`; tests in `tests/hub/test_server_digest.py`,
+`tests/hub/test_server_alerts.py` (one autouse fixture in `tests/hub/conftest.py` runs the suite as a long-running hub).

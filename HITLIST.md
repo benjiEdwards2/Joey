@@ -135,7 +135,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-150 | Ballot page height at 375 px | Awards | S | parked | 3,166 px vs 2,500 target (decision) | — |
+| JY-150 | Ballot page height at 375 px | Awards | S | [x] shipped | 3,166 px vs 2,500 target (decision) · PR #194 | [spec](docs/specs/JY-150-ballot-page-height-375.md) |
 | JY-151 | Long TV pill names | Awards | S | [x] shipped | Add a strip rule in `short_name` (decision) · PR #192 | [spec](docs/specs/JY-151-tv-pill-names.md) |
 | JY-152 | Awards parser leftovers (5 small) | Awards | M | [x] shipped | Song people, table headers, honorary, re-queue, fixture · PR #119 | [spec](docs/specs/JY-152-awards-parser-leftovers.md) |
 | JY-242 | Awards: honorary awards + re-pull old years with the fixed parser | Awards | M | [x] shipped | Split from JY-152, 2026-10-24; two questions for B. · PR #139 | [spec](docs/specs/JY-242-awards-honorary-and-repull.md) |

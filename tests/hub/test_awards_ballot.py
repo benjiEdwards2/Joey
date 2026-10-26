@@ -102,7 +102,12 @@ def test_five_pills_won_first_with_the_rest_counted(oscars97):
     ("Writing (Original Screenplay)", "Orig. Screenplay"), ("Outstanding Writing for a Drama Series", "Writing for a Drama Series"),
     ("Best Animated Feature", "Animated"), ("Best International Feature Film", "International"),
     ("Outstanding Drama Series", "Drama Series"), ("Palme d'Or", "Palme d'Or"),
-    ("Best Original Score", "Orig. Score"), ("Outstanding Supporting Actor in a Comedy Series", "Supp. Actor in a Comedy Series"),
+    ("Best Original Score", "Orig. Score"), ("Outstanding Supporting Actor in a Comedy Series", "Supp. Actor"),   # JY-151 (2026-10-26): was "Supp. Actor in a Comedy Series"
+    ("Outstanding Supporting Actress in a Limited or Anthology Series or Movie", "Supp. Actress"),
+    ("Outstanding Lead Actor in a Drama Series", "Lead Actor"),
+    ("Outstanding Limited or Anthology Series or Movie", "Limited or Anthology Series"),
+    ("Outstanding Casting for a Limited or Anthology Series or Movie", "Casting for a Limited or Anthology Series"),
+    ("Best Actor in a Leading Role", "Actor in a Leading Role"), ("Best Actor in a Supporting Role", "Actor in a Supp. Role"),
 ])
 def test_short_pill_names(name, short):
     assert ap.short_name(name) == short

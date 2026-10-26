@@ -63,6 +63,8 @@ FILTER_WORDS = {"all": "All", "acting": "Acting", "craft": "Craft", "unseen": "N
 DIRECTION_WORDS = {"movie": "Direction & writing", "tv": "Writing & directing"}
 SHORT_RE = re.compile(r"\bshort\b", re.I)
 WRITING_RE = re.compile(r"Writing\s*(?:\((.+)\)|,\s*(.+))")   # short_name: "Writing (X)" / "Writing, X" -> "X"
+SERIES_TAIL_RE = re.compile(r"\s+in an?\s+.+?(?:Series|Movie)$")   # JY-151: " in a Comedy Series", " in a Limited or Anthology Series or Movie"
+MOVIE_TAIL_RE = re.compile(r"\s+or Movie$")                         # JY-151: "Limited or Anthology Series or Movie"
 ALL_SEEN = "Everything here is seen."
 NO_MATCH = "Nothing matches that filter."
 NOMINEES_SHOWN = 4          # nominee thumbnails on a category card; the rest fold under "+N more"
@@ -287,7 +289,9 @@ def short_name(name: str | None) -> str:
     """A pill's category name (decision C3): a leading "Best " / "Outstanding " stripped, "Supporting " -> "Supp. ",
     "Original " -> "Orig. ", "Adapted " -> "Adapt. ", a trailing " Feature" / " Feature Film" dropped, and a "Writing"
     name carrying its kind in parentheses or after a comma keeps only that kind ("Writing (Original Screenplay)" ->
-    "Orig. Screenplay", WP-C3); nothing else."""
+    "Orig. Screenplay", WP-C3); JY-151 (2026-10-26): a TV name's " in a ... Series" / " in a ... Movie" clause and a
+    trailing " or Movie" dropped ("Supp. Actress in a Limited or Anthology Series or Movie" -> "Supp. Actress"; film
+    names like "Actor in a Leading Role" keep theirs); nothing else."""
     n = name or ""
     for lead in ("Best ", "Outstanding "):
         if n.startswith(lead):
@@ -298,6 +302,7 @@ def short_name(name: str | None) -> str:
         if n.endswith(tail):
             n = n[:-len(tail)]
             break
+    n = MOVIE_TAIL_RE.sub("", SERIES_TAIL_RE.sub("", n))
     m = WRITING_RE.fullmatch(n)
     return (m.group(1) or m.group(2)).strip() if m else n
 

@@ -16,7 +16,7 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   yet, asks, then runs deploy.sh over ssh. `--list` (no deploy), `--search WORD` (pending updates mentioning WORD),
   `--all [N]` (last N updates, deployed or not), `--history [N]` (last N deploys), `--yes` (no question). Mac / Linux /
   Git Bash on Windows.
-- **What it does:** detach (log file) → lock → `git pull --ff-only` (up to 3 attempts, 5 s apart) → `compose config` → memory check → build `life-test` and run the full suite offline
+- **What it does:** detach (log file) → lock → `git pull --ff-only` (up to 3 attempts, 20 s apart; each try is logged) → `compose config` → memory check → build `life-test` and run the full suite offline
   (`--network none`) → `compose build` + `up -d` → smoke (`/healthz`, `tests/deploy/smoke.py`, nothing restarting) → prune.
   A red gate resets the tree to the previous SHA and leaves the live stack alone; a failed build/up/smoke rolls back.
 - **Gate /tmp is in RAM (JY-235, 2026-10-24):** the gate runs `life-test` with `--tmpfs /tmp:rw,exec,size=512m,mode=1777

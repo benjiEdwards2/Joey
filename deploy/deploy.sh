@@ -5,7 +5,7 @@
 #
 # NAS notes (DECISIONS 2026-08-31): BusyBox sh (no bash, no brace expansion);
 # git has no host binary — every git call goes through an alpine/git container
-# with the joey_deploy key (resolver retries on; the pull itself retries 3x, 5 s apart); the full suite runs in the union life-test image
+# with the joey_deploy key (resolver retries on; the pull itself retries 3x, 20 s apart); the full suite runs in the union life-test image
 # (production images carry only their own deps).
 #
 # Usage: deploy.sh [--force]   (--force redeploys even when the pull brought nothing new)
@@ -159,12 +159,19 @@ cd "$REPO"
 PREV_SHA=$(GIT rev-parse --short HEAD)
 
 echo "== pull (ff-only) =="
-# intermittent container DNS loss under NAS load (2026-10-13): 3 attempts, 5 s apart; the 3rd failure aborts (ABORTED line via the EXIT trap)
-for attempt in 1 2 3; do
+# Intermittent container DNS loss under NAS load (2026-10-13: 3 attempts, 5 s apart; JY-206, 2026-10-26: 5 s was too short
+# for the resolver to recover, so 3 tries 20 s apart). Each try is logged; the last failure aborts (ABORTED line via the
+# EXIT trap). Plain POSIX sh (BusyBox): no bashisms. No sleep after the last try.
+PULL_TRIES=3
+PULL_WAIT=20
+attempt=1
+while :; do
+    echo "pull attempt $attempt/$PULL_TRIES"
     if GIT pull --ff-only; then break; fi
-    if [ "$attempt" -eq 3 ]; then echo "pull failed (attempt 3/3) — aborting" >&2; exit 1; fi
-    echo "pull failed (attempt $attempt/3) — retrying in 5 s"
-    sleep 5
+    if [ "$attempt" -ge "$PULL_TRIES" ]; then echo "pull failed (attempt $attempt/$PULL_TRIES) — aborting" >&2; exit 1; fi
+    echo "pull failed (attempt $attempt/$PULL_TRIES) — retrying in $PULL_WAIT s"
+    attempt=$((attempt + 1))
+    sleep "$PULL_WAIT"
 done
 NEW_SHA=$(GIT rev-parse --short HEAD)
 if [ "$PREV_SHA" = "$NEW_SHA" ] && [ "$FORCE" -eq 0 ]; then

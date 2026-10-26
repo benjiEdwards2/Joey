@@ -163,11 +163,23 @@ def test_a_missing_media_network_fails_the_gate_before_the_stack_is_touched():
 
 
 def test_pull_retries_three_times_and_git_container_gets_resolver_retries():
-    """2026-10-13: three deploys aborted on 'Could not resolve hostname github.com' (UDP DNS loss under NAS load)."""
+    """2026-10-13: three deploys aborted on 'Could not resolve hostname github.com' (UDP DNS loss under NAS load).
+    Re-pointed 2026-10-26 (JY-206): 3 tries, now 20 s apart (5 s was too short for the NAS resolver to recover)."""
     assert "--dns-opt attempts:3 --dns-opt timeout:2" in SCRIPT
-    assert "for attempt in 1 2 3; do" in SCRIPT
-    assert "if GIT pull --ff-only; then break; fi" in SCRIPT
-    assert "pull failed (attempt $attempt/3) — retrying in 5 s" in SCRIPT
+    assert "PULL_TRIES=3" in SCRIPT and "PULL_WAIT=20" in SCRIPT
+    assert "if GIT pull --ff-only; then" in SCRIPT
+    assert 'echo "pull attempt $attempt/$PULL_TRIES"' in SCRIPT
+    assert 'echo "pull failed (attempt $attempt/$PULL_TRIES) — retrying in $PULL_WAIT s"' in SCRIPT
+    assert 'echo "pull failed (attempt $attempt/$PULL_TRIES) — aborting" >&2; exit 1' in SCRIPT
+    assert "retrying in 5 s" not in SCRIPT
+
+
+def test_pull_retry_loop_is_busybox_safe():
+    """JY-206: plain POSIX sh only - no bash `for ((..))`, `{1..3}`, `[[ ]]`, `$RANDOM`, `local` or arrays."""
+    block = SCRIPT[SCRIPT.index("PULL_TRIES=3"):SCRIPT.index("NEW_SHA=$(GIT rev-parse")]
+    for bashism in ("for ((", "{1..", "[[", "$RANDOM", "local ", "=(", "&>"):
+        assert bashism not in block, bashism
+    assert block.index("sleep") > block.index("retrying in")  # sleeps only after saying so, never after the last try
 
 
 # ---- Joey TV WP-A3 (2026-10-18): the public edge (swag, `edge` profile) ----
@@ -417,8 +429,17 @@ case "$*" in
     *rev-parse*)
         n=$(cat "$FAKE_DIR/revs" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_DIR/revs"
         if [ "$n" -eq 1 ]; then echo aaaaaaa; else echo bbbbbbb; fi ;;
+    *"pull --ff-only"*)
+        n=$(cat "$FAKE_DIR/pulls" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_DIR/pulls"
+        if [ "$n" -le "${FAKE_PULL_FAILS:-0}" ]; then echo "fatal: Could not resolve hostname github.com" >&2; exit 128; fi ;;
     *"life-test python"*) exit 1 ;;
 esac
+exit 0
+"""
+
+# Fake sleep: records the seconds asked for and returns at once, so the retry back-off is checked without waiting.
+FAKE_SLEEP = """#!/bin/sh
+echo "$*" >> "$FAKE_DIR/sleep.log"
 exit 0
 """
 
@@ -432,13 +453,15 @@ def _meminfo(avail_mb, swap_used_mb, swap_total_mb=4096):
     return chr(10).join(lines) + chr(10)
 
 
-def _run_deploy(tmp_path, avail_mb, swap_used_mb):
+def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0):
     repo = tmp_path / "repo"
     (repo / "deploy").mkdir(parents=True)
     fake = tmp_path / "fake"
     (fake / "bin").mkdir(parents=True)
     (fake / "bin" / "docker").write_text(FAKE_DOCKER, encoding="utf-8", newline=chr(10))
     (fake / "bin" / "docker").chmod(0o755)
+    (fake / "bin" / "sleep").write_text(FAKE_SLEEP, encoding="utf-8", newline=chr(10))
+    (fake / "bin" / "sleep").chmod(0o755)
     (fake / "meminfo").write_text(_meminfo(avail_mb, swap_used_mb), encoding="utf-8", newline=chr(10))
     script = SCRIPT
     for old, new in (("REPO=/volume1/Docker/joey/life-dashboard", "REPO=" + repo.as_posix()),
@@ -446,11 +469,16 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb):
                      ("LOCK=/tmp/joey-deploy.lock", "LOCK=" + (tmp_path / "lock").as_posix())):
         assert script.count(old + chr(10)) == 1, old
         script = script.replace(old + chr(10), new + chr(10))
+    # The retry sleep is pointed at the fake by absolute path: a PATH lookup is not enough on every sh (a BusyBox ash with
+    # standalone applets, or a builtin, runs the real `sleep` and the CI run on Linux saw an empty sleep.log; JY-206).
+    wait = '    sleep "$PULL_WAIT"' + chr(10)
+    assert script.count(wait) == 1
+    script = script.replace(wait, '    "' + (fake / "bin" / "sleep").as_posix() + '" "$PULL_WAIT"' + chr(10))
     path = tmp_path / "deploy.sh"
     path.write_text(script, encoding="utf-8", newline=chr(10))
-    env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(),
+    env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(), FAKE_PULL_FAILS=str(pull_fails),
                PATH=str(fake / "bin") + os.pathsep + os.environ.get("PATH", ""))
-    r = subprocess.run([*SH, str(path)], capture_output=True, text=True, env=env, timeout=120)
+    r = subprocess.run([*SH, str(path)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120)
     calls = (fake / "docker.log").read_text(encoding="utf-8") if (fake / "docker.log").exists() else ""
     history = (repo / "deploy" / "history.log").read_text(encoding="utf-8").splitlines()
     return r, calls, history
@@ -493,3 +521,37 @@ def test_fake_meminfo_drives_skip_vs_gate(tmp_path, avail, swap, workers, why):
     assert not re.match(r"^\S+ (PASS|NOTHING-TO-DEPLOY) ", history[0])
     # the line stays parseable: new= and dur= are still found (scripts/joey_closeout.py, scripts/budgets.py)
     assert re.search(r"\bnew=[0-9a-f]{7,40}\b", history[0]) and re.search(r"\bdur=\d+s\b", history[0])
+
+
+def _fake_log(tmp_path, name):
+    path = tmp_path / "fake" / name
+    return path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+@pytest.mark.parametrize("fails", [0, 1, 2])
+def test_pull_that_recovers_within_three_tries_goes_on_to_the_gate(tmp_path, fails):
+    """JY-206: a pull that fails once or twice (DNS loss) is retried 20 s apart and the deploy carries on."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, pull_fails=fails)
+    out = r.stdout + r.stderr
+    assert calls.count("pull --ff-only") == fails + 1, calls
+    assert _fake_log(tmp_path, "sleep.log") == ["20"] * fails
+    assert f"pull attempt {fails + 1}/3" in out
+    for n in range(1, fails + 1):
+        assert f"pull failed (attempt {n}/3) — retrying in 20 s" in out
+    assert "compose config -q" in calls  # went past the pull
+    assert " GATE-FAIL " in history[0]  # the fake suite is red: the run stops there, as the other fake runs do
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_pull_that_fails_three_times_aborts_as_before(tmp_path):
+    """JY-206: three tries, 20 s apart (two waits, none after the last try), then fail: exit 1, ABORTED line, no gate."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, pull_fails=3)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, out
+    assert calls.count("pull --ff-only") == 3
+    assert _fake_log(tmp_path, "sleep.log") == ["20", "20"]
+    assert "pull failed (attempt 1/3) — retrying in 20 s" in out and "pull failed (attempt 2/3) — retrying in 20 s" in out
+    assert "pull failed (attempt 3/3) — aborting" in out
+    assert "compose config -q" not in calls and "life-test" not in calls
+    assert len(history) == 1 and " ABORTED " in history[0], history

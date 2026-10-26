@@ -243,7 +243,8 @@ def _server_response(request: Request, area, view: str, from_query: bool):
                                   uptime=server_uptime.peek())   # JY-133: memory only, summed on the hub loop
     # JY-134 (P8, 2026-10-26): "Since your last visit …" for the signed-in viewer; read here, the visit written after.
     owner = shell.identity_of(request).owner
-    since_visit = server_visits.sentence(owner, server_visits.since_for(owner), requested, history, live)
+    since_visit = server_visits.sentence(owner, server_visits.since_for(owner), requested, history, live,
+                                         waiting=server_visits.waiting_updates(snaps))
     after = BackgroundTasks()
     after.add_task(server_alerts.sync, sv["attention_items"], keep=keep)  # WP-U2: Discord push after the page
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page

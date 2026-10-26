@@ -2,12 +2,14 @@
 
 One sentence under the Server head for the signed-in viewer ("you" or "her"; no identity = nothing): what changed
 since their previous visit, from stored data only — Joey's own update runs (`server_update_runs`, already read by
-the page as `last_requested`) and the connectors' runner history (already in memory, JY-226). No live call.
+the page as `last_requested`) that have completed (the cached WUD snapshot no longer lists an update for that
+container), and the connectors' runner history (already in memory, JY-226). No live call.
 
 media.db table `server_last_visit(owner, since, last_seen)`: a visit starts when the viewer opens Server more than
 GAP after their last view; `since` is then the end of the previous visit and holds for the whole visit, so a reload
-keeps the sentence. The row is written after the page (`touch`, a response background task); the render only reads
-it (`since_for`, one primary-key SELECT). The sweep scan is kept per viewer, visit and history list.
+keeps the sentence. The row is written after the page (`touch`, a response background task). The rows are read once
+per media.db path and kept in memory (the hub is one process and `touch` is the only writer, so it updates the kept
+copy too): a render opens no connection. The sweep scan is kept per viewer, visit and newest history line.
 """
 
 from __future__ import annotations
@@ -20,16 +22,20 @@ from datetime import datetime, timedelta, timezone
 
 from hub import media_db
 from hub import server as _server
+from hub.ids import WUD_SNAPSHOT_ID
 from hub.store import ago_text, parse_utc
 
 log = logging.getLogger("hub.server_visits")
 
 GAP = timedelta(minutes=30)
+TOUCH_EVERY = timedelta(minutes=1)   # within a visit, last_seen is written at most once a minute
 OWNERS = ("you", "her")
 DDL = "CREATE TABLE IF NOT EXISTS server_last_visit(owner TEXT PRIMARY KEY, since TEXT, last_seen TEXT)"
 
 _memo_lock = threading.Lock()
-_memo: dict = {}   # owner -> {"key": (since, id(history), len(history)), "feeds": [...]}
+_memo: dict = {}   # owner -> {"key": (since, the newest history line's ran_at), "feeds": [...]}
+_rows_lock = threading.Lock()
+_kept: dict | None = None   # {"path": media.db path, "rows": {owner: (since, last_seen)}}
 
 
 def _iso(dt: datetime) -> str:
@@ -41,19 +47,26 @@ def _now() -> datetime:
 
 
 def _row(owner: str):
-    """(since, last_seen) as datetimes, or None (no row, no table yet, no media.db, unreadable). Read only: never
-    creates media.db or the table."""
+    """(since, last_seen) as datetimes, or None (no row, no table yet, no media.db, unreadable). The table is read
+    once per media.db path (read only: never creates media.db or the table), then served from memory."""
+    global _kept
+    path = str(media_db.db_path())
+    with _rows_lock:
+        if _kept is not None and _kept["path"] == path:
+            return _kept["rows"].get(owner)
     if not media_db.db_path().is_file():
         return None
     try:
         with closing(sqlite3.connect(f"{media_db.db_path().as_uri()}?mode=ro", uri=True)) as db:
-            row = db.execute("SELECT since, last_seen FROM server_last_visit WHERE owner = ?", (owner,)).fetchone()
+            rows = db.execute("SELECT owner, since, last_seen FROM server_last_visit").fetchall()
     except sqlite3.OperationalError:
-        return None   # no table yet: nobody has visited since JY-134
+        rows = []   # no table yet: nobody has visited since JY-134
     except sqlite3.Error as exc:
         log.warning("last visit unreadable: %s", type(exc).__name__)
         return None
-    return (parse_utc(row[0]), parse_utc(row[1])) if row else None
+    with _rows_lock:
+        _kept = {"path": path, "rows": {o: (parse_utc(s), parse_utc(ls)) for o, s, ls in rows}}
+        return _kept["rows"].get(owner)
 
 
 def since_for(owner: str | None, now: datetime | None = None) -> datetime | None:
@@ -72,6 +85,9 @@ def touch(owner: str | None, now: datetime | None = None) -> None:
     if owner not in OWNERS:
         return
     now = now or _now()
+    kept = _row(owner)
+    if kept is not None and kept[1] is not None and timedelta(0) <= now - kept[1] < TOUCH_EVERY:
+        return   # same visit, seen under a minute ago: no write (a reload storm never queues commits)
     try:
         with closing(media_db.connect()) as db, db:
             db.execute(DDL)
@@ -80,6 +96,9 @@ def touch(owner: str | None, now: datetime | None = None) -> None:
             since = row[0] if row and last is not None and now - last <= GAP else (row[1] if row else None)
             db.execute("INSERT OR REPLACE INTO server_last_visit(owner, since, last_seen) VALUES(?, ?, ?)",
                        (owner, since, _iso(now)))
+        with _rows_lock:
+            if _kept is not None and _kept["path"] == str(media_db.db_path()):
+                _kept["rows"][owner] = (parse_utc(since), parse_utc(_iso(now)))
     except (sqlite3.Error, OSError) as exc:
         log.warning("last visit write failed: %s", type(exc).__name__)
 
@@ -106,10 +125,25 @@ def _feeds(history, since: datetime, live) -> list[str]:
     return out
 
 
-def _updated(requested: dict | None, since: datetime) -> str | None:
+def waiting_updates(snaps) -> set[str] | None:
+    """Container names the cached WUD snapshot still lists with an update; None when WUD is not readable (then no
+    update is called done)."""
+    snap = (snaps or {}).get(WUD_SNAPSHOT_ID)
+    if snap is None or snap.status != "ok" or not isinstance(snap.data, dict):
+        return None
+    return {str(c.get("name")) for c in snap.data.get("containers") or []
+            if isinstance(c, dict) and c.get("update_available")}
+
+
+def _updated(requested: dict | None, since: datetime, waiting: set[str] | None) -> str | None:
+    """Update now / Update all requests after `since` that have completed: WUD no longer lists an update for that
+    container. A request still waiting, or any request while WUD is unreadable, is not "updated"."""
+    if waiting is None:
+        return None
     runs = sorted((at, name) for name, run in (requested or {}).items()
-                  if (at := parse_utc((run or {}).get("requested_at"))) is not None and at > since)
-    names = [name for _, name in runs]
+                  if (at := parse_utc((run or {}).get("requested_at"))) is not None and at > since
+                  and name not in waiting)
+    names = [name[:1].upper() + name[1:] for _, name in runs]
     if not names:
         return None
     if len(names) == 1:
@@ -120,24 +154,28 @@ def _updated(requested: dict | None, since: datetime) -> str | None:
 
 
 def sentence(owner: str | None, since: datetime | None, requested: dict | None, history, live=None,
-             now: datetime | None = None) -> str | None:
-    """'Since your last visit 2d ago: sonarr was updated · wud failed 3 times, then recovered.' / '…: nothing
-    changed.' None without a visit to compare with."""
+             now: datetime | None = None, waiting: set[str] | None = None) -> str | None:
+    """'Since your last visit 2d ago: Sonarr was updated · wud failed 3 times, then recovered.' / '…: nothing
+    changed.' None without a visit to compare with. `waiting`: waiting_updates(snaps)."""
     if owner not in OWNERS or since is None:
         return None
     now = now or _now()
-    key = (_iso(since), id(history), len(history or []))
+    newest = history[-1] if history else None
+    key = (_iso(since), newest.get("ran_at") if isinstance(newest, dict) else None)
     with _memo_lock:
         kept = _memo.get(owner)
         if kept is None or kept["key"] != key:
             kept = _memo[owner] = {"key": key, "feeds": _feeds(history, since, live)}
         feeds = list(kept["feeds"])
-    parts = [p for p in (_updated(requested, since), *feeds) if p]
+    parts = [p for p in (_updated(requested, since, waiting), *feeds) if p]
     head = f"Since your last visit {ago_text((now - since).total_seconds() / 60)}: "
     return head + (" · ".join(parts) if parts else "nothing changed") + "."
 
 
 def clear() -> None:
-    """Forget the kept scans (tests)."""
+    """Forget the kept scans and visit rows (tests)."""
+    global _kept
     with _memo_lock:
         _memo.clear()
+    with _rows_lock:
+        _kept = None

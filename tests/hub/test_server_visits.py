@@ -67,14 +67,46 @@ def test_updates_after_the_start_are_named_in_request_order():
            "sonarr": {"requested_at": (T0 + timedelta(hours=1)).isoformat()},
            "old": {"requested_at": (T0 - timedelta(hours=1)).isoformat()}}
     now = T0 + timedelta(days=2)
-    assert sv.sentence("you", since, req, [], now=now) == \
-        "Since your last visit 2d ago: sonarr and radarr were updated."
+    done = set()                                                        # WUD lists no update for any of them now
+    assert sv.sentence("you", since, req, [], now=now, waiting=done) == \
+        "Since your last visit 2d ago: Sonarr and Radarr were updated."
     one = {"sonarr": req["sonarr"]}
-    assert sv.sentence("you", since, one, [], now=now) == "Since your last visit 2d ago: sonarr was updated."
+    assert sv.sentence("you", since, one, [], now=now, waiting=done) == "Since your last visit 2d ago: Sonarr was updated."
     many = {f"c{i}": {"requested_at": (T0 + timedelta(minutes=i + 1)).isoformat()} for i in range(4)}
     sv.clear()
-    assert sv.sentence("you", since, many, [], now=now) == \
-        "Since your last visit 2d ago: c0, c1 and 2 more were updated."
+    assert sv.sentence("you", since, many, [], now=now, waiting=done) == \
+        "Since your last visit 2d ago: C0, C1 and 2 more were updated."
+
+
+def test_a_requested_update_is_not_updated_until_wud_stops_listing_it():
+    """Review should-fix (2026-10-26): outcome 'requested' only means WUD accepted the trigger."""
+    req = {"sonarr": {"requested_at": (T0 + timedelta(hours=1)).isoformat()},
+           "radarr": {"requested_at": (T0 + timedelta(hours=2)).isoformat()}}
+    now = T0 + timedelta(hours=5)
+    assert sv.sentence("you", T0, req, [], now=now, waiting={"sonarr"}) == \
+        "Since your last visit 5h ago: Radarr was updated."
+    assert sv.sentence("you", T0, req, [], now=now, waiting=None) == "Since your last visit 5h ago: nothing changed."
+    assert sv.sentence("you", T0, req, [], now=now) == "Since your last visit 5h ago: nothing changed."
+
+
+def test_waiting_updates_reads_the_cached_wud_snapshot(tmp_path):
+    from hub.store import get_snapshots
+    from tests.hub.helpers import write_envelope
+    snaps = tmp_path / "snaps"
+    assert sv.waiting_updates(get_snapshots(snaps)) is None
+    write_envelope(snaps, "wud", data={"summary": "x", "containers": [{"name": "sonarr", "update_available": True},
+                                                                      {"name": "radarr", "update_available": False}]})
+    assert sv.waiting_updates(get_snapshots(snaps)) == {"sonarr"}
+
+
+def test_the_feed_scan_follows_new_history_lines_at_the_cap():
+    """Review should-fix (2026-10-26): the runner-history tail is capped at 1000 lines, so a new line can keep the
+    length the same; the scan is keyed on the newest line's time, not the list's identity and length."""
+    history = [line(10, wud=("error", "x")), line(20, wud=("error", "x"))]
+    assert sv.sentence("you", T0, {}, history, now=T0 + timedelta(hours=5)).endswith("nothing changed.")
+    capped = history[1:] + [line(30, wud="ok")]                        # same length, one line dropped, one added
+    assert len(capped) == len(history)
+    assert sv.sentence("you", T0, {}, capped, now=T0 + timedelta(hours=5)).endswith("wud failed once, then recovered.")
 
 
 def test_feeds_that_failed_and_recovered_after_the_start():
@@ -103,6 +135,7 @@ def _set_last_seen(owner, at):
     with sqlite3.connect(media_db.db_path()) as db:
         db.execute("UPDATE server_last_visit SET last_seen = ? WHERE owner = ?",
                    (at.strftime("%Y-%m-%dT%H:%M:%SZ"), owner))
+    sv.clear()   # the rows are kept in memory (touch is the one writer); a test that edits the table directly forgets them
 
 
 def test_the_page_says_it_from_the_second_visit_per_viewer(env, monkeypatch):
@@ -153,3 +186,39 @@ def test_the_sentence_reads_the_runner_history(env, monkeypatch, tmp_path):
         write_history(tmp_path / "snaps", [(60, {"wud": ("error", "WUD failed (HTTP 500)")}), (30, {"wud": "ok"})])
         body = main_of(client.get("/server", headers=YOU).text)
     assert "wud failed once, then recovered" in body
+
+
+def test_a_render_opens_no_connection_once_the_rows_are_kept(env, monkeypatch):
+    """Review should-fix (2026-10-26): the visit rows are read once per media.db and then served from memory."""
+    monkeypatch.setenv("OWNER_EMAIL_YOU", "you@example.test")
+    with env() as client:
+        client.get("/server", headers=YOU)
+        _set_last_seen("you", datetime.now(timezone.utc) - timedelta(hours=2))
+        assert "Since your last visit 2h ago" in client.get("/server", headers=YOU).text   # loads the rows once
+        real = sqlite3.connect
+        opened = []
+        # sqlite3 is shared: count only this module's read-only opens (no other hub module opens "?mode=ro")
+        monkeypatch.setattr(sv.sqlite3, "connect",
+                            lambda *a, **k: (opened.append(a) if "mode=ro" in str(a[0]) else None) or real(*a, **k))
+        monkeypatch.setattr(sv, "touch", lambda *a, **k: None)
+        assert "Since your last visit 2h ago" in client.get("/server", headers=YOU).text
+    assert opened == []
+
+
+def test_touch_keeps_the_kept_rows_current():
+    sv.touch("you", T0)
+    assert sv.since_for("you", T0 + timedelta(hours=1)) == T0           # loads and keeps the rows
+    sv.touch("you", T0 + timedelta(hours=1))                             # writes the table and the kept copy
+    assert sv.since_for("you", T0 + timedelta(hours=1, minutes=5)) == T0
+    assert sv.since_for("you", T0 + timedelta(hours=3)) == T0 + timedelta(hours=1)
+
+
+def test_touch_writes_at_most_once_a_minute_within_a_visit():
+    """Review follow-up (2026-10-26): a write per view cost ~15 ms of p95 locally; within a minute nothing is written."""
+    sv.touch("you", T0)
+    sv.touch("you", T0 + timedelta(seconds=30))
+    with sqlite3.connect(media_db.db_path()) as db:
+        assert db.execute("SELECT last_seen FROM server_last_visit").fetchone()[0] == "2026-10-26T01:00:00Z"
+    sv.touch("you", T0 + timedelta(seconds=90))
+    with sqlite3.connect(media_db.db_path()) as db:
+        assert db.execute("SELECT last_seen FROM server_last_visit").fetchone()[0] == "2026-10-26T01:01:30Z"

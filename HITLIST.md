@@ -209,7 +209,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-210 | WP38 soak test + a real runbook | Housekeeping | M | idea | Docs name a runbook that does not exist | — |
+| JY-210 | WP38 soak test + a real runbook | Housekeeping | M | [x] shipped | Docs name a runbook that does not exist · PR #187 | [spec](docs/specs/JY-210-soak-runbook.md) |
 | JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | idea | Remove + re-request, or run the retry script | — |
 | JY-212 | Phone checks only B. can do | Housekeeping | S | idea | Back scroll, swipe-back, iOS keyboard, ballot, Follow, Update now, manifest colour | — |
 | JY-213 | Live checks: Media rounds | Housekeeping | S | idea | 2026-10-26 read-only: grid, WAR, Caught up, logos PASS; 4K request submit + Why? on Brothers need B. | — |

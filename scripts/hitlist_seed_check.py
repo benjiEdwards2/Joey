@@ -290,6 +290,9 @@ SOURCES = [
     ("grouped TV session (2026-10-25)", "flaky tv shelves tmdb test", "JY-249", ""),
     ("grouped TV session (2026-10-25)", "TV session fixes", "JY-250", ""),
     ("grouped TV session (2026-10-25)", "friend sees household follow state", "JY-251", ""),
+    ("orchestrator overnight (2026-10-26)", "deploy gate back toward 5 min", "JY-252", ""),
+    ("orchestrator overnight (2026-10-26)", "play table row count check", "JY-253", ""),
+    ("orchestrator overnight (2026-10-26)", "digest boot false alarms", "JY-254", ""),
 ]
 
 

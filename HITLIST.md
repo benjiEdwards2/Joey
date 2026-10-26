@@ -72,7 +72,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-040 | Joey TV W6 close + W7 TV sitting | Joey TV | S | idea | Soak, test-account revoke drill, TV sitting; rename coordinator | — |
 | JY-041 | One-week check of the new way of working | Process | S | idea | Messages per item, items shipped, budgets | — |
-| JY-042 | Joey TV UI round (umbrella) | Joey TV | L | idea | "Rows and cards way too large"; see JY-186 to JY-197 | — |
+| JY-042 | Joey TV UI round (umbrella) | Joey TV | L | [x] shipped | TV UI round done 2026-10-25: JY-187..197 + JY-248; grouped TV session 40 checks, fails fixed in JY-250/251 | — |
 
 ## Imported backlog
 
@@ -158,7 +158,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-173 | Transcoded stream during a deploy | Joey TV | S | idea | W7 step 2: stream survives swag recreate | — |
 | JY-174 | Fire TV paths | Joey TV | S | idea | No device yet; first Fire TV friend | — |
 | JY-175 | External uptime monitor | Joey TV | S | idea | Alerts B. on a whole-NAS outage | — |
-| JY-176 | 7-day owner follow-up (due 2026-10-26) | Joey TV | S | idea | No phantom household owner since the fix | — |
+| JY-176 | 7-day owner follow-up (due 2026-10-26) | Joey TV | S | [x] shipped | Checked 2026-10-26 (read-only): 0 phantom owner rows since the 2026-10-18 fix; play/diary/rating_skip all clean | — |
 | JY-177 | Clean-TV "Jellyfin missing" store path | Joey TV | S | idea | W7 step 3: uninstall, reinstall, one sign-in | — |
 | JY-178 | Forced update with no "Later" button | Joey TV | S | idea | Needs the next real TV release | — |
 | JY-179 | Update tamper test + Settings Back | Joey TV | S | idea | W7 step 4 | — |
@@ -181,9 +181,12 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-196 | U10 Diary + Awards on TV | Joey TV | M | [x] shipped | Diary shows household stats; needs picks · PR #171 | [spec](docs/specs/JY-196-tv-awards-diary.md) |
 | JY-197 | U11 TV docs sweep | Joey TV | S | [x] shipped | Release, README, mockups, handover · PR #174 | [spec](docs/specs/JY-197-tv-docs-sweep.md) |
 | JY-248 | Friends' nav: no Overview pill; "Joey Media" title goes Home (TV focus stop) | Joey TV | M | [x] shipped | B. 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home" · PR #163 | [spec](docs/specs/JY-248-joey-media-home.md) |
-| JY-249 | Flaky `test_tv_shelves_tmdb` (failed once in CI, passed on rerun) | Tests | S | idea | Seen on JY-191's CI, 2026-10-25 | — |
+| JY-249 | Flaky `test_tv_shelves_tmdb` (failed once in CI, passed on rerun) | Tests | S | [x] shipped | Fixed inside JY-250 (PR #179): test holds the background read until the page renders | — |
 | JY-250 | TV session fixes: 404 centring, Tonight safe area, season eyebrow 12 px, Back from episode, Diary month row | Joey TV | M | [x] shipped | Grouped TV session 2026-10-25: checks 7, 9, 13, 15, 28, 36 · PR #179 | [spec](docs/specs/JY-250-tv-session-fixes.md) |
 | JY-251 | Friend sees household Follow state ("Following George Kay") on a TMDB title page | Media | M | [x] shipped | Grouped TV session 2026-10-25, phone width as joeytest · PR #178 | [spec](docs/specs/JY-251-follow-scope.md) |
+| JY-252 | Deploy gate back toward ~5 min (it rose to ~7.5 min after the TV round) | Tooling | M | idea | NAS history.log dur 435-480 s vs 280-300 s on 2026-10-24 | — |
+| JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
+| JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | idea | Live checks 2026-10-26: 24-26 Oct digests false alarms | — |
 
 ### NAS / stack
 
@@ -209,8 +212,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-210 | WP38 soak test + a real runbook | Housekeeping | M | idea | Docs name a runbook that does not exist | — |
 | JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | idea | Remove + re-request, or run the retry script | — |
 | JY-212 | Phone checks only B. can do | Housekeeping | S | idea | Back scroll, swipe-back, iOS keyboard, ballot, Follow, Update now, manifest colour | — |
-| JY-213 | Live checks: Media rounds | Housekeeping | S | idea | Library grid, 4K request, Why? on Brothers, WAR, Caught up, logos | — |
-| JY-214 | Live checks: Server rounds | Housekeeping | S | idea | Quiet tap, first digest, Free space, Updates age, Prowlarr count | — |
+| JY-213 | Live checks: Media rounds | Housekeeping | S | idea | 2026-10-26 read-only: grid, WAR, Caught up, logos PASS; 4K request submit + Why? on Brothers need B. | — |
+| JY-214 | Live checks: Server rounds | Housekeeping | S | idea | 2026-10-26 read-only: Free space, Prowlarr count, digest text, Updates age PASS; Quiet/Full press needs B. | — |
 | JY-215 | Stale preview entries in `launch.json` | Housekeeping | S | [x] shipped | Verified 2026-10-24: every launch.json entry points at a path that exists; nothing to remove | — |
 | JY-216 | Archive the three awards review mockups | Housekeeping | S | idea | Reference only now | — |
 | JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | [x] shipped | Nav-tidy leftover · PR #84 | [spec](docs/specs/JY-217-drop-watchlist-tab-counts.md) |

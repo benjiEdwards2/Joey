@@ -1,6 +1,6 @@
 # JY-134 P8 What changed since your last visit
 
-Status: spec (built as the recommended option for B.'s morning review, 2026-10-26)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/server_visits.py` (new), `hub/main.py` (`_server_response`), `hub/tasks.py` (one shutdown line: `server_visits.flush()`), `hub/templates/server.html` (one line under the head), `hub/README.md`, `tests/hub/`
@@ -67,3 +67,8 @@ See "Questions for B.". Pending B.'s pick; built as A.
 - A quiet day says "nothing changed".
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #197, squash-merged as `7a7d4de` (7a7d4de4b94e04850e4d9742d3d24518307de885).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

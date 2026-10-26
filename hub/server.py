@@ -38,6 +38,7 @@ from urllib.parse import urlsplit
 
 from hub.ids import (ARR_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID,  # noqa: F401
                      SYSTEM_SNAPSHOT_ID, UPTIME_KUMA_SNAPSHOT_ID, WUD_SNAPSHOT_ID)
+from hub import server_uptime
 from hub.store import ago_text, connected, data_of, parse_utc, tile_state
 
 SERVER_LAYOUT = "server"
@@ -303,21 +304,25 @@ def group_services(apps: list[dict]) -> list[dict]:
     return [g for g in groups if g["apps"]]
 
 
-def service_card(app: dict, monitors: list[dict], gated: dict | None = None) -> dict:
+def service_card(app: dict, monitors: list[dict], gated: dict | None = None, uptime: dict | None = None,
+                 now: datetime | None = None) -> dict:
     """One Services card: the app plus logo (file name or None), subtitle (or None), href (the gated hostname from
     `gated` when one exists, else the snapshot's — kept even when it is a LAN address, with `lan` True so the card
     says "LAN": it opens at home and is dead off the home network, 2026-10-10, reverses H-71) and the
     Uptime Kuma response ms of the monitor whose name IS the app's name or id (case-insensitive, H-72; the id too since
-    the Jellyseerr -> Seerr rename, 2026-10-12, so a Kuma monitor still called "Jellyseerr" keeps matching), else None."""
+    the Jellyseerr -> Seerr rename, 2026-10-12, so a Kuma monitor still called "Jellyseerr" keeps matching), else None.
+    JY-133 (P7, 2026-10-26): `uptime_text`, the monitor's 7-day words from `uptime` (server_uptime.peek(), matched the
+    same way), else None."""
     aid, name = app.get("id"), str(app.get("name") or app.get("id") or "?")
     keys = {name.strip().lower(), str(aid or "").strip().lower()}
     ms = next((m.get("response_ms") for m in monitors
                if str(m.get("name") or "").strip().lower() in keys and m.get("response_ms") is not None), None)
+    up = next((uptime[k] for k in (name.strip().lower(), str(aid or "").strip().lower()) if k in (uptime or {})), None)
     href = (gated or {}).get(aid) or app.get("href")
     lan = bool(href) and is_lan(href)
     return {**app, "name": name, "initial": name[:1].upper(), "logo": SERVICE_LOGOS.get(aid),
             "subtitle": SERVICE_SUBTITLES.get(aid), "href": href, "lan": lan,
-            "response_ms": ms}
+            "response_ms": ms, "uptime_text": server_uptime.words(up, now)}
 
 
 # WP-T3 (2026-10-19, S1 + S2): the Counts band is gone — Requests / Torrents / arr downloading repeated Activity, and
@@ -740,7 +745,7 @@ def forecast_step(prev: dict | None, samples, now: datetime | None = None) -> di
 def build_server(area, snaps, backup: dict, runner: dict | None = None,
                  ignores=None, requested=None, history=None, samples=None,
                  live: set[str] | None = None, gated: dict | None = None, forecast: dict | None = None,
-                 now: datetime | None = None) -> dict:
+                 now: datetime | None = None, uptime: dict | None = None) -> dict:
     system = _band(area, snaps, SYSTEM_SNAPSHOT_ID)
     services = _band(area, snaps, MEDIA_STATUS_SNAPSHOT_ID)
     updates = _band(area, snaps, WUD_SNAPSHOT_ID)
@@ -760,7 +765,7 @@ def build_server(area, snaps, backup: dict, runner: dict | None = None,
 
     # 2026-10-12: no Monitors band any more (it repeated Services); the Kuma rows still give each card its ms.
     apps = [a for a in services["data"].get("apps") or [] if isinstance(a, dict)]
-    services["groups"] = group_services([service_card(a, _monitors(snaps), gated) for a in apps])
+    services["groups"] = group_services([service_card(a, _monitors(snaps), gated, uptime, now) for a in apps])
     services["health"] = library_health(snaps)   # WP-T3 (S1 + S2)
     services["health_in"] = next((g["label"] for g in services["groups"] if g["label"] == HEALTH_GROUP), None)
 

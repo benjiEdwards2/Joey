@@ -25,7 +25,7 @@ from hub import media_arr_search, media_follow, media_quality, media_requests, m
 from hub import media_requests_approve   # WP-RQ1: Approve / Decline on the Requests page
 from hub import media_awards_pages
 from hub import server as server_area
-from hub import server_alerts, server_history, server_stack, server_updates
+from hub import server_alerts, server_history, server_stack, server_updates, server_uptime
 from hub import server_quiet   # P4 quiet mode (2026-10-22)
 from hub import server_digest  # P2 (2026-10-22)
 from hub import player_api   # JY-053: playback-session API, off unless PLAYER_API=on
@@ -237,7 +237,8 @@ def _server_response(request: Request, area, view: str, from_query: bool):
                                   get_runner_history(), samples,
                                   live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
                                   gated=shell.registry.gated_hrefs,
-                                  forecast=forecast)
+                                  forecast=forecast,
+                                  uptime=server_uptime.peek())   # JY-133: memory only, summed on the hub loop
     after = BackgroundTasks()
     after.add_task(server_alerts.sync, sv["attention_items"], keep=keep)  # WP-U2: Discord push after the page
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page

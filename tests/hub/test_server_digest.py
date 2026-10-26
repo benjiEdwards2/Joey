@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from hub import media_db, server_alerts, server_digest, store
+from hub import boot, media_db, server_alerts, server_digest, store
 from tests.hub.helpers import write_envelope
 from tests.hub.test_server import env, main_of, txt  # noqa: F401  (env is a fixture)
 
@@ -250,3 +250,86 @@ def test_the_loop_is_registered_beside_the_alerts_loop():
     from hub import tasks
     assert (server_digest.FIRST_DELAY_S, server_digest.EVERY_S) == (90, 300)
     assert tasks._server_digest_loop.__doc__ and "server_digest.tick" in Path(tasks.__file__).read_text(encoding="utf-8")
+
+
+# ---- JY-254: the boot grace -------------------------------------------------------------------------------------
+
+BOOT = at(7, 28)   # the NAS (and joey-hub with it) came up at 07:28; DIGEST_AT 07:30 is due on the first tick
+
+
+def status_at(d, updated, apps):
+    """A media_status envelope whose last success is `updated` (aware), the rest from the samples."""
+    for cid in ("arr", "wud", "system", "qbittorrent"):
+        write_envelope(d, cid, age_minutes=1, data=sample_data(cid))
+    ts = updated.isoformat()
+    (d / "media_status.json").write_text(json.dumps({
+        "connector": "media_status", "schema_version": 1, "fetched_at": ts, "updated_at": ts, "status": "ok",
+        "consecutive_failures": 0, "error": None, "data": {"apps": apps}}), encoding="utf-8")
+
+
+DOWN_BEFORE_BOOT = [{"id": "jellyfin", "name": "Jellyfin", "up": False}, {"id": "radarr", "name": "Radarr", "up": False}]
+ALL_UP = [{"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "radarr", "name": "Radarr", "up": True}]
+ONE_DEAD = [{"id": "jellyfin", "name": "Jellyfin", "up": True}, {"id": "radarr", "name": "Radarr", "up": False}]
+
+
+@pytest.fixture()
+def snapsdir(tmp_path, monkeypatch):
+    d = tmp_path / "snaps"
+    d.mkdir()
+    monkeypatch.setenv("SNAPSHOT_DIR", str(d))
+    return d
+
+
+def test_boot_plus_2_min_with_only_pre_boot_samples_does_not_say_down(snapsdir, posts):
+    status_at(snapsdir, BOOT - timedelta(hours=9), DOWN_BEFORE_BOOT)
+    assert server_digest.tick(BOOT + timedelta(minutes=2), booted=BOOT) is False
+    assert posts == [] and not rows()
+
+
+def test_boot_plus_5_min_with_a_fresh_all_up_sample_sends_at_once(snapsdir, posts):
+    status_at(snapsdir, BOOT + timedelta(minutes=4), ALL_UP)
+    assert server_digest.tick(BOOT + timedelta(minutes=5), booted=BOOT) is True
+    assert len(posts) == 1 and "All 2 services up" in posts[0]["text"] and "Down" not in posts[0]["text"]
+
+
+def test_boot_plus_5_min_with_a_service_still_starting_holds(snapsdir, posts):
+    status_at(snapsdir, BOOT + timedelta(minutes=4), ONE_DEAD)
+    assert server_digest.tick(BOOT + timedelta(minutes=5), booted=BOOT) is False
+    assert posts == [] and not rows()
+
+
+def test_boot_plus_30_min_a_dead_service_still_shows_down(snapsdir, posts):
+    status_at(snapsdir, BOOT + timedelta(minutes=29), ONE_DEAD)
+    assert server_digest.tick(BOOT + timedelta(minutes=30), booted=BOOT) is True
+    assert len(posts) == 1 and "Down: Radarr" in posts[0]["text"]
+
+
+def test_the_wait_is_capped_even_with_no_sample_after_boot(snapsdir, posts):
+    status_at(snapsdir, BOOT - timedelta(hours=9), DOWN_BEFORE_BOOT)
+    assert server_digest.tick(BOOT + timedelta(minutes=14), booted=BOOT) is False
+    assert server_digest.tick(BOOT + boot.BOOT_GRACE + timedelta(minutes=1), booted=BOOT) is True
+    assert len(posts) == 1 and "Down: Jellyfin, Radarr" in posts[0]["text"]
+
+
+def test_boot_grace_is_15_minutes_from_the_hub_start():
+    assert boot.BOOT_GRACE == timedelta(minutes=15)
+    assert boot.STARTED.tzinfo is not None
+
+
+def test_a_deploy_restart_after_todays_digest_posts_nothing(snapsdir, posts):
+    status_at(snapsdir, at(10, 0) - timedelta(minutes=1), ALL_UP)
+    assert server_digest.tick(at(7, 30)) is True and len(posts) == 1      # this morning's digest
+    restart = at(10, 0)                                                     # deploy restarts the hub mid-morning
+    for m in (2, 5, 20):
+        assert server_digest.tick(restart + timedelta(minutes=m), booted=restart) is False
+    assert len(posts) == 1 and len(rows()) == 1
+
+
+def test_a_restart_after_digest_at_with_no_row_holds_at_most_15_min_then_sends(snapsdir, posts):
+    restart = at(9, 0)
+    status_at(snapsdir, restart - timedelta(hours=10), DOWN_BEFORE_BOOT)  # no sample since the restart
+    for m in (0, 5, 10, 14):
+        assert server_digest.tick(restart + timedelta(minutes=m), booted=restart) is False
+    assert posts == [] and not rows()
+    assert server_digest.tick(restart + boot.BOOT_GRACE, booted=restart) is True
+    assert len(posts) == 1 and len(rows()) == 1

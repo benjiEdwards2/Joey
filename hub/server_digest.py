@@ -10,6 +10,9 @@ logged) to the same webhook as the Server alerts; no webhook ⇒ nothing at all 
 `media.db` table `server_digest_sent(day, at, text)` holds a row only for a SUCCESSFUL post; a failed post retries
 on the next tick, at most MAX_FAILS times per day (in-process count, like server_alerts). `DIGEST=off` stops it.
 `last_sent(now)` is the Server page's one line ("Digest · sent 07:31" / "Digest · not sent today").
+JY-254 (2026-10-26): boot grace (hub/boot.py). Until the boot health settles - a `media_status` sample taken since the
+hub start with every app up, or BOOT_GRACE since the start, whichever comes first - the tick holds, so a digest is never
+built from pre-boot or still-starting "Down" samples. After the grace the text is whatever the snapshots say.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ import threading
 from contextlib import closing
 from datetime import datetime, timedelta
 
-from hub import media_db, media_store, server, server_alerts
+from hub import boot, media_db, media_store, server, server_alerts
 from hub.ids import ARR_SNAPSHOT_ID, QBIT_SNAPSHOT_ID, WUD_SNAPSHOT_ID
 from hub.store import parse_utc
 
@@ -127,8 +130,9 @@ def _local(now: datetime | None) -> datetime:
     return now if now is not None else datetime.now().astimezone()
 
 
-def tick(now: datetime | None = None) -> bool:
-    """Send today's digest when due. True only when a message was posted this call. Never raises."""
+def tick(now: datetime | None = None, booted: datetime | None = None) -> bool:
+    """Send today's digest when due. True only when a message was posted this call. Never raises.
+    `booted` (JY-254): the boot to grace from; default hub/boot.py STARTED."""
     url = server_alerts.webhook()
     if not url or disabled():
         return False
@@ -145,7 +149,10 @@ def tick(now: datetime | None = None) -> bool:
                 db.execute(DDL)
                 if db.execute("SELECT 1 FROM server_digest_sent WHERE day = ?", (day,)).fetchone():
                     return False
-                text = build(get_snapshots(), now)
+                snaps = get_snapshots()
+                if not boot.settled(snaps, now, booted):
+                    return False   # JY-254: boot health not settled yet; the next tick looks again
+                text = build(snaps, now)
                 if text is None:
                     return False
                 if not server_alerts.post(url, text):

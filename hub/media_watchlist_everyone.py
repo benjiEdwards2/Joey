@@ -26,7 +26,7 @@ import threading
 import time
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
@@ -52,9 +52,11 @@ KINDS = {"movie": "Films", "tv": "TV"}
 FAILED_CODES = ("exists", "declined", "network")
 SHOW_SEASONS = [1]   # JY-232 (B., 2026-10-27: "JY-232: go s1"): Request all sends a show as Season 1 only
 
-flash_keys("rqn", "rqf", "rql")   # Request all's answer on the page after the 303
+flash_keys("rqn", "rqf", "rql", "rqb")   # Request all's answer on the page after the 303 (rqb: one already running)
 
 _lock = threading.Lock()
+_sending = threading.Lock()       # JY-232 review: one Request all at a time (a double-click must not send twice)
+BUSY = "Already sending…"
 _names: dict = {}                 # {"at": t, "map": {jf id: name}, "failed_at": t}
 _sent: dict[tuple[str, int], float] = {}
 _clock = time.monotonic           # test seam
@@ -187,7 +189,10 @@ def href(who: str = "", kind: str = "", **extra) -> str:
 
 
 def flash_words(params) -> tuple[str | None, str | None]:
-    """(good line, warning line) from `?rqn=<sent>&rqf=<code>-<n>.<code>-<n>&rql=<left>` after Request all."""
+    """(good line, warning line) from `?rqn=<sent>&rqf=<code>-<n>.<code>-<n>&rql=<left>` after Request all, or
+    `?rqb=1` when another Request all was still sending (that POST sent nothing)."""
+    if params.get("rqb") == "1":
+        return None, BUSY
     raw_n, raw_f, raw_l = params.get("rqn") or "", params.get("rqf") or "", params.get("rql") or ""
     if not raw_n.isdigit() and not raw_f:
         return None, None
@@ -220,7 +225,7 @@ def _panel_ctx(ctx: dict) -> dict:
 # ---- routes ----
 
 @router.get(PAGE, response_class=HTMLResponse)
-def everyone_page(request: Request, who: str = "", kind: str = "", all: str = ""):
+def everyone_page(request: Request, who: str = "", kind: str = "", show_all: str = Query("", alias="all")):
     if not _allowed(request):
         return shell.not_found_page(request)
     from hub import media_pages   # function-level, as media_watchlist (media_pages reaches back)
@@ -235,7 +240,7 @@ def everyone_page(request: Request, who: str = "", kind: str = "", all: str = ""
         ctx.update(flash=good, flash_warn=warn, who_on=ctx["who"], kind_on=ctx["kind"],   # `who` is the shell's identity
                    all_href=href(ctx["who"], ctx["kind"], all="1"),
                    all_get=ALL + "?" + urlencode({"who": ctx["who"], "kind": ctx["kind"]}),
-                   chip_href=href, panel=_panel_ctx(ctx) if all == "1" and ctx["pending"] else None)
+                   chip_href=href, panel=_panel_ctx(ctx) if show_all == "1" and ctx["pending"] else None)
         return ctx
 
     resp = media_pages._detail_page(request, "media_watchlist_everyone.html", JELLYFIN_SNAPSHOT_ID, page_ctx,
@@ -296,8 +301,18 @@ def _ensure_all(net: list[tuple]) -> None:
 
 
 def _request_all(request: Request, f: dict):
-    from hub import media_quality
+    """Build + send under `_sending`: a second POST while one runs (a double-click) answers BUSY and sends nothing."""
     who, kind = _filters(f.get("who"), f.get("kind"))
+    if not _sending.acquire(blocking=False):
+        return RedirectResponse(href(who, kind, rqb="1"), status_code=303)
+    try:
+        return _request_all_locked(request, f, who, kind)
+    finally:
+        _sending.release()
+
+
+def _request_all_locked(request: Request, f: dict, who: str, kind: str):
+    from hub import media_quality
     snap = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
     ctx = build(snap.data if snap else None, who, kind)
     batch = ctx["pending"][:CAP]

@@ -59,7 +59,7 @@
   </div>
 </section>
 {% else %}
-<p class="empty">Nothing on anyone's watchlist.</p>
+<p class="empty">{% if who_on or kind_on %}Nothing matches this filter.{% else %}Nothing on anyone's watchlist.{% endif %}</p>
 {% endfor %}
 {% endif %}
 {% endblock %}

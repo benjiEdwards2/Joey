@@ -447,3 +447,45 @@ def test_page_render_makes_no_live_calls(app, monkeypatch):
     with c:
         page(c)
     assert order == ["built", "users read"] and calls == []
+
+
+# ---- JY-232 review fixes (2026-10-27) ----
+
+def test_two_concurrent_request_alls_send_each_title_once(app, monkeypatch):
+    """A double-click: the second POST arrives while the first is still sending. It answers "Already sending…" and
+    sends nothing, so Seerr sees each title once."""
+    import threading
+    c, fake = app()
+    put(999, title="Nowhere Film")
+    put(500, kind="tv", title="Wanted Show", owner=FRIEND)
+    first_in, second_done = threading.Event(), threading.Event()
+    real_post = fake.post
+
+    def slow_post(url, json=None, headers=None, timeout=None, **kw):
+        first_in.set()
+        assert second_done.wait(10), "the second POST never answered"
+        return real_post(url, json=json, headers=headers, timeout=timeout)
+    monkeypatch.setattr(media_discover.requests, "post", slow_post)
+    answers = {}
+    with c:
+        first = threading.Thread(target=lambda: answers.update(
+            first=c.post(ALL, content="who=&kind=", headers=FORM, follow_redirects=False)))
+        first.start()
+        assert first_in.wait(10)
+        second = c.post(ALL, content="who=&kind=", headers=FORM, follow_redirects=False)
+        second_done.set()
+        first.join(10)
+        busy = page(c, second.headers["location"])
+    assert second.status_code == 303 and second.headers["location"] == f"{PAGE}?rqb=1"
+    assert 'class="metaline st-warn" role="status">Already sending…</p>' in busy
+    assert answers["first"].headers["location"] == f"{PAGE}?rqn=2"
+    assert sorted(p[1]["mediaId"] for p in fake.posts) == [500, 999]      # each once
+    assert not everyone._sending.locked()                                  # released after the send
+
+
+def test_a_filter_that_matches_nothing_says_so(app):
+    c, _ = app()
+    put(999, title="Nowhere Film")
+    with c:
+        b = page(c, f"{PAGE}?kind=tv")
+    assert "Nothing matches this filter." in b and "Nothing on anyone" not in b

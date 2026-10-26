@@ -1,6 +1,6 @@
 # JY-210 WP38 soak test + a real runbook
 
-Status: review
+Status: shipped 2026-10-26
 Size: M
 Live risk: none (docs, and one read-only script run on the laptop against a copy of a file)
 Area: `docs/runbook.md` (new), `docs/README.md` and `README.md` (links), `scripts/check_soak.py` (new), `tests/scripts/test_check_soak.py` (new), this spec
@@ -52,4 +52,8 @@ None: no screen.
 2. Is the NAS still on the ADM power schedule, or has F7 (24/7) been applied? The runbook says "check, do not assume". Recommendation: tell me, and the section gets one definite sentence.
 
 ## Shipped notes
-(filled at close-out)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #187, squash-merged as `8e6e54a` (8e6e54a397512cfcc0348b4d386170ee3fcfaa03).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

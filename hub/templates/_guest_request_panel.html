@@ -30,7 +30,7 @@
       {% set picks = t.seasons | selectattr("number", "gt", 0) | list %}
       {% if picks %}
       <label class="seasonall"><input type="checkbox" name="seasons" value="all" checked> All seasons</label>
-      <div class="seasonpick" data-tv-scroll>
+      <div class="seasonpick">
         {% for s in picks %}
         <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " disabled" if s.disabled }}>
           {{ s.name }} <span class="metaline {{ status_of(s.status_word).cls }}">{{ s.status_word }}</span></label>
@@ -43,6 +43,7 @@
         {% for p in profiles %}<label class="chip"><input type="radio" name="profile" value="{{ p.id }}"{{ " checked" if p.default }}>{{ p.name }}{% if p.default %} · Default{% endif %}</label>{% endfor %}
       </div>
       {% endif %}
+      {% if msg %}<p class="statusline st-warn">{{ msg }}</p>{% endif %}{# JY-231: "Pick at least one season" #}
       <div class="reqpanel-btns">
         <button class="btn btn-white" type="submit" data-first>Request</button>
         <button class="btn btn-ghost" type="button" data-close onclick="this.closest('dialog').close()">Cancel</button>

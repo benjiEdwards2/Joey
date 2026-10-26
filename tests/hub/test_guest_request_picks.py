@@ -201,7 +201,13 @@ def test_keep_pick_never_touches_a_request_that_is_not_pending(monkeypatch):
     assert calls == []
 
 
-@pytest.mark.parametrize("perms", [ADMIN, MANAGE_REQUESTS, AUTO_APPROVE])
+# Seerr's AUTO_APPROVE_4K / _4K_MOVIE / _4K_TV (Overseerr's Permission enum, unchanged in Seerr 3.5). JY-231: B.'s
+# "go approve" (2026-10-27) makes 4K approval only, so a friend holding any of them is refused like AUTO_APPROVE.
+AUTO_APPROVE_4K, AUTO_APPROVE_4K_MOVIE, AUTO_APPROVE_4K_TV = 32768, 65536, 131072
+
+
+@pytest.mark.parametrize("perms", [ADMIN, MANAGE_REQUESTS, AUTO_APPROVE,
+                                   AUTO_APPROVE_4K, AUTO_APPROVE_4K_MOVIE, AUTO_APPROVE_4K_TV])
 def test_a_friend_who_could_approve_is_still_refused(friend, perms):
     friend.seerr.users[FRIEND_SEERR]["permissions"] = perms
     done = post(friend, "/media/title/movie/701/request", "panel=1&profile=5").text
@@ -218,7 +224,7 @@ def test_panel_offers_the_season_ticks_with_all_seasons_ticked(friend):
     assert re.search(r'<input type="checkbox" name="seasons" value="1">\s*Season 1', panel)
     assert re.search(r'<input type="checkbox" name="seasons" value="2">\s*Season 2', panel)
     assert 'value="0"' not in panel and "Specials" not in panel     # season 0 is refused by the form check
-    assert 'data-tv-scroll' in panel and 'name="profile"' in panel
+    assert 'name="profile"' in panel
 
 
 def test_all_seasons_is_sent_as_all(friend):
@@ -240,6 +246,16 @@ def test_seasons_on_disk_or_not_in_the_show_are_dropped(friend):
 def test_only_seasons_on_disk_sends_nothing(friend):
     r = post(friend, "/media/title/tv/200/request", "seasons=3&seasons=9")
     assert "Pick a season that isn&#39;t here yet" in r.text or "Pick a season that isn't here yet" in r.text
+    assert sent(friend.seerr) == []
+
+
+def test_no_season_ticked_answers_in_the_panel(friend):
+    """JY-231 review: "All seasons" unticked and no season ticked was a 422 the htmx panel swallowed (nothing happened).
+    The panel now comes back as the request form with "Pick at least one season", and nothing is sent."""
+    r = post(friend, "/media/title/tv/100/request", "panel=1&profile=5")
+    assert r.status_code == 200
+    assert "Pick at least one season" in r.text and 'class="reqpanel-form"' in r.text
+    assert '<input type="checkbox" name="seasons" value="all" checked> All seasons' in r.text   # the defaults again
     assert sent(friend.seerr) == []
 
 

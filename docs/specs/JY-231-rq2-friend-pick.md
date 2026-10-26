@@ -23,10 +23,10 @@ Before this item, the media front sent no quality (Q19: "quality is an admin cho
 2. For a show, the panel shows the season ticks: "All seasons" ticked, no "+ future", seasons already on disk disabled, Specials not offered.
 3. The pick rides the friend's own request (`X-Api-User`, with the admin key beside it) as `profileId` and `seasons`. The request lands pending (status 1), requested by the friend.
 4. An unknown or forged profile id falls back to the default. There is no 422 and no way to set an arbitrary arr setting.
-5. Only ticked seasons the show has that are not on disk are sent. When none are left, nothing is sent and the friend sees "Pick a season that isn't here yet".
+5. Only ticked seasons the show has that are not on disk are sent. When none are left, nothing is sent and the friend sees "Pick a season that isn't here yet". When nothing at all is ticked, the panel comes back as the request form with "Pick at least one season" (it was a 422 the htmx panel swallowed), and nothing is sent.
 6. If Seerr stored another profile (an override rule), `keep_pick` PUTs the pick back with the admin key alone. It acts only on a pending request and never touches the status. A refused PUT logs the HTTP status only.
 7. **4K is marked for B.** A 4K + Seasons 1–2 pick is stored on the pending Seerr request as the 4K `profileId` and `seasons` [1, 2]. That is exactly what JY-230's row reads to show "4K · Seasons 1–2". The friend's answer reads "Requested in 4K · Seasons 1–2 — waiting for approval".
-8. **Nothing auto-approves.** No friend request shape calls approve or decline, on the web or in TV mode. No body carries `status` or `is4k`: Joey's 4K is a profile on the one Seerr server, so Seerr's 4K auto-approve bits never apply. Every request stays pending, and the friend-path modules hold no approve or decline endpoint. A friend whose Seerr user could approve (ADMIN, MANAGE_REQUESTS, AUTO_APPROVE*) is refused before anything is sent.
+8. **Nothing auto-approves.** No friend request shape calls approve or decline, on the web or in TV mode. No body carries `status` or `is4k`: Joey's 4K is a profile on the one Seerr server, so Seerr's 4K auto-approve bits never apply. Every request stays pending, and the friend-path modules hold no approve or decline endpoint. A friend whose Seerr user could approve (ADMIN, MANAGE_REQUESTS, AUTO_APPROVE, AUTO_APPROVE_MOVIE / _TV, and the 4K bits AUTO_APPROVE_4K / _4K_MOVIE / _4K_TV) is refused before anything is sent ("Requests aren't set up for you yet").
 9. No safety net (`media_quality.ensure`) and no Sonarr follow run on the media front.
 10. **TV mode unchanged.** In TV mode (`hub.media_front.tv_mode`) the panel is main's Request + Cancel form (`seasons=all` hidden for a show, `data-first` on Request). The confirm step has no Quality chips. A posted `profile` is ignored: no `profileId` is sent and no PUT is made. `hub/static/tv.js` and `hub/static/tv.css` are byte-identical to main.
 11. The panel and confirm step leak nothing: no Seerr URL, key, admin name or arr name, on the web or in TV mode.
@@ -68,9 +68,7 @@ Deferred, not run in this item: an on-TV check (Discover panel, D-pad, OK on Req
 1. Rule 2 gap: the 2026-10-22 build made no options page for the panel.
    - (A, recommended) Accept the panel as built, since it reuses the title page's confirm-step recipes.
    - (B) Ask for a four-size options page before accept.
-2. Seerr's 4K auto-approve permission bits (AUTO_APPROVE_4K*) are not in the refusal list (`NEVER`). They cannot apply, because Joey never sends `is4k`, and a test pins that.
-   - (A, recommended) Leave as is.
-   - (B) Add the bits to `NEVER` as belt and braces. Any friend whose Seerr user holds them would then be refused until their permissions are fixed in Seerr.
+2. Settled 2026-10-27 by B.'s "JY-231: go approve" (4K is approval only): Seerr's 4K auto-approve bits (AUTO_APPROVE_4K = 32768, _4K_MOVIE = 65536, _4K_TV = 131072) are now in `NEVER`. A friend whose Seerr user holds any of them is refused on the same NOREQUESTS path until the permission is removed in Seerr (runbook R1). Joey also never sends `is4k` (pinned).
 
 ## Shipped notes
 PR, commit, backup name, measured numbers, anything left for a follow-up.

@@ -1327,4 +1327,6 @@ JY-231 (2026-10-27) brings WP-RQ2 (`joey-rq2-friendpick` 2428063) onto main, for
 Request + Cancel (a show whole), the confirm step has no Quality chips, and no profile is sent, as before. B., 2026-10-27:
 "JY-231: go approve" - the 4K policy stays approval only. New pins in `test_guest_request_picks.py`: the 4K + seasons
 pick lands pending as the friend's own request, nothing on the friend path approves, and TV mode keeps the old flow.
-Spec `docs/specs/JY-231-rq2-friend-pick.md`.
+Review fixes: Seerr's 4K auto-approve bits (AUTO_APPROVE_4K / _4K_MOVIE / _4K_TV) join `NEVER`, so such a friend is refused
+like any auto-approver; nothing ticked in the panel answers "Pick at least one season" in the form instead of a silent 422;
+the unused `data-tv-scroll` attribute is gone. Spec `docs/specs/JY-231-rq2-friend-pick.md`.

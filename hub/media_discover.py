@@ -763,9 +763,16 @@ async def request_title(request: Request, kind: str, tmdb_id: int):
     """The body is read on the event loop; the Jellyseerr POST and Sonarr's follow (up to two 2 s waits) run in a
     worker thread, so a slow upstream never stalls other requests or /healthz (M-40)."""
     kind = _kind(kind)
-    seasons = await _seasons_of(request) if kind == "tv" else []
-    profile = await _profile_of(request)
     panel = await _panel_of(request)
+    try:
+        seasons = await _seasons_of(request) if kind == "tv" else []
+    except HTTPException:
+        if not panel:
+            raise
+        # JY-231: the htmx panel swallowed the 422 - the request form comes back with the message instead
+        return await run_in_threadpool(lambda: _guest_panel(request, kind, tmdb_id, _title(kind, tmdb_id), "request",
+                                                            "Pick at least one season"))
+    profile = await _profile_of(request)
     return await run_in_threadpool(_request_title, request, kind, tmdb_id, seasons, profile, panel)
 
 

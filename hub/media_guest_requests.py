@@ -9,7 +9,7 @@ Every friend request waits for B.'s approval. The W3 probe (JoeyTV DECISIONS 202
   the whole map cached USER_TTL. A friend with no Seerr user is imported on their FIRST REQUEST - never on a page view
   - by `POST /api/v1/user/import-from-jellyfin` `{"jellyfinUserIds": [<that friend only>]}` (201 with only the new
   users), then looked up once more; still none -> NOREQUESTS ("Requests aren't set up for you yet").
-* pending only: a friend whose Seerr user could approve (ADMIN, MANAGE_REQUESTS, AUTO_APPROVE*, see NEVER) is refused
+* pending only: a friend whose Seerr user could approve (ADMIN, MANAGE_REQUESTS, AUTO_APPROVE* incl. the 4K bits, see NEVER) is refused
   before anything is sent (NOREQUESTS); B. fixes the permissions in Seerr (runbook R1).
 * decline is B.'s, in Seerr: nothing here declines, approves or removes. A friend sees their own requests' state (their
   `GET /api/v1/request?requestedBy=<id>` list, MINE_TTL) as Requested / Approved / Declined.
@@ -43,7 +43,10 @@ IMPORT_PATH = "/api/v1/user/import-from-jellyfin"
 # Seerr permission bits (Overseerr's Permission enum, unchanged in Seerr 3.5): a friend holding any of these could
 # approve their own request, so they are refused instead (pending only, DECISIONS B #19).
 ADMIN, MANAGE_REQUESTS, AUTO_APPROVE, AUTO_APPROVE_MOVIE, AUTO_APPROVE_TV = 2, 16, 128, 256, 512
-NEVER = ADMIN | MANAGE_REQUESTS | AUTO_APPROVE | AUTO_APPROVE_MOVIE | AUTO_APPROVE_TV
+# JY-231 (B., 2026-10-27: "JY-231: go approve" - 4K is approval only): the 4K auto-approve bits are refused too.
+AUTO_APPROVE_4K, AUTO_APPROVE_4K_MOVIE, AUTO_APPROVE_4K_TV = 32768, 65536, 131072
+NEVER = (ADMIN | MANAGE_REQUESTS | AUTO_APPROVE | AUTO_APPROVE_MOVIE | AUTO_APPROVE_TV
+         | AUTO_APPROVE_4K | AUTO_APPROVE_4K_MOVIE | AUTO_APPROVE_4K_TV)
 
 JF_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 _clock = time.monotonic   # test seam

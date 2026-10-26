@@ -52,7 +52,7 @@ def _server_tick() -> None:
         server_history.sample(snaps)
     except Exception as exc:
         log.warning("server history task error: %s", type(exc).__name__)
-    server_uptime.tick(snaps)   # JY-133: Kuma states + the 7-day sum; never raises
+    server_uptime.tick(snaps)   # JY-133: Kuma states + the 7-day sum; the one writer (never on a render); never raises
     try:
         server_history.refresh_forecast()
     except Exception as exc:

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from hub import media_db, server, server_history, server_uptime
+from hub import media_db, server, server_history
 from hub.store import get_runner_history, get_snapshots, parse_utc
 from tests.hub.helpers import write_envelope, write_history
 from tests.hub.test_server import env, main_of  # noqa: F401  (env is a fixture)
@@ -160,10 +160,6 @@ def _get(client, path):
 def test_server_pages_are_byte_identical_with_the_caches(server_data, monkeypatch, path):
     decoded, windows = [], []
     real_decode, real_window = server_history._decode, server._sweep_window
-    # JY-133 (2026-10-26, spec docs/specs/JY-133-service-uptime.md): the after-page task fills the uptime lines, so the
-    # first render would differ from the rest; held empty here so this JY-226 check compares one data set.
-    server_uptime.clear()
-    monkeypatch.setattr(server_uptime, "tick", lambda *a, **k: None)
     with server_data as client:
         with monkeypatch.context() as m:   # the code before JY-226
             m.setattr(server_history, "recent", recent_before)

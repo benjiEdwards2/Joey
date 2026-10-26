@@ -5,9 +5,10 @@ holds one row per new snapshot, keyed by the envelope's `updated_at` (UTC `YYYY-
 hub/server_history.py): `states` is JSON {monitor name: up|down|pending|maintenance}. Names and states only: the
 connector already drops URLs, hosts and ports, and nothing else is copied. Each insert prunes rows older than 8 days.
 
-`tick(snaps)` samples and then sums the last 7 days into memory; it runs after each /server render (a response
-background task) and on the hub's 5-minute Server loop (hub/tasks.py). The render reads only `peek()`: no media.db
-read, no network. Up % = up / (up + down) samples; pending and maintenance count neither way. The NAS is off
+`tick(snaps)` samples and then sums the last 7 days into memory. One writer: it runs only on the hub's 5-minute
+Server loop (hub/tasks.py), so the table gets at most one row per 5 minutes (about 1,440 rows over 8 days while the
+NAS is on 07:00-22:00). The render reads only `peek()`: no media.db read, no network. The sum reads the table over a
+read-only connection. Up % = up / (up + down) samples; pending and maintenance count neither way. The NAS is off
 22:00-07:00, so 7 days means the hours it was on. Never raises.
 """
 
@@ -77,8 +78,7 @@ def _read_rows(now: datetime) -> list[tuple[datetime, dict]]:
         return []
     out = []
     try:
-        with closing(media_db.connect()) as db:
-            db.execute(DDL)
+        with closing(sqlite3.connect(f"{media_db.db_path().as_uri()}?mode=ro", uri=True)) as db:
             for ts, states in db.execute("SELECT ts, states FROM server_kuma_samples WHERE ts >= ? ORDER BY ts",
                                          (_iso(now - WINDOW),)):
                 at = parse_utc(ts)
@@ -88,6 +88,8 @@ def _read_rows(now: datetime) -> list[tuple[datetime, dict]]:
                     continue
                 if at is not None and isinstance(st, dict):
                     out.append((at, st))
+    except sqlite3.OperationalError:
+        return []   # no table yet: nothing sampled since JY-133
     except (sqlite3.Error, OSError) as exc:
         log.warning("kuma uptime unreadable: %s", type(exc).__name__)
         return []
@@ -133,7 +135,7 @@ def words(u: dict | None, now: datetime | None = None) -> str | None:
 
 
 def refresh(now: datetime | None = None) -> dict:
-    """Sum the last 7 days into memory (the after-page task and the hub loop)."""
+    """Sum the last 7 days into memory (the hub loop)."""
     global _summary
     now = now or _now()
     _summary = summary(_read_rows(now), now)

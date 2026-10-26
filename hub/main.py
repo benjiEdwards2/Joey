@@ -234,11 +234,10 @@ def _server_response(request: Request, area, view: str, from_query: bool):
                                   live=server_area.live_snapshot_ids(shell.registry),  # WP-U3
                                   gated=shell.registry.gated_hrefs,
                                   forecast=forecast,
-                                  uptime=server_uptime.peek())   # JY-133: memory only, summed after the page
+                                  uptime=server_uptime.peek())   # JY-133: memory only, summed on the hub loop
     after = BackgroundTasks()
     after.add_task(server_alerts.sync, sv["attention_items"], keep=keep)  # WP-U2: Discord push after the page
     after.add_task(server_history.sample, snaps)  # WP-U4: system sample after the page
-    after.add_task(server_uptime.tick, snaps)  # JY-133: Kuma states sample + the 7-day sum after the page
     resp = shell.render_page(request, "server.html", {
         "area": area, "sv": sv,
         "flash": server_updates.flash_text(request.query_params) or server_stack.flash_text(request.query_params),

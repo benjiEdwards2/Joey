@@ -153,3 +153,41 @@ def test_tick_samples_then_refreshes(tmp_path):
     server_uptime.tick(get_snapshots(snaps))
     got = server_uptime.peek()
     assert got["jellyfin"]["pct"] == 100.0 and got["prowlarr"]["pct"] == 0.0
+
+
+# ---- review should-fixes (2026-10-26) ----------------------------------------------------------------------------
+
+def test_the_overnight_gap_is_not_down():
+    """The NAS is off 22:00-07:00 Melbourne (11:00-20:00 UTC in October): no samples, so nothing counts either way."""
+    mel_day = [(m, {"Jellyfin": "up"}) for d in range(7) for m in range(d * 1440 + 30, d * 1440 + 15 * 60, 5)]
+    s = server_uptime.summary(rows(*mel_day), NOW)
+    assert s["jellyfin"]["pct"] == 100.0 and s["jellyfin"]["last_down"] is None
+    assert server_uptime.words(s["jellyfin"], NOW).startswith("100% up · ")
+
+
+def test_the_render_never_samples(env):
+    with env() as client:
+        assert client.get("/server").status_code == 200
+        client.get("/server")
+    if media_db.db_path().exists():
+        with sqlite3.connect(media_db.db_path()) as db:
+            names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert "server_kuma_samples" not in names                       # the 5-minute loop is the one writer
+
+
+def test_refresh_reads_without_creating_anything(tmp_path):
+    assert server_uptime.refresh(NOW) == {}
+    assert not media_db.db_path().exists()
+    media_db.connect().close()                                          # a media.db without the table
+    assert server_uptime.refresh(NOW) == {}
+    with sqlite3.connect(media_db.db_path()) as db:
+        names = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "server_kuma_samples" not in names
+
+
+def test_the_loop_tick_samples_at_most_once_per_snapshot(tmp_path):
+    snaps = tmp_path / "snaps"
+    _write(snaps, age_minutes=3)
+    for _ in range(3):
+        server_uptime.tick(get_snapshots(snaps))
+    assert len(_rows()) == 1

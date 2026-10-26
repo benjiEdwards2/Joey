@@ -57,7 +57,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-049 | Transcoding box: requirements + shortlist | Media player | M | [x] shipped | Research done (`docs/joeyv2/research/JY-049_TRANSCODE_BOX.md`) | — |
 | JY-050 | Player spec + questions | Media player | S | [x] shipped | Devices, friends or not, what done means · PR #66 | [spec](docs/specs/JY-050-player-spec.md) |
 | JY-051 | Player options study (per-device matrix) | Media player | M | building | Inventory + PC playback table + study page + test TV app built (PR #70); the TV/phone sitting waits on JY-014's hostname | — |
-| JY-052 | Options page: player screen (PC, phone, TV) | Media player | S | idea | B. picks the look first | — |
+| JY-052 | Options page: player screen (PC, phone, TV) | Media player | S | [x] shipped | B. 2026-10-27: "JY-052: A" (Classic overlay); options page built 2026-10-26; JY-054 builds it | — |
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | [x] shipped | Contract before the players · PR #188 | [spec](docs/specs/JY-053-playback-contract.md) |
 | JY-054 | Web/phone player | Media player | L | idea | Joey plays the film itself · live | — |
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | idea | Stop on one device, resume on another | — |
@@ -187,6 +187,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-252 | Deploy gate back toward ~5 min (it rose to ~7.5 min after the TV round) | Tooling | M | [x] shipped | NAS history.log dur 435-480 s vs 280-300 s on 2026-10-24 · PR #198 | [spec](docs/specs/JY-252-faster-gate.md) |
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
+| JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | idea | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." | — |
 
 ### NAS / stack
 

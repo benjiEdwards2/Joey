@@ -469,6 +469,11 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0):
                      ("LOCK=/tmp/joey-deploy.lock", "LOCK=" + (tmp_path / "lock").as_posix())):
         assert script.count(old + chr(10)) == 1, old
         script = script.replace(old + chr(10), new + chr(10))
+    # The retry sleep is pointed at the fake by absolute path: a PATH lookup is not enough on every sh (a BusyBox ash with
+    # standalone applets, or a builtin, runs the real `sleep` and the CI run on Linux saw an empty sleep.log; JY-206).
+    wait = '    sleep "$PULL_WAIT"' + chr(10)
+    assert script.count(wait) == 1
+    script = script.replace(wait, '    "' + (fake / "bin" / "sleep").as_posix() + '" "$PULL_WAIT"' + chr(10))
     path = tmp_path / "deploy.sh"
     path.write_text(script, encoding="utf-8", newline=chr(10))
     env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(), FAKE_PULL_FAILS=str(pull_fails),

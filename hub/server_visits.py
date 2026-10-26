@@ -7,9 +7,11 @@ container), and the connectors' runner history (already in memory, JY-226). No l
 
 media.db table `server_last_visit(owner, since, last_seen)`: a visit starts when the viewer opens Server more than
 GAP after their last view; `since` is then the end of the previous visit and holds for the whole visit, so a reload
-keeps the sentence. The row is written after the page (`touch`, a response background task). The rows are read once
-per media.db path and kept in memory (the hub is one process and `touch` is the only writer, so it updates the kept
-copy too): a render opens no connection. The sweep scan is kept per viewer, visit and newest history line.
+keeps the sentence. The rows are read once per media.db path and kept in memory: a render opens no connection.
+`touch` (after the page, a response background task; the only writer, the hub being one process) updates the kept
+row on every view, so the next visit always starts at the real last view; it commits to media.db only on a new visit
+or once a minute, and `flush` (the hub's shutdown) commits the rest. After a restart without that flush the stored
+last_seen is at most a minute behind. The sweep scan is kept per viewer, visit and newest history line.
 """
 
 from __future__ import annotations
@@ -36,6 +38,7 @@ _memo_lock = threading.Lock()
 _memo: dict = {}   # owner -> {"key": (since, the newest history line's ran_at), "feeds": [...]}
 _rows_lock = threading.Lock()
 _kept: dict | None = None   # {"path": media.db path, "rows": {owner: (since, last_seen)}}
+_written: dict = {}         # owner -> the last_seen last committed to media.db
 
 
 def _iso(dt: datetime) -> str:
@@ -81,26 +84,44 @@ def since_for(owner: str | None, now: datetime | None = None) -> datetime | None
 
 
 def touch(owner: str | None, now: datetime | None = None) -> None:
-    """After the page: record this view. A new visit moves `since` to the previous view. Never raises."""
+    """After the page: record this view in memory; a new visit moves `since` to the previous view. Commits on a new
+    visit or once a minute. Never raises."""
     if owner not in OWNERS:
         return
     now = now or _now()
-    kept = _row(owner)
-    if kept is not None and kept[1] is not None and timedelta(0) <= now - kept[1] < TOUCH_EVERY:
-        return   # same visit, seen under a minute ago: no write (a reload storm never queues commits)
+    prev = _row(owner)   # the kept copy: every view updates it, so last_seen is never behind the real last view
+    since = prev[0] if prev and prev[1] is not None and now - prev[1] <= GAP else (prev[1] if prev else None)
+    with _rows_lock:
+        if _kept is not None and _kept["path"] == str(media_db.db_path()):
+            _kept["rows"][owner] = (since, now)
+        last_write = _written.get(owner)
+        due = prev is None or since != prev[0] or last_write is None or not timedelta(0) <= now - last_write < TOUCH_EVERY
+    if due:   # a new visit, or a minute since the last write: commit (a reload storm never queues commits)
+        _write(owner, since, now)
+
+
+def _write(owner: str, since: datetime | None, last_seen: datetime) -> None:
+    global _kept
     try:
         with closing(media_db.connect()) as db, db:
             db.execute(DDL)
-            row = db.execute("SELECT since, last_seen FROM server_last_visit WHERE owner = ?", (owner,)).fetchone()
-            last = parse_utc(row[1]) if row else None
-            since = row[0] if row and last is not None and now - last <= GAP else (row[1] if row else None)
             db.execute("INSERT OR REPLACE INTO server_last_visit(owner, since, last_seen) VALUES(?, ?, ?)",
-                       (owner, since, _iso(now)))
+                       (owner, _iso(since) if since else None, _iso(last_seen)))
         with _rows_lock:
-            if _kept is not None and _kept["path"] == str(media_db.db_path()):
-                _kept["rows"][owner] = (parse_utc(since), parse_utc(_iso(now)))
+            _written[owner] = last_seen
+            if _kept is None or _kept["path"] != str(media_db.db_path()):
+                _kept = None   # media.db was just created (or moved): the next read loads the table once
     except (sqlite3.Error, OSError) as exc:
         log.warning("last visit write failed: %s", type(exc).__name__)
+
+
+def flush() -> None:
+    """Write every kept last_seen newer than its last write (the hub's shutdown hook). Never raises."""
+    with _rows_lock:
+        rows = dict(_kept["rows"]) if _kept is not None and _kept["path"] == str(media_db.db_path()) else {}
+        dirty = [(o, s, ls) for o, (s, ls) in rows.items() if ls is not None and _written.get(o) != ls]
+    for owner, since, last_seen in dirty:
+        _write(owner, since, last_seen)
 
 
 def _feeds(history, since: datetime, live) -> list[str]:
@@ -179,3 +200,4 @@ def clear() -> None:
         _memo.clear()
     with _rows_lock:
         _kept = None
+        _written.clear()

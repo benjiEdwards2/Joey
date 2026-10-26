@@ -222,3 +222,26 @@ def test_touch_writes_at_most_once_a_minute_within_a_visit():
     sv.touch("you", T0 + timedelta(seconds=90))
     with sqlite3.connect(media_db.db_path()) as db:
         assert db.execute("SELECT last_seen FROM server_last_visit").fetchone()[0] == "2026-10-26T01:01:30Z"
+
+
+def test_the_next_visit_starts_at_the_real_last_view_not_the_last_write():
+    """Re-review defect (2026-10-26): with writes held to one a minute, last_seen lagged up to 59 s, so the next
+    visit's "since" covered the viewer's own last minute. last_seen is kept in memory on every view."""
+    sv.touch("you", T0)
+    sv.touch("you", T0 + timedelta(seconds=20))                          # no write (inside the minute)
+    assert sv.since_for("you", T0 + timedelta(hours=2)) == T0 + timedelta(seconds=20)
+
+
+def test_after_a_restart_the_stored_value_is_used_at_most_a_minute_stale():
+    sv.touch("you", T0)
+    sv.touch("you", T0 + timedelta(seconds=20))
+    sv.clear()                                                           # a hub restart: memory gone, no shutdown flush
+    assert sv.since_for("you", T0 + timedelta(hours=2)) == T0
+
+
+def test_flush_writes_the_kept_last_seen():
+    sv.touch("you", T0)
+    sv.touch("you", T0 + timedelta(seconds=20))
+    sv.flush()                                                           # the hub's shutdown hook
+    sv.clear()
+    assert sv.since_for("you", T0 + timedelta(hours=2)) == T0 + timedelta(seconds=20)

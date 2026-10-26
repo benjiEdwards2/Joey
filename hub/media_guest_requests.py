@@ -215,7 +215,8 @@ def pick(kind: str, raw) -> dict | None:
     (nothing is sent, Seerr's own default applies)."""
     from hub import media_quality   # late: it imports media_discover, which this module imports
     rows = media_quality.profiles(kind)
-    got = media_quality.by_id(rows, int(raw) if str(raw or "").isdigit() and len(str(raw)) <= 9 else None)
+    s = str(raw or "")   # JY-230: ASCII digits only - str.isdigit() is also True for a superscript two, which int() refuses
+    got = media_quality.by_id(rows, int(s) if s.isascii() and s.isdigit() and len(s) <= 9 else None)
     return got or next((r for r in rows if r.get("default")), None)
 
 

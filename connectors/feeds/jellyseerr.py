@@ -11,8 +11,9 @@ from connectors.feeds._common import FIXTURE_MEDIA_HOST, _ago, _dt, _now
 from connectors.feeds._http import http_json, session
 
 
-SEERR_LIST_TAKE = 50       # requests fetched per sweep
-SEERR_ROW_LIMIT = 30       # rows kept in the data block
+SEERR_LIST_TAKE = 100      # requests fetched per sweep (newest first, every status)
+SEERR_PENDING_TAKE = 200   # WP-RQ1 (2026-10-22): pending requests fetched on their own, so none is cut by the cap
+SEERR_ROW_LIMIT = 60       # rows kept in the data block besides the pending ones (every pending row is always kept)
 SEERR_LOOKUP_CAP = 20      # new TMDB title lookups per sweep (the rest keep "TMDB #id")
 # Jellyseerr request.status / media.status -> a word, never a colour. Seerr v3: 4 = FAILED, 5 = COMPLETED
 # (the media is in Jellyfin, so "Available"). An unknown code is still an open request -> "Approved", not "Pending".
@@ -37,6 +38,31 @@ def _seerr_year(value) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _seerr_int(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def _seerr_name(by: dict) -> str:
+    """JY-230: the requester's name, never an email (Seerr's displayName falls back to the user's email)."""
+    for key in ("displayName", "jellyfinUsername", "username"):
+        name = str(by.get(key) or "").strip()
+        if name and "@" not in name:
+            return name[:80]
+    return "someone"
+
+
+def _seerr_jf(by: dict) -> str | None:
+    """JY-230: the requester's Jellyfin user id (dash-less, lower case), so the hub can say "you" / "her"."""
+    jf = str(by.get("jellyfinUserId") or "").replace("-", "").strip().lower()
+    return jf if re.fullmatch(r"[0-9a-f]{32}", jf) else None
+
+
+def _seerr_seasons(request: dict) -> list[int]:
+    """The request's season numbers (Seerr `seasons[].seasonNumber`), sorted, Specials (0) included as Seerr has them."""
+    nums = {s.get("seasonNumber") for s in request.get("seasons") or [] if isinstance(s, dict)}
+    return sorted(n for n in nums if isinstance(n, int) and not isinstance(n, bool) and n >= 0)
+
+
 class Jellyseerr(Connector):
     """Jellyseerr's request queue. Titles come from per-request TMDB lookups,
     capped per sweep and reused from the previous envelope; one failed lookup
@@ -46,7 +72,7 @@ class Jellyseerr(Connector):
     requires_env = ("JELLYSEERR_URL", "JELLYSEERR_API_KEY")
 
     def fetch(self) -> dict:
-        client = session()  # one connection for the run's up to 22 calls (C-05)
+        client = session()  # one connection for the run's up to 23 calls (C-05)
         try:
             return self._fetch(client)
         finally:
@@ -62,6 +88,9 @@ class Jellyseerr(Connector):
         raw_count = get("count", "/api/v1/request/count")
         raw_requests = get("requests", "/api/v1/request",
                            {"take": SEERR_LIST_TAKE, "skip": 0, "sort": "added", "filter": "all"})
+        # WP-RQ1 (2026-10-22): every pending request, however old - B. approves or declines them from the Requests page
+        raw_pending = get("pending requests", "/api/v1/request",
+                          {"take": SEERR_PENDING_TAKE, "skip": 0, "sort": "added", "filter": "pending"})
 
         # Titles already resolved last sweep are reused, so repeats cost no calls.
         known: dict[str, dict] = {}
@@ -73,7 +102,7 @@ class Jellyseerr(Connector):
                     "releaseDate": str(row["year"]) if row.get("year") else None,
                     "posterPath": (row.get("poster") or "").removeprefix("tmdb:") or None}
         titles, lookups = {}, 0
-        for request in raw_requests.get("results", []):
+        for request in [*raw_pending.get("results", []), *raw_requests.get("results", [])]:   # pending titles first
             tmdb = (request.get("media") or {}).get("tmdbId")
             if not tmdb:
                 continue
@@ -89,7 +118,7 @@ class Jellyseerr(Connector):
                     titles[key] = get("title lookup", f"/api/v1/{kind}/{tmdb}")
                 except Exception:  # row stays "TMDB #id"
                     pass
-        return {"raw_count": raw_count, "raw_requests": raw_requests, "raw_titles": titles}
+        return {"raw_count": raw_count, "raw_requests": raw_requests, "raw_pending": raw_pending, "raw_titles": titles}
 
     def transform(self, raw: dict) -> dict:
         now = _now()
@@ -97,7 +126,12 @@ class Jellyseerr(Connector):
                 else os.environ["JELLYSEERR_URL"].rstrip("/"))
         titles = raw.get("raw_titles") or {}
         rows: list[tuple[bool, datetime, dict]] = []
-        for request in (raw.get("raw_requests") or {}).get("results", []):
+        seen: set[int] = set()
+        for request in [*(raw.get("raw_pending") or {}).get("results", []),
+                        *(raw.get("raw_requests") or {}).get("results", [])]:
+            if int(request["id"]) in seen:   # a pending request is in both lists
+                continue
+            seen.add(int(request["id"]))
             media = request.get("media") or {}
             tmdb = media.get("tmdbId")
             kind = _seerr_kind(request)
@@ -111,7 +145,7 @@ class Jellyseerr(Connector):
                 "tmdb_id": int(tmdb) if tmdb else 0,
                 "title": title,
                 "year": _seerr_year(info.get("releaseDate") or info.get("firstAirDate")),
-                "requested_by": by.get("displayName") or by.get("username") or "someone",
+                "requested_by": _seerr_name(by),
                 "status_text": _seerr_status_text(request),
                 "when": _ago(created, now),
                 "href": f"{host}/{kind}/{tmdb}",
@@ -120,10 +154,18 @@ class Jellyseerr(Connector):
                 # Remove (2026-10-08): Sonarr finds a series by its TVDB id when the hub stops its search (TV only).
                 **({"tvdb_id": int(media["tvdbId"]) if str(media.get("tvdbId") or "").isdigit() else None}
                    if kind == "tv" else {}),
+                # WP-RQ1 (2026-10-22): what the requester chose (Seerr's stored arr profile id, null = the server's
+                # default; TV: the season numbers) and who asked (their Seerr user id), for Approve / Decline.
+                "profile_id": _seerr_int(request.get("profileId")),
+                **({"seasons": _seerr_seasons(request)} if kind == "tv" else {}),
+                "requested_by_id": _seerr_int(by.get("id")),
+                "requested_by_jf": _seerr_jf(by),   # JY-230: the owner word on the Requests page
             }))
         rows.sort(key=lambda r: r[1], reverse=True)    # newest first ...
         rows.sort(key=lambda r: not r[0])              # ... then pending first (stable)
-        requests_out = [r[2] for r in rows][:SEERR_ROW_LIMIT]
+        # WP-RQ1: every pending row is kept; the cap applies to the rest
+        n_pending = sum(1 for r in rows if r[0])
+        requests_out = [r[2] for r in rows][:n_pending + SEERR_ROW_LIMIT]
 
         count = raw.get("raw_count") or {}
         counts = {k: int(count.get(k) or 0)

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/benjiEdwards2/life-dashboard/connectors/schema/data/jellyseerr.schema.json",
   "title": "jellyseerr data block",
-  "description": "Media area request queue. Rows are pending first, then newest; capped at 30. A title that could not be looked up reads 'TMDB #<id>'. `summary`/`secondary` are the hub display convention (D17, WP18).",
+  "description": "Media area request queue. Rows are pending first, then newest; every pending request is kept and the rest are capped at 60 (WP-RQ1, 2026-10-22; 30 before). A title that could not be looked up reads 'TMDB #<id>'. `summary`/`secondary` are the hub display convention (D17, WP18).",
   "type": "object",
   "required": ["summary", "secondary", "counts", "requests"],
   "additionalProperties": false,
@@ -23,7 +23,7 @@
     },
     "requests": {
       "type": "array",
-      "maxItems": 30,
+      "maxItems": 260,
       "items": {
         "type": "object",
         "required": ["id", "kind", "tmdb_id", "title", "year", "requested_by", "status_text", "when", "href"],
@@ -40,7 +40,11 @@
           "requested_by": {"type": "string"},
           "status_text": {"enum": ["Pending", "Approved", "Declined", "Failed", "Available", "Partly available", "Processing"]},
           "when": {"type": "string"},
-          "href": {"type": "string"}
+          "href": {"type": "string"},
+          "profile_id": {"type": ["integer", "null"], "minimum": 1},
+          "seasons": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+          "requested_by_id": {"type": ["integer", "null"], "minimum": 1},
+          "requested_by_jf": {"type": ["string", "null"], "pattern": "^[0-9a-f]{32}$"}
         }
       }
     }

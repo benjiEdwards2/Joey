@@ -17,7 +17,7 @@ from starlette.background import BackgroundTask
 
 from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
-                 media_quality, media_requests, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
+                 media_quality, media_requests, media_requests_approve, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
@@ -211,10 +211,17 @@ def media_requests_page(request: Request):
         later[0] = media_season_state.chain(media_season_state.later([(r.get("tvdb_id"), r.get("tmdb_id")) for r in tv]),
                                             media_quality.later(rows))
         media_quality.attach(rows)
+        # WP-RQ1 (2026-10-22): a decision made here shows at once; B. sees what each pending row asked for + its form
+        rows, c = media_requests_approve.overlay(rows, c, snap.updated_at if snap else None)
+        decide = media_requests_approve.can_decide(request)
+        media_requests_approve.attach(rows, decide)
         good, warn = media_requests.flash_text(request.query_params)
+        good = good or media_requests_approve.flash_text(request.query_params)
+        warn = warn or media_requests_approve.net_text(request.query_params)
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
                 "rows": rows, "flash": good, "flash_warn": warn, "app_link": app_link(request, "jellyseerr"),
+                "can_decide": decide,
                 "ratings": media_home._ratings(view, rows)}
     later = [None]
     resp = _detail_page(request, "media_requests.html", JELLYSEERR_SNAPSHOT_ID, build)

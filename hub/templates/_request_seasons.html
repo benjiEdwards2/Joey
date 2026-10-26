@@ -1,0 +1,9 @@
+{# WP-RQ1 (2026-10-22): a pending TV request's season ticks in its Approve panel - the requested ones ticked. The page
+   draws the requested seasons alone; opening the panel swaps in the show's whole list (GET /media/requests/{id}/seasons).
+   A season another request holds or that is on disk shows its word and cannot be ticked. #}
+<div class="seasonpick">
+  {% for s in seasons %}
+  <label><input type="checkbox" name="seasons" value="{{ s.number }}"{{ " checked" if s.ticked }}{{ " disabled" if s.disabled }}>
+    {{ s.name }}{% if s.status_word %} <span class="metaline {{ status_of(s.status_word).cls }}">{{ s.status_word }}</span>{% endif %}</label>
+  {% endfor %}
+</div>

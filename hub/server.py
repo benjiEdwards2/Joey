@@ -330,7 +330,7 @@ SEARCH_MISSING_HREF = "/media/requests?sweep_ask=missing"   # media_arr_search: 
 def library_health(snaps) -> dict | None:
     """{parts, failed, search} from the arr snapshot's `radarr` / `sonarr` / `prowlarr` objects (WP-S3), or None when
     the snapshot carries none of them. parts: the non-zero counts in words ("Radarr 2 wanted", "3 missing",
-    "Sonarr 7 wanted"); failed: "Prowlarr 3 failed grabs" when that count is non-zero (amber: something to look at);
+    "Sonarr 7 wanted"); failed: "Prowlarr 3 failed grabs this week" (the feed counts 7 days, JY-143) when that count is non-zero (amber: something to look at);
     search: the Search missing href when anything is wanted or missing, else None. No parts and no failed ⇒
     the template says "all clear"."""
     arr = _data(snaps, ARR_SNAPSHOT_ID)
@@ -349,7 +349,7 @@ def library_health(snaps) -> dict | None:
         if words:
             parts += [f"{name} {words[0]}", *words[1:]]
     failed = n(prowlarr, "failed_grabs")
-    return {"parts": parts, "failed": f"Prowlarr {failed} failed grab{'' if failed == 1 else 's'}" if failed else None,
+    return {"parts": parts, "failed": f"Prowlarr {failed} failed grab{'' if failed == 1 else 's'} this week" if failed else None,
             "search": SEARCH_MISSING_HREF if parts else None}
 
 

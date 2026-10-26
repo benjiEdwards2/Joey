@@ -1,6 +1,6 @@
 # JY-151 Long TV pill names
 
-Status: spec (built as option A; waiting for B.'s pick)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/media_awards_pages.py` (`short_name`), `tests/hub/test_awards_ballot.py`
@@ -39,4 +39,8 @@ The phone page height (JY-150).
 `/media/tv/awards` (Emmys): pills read "Supp. Actress (Limited)", "Lead Actor (Drama)", "Limited or Anthology Series"; the Details fold still shows full names; the Oscars page is unchanged.
 
 ## Shipped notes
-(none yet)
+- Closed out with `scripts/joey.py close-out`.
+- PR: #192, squash-merged as `3fb4fdb` (3fb4fdb7d26db930ae172514235722b85d7a9cfa).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: JY-246: A · JY-120: A · JY-151: A · JY-150: A · JY-121: A · JY-133: A · JY-134: A · JY-052: A · JY-053: A A A A · JY-230: go · JY-231: go approve · JY-232: go s1 · deploy"
+- Follow-ups: none

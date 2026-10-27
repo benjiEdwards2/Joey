@@ -1,6 +1,6 @@
 # JY-256 Stop the arr set for the deploy gate
 
-Status: building
+Status: shipped 2026-10-27
 Size: L
 Live risk: deploy (changes `deploy/deploy.sh`, the only path to production, and stops four live media containers for the gate)
 Area: `deploy/deploy.sh` (stop set around the gate), `tests/deploy/test_deploy_script.py`, `docs/runbook.md`, `deploy/README.md`, this spec
@@ -77,3 +77,8 @@ B.'s decision, in chat on 2026-10-27: "JY-209: retire Homepage. Deploy gate: sto
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #226, squash-merged as `8eba1a1` (8eba1a12ee1c9759cc173f53f83680734bb1636c).
+- Deploy: `2026-10-27T01:28:10Z PASS prev=ff60b00 new=8eba1a1 suite green, smoke ok tv=current gate=-n1 avail=1593 end=2026-10-27T01:35:04Z dur=414s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

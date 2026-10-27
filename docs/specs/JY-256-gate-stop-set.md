@@ -21,7 +21,7 @@ About 430 MB of retained heap builds up in the media apps within 2 to 4 hours of
 5. Only containers this run stopped (or a crashed run left in the list) are started. A container that would not start stays in the list, is logged loudly (`!! ... start it by hand ... !!`) and adds `start-failed=<names>` to the history line.
 6. Recovery: right after taking the lock (this covers the stale-lock path), deploy.sh starts anything still in the list from an earlier run, before the pull. `docker start` on a running container does nothing, so this is safe.
 7. Every stop and start is logged with its duration (`gate stop set: stopped sonarr in 3 s`, `gate stop set: started sonarr in 1 s (after the gate)`).
-8. Each history line written after the stop carries `stopped=sonarr,radarr,prowlarr,flaresolverr` (only the ones this run stopped; `stopped=none` when none were running), after the existing text and before `end=`. Readers still parse: close-out matches ` PASS ` / `NOTHING-TO-DEPLOY` and `new=`, `scripts/budgets.py` matches `PASS ` and `dur=`. `NOTHING-TO-DEPLOY` lines are unchanged (no gate, no stop).
+8. Each history line written after the stop carries `stopped=sonarr,radarr,prowlarr,flaresolverr` (only the ones this run stopped; `stopped=none` when none were running), after the existing text and before `end=`. Readers still parse: close-out matches ` PASS ` / `NOTHING-TO-DEPLOY` and `new=`, `scripts/budgets.py` matches `PASS ` and `dur=`. `NOTHING-TO-DEPLOY` lines are unchanged (no gate, no stop), except that a failed recovery start (criterion 6) adds `start-failed=<names>`.
 9. BusyBox `sh` only: no `local`, arrays, `[[ ]]` or brace expansion.
 10. A `deploy.sh` change takes effect from the second deploy after it merges: the first deploy after the merge still runs the old copy it read before its own pull (runbook, Deploy). Plan memory for the old behaviour once.
 
@@ -32,9 +32,12 @@ All in `tests/deploy/test_deploy_script.py`, run under a local POSIX sh with a f
 |---|---|
 | 1 | `test_gate_stop_set_is_a_dated_variable_at_the_top_and_never_names_the_core_media` (string pin) |
 | 1 | `test_empty_gate_stop_set_is_a_no_op` (behaviour) |
+| 2, 3, 4, 6 | `test_stop_sits_before_the_memory_check_and_start_right_after_the_gate` (string pins: order, trap, once flag, list before stop, recovery after the lock) |
 | 2, 4, 7 | `test_stop_then_re_measure_then_gate_then_start_before_the_build` (the fake frees 130 MB per stop: 1,380 MB would skip, 1,900 MB runs `-n 2`; suite green, start before `compose build`, PASS line) |
 | 4, 8 | `test_restart_on_every_exit_path[gate-fail / skip / error / signal]` (error: an injected `false` after the check; signal: the fake suite sends TERM to deploy.sh) |
+| 4 | `test_a_rollback_comes_after_the_start_and_starts_nothing_twice` (green suite, `compose build` fails: ROLLBACK-FAILED, each container started once, before the build) |
 | 2, 5 | `test_a_container_that_was_already_stopped_is_left_alone` |
+| 8 | `test_nothing_running_logs_stopped_none` |
 | 3, 6 | `test_a_list_left_by_a_crashed_run_is_restarted_first[plain / stale lock]` |
 | 5 | `test_a_container_that_will_not_start_stays_listed_and_is_logged` |
 | 8 | history assertions in the rows above (`stopped=...`, `stopped=none`, none when empty) |

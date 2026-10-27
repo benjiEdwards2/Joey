@@ -26,7 +26,7 @@ JOEY_NAS=root@<nas> deploy/push.sh                                           # f
 
 **Before:** inside the window (07:00 to 21:30 Melbourne, [below](#nas-power-schedule-and-the-deploy-window)); not in the 15 minutes before 00:00 UTC (10:00 AEST, 11:00 AEDT: tests that read the real date can fail across midnight); `git fetch` and confirm `origin/main` is the SHA you mean (a rejected push once went unnoticed and the NAS shipped another session's main).
 
-**What it does, in order:** detach into its own session and log to `deploy/logs/deploy-<UTC>-<pid>.log` (closing the laptop or dropping ssh only stops the watching) -> take the lock (`/tmp/joey-deploy.lock`; a second deploy exits 2 and names the running one) -> `git pull --ff-only` (3 tries, 20 s apart, each logged; JY-206, once PR #183 is merged: until then 3 tries, 5 s apart) -> `compose config` -> **memory check** -> build `life-test` and run the full suite offline -> `compose build` + `up -d` -> smoke -> prune -> publish the TV release if one is waiting.
+**What it does, in order:** detach into its own session and log to `deploy/logs/deploy-<UTC>-<pid>.log` (closing the laptop or dropping ssh only stops the watching) -> take the lock (`/tmp/joey-deploy.lock`; a second deploy exits 2 and names the running one) -> `git pull --ff-only` (3 tries, 20 s apart, each logged; JY-206, once PR #183 is merged: until then 3 tries, 5 s apart) -> `compose config` -> **stop the gate stop set** -> **memory check** -> build `life-test` and run the full suite offline -> start the stop set again -> `compose build` + `up -d` -> smoke -> prune -> publish the TV release if one is waiting.
 
 **The memory gate (JY-240).** Just before the suite, deploy.sh reads `/proc/meminfo`:
 
@@ -37,6 +37,13 @@ JOEY_NAS=root@<nas> deploy/push.sh                                           # f
 | under 1,460 MB, or swap used over 1,273 MB, or unreadable | **skipped**: `SKIPPED-LOW-MEMORY`, tree reset to the previous SHA, live stack untouched, exit 1 |
 
 The mode shows in the output and in `history.log` as `gate=-n1 avail=1588`. Free memory (stop the preview with `preview down`, pause qBittorrent), then rerun. The NAS floor is 1,200 MB available during any deploy.
+
+**The gate stop set (JY-256).** The media apps hold about 430 MB of retained heap within hours of boot, so before the memory check deploy.sh stops (`docker stop`, never `pause`) the running members of `GATE_STOP_SET` (default `sonarr radarr prowlarr flaresolverr`; about 504 MB freed, measured 2026-10-27), then measures again: the thresholds above decide on the freed number. It starts them again right after the suite, before `compose build`, and on every other exit (red gate, skip, error, signal). qBittorrent, Jellyfin, Seerr and gluetun are never touched. For the 3 to 6 min of the suite, plus about 1 min of start-up, imports and searches wait; downloads carry on.
+
+- The log shows `stopped <name> in N s` and `started <name> in N s (after the gate)`; the history line carries `stopped=sonarr,radarr,...` (`stopped=none` when none was running). A container that was already stopped stays stopped.
+- Each name goes into `deploy/logs/gate-stopped.list` before its stop. A run that dies with the set down (killed, or the NAS powered off) leaves the list, and the next `deploy.sh` starts those first, right after it takes the lock. Waiting is not enough: a stopped `unless-stopped` container stays stopped across a reboot. To fix it by hand: `ssh root@<nas> "cat /volume1/Docker/joey/life-dashboard/deploy/logs/gate-stopped.list"`, then `docker start <name>` for each and delete the file.
+- A start that fails is logged `!! ... could not start <name> ... !!`, stays in the list and adds `start-failed=<name>` to the history line: start it by hand.
+- Off for one run: `GATE_STOP_SET= deploy/deploy.sh` (an empty value stops nothing). Check qBittorrent's completed queue for an import in flight before the first live run.
 
 **Read the result.** The last lines of the log end `DEPLOY OK: <prev> -> <new>, tv=<token>`. The truth is `history.log`:
 
@@ -52,7 +59,7 @@ ssh root@<nas> "tail -3 /volume1/Docker/joey/life-dashboard/deploy/history.log"
 | `SKIPPED-LOW-MEMORY` | not enough memory for the gate; same handling | free memory, rerun. Not green: close-out refuses until a green run or `--after-fail` |
 | `ROLLED-BACK` | build, up or smoke failed; the previous SHA is healthy again | read the log; fix forward |
 | `ROLLBACK-FAILED` | both SHAs unhealthy | **act now**: [rollback by hand](#rollback), check `docker ps` |
-| `ABORTED` | died before an outcome (for example the pull failed 3 times). The tree is reset to the previous SHA only if the pull had already moved it; a failed pull never moved it, so nothing needs undoing | just rerun |
+| `ABORTED` | died before an outcome (for example the pull failed 3 times). The tree is reset to the previous SHA only if the pull had already moved it; a failed pull never moved it, so nothing needs undoing. The gate stop set was started again on the way out (`stopped=` on the line says what was down) | just rerun |
 
 Each line also carries `prev=`, `new=` and `dur=` (budget: the full gate at most 10 min). Re-attach to a running deploy with `tail -f` on `ls -t deploy/logs | head -1`. Stop one only with `kill <pid>` (never mid `compose up`). A stale lock (holder gone) clears itself; by hand, only when nothing runs: `rm -rf /tmp/joey-deploy.lock`.
 
@@ -143,6 +150,7 @@ The other WP38 parts are drills, not scripts: the stale-badge drill (point one c
 | `git push` of the Joey repo falls back to a terminal prompt and fails | The Windows credential helper timed out under heavy CPU load | Retry with `GIT_TERMINAL_PROMPT=0` once load drops; keep one heavy run at a time |
 | The daily backup of `Desktop\Claude` (the `claude-workspace` repo) stops pushing | A commit holds a file over GitHub's 100 MB limit: 2026-10-25, a 872 MB AutoCAD temp file under `DrawingMultiToolV2/.../iso_profile/Temp/` | Find it (`git rev-list --objects --all` sorted by size, or the push error), add it to `.gitignore` (`*.ac$`, `**/iso_profile/Temp/` now are) and drop it from the **unpushed** commits only (filter-branch over `origin/main..main`; B.'s OK first). Never rewrite pushed history |
 | `deploy.sh` aborts on `Could not resolve hostname github.com` | Container DNS loss while qBittorrent saturates the line | The pull already retries 3 times, 20 s apart. If it still aborts, cap qBittorrent's download at about 70 % of the plan and rerun. The ADM IPv6 DNS entry is B.'s hands (JY-206) |
+| Sonarr, Radarr, Prowlarr or FlareSolverr down after a deploy | A deploy died with the gate stop set down, or a start failed (`start-failed=` in `history.log`) | The next `deploy.sh` starts what `deploy/logs/gate-stopped.list` names. Now: `docker start <name>`, then delete the file ([gate stop set](#deploy)) |
 | Hub answers 502 after a deploy | The hub is not running (a killed deploy once left it `Created`) | `docker ps`; `cd deploy && docker compose up -d`; read `history.log`. Since 2026-10-20 deploy.sh survives a dropped ssh |
 | `ssh` to the NAS fails | NAS off 22:00 to 07:00, or the laptop is off the home LAN | Wait, or get on the LAN. Never "fix" it from Joey |
 | `curl <nas>:8800` returns 000 | The hub port is not published | Read the hub from inside: `ssh root@<nas> "docker exec -i joey-hub python -" < script.py` |

@@ -426,7 +426,7 @@ SH = _pipefail_sh()
 # JY-256: it also keeps the running containers in $FAKE_DIR/running (`inspect -f`, `stop`, `start`); each stop adds
 # FAKE_FREE_PER_STOP MB to the fake MemAvailable; FAKE_START_FAILS names containers that will not start; FAKE_SUITE_OK
 # turns the suite green (the run then goes on to build, up and smoke, all answered 0); FAKE_SUITE_SIGNAL makes the suite
-# send TERM to deploy.sh.
+# send TERM to deploy.sh; FAKE_BUILD_FAILS makes `compose build` fail (rollback).
 FAKE_DOCKER = """#!/bin/sh
 echo "$*" >> "$FAKE_DIR/docker.log"
 for a; do last=$a; done
@@ -454,6 +454,8 @@ case "$*" in
     "start "*)
         case " ${FAKE_START_FAILS:-} " in *" $last "*) echo "Error: cannot start $last" >&2; exit 1 ;; esac
         echo "$last" >> "$FAKE_DIR/running" ;;
+    "compose build")
+        if [ -n "${FAKE_BUILD_FAILS:-}" ]; then exit 1; fi ;;
 esac
 exit 0
 """
@@ -475,7 +477,8 @@ def _meminfo(avail_mb, swap_used_mb, swap_total_mb=4096):
 
 
 def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free_per_stop=0, suite_ok=False,
-                suite_signal=False, start_fails=(), stop_set=None, inject=None, leftover=None, stale_lock=False):
+                suite_signal=False, start_fails=(), stop_set=None, inject=None, leftover=None, stale_lock=False,
+                build_fails=False):
     repo = tmp_path / "repo"
     (repo / "deploy").mkdir(parents=True)
     if leftover is not None:  # JY-256: a stop list left by a crashed run
@@ -511,6 +514,7 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free
     env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(), FAKE_PULL_FAILS=str(pull_fails),
                FAKE_FREE_PER_STOP=str(free_per_stop or ""), FAKE_SUITE_OK="1" if suite_ok else "",
                FAKE_SUITE_SIGNAL="1" if suite_signal else "", FAKE_START_FAILS=" ".join(start_fails),
+               FAKE_BUILD_FAILS="1" if build_fails else "",
                PATH=str(fake / "bin") + os.pathsep + os.environ.get("PATH", ""))
     env.pop("GATE_STOP_SET", None)  # the script's default, unless a test sets it
     if stop_set is not None:
@@ -622,7 +626,7 @@ def test_gate_stop_set_is_a_dated_variable_at_the_top_and_never_names_the_core_m
     assert "JY-256, 2026-10-28" in top
     for core in ("qbittorrent", "jellyfin", "jellyseerr", "gluetun"):
         assert core not in line
-    assert "docker pause" not in SCRIPT  # a paused process keeps its memory
+    assert not re.search(r"^[^#]*docker pause", SCRIPT, re.M)  # a paused process keeps its memory
 
 
 def test_stop_sits_before_the_memory_check_and_start_right_after_the_gate():
@@ -709,6 +713,22 @@ def test_restart_on_every_exit_path(tmp_path, path):
 
 
 @pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_rollback_comes_after_the_start_and_starts_nothing_twice(tmp_path):
+    """Green suite, then `compose build` fails: the set was started after the suite, so the rollback (and the EXIT trap
+    after it) finds nothing left to start."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=FOUR, suite_ok=True, build_fails=True)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, out
+    lines = calls.splitlines()
+    for c in FOUR:
+        assert lines.count("stop " + c) == 1 and lines.count("start " + c) == 1, calls
+        assert _at(lines, "run --rm --network none") < _at(lines, "start " + c) < _at(lines, "compose build")
+    assert len(history) == 1 and " ROLLBACK-FAILED " in history[0] and STOPPED_ALL + " end=" in history[0], history
+    assert not _list_file(tmp_path).exists()
+    assert sorted(_running(tmp_path)) == sorted(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
 def test_a_container_that_was_already_stopped_is_left_alone(tmp_path):
     r, calls, history = _run_deploy(tmp_path, 2000, 0, running=("sonarr", "prowlarr"))
     out = r.stdout + r.stderr
@@ -759,7 +779,7 @@ def test_a_container_that_will_not_start_stays_listed_and_is_logged(tmp_path):
     lines = calls.splitlines()
     for c in FOUR:
         assert lines.count("start " + c) == 1  # tried once in this run; the next run retries from the list
-    assert "!! gate stop set: could not start radarr (after the gate)" in out
+    assert "!! gate stop set: could not start radarr (after a red gate)" in out
     assert _list_file(tmp_path).read_text(encoding="utf-8").split() == ["radarr"]
     assert STOPPED_ALL + " start-failed=radarr end=" in history[0]
 

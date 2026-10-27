@@ -37,6 +37,19 @@ MEMINFO=/proc/meminfo
 GATE_N=2
 GATE_TAG="gate=none avail=?"
 
+# Gate stop set (JY-256, 2026-10-28; B.: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and
+# start them again after (option A + H). Go."). The media apps hold ~430 MB of retained heap within hours of boot, so the
+# gate stops these containers (only the running ones) just before mem_check and starts them again right after the suite;
+# measured 2026-10-27: ~504 MB freed. `docker stop`, never `docker pause` (a paused process keeps its memory). Spaces or
+# commas; the environment overrides it; an empty value turns it off. Each name goes into GATE_STOP_FILE before its stop;
+# every exit path starts what is listed (gate_start, once per run; the EXIT trap is the net), and the next run starts
+# anything a crashed run left there. The file sits in deploy/logs, not /tmp: the NAS powers off at 22:00, and a stopped
+# `unless-stopped` container stays stopped across the reboot. History lines carry stopped=<names>.
+GATE_STOP_SET=${GATE_STOP_SET-sonarr radarr prowlarr flaresolverr}
+GATE_STOP_FILE=$DEPLOY_DIR/logs/gate-stopped.list
+GATE_STOP_TAG=
+GATE_STOP_DONE=0
+
 FORCE=0
 case "${1:-}" in
     --force) FORCE=1 ;;
@@ -87,7 +100,7 @@ GIT() {
 }
 
 log_history() {
-    echo "$STAMP $1 prev=$PREV_SHA new=${NEW_SHA:-?} $2 end=$(date -u '+%Y-%m-%dT%H:%M:%SZ') dur=$(($(date +%s) - START))s" >> "$HISTORY"
+    echo "$STAMP $1 prev=$PREV_SHA new=${NEW_SHA:-?} $2${GATE_STOP_TAG:+ $GATE_STOP_TAG} end=$(date -u '+%Y-%m-%dT%H:%M:%SZ') dur=$(($(date +%s) - START))s" >> "$HISTORY"
     LOGGED=1
 }
 
@@ -110,6 +123,41 @@ tv_publish() {
     tv_status=$(docker run --rm --dns-opt attempts:3 --dns-opt timeout:2 --env-file "$DEPLOY_DIR/tv.env" \
         -v "$REPO":/repo:ro -v "$TV_APP_DIR":/out life-hub python /repo/deploy/tv_publish.py) || true
     echo "${tv_status:-FAIL:no-status}" | tail -n 1
+}
+
+# Gate stop set (JY-256): start every container listed in GATE_STOP_FILE ($1 says when, for the log). A container that
+# will not start stays listed (the next run tries again) and lands in the history tag as start-failed=<names>. `docker
+# start` on a running container does nothing, so a repeat is harmless. Every step is guarded: this runs inside the EXIT
+# trap too, where a `set -e` abort would skip the lock release.
+start_listed() {
+    listed=$(cat "$GATE_STOP_FILE" 2>/dev/null || true)
+    if [ -z "$listed" ]; then
+        rm -f "$GATE_STOP_FILE" 2>/dev/null || true
+        return 0
+    fi
+    failed=
+    for c in $listed; do
+        t=$(date +%s)
+        if docker start "$c" >/dev/null; then
+            echo "gate stop set: started $c in $(($(date +%s) - t)) s ($1)"
+        else
+            echo "!! gate stop set: could not start $c ($1) — start it by hand: docker start $c !!" >&2
+            failed="${failed:+$failed }$c"
+        fi
+    done
+    if [ -n "$failed" ]; then
+        printf '%s\n' $failed > "$GATE_STOP_FILE" || true
+        GATE_STOP_TAG="${GATE_STOP_TAG:+$GATE_STOP_TAG }start-failed=$(echo $failed | tr ' ' ',')"
+    else
+        rm -f "$GATE_STOP_FILE" 2>/dev/null || true
+    fi
+}
+# Once per run: after the suite, in gate_fail / gate_skip before their history line, and in the EXIT trap. The flag is
+# set only when a pass finished, so a signal mid-start lets the trap finish the job.
+gate_start() {
+    if [ "$GATE_STOP_DONE" -eq 1 ]; then return 0; fi
+    start_listed "$1"
+    GATE_STOP_DONE=1
 }
 
 # One deploy at a time (2026-10-06: two concurrent deploys made smoke race the hub's
@@ -138,7 +186,9 @@ echo "$$" > "$LOCK/pid"
 echo "${JOEY_DEPLOY_LOG:-}" > "$LOCK/log"
 on_exit() {
     rc=$?
-    trap - EXIT INT TERM
+    trap - EXIT
+    trap '' INT TERM   # JY-256: a second signal must not cut the restart or the lock release short
+    gate_start "on exit $rc" || true
     if [ "$LOGGED" -eq 0 ]; then
         note="exit $rc before an outcome"
         # back to PREV_SHA so a plain rerun redeploys instead of saying NOTHING-TO-DEPLOY
@@ -154,6 +204,9 @@ on_exit() {
 trap on_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# JY-256: a run that died while the stop set was down (killed, or the NAS powered off) left its list; start those first.
+# Runs after the lock is taken, so it covers the stale-lock path and never races a live deploy.
+start_listed "left by an earlier run" || true
 
 cd "$REPO"
 PREV_SHA=$(GIT rev-parse --short HEAD)
@@ -185,6 +238,7 @@ fi
 # must be code that passed the gate (review D-02). The live stack is untouched here.
 gate_fail() {
     GIT reset --hard "$PREV_SHA" || echo "!! git reset to $PREV_SHA failed — reset the tree by hand !!" >&2
+    gate_start "after a red gate" || true
     log_history "GATE-FAIL" "$1 — tree reset to prev, live stack untouched $GATE_TAG"
     echo "GATE FAILED ($1) — deploy aborted, tree back on $PREV_SHA, live stack untouched." >&2
     exit 1
@@ -196,6 +250,7 @@ gate_fail() {
 gate_skip() {
     GIT reset --hard "$PREV_SHA" || echo "!! git reset to $PREV_SHA failed — reset the tree by hand !!" >&2
     GATE_TAG="gate=skip avail=${avail:-?}"
+    gate_start "after a skipped gate" || true
     log_history "SKIPPED-LOW-MEMORY" "$1 — gate not run, tree reset to prev, live stack untouched $GATE_TAG"
     echo "SKIPPED-LOW-MEMORY ($1; $GATE_TAG) — gate not run, tree back on $PREV_SHA, live stack untouched. Free memory, then rerun deploy.sh." >&2
     exit 1
@@ -221,6 +276,34 @@ mem_check() {
     GATE_TAG="gate=-n$GATE_N avail=$avail"
     echo "memory check: $GATE_TAG"
 }
+# Stop the running members of GATE_STOP_SET (JY-256). Each name is listed before its stop, so a run that dies mid-stop
+# still starts it again; the tag is kept current so an ABORTED line shows what was down.
+gate_stop() {
+    if [ -z "$GATE_STOP_SET" ]; then
+        echo "gate stop set: empty, nothing stopped"
+        return 0
+    fi
+    if before=$(mem_now); then echo "memory before the stop set: available ${before% *} MB"; fi
+    mkdir -p "$(dirname "$GATE_STOP_FILE")"
+    stopped=
+    GATE_STOP_TAG="stopped=none"
+    for c in $(echo "$GATE_STOP_SET" | tr ',' ' '); do
+        if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" != true ]; then
+            echo "gate stop set: $c is not running, left alone"
+            continue
+        fi
+        echo "$c" >> "$GATE_STOP_FILE"
+        t=$(date +%s)
+        if docker stop "$c" >/dev/null; then
+            echo "gate stop set: stopped $c in $(($(date +%s) - t)) s"
+            stopped="${stopped:+$stopped,}$c"
+            GATE_STOP_TAG="stopped=$stopped"
+        else
+            echo "!! gate stop set: could not stop $c — it keeps running !!" >&2
+        fi
+    done
+    echo "gate stop set: $GATE_STOP_TAG"
+}
 
 echo "== compose validate =="
 cd "$DEPLOY_DIR"   # picks up docker-compose.yml + any local override
@@ -245,9 +328,12 @@ gate() {
     docker build -q -f deploy/test.Dockerfile -t life-test . >/dev/null \
         && docker run --rm --network none --tmpfs /tmp:rw,exec,size=512m,mode=1777 -e TMPDIR=/tmp life-test python -m pytest -q -n $GATE_N -o tmp_path_retention_policy=failed tests/
 }
+echo "== gate stop set (JY-256) =="
+gate_stop
 echo "== memory check (JY-240) =="
 mem_check
 gate || gate_fail "test build or suite red"
+gate_start "after the gate"
 
 # Wait for a service to listen (up to 90 s) before judging it: a fixed 5 s sleep raced the
 # hub's startup on a NAS that had just built two images (2026-10-06, two false rollbacks).

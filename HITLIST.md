@@ -93,7 +93,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |
 | JY-109 | Per-episode Why? on Upgrades | Media | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): never needed | — |
 | JY-110 | Requests page 4K badge lags | Media | S | [x] shipped | Shows lag 10 min; films fill on second view · PR #106 | [spec](docs/specs/JY-110-requests-4k-badge.md) |
-| JY-111 | Old arr profile id shows no Quality line | Media | S | parked | One-off re-save or a fallback (decision) | — |
+| JY-111 | Old arr profile id shows no Quality line | Media | S | [x] shipped | One-off re-save or a fallback (decision) · PR #224 | [spec](docs/specs/JY-111-quality-unknown-profile.md) |
 | JY-112 | Quality chips hide when profile list unreadable | Media | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): rare; request still uses the default profile | — |
 | JY-113 | Sonarr-only seasons get no Seasons row | Media | S | [x] shipped | Only a "Season N announced" word · PR #90 | [spec](docs/specs/JY-113-sonarr-seasons.md) |
 | JY-114 | Season state on Recently added + hub progress words | Media | S | [x] shipped | Rows have no episode count · PR #123 | [spec](docs/specs/JY-114-season-state-rows.md) |

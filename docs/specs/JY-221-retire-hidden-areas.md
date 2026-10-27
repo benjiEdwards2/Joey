@@ -1,6 +1,6 @@
 # JY-221 Retire the four hidden areas
 
-Status: building
+Status: shipped 2026-10-27
 Size: M
 Live risk: none
 Area: `config/areas.yaml`, `connectors/registry.py` (comment only if needed), `deploy/.env.example`, tests under `tests/hub` and `tests/connectors`, `docs/PLAN.md`, `README.md`, `docs/connector-contract.md`, `docs/hub-changelog.md`
@@ -48,3 +48,8 @@ After deploy, `/a/kitchen` shows the normal 404 and the hub looks the same.
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #232, squash-merged as `f17411d` (f17411db9145fc5e4ef1b2caf55e46b6cdf67655).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: Accept every recommendation on the Joey decisions page: merge the 4 built-ahead PRs, drop the 7, apply the rest as recommended."
+- Follow-ups: none

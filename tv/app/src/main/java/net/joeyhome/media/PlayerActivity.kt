@@ -3,7 +3,6 @@ package net.joeyhome.media
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.media.MediaCodecList
 import android.net.Uri
 import android.os.Build
@@ -11,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
@@ -29,6 +29,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -37,6 +38,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import net.joeyhome.media.policy.ApiError
 import net.joeyhome.media.policy.DeviceProfile
+import net.joeyhome.media.policy.FallbackReason
 import net.joeyhome.media.policy.FocusRow
 import net.joeyhome.media.policy.HostConfig
 import net.joeyhome.media.policy.JellyfinItemRoute
@@ -142,7 +144,7 @@ class PlayerActivity : Activity() {
         userAgent = UserAgent.build(WebSettings.getDefaultUserAgent(this), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
         api = PlayApiClient(hosts.ui, userAgent)
         val mimes = decoderMimes()
-        profile = DeviceProfile.build(DeviceProfile.videoCodecs(mimes), DeviceProfile.audioCodecs(mimes, passthroughEncodings()))
+        profile = DeviceProfile.build(DeviceProfile.videoCodecs(mimes), DeviceProfile.audioCodecs(mimes))
         registerBackCallback()
         pressedAt = SystemClock.elapsedRealtime()
         ui = PlayerUi.initial(SystemClock.uptimeMillis(), hasNext = false)
@@ -189,7 +191,7 @@ class PlayerActivity : Activity() {
                 if (gen != generation || isFinishing || isDestroyed) return@post
                 when (result) {
                     is Started.Ok -> onStarted(result.answer, result.stream)
-                    is Started.Failed -> onStartFailed(result.error, attempt) {
+                    is Started.Failed -> onStartFailed(result.error, result.stage, attempt) {
                         begin(item, startMs, audio, subtitle, resume, attempt + 1)
                     }
                 }
@@ -199,8 +201,8 @@ class PlayerActivity : Activity() {
 
     private sealed interface Started {
         class Ok(val answer: StartAnswer, val stream: StreamAnswer) : Started
-        /** [error] null = no answer at all (a network error). */
-        class Failed(val error: ApiError?) : Started
+        /** [error] null = no answer at all (a network error); [stage] is "start" or "stream". */
+        class Failed(val error: ApiError?, val stage: String = "start") : Started
     }
 
     /** Contract endpoints 1 and 2, on the io thread. Any answer that is not the contract's is a failure. */
@@ -211,13 +213,14 @@ class PlayerActivity : Activity() {
         val answer = PlayerApi.parseStart(started.body) ?: return Started.Failed(ApiError(started.status, null, false))
         val path = PlayerApi.sessionPath(answer.sessionId, "stream") ?: return Started.Failed(ApiError(started.status, null, false))
         val s = api.post(path, null)
-        if (s.status == 0) return Started.Failed(null)
-        if (s.status != 200) return Started.Failed(PlayerApi.parseError(s.status, s.body))
-        val handOut = PlayerApi.parseStream(s.body, jellyfin) ?: return Started.Failed(ApiError(s.status, null, false))
+        if (s.status == 0) return Started.Failed(null, "stream")
+        if (s.status != 200) return Started.Failed(PlayerApi.parseError(s.status, s.body), "stream")
+        val handOut = PlayerApi.parseStream(s.body, jellyfin) ?: return Started.Failed(ApiError(s.status, "refused", false), "stream")
         return Started.Ok(answer, handOut)
     }
 
-    private fun onStartFailed(error: ApiError?, attempt: Int, retry: () -> Unit) {
+    private fun onStartFailed(error: ApiError?, stage: String, attempt: Int, retry: () -> Unit) {
+        Log.w(TAG, FallbackReason.start(stage, error, attempt))
         when (PlayerFallback.afterStartFailure(error, attempt)) {
             StartStep.RETRY -> main.postDelayed({ retry() }, RETRY_MS)
             StartStep.HAND_OFF -> handOff()
@@ -225,6 +228,7 @@ class PlayerActivity : Activity() {
     }
 
     private fun onStarted(answer: StartAnswer, handOut: StreamAnswer) {
+        Log.i(TAG, "start: method ${answer.playMethod}, ${if (handOut.hls) "hls" else "file"}")
         session = answer
         stream = handOut
         stopped = false
@@ -313,6 +317,10 @@ class PlayerActivity : Activity() {
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            val causes = generateSequence(error.cause) { it.cause }.take(4).map { it.javaClass.simpleName }.toList()
+            val http = generateSequence<Throwable>(error) { it.cause }
+                .filterIsInstance<HttpDataSource.InvalidResponseCodeException>().firstOrNull()?.responseCode
+            Log.w(TAG, FallbackReason.player(error.errorCodeName, http, causes, session?.playMethod, stream?.hls))
             handOff()
         }
     }
@@ -625,20 +633,6 @@ class PlayerActivity : Activity() {
 
     private fun <T : View> view(id: Int): T = findViewById(id)
 
-    /**
-     * Compressed encodings an external audio output (HDMI, ARC, eARC: a receiver or soundbar) takes as they are. The TV's
-     * own speakers never count, so DTS / TrueHD go to Jellyfin for conversion unless a sink really takes them. An empty
-     * encoding list counts as none.
-     */
-    private fun passthroughEncodings(): Set<Int> = try {
-        (getSystemService(Context.AUDIO_SERVICE) as AudioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            .filter { it.type in PASSTHROUGH_OUTPUTS }
-            .flatMap { it.encodings.toList() }
-            .toSet()
-    } catch (e: RuntimeException) {
-        emptySet()
-    }
-
     private fun decoderMimes(): Set<String> = try {
         MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
             .filter { !it.isEncoder }
@@ -659,8 +653,7 @@ class PlayerActivity : Activity() {
         private const val HTTP_CONNECT_MS = 15_000L
         private const val HTTP_READ_MS = 30_000L
         private const val MAX_ROWS = 6
-        /** AudioDeviceInfo.TYPE_HDMI (9), TYPE_HDMI_ARC (10), TYPE_HDMI_EARC (29, API 31). */
-        private val PASSTHROUGH_OUTPUTS = setOf(9, 10, 29)
+        private const val TAG = "JoeyPlayer"
         private val REPEATABLE = setOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, KeyEvent.KEYCODE_MEDIA_REWIND,

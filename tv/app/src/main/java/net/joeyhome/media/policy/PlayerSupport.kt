@@ -86,7 +86,7 @@ object TrackPlan {
 /**
  * The Jellyfin DeviceProfile the TV sends with each start: direct play for what this TV's decoders take, Jellyfin's
  * HLS (fMP4, as the JY-051 study's T2H) for the rest. No FFmpeg extension (JY-057 Question 1): DTS and TrueHD are
- * listed only when an output takes them as passthrough, else Jellyfin transcodes the audio.
+ * never listed, so Jellyfin transcodes that audio.
  */
 object DeviceProfile {
     private val VIDEO = linkedMapOf("h264" to "video/avc", "hevc" to "video/hevc", "av1" to "video/av01", "vp9" to "video/x-vnd.on2.vp9")
@@ -105,24 +105,17 @@ object DeviceProfile {
     fun videoCodecs(mimes: Set<String>): List<String> =
         VIDEO.filter { (_, mime) -> mime in mimes }.keys.toList().ifEmpty { listOf("h264") }
 
-    /** The codecs a listed decoder is not trusted for: only an output that takes the bitstream (passthrough) counts. */
-    private val PASSTHROUGH_ONLY = setOf("dts", "truehd")
-
-    /** android.media.AudioFormat encodings an output may report (AudioDeviceInfo.getEncodings) -> Jellyfin codec. */
-    private val ENCODINGS = mapOf(5 to "ac3", 6 to "eac3", 18 to "eac3", 7 to "dts", 8 to "dts", 14 to "truehd")
+    /** Never declared, whatever a decoder list or an audio output claims (Jellyfin converts them server-side). */
+    private val NEVER = setOf("dts", "truehd")
 
     /**
-     * Jellyfin audio codec names this TV can really play (JY-057 TV session, 2026-10-27: the TCL lists a DTS decoder but
-     * stalls on DTS). AAC, MP3, Opus, FLAC and Vorbis come from the decoders; AC-3 and E-AC-3 from a decoder or an
-     * output that takes them as passthrough; DTS and TrueHD only from passthrough, whatever the decoder list says.
-     * Anything left out is converted by Jellyfin (remux with the audio transcoded). aac when nothing is known.
+     * Jellyfin audio codec names this TV plays: those its decoders list, never DTS or TrueHD. TV sessions, 2026-10-27/28:
+     * the TCL lists a DTS decoder and stalled on it, then reported an HDMI / ARC output claiming DTS and failed at once.
+     * B.'s choice (ExoPlayer without FFmpeg, conversion on the server) makes the rule simple: Jellyfin converts DTS and
+     * TrueHD audio, and the meta says Transcode. aac when nothing is known.
      */
-    fun audioCodecs(decoderMimes: Set<String>, passthroughEncodings: Set<Int> = emptySet()): List<String> {
-        val passthrough = passthroughEncodings.mapNotNull { ENCODINGS[it] }.toSet()
-        return AUDIO.filter { (name, list) ->
-            name in passthrough || (name !in PASSTHROUGH_ONLY && list.any { it in decoderMimes })
-        }.keys.toList().ifEmpty { listOf("aac") }
-    }
+    fun audioCodecs(decoderMimes: Set<String>): List<String> =
+        AUDIO.filter { (name, list) -> name !in NEVER && list.any { it in decoderMimes } }.keys.toList().ifEmpty { listOf("aac") }
 
     fun build(video: List<String>, audio: List<String>): JSONObject {
         val hlsVideo = listOf("hevc", "h264").filter { it in video }.ifEmpty { listOf("h264") }
@@ -196,5 +189,30 @@ object PlayerText {
             if (text.endsWith(brand)) text = text.removeSuffix(brand).trim()
         }
         return if (text == "Joey Media" || text == "Joey" || text.startsWith("http")) "" else text
+    }
+}
+
+/**
+ * One log line saying why the player handed an item to the Jellyfin app (TV session 2026-10-28: the reason was not
+ * visible). Words only: the stage, the HTTP status and the contract's error code, or the player's error name and cause
+ * class names. Never a URL, a token or a title.
+ */
+object FallbackReason {
+    private val SAFE = Regex("[^A-Za-z0-9_.]")
+
+    private fun word(text: String?): String? = text?.replace(SAFE, "")?.take(48)?.takeIf { it.isNotEmpty() }
+
+    fun start(stage: String, error: ApiError?, attempt: Int): String {
+        val what = if (error == null) "no answer" else "HTTP ${error.status}" + (word(error.code)?.let { " $it" } ?: "")
+        return "fallback: ${word(stage)} $what, attempt ${attempt + 1}"
+    }
+
+    fun player(errorName: String, httpStatus: Int?, causes: List<String>, playMethod: String?, hls: Boolean?): String {
+        val parts = mutableListOf("fallback: player ${word(errorName) ?: "error"}")
+        httpStatus?.let { parts += "HTTP $it" }
+        causes.mapNotNull { word(it) }.take(3).takeIf { it.isNotEmpty() }?.let { parts += "cause ${it.joinToString(" < ")}" }
+        word(playMethod)?.let { parts += "method $it" }
+        hls?.let { parts += if (it) "hls" else "file" }
+        return parts.joinToString(", ")
     }
 }

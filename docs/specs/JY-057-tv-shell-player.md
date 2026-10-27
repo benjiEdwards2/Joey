@@ -205,5 +205,20 @@ method):
   `afterWatchCreditsTheEndReturnsToJoey`. Row 7 on the TV: Watch credits, then the episode's end returns to Joey (the
   countdown is seen only without Watch credits).
 
+## TV re-check (2026-10-28, e9f7c23)
+Row 4 PASS (audio pick sticks, SUBRIP subtitle picks, playback continues). Row 7: the app behaves as designed (Watch
+credits hides the card, the end then returns to Joey); the session script's row 7 now runs two passes (A: card, the
+countdown plays the next episode; B: card, Watch credits, the end returns to Joey). Row 9 FAIL: Play on a H.264 + DTS 5.1
+episode landed in the Jellyfin app. The TV log has the player opening the H.264 decoder about 4 s after Play (so the hub's
+start and stream answered) and the hand-off 0.1 s later, which is a player error, not a hub refusal; the app's own log
+lines were not in the capture. The likely cause: the TCL reports an HDMI / ARC output claiming DTS, so the 2026-10-27
+profile still said `dts` (direct play), and DTS passthrough failed at once. Fix: DTS and TrueHD are never declared,
+whatever a decoder list or an output claims (B.'s choice: no FFmpeg, conversion on the server); Jellyfin then converts the
+audio and the meta says Transcode. Every hand-off now logs one line, tag `JoeyPlayer` (`fallback: start HTTP 409
+cannot_play, attempt 1`, `fallback: player ERROR_CODE_..., HTTP 401, cause ..., method transcode, hls`; words only, no
+URL or token), and each start logs its method and protocol. Test change, dated: `passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby`
+became `dtsAndTrueHdAreNeverDeclared`; new `theFallbackReasonIsOneLineOfWordsWithNoUrlOrToken`. Re-run row 9 with
+`adb logcat -s JoeyPlayer` alongside; if it still hands off, the line names the cause.
+
 ## Shipped notes
 Not yet.

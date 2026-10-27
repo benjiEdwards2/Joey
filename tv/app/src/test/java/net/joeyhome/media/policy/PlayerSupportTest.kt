@@ -109,20 +109,34 @@ class PlayerSupportTest {
 
     @Test
     fun aListedDtsOrTrueHdDecoderIsNotTrusted() {
-        val audio = DeviceProfile.audioCodecs(tcl, passthroughEncodings = emptySet())
+        val audio = DeviceProfile.audioCodecs(tcl)
         assertEquals(listOf("aac", "mp3", "ac3", "eac3"), audio)
         val direct = DeviceProfile.build(DeviceProfile.videoCodecs(tcl), audio)
             .getJSONArray("DirectPlayProfiles").getJSONObject(0).getString("AudioCodec")
         assertFalse(direct.contains("dts") || direct.contains("truehd"))   // so Jellyfin converts the audio
     }
 
+    // 2026-10-28 TV re-check (row 9): replaces passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby; the TCL claims DTS on an
+    // HDMI / ARC output and fails passthrough, so no output or decoder ever adds DTS or TrueHD now
     @Test
-    fun passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby() {
-        // AudioFormat encodings: 5 AC-3, 6 E-AC-3, 7 DTS, 8 DTS-HD, 14 TrueHD, 18 E-AC-3 JOC; 2 (PCM) means nothing here
-        assertEquals(listOf("aac", "ac3", "eac3", "dts", "truehd"),
-            DeviceProfile.audioCodecs(setOf("audio/mp4a-latm"), setOf(2, 5, 18, 8, 14)))
-        assertEquals(listOf("aac", "dts"), DeviceProfile.audioCodecs(setOf("audio/mp4a-latm"), setOf(7)))
-        assertEquals(listOf("aac"), DeviceProfile.audioCodecs(emptySet(), setOf(2)))
+    fun dtsAndTrueHdAreNeverDeclared() {
+        val all = setOf("audio/mp4a-latm", "audio/ac3", "audio/eac3", "audio/eac3-joc", "audio/vnd.dts", "audio/vnd.dts.hd",
+            "audio/true-hd")
+        assertEquals(listOf("aac", "ac3", "eac3"), DeviceProfile.audioCodecs(all))
+    }
+
+    @Test
+    fun theFallbackReasonIsOneLineOfWordsWithNoUrlOrToken() {
+        assertEquals("fallback: start HTTP 409 cannot_play, attempt 1",
+            FallbackReason.start("start", ApiError(409, "cannot_play", false), 0))
+        assertEquals("fallback: stream no answer, attempt 2", FallbackReason.start("stream", null, 1))
+        val p = FallbackReason.player("ERROR_CODE_AUDIO_TRACK_INIT_FAILED", null,
+            listOf("InitializationException", "AudioSink\$InitializationException"), "direct", false)
+        assertEquals("fallback: player ERROR_CODE_AUDIO_TRACK_INIT_FAILED, cause InitializationException < " +
+            "AudioSinkInitializationException, method direct, file", p)
+        assertEquals("fallback: player ERROR_CODE_IO_BAD_HTTP_STATUS, HTTP 401, method transcode, hls",
+            FallbackReason.player("ERROR_CODE_IO_BAD_HTTP_STATUS", 401, emptyList(), "transcode", true))
+        assertFalse(p.contains("://") || p.contains("\"") || p.contains("\n"))
     }
 
     @Test

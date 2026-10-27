@@ -91,6 +91,48 @@ def week_strip(data: dict) -> list[dict]:
     return out
 
 
+def _wx_pct(v) -> int | None:
+    return v if isinstance(v, int) and not isinstance(v, bool) else None
+
+
+def day_forecasts(data) -> dict[str, dict]:
+    """JY-160: each forecast day of the open_meteo snapshot's `days` as {ISO date: {glyph, word, lo, hi, rain}}, for
+    the calendar's Next 7 days. A row with no valid date, or with nothing to say (no word, range or chance), is left
+    out; a missing part is None. Reads the snapshot data only."""
+    out = {}
+    for d in (data.get("days") if isinstance(data, dict) else None) or []:
+        if not isinstance(d, dict):
+            continue
+        try:
+            key = date.fromisoformat(str(d.get("date"))).isoformat()
+        except ValueError:
+            continue
+        cond = d.get("condition_text")
+        word = (cond[:1].upper() + cond[1:]) if isinstance(cond, str) and cond.strip() else None
+        row = {"glyph": weather_glyph(cond) if word else None, "word": word, "lo": _wx_num(d.get("min_c")),
+               "hi": _wx_num(d.get("max_c")), "rain": _wx_pct(d.get("rain_prob_pct"))}
+        if any(row[k] is not None for k in ("word", "lo", "hi", "rain")):
+            out[key] = row
+    return out
+
+
+def forecast_line(f: dict) -> str:
+    """One short line from a day_forecasts row: "Light rain · 12–24 °C · rain 60%". Parts that are missing drop out."""
+    parts = []
+    if f.get("word"):
+        parts.append(f["word"])
+    lo, hi = f.get("lo"), f.get("hi")
+    if lo is not None and hi is not None:
+        parts.append(f"{lo}–{hi} °C")
+    elif hi is not None:
+        parts.append(f"{hi} °C")
+    elif lo is not None:
+        parts.append(f"low {lo} °C")
+    if f.get("rain") is not None:
+        parts.append(f"rain {f['rain']}%")
+    return " · ".join(parts)
+
+
 def find_weather(snaps, now: datetime | None = None) -> dict | None:
     """The hub glimpse card: first registry tile reading the weather snapshot (E5: plus its rain words and 7-day row)."""
     for a in shell.registry.areas:

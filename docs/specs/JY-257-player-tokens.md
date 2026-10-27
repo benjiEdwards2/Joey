@@ -77,6 +77,10 @@ two player tokens on the joey-media front". joey-media never reads `.env`, and J
 signed-in member's own session token, so as built these tokens serve the private front (joeyhome.net) only.
 A) No: `.env` only, as built. B) Add `--media-env` to also write `deploy/media.env` and recreate joey-media.
 *Recommend A, unless the JY-057 session shows the media front needs them.*
+Checked 2026-10-27, against `hub/player_api.py` on main and on JY-057's branch: on the media front the hub plays with the
+signed-in member's own session token (`ident.jf_token`, `if guest.is_media():`); `TOKEN_ENV` is read only on the
+private front. So `media.env` copies would never be read, and they would put household tokens on the friends' container.
+Kept to `.env` only.
 
 ## Shipped notes
 PR, commit, backup name, measured numbers, anything left for a follow-up.

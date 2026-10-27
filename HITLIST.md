@@ -87,7 +87,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-102 | Service page H1 = service name | Media | S | [x] shipped | Discover service page says "Discover" · PR #82 | [spec](docs/specs/JY-102-service-page-h1.md) |
 | JY-103 | Georgina's scores in the "both" view | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): the both view is unreachable live | — |
 | JY-104 | Episode runtimes from Jellyfin item data | Media | S | [x] shipped | Today from recorded plays only · PR #86 | [spec](docs/specs/JY-104-episode-runtimes.md) |
-| JY-105 | "Because you rated X 9" shelf | Media | M | ready | B. 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus" (options page JY-105-options.html) | — |
+| JY-105 | "Because you rated X 9" shelf | Media | M | [x] shipped | B. 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus" (options page JY-105-options.html) · PR #239 | [spec](docs/specs/JY-105-because-shelf.md) |
 | JY-106 | Read-only "leaving soon" list | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): shipped as Free space /server/space | — |
 | JY-107 | Favourites synced to Jellyfin | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): ratings and watchlist do this job | — |
 | JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |

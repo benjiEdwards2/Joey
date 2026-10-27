@@ -386,15 +386,15 @@ def test_a_4k_title_offers_the_way_back_to_the_default(film_env):
     assert ("GET", f"{SONARR}/api/v3/series", {"tvdbId": 1100}, None) in arr.calls
 
 
-@pytest.mark.parametrize("case", ["missing", "profiles", "unknown_id"])
+@pytest.mark.parametrize("case", ["missing", "profiles"])
 def test_quality_line_hidden_when_not_in_the_app_or_profiles_unknown(film_env, case):
+    # JY-111 (2026-10-27): the third case, an old profile id the app no longer has, now draws a fallback line instead
+    # (the tests below), so it left this list.
     client, _, arr = film_env()
     if case == "missing":
         arr.movies = []
-    elif case == "profiles":
-        arr.profile_status = 503
     else:
-        arr.movies[0]["qualityProfileId"] = 4                  # a pre-2026-10-06 id
+        arr.profile_status = 503
     with client:
         r = client.get("/media/title/movie/603/quality?back=/media/title/movie/603", headers=HX)
     assert r.status_code == 200 and r.text == ""
@@ -639,3 +639,77 @@ def test_a_switch_moves_the_chip_at_once(rq):
         assert media_quality.switch("tv", 2002, 7, 82002)[1] is True
         assert media_quality.switch("movie", 1001, 8)[1] is True
         assert chip_of(fake, FILM, SHOW) == [None, None]
+
+
+# ---- JY-111: a title on an old profile id gets a fallback Quality line with the switch ----
+
+def test_old_profile_id_shows_unknown_profile_with_both_switch_buttons(film_env):
+    client, _, arr = film_env()
+    arr.movies[0]["qualityProfileId"] = 4                      # a pre-2026-10-06 id the app no longer has
+    with client:
+        frag = client.get("/media/title/movie/603/quality?back=/media/item/mov1", headers=HX).text
+    assert '<p class="metaline">Quality · unknown profile ' in frag
+    assert ('href="/media/item/mov1?quality_ask=1&amp;quality_profile=8"' in frag
+            and 'hx-get="/media/title/movie/603/quality?step=confirm&profile=8&back=/media/item/mov1"' in frag)
+    assert ">Switch to 1080p</a>" in frag and ">Switch to 4K</a>" in frag
+    assert "<form" not in frag                                  # nothing is asked, and nothing written, on render
+    assert arr.of("PUT") == [] and arr.of("POST") == []
+    no_secrets(frag)
+
+
+def test_old_profile_confirm_step_names_the_chosen_profile(film_env):
+    client, _, arr = film_env()
+    arr.movies[0]["qualityProfileId"] = 4
+    with client:
+        frag = client.get("/media/title/movie/603/quality?step=confirm&profile=9&back=/media/item/mov1", headers=HX).text
+    assert 'name="profile" value="9"' in frag and "Switch Harbour Lights to 4K?" in frag
+    assert "Radarr will look for a 4K file and keep what it has until it arrives." in frag
+    assert "unknown profile ones" not in frag and "Switch to 1080p" not in frag      # one panel for the one profile chosen
+    assert arr.of("PUT") == [] and arr.of("POST") == []
+
+
+def test_old_profile_confirm_ignores_a_profile_that_is_not_offered(film_env):
+    client, _, arr = film_env()
+    arr.movies[0]["qualityProfileId"] = 4
+    with client:
+        frag = client.get("/media/title/movie/603/quality?step=confirm&profile=77&back=/media/item/mov1", headers=HX).text
+    assert "<form" not in frag and ">Switch to 4K</a>" in frag
+
+
+def test_old_profile_switch_writes_only_on_the_confirm_post_and_heals_the_line(film_env):
+    client, _, arr = film_env()
+    arr.movies[0]["qualityProfileId"] = 4
+    with client:
+        client.get("/media/title/movie/603/quality?back=/media/item/mov1", headers=HX)
+        client.get("/media/title/movie/603/quality?step=confirm&profile=8&back=/media/item/mov1", headers=HX)
+        assert arr.of("PUT") == [] and arr.of("POST") == []     # render and the confirm panel never write
+        r = client.post("/media/title/movie/603/quality", data={"profile": "8", "back": "/media/item/mov1"}, headers=HX)
+    (put,) = arr.of("PUT")
+    assert put[3]["qualityProfileId"] == 8
+    assert "Switched to 1080p · searching" in r.text and "Quality · 1080p" in r.text and "unknown profile" not in r.text
+    assert ">Switch to 4K</a>" in r.text                       # healed: the ordinary line and switch
+
+
+def test_old_profile_no_js_path_draws_the_panel_for_the_chosen_profile(film_env):
+    client, _, arr = film_env()
+    arr.movies[0]["qualityProfileId"] = 4
+    with client:
+        r = client.get("/media/title/movie/603/quality?step=confirm&profile=9&back=/media/item/mov1", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/media/item/mov1?quality_ask=1&quality_profile=9"
+        page = client.get(r.headers["location"]).text
+    assert "Switch Harbour Lights to 4K?" in page and arr.of("PUT") == []
+
+
+def test_old_profile_on_a_show_works_the_same(film_env):
+    client, _, arr = film_env()
+    arr.series[0]["qualityProfileId"] = 3
+    with client:
+        frag = client.get("/media/title/tv/100/quality?back=/media/title/tv/100&tvdb=1100", headers=HX).text
+    assert "Quality · unknown profile" in frag and ">Switch to 1080p</a>" in frag and ">Switch to 4K</a>" in frag
+
+
+def test_a_known_profile_line_is_unchanged(film_env):
+    client, _, arr = film_env()
+    with client:
+        frag = client.get("/media/title/movie/603/quality?back=/media/item/mov1", headers=HX).text
+    assert "unknown profile" not in frag and "quality_profile" not in frag

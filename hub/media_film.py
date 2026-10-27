@@ -1298,7 +1298,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
     # Quality (WP-R1): "Quality · 1080p" + Switch, lazy-loaded like Search now; drawn here only for the no-JS confirm step
     f["quality_href"] = media_quality.lazy_href(kind, tmdb_id, tvdb, request.url.path) if not ep else None
-    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True)
+    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True,
+                                              want=media_quality._want(request.query_params.get("quality_profile")))
                           if f["quality_href"] and request.query_params.get("quality_ask") == "1" else None)
     f["quality_flash"] = media_quality.flash_text(request.query_params)
     f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only

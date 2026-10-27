@@ -61,8 +61,8 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | [x] shipped | Contract before the players · PR #188 | [spec](docs/specs/JY-053-playback-contract.md) |
 | JY-054 | Web/phone player | Media player | L | [x] shipped | Joey plays the film itself · live · PR #215 | [spec](docs/specs/JY-054-web-phone-player.md) |
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | [x] shipped | Stop on one device, resume on another · PR #221 | [spec](docs/specs/JY-055-resume-watched-sync.md) |
-| JY-056 | Audio + subtitle track picker | Media player | M | idea | Pick tracks in the player | — |
-| JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live | — |
+| JY-056 | Audio + subtitle track picker | Media player | M | [x] shipped | Covered by JY-054's track picker (no new build); checked in JY-055 (PR #221) and confirmed by its review | — |
+| JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live · Engine: B. 2026-10-27 "1A" = Media3 ExoPlayer without the FFmpeg extension (Jellyfin's server FFmpeg remuxes/transcodes) | — |
 | JY-058 | Friends' path + security gate | Media player | L | idea | Only if the spec says friends · live | — |
 | JY-059 | Move Jellyfin transcoding onto the new box | Media player | L | idea | Needs the box bought · B.'s hands · live | — |
 
@@ -85,27 +85,27 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-100 | Episode pages: "N to watch" → "N left" | Media | S | [x] shipped | Wording matches show pages · PR #76 | [spec](docs/specs/JY-100-episode-n-left.md) |
 | JY-101 | "N h this month" uses the old duration format | Media | S | [x] shipped | `media_pages.py:175` · PR #81 | [spec](docs/specs/JY-101-history-duration-format.md) |
 | JY-102 | Service page H1 = service name | Media | S | [x] shipped | Discover service page says "Discover" · PR #82 | [spec](docs/specs/JY-102-service-page-h1.md) |
-| JY-103 | Georgina's scores in the "both" view | Media | M | parked | Needs her account (decision) | — |
+| JY-103 | Georgina's scores in the "both" view | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): the both view is unreachable live | — |
 | JY-104 | Episode runtimes from Jellyfin item data | Media | S | [x] shipped | Today from recorded plays only · PR #86 | [spec](docs/specs/JY-104-episode-runtimes.md) |
-| JY-105 | "Because you rated X 9" shelf | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
-| JY-106 | Read-only "leaving soon" list | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
-| JY-107 | Favourites synced to Jellyfin | Media | M | parked | Idea from the 10-12 evaluation (decision) | — |
+| JY-105 | "Because you rated X 9" shelf | Media | M | [x] shipped | B. 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus" (options page JY-105-options.html) · PR #239 | [spec](docs/specs/JY-105-because-shelf.md) |
+| JY-106 | Read-only "leaving soon" list | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): shipped as Free space /server/space | — |
+| JY-107 | Favourites synced to Jellyfin | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): ratings and watchlist do this job | — |
 | JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |
-| JY-109 | Per-episode Why? on Upgrades | Media | S | idea | Only if ever needed; Why? checks one episode | — |
+| JY-109 | Per-episode Why? on Upgrades | Media | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): never needed | — |
 | JY-110 | Requests page 4K badge lags | Media | S | [x] shipped | Shows lag 10 min; films fill on second view · PR #106 | [spec](docs/specs/JY-110-requests-4k-badge.md) |
-| JY-111 | Old arr profile id shows no Quality line | Media | S | parked | One-off re-save or a fallback (decision) | — |
-| JY-112 | Quality chips hide when profile list unreadable | Media | S | parked | Also Seerr's folder/tags options (decision) | — |
+| JY-111 | Old arr profile id shows no Quality line | Media | S | [x] shipped | One-off re-save or a fallback (decision) · PR #224 | [spec](docs/specs/JY-111-quality-unknown-profile.md) |
+| JY-112 | Quality chips hide when profile list unreadable | Media | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): rare; request still uses the default profile | — |
 | JY-113 | Sonarr-only seasons get no Seasons row | Media | S | [x] shipped | Only a "Season N announced" word · PR #90 | [spec](docs/specs/JY-113-sonarr-seasons.md) |
 | JY-114 | Season state on Recently added + hub progress words | Media | S | [x] shipped | Rows have no episode count · PR #123 | [spec](docs/specs/JY-114-season-state-rows.md) |
 | JY-115 | Connector: flag series with 0 Jellyfin episodes at source | Media | S | [x] shipped | Hub already treats them as waiting · PR #129 | [spec](docs/specs/JY-115-empty-series-flag.md) |
 | JY-116 | Season page head: "Season N" eyebrow + S-switch check | Media | S | [x] shipped | Switch did not show in the preview · PR #134 | [spec](docs/specs/JY-116-season-head-verify.md) |
 | JY-117 | Previous / Next cards: verify on a real episode | Media | S | [x] shipped | Not seen in the preview · PR #133 | [spec](docs/specs/JY-117-prev-next-verify.md) |
-| JY-118 | Guest / crew names linked | Media | M | parked | Plain text now; costs extra reads (decision) | — |
+| JY-118 | Guest / crew names linked | Media | M | [x] shipped | Plain text now; costs extra reads (decision) · PR #220 | [spec](docs/specs/JY-118-person-find.md) |
 | JY-119 | Off-server shows get episode ratings | Media | S | [x] shipped | Warm-up prefetches no episode ratings today; B. picks A/B/C · PR #124 | [spec](docs/specs/JY-119-offserver-episode-ratings.md) |
 | JY-120 | Her view with no list: wording | Media | S | [x] shipped | "Nothing left to watch" / "Nothing in progress" (decision) · PR #189 | [spec](docs/specs/JY-120-her-view-no-list-wording.md) |
 | JY-121 | Merge play stats into History | Media | S | [x] shipped | Nav-tidy leftover · PR #190 | [spec](docs/specs/JY-121-play-stats-history.md) |
 | JY-122 | Manifest shortcut "TV Shows" | Media | S | [x] shipped | Nav-tidy leftover · PR #83 | [spec](docs/specs/JY-122-manifest-tv-shows-word.md) |
-| JY-123 | Naming: Movies / My films / TV show; "Not on server" vs "Not on your server" | Media | S | parked | Left open in the 2026-10-09 tidy review (decision) | — |
+| JY-123 | Naming: Movies / My films / TV show; "Not on server" vs "Not on your server" | Media | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": close (B): settled by nav-tidy; wording already Not on server | — |
 | JY-230 | RQ1 Approve / Decline pending Seerr requests on Activity (edit quality + seasons first) | Media | L | [x] shipped | Built 2026-10-22 on `joey-rq1-approve` (37032e8, never reviewed); B.'s asks in archived LD DECISIONS; Seerr write · live · PR #202 | [spec](docs/specs/JY-230-rq1-approve-decline.md) |
 | JY-231 | RQ2 Friends pick quality and seasons when requesting (incl. TV mode) | Media | L | [x] shipped | Built 2026-10-22 on `joey-rq2-friendpick` (2428063, never reviewed); Seerr write · live · PR #205 | [spec](docs/specs/JY-231-rq2-friend-pick.md) |
 | JY-232 | RQ3 Everyone's watchlist + Request all (sent as B.) | Media | L | [x] shipped | Built 2026-10-22 on `joey-rq3-everyone-wl` (dbc18b1, never reviewed); Seerr write · live · PR #201 | [spec](docs/specs/JY-232-rq3-everyone-watchlist.md) |
@@ -114,18 +114,18 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-130 | P3 One-tap fixes on Attention | Server | M | parked | Restart, re-run, resume, search missing (decision) | — |
-| JY-131 | P5 Internet health card | Server | M | parked | Tells slow Joey from a busy internet (decision) | — |
-| JY-132 | P6 Backups card | Server | M | parked | No page shows backup age today (decision) | — |
+| JY-130 | P3 One-tap fixes on Attention | Server | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): action links cover it; no single-container restart | — |
+| JY-131 | P5 Internet health card | Server | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): cause fixed by the cap + Quiet mode | — |
+| JY-132 | P6 Backups card | Server | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): media.db backup already watched on Health/Attention | — |
 | JY-133 | P7 Service history on the card | Server | S | [x] shipped | Kuma 7-day uptime per service (decision) · PR #195 | [spec](docs/specs/JY-133-service-uptime.md) |
 | JY-134 | P8 What changed since your last visit | Server | S | [x] shipped | A sentence Georgina would want (decision) · PR #197 | [spec](docs/specs/JY-134-since-last-visit.md) |
-| JY-135 | P9 Per-person notifications | Server | S | parked | Fewer Discord alerts for Georgina (decision) | — |
-| JY-136 | P10 Weekly summary card | Server | M | parked | "Joey this week" (decision) | — |
-| JY-137 | Per-container RAM on Server | Server | M | parked | Evaluation feature #9 (decision) | — |
-| JY-138 | S.M.A.R.T. into Attention | Server | M | parked | Evaluation feature #10 (decision) | — |
-| JY-139 | Gated hostnames per app | Server | S | parked | App links are LAN-only; needs B.'s Cloudflare (decision) | — |
+| JY-135 | P9 Per-person notifications | Server | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (B) until a second reader joins Discord | — |
+| JY-136 | P10 Weekly summary card | Server | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): digest + since-last-visit + 7-day uptime cover it | — |
+| JY-137 | Per-container RAM on Server | Server | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): Portainer shows per-container RAM | — |
+| JY-138 | S.M.A.R.T. into Attention | Server | M | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. B.'s hands: turn on ADM's scheduled disk-health scan + its notification | — |
+| JY-139 | Gated hostnames per app | Server | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (B): cards say LAN; Joey does the common jobs | — |
 | JY-140 | Health rows say "LAN" | Server | S | [x] shipped | Server cards already do · PR #85 | [spec](docs/specs/JY-140-health-lan.md) |
-| JY-141 | Quiet-mode cap vs the live qBittorrent cap | Server | S | parked | Quiet 5 Mbps is ~8x tighter than 41 (decision) | — |
+| JY-141 | Quiet-mode cap vs the live qBittorrent cap | Server | S | [x] shipped | Quiet 5 Mbps is ~8x tighter than 41 (decision) · PR #223 | [spec](docs/specs/JY-141-full-mbps-cap.md) |
 | JY-142 | WUD real check interval vs 180-min Stale rule | Server | S | [x] shipped | Verify live, then adjust · PR #132 | [spec](docs/specs/JY-142-wud-stale-interval.md) |
 | JY-143 | Prowlarr indexerstats window | Server | S | [x] shipped | If cumulative, amber never clears; verify live · PR #131 | [spec](docs/specs/JY-143-prowlarr-stats-window.md) |
 | JY-144 | "Uptime Kuma metrics failed" on Joey /server | Server | S | [x] shipped | Pre-existing payload error · PR #73 | [spec](docs/specs/JY-144-kuma-metrics.md) |
@@ -146,7 +146,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-160 | Forecast beside timed events | Calendar | S | parked | Idea from the 10-12 evaluation (decision) | — |
+| JY-160 | Forecast beside timed events | Calendar | S | [x] shipped | Idea from the 10-12 evaluation (decision) · PR #222 | [spec](docs/specs/JY-160-day-forecast.md) |
 
 ### Joey TV
 
@@ -188,6 +188,9 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
 | JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | [x] shipped | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." · PR #212 | [spec](docs/specs/JY-255-rq2-tv-mode.md) |
+| JY-256 | Deploy gate stops sonarr/radarr/prowlarr/flaresolverr for the suite, restarts after | NAS/deploy | L | [x] shipped | B. 2026-10-27: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and start them again after (option A + H)." PR #226 | [spec](docs/specs/JY-256-gate-stop-set.md) |
+| JY-257 | Player-token script: Quick Connect sign-in writes JELLYFIN_PLAYER_TOKEN_YOU/_HER to the NAS .env | Media | M | [x] shipped | B. 2026-10-27: "2a" (JY-054 Q1 A, a separate small item). PR #236; private-front player only, media front uses the session token | [spec](docs/specs/JY-257-player-tokens.md) |
+| JY-258 | Hub half of the JY-057 TV shell player (flag off), split from PR #219 so the TV checks can run before the 1.0.3 release | Media | M | [x] shipped | Split unchanged from #219 (reviewed 2× Sonnet + Opus verifier) · PR #238 | [spec](docs/specs/JY-258-hub-player-front.md) |
 
 ### NAS / stack
 
@@ -201,8 +204,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-205 | Pin gluetun to v3 | NAS | S | idea | Runs the `latest` dev build | — |
 | JY-206 | ADM IPv6 DNS entry + deploy.sh pull retry (E0) | NAS | S | [x] shipped | `tidyup_t0.sh` already run 2026-10-18; ADM part is B.'s hands · PR #183 | [spec](docs/specs/JY-206-pull-retry.md) |
 | JY-207 | Cloudflare edge-cache rule (optional) | NAS | S | idea | Cache /static and /img; see `docs/setup.md` | — |
-| JY-208 | TailScale container running on the NAS | NAS | S | idea | Flagged only; keep or remove | — |
-| JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | idea | Unpublish LAN ports 9000/7878/8989/3001/3030/3000; drop the Homepage hostname; B. or Claude in a NAS window | — |
+| JY-208 | TailScale container running on the NAS | NAS | S | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A, remove. It is App Central app tailscale-docker (14 MB), so B. uninstalls it in ADM and removes the device from the tailnet | — |
+| JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | [x] shipped | B. 2026-10-27: "JY-209: retire Homepage." tidyup_t9_network.sh run 2026-10-27 00:12Z (exit 0): Joey .env on service names, homepage removed, LAN 3000/3001/3030/7878/8989/9000 unpublished, sweeps ok; available 1,390 -> 1,646 MB. Left for B.: delete the homepage Access app + hostname in Cloudflare | — |
 | JY-227 | Full deploy gate over its 10 min budget (15.3 min) | NAS/deploy | M | [x] shipped | `scripts/budgets.py` 2026-10-23: last PASS took 918 s; find where the time goes (image build, suite `-n 2`, smoke) · PR #65 | [spec](docs/specs/JY-227-gate-time.md) |
 | JY-228 | Preview slot hardening: take the deploy lock during the build, pin `JOEY_FRONT`, reason wording | NAS/deploy | S | [x] shipped | JY-012 verifier should-fixes · PR #63 | [spec](docs/specs/JY-228-preview-hardening.md) |
 
@@ -211,12 +214,12 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-210 | WP38 soak test + a real runbook | Housekeeping | M | [x] shipped | Docs name a runbook that does not exist · PR #187 | [spec](docs/specs/JY-210-soak-runbook.md) |
-| JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | idea | Remove + re-request, or run the retry script | — |
+| JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | building | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A. Read-only check of the 7 running; B. re-requests only the missing ones via Joey | — |
 | JY-212 | Phone checks only B. can do | Housekeeping | S | idea | Back scroll, swipe-back, iOS keyboard, ballot, Follow, Update now, manifest colour | — |
 | JY-213 | Live checks: Media rounds | Housekeeping | S | idea | 2026-10-26 read-only: grid, WAR, Caught up, logos PASS; 4K request submit + Why? on Brothers need B. | — |
 | JY-214 | Live checks: Server rounds | Housekeeping | S | idea | 2026-10-26 read-only: Free space, Prowlarr count, digest text, Updates age PASS; Quiet/Full press needs B. | — |
 | JY-215 | Stale preview entries in `launch.json` | Housekeeping | S | [x] shipped | Verified 2026-10-24: every launch.json entry points at a path that exists; nothing to remove | — |
-| JY-216 | Archive the three awards review mockups | Housekeeping | S | idea | Reference only now | — |
+| JY-216 | Archive the three awards review mockups | Housekeeping | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): mockups stay where they are as reference | — |
 | JY-217 | Remove unused `tab_counts()` read in `media_frame()` | Housekeeping | S | [x] shipped | Nav-tidy leftover · PR #84 | [spec](docs/specs/JY-217-drop-watchlist-tab-counts.md) |
 | JY-224 | Flaky test: `test_media_speed::test_metadata_long_request_state_short` | Tests | S | [x] shipped | Fails 3 in 8 under load; doesn't drain the first visit's background read · PR #77 | [spec](docs/specs/JY-224-flaky-metadata-ttl-test.md) |
 | JY-225 | Flaky test: `test_runner_history_tail` 2 ms wall-clock limit | Tests | S | [x] shipped | Fails 2 in 8 under load; timing assert too tight · PR #79 | [spec](docs/specs/JY-225-flaky-runner-history-tail-test.md) |
@@ -231,7 +234,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-241 | joey.py crashes printing non-cp1252 text (e.g. "≤" in a PR title) to a Windows pipe | Tooling | S | [x] shipped | Broke JY-235's first close-out, 2026-10-24; workaround PYTHONIOENCODING=utf-8 · PR #112 | [spec](docs/specs/JY-241-utf8-output.md) |
 | JY-243 | Flaky JY-119 tests: race with the background film-extras read | Tests | S | [x] shipped | Failed once on JY-142's docs PR, 2026-10-24 · PR #145 | [spec](docs/specs/JY-243-flaky-episode-ratings.md) |
 | JY-244 | Flaky `test_following_state_inside_the_banner` (same race) | Tests | S | [x] shipped | Seen in JY-243's proof runs, 2026-10-25 · PR #152 | [spec](docs/specs/JY-244-partof-banner-race.md) |
-| JY-245 | Warm-up prefetch of episode ratings (watchlist + requested shows) | Media | M | idea | JY-119 picked A (fill after first view); prefetch left as its own idea | — |
+| JY-245 | Warm-up prefetch of episode ratings (watchlist + requested shows) | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): fill-on-view, as picked in JY-119 | — |
 | JY-246 | Server page: "Prowlarr N failed grabs" says "this week" | Server | S | [x] shipped | JY-143 now counts 7 days; spec question 1, not blocking · PR #185 | [spec](docs/specs/JY-246-prowlarr-this-week.md) |
 | JY-247 | Friend summary: household earliest play date (and runtimes) leftovers | Media | S | [x] shipped | JY-190 verifier nit, 2026-10-25 · PR #156 | [spec](docs/specs/JY-247-friend-summary-leftovers.md) |
 
@@ -239,7 +242,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-220 | Money / Track E (Westpac import, rules, budget) | Money | L | parked | Hidden since 2026-10-06; resume or drop (decision) | — |
-| JY-221 | Re-enable home_assistant / macromates / nas_stats | Connectors | M | parked | Areas hidden; wrong env names in example (decision) | — |
-| JY-222 | Posters: TMDB + fanart.tv best-rated pick | Media | M | parked | ThePosterDB has no API; B. said stay as is (decision) | — |
-| JY-223 | Georgina's account / her Media view | Media | S | parked | Wiring done; B. creates the account (decision) | — |
+| JY-220 | Money / Track E (Westpac import, rules, budget) | Money | L | [x] shipped | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Remove the hidden Money area, keep the money pre-commit guard; budget lives in Desktop\Claude\Budget · PR #233 | [spec](docs/specs/JY-220-remove-money-area.md) |
+| JY-221 | Re-enable home_assistant / macromates / nas_stats | Connectors | M | [x] shipped | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Retire Food/Desk/House/Car and stop scheduling the three parked connectors (code kept) · PR #232 | [spec](docs/specs/JY-221-retire-hidden-areas.md) |
+| JY-222 | Posters: TMDB + fanart.tv best-rated pick | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): B. said stay as current on 2026-10-07 | — |
+| JY-223 | Georgina's account / her Media view | Media | S | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A. B.'s hands: create her Jellyfin user, append JELLYFIN_USER_HER to the NAS .env, recreate connectors | — |

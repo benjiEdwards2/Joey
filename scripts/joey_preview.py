@@ -113,6 +113,7 @@ ENV_IN = {
     "JELLYFIN_USER_ALIASES": "display names (not in .env.example), no credential",
     "OMDB_API_KEY": "Metacritic pill, read-only lookups",
     "QUIET_MBPS": "a number on the Quiet mode row; nothing is sent without QBIT_*",
+    "FULL_MBPS": "a number on the Full speed confirm; nothing is sent without QBIT_*",
     "NAS_SLEEP_WINDOW": "words on the Quiet mode row",
 }
 # OUT: never copied. FORCED_OFF keys are also pinned "off" in the compose file's environment (which wins over env_file).

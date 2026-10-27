@@ -22,7 +22,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from hub import guest_auth, media_home, media_item, media_library, media_text, upstream
+from hub import guest_auth, media_because, media_home, media_item, media_library, media_text, upstream
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
 log = logging.getLogger("hub.media_guest_home")
@@ -205,6 +205,7 @@ def build(request, snaps, view: str) -> dict:
     resume, watched, added = read_shelf(request, RESUME), read_shelf(request, WATCHED), _added(jelly)
     shelves = [{"id": "continue", "title": "Continue watching", "see_all_href": None, "items": resume or [],
                 "quiet_text": None},
+               media_because.shelf(view, jelly) or {"items": []},   # JY-105: the friend's own cache entry only
                {"id": "added", "title": "Recently added", "see_all_href": None, "items": added, "quiet_text": None},
                *library,
                {"id": "watched", "title": "Recently watched", "see_all_href": media_home.DIARY_DETAIL,

@@ -9,9 +9,10 @@ from __future__ import annotations
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from hub import media_discover as md, media_follow, media_item, shell
 from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
@@ -116,6 +117,40 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
             "shelf": shelf, "films": [r for r in rest if r["kind"] == "movie"], "shows": [r for r in rest if r["kind"] == "tv"],
             "tv_maker": media_follow.tv_maker(credits),   # F5: Follow covers their new shows too
             "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}
+
+
+FIND_NAME_MAX = 100
+
+
+def _same_name(a, b) -> bool:
+    return " ".join(str(a or "").split()).casefold() == " ".join(str(b or "").split()).casefold()
+
+
+def find_person_id(name: str) -> int | None:
+    """JY-118: a name -> its TMDB person id from ONE Seerr search (the first PERSON result whose name matches; titles
+    and near-names are skipped). None when Seerr is unset, down, or has no such person. Never called on a page render."""
+    body = md._get(f"/api/v1/search?query={quote(name, safe='')}")
+    for r in (body.get("results") if isinstance(body, dict) else None) or []:
+        if isinstance(r, dict) and r.get("mediaType") == "person" and _same_name(r.get("name"), name):
+            try:
+                pid = int(r.get("id"))
+            except (TypeError, ValueError):
+                continue
+            if pid > 0:
+                return pid
+    return None
+
+
+@router.get("/media/person/find")
+def person_find(name: str = ""):
+    """JY-118: where a guest or crew name goes. Declared before /media/person/{person_id} so "find" is not an id.
+    One lookup per tap -> the person page, else the Discover search for the name (303, never a 500). No name: 404."""
+    name = " ".join(name.split())[:FIND_NAME_MAX]
+    if not name:
+        raise HTTPException(404, "No such person")   # no name, nothing to look up (the guest crawl hits it bare)
+    pid = find_person_id(name)
+    return RedirectResponse(f"/media/person/{pid}" if pid else f"{md.DISCOVER_DETAIL}?q={quote(name, safe='')}",
+                            status_code=303)
 
 
 @router.get("/media/person/{person_id}", response_class=HTMLResponse)

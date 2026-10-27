@@ -8,8 +8,9 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from hub import shell
-from hub.ids import ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID
+from hub.ids import ARR_SNAPSHOT_ID, GCAL_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, WEATHER_SNAPSHOT_ID
 from hub.store import connected, data_of, parse_utc, tile_state
+from hub.weather import day_forecasts, forecast_line
 
 
 # Calendar upcoming list (2026-09-11 decision: next 7 days, day-grouped).
@@ -154,6 +155,18 @@ def merge_releases(groups: list[dict], releases, today: date) -> list[dict]:
     return [by_day[d] for d in sorted(by_day)]
 
 
+def attach_forecast(groups: list[dict], weather_data) -> list[dict]:
+    """JY-160: each day group gets that day's forecast line (`wx`, with its glyph id `wx_glyph`) from the open_meteo
+    snapshot's `days`, matched on the date. A day the snapshot does not cover gets no keys: the template shows no line.
+    The event rows are not touched."""
+    forecasts = day_forecasts(weather_data)
+    for g in groups:
+        f = forecasts.get(g["day"].isoformat())
+        if f:
+            g["wx"], g["wx_glyph"] = forecast_line(f), f["glyph"]
+    return groups
+
+
 def find_upcoming(tiles, snaps, view: str):
     """The area's upcoming list: present when a visible tile reads the gcal
     snapshot and that snapshot holds data (fresh or stale — never fabricated). E5: plus the media releases when the
@@ -165,6 +178,7 @@ def find_upcoming(tiles, snaps, view: str):
             groups = build_upcoming(snap.data.get("events", []), view, now)
             if _wants_releases(row["tile"]):
                 groups = merge_releases(groups, release_rows(snaps, view, now), now.date())
+            attach_forecast(groups, data_of(snaps.get(WEATHER_SNAPSHOT_ID)))   # JY-160: a snapshot read, no call
             return {"groups": groups, "st": row["st"], "days": UPCOMING_DAYS}
     return None
 

@@ -79,11 +79,14 @@
     return Array.prototype.filter.call(scope().querySelectorAll(FOCUSABLE), visible);
   }
 
+  /* JY-105: a row marked [data-tv-later] (Overview's "Because you rated ...") is reached with the D-pad, never first */
+  function eligible(el) { return visible(el) && !el.closest('[data-tv-later]'); }
+
   function firstIn(root) {
     if (!root) return null;
     var picks = ['[data-first]', '[data-jf-id]', '.card-poster', '.sectabs.sub [aria-current]', FOCUSABLE];
     for (var i = 0; i < picks.length; i++) {
-      var found = Array.prototype.filter.call(root.querySelectorAll(picks[i]), visible);
+      var found = Array.prototype.filter.call(root.querySelectorAll(picks[i]), eligible);
       if (found.length) return found[0];
     }
     return null;

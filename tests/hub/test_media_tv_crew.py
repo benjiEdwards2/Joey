@@ -60,7 +60,7 @@ def test_show_page_has_directed_by_cards_like_a_film(env, monkeypatch):
     assert makers(show_page, "Directed by") == ["Dir A", "Dir B"]       # most episodes first
     assert 'class="makers makers-directors"' in show_page
     assert 'src="/img/jf:person-a?h=' in show_page                          # Dir A's Jellyfin headshot
-    assert 'href="/media/discover?q=Dir%20A"' in show_page                  # no TMDB person id → search link
+    assert 'href="/media/person/find?name=Dir%20A"' in show_page                  # no TMDB person id → person-find link
     assert makers(ep_page, "Directed by") is None and "makers-directors" not in ep_page
     assert "makers-directors" not in film_page and makers(film_page, "Directed by")   # the film's own row stays
 

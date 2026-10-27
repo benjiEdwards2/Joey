@@ -1,6 +1,6 @@
 """Seed demo snapshot envelopes into data/demo-snapshots/ (standing dev fixture).
 
-Fresh: open_meteo, macromates, jellyfin, money. Stale: home_assistant (5 h old
+Fresh: open_meteo, macromates, jellyfin. Stale: home_assistant (5 h old
 vs 120-min stale_after). Deliberately ABSENT: gcal, nas_stats — those tiles must
 render "Not connected". Every envelope validates against the frozen schema.
 
@@ -37,11 +37,6 @@ SEEDS = [
         "secondary": "4 items on the shopping list",
         "meals": [{"day": "Wed", "meal": "Chicken burrito bowls", "owner": "shared"}],
     }, age_minutes=25),
-    envelope("money", {
-        "summary": "$1,240 left of $6,800 aimed",
-        "secondary": "Next bill: Electricity $184 — Fri 29th",
-        "pct_aim_used": 82, "pct_month_gone": 84,
-    }, age_minutes=12),
     envelope("open_meteo", {
         "summary": "18 °C · light rain",
         "secondary": "today 14–19 °C · rain easing 4 pm",

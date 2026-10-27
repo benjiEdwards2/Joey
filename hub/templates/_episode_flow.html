@@ -122,13 +122,13 @@
 {%- endmacro %}
 
 {# The episode's crew: Directed by / Written by rows, the same kv recipe as the show's Crew. A person without a page
-   searches Discover, as the show's Crew does. #}
+   goes through /media/person/find (JY-118), as the show's Crew does. #}
 {% macro crew(rows) -%}
 {% if rows %}
 <section class="sec" id="crew-ep">
   <h2 class="seclabel">Crew</h2>
   <dl class="crewgrid">
-    {% for c in rows %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}<a href="{{ m.href or ('/media/discover?q=' ~ (m.name|urlencode)) }}">{{ m.name }}</a>{% endfor %}</dd></div>{% endfor %}
+    {% for c in rows %}<div class="kv"><dt>{{ c.role }}</dt><dd>{% for m in c.people %}{% if not loop.first %}, {% endif %}<a href="{{ m.href or ('/media/person/find?name=' ~ (m.name|urlencode)) }}">{{ m.name }}</a>{% endfor %}</dd></div>{% endfor %}
   </dl>
 </section>
 {% endif %}

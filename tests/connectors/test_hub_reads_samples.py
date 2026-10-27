@@ -44,9 +44,9 @@ def test_every_connector_backed_tile_resolves_to_real_content(sample_snapshots):
             assert resolved["value"] and resolved["value"] != "—"
             assert resolved["secondary"], "D17's secondary line is missing"
             checked += 1
-    # meals, files, next-event, weather, watching, media status, library, requests, watched, diary, discover, downloads, climate, car-status (garden removed 2026-09-11)
+    # next-event, weather, watching, media status, library, requests, watched, diary, discover, downloads (Food, Desk, House, Car retired 2026-10-27, JY-221)
     # + Server area services, system, updates (2026-10-06) + monitors (WP-S4); by year removed 2026-10-09 (decision 1)
-    assert checked == 18
+    assert checked == 14
 
 
 def test_weather_tile_shows_the_composed_summary(sample_snapshots):
@@ -60,9 +60,9 @@ def test_hub_renders_the_sample_snapshots_end_to_end(monkeypatch):
         assert hub_page.status_code == 200
         # Each area's summary tile, straight off the WP23 transforms
         assert "Weekly standup" in hub_page.text          # calendar
-        # kitchen is parked (hidden): no hub card, its page still serves the tile
+        # Food was retired 2026-10-27 (JY-221): no hub card, and its page is the ordinary 404
         assert "Tonight: Salmon and greens" not in hub_page.text
-        assert "Tonight: Salmon and greens" in client.get("/a/kitchen").text
+        assert client.get("/a/kitchen").status_code == 404
         assert "playing now" in hub_page.text             # media
 
         assert "light rain" in hub_page.text              # the hub weather glimpse

@@ -294,6 +294,9 @@ SOURCES = [
     ("orchestrator overnight (2026-10-26)", "play table row count check", "JY-253", ""),
     ("orchestrator overnight (2026-10-26)", "digest boot false alarms", "JY-254", ""),
     ("B. in chat (2026-10-27)", "RQ2 friend pick in TV mode", "JY-255", "JY-231 TV deferral"),
+    ("B. in chat (2026-10-27)", "Deploy gate stop set", "JY-256", "NAS memory review option H"),
+    ("B. in chat (2026-10-27)", "Player-token script", "JY-257", "JY-054 Q1 A answer 2a"),
+    ("Orchestrator (2026-10-27)", "JY-057 hub split", "JY-258", "TV checks need the hub half live first"),
 ]
 
 

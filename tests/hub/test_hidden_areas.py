@@ -12,7 +12,8 @@ from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_regis
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = REPO_ROOT / "config" / "sample_snapshots"
-PARKED = {"kitchen", "money", "desk", "house", "car"}
+PARKED = {"money"}   # Food, Desk, House, Car retired 2026-10-27 (JY-221)
+RETIRED = ("kitchen", "desk", "house", "car")
 
 
 def test_hidden_defaults_false_and_is_accepted(tmp_path):
@@ -27,7 +28,7 @@ def test_hidden_area_is_still_validated(tmp_path):
         load_registry(write_registry(tmp_path, make_area("a"), bad))
 
 
-def test_real_registry_parks_exactly_five():
+def test_real_registry_parks_only_money():
     reg = load_registry(AREAS_YAML)
     assert {a.id for a in reg.areas if a.hidden} == PARKED
     assert [a.id for a in reg.visible_areas] == ["calendar", "media", "server"]  # server added 2026-10-06
@@ -66,6 +67,14 @@ def test_parked_page_still_serves(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as c:
         r = c.get("/a/money")
     assert r.status_code == 200 and "<h1>Money</h1>" in r.text
+
+
+@pytest.mark.parametrize("area_id", RETIRED)
+def test_retired_area_page_is_the_ordinary_404(monkeypatch, tmp_path, area_id):
+    with _client(monkeypatch, tmp_path) as c:
+        r = c.get(f"/a/{area_id}")
+        unknown = c.get("/a/not-an-area")
+    assert r.status_code == 404 and r.text == unknown.text
 
 
 def test_hub_row_is_the_area_cards_only(monkeypatch, tmp_path):

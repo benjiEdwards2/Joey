@@ -1,6 +1,6 @@
 # =============================================================================
 # areas.yaml — THE dashboard. Rooms are config, not code (DECISIONS 2026-08-17).
-# 8 areas in the list incl. hidden (Server added 2026-10-06); hard cap of 9 is enforced by hub/registry.py.
+# 4 areas in the list incl. hidden (Food, Desk, House, Car retired 2026-10-27, JY-221); hard cap of 9 is enforced by hub/registry.py.
 # icon: id of an embedded SVG line icon (gate decision 2026-08-28 replaced emoji).
 # tier: link  = button that opens the real app (href required)
 #       embed = hourly cached snippet (snapshot + stale_after_minutes required)
@@ -23,25 +23,6 @@ gated_hrefs: {}                                       # homepage removed 2026-10
 
 areas:
   # Rail / tab order = the order of this list; `rail_section: home` lifts an area into the Home group.
-  - id: kitchen
-    hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
-    name: Food                                       # renamed from Kitchen (B., 2026-09-11); id stays 'kitchen'
-    icon: kitchen
-    summary_tile: meals
-    tiles:
-      - id: meals
-        label: Meal plan
-        tier: embed
-        owner: shared
-        snapshot: macromates
-        stale_after_minutes: 120
-        setup_note: "MacroMates read-only connector arrives at WP27."
-      - id: macromates-app
-        label: Open MacroMates
-        tier: link
-        owner: shared
-        href: "https://macromates.joeyhome.net"      # self-hosted behind the same Access gate (2026-10-05)
-
   - id: money
     hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
     name: Money
@@ -55,25 +36,6 @@ areas:
         snapshot: money
         stale_after_minutes: 11520   # 8 days — weekly CSV cadence + grace (D14)
         setup_note: "Money importer arrives in Track E (WP31+)."
-
-  - id: desk
-    hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
-    name: Desk
-    icon: desk
-    summary_tile: files
-    tiles:
-      - id: files
-        label: NAS files
-        tier: embed
-        owner: you
-        snapshot: nas_stats
-        stale_after_minutes: 120
-        setup_note: "NAS stats connector arrives at WP30."
-      - id: notion
-        label: Notion
-        tier: link
-        owner: shared
-        href: "https://www.notion.so"               # Q12 answered at WP21 sign-off (2026-09-11)
 
   - id: calendar
     name: Calendar
@@ -181,34 +143,6 @@ areas:
         tier: link
         owner: shared
         href: "http://192.168.68.59:8096"            # Jellyfin on the NAS, LAN-only (WP6 adopt-in-place, 2026-09-11)
-
-  - id: house
-    hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
-    name: House
-    icon: house
-    summary_tile: climate
-    tiles:
-      - id: climate
-        label: Inside
-        tier: embed
-        owner: shared
-        snapshot: home_assistant
-        stale_after_minutes: 120
-        setup_note: "Home Assistant connector arrives at WP28."
-
-  - id: car
-    hidden: true                                     # (parked by B., 2026-10-06 — not connected yet)
-    name: Car
-    icon: car
-    summary_tile: car-status
-    tiles:
-      - id: car-status
-        label: Car
-        tier: embed
-        owner: you
-        snapshot: home_assistant
-        stale_after_minutes: 240
-        setup_note: "Renders 'Not connected' until HA has car entities (Q16 — never fabricated)."
 
   # Server (B. approved scope 2026-10-06): replaces the NAS "Homepage" dashboard natively (Homepage retired 2026-10-09).
   # Thresholds: disk 85 %, media.db backup 36 h, any service Down = attention.

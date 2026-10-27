@@ -199,7 +199,7 @@ def test_cast_portraits_initials_makers_and_providers(env):
         b = main_of(whole(client, "/media/title/movie/603"))
     assert f'<img class="castpic" src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in b
     assert 'class="castpic initials" aria-hidden="true">B' in b and ">Bo Bit<" in b and "as Deckhand" in b
-    assert 'href="/media/discover?q=Dee%20Director"' in b
+    assert 'href="/media/person/find?name=Dee%20Director"' in b
     assert "<dt>Cinematography</dt>" in b and "Cy Camera" in b              # crew grid (film-quality)
     assert ">Netflix</a>" in b and ">Apple TV</a>" in b and "USOnly" not in b
     assert 'href="https://www.justwatch.com/au/search?q=Harbour%20Lights"' in b
@@ -499,11 +499,11 @@ def test_film_hero_has_a_directed_by_card_with_headshot_and_person_link(env):
     assert 'width="52" height="52"' in h and "Director</span>" not in h and "<span>Director</span>" not in h
 
 
-def test_no_tmdb_id_or_photo_falls_back_to_search_and_initials(env):
+def test_no_tmdb_id_or_photo_falls_back_to_find_and_initials(env):
     client, _ = env()                                   # FILM's director has neither id nor profilePath
     with client:
         _, found = cards(hero(main_of(client.get("/media/title/movie/603").text)))
-    assert found == [("/media/discover?q=Dee%20Director", None, "DD", "Dee Director")]
+    assert found == [("/media/person/find?name=Dee%20Director", None, "DD", "Dee Director")]
 
 
 def test_series_says_created_by_with_up_to_four_cards(env):
@@ -528,7 +528,7 @@ def test_jellyfin_director_without_jellyseerr_still_gets_a_card(env, monkeypatch
     with client:
         label, found = cards(hero(main_of(client.get("/media/item/mov1").text)))
     assert label == "Directed by"
-    assert found == [("/media/discover?q=Dee%20Director", f"/img/jf:p77?h={media_film.MAKER_H}", None, "Dee Director")]
+    assert found == [("/media/person/find?name=Dee%20Director", f"/img/jf:p77?h={media_film.MAKER_H}", None, "Dee Director")]
 
 
 def test_cards_sit_after_the_status_and_the_action_row(env):

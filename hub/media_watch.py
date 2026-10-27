@@ -44,8 +44,8 @@ def _item_id(rest: str) -> str | None:
     return text if _HEX32.fullmatch(text) else None
 
 
-def _up_next(item: dict) -> dict | None:
-    """The aired episode after this one in the show's cached seasons (never a read), else None."""
+def _next_aired(item: dict) -> tuple | None:
+    """(season number, episode row) of the aired episode after this one in the show's cached seasons (never a read)."""
     show = media_item.peek(item.get("show_id")) if item.get("kind") == "episode" else None
     eps = [(s.get("number"), e) for s in (show or {}).get("seasons") or [] for e in s.get("episodes") or []]
     at = next((i for i, (_, e) in enumerate(eps) if e.get("jf_id") == item.get("id")), None)
@@ -53,10 +53,34 @@ def _up_next(item: dict) -> dict | None:
         return None
     for season, e in eps[at + 1:]:
         if e.get("aired") and _item_id(str(e.get("jf_id") or "")):
-            return {"href": href(_item_id(e["jf_id"])), "still": e.get("still"), "runtime": e.get("runtime"),
-                    "label": f"S{season} · E{e.get('number')} · {e.get('name') or 'Episode'}"}
+            return season, e
         return None   # the next one has not aired: nothing to play next
     return None
+
+
+def _label(season, e: dict) -> str:
+    return f"S{season} · E{e.get('number')} · {e.get('name') or 'Episode'}"
+
+
+def _up_next(item: dict) -> dict | None:
+    """The aired episode after this one in the show's cached seasons (never a read), else None."""
+    nxt = _next_aired(item)
+    if nxt is None:
+        return None
+    season, e = nxt
+    return {"href": href(_item_id(e["jf_id"])), "still": e.get("still"), "runtime": e.get("runtime"),
+            "label": _label(season, e)}
+
+
+def up_next(jf_id: str) -> dict | None:
+    """JY-057: the playback API's `up_next` (the TV shell player's card) - the same rule as the page's card, from the
+    cache only: {item_id, label, runtime}, or None for a film, the last aired episode or an item not cached."""
+    item = (media_item.peek(jf_id) or {}).get("item")
+    nxt = _next_aired(item) if isinstance(item, dict) else None
+    if nxt is None:
+        return None
+    season, e = nxt
+    return {"item_id": _item_id(e["jf_id"]), "label": _label(season, e), "runtime": e.get("runtime")}
 
 
 def page_data(jf_id: str) -> dict | None:

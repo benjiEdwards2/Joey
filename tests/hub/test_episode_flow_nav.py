@@ -109,8 +109,8 @@ def test_season_page_switch_marks_its_season(show, film_of):
 def test_guests_exclude_main_cast_and_count_the_season(show, film_of):
     film, _ = film_of("/media/item/ep3")
     assert film["guests"] == [
-        {"name": "Gus Guest", "role": "Mailman", "poster": "jf:person-gus", "href": None, "eps_this_season": 3},
-        {"name": "Nora New", "role": None, "poster": None, "href": None, "eps_this_season": 1}]
+        {"name": "Gus Guest", "role": "Mailman", "poster": "jf:person-gus", "href": "/media/person/find?name=Gus%20Guest", "eps_this_season": 3},
+        {"name": "Nora New", "role": None, "poster": None, "href": "/media/person/find?name=Nora%20New", "eps_this_season": 1}]
 
 
 def test_guests_exclude_the_pages_cast_too():
@@ -119,15 +119,16 @@ def test_guests_exclude_the_pages_cast_too():
                      {"name": "Gus", "type": "GuestStar", "role": "Mailman", "ref": None}]}
     season = {"episodes": [{"people_names": ["Gus", "Carl Cast"]}, {"people_names": []}]}
     got = media_film.episode_guests(ep, [{"name": "Carl Cast"}], [], season)
-    assert got == [{"name": "Gus", "role": "Mailman", "poster": None, "href": None, "eps_this_season": 1}]
+    assert got == [{"name": "Gus", "role": "Mailman", "poster": None, "href": "/media/person/find?name=Gus", "eps_this_season": 1}]
     assert media_film.episode_guests({"people": []}, None, None, None) == []
 
 
 def test_crew_ep_rows(show, film_of):
     film, _ = film_of("/media/item/ep3")
     assert film["crew_ep"] == [
-        {"role": "Directed by", "people": [{"name": "Eppy Director", "href": None}]},
-        {"role": "Written by", "people": [{"name": "Wren Writer", "href": None}, {"name": "Wes Writer", "href": None}]}]
+        {"role": "Directed by", "people": [{"name": "Eppy Director", "href": "/media/person/find?name=Eppy%20Director"}]},
+        {"role": "Written by", "people": [{"name": "Wren Writer", "href": "/media/person/find?name=Wren%20Writer"},
+                                      {"name": "Wes Writer", "href": "/media/person/find?name=Wes%20Writer"}]}]
     first = film_of("/media/item/ep1")[0]   # an episode with no People: both lists empty, never absent
     assert first["crew_ep"] == [] and first["guests"] == []
 

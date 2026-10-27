@@ -509,6 +509,13 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
   .upc-when { font-size: 13px; }
 }
 
+/* JY-160: one forecast line per day in "Next 7 days" ("Tue 12 Oct  [icon] Light rain · 12–24 °C · rain 60%"). It sits
+   before the day's first row, wraps on a phone and never scrolls sideways; the words carry it, the glyph only decorates. */
+.upc-wx { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 8px 0; font-size: 12px;
+  color: var(--text-4); overflow-wrap: anywhere; }
+.upc-wx .glyph svg.ic { width: 16px; height: 16px; }
+@media (min-width: 640px) { .upc-wx { padding: 10px 10px 0; font-size: 13px; } }
+
 /* Hub glimpse (U21): its four stats stay one row on a phone, so "Rain" is never orphaned. */
 .wxglimpse .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 

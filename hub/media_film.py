@@ -30,6 +30,7 @@ from hub import media_arr_search, media_awards_badges, media_db, media_discover 
 from hub import media_episode_ratings, media_season_state as mss
 from hub import guest, media_home, media_quality, media_text, media_upgrades, shell
 from hub import media_watch   # JY-054: Play opens Joey's own player when PLAYER_API is on
+from hub import media_front   # JY-057: Play on the Joey TV shell opens its own player when PLAYER_API is on
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import empty_series, runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -825,9 +826,15 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
 # Season and episode pages only (on-server Jellyfin items). Everything comes from the page's own item read and the
 # show's cached season list (media_item._seasons, which carries each episode's People) - no extra Jellyfin call.
 # Jellyfin's People entries carry no ProviderIds (Name, Id, Role, Type, PrimaryImageTag only), so a guest's or a
-# crew member's `href` (/media/person/{tmdb}) is None: there is no TMDB person id without a per-person read.
+# crew member's TMDB person id is unknown on render. JY-118 (2026-10-27): their `href` is /media/person/find?name=,
+# which does the one name -> person lookup only when the name is tapped (never on render).
 
 CREW_EP = (("Director", "Directed by"), ("Writer", "Written by"))
+
+
+def person_find_href(name: str) -> str:
+    """JY-118: the link a guest / crew name gets when the page has no TMDB person id for it."""
+    return "/media/person/find?name=" + quote(name, safe="")
 
 
 def _item_href(jf_id) -> str | None:
@@ -882,7 +889,7 @@ def episode_guests(ep: dict, cast: list[dict] | None, show_people: list[dict] | 
     for p in ep.get("people") or []:
         name = p.get("name")
         if p.get("type") == "GuestStar" and name and name not in main and name not in out:
-            out[name] = {"name": name, "role": p.get("role") or None, "poster": p.get("ref"), "href": None,
+            out[name] = {"name": name, "role": p.get("role") or None, "poster": p.get("ref"), "href": person_find_href(name),
                          "eps_this_season": max(1, sum(1 for names in listed if name in names))}
     return list(out.values())
 
@@ -893,7 +900,7 @@ def episode_crew(ep: dict) -> list[dict]:
     for typ, role in CREW_EP:
         names = list(dict.fromkeys(p["name"] for p in ep.get("people") or [] if p.get("type") == typ and p.get("name")))
         if names:
-            out.append({"role": role, "people": [{"name": n, "href": None} for n in names]})
+            out.append({"role": role, "people": [{"name": n, "href": person_find_href(n)} for n in names]})
     return out
 
 
@@ -1134,6 +1141,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     href_of = lambda i: shell._deep_link((jsrc or {}).get("href"), i, server)
     if media_watch.available(request):   # JY-054: flag on, private front, you / her - else today's Jellyfin hand-off
         href_of = media_watch.href
+    elif media_front.tv_player(request):   # JY-057: the Joey TV shell's own player reads the mark on the deep link
+        href_of = lambda i, deep=href_of: media_front.tv_play_href(deep(i))
     f["play"] = None
     play_ids: dict = {}   # Joey TV WP-B3: the item id behind each Play href (data-jf-id)
     f["series"], f["next_ep"] = None, None
@@ -1292,7 +1301,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
     # Quality (WP-R1): "Quality · 1080p" + Switch, lazy-loaded like Search now; drawn here only for the no-JS confirm step
     f["quality_href"] = media_quality.lazy_href(kind, tmdb_id, tvdb, request.url.path) if not ep else None
-    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True)
+    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True,
+                                              want=media_quality._want(request.query_params.get("quality_profile")))
                           if f["quality_href"] and request.query_params.get("quality_ask") == "1" else None)
     f["quality_flash"] = media_quality.flash_text(request.query_params)
     f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only

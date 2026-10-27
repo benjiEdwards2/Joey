@@ -370,13 +370,13 @@ def test_episode_guests_are_circle_portraits_with_role_and_eps_this_season():
     assert "guest-role" not in inner and '<span class="guest-eps">1 ep this season</span>' in inner   # no role: no line; "1 ep"
 
 
-def test_episode_crew_rows_link_a_person_with_a_page_else_search_discover():
+def test_episode_crew_rows_link_a_person_with_a_page_else_the_person_find_route():
     sec = section(page(episode()), "crew-ep")
     kv = re.findall(r'<div class="kv"><dt>([^<]+)</dt><dd>(.*?)</dd></div>', sec)
     assert [k for k, _ in kv] == ["Directed by", "Written by"]
     assert kv[0][1] == '<a href="/media/person/5">Stephen Kay</a>'
-    assert kv[1][1] == ('<a href="/media/discover?q=Taylor%20Sheridan">Taylor Sheridan</a>, '
-                        '<a href="/media/discover?q=Dave%20Erickson">Dave Erickson</a>')
+    assert kv[1][1] == ('<a href="/media/person/find?name=Taylor%20Sheridan">Taylor Sheridan</a>, '
+                        '<a href="/media/person/find?name=Dave%20Erickson">Dave Erickson</a>')
 
 
 def test_episode_mini_strip_has_this_episode_gold_and_no_legend():

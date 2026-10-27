@@ -6,7 +6,7 @@
    page. #}
 <section class="sec narrow" id="cap-confirm" aria-label="{{ 'Quiet mode' if mode == 'quiet' else 'Full speed' }}">
   <div class="sechead"><h1 class="seclabel">{{ ("Quiet mode (" ~ quiet ~ ")") if mode == "quiet" else "Full speed" }}</h1></div>
-  {% for line in lines %}<p class="metaline{{ ' st-warn' if mode == 'full' and loop.index == 2 }}">{{ line }}</p>{% endfor %}
+  {% for line in lines %}<p class="metaline{{ ' st-warn' if warn and loop.index == 2 }}">{{ line }}</p>{% endfor %}
   {% if st.configured %}<p class="metaline">Downloads<span class="sep"> · </span>{{ st.text }}</p>{% endif %}
   {% if msg %}
   <p class="metaline">{{ msg }}</p>

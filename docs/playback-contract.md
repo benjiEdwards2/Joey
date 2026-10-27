@@ -28,9 +28,10 @@ Household only (JY-050 Q2 A). Friends stay on the official Jellyfin app until JY
 | Private (`joeyhome.net`, Cloudflare Access) | `you` or `her` (Access email) | served, as that member's own Jellyfin user |
 | Private | no Access identity, or `OWNER_EMAIL_YOU` unset | `401 not_signed_in` |
 | Private | `you` or `her` whose player token is another household member's Jellyfin user (JY-055) | `503 not_configured` |
-| Media (`media.joeyhome.net`) | anyone, friend or household alias, signed in or not | the ordinary Joey 404: every route is `PRIVATE` in `hub/guest.py` |
-| Media, once JY-057 moves the routes to `GUEST` (Q3) | household alias | served with the alias's own session token |
-| Media, once moved | friend (`jf:<id>`) | `403 not_allowed` (the handler checks too, so moving the routes never opens them to friends) |
+| Media (`media.joeyhome.net`), flag off | anyone | the ordinary Joey 404: every route is `PRIVATE` in `hub/guest.py` |
+| Media, flag on (JY-057, Q3 A) | household member signed in (`you`, the household alias included, or `her`) | the five routes above (exact method; `guest.HOUSEHOLD_PLAYER`), served with the member's own session token |
+| Media, flag on | friend, no session, a refused session; any other method or path under `/api/play` | the ordinary Joey 404 page (the gate decides before the handler) |
+| Media, if the routes were ever moved to `GUEST` | friend (`jf:<id>`) | `403 not_allowed` (the handler checks too, so moving the routes never opens them to friends) |
 
 Every POST also passes the hub's `same_origin` guard (a cross-site POST is `403 cross_site`).
 
@@ -43,7 +44,8 @@ Every POST also passes the hub's `same_origin` guard (a cross-site POST is `403 
   `you`, `JELLYFIN_USER_HER` for `her`: the user the recorder, the Jellyfin sweep and the Diary read for them), against
   the household ids the hub has already read (the recorder reads `/Users` once). Another member's user is
   `503 not_configured`, before PlaybackInfo. While the ids are unknown the start goes ahead; the start never reads `/Users`.
-- **Media front (after JY-057):** the signed-in session's own token and user id (`Identity.jf_token`, `jf_user_id`).
+- **Media front (JY-057, flag on, household only):** the signed-in session's own token and user id (`Identity.jf_token`,
+  `jf_user_id`). The Joey TV shell (1.0.3+) calls the routes with the WebView's own cookies for the UI host.
 - Every call sends the Jellyfin 12.2 header and nothing else (no `X-Emby-*`, no key in a query):
   `Authorization: MediaBrowser Client="Joey", Device="Joey player <kind>", DeviceId="<id>", Version="0.1.0", Token="<token>"`.
   `DeviceId` is `joey-player-<owner>` on the private front (one Jellyfin device per member) and the browser's
@@ -104,8 +106,14 @@ false for `web` and `phone` (Q4 A), `AutoOpenLiveStream` false, and the optional
 {"session_id": "...", "item_id": "...", "play_method": "direct", "media_source_id": "...", "container": "mp4",
  "runtime_ticks": 26400000000, "start_ticks": 0, "audio_index": 1, "subtitle_index": -1,
  "tracks": {"...": "as endpoint 5, without item_id and media_source_id"},
- "heartbeat_s": 10, "stream": "/api/play/sessions/<session_id>/stream", "resumed": false, "chapters": []}
+ "heartbeat_s": 10, "stream": "/api/play/sessions/<session_id>/stream", "resumed": false, "chapters": [],
+ "up_next": null}
 ```
+`up_next` (added 2026-10-27 by JY-057, additive, every answer): `{"item_id": "...", "label": "S2 · E3 · The Breakwater",
+"runtime": "48m"}` for the next aired episode of an episode, from the hub's item cache only (the title / episode page
+just read it; `media_watch.up_next`, the rule of JY-054's card), **no Jellyfin call**; `null` for a film, the last aired
+episode or an item not in the cache. The TV shell player draws its up-next card from it.
+
 `play_method` (JY-050's words): `direct` = Jellyfin `SupportsDirectPlay` (`PlayMethod` DirectPlay); `remux` = a
 `TranscodingUrl` with `SupportsDirectStream` (DirectStream: container changed, codecs copied); `transcode` = a
 `TranscodingUrl` without it (Transcode: audio and/or video re-encoded). No direct play and no `TranscodingUrl`, or a

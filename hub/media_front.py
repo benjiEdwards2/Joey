@@ -7,9 +7,15 @@ one Jinja env. Every function answers for the private front too (always "not gue
 TV mode (Q34, DECISIONS D, D-P8): true only on the media front, when the user agent carries hub.guest.TV_UA_TOKEN
 (the shell's ` JoeyTV/<semver> (<versionCode>)`) or the `tv=1` cookie is set. `?tv=1` sets the cookie (1 year,
 SameSite=Lax) and `?tv=0` clears it - for desktop testing; the query also decides the page it arrives on. The shell's
-user agent always wins (the TV never leaves TV mode)."""
+user agent always wins (the TV never leaves TV mode).
+
+The TV shell player (JY-057, 2026-10-27): `tv_player(request)` says Play on this page opens the shell's own player
+(PLAYER_API on, the media front, the shell's user agent at TV_PLAYER_MIN_CODE or later, a household member signed in);
+the title / episode pages then add TV_PLAYER_MARK to their Jellyfin deep links (`tv_play_href`), which the shell's
+UrlPolicy reads. Anyone else keeps today's link."""
 from __future__ import annotations
 
+import re
 from urllib.parse import parse_qs
 
 from hub import guest
@@ -127,3 +133,38 @@ def setup_dismissed_now(request) -> bool:
 
 def setup_cookie_header() -> str:
     return f"{SETUP_COOKIE}=1; Max-Age={SETUP_COOKIE_MAX_AGE}; Path=/{_secure()}; SameSite=Lax"
+
+
+# ---- the TV shell player (JY-057) ----
+
+TV_PLAYER_MIN_CODE = 2026102701   # Joey TV 1.0.3: the first shell with its own player
+TV_PLAYER_MARK = "player=joey"    # the fragment parameter the shell's UrlPolicy turns into its player
+_TV_APP = re.compile(r"JoeyTV/\d+\.\d+\.\d+ \((\d{10})\)")
+
+
+def tv_app_code(request) -> int | None:
+    """The Joey TV shell's versionCode from its user agent (` JoeyTV/<semver> (<versionCode>)`), else None."""
+    m = _TV_APP.search((request.headers.get("user-agent") or "") if request is not None else "")
+    return int(m.group(1)) if m else None
+
+
+def _viewer_owner(request) -> str | None:
+    from hub.identity import resolve_identity
+    return resolve_identity(request).owner
+
+
+def tv_player(request) -> bool:
+    """Play on this page opens the shell's own player: the flag is on, the media front, the shell's user agent (never the
+    `tv=1` cookie) at TV_PLAYER_MIN_CODE or later, and `you` or `her` is signed in. Else today's Jellyfin hand-off."""
+    from hub import player_api
+    if request is None or not guest.is_media() or not player_api.enabled():
+        return False
+    code = tv_app_code(request)
+    if code is None or code < TV_PLAYER_MIN_CODE:
+        return False
+    return _viewer_owner(request) in player_api.HOUSEHOLD
+
+
+def tv_play_href(href: str | None) -> str | None:
+    """A Jellyfin deep link (`.../web/#/details?id=...`) with the player mark as one more fragment parameter."""
+    return f"{href}&{TV_PLAYER_MARK}" if href else href

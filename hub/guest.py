@@ -19,6 +19,10 @@ This module is the single source of truth for what the media front serves:
 * Every route of hub.main.app must sit in exactly one table: tests/hub/test_guest_routes.py fails the suite on an
   unclassified route, naming it. A new route is PRIVATE until someone decides otherwise.
 * Section / tab visibility on the media front is derived from `allows()` (`href_allowed`), never a second list.
+* HOUSEHOLD_PLAYER (JY-057, 2026-10-27, JY-053 Q3 A): the five playback-API routes, which stay PRIVATE (so `allows()`
+  denies them and no link derives from them). With PLAYER_API on, GuestGate serves exactly these (method and path) to a
+  signed-in household member (`you`, the household alias included, or `her`) for the Joey TV shell player; anyone else,
+  and every other method or path under /api/play, gets the ordinary 404 page. Flag off: nothing changes.
 * `GuestGate` (ASGI) enforces it: registered FIRST in hub.main, so it is the innermost middleware and the request
   log line (hub.shell.ShellMiddleware) sees its 404 / 303 and the identity it stored.
 
@@ -156,6 +160,13 @@ PRIVATE: tuple = (
     *_each("GET POST PUT PATCH DELETE OPTIONS", "/media/watch", "/media/watch/{rest:path}"),
 )
 
+# JY-057 (Q3 A): the subset of the PRIVATE player routes GuestGate serves to the household on the media front, flag on.
+HOUSEHOLD_PLAYER: tuple = (
+    *_each("POST", "/api/play/sessions", "/api/play/sessions/{session_id}/stream",
+           "/api/play/sessions/{session_id}/progress", "/api/play/sessions/{session_id}/stop"),
+    ("GET", "/api/play/items/{item_id}/tracks"),
+)
+
 RESERVED: tuple = ()   # empty since WP-B4 moved the request route to GUEST; kept for the next route a WP builds dark
 
 # Served without an identity on the media front (everything else that is allowed needs one).
@@ -195,6 +206,12 @@ def allows(method: str, path: str, registry=None) -> bool:
 
 def is_public(method: str, path: str) -> bool:
     return _matches(PUBLIC, _verb(method), path)
+
+
+def household_route(method: str, path: str) -> bool:
+    """JY-057: a HOUSEHOLD_PLAYER request (exact method, HEAD is not GET here) while PLAYER_API is on."""
+    from hub import player_api   # lazy: player_api imports this module
+    return player_api.enabled() and _matches(HOUSEHOLD_PLAYER, (method or "").upper(), path)
 
 
 def href_allowed(href: str, registry=None) -> bool:
@@ -334,6 +351,14 @@ class GuestGate:
     def __init__(self, app):
         self.app = app
 
+    async def _serve(self, scope, receive, send, ident) -> None:
+        from hub import media_jellyfin
+        bound = media_jellyfin.bind_viewer(ident.jf_user_id)   # P3: the only Jellyfin identity of this request
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            media_jellyfin.reset_viewer(bound)
+
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -352,6 +377,18 @@ class GuestGate:
             if home:
                 await _redirect(send, home)
                 return
+        if household_route(method, path) and not allows(method, path):
+            # JY-057: the TV shell player's API, for a household member only; anyone else gets the ordinary 404 page
+            # (were the routes ever moved to GUEST, the general path below serves them and the handler refuses friends)
+            from hub import player_api
+            verdict, ident = await _resolve(scope)
+            if verdict == "ok" and ident is not None:
+                scope.setdefault("state", {})["identity"] = ident
+                if ident.owner in player_api.HOUSEHOLD:
+                    await self._serve(scope, receive, send, ident)
+                    return
+            await not_found(scope, receive, send)
+            return
         if not allows(method, path):
             # JY-190 (F1): the 404 names who is signed in. Same page for every denied or unknown path; a session that
             # is missing, refused or cannot be confirmed renders as not signed in (the cookie is left alone here).
@@ -365,13 +402,8 @@ class GuestGate:
             return
         verdict, ident = await _resolve(scope)
         if verdict == "ok":
-            from hub import media_jellyfin
             scope.setdefault("state", {})["identity"] = ident
-            bound = media_jellyfin.bind_viewer(ident.jf_user_id)   # P3: the only Jellyfin identity of this request
-            try:
-                await self.app(scope, receive, send)
-            finally:
-                media_jellyfin.reset_viewer(bound)
+            await self._serve(scope, receive, send, ident)
             return
         if verdict == "unreachable":
             await unavailable(send)

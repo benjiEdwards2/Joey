@@ -175,5 +175,29 @@ Both Sonnet reviews PASS. Fixes asked for before the Opus verifier:
   their own next episode, no watch state in it, a viewer with nothing cached gets none).
 - Back before the first frame now sends a best-effort stop (see Progress above).
 
+## TV session fixes (2026-10-27)
+The TV session ran on the TCL with the debug APK at `0bd7e5b`, the household alias and `PLAYER_API` on. Rows 1, 2, 3, 5, 8,
+11 and 13 PASS; three FAILs fixed here (tv/ only, no hub change: the hub passes the profile to Jellyfin, which decides the
+method):
+- **Row 4, audio & subtitles.** OK in the pop-up closed it, and the harness's reopen key sequence went astray, so the
+  tick read None; its two Backs then left the player (the "subtitles []" and "still playing False"). Now OK picks and the
+  pop-up stays open with the tick on the pick; Back closes it; a pick that restarts the session (remux / transcode) keeps
+  the pop-up open on its column. The "Subtitles" entry in the audio list is the harness's dump slice running from
+  `player_audio_list` to `player_subs_scroll`, which takes in the column header; the screenshot shows two clean columns.
+  Test change, dated: `okPicksAndClosesWithFocusBackOnItsButton` became `okPicksAndThePopUpStaysOpenOnThePick`, and
+  `anEmptyAudioListPicksNothing` now expects the pop-up to stay open.
+- **Row 7, Watch credits.** Right on the card only moved the focus to a Watch credits button, so the card stayed. Now
+  Right is Watch credits at once (look A: "Right is Watch credits"): the card hides and a running countdown stops for
+  this episode; at the file's end the card and its countdown return and play the next one. Test change, dated:
+  `theCardOkPlaysNowRightIsWatchCreditsBackIsJoey` asserts the one-press dismissal; new
+  `rightDuringTheEndCountdownCancelsItForThisEpisode`.
+- **Row 9, DTS.** The TCL lists a DTS decoder in MediaCodecList but stalls on DTS, so the profile said `dts` and
+  Jellyfin answered Direct play. Now AAC / MP3 / Opus / FLAC / Vorbis come from the decoders, AC-3 / E-AC-3 from a
+  decoder or an HDMI / ARC / eARC passthrough sink, and DTS / TrueHD only from such a sink (AudioDeviceInfo encodings),
+  never from a listed decoder. On the TCL's own speakers Jellyfin then converts the audio and the meta says Transcode
+  (or Remux). Test change, dated: `codecsComeFromTheTvsDecoders` now asserts a listed DTS decoder does not count; new
+  `aListedDtsOrTrueHdDecoderIsNotTrusted` and `passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby`.
+- Re-run on the TV: rows 4, 7 and 9.
+
 ## Shipped notes
 Not yet.

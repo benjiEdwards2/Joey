@@ -157,13 +157,18 @@ class PlayerUiTest {
         assertEquals(2, key(key(subs, KeyEvent.KEYCODE_DPAD_DOWN).state, KeyEvent.KEYCODE_DPAD_DOWN).state.subtitleCursor)
     }
 
+    // 2026-10-27 TV session (row 4): replaces okPicksAndClosesWithFocusBackOnItsButton; a pick keeps the pop-up open
     @Test
-    fun okPicksAndClosesWithFocusBackOnItsButton() {
+    fun okPicksAndThePopUpStaysOpenOnThePick() {
         val audio = key(key(popup, KeyEvent.KEYCODE_DPAD_UP).state, KeyEvent.KEYCODE_DPAD_CENTER)
         assertEquals(PlayerAction.PickAudio(1), audio.action)
-        assertEquals(PlayerOverlay.CONTROLS, audio.state.overlay)
-        assertEquals(FocusRow.BUTTONS, audio.state.row)
-        assertEquals(PlayerButton.TRACKS, audio.state.button)
+        assertEquals(PlayerOverlay.POPUP, audio.state.overlay)
+        assertEquals(PopupColumn.AUDIO, audio.state.column)
+        assertEquals(0, audio.state.audioCursor)
+        // the activity then records the new track: the tick (playing track) and the cursor move, the pop-up stays
+        val ticked = PlayerUi.withTracks(audio.state, audio.state.audio, listOf(3, 4), audioIndex = 1, subtitleIndex = -1)
+        assertEquals(PlayerOverlay.POPUP, ticked.overlay)
+        assertEquals(0, ticked.audioCursor)
         val subs = key(key(key(popup, KeyEvent.KEYCODE_DPAD_RIGHT).state, KeyEvent.KEYCODE_DPAD_DOWN).state, KeyEvent.KEYCODE_ENTER)
         assertEquals(PlayerAction.PickSubtitle(3), subs.action)
         val off = key(key(popup, KeyEvent.KEYCODE_DPAD_RIGHT).state, KeyEvent.KEYCODE_DPAD_CENTER)
@@ -175,7 +180,7 @@ class PlayerUiTest {
         val none = PlayerUi.withTracks(start, emptyList(), emptyList(), null, -1).copy(overlay = PlayerOverlay.POPUP)
         val step = key(none, KeyEvent.KEYCODE_DPAD_CENTER)
         assertEquals(PlayerAction.None, step.action)
-        assertEquals(PlayerOverlay.CONTROLS, step.state.overlay)
+        assertEquals(PlayerOverlay.POPUP, step.state.overlay)   // 2026-10-27 TV session: the pop-up stays open
     }
 
     @Test
@@ -255,19 +260,29 @@ class PlayerUiTest {
         assertEquals(PlayerOverlay.NONE, PlayerUi.onTick(card, t0, true, 1_000, 3_000_000).state.overlay)
     }
 
+    // 2026-10-27 TV session (row 7): Right on the card is Watch credits at once (look A "Right is Watch credits"); the
+    // old two-step focus move to a Watch credits button left the card on screen
     @Test
     fun theCardOkPlaysNowRightIsWatchCreditsBackIsJoey() {
         val card = hidden.copy(overlay = PlayerOverlay.UP_NEXT)
         assertEquals(PlayerAction.PlayNext, key(card, KeyEvent.KEYCODE_DPAD_CENTER).action)
-        val credits = key(card, KeyEvent.KEYCODE_DPAD_RIGHT).state
-        assertEquals(UpNextChoice.WATCH_CREDITS, credits.upNextChoice)
-        assertEquals(UpNextChoice.PLAY_NOW, key(credits, KeyEvent.KEYCODE_DPAD_LEFT).state.upNextChoice)
-        val dismissed = key(credits, KeyEvent.KEYCODE_DPAD_CENTER)
+        val dismissed = key(card, KeyEvent.KEYCODE_DPAD_RIGHT)
         assertEquals(PlayerAction.None, dismissed.action)
         assertEquals(PlayerOverlay.NONE, dismissed.state.overlay)
         assertTrue(dismissed.state.upNextDismissed)
+        assertNull(dismissed.state.countdownFromMs)
         assertEquals(PlayerOverlay.NONE, PlayerUi.onTick(dismissed.state, t0, true, 2_999_000, 3_000_000).state.overlay)
         assertEquals(PlayerAction.ReturnToJoey, key(card, KeyEvent.KEYCODE_BACK).action)
+    }
+
+    @Test
+    fun rightDuringTheEndCountdownCancelsItForThisEpisode() {
+        val ended = PlayerUi.onEnded(hidden, t0).state
+        val step = key(ended, KeyEvent.KEYCODE_DPAD_RIGHT, t0 + 2_000)
+        assertEquals(PlayerOverlay.NONE, step.state.overlay)
+        assertNull(step.state.countdownFromMs)
+        assertNull(PlayerUi.countdownLeftS(step.state, t0 + 2_000))
+        assertEquals(PlayerAction.None, PlayerUi.onTick(step.state, t0 + 20_000, false, 0, 0).action)
     }
 
     @Test

@@ -52,8 +52,8 @@ data class PlayerStep(val state: PlayerUiState, val action: PlayerAction = Playe
 
 /**
  * Look A's keys on a remote (JY-052 TV frames): any key shows the controls; Left / Right seek −10 s / +30 s (hidden, or
- * on the bar); Down drops to the buttons, Up climbs back; the pop-up walks with Up / Down and swaps columns with
- * Left / Right; Back closes the pop-up, then hides the controls, then returns to Joey (BackPolicy.player). The controls
+ * on the bar); Down drops to the buttons, Up climbs back; the pop-up walks with Up / Down, swaps columns with
+ * Left / Right and OK picks (it stays open); on the up-next card OK plays now and Right is Watch credits; Back closes the pop-up, then hides the controls, then returns to Joey (BackPolicy.player). The controls
  * hide after [HIDE_AFTER_MS] of playing; the up-next card shows in the last [UP_NEXT_LEAD_MS] while they are hidden,
  * and at the end counts down [COUNTDOWN_MS] before the next episode.
  */
@@ -208,13 +208,14 @@ object PlayerUi {
             KeyEvent.KEYCODE_DPAD_LEFT -> PlayerStep(s.copy(column = PopupColumn.AUDIO))
             KeyEvent.KEYCODE_DPAD_RIGHT -> PlayerStep(s.copy(column = PopupColumn.SUBTITLES))
             in OK_KEYS -> {
-                val closed = s.copy(overlay = PlayerOverlay.CONTROLS, row = FocusRow.BUTTONS, button = PlayerButton.TRACKS)
+                // JY-057 TV session (2026-10-27): OK picks and the pop-up stays open, the tick moving to the pick;
+                // Back closes it (look A: "OK picks, Back closes the pop-up")
                 val action = if (audioCol) {
                     s.audio.getOrNull(cursor)?.let { PlayerAction.PickAudio(it) }
                 } else {
                     s.subtitles.getOrNull(cursor)?.let { PlayerAction.PickSubtitle(it) }
                 }
-                PlayerStep(closed, action ?: PlayerAction.None)
+                PlayerStep(s, action ?: PlayerAction.None)
             }
             else -> PlayerStep(s)
         }
@@ -222,7 +223,9 @@ object PlayerUi {
 
     private fun upNext(s: PlayerUiState, keyCode: Int): PlayerStep = when (keyCode) {
         KeyEvent.KEYCODE_DPAD_LEFT -> PlayerStep(s.copy(upNextChoice = UpNextChoice.PLAY_NOW))
-        KeyEvent.KEYCODE_DPAD_RIGHT -> PlayerStep(s.copy(upNextChoice = UpNextChoice.WATCH_CREDITS))
+        // JY-057 TV session (2026-10-27): Right is Watch credits (look A), at once: the card hides and any countdown stops
+        KeyEvent.KEYCODE_DPAD_RIGHT -> PlayerStep(s.copy(overlay = PlayerOverlay.NONE, upNextChoice = UpNextChoice.PLAY_NOW,
+            upNextDismissed = true, countdownFromMs = null))
         in OK_KEYS -> if (s.upNextChoice == UpNextChoice.PLAY_NOW) {
             PlayerStep(s.copy(countdownFromMs = null), PlayerAction.PlayNext)
         } else {

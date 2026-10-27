@@ -3,6 +3,7 @@ package net.joeyhome.media
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.media.AudioManager
 import android.media.MediaCodecList
 import android.net.Uri
 import android.os.Build
@@ -141,7 +142,7 @@ class PlayerActivity : Activity() {
         userAgent = UserAgent.build(WebSettings.getDefaultUserAgent(this), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
         api = PlayApiClient(hosts.ui, userAgent)
         val mimes = decoderMimes()
-        profile = DeviceProfile.build(DeviceProfile.videoCodecs(mimes), DeviceProfile.audioCodecs(mimes))
+        profile = DeviceProfile.build(DeviceProfile.videoCodecs(mimes), DeviceProfile.audioCodecs(mimes, passthroughEncodings()))
         registerBackCallback()
         pressedAt = SystemClock.elapsedRealtime()
         ui = PlayerUi.initial(SystemClock.uptimeMillis(), hasNext = false)
@@ -232,9 +233,14 @@ class PlayerActivity : Activity() {
         audioIndex = answer.audioIndex
         subtitleIndex = answer.subtitleIndex
         val keep = ui
+        val fresh = PlayerUi.initial(SystemClock.uptimeMillis(), hasNext = answer.upNext != null)
         ui = PlayerUi.withTracks(
-            PlayerUi.initial(SystemClock.uptimeMillis(), hasNext = answer.upNext != null)
-                .copy(overlay = if (keep.overlay == PlayerOverlay.NONE) PlayerOverlay.NONE else PlayerOverlay.CONTROLS),
+            // a track pick that restarted the session keeps the pop-up open on its column (TV session, 2026-10-27)
+            if (keep.overlay == PlayerOverlay.POPUP) {
+                fresh.copy(overlay = PlayerOverlay.POPUP, column = keep.column, button = PlayerButton.TRACKS)
+            } else {
+                fresh.copy(overlay = if (keep.overlay == PlayerOverlay.NONE) PlayerOverlay.NONE else PlayerOverlay.CONTROLS)
+            },
             answer.audio.map { it.index }, answer.subtitles.map { it.index }, audioIndex, subtitleIndex,
         )
         if (answer.resumed) resumedUntil = SystemClock.uptimeMillis() + RESUMED_SHOW_MS
@@ -619,6 +625,20 @@ class PlayerActivity : Activity() {
 
     private fun <T : View> view(id: Int): T = findViewById(id)
 
+    /**
+     * Compressed encodings an external audio output (HDMI, ARC, eARC: a receiver or soundbar) takes as they are. The TV's
+     * own speakers never count, so DTS / TrueHD go to Jellyfin for conversion unless a sink really takes them. An empty
+     * encoding list counts as none.
+     */
+    private fun passthroughEncodings(): Set<Int> = try {
+        (getSystemService(Context.AUDIO_SERVICE) as AudioManager).getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .filter { it.type in PASSTHROUGH_OUTPUTS }
+            .flatMap { it.encodings.toList() }
+            .toSet()
+    } catch (e: RuntimeException) {
+        emptySet()
+    }
+
     private fun decoderMimes(): Set<String> = try {
         MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
             .filter { !it.isEncoder }
@@ -639,6 +659,8 @@ class PlayerActivity : Activity() {
         private const val HTTP_CONNECT_MS = 15_000L
         private const val HTTP_READ_MS = 30_000L
         private const val MAX_ROWS = 6
+        /** AudioDeviceInfo.TYPE_HDMI (9), TYPE_HDMI_ARC (10), TYPE_HDMI_EARC (29, API 31). */
+        private val PASSTHROUGH_OUTPUTS = setOf(9, 10, 29)
         private val REPEATABLE = setOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, KeyEvent.KEYCODE_MEDIA_REWIND,

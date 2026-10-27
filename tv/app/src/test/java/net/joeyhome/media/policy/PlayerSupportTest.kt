@@ -96,9 +96,33 @@ class PlayerSupportTest {
         val mimes = setOf("video/avc", "video/hevc", "audio/mp4a-latm", "audio/ac3", "audio/eac3", "audio/opus")
         assertEquals(listOf("h264", "hevc"), DeviceProfile.videoCodecs(mimes))
         assertEquals(listOf("aac", "ac3", "eac3", "opus"), DeviceProfile.audioCodecs(mimes))
-        assertTrue("dts" in DeviceProfile.audioCodecs(setOf("audio/vnd.dts.hd")))
+        // 2026-10-27 TV session (row 9): replaced `"dts" in audioCodecs(setOf("audio/vnd.dts.hd"))`; a listed DTS decoder
+        // no longer counts (the TCL lists one and stalls), see the passthrough tests below
+        assertFalse("dts" in DeviceProfile.audioCodecs(setOf("audio/vnd.dts.hd")))
         assertEquals(listOf("h264"), DeviceProfile.videoCodecs(emptySet()))
         assertEquals(listOf("aac"), DeviceProfile.audioCodecs(emptySet()))
+    }
+
+    // a capability list like the TCL's (JY-057 TV session, 2026-10-27): DTS and TrueHD decoders listed, no passthrough sink
+    private val tcl = setOf("video/avc", "video/hevc", "audio/mp4a-latm", "audio/mpeg", "audio/ac3", "audio/eac3",
+        "audio/vnd.dts", "audio/vnd.dts.hd", "audio/true-hd")
+
+    @Test
+    fun aListedDtsOrTrueHdDecoderIsNotTrusted() {
+        val audio = DeviceProfile.audioCodecs(tcl, passthroughEncodings = emptySet())
+        assertEquals(listOf("aac", "mp3", "ac3", "eac3"), audio)
+        val direct = DeviceProfile.build(DeviceProfile.videoCodecs(tcl), audio)
+            .getJSONArray("DirectPlayProfiles").getJSONObject(0).getString("AudioCodec")
+        assertFalse(direct.contains("dts") || direct.contains("truehd"))   // so Jellyfin converts the audio
+    }
+
+    @Test
+    fun passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby() {
+        // AudioFormat encodings: 5 AC-3, 6 E-AC-3, 7 DTS, 8 DTS-HD, 14 TrueHD, 18 E-AC-3 JOC; 2 (PCM) means nothing here
+        assertEquals(listOf("aac", "ac3", "eac3", "dts", "truehd"),
+            DeviceProfile.audioCodecs(setOf("audio/mp4a-latm"), setOf(2, 5, 18, 8, 14)))
+        assertEquals(listOf("aac", "dts"), DeviceProfile.audioCodecs(setOf("audio/mp4a-latm"), setOf(7)))
+        assertEquals(listOf("aac"), DeviceProfile.audioCodecs(emptySet(), setOf(2)))
     }
 
     @Test

@@ -86,7 +86,7 @@ object TrackPlan {
 /**
  * The Jellyfin DeviceProfile the TV sends with each start: direct play for what this TV's decoders take, Jellyfin's
  * HLS (fMP4, as the JY-051 study's T2H) for the rest. No FFmpeg extension (JY-057 Question 1): DTS and TrueHD are
- * listed only when the TV has a decoder for them, else Jellyfin transcodes the audio.
+ * listed only when an output takes them as passthrough, else Jellyfin transcodes the audio.
  */
 object DeviceProfile {
     private val VIDEO = linkedMapOf("h264" to "video/avc", "hevc" to "video/hevc", "av1" to "video/av01", "vp9" to "video/x-vnd.on2.vp9")
@@ -105,9 +105,24 @@ object DeviceProfile {
     fun videoCodecs(mimes: Set<String>): List<String> =
         VIDEO.filter { (_, mime) -> mime in mimes }.keys.toList().ifEmpty { listOf("h264") }
 
-    /** Jellyfin audio codec names for the TV's decoder MIME types; aac when none is known. */
-    fun audioCodecs(mimes: Set<String>): List<String> =
-        AUDIO.filter { (_, list) -> list.any { it in mimes } }.keys.toList().ifEmpty { listOf("aac") }
+    /** The codecs a listed decoder is not trusted for: only an output that takes the bitstream (passthrough) counts. */
+    private val PASSTHROUGH_ONLY = setOf("dts", "truehd")
+
+    /** android.media.AudioFormat encodings an output may report (AudioDeviceInfo.getEncodings) -> Jellyfin codec. */
+    private val ENCODINGS = mapOf(5 to "ac3", 6 to "eac3", 18 to "eac3", 7 to "dts", 8 to "dts", 14 to "truehd")
+
+    /**
+     * Jellyfin audio codec names this TV can really play (JY-057 TV session, 2026-10-27: the TCL lists a DTS decoder but
+     * stalls on DTS). AAC, MP3, Opus, FLAC and Vorbis come from the decoders; AC-3 and E-AC-3 from a decoder or an
+     * output that takes them as passthrough; DTS and TrueHD only from passthrough, whatever the decoder list says.
+     * Anything left out is converted by Jellyfin (remux with the audio transcoded). aac when nothing is known.
+     */
+    fun audioCodecs(decoderMimes: Set<String>, passthroughEncodings: Set<Int> = emptySet()): List<String> {
+        val passthrough = passthroughEncodings.mapNotNull { ENCODINGS[it] }.toSet()
+        return AUDIO.filter { (name, list) ->
+            name in passthrough || (name !in PASSTHROUGH_ONLY && list.any { it in decoderMimes })
+        }.keys.toList().ifEmpty { listOf("aac") }
+    }
 
     fun build(video: List<String>, audio: List<String>): JSONObject {
         val hlsVideo = listOf("hevc", "h264").filter { it in video }.ifEmpty { listOf("h264") }

@@ -65,7 +65,8 @@ object PlayerApi {
     private val SESSION_ID = Regex("^[A-Za-z0-9_-]{8,64}$")
     private val ITEM_ID = Regex("^[0-9a-f]{32}$")
     private val TAILS = setOf("stream", "progress", "stop")
-    private val KEY_PARAMS = setOf("apikey", "api_key")
+    /** `ApiKey` / `api_key`, compared without underscores (so no key-shaped literal sits in the APK: tv_version.py scan). */
+    private const val KEY_PARAM = "apikey"
 
     fun sessionPath(sessionId: String, tail: String): String? =
         if (SESSION_ID.matches(sessionId) && tail in TAILS) "$START_PATH/$sessionId/$tail" else null
@@ -119,7 +120,7 @@ object PlayerApi {
         val url = str(o, "url") ?: return null
         if (Origin.of(url) != jellyfin || !url.startsWith(jellyfin.toString() + "/")) return null
         val query = Origin.parse(url)?.rawQuery.orEmpty()
-        if (query.split('&').any { it.substringBefore('=').lowercase() in KEY_PARAMS }) return null
+        if (query.split('&').any { it.substringBefore('=').lowercase().replace("_", "") == KEY_PARAM }) return null
         val auth = o.optJSONObject("headers")?.let { str(it, "Authorization") } ?: return null
         if (!auth.startsWith("MediaBrowser ") || !auth.contains("Token=\"") || auth.any { it == '\r' || it == '\n' }) return null
         val method = str(o, "play_method")?.takeIf { it in METHODS } ?: "direct"

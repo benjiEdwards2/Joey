@@ -426,7 +426,8 @@ SH = _pipefail_sh()
 # JY-256: it also keeps the running containers in $FAKE_DIR/running (`inspect -f`, `stop`, `start`); each stop adds
 # FAKE_FREE_PER_STOP MB to the fake MemAvailable; FAKE_START_FAILS names containers that will not start; FAKE_SUITE_OK
 # turns the suite green (the run then goes on to build, up and smoke, all answered 0); FAKE_SUITE_SIGNAL makes the suite
-# send TERM to deploy.sh; FAKE_BUILD_FAILS makes `compose build` fail (rollback).
+# send TERM to deploy.sh; FAKE_BUILD_FAILS makes `compose build` fail (rollback); FAKE_STOP_FAILS names containers whose
+# `docker stop` fails (they keep running).
 FAKE_DOCKER = """#!/bin/sh
 echo "$*" >> "$FAKE_DIR/docker.log"
 for a; do last=$a; done
@@ -444,6 +445,7 @@ case "$*" in
     "inspect -f"*)
         if grep -qx "$last" "$FAKE_DIR/running" 2>/dev/null; then echo true; else echo false; fi ;;
     "stop "*)
+        case " ${FAKE_STOP_FAILS:-} " in *" $last "*) echo "Error: cannot stop $last" >&2; exit 1 ;; esac
         grep -vx "$last" "$FAKE_DIR/running" > "$FAKE_DIR/running.tmp" || true
         mv "$FAKE_DIR/running.tmp" "$FAKE_DIR/running"
         if [ -n "${FAKE_FREE_PER_STOP:-}" ]; then
@@ -478,7 +480,7 @@ def _meminfo(avail_mb, swap_used_mb, swap_total_mb=4096):
 
 def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free_per_stop=0, suite_ok=False,
                 suite_signal=False, start_fails=(), stop_set=None, inject=None, leftover=None, stale_lock=False,
-                build_fails=False):
+                build_fails=False, stop_fails=()):
     repo = tmp_path / "repo"
     (repo / "deploy").mkdir(parents=True)
     if leftover is not None:  # JY-256: a stop list left by a crashed run
@@ -514,7 +516,7 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free
     env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(), FAKE_PULL_FAILS=str(pull_fails),
                FAKE_FREE_PER_STOP=str(free_per_stop or ""), FAKE_SUITE_OK="1" if suite_ok else "",
                FAKE_SUITE_SIGNAL="1" if suite_signal else "", FAKE_START_FAILS=" ".join(start_fails),
-               FAKE_BUILD_FAILS="1" if build_fails else "",
+               FAKE_BUILD_FAILS="1" if build_fails else "", FAKE_STOP_FAILS=" ".join(stop_fails),
                PATH=str(fake / "bin") + os.pathsep + os.environ.get("PATH", ""))
     env.pop("GATE_STOP_SET", None)  # the script's default, unless a test sets it
     if stop_set is not None:
@@ -598,7 +600,7 @@ def test_pull_that_fails_three_times_aborts_as_before(tmp_path):
     assert len(history) == 1 and " ABORTED " in history[0], history
 
 
-# ---- JY-256 (2026-10-28): stop the arr set for the gate. B.: "Deploy gate: stop sonarr, radarr, prowlarr and
+# ---- JY-256 (2026-10-27): stop the arr set for the gate. B.: "Deploy gate: stop sonarr, radarr, prowlarr and
 # flaresolverr for the gate and start them again after (option A + H). Go." Measured 2026-10-27: about 504 MB freed. ----
 
 FOUR = ("sonarr", "radarr", "prowlarr", "flaresolverr")
@@ -623,7 +625,7 @@ def test_gate_stop_set_is_a_dated_variable_at_the_top_and_never_names_the_core_m
     line = "GATE_STOP_SET=${GATE_STOP_SET-sonarr radarr prowlarr flaresolverr}"
     assert line + chr(10) in top  # `-`, not `:-`: an empty GATE_STOP_SET in the environment turns it off
     assert "GATE_STOP_FILE=$DEPLOY_DIR/logs/gate-stopped.list" + chr(10) in top  # not /tmp: survives the 22:00 power-off
-    assert "JY-256, 2026-10-28" in top
+    assert "JY-256, 2026-10-27" in top
     for core in ("qbittorrent", "jellyfin", "jellyseerr", "gluetun"):
         assert core not in line
     assert not re.search(r"^[^#]*docker pause", SCRIPT, re.M)  # a paused process keeps its memory
@@ -793,3 +795,39 @@ def test_empty_gate_stop_set_is_a_no_op(tmp_path):
     assert "gate=-n2 avail=2000 end=" in history[0]  # the JY-240 line, unchanged
     assert not _list_file(tmp_path).exists()
     assert _running(tmp_path) == list(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_failed_stop_is_taken_off_the_list_and_the_gate_still_re_measures(tmp_path):
+    """Review fix (2026-10-27): radarr's `docker stop` fails and it keeps running. The deploy re-measures and gates as
+    usual, radarr is not in stopped= and not in the list, and nothing starts it (this run never stopped it)."""
+    r, calls, history = _run_deploy(tmp_path, 1300, 0, running=FOUR, free_per_stop=130, suite_ok=True,
+                                    stop_fails=("radarr",))
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    lines = calls.splitlines()
+    assert "!! gate stop set: could not stop radarr — it keeps running, taken off the list !!" in out
+    assert "memory check: gate=-n1 avail=1690" in out  # re-measured: 1,300 + 3 x 130
+    assert "start radarr" not in lines
+    for c in ("sonarr", "prowlarr", "flaresolverr"):
+        assert lines.count("start " + c) == 1
+    assert "stopped=sonarr,prowlarr,flaresolverr end=" in history[0] and re.match(r"^\S+ PASS ", history[0])
+    assert not _list_file(tmp_path).exists()
+    assert sorted(_running(tmp_path)) == sorted(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_failed_recovery_start_is_tagged_and_the_deploy_carries_on(tmp_path):
+    """Review fix (2026-10-27): a leftover radarr will not start. The recovery logs it and tags recovery-failed=radarr;
+    the deploy carries on (stop set, gate); the gate's start tries radarr once more. Both tags stay on the line."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=("sonarr",), start_fails=("radarr",),
+                                    leftover="radarr" + chr(10))
+    out = r.stdout + r.stderr
+    lines = calls.splitlines()
+    assert "!! gate stop set: could not start radarr (left by an earlier run)" in out
+    assert _at(lines, "start radarr") < _at(lines, "run --rm")  # the recovery, before the pull
+    assert "life-test python" in calls  # carried on to the gate
+    assert lines.count("start radarr") == 2 and lines.count("start sonarr") == 1
+    assert len(history) == 1 and " GATE-FAIL " in history[0]
+    assert "recovery-failed=radarr stopped=sonarr start-failed=radarr end=" in history[0], history
+    assert _list_file(tmp_path).read_text(encoding="utf-8").split() == ["radarr"]

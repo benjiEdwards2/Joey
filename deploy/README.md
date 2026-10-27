@@ -39,13 +39,13 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   readers (they match ` PASS `, `new=` and `dur=`) are unaffected. A skip prints `SKIPPED-LOW-MEMORY (<reason>)`, logs that
   word, resets the tree to the previous SHA (as a red gate does), leaves the live stack alone and exits 1. Free memory (stop the preview, pause qBittorrent), then rerun `deploy.sh`. The
   skip is not green: `scripts/joey.py close-out` refuses the next deploy until a later green run or `--after-fail`.
-- **Gate stop set (JY-256, 2026-10-28):** `GATE_STOP_SET` (top of `deploy.sh`, default `sonarr radarr prowlarr
+- **Gate stop set (JY-256, 2026-10-27):** `GATE_STOP_SET` (top of `deploy.sh`, default `sonarr radarr prowlarr
   flaresolverr`; the environment overrides it, empty turns it off). Just before the memory check, the running members are
   stopped (`docker stop`, not `pause`: a paused process keeps its memory; ~504 MB freed, measured 2026-10-27) and the
   memory is measured again. They start again right after the suite, before `compose build`, and on every other exit path
   (red gate, skip, error, signal: `gate_start`, once per run, with the EXIT trap as the net). Names are listed in
   `deploy/logs/gate-stopped.list` before each stop; the next run starts anything a crashed run left there. History lines
-  carry `stopped=<names>` (and `start-failed=<names>` if a start failed). Runbook: `docs/runbook.md`, Deploy.
+  carry `stopped=<names>` (and `start-failed=<names>` / `recovery-failed=<names>` if a start failed). Runbook: `docs/runbook.md`, Deploy.
 - **History:** `tail deploy/history.log` — one line per run: `PASS`, `NOTHING-TO-DEPLOY`, `GATE-FAIL`,
   `SKIPPED-LOW-MEMORY` (gate not run; free memory, rerun), `ROLLED-BACK`, `ROLLBACK-FAILED` (both SHAs unhealthy: act now)
   or `ABORTED` (died early; tree reset, just rerun), with `dur=NNNs`.

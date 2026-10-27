@@ -37,7 +37,7 @@ MEMINFO=/proc/meminfo
 GATE_N=2
 GATE_TAG="gate=none avail=?"
 
-# Gate stop set (JY-256, 2026-10-28; B.: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and
+# Gate stop set (JY-256, 2026-10-27; B.: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and
 # start them again after (option A + H). Go."). The media apps hold ~430 MB of retained heap within hours of boot, so the
 # gate stops these containers (only the running ones) just before mem_check and starts them again right after the suite;
 # measured 2026-10-27: ~504 MB freed. `docker stop`, never `docker pause` (a paused process keeps its memory). Spaces or
@@ -126,7 +126,8 @@ tv_publish() {
 }
 
 # Gate stop set (JY-256): start every container listed in GATE_STOP_FILE ($1 says when, for the log). A container that
-# will not start stays listed (the next run tries again) and lands in the history tag as start-failed=<names>. `docker
+# will not start stays listed (the next run tries again) and lands in the history tag as <$2>=<names> (start-failed by
+# default; the recovery at the top of a run uses recovery-failed, and the run carries on). `docker
 # start` on a running container does nothing, so a repeat is harmless. Every step is guarded: this runs inside the EXIT
 # trap too, where a `set -e` abort would skip the lock release.
 start_listed() {
@@ -147,7 +148,7 @@ start_listed() {
     done
     if [ -n "$failed" ]; then
         printf '%s\n' $failed > "$GATE_STOP_FILE" || true
-        GATE_STOP_TAG="${GATE_STOP_TAG:+$GATE_STOP_TAG }start-failed=$(echo $failed | tr ' ' ',')"
+        GATE_STOP_TAG="${GATE_STOP_TAG:+$GATE_STOP_TAG }${2:-start-failed}=$(echo $failed | tr ' ' ',')"
     else
         rm -f "$GATE_STOP_FILE" 2>/dev/null || true
     fi
@@ -206,7 +207,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 # JY-256: a run that died while the stop set was down (killed, or the NAS powered off) left its list; start those first.
 # Runs after the lock is taken, so it covers the stale-lock path and never races a live deploy.
-start_listed "left by an earlier run" || true
+start_listed "left by an earlier run" recovery-failed || true
 
 cd "$REPO"
 PREV_SHA=$(GIT rev-parse --short HEAD)
@@ -277,7 +278,8 @@ mem_check() {
     echo "memory check: $GATE_TAG"
 }
 # Stop the running members of GATE_STOP_SET (JY-256). Each name is listed before its stop, so a run that dies mid-stop
-# still starts it again; the tag is kept current so an ABORTED line shows what was down.
+# still starts it again; the tag is kept current so an ABORTED line shows what was down, after any recovery-failed= tag.
+# A stop that fails while the container still runs takes it off the list again: this run did not stop it.
 gate_stop() {
     if [ -z "$GATE_STOP_SET" ]; then
         echo "gate stop set: empty, nothing stopped"
@@ -286,7 +288,8 @@ gate_stop() {
     if before=$(mem_now); then echo "memory before the stop set: available ${before% *} MB"; fi
     mkdir -p "$(dirname "$GATE_STOP_FILE")"
     stopped=
-    GATE_STOP_TAG="stopped=none"
+    pre=${GATE_STOP_TAG:+$GATE_STOP_TAG }
+    GATE_STOP_TAG="${pre}stopped=none"
     for c in $(echo "$GATE_STOP_SET" | tr ',' ' '); do
         if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" != true ]; then
             echo "gate stop set: $c is not running, left alone"
@@ -297,9 +300,13 @@ gate_stop() {
         if docker stop "$c" >/dev/null; then
             echo "gate stop set: stopped $c in $(($(date +%s) - t)) s"
             stopped="${stopped:+$stopped,}$c"
-            GATE_STOP_TAG="stopped=$stopped"
+            GATE_STOP_TAG="${pre}stopped=$stopped"
+        elif [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = true ]; then
+            echo "!! gate stop set: could not stop $c — it keeps running, taken off the list !!" >&2
+            grep -vx "$c" "$GATE_STOP_FILE" > "$GATE_STOP_FILE.tmp" || true
+            mv "$GATE_STOP_FILE.tmp" "$GATE_STOP_FILE"
         else
-            echo "!! gate stop set: could not stop $c — it keeps running !!" >&2
+            echo "!! gate stop set: docker stop $c failed but it is not running — kept on the list !!" >&2
         fi
     done
     echo "gate stop set: $GATE_STOP_TAG"

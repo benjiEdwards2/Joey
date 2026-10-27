@@ -423,8 +423,14 @@ SH = _pipefail_sh()
 
 # Fake docker: logs every call, answers the alpine/git rev-parse (prev, then new SHA) and turns the suite red, so a run
 # that reaches the gate stops at GATE-FAIL and never touches the live stack.
+# JY-256: it also keeps the running containers in $FAKE_DIR/running (`inspect -f`, `stop`, `start`); each stop adds
+# FAKE_FREE_PER_STOP MB to the fake MemAvailable; FAKE_START_FAILS names containers that will not start; FAKE_SUITE_OK
+# turns the suite green (the run then goes on to build, up and smoke, all answered 0); FAKE_SUITE_SIGNAL makes the suite
+# send TERM to deploy.sh; FAKE_BUILD_FAILS makes `compose build` fail (rollback); FAKE_STOP_FAILS names containers whose
+# `docker stop` fails (they keep running).
 FAKE_DOCKER = """#!/bin/sh
 echo "$*" >> "$FAKE_DIR/docker.log"
+for a; do last=$a; done
 case "$*" in
     *rev-parse*)
         n=$(cat "$FAKE_DIR/revs" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_DIR/revs"
@@ -432,7 +438,26 @@ case "$*" in
     *"pull --ff-only"*)
         n=$(cat "$FAKE_DIR/pulls" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_DIR/pulls"
         if [ "$n" -le "${FAKE_PULL_FAILS:-0}" ]; then echo "fatal: Could not resolve hostname github.com" >&2; exit 128; fi ;;
-    *"life-test python"*) exit 1 ;;
+    *"life-test python"*)
+        if [ -n "${FAKE_SUITE_SIGNAL:-}" ]; then kill -TERM "$PPID"; exit 1; fi
+        if [ -n "${FAKE_SUITE_OK:-}" ]; then exit 0; fi
+        exit 1 ;;
+    "inspect -f"*)
+        if grep -qx "$last" "$FAKE_DIR/running" 2>/dev/null; then echo true; else echo false; fi ;;
+    "stop "*)
+        case " ${FAKE_STOP_FAILS:-} " in *" $last "*) echo "Error: cannot stop $last" >&2; exit 1 ;; esac
+        grep -vx "$last" "$FAKE_DIR/running" > "$FAKE_DIR/running.tmp" || true
+        mv "$FAKE_DIR/running.tmp" "$FAKE_DIR/running"
+        if [ -n "${FAKE_FREE_PER_STOP:-}" ]; then
+            add=$((FAKE_FREE_PER_STOP * 1024))
+            awk -v add="$add" '/^MemAvailable:/ {$0 = "MemAvailable: " ($2 + add) " kB"} {print}' "$FAKE_DIR/meminfo" > "$FAKE_DIR/meminfo.tmp"
+            mv "$FAKE_DIR/meminfo.tmp" "$FAKE_DIR/meminfo"
+        fi ;;
+    "start "*)
+        case " ${FAKE_START_FAILS:-} " in *" $last "*) echo "Error: cannot start $last" >&2; exit 1 ;; esac
+        echo "$last" >> "$FAKE_DIR/running" ;;
+    "compose build")
+        if [ -n "${FAKE_BUILD_FAILS:-}" ]; then exit 1; fi ;;
 esac
 exit 0
 """
@@ -453,11 +478,20 @@ def _meminfo(avail_mb, swap_used_mb, swap_total_mb=4096):
     return chr(10).join(lines) + chr(10)
 
 
-def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0):
+def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free_per_stop=0, suite_ok=False,
+                suite_signal=False, start_fails=(), stop_set=None, inject=None, leftover=None, stale_lock=False,
+                build_fails=False, stop_fails=()):
     repo = tmp_path / "repo"
     (repo / "deploy").mkdir(parents=True)
+    if leftover is not None:  # JY-256: a stop list left by a crashed run
+        (repo / "deploy" / "logs").mkdir()
+        (repo / "deploy" / "logs" / "gate-stopped.list").write_text(leftover, encoding="utf-8", newline=chr(10))
+    if stale_lock:  # a lock whose holder is gone
+        (tmp_path / "lock").mkdir()
+        (tmp_path / "lock" / "pid").write_text("999999" + chr(10), encoding="utf-8", newline=chr(10))
     fake = tmp_path / "fake"
     (fake / "bin").mkdir(parents=True)
+    (fake / "running").write_text("".join(c + chr(10) for c in running), encoding="utf-8", newline=chr(10))
     (fake / "bin" / "docker").write_text(FAKE_DOCKER, encoding="utf-8", newline=chr(10))
     (fake / "bin" / "docker").chmod(0o755)
     (fake / "bin" / "sleep").write_text(FAKE_SLEEP, encoding="utf-8", newline=chr(10))
@@ -474,10 +508,19 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0):
     wait = '    sleep "$PULL_WAIT"' + chr(10)
     assert script.count(wait) == 1
     script = script.replace(wait, '    "' + (fake / "bin" / "sleep").as_posix() + '" "$PULL_WAIT"' + chr(10))
+    if inject:  # (anchor, replacement): e.g. an error that set -e turns into an abort
+        assert script.count(inject[0]) == 1, inject[0]
+        script = script.replace(*inject)
     path = tmp_path / "deploy.sh"
     path.write_text(script, encoding="utf-8", newline=chr(10))
     env = dict(os.environ, JOEY_DEPLOY_DETACHED="1", FAKE_DIR=fake.as_posix(), FAKE_PULL_FAILS=str(pull_fails),
+               FAKE_FREE_PER_STOP=str(free_per_stop or ""), FAKE_SUITE_OK="1" if suite_ok else "",
+               FAKE_SUITE_SIGNAL="1" if suite_signal else "", FAKE_START_FAILS=" ".join(start_fails),
+               FAKE_BUILD_FAILS="1" if build_fails else "", FAKE_STOP_FAILS=" ".join(stop_fails),
                PATH=str(fake / "bin") + os.pathsep + os.environ.get("PATH", ""))
+    env.pop("GATE_STOP_SET", None)  # the script's default, unless a test sets it
+    if stop_set is not None:
+        env["GATE_STOP_SET"] = stop_set
     r = subprocess.run([*SH, str(path)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120)
     calls = (fake / "docker.log").read_text(encoding="utf-8") if (fake / "docker.log").exists() else ""
     history = (repo / "deploy" / "history.log").read_text(encoding="utf-8").splitlines()
@@ -555,3 +598,236 @@ def test_pull_that_fails_three_times_aborts_as_before(tmp_path):
     assert "pull failed (attempt 3/3) — aborting" in out
     assert "compose config -q" not in calls and "life-test" not in calls
     assert len(history) == 1 and " ABORTED " in history[0], history
+
+
+# ---- JY-256 (2026-10-27): stop the arr set for the gate. B.: "Deploy gate: stop sonarr, radarr, prowlarr and
+# flaresolverr for the gate and start them again after (option A + H). Go." Measured 2026-10-27: about 504 MB freed. ----
+
+FOUR = ("sonarr", "radarr", "prowlarr", "flaresolverr")
+STOPPED_ALL = "stopped=sonarr,radarr,prowlarr,flaresolverr"
+
+
+def _list_file(tmp_path):
+    return tmp_path / "repo" / "deploy" / "logs" / "gate-stopped.list"
+
+
+def _at(lines, needle):
+    """Index of the first fake-docker call that starts with `needle`."""
+    return next(i for i, ln in enumerate(lines) if ln.startswith(needle))
+
+
+def _running(tmp_path):
+    return (tmp_path / "fake" / "running").read_text(encoding="utf-8").split()
+
+
+def test_gate_stop_set_is_a_dated_variable_at_the_top_and_never_names_the_core_media():
+    top = SCRIPT[:SCRIPT.index('if [ -z "${JOEY_DEPLOY_DETACHED:-}" ]; then')]
+    line = "GATE_STOP_SET=${GATE_STOP_SET-sonarr radarr prowlarr flaresolverr}"
+    assert line + chr(10) in top  # `-`, not `:-`: an empty GATE_STOP_SET in the environment turns it off
+    assert "GATE_STOP_FILE=$DEPLOY_DIR/logs/gate-stopped.list" + chr(10) in top  # not /tmp: survives the 22:00 power-off
+    assert "JY-256, 2026-10-27" in top
+    for core in ("qbittorrent", "jellyfin", "jellyseerr", "gluetun"):
+        assert core not in line
+    assert not re.search(r"^[^#]*docker pause", SCRIPT, re.M)  # a paused process keeps its memory
+
+
+def test_stop_sits_before_the_memory_check_and_start_right_after_the_gate():
+    stop = SCRIPT.index("gate_stop" + chr(10) + 'echo "== memory check (JY-240) =="' + chr(10) + "mem_check" + chr(10))
+    gate = SCRIPT.index('gate || gate_fail "test build or suite red"' + chr(10) + 'gate_start "after the gate"' + chr(10))
+    assert SCRIPT.index("NEW_SHA=$(GIT rev-parse --short HEAD)") < stop < gate < SCRIPT.index("== build + converge ==")
+    assert SCRIPT.count("gate_stop" + chr(10)) == 1  # the gate path only, never NOTHING-TO-DEPLOY
+    # gate_fail and gate_skip start the set before their history line; the EXIT trap is the net, never cut short
+    for fn in ("gate_fail", "gate_skip"):
+        body = _body(fn)
+        assert body.index("gate_start ") < body.index("log_history")
+    exit_body = _body("on_exit")
+    assert "trap '' INT TERM" in exit_body
+    assert exit_body.index("gate_start ") < exit_body.index('log_history "ABORTED"') < exit_body.index('rmdir "$LOCK"')
+    assert 'if [ "$GATE_STOP_DONE" -eq 1 ]; then return 0; fi' in _body("gate_start")  # once per run
+    # a list left by a crashed run is started right after the lock is taken (stale-lock path included), before the pull
+    recover = SCRIPT.index('start_listed "left by an earlier run"')
+    assert SCRIPT.index("trap 'exit 143' TERM") < recover < SCRIPT.index("== pull (ff-only) ==")
+    # each name is listed before its stop; only running containers are stopped
+    stop_body = _body("gate_stop")
+    assert stop_body.index('>> "$GATE_STOP_FILE"') < stop_body.index('docker stop "$c"')
+    assert "{{.State.Running}}" in stop_body
+    assert "${GATE_STOP_TAG:+ $GATE_STOP_TAG}" in _body("log_history")
+
+
+def test_gate_stop_set_is_busybox_safe():
+    for fn in ("gate_stop", "start_listed", "gate_start"):
+        body = _body(fn)
+        for bashism in ("local ", "[[", "=(", "{1..", "&>", "<<<", "${!", "declare"):
+            assert bashism not in body, (fn, bashism)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_stop_then_re_measure_then_gate_then_start_before_the_build(tmp_path):
+    """1,380 MB would skip; the fake frees 130 MB per stop, so the re-measure sees 1,900 MB and the gate runs -n 2."""
+    r, calls, history = _run_deploy(tmp_path, 1380, 0, running=FOUR, free_per_stop=130, suite_ok=True)
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    lines = calls.splitlines()
+    suite = _at(lines, "run --rm --network none")
+    for c in FOUR:
+        assert _at(lines, "inspect -f {{.State.Running}} " + c) < _at(lines, "stop " + c) < suite
+        assert suite < _at(lines, "start " + c) < _at(lines, "compose build")
+        assert lines.count("stop " + c) == 1 and lines.count("start " + c) == 1
+    assert "pytest -q -n 2 " in calls
+    assert "memory before the stop set: available 1380 MB" in out
+    assert out.index("gate stop set: stopped flaresolverr in ") < out.index("memory check: gate=-n2 avail=1900")
+    assert out.index("memory check: gate=-n2 avail=1900") < out.index("gate stop set: started sonarr in ")
+    assert "(after the gate)" in out
+    assert len(history) == 1 and re.match(r"^\S+ PASS ", history[0]), history
+    assert ("gate=-n2 avail=1900 " + STOPPED_ALL + " end=") in history[0]
+    assert not _list_file(tmp_path).exists()
+    assert sorted(_running(tmp_path)) == sorted(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+@pytest.mark.parametrize("path", ["gate-fail", "skip", "error", "signal"])
+def test_restart_on_every_exit_path(tmp_path, path):
+    """The error is an injected `false` right after the memory check (set -e aborts); the signal is a TERM the fake
+    suite sends to deploy.sh."""
+    kw = {"gate-fail": {}, "skip": {}, "signal": {"suite_signal": True},
+          "error": {"inject": ("mem_check" + chr(10), "mem_check" + chr(10) + "false" + chr(10))}}[path]
+    avail = 1300 if path == "skip" else 2000
+    r, calls, history = _run_deploy(tmp_path, avail, 0, running=FOUR, **kw)
+    out = r.stdout + r.stderr
+    assert r.returncode != 0, out
+    lines = calls.splitlines()
+    last_stop = max(_at(lines, "stop " + c) for c in FOUR)
+    for c in FOUR:
+        assert lines.count("stop " + c) == 1 and lines.count("start " + c) == 1, calls  # once per run
+        assert last_stop < _at(lines, "start " + c)
+    word = {"gate-fail": "GATE-FAIL", "skip": "SKIPPED-LOW-MEMORY", "error": "ABORTED", "signal": "ABORTED"}[path]
+    assert len(history) == 1 and f" {word} " in history[0], history
+    assert STOPPED_ALL + " end=" in history[0]
+    if path in ("gate-fail", "signal"):
+        assert _at(lines, "run --rm --network none") < min(_at(lines, "start " + c) for c in FOUR)
+    else:
+        assert "life-test" not in calls
+    if path == "signal":
+        assert r.returncode == 143 and "exit 143 before an outcome" in history[0], out
+    assert "compose build" not in calls and "up -d" not in calls  # the live Joey stack is never touched
+    assert not _list_file(tmp_path).exists()
+    assert sorted(_running(tmp_path)) == sorted(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_rollback_comes_after_the_start_and_starts_nothing_twice(tmp_path):
+    """Green suite, then `compose build` fails: the set was started after the suite, so the rollback (and the EXIT trap
+    after it) finds nothing left to start."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=FOUR, suite_ok=True, build_fails=True)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, out
+    lines = calls.splitlines()
+    for c in FOUR:
+        assert lines.count("stop " + c) == 1 and lines.count("start " + c) == 1, calls
+        assert _at(lines, "run --rm --network none") < _at(lines, "start " + c) < _at(lines, "compose build")
+    assert len(history) == 1 and " ROLLBACK-FAILED " in history[0] and STOPPED_ALL + " end=" in history[0], history
+    assert not _list_file(tmp_path).exists()
+    assert sorted(_running(tmp_path)) == sorted(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_container_that_was_already_stopped_is_left_alone(tmp_path):
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=("sonarr", "prowlarr"))
+    out = r.stdout + r.stderr
+    lines = calls.splitlines()
+    for c in FOUR:
+        assert "inspect -f {{.State.Running}} " + c in lines
+    for c in ("radarr", "flaresolverr"):
+        assert "stop " + c not in lines and "start " + c not in lines
+        assert f"gate stop set: {c} is not running, left alone" in out
+    for c in ("sonarr", "prowlarr"):
+        assert lines.count("stop " + c) == 1 and lines.count("start " + c) == 1
+    assert " GATE-FAIL " in history[0] and "stopped=sonarr,prowlarr end=" in history[0]
+    assert _running(tmp_path) == ["sonarr", "prowlarr"]
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_nothing_running_logs_stopped_none(tmp_path):
+    r, calls, history = _run_deploy(tmp_path, 2000, 0)
+    assert not [ln for ln in calls.splitlines() if ln.startswith(("stop ", "start "))]
+    assert " GATE-FAIL " in history[0] and "stopped=none end=" in history[0]
+    assert not _list_file(tmp_path).exists()
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+@pytest.mark.parametrize("stale_lock", [False, True])
+def test_a_list_left_by_a_crashed_run_is_restarted_first(tmp_path, stale_lock):
+    """A run killed while the set was down (or the NAS powered off) leaves the list; the next run, stale lock or not,
+    starts those containers right after it takes the lock, before the pull. The stop set is off here, so the only
+    starts are the recovery's."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, stop_set="", leftover="radarr" + chr(10) + "sonarr" + chr(10),
+                                    stale_lock=stale_lock)
+    out = r.stdout + r.stderr
+    lines = calls.splitlines()
+    for c in ("radarr", "sonarr"):
+        assert lines.count("start " + c) == 1 and _at(lines, "start " + c) < _at(lines, "run --rm")  # before any git
+        assert f"gate stop set: started {c} in " in out
+    assert "(left by an earlier run)" in out
+    if stale_lock:
+        assert "stale deploy lock" in out
+    assert not _list_file(tmp_path).exists()
+    assert len(history) == 1 and " GATE-FAIL " in history[0] and "stopped=" not in history[0]
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_container_that_will_not_start_stays_listed_and_is_logged(tmp_path):
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=FOUR, start_fails=("radarr",))
+    out = r.stdout + r.stderr
+    lines = calls.splitlines()
+    for c in FOUR:
+        assert lines.count("start " + c) == 1  # tried once in this run; the next run retries from the list
+    assert "!! gate stop set: could not start radarr (after a red gate)" in out
+    assert _list_file(tmp_path).read_text(encoding="utf-8").split() == ["radarr"]
+    assert STOPPED_ALL + " start-failed=radarr end=" in history[0]
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_empty_gate_stop_set_is_a_no_op(tmp_path):
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=FOUR, stop_set="")
+    lines = calls.splitlines()
+    assert [ln for ln in lines if ln.startswith(("inspect -f", "stop ", "start "))] == []
+    assert len(history) == 1 and " GATE-FAIL " in history[0] and "stopped=" not in history[0]
+    assert "gate=-n2 avail=2000 end=" in history[0]  # the JY-240 line, unchanged
+    assert not _list_file(tmp_path).exists()
+    assert _running(tmp_path) == list(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_failed_stop_is_taken_off_the_list_and_the_gate_still_re_measures(tmp_path):
+    """Review fix (2026-10-27): radarr's `docker stop` fails and it keeps running. The deploy re-measures and gates as
+    usual, radarr is not in stopped= and not in the list, and nothing starts it (this run never stopped it)."""
+    r, calls, history = _run_deploy(tmp_path, 1300, 0, running=FOUR, free_per_stop=130, suite_ok=True,
+                                    stop_fails=("radarr",))
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    lines = calls.splitlines()
+    assert "!! gate stop set: could not stop radarr — it keeps running, taken off the list !!" in out
+    assert "memory check: gate=-n1 avail=1690" in out  # re-measured: 1,300 + 3 x 130
+    assert "start radarr" not in lines
+    for c in ("sonarr", "prowlarr", "flaresolverr"):
+        assert lines.count("start " + c) == 1
+    assert "stopped=sonarr,prowlarr,flaresolverr end=" in history[0] and re.match(r"^\S+ PASS ", history[0])
+    assert not _list_file(tmp_path).exists()
+    assert sorted(_running(tmp_path)) == sorted(FOUR)
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_a_failed_recovery_start_is_tagged_and_the_deploy_carries_on(tmp_path):
+    """Review fix (2026-10-27): a leftover radarr will not start. The recovery logs it and tags recovery-failed=radarr;
+    the deploy carries on (stop set, gate); the gate's start tries radarr once more. Both tags stay on the line."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=("sonarr",), start_fails=("radarr",),
+                                    leftover="radarr" + chr(10))
+    out = r.stdout + r.stderr
+    lines = calls.splitlines()
+    assert "!! gate stop set: could not start radarr (left by an earlier run)" in out
+    assert _at(lines, "start radarr") < _at(lines, "run --rm")  # the recovery, before the pull
+    assert "life-test python" in calls  # carried on to the gate
+    assert lines.count("start radarr") == 2 and lines.count("start sonarr") == 1
+    assert len(history) == 1 and " GATE-FAIL " in history[0]
+    assert "recovery-failed=radarr stopped=sonarr start-failed=radarr end=" in history[0], history
+    assert _list_file(tmp_path).read_text(encoding="utf-8").split() == ["radarr"]

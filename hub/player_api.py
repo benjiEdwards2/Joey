@@ -4,8 +4,10 @@ docs/playback-contract.md; this module follows it and nothing else does.
 * OFF unless PLAYER_API=on. Off, every route answers exactly what an unknown path answers (FastAPI's 404), before
   any auth, body or upstream work, so nothing a user can see changes.
 * Household only (JY-050 Q2 A). Private front: the Access identity must be `you` or `her`; no identity = 401, any other
-  owner = 403. Media front: every route is PRIVATE in hub/guest.py (the gate 404s it); the handler would still refuse a
-  friend (403) and would use a household alias's own session token (JY-053 Q3: moved to GUEST in JY-057).
+  owner = 403. Media front: every route is PRIVATE in hub/guest.py; since JY-057 (2026-10-27, Q3 A) its gate serves the
+  five routes (guest.HOUSEHOLD_PLAYER) to a signed-in household member only, flag on, and 404s everyone else; the
+  handler still refuses a friend (403) and plays with the member's own session token.
+* JY-057: the start answer's `up_next` (the next aired episode) comes from the hub's item cache only, no Jellyfin call.
 * Jellyfin identity (JY-053 Q1 A): on the private front each household member's own Jellyfin token, JELLYFIN_PLAYER_TOKEN_YOU /
   _HER (NAS env, never the admin key); the user id comes from `GET /Users/Me` with that token, kept 1 h per token.
 * Every Jellyfin call sends the 12.2 header `Authorization: MediaBrowser Client=..., Device=..., DeviceId=..., Version=...,
@@ -276,6 +278,17 @@ def _item_facts(base: str, headers: dict, uid: str, item: str) -> dict:
     return {"position": position, "chapters": chapters[:MAX_CHAPTERS]}
 
 
+def _up_next(item: str) -> dict | None:
+    """JY-057 (2026-10-27, additive): the next aired episode from the hub's item cache (media_watch.up_next), never a
+    Jellyfin call; None when nothing is cached. A failure here never fails the start."""
+    from hub import media_watch   # lazy: media_watch imports this module
+    try:
+        return media_watch.up_next(item)
+    except Exception as exc:
+        log.info("player: up_next %s", type(exc).__name__)
+        return None
+
+
 def _first_source(info) -> dict:
     if not isinstance(info, dict):
         raise PlayError(502, "upstream_error", "Jellyfin sent an answer the hub can't read.")
@@ -429,7 +442,7 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
                  "audio_index": sess["audio_index"], "subtitle_index": sess["subtitle_index"],
                  "tracks": tracks, "heartbeat_s": HEARTBEAT_S,
                  "stream": f"{PREFIX}/sessions/{sid}/stream",
-                 "resumed": resumed, "chapters": facts["chapters"]}
+                 "resumed": resumed, "chapters": facts["chapters"], "up_next": _up_next(item)}
 
 
 def _tracks_of(viewer: dict, item: str) -> dict:

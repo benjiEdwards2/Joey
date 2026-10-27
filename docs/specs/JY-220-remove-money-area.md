@@ -4,7 +4,7 @@ Status: building
 Size: L (listed L on the decisions page; the change is small and has no live risk)
 Live risk: none
 Area: `config/areas.yaml`, `hub/seed_demo.py`, `deploy/docker-compose.yml` (comment), tests under `tests/hub`, `docs/PLAN.md`, `README.md`, `tests/README.md`, `docs/hub-changelog.md`
-Needs: none (JY-221 also edits `config/areas.yaml`; whichever merges second rebases)
+Needs: none (JY-221 merged first; this branch merged origin/main on 2026-10-27)
 Options page: none: no new screen; B. picked option B on the decisions page
 
 Source: `JoeyTV/review/decisions-2026-10-27/options.md`, JY-220.
@@ -25,7 +25,7 @@ The Money area has been hidden since 2026-10-06 with no importer built. The budg
 7. Bank data never appears in the repo, a log or a page: this item adds none and removes the demo figures.
 
 ## Test changes (dated 2026-10-27)
-- `test_hidden_areas.py`: parked set no longer lists money; the "parked page still serves" test uses Food; new test that `/a/money` is the ordinary 404 and the area is not in the registry.
+- `test_hidden_areas.py`: no hidden areas remain; the "parked page still serves" test uses a synthetic hidden area; the retired-404 test now includes money.
 - `test_area_pages.py`: the all-not-connected sentence test uses a synthetic area; the hex check no longer visits `/a/money`.
 - `test_registry.py`: locked order without money.
 - `test_tiles.py`: demo seed makes 4 envelopes, not 5.
@@ -44,3 +44,5 @@ After deploy, `/a/money` shows the normal 404, and committing a `.csv` still tri
 
 ## Questions for B.
 None.
+
+## Shipped notes

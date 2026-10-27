@@ -30,6 +30,7 @@ from hub import media_arr_search, media_awards_badges, media_db, media_discover 
 from hub import media_episode_ratings, media_season_state as mss
 from hub import guest, media_home, media_quality, media_text, media_upgrades, shell
 from hub import media_watch   # JY-054: Play opens Joey's own player when PLAYER_API is on
+from hub import media_front   # JY-057: Play on the Joey TV shell opens its own player when PLAYER_API is on
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import empty_series, runtime_text
 from hub.media_watchlist import keys_for, on_server_keys
@@ -1140,6 +1141,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     href_of = lambda i: shell._deep_link((jsrc or {}).get("href"), i, server)
     if media_watch.available(request):   # JY-054: flag on, private front, you / her - else today's Jellyfin hand-off
         href_of = media_watch.href
+    elif media_front.tv_player(request):   # JY-057: the Joey TV shell's own player reads the mark on the deep link
+        href_of = lambda i, deep=href_of: media_front.tv_play_href(deep(i))
     f["play"] = None
     play_ids: dict = {}   # Joey TV WP-B3: the item id behind each Play href (data-jf-id)
     f["series"], f["next_ep"] = None, None
@@ -1298,7 +1301,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
     # Quality (WP-R1): "Quality · 1080p" + Switch, lazy-loaded like Search now; drawn here only for the no-JS confirm step
     f["quality_href"] = media_quality.lazy_href(kind, tmdb_id, tvdb, request.url.path) if not ep else None
-    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True)
+    f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True,
+                                              want=media_quality._want(request.query_params.get("quality_profile")))
                           if f["quality_href"] and request.query_params.get("quality_ask") == "1" else None)
     f["quality_flash"] = media_quality.flash_text(request.query_params)
     f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only

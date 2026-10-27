@@ -25,7 +25,7 @@ Joey TV (`tv/`) is its Android TV shell. B. approves every spec, picks every opt
 
 ## Areas
 
-Source: `config/areas.yaml`. Seven areas, hard cap nine. `hidden: true` means no tab or hub card, but the page still serves.
+Source: `config/areas.yaml`. Three areas (Food, Desk, House, Car retired JY-221; Money removed JY-220, 2026-10-27), hard cap nine. `hidden: true` means no tab or hub card, but the page still serves.
 Weather is a tile in Calendar that renders on the hub and `/weather` only. It is not its own area.
 
 | Area | State | Feeds |
@@ -33,12 +33,8 @@ Weather is a tile in Calendar that renders on the hub and `/weather` only. It is
 | Media | live | `jellyfin`, `media_status`, `arr`, `qbittorrent`, `jellyseerr` |
 | Calendar | live | `gcal`, `open_meteo` (weather tile) |
 | Server | live | `media_status`, `system`, `uptime_kuma`, `wud` |
-| Food (id `kitchen`) | hidden | `macromates` (not connected) |
-| Desk | hidden | `nas_stats` (not connected) |
-| House | hidden | `home_assistant` (not connected) |
-| Car | hidden | `home_assistant` (not connected) |
 
-Awards, Diary, Watchlist and Follow are parts of Media, not areas. Re-enabling a hidden area is JY-221.
+Awards, Diary, Watchlist and Follow are parts of Media, not areas. The `macromates`, `home_assistant` and `nas_stats` connectors keep their code but no area shows them and a live sweep does not run them (JY-221). To revive one, add an area back to `config/areas.yaml` and set its env.
 
 ## Architecture in brief
 

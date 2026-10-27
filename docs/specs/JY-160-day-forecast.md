@@ -1,6 +1,6 @@
 # JY-160 Forecast on each day of Next 7 days
 
-Status: review (built ahead on option A before B. picks; draft PR)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none
 Area: `hub/weather.py`, `hub/upcoming.py`, `hub/templates/_upcoming_table.html`, `hub/static/control-surface.css` (one rule block, outside `:root`), `tests/hub/test_upcoming_forecast.py`
@@ -42,3 +42,8 @@ Days with no events do not appear in Next 7 days today and still do not (the for
 2. Should a day with no events but a media release keep the forecast line? (Built: yes, recommended.)
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #222, squash-merged as `65f6868` (65f68687d88b79a534800623bbe69b77e12653c1).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: Accept every recommendation on the Joey decisions page: merge the 4 built-ahead PRs, drop the 7, apply the rest as recommended."
+- Follow-ups: none

@@ -324,20 +324,37 @@ def lazy_href(kind: str | None, tmdb, tvdb, back: str) -> str | None:
     return f"/media/title/{kind}/{tmdb}/quality?" + urlencode(q)
 
 
+UNKNOWN = {"id": None, "name": "unknown profile", "is_4k": False, "unknown": True}
+
+
+def unknown_targets(rows: list[dict]) -> list[dict]:
+    """JY-111: what a title on an old profile id is offered - the default (1080p) and the first 4K profile."""
+    pick = [next((r for r in rows if r["default"]), None), next((r for r in rows if r["is_4k"]), None)]
+    return [p for i, p in enumerate(pick) if p and p not in pick[:i]]
+
+
 def block(kind: str, tmdb: int, tvdb, back: str, ask: bool = False, flash: tuple | None = None,
-          now: dict | None = None) -> dict | None:
-    """What `_quality_block.html` draws, or None (hidden: not in the app, profiles unknown, or an unknown profile).
-    `now` (after a switch): the profile just set, instead of a re-read."""
+          now: dict | None = None, want=None) -> dict | None:
+    """What `_quality_block.html` draws, or None (hidden: not in the app, or the profile list unknown).
+    `now` (after a switch): the profile just set, instead of a re-read. JY-111: a title on a profile id the app no
+    longer has gets the fallback line "Quality · unknown profile" with `targets` (1080p / 4K) instead of hiding;
+    `want` is the profile id its confirm step was opened for (it must be one of the `targets`)."""
     tvdb = mas._tvdb(tvdb)
     entry = mas.find(kind, tmdb, tvdb, kept=True) if tmdb > 0 else None
     rows = profiles(kind) if entry is not None else []
-    cur = now or describe(kind, entry)
-    if cur is None or not rows:
+    if not rows:
         return None
-    target = target_of(rows, cur)
+    cur = now or describe(kind, entry) or UNKNOWN
+    targets = unknown_targets(rows) if cur.get("unknown") else []
+    target = by_id(targets, want) if cur.get("unknown") else target_of(rows, cur)
     return {"kind": kind, "tmdb": tmdb, "tvdb": tvdb, "back": mas._back(back, kind, tmdb), "current": cur,
-            "target": target, "ask": bool(ask and target), "title": str(entry.get("title") or "this title")[:200],
-            "app": NAMES[_app(kind)], "flash": flash}
+            "target": target, "targets": targets, "ask": bool(ask and target),
+            "title": str(entry.get("title") or "this title")[:200], "app": NAMES[_app(kind)], "flash": flash}
+
+
+def _want(raw) -> int | None:
+    s = str(raw or "")
+    return int(s) if s.isascii() and s.isdigit() and len(s) <= 9 else None
 
 
 def flash_text(params) -> tuple[str | None, str | None]:
@@ -352,14 +369,17 @@ def flash_text(params) -> tuple[str | None, str | None]:
 
 
 @router.get("/media/title/{kind}/{tmdb_id}/quality", response_class=HTMLResponse)
-def quality_step(request: Request, kind: str, tmdb_id: int, step: str = "", tvdb: str = "", back: str = ""):
+def quality_step(request: Request, kind: str, tmdb_id: int, step: str = "", tvdb: str = "", back: str = "",
+                 profile: str = ""):
     """htmx: the quality line (idle) or its confirm panel (step=confirm); "" when hidden. Without htmx: back to the page,
     which draws the same panel from `?quality_ask=1`."""
     kind = md._kind(kind)
     page = mas._back(back, kind, tmdb_id)
     if not is_htmx(request):
-        return RedirectResponse(page + ("?quality_ask=1" if step == "confirm" else ""), status_code=303)
-    q = block(kind, tmdb_id, tvdb, page, ask=step == "confirm")
+        want = _want(profile)
+        return RedirectResponse(page + (("?quality_ask=1" + (f"&quality_profile={want}" if want else ""))
+                                        if step == "confirm" else ""), status_code=303)
+    q = block(kind, tmdb_id, tvdb, page, ask=step == "confirm", want=_want(profile))
     return md._partial(request, "_quality_block.html", q=q) if q else HTMLResponse("")
 
 

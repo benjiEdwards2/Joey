@@ -1372,9 +1372,26 @@ tests on the shared fake page: D-pad walk, OK toggles, the season box scroll, Ba
 needle test), `test_guest_request_picks.py` (TV mode carries the picks; the JY-231 "TV mode unchanged" pin replaced, dated
 in the spec). Spec `docs/specs/JY-255-rq2-tv-mode.md`.
 
+**JY-221 (2026-10-27): four hidden areas retired.** Food, Desk, House and Car are gone from `config/areas.yaml`, tiles and the
+MacroMates link included. Their pages (`/a/kitchen`, `/a/desk`, `/a/house`, `/a/car`) now give the ordinary unknown-area 404.
+The `macromates`, `home_assistant` and `nas_stats` connectors keep their code, fixtures and schemas but no area shows them, and
+a live sweep skips them until their env is set (already so since 2026-10-09). Money stays hidden for JY-220. Spec
+`docs/specs/JY-221-retire-hidden-areas.md`.
+
 **JY-160 (2026-10-27, built ahead of B.'s pick, option A).** Each day in Next 7 days (hub and the calendar area page) has one forecast line before its first row: glyph, condition word, low-high, rain chance, from the `open_meteo` snapshot's `days` matched on the date (`weather.day_forecasts` / `forecast_line`, `upcoming.attach_forecast`; no call on render, a day the snapshot does not cover has no line). Calendar stays private: the media front serves neither page. Tests `test_upcoming_forecast.py`. Spec `docs/specs/JY-160-day-forecast.md`.
 
 **JY-220 (2026-10-27): hidden Money area removed.** The Money area is gone from `config/areas.yaml` and `/a/money` gives the
 ordinary unknown-area 404; the money demo seed went too. The frozen `money` snapshot id stays in the envelope enum (the contract
 is frozen). The money pre-commit guard (`scripts/precommit_money_guard.py`, its hook and tests) is unchanged. Spec
 `docs/specs/JY-220-remove-money-area.md`.
+
+## 2026-10-27 — JY-141 Full speed is a cap
+
+**Server › Downloads: Full speed writes 41 Mbps, not unlimited (JY-141, option A, built ahead of B.'s pick).** Full wrote a qBittorrent
+limit of 0, which removed the ~41 Mbps cap that fixed the slow pages (evaluation 2026-10-12). `hub/server_quiet.py` gains
+`FULL_MBPS` (default 41 = 5125000 B/s; `0` = the old no-cap Full; junk or negative = 41). Full writes that cap and confirms by the
+words like Quiet. A live cap that reads "41 Mbps" now shows as Full speed; a live cap of 0 shows "Unlimited" as custom unless
+`FULL_MBPS=0`. The Full confirm says "caps qBittorrent's total download speed at 41 Mbps" (the configured value); only
+`FULL_MBPS=0` keeps the "removes the cap" text and its warning colour. Quiet, the chip labels and the routes are unchanged.
+`deploy/.env.example` lists `FULL_MBPS=41`; the NAS env line goes in later through `nas_scripts/append_env.sh`. Tests:
+`tests/hub/test_server_quiet.py`. Spec: `docs/specs/JY-141-full-mbps-cap.md`.

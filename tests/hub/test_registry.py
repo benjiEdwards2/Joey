@@ -9,7 +9,7 @@ from tests.hub.helpers import AREAS_YAML, make_area, make_tile, write_registry  
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-LOCKED_ORDER = ["kitchen", "desk", "calendar", "media", "house", "car", "server"]  # garden removed (B., 2026-09-11); server added last (2026-10-06)
+LOCKED_ORDER = ["calendar", "media", "server"]  # Food, Desk, House, Car retired (JY-221), Money removed (JY-220), 2026-10-27
 
 
 def test_real_registry_loads_in_locked_order():
@@ -114,22 +114,12 @@ def test_wp21_signoff_link_hrefs_are_real_urls():
         assert "PLACEHOLDER" not in href, f"{tile['id']}: placeholder href survived sign-off"
 
 
-def test_food_area_links_to_macromates():
-    """MacroMates self-hosted behind the same Access gate (2026-10-05): the Food
-    area carries a whole-card LINK tile into the app — without it there is no
-    way into MacroMates from Joey (B.: 'it doesnt let me in')."""
-    config = yaml.safe_load(AREAS_YAML.read_text(encoding="utf-8"))
-    kitchen = next(a for a in config["areas"] if a["id"] == "kitchen")
-    mm = next(t for t in kitchen["tiles"] if t["id"] == "macromates-app")
-    assert mm["tier"] == "link"
-    assert mm["href"] == "https://macromates.joeyhome.net"
-
-
-def test_kitchen_area_renamed_to_food():
-    """B.'s WP21 punch-list (2026-09-11): display name Food, id stays 'kitchen'."""
+def test_retired_areas_are_gone_from_the_real_registry():
+    """JY-221 (2026-10-27): Food, Desk, House and Car left areas.yaml; their tiles and the MacroMates link went with them."""
     reg = load_registry(AREAS_YAML)
-    kitchen = next(a for a in reg.areas if a.id == "kitchen")
-    assert kitchen.name == "Food"
+    ids = {a.id for a in reg.areas}
+    assert not ids & {"kitchen", "desk", "house", "car", "money"}   # money: JY-220
+    assert "macromates-app" not in {t.id for a in reg.areas for t in a.tiles}
 
 
 # rail_section (B., 2026-10-06)

@@ -12,7 +12,8 @@ from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_regis
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = REPO_ROOT / "config" / "sample_snapshots"
-PARKED = {"kitchen", "desk", "house", "car"}   # Money removed 2026-10-27 (JY-220)
+PARKED: set[str] = set()   # Food, Desk, House, Car retired (JY-221), Money removed (JY-220), 2026-10-27
+RETIRED = ("kitchen", "desk", "house", "car", "money")
 
 
 def test_hidden_defaults_false_and_is_accepted(tmp_path):
@@ -27,7 +28,7 @@ def test_hidden_area_is_still_validated(tmp_path):
         load_registry(write_registry(tmp_path, make_area("a"), bad))
 
 
-def test_real_registry_parks_exactly_five():
+def test_real_registry_has_no_hidden_areas():
     reg = load_registry(AREAS_YAML)
     assert {a.id for a in reg.areas if a.hidden} == PARKED
     assert [a.id for a in reg.visible_areas] == ["calendar", "media", "server"]  # server added 2026-10-06
@@ -63,16 +64,17 @@ def test_top_bar_and_phone_bar_skip_hidden_areas(tmp_path, monkeypatch):
 
 
 def test_parked_page_still_serves(monkeypatch, tmp_path):
-    with _client(monkeypatch, tmp_path) as c:
-        r = c.get("/a/kitchen")
-    assert r.status_code == 200 and "<h1>Food</h1>" in r.text
+    reg = write_registry(tmp_path, make_area("one"), {**make_area("hid"), "hidden": True})
+    with _client(monkeypatch, tmp_path, reg) as c:
+        r = c.get("/a/hid")
+    assert r.status_code == 200 and "<h1>Hid</h1>" in r.text
 
 
-def test_money_area_is_gone_and_its_page_is_the_ordinary_404(monkeypatch, tmp_path):
-    """JY-220 (2026-10-27): the hidden Money area was removed; the budget lives in its own project."""
-    assert "money" not in {a.id for a in load_registry(AREAS_YAML).areas}
+@pytest.mark.parametrize("area_id", RETIRED)
+def test_retired_area_page_is_the_ordinary_404(monkeypatch, tmp_path, area_id):
     with _client(monkeypatch, tmp_path) as c:
-        r, unknown = c.get("/a/money"), c.get("/a/not-an-area")
+        r = c.get(f"/a/{area_id}")
+        unknown = c.get("/a/not-an-area")
     assert r.status_code == 404 and r.text == unknown.text
 
 

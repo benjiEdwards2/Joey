@@ -88,8 +88,17 @@ def test_detail_tile_links_to_its_route(tmp_path, monkeypatch):
     assert re.search(r'<a class="panel tile" href="/weather"', html)
 
 
-def test_plain_tile_is_not_a_link(site):
-    _, body = site("/a/house")
+def test_plain_tile_is_not_a_link(tmp_path, monkeypatch):
+    # JY-220 (2026-10-27): the real Money area was the plain-tile page; a synthetic area now pins it.
+    from tests.hub.helpers import make_area, write_registry
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, make_area("alpha", snapshot="nas_stats", setup_note="Set X."))))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    write_envelope(tmp_path / "snaps", "nas_stats", age_minutes=1, data=SAMPLE_DATA["nas_stats"])
+    import hub.main
+    importlib.reload(hub.main)
+    with TestClient(hub.main.app) as client:
+        body = client.get("/a/alpha").text
     k = re.search(r'<section class="tiles areatiles".*?</section>', body, re.S).group(0)
     assert "<a " not in k and 'class="panel tile"' in k
 
@@ -121,7 +130,7 @@ def test_all_not_connected_area_shows_quiet_sentence(tmp_path, monkeypatch):
 
 
 def test_connected_area_has_no_quiet_sentence(site):
-    _, body = site("/a/house")
+    _, body = site("/a/calendar")
     assert "Nothing connected yet" not in body
 
 
@@ -129,7 +138,7 @@ def test_weather_page_is_a_stats_strip_and_pages_have_no_literal_hex(site):
     _, body = site("/weather")
     assert re.search(r'<section class="sec wxpage"', body) and 'class="stats wxstats"' in body   # E3: .wxstats (U10)
     assert "Newport VIC" in body and "°C" in body
-    for route in ("/weather", "/a/calendar", "/a/house", "/a/desk", "/a/kitchen"):
+    for route in ("/weather", "/a/calendar"):
         assert not HEX.search(site(route)[1]), route
 
 

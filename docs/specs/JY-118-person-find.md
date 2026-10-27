@@ -1,6 +1,6 @@
 # JY-118 Guest / crew names link to the person page
 
-Status: building (built ahead on the recommended option, option A, before B. picks; 2026-10-27)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none (one read-only Seerr search per tap; no write)
 Area: `hub/media_person.py`, `hub/media_film.py`, `hub/guest.py`, three templates, tests
@@ -38,3 +38,8 @@ Open an episode page: tap a guest and a "Directed by" name; each lands on the pe
 None (B. picks A / B / C on the options page).
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #220, squash-merged as `102cafd` (102cafd57184744a642c7aab2d3dc855d1a47dc2).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: Accept every recommendation on the Joey decisions page: merge the 4 built-ahead PRs, drop the 7, apply the rest as recommended."
+- Follow-ups: none

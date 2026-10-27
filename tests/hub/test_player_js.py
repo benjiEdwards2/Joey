@@ -55,7 +55,7 @@ function world(opt) {
                                         headers: {Authorization: AUTH}}));
     }
     if (/\/progress$/.test(url)) return Promise.resolve(answers.progress ? answers.progress(url) : Resp(204));
-    if (/\/stop$/.test(url)) return Promise.resolve(Resp(204));
+    if (/\/stop$/.test(url)) return answers.stop ? answers.stop(url) : Promise.resolve(Resp(204));
     return Promise.resolve(Resp(404, {detail: 'Not Found'}));
   };
   function FakeHls(config) {
@@ -132,6 +132,7 @@ async function happy() {
   r.subtitleDisplay = h.subtitleDisplay;
   w.video.fire('play');
   await settle();
+  w.video.fire('playing');   // JY-055: the picture is at the start point from here
   w.video.currentTime = 60;
   w.tick();
   await settle();
@@ -161,6 +162,7 @@ async function happy() {
 async function backStops() {
   var w = world();
   await w.player.start(); await settle();
+  w.video.fire('playing');
   w.video.currentTime = 90;
   await w.player.stop(); await settle();
   var r = {stops: w.calls.filter(function (c) { return /stop$/.test(c.url); }).map(function (c) { return [c.url, c.body, c.keepalive]; })};
@@ -177,6 +179,7 @@ async function forgotten() {
     return calls === 1 ? Resp(404, {error: {code: 'session_unknown', message: 'No such playback session.'}}) : Resp(204);
   }}});
   await w.player.start(); await settle();
+  w.video.fire('playing');
   w.video.currentTime = 700; w.video.paused = false;
   w.tick(); await settle();
   var starts = w.calls.filter(function (c) { return c.url === '/api/play/sessions'; });
@@ -196,6 +199,7 @@ async function failedBeat() {
 async function pickTracks() {
   var w = world({subtitleTracks: [{name: 'English'}]});
   await w.player.start(); await settle();
+  w.video.fire('playing');
   w.video.currentTime = 1234.5;
   await w.player.switchTracks(1, -1);   // unchanged: nothing happens
   await settle();
@@ -249,6 +253,7 @@ async function recoverAgain() {   // a fatal error after the player got going ag
 async function reviveAfterPagehide() {   // bfcache: a restored page starts a fresh session, never stays session-less
   var w = world();
   await w.player.start(); await settle();
+  w.video.fire('playing');
   w.video.currentTime = 500;
   w.player.beacon();
   await w.player.revive(); await settle();
@@ -257,6 +262,65 @@ async function reviveAfterPagehide() {   // bfcache: a restored page starts a fr
   var starts = w.calls.filter(function (c) { return c.url === '/api/play/sessions'; });
   return {starts: starts.map(function (c) { return c.body; }), firstDestroyed: w.hls[0].destroyed, hls: w.hls.length,
           sid: w.player.state().sid, stopped: w.player.state().stopped, extra: w.calls.length - again, leaks: leak(w)};
+}
+
+/* JY-055: until the picture has reached the session's start point ('playing' or a 'seeked'), the position the player
+   reports is that start point, never the 0 a <video> holds before hls.js seeks: a Back, a heartbeat or a track pick in
+   that window must not wipe the member's Jellyfin resume point. */
+function sent(w, re) {
+  return w.calls.filter(function (c) { return re.test(c.url); });
+}
+async function beforeFirstFrame() {
+  var w = world();
+  await w.player.start(); await settle();          // resumed at 1421 s
+  w.hls[0].emit('hlsManifestParsed', {}); await settle();
+  w.video.fire('play'); await settle();             // currentTime is still 0: hls.js has not sought yet
+  w.tick(); await settle();
+  var r = {early: sent(w, /progress$/).map(function (c) { return c.body.position_ticks; })};
+  await w.player.switchTracks(2, -1); await settle();
+  r.restart = sent(w, /^\/api\/play\/sessions$/)[1].body.start_ticks;
+  await w.player.stop(); await settle();            // Back before the new session's first frame
+  r.stops = sent(w, /stop$/).map(function (c) { return [c.url, c.body.position_ticks]; });
+  var v = world();                                  // hls.js's own seek to the start point: the picture's time from then
+  await v.player.start(); await settle();
+  v.video.currentTime = 1421.5; v.video.fire('seeked'); await settle();
+  v.video.currentTime = 1430; v.tick(); await settle();
+  r.afterSeek = sent(v, /progress$/).map(function (c) { return c.body.position_ticks; });
+  r.leaks = leak(w).concat(leak(v));
+  return r;
+}
+
+/* JY-055: Back to Joey waits for the stop (at most 1.5 s) before it leaves, so the title page it lands on reads the
+   position Jellyfin has just saved. */
+async function backRun(slow) {
+  var w = world({noPlayer: true, answers: slow ? {stop: function () { return new Promise(function () {}); }} : {}});
+  var timers = {}, nid = 1, assigned = [];
+  var doc = new El('doc');
+  doc.createElement = function (t) { return new El(t); };
+  var win = {document: doc, navigator: {userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/130', sendBeacon: w.sendBeacon},
+    matchMedia: function () { return {matches: false}; }, fetch: w.fetch, Hls: w.Hls,
+    MediaSource: {isTypeSupported: function () { return false; }}, performance: {now: function () { return 1; }},
+    setInterval: function (f, ms) { var i = nid++; timers[i] = {f: f, ms: ms}; return i; },
+    clearInterval: function (i) { delete timers[i]; },
+    setTimeout: function (f, ms) { var i = nid++; timers[i] = {f: f, ms: ms, once: true}; return i; },
+    clearTimeout: function (i) { delete timers[i]; },
+    location: {assign: function (u) { assigned.push(u); }, reload: function () {}},
+    addEventListener: function () {}};
+  var root = page(w);
+  P.mount(root, win);
+  await settle();
+  w.video.paused = false; w.video.fire('playing'); w.video.currentTime = 900;
+  root.querySelector('[data-pl="back"]').fire('click');
+  var r = {before: assigned.slice()};
+  await settle();
+  r.settled = assigned.slice();
+  var cap = Object.keys(timers).filter(function (k) { return timers[k].once && timers[k].ms === 1500; });
+  r.cap = cap.length;
+  cap.forEach(function (k) { var t = timers[k]; delete timers[k]; t.f(); });
+  await settle();
+  r.capped = assigned.slice();
+  r.stops = sent(w, /stop$/).map(function (c) { return [c.body, c.keepalive]; });
+  return r;
 }
 
 /* ---- mount(): the page, on a small fake DOM ---- */
@@ -373,6 +437,7 @@ async function mounted() {
   r.upBack = q('upnext').hidden;
   w.video.currentTime = 2640; w.video.ended = true; w.video.paused = true;
   w.video.fire('ended'); w.video.fire('ended');
+  r.endStops = w.calls.filter(function (c) { return /stop$/.test(c.url); }).map(function (c) { return c.body; });
   r.countdowns = every(1000).length;
   r.count = q('count').textContent;
   r.upEnd = q('upnext').hidden;
@@ -455,6 +520,9 @@ function taps() {
   out.again = await recoverAgain();
   out.revive = await reviveAfterPagehide();
   out.mount = await mounted();
+  out.early = await beforeFirstFrame();
+  out.backFast = await backRun(false);
+  out.backSlow = await backRun(true);
   out.profile = profile();
   out.keys = keys();
   out.taps = taps();
@@ -499,7 +567,8 @@ def test_progress_on_the_heartbeat_and_at_once_on_play_pause_and_seek(run):
     r = run["happy"]
     sent = [(url, b["position_ticks"], b["paused"]) for url, b in r["progress"]]
     assert all(url == "/api/play/sessions/S1/progress" for url, _, _ in sent)
-    assert sent == [(sent[0][0], 0, False), (sent[0][0], 600_000_000, False), (sent[0][0], 615_000_000, True),
+    # JY-055 (2026-10-27): the first beat (on `play`, before the first frame) is the resume point, no longer 0
+    assert sent == [(sent[0][0], 14_210_000_000, False), (sent[0][0], 600_000_000, False), (sent[0][0], 615_000_000, True),
                     (sent[0][0], 3_000_000_000, True)]
     assert r["timerMs"] == [10_000]
 
@@ -650,3 +719,28 @@ def test_mount_bfcache_restore_and_pagehide(run):
     assert r["restored"] == [1, 20_000_000_000, True, 2]
     assert r["beacons"] == ["/api/play/sessions/S2/stop"]
     assert r["leaks"] == [] and r["domToken"] is False
+
+
+# ---- JY-055: progress, resume and watched synced to Jellyfin ----
+
+def test_before_the_first_frame_the_start_point_is_the_position(run):
+    """A heartbeat, a track pick or a Back before hls.js has sought to the resume point reports that point, never the 0
+    a <video> holds until then (Jellyfin clears a resume point it is told is under 5 %)."""
+    r = run["early"]
+    assert r["early"] == [14_210_000_000, 14_210_000_000]
+    assert r["restart"] == 14_210_000_000
+    assert r["stops"] == [["/api/play/sessions/S1/stop", 14_210_000_000], ["/api/play/sessions/S2/stop", 14_210_000_000]]
+    assert r["afterSeek"] == [14_215_000_000, 14_300_000_000] and r["leaks"] == []
+
+
+def test_the_end_stops_at_the_end_so_jellyfin_marks_it_watched(run):
+    """The film ending sends one stop at the runtime: Jellyfin's own rule (past 90 %) marks it watched."""
+    assert run["mount"]["endStops"] == [{"position_ticks": 26_400_000_000}]
+
+
+def test_back_waits_for_the_stop_at_most_1_5_s(run):
+    fast, slow = run["backFast"], run["backSlow"]
+    for r in (fast, slow):
+        assert r["before"] == [] and r["stops"] == [[{"position_ticks": 9_000_000_000}, True]]
+    assert fast["settled"] == ["/media/item/abc"] and fast["cap"] == 0 and fast["capped"] == ["/media/item/abc"]
+    assert slow["settled"] == [] and slow["cap"] == 1 and slow["capped"] == ["/media/item/abc"]

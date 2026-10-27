@@ -36,7 +36,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_db.py`, `media_write.py`, `media_plays*.py`, `media_resume.py`, `media_hidden.py` | media.db schema, rate / skip / log / search routes, play recorder and History (E5: `show_runtimes` for the progress words), resume actions, hide-until-next-sweep |
 | `media_awards*.py` | Awards: sync, parsers, seeds, store, pages, badges and icons |
 | `media_warmup.py`, `media_backup.py` | Film-page cache warm-up (plus the Jellyfin item reads after each new jellyfin snapshot); nightly media.db backups |
-| `player_api.py` | The playback-session API for Joey's own player (JY-053): sessions in process, Jellyfin PlaybackInfo / Sessions with each household member's own token, stream URLs on `JELLYFIN_PUBLIC_URL` with no key; behind `PLAYER_API` (off); a start with `resume` also reads the member's own resume point and chapters (JY-054) |
+| `player_api.py` | The playback-session API for Joey's own player (JY-053): sessions in process, Jellyfin PlaybackInfo / Sessions with each household member's own token, stream URLs on `JELLYFIN_PUBLIC_URL` with no key; behind `PLAYER_API` (off); a start with `resume` also reads the member's own resume point and chapters (JY-054); a start refuses a player token that is not the member's own Jellyfin user, and a stop drops `media_item`'s cache (JY-055) |
 | `media_watch.py` | Joey's own web / phone player page (JY-054, look A): `/media/watch/<item>` from the item cache only, `available()` switches the title / episode Play links to it; behind `PLAYER_API` (off); the player is `static/player.js` + `player.css` + vendored `hls.min.js` |
 | `seed_demo.py` | Writes demo snapshots for local runs |
 

@@ -9,6 +9,9 @@
    - Start -> stream -> hls.js; progress every heartbeat_s and at once on pause, play and seek; stop on Back (fetch
      keepalive) or navigator.sendBeacon on pagehide, once per session. A track change stops and starts a new session at
      the same point (the contract's way); a session the hub forgot (session_unknown) starts a new one at the position.
+   - JY-055: until the picture has reached a session's start point (`playing`, or a `seeked`), the position reported is
+     that start point, never the 0 a <video> holds before hls.js seeks; Jellyfin would clear the resume point. Back to
+     Joey waits for the stop (at most 1.5 s), so the page it lands on reads the position Jellyfin has just saved.
    - createPlayer() is the logic, with every browser object passed in (tests/hub/test_player_js.py runs it under node with
      a fake hls.js and a fake fetch); mount() wires it to the page. */
 (function (root) {
@@ -94,7 +97,8 @@
   function createPlayer(o) {
     var on = o.on || noop;
     var st = {sid: null, hls: null, timer: null, stopped: true, audio: null, sub: null, tracks: null, chapters: [],
-              runtime: 0, method: null, starting: false, retried: false, recovered: false, framed: false};
+              runtime: 0, method: null, starting: false, retried: false, recovered: false, framed: false,
+              anchor: null, live: false};
     var video = o.video;
     var now = o.now || function () { return Date.now(); };
 
@@ -114,7 +118,9 @@
         throw {status: resp.status, code: e.code || 'http_' + resp.status, message: e.message};
       }, function () { throw {status: resp.status, code: 'http_' + resp.status}; });
     }
-    function position() { return ticksOf(video.currentTime); }
+    function position() {   // JY-055: the session's start point until the picture has reached it
+      return st.live || st.anchor === null ? ticksOf(video.currentTime) : st.anchor;
+    }
     function clearBeat() {
       if (st.timer !== null) o.clearInterval(st.timer);
       st.timer = null;
@@ -145,6 +151,8 @@
         xhrSetup: function (xhr, url) { if (auth && originOf(url) === origin) xhr.setRequestHeader('Authorization', auth); }
       });
       st.hls = hls;
+      st.anchor = startTicks;
+      st.live = false;
       st.retried = st.recovered = false;
       hls.on(Hls.Events.MANIFEST_PARSED, function () {
         if (st.sub !== null && st.sub !== -1 && hls.subtitleTracks && hls.subtitleTracks.length) {
@@ -240,9 +248,10 @@
 
     video.addEventListener('pause', function () { if (!video.ended) beat(true); });
     video.addEventListener('play', function () { beat(false); });
-    video.addEventListener('seeked', function () { beat(video.paused); });
+    video.addEventListener('seeked', function () { if (st.hls) st.live = true; beat(video.paused); });
     video.addEventListener('ended', function () { stop(); on('ended'); });
     video.addEventListener('playing', function () {
+      if (st.hls) st.live = true;
       st.retried = st.recovered = false;   // playing again: a later fatal error gets its one retry / recovery again
       if (!st.framed && st.sid) {          // press to first frame (JY-050 Q8 A): `now` is ms since the page's navigation
         st.framed = true;
@@ -532,9 +541,17 @@
     var back = q('back');
     back.addEventListener('click', function (e) {
       e.preventDefault();
-      var href = back.getAttribute('href');
-      ctl.stop();   // keepalive: survives the navigation; pagehide then has nothing left to send
-      win.location.assign(href);
+      var href = back.getAttribute('href'), gone = false, cap = null;
+      var leave = function () {
+        if (gone) return;
+        gone = true;
+        win.clearTimeout(cap);
+        win.location.assign(href);
+      };
+      // keepalive: the stop survives the navigation; pagehide then has nothing left to send. Waiting for it (JY-055, at
+      // most 1.5 s) lets the title page read the position Jellyfin has just saved.
+      cap = win.setTimeout(leave, 1500);
+      ctl.stop().then(leave, leave);
     });
     if (upnext) {
       q('credits').addEventListener('click', function () {

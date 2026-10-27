@@ -19,6 +19,10 @@ docs/playback-contract.md; this module follows it and nothing else does.
   JY-054 (2026-10-27): a start with `resume: true` first reads the item with the member's own token (their resume
   point and the chapters, `_item_facts`); without it the start is unchanged.
 * Sessions live in this process only (SESSIONS): a restart forgets them and the player starts a new one.
+* JY-055 (2026-10-27): Jellyfin keeps the resume point, the watched mark (its own rule on Stopped) and the track choice.
+  The hub adds two things: a start on the private front refuses a player token whose Jellyfin user is not that member's
+  own (`_check_owner`; plays would land on the other person's Continue watching, Diary and History), and a stop drops
+  hub.media_item's cache, as Joey's other watch-state writes do, so the title page reads the new position.
 * Logs carry the endpoint, the play method and the exception type or HTTP status only: never a URL, token, user or title.
 """
 from __future__ import annotations
@@ -39,7 +43,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match, Route
 
-from hub import guest, upstream
+from hub import guest, identity, upstream
 from hub.identity import resolve_identity
 from hub.media_write import same_origin
 
@@ -197,6 +201,28 @@ def _user_id(viewer: dict, base: str, headers: dict) -> str:
     with _lock:
         _uids[key] = (time.time(), uid)
     return uid
+
+
+def _no_users_read():
+    raise identity.OwnerUnresolved("not read on the start path")
+
+
+def _check_owner(viewer: dict, uid: str) -> None:
+    """JY-055: on the private front the player token's Jellyfin user must be the member's own (JELLYFIN_USER /
+    _ALIASES for `you`, JELLYFIN_USER_HER for `her`), the user the recorder, the Jellyfin sweep and the Diary read for
+    them. Checked against the household ids the hub has already read (the recorder reads /Users once); never a /Users
+    read here: while they are unknown the start goes ahead. The media front plays as the signed-in user, so no check."""
+    if viewer["user_id"]:
+        return
+    try:
+        owner = identity.owner_for_jellyfin(uid, users_of=_no_users_read)
+    except identity.OwnerUnresolved:
+        return
+    except ValueError:
+        owner = None
+    if owner != viewer["owner"]:
+        log.info("player: start refused, the player token is not the member's own Jellyfin user")
+        raise PlayError(503, "not_configured", "The player's Jellyfin sign-in is not your own Jellyfin user.")
 
 
 def _strip_key(url: str, public: str) -> str:
@@ -360,6 +386,7 @@ def _start(viewer: dict, item: str, kind: str, profile: dict, opts: dict) -> tup
     base, public = _bases()
     headers = _auth(viewer, kind)
     uid = _user_id(viewer, base, headers)
+    _check_owner(viewer, uid)
     facts = _item_facts(base, headers, uid, item) if opts.pop("resume", False) else {"position": 0, "chapters": []}
     resumed = opts.get("start_ticks") is None and facts["position"] > 0
     if resumed:
@@ -503,7 +530,11 @@ async def stop(request: Request, session_id: str):
         data = await _body(request)
         position = _int(data, "position_ticks", 0, required=True)
         sess = _session(session_id, viewer["owner"], drop=True)
-        await run_in_threadpool(_report, viewer, sess, position, False, True)
+        try:
+            await run_in_threadpool(_report, viewer, sess, position, False, True)
+        finally:   # JY-055: the title page re-reads the member's new position, whatever Jellyfin answered
+            from hub import media_item   # lazy: media_item pulls in the library modules
+            media_item.invalidate()
     except PlayError as err:
         return _error(err)
     return _no_store(Response(status_code=204))

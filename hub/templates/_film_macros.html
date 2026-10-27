@@ -2,7 +2,7 @@
    `makercards`: the hero's headshot cards; `sp`: one score pill; `banner_bg`: a "part of" / film series banner backdrop.
    `makercards` and `sp` read `film` (maker_h, logos): import them `with context`. #}
 {% macro makercards(people) -%}
-  {% for m in people %}<a class="makercard" href="{{ '/media/person/' ~ m.id if m.id else '/media/discover?q=' ~ (m.name|urlencode) }}">{% if m.ref %}<img class="makerpic" src="/img/{{ m.ref }}?h={{ film.maker_h }}" alt="" loading="lazy" decoding="async" width="52" height="52">{% else %}<span class="makerpic initials" aria-hidden="true">{% for w in m.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}<span class="makername">{{ m.name }}</span></a>{% endfor %}
+  {% for m in people %}<a class="makercard" href="{{ '/media/person/' ~ m.id if m.id else '/media/person/find?name=' ~ (m.name|urlencode) }}">{% if m.ref %}<img class="makerpic" src="/img/{{ m.ref }}?h={{ film.maker_h }}" alt="" loading="lazy" decoding="async" width="52" height="52">{% else %}<span class="makerpic initials" aria-hidden="true">{% for w in m.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}<span class="makername">{{ m.name }}</span></a>{% endfor %}
 {%- endmacro %}
 {% macro sp(id, name, value, extra="") -%}
 <span class="scorepill sp-{{ id }}{{ extra }}" title="{{ name }} {{ value }}"><img class="sp-logo" src="{{ film.logos[id] }}" alt="" width="16" height="16"><span class="sp-name">{{ name }}</span><b class="sp-val">{{ value }}</b></span>

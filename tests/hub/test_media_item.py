@@ -64,7 +64,7 @@ def test_movie_page(env):
     assert "<dt>Watched</dt><dd>1 time · 12 Oct 2026</dd>" in b
     assert "fmtbadges" in b and "<b>4K</b>" in b and "<small>HEVC</small>" in b
     assert 'class="castname">Ada Actor</span><span class="castrole">as Pilot</span>' in b
-    assert 'href="/media/discover?q=Dee%20Director"' in b      # Jellyfin director, no Jellyseerr
+    assert 'href="/media/person/find?name=Dee%20Director"' in b      # Jellyfin director, no Jellyseerr
     assert current(html, "Media sections") == ["Movies"]
 
 

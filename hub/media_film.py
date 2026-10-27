@@ -825,9 +825,15 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
 # Season and episode pages only (on-server Jellyfin items). Everything comes from the page's own item read and the
 # show's cached season list (media_item._seasons, which carries each episode's People) - no extra Jellyfin call.
 # Jellyfin's People entries carry no ProviderIds (Name, Id, Role, Type, PrimaryImageTag only), so a guest's or a
-# crew member's `href` (/media/person/{tmdb}) is None: there is no TMDB person id without a per-person read.
+# crew member's TMDB person id is unknown on render. JY-118 (2026-10-27): their `href` is /media/person/find?name=,
+# which does the one name -> person lookup only when the name is tapped (never on render).
 
 CREW_EP = (("Director", "Directed by"), ("Writer", "Written by"))
+
+
+def person_find_href(name: str) -> str:
+    """JY-118: the link a guest / crew name gets when the page has no TMDB person id for it."""
+    return "/media/person/find?name=" + quote(name, safe="")
 
 
 def _item_href(jf_id) -> str | None:
@@ -882,7 +888,7 @@ def episode_guests(ep: dict, cast: list[dict] | None, show_people: list[dict] | 
     for p in ep.get("people") or []:
         name = p.get("name")
         if p.get("type") == "GuestStar" and name and name not in main and name not in out:
-            out[name] = {"name": name, "role": p.get("role") or None, "poster": p.get("ref"), "href": None,
+            out[name] = {"name": name, "role": p.get("role") or None, "poster": p.get("ref"), "href": person_find_href(name),
                          "eps_this_season": max(1, sum(1 for names in listed if name in names))}
     return list(out.values())
 
@@ -893,7 +899,7 @@ def episode_crew(ep: dict) -> list[dict]:
     for typ, role in CREW_EP:
         names = list(dict.fromkeys(p["name"] for p in ep.get("people") or [] if p.get("type") == typ and p.get("name")))
         if names:
-            out.append({"role": role, "people": [{"name": n, "href": None} for n in names]})
+            out.append({"role": role, "people": [{"name": n, "href": person_find_href(n)} for n in names]})
     return out
 
 

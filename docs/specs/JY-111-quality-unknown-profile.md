@@ -1,6 +1,6 @@
 # JY-111 Old arr profile id: fallback Quality line
 
-Status: building (built ahead on the recommended option, option B, before B. picks; 2026-10-27)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none on render. The switch is the existing live arr write, only on B.'s confirm tap (never on render)
 Area: `hub/media_quality.py`, `hub/templates/_quality_block.html`, one call in `hub/media_film.py`, tests
@@ -38,3 +38,8 @@ Open a title that was on an old profile: "Quality · unknown profile  Switch to 
 None (B. picks A / B / C on the options page).
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #224, squash-merged as `c10099a` (c10099a76a74f2188ef5751307ae5360b5dafa6e).
+- Deploy: `2026-10-27T02:30:55Z PASS prev=8eba1a1 new=c10099a suite green, smoke ok tv=current gate=-n2 avail=2093 stopped=sonarr,radarr,prowlarr,flaresolverr end=2026-10-27T02:37:14Z dur=379s`
+- Accept: in chat: "B., orchestrator session, 2026-10-27: Accept every recommendation on the Joey decisions page: merge the 4 built-ahead PRs, drop the 7, apply the rest as recommended."
+- Follow-ups: none

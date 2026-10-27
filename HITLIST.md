@@ -61,7 +61,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | [x] shipped | Contract before the players · PR #188 | [spec](docs/specs/JY-053-playback-contract.md) |
 | JY-054 | Web/phone player | Media player | L | [x] shipped | Joey plays the film itself · live · PR #215 | [spec](docs/specs/JY-054-web-phone-player.md) |
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | [x] shipped | Stop on one device, resume on another · PR #221 | [spec](docs/specs/JY-055-resume-watched-sync.md) |
-| JY-056 | Audio + subtitle track picker | Media player | M | idea | Pick tracks in the player | — |
+| JY-056 | Audio + subtitle track picker | Media player | M | [x] shipped | Covered by JY-054's track picker (no new build); checked in JY-055 (PR #221) and confirmed by its review | — |
 | JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live | — |
 | JY-058 | Friends' path + security gate | Media player | L | idea | Only if the spec says friends · live | — |
 | JY-059 | Move Jellyfin transcoding onto the new box | Media player | L | idea | Needs the box bought · B.'s hands · live | — |
@@ -188,6 +188,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
 | JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | [x] shipped | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." · PR #212 | [spec](docs/specs/JY-255-rq2-tv-mode.md) |
+| JY-256 | Deploy gate stops sonarr/radarr/prowlarr/flaresolverr for the suite, restarts after | NAS/deploy | L | building | B. 2026-10-28: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and start them again after (option A + H)." PR #226 | [spec](docs/specs/JY-256-gate-stop-set.md) |
 
 ### NAS / stack
 
@@ -202,7 +203,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-206 | ADM IPv6 DNS entry + deploy.sh pull retry (E0) | NAS | S | [x] shipped | `tidyup_t0.sh` already run 2026-10-18; ADM part is B.'s hands · PR #183 | [spec](docs/specs/JY-206-pull-retry.md) |
 | JY-207 | Cloudflare edge-cache rule (optional) | NAS | S | idea | Cache /static and /img; see `docs/setup.md` | — |
 | JY-208 | TailScale container running on the NAS | NAS | S | idea | Flagged only; keep or remove | — |
-| JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | idea | Unpublish LAN ports 9000/7878/8989/3001/3030/3000; drop the Homepage hostname; B. or Claude in a NAS window | — |
+| JY-209 | Retire Homepage: run `tidyup_t9_network.sh` + Cloudflare hostname cleanup | NAS | M | [x] shipped | B. 2026-10-28: "JY-209: retire Homepage." tidyup_t9_network.sh run 2026-10-28 00:12Z (exit 0): Joey .env on service names, homepage removed, LAN 3000/3001/3030/7878/8989/9000 unpublished, sweeps ok; available 1,390 -> 1,646 MB. Left for B.: delete the homepage Access app + hostname in Cloudflare | — |
 | JY-227 | Full deploy gate over its 10 min budget (15.3 min) | NAS/deploy | M | [x] shipped | `scripts/budgets.py` 2026-10-23: last PASS took 918 s; find where the time goes (image build, suite `-n 2`, smoke) · PR #65 | [spec](docs/specs/JY-227-gate-time.md) |
 | JY-228 | Preview slot hardening: take the deploy lock during the build, pin `JOEY_FRONT`, reason wording | NAS/deploy | S | [x] shipped | JY-012 verifier should-fixes · PR #63 | [spec](docs/specs/JY-228-preview-hardening.md) |
 

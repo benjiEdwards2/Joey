@@ -46,3 +46,5 @@ After deploy, `/a/kitchen` shows the normal 404 and the hub looks the same.
 
 ## Questions for B.
 None.
+
+## Shipped notes

@@ -297,6 +297,8 @@ SOURCES = [
     ("B. in chat (2026-10-27)", "Deploy gate stop set", "JY-256", "NAS memory review option H"),
     ("B. in chat (2026-10-27)", "Player-token script", "JY-257", "JY-054 Q1 A answer 2a"),
     ("Orchestrator (2026-10-27)", "JY-057 hub split", "JY-258", "TV checks need the hub half live first"),
+    ("B. in chat (2026-10-28)", "TV revamp", "JY-259", "options page JY-259-options.html"),
+    ("B. in chat (2026-10-28)", "TMDB poster upgrade", "JY-260", "later plan"),
 ]
 
 

@@ -146,7 +146,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-160 | Forecast beside timed events | Calendar | S | parked | Idea from the 10-12 evaluation (decision) | — |
+| JY-160 | Forecast beside timed events | Calendar | S | [x] shipped | Idea from the 10-12 evaluation (decision) · PR #222 | [spec](docs/specs/JY-160-day-forecast.md) |
 
 ### Joey TV
 

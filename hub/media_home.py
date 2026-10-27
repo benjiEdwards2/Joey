@@ -12,8 +12,8 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
 
-from hub import (media_db, media_discover, media_downloads, media_follow, media_item, media_nav, media_plays_db,
-                 media_resume, media_status_words, media_text, shell)
+from hub import (media_because, media_db, media_discover, media_downloads, media_follow, media_item, media_nav,
+                 media_plays_db, media_resume, media_status_words, media_text, shell)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 from hub.store import ago_text, data_of, parse_utc, tile_state
 
@@ -312,6 +312,9 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
                  PLAYING_DETAIL, acts=resume_acts(n, media_db.owner_of(view)))
          for n in up_next[:SHELF_MAX]],
         unset_text if her_unset else "Nothing up next")
+    because = media_because.shelf(view, jelly)   # JY-105: the warm-up's cache only, no call; None = no shelf
+    if because:
+        shelves.append(because)
     add("added", "Recently added", LIBRARY_DETAIL, added, "Nothing added recently")
     add("downloading", "Downloading", LIBRARY_DETAIL, downloading, "", omit_empty=True)
     most_shows, most_films = media_plays_db.most_played_30(media_db.owner_filter(view))

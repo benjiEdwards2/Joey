@@ -11,20 +11,26 @@
    title page = 170 px poster beside title, facts, synopsis, Play / Trailer / Watchlist and the 1-10 chips; Set up Jellyfin
    = a full-screen card with :8443 in gold; sign-in = the WP-M screen 1 card. */
 html.tv {
-  --tv-mx: 48px; --tv-my: 27px; --tv-bar: 64px; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
+  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-bar: 4rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
   --tv-surface: rgba(255, 255, 255, .03); --tv-surface-2: rgba(255, 255, 255, .06); --tv-line: rgba(255, 255, 255, .12);
   --tv-border: rgba(255, 255, 255, .07); --tv-t1: #fafafa; --tv-t2: #e4e4e7; --tv-t3: #d4d4d8; --tv-t4: #a1a1aa; --tv-t5: #82828b;
   --tv-primary: #4f46e5; --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
 }
-html.tv body { font-size: 21px; line-height: 1.3; }
+/* JY-259 (P1, 2026-10-28) - the scaling system. B.: "It scales to every TV needed once they load things up." Every
+   length in this sheet is rem, and 1rem follows the viewport: 16 CSS px at the TCL's 960x540 (dpr 2), 21.3 at 1280x720,
+   32 at 1920x1080 (a 1080p panel at dpr 1), 64 at 3840x2160 - the same layout on every panel, whatever the WebView's
+   devicePixelRatio. The 16 px floor keeps 1.125rem >= the 18 px text minimum on anything smaller. tests/hub/tv_css.py
+   reads the sheet back in 960x540 CSS px for the older pins. */
+html.tv { font-size: max(16px, min(calc(100vw / 60), calc(100vh / 33.75))); }
+html.tv body { font-size: 1.3125rem; line-height: 1.3; }
 html.tv body::before { display: none; }
 
 /* Focus: one ring, no hover. tv.js sets .tv-focus on the focused control (also where :focus-visible would not match). */
 html.tv :focus { outline: none; }
-html.tv :focus-visible, html.tv .tv-focus { outline: 4px solid var(--tv-ring); outline-offset: 3px; }
-html.tv .card-poster:focus-visible, html.tv .card-poster.tv-focus { outline: none; transform: scale(1.06); position: relative; z-index: 5; }
-html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: 4px solid var(--tv-ring); outline-offset: 3px; border-radius: 10px; }
-html.tv .card-poster { transition: transform .12s ease-out; }
+html.tv :focus-visible, html.tv .tv-focus { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; }
+html.tv .card-poster:focus-visible, html.tv .card-poster.tv-focus { outline: none; transform: scale(1.08); position: relative; z-index: 5; }
+html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; border-radius: .625rem; }
+html.tv .card-poster { transition: transform .16s ease-out; }
 
 /* Off-origin links (Q41): hidden; YouTube and the Jellyfin hand-off stay. */
 html.tv a[href^="http"]:not([href*="/web/#/details"]):not([href*="youtube.com/"]):not([href*="youtu.be/"]),
@@ -35,44 +41,44 @@ html.tv .tabbar, html.tv .sectabs-page { display: none !important; }
 
 /* Top bar: brand, Media section row, user chip - inside the overscan margins; 64 px tall (27 + 36 + 1) - JY-188 compact chrome. */
 html.tv .topbar { position: sticky; top: 0; z-index: 40; border-bottom: 0; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my) var(--tv-mx) 1px; gap: 20px; }
-html.tv .brand { gap: 10px; }
-html.tv .brand b { font-size: 22px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
-html.tv .brand .mark { width: 32px; height: 32px; border-radius: 8px; }
-html.tv .toplinks { display: flex; gap: 4px; flex-shrink: 0; }
-html.tv .toplinks a { height: 36px; padding: 0 10px; border-radius: 9px; font-size: 18px; color: var(--tv-t4); }
+html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my) var(--tv-mx) .0625rem; gap: 1.5rem; }
+html.tv .brand { gap: .625rem; }
+html.tv .brand b { font-size: 1.375rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
+html.tv .brand .mark { width: 2rem; height: 2rem; border-radius: .5rem; }
+html.tv .toplinks { display: flex; gap: .375rem; flex-shrink: 0; }
+html.tv .toplinks a { height: 2.25rem; padding: 0 .625rem; border-radius: .5625rem; font-size: 1.125rem; color: var(--tv-t4); }
 html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
 /* JY-248 nav (2026-10-25): no Overview pill; the "Joey Media" title is the Home stop (Up from Home lands on it, tv.js),
    a pill like the section row's (36 px, fits JY-188's 64 px compact bar: 27 + 36 + 1), filled like the current pill on Home. */
-html.tv .brand-home { height: 36px; padding: 0 12px 0 4px; border-radius: 9px; }
+html.tv .brand-home { height: 2.25rem; padding: 0 .75rem 0 .25rem; border-radius: .5625rem; }
 html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .08); }
-html.tv .userchip { margin-left: auto; height: 36px; padding: 0 12px 0 4px; border-radius: 999px; font-size: 18px; color: var(--tv-t3); }
-html.tv .userchip .avatar { width: 28px; height: 28px; font-size: 18px; background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
+html.tv .userchip { margin-left: auto; height: 2.25rem; padding: 0 .75rem 0 .25rem; border-radius: 62.4375rem; font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .userchip .avatar { width: 1.75rem; height: 1.75rem; font-size: 1.125rem; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }
 /* Sign-out (2026-10-22; option D + pop-up P2): the pill is one D-pad stop (Enter opens the confirm); with focus it also
    shows the words "Sign out" before the exit icon. The section row never shrinks (flex-shrink 0 above; its pills are
    10 px a side, not 14, which leaves ~176 px for the pill), so only the pill gives way: its name ellipsises (max 150 px)
    and, on focus, folds away for the words (the avatar initial stays; the aria-label keeps the name); nothing moves. The card matches the request panel; "Stay signed
    in" starts focused, Left reaches Sign out; Back / Esc / "Stay signed in" close it (tv.js back()). */
-html.tv button.userchip { padding: 0 10px 0 4px; border-color: var(--tv-line); }
-html.tv button.userchip .uname { max-width: 150px; transition: max-width .18s ease-out, margin .18s ease-out; }
-html.tv button.userchip svg.ic { width: 22px; height: 22px; color: var(--tv-t4); }
-html.tv button.userchip .xlbl { display: inline; flex: none; max-width: 0; margin-right: -8px; overflow: hidden; white-space: nowrap;
+html.tv button.userchip { padding: 0 .625rem 0 .25rem; border-color: var(--tv-line); }
+html.tv button.userchip .uname { max-width: 9.375rem; transition: max-width .18s ease-out, margin .18s ease-out; }
+html.tv button.userchip svg.ic { width: 1.375rem; height: 1.375rem; color: var(--tv-t4); }
+html.tv button.userchip .xlbl { display: inline; flex: none; max-width: 0; margin-right: -.5rem; overflow: hidden; white-space: nowrap;
   font-weight: 600; color: var(--tv-t1); transition: max-width .18s ease-out, margin .18s ease-out; }
-html.tv button.userchip:focus-visible .xlbl, html.tv button.userchip.tv-focus .xlbl { max-width: 110px; margin-right: 0; }
-html.tv button.userchip:focus-visible .uname, html.tv button.userchip.tv-focus .uname { max-width: 0; margin-right: -8px; }
-html.tv .signoutdlg { width: 520px; padding: 28px 32px; border: 1px solid var(--tv-line); border-radius: 20px; background: #18181b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
+html.tv button.userchip:focus-visible .xlbl, html.tv button.userchip.tv-focus .xlbl { max-width: 6.875rem; margin-right: 0; }
+html.tv button.userchip:focus-visible .uname, html.tv button.userchip.tv-focus .uname { max-width: 0; margin-right: -.5rem; }
+html.tv .signoutdlg { width: 32.5rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: 1.25rem; background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .signoutdlg::backdrop { background: rgba(9, 9, 11, .82); }
-html.tv .signout-q { font-size: 30px; line-height: 1.15; }
-html.tv .signout-body { margin: 10px 0 24px; font-size: 20px; line-height: 1.35; color: var(--tv-t3); }
-html.tv .signoutdlg .confirm-btns { gap: 14px; }
-html.tv .signoutdlg .btn { gap: 10px; }
-html.tv .signoutdlg .btn svg.ic { width: 24px; height: 24px; }
+html.tv .signout-q { font-size: 1.875rem; line-height: 1.15; }
+html.tv .signout-body { margin: .625rem 0 1.5rem; font-size: 1.25rem; line-height: 1.35; color: var(--tv-t3); }
+html.tv .signoutdlg .confirm-btns { gap: .875rem; }
+html.tv .signoutdlg .btn { gap: .625rem; }
+html.tv .signoutdlg .btn svg.ic { width: 1.5rem; height: 1.5rem; }
 html.tv .signoutdlg .btn-signout { background: #f97316; color: #1a0a00; border-color: transparent; }
-html.tv .signoutdlg .btn-stay { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
+html.tv .signoutdlg .btn-stay { border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 
 /* Page frame: the content column is the safe area; shelves run edge to edge inside it (below). */
-html.tv .page { max-width: none; width: auto; margin: 0; padding: 0 var(--tv-mx) var(--tv-my); gap: 14px; }
+html.tv .page { max-width: none; width: auto; margin: 0; padding: 0 var(--tv-mx) var(--tv-my); gap: .875rem; }
 
 /* Page head: the section row is the top bar's, so the band keeps only the sub-tabs, pinned under the top bar (the row
    stays visible while a poster has focus); its title is the section label. A hero (title page) or a backdrop head is left alone. */
@@ -80,17 +86,17 @@ html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) {
   position: sticky; top: var(--tv-bar); z-index: 45; margin: 0 calc(-1 * var(--tv-mx)); min-height: 0; overflow: visible;
   background: var(--bg);
 }
-html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-in { max-width: none; padding: 4px var(--tv-mx) 0; }
+html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-in { max-width: none; padding: .25rem var(--tv-mx) 0; }
 html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-foot { display: none; }
 html.tv .sectabs { margin: 0; padding: 0; overflow: visible; }
-html.tv .sectabs-row { gap: 4px; border-bottom: 0; }
+html.tv .sectabs-row { gap: .5rem; border-bottom: 0; }
 html.tv .sectabs.sub { margin: 0; }
 html.tv .sectabs.sub a {
-  height: 36px; padding: 0 14px; margin: 0; border: 0; border-radius: 10px; font-size: 18px; color: var(--tv-t4);
+  height: 2.25rem; padding: 0 .875rem; margin: 0; border: 0; border-radius: .625rem; font-size: 1.125rem; color: var(--tv-t4);
   display: inline-flex; align-items: center;
 }
-html.tv .sectabs.sub a:first-child { padding-left: 14px; }
-html.tv .sectabs.sub a[aria-current] { background: none; color: var(--tv-t1); box-shadow: inset 0 -3px 0 var(--tab-on); border-radius: 10px 10px 0 0; }
+html.tv .sectabs.sub a:first-child { padding-left: .875rem; }
+html.tv .sectabs.sub a[aria-current] { background: none; color: var(--tv-t1); box-shadow: inset 0 -.1875rem 0 var(--tab-on); border-radius: .625rem .625rem 0 0; }
 
 /* Sections and shelves: 132 px posters, 20 px gaps, 14 / 10 px shelf padding, one-line captions; no snap (tv.js centres
    the focused poster). A shelf runs to the screen edges (its first poster still starts at the 48 px margin). */
@@ -103,23 +109,23 @@ html.tv .card-poster .row-meta { margin-top: 0; color: var(--tv-t5); white-space
 /* ==== JY-188 (U2): density B, compact chrome ON - the scale block ====
    Shelves and grids: 104x156 cards, 14 px gaps, 8 across, two rows plus a peek. Title 18 px on one line always; the meta
    line (18 px) shows under the focused card only (its height is kept, so nothing shifts). Mockup:
-   JoeyTV\mockups\tv-v2\08-density.html option B. Focus scale stays 1.06 (tv.js POSTER_GROW is pinned to it). */
-html.tv .seclabel, html.tv h2.seclabel { font-size: 18px; line-height: 18px; position: relative; z-index: 6; }
-html.tv .carousel { gap: 14px; padding: 14px var(--tv-mx) 6px; }
-html.tv .carousel > * { flex: 0 0 104px; width: 104px; }
-html.tv .card-poster .row-title { margin-top: 4px; font-size: 18px; line-height: 20px; height: 20px; }
-html.tv .card-poster .row-meta { font-size: 18px; line-height: 20px; height: 20px; visibility: hidden; }
+   JoeyTV\mockups\tv-v2\08-density.html option B. Focus scale 1.08 since JY-259 (tv.js POSTER_GROW is pinned to it). */
+html.tv .seclabel, html.tv h2.seclabel { font-size: 1.125rem; line-height: 1.125rem; position: relative; z-index: 6; }
+html.tv .carousel { gap: 1.125rem; padding: .75rem var(--tv-mx) .5rem; }   /* JY-259: 14 -> 18 px gaps (B. point 3) */
+html.tv .carousel > * { flex: 0 0 5.75rem; width: 5.75rem; }   /* JY-259: 104 -> 92 px, 8 across in rows (B. point 3) */
+html.tv .card-poster .row-title { margin-top: .25rem; font-size: 1.125rem; line-height: 1.25rem; height: 1.25rem; }
+html.tv .card-poster .row-meta { font-size: 1.125rem; line-height: 1.25rem; height: 1.25rem; visibility: hidden; }
 html.tv .card-poster:focus-visible .row-meta, html.tv .card-poster.tv-focus .row-meta { visibility: visible; overflow: visible; text-overflow: clip; }
 html.tv .poster-grid.big .row-meta { visibility: visible; }
-html.tv .card-pic > img { border-radius: 8px; }
-html.tv .page:not(:has(> .pagehead)) { padding-top: 12px; }
+html.tv .card-pic > img { border-radius: .5rem; }
+html.tv .page:not(:has(> .pagehead)) { padding-top: .75rem; }
 /* ==== end JY-188 scale block ==== */
-html.tv .poster-tag { top: 6px; left: 6px; padding: 0 8px; border-radius: 999px; font-size: 18px; font-weight: 700; max-width: calc(100% - 12px); }
-html.tv .poster-score { top: 6px; right: 6px; padding: 0 6px; border-radius: 8px; font-size: 18px; }
+html.tv .poster-tag { top: .375rem; left: .375rem; padding: 0 .5rem; border-radius: 62.4375rem; font-size: 1.125rem; font-weight: 700; max-width: calc(100% - .75rem); }
+html.tv .poster-score { top: .375rem; right: .375rem; padding: 0 .375rem; border-radius: .5rem; font-size: 1.125rem; }
 
 /* Progress bar over the poster foot (WP-M): 5 px orange fill on a pale track, 10 px in from the edges. */
-html.tv .card-pic > .bar { position: absolute; left: 10px; right: 10px; bottom: 10px; height: 5px; margin: 0; z-index: 2; border-radius: 3px; background: var(--tv-bar-track); }
-html.tv .card-pic > .bar > span { border-radius: 3px; background: var(--tv-bar-fill); }
+html.tv .card-pic > .bar { position: absolute; left: .625rem; right: .625rem; bottom: .625rem; height: .3125rem; margin: 0; z-index: 2; border-radius: .1875rem; background: var(--tv-bar-track); }
+html.tv .card-pic > .bar > span { border-radius: .1875rem; background: var(--tv-bar-fill); }
 
 /* Library grid (Movies / TV shows): six columns, 22 / 16 px gaps; the search / filter chips / sort / layout toolbar, the
    list switch and the freshness lines are phone / desktop furniture (a remote cannot type), hidden here. */
@@ -127,16 +133,16 @@ html.tv .card-pic > .bar > span { border-radius: 3px; background: var(--tv-bar-f
    "Deal again" beside them in the same row so it needs no scroll. No 1.06 scale here: the body has no room, ring only.
    JY-250 (#9, 2026-10-25 TV session): 28 px gaps, not 40, so the row (3 x 200 + 3 x 28 + the 164 px button = 848 px,
    + the 7 px rings) fits the 864 px safe area; at 40 px it was 884 px and 4 items sat outside it. */
-html.tv .sec.tn { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: start; column-gap: 28px; }
+html.tv .sec.tn { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: start; column-gap: 1.75rem; }
 html.tv .sec.tn > .seclabel, html.tv .sec.tn > .empty { grid-column: 1 / -1; }
-html.tv .poster-grid.big { display: flex; justify-content: center; align-items: flex-start; gap: 28px; padding: 23px 0 0; }
-html.tv .poster-grid.big .card-poster { flex: 0 0 200px; width: 200px; }
+html.tv .poster-grid.big { display: flex; justify-content: center; align-items: flex-start; gap: 1.75rem; padding: 1.4375rem 0 0; }
+html.tv .poster-grid.big .card-poster { flex: 0 0 12.5rem; width: 12.5rem; }
 html.tv .poster-grid.big .card-poster:focus-visible, html.tv .poster-grid.big .card-poster.tv-focus { transform: none; }
-html.tv .poster-grid.big .row-title { font-size: 21px; line-height: 1.1; margin-top: 8px; }
+html.tv .poster-grid.big .row-title { font-size: 1.3125rem; line-height: 1.1; margin-top: .5rem; }
 html.tv .poster-grid.big .row-meta { line-height: 1.1; }
-html.tv .sec.tn > .tn-deal { margin-top: 137px; }
+html.tv .sec.tn > .tn-deal { margin-top: 8.5625rem; }
 
-html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px 14px; padding: 16px 0 8px; }   /* JY-188: 8 across */
+html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 1.125rem 1rem; padding: 1rem 0 .75rem; }   /* JY-259: 9 across, 18 / 16 px gaps (was JY-188 8 across, 8 / 14) */
 html.tv form.toolbar, html.tv main > p.metaline:last-child:not([role]),
 html.tv main > p.metaline:has(+ form.toolbar), html.tv main > p.metaline:has(+ p.metaline + form.toolbar) { display: none; }
 html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the year only, as in the mockup (the state words need the list view) */
@@ -148,124 +154,124 @@ html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the yea
 html.tv .pagehead:has(.sectabs.sub[aria-label="Discover"]) { display: none; }
 /* Discover search (JY-194, R2; tv-v2 shell 04-discover screen 1): the one toolbar shown on the TV, a full-width 56 px
    pill above the grid - magnifier, 21 px text, the 4 px ring when focused. tv.js keeps it read-only until OK. */
-html.tv form.toolbar.discover-search { display: block; margin: 6px 0 0; }
+html.tv form.toolbar.discover-search { display: block; margin: .375rem 0 0; }
 html.tv .discover-search .search { max-width: none; }
-html.tv .discover-search .search > svg.ic { left: 22px; width: 28px; height: 28px; color: var(--tv-t3); }
-html.tv .discover-search .input { height: 56px; padding: 0 22px 0 64px; border-radius: 28px; border: 1px solid var(--tv-line); background: var(--tv-surface-2); font-size: 21px; color: var(--tv-t1); }
+html.tv .discover-search .search > svg.ic { left: 1.375rem; width: 1.75rem; height: 1.75rem; color: var(--tv-t3); }
+html.tv .discover-search .input { height: 3.5rem; padding: 0 1.375rem 0 4rem; border-radius: 1.75rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); font-size: 1.3125rem; color: var(--tv-t1); }
 html.tv .discover-search .input::placeholder { color: var(--tv-t4); }
 html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
 html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
-html.tv .reqgrid .reqchip { z-index: 2; top: 6px; left: 6px; padding: 0 8px; font-size: 18px; font-weight: 700; line-height: 1.5; }
+html.tv .reqgrid .reqchip { z-index: 2; top: .375rem; left: .375rem; padding: 0 .5rem; font-size: 1.125rem; font-weight: 700; line-height: 1.5; }
 html.tv .reqgrid .reqchip-lib { background: rgba(52, 211, 153, .95); }
 html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: #fbbf24; }
 html.tv .reqgrid .reqchip-request { background: var(--tv-primary); color: #fff; }
 
 /* The request panel (mockup: 780 px card on #18181b, 150 px poster, 38 px title, a 3-line synopsis, 22 px status line,
    Request focused -> "Requested - waiting for approval" with Done focused). Back / Done / Esc close it (tv.js back()). */
-html.tv .reqdlg { width: 780px; padding: 28px 32px; border: 1px solid var(--tv-line); border-radius: 20px; background: #18181b; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
+html.tv .reqdlg { width: 48.75rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: 1.25rem; background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .reqdlg::backdrop { background: rgba(9, 9, 11, .82); }
-html.tv .reqpanel { grid-template-columns: 150px 1fr; gap: 28px; }
-html.tv .reqpanel-pic img { border-radius: 10px; }
-html.tv .reqpanel-title { font-size: 38px; line-height: 1.08; letter-spacing: -.01em; margin: 0; }
-html.tv .reqpanel .metaline { margin: 6px 0 0; font-size: 19px; color: var(--tv-t4); }
+html.tv .reqpanel { grid-template-columns: 9.375rem 1fr; gap: 1.75rem; }
+html.tv .reqpanel-pic img { border-radius: .625rem; }
+html.tv .reqpanel-title { font-size: 2.375rem; line-height: 1.08; letter-spacing: -.01em; margin: 0; }
+html.tv .reqpanel .metaline { margin: .375rem 0 0; font-size: 1.1875rem; color: var(--tv-t4); }
 html.tv .reqpanel-ov {
-  margin: 12px 0 0; font-size: 19px; line-height: 1.3; color: var(--tv-t3);
+  margin: .75rem 0 0; font-size: 1.1875rem; line-height: 1.3; color: var(--tv-t3);
   display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-html.tv .reqpanel .statusline { margin: 20px 0 0; font-size: 22px; font-weight: 600; }
+html.tv .reqpanel .statusline { margin: 1.25rem 0 0; font-size: 1.375rem; font-weight: 600; }
 html.tv .reqpanel .statusline.st-warn { color: var(--amber); }
-html.tv .reqpanel-btns { gap: 14px; margin-top: 20px; }
+html.tv .reqpanel-btns { gap: .875rem; margin-top: 1.25rem; }
 html.tv .reqpanel-btns .btn-white { background: var(--tv-primary); color: #fff; border-color: transparent; }
-html.tv .reqpanel-btns .btn-ghost { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
+html.tv .reqpanel-btns .btn-ghost { border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 
 /* Nothing under 18 px (JY-188 raised the WP-M 16 px floor; test_tv_css_text_floor_is_18px audits it). */
 html.tv small, html.tv .microlabel, html.tv .eyebrow, html.tv .metaline, html.tv .row-meta, html.tv .empty,
-html.tv .chip, html.tv .statusline, html.tv .facts-line, html.tv .tagline, html.tv .overview, html.tv .waitcount { font-size: 18px; }
+html.tv .chip, html.tv .statusline, html.tv .facts-line, html.tv .tagline, html.tv .overview, html.tv .waitcount { font-size: 1.125rem; }
 html.tv .label, html.tv .awpick-name, html.tv .awtile-name, html.tv .awtile-month, html.tv .awnext, html.tv .awnextup, html.tv .awnextup *,
-html.tv .awev, html.tv .awev *, html.tv .seg a { font-size: 18px; }
+html.tv .awev, html.tv .awev *, html.tv .seg a { font-size: 1.125rem; }
 
 /* JY-233: the hub tile's icon chip and title scale up for 10-foot viewing. */
-html.tv .tile-icon { width: 60px; height: 60px; border-radius: 14px; }
-html.tv .tile-icon svg.ic { width: 34px; height: 34px; }
-html.tv .tile-main .microlabel { font-size: 26px; }
+html.tv .tile-icon { width: 3.75rem; height: 3.75rem; border-radius: .875rem; }
+html.tv .tile-icon svg.ic { width: 2.125rem; height: 2.125rem; }
+html.tv .tile-main .microlabel { font-size: 1.625rem; }
 
 /* Buttons: 56 px targets. */
-html.tv .btn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600; }
-html.tv .btn-sm { min-height: 44px; padding: 0 18px; font-size: 18px; }
+html.tv .btn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600; }
+html.tv .btn-sm { min-height: 2.75rem; padding: 0 1.125rem; font-size: 1.125rem; }
 
 /* Title page (WP-M screen 4): 170 px poster beside title, facts, a 3-line synopsis, Play / Trailer / Watchlist and the
    1-10 chips. Everything else on the page (scores strip, tagline, status line, makers, file, cast ...) is hidden;
    a show keeps its Seasons list so its episodes stay reachable. */
 html.tv .pagehead.hero-detail { margin: 0 calc(-1 * var(--tv-mx)); min-height: 0; overflow: visible; }
-html.tv .pagehead.hero-detail:not(:has(.hero-detail-bd)) { background: radial-gradient(900px 420px at 80% 8%, hsl(215 55% 30% / .55), transparent 70%); }
+html.tv .pagehead.hero-detail:not(:has(.hero-detail-bd)) { background: radial-gradient(56.25rem 26.25rem at 80% 8%, hsl(215 55% 30% / .55), transparent 70%); }
 /* JY-188 (P1): a scrim over the title-page backdrop so the facts and synopsis never sit on the bare photo. */
 html.tv .hero-detail-bd { background-image: linear-gradient(90deg, rgba(9, 9, 11, .94), rgba(9, 9, 11, .8) 55%, rgba(9, 9, 11, .55)), linear-gradient(to bottom, transparent 60%, var(--bg)), var(--bd-pick); }
-html.tv .pagehead.hero-detail .pagehead-in { max-width: none; padding: 12px var(--tv-mx) 0; }
-html.tv .hero-detail-in { flex-direction: row; align-items: flex-start; gap: 32px; text-align: left; }
-html.tv .hero-detail-poster { width: 170px; max-width: none; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7); }
+html.tv .pagehead.hero-detail .pagehead-in { max-width: none; padding: .75rem var(--tv-mx) 0; }
+html.tv .hero-detail-in { flex-direction: row; align-items: flex-start; gap: 2rem; text-align: left; }
+html.tv .hero-detail-poster { width: 10.625rem; max-width: none; border-radius: .625rem; border: .0625rem solid rgba(255, 255, 255, .1); box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .hero-detail-text { align-items: flex-start; gap: 0; }
-html.tv .hero-detail .hero-detail-title { font-size: 44px; line-height: 1.08; letter-spacing: -.02em; }
+html.tv .hero-detail .hero-detail-title { font-size: 2.75rem; line-height: 1.08; letter-spacing: -.02em; }
 html.tv .hero-detail-text > .facts-line:not(.tv-facts), html.tv .hero-detail-text .tagline, html.tv .hero-detail-text .statusline,
 html.tv .hero-detail-text .makers, html.tv .hero-detail-text details.heromore, html.tv .hero-detail-text .upnote,
 html.tv .hero-detail-text .followform, html.tv .hero-detail-text #quality-block, html.tv .hero-detail-text .qualityblock,
 html.tv .hero-detail-text > .metaline:not([role]) { display: none; }
-html.tv .hero-detail-text .tv-facts { margin-top: 6px; font-size: 19px; color: var(--tv-t3); }
+html.tv .hero-detail-text .tv-facts { margin-top: .375rem; font-size: 1.1875rem; color: var(--tv-t3); }
 html.tv .hero-detail-text .tv-syn {
-  margin-top: 14px; max-width: 640px; font-size: 19px; line-height: 1.3; color: var(--tv-t2);
+  margin-top: .875rem; max-width: 40rem; font-size: 1.1875rem; line-height: 1.3; color: var(--tv-t2);
   display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
-html.tv .hero-detail-btns { gap: 14px; margin-top: 20px; justify-content: flex-start; }
+html.tv .hero-detail-btns { gap: 1.125rem; margin-top: 1.5rem; justify-content: flex-start; }
 html.tv .hero-detail-btns .btn-white { background: var(--tv-primary); color: #fff; border-color: transparent; }
 html.tv .hero-detail-btns .btn-glass, html.tv .hero-detail-btns .wlbtn .btn { border-color: var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .hero-detail-btns .wlbtn .btn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600; }
-html.tv .tv-rate { margin-top: 22px; }
-html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: 8px; }
-html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
-html.tv .tv-rate .ratepick .chip { width: 46px; height: 46px; justify-content: center; padding: 0; border-radius: 10px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 20px; font-weight: 600; color: var(--tv-t3); }
+html.tv .hero-detail-btns .wlbtn .btn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600; }
+html.tv .tv-rate { margin-top: 1.375rem; }
+html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: .5rem; }
+html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
+html.tv .tv-rate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: .625rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
 html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec), html.tv .fp-shelf-wait { display: none; }
 
 /* The Set up Jellyfin card (Q39; WP-M screen 9): a full-screen card over the Overview, the address at 34 px mono with its
    :port in gold and underlined, three numbered steps, Done focused. tv.js keeps the D-pad on it while it is up. */
 html.tv .setup-card {
   position: fixed; inset: 0; z-index: 100; margin: 0; background: var(--bg); padding: var(--tv-my) var(--tv-mx);
-  display: flex; flex-direction: column; justify-content: center; gap: 16px;
+  display: flex; flex-direction: column; justify-content: center; gap: 1rem;
 }
-html.tv .setup-card .seclabel { font-size: 38px; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; text-transform: none; color: var(--tv-t1); }
-html.tv .setup-card > p { margin: 0; font-size: 21px; color: var(--tv-t4); }
-html.tv .setup-steps { list-style: none; counter-reset: s; display: grid; gap: 8px; margin: 0; padding: 0; font-size: 21px; color: var(--tv-t3); }
-html.tv .setup-steps li { counter-increment: s; position: relative; padding-left: 46px; min-height: 36px; }
+html.tv .setup-card .seclabel { font-size: 2.375rem; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; text-transform: none; color: var(--tv-t1); }
+html.tv .setup-card > p { margin: 0; font-size: 1.3125rem; color: var(--tv-t4); }
+html.tv .setup-steps { list-style: none; counter-reset: s; display: grid; gap: .5rem; margin: 0; padding: 0; font-size: 1.3125rem; color: var(--tv-t3); }
+html.tv .setup-steps li { counter-increment: s; position: relative; padding-left: 2.875rem; min-height: 2.25rem; }
 html.tv .setup-steps li::before {
-  content: counter(s); position: absolute; left: 0; top: -1px; width: 32px; height: 32px; border-radius: 50%; background: var(--tv-surface-2); border: 1px solid var(--tv-line);
-  display: grid; place-items: center; font-size: 18px; font-weight: 600; color: var(--tv-t2);
+  content: counter(s); position: absolute; left: 0; top: -.0625rem; width: 2rem; height: 2rem; border-radius: 50%; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line);
+  display: grid; place-items: center; font-size: 1.125rem; font-weight: 600; color: var(--tv-t2);
 }
 html.tv .setup-steps li b { color: var(--tv-t1); font-weight: 600; }
 html.tv .setup-addr {
-  display: block; width: fit-content; max-width: 100%; margin: 8px 0 6px; padding: 18px 22px; border-radius: 14px; background: var(--tv-surface-2); border: 1px solid var(--tv-line);
-  font-family: var(--font-mono); font-size: 34px; font-weight: 600; letter-spacing: -.01em; color: var(--tv-t1); white-space: nowrap;
+  display: block; width: fit-content; max-width: 100%; margin: .5rem 0 .375rem; padding: 1.125rem 1.375rem; border-radius: .875rem; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line);
+  font-family: var(--font-mono); font-size: 2.125rem; font-weight: 600; letter-spacing: -.01em; color: var(--tv-t1); white-space: nowrap;
 }
-html.tv .setup-addr em { font-style: normal; color: var(--tv-gold); text-decoration: underline; text-underline-offset: 6px; }
+html.tv .setup-addr em { font-style: normal; color: var(--tv-gold); text-decoration: underline; text-underline-offset: .375rem; }
 
 /* Sign-in (Q33: the TV signs in on the web page): the WP-M screen 1 layout inside the overscan. */
-html.tv .signin { max-width: none; min-height: 100vh; padding: var(--tv-my) var(--tv-mx); grid-template-columns: 300px 1fr; gap: 40px; align-items: center; }
-html.tv .signin-brand img { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 18px; }
-html.tv .signin-brand h1 { font-size: 42px; line-height: 1.1; letter-spacing: -.02em; margin: 0 0 10px; }
-html.tv .signin-brand .metaline { font-size: 21px; color: var(--tv-t4); }
-html.tv .signin-panel { padding: 28px 32px; border-radius: 20px; background: var(--tv-surface); border: 1px solid var(--tv-border); }
+html.tv .signin { max-width: none; min-height: 100vh; padding: var(--tv-my) var(--tv-mx); grid-template-columns: 18.75rem 1fr; gap: 2.5rem; align-items: center; }
+html.tv .signin-brand img { width: 5.25rem; height: 5.25rem; border-radius: 1.25rem; margin-bottom: 1.125rem; }
+html.tv .signin-brand h1 { font-size: 2.625rem; line-height: 1.1; letter-spacing: -.02em; margin: 0 0 .625rem; }
+html.tv .signin-brand .metaline { font-size: 1.3125rem; color: var(--tv-t4); }
+html.tv .signin-panel { padding: 1.75rem 2rem; border-radius: 1.25rem; background: var(--tv-surface); border: .0625rem solid var(--tv-border); }
 html.tv .signin-panel .seclabel { margin: 0; }
-html.tv .qc-code { font-family: var(--font-mono); font-size: 92px; line-height: 1.05; font-weight: 700; letter-spacing: .06em; margin: 10px 0 14px; font-variant-numeric: tabular-nums; }
-html.tv .signin-panel #qc > p:not(.seclabel, .qc-code, #qc-status) { margin: 0; font-size: 21px; color: var(--tv-t3); }
-html.tv .signin-panel #qc-status { display: flex; align-items: center; gap: 8px; margin: 26px 0 0; font-size: 18px; color: var(--tv-t4); }
-html.tv .signin-panel #qc-status::before { content: ""; flex: none; width: 10px; height: 10px; margin-right: 0; border-radius: 50%; background: var(--tv-gold); animation: tv-pulse 1.6s ease-in-out infinite; }
-html.tv .signin-panel #qc form { margin-top: 24px; }
-html.tv .signin-panel details { margin-top: 22px; }
-html.tv .signin-panel summary { display: inline-block; list-style: none; padding: 6px 16px; border-radius: 10px; font-size: 21px; color: var(--tv-t3); text-decoration: underline; text-underline-offset: 5px; text-decoration-color: #52525b; }
+html.tv .qc-code { font-family: var(--font-mono); font-size: 5.75rem; line-height: 1.05; font-weight: 700; letter-spacing: .06em; margin: .625rem 0 .875rem; font-variant-numeric: tabular-nums; }
+html.tv .signin-panel #qc > p:not(.seclabel, .qc-code, #qc-status) { margin: 0; font-size: 1.3125rem; color: var(--tv-t3); }
+html.tv .signin-panel #qc-status { display: flex; align-items: center; gap: .5rem; margin: 1.625rem 0 0; font-size: 1.125rem; color: var(--tv-t4); }
+html.tv .signin-panel #qc-status::before { content: ""; flex: none; width: .625rem; height: .625rem; margin-right: 0; border-radius: 50%; background: var(--tv-gold); animation: tv-pulse 1.6s ease-in-out infinite; }
+html.tv .signin-panel #qc form { margin-top: 1.5rem; }
+html.tv .signin-panel details { margin-top: 1.375rem; }
+html.tv .signin-panel summary { display: inline-block; list-style: none; padding: .375rem 1rem; border-radius: .625rem; font-size: 1.3125rem; color: var(--tv-t3); text-decoration: underline; text-underline-offset: .3125rem; text-decoration-color: #52525b; }
 html.tv .signin-panel summary::-webkit-details-marker { display: none; }
-html.tv .signin-form { gap: 12px; margin-top: 16px; }
-html.tv .signin-form input { padding: 10px 14px; font-size: 21px; }
-html.tv .signin-error { font-size: 18px; }
+html.tv .signin-form { gap: .75rem; margin-top: 1rem; }
+html.tv .signin-form input { padding: .625rem .875rem; font-size: 1.3125rem; }
+html.tv .signin-error { font-size: 1.125rem; }
 @keyframes tv-pulse { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { html.tv .signin-panel #qc-status::before { animation: none; } html.tv .card-poster { transition: none; } }
-html.tv .signin-panel #qc .btn { background: var(--tv-surface-2); border: 1px solid var(--tv-line); color: var(--tv-t2); }
+html.tv .signin-panel #qc .btn { background: var(--tv-surface-2); border: .0625rem solid var(--tv-line); color: var(--tv-t2); }
 
 /* JY-188 (R4/Y3): the " . " separators were 2.57:1; they take the secondary grey. */
 html.tv .sep, html.tv .row-meta .sep, html.tv .metaline .sep, html.tv .facts-line .sep { color: var(--tv-t4); }
@@ -276,10 +282,10 @@ html.tv .signin-panel:has(details[open]) details { margin-top: 0; }
 
 /* JY-188 (F1): the 404 page in TV mode - a centred message and one 56 px back button. JY-250 (#7): the section is also
    .narrow (32rem), which held it left of centre; on the TV it spans the safe area. */
-html.tv .sec.nf { max-width: none; min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 14px; }
-html.tv .sec.nf .seclabel { font-size: 38px; line-height: 1.1; font-weight: 700; text-transform: none; color: var(--tv-t1); }
-html.tv .sec.nf .empty { font-size: 24px; color: var(--tv-t3); margin: 0; }
-html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 56px; padding: 0 28px; border-radius: 12px; border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 21px; font-weight: 600; text-decoration: none; margin-top: 10px; }
+html.tv .sec.nf { max-width: none; min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .875rem; }
+html.tv .sec.nf .seclabel { font-size: 2.375rem; line-height: 1.1; font-weight: 700; text-transform: none; color: var(--tv-t1); }
+html.tv .sec.nf .empty { font-size: 1.5rem; color: var(--tv-t3); margin: 0; }
+html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 1.3125rem; font-weight: 600; text-decoration: none; margin-top: .625rem; }
 
 /* ---- U6 (JY-192, 2026-10-25): series and episodes (findings S1, X1-X3; tv-v2 shell 01-title screens 2-3) ----
    Seasons shelf (2:3 cards, "2 of 6 watched", a bar) and Episodes shelf (16:9 stills from /img, a word chip on the
@@ -287,76 +293,76 @@ html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height
    tv.js); the part-of banner is redundant beside the shelves. The rating is one Rate button whose strip (#tv-rate)
    stays hidden until it is pressed (Gate 1 pick 1B). Rebase note: sits after JY-188's density rules on purpose. */
 html.tv .crumbs, html.tv .partof-sec { display: none; }
-html.tv .tvshelf { margin-top: 18px; }
-html.tv .tvshelf-hd { display: flex; align-items: baseline; gap: 18px; }
-html.tv .tvshelf-hd .metaline { margin: 0; font-size: 18px; color: var(--tv-t4); }
+html.tv .tvshelf { margin-top: 1.125rem; }
+html.tv .tvshelf-hd { display: flex; align-items: baseline; gap: 1.125rem; }
+html.tv .tvshelf-hd .metaline { margin: 0; font-size: 1.125rem; color: var(--tv-t4); }
 /* JY-188 shows a card caption only on focus; on these shelves the caption is the state ("2 of 6 watched", "This
    season", runtime, "23m left"), so it is always shown */
-html.tv .tvshelf .card-poster .row-meta { font-size: 18px; visibility: visible; }
-html.tv .tv-seasons .card-poster.is-here .card-pic > img { box-shadow: 0 0 0 2px var(--tv-gold); }
+html.tv .tvshelf .card-poster .row-meta { font-size: 1.125rem; visibility: visible; }
+html.tv .tv-seasons .card-poster.is-here .card-pic > img { box-shadow: 0 0 0 .125rem var(--tv-gold); }
 html.tv .tv-seasons .st-current { color: var(--tv-gold); }
-html.tv .tv-eps .carousel > * { flex: 0 0 236px; width: 236px; }
-html.tv .tv-eps .card-pic > img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; }
+html.tv .tv-eps .carousel > * { flex: 0 0 14.75rem; width: 14.75rem; }
+html.tv .tv-eps .card-pic > img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: .625rem; }
 html.tv .ep-chip {
-  position: absolute; top: 8px; left: 8px; z-index: 2; padding: 1px 10px; border-radius: 999px;
-  font-size: 18px; font-weight: 700; line-height: 1.4; background: var(--poster-badge-bg); color: var(--tv-t1);
+  position: absolute; top: .5rem; left: .5rem; z-index: 2; padding: .0625rem .625rem; border-radius: 62.4375rem;
+  font-size: 1.125rem; font-weight: 700; line-height: 1.4; background: var(--poster-badge-bg); color: var(--tv-t1);
 }
 html.tv .ep-chip.ep-watched { background: var(--good); color: var(--zinc-950); }
 html.tv .ep-chip.ep-next, html.tv .ep-chip.ep-this-one { background: var(--teal-chip); color: var(--zinc-950); }
 html.tv .ep-chip.ep-in-progress { background: var(--tv-bar-fill); color: var(--zinc-950); }
-html.tv .ep-chip.ep-not-aired { background: var(--tv-surface-2); color: var(--tv-t3); border: 1px solid var(--tv-line); }
+html.tv .ep-chip.ep-not-aired { background: var(--tv-surface-2); color: var(--tv-t3); border: .0625rem solid var(--tv-line); }
 html.tv .hero-detail-in > .tv-epstill {
-  flex: 0 0 auto; width: 420px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .7);
+  flex: 0 0 auto; width: 26.25rem; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .75rem;
+  border: .0625rem solid rgba(255, 255, 255, .1); box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7);
 }
-html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 6px; font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 .375rem; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
 /* JY-250 (#13): the season page's "Season N of M" (.epeyebrow, 12 px off the TV) takes the same TV eyebrow look */
-html.tv .epeyebrow { font-size: 18px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+html.tv .epeyebrow { font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
 html.tv .epeyebrow .sep { color: var(--tv-t4); }
 html.tv .hero-detail-btns .wtoggle { display: contents; }
-html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 56px; padding: 0 28px; border-radius: 12px; font-size: 21px; font-weight: 600;
-  border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
-html.tv .tv-ratebtn svg.ic { width: 24px; height: 24px; }
+html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600;
+  border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
+html.tv .tv-ratebtn svg.ic { width: 1.5rem; height: 1.5rem; }
 html.tv .tv-rate[hidden] { display: none; }
 
 /* JY-195 (U9, 2026-10-25) - Home shelves (pick 4A) and the words-first empty states (E1/E2/Y4).
    The welcome line for a brand-new friend sits above the shelves. The empty state (_empty_state.html bigempty) is
    centred in the space under the bar and the sub-tabs: a 64 px line icon, a 30 px heading, one 21 px line, one 56 px
    button. No border, no grey box. U10 (JY-196) lands after this block. */
-html.tv .welcome { margin: 6px 0 2px; font-size: 24px; line-height: 32px; font-weight: 600; color: var(--tv-t1); letter-spacing: -.01em; }
+html.tv .welcome { margin: .375rem 0 .125rem; font-size: 1.5rem; line-height: 2rem; font-weight: 600; color: var(--tv-t1); letter-spacing: -.01em; }
 html.tv .welcome span { font-weight: 400; color: var(--tv-t3); }
-html.tv .bigempty { min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my) - 120px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; }
-html.tv .bigempty svg.ic { width: 64px; height: 64px; stroke-width: 1.6; color: var(--tv-t4); margin-bottom: 4px; }
-html.tv .bigempty-h { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1); }
-html.tv .bigempty-p { margin: 0; max-width: 620px; font-size: 21px; color: var(--tv-t3); }
-html.tv .bigempty .btn { margin-top: 14px; background: var(--tv-primary); color: #fff; border-color: transparent; }
+html.tv .bigempty { min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my) - 7.5rem); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .75rem; }
+html.tv .bigempty svg.ic { width: 4rem; height: 4rem; stroke-width: 1.6; color: var(--tv-t4); margin-bottom: .25rem; }
+html.tv .bigempty-h { margin: 0; font-size: 1.875rem; line-height: 1.15; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1); }
+html.tv .bigempty-p { margin: 0; max-width: 38.75rem; font-size: 1.3125rem; color: var(--tv-t3); }
+html.tv .bigempty .btn { margin-top: .875rem; background: var(--tv-primary); color: #fff; border-color: transparent; }
 
 /* ==== JY-196 (U10, 2026-10-25) - B.'s Gate 1 "3B · 5A" ====
    3B Awards TV view (_award_tv.html; JoeyTV\mockups\tv-v2\02-library.html Awards B): ceremony chips that wrap inside the
    safe area, the edition line, density-B poster shelves with a gold "N wins" chip and On Joey / Not on Joey always shown.
    5A slim Diary (media_diary.html; 05-diary.html A): the month card as one row, 44 px All / Films / TV chips, and the 1-10
    strip folded under "OK to rate" (a <details>; tv.js focuses its summary, OK opens it). */
-html.tv .awtv-cer { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0 0; }
-html.tv .awtv-cer .chip { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 18px; color: var(--tv-t3); }
+html.tv .awtv-cer { display: flex; flex-wrap: wrap; gap: .5rem; padding: .625rem 0 0; }
+html.tv .awtv-cer .chip { height: 2.25rem; padding: 0 .875rem; border-radius: 62.4375rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .awtv-cer .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
-html.tv .awtv-ed { margin: 8px 0 4px; color: var(--tv-t4); }
-html.tv .awtv-shelf { margin-top: 10px; }
+html.tv .awtv-ed { margin: .5rem 0 .25rem; color: var(--tv-t4); }
+html.tv .awtv-shelf { margin-top: .625rem; }
 html.tv .awtv-shelf .card-poster .row-meta { visibility: visible; color: var(--tv-t4); }
 html.tv .awtv-shelf .card-poster .row-meta.st-good { color: var(--good); }
-html.tv .awwin { position: absolute; top: 6px; left: 6px; z-index: 2; padding: 0 8px; border-radius: 999px; background: var(--tv-gold); color: #1a1200; font-size: 18px; font-weight: 700; line-height: 1.4; white-space: nowrap; }
-html.tv .tvmonth { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 6px 28px; margin: 10px 0 0; padding: 12px 22px; border: 1px solid var(--tv-line); border-radius: 16px; background: var(--tv-surface); }
+html.tv .awwin { position: absolute; top: .375rem; left: .375rem; z-index: 2; padding: 0 .5rem; border-radius: 62.4375rem; background: var(--tv-gold); color: #1a1200; font-size: 1.125rem; font-weight: 700; line-height: 1.4; white-space: nowrap; }
+html.tv .tvmonth { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: .375rem 1.75rem; margin: .625rem 0 0; padding: .75rem 1.375rem; border: .0625rem solid var(--tv-line); border-radius: 1rem; background: var(--tv-surface); }
 html.tv .tvmonth .seclabel { margin: 0; color: var(--tv-t4); }
-html.tv .tvmonth-n { font-size: 18px; color: var(--tv-t4); }
-html.tv .tvmonth-n b { font-size: 30px; font-weight: 700; color: var(--tv-t1); margin-right: 4px; }
-html.tv .diarychips { gap: 10px; }
-html.tv .diarychips .chip { height: 44px; padding: 0 22px; border-radius: 999px; font-size: 20px; }
-html.tv .tvrate { flex: 0 0 auto; margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html.tv .tvmonth-n { font-size: 1.125rem; color: var(--tv-t4); }
+html.tv .tvmonth-n b { font-size: 1.875rem; font-weight: 700; color: var(--tv-t1); margin-right: .25rem; }
+html.tv .diarychips { gap: .625rem; }
+html.tv .diarychips .chip { height: 2.75rem; padding: 0 1.375rem; border-radius: 62.4375rem; font-size: 1.25rem; }
+html.tv .tvrate { flex: 0 0 auto; margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 html.tv .tvrate[open] { flex: 0 0 100%; margin-left: 0; }
-html.tv .tvrate > summary { list-style: none; min-height: 44px; padding: 0 18px; font-size: 18px; color: var(--tv-t2); }
+html.tv .tvrate > summary { list-style: none; min-height: 2.75rem; padding: 0 1.125rem; font-size: 1.125rem; color: var(--tv-t2); }
 html.tv .tvrate > summary::-webkit-details-marker { display: none; }
-html.tv .tvrate .ratepick { gap: 8px; padding-left: 0; }
-html.tv .tvrate .ratepick .chip { width: 46px; height: 46px; justify-content: center; padding: 0; border-radius: 10px; border: 1px solid var(--tv-line); background: var(--tv-surface); font-size: 20px; font-weight: 600; color: var(--tv-t3); }
-html.tv .tvrate .skipacts { display: flex; gap: 8px; }
+html.tv .tvrate .ratepick { gap: .5rem; padding-left: 0; }
+html.tv .tvrate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: .625rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
+html.tv .tvrate .skipacts { display: flex; gap: .5rem; }
 /* ==== end JY-196 block ==== */
 
 /* ==== JY-193 (U7; P2 / D1 / N1, Gate 1 pick 2A, 2026-10-25): title shelves, the TMDB request page, the person page ====
@@ -365,21 +371,21 @@ html.tv .tvrate .skipacts { display: flex; gap: 8px; }
    is a request page - 220 px poster, title, facts, synopsis, the note, Request (focused, data-first) and Back; the
    Trailer / Watchlist / Rate controls and everything below the hero step aside. Person page: a compact head (120 px
    headshot, 2-line bio) so the head and the "On server" shelf fit one screen. */
-html.tv .tv-reqpage .hero-detail-poster { width: 220px; }
-html.tv .tv-reqpage .hero-detail-text .tv-facts { font-size: 20px; }
-html.tv .tv-reqpage .hero-detail-text .tv-syn { max-width: 600px; font-size: 21px; }
-html.tv .tv-reqpage .tv-reqnote { margin-top: 6px; max-width: 600px; font-size: 21px; line-height: 1.3; color: var(--tv-t2); }
+html.tv .tv-reqpage .hero-detail-poster { width: 13.75rem; }
+html.tv .tv-reqpage .hero-detail-text .tv-facts { font-size: 1.25rem; }
+html.tv .tv-reqpage .hero-detail-text .tv-syn { max-width: 37.5rem; font-size: 1.3125rem; }
+html.tv .tv-reqpage .tv-reqnote { margin-top: .375rem; max-width: 37.5rem; font-size: 1.3125rem; line-height: 1.3; color: var(--tv-t2); }
 html.tv .tv-reqpage .trailer-btn, html.tv .tv-reqpage .wlbtn, html.tv .tv-reqpage .tv-ratebtn, html.tv .tv-reqpage .tv-rate,
 html.tv .page:has(> .tv-reqpage) > :not(.pagehead) { display: none; }
-html.tv .tv-reqpage .hero-detail-text .requestblock .statusline { display: block; flex: 1 0 100%; margin: 0; font-size: 22px; font-weight: 600; }
-html.tv .tv-reqpage .hero-detail-btns .tv-back { border: 1px solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .personhead { flex-direction: row; align-items: flex-start; gap: 28px; margin-top: 8px; }
-html.tv .personpic { width: 120px; height: 120px; }
-html.tv .personpic.initials { font-size: 40px; }
-html.tv .personhead .hero-detail-title { font-size: 44px; line-height: 1.08; letter-spacing: -.02em; }
-html.tv .personhead .facts-line { margin-top: 6px; font-size: 19px; color: var(--tv-t3); }
+html.tv .tv-reqpage .hero-detail-text .requestblock .statusline { display: block; flex: 1 0 100%; margin: 0; font-size: 1.375rem; font-weight: 600; }
+html.tv .tv-reqpage .hero-detail-btns .tv-back { border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tv .personhead { flex-direction: row; align-items: flex-start; gap: 1.75rem; margin-top: .5rem; }
+html.tv .personpic { width: 7.5rem; height: 7.5rem; }
+html.tv .personpic.initials { font-size: 2.5rem; }
+html.tv .personhead .hero-detail-title { font-size: 2.75rem; line-height: 1.08; letter-spacing: -.02em; }
+html.tv .personhead .facts-line { margin-top: .375rem; font-size: 1.1875rem; color: var(--tv-t3); }
 html.tv .personhead .overview {
-  margin-top: 10px; max-width: 640px; font-size: 19px; line-height: 1.3; color: var(--tv-t2);
+  margin-top: .625rem; max-width: 40rem; font-size: 1.1875rem; line-height: 1.3; color: var(--tv-t2);
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 html.tv .personhead .biomore { display: none; }
@@ -392,14 +398,60 @@ html.tv .personhead .biomore { display: none; }
    JY-188: the season status words are 18 px (RQ2 had 16). */
 html.tv .reqdlg { max-height: calc(100vh - 2 * var(--tv-my)); overflow-y: auto; }
 html.tv .reqpanel:has(.seasonpick) .reqpanel-ov { -webkit-line-clamp: 2; line-clamp: 2; }
-html.tv .reqpanel-form { gap: 12px; margin-top: 16px; }
-html.tv .reqpanel-form .reqpanel-btns { margin-top: 4px; }
-html.tv .reqpanel .seasonpick { flex-direction: row; flex-wrap: wrap; gap: 8px 10px; max-height: 112px; overflow-y: auto; padding: 8px; margin: -8px; }
+html.tv .reqpanel-form { gap: .75rem; margin-top: 1rem; }
+html.tv .reqpanel-form .reqpanel-btns { margin-top: .25rem; }
+html.tv .reqpanel .seasonpick { flex-direction: row; flex-wrap: wrap; gap: .5rem .625rem; max-height: 7rem; overflow-y: auto; padding: .5rem; margin: -.5rem; }
 html.tv .reqpanel .seasonall, html.tv .reqpanel .seasonpick label {
-  width: fit-content; min-height: 40px; padding: 0 12px; border: 1px solid var(--tv-line); border-radius: 10px;
-  background: var(--tv-surface); font-size: 18px; color: var(--tv-t2);
+  width: fit-content; min-height: 2.5rem; padding: 0 .75rem; border: .0625rem solid var(--tv-line); border-radius: .625rem;
+  background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t2);
 }
-html.tv .reqpanel .seasonpick .metaline { margin: 0; font-size: 18px; }
-html.tv .qualitypick .chip { height: 40px; padding: 0 16px; border-radius: 10px; font-size: 18px; }
-html.tv label:has(> input.tv-focus), html.tv label:has(> input:focus-visible) { outline: 4px solid var(--tv-ring); outline-offset: 3px; }
+html.tv .reqpanel .seasonpick .metaline { margin: 0; font-size: 1.125rem; }
+html.tv .qualitypick .chip { height: 2.5rem; padding: 0 1rem; border-radius: .625rem; font-size: 1.125rem; }
+html.tv label:has(> input.tv-focus), html.tv label:has(> input:focus-visible) { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; }
 html.tv label > input.tv-focus, html.tv label > input:focus-visible { outline: none; }
+
+/* ==== JY-259 phase 1 (2026-10-28; B.'s pick "A · 1A · 2A · 3A · 4A · 5A · 6A · 7A · 8A") - the tile kit and Home ====
+   Spec: docs/specs/JY-259-tv-revamp.md. Sizes in 960x540 CSS px (x2 on the TCL); all rem, so they scale (top of file).
+   Tiles (_tv_tile.html): 2:3 poster 92 px (8 across + a peek), 16:9 land 158 x 89 px (5 across), person circle, request
+   band, collection stack; 18 px gaps. Focus lift: 1.08 (1.05 on a 16:9 tile), 160 ms, a soft shadow, and the 4 px ring
+   kept. Row labels: 20 px sentence case, no count, the focused row's label brightest. Home: a fixed backdrop under a
+   gradient scrim (hub/tv_home.py picks the image), a static hero (title, facts), then the rows with 22 px between them. */
+html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { box-shadow: 0 .75rem 1.5rem rgba(0, 0, 0, .55); }
+html.tv .seclabel, html.tv h2.seclabel { font-size: 1.25rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tv-t3); }
+html.tv .sec:has(.tv-focus) .seclabel { color: var(--tv-t1); }
+html.tv .tvt .card-pic { display: block; position: relative; overflow: visible; border: 0; background: var(--tv-surface-2); border-radius: .5rem; }
+html.tv .tvt .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: .5rem; border: 0; }
+html.tv .tvt .row-title { margin-top: .625rem; color: var(--tv-t2); }   /* clears the ring (3 + 4 px) and the lift */
+html.tv .carousel.tvt-row-land > * { flex: 0 0 9.875rem; width: 9.875rem; }
+html.tv .tvt-land .card-pic > img { aspect-ratio: 16 / 9; }
+html.tv .tvt-land .row-meta { visibility: visible; color: var(--tv-t4); }
+html.tv .card-poster.tvt-land:focus-visible, html.tv .card-poster.tvt-land.tv-focus { transform: scale(1.05); }
+html.tv .tvt-person .card-pic, html.tv .tvt-person .card-pic > img { width: 5rem; height: 5rem; aspect-ratio: 1; margin: 0 auto; border-radius: 50%; }
+html.tv .tvt-person .row-title, html.tv .tvt-person .row-meta { text-align: center; }
+html.tv .tvt-band { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: .125rem .375rem; border-radius: 0 0 .5rem .5rem;
+  font-size: 1.125rem; font-weight: 600; line-height: 1.375rem; text-align: center; color: var(--zinc-950); background: var(--tv-primary); }
+html.tv .tvt-band-request { color: #fff; }
+html.tv .tvt-band-lib { background: var(--good); }
+html.tv .tvt-band-requested { background: #fbbf24; }
+html.tv .tvt-stack { box-shadow: .25rem -.25rem 0 -.0625rem #3f3f46, .5rem -.5rem 0 -.125rem #27272a; }
+
+/* Home: the backdrop (B.'s point 2) sits fixed behind the page; the scrim darkens it most at the left (the hero words)
+   and towards the foot (the rows), so tiles read against it. A missing backdrop falls back to the blurred poster. */
+html.tv .tv-bd { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg); }
+html.tv .tv-bd > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 20%; opacity: .85; }
+html.tv .tv-bd.is-blur > img { filter: blur(1.5rem) brightness(.6); transform: scale(1.15); opacity: .7; }
+html.tv .tv-bd::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .62) 45%, rgba(9, 9, 11, .3) 100%),
+              linear-gradient(to bottom, rgba(9, 9, 11, .2) 0%, rgba(9, 9, 11, .5) 40%, rgba(9, 9, 11, .94) 75%);
+}
+html.tv body:has(.tv-bd) .topbar { background: rgba(9, 9, 11, .8); }
+html.tv body:has(.tv-bd) .page { position: relative; z-index: 1; }
+html.tv .tv-hero { margin: 0; padding: 1.25rem 0 .25rem; max-width: 36rem; }
+html.tv .tv-hero p { margin: 0; }
+html.tv .tv-hero-eyebrow { font-size: 1.125rem; font-weight: 600; color: var(--tv-t3); }
+html.tv .tv-hero-title { margin-top: .25rem !important; font-size: 2.25rem; line-height: 1.1; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.tv .tv-hero-facts { margin-top: .5rem !important; font-size: 1.125rem; color: var(--tv-t2); }
+html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: 1.375rem; }
+/* ==== end JY-259 phase 1 ==== */

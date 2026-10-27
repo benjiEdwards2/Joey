@@ -13,10 +13,11 @@ from hub.registry import load_registry
 from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_registry
 from tests.hub.test_hub_page import SAMPLE_DATA, cards_of, hub  # noqa: F401  (fixture: hub(view=..., **data))
 from tests.hub.test_first_screens_e3 import rules
+from tests.hub.tv_css import design_px
 
 HUB = Path(__file__).resolve().parents[2] / "hub"
 CSS = (HUB / "static" / "control-surface.css").read_text(encoding="utf-8")
-TV_CSS = (HUB / "static" / "tv.css").read_text(encoding="utf-8")
+TV_CSS = design_px((HUB / "static" / "tv.css").read_text(encoding="utf-8"))
 
 
 # 1. The registry ----------------------------------------------------------------------------------------------------

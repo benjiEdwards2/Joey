@@ -53,6 +53,10 @@
 </p>
 {% endif %}
 
+{% import "_tv_tile.html" as tvt %}
+{% if sh.tv %}{# JY-259 (P1): the friends' TV Home - backdrop, static hero, then the tile-kit rows (hub/tv_home.py) #}
+{{ tvt.backdrop(sh.tv.hero) }}{{ tvt.hero(sh.tv.hero) }}
+{% endif %}
 {% if sh.welcome %}
 {# JY-195: a brand-new friend (nothing to continue, nothing watched) - one line above the shelves (pick 4A). #}
 <p class="welcome">Welcome, {{ identity(request).name }} <span>— here’s what’s on Joey</span></p>
@@ -61,6 +65,10 @@
 {% from "_empty_state.html" import bigempty %}
 {{ bigempty("film", "Nothing on Joey yet", "New films and shows show up here as they arrive", "/media/discover", "Discover") }}
 {% endif %}
+{% if sh.tv %}
+{% for s in sh.tv.rows %}{{ tvt.row(s) }}
+{% endfor %}
+{% else %}
 {% for s in sh.shelves %}
 {# JY-105: a shelf marked tv_later (Because you rated ...) is a normal row on the TV but never takes first focus (tv.js) #}
 <section class="sec"{% if s.tv_later %} data-tv-later{% endif %}>
@@ -87,4 +95,5 @@
   {% endif %}
 </section>
 {% endfor %}
+{% endif %}
 {% endblock %}

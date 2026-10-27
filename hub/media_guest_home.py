@@ -22,7 +22,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from hub import guest_auth, media_because, media_home, media_item, media_library, media_text, upstream
+from hub import guest_auth, media_because, media_front, media_home, media_item, media_library, media_text, tv_home, upstream
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
 log = logging.getLogger("hub.media_guest_home")
@@ -211,6 +211,8 @@ def build(request, snaps, view: str) -> dict:
                {"id": "watched", "title": "Recently watched", "see_all_href": media_home.DIARY_DETAIL,
                 "items": watched or [], "quiet_text": None}]
     shelves = [s for s in shelves if s["items"]]   # JY-195: an empty shelf is left out (no grey box)
+    # JY-259 (P1): the TV Home's hero + rows, from what was read above and the caches (hub/tv_home.py); TV mode only
+    tv = tv_home.build(shelves, resume, watched, added, jelly) if media_front.tv_mode(request) else None
     ratings = media_home._ratings(view, *(s["items"] for s in shelves))   # ONE query; the viewer's own ratings
     for s in shelves:
         for it in s["items"]:
@@ -218,4 +220,5 @@ def build(request, snaps, view: str) -> dict:
             for k in media_home.LEVEL_KEYS:
                 it.pop(k, None)
     return {"hero": None, "kind_word": None, "shelves": shelves, "waiting": {}, "open_href": None, "freshness": None,
-            "welcome": resume == [] and watched == []}   # JY-195: a brand-new friend (both own reads answered, empty)
+            "welcome": resume == [] and watched == [],   # JY-195: a brand-new friend (both own reads answered, empty)
+            "tv": tv}

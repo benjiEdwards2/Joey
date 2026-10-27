@@ -17,6 +17,7 @@ from hub import guest
 from tests.hub.fake_jellyfin import FRIEND_ID
 from tests.hub.fake_seerr import FakeSeerr, res
 from tests.hub.guest_pages import TV_UA, guest_client, sign_in
+from tests.hub.tv_css import design_px
 
 
 @pytest.fixture()
@@ -96,7 +97,7 @@ def test_tv_token_is_the_frozen_substring():
 # ---- the look (WP-B3 follow-on): tv.css is the WP-M mockup; none of it leaks into the shared sheet ----
 
 def test_tv_css_has_no_hover_rule_and_keeps_the_floor(gc):
-    css = re.sub(r"/\*.*?\*/", "", gc.get("/static/tv.css").text, flags=re.S)       # rules, not comments
+    css = re.sub(r"/\*.*?\*/", "", design_px(gc.get("/static/tv.css").text), flags=re.S)       # rules, not comments
     assert ":hover" not in css, "WP-M spec: no hover states anywhere in the TV UI"
     assert "(hover" not in css
     sizes = [float(x) for x in re.findall(r"font-size:\s*([\d.]+)px", css)]
@@ -151,9 +152,10 @@ def test_tv_discover_is_the_eight_column_grid_with_chips_and_the_panel(monkeypat
         assert '<dialog id="req-dialog"' in tv and "data-req-open" in tv
         inline = "".join(re.findall(r"<style>(.*?)</style>", tv, flags=re.S))
         assert "html.tv" not in inline and ":hover" not in inline          # the TV look lives in tv.css only
-        css = re.sub(r"/\*.*?\*/", "", c.get("/static/tv.css").text, flags=re.S)
+        css = re.sub(r"/\*.*?\*/", "", design_px(c.get("/static/tv.css").text), flags=re.S)
         # JY-188 (2026-10-25, B.: "JY-186: scale B, chrome on"): six columns became eight (docs/specs/JY-188-tv-scale-b.md)
-        assert re.search(r"\.poster-grid\.reqgrid \{ grid-template-columns: repeat\(8, minmax\(0, 1fr\)\)", css)
+        # JY-259 (2026-10-28, B.: "a little smaller ... allow a little more spacing"): eight became nine (docs/specs/JY-259-tv-revamp.md)
+        assert re.search(r"\.poster-grid\.reqgrid \{ grid-template-columns: repeat\(9, minmax\(0, 1fr\)\)", css)
         assert ".reqdlg" in css and ".reqchip" in css and ":hover" not in css
         # the answer keeps the poster / title / overview and says it is waiting (screen 10: Done focused)
         done = c.post("/media/title/movie/701/request", content="panel=1", headers={
@@ -167,15 +169,16 @@ def test_focus_growth_and_ring_stay_inside_the_overscan_margin(gc):
     4.6 % from the left. tv.js now keeps room for that growth when it scrolls a row into view, and grows first/last
     column posters inward; its constants must match tv.css."""
     js = gc.get("/static/tv.js").text
-    css = gc.get("/static/tv.css").text
+    css = design_px(gc.get("/static/tv.css").text)
     scale = float(re.search(r"\.card-poster\.tv-focus \{[^}]*transform: scale\(([\d.]+)\)", css).group(1))
     ring = re.search(r"\.card-poster\.tv-focus \.card-pic \{[^}]*outline: (\d+)px solid[^}]*outline-offset: (\d+)px", css)
     assert re.search(r"POSTER_GROW = ([\d.]+)", js) and abs(float(re.search(r"POSTER_GROW = ([\d.]+)", js).group(1))
                                                            - (scale - 1) / 2) < 1e-9
     assert int(re.search(r"RING = (\d+)", js).group(1)) == int(ring.group(1)) + int(ring.group(2))
-    assert "var bottom = window.innerHeight - OVERSCAN_Y - grow;" in js and "PAD + grow" in js
+    # JY-259 (2026-10-28): the margins are 960x540 CSS px scaled by px() with the sheet's rem (every panel size)
+    assert "var bottom = window.innerHeight - px(OVERSCAN_Y) - grow;" in js and "px(PAD) + grow" in js
     assert re.search(r"OVERSCAN_Y = 27, OVERSCAN_X = 48", js) and "--tv-mx: 48px; --tv-my: 27px" in css
-    assert "transformOrigin = b.left - grow < OVERSCAN_X ? 'left center'" in js and "'right center'" in js
+    assert "transformOrigin = b.left - grow < px(OVERSCAN_X) ? 'left center'" in js and "'right center'" in js
     assert js.index("centreInShelf(el);") < js.index("edgeOrigin(el);   /*") < js.index("keepRowInView(el);\n  }")
 
 
@@ -770,7 +773,7 @@ def test_tv_discover_shows_the_search_field_on_the_existing_trigger(monkeypatch,
         assert '<div id="discover-grid" class="reqgrid-wrap" data-q="">' in tv
         part = c.get("/media/discover/search?q=harvest", headers={"User-Agent": TV_UA, "HX-Request": "true"}).text
         assert '<div id="discover-grid" class="reqgrid-wrap" data-q="harvest">' in part
-        css = re.sub(r"/\*.*?\*/", "", c.get("/static/tv.css").text, flags=re.S)
+        css = re.sub(r"/\*.*?\*/", "", design_px(c.get("/static/tv.css").text), flags=re.S)
         js = c.get("/static/tv.js").text
     assert re.search(r"html\.tv form\.toolbar[,{ ]", css)                                 # the other toolbars stay hidden
     assert re.search(r"html\.tv form\.toolbar\.discover-search \{[^}]*display: block", css)
@@ -963,7 +966,7 @@ def test_the_tv_assets_carry_the_request_pick_rules(gc):
 # ---- JY-188 (U2): density B, compact chrome, the 18 px floor, scrim, contrast, sign-in collapse, 404 layout ----
 
 def _tv_css(gc) -> str:
-    return re.sub(r"/\*.*?\*/", "", gc.get("/static/tv.css").text, flags=re.S)
+    return re.sub(r"/\*.*?\*/", "", design_px(gc.get("/static/tv.css").text), flags=re.S)
 
 
 def _lum(hexcolor: str) -> float:
@@ -981,9 +984,10 @@ def test_jy188_density_b_with_compact_chrome(gc):
     css = _tv_css(gc)
     assert "--tv-bar: 64px" in css and re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my\) var\(--tv-mx\) 1px", css)   # 27 + 36 + 1
     assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 64 + 4 + 36 = 104
-    assert re.search(r"\.carousel > \* \{ flex: 0 0 104px; width: 104px; \}", css)
-    assert re.search(r"\.carousel \{ gap: 14px;", css)
-    assert re.search(r"\.libgrid, html\.tv \.poster-grid\.reqgrid \{ grid-template-columns: repeat\(8, minmax\(0, 1fr\)\); gap: 8px 14px", css)
+    # JY-259 (2026-10-28, B.'s point 3): rows 104 -> 92 px cards with 18 px gaps (8 across), grids 9 across, 18 / 16 px gaps
+    assert re.search(r"\.carousel > \* \{ flex: 0 0 92px; width: 92px; \}", css)
+    assert re.search(r"\.carousel \{ gap: 18px;", css)
+    assert re.search(r"\.libgrid, html\.tv \.poster-grid\.reqgrid \{ grid-template-columns: repeat\(9, minmax\(0, 1fr\)\); gap: 18px 16px", css)
     # caption: title 18 one line always; meta 18 under the focused card only
     assert re.search(r"\.card-poster \.row-title \{[^}]*font-size: 18px; line-height: 20px; height: 20px", css)
     assert re.search(r"\.card-poster \.row-meta \{[^}]*font-size: 18px;[^}]*visibility: hidden", css)

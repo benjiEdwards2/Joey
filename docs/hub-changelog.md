@@ -1371,3 +1371,5 @@ the 1 px radio), with the season status words raised from 16 to 18 px (JY-188). 
 tests on the shared fake page: D-pad walk, OK toggles, the season box scroll, Back closes onto the poster; a gate-run
 needle test), `test_guest_request_picks.py` (TV mode carries the picks; the JY-231 "TV mode unchanged" pin replaced, dated
 in the spec). Spec `docs/specs/JY-255-rq2-tv-mode.md`.
+
+**JY-160 (2026-10-27, built ahead of B.'s pick, option A).** Each day in Next 7 days (hub and the calendar area page) has one forecast line before its first row: glyph, condition word, low-high, rain chance, from the `open_meteo` snapshot's `days` matched on the date (`weather.day_forecasts` / `forecast_line`, `upcoming.attach_forecast`; no call on render, a day the snapshot does not cover has no line). Calendar stays private: the media front serves neither page. Tests `test_upcoming_forecast.py`. Spec `docs/specs/JY-160-day-forecast.md`.

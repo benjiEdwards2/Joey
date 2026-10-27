@@ -1,6 +1,6 @@
 # JY-257 Player tokens script
 
-Status: building
+Status: shipped 2026-10-27
 Size: M
 Live risk: secrets
 Area: `scripts/player_tokens.py`, `tests/scripts/test_player_tokens.py`, this spec
@@ -86,4 +86,8 @@ private front. So `media.env` copies would never be read, and they would put hou
 Kept to `.env` only.
 
 ## Shipped notes
-PR, commit, backup name, measured numbers, anything left for a follow-up.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #236, squash-merged as `0420f54` (0420f546b45d4dcab84dbfa9668743d48aef7f6e).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: "1A 2a 3a 4a, ready" (2a = JY-054 Q1 A: the player-token script as its own item, JY-257)"
+- Follow-ups: none

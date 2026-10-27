@@ -1372,7 +1372,18 @@ tests on the shared fake page: D-pad walk, OK toggles, the season box scroll, Ba
 needle test), `test_guest_request_picks.py` (TV mode carries the picks; the JY-231 "TV mode unchanged" pin replaced, dated
 in the spec). Spec `docs/specs/JY-255-rq2-tv-mode.md`.
 
+**JY-221 (2026-10-27): four hidden areas retired.** Food, Desk, House and Car are gone from `config/areas.yaml`, tiles and the
+MacroMates link included. Their pages (`/a/kitchen`, `/a/desk`, `/a/house`, `/a/car`) now give the ordinary unknown-area 404.
+The `macromates`, `home_assistant` and `nas_stats` connectors keep their code, fixtures and schemas but no area shows them, and
+a live sweep skips them until their env is set (already so since 2026-10-09). Money stays hidden for JY-220. Spec
+`docs/specs/JY-221-retire-hidden-areas.md`.
+
 **JY-160 (2026-10-27, built ahead of B.'s pick, option A).** Each day in Next 7 days (hub and the calendar area page) has one forecast line before its first row: glyph, condition word, low-high, rain chance, from the `open_meteo` snapshot's `days` matched on the date (`weather.day_forecasts` / `forecast_line`, `upcoming.attach_forecast`; no call on render, a day the snapshot does not cover has no line). Calendar stays private: the media front serves neither page. Tests `test_upcoming_forecast.py`. Spec `docs/specs/JY-160-day-forecast.md`.
+
+**JY-220 (2026-10-27): hidden Money area removed.** The Money area is gone from `config/areas.yaml` and `/a/money` gives the
+ordinary unknown-area 404; the money demo seed went too. The frozen `money` snapshot id stays in the envelope enum (the contract
+is frozen). The money pre-commit guard (`scripts/precommit_money_guard.py`, its hook and tests) is unchanged. Spec
+`docs/specs/JY-220-remove-money-area.md`.
 
 ## 2026-10-27 — JY-141 Full speed is a cap
 

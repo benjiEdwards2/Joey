@@ -18,7 +18,7 @@ x-logging: &logging
 services:
   hub:
     # The FastAPI hub (WP17-WP21). Reads snapshots READ-ONLY — tiles never
-    # call a live API (the /money page's SQLite read is the one exception, D14;
+    # call a live API (the Money area's SQLite read was the one exception, D14; Money was removed 2026-10-27, JY-220;
     # the /img poster proxy is the second live-call exception, dated 2026-10-05 —
     # it reads the media keys from .env and caches art in the read-write img volume).
     # FIRST WRITE PATH (2026-10-05): ratings + watch diary live in media.db, a small

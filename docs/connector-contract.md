@@ -358,7 +358,7 @@ Feed-specific fields sit alongside them. Any person-scoped record carries
 `owner: you | her | shared` (R12). `both` was a view (the old switcher, gone since 2026-10-06);
 it is never a stored value — the schemas reject it.
 
-`home_assistant` is keyed by area (`house`, `car`, `garden`) because one
+`home_assistant` (parked; its Car and House areas were retired from `areas.yaml` on 2026-10-27, JY-221) is keyed by area (`house`, `car`, `garden`) because one
 connector feeds three tiles; that keying is what lets each tile slice its own
 entities instead of all three repeating the same summary.
 

@@ -40,6 +40,7 @@ import net.joeyhome.media.policy.DeviceProfile
 import net.joeyhome.media.policy.FocusRow
 import net.joeyhome.media.policy.HostConfig
 import net.joeyhome.media.policy.JellyfinItemRoute
+import net.joeyhome.media.policy.KeyPolicy
 import net.joeyhome.media.policy.Origin
 import net.joeyhome.media.policy.PlayTrack
 import net.joeyhome.media.policy.PlayerAction
@@ -449,7 +450,7 @@ class PlayerActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val code = event.keyCode
         if (!PlayerUi.handles(code)) return super.dispatchKeyEvent(event)
-        if (code == KeyEvent.KEYCODE_BACK) {
+        if (KeyPolicy.intercepts(code)) {   // Back: also OnBackInvokedCallback on API 33+, de-duplicated
             if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) handleBack()
             return true
         }

@@ -148,11 +148,17 @@ class PlayerSupportTest {
         assertTrue(direct.getString("Container").split(",").containsAll(listOf("mkv", "mp4")))
         assertEquals("h264,hevc,av1", direct.getString("VideoCodec"))
         assertEquals("aac,ac3,eac3", direct.getString("AudioCodec"))
-        val hls = p.getJSONArray("TranscodingProfiles").getJSONObject(0)
+        // 2026-10-28 TV re-check (row 9): MPEG-TS HLS first, then fMP4, Jellyfin Android TV's shape
+        val profiles = p.getJSONArray("TranscodingProfiles")
+        assertEquals(listOf("ts", "mp4"), (0 until profiles.length()).map { profiles.getJSONObject(it).getString("Container") })
+        val hls = profiles.getJSONObject(0)
         assertEquals("hls", hls.getString("Protocol"))
         assertEquals("Streaming", hls.getString("Context"))
         assertEquals("hevc,h264", hls.getString("VideoCodec"))
         assertEquals("aac,ac3,eac3", hls.getString("AudioCodec"))
+        assertFalse(hls.getBoolean("CopyTimestamps"))
+        assertTrue(hls.getBoolean("EnableSubtitlesInManifest"))
+        assertFalse(hls.has("BreakOnNonKeyFrames"))
         val subs = p.getJSONArray("SubtitleProfiles")
         val methods = (0 until subs.length()).map { subs.getJSONObject(it) }.map { it.getString("Format") to it.getString("Method") }
         assertTrue(("pgssub" to "Embed") in methods && ("subrip" to "Embed") in methods && ("ass" to "Embed") in methods)

@@ -220,5 +220,23 @@ URL or token), and each start logs its method and protocol. Test change, dated: 
 became `dtsAndTrueHdAreNeverDeclared`; new `theFallbackReasonIsOneLineOfWordsWithNoUrlOrToken`. Re-run row 9 with
 `adb logcat -s JoeyPlayer` alongside; if it still hands off, the line names the cause.
 
+## TV re-check (2026-10-28, f03b50c)
+Row 9 FAIL, third time, now with the reason line: `fallback: player ERROR_CODE_IO_UNSPECIFIED, cause
+UnexpectedLoaderException < IllegalStateException, method transcode, hls`. Jellyfin chose transcode as intended; Media3's
+HLS loader then failed on what came back. What was checked: Media3's `OkHttpDataSource` has no IllegalStateException path,
+and a JVM test drives `PlayerHttp` through a Jellyfin-shaped chain (the hub's `/videos/{id}/master.m3u8?...`, a relative
+`main.m3u8?...`, relative `hls1/main/N.ts?...` segments and an fMP4 init map): every request loads, on the Jellyfin origin,
+with the header, so the HTTP layer does not throw it. The JVM cannot run Media3's HLS extractors (no Robolectric here),
+so the loader-side cause is not reproduced on the JVM. The difference from Jellyfin's own ExoPlayer TV app (the T3 path,
+12/12 on this TCL) is the transcode request: Joey asked for fMP4 HLS with `BreakOnNonKeyFrames`, which cuts a video copy
+at non-keyframes; Jellyfin's app asks for MPEG-TS HLS first, then fMP4, `CopyTimestamps` off, subtitles in the manifest.
+Fix: the TV profile now sends exactly that shape. Also asked for: a redirect inside the Jellyfin origin is now followed
+(header kept, at most 5 hops); a redirect to any other origin is still never requested. Test changes, dated:
+`aSameHostRedirectIsNotFollowedEither` became `aRedirectInsideTheJellyfinOriginIsFollowedWithTheHeader`; the profile test
+asserts the two HLS profiles; new `redirectsStopAfterFiveHops` and `aJellyfinHlsTranscodeChainLoadsEveryPlaylistAndSegmentWithTheHeader`.
+The session script's row 7 pass A now matches the card's S·E marker in the next episode's title, read once the card is
+gone. Re-run row 9 with `adb logcat -s JoeyPlayer`: the line says `start: method transcode, hls` and, if it still fails,
+why.
+
 ## Shipped notes
 Not yet.

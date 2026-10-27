@@ -85,7 +85,7 @@ object TrackPlan {
 
 /**
  * The Jellyfin DeviceProfile the TV sends with each start: direct play for what this TV's decoders take, Jellyfin's
- * HLS (fMP4, as the JY-051 study's T2H) for the rest. No FFmpeg extension (JY-057 Question 1): DTS and TrueHD are
+ * HLS for the rest (MPEG-TS first, then fMP4, as Jellyfin's own ExoPlayer TV app asks). No FFmpeg extension (JY-057 Question 1): DTS and TrueHD are
  * never listed, so Jellyfin transcodes that audio.
  */
 object DeviceProfile {
@@ -119,7 +119,15 @@ object DeviceProfile {
 
     fun build(video: List<String>, audio: List<String>): JSONObject {
         val hlsVideo = listOf("hevc", "h264").filter { it in video }.ifEmpty { listOf("h264") }
-        val hlsAudio = (listOf("aac") + listOf("ac3", "eac3").filter { it in audio }).distinct()
+        val hlsAudio = (listOf("aac") + listOf("ac3", "eac3", "mp3").filter { it in audio }).distinct()
+        // TV re-check 2026-10-28 (row 9): the fMP4 HLS this profile asked for (with BreakOnNonKeyFrames) failed in
+        // Media3's HLS loader (UnexpectedLoaderException < IllegalStateException). Now the shape Jellyfin's own ExoPlayer
+        // TV app sends (jellyfin-androidtv deviceProfile.kt): MPEG-TS HLS first, fMP4 second, CopyTimestamps off,
+        // subtitles in the manifest, no BreakOnNonKeyFrames.
+        fun hls(container: String) = JSONObject()
+            .put("Container", container).put("Type", "Video").put("VideoCodec", hlsVideo.joinToString(","))
+            .put("AudioCodec", hlsAudio.joinToString(",")).put("Context", "Streaming").put("Protocol", "hls")
+            .put("MaxAudioChannels", "6").put("CopyTimestamps", false).put("EnableSubtitlesInManifest", true)
         val subs = JSONArray()
         EMBED.forEach { subs.put(JSONObject().put("Format", it).put("Method", "Embed")) }
         EXTERNAL.forEach { subs.put(JSONObject().put("Format", it).put("Method", "External")) }
@@ -130,10 +138,7 @@ object DeviceProfile {
             .put("DirectPlayProfiles", JSONArray().put(JSONObject()
                 .put("Container", CONTAINERS).put("Type", "Video")
                 .put("VideoCodec", video.joinToString(",")).put("AudioCodec", audio.joinToString(","))))
-            .put("TranscodingProfiles", JSONArray().put(JSONObject()
-                .put("Container", "mp4").put("Type", "Video").put("VideoCodec", hlsVideo.joinToString(","))
-                .put("AudioCodec", hlsAudio.joinToString(",")).put("Context", "Streaming").put("Protocol", "hls")
-                .put("MaxAudioChannels", "6").put("MinSegments", "1").put("BreakOnNonKeyFrames", true)))
+            .put("TranscodingProfiles", JSONArray().put(hls("ts")).put(hls("mp4")))
             .put("ContainerProfiles", JSONArray())
             .put("CodecProfiles", JSONArray())
             .put("ResponseProfiles", JSONArray())

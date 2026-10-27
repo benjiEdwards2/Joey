@@ -198,6 +198,12 @@ method):
   (or Remux). Test change, dated: `codecsComeFromTheTvsDecoders` now asserts a listed DTS decoder does not count; new
   `aListedDtsOrTrueHdDecoderIsNotTrusted` and `passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby`.
 - Re-run on the TV: rows 4, 7 and 9.
+- Follow-up, 2026-10-27 (after the fix-round review): after Watch credits has dismissed the card, the end of the episode
+  no longer brings the card and countdown back; the player reports stop at the end (Jellyfin marks it watched by its own
+  rule) and returns to the Joey page with fresh progress, as Back twice does. Test change, dated:
+  `theEndCountsDownEightSecondsThenPlaysNext` now starts from an undismissed card; new
+  `afterWatchCreditsTheEndReturnsToJoey`. Row 7 on the TV: Watch credits, then the episode's end returns to Joey (the
+  countdown is seen only without Watch credits).
 
 ## Shipped notes
 Not yet.

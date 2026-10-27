@@ -140,9 +140,12 @@ object PlayerUi {
         return PlayerStep(s)
     }
 
-    /** The file ended: the card and its countdown when there is a next episode, else back to Joey. */
+    /**
+     * The file ended: the card and its countdown when there is a next episode, else back to Joey. After Watch credits
+     * (the card dismissed) the end is back to Joey too, like Back twice (2026-10-27, the fix-round follow-up).
+     */
     fun onEnded(state: PlayerUiState, nowMs: Long): PlayerStep {
-        if (!state.hasNext) return PlayerStep(state, PlayerAction.ReturnToJoey)
+        if (!state.hasNext || state.upNextDismissed) return PlayerStep(state, PlayerAction.ReturnToJoey)
         return PlayerStep(state.copy(overlay = PlayerOverlay.UP_NEXT, upNextChoice = UpNextChoice.PLAY_NOW,
             upNextDismissed = false, countdownFromMs = nowMs))
     }

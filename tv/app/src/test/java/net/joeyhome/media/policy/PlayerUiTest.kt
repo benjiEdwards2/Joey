@@ -295,7 +295,8 @@ class PlayerUiTest {
 
     @Test
     fun theEndCountsDownEightSecondsThenPlaysNext() {
-        val ended = PlayerUi.onEnded(hidden.copy(upNextDismissed = true), t0)
+        // 2026-10-27 follow-up: was onEnded(hidden.copy(upNextDismissed = true)); a dismissed card now ends in Joey
+        val ended = PlayerUi.onEnded(hidden, t0)
         assertEquals(PlayerAction.None, ended.action)
         assertEquals(PlayerOverlay.UP_NEXT, ended.state.overlay)
         assertEquals(8, PlayerUi.countdownLeftS(ended.state, t0))
@@ -313,6 +314,14 @@ class PlayerUiTest {
         val step = key(ended, KeyEvent.KEYCODE_DPAD_CENTER)
         assertNull(step.state.countdownFromMs)
         assertEquals(PlayerAction.None, PlayerUi.onTick(step.state, t0 + 20_000, false, 0, 0).action)
+    }
+
+    @Test
+    fun afterWatchCreditsTheEndReturnsToJoey() {
+        val credits = key(hidden.copy(overlay = PlayerOverlay.UP_NEXT), KeyEvent.KEYCODE_DPAD_RIGHT).state
+        val end = PlayerUi.onEnded(credits, t0)
+        assertEquals(PlayerAction.ReturnToJoey, end.action)
+        assertNull(end.state.countdownFromMs)
     }
 
     @Test

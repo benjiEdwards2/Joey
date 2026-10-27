@@ -29,7 +29,7 @@ import logging
 import os
 import time
 
-from hub import images, media_discover as md, media_files, media_item, media_rank
+from hub import images, media_because, media_discover as md, media_files, media_item, media_rank
 from hub.media_film import CAST_H as FILM_CAST_H, CAST_MAX
 
 log = logging.getLogger("hub.media_warmup")
@@ -298,12 +298,15 @@ def run_pass(snaps=None, pause: float = PAUSE_S) -> dict:
     """What the background loop runs: the shelf pass, then — unless MEDIA_WARMUP=shelves — the library pass when
     it is due (24 h); first, meta cache files older than 7 days are deleted. The stamp is written after every completed pass (M-44: a missing backdrop or one bad title no
     longer re-runs the whole library every 3 h); a pass skipped for want of keys leaves it unstamped."""
+    from hub.store import get_snapshots
+
     out = {"pruned": md.prune_meta(), "shelves": warm_once(snaps, pause)}   # M-47: the disk meta cache stays bounded
     if media_rank.due():  # film-quality: the File panel's library rank, one Jellyfin read per 24 h
         out["rank"] = media_rank.refresh()
     if library_enabled() and library_due():
         lib = warm_library(snaps)
         out["library"] = lib
+        out["because"] = media_because.refresh(get_snapshots() if snaps is None else snaps)   # JY-105: the Overview shelf's cache, once a day with the library
         if not lib.get("skipped_no_keys"):
             _stamp_done()
     return out

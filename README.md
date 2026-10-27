@@ -1,8 +1,8 @@
 # life-dashboard
 
 Joey: a private Media · Calendar · Server · Weather dashboard for B. and Georgina, self-hosted on the NAS and
-reachable from any device through Cloudflare Tunnel + Access. Five more areas (Food, Money, Desk, House, Car) are
-parked: hidden from the navigation, still defined in `config/areas.yaml`. Connector feeds refresh hourly, except the
+reachable from any device through Cloudflare Tunnel + Access. One more area (Money) is
+parked: hidden from the navigation, still defined in `config/areas.yaml` (Food, Desk, House and Car were retired 2026-10-27, JY-221). Connector feeds refresh hourly, except the
 live Media and Server feeds, which refresh every 2 minutes.
 
 **This repo is PRIVATE and stays private forever** (DECISIONS 2026-08-24).

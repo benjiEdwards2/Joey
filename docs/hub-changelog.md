@@ -1371,3 +1371,9 @@ the 1 px radio), with the season status words raised from 16 to 18 px (JY-188). 
 tests on the shared fake page: D-pad walk, OK toggles, the season box scroll, Back closes onto the poster; a gate-run
 needle test), `test_guest_request_picks.py` (TV mode carries the picks; the JY-231 "TV mode unchanged" pin replaced, dated
 in the spec). Spec `docs/specs/JY-255-rq2-tv-mode.md`.
+
+**JY-221 (2026-10-27): four hidden areas retired.** Food, Desk, House and Car are gone from `config/areas.yaml`, tiles and the
+MacroMates link included. Their pages (`/a/kitchen`, `/a/desk`, `/a/house`, `/a/car`) now give the ordinary unknown-area 404.
+The `macromates`, `home_assistant` and `nas_stats` connectors keep their code, fixtures and schemas but no area shows them, and
+a live sweep skips them until their env is set (already so since 2026-10-09). Money stays hidden for JY-220. Spec
+`docs/specs/JY-221-retire-hidden-areas.md`.

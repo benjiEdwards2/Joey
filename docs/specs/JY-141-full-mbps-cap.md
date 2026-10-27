@@ -1,6 +1,6 @@
 # JY-141 Quiet-mode cap vs the live qBittorrent cap
 
-Status: building (built ahead on the recommended option A; B. has not picked yet)
+Status: shipped 2026-10-27
 Size: S
 Live risk: none in this PR (the hub already writes the cap; the NAS env line goes in later through `nas_scripts/append_env.sh` in a deploy window)
 Area: `hub/server_quiet.py`, `tests/hub/test_server_quiet.py`, `deploy/.env.example`, `docs/`
@@ -40,4 +40,8 @@ Changing Quiet, the chip labels, or touching the NAS.
 1. Pick for JY-141: A (this PR), B (env only, `QUIET_MBPS=41`) or C (leave it). Recommended: A.
 
 ## Shipped notes
-Not shipped.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #223, squash-merged as `61d7b32` (61d7b32c4654e44793fdac9fe9832be7f813461a).
+- Deploy: `2026-10-27T02:49:26Z PASS prev=c10099a new=61d7b32 suite green, smoke ok tv=current gate=-n2 avail=2139 stopped=sonarr,radarr,prowlarr,flaresolverr end=2026-10-27T02:54:50Z dur=324s`
+- Accept: in chat: "B., orchestrator session, 2026-10-27: Accept every recommendation on the Joey decisions page: merge the 4 built-ahead PRs, drop the 7, apply the rest as recommended."
+- Follow-ups: none

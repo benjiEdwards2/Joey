@@ -125,7 +125,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-138 | S.M.A.R.T. into Attention | Server | M | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. B.'s hands: turn on ADM's scheduled disk-health scan + its notification | — |
 | JY-139 | Gated hostnames per app | Server | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (B): cards say LAN; Joey does the common jobs | — |
 | JY-140 | Health rows say "LAN" | Server | S | [x] shipped | Server cards already do · PR #85 | [spec](docs/specs/JY-140-health-lan.md) |
-| JY-141 | Quiet-mode cap vs the live qBittorrent cap | Server | S | parked | Quiet 5 Mbps is ~8x tighter than 41 (decision) | — |
+| JY-141 | Quiet-mode cap vs the live qBittorrent cap | Server | S | [x] shipped | Quiet 5 Mbps is ~8x tighter than 41 (decision) · PR #223 | [spec](docs/specs/JY-141-full-mbps-cap.md) |
 | JY-142 | WUD real check interval vs 180-min Stale rule | Server | S | [x] shipped | Verify live, then adjust · PR #132 | [spec](docs/specs/JY-142-wud-stale-interval.md) |
 | JY-143 | Prowlarr indexerstats window | Server | S | [x] shipped | If cumulative, amber never clears; verify live · PR #131 | [spec](docs/specs/JY-143-prowlarr-stats-window.md) |
 | JY-144 | "Uptime Kuma metrics failed" on Joey /server | Server | S | [x] shipped | Pre-existing payload error · PR #73 | [spec](docs/specs/JY-144-kuma-metrics.md) |

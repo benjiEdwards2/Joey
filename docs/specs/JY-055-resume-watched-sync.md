@@ -1,6 +1,6 @@
 # JY-055 Progress, resume and watched synced to Jellyfin
 
-Status: review
+Status: shipped 2026-10-27
 Size: M
 Live risk: none while `PLAYER_API` is off (how this item ships). Turned on, the player's reports write each member's
 resume point and watched mark to Jellyfin as that member (JY-053, JY-054); nothing new writes anywhere else.
@@ -113,3 +113,8 @@ Nothing to try while the flag is off. In the JY-054 accept window (flag on, play
 None: every direction comes from JY-050's answers.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #221, squash-merged as `ff60b00` (ff60b000df2451b08be7a190c4c24d8f00c08a90).
+- Deploy: `2026-10-27T00:31:45Z PASS prev=3456afb new=ff60b00 suite green, smoke ok tv=current gate=-n1 avail=1669 end=2026-10-27T00:38:45Z dur=420s`
+- Accept: in chat: "B., orchestrator session, 2026-10-24: Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance."
+- Follow-ups: none

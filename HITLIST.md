@@ -242,7 +242,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-220 | Money / Track E (Westpac import, rules, budget) | Money | L | building | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Remove the hidden Money area, keep the money pre-commit guard; budget lives in Desktop\Claude\Budget | — |
+| JY-220 | Money / Track E (Westpac import, rules, budget) | Money | L | [x] shipped | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Remove the hidden Money area, keep the money pre-commit guard; budget lives in Desktop\Claude\Budget · PR #233 | [spec](docs/specs/JY-220-remove-money-area.md) |
 | JY-221 | Re-enable home_assistant / macromates / nas_stats | Connectors | M | building | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Retire Food/Desk/House/Car and stop scheduling the three parked connectors (code kept) | — |
 | JY-222 | Posters: TMDB + fanart.tv best-rated pick | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): B. said stay as current on 2026-10-07 | — |
 | JY-223 | Georgina's account / her Media view | Media | S | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A. B.'s hands: create her Jellyfin user, append JELLYFIN_USER_HER to the NAS .env, recreate connectors | — |

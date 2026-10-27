@@ -1,6 +1,6 @@
 # JY-220 Remove the hidden Money area
 
-Status: building
+Status: shipped 2026-10-27
 Size: L (listed L on the decisions page; the change is small and has no live risk)
 Live risk: none
 Area: `config/areas.yaml`, `hub/seed_demo.py`, `deploy/docker-compose.yml` (comment), tests under `tests/hub`, `docs/PLAN.md`, `README.md`, `tests/README.md`, `docs/hub-changelog.md`
@@ -46,3 +46,8 @@ After deploy, `/a/money` shows the normal 404, and committing a `.csv` still tri
 None.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #233, squash-merged as `5cd2ef4` (5cd2ef4b31e8ac4099a5c1e2c160bb3b836e69fb).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: Accept every recommendation on the Joey decisions page: merge the 4 built-ahead PRs, drop the 7, apply the rest as recommended."
+- Follow-ups: none

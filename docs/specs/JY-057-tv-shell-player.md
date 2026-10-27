@@ -95,8 +95,8 @@ FFmpeg extension. See Question 1.
    (seek −10 / +30, two rows, pop-up, up-next, auto-hide, countdown, media keys); the start / stream / error parsing
    (stream URL on the Jellyfin origin only, the header shape); the fallback rules; track plans; the DeviceProfile; time
    words and chapters. `tv/VERSION` is 1.0.3 (`2026102701`), checked by the existing VersionFileTest rules.
-6. `tv.yml` green: lint, JVM tests, debug APKs, APK checks (permissions now INTERNET + ACCESS_NETWORK_STATE, which
-   Media3 declares, + REQUEST_INSTALL_PACKAGES on sideload), the secret scan. `ci.yml` green.
+6. `tv.yml` green: lint, JVM tests, debug APKs, APK checks (permissions now INTERNET + ACCESS_NETWORK_STATE + WAKE_LOCK,
+   which Media3 declares, + REQUEST_INSTALL_PACKAGES on sideload), the secret scan. `ci.yml` green.
 7. No token in a URL, a log, an intent extra, `SharedPreferences` or an error; the header goes only to the Jellyfin
    origin.
 8. The TV device checklist below passes in the TV session, before the merge.

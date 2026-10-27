@@ -13,8 +13,8 @@ result() { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; fails=$((f
 perms="$("$aapt2" dump permissions "$apk" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"
 echo "store permissions: ${perms}"
 ! grep -q "REQUEST_INSTALL_PACKAGES" <<<"$perms"; result $? "store flavor has no REQUEST_INSTALL_PACKAGES"
-[ "$perms" = "android.permission.ACCESS_NETWORK_STATE android.permission.INTERNET " ]
-result $? "store permissions = ACCESS_NETWORK_STATE (Media3, JY-057) + INTERNET only"
+[ "$perms" = "android.permission.ACCESS_NETWORK_STATE android.permission.INTERNET android.permission.WAKE_LOCK " ]
+result $? "store permissions = INTERNET + ACCESS_NETWORK_STATE and WAKE_LOCK (Media3, JY-057) only"
 manifest="$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")"
 ! grep -q "UpdateStatusReceiver" <<<"$manifest"; result $? "store manifest has no updater receiver"
 

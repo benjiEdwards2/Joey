@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- ACCESS_NETWORK_STATE arrives with Media3 ExoPlayer (JY-057: its bandwidth meter); a normal permission, no prompt. -->
+    <!-- ACCESS_NETWORK_STATE and WAKE_LOCK arrive with Media3 ExoPlayer (JY-057); normal permissions, no prompt. -->
     <!-- REQUEST_INSTALL_PACKAGES is added by the sideload flavor only (src/sideload/AndroidManifest.xml). -->
 
     <!-- One APK for Android TV, Google TV and Fire TV: neither leanback nor a touchscreen is required. -->

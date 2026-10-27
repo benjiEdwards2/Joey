@@ -166,7 +166,7 @@ error, hands the item to the Jellyfin app as above, with a toast. Look A keys (`
 controls; Left / Right seek −10 s / +30 s (hidden or on the bar); Down to the buttons (Play/Pause, Back 10 s, Forward 30 s,
 Audio & subtitles, Next episode); the pop-up walks with Up / Down and swaps columns with Left / Right; Back closes the
 pop-up, hides the controls, then returns to Joey (`BackPolicy.player`). Up next: the card in the last 60 s, an 8 s
-countdown at the end. Media3 adds `ACCESS_NETWORK_STATE` (normal, no prompt), checked by `ci/check_apk.sh`.
+countdown at the end. Media3 adds `ACCESS_NETWORK_STATE` and `WAKE_LOCK` (normal, no prompt), checked by `ci/check_apk.sh`.
 
 ### Keys
 

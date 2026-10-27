@@ -62,7 +62,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-054 | Web/phone player | Media player | L | [x] shipped | Joey plays the film itself · live · PR #215 | [spec](docs/specs/JY-054-web-phone-player.md) |
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | [x] shipped | Stop on one device, resume on another · PR #221 | [spec](docs/specs/JY-055-resume-watched-sync.md) |
 | JY-056 | Audio + subtitle track picker | Media player | M | [x] shipped | Covered by JY-054's track picker (no new build); checked in JY-055 (PR #221) and confirmed by its review | — |
-| JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live | — |
+| JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live · Engine: B. 2026-10-27 "1A" = Media3 ExoPlayer without the FFmpeg extension (Jellyfin's server FFmpeg remuxes/transcodes) | — |
 | JY-058 | Friends' path + security gate | Media player | L | idea | Only if the spec says friends · live | — |
 | JY-059 | Move Jellyfin transcoding onto the new box | Media player | L | idea | Needs the box bought · B.'s hands · live | — |
 
@@ -87,7 +87,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-102 | Service page H1 = service name | Media | S | [x] shipped | Discover service page says "Discover" · PR #82 | [spec](docs/specs/JY-102-service-page-h1.md) |
 | JY-103 | Georgina's scores in the "both" view | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): the both view is unreachable live | — |
 | JY-104 | Episode runtimes from Jellyfin item data | Media | S | [x] shipped | Today from recorded plays only · PR #86 | [spec](docs/specs/JY-104-episode-runtimes.md) |
-| JY-105 | "Because you rated X 9" shelf | Media | M | idea | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A (warm-up fills, cache-only shelf). Needs its options page before building | — |
+| JY-105 | "Because you rated X 9" shelf | Media | M | ready | B. 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus" (options page JY-105-options.html) | — |
 | JY-106 | Read-only "leaving soon" list | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): shipped as Free space /server/space | — |
 | JY-107 | Favourites synced to Jellyfin | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): ratings and watchlist do this job | — |
 | JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |
@@ -189,6 +189,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
 | JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | [x] shipped | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." · PR #212 | [spec](docs/specs/JY-255-rq2-tv-mode.md) |
 | JY-256 | Deploy gate stops sonarr/radarr/prowlarr/flaresolverr for the suite, restarts after | NAS/deploy | L | [x] shipped | B. 2026-10-27: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and start them again after (option A + H)." PR #226 | [spec](docs/specs/JY-256-gate-stop-set.md) |
+| JY-257 | Player-token script: Quick Connect sign-in writes JELLYFIN_PLAYER_TOKEN_YOU/_HER to the NAS .env | Media | M | building | B. 2026-10-27: "2a" (JY-054 Q1 A, a separate small item). PR #236; private-front player only, media front uses the session token | [spec](docs/specs/JY-257-player-tokens.md) |
+| JY-258 | Hub half of the JY-057 TV shell player (flag off), split from PR #219 so the TV checks can run before the 1.0.3 release | Media | M | building | Split unchanged from #219 (reviewed 2× Sonnet + Opus verifier) | [spec](docs/specs/JY-057-tv-shell-player.md) |
 
 ### NAS / stack
 

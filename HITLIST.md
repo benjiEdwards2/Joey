@@ -188,7 +188,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-253 | Play table 65 rows vs 172/178 in notes: lost history? | Media | S | [x] shipped | Verified 2026-10-26: planned dedupe on 2026-10-21 (135 duplicates merged, backup kept) + 11 new plays; nothing lost | — |
 | JY-254 | Daily digest right after the 07:00 boot lists services as Down | Server | S | [x] shipped | Live checks 2026-10-26: 24-26 Oct digests false alarms · PR #186 | [spec](docs/specs/JY-254-digest-boot-grace.md) |
 | JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | [x] shipped | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." · PR #212 | [spec](docs/specs/JY-255-rq2-tv-mode.md) |
-| JY-256 | Deploy gate stops sonarr/radarr/prowlarr/flaresolverr for the suite, restarts after | NAS/deploy | L | building | B. 2026-10-28: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and start them again after (option A + H)." PR #226 | [spec](docs/specs/JY-256-gate-stop-set.md) |
+| JY-256 | Deploy gate stops sonarr/radarr/prowlarr/flaresolverr for the suite, restarts after | NAS/deploy | L | [x] shipped | B. 2026-10-28: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and start them again after (option A + H)." PR #226 | [spec](docs/specs/JY-256-gate-stop-set.md) |
 
 ### NAS / stack
 

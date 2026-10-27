@@ -1,6 +1,6 @@
 # JY-105 "Because you rated these 9 or 10" shelf
 
-Status: building
+Status: shipped 2026-10-27
 Size: M
 Live risk: none (Seerr is read only, by the warm-up; nothing writes upstream)
 Area: `hub/media_because.py` (new), `hub/media_warmup.py` (one call in `run_pass`), `hub/media_home.py` (`build_shelves`), `hub/media_guest_home.py` (`build`), `hub/templates/area_shelves.html` (the card tag line, the section marker), `hub/static/tv.js` (first focus skips the row), tests in `tests/hub/`
@@ -61,3 +61,8 @@ B., 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends
 None open: all five answered 2026-10-27 (quoted above).
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #239, squash-merged as `1912cb2` (1912cb2251f21db48d0ba1ce9eae662f6ec6af95).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus""
+- Follow-ups: none

@@ -190,7 +190,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-255 | RQ2 friend pick in TV mode (quality chips + season ticks on the TV) | Joey TV | M | [x] shipped | JY-231 shipped web/phone only while TV work was paused; B. resumed: "Go for tv change again." · PR #212 | [spec](docs/specs/JY-255-rq2-tv-mode.md) |
 | JY-256 | Deploy gate stops sonarr/radarr/prowlarr/flaresolverr for the suite, restarts after | NAS/deploy | L | [x] shipped | B. 2026-10-27: "Deploy gate: stop sonarr, radarr, prowlarr and flaresolverr for the gate and start them again after (option A + H)." PR #226 | [spec](docs/specs/JY-256-gate-stop-set.md) |
 | JY-257 | Player-token script: Quick Connect sign-in writes JELLYFIN_PLAYER_TOKEN_YOU/_HER to the NAS .env | Media | M | building | B. 2026-10-27: "2a" (JY-054 Q1 A, a separate small item). PR #236; private-front player only, media front uses the session token | [spec](docs/specs/JY-257-player-tokens.md) |
-| JY-258 | Hub half of the JY-057 TV shell player (flag off), split from PR #219 so the TV checks can run before the 1.0.3 release | Media | M | building | Split unchanged from #219 (reviewed 2× Sonnet + Opus verifier) | [spec](docs/specs/JY-258-hub-player-front.md) |
+| JY-258 | Hub half of the JY-057 TV shell player (flag off), split from PR #219 so the TV checks can run before the 1.0.3 release | Media | M | [x] shipped | Split unchanged from #219 (reviewed 2× Sonnet + Opus verifier) · PR #238 | [spec](docs/specs/JY-258-hub-player-front.md) |
 
 ### NAS / stack
 

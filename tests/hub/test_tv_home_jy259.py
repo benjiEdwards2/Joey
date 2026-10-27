@@ -114,7 +114,7 @@ def test_a_two_plus_two_library_and_a_forty_title_library():
     small = tv_home.build([_shelf("added", [_item(1), _item(2)]), _shelf("top", [_item(1), _item(2)])],
                           [], [], [_item(1), _item(2)], jelly(2))
     assert [r["id"] for r in small["rows"]] == ["added", "top"]
-    assert small["hero"]["eyebrow"] == "New on Joey" and small["hero"]["title"] == "T1"
+    assert small["hero"]["eyebrow"] == "Just added" and small["hero"]["title"] == "T1"
     big_items = [_item(i) for i in range(1, 41)]
     big = tv_home.build([_shelf("added", big_items[:20]), _shelf("month", big_items[20:])], [], [], big_items[:20], jelly(40))
     assert [len(r["items"]) for r in big["rows"]] == [20, 20]
@@ -214,7 +214,13 @@ def test_tile_sizes_spacing_and_the_focus_lift():
     assert 8 * 92 + 7 * 18 <= 864 and 5 * 158 + 4 * 18 <= 864                          # inside the 5 % overscan
     assert re.search(r"repeat\(9, minmax\(0, 1fr\)\); gap: 18px 16px", css)               # grids 9 across
     assert re.search(r"\.card-poster\.tv-focus \{[^}]*transform: scale\(1\.08\)", css)
-    assert re.search(r"\.card-poster\.tvt-land\.tv-focus \{ transform: scale\(1\.05\)", css)
+    # review 2026-10-28: a kit tile lifts its picture only, from its foot, so its caption stays on its neighbours' line
+    assert re.search(r"\.card-poster\.tvt\.tv-focus \{ transform: none; \}", css)
+    assert re.search(r"\.card-poster\.tvt\.tv-focus \.card-pic \{ transform: scale\(1\.08\); \}", css)
+    assert re.search(r"\.card-poster\.tvt-land\.tv-focus \.card-pic \{ transform: scale\(1\.05\); \}", css)
+    assert re.search(r"\.tvt \.card-pic \{[^}]*transform-origin: var\(--tv-ox, center\) bottom", css)
+    assert re.search(r"\.tvt-poster \.row-title \{ height: 40px; white-space: normal;[^}]*-webkit-line-clamp: 2", css)
+    assert re.search(r"html\.tv \.userchip \{ margin-left: auto; gap: 8px;", css)   # review: scales, so 4K keeps the gap
     assert re.search(r"\.card-poster \{ transition: transform \.16s ease-out; \}", css)
     assert re.search(r"\.card-poster\.tv-focus \.card-pic \{[^}]*outline: 4px solid var\(--tv-ring\)", css)   # ring kept
     assert re.search(r"\.card-poster\.tv-focus \.card-pic \{ box-shadow: ", css)
@@ -232,12 +238,13 @@ def test_tv_home_draws_the_backdrop_hero_and_16x9_rows(fc):
     body = main(html)
     assert shelf_titles(html)[:3] == ["Continue watching", "Next episodes", "Recently added"]
     assert re.search(r'<div class="tv-bd" aria-hidden="true"><img src="/img/jfb:(?:0001){8}\?h=1280', body)
-    assert '<p class="tv-hero-eyebrow">Continue watching</p><p class="tv-hero-title">Film 01</p>' in body
+    assert '<p class="tv-hero-eyebrow">Pick up where you left off</p><p class="tv-hero-title">Film 01</p>' in body
     assert body.count('class="carousel tvt-row tvt-row-land"') == 2
     assert f"/img/jf:{EP2}?h=400" in body and " · 2</h2>" not in body             # the next episode's still; no counts
 
 
 def test_no_network_on_render(fc, monkeypatch):
+    import socket
     fc.fake.resume[FRIEND_ID] = [movie("aaaa" * 8, "Film 01", "9001", at_min=30)]
     fc.fake.history[FRIEND_ID] = [watched_ep()]
     cache_show(FRIEND_ID, show_read())
@@ -247,6 +254,8 @@ def test_no_network_on_render(fc, monkeypatch):
     monkeypatch.setattr(md, "_fetch", boom)                                      # Jellyseerr / TMDB
     monkeypatch.setattr(media_item, "_read", boom)                               # the item read
     monkeypatch.setattr(media_item, "_build", boom)
+    monkeypatch.setattr(socket.socket, "connect", boom)                          # review: no socket opens at all
+    monkeypatch.setattr(socket.socket, "connect_ex", boom)
     fc.fake.calls.clear()
     tv_page(fc)
     paths = sorted({c[1] for c in fc.fake.calls if not c[1].startswith("/Users")})
@@ -276,3 +285,19 @@ def test_the_web_and_phone_home_are_unchanged(fc):
     assert "tvt" not in web and "tv-bd" not in web and "tv-hero" not in web and "Next episodes" not in web
     assert shelf_titles(web)[:2] == ["Continue watching", "Recently added"]
     assert re.search(r'<h2 class="seclabel">Continue watching<span class="sep"> · </span>1</h2>', web)   # count kept
+
+
+XSS = '<img src=x onerror=1>'
+
+
+def test_every_tile_macro_escapes_a_hostile_title():
+    """Review 2026-10-28: titles, captions and names come from Jellyfin / TMDB; each macro must escape them."""
+    kit = _kit()
+    item = {"title": XSS, "sub": XSS, "poster": "jf:aa", "still": "jf:ep", "href": "/x", "pct": 10, "state": "lib",
+            "count": 3}
+    out = [kit.poster(item), kit.land(item), kit.person({"name": XSS, "role": XSS, "ref": "jf:p", "href": "/p"}),
+           kit.request(item), kit.collection(item), kit.row({"title": XSS, "land": False, "items": [item]}),
+           kit.row({"title": XSS, "land": True, "items": [item]}),
+           kit.hero({"eyebrow": XSS, "title": XSS, "sub": XSS})]
+    for html in map(str, out):
+        assert "<img src=x" not in html and "&lt;img src=x onerror=1&gt;" in html, html[:120]

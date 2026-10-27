@@ -132,9 +132,9 @@ def build(shelves: list[dict], resume, watched, added, jelly: dict) -> dict:
     rows = [{**by_id[k], "land": k in LAND_ROWS} for k in ROW_ORDER if by_id.get(k, {}).get("items")]
     rows += [{**s, "land": False} for s in shelves if s.get("id") not in ROW_ORDER and s.get("items")]
     first = ((by_id.get("continue") or {}).get("items") or [None])[0]
-    eyebrow = "Continue watching"
+    eyebrow = "Pick up where you left off"   # JY-259 review: never the first row's own label
     if first is None:
-        first, eyebrow = (added or [None])[0], "New on Joey"
+        first, eyebrow = (added or [None])[0], "Just added"
     hero = None
     if first:
         hero = {"eyebrow": eyebrow, "title": first.get("title"), "sub": first.get("sub"),

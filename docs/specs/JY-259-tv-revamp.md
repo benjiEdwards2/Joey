@@ -262,6 +262,12 @@ Test changes (CLAUDE.md rule 4), 2026-10-28:
   `test_episode_cards_keep_236px_over_the_jy188_carousel_width`); `tv.js`'s margin lines now read `px(OVERSCAN_Y)`,
   `px(PAD)` and `px(OVERSCAN_X)` (`test_focus_growth_and_ring_stay_inside_the_overscan_margin`).
 
+Review fixes (2026-10-28, reviews of PR #247): the user chip's gap is rem (at 4K the name ran into the sign-out
+icon); a kit tile lifts its picture only, from its foot, so the focused caption stays on its neighbours' line; row
+poster titles take 2 lines, clamped; the hero eyebrow says "Pick up where you left off" / "Just added", never the
+first row's label; the hero and the welcome line are more compact so the first poster row fits without a scroll.
+Tests: the no-network test also blocks `socket.connect`; a hostile title renders escaped in every tile macro.
+
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).
 

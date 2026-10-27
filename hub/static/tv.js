@@ -300,6 +300,8 @@
     var b = el.getBoundingClientRect(), grow = b.width * POSTER_GROW + px(RING);
     el.style.transformOrigin = b.left - grow < px(OVERSCAN_X) ? 'left center'
       : (b.right + grow > window.innerWidth - px(OVERSCAN_X) ? 'right center' : '');
+    /* JY-259: a kit tile (.tvt) lifts its picture only; it grows from the same side */
+    if (el.style.setProperty) el.style.setProperty('--tv-ox', el.style.transformOrigin ? el.style.transformOrigin.split(' ')[0] : 'center');
   }
 
   /* WP-RQ2 (JY-255): scroll each scrolling ancestor (up to the open dialog) just enough to show `el`. */

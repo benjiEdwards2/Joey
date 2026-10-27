@@ -52,7 +52,7 @@ html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color:
    a pill like the section row's (36 px, fits JY-188's 64 px compact bar: 27 + 36 + 1), filled like the current pill on Home. */
 html.tv .brand-home { height: 2.25rem; padding: 0 .75rem 0 .25rem; border-radius: .5625rem; }
 html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .08); }
-html.tv .userchip { margin-left: auto; height: 2.25rem; padding: 0 .75rem 0 .25rem; border-radius: 62.4375rem; font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .userchip { margin-left: auto; gap: .5rem; height: 2.25rem; padding: 0 .75rem 0 .25rem; border-radius: 62.4375rem; font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .userchip .avatar { width: 1.75rem; height: 1.75rem; font-size: 1.125rem; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }
 /* Sign-out (2026-10-22; option D + pop-up P2): the pill is one D-pad stop (Enter opens the confirm); with focus it also
@@ -421,11 +421,18 @@ html.tv .seclabel, html.tv h2.seclabel { font-size: 1.25rem; line-height: 1.5rem
 html.tv .sec:has(.tv-focus) .seclabel { color: var(--tv-t1); }
 html.tv .tvt .card-pic { display: block; position: relative; overflow: visible; border: 0; background: var(--tv-surface-2); border-radius: .5rem; }
 html.tv .tvt .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: .5rem; border: 0; }
-html.tv .tvt .row-title { margin-top: .625rem; color: var(--tv-t2); }   /* clears the ring (3 + 4 px) and the lift */
+html.tv .tvt .row-title { margin-top: .5rem; color: var(--tv-t2); }   /* clears the ring (3 + 4 px) and the lift */
 html.tv .carousel.tvt-row-land > * { flex: 0 0 9.875rem; width: 9.875rem; }
 html.tv .tvt-land .card-pic > img { aspect-ratio: 16 / 9; }
 html.tv .tvt-land .row-meta { visibility: visible; color: var(--tv-t4); }
-html.tv .card-poster.tvt-land:focus-visible, html.tv .card-poster.tvt-land.tv-focus { transform: scale(1.05); }
+/* JY-259 review: on a kit tile the lift moves the picture only (grown up from its foot, sideways from the edge tv.js
+   picks), so the focused tile's caption stays on its neighbours' line */
+html.tv .card-poster.tvt:focus-visible, html.tv .card-poster.tvt.tv-focus { transform: none; }
+html.tv .tvt .card-pic { transition: transform .16s ease-out; transform-origin: var(--tv-ox, center) bottom; }
+html.tv .card-poster.tvt:focus-visible .card-pic, html.tv .card-poster.tvt.tv-focus .card-pic { transform: scale(1.08); }
+html.tv .card-poster.tvt-land:focus-visible .card-pic, html.tv .card-poster.tvt-land.tv-focus .card-pic { transform: scale(1.05); }
+html.tv .tvt-poster .row-title { height: 2.5rem; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden; }   /* JY-259 review: two lines, clamped, under row posters */
 html.tv .tvt-person .card-pic, html.tv .tvt-person .card-pic > img { width: 5rem; height: 5rem; aspect-ratio: 1; margin: 0 auto; border-radius: 50%; }
 html.tv .tvt-person .row-title, html.tv .tvt-person .row-meta { text-align: center; }
 html.tv .tvt-band { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: .125rem .375rem; border-radius: 0 0 .5rem .5rem;
@@ -447,11 +454,14 @@ html.tv .tv-bd::after {
 }
 html.tv body:has(.tv-bd) .topbar { background: rgba(9, 9, 11, .8); }
 html.tv body:has(.tv-bd) .page { position: relative; z-index: 1; }
-html.tv .tv-hero { margin: 0; padding: 1.25rem 0 .25rem; max-width: 36rem; }
+html.tv .tv-hero { margin: 0; padding: .75rem 0 0; max-width: 36rem; }
 html.tv .tv-hero p { margin: 0; }
 html.tv .tv-hero-eyebrow { font-size: 1.125rem; font-weight: 600; color: var(--tv-t3); }
-html.tv .tv-hero-title { margin-top: .25rem !important; font-size: 2.25rem; line-height: 1.1; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1);
+html.tv .tv-hero-title { margin-top: .125rem !important; font-size: 2rem; line-height: 1.1; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1);
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-html.tv .tv-hero-facts { margin-top: .5rem !important; font-size: 1.125rem; color: var(--tv-t2); }
-html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: 1.375rem; }
+html.tv .tv-hero-facts { margin-top: .375rem !important; font-size: 1.125rem; color: var(--tv-t2); }
+html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: 1rem; }
+/* review fix: with 2-line titles the first poster row must fit under the hero without a scroll (a new friend's Home
+   also carries the welcome line, made compact here) */
+html.tv .page:has(> .tv-hero) > .welcome { margin: .5rem 0 0; font-size: 1.125rem; line-height: 1.5rem; }
 /* ==== end JY-259 phase 1 ==== */

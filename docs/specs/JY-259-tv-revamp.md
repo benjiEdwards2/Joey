@@ -267,6 +267,10 @@ icon); a kit tile lifts its picture only, from its foot, so the focused caption 
 poster titles take 2 lines, clamped; the hero eyebrow says "Pick up where you left off" / "Just added", never the
 first row's label; the hero and the welcome line are more compact so the first poster row fits without a scroll.
 Tests: the no-network test also blocks `socket.connect`; a hostile title renders escaped in every tile macro.
+Verifier fix (2026-10-28): the kit rows' top padding is 20 px, more than the picture's upward growth plus the ring
+(138 x 0.08 + 7 = 18 px), so the scrolling row never clips the focus ring
+(`test_the_row_padding_holds_the_whole_lift_and_ring`); the +22 px between Home rows is back (the first row sits 8 px
+under the hero).
 
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).

@@ -301,3 +301,18 @@ def test_every_tile_macro_escapes_a_hostile_title():
            kit.hero({"eyebrow": XSS, "title": XSS, "sub": XSS})]
     for html in map(str, out):
         assert "<img src=x" not in html and "&lt;img src=x onerror=1&gt;" in html, html[:120]
+
+
+def test_the_row_padding_holds_the_whole_lift_and_ring():
+    """Verifier 2026-10-28: a kit tile's picture grows up from its foot; the scrolling row must not clip it or its ring."""
+    css = design_px(_sheet())
+    pad = float(re.search(r"\.carousel\.tvt-row \{ padding-top: ([\d.]+)px", css).group(1))
+    ring = sum(map(float, re.search(r"\.card-poster\.tv-focus \.card-pic \{[^}]*outline: ([\d.]+)px solid[^}]*"
+                                    r"outline-offset: ([\d.]+)px", css).groups()))
+    poster_w = float(re.search(r"\.carousel > \* \{ flex: 0 0 ([\d.]+)px", css).group(1))
+    land_w = float(re.search(r"\.carousel\.tvt-row-land > \* \{ flex: 0 0 ([\d.]+)px", css).group(1))
+    lift = float(re.search(r"\.card-poster\.tvt\.tv-focus \.card-pic \{ transform: scale\(([\d.]+)\)", css).group(1))
+    lift_land = float(re.search(r"\.card-poster\.tvt-land\.tv-focus \.card-pic \{ transform: scale\(([\d.]+)\)", css).group(1))
+    assert pad >= poster_w * 1.5 * (lift - 1) + ring, pad                     # 2:3 picture, grows up by all of it
+    assert pad >= land_w * 9 / 16 * (lift_land - 1) + ring, pad
+    assert re.search(r"\.page:has\(> \.tv-hero\) \.sec, html\.tv main:has\(> \.tv-hero\) \.sec \{ margin-top: 22px", css)

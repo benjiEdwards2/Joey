@@ -422,6 +422,9 @@ html.tv .sec:has(.tv-focus) .seclabel { color: var(--tv-t1); }
 html.tv .tvt .card-pic { display: block; position: relative; overflow: visible; border: 0; background: var(--tv-surface-2); border-radius: .5rem; }
 html.tv .tvt .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: .5rem; border: 0; }
 html.tv .tvt .row-title { margin-top: .5rem; color: var(--tv-t2); }   /* clears the ring (3 + 4 px) and the lift */
+/* verifier fix: the picture grows up from its foot (8 % of 138 px = 11 px) plus the 7 px ring - the row's top padding
+   holds all of it, or the scrolling row clips the ring (tests/hub/test_tv_home_jy259.py pins it) */
+html.tv .carousel.tvt-row { padding-top: 1.25rem; padding-bottom: .75rem; }
 html.tv .carousel.tvt-row-land > * { flex: 0 0 9.875rem; width: 9.875rem; }
 html.tv .tvt-land .card-pic > img { aspect-ratio: 16 / 9; }
 html.tv .tvt-land .row-meta { visibility: visible; color: var(--tv-t4); }
@@ -460,7 +463,8 @@ html.tv .tv-hero-eyebrow { font-size: 1.125rem; font-weight: 600; color: var(--t
 html.tv .tv-hero-title { margin-top: .125rem !important; font-size: 2rem; line-height: 1.1; font-weight: 700; letter-spacing: -.01em; color: var(--tv-t1);
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 html.tv .tv-hero-facts { margin-top: .375rem !important; font-size: 1.125rem; color: var(--tv-t2); }
-html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: 1rem; }
+html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: 1.375rem; }   /* +22 px between Home rows */
+html.tv .page:has(> .tv-hero) > .sec:first-of-type { margin-top: .5rem; }   /* the first row sits close under the hero */
 /* review fix: with 2-line titles the first poster row must fit under the hero without a scroll (a new friend's Home
    also carries the welcome line, made compact here) */
 html.tv .page:has(> .tv-hero) > .welcome { margin: .5rem 0 0; font-size: 1.125rem; line-height: 1.5rem; }

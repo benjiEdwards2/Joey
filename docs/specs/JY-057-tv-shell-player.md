@@ -51,7 +51,8 @@ FFmpeg extension. See Question 1.
   (`POST /api/play/sessions`, kind `tv`, a DeviceProfile from the TV's own decoders, `resume: true`), then the stream
   (`POST .../stream`). Hub calls carry the WebView's own cookies for the UI host (read from `CookieManager` per call,
   never stored) and the UI origin as `Origin`. The `Authorization` header from `/stream` is kept in memory only and sent
-  only to the Jellyfin origin (`ResolvingDataSource`), never to the hub, never logged, never in a URL. A stream URL off
+  only to the Jellyfin origin (`PlayerHttp`: OkHttp with redirects off, the header added per request on that origin
+  only and removed on any other), never to the hub, never logged, never in a URL. A stream URL off
   the Jellyfin origin, or a header that is not `MediaBrowser ...`, is refused (fallback).
 - Direct play when Jellyfin allows it (the file as is, range requests), else Jellyfin's HLS (remux or transcode).
   Start position from the answer (the member's own resume point). External text subtitles are side-loaded.
@@ -71,7 +72,9 @@ FFmpeg extension. See Question 1.
   plays it (a new session, its own resume point). A film, or a last episode, returns to Joey at the end.
 - **Progress** (contract endpoint 3): every `heartbeat_s` while open, and at once on pause, play and seek. A failed
   heartbeat is ignored; `404 session_unknown` starts a new session at the position. Stop (endpoint 4) on Back, Stop, the
-  end, Home (the player closes when the TV leaves it) and before Next.
+  end, Home (the player closes when the TV leaves it) and before Next, best effort. Back before the first frame stops
+  too, at the position the session was asked to start at (the member's resume point, or 0), so the hub forgets it at
+  once and Jellyfin's saved position does not move; a start that answers after Back is stopped the same way.
 - **Tracks:** direct play switches inside the player (the n-th embedded track of that type, or the side-loaded
   subtitle); remux / transcode stop the session and start a new one at the position with the new `audio_index` /
   `subtitle_index` (the contract's way). Image subtitles in an HLS stream are burned in by Jellyfin.
@@ -161,6 +164,16 @@ APK friends install would carry GPL terms. C) An HTML `<video>` in the WebView (
 but TCL WebView codec reach and HDR are unknown and the header path needs hls.js for everything.
 *Recommend A, and built: the same engine Jellyfin's own TV app uses, no licence change, and C's unknowns are what the
 study was to measure. The sitting can still run on this build; if it shows a gap, B is one dependency line.*
+
+## Review round 1 (2026-10-27)
+Both Sonnet reviews PASS. Fixes asked for before the Opus verifier:
+- The token on a redirect: Media3's `DefaultHttpDataSource` follows same-protocol redirects with the same headers, so a
+  cross-host redirect would have carried the token. Streams now go through `PlayerHttp` (`media3-datasource-okhttp`,
+  OkHttp 4.12.0): no redirect is followed and the header is set only on the Jellyfin origin. `PlayerHttpTest` proves it
+  against two local servers (a 302 to the other host is never requested; the other host never sees the header).
+- `up_next` per viewer: `test_up_next_on_the_media_front_is_each_viewers_own` (two members, two cached reads, each gets
+  their own next episode, no watch state in it, a viewer with nothing cached gets none).
+- Back before the first frame now sends a best-effort stop (see Progress above).
 
 ## Shipped notes
 Not yet.

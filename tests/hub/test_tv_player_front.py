@@ -209,3 +209,38 @@ def test_everyone_else_keeps_todays_link_byte_for_byte(front, case):
         links = page_links(c, ua, path)
         assert links and links == today, (case, path)
         assert not any("player=joey" in h for h in links), (case, path)
+
+
+# ---- up_next is per viewer on the media front (verifier ask, 2026-10-27) ----
+
+def _seed_for(viewer: str, show: str, ep: str, nxt: str, label_name: str, *, played: bool) -> None:
+    """One viewer's own cached reads (media_item keys them (viewer, id) on the media front)."""
+    import time
+    eps = [{"number": 1, "name": "Pilot", "jf_id": ep, "aired": True, "runtime": "40m", "played": played,
+            "in_progress": not played},
+           {"number": 2, "name": label_name, "jf_id": nxt, "aired": True, "runtime": "41m", "played": played,
+            "in_progress": True}]
+    media_item._cache[(viewer, show)] = (time.time(), {"item": {"kind": "series", "id": show}, "files": None,
+                                                       "seasons": [{"number": 1, "episodes": eps}]})
+    media_item._cache[(viewer, ep)] = (time.time(), {"item": {"kind": "episode", "id": ep, "show_id": show},
+                                                     "seasons": [], "files": None})
+
+
+def test_up_next_on_the_media_front_is_each_viewers_own(client, jf, env):
+    shared_ep = "e1" * 16
+    a_next, b_next = "a2" * 16, "b2" * 16
+    _seed_for(ALIAS.jf_user_id, "5a" * 16, shared_ep, a_next, "Alias Next", played=False)
+    _seed_for(HER_ON_MEDIA.jf_user_id, "5a" * 16, shared_ep, b_next, "Her Next", played=True)
+    try:
+        on_media(env, ALIAS)
+        a = start(client, headers=None, item_id=shared_ep)["up_next"]
+        on_media(env, HER_ON_MEDIA)
+        b = start(client, headers=None, item_id=shared_ep)["up_next"]
+        assert a == {"item_id": a_next, "label": "S1 · E2 · Alias Next", "runtime": "41m"}
+        assert b == {"item_id": b_next, "label": "S1 · E2 · Her Next", "runtime": "41m"}
+        assert set(a) == set(b) == {"item_id", "label", "runtime"}   # no watch state or progress travels with it
+        # a viewer with nothing cached gets nothing, never someone else's entry
+        on_media(env, Identity(owner="you", name="Other Device", jf_user_id="c9" * 16, jf_token="tok-c9"))
+        assert start(client, headers=None, item_id=shared_ep)["up_next"] is None
+    finally:
+        media_item._cache.clear()

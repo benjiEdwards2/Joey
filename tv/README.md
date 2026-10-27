@@ -158,7 +158,7 @@ extras) then:
    `POST .../stream`, with the WebView's own cookies for the UI host and the UI origin as `Origin`
    (`PlayApiClient`; `docs/playback-contract.md`);
 2. plays the stream URL (it must be on the Jellyfin origin, with no key) and sends the `Authorization` header from
-   `/stream` to the Jellyfin origin only (`ResolvingDataSource`); the header is kept in memory, never logged or stored;
+   `/stream` to the Jellyfin origin only (`policy/PlayerHttp.kt`: OkHttp, no redirects followed); the header is kept in memory, never logged or stored;
 3. reports progress every `heartbeat_s` and on play / pause / seek, and stop on Back, Stop, the end, Home and Next.
 
 Any failure before the first frame (after one retry for a network error or a retryable 502 / 504), or a fatal player

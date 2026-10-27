@@ -28,8 +28,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.datasource.ResolvingDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
@@ -47,6 +46,7 @@ import net.joeyhome.media.policy.PlayerAction
 import net.joeyhome.media.policy.PlayerApi
 import net.joeyhome.media.policy.PlayerButton
 import net.joeyhome.media.policy.PlayerFallback
+import net.joeyhome.media.policy.PlayerHttp
 import net.joeyhome.media.policy.PlayerOverlay
 import net.joeyhome.media.policy.PlayerStep
 import net.joeyhome.media.policy.PlayerText
@@ -102,6 +102,7 @@ class PlayerActivity : Activity() {
     private var firstFrameMs: Long? = null
     private var resumedUntil = 0L
     private var leaving = false
+    @Volatile private var abandoned = false   // read on the io thread: the viewer left before a start answered
     private var loading = true
     private var lastBackAt = 0L
     private var backCallback: Any? = null
@@ -178,6 +179,11 @@ class PlayerActivity : Activity() {
         val jellyfin = hosts.jellyfin
         io.execute {
             val result = startOnce(body, jellyfin)
+            if (abandoned && result is Started.Ok) {
+                // Back before the start answered: the session exists on the hub; stop it at its start position now
+                PlayerApi.sessionPath(result.answer.sessionId, "stop")?.let { api.post(it, PlayerApi.stopBody(result.answer.startMs)) }
+                return@execute
+            }
             main.post {
                 if (gen != generation || isFinishing || isDestroyed) return@post
                 when (result) {
@@ -240,16 +246,11 @@ class PlayerActivity : Activity() {
         releasePlayer()
         val jellyfin = hosts.jellyfin
         val auth = handOut.authorization
-        val http = DefaultHttpDataSource.Factory()
+        // The member's header reaches the Jellyfin origin only: PlayerHttp follows no redirect and adds the header per
+        // request on that origin alone (contract: never the hub, never a URL, never another host)
+        val http = OkHttpDataSource.Factory(PlayerHttp.client(jellyfin, auth, HTTP_CONNECT_MS, HTTP_READ_MS))
             .setUserAgent(userAgent)
-            .setConnectTimeoutMs(HTTP_CONNECT_MS)
-            .setReadTimeoutMs(HTTP_READ_MS)
-            .setAllowCrossProtocolRedirects(false)
-        // The member's header goes to the Jellyfin origin only (contract: never the hub, never a URL)
-        val withAuth = ResolvingDataSource.Factory(http) { spec ->
-            if (Origin.of(spec.uri.toString()) == jellyfin) spec.withAdditionalHeaders(mapOf("Authorization" to auth)) else spec
-        }
-        val p = ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(withAuth)).build()
+        val p = ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(http)).build()
         val subtitles = TrackPlan.sideloads(answer.subtitles, jellyfin).mapNotNull { t ->
             val url = t.url ?: return@mapNotNull null
             MediaItem.SubtitleConfiguration.Builder(Uri.parse(url))
@@ -346,21 +347,25 @@ class PlayerActivity : Activity() {
         }
     }
 
-    /** Contract endpoint 4, once per session; only after Jellyfin has heard it play (a stop alone could move resume). */
+    /**
+     * Contract endpoint 4, once per session, best effort. Before the first progress report (Back before the first frame)
+     * the stop carries the position the session was asked to start at (the member's own resume point, or 0), so the hub
+     * forgets the session at once and Jellyfin's saved position does not move.
+     */
     private fun sendStop() {
         val s = session ?: return
         if (stopped) return
         stopped = true
         main.removeCallbacks(heartbeat)
-        if (!progressSent) return
         val path = PlayerApi.sessionPath(s.sessionId, "stop") ?: return
-        val body = PlayerApi.stopBody(position())
+        val body = PlayerApi.stopBody(if (progressSent) position() else s.startMs)
         io.execute { api.post(path, body) }
     }
 
     private fun returnToJoey() {
         if (leaving) return
         leaving = true
+        abandoned = true
         sendStop()
         releasePlayer()
         stream = null
@@ -372,6 +377,7 @@ class PlayerActivity : Activity() {
     private fun handOff() {
         if (leaving) return
         leaving = true
+        abandoned = true
         sendStop()
         releasePlayer()
         stream = null
@@ -630,8 +636,8 @@ class PlayerActivity : Activity() {
         private const val RETRY_MS = 1_000L
         private const val RESUMED_SHOW_MS = 4_000L
         private const val BACK_DEDUPE_MS = 250L
-        private const val HTTP_CONNECT_MS = 15_000
-        private const val HTTP_READ_MS = 30_000
+        private const val HTTP_CONNECT_MS = 15_000L
+        private const val HTTP_READ_MS = 30_000L
         private const val MAX_ROWS = 6
         private val REPEATABLE = setOf(
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,

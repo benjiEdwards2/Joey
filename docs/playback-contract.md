@@ -27,6 +27,7 @@ Household only (JY-050 Q2 A). Friends stay on the official Jellyfin app until JY
 |---|---|---|
 | Private (`joeyhome.net`, Cloudflare Access) | `you` or `her` (Access email) | served, as that member's own Jellyfin user |
 | Private | no Access identity, or `OWNER_EMAIL_YOU` unset | `401 not_signed_in` |
+| Private | `you` or `her` whose player token is another household member's Jellyfin user (JY-055) | `503 not_configured` |
 | Media (`media.joeyhome.net`) | anyone, friend or household alias, signed in or not | the ordinary Joey 404: every route is `PRIVATE` in `hub/guest.py` |
 | Media, once JY-057 moves the routes to `GUEST` (Q3) | household alias | served with the alias's own session token |
 | Media, once moved | friend (`jf:<id>`) | `403 not_allowed` (the handler checks too, so moving the routes never opens them to friends) |
@@ -38,6 +39,10 @@ Every POST also passes the hub's `same_origin` guard (a cross-site POST is `403 
 - **Private front (Q1 A):** each household member has one Jellyfin access token of their own, made once by signing a
   "Joey player" device in, kept in the NAS env as `JELLYFIN_PLAYER_TOKEN_YOU` / `JELLYFIN_PLAYER_TOKEN_HER`. Never the
   admin `JELLYFIN_API_KEY`. The user id comes from `GET /Users/Me` with that token, kept 1 h. Unset = `503 not_configured`.
+  Since 2026-10-27 (JY-055) a start also checks that this user is the member's own (`JELLYFIN_USER` / `_ALIASES` for
+  `you`, `JELLYFIN_USER_HER` for `her`: the user the recorder, the Jellyfin sweep and the Diary read for them), against
+  the household ids the hub has already read (the recorder reads `/Users` once). Another member's user is
+  `503 not_configured`, before PlaybackInfo. While the ids are unknown the start goes ahead; the start never reads `/Users`.
 - **Media front (after JY-057):** the signed-in session's own token and user id (`Identity.jf_token`, `jf_user_id`).
 - Every call sends the Jellyfin 12.2 header and nothing else (no `X-Emby-*`, no key in a query):
   `Authorization: MediaBrowser Client="Joey", Device="Joey player <kind>", DeviceId="<id>", Version="0.1.0", Token="<token>"`.
@@ -129,10 +134,27 @@ once on pause, resume and seek. Jellyfin: the first call is `POST /Sessions/Play
 mark (JY-050 Q6 A), so the hub stores no progress; the play recorder sees these plays like any other Jellyfin client's.
 A failed heartbeat is not fatal: the player carries on and sends the next one.
 
+**Position before the first frame (JY-055, 2026-10-27).** Until the picture has reached a session's start point (the
+video's `playing`, or a `seeked`), the player reports that start point (`start_ticks` of the start answer), never the 0 a
+video element holds before it seeks. Jellyfin clears a resume point it is told is under 5 %, so a heartbeat, a track
+change, a hub restart or a Back in that window would otherwise wipe the member's place. The TV player (JY-057) follows
+the same rule.
+
 ### 4. Stop: `POST /api/play/sessions/{session_id}/stop`
 
 `{"position_ticks": 3000000000}`. `204`. Jellyfin: `POST /Sessions/Playing/Stopped` (same body, no `IsPaused`), which
 also ends any transcode for that `PlaySessionId`. The session is gone after this call whatever Jellyfin answered.
+
+**Watched, resume and tracks are Jellyfin's own rules (JY-055, 2026-10-27).** Jellyfin applies its server rule to each
+report's `PositionTicks` (Dashboard > Playback > Resume: by default under 5 % clears the resume point, past 90 % marks
+the item played and clears it), the same rule its own apps get, so the hub sends no `PlayedItems` call. `position_ticks`
+is required on stop: Jellyfin marks an item played when a stop carries no position. The film ending sends one stop at the
+end. `AudioStreamIndex` / `SubtitleStreamIndex` ride on every report, so the member's Jellyfin "remember audio /
+subtitle selections" settings keep the choice per item, and the next start's defaults come from them.
+
+**The hub's item cache.** A stop the hub accepted (the caller's own session) drops `hub.media_item`'s cache, whatever
+Jellyfin answered, as Joey's other watch-state writes do, so the title page reads the new position and watched state.
+Back to Joey waits for the stop's answer, at most 1.5 s, before it leaves.
 
 When the tab closes, the web player sends stop with `navigator.sendBeacon(url, JSON.stringify({position_ticks}))`
 from `pagehide`. That posts a `text/plain` body with the page's own `Origin`, which the hub accepts: every body is read as

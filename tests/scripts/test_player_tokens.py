@@ -131,6 +131,11 @@ class FakeNas:
                     .replace(f"{pt.STATE_DIR}/joey_pt_", self.ctr.as_posix() + "/joey_pt_"))
             r = subprocess.run(["sh", "-c", real], capture_output=True, text=True)
             return self._cp(r.stdout, r.returncode, r.stderr)
+        if "printenv" in cmd:
+            who = next(w for w, k in pt.TOKEN_ENV.items() if f"printenv {k} " in cmd)
+            assert cmd == pt.sync_cmd(who)
+            key = pt.TOKEN_ENV[who]
+            return self._cp("SAME\n" if self.env_value(key) == self.ctr_env.get(key, "") else "DIFF\n")
         if cmd == pt.RECREATE_CMD:
             self.recreated += 1
             self.staged = False
@@ -235,6 +240,7 @@ def test_existing_valid_token_stops_without_rotate(world, capsys, tmp_path):
     jf, nas = world()
     tok = FakeJellyfin.add_token(jf, "B")
     nas.env.write_text(f"A=1\nJELLYFIN_PLAYER_TOKEN_YOU={tok}\n", encoding="utf-8", newline="\n")
+    nas.ctr_env = {"JELLYFIN_PLAYER_TOKEN_YOU": tok}     # the hub already runs it
     rc, out, log = run(capsys, tmp_path, "--who", "you")
     assert rc == 0
     assert "SKIP  you: current token - JELLYFIN_PLAYER_TOKEN_YOU already set and valid (len 32, user B...)" in out
@@ -302,3 +308,48 @@ def test_only_joey_hub_reads_the_player_tokens():
     assert "- .env" not in media and "media.env" in media
     hub = compose.split("\n  hub:", 1)[1].split("\n  joey-media:", 1)[0]
     assert "- .env" in hub and "container_name: joey-hub" in hub
+
+
+def test_partial_run_still_recreates_the_hub(world, capsys, tmp_path):
+    """Review of #236: `you` written, then `her` fails: the hub is still recreated with `you`, and the run is a FAIL."""
+    jf, nas = world(approver={"you": "B", "her": "X"})
+    rc, out, log = run(capsys, tmp_path)
+    assert rc == 1
+    assert "FAIL  her: sign in and check the user - the code was approved by user X..." in out
+    assert nas.env_value("JELLYFIN_PLAYER_TOKEN_HER") == ""
+    you = nas.env_value("JELLYFIN_PLAYER_TOKEN_YOU")
+    assert jf.tokens[you] == "B" and nas.recreated == 1
+    assert nas.ctr_env["JELLYFIN_PLAYER_TOKEN_YOU"] == you
+    assert "PASS  you: check the hub's token - joey-hub holds JELLYFIN_PLAYER_TOKEN_YOU: valid" in out
+    assert_no_secret(jf, nas, out, log)
+
+    # rerun with her fixed: you is current in .env and in the hub, so only her is made, one more recreate
+    jf.approver = {"you": "B", "her": "G"}
+    rc, out, log = run(capsys, tmp_path)
+    assert rc == 0, out
+    assert "SKIP  you: current token - JELLYFIN_PLAYER_TOKEN_YOU already set and valid (len 32, user B...); nothing" in out
+    assert jf.tokens[nas.env_value("JELLYFIN_PLAYER_TOKEN_HER")] == "G" and nas.recreated == 2
+
+
+def test_rerun_recreates_a_hub_that_runs_an_older_token(world, capsys, tmp_path):
+    """A run that wrote .env but stopped before the recreate: the rerun sees the hub's running value differ from .env
+    (hash compare on the NAS) and recreates it, without a new Quick Connect."""
+    jf, nas = world()
+    tok = FakeJellyfin.add_token(jf, "B")
+    nas.env.write_text(f"JELLYFIN_PLAYER_TOKEN_YOU={tok}\n", encoding="utf-8", newline="\n")
+    nas.ctr_env = {"JELLYFIN_PLAYER_TOKEN_YOU": "old"}
+    rc, out, log = run(capsys, tmp_path, "--who", "you")
+    assert rc == 0, out
+    assert "joey-hub runs an older value: it will be recreated" in out
+    assert ("POST", "/QuickConnect/Initiate") not in jf.calls
+    assert nas.recreated == 1 and nas.ctr_env["JELLYFIN_PLAYER_TOKEN_YOU"] == tok
+    assert "PASS  you: check the hub's token" in out
+    assert_no_secret(jf, nas, out, log)
+    rc, out, log = run(capsys, tmp_path, "--who", "you")      # now current: nothing to do
+    assert rc == 0 and nas.recreated == 1 and "the hub is current; nothing to recreate" in out
+
+
+def test_sync_command_compares_hashes_and_prints_only_a_word():
+    cmd = pt.sync_cmd("her")
+    assert "sha256sum" in cmd and "printenv JELLYFIN_PLAYER_TOKEN_HER " in cmd and "tr -d '\\r'" in cmd
+    assert cmd.endswith("echo SAME || echo DIFF") and "\r" not in cmd

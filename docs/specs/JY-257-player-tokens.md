@@ -33,6 +33,9 @@ them into this item. B., 2026-10-27: "1A 2a 3a 4a, ready" (2a = JY-054 Q1 A, a s
    when a token changed. Why only it: compose `hub` reads `.env` and only `hub/player_api.py` uses the keys; joey-media
    reads `media.env` only; joey-connectors reads `.env` but never the keys (pinned by a test). After it is healthy the
    script checks the recreated hub holds a valid token for the right user.
+   Review of #236 (2026-10-27): a token written in this run always triggers the recreate, even when a later member
+   fails (that member is still a FAIL, exit 1). A rerun that keeps a valid `.env` token compares it with joey-hub's
+   running value (`docker exec printenv`, sha256 on the NAS, prints only SAME / DIFF) and recreates on a difference.
 8. One Python script, run from Windows over ssh (`joey_common.ssh_run`: `JOEY_NAS`, `JOEY_NAS_KEY`), PASS / FAIL / SKIP
    per step, log at `<main clone>/.joey/logs/joey_<date>.log` with no secrets.
 9. Tests with a fake Jellyfin and a fake ssh: happy path, timeout, wrong user, an existing token (and `--rotate`),

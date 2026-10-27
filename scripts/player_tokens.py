@@ -217,6 +217,15 @@ def write_cmd(who):
 
 
 RECREATE_CMD = f"cd {DEPLOY_DIR} && docker compose up -d --no-deps --force-recreate {SERVICE} >/dev/null 2>&1 && echo RECREATED"
+def sync_cmd(who):
+    """SAME when joey-hub's running env holds the same value as the NAS .env for the key, else DIFF. Compares sha256
+    hashes on the NAS (an unset key hashes as empty); prints neither the values nor the hashes."""
+    key = TOKEN_ENV[who]
+    return (f"A=$(sed -n 's/^{key}=//p' {ENV_FILE} 2>/dev/null | tail -n 1 | tr -d '\\r' | sha256sum | cut -c1-64); "
+            f"B=$(docker exec {CONTAINER} printenv {key} 2>/dev/null | sha256sum | cut -c1-64); "
+            '[ "$A" = "$B" ] && echo SAME || echo DIFF')
+
+
 HEALTH_CMD = f"docker inspect -f '{{{{.State.Health.Status}}}}' {CONTAINER}"
 STAGE_CMD = f"docker exec -i {CONTAINER} sh -c {shlex.quote(f'umask 077; cat > {INNER}')} && echo STAGED"
 
@@ -265,6 +274,10 @@ class Flow:
         if self.a.rotate:
             return f"{TOKEN_ENV[who]} valid (len {me['len']}, user {me['initial']}...): --rotate, replacing it"
         self.keep = True
+        if self.ssh(sync_cmd(who)).stdout.strip() != "SAME":
+            self.stale.append(who)
+            raise self.jc.Skip(f"{TOKEN_ENV[who]} already set and valid in .env (len {me['len']}, user "
+                               f"{me['initial']}...), but joey-hub runs an older value: it will be recreated")
         raise self.jc.Skip(f"{TOKEN_ENV[who]} already set and valid (len {me['len']}, user {me['initial']}...); "
                            "nothing to do (use --rotate to replace it)")
 
@@ -345,22 +358,30 @@ class Flow:
         for who in self.missing:
             r.step(f"{who}: skip", self.skip,
                    f"no Jellyfin user for {who} yet (JELLYFIN_USER_HER unset or not in Jellyfin); nothing to make")
-        for who in self.who:
-            self.keep = False
-            r.step(f"{who}: current token", self.existing, who)
-            if self.keep:
-                continue
-            r.step(f"{who}: start Quick Connect", self.initiate, who)
-            r.step(f"{who}: wait for approval", self.wait, who)
-            r.step(f"{who}: sign in and check the user", self.finish, who)
-            r.step(f"{who}: write deploy/.env", self.write, who)
-        if not self.changed:
-            r.step("recreate joey-hub", self.skip, "no token changed; nothing to recreate")
-            return
-        r.step("recreate joey-hub", self.recreate)
-        r.step("copy the helper into the new joey-hub", self.stage)
-        for who in self.changed:
-            r.step(f"{who}: check the hub's token", self.verify, who)
+        self.stale = []
+        failed = None
+        try:
+            for who in self.who:
+                self.keep = False
+                r.step(f"{who}: current token", self.existing, who)
+                if self.keep:
+                    continue
+                r.step(f"{who}: start Quick Connect", self.initiate, who)
+                r.step(f"{who}: wait for approval", self.wait, who)
+                r.step(f"{who}: sign in and check the user", self.finish, who)
+                r.step(f"{who}: write deploy/.env", self.write, who)
+        except self.jc.Stop as e:
+            failed = e     # a token written earlier in this run still reaches the hub; the run still ends FAIL
+        reload = self.changed + [w for w in self.stale if w not in self.changed]
+        if not reload:
+            r.step("recreate joey-hub", self.skip, "no token changed and the hub is current; nothing to recreate")
+        else:
+            r.step("recreate joey-hub", self.recreate)
+            r.step("copy the helper into the new joey-hub", self.stage)
+            for who in reload:
+                r.step(f"{who}: check the hub's token", self.verify, who)
+        if failed is not None:
+            raise failed
 
 
 def main(argv=None):

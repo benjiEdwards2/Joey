@@ -72,7 +72,7 @@ def test_demo_seed_validates_against_frozen_schema(tmp_path, monkeypatch):
     seed.main()
     schema = json.loads(Path("connectors/schema/envelope.schema.json").read_text(encoding="utf-8"))
     files = list((tmp_path / "demo").glob("*.json"))
-    assert len(files) == 5
+    assert len(files) == 4   # money seed removed 2026-10-27 (JY-220)
     for f in files:
         jsonschema.validate(json.loads(f.read_text(encoding="utf-8")), schema)
     names = {f.stem for f in files}

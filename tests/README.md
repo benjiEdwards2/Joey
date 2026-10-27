@@ -25,7 +25,7 @@ once per worker and hands each app its own copy; only on the pinned FastAPI. `te
 | `tests/connectors/` | Envelope and per-feed schemas, fixture tests per connector, the sample snapshots, the contract doc |
 | `tests/deploy/` | `smoke.py` plus compose, `.dockerignore`, deploy-script, cloudflared, public-edge (`test_edge.py`) and off-box media.db push (`test_media_offsite.py`) checks |
 | `tests/tv/` | The Joey TV app's release metadata only (`test_version_file.py`: `tv/VERSION`, `tv/NOTES.txt`, `tv/SIGNING_CERT_SHA256`); the Kotlin app's own tests are JVM tests under `tv/`, run in Actions |
-| `tests/money/` | The money pre-commit guard only (the money importer was never built) |
+| `tests/money/` | The money pre-commit guard only (the money importer was never built, and the hidden Money area was removed 2026-10-27, JY-220; the guard stays) |
 | `tests/stackctl/` | The `stackctl/` media-stack helper: Bearer auth, service filter, one-job rule, HTTP layer (docker faked) |
 | `tests/scripts/` | `scripts/budgets.py` (JY-013): p95 maths, parsers, verdicts and exit codes, the page payload against a loopback fake hub (ssh faked) |
 

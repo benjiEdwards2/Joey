@@ -1373,3 +1373,8 @@ needle test), `test_guest_request_picks.py` (TV mode carries the picks; the JY-2
 in the spec). Spec `docs/specs/JY-255-rq2-tv-mode.md`.
 
 **JY-160 (2026-10-27, built ahead of B.'s pick, option A).** Each day in Next 7 days (hub and the calendar area page) has one forecast line before its first row: glyph, condition word, low-high, rain chance, from the `open_meteo` snapshot's `days` matched on the date (`weather.day_forecasts` / `forecast_line`, `upcoming.attach_forecast`; no call on render, a day the snapshot does not cover has no line). Calendar stays private: the media front serves neither page. Tests `test_upcoming_forecast.py`. Spec `docs/specs/JY-160-day-forecast.md`.
+
+**JY-220 (2026-10-27): hidden Money area removed.** The Money area is gone from `config/areas.yaml` and `/a/money` gives the
+ordinary unknown-area 404; the money demo seed went too. The frozen `money` snapshot id stays in the envelope enum (the contract
+is frozen). The money pre-commit guard (`scripts/precommit_money_guard.py`, its hook and tests) is unchanged. Spec
+`docs/specs/JY-220-remove-money-area.md`.

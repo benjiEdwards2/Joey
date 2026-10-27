@@ -25,7 +25,7 @@ Joey TV (`tv/`) is its Android TV shell. B. approves every spec, picks every opt
 
 ## Areas
 
-Source: `config/areas.yaml`. Eight areas, hard cap nine. `hidden: true` means no tab or hub card, but the page still serves.
+Source: `config/areas.yaml`. Seven areas, hard cap nine. `hidden: true` means no tab or hub card, but the page still serves.
 Weather is a tile in Calendar that renders on the hub and `/weather` only. It is not its own area.
 
 | Area | State | Feeds |
@@ -34,7 +34,6 @@ Weather is a tile in Calendar that renders on the hub and `/weather` only. It is
 | Calendar | live | `gcal`, `open_meteo` (weather tile) |
 | Server | live | `media_status`, `system`, `uptime_kuma`, `wud` |
 | Food (id `kitchen`) | hidden | `macromates` (not connected) |
-| Money | hidden | `money` (not connected; JY-220) |
 | Desk | hidden | `nas_stats` (not connected) |
 | House | hidden | `home_assistant` (not connected) |
 | Car | hidden | `home_assistant` (not connected) |

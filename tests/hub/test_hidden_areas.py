@@ -12,7 +12,7 @@ from tests.hub.helpers import AREAS_YAML, make_area, write_envelope, write_regis
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = REPO_ROOT / "config" / "sample_snapshots"
-PARKED = {"kitchen", "money", "desk", "house", "car"}
+PARKED = {"kitchen", "desk", "house", "car"}   # Money removed 2026-10-27 (JY-220)
 
 
 def test_hidden_defaults_false_and_is_accepted(tmp_path):
@@ -64,8 +64,16 @@ def test_top_bar_and_phone_bar_skip_hidden_areas(tmp_path, monkeypatch):
 
 def test_parked_page_still_serves(monkeypatch, tmp_path):
     with _client(monkeypatch, tmp_path) as c:
-        r = c.get("/a/money")
-    assert r.status_code == 200 and "<h1>Money</h1>" in r.text
+        r = c.get("/a/kitchen")
+    assert r.status_code == 200 and "<h1>Food</h1>" in r.text
+
+
+def test_money_area_is_gone_and_its_page_is_the_ordinary_404(monkeypatch, tmp_path):
+    """JY-220 (2026-10-27): the hidden Money area was removed; the budget lives in its own project."""
+    assert "money" not in {a.id for a in load_registry(AREAS_YAML).areas}
+    with _client(monkeypatch, tmp_path) as c:
+        r, unknown = c.get("/a/money"), c.get("/a/not-an-area")
+    assert r.status_code == 404 and r.text == unknown.text
 
 
 def test_hub_row_is_the_area_cards_only(monkeypatch, tmp_path):

@@ -9,7 +9,7 @@ from tests.hub.helpers import AREAS_YAML, make_area, make_tile, write_registry  
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-LOCKED_ORDER = ["kitchen", "money", "desk", "calendar", "media", "house", "car", "server"]  # garden removed (B., 2026-09-11); server added last (2026-10-06)
+LOCKED_ORDER = ["kitchen", "desk", "calendar", "media", "house", "car", "server"]  # garden removed (B., 2026-09-11); server added last (2026-10-06)
 
 
 def test_real_registry_loads_in_locked_order():

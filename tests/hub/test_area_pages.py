@@ -107,10 +107,17 @@ def test_calendar_has_upcoming_rows_with_owner_words(site):
     assert "wxglimpse" not in body and "Newport VIC" not in body
 
 
-def test_all_not_connected_area_shows_quiet_sentence(site):
-    main, body = site("/a/money", drop=("money",))
-    note = next(a for a in main.shell.registry.areas if a.id == "money").tiles[0].setup_note
-    assert f"Nothing connected yet. {note}" in body
+def test_all_not_connected_area_shows_quiet_sentence(tmp_path, monkeypatch):
+    # JY-220 (2026-10-27): the real Money area was the only all-unconnected page; a synthetic area now pins the sentence.
+    from tests.hub.helpers import make_area, write_registry
+    monkeypatch.setenv("AREAS_PATH", str(write_registry(tmp_path, make_area("alpha", snapshot="nas_stats", setup_note="Set X."))))
+    monkeypatch.setenv("SNAPSHOT_DIR", str(tmp_path / "snaps"))
+    monkeypatch.setenv("MEDIA_DB_PATH", str(tmp_path / "media.db"))
+    import hub.main
+    importlib.reload(hub.main)
+    with TestClient(hub.main.app) as client:
+        body = client.get("/a/alpha").text
+    assert "Nothing connected yet. Set X." in body
 
 
 def test_connected_area_has_no_quiet_sentence(site):
@@ -122,7 +129,7 @@ def test_weather_page_is_a_stats_strip_and_pages_have_no_literal_hex(site):
     _, body = site("/weather")
     assert re.search(r'<section class="sec wxpage"', body) and 'class="stats wxstats"' in body   # E3: .wxstats (U10)
     assert "Newport VIC" in body and "°C" in body
-    for route in ("/weather", "/a/calendar", "/a/house", "/a/money", "/a/desk", "/a/kitchen"):
+    for route in ("/weather", "/a/calendar", "/a/house", "/a/desk", "/a/kitchen"):
         assert not HEX.search(site(route)[1]), route
 
 

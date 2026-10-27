@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- ACCESS_NETWORK_STATE arrives with Media3 ExoPlayer (JY-057: its bandwidth meter); a normal permission, no prompt. -->
     <!-- REQUEST_INSTALL_PACKAGES is added by the sideload flavor only (src/sideload/AndroidManifest.xml). -->
 
     <!-- One APK for Android TV, Google TV and Fire TV: neither leanback nor a touchscreen is required. -->
@@ -48,5 +49,12 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- JY-057: Joey's own player (Media3 ExoPlayer, look A). Started only by MainActivity with an item id. -->
+        <activity
+            android:name=".PlayerActivity"
+            android:configChanges="density|keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
+            android:exported="false"
+            android:theme="@style/Theme.JoeyTV.Player" />
     </application>
 </manifest>

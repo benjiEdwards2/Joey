@@ -106,7 +106,12 @@ android {
 }
 
 dependencies {
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.ui) // PlayerView (surface + subtitles) only; the controls are the shell's own (look A)
+    implementation(libs.androidx.annotation) // @OptIn(UnstableApi::class) for Media3's data-source and factory APIs
     testImplementation(libs.junit)
+    testImplementation(libs.json)
 }
 
 // Fail closed, early and with a clear message: every release variant's pre-build needs the keystore env.

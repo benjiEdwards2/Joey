@@ -3,9 +3,19 @@
 [versions]
 agp = "9.4.1"
 junit = "4.13.2"
+# JY-057: the shell's own player (Media3 ExoPlayer, the JY-051 study's T2 engine and version; no FFmpeg extension)
+media3 = "1.9.0"
+annotation = "1.9.1"
+# JVM tests only: the real org.json (android.jar's is a stub in unit tests)
+json = "20240303"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
+media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
+media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
+json = { module = "org.json:json", version.ref = "json" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

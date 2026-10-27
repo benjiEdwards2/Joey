@@ -27,6 +27,10 @@ the hub only, no `tv/` file, so it needs no release.
 Conventions: PowerShell 5.1 (no `&&`, full paths). NAS lines are ssh-wrapped. The merge and the deploy are run by Claude
 (JoeyTV project rule 6); the lines are here for when a run is blocked and B. runs it.
 
+**State at 2026-10-27: 1.0.3 is pending.** JY-057 (the shell's own player, `versionCode` `2026102701`) is built as draft
+PR #219. As with 1.0.2, merging it is the release, so it merges only in a TV session with B., after the TV device checklist in
+`docs/specs/JY-057-tv-shell-player.md` passes on the debug APK. With `PLAYER_API` off the release changes nothing anyone sees.
+
 ## Cut a release
 
 1. **Bump `tv/VERSION`.** Three lines: `versionName` (semver, shown to people), `versionCode`, `minVersionCode`.

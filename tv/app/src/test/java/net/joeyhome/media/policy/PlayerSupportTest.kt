@@ -164,6 +164,16 @@ class PlayerSupportTest {
     }
 
     @Test
+    fun theTitleIsThePagesOwnWithoutTheBrand() {
+        assertEquals("Library Film", PlayerText.pageTitle("Library Film · Joey Media"))
+        assertEquals("Sample Show · S1 · E2", PlayerText.pageTitle("Sample Show · S1 · E2 · Joey"))
+        assertEquals("S2 · E3 · The Breakwater", PlayerText.pageTitle("S2 · E3 · The Breakwater"))
+        assertEquals("", PlayerText.pageTitle("Joey Media"))
+        assertEquals("", PlayerText.pageTitle("https://media.joeyhome.net/media/item/x"))
+        assertEquals("", PlayerText.pageTitle(null))
+    }
+
+    @Test
     fun trackLabels() {
         assertEquals("English AAC 2.0", PlayerText.track(PlayTrack(1, true, "English AAC 2.0", "eng", "aac", true, false, false, true, null, null)))
         assertEquals("ITA", PlayerText.track(PlayTrack(2, true, null, "ita", "eac3", false, false, false, true, null, null)))

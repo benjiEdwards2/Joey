@@ -45,7 +45,8 @@ import net.joeyhome.media.update.UpdateFlow
 /**
  * The single Activity: a full-screen WebView over the Joey Media UI plus the native screens (Screens) above it.
  * Keys: D-pad goes to the focused view, Back is ours, Home never reaches apps, media keys are left to the system
- * (they belong to the Jellyfin app, DECISIONS D).
+ * (they belong to the Jellyfin app, DECISIONS D). JY-057: a Play link the hub marked `player=joey` opens PlayerActivity
+ * (Joey's own player, which owns its keys); an unmarked one is still the Jellyfin hand-off.
  */
 class MainActivity : Activity() {
 
@@ -476,6 +477,10 @@ class MainActivity : Activity() {
                     launcher.open(decision.itemId)
                     true
                 }
+                is UrlDecision.Play -> {
+                    openPlayer(decision.itemId, view.title)
+                    true
+                }
                 is UrlDecision.External -> {
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(decision.url)))
@@ -540,6 +545,16 @@ class MainActivity : Activity() {
                     showOffline(OfflinePolicy.kind(result.reachable))
                 }
             }
+        }
+    }
+
+    /** JY-057: Joey's own player for a Play link the hub marked (household, PLAYER_API on, this shell 1.0.3+). */
+    private fun openPlayer(itemId: String, pageTitle: String?) {
+        try {
+            startActivity(PlayerActivity.intent(this, itemId, pageTitle))
+            prefs.returningFromPlayback = true   // the page reloads on return: fresh progress
+        } catch (e: ActivityNotFoundException) {
+            launcher.open(itemId)
         }
     }
 

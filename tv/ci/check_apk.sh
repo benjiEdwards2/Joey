@@ -21,8 +21,9 @@ grep -q "^leanback-launchable-activity:" <<<"$badging"; result $? "leanback-laun
 
 perms="$("$aapt2" dump permissions "$apk" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" | sort | tr '\n' ' ')"
 echo "permissions: ${perms}"
-[ "$perms" = "android.permission.INTERNET android.permission.REQUEST_INSTALL_PACKAGES " ]
-result $? "permissions = INTERNET + REQUEST_INSTALL_PACKAGES"
+# JY-057: Media3 ExoPlayer declares ACCESS_NETWORK_STATE (a normal permission, no prompt; its bandwidth meter).
+[ "$perms" = "android.permission.ACCESS_NETWORK_STATE android.permission.INTERNET android.permission.REQUEST_INSTALL_PACKAGES " ]
+result $? "permissions = ACCESS_NETWORK_STATE + INTERNET + REQUEST_INSTALL_PACKAGES"
 
 size="$(python3 -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); print("%dx%d" % struct.unpack(">II", d[16:24]))' "$banner")"
 echo "banner: ${size}"

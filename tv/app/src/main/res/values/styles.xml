@@ -66,6 +66,37 @@
         <item name="android:textColor">@color/joey_text_2</item>
     </style>
 
+    <!-- JY-057 player: a button or a pop-up row. The ring comes from isActivated (PlayerUi), not Android focus. -->
+    <style name="JoeyPlayerChip">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/joey_button_height</item>
+        <item name="android:minWidth">120dp</item>
+        <item name="android:paddingStart">28dp</item>
+        <item name="android:paddingEnd">28dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/player_chip</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">@dimen/joey_body</item>
+        <item name="android:textColor">@color/joey_text_1</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:focusable">false</item>
+        <item name="android:layout_marginEnd">@dimen/joey_gap</item>
+    </style>
+
+    <style name="JoeyPlayerRow" parent="JoeyPlayerChip">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">56dp</item>
+        <item name="android:gravity">center_vertical|start</item>
+        <item name="android:paddingStart">20dp</item>
+        <item name="android:paddingEnd">20dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:layout_marginEnd">0dp</item>
+    </style>
+
+    <style name="Theme.JoeyTV.Player" parent="Theme.JoeyTV">
+        <item name="android:windowBackground">@color/joey_black</item>
+    </style>
+
     <style name="JoeyField">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>

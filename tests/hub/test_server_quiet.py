@@ -99,7 +99,7 @@ def creds(monkeypatch):
     monkeypatch.setenv("QBIT_URL", URL + "/")
     monkeypatch.setenv("QBIT_USER", USER)
     monkeypatch.setenv("QBIT_PASS", PASSWORD)
-    for name in ("QUIET_MBPS", "NAS_SLEEP_WINDOW"):
+    for name in ("QUIET_MBPS", "FULL_MBPS", "NAS_SLEEP_WINDOW"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -109,7 +109,7 @@ def env(tmp_path, monkeypatch, qbit):
     snaps = tmp_path / "snaps"
     snaps.mkdir()
     monkeypatch.setenv("SNAPSHOT_DIR", str(snaps))
-    for name in ("STACKCTL_URL", "STACKCTL_TOKEN", "WUD_URL", "WUD_USER", "WUD_PASS", "QUIET_MBPS", "NAS_SLEEP_WINDOW",
+    for name in ("STACKCTL_URL", "STACKCTL_TOKEN", "WUD_URL", "WUD_USER", "WUD_PASS", "QUIET_MBPS", "FULL_MBPS", "NAS_SLEEP_WINDOW",
                  "QBIT_URL", "QBIT_USER", "QBIT_PASS"):
         monkeypatch.delenv(name, raising=False)
 
@@ -145,9 +145,10 @@ def snap(data, updated_at="2026-10-22T00:00:00+00:00"):
 @pytest.mark.parametrize("bps, mode, text", [
     (625000, "quiet", "Capped at 5 Mbps"),
     (624640, "quiet", "Capped at 5 Mbps"),      # what qBittorrent reads back (it keeps KiB/s)
-    (0, "full", "Unlimited"),
+    (0, "custom", "Unlimited"),                 # JY-141: Full is a 41 Mbps cap now, so no cap at all is not "full"
     (250000, "custom", "Capped at 2 Mbps"),
-    (5120000, "custom", "Capped at 41 Mbps"),   # 5000 KiB/s typed into qBittorrent's own box
+    (5120000, "full", "Capped at 41 Mbps"),     # 5000 KiB/s typed into qBittorrent's own box = Full since JY-141
+    (5124096, "full", "Capped at 41 Mbps"),     # what qBittorrent reads back after Full writes 5125000
 ])
 def test_status_from_the_snapshot(creds, bps, mode, text):
     assert server_quiet.status(snap({"summary": "x", "dl_limit_bps": bps})) == {"configured": True, "mode": mode,
@@ -185,15 +186,36 @@ def test_set_quiet_posts_the_limit_and_confirms(creds, qbit):
     assert info["cookies"] == {"SID": "sid123"} and all(c["timeout"] == 10 for c in qbit.calls)
 
 
-def test_set_full_posts_zero_and_the_page_mode_follows_before_the_next_sweep(creds, qbit):
+def test_full_mbps_env_default_41_override_zero_and_junk(creds, monkeypatch):
+    assert server_quiet.full_bps() == server_quiet.FULL_BPS == 5_125_000          # JY-141: 41 Mbps by default
+    assert server_quiet.limit_text(server_quiet.full_bps()) == "41 Mbps"
+    monkeypatch.setenv("FULL_MBPS", "20")
+    assert server_quiet.full_bps() == 2_500_000
+    assert server_quiet.status(snap({"summary": "x", "dl_limit_bps": 2_499_072}))["mode"] == "full"
+    monkeypatch.setenv("FULL_MBPS", "0")                                           # explicit 0 = the old unlimited Full
+    assert server_quiet.full_bps() == 0
+    assert server_quiet.status(snap({"summary": "x", "dl_limit_bps": 0}))["mode"] == "full"
+    for junk in ("", "fast", "-3"):
+        monkeypatch.setenv("FULL_MBPS", junk)
+        assert server_quiet.full_bps() == 5_125_000, junk
+
+
+def test_set_full_posts_the_full_cap_and_the_page_mode_follows_before_the_next_sweep(creds, qbit):
     qbit.limit = 624640
     before = snap({"summary": "x", "dl_limit_bps": 624640})
     assert server_quiet.status(before)["mode"] == "quiet"
     assert server_quiet.set_mode("full") == {"ok": True, "mode": "full", "text": "Full speed"}
-    assert qbit.calls[1]["data"] == {"limit": 0}
+    assert qbit.calls[1]["data"] == {"limit": 5_125_000}                          # never 0 unless FULL_MBPS=0
     assert server_quiet.status(before)["mode"] == "full"                           # the kept, newer answer wins
     later = snap({"summary": "x", "dl_limit_bps": 250000}, updated_at="2099-01-01T00:00:00+00:00")
     assert server_quiet.status(later)["mode"] == "custom"                          # a newer sweep wins again
+
+
+def test_set_full_with_full_mbps_zero_posts_zero(creds, qbit, monkeypatch):
+    monkeypatch.setenv("FULL_MBPS", "0")
+    qbit.limit = 624640
+    assert server_quiet.set_mode("full")["ok"] is True
+    assert qbit.calls[1]["data"] == {"limit": 0}
 
 
 def test_older_qbittorrent_200_ok_login_with_a_qbt_sid_cookie_works(creds, qbit):
@@ -244,7 +266,7 @@ def test_set_mode_never_calls_without_creds_or_for_a_junk_mode(qbit, monkeypatch
 # ---- routes ----
 @pytest.mark.parametrize("mode, words, button", [
     ("quiet", "caps qBittorrent's total download speed at 5 Mbps", "Turn on Quiet mode"),
-    ("full", "removes qBittorrent's download cap", "Go full speed"),
+    ("full", "caps qBittorrent's total download speed at 41 Mbps", "Go full speed"),
 ])
 def test_get_confirm_renders_and_calls_nothing(env, mode, words, button):
     with env(limit=250000) as client:
@@ -256,8 +278,21 @@ def test_get_confirm_renders_and_calls_nothing(env, mode, words, button):
     assert env.qbit.calls == [] and PASSWORD not in r.text and "secret-host" not in r.text
 
 
+def test_full_confirm_names_the_configured_cap_and_only_zero_says_removes(env, monkeypatch):
+    def body_for():
+        with env(limit=250000) as client:
+            return txt(main_of(client.get("/server/downloads/cap?mode=full").text)).replace("&#39;", "'")
+    body = body_for()
+    assert "removes" not in body and "caps qBittorrent's total download speed at 41 Mbps" in body
+    monkeypatch.setenv("FULL_MBPS", "30")
+    body = body_for()
+    assert "total download speed at 30 Mbps" in body and "41 Mbps" not in body
+    monkeypatch.setenv("FULL_MBPS", "0")
+    assert "removes qBittorrent's download cap" in body_for()
+
+
 def test_get_confirm_when_already_on_or_not_configured_offers_no_button(env):
-    with env(limit=0) as client:
+    with env(limit=5_124_096) as client:
         g = main_of(client.get("/server/downloads/cap?mode=full").text)
         junk = client.get("/server/downloads/cap?mode=custom", follow_redirects=False)
     assert "Full speed is already on." in g and 'action="/server/downloads/cap"' not in g
@@ -290,7 +325,7 @@ def test_post_sets_the_cap_and_redirects_with_the_flash(env, caplog, mode, flag,
 
 def test_post_that_fails_flashes_couldnt_reach(env):
     env.qbit.login = requests.ConnectTimeout(f"{URL} {PASSWORD}")
-    with env() as client:
+    with env(limit=5_124_096) as client:
         r = client.post("/server/downloads/cap", data={"mode": "quiet"}, follow_redirects=False)
         page = client.get(r.headers["location"]).text
     assert r.headers["location"] == "/server?cap=failed#downloads"
@@ -309,7 +344,7 @@ def test_post_junk_mode_or_no_creds_redirects_without_a_call(env):
 
 # ---- the Server page row ----
 def test_page_shows_one_row_under_downloads_with_the_sleep_window(env, monkeypatch):
-    with env(limit=0) as client:
+    with env(limit=5_124_096) as client:
         html = client.get("/server").text
     q = row(html)
     assert html.count('class="quietrow"') == 1 and env.qbit.calls == []                  # the render calls nothing

@@ -1,8 +1,9 @@
 """Server → Downloads "Quiet (5 Mbps) · Full speed" (P4, 2026-10-22): the qBittorrent global download cap as a toggle.
 
 Why: the 2026-10-12 evaluation found qBittorrent saturating the NAS download link was the biggest cause of slow pages
-(E0: B. set a cap by hand). B. accepted the defaults 2026-10-22: Joey may write the cap; Quiet = 5 Mbps (env QUIET_MBPS),
-Full = unlimited (0). A LIVE write path, server-side only (env QBIT_URL + QBIT_USER + QBIT_PASS, the connector's names):
+(E0: B. set a cap by hand). B. accepted the defaults 2026-10-22: Joey may write the cap; Quiet = 5 Mbps (env QUIET_MBPS).
+JY-141 (2026-10-27): Full = 41 Mbps (env FULL_MBPS), the hand cap that fixed the slow pages, not unlimited; FULL_MBPS=0 is
+the old no-cap Full. A LIVE write path, server-side only (env QBIT_URL + QBIT_USER + QBIT_PASS, the connector's names):
 the password never reaches the browser, a log line or a flash. Two-step like the stack run: GET `/server/downloads/cap
 ?mode=` explains what happens -> POST behind `same_origin` -> login (`/api/v2/auth/login`, the feed's call; the SID
 cookie is passed per call, the kept Session stays stateless) -> `POST /api/v2/transfer/setDownloadLimit limit=<bytes/s>`
@@ -34,15 +35,18 @@ log = logging.getLogger("hub.server_quiet")
 router = APIRouter()
 
 QUIET_BPS = 625_000            # 5 Mbps in bytes/s (env QUIET_MBPS overrides)
+FULL_BPS = 5_125_000           # 41 Mbps in bytes/s (JY-141; env FULL_MBPS overrides, 0 = unlimited)
 MODES = ("quiet", "full")
 TIMEOUT = 10
 SLEEP_DEFAULT = "22:00–07:00"
 CONFIRM_LINES = {
     "quiet": ("This caps qBittorrent's total download speed at {quiet} so pages, streams and DNS stay quick.",
               "Downloads keep going, just slower; seeding is not touched."),
-    "full": ("This removes qBittorrent's download cap: downloads run as fast as the line allows.",
-             "While they do, Joey's pages and streams may slow down (the 2026-10-12 finding)."),
+    "full": ("This caps qBittorrent's total download speed at {full}, the level that keeps Joey's pages and streams quick.",
+             "Downloads run faster than Quiet; with no cap at all, pages slowed down (the 2026-10-12 finding)."),
 }
+CONFIRM_FULL_UNLIMITED = ("This removes qBittorrent's download cap: downloads run as fast as the line allows.",
+                          "While they do, Joey's pages and streams may slow down (the 2026-10-12 finding).")
 FLASHES = {"quiet": "Quiet mode on", "full": "Full speed", "failed": "Couldn't reach qBittorrent"}
 
 _kept: dict = {}   # "set" -> (UTC time of the confirmed change, confirmed bytes/s)
@@ -68,6 +72,17 @@ def quiet_bps() -> int:
     return round(mbps * 1e6 / 8) if mbps > 0 else QUIET_BPS
 
 
+def full_bps() -> int:
+    """Full's cap in bytes/s: FULL_MBPS (a positive number of Mbps), else 41 Mbps. An explicit 0 means unlimited."""
+    try:
+        mbps = float(os.environ.get("FULL_MBPS", "").strip())
+    except ValueError:
+        return FULL_BPS
+    if mbps == 0:
+        return 0
+    return round(mbps * 1e6 / 8) if mbps > 0 else FULL_BPS
+
+
 def limit_text(bps: int) -> str:
     """The connector's `dl_limit_text` words (connectors/feeds/qbittorrent.py `_limit_text`; the hub image ships
     without connectors/, so the few lines are repeated): 0 -> 'Unlimited', 625000 -> '5 Mbps'."""
@@ -80,9 +95,13 @@ def limit_text(bps: int) -> str:
 
 
 def mode_of(bps: int) -> str:
+    """quiet / full / custom. Compared by words ("5 Mbps"); 0 (no cap) is Full only when FULL_MBPS=0 (JY-141)."""
     if bps <= 0:
-        return "full"
-    return "quiet" if limit_text(bps) == limit_text(quiet_bps()) else "custom"
+        return "full" if full_bps() == 0 else "custom"
+    words = limit_text(bps)
+    if words == limit_text(quiet_bps()):
+        return "quiet"
+    return "full" if full_bps() > 0 and words == limit_text(full_bps()) else "custom"
 
 
 def sleep_window() -> str:
@@ -130,7 +149,7 @@ def set_mode(mode: str) -> dict:
     if mode not in MODES or creds is None:
         return _fail(mode)
     base, user, pw = creds
-    want = quiet_bps() if mode == "quiet" else 0
+    want = quiet_bps() if mode == "quiet" else full_bps()
     s = upstream.session("qbittorrent")
     try:
         cookies = _login(s, base, user, pw)
@@ -172,12 +191,13 @@ def cap_step(request: Request, mode: str = ""):
     if area is None:
         return shell.not_found_page(request)
     st = status(shell.get_snapshots(request=request))
-    quiet = limit_text(quiet_bps())
+    quiet, full = limit_text(quiet_bps()), limit_text(full_bps())
+    lines = CONFIRM_FULL_UNLIMITED if mode == "full" and full_bps() == 0 else CONFIRM_LINES[mode]
     msg = ("qBittorrent is not connected on the hub (QBIT_URL, QBIT_USER, QBIT_PASS)." if not st["configured"]
            else f"{'Quiet mode' if mode == 'quiet' else 'Full speed'} is already on." if st["mode"] == mode else None)
     return shell.render_page(request, "server_quiet.html", {
-        "area": area, "mode": mode, "st": st, "msg": msg, "quiet": quiet,
-        "lines": [line.format(quiet=quiet) for line in CONFIRM_LINES[mode]],
+        "area": area, "mode": mode, "st": st, "msg": msg, "quiet": quiet, "warn": lines is CONFIRM_FULL_UNLIMITED,
+        "lines": [line.format(quiet=quiet, full=full) for line in lines],
     }, active_id=area.id)
 
 

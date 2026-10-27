@@ -112,7 +112,7 @@ qBittorrent's global download cap, server-side only, with the connector's own en
 `QBIT_PASS` — the hub service must receive them too). `GET /server/downloads/cap?mode=quiet|full` says what happens (no
 call); the `same_origin` POST logs in exactly as the feed does (`POST /api/v2/auth/login`, `Referer` = the base URL; the
 `SID` / `QBT_SID*` cookie is passed on each call, never kept on the `upstream.session("qbittorrent")`), sends
-`POST /api/v2/transfer/setDownloadLimit` `limit=<bytes/s>` (Quiet = `QUIET_MBPS`, default 5 Mbps = 625000; Full = 0),
+`POST /api/v2/transfer/setDownloadLimit` `limit=<bytes/s>` (Quiet = `QUIET_MBPS`, default 5 Mbps = 625000; Full = `FULL_MBPS`, default 41 Mbps = 5125000, JY-141; `FULL_MBPS=0` = no cap),
 re-reads `GET /api/v2/transfer/info` and only counts the change when `dl_rate_limit` reads back as the same words
 (qBittorrent keeps KiB/s, so 625000 returns 624640 = "5 Mbps"); 10 s per call, then 303 to `/server?cap=quiet|full|failed
 #downloads`. The `/server` render makes no call: the row reads the snapshot's `dl_limit_bps`, and a confirmed change is

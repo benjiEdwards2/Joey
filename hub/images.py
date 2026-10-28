@@ -50,13 +50,15 @@ _UPSTREAM = {"jf": "jellyfin", "jfb": "jellyfin", "radarr": "arr", "sonarr": "ar
 
 # JY-262 (2026-10-28): `jfb:<id>/<n>` is Jellyfin backdrop n (1-9; plain `jfb:<id>` stays backdrop 0) - the title page
 # draws the second TMDB backdrop. Only jfb takes an index.
+# JY-262 follow-up (2026-10-28): `jfs:<id>/<1|2>` is the title's stored top-ranked TMDB backdrop 1 or 2 (the local
+# poster store), served only with its published `&v=`; otherwise it falls back to Jellyfin backdrop 0 or 1.
 REF_RE = re.compile(r"^(?:(jf|radarr|sonarr):([A-Za-z0-9-]+)|(jfb):([A-Za-z0-9-]+(?:/[1-9])?)"
-                    r"|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
+                    r"|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png))|(jfs):([A-Za-z0-9-]+/[12]))$")
 
 
 def _kind_ident(match) -> tuple[str, str]:
     """(kind, ident) of a REF_RE match."""
-    return next((match.group(i), match.group(i + 1)) for i in (1, 3, 5) if match.group(i))
+    return next((match.group(i), match.group(i + 1)) for i in (1, 3, 5, 7) if match.group(i))
 
 
 # E1 (2026-10-13): a cold-poster burst must never stall pages. /img is async: a cache hit is read in a short worker
@@ -264,10 +266,14 @@ def _stored(kind: str, ident: str, size: int, v: str) -> Path | None:
     (Jinja `img_v`), so a new poster is a new URL and the 30-day immutable cache never pins an old one; a URL with no
     `v` (or a bad one) is never served from the store. `v` is only compared with the `current` file, never used in a
     path. A small read and a stat; never raises."""
-    if kind != "jf" or not V_RE.match(v or ""):
+    if kind not in ("jf", "jfs") or not V_RE.match(v or ""):
         return None
     from hub import media_posters
     try:
+        if kind == "jfs":   # a stored backdrop: one 1280-wide file whatever the height asked
+            jf_id, _, n = ident.partition("/")
+            path = media_posters.served_backdrop(jf_id, int(n))
+            return path if path is not None and path.name.startswith(v + ".") else None
         path = media_posters.served(ident, size)
         return path if path is not None and path.name.startswith(v + ".") else None
     except OSError:
@@ -306,7 +312,10 @@ async def image(request: Request, ref: str, h: str = "", t: str = "", v: str = "
             return Response(body, media_type="image/jpeg", headers={"Cache-Control": HIT_CACHE})
     # a `v` that is not (or no longer) published - a page built just before a revert or re-render - gets today's
     # image with the short cache, so that versioned URL never pins the wrong image for 30 days
-    cache = FALLBACK_CACHE if v and kind == "jf" else HIT_CACHE
+    cache = FALLBACK_CACHE if v and kind in ("jf", "jfs") else HIT_CACHE
+    if kind == "jfs":   # not stored (or a stale v): Jellyfin's own backdrop 0 (for 1) or 1 (for 2), as before
+        jf_id, _, n = ident.partition("/")
+        kind, ident = "jfb", jf_id + ("/1" if n == "2" else "")
     stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
     hit = await anyio.to_thread.run_sync(_cached, stem) if _cache_path(stem) else None   # a stat, then a short read
     if hit is None:
@@ -322,7 +331,7 @@ def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
     """Pre-fetch one ref into the disk cache exactly as GET /img/{ref}?h= would (media-speed warm-up).
     -> 'cached' (already there), 'fetched', or 'skipped' (bad ref / size, no env, upstream failure)."""
     match = REF_RE.match(ref or "")
-    if not match or h not in SIZES:
+    if not match or h not in SIZES or _kind_ident(match)[0] == "jfs":   # jfs: local files, nothing to fetch
         return "skipped"
     stem = hashlib.sha256(f"{ref}|{h}".encode("utf-8")).hexdigest()
     if _cache_path(stem):  # a stat, not a read: the warm-up re-checks hundreds of refs each pass

@@ -219,6 +219,16 @@ def resume_acts(row: dict, owner: str) -> dict | None:
 shell.templates.env.globals["resume_acts"] = resume_acts
 
 
+def _home_backdrop(ref):
+    """JY-262 follow-up: the web Home hero draws the stored top-ranked TMDB backdrop #1 (`jfs:<id>/1`, its `&v=` added
+    by _pagehead.html's img_v) like the TV Home, else the snapshot's Jellyfin backdrop as before. Local reads only."""
+    text = str(ref or "")
+    if text.startswith("jfb:"):
+        from hub import media_backdrop
+        return media_backdrop.home(text[4:].split("/", 1)[0]) or ref
+    return ref
+
+
 def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict | None:
     """The one item the Media hero shows: playing now, else first resume item, else the
     newest arrival. Pure; shared by the area page (build_shelves) and the hub card."""
@@ -226,7 +236,7 @@ def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict
 
     def hero(row, kind_word, sub, **extra):
         return {"kind_word": kind_word, "title": row.get("title"), "poster": row.get("poster"),
-                "backdrop": row.get("backdrop"), "sub": sub,
+                "backdrop": _home_backdrop(row.get("backdrop")), "sub": sub,
                 "href": shell._deep_link(link, row.get("jf_id"), server_id),
                 "progress_pct": None, "user": None, "play_method": None, **extra}
 

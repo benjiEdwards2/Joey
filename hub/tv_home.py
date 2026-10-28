@@ -88,6 +88,9 @@ def backdrop(item: dict | None, jelly: dict, index: dict | None = None) -> dict 
     found = _library_row(item, jelly or {}, index)
     row, kind = found if found else ({}, "movie")
     jf_id = _id(row.get("backdrop"))
+    ranked = media_backdrop.home(jf_id)   # JY-262 follow-up: the stored top-ranked TMDB backdrop (option A)
+    if ranked:
+        return {"ref": ranked, "h": HERO_H, "blur": False}
     read = media_item.peek(jf_id) if jf_id else None   # JY-262: this viewer's own cached read, if any (no call)
     if row.get("backdrop") and ((read or {}).get("item") or {}).get("backdrops") != 0:
         return {"ref": row["backdrop"], "h": HERO_H, "blur": False}   # the snapshot's ref is backdrop 0 (HOME)

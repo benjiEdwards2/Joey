@@ -53,6 +53,8 @@ If feedback only fixes bugs against the existing criteria, it is a fix round, no
 
 A spec's `Live risk:` line (anything but `none`) puts it in the L row, whatever its size.
 
+An L item is briefed as S/M phases so no builder runs past ~150 turns (token rule 4, 2026-10-29).
+
 ## Status words
 
 HITLIST rows use one of these words (TODO(JY-004): `HITLIST.md`). GitHub labels mirror them on the PR, which is opened as a draft when the builder starts. `size/*` and `live-risk` come from the spec.
@@ -125,7 +127,7 @@ A short report, not a transcript. Under 250 words, with:
 - what was skipped or is unsure;
 - open questions for B.
 
-The orchestrator checks every claim against the branch before telling B.
+The orchestrator checks every claim against the branch before telling B. It never opens the screenshots itself: a reviewer or verifier looks, and the orchestrator reads their verdict (token rule 2, 2026-10-29).
 
 ## Close-out
 

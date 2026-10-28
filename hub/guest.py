@@ -161,7 +161,7 @@ PRIVATE: tuple = (
     # JY-260 phase 1: the poster review page + its proposed images (household only, 404 while POSTERS is off)
     *_each("GET", "/media/posters", "/media/posters/img/{jf_id}"),
     *_each("POST", "/media/posters/{jf_id}/revert", "/media/posters/{jf_id}/restore",   # JY-260 phase 2
-           "/media/posters/{jf_id}/original", "/media/posters/{jf_id}/reapply"),
+           "/media/posters/{jf_id}/original", "/media/posters/{jf_id}/reapply", "/media/posters/{jf_id}/retry"),
 )
 
 # JY-057 (Q3 A): the subset of the PRIVATE player routes GuestGate serves to the household on the media front, flag on.

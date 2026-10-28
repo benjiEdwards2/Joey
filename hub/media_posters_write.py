@@ -18,16 +18,24 @@ once and logged; a tag that is neither Joey's upload nor the original = a hand-s
 re-applied, and a revert leaves it in Jellyfin unless B. asks for the original (orchestrator default 2026-10-28, B.
 may override). Revert puts the backup back (or deletes the Primary when there was none) and unlocks what Joey locked;
 it is recorded first, so a revert asked for while the key is missing is carried out by the next pass that has it.
-An item that fails 3 times in a row backs off for 24 h (media_posters.record_failure), so it cannot hold the pass.
+An item that fails 3 times in a row backs off for 24 h (media_posters.record_failure), so it cannot hold the pass;
+"Try again now" repeats what failed (a revert retries the revert), never a re-apply.
+Every write and every revert of an item runs under that item's lock (media_posters.claim: one atomic UPDATE in
+media.db, so it holds across threads and processes); `apply` re-reads `reverted` under the lock, and a revert waits
+for an in-flight write (REVERT_WAIT_S) or queues itself. A revert reports "reverted" only after a re-read confirms
+Jellyfin holds the original again.
 Logs carry counts and exception types only, never a URL, key or name.
 """
 
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 import os
+import threading
 import time
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from hub import media_posters as mp, media_posters_store as store, upstream
@@ -40,6 +48,7 @@ TIMEOUT = 20
 MAX_ORIG_BYTES = 20 * 1024 * 1024
 CTYPE = {".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}
 EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+REVERT_WAIT_S = 10.0   # a web revert waits this long for an in-flight write of the item, then queues itself
 _warned = {"no_key": False}
 
 
@@ -161,18 +170,34 @@ def _finish(base: str, headers: dict, jf_id: str, row: dict) -> None:
                  retry_at=None)
 
 
+def _owner() -> str:
+    return f"{os.getpid()}-{threading.get_ident()}-{uuid.uuid4().hex[:8]}"
+
+
 def apply(jf_id: str) -> str:
-    """Write one item's stored poster. -> 'written', 'reapplied' (after drift), 'finished' (an earlier write's lock /
-    read-back completed), 'unchanged', 'manual' (B. changed it in Jellyfin: left alone), 'skipped' or 'error'."""
-    c = creds()
-    row = mp.state(jf_id) or {}
-    if (c is None or row.get("reverted") or row.get("manual") or row.get("status") != "rendered"
+    """Write one item's stored poster, under the item's lock. -> 'written', 'reapplied' (after drift), 'finished' (an
+    earlier write's lock / read-back completed), 'unchanged', 'manual' (B. changed it in Jellyfin: left alone),
+    'skipped' (incl. reverted, or the item is locked by a revert) or 'error'."""
+    if creds() is None or mp.state(jf_id) is None:
+        return "skipped"
+    owner = _owner()
+    if not mp.claim(jf_id, owner):
+        return "skipped"   # a revert holds it: never write over it
+    try:
+        return _apply_locked(jf_id)
+    finally:
+        mp.release(jf_id, owner)
+
+
+def _apply_locked(jf_id: str) -> str:
+    row = mp.state(jf_id) or {}   # re-read under the lock: a revert that got in first is seen here
+    if (row.get("reverted") or row.get("manual") or row.get("status") != "rendered"
             or store.current(jf_id) != row.get("ver")):
         return "skipped"
     master = store.master(jf_id, row["ver"])
     if master is None:
         return "skipped"
-    base, headers = c
+    base, headers = creds()
     ver = row["ver"]
     try:
         item = _item(base, headers, jf_id)
@@ -208,8 +233,29 @@ def apply(jf_id: str) -> str:
         return _fail(jf_id, exc, "write")
 
 
-def _undo(jf_id: str, row: dict) -> str:
-    """Put the original back in Jellyfin for an item Joey may have written. -> 'reverted' / 'error' / 'skipped'."""
+def _confirm_restored(base: str, headers: dict, jf_id: str, row: dict) -> None:
+    """Re-read Jellyfin after a restore: the original's bytes are back (or, when there was none, no Primary).
+    Raises WriteError when they are not, so a revert is never reported done on faith."""
+    if row.get("orig_ext") == "none":
+        if _tag(_item(base, headers, jf_id)) is not None:
+            raise WriteError("revert not confirmed: an image is still set")
+        return
+    body, _ = _read_orig(base, headers, jf_id)
+    path = store.orig_path(jf_id)
+    if path is None or hashlib.sha256(body).digest() != hashlib.sha256(path.read_bytes()).digest():
+        raise WriteError("revert not confirmed: Jellyfin does not hold the original")
+
+
+def _undo_locked(jf_id: str) -> str:
+    """Put the original back in Jellyfin (the caller holds the item lock), confirmed by a re-read. -> 'reverted'
+    (also when nothing was ever written), 'manual', 'skipped' or 'error'."""
+    row = mp.state(jf_id) or {}
+    if not row.get("reverted"):
+        return "skipped"
+    if not row.get("wrote"):
+        return "reverted"
+    if row.get("manual"):
+        return "manual"
     c = creds()
     if c is None:
         return "skipped"
@@ -225,6 +271,7 @@ def _undo(jf_id: str, row: dict) -> str:
             _upload(base, headers, jf_id, path.read_bytes(), CTYPE[path.suffix])
         if row.get("locked_by_us"):
             _set_lock(base, headers, _item(base, headers, jf_id), False)
+        _confirm_restored(base, headers, jf_id, row)
         mp.set_state(jf_id, wrote=0, live_ver=None, live_tag=None, pending_ver=None, locked_by_us=0, manual=0,
                      written_at=_now(), last_error=None, fails=0, retry_at=None)
         return "reverted"
@@ -232,30 +279,60 @@ def _undo(jf_id: str, row: dict) -> str:
         return _fail(jf_id, exc, "revert")
 
 
+def _undo(jf_id: str, wait_s: float = 0.0) -> str:
+    """Run a revert under the item lock, waiting up to `wait_s` for an in-flight write. -> as _undo_locked, or
+    'queued' (the lock stayed busy: the next pass restores it, the intent is already recorded)."""
+    owner = _owner()
+    deadline = time.monotonic() + wait_s
+    while not mp.claim(jf_id, owner):
+        if time.monotonic() >= deadline:
+            return "queued"
+        time.sleep(0.1)
+    try:
+        return _undo_locked(jf_id)
+    finally:
+        mp.release(jf_id, owner)
+
+
 def revert(jf_id: str, restore_manual: bool = False) -> str:
-    """The per-item revert (review page): stop serving the Joey poster at once and put Jellyfin's original back
-    whenever a Joey write may have happened (`wrote`, set before every upload). -> 'reverted' (nothing written, or the
-    original is back), 'pending' (Jellyfin not restored yet: no key or not `on`; the next pass that can does it),
-    'manual' (a hand-set poster stays in Jellyfin unless `restore_manual`), 'error' (Jellyfin not restored; retried
-    by the next pass) or 'unknown'."""
+    """The per-item revert (review page). The intent is recorded first and is sticky: `reverted` stays set, so no pass
+    writes the Joey poster again until B.'s explicit re-apply. The Joey poster stops being served at once, and
+    Jellyfin's original goes back whenever a Joey write may have happened (`wrote`, set before every upload), after
+    any in-flight write of that item (the item lock). -> 'reverted' (only once nothing was written or the restore is
+    confirmed by a re-read), 'queued' (a write was in flight: the next pass restores it), 'pending' (write-back off or
+    no key: Jellyfin still has the Joey poster), 'manual' (a hand-set poster stays unless `restore_manual`), 'error'
+    (retried by the next pass) or 'unknown'."""
     row = mp.state(jf_id)
     if row is None:
         return "unknown"
-    mp.set_state(jf_id, reverted=1)
+    fields = {"reverted": 1}
+    if restore_manual and row.get("manual"):
+        fields["manual"] = 0   # B. asked: the pre-Joey original goes back over his hand-set poster
+    mp.set_state(jf_id, **fields)
     store.publish(jf_id, False)
-    if not row.get("wrote"):
-        return "reverted"
     if row.get("manual") and not restore_manual:
         return "manual"
-    if row.get("manual"):
-        mp.set_state(jf_id, manual=0)   # B. asked: the pre-Joey original goes back over his hand-set poster
-        row = {**row, "manual": 0}
-    return _undo(jf_id, row) if enabled() else "pending"
+    if not enabled():
+        return "pending" if (mp.state(jf_id) or {}).get("wrote") else "reverted"
+    return _undo(jf_id, wait_s=REVERT_WAIT_S)
+
+
+def retry(jf_id: str) -> str:
+    """"Try again now" on a backed-off item: repeats what failed, nothing else. A reverted item retries its revert (it
+    is never re-applied by this); any other item just leaves backoff for the next pass. -> revert's word, 'cleared'
+    or 'unknown'."""
+    row = mp.state(jf_id)
+    if row is None:
+        return "unknown"
+    mp.set_state(jf_id, fails=0, retry_at=None)
+    if row.get("reverted"):
+        return revert(jf_id, restore_manual=False) if not row.get("manual") else "manual"
+    return "cleared"
 
 
 def reapply(jf_id: str) -> bool:
-    """B.'s "Re-apply the Joey poster": clears manual / revert / backoff and writes on the next pass (a fresh write,
-    so a hand-set tag is not mistaken for drift)."""
+    """B.'s explicit "Re-apply the Joey poster" / "Use the Joey poster": clears manual / revert / backoff and writes on
+    the next pass (a fresh write, so a hand-set tag is not mistaken for drift). The only way out of a revert."""
     if mp.state(jf_id) is None:
         return False
     mp.set_state(jf_id, manual=0, reverted=0, fails=0, retry_at=None, live_ver=None, live_tag=None)
@@ -268,13 +345,13 @@ def restore(jf_id: str) -> bool:
 
 
 def write_pass(limit: int, pause: float = 0.0, now: datetime | None = None) -> dict:
-    """Write what is due, at most `limit` items: pending reverts, new / changed / unfinished writes, then the daily
-    drift check. Items in backoff (3 failures in a row: 24 h) and hand-set (manual) ones are passed over. -> counts;
-    never raises."""
+    """Write what is due, at most `limit` items: queued reverts first, then new / changed / unfinished writes and the
+    daily drift check. Items in backoff (3 failures in a row: 24 h), reverted and hand-set (manual) ones are never
+    written. -> counts; never raises."""
     if not enabled():
         return {"off": True}
     now = now or datetime.now(timezone.utc)
-    counts = {k: 0 for k in ("written", "reapplied", "finished", "unchanged", "manual", "reverted", "error",
+    counts = {k: 0 for k in ("written", "reapplied", "finished", "unchanged", "manual", "reverted", "queued", "error",
                              "skipped", "backoff")}
     live = []
     for r in mp.states().values():
@@ -290,9 +367,9 @@ def write_pass(limit: int, pause: float = 0.0, now: datetime | None = None) -> d
     for r in reverts + writes:
         if done >= limit:
             break
-        got = _undo(r["jf_id"], r) if r in reverts else apply(r["jf_id"])
+        got = _undo(r["jf_id"]) if r in reverts else apply(r["jf_id"])
         counts[got] += 1
-        if got not in ("skipped", "unchanged", "manual"):
+        if got not in ("skipped", "unchanged", "manual", "queued"):
             done += 1
             if pause:
                 time.sleep(pause)

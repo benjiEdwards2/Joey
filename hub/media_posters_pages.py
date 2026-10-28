@@ -48,6 +48,8 @@ def pick_words(side: dict) -> str:
         parts.append("Failed 3 times: retried after " + str(side["backoff"])[:16].replace("T", " ") + " UTC")
     if side.get("manual"):
         parts.append("Manual: changed by hand in Jellyfin, left alone")
+    elif side.get("reverted") and side.get("wrote"):
+        parts.append("Revert pending: Jellyfin still has the Joey poster until the restore is confirmed")
     elif side.get("reverted"):
         parts.append("Reverted: the original is shown")
     elif not side.get("auto"):
@@ -55,6 +57,18 @@ def pick_words(side: dict) -> str:
     elif side.get("live"):
         parts.append("In Jellyfin")
     return " · ".join(parts)
+
+
+# what the last action did, shown once after the redirect (`?done=`; only these words, never the query text)
+DONE_WORDS = {
+    "reverted": "Reverted: Jellyfin has the original again (confirmed).",
+    "queued": "Revert queued: Joey was writing this title; the next pass restores the original.",
+    "pending": "Revert recorded: write-back is off or has no key, so Jellyfin still has the Joey poster.",
+    "error": "Revert failed: Jellyfin did not take the original. It is retried on the next pass.",
+    "manual": "Your hand-set poster stays in Jellyfin; Joey no longer serves its own.",
+    "cleared": "Backoff cleared: the next pass tries again.",
+    "reapplied": "The Joey poster is served again and written on the next pass.",
+}
 
 
 def mode_words() -> str:
@@ -65,7 +79,7 @@ def mode_words() -> str:
 
 
 @router.get(PAGE, response_class=HTMLResponse)
-def posters_page(request: Request):
+def posters_page(request: Request, done: str = ""):
     from hub import media_pages, shell
     if not allowed():
         return shell.not_found_page(request)
@@ -82,10 +96,11 @@ def posters_page(request: Request):
         if len(rows) > rendered:
             head.append(f"{len(rows) - rendered} without a TMDB poster")
         shown = {r["jf_id"] for r in rows}
-        stuck = [{"title": b.get("title") or "Untitled", "kind_word": KIND_WORDS.get(b.get("kind"), "Film"),
+        stuck = [{"jf_id": b["jf_id"], "title": b.get("title") or "Untitled",
+                  "kind_word": KIND_WORDS.get(b.get("kind"), "Film"),
                   "until": str(b.get("retry_at"))[:16].replace("T", " "), "error": b.get("last_error") or ""}
                  for b in mp.backing_off() if b["jf_id"] not in shown]
-        return {"rows": rows, "stuck": stuck, "head_line": " · ".join(head), "problems": problems,
+        return {"rows": rows, "stuck": stuck, "done_words": DONE_WORDS.get(done, ""), "head_line": " · ".join(head), "problems": problems,
                 "kit_words": (("Starter template" if starter else "Your template") + (f" · {tpl.version}" if tpl else "")),
                 "version": tpl.version if tpl else ""}
 
@@ -106,14 +121,15 @@ def _act(request: Request, jf_id: str, action: str):
     if not allowed() or not media_item.ITEM_RE.match(jf_id or "") or mp.state(jf_id) is None:
         return shell.not_found_page(request)
     if action == "revert":
-        write.revert(jf_id)
+        got = write.revert(jf_id)
     elif action == "original":
-        write.revert(jf_id, restore_manual=True)
-    elif action == "reapply":
+        got = write.revert(jf_id, restore_manual=True)
+    elif action == "retry":
+        got = write.retry(jf_id)
+    else:   # reapply / restore: B.'s explicit "use the Joey poster"
         write.reapply(jf_id)
-    else:
-        write.restore(jf_id)
-    return RedirectResponse(PAGE, status_code=303)
+        got = "reapplied"
+    return RedirectResponse(f"{PAGE}?done={got}" if got in DONE_WORDS else PAGE, status_code=303)
 
 
 @router.post(PAGE + "/{jf_id}/revert", dependencies=[Depends(same_origin)])
@@ -136,3 +152,9 @@ async def restore_original(request: Request, jf_id: str):
 async def reapply(request: Request, jf_id: str):
     """Re-apply the Joey poster (over a hand-set one, after a revert or a backoff)."""
     return await run_in_threadpool(_act, request, jf_id, "reapply")
+
+
+@router.post(PAGE + "/{jf_id}/retry", dependencies=[Depends(same_origin)])
+async def retry(request: Request, jf_id: str):
+    """"Try again now" on a backed-off item: repeats what failed (a revert retries the revert), never a re-apply."""
+    return await run_in_threadpool(_act, request, jf_id, "retry")

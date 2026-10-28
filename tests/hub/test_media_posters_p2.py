@@ -584,3 +584,151 @@ def test_the_review_page_shows_manual_and_backing_off_items(fakes, env, monkeypa
         assert "Failed 3 times" in body and "Never Rendered" in body and "Try again now" in body
         assert c.post(f"/media/posters/{C}/reapply", follow_redirects=False).status_code == 303
         assert not mp.in_backoff(mp.state(C))
+
+
+# ---- verifier fixes (2026-10-28): a failed revert retries the revert; the item lock; confirmed restores ----
+
+def _fail_revert_three_times(fake):
+    mp.dry_pass(snaps(LIB), pause=0)
+    fake.fail_upload = True
+    assert w.revert(B) == "error"                                        # failure 1
+    w.write_pass(limit=30)                                                # 2
+    w.write_pass(limit=30)                                                # 3: backoff
+    assert mp.in_backoff(mp.state(B)) and mp.state(B)["reverted"] == 1
+
+
+def test_try_again_on_a_failing_revert_retries_the_revert_never_reapplies(jelly_rw):
+    """Verifier repro 1, fixed: "Try again now" posts /retry, which repeats the revert."""
+    fake, out = jelly_rw
+    _fail_revert_three_times(fake)
+    row = [r for r in mp.rows() if r["jf_id"] == B][0]
+    assert row["backoff"] and row["reverted"] and row["wrote"]
+    fake.fail_upload = False
+    assert w.retry(B) == "reverted"
+    assert mp.state(B)["reverted"] == 1 and fake.images[B] == (ORIG, "image/jpeg")
+    fake.log.clear()
+    w.write_pass(limit=30, now=later())                                   # the revert is sticky
+    assert not [x for x in fake.writes() if B in x[1]]
+
+
+def test_the_page_offers_retry_the_revert_for_a_failing_revert(jelly_rw, env):  # noqa: F811
+    from tests.hub.test_media_library_pages import jelly
+    fake, out = jelly_rw
+    _fail_revert_three_times(fake)
+    fake.fail_upload = False
+    main = env(jellyfin=jelly())
+    with TestClient(main.app) as c:
+        body = c.get("/media/posters").text
+        assert "Retry the revert" in body and f"/media/posters/{B}/retry" in body
+        assert "Revert pending: Jellyfin still has the Joey poster" in body
+        resp = c.post(f"/media/posters/{B}/retry", follow_redirects=False)
+        assert resp.status_code == 303 and resp.headers["location"].endswith("?done=reverted")
+        assert "Jellyfin has the original again (confirmed)" in c.get(resp.headers["location"]).text
+        assert "<script" not in c.get("/media/posters?done=%3Cscript%3E").text.split("<main", 1)[1]
+    assert mp.state(B)["reverted"] == 1 and fake.images[B] == (ORIG, "image/jpeg")
+
+
+def test_a_revert_racing_an_upload_queues_and_is_never_lost(jelly_rw, monkeypatch):
+    """Verifier repro 2, fixed: B. clicks Revert while the upload is in flight."""
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    mp.set_state(B, live_ver=None)                                       # B due for a (re)write
+    monkeypatch.setattr(w, "REVERT_WAIT_S", 0.0)
+    real_post = fake.post
+    said = {}
+
+    def post(url, **kw):
+        if url.endswith(f"/Items/{B}/Images/Primary") and not said:
+            said["revert"] = w.revert(B)                                 # in the middle of the upload
+        return real_post(url, **kw)
+    monkeypatch.setattr(fake, "post", post)
+    w.apply(B)
+    assert said["revert"] == "queued"                                    # never "reverted" while a write is in flight
+    assert mp.state(B)["reverted"] == 1 and mp.state(B)["wrote"] == 1
+    assert w.write_pass(limit=30)["reverted"] == 1 and fake.images[B] == (ORIG, "image/jpeg")
+    assert mp.state(B)["wrote"] == 0 and mp.state(B)["lock_owner"] is None
+
+
+def test_a_revert_that_waits_gets_the_lock_once_the_write_ends(jelly_rw):
+    import threading as th
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    mp.set_state(B, reverted=1)
+    assert mp.claim(B, "the-write-pass")
+    th.Timer(0.3, mp.release, args=(B, "the-write-pass")).start()
+    assert w._undo(B, wait_s=5) == "reverted" and fake.images[B] == (ORIG, "image/jpeg")
+
+
+def test_a_write_never_starts_while_a_revert_holds_the_item(jelly_rw):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    mp.set_state(B, live_ver=None)
+    assert mp.claim(B, "a-web-revert")
+    fake.log.clear()
+    assert w.apply(B) == "skipped" and not fake.writes()
+    mp.set_state(B, reverted=1)                                          # the revert's intent lands ...
+    mp.release(B, "a-web-revert")
+    assert w.apply(B) == "skipped" and not fake.writes()                 # ... and the write re-reads it under the lock
+
+
+def test_a_stale_lock_from_a_crashed_holder_expires():
+    from datetime import datetime, timedelta, timezone
+    mp.set_state(B, kind="movie", status="rendered")
+    t0 = datetime(2026, 10, 28, tzinfo=timezone.utc)
+    assert mp.claim(B, "crashed", now=t0)
+    assert not mp.claim(B, "next", now=t0 + timedelta(seconds=mp.LOCK_TTL_S - 1))
+    assert mp.claim(B, "next", now=t0 + timedelta(seconds=mp.LOCK_TTL_S + 1))
+
+
+def test_a_restore_jellyfin_did_not_take_is_not_reported_as_reverted(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    real_post = fake.post
+
+    def swallow(url, **kw):   # answers 204 to the restore upload but keeps the Joey image
+        if url.endswith("/Images/Primary") and base64.b64decode(kw["data"]) == ORIG:
+            fake.log.append(("POST", url.split("http://jf.test", 1)[1]))
+            return Resp(status=204)
+        return real_post(url, **kw)
+    monkeypatch.setattr(fake, "post", swallow)
+    assert w.revert(B) == "error" and "not confirmed" in mp.state(B)["last_error"]
+    assert mp.state(B)["wrote"] == 1                                     # still owed: retried by the next pass
+
+
+def test_queued_reverts_run_even_when_the_template_is_unusable(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    monkeypatch.setattr(w, "REVERT_WAIT_S", 0.0)
+    assert mp.claim(B, "busy")
+    assert w.revert(B) == "queued"
+    mp.release(B, "busy")
+    monkeypatch.setattr(mp, "template_state", lambda: (None, ["broken"], True))
+    counts = mp.dry_pass(snaps(LIB), pause=0)
+    assert counts["write"]["reverted"] == 1 and fake.images[B] == (ORIG, "image/jpeg")
+
+
+def test_an_older_poster_table_gains_the_new_columns(monkeypatch, tmp_path):
+    import sqlite3
+    path = tmp_path / "old.db"
+    monkeypatch.setenv("MEDIA_DB_PATH", str(path))
+    with sqlite3.connect(path) as db:   # the 94b3c34 shape
+        db.execute("""CREATE TABLE poster(jf_id TEXT PRIMARY KEY, kind TEXT NOT NULL, ver TEXT, template TEXT,
+            status TEXT NOT NULL, reverted INTEGER NOT NULL DEFAULT 0, bytes INTEGER, rendered_at TEXT, orig_ext TEXT,
+            orig_tag TEXT, live_ver TEXT, live_tag TEXT, locked_by_us INTEGER NOT NULL DEFAULT 0, written_at TEXT,
+            checked_at TEXT, last_error TEXT)""")
+        db.execute("INSERT INTO poster(jf_id, kind, status) VALUES (?, 'movie', 'rendered')", (B,))
+    db.close()
+    mp._ddl_done.clear()
+    mp.set_state(B, wrote=1, manual=0, fails=2, title="Kept")
+    assert mp.state(B)["fails"] == 2 and mp.claim(B, "x")
+
+
+def test_a_season_list_that_keeps_failing_backs_off(fakes):
+    jf, tmdb, out = fakes
+    jf.routes = {"/Shows/": Resp(status=500), "/RemoteImages": Resp(body={"Images": [img(None, 7, name="clean")]})}
+    for _ in range(3):
+        mp.dry_pass(snaps(LIB), pause=0)
+    assert mp.in_backoff(mp.state(C)) and mp.state(C)["kind"] == "tv"
+    jf.calls.clear()
+    got = mp.dry_pass(snaps(LIB), pause=0)
+    assert got["backoff"] == 1 and not [u for u in jf.calls if "/Shows/" in u]

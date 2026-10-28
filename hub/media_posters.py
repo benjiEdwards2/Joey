@@ -58,10 +58,15 @@ DDL = (
         reverted INTEGER NOT NULL DEFAULT 0, bytes INTEGER, rendered_at TEXT,
         orig_ext TEXT, orig_tag TEXT, wrote INTEGER NOT NULL DEFAULT 0, pending_ver TEXT, live_ver TEXT, live_tag TEXT,
         locked_by_us INTEGER NOT NULL DEFAULT 0, manual INTEGER NOT NULL DEFAULT 0,
-        fails INTEGER NOT NULL DEFAULT 0, retry_at TEXT,
+        fails INTEGER NOT NULL DEFAULT 0, retry_at TEXT, lock_owner TEXT, lock_until TEXT,
         written_at TEXT, checked_at TEXT, last_error TEXT)""",
     "CREATE TABLE IF NOT EXISTS poster_progress(key TEXT PRIMARY KEY, value TEXT NOT NULL)",
 )
+# columns added after the table's first shape (94b3c34): an older file gains them on first use (verifier note 6)
+ADDED_COLUMNS = {"title": "TEXT", "wrote": "INTEGER NOT NULL DEFAULT 0", "pending_ver": "TEXT",
+                 "manual": "INTEGER NOT NULL DEFAULT 0", "fails": "INTEGER NOT NULL DEFAULT 0", "retry_at": "TEXT",
+                 "lock_owner": "TEXT", "lock_until": "TEXT"}
+LOCK_TTL_S = 300   # an item lock older than this is stale (a crashed holder); one write is at most ~6 x 20 s calls
 _ddl_done: set[str] = set()
 _ddl_lock = threading.Lock()
 
@@ -260,6 +265,10 @@ def _ensure(db) -> None:
     with _ddl_lock:
         for ddl in DDL:
             db.execute(ddl)
+        have = {r[1] for r in db.execute("PRAGMA table_info(poster)")}
+        for col, decl in ADDED_COLUMNS.items():
+            if col not in have:
+                db.execute(f"ALTER TABLE poster ADD COLUMN {col} {decl}")
         db.commit()
         _ddl_done.add(key)
 
@@ -326,6 +335,26 @@ def backing_off() -> list[dict]:
     """Rows in backoff, for the review page."""
     now = datetime.now(timezone.utc)
     return sorted((r for r in states().values() if in_backoff(r, now)), key=lambda r: r.get("retry_at") or "")
+
+
+def claim(jf_id: str, owner: str, now: datetime | None = None) -> bool:
+    """Take an item's write lock (one atomic UPDATE in media.db, so it holds across threads, the background loop and
+    any other process on the file). False while another holder's lock is fresh. A crashed holder's lock goes stale
+    after LOCK_TTL_S."""
+    now = now or datetime.now(timezone.utc)
+    with closing(connect()) as db:
+        cur = db.execute("UPDATE poster SET lock_owner = ?, lock_until = ? WHERE jf_id = ? "
+                         "AND (lock_owner IS NULL OR lock_owner = ? OR lock_until < ?)",
+                         (owner, _stamp(now + timedelta(seconds=LOCK_TTL_S)), jf_id, owner, _stamp(now)))
+        db.commit()
+        return cur.rowcount == 1
+
+
+def release(jf_id: str, owner: str) -> None:
+    with closing(connect()) as db:
+        db.execute("UPDATE poster SET lock_owner = NULL, lock_until = NULL WHERE jf_id = ? AND lock_owner = ?",
+                   (jf_id, owner))
+        db.commit()
 
 
 def progress() -> dict[str, str]:
@@ -408,6 +437,14 @@ def tick(snaps_fn, now: float | None = None) -> dict | None:
     return counts
 
 
+def _write_back(m: str, counts: dict, limit: int, pause: float) -> dict:
+    """POSTERS=on: the write pass (queued reverts first; nothing without the key)."""
+    if m == "on":
+        from hub import media_posters_write as write
+        counts["write"] = write.write_pass(limit=limit, pause=pause)
+    return counts
+
+
 def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> dict:
     """Render what is new or stale into the store (at most `limit`, POSTERS_PER_PASS), then, with POSTERS=on, the
     write-back (which itself does nothing without the write key). -> counts; never raises."""
@@ -424,8 +461,9 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         counts["template_error"] = len(problems)
         log.warning("posters: template rejected (%s problems), %s", len(problems),
                     "using the starter kit" if tpl else "nothing rendered")
+    limit = per_pass() if limit is None else limit
     if tpl is None:
-        return counts
+        return _write_back(m, counts, limit, pause)
     snap = (snaps or {}).get("jellyfin")   # the caller (hub.tasks) reads the snapshots: this module never does
     jelly = getattr(snap, "data", snap) or {}
     try:
@@ -433,9 +471,8 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     except OSError as exc:
         log.warning("posters: store unavailable: %s", type(exc).__name__)
         counts["failed"] = 1
-        return counts
+        return _write_back(m, counts, limit, pause)
     known = states()
-    limit = per_pass() if limit is None else limit
     started = time.time()
 
     def full():
@@ -501,6 +538,9 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             one(t, render.sub_line(t["kind"], year=t["year"]), {})
             continue
         side = store.read_meta(t["jf_id"]) or {}
+        if in_backoff(known.get(t["jf_id"])) and not side.get("seasons"):
+            counts["backoff"] += 1
+            continue
         seasons = side.get("seasons") if isinstance(side.get("seasons"), list) else None
         try:
             fresh = time.time() - float(side.get("seasons_at") or 0) < SEASONS_TTL_S
@@ -512,6 +552,10 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             except Exception as exc:
                 counts["failed"] += 1
                 log.warning("posters: season list failed: %s", type(exc).__name__)
+                try:
+                    record_failure(t["jf_id"], type(exc).__name__, kind="tv", title=t["title"], status="failed")
+                except sqlite3.Error:
+                    pass
                 continue
         else:
             stamp = side["seasons_at"]
@@ -537,9 +581,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
                 log.info("posters: backfill complete")
         except sqlite3.Error as exc:
             log.warning("posters: progress not saved: %s", type(exc).__name__)
-    if m == "on":
-        from hub import media_posters_write as write
-        counts["write"] = write.write_pass(limit=limit, pause=pause)
+    _write_back(m, counts, limit, pause)
     counts["seconds"] = round(time.time() - started, 1)
     if counts["rendered"] or counts["no_source"] or counts["failed"]:
         log.info("posters (%s): %s rendered, %s no TMDB poster, %s failed, %s stored already, %s s", m,

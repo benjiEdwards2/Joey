@@ -81,7 +81,7 @@
     {% for i in s["items"] %}
     {% if i.acts %}<div class="card-wrap">{% endif %}
     <a class="card-poster" href="{{ i.href }}"{% if i.external %} target="_blank" rel="noopener"{% endif %}>
-      <span class="card-pic">{{ poster(i.poster, i.title, 240, rate.glow(i.score, false), tv_mode(request)) }}{{ rate.pscore(i.score) }}{% if i.pct %}<span class="bar" role="img" aria-label="{{ i.pct }}% watched"><span style="width: {{ i.pct }}%"></span></span>{% endif %}</span>
+      <span class="card-pic">{{ poster(i.poster, i.title, 240, "", tv_mode(request)) }}{{ rate.pscore(i.score) }}{% if i.pct %}<span class="bar" role="img" aria-label="{{ i.pct }}% watched"><span style="width: {{ i.pct }}%"></span></span>{% endif %}</span>
       <span class="row-title">{{ i.title }}</span>
       {% if i.sub %}<span class="row-meta">{{ i.sub }}</span>{% endif %}
       {% if i.tag %}<span class="row-meta"><span class="{{ i.tag_cls }}">{{ i.tag }}</span></span>{% endif %}{# JY-105 #}

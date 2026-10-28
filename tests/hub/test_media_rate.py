@@ -103,7 +103,7 @@ def test_htmx_rate_returns_the_rated_partial_and_persists(env):
     with build() as client:
         resp = client.post("/media/rate", data=rate_form(score=10), headers=HX)
     assert resp.status_code == 200
-    assert 'class="stat-number score-9 gold-text-glow"' in resp.text and ">10<" in resp.text
+    assert 'class="stat-number score-9"' in resp.text and ">10<" in resp.text
     assert 'hx-delete="/media/rate/tmdb%3A1"' in resp.text and "undo" in resp.text
     assert "<html" not in resp.text  # a partial, not a page
     assert media_db.get_ratings(["tmdb:1"]) == {"tmdb:1": 10}
@@ -186,7 +186,7 @@ def test_score_chips_on_history_playing_library_requests(env):
         req = main_of(client.get("/media/requests").text)
     recent = hist.split(">Recently watched</h2>", 1)[1]
     assert 'row-score score-8" title="Your rating: 8 out of 10">8<' in recent
-    assert 'row-score score-9 gold-text-glow"' in play and "row-poster gold-glow-sm" in play
+    assert 'row-score score-9"' in play and "gold-glow" not in play
     assert 'row-score score-5" title="Your rating: 5 out of 10">5<' in lib
     assert 'row-score score-3" title="Your rating: 3 out of 10">3<' in req
 

@@ -98,9 +98,9 @@ def test_global_css_from_the_guide():
     assert "html { scrollbar-gutter: stable; }" in flat
     assert "overflow-x: clip;" in flat and "-webkit-font-smoothing: antialiased;" in flat
     assert "body::before {" in flat and "var(--indigo-glow)" in flat
-    for kf in ("gold-glow-pulse", "gold-glow-sm-pulse", "hero-drift"):
+    for kf in ("hero-drift",):
         assert f"@keyframes {kf} " in CSS, kf
-    assert ".gold-text-glow {" in CSS
+    assert ".gold-glow" not in CSS and "gold-text-glow" not in CSS and "gold-glow-pulse" not in CSS   # JY-268
     reduced = CSS.split("@media (prefers-reduced-motion: reduce) { .hero-drift { animation: none; } }")
     assert len(reduced) == 2
 

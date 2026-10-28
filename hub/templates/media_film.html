@@ -6,7 +6,7 @@
    tagline, facts line, the status line (emerald + drive icon when on the server), ONE row of buttons (one white
    primary + Trailer + square icon buttons), "More", then the Directed by / Created by cards (E4, 2026-10-13). Below:
    the stats card (scores + site pills, runtime, rating), overview, seasons (TV), file, crew, details, cast, where to
-   watch, shelves. A perfect 10 glows gold. #}
+   watch, shelves. #}
 {% block pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% from "_poster.html" import poster %}
@@ -56,7 +56,7 @@
         {{ ratestrip }}
       </div>
       {% else %}
-      {{ poster(film.poster, film.title, 600, "hero-detail-poster" ~ rate.glow(film.score)) }}
+      {{ poster(film.poster, film.title, 600, "hero-detail-poster") }}
       <div class="hero-detail-text">
         {% if film.episode %}
         {{ ef.eyebrow(epnav) }}

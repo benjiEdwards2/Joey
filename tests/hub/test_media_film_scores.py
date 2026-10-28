@@ -281,7 +281,7 @@ def test_your_rating_pill_keeps_grade_gold_and_undo(env):
         media_db.set_rating("tmdb:603", 10, "movie", "Harbour Lights", year=2019)
         b = main_of(whole(client, "/media/title/movie/603"))
     you = b.split('<form class="rated ratedpill" id="rate"', 1)[1].split("</form>", 1)[0]
-    assert '<span class="sp-name">Yours</span><b class="sp-val score-9 gold-text-glow" title="Your rating: 10 out of 10">10</b>' in you
+    assert '<span class="sp-name">Yours</span><b class="sp-val score-9" title="Your rating: 10 out of 10">10</b>' in you
     assert 'hx-delete="/media/rate/tmdb%3A603"' in you and ">Undo</button>" in you
     assert ("you", "/static/logos/you.svg", "Yours", "10") in pills(b) and "ratepick" not in b
 

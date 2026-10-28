@@ -1,7 +1,7 @@
 {# Ratings (2026-10-05). `ratings` is {item_key: score} from ONE get_ratings() per page.
    The score is always a NUMBER — its grade colour and the gold at 10 are extra, never the only encoding.
    Media (restyle Phase 3, 2026-10-06): rows show the score big on the right (.row-score + .score-N, "—" in
-   .score-none when missing); poster cards show a .poster-score badge; a perfect 10 gets the gold glow (guide 7).
+   .score-none when missing); poster cards show a .poster-score badge.
    Phase 4: the older chip forms (scorechip / chip / rowchip / rowpcls / pcls) are gone; area.html uses the row forms. #}
 {% macro grade(n) -%}
 {{ "score-none" if not n else "score-" ~ ([[n|int, 1]|max, 9]|min) }}
@@ -10,7 +10,7 @@
 {{ "—" if not n else (n|int if n == n|int else "%.1f"|format(n)) }}
 {%- endmacro %}
 {% macro score(n) -%}
-{%- if n %}<span class="row-score {{ grade(n) }}{{ ' gold-text-glow' if n == 10 }}" title="Your rating: {{ n }} out of 10">{{ num(n) }}</span>
+{%- if n %}<span class="row-score {{ grade(n) }}" title="Your rating: {{ n }} out of 10">{{ num(n) }}</span>
 {%- else %}<span class="row-score score-none" title="Not rated">—</span>{% endif -%}
 {%- endmacro %}
 {% macro score_key(key, ratings) -%}
@@ -20,17 +20,7 @@
 {{ score(score_for(row, ratings)) }}
 {%- endmacro %}
 {% macro pscore(n) -%}
-{%- if n %}<span class="poster-score {{ grade(n) }}{{ ' gold-text-glow' if n == 10 }}" title="Your rating: {{ n }} out of 10">{{ num(n) }}</span>{% endif -%}
-{%- endmacro %}
-{# Gold glow class for a poster: rows take the small pulse, big posters the full one. #}
-{% macro glow(n, small=true) -%}
-{{ (" gold-glow-sm" if small else " gold-glow") if n == 10 }}
-{%- endmacro %}
-{% macro keyglow(key, ratings, small=true) -%}
-{{ glow(ratings.get(key) if key else none, small) }}
-{%- endmacro %}
-{% macro rowglow(row, ratings, small=true) -%}
-{{ glow(score_for(row, ratings), small) }}
+{%- if n %}<span class="poster-score {{ grade(n) }}" title="Your rating: {{ n }} out of 10">{{ num(n) }}</span>{% endif -%}
 {%- endmacro %}
 {# 1-10 picker: a plain form (works without JS, 303 back to history, or to r.back: Movies / TV Shows, media-ux2) that htmx upgrades
    to a swap. `r` carries item_key/kind/title/year/poster. Each number is a chip in its grade colour. #}
@@ -51,14 +41,14 @@
    drawn as a .scorepill beside IMDb / RT / Metacritic / TMDB. #}
 {% macro rated_pill(r, score, logo) %}
 <form class="rated ratedpill" id="rate" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
-  <span class="scorepill sp-you"><img class="sp-logo" src="{{ logo }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</b><span class="vh"> Rated {{ score }} out of 10</span></span>
+  <span class="scorepill sp-you"><img class="sp-logo" src="{{ logo }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val {{ grade(score) }}" title="Your rating: {{ score }} out of 10">{{ score }}</b><span class="vh"> Rated {{ score }} out of 10</span></span>
   <button type="submit" class="btn btn-ghost btn-sm undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .rated" hx-swap="outerHTML">Undo</button>
 </form>
 {% endmacro %}
 {% macro rated(r, score) %}
 <form class="rated" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
   {# E3 (U27, 2026-10-13): the number once — "8 · RATED", not "8 RATED 8 OUT OF 10" (the title keeps the full words) #}
-  <span class="stat-number {{ grade(score) }}{{ ' gold-text-glow' if score == 10 }}" title="Your rating: {{ score }} out of 10">{{ score }}</span><span class="microlabel">Rated</span>
+  <span class="stat-number {{ grade(score) }}" title="Your rating: {{ score }} out of 10">{{ score }}</span><span class="microlabel">Rated</span>
   <button type="submit" class="btn btn-ghost btn-sm undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .rated" hx-swap="outerHTML">Undo</button>
 </form>
 {% endmacro %}

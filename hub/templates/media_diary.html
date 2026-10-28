@@ -71,7 +71,7 @@
   {% for d in on_this_day %}
   {% set dh = row_href(none, d.item_key, "movie" if d.kind == "movie" else "tv") %}
   <{{ "a" if dh else "div" }} class="row"{% if dh %} href="{{ dh }}"{% endif %}>
-    {{ poster(d.poster, d.title, 240, "row-poster" ~ rate.keyglow(d.item_key, ratings)) }}
+    {{ poster(d.poster, d.title, 240, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ d.title }}</div>{{ meta([d.sub, d.kind, d.years_ago ~ " year" ~ ("" if d.years_ago == 1 else "s") ~ " ago"]) }}</div>
     {{ rate.score_key(d.item_key, ratings) }}
   </{{ "a" if dh else "div" }}>

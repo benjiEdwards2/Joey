@@ -19,7 +19,7 @@
   {% if arrived %}<div class="listbox">
   {% for r in arrived %}
   <{{ "a" if r.href else "div" }} class="row is-new"{% if r.href %} href="{{ r.href }}"{% endif %}>
-    {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([newbadge, r.kind, r.when]) }}</div>
     {{ rate.score_key(r.item_key, ratings) }}
   </{{ "a" if r.href else "div" }}>
@@ -32,7 +32,7 @@
   {% if updated %}<div class="listbox">
   {% for r in updated %}
   <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
-    {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.what, r.kind, r.when]) }}</div>
     {{ rate.score_key(r.item_key, ratings) }}
   </{{ "a" if r.href else "div" }}>
@@ -47,7 +47,7 @@
   <div class="listbox">
   {% for r in g.rows %}
   <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
-    {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.keyglow(r.item_key, ratings)) }}
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.label, dl_badges[r.item_key] if r.item_key in dl_badges else none]) }}</div>
     {{ rate.score_key(r.item_key, ratings) }}
   </{{ "a" if r.href else "div" }}>
@@ -63,7 +63,7 @@
   {% if downloading %}<div class="listbox">
   {% for d in downloading %}
   <{{ "a" if d.href else "div" }} class="row"{% if d.href %} href="{{ d.href }}"{% endif %}>
-    {{ poster(d.poster, d.title, 120, "row-poster" ~ rate.keyglow(d.item_key, ratings)) }}
+    {{ poster(d.poster, d.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ d.title }}</div>{{ meta([d.status_text, d.pct ~ "%", (d.time_left ~ " left") if d.time_left else none]) }}
       <span class="bar" aria-hidden="true"><span style="width: {{ d.pct }}%"></span></span></div>
     {{ rate.score_key(d.item_key, ratings) }}

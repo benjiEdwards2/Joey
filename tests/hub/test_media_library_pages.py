@@ -515,8 +515,8 @@ def test_cards_are_whole_links_with_the_score_badge(env):
         media_db.set_rating("tmdb:14", 10, "movie", "Delta Film", year=2024)
         _, b = body(c, "/media/movies?group=0")
     card = re.search(r'<a class="card-poster" href="/media/item/jtmdb-14">(.*?)</a>', b, re.S).group(1)
-    assert "<a" not in card and 'class="poster-score score-9 gold-text-glow"' in card and ">10<" in card
-    assert "gold-glow" in card
+    assert "<a" not in card and 'class="poster-score score-9"' in card and ">10<" in card
+    assert "gold-glow" not in card
 
 
 def test_her_view_without_her_list_shows_no_state_words(env):

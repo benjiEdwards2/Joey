@@ -44,7 +44,7 @@
   {% for r in history.get("recent", []) %}
   {% set ih = item_href(r.jf_id) %}
   <{{ "a" if ih else "div" }} class="row"{% if ih %} href="{{ ih }}"{% endif %}>
-    {{ poster(r.poster, r.title, 120, "row-poster" ~ rate.rowglow(r, ratings)) }}
+    {{ poster(r.poster, r.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ r.title }}</div>{{ meta([r.kind, r.when]) }}</div>
     {{ rate.score_row(r, ratings) }}
   </{{ "a" if ih else "div" }}>

@@ -284,7 +284,7 @@ def test_page_top_rated_shows_and_winners(wrap):
     top = sec(b, "Top rated")
     assert "3 films rated · average 8.7" in top and 'class="carousel"' in top
     assert top.index(">Mid Film<") < top.index(">Anora<") and "Old Film" not in top
-    assert "gold-glow" in top                                                       # a perfect 10 keeps its glow
+    assert "gold-glow" not in top and ">10<" in top                               # a perfect 10 no longer glows (JY-268)
     shows = sec(b, "Most watched shows")
     assert "5 episodes · 6 left · ~4h 30m" in shows and "2 episodes" in shows and "All watched" not in shows
     won = sec(b, "Award winners you saw")

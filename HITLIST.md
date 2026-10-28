@@ -199,6 +199,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-264 | Engine seam: one Jellyfin adapter + a library_index (Jellyfin id -> path, TMDB, TVDB) so ratings and diary survive a library rebuild | Media | M | ready | B. 2026-10-28: "Can you show me the hardening items and can we lock them in if nothing changes." From the JY-261 study: ratings/diary keyed jf:<SeriesId> would be orphaned by a rebuild. Spec first | — |
 | JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | spec | B. 2026-10-28: "In more, can you please add a remove button which would remove the request or remove the content." Changes the "nothing in Joey deletes media" rule; spec + options in progress | — |
 | JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | idea | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
+| JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | review | B. 2026-10-29: "Remove golf glow." | — |
 
 ### NAS / stack
 

@@ -87,7 +87,7 @@ def test_numbers_with_imdb_and_rt(env, monkeypatch):
     assert '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and '<span class="sp-name">IMDb</span><b class="sp-val">7.9</b>' in b  # media-ux4 (2026-10-08, B.): one pill style
     assert '<span class="sp-name">RT</span><b class="sp-val">92%</b>' in b
     assert "1h 52m" in b and re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
-    assert 'score-9 gold-text-glow" title="Your rating: 10 out of 10">10<' in b   # gold at 10 (the number is there too)
+    assert 'score-9" title="Your rating: 10 out of 10">10<' in b and "gold-glow" not in b and "gold-text-glow" not in b
 
 
 def test_numbers_without_ratings_endpoint_and_picker_when_unrated(env):

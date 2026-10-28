@@ -421,6 +421,30 @@ with the ring's 7 px room inside it (no negative margin, nothing clipped); tv.js
 the row on top (`elementFromPoint`), the lit chip shown, the first row with a 3 % margin. Note: `media_item.MAX_SEASONS`
 (12) caps the season list, so a 16-season show draws 12 chips (unchanged, outside this item).
 
+Top row, 2026-10-29. B.: "The 8 across is good. The top row is still too large. I would like it about 33 percent smaller
+at least. I use a tcl 55" c7 so would like it to suit a better mix for that TV. I liked the rows so happy with that
+though." Which row: "The header with joey, media, etc on it." Then: "I use a c7k with tcl so a 4k resolution. Can you
+please adjust to fit that please."
+- Measured TV viewport: the Joey TV shell's WebView renders at **960 x 540 CSS px, dpr 2** on B.'s TCL (Android 14,
+  WebView 155; `JoeyTVeview\TV_UI_EVALUATION_2026-10-23.md`, device capture). Android TV draws apps at 1080p and the
+  4K C7K panel scales that up, so the 960x540 dpr 2 capture IS the 4K target; 3840x2160 at dpr 1 is checked too.
+- Built (TV mode only, `tv.css` in place): the top row's controls 36 -> 24 CSS px (-33 %); brand text 22 -> 18 px, its
+  mark 32 -> 22 px, avatar 28 -> 24 px, search and sign-out icons 22 -> 18 px. The bar is 27 (the 5 % overscan) + 24 + 1.
+- Bar height, measured by the shots (`top row` check), old -> new:
+
+  | Capture | Bar | Tallest control |
+  |---|---|---|
+  | 960x540 dpr 2 (the C7K) | 64 -> 52 CSS px (128 -> 104 device) | 36 -> 24 |
+  | 1280x720 | 85.3 -> 69.3 | 48 -> 32 |
+  | 1920x1080 | 128 -> 104 | 72 -> 48 |
+  | 3840x2160 | 256 -> 208 | 144 -> 96 |
+
+  The controls are a third smaller; the bar as a whole is 19 % smaller, because its top 27 px is the overscan safe area
+  and the text stays at the 18 px floor (both kept, as asked). A full third off the bar needs the overscan margin cut
+  (for example to 2.5 %): **decision for B.** The content rises by the 12 px given back (Home's first row 381 -> 369).
+- Test pins changed (dated here): `test_tv_mode.py` `test_tv_css_has_no_hover_rule_and_keeps_the_floor` (brand 22 ->
+  18 px) and `test_jy188_density_b_with_compact_chrome` (bar 64 -> 52 px, controls 24 px).
+
 Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
 `.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
 in `test_discover_states_are_foot_bands_not_chips_over_the_art`.

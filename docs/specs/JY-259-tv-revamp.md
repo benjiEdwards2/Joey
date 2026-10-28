@@ -332,6 +332,75 @@ newest focus lands, and a swap inside the last fade waits for it to end
 (`test_the_newest_focus_wins_the_backdrop_and_a_fading_layer_is_never_reloaded`); (3) the section pills' waiting counts
 are copied from the swapped response (no extra request; the swap test checks it).
 
+## 8. Phase 3 build (2026-10-28): title pages, grids, Discover, loading
+
+B., 2026-10-28: "Keen to run jy 259 and teh rest after that building better with the UI improvements."
+
+Branch `feat/JY-259-tv-revamp-p3`. Hub only, TV mode only: every change sits in `tv.css` (loaded only in TV mode), in
+`tv.js`, or behind `tv_mode(request)` in a template. Web and phone draw the same bytes as before. Friends see only their
+own data (the title page's season list is the viewer's own read, as in JY-192). No new upstream read: the cast and "More on
+Joey" come from the page's existing deferred part (`.../part/all`, F2), drawn as skeletons until it lands.
+
+Steps (step -> verify):
+1. Title page as a backdrop hero (film, show, season, episode): the page's backdrop (JY-262: stored backdrop 2, then the
+   chain) across the top 68 % of the screen, under the bar, with a calm scrim (darker on the left for the words, fading
+   to the page at its foot); the 116 px poster (an episode: its 16:9 still, 256 px) beside the title, facts, a 2-line
+   synopsis and ONE button row. -> verify: `test_a_film_title_page_is_a_backdrop_hero`, `test_title_pages_are_a_backdrop_hero_per_kind` (show, season, episode),
+   `test_the_web_and_phone_title_pages_are_unchanged`.
+2. One button row that never wraps: `flex-wrap: nowrap`; the first (Play / Next to watch / Resume) button gives way with an
+   ellipsis, the others keep their size. -> verify: `test_the_title_button_row_never_wraps`; the shots' DOM check: every
+   button of the row on one line (0 wrapped) at all four sizes.
+3. A show (and a season / episode page): the Episodes row (16:9 kit tiles with the JY-192 word chips, the progress bar and
+   the Jellyfin hand-off) straight under the hero, its head line "Episodes", the seasons as chips (the shown season lit,
+   OK opens that season) and "n of m watched". Down from the buttons lands on the first episode (the mock: "Down x1 from
+   Play reaches E1"); Up from an episode reaches the chips. -> verify: `test_a_show_draws_episodes_then_season_chips`,
+   `test_down_from_the_buttons_skips_the_chips_to_the_first_episode_under_node`; the shots: the first row's tiles end
+   inside the first 1080 device px (540 CSS); an episode tile still plays (the existing `/web/#/details?id=` hand-off,
+   `test_ok_on_an_episode_card_is_the_jellyfin_hand_off` unchanged).
+4. Cast as circles (kit `person`), then "More on Joey" as kit posters below; while the part is on its way each is a
+   3-tile skeleton row. -> verify: `test_cast_is_circles_and_more_on_joey_is_kit_posters`,
+   `test_slow_shelves_draw_a_skeleton_row`.
+5. Grids (Movies, TV shows): 9 across at phase 1's sizes; the gold score glow off on the TV (the ring is the only bright
+   border); the sub-tabs fold to My films · Watchlist · More (Tonight, To rate, Awards) (Q8 A) - More is a `<details>`,
+   open on a folded tab's own page. -> verify: `test_the_grid_has_no_score_glow_on_the_tv`,
+   `test_the_tv_sub_tabs_fold_tonight_to_rate_and_awards_under_more`.
+6. Discover (Q5 A): the state is a word on a band UNDER the art ("On Joey" / "Requested" / "Request"), never a chip over
+   it - on the page, in the search dialog, and after a request (the panel's out-of-band chip). Discover is 8 across,
+   not the library's 9: at the 18 px floor "Requested" needs about 90 px and a 9-across cell is 82 (the shots check
+   every band word reads whole). -> verify:
+   `test_discover_states_are_foot_bands_not_chips_over_the_art`; the shots: 0 chips over art.
+7. Loading: skeleton rows (above); the first two Home rows and a title page's episode row load eagerly, everything
+   below stays lazy; picture boxes keep their shape (phase 2). -> verify: `test_the_first_two_rows_load_eagerly`; the
+   shots: the first two rows' images within 2 s on the local test.
+8. The 18 px floor and the overscan at 960x540 dpr 2, 1280x720, 1920x1080 and 3840x2160 (the phase 1 tests cover the
+   whole sheet), no network on render, friend isolation. -> verify: `test_the_18px_floor_holds_at_every_panel` (all
+   four), `test_no_socket_opens_on_a_warm_tv_title_page`, `test_each_friend_sees_only_their_own_episodes_and_chips`.
+9. Captures of every page type (Home, film, show, season, episode, Movies grid with More open, Discover, the search
+   dialog) at the four sizes into `JoeyTV\review\JY-259\p3-shots\` (`JoeyTV\scripts\jy259_p3_shots.py`), with the DOM
+   audit (text under 18 CSS px, x-scroll, wrapped buttons, chips over art, the first row's foot, image times).
+10. TV review checkpoint 3 (B., on the TCL): Home, a film, a show, Discover. Not run by the builder.
+
+Test changes (CLAUDE.md rule 4), 2026-10-28, each because B. picked the new look (A, Q5 A, Q8 A); none weakened:
+- `test_tv_series_episodes.py`: the JY-192 Seasons shelf of 2:3 cards is now the season chips in the Episodes row's
+  head line ("Seasons are chips"), so the five tests that read `section(html, "tv-seasons")` read the chips (`chips()`)
+  and the "n of m watched" beside them; every watch-state and per-viewer assertion is kept.
+- `test_tv_mode.py::test_tv_discover_is_the_eight_column_grid_with_chips_and_the_panel`: the TV word for a title in the
+  library is "On Joey" (Q5 A, the spec's band words); the web keeps "In library" (`test_tv_p3_jy259.py` pins both).
+- `test_tv_awards_diary.py::test_tv_awards_is_chips_and_shelves`: the sub-tab fold is a `<details>`; the "no
+  `<details>`" check now reads the page body without it.
+- `test_tv_session_fixes.py::test_season_eyebrow_is_at_least_18px_on_the_tv`: the title page's eyebrows are sentence case
+  and untracked (B.'s point 4; phase 1 left them "until phase 3 rebuilds it"); the 18 px, weight and colour pins stay.
+- `test_tv_shelves_tmdb.py::test_tv_friend_title_shelf_is_more_on_joey_on_server_only`: "More on Joey" draws kit posters
+  (`art()`), so the h=600 check reads the kit's `<img src=`.
+
+Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
+`.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
+in `test_discover_states_are_foot_bands_not_chips_over_the_art`.
+Also: the JY-192 rule `.tv-eps .carousel > * { 236px }` and its test
+(`test_episode_cards_keep_236px_over_the_jy188_carousel_width`) still pass, but the episode row is now a kit
+`tvt-row-land` (158 px, the phase 1 16:9 size), whose later rule wins. "More on Joey" drops the award badge over the art
+(the kit poster draws none; B.'s point 4, calmer).
+
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).
 

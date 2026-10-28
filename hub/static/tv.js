@@ -588,6 +588,12 @@
     if (best && dir === 'ArrowDown' && a.closest('.hero-detail-btns') && best.closest('.tv-rate')) {
       best = firstIn(best.closest('.tv-rate')) || best;
     }
+    /* JY-259 (P3): Down from the title buttons passes the season chips and lands on the first episode (the options
+       page's mock: "Down x1 from Play reaches E1"); Up from an episode still reaches the chips */
+    if (best && dir === 'ArrowDown' && a.closest('.hero-detail-btns') && best.closest('.tv-seasonchips')) {
+      var ep = document.querySelector('.tv-eps .card-poster');
+      if (ep && visible(ep)) best = ep;
+    }
     if (best) { setFocus(best); remember(best); }
   }
 

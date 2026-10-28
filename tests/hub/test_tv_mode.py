@@ -147,7 +147,8 @@ def test_tv_discover_is_the_eight_column_grid_with_chips_and_the_panel(monkeypat
         sign_in(c, fake, FRIEND_ID)
         tv = c.get("/media/discover", headers={"User-Agent": TV_UA}).text
         assert is_tv(tv) and 'class="poster-grid reqgrid"' in tv
-        for tid, word in (("movie-701", "Request"), ("movie-603", "In library"), ("movie-702", "Requested")):
+        # JY-259 P3 (2026-10-28, Q5 A): the TV band says "On Joey" for a title in the library
+        for tid, word in (("movie-701", "Request"), ("movie-603", "On Joey"), ("movie-702", "Requested")):
             assert re.search(rf'id="chip-{tid}"[^>]*>{word}<', tv)
         assert '<dialog id="req-dialog"' in tv and "data-req-open" in tv
         inline = "".join(re.findall(r"<style>(.*?)</style>", tv, flags=re.S))

@@ -1,6 +1,16 @@
 {# Cast (portrait photo cards in a row that scrolls inside itself) - a deferred part since F2 (2026-10-12): TMDB's cast
    from the Jellyseerr title body; waiting, Jellyfin's actors and headshots. #}
+{% if tv_mode(request) %}
+{# JY-259 phase 3: on the TV the cast is a row of kit circles (a TMDB person opens their Joey page; Jellyfin's own actors,
+   with no id, are drawn only); while the part is on its way, three circle shapes #}
+{% import "_tv_tile.html" as tvt %}
 {% if film.cast %}
+<section class="sec tv-cast">
+  <h2 class="seclabel">Cast</h2>
+  <div class="carousel tvt-row tvt-row-person">{% for c in film.cast %}{{ tvt.person({"name": c.name, "role": c.role, "ref": c.ref, "href": ("/media/person/" ~ c.id) if c.id else none}) }}{% endfor %}</div>
+</section>
+{% elif "cast" in film.pending %}{{ tvt.skeleton("Cast", "person", "tv-cast") }}{% endif %}
+{% elif film.cast %}
 <section class="sec">
   <h2 class="seclabel">Cast</h2>
   <div class="castrow">

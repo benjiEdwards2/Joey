@@ -161,7 +161,8 @@ html.tv .discover-search .input { height: 3.5rem; padding: 0 1.375rem 0 4rem; bo
 html.tv .discover-search .input::placeholder { color: var(--tv-t4); }
 html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
 html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
-html.tv .reqgrid .reqchip { z-index: 2; top: .375rem; left: .375rem; padding: 0 .5rem; font-size: 1.125rem; font-weight: 700; line-height: 1.5; }
+/* JY-259 (P3, Q5 A): the state is a band UNDER the art, never a chip over it (the picture stays whole) */
+html.tv .reqgrid .reqchip { position: static; display: block; margin-top: .25rem; padding: .125rem 0; border-radius: .375rem; font-size: 1.125rem; font-weight: 500; letter-spacing: -.02em; line-height: 1.375rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 html.tv .reqgrid .reqchip-lib { background: rgba(52, 211, 153, .95); }
 html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: #fbbf24; }
 html.tv .reqgrid .reqchip-request { background: var(--tv-primary); color: #fff; }
@@ -228,7 +229,7 @@ html.tv .tv-rate { margin-top: 1.375rem; }
 html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: .5rem; }
 html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
 html.tv .tv-rate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: .625rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
-html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec), html.tv .fp-shelf-wait { display: none; }
+html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast), html.tv .fp-shelf-wait { display: none; }
 
 /* The Set up Jellyfin card (Q39; WP-M screen 9): a full-screen card over the Overview, the address at 34 px mono with its
    :port in gold and underlined, three numbered steps, Done focused. tv.js keeps the D-pad on it while it is up. */
@@ -315,9 +316,9 @@ html.tv .hero-detail-in > .tv-epstill {
   flex: 0 0 auto; width: 26.25rem; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .75rem;
   border: .0625rem solid rgba(255, 255, 255, .1); box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7);
 }
-html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 .375rem; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 .375rem; font-size: 1.125rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tv-t4); }   /* JY-259 P3: sentence case (B.'s point 4) */
 /* JY-250 (#13): the season page's "Season N of M" (.epeyebrow, 12 px off the TV) takes the same TV eyebrow look */
-html.tv .epeyebrow { font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t4); }
+html.tv .epeyebrow { font-size: 1.125rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tv-t4); }
 html.tv .epeyebrow .sep { color: var(--tv-t4); }
 html.tv .hero-detail-btns .wtoggle { display: contents; }
 html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600;
@@ -438,7 +439,7 @@ html.tv .tvt-poster .row-title { height: 2.5rem; white-space: normal; display: -
   -webkit-box-orient: vertical; overflow: hidden; }   /* JY-259 review: two lines, clamped, under row posters */
 html.tv .tvt-person .card-pic, html.tv .tvt-person .card-pic > img { width: 5rem; height: 5rem; aspect-ratio: 1; margin: 0 auto; border-radius: 50%; }
 html.tv .tvt-person .row-title, html.tv .tvt-person .row-meta { text-align: center; }
-html.tv .tvt-band { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: .125rem .375rem; border-radius: 0 0 .5rem .5rem;
+html.tv .tvt-band { position: static; display: block; margin-top: .25rem; padding: .125rem .375rem; border-radius: .375rem;
   font-size: 1.125rem; font-weight: 600; line-height: 1.375rem; text-align: center; color: var(--zinc-950); background: var(--tv-primary); }
 html.tv .tvt-band-request { color: #fff; }
 html.tv .tvt-band-lib { background: var(--good); }
@@ -492,8 +493,8 @@ html.tv .tv-searchdlg { width: calc(100vw - 2 * var(--tv-mx)); max-width: none; 
 html.tv .tv-searchdlg::backdrop { background: rgba(9, 9, 11, .82); }
 html.tv .tv-searchdlg form.toolbar.discover-search { margin: 0; }
 html.tv .tv-searchdlg .card-pic { position: relative; }
-html.tv .tv-searchdlg .reqchip { position: absolute; left: .375rem; bottom: .375rem; padding: 0 .5rem; border-radius: 62.4375rem; font-size: 1.125rem;
-  font-weight: 700; color: var(--zinc-950); background: var(--tv-gold); }
+html.tv .tv-searchdlg .reqchip { position: static; display: block; margin-top: .25rem; padding: .125rem 0; border-radius: .375rem; font-size: 1.125rem;
+  font-weight: 500; letter-spacing: -.02em; line-height: 1.375rem; text-align: center; white-space: nowrap; overflow: hidden; color: var(--zinc-950); background: var(--tv-gold); }
 html.tv .tv-searchdlg .reqchip-request { color: #fff; background: var(--tv-primary); }
 html.tv .tv-searchdlg .reqchip-lib { background: var(--good); }
 /* Q7 A: <main> is the only thing a page move swaps; the crossfade is a view transition of it, var(--tv-fade) long */
@@ -503,3 +504,71 @@ html.tv::view-transition-old(root), html.tv::view-transition-new(root) { animati
 /* placeholder shapes: every picture box is drawn at its final size (aspect-ratio) in a quiet tone before its image */
 html.tv .card-pic > img { background-color: var(--tv-surface-2); }
 /* ==== end JY-259 phase 2 ==== */
+
+/* ==== JY-259 phase 3 (2026-10-28) - title pages, grids, Discover, loading ====
+   Spec: docs/specs/JY-259-tv-revamp.md §8 (B.'s pick A, the options page's title mock; points 2 to 4). */
+/* The title page is a backdrop hero: the picture runs under the bar across the top 68 % of the screen, darker on the
+   left for the words and fading into the page at its foot (calmer than the JY-188 scrim, so the picture reads); the
+   poster (an episode: its still) sits beside the title, facts, a 2-line synopsis and ONE button row. */
+html.tv .pagehead.hero-detail { position: relative; isolation: isolate; }
+html.tv .hero-detail-bd { top: calc(-1 * var(--tv-bar)); bottom: auto; height: 23rem; background-size: cover; background-position: center 25%;
+  background-image: linear-gradient(90deg, rgba(9, 9, 11, .86) 0%, rgba(9, 9, 11, .58) 42%, rgba(9, 9, 11, .16) 100%),
+                    linear-gradient(to bottom, rgba(9, 9, 11, .3) 0%, rgba(9, 9, 11, 0) 22%, rgba(9, 9, 11, 0) 52%, var(--bg) 100%), var(--bd-pick); }
+html.tv body:has(.hero-detail-bd) .topbar { background: rgba(9, 9, 11, .72); }
+html.tv .pagehead.hero-detail .pagehead-in { padding: 1.5rem var(--tv-mx) 0; }
+html.tv .hero-detail-in { align-items: flex-end; gap: 1.75rem; }
+html.tv .hero-detail-poster { width: 7.25rem; }
+html.tv .hero-detail-in > .tv-epstill { width: 16rem; }
+html.tv .hero-detail-text { flex: 1 1 auto; min-width: 0; }
+html.tv .hero-detail .hero-detail-title { font-size: 2.25rem; line-height: 1.1;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.tv .hero-detail-text .tv-syn { margin-top: .625rem; max-width: 36rem; -webkit-line-clamp: 2; line-clamp: 2; color: var(--tv-t3); }
+/* one button row that never wraps: the first button (Play / Next to watch / Resume) gives way with an ellipsis */
+html.tv .hero-detail-btns { flex-wrap: nowrap; max-width: 100%; gap: 1rem; margin-top: 1.25rem; }
+html.tv .hero-detail-btns > * { flex: none; }
+html.tv .hero-detail-btns .btn, html.tv .hero-detail-btns .wlbtn .btn, html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn {
+  flex-shrink: 0; min-height: 3.25rem; padding: 0 1.375rem; font-size: 1.25rem; white-space: nowrap; }
+html.tv .hero-detail-btns > a.btn-white { flex: 0 1 auto; min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 3.25rem; }
+
+/* B.'s point 4 (calmer): the title page's eyebrows and the rating label lose the uppercase and tracking; the season
+   page's S1 / S2 switch steps aside for the season chips below (one way to a season, and the episodes stay on screen) */
+html.tv .tv-rate .microlabel { letter-spacing: 0; text-transform: none; }
+html.tv .hero-detail-text .seasonseg { display: none; }
+html.tv .hero-detail-btns .wlbtn svg.ic { width: 1.375rem; height: 1.375rem; }
+/* A show / season / episode: "Episodes", the season chips and the count on one line, then the 16:9 kit tiles */
+html.tv .tv-eps { margin-top: .625rem; }
+html.tv .tv-eps .tvshelf-hd { align-items: center; gap: 1.25rem; }
+html.tv .tv-seasonchips { display: flex; flex-wrap: nowrap; gap: .5rem; min-width: 0; overflow-x: auto; scrollbar-width: none; padding: .5rem; margin: -.5rem; }
+html.tv .tv-seasonchips .chip { flex: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: 62.4375rem;
+  border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .tv-seasonchips .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
+html.tv .tv-eps .tvshelf-hd .tv-seasonsub { flex: none; }
+
+/* Cast circles, "More on Joey" posters (the kit), with room above them */
+html.tv .tv-cast, html.tv .tv-more { margin-top: 1.375rem; }
+html.tv .carousel.tvt-row-person > * { flex: 0 0 6.25rem; width: 6.25rem; }
+html.tv .tv-cast .row-meta { visibility: visible; color: var(--tv-t4); }
+
+/* Loading: a slow shelf is three quiet tile shapes of the final size until its part lands */
+html.tv .tvt-skel .card-pic { display: block; aspect-ratio: 2 / 3; border-radius: .5rem; background: var(--tv-surface-2); animation: tv-skel 1.6s ease-in-out infinite; }
+html.tv .tvt-skel .tvt-land .card-pic { aspect-ratio: 16 / 9; }
+html.tv .tvt-skel .tvt-person .card-pic { aspect-ratio: 1; border-radius: 50%; }
+html.tv .tvt-skel .tvt-skel-line { display: block; width: 70%; height: 1.125rem; margin-top: .5rem; border-radius: .25rem; background: var(--tv-surface-2); }
+@keyframes tv-skel { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { html.tv .tvt-skel .card-pic { animation: none; } }
+
+/* Grids: the ring is the only bright border on the TV (no gold score glow) */
+html.tv .poster-grid .gold-glow, html.tv .poster-grid .gold-glow-sm { animation: none; box-shadow: none; }
+
+/* Sub-tabs (Q8 A): Tonight, To rate and Awards fold under "More" (a <details>; OK opens it) */
+html.tv .tv-tabmore { display: inline-flex; align-items: center; gap: .5rem; }
+html.tv .tv-tabmore > summary { list-style: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 .875rem; border-radius: .625rem;
+  font-size: 1.125rem; color: var(--tv-t4); }
+html.tv .tv-tabmore > summary::-webkit-details-marker { display: none; }
+html.tv .tv-tabmore[open] > summary { color: var(--tv-t2); }
+/* Discover (Q5 A): 8 across (not the library's 9) so the band words read whole at the 18 px floor: "Requested" needs
+   about 90 px; a 9-across cell is 82. The search dialog's grid takes the same cells (its padding trimmed to fit). */
+html.tv .poster-grid.reqgrid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 1.125rem .75rem; }
+html.tv .tv-searchdlg { padding-left: 1rem; padding-right: 1rem; }
+html.tv .tv-searchdlg .reqgrid-wrap { margin-top: .75rem; }
+/* ==== end JY-259 phase 3 ==== */

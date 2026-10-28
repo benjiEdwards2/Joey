@@ -66,7 +66,8 @@ def test_season_eyebrow_is_at_least_18px_on_the_tv():
     assert rules and px(rules[-1], "font-size") >= 18
     assert wins(sel, ".epeyebrow")
     tv_eyebrow = _rules(TV_CSS, "html.tv .hero-detail-text > .tv-eyebrow")[-1]   # JY-192's eyebrow: the same look
-    for decl in ("font-size: 18px", "font-weight: 600", "letter-spacing: .1em", "text-transform: uppercase",
+    # JY-259 P3 (2026-10-28, B.'s point 4 "better looking on the eyes"): both eyebrows are sentence case, untracked
+    for decl in ("font-size: 18px", "font-weight: 600", "letter-spacing: 0", "text-transform: none",
                  "color: var(--tv-t4)"):
         assert decl in tv_eyebrow and decl in rules[-1], decl
 

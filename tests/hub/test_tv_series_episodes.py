@@ -62,6 +62,13 @@ def section(html: str, cls: str) -> str:
     return m.group(1)
 
 
+def chips(html: str) -> list[str]:
+    """JY-259 phase 3 (2026-10-28, B.'s pick A: "Seasons are chips"): the season chips in the Episodes row's head line,
+    in place of the JY-192 Seasons shelf of 2:3 cards."""
+    head = section(html, "tv-eps").split('<div class="carousel', 1)[0]
+    return re.findall(r'<a class="chip[^"]*"[^>]*>.*?</a>', head, flags=re.S)
+
+
 def cards(shelf: str) -> list[str]:
     return re.findall(r'<a class="card-poster[^"]*"[^>]*>.*?</a>', shelf, flags=re.S)
 
@@ -75,12 +82,12 @@ def text(fragment: str) -> str:
 def test_tv_series_page_has_the_seasons_and_episodes_shelves(tvc):
     html = tvc.get(f"/media/item/{SHOW}", headers=TV).text
     assert '<details class="seasonbox' not in html                          # S1: no <details> list on the TV
-    seasons = cards(section(html, "tv-seasons"))
+    seasons = chips(html)                                                   # JY-259 P3: chips, not 2:3 cards
     assert len(seasons) == 2
-    assert f'href="/media/item/{S1}"' in seasons[0] and f"/img/jf:{S1}?h=" in seasons[0]
-    assert "Season 1" in text(seasons[0]) and "0 of 3 watched" in text(seasons[0])
+    assert f'href="/media/item/{S1}"' in seasons[0] and 'class="chip on"' in seasons[0]
     eps = section(html, "tv-eps")
-    assert "Episodes · Season 1" in eps                                     # the next episode's season
+    assert "Season 1" in text(seasons[0]) and "0 of 3 watched" in text(eps.split('<div class="carousel', 1)[0])
+    assert '<h2 class="seclabel">Episodes</h2>' in eps                      # the next episode's season, lit
     one, two, three = cards(eps)
     for card, jf in ((one, E1), (two, E2), (three, E3)):
         assert f'src="/img/jf:{jf}?h=400' in card                           # 16:9 still through the proxy
@@ -108,14 +115,14 @@ def test_episode_cards_carry_state_words_and_progress(tvc):
 
 def test_a_friend_sees_only_their_own_watch_state(tvc):
     html = tvc.get(f"/media/item/{SHOW}", headers=TV).text
-    shelves = section(html, "tv-seasons") + section(html, "tv-eps")
+    shelves = section(html, "tv-eps")                                       # JY-259 P3: the chips live in this row
     assert "Watched" not in text(shelves) and "0 of 3 watched" in text(shelves)   # the household watched E1 + E2
     reads = [c for c in tvc.fake.calls if c[0] == "GET" and c[1] == f"/Shows/{SHOW}/Episodes"]
     assert reads and {str((c[4] or {}).get("userId")) for c in reads} == {FRIEND_ID}
     sign_in(tvc, tvc.fake, OTHER_ID)                                        # another friend, who watched E1
     html = tvc.get(f"/media/item/{SHOW}", headers=TV).text
     one = cards(section(html, "tv-eps"))[0]
-    assert "Watched" in text(one) and "1 of 3 watched" in text(section(html, "tv-seasons"))
+    assert "Watched" in text(one) and "1 of 3 watched" in text(section(html, "tv-eps"))
 
 
 # ---- 8: no live image call on render ----
@@ -151,8 +158,8 @@ def test_tv_season_page_keeps_the_eyebrow_and_marks_this_season(tvc):
     html = tvc.get(f"/media/item/{S1}", headers=TV).text
     assert '<p class="epeyebrow">Season 1 of 2</p>' in html                 # JY-116
     assert f'data-tv-up="/media/item/{SHOW}"' in html
-    s1, s2 = cards(section(html, "tv-seasons"))
-    assert "This season" in text(s1) and 'aria-current="page"' in s1 and "This season" not in text(s2)
+    s1, s2 = chips(html)                                                    # JY-259 P3: the lit chip says "this season"
+    assert 'class="chip on"' in s1 and 'aria-current="page"' in s1 and "aria-current" not in s2
 
 
 # ---- 6: the Rate button (Gate 1 pick 1B) ----
@@ -298,8 +305,8 @@ def test_shelf_captions_stay_visible_over_the_jy188_focus_only_rule(tvc):
     assert any("visibility: visible" in b for b in _rules(css, show))         # U6: state captions always
     assert _spec(show) > _spec(hide) and css.rindex(show) > css.rindex(hide)
     html = tvc.get(f"/media/item/{S1}", headers=TV).text                       # the captions are row-meta inside .tvshelf
-    s1 = cards(section(html, "tv-seasons"))[0]
-    assert re.search(r'<span class="row-meta">.*This season.*0 of 3 watched</span>', s1, flags=re.S)
+    head = section(html, "tv-eps").split('<div class="carousel', 1)[0]       # JY-259 P3: the count sits by the chips
+    assert '<p class="metaline tv-seasonsub">0 of 3 watched</p>' in head
 
 
 def test_episode_cards_keep_236px_over_the_jy188_carousel_width(tvc):
@@ -319,6 +326,6 @@ def test_household_viewer_on_the_tv_sees_their_own_state(tvc):
     html = tvc.get(f"/media/item/{SHOW}", headers=TV).text
     one, two, _ = cards(section(html, "tv-eps"))
     assert "Watched" in text(one) and "Next" in text(two) and "Watched" not in text(two)   # admin watched E2 too
-    assert "1 of 3 watched" in text(section(html, "tv-seasons"))
+    assert "1 of 3 watched" in text(section(html, "tv-eps"))               # JY-259 P3: by the season chips
     reads = [c for c in tvc.fake.calls if c[0] == "GET" and c[1] == f"/Shows/{SHOW}/Episodes"]
     assert reads and {str((c[4] or {}).get("userId")) for c in reads} == {ALIAS_ID}

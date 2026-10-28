@@ -68,7 +68,8 @@ def test_tv_friend_title_shelf_is_more_on_joey_on_server_only(friend):
     assert 'href="/media/title/movie/802"' in more
     assert "/media/title/movie/803" not in more and "/media/title/movie/804" not in more
     assert "Not on server" not in more and "On server" not in more            # caption: title, then the year
-    assert re.findall(r'<img class="poster[^"]*" src="/img/[^"]*\?h=(\d+)&amp;', more) == ["600", "600"]
+    # JY-259 P3 (2026-10-28): the shelf is kit posters (art(), the one tile picture maker), still the warm h=600
+    assert re.findall(r'<img src="/img/[^"]*\?h=(\d+)&amp;', more) == ["600", "600"]
 
 
 def test_tv_friend_title_with_nothing_on_server_draws_no_shelf(friend):

@@ -54,7 +54,9 @@ def test_no_accent_in_templates_python_or_css():
     for p in TEMPLATES.glob("*.html"):
         assert "accent" not in p.read_text(encoding="utf-8").lower(), p.name
     for p in HUB.glob("*.py"):
-        if p.name != "registry.py":                         # areas.yaml still validates the (now inert) field
+        # areas.yaml still validates the (now inert) field; JY-260's poster kit has a print `accent_rule` (B.'s
+        # template.json key, a gold bar drawn into the JPEG), not a UI accent colour
+        if p.name not in ("registry.py", "media_posters_render.py"):
             assert "accent" not in p.read_text(encoding="utf-8").lower(), p.name
     assert "--accent" not in re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
 

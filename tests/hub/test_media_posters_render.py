@@ -53,7 +53,10 @@ def test_starter_kit_is_layout_2_with_layout_3_text_positions(tpl):
     assert (tpl.width, tpl.height) == (1000, 1500)
     t, s = tpl.data["title"], tpl.data["sub"]
     assert (t["title_anchor"], s["sub_anchor"], t["margin_x"]) == (TA, SA, 0.06)
-    assert (t["weight"], s["weight"], t["uppercase"]) == (400, 400, True)   # B.'s Canva look: regular Geist
+    assert (t["weight"], s["weight"], t["uppercase"]) == (900, 500, True)   # B.'s friend's look: Geist Black, Medium
+    assert (t["title_fill"], t["max_size"], t["max_cap_height"], t["line_height"], t["tracking"], s["tracking"]) == (
+        0.88, 400, 0.14, 0.92, 0.02, 0.08)
+    assert tpl.data["accent_rule"] == {"colour": "#E0B04A", "width": 0.09, "height": 6, "gap": 24}
     assert t["shadow"]["opacity"] <= 0.35 and s["shadow"]["opacity"] <= 0.35   # only a very soft shadow
     assert s["opacity"] == 1.0 and s["colour"] == "#FFFFFF"
     assert tpl.data["frame"] is None                      # layout 2: no frame, no border
@@ -74,41 +77,71 @@ def _inside(lay, tpl):
         assert abs((ln.x + ln.width / 2) - tpl.width / 2) <= 1, ln     # centred
 
 
-def test_short_title_one_line_at_max_size_on_the_anchor(tpl):
+ROOM, FILL = 880, 0.88   # the safe width (6 % margins on 1000 px) and the starter's title_fill
+
+
+def _fill(lay):
+    return max(ln.width for ln in lay.lines) / ROOM
+
+
+def test_short_title_one_line_at_max_size_grows_up_from_the_anchor(tpl):
+    """B. 2026-10-28: "Posters bigger is better." "UP" is held by the sanity cap (its glyphs at most 14 % of the
+    canvas height); at that size its real ink is taller than the room under the anchor, so the block rises
+    (bottom-anchored), its ink bottom on the gap above the sub-line."""
     lay = r.layout_title(tpl, "Up")
-    assert [ln.text for ln in lay.lines] == ["UP"]                     # uppercase per the kit
-    assert lay.size == 95
-    assert lay.top == pytest.approx(TA * 1500)
-    assert lay.lines[0].top == pytest.approx(TA * 1500)
+    font = r._font(tpl, lay.size, 900)
+    ink = font.getbbox("H", anchor="ls")                                     # the capital height
+    assert [ln.text for ln in lay.lines] == ["UP"] and (ink[3] - ink[1]) <= 0.14 * 1500 + 1
+    assert (ink[3] - ink[1]) >= 0.13 * 1500                                  # at the cap, not under it
+    assert lay.bottom == pytest.approx((SA - GAP) * 1500) and LIMIT * 1500 <= lay.top < TA * 1500
     _inside(lay, tpl)
 
 
-def test_second_short_title_also_fits_at_max(tpl):
-    lay = r.layout_title(tpl, "The Bear")
-    assert len(lay.lines) == 1 and lay.size == 95
-    _inside(lay, tpl)
-
-
-def test_medium_title_shrinks_before_it_wraps(tpl):
-    lay = r.layout_title(tpl, "Everything Everywhere")
-    assert len(lay.lines) == 1
-    assert 60 <= lay.size < 95                                          # one line shrinks only to wrap_at
-    _inside(lay, tpl)
-
-
-def test_long_title_wraps_to_two_balanced_lines(tpl):
-    title = "Eternal Sunshine of the Spotless Mind"
+@pytest.mark.parametrize("title,n,lo,hi", [("The Bear", 1, 0.85, FILL), ("Everything Everywhere", 2, 0.85, FILL),
+                                           ("Eternal Sunshine of the Spotless Mind", 3, 0.85, FILL),
+                                           ("The Assassination of Jesse James by the Coward Robert Ford", 3, 0.85,
+                                            FILL)])
+def test_titles_fill_about_title_fill_of_the_safe_width(tpl, title, n, lo, hi):
+    """Short (that are not capped), medium and long titles: the widest line fills 85-88 % of the safe width."""
     lay = r.layout_title(tpl, title)
-    assert len(lay.lines) == 2
-    assert lay.size >= 60
-    a, b = (ln.width for ln in lay.lines)
-    assert min(a, b) / max(a, b) > 0.8                                  # balanced, not one word on line 2
-    assert lay.lines[1].top == pytest.approx(lay.lines[0].top + lay.size * 1.05)
+    assert len(lay.lines) == n and lo <= _fill(lay) <= hi + 0.005, (lay.size, _fill(lay))
     assert " ".join(ln.text for ln in lay.lines) == title.upper()
     _inside(lay, tpl)
 
 
-@pytest.mark.parametrize("title,n", [("Up", 1), ("Eternal Sunshine of the Spotless Mind", 2),
+def test_short_titles_are_larger_than_long_ones(tpl):
+    sizes = [r.layout_title(tpl, t).size for t in ("Up", "The Bear", "Everything Everywhere", LONG)]
+    assert sizes == sorted(sizes, reverse=True) and sizes[0] > 250 and sizes[-1] >= 40
+
+
+@pytest.mark.parametrize("title", ["War", "Silo", "Troy", "Suits"])
+def test_short_titles_fill_about_088_of_the_width(tpl, title):
+    """The review of #260: short titles filled ~45 % at the old 190 px cap; now about 0.85-0.9, like B.'s reference."""
+    lay = r.layout_title(tpl, title)
+    assert len(lay.lines) == 1 and 0.83 <= _fill(lay) <= 0.885, (title, lay.size, _fill(lay))
+
+
+def test_a_two_letter_title_is_held_by_the_cap_height(tpl):
+    lay = r.layout_title(tpl, "It")
+    ink = r._font(tpl, lay.size, 900).getbbox("H", anchor="ls")
+    assert ink[3] - ink[1] <= 0.14 * 1500 + 1 and _fill(lay) < 0.85
+
+
+def test_a_medium_title_shrinks_to_wrap_at_then_wraps(tpl):
+    lay = r.layout_title(tpl, "Everything Everywhere")
+    assert len(lay.lines) == 2 and lay.size >= 96                       # one line would be under wrap_at (96)
+    a, b = (ln.width for ln in lay.lines)
+    assert min(a, b) / max(a, b) > 0.5
+    assert lay.lines[1].top == pytest.approx(lay.lines[0].top + lay.size * 0.92)   # line height 0.92
+    _inside(lay, tpl)
+
+
+def test_fill_1_is_the_phase_1_behaviour(tmp_path):
+    t = r.load_template(kit(tmp_path, **{"title.title_fill": None}))
+    assert _fill(r.layout_title(t, "Everything Everywhere")) > 0.9
+
+
+@pytest.mark.parametrize("title,n", [("Up", 1), ("Everything Everywhere", 2),
                                      ("The Assassination of Jesse James by the Coward Robert Ford", 3),
                                      ("The Lord of the Rings The Return of the King Extended Edition Part Two", 3)])
 def test_title_box_never_meets_the_sub_line_box(tpl, title, n):
@@ -118,14 +151,36 @@ def test_title_box_never_meets_the_sub_line_box(tpl, title, n):
     sub_bottom = sub_top + 50 * 1.2                                       # the sub-line's line box
     assert lay.bottom <= sub_top - GAP * 1500 + 0.5                     # the fixed gap above the sub-line
     assert lay.bottom <= sub_top or lay.top >= sub_bottom                 # the boxes never intersect
-    if n == 1:
-        assert lay.top == pytest.approx(TA * 1500)                        # one line still sits at the anchor
-    else:
-        assert lay.top >= LIMIT * 1500 - 0.5                               # grows upward, no higher than the limit
+    assert lay.top >= LIMIT * 1500 - 0.5                                   # grows upward, no higher than the limit
 
 
-def test_the_title_ink_never_reaches_the_sub_line(tpl):
-    """Pixels, not boxes: render the 3-line title with no sub-line, and nothing bright reaches the gap above 88 %."""
+@pytest.mark.parametrize("title", ["Up", "It", "Heat", "Troy", "Silo", "War", "Close"])
+def test_no_overlap_at_max_size_with_the_real_ink_height(tpl, title):
+    """A tall single line at the new max (the cap height): its real glyphs end above the gap, the rule sits under
+    them, the sub-line under the rule (measured on the drawn pixels, not on boxes)."""
+    lay = r.layout_title(tpl, title)
+    assert lay.size >= 200
+    font = r._font(tpl, lay.size, 900)
+    ink = font.getbbox(lay.lines[0].text, anchor="ls")
+    assert lay.lines[0].base + ink[3] <= (SA - GAP) * 1500 + 0.5           # the glyphs, not a nominal line box
+    left, top, right, bottom = r.rule_box(tpl, lay)
+    assert top == pytest.approx(lay.bottom + 24) and bottom - top == 6 and right - left == pytest.approx(90)
+    assert abs((left + right) / 2 - 500) < 0.5                               # centred
+    assert r.sub_top(tpl, lay) >= bottom + 24 and r.sub_top(tpl, lay) + 50 * 1.2 <= 1500
+    out = Image.open(io.BytesIO(r.render(tpl, art(colour=(20, 20, 20)), title, "2024"))).convert("RGB")
+    rows = [y for y in range(900, 1500) if any(out.getpixel((x, y))[0] > 150 for x in range(60, 940, 3))]
+    runs, start = [], rows[0]
+    for a, b in zip(rows, rows[1:]):
+        if b != a + 1:
+            runs.append((start, a))
+            start = b
+    runs.append((start, rows[-1]))
+    assert len(runs) == 3, runs                                          # title, rule, sub-line: three separate bands
+
+
+def test_the_title_ink_never_reaches_the_sub_line(tmp_path):
+    """Pixels, not boxes: render the 3-line title with no sub-line (and no rule), and nothing bright reaches the gap."""
+    tpl = r.load_template(kit(tmp_path, accent_rule=None))
     out = Image.open(io.BytesIO(r.render(tpl, art(colour=(20, 20, 20)),
                                          "The Assassination of Jesse James by the Coward Robert Ford", ""))).convert("L")
     gap = out.crop((0, int(SA * 1500 - 0.015 * 1500), 1000, int(SA * 1500) + 60))
@@ -265,6 +320,26 @@ def test_render_is_a_jpeg_at_the_canvas_size_with_the_scrim_low(tpl):
     top, low = im.getpixel((500, 300)), im.getpixel((20, 1450))
     assert abs(top[0] - 150) <= 3                                       # untouched above the band
     assert low[0] < 60                                                  # dark under the lower third
+
+
+def test_the_accent_rule_can_be_turned_off_and_the_sub_line_then_stays_at_its_anchor(tmp_path):
+    tpl = r.load_template(kit(tmp_path, accent_rule=None))
+    lay = r.layout_title(tpl, "Up")
+    assert r.rule_box(tpl, lay) is None and r.sub_top(tpl, lay) == pytest.approx(SA * 1500)
+
+
+def test_a_bad_accent_rule_is_refused(tmp_path):
+    with pytest.raises(r.TemplateError) as e:
+        r.load_template(kit(tmp_path, accent_rule={"colour": "gold", "width": 2, "height": 0, "gap": 18}))
+    assert all(w in str(e.value) for w in ("accent_rule.colour", "accent_rule.width", "accent_rule.height"))
+
+
+def test_the_new_look_is_a_new_template_version(tpl, tmp_path, monkeypatch):
+    """B. 2026-10-28: every stored poster re-renders. The drawing code bumped RENDER_VERSION (3, "bigger") and the
+    starter kit's template.json changed, and either alone gives a new version."""
+    assert r.RENDER_VERSION == 3
+    monkeypatch.setattr(r, "RENDER_VERSION", 2)
+    assert r.load_template(r.STARTER).version != tpl.version
 
 
 def test_scrim_is_one_smooth_gradient_with_no_seam(tpl):

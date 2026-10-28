@@ -30,7 +30,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 STARTER = Path(__file__).resolve().parent / "posters_template"
 HUB_FONTS = Path(__file__).resolve().parent / "static" / "fonts"
-RENDER_VERSION = 1          # bump when the drawing code changes, so every poster re-renders
+RENDER_VERSION = 3          # bump when the drawing code changes, so every poster re-renders
 JPEG_QUALITY = 90
 ELLIPSIS = "…"
 FONT_EXT = (".ttf", ".otf", ".woff2", ".woff")
@@ -75,8 +75,9 @@ class Template:
 class Line:
     text: str
     x: float          # left edge
-    top: float        # top of the line box
+    top: float        # top of the line box (a title line: the top of its ink, the cap height for capitals)
     width: float
+    base: float | None = None   # the baseline (title lines, 2026-10-28 fill layout); None = centred in its line box
 
 
 @dataclass
@@ -232,6 +233,17 @@ def validate(data, folder: Path) -> list[str]:
     _num(p, s, "tracking", "sub", -0.2, 0.5)
     _colour(p, s, "colour", "sub")
     _shadow(p, s, "sub")
+    _num(p, t, "title_fill", "title", 0.3, 1, required=False)
+    _num(p, t, "max_cap_height", "title", 0.03, 0.4, required=False)
+    rule = data.get("accent_rule")
+    if rule is not None:
+        if not isinstance(rule, dict):
+            p.append("accent_rule must be an object or null (null = no rule)")
+        else:
+            _colour(p, rule, "colour", "accent_rule")
+            _num(p, rule, "width", "accent_rule", 0.01, 0.5)
+            _num(p, rule, "height", "accent_rule", 1, 40)
+            _num(p, rule, "gap", "accent_rule", 0, 200)
     wrap = _num(p, t, "wrap_at", "title", 8, 400, required=False)
     if wrap is not None and None not in (hi, lo) and not lo <= wrap <= hi:
         p.append(f"title.wrap_at ({wrap}) must be from title.min_size to title.max_size")
@@ -368,6 +380,9 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
         text = text.upper()
     left = tpl.width * t["margin_x"]
     room = tpl.width - 2 * left
+    # B. 2026-10-28 ("To fill more portions of things"): the widest line is sized to fill title_fill of the safe
+    # width (default 1.0 = the phase-1 behaviour: as large as fits), up to max_size
+    target = room * float(t.get("title_fill") or 1.0)
     top_at, limit, floor_y = title_band(tpl)
     block = floor_y - limit
     hi, lo, max_lines = int(t["max_size"]), int(t["min_size"]), int(t["max_lines"])
@@ -377,6 +392,8 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
 
     ref = 100
     ref_font = _font(tpl, ref, weight)
+    hb = ref_font.getbbox("H", anchor="ls")
+    cap_h = max((hb[3] - hb[1]) / ref, 0.01)   # capital height per pixel of size
     seen: dict[str, float] = {}
 
     def ref_measure(s: str) -> float:
@@ -384,29 +401,49 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
             seen[s] = _width(ref_font, s, tracking, ref)
         return seen[s]
 
-    def fit(n):
+    def ink(lines) -> tuple[float, float]:
+        """(top, bottom) of the lines' real glyphs relative to the baseline, per pixel of font size (the top is
+        negative). Measured, not assumed: a tall single line at max_size is placed by its real height."""
+        bb = [ref_font.getbbox(ln, anchor="ls") for ln in lines if ln]
+        if not bb:
+            return -0.7, 0.0
+        return min(b[1] for b in bb) / ref, max(b[3] for b in bb) / ref
+
+    def height(n, a, d) -> float:   # the ink height of n lines per pixel of size
+        return (n - 1) * lh + (d - a)
+
+    def fit(n, goal):
         """Widths scale with the size, so the best split is found once at a reference size; the size is then the
-        largest that fits, checked with the real font (hinting is not quite linear)."""
-        cap = min(hi, int(block / (n * lh)))
-        floor = lo if n == max_lines else max(lo, wrap_at)
+        largest that fits (the widest line within `target`, the real ink height within the block), checked with the
+        real font (hinting is not quite linear)."""
         lines = [text] if n == 1 else _split(words, n, ref_measure)
-        if not lines or cap < floor:
+        if not lines:
+            return None
+        a, d = ink(lines)
+        cap = min(hi, int(block / height(n, a, d)))
+        if t.get("max_cap_height"):   # the sanity cap: the font's capital height ("H"), as a share of the canvas height
+            cap = min(cap, int(tpl.height * float(t["max_cap_height"]) / cap_h))
+        floor = lo if n == max_lines else max(lo, wrap_at)
+        if cap < floor:
             return None
         widest = max(ref_measure(ln) for ln in lines) or 1
-        for size in range(min(cap, int(room / widest * ref) + 1), floor - 1, -1):
+        for size in range(min(cap, int(goal / widest * ref) + 1), floor - 1, -1):
             font = _font(tpl, size, weight)
-            if all(_width(font, ln, tracking, size) <= room for ln in lines):
+            if all(_width(font, ln, tracking, size) <= goal for ln in lines):
                 return size, font, lines
         return None
 
     got, truncated = None, False
-    for n in range(1, max_lines + 1):
-        got = fit(n)
+    for goal in ((target, room) if target < room else (room,)):   # the fill target; a title too long for it even
+        for n in range(1, max_lines + 1):                          # on max_lines at the floor may use the whole width
+            got = fit(n, goal)
+            if got:
+                break
         if got:
             break
     if not got:   # too long even at the floor on max_lines: fill the lines, ellipsise the last
         truncated = True
-        size = min(lo, int(block / (max_lines * lh)))
+        size = min(lo, int(block / height(max_lines, *ink(words or [""]))))
         font = _font(tpl, size, weight)
         measure = lambda s: _width(font, s, tracking, size)   # noqa: E731
         lines, rest = [], list(words)
@@ -421,12 +458,35 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
         got = (size, font, lines)
     size, font, lines = got
     step = size * lh
-    top = min(top_at, floor_y - len(lines) * step)   # bottom mode: a taller block grows upward, never into the gap
+    bb = [font.getbbox(ln, anchor="ls") for ln in lines if ln]   # the real glyphs at the chosen size (no rounding)
+    a = min(b[1] for b in bb) / size if bb else -0.7
+    d = max(b[3] for b in bb) / size if bb else 0.0
+    tall = height(len(lines), a, d) * size
+    top = min(top_at, floor_y - tall)   # bottom mode: a taller block grows upward, never into the gap (real ink)
     out = []
     for i, ln in enumerate(lines):
         w = _width(font, ln, tracking, size)
-        out.append(Line(ln, (tpl.width - w) / 2, top + i * step, w))
-    return TitleLayout(size, out, top, top + len(out) * step, truncated or capped)
+        base = top - a * size + i * step
+        out.append(Line(ln, (tpl.width - w) / 2, top + i * step, w, base))
+    return TitleLayout(size, out, top, top + tall, truncated or capped)
+
+
+def rule_box(tpl: Template, lay: TitleLayout) -> tuple[float, float, float, float] | None:
+    """The accent rule under the title block (left, top, right, bottom), or None when the kit has none."""
+    rule = tpl.data.get("accent_rule")
+    if not rule or not any(ln.text for ln in lay.lines):
+        return None
+    w = tpl.width * float(rule["width"])
+    top = lay.bottom + float(rule["gap"])
+    return (tpl.width - w) / 2, top, (tpl.width + w) / 2, top + float(rule["height"])
+
+
+def sub_top(tpl: Template, lay: TitleLayout) -> float:
+    """Where the sub-line's box starts: sub_anchor, or lower when the accent rule needs the room (the rule's gap is
+    kept below it as well), so the title, the rule and the sub-line never meet."""
+    at = tpl.height * tpl.data["sub"]["sub_anchor"]
+    box = rule_box(tpl, lay)
+    return max(at, box[3] + float(tpl.data["accent_rule"]["gap"])) if box else at
 
 
 def sub_line(kind: str, year=None, seasons=None, season=None) -> str:
@@ -499,11 +559,11 @@ def _draw_lines(canvas, font, lines, size, tracking, colour, opacity, shadow, li
     pad = int((shadow or {}).get("blur", 0) * 2 + abs((shadow or {}).get("dy", 0)) + 4)
     asc, desc = font.getmetrics()
     y0 = max(0, int(lines[0].top) - pad)
-    y1 = min(canvas.height, int(lines[-1].top + line_h) + pad)
+    y1 = min(canvas.height, int(max(lines[-1].top + line_h, (lines[-1].base or 0) + desc)) + pad)
     mask = Image.new("L", (canvas.width, y1 - y0), 0)
     d = ImageDraw.Draw(mask)
     for ln in lines:
-        base = ln.top + (line_h - (asc + desc)) / 2 + asc - y0
+        base = (ln.base if ln.base is not None else ln.top + (line_h - (asc + desc)) / 2 + asc) - y0
         if not tracking:
             d.text((ln.x, base), ln.text, font=font, fill=255, anchor="ls")
             continue
@@ -531,6 +591,10 @@ def render(tpl: Template, art: bytes, title: str, sub: str = "") -> bytes:
     if lay.lines:
         _draw_lines(canvas, _font(tpl, lay.size, t["weight"]), lay.lines, lay.size, float(t.get("tracking") or 0),
                     t["colour"], 1.0, t.get("shadow"), lay.size * float(t["line_height"]))
+    box = rule_box(tpl, lay)
+    if box:
+        ImageDraw.Draw(canvas).rectangle((round(box[0]), round(box[1]), round(box[2]) - 1, round(box[3]) - 1),
+                                         fill=_rgb(tpl.data["accent_rule"]["colour"]))
     s = tpl.data["sub"]
     if sub:
         size = int(s["size"])
@@ -539,7 +603,7 @@ def render(tpl: Template, art: bytes, title: str, sub: str = "") -> bytes:
         room = w * (1 - 2 * t["margin_x"])
         text = sub if _width(font, sub, tracking, size) <= room else _ellipsise(font, sub, room, tracking, size)
         sw = _width(font, text, tracking, size)
-        line = Line(text, (w - sw) / 2, h * s["sub_anchor"], sw)
+        line = Line(text, (w - sw) / 2, sub_top(tpl, lay), sw)
         _draw_lines(canvas, font, [line], size, tracking, s["colour"], float(s.get("opacity", 1)), s.get("shadow"),
                     size * 1.2)
     if tpl.frame_path is not None:

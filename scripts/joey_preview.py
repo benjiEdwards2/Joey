@@ -127,6 +127,8 @@ ENV_OUT = {
     "ICS_URL_HER": "connectors only; the URL is the credential",
     "JELLYFIN_API_KEY": "write: Continue watching marks watched / unwatched / reset on the live Jellyfin (rule 7)",
     "JELLYFIN_POSTER_API_KEY": "write: the JY-260 poster write-back (uploads, locks, reverts Jellyfin images); a secret",
+    "POSTERS_DIR": "the live poster store is never a preview path (previews must not write posters)",
+    "POSTERS_PER_PASS": "poster backfill pacing; the preview renders no posters",
     "MEDIA_STATUS_HOST": "connectors only",
     "RADARR_URL": "write: search, quality, unmonitor, grab",
     "RADARR_API_KEY": "write: search, quality, unmonitor, grab",

@@ -1,6 +1,6 @@
 # JY-259 Joey TV: full revamp of the TV experience and the tile strategy
 
-Status: ready (B. picked 2026-10-28); phase 1 building on `feat/JY-259-tv-revamp-p1`
+Status: shipped 2026-10-28
 Size: L overall (phased; each phase is its own PR). Phase 1: M
 Live risk: phases 1 to 3 change what every friend's TV draws on the next hub deploy (hub templates, `tv.css`, `tv.js`; no TV release), so the phase PRs carry the `live-risk` label. Phase 4 touches `tv/` (a release).
 Area: `hub/tv_home.py` (new, phase 1), `hub/templates/` (TV branches of `area_shelves.html`, `media_film.html`, `_poster.html`, `_shelf.html`, `_library_page.html`, `media_discover_guest.html`, new `_tv_tile.html`), `hub/static/tv.css`, `hub/static/tv.js`, `hub/media_guest_home.py` (row order, landscape data), `tests/hub/test_tv_mode.py`; phase 4 only: `tv/` (player overlay restyle after JY-057).
@@ -294,4 +294,8 @@ Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image 
 - [ ] Desktop / iPad / phone: unchanged (screenshots attached to the accept message, as PROCESS step 9 asks).
 
 ## Shipped notes
-Not yet.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #247, squash-merged as `1d1bde7` (1d1bde71bb9d608b583fa59c66317e0b58dd6ce4).
+- Deploy: `2026-10-28T00:01:31Z PASS prev=9c5ac8a new=1d1bde7 suite green, smoke ok tv=current gate=-n2 avail=2234 stopped=sonarr,radarr,prowlarr,flaresolverr end=2026-10-28T00:06:58Z dur=327s`
+- Accept: in chat: "B., orchestrator session, 2026-10-28: "Deploy JY-259 phase 1 now so I can look at it on the TV (checkpoint 1). Revert if I don't like it.""
+- Follow-ups: none

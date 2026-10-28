@@ -63,7 +63,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | [x] shipped | Stop on one device, resume on another · PR #221 | [spec](docs/specs/JY-055-resume-watched-sync.md) |
 | JY-056 | Audio + subtitle track picker | Media player | M | [x] shipped | Covered by JY-054's track picker (no new build); checked in JY-055 (PR #221) and confirmed by its review | — |
 | JY-057 | TV shell player (new signed release) | Media player | L | [x] shipped | Replaces the Jellyfin-app hand-off · live · Engine: B. 2026-10-27 "1A" = Media3 ExoPlayer without the FFmpeg extension (Jellyfin's server FFmpeg remuxes/transcodes) · PR #219 | [spec](docs/specs/JY-057-tv-shell-player.md) |
-| JY-058 | Friends' path + security gate | Media player | L | idea | Only if the spec says friends · live | — |
+| JY-058 | Friends' path + security gate | Media player | L | parked | B. 2026-10-28: "3 place on pause." (friends work). Answers recorded for later: "Jy 58 all recommended" (spec JoeyTV/review/JY-058) | — |
 | JY-059 | Move Jellyfin transcoding onto the new box | Media player | L | idea | Needs the box bought · B.'s hands · live | — |
 
 ### Phase 6 — Steady state
@@ -159,14 +159,14 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-174 | Fire TV paths | Joey TV | S | idea | No device yet; first Fire TV friend | — |
 | JY-175 | External uptime monitor | Joey TV | S | idea | Alerts B. on a whole-NAS outage | — |
 | JY-176 | 7-day owner follow-up (due 2026-10-26) | Joey TV | S | [x] shipped | Checked 2026-10-26 (read-only): 0 phantom owner rows since the 2026-10-18 fix; play/diary/rating_skip all clean | — |
-| JY-177 | Clean-TV "Jellyfin missing" store path | Joey TV | S | idea | W7 step 3: uninstall, reinstall, one sign-in | — |
-| JY-178 | Forced update with no "Later" button | Joey TV | S | idea | Needs the next real TV release | — |
-| JY-179 | Update tamper test + Settings Back | Joey TV | S | idea | W7 step 4 | — |
-| JY-180 | `cache/updates` empty after self-update | Joey TV | S | idea | Optional; debug-to-debug check | — |
+| JY-177 | Clean-TV "Jellyfin missing" store path | Joey TV | S | parked | B. 2026-10-28: "4 Place on pause or hold" (TV update hardening) | — |
+| JY-178 | Forced update with no "Later" button | Joey TV | S | parked | B. 2026-10-28: "4 Place on pause or hold" (TV update hardening) | — |
+| JY-179 | Update tamper test + Settings Back | Joey TV | S | parked | B. 2026-10-28: "4 Place on pause or hold" (TV update hardening) | — |
+| JY-180 | `cache/updates` empty after self-update | Joey TV | S | parked | B. 2026-10-28: "4 Place on pause or hold" (TV update hardening) | — |
 | JY-181 | Docs PR: Downloader first-install wording | Joey TV | S | [x] shipped | PR #36 in main (`tv-release.md` + runbook R1-B) | — |
-| JY-182 | First friend's TV invite | Joey TV | S | idea | B. said "go friends"; needs B.'s hands | — |
+| JY-182 | First friend's TV invite | Joey TV | S | parked | B. 2026-10-28: "3 place on pause." (friends work) | — |
 | JY-183 | Revisit the 20 Mbps cap for 2 friend streams | Joey TV | S | idea | Upload is 32.5 Mbps; 1 stream today | — |
-| JY-184 | Friend session visible in B.'s live now-playing view | Joey TV | S | idea | Follow-on from the edge work | — |
+| JY-184 | Friend session visible in B.'s live now-playing view | Joey TV | S | parked | B. 2026-10-28: "3 place on pause." (friends work) | — |
 | JY-185 | Delete old key files left on the Desktop | Joey TV | S | idea | After the password manager holds the key; B.'s hands | — |
 | JY-186 | TV UI Gate 1 picks (scale + picks 1–6) | Joey TV | S | [x] shipped | B. 2026-10-25: "scale B, chrome on · 1B · 2A · 3B · 4A · 5A · 6 delete device" (6 = JY-190, live) | — |
 | JY-187 | U1 Back memory (focus + scroll) | Joey TV | M | [x] shipped | Built, review PASS (PR #125); waits on the TV device run (J3/J4/J5/J8/J9) and B.'s J8 pick (6 presses) | [spec](docs/specs/JY-187-tv-back-memory.md) |
@@ -192,13 +192,14 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-257 | Player-token script: Quick Connect sign-in writes JELLYFIN_PLAYER_TOKEN_YOU/_HER to the NAS .env | Media | M | [x] shipped | B. 2026-10-27: "2a" (JY-054 Q1 A, a separate small item). PR #236; private-front player only, media front uses the session token | [spec](docs/specs/JY-257-player-tokens.md) |
 | JY-258 | Hub half of the JY-057 TV shell player (flag off), split from PR #219 so the TV checks can run before the 1.0.3 release | Media | M | [x] shipped | Split unchanged from #219 (reviewed 2× Sonnet + Opus verifier) · PR #238 | [spec](docs/specs/JY-258-hub-player-front.md) |
 | JY-259 | TV revamp: tile kit, follow-focus hero, backdrops, calmer spacing, main-only page swaps (direction A, 4 phases) | Joey TV | L | building | Phase 1 (tile kit, Home rows, backdrop, scaling) shipped 2026-10-28 as 1d1bde7 (PR #247) for B.'s TV checkpoint 1: "Deploy JY-259 phase 1 now so I can look at it on the TV (checkpoint 1). Revert if I don't like it." Phases 2-4 to go · B. 2026-10-28: "JY-259: A · 1A · 2A · 3A · 4A · 5A · 6A · 7A · 8A" + scales to every TV; backdrop images on Home and title pages; slightly smaller with more spacing (too condensed in places); easier on the eyes; nicer way into Awards etc. · PR #247 | [spec](docs/specs/JY-259-tv-revamp.md) |
-| JY-260 | Automated custom posters: TMDB poster + our template (title on the centre line; seasons and years below, later), saved to Jellyfin for new, existing and requested titles | Media | L | [x] shipped | B. 2026-10-28: "I would like this to be automated." Options page JY-260-options.html; recommended B (design in Canva once, render with Pillow on the NAS) · PR #252 | [spec](docs/specs/JY-260-posters.md) |
+| JY-260 | Automated custom posters: TMDB poster + our template (title on the centre line; seasons and years below, later), saved to Jellyfin for new, existing and requested titles | Media | L | [x] shipped | Phases 1-2 + Jellyfin userId hotfix (#258), bigger Geist Black titles (#260), no-repeat season images (#264): all live 2026-10-28; 134 posters written to Jellyfin, POSTERS=on (B.: "Run all of them as per expected.") | [spec](docs/specs/JY-260-posters.md) |
 | JY-261 | Replace Jellyfin entirely (study) | Media | L | parked | Study done 2026-10-28 (keep Jellyfin as the hidden engine). B. 2026-10-28: "I would push the jellyfin replacement including the media player until the joey media hub was running flawlessly on tv with friends set up" | — |
-| JY-262 | TMDB backdrops: backdrop 1 on the Home hero and carousel, backdrop 2 on the title page | Joey TV | M | [x] shipped | B. 2026-10-28: "This can use the first background as the home page or carousel image, then if you go into the show. It shows the second background image or such." · PR #250 | [spec](docs/specs/JY-262-tmdb-backdrops.md) |
-| JY-263 | Image access check: /img serves a title's poster/backdrop only to viewers who can see that title | Media | S | ready | B. 2026-10-28: "Can you show me the hardening items and can we lock them in if nothing changes." Found by the JY-262 review (pre-existing gap; artwork only). Build after JY-260 phase 2 (same image code) | — |
-| JY-264 | Engine seam: one Jellyfin adapter + a library_index (Jellyfin id -> path, TMDB, TVDB) so ratings and diary survive a library rebuild | Media | M | ready | B. 2026-10-28: "Can you show me the hardening items and can we lock them in if nothing changes." From the JY-261 study: ratings/diary keyed jf:<SeriesId> would be orphaned by a rebuild. Spec first | — |
-| JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | spec | B. 2026-10-28: "In more, can you please add a remove button which would remove the request or remove the content." Changes the "nothing in Joey deletes media" rule; spec + options in progress | — |
+| JY-262 | TMDB backdrops: backdrop 1 on the Home hero and carousel, backdrop 2 on the title page | Joey TV | M | [x] shipped | Backdrops + ranked top-2 TMDB backdrops (#261: home #1, title page #2; B.: "I love the ranked backdrops.") live 2026-10-28 | [spec](docs/specs/JY-262-tmdb-backdrops.md) |
+| JY-263 | Image access check: /img serves a title's poster/backdrop only to viewers who can see that title | Media | S | [x] shipped | Merged #263 2026-10-28 (B.: "1 sounds good."); friends' /img limited to titles they can browse | — |
+| JY-264 | Engine seam: one Jellyfin adapter + a library_index (Jellyfin id -> path, TMDB, TVDB) so ratings and diary survive a library rebuild | Media | M | [x] shipped | Phases 1-3 merged #265 + deployed 2026-10-28 (B.: "jy 264" all recommended). Phases 4-6 (adapter move, run page + Undo button) later | — |
+| JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | building | Phase 1 (remove requests, REMOVE_API off) merged #262 2026-10-28; phases 2-4 (whole title, seasons/episodes, TV) to go | — |
 | JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | idea | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
+| JY-267 | TMDB title logos instead of plain text on the carousel / title page | Media | M | idea | B. 2026-10-28: "Yes please, I would be keen to run that next." (logos idea) | — |
 | JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | review | B. 2026-10-29: "Remove golf glow." | — |
 
 ### NAS / stack
@@ -236,7 +237,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-234 | Preview lock follow-ups: PID-reuse guard via the holder's token, owner/pid write races, hold vs teardown timeouts | NAS/deploy | S | [x] shipped | JY-228 Opus verifier should-fixes (low probability) · PR #118 | [spec](docs/specs/JY-234-preview-lock-followups.md) |
 | JY-235 | Gate ≤ 10 min on the NAS: quiet-NAS `--durations` profile, `-n 3` trial only if still over, three deploys ≤ 600 s | NAS/deploy | M | [x] shipped | JY-227 split (criteria 3–5 + NAS half of 1), 2026-10-24 · PR #103 | [spec](docs/specs/JY-235-gate-nas-proof.md) |
 | JY-236 | Flaky test: `test_jellyfin_trailer_wins_and_short_or_foreign_urls_stay_plain_links` | Tests | S | [x] shipped | Failed under load twice on 2026-10-24 (JY-101, JY-153 builds); passes alone · PR #107 | [spec](docs/specs/JY-236-flaky-film-trailer-test.md) |
-| JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | parked | Not reproducible in 50+ tries (2026-10-24); spec + hypotheses on PR #108 | — |
+| JY-237 | Flaky test file: `test_media_small_waste.py` errors under `-n 4` | Tests | S | [x] shipped | Merged #108 2026-10-28 (B.: "Go with 5."): player _keep tie fixed; small_waste hypothesis fix; 2 not reproduced | — |
 | JY-238 | One source for the "LAN" word (`LAN_WORD` unused; three templates hardcode it) | Server | S | [x] shipped | JY-140 review should-fix, 2026-10-24 · PR #105 | [spec](docs/specs/JY-238-lan-word.md) |
 | JY-239 | Flaky JY-228 lock tests on Linux CI (holder self-expiry timing; /proc race) | Tests | S | [x] shipped | Turned three unrelated PRs red on 2026-10-24 · PR #97 | [spec](docs/specs/JY-239-preview-test-flakes.md) |
 | JY-240 | Pre-gate free-memory check in deploy.sh (warn/abort below ~1,400 MB available) | NAS/deploy | S | [x] shipped | Built + 2 reviews PASS (PR #117); waits for B.: adapt (-n 1 between ~1,460 and ~1,720 MB) or skip | [spec](docs/specs/JY-240-pregate-memory.md) |

@@ -155,3 +155,5 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `POSTERS_TEMPLATE_DIR` | out | the poster loop is off; a NAS mount path the preview does not have |
 | `POSTERS_AUTO_MIN_RATING` | out | the poster loop is off in the preview |
 | `POSTERS_DIR` | out | the poster loop is off in the preview |
+| `LIBRARY_INDEX` | out | forced off in compose: a preview never re-attaches media.db rows (JY-264) |
+| `LIBRARY_PATH_PREFIXES` | out | the library index loop is off in the preview |

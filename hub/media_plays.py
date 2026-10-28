@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
-from hub import identity, media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
+from hub import identity, library_index, media_db, media_jellyfin as jellyfin, media_plays_db as pdb, shell
 
 log = logging.getLogger("hub.media_plays")
 
@@ -123,6 +123,8 @@ def poll_once(now: datetime | None = None) -> int:
         sessions = jellyfin.get(base, headers, "/Sessions")
         count = 0
         for s in sessions if isinstance(sessions, list) else []:
+            if isinstance(s, dict) and s.get("NowPlayingItem"):
+                library_index.note_item(s["NowPlayingItem"])   # JY-264: the index learns what plays; never raises
             play = play_from_session(s) if isinstance(s, dict) else None
             if play:
                 pdb.record_sighting(play, now)

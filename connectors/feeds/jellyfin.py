@@ -92,8 +92,8 @@ class Jellyfin(Connector):
     requires_env = ("JELLYFIN_URL", "JELLYFIN_API_KEY")  # JELLYFIN_USER is optional
 
     ITEM_FIELDS = "DateCreated,SeriesName,SeriesId,SeasonId,ParentIndexNumber,IndexNumber,ProviderIds"
-    MOVIE_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Overview"
-    SHOW_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Status,RecursiveItemCount,Overview"
+    MOVIE_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Overview,Path"   # JY-264: + Path
+    SHOW_FIELDS = "DateCreated,ProviderIds,Genres,ProductionYear,Status,RecursiveItemCount,Overview,Path"
 
     @classmethod
     def _library_params(cls, kind: str) -> dict:
@@ -244,6 +244,7 @@ class Jellyfin(Connector):
         """Fields shared by movie and show library rows."""
         user = item.get("UserData") or {}
         rating = item.get("CommunityRating")
+        ids = item.get("ProviderIds") or {}
         return {
             "title": item["Name"],
             "year": item.get("ProductionYear"),
@@ -254,6 +255,10 @@ class Jellyfin(Connector):
             "added_at": item.get("DateCreated"),
             "community_rating": round(float(rating), 1) if rating is not None else None,
             "genres": list(item.get("Genres") or [])[:3],
+            # JY-264 (2026-10-28): the hub's library index matches ids across a Jellyfin rebuild on these. Additive and
+            # optional: present only when Jellyfin gave them (tmdb is already in item_key)
+            **{k: str(v) for k, v in (("path", item.get("Path")), ("tvdb", ids.get("Tvdb")),
+                                      ("imdb", ids.get("Imdb"))) if v},
         }
 
     @classmethod

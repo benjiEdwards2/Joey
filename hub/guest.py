@@ -234,8 +234,8 @@ NESTED_KEYS: dict = {("arr", "radarr"): frozenset({"movies", "missing", "wanted"
                      ("arr", "sonarr"): frozenset({"series", "wanted"})}
 ROW_DROP: dict = {   # per-row fields removed from list rows: B.'s played state (Q20), the requester's name
     ("jellyfin", "latest"): ("played", "last_played_at", "unplayed"),
-    ("jellyfin", "movies"): ("played", "last_played_at", "unplayed"),
-    ("jellyfin", "shows"): ("played", "last_played_at", "unplayed"),
+    ("jellyfin", "movies"): ("played", "last_played_at", "unplayed", "path"),   # JY-264: a NAS file path stays home
+    ("jellyfin", "shows"): ("played", "last_played_at", "unplayed", "path"),
     ("jellyseerr", "requests"): ("requested_by", "requested_by_id", "requested_by_jf"),   # WP-RQ1 / JY-230: ids too
 }
 

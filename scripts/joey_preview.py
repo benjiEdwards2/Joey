@@ -117,7 +117,8 @@ ENV_IN = {
     "NAS_SLEEP_WINDOW": "words on the Quiet mode row",
 }
 # OUT: never copied. FORCED_OFF keys are also pinned "off" in the compose file's environment (which wins over env_file).
-FORCED_OFF = ("MEDIA_BACKUP", "PLAY_RECORDER", "MEDIA_WARMUP", "MEDIA_FOLLOW", "MEDIA_AWARDS", "DIGEST", "POSTERS")
+FORCED_OFF = ("MEDIA_BACKUP", "PLAY_RECORDER", "MEDIA_WARMUP", "MEDIA_FOLLOW", "MEDIA_AWARDS", "DIGEST", "POSTERS",
+              "LIBRARY_INDEX")
 ENV_OUT = {
     "TUNNEL_TOKEN": "routes the domain; cloudflared only",
     "COMPOSE_PROFILES": "the main stack's profiles; nothing for the preview",
@@ -177,6 +178,8 @@ ENV_OUT = {
     "POSTERS_TEMPLATE_DIR": "the poster loop is off; a NAS mount path that the preview does not have",
     "POSTERS_AUTO_MIN_RATING": "the poster loop is off in the preview",
     "POSTERS_DIR": "the poster loop is off in the preview",
+    "LIBRARY_INDEX": "forced off in compose: a preview never re-attaches media.db rows (JY-264)",
+    "LIBRARY_PATH_PREFIXES": "the library index loop is off in the preview",
 }
 
 

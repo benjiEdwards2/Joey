@@ -80,7 +80,13 @@ def _episode_rating(db) -> None:   # WP-E1 (2026-10-16): the TV episode flow's p
     media_episode_ratings.migrate(db)
 
 
-STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating)   # STEPS[n]: user_version n -> n + 1
+def _library_index(db) -> None:   # JY-264 (2026-10-28): the library index + the re-attach's audit tables
+    from hub import library_index
+    library_index.migrate(db)
+
+
+STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating,
+         _library_index)   # STEPS[n]: user_version n -> n + 1
 SCHEMA_VERSION = len(STEPS)
 
 _ready: set[tuple] = set()      # files already brought up to date by this process

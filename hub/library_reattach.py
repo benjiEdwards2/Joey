@@ -29,6 +29,7 @@ An undone run's ids are not re-applied by `auto()`.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -47,6 +48,14 @@ log = logging.getLogger("hub.library_reattach")
 
 GUARD_PCT = 5
 MIN_FETCHES_AUTO = 2
+AUTO_MAX_PCT = 25     # auto applies at most this share of the indexed items in one run; above it, a report only
+KEEP_BACKUPS = 5      # pre-reattach backups kept (newest first)
+BACKUP_RE = re.compile(r"^media-pre-reattach-(\d+)\.db$")
+# a copied poster row starts with no Jellyfin write-back state: that state (what Joey wrote, the original it saved,
+# its locks) belongs to the OLD item id (review 2026-10-28)
+POSTER_RESET = {"orig_ext": None, "orig_tag": None, "wrote": 0, "pending_ver": None, "live_ver": None,
+                "live_tag": None, "locked_by_us": 0, "manual": 0, "fails": 0, "retry_at": None, "lock_owner": None,
+                "lock_until": None, "written_at": None, "checked_at": None, "last_error": None}
 # every column that holds a Jellyfin item id: "key" = `jf:<id>`, "bare" = the id itself (spec section 1). The
 # `poster` columns hold the `jf:<id>` image ref of the row's art: moved too, or the row's picture breaks.
 COLUMNS = (
@@ -152,6 +161,11 @@ def _label(row: dict, series: dict | None = None) -> str:
     return f"{show} S{row.get('season') or 0:02d}E{row.get('episode') or 0:02d}"
 
 
+def _ids_agree(a: dict, b: dict) -> bool:
+    """No provider id known on both sides differs (a path match with a different TMDB id is another title)."""
+    return not any(a.get(c) and b.get(c) and a[c] != b[c] for c in ("tmdb_id", "tvdb_id", "imdb_id"))
+
+
 def _match(old: dict, live: list[dict], prefixes) -> tuple[str, str | None, list[dict]]:
     """-> (strength, tier, candidates): strong / weak with one candidate, ambiguous with several, none."""
     def by_path(cands):
@@ -174,9 +188,9 @@ def _match(old: dict, live: list[dict], prefixes) -> tuple[str, str | None, list
                 return "strong", tier, narrowed
             return "ambiguous", tier, cands
     cands = by_path(live)
-    if len(cands) == 1:
+    if len(cands) == 1 and _ids_agree(old, cands[0]):
         return "strong", "path", cands
-    if cands:
+    if cands:   # two items at one path, or a file replaced by a different title: never applied
         return "ambiguous", "path", cands
     cands = by_title(live)
     if len(cands) == 1:
@@ -216,7 +230,6 @@ def plan(min_fetches: int = 1, exclude_undone: bool = False, episodes_fn=None) -
             if (r["kind"] in TIERS and not r["gone_since"] and not r["superseded_by"] and r["last_seen_at"]
                     and not r["version_of"] and r["jf_id"] not in old_ids):
                 live[r["kind"]].append(r)
-        mapping = {}
         for old in sorted(olds, key=lambda r: (r["kind"], r["title"] or "", r["jf_id"])):
             strength, tier, cands = _match(old, live[old["kind"]], prefixes)
             entry = {"old": old["jf_id"], "kind": old["kind"], "title": _label(old), "tier": tier}
@@ -224,12 +237,13 @@ def plan(min_fetches: int = 1, exclude_undone: bool = False, episodes_fn=None) -
                 entry["new"] = cands[0]["jf_id"]
                 out[strength].append(entry)
                 if strength == "strong":
-                    mapping[old["jf_id"]] = cands[0]["jf_id"]
-                    _children(old, cands[0], kids, refs, undone, prefixes, episodes_fn, out, mapping)
+                    _children(old, cands[0], kids, refs, undone, prefixes, episodes_fn, out)
             elif strength == "ambiguous":
                 out["ambiguous"].append({**entry, "candidates": sorted(c["jf_id"] for c in cands)})
             else:
                 out["unmatched"].append(entry)
+        _many_to_one(out)
+        mapping = {x["old"]: x["new"] for x in out["strong"]}
         for table, col, form in COLUMNS:
             if table not in tables:
                 continue
@@ -244,18 +258,20 @@ def plan(min_fetches: int = 1, exclude_undone: bool = False, episodes_fn=None) -
     return out
 
 
-def _children(old_series, new_series, kids, refs, undone, prefixes, episodes_fn, out, mapping) -> None:
-    """Seasons and episodes of a strongly matched series that Joey's rows point at: by number, else by file path."""
+def _children(old_series, new_series, kids, refs, undone, prefixes, episodes_fn, out) -> None:
+    """Seasons and episodes of a strongly matched series that Joey's rows point at: by number, else by file path.
+    A number (or path) that two new episodes share, or a season number with two season ids, is ambiguous."""
     mine = [k for k in kids[old_series["jf_id"]] if k["jf_id"] in refs and not k["superseded_by"]
             and k["jf_id"] not in undone]
     if not mine:
         return
+    parent = old_series["jf_id"]
     eps = episodes_fn(new_series["jf_id"])
     if eps is None:
         out["unmatched"] += [{"old": k["jf_id"], "kind": k["kind"], "title": _label(k, old_series),
-                              "tier": "episodes read failed"} for k in mine]
+                              "tier": "episodes read failed", "parent": parent} for k in mine]
         return
-    by_num, seasons, by_path = {}, {}, {}
+    by_num, seasons, by_path = defaultdict(set), defaultdict(set), defaultdict(set)
     ok = library_index.ID_RE.match
     for e in eps:
         if not ok(str(e.get("Id") or "")) or (e.get("SeasonId") and not ok(str(e["SeasonId"]))):
@@ -264,28 +280,52 @@ def _children(old_series, new_series, kids, refs, undone, prefixes, episodes_fn,
                                                 "SeriesId": e.get("SeriesId") or new_series["jf_id"]}):
             out["new_rows"].append(row)
         s, n = e.get("ParentIndexNumber"), e.get("IndexNumber")
-        if isinstance(s, int) and isinstance(n, int) and e.get("Id"):
-            by_num[(s, n)] = e["Id"]
+        if isinstance(s, int) and isinstance(n, int):
+            by_num[(s, n)].add(e["Id"])
         if isinstance(s, int) and e.get("SeasonId"):
-            seasons.setdefault(s, e["SeasonId"])
+            seasons[s].add(e["SeasonId"])
         p = _npath(e.get("Path"), prefixes)
-        if p and e.get("Id"):
-            by_path[p] = e["Id"]
+        if p:
+            by_path[p].add(e["Id"])
     for k in sorted(mine, key=lambda k: (k["kind"], k["season"] or 0, k["episode"] or 0)):
-        new, tier = None, None
+        found, tier = set(), None
         if k["kind"] == "episode":
             if isinstance(k["season"], int) and isinstance(k["episode"], int):
-                new, tier = by_num.get((k["season"], k["episode"])), "series+number"
-            if new is None and _npath(k["path"], prefixes) in by_path:
-                new, tier = by_path[_npath(k["path"], prefixes)], "path"
+                found, tier = by_num.get((k["season"], k["episode"]), set()), "series+number"
+            if not found and _npath(k["path"], prefixes) in by_path:
+                found, tier = by_path[_npath(k["path"], prefixes)], "path"
         elif isinstance(k["season"], int):
-            new, tier = seasons.get(k["season"]), "series+number"
-        entry = {"old": k["jf_id"], "kind": k["kind"], "title": _label(k, old_series), "tier": tier}
-        if new and new != k["jf_id"]:
-            out["strong"].append({**entry, "new": new})
-            mapping[k["jf_id"]] = new
+            found, tier = seasons.get(k["season"], set()), "series+number"
+        entry = {"old": k["jf_id"], "kind": k["kind"], "title": _label(k, old_series), "tier": tier, "parent": parent}
+        found = found - {k["jf_id"]}
+        if len(found) == 1:
+            out["strong"].append({**entry, "new": next(iter(found))})
+        elif found:
+            out["ambiguous"].append({**entry, "candidates": sorted(found)})
         else:
             out["unmatched"].append({**entry, "tier": None})
+
+
+def _many_to_one(out: dict) -> None:
+    """Two old ids that would land on one new id: all of them become ambiguous (never applied), and so do the
+    seasons and episodes matched through a series that was demoted."""
+    targets = defaultdict(list)
+    for word in ("strong", "weak"):
+        for x in out[word]:
+            targets[x["new"]].append(x["old"])
+    clash = {old for olds in targets.values() if len(olds) > 1 for old in olds}
+    if not clash:
+        return
+    for word in ("strong", "weak"):
+        keep = []
+        for x in out[word]:
+            if x["old"] in clash or x.get("parent") in clash:
+                why = "many-to-one" if x["old"] in clash else "series ambiguous"
+                out["ambiguous"].append({**{k: v for k, v in x.items() if k != "new"}, "tier": why,
+                                         "candidates": [x["new"]]})
+            else:
+                keep.append(x)
+        out[word] = keep
 
 
 def _summary(p: dict) -> dict:
@@ -293,12 +333,20 @@ def _summary(p: dict) -> dict:
 
 
 def _backup(run_id: int) -> Path:
+    """An SQLite online backup of media.db before the run; only the newest KEEP_BACKUPS pre-reattach copies are kept."""
     from hub import media_backup
     dest = Path(media_backup.backup_dir())
     dest.mkdir(parents=True, exist_ok=True)
     path = dest / f"media-pre-reattach-{run_id}.db"
     with closing(sqlite3.connect(media_store.db_path())) as src, closing(sqlite3.connect(path)) as dst:
         src.backup(dst)
+    others = sorted((f.stat().st_mtime_ns, f.name, f) for f in dest.iterdir()
+                    if BACKUP_RE.match(f.name) and f.is_file() and f != path)
+    for *_key, f in others[:max(0, len(others) - (KEEP_BACKUPS - 1))]:   # this run's copy is always kept
+        try:
+            f.unlink()
+        except OSError:
+            pass
     return path
 
 
@@ -307,10 +355,52 @@ def _posters_dir() -> Path:
     return media_posters_store.out_dir()
 
 
+def _fingerprint(folder: Path) -> str:
+    """Every file under a folder as (relative path, size, sha256): what undo checks before removing a copy."""
+    files = []
+    for f in sorted(folder.rglob("*")):
+        if f.is_file():
+            files.append([f.relative_to(folder).as_posix(), f.stat().st_size,
+                          hashlib.sha256(f.read_bytes()).hexdigest()])
+    return json.dumps(files)
+
+
+def _row_json(db, jf_id: str) -> str | None:
+    cur = db.execute("SELECT * FROM poster WHERE jf_id = ?", (jf_id,))
+    row = cur.fetchone()
+    if row is None:
+        return None
+    return json.dumps(dict(zip([d[0] for d in cur.description], tuple(row))), sort_keys=True)
+
+
+def _mark_failed(run_id: int, why: str) -> None:
+    try:
+        with closing(media_store.connect()) as db, db:
+            db.execute("UPDATE reattach_run SET mode = 'apply-failed', summary_json = ? WHERE id = ?",
+                       (json.dumps({"error": why}), run_id))
+    except sqlite3.Error:
+        pass
+
+
+def _copy_folder(root: Path, old: str, new: str) -> str | None:
+    """Copy <old>/ to <new>/ without the old item's Jellyfin original (orig.*: it belongs to the old id's
+    write-back). Through a temp folder renamed into place, so a half copy never sits at <new>/. -> the copy's
+    fingerprint, or None when there is nothing to copy."""
+    src, dst = root / old, root / new
+    if not src.is_dir():
+        return None
+    tmp = root / f".{new}.reattach-tmp"
+    shutil.rmtree(tmp, ignore_errors=True)   # a crashed run's leftover
+    shutil.copytree(src, tmp, ignore=shutil.ignore_patterns("orig.*"))
+    os.replace(tmp, dst)
+    return _fingerprint(dst)
+
+
 def apply(trigger: str = "manual", plan_: dict | None = None, episodes_fn=None) -> dict | None:
     """Re-attach the strong matches. None when there is nothing to do (nothing is written then)."""
     p = plan_ if plan_ is not None else plan(episodes_fn=episodes_fn)
-    mapping = {x["old"]: x["new"] for x in p["strong"]}
+    mapping = {x["old"]: x["new"] for x in p["strong"]
+               if library_index.ID_RE.match(x["old"]) and library_index.ID_RE.match(x["new"])}
     if not mapping:
         return None
     now = _now()
@@ -320,25 +410,10 @@ def apply(trigger: str = "manual", plan_: dict | None = None, episodes_fn=None) 
     try:
         backup = _backup(run_id)
     except (sqlite3.Error, OSError) as exc:
-        with closing(media_store.connect()) as db, db:
-            db.execute("UPDATE reattach_run SET mode = 'apply-failed', summary_json = ? WHERE id = ?",
-                       (json.dumps({"error": f"backup failed: {type(exc).__name__}"}), run_id))
+        _mark_failed(run_id, f"backup failed: {type(exc).__name__}")
         raise
-    conflicts, changes = [], []
-    # poster store folders: copied (never moved) before the transaction; removed again if it fails
-    copied = []
+    conflicts, changes, copied = [], [], []
     root = _posters_dir()
-    for old, new in mapping.items():
-        if not (library_index.ID_RE.match(old) and library_index.ID_RE.match(new)):
-            continue
-        src, dst = root / old, root / new
-        if not src.is_dir():
-            continue
-        if dst.exists():
-            conflicts.append({"table": "poster_dir", "column": "folder", "row": new, "old": old, "new": new})
-            continue
-        shutil.copytree(src, dst)
-        copied.append((old, new))
     db = media_store.connect()
     try:
         db.execute("BEGIN IMMEDIATE")
@@ -358,35 +433,46 @@ def apply(trigger: str = "manual", plan_: dict | None = None, episodes_fn=None) 
                 except sqlite3.IntegrityError:
                     conflicts.append({"table": table, "column": col, "row": rowid, "old": val, "new": new_val})
                     continue
-                changes.append((table, rowid, col, val, new_val))
+                changes.append((table, rowid, col, val, new_val, None))
         if "poster" in tables:
             cols = [r[1] for r in db.execute("PRAGMA table_info(poster)")]
-            sel = ", ".join("?" if c == "jf_id" else c for c in cols)
             for old, new in mapping.items():
-                if not db.execute("SELECT 1 FROM poster WHERE jf_id = ?", (old,)).fetchone():
+                row = db.execute(f"SELECT {', '.join(cols)} FROM poster WHERE jf_id = ?", (old,)).fetchone()
+                if row is None:
                     continue
                 if db.execute("SELECT 1 FROM poster WHERE jf_id = ?", (new,)).fetchone():
                     conflicts.append({"table": "poster", "column": "jf_id", "row": new, "old": old, "new": new})
                     continue
-                db.execute(f"INSERT INTO poster({', '.join(cols)}) SELECT {sel} FROM poster WHERE jf_id = ?",
-                           (new, old))
-                changes.append(("poster", new, "jf_id", old, new))
-        for old, new in copied:
-            changes.append(("poster_dir", new, "folder", old, new))
+                vals = {**dict(zip(cols, tuple(row))), "jf_id": new}
+                vals.update({k: v for k, v in POSTER_RESET.items() if k in vals})   # the write-back is the old id's
+                db.execute(f"INSERT INTO poster({', '.join(vals)}) VALUES({', '.join('?' * len(vals))})",
+                           tuple(vals.values()))
+                changes.append(("poster", new, "jf_id", old, new, _row_json(db, new)))
+        # poster store folders, inside the transaction: any failure below removes every copy again
+        for old, new in mapping.items():
+            if (root / new).exists():
+                if (root / old).is_dir():
+                    conflicts.append({"table": "poster_dir", "column": "folder", "row": new, "old": old, "new": new})
+                continue
+            fp = _copy_folder(root, old, new)
+            if fp is not None:
+                copied.append(new)
+                changes.append(("poster_dir", new, "folder", old, new, fp))
         for old, new in mapping.items():
             db.execute("UPDATE library_index SET superseded_by = ? WHERE jf_id = ?", (new, old))
-            changes.append(("library_index", old, "superseded_by", None, new))
-        db.executemany("INSERT INTO reattach_change(run_id, table_name, row_ref, column_name, old_value, new_value) "
-                       "VALUES(?, ?, ?, ?, ?, ?)", [(run_id, *c) for c in changes])
+            changes.append(("library_index", old, "superseded_by", None, new, None))
+        db.executemany("INSERT INTO reattach_change(run_id, table_name, row_ref, column_name, old_value, new_value, "
+                       "detail) VALUES(?, ?, ?, ?, ?, ?, ?)", [(run_id, *c) for c in changes])
         summary = {**_summary(p), "conflicts": conflicts, "backup": backup.name,
                    "changed": sum(1 for c in changes if c[0] not in ("library_index", "poster", "poster_dir"))}
         db.execute("UPDATE reattach_run SET summary_json = ?, applied_at = ? WHERE id = ?",
                    (json.dumps(summary), _now(), run_id))
         db.commit()
-    except BaseException:
+    except BaseException as exc:
         db.rollback()
-        for _old, new in copied:
+        for new in copied:
             shutil.rmtree(root / new, ignore_errors=True)
+        _mark_failed(run_id, f"apply failed: {type(exc).__name__}")
         raise
     finally:
         db.close()
@@ -395,43 +481,52 @@ def apply(trigger: str = "manual", plan_: dict | None = None, episodes_fn=None) 
 
 
 def undo(run_id: int) -> dict:
-    """Undo one applied run: each cell back to its old value where it still holds the value the run wrote (anything
-    since changed is skipped and listed); the copied poster rows and folders removed. Logged as its own run."""
-    removed_dirs = []
+    """Undo one applied run: each cell back to its old value where it still holds the value the run wrote; a copied
+    poster row or folder removed only while it is exactly what the run created. Anything changed since is skipped
+    and listed. Logged as its own run."""
+    remove_dirs = []
+    root = _posters_dir()
     with closing(media_store.connect()) as db, db:
         run = db.execute("SELECT mode, undone_at FROM reattach_run WHERE id = ?", (run_id,)).fetchone()
         if run is None or run[0] != "apply" or run[1]:
             raise ValueError("not an applied run that can be undone")
         restored, skipped = 0, []
-        changes = db.execute("SELECT table_name, row_ref, column_name, old_value, new_value FROM reattach_change "
-                             "WHERE run_id = ? ORDER BY id DESC", (run_id,)).fetchall()
-        for table, ref, col, old, new in changes:
+        changes = db.execute("SELECT table_name, row_ref, column_name, old_value, new_value, detail "
+                             "FROM reattach_change WHERE run_id = ? ORDER BY id DESC", (run_id,)).fetchall()
+        for table, ref, col, old, new, detail in changes:
+            done = False
             if table == "poster_dir":
-                removed_dirs.append(new)
-                continue
-            if table == "poster":
-                cur = db.execute("DELETE FROM poster WHERE jf_id = ?", (new,))   # the copy this run created
+                folder = root / str(new)
+                if not folder.exists():
+                    continue
+                done = bool(library_index.ID_RE.match(str(new))) and _fingerprint(folder) == detail
+                if done:
+                    remove_dirs.append(folder)
+            elif table == "poster":
+                if _row_json(db, new) == detail:   # still the copy this run made: the poster job has not touched it
+                    db.execute("DELETE FROM poster WHERE jf_id = ?", (new,))
+                    done = True
             elif table == "library_index":
-                cur = db.execute("UPDATE library_index SET superseded_by = ? WHERE jf_id = ? AND superseded_by IS ?",
-                                 (old, ref, new))
+                db.execute("UPDATE library_index SET superseded_by = ? WHERE jf_id = ? AND superseded_by IS ?",
+                           (old, ref, new))
+                continue
             else:
                 try:
-                    cur = db.execute(f"UPDATE {table} SET {col} = ? WHERE rowid = ? AND {col} IS ?", (old, ref, new))
+                    done = db.execute(f"UPDATE {table} SET {col} = ? WHERE rowid = ? AND {col} IS ?",
+                                      (old, ref, new)).rowcount > 0
                 except sqlite3.IntegrityError:
-                    cur = None
-            if cur is not None and cur.rowcount:
-                restored += table not in ("library_index",)
-            elif table not in ("library_index", "poster"):
+                    done = False
+            if done:
+                restored += 1
+            else:
                 skipped.append({"table": table, "column": col, "row": ref, "old": old, "new": new})
         now = _now()
         summary = {"undo_of": run_id, "restored": restored, "skipped": skipped}
         undo_id = db.execute("INSERT INTO reattach_run(started_at, mode, trigger, summary_json, applied_at, undo_of) "
                              "VALUES(?, 'undo', 'manual', ?, ?, ?)", (now, json.dumps(summary), now, run_id)).lastrowid
         db.execute("UPDATE reattach_run SET undone_at = ? WHERE id = ?", (now, run_id))
-    root = _posters_dir()
-    for new in removed_dirs:
-        if library_index.ID_RE.match(new or ""):
-            shutil.rmtree(root / new, ignore_errors=True)
+    for folder in remove_dirs:
+        shutil.rmtree(folder, ignore_errors=True)
     return {"run_id": undo_id, **summary}
 
 
@@ -458,11 +553,13 @@ def auto(episodes_fn=None) -> dict | None:
     if not suspected():
         return None
     p = plan(min_fetches=MIN_FETCHES_AUTO, exclude_undone=True, episodes_fn=episodes_fn)
-    if p["strong"]:
+    capped = bool(p["strong"]) and _over_cap(len(p["strong"]))
+    if p["strong"] and not capped:
         return apply(trigger="auto", plan_=p)
-    if not (p["weak"] or p["ambiguous"]):
+    if not (p["weak"] or p["ambiguous"] or capped):
         return None
-    summary = json.dumps(_summary(p), sort_keys=True)
+    report = {**_summary(p), **({"capped": AUTO_MAX_PCT} if capped else {})}
+    summary = json.dumps(report, sort_keys=True)
     with closing(media_store.connect()) as db, db:
         last = db.execute("SELECT summary_json FROM reattach_run WHERE mode = 'report' ORDER BY id DESC LIMIT 1"
                           ).fetchone()
@@ -470,8 +567,19 @@ def auto(episodes_fn=None) -> dict | None:
             return None
         run_id = db.execute("INSERT INTO reattach_run(started_at, mode, trigger, summary_json) "
                             "VALUES(?, 'report', 'auto', ?)", (_now(), summary)).lastrowid
-    log.info("re-attach run %s: report only (%s weak, %s ambiguous)", run_id, len(p["weak"]), len(p["ambiguous"]))
-    return {"run_id": run_id, "mode": "report", "trigger": "auto", **_summary(p)}
+    log.info("re-attach run %s: report only (%s strong%s, %s weak, %s ambiguous)", run_id, len(p["strong"]),
+             " over the auto cap" if capped else "", len(p["weak"]), len(p["ambiguous"]))
+    return {"run_id": run_id, "mode": "report", "trigger": "auto", **report}
+
+
+def _over_cap(n: int) -> bool:
+    """More than AUTO_MAX_PCT of the indexed items would move: too big to apply unattended (the CLI still can)."""
+    db = media_store.reader()
+    if db is None:
+        return True
+    with closing(db):
+        indexed = db.execute("SELECT COUNT(*) FROM library_index").fetchone()[0]
+    return n * 100 > AUTO_MAX_PCT * max(indexed, 1)
 
 
 # ---- CLI ----

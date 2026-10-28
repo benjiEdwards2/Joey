@@ -60,7 +60,7 @@ DDL = (
   applied_at TEXT, undone_at TEXT, undo_of INT)""",
     """CREATE TABLE IF NOT EXISTS reattach_change(
   id INTEGER PRIMARY KEY, run_id INT NOT NULL, table_name TEXT NOT NULL, row_ref TEXT, column_name TEXT,
-  old_value TEXT, new_value TEXT)""",
+  old_value TEXT, new_value TEXT, detail TEXT)""",   # detail: a copied poster row / folder's fingerprint
     "CREATE INDEX IF NOT EXISTS reattach_change_run ON reattach_change(run_id)",
 )
 

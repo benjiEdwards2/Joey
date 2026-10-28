@@ -325,6 +325,21 @@ PR, commit and deploy: filled at close-out.
   the two `tvdb` keys moved). Outside the area: `hub/guest.py` drops `path` from rows on the media front, so friends
   never get a NAS file path.
 
+**Review fixes (2026-10-28, PR #265 reviewer A):**
+- Undo removes a copied poster row or folder only while it is exactly what the run created (a row snapshot and a
+  file fingerprint in `reattach_change.detail`); anything the poster job changed since is kept and listed.
+- A copied poster row starts with no Jellyfin write-back state (`wrote`, `live_*`, `orig_*`, locks, `manual`,
+  failures reset) and the old item's `orig.*` file is not copied: that state belongs to the old id.
+- Poster folders are copied inside the apply transaction, through a temp folder renamed into place; any failure
+  removes the copies and marks the run `apply-failed`.
+- Never applied, reported as ambiguous: two old ids landing on one new id (and the seasons / episodes of such a
+  series), two new episodes with one season + episode number (or one path), a season number with two season ids,
+  and a path match whose known provider ids disagree.
+- Auto cap: an automatic run that would move more than 25 % of the indexed items applies nothing and stores a
+  report (`capped`); the CLI `--apply` still can. Note for B.: a full rebuild of a library where most indexed items
+  are watched episodes may exceed this, so the first real rebuild may need the CLI.
+- Pre-reattach backups: the newest 5 are kept.
+
 **Not built here (later phase or follow-up):**
 - The `/server/reattach/<run_id>` page, the Server attention line and the Undo button (they are screens and need an
   options page). Today the report is the `reattach_run.summary_json` row, the CLI output and the log file.

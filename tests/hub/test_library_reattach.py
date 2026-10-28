@@ -33,6 +33,8 @@ def env(tmp_path, monkeypatch):
     monkeypatch.delenv("LIBRARY_PATH_PREFIXES", raising=False)
     media_store.reset()
     library_index._pending.clear()
+    # the fake library is tiny, so a rebuild moves most of it: the auto cap is opened here and tested on its own below
+    monkeypatch.setattr(reattach, "AUTO_MAX_PCT", 100)
     fj = FakeJellyfin().install(monkeypatch)
     lib = FakeLibrary(fj)
     return {"tmp": tmp_path, "fj": fj, "lib": lib, "db": tmp_path / "media.db",
@@ -91,8 +93,9 @@ def seed(env) -> None:
                           "2026-10-09T20:00:00Z", "2026-10-09T22:30:00Z", 100, 1, jf("dune")))
         db.execute("INSERT INTO media_follows(kind, tmdb_id, name) VALUES('show', 95396, 'Severance')")
         for name in ("dune", "severance"):
-            db.execute("INSERT INTO poster(jf_id, kind, title, ver, status, bytes) VALUES(?,?,?,?,?,?)",
-                       (i[name], "movie" if name == "dune" else "series", name, "abc123", "ok", 1234))
+            db.execute("INSERT INTO poster(jf_id, kind, title, ver, status, bytes, wrote, live_ver, live_tag, "
+                       "orig_ext, orig_tag, locked_by_us) VALUES(?,?,?,?,?,?,1,'abc123','tag1','jpg','otag',1)",
+                       (i[name], "movie" if name == "dune" else "series", name, "abc123", "rendered", 1234))
     # the season and episode B. rated were opened on their item pages, which index them (phase 1)
     lib = env["lib"]
     library_index.note_item(next(e for e in lib.episodes_of("severance") if e["Id"] == i["severance/s1e2"]))
@@ -103,6 +106,7 @@ def seed(env) -> None:
         folder.mkdir(parents=True)
         (folder / "abc123.full.jpg").write_bytes(b"jpeg-" + name.encode())
         (folder / "current").write_text("abc123", encoding="utf-8")
+        (folder / "orig.jpg").write_bytes(b"jellyfin-original-of-the-old-item")
 
 
 def dump(db_path: Path, tables=JOEY_TABLES) -> dict:
@@ -351,3 +355,128 @@ def test_the_cli_applies_and_undoes(env, capsys):
     assert reattach.main(["--undo", str(run_id)]) == 0
     assert dump(env["db"]) == seeded
     assert "FAIL" not in capsys.readouterr().out
+
+
+
+# ---- review fixes (2026-10-28, PR #265 reviewer A) ----
+
+def test_a_copied_poster_starts_with_no_write_back_state_and_no_original(env):
+    ids = rebuilt(env)
+    sync(env)
+    sync(env)
+    new = ids["dune"][1]
+    row = one(env["db"], "SELECT ver, status, wrote, live_ver, live_tag, orig_ext, orig_tag, locked_by_us "
+                         "FROM poster WHERE jf_id = ?", (new,))
+    assert row == [("abc123", "rendered", 0, None, None, None, None, 0)]
+    old_row = one(env["db"], "SELECT wrote, live_ver, orig_ext FROM poster WHERE jf_id = ?", (ids["dune"][0],))
+    assert old_row == [(1, "abc123", "jpg")]                           # the old id keeps its own state
+    assert not (env["posters"] / new / "orig.jpg").exists()
+    assert (env["posters"] / ids["dune"][0] / "orig.jpg").exists()
+
+
+def test_undo_keeps_a_poster_row_and_folder_the_poster_job_changed_since(env):
+    ids = rebuilt(env)
+    sync(env)
+    run = sync(env)
+    dune, sev = ids["dune"][1], ids["severance"][1]
+    with closing(media_store.connect()) as db, db:                     # the JY-260 job wrote the new id's poster
+        db.execute("UPDATE poster SET wrote = 1, live_ver = 'abc123' WHERE jf_id = ?", (dune,))
+    (env["posters"] / sev / "def456.full.jpg").write_bytes(b"a new render")
+    out = reattach.undo(run["run_id"])
+    listed = {(s["table"], s["row"]) for s in out["skipped"]}
+    assert ("poster", dune) in listed and ("poster_dir", sev) in listed
+    assert one(env["db"], "SELECT wrote FROM poster WHERE jf_id = ?", (dune,)) == [(1,)]   # kept
+    assert (env["posters"] / sev / "def456.full.jpg").exists()                           # kept
+    assert one(env["db"], "SELECT COUNT(*) FROM poster WHERE jf_id = ?", (sev,)) == [(0,)]   # untouched copy: gone
+    assert not (env["posters"] / dune).exists()                                          # untouched copy: gone
+
+
+def test_a_failed_apply_removes_its_poster_copies_and_changes_nothing(env, monkeypatch):
+    ids = rebuilt(env)
+    seeded = dump(env["db"])
+    real, calls = reattach._copy_folder, []
+
+    def copy_then_fail(root, old, new):
+        calls.append(new)
+        if len(calls) == 2:
+            raise OSError("disk full")
+        return real(root, old, new)
+    monkeypatch.setattr(reattach, "_copy_folder", copy_then_fail)
+    sync(env)
+    with pytest.raises(OSError):
+        sync(env)
+    assert dump(env["db"]) == seeded
+    assert not (env["posters"] / ids["dune"][1]).exists() and not (env["posters"] / ids["severance"][1]).exists()
+    assert one(env["db"], "SELECT mode FROM reattach_run") == [("apply-failed",)]
+    monkeypatch.setattr(reattach, "_copy_folder", real)
+    assert reattach.apply(trigger="manual")["mode"] == "apply"        # a retry goes through (idempotent copy)
+
+
+def test_two_old_ids_landing_on_one_new_id_are_ambiguous(env, monkeypatch):
+    monkeypatch.setattr(reattach, "GUARD_PCT", 50)   # the merge shrinks this tiny library by one film
+    lib = env["lib"]
+    lib.add_duplicate_film("dune_copy", "dune", "/movies-4k/Dune (2021)/Dune.mkv")
+    sync(env)
+    seed(env)
+    with closing(media_store.connect()) as db, db:
+        db.execute("INSERT INTO rating(item_key, kind, title, score, owner, level) VALUES(?,?,?,?,?,?)",
+                   (f"jf:{lib.ids['dune_copy']}", "movie", "Dune", 6, "her", "show"))
+    sync(env)
+    ids = lib.rebuild()
+    lib.extra_films = []                                              # Jellyfin merged the copy into one item
+    sync(env)
+    run = sync(env)
+    amb = {a["old"]: a for a in run["ambiguous"]}
+    assert ids["dune"][0] in amb and ids["dune_copy"][0] in amb
+    assert amb[ids["dune"][0]]["tier"] == "many-to-one"
+    assert ids["dune"][1] not in [p["new"] for p in run["strong"]]
+    assert one(env["db"], "SELECT jf_id FROM play WHERE kind = 'movie'") == [(ids["dune"][0],)]   # not moved
+
+
+def test_two_new_episodes_with_one_number_are_ambiguous(env):
+    ids = rebuilt(env)
+    eps = env["fj"].episodes[ids["severance"][1]]
+    twin = dict(next(e for e in eps if (e["ParentIndexNumber"], e["IndexNumber"]) == (1, 3)))
+    twin.update(Id="7" * 32, Path=twin["Path"].replace(".mkv", " (alt).mkv"))
+    eps.append(twin)                                                   # a double episode / duplicate file
+    sync(env)
+    run = sync(env)
+    assert ids["severance/s1e3"][0] in [a["old"] for a in run["ambiguous"]]
+    assert ids["severance/s1e3"][0] not in [p["old"] for p in run["strong"]]
+    assert {r[0] for r in one(env["db"], "SELECT jf_id FROM play WHERE kind = 'episode'")} == {ids["severance/s1e3"][0]}
+    assert one(env["db"], "SELECT show_key FROM play WHERE kind = 'episode' LIMIT 1") == [(f"jf:{ids['severance'][1]}",)]
+
+
+def test_a_path_match_with_a_different_provider_id_is_ambiguous():
+    old = {"jf_id": "a" * 32, "kind": "movie", "title": "Arrival", "year": 2016, "path": "/m/Arrival.mkv",
+           "tmdb_id": "329865", "imdb_id": None, "tvdb_id": None}
+    other = {**old, "jf_id": "b" * 32, "title": "Arrival", "tmdb_id": "999"}      # file replaced by another title
+    assert reattach._match({**old, "tmdb_id": None}, [other], [])[0] == "strong"   # nothing to disagree with
+    assert reattach._match(old, [other], [])[:2] == ("ambiguous", "path")
+
+
+def test_a_run_moving_more_than_the_cap_is_reported_not_applied(env, monkeypatch):
+    monkeypatch.setattr(reattach, "AUTO_MAX_PCT", 25)
+    rebuilt(env)
+    seeded = dump(env["db"])
+    sync(env)
+    run = sync(env)
+    assert run["mode"] == "report" and run["capped"] == 25 and run["strong"]
+    assert dump(env["db"]) == seeded
+    assert sync(env) is None                                           # the same report is not stored twice
+    assert reattach.apply(trigger="cli")["mode"] == "apply"           # B. can still apply it by hand
+
+
+def test_only_the_newest_five_backups_are_kept(env):
+    backups = env["tmp"] / "backups"
+    backups.mkdir()
+    for n in range(91, 97):
+        (backups / f"media-pre-reattach-{n}.db").write_bytes(b"x")
+    (backups / "media-2026-10-28_0900.db.gz").write_bytes(b"daily")  # the daily backups are not this module's
+    rebuilt(env)
+    sync(env)
+    run = sync(env)
+    names = sorted(f.name for f in backups.iterdir())
+    kept = [n for n in names if n.startswith("media-pre-reattach-")]
+    assert len(kept) == 5 and f"media-pre-reattach-{run['run_id']}.db" in kept
+    assert "media-pre-reattach-91.db" not in kept and "media-2026-10-28_0900.db.gz" in names

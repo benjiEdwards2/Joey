@@ -208,7 +208,8 @@ Episodes (unless Q6 says otherwise); backdrops/logos; fanart.tv; writing `poster
 Phase 1 (draft PR, 2026-10-28, not merged or deployed):
 - Measured on the laptop (`scripts/posters_samples.py`): one render of a 2000 × 3000 JPEG source raises the process peak by 13.0 MB (RSS 26.9 MB before, peak 39.9 MB after). A render takes 113–348 ms, and a poster JPEG is 43–76 KB. The NAS numbers come with phase 2.
 - Hub image: Pillow 12.2.0 adds a 7.1 MB wheel, 19.5 MB unpacked (manylinux x86_64).
-- Samples: `JoeyTVeview\JY-260\p1-samples\` (6 posters, a contact sheet and `samples.log`). They use placeholder art. The series samples have the phase-2 sub-line switched on, to show it.
+- Samples: `JoeyTV
+eview\JY-260\p1-samples\` (6 posters, a contact sheet and `samples.log`). They use placeholder art. The series samples have the phase-2 sub-line switched on, to show it.
 - Builder notes for review:
   - The routes are always registered, and the handlers 404 while `POSTERS=off`, as `PLAYER_API` does. So criterion 1, "no new route", reads as "no served route".
   - "Shrink first" means a 21-character title stays on one line at about 63 px rather than wrapping at 95 px.

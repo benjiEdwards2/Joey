@@ -23,9 +23,9 @@ from pathlib import Path
 import anyio
 import requests  # noqa: F401 - kept: tests fake upstreams at hub.images.requests (E1: via tests/hub/conftest)
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Request, Response
 
-from hub import upstream
+from hub import img_access, upstream
 
 log = logging.getLogger("hub.images")
 router = APIRouter()
@@ -282,7 +282,7 @@ def _read(path: Path) -> bytes | None:
 
 
 @router.get("/img/{ref:path}")
-async def image(ref: str, h: str = "", t: str = "", v: str = ""):
+async def image(request: Request, ref: str, h: str = "", t: str = "", v: str = ""):
     title = t[:80]
     if ref == "none":
         return _fallback(title)
@@ -291,6 +291,13 @@ async def image(ref: str, h: str = "", t: str = "", v: str = ""):
         return Response("Not found", status_code=404, media_type="text/plain")
     kind, ident = _kind_ident(match)
     size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
+    # JY-263: on the media front a friend gets a Jellyfin image only for an id they were shown (a set lookup, no call)
+    access = img_access.allowed(request, kind, ident)
+    if access is None:
+        from hub import shell
+        return shell.not_found_page(request)
+    if not access:   # the card, as for an id that does not exist; no cache keeps it, so a later read can lift it
+        return Response(fallback_svg(title), media_type="image/svg+xml", headers={"Cache-Control": "private, no-store"})
 
     stored = _stored(kind, ident, size, v)   # JY-260 phase 2: the Joey poster from the local store
     if stored is not None:

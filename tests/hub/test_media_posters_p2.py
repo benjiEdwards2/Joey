@@ -360,7 +360,9 @@ def test_friends_get_the_stored_poster_but_not_the_review_page(monkeypatch, tmp_
     ms.save(B, "0abc12de34", buf.getvalue())
     ms.write_meta(B, {"jf_id": B, "kind": "movie", "title": "New Film", "ver": "0abc12de34", "status": "rendered"})
     mp.set_state(B, kind="movie", ver="0abc12de34", status="rendered")
-    client, fake = guest_client(monkeypatch, tmp_path, {"jellyfin": jelly()})
+    # JY-263: /img serves a friend only ids they were shown, so the new film is in the shared library snapshot
+    from tests.hub.test_media_library_pages import MOVIES
+    client, fake = guest_client(monkeypatch, tmp_path, {"jellyfin": jelly(movies=[*MOVIES, {"jf_id": B, "title": "New Film"}])})
     with client as c:
         sign_in(c, fake, FRIEND_ID)
         resp = c.get(url(B, 240))

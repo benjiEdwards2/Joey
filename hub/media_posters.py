@@ -46,6 +46,7 @@ TMDB_ART = "https://image.tmdb.org/t/p/"
 DEFAULT_TEMPLATE_DIR = "/data/posters/template"
 AUTO_MIN_RATING = 0.0   # phase 2: every poster (B. 2026-10-28); the 6.0 rule of phase 1 is superseded
 SEASONS_TTL_S = 24 * 3600   # a series' season list is re-read at most daily
+BACKDROPS_TTL_S = 30 * 24 * 3600   # JY-262 follow-up: a title's ranked backdrops are re-read at most monthly
 MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
 MEMORY_STALE_MIN = 15
 FAILS_BEFORE_BACKOFF = 3   # an item failing this many times in a row (render or write) ...
@@ -174,6 +175,84 @@ def pick(remote) -> dict | None:
             best, best_key = {"url": url, "lang": lang, "votes": votes, "rating": rating, "width": w, "height": h,
                               "fallback": (None, "en", "other")[key[0]]}, key
     return best
+
+
+def remote_backdrops(jf_id: str) -> list:
+    """The item's TMDB backdrop list through Jellyfin (GET only), the same request form as the posters
+    (RemoteImageController.GetRemoteImages looks the item up without a user, so the read key needs no userId - unlike
+    GET /Items/{id}, see the JY-260 hotfix). Raises on no answer / non-2xx."""
+    creds = media_jellyfin.creds()
+    if creds is None:
+        raise RuntimeError("Jellyfin not configured")
+    body = media_jellyfin.get(*creds, f"/Items/{jf_id}/RemoteImages",
+                              {"type": "Backdrop", "providerName": "TheMovieDb", "includeAllLanguages": "true"})
+    return (body or {}).get("Images") or [] if isinstance(body, dict) else []
+
+
+def rank_backdrops(remote) -> list[dict]:
+    """The top two TMDB backdrops (B. 2026-10-28, option A): text-less ones (no language) when any exist, else all;
+    then CommunityRating, then VoteCount, then width, highest first. Art only from image.tmdb.org; duplicates once.
+    -> [{url, lang, rating, votes, width}] (0 to 2)."""
+    rows = []
+    for im in remote if isinstance(remote, list) else []:
+        if not isinstance(im, dict):
+            continue
+        url = im.get("Url")
+        if not isinstance(url, str) or not url.startswith(TMDB_ART):
+            continue
+        rating = im.get("CommunityRating")
+        rating = float(rating) if isinstance(rating, (int, float)) and not isinstance(rating, bool) else 0.0
+        votes = im.get("VoteCount") if isinstance(im.get("VoteCount"), int) else 0
+        width = im.get("Width") if isinstance(im.get("Width"), int) else 0
+        lang = (im.get("Language") or "").strip().lower() if isinstance(im.get("Language"), str) else ""
+        rows.append({"url": url, "lang": lang or None, "rating": rating, "votes": votes, "width": width})
+    clean = [r for r in rows if r["lang"] is None]
+    pool = clean or rows
+    pool.sort(key=lambda r: (-r["rating"], -r["votes"], -r["width"]))
+    out, seen = [], set()
+    for r in pool:
+        if r["url"] not in seen:
+            seen.add(r["url"])
+            out.append(r)
+        if len(out) == 2:
+            break
+    return out
+
+
+def w1280(url: str) -> str:
+    """TMDB's 1280-wide size of an image URL (RemoteImages lists `original`, which can be a multi-MB 4K file)."""
+    return url.replace("/t/p/original/", "/t/p/w1280/", 1)
+
+
+def backdrops_on() -> bool:
+    """POSTERS_BACKDROPS (default on): fetch and store the ranked TMDB backdrops in the poster pass."""
+    return os.environ.get("POSTERS_BACKDROPS", "").strip().lower() not in ("off", "0", "no")
+
+
+def backdrops_due(side: dict | None, now: float | None = None) -> bool:
+    try:
+        return (now or time.time()) - float((side or {}).get("backdrops_at") or 0) >= BACKDROPS_TTL_S
+    except (TypeError, ValueError):
+        return True
+
+
+def fetch_backdrops(jf_id: str) -> dict:
+    """Rank the title's TMDB backdrops and store the top two (backdrop1, backdrop2); a slot TMDB no longer fills is
+    cleared. -> {"picks": [...], "stored": n}. Raises on an upstream failure (nothing changed: retried next pass)."""
+    picks = rank_backdrops(remote_backdrops(jf_id))
+    got = []
+    for pick in picks:
+        body = fetch_art(w1280(pick["url"]))
+        if body is None:
+            raise RuntimeError("backdrop unavailable")
+        got.append(store.backdrop_jpeg(body))
+    for n, (pick, jpeg) in enumerate(zip(picks, got), start=1):
+        ver = hashlib.sha256(f"{pick['url']}|{store.BACKDROP_W}|q{store.BACKDROP_QUALITY}".encode()).hexdigest()[:10]
+        if store.backdrop_version(jf_id, n) != ver:
+            store.save_backdrop(jf_id, n, ver, jpeg)
+    for n in store.BACKDROP_SLOTS[len(picks):]:
+        store.clear_backdrop(jf_id, n)
+    return {"picks": picks, "stored": len(picks)}
 
 
 def remote_images(jf_id: str) -> list:
@@ -412,15 +491,35 @@ def served(jf_id: str, h: int) -> Path | None:
 
 
 def url_version(ref) -> str:
-    """Jinja `img_v`: the published store version of a `jf:` poster ref ("" when there is none, POSTERS=off, or any
-    other ref), which Joey's pages put on the /img URL as `&v=`. One small local file read; no network."""
-    if disabled() or not isinstance(ref, str) or not ref.startswith("jf:"):
+    """Jinja `img_v`: the published store version of a `jf:` poster ref or a `jfs:<id>/<n>` stored backdrop ("" when
+    there is none, POSTERS=off, or any other ref), which Joey's pages put on the /img URL as `&v=`. One small local
+    file read; no network."""
+    if disabled() or not isinstance(ref, str):
+        return ""
+    if ref.startswith("jfs:"):
+        jf_id, _, n = ref[4:].partition("/")
+        ver = (store.backdrop_version(jf_id, int(n)) if n in ("1", "2") and media_item.ITEM_RE.match(jf_id)
+               else None) or ""
+        return ver if images.V_RE.match(ver) else ""
+    if not ref.startswith("jf:"):
         return ""
     jf_id = ref[3:]
     if not media_item.ITEM_RE.match(jf_id):
         return ""
     ver = store.current(jf_id) or ""
     return ver if images.V_RE.match(ver) else ""
+
+
+def stored_backdrop(jf_id, n: int) -> str | None:
+    """`jfs:<jf_id>/<n>` when backdrop n of that title is stored and published (and POSTERS is not off), else None.
+    The page then draws it as /img/jfs:..?v=<ver>. Local file reads only."""
+    if disabled() or not isinstance(jf_id, str) or not media_item.ITEM_RE.match(jf_id):
+        return None
+    return f"jfs:{jf_id}/{n}" if store.backdrop_path(jf_id, n) is not None else None
+
+
+def served_backdrop(jf_id: str, n: int) -> Path | None:
+    return None if disabled() else store.backdrop_path(jf_id, n)
 
 
 # ---- the pass ----
@@ -463,7 +562,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     if m == "off":
         return {"off": True}
     counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0, "backoff": 0,
-              "more": False}
+              "backdrops": 0, "more": False}
     if not memory_ok(snaps):
         counts["skipped_memory"] = True
         return counts
@@ -487,7 +586,23 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     started = time.time()
 
     def full():
-        return counts["rendered"] + counts["no_source"] + counts["failed"] >= limit
+        return counts["rendered"] + counts["no_source"] + counts["failed"] + counts["backdrops"] >= limit
+
+    def bd(t: dict, side: dict | None) -> None:
+        """JY-262 follow-up: a film's or series' two top-ranked TMDB backdrops into the store, at most monthly."""
+        if not backdrops_on() or not side or not side.get("jf_id") or full() or not backdrops_due(side):
+            return
+        try:
+            got = fetch_backdrops(t["jf_id"])
+            meta = store.read_meta(t["jf_id"]) or side
+            store.write_meta(t["jf_id"], {**meta, "backdrops": [x["url"] for x in got["picks"]],
+                                          "backdrops_at": time.time()})
+            counts["backdrops"] += 1
+            if pause:
+                time.sleep(pause)
+        except Exception as exc:   # nothing changed: retried next pass
+            counts["failed"] += 1
+            log.warning("posters: backdrops failed: %s", type(exc).__name__)
 
     def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None) -> dict | None:
         """Render one item unless its version is already stored. -> its sidecar (None on failure: retried later)."""
@@ -508,7 +623,9 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
                           "fallback": "series"}
             art = fetch_art(chosen["url"]) if chosen else None
             auto = auto_approves(chosen)
-            side = {**t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
+            old = store.read_meta(t["jf_id"]) or {}   # the ranked backdrops outlive a poster re-render
+            side = {**{k: old[k] for k in ("backdrops", "backdrops_at") if k in old},
+                    **t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
                     "rendered_at": _now(), "pick": chosen, "auto": auto}
             size = None
             if chosen is None:
@@ -546,7 +663,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             counts["more"] = True
             break
         if t["kind"] != "tv":
-            one(t, render.sub_line(t["kind"], year=t["year"]), {})
+            bd(t, one(t, render.sub_line(t["kind"], year=t["year"]), {}))
             continue
         side = store.read_meta(t["jf_id"]) or {}
         if in_backoff(known.get(t["jf_id"])) and not side.get("seasons"):
@@ -575,6 +692,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         if series and series.get("seasons_at") != stamp:   # stored poster, newer season list
             series = {**series, "seasons": seasons, "seasons_at": stamp}
             store.write_meta(t["jf_id"], series)
+        bd(t, series)
         url = ((series or {}).get("pick") or {}).get("url")
         for x in seasons:
             if full():

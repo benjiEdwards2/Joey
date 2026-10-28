@@ -177,6 +177,7 @@ ENV_OUT = {
     "POSTERS_TEMPLATE_DIR": "the poster loop is off; a NAS mount path that the preview does not have",
     "POSTERS_AUTO_MIN_RATING": "the poster loop is off in the preview",
     "POSTERS_DIR": "the poster loop is off in the preview",
+    "POSTERS_BACKDROPS": "the poster loop (and its backdrop step) is off in the preview",
 }
 
 

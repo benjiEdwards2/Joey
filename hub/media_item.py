@@ -256,6 +256,8 @@ def _build(jf_id: str) -> dict:
         "tvdb": (str((raw.get("ProviderIds") or {}).get("Tvdb") or "") or None) if kind == "series" else None,
         # media-ux3: the "part of" banner draws a backdrop only when Jellyfin has one (else a plain panel)
         "has_backdrop": bool(raw.get("BackdropImageTags")),
+        # JY-262: how many backdrops the art item holds (the title page draws the second), None when not known
+        "backdrops": backdrop_count(raw, art, show),
         "show_title": str(raw.get("SeriesName") or "") or None, "show_id": series_id if kind != "series" else None,
         "season_no": season_no, "episode_no": ep_no,
         "code": f"S{season_no:02d}E{ep_no:02d}" if kind == "episode" and season_no is not None and ep_no is not None else None,
@@ -270,6 +272,15 @@ def _build(jf_id: str) -> dict:
     # cap at 30, but never cut a Director / Writer (an episode lists its guest stars first, 2026-10-10)
     item["people"] = item["people"][:30] + [p for p in item["people"][30:] if p["type"] in CREW_TYPES]
     return {"item": item, "seasons": seasons, "files": files}
+
+
+def backdrop_count(raw: dict, art: str, show: dict | None) -> int | None:
+    """JY-262: how many backdrops the item the page draws its art from holds: the read's own `BackdropImageTags`,
+    or, when the art is the show's (an episode, a season), the show read's count. None when not known."""
+    from hub import media_backdrop
+    if art == raw.get("Id"):
+        return media_backdrop.count_of(raw.get("BackdropImageTags"))
+    return ((show or {}).get("item") or {}).get("backdrops")
 
 
 def _data(jf_id: str, stale_ok: bool = True) -> dict | None:

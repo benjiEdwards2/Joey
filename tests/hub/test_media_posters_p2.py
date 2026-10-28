@@ -157,12 +157,13 @@ def test_the_memory_gate_skips_the_pass_and_the_tick_retries_soon(fakes, monkeyp
 # ---- the Jellyfin write-back (a fake Jellyfin) ----
 
 ORIG = b"\xff\xd8original-poster-bytes"
+ADMIN = "a0d1" * 8   # the fake server's administrator user id
 
 
 class FakeJellyfin:
     """GET / POST / DELETE against an in-memory Jellyfin: items with ImageTags + LockData, and their Primary image."""
     def __init__(self, ids):
-        self.items = {i: {"Id": i, "Name": "N", "Overview": "keep me", "LockData": False,
+        self.items = {i: {"Id": i, "Name": "N", "Overview": "keep me", "LockData": False, "IsFolder": i in (C, S1, S2),
                           "ImageTags": {"Primary": "t-orig"}} for i in ids}
         self.images = {i: (ORIG, "image/jpeg") for i in ids}
         self.log, self.fail_upload = [], False
@@ -175,6 +176,9 @@ class FakeJellyfin:
     def get(self, url, params=None, headers=None, timeout=None, stream=False):
         path = url.split("http://jf.test", 1)[1]
         self.log.append(("GET", path))
+        if path == "/Users":   # with the poster key: a plain user first, then the administrator
+            return Resp(body=[{"Id": "u-plain", "Policy": {"IsAdministrator": False}},
+                              {"Id": ADMIN, "Policy": {"IsAdministrator": True}}])
         if "/RemoteImages" in path:
             return Resp(body=self.remote)
         if path.startswith("/Shows/"):
@@ -183,6 +187,8 @@ class FakeJellyfin:
         if path.endswith("/Images/Primary"):
             body, ctype = self.images[jf_id]
             return Resp(data=body, ctype=ctype)
+        if (params or {}).get("userId") != ADMIN:   # B.'s Jellyfin: an API-key item read without a user is a 400
+            return Resp(status=400)
         if self.fail_reads:
             self.fail_reads -= 1
             return Resp(status=500)
@@ -428,7 +434,7 @@ def test_a_failed_lock_after_the_upload_is_recorded_finished_next_pass_and_rever
     assert "lock: HTTP 500" in row["last_error"]
     fake.fail_lock = False
     fake.log.clear()
-    assert w.write_pass(limit=30)["finished"] == 5
+    assert w.write_pass(limit=30)["finished"] == 2                       # the 2 films: folders are never locked
     assert ("POST", f"/Items/{B}/Images/Primary") not in fake.log          # finished without a second upload
     assert fake.items[B]["LockData"] is True and mp.state(B)["live_tag"] == fake.items[B]["ImageTags"]["Primary"]
 
@@ -810,3 +816,44 @@ def test_the_tv_backdrop_url_matches_the_tile_url_for_a_stored_poster(fakes):
     tile = shell.templates.env.from_string('{% from "_tv_tile.html" import art %}{{ art(ref, "New Film", 240) }}')
     drawn = tile.render(ref=f"jf:{B}").split('src="', 1)[1].split('"', 1)[0].replace("&amp;", "&")
     assert tv_home.img_url(f"jf:{B}", "New Film", 240) == drawn and f"&v={ms.current(B)}" in drawn
+
+
+# ---- hotfix 2026-10-28: item reads need a userId with an API key; folders are not locked ----
+
+def test_item_reads_pass_the_administrator_user_and_resolve_it_once(jelly_rw, caplog):
+    fake, out = jelly_rw
+    w._admin.clear()
+    with caplog.at_level("INFO"):
+        counts = mp.dry_pass(snaps(LIB), pause=0)
+    assert counts["write"]["written"] == 5 and counts["write"]["error"] == 0
+    assert fake.log.count(("GET", "/Users")) == 1                        # cached
+    assert ADMIN not in caplog.text                                      # never logged
+
+
+def test_without_an_administrator_nothing_is_written(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    w._admin.clear()
+    real = fake.get
+
+    def get(url, **kw):
+        if url.endswith("/Users"):
+            return Resp(body=[{"Id": "u-plain", "Policy": {"IsAdministrator": False}}])
+        return real(url, **kw)
+    monkeypatch.setattr(fake, "get", get)
+    mp.dry_pass(snaps(LIB), pause=0)
+    assert fake.writes() == [] and "no administrator user" in mp.state(B)["last_error"]
+
+
+def test_the_strict_fake_answers_400_to_an_item_read_without_a_user(jelly_rw):
+    fake, out = jelly_rw
+    assert fake.get(f"http://jf.test/Items/{B}").status_code == 400
+    assert fake.get(f"http://jf.test/Items/{B}", params={"userId": ADMIN}).status_code == 200
+
+
+def test_films_are_locked_but_series_and_seasons_are_not(jelly_rw):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    assert fake.items[B]["LockData"] is True and mp.state(B)["locked_by_us"] == 1
+    for folder in (C, S1, S2):
+        assert fake.items[folder]["LockData"] is False and mp.state(folder)["locked_by_us"] == 0
+        assert ("POST", f"/Items/{folder}") not in fake.log and mp.state(folder)["live_tag"]

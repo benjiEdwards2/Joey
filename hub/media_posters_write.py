@@ -84,8 +84,38 @@ def _ok(resp, what: str):
     return resp
 
 
+# How each Jellyfin call in this module behaves with an API key (no user), checked against the server source,
+# Jellyfin.Api/Controllers (master, 2026-10-28), and on B.'s server (hotfix 2026-10-28):
+# * GET /Items/{id} (UserLibraryController.GetItem): `userId` is an optional query value resolved through
+#   RequestHelpers.GetUserId; an API key has no user, so B.'s Jellyfin answers 400 without it and 200 with
+#   `?userId=<an administrator>`. -> _item() always passes the administrator's id (_admin_id).
+# * GET /Items/{id}/Images/Primary (ImageController.GetItemImage): no userId parameter; answers 200 with the key.
+# * POST /Items/{id}/Images/Primary (ImageController.SetItemImage, Policies.RequiresElevation): no userId; the body is
+#   read through FromBase64Transform and the Content-Type must be an image type. -> unchanged.
+# * DELETE /Items/{id}/Images/Primary (ImageController.DeleteItemImage, RequiresElevation): no userId. -> unchanged.
+# * POST /Items/{id} (ItemUpdateController.UpdateItem, RequiresElevation): no userId; body BaseItemDto. It assigns
+#   Name, Overview, dates, ratings, ... straight from the body (a missing one is cleared), so it gets the full DTO just
+#   read by _item(), as Jellyfin's own metadata editor does. LockData on a FOLDER (series, season) propagates to every
+#   child item, so Joey locks films only (see _finish).
+_admin: dict[str, str] = {}   # base URL -> the administrator user id the item reads use (never logged)
+
+
+def _admin_id(base: str, headers: dict) -> str:
+    """The first administrator user from GET /Users (cached per server). Raises WriteError when there is none."""
+    if base in _admin:
+        return _admin[base]
+    resp = _ok(upstream.session("jellyfin").get(f"{base}/Users", headers=headers, timeout=TIMEOUT), "users")
+    users = resp.json()
+    for u in users if isinstance(users, list) else []:
+        if isinstance(u, dict) and (u.get("Policy") or {}).get("IsAdministrator") and u.get("Id"):
+            _admin[base] = str(u["Id"])
+            return _admin[base]
+    raise WriteError("users: no administrator user")
+
+
 def _item(base: str, headers: dict, jf_id: str) -> dict:
-    resp = _ok(upstream.session("jellyfin").get(f"{base}/Items/{jf_id}", headers=headers, timeout=TIMEOUT), "item")
+    resp = _ok(upstream.session("jellyfin").get(f"{base}/Items/{jf_id}", params={"userId": _admin_id(base, headers)},
+                                                headers=headers, timeout=TIMEOUT), "item")
     body = resp.json()
     if not isinstance(body, dict):
         raise WriteError("item: not an object")
@@ -179,7 +209,9 @@ def _finish(base: str, headers: dict, jf_id: str, row: dict) -> None:
     finishes it; `wrote` and `live_ver` are already recorded, so a revert restores the original meanwhile)."""
     item = _item(base, headers, jf_id)
     locked = bool(row.get("locked_by_us"))
-    if not item.get("LockData"):
+    # Q5A's LockData, films only: on a folder (series, season) UpdateItem pushes the lock to every season and episode,
+    # and a revert would then unlock episodes B. had locked himself. Series and seasons rely on the daily drift check.
+    if not item.get("LockData") and not item.get("IsFolder"):
         mp.set_state(jf_id, locked_by_us=1)   # recorded first: a revert unlocks even if the lock answer was lost
         _set_lock(base, headers, item, True)
         locked = True

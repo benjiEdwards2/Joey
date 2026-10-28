@@ -426,7 +426,7 @@ at least. I use a tcl 55" c7 so would like it to suit a better mix for that TV. 
 though." Which row: "The header with joey, media, etc on it." Then: "I use a c7k with tcl so a 4k resolution. Can you
 please adjust to fit that please."
 - Measured TV viewport: the Joey TV shell's WebView renders at **960 x 540 CSS px, dpr 2** on B.'s TCL (Android 14,
-  WebView 155; `JoeyTVeview\TV_UI_EVALUATION_2026-10-23.md`, device capture). Android TV draws apps at 1080p and the
+  WebView 155; `JoeyTV\review\TV_UI_EVALUATION_2026-10-23.md`, device capture). Android TV draws apps at 1080p and the
   4K C7K panel scales that up, so the 960x540 dpr 2 capture IS the 4K target; 3840x2160 at dpr 1 is checked too.
 - Built (TV mode only, `tv.css` in place): the top row's controls 36 -> 24 CSS px (-33 %); brand text 22 -> 18 px, its
   mark 32 -> 22 px, avatar 28 -> 24 px, search and sign-out icons 22 -> 18 px. The bar is 27 (the 5 % overscan) + 24 + 1.

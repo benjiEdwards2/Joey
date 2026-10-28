@@ -7,7 +7,7 @@
    with its tabs only. Without a backdrop the CSS makes it a plain 24 px page title with no minimum height. #}
 {% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false) -%}
 <header class="pagehead">
-  {% if backdrop %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280'){% if not backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
+  {% if backdrop %}{% set bv = img_v(backdrop) %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not backdrop.startswith('jfb:') and not backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {% if caller %}{{ caller() }}{% endif %}
     {% if title or sub or actions %}

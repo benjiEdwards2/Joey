@@ -141,6 +141,7 @@ def fakes(monkeypatch, tmp_path):
     monkeypatch.setenv("POSTERS_DIR", str(tmp_path / "posters"))
     monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(tmp_path / "no-such-kit"))   # -> the starter kit
     monkeypatch.delenv("POSTERS_AUTO_MIN_RATING", raising=False)
+    monkeypatch.setenv("POSTERS_BACKDROPS", "off")   # JY-262 follow-up: its own tests turn the backdrop step on
     remote = {"Images": [img("en", 40, name="en"), img(None, 7, name="clean")], "TotalRecordCount": 2}
     jf = GetOnly({"/Shows/": Resp(body=SEASONS), "/RemoteImages": Resp(body=remote)})
     tmdb = GetOnly({"/clean.jpg": lambda: Resp(data=jpeg(), ctype="image/jpeg")})

@@ -156,3 +156,4 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `POSTERS_AUTO_MIN_RATING` | out | the poster loop is off in the preview |
 | `POSTERS_DIR` | out | the poster loop is off in the preview |
 | `REMOVE_API` | out | JY-265 Remove stays off in the preview unless a spec's accept step turns it on (it writes Seerr / arr) |
+| `POSTERS_BACKDROPS` | out | the poster loop (and its backdrop step) is off in the preview |

@@ -7,6 +7,7 @@ Q3 A, user ids are out of scope.
 Every test runs against the fake Jellyfin (tests/hub/fake_jellyfin.py) and a small fake library
 (tests/hub/fake_library.py) whose `rebuild()` re-mints every film, series, season and episode id.
 """
+import re
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -455,16 +456,56 @@ def test_a_path_match_with_a_different_provider_id_is_ambiguous():
     assert reattach._match(old, [other], [])[:2] == ("ambiguous", "path")
 
 
-def test_a_run_moving_more_than_the_cap_is_reported_not_applied(env, monkeypatch):
+def test_a_full_rebuild_of_provider_id_matches_applies_over_the_cap(env, monkeypatch):
+    """Coordinator 2026-10-28: a full rebuild moves almost every id; when every change is a provider-id match (films
+    and series on tmdb / tvdb / imdb, their seasons and episodes by number), with no tie or many-to-one and a steady
+    library count, it applies on its own whatever the share."""
+    from tests.hub import fake_library
+    monkeypatch.setattr(fake_library, "FILMS", tuple(
+        (n, t, y, {"Imdb": "tt9000001"} if n == "home_video" else ids, f) for n, t, y, ids, f in fake_library.FILMS))
     monkeypatch.setattr(reattach, "AUTO_MAX_PCT", 25)
-    rebuilt(env)
+    ids = rebuilt(env)
+    sync(env)
+    run = sync(env)
+    assert run["mode"] == "apply" and "capped" not in run
+    assert {p["tier"] for p in run["strong"]} <= {"tmdb", "tvdb", "imdb", "series+number"}
+    assert len(run["strong"]) * 100 > 25 * one(env["db"], "SELECT COUNT(*) FROM library_index")[0][0]
+    new = ids["home_video"][1]
+    assert media_db.get_ratings([f"jf:{new}"]) == {f"jf:{new}": 7}
+
+
+def test_a_mixed_run_over_the_cap_is_reported_not_applied(env, capsys, monkeypatch):
+    monkeypatch.setattr(reattach, "AUTO_MAX_PCT", 25)
+    rebuilt(env)                                       # Home Video has no provider id: it matches on its path
     seeded = dump(env["db"])
     sync(env)
     run = sync(env)
     assert run["mode"] == "report" and run["capped"] == 25 and run["strong"]
+    assert "path" in {p["tier"] for p in run["strong"]}
     assert dump(env["db"]) == seeded
-    assert sync(env) is None                                           # the same report is not stored twice
-    assert reattach.apply(trigger="cli")["mode"] == "apply"           # B. can still apply it by hand
+    assert sync(env) is None                           # the same report is not stored twice
+    # B. reads it and applies it by hand (scripts/joey_reattach.py runs these two over ssh)
+    assert reattach.main(["--latest"]) == 0
+    out = capsys.readouterr().out
+    assert f"run {run['run_id']} report (auto)" in out and "over the 25 % auto cap" in out
+    assert not re.search(r"[0-9a-f]{32}", out) and "/data/media" not in out   # no Jellyfin ids, no paths
+    assert reattach.main(["--apply-report", str(run["run_id"])]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("PASS  apply - run ") and not re.search(r"[0-9a-f]{32}", out)
+    assert dump(env["db"]) != seeded
+
+
+def test_a_stale_report_is_not_applied(env, capsys, monkeypatch):
+    monkeypatch.setattr(reattach, "AUTO_MAX_PCT", 25)
+    rebuilt(env)
+    sync(env)
+    run = sync(env)
+    env["lib"].rebuild()                               # the library changed again since the report
+    sync(env)
+    seeded = dump(env["db"])
+    assert reattach.main(["--apply-report", str(run["run_id"])]) == 1
+    assert "changed since this report" in capsys.readouterr().out
+    assert dump(env["db"]) == seeded
 
 
 def test_only_the_newest_five_backups_are_kept(env):

@@ -335,9 +335,15 @@ PR, commit and deploy: filled at close-out.
 - Never applied, reported as ambiguous: two old ids landing on one new id (and the seasons / episodes of such a
   series), two new episodes with one season + episode number (or one path), a season number with two season ids,
   and a path match whose known provider ids disagree.
-- Auto cap: an automatic run that would move more than 25 % of the indexed items applies nothing and stores a
-  report (`capped`); the CLI `--apply` still can. Note for B.: a full rebuild of a library where most indexed items
-  are watched episodes may exceed this, so the first real rebuild may need the CLI.
+- Auto cap (refined by the orchestrator the same day): an automatic run may move more than 25 % of the indexed
+  items only when every change is a provider-id match (films and series on tmdb / tvdb / imdb; their seasons and
+  episodes by number under such a series), nothing in the run is ambiguous (no tie, no many-to-one) and the library
+  count is identical on the two complete fetches. That is the full-rebuild case, and it applies on its own. Any
+  other run over 25 % applies nothing and stores a report (`capped`).
+- Until the report has a screen: `scripts/joey_reattach.py report | dry-run | apply RUN_ID | undo RUN_ID` runs the
+  hub CLI over ssh with `docker exec joey-hub` (household only, B.'s NAS key). `apply RUN_ID` applies a stored
+  report only while a fresh plan still makes exactly its matches. The CLI output carries run ids, counts, kinds,
+  titles and tiers: no Jellyfin ids, no paths, never the NAS host.
 - Pre-reattach backups: the newest 5 are kept.
 
 **Not built here (later phase or follow-up):**

@@ -18,7 +18,8 @@ When it runs (Q2 A): `auto()` after each index sync. A rebuild is suspected when
 been missing from two complete fetches in a row and both fetches' counts are within 5 % of the library's baseline
 count (a half-scanned library holds the run). Strong matches (provider id, path) then apply on their own; weak
 (title + year) and ambiguous ones only go into the report (a `reattach_run` row with mode `report`).
-By hand: `python -m hub.library_reattach --dry-run | --apply | --undo <run_id>` (PASS / FAIL lines + a log file).
+By hand: `python -m hub.library_reattach --dry-run | --latest | --apply | --apply-report <run_id> | --undo <run_id>`
+(PASS / FAIL lines + a log file; no Jellyfin ids or paths in the output). From B.'s computer: scripts/joey_reattach.py.
 
 Safety: an SQLite backup of media.db first (MEDIA_BACKUP_DIR/media-pre-reattach-<run_id>.db); one transaction;
 never deletes a row; a cell whose new value would break a key is left as it is and listed as a conflict; every
@@ -48,7 +49,9 @@ log = logging.getLogger("hub.library_reattach")
 
 GUARD_PCT = 5
 MIN_FETCHES_AUTO = 2
-AUTO_MAX_PCT = 25     # auto applies at most this share of the indexed items in one run; above it, a report only
+AUTO_MAX_PCT = 25     # auto moves at most this share of the indexed items in one run, unless the whole run is
+                      # provider-id matches on a steady library count (a full rebuild); otherwise a report only
+PROVIDER_TIERS = {"tmdb", "tvdb", "imdb"}
 KEEP_BACKUPS = 5      # pre-reattach backups kept (newest first)
 BACKUP_RE = re.compile(r"^media-pre-reattach-(\d+)\.db$")
 # a copied poster row starts with no Jellyfin write-back state: that state (what Joey wrote, the original it saved,
@@ -553,7 +556,7 @@ def auto(episodes_fn=None) -> dict | None:
     if not suspected():
         return None
     p = plan(min_fetches=MIN_FETCHES_AUTO, exclude_undone=True, episodes_fn=episodes_fn)
-    capped = bool(p["strong"]) and _over_cap(len(p["strong"]))
+    capped = bool(p["strong"]) and _over_cap(len(p["strong"])) and not (_all_provider(p) and _count_steady())
     if p["strong"] and not capped:
         return apply(trigger="auto", plan_=p)
     if not (p["weak"] or p["ambiguous"] or capped):
@@ -572,6 +575,27 @@ def auto(episodes_fn=None) -> dict | None:
     return {"run_id": run_id, "mode": "report", "trigger": "auto", **report}
 
 
+def _all_provider(p: dict) -> bool:
+    """Every change is a provider-id match (a film or series on tmdb / tvdb / imdb, or a season or episode by number
+    under a series matched that way), with no tie and no many-to-one anywhere in the run."""
+    if p["ambiguous"]:
+        return False
+    series = {x["old"]: x["tier"] for x in p["strong"] if x["kind"] in TIERS}
+    return all(x["tier"] in PROVIDER_TIERS if x["kind"] in TIERS
+               else x["tier"] == "series+number" and series.get(x.get("parent")) in PROVIDER_TIERS
+               for x in p["strong"])
+
+
+def _count_steady() -> bool:
+    """The library count is the same on the two complete fetches the run rests on."""
+    db = media_store.reader()
+    if db is None:
+        return False
+    with closing(db):
+        state = dict(db.execute("SELECT key, value FROM library_index_state").fetchall())
+    return state.get("count_last") is not None and state.get("count_last") == state.get("count_prev")
+
+
 def _over_cap(n: int) -> bool:
     """More than AUTO_MAX_PCT of the indexed items would move: too big to apply unattended (the CLI still can)."""
     db = media_store.reader()
@@ -583,16 +607,61 @@ def _over_cap(n: int) -> bool:
 
 
 # ---- CLI ----
+# Output carries run ids, counts, kinds, titles and tiers only: no Jellyfin ids and no paths (scripts/joey_reattach.py
+# prints it on B.'s computer).
 
 def _report_lines(p: dict) -> list[str]:
     lines = [f"      strong {len(p['strong'])}, weak {len(p['weak'])}, ambiguous {len(p['ambiguous'])}, "
-             f"unmatched {len(p['unmatched'])}"]
+             f"unmatched {len(p['unmatched'])}" + (f", over the {p['capped']} % auto cap" if p.get("capped") else "")]
     for word in ("strong", "weak", "ambiguous", "unmatched"):
         for x in p[word]:
-            lines.append(f"      {word:<9} {x['kind']:<7} {x['title']}  {x['old']} -> "
-                         f"{x.get('new') or ','.join(x.get('candidates', [])) or '-'}  ({x.get('tier') or 'no match'})")
+            lines.append(f"      {word:<9} {x['kind']:<7} {x['title']}  ({x.get('tier') or 'no match'})")
     lines += [f"      rows {k}: {n}" for k, n in sorted(p["counts"].items())]
     return lines
+
+
+def _pairs(p: dict) -> set:
+    return {(x["old"], x["new"]) for x in p["strong"]}
+
+
+def latest() -> dict | None:
+    """The newest report / apply / undo run, with its summary."""
+    db = media_store.reader()
+    if db is None:
+        return None
+    with closing(db):
+        row = db.execute("SELECT id, started_at, mode, trigger, summary_json, undone_at FROM reattach_run "
+                         "ORDER BY id DESC LIMIT 1").fetchone()
+    if row is None:
+        return None
+    return {"run_id": row[0], "started_at": row[1], "mode": row[2], "trigger": row[3], "undone_at": row[5],
+            "summary": json.loads(row[4] or "{}")}
+
+
+def apply_report(run_id: int) -> dict | None:
+    """Apply a stored report by hand: only when a fresh plan still makes exactly the report's strong matches."""
+    db = media_store.reader()
+    row = None
+    if db is not None:
+        with closing(db):
+            row = db.execute("SELECT mode, summary_json FROM reattach_run WHERE id = ?", (run_id,)).fetchone()
+    if row is None or row[0] != "report":
+        raise ValueError("not a report run")
+    p = plan()
+    if _pairs(p) != _pairs({"strong": json.loads(row[1] or "{}").get("strong", [])}):
+        raise ValueError("the library changed since this report: run --latest again")
+    return apply(trigger=f"report {run_id}", plan_=p)
+
+
+def _apply_lines(r: dict | None) -> list[str]:
+    if r is None:
+        return ["PASS  apply - nothing to re-attach"]
+    lines = [f"PASS  apply - run {r['run_id']}: {r['changed']} cells changed, {len(r['conflicts'])} conflicts, "
+             f"backup taken", *_report_lines(r)]
+    by = defaultdict(int)
+    for c in r["conflicts"]:
+        by[f"{c['table']}.{c['column']}"] += 1
+    return lines + [f"      conflicts {k}: {n} (left as they were)" for k, n in sorted(by.items())]
 
 
 def main(argv=None) -> int:
@@ -600,30 +669,44 @@ def main(argv=None) -> int:
                                  description="JY-264: re-attach media.db rows after a Jellyfin library rebuild")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--dry-run", action="store_true", help="report what would change; writes nothing")
+    g.add_argument("--latest", action="store_true", help="show the newest run (report, apply or undo)")
     g.add_argument("--apply", action="store_true", help="re-attach the strong matches (backup first)")
+    g.add_argument("--apply-report", type=int, metavar="RUN_ID", help="apply a stored report, if still current")
     g.add_argument("--undo", type=int, metavar="RUN_ID", help="undo one applied run")
     args = ap.parse_args(argv)
+    step = ("dry run" if args.dry_run else "latest" if args.latest else "apply" if args.apply
+            else "apply report" if args.apply_report is not None else "undo")
     lines, code = [], 0
     try:
         if args.dry_run:
-            p = plan()
-            lines += ["PASS  dry run - nothing written", *_report_lines(p)]
-        elif args.apply:
-            r = apply(trigger="cli")
+            lines += ["PASS  dry run - nothing written", *_report_lines(plan())]
+        elif args.latest:
+            r = latest()
             if r is None:
-                lines.append("PASS  apply - nothing to re-attach")
+                lines.append("PASS  latest - no re-attach run yet")
             else:
-                lines += [f"PASS  apply - run {r['run_id']}: {r['changed']} cells changed, "
-                          f"{len(r['conflicts'])} conflicts, backup {r['backup']}", *_report_lines(r)]
-                lines += [f"      conflict {c['table']}.{c['column']} row {c['row']}: {c['old']} -> {c['new']}"
-                          for c in r["conflicts"]]
+                sm = r["summary"]
+                lines.append(f"PASS  latest - run {r['run_id']} {r['mode']} ({r['trigger']}) {r['started_at']}"
+                             + (f", undone {r['undone_at']}" if r["undone_at"] else ""))
+                if "strong" in sm:
+                    lines += _report_lines({**{k: sm.get(k, []) for k in ("strong", "weak", "ambiguous", "unmatched")},
+                                            "counts": sm.get("counts", {}), "capped": sm.get("capped")})
+                if "restored" in sm:
+                    lines.append(f"      undo of run {sm.get('undo_of')}: {sm['restored']} restored, "
+                                 f"{len(sm.get('skipped', []))} skipped")
+        elif args.apply:
+            lines += _apply_lines(apply(trigger="cli"))
+        elif args.apply_report is not None:
+            lines += _apply_lines(apply_report(args.apply_report))
         else:
             r = undo(args.undo)
             lines.append(f"PASS  undo - run {args.undo}: {r['restored']} restored, {len(r['skipped'])} skipped")
-            lines += [f"      skipped {s['table']}.{s['column']} row {s['row']} (changed since)" for s in r["skipped"]]
+            by = defaultdict(int)
+            for x in r["skipped"]:
+                by[f"{x['table']}.{x['column']}"] += 1
+            lines += [f"      skipped {k}: {n} (changed since)" for k, n in sorted(by.items())]
     except Exception as exc:
-        lines.append(f"FAIL  {'dry run' if args.dry_run else 'apply' if args.apply else 'undo'} - "
-                     f"{type(exc).__name__}: {exc}")
+        lines.append(f"FAIL  {step} - {type(exc).__name__}: {exc if isinstance(exc, ValueError) else 'see the hub log'}")
         code = 1
     text = "\n".join(lines)
     print(text)

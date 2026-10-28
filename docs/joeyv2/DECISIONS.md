@@ -33,3 +33,6 @@
 ## 2026-10-24 — JY-050 media player answers (B.: "Approve all changes. If I dont need to review any directions of changes, etc. Just close it out and apply the acceptance.")
 - All recommended answers in `docs/specs/JY-050-player-spec.md`: devices PC browser → phone → household TCL TV (Joey TV shell); household only, friends after JY-057; direct play → remux → transcode, 20 Mbps remote cap for friend accounts; no offline downloads in v1; subtitle/audio defaults follow each Jellyfin user; Jellyfin is the single resume record (JY-055); TV shell gets a new signed release after JY-042 with the Jellyfin app kept one release as fallback; success = start within 5 s LAN / 10 s remote, cross-device resume, a week without the Jellyfin app.
 
+
+## 2026-10-29 — Token rules (B.: "Apply all six token recommendations, including the CLAUDE.md rules.")
+- Measured on the orchestrator session: median context 535k tokens per turn, orchestrator 37 % of spend, GitHub traffic ~2 % of tool output. Six rules added to `CLAUDE.md` (handover at ~200k, no images in the orchestrator, short outputs, builders ≤150 turns, one close-out script per item, reviewers read diffs). This week: after JY-259 phases 3-4, Sonnet review and doc work only until the Sunday reset.

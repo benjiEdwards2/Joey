@@ -162,6 +162,8 @@ PRIVATE: tuple = (
     *_each("GET", "/media/posters", "/media/posters/img/{jf_id}"),
     *_each("POST", "/media/posters/{jf_id}/revert", "/media/posters/{jf_id}/restore",   # JY-260 phase 2
            "/media/posters/{jf_id}/original", "/media/posters/{jf_id}/reapply", "/media/posters/{jf_id}/retry"),
+    # JY-265 phase 1: Remove on a title page (owner "you" only, 404 while REMOVE_API is off); never on the media front
+    *_each("GET POST", "/media/remove/{kind}/{tmdb_id}"),
 )
 
 # JY-057 (Q3 A): the subset of the PRIVATE player routes GuestGate serves to the household on the media front, flag on.

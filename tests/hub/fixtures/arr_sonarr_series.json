@@ -1,0 +1,46 @@
+{
+  "note": "JY-265 phase 0 (2026-10-28): GET /api/v3/series?tvdbId= answers a LIST of SeriesResource (Sonarr v4), with seasons[].statistics. Shape from the resource schema, values invented; not a live capture.",
+  "method": "GET",
+  "path": "/api/v3/series",
+  "http_status": 200,
+  "body": [
+    {
+      "id": 9,
+      "title": "Night Ferry",
+      "sortTitle": "night ferry",
+      "status": "continuing",
+      "ended": false,
+      "overview": "Overview.",
+      "network": "Sample",
+      "seasons": [
+        {"seasonNumber": 0, "monitored": false,
+         "statistics": {"episodeFileCount": 0, "episodeCount": 0, "totalEpisodeCount": 2, "sizeOnDisk": 0, "releaseGroups": [], "percentOfEpisodes": 0.0}},
+        {"seasonNumber": 1, "monitored": true,
+         "statistics": {"episodeFileCount": 0, "episodeCount": 10, "totalEpisodeCount": 10, "sizeOnDisk": 0, "releaseGroups": [], "percentOfEpisodes": 0.0}},
+        {"seasonNumber": 2, "monitored": true,
+         "statistics": {"episodeFileCount": 0, "episodeCount": 8, "totalEpisodeCount": 8, "sizeOnDisk": 0, "releaseGroups": [], "percentOfEpisodes": 0.0}}
+      ],
+      "year": 2023,
+      "path": "/data/media/tv/Night Ferry",
+      "qualityProfileId": 6,
+      "seasonFolder": true,
+      "monitored": true,
+      "monitorNewItems": "all",
+      "useSceneNumbering": false,
+      "runtime": 50,
+      "tvdbId": 82002,
+      "tvRageId": 0,
+      "tvMazeId": 0,
+      "tmdbId": 2002,
+      "seriesType": "standard",
+      "cleanTitle": "nightferry",
+      "imdbId": "tt0000002",
+      "titleSlug": "night-ferry",
+      "rootFolderPath": "/data/media/tv",
+      "genres": ["Drama"],
+      "tags": [],
+      "added": "2026-10-20T09:00:00Z",
+      "statistics": {"seasonCount": 2, "episodeFileCount": 0, "episodeCount": 18, "totalEpisodeCount": 20, "sizeOnDisk": 0, "releaseGroups": [], "percentOfEpisodes": 0.0}
+    }
+  ]
+}

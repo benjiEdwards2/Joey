@@ -173,6 +173,12 @@ ENV_OUT = {
     "JELLYFIN_PLAYER_TOKEN_YOU": "write: a household member's own Jellyfin token (player progress); JY-053",
     "JELLYFIN_PLAYER_TOKEN_HER": "write: a household member's own Jellyfin token (player progress); JY-053",
     "JELLYFIN_PUBLIC_URL": "the player's stream host; the player API is off in the preview",
+    # JY-260 posters: unset = off, so the preview runs no poster loop and /media/posters is the 404 page
+    "POSTERS": "JY-260 poster loop stays off in the preview (its `on` mode is the phase-2 Jellyfin image write)",
+    "POSTERS_PER_PASS": "the poster loop is off in the preview",
+    "POSTERS_TEMPLATE_DIR": "the poster loop is off; a NAS mount path that the preview does not have",
+    "POSTERS_AUTO_MIN_RATING": "the poster loop is off in the preview",
+    "POSTERS_DIR": "the poster loop is off in the preview",
 }
 
 

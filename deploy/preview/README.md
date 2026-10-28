@@ -152,3 +152,8 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `JELLYFIN_PLAYER_TOKEN_YOU` | out | write: a household member's own Jellyfin token (player progress); JY-053 |
 | `JELLYFIN_PLAYER_TOKEN_HER` | out | write: a household member's own Jellyfin token (player progress); JY-053 |
 | `JELLYFIN_PUBLIC_URL` | out | the player's stream host; the player API is off in the preview |
+| `POSTERS` | out | the JY-260 poster loop stays off in the preview (its `on` mode is the phase-2 Jellyfin image write) |
+| `POSTERS_PER_PASS` | out | the poster loop is off in the preview |
+| `POSTERS_TEMPLATE_DIR` | out | the poster loop is off; a NAS mount path the preview does not have |
+| `POSTERS_AUTO_MIN_RATING` | out | the poster loop is off in the preview |
+| `POSTERS_DIR` | out | the poster loop is off in the preview |

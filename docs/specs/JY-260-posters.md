@@ -156,6 +156,23 @@ On the 9 real TMDB sources in `JoeyTV\review\JY-260\real-samples\src\`: **388 KB
 - **joey-media** reads `POSTERS` from `media.env`, not `.env`; it serves the store unless `POSTERS=off` is set there too.
 - **UpdateItem** (`POST /Items/{id}`) is sent the full DTO read just before; the pilot should confirm on B.'s Jellyfin that nothing else on the item changes.
 
+## Distinct images per season (branch `feat/JY-260-season-images`, stacked on `feat/JY-262-ranked-backdrops`)
+
+B., 2026-10-28:
+
+> "If a season has more than 2 seasons. Can you continue to grab new images or closely related images?"
+
+Before: a season with no TMDB season poster borrowed the series poster, so long shows repeated one picture. Now (`media_posters.plan_season_art`), per show, no repeats:
+1. The season's own TMDB posters (RemoteImages on the Season item): text-less first, then rating, then votes.
+2. Else the **next unused series poster** in rank order: the series keeps #1, the first season without its own art #2, the next #3, ...
+3. Else a **series TMDB backdrop** cropped to 2:3 by the renderer's centred cover crop (no saliency guess: Pillow has no cheap one), the backdrops not used as the show's Home / title backdrops (#1, #2) first. A 4K backdrop decodes within the cap (`MAX_DECODED_JPEG` 8.4 M pixels); over the 5 MB fetch cap it is fetched at w1280.
+4. Nothing left: the series poster, as before.
+
+The plan is stored in the series sidecar (`season_art`) and re-made only when the season list is re-read (daily) or a season is new; a season keeps its borrowed picture unless its own TMDB poster appears; a new season takes the next unused one. A season's picture URL is part of its version, so a change re-renders it. A plan that cannot be made keeps the previous one. No network on render.
+
+Samples (read-only lists through Jellyfin, art from the TMDB CDN): `JoeyTV\review\JY-260\season-images\contact-sheet.jpg` (+ `samples.log`): Suits, 9 seasons; row 1 with its own season posters (10 distinct), row 2 forcing the fallbacks as if no season had art (10 distinct series posters).
+
+Tests (`tests/hub/test_season_images.py`): 5 seasons with 2 own get 5 different pictures; backdrops not used for Home / title first; stable across passes (a TMDB re-rank moves nobody, a settled show reads nothing); a season gaining its own poster takes it; a new season gets the next unused picture; nothing left = the series poster; a failed plan keeps the old one; no network on the review page render.
 ## Titles fill the width, in Geist Black (2026-10-28, branch `feat/JY-260-title-fill`)
 
 B., 2026-10-28:

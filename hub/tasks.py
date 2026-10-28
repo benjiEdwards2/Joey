@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from hub import guest, media_awards, media_backup, media_follow, media_plays, media_posters, media_warmup, shell
+from hub import guest, library_index, media_awards, media_backup, media_follow, media_plays, media_posters, media_warmup, shell
 from hub import server as server_area
 from hub import server_alerts, server_digest, server_history, server_uptime, server_visits
 from hub.store import get_snapshots as _read_snapshots
@@ -98,6 +98,14 @@ def _media_posters_loop():
                   lambda: media_posters.tick(_read_snapshots))
 
 
+def _library_index_loop():
+    """JY-264: keep the library index current from the jellyfin snapshot (a sync only when its library lists were
+    re-fetched, at most every 15 min) and re-attach Joey's rows after a Jellyfin rebuild (hub/library_reattach.py).
+    Reads local files only, except one episode list per affected series during a re-attach. LIBRARY_INDEX=off stops it."""
+    return _every("library index", library_index.FIRST_DELAY_S, library_index.EVERY_S,
+                  lambda: library_index.tick(_read_snapshots))
+
+
 def prewarm() -> dict:
     """E1 (2026-10-13): the first request after a deploy no longer pays the Jinja compiles and the snapshot parses -
     every template is compiled and every envelope parsed once at startup. -> counts; never raises."""
@@ -135,6 +143,7 @@ async def lifespan(_: FastAPI):
         None if media_follow.disabled() else asyncio.create_task(_media_follow_loop()),
         None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),
         None if media_posters.disabled() else asyncio.create_task(_media_posters_loop()),   # JY-260
+        None if library_index.disabled() else asyncio.create_task(_library_index_loop()),   # JY-264
     ]
     yield
     server_visits.flush()   # JY-134: commit each viewer's in-memory last_seen (written at most once a minute)

@@ -56,7 +56,7 @@ def test_show_rows_status_words_and_counts(data):
     by = {s["title"]: s for s in data["shows"]}
     assert set(by["Quiet Coast"]) == {
         "title", "year", "jf_id", "item_key", "poster", "backdrop", "status_word", "episodes", "unplayed",
-        "played", "last_played_at", "added_at", "community_rating", "genres"}
+        "played", "last_played_at", "added_at", "community_rating", "genres", "tvdb"}   # tvdb: JY-264, optional
     assert (by["Quiet Coast"]["status_word"], by["Quiet Coast"]["unplayed"], by["Quiet Coast"]["episodes"]) == ("Continuing", 7, 18)
     assert (by["Night Ferry"]["status_word"], by["Night Ferry"]["played"], by["Night Ferry"]["unplayed"]) == ("Ended", True, 0)
     never = by["Garden Lane"]
@@ -126,3 +126,25 @@ def test_sample_snapshot_carries_the_lists():
     sample = json.loads((ROOT / "config" / "sample_snapshots" / "jellyfin.json").read_text(encoding="utf-8"))
     assert len(sample["data"]["movies"]) >= 4 and len(sample["data"]["shows"]) >= 3
     assert sample["data"]["her"]["movies"] and sample["data"]["her"]["shows"]
+
+
+def test_rows_carry_path_tvdb_and_imdb_only_when_jellyfin_gave_them(snapshots, raw):
+    """JY-264 (2026-10-28): additive, optional row keys for the hub's library index (re-attach after a rebuild)."""
+    raw = copy.deepcopy(raw)
+    raw["raw_movies"]["Items"] = [
+        {"Id": "m1", "Name": "Full", "Path": "/data/media/movies/Full (2020)/Full.mkv",
+         "ProviderIds": {"Tmdb": "11", "Imdb": "tt0000011"}},
+        {"Id": "m2", "Name": "Bare"}]
+    raw["raw_shows"]["Items"] = [{"Id": "s1", "Name": "Show", "Path": "/data/media/tv/Show",
+                                  "ProviderIds": {"Tvdb": "99", "Tmdb": "12"}, "RecursiveItemCount": 3}]
+    out = Jellyfin().transform(raw)
+    jsonschema.validate(out, SCHEMA)
+    full, bare = out["movies"]
+    assert (full["path"], full["imdb"], full["item_key"]) == ("/data/media/movies/Full (2020)/Full.mkv", "tt0000011", "tmdb:11")
+    assert "tvdb" not in full and not {"path", "tvdb", "imdb"} & set(bare)
+    show = out["shows"][0]
+    assert (show["path"], show["tvdb"], show["item_key"]) == ("/data/media/tv/Show", "99", "tmdb:12")
+
+
+def test_library_lists_ask_jellyfin_for_the_path():
+    assert Jellyfin.MOVIE_FIELDS.endswith(",Path") and Jellyfin.SHOW_FIELDS.endswith(",Path")

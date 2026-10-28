@@ -537,13 +537,13 @@ def test_an_existing_v5_db_with_data_upgrades_to_v6_and_keeps_every_row(tmp_path
     media_store.reset()
     media_store.forget()
     with closing(media_store.connect()) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
         assert conn.execute("SELECT COUNT(*) FROM media_removals").fetchone()[0] == 0
         for t, rows in before.items():
             assert [tuple(r) for r in conn.execute(f'SELECT * FROM "{t}" ORDER BY rowid')] == rows, t
     media_store.forget()
-    with closing(media_store.connect()) as conn:                        # a second open: idempotent, still v6
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+    with closing(media_store.connect()) as conn:                        # a second open: idempotent, still the latest (v7 since JY-264)
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
     media_store.reset()
 
 

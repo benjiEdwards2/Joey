@@ -148,11 +148,11 @@ def test_live_fetch_calls_the_documented_endpoints(live, monkeypatch, raw):
     assert envelope["data"]["history"]["recent"][0]["title"].startswith("Quiet Coast")
     assert calls[8][2] == {"IncludeItemTypes": "Movie", "Recursive": "true", "SortBy": "SortName",
                            "SortOrder": "Ascending", "Limit": 2000,
-                           "Fields": "DateCreated,ProviderIds,Genres,ProductionYear,Overview"}
+                           "Fields": "DateCreated,ProviderIds,Genres,ProductionYear,Overview,Path"}
     assert calls[9][2] == {"IncludeItemTypes": "Series", "Recursive": "true", "SortBy": "SortName",
                            "SortOrder": "Ascending", "Limit": 2000,
                            "Fields": "DateCreated,ProviderIds,Genres,ProductionYear,Status,"
-                                     "RecursiveItemCount,Overview"}
+                                     "RecursiveItemCount,Overview,Path"}   # JY-264: + Path
     assert [m["title"] for m in envelope["data"]["movies"]][0] == "The Long Road Home"
     jsonschema.validate(envelope["data"], SCHEMA)
 

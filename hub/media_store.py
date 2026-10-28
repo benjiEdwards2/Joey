@@ -86,7 +86,13 @@ def _removals(db) -> None:   # JY-265 (2026-10-28): the Remove audit log (hub/me
     db.commit()
 
 
-STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating, _removals)   # STEPS[n]: user_version n -> n + 1
+def _library_index(db) -> None:   # JY-264 (2026-10-28): the library index + the re-attach's audit tables
+    from hub import library_index
+    library_index.migrate(db)
+
+
+STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating, _removals,
+         _library_index)   # STEPS[n]: user_version n -> n + 1. Deploy order: never reorder a step that has shipped.
 SCHEMA_VERSION = len(STEPS)
 
 _ready: set[tuple] = set()      # files already brought up to date by this process

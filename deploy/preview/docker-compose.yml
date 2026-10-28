@@ -42,6 +42,8 @@ services:
       DIGEST: "off"
       # JY-260 phase 2: POSTERS defaults to dry; a preview never renders, serves or writes Joey posters
       POSTERS: "off"
+      # JY-264: no library index sync and no re-attach of media.db rows in a preview
+      LIBRARY_INDEX: "off"
       # the PRIVATE front, pinned (JY-228): a stray JOEY_FRONT=media must never turn the preview into the guest front
       JOEY_FRONT: ""
     labels:

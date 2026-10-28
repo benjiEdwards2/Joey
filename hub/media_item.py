@@ -15,7 +15,7 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 
-from hub import img_access, media_db, media_files, media_plays_db
+from hub import img_access, library_index, media_db, media_files, media_plays_db
 from hub.media_cache import LRU
 from hub.media_discover import _date_words
 from hub.media_library import runtime_text
@@ -206,6 +206,7 @@ def _build(jf_id: str) -> dict:
     kind = KINDS.get(str(raw.get("Type")))
     if kind is None:
         raise ValueError("unsupported item type")
+    library_index.note_item(raw)   # JY-264: a cache miss indexes the item (ids, path, numbers); never raises
     today = date.today().isoformat()
     series_id = raw.get("SeriesId") if kind in ("episode", "season") else (raw["Id"] if kind == "series" else None)
     tmdb = (raw.get("ProviderIds") or {}).get("Tmdb") if kind in ("movie", "series") else None

@@ -133,7 +133,7 @@ def test_an_existing_v4_db_migrates_to_v5_and_the_table_is_idempotent(db):
     media_store.reset()
     media_store.forget()
     with closing(media_store.connect()) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(episode_rating)")]
         assert cols[:7] == ["series_imdb", "season", "episode", "rating", "votes", "episode_imdb", "fetched_at"]
         assert [r["name"] for r in conn.execute("PRAGMA table_info(episode_rating)") if r["pk"]] == \

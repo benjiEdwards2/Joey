@@ -414,6 +414,13 @@ Fetched in `connectors/feeds/jellyfin.py` (`Jellyfin`) with `GET /Users/{uid}/It
 sweep, four with `JELLYFIN_USER_HER`. Snapshots written before this have neither array and stay
 valid; the hub library pages then say "Library list not available yet".
 
+**Jellyfin library ids for the re-attach (2026-10-28, JY-264).** Additive and optional (schema properties, not
+required): movie and show rows gain `path` (the file or series folder), `tvdb` and `imdb` (strings), each present only
+when Jellyfin gave it; `tmdb` stays in `item_key`. `MOVIE_FIELDS` / `SHOW_FIELDS` add `Path`, nothing else changes
+(same calls, same cadence). The hub's library index (`hub/library_index.py`) reads them to re-attach ratings, diary and
+play rows after a Jellyfin rebuild re-mints item ids (`hub/library_reattach.py`). The media front drops `path`
+(`hub/guest.py` ROW_DROP).
+
 **Jellyfin partial-ok (2026-10-09, C-09).** Only the core calls (users, system, sessions, resume, next up,
 latest, counts, history) can fail the `jellyfin` feed. The library lists and every `her` call are optional:
 one that fails is logged with its sanitised reason (`Jellyfin movies failed (Timeout)`) and the envelope stays

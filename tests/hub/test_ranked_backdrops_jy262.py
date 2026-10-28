@@ -245,3 +245,54 @@ def test_the_home_hero_chain_is_unchanged_without_stored_backdrops(monkeypatch):
     put(HERO, (200, 0, 0))
     hero = tv_home.backdrop({"poster": f"jf:{HERO}"}, {"movies": [{"jf_id": HERO, "backdrop": f"jfb:{HERO}"}]})
     assert hero["ref"] == f"jfs:{HERO}/1"
+
+
+# ---- review of #261 (2026-10-28): the web Home hero, the rate cap, the backoff ----
+
+def test_the_web_home_hero_draws_stored_backdrop1_with_its_version():
+    from hub import media_home, shell
+    jelly = {"latest": [{"title": "Silo", "jf_id": SHOW, "backdrop": f"jfb:{SHOW}", "added_at": "2026-10-01T00:00:00Z"}]}
+    assert media_home.media_hero(jelly, None)["backdrop"] == f"jfb:{SHOW}"           # none stored: as before
+    put(SHOW, (200, 0, 0), (0, 200, 0))
+    hero = media_home.media_hero(jelly, None)
+    assert hero["backdrop"] == f"jfs:{SHOW}/1"
+    html = shell.templates.env.from_string('{% from "_pagehead.html" import pagehead %}'
+                                           '{% call pagehead("Media", backdrop=bd) %}{% endcall %}').render(bd=hero["backdrop"])
+    assert f"jfs%3A{SHOW}%2F1?h=1280&amp;v={ms.backdrop_version(SHOW, 1)}" in html or \
+        f"jfs:{SHOW}/1?h=1280&amp;v={ms.backdrop_version(SHOW, 1)}" in html
+    assert "--bd-sm" not in html
+
+
+def test_the_backdrop_step_counts_against_the_pass_limit(bdfakes, monkeypatch):
+    """The rate cap: POSTERS_PER_PASS bounds renders AND backdrop fetches together."""
+    jf, tmdb, out, lists = bdfakes
+    monkeypatch.setenv("POSTERS_PER_PASS", "3")
+    first = mp.dry_pass(snaps(LIB), pause=0)
+    assert first["rendered"] + first["backdrops"] == 3 and first["more"] is True
+    assert [ms.backdrop_path(j, 1) is not None for j in ("b" * 32, "a" * 32, SHOW)].count(True) == first["backdrops"]
+    total = first["backdrops"]
+    while True:
+        got = mp.dry_pass(snaps(LIB), pause=0)
+        assert got["rendered"] + got["backdrops"] + got["no_source"] + got["failed"] <= 3
+        total += got["backdrops"]
+        if not got["more"]:
+            break
+    assert total == 3                                                          # every film and series, once
+
+
+def test_a_failing_backdrop_fetch_backs_off_after_three_tries(bdfakes, monkeypatch):
+    jf, tmdb, out, lists = bdfakes
+    tmdb.routes = {k: v for k, v in tmdb.routes.items() if "/w1280/" not in k}   # the backdrop art never answers
+    for _ in range(3):
+        assert mp.dry_pass(snaps(LIB), pause=0)["backdrops"] == 0
+    meta = ms.read_meta(SHOW)
+    assert meta["backdrops_fails"] == 3 and meta["backdrops_retry_at"]
+    jf.calls.clear()
+    got = mp.dry_pass(snaps(LIB), pause=0)
+    assert got["backoff"] >= 3 and got["failed"] == 0
+    assert not [u for u, p in zip(jf.calls, jf.params) if (p or {}).get("type") == "Backdrop"]
+    monkeypatch.setattr(mp, "in_backoff_until", lambda retry_at, now=None: False)   # a day later
+    tmdb.routes.update({f"/w1280/{k}.jpg": (lambda: Resp(data=jpeg((9, 9, 9)), ctype="image/jpeg"))
+                        for k in ("bd-one", "bd-two")})
+    assert mp.dry_pass(snaps(LIB), pause=0)["backdrops"] == 3
+    assert "backdrops_fails" not in ms.read_meta(SHOW)                       # a success clears the count

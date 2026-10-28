@@ -392,6 +392,10 @@ def _stamp(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def in_backoff_until(retry_at, now: datetime | None = None) -> bool:
+    return bool(retry_at) and _stamp(now or datetime.now(timezone.utc)) < str(retry_at)
+
+
 def in_backoff(row: dict | None, now: datetime | None = None) -> bool:
     retry = (row or {}).get("retry_at")
     if not retry:
@@ -592,17 +596,29 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         """JY-262 follow-up: a film's or series' two top-ranked TMDB backdrops into the store, at most monthly."""
         if not backdrops_on() or not side or not side.get("jf_id") or full() or not backdrops_due(side):
             return
+        if in_backoff_until(side.get("backdrops_retry_at")):   # 3 failures in a row: passed over for 24 h
+            counts["backoff"] += 1
+            return
         try:
             got = fetch_backdrops(t["jf_id"])
             meta = store.read_meta(t["jf_id"]) or side
+            meta = {k: v for k, v in meta.items() if k not in ("backdrops_fails", "backdrops_retry_at")}
             store.write_meta(t["jf_id"], {**meta, "backdrops": [x["url"] for x in got["picks"]],
                                           "backdrops_at": time.time()})
             counts["backdrops"] += 1
             if pause:
                 time.sleep(pause)
-        except Exception as exc:   # nothing changed: retried next pass
+        except Exception as exc:   # nothing stored: retried next pass; the 3rd failure in a row backs off 24 h
             counts["failed"] += 1
             log.warning("posters: backdrops failed: %s", type(exc).__name__)
+            meta = store.read_meta(t["jf_id"]) or side
+            fails = int(meta.get("backdrops_fails") or 0) + 1
+            retry = (_stamp(datetime.now(timezone.utc) + timedelta(seconds=BACKOFF_S))
+                     if fails >= FAILS_BEFORE_BACKOFF else None)
+            try:
+                store.write_meta(t["jf_id"], {**meta, "backdrops_fails": fails, "backdrops_retry_at": retry})
+            except (OSError, ValueError):
+                pass
 
     def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None) -> dict | None:
         """Render one item unless its version is already stored. -> its sidecar (None on failure: retried later)."""

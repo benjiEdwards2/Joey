@@ -62,7 +62,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | JY-054 | Web/phone player | Media player | L | [x] shipped | Joey plays the film itself · live · PR #215 | [spec](docs/specs/JY-054-web-phone-player.md) |
 | JY-055 | Progress, resume, watched synced to Jellyfin | Media player | M | [x] shipped | Stop on one device, resume on another · PR #221 | [spec](docs/specs/JY-055-resume-watched-sync.md) |
 | JY-056 | Audio + subtitle track picker | Media player | M | [x] shipped | Covered by JY-054's track picker (no new build); checked in JY-055 (PR #221) and confirmed by its review | — |
-| JY-057 | TV shell player (new signed release) | Media player | L | idea | Replaces the Jellyfin-app hand-off · live · Engine: B. 2026-10-27 "1A" = Media3 ExoPlayer without the FFmpeg extension (Jellyfin's server FFmpeg remuxes/transcodes) | — |
+| JY-057 | TV shell player (new signed release) | Media player | L | [x] shipped | Replaces the Jellyfin-app hand-off · live · Engine: B. 2026-10-27 "1A" = Media3 ExoPlayer without the FFmpeg extension (Jellyfin's server FFmpeg remuxes/transcodes) · PR #219 | [spec](docs/specs/JY-057-tv-shell-player.md) |
 | JY-058 | Friends' path + security gate | Media player | L | idea | Only if the spec says friends · live | — |
 | JY-059 | Move Jellyfin transcoding onto the new box | Media player | L | idea | Needs the box bought · B.'s hands · live | — |
 

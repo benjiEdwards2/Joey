@@ -258,8 +258,7 @@ def test_the_web_home_hero_draws_stored_backdrop1_with_its_version():
     assert hero["backdrop"] == f"jfs:{SHOW}/1"
     html = shell.templates.env.from_string('{% from "_pagehead.html" import pagehead %}'
                                            '{% call pagehead("Media", backdrop=bd) %}{% endcall %}').render(bd=hero["backdrop"])
-    assert f"jfs%3A{SHOW}%2F1?h=1280&amp;v={ms.backdrop_version(SHOW, 1)}" in html or \
-        f"jfs:{SHOW}/1?h=1280&amp;v={ms.backdrop_version(SHOW, 1)}" in html
+    assert f"/img/jfs%3A{SHOW}/1?h=1280&amp;v={ms.backdrop_version(SHOW, 1)}" in html   # urlencode keeps the /
     assert "--bd-sm" not in html
 
 

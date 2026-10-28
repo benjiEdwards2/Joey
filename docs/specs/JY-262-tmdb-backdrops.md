@@ -1,6 +1,6 @@
 # JY-262 TMDB backdrops: the first on Home, the second on the title page
 
-Status: building on `feat/JY-262-tmdb-backdrops`
+Status: shipped 2026-10-28
 Size: M
 Live risk: none beyond a normal hub deploy (templates are unchanged; which backdrop URL the friends' TV pages ask for changes on the next deploy). No `tv/` change, no TV release.
 Area: `hub/media_backdrop.py` (new), `hub/images.py` (the `/img` ref grammar), `hub/media_item.py` (a backdrop count on the item read), `hub/media_film.py` (the title page's backdrop line), `hub/tv_home.py` (the Home hero chain), `tests/hub/test_tmdb_backdrops_jy262.py` (new).
@@ -57,4 +57,8 @@ A friend's backdrops come from their own reads only: the item read is cached per
 - [ ] Web and phone title pages: same choice, nothing else changed.
 
 ## Shipped notes
-Not yet.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #250, squash-merged as `7737283` (7737283f6494f6731d7063f3e45e9a805ca18b0a).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-28: "For the main image or background of the movie or series shown when highlighted or as a main image, etc. I would like the background to be used from TMBD. This can use the first background as the home page or carousel image, then if you go into the show. It shows the second background image or such.""
+- Follow-ups: none

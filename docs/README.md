@@ -8,6 +8,7 @@
 - `network.md` - the Joey ↔ media stack shared Docker network: what changed in compose, the NAS `.env` follow-up, ports that could close.
 - `connector-contract.md` - the frozen envelope, every feed, and the numbered live-call exceptions.
 - `style-guide.md` - the MediaHub style guide Joey adopted, with Joey's dated deviations.
+- `posters-template-guide.md` - JY-260: refining the poster template kit in Canva (exports, safe areas, fonts, previews).
 - `hub-changelog.md` - the dated narrative of how the hub got its current shape (architecture: `hub/README.md`).
 - `server-updates-live-check.md` - the one-off live check of the Server "Update now" button.
 - `joeyv2/` - how Joey is run since 2026-10-23 (MediaHub model): the JoeyV2 plan with every JY item, its decisions, research, and Jack's workflow doc.

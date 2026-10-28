@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from hub import guest, media_awards, media_backup, media_follow, media_plays, media_warmup, shell
+from hub import guest, media_awards, media_backup, media_follow, media_plays, media_posters, media_warmup, shell
 from hub import server as server_area
 from hub import server_alerts, server_digest, server_history, server_uptime, server_visits
 from hub.store import get_snapshots as _read_snapshots
@@ -90,6 +90,13 @@ def _media_awards_loop():
     return _every("media awards", media_awards.FIRST_DELAY_S, media_awards.TICK_S, lambda: media_awards.tick())
 
 
+def _media_posters_loop():
+    """JY-260 phase 1: render new / stale Joey posters into the dry cache (hub/media_posters.py) ~3 min after startup,
+    then hourly, at most POSTERS_PER_PASS a pass. POSTERS=off (the default) starts nothing; no Jellyfin write exists."""
+    return _every("media posters", media_posters.FIRST_DELAY_S, media_posters.EVERY_S,
+                  lambda: media_posters.dry_pass(_read_snapshots()))
+
+
 def prewarm() -> dict:
     """E1 (2026-10-13): the first request after a deploy no longer pays the Jinja compiles and the snapshot parses -
     every template is compiled and every envelope parsed once at startup. -> counts; never raises."""
@@ -126,6 +133,7 @@ async def lifespan(_: FastAPI):
         None if media_warmup.disabled() else asyncio.create_task(_media_warmup_loop()),
         None if media_follow.disabled() else asyncio.create_task(_media_follow_loop()),
         None if media_awards.disabled() else asyncio.create_task(_media_awards_loop()),
+        None if media_posters.disabled() else asyncio.create_task(_media_posters_loop()),   # JY-260
     ]
     yield
     server_visits.flush()   # JY-134: commit each viewer's in-memory last_seen (written at most once a minute)

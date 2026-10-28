@@ -158,6 +158,8 @@ PRIVATE: tuple = (
     *_each("GET POST PUT PATCH DELETE OPTIONS", "/api/play", "/api/play/{rest:path}"),   # its 404 catch-all (no 405 / 307)
     # JY-054 player page (household only, private front): one method-agnostic route, 404 unless served (no 405 / 307)
     *_each("GET POST PUT PATCH DELETE OPTIONS", "/media/watch", "/media/watch/{rest:path}"),
+    # JY-260 phase 1: the poster review page + its proposed images (household only, 404 while POSTERS is off)
+    *_each("GET", "/media/posters", "/media/posters/img/{jf_id}"),
 )
 
 # JY-057 (Q3 A): the subset of the PRIVATE player routes GuestGate serves to the household on the media front, flag on.

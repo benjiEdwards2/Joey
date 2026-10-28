@@ -237,6 +237,12 @@ a.row:hover { background: var(--soft); }
 @media (hover: hover) { .card-poster:hover img { transform: translateY(-4px); } }
 .card-poster .row-title { margin-top: 6px; font-size: 12px; font-weight: 500; color: var(--text-2); }
 .card-poster .row-meta { font-size: 11px; }
+/* JY-260 poster review: each title is a pair (now | Joey poster) with its caption under both */
+.posterpairs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 20px; margin-top: 16px; }
+@media (min-width: 768px) { .posterpairs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .posterpairs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.posterpair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; min-width: 0; }
+.posterpair-cap { grid-column: 1 / -1; min-width: 0; }
 
 /* Panel (a card/surface box) and the empty state */
 .panel { border-radius: 16px; border: 1px solid var(--border); background: var(--surface); padding: 16px; }

@@ -49,6 +49,8 @@ services:
       - /volume1/Docker/joey/data/sqlite:/data/sqlite
       # media.db backups (2026-10-05): daily gzip dumps from the hub; host dir owned by uid 1000.
       - /volume1/Docker/joey/backups/media:/data/backups/media
+      # JY-260: B.'s poster template kit (docs/posters-template-guide.md); read-only, empty = the starter kit
+      - /volume1/Docker/joey/posters/template:/data/posters/template:ro
     # NO public ports. The hub is reached only through the Cloudflare tunnel
     # container, which WP11 fronts it with on the compose network.
     expose:

@@ -22,7 +22,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from hub import guest_auth, media_because, media_front, media_home, media_item, media_library, media_text, tv_home, upstream
+from hub import guest_auth, img_access, media_because, media_front, media_home, media_item, media_library, media_text, tv_home, upstream
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
 log = logging.getLogger("hub.media_guest_home")
@@ -118,6 +118,8 @@ def read_shelf(request, shelf: str) -> list[dict] | None:
         if len(_cache) >= CACHE_MAX:
             _cache.clear()
         _cache[key] = (clock(), rows)
+    img_access.note(uid, [{"jf_id": str(i.get("Id") or ""), "show_id": str(i.get("SeriesId") or "")} for i in items
+                          if isinstance(i, dict)])   # JY-263: the ids these shelves draw images for
     return [dict(r) for r in rows]
 
 

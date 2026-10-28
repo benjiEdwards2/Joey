@@ -301,6 +301,8 @@ SOURCES = [
     ("B. in chat (2026-10-28)", "TMDB poster upgrade", "JY-260", "later plan"),
     ("B. in chat (2026-10-28)", "Replace Jellyfin study", "JY-261", "parked until TV + friends are flawless"),
     ("B. in chat (2026-10-28)", "TMDB backdrops 1 and 2", "JY-262", "home hero vs title page"),
+    ("B. in chat (2026-10-28)", "Image access check", "JY-263", "JY-262 review finding"),
+    ("B. in chat (2026-10-28)", "Engine seam", "JY-264", "JY-261 study finding"),
 ]
 
 

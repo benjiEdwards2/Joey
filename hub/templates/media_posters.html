@@ -7,9 +7,9 @@
 {% endblock %}
 {% block content %}
 {% from "_rows.html" import meta %}
-{# JY-260 phase 1 (2026-10-28): the dry-run review. Each title: what Jellyfin shows now (left) beside the Joey poster the
-   template kit makes (right). Household only; rendered from the local cache, never from the network. Nothing on this
-   page writes anywhere - approving and writing are phase 2. #}
+{# JY-260 (2026-10-28): the spot-check page. Each title: Jellyfin's poster (left) beside the stored Joey poster (right).
+   Household only; rendered from the local store + media.db, never from the network. Phase 2: every poster is served
+   without approval; "Revert" per title shows (and, with write-back on, restores) the original. #}
 <p class="metaline">{{ head_line }}</p>
 <p class="metaline">{{ kit_words }}</p>
 {% if problems %}
@@ -38,6 +38,9 @@
     <div class="row-title">{{ r.title }}</div>
     {% set cut %}<span class="st-warn">Title cut short</span>{% endset %}
     {{ meta([r.kind_word, r.sub or none, r.words, "Old template" if r.stale else none, cut if r.truncated else none]) }}
+    {% if r.status == "rendered" %}<form method="post" action="/media/posters/{{ r.jf_id }}/{{ 'restore' if r.reverted else 'revert' }}">
+      <button type="submit" class="btn btn-secondary btn-sm">{{ "Use the Joey poster" if r.reverted else "Revert to the original" }}</button>
+    </form>{% endif %}
   </div>
 </section>
 {% endfor %}

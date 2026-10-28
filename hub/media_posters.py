@@ -1,53 +1,70 @@
-"""JY-260 phase 1: pick each title's TMDB poster and render the Joey poster into a local cache (spec
-docs/specs/JY-260-posters.md). Nothing here writes to Jellyfin; that is phase 2, behind B.'s own poster write key (Q4A).
+"""JY-260: pick each title's TMDB poster, render the Joey poster into the local store, serve it, and (phase 2, behind
+B.'s own key) write it back to Jellyfin. Spec docs/specs/JY-260-posters.md.
 
-* `POSTERS=off|dry|on` (default off). `dry`: the background loop (hub/tasks.py) renders up to POSTERS_PER_PASS titles
-  per pass into POSTERS_DIR (default <IMG_CACHE_DIR>/posters): `<jf_id>.jpg` + `<jf_id>.json`. `on` is phase 2: for
-  now it logs once and does exactly what `dry` does.
+* `POSTERS=off|dry|on` (default dry since phase 2). `dry`: the background loop (hub/tasks.py) renders every film,
+  series and real season into the store (hub/media_posters_store.py) and /img serves it from there. `on`: the same,
+  plus the Jellyfin write-back (hub/media_posters_write.py), which runs only while B.'s poster write key is set.
+* Phase 2 (B. 2026-10-28, "a full replacement of all"): no approval wait. POSTERS_AUTO_MIN_RATING stays as a lever,
+  default 0 = every poster; a pick under a set threshold is rendered but neither served nor written.
 * The pick (Q3A): Jellyfin's own RemoteImages list for the item (its bundled TMDB key, no new secret). Text-less
   (no language) first, then English, then anything else; within each, more votes, then more pixels. Art is fetched
   only from image.tmdb.org, capped at 5 MB like /img.
-* Order (Q9A): recently added first, then A-Z. A title re-renders when the template kit or its words change; a title
-  with no TMDB poster is recorded (`no_source`) and not asked again until the template changes. An upstream failure
-  writes nothing, so the next pass retries it.
-* The review page (hub/media_posters_pages.py) reads only what this writes: no network on render.
+* The backfill (Q9A): recently added first, then A-Z, POSTERS_PER_PASS a pass, a pass every TICK_S while work is
+  left (hourly once done). Progress lives in media.db (`poster`, `poster_progress`), so a restart resumes where it
+  stopped: an item whose version is already stored is passed over with no network call. The memory gate skips a pass
+  under MIN_AVAILABLE_MB. New titles arrive through the jellyfin snapshot like any other.
+* The review page (hub/media_posters_pages.py) reads only local files and media.db: no network on render.
 Logs carry counts and exception types only, never a URL, key or name.
 """
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
-import json
 import logging
 import os
-import tempfile
+import sqlite3
+import threading
 import time
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
-from hub import images, media_item, media_jellyfin, upstream
+from hub import images, media_item, media_jellyfin, media_store, upstream
 from hub import media_posters_render as render
+from hub import media_posters_store as store
 
 log = logging.getLogger("hub.media_posters")
 
 MODES = ("off", "dry", "on")
+DEFAULT_MODE = "dry"   # phase 2 (2026-10-28): render into the store and serve from it; write-back needs its own key
 FIRST_DELAY_S = 180
-EVERY_S = 3600
+TICK_S = 300          # a pass every 5 min while the backfill has work left ...
+EVERY_S = 3600        # ... and hourly once it is through (new titles, template changes, drift)
 PER_PASS = 30
 PAUSE_S = 2.0
 TMDB_ART = "https://image.tmdb.org/t/p/"
 DEFAULT_TEMPLATE_DIR = "/data/posters/template"
-AUTO_MIN_RATING = 6.0
+AUTO_MIN_RATING = 0.0   # phase 2: every poster (B. 2026-10-28); the 6.0 rule of phase 1 is superseded
 SEASONS_TTL_S = 24 * 3600   # a series' season list is re-read at most daily
 MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
 MEMORY_STALE_MIN = 15
-_warned_on = {"done": False}
+_tick = {"at": 0.0, "more": True}
+
+DDL = (
+    """CREATE TABLE IF NOT EXISTS poster(
+        jf_id TEXT PRIMARY KEY, kind TEXT NOT NULL, ver TEXT, template TEXT, status TEXT NOT NULL,
+        reverted INTEGER NOT NULL DEFAULT 0, bytes INTEGER, rendered_at TEXT,
+        orig_ext TEXT, orig_tag TEXT, live_ver TEXT, live_tag TEXT, locked_by_us INTEGER NOT NULL DEFAULT 0,
+        written_at TEXT, checked_at TEXT, last_error TEXT)""",
+    "CREATE TABLE IF NOT EXISTS poster_progress(key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+)
+_ddl_done: set[str] = set()
+_ddl_lock = threading.Lock()
 
 
 def mode() -> str:
     v = os.environ.get("POSTERS", "").strip().lower()
-    return v if v in MODES else "off"
+    return v if v in MODES else DEFAULT_MODE
 
 
 def disabled() -> bool:
@@ -66,8 +83,8 @@ def per_pass() -> int:
 
 
 def auto_min_rating() -> float:
-    """POSTERS_AUTO_MIN_RATING (default 6.0 = 3 of 5 stars): a pick whose TMDB rating is at least this is approved
-    without review (B. 2026-10-28, replaces Q2B's 5-vote rule); lower or unrated waits for B."""
+    """POSTERS_AUTO_MIN_RATING (default 0 = every poster, B. 2026-10-28). Above 0, a pick whose TMDB rating is under
+    it (or unrated) is rendered for the review page but not served or written."""
     try:
         return max(0.0, min(10.0, float(os.environ.get("POSTERS_AUTO_MIN_RATING", "").strip())))
     except ValueError:
@@ -75,12 +92,15 @@ def auto_min_rating() -> float:
 
 
 def auto_approves(chosen: dict | None) -> bool:
+    floor = auto_min_rating()
+    if floor <= 0:
+        return True
     rating = (chosen or {}).get("rating")
-    return isinstance(rating, (int, float)) and not isinstance(rating, bool) and rating >= auto_min_rating()
+    return isinstance(rating, (int, float)) and not isinstance(rating, bool) and rating >= floor
 
 
 def out_dir() -> Path:
-    return Path(os.environ.get("POSTERS_DIR", "").strip() or images.cache_dir() / "posters")
+    return store.out_dir()
 
 
 def template_dir() -> Path:
@@ -193,7 +213,7 @@ def fetch_art(url: str) -> bytes | None:
             close()
 
 
-# ---- targets and the cache ----
+# ---- targets ----
 
 def targets(jelly: dict) -> list[dict]:
     """Every film and series in the jellyfin snapshot (both profiles, de-duplicated), recently added first, then A-Z."""
@@ -223,72 +243,130 @@ def _text_hash(title: str, sub: str) -> str:
     return hashlib.sha256(f"{title}\0{sub}".encode("utf-8")).hexdigest()[:12]
 
 
-def _read_side(path: Path) -> dict | None:
-    try:
-        side = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return side if isinstance(side, dict) else None
-
-
-def _write_atomic(path: Path, data: bytes) -> None:
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.stem[:16] + ".", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-        os.replace(tmp, path)
-    except OSError:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp)
-        raise
-
-
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def rows() -> list[dict]:
-    """The cache's sidecars, Q9A order (the review page; local files only)."""
-    folder = out_dir()
+# ---- media.db: per-item state + the backfill progress ----
+
+def _ensure(db) -> None:
+    key = str(media_store.db_path())
+    if key in _ddl_done:
+        return
+    with _ddl_lock:
+        for ddl in DDL:
+            db.execute(ddl)
+        db.commit()
+        _ddl_done.add(key)
+
+
+def connect():
+    """A write connection with the poster tables (created on first use per file per process)."""
+    db = media_store.connect()
+    _ensure(db)
+    return db
+
+
+def states() -> dict[str, dict]:
+    """jf_id -> its `poster` row; {} when there is no media.db or no table yet (reads never create either)."""
+    db = media_store.reader()
+    if db is None:
+        return {}
     try:
-        paths = sorted(folder.glob("*.json"))
-    except OSError:
-        return []
-    out = []
-    for path in paths:
-        side = _read_side(path)
-        if side and media_item.ITEM_RE.match(str(side.get("jf_id") or "")) and path.stem == side["jf_id"]:
-            out.append(side)
-    return order(out)
+        with closing(db):
+            return {r["jf_id"]: dict(r) for r in db.execute("SELECT * FROM poster")}
+    except sqlite3.Error:
+        return {}
+
+
+def state(jf_id: str) -> dict | None:
+    return states().get(jf_id)
+
+
+def set_state(jf_id: str, **fields) -> None:
+    """Update one item's row (only the named columns change), inserting it when new (`kind` and `status` are needed
+    then). Column names come from this package's own calls, never from a request."""
+    with closing(connect()) as db:
+        cur = db.execute(f"UPDATE poster SET {', '.join(f'{c} = ?' for c in fields)} WHERE jf_id = ?",
+                         (*fields.values(), jf_id))
+        if cur.rowcount == 0:
+            db.execute(f"INSERT INTO poster(jf_id, {', '.join(fields)}) VALUES (?, {', '.join('?' for _ in fields)})",
+                       (jf_id, *fields.values()))
+        db.commit()
+
+
+def progress() -> dict[str, str]:
+    db = media_store.reader()
+    if db is None:
+        return {}
+    try:
+        with closing(db):
+            return {r["key"]: r["value"] for r in db.execute("SELECT key, value FROM poster_progress")}
+    except sqlite3.Error:
+        return {}
+
+
+def _set_progress(**values) -> None:
+    with closing(connect()) as db:
+        db.executemany("INSERT INTO poster_progress(key, value) VALUES (?, ?) "
+                       "ON CONFLICT(key) DO UPDATE SET value = excluded.value", [(k, str(v)) for k, v in values.items()])
+        db.commit()
+
+
+# ---- the review page's and /img's reads (local files + media.db) ----
+
+def rows() -> list[dict]:
+    """Every stored item's sidecar + its media.db state, Q9A order."""
+    st = states()
+    return order([{**side, "reverted": bool((st.get(side["jf_id"]) or {}).get("reverted")),
+                   "live": (st.get(side["jf_id"]) or {}).get("live_ver") is not None}
+                  for side in store.all_meta()])
 
 
 def image_path(jf_id: str) -> Path | None:
-    """The rendered JPEG for a Jellyfin id, or None (bad id / not rendered)."""
-    if not media_item.ITEM_RE.match(jf_id or ""):
-        return None
-    path = out_dir() / f"{jf_id}.jpg"
-    return path if path.is_file() else None
+    """The stored master JPEG for a Jellyfin id, or None (bad id / not rendered)."""
+    return store.master(jf_id) if media_item.ITEM_RE.match(jf_id or "") else None
+
+
+def served(jf_id: str, h: int) -> Path | None:
+    """What /img serves for jf:<jf_id> at height h: the published stored poster, or None (POSTERS=off included)."""
+    return None if disabled() else store.lookup(jf_id, h)
 
 
 # ---- the pass ----
 
+def memory_ok(snaps) -> bool:
+    free = memory_mb(snaps)
+    if free is not None and free >= MIN_AVAILABLE_MB:
+        return True
+    if free is None:
+        log.warning("posters: pass skipped, NAS available memory unknown (no fresh system snapshot)")
+    else:
+        log.warning("posters: pass skipped, NAS available memory %.0f MB is under %s MB", free, MIN_AVAILABLE_MB)
+    return False
+
+
+def tick(snaps_fn, now: float | None = None) -> dict | None:
+    """The loop's 5-minute tick: a pass while the backfill has work left (or the last one was skipped for memory),
+    else one an hour. -> the pass's counts, or None when no pass was due."""
+    now = time.time() if now is None else now
+    if not _tick["more"] and now - _tick["at"] < EVERY_S:
+        return None
+    counts = dry_pass(snaps_fn())
+    _tick["at"] = now
+    _tick["more"] = bool(counts.get("more")) or bool(counts.get("skipped_memory"))
+    return counts
+
+
 def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> dict:
-    """Render what is new or stale into the cache, at most `limit` (POSTERS_PER_PASS). Never writes to Jellyfin.
-    -> counts {titles, rendered, cached, no_source, failed} (+ template_error); never raises."""
+    """Render what is new or stale into the store (at most `limit`, POSTERS_PER_PASS), then, with POSTERS=on, the
+    write-back (which itself does nothing without the write key). -> counts; never raises."""
     m = mode()
     if m == "off":
         return {"off": True}
-    if m == "on" and not _warned_on["done"]:
-        _warned_on["done"] = True
-        log.warning("POSTERS=on is phase 2 (not built): rendering only, as dry")
-    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0}
-    free = memory_mb(snaps)
-    if free is None or free < MIN_AVAILABLE_MB:
+    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0, "more": False}
+    if not memory_ok(snaps):
         counts["skipped_memory"] = True
-        if free is None:
-            log.warning("posters: pass skipped, NAS available memory unknown (no fresh system snapshot)")
-        else:
-            log.warning("posters: pass skipped, NAS available memory %.0f MB is under %s MB", free, MIN_AVAILABLE_MB)
         return counts
     tpl, problems, _ = template_state()
     if problems:
@@ -299,13 +377,13 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         return counts
     snap = (snaps or {}).get("jellyfin")   # the caller (hub.tasks) reads the snapshots: this module never does
     jelly = getattr(snap, "data", snap) or {}
-    folder = out_dir()
     try:
-        folder.mkdir(parents=True, exist_ok=True)
+        out_dir().mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        log.warning("posters: cache folder unavailable: %s", type(exc).__name__)
+        log.warning("posters: store unavailable: %s", type(exc).__name__)
         counts["failed"] = 1
         return counts
+    known = states()
     limit = per_pass() if limit is None else limit
     started = time.time()
 
@@ -313,50 +391,57 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         return counts["rendered"] + counts["no_source"] + counts["failed"] >= limit
 
     def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None) -> dict | None:
-        """Render one item unless it is fresh in the cache. -> its sidecar (None on failure: retried next pass)."""
+        """Render one item unless its version is already stored. -> its sidecar (None on failure: retried later)."""
         counts["titles"] += 1
         text = _text_hash(t["title"], sub)
-        side = _read_side(folder / f"{t['jf_id']}.json")
-        if side and side.get("template") == tpl.version and (side.get("text") == text
-                                                              or side.get("status") == "no_source"):
+        ver = store.version(tpl.version, text)
+        row = known.get(t["jf_id"]) or {}
+        if row.get("template") == tpl.version and (row.get("ver") == ver or row.get("status") == "no_source"):
             counts["cached"] += 1
-            return side
+            return store.read_meta(t["jf_id"]) or {}
         try:
             chosen = pick(remote_images(t["jf_id"]))
             if chosen is None and fallback_url:   # a season with no TMDB season poster: the series' poster
                 chosen = {"url": fallback_url, "lang": None, "votes": 0, "rating": None, "width": 0, "height": 0,
                           "fallback": "series"}
             art = fetch_art(chosen["url"]) if chosen else None
-            base = {**t, **extra, "sub": sub, "template": tpl.version, "text": text, "rendered_at": _now(),
-                    "pick": chosen, "auto": auto_approves(chosen)}
+            auto = auto_approves(chosen)
+            side = {**t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
+                    "rendered_at": _now(), "pick": chosen, "auto": auto}
+            size = None
             if chosen is None:
-                base["status"] = "no_source"
+                side["status"] = "no_source"
                 counts["no_source"] += 1
             elif art is None:
                 raise RuntimeError("art unavailable")
             else:
-                _write_atomic(folder / f"{t['jf_id']}.jpg", render.render(tpl, art, t["title"], sub))
-                base["status"] = "rendered"
+                master = render.render(tpl, art, t["title"], sub)
+                size = store.save(t["jf_id"], ver, master, publish=auto and not row.get("reverted"))
+                side["status"] = "rendered"
                 if render.layout_title(tpl, t["title"]).truncated:   # past the hard floor: B. checks it on the page
-                    base["truncated"] = True
+                    side["truncated"] = True
                     counts["truncated"] += 1
                 counts["rendered"] += 1
-            _write_atomic(folder / f"{t['jf_id']}.json", json.dumps(base).encode("utf-8"))
+            store.write_meta(t["jf_id"], side)
+            set_state(t["jf_id"], kind=t["kind"], ver=ver, template=tpl.version, status=side["status"],
+                      bytes=size, rendered_at=side["rendered_at"], last_error=None)
+            _set_progress(last=t["jf_id"], at=side["rendered_at"])
             if pause:
                 time.sleep(pause)
-            return base
-        except Exception as exc:   # one bad title never stops the pass; nothing written, so it retries next pass
+            return side
+        except Exception as exc:   # one bad title never stops the pass; nothing recorded, so it retries next pass
             counts["failed"] += 1
             log.warning("posters: title failed: %s", type(exc).__name__)
             return None
 
     for t in targets(jelly if isinstance(jelly, dict) else {}):
         if full():
+            counts["more"] = True
             break
         if t["kind"] != "tv":
             one(t, render.sub_line(t["kind"], year=t["year"]), {})
             continue
-        side = _read_side(folder / f"{t['jf_id']}.json") or {}
+        side = store.read_meta(t["jf_id"]) or {}
         seasons = side.get("seasons") if isinstance(side.get("seasons"), list) else None
         try:
             fresh = time.time() - float(side.get("seasons_at") or 0) < SEASONS_TTL_S
@@ -373,20 +458,33 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             stamp = side["seasons_at"]
         series = one(t, render.sub_line("tv", seasons=[x["n"] for x in seasons]),
                      {"seasons": seasons, "seasons_at": stamp})
-        if series is not None and series.get("seasons_at") != stamp:   # cached poster, newer season list
+        if series and series.get("seasons_at") != stamp:   # stored poster, newer season list
             series = {**series, "seasons": seasons, "seasons_at": stamp}
-            _write_atomic(folder / f"{t['jf_id']}.json", json.dumps(series).encode("utf-8"))
+            store.write_meta(t["jf_id"], series)
         url = ((series or {}).get("pick") or {}).get("url")
         for x in seasons:
             if full():
+                counts["more"] = True
                 break
             one({"jf_id": x["jf_id"], "kind": "season", "title": t["title"], "year": None,
                  "added_at": t["added_at"]}, render.sub_line("season", season=x["n"]),
                 {"series_id": t["jf_id"], "season": x["n"]}, fallback_url=url)
+        if counts["more"]:
+            break
+    if not counts["more"] and not counts["failed"]:
+        try:
+            if not progress().get("backfill_done"):
+                _set_progress(backfill_done=_now())
+                log.info("posters: backfill complete")
+        except sqlite3.Error as exc:
+            log.warning("posters: progress not saved: %s", type(exc).__name__)
+    if m == "on":
+        from hub import media_posters_write as write
+        counts["write"] = write.write_pass(limit=limit, pause=pause)
     counts["seconds"] = round(time.time() - started, 1)
     if counts["rendered"] or counts["no_source"] or counts["failed"]:
-        log.info("posters (%s): %s rendered, %s no TMDB poster, %s failed, %s cached, %s s", m, counts["rendered"],
-                 counts["no_source"], counts["failed"], counts["cached"], counts["seconds"])
+        log.info("posters (%s): %s rendered, %s no TMDB poster, %s failed, %s stored already, %s s", m,
+                 counts["rendered"], counts["no_source"], counts["failed"], counts["cached"], counts["seconds"])
     if counts["truncated"]:
         log.warning("posters: %s title(s) too long even at the size floor, cut short (marked on /media/posters)",
                     counts["truncated"])

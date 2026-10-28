@@ -255,6 +255,25 @@ async def _miss(stem: str, kind: str, ident: str, size: int) -> tuple[bytes, str
         gate.release()
 
 
+def _stored(kind: str, ident: str, size: int) -> Path | None:
+    """JY-260 phase 2: the stored, pre-sized Joey poster for a `jf:` ref (films, series, seasons), else None - and
+    then /img goes on exactly as before. A small read and a stat; never raises."""
+    if kind != "jf":
+        return None
+    from hub import media_posters
+    try:
+        return media_posters.served(ident, size)
+    except OSError:
+        return None
+
+
+def _read(path: Path) -> bytes | None:
+    try:
+        return path.read_bytes()
+    except OSError:
+        return None
+
+
 @router.get("/img/{ref:path}")
 async def image(ref: str, h: str = "", t: str = ""):
     title = t[:80]
@@ -266,6 +285,11 @@ async def image(ref: str, h: str = "", t: str = ""):
     kind, ident = _kind_ident(match)
     size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
 
+    stored = _stored(kind, ident, size)   # JY-260 phase 2: the Joey poster from the local store, when there is one
+    if stored is not None:
+        body = await anyio.to_thread.run_sync(_read, stored)
+        if body is not None:
+            return Response(body, media_type="image/jpeg", headers={"Cache-Control": HIT_CACHE})
     stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
     hit = await anyio.to_thread.run_sync(_cached, stem) if _cache_path(stem) else None   # a stat, then a short read
     if hit is None:
@@ -283,6 +307,8 @@ def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
     match = REF_RE.match(ref or "")
     if not match or h not in SIZES:
         return "skipped"
+    if _stored(*_kind_ident(match), h) is not None:   # JY-260: a stored Joey poster needs no upstream fetch
+        return "cached"
     stem = hashlib.sha256(f"{ref}|{h}".encode("utf-8")).hexdigest()
     if _cache_path(stem):  # a stat, not a read: the warm-up re-checks hundreds of refs each pass
         return "cached"

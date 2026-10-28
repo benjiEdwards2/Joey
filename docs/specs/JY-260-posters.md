@@ -1,6 +1,6 @@
 # JY-260 Automated custom posters (films and series)
 
-Status: ready (2026-10-28); phase 1 building
+Status: ready (2026-10-28); phase 1 built; phase 2 built locally (GitHub paused), not deployed
 Size: L (live Jellyfin write + a new secret; Phase 1 alone is M, built and labelled L)
 Live risk: NAS write (Jellyfin item images, phase 2), secrets (one new `.env` key, phase 2). Phase 1: none.
 Area: `hub/media_posters*.py` (new), `hub/posters_template/` (the starter template kit, new), `hub/templates/media_posters.html` (new), `hub/guest.py` (two PRIVATE rows), `hub/main.py` + `hub/tasks.py` (one router line, one loop line), `hub/static/control-surface.css` (a few non-token lines for the review pairs), `hub/requirements.txt` (pillow), `deploy/.env.example`, `deploy/docker-compose.yml` (one read-only template mount), `docs/posters-template-guide.md`, `tests/hub/test_media_posters*.py`
@@ -83,6 +83,62 @@ A folder of files. joey-hub reads it on every pass; a change to any file re-rend
 4. **Review page** `GET /media/posters`: household only, private front. The media front and friends get the 404 page, and so does everything while `POSTERS=off`. Original (`/img/jf:<id>?h=600`) and proposed (`/media/posters/img/<id>`) sit side by side, with the pick words and the template state. It reads local files only: no network on render.
 
 **Phase 1 tests (written red first):** layout maths (anchors, margins, auto-fit, the 2-line wrap, the ellipsis), the text-less pick and its order, `template.json` validation (the starter passes; a bad one is rejected naming each problem), household-only page, no network on page render, no Jellyfin write call anywhere (a source scan plus a fake session that allows GET only).
+
+## Phase 2 (2026-10-28): every poster, stored locally, write-back behind the key
+
+B.'s words, 2026-10-28, after the phase-1 real-art samples:
+
+> "Love it for the posters. Continue. We can complete a full replacement of all and then store them local to help with loading pages quicker."
+
+The orchestrator's reading (recorded as given):
+
+1. **All** films, series and seasons get a custom poster, with no approval wait. This supersedes the rating auto-approve rule (1A above). `POSTERS_AUTO_MIN_RATING` stays, defaulting to 0; the review page stays for spot checks and per-item revert.
+2. **Local store.** Finished posters are stored on the NAS under `/volume1/Docker/joey/posters/out/` (a new compose mount, read-write for the hub only), as pre-sized variants for the sizes Joey requests: TV rows, grids, phone and title page. `/img` serves the stored custom poster directly when one exists, which is faster than proxying and resizing, and falls back to today's path when none does. The files are versioned so a template change re-renders. Cache headers follow the existing `/img` behaviour.
+3. **Jellyfin write-back (`POSTERS=on`)** is implemented but runs only when `JELLYFIN_POSTER_API_KEY` is set. B. has not created it yet. Before any write it backs up the original image and its ImageTag. It writes with `POST /Items/{id}/Images/Primary`, sets LockData per Q5A, re-applies daily if the image drifts, and is idempotent. Revert restores the original. With no key, the mode logs one clear line and does no writes.
+
+Also from the brief: one full backfill pass, rate-limited, behind the existing memory gate (skip under 1,300 MB available), resuming after a restart, with progress in media.db, in the order recently added first then A–Z (Q9A). New titles come in through the snapshot poll. `POSTERS` defaults to `dry` after deploy (render into the store and serve from it); write-back stays off until the key exists.
+
+### As built
+
+- **Store** (`hub/media_posters_store.py`): one folder per Jellyfin item under `POSTERS_DIR` (default `/data/posters/out`):
+
+  | File | What |
+  |---|---|
+  | `<ver>.full.jpg` | the 1000 × 1500 master, q90 (review page, write-back, `/img` h=1280) |
+  | `<ver>.120.jpg`, `.240`, `.400`, `.600` | pre-sized 2:3 variants, q85: the heights `/img` is asked for posters (`_poster.html` 120 / 240, the `/img` default 400, TV tiles and the title page 600) |
+  | `meta.json` | the sidecar (pick, sub-line, status, `ver`) |
+  | `current` | the published version; no file = not served (reverted, or held back by a set rating floor) |
+  | `orig.<ext>` | Jellyfin's original, saved before the first write-back; never pruned |
+
+  `ver` hashes the template kit's version with the poster's words, so a template change or a new season gives a new file name; the old version's files are removed once the new one is published, and until then the old poster keeps being served. Every write is atomic.
+- **`/img`** (`hub/images.py`): for a `jf:<id>` ref at a stored height it serves `<current>.<h>.jpg` with the existing `HIT_CACHE` header; anything else (not stored, not published, `jfb:`/`tmdb:`/arr refs, `POSTERS=off`) takes today's path unchanged. The warm-up counts a stored poster as cached and fetches nothing. joey-media mounts the store read-only, so friends get the same stored posters for the titles they can see.
+- **Pass** (`hub/media_posters.py`): every film, series and real season (specials still skipped). A pass every 5 min (`TICK_S`) while the backfill has work left, hourly once it is through; `POSTERS_PER_PASS` (30) renders a pass with a 2 s pause. Per item state lives in media.db: `poster` (version, status, revert flag, backup ext + tag, live version + tag, lock flag, times, last error) and `poster_progress` (`last`, `at`, `backfill_done`). An item whose version is already recorded is passed over with no network call, which is what makes a restart resume where it stopped. The tables are created by the poster module on first write (no `media_store` schema step, so `SCHEMA_VERSION` stays 5). The memory gate is unchanged and a skipped pass is retried on the next 5-minute tick.
+- **Write-back** (`hub/media_posters_write.py`, the only poster module that may call Jellyfin with anything but GET; a source-scan test holds the others to GET): runs only with `POSTERS=on` and `JELLYFIN_POSTER_API_KEY` set; `on` without the key logs once and writes nothing. Per item: backup (`GET /Items/{id}/Images/Primary`, no size params, into `orig.<ext>`, plus `ImageTags.Primary`; an item with no Primary is recorded as `none`) → upload (`POST /Items/{id}/Images/Primary`, base64) → `LockData: true` via `POST /Items/{id}` with the full item DTO, only if it was not already locked (`locked_by_us`) → read back the new tag. No backup, no write. Idempotent (same version + same tag = no call). Drift: once a day per item the live tag is compared; a change is re-applied once and logged. Revert: re-upload the backup byte-for-byte (or `DELETE` the Primary when there was none) and unlock what Joey locked; a revert asked for while the key is missing is carried out by the next pass that has it.
+- **Review page**: per row "Revert to the original" / "Use the Joey poster" (POST, same-origin guarded, household only, PRIVATE in `hub/guest.py`); row words say "Reverted", "In Jellyfin" or "Held back: under the rating floor". The head line says whether posters are only served or also written, and says so when `on` lacks the key.
+- **Settings**: `POSTERS` default `dry` (was off); `POSTERS_AUTO_MIN_RATING` default 0 (was 6.0); `POSTERS_DIR` default `/data/posters/out` (was `<IMG_CACHE_DIR>/posters`).
+
+### Disk use (measured 2026-10-28)
+
+On the 9 real TMDB sources in `JoeyTV\review\JY-260\real-samples\src\`: **388 KB per item on average, 527 KB at most** (master 312 KB; variants 3 / 9 / 21 / 42 KB for h = 120 / 240 / 400 / 600). Library, read-only from the NAS `jellyfin` snapshot: **50 films and 27 series** (546 episodes); the snapshot does not count seasons, so at 2–3 real seasons a series about 55–80 seasons, **about 130–160 items in all ≈ 50–65 MB** (worst case about 85 MB), plus the write-back backups (Jellyfin originals, ~50–100 KB each here) once the key exists. At 30 a pass every 5 minutes the first backfill takes under half an hour.
+
+### Phase 2 steps (step → verify)
+
+- Store + variants → verify: tests for every item type stored and published, each variant's pixel size, the master for h=1280.
+- `/img` prefers the store → verify: tests that a stored `jf:` ref is served with no upstream call and `HIT_CACHE`, and that not-stored, reverted, `POSTERS=off` and `jfb:` refs take today's path.
+- Versioning → verify: a template change re-renders every item under a new `ver`, the old files are gone and `/img` serves the new bytes.
+- Backfill → verify: tests for the resume after a restart (no network for done items, `poster_progress`), Q9A order, the memory gate and the 5-minute / hourly tick.
+- Write-back on a fake Jellyfin → verify: no write without the key (and none in `dry` even with it); backup before upload before lock; a failed backup or upload writes nothing and keeps the original; idempotent; drift re-applied once a day; revert byte-for-byte and unlocks; a pending revert completes once the key is back; no key, URL or title in the logs.
+- Friends → verify: a signed-in friend gets the stored poster through `/img` and the 404 page for `/media/posters`, its image and both POST routes.
+- Disk → verify: the per-item size measured on real art and the library counted from the snapshot (above).
+- Deploy (after GitHub is back; not done here) → verify: the NAS folder `/volume1/Docker/joey/posters/out` exists owned by uid 1000 **before** the first `up` (Docker would create it root-owned and every render would fail); the hub log shows the backfill passes and `posters: backfill complete`; NAS available stays ≥ 1,200 MB.
+- Write-back pilot (B.'s hands: create the key, append it with `nas_scripts/append_env.sh`; then `POSTERS=on`) → verify: the phase-2 pilot list under "Phases" below.
+
+### Open points for B.
+
+- **Browser caches.** `/img` keeps its `immutable`, 30-day header (as briefed), and the URL `/img/jf:<id>?h=…` does not change when the poster does. A browser or the TV that already holds a title's old poster keeps showing it until that copy expires; new devices and new titles get the Joey poster at once. A version in the URL would fix it but touches every poster caller (including `tv/`), so it is left for B. to decide.
+- **The `jellyfin` snapshot is the only target list,** so posters follow it: `tmdb:` refs (requests, Discover, awards) still show TMDB's own poster.
+- **joey-media** reads `POSTERS` from `media.env`, not `.env`; it serves the store unless `POSTERS=off` is set there too.
+- **UpdateItem** (`POST /Items/{id}`) is sent the full DTO read just before; the pilot should confirm on B.'s Jellyfin that nothing else on the item changes.
 
 ## One-screen summary
 

@@ -12,12 +12,16 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from hub import media_posters as mp, media_posters_render as r, upstream
+from hub import media_posters as mp, media_posters_render as r, media_posters_store as ms, upstream
 from tests.hub.test_media_frame import env  # noqa: F401  (frame env fixture)
 from tests.hub.test_media_library_pages import jelly
 
 REPO = Path(__file__).resolve().parents[2]
 TMDB = "https://image.tmdb.org/t/p/original"
+
+
+def meta(out: Path, jf_id: str) -> dict:
+    return json.loads((out / jf_id / "meta.json").read_text(encoding="utf-8"))
 
 
 def img(lang, votes, w=2000, h=3000, name=None, rating=6.5, url=None):
@@ -54,8 +58,8 @@ def test_nothing_usable_is_none():
 
 # ---- the flag ----
 
-@pytest.mark.parametrize("value,want", [(None, "off"), ("", "off"), ("off", "off"), ("dry", "dry"), ("DRY", "dry"),
-                                        ("on", "on"), ("yes", "off")])
+@pytest.mark.parametrize("value,want", [(None, "dry"), ("", "dry"), ("off", "off"), ("dry", "dry"), ("DRY", "dry"),
+                                        ("on", "on"), ("yes", "dry")])   # phase 2: the default is dry
 def test_mode(monkeypatch, value, want):
     if value is None:
         monkeypatch.delenv("POSTERS", raising=False)
@@ -155,16 +159,16 @@ def test_dry_pass_renders_into_the_cache_with_gets_only(fakes):
     counts = mp.dry_pass(snaps(LIB), pause=0)
     assert counts["rendered"] == 5 and counts["failed"] == 0            # 2 films, 1 series, its 2 real seasons
     assert sum("/RemoteImages" in u for u in jf.calls) == 5 and sum("/Shows/" in u for u in jf.calls) == 1
-    side = json.loads((out / ("b" * 32 + ".json")).read_text(encoding="utf-8"))
+    side = meta(out, "b" * 32)
     assert side["title"] == "New Film" and side["sub"] == "2024" and side["status"] == "rendered"
     assert side["pick"]["lang"] is None and side["pick"]["votes"] == 7
-    assert Image.open(out / ("b" * 32 + ".jpg")).size == (1000, 1500)
-    show = json.loads((out / ("c" * 32 + ".json")).read_text(encoding="utf-8"))
+    assert Image.open(ms.master("b" * 32)).size == (1000, 1500)
+    show = meta(out, "c" * 32)
     assert show["sub"] == "Seasons 1–2"                                 # real seasons only, no years (B. 2026-10-28)
-    s2 = json.loads((out / (S2 + ".json")).read_text(encoding="utf-8"))
+    s2 = meta(out, S2)
     assert (s2["kind"], s2["title"], s2["sub"], s2["series_id"]) == ("season", "A Show", "Season 2", "c" * 32)
-    assert not (out / ("0" * 32 + ".json")).exists()                    # specials are left alone
-    assert not (out / ("4" * 32 + ".json")).exists()
+    assert not (out / ("0" * 32)).exists()                    # specials are left alone
+    assert not (out / ("4" * 32)).exists()
 
 
 def test_second_pass_is_cached_and_a_template_change_re_renders(fakes, monkeypatch, tmp_path):
@@ -188,14 +192,15 @@ def test_a_season_without_a_tmdb_season_poster_uses_the_series_poster(fakes):
     jf.routes = {"/Shows/": Resp(body=SEASONS), f"/Items/{S1}/RemoteImages": Resp(body={"Images": []}),
                  "/RemoteImages": Resp(body={"Images": [img(None, 7, name="clean")]})}
     mp.dry_pass(snaps(LIB), pause=0)
-    s1 = json.loads((out / (S1 + ".json")).read_text(encoding="utf-8"))
+    s1 = meta(out, S1)
     assert s1["status"] == "rendered" and s1["pick"]["fallback"] == "series" and s1["sub"] == "Season 1"
-    assert s1["auto"] is False                                          # a borrowed poster has no rating: review
+    assert s1["auto"] is True                                           # phase 2: every poster (floor 0)
 
 
-@pytest.mark.parametrize("rating,env,auto", [(6.0, None, True), (5.9, None, False), (None, None, False),
-                                             (7.2, "7.5", False), (7.5, "7.5", True), (4.0, "junk", False)])
-def test_auto_approve_is_a_tmdb_rating_of_3_stars_or_more(monkeypatch, rating, env, auto):
+@pytest.mark.parametrize("rating,env,auto", [(6.0, None, True), (5.9, None, True), (None, None, True),   # default 0
+                                             (6.0, "6.0", True), (5.9, "6", False), (None, "6", False),
+                                             (7.2, "7.5", False), (7.5, "7.5", True), (4.0, "junk", True)])
+def test_auto_approve_defaults_to_every_poster_and_the_floor_is_a_lever(monkeypatch, rating, env, auto):
     if env is None:
         monkeypatch.delenv("POSTERS_AUTO_MIN_RATING", raising=False)
     else:
@@ -203,15 +208,17 @@ def test_auto_approve_is_a_tmdb_rating_of_3_stars_or_more(monkeypatch, rating, e
     chosen = mp.pick([img(None, 1, rating=rating, name="x")])
     assert chosen["rating"] == rating
     assert mp.auto_approves(chosen) is auto
-    assert mp.auto_approves(None) is False
+    assert mp.auto_approves(None) is (env in (None, "junk"))
 
 
-def test_the_rating_rule_lands_in_the_sidecar(fakes):
+def test_a_set_rating_floor_holds_a_poster_back_from_serving(fakes, monkeypatch):
     jf, tmdb, out = fakes
+    monkeypatch.setenv("POSTERS_AUTO_MIN_RATING", "6")
     jf.routes["/RemoteImages"] = Resp(body={"Images": [img(None, 7, name="clean", rating=5.5)]})
     mp.dry_pass(snaps(LIB), pause=0)
-    side = json.loads((out / ("b" * 32 + ".json")).read_text(encoding="utf-8"))
+    side = meta(out, "b" * 32)
     assert side["pick"]["rating"] == 5.5 and side["auto"] is False
+    assert ms.master("b" * 32) is not None and ms.lookup("b" * 32, 240) is None   # rendered, not served
 
 
 def test_season_list_drops_specials_and_asks_for_seasons_on_disk_only(fakes):
@@ -226,7 +233,7 @@ def test_a_title_past_the_size_floor_is_flagged_and_logged(fakes, caplog):
     with caplog.at_level("WARNING", logger="hub.media_posters"):
         counts = mp.dry_pass(snaps(lib), pause=0)
     assert counts["truncated"] == 1
-    assert json.loads((out / ("f" * 32 + ".json")).read_text(encoding="utf-8"))["truncated"] is True
+    assert meta(out, "f" * 32)["truncated"] is True
     assert any("cut short" in rec.getMessage() for rec in caplog.records)
     assert "WORD" not in caplog.text and "Word" not in caplog.text      # counts only, never a title
 
@@ -235,7 +242,7 @@ def test_pass_respects_the_per_pass_cap_newest_first(fakes, monkeypatch):
     jf, tmdb, out = fakes
     monkeypatch.setenv("POSTERS_PER_PASS", "1")
     assert mp.dry_pass(snaps(LIB), pause=0)["rendered"] == 1
-    assert (out / ("b" * 32 + ".jpg")).exists()                         # Q9A: recently added first
+    assert ms.master("b" * 32) is not None and ms.master("a" * 32) is None                         # Q9A: recently added first
 
 
 def test_no_tmdb_poster_is_recorded_and_not_retried(fakes):
@@ -251,7 +258,7 @@ def test_an_upstream_failure_is_counted_and_retried_next_pass(fakes):
     jf, tmdb, out = fakes
     jf.routes["/RemoteImages"] = Resp(status=500)
     counts = mp.dry_pass(snaps(LIB), pause=0)
-    assert counts["failed"] == 5 and not list(out.glob("*.json"))
+    assert counts["failed"] == 5 and not list(out.glob("*/meta.json"))
 
 
 def test_off_does_nothing(fakes, monkeypatch):
@@ -261,10 +268,18 @@ def test_off_does_nothing(fakes, monkeypatch):
     assert jf.calls == [] and not out.exists()
 
 
-def test_on_is_phase_2_and_behaves_as_dry(fakes, monkeypatch):
+def test_on_without_the_write_key_renders_and_writes_nothing(fakes, monkeypatch, caplog):
     jf, tmdb, out = fakes
     monkeypatch.setenv("POSTERS", "on")
-    assert mp.dry_pass(snaps(LIB), pause=0)["rendered"] == 5     # still GET-only fakes: no write path
+    monkeypatch.delenv("JELLYFIN_POSTER_API_KEY", raising=False)
+    from hub import media_posters_write as w
+    monkeypatch.setitem(w._warned, "no_key", False)
+    with caplog.at_level("WARNING", logger="hub.media_posters_write"):
+        first = mp.dry_pass(snaps(LIB), pause=0)
+        mp.dry_pass(snaps(LIB), pause=0)
+    assert first["rendered"] == 5 and first["write"] == {"off": True}   # GET-only fakes: any write fails the test
+    lines = [rec.getMessage() for rec in caplog.records if "JELLYFIN_POSTER_API_KEY" in rec.getMessage()]
+    assert len(lines) == 1 and "no Jellyfin writes" in lines[0]
 
 
 def test_a_bad_template_falls_back_to_the_starter_kit(fakes, monkeypatch, tmp_path):
@@ -275,7 +290,7 @@ def test_a_bad_template_falls_back_to_the_starter_kit(fakes, monkeypatch, tmp_pa
     monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(kit))
     counts = mp.dry_pass(snaps(LIB), pause=0)
     assert counts["template_error"] == 1 and counts["rendered"] == 5
-    side = json.loads((out / ("b" * 32 + ".json")).read_text(encoding="utf-8"))
+    side = meta(out, "b" * 32)
     assert side["template"] == r.load_template(r.STARTER).version
 
 
@@ -299,13 +314,14 @@ def test_memory_reading_is_the_system_snapshot():
     assert mp.memory_mb({}) is None
 
 
-def test_no_jellyfin_write_call_exists_in_phase_1():
-    """Source scan over every poster module: no POST / PUT / DELETE, no image upload path, no write key."""
-    files = sorted((REPO / "hub").glob("media_posters*.py"))
-    assert len(files) >= 3
+def test_only_the_write_back_module_can_write_to_jellyfin():
+    """Source scan over every poster module but media_posters_write.py: no POST / PUT / DELETE, no image upload path,
+    no write key (phase 2 keeps every Jellyfin write in the one module that is gated on the key)."""
+    files = sorted(p for p in (REPO / "hub").glob("media_posters*.py") if p.name != "media_posters_write.py")
+    assert len(files) >= 4
     for path in files:
         src = path.read_text(encoding="utf-8")
-        for bad in (r"\.post\(", r"\.put\(", r"\.delete\(", r"\.patch\(", r"\.request\(", r"method\s*=",
+        for bad in (r"(?<!router)\.post\(", r"\.put\(", r"\.delete\(", r"\.patch\(", r"\.request\(", r"method\s*=",
                     r"Images/Primary", r"LockData", r"JELLYFIN_POSTER_API_KEY"):
             assert not re.search(bad, src), (path.name, bad)
 
@@ -313,14 +329,17 @@ def test_no_jellyfin_write_call_exists_in_phase_1():
 # ---- the review page ----
 
 def seed(out: Path, rows):
-    out.mkdir(parents=True, exist_ok=True)
+    """Store layout (phase 2): <out>/<jf_id>/<ver>.full.jpg + variants, meta.json, current; + its media.db row."""
     tpl = r.load_template(r.STARTER)
     for row in rows:
-        Image.new("RGB", (1000, 1500), (10, 10, 10)).save(out / f"{row['jf_id']}.jpg", "JPEG")
-        side = {"status": "rendered", "kind": "movie", "sub": "", "template": tpl.version, "text": "x",
-                "rendered_at": "2026-10-28T00:00:00Z",
+        side = {"status": "rendered", "kind": "movie", "sub": "", "template": tpl.version, "text": "x", "ver": "v1",
+                "rendered_at": "2026-10-28T00:00:00Z", "auto": True,
                 "pick": {"lang": None, "votes": 7, "width": 2000, "height": 3000, "fallback": None}, **row}
-        (out / f"{row['jf_id']}.json").write_text(json.dumps(side), encoding="utf-8")
+        buf = io.BytesIO()
+        Image.new("RGB", (1000, 1500), (10, 10, 10)).save(buf, "JPEG")
+        ms.save(row["jf_id"], "v1", buf.getvalue(), publish=side["status"] == "rendered")
+        ms.write_meta(row["jf_id"], side)
+        mp.set_state(row["jf_id"], kind=side["kind"], ver="v1", template=tpl.version, status=side["status"])
 
 
 ROWS = [
@@ -360,9 +379,9 @@ def test_review_page_lists_original_and_proposed_in_q9a_order(page_app):
     assert f'/img/jf:{"b" * 32}?h=600' in body
     assert f'/media/posters/img/{"b" * 32}' in body
     assert "English poster" in body and "No TMDB poster" in body       # the pick words
-    assert "Rated 6.4" in body and "Auto-approve" in body and "Waits for review" in body
+    assert "Rated 6.4" in body and "Revert to the original" in body
     assert "Season 2" in body and ">Season<" not in body
-    assert "Dry run" in body                                             # the mode, in words
+    assert "served from the local store" in body                         # the mode, in words
     assert body.count("Title cut short") == 1                           # a title past the size floor is flagged
 
 
@@ -391,7 +410,7 @@ def test_review_page_does_no_network(page_app, monkeypatch):
 
 
 def test_off_means_404(page_app):
-    c = page_app(posters=None)
+    c = page_app(posters="off")
     with c:
         assert c.get("/media/posters").status_code == 404
         assert c.get(f"/media/posters/img/{'b' * 32}").status_code == 404

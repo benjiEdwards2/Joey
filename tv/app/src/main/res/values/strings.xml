@@ -50,4 +50,21 @@
 
     <string name="toast_not_on_tv">Not available on TV</string>
     <string name="toast_youtube_missing">YouTube isn\'t available on this TV</string>
+
+    <!-- JY-057: the Joey TV player (look A) -->
+    <string name="player_starting">Starting…</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_back_10">Back 10 s</string>
+    <string name="player_forward_30">Forward 30 s</string>
+    <string name="player_tracks">Audio &amp; subtitles</string>
+    <string name="player_next">Next episode</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_up_next">Up next</string>
+    <string name="player_play_now">Play now</string>
+    <string name="player_watch_credits">Watch credits</string>
+    <string name="player_in_jellyfin">Playing in the Jellyfin app instead</string>
+    <string name="player_no_jellyfin">Can\'t play this here, and the Jellyfin app isn\'t on this TV</string>
+    <string name="player_playing_mark">✓ %1$s</string>
 </resources>

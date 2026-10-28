@@ -20,6 +20,9 @@ enum class BackAction {
     LOAD_HOME,
 }
 
+/** JY-057: Back in the shell's own player (BackPolicy.player). */
+enum class PlayerBack { CLOSE_POPUP, HIDE_CONTROLS, RETURN_TO_JOEY }
+
 /**
  * Back key order. [homePath] is injected (see [HomePath]), never a literal.
  *
@@ -53,6 +56,16 @@ object BackPolicy {
 
     /** The hub's guest sign-in page (`hub/guest.py` SIGNIN routes): a fixed route, unlike the injected home path. */
     const val SIGNIN_PATH = "/signin"
+
+    /**
+     * JY-057, look A on TV: Back in the shell's own player. The pop-up closes first, then the controls hide, then (nothing
+     * up, or the up-next card) the player stops the session and returns to the Joey page Play was pressed on.
+     */
+    fun player(overlay: PlayerOverlay): PlayerBack = when (overlay) {
+        PlayerOverlay.POPUP -> PlayerBack.CLOSE_POPUP
+        PlayerOverlay.CONTROLS -> PlayerBack.HIDE_CONTROLS
+        PlayerOverlay.NONE, PlayerOverlay.UP_NEXT -> PlayerBack.RETURN_TO_JOEY
+    }
 
     /** The script the WebView evaluates for [BackAction.ASK_PAGE]; the result string is "true" when the page handled it. */
     const val PAGE_BACK_JS =

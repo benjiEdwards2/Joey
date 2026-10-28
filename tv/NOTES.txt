@@ -1,1 +1,1 @@
-Joey Media 1.0.2 - Back on the sign-in page now closes the app instead of making a new code, and a page that fails to load no longer says this TV is offline.
+Joey Media 1.0.3 - Joey's own player: for the household, Play opens the film right here instead of the Jellyfin app, and Back brings you back to Joey. Friends keep the Jellyfin app.

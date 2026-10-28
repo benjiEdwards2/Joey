@@ -12,4 +12,10 @@
     <color name="joey_text_1">#FFFAFAFA</color>
     <color name="joey_text_2">#FFE4E4E7</color>
     <color name="joey_text_4">#FFA1A1AA</color>
+    <!-- JY-057 player: scrims over the picture and the see-through card (joey_card at 95 %) -->
+    <color name="joey_scrim_top">#CC000000</color>
+    <color name="joey_scrim_bottom">#E6000000</color>
+    <color name="joey_scrim_clear">#00000000</color>
+    <color name="joey_card_glass">#F218181B</color>
+    <color name="joey_black">#FF000000</color>
 </resources>

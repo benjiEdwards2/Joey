@@ -801,3 +801,12 @@ def test_a_writer_that_lost_its_lock_stops_before_uploading(jelly_rw, monkeypatc
     monkeypatch.setattr(w, "backup", backup_then_taken_over)
     assert w.apply(B) == "error" and "item lock lost" in mp.state(B)["last_error"]
     assert ("POST", f"/Items/{B}/Images/Primary") not in fake.log
+
+
+def test_the_tv_backdrop_url_matches_the_tile_url_for_a_stored_poster(fakes):
+    """tv_home.img_url (the blurred-poster backdrop tv.js swaps to) stays the same browser-cache entry as art()."""
+    from hub import shell, tv_home
+    mp.dry_pass(snaps(LIB), pause=0)
+    tile = shell.templates.env.from_string('{% from "_tv_tile.html" import art %}{{ art(ref, "New Film", 240) }}')
+    drawn = tile.render(ref=f"jf:{B}").split('src="', 1)[1].split('"', 1)[0].replace("&amp;", "&")
+    assert tv_home.img_url(f"jf:{B}", "New Film", 240) == drawn and f"&v={ms.current(B)}" in drawn

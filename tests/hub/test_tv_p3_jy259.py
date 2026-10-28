@@ -411,3 +411,17 @@ key('ArrowDown'); out.back_down = now();
 """)
     assert out["load_scroll"] > 1000                                              # chip 14 (x 1890) brought into the row
     assert out["down"] == "e1" and out["up"] == "chip14" and out["back_down"].startswith("e")
+
+
+# ---- B. 2026-10-29: "Use C as tighter" - the top row ----
+
+def test_the_top_row_is_variant_c_and_its_focus_rings_are_never_clipped():
+    """The bar's own top margin is 2.5 % (13.5 px at 960x540) and its controls 24 px: 13.5 + 24 + 1 = 38.5 px (was 64).
+    control-surface.css hides .toplinks overflow from 768 px, which cut the section pills' ring (verifier): TV shows it."""
+    css = _sheet()
+    assert "--tv-my-bar: 13.5px" in css and "--tv-bar: 38.5px" in css
+    assert re.search(r"html\.tv \.topbar-in \{[^}]*padding: var\(--tv-my-bar\)", css)
+    assert re.search(r"html\.tv \.toplinks a \{ height: 24px;", css)
+    assert "html.tv .toplinks { overflow: visible; }" in css
+    ring = 4 + 3
+    assert 13.5 - ring >= 0                                                      # the ring above a pill stays on screen

@@ -984,8 +984,11 @@ def test_jy188_every_font_size_in_tv_css_is_at_least_18px(gc):
 
 def test_jy188_density_b_with_compact_chrome(gc):
     css = _tv_css(gc)
-    # JY-259 P3 (B. 2026-10-29): the top row's controls 36 -> 24 px, the bar 27 + 24 + 1 = 52 px (was 27 + 36 + 1 = 64)
-    assert "--tv-bar: 52px" in css and re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my\) var\(--tv-mx\) 1px", css)   # 27 + 24 + 1
+    # JY-259 P3 (B. 2026-10-29, "Use C as tighter"): controls 36 -> 24 px, the bar's own top margin 2.5 % (13.5 px), so
+    # the bar is 13.5 + 24 + 1 = 38.5 px (was 27 + 36 + 1 = 64)
+    assert "--tv-bar: 38.5px" in css and "--tv-my-bar: 13.5px" in css
+    assert re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my-bar\) var\(--tv-mx\) 1px", css)   # 13.5 + 24 + 1
+    assert "html.tv .toplinks { overflow: visible; }" in css      # the section pills' focus ring is not clipped
     assert re.search(r"\.toplinks a \{ height: 24px;", css) and re.search(r"\.brand-home \{ height: 24px;", css)
     assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 64 + 4 + 36 = 104
     # JY-259 (2026-10-28, B.'s point 3): rows 104 -> 92 px cards with 18 px gaps (8 across), grids 9 across, 18 / 16 px gaps

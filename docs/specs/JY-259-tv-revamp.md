@@ -445,6 +445,36 @@ please adjust to fit that please."
 - Test pins changed (dated here): `test_tv_mode.py` `test_tv_css_has_no_hover_rule_and_keeps_the_floor` (brand 22 ->
   18 px) and `test_jy188_density_b_with_compact_chrome` (bar 64 -> 52 px, controls 24 px).
 
+Variant C, 2026-10-29. B. saw the 19 % bar and variant B (the bar's top margin cut to 2.5 %) and chose: "Use C as tighter
+but you also did not go to the full 4k resolution. 2840 x 2160 pixels [3840]. Can you please restructure it and show it
+again."
+- Built: the bar's own top margin is 2.5 % of the height (`--tv-my-bar`, 13.5 px at 960x540); the page keeps the 5 %
+  overscan everywhere else. Bar = 13.5 + 24 + 1 = **38.5 CSS px, was 64 (-40 %)**. The 18 px floor holds; the ring above
+  a pill has 6.5 px of room (whole). The bar's text now sits inside the outer 5 % at the top (the audit's outsideSafe
+  counts it); on a set without overscan, as the C7K's app area is, it shows whole.
+- `html.tv .toplinks { overflow: visible; }`: control-surface.css hides that row's overflow from 768 px, which cut the
+  section pills' focus ring on the TV (verifier); `test_the_top_row_is_variant_c_and_its_focus_rings_are_never_clipped`.
+
+  | Size (CSS px) | Bar: 64-era -> 52 (2026-10-29 a.m.) -> C | Tallest control |
+  |---|---|---|
+  | 960x540 dpr 2 | 64 -> 52 -> 38.5 | 36 -> 24 |
+  | 1280x720 | 85.3 -> 69.3 -> 51.3 | 48 -> 32 |
+  | 1920x1080 | 128 -> 104 -> 77 | 72 -> 48 |
+  | 3840x2160 dpr 1 | 256 -> 208 -> 154 | 144 -> 96 |
+
+- Full 4K (3840x2160 CSS px at dpr 1) is a first-class shot size: every page is shot there. Every length in `tv.css` is
+  rem and 1rem = the viewport height / 33.75 (64 px at 3840x2160), so the page is the same picture at 960x540 dpr 2 and
+  at 3840x2160 dpr 1. The shots now prove it per page (`scales with the viewport`: 1rem = H / 33.75, and 0 text under
+  the 18 px floor scaled by 1rem / 16, i.e. 72 px at 4K). Nothing fixed-px was found, so nothing else changed.
+- What the TV draws today: the Joey TV shell's WebView on B.'s TCL measures 960x540 CSS px at dpr 2 (device notes,
+  `JoeyTV\review\TV_UI_EVALUATION_2026-10-23.md`) = 1920x1080 physical px; Android TV composes apps at 1080p and the
+  C7K scales that to its 3840x2160 panel. True 4K rendering would need Android's display size and density raised (for
+  example `adb shell wm size 3840x2160` and `wm density 640`, checked with `wm size` / `wm density`), which is a live TV
+  change for B. in his own window and is not made here. The layout would not change (it is the same picture at any
+  size); only the sharpness of text and posters would.
+- Test pins changed (dated here): `test_tv_mode.py::test_jy188_density_b_with_compact_chrome` (bar 52 -> 38.5 px, the
+  `--tv-my-bar` margin, the overflow rule) and `test_joey_media_home.py` (the stop fits 13.5 + 24 + 1 <= 38.5).
+
 Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
 `.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
 in `test_discover_states_are_foot_bands_not_chips_over_the_art`.

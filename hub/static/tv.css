@@ -11,7 +11,7 @@
    title page = 170 px poster beside title, facts, synopsis, Play / Trailer / Watchlist and the 1-10 chips; Set up Jellyfin
    = a full-screen card with :8443 in gold; sign-in = the WP-M screen 1 card. */
 html.tv {
-  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-bar: 3.25rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
+  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-my-bar: .84375rem; --tv-bar: 2.40625rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
   --tv-surface: rgba(255, 255, 255, .03); --tv-surface-2: rgba(255, 255, 255, .06); --tv-line: rgba(255, 255, 255, .12);
   --tv-border: rgba(255, 255, 255, .07); --tv-t1: #fafafa; --tv-t2: #e4e4e7; --tv-t3: #d4d4d8; --tv-t4: #a1a1aa; --tv-t5: #82828b;
   --tv-primary: #4f46e5; --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
@@ -39,9 +39,12 @@ html.tv a[href^="//"] { display: none !important; }
 /* No phone tab bar; the in-page section row is the top bar's. */
 html.tv .tabbar, html.tv .sectabs-page { display: none !important; }
 
-/* Top bar: brand, Media section row, user chip - inside the overscan margins; 64 px tall (27 + 36 + 1) - JY-188 compact chrome. */
+/* Top bar: brand, Media section row, user chip; 38.5 px tall (13.5 + 24 + 1; JY-259, B. 2026-10-29: variant C, the bar's own
+   top margin is 2.5 % of the height, the page keeps the 5 % overscan) - JY-188 compact chrome. */
 html.tv .topbar { position: sticky; top: 0; z-index: 40; border-bottom: 0; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my) var(--tv-mx) .0625rem; gap: 1.5rem; }
+html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my-bar) var(--tv-mx) .0625rem; gap: 1.5rem; }
+/* verifier: control-surface.css gives .toplinks overflow: hidden from 768 px, which cut the section pills' focus ring */
+html.tv .toplinks { overflow: visible; }
 html.tv .brand { gap: .5rem; }
 html.tv .brand b { font-size: 1.125rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
 html.tv .brand .mark { width: 1.375rem; height: 1.375rem; border-radius: .375rem; }
@@ -49,7 +52,7 @@ html.tv .toplinks { display: flex; gap: .375rem; flex-shrink: 0; }
 html.tv .toplinks a { height: 1.5rem; padding: 0 .5rem; border-radius: .375rem; font-size: 1.125rem; line-height: 1.5rem; color: var(--tv-t4); }
 html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
 /* JY-248 nav (2026-10-25): no Overview pill; the "Joey Media" title is the Home stop (Up from Home lands on it, tv.js),
-   a pill like the section row's (36 px, fits JY-188's 64 px compact bar: 27 + 36 + 1), filled like the current pill on Home. */
+   a pill like the section row's (24 px since JY-259 P3; the bar is 13.5 + 24 + 1), filled like the current pill on Home. */
 html.tv .brand-home { height: 1.5rem; padding: 0 .5rem 0 .125rem; border-radius: .375rem; }
 html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .08); }
 html.tv .userchip { margin-left: auto; gap: .5rem; height: 1.5rem; padding: 0 .75rem 0 .125rem; border-radius: 62.4375rem; font-size: 1.125rem; color: var(--tv-t3); }
@@ -584,7 +587,7 @@ html.tv .poster-grid.libgrid .card-poster .row-title { margin-top: .625rem; }
 html.tv .poster-grid.reqgrid .reqchip { margin-top: .625rem; }
 /* B. 2026-10-29 ("The top row is still too large. I would like it about 33 percent smaller at least"; his TV: TCL 55"
    C7K, a 4K panel; the shell's WebView measures 960x540 CSS px at dpr 2 there): the top row's controls are 24 px, not 36
-   (-33 %), the brand 18 px, its mark 22 px; the bar is 27 (the 5 % overscan) + 24 + 1 = 52 px, not 64 (-19 %: the
-   overscan margin and the 18 px floor stay). Edited in place above: --tv-bar, .brand, .toplinks a, .brand-home,
-   .userchip, .tv-searchstop. */
+   (-33 %), the brand 18 px, its mark 22 px. Then B. 2026-10-29: "Use C as tighter": the bar's top margin is 2.5 %
+   (--tv-my-bar, 13.5 px), so the bar is 13.5 + 24 + 1 = 38.5 px, was 64 (-40 %). The 18 px floor and whole rings stay.
+   Edited in place above: --tv-my-bar, --tv-bar, .topbar-in, .brand, .toplinks a, .brand-home, .userchip, .tv-searchstop. */
 /* ==== end JY-259 phase 3 ==== */

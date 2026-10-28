@@ -79,6 +79,7 @@ class TitleLayout:
     lines: list[Line]
     top: float
     bottom: float
+    truncated: bool = False   # cut short with an ellipsis (past the hard floor)
 
 
 # ---- template.json ----
@@ -186,7 +187,7 @@ def validate(data, folder: Path) -> list[str]:
             p.append("scrim_band must be an object or null")
         else:
             top = _num(p, band, "top", "scrim_band", 0, 1)
-            solid = _num(p, band, "solid", "scrim_band", 0, 1)
+            solid = _num(p, band, "solid", "scrim_band", 0, 1.5)   # past 1: still fading at the bottom edge
             _num(p, band, "opacity", "scrim_band", 0, 1)
             _colour(p, band, "colour", "scrim_band")
             if top is not None and solid is not None and solid < top:
@@ -220,11 +221,14 @@ def validate(data, folder: Path) -> list[str]:
     _num(p, s, "tracking", "sub", -0.2, 0.5)
     _colour(p, s, "colour", "sub")
     _shadow(p, s, "sub")
-    if None not in (anchor, sub_anchor, hi, lines, lh) and size:
-        bottom = anchor * size[1] + int(lines) * hi * lh
-        if bottom > sub_anchor * size[1] + 0.5:
-            p.append(f"sub.sub_anchor ({sub_anchor}) is inside the title box: {lines} title lines at max_size end at "
-                     f"{bottom / size[1]:.3f} of the height")
+    wrap = _num(p, t, "wrap_at", "title", 8, 400, required=False)
+    if wrap is not None and None not in (hi, lo) and not lo <= wrap <= hi:
+        p.append(f"title.wrap_at ({wrap}) must be from title.min_size to title.max_size")
+    if None not in (anchor, sub_anchor, lo, lines, lh) and size:
+        room = (sub_anchor - anchor) * size[1]
+        if room < int(lines) * lo * lh - 0.5:
+            p.append(f"sub.sub_anchor ({sub_anchor}) leaves {max(0, room):.0f} px under title.title_anchor; "
+                     f"{lines} title lines at min_size need {int(lines) * lo * lh:.0f} px")
     return p
 
 
@@ -308,7 +312,10 @@ def _split(words: list[str], n: int, measure) -> list[str] | None:
 
 
 def layout_title(tpl: Template, title: str) -> TitleLayout:
-    """Where the title goes: font size and each line's box. Shrink on one line, then wrap, then ellipsise."""
+    """Where the title goes: font size and each line's box. The block runs from title_anchor down to sub_anchor.
+    One line shrinks from max_size to wrap_at; then 2 balanced lines (and so on up to max_lines) from the largest size
+    that fits the block down to wrap_at - the last line count down to min_size, the hard floor. Only a title too
+    long even then is ellipsised (`truncated`, shown on the review page)."""
     t = tpl.data["title"]
     text = " ".join(str(title or "").split())
     if t.get("uppercase"):
@@ -316,28 +323,46 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
     left = tpl.width * t["margin_x"]
     room = tpl.width - 2 * left
     top = tpl.height * t["title_anchor"]
+    block = tpl.height * (tpl.data["sub"]["sub_anchor"] - t["title_anchor"])
     hi, lo, max_lines = int(t["max_size"]), int(t["min_size"]), int(t["max_lines"])
+    wrap_at = int(t.get("wrap_at") or lo)
     tracking, weight, lh = float(t.get("tracking") or 0), t["weight"], float(t["line_height"])
-    sizes = list(range(hi, lo - 1, -2)) + ([lo] if (hi - lo) % 2 else [])
     words = text.split(" ") if text else []
 
-    def fit(lines_wanted):
-        for size in sizes:
+    ref = 100
+    ref_font = _font(tpl, ref, weight)
+    seen: dict[str, float] = {}
+
+    def ref_measure(s: str) -> float:
+        if s not in seen:
+            seen[s] = _width(ref_font, s, tracking, ref)
+        return seen[s]
+
+    def fit(n):
+        """Widths scale with the size, so the best split is found once at a reference size; the size is then the
+        largest that fits, checked with the real font (hinting is not quite linear)."""
+        cap = min(hi, int(block / (n * lh)))
+        floor = lo if n == max_lines else max(lo, wrap_at)
+        lines = [text] if n == 1 else _split(words, n, ref_measure)
+        if not lines or cap < floor:
+            return None
+        widest = max(ref_measure(ln) for ln in lines) or 1
+        for size in range(min(cap, int(room / widest * ref) + 1), floor - 1, -1):
             font = _font(tpl, size, weight)
-            measure = lambda s, f=font, z=size: _width(f, s, tracking, z)   # noqa: E731
-            lines = [text] if lines_wanted == 1 else _split(words, lines_wanted, measure)
-            if lines and all(measure(ln) <= room for ln in lines):
+            if all(_width(font, ln, tracking, size) <= room for ln in lines):
                 return size, font, lines
         return None
 
-    got = None
+    got, truncated = None, False
     for n in range(1, max_lines + 1):
         got = fit(n)
         if got:
             break
-    if not got:   # too long even at min_size on max_lines: fill the lines, ellipsise the last
-        font = _font(tpl, lo, weight)
-        measure = lambda s: _width(font, s, tracking, lo)   # noqa: E731
+    if not got:   # too long even at the floor on max_lines: fill the lines, ellipsise the last
+        truncated = True
+        size = min(lo, int(block / (max_lines * lh)))
+        font = _font(tpl, size, weight)
+        measure = lambda s: _width(font, s, tracking, size)   # noqa: E731
         lines, rest = [], list(words)
         while rest and len(lines) < max_lines:
             line = rest.pop(0)
@@ -345,16 +370,16 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
                 line += " " + rest.pop(0)
             lines.append(line)
         if rest or measure(lines[-1]) > room:
-            lines[-1] = _ellipsise(font, lines[-1] + (" " + " ".join(rest) if rest else ""), room, tracking, lo)
-        lines = [ln if measure(ln) <= room else _ellipsise(font, ln, room, tracking, lo) for ln in lines]
-        got = (lo, font, lines)
+            lines[-1] = _ellipsise(font, lines[-1] + (" " + " ".join(rest) if rest else ""), room, tracking, size)
+        lines = [ln if measure(ln) <= room else _ellipsise(font, ln, room, tracking, size) for ln in lines]
+        got = (size, font, lines)
     size, font, lines = got
     step = size * lh
     out = []
     for i, ln in enumerate(lines):
         w = _width(font, ln, tracking, size)
         out.append(Line(ln, (tpl.width - w) / 2, top + i * step, w))
-    return TitleLayout(size, out, top, top + len(out) * step)
+    return TitleLayout(size, out, top, top + len(out) * step, truncated)
 
 
 def sub_line(kind: str, year=None, seasons=None, years=None, series_sub: bool = False) -> str:
@@ -407,9 +432,14 @@ def _scrim(canvas: Image.Image, tpl: Template) -> None:
         return
     w, h = canvas.size
     y0, y1 = int(h * band["top"]), int(h * band["solid"])
-    peak = int(255 * band["opacity"])
+    peak = 255 * band["opacity"]
     ramp = max(1, y1 - y0)
-    column = [int(peak * min(1.0, (y / ramp)) ** 1.6) if y < ramp else peak for y in range(h - y0)]
+
+    def alpha(y):   # one smooth curve: flat where it starts (no seam), steep through the title, full at `solid`
+        # (`solid` past 1.0 = never flat: still darkening under the sub-line, no solid band)
+        x = min(1.0, y / ramp)
+        return int(round(peak * (x * x * (3 - 2 * x)) ** 0.6))
+    column = [alpha(y) for y in range(h - y0)]
     mask = Image.new("L", (1, h - y0))
     mask.putdata(column)
     mask = mask.resize((w, h - y0))

@@ -45,7 +45,13 @@ A folder of files. joey-hub reads it on every pass; a change to any file re-rend
 
 ## Phase 1 as built (no live writes)
 
-1. **Renderer** (`hub/media_posters_render.py`): art + kit → JPEG q90. The title auto-fits: it shrinks on one line from `max_size` to `min_size`, then wraps to two balanced lines (again from `max_size` down), then ellipsises at `min_size`. The sub-line for a film is the year (Q7A). For a series, "Seasons a–b · yyyy–yyyy" sits behind `POSTERS_SERIES_SUB=on`, which is off by default (phase 2 switch). JPEG sources decode at reduced size (`draft`), so peak memory stays low. It also runs as a CLI for previews (`python -m hub.media_posters_render`).
+1. **Renderer** (`hub/media_posters_render.py`): art + kit → JPEG q90. The title's lines always fit between `title_anchor` and `sub_anchor`, and the title auto-fits in this order:
+   - it shrinks on one line from `max_size` to `wrap_at` (60);
+   - it wraps to 2 balanced lines, then 3 (`max_lines`), each from the largest size that fits;
+   - the last line count may go down to `min_size` (40), the hard floor;
+   - only past the floor is it ellipsised, and then it is flagged: `truncated` in the sidecar, a warning in the log with a count only, and "Title cut short" on the review page.
+
+   The scrim is one smooth gradient that starts at 56 %, with `solid` 1.2, so it is still darkening at the bottom edge: no seam and no flat band. The sub-line for a film is the year (Q7A). For a series, "Seasons a–b · yyyy–yyyy" sits behind `POSTERS_SERIES_SUB=on`, which is off by default (phase 2 switch). JPEG sources decode at reduced size (`draft`), so peak memory stays low. It also runs as a CLI for previews (`python -m hub.media_posters_render`).
 2. **Pick** (`hub/media_posters.py`): `GET /Items/{id}/RemoteImages?type=Primary&providerName=TheMovieDb&includeAllLanguages=true` through `media_jellyfin.get`. Order: text-less (no language) first, then English, then any other; within each, more votes first, then more pixels. Art is fetched only from `https://image.tmdb.org/t/p/`, capped at 5 MB.
 3. **Flag:** `POSTERS=off|dry|on`, default off. `dry` renders up to `POSTERS_PER_PASS` (30) titles per hourly pass into `<IMG_CACHE_DIR>/posters/` (one JPEG + one JSON sidecar per title) and lists them. `on` is phase 2: today it logs once and behaves exactly as `dry`. No code path writes to Jellyfin.
 4. **Review page** `GET /media/posters`: household only, private front. The media front and friends get the 404 page, and so does everything while `POSTERS=off`. Original (`/img/jf:<id>?h=600`) and proposed (`/media/posters/img/<id>`) sit side by side, with the pick words and the template state. It reads local files only: no network on render.
@@ -206,12 +212,15 @@ Episodes (unless Q6 says otherwise); backdrops/logos; fanart.tv; writing `poster
 ## Shipped notes
 
 Phase 1 (draft PR, 2026-10-28, not merged or deployed):
-- Measured on the laptop (`scripts/posters_samples.py`): one render of a 2000 × 3000 JPEG source raises the process peak by 13.0 MB (RSS 26.9 MB before, peak 39.9 MB after). A render takes 113–348 ms, and a poster JPEG is 43–76 KB. The NAS numbers come with phase 2.
+- Measured on the laptop (`scripts/posters_samples.py`): one render of a 2000 × 3000 JPEG source raises the process peak by 13.0 MB (RSS 26.9 MB before, peak 39.9 MB after). After the fix round: +13.1 MB, 120–142 ms per render, posters 49–94 KB. The NAS numbers come with phase 2.
 - Hub image: Pillow 12.2.0 adds a 7.1 MB wheel, 19.5 MB unpacked (manylinux x86_64).
 - Samples: `C:\Users\b.edwards\Desktop\Claude\JoeyTV\review\JY-260\p1-samples\` (6 posters, a contact sheet and `samples.log`). They use placeholder art. The series samples have the phase-2 sub-line switched on, to show it.
 - Builder notes for review:
   - The routes are always registered, and the handlers 404 while `POSTERS=off`, as `PLAYER_API` does. So criterion 1, "no new route", reads as "no served route".
-  - "Shrink first" means a 21-character title stays on one line at about 63 px rather than wrapping at 95 px.
+  - Fix round, coordinator 2026-10-28:
+    - long titles are never cut above the floor (up to 3 lines, floor 40 px);
+    - the scrim is one gradient with no seam;
+    - the placeholder art no longer has a straight-edged band.
   - The dry pass is its own hourly loop in `hub/tasks.py`, not part of `media_warmup`.
 
 

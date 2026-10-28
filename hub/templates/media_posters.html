@@ -36,7 +36,8 @@
   </div>
   <div class="posterpair-cap">
     <div class="row-title">{{ r.title }}</div>
-    {{ meta([r.kind_word, r.sub or none, r.words, "Old template" if r.stale else none]) }}
+    {% set cut %}<span class="st-warn">Title cut short</span>{% endset %}
+    {{ meta([r.kind_word, r.sub or none, r.words, "Old template" if r.stale else none, cut if r.truncated else none]) }}
   </div>
 </section>
 {% endfor %}

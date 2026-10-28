@@ -227,7 +227,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     if m == "on" and not _warned_on["done"]:
         _warned_on["done"] = True
         log.warning("POSTERS=on is phase 2 (not built): rendering only, as dry")
-    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0}
+    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0}
     tpl, problems, _ = template_state()
     if tpl is None:
         counts["template_error"] = len(problems)
@@ -268,6 +268,9 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             else:
                 _write_atomic(folder / f"{t['jf_id']}.jpg", render.render(tpl, art, t["title"], sub))
                 base["status"] = "rendered"
+                if render.layout_title(tpl, t["title"]).truncated:   # past the hard floor: B. checks it on the page
+                    base["truncated"] = True
+                    counts["truncated"] += 1
                 counts["rendered"] += 1
             _write_atomic(folder / f"{t['jf_id']}.json", json.dumps(base).encode("utf-8"))
         except Exception as exc:   # one bad title never stops the pass; nothing written, so it retries next pass
@@ -279,4 +282,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     if counts["rendered"] or counts["no_source"] or counts["failed"]:
         log.info("posters (%s): %s rendered, %s no TMDB poster, %s failed, %s cached, %s s", m, counts["rendered"],
                  counts["no_source"], counts["failed"], counts["cached"], counts["seconds"])
+    if counts["truncated"]:
+        log.warning("posters: %s title(s) too long even at the size floor, cut short (marked on /media/posters)",
+                    counts["truncated"])
     return counts

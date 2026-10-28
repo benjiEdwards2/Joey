@@ -54,7 +54,8 @@ def test_starter_kit_is_layout_2_with_layout_3_text_positions(tpl):
     assert (t["title_anchor"], s["sub_anchor"], t["margin_x"]) == (0.74, 0.88, 0.06)
     assert tpl.data["frame"] is None                      # layout 2: no frame, no border
     band = tpl.data["scrim_band"]
-    assert band["top"] == pytest.approx(0.60) and band["solid"] > band["top"]   # the bottom ~40 %, fading upward
+    assert 0.55 <= band["top"] <= 0.60 and band["solid"] > 1.0           # one gradient over the bottom ~40 %, never flat
+    assert (t["max_lines"], t["min_size"]) == (3, 40)
     assert tpl.font_path.name == "GeistVF.woff2"
     assert r.validate(tpl.data, r.STARTER) == []
 
@@ -86,18 +87,19 @@ def test_second_short_title_also_fits_at_max(tpl):
 def test_medium_title_shrinks_before_it_wraps(tpl):
     lay = r.layout_title(tpl, "Everything Everywhere")
     assert len(lay.lines) == 1
-    assert 52 <= lay.size < 95
+    assert 60 <= lay.size < 95                                          # one line shrinks only to wrap_at
     _inside(lay, tpl)
 
 
 def test_long_title_wraps_to_two_balanced_lines(tpl):
-    lay = r.layout_title(tpl, LONG)
+    title = "Eternal Sunshine of the Spotless Mind"
+    lay = r.layout_title(tpl, title)
     assert len(lay.lines) == 2
-    assert lay.size >= 52
+    assert lay.size >= 60
     a, b = (ln.width for ln in lay.lines)
-    assert min(a, b) / max(a, b) > 0.6                                  # balanced, not one word on line 2
+    assert min(a, b) / max(a, b) > 0.8                                  # balanced, not one word on line 2
     assert lay.lines[1].top == pytest.approx(lay.lines[0].top + lay.size * 1.05)
-    assert " ".join(ln.text for ln in lay.lines) == LONG.upper()
+    assert " ".join(ln.text for ln in lay.lines) == title.upper()
     _inside(lay, tpl)
 
 
@@ -106,16 +108,33 @@ def test_two_lines_stay_above_the_sub_line(tpl):
     assert lay.bottom <= 0.88 * 1500
 
 
-def test_very_long_title_is_capped_at_max_lines_with_an_ellipsis(tpl):
-    lay = r.layout_title(tpl, VERY_LONG)
-    assert len(lay.lines) == 2 and lay.size == 52
+def test_a_59_character_title_is_never_cut(tpl):
+    title = "The Assassination of Jesse James by the Coward Robert Ford"
+    lay = r.layout_title(tpl, title)
+    assert not lay.truncated and len(lay.lines) <= 3
+    assert " ".join(ln.text for ln in lay.lines) == title.upper()         # every word kept
+    assert lay.bottom <= 0.88 * 1500 + 0.5
+    _inside(lay, tpl)
+
+
+def test_three_lines_fit_between_the_anchors(tpl):
+    lay = r.layout_title(tpl, "The Lord of the Rings The Return of the King Extended Edition Part Two")
+    assert len(lay.lines) == 3 and 40 <= lay.size <= int(0.14 * 1500 / (3 * 1.05))
+    assert lay.bottom <= 0.88 * 1500 + 0.5 and not lay.truncated
+    _inside(lay, tpl)
+
+
+def test_only_past_the_hard_floor_is_a_title_ellipsised_and_flagged(tpl):
+    lay = r.layout_title(tpl, VERY_LONG * 2)
+    assert len(lay.lines) == 3 and lay.size == 40 and lay.truncated
     assert lay.lines[-1].text.endswith("…")
     _inside(lay, tpl)
+    assert not r.layout_title(tpl, VERY_LONG).truncated
 
 
 def test_one_huge_word_shrinks_then_ellipsises(tpl):
     lay = r.layout_title(tpl, "Supercalifragilisticexpialidociousnessly")
-    assert len(lay.lines) == 1 and lay.lines[0].text.endswith("…")
+    assert len(lay.lines) == 1 and lay.lines[0].text.endswith("…") and lay.truncated
     _inside(lay, tpl)
 
 
@@ -205,13 +224,25 @@ def test_render_is_a_jpeg_at_the_canvas_size_with_the_scrim_low(tpl):
     assert low[0] < 60                                                  # dark under the lower third
 
 
+def test_scrim_is_one_smooth_gradient_with_no_seam(tpl):
+    im = Image.open(io.BytesIO(r.render(tpl, art(colour=(200, 200, 200), fmt="PNG"), "", ""))).convert("L")
+    col = [im.getpixel((500, y)) for y in range(0, 1500, 10)]
+    assert col[0] >= 195 and col[-1] < 60                               # untouched top, dark bottom
+    assert all(b <= a + 2 for a, b in zip(col, col[1:]))                 # only ever darker going down
+    steps = [a - b for a, b in zip(col, col[1:])]
+    assert max(steps) <= 12                                              # no hard edge anywhere
+    assert col[-1] < col[-5] - 1                                         # still fading under the sub-line: no flat band
+    start = next(i for i, v in enumerate(col) if v < 195) * 10
+    assert 0.55 * 1500 <= start <= 0.62 * 1500
+
+
 def test_render_draws_the_title_in_the_lower_third(tpl):
     plain = Image.open(io.BytesIO(r.render(tpl, art(colour=(40, 40, 40)), "", ""))).convert("L")
     titled = Image.open(io.BytesIO(r.render(tpl, art(colour=(40, 40, 40)), "The Bear", "2022"))).convert("L")
     lay = r.layout_title(tpl, "The Bear")
     box = (int(lay.lines[0].x), int(lay.top), int(lay.lines[0].x + lay.lines[0].width), int(lay.bottom))
     assert max(titled.crop(box).tobytes()) > 200 > max(plain.crop(box).tobytes())
-    upper = (0, 0, 1000, 1000)
+    upper = (0, 0, 1000, 820)
     assert max(titled.crop(upper).tobytes()) < 80                        # nothing drawn in the top two thirds
 
 

@@ -164,6 +164,17 @@ def test_second_pass_is_cached_and_a_template_change_re_renders(fakes, monkeypat
     assert mp.dry_pass({"jellyfin": LIB}, pause=0)["rendered"] == 3
 
 
+def test_a_title_past_the_size_floor_is_flagged_and_logged(fakes, caplog):
+    jf, tmdb, out = fakes
+    lib = {"movies": [{"title": "Word " * 60, "year": 2001, "jf_id": "f" * 32, "added_at": "2026-01-01T00:00:00Z"}]}
+    with caplog.at_level("WARNING", logger="hub.media_posters"):
+        counts = mp.dry_pass({"jellyfin": lib}, pause=0)
+    assert counts["truncated"] == 1
+    assert json.loads((out / ("f" * 32 + ".json")).read_text(encoding="utf-8"))["truncated"] is True
+    assert any("cut short" in rec.getMessage() for rec in caplog.records)
+    assert "WORD" not in caplog.text and "Word" not in caplog.text      # counts only, never a title
+
+
 def test_pass_respects_the_per_pass_cap_newest_first(fakes, monkeypatch):
     jf, tmdb, out = fakes
     monkeypatch.setenv("POSTERS_PER_PASS", "1")
@@ -235,7 +246,7 @@ def seed(out: Path, rows):
 
 
 ROWS = [
-    {"jf_id": "a" * 32, "title": "Old Film", "added_at": "2026-01-01T00:00:00Z"},
+    {"jf_id": "a" * 32, "title": "Old Film", "added_at": "2026-01-01T00:00:00Z", "truncated": True},
     {"jf_id": "b" * 32, "title": "New Film", "added_at": "2026-10-01T00:00:00Z"},
     {"jf_id": "d" * 32, "title": "Bravo", "added_at": "2026-01-01T00:00:00Z", "status": "no_source"},
     {"jf_id": "e" * 32, "title": "English Pick", "added_at": "2026-05-01T00:00:00Z",
@@ -270,6 +281,7 @@ def test_review_page_lists_original_and_proposed_in_q9a_order(page_app):
     assert f'/media/posters/img/{"b" * 32}' in body
     assert "English poster" in body and "No TMDB poster" in body       # the pick words
     assert "Dry run" in body                                             # the mode, in words
+    assert body.count("Title cut short") == 1                           # a title past the size floor is flagged
 
 
 def test_proposed_image_is_served_and_bad_ids_404(page_app):

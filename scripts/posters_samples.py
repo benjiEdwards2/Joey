@@ -45,7 +45,9 @@ def placeholder(i: int, w: int = 2000, h: int = 3000) -> bytes:
     for n in range(7):
         x, y, s = (n * 397 + i * 211) % w, (n * 613 + i * 151) % h, 180 + (n * 97) % 420
         d.ellipse((x - s, y - s, x + s, y + s), fill=tuple(min(255, c + 40) for c in (b if n % 2 else a)))
-    d.rectangle((0, int(h * 0.82), w, h), fill=tuple(min(255, c + 60) for c in b))   # bright detail under the text
+    for n in range(4):   # bright detail under the text (round shapes: no straight edge to mistake for a scrim seam)
+        x, y, s2 = (n * 331 + i * 97) % w, int(h * 0.80) + n * 140, 160
+        d.ellipse((x - s2, y - s2, x + s2, y + s2), fill=tuple(min(255, c + 70) for c in b))
     buf = io.BytesIO()
     im.save(buf, "JPEG", quality=90)
     return buf.getvalue()
@@ -105,7 +107,7 @@ def draw_guide(tpl: r.Template, path: Path) -> None:
     for x in (x0, x1):
         d.line((x, 0, x, h), fill=(255, 0, 200, 120), width=2)
     ty0 = int(h * t["title_anchor"])
-    ty1 = int(ty0 + int(t["max_lines"]) * t["max_size"] * t["line_height"])
+    ty1 = int(h * s["sub_anchor"])   # the title's lines always fit above the sub-line
     d.rectangle((x0, ty0, x1, ty1), outline=(255, 0, 200, 255), width=4)
     d.text((x0 + 8, ty0 - font.size - 10), f"title box: top {t['title_anchor']}, {t['max_lines']} lines max",
            font=font, fill=(255, 0, 200, 255))

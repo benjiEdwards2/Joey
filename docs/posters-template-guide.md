@@ -24,9 +24,9 @@ Joey draws the title and the sub-line itself, because the words change per film.
 
 1. **Create the design.** Canva → Create a design → Custom size → **1000 × 1500 px**. Any 2:3 size works, from 600 × 900 to 2000 × 3000, as long as `canvas` in `template.json` matches it.
 2. **Add the safe-area guide.** Upload `guide.png` from the starter kit (or from your folder) and place it at full size. It shows:
-   - the **title box** (pink): top at 74 %, 6 % side margins, room for two lines;
+   - the **title box** (pink): from 74 % down to the sub-line, 6 % side margins, room for up to three lines;
    - the **sub-line box** (yellow): top at 88 %;
-   - the **scrim band** (blue): the fade starts at 60 %.
+   - the **scrim band** (blue): the fade starts at 56 %.
 
    Put a sample poster image underneath as a stand-in for the TMDB art. Keep any artwork you add out of the pink and yellow boxes unless it is meant to sit behind the text.
 3. **Design the scrim** (optional). Add a rectangle over the bottom of the canvas, filled with a gradient from transparent at the top to dark at the bottom. Canva: Elements → Shapes → square, stretch it, then Color → Gradient. Its top edge should sit near the blue line.
@@ -49,11 +49,11 @@ Joey draws the title and the sub-line itself, because the words change per film.
   "canvas": [1000, 1500],
   "font": {"family": "Geist", "file": "GeistVF.woff2"},
   "scrim": null,
-  "scrim_band": {"top": 0.60, "solid": 0.80, "opacity": 0.78, "colour": "#000000"},
+  "scrim_band": {"top": 0.56, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
   "frame": null,
   "title": {
     "title_anchor": 0.74, "margin_x": 0.06,
-    "max_size": 95, "min_size": 52, "max_lines": 2, "line_height": 1.05,
+    "max_size": 95, "wrap_at": 60, "min_size": 40, "max_lines": 3, "line_height": 1.05,
     "uppercase": true, "tracking": 0.01, "weight": 800, "colour": "#FFFFFF",
     "shadow": {"colour": "#000000", "opacity": 0.8, "blur": 14, "dy": 2}
   },
@@ -66,11 +66,15 @@ Joey draws the title and the sub-line itself, because the words change per film.
 
 - **Positions are fractions of the height.** `title_anchor: 0.74` puts the top of the title 74 % of the way down; `sub_anchor` does the same for the sub-line. `margin_x: 0.06` keeps 6 % clear on each side, and both lines centre between the margins.
   - To move the text, change these numbers. In Canva, read a box's Y position and divide by the canvas height: Y 1110 ÷ 1500 = 0.74.
-- **Sizes are pixels on the canvas.** The title starts at `max_size` on one line and shrinks to `min_size` if it is too wide. If it still does not fit, it wraps to two balanced lines (`max_lines`, up to 3) from `max_size` down. A title too long even for that ends in "…".
-  - Joey refuses a kit where `max_lines` lines at `max_size` would run into the sub-line, and says so.
+- **Sizes are pixels on the canvas.** The title's lines always fit between `title_anchor` and `sub_anchor`.
+  - A title starts at `max_size` on one line and shrinks to `wrap_at` if it is too wide.
+  - If it still does not fit, it wraps to two balanced lines, and then to three (`max_lines`, up to 3), each time starting from the largest size that fits.
+  - The last line count may shrink down to `min_size`, the hard floor.
+  - Only a title too long even at the floor is cut with "…". The review page marks it "Title cut short".
+  - Joey refuses a kit where `max_lines` lines at `min_size` cannot fit above the sub-line, and says so.
 - **`scrim` / `frame`:** a file name in the folder (`"scrim.png"`), or `null` for none. When `scrim` is `null`, `scrim_band` draws the fade:
   - `top`: where it starts, fully transparent;
-  - `solid`: where it reaches full strength;
+  - `solid`: where it reaches full strength. A value past 1.0 (the starter uses 1.2) means it never goes flat: it keeps darkening right to the bottom edge, with no solid band;
   - `opacity`: how dark it gets (0 to 1);
   - `colour`: the fade's colour.
 

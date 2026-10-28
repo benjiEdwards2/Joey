@@ -537,13 +537,17 @@ html.tv .tv-rate .microlabel { letter-spacing: 0; text-transform: none; }
 html.tv .hero-detail-text .seasonseg { display: none; }
 html.tv .hero-detail-btns .wlbtn svg.ic { width: 1.375rem; height: 1.375rem; }
 /* A show / season / episode: "Episodes", the season chips and the count on one line, then the 16:9 kit tiles */
-html.tv .tv-eps { margin-top: .625rem; }
-html.tv .tv-eps .tvshelf-hd { position: relative; z-index: 6; align-items: center; gap: 1.25rem; min-height: 2.25rem; }   /* review fix: above the tile row, never under it */
-html.tv .tv-seasonchips { display: flex; flex-wrap: wrap; gap: .5rem; min-width: 0; }   /* review fix: no scroll box (it clipped the chips); many seasons wrap */
+html.tv .tv-eps { margin-top: .25rem; }   /* the chip row carries its own 7 px ring room above */
+html.tv .tv-eps .tvshelf-hd { position: relative; z-index: 6; align-items: center; gap: .75rem; min-height: 2.25rem; }   /* review fix: above the tile row, never under it */
+/* verifier fix (2026-10-28): ONE line, whatever the season count - a horizontal scroll row (tv.js centres the focused
+   chip, and the lit one on load). The padding is inside the row and holds the 7 px ring, so nothing is cut; no negative
+   margin. A wrap pushed the episodes off the screen from 6 seasons up. */
+html.tv .tv-seasonchips { display: flex; flex-wrap: nowrap; flex: 0 1 auto; gap: .5rem; min-width: 0; padding: .4375rem .5rem; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+html.tv .tv-seasonchips::-webkit-scrollbar { display: none; }
 html.tv .tv-seasonchips .chip { flex: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: 62.4375rem;
   border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-seasonchips .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
-html.tv .tv-eps .tvshelf-hd .tv-seasonsub { flex: none; }
+html.tv .tv-eps .tvshelf-hd .tv-seasonsub, html.tv .tv-eps .tvshelf-hd > .seclabel { flex: none; }
 
 /* Cast circles, "More on Joey" posters (the kit), with room above them */
 html.tv .tv-cast, html.tv .tv-more { margin-top: 1.375rem; }

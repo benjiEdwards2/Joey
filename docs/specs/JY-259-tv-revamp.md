@@ -410,6 +410,17 @@ Review fixes (2026-10-28, reviews of PR #267; Review B blocking):
 - Grids: the library captions sit 10 px under the picture so the focus ring (7 px out) clears them; Discover's band too.
 - Hero words: a darker left scrim (.9 / .64) and a soft text shadow, so the synopsis holds over bright art.
 
+Verifier fix (2026-10-28, PR #267): the chips wrapped from 6 seasons up and pushed the episodes off the screen (the
+season page's first row at 1115/1080 with 10 seasons, 1203/1080 with 16). The chips are now ONE horizontal scroll line
+with the ring's 7 px room inside it (no negative margin, nothing clipped); tv.js scrolls the focused chip into the row
+(Left / Right) and the lit chip on every page set-up; Up from an episode lands on the lit chip. -> verify:
+`test_the_season_chips_are_one_scroll_line_with_room_for_the_ring`,
+`test_left_and_right_walk_the_chip_row_and_scroll_it_under_node`,
+`test_a_late_season_chip_is_scrolled_into_view_on_load_and_up_from_e1_lands_on_it_under_node`; the shots add shows with
+6 and 16 seasons (show, a late season, its episode) and check, at all four sizes: one chip line, every chip wholly in
+the row on top (`elementFromPoint`), the lit chip shown, the first row with a 3 % margin. Note: `media_item.MAX_SEASONS`
+(12) caps the season list, so a 16-season show draws 12 chips (unchanged, outside this item).
+
 Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
 `.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
 in `test_discover_states_are_foot_bands_not_chips_over_the_art`.

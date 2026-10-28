@@ -294,7 +294,8 @@
   }
 
   function centreInShelf(el) {
-    var shelf = el.closest('.carousel');
+    /* JY-259 (P3, verifier fix): the season chip row scrolls sideways like a shelf */
+    var shelf = el.closest('.carousel, .tv-seasonchips');
     if (!shelf) return;
     var item = el;
     while (item.parentElement && item.parentElement !== shelf) item = item.parentElement;
@@ -594,6 +595,11 @@
       var ep = document.querySelector('.tv-eps .card-poster');
       if (ep && visible(ep)) best = ep;
     }
+    /* Up from an episode into the chip row lands on the lit (shown) season, never on a chip scrolled out of the row */
+    if (best && dir === 'ArrowUp' && !a.closest('.tv-seasonchips') && best.closest('.tv-seasonchips')) {
+      var lit = best.closest('.tv-seasonchips').querySelector('.chip.on');
+      if (lit && visible(lit)) best = lit;
+    }
     if (best) { setFocus(best); remember(best); }
   }
 
@@ -697,8 +703,15 @@
     });
   }
 
+  /* JY-259 (P3, verifier fix): the lit season chip (the season shown) is scrolled into its row on every page set-up */
+  function showLitChip() {
+    var lit = document.querySelector('.tv-seasonchips .chip.on');
+    if (lit) centreInShelf(lit);
+  }
+
   function restore() {
     dropBlankTargets(document);
+    showLitChip();
     step();   /* JY-192: the trail Back = series reads */
     saveBar();   /* JY-259 (P2): this URL's current pill, for a Back that restores <main> only */
     /* JY-187 (B1): a page this document has not set up yet (a full load, a boosted swap to another URL, Back, the

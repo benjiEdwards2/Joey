@@ -299,11 +299,12 @@ def test_tv_home_first_two_rows_eager_and_the_rest_lazy(monkeypatch, tmp_path):
 # ---- review fixes (2026-10-28, PR #267) ----
 
 def test_the_season_chips_sit_in_the_head_line_above_the_tile_row():
-    """Review B (blocking): the chips were clipped by a scroll box and drawn under the tile row. No scroll box now; the
-    head line stacks above the row (the shots check every chip with elementFromPoint at all four sizes)."""
+    """Review B (blocking): the chips were clipped (a negative margin on a scroll box) and drawn under the tile row. The
+    head line stacks above the row; since the verifier fix the chips are one scroll line with the ring's room inside it
+    (next test), never a wrap (the shots check every chip with elementFromPoint at all four sizes)."""
     css = _sheet()
     chips = re.search(r"html\.tv \.tv-seasonchips \{([^}]*)\}", css).group(1)
-    assert "overflow" not in chips and "margin: -" not in chips and "flex-wrap: wrap" in chips
+    assert "margin: -" not in chips and "flex-wrap: nowrap" in chips
     hd = re.search(r"html\.tv \.tv-eps \.tvshelf-hd \{([^}]*)\}", css).group(1)
     assert "position: relative" in hd and "z-index: 6" in hd and "min-height: 36px" in hd   # a chip's 2.25rem
 
@@ -350,3 +351,63 @@ out.first = now();
 key('ArrowDown'); out.down = now();
 """)
     assert out == {"first": "play", "down": "e1"}
+
+
+# ---- verifier fix (2026-10-28, PR #267): many seasons stay on ONE line, a scroll row ----
+
+MANY = r"""
+var nav;
+function many(lit) {   /* 16 season chips on one line, 130 px apart: chips 7-16 sit past the 960 px screen in the row */
+  var main = shell('tv');
+  main.append(new El('header', { cls: ['pagehead', 'hero-detail'], top: 80, kids: [new El('div', { cls: ['hero-detail-btns'], kids: [
+    new El('a', { name: 'play', attrs: { href: '/jf/play', 'data-jf-id': 'x' }, top: 300, left: 250 })] })] }));
+  var sec = new El('section', { cls: ['sec', 'tvshelf', 'tv-eps'], top: 450 });
+  nav = new El('nav', { cls: ['tv-seasonchips'], top: 470, left: 200 });
+  nav.scrollLeft = 0;
+  for (var n = 1; n <= 16; n++) nav.append(new El('a', { name: 'chip' + n, cls: n === lit ? ['chip', 'on'] : ['chip'],
+    attrs: n === lit ? { href: '/s' + n, 'aria-current': 'page' } : { href: '/s' + n }, top: 470, left: 200 + (n - 1) * 130 }));
+  sec.append(nav);
+  var row = new El('div', { cls: ['carousel', 'tvt-row'], top: 560 });
+  row.scrollLeft = 0;
+  for (var i = 1; i <= 4; i++) row.append(new El('a', { name: 'e' + i, cls: ['card-poster', 'tvt', 'tvt-land'],
+    attrs: { href: '/e' + i }, top: 560, left: 100 + (i - 1) * 200 }));
+  sec.append(row);
+  main.append(sec);
+}
+"""
+
+
+def test_the_season_chips_are_one_scroll_line_with_room_for_the_ring():
+    css = _sheet()
+    chips = re.search(r"html\.tv \.tv-seasonchips \{([^}]*)\}", css).group(1)
+    assert "flex-wrap: nowrap" in chips and "overflow-x: auto" in chips and "margin" not in chips
+    pad = re.search(r"padding: ([\d.]+)px ([\d.]+)px", chips).groups()
+    ring = sum(map(float, re.search(r"\.card-poster\.tv-focus \.card-pic \{[^}]*outline: ([\d.]+)px solid[^}]*"
+                                    r"outline-offset: ([\d.]+)px", css).groups()))
+    assert float(pad[0]) >= ring and float(pad[1]) >= ring                       # the focus ring is never clipped
+
+
+def test_left_and_right_walk_the_chip_row_and_scroll_it_under_node(tvc, tmp_path):
+    out = run_tv_pages(tvc, tmp_path, MANY + r"""
+load('/media/item/s1', function () { many(1); });
+out.load_scroll = nav.scrollLeft;
+key('ArrowDown'); key('ArrowUp'); out.up = now();
+var walk = [];
+for (var k = 0; k < 8; k++) { key('ArrowRight'); walk.push(now()); }
+out.walk = walk; out.scrolled = nav.scrollLeft > 0;
+key('ArrowLeft'); out.left = now();
+""")
+    assert out["up"] == "chip1" and out["load_scroll"] <= 0
+    assert out["walk"] == [f"chip{n}" for n in range(2, 10)] and out["scrolled"] and out["left"] == "chip8"
+
+
+def test_a_late_season_chip_is_scrolled_into_view_on_load_and_up_from_e1_lands_on_it_under_node(tvc, tmp_path):
+    out = run_tv_pages(tvc, tmp_path, MANY + r"""
+load('/media/item/s14', function () { many(14); });
+out.load_scroll = nav.scrollLeft;
+key('ArrowDown'); out.down = now();
+key('ArrowUp'); out.up = now();
+key('ArrowDown'); out.back_down = now();
+""")
+    assert out["load_scroll"] > 1000                                              # chip 14 (x 1890) brought into the row
+    assert out["down"] == "e1" and out["up"] == "chip14" and out["back_down"].startswith("e")

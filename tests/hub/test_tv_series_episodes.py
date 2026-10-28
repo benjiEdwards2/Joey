@@ -309,12 +309,16 @@ def test_shelf_captions_stay_visible_over_the_jy188_focus_only_rule(tvc):
     assert '<p class="metaline tv-seasonsub">0 of 3 watched</p>' in head
 
 
-def test_episode_cards_keep_236px_over_the_jy188_carousel_width(tvc):
+def test_episode_cards_are_the_kit_16x9_tiles_over_the_jy188_carousel_width(tvc):
+    """Re-pointed 2026-10-28 (JY-259 phase 3 review): the episode row is a kit `tvt-row-land` row now, so its cards take
+    the kit's 158 px 16:9 width (5 across) over the 92 px row card; the old 236 px `.tv-eps .carousel > *` rule is gone."""
     css = design_px(tvc.get("/static/tv.css").text)
-    base, eps = "html.tv .carousel > *", "html.tv .tv-eps .carousel > *"
+    base, land = "html.tv .carousel > *", "html.tv .carousel.tvt-row-land > *"
     assert any("width: 92px" in b for b in _rules(css, base))   # JY-259 (2026-10-28): the row card is 92 px (was 104)
-    assert any("flex: 0 0 236px; width: 236px" in b for b in _rules(css, eps))
-    assert _spec(eps) > _spec(base) and css.rindex(eps) > css.rindex(base)
+    assert any("flex: 0 0 158px; width: 158px" in b for b in _rules(css, land))
+    assert _spec(land) > _spec(base) and css.rindex(land) > css.rindex(base)
+    assert not _rules(css, "html.tv .tv-eps .carousel > *")
+    assert 'class="carousel tvt-row tvt-row-land"' in section(tvc.get(f"/media/item/{SHOW}", headers=TV).text, "tv-eps")
 
 
 def test_household_viewer_on_the_tv_sees_their_own_state(tvc):

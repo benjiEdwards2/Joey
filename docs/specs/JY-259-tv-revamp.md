@@ -193,7 +193,9 @@ Builder and review per phase: L row (Opus builder, two Sonnet reviewers, Opus ve
 **Phase 3: title page, grids, Discover, loading** (hub only)
 1. Title page as a hero: full-width backdrop (gradient to `--bg` at 60 % height), poster optional (Q: kept at 232 px floated), one button row that never wraps, Episodes row (16:9) first on a show with Seasons as chips, Cast circles, More on Joey → verify: `device --only title_movie,title_series,title_episode`: the first row's tiles inside the first 1080 px, 0 wrapped buttons (a DOM assert), J6 OK on an episode plays it.
 2. Grids: 8 across kept; score glow off in TV mode (ring is the only white/gold border); sub-tab fold per Q8 → verify: Movies grid shows 24 posters on the first screen, Down x 2 reaches row 3, the "More" chip opens Tonight / To rate / Awards.
-3. Discover: foot bands, search results in the same grid → verify: `device --only discover`: 0 chips over art, bands read "On Joey / Requested / Request".
+3. Discover: foot bands, search results in the same grid. As built (2026-10-28): Discover is **8 across**, the library
+   grids (Movies, TV shows) stay at **9**: at the 18 px floor the band word "Requested" needs about 90 px and a 9-across
+   cell is 82. **Decision for B.** at checkpoint 3: keep 8 on Discover, or go back to 9 with shorter band words. → verify: `device --only discover`: 0 chips over art, bands read "On Joey / Requested / Request".
 4. Loading: placeholder tile shapes, lazy rows below the fold, a 3-tile skeleton row for slow shelves → verify: `images_ms` for the first two rows < 2000 on the TCL.
 5. **TV review checkpoint 3:** the 40-check list from `TV_UI_PLAN.md` re-run (it is the regression set), screenshots to `review\tv-ui-<date>\`. Gate: B.'s accept on the TCL for Home, a film, a show, Discover.
 
@@ -393,12 +395,25 @@ Test changes (CLAUDE.md rule 4), 2026-10-28, each because B. picked the new look
 - `test_tv_shelves_tmdb.py::test_tv_friend_title_shelf_is_more_on_joey_on_server_only`: "More on Joey" draws kit posters
   (`art()`), so the h=600 check reads the kit's `<img src=`.
 
+Review fixes (2026-10-28, reviews of PR #267; Review B blocking):
+- The season chips were clipped (a scroll box with a negative margin) and drawn under the tile row: the chip row is a
+  plain wrapping flex row and the head line sits above the tiles (`z-index`, a 36 px minimum height). The shots now check
+  every chip and the count with `elementFromPoint` (wholly on screen, on top) at all four sizes, and the season page's
+  first row keeps a 3 % margin above the screen foot (hero tightened: title 32 px, smaller gaps).
+- The JY-192 rule `.tv-eps .carousel > * { 236px }` is removed (dead since the row became a kit `tvt-row-land` row);
+  its test is re-pointed, 2026-10-28: `test_episode_cards_are_the_kit_16x9_tiles_over_the_jy188_carousel_width` pins the
+  kit's 158 px width, that the old rule is gone, and that the row is a kit row.
+- New tests: a title with no backdrop, a show with no episode list, an actor with no TMDB id (drawn, not a stop), Down
+  from Play with E1 scrolled out of view.
+- Sub-tabs: inside the `<details>` the links take the row's 8 px as a margin (the flex gap reached only the summary);
+  the shots check every gap is equal.
+- Grids: the library captions sit 10 px under the picture so the focus ring (7 px out) clears them; Discover's band too.
+- Hero words: a darker left scrim (.9 / .64) and a soft text shadow, so the synopsis holds over bright art.
+
 Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
 `.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
 in `test_discover_states_are_foot_bands_not_chips_over_the_art`.
-Also: the JY-192 rule `.tv-eps .carousel > * { 236px }` and its test
-(`test_episode_cards_keep_236px_over_the_jy188_carousel_width`) still pass, but the episode row is now a kit
-`tvt-row-land` (158 px, the phase 1 16:9 size), whose later rule wins. "More on Joey" drops the award badge over the art
+Also: "More on Joey" drops the award badge over the art
 (the kit poster draws none; B.'s point 4, calmer).
 
 ## Data

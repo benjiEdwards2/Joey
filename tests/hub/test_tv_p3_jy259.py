@@ -51,7 +51,8 @@ def film_friend(monkeypatch, tmp_path):
     shelves(seerr)
     seerr.titles[("movie", 603)]["credits"] = {"cast": [
         {"id": 11, "name": "Ann Actor", "character": "Detective", "profilePath": "/a11.jpg"},
-        {"id": 12, "name": "Bo Player", "character": "Pilot", "profilePath": None}]}
+        {"id": 12, "name": "Bo Player", "character": "Pilot", "profilePath": None},
+        {"id": None, "name": "Cy Nameless", "character": "Guard", "profilePath": "/a13.jpg"}]}
     with client as c:
         c.fake, c.seerr = fake, seerr
         sign_in(c, fake, uid)
@@ -175,6 +176,9 @@ def test_cast_is_circles_and_more_on_joey_is_kit_posters(film_friend):
     assert '<h2 class="seclabel">Cast</h2>' in cast
     assert re.search(r'<a class="card-poster tvt tvt-person" href="/media/person/11">', cast)
     assert "/img/tmdb:/a11.jpg?h=240" in cast and ">Detective<" in cast and "Bo Player" in cast
+    # review: an actor with no TMDB id is drawn (picture, name, role) but is no link and no D-pad stop
+    nameless = re.search(r'<div class="card-poster tvt tvt-person">(.*?)</div>', cast, flags=re.S)
+    assert nameless and "Cy Nameless" in nameless.group(1) and ">Guard<" in nameless.group(1) and "href" not in nameless.group(0)
     more = b.split('<h2 class="seclabel">More on Joey</h2>', 1)[1].split("</section>", 1)[0]
     assert more.count('class="card-poster tvt tvt-poster"') == 2
     assert b.index('class="sec tv-cast"') < b.index("More on Joey")
@@ -290,3 +294,59 @@ def test_tv_home_first_two_rows_eager_and_the_rest_lazy(monkeypatch, tmp_path):
     assert len(rows) >= 3
     assert 'loading="lazy"' not in rows[0] and 'loading="lazy"' not in rows[1] and 'loading="lazy"' in rows[2]
     media_item.clear_cache()
+
+
+# ---- review fixes (2026-10-28, PR #267) ----
+
+def test_the_season_chips_sit_in_the_head_line_above_the_tile_row():
+    """Review B (blocking): the chips were clipped by a scroll box and drawn under the tile row. No scroll box now; the
+    head line stacks above the row (the shots check every chip with elementFromPoint at all four sizes)."""
+    css = _sheet()
+    chips = re.search(r"html\.tv \.tv-seasonchips \{([^}]*)\}", css).group(1)
+    assert "overflow" not in chips and "margin: -" not in chips and "flex-wrap: wrap" in chips
+    hd = re.search(r"html\.tv \.tv-eps \.tvshelf-hd \{([^}]*)\}", css).group(1)
+    assert "position: relative" in hd and "z-index: 6" in hd and "min-height: 36px" in hd   # a chip's 2.25rem
+
+
+def test_a_title_with_no_backdrop_is_still_the_hero(tvc, monkeypatch):
+    from hub import media_backdrop
+    monkeypatch.setattr(media_backdrop, "title_page", lambda *a, **k: None)          # no Jellyfin, stored or TMDB backdrop
+    html = tvc.get(f"/media/item/{SHOW}", headers=TV).text
+    h = header(html)
+    assert "hero-detail-bd" not in h and "hero-detail-poster" in h and h.count('class="hero-detail-btns"') == 1
+    assert after_header(html).index('class="sec tvshelf tv-eps"') < after_header(html).index('<div class="filmbody">')
+    css = _sheet()
+    assert "html.tv .pagehead.hero-detail:not(:has(.hero-detail-bd)) { background: radial-gradient(" in css   # a quiet glow
+
+
+def test_a_show_with_no_episode_list_draws_the_chips_and_no_tile_row(tvc, monkeypatch):
+    from hub import media_film
+    real = media_film.tv_shelves
+    monkeypatch.setattr(media_film, "tv_shelves", lambda *a, **k: {**real(*a, **k), "eps": None})
+    row = eps(tvc.get(f"/media/item/{SHOW}", headers=TV).text)
+    assert '<h2 class="seclabel">Episodes</h2>' in row and row.count('class="chip') == 2
+    assert "carousel" not in row and "tvt-land" not in row and "tv-seasonsub" not in row   # no season shown, no count
+
+
+def test_down_from_play_reaches_e1_even_when_it_is_scrolled_out_of_view_under_node(tvc, tmp_path):
+    """Review: E1 scrolled off the left of its row (a Back into a scrolled row): Down from Play still lands on E1, and
+    tv.js brings it into view (keepRowInView), rather than on the nearest visible tile."""
+    out = run_tv_pages(tvc, tmp_path, r"""
+function show() {
+  var main = shell('tv');
+  main.append(new El('header', { cls: ['pagehead', 'hero-detail'], top: 80, kids: [new El('div', { cls: ['hero-detail-btns'], kids: [
+    new El('a', { name: 'play', attrs: { href: '/jf/play', 'data-jf-id': 'x' }, top: 300, left: 250 })] })] }));
+  var sec = new El('section', { cls: ['sec', 'tvshelf', 'tv-eps'], top: 450 });
+  sec.append(new El('nav', { cls: ['tv-seasonchips'], top: 470, kids: [
+    new El('a', { name: 'chip1', cls: ['chip', 'on'], attrs: { href: '/s1' }, top: 470, left: 200 })] }));
+  var row = new El('div', { cls: ['carousel', 'tvt-row'], top: 560 });
+  for (var i = 1; i <= 4; i++) row.append(new El('a', { name: 'e' + i, cls: ['card-poster', 'tvt', 'tvt-land'],
+    attrs: { href: '/e' + i }, top: 560, left: -500 + (i - 1) * 200 }));   /* e1, e2, e3 left of the screen */
+  sec.append(row);
+  main.append(sec);
+}
+load('/media/item/show', show);
+out.first = now();
+key('ArrowDown'); out.down = now();
+""")
+    assert out == {"first": "play", "down": "e1"}

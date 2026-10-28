@@ -19,6 +19,12 @@
 <p class="metaline">Posters are made with the starter template until it is fixed.</p></div></div>
 </div>
 {% endif %}
+{% if stuck %}
+<div class="listbox">
+{% for b in stuck %}<div class="row is-down" role="status"><div class="row-body"><div class="row-title">{{ b.title }}</div>
+<p class="metaline">{{ b.kind_word }} · <span class="st-warn">Failed 3 times</span> · retried after {{ b.until }} UTC{% if b.error %} · {{ b.error }}{% endif %}</p></div></div>
+{% endfor %}</div>
+{% endif %}
 {% if not rows %}
 <p class="empty">No posters yet. The first pass runs a few minutes after the hub starts.</p>
 {% else %}
@@ -38,9 +44,14 @@
     <div class="row-title">{{ r.title }}</div>
     {% set cut %}<span class="st-warn">Title cut short</span>{% endset %}
     {{ meta([r.kind_word, r.sub or none, r.words, "Old template" if r.stale else none, cut if r.truncated else none]) }}
-    {% if r.status == "rendered" %}<form method="post" action="/media/posters/{{ r.jf_id }}/{{ 'restore' if r.reverted else 'revert' }}">
+    {% if r.status == "rendered" %}
+    {% if r.manual %}<form method="post" action="/media/posters/{{ r.jf_id }}/reapply"><button type="submit" class="btn btn-secondary btn-sm">Re-apply the Joey poster</button></form>
+    <form method="post" action="/media/posters/{{ r.jf_id }}/original"><button type="submit" class="btn btn-secondary btn-sm">Put the original back in Jellyfin</button></form>
+    {% elif r.backoff %}<form method="post" action="/media/posters/{{ r.jf_id }}/reapply"><button type="submit" class="btn btn-secondary btn-sm">Try again now</button></form>
+    {% else %}<form method="post" action="/media/posters/{{ r.jf_id }}/{{ 'restore' if r.reverted else 'revert' }}">
       <button type="submit" class="btn btn-secondary btn-sm">{{ "Use the Joey poster" if r.reverted else "Revert to the original" }}</button>
     </form>{% endif %}
+    {% endif %}
   </div>
 </section>
 {% endfor %}

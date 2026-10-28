@@ -26,7 +26,7 @@ import sqlite3
 import threading
 import time
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from hub import images, media_item, media_jellyfin, media_store, upstream
@@ -48,13 +48,17 @@ AUTO_MIN_RATING = 0.0   # phase 2: every poster (B. 2026-10-28); the 6.0 rule of
 SEASONS_TTL_S = 24 * 3600   # a series' season list is re-read at most daily
 MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
 MEMORY_STALE_MIN = 15
+FAILS_BEFORE_BACKOFF = 3   # an item failing this many times in a row (render or write) ...
+BACKOFF_S = 24 * 3600      # ... is passed over this long, so it cannot hold the pass limit (review 2026-10-28)
 _tick = {"at": 0.0, "more": True}
 
 DDL = (
     """CREATE TABLE IF NOT EXISTS poster(
-        jf_id TEXT PRIMARY KEY, kind TEXT NOT NULL, ver TEXT, template TEXT, status TEXT NOT NULL,
+        jf_id TEXT PRIMARY KEY, kind TEXT NOT NULL, title TEXT, ver TEXT, template TEXT, status TEXT NOT NULL,
         reverted INTEGER NOT NULL DEFAULT 0, bytes INTEGER, rendered_at TEXT,
-        orig_ext TEXT, orig_tag TEXT, live_ver TEXT, live_tag TEXT, locked_by_us INTEGER NOT NULL DEFAULT 0,
+        orig_ext TEXT, orig_tag TEXT, wrote INTEGER NOT NULL DEFAULT 0, pending_ver TEXT, live_ver TEXT, live_tag TEXT,
+        locked_by_us INTEGER NOT NULL DEFAULT 0, manual INTEGER NOT NULL DEFAULT 0,
+        fails INTEGER NOT NULL DEFAULT 0, retry_at TEXT,
         written_at TEXT, checked_at TEXT, last_error TEXT)""",
     "CREATE TABLE IF NOT EXISTS poster_progress(key TEXT PRIMARY KEY, value TEXT NOT NULL)",
 )
@@ -295,6 +299,35 @@ def set_state(jf_id: str, **fields) -> None:
         db.commit()
 
 
+def _stamp(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def in_backoff(row: dict | None, now: datetime | None = None) -> bool:
+    retry = (row or {}).get("retry_at")
+    if not retry:
+        return False
+    return _stamp(now or datetime.now(timezone.utc)) < str(retry)
+
+
+def record_failure(jf_id: str, error: str, now: datetime | None = None, **insert) -> int:
+    """One more failure in a row for an item (render or write); the 3rd backs it off for 24 h (logged, shown on the
+    review page). `insert` gives `kind` / `title` / `status` for an item with no row yet. -> its failure count."""
+    now = now or datetime.now(timezone.utc)
+    fails = int((state(jf_id) or {}).get("fails") or 0) + 1
+    retry = _stamp(now + timedelta(seconds=BACKOFF_S)) if fails >= FAILS_BEFORE_BACKOFF else None
+    set_state(jf_id, **({} if state(jf_id) else insert), fails=fails, retry_at=retry, last_error=error[:200])
+    if retry:
+        log.warning("posters: an item failed %s times in a row; backing off 24 h (shown on /media/posters)", fails)
+    return fails
+
+
+def backing_off() -> list[dict]:
+    """Rows in backoff, for the review page."""
+    now = datetime.now(timezone.utc)
+    return sorted((r for r in states().values() if in_backoff(r, now)), key=lambda r: r.get("retry_at") or "")
+
+
 def progress() -> dict[str, str]:
     db = media_store.reader()
     if db is None:
@@ -318,9 +351,14 @@ def _set_progress(**values) -> None:
 def rows() -> list[dict]:
     """Every stored item's sidecar + its media.db state, Q9A order."""
     st = states()
-    return order([{**side, "reverted": bool((st.get(side["jf_id"]) or {}).get("reverted")),
-                   "live": (st.get(side["jf_id"]) or {}).get("live_ver") is not None}
-                  for side in store.all_meta()])
+    now = datetime.now(timezone.utc)
+    out = []
+    for side in store.all_meta():
+        row = st.get(side["jf_id"]) or {}
+        out.append({**side, "reverted": bool(row.get("reverted")), "live": row.get("live_ver") is not None,
+                    "manual": bool(row.get("manual")), "wrote": bool(row.get("wrote")),
+                    "backoff": row.get("retry_at") if in_backoff(row, now) else None})
+    return order(out)
 
 
 def image_path(jf_id: str) -> Path | None:
@@ -376,7 +414,8 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     m = mode()
     if m == "off":
         return {"off": True}
-    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0, "more": False}
+    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0, "backoff": 0,
+              "more": False}
     if not memory_ok(snaps):
         counts["skipped_memory"] = True
         return counts
@@ -411,6 +450,9 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         if row.get("template") == tpl.version and (row.get("ver") == ver or row.get("status") == "no_source"):
             counts["cached"] += 1
             return store.read_meta(t["jf_id"]) or {}
+        if in_backoff(row):   # failed 3 times in a row: passed over for 24 h, never counted against the limit
+            counts["backoff"] += 1
+            return store.read_meta(t["jf_id"])
         try:
             chosen = pick(remote_images(t["jf_id"]))
             if chosen is None and fallback_url:   # a season with no TMDB season poster: the series' poster
@@ -435,15 +477,20 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
                     counts["truncated"] += 1
                 counts["rendered"] += 1
             store.write_meta(t["jf_id"], side)
-            set_state(t["jf_id"], kind=t["kind"], ver=ver, template=tpl.version, status=side["status"],
-                      bytes=size, rendered_at=side["rendered_at"], last_error=None)
+            set_state(t["jf_id"], kind=t["kind"], title=t["title"], ver=ver, template=tpl.version,
+                      status=side["status"], bytes=size, rendered_at=side["rendered_at"], last_error=None, fails=0,
+                      retry_at=None)
             _set_progress(last=t["jf_id"], at=side["rendered_at"])
             if pause:
                 time.sleep(pause)
             return side
-        except Exception as exc:   # one bad title never stops the pass; nothing recorded, so it retries next pass
+        except Exception as exc:   # one bad title never stops the pass; it retries next pass, backing off after 3
             counts["failed"] += 1
             log.warning("posters: title failed: %s", type(exc).__name__)
+            try:
+                record_failure(t["jf_id"], type(exc).__name__, kind=t["kind"], title=t["title"], status="failed")
+            except sqlite3.Error:
+                pass
             return None
 
     for t in targets(jelly if isinstance(jelly, dict) else {}):

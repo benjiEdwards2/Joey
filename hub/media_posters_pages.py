@@ -44,7 +44,11 @@ def pick_words(side: dict) -> str:
     parts = [lang, f"Rated {rating:.1f}" if isinstance(rating, (int, float)) else "Unrated"]
     if p.get("width") and p.get("height"):
         parts.append(f"{p['width']} × {p['height']}")
-    if side.get("reverted"):
+    if side.get("backoff"):
+        parts.append("Failed 3 times: retried after " + str(side["backoff"])[:16].replace("T", " ") + " UTC")
+    if side.get("manual"):
+        parts.append("Manual: changed by hand in Jellyfin, left alone")
+    elif side.get("reverted"):
         parts.append("Reverted: the original is shown")
     elif not side.get("auto"):
         parts.append("Held back: under the rating floor")
@@ -77,7 +81,11 @@ def posters_page(request: Request):
         head = [mode_words(), media_text.plural(rendered, "poster") + " rendered"]
         if len(rows) > rendered:
             head.append(f"{len(rows) - rendered} without a TMDB poster")
-        return {"rows": rows, "head_line": " · ".join(head), "problems": problems,
+        shown = {r["jf_id"] for r in rows}
+        stuck = [{"title": b.get("title") or "Untitled", "kind_word": KIND_WORDS.get(b.get("kind"), "Film"),
+                  "until": str(b.get("retry_at"))[:16].replace("T", " "), "error": b.get("last_error") or ""}
+                 for b in mp.backing_off() if b["jf_id"] not in shown]
+        return {"rows": rows, "stuck": stuck, "head_line": " · ".join(head), "problems": problems,
                 "kit_words": (("Starter template" if starter else "Your template") + (f" · {tpl.version}" if tpl else "")),
                 "version": tpl.version if tpl else ""}
 
@@ -99,6 +107,10 @@ def _act(request: Request, jf_id: str, action: str):
         return shell.not_found_page(request)
     if action == "revert":
         write.revert(jf_id)
+    elif action == "original":
+        write.revert(jf_id, restore_manual=True)
+    elif action == "reapply":
+        write.reapply(jf_id)
     else:
         write.restore(jf_id)
     return RedirectResponse(PAGE, status_code=303)
@@ -112,3 +124,15 @@ async def revert(request: Request, jf_id: str):
 @router.post(PAGE + "/{jf_id}/restore", dependencies=[Depends(same_origin)])
 async def restore(request: Request, jf_id: str):
     return await run_in_threadpool(_act, request, jf_id, "restore")
+
+
+@router.post(PAGE + "/{jf_id}/original", dependencies=[Depends(same_origin)])
+async def restore_original(request: Request, jf_id: str):
+    """B.'s explicit ask: put the pre-Joey original back over a hand-set (manual) poster."""
+    return await run_in_threadpool(_act, request, jf_id, "original")
+
+
+@router.post(PAGE + "/{jf_id}/reapply", dependencies=[Depends(same_origin)])
+async def reapply(request: Request, jf_id: str):
+    """Re-apply the Joey poster (over a hand-set one, after a revert or a backoff)."""
+    return await run_in_threadpool(_act, request, jf_id, "reapply")

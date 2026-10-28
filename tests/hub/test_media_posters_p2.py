@@ -166,6 +166,7 @@ class FakeJellyfin:
                           "ImageTags": {"Primary": "t-orig"}} for i in ids}
         self.images = {i: (ORIG, "image/jpeg") for i in ids}
         self.log, self.fail_upload = [], False
+        self.fail_lock, self.fail_reads = False, 0   # the lock POST answers 500 / the next n item reads answer 500
         self.remote = {"Images": [img(None, 7, name="clean")]}
 
     def _tag(self, i):
@@ -182,6 +183,9 @@ class FakeJellyfin:
         if path.endswith("/Images/Primary"):
             body, ctype = self.images[jf_id]
             return Resp(data=body, ctype=ctype)
+        if self.fail_reads:
+            self.fail_reads -= 1
+            return Resp(status=500)
         return Resp(body=json.loads(json.dumps(self.items[jf_id])))
 
     def post(self, url, data=None, json=None, headers=None, timeout=None):
@@ -196,6 +200,8 @@ class FakeJellyfin:
             self._tag(jf_id)
             return Resp(status=204)
         assert json["Overview"] == "keep me" and json["Id"] == jf_id     # the full DTO goes back, never a partial
+        if self.fail_lock:
+            return Resp(status=500)
         self.items[jf_id]["LockData"] = json["LockData"]
         return Resp(status=204)
 
@@ -272,8 +278,8 @@ def test_the_write_is_idempotent_and_drift_is_re_applied_once_a_day(jelly_rw, ca
     from datetime import datetime, timedelta, timezone
     later = datetime.now(timezone.utc) + timedelta(days=1, minutes=1)
     assert w.write_pass(limit=30, now=later)["unchanged"] == 5 and fake.writes() == []
-    fake.images[B] = (b"\xff\xd8a-metadata-refresh", "image/jpeg")       # Jellyfin overwrote it
-    fake._tag(B)
+    fake.images[B] = (ORIG, "image/jpeg")                                # a refresh put the original back
+    fake.items[B]["ImageTags"] = {"Primary": "t-orig"}
     with caplog.at_level("WARNING", logger="hub.media_posters_write"):
         got = w.write_pass(limit=30, now=later + timedelta(days=1, minutes=1))
     assert got["reapplied"] == 1 and fake.images[B][0] == ms.master(B).read_bytes()
@@ -403,3 +409,178 @@ def test_a_bad_or_hostile_v_is_ignored_safely(fakes, monkeypatch, v):
         resp = c.get(f"/img/jf:{B}?h=240&v={v}")
     assert resp.status_code == 200 and resp.content == b"\xff\xd8jellyfin"   # today's path, never a store file
     assert images._stored("jf", B, 240, v) is None
+
+
+# ---- review fixes (2026-10-28): a write that may have happened is always undoable; hand-set posters; backoff ----
+
+def later(days=1):
+    from datetime import datetime, timedelta, timezone
+    return datetime.now(timezone.utc) + timedelta(days=days, minutes=1)
+
+
+def test_a_failed_lock_after_the_upload_is_recorded_finished_next_pass_and_revertable(jelly_rw):
+    fake, out = jelly_rw
+    fake.fail_lock = True
+    mp.dry_pass(snaps(LIB), pause=0)
+    row = mp.state(B)
+    assert fake.images[B][0] == ms.master(B).read_bytes()                 # Jellyfin holds the Joey poster ...
+    assert row["wrote"] == 1 and row["live_ver"] == row["ver"] and row["live_tag"] is None   # ... and we know it
+    assert "lock: HTTP 500" in row["last_error"]
+    fake.fail_lock = False
+    fake.log.clear()
+    assert w.write_pass(limit=30)["finished"] == 5
+    assert ("POST", f"/Items/{B}/Images/Primary") not in fake.log          # finished without a second upload
+    assert fake.items[B]["LockData"] is True and mp.state(B)["live_tag"] == fake.items[B]["ImageTags"]["Primary"]
+
+
+def test_a_revert_after_a_failed_lock_restores_the_original(jelly_rw):
+    fake, out = jelly_rw
+    fake.fail_lock = True
+    mp.dry_pass(snaps(LIB), pause=0)
+    fake.fail_lock = False
+    assert w.revert(B) == "reverted" and fake.images[B] == (ORIG, "image/jpeg")
+    assert mp.state(B)["wrote"] == 0
+
+
+def test_a_failed_read_back_after_the_upload_is_revertable(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    real = w._upload
+
+    def upload_then_fail_reads(*a, **k):
+        real(*a, **k)
+        fake.fail_reads = 1
+    monkeypatch.setattr(w, "_upload", upload_then_fail_reads)
+    mp.dry_pass(snaps(LIB), pause=0)
+    row = mp.state(B)
+    assert row["wrote"] == 1 and row["live_ver"] == row["ver"] and "item: HTTP 500" in row["last_error"]
+    monkeypatch.setattr(w, "_upload", real)
+    assert w.revert(B) == "reverted" and fake.images[B] == (ORIG, "image/jpeg")
+
+
+def test_a_crash_between_the_upload_and_the_record_is_still_undone(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    monkeypatch.setenv("POSTERS", "dry")
+    mp.dry_pass(snaps(LIB), pause=0)
+    monkeypatch.setenv("POSTERS", "on")
+    real = w._upload
+
+    def upload_then_die(*a, **k):
+        real(*a, **k)
+        raise KeyboardInterrupt   # the process dies before live_ver is recorded
+    monkeypatch.setattr(w, "_upload", upload_then_die)
+    with pytest.raises(KeyboardInterrupt):
+        w.apply(B)
+    row = mp.state(B)
+    assert row["wrote"] == 1 and row["pending_ver"] == row["ver"] and row["live_ver"] is None
+    assert fake.images[B][0] == ms.master(B).read_bytes()
+    monkeypatch.setattr(w, "_upload", real)
+    assert w.revert(B) == "reverted" and fake.images[B] == (ORIG, "image/jpeg")   # honest: the original is back
+
+
+def test_a_crash_after_the_upload_is_reconciled_by_the_next_pass(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    monkeypatch.setenv("POSTERS", "dry")
+    mp.dry_pass(snaps(LIB), pause=0)
+    monkeypatch.setenv("POSTERS", "on")
+    real = w._upload
+
+    def upload_then_die(*a, **k):
+        real(*a, **k)
+        raise KeyboardInterrupt
+    monkeypatch.setattr(w, "_upload", upload_then_die)
+    with pytest.raises(KeyboardInterrupt):
+        w.apply(B)
+    monkeypatch.setattr(w, "_upload", real)
+    assert w.write_pass(limit=30)["written"] == 5
+    row = mp.state(B)
+    assert row["pending_ver"] is None and row["live_ver"] == row["ver"] and row["live_tag"]
+
+
+def test_a_revert_that_cannot_reach_jellyfin_says_so(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    fake.fail_upload = True
+    assert w.revert(B) == "error" and fake.images[B][0] != ORIG          # never "reverted" when it was not
+    fake.fail_upload = False
+    assert w.write_pass(limit=30)["reverted"] == 1 and fake.images[B] == (ORIG, "image/jpeg")
+
+
+def hand_set(fake, jf_id):
+    fake.images[jf_id] = (b"\xff\xd8bs-own-poster", "image/jpeg")
+    fake._tag(jf_id)
+
+
+def test_a_hand_set_poster_is_left_alone_and_marked_manual(jelly_rw, caplog):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    hand_set(fake, B)
+    fake.log.clear()
+    with caplog.at_level("WARNING", logger="hub.media_posters_write"):
+        got = w.write_pass(limit=30, now=later())
+    assert got["manual"] == 1 and got["reapplied"] == 0 and fake.writes() == []
+    assert mp.state(B)["manual"] == 1 and any("by hand" in rec.getMessage() for rec in caplog.records)
+    assert w.write_pass(limit=30, now=later(3))["manual"] == 0 and fake.writes() == []   # never fought again
+    assert fake.images[B][0] == b"\xff\xd8bs-own-poster"
+
+
+def test_revert_keeps_a_hand_set_poster_unless_asked_and_reapply_wins_over_it(jelly_rw):
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    hand_set(fake, B)
+    w.write_pass(limit=30, now=later())
+    assert w.revert(B) == "manual" and fake.images[B][0] == b"\xff\xd8bs-own-poster"   # his poster stays
+    assert ms.lookup(B, 240) is None                                     # Joey stops serving its own
+    assert w.write_pass(limit=30, now=later(2))["reverted"] == 0 and fake.images[B][0] == b"\xff\xd8bs-own-poster"
+    assert w.revert(B, restore_manual=True) == "reverted" and fake.images[B] == (ORIG, "image/jpeg")
+    hand_set(fake, A)
+    w.write_pass(limit=30, now=later())
+    assert mp.state(A)["manual"] == 1 and w.reapply(A)
+    assert w.write_pass(limit=30, now=later())["written"] == 1 and fake.images[A][0] == ms.master(A).read_bytes()
+    assert mp.state(A)["manual"] == 0
+
+
+def test_three_write_failures_back_off_for_a_day_and_free_the_pass(jelly_rw):
+    fake, out = jelly_rw
+    fake.fail_upload = True
+    mp.dry_pass(snaps(LIB), pause=0)                                     # failure 1 (each of the 5)
+    w.write_pass(limit=30)                                               # 2
+    w.write_pass(limit=30)                                               # 3: backoff
+    assert mp.state(B)["fails"] == 3 and mp.in_backoff(mp.state(B))
+    fake.log.clear()
+    got = w.write_pass(limit=30)
+    assert got["backoff"] == 5 and got["error"] == 0 and fake.writes() == []
+    fake.fail_upload = False
+    assert w.write_pass(limit=30, now=later())["written"] == 5           # retried after 24 h
+    assert mp.state(B)["fails"] == 0 and mp.state(B)["retry_at"] is None
+
+
+def test_three_render_failures_back_off_and_do_not_eat_the_pass_limit(fakes, monkeypatch):
+    jf, tmdb, out = fakes
+    monkeypatch.setenv("POSTERS_PER_PASS", "1")
+    jf.routes = {"/Shows/": Resp(body={"Items": []}), f"/Items/{B}/RemoteImages": Resp(status=500),
+                 "/RemoteImages": Resp(body={"Images": [img(None, 7, name="clean")]})}
+    for _ in range(3):
+        assert mp.dry_pass(snaps(LIB), pause=0)["failed"] == 1        # B (newest) fails, holding the 1-item pass
+    assert mp.in_backoff(mp.state(B)) and mp.state(B)["status"] == "failed"
+    got = mp.dry_pass(snaps(LIB), pause=0)
+    assert got["backoff"] == 1 and got["rendered"] == 1                  # the pass moves on to the next item
+
+
+def test_the_review_page_shows_manual_and_backing_off_items(fakes, env, monkeypatch):  # noqa: F811
+    from tests.hub.test_media_library_pages import jelly
+    jf, tmdb, out = fakes
+    mp.dry_pass(snaps(LIB), pause=0)
+    mp.set_state(A, manual=1, wrote=1)
+    for _ in range(3):
+        mp.record_failure(C, "WriteError: upload: HTTP 500")
+    mp.record_failure("e" * 32, "RuntimeError", kind="movie", title="Never Rendered", status="failed")
+    mp.record_failure("e" * 32, "RuntimeError")
+    mp.record_failure("e" * 32, "RuntimeError")
+    main = env(jellyfin=jelly())
+    with TestClient(main.app) as c:
+        body = c.get("/media/posters").text
+        assert "Manual: changed by hand in Jellyfin" in body and "Re-apply the Joey poster" in body
+        assert "Put the original back in Jellyfin" in body
+        assert "Failed 3 times" in body and "Never Rendered" in body and "Try again now" in body
+        assert c.post(f"/media/posters/{C}/reapply", follow_redirects=False).status_code == 303
+        assert not mp.in_backoff(mp.state(C))

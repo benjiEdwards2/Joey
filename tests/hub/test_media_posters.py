@@ -259,7 +259,7 @@ def test_an_upstream_failure_is_counted_and_retried_next_pass(fakes):
     jf, tmdb, out = fakes
     jf.routes["/RemoteImages"] = Resp(status=500)
     counts = mp.dry_pass(snaps(LIB), pause=0)
-    assert counts["failed"] == 5 and not list(out.glob("*/meta.json"))
+    assert counts["failed"] == 6 and not list(out.glob("*/meta.json"))   # 5 titles + the season art plan
 
 
 def test_off_does_nothing(fakes, monkeypatch):

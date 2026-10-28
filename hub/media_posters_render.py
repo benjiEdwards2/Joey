@@ -37,7 +37,9 @@ FONT_EXT = (".ttf", ".otf", ".woff2", ".woff")
 COLOUR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 MAX_SOURCE_PIXELS = 64_000_000   # header check: a JPEG this big still decodes at 1/8 scale (`draft`)
 MAX_DECODED_PIXELS = 4_000_000   # what a PNG / WebP may decode to: <= 16 MB as RGBA (+12 MB as RGB): render < ~30 MB
-MAX_DECODED_JPEG = 8_000_000     # a JPEG after `draft`: <= 24 MB as RGB (a 2000 x 3000 source drafts to 1000 x 1500)
+# a JPEG after `draft`: <= 25 MB as RGB (2000 x 3000 drafts to 1000 x 1500; a 3840 x 2160 backdrop used as season art
+# cannot draft below 1500 high, and fits)
+MAX_DECODED_JPEG = 8_400_000
 MAX_TITLE_CHARS = 120            # longer titles are cut (and flagged) before any layout work
 MAX_JSON_BYTES = 64 * 1024
 MAX_PNG_BYTES = 10 * 1024 * 1024

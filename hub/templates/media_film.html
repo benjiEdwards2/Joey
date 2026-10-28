@@ -118,7 +118,7 @@
            Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
         {% set more_req = film.play and film.play.href and (film.show_request or "actions" in film.pending) %}
-        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req %}
+        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req or film.remove_href %}
         <details class="fold heromore">
           <summary>More</summary>
           <div class="confirm heromore-acts">
@@ -127,6 +127,8 @@
           {% if more_req %}{% call wait("actions", film.pending, "more") %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}{% endif %}
           {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
           {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
+          {# JY-265: Remove… (owner "you", REMOVE_API on, a Seerr request exists) - opens the Remove page #}
+          {% if film.remove_href %}<a class="btn btn-danger" href="{{ film.remove_href }}">Remove…</a>{% endif %}
           </div>
         </details>
         {% endif %}

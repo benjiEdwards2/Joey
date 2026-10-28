@@ -80,7 +80,13 @@ def _episode_rating(db) -> None:   # WP-E1 (2026-10-16): the TV episode flow's p
     media_episode_ratings.migrate(db)
 
 
-STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating)   # STEPS[n]: user_version n -> n + 1
+def _removals(db) -> None:   # JY-265 (2026-10-28): the Remove audit log (hub/media_remove.py)
+    from hub import media_remove
+    db.execute(media_remove.DDL)
+    db.commit()
+
+
+STEPS = (_baseline, _indexes, _follow_shows, _rating_skip, _episode_rating, _removals)   # STEPS[n]: user_version n -> n + 1
 SCHEMA_VERSION = len(STEPS)
 
 _ready: set[tuple] = set()      # files already brought up to date by this process

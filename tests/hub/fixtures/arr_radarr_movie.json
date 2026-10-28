@@ -1,0 +1,36 @@
+{
+  "note": "JY-265 phase 0 (2026-10-28): GET /api/v3/movie?tmdbId= answers a LIST of MovieResource (Radarr v5). Shape from the resource schema, values invented; not a live capture.",
+  "method": "GET",
+  "path": "/api/v3/movie",
+  "http_status": 200,
+  "body": [
+    {
+      "id": 7,
+      "title": "Midnight Harbour",
+      "originalTitle": "Midnight Harbour",
+      "sortTitle": "midnight harbour",
+      "sizeOnDisk": 0,
+      "status": "released",
+      "overview": "Overview.",
+      "year": 2025,
+      "hasFile": false,
+      "path": "/data/media/movies/Midnight Harbour (2025)",
+      "qualityProfileId": 1,
+      "monitored": true,
+      "minimumAvailability": "released",
+      "isAvailable": true,
+      "folderName": "/data/media/movies/Midnight Harbour (2025)",
+      "runtime": 104,
+      "cleanTitle": "midnightharbour",
+      "imdbId": "tt0000001",
+      "tmdbId": 1001,
+      "titleSlug": "1001",
+      "rootFolderPath": "/data/media/movies",
+      "genres": ["Drama"],
+      "tags": [],
+      "added": "2026-10-20T09:00:00Z",
+      "addOptions": {"searchForMovie": true, "monitor": "movieOnly"},
+      "statistics": {"movieFileCount": 0, "sizeOnDisk": 0, "releaseGroups": []}
+    }
+  ]
+}

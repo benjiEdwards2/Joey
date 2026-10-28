@@ -1,0 +1,8 @@
+{
+  "note": "JY-265 phase 0 (2026-10-28): Seerr 3.5 DELETE /api/v1/request/{id} answers 204 with no body (server/routes/request.ts: res.status(204).send()); a request already gone answers 404. Not a live capture: Joey makes no Seerr write in phase 0.",
+  "method": "DELETE",
+  "path": "/api/v1/request/{id}",
+  "http_status": 204,
+  "body": null,
+  "gone": {"http_status": 404, "body": {"message": "Request not found."}}
+}

@@ -28,7 +28,7 @@ def test_v3_file_is_migrated_to_v4_with_the_skip_table_and_keeps_its_rows(tmp_pa
     media_store.reset()
     assert media_db.skips("you") == []                                    # a read brings it up to v4
     with closing(sqlite3.connect(path)) as db:
-        assert db.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 5
+        assert db.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 6
         cols = [r[1] for r in db.execute("PRAGMA table_info(rating_skip)")]
         assert cols == ["owner", "key", "kind", "forever", "created_at", "title", "poster"]
         media_db.migrate_skip(db)                                         # idempotent

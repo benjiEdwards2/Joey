@@ -1,0 +1,24 @@
+{
+  "note": "JY-265 phase 0 (2026-10-28): GET /api/v3/episodefile?seriesId= answers a LIST of EpisodeFileResource (Sonarr v4); used by phase 3 (seasons / episodes). Shape from the resource schema, values invented; not a live capture.",
+  "method": "GET",
+  "path": "/api/v3/episodefile",
+  "http_status": 200,
+  "body": [
+    {
+      "id": 501,
+      "seriesId": 9,
+      "seasonNumber": 1,
+      "relativePath": "Season 01/Night Ferry - S01E01 - Pilot.mkv",
+      "path": "/data/media/tv/Night Ferry/Season 01/Night Ferry - S01E01 - Pilot.mkv",
+      "size": 1717986918,
+      "dateAdded": "2026-10-20T10:00:00Z",
+      "releaseGroup": "SAMPLE",
+      "languages": [{"id": 1, "name": "English"}],
+      "quality": {"quality": {"id": 3, "name": "WEBDL-1080p", "source": "web", "resolution": 1080}, "revision": {"version": 1, "real": 0, "isRepack": false}},
+      "customFormats": [],
+      "customFormatScore": 0,
+      "mediaInfo": {"videoCodec": "h264", "audioCodec": "EAC3", "audioChannels": 5.1, "resolution": "1920x1080", "runTime": "50:12"},
+      "qualityCutoffNotMet": false
+    }
+  ]
+}

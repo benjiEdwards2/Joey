@@ -27,6 +27,7 @@ from fastapi.responses import HTMLResponse, Response
 from starlette.background import BackgroundTask
 
 from hub import media_arr_search, media_awards_badges, media_db, media_discover as md, media_downloads, media_files, media_follow, media_item, media_omdb, media_plays_db, media_rank
+from hub import media_remove   # JY-265: the More fold's Remove line
 from hub import media_episode_ratings, media_season_state as mss
 from hub import guest, media_home, media_quality, media_text, media_upgrades, shell
 from hub import media_watch   # JY-054: Play opens Joey's own player when PLAYER_API is on
@@ -1301,6 +1302,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["arr_search"] = (media_arr_search.lazy_href(kind, tmdb_id, tvdb, request.url.path)
                        if not ep else None)
     f["search_flash"] = media_arr_search.flash_text(request.query_params)
+    # JY-265: "Remove…" in More - owner "you", REMOVE_API on, a request in the cached Seerr rows (never a call)
+    f["remove_href"] = media_remove.more_href(request, kind, tmdb_id, snaps) if not ep else None
     # Quality (WP-R1): "Quality · 1080p" + Switch, lazy-loaded like Search now; drawn here only for the no-JS confirm step
     f["quality_href"] = media_quality.lazy_href(kind, tmdb_id, tvdb, request.url.path) if not ep else None
     f["quality_block"] = (media_quality.block(kind, tmdb_id, tvdb, request.url.path, ask=True,

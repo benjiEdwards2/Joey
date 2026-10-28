@@ -8,6 +8,9 @@
   "frame": null,
   "title": {
     "title_anchor": 0.74,
+    "title_anchor_mode": "bottom",
+    "title_gap": 0.025,
+    "title_top_limit": 0.62,
     "margin_x": 0.06,
     "max_size": 95,
     "min_size": 40,

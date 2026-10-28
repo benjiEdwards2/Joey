@@ -106,10 +106,12 @@ def draw_guide(tpl: r.Template, path: Path) -> None:
     x0, x1 = int(w * t["margin_x"]), int(w * (1 - t["margin_x"]))
     for x in (x0, x1):
         d.line((x, 0, x, h), fill=(255, 0, 200, 120), width=2)
-    ty0 = int(h * t["title_anchor"])
-    ty1 = int(h * s["sub_anchor"])   # the title's lines always fit above the sub-line
+    _anchor, rise, floor_y = r.title_band(tpl)
+    ty0, ty1 = int(rise), int(floor_y)   # the whole area a title may use: up to the limit, down to the gap
+    d.line((x0, int(_anchor), x1, int(_anchor)), fill=(255, 0, 200, 160), width=2)
     d.rectangle((x0, ty0, x1, ty1), outline=(255, 0, 200, 255), width=4)
-    d.text((x0 + 8, ty0 - font.size - 10), f"title box: top {t['title_anchor']}, {t['max_lines']} lines max",
+    d.text((x0 + 8, ty0 - font.size - 10), f"title: 1 line at {t['title_anchor']}, up to {t['max_lines']} lines grow up to "
+           f"{t.get('title_top_limit', t['title_anchor'])}",
            font=font, fill=(255, 0, 200, 255))
     sy0 = int(h * s["sub_anchor"])
     d.rectangle((x0, sy0, x1, int(sy0 + s["size"] * 1.2)), outline=(255, 200, 0, 255), width=4)

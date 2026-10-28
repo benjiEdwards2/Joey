@@ -24,7 +24,7 @@ Joey draws the title and the sub-line itself, because the words change per film.
 
 1. **Create the design.** Canva → Create a design → Custom size → **1000 × 1500 px**. Any 2:3 size works, from 600 × 900 to 2000 × 3000, as long as `canvas` in `template.json` matches it.
 2. **Add the safe-area guide.** Upload `guide.png` from the starter kit (or from your folder) and place it at full size. It shows:
-   - the **title box** (pink): from 74 % down to the sub-line, 6 % side margins, room for up to three lines;
+   - the **title area** (pink): a one-line title sits on the inner pink line at 74 %. Longer titles grow upward from the bottom of the box, which stops 2.5 % above the sub-line, up to the top of the box at 62 %. Side margins are 6 %;
    - the **sub-line box** (yellow): top at 88 %;
    - the **scrim band** (blue): the fade starts at 56 %.
 
@@ -52,7 +52,8 @@ Joey draws the title and the sub-line itself, because the words change per film.
   "scrim_band": {"top": 0.56, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
   "frame": null,
   "title": {
-    "title_anchor": 0.74, "margin_x": 0.06,
+    "title_anchor": 0.74, "title_anchor_mode": "bottom", "title_gap": 0.025, "title_top_limit": 0.62,
+    "margin_x": 0.06,
     "max_size": 95, "wrap_at": 60, "min_size": 40, "max_lines": 3, "line_height": 1.05,
     "uppercase": true, "tracking": 0.01, "weight": 800, "colour": "#FFFFFF",
     "shadow": {"colour": "#000000", "opacity": 0.8, "blur": 14, "dy": 2}
@@ -66,7 +67,10 @@ Joey draws the title and the sub-line itself, because the words change per film.
 
 - **Positions are fractions of the height.** `title_anchor: 0.74` puts the top of the title 74 % of the way down; `sub_anchor` does the same for the sub-line. `margin_x: 0.06` keeps 6 % clear on each side, and both lines centre between the margins.
   - To move the text, change these numbers. In Canva, read a box's Y position and divide by the canvas height: Y 1110 ÷ 1500 = 0.74.
-- **Sizes are pixels on the canvas.** The title's lines always fit between `title_anchor` and `sub_anchor`.
+- **`title_anchor_mode`** decides which way a title grows.
+  - `"bottom"` (the starter): a title starts at `title_anchor`. If its lines would come closer to the sub-line than `title_gap` (2.5 % of the height), the whole block moves up, but never above `title_top_limit`. The title can never touch the sub-line.
+  - `"top"`: the block hangs from `title_anchor` and shrinks to fit above the gap.
+- **Sizes are pixels on the canvas.** The title's lines always fit between their top limit and the gap above the sub-line.
   - A title starts at `max_size` on one line and shrinks to `wrap_at` if it is too wide.
   - If it still does not fit, it wraps to two balanced lines, and then to three (`max_lines`, up to 3), each time starting from the largest size that fits.
   - The last line count may shrink down to `min_size`, the hard floor.

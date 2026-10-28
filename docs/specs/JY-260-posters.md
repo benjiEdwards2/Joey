@@ -49,6 +49,7 @@ A folder of files. joey-hub reads it on every pass; a change to any file re-rend
    - it shrinks on one line from `max_size` to `wrap_at` (60);
    - it wraps to 2 balanced lines, then 3 (`max_lines`), each from the largest size that fits;
    - the last line count may go down to `min_size` (40), the hard floor;
+   - with `title_anchor_mode: "bottom"` (the starter), a 1-line title sits at `title_anchor` (74 %). A taller block grows upward so its bottom stays `title_gap` (2.5 %) above the sub-line, rising no higher than `title_top_limit` (62 %); the title box and the sub-line box never intersect (tested for 1, 2 and 3 lines, plus a pixel check);
    - only past the floor is it ellipsised, and then it is flagged: `truncated` in the sidecar, a warning in the log with a count only, and "Title cut short" on the review page.
 
    The scrim is one smooth gradient that starts at 56 %, with `solid` 1.2, so it is still darkening at the bottom edge: no seam and no flat band. The sub-line for a film is the year (Q7A). For a series, "Seasons a–b · yyyy–yyyy" sits behind `POSTERS_SERIES_SUB=on`, which is off by default (phase 2 switch). JPEG sources decode at reduced size (`draft`), so peak memory stays low. It also runs as a CLI for previews (`python -m hub.media_posters_render`).
@@ -220,7 +221,8 @@ Phase 1 (draft PR, 2026-10-28, not merged or deployed):
   - Fix round, coordinator 2026-10-28:
     - long titles are never cut above the floor (up to 3 lines, floor 40 px);
     - the scrim is one gradient with no seam;
-    - the placeholder art no longer has a straight-edged band.
+    - the placeholder art no longer has a straight-edged band;
+    - a 3-line title no longer sits on the sub-line: the bottom-anchor mode with `title_gap` (second fix round).
   - The dry pass is its own hourly loop in `hub/tasks.py`, not part of `media_warmup`.
 
 

@@ -56,6 +56,7 @@ def test_starter_kit_is_layout_2_with_layout_3_text_positions(tpl):
     band = tpl.data["scrim_band"]
     assert 0.55 <= band["top"] <= 0.60 and band["solid"] > 1.0           # one gradient over the bottom ~40 %, never flat
     assert (t["max_lines"], t["min_size"]) == (3, 40)
+    assert (t["title_anchor_mode"], t["title_gap"]) == ("bottom", 0.025)   # taller titles grow upward
     assert tpl.font_path.name == "GeistVF.woff2"
     assert r.validate(tpl.data, r.STARTER) == []
 
@@ -103,6 +104,41 @@ def test_long_title_wraps_to_two_balanced_lines(tpl):
     _inside(lay, tpl)
 
 
+@pytest.mark.parametrize("title,n", [("Up", 1), ("Eternal Sunshine of the Spotless Mind", 2),
+                                     ("The Assassination of Jesse James by the Coward Robert Ford", 3),
+                                     ("The Lord of the Rings The Return of the King Extended Edition Part Two", 3)])
+def test_title_box_never_meets_the_sub_line_box(tpl, title, n):
+    lay = r.layout_title(tpl, title)
+    assert len(lay.lines) == n
+    sub_top = 0.88 * 1500
+    sub_bottom = sub_top + 50 * 1.2                                       # the sub-line's line box
+    assert lay.bottom <= sub_top - 0.025 * 1500 + 0.5                     # the fixed gap above the sub-line
+    assert lay.bottom <= sub_top or lay.top >= sub_bottom                 # the boxes never intersect
+    if n == 1:
+        assert lay.top == pytest.approx(0.74 * 1500)                      # one line still sits at 74 %
+    else:
+        assert lay.top >= 0.62 * 1500 - 0.5                               # grows upward, no higher than the limit
+
+
+def test_the_title_ink_never_reaches_the_sub_line(tpl):
+    """Pixels, not boxes: render the 3-line title with no sub-line, and nothing bright reaches the gap above 88 %."""
+    out = Image.open(io.BytesIO(r.render(tpl, art(colour=(20, 20, 20)),
+                                         "The Assassination of Jesse James by the Coward Robert Ford", ""))).convert("L")
+    gap = out.crop((0, int(0.88 * 1500 - 0.015 * 1500), 1000, int(0.88 * 1500) + 60))
+    assert max(gap.tobytes()) < 120
+
+
+def test_top_mode_still_hangs_from_the_anchor(tmp_path):
+    t = r.load_template(kit(tmp_path, **{"title.title_anchor_mode": "top", "title.title_top_limit": None}))
+    lay = r.layout_title(t, "The Assassination of Jesse James by the Coward Robert Ford")
+    assert lay.top == pytest.approx(0.74 * 1500) and lay.bottom <= (0.88 - 0.025) * 1500 + 0.5
+
+
+def test_bad_anchor_mode_is_refused(tmp_path):
+    with pytest.raises(r.TemplateError, match="title_anchor_mode"):
+        r.load_template(kit(tmp_path, **{"title.title_anchor_mode": "middle"}))
+
+
 def test_two_lines_stay_above_the_sub_line(tpl):
     lay = r.layout_title(tpl, LONG)
     assert lay.bottom <= 0.88 * 1500
@@ -119,8 +155,8 @@ def test_a_59_character_title_is_never_cut(tpl):
 
 def test_three_lines_fit_between_the_anchors(tpl):
     lay = r.layout_title(tpl, "The Lord of the Rings The Return of the King Extended Edition Part Two")
-    assert len(lay.lines) == 3 and 40 <= lay.size <= int(0.14 * 1500 / (3 * 1.05))
-    assert lay.bottom <= 0.88 * 1500 + 0.5 and not lay.truncated
+    assert len(lay.lines) == 3 and 40 <= lay.size <= 95
+    assert lay.bottom <= (0.88 - 0.025) * 1500 + 0.5 and lay.top >= 0.62 * 1500 - 0.5 and not lay.truncated
     _inside(lay, tpl)
 
 
@@ -145,7 +181,8 @@ def test_max_lines_one_never_wraps(tmp_path):
 
 
 def test_moving_the_anchor_moves_the_title(tmp_path):
-    t = r.load_template(kit(tmp_path, **{"title.title_anchor": 0.5, "sub.sub_anchor": 0.7}))
+    t = r.load_template(kit(tmp_path, **{"title.title_anchor": 0.5, "title.title_top_limit": 0.4,
+                                         "sub.sub_anchor": 0.7}))
     assert r.layout_title(t, "Up").top == pytest.approx(750)
 
 
@@ -179,7 +216,7 @@ def test_bad_template_is_refused_naming_every_problem(tmp_path):
 
 def test_title_that_would_run_into_the_sub_line_is_refused(tmp_path):
     with pytest.raises(r.TemplateError, match="sub.sub_anchor"):
-        r.load_template(kit(tmp_path, **{"sub.sub_anchor": 0.78}))
+        r.load_template(kit(tmp_path, **{"sub.sub_anchor": 0.66}))
 
 
 def test_not_json_is_a_clear_error(tmp_path):

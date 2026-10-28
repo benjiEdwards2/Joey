@@ -224,10 +224,17 @@ def validate(data, folder: Path) -> list[str]:
     wrap = _num(p, t, "wrap_at", "title", 8, 400, required=False)
     if wrap is not None and None not in (hi, lo) and not lo <= wrap <= hi:
         p.append(f"title.wrap_at ({wrap}) must be from title.min_size to title.max_size")
+    mode = t.get("title_anchor_mode", "top")
+    if mode not in ("top", "bottom"):
+        p.append(f'title.title_anchor_mode must be "top" or "bottom" (got {mode!r})')
+    gap = _num(p, t, "title_gap", "title", 0, 0.2, required=False) or 0
+    rise = _num(p, t, "title_top_limit", "title", 0, 1, required=False) if mode == "bottom" else None
+    if rise is not None and anchor is not None and rise > anchor:
+        p.append(f"title.title_top_limit ({rise}) must be at or above title.title_anchor ({anchor})")
     if None not in (anchor, sub_anchor, lo, lines, lh) and size:
-        room = (sub_anchor - anchor) * size[1]
+        room = (sub_anchor - gap - (rise if rise is not None else anchor)) * size[1]
         if room < int(lines) * lo * lh - 0.5:
-            p.append(f"sub.sub_anchor ({sub_anchor}) leaves {max(0, room):.0f} px under title.title_anchor; "
+            p.append(f"sub.sub_anchor ({sub_anchor}) leaves {max(0, room):.0f} px for the title block; "
                      f"{lines} title lines at min_size need {int(lines) * lo * lh:.0f} px")
     return p
 
@@ -311,6 +318,17 @@ def _split(words: list[str], n: int, measure) -> list[str] | None:
     return best
 
 
+def title_band(tpl: Template) -> tuple[float, float, float]:
+    """(where a title's top sits, the highest it may rise, the lowest its block may reach) in pixels.
+    "top" mode: the block hangs from title_anchor down to the sub-line. "bottom" mode: the block's bottom may reach
+    sub_anchor - title_gap; a title that fits starts at title_anchor, a taller one grows upward to title_top_limit."""
+    t, h = tpl.data["title"], tpl.height
+    floor_y = h * (tpl.data["sub"]["sub_anchor"] - float(t.get("title_gap") or 0))
+    if t.get("title_anchor_mode", "top") == "bottom":
+        return h * t["title_anchor"], h * float(t.get("title_top_limit", t["title_anchor"])), floor_y
+    return h * t["title_anchor"], h * t["title_anchor"], floor_y
+
+
 def layout_title(tpl: Template, title: str) -> TitleLayout:
     """Where the title goes: font size and each line's box. The block runs from title_anchor down to sub_anchor.
     One line shrinks from max_size to wrap_at; then 2 balanced lines (and so on up to max_lines) from the largest size
@@ -322,8 +340,8 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
         text = text.upper()
     left = tpl.width * t["margin_x"]
     room = tpl.width - 2 * left
-    top = tpl.height * t["title_anchor"]
-    block = tpl.height * (tpl.data["sub"]["sub_anchor"] - t["title_anchor"])
+    top_at, limit, floor_y = title_band(tpl)
+    block = floor_y - limit
     hi, lo, max_lines = int(t["max_size"]), int(t["min_size"]), int(t["max_lines"])
     wrap_at = int(t.get("wrap_at") or lo)
     tracking, weight, lh = float(t.get("tracking") or 0), t["weight"], float(t["line_height"])
@@ -375,6 +393,7 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
         got = (size, font, lines)
     size, font, lines = got
     step = size * lh
+    top = min(top_at, floor_y - len(lines) * step)   # bottom mode: a taller block grows upward, never into the gap
     out = []
     for i, ln in enumerate(lines):
         w = _width(font, ln, tracking, size)

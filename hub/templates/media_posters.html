@@ -7,9 +7,10 @@
 {% endblock %}
 {% block content %}
 {% from "_rows.html" import meta %}
-{# JY-260 phase 1 (2026-10-28): the dry-run review. Each title: what Jellyfin shows now (left) beside the Joey poster the
-   template kit makes (right). Household only; rendered from the local cache, never from the network. Nothing on this
-   page writes anywhere - approving and writing are phase 2. #}
+{# JY-260 (2026-10-28): the spot-check page. Each title: Jellyfin's poster (left) beside the stored Joey poster (right).
+   Household only; rendered from the local store + media.db, never from the network. Phase 2: every poster is served
+   without approval; "Revert" per title shows (and, with write-back on, restores) the original. #}
+{% if done_words %}<p class="metaline" role="status">{{ done_words }}</p>{% endif %}
 <p class="metaline">{{ head_line }}</p>
 <p class="metaline">{{ kit_words }}</p>
 {% if problems %}
@@ -18,6 +19,13 @@
 {% for p in problems %}<p class="metaline">{{ p }}</p>{% endfor %}
 <p class="metaline">Posters are made with the starter template until it is fixed.</p></div></div>
 </div>
+{% endif %}
+{% if stuck %}
+<div class="listbox">
+{% for b in stuck %}<div class="row is-down" role="status"><div class="row-body"><div class="row-title">{{ b.title }}</div>
+<p class="metaline">{{ b.kind_word }} · <span class="st-warn">Failed 3 times</span> · retried after {{ b.until }} UTC{% if b.error %} · {{ b.error }}{% endif %}</p>
+<form method="post" action="/media/posters/{{ b.jf_id }}/retry"><button type="submit" class="btn btn-secondary btn-sm">Try again now</button></form></div></div>
+{% endfor %}</div>
 {% endif %}
 {% if not rows %}
 <p class="empty">No posters yet. The first pass runs a few minutes after the hub starts.</p>
@@ -38,6 +46,15 @@
     <div class="row-title">{{ r.title }}</div>
     {% set cut %}<span class="st-warn">Title cut short</span>{% endset %}
     {{ meta([r.kind_word, r.sub or none, r.words, "Old template" if r.stale else none, cut if r.truncated else none]) }}
+    {% if r.status == "rendered" %}
+    {% if r.manual %}<form method="post" action="/media/posters/{{ r.jf_id }}/reapply"><button type="submit" class="btn btn-secondary btn-sm">Re-apply the Joey poster</button></form>
+    <form method="post" action="/media/posters/{{ r.jf_id }}/original"><button type="submit" class="btn btn-secondary btn-sm">Put the original back in Jellyfin</button></form>
+    {% else %}
+    {% if r.backoff %}<form method="post" action="/media/posters/{{ r.jf_id }}/retry"><button type="submit" class="btn btn-secondary btn-sm">{{ "Retry the revert" if r.reverted else "Try again now" }}</button></form>{% endif %}
+    <form method="post" action="/media/posters/{{ r.jf_id }}/{{ 'restore' if r.reverted else 'revert' }}">
+      <button type="submit" class="btn btn-secondary btn-sm">{{ "Use the Joey poster" if r.reverted else "Revert to the original" }}</button>
+    </form>{% endif %}
+    {% endif %}
   </div>
 </section>
 {% endfor %}

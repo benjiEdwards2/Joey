@@ -91,10 +91,11 @@ def _media_awards_loop():
 
 
 def _media_posters_loop():
-    """JY-260 phase 1: render new / stale Joey posters into the dry cache (hub/media_posters.py) ~3 min after startup,
-    then hourly, at most POSTERS_PER_PASS a pass. POSTERS=off (the default) starts nothing; no Jellyfin write exists."""
-    return _every("media posters", media_posters.FIRST_DELAY_S, media_posters.EVERY_S,
-                  lambda: media_posters.dry_pass(_read_snapshots()))
+    """JY-260: render new / stale Joey posters into the local store (hub/media_posters.py) ~3 min after startup, then
+    a pass every 5 min while the backfill has work left and hourly after, at most POSTERS_PER_PASS a pass. POSTERS=off
+    starts nothing; Jellyfin is written only with POSTERS=on and JELLYFIN_POSTER_API_KEY (hub/media_posters_write.py)."""
+    return _every("media posters", media_posters.FIRST_DELAY_S, media_posters.TICK_S,
+                  lambda: media_posters.tick(_read_snapshots))
 
 
 def prewarm() -> dict:

@@ -51,6 +51,9 @@ services:
       - /volume1/Docker/joey/backups/media:/data/backups/media
       # JY-260: B.'s poster template kit (docs/posters-template-guide.md); read-only, empty = the starter kit
       - /volume1/Docker/joey/posters/template:/data/posters/template:ro
+      # JY-260 phase 2: the Joey poster store (hub/media_posters_store.py); read-write for the hub only. Host dir owned
+      # by uid 1000, mode 755: deploy.sh posters_dir() makes / repairs it before `compose up` (Docker would make it root).
+      - /volume1/Docker/joey/posters/out:/data/posters/out
     # NO public ports. The hub is reached only through the Cloudflare tunnel
     # container, which WP11 fronts it with on the compose network.
     expose:
@@ -103,6 +106,8 @@ services:
       - /volume1/Docker/joey/data/sqlite:/data/sqlite
       # Joey TV releases (WP-B8): deploy.sh's tv_publish writes here, joey-media serves it read-only at /app/
       - /volume1/Docker/joey/data/tv-app:/data/tv-app:ro
+      # JY-260 phase 2: the hub's Joey poster store, read-only - /img serves friends the same stored posters
+      - /volume1/Docker/joey/posters/out:/data/posters/out:ro
     expose:
       - "8000"
     # default: cloudflared reaches it as joey-media:8000. media: jellyfin:8096 / jellyseerr:5055 by name (N-09).

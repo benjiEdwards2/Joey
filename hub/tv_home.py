@@ -149,7 +149,9 @@ def next_episodes(watched, resume) -> list[dict]:
 def img_url(ref, title, h: int) -> str:
     """The /img URL exactly as _tv_tile.html's art() writes it (unescaped), so the backdrop tv.js swaps to is the same
     browser-cache entry as the one the page drew (a test pins the two equal)."""
-    return f"/img/{ref or 'none'}?h={h}&t={quote(images.fallback_letters(title), safe='/')}"
+    from hub import media_posters   # JY-260: the same &v=<ver> art() adds to a stored Joey poster (lazy: Pillow)
+    v = media_posters.url_version(ref)
+    return f"/img/{ref or 'none'}?h={h}&t={quote(images.fallback_letters(title), safe='/')}" + (f"&v={v}" if v else "")
 
 
 def _synopsis(row: dict, kind: str, item: dict) -> str:

@@ -73,6 +73,16 @@ templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
 templates.env.globals["lan_word"] = LAN_WORD   # JY-238: the one source for the word a home-network-only link carries
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
+
+
+def _img_v(ref) -> str:
+    from hub import media_posters   # lazy: the poster modules load Pillow
+    return media_posters.url_version(ref)
+
+
+templates.env.globals["img_v"] = _img_v   # JY-260: a stored Joey poster's version, on its /img URL as &v= (cache-busting)
+
+
 def viewer_tag(owner) -> str:
     """JY-259 phase 2 review: a short one-way tag of the signed-in viewer for the TV page (base.html joey-viewer). tv.js
     drops htmx's history cache when the tag differs from the one that wrote it, so one friend's cached pages never

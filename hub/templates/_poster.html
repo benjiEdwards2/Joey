@@ -6,5 +6,5 @@
    were upscaled from 160x240 files. Desktop and phone never pass it. 600 is the size media_warmup already warms (POSTER_H), so no cold fetch. #}
 {% macro poster(ref, title, h=120, cls="", tv=false) -%}
 {% if tv %}{% set h = 600 %}{% endif -%}
-<img class="poster {{ cls }}" src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}" alt="" loading="lazy" decoding="async" width="{{ (h * 2 / 3)|round|int }}" height="{{ h }}">
+<img class="poster {{ cls }}" src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}{% set v = img_v(ref) %}{% if v %}&amp;v={{ v }}{% endif %}" alt="" loading="lazy" decoding="async" width="{{ (h * 2 / 3)|round|int }}" height="{{ h }}">
 {%- endmacro %}

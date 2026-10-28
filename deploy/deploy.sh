@@ -436,8 +436,17 @@ rollback() {
     exit 1
 }
 
+# JY-260 phase 2: the hub's poster store (compose bind mount, read-write for the hub, read-only for joey-media). It must
+# exist and belong to the image's uid 1000 BEFORE `compose up`: a missing bind source is created by Docker as root, and
+# every render then fails. Idempotent - mkdir -p, then chown / chmod every run (which also repairs a root-owned one).
+POSTERS_OUT_DIR=${JOEY_POSTERS_DIR:-/volume1/Docker/joey/posters/out}   # JOEY_POSTERS_DIR: the test harness only
+posters_dir() {
+    mkdir -p "$POSTERS_OUT_DIR" && chown 1000:1000 "$POSTERS_OUT_DIR" && chmod 755 "$POSTERS_OUT_DIR"
+}
+
 echo "== build + converge =="
 cd "$DEPLOY_DIR"
+posters_dir || rollback "poster store dir ($POSTERS_OUT_DIR) could not be made or handed to uid 1000"
 docker compose build || rollback "compose build failed"
 docker compose up -d --remove-orphans || rollback "compose up failed"
 recreate_swag || rollback "swag recreate failed"

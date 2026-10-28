@@ -462,6 +462,14 @@ esac
 exit 0
 """
 
+# Fake chown (JY-260 posters_dir): records its arguments; FAKE_CHOWN_FAILS makes it fail. The real NAS path is never
+# touched: the harness points JOEY_POSTERS_DIR at a temp dir, and calls this fake by absolute path (as with sleep).
+FAKE_CHOWN = """#!/bin/sh
+echo "$*" >> "$FAKE_DIR/chown.log"
+if [ -n "${FAKE_CHOWN_FAILS:-}" ]; then echo "chown: Operation not permitted" >&2; exit 1; fi
+exit 0
+"""
+
 # Fake sleep: records the seconds asked for and returns at once, so the retry back-off is checked without waiting.
 FAKE_SLEEP = """#!/bin/sh
 echo "$*" >> "$FAKE_DIR/sleep.log"
@@ -480,7 +488,7 @@ def _meminfo(avail_mb, swap_used_mb, swap_total_mb=4096):
 
 def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free_per_stop=0, suite_ok=False,
                 suite_signal=False, start_fails=(), stop_set=None, inject=None, leftover=None, stale_lock=False,
-                build_fails=False, stop_fails=()):
+                build_fails=False, stop_fails=(), posters_fail=None):
     repo = tmp_path / "repo"
     (repo / "deploy").mkdir(parents=True)
     if leftover is not None:  # JY-256: a stop list left by a crashed run
@@ -496,6 +504,11 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free
     (fake / "bin" / "docker").chmod(0o755)
     (fake / "bin" / "sleep").write_text(FAKE_SLEEP, encoding="utf-8", newline=chr(10))
     (fake / "bin" / "sleep").chmod(0o755)
+    (fake / "bin" / "chown").write_text(FAKE_CHOWN, encoding="utf-8", newline=chr(10))
+    (fake / "bin" / "chown").chmod(0o755)
+    posters = tmp_path / "posters" / "out"
+    if posters_fail == "mkdir":   # a plain file where a parent folder should be: mkdir -p fails
+        (tmp_path / "posters").write_text("not a folder", encoding="utf-8")
     (fake / "meminfo").write_text(_meminfo(avail_mb, swap_used_mb), encoding="utf-8", newline=chr(10))
     script = SCRIPT
     for old, new in (("REPO=/volume1/Docker/joey/life-dashboard", "REPO=" + repo.as_posix()),
@@ -508,6 +521,10 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free
     wait = '    sleep "$PULL_WAIT"' + chr(10)
     assert script.count(wait) == 1
     script = script.replace(wait, '    "' + (fake / "bin" / "sleep").as_posix() + '" "$PULL_WAIT"' + chr(10))
+    # Same for chown (JY-260 posters_dir): BusyBox sh (the CI runner) runs its own chown applet before any PATH lookup.
+    own = 'chown 1000:1000 "$POSTERS_OUT_DIR"'
+    assert script.count(own) == 1
+    script = script.replace(own, '"' + (fake / "bin" / "chown").as_posix() + '" 1000:1000 "$POSTERS_OUT_DIR"')
     if inject:  # (anchor, replacement): e.g. an error that set -e turns into an abort
         assert script.count(inject[0]) == 1, inject[0]
         script = script.replace(*inject)
@@ -517,6 +534,7 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free
                FAKE_FREE_PER_STOP=str(free_per_stop or ""), FAKE_SUITE_OK="1" if suite_ok else "",
                FAKE_SUITE_SIGNAL="1" if suite_signal else "", FAKE_START_FAILS=" ".join(start_fails),
                FAKE_BUILD_FAILS="1" if build_fails else "", FAKE_STOP_FAILS=" ".join(stop_fails),
+               JOEY_POSTERS_DIR=posters.as_posix(), FAKE_CHOWN_FAILS="1" if posters_fail == "chown" else "",
                PATH=str(fake / "bin") + os.pathsep + os.environ.get("PATH", ""))
     env.pop("GATE_STOP_SET", None)  # the script's default, unless a test sets it
     if stop_set is not None:
@@ -831,3 +849,28 @@ def test_a_failed_recovery_start_is_tagged_and_the_deploy_carries_on(tmp_path):
     assert len(history) == 1 and " GATE-FAIL " in history[0]
     assert "recovery-failed=radarr stopped=sonarr start-failed=radarr end=" in history[0], history
     assert _list_file(tmp_path).read_text(encoding="utf-8").split() == ["radarr"]
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+def test_the_poster_store_folder_is_made_and_handed_to_uid_1000_before_the_build(tmp_path):
+    """JY-260 phase 2: posters_dir() before `compose build`, on the harness path (never the real /volume1)."""
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, suite_ok=True)
+    out = r.stdout + r.stderr
+    assert r.returncode == 0, out
+    store = tmp_path / "posters" / "out"
+    assert store.is_dir() and _fake_log(tmp_path, "chown.log") == ["1000:1000 " + store.as_posix()]
+    assert re.match(r"^\S+ PASS ", history[0]), history
+    assert "POSTERS_OUT_DIR=${JOEY_POSTERS_DIR:-/volume1/Docker/joey/posters/out}" in SCRIPT
+
+
+@pytest.mark.skipif(SH is None, reason="no POSIX sh with pipefail on this host")
+@pytest.mark.parametrize("fail", ["mkdir", "chown"])
+def test_a_poster_store_folder_that_cannot_be_made_rolls_back_cleanly(tmp_path, fail):
+    r, calls, history = _run_deploy(tmp_path, 2000, 0, running=FOUR, suite_ok=True, posters_fail=fail)
+    out = r.stdout + r.stderr
+    assert r.returncode == 1, out
+    assert "poster store dir" in out
+    assert len(history) == 1 and " ROLLED-BACK " in history[0] and "poster store dir" in history[0], history
+    lines = calls.splitlines()
+    assert lines.count("compose build") == 1 and lines.count("compose up -d --remove-orphans") == 1   # rollback's only
+    assert not _list_file(tmp_path).exists() and sorted(_running(tmp_path)) == sorted(FOUR)

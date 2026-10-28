@@ -117,7 +117,7 @@ ENV_IN = {
     "NAS_SLEEP_WINDOW": "words on the Quiet mode row",
 }
 # OUT: never copied. FORCED_OFF keys are also pinned "off" in the compose file's environment (which wins over env_file).
-FORCED_OFF = ("MEDIA_BACKUP", "PLAY_RECORDER", "MEDIA_WARMUP", "MEDIA_FOLLOW", "MEDIA_AWARDS", "DIGEST")
+FORCED_OFF = ("MEDIA_BACKUP", "PLAY_RECORDER", "MEDIA_WARMUP", "MEDIA_FOLLOW", "MEDIA_AWARDS", "DIGEST", "POSTERS")
 ENV_OUT = {
     "TUNNEL_TOKEN": "routes the domain; cloudflared only",
     "COMPOSE_PROFILES": "the main stack's profiles; nothing for the preview",
@@ -127,8 +127,6 @@ ENV_OUT = {
     "ICS_URL_HER": "connectors only; the URL is the credential",
     "JELLYFIN_API_KEY": "write: Continue watching marks watched / unwatched / reset on the live Jellyfin (rule 7)",
     "JELLYFIN_POSTER_API_KEY": "write: the JY-260 poster write-back (uploads, locks, reverts Jellyfin images); a secret",
-    "POSTERS_DIR": "the live poster store is never a preview path (previews must not write posters)",
-    "POSTERS_PER_PASS": "poster backfill pacing; the preview renders no posters",
     "MEDIA_STATUS_HOST": "connectors only",
     "RADARR_URL": "write: search, quality, unmonitor, grab",
     "RADARR_API_KEY": "write: search, quality, unmonitor, grab",
@@ -174,7 +172,7 @@ ENV_OUT = {
     "JELLYFIN_PLAYER_TOKEN_HER": "write: a household member's own Jellyfin token (player progress); JY-053",
     "JELLYFIN_PUBLIC_URL": "the player's stream host; the player API is off in the preview",
     # JY-260 posters: unset = off, so the preview runs no poster loop and /media/posters is the 404 page
-    "POSTERS": "JY-260 poster loop stays off in the preview (its `on` mode is the phase-2 Jellyfin image write)",
+    "POSTERS": "forced off in compose: phase 2 defaults to dry, and a preview never renders or writes posters",
     "POSTERS_PER_PASS": "the poster loop is off in the preview",
     "POSTERS_TEMPLATE_DIR": "the poster loop is off; a NAS mount path that the preview does not have",
     "POSTERS_AUTO_MIN_RATING": "the poster loop is off in the preview",

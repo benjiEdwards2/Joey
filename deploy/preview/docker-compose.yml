@@ -40,6 +40,8 @@ services:
       MEDIA_FOLLOW: "off"
       MEDIA_AWARDS: "off"
       DIGEST: "off"
+      # JY-260 phase 2: POSTERS defaults to dry; a preview never renders, serves or writes Joey posters
+      POSTERS: "off"
       # the PRIVATE front, pinned (JY-228): a stray JOEY_FRONT=media must never turn the preview into the guest front
       JOEY_FRONT: ""
     labels:

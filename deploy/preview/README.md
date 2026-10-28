@@ -59,7 +59,7 @@ Two cautions: a `docker compose down` of the MAIN stack cannot remove `deploy_de
 
 ## Background loops
 
-All off. `MEDIA_BACKUP`, `PLAY_RECORDER`, `MEDIA_WARMUP`, `MEDIA_FOLLOW`, `MEDIA_AWARDS` and `DIGEST` are pinned `"off"` in
+All off. `MEDIA_BACKUP`, `PLAY_RECORDER`, `MEDIA_WARMUP`, `MEDIA_FOLLOW`, `MEDIA_AWARDS`, `DIGEST` and `POSTERS` are pinned `"off"` in
 the compose `environment:` (which wins over `env_file`). The server alerts loop (`hub/tasks.py`) has no switch: without
 `SERVER_DISCORD_WEBHOOK` it posts nothing, and its history samples land in the media.db copy.
 
@@ -106,8 +106,6 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `ICS_URL_HER` | out | connectors only; the URL is the credential |
 | `JELLYFIN_API_KEY` | out | write: Continue watching marks watched / unwatched / reset on the live Jellyfin (rule 7) |
 | `JELLYFIN_POSTER_API_KEY` | out | write: the JY-260 poster write-back (uploads, locks, reverts Jellyfin images); a secret |
-| `POSTERS_DIR` | out | the live poster store is never a preview path (previews must not write posters) |
-| `POSTERS_PER_PASS` | out | poster backfill pacing; the preview renders no posters |
 | `MEDIA_STATUS_HOST` | out | connectors only |
 | `RADARR_URL` | out | write: search, quality, unmonitor, grab |
 | `RADARR_API_KEY` | out | write: search, quality, unmonitor, grab |
@@ -152,7 +150,7 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `JELLYFIN_PLAYER_TOKEN_YOU` | out | write: a household member's own Jellyfin token (player progress); JY-053 |
 | `JELLYFIN_PLAYER_TOKEN_HER` | out | write: a household member's own Jellyfin token (player progress); JY-053 |
 | `JELLYFIN_PUBLIC_URL` | out | the player's stream host; the player API is off in the preview |
-| `POSTERS` | out | the JY-260 poster loop stays off in the preview (its `on` mode is the phase-2 Jellyfin image write) |
+| `POSTERS` | out | forced off in compose: phase 2 defaults to dry, and a preview never renders or writes posters |
 | `POSTERS_PER_PASS` | out | the poster loop is off in the preview |
 | `POSTERS_TEMPLATE_DIR` | out | the poster loop is off; a NAS mount path the preview does not have |
 | `POSTERS_AUTO_MIN_RATING` | out | the poster loop is off in the preview |

@@ -39,6 +39,7 @@ history of how each part got its shape is in `docs/hub-changelog.md`; the look i
 | `media_because.py` | Overview's "Because you rated these 9 or 10" shelf (JY-105): the 24 h library pass reads Seerr recommendations for each owner's top 5 title-level 9-10 ratings into `<meta dir>/because_shelf.json` (per owner, rated / watched dropped); the shelf reads only that file, round-robin, `SHELF_MAX` |
 | `player_api.py` | The playback-session API for Joey's own player (JY-053): sessions in process, Jellyfin PlaybackInfo / Sessions with each household member's own token, stream URLs on `JELLYFIN_PUBLIC_URL` with no key; behind `PLAYER_API` (off); a start with `resume` also reads the member's own resume point and chapters (JY-054); a start refuses a player token that is not the member's own Jellyfin user, and a stop drops `media_item`'s cache (JY-055); the start answer's `up_next` comes from the item cache (JY-057) |
 | `media_watch.py` | Joey's own web / phone player page (JY-054, look A): `/media/watch/<item>` from the item cache only, `available()` switches the title / episode Play links to it; behind `PLAYER_API` (off); `up_next()` feeds the API's `up_next` (JY-057); the player is `static/player.js` + `player.css` + vendored `hls.min.js` |
+| `media_posters.py`, `media_posters_render.py`, `media_posters_pages.py`, `posters_template/` | Joey-made posters, phase 1 (JY-260, `docs/specs/JY-260-posters.md`): the TMDB pick through Jellyfin RemoteImages, the Pillow renderer + template kit (`docs/posters-template-guide.md`), the hourly dry pass into `<IMG_CACHE_DIR>/posters/` (films, series and their real Season items; auto-approve verdict at TMDB rating >= `POSTERS_AUTO_MIN_RATING`, 6.0), the review page; behind `POSTERS` (off); no Jellyfin write exists |
 | `seed_demo.py` | Writes demo snapshots for local runs |
 
 Templates are in `templates/` (`base.html` is the frame; `media_*.html` and `_*.html` partials), assets in `static/`
@@ -91,6 +92,7 @@ Routers are included in `main.py`; every write route carries `Depends(same_origi
 | `GET /healthz`, `/whoami` | main | Health JSON (container healthcheck, `deploy.sh` smoke); the Access email or `-` |
 | `POST /api/play/sessions`, `.../{session_id}/stream`, `/progress`, `/stop`; `GET /api/play/items/{item_id}/tracks` | player_api | Playback-session API (JY-053): OFF unless `PLAYER_API=on` (off = the unknown-path 404); household only, PRIVATE on the media front, where `GuestGate` serves these five to a signed-in household member with the flag on for the Joey TV shell player (`guest.HOUSEHOLD_PLAYER`, JY-057; anyone else the 404 page); contract `docs/playback-contract.md` |
 | `GET /media/watch/{item}` (any method on `/media/watch` and under it is one route) | media_watch | The web / phone player page (JY-054): OFF unless `PLAYER_API=on` (off = the unknown-path 404); `you` / `her` on the private front only, PRIVATE on the media front; no live call on render |
+| `GET /media/posters`, `GET /media/posters/img/{jf_id}` | media_posters_pages | Poster review (JY-260 phase 1): now vs Joey poster per title, recently added first; OFF unless `POSTERS=dry` (or `on`, phase 2, which still only renders); household on the private front only, PRIVATE on the media front; local files only on render |
 | `/static/*` | StaticFiles | `?v=` content hash and `/static/fonts/*`: `immutable` for a year; other un-versioned files: one hour |
 
 ## Guest front (`JOEY_FRONT`, Joey TV WP-B1, 2026-10-21)
@@ -354,6 +356,7 @@ What a signed-in friend sees on the media front, and the 10-foot TV skin the And
 | Play recorder (`media_plays`) | 15 s | `PLAY_POLL_SECONDS` |
 | Server alerts + history sample + disk forecast (`_server_tick`) | 60 s | 5 min |
 | Film warm-up (`media_warmup.tick`) | 60 s | ticks every 60 s: the full pass every 3 h (full-library pass at most once per 24 h); the item pass on each new jellyfin snapshot |
+| Poster dry pass (`media_posters.dry_pass`) | 180 s | hourly, at most `POSTERS_PER_PASS` (30) renders, 2 s apart; only while `POSTERS` is not off |
 | Follow (`media_follow`) | 2 min | 6 h |
 | Awards (`media_awards`) | 3 min | hourly check, a pass only when one is due |
 

@@ -7,3 +7,5 @@ requests==2.34.2
 # Cloudflare Access JWT verification (Joey TV WP-A6a, 2026-10-19): RS256 + JWKS parsing; cryptography pinned too
 PyJWT[crypto]==2.15.1
 cryptography==50.0.2
+# JY-260 (2026-10-28): the poster renderer (hub/media_posters_render.py); manylinux wheel, no build deps
+pillow==12.2.0

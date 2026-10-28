@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "name": "B.'s Canva layout (2026-10-28): clear art, regular Geist, centred lower third",
+  "canvas": [1000, 1500],
+  "font": {"family": "Geist", "file": "GeistVF.woff2"},
+  "scrim": null,
+  "scrim_band": {"top": 0.50, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
+  "frame": null,
+  "title": {
+    "title_anchor": 0.75,
+    "title_anchor_mode": "bottom",
+    "title_gap": 0.02,
+    "title_top_limit": 0.62,
+    "margin_x": 0.06,
+    "max_size": 95,
+    "min_size": 40,
+    "wrap_at": 60,
+    "max_lines": 3,
+    "line_height": 1.05,
+    "uppercase": true,
+    "tracking": 0,
+    "weight": 400,
+    "colour": "#FFFFFF",
+    "shadow": {"colour": "#000000", "opacity": 0.35, "blur": 12, "dy": 2}
+  },
+  "sub": {
+    "sub_anchor": 0.84,
+    "size": 50,
+    "weight": 400,
+    "colour": "#FFFFFF",
+    "opacity": 1.0,
+    "tracking": 0.02,
+    "shadow": {"colour": "#000000", "opacity": 0.3, "blur": 8, "dy": 2}
+  }
+}

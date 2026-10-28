@@ -33,6 +33,7 @@ from hub import media_watch   # JY-054: the web / phone player page, off unless 
 from hub import server_space   # P1a free space (2026-10-22)
 from hub.media_watchlist import router as media_watchlist_router
 from hub import media_watchlist_everyone
+from hub import media_posters_pages   # JY-260 phase 1
 from hub import media_home, media_pages, media_season_state, shell, tasks, today, tv_app, weather
 # W3: the Media detail pages live in hub/media_pages.py; re-exported for the old `hub.main.X` paths.
 from hub.media_pages import (  # noqa: F401
@@ -116,6 +117,7 @@ app.include_router(media_film.router)
 app.include_router(media_person.router)
 app.include_router(media_watchlist_router)
 app.include_router(media_watchlist_everyone.router)   # WP-RQ3: Everyone's watchlist (owner you)
+app.include_router(media_posters_pages.router)   # JY-260: /media/posters review (household, 404 while POSTERS is off)
 app.include_router(media_follow.router)
 app.include_router(media_awards_pages.router)
 app.include_router(media_requests.router)

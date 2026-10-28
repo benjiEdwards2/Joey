@@ -1,0 +1,46 @@
+{% extends "media_base.html" %}
+{% block title %}Posters · Joey{% endblock %}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead("Posters") %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
+{% block content %}
+{% from "_rows.html" import meta %}
+{# JY-260 phase 1 (2026-10-28): the dry-run review. Each title: what Jellyfin shows now (left) beside the Joey poster the
+   template kit makes (right). Household only; rendered from the local cache, never from the network. Nothing on this
+   page writes anywhere - approving and writing are phase 2. #}
+<p class="metaline">{{ head_line }}</p>
+<p class="metaline">{{ kit_words }}</p>
+{% if problems %}
+<div class="listbox">
+<div class="row is-down" role="status"><div class="row-body"><div class="row-title"><span class="st-warn">Your template was rejected</span></div>
+{% for p in problems %}<p class="metaline">{{ p }}</p>{% endfor %}
+<p class="metaline">Posters are made with the starter template until it is fixed.</p></div></div>
+</div>
+{% endif %}
+{% if not rows %}
+<p class="empty">No posters yet. The first pass runs a few minutes after the hub starts.</p>
+{% else %}
+<div class="posterpairs">
+{% for r in rows %}
+<section class="posterpair">
+  <div class="card-poster">
+    <img src="/img/jf:{{ r.jf_id }}?h=600" alt="" loading="lazy" width="200" height="300">
+    <span class="row-meta">Now</span>
+  </div>
+  <div class="card-poster">
+    {% if r.status == "rendered" %}<img src="/media/posters/img/{{ r.jf_id }}?v={{ r.template }}-{{ r.text }}" alt="" loading="lazy" width="200" height="300">
+    {% else %}<img src="/img/none?t={{ img_letters(r.title) }}" alt="" loading="lazy" width="200" height="300">{% endif %}
+    <span class="row-meta">{{ "Joey poster" if r.status == "rendered" else "Not made" }}</span>
+  </div>
+  <div class="posterpair-cap">
+    <div class="row-title">{{ r.title }}</div>
+    {% set cut %}<span class="st-warn">Title cut short</span>{% endset %}
+    {{ meta([r.kind_word, r.sub or none, r.words, "Old template" if r.stale else none, cut if r.truncated else none]) }}
+  </div>
+</section>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

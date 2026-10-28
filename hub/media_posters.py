@@ -1,0 +1,393 @@
+"""JY-260 phase 1: pick each title's TMDB poster and render the Joey poster into a local cache (spec
+docs/specs/JY-260-posters.md). Nothing here writes to Jellyfin; that is phase 2, behind B.'s own poster write key (Q4A).
+
+* `POSTERS=off|dry|on` (default off). `dry`: the background loop (hub/tasks.py) renders up to POSTERS_PER_PASS titles
+  per pass into POSTERS_DIR (default <IMG_CACHE_DIR>/posters): `<jf_id>.jpg` + `<jf_id>.json`. `on` is phase 2: for
+  now it logs once and does exactly what `dry` does.
+* The pick (Q3A): Jellyfin's own RemoteImages list for the item (its bundled TMDB key, no new secret). Text-less
+  (no language) first, then English, then anything else; within each, more votes, then more pixels. Art is fetched
+  only from image.tmdb.org, capped at 5 MB like /img.
+* Order (Q9A): recently added first, then A-Z. A title re-renders when the template kit or its words change; a title
+  with no TMDB poster is recorded (`no_source`) and not asked again until the template changes. An upstream failure
+  writes nothing, so the next pass retries it.
+* The review page (hub/media_posters_pages.py) reads only what this writes: no network on render.
+Logs carry counts and exception types only, never a URL, key or name.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import json
+import logging
+import os
+import tempfile
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+from hub import images, media_item, media_jellyfin, upstream
+from hub import media_posters_render as render
+
+log = logging.getLogger("hub.media_posters")
+
+MODES = ("off", "dry", "on")
+FIRST_DELAY_S = 180
+EVERY_S = 3600
+PER_PASS = 30
+PAUSE_S = 2.0
+TMDB_ART = "https://image.tmdb.org/t/p/"
+DEFAULT_TEMPLATE_DIR = "/data/posters/template"
+AUTO_MIN_RATING = 6.0
+SEASONS_TTL_S = 24 * 3600   # a series' season list is re-read at most daily
+MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
+MEMORY_STALE_MIN = 15
+_warned_on = {"done": False}
+
+
+def mode() -> str:
+    v = os.environ.get("POSTERS", "").strip().lower()
+    return v if v in MODES else "off"
+
+
+def disabled() -> bool:
+    return mode() == "off"
+
+
+def _int_env(name: str, default: int, lo: int, hi: int) -> int:
+    try:
+        return max(lo, min(hi, int(os.environ.get(name, "").strip())))
+    except ValueError:
+        return default
+
+
+def per_pass() -> int:
+    return _int_env("POSTERS_PER_PASS", PER_PASS, 1, 500)
+
+
+def auto_min_rating() -> float:
+    """POSTERS_AUTO_MIN_RATING (default 6.0 = 3 of 5 stars): a pick whose TMDB rating is at least this is approved
+    without review (B. 2026-10-28, replaces Q2B's 5-vote rule); lower or unrated waits for B."""
+    try:
+        return max(0.0, min(10.0, float(os.environ.get("POSTERS_AUTO_MIN_RATING", "").strip())))
+    except ValueError:
+        return AUTO_MIN_RATING
+
+
+def auto_approves(chosen: dict | None) -> bool:
+    rating = (chosen or {}).get("rating")
+    return isinstance(rating, (int, float)) and not isinstance(rating, bool) and rating >= auto_min_rating()
+
+
+def out_dir() -> Path:
+    return Path(os.environ.get("POSTERS_DIR", "").strip() or images.cache_dir() / "posters")
+
+
+def template_dir() -> Path:
+    """B.'s kit (POSTERS_TEMPLATE_DIR, the NAS folder mounted read-only), else the starter kit in the image."""
+    folder = Path(os.environ.get("POSTERS_TEMPLATE_DIR", "").strip() or DEFAULT_TEMPLATE_DIR)
+    return folder if (folder / "template.json").is_file() else render.STARTER
+
+
+def template_state() -> tuple[render.Template | None, list[str], bool]:
+    """(template, problems, is_starter). Local files only. B.'s kit when it is good; when it is refused, the starter
+    kit with B.'s kit's problems (the review page shows them). None only if the starter kit itself were refused."""
+    folder = template_dir()
+    try:
+        return render.load_template(folder), [], folder == render.STARTER
+    except render.TemplateError as exc:
+        problems = exc.problems
+    try:
+        return render.load_template(render.STARTER), problems, True
+    except render.TemplateError as exc:
+        return None, problems + exc.problems, True
+
+
+def memory_mb(snaps) -> float | None:
+    """NAS available memory in MB from the `system` snapshot (the connector's /proc/meminfo MemAvailable, as the
+    Server area reads it), or None when there is no fresh reading."""
+    snap = (snaps or {}).get("system")
+    if snap is None or (getattr(snap, "age_minutes", 0) or 0) > MEMORY_STALE_MIN:
+        return None
+    data = getattr(snap, "data", snap)
+    free = data.get("ram_free_gb") if isinstance(data, dict) else None
+    if isinstance(free, bool) or not isinstance(free, (int, float)):
+        return None
+    return float(free) * 1024
+
+
+# ---- the pick ----
+
+def _lang_rank(lang) -> int:
+    lang = (lang or "").strip().lower() if isinstance(lang, str) or lang is None else "?"
+    return 0 if not lang else (1 if lang == "en" else 2)
+
+
+def pick(remote) -> dict | None:
+    """The poster to use from a RemoteImages `Images` list, or None.
+    -> {url, lang, votes, rating (TMDB 0-10 or None), width, height, fallback}."""
+    best, best_key = None, None
+    for im in remote if isinstance(remote, list) else []:
+        if not isinstance(im, dict):
+            continue
+        url = im.get("Url")
+        if not isinstance(url, str) or not url.startswith(TMDB_ART):
+            continue
+        votes = im.get("VoteCount") if isinstance(im.get("VoteCount"), int) else 0
+        rating = im.get("CommunityRating")
+        rating = float(rating) if isinstance(rating, (int, float)) and not isinstance(rating, bool) else None
+        w = im.get("Width") if isinstance(im.get("Width"), int) else 0
+        h = im.get("Height") if isinstance(im.get("Height"), int) else 0
+        key = (_lang_rank(im.get("Language")), -votes, -(w * h))
+        if best_key is None or key < best_key:
+            lang = im.get("Language") or None
+            best, best_key = {"url": url, "lang": lang, "votes": votes, "rating": rating, "width": w, "height": h,
+                              "fallback": (None, "en", "other")[key[0]]}, key
+    return best
+
+
+def remote_images(jf_id: str) -> list:
+    """The item's TMDB poster list through Jellyfin (GET only). Raises on no answer / non-2xx."""
+    creds = media_jellyfin.creds()
+    if creds is None:
+        raise RuntimeError("Jellyfin not configured")
+    body = media_jellyfin.get(*creds, f"/Items/{jf_id}/RemoteImages",
+                              {"type": "Primary", "providerName": "TheMovieDb", "includeAllLanguages": "true"})
+    return (body or {}).get("Images") or [] if isinstance(body, dict) else []
+
+
+def seasons_of(series_id: str) -> list[dict]:
+    """The series' real seasons through Jellyfin (GET only): [{jf_id, n}] in order. Specials (season 0) and seasons
+    with no number are left out; `isMissing=false` drops seasons with no episodes on disk. LocationType is NOT used:
+    on B.'s Jellyfin a season with episodes but no season folder reports "Virtual" (checked 2026-10-28)."""
+    creds = media_jellyfin.creds()
+    if creds is None:
+        raise RuntimeError("Jellyfin not configured")
+    body = media_jellyfin.get(*creds, f"/Shows/{series_id}/Seasons", {"isMissing": "false"})
+    items = (body or {}).get("Items") or [] if isinstance(body, dict) else []
+    out = []
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        n, sid = it.get("IndexNumber"), str(it.get("Id") or "")
+        if isinstance(n, int) and not isinstance(n, bool) and n >= 1 and media_item.ITEM_RE.match(sid):
+            out.append({"jf_id": sid, "n": n})
+    return sorted(out, key=lambda x: x["n"])
+
+
+def fetch_art(url: str) -> bytes | None:
+    """The poster bytes from image.tmdb.org (GET, capped at images.MAX_BYTES), or None."""
+    if not url.startswith(TMDB_ART):
+        return None
+    resp = upstream.session("tmdb").get(url, timeout=images.TIMEOUT, stream=True)
+    try:
+        if resp.status_code != 200:
+            return None
+        ctype = str(resp.headers.get("content-type", "")).split(";")[0].strip().lower()
+        if ctype not in images.EXT:
+            return None
+        return images._read_capped(resp)
+    finally:
+        close = getattr(resp, "close", None)
+        if close:
+            close()
+
+
+# ---- targets and the cache ----
+
+def targets(jelly: dict) -> list[dict]:
+    """Every film and series in the jellyfin snapshot (both profiles, de-duplicated), recently added first, then A-Z."""
+    profiles = [jelly] + ([jelly["her"]] if isinstance(jelly.get("her"), dict) else [])
+    out, seen = [], set()
+    for prof in profiles:
+        for field, kind in (("movies", "movie"), ("shows", "tv")):
+            for r in prof.get(field) or []:
+                jf = str(r.get("jf_id") or "") if isinstance(r, dict) else ""
+                if not jf or jf in seen or not media_item.ITEM_RE.match(jf):
+                    continue
+                seen.add(jf)
+                out.append({"jf_id": jf, "kind": kind, "title": str(r.get("title") or ""),
+                            "year": r.get("year") if isinstance(r.get("year"), int) else None,
+                            "added_at": str(r.get("added_at") or "")})
+    return order(out)
+
+
+def order(rows: list[dict]) -> list[dict]:
+    """Q9A: recently added first, then A-Z (case-insensitive); a series' seasons follow it, in order."""
+    rows = sorted(rows, key=lambda r: ((r.get("title") or "").casefold(),
+                                       r.get("season") if isinstance(r.get("season"), int) else 0))
+    return sorted(rows, key=lambda r: r.get("added_at") or "", reverse=True)
+
+
+def _text_hash(title: str, sub: str) -> str:
+    return hashlib.sha256(f"{title}\0{sub}".encode("utf-8")).hexdigest()[:12]
+
+
+def _read_side(path: Path) -> dict | None:
+    try:
+        side = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return side if isinstance(side, dict) else None
+
+
+def _write_atomic(path: Path, data: bytes) -> None:
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.stem[:16] + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def rows() -> list[dict]:
+    """The cache's sidecars, Q9A order (the review page; local files only)."""
+    folder = out_dir()
+    try:
+        paths = sorted(folder.glob("*.json"))
+    except OSError:
+        return []
+    out = []
+    for path in paths:
+        side = _read_side(path)
+        if side and media_item.ITEM_RE.match(str(side.get("jf_id") or "")) and path.stem == side["jf_id"]:
+            out.append(side)
+    return order(out)
+
+
+def image_path(jf_id: str) -> Path | None:
+    """The rendered JPEG for a Jellyfin id, or None (bad id / not rendered)."""
+    if not media_item.ITEM_RE.match(jf_id or ""):
+        return None
+    path = out_dir() / f"{jf_id}.jpg"
+    return path if path.is_file() else None
+
+
+# ---- the pass ----
+
+def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> dict:
+    """Render what is new or stale into the cache, at most `limit` (POSTERS_PER_PASS). Never writes to Jellyfin.
+    -> counts {titles, rendered, cached, no_source, failed} (+ template_error); never raises."""
+    m = mode()
+    if m == "off":
+        return {"off": True}
+    if m == "on" and not _warned_on["done"]:
+        _warned_on["done"] = True
+        log.warning("POSTERS=on is phase 2 (not built): rendering only, as dry")
+    counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0}
+    free = memory_mb(snaps)
+    if free is None or free < MIN_AVAILABLE_MB:
+        counts["skipped_memory"] = True
+        if free is None:
+            log.warning("posters: pass skipped, NAS available memory unknown (no fresh system snapshot)")
+        else:
+            log.warning("posters: pass skipped, NAS available memory %.0f MB is under %s MB", free, MIN_AVAILABLE_MB)
+        return counts
+    tpl, problems, _ = template_state()
+    if problems:
+        counts["template_error"] = len(problems)
+        log.warning("posters: template rejected (%s problems), %s", len(problems),
+                    "using the starter kit" if tpl else "nothing rendered")
+    if tpl is None:
+        return counts
+    snap = (snaps or {}).get("jellyfin")   # the caller (hub.tasks) reads the snapshots: this module never does
+    jelly = getattr(snap, "data", snap) or {}
+    folder = out_dir()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log.warning("posters: cache folder unavailable: %s", type(exc).__name__)
+        counts["failed"] = 1
+        return counts
+    limit = per_pass() if limit is None else limit
+    started = time.time()
+
+    def full():
+        return counts["rendered"] + counts["no_source"] + counts["failed"] >= limit
+
+    def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None) -> dict | None:
+        """Render one item unless it is fresh in the cache. -> its sidecar (None on failure: retried next pass)."""
+        counts["titles"] += 1
+        text = _text_hash(t["title"], sub)
+        side = _read_side(folder / f"{t['jf_id']}.json")
+        if side and side.get("template") == tpl.version and (side.get("text") == text
+                                                              or side.get("status") == "no_source"):
+            counts["cached"] += 1
+            return side
+        try:
+            chosen = pick(remote_images(t["jf_id"]))
+            if chosen is None and fallback_url:   # a season with no TMDB season poster: the series' poster
+                chosen = {"url": fallback_url, "lang": None, "votes": 0, "rating": None, "width": 0, "height": 0,
+                          "fallback": "series"}
+            art = fetch_art(chosen["url"]) if chosen else None
+            base = {**t, **extra, "sub": sub, "template": tpl.version, "text": text, "rendered_at": _now(),
+                    "pick": chosen, "auto": auto_approves(chosen)}
+            if chosen is None:
+                base["status"] = "no_source"
+                counts["no_source"] += 1
+            elif art is None:
+                raise RuntimeError("art unavailable")
+            else:
+                _write_atomic(folder / f"{t['jf_id']}.jpg", render.render(tpl, art, t["title"], sub))
+                base["status"] = "rendered"
+                if render.layout_title(tpl, t["title"]).truncated:   # past the hard floor: B. checks it on the page
+                    base["truncated"] = True
+                    counts["truncated"] += 1
+                counts["rendered"] += 1
+            _write_atomic(folder / f"{t['jf_id']}.json", json.dumps(base).encode("utf-8"))
+            if pause:
+                time.sleep(pause)
+            return base
+        except Exception as exc:   # one bad title never stops the pass; nothing written, so it retries next pass
+            counts["failed"] += 1
+            log.warning("posters: title failed: %s", type(exc).__name__)
+            return None
+
+    for t in targets(jelly if isinstance(jelly, dict) else {}):
+        if full():
+            break
+        if t["kind"] != "tv":
+            one(t, render.sub_line(t["kind"], year=t["year"]), {})
+            continue
+        side = _read_side(folder / f"{t['jf_id']}.json") or {}
+        seasons = side.get("seasons") if isinstance(side.get("seasons"), list) else None
+        try:
+            fresh = time.time() - float(side.get("seasons_at") or 0) < SEASONS_TTL_S
+        except (TypeError, ValueError):
+            fresh = False
+        if seasons is None or not fresh:
+            try:
+                seasons, stamp = seasons_of(t["jf_id"]), time.time()
+            except Exception as exc:
+                counts["failed"] += 1
+                log.warning("posters: season list failed: %s", type(exc).__name__)
+                continue
+        else:
+            stamp = side["seasons_at"]
+        series = one(t, render.sub_line("tv", seasons=[x["n"] for x in seasons]),
+                     {"seasons": seasons, "seasons_at": stamp})
+        if series is not None and series.get("seasons_at") != stamp:   # cached poster, newer season list
+            series = {**series, "seasons": seasons, "seasons_at": stamp}
+            _write_atomic(folder / f"{t['jf_id']}.json", json.dumps(series).encode("utf-8"))
+        url = ((series or {}).get("pick") or {}).get("url")
+        for x in seasons:
+            if full():
+                break
+            one({"jf_id": x["jf_id"], "kind": "season", "title": t["title"], "year": None,
+                 "added_at": t["added_at"]}, render.sub_line("season", season=x["n"]),
+                {"series_id": t["jf_id"], "season": x["n"]}, fallback_url=url)
+    counts["seconds"] = round(time.time() - started, 1)
+    if counts["rendered"] or counts["no_source"] or counts["failed"]:
+        log.info("posters (%s): %s rendered, %s no TMDB poster, %s failed, %s cached, %s s", m, counts["rendered"],
+                 counts["no_source"], counts["failed"], counts["cached"], counts["seconds"])
+    if counts["truncated"]:
+        log.warning("posters: %s title(s) too long even at the size floor, cut short (marked on /media/posters)",
+                    counts["truncated"])
+    return counts

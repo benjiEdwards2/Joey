@@ -98,7 +98,7 @@ class FakeArr:
     def delete(self, url, headers=None, timeout=None, params=None, **kw):
         assert timeout
         self._rec("DELETE", url, headers, params)
-        return Resp(None, 200)
+        return Resp({}, 200)   # Radarr / Sonarr answer a DELETE with 200 and an empty JSON object
 
     def post(self, url, json=None, headers=None, timeout=None, **kw):
         assert timeout

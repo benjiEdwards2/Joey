@@ -32,6 +32,7 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlencode
 
+import requests
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
@@ -244,13 +245,24 @@ def discord_line(title: str, kind: str, done: str, outcome: str) -> str:
             "arrfail": f"couldn't stop the {app} search", "arrunset": f"{app} not connected",
             "removed": None}.get(done)
     head = "Joey Media: removed the request for " if outcome == "done" else "Joey Media: remove partly failed for "
-    return head + title + (f" · {tail}" if tail else "") + " · nothing on disk deleted"
+    safe = title.replace("@", "@​")   # a title can never ping: @everyone, @here, <@id>, <@&role> are broken up
+    return head + safe + (f" · {tail}" if tail else "") + " · nothing on disk deleted"
 
 
 def _notify(text: str) -> None:
+    """One Discord message that may mention nobody (`allowed_mentions: {parse: []}`, the belt to the escaping's
+    braces). Never raises; logs an HTTP status or an exception type only (the webhook URL is a secret)."""
     url = server_alerts.webhook()
-    if url:
-        server_alerts.post(url, text)   # never raises; logs a status / type only
+    if not url:
+        return
+    try:
+        resp = requests.post(url, json={"content": text[:1900], "allowed_mentions": {"parse": []}},
+                             timeout=server_alerts.TIMEOUT)
+    except Exception as exc:
+        log.warning("discord push failed: %s", type(exc).__name__)
+        return
+    if not 200 <= resp.status_code < 300:
+        log.warning("discord push refused: HTTP %s", resp.status_code)
 
 
 def _to(kind: str, tmdb: int, **params) -> RedirectResponse:

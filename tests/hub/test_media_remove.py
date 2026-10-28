@@ -512,3 +512,59 @@ def test_the_audit_table_arrives_through_the_media_store_steps(tmp_path, monkeyp
         cols = [r[1] for r in db.execute("PRAGMA table_info(media_removals)")]
     assert cols == ["id", "at", "owner", "front", "kind", "tmdb_id", "tvdb_id", "title", "scope", "picked", "files",
                     "bytes", "request_ids", "steps", "outcome"]
+
+
+def test_an_existing_v5_db_with_data_upgrades_to_v6_and_keeps_every_row(tmp_path, monkeypatch):
+    """Review fix (2026-10-28): a live v5 media.db - ratings, a diary entry, a follow - gains media_removals at v6
+    and loses nothing."""
+    from contextlib import closing
+    from hub import media_db, media_store
+    db = tmp_path / "v5.db"
+    monkeypatch.setenv("MEDIA_DB_PATH", str(db))
+    media_store.reset()
+    media_store.forget()
+    media_db.set_rating("tmdb:603", 9, "movie", "Harbour Lights", year=2019)
+    media_db.add_manual_watch(item_key="tmdb:603", kind="movie", title="Harbour Lights", year=2019, poster=None,
+                              watched_on="2026-10-12", place=None, note=None, owner="you")
+    with closing(sqlite3.connect(db)) as conn:
+        conn.execute("DROP TABLE media_removals")
+        conn.execute("PRAGMA user_version = 5")                          # a live v5 file, as deployed today
+        conn.commit()
+        tables = sorted(r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'"))
+        before = {t: conn.execute(f'SELECT * FROM "{t}" ORDER BY rowid').fetchall()
+                  for t in tables if t != "sqlite_sequence"}
+    assert "media_removals" not in before and before["rating"] and before["diary"]
+    media_store.reset()
+    media_store.forget()
+    with closing(media_store.connect()) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 6
+        assert conn.execute("SELECT COUNT(*) FROM media_removals").fetchone()[0] == 0
+        for t, rows in before.items():
+            assert [tuple(r) for r in conn.execute(f'SELECT * FROM "{t}" ORDER BY rowid')] == rows, t
+    media_store.forget()
+    with closing(media_store.connect()) as conn:                        # a second open: idempotent, still v6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == 6
+    media_store.reset()
+
+
+@pytest.mark.parametrize("title", ["@everyone", "@here now", "<@123456789>", "<@&987654321>", "<@!42> Film"])
+def test_discord_line_neutralises_mentions(title):
+    line = media_remove.discord_line(title, "movie", "stopped", "done")
+    for bad in ("@everyone", "@here", "<@1", "<@&", "<@!"):
+        assert bad not in line
+    assert "@​" in line
+
+
+def test_the_discord_post_allows_no_mentions(env, monkeypatch):
+    client, fake = env()
+    sent = []
+    real = fake.post
+
+    def post(url, json=None, **kw):
+        if url == HOOK:
+            sent.append(json)
+        return real(url, json=json, **kw)
+    monkeypatch.setattr(requests, "post", post)
+    with client:
+        remove(client, FILM)
+    assert sent and sent[0]["allowed_mentions"] == {"parse": []}

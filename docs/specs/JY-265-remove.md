@@ -409,5 +409,8 @@ From the builder brief, which narrows section 6's phase 1:
   Remove on season or episode pages.
 - 2026-10-28: `tests/hub/test_episode_ratings.py`, `test_media_follow_shows.py`, `test_media_store.py` and
   `test_to_rate_skip.py` now expect `SCHEMA_VERSION == 6` (was 5). The new step moved the version; no check was weakened.
+- 2026-10-28, review fixes (PR #262): a v5 to v6 migration test with live rows; the Discord line escapes `@` in
+  titles and posts with `allowed_mentions: {"parse": []}`, so no title can ping; the fake arr DELETE answers `{}`, as
+  Radarr and Sonarr do.
 
 ## Shipped notes

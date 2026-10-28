@@ -103,6 +103,11 @@ def jpeg(colour=(90, 100, 110)):
     return buf.getvalue()
 
 
+def snaps(lib, free_gb=2.0):
+    """The pass's snapshots: the library plus a system reading (the memory gate)."""
+    return {"jellyfin": lib, "system": {"ram_free_gb": free_gb}}
+
+
 LIB = {
     "movies": [
         {"title": "Old Film", "year": 1999, "jf_id": "a" * 32, "item_key": "tmdb:1", "added_at": "2026-01-01T00:00:00Z"},
@@ -137,7 +142,7 @@ def fakes(monkeypatch, tmp_path):
 
 def test_dry_pass_renders_into_the_cache_with_gets_only(fakes):
     jf, tmdb, out = fakes
-    counts = mp.dry_pass({"jellyfin": LIB}, pause=0)
+    counts = mp.dry_pass(snaps(LIB), pause=0)
     assert counts["rendered"] == 3 and counts["failed"] == 0
     assert all("/RemoteImages" in u for u in jf.calls) and len(jf.calls) == 3
     side = json.loads((out / ("b" * 32 + ".json")).read_text(encoding="utf-8"))
@@ -150,9 +155,9 @@ def test_dry_pass_renders_into_the_cache_with_gets_only(fakes):
 
 def test_second_pass_is_cached_and_a_template_change_re_renders(fakes, monkeypatch, tmp_path):
     jf, tmdb, out = fakes
-    mp.dry_pass({"jellyfin": LIB}, pause=0)
+    mp.dry_pass(snaps(LIB), pause=0)
     jf.calls.clear()
-    again = mp.dry_pass({"jellyfin": LIB}, pause=0)
+    again = mp.dry_pass(snaps(LIB), pause=0)
     assert again["rendered"] == 0 and again["cached"] == 3 and jf.calls == []
     import shutil
     kit = tmp_path / "kit"
@@ -161,14 +166,14 @@ def test_second_pass_is_cached_and_a_template_change_re_renders(fakes, monkeypat
     data["title"]["title_anchor"] = 0.70
     (kit / "template.json").write_text(json.dumps(data), encoding="utf-8")
     monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(kit))
-    assert mp.dry_pass({"jellyfin": LIB}, pause=0)["rendered"] == 3
+    assert mp.dry_pass(snaps(LIB), pause=0)["rendered"] == 3
 
 
 def test_a_title_past_the_size_floor_is_flagged_and_logged(fakes, caplog):
     jf, tmdb, out = fakes
     lib = {"movies": [{"title": "Word " * 60, "year": 2001, "jf_id": "f" * 32, "added_at": "2026-01-01T00:00:00Z"}]}
     with caplog.at_level("WARNING", logger="hub.media_posters"):
-        counts = mp.dry_pass({"jellyfin": lib}, pause=0)
+        counts = mp.dry_pass(snaps(lib), pause=0)
     assert counts["truncated"] == 1
     assert json.loads((out / ("f" * 32 + ".json")).read_text(encoding="utf-8"))["truncated"] is True
     assert any("cut short" in rec.getMessage() for rec in caplog.records)
@@ -178,47 +183,69 @@ def test_a_title_past_the_size_floor_is_flagged_and_logged(fakes, caplog):
 def test_pass_respects_the_per_pass_cap_newest_first(fakes, monkeypatch):
     jf, tmdb, out = fakes
     monkeypatch.setenv("POSTERS_PER_PASS", "1")
-    assert mp.dry_pass({"jellyfin": LIB}, pause=0)["rendered"] == 1
+    assert mp.dry_pass(snaps(LIB), pause=0)["rendered"] == 1
     assert (out / ("b" * 32 + ".jpg")).exists()                         # Q9A: recently added first
 
 
 def test_no_tmdb_poster_is_recorded_and_not_retried(fakes):
     jf, tmdb, out = fakes
     jf.routes["/RemoteImages"] = Resp(body={"Images": []})
-    counts = mp.dry_pass({"jellyfin": LIB}, pause=0)
+    counts = mp.dry_pass(snaps(LIB), pause=0)
     assert counts["no_source"] == 3 and counts["rendered"] == 0
     jf.calls.clear()
-    assert mp.dry_pass({"jellyfin": LIB}, pause=0)["cached"] == 3 and jf.calls == []
+    assert mp.dry_pass(snaps(LIB), pause=0)["cached"] == 3 and jf.calls == []
 
 
 def test_an_upstream_failure_is_counted_and_retried_next_pass(fakes):
     jf, tmdb, out = fakes
     jf.routes["/RemoteImages"] = Resp(status=500)
-    counts = mp.dry_pass({"jellyfin": LIB}, pause=0)
+    counts = mp.dry_pass(snaps(LIB), pause=0)
     assert counts["failed"] == 3 and not list(out.glob("*.json"))
 
 
 def test_off_does_nothing(fakes, monkeypatch):
     jf, tmdb, out = fakes
     monkeypatch.setenv("POSTERS", "off")
-    assert mp.dry_pass({"jellyfin": LIB}, pause=0) == {"off": True}
+    assert mp.dry_pass(snaps(LIB), pause=0) == {"off": True}
     assert jf.calls == [] and not out.exists()
 
 
 def test_on_is_phase_2_and_behaves_as_dry(fakes, monkeypatch):
     jf, tmdb, out = fakes
     monkeypatch.setenv("POSTERS", "on")
-    assert mp.dry_pass({"jellyfin": LIB}, pause=0)["rendered"] == 3     # still GET-only fakes: no write path
+    assert mp.dry_pass(snaps(LIB), pause=0)["rendered"] == 3     # still GET-only fakes: no write path
 
 
-def test_a_bad_template_renders_nothing(fakes, monkeypatch, tmp_path):
+def test_a_bad_template_falls_back_to_the_starter_kit(fakes, monkeypatch, tmp_path):
     jf, tmdb, out = fakes
     kit = tmp_path / "badkit"
     kit.mkdir()
     (kit / "template.json").write_text("{ nope", encoding="utf-8")
     monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(kit))
-    counts = mp.dry_pass({"jellyfin": LIB}, pause=0)
-    assert counts.get("template_error") and counts["rendered"] == 0 and jf.calls == []
+    counts = mp.dry_pass(snaps(LIB), pause=0)
+    assert counts["template_error"] == 1 and counts["rendered"] == 3
+    side = json.loads((out / ("b" * 32 + ".json")).read_text(encoding="utf-8"))
+    assert side["template"] == r.load_template(r.STARTER).version
+
+
+@pytest.mark.parametrize("free_gb,why", [(1.2, "1229 MB is under 1300"), (None, "unknown")])
+def test_low_or_unknown_memory_skips_the_pass_and_logs_it(fakes, caplog, free_gb, why):
+    jf, tmdb, out = fakes
+    s = snaps(LIB, free_gb) if free_gb is not None else {"jellyfin": LIB}
+    with caplog.at_level("WARNING", logger="hub.media_posters"):
+        counts = mp.dry_pass(s, pause=0)
+    assert counts["skipped_memory"] and counts["rendered"] == 0 and jf.calls == []
+    assert any(why in rec.getMessage() for rec in caplog.records)
+
+
+def test_memory_reading_is_the_system_snapshot():
+    class Snap:
+        def __init__(self, data, age):
+            self.data, self.age_minutes = data, age
+    assert mp.memory_mb({"system": Snap({"ram_free_gb": 1.5}, 2)}) == pytest.approx(1536)
+    assert mp.memory_mb({"system": Snap({"ram_free_gb": 1.5}, 60)}) is None      # stale
+    assert mp.memory_mb({"system": Snap({}, 1)}) is None
+    assert mp.memory_mb({}) is None
 
 
 def test_no_jellyfin_write_call_exists_in_phase_1():
@@ -323,7 +350,8 @@ def test_a_bad_template_is_shown_in_words(page_app, monkeypatch, tmp_path):
     monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(kit))
     with c:
         body = c.get("/media/posters").text
-    assert "Template not used" in body and "canvas" in body
+    assert "Your template was rejected" in body and "canvas" in body
+    assert "starter template" in body
 
 
 def test_routes_are_private_never_guest():

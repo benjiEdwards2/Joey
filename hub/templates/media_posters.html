@@ -14,9 +14,9 @@
 <p class="metaline">{{ kit_words }}</p>
 {% if problems %}
 <div class="listbox">
-<div class="row is-down"><div class="row-body"><div class="row-title"><span class="st-warn">Template not used</span></div>
+<div class="row is-down" role="status"><div class="row-body"><div class="row-title"><span class="st-warn">Your template was rejected</span></div>
 {% for p in problems %}<p class="metaline">{{ p }}</p>{% endfor %}
-<p class="metaline">The last good posters stay below until the template is fixed.</p></div></div>
+<p class="metaline">Posters are made with the starter template until it is fixed.</p></div></div>
 </div>
 {% endif %}
 {% if not rows %}

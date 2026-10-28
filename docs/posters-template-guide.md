@@ -111,10 +111,11 @@ python -m hub.media_posters_render --template "C:\path\to\your\kit" --art "C:\pa
 python scripts/posters_samples.py --template "C:\path\to\your\kit" --out "C:\path\to\samples"
 ```
 
-The first line renders over a grey placeholder. `--art` uses a real poster file. The last line renders 6 test titles (2 short, 2 long, 2 series) plus a contact sheet. A bad kit prints `FAIL Template not used: …` with every problem named.
+The first line renders over a grey placeholder. `--art` uses a real poster file. The last line renders 6 test titles (2 short, 2 long, 2 series) plus a contact sheet. A bad kit prints `FAIL Template rejected: …` with every problem named.
 
 **B. On the review page.** Copy the files into the NAS template folder. Within the hour, the next pass re-renders every poster with the new kit, up to 30 a pass, newest first. Open **Joey → Media → `/media/posters`** to see each title's current poster beside the new one.
 - A row still on the old kit says "Old template".
-- A refused kit shows **"Template not used"** at the top with the reasons. The last good posters stay until you fix it.
+- A refused kit shows **"Your template was rejected"** at the top with the reasons. Until you fix it, posters are made with the starter template.
+- Size limits: `template.json` 64 KB, each PNG 10 MB, the font file 5 MB.
 
 Nothing is written to Jellyfin from either view. Writing approved posters back is phase 2, and it needs your poster API key.

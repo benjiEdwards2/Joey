@@ -35,7 +35,13 @@ JPEG_QUALITY = 90
 ELLIPSIS = "…"
 FONT_EXT = (".ttf", ".otf", ".woff2", ".woff")
 COLOUR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
-MAX_SOURCE_PIXELS = 40_000_000   # a decompression bomb guard well above TMDB's largest posters
+MAX_SOURCE_PIXELS = 64_000_000   # header check: a JPEG this big still decodes at 1/8 scale (`draft`)
+MAX_DECODED_PIXELS = 4_000_000   # what a PNG / WebP may decode to: <= 16 MB as RGBA (+12 MB as RGB): render < ~30 MB
+MAX_DECODED_JPEG = 8_000_000     # a JPEG after `draft`: <= 24 MB as RGB (a 2000 x 3000 source drafts to 1000 x 1500)
+MAX_TITLE_CHARS = 120            # longer titles are cut (and flagged) before any layout work
+MAX_JSON_BYTES = 64 * 1024
+MAX_PNG_BYTES = 10 * 1024 * 1024
+MAX_FONT_BYTES = 5 * 1024 * 1024
 
 
 class TemplateError(ValueError):
@@ -43,7 +49,7 @@ class TemplateError(ValueError):
 
     def __init__(self, problems: list[str]):
         self.problems = list(problems)
-        super().__init__("Template not used: " + "; ".join(self.problems))
+        super().__init__("Template rejected: " + "; ".join(self.problems))
 
 
 class RenderError(ValueError):
@@ -134,6 +140,9 @@ def _layer(problems, folder: Path, name, key: str, size) -> Path | None:
     if not path.is_file():
         problems.append(f"{key}: {name} is not in the template folder")
         return None
+    if path.stat().st_size > MAX_PNG_BYTES:
+        problems.append(f"{key}: {name} is over {MAX_PNG_BYTES // 1048576} MB")
+        return None
     try:
         with Image.open(path) as im:
             if size and im.size != tuple(size):
@@ -173,6 +182,8 @@ def validate(data, folder: Path) -> list[str]:
             p.append("font.family must be the font's name, e.g. \"Geist\"")
         if _font_file(folder, font.get("file")) is None:
             p.append(f"font.file: {font.get('file')!r} is not a .ttf / .otf / .woff2 file in the template folder")
+        elif _font_file(folder, font.get("file")).stat().st_size > MAX_FONT_BYTES:
+            p.append(f"font.file: {font.get('file')} is over {MAX_FONT_BYTES // 1048576} MB")
         else:
             try:
                 ImageFont.truetype(str(_font_file(folder, font.get("file"))), 20)
@@ -252,6 +263,8 @@ def load_template(folder) -> Template:
     folder = Path(folder)
     path = folder / "template.json"
     try:
+        if path.stat().st_size > MAX_JSON_BYTES:
+            raise TemplateError([f"template.json is over {MAX_JSON_BYTES // 1024} KB"])
         raw = path.read_bytes()
     except OSError:
         raise TemplateError([f"no template.json in {folder.name or 'the template folder'}"]) from None
@@ -301,21 +314,33 @@ def _ellipsise(font, text: str, room: float, tracking: float, size: int) -> str:
 
 
 def _split(words: list[str], n: int, measure) -> list[str] | None:
-    """The split of `words` into n lines (n <= 3) with the narrowest widest line."""
+    """The split of `words` into n lines (n <= 3) with the narrowest widest line. Word widths are measured once and
+    summed (prefix sums), so 2 lines are O(words) and 3 lines O(words^2) of additions - bounded by MAX_TITLE_CHARS.
+    The caller checks the chosen lines with the real font."""
     if len(words) < n:
         return None
-    best, best_w = None, None
+    if n == 1:
+        return [" ".join(words)]
+    ww = [measure(w) for w in words]
+    gap = measure(words[0] + " " + words[1]) - ww[0] - ww[1]
+    pre = [0.0]
+    for w in ww:
+        pre.append(pre[-1] + w)
+
+    def width(a, b):   # words a..b-1 on one line
+        return pre[b] - pre[a] + gap * (b - a - 1)
+    k = len(words)
     if n == 2:
-        cuts = [(i,) for i in range(1, len(words))]
+        cuts = ((i,) for i in range(1, k))
     else:
-        cuts = [(i, j) for i in range(1, len(words) - 1) for j in range(i + 1, len(words))]
+        cuts = ((i, j) for i in range(1, k - 1) for j in range(i + 1, k))
+    best, best_w = None, None
     for cut in cuts:
-        bounds = (0, *cut, len(words))
-        lines = [" ".join(words[a:b]) for a, b in zip(bounds, bounds[1:])]
-        widest = max(measure(ln) for ln in lines)
+        bounds = (0, *cut, k)
+        widest = max(width(a, b) for a, b in zip(bounds, bounds[1:]))
         if best_w is None or widest < best_w:
-            best, best_w = lines, widest
-    return best
+            best, best_w = bounds, widest
+    return [" ".join(words[a:b]) for a, b in zip(best, best[1:])]
 
 
 def title_band(tpl: Template) -> tuple[float, float, float]:
@@ -336,6 +361,9 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
     long even then is ellipsised (`truncated`, shown on the review page)."""
     t = tpl.data["title"]
     text = " ".join(str(title or "").split())
+    capped = len(text) > MAX_TITLE_CHARS
+    if capped:   # bounded work whatever the input; the cut is flagged like any other
+        text = text[:MAX_TITLE_CHARS - 1].rsplit(" ", 1)[0].rstrip() + ELLIPSIS
     if t.get("uppercase"):
         text = text.upper()
     left = tpl.width * t["margin_x"]
@@ -398,7 +426,7 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
     for i, ln in enumerate(lines):
         w = _width(font, ln, tracking, size)
         out.append(Line(ln, (tpl.width - w) / 2, top + i * step, w))
-    return TitleLayout(size, out, top, top + len(out) * step, truncated)
+    return TitleLayout(size, out, top, top + len(out) * step, truncated or capped)
 
 
 def sub_line(kind: str, year=None, seasons=None, years=None, series_sub: bool = False) -> str:
@@ -427,11 +455,14 @@ def _rgb(hexcolour: str) -> tuple[int, int, int]:
 
 def _cover(art: bytes, w: int, h: int) -> Image.Image:
     try:
-        src = Image.open(io.BytesIO(art))
+        src = Image.open(io.BytesIO(art))   # lazy: only the header is read here
         if src.width * src.height > MAX_SOURCE_PIXELS:
             raise RenderError("source image too large")
         if src.format == "JPEG":
-            src.draft("RGB", (w, h))   # decode at 1/2, 1/4 ... scale: the full-size bitmap is never held
+            src.draft("RGB", (w, h))   # decode at 1/2, 1/4, 1/8 scale: the full-size bitmap is never held
+        cap = MAX_DECODED_JPEG if src.format == "JPEG" else MAX_DECODED_PIXELS
+        if src.width * src.height > cap:   # a PNG / WebP cannot be drafted: refuse before decoding
+            raise RenderError("source image too large to decode")
         src = src.convert("RGB")
     except RenderError:
         raise

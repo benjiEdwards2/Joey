@@ -1,7 +1,7 @@
 """JY-260 phase 1: the private poster review page (spec docs/specs/JY-260-posters.md).
 
 * GET /media/posters - every rendered title, original (the Jellyfin Primary through /img) beside the proposed Joey
-  poster, Q9A order, with the pick in words and the template kit's state (its problems, in words, when refused).
+  poster, Q9A order, with the pick in words and the template kit's state (a refused kit: its problems in words, and the starter kit is used).
 * GET /media/posters/img/{jf_id} - the proposed JPEG from the dry cache.
 
 Household only: the private front (owner "you" or "her"). The media front - friends - and everything while

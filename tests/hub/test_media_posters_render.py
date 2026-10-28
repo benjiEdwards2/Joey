@@ -262,7 +262,7 @@ def test_render_is_a_jpeg_at_the_canvas_size_with_the_scrim_low(tpl):
 
 
 def test_scrim_is_one_smooth_gradient_with_no_seam(tpl):
-    im = Image.open(io.BytesIO(r.render(tpl, art(colour=(200, 200, 200), fmt="PNG"), "", ""))).convert("L")
+    im = Image.open(io.BytesIO(r.render(tpl, art(1000, 1500, colour=(200, 200, 200), fmt="PNG"), "", ""))).convert("L")
     col = [im.getpixel((500, y)) for y in range(0, 1500, 10)]
     assert col[0] >= 195 and col[-1] < 60                               # untouched top, dark bottom
     assert all(b <= a + 2 for a, b in zip(col, col[1:]))                 # only ever darker going down
@@ -296,3 +296,69 @@ def test_render_uses_a_frame_png_on_top(tmp_path):
 def test_render_rejects_bytes_that_are_not_an_image(tpl):
     with pytest.raises(r.RenderError):
         r.render(tpl, b"not an image", "Up", "")
+
+
+# ---- hardening (review round, 2026-10-28) ----
+
+def test_a_large_png_is_refused_before_it_is_decoded(tpl, monkeypatch):
+    big = art(2600, 3900, fmt="PNG")                                     # 10.1 M pixels: ~40 MB as RGBA
+    loads = []
+    real = Image.Image.load
+    monkeypatch.setattr(Image.Image, "load", lambda self: loads.append(self.size) or real(self))
+    with pytest.raises(r.RenderError, match="too large"):
+        r.render(tpl, big, "Up", "")
+    assert (2600, 3900) not in loads                                     # never decoded at full size
+
+
+def test_a_png_under_the_cap_renders(tpl):
+    assert Image.open(io.BytesIO(r.render(tpl, art(1600, 2400, fmt="PNG"), "Up", ""))).size == (1000, 1500)
+
+
+def test_a_large_jpeg_decodes_at_reduced_scale(tpl, monkeypatch):
+    big = art(4000, 6000)                                                # 24 M pixels as a JPEG
+    sizes = []
+    real = Image.Image.convert
+    monkeypatch.setattr(Image.Image, "convert", lambda self, *a, **k: sizes.append(self.size) or real(self, *a, **k))
+    Image.open(io.BytesIO(r.render(tpl, big, "Up", "")))
+    assert sizes and max(w * h for w, h in sizes) <= r.MAX_DECODED_JPEG
+    assert sizes[0] == (1000, 1500)                                      # drafted at 1/4
+
+
+def test_a_huge_header_is_refused(tpl):
+    buf = io.BytesIO()
+    Image.new("1", (9000, 9000)).save(buf, "PNG")                        # 81 M pixels, tiny file
+    with pytest.raises(r.RenderError, match="too large"):
+        r.render(tpl, buf.getvalue(), "Up", "")
+
+
+def test_a_600_word_title_is_capped_fast_and_flagged(tpl):
+    import time
+    start = time.perf_counter()
+    lay = r.layout_title(tpl, " ".join(["word"] * 600))
+    assert time.perf_counter() - start < 1.0
+    assert lay.truncated and len(" ".join(ln.text for ln in lay.lines)) <= r.MAX_TITLE_CHARS
+
+
+def test_121_characters_is_flagged_120_is_not_cut_by_the_cap(tpl):
+    t120 = ("Abc " * 30)[:120].strip()
+    assert len(r.layout_title(tpl, "A" * 3 + " " + "b" * 117).lines) >= 1
+    lay = r.layout_title(tpl, t120 + "xyz")
+    assert lay.truncated and lay.lines[-1].text.endswith("…")
+
+
+def test_template_file_size_caps(tmp_path):
+    folder = kit(tmp_path)
+    (folder / "template.json").write_text(json.loads(json.dumps(" ")) * 70_000 + (folder / "template.json")
+                                          .read_text(encoding="utf-8"), encoding="utf-8")
+    with pytest.raises(r.TemplateError, match="over 64 KB"):
+        r.load_template(folder)
+    folder = kit(tmp_path / "png", scrim="scrim.png")
+    Image.new("RGBA", (1000, 1500), (0, 0, 0, 0)).save(folder / "scrim.png")
+    with open(folder / "scrim.png", "ab") as fh:
+        fh.write(b"\0" * (10 * 1024 * 1024))
+    with pytest.raises(r.TemplateError, match="scrim: scrim.png is over 10 MB"):
+        r.load_template(folder)
+    folder = kit(tmp_path / "font", **{"font.file": "Big.ttf"})
+    (folder / "Big.ttf").write_bytes((r.HUB_FONTS / "GeistVF.woff2").read_bytes() + b"\0" * (5 * 1024 * 1024))
+    with pytest.raises(r.TemplateError, match="Big.ttf is over 5 MB"):
+        r.load_template(folder)

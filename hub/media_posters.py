@@ -38,6 +38,8 @@ PER_PASS = 30
 PAUSE_S = 2.0
 TMDB_ART = "https://image.tmdb.org/t/p/"
 DEFAULT_TEMPLATE_DIR = "/data/posters/template"
+MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
+MEMORY_STALE_MIN = 15
 _warned_on = {"done": False}
 
 
@@ -77,12 +79,30 @@ def template_dir() -> Path:
 
 
 def template_state() -> tuple[render.Template | None, list[str], bool]:
-    """(template or None, problems, is_starter). Local files only."""
+    """(template, problems, is_starter). Local files only. B.'s kit when it is good; when it is refused, the starter
+    kit with B.'s kit's problems (the review page shows them). None only if the starter kit itself were refused."""
     folder = template_dir()
     try:
         return render.load_template(folder), [], folder == render.STARTER
     except render.TemplateError as exc:
-        return None, exc.problems, folder == render.STARTER
+        problems = exc.problems
+    try:
+        return render.load_template(render.STARTER), problems, True
+    except render.TemplateError as exc:
+        return None, problems + exc.problems, True
+
+
+def memory_mb(snaps) -> float | None:
+    """NAS available memory in MB from the `system` snapshot (the connector's /proc/meminfo MemAvailable, as the
+    Server area reads it), or None when there is no fresh reading."""
+    snap = (snaps or {}).get("system")
+    if snap is None or (getattr(snap, "age_minutes", 0) or 0) > MEMORY_STALE_MIN:
+        return None
+    data = getattr(snap, "data", snap)
+    free = data.get("ram_free_gb") if isinstance(data, dict) else None
+    if isinstance(free, bool) or not isinstance(free, (int, float)):
+        return None
+    return float(free) * 1024
 
 
 # ---- the pick ----
@@ -228,10 +248,20 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         _warned_on["done"] = True
         log.warning("POSTERS=on is phase 2 (not built): rendering only, as dry")
     counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0}
+    free = memory_mb(snaps)
+    if free is None or free < MIN_AVAILABLE_MB:
+        counts["skipped_memory"] = True
+        if free is None:
+            log.warning("posters: pass skipped, NAS available memory unknown (no fresh system snapshot)")
+        else:
+            log.warning("posters: pass skipped, NAS available memory %.0f MB is under %s MB", free, MIN_AVAILABLE_MB)
+        return counts
     tpl, problems, _ = template_state()
-    if tpl is None:
+    if problems:
         counts["template_error"] = len(problems)
-        log.warning("posters: template not used (%s problems)", len(problems))
+        log.warning("posters: template rejected (%s problems), %s", len(problems),
+                    "using the starter kit" if tpl else "nothing rendered")
+    if tpl is None:
         return counts
     snap = (snaps or {}).get("jellyfin")   # the caller (hub.tasks) reads the snapshots: this module never does
     jelly = getattr(snap, "data", snap) or {}

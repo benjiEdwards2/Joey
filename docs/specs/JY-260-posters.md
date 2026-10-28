@@ -39,7 +39,7 @@ A folder of files. joey-hub reads it on every pass; a change to any file re-rend
 - **Canvas:** 1000 × 1500 px (2:3). Any 2:3 size from 600 × 900 to 2000 × 3000 is accepted.
 - **Layers, bottom to top:** TMDB art (full bleed, cover-cropped) → scrim (`scrim.png` from Canva, or the `scrim_band` gradient when there is no file) → title → sub-line → optional `frame.png`.
 - **`template.json`:** the title box (`title_anchor` = top of the title as a fraction of the height, `margin_x`, `max_size` / `min_size` in px, `max_lines` up to 3, `line_height`, `uppercase`, `tracking`, `weight`, `colour`, `shadow`), the sub-line box (`sub_anchor`, `size`, `weight`, `colour`, `opacity`, `tracking`), the font (`family` = the Google Font name, `file` = the font file in the folder), the scrim (`scrim` file name or null, `scrim_band` = where the fade starts, where it is solid, and the opacity), and the optional `frame` file.
-- **Validation:** a bad template is refused as a whole with every problem listed by name. The review page shows the list, and nothing renders until it is fixed. The last good renders stay.
+- **Validation:** a bad template is refused as a whole with every problem listed by name. Until it is fixed, posters are made with the starter kit, and `/media/posters` shows "Your template was rejected" with the list (review fix, 2026-10-28; the draft kept the last good renders). File caps: `template.json` 64 KB, each PNG 10 MB, the font 5 MB.
 - **Starter kit:** layout 2 "Clear" with Geist (OFL, the hub's own font file) and layout 3's text positions. It also has `guide.png`, a safe-area overlay B. can drop into Canva as a reference layer.
 - **Guide:** `docs/posters-template-guide.md` covers the step-by-step in Canva, the exports, the safe areas, changing the font and previewing before anything is applied.
 
@@ -223,6 +223,12 @@ Phase 1 (draft PR, 2026-10-28, not merged or deployed):
     - the scrim is one gradient with no seam;
     - the placeholder art no longer has a straight-edged band;
     - a 3-line title no longer sits on the sub-line: the bottom-anchor mode with `title_gap` (second fix round).
+  - Review hardening (two reviews PASS; coordinator 2026-10-28):
+    - decode caps: a JPEG is drafted and must decode to at most 8 M pixels; a PNG or WebP to at most 4 M; headers over 64 M are refused before decoding. One render stays under about 30 MB.
+    - titles are capped at 120 characters (flagged), and the line split uses prefix sums, so a 600-word title lays out in well under 1 s;
+    - a rejected kit falls back to the starter kit, with a notice on `/media/posters`;
+    - file-size caps: json 64 KB, PNG 10 MB, font 5 MB;
+    - a pass is skipped, and logged, when NAS available memory (the `system` snapshot's `ram_free_gb`) is under 1,300 MB or unknown.
   - The dry pass is its own hourly loop in `hub/tasks.py`, not part of `media_warmup`.
 
 

@@ -6,7 +6,7 @@
   "scrim": null,
   "scrim_band": {"top": 0.50, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
   "frame": null,
-  "accent_rule": {"colour": "#E0B04A", "width": 0.06, "height": 4, "gap": 18},
+  "accent_rule": {"colour": "#E0B04A", "width": 0.09, "height": 6, "gap": 24},
   "title": {
     "title_anchor": 0.75,
     "title_anchor_mode": "bottom",
@@ -14,7 +14,8 @@
     "title_top_limit": 0.62,
     "margin_x": 0.06,
     "title_fill": 0.88,
-    "max_size": 190,
+    "max_size": 400,
+    "max_cap_height": 0.14,
     "min_size": 40,
     "wrap_at": 96,
     "max_lines": 3,

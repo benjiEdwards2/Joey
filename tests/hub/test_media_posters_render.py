@@ -54,9 +54,9 @@ def test_starter_kit_is_layout_2_with_layout_3_text_positions(tpl):
     t, s = tpl.data["title"], tpl.data["sub"]
     assert (t["title_anchor"], s["sub_anchor"], t["margin_x"]) == (TA, SA, 0.06)
     assert (t["weight"], s["weight"], t["uppercase"]) == (900, 500, True)   # B.'s friend's look: Geist Black, Medium
-    assert (t["title_fill"], t["max_size"], t["line_height"], t["tracking"], s["tracking"]) == (0.88, 190, 0.92, 0.02,
-                                                                                                0.08)
-    assert tpl.data["accent_rule"] == {"colour": "#E0B04A", "width": 0.06, "height": 4, "gap": 18}
+    assert (t["title_fill"], t["max_size"], t["max_cap_height"], t["line_height"], t["tracking"], s["tracking"]) == (
+        0.88, 400, 0.14, 0.92, 0.02, 0.08)
+    assert tpl.data["accent_rule"] == {"colour": "#E0B04A", "width": 0.09, "height": 6, "gap": 24}
     assert t["shadow"]["opacity"] <= 0.35 and s["shadow"]["opacity"] <= 0.35   # only a very soft shadow
     assert s["opacity"] == 1.0 and s["colour"] == "#FFFFFF"
     assert tpl.data["frame"] is None                      # layout 2: no frame, no border
@@ -85,10 +85,14 @@ def _fill(lay):
 
 
 def test_short_title_one_line_at_max_size_grows_up_from_the_anchor(tpl):
-    """B. 2026-10-28: short titles larger. "UP" is capped at max_size (190 px); at that size its real ink is taller
-    than the room under the anchor, so the block rises (bottom-anchored), its ink bottom on the gap above the sub."""
+    """B. 2026-10-28: "Posters bigger is better." "UP" is held by the sanity cap (its glyphs at most 14 % of the
+    canvas height); at that size its real ink is taller than the room under the anchor, so the block rises
+    (bottom-anchored), its ink bottom on the gap above the sub-line."""
     lay = r.layout_title(tpl, "Up")
-    assert [ln.text for ln in lay.lines] == ["UP"] and lay.size == 190
+    font = r._font(tpl, lay.size, 900)
+    ink = font.getbbox("H", anchor="ls")                                     # the capital height
+    assert [ln.text for ln in lay.lines] == ["UP"] and (ink[3] - ink[1]) <= 0.14 * 1500 + 1
+    assert (ink[3] - ink[1]) >= 0.13 * 1500                                  # at the cap, not under it
     assert lay.bottom == pytest.approx((SA - GAP) * 1500) and LIMIT * 1500 <= lay.top < TA * 1500
     _inside(lay, tpl)
 
@@ -107,7 +111,20 @@ def test_titles_fill_about_title_fill_of_the_safe_width(tpl, title, n, lo, hi):
 
 def test_short_titles_are_larger_than_long_ones(tpl):
     sizes = [r.layout_title(tpl, t).size for t in ("Up", "The Bear", "Everything Everywhere", LONG)]
-    assert sizes == sorted(sizes, reverse=True) and sizes[0] == 190 and sizes[-1] >= 40
+    assert sizes == sorted(sizes, reverse=True) and sizes[0] > 250 and sizes[-1] >= 40
+
+
+@pytest.mark.parametrize("title", ["War", "Silo", "Troy", "Suits"])
+def test_short_titles_fill_about_088_of_the_width(tpl, title):
+    """The review of #260: short titles filled ~45 % at the old 190 px cap; now about 0.85-0.9, like B.'s reference."""
+    lay = r.layout_title(tpl, title)
+    assert len(lay.lines) == 1 and 0.83 <= _fill(lay) <= 0.885, (title, lay.size, _fill(lay))
+
+
+def test_a_two_letter_title_is_held_by_the_cap_height(tpl):
+    lay = r.layout_title(tpl, "It")
+    ink = r._font(tpl, lay.size, 900).getbbox("H", anchor="ls")
+    assert ink[3] - ink[1] <= 0.14 * 1500 + 1 and _fill(lay) < 0.85
 
 
 def test_a_medium_title_shrinks_to_wrap_at_then_wraps(tpl):
@@ -137,18 +154,19 @@ def test_title_box_never_meets_the_sub_line_box(tpl, title, n):
     assert lay.top >= LIMIT * 1500 - 0.5                                   # grows upward, no higher than the limit
 
 
-@pytest.mark.parametrize("title", ["Up", "Heat", "Troy", "Silo", "War", "Close"])
+@pytest.mark.parametrize("title", ["Up", "It", "Heat", "Troy", "Silo", "War", "Close"])
 def test_no_overlap_at_max_size_with_the_real_ink_height(tpl, title):
-    """A tall single line at 190 px: its real glyphs end above the gap, the rule sits under them, the sub-line under
-    the rule (measured on the drawn pixels, not on boxes)."""
+    """A tall single line at the new max (the cap height): its real glyphs end above the gap, the rule sits under
+    them, the sub-line under the rule (measured on the drawn pixels, not on boxes)."""
     lay = r.layout_title(tpl, title)
-    assert lay.size == 190
+    assert lay.size >= 200
     font = r._font(tpl, lay.size, 900)
     ink = font.getbbox(lay.lines[0].text, anchor="ls")
     assert lay.lines[0].base + ink[3] <= (SA - GAP) * 1500 + 0.5           # the glyphs, not a nominal line box
     left, top, right, bottom = r.rule_box(tpl, lay)
-    assert top == pytest.approx(lay.bottom + 18) and bottom - top == 4 and right - left == pytest.approx(60)
-    assert r.sub_top(tpl, lay) >= bottom + 18
+    assert top == pytest.approx(lay.bottom + 24) and bottom - top == 6 and right - left == pytest.approx(90)
+    assert abs((left + right) / 2 - 500) < 0.5                               # centred
+    assert r.sub_top(tpl, lay) >= bottom + 24 and r.sub_top(tpl, lay) + 50 * 1.2 <= 1500
     out = Image.open(io.BytesIO(r.render(tpl, art(colour=(20, 20, 20)), title, "2024"))).convert("RGB")
     rows = [y for y in range(900, 1500) if any(out.getpixel((x, y))[0] > 150 for x in range(60, 940, 3))]
     runs, start = [], rows[0]
@@ -317,10 +335,10 @@ def test_a_bad_accent_rule_is_refused(tmp_path):
 
 
 def test_the_new_look_is_a_new_template_version(tpl, tmp_path, monkeypatch):
-    """B. 2026-10-28: every stored poster re-renders. The drawing code bumped RENDER_VERSION (2) and the starter
-    kit's template.json changed, and either alone gives a new version."""
-    assert r.RENDER_VERSION == 2
-    monkeypatch.setattr(r, "RENDER_VERSION", 1)
+    """B. 2026-10-28: every stored poster re-renders. The drawing code bumped RENDER_VERSION (3, "bigger") and the
+    starter kit's template.json changed, and either alone gives a new version."""
+    assert r.RENDER_VERSION == 3
+    monkeypatch.setattr(r, "RENDER_VERSION", 2)
     assert r.load_template(r.STARTER).version != tpl.version
 
 

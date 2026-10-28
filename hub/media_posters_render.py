@@ -30,7 +30,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 STARTER = Path(__file__).resolve().parent / "posters_template"
 HUB_FONTS = Path(__file__).resolve().parent / "static" / "fonts"
-RENDER_VERSION = 2          # bump when the drawing code changes, so every poster re-renders
+RENDER_VERSION = 3          # bump when the drawing code changes, so every poster re-renders
 JPEG_QUALITY = 90
 ELLIPSIS = "…"
 FONT_EXT = (".ttf", ".otf", ".woff2", ".woff")
@@ -234,6 +234,7 @@ def validate(data, folder: Path) -> list[str]:
     _colour(p, s, "colour", "sub")
     _shadow(p, s, "sub")
     _num(p, t, "title_fill", "title", 0.3, 1, required=False)
+    _num(p, t, "max_cap_height", "title", 0.03, 0.4, required=False)
     rule = data.get("accent_rule")
     if rule is not None:
         if not isinstance(rule, dict):
@@ -391,6 +392,8 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
 
     ref = 100
     ref_font = _font(tpl, ref, weight)
+    hb = ref_font.getbbox("H", anchor="ls")
+    cap_h = max((hb[3] - hb[1]) / ref, 0.01)   # capital height per pixel of size
     seen: dict[str, float] = {}
 
     def ref_measure(s: str) -> float:
@@ -418,6 +421,8 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
             return None
         a, d = ink(lines)
         cap = min(hi, int(block / height(n, a, d)))
+        if t.get("max_cap_height"):   # the sanity cap: the font's capital height ("H"), as a share of the canvas height
+            cap = min(cap, int(tpl.height * float(t["max_cap_height"]) / cap_h))
         floor = lo if n == max_lines else max(lo, wrap_at)
         if cap < floor:
             return None
@@ -453,7 +458,9 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
         got = (size, font, lines)
     size, font, lines = got
     step = size * lh
-    a, d = ink(lines)
+    bb = [font.getbbox(ln, anchor="ls") for ln in lines if ln]   # the real glyphs at the chosen size (no rounding)
+    a = min(b[1] for b in bb) / size if bb else -0.7
+    d = max(b[3] for b in bb) / size if bb else 0.0
     tall = height(len(lines), a, d) * size
     top = min(top_at, floor_y - tall)   # bottom mode: a taller block grows upward, never into the gap (real ink)
     out = []

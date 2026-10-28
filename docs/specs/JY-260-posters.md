@@ -1,6 +1,6 @@
 # JY-260 Automated custom posters (films and series)
 
-Status: ready (2026-10-28); phase 1 building
+Status: shipped 2026-10-28
 Size: L (live Jellyfin write + a new secret; Phase 1 alone is M, built and labelled L)
 Live risk: NAS write (Jellyfin item images, phase 2), secrets (one new `.env` key, phase 2). Phase 1: none.
 Area: `hub/media_posters*.py` (new), `hub/posters_template/` (the starter template kit, new), `hub/templates/media_posters.html` (new), `hub/guest.py` (two PRIVATE rows), `hub/main.py` + `hub/tasks.py` (one router line, one loop line), `hub/static/control-surface.css` (a few non-token lines for the review pairs), `hub/requirements.txt` (pillow), `deploy/.env.example`, `deploy/docker-compose.yml` (one read-only template mount), `docs/posters-template-guide.md`, `tests/hub/test_media_posters*.py`
@@ -238,26 +238,11 @@ Episodes (unless Q6 says otherwise); backdrops/logos; fanart.tv; writing `poster
 **Q9. Review order for the backfill.** **A: Recently added first, then alphabetical** / B: alphabetical. Recommendation: **A**.
 
 ## Shipped notes
-
-Phase 1 (draft PR, 2026-10-28, not merged or deployed):
-- Measured on the laptop (`scripts/posters_samples.py`): one render of a 2000 × 3000 JPEG source raises the process peak by 13.0 MB (RSS 26.9 MB before, peak 39.9 MB after). After the fix round: +13.1 MB, 120–142 ms per render, posters 49–94 KB. The NAS numbers come with phase 2.
-- Hub image: Pillow 12.2.0 adds a 7.1 MB wheel, 19.5 MB unpacked (manylinux x86_64).
-- Samples: `C:\Users\b.edwards\Desktop\Claude\JoeyTV\review\JY-260\p1-samples\` (6 posters, a contact sheet and `samples.log`). They use placeholder art. The series samples have the phase-2 sub-line switched on, to show it.
-- Builder notes for review:
-  - The routes are always registered, and the handlers 404 while `POSTERS=off`, as `PLAYER_API` does. So criterion 1, "no new route", reads as "no served route".
-  - Fix round, coordinator 2026-10-28:
-    - long titles are never cut above the floor (up to 3 lines, floor 40 px);
-    - the scrim is one gradient with no seam;
-    - the placeholder art no longer has a straight-edged band;
-    - a 3-line title no longer sits on the sub-line: the bottom-anchor mode with `title_gap` (second fix round).
-  - Review hardening (two reviews PASS; coordinator 2026-10-28):
-    - decode caps: a JPEG is drafted and must decode to at most 8 M pixels; a PNG or WebP to at most 4 M; headers over 64 M are refused before decoding. One render stays under about 30 MB.
-    - titles are capped at 120 characters (flagged), and the line split uses prefix sums, so a 600-word title lays out in well under 1 s;
-    - a rejected kit falls back to the starter kit, with a notice on `/media/posters`;
-    - file-size caps: json 64 KB, PNG 10 MB, font 5 MB;
-    - a pass is skipped, and logged, when NAS available memory (the `system` snapshot's `ram_free_gb`) is under 1,300 MB or unknown.
-  - The dry pass is its own hourly loop in `hub/tasks.py`, not part of `media_warmup`.
-
+- Closed out with `scripts/joey.py close-out`.
+- PR: #252, squash-merged as `f860efe` (f860efec3a715d9ad9b8c01a2b279dcc108fa89f).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-28: "JY-260: Q1B · Q2B · Q3A · Q4A · Q5A · Q6A · Q7A · Q8 layout 2 Geist · Q9A", "Looks good for posters." and "Go public and raise everything and change it all""
+- Follow-ups: none
 
 ## Sources (read 2026-10-28)
 

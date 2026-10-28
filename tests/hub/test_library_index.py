@@ -33,7 +33,7 @@ def test_step_6_creates_the_index_and_the_audit_tables(db):
         pass
     with closing(sqlite3.connect(db)) as conn:
         names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master")}
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 6
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
     assert {"library_index", "library_index_state", "reattach_run", "reattach_change"} <= names
 
 
@@ -192,3 +192,34 @@ def test_the_media_front_never_sees_a_library_file_path():
     out = guest.scrub_data("jellyfin", data)
     assert "path" not in out["movies"][0] and "path" not in out["shows"][0]
     assert out["movies"][0]["imdb"] == "tt2543164" and out["shows"][0]["tvdb"] == "371980"
+
+
+def test_a_v6_file_with_jy265s_table_upgrades_to_v7_and_keeps_every_row(tmp_path, monkeypatch):
+    """JY-264 step 7 lands after JY-265's step 6 (media_removals) in deploy order: a live v6 file gains the index and
+    audit tables, and every existing row (JY-265's included) is unchanged."""
+    path = tmp_path / "media.db"
+    monkeypatch.setenv("MEDIA_DB_PATH", str(path))
+    media_store.reset()
+    media_store.forget()
+    from hub import media_db
+    media_db.set_rating("tmdb:603", 9, "movie", "Harbour Lights", year=2019)
+    with closing(sqlite3.connect(path)) as conn:
+        for t in ("library_index", "library_index_state", "reattach_run", "reattach_change"):
+            conn.execute(f"DROP TABLE {t}")
+        conn.execute("INSERT INTO media_removals(at, owner, front, kind, tmdb_id, title, scope, outcome) "
+                     "VALUES('2026-10-28T09:00:00Z', 'you', 'hub', 'movie', 603, 'Harbour Lights', 'request', 'removed')")
+        conn.execute("PRAGMA user_version = 6")                          # a live v6 file: JY-265 deployed
+        conn.commit()
+        tables = sorted(r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'"))
+        before = {t: conn.execute(f'SELECT * FROM "{t}" ORDER BY rowid').fetchall()
+                  for t in tables if t != "sqlite_sequence"}
+    assert before["media_removals"] and before["rating"] and "library_index" not in before
+    media_store.reset()
+    media_store.forget()
+    with closing(media_store.connect()) as conn:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == media_store.SCHEMA_VERSION == 7
+        names = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {"library_index", "library_index_state", "reattach_run", "reattach_change"} <= names
+        for t, rows in before.items():
+            assert [tuple(r) for r in conn.execute(f'SELECT * FROM "{t}" ORDER BY rowid')] == rows, t
+    media_store.reset()

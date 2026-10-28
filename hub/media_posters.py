@@ -46,6 +46,7 @@ TMDB_ART = "https://image.tmdb.org/t/p/"
 DEFAULT_TEMPLATE_DIR = "/data/posters/template"
 AUTO_MIN_RATING = 0.0   # phase 2: every poster (B. 2026-10-28); the 6.0 rule of phase 1 is superseded
 SEASONS_TTL_S = 24 * 3600   # a series' season list is re-read at most daily
+BACKDROPS_TTL_S = 30 * 24 * 3600   # JY-262 follow-up: a title's ranked backdrops are re-read at most monthly
 MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
 MEMORY_STALE_MIN = 15
 FAILS_BEFORE_BACKOFF = 3   # an item failing this many times in a row (render or write) ...
@@ -153,6 +154,18 @@ def _lang_rank(lang) -> int:
     return 0 if not lang else (1 if lang == "en" else 2)
 
 
+def ranked_posters(remote) -> list[dict]:
+    """Every usable TMDB poster in pick() order (text-less, English, other; then votes, then pixels), each URL once."""
+    rows, seen = [], set()
+    rest = list(remote) if isinstance(remote, list) else []
+    while True:
+        best = pick([im for im in rest if isinstance(im, dict) and im.get("Url") not in seen])
+        if best is None:
+            return rows
+        seen.add(best["url"])
+        rows.append(best)
+
+
 def pick(remote) -> dict | None:
     """The poster to use from a RemoteImages `Images` list, or None.
     -> {url, lang, votes, rating (TMDB 0-10 or None), width, height, fallback}."""
@@ -174,6 +187,134 @@ def pick(remote) -> dict | None:
             best, best_key = {"url": url, "lang": lang, "votes": votes, "rating": rating, "width": w, "height": h,
                               "fallback": (None, "en", "other")[key[0]]}, key
     return best
+
+
+def remote_backdrops(jf_id: str) -> list:
+    """The item's TMDB backdrop list through Jellyfin (GET only), the same request form as the posters
+    (RemoteImageController.GetRemoteImages looks the item up without a user, so the read key needs no userId - unlike
+    GET /Items/{id}, see the JY-260 hotfix). Raises on no answer / non-2xx."""
+    creds = media_jellyfin.creds()
+    if creds is None:
+        raise RuntimeError("Jellyfin not configured")
+    body = media_jellyfin.get(*creds, f"/Items/{jf_id}/RemoteImages",
+                              {"type": "Backdrop", "providerName": "TheMovieDb", "includeAllLanguages": "true"})
+    return (body or {}).get("Images") or [] if isinstance(body, dict) else []
+
+
+def rank_backdrops(remote, full: bool = False) -> list[dict]:
+    """The top two TMDB backdrops (B. 2026-10-28, option A): text-less ones (no language) when any exist, else all;
+    then CommunityRating, then VoteCount, then width, highest first. Art only from image.tmdb.org; duplicates once.
+    -> [{url, lang, rating, votes, width}] (0 to 2)."""
+    rows = []
+    for im in remote if isinstance(remote, list) else []:
+        if not isinstance(im, dict):
+            continue
+        url = im.get("Url")
+        if not isinstance(url, str) or not url.startswith(TMDB_ART):
+            continue
+        rating = im.get("CommunityRating")
+        rating = float(rating) if isinstance(rating, (int, float)) and not isinstance(rating, bool) else 0.0
+        votes = im.get("VoteCount") if isinstance(im.get("VoteCount"), int) else 0
+        width = im.get("Width") if isinstance(im.get("Width"), int) else 0
+        lang = (im.get("Language") or "").strip().lower() if isinstance(im.get("Language"), str) else ""
+        rows.append({"url": url, "lang": lang or None, "rating": rating, "votes": votes, "width": width})
+    clean = [r for r in rows if r["lang"] is None]
+    pool = clean or rows
+    pool.sort(key=lambda r: (-r["rating"], -r["votes"], -r["width"]))
+    out, seen = [], set()
+    for r in pool:
+        if r["url"] not in seen:
+            seen.add(r["url"])
+            out.append(r)
+    return out if full else out[:2]
+
+
+def w1280(url: str) -> str:
+    """TMDB's 1280-wide size of an image URL (RemoteImages lists `original`, which can be a multi-MB 4K file)."""
+    return url.replace("/t/p/original/", "/t/p/w1280/", 1)
+
+
+def backdrops_on() -> bool:
+    """POSTERS_BACKDROPS (default on): fetch and store the ranked TMDB backdrops in the poster pass."""
+    return os.environ.get("POSTERS_BACKDROPS", "").strip().lower() not in ("off", "0", "no")
+
+
+def backdrops_due(side: dict | None, now: float | None = None) -> bool:
+    try:
+        return (now or time.time()) - float((side or {}).get("backdrops_at") or 0) >= BACKDROPS_TTL_S
+    except (TypeError, ValueError):
+        return True
+
+
+def fetch_backdrops(jf_id: str) -> dict:
+    """Rank the title's TMDB backdrops and store the top two (backdrop1, backdrop2); a slot TMDB no longer fills is
+    cleared. -> {"picks": [...], "stored": n}. Raises on an upstream failure (nothing changed: retried next pass)."""
+    picks = rank_backdrops(remote_backdrops(jf_id))
+    got = []
+    for pick in picks:
+        body = fetch_art(w1280(pick["url"]))
+        if body is None:
+            raise RuntimeError("backdrop unavailable")
+        got.append(store.backdrop_jpeg(body))
+    for n, (pick, jpeg) in enumerate(zip(picks, got), start=1):
+        ver = hashlib.sha256(f"{pick['url']}|{store.BACKDROP_W}|q{store.BACKDROP_QUALITY}".encode()).hexdigest()[:10]
+        if store.backdrop_version(jf_id, n) != ver:
+            store.save_backdrop(jf_id, n, ver, jpeg)
+    for n in store.BACKDROP_SLOTS[len(picks):]:
+        store.clear_backdrop(jf_id, n)
+    return {"picks": picks, "stored": len(picks)}
+
+
+def pick_season(remote) -> dict | None:
+    """A season's own TMDB poster: text-less first (then English, then other), then rating, then votes."""
+    rows = ranked_posters(remote)
+    if not rows:
+        return None
+    lang = {None: 0, "en": 1}
+    return min(rows, key=lambda r: (lang.get(r["fallback"], 2), -(r["rating"] or 0), -r["votes"]))
+
+
+def plan_season_art(series_id: str, seasons: list[dict], series_url: str | None, prior: dict) -> dict:
+    """B. 2026-10-28: "If a season has more than 2 seasons. Can you continue to grab new images or closely related
+    images?" Every season of a show gets a different picture: its own TMDB season poster (text-less first, then
+    rating, then votes); else the next unused series poster in rank order (the series keeps #1); else a series TMDB
+    backdrop, cropped to 2:3 by the renderer's centred cover crop, the ones not used as the show's Home / title
+    backdrops (#1, #2) first. Stable: a season keeps its borrowed picture across passes unless its own poster appears;
+    a new season takes the next unused one. -> {season jf_id: chosen (pick() shape + "source")}. GET reads only:
+    one RemoteImages per season, the series' poster and backdrop lists only when a season needs one. Raises on an
+    upstream failure (the caller keeps the previous plan)."""
+    plan: dict = {}
+    used = {series_url} if series_url else set()
+    for x in seasons:
+        own = pick_season(remote_images(x["jf_id"]))
+        if own:
+            plan[x["jf_id"]] = {**own, "source": "own"}
+            used.add(own["url"])
+    for x in seasons:   # stable: a borrowed picture stays with its season
+        before = (prior or {}).get(x["jf_id"]) or {}
+        if x["jf_id"] not in plan and before.get("source") in ("series", "backdrop") and before.get("url") not in used:
+            plan[x["jf_id"]] = before
+            used.add(before["url"])
+    pool = None
+    for x in seasons:
+        if x["jf_id"] in plan:
+            continue
+        if pool is None:   # read once, only when a season needs a picture
+            bds = rank_backdrops(remote_backdrops(series_id), full=True)
+            pool = ([{**c, "source": "series", "fallback": "series"} for c in ranked_posters(remote_images(series_id))]
+                    + [{"url": b["url"], "lang": b["lang"], "votes": b["votes"], "rating": b["rating"],
+                        "width": b["width"], "height": 0, "fallback": "backdrop", "source": "backdrop"}
+                       for b in bds[2:] + bds[:2]])
+        nxt = next((c for c in pool if c["url"] not in used), None)
+        if nxt is None and series_url:   # nothing left at all: the series poster, as before
+            nxt = {"url": series_url, "lang": None, "votes": 0, "rating": None, "width": 0, "height": 0,
+                   "fallback": "series", "source": "series"}
+        if nxt is not None:
+            plan[x["jf_id"]] = nxt
+            used.add(nxt["url"])
+        else:   # no picture anywhere: settled (the season renders as "no TMDB poster"), not re-planned every pass
+            plan[x["jf_id"]] = {"source": "none"}
+    return plan
 
 
 def remote_images(jf_id: str) -> list:
@@ -313,6 +454,10 @@ def _stamp(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def in_backoff_until(retry_at, now: datetime | None = None) -> bool:
+    return bool(retry_at) and _stamp(now or datetime.now(timezone.utc)) < str(retry_at)
+
+
 def in_backoff(row: dict | None, now: datetime | None = None) -> bool:
     retry = (row or {}).get("retry_at")
     if not retry:
@@ -412,15 +557,35 @@ def served(jf_id: str, h: int) -> Path | None:
 
 
 def url_version(ref) -> str:
-    """Jinja `img_v`: the published store version of a `jf:` poster ref ("" when there is none, POSTERS=off, or any
-    other ref), which Joey's pages put on the /img URL as `&v=`. One small local file read; no network."""
-    if disabled() or not isinstance(ref, str) or not ref.startswith("jf:"):
+    """Jinja `img_v`: the published store version of a `jf:` poster ref or a `jfs:<id>/<n>` stored backdrop ("" when
+    there is none, POSTERS=off, or any other ref), which Joey's pages put on the /img URL as `&v=`. One small local
+    file read; no network."""
+    if disabled() or not isinstance(ref, str):
+        return ""
+    if ref.startswith("jfs:"):
+        jf_id, _, n = ref[4:].partition("/")
+        ver = (store.backdrop_version(jf_id, int(n)) if n in ("1", "2") and media_item.ITEM_RE.match(jf_id)
+               else None) or ""
+        return ver if images.V_RE.match(ver) else ""
+    if not ref.startswith("jf:"):
         return ""
     jf_id = ref[3:]
     if not media_item.ITEM_RE.match(jf_id):
         return ""
     ver = store.current(jf_id) or ""
     return ver if images.V_RE.match(ver) else ""
+
+
+def stored_backdrop(jf_id, n: int) -> str | None:
+    """`jfs:<jf_id>/<n>` when backdrop n of that title is stored and published (and POSTERS is not off), else None.
+    The page then draws it as /img/jfs:..?v=<ver>. Local file reads only."""
+    if disabled() or not isinstance(jf_id, str) or not media_item.ITEM_RE.match(jf_id):
+        return None
+    return f"jfs:{jf_id}/{n}" if store.backdrop_path(jf_id, n) is not None else None
+
+
+def served_backdrop(jf_id: str, n: int) -> Path | None:
+    return None if disabled() else store.backdrop_path(jf_id, n)
 
 
 # ---- the pass ----
@@ -463,7 +628,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     if m == "off":
         return {"off": True}
     counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0, "backoff": 0,
-              "more": False}
+              "backdrops": 0, "more": False}
     if not memory_ok(snaps):
         counts["skipped_memory"] = True
         return counts
@@ -487,12 +652,41 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     started = time.time()
 
     def full():
-        return counts["rendered"] + counts["no_source"] + counts["failed"] >= limit
+        return counts["rendered"] + counts["no_source"] + counts["failed"] + counts["backdrops"] >= limit
 
-    def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None) -> dict | None:
-        """Render one item unless its version is already stored. -> its sidecar (None on failure: retried later)."""
+    def bd(t: dict, side: dict | None) -> None:
+        """JY-262 follow-up: a film's or series' two top-ranked TMDB backdrops into the store, at most monthly."""
+        if not backdrops_on() or not side or not side.get("jf_id") or full() or not backdrops_due(side):
+            return
+        if in_backoff_until(side.get("backdrops_retry_at")):   # 3 failures in a row: passed over for 24 h
+            counts["backoff"] += 1
+            return
+        try:
+            got = fetch_backdrops(t["jf_id"])
+            meta = store.read_meta(t["jf_id"]) or side
+            meta = {k: v for k, v in meta.items() if k not in ("backdrops_fails", "backdrops_retry_at")}
+            store.write_meta(t["jf_id"], {**meta, "backdrops": [x["url"] for x in got["picks"]],
+                                          "backdrops_at": time.time()})
+            counts["backdrops"] += 1
+            if pause:
+                time.sleep(pause)
+        except Exception as exc:   # nothing stored: retried next pass; the 3rd failure in a row backs off 24 h
+            counts["failed"] += 1
+            log.warning("posters: backdrops failed: %s", type(exc).__name__)
+            meta = store.read_meta(t["jf_id"]) or side
+            fails = int(meta.get("backdrops_fails") or 0) + 1
+            retry = (_stamp(datetime.now(timezone.utc) + timedelta(seconds=BACKOFF_S))
+                     if fails >= FAILS_BEFORE_BACKOFF else None)
+            try:
+                store.write_meta(t["jf_id"], {**meta, "backdrops_fails": fails, "backdrops_retry_at": retry})
+            except (OSError, ValueError):
+                pass
+
+    def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None, given: dict | None = None) -> dict | None:
+        """Render one item unless its version is already stored (`given`: the season art plan's pick, whose URL is
+        part of the version, so a season's picture change re-renders it). -> its sidecar (None on failure)."""
         counts["titles"] += 1
-        text = _text_hash(t["title"], sub)
+        text = _text_hash(t["title"], sub + ("|" + given["url"] if given else ""))
         ver = store.version(tpl.version, text)
         row = known.get(t["jf_id"]) or {}
         if row.get("template") == tpl.version and (row.get("ver") == ver or row.get("status") == "no_source"):
@@ -502,13 +696,18 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             counts["backoff"] += 1
             return store.read_meta(t["jf_id"])
         try:
-            chosen = pick(remote_images(t["jf_id"]))
+            chosen = given if given is not None else pick(remote_images(t["jf_id"]))
             if chosen is None and fallback_url:   # a season with no TMDB season poster: the series' poster
                 chosen = {"url": fallback_url, "lang": None, "votes": 0, "rating": None, "width": 0, "height": 0,
                           "fallback": "series"}
             art = fetch_art(chosen["url"]) if chosen else None
+            if art is None and chosen and "/t/p/original/" in chosen["url"]:   # over the 5 MB cap (a 4K backdrop)
+                art = fetch_art(w1280(chosen["url"]))
             auto = auto_approves(chosen)
-            side = {**t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
+            old = store.read_meta(t["jf_id"]) or {}   # the ranked backdrops outlive a poster re-render
+            side = {**{k: old[k] for k in ("backdrops", "backdrops_at", "season_art", "season_art_fails",
+                                           "season_art_retry_at") if k in old},
+                    **t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
                     "rendered_at": _now(), "pick": chosen, "auto": auto}
             size = None
             if chosen is None:
@@ -517,7 +716,13 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             elif art is None:
                 raise RuntimeError("art unavailable")
             else:
-                master = render.render(tpl, art, t["title"], sub)
+                try:
+                    master = render.render(tpl, art, t["title"], sub)
+                except render.RenderError:   # e.g. a 4096 x 2304 backdrop under 5 MB but over the decode cap
+                    smaller = (fetch_art(w1280(chosen["url"])) if "/t/p/original/" in chosen["url"] else None)
+                    if smaller is None:
+                        raise
+                    master = render.render(tpl, smaller, t["title"], sub)   # TMDB's 1280-wide copy
                 size = store.save(t["jf_id"], ver, master, publish=auto and not row.get("reverted"))
                 side["status"] = "rendered"
                 if render.layout_title(tpl, t["title"]).truncated:   # past the hard floor: B. checks it on the page
@@ -546,7 +751,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             counts["more"] = True
             break
         if t["kind"] != "tv":
-            one(t, render.sub_line(t["kind"], year=t["year"]), {})
+            bd(t, one(t, render.sub_line(t["kind"], year=t["year"]), {}))
             continue
         side = store.read_meta(t["jf_id"]) or {}
         if in_backoff(known.get(t["jf_id"])) and not side.get("seasons"):
@@ -575,14 +780,42 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         if series and series.get("seasons_at") != stamp:   # stored poster, newer season list
             series = {**series, "seasons": seasons, "seasons_at": stamp}
             store.write_meta(t["jf_id"], series)
+        bd(t, series)
         url = ((series or {}).get("pick") or {}).get("url")
+        prior = (series or {}).get("season_art") if isinstance((series or {}).get("season_art"), dict) else {}
+        art_plan = prior
+        due = seasons and (not fresh or any(x["jf_id"] not in prior for x in seasons))   # daily, or a new season
+        if due and in_backoff_until((series or {}).get("season_art_retry_at")):   # 3 failed plans in a row: 24 h
+            counts["backoff"] += 1
+            due = False
+        if due:
+            try:
+                art_plan = plan_season_art(t["jf_id"], seasons, url, prior)
+                if series and series.get("jf_id"):
+                    meta = store.read_meta(t["jf_id"]) or series
+                    meta = {k: v for k, v in meta.items() if k not in ("season_art_fails", "season_art_retry_at")}
+                    series = {**meta, "season_art": art_plan}
+                    store.write_meta(t["jf_id"], series)
+            except Exception as exc:   # the previous plan stays; retried next pass, backing off after 3 in a row
+                counts["failed"] += 1
+                log.warning("posters: season art plan failed: %s", type(exc).__name__)
+                if series and series.get("jf_id"):
+                    meta = store.read_meta(t["jf_id"]) or series
+                    fails = int(meta.get("season_art_fails") or 0) + 1
+                    retry = (_stamp(datetime.now(timezone.utc) + timedelta(seconds=BACKOFF_S))
+                             if fails >= FAILS_BEFORE_BACKOFF else None)
+                    try:
+                        store.write_meta(t["jf_id"], {**meta, "season_art_fails": fails, "season_art_retry_at": retry})
+                    except (OSError, ValueError):
+                        pass
         for x in seasons:
             if full():
                 counts["more"] = True
                 break
             one({"jf_id": x["jf_id"], "kind": "season", "title": t["title"], "year": None,
                  "added_at": t["added_at"]}, render.sub_line("season", season=x["n"]),
-                {"series_id": t["jf_id"], "season": x["n"]}, fallback_url=url)
+                {"series_id": t["jf_id"], "season": x["n"]}, fallback_url=url,
+                given=art_plan.get(x["jf_id"]) if (art_plan.get(x["jf_id"]) or {}).get("url") else None)
         if counts["more"]:
             break
     if not counts["more"] and not counts["failed"]:

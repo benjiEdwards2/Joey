@@ -28,7 +28,7 @@
 {% set tvreq = tvm and guest(request) and film.t and not film.on_server and not film.episode %}
 {# U6 (JY-192, 2026-10-25): on the TV a season / episode page names its series for Back (tv.js `data-tv-up`, X1). #}
 <header class="pagehead hero-detail{{ ' tv-reqpage' if tvreq }}"{% if tvm and epnav and epnav.show and epnav.show.href %} data-tv-up="{{ epnav.show.href }}"{% endif %}>
-  {% if film.backdrop %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280'){% if not film.backdrop.startswith('jfb:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
+  {% if film.backdrop %}{% set bv = img_v(film.backdrop) %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not film.backdrop.startswith('jfb:') and not film.backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
     {% if film.episode and not tvm %}{{ ef.crumbs(epnav) }}{% endif %}
@@ -118,7 +118,7 @@
            Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
         {% set more_req = film.play and film.play.href and (film.show_request or "actions" in film.pending) %}
-        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req %}
+        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req or film.remove_href %}
         <details class="fold heromore">
           <summary>More</summary>
           <div class="confirm heromore-acts">
@@ -127,6 +127,8 @@
           {% if more_req %}{% call wait("actions", film.pending, "more") %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}{% endif %}
           {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
           {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
+          {# JY-265: Remove… (owner "you", REMOVE_API on, a Seerr request exists) - opens the Remove page #}
+          {% if film.remove_href %}<a class="btn btn-danger" href="{{ film.remove_href }}">Remove…</a>{% endif %}
           </div>
         </details>
         {% endif %}

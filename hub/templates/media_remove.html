@@ -1,0 +1,55 @@
+{% extends "media_base.html" %}
+{% block title %}Remove · Joey{% endblock %}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead("Remove") %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{# JY-265 phase 1 (2026-10-28): Remove on a title page, request only. Two steps, Pick and Confirm, plain forms and
+   links (no JS needed); the POST re-reads Seerr live and answers with a 303 back here. Owner "you" only; rendered from
+   the cached Seerr rows, never the network. No file is deleted in this phase. #}
+{% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
+{% if flash_warn %}<p class="metaline st-warn" role="status">{{ flash_warn }}</p>{% endif %}
+{% if not rows %}
+<p class="empty">{{ "Nothing left to remove for this title." if flash else "No request for this title, so there is nothing to remove." }}</p>
+<p class="metaline"><a href="{{ back }}">Back to the title</a></p>
+{% else %}
+<div class="listbox">
+  <div class="row">
+    {{ poster(rows[0].poster, rows[0].title, 120, "row-poster") }}
+    <div class="row-body">
+      <div class="row-title">{{ title }}</div>
+      <p class="metaline">{{ "TV" if kind == "tv" else "Film" }} · Requested · nothing is deleted from disk here</p>
+    </div>
+  </div>
+</div>
+{% if not confirm %}
+<form method="get" action="{{ action }}" class="confirm">
+  <input type="hidden" name="step" value="confirm">
+  <div>What to remove</div>
+  <div class="chips" role="radiogroup" aria-label="What to remove">
+    <label class="chip"><input type="radio" name="scope" value="request" checked>Request only</label>
+  </div>
+  <div class="metaline">Stop the request. Nothing on disk is touched.</div>
+  {% for a in asked %}<div class="metaline">{{ "Your" if a.who == "you" else "Georgina's" if a.who == "her" else a.who ~ "'s" }} request{% if a.seasons %} · {{ a.seasons }}{% endif %} · {{ a.status }}</div>{% endfor %}
+  <div class="confirm-btns">
+    <a class="btn btn-ghost btn-sm" href="{{ back }}">Cancel</a>
+    <button type="submit" class="btn btn-primary btn-sm">Next</button>
+  </div>
+</form>
+{% else %}
+<form method="post" action="{{ action }}" class="confirm is-danger">
+  <input type="hidden" name="scope" value="request">
+  <input type="hidden" name="rids" value="{{ rids }}">
+  <div>Remove the request{{ "s" if rows | length > 1 }} for {{ title }}?</div>
+  {% for line in plan %}<div class="metaline">{{ line }}</div>{% endfor %}
+  <div class="confirm-btns">
+    <a class="btn btn-ghost btn-sm" href="{{ back }}" autofocus>Cancel</a>
+    <button type="submit" class="btn btn-danger btn-sm">Remove request{{ "s" if rows | length > 1 }}</button>
+  </div>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -156,6 +156,43 @@ On the 9 real TMDB sources in `JoeyTV\review\JY-260\real-samples\src\`: **388 KB
 - **joey-media** reads `POSTERS` from `media.env`, not `.env`; it serves the store unless `POSTERS=off` is set there too.
 - **UpdateItem** (`POST /Items/{id}`) is sent the full DTO read just before; the pilot should confirm on B.'s Jellyfin that nothing else on the item changes.
 
+## Distinct images per season (branch `feat/JY-260-season-images`, stacked on `feat/JY-262-ranked-backdrops`)
+
+B., 2026-10-28:
+
+> "If a season has more than 2 seasons. Can you continue to grab new images or closely related images?"
+
+Before: a season with no TMDB season poster borrowed the series poster, so long shows repeated one picture. Now (`media_posters.plan_season_art`), per show, no repeats:
+1. The season's own TMDB posters (RemoteImages on the Season item): text-less first, then rating, then votes.
+2. Else the **next unused series poster** in rank order: the series keeps #1, the first season without its own art #2, the next #3, ...
+3. Else a **series TMDB backdrop** cropped to 2:3 by the renderer's centred cover crop (no saliency guess: Pillow has no cheap one), the backdrops not used as the show's Home / title backdrops (#1, #2) first. A 4K backdrop decodes within the cap (`MAX_DECODED_JPEG` 8.4 M pixels); over the 5 MB fetch cap it is fetched at w1280.
+4. Nothing left: the series poster, as before.
+
+The plan is stored in the series sidecar (`season_art`) and re-made only when the season list is re-read (daily) or a season is new; a season keeps its borrowed picture unless its own TMDB poster appears; a new season takes the next unused one. A season's picture URL is part of its version, so a change re-renders it. A plan that cannot be made keeps the previous one. No network on render.
+
+Samples (read-only lists through Jellyfin, art from the TMDB CDN): `JoeyTV\review\JY-260\season-images\contact-sheet.jpg` (+ `samples.log`): Suits, 9 seasons; row 1 with its own season posters (10 distinct), row 2 forcing the fallbacks as if no season had art (10 distinct series posters).
+
+Tests (`tests/hub/test_season_images.py`): 5 seasons with 2 own get 5 different pictures; backdrops not used for Home / title first; stable across passes (a TMDB re-rank moves nobody, a settled show reads nothing); a season gaining its own poster takes it; a new season gets the next unused picture; nothing left = the series poster; a failed plan keeps the old one; no network on the review page render.
+## Titles fill the width, in Geist Black (2026-10-28, branch `feat/JY-260-title-fill`)
+
+B., 2026-10-28:
+
+> "I am keen to change the font slightly. To fill more portions of things. Especially if its a shorter title."
+
+> "For the fonts. Could you use Giest? This is what my friends looks like. The titling looks a little nicer from that site."
+
+His friend's reference posters: a very heavy, wide display face, uppercase, tight leading (about 0.92), the title filling about 85-90 % of the width, centred, a short gold rule under the title block, then the small sub-line.
+
+As built (starter kit; every value lives in `template.json`):
+- **Fill sizing:** the widest line is sized to `title_fill` (0.88) of the safe width, from `min_size` (40) up to `max_size` (now 190 px), so short titles are large and long ones keep the shrink then 2-3-line wrap (`wrap_at` 96). A title too long for the fill target even on 3 lines at the floor may use the whole safe width before it is cut. `title_fill` left out = the phase-1 behaviour.
+- **Geist Black:** the shipped GeistVF covers weight 100-900, so no new font file: title weight 900, uppercase, line height 0.92, tracking 0.02; sub-line Geist Medium (500), tracking 0.08.
+- **Real ink height:** the layout measures the glyphs (`getbbox`) and places each line by its baseline, so a tall single line at 190 px stops at the gap above the sub-line; the bottom-anchored growth and the 75 % anchor are kept.
+- **Accent rule:** `accent_rule` (`#E0B04A`, 6 % of the width, 4 px, 18 px gap), between the title and the sub-line; the sub-line moves down to keep the same gap under it; `null` turns it off.
+- **Re-render:** `RENDER_VERSION` 2 and the changed starter `template.json` give a new template version, so every stored poster re-renders under a new `ver` (and a new `&v=` URL).
+- Samples: `JoeyTV\review\JY-260\real-samples\contact-sheet-v3.jpg` (+ `.log`): Troy, Close, WAR, Silo (short, 190 px), The Other Bennet Sister, The Punisher: One Last Kill and The Mandalorian and Grogu (3 lines), Marvel's The Punisher (2 lines); WAR, Silo and Marvel's The Punisher carry season lines. UP and HEAT are not in the library (snapshot read 2026-10-28), so they are covered by the layout tests only.
+- **Bigger (the same day, after contact sheet v3).** B.: "Posters bigger is better. Keep that." The review found short titles filled only ~45 % (the 190 px cap) and the rule faint. Now: `max_size` 400 with a sanity cap `max_cap_height` 0.14 (the capital height at most 14 % of the canvas height), so WAR / SILO / TROY fill about 0.85 of the safe width and IT is capped by its height; the rule is 9 % wide, 6 px high, 24 px gap; `RENDER_VERSION` 3. Samples: `contact-sheet-v4.jpg` (the v3 eight plus Suits and Hamnet).
+- Tests (step → verify): fill ratio 0.85-0.88 for short, medium and long titles; short titles larger than long; no overlap at max size measured on the real glyphs and on the drawn pixels (title, rule, sub-line in three separate bands); the rule off; a bad rule refused; the version bump.
+
 ## One-screen summary
 
 - **What:** every film and series in Jellyfin gets a Joey-made poster: a text-less TMDB poster from a template kit B. designs, with the title in the lower third (layout 3's positions over layout 2's clear art, B. 2026-10-28; the draft said centre line) (phase 2: "Seasons 1–5 · 2019–2024" under it for series). Written back to Jellyfin as the item's Primary image, so Jellyfin, Joey Media and Joey TV all show it.

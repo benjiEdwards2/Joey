@@ -1,0 +1,30 @@
+{
+  "note": "JY-265 phase 0 (2026-10-28): shape from the Radarr v5 / Sonarr v4 v3-API resource schemas, values invented. Only config/mediamanagement was read live (GET, scripts/check_recycle_bin.py): recycleBin and recycleBinCleanupDays.",
+  "method": "GET",
+  "path": "/api/v3/config/mediamanagement",
+  "http_status": 200,
+  "body": {
+    "autoUnmonitorPreviouslyDownloadedMovies": false,
+    "recycleBin": "/data/recycle-bin/radarr",
+    "recycleBinCleanupDays": 7,
+    "downloadPropersAndRepacks": "preferAndUpgrade",
+    "createEmptyMovieFolders": false,
+    "deleteEmptyFolders": false,
+    "fileDate": "none",
+    "rescanAfterRefresh": "always",
+    "autoRenameFolders": false,
+    "pathsDefaultStatic": false,
+    "setPermissionsLinux": false,
+    "chmodFolder": "755",
+    "chownGroup": "",
+    "skipFreeSpaceCheckWhenImporting": false,
+    "minimumFreeSpaceWhenImporting": 100,
+    "copyUsingHardlinks": true,
+    "useScriptImport": false,
+    "scriptImportPath": "",
+    "importExtraFiles": false,
+    "extraFileExtensions": "srt",
+    "enableMediaInfo": true,
+    "id": 1
+  }
+}

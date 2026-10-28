@@ -73,7 +73,7 @@ below gives a proper bridge; unifying the keys is JY-261 C work.
 
 ## 2. The `library_index` design
 
-### 2.1 Table (in `media.db`, new `media_store.STEPS` entry, user_version 5 -> 6)
+### 2.1 Table (in `media.db`, new `media_store.STEPS` entry, user_version 6 -> 7: JY-265 took step 6 first)
 
 ```
 library_index(
@@ -298,7 +298,7 @@ and Jellyfin endpoints across `hub/`. Not checked: live row counts (by design), 
 PR, commit and deploy: filled at close-out.
 
 **Phases 1-3, as built (2026-10-28).**
-- `hub/library_index.py`: media.db step 6 (user_version 5 -> 6) adds `library_index`, `library_index_state` and the
+- `hub/library_index.py`: media.db step 7 (user_version 6 -> 7, after JY-265's step 6) adds `library_index`, `library_index_state` and the
   audit tables `reattach_run` / `reattach_change` (column `column_name`, since `column` is an SQL keyword; `reattach_run`
   also has `undo_of`). One extra column on `library_index`: `gone_fetches` (how many complete fetches in a row missed
   the id), which the two-fetch rule needs. Filled from the snapshot's movie / show lists (you + her), its up next /
@@ -354,5 +354,5 @@ PR, commit and deploy: filled at close-out.
 - Seasons and episodes Joey never saw (no play, diary, snapshot row or item page) are not in the index, so a rating
   on one of them is reported as unmatched rather than re-attached.
 
-**Test pins updated:** `SCHEMA_VERSION == 5` -> `6` in four media.db tests (step 6 is new); the connector's library
+**Test pins updated:** `SCHEMA_VERSION` -> `7` in five media.db tests (step 7 is new; JY-265 took step 6), plus a v6 -> v7 upgrade test that keeps every row; the connector's library
 `Fields` pin and the show-row key set gain `Path` / the optional `tvdb` key. No test removed or weakened.

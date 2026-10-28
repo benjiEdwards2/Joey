@@ -360,7 +360,10 @@ def _keep(sess: dict) -> str:
     now = time.time()
     with _lock:
         _prune(now)
-        mine = sorted((v["seen"], s) for s, v in SESSIONS.items() if v["owner"] == sess["owner"])
+        # JY-237: sort on `seen` alone (stable, so insertion order breaks a tie). The clock ticks ~16 ms on Windows, so
+        # sessions started back to back share a `seen`, and tying on the random sid dropped a random one, not the oldest.
+        mine = sorted(((v["seen"], s) for s, v in SESSIONS.items() if v["owner"] == sess["owner"]),
+                      key=lambda t: t[0])
         for _, old in mine[: max(0, len(mine) - MAX_PER_OWNER + 1)]:
             del SESSIONS[old]
         SESSIONS[sid] = {**sess, "seen": now}

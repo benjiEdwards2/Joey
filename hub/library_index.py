@@ -70,7 +70,7 @@ def disabled() -> bool:
 
 
 def migrate(db) -> None:
-    """media.db step 6 (JY-264). Idempotent."""
+    """media.db step 7 (JY-264; after JY-265's step 6). Idempotent."""
     for ddl in DDL:
         db.execute(ddl)
     db.commit()

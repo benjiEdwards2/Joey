@@ -178,6 +178,8 @@ ENV_OUT = {
     "POSTERS_TEMPLATE_DIR": "the poster loop is off; a NAS mount path that the preview does not have",
     "POSTERS_AUTO_MIN_RATING": "the poster loop is off in the preview",
     "POSTERS_DIR": "the poster loop is off in the preview",
+    "REMOVE_API": "JY-265 Remove stays off in the preview unless a spec's accept step turns it on (it writes Seerr / arr)",
+    "POSTERS_BACKDROPS": "the poster loop (and its backdrop step) is off in the preview",
     "LIBRARY_INDEX": "forced off in compose: a preview never re-attaches media.db rows (JY-264)",
     "LIBRARY_PATH_PREFIXES": "the library index loop is off in the preview",
 }

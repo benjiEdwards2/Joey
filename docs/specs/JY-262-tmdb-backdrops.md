@@ -56,6 +56,31 @@ A friend's backdrops come from their own reads only: the item read is cached per
 - [ ] Captures in `JoeyTV\review\JY-262\` (1920x1080, 960x540 dpr 2): audit 0 tiny, 0 x-scroll.
 - [ ] Web and phone title pages: same choice, nothing else changed.
 
+## Follow-up: the top two ranked TMDB backdrops (2026-10-28, branch `feat/JY-262-ranked-backdrops`)
+
+B. 2026-10-28, earlier: "when you grab the TMDB options. Could you please grab both the first and second top rated". After comparing the two options on real TMDB images (American Hostage, https://claude.ai/artifact/VQ2pLT4EYKmkLxkNRY7oBh), he chose A:
+
+> "Background: A"
+
+> "Use A where there are two posters."
+
+As built:
+- **Fetch (the JY-260 poster pass).** For each film and series (not seasons), `GET /Items/{id}/RemoteImages?type=Backdrop&providerName=TheMovieDb&includeAllLanguages=true` through Jellyfin (the poster request form; RemoteImages looks the item up without a user, so the read key needs no `userId`, unlike `GET /Items/{id}` in the JY-260 hotfix). At most monthly per title (`BACKDROPS_TTL_S`), inside the pass's limit, memory gate and backoff; `POSTERS_BACKDROPS=off` turns the step off.
+- **Rank.** Text-less backdrops (no language; Jellyfin sends `""`) when any exist, else all; then CommunityRating, then VoteCount, then width, highest first; art only from image.tmdb.org; a URL once.
+- **Store.** The top two as 1280-wide JPEGs (fetched at TMDB `w1280`, never `original`; q85) in the poster store: `<id>/<ver>.backdrop1.jpg` / `backdrop2.jpg` + the `backdrop1` / `backdrop2` pointers; `ver` hashes the source URL and the size, so a new pick is a new `&v=` URL. A slot TMDB no longer fills is cleared. They survive a poster re-render.
+- **`/img`.** `jfs:<id>/<1|2>` serves the stored backdrop when `&v=` is its published version (HIT_CACHE); otherwise (no `v`, a stale one, not stored, `POSTERS=off`) Jellyfin's own backdrop 0 / 1 as before, short-cached when a `v` was given. Never warmed (local files).
+- **Use.**
+
+  | Page | Draws |
+  |---|---|
+  | Home hero and carousel (TV; the hero that follows focus) | stored **backdrop1** → the JY-262 chain |
+  | Title page (film, series; season and episode pages use their show's pair) | stored **backdrop2** → backdrop1 → Jellyfin backdrop 1 → 0 → cached TMDB |
+
+  The title page hero (`media_film.html`) and `_pagehead.html` carry `&v=` (Jinja `img_v`); the TV tiles already did.
+- **No network on render**: the choice reads local store pointers only. Friends: joey-media mounts the store read-only, so they get the same stored backdrops for the titles they can see.
+- Samples (read-only; real TMDB lists through Jellyfin, art from the TMDB CDN at w1280): `JoeyTVeview\JY-262anked\` — The Mandalorian and Grogu, Troy, Silo: `*-home.jpg` (backdrop1), `*-title.jpg` (backdrop2), `contact-sheet.jpg`, `samples.log`.
+- Tests (`tests/hub/test_ranked_backdrops_jy262.py`): the ranking (text-less first, rating, votes, width, TMDB only, dedupe, language fallback), w1280, the pass storing 2 / 1 / 0 (films and series, not seasons; monthly; kept over a re-render; a failure changes nothing; the switch), which page draws which (Home 1, title page 2, one stored, none = today's chain, a season or episode page = its show's pair, `POSTERS=off`), `/img` with and without `v` and a hostile ref, the TV title page and Home hero on the friend front, and no network on render.
+
 ## Shipped notes
 - Closed out with `scripts/joey.py close-out`.
 - PR: #250, squash-merged as `7737283` (7737283f6494f6731d7063f3e45e9a805ca18b0a).

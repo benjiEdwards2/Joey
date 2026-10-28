@@ -15,7 +15,7 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
 
-from hub import library_index, media_db, media_files, media_plays_db
+from hub import img_access, library_index, media_db, media_files, media_plays_db
 from hub.media_cache import LRU
 from hub.media_discover import _date_words
 from hub.media_library import runtime_text
@@ -315,6 +315,8 @@ def _read(jf_id: str, force: bool = False) -> dict | None:
     with _flight_lock:
         if gen == _gen[0]:   # not across an invalidation: the read may predate Joey's own write
             _cache[key] = (time.time(), out)
+    if isinstance(key, tuple):   # JY-263: a friend's own read - the ids their pages may draw images for
+        img_access.note(key[0], out)
     return out
 
 

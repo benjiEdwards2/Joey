@@ -88,7 +88,8 @@ def save(jf_id: str, ver: str, master: bytes, publish: bool = True) -> int:
     if publish:
         write_atomic(folder / "current", ver.encode("ascii"))
     for old in folder.glob("*.jpg"):
-        if not old.name.startswith(f"{ver}.") and not old.name.startswith("orig."):
+        if (not old.name.startswith(f"{ver}.") and not old.name.startswith("orig.")
+                and ".backdrop" not in old.name):   # JY-262 follow-up: the ranked backdrops are versioned on their own
             with contextlib.suppress(OSError):
                 old.unlink()
     return total
@@ -188,6 +189,76 @@ def save_orig(jf_id: str, body: bytes, ext: str) -> Path:
     path = folder / f"orig{ext}"
     write_atomic(path, body)
     return path
+
+
+# ---- JY-262 follow-up (2026-10-28): the title's two top-ranked TMDB backdrops ----
+#     <jf_id>/<bver>.backdrop1.jpg, <jf_id>/<bver>.backdrop2.jpg  (1280 wide, q85)
+#     <jf_id>/backdrop1, <jf_id>/backdrop2                       (the published version; absent = none stored)
+
+BACKDROP_W = 1280
+BACKDROP_QUALITY = 85
+BACKDROP_SLOTS = (1, 2)
+
+
+def backdrop_jpeg(body: bytes) -> bytes:
+    """A fetched backdrop as a 1280-wide JPEG (q85). Raises when it is not an image."""
+    with Image.open(io.BytesIO(body)) as im:
+        if im.width * im.height > 40_000_000:
+            raise ValueError("backdrop too large")
+        if im.format == "JPEG":
+            im.draft("RGB", (BACKDROP_W, BACKDROP_W))
+        im = im.convert("RGB")
+        if im.width != BACKDROP_W:
+            im = im.resize((BACKDROP_W, max(1, round(im.height * BACKDROP_W / im.width))), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=BACKDROP_QUALITY, optimize=True)
+        return buf.getvalue()
+
+
+def save_backdrop(jf_id: str, n: int, ver: str, jpeg: bytes) -> int:
+    """Store backdrop n (1 or 2) as version `ver` and publish it; the slot's older files go. -> bytes written."""
+    folder = _folder(jf_id)
+    if folder is None or n not in BACKDROP_SLOTS or not ver.isalnum():
+        raise ValueError("bad item id, slot or version")
+    write_atomic(folder / f"{ver}.backdrop{n}.jpg", jpeg)
+    write_atomic(folder / f"backdrop{n}", ver.encode("ascii"))
+    for old in folder.glob(f"*.backdrop{n}.jpg"):
+        if not old.name.startswith(f"{ver}."):
+            with contextlib.suppress(OSError):
+                old.unlink()
+    return len(jpeg)
+
+
+def clear_backdrop(jf_id: str, n: int) -> None:
+    """No backdrop n any more (TMDB lists fewer): unpublish it and drop its files."""
+    folder = _folder(jf_id)
+    if folder is None or n not in BACKDROP_SLOTS:
+        return
+    with contextlib.suppress(FileNotFoundError):
+        (folder / f"backdrop{n}").unlink()
+    for old in folder.glob(f"*.backdrop{n}.jpg"):
+        with contextlib.suppress(OSError):
+            old.unlink()
+
+
+def backdrop_version(jf_id: str, n) -> str | None:
+    """The published version of backdrop n, or None. One small local read."""
+    folder = _folder(jf_id)
+    if folder is None or n not in BACKDROP_SLOTS:
+        return None
+    try:
+        ver = (folder / f"backdrop{n}").read_text(encoding="ascii").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return ver if ver.isalnum() else None
+
+
+def backdrop_path(jf_id: str, n) -> Path | None:
+    ver = backdrop_version(jf_id, n)
+    if ver is None:
+        return None
+    path = out_dir() / jf_id / f"{ver}.backdrop{n}.jpg"
+    return path if path.is_file() else None
 
 
 def disk_use(jf_id: str) -> int:

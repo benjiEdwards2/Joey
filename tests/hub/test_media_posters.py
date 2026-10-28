@@ -141,6 +141,7 @@ def fakes(monkeypatch, tmp_path):
     monkeypatch.setenv("POSTERS_DIR", str(tmp_path / "posters"))
     monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(tmp_path / "no-such-kit"))   # -> the starter kit
     monkeypatch.delenv("POSTERS_AUTO_MIN_RATING", raising=False)
+    monkeypatch.setenv("POSTERS_BACKDROPS", "off")   # JY-262 follow-up: its own tests turn the backdrop step on
     remote = {"Images": [img("en", 40, name="en"), img(None, 7, name="clean")], "TotalRecordCount": 2}
     jf = GetOnly({"/Shows/": Resp(body=SEASONS), "/RemoteImages": Resp(body=remote)})
     tmdb = GetOnly({"/clean.jpg": lambda: Resp(data=jpeg(), ctype="image/jpeg")})
@@ -258,7 +259,7 @@ def test_an_upstream_failure_is_counted_and_retried_next_pass(fakes):
     jf, tmdb, out = fakes
     jf.routes["/RemoteImages"] = Resp(status=500)
     counts = mp.dry_pass(snaps(LIB), pause=0)
-    assert counts["failed"] == 5 and not list(out.glob("*/meta.json"))
+    assert counts["failed"] == 6 and not list(out.glob("*/meta.json"))   # 5 titles + the season art plan
 
 
 def test_off_does_nothing(fakes, monkeypatch):

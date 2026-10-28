@@ -1,6 +1,6 @@
 # JY-057 Joey TV shell player (look A, Classic overlay)
 
-Status: building
+Status: shipped 2026-10-28
 Size: L
 Live risk: deploy (a TV release). Merging publishes Joey Media 1.0.3: `tv.yml`'s `release` job cuts GitHub Release
 `tv-2026102701` on `main`, and the next `deploy.sh` offers it to every TV. So the PR merges only in a TV session with B.
@@ -239,4 +239,8 @@ gone. Re-run row 9 with `adb logcat -s JoeyPlayer`: the line says `start: method
 why.
 
 ## Shipped notes
-Not yet.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #219, squash-merged as `7ecfd1b` (7ecfd1b0a7c7fa008813a579b404f54212e914ee).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-28: "Finish JY-057: fix the transcode bug, run the 10-minute TV re-check and release 1.0.3." and "6 shows correctly. It shows me the resume from where I left off. Goood to go.""
+- Follow-ups: none

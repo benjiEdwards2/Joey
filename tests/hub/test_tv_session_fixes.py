@@ -10,9 +10,10 @@ from tests.hub.fake_jellyfin import FRIEND_ID
 from tests.hub.guest_pages import guest_client, sign_in
 from tests.hub.test_tv_series_episodes import RATE_PAGE, _rules, _spec
 from tests.hub.test_tv_mode import run_tv_pages
+from tests.hub.tv_css import design_px
 
 STATIC = Path(__file__).resolve().parents[2] / "hub" / "static"
-TV_CSS = (STATIC / "tv.css").read_text(encoding="utf-8")
+TV_CSS = design_px((STATIC / "tv.css").read_text(encoding="utf-8"))
 BASE_CSS = (STATIC / "control-surface.css").read_text(encoding="utf-8")
 
 

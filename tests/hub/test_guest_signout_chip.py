@@ -12,6 +12,7 @@ import pytest
 from hub import guest
 from tests.hub.fake_jellyfin import FRIEND_ID, HTTPS
 from tests.hub.guest_pages import TV_UA, guest_client, sign_in
+from tests.hub.tv_css import design_px
 
 CLEARED = "__Host-jm_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax"
 
@@ -118,7 +119,7 @@ def test_a_long_name_truncates_in_the_pill(friend):
     shared = friend.get("/static/control-surface.css").text
     assert re.search(r"\.userchip \.uname \{[^}]*overflow: hidden; text-overflow: ellipsis; white-space: nowrap", shared)
     assert re.search(r"button\.userchip \.uname \{ max-width: 12em; \}", shared)
-    tv = friend.get("/static/tv.css").text
+    tv = design_px(friend.get("/static/tv.css").text)
     assert re.search(r"html\.tv button\.userchip \.uname \{ max-width: 150px;", tv)
     # the TV section row never shrinks, so only the pill gives way (its name ellipsises) and nothing in the row moves
     assert re.search(r"html\.tv \.toplinks \{[^}]*flex-shrink: 0", tv)
@@ -128,7 +129,7 @@ def test_the_pop_up_buttons_are_styled_like_the_mockup(friend):
     shared = friend.get("/static/control-surface.css").text
     assert "--signout: #f97316;" in shared and "--signout-fg: #1a0a00;" in shared
     assert ".btn-signout { background: var(--signout); color: var(--signout-fg); }" in shared
-    tv = re.sub(r"/\*.*?\*/", "", friend.get("/static/tv.css").text, flags=re.S)
+    tv = re.sub(r"/\*.*?\*/", "", design_px(friend.get("/static/tv.css").text), flags=re.S)
     assert ".btn-signout { background: #f97316; color: #1a0a00;" in tv
     # TV: the focused pill shows the words "Sign out" (tv.js marks D-pad focus with .tv-focus)
     assert re.search(r"html\.tv button\.userchip:focus-visible \.xlbl, html\.tv button\.userchip\.tv-focus \.xlbl \{ "
@@ -139,7 +140,7 @@ def test_the_pop_up_buttons_are_styled_like_the_mockup(friend):
 
 
 def test_tv_css_styles_the_confirm(friend):
-    css = friend.get("/static/tv.css").text
+    css = design_px(friend.get("/static/tv.css").text)
     assert "html.tv .signoutdlg {" in css and "html.tv .signoutdlg::backdrop" in css
 
 

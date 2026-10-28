@@ -16,6 +16,7 @@ from tests.hub.guest_pages import TV_UA, guest_client, sign_in
 from tests.hub.helpers import diary, jelly, local, play
 from tests.hub.test_awards_db import seed_oscars
 from tests.hub.test_guest_month_card import household_month
+from tests.hub.tv_css import design_px
 
 FRIEND = "jf:" + FRIEND_ID
 TV = {"User-Agent": TV_UA}
@@ -130,7 +131,7 @@ def test_tv_to_rate_rows_fold_the_strip(friend, monkeypatch):
 
 
 def test_tv_css_has_the_jy196_block(friend):
-    css = friend.get("/static/tv.css").text
+    css = design_px(friend.get("/static/tv.css").text)
     block = css.split("==== JY-196 (U10", 1)[1]
     for sel in (".awtv-cer", ".awwin", ".tvmonth", ".diarychips", ".tvrate"):
         assert sel in block, sel

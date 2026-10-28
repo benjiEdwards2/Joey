@@ -41,9 +41,16 @@
   var FOCUSABLE = 'a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]),' +
     ' textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
   var OVERSCAN_Y = 27, OVERSCAN_X = 48, PAD = 14;
-  /* a focused poster grows to 1.06 (tv.css) and carries a 4 px ring 3 px out: room kept so neither crosses the 5 %
+  /* a focused poster grows to 1.08 (tv.css; JY-259 focus lift, was 1.06) and carries a 4 px ring 3 px out: room kept so neither crosses the 5 %
      overscan margin (W5 2026-10-22, real TCL: the grown card + ring reached 96 % of the height and 4.6 % from the left) */
-  var POSTER_GROW = 0.03, RING = 7;
+  var POSTER_GROW = 0.04, RING = 7;
+  /* JY-259 (P1): the numbers above are 960x540 CSS px, as tv.css was written; px() scales them with the sheet's rem
+     (16 CSS px at 960x540, 32 at 1920x1080 ...), so the overscan room holds on every panel. The fake DOM has no font
+     size: 1. */
+  function px(n) {
+    var fs = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return fs > 0 ? n * fs / 16 : n;
+  }
   var KEYS = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1 };
   var current = null;
   /* no remote key yet on this page: Android's WebView puts DOM focus on the first focusable (the brand link in the top
@@ -280,9 +287,9 @@
     if (el.closest('.topbar')) { window.scrollTo(0, 0); return; }
     if (el.closest('.pagehead') && getComputedStyle(el.closest('.pagehead')).position === 'sticky') return;   /* sub-tabs stay put */
     var box = (el.closest('.carousel') || el).getBoundingClientRect();
-    var grow = (el.classList.contains('card-poster') ? el.getBoundingClientRect().height * POSTER_GROW : 0) + RING;
-    var top = stuckBottom() + PAD + grow;
-    var bottom = window.innerHeight - OVERSCAN_Y - grow;
+    var grow = (el.classList.contains('card-poster') ? el.getBoundingClientRect().height * POSTER_GROW : 0) + px(RING);
+    var top = stuckBottom() + px(PAD) + grow;
+    var bottom = window.innerHeight - px(OVERSCAN_Y) - grow;
     if (box.top < top) window.scrollBy(0, box.top - top);
     else if (box.bottom > bottom) window.scrollBy(0, Math.min(box.bottom - bottom, box.top - top));
   }
@@ -290,9 +297,11 @@
   /* a poster in the first / last column grows inward, so its grown edge + ring stay inside the side margins */
   function edgeOrigin(el) {
     if (!el.classList.contains('card-poster')) return;
-    var b = el.getBoundingClientRect(), grow = b.width * POSTER_GROW + RING;
-    el.style.transformOrigin = b.left - grow < OVERSCAN_X ? 'left center'
-      : (b.right + grow > window.innerWidth - OVERSCAN_X ? 'right center' : '');
+    var b = el.getBoundingClientRect(), grow = b.width * POSTER_GROW + px(RING);
+    el.style.transformOrigin = b.left - grow < px(OVERSCAN_X) ? 'left center'
+      : (b.right + grow > window.innerWidth - px(OVERSCAN_X) ? 'right center' : '');
+    /* JY-259: a kit tile (.tvt) lifts its picture only; it grows from the same side */
+    if (el.style.setProperty) el.style.setProperty('--tv-ox', el.style.transformOrigin ? el.style.transformOrigin.split(' ')[0] : 'center');
   }
 
   /* WP-RQ2 (JY-255): scroll each scrolling ancestor (up to the open dialog) just enough to show `el`. */
@@ -301,8 +310,8 @@
     for (var box = el.parentElement; box && stop && stop.contains(box); box = box.parentElement) {
       if (box.scrollHeight <= box.clientHeight + 1 || !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) continue;
       var b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
-      if (r.top < b.top + PAD) box.scrollTop -= b.top + PAD - r.top;
-      else if (r.bottom > b.bottom - PAD) box.scrollTop += r.bottom - b.bottom + PAD;
+      if (r.top < b.top + px(PAD)) box.scrollTop -= b.top + px(PAD) - r.top;
+      else if (r.bottom > b.bottom - px(PAD)) box.scrollTop += r.bottom - b.bottom + px(PAD);
     }
   }
 

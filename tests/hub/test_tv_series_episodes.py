@@ -13,6 +13,7 @@ import pytest
 from tests.hub.fake_jellyfin import ADMIN_ID, ALIAS_ID, FRIEND_ID, OTHER_ID, PUBLIC_URL
 from tests.hub.guest_pages import TV_UA, guest_client, sign_in
 from tests.hub.test_tv_mode import run_tv_pages
+from tests.hub.tv_css import design_px
 
 SHOW = "5e7105e7" * 4
 S1, S2 = "5ea50001" * 4, "5ea50002" * 4
@@ -182,7 +183,7 @@ def test_off_the_tv_the_pages_are_unchanged(tvc):
 # ---- 10: the CSS block ----
 
 def test_the_u6_css_block(tvc):
-    css = tvc.get("/static/tv.css").text
+    css = design_px(tvc.get("/static/tv.css").text)
     start = css.index("/* ---- U6 (JY-192")
     block = re.sub(r"/\*.*?\*/", "", css[start:], flags=re.S)
     assert ":hover" not in block
@@ -291,7 +292,7 @@ def _spec(sel: str) -> tuple[int, int, int]:
 
 
 def test_shelf_captions_stay_visible_over_the_jy188_focus_only_rule(tvc):
-    css = tvc.get("/static/tv.css").text
+    css = design_px(tvc.get("/static/tv.css").text)
     hide, show = "html.tv .card-poster .row-meta", "html.tv .tvshelf .card-poster .row-meta"
     assert any("visibility: hidden" in b for b in _rules(css, hide))          # JY-188: captions on focus only
     assert any("visibility: visible" in b for b in _rules(css, show))         # U6: state captions always
@@ -302,9 +303,9 @@ def test_shelf_captions_stay_visible_over_the_jy188_focus_only_rule(tvc):
 
 
 def test_episode_cards_keep_236px_over_the_jy188_carousel_width(tvc):
-    css = tvc.get("/static/tv.css").text
+    css = design_px(tvc.get("/static/tv.css").text)
     base, eps = "html.tv .carousel > *", "html.tv .tv-eps .carousel > *"
-    assert any("width: 104px" in b for b in _rules(css, base))
+    assert any("width: 92px" in b for b in _rules(css, base))   # JY-259 (2026-10-28): the row card is 92 px (was 104)
     assert any("flex: 0 0 236px; width: 236px" in b for b in _rules(css, eps))
     assert _spec(eps) > _spec(base) and css.rindex(eps) > css.rindex(base)
 

@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from tests.hub.test_media_frame import env  # noqa: F401
 from tests.hub.test_media_library_pages import ARRV, body, jelly
+from tests.hub.tv_css import design_px
 
 
 def heights(html: str) -> set[str]:
@@ -58,7 +59,7 @@ def test_poster_macro_only_changes_with_the_tv_flag(env):
 
 def test_tv_css_carries_the_tonight_rules_without_touching_the_shared_sheet():
     root = Path(__file__).resolve().parents[2] / "hub" / "static"
-    tvcss = re.sub(r"/\*.*?\*/", "", (root / "tv.css").read_text(encoding="utf-8"), flags=re.S)
+    tvcss = re.sub(r"/\*.*?\*/", "", design_px((root / "tv.css").read_text(encoding="utf-8")), flags=re.S)
     assert re.search(r"html\.tv \.poster-grid\.big \{[^}]*display: flex[^}]*gap: 28px", tvcss)   # JY-250: 40 -> 28 px (safe area)
     assert re.search(r"html\.tv \.poster-grid\.big \.card-poster \{[^}]*width: 200px", tvcss)
     assert re.search(r"html\.tv \.sec\.tn \{", tvcss) and ".tn-deal" in tvcss

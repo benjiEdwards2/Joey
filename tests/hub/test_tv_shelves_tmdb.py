@@ -17,6 +17,7 @@ from tests.hub.film_page import parts_href, whole
 from tests.hub.guest_pages import TV_UA, sign_in
 from tests.hub.helpers import env  # noqa: F401 - the private (household) front fixture
 from tests.hub.test_guest_requests import FRIEND_SEERR, WAITING, post, start
+from tests.hub.tv_css import design_px
 
 TV = {"User-Agent": TV_UA}
 ON, ON2, OFF, OFF2 = 801, 802, 803, 804
@@ -208,7 +209,7 @@ def test_phone_friend_person_page_is_unchanged(actor):
 
 def test_tv_css_has_the_jy193_block():
     root = Path(__file__).resolve().parents[2] / "hub" / "static"
-    raw = (root / "tv.css").read_text(encoding="utf-8")
+    raw = design_px((root / "tv.css").read_text(encoding="utf-8"))
     m = re.search(r"/\* ==== JY-193.*?\*/(.*?)/\* ==== end JY-193", raw, re.S)
     assert m, "a commented JY-193 block"
     block = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)

@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from hub import media_film, media_home, shell  # noqa: F401  (the imports register the template globals)
+from tests.hub.tv_css import design_px
 
 ENV = shell.templates.env
 CSS = (Path(shell.__file__).resolve().parent / "static" / "control-surface.css").read_text(encoding="utf-8")
@@ -303,7 +304,7 @@ def test_season_eyebrow_survives_tv_mode_markup(monkeypatch):
     monkeypatch.setitem(ENV.globals, "tv_mode", lambda request: True)
     h = head(season())
     assert '<p class="epeyebrow">Season 2 of 3</p>' in h                                  # tv.css has no rule hiding .epeyebrow
-    tv = (Path(shell.__file__).resolve().parent / "static" / "tv.css").read_text(encoding="utf-8")
+    tv = design_px((Path(shell.__file__).resolve().parent / "static" / "tv.css").read_text(encoding="utf-8"))
     # JY-250 (2026-10-25): tv.css now sizes .epeyebrow (18 px); no rule may hide it
     rules = [body for sels, body in re.findall(r"([^{}]+)\{([^}]*)\}", re.sub(r"/\*.*?\*/", "", tv, flags=re.S))
              if "epeyebrow" in sels]

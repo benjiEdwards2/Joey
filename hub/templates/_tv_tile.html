@@ -1,0 +1,66 @@
+{# The TV tile kit (JY-259 phase 1, 2026-10-28; spec docs/specs/JY-259-tv-revamp.md §2.1). TV mode only; tv.css draws it.
+   One macro per content shape, so later TV pages (Awards, collections) reuse the same tiles:
+     poster(i)      2:3 poster: title, then the meta line          (film / show in rows)
+     land(i)        16:9 still, the progress bar inside its foot    (Continue watching, Next episodes)
+     person(p)      circle headshot, name, role                    (cast rows)
+     request(i)     2:3 poster with a state word on a foot band    (Discover, title shelves; the art stays clear)
+     collection(c)  2:3 poster with a stack edge, "N films"        (franchises)
+     row(s)         one Home row: label + carousel of poster or land tiles
+   Every tile is a .card-poster link, so tv.js's focus, shelf centring and Back memory treat it like the older cards.
+   art() is the ONE place a TV tile's picture URL is made (JY-260 swaps the poster source here and in hub/tv_home.py). #}
+
+{% macro art(ref, title, h, lazy=true) -%}
+<img src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}" alt=""{% if lazy %} loading="lazy"{% endif %} decoding="async">
+{%- endmacro %}
+
+{% macro bar(pct) -%}
+{% if pct %}<span class="bar" role="img" aria-label="{{ pct }}% watched"><span style="width: {{ pct }}%"></span></span>{% endif %}
+{%- endmacro %}
+
+{% macro caption(title, sub) -%}
+<span class="row-title">{{ title }}</span>{% if sub %}<span class="row-meta">{{ sub }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro poster(i) -%}
+<a class="card-poster tvt tvt-poster" href="{{ i.href }}"><span class="card-pic">{{ art(i.poster, i.title, 600) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+{%- endmacro %}
+
+{% macro land(i) -%}
+<a class="card-poster tvt tvt-land" href="{{ i.href }}"><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+{%- endmacro %}
+
+{% macro person(p) -%}
+<a class="card-poster tvt tvt-person" href="{{ p.href }}"><span class="card-pic">{{ art(p.ref, p.name, 240) }}</span>{{ caption(p.name, p.role) }}</a>
+{%- endmacro %}
+
+{# state: "lib" (On Joey), "requested" (Requested), anything else "Request" - a word on a band under the art, never a chip over it #}
+{% macro request(i) -%}
+{% set word = {"lib": "On Joey", "requested": "Requested"}.get(i.state, "Request") %}
+<a class="card-poster tvt tvt-poster tvt-request" href="{{ i.href }}"><span class="card-pic">{{ art(i.poster, i.title, 600) }}<span class="tvt-band tvt-band-{{ i.state if i.state in ('lib', 'requested') else 'request' }}">{{ word }}</span></span>{{ caption(i.title, i.sub) }}</a>
+{%- endmacro %}
+
+{% macro collection(c) -%}
+<a class="card-poster tvt tvt-poster tvt-collection" href="{{ c.href }}"><span class="card-pic tvt-stack">{{ art(c.poster, c.title, 600) }}</span>{{ caption(c.title, (c.count ~ " films") if c.count else c.sub) }}</a>
+{%- endmacro %}
+
+{% macro row(s) -%}
+{# JY-105: a row marked tv_later (Because you rated ...) never takes first focus (tv.js) #}
+<section class="sec"{% if s.tv_later %} data-tv-later{% endif %}>
+  <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2></div>
+  <div class="carousel tvt-row{% if s.land %} tvt-row-land{% endif %}">
+    {% for i in s["items"] %}{% if s.land %}{{ land(i) }}{% else %}{{ poster(i) }}{% endif %}{% endfor %}
+  </div>
+</section>
+{%- endmacro %}
+
+{# B.'s point 2: the backdrop under Home (Jellyfin backdrop, else TMDB, else the poster blurred and dimmed - hub/tv_home.py
+   picks), under a gradient scrim (tv.css) so tiles and text stand out. Fixed behind the page; static in phase 1. #}
+{% macro backdrop(hero) -%}
+{% set bd = hero.backdrop if hero else none %}
+{% if bd %}<div class="tv-bd{% if bd.blur %} is-blur{% endif %}" aria-hidden="true">{{ art(bd.ref, hero.title, bd.h, false) }}</div>{% endif %}
+{%- endmacro %}
+
+{# the static hero area (phase 1): what the backdrop shows, in words. Phase 2 makes it follow focus. #}
+{% macro hero(h) -%}
+{% if h %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title">{{ h.title }}</p>{% if h.sub %}<p class="tv-hero-facts">{{ h.sub }}</p>{% endif %}</div>{% endif %}
+{%- endmacro %}

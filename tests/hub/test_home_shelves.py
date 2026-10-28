@@ -14,6 +14,7 @@ import pytest
 from hub import guest, media_guest_home
 from tests.hub.fake_jellyfin import FRIEND_ID
 from tests.hub.guest_pages import TV_UA, guest_client, movie, shelf_titles, sign_in
+from tests.hub.tv_css import design_px
 
 NOW = datetime.now(timezone.utc)
 
@@ -201,7 +202,7 @@ def test_desktop_keeps_its_one_line_empty_state(fc, path):
 
 
 def test_the_tv_css_block_for_the_empty_state_and_welcome(fc):
-    css = fc.get("/static/tv.css").text
+    css = design_px(fc.get("/static/tv.css").text)
     block = css.split("JY-195", 1)[1]
     for sel in ("html.tv .bigempty", "html.tv .bigempty-h", "html.tv .welcome"):
         assert sel in block, sel

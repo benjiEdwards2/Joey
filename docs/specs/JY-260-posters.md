@@ -18,6 +18,16 @@ Date: 2026-10-28 (spec draft 2026-10-28; B. picked and marked ready the same day
 
 > "Can you change it to include teh text position of layout three whilst keeping the layout two clear section."
 
+B. refined the poster in Canva on 2026-10-28 (his export: a black 1000 × 1500 canvas, "TMDB POSTER ART (placeholder)" near the top, "MOVIE TITLE" in large regular capitals in the lower third, and "Seasons 1–4 · 2022–2025" directly under it), then said:
+
+> "Go centre aligned please. then I am happy with that."
+
+What it means for the starter kit (B.'s Canva layout, built 2026-10-28):
+- **Title:** Geist **Regular** (weight 400; B. named no other font), capitals, `max_size` 95 px, top at 75 %, centred. A 2–3 line title still grows upward from the bottom anchor (`title_gap` 2 %, `title_top_limit` 62 %).
+- **Year / seasons line:** directly under the title, top at 84 %, about 40 px below a 1-line title. Regular weight, white, centred. The no-overlap rule stands.
+- **Shadow:** his export has none, but it was on black. The starter keeps only a very soft shadow (title 0.35, sub-line 0.3 opacity) so the text stays readable over bright art.
+- **Art and fade:** the poster art and the smooth fade stay; the fade now starts at 50 %. His solid black is Canva flattening the gradient on import, not a design choice.
+
 What they mean for the build:
 
 - **Q1B:** B. designs in Canva; joey-hub renders each poster with Pillow. No Canva account at run time.

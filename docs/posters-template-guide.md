@@ -18,15 +18,15 @@ A template is a folder, the **template kit**:
 
 Joey draws the title and the sub-line itself, because the words change per film. Canva supplies everything else.
 
-**Where it lives:** on the NAS at `/volume1/Docker/joey/posters/template/` (File Station: `Docker` → `joey` → `posters` → `template`). If the folder is empty or missing, Joey uses the **starter kit** shipped in the hub, `hub/posters_template/`: layout 2 "Clear" in Geist, with the title at 74 % and the sub-line at 88 %.
+**Where it lives:** on the NAS at `/volume1/Docker/joey/posters/template/` (File Station: `Docker` → `joey` → `posters` → `template`). If the folder is empty or missing, Joey uses the **starter kit** shipped in the hub, `hub/posters_template/`: your Canva layout of 2026-10-28. Clear art, Geist Regular in capitals, centred, the title at 75 % and the year or seasons line at 84 %.
 
 ## Step by step in Canva
 
 1. **Create the design.** Canva → Create a design → Custom size → **1000 × 1500 px**. Any 2:3 size works, from 600 × 900 to 2000 × 3000, as long as `canvas` in `template.json` matches it.
 2. **Add the safe-area guide.** Upload `guide.png` from the starter kit (or from your folder) and place it at full size. It shows:
-   - the **title area** (pink): a one-line title sits on the inner pink line at 74 %. Longer titles grow upward from the bottom of the box, which stops 2.5 % above the sub-line, up to the top of the box at 62 %. Side margins are 6 %;
-   - the **sub-line box** (yellow): top at 88 %;
-   - the **scrim band** (blue): the fade starts at 56 %.
+   - the **title area** (pink): a one-line title sits on the inner pink line at 75 %. Longer titles grow upward from the bottom of the box, which stops 2 % above the sub-line, up to the top of the box at 62 %. Side margins are 6 %;
+   - the **sub-line box** (yellow): top at 84 %;
+   - the **scrim band** (blue): the fade starts at 50 %.
 
    Put a sample poster image underneath as a stand-in for the TMDB art. Keep any artwork you add out of the pink and yellow boxes unless it is meant to sit behind the text.
 3. **Design the scrim** (optional). Add a rectangle over the bottom of the canvas, filled with a gradient from transparent at the top to dark at the bottom. Canva: Elements → Shapes → square, stretch it, then Color → Gradient. Its top edge should sit near the blue line.
@@ -49,26 +49,26 @@ Joey draws the title and the sub-line itself, because the words change per film.
   "canvas": [1000, 1500],
   "font": {"family": "Geist", "file": "GeistVF.woff2"},
   "scrim": null,
-  "scrim_band": {"top": 0.56, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
+  "scrim_band": {"top": 0.50, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
   "frame": null,
   "title": {
-    "title_anchor": 0.74, "title_anchor_mode": "bottom", "title_gap": 0.025, "title_top_limit": 0.62,
+    "title_anchor": 0.75, "title_anchor_mode": "bottom", "title_gap": 0.02, "title_top_limit": 0.62,
     "margin_x": 0.06,
     "max_size": 95, "wrap_at": 60, "min_size": 40, "max_lines": 3, "line_height": 1.05,
-    "uppercase": true, "tracking": 0.01, "weight": 800, "colour": "#FFFFFF",
-    "shadow": {"colour": "#000000", "opacity": 0.8, "blur": 14, "dy": 2}
+    "uppercase": true, "tracking": 0, "weight": 400, "colour": "#FFFFFF",
+    "shadow": {"colour": "#000000", "opacity": 0.35, "blur": 12, "dy": 2}
   },
   "sub": {
-    "sub_anchor": 0.88, "size": 50, "weight": 500, "colour": "#FFFFFF", "opacity": 0.82, "tracking": 0.04,
-    "shadow": {"colour": "#000000", "opacity": 0.6, "blur": 10, "dy": 2}
+    "sub_anchor": 0.84, "size": 50, "weight": 400, "colour": "#FFFFFF", "opacity": 1.0, "tracking": 0.02,
+    "shadow": {"colour": "#000000", "opacity": 0.3, "blur": 8, "dy": 2}
   }
 }
 ```
 
-- **Positions are fractions of the height.** `title_anchor: 0.74` puts the top of the title 74 % of the way down; `sub_anchor` does the same for the sub-line. `margin_x: 0.06` keeps 6 % clear on each side, and both lines centre between the margins.
+- **Positions are fractions of the height.** `title_anchor: 0.75` puts the top of the title 75 % of the way down; `sub_anchor` does the same for the sub-line. `margin_x: 0.06` keeps 6 % clear on each side, and both lines centre between the margins.
   - To move the text, change these numbers. In Canva, read a box's Y position and divide by the canvas height: Y 1110 ÷ 1500 = 0.74.
 - **`title_anchor_mode`** decides which way a title grows.
-  - `"bottom"` (the starter): a title starts at `title_anchor`. If its lines would come closer to the sub-line than `title_gap` (2.5 % of the height), the whole block moves up, but never above `title_top_limit`. The title can never touch the sub-line.
+  - `"bottom"` (the starter): a title starts at `title_anchor`. If its lines would come closer to the sub-line than `title_gap` (2 % of the height), the whole block moves up, but never above `title_top_limit`. The title can never touch the sub-line.
   - `"top"`: the block hangs from `title_anchor` and shrinks to fit above the gap.
 - **Sizes are pixels on the canvas.** The title's lines always fit between their top limit and the gap above the sub-line.
   - A title starts at `max_size` on one line and shrinks to `wrap_at` if it is too wide.
@@ -83,6 +83,7 @@ Joey draws the title and the sub-line itself, because the words change per film.
   - `colour`: the fade's colour.
 
   Set `scrim_band` to `null` for no fade at all.
+- **Shadow:** the starter keeps only a very soft one (opacity 0.35 or less), so white text stays readable over bright art. Set `"shadow": null` for none.
 - **Colours** are `#RRGGBB`. `opacity` and the shadow `opacity` run from 0 to 1. `blur` is the shadow softness in pixels, and `dy` moves the shadow down.
 - **`tracking`** is letter spacing as a fraction of the font size: 0.04 = 4 %, the same as Canva's letter spacing 40.
 - **`weight`** is 100 to 900. It works with variable fonts such as Geist; a static font file ignores it.

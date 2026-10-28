@@ -14,6 +14,7 @@ from PIL import Image
 from hub import media_posters_render as r
 
 LONG = "The Assassination of Jesse James by the Coward"     # 46 characters
+TA, SA, GAP, LIMIT = 0.75, 0.84, 0.02, 0.62   # B.'s Canva layout (2026-10-28) in the starter kit
 VERY_LONG = "Night of the Day of the Dawn of the Son of the Bride of the Return of the Revenge of the Terror"
 
 
@@ -51,12 +52,15 @@ def art(w=2000, h=3000, colour=(120, 130, 140), fmt="JPEG") -> bytes:
 def test_starter_kit_is_layout_2_with_layout_3_text_positions(tpl):
     assert (tpl.width, tpl.height) == (1000, 1500)
     t, s = tpl.data["title"], tpl.data["sub"]
-    assert (t["title_anchor"], s["sub_anchor"], t["margin_x"]) == (0.74, 0.88, 0.06)
+    assert (t["title_anchor"], s["sub_anchor"], t["margin_x"]) == (TA, SA, 0.06)
+    assert (t["weight"], s["weight"], t["uppercase"]) == (400, 400, True)   # B.'s Canva look: regular Geist
+    assert t["shadow"]["opacity"] <= 0.35 and s["shadow"]["opacity"] <= 0.35   # only a very soft shadow
+    assert s["opacity"] == 1.0 and s["colour"] == "#FFFFFF"
     assert tpl.data["frame"] is None                      # layout 2: no frame, no border
     band = tpl.data["scrim_band"]
-    assert 0.55 <= band["top"] <= 0.60 and band["solid"] > 1.0           # one gradient over the bottom ~40 %, never flat
+    assert 0.48 <= band["top"] <= 0.56 and band["solid"] > 1.0           # one gradient over the lower half, never flat
     assert (t["max_lines"], t["min_size"]) == (3, 40)
-    assert (t["title_anchor_mode"], t["title_gap"]) == ("bottom", 0.025)   # taller titles grow upward
+    assert (t["title_anchor_mode"], t["title_gap"]) == ("bottom", GAP)   # taller titles grow upward
     assert tpl.font_path.name == "GeistVF.woff2"
     assert r.validate(tpl.data, r.STARTER) == []
 
@@ -74,8 +78,8 @@ def test_short_title_one_line_at_max_size_on_the_anchor(tpl):
     lay = r.layout_title(tpl, "Up")
     assert [ln.text for ln in lay.lines] == ["UP"]                     # uppercase per the kit
     assert lay.size == 95
-    assert lay.top == pytest.approx(0.74 * 1500)
-    assert lay.lines[0].top == pytest.approx(0.74 * 1500)
+    assert lay.top == pytest.approx(TA * 1500)
+    assert lay.lines[0].top == pytest.approx(TA * 1500)
     _inside(lay, tpl)
 
 
@@ -110,28 +114,29 @@ def test_long_title_wraps_to_two_balanced_lines(tpl):
 def test_title_box_never_meets_the_sub_line_box(tpl, title, n):
     lay = r.layout_title(tpl, title)
     assert len(lay.lines) == n
-    sub_top = 0.88 * 1500
+    sub_top = SA * 1500
     sub_bottom = sub_top + 50 * 1.2                                       # the sub-line's line box
-    assert lay.bottom <= sub_top - 0.025 * 1500 + 0.5                     # the fixed gap above the sub-line
+    assert lay.bottom <= sub_top - GAP * 1500 + 0.5                     # the fixed gap above the sub-line
     assert lay.bottom <= sub_top or lay.top >= sub_bottom                 # the boxes never intersect
     if n == 1:
-        assert lay.top == pytest.approx(0.74 * 1500)                      # one line still sits at 74 %
+        assert lay.top == pytest.approx(TA * 1500)                        # one line still sits at the anchor
     else:
-        assert lay.top >= 0.62 * 1500 - 0.5                               # grows upward, no higher than the limit
+        assert lay.top >= LIMIT * 1500 - 0.5                               # grows upward, no higher than the limit
 
 
 def test_the_title_ink_never_reaches_the_sub_line(tpl):
     """Pixels, not boxes: render the 3-line title with no sub-line, and nothing bright reaches the gap above 88 %."""
     out = Image.open(io.BytesIO(r.render(tpl, art(colour=(20, 20, 20)),
                                          "The Assassination of Jesse James by the Coward Robert Ford", ""))).convert("L")
-    gap = out.crop((0, int(0.88 * 1500 - 0.015 * 1500), 1000, int(0.88 * 1500) + 60))
+    gap = out.crop((0, int(SA * 1500 - 0.015 * 1500), 1000, int(SA * 1500) + 60))
     assert max(gap.tobytes()) < 120
 
 
 def test_top_mode_still_hangs_from_the_anchor(tmp_path):
-    t = r.load_template(kit(tmp_path, **{"title.title_anchor_mode": "top", "title.title_top_limit": None}))
+    t = r.load_template(kit(tmp_path, **{"title.title_anchor_mode": "top", "title.title_top_limit": None,
+                                         "title.max_lines": 2}))
     lay = r.layout_title(t, "The Assassination of Jesse James by the Coward Robert Ford")
-    assert lay.top == pytest.approx(0.74 * 1500) and lay.bottom <= (0.88 - 0.025) * 1500 + 0.5
+    assert lay.top == pytest.approx(TA * 1500) and lay.bottom <= (SA - GAP) * 1500 + 0.5
 
 
 def test_bad_anchor_mode_is_refused(tmp_path):
@@ -141,7 +146,7 @@ def test_bad_anchor_mode_is_refused(tmp_path):
 
 def test_two_lines_stay_above_the_sub_line(tpl):
     lay = r.layout_title(tpl, LONG)
-    assert lay.bottom <= 0.88 * 1500
+    assert lay.bottom <= SA * 1500
 
 
 def test_a_59_character_title_is_never_cut(tpl):
@@ -149,14 +154,14 @@ def test_a_59_character_title_is_never_cut(tpl):
     lay = r.layout_title(tpl, title)
     assert not lay.truncated and len(lay.lines) <= 3
     assert " ".join(ln.text for ln in lay.lines) == title.upper()         # every word kept
-    assert lay.bottom <= 0.88 * 1500 + 0.5
+    assert lay.bottom <= SA * 1500 + 0.5
     _inside(lay, tpl)
 
 
 def test_three_lines_fit_between_the_anchors(tpl):
     lay = r.layout_title(tpl, "The Lord of the Rings The Return of the King Extended Edition Part Two")
     assert len(lay.lines) == 3 and 40 <= lay.size <= 95
-    assert lay.bottom <= (0.88 - 0.025) * 1500 + 0.5 and lay.top >= 0.62 * 1500 - 0.5 and not lay.truncated
+    assert lay.bottom <= (SA - GAP) * 1500 + 0.5 and lay.top >= LIMIT * 1500 - 0.5 and not lay.truncated
     _inside(lay, tpl)
 
 
@@ -270,7 +275,7 @@ def test_scrim_is_one_smooth_gradient_with_no_seam(tpl):
     assert max(steps) <= 12                                              # no hard edge anywhere
     assert col[-1] < col[-5] - 1                                         # still fading under the sub-line: no flat band
     start = next(i for i, v in enumerate(col) if v < 195) * 10
-    assert 0.55 * 1500 <= start <= 0.62 * 1500
+    assert 0.48 * 1500 <= start <= 0.55 * 1500
 
 
 def test_render_draws_the_title_in_the_lower_third(tpl):
@@ -279,7 +284,7 @@ def test_render_draws_the_title_in_the_lower_third(tpl):
     lay = r.layout_title(tpl, "The Bear")
     box = (int(lay.lines[0].x), int(lay.top), int(lay.lines[0].x + lay.lines[0].width), int(lay.bottom))
     assert max(titled.crop(box).tobytes()) > 200 > max(plain.crop(box).tobytes())
-    upper = (0, 0, 1000, 820)
+    upper = (0, 0, 1000, 700)
     assert max(titled.crop(upper).tobytes()) < 80                        # nothing drawn in the top two thirds
 
 

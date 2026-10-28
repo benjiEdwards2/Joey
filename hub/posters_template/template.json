@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "name": "Clear (layout 2) with layout 3 text positions, Geist",
+  "name": "B.'s Canva layout (2026-10-28): clear art, regular Geist, centred lower third",
   "canvas": [1000, 1500],
   "font": {"family": "Geist", "file": "GeistVF.woff2"},
   "scrim": null,
-  "scrim_band": {"top": 0.56, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
+  "scrim_band": {"top": 0.50, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
   "frame": null,
   "title": {
-    "title_anchor": 0.74,
+    "title_anchor": 0.75,
     "title_anchor_mode": "bottom",
-    "title_gap": 0.025,
+    "title_gap": 0.02,
     "title_top_limit": 0.62,
     "margin_x": 0.06,
     "max_size": 95,
@@ -18,18 +18,18 @@
     "max_lines": 3,
     "line_height": 1.05,
     "uppercase": true,
-    "tracking": 0.01,
-    "weight": 800,
+    "tracking": 0,
+    "weight": 400,
     "colour": "#FFFFFF",
-    "shadow": {"colour": "#000000", "opacity": 0.8, "blur": 14, "dy": 2}
+    "shadow": {"colour": "#000000", "opacity": 0.35, "blur": 12, "dy": 2}
   },
   "sub": {
-    "sub_anchor": 0.88,
+    "sub_anchor": 0.84,
     "size": 50,
-    "weight": 500,
+    "weight": 400,
     "colour": "#FFFFFF",
-    "opacity": 0.82,
-    "tracking": 0.04,
-    "shadow": {"colour": "#000000", "opacity": 0.6, "blur": 10, "dy": 2}
+    "opacity": 1.0,
+    "tracking": 0.02,
+    "shadow": {"colour": "#000000", "opacity": 0.3, "blur": 8, "dy": 2}
   }
 }

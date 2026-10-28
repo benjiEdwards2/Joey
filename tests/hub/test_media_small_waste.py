@@ -3,7 +3,6 @@ Jellyfin history only when the jellyfin snapshot moved and keeps its stats while
 pre-compiles every template and pre-parses the snapshots; the Search now lookup is kept 5 minutes (and dropped by
 Joey's own writes); outbound calls ride one keep-alive Session per upstream. No network."""
 import importlib
-import sys
 from pathlib import Path
 
 import pytest
@@ -123,12 +122,15 @@ def test_joeys_writes_drop_the_kept_lookups(monkeypatch):
 
 # ---- keep-alive Sessions ----
 
+# JY-237: the real factory, taken when this file is imported (collection, before any fixture patches it). The old
+# fixture hunted for it through sys.modules (the conftest copy whose REAL_UPSTREAM was filled) and raised StopIteration
+# as a setup error whenever that copy was not the one found. Three conftest.py files share the module name "conftest".
+REAL_SESSION = upstream.session
+
+
 @pytest.fixture()
 def real_sessions(monkeypatch):
-    # pytest's own copy of tests/hub/conftest.py (an `import tests.hub.conftest` is a second module) holds the real one
-    real = next(m.REAL_UPSTREAM["session"] for m in list(sys.modules.values())
-                if getattr(m, "REAL_UPSTREAM", None) and str(getattr(m, "__file__", "")).endswith("conftest.py"))
-    monkeypatch.setattr(upstream, "session", real)
+    monkeypatch.setattr(upstream, "session", REAL_SESSION)
     upstream.close_all()
     yield
     upstream.close_all()

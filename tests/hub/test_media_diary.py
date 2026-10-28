@@ -107,7 +107,7 @@ def test_rated_diary_rows_show_the_chip_unrated_show_a_picker(env):
     media_db.set_rating("tmdb:1", 10, "movie", "Heat")
     with build(jelly_data([])) as client:
         body = main_of(client.get("/media/diary").text)
-    assert 'title="Your rating: 10 out of 10"' in body and "row-poster gold-glow-sm" in body
+    assert 'title="Your rating: 10 out of 10"' in body and "gold-glow" not in body
     assert body.count('class="ratepick"') == 1
 
 

@@ -10,7 +10,7 @@
 {% macro row(r) %}
 {% set tag = "a" if r.href else "div" %}
 <{{ tag }} class="row"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-  {{ poster(r.poster, r.title, 240, "row-poster" ~ rate.glow(r.score)) }}
+  {{ poster(r.poster, r.title, 240, "row-poster") }}
   <div class="row-body">
     <div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>
     {% if r.kind == "movie" %}{% set facts = [r.runtime, r.watched_text] %}{% else %}{% set facts = [r.status_word, r.eps_text, r.last_text] %}{% endif %}
@@ -27,7 +27,7 @@
 {% macro card(r, tv=false) %}
 {% set tag = "a" if r.href else "div" %}
 <{{ tag }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% if r.external %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-  <span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false), tv) }}{{ rate.pscore(r.score) }}{{ award_badge(r.award) }}</span>
+  <span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240, "", tv) }}{{ rate.pscore(r.score) }}{{ award_badge(r.award) }}</span>
   <span class="row-title">{{ r.title }}</span>
   <span class="row-meta">{% if r.year %}{{ r.year }}{% endif %}{% if r.year and r.card_state %}<span class="sep"> · </span>{% endif %}{% if r.card_state %}<span class="{{ r.card_state.cls }}">{{ r.card_state.word }}</span>{% endif %}</span>
   {% if r.kind == "tv" and r.state == "watching" and r.progress %}<span class="row-meta card-progress">{{ r.progress }}</span>{% endif %}

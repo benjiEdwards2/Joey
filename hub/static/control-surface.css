@@ -62,12 +62,6 @@
   /* ratingColor grades (guide 2), Tailwind hexes */
   --score-9: #34d399; --score-8: #4ade80; --score-7: #a3e635; --score-6: #facc15; --score-5: #fbbf24;
   --score-4: #fb923c; --score-3: #f87171; --score-2: #ef4444; --score-1: #dc2626;
-  /* Ambient motion (guide 3): gold pulse for a perfect 10, live dot */
-  --gold-pulse-lo: 0 0 8px 0 rgba(251, 191, 36, .4), 0 0 20px 3px rgba(251, 191, 36, .2);
-  --gold-pulse-hi: 0 0 16px 3px rgba(251, 191, 36, .62), 0 0 34px 7px rgba(251, 191, 36, .34);
-  --gold-pulse-still: 0 0 14px 2px rgba(251, 191, 36, .5), 0 0 30px 6px rgba(251, 191, 36, .28);
-  --gold-sm-lo: 0 0 5px 0 rgba(251, 191, 36, .45); --gold-sm-hi: 0 0 10px 2px rgba(251, 191, 36, .65);
-  --gold-sm-still: 0 0 8px 1px rgba(251, 191, 36, .55); --gold-text: 0 0 12px rgba(251, 191, 36, .75);
   /* Media (restyle Phase 3): bar track, waiting text, poster badge/tag, icon buttons, confirm panel, detail hero, link chips */
   --bar-track: rgba(255, 255, 255, .08); --amber-dim: rgba(251, 191, 36, .8);
   --poster-badge-bg: rgba(9, 9, 11, .85); --teal-chip: rgba(20, 184, 166, .85);
@@ -98,16 +92,6 @@ body {
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(55rem 40rem at 50% -10%, var(--indigo-glow), transparent); }
 
-/* A perfect 10: a slow gold pulse on the poster, a gold halo on the number. */
-@keyframes gold-glow-pulse { 0%, 100% { box-shadow: var(--gold-pulse-lo); } 50% { box-shadow: var(--gold-pulse-hi); } }
-.gold-glow { animation: gold-glow-pulse 2.4s ease-in-out infinite; }
-@keyframes gold-glow-sm-pulse { 0%, 100% { box-shadow: var(--gold-sm-lo); } 50% { box-shadow: var(--gold-sm-hi); } }
-.gold-glow-sm { animation: gold-glow-sm-pulse 2.4s ease-in-out infinite; }
-.gold-text-glow { text-shadow: var(--gold-text); }
-@media (prefers-reduced-motion: reduce) {
-  .gold-glow { animation: none; box-shadow: var(--gold-pulse-still); }
-  .gold-glow-sm { animation: none; box-shadow: var(--gold-sm-still); }
-}
 /* Home's hero backdrop drifts slowly. */
 @keyframes hero-drift { from { transform: scale(1.08) translate3d(-1%, 0, 0); } to { transform: scale(1.02) translate3d(1%, -1%, 0); } }
 .hero-drift { animation: hero-drift 30s ease-in-out infinite alternate; will-change: transform; }
@@ -535,7 +519,6 @@ a.tile:hover, .tile.split:hover { border-color: var(--line-hover); }
 /* ---- Poster thumbnails: /img proxy, 2:3 ---- */
 .poster { aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; display: block; flex: none;
           background: var(--soft); border: 1px solid var(--border); }
-.poster.gold-glow { border-color: var(--gold); box-shadow: 0 0 10px 1px var(--gold-glow); }
 
 /* ---- Breakpoints: phone content tweaks (the shell's own rules sit with the shell above) ---- */
 @media (max-width: 640px) {

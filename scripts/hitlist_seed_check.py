@@ -306,6 +306,7 @@ SOURCES = [
     ("B. in chat (2026-10-28)", "Remove button", "JY-265", "title page More fold"),
     ("B. in chat (2026-10-28)", "Collections page", "JY-266", "friend's franchise grid"),
     ("B. in chat (2026-10-28)", "TMDB title logos", "JY-267", "TMDB Media > Logos"),
+    ("B. in chat (2026-10-29)", "Remove gold glow", "JY-268", "perfect-10 glow on web + phone"),
 ]
 
 

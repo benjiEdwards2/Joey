@@ -200,6 +200,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | building | Phase 1 (remove requests, REMOVE_API off) merged #262 2026-10-28; phases 2-4 (whole title, seasons/episodes, TV) to go | — |
 | JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | idea | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
 | JY-267 | TMDB title logos instead of plain text on the carousel / title page | Media | M | idea | B. 2026-10-28: "Yes please, I would be keen to run that next." (logos idea) | — |
+| JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | review | B. 2026-10-29: "Remove golf glow." | — |
 
 ### NAS / stack
 

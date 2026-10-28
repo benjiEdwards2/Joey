@@ -45,7 +45,7 @@
   <div class="carousel">
     {% for r in w.top_rated %}
     <{{ "a" if r.href else "div" }} class="card-poster"{% if r.href %} href="{{ r.href }}"{% endif %}>
-      <span class="card-pic">{{ poster(r.poster, r.title, 240, rate.glow(r.score, false)) }}</span>
+      <span class="card-pic">{{ poster(r.poster, r.title, 240, "") }}</span>
       <span class="row-title">{{ r.title }}</span>
       <span class="row-meta"><span class="{{ rate.grade(r.score) }}" title="Your rating: {{ r.score }} out of 10">{{ r.score }}</span><span class="sep"> · </span>{{ r.when }}</span>
     </{{ "a" if r.href else "div" }}>

@@ -27,7 +27,7 @@
   {% for p in src.data.get("now_playing", []) %}
   {% set phref = item_href(p.jf_id) or src.href %}
   <{{ "a" if phref else "div" }} class="row is-watching"{% if phref %} href="{{ phref }}"{% if not item_href(p.jf_id) %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-    {{ poster(p.poster, p.title, 120, "row-poster" ~ rate.rowglow(p, ratings)) }}
+    {{ poster(p.poster, p.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ p.title }}</div>{{ meta([watching, p.user, p.play_method, p.progress_pct ~ "%"]) }}
       <span class="bar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span></div>
     {{ rate.score_row(p, ratings) }}
@@ -45,7 +45,7 @@
   {# Move on (2026-10-08): the row stays one whole link; Mark watched / Reset progress sit beside it, outside it. #}
   {% if acts %}<div class="rowwrap resumerow">{% endif %}
   <{{ "a" if nh else "div" }} class="row"{% if nh %} href="{{ nh }}"{% endif %}>
-    {{ poster(n.poster, n.title, 120, "row-poster" ~ rate.rowglow(n, ratings)) }}
+    {{ poster(n.poster, n.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ n.title }}</div>{{ meta([n.remaining_text]) }}</div>
     {{ rate.score_row(n, ratings) }}
   </{{ "a" if nh else "div" }}>
@@ -60,7 +60,7 @@
   {% for i in latest %}
   {% set ih = item_href(i.jf_id) %}
   <{{ "a" if ih else "div" }} class="row"{% if ih %} href="{{ ih }}"{% endif %}>
-    {{ poster(i.poster, i.title, 120, "row-poster" ~ rate.rowglow(i, ratings)) }}
+    {{ poster(i.poster, i.title, 120, "row-poster") }}
     <div class="row-body"><div class="row-title">{{ i.title }}</div>{{ meta([i.type, i.added_text]) }}</div>
     {{ rate.score_row(i, ratings) }}
   </{{ "a" if ih else "div" }}>

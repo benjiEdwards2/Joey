@@ -1,8 +1,9 @@
 # Joey TV shell (`tv/`)
 
 A thin Kotlin Android TV / Google TV / Fire TV app: a full-screen WebView over the guest Joey Media UI
-(`https://media.joeyhome.net`), native Splash / Offline / Settings / Jellyfin-missing / Update screens, and a
-hand-off to the official Jellyfin app for playback. Plan: Joey TV `MASTER_PLAN.md` WP-B7 (shell) and WP-B8 (releases).
+(`https://media.joeyhome.net`), native Splash / Offline / Settings / Jellyfin-missing / Update screens, a
+hand-off to the official Jellyfin app for playback and, since 1.0.3 (JY-057), Joey's own player for the household
+("Player" below). Plan: Joey TV `MASTER_PLAN.md` WP-B7 (shell) and WP-B8 (releases).
 
 | | |
 |---|---|
@@ -117,6 +118,7 @@ returns `true` when it handled Back. D-pad focus inside pages is the page's job 
 |---|---|
 | Same origin as the UI host | loads in the WebView |
 | Jellyfin origin, exactly `https://jellyfin.joeyhome.net:8443` | hand-off; item id from `id=` in the fragment (`/web/#/details?id=<id>`), none → Jellyfin home |
+| The same, with `player=joey` in the fragment and a well-formed item id (JY-057) | Joey's own player (`PlayerActivity`) |
 | `https://jellyfin.joeyhome.net/...` (no port) | blocked: not the Jellyfin origin (the router only forwards 8443) |
 | youtube.com / youtu.be | the YouTube app (toast if missing) |
 | anything else | blocked, toast "Not available on TV" |
@@ -144,6 +146,27 @@ the same page. Tried without `FLAG_ACTIVITY_NEW_TASK` (W5, 2026-10-22): no chang
 hands over to its `ui.browsing.MainActivity` in Jellyfin's own task. Each successful start marks "returning from playback", and the
 next `onResume` reloads the last UI URL. Settings → "Test hand-off" uses the same call. Evidence:
 `JoeyTV\spike\SPIKE_RESULTS.md` (12/12 cells PASS, TCL, Android 14, Jellyfin app 0.19.10).
+
+### Player (JY-057, 1.0.3)
+
+The hub marks a Play link with `&player=joey` (in the fragment) only for a household member with `PLAYER_API` on, on the
+media front, when the user agent says this shell is versionCode 2026102701 or later; everyone else keeps the hand-off.
+`PlayerActivity` (Media3 ExoPlayer 1.9.0, no FFmpeg extension; not exported, the item id and the page title are its only
+extras) then:
+
+1. `POST <ui>/api/play/sessions` (kind `tv`, a DeviceProfile from the TV's decoders, `resume: true`) and
+   `POST .../stream`, with the WebView's own cookies for the UI host and the UI origin as `Origin`
+   (`PlayApiClient`; `docs/playback-contract.md`);
+2. plays the stream URL (it must be on the Jellyfin origin, with no key) and sends the `Authorization` header from
+   `/stream` to the Jellyfin origin only (`policy/PlayerHttp.kt`: OkHttp, no redirects followed); the header is kept in memory, never logged or stored;
+3. reports progress every `heartbeat_s` and on play / pause / seek, and stop on Back, Stop, the end, Home and Next.
+
+Any failure before the first frame (after one retry for a network error or a retryable 502 / 504), or a fatal player
+error, hands the item to the Jellyfin app as above, with a toast. Look A keys (`policy/PlayerUi.kt`): any key shows the
+controls; Left / Right seek −10 s / +30 s (hidden or on the bar); Down to the buttons (Play/Pause, Back 10 s, Forward 30 s,
+Audio & subtitles, Next episode); the pop-up walks with Up / Down and swaps columns with Left / Right; Back closes the
+pop-up, hides the controls, then returns to Joey (`BackPolicy.player`). Up next: the card in the last 60 s, an 8 s
+countdown at the end. Media3 adds `ACCESS_NETWORK_STATE` and `WAKE_LOCK` (normal, no prompt), checked by `ci/check_apk.sh`.
 
 ### Keys
 
@@ -175,3 +198,4 @@ Run with the debug APK on B.'s TV (WP-B9 runs the release equivalents).
 | 16 | Settings → Clear sign-in | back to the sign-in page after Close |
 | 17 | `adb install -r` a newer debug build | still signed in |
 | 18 | Settings info block | version, versionCode, API, WebView package + version, model shown |
+| 19 | JY-057 player | the TV device checklist in `docs/specs/JY-057-tv-shell-player.md` |

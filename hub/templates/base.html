@@ -21,10 +21,14 @@
 {% endif %}
 <meta name="theme-color" content="#09090b">
 <meta name="joey-asset-v" content="{{ static_v }}">
+{% if tv %}{# JY-259 phase 2 review: who wrote the TV's history cache (tv.js clears it for anyone else; never the id) #}
+<meta name="joey-viewer" content="{{ viewer_tag(identity(request).owner) if is_guest else '' }}">{% endif %}
 {# Back/Forward is navigation only (2026-10-08): no htmx history snapshots (they restored a page as it was BEFORE a
    Follow / Request, so the button showed its old state), and a history miss is a full reload — always fresh
    server state. Pages are sent Cache-Control: no-store (hub/shell.py) so the browser's bfcache can't either. #}
-<meta name="htmx-config" content='{"historyCacheSize":0,"refreshOnHistoryMiss":true}'>
+{# JY-259 phase 2 (Q7 A, 2026-10-28): TV mode only keeps 10 snapshots - of <main> alone (hx-history-elt below) - so Back
+   from a title page is instant and the bar is never redrawn; a miss still reloads. Web and phone keep 0. #}
+<meta name="htmx-config" content='{% if tv %}{"historyCacheSize":10,"refreshOnHistoryMiss":true}{% else %}{"historyCacheSize":0,"refreshOnHistoryMiss":true}{% endif %}'>
 <link rel="icon" href="/static/icon-192.png?v=3">
 <link rel="apple-touch-icon" href="/static/icon-192.png?v=3">
 {# Font preload (2026-10-13): the first paint waits for Geist, which the stylesheet only names after it has loaded. The href
@@ -83,6 +87,11 @@
       {% for s in sections %}<a href="{{ s.href }}"{% if s.on %} aria-current="page"{% endif %}>{{ s.name }}</a>{% endfor %}
     </nav>
     {% endif %}
+    {% if tv and is_guest %}
+    {# JY-259 phase 2 (Q6 A): the Search stop - one OK opens the JY-194 search field over the current page (tv.js: the
+       #tv-search-dlg below; on Discover it goes to the page's own field). TV mode only. #}
+    <button class="tv-searchstop" type="button" aria-label="Search" aria-haspopup="dialog" aria-controls="tv-search-dlg" data-tv-search-open>{{ ic.icon("search") }}</button>
+    {% endif %}
     {% if is_guest and who.owner %}
     {# The guest chip names the signed-in Jellyfin user only - no email (the media front never has one). Sign-out (Joey TV,
        2026-10-22; option D + pop-up P2 from JoeyTV\mockups\signout-options.html): one pill = avatar initial + name + an
@@ -119,9 +128,21 @@
     <div class="userchip"><span class="avatar" aria-hidden="true">{{ who.name[:1] }}</span><span class="uname">{{ who.name }}</span><small>Local preview</small></div>
     {% endif %}
   </div>
+  {% if tv and is_guest %}
+  {# JY-259 phase 2: the search over the current page. The field is the JY-194 one (data-tv-search: read-only until OK,
+     Enter searches, Down = the first result); results land in #tv-search-out. Back closes it (tv.js joeyTV.back), which
+     empties it again; OK on a result opens its title page. It sits in the bar, which a <main> swap never redraws. #}
+  <dialog id="tv-search-dlg" class="tv-searchdlg" aria-label="Search">
+    <form class="toolbar discover-search tv-searchform" method="get" action="/media/discover">
+      <div class="search">{{ ic.icon("search") }}<input class="input" type="search" name="q" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV" data-tv-search
+             hx-get="/media/discover/search" hx-trigger="keyup changed delay:400ms, search" hx-target="#tv-search-out" hx-swap="innerHTML"></div>
+    </form>
+    <div id="tv-search-out"><div class="reqgrid-wrap" data-q=""></div></div>
+  </dialog>
+  {% endif %}
 </header>
 
-<main class="page">
+<main class="page"{% if tv %} hx-history-elt{% endif %}>
   {% block pagehead %}{% endblock %}
   {# Move on (2026-10-08): the one flash line after Mark watched / Reset progress, on whichever page it returned to. #}
   {% set rf = resume_flash(request) if resume_flash is defined else (none, none) %}

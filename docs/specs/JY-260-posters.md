@@ -1,6 +1,6 @@
 # JY-260 Automated custom posters (films and series)
 
-Status: ready (2026-10-28); phase 1 built; phase 2 built locally (GitHub paused), not deployed
+Status: phase 1 shipped 2026-10-28 (PR #252, f860efe); phase 2 in review (PR to come)
 Size: L (live Jellyfin write + a new secret; Phase 1 alone is M, built and labelled L)
 Live risk: NAS write (Jellyfin item images, phase 2), secrets (one new `.env` key, phase 2). Phase 1: none.
 Area: `hub/media_posters*.py` (new), `hub/posters_template/` (the starter template kit, new), `hub/templates/media_posters.html` (new), `hub/guest.py` (two PRIVATE rows), `hub/main.py` + `hub/tasks.py` (one router line, one loop line), `hub/static/control-surface.css` (a few non-token lines for the review pairs), `hub/requirements.txt` (pillow), `deploy/.env.example`, `deploy/docker-compose.yml` (one read-only template mount), `docs/posters-template-guide.md`, `tests/hub/test_media_posters*.py`
@@ -310,6 +310,11 @@ Episodes (unless Q6 says otherwise); backdrops/logos; fanart.tv; writing `poster
 **Q9. Review order for the backfill.** **A: Recently added first, then alphabetical** / B: alphabetical. Recommendation: **A**.
 
 ## Shipped notes
+- Closed out with `scripts/joey.py close-out`.
+- PR: #252, squash-merged as `f860efe` (f860efec3a715d9ad9b8c01a2b279dcc108fa89f).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-28: "JY-260: Q1B · Q2B · Q3A · Q4A · Q5A · Q6A · Q7A · Q8 layout 2 Geist · Q9A", "Looks good for posters." and "Go public and raise everything and change it all""
+- Follow-ups: none
 
 Phase 1 (draft PR, 2026-10-28, not merged or deployed):
 - Measured on the laptop (`scripts/posters_samples.py`): one render of a 2000 × 3000 JPEG source raises the process peak by 13.0 MB (RSS 26.9 MB before, peak 39.9 MB after). After the fix round: +13.1 MB, 120–142 ms per render, posters 49–94 KB. The NAS numbers come with phase 2.

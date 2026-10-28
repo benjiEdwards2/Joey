@@ -1,6 +1,6 @@
 # JY-057 Joey TV shell player (look A, Classic overlay)
 
-Status: building
+Status: shipped 2026-10-28
 Size: L
 Live risk: deploy (a TV release). Merging publishes Joey Media 1.0.3: `tv.yml`'s `release` job cuts GitHub Release
 `tv-2026102701` on `main`, and the next `deploy.sh` offers it to every TV. So the PR merges only in a TV session with B.
@@ -175,5 +175,72 @@ Both Sonnet reviews PASS. Fixes asked for before the Opus verifier:
   their own next episode, no watch state in it, a viewer with nothing cached gets none).
 - Back before the first frame now sends a best-effort stop (see Progress above).
 
+## TV session fixes (2026-10-27)
+The TV session ran on the TCL with the debug APK at `0bd7e5b`, the household alias and `PLAYER_API` on. Rows 1, 2, 3, 5, 8,
+11 and 13 PASS; three FAILs fixed here (tv/ only, no hub change: the hub passes the profile to Jellyfin, which decides the
+method):
+- **Row 4, audio & subtitles.** OK in the pop-up closed it, and the harness's reopen key sequence went astray, so the
+  tick read None; its two Backs then left the player (the "subtitles []" and "still playing False"). Now OK picks and the
+  pop-up stays open with the tick on the pick; Back closes it; a pick that restarts the session (remux / transcode) keeps
+  the pop-up open on its column. The "Subtitles" entry in the audio list is the harness's dump slice running from
+  `player_audio_list` to `player_subs_scroll`, which takes in the column header; the screenshot shows two clean columns.
+  Test change, dated: `okPicksAndClosesWithFocusBackOnItsButton` became `okPicksAndThePopUpStaysOpenOnThePick`, and
+  `anEmptyAudioListPicksNothing` now expects the pop-up to stay open.
+- **Row 7, Watch credits.** Right on the card only moved the focus to a Watch credits button, so the card stayed. Now
+  Right is Watch credits at once (look A: "Right is Watch credits"): the card hides and a running countdown stops for
+  this episode; at the file's end the card and its countdown return and play the next one. Test change, dated:
+  `theCardOkPlaysNowRightIsWatchCreditsBackIsJoey` asserts the one-press dismissal; new
+  `rightDuringTheEndCountdownCancelsItForThisEpisode`.
+- **Row 9, DTS.** The TCL lists a DTS decoder in MediaCodecList but stalls on DTS, so the profile said `dts` and
+  Jellyfin answered Direct play. Now AAC / MP3 / Opus / FLAC / Vorbis come from the decoders, AC-3 / E-AC-3 from a
+  decoder or an HDMI / ARC / eARC passthrough sink, and DTS / TrueHD only from such a sink (AudioDeviceInfo encodings),
+  never from a listed decoder. On the TCL's own speakers Jellyfin then converts the audio and the meta says Transcode
+  (or Remux). Test change, dated: `codecsComeFromTheTvsDecoders` now asserts a listed DTS decoder does not count; new
+  `aListedDtsOrTrueHdDecoderIsNotTrusted` and `passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby`.
+- Re-run on the TV: rows 4, 7 and 9.
+- Follow-up, 2026-10-27 (after the fix-round review): after Watch credits has dismissed the card, the end of the episode
+  no longer brings the card and countdown back; the player reports stop at the end (Jellyfin marks it watched by its own
+  rule) and returns to the Joey page with fresh progress, as Back twice does. Test change, dated:
+  `theEndCountsDownEightSecondsThenPlaysNext` now starts from an undismissed card; new
+  `afterWatchCreditsTheEndReturnsToJoey`. Row 7 on the TV: Watch credits, then the episode's end returns to Joey (the
+  countdown is seen only without Watch credits).
+
+## TV re-check (2026-10-28, e9f7c23)
+Row 4 PASS (audio pick sticks, SUBRIP subtitle picks, playback continues). Row 7: the app behaves as designed (Watch
+credits hides the card, the end then returns to Joey); the session script's row 7 now runs two passes (A: card, the
+countdown plays the next episode; B: card, Watch credits, the end returns to Joey). Row 9 FAIL: Play on a H.264 + DTS 5.1
+episode landed in the Jellyfin app. The TV log has the player opening the H.264 decoder about 4 s after Play (so the hub's
+start and stream answered) and the hand-off 0.1 s later, which is a player error, not a hub refusal; the app's own log
+lines were not in the capture. The likely cause: the TCL reports an HDMI / ARC output claiming DTS, so the 2026-10-27
+profile still said `dts` (direct play), and DTS passthrough failed at once. Fix: DTS and TrueHD are never declared,
+whatever a decoder list or an output claims (B.'s choice: no FFmpeg, conversion on the server); Jellyfin then converts the
+audio and the meta says Transcode. Every hand-off now logs one line, tag `JoeyPlayer` (`fallback: start HTTP 409
+cannot_play, attempt 1`, `fallback: player ERROR_CODE_..., HTTP 401, cause ..., method transcode, hls`; words only, no
+URL or token), and each start logs its method and protocol. Test change, dated: `passthroughToAnHdmiSinkAddsDtsTrueHdAndDolby`
+became `dtsAndTrueHdAreNeverDeclared`; new `theFallbackReasonIsOneLineOfWordsWithNoUrlOrToken`. Re-run row 9 with
+`adb logcat -s JoeyPlayer` alongside; if it still hands off, the line names the cause.
+
+## TV re-check (2026-10-28, f03b50c)
+Row 9 FAIL, third time, now with the reason line: `fallback: player ERROR_CODE_IO_UNSPECIFIED, cause
+UnexpectedLoaderException < IllegalStateException, method transcode, hls`. Jellyfin chose transcode as intended; Media3's
+HLS loader then failed on what came back. What was checked: Media3's `OkHttpDataSource` has no IllegalStateException path,
+and a JVM test drives `PlayerHttp` through a Jellyfin-shaped chain (the hub's `/videos/{id}/master.m3u8?...`, a relative
+`main.m3u8?...`, relative `hls1/main/N.ts?...` segments and an fMP4 init map): every request loads, on the Jellyfin origin,
+with the header, so the HTTP layer does not throw it. The JVM cannot run Media3's HLS extractors (no Robolectric here),
+so the loader-side cause is not reproduced on the JVM. The difference from Jellyfin's own ExoPlayer TV app (the T3 path,
+12/12 on this TCL) is the transcode request: Joey asked for fMP4 HLS with `BreakOnNonKeyFrames`, which cuts a video copy
+at non-keyframes; Jellyfin's app asks for MPEG-TS HLS first, then fMP4, `CopyTimestamps` off, subtitles in the manifest.
+Fix: the TV profile now sends exactly that shape. Also asked for: a redirect inside the Jellyfin origin is now followed
+(header kept, at most 5 hops); a redirect to any other origin is still never requested. Test changes, dated:
+`aSameHostRedirectIsNotFollowedEither` became `aRedirectInsideTheJellyfinOriginIsFollowedWithTheHeader`; the profile test
+asserts the two HLS profiles; new `redirectsStopAfterFiveHops` and `aJellyfinHlsTranscodeChainLoadsEveryPlaylistAndSegmentWithTheHeader`.
+The session script's row 7 pass A now matches the card's S·E marker in the next episode's title, read once the card is
+gone. Re-run row 9 with `adb logcat -s JoeyPlayer`: the line says `start: method transcode, hls` and, if it still fails,
+why.
+
 ## Shipped notes
-Not yet.
+- Closed out with `scripts/joey.py close-out`.
+- PR: #219, squash-merged as `7ecfd1b` (7ecfd1b0a7c7fa008813a579b404f54212e914ee).
+- Deploy: skipped: --deploy no
+- Accept: in chat: "B., orchestrator session, 2026-10-28: "Finish JY-057: fix the transcode bug, run the 10-minute TV re-check and release 1.0.3." and "6 shows correctly. It shows me the resume from where I left off. Goood to go.""
+- Follow-ups: none

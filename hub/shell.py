@@ -81,6 +81,16 @@ def _img_v(ref) -> str:
 
 
 templates.env.globals["img_v"] = _img_v   # JY-260: a stored Joey poster's version, on its /img URL as &v= (cache-busting)
+
+
+def viewer_tag(owner) -> str:
+    """JY-259 phase 2 review: a short one-way tag of the signed-in viewer for the TV page (base.html joey-viewer). tv.js
+    drops htmx's history cache when the tag differs from the one that wrote it, so one friend's cached pages never
+    reach the next person on a shared TV. Never the id itself; "" when nobody is signed in."""
+    return hashlib.sha256(f"joey-viewer:{owner}".encode()).hexdigest()[:16] if owner else ""
+
+
+templates.env.globals["viewer_tag"] = viewer_tag
 templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
 # Joey TV WP-B3 (2026-10-21): the guest surface's globals (hub/media_front.py) - every one answers on the private front too
 templates.env.globals["guest"] = media_front.is_guest

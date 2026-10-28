@@ -73,6 +73,14 @@ templates.env.globals["static_v"] = _static_version()
 templates.env.globals["weather_place"] = weather_place
 templates.env.globals["lan_word"] = LAN_WORD   # JY-238: the one source for the word a home-network-only link carries
 templates.env.globals["img_letters"] = fallback_letters  # /img/...?t= carries letters only, never a whole title
+
+
+def _img_v(ref) -> str:
+    from hub import media_posters   # lazy: the poster modules load Pillow
+    return media_posters.url_version(ref)
+
+
+templates.env.globals["img_v"] = _img_v   # JY-260: a stored Joey poster's version, on its /img URL as &v= (cache-busting)
 templates.env.globals["duration"] = duration   # E3 (2026-10-13): minutes -> "2h 47m" / "47m" (guide §9 lengths)
 # Joey TV WP-B3 (2026-10-21): the guest surface's globals (hub/media_front.py) - every one answers on the private front too
 templates.env.globals["guest"] = media_front.is_guest

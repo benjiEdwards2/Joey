@@ -22,6 +22,11 @@ A, B, C = "a" * 32, "b" * 32, "c" * 32
 ALL = (A, B, C, S1, S2)   # 2 films, 1 series, its 2 real seasons
 
 
+def url(jf_id, h=None):
+    """The URL Joey's pages render for a stored poster: /img/jf:<id>?h=..&v=<published version>."""
+    return f"/img/jf:{jf_id}?" + (f"h={h}&" if h else "") + f"v={mp.url_version('jf:' + jf_id)}"
+
+
 def img_app():
     app = FastAPI()
     app.include_router(images.router)
@@ -62,13 +67,12 @@ def test_img_serves_the_stored_poster_without_an_upstream_call(fakes, monkeypatc
     with img_app() as c:
         for jf_id in (B, C, S2):
             for h in (120, 240, 400, 600):
-                resp = c.get(f"/img/jf:{jf_id}?h={h}")
+                resp = c.get(url(jf_id, h))
                 assert resp.status_code == 200 and resp.headers["content-type"] == "image/jpeg"
                 assert resp.content == ms.lookup(jf_id, h).read_bytes()
                 assert resp.headers["cache-control"] == images.HIT_CACHE     # the existing /img cache headers
-        assert c.get(f"/img/jf:{B}").content == ms.lookup(B, 400).read_bytes()   # no h: the /img default 400
+        assert c.get(url(B)).content == ms.lookup(B, 400).read_bytes()      # no h: the /img default 400
     assert jf.calls == []                                                 # never proxied
-    assert images.warm(f"jf:{B}", 600) == "cached"                        # the warm-up skips stored posters too
 
 
 def test_img_falls_back_to_todays_path_when_nothing_is_stored_or_posters_are_off(fakes, monkeypatch):
@@ -79,12 +83,15 @@ def test_img_falls_back_to_todays_path_when_nothing_is_stored_or_posters_are_off
     other = "d" * 32
     with img_app() as c:
         assert c.get(f"/img/jf:{other}?h=240").content == b"\xff\xd8jellyfin"     # not stored: proxied as today
-        assert c.get(f"/img/jf:{B}?h=240").content == ms.lookup(B, 240).read_bytes()   # stored: the Joey poster
+        v = url(B, 240)
+        assert c.get(v).content == ms.lookup(B, 240).read_bytes()                  # stored: the Joey poster
+        assert c.get(f"/img/jf:{B}?h=240").content == b"\xff\xd8jellyfin"         # no v: never the store
         monkeypatch.setenv("POSTERS", "off")
-        assert c.get(f"/img/jf:{B}?h=240").content == b"\xff\xd8jellyfin"         # off: the store is not served
+        assert c.get(v).content == b"\xff\xd8jellyfin"                            # off: the store is not served
         monkeypatch.setenv("POSTERS", "dry")
-        ms.publish(B, False)                                                       # a reverted item: the original
-        assert c.get(f"/img/jf:{B}?h=600").content == b"\xff\xd8jellyfin"
+        ms.publish(B, False)                                                       # a reverted item: the original,
+        stale = c.get(v)                                                           # short-cached under the old v
+        assert stale.content == b"\xff\xd8jellyfin" and stale.headers["cache-control"] == images.FALLBACK_CACHE
         assert c.get(f"/img/jfb:{B}?h=600").content == b"\xff\xd8jellyfin"         # backdrops are never the store
 
 
@@ -338,13 +345,13 @@ def test_friends_get_the_stored_poster_but_not_the_review_page(monkeypatch, tmp_
     from tests.hub.test_media_library_pages import jelly
     buf = io.BytesIO()
     Image.new("RGB", (1000, 1500), (200, 20, 20)).save(buf, "JPEG")
-    ms.save(B, "v1", buf.getvalue())
-    ms.write_meta(B, {"jf_id": B, "kind": "movie", "title": "New Film", "ver": "v1", "status": "rendered"})
-    mp.set_state(B, kind="movie", ver="v1", status="rendered")
+    ms.save(B, "0abc12de34", buf.getvalue())
+    ms.write_meta(B, {"jf_id": B, "kind": "movie", "title": "New Film", "ver": "0abc12de34", "status": "rendered"})
+    mp.set_state(B, kind="movie", ver="0abc12de34", status="rendered")
     client, fake = guest_client(monkeypatch, tmp_path, {"jellyfin": jelly()})
     with client as c:
         sign_in(c, fake, FRIEND_ID)
-        resp = c.get(f"/img/jf:{B}?h=240")
+        resp = c.get(url(B, 240))
         assert resp.status_code == 200 and resp.content == ms.lookup(B, 240).read_bytes()
         missing = c.get("/no-such-page").text
         for method, path in (("GET", "/media/posters"), ("GET", f"/media/posters/img/{B}"),
@@ -352,3 +359,47 @@ def test_friends_get_the_stored_poster_but_not_the_review_page(monkeypatch, tmp_
             resp = c.request(method, path, follow_redirects=False)
             assert resp.status_code == 404 and resp.text == missing, path
     assert ms.lookup(B, 240) is not None and not mp.state(B)["reverted"]
+
+
+# ---- the versioned URL (cache-busting) ----
+
+def test_pages_put_the_published_version_on_jf_poster_urls(fakes, monkeypatch):
+    from hub import shell
+    mp.dry_pass(snaps(LIB), pause=0)
+    ver = ms.current(B)
+    macro = shell.templates.env.from_string('{% from "_poster.html" import poster %}{{ poster(ref, "New Film", 240) }}')
+    tile = shell.templates.env.from_string('{% from "_tv_tile.html" import art %}{{ art(ref, "New Film", 600) }}')
+    for tpl in (macro, tile):
+        assert f"&amp;v={ver}" in tpl.render(ref=f"jf:{B}")
+        assert "v=" not in tpl.render(ref=f"jf:{'d' * 32}")              # nothing stored: today's URL
+        assert "v=" not in tpl.render(ref="tmdb:/x.jpg") and "v=" not in tpl.render(ref=None)
+    ms.publish(B, False)
+    assert "v=" not in macro.render(ref=f"jf:{B}")                       # reverted: the plain URL again
+    monkeypatch.setenv("POSTERS", "off")
+    assert mp.url_version(f"jf:{B}") == ""
+
+
+def test_a_new_poster_gets_a_new_url(fakes, monkeypatch, tmp_path):
+    mp.dry_pass(snaps(LIB), pause=0)
+    before = url(B, 240)
+    kit = tmp_path / "kit"
+    shutil.copytree(r.STARTER, kit)
+    data = json.loads((kit / "template.json").read_text(encoding="utf-8"))
+    data["title"]["title_anchor"] = 0.70
+    (kit / "template.json").write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setenv("POSTERS_TEMPLATE_DIR", str(kit))
+    mp.dry_pass(snaps(LIB), pause=0)
+    assert url(B, 240) != before
+
+
+@pytest.mark.parametrize("v", ["../../media.db", "..%2F..%2Fmeta", "v1/../x", "ZZZZZZZZ", "", "a" * 40, "%00",
+                               "current", "full"])
+def test_a_bad_or_hostile_v_is_ignored_safely(fakes, monkeypatch, v):
+    jf, tmdb, out = fakes
+    mp.dry_pass(snaps(LIB), pause=0)
+    monkeypatch.setattr(images, "cache_dir", lambda: out.parent / "imgcache")
+    jf.routes = {"/Images/": lambda: Resp(data=b"\xff\xd8jellyfin", ctype="image/jpeg")}
+    with img_app() as c:
+        resp = c.get(f"/img/jf:{B}?h=240&v={v}")
+    assert resp.status_code == 200 and resp.content == b"\xff\xd8jellyfin"   # today's path, never a store file
+    assert images._stored("jf", B, 240, v) is None

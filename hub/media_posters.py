@@ -333,6 +333,18 @@ def served(jf_id: str, h: int) -> Path | None:
     return None if disabled() else store.lookup(jf_id, h)
 
 
+def url_version(ref) -> str:
+    """Jinja `img_v`: the published store version of a `jf:` poster ref ("" when there is none, POSTERS=off, or any
+    other ref), which Joey's pages put on the /img URL as `&v=`. One small local file read; no network."""
+    if disabled() or not isinstance(ref, str) or not ref.startswith("jf:"):
+        return ""
+    jf_id = ref[3:]
+    if not media_item.ITEM_RE.match(jf_id):
+        return ""
+    ver = store.current(jf_id) or ""
+    return ver if images.V_RE.match(ver) else ""
+
+
 # ---- the pass ----
 
 def memory_ok(snaps) -> bool:

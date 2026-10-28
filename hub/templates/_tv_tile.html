@@ -10,7 +10,7 @@
    art() is the ONE place a TV tile's picture URL is made (JY-260 swaps the poster source here and in hub/tv_home.py). #}
 
 {% macro art(ref, title, h, lazy=true) -%}
-<img src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}" alt=""{% if lazy %} loading="lazy"{% endif %} decoding="async">
+<img src="/img/{{ ref or 'none' }}?h={{ h }}&amp;t={{ img_letters(title)|urlencode }}{% set v = img_v(ref) %}{% if v %}&amp;v={{ v }}{% endif %}" alt=""{% if lazy %} loading="lazy"{% endif %} decoding="async">
 {%- endmacro %}
 
 {% macro bar(pct) -%}

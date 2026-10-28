@@ -255,14 +255,21 @@ async def _miss(stem: str, kind: str, ident: str, size: int) -> tuple[bytes, str
         gate.release()
 
 
-def _stored(kind: str, ident: str, size: int) -> Path | None:
-    """JY-260 phase 2: the stored, pre-sized Joey poster for a `jf:` ref (films, series, seasons), else None - and
-    then /img goes on exactly as before. A small read and a stat; never raises."""
-    if kind != "jf":
+V_RE = re.compile(r"^[0-9a-f]{6,16}$")   # a store version (media_posters_store.version): hex only, never a path
+
+
+def _stored(kind: str, ident: str, size: int, v: str) -> Path | None:
+    """JY-260 phase 2: the stored, pre-sized Joey poster for `jf:<id>?v=<ver>` (films, series, seasons) when `v` is the
+    item's published version, else None - and then /img goes on exactly as before. Joey's pages put `v` on the URL
+    (Jinja `img_v`), so a new poster is a new URL and the 30-day immutable cache never pins an old one; a URL with no
+    `v` (or a bad one) is never served from the store. `v` is only compared with the `current` file, never used in a
+    path. A small read and a stat; never raises."""
+    if kind != "jf" or not V_RE.match(v or ""):
         return None
     from hub import media_posters
     try:
-        return media_posters.served(ident, size)
+        path = media_posters.served(ident, size)
+        return path if path is not None and path.name.startswith(v + ".") else None
     except OSError:
         return None
 
@@ -275,7 +282,7 @@ def _read(path: Path) -> bytes | None:
 
 
 @router.get("/img/{ref:path}")
-async def image(ref: str, h: str = "", t: str = ""):
+async def image(ref: str, h: str = "", t: str = "", v: str = ""):
     title = t[:80]
     if ref == "none":
         return _fallback(title)
@@ -285,11 +292,14 @@ async def image(ref: str, h: str = "", t: str = ""):
     kind, ident = _kind_ident(match)
     size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
 
-    stored = _stored(kind, ident, size)   # JY-260 phase 2: the Joey poster from the local store, when there is one
+    stored = _stored(kind, ident, size, v)   # JY-260 phase 2: the Joey poster from the local store
     if stored is not None:
         body = await anyio.to_thread.run_sync(_read, stored)
         if body is not None:
             return Response(body, media_type="image/jpeg", headers={"Cache-Control": HIT_CACHE})
+    # a `v` that is not (or no longer) published - a page built just before a revert or re-render - gets today's
+    # image with the short cache, so that versioned URL never pins the wrong image for 30 days
+    cache = FALLBACK_CACHE if v and kind == "jf" else HIT_CACHE
     stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
     hit = await anyio.to_thread.run_sync(_cached, stem) if _cache_path(stem) else None   # a stat, then a short read
     if hit is None:
@@ -298,7 +308,7 @@ async def image(ref: str, h: str = "", t: str = ""):
         hit = await _miss(stem, kind, ident, size)
         if not hit:
             return _fallback(title)
-    return Response(hit[0], media_type=MIME[hit[1]], headers={"Cache-Control": HIT_CACHE})
+    return Response(hit[0], media_type=MIME[hit[1]], headers={"Cache-Control": cache})
 
 
 def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
@@ -307,8 +317,6 @@ def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
     match = REF_RE.match(ref or "")
     if not match or h not in SIZES:
         return "skipped"
-    if _stored(*_kind_ident(match), h) is not None:   # JY-260: a stored Joey poster needs no upstream fetch
-        return "cached"
     stem = hashlib.sha256(f"{ref}|{h}".encode("utf-8")).hexdigest()
     if _cache_path(stem):  # a stat, not a read: the warm-up re-checks hundreds of refs each pass
         return "cached"

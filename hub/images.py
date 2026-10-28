@@ -1,6 +1,6 @@
 """Poster proxy `GET /img/{ref}` (2026-10-05) — the hub's second live-call exception
 (the first is none: everything else reads snapshots). Connectors emit opaque refs
-(`jf:<id>`, `jfb:<id>`, `radarr:<id>`, `sonarr:<id>`, `tmdb:<path>`); this fetches the
+(`jf:<id>`, `jfb:<id>[/<n>]`, `radarr:<id>`, `sonarr:<id>`, `tmdb:<path>`); this fetches the
 art with the same env keys the connectors use, caches it on disk and never lets an
 upstream problem surface: any failure serves a generated fallback card instead.
 Warnings name the ref kind and a status/type only — never a URL or key.
@@ -48,7 +48,15 @@ MIME = {ext: mime for mime, ext in EXT.items() if mime != "image/jpg"}
 
 _UPSTREAM = {"jf": "jellyfin", "jfb": "jellyfin", "radarr": "arr", "sonarr": "arr", "tmdb": "tmdb"}   # E1: keep-alive
 
-REF_RE = re.compile(r"^(?:(jf|jfb|radarr|sonarr):([A-Za-z0-9-]+)|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
+# JY-262 (2026-10-28): `jfb:<id>/<n>` is Jellyfin backdrop n (1-9; plain `jfb:<id>` stays backdrop 0) - the title page
+# draws the second TMDB backdrop. Only jfb takes an index.
+REF_RE = re.compile(r"^(?:(jf|radarr|sonarr):([A-Za-z0-9-]+)|(jfb):([A-Za-z0-9-]+(?:/[1-9])?)"
+                    r"|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png)))$")
+
+
+def _kind_ident(match) -> tuple[str, str]:
+    """(kind, ident) of a REF_RE match."""
+    return next((match.group(i), match.group(i + 1)) for i in (1, 3, 5) if match.group(i))
 
 
 # E1 (2026-10-13): a cold-poster burst must never stall pages. /img is async: a cache hit is read in a short worker
@@ -102,7 +110,9 @@ def _upstreams(kind: str, ident: str, h: int) -> list[tuple[str, dict, dict]] | 
         headers = {"Authorization": f"MediaBrowser Token={key}"}
         if kind == "jf":
             return [(f"{url}/Items/{ident}/Images/Primary", {"maxHeight": h, "quality": 90}, headers)]
-        return [(f"{url}/Items/{ident}/Images/Backdrop/0", {"maxWidth": JF_BACKDROP_WIDTH[h], "quality": 85}, headers)]
+        item, _, index = ident.partition("/")
+        return [(f"{url}/Items/{item}/Images/Backdrop/{index or 0}", {"maxWidth": JF_BACKDROP_WIDTH[h], "quality": 85},
+                 headers)]
     if kind in ("radarr", "sonarr"):
         env = _env(f"{kind.upper()}_URL", f"{kind.upper()}_API_KEY")
         if not env:
@@ -253,8 +263,7 @@ async def image(ref: str, h: str = "", t: str = ""):
     match = REF_RE.match(ref)
     if not match:
         return Response("Not found", status_code=404, media_type="text/plain")
-    kind = match.group(1) or match.group(3)
-    ident = match.group(2) or match.group(4)
+    kind, ident = _kind_ident(match)
     size = int(h) if h.isdigit() and int(h) in SIZES else DEFAULT_SIZE
 
     stem = hashlib.sha256(f"{ref}|{size}".encode("utf-8")).hexdigest()
@@ -277,7 +286,7 @@ def warm(ref: str, h: int = DEFAULT_SIZE) -> str:
     stem = hashlib.sha256(f"{ref}|{h}".encode("utf-8")).hexdigest()
     if _cache_path(stem):  # a stat, not a read: the warm-up re-checks hundreds of refs each pass
         return "cached"
-    got = _fetch(match.group(1) or match.group(3), match.group(2) or match.group(4), h)
+    got = _fetch(*_kind_ident(match), h)
     if got is None:
         return "skipped"
     _store(stem, got[1], got[0])

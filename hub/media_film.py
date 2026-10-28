@@ -30,6 +30,7 @@ from hub import media_arr_search, media_awards_badges, media_db, media_discover 
 from hub import media_episode_ratings, media_season_state as mss
 from hub import guest, media_home, media_quality, media_text, media_upgrades, shell
 from hub import media_watch   # JY-054: Play opens Joey's own player when PLAYER_API is on
+from hub import media_backdrop   # JY-262: which backdrop the title page draws
 from hub import media_front   # JY-057: Play on the Joey TV shell opens its own player when PLAYER_API is on
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_library import empty_series, runtime_text
@@ -1125,7 +1126,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
              overview=(item or {}).get("overview") or (t or {}).get("overview") or "",
              genres=(item or {}).get("genres") or (t or {}).get("genres") or [],
              official=(item or {}).get("official_rating"),
-             backdrop=(item["backdrop"] if item else (row or {}).get("backdrop") if row else None) or (t or {}).get("backdrop"),
+             # JY-262: the title page draws Jellyfin backdrop 1 (else 0), else the cached TMDB backdrop
+             backdrop=media_backdrop.title_page(item, row, (t or {}).get("backdrop")),
              poster=(item["poster"] if item else (row or {}).get("poster")) or (t or {}).get("poster"),
              # F2: the link needs no read (the same URL title_from builds), so it is there while the body is pending
              jellyseerr_href=(t or {}).get("jellyseerr_href") or (f"{seerr[0]}/{kind}/{tmdb_id}"

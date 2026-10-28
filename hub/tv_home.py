@@ -8,20 +8,21 @@ with the tile kit (_tv_tile.html). The web and phone Home keep `sh.shelves` exac
   Because you rated (JY-105, never first focus), New on Joey this month, Top rated on Joey, Films under 100 minutes,
   Recently watched.
 * A static hero over a backdrop: the first Continue watching item, else the newest addition. The backdrop is the
-  Jellyfin backdrop from the snapshot row, else the TMDB backdrop from the Jellyseerr title cache, else the poster
-  (drawn blurred and dimmed). Every image is an /img ref (the existing proxy and its disk cache).
+  Jellyfin backdrop from the snapshot row (index 0, JY-262; skipped when this viewer's cached item read says Jellyfin
+  holds none), else the TMDB backdrop from the Jellyseerr title cache, else the poster (drawn blurred and dimmed).
+  Every image is an /img ref (the existing proxy and its disk cache).
 * Never a call (rule 7): everything comes from what build() has already read (the viewer's two cached Jellyfin
   shelves, the scrubbed snapshot) and the hub's caches (media_item.peek for the viewer's own show reads, the
   Jellyseerr title cache). Next episodes uses only shows this viewer has opened (their item read is cached).
 """
 from __future__ import annotations
 
-from hub import media_home, media_item
+from hub import media_backdrop, media_home, media_item
 
 ROW_ORDER = ("continue", "next", "added", "because", "month", "top", "short", "watched")
 LAND_ROWS = frozenset({"continue", "next"})   # 16:9 stills; every other row is 2:3 posters
 NEXT_TITLE = "Next episodes"
-HERO_H = 1280            # the backdrop size media_warmup already warms (BACKDROP_H)
+HERO_H = media_backdrop.TV_H   # 1280 wide: the backdrop size media_warmup already warms (BACKDROP_H)
 STILL_H = 400            # an episode still: the size the TV episode shelf asks for (media_film.html)
 BLUR_H = 240             # the blurred poster fallback: the list-row poster size (warmed)
 
@@ -63,8 +64,10 @@ def backdrop(item: dict | None, jelly: dict) -> dict | None:
         return None
     found = _library_row(item, jelly or {})
     row, kind = found if found else ({}, "movie")
-    if row.get("backdrop"):
-        return {"ref": row["backdrop"], "h": HERO_H, "blur": False}
+    jf_id = _id(row.get("backdrop"))
+    read = media_item.peek(jf_id) if jf_id else None   # JY-262: this viewer's own cached read, if any (no call)
+    if row.get("backdrop") and ((read or {}).get("item") or {}).get("backdrops") != 0:
+        return {"ref": row["backdrop"], "h": HERO_H, "blur": False}   # the snapshot's ref is backdrop 0 (HOME)
     tmdb = _tmdb_backdrop(row.get("item_key") or item.get("item_key"), kind)
     if tmdb:
         return {"ref": tmdb, "h": HERO_H, "blur": False}

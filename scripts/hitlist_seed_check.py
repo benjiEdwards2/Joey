@@ -303,6 +303,8 @@ SOURCES = [
     ("B. in chat (2026-10-28)", "TMDB backdrops 1 and 2", "JY-262", "home hero vs title page"),
     ("B. in chat (2026-10-28)", "Image access check", "JY-263", "JY-262 review finding"),
     ("B. in chat (2026-10-28)", "Engine seam", "JY-264", "JY-261 study finding"),
+    ("B. in chat (2026-10-28)", "Remove button", "JY-265", "title page More fold"),
+    ("B. in chat (2026-10-28)", "Collections page", "JY-266", "friend's franchise grid"),
 ]
 
 

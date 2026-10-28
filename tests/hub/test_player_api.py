@@ -445,6 +445,17 @@ def test_a_fifth_session_drops_the_owners_oldest(client, jf):
     assert client.post(f"/api/play/sessions/{mine[0]}/stream", headers=YOU).status_code == 404
 
 
+def test_a_fifth_session_drops_the_oldest_even_when_the_clock_has_not_ticked(client, jf, env):
+    """JY-237: Windows' clock ticks ~16 ms, so back-to-back starts share a `seen`; the tie used to fall to the random
+    session id and drop any of them. Frozen clock + ids that sort the wrong way round pin it."""
+    env.setattr(player_api.time, "time", lambda: 1_000_000.0)
+    ids = iter(f"sid{n}" for n in range(9, 0, -1))   # descending: the oldest session has the LARGEST id
+    env.setattr(player_api.secrets, "token_urlsafe", lambda n=16: next(ids))
+    mine = [start(client)["session_id"] for _ in range(player_api.MAX_PER_OWNER)]
+    start(client)
+    assert mine[0] not in player_api.SESSIONS and all(s in player_api.SESSIONS for s in mine[1:])
+
+
 def test_an_idle_session_is_forgotten(client, jf, env):
     body = start(client)
     env.setattr(player_api, "IDLE_S", -1)

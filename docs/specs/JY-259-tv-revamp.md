@@ -272,6 +272,58 @@ Verifier fix (2026-10-28): the kit rows' top padding is 20 px, more than the pic
 (`test_the_row_padding_holds_the_whole_lift_and_ring`); the +22 px between Home rows is back (the first row sits 8 px
 under the hero).
 
+## 7. Phase 2 build (2026-10-28): the hero follows focus, the fading top row, the Search stop, `<main>` swaps
+
+Built locally while GitHub is paused (`LOCAL_QUEUE.md`): branch `feat/JY-259-tv-revamp-p2`, not pushed. Hub only; `tv/`
+untouched. Web and phone unchanged (tv.js / tv.css load only in TV mode; the template changes sit behind `tv`).
+
+Steps (step -> verify):
+1. Hero data on every Home tile (`hub/tv_home.py` `tile_hero`): backdrop URL (the JY-262 chain, backdrop 0, written
+   exactly as `art()` writes it so it is one browser-cache entry), title, facts (a 16:9 tile's own line, then year ·
+   Film / Show · runtime) and a one-line synopsis (this viewer's cached item read, else the Seerr title cache; 240
+   characters at most). JSON in `data-hero` on the tile; the row names its eyebrow (`data-hero-eyebrow`: "Pick up where
+   you left off", "Up next", "Just added", else the row label). The snapshot rows are indexed once per render. ->
+   verify: `test_every_home_tile_carries_its_hero_and_the_first_matches_the_drawn_backdrop`,
+   `test_each_friend_gets_hero_data_from_their_own_reads_only`, `test_a_hostile_title_or_synopsis_cannot_leave_the_data_attribute`;
+   the phase 1 `test_no_network_on_render` still green.
+2. Hero follows focus (Q1 A, `tv.js`): 150 ms after focus settles on a tile, the eyebrow, title, facts and synopsis swap
+   and the backdrop loads into the off layer (`.tv-bd-next`), shown once decoded (crossfade). The left and right
+   neighbours' backdrops are warmed with `new Image()`. No other network use. -> verify:
+   `test_the_hero_swap_reads_the_page_only_and_fetches_nothing_but_img`,
+   `test_the_hero_waits_150ms_and_only_the_last_tile_of_a_fast_run_lands`.
+3. Top row fade (Q2 A): `.topbar.tv-dim` (the bar's contents at 40 %, its background kept) while focus is in `<main>`;
+   Up into the bar takes it off. -> verify: `test_the_top_row_fades_while_focus_is_in_the_rows_and_returns_on_up`.
+4. Search stop (Q6 A): a magnifier after the sections; OK opens `#tv-search-dlg` over the page with the JY-194 field
+   focused and editable (on Discover it goes to the page's own field). Back closes it and empties it; OK on a result
+   opens the title page. The JY-194 field and grid lookups are now scoped to the open dialog, else `<main>`. -> verify:
+   `test_the_search_stop_opens_the_field_over_the_page_and_back_closes_it`; JY-194's tests unchanged and green.
+5. `<main>`-only swaps (Q7 A): a boosted response that is a whole shell page swaps `<main>` alone (`htmx:beforeSwap`
+   retargets it), the bar's current pill is copied from the response (no redraw), and Back restores `<main>` from htmx's
+   cache: `historyCacheSize` 10 and `hx-history-elt` on `<main>` in TV mode only (`base.html`; web and phone keep 0).
+   Stale rings are dropped and JY-187 memory puts the focus back. -> verify:
+   `test_a_boosted_page_swaps_main_only_and_back_restores_focus_and_the_bar`,
+   `test_tv_mode_keeps_main_snapshots_and_web_keeps_none`; `test_history_nav.py` unchanged.
+6. Crossfade vs cut: **one CSS variable**, `--tv-fade` (200ms now). It times the hero backdrop fade and the `<main>`
+   view transition; tv.js reads it and asks htmx for `transition:true` only when it is above 0. If the TCL spike (§5
+   phase 2 step 1, not run: needs the TV) shows jank, set `--tv-fade: 0s` and both become cuts. -> verify:
+   `test_the_crossfade_is_one_css_variable_and_tiles_keep_a_placeholder_shape`.
+7. Placeholder shapes: every picture box keeps its final aspect ratio and shows `--tv-surface-2` until its image
+   paints. -> verify: the same test.
+8. Captures and the 18 px audit at 960x540 dpr 2, 1280x720, 1920x1080, 3840x2160 (Home, hero after Right x2, the search
+   dialog, Back, a `<main>` swap with the same `<header>` node) into `JoeyTV\review\JY-259\p2-shots\`
+   (`JoeyTV\scripts\jy259_p2_shots.py`): 0 tiny text, 0 x-scroll. -> verify: the script's PASS lines; and
+   `test_the_new_text_holds_18px_at_every_panel`.
+9. TV review checkpoint 2 (B., on the TCL; with the device spike): "moving around no longer flashes; the hero follows
+   the remote". Not run by the builder.
+
+Known limits: the bar's waiting counts are not refreshed by a `<main>` swap (the pill is); Back from the cache shows the
+page as it was (B. chose this in Q7; the web keeps no snapshots for that reason). Not built here: the
+`<link rel=preload>` for the first two rows (§5 phase 2 step 4) and the 350 ms dwell (the brief set 150 ms).
+
+Test changes (CLAUDE.md rule 4), 2026-10-28: none weakened. The search dialog's form carries an extra class
+(`tv-searchform`) so `test_tv_discover_shows_the_search_field_on_the_existing_trigger` still finds Discover's own form;
+`setFocus` calls the new hooks before `keepRowInView`, which the overscan test pins as the last call.
+
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).
 

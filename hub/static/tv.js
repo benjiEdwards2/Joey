@@ -153,12 +153,16 @@
 
   function isSearch(el) { return !!(el && el.getAttribute && el.getAttribute('data-tv-search') !== null); }
 
+  /* JY-259 (P2): two fields can be on a page - Discover's own in <main> and the Search stop's in the bar's dialog - so
+     the field and its grid are the open dialog's, else <main>'s */
+  function searchRoot() { return openDialog() || document.querySelector('main') || document; }
+
   function searchField() {
-    var s = document.querySelector(SEARCH);
+    var s = searchRoot().querySelector(SEARCH);
     return s && visible(s) ? s : null;
   }
 
-  function grid() { return document.querySelector(GRID); }
+  function grid() { return searchRoot().querySelector(GRID); }
 
   function shownQuery() { var g = grid(); return g ? g.getAttribute('data-q') || '' : ''; }
 
@@ -324,8 +328,160 @@
     centreInShelf(el);
     edgeOrigin(el);   /* after the shelf scroll; the .12 s scale transition has not grown it yet */
     keepInBoxes(el);   /* JY-255: before the window check, which then reads the box's final scroll */
+    dim(el);          /* JY-259 (P2): the top row fades while focus is in the page */
+    heroFollow(el);   /* JY-259 (P2): the Home hero follows the focused tile (debounced) */
     keepRowInView(el);
   }
+
+  /* ==== JY-259 phase 2 (2026-10-28; B.'s pick "A · 1A · 2A · 3A · 4A · 5A · 6A · 7A · 8A") ====
+     Q1 A - the Home hero follows focus: a kit tile carries data-hero (hub/tv_home.py tile_hero: backdrop URL, title,
+     facts, one-line synopsis; its row names the eyebrow, data-hero-eyebrow). 150 ms after focus settles on a tile the
+     hero's words swap and its backdrop loads into the layer that is off, then crossfades (tv.css --tv-fade). Nothing is
+     fetched but the /img backdrop, and the left / right neighbours' backdrops are warmed into the browser cache.
+     Q2 A - the top row fades (.topbar.tv-dim) while focus is in <main>; Up into the bar brings it back. */
+  var HERO_MS = 150, heroTimer = null, warmed = {};
+
+  function heroOf(el) {
+    var raw = el && el.getAttribute ? el.getAttribute('data-hero') : null;
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function heroBox() { var h = document.querySelector('.tv-hero'); return h && h.isConnected ? h : null; }
+
+  function warm(url) {   /* the browser's own /img fetch into its cache; never anything else */
+    if (!url || warmed[url] || url.indexOf('/img/') !== 0) return;
+    warmed[url] = true;
+    var img = new Image();
+    img.decoding = 'async';
+    img.src = url;
+  }
+
+  function warmAround(el) {
+    var kids = el.parentElement ? el.parentElement.children : [], at = Array.prototype.indexOf.call(kids, el);
+    [kids[at - 1], kids[at + 1]].forEach(function (k) { var d = heroOf(k); if (d) warm(d.bd); });
+  }
+
+  function heroText(box, sel, text) {
+    var p = box.querySelector(sel);
+    if (!p) return;
+    p.textContent = text || '';
+    if (text) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
+  }
+
+  function heroBackdrop(d) {
+    var bd = document.querySelector('.tv-bd'), on = null, off = null;
+    if (!bd || !d.bd) return;
+    Array.prototype.forEach.call(bd.querySelectorAll('img'), function (l) {
+      if (l.getAttribute('src') && !l.classList.contains('is-off')) on = on || l; else off = off || l;
+    });
+    if (on && on.getAttribute('src') === d.bd) return;
+    if (!off) return;
+    if (on && bd.classList.contains('is-blur')) { on.classList.add('is-blur'); bd.classList.remove('is-blur'); }   /* blur is per layer now */
+    off.classList.add('is-off');
+    if (d.blur) off.classList.add('is-blur'); else off.classList.remove('is-blur');
+    off.onload = function () {   /* shown once decoded: the old layer fades out as this one fades in */
+      if (off.getAttribute('src') !== d.bd) return;
+      off.classList.remove('is-off');
+      if (on && on !== off) on.classList.add('is-off');
+    };
+    off.setAttribute('src', d.bd);
+    if (off.complete && off.naturalWidth) off.onload();
+  }
+
+  function showHero(el) {
+    var box = heroBox(), d = heroOf(el);
+    if (!box || !d) return;
+    var key = JSON.stringify(d), sec = el.closest('[data-hero-eyebrow]');
+    if (box._shown === key) return;
+    box._shown = key;
+    heroText(box, '.tv-hero-eyebrow', sec ? sec.getAttribute('data-hero-eyebrow') : '');
+    heroText(box, '.tv-hero-title', d.title);
+    heroText(box, '.tv-hero-facts', d.facts);
+    heroText(box, '.tv-hero-syn', d.syn);
+    heroBackdrop(d);
+    warmAround(el);
+  }
+
+  function heroFollow(el) {
+    if (!heroBox() || !heroOf(el)) return;
+    if (heroTimer) clearTimeout(heroTimer);
+    heroTimer = setTimeout(function () { heroTimer = null; if (current === el) showHero(el); }, HERO_MS);
+  }
+
+  function dim(el) {
+    var bar = document.querySelector('.topbar'), main = document.querySelector('main');
+    if (!bar) return;
+    if (el && main && main.contains(el) && !modal()) bar.classList.add('tv-dim'); else bar.classList.remove('tv-dim');
+  }
+
+  /* Q6 A - the Search stop: one OK opens the JY-194 field over the current page (#tv-search-dlg in the bar), editable
+     at once; on Discover it is the page's own field. Back closes the dialog (joeyTV.back) and empties it; OK on a
+     result opens its title page (no request panel off Discover). */
+  var SEARCH_DLG = '[id="tv-search-dlg"]';
+
+  function openSearch(btn) {
+    var main = document.querySelector('main'), own = main && main.querySelector(SEARCH), d;
+    if (own && visible(own)) { own.readOnly = false; setFocus(own); return; }
+    d = document.querySelector(SEARCH_DLG);
+    if (!d) return;
+    d._opener = btn;
+    if (!d.open) d.showModal();
+    var s = d.querySelector(SEARCH);
+    if (s) { s.readOnly = false; opening = true; setFocus(s); opening = false; }
+  }
+
+  function resetSearch(d) {
+    var s = d.querySelector(SEARCH), out = d.querySelector('[id="tv-search-out"]');
+    if (s) { s.value = ''; s.readOnly = true; }
+    if (out) out.innerHTML = '<div class="reqgrid-wrap" data-q=""></div>';
+    wantResults = false;
+    sentQuery = null;
+  }
+
+  /* Q7 A - <main>-only page swaps: a boosted response that is a whole shell page swaps <main> alone (the bar stays; its
+     current pill is copied from the response), with a crossfade when tv.css --tv-fade is above 0 (0s = a cut, decided
+     on the TCL). The bar's current pill per URL is kept for Back (htmx restores <main> from its cache, base.html). */
+  var BAR = 'joeyTV.bar';
+
+  function fadeMs() {
+    var cs = getComputedStyle(document.documentElement), v = cs.getPropertyValue ? cs.getPropertyValue('--tv-fade') : '';
+    var n = parseFloat(v);
+    return isNaN(n) ? 0 : (/ms\s*$/.test(v) ? n : n * 1000);
+  }
+
+  function barState(text) {   /* the hrefs that carry aria-current in a page's top bar; null when it has none */
+    var m = /<header class="topbar">([\s\S]*?)<\/header>/.exec(text || ''), out = [];
+    if (!m) return null;
+    (m[1].match(/<a\b[^>]*>/g) || []).forEach(function (tag) {
+      var h = /\shref="([^"]*)"/.exec(tag);
+      if (h && /\saria-current=/.test(tag)) out.push(h[1].replace(/&amp;/g, '&'));
+    });
+    return out;
+  }
+
+  function applyBar(cur) {
+    if (!cur) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.topbar a[href]'), function (a) {
+      if (cur.indexOf(a.getAttribute('href')) >= 0) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+  }
+
+  function barMemory() {
+    try { return JSON.parse(window.sessionStorage.getItem(BAR)) || {}; } catch (e) { return {}; }
+  }
+
+  function saveBar() {
+    var m = barMemory(), url = here();
+    delete m[url];
+    m[url] = Array.prototype.filter.call(document.querySelectorAll('.topbar a[href]'), function (a) {
+      return a.getAttribute('aria-current') !== null;
+    }).map(function (a) { return a.getAttribute('href'); });
+    var urls = Object.keys(m);
+    if (urls.length > MEMORY_URLS) delete m[urls[0]];
+    try { window.sessionStorage.setItem(BAR, JSON.stringify(m)); } catch (e) { /* storage off: no bar memory */ }
+  }
+  /* ==== end JY-259 phase 2 helpers ==== */
 
   function active() {
     var a = document.activeElement;
@@ -397,6 +553,8 @@
       if (current) current.classList.remove('tv-focus');
       current = e.target;
       current.classList.add('tv-focus');
+      dim(current);
+      heroFollow(current);
     }
   });
 
@@ -438,6 +596,30 @@
     window.location.href = a.href;
   }, true);
 
+  /* JY-259 (P2, Q6 A): OK on the Search stop; OK on a result in its dialog opens the title page (capture: before htmx's
+     request-panel click, which has no panel off Discover) */
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-tv-search-open]') : null;
+    if (!b) return;
+    e.preventDefault();
+    openSearch(b);
+  });
+
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest(SEARCH_DLG + ' a[href]') : null;
+    if (!a) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    var href = a.getAttribute('href'), d = a.closest('dialog');
+    if (d && d.open) d.close();
+    window.location.href = href;
+  }, true);
+
+  /* the dialog closed any way (Back, Esc): empty again, so a later Discover page never meets a second #discover-grid */
+  document.addEventListener('close', function (e) {
+    if (e.target && e.target.getAttribute && e.target.getAttribute('id') === 'tv-search-dlg') resetSearch(e.target);
+  }, true);
+
   function dropBlankTargets(root) {
     Array.prototype.forEach.call((root || document).querySelectorAll('a[target="_blank"]'), function (a) {
       a.removeAttribute('target');
@@ -447,6 +629,7 @@
   function restore() {
     dropBlankTargets(document);
     step();   /* JY-192: the trail Back = series reads */
+    saveBar();   /* JY-259 (P2): this URL's current pill, for a Back that restores <main> only */
     /* JY-187 (B1): a page this document has not set up yet (a full load, a boosted swap to another URL, Back, the
        pageshow below) gets its remembered link and scroll back. htmx scrolls a boosted page to the top after
        afterSettle, so the scroll is applied once more after that has run. */
@@ -484,6 +667,7 @@
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();
+      if (d.getAttribute('id') === 'tv-search-dlg') resetSearch(d);   /* JY-259 (P2): Back closes the search */
       /* Joey TV WP-B4: a dialog that knows its opener (the Discover request panel: the poster) gives focus back to it */
       setFocus(d._opener && visible(d._opener) ? d._opener : first());
       return true;
@@ -499,7 +683,25 @@
   document.addEventListener('htmx:beforeSwap', function (e) {
     if (e.detail.boosted && e.detail.shouldSwap) keyed = false;
   });
+  /* JY-259 (P2, Q7 A): a boosted whole page swaps <main> only - the bar is never redrawn, its current pill follows */
+  document.addEventListener('htmx:beforeSwap', function (e) {
+    var d = e.detail, main = document.querySelector('main');
+    if (!d.boosted || !d.shouldSwap || !main) return;
+    var text = (d.xhr && d.xhr.responseText) || '', cur = barState(text);
+    if (!cur || !/<main\b/.test(text)) return;   /* not a shell page (sign-in, an error body): the whole body, as before */
+    d.target = main;
+    d.selectOverride = 'main';
+    d.swapOverride = 'outerHTML show:window:top' + (fadeMs() > 0 && document.startViewTransition ? ' transition:true' : '');
+    applyBar(cur);
+  });
   document.addEventListener('htmx:afterSettle', restore);
+  /* JY-259 (P2): Back from htmx's cache restores <main> as it was, focus ring included: drop the stale rings and put
+     back the bar's current pill for this URL before restore() puts the remembered focus back */
+  document.addEventListener('htmx:historyRestore', function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.tv-focus'), function (el) { el.classList.remove('tv-focus'); });
+    current = null;
+    applyBar(barMemory()[here()]);
+  });
   document.addEventListener('htmx:historyRestore', function () { keyed = false; restore(); });
   /* JY-187 (B1): a page shown again from the back-forward cache is set up again (memory focus + scroll) */
   window.addEventListener('pageshow', function (e) { if (e.persisted) { page = null; restore(); } });

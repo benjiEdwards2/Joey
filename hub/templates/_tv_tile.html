@@ -21,12 +21,18 @@
 <span class="row-title">{{ title }}</span>{% if sub %}<span class="row-meta">{{ sub }}</span>{% endif %}
 {%- endmacro %}
 
+{# phase 2: a tile with `hero` (hub/tv_home.py tile_hero) carries it as JSON; tv.js swaps the Home hero from it. tojson
+   escapes < > & ' so the single-quoted attribute is safe. #}
+{% macro herodata(i) -%}
+{% if i.hero %} data-hero='{{ i.hero|tojson }}'{% endif %}
+{%- endmacro %}
+
 {% macro poster(i) -%}
-<a class="card-poster tvt tvt-poster" href="{{ i.href }}"><span class="card-pic">{{ art(i.poster, i.title, 600) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+<a class="card-poster tvt tvt-poster" href="{{ i.href }}"{{ herodata(i) }}><span class="card-pic">{{ art(i.poster, i.title, 600) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
 {%- endmacro %}
 
 {% macro land(i) -%}
-<a class="card-poster tvt tvt-land" href="{{ i.href }}"><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+<a class="card-poster tvt tvt-land" href="{{ i.href }}"{{ herodata(i) }}><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
 {%- endmacro %}
 
 {% macro person(p) -%}
@@ -47,20 +53,24 @@
 {# JY-105: a row marked tv_later (Because you rated ...) never takes first focus (tv.js) #}
 <section class="sec"{% if s.tv_later %} data-tv-later{% endif %}>
   <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2></div>
-  <div class="carousel tvt-row{% if s.land %} tvt-row-land{% endif %}">
+  <div class="carousel tvt-row{% if s.land %} tvt-row-land{% endif %}"{% if s.eyebrow %} data-hero-eyebrow="{{ s.eyebrow }}"{% endif %}>
     {% for i in s["items"] %}{% if s.land %}{{ land(i) }}{% else %}{{ poster(i) }}{% endif %}{% endfor %}
   </div>
 </section>
 {%- endmacro %}
 
 {# B.'s point 2: the backdrop under Home (Jellyfin backdrop, else TMDB, else the poster blurred and dimmed - hub/tv_home.py
-   picks), under a gradient scrim (tv.css) so tiles and text stand out. Fixed behind the page; static in phase 1. #}
+   picks), under a gradient scrim (tv.css) so tiles and text stand out. Fixed behind the page.
+   Phase 2: a second, empty layer (.tv-bd-next): tv.js loads the focused tile's backdrop into whichever layer is off and
+   crossfades (tv.css --tv-fade; 0s = a cut). Drawn whenever there is a hero, so a later tile's backdrop has a layer. #}
 {% macro backdrop(hero) -%}
 {% set bd = hero.backdrop if hero else none %}
-{% if bd %}<div class="tv-bd{% if bd.blur %} is-blur{% endif %}" aria-hidden="true">{{ art(bd.ref, hero.title, bd.h, false) }}</div>{% endif %}
+{% if hero %}<div class="tv-bd{% if bd and bd.blur %} is-blur{% endif %}" aria-hidden="true">{% if bd %}{{ art(bd.ref, hero.title, bd.h, false) }}{% endif %}<img class="tv-bd-next" alt="" decoding="async"></div>{% endif %}
 {%- endmacro %}
 
-{# the static hero area (phase 1): what the backdrop shows, in words. Phase 2 makes it follow focus. #}
+{# the hero area: what the backdrop shows, in words. Phase 2: it follows focus (tv.js swaps the eyebrow, title, facts and
+   one-line synopsis from the focused tile's data-hero), so the facts and synopsis lines are always drawn (hidden when
+   empty). #}
 {% macro hero(h) -%}
-{% if h %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title">{{ h.title }}</p>{% if h.sub %}<p class="tv-hero-facts">{{ h.sub }}</p>{% endif %}</div>{% endif %}
+{% if h %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title">{{ h.title }}</p><p class="tv-hero-facts"{% if not h.sub %} hidden{% endif %}>{{ h.sub or "" }}</p><p class="tv-hero-syn"{% if not h.syn %} hidden{% endif %}>{{ h.syn or "" }}</p></div>{% endif %}
 {%- endmacro %}

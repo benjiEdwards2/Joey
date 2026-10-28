@@ -51,15 +51,16 @@ Joey draws the title and the sub-line itself, because the words change per film.
   "scrim": null,
   "scrim_band": {"top": 0.50, "solid": 1.2, "opacity": 0.9, "colour": "#000000"},
   "frame": null,
+  "accent_rule": {"colour": "#E0B04A", "width": 0.09, "height": 6, "gap": 24},
   "title": {
     "title_anchor": 0.75, "title_anchor_mode": "bottom", "title_gap": 0.02, "title_top_limit": 0.62,
-    "margin_x": 0.06,
-    "max_size": 95, "wrap_at": 60, "min_size": 40, "max_lines": 3, "line_height": 1.05,
-    "uppercase": true, "tracking": 0, "weight": 400, "colour": "#FFFFFF",
+    "margin_x": 0.06, "title_fill": 0.88,
+    "max_size": 400, "max_cap_height": 0.14, "wrap_at": 96, "min_size": 40, "max_lines": 3, "line_height": 0.92,
+    "uppercase": true, "tracking": 0.02, "weight": 900, "colour": "#FFFFFF",
     "shadow": {"colour": "#000000", "opacity": 0.35, "blur": 12, "dy": 2}
   },
   "sub": {
-    "sub_anchor": 0.84, "size": 50, "weight": 400, "colour": "#FFFFFF", "opacity": 1.0, "tracking": 0.02,
+    "sub_anchor": 0.84, "size": 50, "weight": 500, "colour": "#FFFFFF", "opacity": 1.0, "tracking": 0.08,
     "shadow": {"colour": "#000000", "opacity": 0.3, "blur": 8, "dy": 2}
   }
 }
@@ -71,10 +72,12 @@ Joey draws the title and the sub-line itself, because the words change per film.
   - `"bottom"` (the starter): a title starts at `title_anchor`. If its lines would come closer to the sub-line than `title_gap` (2 % of the height), the whole block moves up, but never above `title_top_limit`. The title can never touch the sub-line.
   - `"top"`: the block hangs from `title_anchor` and shrinks to fit above the gap.
 - **Sizes are pixels on the canvas.** The title's lines always fit between their top limit and the gap above the sub-line.
-  - A title starts at `max_size` on one line and shrinks to `wrap_at` if it is too wide.
+  - **`title_fill`** (0.3 to 1; the starter 0.88): each title is sized so its widest line fills that share of the safe width, so short titles come out large and long ones smaller. Short titles fill it too (WAR, SILO about 0.85); the sanity cap is `max_cap_height` (the starter 0.14: the glyphs of one line stay at or under 14 % of the canvas height, about 210 px of capitals on 1500), so a two-letter title such as "IT" or "UP" stays bold, not absurd. `max_size` (400) is only an outer limit. Leave it out for the old behaviour (as large as fits, up to `max_size`).
+  - A title starts on one line at the size that fills `title_fill`, and shrinks to `wrap_at` if it is too wide.
+  - The title's real glyph height is measured, so a tall single line at the cap still stops at the gap above the sub-line; a block that is too tall moves up (bottom mode).
   - If it still does not fit, it wraps to two balanced lines, and then to three (`max_lines`, up to 3), each time starting from the largest size that fits.
   - The last line count may shrink down to `min_size`, the hard floor.
-  - Only a title too long even at the floor is cut with "…". The review page marks it "Title cut short".
+  - A title too long for `title_fill` even on `max_lines` at the floor may use the whole safe width. Only a title too long even then is cut with "…". The review page marks it "Title cut short".
   - Joey refuses a kit where `max_lines` lines at `min_size` cannot fit above the sub-line, and says so.
 - **`scrim` / `frame`:** a file name in the folder (`"scrim.png"`), or `null` for none. When `scrim` is `null`, `scrim_band` draws the fade:
   - `top`: where it starts, fully transparent;
@@ -83,10 +86,11 @@ Joey draws the title and the sub-line itself, because the words change per film.
   - `colour`: the fade's colour.
 
   Set `scrim_band` to `null` for no fade at all.
+- **`accent_rule`:** a short bar between the title and the sub-line (the starter: gold `#E0B04A`, 9 % of the width, 6 px high, 24 px below the title). The sub-line moves down when it needs the room, keeping the same gap under the bar. Set `"accent_rule": null` to turn it off; the sub-line then sits at `sub_anchor`.
 - **Shadow:** the starter keeps only a very soft one (opacity 0.35 or less), so white text stays readable over bright art. Set `"shadow": null` for none.
 - **Colours** are `#RRGGBB`. `opacity` and the shadow `opacity` run from 0 to 1. `blur` is the shadow softness in pixels, and `dy` moves the shadow down.
 - **`tracking`** is letter spacing as a fraction of the font size: 0.04 = 4 %, the same as Canva's letter spacing 40.
-- **`weight`** is 100 to 900. It works with variable fonts such as Geist; a static font file ignores it.
+- **`weight`** is 100 to 900. It works with variable fonts such as Geist (the starter's GeistVF covers 100 to 900: the title uses 900, Black; the sub-line 500, Medium); a static font file ignores it.
 - **The sub-line** for a film is its year. For a series it is "Seasons 1–4", or "Season 1" when there is only one season (specials never count). Each season of a series gets its own poster: the series name as the title and "Season 2" under it.
 
 ## Changing the font

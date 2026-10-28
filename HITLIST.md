@@ -197,6 +197,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-262 | TMDB backdrops: backdrop 1 on the Home hero and carousel, backdrop 2 on the title page | Joey TV | M | [x] shipped | B. 2026-10-28: "This can use the first background as the home page or carousel image, then if you go into the show. It shows the second background image or such." · PR #250 | [spec](docs/specs/JY-262-tmdb-backdrops.md) |
 | JY-263 | Image access check: /img serves a title's poster/backdrop only to viewers who can see that title | Media | S | ready | B. 2026-10-28: "Can you show me the hardening items and can we lock them in if nothing changes." Found by the JY-262 review (pre-existing gap; artwork only). Build after JY-260 phase 2 (same image code) | — |
 | JY-264 | Engine seam: one Jellyfin adapter + a library_index (Jellyfin id -> path, TMDB, TVDB) so ratings and diary survive a library rebuild | Media | M | ready | B. 2026-10-28: "Can you show me the hardening items and can we lock them in if nothing changes." From the JY-261 study: ratings/diary keyed jf:<SeriesId> would be orphaned by a rebuild. Spec first | — |
+| JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | spec | B. 2026-10-28: "In more, can you please add a remove button which would remove the request or remove the content." Changes the "nothing in Joey deletes media" rule; spec + options in progress | — |
+| JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | idea | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
 
 ### NAS / stack
 

@@ -31,6 +31,7 @@ Joey is a private dashboard for two people, self-hosted on a NAS behind Cloudfla
 - Before every commit: `git status` + `git fetch`; stage only your item's files (parallel sessions share the repo).
 - One worktree per item: `git worktree add ../wt-JY-### -b feat/JY-###-slug origin/main`. Never merge or push `main` from the shared clone: it may sit on another session's branch.
 - Anything only B. can do (router, Cloudflare, secrets, the TV) goes in one hands bundle per state window, with exact click-paths. Tests that need one state change run together in that window.
+- Every question to B. about how something looks (a background, a title page, a poster, a layout, a colour) comes with the picture: a published Artifact page or screenshots of each option, using real titles where possible, linked right in the ask. B. 2026-10-28: "Update claude.md to also provide tehe artifact or where I can see teh background or title pages if it is asking me to complete this."
 - Builder and review tier follow the item's size:
 
 | Size | Builder | Review |

@@ -705,7 +705,8 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
                 art = fetch_art(w1280(chosen["url"]))
             auto = auto_approves(chosen)
             old = store.read_meta(t["jf_id"]) or {}   # the ranked backdrops outlive a poster re-render
-            side = {**{k: old[k] for k in ("backdrops", "backdrops_at", "season_art") if k in old},
+            side = {**{k: old[k] for k in ("backdrops", "backdrops_at", "season_art", "season_art_fails",
+                                           "season_art_retry_at") if k in old},
                     **t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
                     "rendered_at": _now(), "pick": chosen, "auto": auto}
             size = None
@@ -715,7 +716,13 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             elif art is None:
                 raise RuntimeError("art unavailable")
             else:
-                master = render.render(tpl, art, t["title"], sub)
+                try:
+                    master = render.render(tpl, art, t["title"], sub)
+                except render.RenderError:   # e.g. a 4096 x 2304 backdrop under 5 MB but over the decode cap
+                    smaller = (fetch_art(w1280(chosen["url"])) if "/t/p/original/" in chosen["url"] else None)
+                    if smaller is None:
+                        raise
+                    master = render.render(tpl, smaller, t["title"], sub)   # TMDB's 1280-wide copy
                 size = store.save(t["jf_id"], ver, master, publish=auto and not row.get("reverted"))
                 side["status"] = "rendered"
                 if render.layout_title(tpl, t["title"]).truncated:   # past the hard floor: B. checks it on the page
@@ -777,15 +784,30 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
         url = ((series or {}).get("pick") or {}).get("url")
         prior = (series or {}).get("season_art") if isinstance((series or {}).get("season_art"), dict) else {}
         art_plan = prior
-        if seasons and (not fresh or any(x["jf_id"] not in prior for x in seasons)):   # daily, or a new season
+        due = seasons and (not fresh or any(x["jf_id"] not in prior for x in seasons))   # daily, or a new season
+        if due and in_backoff_until((series or {}).get("season_art_retry_at")):   # 3 failed plans in a row: 24 h
+            counts["backoff"] += 1
+            due = False
+        if due:
             try:
                 art_plan = plan_season_art(t["jf_id"], seasons, url, prior)
                 if series and series.get("jf_id"):
-                    series = {**(store.read_meta(t["jf_id"]) or series), "season_art": art_plan}
+                    meta = store.read_meta(t["jf_id"]) or series
+                    meta = {k: v for k, v in meta.items() if k not in ("season_art_fails", "season_art_retry_at")}
+                    series = {**meta, "season_art": art_plan}
                     store.write_meta(t["jf_id"], series)
-            except Exception as exc:   # the previous plan stays; retried next pass
+            except Exception as exc:   # the previous plan stays; retried next pass, backing off after 3 in a row
                 counts["failed"] += 1
                 log.warning("posters: season art plan failed: %s", type(exc).__name__)
+                if series and series.get("jf_id"):
+                    meta = store.read_meta(t["jf_id"]) or series
+                    fails = int(meta.get("season_art_fails") or 0) + 1
+                    retry = (_stamp(datetime.now(timezone.utc) + timedelta(seconds=BACKOFF_S))
+                             if fails >= FAILS_BEFORE_BACKOFF else None)
+                    try:
+                        store.write_meta(t["jf_id"], {**meta, "season_art_fails": fails, "season_art_retry_at": retry})
+                    except (OSError, ValueError):
+                        pass
         for x in seasons:
             if full():
                 counts["more"] = True

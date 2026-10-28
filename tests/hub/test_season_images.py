@@ -43,11 +43,15 @@ class Fake:
         self.series = [poster("series-1", votes=9), poster("series-2", votes=7), poster("series-en", "en", 99)]
         self.backdrops = [backdrop("bd-a", 8.0), backdrop("bd-b", 7.0), backdrop("bd-c", 6.0), backdrop("bd-d", 5.0)]
         self.calls = []
+        self.backdrop_size = (3840, 2160)
 
     def get(self, url, params=None, headers=None, timeout=None, stream=False):
         self.calls.append((url, dict(params or {})))
         if "image.tmdb.org" in url:
-            return Resp(data=jpeg(*((3840, 2160) if "/bd-" in url else (2000, 3000))), ctype="image/jpeg")
+            if "/bd-" in url:
+                size = (1280, 720) if "/w1280/" in url else self.backdrop_size
+                return Resp(data=jpeg(*size), ctype="image/jpeg")
+            return Resp(data=jpeg(2000, 3000), ctype="image/jpeg")
         if "/Shows/" in url:
             return Resp(body={"Items": [{"Id": s, "IndexNumber": i + 1} for i, s in enumerate(self.seasons)]})
         item = url.split("/Items/", 1)[1].split("/", 1)[0]
@@ -162,3 +166,27 @@ def test_no_network_on_the_review_page_render(fake, monkeypatch):
         assert c.get("/media/posters").status_code == 200
         assert c.get(f"/media/posters/img/{SEASONS[4]}").status_code == 200
     assert json.loads((ms.out_dir() / SHOW / "meta.json").read_text())["season_art"]
+
+
+def test_a_backdrop_over_the_decode_cap_but_under_5_mb_retries_at_w1280(fake):
+    """Review of #264: a 4096 x 2304 original (9.4 M pixels, a small file) is refused by the decode cap; the season
+    then renders from TMDB's 1280-wide copy instead of never getting a poster."""
+    fake.backdrop_size = (4096, 2304)
+    counts = mp.dry_pass(snaps(LIB), pause=0)
+    assert counts["failed"] == 0 and art_of(SEASONS[4]) == "bd-c.jpg" and ms.master(SEASONS[4]) is not None
+    assert any("/w1280/bd-c.jpg" in u for u, _ in fake.calls)
+
+
+def test_a_failing_season_plan_backs_off_after_three_tries(fake, monkeypatch):
+    monkeypatch.setattr(mp, "plan_season_art", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("down")))
+    for _ in range(3):
+        assert mp.dry_pass(snaps(LIB), pause=0)["failed"] >= 1
+    meta = ms.read_meta(SHOW)
+    assert meta["season_art_fails"] == 3 and meta["season_art_retry_at"]
+    calls = []
+    monkeypatch.setattr(mp, "plan_season_art", lambda *a, **k: calls.append(1) or {})
+    got = mp.dry_pass(snaps(LIB), pause=0)
+    assert calls == [] and got["backoff"] >= 1                                     # passed over for 24 h
+    monkeypatch.setattr(mp, "in_backoff_until", lambda retry_at, now=None: False)  # a day later
+    mp.dry_pass(snaps(LIB), pause=0)
+    assert calls == [1] and "season_art_fails" not in ms.read_meta(SHOW)           # a success clears the count

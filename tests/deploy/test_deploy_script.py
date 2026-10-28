@@ -463,7 +463,7 @@ exit 0
 """
 
 # Fake chown (JY-260 posters_dir): records its arguments; FAKE_CHOWN_FAILS makes it fail. The real NAS path is never
-# touched: the harness points JOEY_POSTERS_DIR at a temp dir.
+# touched: the harness points JOEY_POSTERS_DIR at a temp dir, and calls this fake by absolute path (as with sleep).
 FAKE_CHOWN = """#!/bin/sh
 echo "$*" >> "$FAKE_DIR/chown.log"
 if [ -n "${FAKE_CHOWN_FAILS:-}" ]; then echo "chown: Operation not permitted" >&2; exit 1; fi
@@ -521,6 +521,10 @@ def _run_deploy(tmp_path, avail_mb, swap_used_mb, pull_fails=0, running=(), free
     wait = '    sleep "$PULL_WAIT"' + chr(10)
     assert script.count(wait) == 1
     script = script.replace(wait, '    "' + (fake / "bin" / "sleep").as_posix() + '" "$PULL_WAIT"' + chr(10))
+    # Same for chown (JY-260 posters_dir): BusyBox sh (the CI runner) runs its own chown applet before any PATH lookup.
+    own = 'chown 1000:1000 "$POSTERS_OUT_DIR"'
+    assert script.count(own) == 1
+    script = script.replace(own, '"' + (fake / "bin" / "chown").as_posix() + '" 1000:1000 "$POSTERS_OUT_DIR"')
     if inject:  # (anchor, replacement): e.g. an error that set -e turns into an abort
         assert script.count(inject[0]) == 1, inject[0]
         script = script.replace(*inject)

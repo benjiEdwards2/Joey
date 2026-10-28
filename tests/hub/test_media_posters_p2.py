@@ -732,3 +732,72 @@ def test_a_season_list_that_keeps_failing_backs_off(fakes):
     jf.calls.clear()
     got = mp.dry_pass(snaps(LIB), pause=0)
     assert got["backoff"] == 1 and not [u for u in jf.calls if "/Shows/" in u]
+
+
+# ---- verifier follow-ups (2026-10-28): a busy database reads as a busy item; the lock heartbeat ----
+
+def test_a_locked_database_on_claim_is_retried_then_the_item_is_skipped(jelly_rw, monkeypatch, caplog):
+    import sqlite3
+    fake, out = jelly_rw
+    mp.dry_pass(snaps(LIB), pause=0)
+    mp.set_state(B, live_ver=None)
+    calls = {"n": 0}
+    real = mp.connect
+
+    def locked():
+        calls["n"] += 1
+        raise sqlite3.OperationalError("database is locked")
+    monkeypatch.setattr(mp, "CLAIM_RETRY_S", 0.0)
+    monkeypatch.setattr(mp, "connect", locked)
+    with caplog.at_level("WARNING", logger="hub.media_posters"):
+        assert mp.claim(B, "x") is False
+    assert calls["n"] == mp.CLAIM_TRIES and any("item lock unavailable" in r.getMessage() for r in caplog.records)
+    fake.log.clear()
+    assert w.apply(B) == "skipped" and not fake.writes()               # busy: skipped this pass, nothing raised
+    monkeypatch.setattr(mp, "connect", real)
+    assert w.apply(B) == "written"
+
+
+def test_a_slow_backup_read_keeps_its_lock_alive(jelly_rw, monkeypatch):
+    import time as _time
+    fake, out = jelly_rw
+    monkeypatch.setenv("POSTERS", "dry")
+    mp.dry_pass(snaps(LIB), pause=0)
+    monkeypatch.setenv("POSTERS", "on")
+    monkeypatch.setattr(mp, "LOCK_TTL_S", 1)
+    monkeypatch.setattr(w, "BEAT_S", 0.2)
+    rivals = []
+
+    class Slow(Resp):
+        def iter_content(self, n):
+            for i in range(4):                       # 4 x 0.5 s: twice the 1 s lock lifetime
+                _time.sleep(0.5)
+                rivals.append(mp.claim(B, "a-rival"))  # a stale-lock takeover would succeed here
+                yield ORIG[:4] if i == 0 else b""
+            yield ORIG[4:]
+    real_get = fake.get
+
+    def get(url, **kw):
+        if url.endswith(f"/Items/{B}/Images/Primary"):
+            fake.log.append(("GET", url.split("http://jf.test", 1)[1]))
+            return Slow(data=ORIG, ctype="image/jpeg")
+        return real_get(url, **kw)
+    monkeypatch.setattr(fake, "get", get)
+    assert w.apply(B) == "written"
+    assert rivals and not any(rivals)                # the live writer never lost its lock
+    assert ms.orig_path(B).read_bytes() == ORIG
+
+
+def test_a_writer_that_lost_its_lock_stops_before_uploading(jelly_rw, monkeypatch):
+    fake, out = jelly_rw
+    monkeypatch.setenv("POSTERS", "dry")
+    mp.dry_pass(snaps(LIB), pause=0)
+    monkeypatch.setenv("POSTERS", "on")
+    real = w.backup
+
+    def backup_then_taken_over(base, headers, jf_id, item):
+        real(base, headers, jf_id, item)
+        mp.set_state(jf_id, lock_owner="someone-else", lock_until="2999-01-01T00:00:00Z")
+    monkeypatch.setattr(w, "backup", backup_then_taken_over)
+    assert w.apply(B) == "error" and "item lock lost" in mp.state(B)["last_error"]
+    assert ("POST", f"/Items/{B}/Images/Primary") not in fake.log

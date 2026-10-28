@@ -48,6 +48,8 @@ TIMEOUT = 20
 MAX_ORIG_BYTES = 20 * 1024 * 1024
 CTYPE = {".jpg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}
 EXT = {"image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
+BEAT_S = 30.0          # a lock holder renews its lock this often during long reads / uploads (TTL 300 s)
+_held = threading.local()   # this thread's (jf_id, owner, last beat) while it holds an item lock
 REVERT_WAIT_S = 10.0   # a web revert waits this long for an in-flight write of the item, then queues itself
 _warned = {"no_key": False}
 
@@ -105,6 +107,7 @@ def _read_orig(base: str, headers: dict, jf_id: str) -> tuple[bytes, str]:
             raise WriteError("original: not an image")
         body = bytearray()
         for chunk in resp.iter_content(64 * 1024):
+            _beat()
             body += chunk or b""
             if len(body) > MAX_ORIG_BYTES:
                 raise WriteError("original: too large")
@@ -117,7 +120,22 @@ def _read_orig(base: str, headers: dict, jf_id: str) -> tuple[bytes, str]:
             close()
 
 
+def _beat(force: bool = False) -> None:
+    """Heartbeat: a live holder renews its item lock every BEAT_S, so a slow read never outlives LOCK_TTL_S. A lock
+    that was lost (taken over as stale) stops the work: nothing more is written under it."""
+    held = getattr(_held, "lock", None)
+    if held is None:
+        return
+    jf_id, owner, last = held
+    if not force and time.monotonic() - last < BEAT_S:
+        return
+    if not mp.claim(jf_id, owner):
+        raise WriteError("item lock lost")
+    _held.lock = (jf_id, owner, time.monotonic())
+
+
 def _upload(base: str, headers: dict, jf_id: str, body: bytes, ctype: str) -> None:
+    _beat(force=True)
     _ok(upstream.session("jellyfin").post(f"{base}/Items/{jf_id}/Images/Primary", data=base64.b64encode(body),
                                           headers={**headers, "Content-Type": ctype}, timeout=TIMEOUT), "upload")
 
@@ -182,10 +200,12 @@ def apply(jf_id: str) -> str:
         return "skipped"
     owner = _owner()
     if not mp.claim(jf_id, owner):
-        return "skipped"   # a revert holds it: never write over it
+        return "skipped"   # a revert holds it (or the database is busy): never write over it
+    _held.lock = (jf_id, owner, time.monotonic())
     try:
         return _apply_locked(jf_id)
     finally:
+        _held.lock = None
         mp.release(jf_id, owner)
 
 
@@ -288,9 +308,11 @@ def _undo(jf_id: str, wait_s: float = 0.0) -> str:
         if time.monotonic() >= deadline:
             return "queued"
         time.sleep(0.1)
+    _held.lock = (jf_id, owner, time.monotonic())
     try:
         return _undo_locked(jf_id)
     finally:
+        _held.lock = None
         mp.release(jf_id, owner)
 
 

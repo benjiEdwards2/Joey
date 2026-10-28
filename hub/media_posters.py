@@ -67,6 +67,7 @@ ADDED_COLUMNS = {"title": "TEXT", "wrote": "INTEGER NOT NULL DEFAULT 0", "pendin
                  "manual": "INTEGER NOT NULL DEFAULT 0", "fails": "INTEGER NOT NULL DEFAULT 0", "retry_at": "TEXT",
                  "lock_owner": "TEXT", "lock_until": "TEXT"}
 LOCK_TTL_S = 300   # an item lock older than this is stale (a crashed holder); one write is at most ~6 x 20 s calls
+CLAIM_TRIES, CLAIM_RETRY_S = 3, 0.2   # a "database is locked" claim is retried, then the item counts as busy
 _ddl_done: set[str] = set()
 _ddl_lock = threading.Lock()
 
@@ -340,14 +341,24 @@ def backing_off() -> list[dict]:
 def claim(jf_id: str, owner: str, now: datetime | None = None) -> bool:
     """Take an item's write lock (one atomic UPDATE in media.db, so it holds across threads, the background loop and
     any other process on the file). False while another holder's lock is fresh. A crashed holder's lock goes stale
-    after LOCK_TTL_S."""
-    now = now or datetime.now(timezone.utc)
-    with closing(connect()) as db:
-        cur = db.execute("UPDATE poster SET lock_owner = ?, lock_until = ? WHERE jf_id = ? "
-                         "AND (lock_owner IS NULL OR lock_owner = ? OR lock_until < ?)",
-                         (owner, _stamp(now + timedelta(seconds=LOCK_TTL_S)), jf_id, owner, _stamp(now)))
-        db.commit()
-        return cur.rowcount == 1
+    after LOCK_TTL_S.
+    The holder calls it again as a heartbeat (same owner = extend). A busy database ("database is locked") is retried
+    CLAIM_TRIES times, CLAIM_RETRY_S apart, then reads as busy (False): the item is skipped this pass."""
+    for attempt in range(CLAIM_TRIES):
+        at = now or datetime.now(timezone.utc)
+        try:
+            with closing(connect()) as db:
+                cur = db.execute("UPDATE poster SET lock_owner = ?, lock_until = ? WHERE jf_id = ? "
+                                 "AND (lock_owner IS NULL OR lock_owner = ? OR lock_until < ?)",
+                                 (owner, _stamp(at + timedelta(seconds=LOCK_TTL_S)), jf_id, owner, _stamp(at)))
+                db.commit()
+                return cur.rowcount == 1
+        except sqlite3.OperationalError as exc:
+            if attempt + 1 == CLAIM_TRIES:
+                log.warning("posters: item lock unavailable (%s); skipped this pass", type(exc).__name__)
+                return False
+            time.sleep(CLAIM_RETRY_S)
+    return False
 
 
 def release(jf_id: str, owner: str) -> None:

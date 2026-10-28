@@ -316,13 +316,21 @@ Steps (step -> verify):
 9. TV review checkpoint 2 (B., on the TCL; with the device spike): "moving around no longer flashes; the hero follows
    the remote". Not run by the builder.
 
-Known limits: the bar's waiting counts are not refreshed by a `<main>` swap (the pill is); Back from the cache shows the
-page as it was (B. chose this in Q7; the web keeps no snapshots for that reason). Not built here: the
+Known limits: Back from the cache shows the page as it was (B. chose this in Q7; the web keeps no snapshots for that reason). Not built here: the
 `<link rel=preload>` for the first two rows (§5 phase 2 step 4) and the 350 ms dwell (the brief set 150 ms).
 
 Test changes (CLAUDE.md rule 4), 2026-10-28: none weakened. The search dialog's form carries an extra class
 (`tv-searchform`) so `test_tv_discover_shows_the_search_field_on_the_existing_trigger` still finds Discover's own form;
 `setFocus` calls the new hooks before `keepRowInView`, which the overscan test pins as the last call.
+
+Review fixes (2026-10-28, reviews of 2b77eb2): (1) privacy: the TV page names its viewer by a one-way tag (meta
+`joey-viewer`, `hub/shell.py` `viewer_tag`); tv.js drops `htmx-history-cache` and the `joeyTV.*` tab memories on the
+sign-in page, on Sign out and whenever the tag differs from the one that wrote it
+(`test_the_history_cache_is_dropped_for_a_new_viewer_on_sign_in_and_on_sign_out`,
+`test_the_tv_page_names_its_viewer_by_a_one_way_tag_only`); (2) flicker: the backdrop is decoded off screen, only the
+newest focus lands, and a swap inside the last fade waits for it to end
+(`test_the_newest_focus_wins_the_backdrop_and_a_fading_layer_is_never_reloaded`); (3) the section pills' waiting counts
+are copied from the swapped response (no extra request; the swap test checks it).
 
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).

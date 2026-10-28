@@ -42,8 +42,15 @@ function advance(ms) {
   clock = end;
 }
 flush = function () { advance(0); };
-function Image() {}
-Object.defineProperty(Image.prototype, 'src', { set: function (v) { images.push(v); } });
+var pres = [], ls = {}, metaTag = 'v1';
+function Image() { pres.push(this); }
+Object.defineProperty(Image.prototype, 'src', { set: function (v) { this._src = v; images.push(v); },
+                                                get: function () { return this._src; } });
+function loaded(url) { pres.filter(function (p) { return p._src === url && p.onload; }).forEach(function (p) { p.onload(); }); }
+Date.now = function () { return clock; };
+window.localStorage = { getItem: function (k) { return k in ls ? ls[k] : null; }, setItem: function (k, v) { ls[k] = String(v); },
+                        removeItem: function (k) { delete ls[k]; } };
+window.sessionStorage.removeItem = function (k) { delete store[k]; };
 function fetch() { net.push('fetch'); }
 function XMLHttpRequest() { net.push('xhr'); }
 var htmx = { ajax: function () { net.push('htmx.ajax'); } };
@@ -111,7 +118,9 @@ function discover(main) {
 var mainEl;
 function shell(open, fill) {   /* a full load */
   body.children.forEach(function (k) { k.parentElement = null; }); body.children = [];
-  document.activeElement = body; header(open);
+  document.activeElement = body;
+  if (metaTag !== null) body.append(new El('meta', { attrs: { name: 'joey-viewer', content: metaTag } }));
+  header(open);
   mainEl = new El('main', { cls: ['page'], top: 60 }); body.append(mainEl); fill(mainEl);
 }
 function swapMain(fill) {   /* what htmx does to <main> after the beforeSwap below: the bar is left alone */
@@ -157,10 +166,11 @@ key('ArrowRight'); advance(150);
 var box = document.querySelector('.tv-hero');
 out.title = heroTitle.textContent;
 out.eyebrow = box.children[0].textContent; out.facts = box.children[2].textContent; out.syn = box.children[3].textContent;
-out.b_src = B.getAttribute('src'); out.b_off_before_load = B.classList.contains('is-off');
-B.onload();
+out.b_off_before_load = B.getAttribute('src') === null;   /* nothing on a layer until decoded */
+loaded('/img/jfb:2?h=1280&t=T2');
+out.b_src = B.getAttribute('src');
 out.b_off = B.classList.contains('is-off'); out.a_off = A.classList.contains('is-off');
-key('ArrowDown'); advance(150);
+key('ArrowDown'); advance(150); loaded('/img/jfb:7?h=1280&t=T7');
 out.row2_eyebrow = box.children[0].textContent; out.row2_title = heroTitle.textContent;
 out.a_src = A.getAttribute('src');   /* the layer that was off takes the next backdrop */
 out.images = images; out.net = net;
@@ -168,7 +178,7 @@ out.images = images; out.net = net;
     assert out["first"] == "t1" and out["first_title"] == "Title 1"
     assert out["title"] == "Title 2" and out["eyebrow"] == "Pick up where you left off"
     assert out["facts"] == "2024 · Film · 1h 42m" and out["syn"] == "Synopsis 2"
-    assert out["b_src"] == "/img/jfb:2?h=1280&t=T2" and out["b_off_before_load"]     # hidden until decoded
+    assert out["b_src"] == "/img/jfb:2?h=1280&t=T2" and out["b_off_before_load"]     # decoded first, then shown
     assert not out["b_off"] and out["a_off"]                                           # then the crossfade
     assert out["row2_eyebrow"] == "Just added" and out["row2_title"] == "Title 7"
     assert out["a_src"] == "/img/jfb:7?h=1280&t=T7"
@@ -248,13 +258,13 @@ var keepBar = bar, keepBrand = brand;
 key('ArrowRight'); key('ArrowRight'); advance(150);
 out.picked = now();
 var page = '<html><head></head><body><header class="topbar"><div class="topbar-in"><a class="brand brand-home" href="/a/media">J</a>' +
-  '<nav class="toplinks"><a href="/media/movies" aria-current="page">Movies</a><a href="/media/tv">TV</a></nav></div></header>' +
+  '<nav class="toplinks"><a href="/media/movies" aria-current="page">Movies <span class="waitcount">3</span></a><a href="/media/tv">TV</a></nav></div></header>' +
   '<main class="page"><a href="/jf/play">Play</a></main></body></html>';
 var det = { boosted: true, shouldSwap: true, xhr: { responseText: page } };
 key('Enter');
 fire('htmx:beforeSwap', { detail: det });
 out.target_is_main = det.target === mainEl; out.select = det.selectOverride; out.swap = det.swapOverride;
-out.bar_cur = cur();
+out.bar_cur = cur(); out.count = document.querySelector('.toplinks').children[0].innerHTML;
 window.location.pathname = '/media/item/3'; swapMain(title);
 fire('htmx:afterSettle', {}); flush();
 out.title = now(); out.same_bar = document.querySelector('.topbar') === keepBar && brand === keepBrand;
@@ -280,6 +290,7 @@ out.fade_swap = det3.swapOverride;
     assert out["swap"] == "outerHTML show:window:top"                                   # --tv-fade 0s: a cut
     assert out["fade_swap"] == "outerHTML show:window:top transition:true"              # above 0: the crossfade
     assert out["bar_cur"] == ["pill-movies"]                                            # the pill follows, no redraw
+    assert out["count"] == 'Movies <span class="waitcount">3</span>'                    # review: counts from the response
     assert out["title"] == "play" and out["same_bar"]
     assert out["back"] == "t3" and out["rings"] == ["t3"]                               # JY-187 memory, one ring
     assert out["back_cur"] == ["brand"] and out["back_hero"] == "Title 3"
@@ -359,3 +370,62 @@ def test_the_new_text_holds_18px_at_every_panel(w, h):
         rule = re.search(sel + r"[^{]*\{([^}]*)\}", css).group(1)
         size = float(re.search(r"font-size: ([\d.]+)rem", rule).group(1))
         assert size * root_px(css, w, h) >= 18, (sel, w, h)
+
+
+# ---- review fixes (2026-10-28) ----
+
+def test_the_newest_focus_wins_the_backdrop_and_a_fading_layer_is_never_reloaded(tmp_path):
+    """Flicker: an older backdrop decoded late never lands, and a swap inside the last fade waits for it to end."""
+    out = run(tmp_path, r"""
+FADE = '200ms';
+load('/a/media', 'home', home);
+advance(150);
+key('ArrowRight'); advance(150);                 /* t2 asked */
+key('ArrowRight'); advance(150);                 /* t3 asked: the newest */
+loaded('/img/jfb:2?h=1280&t=T2');
+out.after_old = [A.getAttribute('src'), B.getAttribute('src')];
+loaded('/img/jfb:3?h=1280&t=T3');
+out.after_new = [B.getAttribute('src'), B.classList.contains('is-off'), A.classList.contains('is-off')];
+key('ArrowRight'); advance(150); loaded('/img/jfb:4?h=1280&t=T4');   /* 150 ms into a 200 ms fade */
+out.mid_fade = A.getAttribute('src');
+advance(49); out.at199 = A.getAttribute('src');
+advance(1); out.at200 = [A.getAttribute('src'), A.classList.contains('is-off'), B.classList.contains('is-off')];
+""")
+    assert out["after_old"] == ["/img/jfb:1?h=1280&t=T1", None]                          # the stale one never lands
+    assert out["after_new"] == ["/img/jfb:3?h=1280&t=T3", False, True]
+    assert out["mid_fade"] == "/img/jfb:1?h=1280&t=T1" and out["at199"] == "/img/jfb:1?h=1280&t=T1"
+    assert out["at200"] == ["/img/jfb:4?h=1280&t=T4", False, True]
+
+
+def test_the_history_cache_is_dropped_for_a_new_viewer_on_sign_in_and_on_sign_out(tmp_path):
+    """Privacy: on a shared TV nobody can Back into the previous viewer's cached pages."""
+    out = run(tmp_path, r"""
+ls['htmx-history-cache'] = '[{"url":"/a/media"}]'; ls['joeyTV.viewer'] = 'v1';
+load('/a/media', 'home', home);
+out.same = 'htmx-history-cache' in ls;
+metaTag = 'v2'; load('/a/media', 'home', home);
+out.other = 'htmx-history-cache' in ls; out.stamp = ls['joeyTV.viewer'];
+ls['htmx-history-cache'] = 'x'; store['joeyTV.back'] = '{}';
+metaTag = ''; load('/signin', 'home', home);
+out.signin = 'htmx-history-cache' in ls; out.signin_stamp = 'joeyTV.viewer' in ls; out.mem = 'joeyTV.back' in store;
+metaTag = 'v2'; load('/a/media', 'home', home); ls['htmx-history-cache'] = 'y';
+fire('submit', { target: new El('form', { attrs: { action: '/signout', method: 'post' } }) });
+out.signout = 'htmx-history-cache' in ls;
+""")
+    assert out["same"] is True                                                            # same viewer: kept
+    assert out["other"] is False and out["stamp"] == "v2"                                 # another viewer: dropped
+    assert out["signin"] is False and out["signin_stamp"] is False and out["mem"] is False
+    assert out["signout"] is False
+
+
+def test_the_tv_page_names_its_viewer_by_a_one_way_tag_only(fc):   # noqa: F811
+    tag = re.compile(r'<meta name="joey-viewer" content="([0-9a-f]*)">')
+    page = tv_page(fc)
+    mine = tag.search(page).group(1)
+    assert len(mine) == 16 and FRIEND_ID not in page.split("</head>", 1)[0]
+    assert not tag.search(fc.get(guest.home_path()).text)                                 # web: none
+    sign_in(fc, fc.fake, OTHER_ID)
+    other = tag.search(tv_page(fc)).group(1)
+    assert len(other) == 16 and other != mine
+    signin = fc.get("/signin", headers={"User-Agent": TV_UA}).text
+    assert 'name="joey-viewer"' not in signin and "/static/tv.js" in signin              # tv.js there clears the cache

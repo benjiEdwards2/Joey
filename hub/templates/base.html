@@ -21,6 +21,8 @@
 {% endif %}
 <meta name="theme-color" content="#09090b">
 <meta name="joey-asset-v" content="{{ static_v }}">
+{% if tv %}{# JY-259 phase 2 review: who wrote the TV's history cache (tv.js clears it for anyone else; never the id) #}
+<meta name="joey-viewer" content="{{ viewer_tag(identity(request).owner) if is_guest else '' }}">{% endif %}
 {# Back/Forward is navigation only (2026-10-08): no htmx history snapshots (they restored a page as it was BEFORE a
    Follow / Request, so the button showed its old state), and a history miss is a full reload — always fresh
    server state. Pages are sent Cache-Control: no-store (hub/shell.py) so the browser's bfcache can't either. #}

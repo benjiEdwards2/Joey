@@ -51,6 +51,30 @@
     var fs = parseFloat(getComputedStyle(document.documentElement).fontSize);
     return fs > 0 ? n * fs / 16 : n;
   }
+  /* Review fix (2026-10-28, privacy): TV mode keeps htmx's history cache (base.html, 10 snapshots of <main>) in
+     localStorage. On a shared TV the next person must never Back into the last one's pages: the cache is dropped on
+     the sign-in page (no viewer), on Sign out, and whenever the page's viewer tag (meta joey-viewer, a one-way hash)
+     differs from the tag that wrote it. The per-tab memories (sessionStorage joeyTV.*) go with it. */
+  var HISTORY = 'htmx-history-cache', WHO = 'joeyTV.viewer';
+
+  function forget() {
+    try { window.localStorage.removeItem(HISTORY); } catch (e) { /* storage off: nothing kept */ }
+    try { ['joeyTV.back', 'joeyTV.bar', 'joeyTV.trail'].forEach(function (k) { window.sessionStorage.removeItem(k); }); } catch (e) { /* off */ }
+  }
+
+  (function checkViewer() {
+    var meta = document.querySelector('meta[name="joey-viewer"]'), tag = meta ? meta.getAttribute('content') || '' : '';
+    var was = null;
+    try { was = window.localStorage.getItem(WHO); } catch (e) { return; }
+    if (!tag || was !== tag) forget();
+    try { if (tag) window.localStorage.setItem(WHO, tag); else window.localStorage.removeItem(WHO); } catch (e) { /* off */ }
+  })();
+
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f && f.getAttribute && f.getAttribute('action') === '/signout') forget();
+  }, true);
+
   var KEYS = { ArrowLeft: 1, ArrowRight: 1, ArrowUp: 1, ArrowDown: 1 };
   var current = null;
   /* no remote key yet on this page: Android's WebView puts DOM focus on the first focusable (the brand link in the top
@@ -369,24 +393,44 @@
     if (text) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
   }
 
-  function heroBackdrop(d) {
+  /* Review fix (2026-10-28, flicker): the newest focus wins. Each request takes a generation; the image is decoded off
+     screen first (new Image), and only the latest generation is put on a layer. A layer still fading out is never
+     reloaded mid-fade: a swap that lands inside the last fade (--tv-fade) waits for it to end, then re-checks it is
+     still the latest. */
+  var bdGen = 0, bdBusyUntil = 0;
+
+  function layers() {
     var bd = document.querySelector('.tv-bd'), on = null, off = null;
-    if (!bd || !d.bd) return;
+    if (!bd) return null;
     Array.prototype.forEach.call(bd.querySelectorAll('img'), function (l) {
       if (l.getAttribute('src') && !l.classList.contains('is-off')) on = on || l; else off = off || l;
     });
-    if (on && on.getAttribute('src') === d.bd) return;
-    if (!off) return;
-    if (on && bd.classList.contains('is-blur')) { on.classList.add('is-blur'); bd.classList.remove('is-blur'); }   /* blur is per layer now */
-    off.classList.add('is-off');
-    if (d.blur) off.classList.add('is-blur'); else off.classList.remove('is-blur');
-    off.onload = function () {   /* shown once decoded: the old layer fades out as this one fades in */
-      if (off.getAttribute('src') !== d.bd) return;
-      off.classList.remove('is-off');
-      if (on && on !== off) on.classList.add('is-off');
-    };
-    off.setAttribute('src', d.bd);
-    if (off.complete && off.naturalWidth) off.onload();
+    return { bd: bd, on: on, off: off };
+  }
+
+  function bdCommit(gen, d) {
+    if (gen !== bdGen) return;   /* a newer focus has asked since */
+    var wait = bdBusyUntil - Date.now();
+    if (wait > 0) { setTimeout(function () { bdCommit(gen, d); }, wait); return; }
+    var L = layers();
+    if (!L || !L.off || (L.on && L.on.getAttribute('src') === d.bd)) return;
+    if (L.on && L.bd.classList.contains('is-blur')) { L.on.classList.add('is-blur'); L.bd.classList.remove('is-blur'); }   /* blur is per layer now */
+    if (d.blur) L.off.classList.add('is-blur'); else L.off.classList.remove('is-blur');
+    L.off.setAttribute('src', d.bd);   /* already decoded: the browser cache answers */
+    L.off.classList.remove('is-off');
+    if (L.on && L.on !== L.off) L.on.classList.add('is-off');
+    bdBusyUntil = Date.now() + fadeMs();
+  }
+
+  function heroBackdrop(d) {
+    var gen = ++bdGen, L = layers();
+    if (!L || !d.bd || (L.on && L.on.getAttribute('src') === d.bd)) return;   /* also cancels a pending swap */
+    warmed[d.bd] = true;
+    var pre = new Image();
+    pre.onload = function () { bdCommit(gen, d); };
+    pre.decoding = 'async';
+    pre.src = d.bd;
+    if (pre.complete && pre.naturalWidth) bdCommit(gen, d);
   }
 
   function showHero(el) {
@@ -464,6 +508,27 @@
     if (!cur) return;
     Array.prototype.forEach.call(document.querySelectorAll('.topbar a[href]'), function (a) {
       if (cur.indexOf(a.getAttribute('href')) >= 0) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+  }
+
+  /* Review fix (2026-10-28, stale counts): the section pills' waiting counts (the amber "to rate" numbers) come from
+     the swapped response too - the pill's inner HTML is replaced when it differs; the bar itself is not redrawn and no
+     request is made for it. */
+  function barCounts(text) {
+    var m = /<nav class="toplinks"[^>]*>([\s\S]*?)<\/nav>/.exec(text || ''), out = {}, re = /<a\b([^>]*)>([\s\S]*?)<\/a>/g, a;
+    if (!m) return null;
+    while ((a = re.exec(m[1]))) {
+      var h = /\shref="([^"]*)"/.exec(a[1]);
+      if (h) out[h[1].replace(/&amp;/g, '&')] = a[2];
+    }
+    return out;
+  }
+
+  function applyCounts(inner) {
+    if (!inner) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.toplinks a[href]'), function (a) {
+      var html = inner[a.getAttribute('href')];
+      if (html != null && a.innerHTML !== html) a.innerHTML = html;
     });
   }
 
@@ -693,6 +758,7 @@
     d.selectOverride = 'main';
     d.swapOverride = 'outerHTML show:window:top' + (fadeMs() > 0 && document.startViewTransition ? ' transition:true' : '');
     applyBar(cur);
+    applyCounts(barCounts(text));
   });
   document.addEventListener('htmx:afterSettle', restore);
   /* JY-259 (P2): Back from htmx's cache restores <main> as it was, focus ring included: drop the stale rings and put

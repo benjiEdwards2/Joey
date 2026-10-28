@@ -87,7 +87,7 @@ Joey draws the title and the sub-line itself, because the words change per film.
 - **Colours** are `#RRGGBB`. `opacity` and the shadow `opacity` run from 0 to 1. `blur` is the shadow softness in pixels, and `dy` moves the shadow down.
 - **`tracking`** is letter spacing as a fraction of the font size: 0.04 = 4 %, the same as Canva's letter spacing 40.
 - **`weight`** is 100 to 900. It works with variable fonts such as Geist; a static font file ignores it.
-- **The sub-line** for a film is its year. For a series, "Seasons 1–5 · 2019–2024" arrives with phase 2; until then a series has no sub-line.
+- **The sub-line** for a film is its year. For a series it is "Seasons 1–4", or "Season 1" when there is only one season (specials never count). Each season of a series gets its own poster: the series name as the title and "Season 2" under it.
 
 ## Changing the font
 

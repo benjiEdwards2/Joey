@@ -22,14 +22,14 @@ from PIL import Image, ImageDraw  # noqa: E402
 
 from hub import media_posters_render as r  # noqa: E402
 
-SAMPLES = [   # (file, kind, title, year, seasons, years)
+SAMPLES = [   # (file, kind, title, year, seasons, unused)
     ("1-short-film-up.jpg", "movie", "Up", 2009, None, None),
     ("2-short-film-heat.jpg", "movie", "Heat", 1995, None, None),
     ("3-long-film-jesse-james.jpg", "movie", "The Assassination of Jesse James by the Coward Robert Ford", 2007,
      None, None),
     ("4-long-film-everything.jpg", "movie", "Everything Everywhere All at Once", 2022, None, None),
-    ("5-series-the-bear.jpg", "tv", "The Bear", 2022, (1, 4), (2022, 2025)),
-    ("6-series-severance.jpg", "tv", "Severance", 2022, (1, 2), (2022, None)),
+    ("5-series-the-bear.jpg", "tv", "The Bear", 2022, [1, 2, 3, 4], None),
+    ("6-series-severance.jpg", "tv", "Severance", 2022, [1, 2], None),
 ]
 PALETTES = [((214, 120, 60), (40, 70, 120)), ((30, 40, 60), (180, 60, 40)), ((200, 170, 110), (60, 50, 40)),
             ((90, 40, 120), (230, 120, 170)), ((40, 90, 80), (220, 200, 160)), ((20, 60, 90), (210, 220, 230))]
@@ -151,7 +151,7 @@ def main(argv=None) -> int:
         say("PASS guide.png redrawn")
     times = []
     for i, (name, kind, title, year, seasons, years) in enumerate(SAMPLES):
-        sub = r.sub_line(kind, year=year, seasons=seasons, years=years, series_sub=True)
+        sub = r.sub_line(kind, year=year, seasons=seasons)
         t0 = time.perf_counter()
         jpg = r.render(tpl, placeholder(i), title, sub)
         times.append(time.perf_counter() - t0)

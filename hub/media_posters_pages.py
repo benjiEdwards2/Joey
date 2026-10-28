@@ -20,6 +20,7 @@ from hub.ids import JELLYFIN_SNAPSHOT_ID
 router = APIRouter()
 
 PAGE = "/media/posters"
+KIND_WORDS = {"movie": "Film", "tv": "Series", "season": ""}   # a season: its sub-line says "Season 2"
 MODE_WORDS = {"dry": "Dry run: nothing is written to Jellyfin",
               "on": "On is phase 2 (not built): dry run, nothing is written to Jellyfin"}
 
@@ -32,10 +33,13 @@ def pick_words(side: dict) -> str:
     if side.get("status") == "no_source":
         return "No TMDB poster"
     p = side.get("pick") or {}
-    lang = {None: "Text-less", "en": "English poster"}.get(p.get("fallback"), "Other-language poster")
-    parts = [lang, media_text.plural(int(p.get("votes") or 0), "vote")]
+    lang = {None: "Text-less", "en": "English poster", "series": "Series poster"}.get(p.get("fallback"),
+                                                                                       "Other-language poster")
+    rating = p.get("rating")
+    parts = [lang, f"Rated {rating:.1f}" if isinstance(rating, (int, float)) else "Unrated"]
     if p.get("width") and p.get("height"):
         parts.append(f"{p['width']} × {p['height']}")
+    parts.append("Auto-approve" if side.get("auto") else "Waits for review")
     return " · ".join(parts)
 
 
@@ -51,7 +55,7 @@ def posters_page(request: Request):
         rows = []
         for side in mp.rows():
             rows.append({**side, "words": pick_words(side), "stale": bool(tpl) and side.get("template") != tpl.version,
-                         "kind_word": "Series" if side.get("kind") == "tv" else "Film"})
+                         "kind_word": KIND_WORDS.get(side.get("kind"), "Film")})
         rendered = sum(1 for r in rows if r.get("status") == "rendered")
         head = [MODE_WORDS[mp.mode()], media_text.plural(rendered, "poster") + " rendered"]
         if len(rows) > rendered:

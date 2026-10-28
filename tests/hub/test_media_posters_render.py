@@ -196,12 +196,13 @@ def test_moving_the_anchor_moves_the_title(tmp_path):
 def test_sub_line_words():
     assert r.sub_line("movie", year=2019) == "2019"                     # Q7A
     assert r.sub_line("movie") == ""
-    assert r.sub_line("tv", year=2019, seasons=(1, 5), years=(2019, 2024)) == ""   # phase-2 switch off by default
-    on = dict(series_sub=True)
-    assert r.sub_line("tv", seasons=(1, 5), years=(2019, 2024), **on) == "Seasons 1–5 · 2019–2024"
-    assert r.sub_line("tv", seasons=(1, 1), years=(2022, 2022), **on) == "Season 1 · 2022"
-    assert r.sub_line("tv", seasons=(1, 3), years=(2021, None), **on) == "Seasons 1–3 · 2021–"
-    assert r.sub_line("tv", year=2021, **on) == "2021"
+    assert r.sub_line("tv", year=2019, seasons=[1, 2, 3, 4]) == "Seasons 1–4"   # no years (B. 2026-10-28)
+    assert r.sub_line("tv", seasons=[1]) == "Season 1"                  # one season
+    assert r.sub_line("tv", seasons=[0, 1]) == "Season 1"               # specials never count
+    assert r.sub_line("tv", seasons=[2, 0, 3]) == "Seasons 2–3"
+    assert r.sub_line("tv", seasons=[]) == "" and r.sub_line("tv", seasons=[0]) == ""
+    assert r.sub_line("season", season=2) == "Season 2"                 # a season item
+    assert r.sub_line("season", season=0) == ""
 
 
 # ---- validation ----

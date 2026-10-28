@@ -429,22 +429,18 @@ def layout_title(tpl: Template, title: str) -> TitleLayout:
     return TitleLayout(size, out, top, top + len(out) * step, truncated or capped)
 
 
-def sub_line(kind: str, year=None, seasons=None, years=None, series_sub: bool = False) -> str:
-    """Q7A: a film's sub-line is its year. A series' "Seasons a–b · yyyy–yyyy" is phase 2 (`series_sub`)."""
+def sub_line(kind: str, year=None, seasons=None, season=None) -> str:
+    """The line under the title. A film: its year (Q7A). A series: "Seasons 1–4", or "Season 1" with one season
+    (B. 2026-10-28: no years for now); `seasons` is its real season numbers (specials / season 0 never count).
+    A season item: "Season 2"."""
+    if kind == "season":
+        return f"Season {season}" if isinstance(season, int) and season >= 1 else ""
     if kind != "tv":
         return str(year) if year else ""
-    if not series_sub:
+    real = sorted({n for n in seasons or [] if isinstance(n, int) and not isinstance(n, bool) and n >= 1})
+    if not real:
         return ""
-    parts = []
-    if seasons and seasons[0] is not None:
-        a, b = seasons
-        parts.append(f"Season {a}" if b in (None, a) else f"Seasons {a}–{b}")
-    if years and years[0]:
-        a, b = years
-        parts.append(f"{a}" if b == a else f"{a}–{b or ''}")
-    elif year:
-        parts.append(str(year))
-    return " · ".join(parts)
+    return f"Season {real[0]}" if len(real) == 1 else f"Seasons {real[0]}–{real[-1]}"
 
 
 # ---- drawing ----

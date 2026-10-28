@@ -22,6 +22,21 @@ B. refined the poster in Canva on 2026-10-28 (his export: a black 1000 × 1500 c
 
 > "Go centre aligned please. then I am happy with that."
 
+After seeing real TMDB art (2026-10-28), B. answered the approval and series questions:
+
+> "go to 3 stars please"
+
+> "Happy to auto approve 3 start and above"
+
+> "I am fine with the season being available now. Only the year is not needed currently."
+
+> "For a series overall, show that. but for a specific season. Show Season 2 for example."
+
+- **1A (replaces Q2B's 5-vote rule):** a pick auto-approves when its TMDB rating (`CommunityRating`, 0–10) is at least **6.0**, which is 3 of 5 stars. Set by `POSTERS_AUTO_MIN_RATING`. Lower or unrated picks wait for B. on the review page. Phase 1 records the verdict per title (`auto` in the sidecar, "Auto-approve" or "Waits for review" on the page); the first write that acts on it is phase 2.
+- **2A:** a series poster's sub-line is "Seasons 1–4", or "Season 1" with one season. Years are not shown. Only real seasons count: no specials (season 0), no unnumbered seasons, and no seasons without episodes on disk (`isMissing=false`). `LocationType` is not used, because on B.'s Jellyfin a real season with no season folder reports "Virtual".
+- **Per-season posters:** each real Jellyfin Season item gets its own poster. It uses the TMDB season poster from `RemoteImages` on the Season item, falling back to the series' pick. The title is the series name and the sub-line is "Season 2". Specials are left alone. Seasons appear on the review page and in the dry-run list, straight after their series; a series' season list is re-read at most once a day.
+- **Open finding (real-art set v2, 2026-10-28, for B.):** Jellyfin's `CommunityRating` on TMDB poster images is not a 0–10 film rating. The 10 picks in the set scored 0 to 3.3; none reached 6.0, so today every poster would wait for review. The threshold is unchanged until B. decides: keep it, lower it (`POSTERS_AUTO_MIN_RATING`), or rate on something else.
+
 What it means for the starter kit (B.'s Canva layout, built 2026-10-28):
 - **Title:** Geist **Regular** (weight 400; B. named no other font), capitals, `max_size` 95 px, top at 75 %, centred. A 2–3 line title still grows upward from the bottom anchor (`title_gap` 2 %, `title_top_limit` 62 %).
 - **Year / seasons line:** directly under the title, top at 84 %, about 40 px below a 1-line title. Regular weight, white, centred. The no-overlap rule stands.
@@ -31,7 +46,7 @@ What it means for the starter kit (B.'s Canva layout, built 2026-10-28):
 What they mean for the build:
 
 - **Q1B:** B. designs in Canva; joey-hub renders each poster with Pillow. No Canva account at run time.
-- **Q2B:** after the pilot, auto-approve a text-less pick with at least 5 votes; fallbacks wait for review (phase 3).
+- **Q2B, replaced 2026-10-28 by 1A (below):** a pick auto-approves when its TMDB rating is at least 6.0 (3 of 5 stars). Lower or unrated picks wait for review.
 - **Q3A:** the TMDB list comes from Jellyfin's `RemoteImages` proxy. No TMDB key.
 - **Q4A:** the write path uses its own `JELLYFIN_POSTER_API_KEY` (phase 2, B.'s hands).
 - **Q5A:** `LockData` + a daily drift re-apply (phase 2). No `poster.jpg` in media folders.
@@ -62,7 +77,7 @@ A folder of files. joey-hub reads it on every pass; a change to any file re-rend
    - with `title_anchor_mode: "bottom"` (the starter), a 1-line title sits at `title_anchor` (74 %). A taller block grows upward so its bottom stays `title_gap` (2.5 %) above the sub-line, rising no higher than `title_top_limit` (62 %); the title box and the sub-line box never intersect (tested for 1, 2 and 3 lines, plus a pixel check);
    - only past the floor is it ellipsised, and then it is flagged: `truncated` in the sidecar, a warning in the log with a count only, and "Title cut short" on the review page.
 
-   The scrim is one smooth gradient that starts at 56 %, with `solid` 1.2, so it is still darkening at the bottom edge: no seam and no flat band. The sub-line for a film is the year (Q7A). For a series, "Seasons a–b · yyyy–yyyy" sits behind `POSTERS_SERIES_SUB=on`, which is off by default (phase 2 switch). JPEG sources decode at reduced size (`draft`), so peak memory stays low. It also runs as a CLI for previews (`python -m hub.media_posters_render`).
+   The scrim is one smooth gradient that starts at 56 %, with `solid` 1.2, so it is still darkening at the bottom edge: no seam and no flat band. The sub-line for a film is the year (Q7A). For a series it is "Seasons 1–4", or "Season 1" with one season, with no years (2A). A season item gets "Season N". JPEG sources decode at reduced size (`draft`), so peak memory stays low. It also runs as a CLI for previews (`python -m hub.media_posters_render`).
 2. **Pick** (`hub/media_posters.py`): `GET /Items/{id}/RemoteImages?type=Primary&providerName=TheMovieDb&includeAllLanguages=true` through `media_jellyfin.get`. Order: text-less (no language) first, then English, then any other; within each, more votes first, then more pixels. Art is fetched only from `https://image.tmdb.org/t/p/`, capped at 5 MB.
 3. **Flag:** `POSTERS=off|dry|on`, default off. `dry` renders up to `POSTERS_PER_PASS` (30) titles per hourly pass into `<IMG_CACHE_DIR>/posters/` (one JPEG + one JSON sidecar per title) and lists them. `on` is phase 2: today it logs once and behaves exactly as `dry`. No code path writes to Jellyfin.
 4. **Review page** `GET /media/posters`: household only, private front. The media front and friends get the 404 page, and so does everything while `POSTERS=off`. Original (`/img/jf:<id>?h=600`) and proposed (`/media/posters/img/<id>`) sit side by side, with the pick words and the template state. It reads local files only: no network on render.
@@ -183,7 +198,9 @@ The phases were re-cut on 2026-10-28 with B.'s picks. Phase 1 below is the build
 - `POSTERS=dry` → verify: a dry pass on fakes renders, writes sidecars and makes GET calls only.
 - `/media/posters` → verify: household-only and no-network tests; B. reviews the samples.
 
-**Phase 2 (the draft's phase 3): pilot write, 5 titles.** Hands bundle (one state window): B. creates `JELLYFIN_POSTER_API_KEY` in Jellyfin Dashboard → API Keys and appends it with `nas_scripts/append_env.sh`; recreate joey-hub. Claude sets `POSTERS=on` with `POSTERS_ALLOWLIST=<5 jf_ids>` → verify: the 5 show in Jellyfin web, Joey Media and Joey TV (`/img` cache for those refs purged, `jf:<id>` h=240/600); revert one and confirm the original is back; drift check runs clean the next day. B. says `accepted` on the pilot.
+- Seasons and the rating rule (2026-10-28) → verify: tests for 1 vs many seasons, "Season N" items, specials skipped, the 6.0 rule with its setting; a real-art sample set with 2 series and 2 season posters.
+
+**Phase 2 (the draft's phase 3): pilot write, 5 titles.** Writes cover films, series and their Season items. Auto-approved rows (rating ≥ 6.0) go without review after the pilot. Hands bundle (one state window): B. creates `JELLYFIN_POSTER_API_KEY` in Jellyfin Dashboard → API Keys and appends it with `nas_scripts/append_env.sh`; recreate joey-hub. Claude sets `POSTERS=on` with `POSTERS_ALLOWLIST=<5 jf_ids>` → verify: the 5 show in Jellyfin web, Joey Media and Joey TV (`/img` cache for those refs purged, `jf:<id>` h=240/600); revert one and confirm the original is back; drift check runs clean the next day. B. says `accepted` on the pilot.
 **Phase 4: backfill + steady state.** Remove the allowlist; the loop writes approved rows at 1 per 10 s, deploy-window only; new titles flow through dry → review → approve (or Q2's auto-approve) → verify: `posters` counts in the hub log per pass; NAS available stays ≥ 1,200 MB; no errors after a week.
 **Phase 5 (B.'s "not urgent"): the sub-line.** Series: "Seasons 1–5 · 2019–2024" from the Jellyfin item (`ChildCount`, `ProductionYear`, `EndDate`/`Status`: "2019–" while running); films: year only or nothing (Q7). Bump `template_version` → every series re-renders → review → write.
 **Phase 6 (optional): episodes.** Only if Q6 picks B or C.

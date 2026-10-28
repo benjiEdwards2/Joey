@@ -469,3 +469,37 @@ html.tv .page:has(> .tv-hero) > .sec:first-of-type { margin-top: .5rem; }   /* t
    also carries the welcome line, made compact here) */
 html.tv .page:has(> .tv-hero) > .welcome { margin: .5rem 0 0; font-size: 1.125rem; line-height: 1.5rem; }
 /* ==== end JY-259 phase 1 ==== */
+
+/* ==== JY-259 phase 2 (2026-10-28) - the hero follows focus, the fading top row, the Search stop, <main> swaps ====
+   --tv-fade is the ONE switch between a crossfade and a cut, for both the hero backdrop and the <main> swap (tv.js
+   reads it): 200ms now; set it to 0s if the TCL device spike shows jank, and both become cuts. */
+html.tv { --tv-fade: 200ms; }
+/* Q1 A: the hero's backdrop is two layers; tv.js loads the next one into the layer that is off, then swaps them */
+html.tv .tv-bd > img { transition: opacity var(--tv-fade) ease-out; }
+html.tv .tv-bd > img.is-blur { filter: blur(1.5rem) brightness(.6); transform: scale(1.15); opacity: .7; }
+html.tv .tv-bd > img:not([src]), html.tv .tv-bd > img.is-off { opacity: 0; }
+html.tv .tv-hero-syn { margin-top: .375rem !important; font-size: 1.125rem; line-height: 1.5rem; color: var(--tv-t3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Q2 A: the top row fades to 40 % while focus is in the page (the bar's background stays, so nothing shows through) */
+html.tv .topbar-in { transition: opacity .2s ease-out; }
+html.tv .topbar.tv-dim .topbar-in { opacity: .4; }
+/* Q6 A: the Search stop (a magnifier pill after the sections) and its dialog over the page */
+html.tv .tv-searchstop { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 2.25rem; height: 2.25rem;
+  padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--tv-t3); }
+html.tv .tv-searchstop svg.ic { width: 1.375rem; height: 1.375rem; }
+html.tv .tv-searchdlg { width: calc(100vw - 2 * var(--tv-mx)); max-width: none; max-height: calc(100vh - 2 * var(--tv-my)); margin: var(--tv-my) auto 0;
+  padding: 1.25rem 1.5rem; border: .0625rem solid var(--tv-line); border-radius: 1.25rem; background: #18181b; color: var(--tv-t1); overflow: auto; }
+html.tv .tv-searchdlg::backdrop { background: rgba(9, 9, 11, .82); }
+html.tv .tv-searchdlg form.toolbar.discover-search { margin: 0; }
+html.tv .tv-searchdlg .card-pic { position: relative; }
+html.tv .tv-searchdlg .reqchip { position: absolute; left: .375rem; bottom: .375rem; padding: 0 .5rem; border-radius: 62.4375rem; font-size: 1.125rem;
+  font-weight: 700; color: var(--zinc-950); background: var(--tv-gold); }
+html.tv .tv-searchdlg .reqchip-request { color: #fff; background: var(--tv-primary); }
+html.tv .tv-searchdlg .reqchip-lib { background: var(--good); }
+/* Q7 A: <main> is the only thing a page move swaps; the crossfade is a view transition of it, var(--tv-fade) long */
+html.tv main.page { view-transition-name: tv-main; }
+html.tv::view-transition-old(tv-main), html.tv::view-transition-new(tv-main),
+html.tv::view-transition-old(root), html.tv::view-transition-new(root) { animation-duration: var(--tv-fade); }
+/* placeholder shapes: every picture box is drawn at its final size (aspect-ratio) in a quiet tone before its image */
+html.tv .card-pic > img { background-color: var(--tv-surface-2); }
+/* ==== end JY-259 phase 2 ==== */

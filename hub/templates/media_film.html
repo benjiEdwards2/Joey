@@ -225,31 +225,21 @@
    /img, a word chip, a bar; OK on an aired one = the Jellyfin hand-off of that episode). All from film.tv (the page's
    per-viewer season list), so a friend sees only their own watch state. #}
 {% if tv_mode(request) and film.tv and film.tv.seasons %}
-<section class="sec tvshelf tv-seasons" aria-label="Seasons">
-  <h2 class="seclabel">Seasons</h2>
-  <div class="carousel">
-  {% for s in film.tv.seasons %}
-  <{{ "a" if s.href else "div" }} class="card-poster{{ ' is-here' if s.here }}"{% if s.href %} href="{{ s.href }}"{% endif %}{% if s.here %} aria-current="page"{% endif %}>
-    <span class="card-pic">{{ poster(s.poster, s.title, 240, "", true) }}{% if s.pct is not none %}<span class="bar" role="img" aria-label="{{ s.pct }}% watched"><span style="width: {{ s.pct }}%"></span></span>{% endif %}</span>
-    <span class="row-title">{{ s.title }}</span>
-    <span class="row-meta">{% if s.here %}<span class="st-current">This season</span><span class="sep"> · </span>{% endif %}{{ s.sub }}</span>
-  </{{ "a" if s.href else "div" }}>
-  {% endfor %}
-  </div>
-</section>
-{% if film.tv.eps %}
+{# JY-259 phase 3 (B.'s pick A, the options page's title mock): straight under the hero, ONE row - "Episodes", the
+   seasons as chips (the shown season lit; OK opens that season's page) and its "n of m watched", then the shown season's
+   episodes as 16:9 kit tiles (the word chip, the bar, OK on an aired one = the Jellyfin hand-off), loaded at once (first
+   screen). Down from the buttons lands on the first episode (tv.js). All from film.tv, the viewer's own read. #}
+{% import "_tv_tile.html" as tvt %}
+{% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
 <section class="sec tvshelf tv-eps" aria-label="Episodes">
-  <div class="tvshelf-hd"><h2 class="seclabel">Episodes · {{ film.tv.eps.label }}</h2>{% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}</div>
-  <div class="carousel">
-  {% for e in film.tv.eps.rows %}
-  <a class="card-poster tv-ep" href="{{ e.href }}"{% if e.jf_id %} target="_blank" rel="noopener" data-jf-id="{{ e.jf_id }}"{% endif %}>
-    <span class="card-pic"><img class="tv-still" src="/img/{{ e.still or 'none' }}?h=400&amp;t={{ img_letters(e.title)|urlencode }}" alt="" loading="lazy" decoding="async" width="711" height="400">{% if e.chip %}<span class="ep-chip ep-{{ e.chip|lower|replace(' ', '-') }}">{{ e.chip }}</span>{% endif %}{% if e.pct is not none %}<span class="bar" role="img" aria-label="{{ e.pct }}% watched"><span style="width: {{ e.pct }}%"></span></span>{% endif %}</span>
-    <span class="row-title">{{ e.title }}</span>{% if e.sub %}<span class="row-meta">{{ e.sub }}</span>{% endif %}
-  </a>
-  {% endfor %}
+  <div class="tvshelf-hd"><h2 class="seclabel">Episodes</h2><nav class="tv-seasonchips" aria-label="Seasons">{% for s in film.tv.seasons %}{% if s.href %}<a class="chip{{ ' on' if s is sameas shown }}" href="{{ s.href }}"{% if s.here %} aria-current="page"{% endif %}>{{ s.title }}</a>{% else %}<span class="chip{{ ' on' if s is sameas shown }}">{{ s.title }}</span>{% endif %}{% endfor %}</nav>
+    {% if shown and shown.sub %}<p class="metaline tv-seasonsub">{{ shown.sub }}</p>{% endif %}{% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}</div>
+  {% if film.tv.eps %}
+  <div class="carousel tvt-row tvt-row-land">
+  {% for e in film.tv.eps.rows %}{{ tvt.land({"title": e.title, "sub": e.sub, "still": e.still, "still_h": 400, "href": e.href, "jf_id": e.jf_id, "chip": e.chip, "pct": e.pct}, false) }}{% endfor %}
   </div>
+  {% endif %}
 </section>
-{% endif %}
 {% endif %}
 <div class="filmbody">
 {% if film.overview %}

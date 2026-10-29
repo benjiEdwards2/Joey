@@ -193,7 +193,9 @@ Builder and review per phase: L row (Opus builder, two Sonnet reviewers, Opus ve
 **Phase 3: title page, grids, Discover, loading** (hub only)
 1. Title page as a hero: full-width backdrop (gradient to `--bg` at 60 % height), poster optional (Q: kept at 232 px floated), one button row that never wraps, Episodes row (16:9) first on a show with Seasons as chips, Cast circles, More on Joey → verify: `device --only title_movie,title_series,title_episode`: the first row's tiles inside the first 1080 px, 0 wrapped buttons (a DOM assert), J6 OK on an episode plays it.
 2. Grids: 8 across kept; score glow off in TV mode (ring is the only white/gold border); sub-tab fold per Q8 → verify: Movies grid shows 24 posters on the first screen, Down x 2 reaches row 3, the "More" chip opens Tonight / To rate / Awards.
-3. Discover: foot bands, search results in the same grid → verify: `device --only discover`: 0 chips over art, bands read "On Joey / Requested / Request".
+3. Discover: foot bands, search results in the same grid. As built (2026-10-28): Discover is **8 across**, the library
+   grids (Movies, TV shows) stay at **9**: at the 18 px floor the band word "Requested" needs about 90 px and a 9-across
+   cell is 82. **Decision for B.** at checkpoint 3: keep 8 on Discover, or go back to 9 with shorter band words. → verify: `device --only discover`: 0 chips over art, bands read "On Joey / Requested / Request".
 4. Loading: placeholder tile shapes, lazy rows below the fold, a 3-tile skeleton row for slow shelves → verify: `images_ms` for the first two rows < 2000 on the TCL.
 5. **TV review checkpoint 3:** the 40-check list from `TV_UI_PLAN.md` re-run (it is the regression set), screenshots to `review\tv-ui-<date>\`. Gate: B.'s accept on the TCL for Home, a film, a show, Discover.
 
@@ -331,6 +333,177 @@ sign-in page, on Sign out and whenever the tag differs from the one that wrote i
 newest focus lands, and a swap inside the last fade waits for it to end
 (`test_the_newest_focus_wins_the_backdrop_and_a_fading_layer_is_never_reloaded`); (3) the section pills' waiting counts
 are copied from the swapped response (no extra request; the swap test checks it).
+
+## 8. Phase 3 build (2026-10-28): title pages, grids, Discover, loading
+
+B., 2026-10-28: "Keen to run jy 259 and teh rest after that building better with the UI improvements."
+
+Branch `feat/JY-259-tv-revamp-p3`. Hub only, TV mode only: every change sits in `tv.css` (loaded only in TV mode), in
+`tv.js`, or behind `tv_mode(request)` in a template. Web and phone draw the same bytes as before. Friends see only their
+own data (the title page's season list is the viewer's own read, as in JY-192). No new upstream read: the cast and "More on
+Joey" come from the page's existing deferred part (`.../part/all`, F2), drawn as skeletons until it lands.
+
+Steps (step -> verify):
+1. Title page as a backdrop hero (film, show, season, episode): the page's backdrop (JY-262: stored backdrop 2, then the
+   chain) across the top 68 % of the screen, under the bar, with a calm scrim (darker on the left for the words, fading
+   to the page at its foot); the 116 px poster (an episode: its 16:9 still, 256 px) beside the title, facts, a 2-line
+   synopsis and ONE button row. -> verify: `test_a_film_title_page_is_a_backdrop_hero`, `test_title_pages_are_a_backdrop_hero_per_kind` (show, season, episode),
+   `test_the_web_and_phone_title_pages_are_unchanged`.
+2. One button row that never wraps: `flex-wrap: nowrap`; the first (Play / Next to watch / Resume) button gives way with an
+   ellipsis, the others keep their size. -> verify: `test_the_title_button_row_never_wraps`; the shots' DOM check: every
+   button of the row on one line (0 wrapped) at all four sizes.
+3. A show (and a season / episode page): the Episodes row (16:9 kit tiles with the JY-192 word chips, the progress bar and
+   the Jellyfin hand-off) straight under the hero, its head line "Episodes", the seasons as chips (the shown season lit,
+   OK opens that season) and "n of m watched". Down from the buttons lands on the first episode (the mock: "Down x1 from
+   Play reaches E1"); Up from an episode reaches the chips. -> verify: `test_a_show_draws_episodes_then_season_chips`,
+   `test_down_from_the_buttons_skips_the_chips_to_the_first_episode_under_node`; the shots: the first row's tiles end
+   inside the first 1080 device px (540 CSS); an episode tile still plays (the existing `/web/#/details?id=` hand-off,
+   `test_ok_on_an_episode_card_is_the_jellyfin_hand_off` unchanged).
+4. Cast as circles (kit `person`), then "More on Joey" as kit posters below; while the part is on its way each is a
+   3-tile skeleton row. -> verify: `test_cast_is_circles_and_more_on_joey_is_kit_posters`,
+   `test_slow_shelves_draw_a_skeleton_row`.
+5. Grids (Movies, TV shows): 9 across at phase 1's sizes; the gold score glow off on the TV (the ring is the only bright
+   border); the sub-tabs fold to My films · Watchlist · More (Tonight, To rate, Awards) (Q8 A) - More is a `<details>`,
+   open on a folded tab's own page. -> verify: `test_the_grid_has_no_score_glow_on_the_tv`,
+   `test_the_tv_sub_tabs_fold_tonight_to_rate_and_awards_under_more`.
+6. Discover (Q5 A): the state is a word on a band UNDER the art ("On Joey" / "Requested" / "Request"), never a chip over
+   it - on the page, in the search dialog, and after a request (the panel's out-of-band chip). Discover is 8 across,
+   not the library's 9: at the 18 px floor "Requested" needs about 90 px and a 9-across cell is 82 (the shots check
+   every band word reads whole). -> verify:
+   `test_discover_states_are_foot_bands_not_chips_over_the_art`; the shots: 0 chips over art.
+7. Loading: skeleton rows (above); the first two Home rows and a title page's episode row load eagerly, everything
+   below stays lazy; picture boxes keep their shape (phase 2). -> verify: `test_the_first_two_rows_load_eagerly`; the
+   shots: the first two rows' images within 2 s on the local test.
+8. The 18 px floor and the overscan at 960x540 dpr 2, 1280x720, 1920x1080 and 3840x2160 (the phase 1 tests cover the
+   whole sheet), no network on render, friend isolation. -> verify: `test_the_18px_floor_holds_at_every_panel` (all
+   four), `test_no_socket_opens_on_a_warm_tv_title_page`, `test_each_friend_sees_only_their_own_episodes_and_chips`.
+9. Captures of every page type (Home, film, show, season, episode, Movies grid with More open, Discover, the search
+   dialog) at the four sizes into `JoeyTV\review\JY-259\p3-shots\` (`JoeyTV\scripts\jy259_p3_shots.py`), with the DOM
+   audit (text under 18 CSS px, x-scroll, wrapped buttons, chips over art, the first row's foot, image times).
+10. TV review checkpoint 3 (B., on the TCL): Home, a film, a show, Discover. Not run by the builder.
+
+Test changes (CLAUDE.md rule 4), 2026-10-28, each because B. picked the new look (A, Q5 A, Q8 A); none weakened:
+- `test_tv_series_episodes.py`: the JY-192 Seasons shelf of 2:3 cards is now the season chips in the Episodes row's
+  head line ("Seasons are chips"), so the five tests that read `section(html, "tv-seasons")` read the chips (`chips()`)
+  and the "n of m watched" beside them; every watch-state and per-viewer assertion is kept.
+- `test_tv_mode.py::test_tv_discover_is_the_eight_column_grid_with_chips_and_the_panel`: the TV word for a title in the
+  library is "On Joey" (Q5 A, the spec's band words); the web keeps "In library" (`test_tv_p3_jy259.py` pins both).
+- `test_tv_awards_diary.py::test_tv_awards_is_chips_and_shelves`: the sub-tab fold is a `<details>`; the "no
+  `<details>`" check now reads the page body without it.
+- `test_tv_session_fixes.py::test_season_eyebrow_is_at_least_18px_on_the_tv`: the title page's eyebrows are sentence case
+  and untracked (B.'s point 4; phase 1 left them "until phase 3 rebuilds it"); the 18 px, weight and colour pins stay.
+- `test_tv_shelves_tmdb.py::test_tv_friend_title_shelf_is_more_on_joey_on_server_only`: "More on Joey" draws kit posters
+  (`art()`), so the h=600 check reads the kit's `<img src=`.
+
+Review fixes (2026-10-28, reviews of PR #267; Review B blocking):
+- The season chips were clipped (a scroll box with a negative margin) and drawn under the tile row: the chip row is a
+  plain wrapping flex row and the head line sits above the tiles (`z-index`, a 36 px minimum height). The shots now check
+  every chip and the count with `elementFromPoint` (wholly on screen, on top) at all four sizes, and the season page's
+  first row keeps a 3 % margin above the screen foot (hero tightened: title 32 px, smaller gaps).
+- The JY-192 rule `.tv-eps .carousel > * { 236px }` is removed (dead since the row became a kit `tvt-row-land` row);
+  its test is re-pointed, 2026-10-28: `test_episode_cards_are_the_kit_16x9_tiles_over_the_jy188_carousel_width` pins the
+  kit's 158 px width, that the old rule is gone, and that the row is a kit row.
+- New tests: a title with no backdrop, a show with no episode list, an actor with no TMDB id (drawn, not a stop), Down
+  from Play with E1 scrolled out of view.
+- Sub-tabs: inside the `<details>` the links take the row's 8 px as a margin (the flex gap reached only the summary);
+  the shots check every gap is equal.
+- Grids: the library captions sit 10 px under the picture so the focus ring (7 px out) clears them; Discover's band too.
+- Hero words: a darker left scrim (.9 / .64) and a soft text shadow, so the synopsis holds over bright art.
+
+Verifier fix (2026-10-28, PR #267): the chips wrapped from 6 seasons up and pushed the episodes off the screen (the
+season page's first row at 1115/1080 with 10 seasons, 1203/1080 with 16). The chips are now ONE horizontal scroll line
+with the ring's 7 px room inside it (no negative margin, nothing clipped); tv.js scrolls the focused chip into the row
+(Left / Right) and the lit chip on every page set-up; Up from an episode lands on the lit chip. -> verify:
+`test_the_season_chips_are_one_scroll_line_with_room_for_the_ring`,
+`test_left_and_right_walk_the_chip_row_and_scroll_it_under_node`,
+`test_a_late_season_chip_is_scrolled_into_view_on_load_and_up_from_e1_lands_on_it_under_node`; the shots add shows with
+6 and 16 seasons (show, a late season, its episode) and check, at all four sizes: one chip line, every chip wholly in
+the row on top (`elementFromPoint`), the lit chip shown, the first row with a 3 % margin. Note: `media_item.MAX_SEASONS`
+(12) caps the season list, so a 16-season show draws 12 chips (unchanged, outside this item).
+
+Top row, 2026-10-29. B.: "The 8 across is good. The top row is still too large. I would like it about 33 percent smaller
+at least. I use a tcl 55" c7 so would like it to suit a better mix for that TV. I liked the rows so happy with that
+though." Which row: "The header with joey, media, etc on it." Then: "I use a c7k with tcl so a 4k resolution. Can you
+please adjust to fit that please."
+- Measured TV viewport: the Joey TV shell's WebView renders at **960 x 540 CSS px, dpr 2** on B.'s TCL (Android 14,
+  WebView 155; `JoeyTV\review\TV_UI_EVALUATION_2026-10-23.md`, device capture). Android TV draws apps at 1080p and the
+  4K C7K panel scales that up, so the 960x540 dpr 2 capture IS the 4K target; 3840x2160 at dpr 1 is checked too.
+- Built (TV mode only, `tv.css` in place): the top row's controls 36 -> 24 CSS px (-33 %); brand text 22 -> 18 px, its
+  mark 32 -> 22 px, avatar 28 -> 24 px, search and sign-out icons 22 -> 18 px. The bar is 27 (the 5 % overscan) + 24 + 1.
+- Bar height, measured by the shots (`top row` check), old -> new:
+
+  | Capture | Bar | Tallest control |
+  |---|---|---|
+  | 960x540 dpr 2 (the C7K) | 64 -> 52 CSS px (128 -> 104 device) | 36 -> 24 |
+  | 1280x720 | 85.3 -> 69.3 | 48 -> 32 |
+  | 1920x1080 | 128 -> 104 | 72 -> 48 |
+  | 3840x2160 | 256 -> 208 | 144 -> 96 |
+
+  The controls are a third smaller; the bar as a whole is 19 % smaller, because its top 27 px is the overscan safe area
+  and the text stays at the 18 px floor (both kept, as asked). A full third off the bar needs the overscan margin cut
+  (for example to 2.5 %): **decision for B.** The content rises by the 12 px given back (Home's first row 381 -> 369).
+- Test pins changed (dated here): `test_tv_mode.py` `test_tv_css_has_no_hover_rule_and_keeps_the_floor` (brand 22 ->
+  18 px) and `test_jy188_density_b_with_compact_chrome` (bar 64 -> 52 px, controls 24 px).
+
+Variant C, 2026-10-29. B. saw the 19 % bar and variant B (the bar's top margin cut to 2.5 %) and chose: "Use C as tighter
+but you also did not go to the full 4k resolution. 2840 x 2160 pixels [3840]. Can you please restructure it and show it
+again."
+- Built: the bar's own top margin is 2.5 % of the height (`--tv-my-bar`, 13.5 px at 960x540); the page keeps the 5 %
+  overscan everywhere else. Bar = 13.5 + 24 + 1 = **38.5 CSS px, was 64 (-40 %)**. The 18 px floor holds; the ring above
+  a pill has 6.5 px of room (whole). The bar's text now sits inside the outer 5 % at the top (the audit's outsideSafe
+  counts it); on a set without overscan, as the C7K's app area is, it shows whole.
+- `html.tv .toplinks { overflow: visible; }`: control-surface.css hides that row's overflow from 768 px, which cut the
+  section pills' focus ring on the TV (verifier); `test_the_top_row_is_variant_c_and_its_focus_rings_are_never_clipped`.
+
+  | Size (CSS px) | Bar: 64-era -> 52 (2026-10-29 a.m.) -> C | Tallest control |
+  |---|---|---|
+  | 960x540 dpr 2 | 64 -> 52 -> 38.5 | 36 -> 24 |
+  | 1280x720 | 85.3 -> 69.3 -> 51.3 | 48 -> 32 |
+  | 1920x1080 | 128 -> 104 -> 77 | 72 -> 48 |
+  | 3840x2160 dpr 1 | 256 -> 208 -> 154 | 144 -> 96 |
+
+- Full 4K (3840x2160 CSS px at dpr 1) is a first-class shot size: every page is shot there. Every length in `tv.css` is
+  rem and 1rem = the viewport height / 33.75 (64 px at 3840x2160), so the page is the same picture at 960x540 dpr 2 and
+  at 3840x2160 dpr 1. The shots now prove it per page (`scales with the viewport`: 1rem = H / 33.75, and 0 text under
+  the 18 px floor scaled by 1rem / 16, i.e. 72 px at 4K). Nothing fixed-px was found, so nothing else changed.
+- What the TV draws today: the Joey TV shell's WebView on B.'s TCL measures 960x540 CSS px at dpr 2 (device notes,
+  `JoeyTV\review\TV_UI_EVALUATION_2026-10-23.md`) = 1920x1080 physical px; Android TV composes apps at 1080p and the
+  C7K scales that to its 3840x2160 panel. True 4K rendering would need Android's display size and density raised (for
+  example `adb shell wm size 3840x2160` and `wm density 640`, checked with `wm size` / `wm density`), which is a live TV
+  change for B. in his own window and is not made here. The layout would not change (it is the same picture at any
+  size); only the sharpness of text and posters would.
+- Test pins changed (dated here): `test_tv_mode.py::test_jy188_density_b_with_compact_chrome` (bar 52 -> 38.5 px, the
+  `--tv-my-bar` margin, the overflow rule) and `test_joey_media_home.py` (the stop fits 13.5 + 24 + 1 <= 38.5).
+
+Centred top row and small corners, 2026-10-29. B.: "i AM HAPPY WITH IT BUT COULD YOU CENTER THE joey media row between
+the top of the screen and where the carousel begins? can you also reduce teh redius on most of the cornering within the
+UI. Make it a lot smaller. Should be a small round and not a large one."
+- Centred: 13.5 px above the 24 px controls (the bar's margin), and every page's first thing starts 12 px under the bar
+  (1 + 12 = 13 px under the controls): Home's hero (unchanged), the title page hero (was 18), the grids' sub-tabs
+  (was 4) and Discover's search box (was 6). The bar stays 38.5 px. Measured by the shots on every page at all four
+  sizes (`top row centred`): at 960x540 dpr 2, above 13.5 / below 13 CSS px (x4 at 3840x2160: 54 / 52). The grids'
+  first row moves down 8 px, the title pages' up 6 px.
+- Corners: two tokens, `--tv-r` (6 px at 960x540) and `--tv-r-sm` (4 px), rem like every length, so they scale; circles
+  (cast, avatars, the search stop, step numbers) stay round. The shots fail any visible corner over 6 px x scale.
+
+  | Thing (960x540 CSS px) | Before | Now |
+  |---|---|---|
+  | Tiles, posters, stills, hero poster, focus ring | 8-10 | 6 (`--tv-r`) |
+  | Buttons (Play, Trailer, Watchlist, Rate) | 12 | 4 (`--tv-r-sm`) |
+  | Pills: section and sub-tabs, season chips, More, user chip, episode chips | 9-10, 999 | 6 |
+  | Discover bands | 6 | 4 |
+  | Search box | 28 | 6 |
+  | Dialogs (search, request, sign out), Diary month card, Jellyfin set-up address | 14-20 | 6 |
+  | Progress bars, skeleton lines | 3-4 | unchanged |
+
+- Tests: `test_the_top_row_sits_centred_over_each_page_start`, `test_every_corner_is_a_small_round_from_two_tokens`; the
+  comment "64 + 4 + 36 = 104" in `test_jy188_density_b_with_compact_chrome` now reads the new numbers.
+
+Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
+`.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
+in `test_discover_states_are_foot_bands_not_chips_over_the_art`.
+Also: "More on Joey" drops the award badge over the art
+(the kit poster draws none; B.'s point 4, calmer).
 
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).

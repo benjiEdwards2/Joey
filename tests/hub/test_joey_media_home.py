@@ -64,10 +64,11 @@ def test_the_css_gives_the_title_hover_focus_and_a_tv_stop(friend):
     tv = design_px(friend.get("/static/tv.css").text)
     tvblock = tv.split("JY-248 nav", 1)[1]
     assert "html.tv .brand-home" in tvblock and ".brand-home[aria-current]" in tvblock
-    # JY-188 compact chrome (2026-10-25): the stop is as tall as a section pill, so it fits the 64 px bar (27 + 36 + 1);
+    # JY-188 compact chrome (2026-10-25): the stop is as tall as a section pill, so it fits the bar (JY-259 P3,
+    # 2026-10-29: 38.5 px = 13.5 + 24 + 1, was 64 = 27 + 36 + 1);
     # its text stays the brand's 22 px (>= the 18 px floor)
     pill = re.search(r"html\.tv \.toplinks a \{[^}]*height: (\d+)px", tv).group(1)
     stop = re.search(r"html\.tv \.brand-home \{[^}]*height: (\d+)px", tv).group(1)
-    assert stop == pill and int(stop) + 27 + 1 <= 64
+    assert stop == pill and float(stop) + 13.5 + 1 <= 38.5
     assert int(re.search(r"html\.tv \.brand b \{[^}]*font-size: (\d+)px", tv).group(1)) >= 18
     assert "font-size" not in tvblock.split("*/", 1)[1].split("html.tv .userchip", 1)[0]

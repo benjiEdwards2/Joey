@@ -102,7 +102,8 @@ def test_tv_css_has_no_hover_rule_and_keeps_the_floor(gc):
     assert "(hover" not in css
     sizes = [float(x) for x in re.findall(r"font-size:\s*([\d.]+)px", css)]
     assert sizes and min(sizes) >= 16, "WP-M spec: nothing under 16 px"
-    assert re.search(r"\.brand b \{[^}]*font-size: 22px; font-weight: 700", css)        # brand text, 22 px bold
+    # JY-259 P3 (B. 2026-10-29, "the top row ... about 33 percent smaller"): brand text 22 -> 18 px bold, the floor
+    assert re.search(r"\.brand b \{[^}]*font-size: 18px; font-weight: 700", css)        # brand text, 18 px bold
     assert "--tv-bar-fill: #f97316" in css                                              # the mockup's progress colour
 
 
@@ -147,7 +148,8 @@ def test_tv_discover_is_the_eight_column_grid_with_chips_and_the_panel(monkeypat
         sign_in(c, fake, FRIEND_ID)
         tv = c.get("/media/discover", headers={"User-Agent": TV_UA}).text
         assert is_tv(tv) and 'class="poster-grid reqgrid"' in tv
-        for tid, word in (("movie-701", "Request"), ("movie-603", "In library"), ("movie-702", "Requested")):
+        # JY-259 P3 (2026-10-28, Q5 A): the TV band says "On Joey" for a title in the library
+        for tid, word in (("movie-701", "Request"), ("movie-603", "On Joey"), ("movie-702", "Requested")):
             assert re.search(rf'id="chip-{tid}"[^>]*>{word}<', tv)
         assert '<dialog id="req-dialog"' in tv and "data-req-open" in tv
         inline = "".join(re.findall(r"<style>(.*?)</style>", tv, flags=re.S))
@@ -982,8 +984,13 @@ def test_jy188_every_font_size_in_tv_css_is_at_least_18px(gc):
 
 def test_jy188_density_b_with_compact_chrome(gc):
     css = _tv_css(gc)
-    assert "--tv-bar: 64px" in css and re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my\) var\(--tv-mx\) 1px", css)   # 27 + 36 + 1
-    assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 64 + 4 + 36 = 104
+    # JY-259 P3 (B. 2026-10-29, "Use C as tighter"): controls 36 -> 24 px, the bar's own top margin 2.5 % (13.5 px), so
+    # the bar is 13.5 + 24 + 1 = 38.5 px (was 27 + 36 + 1 = 64)
+    assert "--tv-bar: 38.5px" in css and "--tv-my-bar: 13.5px" in css
+    assert re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my-bar\) var\(--tv-mx\) 1px", css)   # 13.5 + 24 + 1
+    assert "html.tv .toplinks { overflow: visible; }" in css      # the section pills' focus ring is not clipped
+    assert re.search(r"\.toplinks a \{ height: 24px;", css) and re.search(r"\.brand-home \{ height: 24px;", css)
+    assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 38.5 + 12 + 36 = 86.5 (JY-259 P3, 2026-10-29: the bar 38.5, the sub-tabs 12 px under it)
     # JY-259 (2026-10-28, B.'s point 3): rows 104 -> 92 px cards with 18 px gaps (8 across), grids 9 across, 18 / 16 px gaps
     assert re.search(r"\.carousel > \* \{ flex: 0 0 92px; width: 92px; \}", css)
     assert re.search(r"\.carousel \{ gap: 18px;", css)

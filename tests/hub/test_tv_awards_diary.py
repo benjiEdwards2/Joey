@@ -66,8 +66,10 @@ def test_tv_awards_is_chips_and_shelves(friend):
     assert heads == ["Best Picture · 4", "Acting · 2"]
     assert main.count('class="card-poster') == 6
     assert re.search(r'awwin[^>]*>2 wins<', main) and "Not on Joey" in main
+    # JY-259 P3 (2026-10-28, Q8 A): the sub-tab fold is the one <details> on the TV page; the awards body has none
+    body = re.sub(r'<details class="tv-tabmore".*?</details>', "", main, flags=re.S)
     for gone in ("<select", "<details", "awctl", "awfilters", "Next up", "awsheet", "awfilm"):
-        assert gone not in main, gone
+        assert gone not in body, gone
 
 
 def test_tv_awards_ignores_the_categories_view(friend):

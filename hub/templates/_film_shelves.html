@@ -7,13 +7,16 @@
    server: no shelf. Off the TV, and on the private front, the two shelves below are unchanged. #}
 {% set more = namespace(rows=[], seen=[]) %}
 {% for sh in film.shelves %}{% for r in sh.rows if r.on_server and r.href not in more.seen %}{% set more.rows = more.rows + [r] %}{% set more.seen = more.seen + [r.href] %}{% endfor %}{% endfor %}
+{# JY-259 phase 3: kit posters (2-line titles, the lift); three poster shapes while the part is on its way #}
+{% import "_tv_tile.html" as tvt %}
 {% if more.rows %}
 <section class="sec tv-more">
   <h2 class="seclabel">More on Joey</h2>
-  <div class="carousel">
-    {% for r in more.rows %}<a class="card-poster" href="{{ r.href }}"><span class="card-pic{{ ' is-won' if r.award }}">{{ poster(r.poster, r.title, 240, "", true) }}{{ award_badge(r.award) }}</span><span class="row-title">{{ r.title }}</span><span class="row-meta">{{ r.year }}</span></a>{% endfor %}
+  <div class="carousel tvt-row">
+    {% for r in more.rows %}{{ tvt.poster({"title": r.title, "sub": r.year, "poster": r.poster, "href": r.href}) }}{% endfor %}
   </div>
 </section>
+{% elif "shelves" in film.pending %}{{ tvt.skeleton("More on Joey", "poster", "tv-more") }}
 {% endif %}
 {% else %}
 {% for sh in film.shelves %}

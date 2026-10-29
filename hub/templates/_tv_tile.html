@@ -27,16 +27,19 @@
 {% if i.hero %} data-hero='{{ i.hero|tojson }}'{% endif %}
 {%- endmacro %}
 
-{% macro poster(i) -%}
-<a class="card-poster tvt tvt-poster" href="{{ i.href }}"{{ herodata(i) }}><span class="card-pic">{{ art(i.poster, i.title, 600) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+{% macro poster(i, lazy=true) -%}
+<a class="card-poster tvt tvt-poster" href="{{ i.href }}"{{ herodata(i) }}><span class="card-pic">{{ art(i.poster, i.title, 600, lazy) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
 {%- endmacro %}
 
-{% macro land(i) -%}
-<a class="card-poster tvt tvt-land" href="{{ i.href }}"{{ herodata(i) }}><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400) }}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+{# phase 3: an episode tile (a show's title page) also carries its JY-192 word chip on the still ("Next", "Watched" ...:
+   a 316 px still reads them well, spec §2.1) and, when it plays, the Jellyfin hand-off (data-jf-id, a new tab) #}
+{% macro land(i, lazy=true) -%}
+<a class="card-poster tvt tvt-land" href="{{ i.href }}"{% if i.jf_id %} target="_blank" rel="noopener" data-jf-id="{{ i.jf_id }}"{% endif %}{{ herodata(i) }}><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400, lazy) }}{% if i.chip %}<span class="ep-chip ep-{{ i.chip|lower|replace(' ', '-') }}">{{ i.chip }}</span>{% endif %}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
 {%- endmacro %}
 
+{# phase 3: a person with no Joey page (Jellyfin's own actor list has no TMDB id) is drawn, not a D-pad stop #}
 {% macro person(p) -%}
-<a class="card-poster tvt tvt-person" href="{{ p.href }}"><span class="card-pic">{{ art(p.ref, p.name, 240) }}</span>{{ caption(p.name, p.role) }}</a>
+{% set tag = "a" if p.href else "div" %}<{{ tag }} class="card-poster tvt tvt-person"{% if p.href %} href="{{ p.href }}"{% endif %}><span class="card-pic">{{ art(p.ref, p.name, 240) }}</span>{{ caption(p.name, p.role) }}</{{ tag }}>
 {%- endmacro %}
 
 {# state: "lib" (On Joey), "requested" (Requested), anything else "Request" - a word on a band under the art, never a chip over it #}
@@ -49,14 +52,21 @@
 <a class="card-poster tvt tvt-poster tvt-collection" href="{{ c.href }}"><span class="card-pic tvt-stack">{{ art(c.poster, c.title, 600) }}</span>{{ caption(c.title, (c.count ~ " films") if c.count else c.sub) }}</a>
 {%- endmacro %}
 
-{% macro row(s) -%}
+{# phase 3: `eager` (the first two Home rows) loads the pictures at once; the rows below stay lazy #}
+{% macro row(s, eager=false) -%}
 {# JY-105: a row marked tv_later (Because you rated ...) never takes first focus (tv.js) #}
 <section class="sec"{% if s.tv_later %} data-tv-later{% endif %}>
   <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2></div>
   <div class="carousel tvt-row{% if s.land %} tvt-row-land{% endif %}"{% if s.eyebrow %} data-hero-eyebrow="{{ s.eyebrow }}"{% endif %}>
-    {% for i in s["items"] %}{% if s.land %}{{ land(i) }}{% else %}{{ poster(i) }}{% endif %}{% endfor %}
+    {% for i in s["items"] %}{% if s.land %}{{ land(i, not eager) }}{% else %}{{ poster(i, not eager) }}{% endif %}{% endfor %}
   </div>
 </section>
+{%- endmacro %}
+
+{# phase 3 (spec §5 phase 3 step 4): a slow shelf's stand-in - its label and three tile shapes of the final size, no
+   picture, no D-pad stop, hidden from the screen reader; the deferred part swaps it out when it lands #}
+{% macro skeleton(label, shape="poster", cls="") -%}
+<section class="sec tvt-skelsec{{ ' ' ~ cls if cls }}"><h2 class="seclabel">{{ label }}</h2><div class="carousel tvt-row tvt-skel" aria-hidden="true">{% for _ in range(3) %}<span class="tvt tvt-{{ shape }}"><span class="card-pic"></span><span class="tvt-skel-line"></span></span>{% endfor %}</div></section>
 {%- endmacro %}
 
 {# B.'s point 2: the backdrop under Home (Jellyfin backdrop, else TMDB, else the poster blurred and dimmed - hub/tv_home.py

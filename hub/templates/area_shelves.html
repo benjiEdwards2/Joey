@@ -66,7 +66,8 @@
 {{ bigempty("film", "Nothing on Joey yet", "New films and shows show up here as they arrive", "/media/discover", "Discover") }}
 {% endif %}
 {% if sh.tv %}
-{% for s in sh.tv.rows %}{{ tvt.row(s) }}
+{# JY-259 (P3): the first two rows load their pictures at once, the rest lazily #}
+{% for s in sh.tv.rows %}{{ tvt.row(s, loop.index <= 2) }}
 {% endfor %}
 {% else %}
 {% for s in sh.shelves %}

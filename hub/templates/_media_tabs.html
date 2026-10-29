@@ -10,9 +10,15 @@
     </div>
   </nav>
   {% if nav.tabs %}
+  {# JY-259 phase 3 (Q8 A): on the TV, Movies and TV shows keep the first tab and Watchlist; Tonight, To rate and Awards
+     fold under one "More" (a <details>: OK opens it; open on a folded tab's own page). The web keeps every tab. #}
+  {% macro tab(t) %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> {{ t.what }}</span></span>{% endif %}</a>{% endmacro %}
+  {% set fold = tv_mode(request) and nav.section.id in ("movies", "tv") and nav.tabs|length > 3 %}
+  {% set keep = (nav.tabs[:1] + (nav.tabs[1:]|selectattr("label", "equalto", "Watchlist")|list)) if fold else nav.tabs %}
   <nav class="sectabs sub" aria-label="{{ nav.section.label }}">
     <div class="sectabs-row">
-    {% for t in nav.tabs %}<a href="{{ t.href }}"{% if t.on %} aria-current="page"{% endif %}>{{ t.label }}{% if t.count %} <span class="waitcount">{{ t.count }}<span class="vh"> {{ t.what }}</span></span>{% endif %}</a>{% endfor %}
+    {% for t in keep %}{{ tab(t) }}{% endfor %}
+    {%- if fold %}{% set more = nav.tabs|reject("in", keep)|list %}<details class="tv-tabmore"{% if more|selectattr("on")|list %} open{% endif %}>{% set n = more|map(attribute="count")|select|sum %}<summary>More{% if n %} <span class="waitcount">{{ n }}<span class="vh"> waiting</span></span>{% endif %}</summary>{% for t in more %}{{ tab(t) }}{% endfor %}</details>{% endif %}
     </div>
   </nav>
   {% endif %}

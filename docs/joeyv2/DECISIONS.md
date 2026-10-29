@@ -36,3 +36,6 @@
 
 ## 2026-10-29 — Token rules (B.: "Apply all six token recommendations, including the CLAUDE.md rules.")
 - Measured on the orchestrator session: median context 535k tokens per turn, orchestrator 37 % of spend, GitHub traffic ~2 % of tool output. Six rules added to `CLAUDE.md` (handover at ~200k, no images in the orchestrator, short outputs, builders ≤150 turns, one close-out script per item, reviewers read diffs). This week: after JY-259 phases 3-4, Sonnet review and doc work only until the Sunday reset.
+
+## 2026-10-29 — GitHub budget G1-G4 (B.: "Yes, apply G1-G4")
+- From `review-joeyv2-evaluation-2026-10-29.md` (project folder): 152 of the last 400 CI runs re-tested the squash commit on `main`; 118 of 271 PRs were status or docs PRs; 12 worktrees and 128 remote branches were left from merged PRs. `ci.yml` now runs only on ready (non-draft) PRs and skips docs-only changes; no run on push to `main`. Merged remote branches deleted and merged worktrees removed with proof (`scripts/ci_budget_prune_1029.py` in the project folder). Not applied (needs B.'s wording on rule 11): scripts committing docs-only sweeps and shipped notes straight to `main`.

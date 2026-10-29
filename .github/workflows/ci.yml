@@ -1,15 +1,21 @@
-# Joey hub + connectors test suite (JY-006): the full pytest suite on every PR and every push to main.
+# Joey hub + connectors test suite (JY-006): the full pytest suite on every ready (non-draft) PR.
 # Mirrors the life-test gate image (deploy/test.Dockerfile): Python 3.12, the same three requirement files, git on
 # PATH. Differences from the gate: -n auto instead of -n 2 (the NAS RAM limit does not apply here), the runner has
-# network and node (the node-only tests that skip in the gate run here). No path filter: tests/tv and tests/deploy
+# network and node (the node-only tests that skip in the gate run here). No code path filter: tests/tv and tests/deploy
 # read tv/ files, so tv-only PRs run the suite too (tv.yml still builds the Android shell).
+# GitHub budget (2026-10-29, G1-G3 of review-joeyv2-evaluation-2026-10-29.md): no run on push to main (the squash
+# commit is the PR head that already passed), docs-only changes skip the suite, and draft PRs do not run it. Mark the
+# PR ready after review to run CI; workflow_dispatch re-runs it by hand.
 # Third-party actions are pinned by full commit SHA.
 name: ci
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "HITLIST.md"
   workflow_dispatch:
 
 permissions:
@@ -21,6 +27,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

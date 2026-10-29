@@ -51,7 +51,7 @@
   <input type="hidden" name="bytes" value="{{ entry.bytes }}">
   <div>Delete {{ title }} from disk?</div>
   {% for line in plan %}<div class="metaline">{{ line }}</div>{% endfor %}
-  <label class="metaline" for="remove-typed">Type the title to confirm: <strong>{{ disk.title }}</strong></label>
+  <label class="metaline" for="remove-typed">Type the title to confirm: <strong>{{ title }}</strong></label>
   <input id="remove-typed" name="typed" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" required>
   <div class="confirm-btns">
     <a class="btn btn-ghost btn-sm" href="{{ back }}" autofocus>Cancel</a>

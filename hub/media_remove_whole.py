@@ -199,12 +199,29 @@ def _cancel_queue(kind: str, entry_id: int, steps: list) -> bool:
     return True
 
 
-def _arr_delete(kind: str, entry_id: int, steps: list) -> bool:
+def _arr_delete(kind: str, entry_id: int, steps: list) -> str:
+    """"ok" | "gone" (no answer, but a re-read shows the entry gone) | "kept" (refused, or the re-read shows it still
+    there: nothing was removed) | "unsure" (no answer and the re-read failed too)."""
     base, headers = _creds(kind)
     path, excl = ("movie", "addImportExclusion") if kind == "movie" else ("series", "addImportListExclusion")
-    return _call(steps, app_of(kind), "delete with files", lambda: upstream.session("arr").delete(
-        f"{base}/api/v3/{path}/{entry_id}", params={"deleteFiles": "true", excl: "false"}, headers=headers,
-        timeout=TIMEOUT))
+    url = f"{base}/api/v3/{path}/{entry_id}"
+    try:
+        resp = upstream.session("arr").delete(url, params={"deleteFiles": "true", excl: "false"}, headers=headers,
+                                              timeout=TIMEOUT)
+    except Exception as exc:   # a timeout may still have deleted: look again before saying anything
+        _step(steps, app_of(kind), "delete with files", type(exc).__name__)
+        log.warning("%s delete failed: %s", app_of(kind), type(exc).__name__)
+        try:
+            again = upstream.session("arr").get(url, headers=headers, timeout=TIMEOUT)
+        except Exception as exc2:
+            _step(steps, app_of(kind), "re-read after delete", type(exc2).__name__)
+            return "unsure"
+        word = "gone" if again.status_code == 404 else "kept" if _ok(again) else "unsure"
+        _step(steps, app_of(kind), "re-read after delete", "entry gone" if word == "gone" else
+              "entry still there" if word == "kept" else f"HTTP {again.status_code}")
+        return word
+    _step(steps, app_of(kind), "delete with files", "ok" if _ok(resp) else f"HTTP {resp.status_code}")
+    return "ok" if _ok(resp) else "kept"
 
 
 def _seerr_clear(kind: str, tmdb: int, rows: list[dict], steps: list) -> bool:
@@ -256,18 +273,23 @@ def _jellyfin(kind: str, tmdb: int, tvdb, path: str | None, snaps, steps: list) 
 
 
 def run(kind: str, tmdb: int, tvdb: int | None, entry: dict, rows: list[dict]) -> tuple[str, list, bool]:
-    """The whole-title remove. -> (outcome done|partial|failed, steps, jellyfin told)."""
+    """The whole-title remove. -> (result, steps, jellyfin told). Results: done; failed (the arr entry is still
+    there; cancelled downloads stay cancelled); partial (Seerr not cleared); slow (the DELETE got no answer but the
+    entry is gone, so the chain carried on); unsure (no answer and no re-read: Joey can't say what happened)."""
     steps: list = []
-    if kind == "tv" and media_follow.get("show", tmdb):
-        media_follow.unfollow("show", tmdb)   # else Follow's 6-hour re-apply re-monitors the show
-        _step(steps, "joey", "unfollow", "ok")
     if not _cancel_queue(kind, entry["id"], steps):
         return "failed", steps, False
-    if not _arr_delete(kind, entry["id"], steps):
+    deleted = _arr_delete(kind, entry["id"], steps)
+    if deleted == "kept":
         return "failed", steps, False
     mr.forget_lookups()
     md._cache.pop(f"film:/api/v1/{kind}/{tmdb}", None)
+    if deleted == "unsure":
+        return "unsure", steps, False
+    if kind == "tv" and media_follow.get("show", tmdb):
+        media_follow.unfollow("show", tmdb)   # after the DELETE, so a failed delete keeps the follow
+        _step(steps, "joey", "unfollow", "ok")
     if not _seerr_clear(kind, tmdb, rows, steps):
         return "partial", steps, False
     told = _jellyfin(kind, tmdb, tvdb, entry.get("path"), shell.get_snapshots(), steps)
-    return "done", steps, told
+    return ("slow" if deleted == "gone" else "done"), steps, told

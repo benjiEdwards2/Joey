@@ -82,7 +82,9 @@ ERRORS = {"changed": "This changed since you looked. Check again.",
           "watching": "Someone is watching it now. Try again when it stops.",
           "jfdown": "Jellyfin can't be reached, so Joey can't check nobody is watching. Nothing was removed.",
           "deletefail": "{app} refused the delete. Nothing was removed.",
-          "wholepartial": "{app} deleted the files, but Seerr couldn't be cleared. Check the Requests page."}
+          "wholepartial": "{app} deleted the files, but Seerr couldn't be cleared. Check the Requests page.",
+          "wholeslow": "{app} was slow to answer, but the title is gone: its files are in {app}'s recycle bin.",
+          "wholeunsure": "{app} didn't answer and couldn't be checked. Look in {app}: the files may be in its recycle bin."}
 DONE_WHOLE = {"whole": "Removed · {app} moved the files to its recycle bin (kept 7 days)",
               "wholelate": "Removed · {app} moved the files to its recycle bin (kept 7 days). Jellyfin will catch up on its next scan"}
 
@@ -462,7 +464,8 @@ def _remove_whole(kind: str, tmdb: int, form: dict[str, list[str]]):
     disk = disk_for(kind, tmdb)
     if disk is None:
         return _to(kind, tmdb, error="changed")
-    if not whole.norm(one("typed")) or whole.norm(one("typed")) != whole.norm(disk.get("title")):
+    typed = whole.norm(one("typed"))
+    if not typed or typed not in (whole.norm(disk.get("title")), whole.norm(_disk_title(disk))):
         return _to(kind, tmdb, error="typed", **again)   # Q5 A: the strong confirm; nothing read or sent
     if not _lock.acquire(blocking=False):
         return _to(kind, tmdb, error="busy")
@@ -483,8 +486,9 @@ def _remove_whole(kind: str, tmdb: int, form: dict[str, list[str]]):
             return _to(kind, tmdb, error="rate", at=_clock_at(until))
         rows = rows_for(kind, tmdb)
         tvdb = disk.get("tvdb_id") if isinstance(disk.get("tvdb_id"), int) else None
-        outcome, steps, told = whole.run(kind, tmdb, tvdb, entry, rows)
-        if outcome != "failed":
+        result, steps, told = whole.run(kind, tmdb, tvdb, entry, rows)
+        outcome = {"slow": "partial", "unsure": "partial"}.get(result, result)
+        if result not in ("failed", "unsure"):
             media_hidden.hide(DISK_GROUP, f"{kind}:{tmdb}")
             for r in rows:
                 media_hidden.hide(mr.GROUP, r["id"])
@@ -495,10 +499,11 @@ def _remove_whole(kind: str, tmdb: int, form: dict[str, list[str]]):
         if outcome == "failed":
             return _to(kind, tmdb, error="deletefail", app=app)
         safe = title.replace("@", "@\u200b")   # a title can never ping (as discord_line)
-        _notify(f"Joey Media: removed {safe} ({size_words(entry['bytes'])}) · "
-                + ("recycle bin 7 days" if outcome == "done" else "Seerr not cleared"))
-        if outcome == "partial":
-            return _to(kind, tmdb, error="wholepartial", app=app)
+        _notify(f"Joey Media: removed {safe} ({size_words(entry['bytes'])}) · " + {
+            "done": "recycle bin 7 days", "slow": "recycle bin 7 days (slow answer)",
+            "unsure": "no answer from the app, check it"}.get(result, "Seerr not cleared"))
+        if result in ("slow", "unsure", "partial"):
+            return _to(kind, tmdb, error="whole" + result, app=app)
         return _to(kind, tmdb, done="whole" if told else "wholelate", app=app)
     finally:
         _lock.release()

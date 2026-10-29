@@ -143,7 +143,7 @@ def test_film_is_deleted_once_with_files_then_seerr_and_jellyfin(env):
     assert 'value="whole"' not in after   # hidden until the next arr sweep
 
 
-def test_show_is_unfollowed_before_the_series_delete(env, monkeypatch):
+def test_show_is_unfollowed_after_a_successful_series_delete(env, monkeypatch):
     client, fake, _ = env
     order = []
     with client:
@@ -153,7 +153,7 @@ def test_show_is_unfollowed_before_the_series_delete(env, monkeypatch):
         form, _ = confirm(client, SHOW)
         r = post(client, SHOW, form, "Night Ferry")
     assert r.status_code == 303 and "done=whole" in r.headers["location"]
-    assert order == [None]   # the follow was gone when Sonarr got the DELETE
+    assert order[0] is not None and media_follow.get("show", 2002) is None   # kept until the DELETE succeeded
     deletes = [w for w in fake.arr_writes() if w[0] == "DELETE"]
     assert deletes == [("DELETE", SONARR, "/api/v3/series/9", {"deleteFiles": "true", "addImportListExclusion": "false"})]
 
@@ -290,3 +290,62 @@ def test_flag_off_shows_no_whole_option(env, monkeypatch):
     with client:
         assert client.get(FILM).status_code == 404
     assert not fake.arr.calls
+
+
+def _timeout_then(fake, monkeypatch, drop: bool, reread_raises=False):
+    real_delete, real_get = fake.arr.delete, fake.arr.get
+
+    def delete(url, **k):
+        if "/api/v3/movie/" in url or "/api/v3/series/" in url:
+            if drop:
+                real_delete(url, **k)
+            raise requests.Timeout("read timed out")
+        return real_delete(url, **k)
+
+    def get(url, **k):
+        if reread_raises and url.endswith("/api/v3/movie/11"):
+            raise requests.ConnectionError("down")
+        return real_get(url, **k)
+    monkeypatch.setattr(fake.arr, "delete", delete)
+    monkeypatch.setattr(fake.arr, "get", get)
+
+
+def test_timed_out_delete_that_went_through_carries_on_as_partial(env, monkeypatch):
+    client, fake, db = env
+    with client:
+        form, _ = confirm(client, FILM)
+        _timeout_then(fake, monkeypatch, drop=True)
+        r = post(client, FILM, form, "Desert Crossing (2024)")
+        page = client.get(r.headers["location"]).text
+    assert "error=wholeslow" in r.headers["location"] and "Nothing was removed" not in page
+    assert ("DELETE", "/api/v1/media/900") in fake.seerr and audit(db)[-1]["outcome"] == "partial"
+
+
+def test_timed_out_delete_still_there_is_failed(env, monkeypatch):
+    client, fake, db = env
+    with client:
+        form, _ = confirm(client, FILM)
+        _timeout_then(fake, monkeypatch, drop=False)
+        r = post(client, FILM, form, "Desert Crossing")
+    assert "error=deletefail" in r.headers["location"] and not fake.seerr and audit(db)[-1]["outcome"] == "failed"
+
+
+def test_timed_out_delete_with_no_reread_never_says_nothing_removed(env, monkeypatch):
+    client, fake, db = env
+    with client:
+        form, _ = confirm(client, FILM)
+        _timeout_then(fake, monkeypatch, drop=True, reread_raises=True)
+        r = post(client, FILM, form, "Desert Crossing")
+        page = client.get(r.headers["location"]).text
+    assert "error=wholeunsure" in r.headers["location"] and "Nothing was removed" not in page
+    assert audit(db)[-1]["outcome"] == "partial"
+
+
+def test_failed_series_delete_keeps_the_follow(env):
+    client, fake, db = env
+    fake.arr.delete_status = 500
+    with client:
+        media_follow.follow("show", 2002, "Night Ferry")
+        form, _ = confirm(client, SHOW)
+        r = post(client, SHOW, form, "Night Ferry")
+        assert "error=deletefail" in r.headers["location"] and media_follow.get("show", 2002)

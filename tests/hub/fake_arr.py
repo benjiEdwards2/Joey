@@ -86,6 +86,9 @@ class FakeArr:
                          if "tvdbId" not in params or s["tvdbId"] == params["tvdbId"]])
         if base == SONARR and path == "/api/v3/episodefile":
             return Resp([copy.deepcopy(f) for f in self.episode_files if f["seriesId"] == params.get("seriesId")])
+        for e in (self.movies if base == RADARR else self.series):   # the entry by id (the re-read after a DELETE)
+            if path in (f"/api/v3/movie/{e['id']}", f"/api/v3/series/{e['id']}"):
+                return Resp(copy.deepcopy(e))
         if path == "/api/v3/queue/details":
             key = "movieId" if base == RADARR else "seriesId"
             return Resp([copy.deepcopy(q) for q in self.queue[base] if q.get(key) == params.get(key)])

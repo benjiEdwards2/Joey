@@ -1,6 +1,6 @@
 # JY-265 Remove on title pages: remove the request, or remove the content
 
-Status: **ready** (2026-10-28). Phases 0 and 1 building on `feat/JY-265-remove-p1`. Phases 2, 3 and 4 are later items
+Status: **ready** (2026-10-28). Phases 0 and 1 shipped (#262); phase 2 built on `feat/JY-265-remove-p2` (#275). Phases 2, 3 and 4 are later items
 (each its own branch and PR, section 6). Spec drafted from `origin/main` (3837450).
 Size: **L** (live system writes that delete media). Builder Opus; two Sonnet reviewers, then one Opus verifier.
 
@@ -436,6 +436,16 @@ Builder choices where section 6's phase 2 left room (recommended answers kept, Q
 - Not built here: the Removed list on `/server/space` (Server area, not in section 6's phase 2), the per-season sizes
   and the warnings for seeding / multi-episode files (phase 3). Caches dropped: the Seerr film body and the arr
   lookups; `media_files` / `media_quality` caches expire on their own TTL.
+- Review fixes (2026-10-29, PR #275): the unfollow runs after a successful arr DELETE, so a failed delete keeps the
+  follow (a 6-hour re-apply landing in that short gap is the accepted risk). Cancelled downloads stay cancelled when
+  the DELETE then fails. A DELETE with no answer is followed by a re-read of the entry: gone -> the chain carries on
+  and the audit says `partial` ("slow"); still there -> `failed` ("Nothing was removed"); no re-read -> `partial`, and
+  the page tells B. to check the app, never "Nothing was removed". The typed title accepts the title or the title with
+  its year, as the heading shows it.
+- **Hands item for B. before `REMOVE_API` is turned on:** live, read-only captures of the Seerr
+  `DELETE /api/v1/media/{id}` answer (on a throwaway title), the arr Jellyfin connection (`GET /api/v3/notification`),
+  Jellyfin `/Library/Media/Updated` (does it accept the arr path?), and the shapes of arr `queue/details` and
+  `config/mediamanagement`, so the fakes are checked against real answers.
 - Still open before the live accept: the arr Jellyfin-connection check and the Seerr `DELETE /api/v1/media/{id}` shape
   were not captured live (phase 0 left them); the fakes follow the documented API.
 

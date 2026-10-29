@@ -69,14 +69,14 @@
     <!-- JY-057 player: a button or a pop-up row. The ring comes from isActivated (PlayerUi), not Android focus. -->
     <style name="JoeyPlayerChip">
         <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">@dimen/joey_button_height</item>
-        <item name="android:minWidth">120dp</item>
-        <item name="android:paddingStart">28dp</item>
-        <item name="android:paddingEnd">28dp</item>
+        <item name="android:layout_height">@dimen/player_button_height</item>
+        <item name="android:minWidth">104dp</item>
+        <item name="android:paddingStart">22dp</item>
+        <item name="android:paddingEnd">22dp</item>
         <item name="android:gravity">center</item>
         <item name="android:background">@drawable/player_chip</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">@dimen/joey_body</item>
+        <item name="android:textSize">@dimen/tv_floor</item>
         <item name="android:textColor">@color/joey_text_1</item>
         <item name="android:maxLines">1</item>
         <item name="android:focusable">false</item>
@@ -91,6 +91,21 @@
         <item name="android:paddingEnd">20dp</item>
         <item name="android:ellipsize">end</item>
         <item name="android:layout_marginEnd">0dp</item>
+    </style>
+
+    <!-- JY-259 phase 4: the overlay's title block (mock: 64 px / 28 px at 1920) -->
+    <style name="JoeyPlayerTitle">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">@dimen/player_title</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">@color/joey_text_1</item>
+    </style>
+
+    <style name="JoeyPlayerMethod">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/player_method</item>
+        <item name="android:textColor">@color/joey_text_4</item>
     </style>
 
     <style name="Theme.JoeyTV.Player" parent="Theme.JoeyTV">

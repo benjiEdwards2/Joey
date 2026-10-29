@@ -10,4 +10,14 @@
     <dimen name="joey_button_height">64dp</dimen>
     <dimen name="joey_gap">16dp</dimen>
     <dimen name="joey_dialog_width">640dp</dimen>
+    <!-- JY-259 phase 4: the player overlay on the TV tile kit's tokens (tv.css at the 960x540 CSS viewport, dpr 2:
+         1 CSS px = 1 dp). The 1920x1080 mock's sizes halve; nothing goes under the 18 px floor. -->
+    <dimen name="tv_r">6dp</dimen>
+    <dimen name="tv_r_sm">4dp</dimen>
+    <dimen name="tv_floor">18sp</dimen>
+    <dimen name="player_title">32sp</dimen>
+    <dimen name="player_method">18sp</dimen>
+    <dimen name="player_button_height">56dp</dimen>
+    <dimen name="player_upnext_tile">200dp</dimen>
+    <dimen name="player_upnext_tile_h">113dp</dimen>
 </resources>

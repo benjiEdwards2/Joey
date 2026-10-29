@@ -505,6 +505,14 @@ in `test_discover_states_are_foot_bands_not_chips_over_the_art`.
 Also: "More on Joey" drops the award badge over the art
 (the kit poster draws none; B.'s point 4, calmer).
 
+## 9. Phase 4 build (2026-10-29): the player overlay
+
+PR #271: the look-A overlay on the kit's tokens (title 32sp, method 18sp, 56dp buttons = tv.css 3.5rem controls at
+960x540 dp, corners 6 / 4, the up-next card as a 200dp 16:9 tile with its chips stacked under it); Back reloads the
+title page (no change needed); TV 1.0.4. Follow-ups, each its own PR:
+- The up-next tile's picture: the hub passes the next episode's `/img` ref in the player payload (hub + TV contract change).
+- Geist in the shell: convert the repo's GeistVF.woff2 to TTF (OFL), about 0.2 to 0.5 MB on the APK.
+
 ## Data
 Phase 1 adds two row shapes to the guest Home builder (`still` for a 16:9 image ref, `next_up` per show) from the Jellyfin snapshot and the hub's item cache only. No `media.db` change, no new connector call. Images: the 16:9 still is `/img/<ref>?h=225` style (a new allowed height, warmed by `media_warmup` for the Continue watching and next-up items only).
 

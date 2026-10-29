@@ -41,8 +41,8 @@ html.tv .tabbar, html.tv .sectabs-page { display: none !important; }
 
 /* Top bar: brand, Media section row, user chip; 38.5 px tall (13.5 + 24 + 1; JY-259, B. 2026-10-29: variant C, the bar's own
    top margin is 2.5 % of the height, the page keeps the 5 % overscan) - JY-188 compact chrome. */
-html.tv .topbar { position: sticky; top: 0; z-index: 40; border-bottom: 0; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my-bar) var(--tv-mx) .0625rem; gap: 1.5rem; }
+html.tv .topbar { position: sticky; top: 0; z-index: 40; border-bottom: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tv .topbar-in { background: linear-gradient(to bottom, transparent .78125rem, var(--tv-band, var(--bg)) .78125rem); max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my-bar) var(--tv-mx) .0625rem; gap: 1.5rem; }
 /* verifier: control-surface.css gives .toplinks overflow: hidden from 768 px, which cut the section pills' focus ring */
 html.tv .toplinks { overflow: visible; }
 html.tv .brand { gap: .5rem; }
@@ -458,7 +458,7 @@ html.tv .tv-bd::after {
   background: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .62) 45%, rgba(9, 9, 11, .3) 100%),
               linear-gradient(to bottom, rgba(9, 9, 11, .2) 0%, rgba(9, 9, 11, .5) 40%, rgba(9, 9, 11, .94) 75%);
 }
-html.tv body:has(.tv-bd) .topbar { background: rgba(9, 9, 11, .8); }
+html.tv body:has(.tv-bd) .topbar { --tv-band: rgba(9, 9, 11, .8); }
 html.tv body:has(.tv-bd) .page { position: relative; z-index: 1; }
 html.tv .tv-hero { margin: 0; padding: .75rem 0 0; max-width: 36rem; }
 html.tv .tv-hero p { margin: 0; }
@@ -516,7 +516,7 @@ html.tv .pagehead.hero-detail { position: relative; isolation: isolate; }
 html.tv .hero-detail-bd { top: calc(-1 * var(--tv-bar)); bottom: auto; height: 23rem; background-size: cover; background-position: center 25%;
   background-image: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .64) 42%, rgba(9, 9, 11, .16) 100%),
                     linear-gradient(to bottom, rgba(9, 9, 11, .3) 0%, rgba(9, 9, 11, 0) 22%, rgba(9, 9, 11, 0) 52%, var(--bg) 100%), var(--bd-pick); }
-html.tv body:has(.hero-detail-bd) .topbar { background: rgba(9, 9, 11, .72); }
+html.tv body:has(.hero-detail-bd) .topbar { --tv-band: rgba(9, 9, 11, .72); }
 html.tv .pagehead.hero-detail .pagehead-in { padding: .75rem var(--tv-mx) 0; }
 html.tv .hero-detail-in { align-items: flex-end; gap: 1.75rem; }
 html.tv .hero-detail-poster { width: 7.25rem; }
@@ -590,4 +590,7 @@ html.tv .poster-grid.reqgrid .reqchip { margin-top: .625rem; }
    (-33 %), the brand 18 px, its mark 22 px. Then B. 2026-10-29: "Use C as tighter": the bar's top margin is 2.5 %
    (--tv-my-bar, 13.5 px), so the bar is 13.5 + 24 + 1 = 38.5 px, was 64 (-40 %). The 18 px floor and whole rings stay.
    Edited in place above: --tv-my-bar, --tv-bar, .topbar-in, .brand, .toplinks a, .brand-home, .userchip, .tv-searchstop. */
+/* JY-259 header fix (B. 2026-10-29, "not in the middle vertically"): the dark band starts at the overscan line (12.5 px at
+   960x540, 2.3 % of the height), not at the screen's top, so the 24 px row has 1 px of band above and below it. The top
+   12.5 px keep the page's own picture (overscan: a TV may crop it). Bar height and the row's place are unchanged. */
 /* ==== end JY-259 phase 3 ==== */

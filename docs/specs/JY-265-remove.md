@@ -1,6 +1,6 @@
 # JY-265 Remove on title pages: remove the request, or remove the content
 
-Status: **ready** (2026-10-28). Phases 0 and 1 building on `feat/JY-265-remove-p1`. Phases 2, 3 and 4 are later items
+Status: **ready** (2026-10-28). Phases 0 and 1 shipped (#262); phase 2 built on `feat/JY-265-remove-p2` (#275). Phases 2, 3 and 4 are later items
 (each its own branch and PR, section 6). Spec drafted from `origin/main` (3837450).
 Size: **L** (live system writes that delete media). Builder Opus; two Sonnet reviewers, then one Opus verifier.
 
@@ -199,7 +199,9 @@ The NAS volume is RAID0, so there is no second copy. The recycle bin is the only
 - media.db `media_removals` (a new `media_store.STEPS` entry): `id, at (UTC), owner, front (private|media), kind,
   tmdb_id, tvdb_id, title, scope (request|whole|seasons|episodes), picked (JSON: seasons / episode codes), files,
   bytes, request_ids, steps (JSON: one line per write with app, step and outcome or HTTP status), outcome
-  (done|partial|refused|failed)`. It records titles and codes only: no paths, URLs or keys (CLAUDE.md standing rule).
+  (started|done|partial|unsure|refused|failed)`. Phase 2: a whole remove writes its row as `started` before any write and
+  closes it in a `finally`; a crash after the arr DELETE was sent closes it `unsure`, before that `failed`; a DELETE
+  with no answer and no re-read is `unsure` too. It records titles and codes only: no paths, URLs or keys (CLAUDE.md standing rule).
 - It is shown as a **Removed** list (last 30) at the bottom of `/server/space`: "Severance · Seasons 1–2 · 32.5 GB ·
   B. · 28 Oct 19:40 · done". That list adds no button, so Free space stays list-only.
 - Each remove posts one Discord line to `SERVER_DISCORD_WEBHOOK` (Q9): "Joey removed Severance S1–S2 (32.5 GB) ·
@@ -412,5 +414,41 @@ From the builder brief, which narrows section 6's phase 1:
 - 2026-10-28, review fixes (PR #262): a v5 to v6 migration test with live rows; the Discord line escapes `@` in
   titles and posts with `allowed_mentions: {"parse": []}`, so no title can ping; the fake arr DELETE answers `{}`, as
   Radarr and Sonarr do.
+
+## 11. Phase 2 as built (2026-10-29)
+
+Builder choices where section 6's phase 2 left room (recommended answers kept, Q1A-Q10A):
+
+- Same flag `REMOVE_API` (no new flag); same owner gate as phase 1. Off, nothing new shows.
+- Whole is offered when the arr snapshot's `library_sizes` lists the title on disk (radarr / sonarr row by `tmdb_id`),
+  so the More line now shows for an on-disk title with no request too. Still no call on render.
+- Confirm makes the live read (spec 2.3): `config/mediamanagement` (recycle bin, kept 1 hour), the arr entry and its
+  file ids and bytes. As in phase 1 there is no HMAC token: the Confirm form carries the arr id, file ids and bytes it
+  showed, and the same-origin POST re-reads and refuses on any difference.
+- Strong confirm (Q5 A): the title typed, compared to the cached title ignoring case, spaces and punctuation; checked
+  before any call. TV hold-OK is phase 4.
+- Watching-now: a live Jellyfin `/Sessions` read on the POST, matching the movie's TMDB id, the series' TMDB id or a
+  path inside the arr folder. Jellyfin unreachable refuses (Joey can't tell); Jellyfin not configured skips it.
+- Order: unfollow (show) -> arr queue rows cancelled (`removeFromClient=true&blocklist=false`, the queue cancel moved
+  here from phase 1) -> arr DELETE with files -> Seerr requests deleted, then `DELETE /api/v1/media/{id}` (id from
+  `GET /api/v1/{kind}/{tmdb}` `mediaInfo.id`; 404 = already cleared) -> Jellyfin. A failure before the arr DELETE is
+  `failed`, after it `partial`. Jellyfin is best effort: the result says it catches up on its next scan.
+- Limits: the phase-1 10 per hour plus 3 whole removes per hour; one remove at a time (shared lock).
+- The removed title's on-disk row is hidden (media_hidden) until the next arr sweep, and its request rows too.
+- Not built here: the Removed list on `/server/space` (Server area, not in section 6's phase 2), the per-season sizes
+  and the warnings for seeding / multi-episode files (phase 3). Caches dropped: the Seerr film body and the arr
+  lookups; `media_files` / `media_quality` caches expire on their own TTL.
+- Review fixes (2026-10-29, PR #275): the unfollow runs after a successful arr DELETE, so a failed delete keeps the
+  follow (a 6-hour re-apply landing in that short gap is the accepted risk). Cancelled downloads stay cancelled when
+  the DELETE then fails. A DELETE with no answer is followed by a re-read of the entry: gone -> the chain carries on
+  and the audit says `partial` ("slow"); still there -> `failed` ("Nothing was removed"); no re-read -> `partial`, and
+  the page tells B. to check the app, never "Nothing was removed". The typed title accepts the title or the title with
+  its year, as the heading shows it.
+- **Hands item for B. before `REMOVE_API` is turned on:** live, read-only captures of the Seerr
+  `DELETE /api/v1/media/{id}` answer (on a throwaway title), the arr Jellyfin connection (`GET /api/v3/notification`),
+  Jellyfin `/Library/Media/Updated` (does it accept the arr path?), and the shapes of arr `queue/details` and
+  `config/mediamanagement`, so the fakes are checked against real answers.
+- Still open before the live accept: the arr Jellyfin-connection check and the Seerr `DELETE /api/v1/media/{id}` shape
+  were not captured live (phase 0 left them); the fakes follow the documented API.
 
 ## Shipped notes

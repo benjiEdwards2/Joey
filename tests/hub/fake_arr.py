@@ -46,6 +46,8 @@ class FakeArr:
         self.calls: list[tuple] = []           # (method, base, path, params, json)
         self.raise_on: type[Exception] | None = None
         self.put_status = 202
+        self.queue: dict[str, list] = {RADARR: [], SONARR: []}   # JY-265 phase 2: /api/v3/queue/details rows
+        self.delete_status = 200
 
     @staticmethod
     def handles(url: str) -> bool:
@@ -84,6 +86,12 @@ class FakeArr:
                          if "tvdbId" not in params or s["tvdbId"] == params["tvdbId"]])
         if base == SONARR and path == "/api/v3/episodefile":
             return Resp([copy.deepcopy(f) for f in self.episode_files if f["seriesId"] == params.get("seriesId")])
+        for e in (self.movies if base == RADARR else self.series):   # the entry by id (the re-read after a DELETE)
+            if path in (f"/api/v3/movie/{e['id']}", f"/api/v3/series/{e['id']}"):
+                return Resp(copy.deepcopy(e))
+        if path == "/api/v3/queue/details":
+            key = "movieId" if base == RADARR else "seriesId"
+            return Resp([copy.deepcopy(q) for q in self.queue[base] if q.get(key) == params.get(key)])
         return Resp({}, 404)
 
     def put(self, url, json=None, headers=None, timeout=None, **kw):
@@ -97,7 +105,14 @@ class FakeArr:
 
     def delete(self, url, headers=None, timeout=None, params=None, **kw):
         assert timeout
-        self._rec("DELETE", url, headers, params)
+        base, path = self._rec("DELETE", url, headers, params)
+        if self.delete_status != 200:
+            return Resp({}, self.delete_status)
+        rows = self.movies if base == RADARR else self.series
+        for e in list(rows):   # a movie / series DELETE drops the entry (deleteFiles: its files go to the recycle bin)
+            if path in (f"/api/v3/movie/{e['id']}", f"/api/v3/series/{e['id']}"):
+                rows.remove(e)
+                self.episode_files = [f for f in self.episode_files if f.get("seriesId") != e["id"]]
         return Resp({}, 200)   # Radarr / Sonarr answer a DELETE with 200 and an empty JSON object
 
     def post(self, url, json=None, headers=None, timeout=None, **kw):

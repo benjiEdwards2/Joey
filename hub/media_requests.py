@@ -6,7 +6,8 @@
 2. ONLY when the title has nothing on disk yet, stop the *arr search: Radarr movie by tmdbId / Sonarr series by
    tvdbId (else tmdbId) -> `monitored: false` with a PUT of the app's own resource. Nothing is ever deleted in
    Radarr / Sonarr: no file, no entry. A title with a file on disk (or Jellyseerr saying Available / Partly
-   available) is left exactly as it is.
+   available) is left exactly as it is. (The Requests page's Remove still never deletes; since JY-265 phase 2 only
+   the title page's Remove > Whole film / Whole show deletes files, through hub/media_remove_whole.py.)
 3. The row leaves the page at once (media_hidden, until the next Jellyseerr sweep) and the page flashes "Removed".
 
 Upstream failures are words; logs and flashes carry an exception TYPE or an HTTP status only (requests errors

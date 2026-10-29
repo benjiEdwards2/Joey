@@ -363,7 +363,7 @@ def test_a_post_without_the_confirm_ids_is_refused(env):
     client, fake = env()
     with client:
         r = client.post(FILM, data={"scope": "request"}, follow_redirects=False)
-        r2 = remove(client, FILM, rids="13", scope="whole")
+        r2 = remove(client, FILM, rids="13", scope="seasons")
     assert "error=changed" in r.headers["location"] and r2.headers["location"] == f"{FILM}?error=scope"
     assert fake.total() == 0
 

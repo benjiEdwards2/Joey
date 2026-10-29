@@ -127,7 +127,7 @@
           {% if more_req %}{% call wait("actions", film.pending, "more") %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}{% endif %}
           {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
           {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
-          {# JY-265: Remove… (owner "you", REMOVE_API on, a Seerr request exists) - opens the Remove page #}
+          {# JY-265: Remove… (owner "you", REMOVE_API on, a Seerr request exists or the arr cache lists it on disk) - opens the Remove page #}
           {% if film.remove_href %}<a class="btn btn-danger" href="{{ film.remove_href }}">Remove…</a>{% endif %}
           </div>
         </details>

@@ -1395,3 +1395,13 @@ words like Quiet. A live cap that reads "41 Mbps" now shows as Full speed; a liv
 `FULL_MBPS=0` keeps the "removes the cap" text and its warning colour. Quiet, the chip labels and the routes are unchanged.
 `deploy/.env.example` lists `FULL_MBPS=41`; the NAS env line goes in later through `nas_scripts/append_env.sh`. Tests:
 `tests/hub/test_server_quiet.py`. Spec: `docs/specs/JY-141-full-mbps-cap.md`.
+
+**JY-265 phase 2 (2026-10-29): Remove > Whole film / Whole show.** Behind `REMOVE_API` (default off; off, nothing new
+shows). The Remove page offers "Whole film" / "Whole show" when the arr snapshot's `library_sizes` lists the title on
+disk (the More line now shows for that too, still no call on render). Confirm reads Radarr / Sonarr live (entry, file
+ids, bytes, recycle bin) and asks for the title to be typed. The POST refuses on a wrong title, a changed file set, a
+blank recycle bin, a Jellyfin session playing it (or Jellyfin unreachable), a second remove running, or a 4th whole
+remove within the hour; then unfollows a followed show, cancels its arr queue rows (`removeFromClient=true`), sends
+the arr `DELETE ...?deleteFiles=true` (no import exclusion), deletes the Seerr requests and clears its media, and
+tells Jellyfin (`/Library/Media/Updated`, a show falls back to `/Items/{id}/Refresh?Recursive=true`). Audit row with
+files and bytes, one Discord line. Module `hub/media_remove_whole.py`; tests `tests/hub/test_media_remove_whole.py`.

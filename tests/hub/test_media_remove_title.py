@@ -48,3 +48,18 @@ def test_the_line_adds_no_upstream_call(env, monkeypatch):
     html, both = page(env)
     assert LINE in html
     assert not [c for c in both.calls if "/api/v1/request" in c or "/api/v3/" in c]
+
+
+def test_on_disk_without_a_request_shows_the_line_from_the_arr_cache(env, monkeypatch):
+    """Phase 2: a title on disk (arr snapshot library_sizes) gets Remove… with no request, still with no call."""
+    monkeypatch.setenv("REMOVE_API", "on")
+    sizes = {"library_sizes": {"radarr": [{"tmdb_id": 701, "title": "Plain Film", "size_bytes": 5}], "sonarr": []}}
+    client, both = env(arr=sizes, seerr_snap=[])
+    with client:
+        html = client.get("/media/title/movie/701").text
+    assert LINE in html
+    assert not [c for c in both.calls if "/api/v1/request" in c or "/api/v3/" in c]
+    monkeypatch.setenv("REMOVE_API", "off")
+    client, _ = env(arr=sizes, seerr_snap=[])
+    with client:
+        assert LINE not in client.get("/media/title/movie/701").text

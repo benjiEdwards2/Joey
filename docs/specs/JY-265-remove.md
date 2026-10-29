@@ -413,4 +413,30 @@ From the builder brief, which narrows section 6's phase 1:
   titles and posts with `allowed_mentions: {"parse": []}`, so no title can ping; the fake arr DELETE answers `{}`, as
   Radarr and Sonarr do.
 
+## 11. Phase 2 as built (2026-10-29)
+
+Builder choices where section 6's phase 2 left room (recommended answers kept, Q1A-Q10A):
+
+- Same flag `REMOVE_API` (no new flag); same owner gate as phase 1. Off, nothing new shows.
+- Whole is offered when the arr snapshot's `library_sizes` lists the title on disk (radarr / sonarr row by `tmdb_id`),
+  so the More line now shows for an on-disk title with no request too. Still no call on render.
+- Confirm makes the live read (spec 2.3): `config/mediamanagement` (recycle bin, kept 1 hour), the arr entry and its
+  file ids and bytes. As in phase 1 there is no HMAC token: the Confirm form carries the arr id, file ids and bytes it
+  showed, and the same-origin POST re-reads and refuses on any difference.
+- Strong confirm (Q5 A): the title typed, compared to the cached title ignoring case, spaces and punctuation; checked
+  before any call. TV hold-OK is phase 4.
+- Watching-now: a live Jellyfin `/Sessions` read on the POST, matching the movie's TMDB id, the series' TMDB id or a
+  path inside the arr folder. Jellyfin unreachable refuses (Joey can't tell); Jellyfin not configured skips it.
+- Order: unfollow (show) -> arr queue rows cancelled (`removeFromClient=true&blocklist=false`, the queue cancel moved
+  here from phase 1) -> arr DELETE with files -> Seerr requests deleted, then `DELETE /api/v1/media/{id}` (id from
+  `GET /api/v1/{kind}/{tmdb}` `mediaInfo.id`; 404 = already cleared) -> Jellyfin. A failure before the arr DELETE is
+  `failed`, after it `partial`. Jellyfin is best effort: the result says it catches up on its next scan.
+- Limits: the phase-1 10 per hour plus 3 whole removes per hour; one remove at a time (shared lock).
+- The removed title's on-disk row is hidden (media_hidden) until the next arr sweep, and its request rows too.
+- Not built here: the Removed list on `/server/space` (Server area, not in section 6's phase 2), the per-season sizes
+  and the warnings for seeding / multi-episode files (phase 3). Caches dropped: the Seerr film body and the arr
+  lookups; `media_files` / `media_quality` caches expire on their own TTL.
+- Still open before the live accept: the arr Jellyfin-connection check and the Seerr `DELETE /api/v1/media/{id}` shape
+  were not captured live (phase 0 left them); the fakes follow the documented API.
+
 ## Shipped notes

@@ -9,19 +9,21 @@
 {% from "_poster.html" import poster %}
 {# JY-265 phase 1 (2026-10-28): Remove on a title page, request only. Two steps, Pick and Confirm, plain forms and
    links (no JS needed); the POST re-reads Seerr live and answers with a 303 back here. Owner "you" only; rendered from
-   the cached Seerr rows, never the network. No file is deleted in this phase. #}
+   the cached Seerr rows, never the network. No file is deleted in this phase.
+   Phase 2 (2026-10-29): "Whole film / Whole show" when the arr snapshot lists it on disk. Its Confirm reads Radarr /
+   Sonarr live and asks for the title to be typed (Q5 A); the files go to the app's recycle bin. #}
 {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
 {% if flash_warn %}<p class="metaline st-warn" role="status">{{ flash_warn }}</p>{% endif %}
-{% if not rows %}
+{% if not rows and not disk %}
 <p class="empty">{{ "Nothing left to remove for this title." if flash else "No request for this title, so there is nothing to remove." }}</p>
 <p class="metaline"><a href="{{ back }}">Back to the title</a></p>
 {% else %}
 <div class="listbox">
   <div class="row">
-    {{ poster(rows[0].poster, rows[0].title, 120, "row-poster") }}
+    {% if rows %}{{ poster(rows[0].poster, rows[0].title, 120, "row-poster") }}{% endif %}
     <div class="row-body">
       <div class="row-title">{{ title }}</div>
-      <p class="metaline">{{ "TV" if kind == "tv" else "Film" }} · Requested · nothing is deleted from disk here</p>
+      <p class="metaline">{{ "TV" if kind == "tv" else "Film" }} · {{ "On disk · " ~ disk_size if disk else "Requested · nothing on disk yet" }}</p>
     </div>
   </div>
 </div>
@@ -30,13 +32,30 @@
   <input type="hidden" name="step" value="confirm">
   <div>What to remove</div>
   <div class="chips" role="radiogroup" aria-label="What to remove">
-    <label class="chip"><input type="radio" name="scope" value="request" checked>Request only</label>
+    {% if rows %}<label class="chip"><input type="radio" name="scope" value="request" checked>Request only</label>{% endif %}
+    {% if disk %}<label class="chip"><input type="radio" name="scope" value="whole"{{ " checked" if not rows }}>{{ "Whole show" if kind == "tv" else "Whole film" }}</label>{% endif %}
   </div>
-  <div class="metaline">Stop the request. Nothing on disk is touched.</div>
+  {% if rows %}<div class="metaline">Request only: stop the request. Nothing on disk is touched.</div>{% endif %}
+  {% if disk %}<div class="metaline">{{ "Whole show" if kind == "tv" else "Whole film" }}: every file ({{ disk_size }}), the {{ app }} entry and the request.</div>{% endif %}
   {% for a in asked %}<div class="metaline">{{ "Your" if a.who == "you" else "Georgina's" if a.who == "her" else a.who ~ "'s" }} request{% if a.seasons %} · {{ a.seasons }}{% endif %} · {{ a.status }}</div>{% endfor %}
   <div class="confirm-btns">
     <a class="btn btn-ghost btn-sm" href="{{ back }}">Cancel</a>
     <button type="submit" class="btn btn-primary btn-sm">Next</button>
+  </div>
+</form>
+{% elif scope == "whole" %}
+<form method="post" action="{{ action }}" class="confirm is-danger">
+  <input type="hidden" name="scope" value="whole">
+  <input type="hidden" name="arr_id" value="{{ entry.id }}">
+  <input type="hidden" name="fids" value="{{ fids }}">
+  <input type="hidden" name="bytes" value="{{ entry.bytes }}">
+  <div>Delete {{ title }} from disk?</div>
+  {% for line in plan %}<div class="metaline">{{ line }}</div>{% endfor %}
+  <label class="metaline" for="remove-typed">Type the title to confirm: <strong>{{ disk.title }}</strong></label>
+  <input id="remove-typed" name="typed" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+  <div class="confirm-btns">
+    <a class="btn btn-ghost btn-sm" href="{{ back }}" autofocus>Cancel</a>
+    <button type="submit" class="btn btn-danger btn-sm">Delete {{ entry.files | length }} file{{ "s" if entry.files | length != 1 }}</button>
   </div>
 </form>
 {% else %}

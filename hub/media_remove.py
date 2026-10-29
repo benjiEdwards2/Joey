@@ -1,4 +1,6 @@
-"""Remove on title pages (JY-265, spec docs/specs/JY-265-remove.md). Phase 1: Remove REQUEST only.
+"""Remove on title pages (JY-265, spec docs/specs/JY-265-remove.md). Phase 1: Remove REQUEST. Phase 2 (2026-10-29):
+remove the WHOLE film or show, files included, through Radarr / Sonarr (hub/media_remove_whole.py; their recycle bin
+keeps the files 7 days). Seasons and episodes are phase 3, the TV phase 4.
 
 B., 2026-10-28: "JY-265: Q1A · Q2A · Q3A · Q4A · Q5A · Q6A · Q7A · Q8A · Q9A · Q10A".
 
@@ -38,6 +40,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from hub import guest, media_discover as md, media_hidden, media_requests as mr, media_store, server_alerts, shell, upstream
+from hub import media_remove_whole as whole
 from hub.ids import JELLYSEERR_SNAPSHOT_ID, home_tz
 from hub.media_requests_approve import season_words, who
 from hub.media_write import MAX_BODY, flash_keys, owner_for, same_origin
@@ -49,8 +52,10 @@ flash_keys("done", "error", "app", "at")
 FLAG = "REMOVE_API"
 PAGE = "/media/remove"
 KINDS = ("movie", "tv")
-SCOPES = ("request",)                 # phase 1; whole / seasons / episodes come in phases 2-3
+SCOPES = ("request", "whole")         # phases 1-2; seasons / episodes come in phase 3
 RATE_MAX = 10                         # removes per rolling hour
+WHOLE_MAX = 3                         # whole-title removes per rolling hour (spec 3.6)
+DISK_GROUP = "remove-disk"            # media_hidden: a removed title's library_sizes row until the next arr sweep
 RATE_WINDOW_S = 3600
 SEERR_ON_DISK = (4, 5)                # Seerr MediaStatus: 4 partly available, 5 available
 
@@ -70,10 +75,20 @@ ERRORS = {"changed": "This changed since you looked. Check again.",
           "unset": "Seerr is not connected. Nothing was removed.",
           "unreachable": "Seerr can't be reached. Nothing was removed.",
           "refused": "Seerr refused. Nothing was removed.",
-          "scope": "Pick what to remove first."}
+          "scope": "Pick what to remove first.",
+          "typed": "The title you typed doesn't match. Nothing was removed.",
+          "nobin": "{app} has no recycle bin set, so this can't be undone. Set one in {app} › Settings › Media Management first.",
+          "arrdown": "{app} can't be reached. Nothing was removed.",
+          "watching": "Someone is watching it now. Try again when it stops.",
+          "jfdown": "Jellyfin can't be reached, so Joey can't check nobody is watching. Nothing was removed.",
+          "deletefail": "{app} refused the delete. Nothing was removed.",
+          "wholepartial": "{app} deleted the files, but Seerr couldn't be cleared. Check the Requests page."}
+DONE_WHOLE = {"whole": "Removed · {app} moved the files to its recycle bin (kept 7 days)",
+              "wholelate": "Removed · {app} moved the files to its recycle bin (kept 7 days). Jellyfin will catch up on its next scan"}
 
 _lock = threading.Lock()              # one remove at a time
 _times: deque[float] = deque()        # monotonic times of the removes in the last hour
+_whole_times: deque[float] = deque()  # ... of the whole-title removes
 _times_lock = threading.Lock()
 
 
@@ -81,6 +96,8 @@ def clear() -> None:
     """Tests: forget the rate-limit clock."""
     with _times_lock:
         _times.clear()
+        _whole_times.clear()
+    whole.clear()
 
 
 def enabled() -> bool:
@@ -102,11 +119,22 @@ def rows_for(kind: str, tmdb: int, snaps=None) -> list[dict]:
             and ("tv" if r.get("kind") == "tv" else "movie") == kind]
 
 
+def disk_for(kind: str, tmdb: int, snaps=None) -> dict | None:
+    """The cached on-disk row (arr snapshot library_sizes), unless removed since that snapshot. Never a call."""
+    snaps = snaps if snaps is not None else shell.get_snapshots()
+    row = whole.on_disk(kind, tmdb, snaps)
+    snap = snaps.get("arr")
+    if row and media_hidden.is_hidden(DISK_GROUP, f"{kind}:{tmdb}", snap.updated_at if snap else None):
+        return None
+    return row
+
+
 def more_href(request: Request, kind, tmdb, snaps) -> str | None:
-    """The title page's More line: the Remove page when the owner may remove and a request exists. Never a call."""
+    """The title page's More line: the Remove page when the owner may remove and a request exists or the title is
+    on disk in Radarr / Sonarr (both from caches). Never a call."""
     if kind not in KINDS or not isinstance(tmdb, int) or tmdb <= 0 or not can_remove(request):
         return None
-    return f"{PAGE}/{kind}/{tmdb}" if rows_for(kind, tmdb, snaps) else None
+    return f"{PAGE}/{kind}/{tmdb}" if rows_for(kind, tmdb, snaps) or disk_for(kind, tmdb, snaps) else None
 
 
 def _app(kind: str) -> str:
@@ -131,6 +159,25 @@ def plan(kind: str, rows: list[dict]) -> list[str]:
     return lines
 
 
+def size_words(n: int) -> str:
+    gb = n / 1024 ** 3
+    return f"{gb:,.1f} GB" if gb >= 1 else f"{n / 1024 ** 2:,.0f} MB"
+
+
+def plan_whole(kind: str, entry: dict, rows: list[dict]) -> list[str]:
+    """What the whole-title Confirm says will happen, from the live read."""
+    app, n = _app(kind), len(entry["files"])
+    lines = [f"{app} deletes {n} file{'' if n == 1 else 's'} · {size_words(entry['bytes'])}, and its entry for the title.",
+             f"Files go to {app}'s recycle bin and are kept for 7 days, so the space frees up when it empties."]
+    if rows:
+        lines.append(f"Seerr deletes the request{'s' if len(rows) > 1 else ''} and clears the title, so it can be requested again.")
+    if kind == "tv":
+        lines.append("If you follow the show, the follow goes too, so it isn't added back.")
+    lines.append("A download still running for it is cancelled.")
+    lines.append("Your ratings, diary and poster stay.")
+    return lines
+
+
 def _title(rows: list[dict]) -> str:
     r = rows[0] if rows else {}
     year = r.get("year")
@@ -142,10 +189,12 @@ def flash(params) -> tuple[str | None, str | None]:
     app = {"radarr": "Radarr", "sonarr": "Sonarr"}.get(params.get("app") or "", "Radarr / Sonarr")
     if done in DONE:
         return DONE[done].format(app=app), None
+    if done in DONE_WHOLE:
+        return DONE_WHOLE[done].format(app=app), None
     if err == "rate":
         at = params.get("at") or ""
         return None, "Too many removes in the last hour." + (f" Try again at {at}." if len(at) == 5 and at[2] == ":" and at.replace(":", "").isdigit() else "")
-    return (None, ERRORS[err]) if err in ERRORS else (None, None)
+    return (None, ERRORS[err].format(app=app)) if err in ERRORS else (None, None)
 
 
 # ---- the page ----
@@ -154,18 +203,52 @@ def flash(params) -> tuple[str | None, str | None]:
 def remove_page(request: Request, kind: str, tmdb_id: int, step: str = "", scope: str = ""):
     if kind not in KINDS or tmdb_id <= 0 or not can_remove(request):
         return shell.not_found_page(request)
-    rows = rows_for(kind, tmdb_id, shell.get_snapshots(request=request))
+    snaps = shell.get_snapshots(request=request)
+    rows = rows_for(kind, tmdb_id, snaps)
+    disk = disk_for(kind, tmdb_id, snaps)
     good, warn = flash(request.query_params)
     back = f"/media/title/{kind}/{tmdb_id}"
-    confirm = step == "confirm" and scope in SCOPES and bool(rows)
-    ctx = {"kind": kind, "tmdb": tmdb_id, "rows": rows, "title": _title(rows) if rows else None, "back": back,
+    confirm = step == "confirm" and ((scope == "request" and bool(rows)) or (scope == "whole" and bool(disk)))
+    entry, plan_lines = None, []
+    if confirm and scope == "whole":   # the explicit step: a live read of the arr entry and its files (spec 2.3)
+        entry, code = _live_whole(kind, tmdb_id, disk)
+        if entry is None:
+            confirm = False
+            warn = ERRORS[code].format(app=_app(kind)) if code in ERRORS else warn
+        else:
+            plan_lines = plan_whole(kind, entry, rows)
+    elif confirm:
+        plan_lines = plan(kind, rows)
+    title = _title(rows) if rows else (_disk_title(disk) if disk else None)
+    ctx = {"kind": kind, "tmdb": tmdb_id, "rows": rows, "disk": disk, "title": title, "back": back,
+           "disk_size": size_words(disk["size_bytes"]) if disk else None, "scope": scope if confirm else "",
+           "entry": entry, "fids": ",".join(str(i) for i in entry["files"]) if entry else "",
            "action": f"{PAGE}/{kind}/{tmdb_id}", "confirm": confirm, "app": _app(kind),
-           "plan": plan(kind, rows) if confirm else [], "rids": ",".join(str(r["id"]) for r in rows),
+           "plan": plan_lines, "rids": ",".join(str(r["id"]) for r in rows),
            "asked": [{"who": who(r), "seasons": season_words(r.get("seasons")) if kind == "tv" else None,
                       "status": r.get("status_text") or "Requested"} for r in rows],
            "flash": good, "flash_warn": warn}
     request.state.media_section = "movies" if kind == "movie" else "tv"
     return shell.render_page(request, "media_remove.html", ctx)
+
+
+def _disk_title(disk: dict) -> str:
+    year = disk.get("year")
+    return str(disk.get("title") or "This title")[:200] + (f" ({year})" if isinstance(year, int) else "")
+
+
+def _live_whole(kind: str, tmdb: int, disk: dict | None) -> tuple[dict | None, str | None]:
+    """(live entry, None) or (None, ERRORS code). The recycle bin must be set, the entry must hold files."""
+    tvdb = (disk or {}).get("tvdb_id") if kind == "tv" else None
+    try:
+        if not whole.recycle_bin_set(kind):
+            return None, "nobin"
+        entry = whole.live(kind, tmdb, tvdb if isinstance(tvdb, int) else None)
+    except (whole.Unreachable, KeyError):
+        return None, "arrdown"
+    if entry is None or not entry["files"]:
+        return None, "changed"
+    return entry, None
 
 
 # ---- the write ----
@@ -222,7 +305,8 @@ def record(row: dict) -> None:
                        "bytes, request_ids, steps, outcome) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (datetime.now(timezone.utc).isoformat(timespec="seconds"), row["owner"], row["front"], row["kind"],
                         row["tmdb_id"], row.get("tvdb_id"), row["title"], row["scope"], json.dumps(row.get("picked") or []),
-                        0, 0, json.dumps(row["request_ids"]), json.dumps(row["steps"]), row["outcome"]))
+                        int(row.get("files") or 0), int(row.get("bytes") or 0), json.dumps(row["request_ids"]),
+                        json.dumps(row["steps"]), row["outcome"]))
             db.commit()
     except (sqlite3.Error, OSError) as exc:
         log.warning("remove audit not saved: %s", type(exc).__name__)
@@ -279,8 +363,11 @@ async def remove_post(request: Request, kind: str, tmdb_id: int):
 
 
 def _remove(kind: str, tmdb: int, form: dict[str, list[str]]):
-    if (form.get("scope") or [""])[-1] not in SCOPES:
+    scope = (form.get("scope") or [""])[-1]
+    if scope not in SCOPES:
         return _to(kind, tmdb, error="scope")
+    if scope == "whole":
+        return _remove_whole(kind, tmdb, form)
     raw = (form.get("rids") or [""])[-1]
     posted = sorted({int(x) for x in raw.split(",") if x.isascii() and x.isdigit() and 0 < len(x) <= 9})
     if not _lock.acquire(blocking=False):
@@ -343,3 +430,75 @@ def _remove_rows(kind: str, tmdb: int, rows: list[dict]):
     if outcome == "partial":
         return _to(kind, tmdb, done="partial")
     return _to(kind, tmdb, done=done, **({"app": "radarr" if kind == "movie" else "sonarr"} if done != "removed" else {}))
+
+
+# ---- phase 2: the whole film or show ----
+
+def _rate_whole(now: float) -> tuple[bool, float | None]:
+    """Both limits at once: at most RATE_MAX removes and WHOLE_MAX whole-title removes per rolling hour."""
+    with _times_lock:
+        for q in (_times, _whole_times):
+            while q and now - q[0] >= RATE_WINDOW_S:
+                q.popleft()
+        for q, cap in ((_times, RATE_MAX), (_whole_times, WHOLE_MAX)):
+            if len(q) >= cap:
+                return False, q[0] + RATE_WINDOW_S
+        _times.append(now)
+        _whole_times.append(now)
+        return True, None
+
+
+def _ints(raw: str) -> list[int]:
+    return sorted({int(x) for x in raw.split(",") if x.isascii() and x.isdigit() and 0 < len(x) <= 12})
+
+
+def _remove_whole(kind: str, tmdb: int, form: dict[str, list[str]]):
+    app = "radarr" if kind == "movie" else "sonarr"
+    again = {"step": "confirm", "scope": "whole", "app": app}
+
+    def one(k):
+        return (form.get(k) or [""])[-1]
+
+    disk = disk_for(kind, tmdb)
+    if disk is None:
+        return _to(kind, tmdb, error="changed")
+    if not whole.norm(one("typed")) or whole.norm(one("typed")) != whole.norm(disk.get("title")):
+        return _to(kind, tmdb, error="typed", **again)   # Q5 A: the strong confirm; nothing read or sent
+    if not _lock.acquire(blocking=False):
+        return _to(kind, tmdb, error="busy")
+    try:
+        entry, code = _live_whole(kind, tmdb, disk)
+        if entry is None:
+            return _to(kind, tmdb, error=code, **({} if code == "changed" else {"app": app}))
+        if (one("arr_id") != str(entry["id"]) or _ints(one("fids")) != entry["files"]
+                or one("bytes") != str(entry["bytes"])):
+            return _to(kind, tmdb, error="changed", **again)
+        try:
+            if whole.watching(kind, tmdb, entry.get("path")):
+                return _to(kind, tmdb, error="watching")
+        except whole.Unreachable:
+            return _to(kind, tmdb, error="jfdown")
+        ok, until = _rate_whole(time.monotonic())
+        if not ok:
+            return _to(kind, tmdb, error="rate", at=_clock_at(until))
+        rows = rows_for(kind, tmdb)
+        tvdb = disk.get("tvdb_id") if isinstance(disk.get("tvdb_id"), int) else None
+        outcome, steps, told = whole.run(kind, tmdb, tvdb, entry, rows)
+        if outcome != "failed":
+            media_hidden.hide(DISK_GROUP, f"{kind}:{tmdb}")
+            for r in rows:
+                media_hidden.hide(mr.GROUP, r["id"])
+        title = _disk_title(disk)
+        record({"owner": "you", "front": guest.front(), "kind": kind, "tmdb_id": tmdb, "tvdb_id": tvdb, "title": title,
+                "scope": "whole", "picked": ["whole"], "files": len(entry["files"]), "bytes": entry["bytes"],
+                "request_ids": [r["id"] for r in rows], "steps": steps, "outcome": outcome})
+        if outcome == "failed":
+            return _to(kind, tmdb, error="deletefail", app=app)
+        safe = title.replace("@", "@\u200b")   # a title can never ping (as discord_line)
+        _notify(f"Joey Media: removed {safe} ({size_words(entry['bytes'])}) · "
+                + ("recycle bin 7 days" if outcome == "done" else "Seerr not cleared"))
+        if outcome == "partial":
+            return _to(kind, tmdb, error="wholepartial", app=app)
+        return _to(kind, tmdb, done="whole" if told else "wholelate", app=app)
+    finally:
+        _lock.release()

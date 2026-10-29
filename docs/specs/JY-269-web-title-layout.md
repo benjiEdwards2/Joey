@@ -1,6 +1,6 @@
 # JY-269 Web + phone title pages take the TV show/season layout
 
-Status: spec
+Status: ready (2026-10-29)
 Size: M (three phases, S/M each)
 Live risk: none
 Area: `hub/templates/media_film.html`, `_film_*.html`, `_season_episodes.html`, `hub/static/control-surface.css` (new `.tl-*` block, not `tv.css`), `tests/hub/`
@@ -32,6 +32,9 @@ Goal: the web (desktop, iPad) and phone title pages (film, show, season, episode
 | Focus | Visible keyboard focus ring (existing token) | system default | system default |
 
 The existing web actions all stay, with their current routes and tests: rate (the 1-10 picker moves into the Rate button's popover; the "Your rating" strip stays for a rated title), request (Request / Request seasons), remove (the existing confirm page), follow (Follow this show). Who sees what does not change: friends still see only their own data.
+
+## B.'s pick (2026-10-29)
+B. on the options page: "I like A for both options." Picks: **A** (TV hero + sideways episode tiles) for the show and the film page; Request, Remove and Follow in a "..." menu; hero on title pages only (library pages and Home later, separately); web and phone pages only, no native app. Where this spec recommends B for the episodes, A is the pick: P2 builds the 16:9 tile row with a swipe on touch and arrow buttons plus wheel on desktop, and the episode synopsis and date show in the tile's caption or on tap.
 
 ## Options (see the page)
 Both start from the same hero, chips and cast/More shelves. They differ only in the episodes.

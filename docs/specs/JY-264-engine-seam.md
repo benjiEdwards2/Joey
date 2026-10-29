@@ -295,7 +295,10 @@ and Jellyfin endpoints across `hub/`. Not checked: live row counts (by design), 
 
 ## Phases 4-6 (round 2, spec draft 2026-10-29)
 
-B., 2026-10-29: "Go with 1-4" (JY-264 phases 4-6). Status of this section: `spec`; B. marks it `ready` after the run-page pick.
+B., 2026-10-29: "Go with 1-4" (JY-264 phases 4-6). Status of this section: `ready` (2026-10-29).
+
+B., 2026-10-29: "I like A for both options." (read by the orchestrator as the recommended A answers; B. to be told this assumption)
+Picks: run page = Option A (summary first, folded lists); keep the Apply button (Q2A).
 Phases 1-3 shipped (PR #265). Sizes stay S/M: three PRs of phase 4 to 5, then the screen, then docs.
 
 ### Phase 4: the adapter move (S, Sonnet + 1 Sonnet reviewer)

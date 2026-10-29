@@ -1,6 +1,6 @@
 # JY-266 Collections page (franchise grid)
 
-Status: spec (B. marks `ready` after the questions)
+Status: spec (questions answered 2026-10-29; `ready` once the grid options page is picked)
 Size: M (three phases, S/M)
 Live risk: none (read-only; the one write is a request through the existing Seerr request path)
 Area: `hub/media_collections.py` (new), `hub/templates/media_collections.html` (new), `hub/templates/_media_tabs.html` (one tab), `hub/media_film.py` (read of `belongs_to_collection`, already partly there as `_collection_id`), `hub/main.py` (one router line), `hub/media_store.py` (one STEPS entry), `hub/static/control-surface.css` (a few non-token lines), `tests/hub/test_media_collections_jy266.py` (new)
@@ -57,6 +57,11 @@ default (Question 1); a year range ignores unreleased films with no date; the pa
 
 ## Out of scope
 TV shows' "collections"; user-made lists; auto-requesting a whole collection; collections B. owns no film of.
+
+## B.'s picks (2026-10-29)
+
+B., 2026-10-29: "I like A for both options." (read by the orchestrator as the recommended A answers; B. to be told this assumption)
+Picks: 1A, 2A, 3A, 4A. The grid options page is still to come.
 
 ## Questions for B.
 1. **Single-film collections.** A) Hide them, with a filter to show them (recommended). B) Show all.

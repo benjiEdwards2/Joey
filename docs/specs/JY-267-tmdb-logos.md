@@ -1,6 +1,6 @@
 # JY-267 TMDB title logos instead of plain text
 
-Status: spec (B. marks `ready` after the questions)
+Status: ready (2026-10-29)
 Size: M (three phases, each S)
 Live risk: none beyond a normal hub deploy (reads Jellyfin `RemoteImages` like the poster pass; writes only to the local poster store)
 Area: `hub/media_posters.py` (a logo step beside `fetch_backdrops`), `hub/images.py` (`jfs:<id>/logo` ref), `hub/tv_home.py` + `hub/templates/media_film.html` + `hub/templates/_pagehead.html` (draw the logo), `hub/static/control-surface.css` (a few non-token lines), `tv/` only if the TV app draws its own hero text (phase 3 checks), `tests/hub/test_tmdb_logos_jy267.py` (new)
@@ -67,6 +67,11 @@ a smoke test for each changed route.
 
 ## Out of scope
 Season or episode logos; animated logos; a user-chosen logo; Discover and request pages for titles not on Joey (the cached Seerr body has no logo list).
+
+## B.'s picks (2026-10-29)
+
+B., 2026-10-29: "I like A for both options." (read by the orchestrator as the recommended A answers; B. to be told this assumption)
+Picks: 1A, 2A, 3A, 4A.
 
 ## Questions for B.
 1. **Source of the logo list.** A) Jellyfin RemoteImages, no new key (recommended). B) TMDB directly with a key.

@@ -308,6 +308,7 @@ SOURCES = [
     ("B. in chat (2026-10-28)", "TMDB title logos", "JY-267", "TMDB Media > Logos"),
     ("B. in chat (2026-10-29)", "Remove gold glow", "JY-268", "perfect-10 glow on web + phone"),
     ("B. in chat (2026-10-29)", "TV show layout on web", "JY-269", "JY-259 p3 show/season pages"),
+    ("B. in chat (2026-10-29)", "TV feature parity", "JY-270", "Awards, Discover search on the TV"),
 ]
 
 

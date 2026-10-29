@@ -272,11 +272,12 @@ def _jellyfin(kind: str, tmdb: int, tvdb, path: str | None, snaps, steps: list) 
     return False
 
 
-def run(kind: str, tmdb: int, tvdb: int | None, entry: dict, rows: list[dict]) -> tuple[str, list, bool]:
+def run(kind: str, tmdb: int, tvdb: int | None, entry: dict, rows: list[dict],
+        steps: list | None = None) -> tuple[str, list, bool]:
     """The whole-title remove. -> (result, steps, jellyfin told). Results: done; failed (the arr entry is still
     there; cancelled downloads stay cancelled); partial (Seerr not cleared); slow (the DELETE got no answer but the
     entry is gone, so the chain carried on); unsure (no answer and no re-read: Joey can't say what happened)."""
-    steps: list = []
+    steps = [] if steps is None else steps   # the caller's list, so a crash still shows what was sent
     if not _cancel_queue(kind, entry["id"], steps):
         return "failed", steps, False
     deleted = _arr_delete(kind, entry["id"], steps)

@@ -199,7 +199,9 @@ The NAS volume is RAID0, so there is no second copy. The recycle bin is the only
 - media.db `media_removals` (a new `media_store.STEPS` entry): `id, at (UTC), owner, front (private|media), kind,
   tmdb_id, tvdb_id, title, scope (request|whole|seasons|episodes), picked (JSON: seasons / episode codes), files,
   bytes, request_ids, steps (JSON: one line per write with app, step and outcome or HTTP status), outcome
-  (done|partial|refused|failed)`. It records titles and codes only: no paths, URLs or keys (CLAUDE.md standing rule).
+  (started|done|partial|unsure|refused|failed)`. Phase 2: a whole remove writes its row as `started` before any write and
+  closes it in a `finally`; a crash after the arr DELETE was sent closes it `unsure`, before that `failed`; a DELETE
+  with no answer and no re-read is `unsure` too. It records titles and codes only: no paths, URLs or keys (CLAUDE.md standing rule).
 - It is shown as a **Removed** list (last 30) at the bottom of `/server/space`: "Severance · Seasons 1–2 · 32.5 GB ·
   B. · 28 Oct 19:40 · done". That list adds no button, so Free space stays list-only.
 - Each remove posts one Discord line to `SERVER_DISCORD_WEBHOOK` (Q9): "Joey removed Severance S1–S2 (32.5 GB) ·

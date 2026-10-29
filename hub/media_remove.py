@@ -299,19 +299,33 @@ def _clock_at(mono_at: float) -> str:
     return (at.astimezone(tz) if tz else at).strftime("%H:%M")
 
 
-def record(row: dict) -> None:
-    """One media_removals row. A failed write is logged by type and never stops the remove."""
+def record(row: dict) -> int | None:
+    """One media_removals row -> its id. A failed write is logged by type and never stops the remove."""
     try:
         with closing(media_store.connect()) as db:
-            db.execute("INSERT INTO media_removals(at, owner, front, kind, tmdb_id, tvdb_id, title, scope, picked, files, "
+            cur = db.execute("INSERT INTO media_removals(at, owner, front, kind, tmdb_id, tvdb_id, title, scope, picked, files, "
                        "bytes, request_ids, steps, outcome) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (datetime.now(timezone.utc).isoformat(timespec="seconds"), row["owner"], row["front"], row["kind"],
                         row["tmdb_id"], row.get("tvdb_id"), row["title"], row["scope"], json.dumps(row.get("picked") or []),
                         int(row.get("files") or 0), int(row.get("bytes") or 0), json.dumps(row["request_ids"]),
                         json.dumps(row["steps"]), row["outcome"]))
             db.commit()
+            return cur.lastrowid
     except (sqlite3.Error, OSError) as exc:
         log.warning("remove audit not saved: %s", type(exc).__name__)
+    return None
+
+
+def finish(row_id: int | None, steps: list, outcome: str) -> None:
+    """Close a `started` row (phase 2): its steps and outcome. Logged by type on failure, never raises."""
+    if row_id is None:
+        return
+    try:
+        with closing(media_store.connect()) as db:
+            db.execute("UPDATE media_removals SET steps = ?, outcome = ? WHERE id = ?", (json.dumps(steps), outcome, row_id))
+            db.commit()
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("remove audit not closed: %s", type(exc).__name__)
 
 
 def recent(limit: int = 30) -> list[dict]:
@@ -486,22 +500,37 @@ def _remove_whole(kind: str, tmdb: int, form: dict[str, list[str]]):
             return _to(kind, tmdb, error="rate", at=_clock_at(until))
         rows = rows_for(kind, tmdb)
         tvdb = disk.get("tvdb_id") if isinstance(disk.get("tvdb_id"), int) else None
-        result, steps, told = whole.run(kind, tmdb, tvdb, entry, rows)
-        outcome = {"slow": "partial", "unsure": "partial"}.get(result, result)
+        title = _disk_title(disk)
+        # the row is written BEFORE any write, so a crash mid-run still leaves a record (`started` until closed)
+        row_id = record({"owner": "you", "front": guest.front(), "kind": kind, "tmdb_id": tmdb, "tvdb_id": tvdb,
+                         "title": title, "scope": "whole", "picked": ["whole"], "files": len(entry["files"]),
+                         "bytes": entry["bytes"], "request_ids": [r["id"] for r in rows], "steps": [],
+                         "outcome": "started"})
+        steps: list = []
+        outcome = "failed"
+        try:
+            result, _, told = whole.run(kind, tmdb, tvdb, entry, rows, steps)
+            outcome = {"slow": "partial"}.get(result, result)
+        except Exception as exc:   # the DELETE may have been sent: then nobody knows what is left
+            log.warning("whole remove crashed: %s", type(exc).__name__)
+            sent = any(s.get("step") == "delete with files" for s in steps)
+            outcome = "unsure" if sent else "failed"
+            steps.append({"app": "joey", "step": "run", "outcome": type(exc).__name__})
+            result, told = outcome, False
+        finally:
+            finish(row_id, steps, outcome)
         if result not in ("failed", "unsure"):
             media_hidden.hide(DISK_GROUP, f"{kind}:{tmdb}")
             for r in rows:
                 media_hidden.hide(mr.GROUP, r["id"])
-        title = _disk_title(disk)
-        record({"owner": "you", "front": guest.front(), "kind": kind, "tmdb_id": tmdb, "tvdb_id": tvdb, "title": title,
-                "scope": "whole", "picked": ["whole"], "files": len(entry["files"]), "bytes": entry["bytes"],
-                "request_ids": [r["id"] for r in rows], "steps": steps, "outcome": outcome})
         if outcome == "failed":
             return _to(kind, tmdb, error="deletefail", app=app)
         safe = title.replace("@", "@\u200b")   # a title can never ping (as discord_line)
-        _notify(f"Joey Media: removed {safe} ({size_words(entry['bytes'])}) · " + {
-            "done": "recycle bin 7 days", "slow": "recycle bin 7 days (slow answer)",
-            "unsure": "no answer from the app, check it"}.get(result, "Seerr not cleared"))
+        if result == "unsure":
+            _notify(f"Joey Media: remove of {safe} unclear · no answer from the app, check it")
+        else:
+            _notify(f"Joey Media: removed {safe} ({size_words(entry['bytes'])}) · " + {
+                "done": "recycle bin 7 days", "slow": "recycle bin 7 days (slow answer)"}.get(result, "Seerr not cleared"))
         if result in ("slow", "unsure", "partial"):
             return _to(kind, tmdb, error="whole" + result, app=app)
         return _to(kind, tmdb, done="whole" if told else "wholelate", app=app)

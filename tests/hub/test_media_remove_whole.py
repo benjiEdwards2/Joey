@@ -338,7 +338,7 @@ def test_timed_out_delete_with_no_reread_never_says_nothing_removed(env, monkeyp
         r = post(client, FILM, form, "Desert Crossing")
         page = client.get(r.headers["location"]).text
     assert "error=wholeunsure" in r.headers["location"] and "Nothing was removed" not in page
-    assert audit(db)[-1]["outcome"] == "partial"
+    assert audit(db)[-1]["outcome"] == "unsure" and "removed Desert" not in fake.discord[-1]
 
 
 def test_failed_series_delete_keeps_the_follow(env):
@@ -349,3 +349,25 @@ def test_failed_series_delete_keeps_the_follow(env):
         form, _ = confirm(client, SHOW)
         r = post(client, SHOW, form, "Night Ferry")
         assert "error=deletefail" in r.headers["location"] and media_follow.get("show", 2002)
+
+
+def test_a_crash_after_the_delete_still_leaves_an_unsure_row(env, monkeypatch):
+    from hub import media_remove_whole
+    client, fake, db = env
+    monkeypatch.setattr(media_remove_whole, "_seerr_clear", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    with client:
+        form, _ = confirm(client, FILM)
+        client.post(FILM, data={**form, "typed": "Desert Crossing"}, follow_redirects=False)
+    rows = audit(db)
+    assert len(rows) == 1 and rows[0]["outcome"] == "unsure" and rows[0]["files"] == 1
+    assert "delete with files" in rows[0]["steps"] and "RuntimeError" in rows[0]["steps"]
+
+
+def test_a_crash_before_the_delete_is_failed(env, monkeypatch):
+    from hub import media_remove_whole
+    client, fake, db = env
+    monkeypatch.setattr(media_remove_whole, "_cancel_queue", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    with client:
+        form, _ = confirm(client, FILM)
+        client.post(FILM, data={**form, "typed": "Desert Crossing"}, follow_redirects=False)
+    assert audit(db)[-1]["outcome"] == "failed" and not fake.arr.writes()

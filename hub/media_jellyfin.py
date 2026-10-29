@@ -1,4 +1,5 @@
-"""Jellyfin, server-side (W2, 2026-10-09; M-12): the one place that reads JELLYFIN_URL / JELLYFIN_API_KEY, GETs a
+"""Jellyfin, server-side (W2, 2026-10-09; M-12; JY-264 P4 widened with post / delete / get_bytes / auth_header): the
+one place that reads JELLYFIN_URL / JELLYFIN_API_KEY, GETs a
 path and resolves an owner's Jellyfin user id. media_files, media_item, media_plays, media_resume and the warm-up use
 it; nothing here logs a URL or a key (callers log the exception type only).
 
@@ -56,12 +57,38 @@ def creds() -> tuple[str, dict] | None:
     return base.rstrip("/"), {"Authorization": f"MediaBrowser Token={key}"}
 
 
-def get(base: str, headers: dict, path: str, params: dict | None = None):
+def get(base: str, headers: dict, path: str, params: dict | None = None, timeout: float | None = None):
     """GET a Jellyfin JSON path; raises on no answer, and RuntimeError("HTTP nnn") on a non-2xx."""
-    resp = upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
+    resp = upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers,
+                                         timeout=timeout or TIMEOUT)
     if not 200 <= resp.status_code < 300:
         raise RuntimeError(f"HTTP {resp.status_code}")
     return resp.json()
+
+
+def auth_header(token: str | None = None) -> dict:
+    """The 12.2 `MediaBrowser Token=` Authorization header (the admin key from JELLYFIN_API_KEY when no token is
+    given; {} when there is neither). Client/device-style headers for sign-in stay with the callers until phase 5."""
+    tok = (token if token is not None else os.environ.get("JELLYFIN_API_KEY", "")).strip()
+    return {"Authorization": f"MediaBrowser Token={tok}"} if tok else {}
+
+
+def post(base: str, headers: dict, path: str, *, params: dict | None = None, json=None, data=None,
+         timeout: float | None = None):
+    """POST to a Jellyfin path; returns the raw response (callers check the status, as their own helpers did)."""
+    return upstream.session("jellyfin").post(f"{base}{path}", params=params, json=json, data=data, headers=headers,
+                                             timeout=timeout or TIMEOUT)
+
+
+def delete(base: str, headers: dict, path: str, *, params: dict | None = None, timeout: float | None = None):
+    """DELETE a Jellyfin path; returns the raw response."""
+    return upstream.session("jellyfin").delete(f"{base}{path}", params=params, headers=headers,
+                                               timeout=timeout or TIMEOUT)
+
+
+def get_bytes(base: str, headers: dict, path: str, params: dict | None = None, timeout: float | None = None):
+    """GET a Jellyfin path as a raw response (images); the caller reads status, headers and content."""
+    return upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers, timeout=timeout or TIMEOUT)
 
 
 def her_name() -> str:

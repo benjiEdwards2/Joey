@@ -67,12 +67,14 @@ def test_show_and_episode_heroes_keep_the_same_order(env):
     with client:
         show = hero(main_of(whole(client, "/media/item/ser1")))
         ep = hero(main_of(whole(client, "/media/item/ep3")))
+    # JY-269 P1 (2026-10-30): on the web Follow sits in the row's "…" menu, so it now comes before the makers
     assert order(show, '<h1 class="hero-detail-title">', 'class="facts-line"', 'id="status-line"', ROW,
-                 '<div class="makers">', 'class="followform"')
+                 'class="followform"', '<div class="makers">')
     assert "Created by" in show.split(ROW, 1)[1]
     # an episode: its code / name leads the title; its overview is "the rest", under the row and the makers
-    assert order(ep, "S04E03 · Penny for Your Thoughts", '<h1 class="hero-detail-title">', 'id="status-line"', ROW,
-                 '<div class="makers">', "Coins go missing.")
+    # JY-269 P1 (2026-10-30): on the web the overview is the hero synopsis, above the row
+    assert order(ep, "S04E03 · Penny for Your Thoughts", '<h1 class="hero-detail-title">', "Coins go missing.",
+                 'id="status-line"', ROW, '<div class="makers">')
 
 
 def test_title_not_on_the_server_has_request_first_then_makers(env):
@@ -109,7 +111,8 @@ def test_more_holds_the_resume_pair_and_search_now_with_their_forms_intact(env, 
     with client:
         h = hero(main_of(whole(client, "/media/item/mov1")))
     row, more = row_of(h), more_of(h)
-    assert "<summary>More</summary>" in more and '<div class="confirm heromore-acts">' in more
+    # JY-269 P1 (2026-10-30): on the web the fold's summary is the "…" menu button
+    assert '<summary aria-label="More actions" title="More actions">…</summary>' in more and '<div class="confirm heromore-acts">' in more
     for act in ("watched", "reset"):
         assert f'action="/media/resume/mov1/{act}"' in more and f"/media/resume/mov1/{act}" not in row
         form = more.split(f'action="/media/resume/mov1/{act}"', 1)[0].rsplit("<form", 1)[1]

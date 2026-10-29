@@ -95,4 +95,6 @@ The TV layout; the Kotlin shell; library grids and Home; JY-260 poster source; n
 
 Test re-points (2026-10-30, P1): `test_film_page_e4.py` - `test_show_and_episode_heroes_keep_the_same_order` now expects Follow before the makers (it moved into the row's "…" menu); `test_more_holds_the_resume_pair_...` expects the "…" summary instead of "More" on the web. The episode overview moved from under the makers into the hero synopsis (same test, order unchanged for the TV).
 
+Test re-point (2026-10-30, P1 review): `test_media_film_scores.py` expects the Rate popover (`id="rate"`) instead of the body "Your rating" section, which the popover replaces on the web.
+
 ## Shipped notes

@@ -1516,7 +1516,7 @@ html:not(.tv) .tl-hero { flex-direction: row; align-items: flex-end; text-align:
 html:not(.tv) .tl-hero .hero-detail-poster { width: 140px; max-width: none; border-radius: 6px; }
 html:not(.tv) .tl-hero .hero-detail-text { align-items: flex-start; gap: 6px; }
 html:not(.tv) .tl-hero .hero-detail-title { font-size: 34px; }
-html:not(.tv) .tl-hero .facts-line, .tl-hero .statusline, .tl-hero .tagline { font-size: 14px; }
+html:not(.tv) .tl-hero .facts-line, html:not(.tv) .tl-hero .statusline, html:not(.tv) .tl-hero .tagline { font-size: 14px; }
 html:not(.tv) .tl-syn { max-width: 62ch; font-size: 16px; line-height: 1.45; color: var(--text-2); }
 html:not(.tv) .tl-syntext { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 html:not(.tv) .tl-syn.open .tl-syntext { display: block; }
@@ -1525,39 +1525,40 @@ html:not(.tv) .tl-synmore { text-align: left; border: 0; background: none; paddi
 html:not(.tv) .tl-synmore:hover { text-decoration: underline; }
 /* the one row: never wraps; Play gives way with an ellipsis, the rest keep their size */
 html:not(.tv) .tl-hero .hero-detail-btns { position: relative; flex-wrap: nowrap; justify-content: flex-start; align-items: center; max-width: 100%; }
-html:not(.tv) .tl-hero .hero-detail-btns > *, .tl-hero .hero-detail-btns > .requestblock > *, .tl-hero .hero-detail-btns > .wlbtn > * { flex: none; }
+html:not(.tv) .tl-hero .hero-detail-btns > *, html:not(.tv) .tl-hero .hero-detail-btns > .requestblock > *, html:not(.tv) .tl-hero .hero-detail-btns > .wlbtn > * { flex: none; }
 html:not(.tv) .tl-hero .hero-detail-btns > a.btn-white { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; line-height: 36px; }
-html:not(.tv) .tl-hero .btn, .tl-pop > summary { border-radius: 6px; }
+html:not(.tv) .tl-hero .btn, html:not(.tv) .tl-pop > summary { border-radius: 6px; }
 /* the Rate popover and the "…" menu: a summary button, the panel under the row (anchored to the row, never past it) */
-html:not(.tv) .tl-pop, .tl-hero details.heromore { position: static; }
-html:not(.tv) .tl-pop > summary, .tl-hero details.heromore > summary { list-style: none; cursor: pointer; }
-html:not(.tv) .tl-pop > summary::-webkit-details-marker, .tl-hero details.heromore > summary::-webkit-details-marker { display: none; }
+html:not(.tv) .tl-pop, html:not(.tv) .tl-hero details.heromore { position: static; }
+html:not(.tv) .tl-pop > summary, html:not(.tv) .tl-hero details.heromore > summary { list-style: none; cursor: pointer; }
+html:not(.tv) .tl-pop > summary::-webkit-details-marker, html:not(.tv) .tl-hero details.heromore > summary::-webkit-details-marker { display: none; }
 html:not(.tv) .tl-hero details.heromore > summary { justify-content: center; min-width: 36px; height: 36px; padding: 0 10px; font-size: 20px;
   line-height: 1; border: 1px solid var(--glass-line); border-radius: 6px; background: var(--glass-bg); color: var(--text-1); }
+html:not(.tv) .tl-hero details.heromore > summary::before { content: none; }
 html:not(.tv) .tl-hero details.heromore > summary:hover { background: var(--glass-bg-hover); }
-html:not(.tv) .tl-popin, .tl-hero .heromore-acts { position: absolute; left: 0; top: calc(100% + 8px); z-index: 5; width: max-content;
+html:not(.tv) .tl-popin, html:not(.tv) .tl-hero .heromore-acts { position: absolute; left: 0; top: calc(100% + 8px); z-index: 5; width: max-content;
   max-width: min(100%, 440px); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px;
-  padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--confirm-bg); box-shadow: var(--shadow-float); }
+  padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); box-shadow: var(--shadow-float); }
 html:not(.tv) .tl-popin > form { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 html:not(.tv) .tl-popin > form > .microlabel { flex: 1 0 100%; }
 html:not(.tv) .tl-hero .heromore-acts .followform { display: flex; align-items: center; gap: 8px; }
 @media (max-width: 1024px) {
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero) { min-height: min(48vh, 520px); }
   html:not(.tv) .tl-hero .hero-detail-poster { width: 120px; }
-  html:not(.tv) .tl-hero .hero-detail-btns .btn, .tl-pop > summary, .tl-hero details.heromore > summary, .tl-synmore { min-height: 44px; min-width: 44px; }
+  html:not(.tv) .tl-hero .hero-detail-btns .btn, html:not(.tv) .tl-pop > summary, html:not(.tv) .tl-hero details.heromore > summary, html:not(.tv) .tl-synmore { min-height: 44px; min-width: 44px; }
   html:not(.tv) .tl-hero .hero-detail-btns > a.btn-white { line-height: 44px; }
   html:not(.tv) .tl-popin .chip { min-width: 44px; min-height: 44px; }
 }
 @media (max-width: 639px) {
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero) { min-height: 0; }
-  html:not(.tv) .pagehead.hero-detail:has(.tl-hero) .hero-detail-bd { bottom: auto; height: 300px; }
+  html:not(.tv) .pagehead.hero-detail:has(.tl-hero) .hero-detail-bd { bottom: auto; height: 220px; }
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero)::after { display: none; }
-  html:not(.tv) .tl-hero { flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 150px; }
+  html:not(.tv) .tl-hero { flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 96px; }
   html:not(.tv) .tl-hero .hero-detail-poster { width: 96px; }
   html:not(.tv) .tl-hero .hero-detail-title { font-size: 26px; }
   html:not(.tv) .tl-syntext { -webkit-line-clamp: 3; line-clamp: 3; }
   /* phone: Play full width on its own line; Trailer, Watchlist, Rate and "…" on the next, one line */
   html:not(.tv) .tl-hero .hero-detail-btns { flex-wrap: wrap; width: 100%; }
   html:not(.tv) .tl-hero .hero-detail-btns > a.btn-white { flex: 1 0 100%; text-align: center; }
-  html:not(.tv) .tl-popin, .tl-hero .heromore-acts { max-width: 100%; }
+  html:not(.tv) .tl-popin, html:not(.tv) .tl-hero .heromore-acts { max-width: 100%; }
 }

@@ -55,6 +55,7 @@ def test_web_hero_has_a_short_synopsis_with_more(env):
     syn = h.split('<div class="tl-syn">', 1)[1]
     assert "Coins go missing." in syn.split("</div>", 1)[0] and 'class="tl-synmore"' in syn
     assert h.index('class="facts-line"') < h.index('<div class="tl-syn">') < h.index(ROW)
+    assert "Your rating</h2>" not in h
     assert re.search(r"\.tl-syntext \{[^}]*-webkit-line-clamp: 2", CSS)
     assert re.search(r"@media \(max-width: 639px\) \{.*?\.tl-syntext \{ -webkit-line-clamp: 3", CSS, re.S)
 
@@ -72,7 +73,7 @@ def test_web_button_row_never_wraps_and_keeps_every_action(env, monkeypatch):
         row = row_of(h)
         assert MENU in row                                                   # the "…" menu sits in the row
         assert '<summary aria-label="More actions" title="More actions">…</summary>' in row
-        assert '<details class="tl-pop tl-rate"><summary class="btn btn-glass">' in row      # Rate opens the picker
+        assert '<details class="tl-pop tl-rate"' in row      # Rate opens the picker
         assert 'action="/media/rate"' in row.split('class="tl-pop tl-rate"', 1)[1]
     assert 'action="/media/follow/show/' in row_of(show).split(MENU, 1)[1]   # Follow: in the menu, same route
     assert 'class="followform"' not in show.split(ROW, 1)[0]

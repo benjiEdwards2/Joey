@@ -269,7 +269,7 @@ def test_score_pills_in_one_format_and_order(env):
                         ("rt", "/static/logos/rt.svg", "RT", "92%"),
                         ("tmdb", "/static/logos/tmdb.svg", "TMDB", "7.8"),
                         ("you", "/static/logos/you.svg", "Yours", "Rate")]
-    assert '<a class="scorepill sp-you" href="#rate">' in b and '<section class="sec" id="rate">' in b
+    assert '<a class="scorepill sp-you" href="#rate">' in b and '<details class="tl-pop tl-rate" id="rate">' in b  # JY-269 P1 (2026-10-30): the picker is the Rate popover
     stats = b.split('<div class="stats numbers">', 1)[1]
     assert ">Runtime</div>" in stats and ">Rated</div>" in stats                  # plain stats stay beside the pills
     assert " / 10" not in stats and " %<" not in stats and ">Community</div>" not in stats

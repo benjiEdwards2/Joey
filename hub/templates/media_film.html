@@ -122,7 +122,7 @@
           {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
           {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false, style = ("ballot" if tvm else none) %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
-          {{ ratebtn }}{% if not tvm and film.rating %}<details class="tl-pop tl-rate"><summary class="btn btn-glass">{{ icon("star") }}{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</summary><div class="tl-popin">{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div></details>{% endif %}{% if not tvm %}{{ moremenu }}{% endif %}
+          {{ ratebtn }}{% if not tvm and film.rating %}<details class="tl-pop tl-rate"{% if not film.score %} id="rate"{% endif %}><summary class="btn btn-glass">{{ icon("star") }}{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</summary><div class="tl-popin">{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div></details>{% endif %}{% if not tvm %}{{ moremenu }}{% endif %}
           {# JY-193: Back is a button, not a link - tv.js Back memory keeps links only, so it never takes the focus from the request steps #}
           {% if tvreq %}<button type="button" class="btn btn-glass tv-back" onclick="history.back()">Back</button>{% endif %}
         </div>
@@ -204,12 +204,7 @@
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
 {% endif %}
-{% if film.rating and not film.score and not tv_mode(request) %}
-<section class="sec" id="rate">
-  <h2 class="seclabel">Your rating</h2>
-  {{ rate.picker(film.rating) }}
-</section>
-{% endif %}
+{# JY-269 P1 (2026-10-30): the web's "Your rating" picker moved into the hero's Rate popover (id="rate"); the TV never drew it #}
 {# Awards (AWARDS_PLAN A5, 2026-10-08; awards-ui item 5, 2026-10-09): one group per ceremony (its mark + "Won 3 of 7
    nominations"), then a whole-link line per edition ("2025 · Won 2 of 3 nominations") linking to that ceremony on
    Movies / TV Shows > Awards, its categories as pills (won gold with the laurel, nominated neutral). Absent when the

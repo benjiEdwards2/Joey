@@ -475,6 +475,30 @@ again."
 - Test pins changed (dated here): `test_tv_mode.py::test_jy188_density_b_with_compact_chrome` (bar 52 -> 38.5 px, the
   `--tv-my-bar` margin, the overflow rule) and `test_joey_media_home.py` (the stop fits 13.5 + 24 + 1 <= 38.5).
 
+Centred top row and small corners, 2026-10-29. B.: "i AM HAPPY WITH IT BUT COULD YOU CENTER THE joey media row between
+the top of the screen and where the carousel begins? can you also reduce teh redius on most of the cornering within the
+UI. Make it a lot smaller. Should be a small round and not a large one."
+- Centred: 13.5 px above the 24 px controls (the bar's margin), and every page's first thing starts 12 px under the bar
+  (1 + 12 = 13 px under the controls): Home's hero (unchanged), the title page hero (was 18), the grids' sub-tabs
+  (was 4) and Discover's search box (was 6). The bar stays 38.5 px. Measured by the shots on every page at all four
+  sizes (`top row centred`): at 960x540 dpr 2, above 13.5 / below 13 CSS px (x4 at 3840x2160: 54 / 52). The grids'
+  first row moves down 8 px, the title pages' up 6 px.
+- Corners: two tokens, `--tv-r` (6 px at 960x540) and `--tv-r-sm` (4 px), rem like every length, so they scale; circles
+  (cast, avatars, the search stop, step numbers) stay round. The shots fail any visible corner over 6 px x scale.
+
+  | Thing (960x540 CSS px) | Before | Now |
+  |---|---|---|
+  | Tiles, posters, stills, hero poster, focus ring | 8-10 | 6 (`--tv-r`) |
+  | Buttons (Play, Trailer, Watchlist, Rate) | 12 | 4 (`--tv-r-sm`) |
+  | Pills: section and sub-tabs, season chips, More, user chip, episode chips | 9-10, 999 | 6 |
+  | Discover bands | 6 | 4 |
+  | Search box | 28 | 6 |
+  | Dialogs (search, request, sign out), Diary month card, Jellyfin set-up address | 14-20 | 6 |
+  | Progress bars, skeleton lines | 3-4 | unchanged |
+
+- Tests: `test_the_top_row_sits_centred_over_each_page_start`, `test_every_corner_is_a_small_round_from_two_tokens`; the
+  comment "64 + 4 + 36 = 104" in `test_jy188_density_b_with_compact_chrome` now reads the new numbers.
+
 Not changed, flagged for the reviewer: `test_tv_mode.py` (lines 159, 991) still pins the shared
 `.libgrid, .reqgrid { repeat(9 ...) }` rule, which holds for the library grid; Discover's later 8-across rule is pinned
 in `test_discover_states_are_foot_bands_not_chips_over_the_art`.

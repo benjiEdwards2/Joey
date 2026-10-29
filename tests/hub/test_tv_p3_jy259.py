@@ -425,3 +425,26 @@ def test_the_top_row_is_variant_c_and_its_focus_rings_are_never_clipped():
     assert "html.tv .toplinks { overflow: visible; }" in css
     ring = 4 + 3
     assert 13.5 - ring >= 0                                                      # the ring above a pill stays on screen
+
+
+# ---- B. 2026-10-29: "center the joey media row ..." and "reduce teh redius on most of the cornering" ----
+
+def test_the_top_row_sits_centred_over_each_page_start():
+    """13.5 px above the 24 px controls (the bar's margin); the page's first thing starts 1 + 12 px under them: the hero,
+    the title page's hero, the grids' sub-tabs and Discover's search box all start 12 px under the bar (the shots
+    measure it on every page at all four sizes: |above - below| <= 2 px at 960x540)."""
+    css = _sheet()
+    assert re.search(r"html\.tv \.tv-hero \{[^}]*padding: 12px 0 0", css)
+    assert "html.tv .pagehead.hero-detail .pagehead-in { padding: 12px var(--tv-mx) 0; }" in css
+    assert "html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-in { max-width: none; padding: 12px var(--tv-mx) 0; }" in css
+    assert "html.tv form.toolbar.discover-search { display: block; margin: 12px 0 0; }" in css
+
+
+def test_every_corner_is_a_small_round_from_two_tokens():
+    css = _sheet()
+    assert "--tv-r: 6px; --tv-r-sm: 4px;" in css
+    radii = re.findall(r"border-radius: ([^;}]*)", css)
+    allowed = {"var(--tv-r)", "var(--tv-r-sm)", "50%", "3px", "4px", "0"}
+    assert radii and all(set(r.split()) <= allowed for r in radii), sorted(set(radii) - allowed)
+    assert re.search(r"html\.tv \.btn \{[^}]*border-radius: var\(--tv-r-sm\)", css)                  # buttons 4 px
+    assert re.search(r"html\.tv \.tvt-person \.card-pic, html\.tv \.tvt-person \.card-pic > img \{[^}]*border-radius: 50%", css)   # cast circles stay

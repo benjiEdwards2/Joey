@@ -11,7 +11,7 @@
    title page = 170 px poster beside title, facts, synopsis, Play / Trailer / Watchlist and the 1-10 chips; Set up Jellyfin
    = a full-screen card with :8443 in gold; sign-in = the WP-M screen 1 card. */
 html.tv {
-  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-my-bar: .84375rem; --tv-bar: 2.40625rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
+  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-my-bar: .84375rem; --tv-r: .375rem; --tv-r-sm: .25rem; --tv-bar: 2.40625rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
   --tv-surface: rgba(255, 255, 255, .03); --tv-surface-2: rgba(255, 255, 255, .06); --tv-line: rgba(255, 255, 255, .12);
   --tv-border: rgba(255, 255, 255, .07); --tv-t1: #fafafa; --tv-t2: #e4e4e7; --tv-t3: #d4d4d8; --tv-t4: #a1a1aa; --tv-t5: #82828b;
   --tv-primary: #4f46e5; --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
@@ -29,7 +29,7 @@ html.tv body::before { display: none; }
 html.tv :focus { outline: none; }
 html.tv :focus-visible, html.tv .tv-focus { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; }
 html.tv .card-poster:focus-visible, html.tv .card-poster.tv-focus { outline: none; transform: scale(1.08); position: relative; z-index: 5; }
-html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; border-radius: .625rem; }
+html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; border-radius: var(--tv-r); }
 html.tv .card-poster { transition: transform .16s ease-out; }
 
 /* Off-origin links (Q41): hidden; YouTube and the Jellyfin hand-off stay. */
@@ -47,15 +47,15 @@ html.tv .topbar-in { max-width: none; height: var(--tv-bar); margin: 0; padding:
 html.tv .toplinks { overflow: visible; }
 html.tv .brand { gap: .5rem; }
 html.tv .brand b { font-size: 1.125rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
-html.tv .brand .mark { width: 1.375rem; height: 1.375rem; border-radius: .375rem; }
+html.tv .brand .mark { width: 1.375rem; height: 1.375rem; border-radius: var(--tv-r); }
 html.tv .toplinks { display: flex; gap: .375rem; flex-shrink: 0; }
-html.tv .toplinks a { height: 1.5rem; padding: 0 .5rem; border-radius: .375rem; font-size: 1.125rem; line-height: 1.5rem; color: var(--tv-t4); }
+html.tv .toplinks a { height: 1.5rem; padding: 0 .5rem; border-radius: var(--tv-r); font-size: 1.125rem; line-height: 1.5rem; color: var(--tv-t4); }
 html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
 /* JY-248 nav (2026-10-25): no Overview pill; the "Joey Media" title is the Home stop (Up from Home lands on it, tv.js),
    a pill like the section row's (24 px since JY-259 P3; the bar is 13.5 + 24 + 1), filled like the current pill on Home. */
-html.tv .brand-home { height: 1.5rem; padding: 0 .5rem 0 .125rem; border-radius: .375rem; }
+html.tv .brand-home { height: 1.5rem; padding: 0 .5rem 0 .125rem; border-radius: var(--tv-r); }
 html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .08); }
-html.tv .userchip { margin-left: auto; gap: .5rem; height: 1.5rem; padding: 0 .75rem 0 .125rem; border-radius: 62.4375rem; font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .userchip { margin-left: auto; gap: .5rem; height: 1.5rem; padding: 0 .75rem 0 .125rem; border-radius: var(--tv-r); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .userchip .avatar { width: 1.5rem; height: 1.5rem; font-size: 1.125rem; line-height: 1; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line); color: var(--tv-t2); }
 html.tv .userchip small { display: none; }
 /* Sign-out (2026-10-22; option D + pop-up P2): the pill is one D-pad stop (Enter opens the confirm); with focus it also
@@ -70,7 +70,7 @@ html.tv button.userchip .xlbl { display: inline; flex: none; max-width: 0; margi
   font-weight: 600; color: var(--tv-t1); transition: max-width .18s ease-out, margin .18s ease-out; }
 html.tv button.userchip:focus-visible .xlbl, html.tv button.userchip.tv-focus .xlbl { max-width: 6.875rem; margin-right: 0; }
 html.tv button.userchip:focus-visible .uname, html.tv button.userchip.tv-focus .uname { max-width: 0; margin-right: -.5rem; }
-html.tv .signoutdlg { width: 32.5rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: 1.25rem; background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
+html.tv .signoutdlg { width: 32.5rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .signoutdlg::backdrop { background: rgba(9, 9, 11, .82); }
 html.tv .signout-q { font-size: 1.875rem; line-height: 1.15; }
 html.tv .signout-body { margin: .625rem 0 1.5rem; font-size: 1.25rem; line-height: 1.35; color: var(--tv-t3); }
@@ -89,17 +89,17 @@ html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) {
   position: sticky; top: var(--tv-bar); z-index: 45; margin: 0 calc(-1 * var(--tv-mx)); min-height: 0; overflow: visible;
   background: var(--bg);
 }
-html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-in { max-width: none; padding: .25rem var(--tv-mx) 0; }
+html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-in { max-width: none; padding: .75rem var(--tv-mx) 0; }
 html.tv .pagehead:not(.hero-detail, :has(> .pagehead-bd)) .pagehead-foot { display: none; }
 html.tv .sectabs { margin: 0; padding: 0; overflow: visible; }
 html.tv .sectabs-row { gap: .5rem; border-bottom: 0; }
 html.tv .sectabs.sub { margin: 0; }
 html.tv .sectabs.sub a {
-  height: 2.25rem; padding: 0 .875rem; margin: 0; border: 0; border-radius: .625rem; font-size: 1.125rem; color: var(--tv-t4);
+  height: 2.25rem; padding: 0 .875rem; margin: 0; border: 0; border-radius: var(--tv-r); font-size: 1.125rem; color: var(--tv-t4);
   display: inline-flex; align-items: center;
 }
 html.tv .sectabs.sub a:first-child { padding-left: .875rem; }
-html.tv .sectabs.sub a[aria-current] { background: none; color: var(--tv-t1); box-shadow: inset 0 -.1875rem 0 var(--tab-on); border-radius: .625rem .625rem 0 0; }
+html.tv .sectabs.sub a[aria-current] { background: none; color: var(--tv-t1); box-shadow: inset 0 -.1875rem 0 var(--tab-on); border-radius: var(--tv-r) var(--tv-r) 0 0; }
 
 /* Sections and shelves: 132 px posters, 20 px gaps, 14 / 10 px shelf padding, one-line captions; no snap (tv.js centres
    the focused poster). A shelf runs to the screen edges (its first poster still starts at the 48 px margin). */
@@ -120,11 +120,11 @@ html.tv .card-poster .row-title { margin-top: .25rem; font-size: 1.125rem; line-
 html.tv .card-poster .row-meta { font-size: 1.125rem; line-height: 1.25rem; height: 1.25rem; visibility: hidden; }
 html.tv .card-poster:focus-visible .row-meta, html.tv .card-poster.tv-focus .row-meta { visibility: visible; overflow: visible; text-overflow: clip; }
 html.tv .poster-grid.big .row-meta { visibility: visible; }
-html.tv .card-pic > img { border-radius: .5rem; }
+html.tv .card-pic > img { border-radius: var(--tv-r); }
 html.tv .page:not(:has(> .pagehead)) { padding-top: .75rem; }
 /* ==== end JY-188 scale block ==== */
-html.tv .poster-tag { top: .375rem; left: .375rem; padding: 0 .5rem; border-radius: 62.4375rem; font-size: 1.125rem; font-weight: 700; max-width: calc(100% - .75rem); }
-html.tv .poster-score { top: .375rem; right: .375rem; padding: 0 .375rem; border-radius: .5rem; font-size: 1.125rem; }
+html.tv .poster-tag { top: .375rem; left: .375rem; padding: 0 .5rem; border-radius: var(--tv-r); font-size: 1.125rem; font-weight: 700; max-width: calc(100% - .75rem); }
+html.tv .poster-score { top: .375rem; right: .375rem; padding: 0 .375rem; border-radius: var(--tv-r); font-size: 1.125rem; }
 
 /* Progress bar over the poster foot (WP-M): 5 px orange fill on a pale track, 10 px in from the edges. */
 html.tv .card-pic > .bar { position: absolute; left: .625rem; right: .625rem; bottom: .625rem; height: .3125rem; margin: 0; z-index: 2; border-radius: .1875rem; background: var(--tv-bar-track); }
@@ -157,25 +157,25 @@ html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the yea
 html.tv .pagehead:has(.sectabs.sub[aria-label="Discover"]) { display: none; }
 /* Discover search (JY-194, R2; tv-v2 shell 04-discover screen 1): the one toolbar shown on the TV, a full-width 56 px
    pill above the grid - magnifier, 21 px text, the 4 px ring when focused. tv.js keeps it read-only until OK. */
-html.tv form.toolbar.discover-search { display: block; margin: .375rem 0 0; }
+html.tv form.toolbar.discover-search { display: block; margin: .75rem 0 0; }
 html.tv .discover-search .search { max-width: none; }
 html.tv .discover-search .search > svg.ic { left: 1.375rem; width: 1.75rem; height: 1.75rem; color: var(--tv-t3); }
-html.tv .discover-search .input { height: 3.5rem; padding: 0 1.375rem 0 4rem; border-radius: 1.75rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); font-size: 1.3125rem; color: var(--tv-t1); }
+html.tv .discover-search .input { height: 3.5rem; padding: 0 1.375rem 0 4rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); font-size: 1.3125rem; color: var(--tv-t1); }
 html.tv .discover-search .input::placeholder { color: var(--tv-t4); }
 html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
 html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
 /* JY-259 (P3, Q5 A): the state is a band UNDER the art, never a chip over it (the picture stays whole) */
-html.tv .reqgrid .reqchip { position: static; display: block; margin-top: .25rem; padding: .125rem 0; border-radius: .375rem; font-size: 1.125rem; font-weight: 500; letter-spacing: -.02em; line-height: 1.375rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+html.tv .reqgrid .reqchip { position: static; display: block; margin-top: .25rem; padding: .125rem 0; border-radius: var(--tv-r-sm); font-size: 1.125rem; font-weight: 500; letter-spacing: -.02em; line-height: 1.375rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 html.tv .reqgrid .reqchip-lib { background: rgba(52, 211, 153, .95); }
 html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: #fbbf24; }
 html.tv .reqgrid .reqchip-request { background: var(--tv-primary); color: #fff; }
 
 /* The request panel (mockup: 780 px card on #18181b, 150 px poster, 38 px title, a 3-line synopsis, 22 px status line,
    Request focused -> "Requested - waiting for approval" with Done focused). Back / Done / Esc close it (tv.js back()). */
-html.tv .reqdlg { width: 48.75rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: 1.25rem; background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
+html.tv .reqdlg { width: 48.75rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .reqdlg::backdrop { background: rgba(9, 9, 11, .82); }
 html.tv .reqpanel { grid-template-columns: 9.375rem 1fr; gap: 1.75rem; }
-html.tv .reqpanel-pic img { border-radius: .625rem; }
+html.tv .reqpanel-pic img { border-radius: var(--tv-r); }
 html.tv .reqpanel-title { font-size: 2.375rem; line-height: 1.08; letter-spacing: -.01em; margin: 0; }
 html.tv .reqpanel .metaline { margin: .375rem 0 0; font-size: 1.1875rem; color: var(--tv-t4); }
 html.tv .reqpanel-ov {
@@ -195,12 +195,12 @@ html.tv .label, html.tv .awpick-name, html.tv .awtile-name, html.tv .awtile-mont
 html.tv .awev, html.tv .awev *, html.tv .seg a { font-size: 1.125rem; }
 
 /* JY-233: the hub tile's icon chip and title scale up for 10-foot viewing. */
-html.tv .tile-icon { width: 3.75rem; height: 3.75rem; border-radius: .875rem; }
+html.tv .tile-icon { width: 3.75rem; height: 3.75rem; border-radius: var(--tv-r); }
 html.tv .tile-icon svg.ic { width: 2.125rem; height: 2.125rem; }
 html.tv .tile-main .microlabel { font-size: 1.625rem; }
 
 /* Buttons: 56 px targets. */
-html.tv .btn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600; }
+html.tv .btn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: var(--tv-r-sm); font-size: 1.3125rem; font-weight: 600; }
 html.tv .btn-sm { min-height: 2.75rem; padding: 0 1.125rem; font-size: 1.125rem; }
 
 /* Title page (WP-M screen 4): 170 px poster beside title, facts, a 3-line synopsis, Play / Trailer / Watchlist and the
@@ -212,7 +212,7 @@ html.tv .pagehead.hero-detail:not(:has(.hero-detail-bd)) { background: radial-gr
 html.tv .hero-detail-bd { background-image: linear-gradient(90deg, rgba(9, 9, 11, .94), rgba(9, 9, 11, .8) 55%, rgba(9, 9, 11, .55)), linear-gradient(to bottom, transparent 60%, var(--bg)), var(--bd-pick); }
 html.tv .pagehead.hero-detail .pagehead-in { max-width: none; padding: .75rem var(--tv-mx) 0; }
 html.tv .hero-detail-in { flex-direction: row; align-items: flex-start; gap: 2rem; text-align: left; }
-html.tv .hero-detail-poster { width: 10.625rem; max-width: none; border-radius: .625rem; border: .0625rem solid rgba(255, 255, 255, .1); box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
+html.tv .hero-detail-poster { width: 10.625rem; max-width: none; border-radius: var(--tv-r); border: .0625rem solid rgba(255, 255, 255, .1); box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .hero-detail-text { align-items: flex-start; gap: 0; }
 html.tv .hero-detail .hero-detail-title { font-size: 2.75rem; line-height: 1.08; letter-spacing: -.02em; }
 html.tv .hero-detail-text > .facts-line:not(.tv-facts), html.tv .hero-detail-text .tagline, html.tv .hero-detail-text .statusline,
@@ -227,11 +227,11 @@ html.tv .hero-detail-text .tv-syn {
 html.tv .hero-detail-btns { gap: 1.125rem; margin-top: 1.5rem; justify-content: flex-start; }
 html.tv .hero-detail-btns .btn-white { background: var(--tv-primary); color: #fff; border-color: transparent; }
 html.tv .hero-detail-btns .btn-glass, html.tv .hero-detail-btns .wlbtn .btn { border-color: var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .hero-detail-btns .wlbtn .btn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600; }
+html.tv .hero-detail-btns .wlbtn .btn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: var(--tv-r-sm); font-size: 1.3125rem; font-weight: 600; }
 html.tv .tv-rate { margin-top: 1.375rem; }
 html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: .5rem; }
 html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
-html.tv .tv-rate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: .625rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
+html.tv .tv-rate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
 html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast), html.tv .fp-shelf-wait { display: none; }
 
 /* The Set up Jellyfin card (Q39; WP-M screen 9): a full-screen card over the Overview, the address at 34 px mono with its
@@ -250,17 +250,17 @@ html.tv .setup-steps li::before {
 }
 html.tv .setup-steps li b { color: var(--tv-t1); font-weight: 600; }
 html.tv .setup-addr {
-  display: block; width: fit-content; max-width: 100%; margin: .5rem 0 .375rem; padding: 1.125rem 1.375rem; border-radius: .875rem; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line);
+  display: block; width: fit-content; max-width: 100%; margin: .5rem 0 .375rem; padding: 1.125rem 1.375rem; border-radius: var(--tv-r); background: var(--tv-surface-2); border: .0625rem solid var(--tv-line);
   font-family: var(--font-mono); font-size: 2.125rem; font-weight: 600; letter-spacing: -.01em; color: var(--tv-t1); white-space: nowrap;
 }
 html.tv .setup-addr em { font-style: normal; color: var(--tv-gold); text-decoration: underline; text-underline-offset: .375rem; }
 
 /* Sign-in (Q33: the TV signs in on the web page): the WP-M screen 1 layout inside the overscan. */
 html.tv .signin { max-width: none; min-height: 100vh; padding: var(--tv-my) var(--tv-mx); grid-template-columns: 18.75rem 1fr; gap: 2.5rem; align-items: center; }
-html.tv .signin-brand img { width: 5.25rem; height: 5.25rem; border-radius: 1.25rem; margin-bottom: 1.125rem; }
+html.tv .signin-brand img { width: 5.25rem; height: 5.25rem; border-radius: var(--tv-r); margin-bottom: 1.125rem; }
 html.tv .signin-brand h1 { font-size: 2.625rem; line-height: 1.1; letter-spacing: -.02em; margin: 0 0 .625rem; }
 html.tv .signin-brand .metaline { font-size: 1.3125rem; color: var(--tv-t4); }
-html.tv .signin-panel { padding: 1.75rem 2rem; border-radius: 1.25rem; background: var(--tv-surface); border: .0625rem solid var(--tv-border); }
+html.tv .signin-panel { padding: 1.75rem 2rem; border-radius: var(--tv-r); background: var(--tv-surface); border: .0625rem solid var(--tv-border); }
 html.tv .signin-panel .seclabel { margin: 0; }
 html.tv .qc-code { font-family: var(--font-mono); font-size: 5.75rem; line-height: 1.05; font-weight: 700; letter-spacing: .06em; margin: .625rem 0 .875rem; font-variant-numeric: tabular-nums; }
 html.tv .signin-panel #qc > p:not(.seclabel, .qc-code, #qc-status) { margin: 0; font-size: 1.3125rem; color: var(--tv-t3); }
@@ -268,7 +268,7 @@ html.tv .signin-panel #qc-status { display: flex; align-items: center; gap: .5re
 html.tv .signin-panel #qc-status::before { content: ""; flex: none; width: .625rem; height: .625rem; margin-right: 0; border-radius: 50%; background: var(--tv-gold); animation: tv-pulse 1.6s ease-in-out infinite; }
 html.tv .signin-panel #qc form { margin-top: 1.5rem; }
 html.tv .signin-panel details { margin-top: 1.375rem; }
-html.tv .signin-panel summary { display: inline-block; list-style: none; padding: .375rem 1rem; border-radius: .625rem; font-size: 1.3125rem; color: var(--tv-t3); text-decoration: underline; text-underline-offset: .3125rem; text-decoration-color: #52525b; }
+html.tv .signin-panel summary { display: inline-block; list-style: none; padding: .375rem 1rem; border-radius: var(--tv-r); font-size: 1.3125rem; color: var(--tv-t3); text-decoration: underline; text-underline-offset: .3125rem; text-decoration-color: #52525b; }
 html.tv .signin-panel summary::-webkit-details-marker { display: none; }
 html.tv .signin-form { gap: .75rem; margin-top: 1rem; }
 html.tv .signin-form input { padding: .625rem .875rem; font-size: 1.3125rem; }
@@ -289,7 +289,7 @@ html.tv .signin-panel:has(details[open]) details { margin-top: 0; }
 html.tv .sec.nf { max-width: none; min-height: calc(100vh - var(--tv-bar) - 2 * var(--tv-my)); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .875rem; }
 html.tv .sec.nf .seclabel { font-size: 2.375rem; line-height: 1.1; font-weight: 700; text-transform: none; color: var(--tv-t1); }
 html.tv .sec.nf .empty { font-size: 1.5rem; color: var(--tv-t3); margin: 0; }
-html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 1.3125rem; font-weight: 600; text-decoration: none; margin-top: .625rem; }
+html.tv .sec.nf .nf-back { display: inline-flex; align-items: center; min-height: 3.5rem; padding: 0 1.75rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t1); font-size: 1.3125rem; font-weight: 600; text-decoration: none; margin-top: .625rem; }
 
 /* ---- U6 (JY-192, 2026-10-25): series and episodes (findings S1, X1-X3; tv-v2 shell 01-title screens 2-3) ----
    Seasons shelf (2:3 cards, "2 of 6 watched", a bar) and Episodes shelf (16:9 stills from /img, a word chip on the
@@ -305,9 +305,9 @@ html.tv .tvshelf-hd .metaline { margin: 0; font-size: 1.125rem; color: var(--tv-
 html.tv .tvshelf .card-poster .row-meta { font-size: 1.125rem; visibility: visible; }
 html.tv .tv-seasons .card-poster.is-here .card-pic > img { box-shadow: 0 0 0 .125rem var(--tv-gold); }
 html.tv .tv-seasons .st-current { color: var(--tv-gold); }
-html.tv .tv-eps .card-pic > img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: .625rem; }
+html.tv .tv-eps .card-pic > img { aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--tv-r); }
 html.tv .ep-chip {
-  position: absolute; top: .5rem; left: .5rem; z-index: 2; padding: .0625rem .625rem; border-radius: 62.4375rem;
+  position: absolute; top: .5rem; left: .5rem; z-index: 2; padding: .0625rem .625rem; border-radius: var(--tv-r);
   font-size: 1.125rem; font-weight: 700; line-height: 1.4; background: var(--poster-badge-bg); color: var(--tv-t1);
 }
 html.tv .ep-chip.ep-watched { background: var(--good); color: var(--zinc-950); }
@@ -315,7 +315,7 @@ html.tv .ep-chip.ep-next, html.tv .ep-chip.ep-this-one { background: var(--teal-
 html.tv .ep-chip.ep-in-progress { background: var(--tv-bar-fill); color: var(--zinc-950); }
 html.tv .ep-chip.ep-not-aired { background: var(--tv-surface-2); color: var(--tv-t3); border: .0625rem solid var(--tv-line); }
 html.tv .hero-detail-in > .tv-epstill {
-  flex: 0 0 auto; width: 26.25rem; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: .75rem;
+  flex: 0 0 auto; width: 26.25rem; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--tv-r);
   border: .0625rem solid rgba(255, 255, 255, .1); box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7);
 }
 html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 .375rem; font-size: 1.125rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tv-t4); }   /* JY-259 P3: sentence case (B.'s point 4) */
@@ -323,7 +323,7 @@ html.tv .hero-detail-text > .tv-eyebrow { margin: 0 0 .375rem; font-size: 1.125r
 html.tv .epeyebrow { font-size: 1.125rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tv-t4); }
 html.tv .epeyebrow .sep { color: var(--tv-t4); }
 html.tv .hero-detail-btns .wtoggle { display: contents; }
-html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: .75rem; font-size: 1.3125rem; font-weight: 600;
+html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn { min-height: 3.5rem; padding: 0 1.75rem; border-radius: var(--tv-r-sm); font-size: 1.3125rem; font-weight: 600;
   border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); color: var(--tv-t2); }
 html.tv .tv-ratebtn svg.ic { width: 1.5rem; height: 1.5rem; }
 html.tv .tv-rate[hidden] { display: none; }
@@ -346,25 +346,25 @@ html.tv .bigempty .btn { margin-top: .875rem; background: var(--tv-primary); col
    5A slim Diary (media_diary.html; 05-diary.html A): the month card as one row, 44 px All / Films / TV chips, and the 1-10
    strip folded under "OK to rate" (a <details>; tv.js focuses its summary, OK opens it). */
 html.tv .awtv-cer { display: flex; flex-wrap: wrap; gap: .5rem; padding: .625rem 0 0; }
-html.tv .awtv-cer .chip { height: 2.25rem; padding: 0 .875rem; border-radius: 62.4375rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .awtv-cer .chip { height: 2.25rem; padding: 0 .875rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .awtv-cer .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
 html.tv .awtv-ed { margin: .5rem 0 .25rem; color: var(--tv-t4); }
 html.tv .awtv-shelf { margin-top: .625rem; }
 html.tv .awtv-shelf .card-poster .row-meta { visibility: visible; color: var(--tv-t4); }
 html.tv .awtv-shelf .card-poster .row-meta.st-good { color: var(--good); }
-html.tv .awwin { position: absolute; top: .375rem; left: .375rem; z-index: 2; padding: 0 .5rem; border-radius: 62.4375rem; background: var(--tv-gold); color: #1a1200; font-size: 1.125rem; font-weight: 700; line-height: 1.4; white-space: nowrap; }
-html.tv .tvmonth { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: .375rem 1.75rem; margin: .625rem 0 0; padding: .75rem 1.375rem; border: .0625rem solid var(--tv-line); border-radius: 1rem; background: var(--tv-surface); }
+html.tv .awwin { position: absolute; top: .375rem; left: .375rem; z-index: 2; padding: 0 .5rem; border-radius: var(--tv-r); background: var(--tv-gold); color: #1a1200; font-size: 1.125rem; font-weight: 700; line-height: 1.4; white-space: nowrap; }
+html.tv .tvmonth { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: .375rem 1.75rem; margin: .625rem 0 0; padding: .75rem 1.375rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: var(--tv-surface); }
 html.tv .tvmonth .seclabel { margin: 0; color: var(--tv-t4); }
 html.tv .tvmonth-n { font-size: 1.125rem; color: var(--tv-t4); }
 html.tv .tvmonth-n b { font-size: 1.875rem; font-weight: 700; color: var(--tv-t1); margin-right: .25rem; }
 html.tv .diarychips { gap: .625rem; }
-html.tv .diarychips .chip { height: 2.75rem; padding: 0 1.375rem; border-radius: 62.4375rem; font-size: 1.25rem; }
+html.tv .diarychips .chip { height: 2.75rem; padding: 0 1.375rem; border-radius: var(--tv-r); font-size: 1.25rem; }
 html.tv .tvrate { flex: 0 0 auto; margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 html.tv .tvrate[open] { flex: 0 0 100%; margin-left: 0; }
 html.tv .tvrate > summary { list-style: none; min-height: 2.75rem; padding: 0 1.125rem; font-size: 1.125rem; color: var(--tv-t2); }
 html.tv .tvrate > summary::-webkit-details-marker { display: none; }
 html.tv .tvrate .ratepick { gap: .5rem; padding-left: 0; }
-html.tv .tvrate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: .625rem; border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
+html.tv .tvrate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
 html.tv .tvrate .skipacts { display: flex; gap: .5rem; }
 /* ==== end JY-196 block ==== */
 
@@ -405,11 +405,11 @@ html.tv .reqpanel-form { gap: .75rem; margin-top: 1rem; }
 html.tv .reqpanel-form .reqpanel-btns { margin-top: .25rem; }
 html.tv .reqpanel .seasonpick { flex-direction: row; flex-wrap: wrap; gap: .5rem .625rem; max-height: 7rem; overflow-y: auto; padding: .5rem; margin: -.5rem; }
 html.tv .reqpanel .seasonall, html.tv .reqpanel .seasonpick label {
-  width: fit-content; min-height: 2.5rem; padding: 0 .75rem; border: .0625rem solid var(--tv-line); border-radius: .625rem;
+  width: fit-content; min-height: 2.5rem; padding: 0 .75rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r);
   background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t2);
 }
 html.tv .reqpanel .seasonpick .metaline { margin: 0; font-size: 1.125rem; }
-html.tv .qualitypick .chip { height: 2.5rem; padding: 0 1rem; border-radius: .625rem; font-size: 1.125rem; }
+html.tv .qualitypick .chip { height: 2.5rem; padding: 0 1rem; border-radius: var(--tv-r); font-size: 1.125rem; }
 html.tv label:has(> input.tv-focus), html.tv label:has(> input:focus-visible) { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; }
 html.tv label > input.tv-focus, html.tv label > input:focus-visible { outline: none; }
 
@@ -422,8 +422,8 @@ html.tv label > input.tv-focus, html.tv label > input:focus-visible { outline: n
 html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { box-shadow: 0 .75rem 1.5rem rgba(0, 0, 0, .55); }
 html.tv .seclabel, html.tv h2.seclabel { font-size: 1.25rem; line-height: 1.5rem; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tv-t3); }
 html.tv .sec:has(.tv-focus) .seclabel { color: var(--tv-t1); }
-html.tv .tvt .card-pic { display: block; position: relative; overflow: visible; border: 0; background: var(--tv-surface-2); border-radius: .5rem; }
-html.tv .tvt .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: .5rem; border: 0; }
+html.tv .tvt .card-pic { display: block; position: relative; overflow: visible; border: 0; background: var(--tv-surface-2); border-radius: var(--tv-r); }
+html.tv .tvt .card-pic > img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--tv-r); border: 0; }
 html.tv .tvt .row-title { margin-top: .5rem; color: var(--tv-t2); }   /* clears the ring (3 + 4 px) and the lift */
 /* verifier fix: the picture grows up from its foot (8 % of 138 px = 11 px) plus the 7 px ring - the row's top padding
    holds all of it, or the scrolling row clips the ring (tests/hub/test_tv_home_jy259.py pins it) */
@@ -441,7 +441,7 @@ html.tv .tvt-poster .row-title { height: 2.5rem; white-space: normal; display: -
   -webkit-box-orient: vertical; overflow: hidden; }   /* JY-259 review: two lines, clamped, under row posters */
 html.tv .tvt-person .card-pic, html.tv .tvt-person .card-pic > img { width: 5rem; height: 5rem; aspect-ratio: 1; margin: 0 auto; border-radius: 50%; }
 html.tv .tvt-person .row-title, html.tv .tvt-person .row-meta { text-align: center; }
-html.tv .tvt-band { position: static; display: block; margin-top: .25rem; padding: .125rem .375rem; border-radius: .375rem;
+html.tv .tvt-band { position: static; display: block; margin-top: .25rem; padding: .125rem .375rem; border-radius: var(--tv-r);
   font-size: 1.125rem; font-weight: 600; line-height: 1.375rem; text-align: center; color: var(--zinc-950); background: var(--tv-primary); }
 html.tv .tvt-band-request { color: #fff; }
 html.tv .tvt-band-lib { background: var(--good); }
@@ -491,11 +491,11 @@ html.tv .tv-searchstop { display: inline-flex; align-items: center; justify-cont
   padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--tv-t3); }
 html.tv .tv-searchstop svg.ic { width: 1.125rem; height: 1.125rem; }
 html.tv .tv-searchdlg { width: calc(100vw - 2 * var(--tv-mx)); max-width: none; max-height: calc(100vh - 2 * var(--tv-my)); margin: var(--tv-my) auto 0;
-  padding: 1.25rem 1.5rem; border: .0625rem solid var(--tv-line); border-radius: 1.25rem; background: #18181b; color: var(--tv-t1); overflow: auto; }
+  padding: 1.25rem 1.5rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: #18181b; color: var(--tv-t1); overflow: auto; }
 html.tv .tv-searchdlg::backdrop { background: rgba(9, 9, 11, .82); }
 html.tv .tv-searchdlg form.toolbar.discover-search { margin: 0; }
 html.tv .tv-searchdlg .card-pic { position: relative; }
-html.tv .tv-searchdlg .reqchip { position: static; display: block; margin-top: .25rem; padding: .125rem 0; border-radius: .375rem; font-size: 1.125rem;
+html.tv .tv-searchdlg .reqchip { position: static; display: block; margin-top: .25rem; padding: .125rem 0; border-radius: var(--tv-r); font-size: 1.125rem;
   font-weight: 500; letter-spacing: -.02em; line-height: 1.375rem; text-align: center; white-space: nowrap; overflow: hidden; color: var(--zinc-950); background: var(--tv-gold); }
 html.tv .tv-searchdlg .reqchip-request { color: #fff; background: var(--tv-primary); }
 html.tv .tv-searchdlg .reqchip-lib { background: var(--good); }
@@ -517,7 +517,7 @@ html.tv .hero-detail-bd { top: calc(-1 * var(--tv-bar)); bottom: auto; height: 2
   background-image: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .64) 42%, rgba(9, 9, 11, .16) 100%),
                     linear-gradient(to bottom, rgba(9, 9, 11, .3) 0%, rgba(9, 9, 11, 0) 22%, rgba(9, 9, 11, 0) 52%, var(--bg) 100%), var(--bd-pick); }
 html.tv body:has(.hero-detail-bd) .topbar { background: rgba(9, 9, 11, .72); }
-html.tv .pagehead.hero-detail .pagehead-in { padding: 1.125rem var(--tv-mx) 0; }
+html.tv .pagehead.hero-detail .pagehead-in { padding: .75rem var(--tv-mx) 0; }
 html.tv .hero-detail-in { align-items: flex-end; gap: 1.75rem; }
 html.tv .hero-detail-poster { width: 7.25rem; }
 html.tv .hero-detail-in > .tv-epstill { width: 16rem; }
@@ -547,7 +547,7 @@ html.tv .tv-eps .tvshelf-hd { position: relative; z-index: 6; align-items: cente
    margin. A wrap pushed the episodes off the screen from 6 seasons up. */
 html.tv .tv-seasonchips { display: flex; flex-wrap: nowrap; flex: 0 1 auto; gap: .5rem; min-width: 0; padding: .4375rem .5rem; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 html.tv .tv-seasonchips::-webkit-scrollbar { display: none; }
-html.tv .tv-seasonchips .chip { flex: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: 62.4375rem;
+html.tv .tv-seasonchips .chip { flex: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r);
   border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-seasonchips .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
 html.tv .tv-eps .tvshelf-hd .tv-seasonsub, html.tv .tv-eps .tvshelf-hd > .seclabel { flex: none; }
@@ -558,7 +558,7 @@ html.tv .carousel.tvt-row-person > * { flex: 0 0 6.25rem; width: 6.25rem; }
 html.tv .tv-cast .row-meta { visibility: visible; color: var(--tv-t4); }
 
 /* Loading: a slow shelf is three quiet tile shapes of the final size until its part lands */
-html.tv .tvt-skel .card-pic { display: block; aspect-ratio: 2 / 3; border-radius: .5rem; background: var(--tv-surface-2); animation: tv-skel 1.6s ease-in-out infinite; }
+html.tv .tvt-skel .card-pic { display: block; aspect-ratio: 2 / 3; border-radius: var(--tv-r); background: var(--tv-surface-2); animation: tv-skel 1.6s ease-in-out infinite; }
 html.tv .tvt-skel .tvt-land .card-pic { aspect-ratio: 16 / 9; }
 html.tv .tvt-skel .tvt-person .card-pic { aspect-ratio: 1; border-radius: 50%; }
 html.tv .tvt-skel .tvt-skel-line { display: block; width: 70%; height: 1.125rem; margin-top: .5rem; border-radius: .25rem; background: var(--tv-surface-2); }
@@ -573,7 +573,7 @@ html.tv .tv-tabmore { display: inline-flex; align-items: center; gap: .5rem; mar
 /* review fix: inside the <details> the flex gap reaches only the summary; the links take the row's .5rem as a margin */
 html.tv .sectabs.sub .tv-tabmore > a { margin: 0 0 0 .5rem; }
 html.tv .sectabs.sub .tv-tabmore > summary + a { margin-left: 0; }
-html.tv .tv-tabmore > summary { list-style: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 .875rem; border-radius: .625rem;
+html.tv .tv-tabmore > summary { list-style: none; display: inline-flex; align-items: center; height: 2.25rem; padding: 0 .875rem; border-radius: var(--tv-r);
   font-size: 1.125rem; color: var(--tv-t4); }
 html.tv .tv-tabmore > summary::-webkit-details-marker { display: none; }
 html.tv .tv-tabmore[open] > summary { color: var(--tv-t2); }

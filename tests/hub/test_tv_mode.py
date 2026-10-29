@@ -990,7 +990,7 @@ def test_jy188_density_b_with_compact_chrome(gc):
     assert re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my-bar\) var\(--tv-mx\) 1px", css)   # 13.5 + 24 + 1
     assert "html.tv .toplinks { overflow: visible; }" in css      # the section pills' focus ring is not clipped
     assert re.search(r"\.toplinks a \{ height: 24px;", css) and re.search(r"\.brand-home \{ height: 24px;", css)
-    assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 64 + 4 + 36 = 104
+    assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 38.5 + 12 + 36 = 86.5 (JY-259 P3, 2026-10-29: the bar 38.5, the sub-tabs 12 px under it)
     # JY-259 (2026-10-28, B.'s point 3): rows 104 -> 92 px cards with 18 px gaps (8 across), grids 9 across, 18 / 16 px gaps
     assert re.search(r"\.carousel > \* \{ flex: 0 0 92px; width: 92px; \}", css)
     assert re.search(r"\.carousel \{ gap: 18px;", css)

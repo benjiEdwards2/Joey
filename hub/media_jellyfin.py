@@ -60,7 +60,7 @@ def creds() -> tuple[str, dict] | None:
 def get(base: str, headers: dict, path: str, params: dict | None = None, timeout: float | None = None):
     """GET a Jellyfin JSON path; raises on no answer, and RuntimeError("HTTP nnn") on a non-2xx."""
     resp = upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers,
-                                         timeout=timeout or TIMEOUT)
+                                         timeout=TIMEOUT if timeout is None else timeout)
     if not 200 <= resp.status_code < 300:
         raise RuntimeError(f"HTTP {resp.status_code}")
     return resp.json()
@@ -77,18 +77,18 @@ def post(base: str, headers: dict, path: str, *, params: dict | None = None, jso
          timeout: float | None = None):
     """POST to a Jellyfin path; returns the raw response (callers check the status, as their own helpers did)."""
     return upstream.session("jellyfin").post(f"{base}{path}", params=params, json=json, data=data, headers=headers,
-                                             timeout=timeout or TIMEOUT)
+                                             timeout=TIMEOUT if timeout is None else timeout)
 
 
 def delete(base: str, headers: dict, path: str, *, params: dict | None = None, timeout: float | None = None):
     """DELETE a Jellyfin path; returns the raw response."""
     return upstream.session("jellyfin").delete(f"{base}{path}", params=params, headers=headers,
-                                               timeout=timeout or TIMEOUT)
+                                               timeout=TIMEOUT if timeout is None else timeout)
 
 
 def get_bytes(base: str, headers: dict, path: str, params: dict | None = None, timeout: float | None = None):
     """GET a Jellyfin path as a raw response (images); the caller reads status, headers and content."""
-    return upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers, timeout=timeout or TIMEOUT)
+    return upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT if timeout is None else timeout)
 
 
 def her_name() -> str:

@@ -35,9 +35,24 @@ def _offenders() -> set[str]:
         for n in ast.walk(tree):
             if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs and PATTERN.search(n.value):
                 out.add(f.name)
-            elif isinstance(n, ast.Attribute) and n.attr == "session" and isinstance(n.value, ast.Name)                     and n.value.id == "upstream":
-                call = next((c for c in ast.walk(tree) if isinstance(c, ast.Call) and c.func is n), None)
-                if call and call.args and isinstance(call.args[0], ast.Constant) and call.args[0].value == "jellyfin":
+        mods, fns = set(), set()   # names bound to hub.upstream, and to upstream.session (any alias)
+        for n in ast.walk(tree):
+            if isinstance(n, ast.ImportFrom) and n.module == "hub":
+                mods |= {a.asname or a.name for a in n.names if a.name == "upstream"}
+            elif isinstance(n, ast.ImportFrom) and n.module == "hub.upstream":
+                fns |= {a.asname or a.name for a in n.names if a.name == "session"}
+            elif isinstance(n, ast.Import):
+                mods |= {a.asname or a.name for a in n.names if a.name == "hub.upstream"}
+        for c in ast.walk(tree):
+            if not isinstance(c, ast.Call) or f.name == "upstream.py":
+                continue
+            fn = c.func
+            hit = (isinstance(fn, ast.Attribute) and fn.attr == "session" and isinstance(fn.value, ast.Name)
+                   and fn.value.id in mods) or (isinstance(fn, ast.Name) and fn.id in fns)
+            if hit:
+                arg = c.args[0] if c.args else None
+                literal = isinstance(arg, ast.Constant) and isinstance(arg.value, str)
+                if not literal or arg.value == "jellyfin":   # a non-literal name could be "jellyfin": flag it
                     out.add(f.name)
     return out
 

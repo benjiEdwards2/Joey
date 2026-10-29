@@ -391,3 +391,37 @@ def test_crawl_of_the_discover_and_request_pages(friend):
                     problems.append(f"{path}: {word}")
     assert not problems, "\n".join(problems[:40])
     assert rendered == 2 * len(paths)
+
+
+# ---- JY-270 P1: Discover search narrows to films / shows / people; the TV gets a visible Search button ----
+
+PERSON = {"mediaType": "person", "id": 901, "name": "Sample Actor", "profilePath": None}
+
+
+@pytest.mark.parametrize("t, want, absent", [
+    ("", ["chip-movie-704", "chip-tv-100", "/media/person/901"], []),
+    ("movie", ["chip-movie-704"], ["chip-tv-100", "/media/person/901"]),
+    ("tv", ["chip-tv-100"], ["chip-movie-704", "/media/person/901"]),
+    ("person", ["/media/person/901"], ["chip-movie-704", "chip-tv-100"]),
+    ("bogus", ["chip-movie-704", "chip-tv-100", "/media/person/901"], []),
+])
+def test_guest_search_narrows_by_type(friend, t, want, absent):
+    friend.seerr.search = [res(704, "Searchable Film"), res(100, "Tangle of Wires", "tv", status=1), PERSON]
+    html = friend.get(f"/media/discover/search?q=searchable&t={t}", headers=HX).text
+    for w in want:
+        assert w in html
+    for a in absent:
+        assert a not in html
+    if t in ("", "person"):
+        assert re.search(r'href="/media/person/901"(?![^>]*data-req-open)', html)   # a person opens the person page
+
+
+def test_discover_page_has_type_chips_and_tv_search_button(friend):
+    web = friend.get("/media/discover").text
+    for label in ("All", "Films", "Shows", "People"):
+        assert re.search(rf'<input type="radio" name="t" value="[a-z]*"[^>]*>{label}</label>', web)
+    assert "tv-searchgo" not in web
+    tv = friend.get("/media/discover?q=searchable&t=movie", headers={"User-Agent": TV_UA}).text
+    assert re.search(r'class="btn tv-searchgo"[^>]*data-tv-search-open', tv)
+    assert "Press OK on Search to type" in tv
+    assert re.search(r'value="movie" checked', tv)

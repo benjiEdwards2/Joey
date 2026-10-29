@@ -162,6 +162,18 @@ html.tv .discover-search .search { max-width: none; }
 html.tv .discover-search .search > svg.ic { left: 1.375rem; width: 1.75rem; height: 1.75rem; color: var(--tv-t3); }
 html.tv .discover-search .input { height: 3.5rem; padding: 0 1.375rem 0 4rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); font-size: 1.3125rem; color: var(--tv-t1); }
 html.tv .discover-search .input::placeholder { color: var(--tv-t4); }
+/* JY-270 P1: the field + a "Search" button (OK = type; one clear ring), the words saying so, and the type chips
+   (All / Films / Shows / People: radios, the ring on the chip; 18 px text, small radii) */
+html.tv .tv-searchrow { display: flex; gap: .75rem; align-items: center; }
+html.tv .tv-searchrow .search { flex: 1; }
+html.tv .tv-searchgo { display: inline-flex; align-items: center; gap: .5rem; height: 3.5rem; padding: 0 1.375rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface-2); font-size: 1.3125rem; font-weight: 600; color: var(--tv-t1); }
+html.tv .tv-searchgo svg.ic { width: 1.5rem; height: 1.5rem; }
+html.tv .tv-searchgo:focus-visible, html.tv .tv-searchgo.tv-focus { background: var(--tv-primary); color: #fff; }
+html.tv .discover-search .input.tv-focus, html.tv .discover-search .input:focus-visible { border-color: var(--tv-ring); }
+html.tv .tv-searchhint { margin: .375rem 0 0; font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .tv-typechips { margin-top: .625rem; gap: .5rem; }
+html.tv .tv-typechips .chip { height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r-sm); font-size: 1.125rem; }
+html.tv .tv-typechips .chip:has(input.tv-focus), html.tv .tv-typechips .chip:has(input:focus-visible) { outline: .25rem solid var(--tv-ring); outline-offset: .1875rem; }
 html.tv .reqgrid .card-cell, html.tv .reqgrid .card-cell > a.rowlink { display: block; }
 html.tv .reqgrid .card-cell > a.rowlink { color: inherit; }
 /* JY-259 (P3, Q5 A): the state is a band UNDER the art, never a chip over it (the picture stays whole) */

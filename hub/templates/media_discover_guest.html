@@ -14,6 +14,9 @@
 .reqchip-request { background: var(--brand); color: var(--brand-fg); }
 .reqchip-lib { background: var(--good); color: var(--zinc-900); }
 .reqchip-pending, .reqchip-sent, .reqchip-approved, .reqchip-requested { background: var(--amber); color: var(--zinc-900); }
+.tv-typechips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.tv-typechips input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tv-typechips .chip:has(input:checked) { background: var(--zinc-100); border-color: var(--zinc-100); color: var(--zinc-900); }
 .reqchip-declined { background: var(--text-6); color: var(--text-2); }
 .reqdlg { width: min(720px, calc(100vw - 32px)); max-width: none; margin: auto; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); color: inherit; }
 .reqdlg::backdrop { background: color-mix(in srgb, var(--zinc-950) 75%, transparent); }
@@ -27,9 +30,20 @@
 {% if not connected %}
 <p class="empty">Not connected</p>
 {% else %}
+{# JY-270 P1 (B. 2026-10-29 "Discover does not have the search functions"): the field searches films, shows and people;
+   the type chips (radios, OK toggles them: tv.js WP-RQ2) narrow it; on the TV a "Search" button beside the field is the
+   obvious stop (OK = the field editable, the TV keyboard up: tv.js [data-tv-search-open]) and the hint says so in words. #}
 <form class="toolbar discover-search" method="get" action="/media/discover">
-  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films and TV" autocomplete="off" aria-label="Search films and TV" data-tv-search
-         hx-get="/media/discover/search" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-grid" hx-swap="outerHTML"></div>
+  <div class="tv-searchrow">
+  <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films, shows and people" autocomplete="off" aria-label="Search films, shows and people" data-tv-search
+         hx-get="/media/discover/search" hx-include="closest form" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-grid" hx-swap="outerHTML"></div>
+  {% if tv_mode(request) %}<button class="btn tv-searchgo" type="button" data-tv-search-open aria-label="Search: press OK to type">{{ icon("search") }}<span>Search</span></button>{% endif %}
+  </div>
+  {% if tv_mode(request) %}<p class="tv-searchhint">Press OK on Search to type</p>{% endif %}
+  <div class="tv-typechips" role="radiogroup" aria-label="Search for"
+       hx-get="/media/discover/search" hx-include="closest form" hx-trigger="change" hx-target="#discover-grid" hx-swap="outerHTML">
+    {% for v, label in types %}<label class="chip{{ ' on' if t == v }}"><input type="radio" name="t" value="{{ v }}"{{ " checked" if t == v }}>{{ label }}</label>{% endfor %}
+  </div>
   <noscript><button class="btn btn-secondary" type="submit">Search</button></noscript>
 </form>
 {% include "_guest_discover_grid.html" %}

@@ -2,12 +2,40 @@
    ceremony chips (the current one lit and first focus; the links keep the year), the edition line, then one poster shelf
    per category group (ballot.shelves: headline, acting, direction, craft), most wins first. A card is the poster, the
    title, a gold "N wins" chip when it won, and the words On Joey / Not on Joey. No picker sheet, <select>, <details>,
-   view switch or filter chips: a remote drives chips and shelves only. Desktop and phone never include this. #}
+   view switch or filter chips: a remote drives chips and shelves only. Desktop and phone never include this.
+   JY-270 P2 (B. 2026-10-29 "All recommended"): a year chip row (six years, "Earlier", "Latest"), the "No X in year"
+   note, a Films / Categories chip pair, and the categories view as one shelf per category, the winner first with a
+   gold "Won", then the nominees. Filters and sorts stay off the TV (P3). #}
 {% from "_poster.html" import poster %}
 {% if bodies %}
 <nav class="chips awtv-cer" aria-label="Ceremony">{% for b in bodies %}<a class="chip{{ ' on' if b.on }}" href="{{ b.href }}"{% if b.on %} aria-current="true" data-first{% endif %}>{{ b.name }}</a>{% endfor %}</nav>
 {% endif %}
+{% if tv_years %}
+<nav class="chips awtv-yr" aria-label="Year">{% for y in tv_years %}<a class="chip{{ ' on' if y.on }}{{ ' dim' if y.dim and not y.on }}" href="{{ y.href }}"{% if y.on %} aria-current="true"{% endif %}>{{ y.label }}</a>{% endfor %}</nav>
+{% endif %}
+{% if year_note %}<p class="metaline awtv-note">{{ year_note }}</p>{% endif %}
+{% if bodies %}
+<nav class="chips awtv-view" aria-label="View"><a class="chip{{ ' on' if view != 'categories' }}" href="{{ view_hrefs.films }}"{% if view != 'categories' %} aria-current="true"{% endif %}>Films</a><a class="chip{{ ' on' if view == 'categories' }}" href="{{ view_hrefs.categories }}"{% if view == 'categories' %} aria-current="true"{% endif %}>Categories</a></nav>
+{% endif %}
 {% if edition_line %}<p class="metaline awtv-ed">{{ edition_line }}</p>{% endif %}
+{% if view == "categories" %}
+{% for c in (cats or []) + (more or []) %}
+<section class="sec awtv-shelf awtv-cat">
+  <h2 class="seclabel">{{ c.name }}<span class="sep"> · </span>{{ c.cards | length }}</h2>
+  <div class="carousel">
+    {% for x in c.winners + c.nominees %}
+    <{{ "a" if x.href else "div" }} class="card-poster"{% if x.href %} href="{{ x.href }}"{% endif %}>
+      <span class="card-pic">{{ poster(x.poster, x.title, 240, "", true) }}{% if x.won %}<span class="awwin">Won</span>{% endif %}</span>
+      <span class="row-title">{{ x.title }}</span>
+      <span class="row-meta">{{ x.sub or ("Winner" if x.won else "Nominee") }}</span>
+    </{{ "a" if x.href else "div" }}>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<p class="empty">{{ empty or "Nothing recorded for this ceremony yet." }}</p>
+{% endfor %}
+{% else %}
 {% set shelves = (ballot or {}).get("shelves") or [] %}
 {% for sh in shelves %}
 <section class="sec awtv-shelf">
@@ -25,3 +53,4 @@
 {% else %}
 <p class="empty">{{ (ballot or {}).get("empty") or empty or "Nothing recorded for this ceremony yet." }}</p>
 {% endfor %}
+{% endif %}

@@ -293,6 +293,79 @@ problem, and this item's re-attach still covers item ids if the copy is ever ski
 and Jellyfin endpoints across `hub/`. Not checked: live row counts (by design), whether any live `watchlist` row is
 `jf:`, and Jellyfin 12.2's exact alternate-version payload (P2 captures a real redacted sample for the fake).
 
+## Phases 4-6 (round 2, spec draft 2026-10-29)
+
+B., 2026-10-29: "Go with 1-4" (JY-264 phases 4-6). Status of this section: `ready` (2026-10-29).
+
+B., 2026-10-29: "I like A for both options." (read by the orchestrator as the recommended A answers; B. to be told this assumption)
+Picks: run page = Option A (summary first, folded lists); keep the Apply button (Q2A).
+Phases 1-3 shipped (PR #265). Sizes stay S/M: three PRs of phase 4 to 5, then the screen, then docs.
+
+### Phase 4: the adapter move (S, Sonnet + 1 Sonnet reviewer)
+Exactly section 4 of this spec, reads group first: widen `hub/media_jellyfin.py` (`post`, `delete`, `get_bytes`,
+`auth_header`), add `tests/hub/test_engine_seam.py` with today's allowlist, move the read-path modules behind one-line
+delegating helpers. No behaviour change, no screen, no live risk beyond a normal hub deploy.
+
+### Phase 5: images, writes, auth (S/M, three PRs)
+One PR per group in that order (images, writes, auth). Auth is the care point (Opus builder, Sonnet reviewer, the
+fake 12.2 Quick Connect suite must pass unchanged). The ratchet allowlist is empty after the last PR.
+
+### Phase 6: the run page, Undo button and docs (M for the page, S for the docs)
+The page is the "not built here" item from the shipped notes. Phase 6 as the shipped notes define it is the screen
+plus the section-5 P6 docs (`docs/connector-contract.md` note, `hub/README.md` adapter rule and re-attach CLI,
+HITLIST close-out). It is household only (B. and Georgina); friends never see it.
+
+**What it shows** (data already exists in `reattach_run` / `reattach_change`; no new tables):
+- Route `/server/reattach/<run_id>`, linked from one Server-page attention line ("Library rebuilt: N ratings waiting to
+  re-attach" or "Re-attached N titles, undo available") and from a short run list at `/server/reattach`.
+- Header: run id, when, trigger (auto / by hand), mode (dry-run / applied / undone / capped), counts.
+- Matches by tier (provider id, path, title + year): title, kind, old -> new shown as titles and poster, never raw ids
+  or paths. Ambiguous, unmatched and conflicts in their own lists, each with its reason.
+- Buttons: **Apply** (dry-run reports only; applies the stored report only while a fresh plan still makes exactly its
+  matches, as `scripts/joey_reattach.py apply` does) and **Undo** (applied runs only, never an already-undone run).
+  Both are POST with the hub's existing CSRF/confirm pattern and a plain confirm sentence ("Move 212 ratings back?").
+  Undo answers with what it skipped (cells changed since) before and after.
+
+#### Options for the run page (text wireframes, no renders; B. picks one)
+**Option A: summary first, lists folded.** One column. Top card: the verdict and the big counts, with the Undo (or
+Apply) button directly under it. Below, each list is a closed section you open.
+```
+[Run 14  applied 2026-10-29 03:12  auto]
+ 212 moved   4 conflicts   2 ambiguous   0 unmatched
+ [ Undo this run ]
+ v Moved by provider id (190)    v Moved by path (22)
+ v Conflicts (4)  v Ambiguous (2)
+```
+**Option B: two panes, review before you act.** Wide screens: left a list of titles with a tick or flag per row,
+right the selected title's old and new item with posters side by side. The Undo/Apply button sits in a bar at the
+bottom. On a phone the panes stack and the bar sticks to the screen foot. More to look at, better for spot-checking
+a risky run; heavier to build (M, not S).
+
+Recommendation: **A**. Runs are rare and mostly clean; B. wants the verdict and one button, with detail on request.
+Both must show on desktop, iPad, phone and TV (TV: read-only, no buttons) on the options page B. will be sent.
+
+### Tests (phase 6)
+1. Page renders for dry-run, applied, undone, capped and apply-failed runs; unknown run id is a 404; a friend gets 403.
+2. No Jellyfin id, file path or NAS host appears in the HTML (grep test on a seeded run).
+3. Apply button only on a dry-run report; Undo only on an applied run; both reject a GET and a missing CSRF token.
+4. Apply from the page produces the same `reattach_change` rows as the CLI on the same fixture; Undo restores the
+   pre-apply DB (table-by-table compare, as P3).
+5. Server-page attention line appears for a held or pending report and clears after apply or undo.
+6. Smoke test for each new route; page render within the Media item budget (p95 <= 150 ms, warm), numbers in the PR.
+7. Phase 4-5: adapter unit tests and ratchet test as section 5; existing suites unchanged and green.
+
+### Accept checklist (phase 6)
+- [ ] The Server page shows the attention line after `rebuild()` on the preview fixture.
+- [ ] The run page reads clearly on desktop, iPad and phone; TV shows it without buttons.
+- [ ] Apply on a dry-run moves the ratings; Undo puts them back; the page says what it skipped.
+- [ ] No ids or paths visible anywhere on the page.
+- [ ] The ratchet test lists no direct Jellyfin HTTP outside `media_jellyfin.py`.
+
+### Questions for B. (phase 6)
+1. Run-page layout: **A (summary first)** recommended, or B (two panes).
+2. Should the page's Apply button exist, or is it Undo only (with apply staying automatic or CLI)? Recommended:
+   **keep Apply** for held/capped reports, since that is the only way to act on them without the NAS shell.
+
 ## Shipped notes
 
 PR, commit and deploy: filled at close-out.

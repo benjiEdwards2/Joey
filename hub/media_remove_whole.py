@@ -261,14 +261,14 @@ def _jellyfin(kind: str, tmdb: int, tvdb, path: str | None, snaps, steps: list) 
         _step(steps, "jellyfin", "media updated", "skipped")
         return False
     base, headers = creds
-    if _call(steps, "jellyfin", "media updated", lambda: upstream.session("jellyfin").post(
-            f"{base}/Library/Media/Updated", json={"Updates": [{"Path": path, "UpdateType": "Deleted"}]},
-            headers=headers, timeout=TIMEOUT)):
+    if _call(steps, "jellyfin", "media updated", lambda: jellyfin.post(
+            base, headers, "/Library/Media/Updated", json={"Updates": [{"Path": path, "UpdateType": "Deleted"}]},
+            timeout=TIMEOUT)):
         return True
     jf = _jf_series_id(tmdb, tvdb, snaps) if kind == "tv" else None
     if jf and re.fullmatch(r"[0-9a-fA-F-]{8,64}", jf):
-        return _call(steps, "jellyfin", "refresh series", lambda: upstream.session("jellyfin").post(
-            f"{base}/Items/{jf}/Refresh", params={"Recursive": "true"}, headers=headers, timeout=TIMEOUT))
+        return _call(steps, "jellyfin", "refresh series", lambda: jellyfin.post(
+            base, headers, f"/Items/{jf}/Refresh", params={"Recursive": "true"}, timeout=TIMEOUT))
     return False
 
 

@@ -72,11 +72,40 @@ def test_tv_awards_is_chips_and_shelves(friend):
         assert gone not in body, gone
 
 
-def test_tv_awards_ignores_the_categories_view(friend):
+def test_tv_awards_draws_the_categories_view(friend):
+    # JY-270 P2 (2026-10-29, B. "All recommended"): replaces test_tv_awards_ignores_the_categories_view - the TV now
+    # keeps v=categories and draws one shelf per category, the winner first with a gold "Won"
     seeded()
     main = main_of(friend.get("/media/movies/awards?v=categories", headers=TV).text)
-    assert "awtv-cer" in main and "awgrid" not in main and 'Best Picture<span class="sep"> · </span>4' in main
+    assert "awtv-cer" in main and "awgrid" not in main and "awtv-cat" in main
+    heads = [re.sub(r"<[^>]+>", "", h) for h in re.findall(r'<h2 class="seclabel">(.*?)</h2>', main, re.S)]
+    assert "Best Actor · 2" in heads and "Best Picture · 4" in heads
+    actor = main.split("Best Actor<span", 1)[1].split("</section>", 1)[0]
+    assert actor.index("Ann Actor") < actor.index("Bob B") and re.search(r'awwin[^>]*>Won<', actor)
+    view = re.search(r'<nav class="chips awtv-view"[^>]*>(.*?)</nav>', main, re.S).group(1)
+    assert re.search(r'aria-current="true"[^>]*>Categories<', view) and ">Films<" in view
     assert "awtv-cer" in main_of(friend.get("/media/tv/awards", headers=TV).text)
+
+
+def test_tv_awards_year_row(friend):
+    seeded()
+    with closing(adb.ensure()) as db:
+        seed_oscars(db, ordinal=96, year=2024, held_on="2024-03-10")
+    main = main_of(friend.get("/media/movies/awards?body=oscars&year=2024", headers=TV).text)
+    yr = re.search(r'<nav class="chips awtv-yr"[^>]*>(.*?)</nav>', main, re.S).group(1)
+    assert re.search(r'aria-current="true"[^>]*>2024<', yr) and "year=2025" in yr
+    assert "96th Academy Awards" in main
+    note = main_of(friend.get("/media/movies/awards?body=oscars&year=2023", headers=TV).text)
+    assert "awtv-note" in note and "No Oscars in 2023" in note
+
+
+def test_tv_year_chips_window():
+    ys = [{"year": y, "href": f"?y={y}", "on": y == 2016, "has_data": y != 2019} for y in range(2025, 2005, -1)]
+    labels = [c["label"] for c in ap.tv_year_chips(ys, 2016)]
+    assert labels == ["Latest", "2016", "2015", "2014", "2013", "2012", "2011", "Earlier"]
+    top = ap.tv_year_chips([{**y, "on": y["year"] == 2025} for y in ys], 2025)
+    assert [c["label"] for c in top] == ["2025", "2024", "2023", "2022", "2021", "2020", "Earlier"]
+    assert top[-1]["href"] == "?y=2019" and not any(c["dim"] for c in top)
 
 
 def test_desktop_awards_is_unchanged(friend):

@@ -22,7 +22,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from hub import guest_auth, img_access, media_because, media_front, media_home, media_item, media_library, media_text, tv_home, upstream
+from hub import guest_auth, img_access, media_because, media_front, media_home, media_item, media_jellyfin, media_library, media_text, tv_home
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 
 log = logging.getLogger("hub.media_guest_home")
@@ -103,10 +103,7 @@ def read_shelf(request, shelf: str) -> list[dict] | None:
         return [dict(r) for r in hit[1]]   # copies: the page decorates its rows
     path, params = _params(shelf, uid)
     try:
-        resp = upstream.session("jellyfin").get(f"{base}{path}", params=params, headers=headers, timeout=TIMEOUT)
-        if not 200 <= resp.status_code < 300:
-            raise RuntimeError(f"HTTP {resp.status_code}")
-        items = (resp.json() or {}).get("Items")
+        items = (media_jellyfin.get(base, headers, path, params, TIMEOUT) or {}).get("Items")
         if not isinstance(items, list):
             raise ValueError("unexpected answer")
     except Exception as exc:   # type only - requests errors embed the URL

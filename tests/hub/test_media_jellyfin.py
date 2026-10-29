@@ -64,3 +64,64 @@ def test_diary_search_goes_through_the_one_jellyseerr_reader(monkeypatch):
     assert rows == [{"item_key": "tmdb:603", "kind": "movie", "title": "The Matrix", "year": 1999, "poster": "tmdb:/m.jpg"}]
     monkeypatch.setattr(md, "_get", lambda path: None)
     assert media_write._search("matrix") is None
+
+
+# --- JY-264 P4: post / delete / get_bytes / auth_header / get timeout ---------------------------------------------
+
+class _R:
+    def __init__(self, status=200, body=None):
+        self.status_code, self._b, self.content, self.headers = status, body or {}, b"img", {"Content-Type": "image/jpeg"}
+
+    def json(self):
+        return self._b
+
+
+@pytest.fixture()
+def wire(monkeypatch):
+    seen = []
+
+    def make(method, status=200):
+        def f(url, **kw):
+            seen.append((method, url, kw))
+            return _R(status, {"ok": 1})
+        return f
+    state = {"status": 200}
+    for m in ("get", "post", "delete"):
+        monkeypatch.setattr(jf.requests, m, lambda url, _m=m, **kw: make(_m, state["status"])(url, **kw))
+    return seen, state
+
+
+def test_auth_header_is_the_12_2_token_form(monkeypatch):
+    monkeypatch.setenv("JELLYFIN_API_KEY", " k ")
+    assert jf.auth_header() == {"Authorization": "MediaBrowser Token=k"}
+    assert jf.auth_header("tok") == {"Authorization": "MediaBrowser Token=tok"}
+    monkeypatch.delenv("JELLYFIN_API_KEY")
+    assert jf.auth_header() == {}
+
+
+def test_post_delete_get_bytes_pass_url_headers_and_default_timeout(wire):
+    seen, _ = wire
+    h = {"Authorization": "x"}
+    assert jf.post("http://b", h, "/p", params={"a": 1}, json={"j": 1}).status_code == 200
+    assert jf.delete("http://b", h, "/d").status_code == 200
+    assert jf.get_bytes("http://b", h, "/Items/1/Images/Primary", timeout=3).content == b"img"
+    assert [(m, u) for m, u, _ in seen] == [("post", "http://b/p"), ("delete", "http://b/d"),
+                                            ("get", "http://b/Items/1/Images/Primary")]
+    assert seen[0][2]["headers"] == h and seen[0][2]["json"] == {"j": 1} and seen[0][2]["timeout"] == jf.TIMEOUT
+    assert seen[2][2]["timeout"] == 3
+
+
+def test_post_and_delete_return_non_2xx_for_the_caller_get_raises(wire):
+    _, state = wire
+    state["status"] = 404
+    assert jf.post("http://b", {}, "/p").status_code == 404      # callers check, as their own helpers did
+    assert jf.delete("http://b", {}, "/d").status_code == 404
+    with pytest.raises(RuntimeError, match="HTTP 404"):
+        jf.get("http://b", {}, "/g", timeout=3)
+
+
+def test_get_timeout_override(wire):
+    seen, _ = wire
+    jf.get("http://b", {}, "/g", {"q": 1}, 3)
+    jf.get("http://b", {}, "/g")
+    assert [kw["timeout"] for _, _, kw in seen] == [3, jf.TIMEOUT]

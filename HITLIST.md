@@ -201,7 +201,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | spec | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
 | JY-267 | TMDB title logos instead of plain text on the carousel / title page | Media | M | ready | B. 2026-10-28: "Yes please, I would be keen to run that next." (logos idea) | — |
 | JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | review | PR #269 review PASS + CI green; B. 2026-10-29: "Leave it for now." | — |
-| JY-269 | Web + phone title pages take the TV show/season layout (backdrop hero, episodes first, seasons as chips, cast circles) | Media | M | idea | B. 2026-10-29: "I like the seasons adn the shows. I would even be keen to take that approach to shows or seasons to the actual JOey App. Write it around." Options page (desktop/iPad/phone) before build | — |
+| JY-269 | Web + phone title pages take the TV show/season layout (backdrop hero, episodes first, seasons as chips, cast circles) | Media | M | ready | B. 2026-10-29: "I like the seasons adn the shows. I would even be keen to take that approach to shows or seasons to the actual JOey App. Write it around." Options page published, B. picked A 2026-10-29 | docs/specs/JY-269-web-title-layout.md |
 
 ### NAS / stack
 

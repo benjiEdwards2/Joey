@@ -1,1 +1,1 @@
-Joey Media 1.0.3 - Joey's own player: for the household, Play opens the film right here instead of the Jellyfin app, and Back brings you back to Joey. Friends keep the Jellyfin app.
+Joey Media 1.0.4 - the player looks like the new Joey TV: a cleaner title, smaller corners, slimmer buttons and the up-next episode as a picture tile. Back still takes you to the page you came from, with your progress.

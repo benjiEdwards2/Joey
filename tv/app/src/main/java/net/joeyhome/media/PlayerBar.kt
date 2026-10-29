@@ -46,7 +46,7 @@ class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet?
         val left = pad
         val right = width - pad
         val cy = height / 2f
-        val h = 6 * dp
+        val h = 7 * dp // JY-259 phase 4: the mock's 14 px track at 1920
         val span = (right - left).coerceAtLeast(1f)
         fun x(ms: Long): Float = if (durationMs > 0) left + span * (ms.coerceIn(0L, durationMs).toFloat() / durationMs) else left
 
@@ -61,11 +61,11 @@ class PlayerBar @JvmOverloads constructor(context: Context, attrs: AttributeSet?
             val cx = x(start)
             canvas.drawRect(cx - 1 * dp, cy - h, cx + 1 * dp, cy + h, tick)
         }
-        val r = if (isActivated) 12 * dp else 8 * dp
+        val r = if (isActivated) 10 * dp else 7 * dp
         canvas.drawCircle(x(positionMs), cy, r, thumb)
         if (isActivated) {
             rect.set(2 * dp, 2 * dp, width - 2 * dp, height - 2 * dp)
-            canvas.drawRoundRect(rect, 14 * dp, 14 * dp, ring)
+            canvas.drawRoundRect(rect, 6 * dp, 6 * dp, ring) // --tv-r
         }
     }
 }

@@ -43,7 +43,7 @@
 
             <TextView
                 android:id="@+id/player_title"
-                style="@style/JoeyText.H1"
+                style="@style/JoeyPlayerTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:maxWidth="600dp"
@@ -52,7 +52,8 @@
 
             <TextView
                 android:id="@+id/player_meta"
-                style="@style/JoeyText.Meta"
+                style="@style/JoeyPlayerMethod"
+                android:layout_marginTop="3dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
         </LinearLayout>
@@ -111,8 +112,8 @@
         <net.joeyhome.media.PlayerBar
             android:id="@+id/player_bar"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginBottom="8dp" />
+            android:layout_height="40dp"
+            android:layout_marginBottom="10dp" />
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -215,54 +216,68 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- the up-next card, bottom right -->
+    <!-- the up-next card, bottom right: JY-259 phase 4, the caption over a 16:9 landscape tile (the kit's `land`,
+         400 px wide in the 1920 mock = 200 dp), the label on it, the runtime or countdown under it, then Play now / Watch credits -->
     <LinearLayout
         android:id="@+id/player_upnext"
-        android:layout_width="440dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="@dimen/joey_overscan_x"
         android:layout_marginBottom="@dimen/joey_overscan_y"
         android:background="@drawable/player_card"
         android:orientation="vertical"
-        android:padding="24dp"
+        android:padding="12dp"
         android:visibility="gone">
 
         <TextView
             style="@style/JoeyText.Meta"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
             android:text="@string/player_up_next" />
 
         <TextView
             android:id="@+id/player_upnext_label"
-            style="@style/JoeyText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="4dp"
+            style="@style/JoeyPlayerTitle"
+            android:layout_width="@dimen/player_upnext_tile"
+            android:layout_height="@dimen/player_upnext_tile_h"
+            android:background="@drawable/player_tile"
+            android:gravity="bottom|start"
+            android:padding="10dp"
+            android:textSize="@dimen/tv_floor"
             android:maxLines="2"
             android:ellipsize="end" />
 
         <TextView
             android:id="@+id/player_upnext_meta"
             style="@style/JoeyText.Meta"
-            android:layout_width="wrap_content"
+            android:layout_width="@dimen/player_upnext_tile"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="8dp"
+            android:maxLines="1"
+            android:ellipsize="end" />
 
+        <!-- the chips stack at the tile's width so the card never grows past it -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="@dimen/player_upnext_tile"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/player_upnext_play"
                 style="@style/JoeyPlayerChip"
+                android:layout_width="match_parent"
+                android:layout_marginEnd="0dp"
+                android:layout_marginBottom="4dp"
                 android:text="@string/player_play_now" />
 
             <TextView
                 android:id="@+id/player_upnext_credits"
                 style="@style/JoeyPlayerChip"
+                android:layout_width="match_parent"
+                android:layout_marginEnd="0dp"
                 android:text="@string/player_watch_credits" />
         </LinearLayout>
     </LinearLayout>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JY-259 phase 4: the up-next card's 16:9 tile (the kit's `land` tile, tv-r-sm corners); no art yet, a dim gradient
+     under the episode label. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="@dimen/tv_r_sm" />
+    <gradient android:angle="315" android:startColor="#FF1F6B6F" android:endColor="#FF0B2A2D" />
+</shape>

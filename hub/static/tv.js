@@ -604,7 +604,8 @@
   }
 
   function typing(el) {
-    return el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(button|submit|checkbox|radio)$/i.test(el.type)));
+    /* JY-270: a read-only field (the locked search) is not typing, so Left / Right leave it (to the Search button) */
+    return el && !el.readOnly && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(button|submit|checkbox|radio)$/i.test(el.type)));
   }
 
   document.addEventListener('keydown', function (e) {

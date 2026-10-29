@@ -326,10 +326,10 @@ def _partial(request: Request, name: str, **ctx) -> HTMLResponse:
 
 
 @router.get("/media/discover", response_class=HTMLResponse)
-def discover_page(request: Request, q: str = ""):
+def discover_page(request: Request, q: str = "", t: str = ""):
     q = q.strip()[:100]
     if guest.is_media():   # Joey TV WP-B4: WP-M screen 10 - one poster grid with request chips, a request panel
-        return _page(request, "media_discover_guest.html", lambda: _guest_grid(request, q))
+        return _page(request, "media_discover_guest.html", lambda: _guest_grid(request, q, t))
 
     def build():
         ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set(), "services": []}
@@ -354,9 +354,9 @@ def discover_page(request: Request, q: str = ""):
 
 
 @router.get("/media/discover/search", response_class=HTMLResponse)
-def discover_search(request: Request, q: str = ""):
+def discover_search(request: Request, q: str = "", t: str = ""):
     if guest.is_media():
-        return _partial(request, "_guest_discover_grid.html", **_guest_grid(request, q.strip()[:100]))
+        return _partial(request, "_guest_discover_grid.html", **_guest_grid(request, q.strip()[:100], t))
     rows, note = _search_outcome(q.strip()[:100])
     media_awards_badges.attach(rows)
     return _partial(request, "_discover_results.html", rows=rows, note=note,
@@ -365,17 +365,57 @@ def discover_search(request: Request, q: str = ""):
 
 GUEST_SHELVES = SHELVES[:3]   # trending, popular films, popular TV
 GUEST_MAX = 36
+# JY-270 P1: what the guest search narrows to (the chips over the grid); "" = everything, people included
+GUEST_TYPES = (("", "All"), ("movie", "Films"), ("tv", "Shows"), ("person", "People"))
 
 
-def _guest_grid(request: Request, q: str) -> dict:
-    """The guest Discover grid (Joey TV WP-B4): search results for `q`, else the first three shelves de-duplicated -
-    each row with the signed-in friend's request state and chip (hub.media_guest_requests)."""
+def _person_row(r: dict) -> dict | None:
+    """A person search result -> a grid card that opens the person page (GUEST-allowed); None for anything else."""
+    if r.get("mediaType") != "person":
+        return None
+    try:
+        pid = int(r.get("id"))
+    except (TypeError, ValueError):
+        return None
+    name = str(r.get("name") or "").strip()[:200]
+    if pid <= 0 or not name:
+        return None
+    return {"tmdb_id": pid, "kind": "person", "title": name, "year": None, "poster": _ref(r.get("profilePath")),
+            "href": f"/media/person/{pid}"}
+
+
+def _guest_search(q: str, t: str) -> tuple[list[dict], str | None]:
+    """JY-270 P1: one Seerr search narrowed to films, shows or people (t), or all three in Seerr's order."""
+    if len(q) < 2:
+        return [], "Type at least two letters"
+    body = _get(f"/api/v1/search?query={quote(q, safe='')}")
+    if not isinstance(body, dict) or not isinstance(body.get("results"), list):
+        return [], "Search unavailable"
+    rows = []
+    for r in body["results"]:
+        if isinstance(r, dict):
+            row = _person_row(r) if r.get("mediaType") == "person" else _row(r)
+            if row and (not t or row["kind"] == t):
+                rows.append(row)
+    rows = rows[:ROW_MAX]
+    return rows, None if rows else "No matches"
+
+
+def _guest_grid(request: Request, q: str, t: str = "") -> dict:
+    """The guest Discover grid (Joey TV WP-B4): search results for `q` (JY-270: narrowed by `t`), else the first three
+    shelves de-duplicated - each title row with the signed-in friend's request state and chip
+    (hub.media_guest_requests); a person row has no chip."""
     from hub import media_guest_requests as mgr
-    ctx = {"q": q, "rows": [], "note": None}
+    t = t if t in dict(GUEST_TYPES) else ""
+    ctx = {"q": q, "t": t, "types": GUEST_TYPES, "rows": [], "note": None}
     if not _creds():
         return ctx
     if q:
-        rows, ctx["note"] = _search_outcome(q)
+        rows, ctx["note"] = _guest_search(q, t)
+        titles = mgr.with_states([r for r in rows if r["kind"] != "person"], mgr.viewer_mine())
+        it = iter(titles)
+        ctx["rows"] = [r if r["kind"] == "person" else next(it) for r in rows]
+        return ctx
     else:
         with ThreadPoolExecutor(max_workers=len(GUEST_SHELVES)) as pool:
             got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), GUEST_SHELVES))

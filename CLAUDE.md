@@ -18,6 +18,7 @@ Joey is a private dashboard for two people, self-hosted on a NAS behind Cloudfla
 9. Screens use the recipes in `docs/style-guide.md` and the tokens in `hub/static/control-surface.css`. No hand-rolled colours, radii or spacing.
 10. Write plainly: short sentences, no filler, no claims you did not check. A PR that says "tests pass" shows the output.
 11. Claude does all git and GitHub work: commits, pushes, PRs, merges, deploys. Never skip hooks. Merge style: squash, one commit per item. Merge only on green CI + a review by a different agent + B.'s accept.
+    Exception (B. 2026-10-29, "Yes, allow it"): docs-only changes (`*.md`, `docs/`, `HITLIST.md`) from the sweep and close-out scripts go straight to `main` as one batched commit per day, no PR, no CI. Code never does.
     Verify after every merge (`gh pr view`, `git fetch`) and after every deploy (`deploy/history.log` PASS, smoke ok, in-container check).
 
 ## Joey standing rules

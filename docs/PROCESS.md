@@ -137,6 +137,7 @@ After B.'s accept, with CI green and a review comment on the PR:
 2. Deploy with `deploy/deploy.sh`, inside the deploy window. On the NAS, check `deploy/history.log` for PASS. Also check the health check and the live commit.
 3. Fill the spec's Shipped notes: PR, commit, backup name, measured numbers, follow-ups.
 4. Set the HITLIST row to `shipped`. Update `hub/README.md`, `docs/` or `deploy/README.md` if the change touches them.
+   Steps 3 and 4 are docs-only: commit them straight to `main`, batched with the day's HITLIST sweep, no PR and no CI (rule 11 exception, B. 2026-10-29). Verify with `git fetch` + `git log origin/main -1`.
 5. Swap the label to `shipped`. Remove the worktree and the branch.
 
 TODO(JY-011): `scripts/joey.py close-out JY-###` will do steps 1 to 5 and refuse without green CI, a review comment and B.'s accept. Until then the orchestrator does them by hand, in this order.
@@ -148,6 +149,8 @@ B. can also read PRs and spec files on GitHub, and comment or add labels there. 
 Remote Control is paused: the org policy disables it on the work account. B. will set it up on his own desktop later. Nothing here needs it.
 
 ## Changelog
+
+- 2026-10-29: B.: "Yes, apply G1-G4" then "Yes, allow it" (docs-only sweeps and shipped notes straight to `main`); CI runs on ready PRs only and skips docs-only paths (`review-joeyv2-evaluation-2026-10-29.md`, project folder).
 
 - 2026-10-24: B.: "I need the desktop, ipad, phone and tv looks for all of them" (options and accept pages at four sizes); "run as many things as you can until you physically cannot run anymore and are awaiting my confirmation" (orchestrator keeps work parallel); "I need less messages about what you have completed" (summaries on request).
 - 2026-10-23: first version (JY-002). Review fixes: round 2 status path, draft PR at build start, merged-check wording, TODO markers, deploy window wording.

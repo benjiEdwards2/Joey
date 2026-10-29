@@ -39,3 +39,6 @@
 
 ## 2026-10-29 — GitHub budget G1-G4 (B.: "Yes, apply G1-G4")
 - From `review-joeyv2-evaluation-2026-10-29.md` (project folder): 152 of the last 400 CI runs re-tested the squash commit on `main`; 118 of 271 PRs were status or docs PRs; 12 worktrees and 128 remote branches were left from merged PRs. `ci.yml` now runs only on ready (non-draft) PRs and skips docs-only changes; no run on push to `main`. Merged remote branches deleted and merged worktrees removed with proof (`scripts/ci_budget_prune_1029.py` in the project folder). Not applied (needs B.'s wording on rule 11): scripts committing docs-only sweeps and shipped notes straight to `main`.
+
+## 2026-10-29 — Rule 11 exception (B.: "Yes, allow it")
+- The sweep and close-out scripts may commit docs-only changes (`*.md`, `docs/`, `HITLIST.md`) straight to `main`, one batch per day, no PR and no CI. Code changes keep the PR + review + accept path. Script change (joey.py close-out steps 3-4, sweep_run.sh) is queued for the orchestrator as a HITLIST row; this entry is the first such commit.

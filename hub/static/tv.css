@@ -148,7 +148,7 @@ html.tv .sec.tn > .tn-deal { margin-top: 8.5625rem; }
 html.tv .poster-grid.libgrid, html.tv .poster-grid.reqgrid { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 1.125rem 1rem; padding: 1rem 0 .75rem; }   /* JY-259: 9 across, 18 / 16 px gaps (was JY-188 8 across, 8 / 14) */
 html.tv form.toolbar, html.tv main > p.metaline:last-child:not([role]),
 html.tv main > p.metaline:has(+ form.toolbar), html.tv main > p.metaline:has(+ p.metaline + form.toolbar) { display: none; }
-html.tv .libgrid .row-meta > span { display: none; }
+html.tv .libgrid .row-meta > span { display: none; }   /* grid captions: the year only, as in the mockup (the state words need the list view) */
 /* JY-270 (library filters, B. 2026-10-29: chips only): the toolbar's place is one chip row under the sub-tabs that scrolls
    sideways like the season chips (tv.js centres the focused chip); 18 px words, small radii, the lit chip also says "on". */
 html.tv .tv-libchips { display: flex; flex-wrap: nowrap; gap: .5rem; margin: .5rem 0 0; padding: .4375rem .5rem; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
@@ -157,7 +157,7 @@ html.tv .tv-libchips::-webkit-scrollbar { display: none; }
 html.tv .tv-libchips .chip { flex: none; display: inline-flex; align-items: center; gap: .375rem; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r);
   border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); white-space: nowrap; }
 html.tv .tv-libchips .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
-html.tv .tv-libchips .chip svg.ic { width: 1.125rem; height: 1.125rem; }   /* grid captions: the year only, as in the mockup (the state words need the list view) */
+html.tv .tv-libchips .chip svg.ic { width: 1.125rem; height: 1.125rem; }
 
 /* Discover (Joey TV WP-B4 follow-on; WP-M screen 10): the guest request grid. Same six columns as the library grid; the
    sub-tab row is a single tab here, so it is dropped (the section row already says Discover) and the poster grid sits

@@ -610,11 +610,11 @@
       var lit = best.closest('.tv-seasonchips').querySelector('.chip.on');
       if (lit && visible(lit)) best = lit;
     }
-    /* JY-270 (library filters): Up from the grid stops at the chip row (on its lit chip) before the sub-tabs above it */
+    /* JY-270 (library filters): Up from the grid lands on the chip row's lit chip, never passing it for the sub-tabs */
     var lc = document.querySelector('main .tv-libchips');
-    if (best && dir === 'ArrowUp' && lc && visible(lc) && !lc.contains(a) && !lc.contains(best)) {
+    if (best && dir === 'ArrowUp' && lc && visible(lc) && !lc.contains(a)) {
       var lr = lc.getBoundingClientRect();
-      if (lr.bottom <= r.top + 2 && best.getBoundingClientRect().bottom <= lr.top + 2) {
+      if (lc.contains(best) || (lr.bottom <= r.top + 2 && best.getBoundingClientRect().bottom <= lr.top + 2)) {
         var on = lc.querySelector('.chip.on') || firstIn(lc);
         if (on && visible(on)) best = on;
       }

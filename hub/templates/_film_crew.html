@@ -1,6 +1,6 @@
 {# Crew - a deferred part since F2 (2026-10-12): TMDB's crew from the Jellyseerr title body; waiting, Jellyfin's
    Director / Writer. #}
-{% if film.crew %}
+{% if tv_mode(request) %}{% with crew_rows = film.crew %}{% include "_tv_crew.html" %}{% endwith %}{% elif film.crew %}
 <section class="sec">
   <h2 class="seclabel">Crew</h2>
   <dl class="crewgrid">

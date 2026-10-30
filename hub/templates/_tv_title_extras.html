@@ -1,0 +1,20 @@
+{# JY-270 P5/P6 (B. 2026-10-29, the recommended answers): the TV title page's facts, BELOW the episodes and cast rows so
+   the first row stays on the first screen (JY-259 phase 3). Scores as the web's pills (the source's name and the number,
+   never colour alone) with the runtime and certificate, where to watch (the web's AU source, words only: no off-site
+   links on the TV), crew as links to the person pages, then the film series as a poster shelf. Each deferred part keeps
+   its one placeholder (fp-<name>), so the page's part request fills it here; the partials draw their TV form. #}
+{% from "_film_wait.html" import wait %}
+{% from "_film_macros.html" import sp with context %}
+{% set n = film.numbers %}
+{% set any_score = n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
+{% if any_score or n.runtime or film.official %}
+<section class="sec tv-extras tv-facts" aria-label="Scores">
+  <h2 class="seclabel">Scores</h2>
+  {% if any_score %}<div class="scorepills">{% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}{% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}</div>{% endif %}
+  {% if n.runtime or film.official %}<p class="metaline tv-factline">{% if n.runtime %}Runtime {{ n.runtime }}{% endif %}{% if n.runtime and film.official %}<span class="sep"> · </span>{% endif %}{% if film.official %}Rated {{ film.official }}{% endif %}</p>{% endif %}
+</section>
+{% endif %}
+{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
+{% if film.episode and film.crew_ep %}{% with crew_rows = film.crew_ep %}{% include "_tv_crew.html" %}{% endwith %}
+{% else %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
+{% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}

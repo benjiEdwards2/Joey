@@ -251,7 +251,7 @@
    Metacritic 74 · TMDB 8.1 · Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain
    stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
 {% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
-{% if any_score or n.runtime or film.official %}
+{% if (any_score or n.runtime or film.official) and not tv_mode(request) %}
 <div class="stats numbers">
   {% if any_score %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
     {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
@@ -286,12 +286,18 @@
    screen). Down from the buttons lands on the first episode (tv.js). All from film.tv, the viewer's own read. #}
 {% import "_tv_tile.html" as tvt %}
 {% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
+{# JY-270 P6: the web's episode ratings on the TV - each season chip carries its average ("8.2 avg"), each episode tile
+   its own score in words first ("8.4 above avg", "8.1 rated" when it is the average), from film.ratings (the same source as the web's strip) #}
+{% set rseas = {} %}{% if ratings %}{% for rsn in ratings.seasons %}{% set _ = rseas.update({rsn.n: rsn}) %}{% endfor %}{% endif %}
+{% macro savg(sn) %}{% set rsn = rseas.get(sn) %}{% if rsn and rsn.avg is not none %}<span class="tv-chipavg"> · {{ "%.1f"|format(rsn.avg) }} avg</span>{% endif %}{% endmacro %}
+{% set rcur = rseas.get(shown.n) if shown else none %}
+{% set rbn = {} %}{% if rcur %}{% for r in rcur.eps %}{% set _ = rbn.update({r.number: r}) %}{% endfor %}{% endif %}
 <section class="sec tvshelf tv-eps" aria-label="Episodes">
-  <div class="tvshelf-hd"><h2 class="seclabel">Episodes</h2><nav class="tv-seasonchips" aria-label="Seasons">{% for s in film.tv.seasons %}{% if s.href %}<a class="chip{{ ' on' if s is sameas shown }}" href="{{ s.href }}"{% if s.here %} aria-current="page"{% endif %}>{{ s.title }}</a>{% else %}<span class="chip{{ ' on' if s is sameas shown }}">{{ s.title }}</span>{% endif %}{% endfor %}</nav>
+  <div class="tvshelf-hd"><h2 class="seclabel">Episodes</h2><nav class="tv-seasonchips" aria-label="Seasons">{% for s in film.tv.seasons %}{% if s.href %}<a class="chip{{ ' on' if s is sameas shown }}" href="{{ s.href }}"{% if s.here %} aria-current="page"{% endif %}>{{ s.title }}{{ savg(s.n) }}</a>{% else %}<span class="chip{{ ' on' if s is sameas shown }}">{{ s.title }}{{ savg(s.n) }}</span>{% endif %}{% endfor %}</nav>
     {% if shown and shown.sub %}<p class="metaline tv-seasonsub">{{ shown.sub }}</p>{% endif %}{% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}</div>
   {% if film.tv.eps %}
   <div class="carousel tvt-row tvt-row-land">
-  {% for e in film.tv.eps.rows %}{{ tvt.land({"title": e.title, "sub": e.sub, "still": e.still, "still_h": 400, "href": e.href, "jf_id": e.jf_id, "chip": e.chip, "pct": e.pct}, false) }}{% endfor %}
+  {% for e in film.tv.eps.rows %}{% set er = rbn.get(e.number) %}{% set erw = ("%.1f"|format(er.rating) ~ ((" above avg" if er.rating > rcur.avg else " below avg") if rcur.avg is not none and er.rating != rcur.avg else " rated")) if er and er.rating is not none else "" %}{{ tvt.land({"title": e.title, "sub": (erw ~ (" · " if e.sub and erw else "") ~ e.sub) or none, "still": e.still, "still_h": 400, "href": e.href, "jf_id": e.jf_id, "chip": e.chip, "pct": e.pct}, false) }}{% endfor %}
   </div>
   {% endif %}
 </section>
@@ -318,7 +324,7 @@
 {% endif %}
 {% if film.episode %}{{ ef.guests(film.guests) }}{{ ef.crew(film.crew_ep) }}{% endif %}
 
-{% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}
+{% if not tv_mode(request) %}{% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}{% endif %}
 
 {# Seasons (2026-10-08): directly under Overview on a TV page. Each season is a <details> (the page's / next
    episode's season open); each episode ONE whole-row link (a.rowlink) with its 16:9 still, "E3 · Name", air date ·
@@ -403,7 +409,7 @@
 
 {# Episode flow merge (2026-10-16): an episode page with its own Crew rows (crew_ep) skips the show-level Crew block —
    the same directors would otherwise appear twice. #}
-{% if not (film.episode and film.crew_ep) %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
+{% if not (film.episode and film.crew_ep) and not tv_mode(request) %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
 
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
@@ -422,7 +428,7 @@
 </section>
 {% endif %}
 
-{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
+{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% if tv_mode(request) %}{% include "_tv_title_extras.html" %}{% endif %}
 
 {# Episode page (2026-10-16): where this episode sits in its season (the page's bar gold), then Previous / Next. #}
 {% if film.episode and ratings %}
@@ -436,7 +442,7 @@
 {% endif %}
 {% if film.episode and epnav %}{{ ef.prevnext(epnav) }}{% endif %}
 
-{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
+{% if not tv_mode(request) %}{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}{% endif %}
 
 </div>
 

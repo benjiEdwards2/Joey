@@ -253,7 +253,7 @@ html.tv .tv-rate { margin-top: 1.375rem; }
 html.tv .tv-rate .ratepick, html.tv .tv-rate .rated { gap: .5rem; }
 html.tv .tv-rate .microlabel { flex: 0 0 100%; font-size: 1.125rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--tv-t5); margin: 0 0 0; }
 html.tv .tv-rate .ratepick .chip { width: 2.875rem; height: 2.875rem; justify-content: center; padding: 0; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.25rem; font-weight: 600; color: var(--tv-t3); }
-html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast), html.tv .fp-shelf-wait { display: none; }
+html.tv .stats.numbers, html.tv #awards, html.tv .filmbody > :not(.seasons, .partof-sec, .tv-cast, #fp-cast, .tv-extras, #fp-scores, #fp-crew, #fp-providers, #fp-collection), html.tv .fp-shelf-wait { display: none; }
 
 /* The Set up Jellyfin card (Q39; WP-M screen 9): a full-screen card over the Overview, the address at 34 px mono with its
    :port in gold and underlined, three numbered steps, Done focused. tv.js keeps the D-pad on it while it is up. */
@@ -630,3 +630,21 @@ html.tv .poster-grid.reqgrid .reqchip { margin-top: .625rem; }
    960x540, 2.3 % of the height), not at the screen's top, so the 24 px row has 1 px of band above and below it. The top
    12.5 px keep the page's own picture (overscan: a TV may crop it). Bar height and the row's place are unchanged. */
 /* ==== end JY-259 phase 3 ==== */
+
+/* JY-270 P5/P6: the title page's facts below the cast row (scores as name + number pills, where to watch, crew links,
+   the film series shelf) and the episode ratings in words on the season chips and episode tiles */
+html.tv .tv-extras { margin-top: 1.375rem; }
+html.tv .tv-extras .scorepills { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+html.tv .tv-extras .scorepill { display: inline-flex; align-items: center; gap: .375rem; height: 2.25rem; padding: 0 .75rem; border-radius: var(--tv-r);
+  border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t2); }
+html.tv .tv-extras .scorepill .sp-logo { width: 1.125rem; height: 1.125rem; }
+html.tv .tv-extras .scorepill .sp-val, html.tv .tv-extras .scorepill .sp-name { font-size: 1.125rem; }
+html.tv .tv-extras .scorepill .sp-val { font-weight: 700; color: var(--tv-t1); }
+html.tv .tv-extras .tv-factline { display: block; margin: .5rem 0 0; font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .tv-extras .tv-factline .microlabel { margin-right: .5rem; }
+html.tv .tv-crewlist { display: grid; gap: .5rem; margin: .5rem 0 0; }
+html.tv .tv-crewrow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .4375rem 0; }
+html.tv .tv-crewrole { flex: none; width: 7rem; font-size: 1.125rem; color: var(--tv-t4); }
+html.tv .tv-crewlist .chip { display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r);
+  border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
+html.tv .tv-seasonchips .chip .tv-chipavg { font-weight: 400; }

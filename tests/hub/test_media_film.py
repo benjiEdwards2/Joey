@@ -247,9 +247,10 @@ def test_shelves_mark_server_status(env):
         b = main_of(whole(client, "/media/title/movie/603"))
     col = b.split('<section class="sec colsec" id="collection">', 1)[1].split("</section>", 1)[0]  # media-ux3 banner
     assert "Harbour Lights 2" in col and col.count(">On server<") == 2 and col.count(">Not on server<") == 1
-    sim = b.split('<h2 class="seclabel">Similar</h2>', 1)[1].split("</section>", 1)[0]
-    assert 'href="/media/title/movie/11"' in sim and sim.count(">On server<") == 1 and sim.count(">Not on server<") == 1
-    assert '<h2 class="seclabel">Recommended</h2>' in b and "Rec One" in b and "?h=240" in b
+    # Re-pointed 2026-10-30 (JY-269 phase 3): Similar + Recommended are now ONE "More on Joey" row on the web
+    sim = b.split('<h2 class="seclabel">More on Joey</h2>', 1)[1].split("</section>", 1)[0]
+    assert 'href="/media/title/movie/11"' in sim and ">On server<" in sim and ">Not on server<" in sim
+    assert '<h2 class="seclabel">Similar</h2>' not in b and "Rec One" in sim and "?h=240" in sim
 
 
 def test_not_on_server_series_keeps_lazy_season_hooks(env):
@@ -551,3 +552,25 @@ def test_phone_row_scrolls_sideways_and_wraps_from_640():
     wide = CSS_ux4_makers.split("@media (min-width: 640px) {\n  .hero-detail-in", 1)[1].split("\n}", 1)[0]
     assert ".makerrow { flex-wrap: wrap; overflow: visible; }" in wide
     assert ".makername { font-size: 16px; font-weight: 600;" in CSS_ux4_makers and ".makerpic { width: 52px; height: 52px;" in CSS_ux4_makers
+
+
+def test_cast_is_circles_and_more_on_joey_is_posters_on_the_web(env):
+    """JY-269 phase 3: web cast = circle row linking /media/person/{id}, then ONE "More on Joey" poster row (on-server
+    titles first); skeleton shapes while each deferred part loads."""
+    from pathlib import Path
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/title/movie/603"))
+    cast = b.split('<section class="sec castsec">', 1)[1].split("</section>", 1)[0]
+    assert '<div class="castrow">' in cast and "as Pilot" in cast
+    assert b.index('class="sec castsec"') < b.index('<h2 class="seclabel">More on Joey</h2>')
+    more = b.split('<h2 class="seclabel">More on Joey</h2>', 1)[1].split("</section>", 1)[0]
+    assert more.index(">On server<") < more.index(">Not on server<") and 'class="card-poster"' in more
+    hrefs = [h for h in more.split('href="')[1:]]
+    assert len(hrefs) == len({h.split('"', 1)[0] for h in hrefs})                    # each title once
+    css = (Path(media_film.__file__).resolve().parent / "static" / "control-surface.css").read_text(encoding="utf-8")
+    assert "html:not(.tv) .castsec .castpic { width: 88px; height: 88px; aspect-ratio: 1; border-radius: 50%;" in css
+    tpl = Path(media_film.__file__).resolve().parent / "templates"
+    assert 'href="/media/person/{{ c.id }}"' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
+    assert 'castsec webskel' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
+    assert 'moresec webskel' in (tpl / "_film_shelves.html").read_text(encoding="utf-8")

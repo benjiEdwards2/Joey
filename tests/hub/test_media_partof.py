@@ -136,9 +136,10 @@ def test_collection_sits_directly_under_overview(env):
     with client:
         b = main_of(whole(client, "/media/item/mov1"))
     ov, col = b.index('<h2 class="seclabel">Overview</h2>'), b.index('id="collection"')
-    assert ov < col < b.index('<h2 class="seclabel">File</h2>') < b.index('<h2 class="seclabel">Similar</h2>')
+    assert ov < col < b.index('<h2 class="seclabel">File</h2>') < b.index('<h2 class="seclabel">More on Joey</h2>')
     assert '<h2 class="seclabel">Harbour Collection</h2>' not in b                 # no longer a bottom shelf
-    assert '<h2 class="seclabel">Recommended</h2>' in b
+    # Re-pointed 2026-10-30 (JY-269 P3): Similar + Recommended are one "More on Joey" row on the web
+    assert '<h2 class="seclabel">Recommended</h2>' not in b
 
 
 def test_collection_banner_words_follow_form_and_current_film(env):

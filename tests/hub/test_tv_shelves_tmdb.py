@@ -81,8 +81,9 @@ def test_tv_friend_title_with_nothing_on_server_draws_no_shelf(friend):
 
 def test_phone_friend_title_shelves_are_unchanged(friend):
     b = page(friend, "/media/title/movie/603", tv=False)
-    assert "Similar" in labels(b) and "Recommended" in labels(b) and "More on Joey" not in b
-    assert "/media/title/movie/803" in b and ">Not on server<" in b and "?h=600&amp;" not in b.split("Similar", 1)[1]
+    # Re-pointed 2026-10-30 (JY-269 P3): the phone's shelves are one "More on Joey" row that keeps off-server titles
+    assert "Similar" not in labels(b) and "More on Joey" in labels(b)
+    assert "/media/title/movie/803" in b and ">Not on server<" in b and "?h=600&amp;" not in b.split("More on Joey", 1)[1]
 
 
 def cold_calls(c, url, tv, meta_dir, monkeypatch):
@@ -266,5 +267,6 @@ def test_household_front_tv_title_pages_are_unchanged(env):
             tv = main_of(page(client, url, tv=True))
             client.cookies.delete("tv")
             assert tv == plain, url
-            assert "More on Joey" not in tv and "tv-reqpage" not in tv and "data-first" not in tv and "tv-back" not in tv
-        assert "Similar" in main_of(whole(client, "/media/title/movie/603"))
+            assert "tv-reqpage" not in tv and "data-first" not in tv and "tv-back" not in tv
+        # Re-pointed 2026-10-30 (JY-269 P3): the household web page draws one "More on Joey" row, not Similar
+        assert "More on Joey" in main_of(whole(client, "/media/title/movie/603"))

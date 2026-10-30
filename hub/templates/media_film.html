@@ -28,14 +28,14 @@
 {% set tvreq = tvm and guest(request) and film.t and not film.on_server and not film.episode %}
 {# U6 (JY-192, 2026-10-25): on the TV a season / episode page names its series for Back (tv.js `data-tv-up`, X1). #}
 <header class="pagehead hero-detail{{ ' tv-reqpage' if tvreq }}"{% if tvm and epnav and epnav.show and epnav.show.href %} data-tv-up="{{ epnav.show.href }}"{% endif %}>
-  {% if film.backdrop %}{% set bv = img_v(film.backdrop) %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not film.backdrop.startswith('jfb:') and not film.backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
+  {% if film.backdrop %}{% set bv = img_v(film.backdrop) %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not film.backdrop.startswith('jfb:') and not film.backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% elif not tvm %}<div class="hero-detail-bd tl-wash" style="--bd: url('/img/{{ film.poster or 'none' }}?h=240')" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
     {% if film.episode and not tvm %}{{ ef.crumbs(epnav) }}{% endif %}
     {# U6 (JY-192): the TV rating is ONE Rate button (Gate 1 pick 1B) that opens the existing picker in #tv-rate (tv.js) #}
     {% set ratebtn %}{% if tvm and film.rating %}<button type="button" class="btn btn-glass tv-ratebtn" data-tv-rate aria-controls="tv-rate" aria-expanded="false">{{ icon("star") }}<span class="tv-ratelbl">{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</span></button>{% endif %}{% endset %}
     {% set ratestrip %}{% if tvm and film.rating %}<div class="tv-rate" id="tv-rate" hidden>{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div>{% endif %}{% endset %}
-    <div class="hero-detail-in">
+    <div class="hero-detail-in{{ ' tl-hero' if not tvm }}">
       {% if tvm and film.episode %}
       {# U6 (JY-192, X2; tv-v2 shell 01-title screen 3): the TV episode hero leads with the episode - its 16:9 still, "Show ·
          Season 1", the episode name, "E3 of 6 · 43m · aired 28 Sep 2026", the synopsis, then Play · Mark watched (B.'s
@@ -73,6 +73,7 @@
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
+        {%- set tlsyn = (film.episode.overview if film.episode else film.overview) if not tvm else none %}{% if tlsyn %}<div class="tl-syn"><p class="tl-syntext">{{ tlsyn }}</p><button type="button" class="tl-synmore" onclick="this.parentNode.classList.toggle('open');this.textContent=this.parentNode.classList.contains('open')?'less':'more'">more</button></div>{% endif %}
         {% if tvm %}
         {% if tvreq %}
         {{ meta([film.year, "TV" if film.kind == "tv" else "Film"] + (film.genres or []) + ["Not in the library yet"], "facts-line tv-facts") }}
@@ -95,7 +96,21 @@
         {% if film.search_flash and film.search_flash[0] %}<p class="metaline st-good" role="status">{{ film.search_flash[0] }}</p>{% elif film.search_flash and film.search_flash[1] %}<p class="metaline st-warn" role="status">{{ film.search_flash[1] }}</p>{% endif %}
         {% if film.upgrade_flash and film.upgrade_flash[0] %}<p class="metaline st-good" role="status">{{ film.upgrade_flash[0] }}</p>{% elif film.upgrade_flash and film.upgrade_flash[1] %}<p class="metaline st-warn" role="status">{{ film.upgrade_flash[1] }}</p>{% endif %}
         {# E4 (U7): ONE row of md (36 px) controls - Play (white; Request when not on the server) · Trailer · watchlist ·
-           Seerr - everything else under "More" below it. #}
+           Seerr - everything else under "More" below it. #}{% set moremenu %}{% set more_req = film.play and film.play.href and (film.show_request or "actions" in film.pending) %}
+        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req or film.remove_href or (not tvm and film.kind == "tv" and not film.episode) %}
+        <details class="fold heromore">
+          {% if tvm %}<summary>More</summary>{% else %}<summary aria-label="More actions" title="More actions">…</summary>{% endif %}
+          <div class="confirm heromore-acts">
+          {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
+          {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
+          {% if more_req %}{% call wait("actions", film.pending, "more") %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}{% endif %}
+          {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
+          {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
+          {# JY-265: Remove… (owner "you", REMOVE_API on, a Seerr request exists or the arr cache lists it on disk) - opens the Remove page #}
+          {% if film.remove_href %}<a class="btn btn-danger" href="{{ film.remove_href }}">Remove…</a>{% endif %}{% if not tvm %}{% include "_follow_show.html" %}{% endif %}
+          </div>
+        </details>
+        {% endif %}{% endset %}
         <div class="hero-detail-btns">
           {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}"{% if film.episode.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}{% if film.episode.play.jf_id and guest(request) %} data-jf-id="{{ film.episode.play.jf_id }}"{% endif %}>{{ film.episode.play.label }}</a>{% endif %}
           {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
@@ -107,7 +122,7 @@
           {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
           {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false, style = ("ballot" if tvm else none) %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
-          {{ ratebtn }}
+          {{ ratebtn }}{% if not tvm and film.rating %}<details class="tl-pop tl-rate"{% if not film.score %} id="rate"{% endif %}><summary class="btn btn-glass">{{ icon("star") }}{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</summary><div class="tl-popin">{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div></details>{% endif %}{% if not tvm %}{{ moremenu }}{% endif %}
           {# JY-193: Back is a button, not a link - tv.js Back memory keeps links only, so it never takes the focus from the request steps #}
           {% if tvreq %}<button type="button" class="btn btn-glass tv-back" onclick="history.back()">Back</button>{% endif %}
         </div>
@@ -117,21 +132,7 @@
         {# E4 (U7): "More" - an inline panel (guide 6: never a browser dialog), the same .confirm panel as the cards' Move on:
            Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
-        {% set more_req = film.play and film.play.href and (film.show_request or "actions" in film.pending) %}
-        {% if film.resume_acts or film.watch_toggle or film.arr_search or more_req or film.remove_href %}
-        <details class="fold heromore">
-          <summary>More</summary>
-          <div class="confirm heromore-acts">
-          {% if film.resume_acts %}{% import "_resume_acts.html" as resume %}{{ resume.forms(film.resume_acts, request.url.path) }}{% endif %}
-          {% if film.watch_toggle %}{% import "_resume_acts.html" as wa %}{% set wt = film.watch_toggle %}{{ wa.toggle(wt.jf_id, wt.played, film.watch_owner, request.url.path, wt.season) }}{% endif %}
-          {% if more_req %}{% call wait("actions", film.pending, "more") %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}{% endif %}
-          {# Search now (media-ux5, 2026-10-09): filled in after load by media_arr_search.py, only for a title Radarr / Sonarr has. #}
-          {% if film.arr_search %}<span id="arr-search" hidden hx-get="{{ film.arr_search }}" hx-trigger="load" hx-swap="outerHTML"></span>{% endif %}
-          {# JY-265: Remove… (owner "you", REMOVE_API on, a Seerr request exists or the arr cache lists it on disk) - opens the Remove page #}
-          {% if film.remove_href %}<a class="btn btn-danger" href="{{ film.remove_href }}">Remove…</a>{% endif %}
-          </div>
-        </details>
-        {% endif %}
+        {% if tvm %}{{ moremenu }}{% endif %}
         {% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
            (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
@@ -143,8 +144,8 @@
           </div>
         </div>
         {% endif %}
-        {% include "_follow_show.html" %}
-        {% if film.episode and film.episode.overview %}<p class="overview">{{ film.episode.overview }}</p>{% endif %}
+        {% if tvm %}{% include "_follow_show.html" %}{% endif %}
+        {% if tvm and film.episode and film.episode.overview %}<p class="overview">{{ film.episode.overview }}</p>{% endif %}
       </div>
       {% endif %}
     </div>
@@ -203,12 +204,7 @@
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
 {% endif %}
-{% if film.rating and not film.score and not tv_mode(request) %}
-<section class="sec" id="rate">
-  <h2 class="seclabel">Your rating</h2>
-  {{ rate.picker(film.rating) }}
-</section>
-{% endif %}
+{# JY-269 P1 (2026-10-30): the web's "Your rating" picker moved into the hero's Rate popover (id="rate"); the TV never drew it #}
 {# Awards (AWARDS_PLAN A5, 2026-10-08; awards-ui item 5, 2026-10-09): one group per ceremony (its mark + "Won 3 of 7
    nominations"), then a whole-link line per edition ("2025 · Won 2 of 3 nominations") linking to that ceremony on
    Movies / TV Shows > Awards, its categories as pills (won gold with the laurel, nominated neutral). Absent when the

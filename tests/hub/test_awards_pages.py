@@ -76,7 +76,7 @@ def test_tab_is_lit_and_defaults_to_the_latest_synced_year(env):
     assert [(x["id"], x["on"], x["href"]) for x in c["bodies"]][:2] == [
         ("oscars", True, "/media/movies/awards?body=oscars&year=2025"),
         ("globes", False, "/media/movies/awards?body=globes&year=2025")]
-    assert [x["id"] for x in c["bodies"]] == ["oscars", "globes", "bafta", "critics", "sag", "dga", "pga", "wga", "cannes"]
+    assert [x["id"] for x in c["bodies"]] == ["oscars", "globes", "bafta", "critics", "sag", "cannes"]   # JY-270 majors
 
 
 def test_stepper_bounds(env):
@@ -243,7 +243,7 @@ def test_tiles_show_the_month_from_the_selected_years_edition_date(env):
     y2023 = tile_months(ctx("oscars", "2023"))
     y2025 = tile_months(ctx("oscars", "2025"))
     assert y2023["Oscars"] == "Apr" and y2025["Oscars"] == "Mar"
-    assert list(y2025) == ["Oscars", "Golden Globes", "BAFTA", "Critics' Choice", "SAG", "DGA", "PGA", "WGA",
+    assert list(y2025) == ["Oscars", "Golden Globes", "BAFTA", "Critics' Choice", "SAG",
                            "Cannes"] and all(y2025.values())              # tile order unchanged, every tile has one
 
 

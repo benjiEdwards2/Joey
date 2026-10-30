@@ -601,7 +601,7 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         "years": years,
         "years_list": [{"year": y, "decade": y // 10 * 10, "href": nav(year=y), "on": y == year, "has_data": y in has_data}
                        for y in years if y <= today.year + 1],      # awards-years: far-future editions stay out of the picker
-        "tv_years": None,   # filled below (JY-270 P2)
+        "tv_year": None,   # filled below (JY-270 years)
         "year_note": (f"No {body_name} in {missing['asked']} · showing {missing['shown']}") if missing else None,
         "current": {"year": latest, "href": nav(year=None)} if latest and year != latest else None,
         "body_name": body_name,
@@ -618,27 +618,25 @@ def awards_ctx(kind: str, body_q: str, year_q: str, unseen: bool, data: dict, vi
         "cats_rest": cats[FIRST_CARDS:], "more_all": more,
         "coming": coming, "sync": st,
     }
-    ctx["tv_years"] = tv_year_chips(ctx["years_list"], year)
+    ctx["tv_year"] = tv_year_nav(ctx["years_list"], year, ctx["current"])
     return ctx, later
 
 
-TV_YEARS = 6     # JY-270 P2: year chips on the TV row
-
-
-def tv_year_chips(years_list: list[dict], year: int | None) -> list[dict]:
-    """JY-270 P2: the TV year row - six years (the latest six, or the six from the shown year back), then "Earlier"
-    (the next older year) and, when not at the top, "Latest" first. -> [{label, href, on, dim}]."""
+def tv_year_nav(years_list: list[dict], year: int | None, current: dict | None) -> dict | None:
+    """JY-270 (B. 2026-10-30, "go left or right on awards to years or click a drop down view to select years"): the TV
+    year stepper + dropdown, in place of P2's fixed six-year row. Left = the previous (older) year, Right = the next;
+    they wrap only at the data's ends (the oldest year's Left is the newest, and back). `list` is the dropdown, newest
+    first, "Latest" on top when not on the latest synced year. -> {year, prev, next, list: [{label, year, href, on,
+    dim}]} or None (no years)."""
     ys = sorted(years_list, key=lambda y: -y["year"])
     if not ys:
-        return []
+        return None
     i = next((n for n, y in enumerate(ys) if y["on"]), 0)
-    start = 0 if i < TV_YEARS else i
-    out = [{"label": "Latest", "href": ys[0]["href"], "on": False, "dim": False}] if start else []
-    out += [{"label": str(y["year"]), "href": y["href"], "on": y["on"], "dim": not y["has_data"]}
-            for y in ys[start:start + TV_YEARS]]
-    if len(ys) > start + TV_YEARS:
-        out.append({"label": "Earlier", "href": ys[start + TV_YEARS]["href"], "on": False, "dim": False})
-    return out
+    older, newer = ys[(i + 1) % len(ys)], ys[i - 1]
+    items = [{"label": "Latest", "year": None, "href": current["href"], "on": False, "dim": False}] if current else []
+    items += [{"label": str(y["year"]), "year": y["year"], "href": y["href"], "on": y["on"], "dim": not y["has_data"]}
+              for y in ys]
+    return {"year": ys[i]["year"] if ys[i]["on"] else year, "prev": older["year"], "next": newer["year"], "list": items}
 
 
 def degraded_ctx(kind: str, v: str) -> dict:
@@ -648,7 +646,7 @@ def degraded_ctx(kind: str, v: str) -> dict:
     base = PATHS[kind]
     return {"kind": kind, "akind": AKIND[kind], "base": base, "body": "", "year": None, "unseen": False, "view": v,
             "view_hrefs": {"films": base, "categories": base + "?v=categories"},
-            "bodies": [], "years": [], "years_list": [], "tv_years": [], "year_note": None, "current": None, "body_name": "",
+            "bodies": [], "years": [], "years_list": [], "tv_year": None, "year_note": None, "current": None, "body_name": "",
             "picker": None, "edition_line": None, "prev": None, "next": None, "unseen_href": base, "next_up": None,
             "ballot": no_ballot(EMPTY) if v == "films" else None,
             "cats": [], "more": [], "empty": EMPTY, "rest": 0, "part_href": "", "all_href": "",

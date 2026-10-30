@@ -370,6 +370,14 @@ html.tv .awtv-yr, html.tv .awtv-view { display: flex; flex-wrap: wrap; gap: .5re
 html.tv .awtv-yr .chip, html.tv .awtv-view .chip { height: 2.25rem; padding: 0 .875rem; border-radius: var(--tv-r); border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .awtv-yr .chip.on, html.tv .awtv-view .chip.on { background: #f4f4f5; color: #09090b; border-color: transparent; font-weight: 600; }
 html.tv .awtv-yr .chip.dim { opacity: .55; }
+/* JY-270 years (B. 2026-10-30): the year stepper (Left / Right) and its list (OK). The list drops over the shelves under
+   the button, one year per line, scrolled inside a padded box so the focus ring of every year stays whole. */
+html.tv .awtv-yr { position: relative; }
+html.tv .awtv-yrbtn { display: inline-flex; align-items: center; gap: .625rem; font-weight: 600; color: var(--tv-t1); }
+html.tv .awtv-arr { color: var(--tv-t4); font-size: 1.375rem; line-height: 1; }
+html.tv .awtv-yrlist { position: absolute; top: 3rem; left: 0; z-index: 20; display: flex; flex-direction: column; gap: .375rem; width: 9rem; max-height: 17rem; overflow-y: auto; padding: .625rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: #18181b; }
+html.tv .awtv-yrlist[hidden] { display: none; }
+html.tv .awtv-yrlist .chip { flex: none; justify-content: center; }
 html.tv .awtv-note { margin: .375rem 0 0; font-size: 1.125rem; color: var(--tv-gold); }
 html.tv .awwin { position: absolute; top: .375rem; left: .375rem; z-index: 2; padding: 0 .5rem; border-radius: var(--tv-r); background: var(--tv-gold); color: #1a1200; font-size: 1.125rem; font-weight: 700; line-height: 1.4; white-space: nowrap; }
 html.tv .tvmonth { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: .375rem 1.75rem; margin: .625rem 0 0; padding: .75rem 1.375rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: var(--tv-surface); }

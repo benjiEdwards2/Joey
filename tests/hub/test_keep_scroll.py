@@ -30,7 +30,9 @@ def test_awards_controls_keep_scroll():
     assert re.search(r'<div id="awmain"[^>]*hx-swap="outerHTML show:none"', p)
     assert p.count("show:none") == 1                                         # only the block, nothing inside re-declares it
     assert p.count('hx-swap="innerHTML show:window:top"') >= 5               # 4 rows + the people strip leave #awmain
-    assert "<select" not in p and "onchange=" not in p                       # the year is chips in the sheet now
+    assert "onchange=" not in p                                              # no inline handler
+    # JY-270 years (B. 2026-10-30): one native year <select> beside the button, followed by joey.js (data-nav)
+    assert p.count("<select") == 1 and '<select class="awyrsel" aria-label="Year" data-nav>' in p
 
 
 def test_awards_posters_and_section_tabs_still_go_to_the_top(rate_env):

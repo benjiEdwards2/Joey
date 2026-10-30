@@ -18,6 +18,7 @@
 {% if bodies and picker %}
 <div class="awctl">
   {% include "_award_sheet.html" %}
+  {% if years_list %}{# JY-270 years (B. 2026-10-30): a plain year dropdown beside the ceremony button; joey.js follows the pick #}<select class="awyrsel" aria-label="Year" data-nav>{% for y in years_list|sort(attribute="year", reverse=true) %}<option value="{{ y.href }}"{% if y.on %} selected{% endif %}>{{ y.year }}</option>{% endfor %}</select>{% endif %}
   {% if edition_line %}<span class="metaline awed">{{ edition_line }}</span>{% endif %}
   <nav class="seg awview" aria-label="View">
     <a href="{{ view_hrefs.films }}"{% if view != "categories" %} aria-current="page"{% endif %}>Films</a>

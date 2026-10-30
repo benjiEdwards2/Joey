@@ -101,7 +101,9 @@
     var d = openDialog();
     if (d) return d;
     var card = document.querySelector('.setup-card');
-    return card && visible(card) ? card : null;
+    if (card && visible(card)) return card;
+    var yl = yearList();   /* JY-270 years: the open year list keeps the D-pad (Up / Down between years) */
+    return yl && yearsOpen() ? yl : null;
   }
 
   function scope() { return modal() || document; }
@@ -603,6 +605,36 @@
     if (best) { setFocus(best); remember(best); }
   }
 
+  /* JY-270 years (B. 2026-10-30): the Awards year stepper ([data-tv-year]). Left / Right step the year (the server's
+     data-prev / data-next, wrapping only at the data's ends) by clicking that year's link in the list, so htmx's boosted
+     navigation runs as for any link; OK opens the list (focus on the shown year), Up / Down move in it, OK on a year
+     follows its link, Back closes it. After a year change the stepper takes the focus again. */
+  var yearStep = false;
+  function yearBtn() { return document.querySelector('[data-tv-year]'); }
+  function yearList() { var b = yearBtn(); return b ? document.querySelector('[id="' + b.getAttribute('aria-controls') + '"]') : null; }
+  function yearsOpen() { var l = yearList(); return !!(l && l.getAttribute('hidden') === null); }
+  function openYears() {
+    var b = yearBtn(), l = yearList();
+    if (!b || !l) return;
+    l.removeAttribute('hidden');
+    b.setAttribute('aria-expanded', 'true');
+    setFocus(l.querySelector('[aria-selected]') || firstIn(l));
+  }
+  function closeYears() {
+    if (!yearsOpen()) return false;
+    yearList().setAttribute('hidden', '');
+    yearBtn().setAttribute('aria-expanded', 'false');
+    setFocus(yearBtn());
+    return true;
+  }
+  function stepYear(b, dir) {
+    var y = b.getAttribute(dir === 'ArrowLeft' ? 'data-prev' : 'data-next'), l = yearList();
+    var link = l && y ? l.querySelector('[data-year="' + y + '"]') : null;
+    if (!link) return;
+    yearStep = true;
+    link.click();
+  }
+
   function typing(el) {
     /* JY-270: a read-only field (the locked search) is not typing, so Left / Right leave it (to the Search button) */
     return el && !el.readOnly && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(button|submit|checkbox|radio)$/i.test(el.type)));
@@ -615,7 +647,12 @@
     /* WP-RQ2 (JY-255): OK toggles a tick / chip; it never submits the request form */
     if (e.key === 'Enter' && a && a.tagName === 'INPUT' && /^(checkbox|radio)$/i.test(a.type) && !e.altKey && !e.ctrlKey &&
         !e.metaKey) { e.preventDefault(); a.click(); return; }
+    var yb = a && a.getAttribute && a.getAttribute('data-tv-year') !== null;
+    if (e.key === 'Enter' && yb) { e.preventDefault(); openYears(); return; }
+    if (e.key === 'Enter' && a && a.closest && yearsOpen() && a.closest('[role="listbox"]')) yearStep = true;
     if (!KEYS[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (yb && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); stepYear(a, e.key); return; }
+    if (yearsOpen() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); return; }
     if (typing(a) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;   /* the caret moves in a text box */
     if (a && a.tagName === 'SELECT') return;
     e.preventDefault();
@@ -737,6 +774,11 @@
       var r = firstIn(grid()), held = active();
       if (r && (!held || held.closest(GRID))) { setFocus(r); return; }
     }
+    if (yearStep) {   /* JY-270 years: a stepped / picked year lands back on the stepper */
+      yearStep = false;
+      var yb = yearBtn();
+      if (yb && visible(yb)) { setFocus(yb); return; }
+    }
     var a = active(), f = first();
     if (!a || (!keyed && a.closest('.topbar') && f && !f.closest('.topbar'))) setFocus(f);
   }
@@ -748,7 +790,7 @@
     back: function () {
       var d = openDialog();
       /* JY-194: results showing -> the trending grid, field focused */
-      if (!d) return closeRate() || clearSearch() || goUp() || upBack();
+      if (!d) return closeYears() || closeRate() || clearSearch() || goUp() || upBack();
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();

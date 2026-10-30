@@ -103,3 +103,9 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   document.addEventListener('touchend', lift, {passive: true});
   document.addEventListener('mouseover', near);
 })();
+
+/* JY-270 years (B. 2026-10-30): a <select data-nav> (the Awards year dropdown) goes to the picked option's URL */
+document.addEventListener('change', function (e) {
+  var s = e.target;
+  if (s && s.tagName === 'SELECT' && s.hasAttribute('data-nav') && s.value) window.location.assign(s.value);
+});

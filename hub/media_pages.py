@@ -523,6 +523,9 @@ def _library_page(request: Request, kind: str):
             "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "sorts": sorts,
             "head_line": media_library.head_line(rows or [], kind, marks),
             "filters": filters, "filter": f, "filter_links": _links_with(request, "f", filters, drop="all"),
+            # JY-270 (library filters): the TV's chip row has no <select>; each sort and the cleared search are links
+            "sort_links": _links_with(request, "sort", sorts, drop="score"),
+            "q_clear": _links_with(request, "q", [""], drop="")[""],
             "shown": shown,
             "suggest": suggest, "suggestions": media_library.SUGGESTIONS, "suggested": suggested,
             "suggest_links": _links_with(request, "s", media_library.SUGGESTIONS),

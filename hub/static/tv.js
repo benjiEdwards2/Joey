@@ -203,6 +203,13 @@
       opening = false;
       return;
     }
+    /* JY-270 (library filters): the library's own field (Search this library) loads this page with ?q= instead */
+    if (s.form && s.form.hasAttribute('data-tv-libsearch')) {
+      var lq = new URLSearchParams(new FormData(s.form));
+      if (!s.value.trim()) lq.delete('q');
+      window.location.href = s.form.getAttribute('action') + (lq.toString() ? '?' + lq.toString() : '');
+      return;
+    }
     if (shownQuery() !== s.value.trim()) {   /* the debounce has not fetched this query yet: the field's own trigger */
       wantResults = true;
       sentQuery = s.value.trim();
@@ -297,7 +304,7 @@
 
   function centreInShelf(el) {
     /* JY-259 (P3, verifier fix): the season chip row scrolls sideways like a shelf */
-    var shelf = el.closest('.carousel, .tv-seasonchips');
+    var shelf = el.closest('.carousel, .tv-seasonchips, .tv-libchips');   /* JY-270: and the library chips */
     if (!shelf) return;
     var item = el;
     while (item.parentElement && item.parentElement !== shelf) item = item.parentElement;
@@ -469,8 +476,9 @@
 
   function openSearch(btn) {
     var main = document.querySelector('main'), own = main && main.querySelector(SEARCH), d;
-    if (own && visible(own)) { own.readOnly = false; setFocus(own); return; }
-    d = document.querySelector(SEARCH_DLG);
+    var lib = btn && btn.getAttribute('aria-controls') === 'tv-lib-dlg';   /* JY-270: Search this library */
+    if (!lib && own && visible(own)) { own.readOnly = false; setFocus(own); return; }
+    d = document.querySelector(lib ? '[id="tv-lib-dlg"]' : SEARCH_DLG);
     if (!d) return;
     d._opener = btn;
     if (!d.open) d.showModal();
@@ -601,6 +609,15 @@
     if (best && dir === 'ArrowUp' && !a.closest('.tv-seasonchips') && best.closest('.tv-seasonchips')) {
       var lit = best.closest('.tv-seasonchips').querySelector('.chip.on');
       if (lit && visible(lit)) best = lit;
+    }
+    /* JY-270 (library filters): Up from the grid stops at the chip row (on its lit chip) before the sub-tabs above it */
+    var lc = document.querySelector('main .tv-libchips');
+    if (best && dir === 'ArrowUp' && lc && visible(lc) && !lc.contains(a) && !lc.contains(best)) {
+      var lr = lc.getBoundingClientRect();
+      if (lr.bottom <= r.top + 2 && best.getBoundingClientRect().bottom <= lr.top + 2) {
+        var on = lc.querySelector('.chip.on') || firstIn(lc);
+        if (on && visible(on)) best = on;
+      }
     }
     if (best) { setFocus(best); remember(best); }
   }

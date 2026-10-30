@@ -166,6 +166,65 @@
 {% set n = film.numbers %}
 {# Joey TV WP-B3: no off-site links on the guest front (the exposure crawl allows the Jellyfin edge, YouTube and TMDB images only) #}
 {% set sites = film.tmdb and film.kind in ("movie", "tv") and not guest(request) %}
+{# JY-269 P2 (B.'s pick A, 2026-10-29): on the web and phone a show, season or episode page leads with the TV's Episodes
+   row - the head line "Episodes", the seasons as chips (one line that scrolls sideways, the shown season lit and
+   scrolled into view), "n of m watched", then the shown season's episodes as 16:9 tiles in a sideways row (wheel, drag
+   and arrow buttons on desktop, a swipe on touch). Each tile opens the episode page; its word, date, synopsis and
+   rating sit in the caption, and Play / Resume (the JY-054 hand-off) under it. From film.tv + film.seasons, the
+   viewer's own read. The TV draws its own row above (tv.css), so none of this reaches the TV bytes. #}
+{% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons %}
+{% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
+{% set ws = (film.seasons|selectattr("n", "equalto", shown.n)|first) if shown else none %}
+{% set rs = (ratings.seasons|selectattr("n", "equalto", ws.n)|first) if ratings and ws else none %}
+{% set rbn = {} %}{% if rs %}{% for r in rs.eps %}{% set _ = rbn.update({r.number: r}) %}{% endfor %}{% endif %}
+<section class="sec tl-eps" aria-label="Episodes">
+  <div class="tl-epshd"><h2 class="seclabel">Episodes</h2><nav class="tl-chips" aria-label="Seasons">{% for s in film.tv.seasons %}{% if s.href %}<a class="chip{{ ' on' if s is sameas shown }}" href="{{ s.href }}"{% if s is sameas shown %} aria-current="true"{% endif %}>{{ s.title }}</a>{% else %}<span class="chip{{ ' on' if s is sameas shown }}">{{ s.title }}</span>{% endif %}{% endfor %}</nav>{% if shown and shown.sub %}<span class="metaline tl-epsub">{{ shown.sub }}</span>{% endif %}</div>
+  {% if ws and ws.episodes %}
+  <div class="tl-row">
+    <button type="button" class="tl-arrow tl-prev" aria-label="Earlier episodes" tabindex="-1">‹</button>
+    <div class="tl-track">
+    {% for e in ws.episodes %}
+    <div class="tl-ep ep-{{ e.state.key }}" id="tl-ep-{{ e.jf_id }}">
+      <a class="tl-eplink" href="/media/item/{{ e.jf_id }}" draggable="false">
+        <span class="tl-still"><img src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ img_letters(e.name)|urlencode }}" alt="" {% if loop.index > 4 %}loading="lazy" {% endif %}decoding="async" width="320" height="180" draggable="false">{% if e.in_progress and e.runtime_min and e.left_min is not none %}<span class="bar" role="img" aria-label="in progress"><span style="width: {{ [1, [99, ((100 * (e.runtime_min - e.left_min) / e.runtime_min)|round|int)]|min]|max }}%"></span></span>{% endif %}</span>
+        <span class="row-title">E{{ e.number }} · {{ e.name }}</span>
+        {{ meta([e.air_date, e.runtime]) }}
+        <span class="epstate {{ e.state.cls }}">{{ e.state.word }}</span>{% if rs %}{{ ef.rowrate(rbn.get(e.number), rs.avg) }}{% endif %}
+        {% if e.overview %}<span class="tl-epover">{{ e.overview }}</span>{% endif %}
+      </a>
+      {% if e.play %}<a class="btn btn-secondary btn-sm tl-epplay" href="{{ e.play.href }}"{% if e.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}>{{ e.play.label }}</a>{% endif %}
+    </div>
+    {% endfor %}
+    </div>
+    <button type="button" class="tl-arrow tl-next" aria-label="Later episodes" tabindex="-1">›</button>
+  </div>
+  {% endif %}
+  {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
+</section>
+<script>
+(function () {
+  var sec = document.currentScript && document.currentScript.previousElementSibling; if (!sec) return;
+  var chips = sec.querySelector(".tl-chips"), on = chips && chips.querySelector(".chip.on");
+  if (on) chips.scrollLeft = on.offsetLeft - chips.offsetLeft - (chips.clientWidth - on.offsetWidth) / 2;
+  var t = sec.querySelector(".tl-track"); if (!t) return;
+  var step = function () { return Math.max(200, t.clientWidth * 0.8); };
+  sec.querySelector(".tl-prev").onclick = function () { t.scrollBy({left: -step(), behavior: "smooth"}); };
+  sec.querySelector(".tl-next").onclick = function () { t.scrollBy({left: step(), behavior: "smooth"}); };
+  var here = t.querySelector(".ep-progress, .ep-todo"); if (here && here.offsetLeft > t.clientWidth / 2) t.scrollLeft = here.offsetLeft - t.offsetLeft - 16;
+  t.addEventListener("wheel", function (ev) {
+    if (Math.abs(ev.deltaY) <= Math.abs(ev.deltaX)) return;
+    var max = t.scrollWidth - t.clientWidth;
+    if ((ev.deltaY < 0 && t.scrollLeft <= 0) || (ev.deltaY > 0 && t.scrollLeft >= max - 1)) return;
+    ev.preventDefault(); t.scrollLeft += ev.deltaY;
+  }, {passive: false});
+  var x0 = null, s0 = 0, moved = false;
+  t.addEventListener("pointerdown", function (ev) { if (ev.pointerType !== "mouse" || ev.button) return; x0 = ev.clientX; s0 = t.scrollLeft; moved = false; });
+  window.addEventListener("pointermove", function (ev) { if (x0 === null) return; var d = ev.clientX - x0; if (Math.abs(d) > 5) { moved = true; t.classList.add("dragging"); } if (moved) t.scrollLeft = s0 - d; });
+  window.addEventListener("pointerup", function () { x0 = null; setTimeout(function () { t.classList.remove("dragging"); }, 0); });
+  t.addEventListener("click", function (ev) { if (moved) { ev.preventDefault(); ev.stopPropagation(); moved = false; } }, true);
+})();
+</script>
+{% endif %}
 {# "Part of" banners (media-ux3, 2026-10-08): a wide card with the show's / film series' backdrop under the guide's
    gradient scrim (text and glass buttons sit on the dark side), the poster, one " · " line in words and the actions.
    No backdrop -> a plain panel. Phone (<= 640 px): stacked, buttons full width. #}

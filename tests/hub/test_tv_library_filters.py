@@ -7,6 +7,7 @@ import pytest
 
 from tests.hub.fake_jellyfin import FRIEND_ID
 from tests.hub.guest_pages import TV_UA, guest_client, sign_in
+from tests.hub.test_tv_mode import run_tv_pages
 from tests.hub.tv_css import design_px
 
 
@@ -57,3 +58,29 @@ def test_the_chip_css_keeps_the_18px_floor_and_the_js_sends_the_library_search(g
     assert sizes and min(sizes) >= 18
     js = gc.get("/static/tv.js").text
     assert "data-tv-libsearch" in js and "'.carousel, .tv-seasonchips, .tv-libchips'" in js
+
+
+def test_the_search_dialog_keeps_the_filter_and_sort_for_its_reload(gc):
+    """Enter in the dialog sends its form (tv.js: action + FormData as ?q=...): the hidden fields carry f and sort."""
+    html = gc.get("/media/movies?f=watched&sort=title&q=du", headers={"User-Agent": TV_UA}).text
+    form = re.search(r'<form[^>]*data-tv-libsearch>.*?</form>', html, re.S).group(0)
+    assert 'action="/media/movies"' in form and 'name="q" value="du"' in form
+    assert 'name="f" value="watched"' in form and 'name="sort" value="title"' in form
+
+
+def test_up_from_the_grid_lands_on_the_lit_chip_under_node(gc, tmp_path):
+    out = run_tv_pages(gc, tmp_path, r"""
+load('/media/movies', function () {
+  movies(2);
+  var main = document.querySelector('main');
+  var row = new El('nav', { cls: ['chips', 'tv-libchips'], top: 140, left: 100 });
+  row.append(new El('button', { name: 'c-search', cls: ['chip'], top: 140, left: 100 }));
+  row.append(new El('a', { name: 'c-all', cls: ['chip'], attrs: { href: '/media/movies' }, top: 140, left: 300 }));
+  row.append(new El('a', { name: 'c-lit', cls: ['chip', 'on'], attrs: { href: '/media/movies?f=watched', 'aria-current': 'true' }, top: 140, left: 700 }));
+  main.append(row);
+});
+out.first = now();
+key('ArrowUp');
+out.up = now();
+""")
+    assert out["first"] == "p1" and out["up"] == "c-lit"

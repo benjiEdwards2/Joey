@@ -574,3 +574,16 @@ def test_cast_is_circles_and_more_on_joey_is_posters_on_the_web(env):
     assert 'href="/media/person/{{ c.id }}"' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
     assert 'castsec webskel' in (tpl / "_film_cast.html").read_text(encoding="utf-8")
     assert 'moresec webskel' in (tpl / "_film_shelves.html").read_text(encoding="utf-8")
+
+
+def test_web_cast_circle_links_to_the_person_page_when_the_cast_has_ids(env, monkeypatch):
+    """JY-269 P3 review: the fixture cast had no person ids, so the link was never rendered. With an id the circle is a
+    link to /media/person/{id}; without one it is a plain div (Jellyfin's own actors)."""
+    cast = [{**FILM["credits"]["cast"][0], "id": 1001}, FILM["credits"]["cast"][1]]
+    monkeypatch.setitem(FILM, "credits", {**FILM["credits"], "cast": cast})
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/title/movie/603"))
+    sec = b.split('<section class="sec castsec">', 1)[1].split("</section>", 1)[0]
+    assert '<a class="castcard" href="/media/person/1001">' in sec and "Ada Actor" in sec
+    assert '<div class="castcard">' in sec and "Bo Bit" in sec

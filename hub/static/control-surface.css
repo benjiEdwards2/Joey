@@ -1556,10 +1556,13 @@ html:not(.tv) .tl-hero .heromore-acts .followform { display: flex; align-items: 
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero) { min-height: 0; }
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero) .hero-detail-bd { bottom: auto; height: 220px; }
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero)::after { display: none; }
-  html:not(.tv) .tl-hero { flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 96px; }
+  /* JY-269 P2: tighter so the first episode tile clears the tab bar at 390x844 */
+  html:not(.tv) .tl-hero { flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 24px; }
+  html:not(.tv) .tl-hero .statusline { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html:not(.tv) .tl-hero .hero-detail-text { gap: 4px; }
   html:not(.tv) .tl-hero .hero-detail-poster { width: 96px; }
   html:not(.tv) .tl-hero .hero-detail-title { font-size: 26px; }
-  html:not(.tv) .tl-syntext { -webkit-line-clamp: 3; line-clamp: 3; }
+  html:not(.tv) .tl-syntext { -webkit-line-clamp: 2; line-clamp: 2; }
   /* phone: Play full width on its own line; Trailer, Watchlist, Rate and "…" on the next, one line */
   html:not(.tv) .tl-hero .hero-detail-btns { flex-wrap: wrap; width: 100%; }
   html:not(.tv) .tl-hero .hero-detail-btns > a.btn-white { flex: 1 0 100%; text-align: center; }
@@ -1603,7 +1606,8 @@ html:not(.tv) .tl-arrow:hover { background: var(--glass-bg-hover); }
   html:not(.tv) .tl-chips .chip, html:not(.tv) .tl-epplay { min-height: 44px; }
 }
 @media (max-width: 639px) {
-  html:not(.tv) .tl-epshd { flex-wrap: wrap; gap: 8px; }
-  html:not(.tv) .tl-chips { flex: 1 1 100%; order: 3; }
-  html:not(.tv) .tl-ep { flex-basis: 72vw; }
+  html:not(.tv) .tl-epshd { gap: 8px; margin-bottom: 8px; }
+  html:not(.tv) .tl-chips { flex: 1 1 auto; }
+  html:not(.tv) .tl-ep { flex-basis: 64vw; }
+  html:not(.tv) .tl-eps { margin-top: 0; padding-top: 0; }
 }

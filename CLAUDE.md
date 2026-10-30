@@ -29,6 +29,7 @@ Joey is a private dashboard for two people, self-hosted on a NAS behind Cloudfla
 - Deploy only through `deploy/deploy.sh`, and only between 07:00 and 21:30 Melbourne time. The NAS is off 22:00-07:00. It aborts on any red test and rolls back a failed deploy.
 - NAS memory ceiling: available RAM stays at or above 1,200 MB during any deploy or preview.
 - Machine rule: builders edit files and run git only, until the orchestrator sends "machine free: tests allowed". One heavy run (full suite, timing, deploy gate) at a time.
+- Two green PRs can clash on `main` (CI does not run on pushes to main since the 2026-10-29 budget rule): when more than one PR merged since the last deploy, the deploy gate's full suite is the only check; on a gate failure, fix forward on a small PR, never hotfix the NAS (2026-10-29, #275 + #276 clashed on the seam ratchet, fixed by #279).
 - Before every commit: `git status` + `git fetch`; stage only your item's files (parallel sessions share the repo).
 - One worktree per item: `git worktree add ../wt-JY-### -b feat/JY-###-slug origin/main`. Never merge or push `main` from the shared clone: it may sit on another session's branch.
 - Anything only B. can do (router, Cloudflare, secrets, the TV) goes in one hands bundle per state window, with exact click-paths. Tests that need one state change run together in that window.

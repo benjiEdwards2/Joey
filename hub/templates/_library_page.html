@@ -41,6 +41,23 @@
    still submits. The search box keeps focus across the swap (htmx restores focus by id). Apply is for no-JS only. The
    Grid / List switch is one icon link to the other layout (`?view=` sets the media_libview cookie, media_pages.library_view);
    the form never sends `view`, so the cookie keeps the current choice. #}
+{# JY-270 (library filters, B. 2026-10-29: chips only): the TV's toolbar is one sideways chip row under the sub-tabs -
+   Search this library (the Search stop's field in its own dialog, sent to this page as ?q=), the filters, the sorts.
+   The lit chip also says "on" in words; every chip is a link keeping the other choices. #}
+{% if tv_mode(request) %}
+<nav class="chips tv-libchips" aria-label="Find and sort">
+  <button class="chip" type="button" aria-haspopup="dialog" aria-controls="tv-lib-dlg" data-tv-search-open>{{ icon("search") }}{{ "Search: " ~ q if q else "Search this library" }}</button>
+  {% if q %}<a class="chip" href="{{ q_clear }}">Clear search</a>{% endif %}
+  {% if marks %}{% for k, label in filters.items() %}<a class="chip{{ ' on' if k == filter }}" href="{{ filter_links[k] }}"{% if k == filter %} aria-current="true"{% endif %}>{{ label }}{% if k == filter %}<span class="tv-chipword"> · on</span>{% endif %}</a>{% endfor %}{% endif %}
+  {% for k, label in sorts.items() %}<a class="chip{{ ' on' if k == sort }}" href="{{ sort_links[k] }}"{% if k == sort %} aria-current="true"{% endif %}>Sort: {{ label }}{% if k == sort %}<span class="tv-chipword"> · on</span>{% endif %}</a>{% endfor %}
+</nav>
+<dialog id="tv-lib-dlg" class="tv-searchdlg" aria-label="Search this library">
+  <form class="toolbar discover-search" method="get" action="{{ request.url.path }}" data-tv-libsearch>
+    <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search this library" autocomplete="off" aria-label="Search this library" data-tv-search></div>
+    {% if filter != "all" %}<input type="hidden" name="f" value="{{ filter }}">{% endif %}{% if sort != "score" %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+  </form>
+</dialog>
+{% endif %}
 {% set other = "list" if libview == "grid" else "grid" %}
 <form class="toolbar" method="get" hx-get="{{ request.url.path }}" hx-target="body" hx-swap="innerHTML show:none" hx-push-url="true"
       hx-trigger="submit, change, search, keyup changed delay:400ms from:find input[type=search]">

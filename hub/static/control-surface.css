@@ -1556,12 +1556,58 @@ html:not(.tv) .tl-hero .heromore-acts .followform { display: flex; align-items: 
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero) { min-height: 0; }
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero) .hero-detail-bd { bottom: auto; height: 220px; }
   html:not(.tv) .pagehead.hero-detail:has(.tl-hero)::after { display: none; }
-  html:not(.tv) .tl-hero { flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 96px; }
+  /* JY-269 P2: tighter so the first episode tile clears the tab bar at 390x844 */
+  html:not(.tv) .tl-hero { flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 24px; }
+  html:not(.tv) .tl-hero .statusline { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html:not(.tv) .tl-hero .hero-detail-text { gap: 4px; }
   html:not(.tv) .tl-hero .hero-detail-poster { width: 96px; }
   html:not(.tv) .tl-hero .hero-detail-title { font-size: 26px; }
-  html:not(.tv) .tl-syntext { -webkit-line-clamp: 3; line-clamp: 3; }
+  html:not(.tv) .tl-syntext { -webkit-line-clamp: 2; line-clamp: 2; }
   /* phone: Play full width on its own line; Trailer, Watchlist, Rate and "…" on the next, one line */
   html:not(.tv) .tl-hero .hero-detail-btns { flex-wrap: wrap; width: 100%; }
   html:not(.tv) .tl-hero .hero-detail-btns > a.btn-white { flex: 1 0 100%; text-align: center; }
   html:not(.tv) .tl-popin, html:not(.tv) .tl-hero .heromore-acts { max-width: 100%; }
+}
+/* JY-269 P2 (2026-10-30): the Episodes row on the web and phone title pages (pick A) - the head line "Episodes", the
+   season chips on ONE line that scrolls sideways, "n of m watched"; then 16:9 episode tiles in a sideways row (wheel,
+   drag and arrow buttons on desktop, a swipe on touch). The TV never draws .tl-eps (tv.css keeps its own row). */
+html:not(.tv) .tl-eps { margin-top: 8px; }
+html:not(.tv) .tl-epshd { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 12px; }
+html:not(.tv) .tl-epshd .seclabel { margin: 0; flex: none; }
+html:not(.tv) .tl-chips { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+html:not(.tv) .tl-chips::-webkit-scrollbar { display: none; }
+html:not(.tv) .tl-epsub { flex: none; white-space: nowrap; font-size: 14px; }
+html:not(.tv) .tl-row { position: relative; }
+html:not(.tv) .tl-track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+  overscroll-behavior-x: contain; padding-bottom: 4px; }
+html:not(.tv) .tl-track::-webkit-scrollbar { display: none; }
+html:not(.tv) .tl-track.dragging { scroll-snap-type: none; cursor: grabbing; }
+html:not(.tv) .tl-track.dragging a { pointer-events: none; }
+html:not(.tv) .tl-ep { flex: 0 0 280px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+html:not(.tv) .tl-eplink { display: flex; flex-direction: column; gap: 3px; color: inherit; text-decoration: none; min-width: 0; }
+html:not(.tv) .tl-still { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--glass-bg);
+  margin-bottom: 5px; }
+html:not(.tv) .tl-still img { width: 100%; height: 100%; object-fit: cover; display: block; }
+html:not(.tv) .tl-still .bar { position: absolute; left: 0; right: 0; bottom: 0; }
+html:not(.tv) .tl-eplink .row-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.tv) .tl-eplink .metaline, html:not(.tv) .tl-eplink .epstate, html:not(.tv) .tl-eplink .eprow-r { font-size: 14px; }
+html:not(.tv) .tl-epover { font-size: 14px; line-height: 1.4; color: var(--text-3); display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+html:not(.tv) .tl-eplink:hover .row-title { text-decoration: underline; }
+html:not(.tv) .tl-epplay { align-self: flex-start; }
+html:not(.tv) .tl-arrow { position: absolute; top: 0; z-index: 2; width: 40px; height: calc(280px * 9 / 16); border: 0; cursor: pointer;
+  font-size: 28px; color: var(--text-1); background: var(--glass-bg); backdrop-filter: blur(8px); opacity: 0; transition: opacity .15s; }
+html:not(.tv) .tl-prev { left: 0; border-radius: 6px 0 0 6px; }
+html:not(.tv) .tl-next { right: 0; border-radius: 0 6px 6px 0; }
+html:not(.tv) .tl-row:hover .tl-arrow { opacity: 1; }
+html:not(.tv) .tl-arrow:hover { background: var(--glass-bg-hover); }
+@media (hover: none) { html:not(.tv) .tl-arrow { display: none; } }
+@media (max-width: 1024px) {
+  html:not(.tv) .tl-chips .chip, html:not(.tv) .tl-epplay { min-height: 44px; }
+}
+@media (max-width: 639px) {
+  html:not(.tv) .tl-epshd { gap: 8px; margin-bottom: 8px; }
+  html:not(.tv) .tl-chips { flex: 1 1 auto; }
+  html:not(.tv) .tl-ep { flex-basis: 64vw; }
+  html:not(.tv) .tl-eps { margin-top: 0; padding-top: 0; }
 }

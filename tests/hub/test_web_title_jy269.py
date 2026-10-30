@@ -57,7 +57,7 @@ def test_web_hero_has_a_short_synopsis_with_more(env):
     assert h.index('class="facts-line"') < h.index('<div class="tl-syn">') < h.index(ROW)
     assert "Your rating</h2>" not in h
     assert re.search(r"\.tl-syntext \{[^}]*-webkit-line-clamp: 2", CSS)
-    assert re.search(r"@media \(max-width: 639px\) \{.*?\.tl-syntext \{ -webkit-line-clamp: 3", CSS, re.S)
+    assert re.search(r"@media \(max-width: 639px\) \{.*?\.tl-syntext \{ -webkit-line-clamp: 2", CSS, re.S)
 
 
 # ---- 2: one row that never wraps, every action still reachable ----

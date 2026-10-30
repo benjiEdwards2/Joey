@@ -423,6 +423,7 @@
 {% endif %}
 
 {% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
+{% if not tv_mode(request) %}{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}{% endif %}
 
 {# Episode page (2026-10-16): where this episode sits in its season (the page's bar gold), then Previous / Next. #}
 {% if film.episode and ratings %}
@@ -475,7 +476,7 @@
 </script>
 {% endif %}
 
-{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}
+{% if tv_mode(request) %}{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}{% endif %}
 {# F2 fast item pages (2026-10-12): the ONE request that fills every placeholder above (out-of-band swaps). #}
 {% if film.parts_href %}<div class="fpart-load" hidden hx-get="{{ film.parts_href }}" hx-trigger="load" hx-swap="none"></div>{% endif %}
 {% endblock %}

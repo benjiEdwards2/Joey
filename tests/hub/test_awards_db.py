@@ -130,7 +130,7 @@ def test_coming_up_uses_usual_months_then_a_known_date():
     film = adb.coming_up(date(2026, 10, 8), "film")
     assert [g["month"] for g in film] == ["JAN", "FEB", "MAR", "MAY"]
     assert [i["name"] for i in film[0]["events"]] == ["Golden Globes", "Critics' Choice"]
-    assert [i["name"] for i in film[1]["events"]] == ["BAFTA", "SAG", "DGA", "PGA"]
+    assert [i["name"] for i in film[1]["events"]] == ["BAFTA", "SAG"]   # JY-270: DGA / PGA hidden (config/awards.yaml)
     assert all(i["date"] is None for g in film for i in g["events"])
     tv = adb.coming_up(date(2026, 10, 8), "tv")
     assert [(g["month"], [i["name"] for i in g["events"]]) for g in tv] == [

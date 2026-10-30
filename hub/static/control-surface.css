@@ -1211,6 +1211,9 @@ details.heromore > summary:hover { color: var(--text-1); }
 .awctl .awed { order: 3; flex: 1 1 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (min-width: 640px) { .awctl .awed { order: 0; flex: 1 1 0; } }
 .awctl .seg { margin-left: auto; }
+/* JY-270 years (2026-10-30): the year dropdown beside the ceremony button, the button's twin */
+.awyrsel { height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--glass-line); background: var(--glass-bg);
+  color: var(--text-1); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
 .awview a[aria-current] { background: var(--pill-on); color: var(--text-1); }
 /* Picker: the summary is the button; its panel is the sheet. */
 .awpick-btn { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 8px; height: 36px; max-width: 100%;

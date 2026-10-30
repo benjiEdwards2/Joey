@@ -1,0 +1,14 @@
+# Awards page ceremonies (JY-270, B. 2026-10-30: "Can we please only use the major awards ceremonies.").
+# Only these ceremony ids show on the Awards page (picker, TV chips, Next up), in seed order. Ids not listed are still
+# synced and still count on title / person pages; they are just not offered on the Awards page.
+# Every ceremony the awards data holds (hub/media_awards_seed.py BODIES), to widen later:
+#   oscars, globes, bafta, critics, sag, dga, pga, wga, cannes, emmys
+# Missing file or empty list = every ceremony.
+ceremonies:
+  - oscars
+  - globes
+  - bafta
+  - critics
+  - sag
+  - cannes
+  - emmys

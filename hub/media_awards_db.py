@@ -19,6 +19,9 @@ import re
 import sqlite3
 from contextlib import closing
 from datetime import date
+from pathlib import Path
+
+import yaml
 
 from hub import media_db, media_store
 from hub import media_awards_seed as seed
@@ -229,10 +232,29 @@ def set_poster(qid: str, ref: str) -> None:
 
 # ---- readers ----
 
+SHOWN_PATH = Path(__file__).resolve().parents[1] / "config" / "awards.yaml"
+
+
+def shown_ids(path: Path | None = None) -> set[str] | None:
+    """JY-270 (B. 2026-10-30, majors only): the ceremony ids config/awards.yaml lets the Awards page offer; None = all
+    (no file, no list, or an unreadable file)."""
+    try:
+        ids = (yaml.safe_load((path or SHOWN_PATH).read_text(encoding="utf-8")) or {}).get("ceremonies") or []
+    except (OSError, yaml.YAMLError, AttributeError):
+        return None
+    return {str(i) for i in ids} or None
+
+
+def _shown(b: dict) -> bool:
+    ids = shown_ids()
+    return ids is None or b["id"] in ids
+
+
 def bodies(kind: str) -> list[dict]:
-    """The bodies with categories of this kind ('film' | 'tv'), in seed order (works without a DB)."""
+    """The bodies with categories of this kind ('film' | 'tv') that config/awards.yaml shows, in seed order (works
+    without a DB)."""
     return [{"id": b["id"], "name": b["name"]} for b in sorted(seed.BODIES, key=lambda b: b["sort"])
-            if kind in b["kinds"].split(",")]
+            if kind in b["kinds"].split(",") and _shown(b)]
 
 
 def years_of(body_id: str) -> list[int]:
@@ -478,7 +500,7 @@ def coming_up(today: date, kind: str, limit: int = 4) -> list[dict]:
     """The next ceremonies of this kind grouped by month, soonest first, `limit` months:
     [{month: 'MAR', year, events: [{body_id, name, date: '14 Mar' | None}]}]. A body's next date is a known edition date on or
     after today (day precision, from the sync), else its usual month (this year if not past, else next year)."""
-    bs = [b for b in seed.BODIES if kind in b["kinds"].split(",")]
+    bs = [b for b in seed.BODIES if kind in b["kinds"].split(",") and _shown(b)]
     known = _known_dates({b["id"] for b in bs})
     nxt = []
     for b in bs:

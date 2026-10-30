@@ -88,24 +88,31 @@ def test_tv_awards_draws_the_categories_view(friend):
 
 
 def test_tv_awards_year_row(friend):
+    # JY-270 years (B. 2026-10-30): the stepper + list replace P2's six-chip row
     seeded()
     with closing(adb.ensure()) as db:
         seed_oscars(db, ordinal=96, year=2024, held_on="2024-03-10")
     main = main_of(friend.get("/media/movies/awards?body=oscars&year=2024", headers=TV).text)
     yr = re.search(r'<nav class="chips awtv-yr"[^>]*>(.*?)</nav>', main, re.S).group(1)
-    assert re.search(r'aria-current="true"[^>]*>2024<', yr) and "year=2025" in yr
+    assert re.search(r'<button type="button" class="chip awtv-yrbtn" data-tv-year[^>]*>.*?awtv-yrword">2024<', yr, re.S)
+    lst = re.search(r'<div class="awtv-yrlist" id="awtv-yrlist" role="listbox"[^>]*hidden>(.*?)</div>', yr, re.S).group(1)
+    assert re.search(r'aria-selected="true">2024<', lst) and ">Latest<" in lst and "year=2025" in lst
     assert "96th Academy Awards" in main
     note = main_of(friend.get("/media/movies/awards?body=oscars&year=2023", headers=TV).text)
     assert "awtv-note" in note and "No Oscars in 2023" in note
 
 
-def test_tv_year_chips_window():
+def test_tv_year_nav_steps_and_wraps_only_at_the_ends():
     ys = [{"year": y, "href": f"?y={y}", "on": y == 2016, "has_data": y != 2019} for y in range(2025, 2005, -1)]
-    labels = [c["label"] for c in ap.tv_year_chips(ys, 2016)]
-    assert labels == ["Latest", "2016", "2015", "2014", "2013", "2012", "2011", "Earlier"]
-    top = ap.tv_year_chips([{**y, "on": y["year"] == 2025} for y in ys], 2025)
-    assert [c["label"] for c in top] == ["2025", "2024", "2023", "2022", "2021", "2020", "Earlier"]
-    assert top[-1]["href"] == "?y=2019" and not any(c["dim"] for c in top)
+    mid = ap.tv_year_nav(ys, 2016, {"year": 2025, "href": "?y="})
+    assert (mid["year"], mid["prev"], mid["next"]) == (2016, 2015, 2017)
+    assert [c["label"] for c in mid["list"]][:3] == ["Latest", "2025", "2024"] and len(mid["list"]) == 21
+    assert next(c for c in mid["list"] if c["label"] == "2019")["dim"]
+    top = ap.tv_year_nav([{**y, "on": y["year"] == 2025} for y in ys], 2025, None)
+    assert (top["prev"], top["next"]) == (2024, 2006) and top["list"][0]["label"] == "2025"   # newest: Right wraps
+    low = ap.tv_year_nav([{**y, "on": y["year"] == 2006} for y in ys], 2006, None)
+    assert (low["prev"], low["next"]) == (2025, 2007)                                         # oldest: Left wraps
+    assert ap.tv_year_nav([], None, None) is None
 
 
 def test_desktop_awards_is_unchanged(friend):

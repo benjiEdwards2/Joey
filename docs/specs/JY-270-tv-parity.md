@@ -187,3 +187,23 @@ The Kotlin shell (`tv/`), private features (Q1), the friends' player, casting, v
 ## Test changes (CLAUDE.md rule 4)
 
 None in this item: it is the audit only. Each phase lists its own tests and may not weaken the JY-259 / JY-194 / JY-196 tests it touches without a dated line.
+
+## Follow-up: major ceremonies and year navigation (2026-10-30)
+
+B., 2026-10-30: "With awards. Can we please only use the major awards ceremonies. We need to allow people to go left or right on awards to years or click a drop down view to select years."
+
+**Ceremony set (config, not code).** `config/awards.yaml` lists the ceremony ids the Awards page offers (picker, TV chips, Next up); anything not listed is hidden there but still synced and still counted on title / person pages. Missing file or empty list = every ceremony.
+
+| | Ceremonies |
+|---|---|
+| Kept (majors) | Oscars, Golden Globes, BAFTA, Critics' Choice, SAG (Actor Awards), Cannes (Palme d'Or etc.), Emmys |
+| Hidden | DGA, PGA, WGA |
+| Full set the data holds (to widen later) | oscars, globes, bafta, critics, sag, dga, pga, wga, cannes, emmys (`hub/media_awards_seed.py` BODIES) |
+
+**TV year navigation.** P2's fixed six-chip year row is replaced by one year stepper under the ceremony chips (`‹ 2023 ›`, the year as a word). Focused: Left = previous (older) year, Right = next, wrapping only at the data's ends (the oldest year's Left is the newest, and back). OK opens the year list (one year per line, "Latest" on top when not on the latest year, the shown year focused); Up / Down move, OK picks, Back closes. After a step or pick the new page focuses the stepper again. 18 px floor, `--tv-r` radii, the list padded so every focus ring is whole.
+
+Note: the stepper is its own control rather than the ceremony chip itself, because Left / Right on a ceremony chip already move between ceremonies.
+
+**Web / phone.** A native year `<select>` beside the ceremony button (joey.js follows the pick); the picker sheet's year chips stay.
+
+Shots: `JoeyTV\review\JY-270\5-awards-years-*`, `6-awards-dropdown-*`, `7-awards-web-1440.png` (`JoeyTV\scripts\jy270_years_shots.py`).

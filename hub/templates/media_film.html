@@ -10,6 +10,7 @@
 {% block pagehead %}
 {% from "_media_tabs.html" import media_tabs with context %}
 {% from "_poster.html" import poster %}
+{% from "_pagehead.html" import title_h1 %}
 {% from "_rows.html" import meta %}
 {% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
@@ -66,7 +67,9 @@
         {% elif epnav %}
         {{ ef.seasonline(epnav) }}
         {% endif %}
-        <h1 class="hero-detail-title">{{ film.title }}{% if film.year and not tvm %} ({{ film.year }}){% endif %}</h1>
+        {# JY-267: the title's stored TMDB logo in place of the words (a season / episode page: its show's, via the
+           backdrop, which names the show); the words, year included, are the fallback #}
+        {{ title_h1(film.title, film.backdrop, "hero-detail-title", film.title ~ ((" (" ~ film.year ~ ")") if film.year and not tvm else "")) }}
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
         {% if film.episode %}{{ ef.epscore(film.ratings) }}{% elif epnav %}{{ ef.seasonswitch(epnav) }}{% endif %}
         {# U6 (2026-10-13): runtime and the certificate are said once, in the Numbers strip below, not here and in Details too. #}

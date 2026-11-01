@@ -83,6 +83,14 @@ def _img_v(ref) -> str:
 templates.env.globals["img_v"] = _img_v   # JY-260: a stored Joey poster's version, on its /img URL as &v= (cache-busting)
 
 
+def _title_logo(ref):
+    from hub import media_posters   # lazy: the poster modules load Pillow
+    return media_posters.stored_logo(ref)
+
+
+templates.env.globals["title_logo"] = _title_logo   # JY-267: the stored TMDB logo a hero draws in place of the title
+
+
 def viewer_tag(owner) -> str:
     """JY-259 phase 2 review: a short one-way tag of the signed-in viewer for the TV page (base.html joey-viewer). tv.js
     drops htmx's history cache when the tag differs from the one that wrote it, so one friend's cached pages never

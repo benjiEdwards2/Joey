@@ -1626,3 +1626,17 @@ html:not(.tv) .moresec .carousel > * { flex: 0 0 120px; width: 120px; }
 html:not(.tv) .webskel .castpic, html:not(.tv) .webskel .card-pic { background: var(--surface); }
 html:not(.tv) .webskel .card-pic { aspect-ratio: 2 / 3; border-radius: 6px; }
 html:not(.tv) .webskel .skelline { display: block; width: 70%; height: 12px; margin-top: 8px; border-radius: 4px; background: var(--surface); }
+/* JY-267 (2026-10-29): the title's TMDB logo (a transparent PNG) in place of the hero title words - web and phone Home
+   hero and title page, the TV Home hero and title page. --lw / --lh are the logo's own size, so the box is known before
+   it loads (no jump) and it is never drawn past 1.5x. Sizes from the spec: web 60% / 120px, phone 70% / 90px, TV 40% of
+   the screen / 160px at 1920 (5rem). A failed load shows the words in the same box (_pagehead.html title_h1). */
+.has-logo { align-self: stretch; }
+.title-logo, .tv-hero-logo { display: block; max-width: 100%; height: auto; aspect-ratio: var(--lw) / var(--lh);
+  width: min(60%, calc(120px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px)); }
+.has-logo .title-logo-text { display: none; }
+.has-logo.logo-failed .title-logo-text { display: inline; }
+@media (max-width: 639px) {
+  html:not(.tv) .title-logo { width: min(70%, calc(90px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px)); }
+}
+html.tv .title-logo, html.tv .tv-hero-logo { width: min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem)); }
+html.tv .tv-hero-title[hidden], .tv-hero-logo[hidden] { display: none; }

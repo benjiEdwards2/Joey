@@ -148,7 +148,7 @@ Top gaps, in plain words:
 2. Awards: no way to pick a year.
 3. Awards: no categories view, so "who won Best Actor" is unanswerable.
 4. Awards: no filters (unseen, on Joey), no progress, no category names on a film.
-5. Movies / TV shows: no search, filter or sort of your own library.
+5. Movies / TV shows: no search, filter or sort of your own library. Later gap: genre / decade / rating filters (the web toolbar lacks them too).
 6. Title page: no scores, no crew, no where-to-watch, no collection.
 7. Shows: no season and episode rating strip.
 8. Discover: no Upcoming shelves and no streaming-service browse.

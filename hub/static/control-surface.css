@@ -1611,3 +1611,18 @@ html:not(.tv) .tl-arrow:hover { background: var(--glass-bg-hover); }
   html:not(.tv) .tl-ep { flex-basis: 64vw; }
   html:not(.tv) .tl-eps { margin-top: 0; padding-top: 0; }
 }
+/* JY-269 phase 3 (2026-10-30), web + phone only: the cast as circles (88 px, name + role under) in a row that scrolls
+   sideways like the episodes row; "More on Joey" posters (120 px); skeleton shapes while the deferred part loads.
+   On the phone 2.3 items show, so the row reads as scrollable. */
+html:not(.tv) .castsec .castrow { gap: 16px; scroll-snap-type: x mandatory; }
+html:not(.tv) .castsec .castcard { flex: 0 0 104px; min-height: 44px; }
+html:not(.tv) .castsec .castpic { width: 88px; height: 88px; aspect-ratio: 1; border-radius: 50%; font-size: 24px; }
+html:not(.tv) .castsec .castrole { font-size: 14px; }
+html:not(.tv) .moresec .carousel > * { flex: 0 0 120px; width: 120px; }
+@media (max-width: 639px) {
+  html:not(.tv) .castsec .castcard { flex-basis: calc((100% - 32px) / 2.3); }
+  html:not(.tv) .moresec .carousel > * { flex-basis: calc((100% - 24px) / 2.3); width: calc((100% - 24px) / 2.3); }
+}
+html:not(.tv) .webskel .castpic, html:not(.tv) .webskel .card-pic { background: var(--surface); }
+html:not(.tv) .webskel .card-pic { aspect-ratio: 2 / 3; border-radius: 6px; }
+html:not(.tv) .webskel .skelline { display: block; width: 70%; height: 12px; margin-top: 8px; border-radius: 4px; background: var(--surface); }

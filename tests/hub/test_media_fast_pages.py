@@ -214,3 +214,14 @@ def test_concurrent_reads_of_one_item_share_one_call(env, monkeypatch):
             t.join()
     assert len(out) == 3 and all(o is out[0] for o in out)
     assert jf_calls(both).count("/Users/u1/Items/mov1") == 1
+
+
+def test_no_new_upstream_read_on_a_warm_title_page(env):
+    """JY-269 phase 3: the cast circles and More on Joey come from the existing deferred part - a warm page reads nothing."""
+    client, both = env()
+    with client:
+        whole(client, "/media/title/movie/603")
+        media_film.drain_extras()
+        n = len(both.calls)
+        page = main_of(whole(client, "/media/title/movie/603"))
+    assert len(both.calls) == n and "More on Joey" in page and "castsec" in page

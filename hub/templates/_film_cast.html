@@ -10,8 +10,10 @@
   <div class="carousel tvt-row tvt-row-person">{% for c in film.cast %}{{ tvt.person({"name": c.name, "role": c.role, "ref": c.ref, "href": ("/media/person/" ~ c.id) if c.id else none}) }}{% endfor %}</div>
 </section>
 {% elif "cast" in film.pending %}{{ tvt.skeleton("Cast", "person", "tv-cast") }}{% endif %}
+{# JY-269 phase 3 (web + phone): the cast as circles (name, role under), the row scrolls sideways like the episodes row;
+   while the part is on its way, three circle shapes #}
 {% elif film.cast %}
-<section class="sec">
+<section class="sec castsec">
   <h2 class="seclabel">Cast</h2>
   <div class="castrow">
     {% for c in film.cast %}
@@ -20,4 +22,6 @@
     {% endfor %}
   </div>
 </section>
+{% elif "cast" in film.pending %}
+<section class="sec castsec webskel" aria-hidden="true"><h2 class="seclabel">Cast</h2><div class="castrow">{% for _ in range(3) %}<span class="castcard"><span class="castpic"></span><span class="skelline"></span></span>{% endfor %}</div></section>
 {% endif %}

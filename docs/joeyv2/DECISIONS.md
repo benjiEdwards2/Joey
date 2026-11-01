@@ -42,3 +42,9 @@
 
 ## 2026-10-29 — Rule 11 exception (B.: "Yes, allow it")
 - The sweep and close-out scripts may commit docs-only changes (`*.md`, `docs/`, `HITLIST.md`) straight to `main`, one batch per day, no PR and no CI. Code changes keep the PR + review + accept path. Script change (joey.py close-out steps 3-4, sweep_run.sh) is queued for the orchestrator as a HITLIST row; this entry is the first such commit.
+
+## 2026-11-02 — Sweep 20+21 (B.: "Park both"; "Yes, all fine")
+- JY-051 (player options study) and JY-211 (7 old Seerr requests) → `parked`. B. 2026-11-02: "Park both".
+- JY-259 phase 4 (TV player 1.0.4) and the JY-270 TV pages (Awards, Discover search, filters, title extras) checked by B. on the TCL 2026-11-02: "Yes, all fine". JY-259 stays shipped; JY-270 keeps building (Upcoming shelves + streaming browse left).
+- Live: 1aaac4c (deploy PASS 2026-11-02 09:50 Melbourne). Sweep 20's PR was never opened; its rows land in this sweep as one docs-only commit to main (rule 11 exception).
+- B.'s worst-of-session 2026-11-02: the merge lines (the classifier blocks Claude's `gh pr merge`; B. pastes one line per round). Candidate fixes to try next: a settings allow rule for `gh pr merge`, or `joey.py close-out` carrying B.'s quoted accept. Filed as JY-271.

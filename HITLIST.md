@@ -56,7 +56,7 @@ Source: `docs/joeyv2/JOEYV2_PLAN.md` §4. Phase 0 (Decide) is done.
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-049 | Transcoding box: requirements + shortlist | Media player | M | [x] shipped | Research done (`docs/joeyv2/research/JY-049_TRANSCODE_BOX.md`) | — |
 | JY-050 | Player spec + questions | Media player | S | [x] shipped | Devices, friends or not, what done means · PR #66 | [spec](docs/specs/JY-050-player-spec.md) |
-| JY-051 | Player options study (per-device matrix) | Media player | M | building | Inventory + PC playback table + study page + test TV app built (PR #70); the TV/phone sitting waits on JY-014's hostname | — |
+| JY-051 | Player options study (per-device matrix) | Media player | M | parked | B. 2026-11-02: "Park both" (JY-051 + JY-211). Study + test TV app in old draft PR #70 (stale); the TV/phone sitting waited on JY-014's hostname | — |
 | JY-052 | Options page: player screen (PC, phone, TV) | Media player | S | [x] shipped | B. 2026-10-27: "JY-052: A" (Classic overlay); options page built 2026-10-26; JY-054 builds it | — |
 | JY-053 | Playback-session endpoints (contract first) | Media player | M | [x] shipped | Contract before the players · PR #188 | [spec](docs/specs/JY-053-playback-contract.md) |
 | JY-054 | Web/phone player | Media player | L | [x] shipped | Joey plays the film itself · live · PR #215 | [spec](docs/specs/JY-054-web-phone-player.md) |
@@ -200,8 +200,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | building | Phase 1 #262, phase 2 whole-title remove #275 merged 2026-10-29 (REMOVE_API off; hands item before flag on: live capture of Seerr DELETE, Jellyfin Media/Updated, arr queue/mediamanagement shapes). Phases 3-4 (seasons/episodes, TV) to go | — |
 | JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | spec | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
 | JY-267 | TMDB title logos instead of plain text on the carousel / title page | Media | M | ready | B. 2026-10-28: "Yes please, I would be keen to run that next." (logos idea) | — |
-| JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | review | PR #269 review PASS + CI green; B. 2026-10-29: "Leave it for now." | — |
-| JY-269 | Web + phone title pages take the TV show/season layout (backdrop hero, episodes first, seasons as chips, cast circles) | Media | M | ready | B. 2026-10-29: "I like the seasons adn the shows. I would even be keen to take that approach to shows or seasons to the actual JOey App. Write it around." Options page published, B. picked A 2026-10-29 | docs/specs/JY-269-web-title-layout.md |
+| JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | [x] shipped | PR #269 merged 2026-10-28 (d7de672), live with the 2026-10-30 batch | — |
+| JY-269 | Web + phone title pages take the TV show/season layout (backdrop hero, episodes first, seasons as chips, cast circles) | Media | M | [x] shipped | Direction A (B. 2026-10-29). P1 hero #283, P2 episode tiles #285, P3 cast circles + More on Joey #288; live 1045a84 (2026-11-02). Nit parked: web episode status line clips without ellipsis | [spec](docs/specs/JY-269-web-title-layout.md) |
 
 ### NAS / stack
 
@@ -225,7 +225,8 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-210 | WP38 soak test + a real runbook | Housekeeping | M | [x] shipped | Docs name a runbook that does not exist · PR #187 | [spec](docs/specs/JY-210-soak-runbook.md) |
-| JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | building | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A. Read-only check of the 7 running; B. re-requests only the missing ones via Joey | — |
+| JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | parked | B. 2026-11-02: "Park both" (JY-051 + JY-211). Earlier: A. read-only check of the 7; B. re-requests only the missing ones via Joey | — |
+| JY-271 | Merges without a pasted line: settings allow rule for `gh pr merge`, or `joey.py close-out` runs the merge on B.'s quoted accept; docs-only sweeps commit straight to main | Tooling | S | idea | B. 2026-11-02: merge lines were the worst part of the session (classifier blocks Claude: "Merge Without Review"); rule 11 exception already allows docs-only commits to main (B. 2026-10-29: "Yes, allow it") | — |
 | JY-212 | Phone checks only B. can do | Housekeeping | S | idea | Back scroll, swipe-back, iOS keyboard, ballot, Follow, Update now, manifest colour | — |
 | JY-213 | Live checks: Media rounds | Housekeeping | S | idea | 2026-10-26 read-only: grid, WAR, Caught up, logos PASS; 4K request submit + Why? on Brothers need B. | — |
 | JY-214 | Live checks: Server rounds | Housekeeping | S | idea | 2026-10-26 read-only: Free space, Prowlarr count, digest text, Updates age PASS; Quiet/Full press needs B. | — |
@@ -257,4 +258,4 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-221 | Re-enable home_assistant / macromates / nas_stats | Connectors | M | [x] shipped | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Retire Food/Desk/House/Car and stop scheduling the three parked connectors (code kept) · PR #232 | [spec](docs/specs/JY-221-retire-hidden-areas.md) |
 | JY-222 | Posters: TMDB + fanart.tv best-rated pick | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): B. said stay as current on 2026-10-07 | — |
 | JY-223 | Georgina's account / her Media view | Media | S | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A. B.'s hands: create her Jellyfin user, append JELLYFIN_USER_HER to the NAS .env, recreate connectors | — |
-| JY-270 | TV feature parity: bring the web features (Awards, Discover search, …) to the TV app | TV | L | building | Audit #278 (B.: "All recommended"); phase Discover search #281 + phase Awards year/categories #280 merged 2026-10-29, deploy 2026-10-30. Next: library filters (chips), title-page extras, season/episode ratings, Upcoming shelves | — |
+| JY-270 | TV feature parity: bring the web features (Awards, Discover search, …) to the TV app | TV | L | building | Audit #278 (B.: "All recommended"). Shipped phases: Discover search #281, Awards #280 + majors/year control #284, library filters #286/#287, title extras + season/episode ratings #289 (live 1aaac4c, 2026-11-02; B. on the TCL: "Yes, all fine"). Next: Upcoming shelves + streaming browse. Later gap: genre/decade/rating filters (web + TV). Nit parked: TV episode tile sub-line truncates runtime | [spec](docs/specs/JY-270-tv-parity.md) |

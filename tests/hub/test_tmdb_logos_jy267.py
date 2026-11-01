@@ -31,6 +31,7 @@ TMDB = "https://image.tmdb.org/t/p/original"
 SHOW, HERO = "c" * 32, "0001" * 8
 CSS = (Path(shell.TEMPLATES_DIR).parent / "static" / "control-surface.css").read_text(encoding="utf-8")
 TV_JS = (Path(shell.TEMPLATES_DIR).parent / "static" / "tv.js").read_text(encoding="utf-8")
+TV_CSS = (Path(shell.TEMPLATES_DIR).parent / "static" / "tv.css").read_text(encoding="utf-8")
 
 
 def logo(name, lang="en", votes=5, rating=5.0, width=500, ext="png"):
@@ -327,12 +328,15 @@ def test_web_home_hero_draws_the_logo(tmp_path, monkeypatch):
 # ---- P2: per-surface sizes (CSS), no new colours ----
 
 def test_the_css_holds_the_spec_sizes_per_surface():
-    block = CSS.split("/* JY-267", 1)[1]
+    block = CSS.split("/* JY-267", 1)[1].split("/* TV episode flow", 1)[0]
     assert "min(60%, calc(120px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px))" in block      # web
     assert "min(70%, calc(90px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px))" in block       # phone
-    assert "min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem))" in block  # TV, <= 1.5x
     assert "aspect-ratio: var(--lw) / var(--lh)" in block                      # the box is known before it loads
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", block)                # no new colours
+    assert "html.tv" not in block                                              # the TV rules live in tv.css
+    tv = TV_CSS.split("/* JY-267", 1)[1]
+    assert "min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem))" in tv     # TV, <= 1.5x
+    for css in (block, tv):
+        assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", css)              # no new colours
 
 
 # ---- P2: friend front, no network on render ----
@@ -409,4 +413,4 @@ def test_tv_js_swaps_the_logo_with_focus_and_falls_back_to_the_words():
     assert "img.setAttribute('hidden', '')" in fn and "img.removeAttribute('src')" in fn
     assert "heroLogo(box, d);" in TV_JS.split("function showHero(el) {", 1)[1].split("\n  }\n", 1)[0]
     assert "fetch(" not in fn and "XMLHttpRequest" not in fn                   # the browser's /img load only
-    assert re.search(r"html\.tv \.tv-hero-title\[hidden\], \.tv-hero-logo\[hidden\] \{ display: none; \}", CSS)
+    assert "html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }" in TV_CSS

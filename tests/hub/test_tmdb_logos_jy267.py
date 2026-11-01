@@ -176,9 +176,25 @@ def test_a_300_kb_logo_is_refused_logged_and_the_text_drawn(lgfakes, caplog):
         ms.logo_png(big)
 
 
+def test_a_404_top_logo_falls_through_to_the_next_ranked_one(lgfakes):
+    jf, tmdb, out, lists = lgfakes
+    tmdb.routes = {k: v for k, v in tmdb.routes.items() if "lg-one" not in k}   # the top pick's w500 file: 404
+    counts = mp.dry_pass(snaps(LIB), pause=0)
+    assert counts["logos"] == 3 and counts["failed"] == 0
+    assert ms.logo_info(SHOW)[1:] == (400, 200)                                  # lg-two, the second ranked
+    assert ms.read_meta(SHOW)["logo"].endswith("lg-two.png") and "logo_refused" not in ms.read_meta(SHOW)
+
+
+def test_the_fall_through_is_bounded_to_the_top_three(lgfakes):
+    jf, tmdb, out, lists = lgfakes
+    lists["Logo"] = [logo(f"miss{i}", "en", 10 - i) for i in range(3)] + [logo("lg-one", "en", 1)]
+    assert mp.dry_pass(snaps(LIB), pause=0)["logos"] == 0 and ms.logo_path(SHOW) is None   # 4th never tried
+    assert not [u for u in tmdb.calls if "/w500/lg-one" in u]
+
+
 def test_a_logo_failure_changes_nothing_and_is_retried(lgfakes):
     jf, tmdb, out, lists = lgfakes
-    tmdb.routes = {k: v for k, v in tmdb.routes.items() if "lg-one" not in k}
+    tmdb.routes = {k: v for k, v in tmdb.routes.items() if "/w500/lg-" not in k}   # every try fails upstream
     counts = mp.dry_pass(snaps(LIB), pause=0)
     assert counts["logos"] == 0 and ms.logo_path(SHOW) is None and "logo_at" not in ms.read_meta(SHOW)
     assert ms.read_meta(SHOW)["logo_fails"] == 1
@@ -349,8 +365,9 @@ def test_a_friend_gets_a_logo_only_for_a_title_they_may_see(fc, monkeypatch):  #
     assert seen.status_code == 200 and seen.headers["content-type"] == "image/png"
     hidden = "9f9f" * 8                                                        # never shown to this friend
     ms.save_logo(hidden, ver, png(), 500, 125)
-    resp = fc.get(f"/img/jfs:{hidden}/logo?v={ver}")
-    assert resp.headers["content-type"].startswith("image/svg") and resp.content != ms.logo_path(hidden).read_bytes()
+    resp = fc.get(f"/img/jfs:{hidden}/logo?v={ver}")                          # a 404 (onerror -> the words), never
+    assert resp.status_code == 404 and resp.headers["cache-control"] == "no-store"   # a 200 title card
+    assert resp.content != ms.logo_path(hidden).read_bytes()
 
 
 def test_no_network_on_a_title_page_render_with_a_stored_logo(fc, monkeypatch):  # noqa: F811

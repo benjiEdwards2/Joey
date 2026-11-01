@@ -329,27 +329,36 @@ def logos_due(side: dict | None, now: float | None = None) -> bool:
         return True
 
 
+LOGO_TRIES = 3   # review fix: a top pick whose w500 file fails (404, odd type, too big) falls through to the next
+
+
 def fetch_logo(jf_id: str) -> dict:
-    """Rank the title's TMDB logos and store the top one (w500 PNG); cleared when TMDB lists none, and refused (text
-    drawn instead) when it is over the 250 KB cap. -> {"pick": {...} or None, "stored": bool, "refused": bool}.
-    Raises on an upstream failure (nothing changed: retried next pass)."""
+    """Rank the title's TMDB logos and store the first of the top LOGO_TRIES that fetches at w500 and passes the
+    250 KB cap; cleared when TMDB lists none. When every try was refused (over the cap / not an image) the logo is
+    cleared and the text drawn (flagged in the pass log). -> {"pick": {...} or None, "stored": bool, "refused": bool}.
+    Raises when every try failed upstream (nothing changed: retried next pass)."""
     picks = rank_logos(remote_logos(jf_id))
     if not picks:
         store.clear_logo(jf_id)
         return {"pick": None, "stored": False, "refused": False}
-    pick = picks[0]
-    body = fetch_art(w500(pick["url"]))
-    if body is None:
+    refused = None
+    for pick in picks[:LOGO_TRIES]:
+        body = fetch_art(w500(pick["url"]))
+        if body is None:   # 404, a content type outside images.EXT, over the 5 MB cap: try the next
+            continue
+        try:
+            png, w, h = store.logo_png(body)
+        except ValueError:   # over 250 KB (or not an image): try the next
+            refused = refused or pick
+            continue
+        ver = hashlib.sha256(f"{pick['url']}|w500|{len(png)}".encode()).hexdigest()[:10]
+        if store.logo_version(jf_id) != ver:
+            store.save_logo(jf_id, ver, png, w, h)
+        return {"pick": pick, "stored": True, "refused": False}
+    if refused is None:
         raise RuntimeError("logo unavailable")
-    try:
-        png, w, h = store.logo_png(body)
-    except ValueError:   # over 250 KB (or not an image): the text is drawn; flagged in the pass log
-        store.clear_logo(jf_id)
-        return {"pick": pick, "stored": False, "refused": True}
-    ver = hashlib.sha256(f"{pick['url']}|w500|{len(png)}".encode()).hexdigest()[:10]
-    if store.logo_version(jf_id) != ver:
-        store.save_logo(jf_id, ver, png, w, h)
-    return {"pick": pick, "stored": True, "refused": False}
+    store.clear_logo(jf_id)
+    return {"pick": refused, "stored": False, "refused": True}
 
 
 def stored_logo(ref) -> dict | None:

@@ -304,6 +304,8 @@ async def image(request: Request, ref: str, h: str = "", t: str = "", v: str = "
     if access is None:
         from hub import shell
         return shell.not_found_page(request)
+    if not access and kind == "jfs" and ident.endswith("/logo"):   # JY-267: a 404, so the page's onerror draws text
+        return Response("Not found", status_code=404, media_type="text/plain", headers={"Cache-Control": "no-store"})
     if not access:   # the card, as for an id that does not exist; no cache keeps it, so a later read can lift it
         return Response(fallback_svg(title), media_type="image/svg+xml", headers={"Cache-Control": "private, no-store"})
 

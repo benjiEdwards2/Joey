@@ -965,7 +965,7 @@ def tv_shelves(seasons: list[dict], page_season=None, this_id=None, next_ep: dic
             pct = (max(1, min(99, round(100 * (run - left) / run))) if e.get("in_progress") and run and left is not None
                    else None)
             play = e.get("play") or {}
-            rows.append({"title": f"E{e['number']} · {e['name']}", "still": e.get("still"),
+            rows.append({"number": e["number"], "title": f"E{e['number']} · {e['name']}", "still": e.get("still"),
                          "href": play.get("href") or _item_href(e.get("jf_id")),
                          "jf_id": e["jf_id"] if play.get("href") else None,
                          "sub": " · ".join(x for x in (e.get("runtime"), f"{left}m left" if pct is not None and left else None) if x),

@@ -5,7 +5,13 @@
 {% from "_poster.html" import poster %}
 {% from "_icons.html" import icon %}
 {% from "_award_icons.html" import award_badge %}
-{% if film.collection %}
+{% if tv_mode(request) %}{# JY-270: the film series as a kit poster shelf; the page's own film says "This film" #}{% if film.collection and film.collection.rows %}
+{% import "_tv_tile.html" as tvt %}{% set c = film.collection %}
+<section class="sec tvshelf tv-extras tv-collection">
+  <h2 class="seclabel">Part of {{ c.title }}</h2>
+  <div class="carousel tvt-row">{% for r in c.rows %}{{ tvt.poster({"title": r.title, "poster": r.poster, "href": r.href, "sub": "This film" if r.current else ((r.year ~ " · " if r.year else "") ~ ("on Joey" if r.on_server else "not on Joey"))}) }}{% endfor %}</div>
+</section>{% endif %}
+{% elif film.collection %}
 {% set c = film.collection %}
 <section class="sec colsec" id="collection">
   <div class="partof partof-col{{ ' has-bd' if c.backdrop }}">

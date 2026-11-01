@@ -1,0 +1,7 @@
+{# JY-270 (TV): crew as one line per role, each name a link to the person page (a D-pad stop) #}
+{% if crew_rows %}
+<section class="sec tv-extras tv-crew">
+  <h2 class="seclabel">Crew</h2>
+  <div class="tv-crewlist">{% for c in crew_rows %}<div class="tv-crewrow"><span class="tv-crewrole">{{ c.role }}</span>{% for m in c.people %}<a class="chip" href="{{ m.href or (('/media/person/' ~ m.id) if m.id else ('/media/person/find?name=' ~ (m.name|urlencode))) }}">{{ m.name }}</a>{% endfor %}</div>{% endfor %}</div>
+</section>
+{% endif %}

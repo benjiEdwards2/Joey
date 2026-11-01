@@ -41,6 +41,7 @@ def _isolated_media_paths(tmp_path, monkeypatch):
     monkeypatch.delenv("OMDB_API_KEY", raising=False)  # media-ux4: no Metacritic lookups unless a test sets a key
     monkeypatch.setenv("MEDIA_AWARDS", "off")  # Awards: no background awards loop in tests
     monkeypatch.setenv("POSTERS_DIR", str(tmp_path / "isolated-posters"))  # JY-260: the poster store (default dry)
+    monkeypatch.setenv("POSTERS_LOGOS", "off")  # JY-267: the pass's logo step; its own tests turn it on
     monkeypatch.delenv("AWARDS_CONTACT", raising=False)  # Awards: without a contact the sync never calls out
     for key in ("ACCESS_JWT_VERIFY", "ACCESS_AUD", "ACCESS_TEAM"):  # Joey TV WP-A6a: the JWT gate is off unless a test sets it
         monkeypatch.delenv(key, raising=False)

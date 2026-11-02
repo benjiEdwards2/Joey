@@ -14,13 +14,13 @@ CREDITS = {
     "cast": [
         {"id": 603, "mediaType": "movie", "title": "Harbour Lights", "releaseDate": "2019-05-05", "posterPath": "/hl.jpg",
          "character": "Pilot", "mediaInfo": {"status": 5}},
-        {"id": 800, "mediaType": "movie", "title": "Old Film", "releaseDate": "1999-01-01", "posterPath": "/o.jpg", "character": "Sarah"},
+        {"id": 800, "mediaType": "movie", "title": "Old Film", "releaseDate": "1999-01-01", "posterPath": "/o.jpg", "character": "Sarah", "voteCount": 50},
         {"id": 801, "mediaType": "movie", "title": "Both Roles", "releaseDate": "2022-02-02", "character": "Sarah",
-         "mediaInfo": {"status": 2}},
+         "voteCount": 50, "mediaInfo": {"status": 2}},
         {"id": 100, "mediaType": "tv", "name": "Quiet Show", "firstAirDate": "2020-01-01", "character": "Narrator"},
         {"id": 900, "mediaType": "tv", "name": "Other Show", "firstAirDate": "2023-06-01", "character": "Dr Who",
          "mediaInfo": {"status": 3}},
-        {"id": 901, "mediaType": "movie", "title": "Already There", "releaseDate": "2010-01-01", "mediaInfo": {"status": 5}},
+        {"id": 901, "mediaType": "movie", "title": "Already There", "releaseDate": "2010-01-01", "voteCount": 50, "mediaInfo": {"status": 5}},
     ],
     "crew": [{"id": 801, "mediaType": "movie", "title": "Both Roles", "releaseDate": "2022-02-02", "job": "Director"}],
 }
@@ -136,3 +136,56 @@ def test_no_writing_row_without_writer_jobs(env):
     with client:
         b = main_of(client.get("/media/person/55").text)
     assert "personwriting" not in b and ">Writing</h2>" not in b
+
+
+# JY-293: tiered order - on server, released films, film series, bonus and other, then TV.
+from hub import media_person as mp  # noqa: E402
+
+
+def _m(i, title, date="2015-01-01", votes=500, **kw):
+    return {"id": i, "mediaType": "movie", "title": title, "releaseDate": date, "voteCount": votes, **kw}
+
+
+def _order(cast, lib=None):
+    return [(r["tier"], r["title"]) for r in mp._credits({"cast": cast}, lib or {})]
+
+
+def test_tiers_server_released_series_bonus_in_order():
+    cast = [_m(4, "Making Of Thing", video=True), _m(3, "Storm Rider 2", "2020-01-01"), _m(5, "Storm Rider", "2001-01-01"),
+            _m(2, "Lone Film", "2018-01-01"), _m(1, "Home Copy", "1990-01-01", votes=0)]
+    assert _order(cast, {"tmdb:1": "jf1"}) == [("server", "Home Copy"), ("films", "Lone Film"), ("series", "Storm Rider 2"),
+                                               ("series", "Storm Rider"), ("bonus", "Making Of Thing")]
+
+
+def test_bonus_rules_low_votes_no_date_future_documentary():
+    cast = [_m(1, "Few Votes", votes=9), _m(2, "No Date", date=""), _m(3, "Future", "2999-01-01"),
+            _m(4, "Small Doc", votes=40, genreIds=[99]), _m(5, "Big Doc", votes=150, genreIds=[99]),
+            _m(6, "Ten Votes", votes=10)]
+    tiers = dict((t, k) for k, t in _order(cast))
+    assert tiers == {"Few Votes": "bonus", "No Date": "bonus", "Future": "bonus", "Small Doc": "bonus",
+                     "Big Doc": "films", "Ten Votes": "films"}
+
+
+def test_tie_breaks_date_then_votes_then_title_then_id():
+    cast = [_m(4, "Beta"), _m(3, "Alpha", votes=900), _m(2, "Alpha"), _m(1, "Alpha"), _m(5, "Zed", "2016-01-01")]
+    rows = mp._credits({"cast": cast}, {})
+    assert [r["tmdb_id"] for r in rows] == [5, 3, 1, 2, 4]
+
+
+def test_tv_after_all_films_and_cap_after_ordering():
+    cast = [{"id": 9, "mediaType": "tv", "name": "Show", "firstAirDate": "2030-01-01"}] +            [_m(100 + i, f"Bonus {i}", "2025-01-01", votes=0) for i in range(mp.CREDITS_MAX)] + [_m(1, "Real Film", "1980-01-01")]
+    rows = mp._credits({"cast": cast}, {})
+    assert len(rows) == mp.CREDITS_MAX and rows[0]["title"] == "Real Film" and rows[-1]["tier"] == "bonus"
+    assert [r["tier"] for r in mp._credits({"cast": cast[:2] + cast[-1:]}, {})] == ["films", "bonus", "tv"]
+
+
+def test_page_renders_tier_sections_in_order(env):
+    client, both = env()
+    seed(both, credits={"cast": [_m(603, "Harbour Lights", "2019-05-05"), _m(2, "Lone Film", "2018-01-01"),
+                                 _m(3, "Storm Rider 2", "2020-01-01"), _m(5, "Storm Rider", "2001-01-01"),
+                                 _m(4, "Making Of Thing", video=True)]})
+    with client:
+        b = main_of(client.get("/media/person/55").text)
+    i = [b.index(w) for w in ("On server", "Harbour Lights", "Lone Film", "Film series", "Storm Rider 2", "Bonus and other",
+                              "Making Of Thing")]
+    assert i == sorted(i) and "5 titles · 1 on server" in b and b.count("Storm Rider 2") == 1

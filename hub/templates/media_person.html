@@ -62,7 +62,7 @@
   <div class="carousel">{% for r in person.writing %}{{ card(r, r.item_href or r.href, false) }}{% endfor %}</div>
 </section>
 {% endif %}
-{% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
+{% for label, rows in (("Films", person.films), ("Film series", person.series), ("Bonus and other", person.bonus), ("TV", person.shows)) %}{% if rows %}
 <section class="sec">
   <h2 class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</h2>
   <div class="poster-grid">{% for r in rows[:show_first] %}{{ card(r, r.href, true) }}{% endfor %}</div>

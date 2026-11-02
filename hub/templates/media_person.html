@@ -55,6 +55,13 @@
 <p class="empty">Nothing with {{ person.name }} is on Joey yet.</p>
 {% endif %}
 {% if not tvf %}
+{# JY-280: their writing credits (writer jobs only), where the film page's Writer chip lands #}
+{% if person.writing %}
+<section class="sec personwriting">
+  <h2 class="seclabel">Writing</h2>
+  <div class="carousel">{% for r in person.writing %}{{ card(r, r.item_href or r.href, false) }}{% endfor %}</div>
+</section>
+{% endif %}
 {% for label, rows in (("Films", person.films), ("TV", person.shows)) %}{% if rows %}
 <section class="sec">
   <h2 class="seclabel">{{ "Everything else · " if person.shelf }}{{ label }}</h2>

@@ -59,7 +59,7 @@ def test_film_hero_reads_poster_title_facts_status_row_more_makers(env, monkeypa
         whole(client, "/media/title/movie/603")                       # caches the title body: the tagline draws inline
         h = hero(main_of(whole(client, "/media/item/mov1")))
     assert order(h, "hero-detail-poster", '<h1 class="hero-detail-title">', '<p class="tagline">Come home</p>',
-                 'class="facts-line"', 'id="status-line"', ROW, MORE, '<div class="makers">')
+                 'class="facts-line"', '<div class="makerchips">', 'id="status-line"', ROW, MORE)   # JY-280: chips under the facts
 
 
 def test_show_and_episode_heroes_keep_the_same_order(env):

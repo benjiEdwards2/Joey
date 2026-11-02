@@ -65,3 +65,13 @@ The TV-show page. Recommended: movie page only now; scores (JY-281), file info (
 4. Score sites: keep all five (default) or trim?
 
 Defaults apply if unanswered. File drawer is owner-only, per "only I can access".
+
+## Test changes (2026-11-03)
+P1 (PR 296) changed existing tests where the spec changes behaviour (rule 4):
+- `tests/hub/test_media_film.py`: film "Directed by" card tests became chip tests (person link, find fallback, Jellyfin fallback, chips under the facts line); headshot + initials checks moved onto the 2:3 cast tiles; JY-269 cast tests now find the film's `casttiles` section.
+- `tests/hub/test_film_page_e4.py`: hero order now has the chips under the facts line instead of the makers after More.
+- `tests/hub/test_film_quality.py`: no body Overview on a film; the order is Cast, File, Crew.
+- `tests/hub/test_media_episodes.py`: film order is Cast, File, Where to watch (no Overview section).
+- `tests/hub/test_media_partof.py`: renamed to `test_collection_banner_leads_the_film_body_after_cast_and_scores`; exact order Cast, Scores, banner, File, More on Joey.
+- `tests/hub/test_media_follow_shows.py`: a film's director is a chip (still no Follow buttons).
+- `tests/hub/test_media_tv_crew.py`: the film page shows chips, not a Directed by row.

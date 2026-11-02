@@ -57,7 +57,7 @@
         {{ ratestrip }}
       </div>
       {% else %}
-      {{ poster(film.poster, film.title, 600, "hero-detail-poster") }}
+      {{ poster(film.poster, film.title, 600, "hero-detail-poster tl-movie" if not tvm and film.kind == "movie" and not film.episode else "hero-detail-poster") }}
       <div class="hero-detail-text">
         {% if film.episode %}
         {{ ef.eyebrow(epnav) }}
@@ -76,6 +76,7 @@
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
+        {% set filmchips = film.kind == "movie" and not tvm %}{% if filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}{% endif %}
         {%- set tlsyn = (film.episode.overview if film.episode else film.overview) if not tvm else none %}{% if tlsyn %}<div class="tl-syn"><p class="tl-syntext">{{ tlsyn }}</p><button type="button" class="tl-synmore" onclick="this.parentNode.classList.toggle('open');this.textContent=this.parentNode.classList.contains('open')?'less':'more'">more</button></div>{% endif %}
         {% if tvm %}
         {% if tvreq %}
@@ -136,7 +137,7 @@
            Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
         {% if tvm %}{{ moremenu }}{% endif %}
-        {% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
+        {% if not filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}{% endif %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
            (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
         {% if film.directors %}
@@ -253,6 +254,9 @@
 {# One rating style (media-ux4, 2026-10-08): every score is a .scorepill (`sp`, _film_scores.html) - IMDb 8.0 · RT 90% ·
    Metacritic 74 · TMDB 8.1 · Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain
    stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
+{# JY-280 (P1): a film off the TV says its overview once, in the hero, and leads the body with the cast tiles (before the Scores card) #}
+{% set filmweb = film.kind == "movie" and not film.episode and not tv_mode(request) %}
+{% if filmweb %}{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% endif %}
 {% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
 {% if (any_score or n.runtime or film.official) and not tv_mode(request) %}
 <div class="stats numbers">
@@ -306,7 +310,7 @@
 </section>
 {% endif %}
 <div class="filmbody">
-{% if film.overview %}
+{% if film.overview and not filmweb %}
 <section class="sec">
   <h2 class="seclabel">Overview</h2>
   <p class="overview">{{ film.overview }}</p>
@@ -431,7 +435,7 @@
 </section>
 {% endif %}
 
-{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% if tv_mode(request) %}{% include "_tv_title_extras.html" %}{% endif %}
+{% if not filmweb %}{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% endif %}{% if tv_mode(request) %}{% include "_tv_title_extras.html" %}{% endif %}
 {% if not tv_mode(request) %}{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}{% endif %}
 
 {# Episode page (2026-10-16): where this episode sits in its season (the page's bar gold), then Previous / Next. #}

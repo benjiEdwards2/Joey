@@ -95,6 +95,15 @@ def _credits(body, lib: dict[str, str]) -> list[dict]:
     return rows
 
 
+WRITER_JOBS = ("Screenplay", "Writer", "Story", "Novel")   # JY-280: the film page's Writer chip roles (media_film.CREW_ROLES)
+
+
+def _writing(body, lib: dict[str, str]) -> list[dict]:
+    """JY-280: the writer jobs alone from combined_credits, so the Writer chip lands on their writing work."""
+    crew = (body or {}).get("crew") if isinstance(body, dict) else None
+    return _credits({"crew": [c for c in crew or [] if isinstance(c, dict) and c.get("job") in WRITER_JOBS]}, lib)
+
+
 def build_person(tmdb_id: int, snaps=None) -> dict:
     snaps = shell.get_snapshots() if snaps is None else snaps
     jsrc = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps)
@@ -115,6 +124,7 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
             "ref": md._ref(person.get("profilePath")), "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
             "shelf": shelf, "films": [r for r in rest if r["kind"] == "movie"], "shows": [r for r in rest if r["kind"] == "tv"],
+            "writing": _writing(credits, lib),
             "tv_maker": media_follow.tv_maker(credits),   # F5: Follow covers their new shows too
             "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}
 

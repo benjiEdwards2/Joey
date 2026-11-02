@@ -751,6 +751,19 @@ def _makers(raw: dict, people: list[dict], kind: str) -> list[dict]:
     return list(out.values())[:MAKERS_MAX]
 
 
+def _chips(raw: dict, people: list[dict]) -> list[dict]:
+    """JY-280: a film's Director and Writer chips - TMDB's crew (with person ids) per role, else Jellyfin's People for
+    that role (a name search link, no id)."""
+    tmdb = {r["role"]: r["people"] for r in crew_for(raw, "movie")}
+    out = []
+    for role in ("Director", "Writer"):
+        found = tmdb.get(role) or [{"name": str(p["name"])[:80], "id": None}
+                                   for p in people or [] if p.get("type") == role and p.get("name")][:CREW_NAMES]
+        out += [{"role": role, "name": m["name"],
+                 "href": f"/media/person/{m['id']}" if m["id"] else person_find_href(m["name"])} for m in found]
+    return out
+
+
 def _providers(raw: dict, title: str) -> list[dict]:
     entry = next((p for p in raw.get("watchProviders") or [] if isinstance(p, dict) and p.get("iso_3166_1") == REGION), None)
     out = []
@@ -1007,6 +1020,8 @@ def _sections(f: dict, names, c: dict, ex: dict) -> None:
     if "makers" in names:   # a show's "Created by" is TMDB's alone: its placeholder stays empty, not Jellyfin directors
         f["makers"] = [] if kind == "tv" and "makers" in c["pending"] else _makers(raw, c["people"], kind or "movie")
         f["makers_label"] = "Created by" if kind == "tv" else "Directed by"   # media-ux4: headshot cards in the hero
+        if kind == "movie":   # JY-280: a film's hero carries Director + Writer chips (one link each) in place of the cards
+            f["chips"] = _chips(raw, c["crew_people"])
     if "actions" in names:
         f["show_request"] = bool(t and t["code"] != 5 and not (kind == "movie" and c["on_server"]))
         if c.get("late") and not c["jf_trailer"]:   # a part request: the TMDB trailer the page could not draw yet

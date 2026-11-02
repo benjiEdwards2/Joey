@@ -488,23 +488,29 @@ def cards(h):
     return label, [(href, src or None, initials or None, name) for href, _, src, initials, name in found]
 
 
-def test_film_hero_has_a_directed_by_card_with_headshot_and_person_link(env):
+def chips(h):
+    """JY-280: the film hero's Director / Writer chips as (role, name, href)."""
+    return [(role, name, href) for href, role, name in re.findall(
+        r'<a class="chip makerchip" href="([^"]+)"><span class="makerchip-role">([^<]+)</span>([^<]+)</a>', h)]
+
+
+def test_film_hero_has_director_and_writer_chips_linking_to_person_pages(env):
+    # JY-280 (P1, AC 3): the film's "Directed by" cards became one chip per Director / Writer, each one person link
     client, both = env()
     both.seerr.table["/api/v1/movie/603"] = {**FILM, "credits": {**FILM["credits"], "crew": [
-        {"id": 77, "name": "Guy Ritchie", "job": "Director", "profilePath": "/guy.jpg"}]}}
+        {"id": 77, "name": "Guy Ritchie", "job": "Director", "profilePath": "/guy.jpg"},
+        {"id": 78, "name": "Wren Writer", "job": "Screenplay"}, {"id": 79, "name": "Cy Camera", "job": "Director of Photography"}]}}
     with client:
         h = hero(main_of(whole(client, "/media/title/movie/603")))
-    label, found = cards(h)
-    assert label == "Directed by"
-    assert found == [("/media/person/77", f"/img/tmdb:/guy.jpg?h={media_film.MAKER_H}", None, "Guy Ritchie")]
-    assert 'width="52" height="52"' in h and "Director</span>" not in h and "<span>Director</span>" not in h
+    assert chips(h) == [("Director", "Guy Ritchie", "/media/person/77"), ("Writer", "Wren Writer", "/media/person/78")]
+    assert '<div class="makers">' not in h and "makercard" not in h
 
 
-def test_no_tmdb_id_or_photo_falls_back_to_find_and_initials(env):
-    client, _ = env()                                   # FILM's director has neither id nor profilePath
+def test_no_tmdb_id_falls_back_to_the_person_find_link(env):
+    client, _ = env()                                   # FILM's director has no id
     with client:
-        _, found = cards(hero(main_of(client.get("/media/title/movie/603").text)))
-    assert found == [("/media/person/find?name=Dee%20Director", None, "DD", "Dee Director")]
+        found = chips(hero(main_of(client.get("/media/title/movie/603").text)))
+    assert ("Director", "Dee Director", "/media/person/find?name=Dee%20Director") in found
 
 
 def test_series_says_created_by_with_up_to_four_cards(env):
@@ -519,26 +525,80 @@ def test_series_says_created_by_with_up_to_four_cards(env):
     assert found[1] == ("/media/person/11", None, "MB", "Maker B Person")       # initials of the first two words
 
 
-def test_jellyfin_director_without_jellyseerr_still_gets_a_card(env, monkeypatch):
+def test_jellyfin_director_without_jellyseerr_still_gets_a_chip(env, monkeypatch):
     from tests.hub import helpers as tmi
     monkeypatch.setitem(tmi.ITEMS["mov1"], "People", [
         {"Name": "Ada Actor", "Type": "Actor", "Role": "Pilot"},
-        {"Name": "Dee Director", "Type": "Director", "Id": "p77", "PrimaryImageTag": "t"}])
+        {"Name": "Dee Director", "Type": "Director", "Id": "p77", "PrimaryImageTag": "t"},
+        {"Name": "Wes Words", "Type": "Writer"}])
     client, both = env()
     both.fail_seerr = True
     with client:
-        label, found = cards(hero(main_of(client.get("/media/item/mov1").text)))
-    assert label == "Directed by"
-    assert found == [("/media/person/find?name=Dee%20Director", f"/img/jf:p77?h={media_film.MAKER_H}", None, "Dee Director")]
+        found = chips(hero(main_of(client.get("/media/item/mov1").text)))
+    assert found == [("Director", "Dee Director", "/media/person/find?name=Dee%20Director"),
+                     ("Writer", "Wes Words", "/media/person/find?name=Wes%20Words")]
 
 
-def test_cards_sit_after_the_status_and_the_action_row(env):
-    # E4 (U5, 2026-10-13, B.): facts, status line, ONE action row, then the makers; the site pills left the hero
+def test_chips_sit_under_the_facts_line_before_the_status_and_the_action_row(env):
+    # JY-280 (AC 3): chips under the facts line (E4's order otherwise kept)
     client, _ = env()
     with client:
         h = hero(main_of(client.get("/media/title/movie/603").text))
-    assert h.index('class="facts-line"') < h.index('id="status-line"') < h.index('class="hero-detail-btns"') < h.index('<div class="makers">')
+    assert h.index('class="facts-line"') < h.index('<div class="makerchips">') < h.index('id="status-line"') < h.index('class="hero-detail-btns"')
     assert "sitepill" not in h
+
+
+def test_film_hero_is_taller_with_a_bigger_poster_and_one_overview(env):
+    # JY-280 (AC 1, 2): the film poster carries tl-movie (300 / 230 / 170 px), the hero is taller; the overview is said once
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/title/movie/603"))
+    h = hero(b)
+    assert re.search(r'class="[^"]*hero-detail-poster tl-movie', h) and 'class="tl-syn"' in h
+    assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("A ferry pilot returns home.") == 1
+    for rule in (r"\.pagehead\.hero-detail:has\(\.tl-movie\) \{ min-height: min\(78vh, 900px\)",
+                 r"\.hero-detail-poster\.tl-movie \{ width: 300px", r"\.hero-detail-poster\.tl-movie \{ width: 230px",
+                 r"\.hero-detail-poster\.tl-movie \{ width: 170px"):
+        assert re.search(rule, CSS_ux4_makers), rule
+
+
+def test_show_hero_keeps_its_cards_and_poster_size(env):
+    client, _ = env()
+    with client:
+        h = hero(main_of(whole(client, "/media/title/tv/100")))
+    assert "tl-movie" not in h and "makerchips" not in h and '<div class="makers">' in h
+
+
+def test_film_cast_tile_without_a_photo_shows_initials(env):
+    # JY-280: restores the old cards' initials fallback on the 2:3 tiles (FILM's "Bo Bit" has no profilePath, no id)
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/title/movie/603"))
+    tile = b.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
+    assert '<div class="castcard"><span class="castpic initials" aria-hidden="true">BB</span>' in tile and ">Bo Bit<" in tile
+
+
+def test_tv_mode_film_cast_has_no_casttiles():
+    from pathlib import Path
+    tpl = (Path(media_film.__file__).resolve().parent / "templates" / "_film_cast.html").read_text(encoding="utf-8")
+    assert "' casttiles' if film.kind == 'movie' and not tv_mode(request)" in tpl
+
+
+def test_film_cast_tiles_are_2_3_boxier_and_lead_the_body(env):
+    # JY-280 (AC 5): 2:3 tiles, 4 px radius, each a person link, in the body before the stats card
+    client, both = env()
+    both.seerr.table["/api/v1/movie/603"] = {**FILM, "credits": {**FILM["credits"], "cast": [
+        {"id": 55, "name": "Ada Actor", "character": "Pilot", "profilePath": "/ada.jpg"}]}}
+    with client:
+        b = main_of(whole(client, "/media/title/movie/603"))
+    body = b.split("</header>", 1)[1]
+    assert '<a class="castcard" href="/media/person/55"><img class="castpic" src="/img/tmdb:/ada.jpg?h=' in body
+    assert body.index('<h2 class="seclabel">Cast</h2>') < body.index('class="stats numbers')
+    assert '<section class="sec castsec casttiles">' in body
+    tile = body.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
+    assert f'<img class="castpic" src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in tile and 'width="180" height="270"' in tile
+    assert re.search(r"\.castsec\.casttiles \.castpic \{[^}]*aspect-ratio: 2 / 3; border-radius: 4px;", CSS_ux4_makers)
+
 
 
 def test_maker_headshot_size_is_a_proxy_size():
@@ -561,9 +621,9 @@ def test_cast_is_circles_and_more_on_joey_is_posters_on_the_web(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/movie/603"))
-    cast = b.split('<section class="sec castsec">', 1)[1].split("</section>", 1)[0]
+    cast = b.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
     assert '<div class="castrow">' in cast and "as Pilot" in cast
-    assert b.index('class="sec castsec"') < b.index('<h2 class="seclabel">More on Joey</h2>')
+    assert b.index('class="sec castsec') < b.index('<h2 class="seclabel">More on Joey</h2>')
     more = b.split('<h2 class="seclabel">More on Joey</h2>', 1)[1].split("</section>", 1)[0]
     assert more.index(">On server<") < more.index(">Not on server<") and 'class="card-poster"' in more
     hrefs = [h for h in more.split('href="')[1:]]
@@ -584,6 +644,6 @@ def test_web_cast_circle_links_to_the_person_page_when_the_cast_has_ids(env, mon
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/movie/603"))
-    sec = b.split('<section class="sec castsec">', 1)[1].split("</section>", 1)[0]
+    sec = b.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
     assert '<a class="castcard" href="/media/person/1001">' in sec and "Ada Actor" in sec
     assert '<div class="castcard">' in sec and "Bo Bit" in sec

@@ -227,7 +227,8 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     assert "<dt>Subtitles</dt><dd>English · Text (SRT)</dd>" in panel
     assert '<p class="filename">Harbour.Lights.2019.2160p.WEB-DL.DDP5.1.HEVC-FLUX.mkv</p>' in panel
     assert "secret-share" not in b and "/volume1" not in b                 # never the folders
-    assert b.index(">Overview</h2>") < b.index(">File</h2>") < b.index(">Crew</h2>") < b.index(">Cast</h2>")
+    # JY-280: a film says its overview once (the hero) and leads the body with the cast tiles
+    assert ">Overview</h2>" not in b and b.index(">Cast</h2>") < b.index(">File</h2>") < b.index(">Crew</h2>")
 
 
 def test_rank_hidden_under_twenty_films(env, monkeypatch, rankdir):
@@ -264,7 +265,7 @@ def test_not_on_server_film_has_no_file_section_but_keeps_details(env):
     with client:
         b = main_of(client.get("/media/title/movie/701").text)
     assert '<h2 class="seclabel">File</h2>' not in b and '<h2 class="seclabel">Crew</h2>' not in b
-    assert '<h2 class="seclabel">Overview</h2>' in b and "Nothing yet." in b
+    assert '<h2 class="seclabel">Overview</h2>' not in b and "Nothing yet." in b   # JY-280: the hero's one overview
 
 
 def test_stats_card_and_portrait_cast(env):

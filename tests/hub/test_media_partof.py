@@ -131,13 +131,15 @@ def test_episode_banner_links_carry_the_episodes_own_season(env, two_seasons, mo
 
 # ---- film series banner ----
 
-def test_collection_sits_directly_under_overview(env):
+def test_collection_banner_leads_the_film_body_after_cast_and_scores(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/item/mov1"))
-    # JY-280: a film's overview is the hero's one now, so the banner leads the body sections after the cast
-    ov, col = b.index('<h2 class="seclabel">Cast</h2>'), b.index('id="collection"')
-    assert ov < col < b.index('<h2 class="seclabel">File</h2>') < b.index('<h2 class="seclabel">More on Joey</h2>')
+    # JY-280 P1: a film's one overview is in the hero; the body reads Cast, the Scores card, the series banner, File
+    marks = ['<h2 class="seclabel">Cast</h2>', '<div class="stats numbers">', 'id="collection"',
+             '<h2 class="seclabel">File</h2>', '<h2 class="seclabel">More on Joey</h2>']
+    at = [b.index(m) for m in marks]
+    assert at == sorted(at) and '<h2 class="seclabel">Overview</h2>' not in b
     assert '<h2 class="seclabel">Harbour Collection</h2>' not in b                 # no longer a bottom shelf
     # Re-pointed 2026-10-30 (JY-269 P3): Similar + Recommended are one "More on Joey" row on the web
     assert '<h2 class="seclabel">Recommended</h2>' not in b

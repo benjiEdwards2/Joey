@@ -1658,7 +1658,6 @@ html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ra
 @media (max-width: 639px) {
   html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: 0; }
   html:not(.tv) .pagehead.hero-detail:has(.tl-movie) .hero-detail-bd { height: 320px; }
-  html:not(.tv) .tl-hero:has(.tl-movie) { margin-top: 96px; }
   html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 170px; }
   html:not(.tv) .makerchip { height: 44px; }
 }

@@ -569,6 +569,21 @@ def test_show_hero_keeps_its_cards_and_poster_size(env):
     assert "tl-movie" not in h and "makerchips" not in h and '<div class="makers">' in h
 
 
+def test_film_cast_tile_without_a_photo_shows_initials(env):
+    # JY-280: restores the old cards' initials fallback on the 2:3 tiles (FILM's "Bo Bit" has no profilePath, no id)
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/title/movie/603"))
+    tile = b.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
+    assert '<div class="castcard"><span class="castpic initials" aria-hidden="true">BB</span>' in tile and ">Bo Bit<" in tile
+
+
+def test_tv_mode_film_cast_has_no_casttiles():
+    from pathlib import Path
+    tpl = (Path(media_film.__file__).resolve().parent / "templates" / "_film_cast.html").read_text(encoding="utf-8")
+    assert "' casttiles' if film.kind == 'movie' and not tv_mode(request)" in tpl
+
+
 def test_film_cast_tiles_are_2_3_boxier_and_lead_the_body(env):
     # JY-280 (AC 5): 2:3 tiles, 4 px radius, each a person link, in the body before the stats card
     client, both = env()
@@ -580,6 +595,8 @@ def test_film_cast_tiles_are_2_3_boxier_and_lead_the_body(env):
     assert '<a class="castcard" href="/media/person/55"><img class="castpic" src="/img/tmdb:/ada.jpg?h=' in body
     assert body.index('<h2 class="seclabel">Cast</h2>') < body.index('class="stats numbers')
     assert '<section class="sec castsec casttiles">' in body
+    tile = body.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
+    assert f'<img class="castpic" src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in tile and 'width="180" height="270"' in tile
     assert re.search(r"\.castsec\.casttiles \.castpic \{[^}]*aspect-ratio: 2 / 3; border-radius: 4px;", CSS_ux4_makers)
 
 

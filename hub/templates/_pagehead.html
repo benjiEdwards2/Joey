@@ -4,8 +4,22 @@
    Called with {% call %}, the caller's markup (section tabs) sits at the top of the band. `drift` (Phase 3, Media
    home) lets the backdrop drift slowly (guide 7, .hero-drift; off under reduced motion). E3 (U4, 2026-10-13): no eyebrow
    when it says the same as the title; a page that draws its own H1 (the person page) passes title=none and gets the band
-   with its tabs only. Without a backdrop the CSS makes it a plain 24 px page title with no minimum height. #}
-{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false) -%}
+   with its tabs only. Without a backdrop the CSS makes it a plain 24 px page title with no minimum height.
+   JY-267: `logo` (an /img ref of the title, e.g. the hero's backdrop) draws its stored TMDB logo in place of the title
+   text (title_h1 below). #}
+{# JY-267 (2026-10-29, B.'s picks 1A 2A 3A 4A): a hero title as an <h1>. When the title of `ref` has a stored TMDB logo
+   (title_logo: local reads only) the logo replaces the words: the <h1> stays, the image's alt is the title, and the
+   words (`text`, default the title) stay in the markup, hidden, for the onerror path - a failed load keeps the logo's
+   box height (no jump) and shows the words. --lw / --lh are the logo's own size: the CSS sizes the box before it loads
+   and never draws it past 1.5x. No logo: exactly the old <h1>. #}
+{% macro title_h1(title, ref=none, cls="", text=none) -%}
+{%- set lg = title_logo(ref) if ref else none -%}
+<h1{% if cls or lg %} class="{{ cls }}{{ ' ' if cls and lg }}{{ 'has-logo' if lg }}"{% endif %}>
+{%- if lg -%}<img class="title-logo" src="{{ lg.src }}" alt="{{ title }}" width="{{ lg.w }}" height="{{ lg.h }}" style="--lw: {{ lg.w }}; --lh: {{ lg.h }}" decoding="async" onerror="var h=this.parentNode;h.style.minHeight=this.offsetHeight+'px';h.classList.add('logo-failed');this.remove()"><span class="title-logo-text">{{ text if text is not none else title }}</span>
+{%- else -%}{{ text if text is not none else title }}{%- endif -%}
+</h1>
+{%- endmacro %}
+{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false, logo=none) -%}
 <header class="pagehead">
   {% if backdrop %}{% set bv = img_v(backdrop) %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not backdrop.startswith('jfb:') and not backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
@@ -14,7 +28,7 @@
     <div class="pagehead-foot">
       <div class="pagehead-text">
         {% if eyebrow and eyebrow != title %}<span class="eyebrow">{{ eyebrow }}</span>{% endif %}
-        {% if title %}<h1>{{ title }}</h1>{% endif %}
+        {% if title %}{{ title_h1(title, logo) }}{% endif %}
         {% if sub %}<p class="pagehead-sub">{{ sub }}</p>{% endif %}
       </div>
       {% if actions %}

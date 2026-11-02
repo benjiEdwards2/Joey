@@ -47,6 +47,7 @@ DEFAULT_TEMPLATE_DIR = "/data/posters/template"
 AUTO_MIN_RATING = 0.0   # phase 2: every poster (B. 2026-10-28); the 6.0 rule of phase 1 is superseded
 SEASONS_TTL_S = 24 * 3600   # a series' season list is re-read at most daily
 BACKDROPS_TTL_S = 30 * 24 * 3600   # JY-262 follow-up: a title's ranked backdrops are re-read at most monthly
+LOGOS_TTL_S = 30 * 24 * 3600       # JY-267: a title's TMDB logo is re-read at most monthly, like the backdrops
 MIN_AVAILABLE_MB = 1300   # a pass is skipped below this (the NAS floor is 1,200 MB; renders cost ~13 MB each)
 MEMORY_STALE_MIN = 15
 FAILS_BEFORE_BACKOFF = 3   # an item failing this many times in a row (render or write) ...
@@ -263,6 +264,125 @@ def fetch_backdrops(jf_id: str) -> dict:
     for n in store.BACKDROP_SLOTS[len(picks):]:
         store.clear_backdrop(jf_id, n)
     return {"picks": picks, "stored": len(picks)}
+
+
+# ---- JY-267 (2026-10-29): the title logo (B.'s picks 1A 2A 3A 4A) ----
+
+def logos_on() -> bool:
+    """POSTERS_LOGOS (default on): fetch and store each film's and series' TMDB logo in the poster pass."""
+    return os.environ.get("POSTERS_LOGOS", "").strip().lower() not in ("off", "0", "no")
+
+
+def logo_lang() -> str:
+    """The viewers' language for the logo pick (POSTERS_LOGO_LANG, a 2-letter code; default en). Joey has no per-viewer
+    language, so the pass picks one logo for everybody: this language, then English, then any other."""
+    lang = os.environ.get("POSTERS_LOGO_LANG", "").strip().lower()
+    return lang if len(lang) == 2 and lang.isalpha() else "en"
+
+
+def remote_logos(jf_id: str) -> list:
+    """The item's TMDB logo list through Jellyfin (GET only), the same request form as the backdrops (no new key)."""
+    creds = media_jellyfin.creds()
+    if creds is None:
+        raise RuntimeError("Jellyfin not configured")
+    body = media_jellyfin.get(*creds, f"/Items/{jf_id}/RemoteImages",
+                              {"type": "Logo", "providerName": "TheMovieDb", "includeAllLanguages": "true"})
+    return (body or {}).get("Images") or [] if isinstance(body, dict) else []
+
+
+def rank_logos(remote, lang: str | None = None) -> list[dict]:
+    """Every usable TMDB logo, best first (Q3A): the viewers' language, then English, then any other (no language
+    included); within a pool more votes, then CommunityRating, then width. Art only from image.tmdb.org; SVG skipped
+    (not drawn the same on the TV); a URL once. -> [{url, lang, votes, rating, width, height}]."""
+    want = (lang or logo_lang()).lower()
+    rows, seen = [], set()
+    for im in remote if isinstance(remote, list) else []:
+        if not isinstance(im, dict):
+            continue
+        url = im.get("Url")
+        if (not isinstance(url, str) or not url.startswith(TMDB_ART) or url.lower().endswith(".svg")
+                or url in seen):
+            continue
+        seen.add(url)
+        rating = im.get("CommunityRating")
+        rating = float(rating) if isinstance(rating, (int, float)) and not isinstance(rating, bool) else 0.0
+        votes = im.get("VoteCount") if isinstance(im.get("VoteCount"), int) else 0
+        width = im.get("Width") if isinstance(im.get("Width"), int) else 0
+        height = im.get("Height") if isinstance(im.get("Height"), int) else 0
+        code = (im.get("Language") or "").strip().lower() if isinstance(im.get("Language"), str) else ""
+        rows.append({"url": url, "lang": code or None, "votes": votes, "rating": rating, "width": width,
+                     "height": height})
+    rows.sort(key=lambda r: (0 if r["lang"] == want else 1 if r["lang"] == "en" else 2,
+                             -r["votes"], -r["rating"], -r["width"]))
+    return rows
+
+
+def w500(url: str) -> str:
+    """TMDB's 500-wide size of a logo URL (never `original`)."""
+    return url.replace("/t/p/original/", "/t/p/w500/", 1)
+
+
+def logos_due(side: dict | None, now: float | None = None) -> bool:
+    try:
+        return (now or time.time()) - float((side or {}).get("logo_at") or 0) >= LOGOS_TTL_S
+    except (TypeError, ValueError):
+        return True
+
+
+LOGO_TRIES = 3   # review fix: a top pick whose w500 file fails (404, odd type, too big) falls through to the next
+
+
+def fetch_logo(jf_id: str) -> dict:
+    """Rank the title's TMDB logos and store the first of the top LOGO_TRIES that fetches at w500 and passes the
+    250 KB cap; cleared when TMDB lists none. When every try was refused (over the cap / not an image) the logo is
+    cleared and the text drawn (flagged in the pass log). -> {"pick": {...} or None, "stored": bool, "refused": bool}.
+    Raises when every try failed upstream (nothing changed: retried next pass)."""
+    picks = rank_logos(remote_logos(jf_id))
+    if not picks:
+        store.clear_logo(jf_id)
+        return {"pick": None, "stored": False, "refused": False}
+    refused = None
+    for pick in picks[:LOGO_TRIES]:
+        body = fetch_art(w500(pick["url"]))
+        if body is None:   # 404, a content type outside images.EXT, over the 5 MB cap: try the next
+            continue
+        try:
+            png, w, h = store.logo_png(body)
+        except ValueError:   # over 250 KB (or not an image): try the next
+            refused = refused or pick
+            continue
+        ver = hashlib.sha256(f"{pick['url']}|w500|{len(png)}".encode()).hexdigest()[:10]
+        if store.logo_version(jf_id) != ver:
+            store.save_logo(jf_id, ver, png, w, h)
+        return {"pick": pick, "stored": True, "refused": False}
+    if refused is None:
+        raise RuntimeError("logo unavailable")
+    store.clear_logo(jf_id)
+    return {"pick": refused, "stored": False, "refused": True}
+
+
+def stored_logo(ref) -> dict | None:
+    """What a page draws in place of a hero title: {"src": "/img/jfs:<id>/logo?v=<ver>", "w", "h"} when the title of
+    `ref` (a `jf:` / `jfb:` / `jfs:` ref, or a bare Jellyfin id) has a published logo, else None (also POSTERS=off or
+    POSTERS_LOGOS=off). A season or episode page passes its show's backdrop, so it gets the show's logo. One small local
+    read and a stat; no network."""
+    if disabled() or not logos_on() or not isinstance(ref, str):
+        return None
+    text = ref
+    for prefix in ("jfs:", "jfb:", "jf:"):
+        if text.startswith(prefix):
+            text = text[len(prefix):].split("/", 1)[0]
+            break
+    if not media_item.ITEM_RE.match(text):
+        return None
+    info = store.logo_info(text)
+    if info is None or not images.V_RE.match(info[0]) or store.logo_path(text) is None:
+        return None
+    return {"src": f"/img/jfs:{text}/logo?v={info[0]}", "w": info[1], "h": info[2]}
+
+
+def served_logo(jf_id: str) -> Path | None:
+    return None if disabled() or not logos_on() else store.logo_path(jf_id)
 
 
 def pick_season(remote) -> dict | None:
@@ -564,6 +684,9 @@ def url_version(ref) -> str:
         return ""
     if ref.startswith("jfs:"):
         jf_id, _, n = ref[4:].partition("/")
+        if n == "logo":   # JY-267
+            ver = (store.logo_version(jf_id) if logos_on() and media_item.ITEM_RE.match(jf_id) else None) or ""
+            return ver if images.V_RE.match(ver) else ""
         ver = (store.backdrop_version(jf_id, int(n)) if n in ("1", "2") and media_item.ITEM_RE.match(jf_id)
                else None) or ""
         return ver if images.V_RE.match(ver) else ""
@@ -628,7 +751,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     if m == "off":
         return {"off": True}
     counts = {"titles": 0, "rendered": 0, "cached": 0, "no_source": 0, "failed": 0, "truncated": 0, "backoff": 0,
-              "backdrops": 0, "more": False}
+              "backdrops": 0, "logos": 0, "more": False}
     if not memory_ok(snaps):
         counts["skipped_memory"] = True
         return counts
@@ -652,7 +775,8 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
     started = time.time()
 
     def full():
-        return counts["rendered"] + counts["no_source"] + counts["failed"] + counts["backdrops"] >= limit
+        return (counts["rendered"] + counts["no_source"] + counts["failed"] + counts["backdrops"]
+                + counts["logos"] >= limit)
 
     def bd(t: dict, side: dict | None) -> None:
         """JY-262 follow-up: a film's or series' two top-ranked TMDB backdrops into the store, at most monthly."""
@@ -682,6 +806,38 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             except (OSError, ValueError):
                 pass
 
+    def lg(t: dict, side: dict | None) -> None:
+        """JY-267: a film's or series' top-ranked TMDB logo into the store, at most monthly (seasons use the show's)."""
+        if not logos_on() or not side or not side.get("jf_id") or full() or not logos_due(side):
+            return
+        if in_backoff_until(side.get("logo_retry_at")):   # 3 failures in a row: passed over for 24 h
+            counts["backoff"] += 1
+            return
+        try:
+            got = fetch_logo(t["jf_id"])
+            meta = store.read_meta(t["jf_id"]) or side
+            meta = {k: v for k, v in meta.items() if k not in ("logo_fails", "logo_retry_at", "logo_refused")}
+            meta = {**meta, "logo": (got["pick"] or {}).get("url") if got["stored"] else None, "logo_at": time.time()}
+            if got["refused"]:
+                meta["logo_refused"] = True
+                log.warning("posters: a logo over %s KB was refused (the title text is drawn)",
+                            store.LOGO_MAX_BYTES // 1024)
+            store.write_meta(t["jf_id"], meta)
+            counts["logos"] += 1
+            if pause:
+                time.sleep(pause)
+        except Exception as exc:   # nothing changed: retried next pass; the 3rd failure in a row backs off 24 h
+            counts["failed"] += 1
+            log.warning("posters: logo failed: %s", type(exc).__name__)
+            meta = store.read_meta(t["jf_id"]) or side
+            fails = int(meta.get("logo_fails") or 0) + 1
+            retry = (_stamp(datetime.now(timezone.utc) + timedelta(seconds=BACKOFF_S))
+                     if fails >= FAILS_BEFORE_BACKOFF else None)
+            try:
+                store.write_meta(t["jf_id"], {**meta, "logo_fails": fails, "logo_retry_at": retry})
+            except (OSError, ValueError):
+                pass
+
     def one(t: dict, sub: str, extra: dict, fallback_url: str | None = None, given: dict | None = None) -> dict | None:
         """Render one item unless its version is already stored (`given`: the season art plan's pick, whose URL is
         part of the version, so a season's picture change re-renders it). -> its sidecar (None on failure)."""
@@ -706,7 +862,8 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             auto = auto_approves(chosen)
             old = store.read_meta(t["jf_id"]) or {}   # the ranked backdrops outlive a poster re-render
             side = {**{k: old[k] for k in ("backdrops", "backdrops_at", "season_art", "season_art_fails",
-                                           "season_art_retry_at") if k in old},
+                                           "season_art_retry_at", "logo", "logo_at", "logo_refused", "logo_fails",
+                                           "logo_retry_at") if k in old},
                     **t, **extra, "sub": sub, "template": tpl.version, "text": text, "ver": ver,
                     "rendered_at": _now(), "pick": chosen, "auto": auto}
             size = None
@@ -751,7 +908,9 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             counts["more"] = True
             break
         if t["kind"] != "tv":
-            bd(t, one(t, render.sub_line(t["kind"], year=t["year"]), {}))
+            side = one(t, render.sub_line(t["kind"], year=t["year"]), {})
+            bd(t, side)
+            lg(t, store.read_meta(t["jf_id"]) if side else None)
             continue
         side = store.read_meta(t["jf_id"]) or {}
         if in_backoff(known.get(t["jf_id"])) and not side.get("seasons"):
@@ -781,6 +940,7 @@ def dry_pass(snaps: dict, pause: float = PAUSE_S, limit: int | None = None) -> d
             series = {**series, "seasons": seasons, "seasons_at": stamp}
             store.write_meta(t["jf_id"], series)
         bd(t, series)
+        lg(t, store.read_meta(t["jf_id"]) if series else None)
         url = ((series or {}).get("pick") or {}).get("url")
         prior = (series or {}).get("season_art") if isinstance((series or {}).get("season_art"), dict) else {}
         art_plan = prior

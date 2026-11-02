@@ -443,6 +443,27 @@
     if (pre.complete && pre.naturalWidth) bdCommit(gen, d);
   }
 
+  /* JY-267: the focused title's stored TMDB logo in place of the hero title words (alt = the title); none: the words.
+     A failed load puts the words back (the img's own onerror in _tv_tile.html). */
+  function heroLogo(box, d) {
+    var img = box.querySelector('.tv-hero-logo'), t = box.querySelector('.tv-hero-title');
+    if (!img || !t) return;
+    var lg = d.logo;
+    if (lg && lg.src) {
+      img.setAttribute('src', lg.src);
+      img.setAttribute('alt', d.title || '');
+      img.setAttribute('width', lg.w);
+      img.setAttribute('height', lg.h);
+      img.setAttribute('style', '--lw: ' + lg.w + '; --lh: ' + lg.h);
+      img.removeAttribute('hidden');
+      t.setAttribute('hidden', '');
+    } else {
+      img.setAttribute('hidden', '');
+      img.removeAttribute('src');
+      img.setAttribute('alt', '');
+    }
+  }
+
   function showHero(el) {
     var box = heroBox(), d = heroOf(el);
     if (!box || !d) return;
@@ -451,6 +472,7 @@
     box._shown = key;
     heroText(box, '.tv-hero-eyebrow', sec ? sec.getAttribute('data-hero-eyebrow') : '');
     heroText(box, '.tv-hero-title', d.title);
+    heroLogo(box, d);
     heroText(box, '.tv-hero-facts', d.facts);
     heroText(box, '.tv-hero-syn', d.syn);
     heroBackdrop(d);

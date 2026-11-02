@@ -52,8 +52,10 @@ _UPSTREAM = {"jf": "jellyfin", "jfb": "jellyfin", "radarr": "arr", "sonarr": "ar
 # draws the second TMDB backdrop. Only jfb takes an index.
 # JY-262 follow-up (2026-10-28): `jfs:<id>/<1|2>` is the title's stored top-ranked TMDB backdrop 1 or 2 (the local
 # poster store), served only with its published `&v=`; otherwise it falls back to Jellyfin backdrop 0 or 1.
+# JY-267 (2026-10-29): `jfs:<id>/logo` is the title's stored TMDB logo (PNG), served only with its published `&v=`;
+# otherwise a 404 (no Jellyfin fallback), so the page's onerror draws the title text.
 REF_RE = re.compile(r"^(?:(jf|radarr|sonarr):([A-Za-z0-9-]+)|(jfb):([A-Za-z0-9-]+(?:/[1-9])?)"
-                    r"|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png))|(jfs):([A-Za-z0-9-]+/[12]))$")
+                    r"|(tmdb):(/[A-Za-z0-9_-]+\.(?:jpg|png))|(jfs):([A-Za-z0-9-]+/(?:[12]|logo)))$")
 
 
 def _kind_ident(match) -> tuple[str, str]:
@@ -272,7 +274,7 @@ def _stored(kind: str, ident: str, size: int, v: str) -> Path | None:
     try:
         if kind == "jfs":   # a stored backdrop: one 1280-wide file whatever the height asked
             jf_id, _, n = ident.partition("/")
-            path = media_posters.served_backdrop(jf_id, int(n))
+            path = media_posters.served_logo(jf_id) if n == "logo" else media_posters.served_backdrop(jf_id, int(n))
             return path if path is not None and path.name.startswith(v + ".") else None
         path = media_posters.served(ident, size)
         return path if path is not None and path.name.startswith(v + ".") else None
@@ -302,14 +304,20 @@ async def image(request: Request, ref: str, h: str = "", t: str = "", v: str = "
     if access is None:
         from hub import shell
         return shell.not_found_page(request)
+    if not access and kind == "jfs" and ident.endswith("/logo"):   # JY-267: a 404, so the page's onerror draws text
+        return Response("Not found", status_code=404, media_type="text/plain", headers={"Cache-Control": "no-store"})
     if not access:   # the card, as for an id that does not exist; no cache keeps it, so a later read can lift it
         return Response(fallback_svg(title), media_type="image/svg+xml", headers={"Cache-Control": "private, no-store"})
 
     stored = _stored(kind, ident, size, v)   # JY-260 phase 2: the Joey poster from the local store
+    logo = kind == "jfs" and ident.endswith("/logo")
     if stored is not None:
         body = await anyio.to_thread.run_sync(_read, stored)
         if body is not None:
-            return Response(body, media_type="image/jpeg", headers={"Cache-Control": HIT_CACHE})
+            return Response(body, media_type="image/png" if logo else "image/jpeg",
+                            headers={"Cache-Control": HIT_CACHE})
+    if logo:   # JY-267: no stored logo at this `v` - never a network call; the page draws the title text
+        return Response("Not found", status_code=404, media_type="text/plain", headers={"Cache-Control": "no-store"})
     # a `v` that is not (or no longer) published - a page built just before a revert or re-render - gets today's
     # image with the short cache, so that versioned URL never pins the wrong image for 30 days
     cache = FALLBACK_CACHE if v and kind in ("jf", "jfs") else HIT_CACHE

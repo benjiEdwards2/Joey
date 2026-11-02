@@ -180,13 +180,25 @@ def _facts(row: dict, kind: str, item: dict, land: bool) -> str:
     return " · ".join(p for p in parts if p)
 
 
+def logo(item: dict, row: dict) -> dict | None:
+    """JY-267: the title's stored TMDB logo ({"src", "w", "h"}), drawn in place of the hero title; None draws the words.
+    Keyed on the library row's id (a film or a show; an episode tile's row is its show). Local reads only."""
+    from hub import media_posters   # lazy: the poster modules load Pillow
+    return media_posters.stored_logo(row.get("jf_id") or _id(item.get("poster")))
+
+
 def tile_hero(item: dict, jelly: dict, index: dict, land: bool = False) -> dict:
-    """Phase 2: what the hero shows while this tile has focus: {"bd": URL or None, "blur", "title", "facts", "syn"}."""
+    """Phase 2: what the hero shows while this tile has focus: {"bd": URL or None, "blur", "title", "facts", "syn"},
+    plus "logo" (JY-267) when the title has a stored one."""
     row, kind = _library_row(item, jelly, index) or ({}, "movie")
     bd = backdrop(item, jelly, index)
     title = item.get("title") or ""
-    return {"bd": img_url(bd["ref"], title, bd["h"]) if bd else None, "blur": bool(bd and bd["blur"]),
-            "title": title, "facts": _facts(row, kind, item, land), "syn": _synopsis(row, kind, item)}
+    out = {"bd": img_url(bd["ref"], title, bd["h"]) if bd else None, "blur": bool(bd and bd["blur"]),
+           "title": title, "facts": _facts(row, kind, item, land), "syn": _synopsis(row, kind, item)}
+    lg = logo(item, row)
+    if lg:
+        out["logo"] = lg
+    return out
 
 
 def build(shelves: list[dict], resume, watched, added, jelly: dict) -> dict:
@@ -213,5 +225,5 @@ def build(shelves: list[dict], resume, watched, added, jelly: dict) -> dict:
     if first:
         th = tile_hero(first, jelly, index, land=bool(cont))
         hero = {"eyebrow": eyebrow, "title": first.get("title"), "sub": th["facts"], "syn": th["syn"],
-                "backdrop": backdrop(first, jelly, index)}
+                "backdrop": backdrop(first, jelly, index), "logo": th.get("logo")}
     return {"hero": hero, "rows": rows}

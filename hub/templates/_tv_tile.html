@@ -82,5 +82,7 @@
    one-line synopsis from the focused tile's data-hero), so the facts and synopsis lines are always drawn (hidden when
    empty). #}
 {% macro hero(h) -%}
-{% if h %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title">{{ h.title }}</p><p class="tv-hero-facts"{% if not h.sub %} hidden{% endif %}>{{ h.sub or "" }}</p><p class="tv-hero-syn"{% if not h.syn %} hidden{% endif %}>{{ h.syn or "" }}</p></div>{% endif %}
+{# JY-267: the title's stored TMDB logo stands in for the title words (alt = the title; the words come back if it fails
+   to load). The img is always drawn, hidden without a logo, so tv.js can swap a later tile's logo into it. #}
+{% if h %}{% set lg = h.logo %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title"{% if lg %} hidden{% endif %}>{{ h.title }}</p><img class="tv-hero-logo"{% if lg %} src="{{ lg.src }}" alt="{{ h.title }}" width="{{ lg.w }}" height="{{ lg.h }}" style="--lw: {{ lg.w }}; --lh: {{ lg.h }}"{% else %} alt="" hidden{% endif %} decoding="async" onerror="this.setAttribute('hidden','');this.removeAttribute('src');var t=this.previousElementSibling;if(t)t.removeAttribute('hidden')"><p class="tv-hero-facts"{% if not h.sub %} hidden{% endif %}>{{ h.sub or "" }}</p><p class="tv-hero-syn"{% if not h.syn %} hidden{% endif %}>{{ h.syn or "" }}</p></div>{% endif %}
 {%- endmacro %}

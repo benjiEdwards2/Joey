@@ -180,6 +180,8 @@ ENV_OUT = {
     "POSTERS_DIR": "the poster loop is off in the preview",
     "REMOVE_API": "JY-265 Remove stays off in the preview unless a spec's accept step turns it on (it writes Seerr / arr)",
     "POSTERS_BACKDROPS": "the poster loop (and its backdrop step) is off in the preview",
+    "POSTERS_LOGOS": "the poster loop (and its logo step) is off in the preview",
+    "POSTERS_LOGO_LANG": "the poster loop (and its logo step) is off in the preview",
     "LIBRARY_INDEX": "forced off in compose: a preview never re-attaches media.db rows (JY-264)",
     "LIBRARY_PATH_PREFIXES": "the library index loop is off in the preview",
 }

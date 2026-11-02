@@ -1323,6 +1323,18 @@ a.awfilm-title:hover { color: var(--text-2); }
 .awperson-pic > img { width: 100%; height: auto; aspect-ratio: 1; border-radius: 50%; object-fit: cover; object-position: center 20%; }
 .awperson-name { font-size: 12px; font-weight: 600; color: var(--text-2); overflow-wrap: anywhere; }
 .awperson-cat { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-5); }
+/* JY-267 (2026-10-29): the title's TMDB logo (a transparent PNG) in place of the hero title words on the web and phone
+   Home hero and title page (the TV rules live in tv.css). --lw / --lh are the logo's own size, so the box is known before
+   it loads (no jump) and it is never drawn past 1.5x. Spec sizes: web 60% / 120px, phone 70% / 90px. A failed load shows
+   the words in the same box (_pagehead.html title_h1). Kept above the episode-flow block, which stays the tail. */
+.has-logo { align-self: stretch; }
+.title-logo { display: block; max-width: 100%; height: auto; aspect-ratio: var(--lw) / var(--lh);
+  width: min(60%, calc(120px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px)); }
+.has-logo .title-logo-text { display: none; }
+.has-logo.logo-failed .title-logo-text { display: inline; }
+@media (max-width: 639px) {
+  html:not(.tv) .title-logo { width: min(70%, calc(90px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px)); }
+}
 /* TV episode flow (2026-10-16) */
 /* The show page's "Seasons compared" + rating strip, the season page's head switch + strip + rated rows, and the episode
    page's crumbs / eyebrow / guests / crew / mini strip / previous-next. Tokens only. Gold = the picked season or episode,

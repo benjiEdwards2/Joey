@@ -648,3 +648,9 @@ html.tv .tv-crewrole { flex: none; width: 7rem; font-size: 1.125rem; color: var(
 html.tv .tv-crewlist .chip { display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r);
   border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-seasonchips .chip .tv-chipavg { font-weight: 400; }
+/* JY-267 (2026-10-29): the title's TMDB logo in place of the hero title words - the TV Home hero (.tv-hero-logo, swapped
+   with focus by tv.js) and the title page (.title-logo, _pagehead.html title_h1). Spec: max 40% of the screen wide, 160 px
+   tall at 1920 (5rem), never past 1.5x (1.5 / 32 rem per logo pixel at 1920). A failed load shows the words. */
+html.tv .title-logo, html.tv .tv-hero-logo { display: block; max-width: 100%; height: auto; aspect-ratio: var(--lw) / var(--lh);
+  width: min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem)); }
+html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }

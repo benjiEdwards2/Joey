@@ -261,6 +261,88 @@ def backdrop_path(jf_id: str, n) -> Path | None:
     return path if path.is_file() else None
 
 
+# ---- JY-267 (2026-10-29): the title's TMDB logo (transparent PNG) ----
+#     <jf_id>/<lver>.logo.png   (TMDB w500, the PNG as fetched: its alpha kept)
+#     <jf_id>/logo              (the published version and the logo's own size: "<lver> <w> <h>"; absent = none stored)
+
+LOGO_MAX_BYTES = 250 * 1024   # over this the logo is refused and the page draws the title text
+LOGO_MAX_PIXELS = 4_000_000   # a decode guard (w500 logos are 500 x ~50-400)
+
+
+def logo_png(body: bytes) -> tuple[bytes, int, int]:
+    """A fetched logo as (PNG bytes, width, height): a PNG is kept byte for byte (its alpha intact), anything else
+    Pillow reads is converted to an RGBA PNG. Raises ValueError when it is over LOGO_MAX_BYTES or not an image."""
+    if len(body) > LOGO_MAX_BYTES:
+        raise ValueError("logo too large")
+    with Image.open(io.BytesIO(body)) as im:
+        if im.width * im.height > LOGO_MAX_PIXELS or not im.width or not im.height:
+            raise ValueError("logo too large")
+        w, h = im.size
+        if im.format == "PNG":
+            im.verify()
+            return body, w, h
+        buf = io.BytesIO()
+        im.convert("RGBA").save(buf, "PNG", optimize=True)
+    out = buf.getvalue()
+    if len(out) > LOGO_MAX_BYTES:
+        raise ValueError("logo too large")
+    return out, w, h
+
+
+def save_logo(jf_id: str, ver: str, png: bytes, w: int, h: int) -> int:
+    """Store the logo as version `ver` and publish it; older logo files go. -> bytes written."""
+    folder = _folder(jf_id)
+    if folder is None or not ver.isalnum() or not (isinstance(w, int) and isinstance(h, int) and w > 0 and h > 0):
+        raise ValueError("bad item id, version or size")
+    write_atomic(folder / f"{ver}.logo.png", png)
+    write_atomic(folder / "logo", f"{ver} {w} {h}".encode("ascii"))
+    for old in folder.glob("*.logo.png"):
+        if not old.name.startswith(f"{ver}."):
+            with contextlib.suppress(OSError):
+                old.unlink()
+    return len(png)
+
+
+def clear_logo(jf_id: str) -> None:
+    """No logo any more (TMDB lists none, or the one listed was refused): unpublish it and drop its files."""
+    folder = _folder(jf_id)
+    if folder is None:
+        return
+    with contextlib.suppress(FileNotFoundError):
+        (folder / "logo").unlink()
+    for old in folder.glob("*.logo.png"):
+        with contextlib.suppress(OSError):
+            old.unlink()
+
+
+def logo_info(jf_id: str) -> tuple[str, int, int] | None:
+    """(version, width, height) of the published logo, or None. One small local read."""
+    folder = _folder(jf_id)
+    if folder is None:
+        return None
+    try:
+        parts = (folder / "logo").read_text(encoding="ascii").split()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if len(parts) != 3 or not parts[0].isalnum() or not parts[1].isdigit() or not parts[2].isdigit():
+        return None
+    w, h = int(parts[1]), int(parts[2])
+    return (parts[0], w, h) if 0 < w <= 10000 and 0 < h <= 10000 else None
+
+
+def logo_version(jf_id: str) -> str | None:
+    info = logo_info(jf_id)
+    return info[0] if info else None
+
+
+def logo_path(jf_id: str) -> Path | None:
+    ver = logo_version(jf_id)
+    if ver is None:
+        return None
+    path = out_dir() / jf_id / f"{ver}.logo.png"
+    return path if path.is_file() else None
+
+
 def disk_use(jf_id: str) -> int:
     folder = _folder(jf_id)
     try:

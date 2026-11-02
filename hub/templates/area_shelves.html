@@ -19,7 +19,7 @@
 {% else %}{% set sub = sh.kind_word %}{% endif %}
 {% set open = (h.href if h and h.href else sh.open_href) %}
 {% call pagehead(h.title if h else area.name, sub=sub, eyebrow=(sh.kind_word if h else area.name),
-                 backdrop=(h.backdrop if h else none), drift=true,
+                 backdrop=(h.backdrop if h else none), drift=true, logo=(h.backdrop if h else none),
                  actions=([{"href": open, "label": "Open in Jellyfin", "new_tab": true}] if open else none)) %}{{ media_tabs() }}{% endcall %}
 {% endif %}
 {% endblock %}

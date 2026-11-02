@@ -235,7 +235,7 @@ def test_pages_render_in_the_shell_with_sample_snapshots(sample_client, route):
         r = c.get(route)
     assert r.status_code == 200
     html = r.text
-    for cls in ('class="topbar"', 'class="tabbar"', 'class="pagehead"'):
+    for cls in ('class="topbar"', 'class="tabbar"', '<header class="pagehead'):   # JY-277: Home's is "pagehead home-hero"
         assert html.count(cls) == 1, cls
     assert 'class="rail"' not in html
 

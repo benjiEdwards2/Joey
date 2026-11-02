@@ -201,7 +201,7 @@ def test_media_pages_in_shell_carry_five_labels_and_no_return_link(env, route):
     sections = nav_html(body, "sectabs sectabs-page")                 # in-content, under the page heading
     labels = [x.strip() for x in re.findall(r'<a href="[^"]*"[^>]*>([^<]*)', sections)]
     assert labels == list(LABELS.values())
-    assert body.index('<header class="pagehead">') < body.index('<nav class="sectabs sectabs-page"') < body.index("<h1>")
+    assert body.index('<header class="pagehead') < body.index('<nav class="sectabs sectabs-page"') < body.index("<h1>")
     assert "Return to Joey" not in html and "mediabar" not in html
     bar = re.search(r'<header class="topbar">.*?</header>', html, re.S).group(0)
     assert 'aria-label="Sections"' not in bar and ">Alpha<" not in bar   # nav-tidy (2026-10-13): the bar carries the Media row, not the Joey pills

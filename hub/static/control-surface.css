@@ -1661,3 +1661,14 @@ html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ra
   html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 170px; }
   html:not(.tv) .makerchip { height: 44px; }
 }
+
+/* JY-277 option A + JY-305 (2026-11-03): the web Home hero takes about two thirds of the screen (min(Nvh, Mpx), capped on
+   very large screens) and its shelves are poster-tile shelves that bleed off the right edge. Phone and TV unchanged. */
+@media (min-width: 640px) {
+  html:not(.tv) .pagehead.home-hero { min-height: min(58vh, 600px); }
+  html:not(.tv) .home-shelf .carousel { margin-right: calc(50% - 50vw); padding-right: 16px; }
+  html:not(.tv) .home-shelf .carousel > * { flex-basis: clamp(144px, 11vw, 210px); width: clamp(144px, 11vw, 210px); }
+}
+@media (min-width: 1025px) {
+  html:not(.tv) .pagehead.home-hero { min-height: min(67vh, 960px); }
+}

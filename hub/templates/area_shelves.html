@@ -20,7 +20,8 @@
 {% set open = (h.href if h and h.href else sh.open_href) %}
 {% call pagehead(h.title if h else area.name, sub=sub, eyebrow=(sh.kind_word if h else area.name),
                  backdrop=(h.backdrop if h else none), drift=true, logo=(h.backdrop if h else none),
-                 actions=([{"href": open, "label": "Open in Jellyfin", "new_tab": true}] if open else none)) %}{{ media_tabs() }}{% endcall %}
+                 actions=([{"href": open, "label": "Open in Jellyfin", "new_tab": true}] if open else none),
+                 cls="home-hero") %}{{ media_tabs() }}{% endcall %}
 {% endif %}
 {% endblock %}
 {% block content %}
@@ -70,9 +71,11 @@
 {% for s in sh.tv.rows %}{{ tvt.row(s, loop.index <= 2) }}
 {% endfor %}
 {% else %}
+{# JY-277 option A (2026-11-03): every Home shelf is the poster-tile shelf (.home-shelf: wider 2:3 tiles that run off the
+   right edge on iPad and desktop); one tile per show (JY-278, media_home.build_shelves). #}
 {% for s in sh.shelves %}
 {# JY-105: a shelf marked tv_later (Because you rated ...) is a normal row on the TV but never takes first focus (tv.js) #}
-<section class="sec"{% if s.tv_later %} data-tv-later{% endif %}>
+<section class="sec home-shelf"{% if s.tv_later %} data-tv-later{% endif %}>
   <div class="sechead">
     <h2 class="seclabel">{{ s.title }}{% if s["items"] and s["items"] | length < shelf_max %}<span class="sep"> · </span>{{ s["items"] | length }}{% endif %}</h2>
     {% if s.see_all_href %}<a href="{{ s.see_all_href }}">All</a>{% endif %}

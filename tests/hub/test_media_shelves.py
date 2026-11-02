@@ -110,7 +110,7 @@ def test_route_renders_hero_and_trimmed_shelves(env):
         html = main_html(client.get("/a/alpha").text)
     # Restyle Phase 3: "Playing now" is the page header (eyebrow, title, drifting backdrop); shelves are sections.
     assert 'class="pagehead-bd hero-drift"' in html and ">Playing now<" in html and "<h1>Playing Now Title</h1>" in html
-    assert html.count('<section class="sec">') == 3   # continue, added, downloading (media-ux2)
+    assert html.count('<section class="sec home-shelf">') == 3   # continue, added, downloading (media-ux2)
     assert 'href="/media/library">All' in html
     assert "Due Show" not in html and "Fetching Film" in html
     assert "Media apps" not in html and "Requests</h3>" not in html and "By year</h3>" not in html

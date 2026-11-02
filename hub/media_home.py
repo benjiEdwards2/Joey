@@ -300,10 +300,10 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     added, seen = [], set()
     for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
                             + [(r, r.get("when", ""), False) for r in arrived]):
-        key = r.get("item_key") or r.get("title")
-        if key in seen:
+        keys = {r.get("item_key") or r.get("title"), show_name(r.get("title"))} - {None, ""}
+        if keys & seen:   # JY-278: one tile per show - a Sonarr season row never repeats the Jellyfin show tile
             continue
-        seen.add(key)
+        seen |= keys
         kind = {"row_kind": r.get("type") if from_jf else r.get("kind")}   # JY-114: which rows are shows
         added.append(jf_item(r, sub, LIBRARY_DETAIL, **kind) if from_jf else item(r, sub, LIBRARY_DETAIL, **kind))
     added = added[:SHELF_MAX]
@@ -345,6 +345,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     if most:  # F7: not behind a registry tile, so it skips add()'s detail gate
         shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
                         "items": most, "quiet_text": ""})
+    library_posters(jelly, shelves)   # JY-277 A: every shelf tile on the Jellyfin (custom) poster when it has one
     season_keys = shelf_season_state(jelly, view, shelves)   # JY-114: before LEVEL_KEYS are dropped
     for sh in shelves:
         for it in sh["items"]:
@@ -358,6 +359,25 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
         "open_href": link,
         "freshness": jelly_row["st"] if jelly_row else None,
     }
+
+
+def show_name(title) -> str:
+    """JY-278: the show part of a shelf row title, folded for matching - "Billions · S07 · 3 episodes" -> "billions"."""
+    return str(title or "").split(" · ", 1)[0].strip().casefold()
+
+
+def library_posters(jelly: dict, shelves) -> None:
+    """JY-277 option A (2026-11-03): a shelf tile whose poster is not a Jellyfin one (a Sonarr / Radarr arrival, a
+    download, a most-played row without art) takes its library title's Jellyfin poster - the JY-260 custom poster - when
+    the title is in the (server-wide) library. Snapshot only, no call; rows already on a Jellyfin poster are left alone."""
+    by_name = {}
+    for r in (jelly.get("shows") or []) + (jelly.get("movies") or []):
+        if isinstance(r, dict) and str(r.get("poster") or "").startswith("jf:"):
+            by_name.setdefault(show_name(r.get("title")), r["poster"])
+    for sh in shelves:
+        for it in sh["items"]:
+            if not str(it.get("poster") or "").startswith("jf:"):
+                it["poster"] = by_name.get(show_name(it.get("title"))) or it.get("poster")
 
 
 SHOW_KINDS = {"episode", "season", "series"}   # Jellyfin `type` / arr `kind` words of a show row (lower case)

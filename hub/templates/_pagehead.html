@@ -19,8 +19,8 @@
 {%- else -%}{{ text if text is not none else title }}{%- endif -%}
 </h1>
 {%- endmacro %}
-{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false, logo=none) -%}
-<header class="pagehead">
+{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false, logo=none, cls="") -%}
+<header class="pagehead{{ ' ' ~ cls if cls }}">
   {% if backdrop %}{% set bv = img_v(backdrop) %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not backdrop.startswith('jfb:') and not backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {% if caller %}{{ caller() }}{% endif %}

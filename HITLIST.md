@@ -87,10 +87,10 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-102 | Service page H1 = service name | Media | S | [x] shipped | Discover service page says "Discover" · PR #82 | [spec](docs/specs/JY-102-service-page-h1.md) |
 | JY-103 | Georgina's scores in the "both" view | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): the both view is unreachable live | — |
 | JY-104 | Episode runtimes from Jellyfin item data | Media | S | [x] shipped | Today from recorded plays only · PR #86 | [spec](docs/specs/JY-104-episode-runtimes.md) |
-| JY-105 | "Because you rated X 9" shelf | Media | M | [x] shipped | B. 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus" (options page JY-105-options.html) · PR #239 | [spec](docs/specs/JY-105-because-shelf.md) |
+| JY-105 | "Because you rated X 9" shelf | Media | M | [x] shipped | B. 2026-10-27: "JY-105: look B; ratings 9-10; 5 sources; refresh daily; friends: their own ratings; TV: row, never first focus" (options page JY-105-options.html) · PR #239 · B. 2026-11-02: "the because you rated this or recently added shows shows or movies without the poster adn font changes (see JY-277)" | [spec](docs/specs/JY-105-because-shelf.md) |
 | JY-106 | Read-only "leaving soon" list | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): shipped as Free space /server/space | — |
 | JY-107 | Favourites synced to Jellyfin | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": leave (C): ratings and watchlist do this job | — |
-| JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |
+| JY-108 | Upgrades: loosen the profile-minimum hint | Media | S | [x] shipped | Hint may not show when only some releases fail · PR #128 · B. 2026-11-02: "I don't need to know if it doesn't meet the cut off. (see JY-275)" | [spec](docs/specs/JY-108-upgrades-hint-loosen.md) |
 | JY-109 | Per-episode Why? on Upgrades | Media | S | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): never needed | — |
 | JY-110 | Requests page 4K badge lags | Media | S | [x] shipped | Shows lag 10 min; films fill on second view · PR #106 | [spec](docs/specs/JY-110-requests-4k-badge.md) |
 | JY-111 | Old arr profile id shows no Quality line | Media | S | [x] shipped | One-off re-save or a fallback (decision) · PR #224 | [spec](docs/specs/JY-111-quality-unknown-profile.md) |
@@ -152,7 +152,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
-| JY-170 | NAS 24/7 (remove power schedule) | Joey TV | S | idea | B. keeps power-off for now; friends cannot watch after 22:00 | — |
+| JY-170 | NAS 24/7 (remove power schedule) | Joey TV | S | idea | B. keeps power-off for now; friends cannot watch after 22:00 · B. 2026-11-02: "a button sitting at the top of the page that llows me to power down the NAS (see JY-274)" | — |
 | JY-171 | 4K bitrate-cap read | Joey TV | S | idea | W7 step 1: 20 Mbps cap really transcodes | — |
 | JY-172 | Georgina's Access token audit, half 2 | Joey TV | S | idea | Needs her to open Joey once; 0 FAIL | — |
 | JY-173 | Transcoded stream during a deploy | Joey TV | S | idea | W7 step 2: stream survives swag recreate | — |
@@ -192,16 +192,16 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-257 | Player-token script: Quick Connect sign-in writes JELLYFIN_PLAYER_TOKEN_YOU/_HER to the NAS .env | Media | M | [x] shipped | B. 2026-10-27: "2a" (JY-054 Q1 A, a separate small item). PR #236; private-front player only, media front uses the session token | [spec](docs/specs/JY-257-player-tokens.md) |
 | JY-258 | Hub half of the JY-057 TV shell player (flag off), split from PR #219 so the TV checks can run before the 1.0.3 release | Media | M | [x] shipped | Split unchanged from #219 (reviewed 2× Sonnet + Opus verifier) · PR #238 | [spec](docs/specs/JY-258-hub-player-front.md) |
 | JY-259 | TV revamp: tile kit, follow-focus hero, backdrops, calmer spacing, main-only page swaps (direction A, 4 phases) | Joey TV | L | [x] shipped | Phases 1-4 shipped: p3 #267 (8ab76bc), p4 TV player overlay #271 (TV release 1.0.4, B.: "Park the TV pairing stuff... update and check it myself"), header band fix #277 (B. 2026-10-29: "Yes, ship it"). Follow-ups in spec §9: up-next tile picture, Geist bundling | [spec](docs/specs/JY-259-tv-revamp.md) |
-| JY-260 | Automated custom posters: TMDB poster + our template (title on the centre line; seasons and years below, later), saved to Jellyfin for new, existing and requested titles | Media | L | [x] shipped | Phases 1-2 + Jellyfin userId hotfix (#258), bigger Geist Black titles (#260), no-repeat season images (#264): all live 2026-10-28; 134 posters written to Jellyfin, POSTERS=on (B.: "Run all of them as per expected.") | [spec](docs/specs/JY-260-posters.md) |
+| JY-260 | Automated custom posters: TMDB poster + our template (title on the centre line; seasons and years below, later), saved to Jellyfin for new, existing and requested titles | Media | L | [x] shipped | Phases 1-2 + Jellyfin userId hotfix (#258), bigger Geist Black titles (#260), no-repeat season images (#264): all live 2026-10-28; 134 posters written to Jellyfin, POSTERS=on (B.: "Run all of them as per expected.") · B. 2026-11-02: "ensure that they all have their correct posters and font for all things listed in both this and the tv shows, even activity, etc." | [spec](docs/specs/JY-260-posters.md) |
 | JY-261 | Replace Jellyfin entirely (study) | Media | L | parked | Study done 2026-10-28 (keep Jellyfin as the hidden engine). B. 2026-10-28: "I would push the jellyfin replacement including the media player until the joey media hub was running flawlessly on tv with friends set up" | — |
-| JY-262 | TMDB backdrops: backdrop 1 on the Home hero and carousel, backdrop 2 on the title page | Joey TV | M | [x] shipped | Backdrops + ranked top-2 TMDB backdrops (#261: home #1, title page #2; B.: "I love the ranked backdrops.") live 2026-10-28 | [spec](docs/specs/JY-262-tmdb-backdrops.md) |
+| JY-262 | TMDB backdrops: backdrop 1 on the Home hero and carousel, backdrop 2 on the title page | Joey TV | M | [x] shipped | Backdrops + ranked top-2 TMDB backdrops (#261: home #1, title page #2; B.: "I love the ranked backdrops.") live 2026-10-28 · B. 2026-11-02: "Can you ensur ethe background is a different photo from teh poster in the TMDB images?" | [spec](docs/specs/JY-262-tmdb-backdrops.md) |
 | JY-263 | Image access check: /img serves a title's poster/backdrop only to viewers who can see that title | Media | S | [x] shipped | Merged #263 2026-10-28 (B.: "1 sounds good."); friends' /img limited to titles they can browse | — |
 | JY-264 | Engine seam: one Jellyfin adapter + a library_index (Jellyfin id -> path, TMDB, TVDB) so ratings and diary survive a library rebuild | Media | M | [x] shipped | Phases 1-4 shipped (#265, p4 adapter move #276 + seam ratchet; #279 moved media_remove_whole onto the adapter). Phases 5-6 (run page + Undo) spec ready, A answers (B. 2026-10-29: "I like A for both options." applied to the batch) | — |
-| JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | building | Phase 1 #262, phase 2 whole-title remove #275 merged 2026-10-29 (REMOVE_API off; hands item before flag on: live capture of Seerr DELETE, Jellyfin Media/Updated, arr queue/mediamanagement shapes). Phases 3-4 (seasons/episodes, TV) to go | — |
+| JY-265 | Remove on title pages: remove the request or the content (whole title, seasons, episodes) with a confirm | Media | L | building | Phase 1 #262, phase 2 whole-title remove #275 merged 2026-10-29 (REMOVE_API off; hands item before flag on: live capture of Seerr DELETE, Jellyfin Media/Updated, arr queue/mediamanagement shapes). Phases 3-4 (seasons/episodes, TV) to go · B. 2026-11-02: "Remove feature needs to be completed." | — |
 | JY-266 | Collections page: franchise grid (posters, film count, year range, A-Z) like B.'s friend's site | Media | M | spec | B. 2026-10-28: "File collection page as an idea." Reference screenshots shared in chat 2026-10-28 | — |
-| JY-267 | TMDB title logos instead of plain text on the carousel / title page | Media | M | ready | B. 2026-10-28: "Yes please, I would be keen to run that next." (logos idea) | — |
+| JY-267 | TMDB title logos instead of plain text on the carousel / title page | Media | M | [x] shipped | PR #291 merged 2026-11-02 (5d17cf2), picks 1A-4A; review PASS; B. 2026-11-02: "Accepted". Phone logo left-aligned (spec corrected). Follow-up JY-272 | [spec](docs/specs/JY-267-tmdb-logos.md) |
 | JY-268 | Remove the gold glow on 10/10 titles (web + phone) | Media | S | [x] shipped | PR #269 merged 2026-10-28 (d7de672), live with the 2026-10-30 batch | — |
-| JY-269 | Web + phone title pages take the TV show/season layout (backdrop hero, episodes first, seasons as chips, cast circles) | Media | M | [x] shipped | Direction A (B. 2026-10-29). P1 hero #283, P2 episode tiles #285, P3 cast circles + More on Joey #288; live 1045a84 (2026-11-02). Nit parked: web episode status line clips without ellipsis | [spec](docs/specs/JY-269-web-title-layout.md) |
+| JY-269 | Web + phone title pages take the TV show/season layout (backdrop hero, episodes first, seasons as chips, cast circles) | Media | M | [x] shipped | Direction A (B. 2026-10-29). P1 hero #283, P2 episode tiles #285, P3 cast circles + More on Joey #288; live 1045a84 (2026-11-02). Nit parked: web episode status line clips without ellipsis · B. 2026-11-02: "When clicking into a show. I would like to see the full show.; Bring the cast to the top adn give them proper sections again.; keep the episode adn season selection as you have them currently as I like that. (follow-ups: all seasons on show, season fills episodes/scores/cast, remove the this/all seasons pill; check vs live, Q2)" | [spec](docs/specs/JY-269-web-title-layout.md) |
 
 ### NAS / stack
 
@@ -227,6 +227,7 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-210 | WP38 soak test + a real runbook | Housekeeping | M | [x] shipped | Docs name a runbook that does not exist · PR #187 | [spec](docs/specs/JY-210-soak-runbook.md) |
 | JY-211 | 7 old Seerr requests still unsent | Housekeeping | S | parked | B. 2026-11-02: "Park both" (JY-051 + JY-211). Earlier: A. read-only check of the 7; B. re-requests only the missing ones via Joey | — |
 | JY-271 | Merges without a pasted line: settings allow rule for `gh pr merge`, or `joey.py close-out` runs the merge on B.'s quoted accept; docs-only sweeps commit straight to main | Tooling | S | idea | B. 2026-11-02: merge lines were the worst part of the session (classifier blocks Claude: "Merge Without Review"); rule 11 exception already allows docs-only commits to main (B. 2026-10-29: "Yes, allow it") | — |
+| JY-272 | /img: friend-access check for stored backdrops `jfs:<id>/1` and `/2` (img_access.allowed checks only jf and jfb) | Media | S | idea | Found by the JY-267 review 2026-11-02: JY-262 gap, JY-267 added the check for `/logo` only | — |
 | JY-212 | Phone checks only B. can do | Housekeeping | S | idea | Back scroll, swipe-back, iOS keyboard, ballot, Follow, Update now, manifest colour | — |
 | JY-213 | Live checks: Media rounds | Housekeeping | S | idea | 2026-10-26 read-only: grid, WAR, Caught up, logos PASS; 4K request submit + Why? on Brothers need B. | — |
 | JY-214 | Live checks: Server rounds | Housekeeping | S | idea | 2026-10-26 read-only: Free space, Prowlarr count, digest text, Updates age PASS; Quiet/Full press needs B. | — |
@@ -250,6 +251,84 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-246 | Server page: "Prowlarr N failed grabs" says "this week" | Server | S | [x] shipped | JY-143 now counts 7 days; spec question 1, not blocking · PR #185 | [spec](docs/specs/JY-246-prowlarr-this-week.md) |
 | JY-247 | Friend summary: household earliest play date (and runtimes) leftovers | Media | S | [x] shipped | JY-190 verifier nit, 2026-10-25 · PR #156 | [spec](docs/specs/JY-247-friend-summary-leftovers.md) |
 
+### Backlog 2026-11-02 (B.'s review)
+
+**General**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-306 | Web + TV preview on fixed ports (3001/3002 web builds, 3003 TV build) so builds are checked before each live deploy | NAS/deploy | M | idea | B. 2026-11-02: "boot or spin up a local port that allows me to previw JOEY running these changes in a separate port? E.g. 3001 or 3002 for a system. With 3003 reserved for the TV build". Replaces an extension of JY-012 (shipped). Options page: no. Platforms: desktop, phone, TV | — |
+| JY-273 | Uptime Kuma finishes and launches the build on first run after an update | NAS/deploy | S | idea | B. 2026-11-02: "Upon first run, if a version or build is updated. Can Uptime Kuma please complete and launch the build." Unclear (Q3). Options page: no. Platforms: desktop, phone, TV | — |
+| JY-274 | Server page: "Power down NAS" button at the top | Server | M | idea | B. 2026-11-02: "I would like a button sitting at the top of the page that llows me to power down the NAS. Is this possible? Is there a way to have it run its own code to turn off the system?" Live risk; see Risky section. Options page: yes (button place + confirm). Platforms: desktop, phone, TV | — |
+| JY-275 | Upgrades: show only a viable upgrade (blue flag + Upgrade button), hide below-cutoff | Media | M | idea | B. 2026-11-02: "Blue below cutoff upgrade font and text is annoying."; "I only want it to show with w button to upgrade if there is an upgrade available."; "If there is one. Flag it blue and provide an upgrade button. If there is not, then there is no need to have it there." Same ask under General and Activity. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-276 | Home carousel with New / Continue watching / Not yet watched pills | Media | L | idea | B. 2026-11-02: "Complete the carousel idea similar to movies where I can select eithe rof the three pills with a carousel to show me as well."; "provide the new, contniue watching, or not yet watched as a full carousel that fills the top half." Same ask under General and Suggestions. Options page: yes. Platforms: desktop, phone, TV | — |
+
+**Overview page**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-277 | Overview: all shelves on the new poster style, or restructure the full page | Media | L | idea | B. 2026-11-02: "ensure these are all changes to the new poster sections. Or remove them both, showing only continue watching, recently added, downloading, New, or other suggestions"; "show me a few new mock up versions ... restructure the full page"; "Use the full screen, keeping some things centered, but don't be scared to show things in the carousel disappearing from the left of right". Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-278 | One tile per show (not per season), optional "new episode" tag, correct poster and font | Media | M | idea | B. 2026-11-02: "Recently added shows two Billions icons."; "only the full season one has the correct font and posters"; "Can you show a choice for either selecting a show with 'new episode' attached or just the show." Covers the Billions duplicate and the TV-shows entry bullet. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-279 | Row view: extra columns (upgrade available, director, my score) | Media | M | idea | B. 2026-11-02: "in teh row version instead of teh grid. can you please provide more columns with an updgrade available, or the director, or my own score, etc. Can you show a choice for a few options of this." Options page: yes. Platforms: desktop, phone, TV | — |
+
+**Suggestions page (Home/Media page):** no separate rows; posters and fonts extend JY-260, the top-half carousel is JY-276.
+
+**Movies page**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-280 | Movie page: larger poster (more of the left) and a larger backdrop behind | Media | M | idea | B. 2026-11-02: "make the poster larger, either taking up more of the left side and allow the main background picture to be larger in the back." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-281 | Scores (movies + TV): drop the IMDb/TMDB/Letterboxd labels, score links go to the site; three placements | Media | M | idea | B. 2026-11-02: "remove the imdb, tmdb, and letterboxd referenced and place the links to click on them as the ones above. Linking the score from IMdb to linnk you straight to where the link below wanted to go."; "Suggest three different places for how I can show scores, either in a right column or somewhere that is not front and center of the screen." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-282 | Remove the duplicate overview (movies + TV) | Media | S | idea | B. 2026-11-02: "Remove two overview sections. Either have it there or leave it below the title above where it is closer."; TV: "Remove the overview at teh bottom as it should be in the section at the top." Options page: yes (2 positions). Platforms: desktop, phone, TV | — |
+| JY-283 | Movie page: cast under the main section with 2:3 thumbnails, boxier corners | Media | M | idea | B. 2026-11-02: "Place the cast with nicer thumbnails of them above the scores section below the main section. Please use a similar box or 2:3 ratio as the poster scetions. Reducing the corner radius and making it a little boxier. show me in a test situation please first." Options page: yes (test first). Platforms: desktop, phone, TV | — |
+| JY-284 | File information (movies + TV): a few places, tucked away or owner-only | Media | M | idea | B. 2026-11-02: "Create a few different scenarios for where the file information could be found."; "maybe only those who want to find it could or only I can access similar features."; TV: "Repeat the scores adn file choices similar to the movies section." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-285 | Director and writer at the top, tap through to more of their work | Media | M | idea | B. 2026-11-02: "Move the Director and writed to be at the top where you have the director. I would like to be able to go into the writer or director and see more of their work at a few touches of the button. Please show me what this would look like." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-286 | Where to watch (movies + TV): logos only, under the film or beside the cast | Media | S | idea | B. 2026-11-02: "show the logos below the film or next to the cast about where the film also airs but only by showing the logo. I don't need to see the text of it."; TV: "Similar with the where to watch, etc." Options page: yes. Platforms: desktop, phone, TV | — |
+
+**TV shows**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-287 | TV shows overhaul: review the whole area and propose next plans | Media | L | idea | B. 2026-11-02: "Shows needs a good overhaul. Can you please review all of these and put together a few next plans for covering it all." Umbrella: output is a plan that splits into rows; decide with JY-269 follow-ups. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-288 | TV series: average the season ratings, highest first, like movies | Media | M | idea | B. 2026-11-02: "Can you average the rated season votings and show them as you would with movies. It would be nice to see my highest ratings first." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-289 | Season page: better poster; directors only on single episodes | Media | S | idea | B. 2026-11-02: "I need the poster to change or show more. It is poorly looking currently. For a season, happy for you to remove the directors for the season. Only leave them in a singular episode." Q5. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-290 | Remove the season rating bar chart, season comparison and bottom seasons list | Media | S | idea | B. 2026-11-02: "remove the seasons at the bottom if you are to keep the scrollling carousel like you have above. Remove the season 1 or season overall ranking bar char. It doesn't look good, nor does the season comparison." Options page: yes. Platforms: desktop, phone, TV | — |
+
+**Cast pages**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-291 | Person page: better photo plus a backdrop photo of them | Media | M | idea | B. 2026-11-02: "Show a better photo of them as well as a backdrop photo of them found from either TMDB, Letterboxd, or IMdb." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-292 | Person page: "if you like them you may like" actors (concepts) | Media | M | idea | B. 2026-11-02: "Look at some concepts that may show other actors/actresses I may like if I were to like them." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-293 | Person page filmography order: real releases, then film series, then extras; on-server on top | Media | M | idea | B. 2026-11-02: "Movies with actual releases as the top, films that are proper film series below, then any bonus, feature or otherwise below. Anything in the server should also show at the top." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-294 | Person page awards: options for showing them, e.g. a carousel of films and what they won | Media | M | idea | B. 2026-11-02: "create an option for different ways of showing their awards. Its not well representeed in text form. Can you share or show a carousel of their movies or films and what they have won with them." Options page: yes. Platforms: desktop, phone, TV | — |
+
+**Activity page**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-295 | Activity: Library tab parked | Media | S | parked | B. 2026-11-02: "Library does not serve much. Can be parked." (hide tab; code kept). Options page: no. Platforms: desktop, phone, TV | — |
+| JY-296 | Activity: reimagine the Live page, a few layout options | Media | L | idea | B. 2026-11-02: "Live doesn't show much, could you reimagine a page for Live that shows the full section reimagined to a few different options of layouts or suggestions for containing all this information." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-297 | Health moves into Live (right side), B. only | Media | S | idea | B. 2026-11-02: "Health could potentially go into Live and show that on teh right side or such. Its only for me and Live will only be available on my page." Depends on JY-296. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-298 | Remove "To rate"; rate from History; "clear all recent rating requests" button | Media | M | idea | B. 2026-11-02: "History and to rate contain the same. Could you remove 'to rate' and allow people to rate through History witha button to clear all recent rating requests." Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-299 | History tied to the connecting user; only B. sees everything | Media | M | idea | B. 2026-11-02: "Ensure History is linked to the user connecting to the hub media. I am the only one that can see everything." Privacy; see Risky. Options page: no. Platforms: desktop, phone, TV | — |
+| JY-300 | Merge Upgrades and Requests into one clean page | Media | L | idea | B. 2026-11-02: "Upgrades and requests can be merged. Could you please merge them and find a way to make it clean." Builds on JY-275. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-301 | Downloads: stop, start, cancel from Activity (more of the qBittorrent API) | Media | M | idea | B. 2026-11-02: "are you able to allow me toe stop, start, or cancel anything from this page? Can we leverage more of the Qbittorrent api to work better?" Live risk. Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-302 | Bug: Requests "search missing / upgrades" adds off-server titles to Jellyfin | Media | M | idea | B. 2026-11-02: "When I search for missing or upgrades, it will process all films or shows even if they are not on the server and add them to Jellyfin. I need this to stop and only films or shows on there to actually be shown on Jellyfin." Bug first; "full rework" waits. Live risk. Options page: no. Platforms: desktop, phone, TV | — |
+
+**Discover**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-303 | Discover: "see all" / browse a topic with more detail, like Seerr | Media | M | idea | B. 2026-11-02: "I would like to be able to go into similar topics like I can on Seerr. Not just see only a few and no more. Are you able to provide an all option or let me browse with more detail." Sentence ends "Or provide a" (Q7). Options page: yes. Platforms: desktop, phone, TV | — |
+| JY-304 | Carousel scroll cue: make it clear a row scrolls sideways (Discover first) | Media | S | idea | B. 2026-11-02: "I nee dthe UI to show carousel or ability to scroll for things. Currently it is not clear if I am able to scroll across things." Options page: yes. Platforms: desktop, phone, TV | — |
+
+**Desktop**
+
+| ID | Title | Area | Size | Status | Why | Spec |
+| --- | --- | --- | --- | --- | --- | --- |
+| JY-305 | Overview on desktop: taller hero carousel on load | Media | S | idea | B. 2026-11-02: "Show more of the carousel when loading into the overview page. I want to really see the impact of the image on the screen before having to scross down" Options page: yes. Platforms: desktop, phone, TV | — |
+
 ### Parked features
 
 | ID | Title | Area | Size | Status | Why | Spec |
@@ -258,4 +337,4 @@ From the old BACKLOG, handover lists, Joey TV deferred list and TV UI plan, and 
 | JY-221 | Re-enable home_assistant / macromates / nas_stats | Connectors | M | [x] shipped | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": B. Retire Food/Desk/House/Car and stop scheduling the three parked connectors (code kept) · PR #232 | [spec](docs/specs/JY-221-retire-hidden-areas.md) |
 | JY-222 | Posters: TMDB + fanart.tv best-rated pick | Media | M | parked | CLOSED. B. 2026-10-27: "Accept every recommendation on the Joey decisions page": drop (B): B. said stay as current on 2026-10-07 | — |
 | JY-223 | Georgina's account / her Media view | Media | S | parked | B. 2026-10-27: "Accept every recommendation on the Joey decisions page": A. B.'s hands: create her Jellyfin user, append JELLYFIN_USER_HER to the NAS .env, recreate connectors | — |
-| JY-270 | TV feature parity: bring the web features (Awards, Discover search, …) to the TV app | TV | L | building | Audit #278 (B.: "All recommended"). Shipped phases: Discover search #281, Awards #280 + majors/year control #284, library filters #286/#287, title extras + season/episode ratings #289 (live 1aaac4c, 2026-11-02; B. on the TCL: "Yes, all fine"). Next: Upcoming shelves + streaming browse. Later gap: genre/decade/rating filters (web + TV). Nit parked: TV episode tile sub-line truncates runtime | [spec](docs/specs/JY-270-tv-parity.md) |
+| JY-270 | TV feature parity: bring the web features (Awards, Discover search, …) to the TV app | TV | L | building | Audit #278 (B.: "All recommended"). Shipped phases: Discover search #281, Awards #280 + majors/year control #284, library filters #286/#287, title extras + season/episode ratings #289 (live 1aaac4c, 2026-11-02; B. on the TCL: "Yes, all fine"). Next: Upcoming shelves + streaming browse. Later gap: genre/decade/rating filters (web + TV). Nit parked: TV episode tile sub-line truncates runtime · B. 2026-11-02: "You need to ensure all consistencies are across the three devices. It needs to be clean and similar on all. (Discover)" | [spec](docs/specs/JY-270-tv-parity.md) |

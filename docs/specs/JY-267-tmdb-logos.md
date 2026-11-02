@@ -1,6 +1,6 @@
 # JY-267 TMDB title logos instead of plain text
 
-Status: ready (2026-10-29)
+Status: shipped (2026-11-02)
 Size: M (three phases, each S)
 Live risk: none beyond a normal hub deploy (reads Jellyfin `RemoteImages` like the poster pass; writes only to the local poster store)
 Area: `hub/media_posters.py` (a logo step beside `fetch_backdrops`), `hub/images.py` (`jfs:<id>/logo` ref), `hub/tv_home.py` + `hub/templates/media_film.html` + `hub/templates/_pagehead.html` (draw the logo), `hub/static/control-surface.css` (a few non-token lines), `tv/` only if the TV app draws its own hero text (phase 3 checks), `tests/hub/test_tmdb_logos_jy267.py` (new)
@@ -41,7 +41,7 @@ RemoteImages type `Logo`.
 | Surface | Draws | Size |
 |---|---|---|
 | Web home carousel and title hero | logo, left-aligned over the scrim | max 60 % width, max 120 px tall |
-| Phone | same, centred under the backdrop | max 70 % width, max 90 px tall |
+| Phone | same, left-aligned like the JY-269 hero text (spec said centred; corrected 2026-11-02 at review) | max 70 % width, max 90 px tall |
 | TV (Home hero, title page) | logo in place of the hero title | max 40 % width, max 160 px tall; never upscaled past 1.5x |
 
 Logos are mostly white or coloured on transparent: the scrim already behind the text keeps them readable. A dark logo
@@ -78,3 +78,13 @@ Picks: 1A, 2A, 3A, 4A.
 2. **Dark logos on the dark scrim.** A) Do nothing now; fall back to text for a title only if B. flags it (recommended). B) Detect a mostly-dark logo and draw text instead.
 3. **Language.** A) Viewer language, then English (recommended). B) English only.
 4. **Phone title page.** A) Logo replaces the title (recommended). B) Logo above, title text kept below.
+
+## Shipped notes (2026-11-02)
+- PR #291, squash-merged as `5d17cf2` (tip reviewed 2512040, fix round 04013fa). Builder Opus, reviewer Sonnet: PASS, no must-fix; two should-fixes taken (a friend's forged `jfs:<id>/logo` URL now 404s instead of the SVG title card; `fetch_logo` tries the top 3 ranked logos, refuses only when every try is too big).
+- B. 2026-11-02 on the shots (Home + title page at desktop / iPad / phone / TV + no-logo fallback): "Accepted".
+- Deploy: `2026-11-02T05:33:25Z PASS prev=1aaac4c new=5d17cf2 suite green, smoke ok tv=current gate=-n2 avail=1958 dur=445s` (16:40 Melbourne; flaresolverr start-failed after the gate, checked separately)
+- Tests: `tests/hub/test_tmdb_logos_jy267.py` (33 tests); full suite at 04013fa `4815 passed, 1 skipped`. Budgets (in-process, test fixture, this PC): item page p95 9.8 → 9.9 ms, Home p95 5.7 → 7.2 ms; NAS numbers come from the deploy gate.
+- New env key `POSTERS_LOGO_LANG` (default `en`, 2-letter code) in `deploy/.env.example`; the NAS `.env` needs nothing. `POSTERS_LOGOS=off` switches the pass step off (tests default off in `tests/conftest.py`).
+- Out of area, all needed: `hub/img_access.py` (friend check for `/logo`), `hub/shell.py` (Jinja global), `hub/static/tv.js` + `tv.css` (logo swap on focus), `scripts/joey_preview.py` + `preview/README.md` (the new keys). `tv/` unchanged (the shell draws no hero text).
+- Real logos appear after the poster pass fetches them (monthly per title, like backdrops); until then the text shows.
+- Follow-ups: JY-272 stored backdrops `jfs:<id>/1|2` are not friend-access-checked (JY-262 gap, unchanged here). `_pagehead.html` has the first inline `onerror` in the templates: check against any future CSP. Shots: `Desktop\Claude\JoeyTV\review\JY-267\` via `JoeyTV\scripts\jy267_logo_shots.py`.

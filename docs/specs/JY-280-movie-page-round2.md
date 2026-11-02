@@ -1,6 +1,6 @@
 # JY-280 Movie page, round 2 (option A: right column)
 
-Status: ready (B. picked A, 2026-11-03: "Movies round 2 I like the option A.")
+Status: building (P1 shipped #296 live d73d90a 2026-11-03; P2 in progress) (B. picked A, 2026-11-03: "Movies round 2 I like the option A.")
 Size: L
 Live risk: none
 Area: `hub/templates/media_film.html`, `_pagehead.html`, `_film_cast.html`, `_film_crew.html`, `_film_scores.html`, `_film_macros.html` (`sp`, `sitepills`, `makercards`), `hub/media_film.py` (`crew_for`, `file_panel`, `_makers`, owner gating near `media_db.owner_of`), `hub/media_person.py` (writer credits), `hub/static/control-surface.css` (`.hero-detail*`, `.castrow` / `.castcard` / `.castpic`, `.scorepill`), `tests/hub/` (`test_media_film.py`, `test_media_film_scores.py`, `test_media_person.py`)

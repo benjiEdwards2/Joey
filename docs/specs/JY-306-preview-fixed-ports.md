@@ -1,6 +1,6 @@
 # JY-306 Preview on fixed ports (3001 / 3002 / 3003)
 
-Status: ready (B. 2026-11-03: "Is it something you could complete the hitlist for spinning up two ports with option a and b")
+Status: shipped (2026-11-03, #295, live d73d90a) (B. 2026-11-03: "Is it something you could complete the hitlist for spinning up two ports with option a and b")
 Size: M
 Live risk: none (PC only, no NAS write, no live key; a LAN-open port is Question 1)
 Area: `scripts/joey_preview_local.py` (new), one line in `scripts/joey.py`, `deploy/preview/README.md` (one section), `tests/scripts/`

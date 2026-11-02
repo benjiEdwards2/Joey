@@ -1,6 +1,6 @@
 # JY-270 TV feature parity: bring the web features (Awards, Discover search, ...) to the TV app
 
-Status: spec (audit done 2026-10-29; B. decides the questions in section 5, then `ready`)
+Status: shipped (2026-11-03; all phases live)
 Size: L overall, in S/M phases (section 4)
 Live risk: phases change what every friend's TV draws on the next hub deploy (hub templates, `tv.css`, `tv.js`; no TV release). They carry the `live-risk` label.
 Area: `hub/templates/` (TV branches), `hub/static/tv.css`, `hub/static/tv.js`, `hub/media_discover.py`, `hub/media_awards_pages.py`, `hub/guest.py` (route tables, only where Q1 says so), `tests/hub/`. Never `tv/` (the Kotlin shell) unless a phase says so.
@@ -207,3 +207,7 @@ Note: the stepper is its own control rather than the ceremony chip itself, becau
 **Web / phone.** A native year `<select>` beside the ceremony button (joey.js follows the pick); the picker sheet's year chips stay.
 
 Shots: `JoeyTV\review\JY-270\5-awards-years-*`, `6-awards-dropdown-*`, `7-awards-web-1440.png` (`JoeyTV\scripts\jy270_years_shots.py`).
+
+## Shipped notes (2026-11-03)
+
+Final phase: TV Discover Upcoming films / TV shelves + browse by streaming service, PR #293 (squash 861ebd5). B. accepted 2026-11-02: "Accepted". Deploy 2026-11-03 08:23 Melbourne: `PASS prev=5d17cf2 new=861ebd5 suite green, smoke ok tv=current avail=2124 dur=472s`. 9 new tests (`tests/hub/test_tv_discover_upcoming_jy270.py`), full suite 4824 passed. Services run in the Discover thread pool; a services failure degrades to no shelf. Out of area: one margin rule in `tv.css`. Follow-up (S, not filed as its own row): service chips as logos. Shots: `JoeyTV\review\JY-270\p7\`.

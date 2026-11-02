@@ -48,3 +48,11 @@
 - JY-259 phase 4 (TV player 1.0.4) and the JY-270 TV pages (Awards, Discover search, filters, title extras) checked by B. on the TCL 2026-11-02: "Yes, all fine". JY-259 stays shipped; JY-270 keeps building (Upcoming shelves + streaming browse left).
 - Live: 1aaac4c (deploy PASS 2026-11-02 09:50 Melbourne). Sweep 20's PR was never opened; its rows land in this sweep as one docs-only commit to main (rule 11 exception).
 - B.'s worst-of-session 2026-11-02: the merge lines (the classifier blocks Claude's `gh pr merge`; B. pastes one line per round). Candidate fixes to try next: a settings allow rule for `gh pr merge`, or `joey.py close-out` carrying B.'s quoted accept. Filed as JY-271.
+
+## 2026-11-03 — Sweep 23 (B.: "Movies round 2 I like the option A."; "Run it yourself please")
+- JY-280 round 2 options page: option A picked (right-column scores, owner-only File drawer). Spec `docs/specs/JY-280-movie-page-round2.md` covers JY-280/281/283/284/285; JY-286 stays its own spec.
+- Review resolutions (standing rule): desktop shots at 2560×1440 plus an ultrawide (3440×1440 assumed until B. confirms), phone 390, iPad 1024, TV rendered for a 4K panel ("the TV is at 3k", B.; exact device pixels to confirm). Replaces the 1440-wide desktop and 1920×1080 TV shots.
+- Merge + deploy: B. 2026-11-03 "stop asking to merge and deploy. Run it yourself please." Claude ran `gh pr merge` 292/293 and `deploy.sh` this morning and both went through (no classifier denial this time). Claude runs them first from now and only hands B. a paste when denied. JY-271 stays open until two more rounds pass.
+- Overview (JY-277): B. unsure between A and B; JY-306 (fixed preview ports) is pulled forward so A and B run side by side on two ports for him to compare live.
+- New row JY-307: full TV UI overhaul (options page first).
+- Live 861ebd5 (JY-270 final phase); JY-270 shipped.

@@ -54,6 +54,10 @@ class FakeProc:
     def alive(self, pid):
         return pid in self.live
 
+    def cmdline(self, pid):
+        return next((" ".join(c) for c, _, _ in self.spawned if self.ports.get(int(c[c.index("--port") + 1])) == pid),
+                    "notepad.exe")
+
     def kill(self, pid):
         self.killed.append(pid)
         self.live.discard(pid)
@@ -169,3 +173,20 @@ def test_local_refuses_dirty_worktree(env):
 def test_local_state_is_gitignored():
     ignore = (REPO_ROOT / ".gitignore").read_text()
     assert "/data/" in ignore.splitlines()
+
+
+def test_local_typo_leaves_slot_running(env):
+    clone, proc = env
+    jl.up(clone, 1, "main", False, proc, out=lambda *_: None)
+    pid = jl.read_state(clone, 1)["pid"]
+    assert jl.main(["up", "1", "mian"], proc=proc, clone=clone) == 1
+    assert proc.killed == [] and jl.read_state(clone, 1)["pid"] == pid and pid in proc.live
+
+
+def test_local_stale_pid_not_killed(env, capsys):
+    clone, proc = env
+    jl.up(clone, 1, "main", False, proc, out=lambda *_: None)
+    st = jl.read_state(clone, 1)
+    proc.ports.pop(3001)          # our hub died; its pid was reused by something else
+    jl.stop(clone, 1, proc)
+    assert proc.killed == [] and "not killed" in capsys.readouterr().out

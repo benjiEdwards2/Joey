@@ -96,6 +96,16 @@ class Proc:
         except OSError:
             return False
 
+    def cmdline(self, pid):
+        if os.name == "nt":
+            return subprocess.run(["powershell", "-NoProfile", "-Command",
+                                   f"(Get-CimInstance Win32_Process -Filter 'ProcessId={int(pid)}').CommandLine"],
+                                  capture_output=True, text=True).stdout
+        try:
+            return Path(f"/proc/{int(pid)}/cmdline").read_bytes().replace(b"\0", b" ").decode()
+        except OSError:
+            return ""
+
     def kill(self, pid):
         if os.name == "nt":
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True)
@@ -149,9 +159,17 @@ def read_state(clone, slot):
         return None
 
 
+def ours(st, proc):
+    """The pid is our uvicorn on the slot's port, not a reused pid."""
+    cmd = proc.cmdline(st["pid"]) or ""
+    return "uvicorn" in cmd and f"--port {st['port']}" in cmd
+
+
 def stop(clone, slot, proc, out=print):
     st = read_state(clone, slot)
-    if st and proc.alive(st["pid"]):
+    if st and proc.alive(st["pid"]) and not ours(st, proc):
+        out(f"slot {slot}: pid {st['pid']} is not this slot's hub (stale slot.json); not killed")
+    elif st and proc.alive(st["pid"]):
         proc.kill(st["pid"])
         out(f"slot {slot}: stopped pid {st['pid']} ({st['branch']} @ {st['commit'][:8]})")
     else:
@@ -166,21 +184,21 @@ def stop(clone, slot, proc, out=print):
 
 def up(clone, slot, branch, lan, proc, out=print):
     port = slot_port(slot)
+    try:
+        commit = proc.git("rev-parse", "--verify", f"{branch}^{{commit}}", cwd=clone)
+    except RuntimeError:
+        raise jc.Refused(f"unknown branch {branch!r}; fetch it first; slot {slot} left as it was") from None
     st = read_state(clone, slot)
     owner = proc.port_owner(port)
-    ours = st and proc.alive(st["pid"])
-    if owner is not None and not (ours and owner in (0, st["pid"])):
+    mine = st and proc.alive(st["pid"]) and ours(st, proc)
+    if owner is not None and not (mine and owner in (0, st["pid"])):
         raise jc.Refused(f"port {port} is in use by pid {owner or 'unknown'}, not slot {slot}; nothing was killed")
-    if ours:
+    if mine:
         out(f"slot {slot}: replacing {st['branch']} @ {st['commit'][:8]}")
     wt = worktree_dir(clone, slot)
     if wt.exists() and proc.git("status", "--porcelain", cwd=wt):
         raise jc.Refused(f"slot {slot}: worktree wt-preview-{slot} has local changes; commit or remove them first")
     stop(clone, slot, proc, out=lambda *_: None)
-    try:
-        commit = proc.git("rev-parse", "--verify", f"{branch}^{{commit}}", cwd=clone)
-    except RuntimeError:
-        raise jc.Refused(f"unknown branch {branch!r}; fetch it first") from None
     proc.git("worktree", "add", "--detach", str(wt), commit, cwd=clone)
     sdir = state_dir(clone, slot)
     for d in ("meta-cache", "img-cache", "snapshots", "backups", "posters"):

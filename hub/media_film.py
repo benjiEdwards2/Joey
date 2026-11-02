@@ -1263,6 +1263,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     ratings_map = media_home._ratings(view, [{"item_key": rating["item_key"]}] if rating else [])
     f["rating"] = rating
     f["score"] = ratings_map.get(rating["item_key"]) if rating else None
+    # JY-288: a show (not a season or episode page) you have not rated as a whole shows the mean of its rated seasons
+    # (else episodes) where a film shows its score; your own show rating wins when there is one
+    show_page = kind == "tv" and rating and rating["level"] == "show" and not ep and (not item or item["kind"] == "series")
+    f["avg_score"] = (media_db.show_averages([(rating["item_key"], rating["title"])], owner).get(rating["item_key"])
+                      if show_page and not f["score"] else None)
     diary_item = key_item or {"kind": "movie" if kind == "movie" else "series", "id": "", "tmdb": tmdb_id,
                               "episode_key": None, "season_key": None}
     dates = media_item._diary_dates(diary_item, owner) if (rating or item) else []

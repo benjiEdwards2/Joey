@@ -216,6 +216,38 @@ def get_ratings(keys, owner: str = "you") -> dict[str, int]:
         return {}
 
 
+def show_averages(shows, owner: str = "you") -> dict[str, float]:
+    """JY-288 (B., 2026-11-02: "average the rated season votings and show them as you would with movies"): {show key:
+    mean score} for `shows` [(show key, show title)] from the owner's season ratings, else (no season rated) their
+    episode ratings, one decimal. A season / episode rating names its show in its title ("Show · Season 2",
+    "Show · S02E03 · Name", media_item._rating_for), so rows match on that prefix; the table has no show column. ONE
+    SELECT; {} with no DB or no match."""
+    want = {}
+    for key, title in shows or []:
+        if key and title:
+            want.setdefault(f"{title} · ", key)
+    db = _read() if want else None
+    if db is None:
+        return {}
+    try:
+        with closing(db):
+            rows = db.execute("SELECT title, score, level FROM rating WHERE owner = ? AND kind = 'tv' "
+                              "AND level IN ('season', 'episode')", (owner,)).fetchall()
+    except sqlite3.Error as exc:
+        log.warning("show_averages failed: %s", type(exc).__name__)
+        return {}
+    got: dict[str, dict[str, list]] = {}
+    for r in rows:
+        title = r["title"] or ""
+        parts = title.split(" · ")
+        for n in range(len(parts) - 1, 0, -1):   # a show title may itself hold " · ": the longest match wins
+            key = want.get(" · ".join(parts[:n]) + " · ")
+            if key:
+                got.setdefault(key, {"season": [], "episode": []})[r["level"]].append(r["score"])
+                break
+    return {k: round(sum(v) / len(v), 1) for k, lv in got.items() for v in [lv["season"] or lv["episode"]] if v}
+
+
 def get_rating(item_key: str, owner: str = "you") -> dict | None:
     db = _read()
     if db is None:

@@ -409,7 +409,8 @@ def test_episode_sections_come_in_the_contract_order():
     marks = ['id="guests"', 'id="crew-ep"', 'id="season-place"', 'class="epnav"']
     at = [p.index(m) for m in marks]
     assert at == sorted(at)
-    assert p.index("A crew, a lawsuit") < at[0]                                       # after the overview
+    # JY-282 (2026-11-03, pick Q2 = A): an episode page says the episode's synopsis only, in the hero, before them all
+    assert "A crew, a lawsuit" not in p and p.index("Tommy balances a crew.") < at[0]
 
 
 def test_episode_with_nothing_known_draws_no_empty_frames():

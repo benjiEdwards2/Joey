@@ -604,9 +604,9 @@ def test_cast_is_circles_and_more_on_joey_is_posters_on_the_web(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/movie/603"))
-    cast = b.split('<section class="sec castsec">', 1)[1].split("</section>", 1)[0]
+    cast = b.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
     assert '<div class="castrow">' in cast and "as Pilot" in cast
-    assert b.index('class="sec castsec"') < b.index('<h2 class="seclabel">More on Joey</h2>')
+    assert b.index('class="sec castsec') < b.index('<h2 class="seclabel">More on Joey</h2>')
     more = b.split('<h2 class="seclabel">More on Joey</h2>', 1)[1].split("</section>", 1)[0]
     assert more.index(">On server<") < more.index(">Not on server<") and 'class="card-poster"' in more
     hrefs = [h for h in more.split('href="')[1:]]
@@ -627,6 +627,6 @@ def test_web_cast_circle_links_to_the_person_page_when_the_cast_has_ids(env, mon
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/movie/603"))
-    sec = b.split('<section class="sec castsec">', 1)[1].split("</section>", 1)[0]
+    sec = b.split('<section class="sec castsec casttiles">', 1)[1].split("</section>", 1)[0]
     assert '<a class="castcard" href="/media/person/1001">' in sec and "Ada Actor" in sec
     assert '<div class="castcard">' in sec and "Bo Bit" in sec

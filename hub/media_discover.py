@@ -439,7 +439,10 @@ def _guest_grid(request: Request, q: str, t: str = "", tv: bool = False) -> dict
             got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), GUEST_SHELVES + extra))
         got, soon = got[:len(GUEST_SHELVES)], got[len(GUEST_SHELVES):]
         if svc is not None:
-            ctx["services"] = svc.result() or None
+            try:   # a failed provider read drops the chip row, never the page
+                ctx["services"] = svc.result() or None
+            except Exception as exc:  # noqa: BLE001
+                log.debug("TV service chips dropped: %s", type(exc).__name__)
         seen, rows = set(), []
         for r in (r for shelf in got for r in shelf or []):
             if (r["kind"], r["tmdb_id"]) not in seen:

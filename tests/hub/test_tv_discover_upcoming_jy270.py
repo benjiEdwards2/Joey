@@ -131,3 +131,13 @@ def test_dpad_reaches_chips_and_shelves_ok_opens_back_returns(tvf, tmp_path):
     assert out["chip"] == "svc-netflix" and out["right"] == "svc-stan", out
     assert out["service"] == "s1", out                               # OK on a chip opens the service shelves
     assert out["back"] == "svc-stan", out                            # Back: the chip comes back lit
+
+
+def test_a_services_failure_drops_the_chip_row_not_the_page(tvf, monkeypatch):
+    from hub import media_discover as md
+
+    def boom():
+        raise RuntimeError("provider read broke")
+    monkeypatch.setattr(md, "services", boom)
+    r = tv(tvf, "/media/discover")
+    assert r.status_code == 200 and "tv-svcchips" not in r.text and "tv-soon" in r.text

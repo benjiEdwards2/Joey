@@ -2,6 +2,7 @@
 
   python scripts/joey.py worktree new|remove|list ...    (scripts/joey_worktree.py)
   python scripts/joey.py close-out JY-### ...            (scripts/joey_closeout.py)
+  python scripts/joey.py local up|down|status ...        (scripts/joey_preview_local.py)
 
 Thin dispatcher: COMMANDS maps a subcommand to its module, whose main(argv) returns the exit code. JY-011 adds
 "close-out" and JY-012 adds "preview", one line each. Shared helpers live in scripts/joey_common.py.
@@ -13,12 +14,14 @@ import sys
 import joey_closeout
 import joey_common
 import joey_preview
+import joey_preview_local
 import joey_worktree
 
 COMMANDS = {
     "worktree": joey_worktree,
     "preview": joey_preview,
     "close-out": joey_closeout,
+    "local": joey_preview_local,
 }
 
 

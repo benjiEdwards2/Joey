@@ -161,3 +161,19 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `POSTERS_LOGO_LANG` | out | the poster loop (and its logo step) is off in the preview |
 | `LIBRARY_INDEX` | out | forced off in compose: a preview never re-attaches media.db rows (JY-264) |
 | `LIBRARY_PATH_PREFIXES` | out | the library index loop is off in the preview |
+
+## Local fixed-port previews (JY-306)
+
+PC-only previews, nothing runs on the NAS. Code: `scripts/joey_preview_local.py`.
+
+- `python scripts/joey.py local up <1|2|3> <branch> [--lan]`: slot 1 -> port 3001, 2 -> 3002, 3 -> 3003 (TV build:
+  media front, open `http://127.0.0.1:3003/?tv=1`). Checks the branch's commit out detached in `../wt-preview-<slot>`
+  (the shared clone is never switched), seeds demo data into `data/preview-slots/<slot>/` (sqlite, caches, snapshots,
+  `hub.log`), starts a detached uvicorn and polls `/healthz` (30 s). Re-running a slot replaces it. A port held by
+  another process is refused with its PID and never killed. Binds 127.0.0.1; `--lan` binds 0.0.0.0 and prints
+  `http://<pc-address>:<port>/` (a Windows Firewall inbound allow may be needed).
+- `python scripts/joey.py local down <1|2|3|all>`: stops the slot and removes its state dir and worktree.
+- `python scripts/joey.py local status`: slot, port, branch, commit, PID, uptime and URL, or "stopped".
+
+NAS slot vs PC slot: the NAS `preview` is one slot, built as an image, with a read-only copy of live data behind the
+tunnel. The PC slots are three plain processes on demo data only; no `.env` is read and every background loop is off.

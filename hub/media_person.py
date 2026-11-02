@@ -75,7 +75,7 @@ def _lead(title: str) -> tuple[str, ...]:
     return tuple(re.findall(r"[a-z0-9]+", title.lower())[:2])
 
 
-def _tier(r: dict, today: str, leads: dict) -> str:
+def _tier(r: dict, today: str, leads: dict | None) -> str:
     """JY-293: on server > released films > film series > bonus and other; TV after all films."""
     if r["jf_id"]:
         return "server"
@@ -84,6 +84,8 @@ def _tier(r: dict, today: str, leads: dict) -> str:
     doc = DOC_GENRE in r["genres"] and r["votes"] < DOC_VOTES
     if r["video"] or not r["date"] or r["date"] > today or r["votes"] < MIN_VOTES or doc:
         return "bonus"
+    if leads is None:
+        return "films"
     lead = _lead(r["title"])
     return "series" if len(lead) == 2 and leads.get(lead, 0) > 1 else "films"
 
@@ -117,7 +119,8 @@ def _credits(body, lib: dict[str, str]) -> list[dict]:
     leads: dict[tuple, int] = {}
     for r in merged.values():
         r["jf_id"] = lib.get(f"tmdb:{r['tmdb_id']}")
-        if r["kind"] == "movie":
+        # only titles that pass the Films tests count, so a featurette cannot promote a film into Series
+        if r["kind"] == "movie" and _tier({**r, "jf_id": None}, today, None) == "films":
             leads[_lead(r["title"])] = leads.get(_lead(r["title"]), 0) + 1
     for r in merged.values():
         r["tier"] = _tier(r, today, leads)

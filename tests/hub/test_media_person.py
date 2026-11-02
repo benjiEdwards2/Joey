@@ -189,3 +189,8 @@ def test_page_renders_tier_sections_in_order(env):
     i = [b.index(w) for w in ("On server", "Harbour Lights", "Lone Film", "Film series", "Storm Rider 2", "Bonus and other",
                               "Making Of Thing")]
     assert i == sorted(i) and "5 titles · 1 on server" in b and b.count("Storm Rider 2") == 1
+
+
+def test_featurette_with_same_prefix_does_not_promote_film_to_series():
+    cast = [_m(1, "Storm Rider", "2001-01-01"), _m(2, "Storm Rider Making Of", video=True)]
+    assert _order(cast) == [("films", "Storm Rider"), ("bonus", "Storm Rider Making Of")]

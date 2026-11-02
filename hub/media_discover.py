@@ -589,7 +589,7 @@ def service_page(request: Request, provider_id: int):
             mine = mgr.viewer_mine()
             ctx["wl_keys"] = None
             for s in ctx["shelves"]:
-                s["items"] = _tv_tiles(mgr.with_states(s["rows"], mine)) if s["rows"] else []
+                s["tiles"] = _tv_tiles(mgr.with_states(s["rows"], mine)) if s["rows"] else []
         return ctx
 
     return _page(request, "media_service.html", build)

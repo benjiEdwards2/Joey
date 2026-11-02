@@ -657,4 +657,3 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
-html.tv .tv-svcchips .chip:focus-visible, html.tv .tv-svcchips .chip.tv-focus { background: #f4f4f5; color: #09090b; border-color: transparent; }

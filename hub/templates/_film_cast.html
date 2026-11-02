@@ -13,7 +13,7 @@
 {# JY-269 phase 3 (web + phone): the cast as circles (name, role under), the row scrolls sideways like the episodes row;
    while the part is on its way, three circle shapes #}
 {% elif film.cast %}
-<section class="sec castsec">
+<section class="sec castsec{{ ' casttiles' if film.kind == 'movie' }}">
   <h2 class="seclabel">Cast</h2>
   <div class="castrow">
     {% for c in film.cast %}

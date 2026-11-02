@@ -1638,3 +1638,27 @@ html:not(.tv) .moresec .carousel > * { flex: 0 0 120px; width: 120px; }
 html:not(.tv) .webskel .castpic, html:not(.tv) .webskel .card-pic { background: var(--surface); }
 html:not(.tv) .webskel .card-pic { aspect-ratio: 2 / 3; border-radius: 6px; }
 html:not(.tv) .webskel .skelline { display: block; width: 70%; height: 12px; margin-top: 8px; border-radius: 4px; background: var(--surface); }
+
+/* JY-280 P1 (B. 2026-11-03, pick A): a film's hero (its poster carries `.tl-movie`, off the TV only) - a taller backdrop and a bigger
+   2:3 poster taking more of the left (300 px desktop, 230 iPad, 170 phone), the Director / Writer chips under the facts
+   line (the shared .chip recipe), and the film's cast as boxier 2:3 tiles (`.casttiles`, 4 px: the row-poster radius) in
+   place of the JY-269 circles, which shows keep. Tokens only. */
+html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: min(78vh, 900px); }
+html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 300px; border-radius: 4px; }
+html:not(.tv) .makerchips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+html:not(.tv) .makerchip { height: 32px; font-size: 13px; color: var(--text-1); text-decoration: none; }
+html:not(.tv) .makerchip-role { color: var(--text-4); }
+html:not(.tv) .castsec.casttiles .castcard { flex: 0 0 130px; }
+html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: 4px; font-size: 32px; }
+@media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 160px; } }
+@media (max-width: 1024px) {
+  html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: min(64vh, 720px); }
+  html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 230px; }
+}
+@media (max-width: 639px) {
+  html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: 0; }
+  html:not(.tv) .pagehead.hero-detail:has(.tl-movie) .hero-detail-bd { height: 320px; }
+  html:not(.tv) .tl-hero:has(.tl-movie) { margin-top: 96px; }
+  html:not(.tv) .tl-hero .hero-detail-poster.tl-movie { width: 170px; }
+  html:not(.tv) .makerchip { height: 44px; }
+}

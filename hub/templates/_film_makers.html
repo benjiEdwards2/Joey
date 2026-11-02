@@ -5,8 +5,11 @@
    as a TV maker: new films AND shows) or "Following <name> ✓" - the state is one media.db read, no upstream call. Follows are the household's: never drawn on
    the guest front (JY-251). #}
 {% from "_film_macros.html" import makercards with context %}
-{% if film.makers %}
-<div class="makers">
+{# JY-280 (P1): a film off the TV - Director and Writer chips under the facts line, each one link to the person page
+   (a name search when there is no TMDB id); the headshot cards stay for shows and the TV. #}
+{% if film.kind == "movie" and not tv_mode(request) %}
+{% if film.chips %}<div class="makerchips">{% for m in film.chips %}<a class="chip makerchip" href="{{ m.href }}"><span class="makerchip-role">{{ m.role }}</span>{{ m.name }}</a>{% endfor %}</div>{% endif %}
+{% elif film.makers %}<div class="makers">
   <div class="microlabel">{{ film.makers_label }}</div>
   <div class="makerrow">
   {{ makercards(film.makers) }}

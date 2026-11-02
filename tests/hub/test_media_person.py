@@ -115,3 +115,24 @@ def test_no_url_or_key_in_html(env):
     with client:
         html = client.get("/media/person/55").text
     assert SEERR not in html and SKEY not in html and "secret-host" not in html and KEY not in html and URL not in html
+
+
+def test_writer_credits_get_their_own_writing_row(env):
+    # JY-280 (P1, AC 4): the film's Writer chip lands on a page listing their writing (writer jobs only)
+    client, both = env()
+    seed(both, credits={**CREDITS, "crew": CREDITS["crew"] + [
+        {"id": 802, "mediaType": "movie", "title": "Penned Film", "releaseDate": "2021-03-03", "job": "Screenplay"},
+        {"id": 803, "mediaType": "movie", "title": "Story Only", "releaseDate": "2018-03-03", "job": "Story"}]})
+    with client:
+        b = main_of(client.get("/media/person/55").text)
+    sec = b.split('<section class="sec personwriting">', 1)[1].split("</section>", 1)[0]
+    assert "Penned Film" in sec and "Story Only" in sec and "Screenplay" in sec
+    assert "Both Roles" not in sec and "Harbour Lights" not in sec          # directing / acting stay out of Writing
+
+
+def test_no_writing_row_without_writer_jobs(env):
+    client, both = env()
+    seed(both)
+    with client:
+        b = main_of(client.get("/media/person/55").text)
+    assert "personwriting" not in b and ">Writing</h2>" not in b

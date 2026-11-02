@@ -311,7 +311,8 @@ def test_film_directed_by_row_has_no_follow_buttons(son_env):
     client, both, son, _ = son_env()
     with client:
         page = whole(client, "/media/title/movie/603")
-    assert '<div class="microlabel">Directed by</div>' in page and "/media/follow/person/" not in page
+    # JY-280: a film's director is a hero chip now (no cards, still no Follow buttons)
+    assert '<span class="makerchip-role">Director</span>' in page and "/media/follow/person/" not in page
 
 
 def test_person_page_follows_a_tv_maker_with_shows(son_env):

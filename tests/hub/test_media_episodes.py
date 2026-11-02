@@ -143,8 +143,10 @@ def test_film_page_order_is_unchanged(env):
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
     assert '<h2 class="seclabel">Seasons</h2>' not in b
-    o, f, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "File", "Where to watch"))
-    assert o < f < w
+    # JY-280: a film's one overview is in the hero; the body leads with the cast
+    assert '<h2 class="seclabel">Overview</h2>' not in b
+    c, f, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Cast", "File", "Where to watch"))
+    assert c < f < w
 
 
 # ---- merged from test_media_ux4_episode.py ----

@@ -309,6 +309,7 @@ SOURCES = [
     ("B. in chat (2026-10-29)", "Remove gold glow", "JY-268", "perfect-10 glow on web + phone"),
     ("B. in chat (2026-10-29)", "TV show layout on web", "JY-269", "JY-259 p3 show/season pages"),
     ("B. in chat (2026-10-29)", "TV feature parity", "JY-270", "Awards, Discover search on the TV"),
+    ("B. in chat (2026-11-02)", "Merge lines were the worst part", "JY-271", "merge without a pasted line"),
 ]
 
 

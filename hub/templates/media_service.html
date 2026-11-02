@@ -24,6 +24,10 @@
   <h2 class="seclabel">{{ s.title }}</h2>
   {% if s.rows is none %}
   <p class="empty">Unavailable</p>
+  {% elif s.rows and s.tiles is defined %}
+  {# JY-270 P7: the TV front - the request tiles (state on a band), no watchlist button #}
+  {% from "_tv_tile.html" import request as tv_request %}
+  <div class="carousel tvt-row">{% for i in s.tiles %}{{ tv_request(i) }}{% endfor %}</div>
   {% elif s.rows %}
   <div class="carousel">{% for r in s.rows %}{{ item(r, wl_keys) }}{% endfor %}</div>
   {% else %}

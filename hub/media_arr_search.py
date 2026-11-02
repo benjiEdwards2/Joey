@@ -15,8 +15,9 @@ media_requests: Radarr GET /api/v3/movie?tmdbId=, Sonarr GET /api/v3/series?tvdb
    `monitored: true, monitorNewItems: "all"` (every other field kept), then SeriesSearch.
 
 3. Search all monitored (F3, 2026-10-12). Activity › Requests and › Downloads: "Search missing" / "Search upgrades"
-   (GET /media/arr/sweep?step=confirm, then the same-origin POST) send Radarr MissingMoviesSearch / CutoffUnmetMoviesSearch
-   and Sonarr MissingEpisodeSearch / CutoffUnmetEpisodeSearch, both apps in parallel, 10 s each.
+   (GET /media/arr/sweep?step=confirm, then the same-origin POST) read each app's wanted list (missing / cutoff unmet)
+   and send Radarr MoviesSearch (movieIds) / Sonarr EpisodeSearch (episodeIds) for titles ON JELLYFIN only (JY-302,
+   2026-11-03: never a library-wide command), batched, both apps in parallel, 10 s each.
 
 4. Search for upgrade (F4b, 2026-10-12). When the title's file is below its quality cutoff (the arr snapshot's
    `upgrades`, matched on the app's own id from the lookup above), the lazy fragment adds "Search for upgrade": an
@@ -39,6 +40,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from hub import media_discover as md, media_requests as mr, media_text, media_upgrades, shell, upstream
+from hub.ids import JELLYFIN_SNAPSHOT_ID
+from hub.media_library import empty_series
 from hub.media_write import flash_keys, form_of, is_htmx, safe_back, same_origin
 
 log = logging.getLogger("hub.media_arr_search")
@@ -223,10 +226,19 @@ async def search_now(request: Request, kind: str, tmdb_id: int):
 
 SWEEP_TIMEOUT = 10                  # seconds, per app
 THROTTLE_S = 600                    # a second sweep of the same kind inside 10 min is allowed, but the card says so
-SWEEPS = {"missing": {"radarr": "MissingMoviesSearch", "sonarr": "MissingEpisodeSearch"},
-          "upgrades": {"radarr": "CutoffUnmetMoviesSearch", "sonarr": "CutoffUnmetEpisodeSearch"}}
-SWEEP_ASK = {"missing": "Search every monitored title that has no file yet?",
-             "upgrades": "Search for better copies of every monitored title below its quality cutoff?"}
+# JY-302 (2026-11-03): the sweeps were the arr's LIBRARY-WIDE commands with no ids, so Radarr / Sonarr searched every
+# monitored item - titles never on the server too - and Jellyfin then showed whatever they grabbed. Now Joey reads the
+# app's wanted list (missing / cutoff unmet), keeps only titles that are on Jellyfin, and sends MoviesSearch (movieIds)
+# / EpisodeSearch (episodeIds) in batches. A library-wide command is never sent.
+SWEEPS = {"missing": "wanted/missing", "upgrades": "wanted/cutoff"}
+SWEEP_COMMAND = {"radarr": ("MoviesSearch", "movieIds"), "sonarr": ("EpisodeSearch", "episodeIds")}
+SWEEP_BATCH = 100                   # ids per command
+WANTED_PAGE = 500                   # wanted-list page size
+WANTED_PAGES = 20                   # at most 10 000 rows per app
+SWEEP_ASK = {"missing": "Search {what} on Jellyfin that {are} missing files?",
+             "upgrades": "Search for better copies of {what} on Jellyfin below {its} quality cutoff?"}
+SWEEP_ASK_PLAIN = {"missing": "Search films and shows on Jellyfin that are missing files?",
+                   "upgrades": "Search for better copies of films and shows on Jellyfin below their quality cutoff?"}
 SWEEP_LABEL = {"missing": "Search missing", "upgrades": "Search upgrades"}
 SWEEP_BACK = "/media/requests"
 _started: dict[str, float] = {}     # kind -> clock() of the last sweep that started (in-process only)
@@ -246,16 +258,111 @@ def sweep_since(kind: str) -> int | None:
     return int((_clock() - at) // 60)
 
 
-def _sweep_one(app: str, kind: str) -> bool:
+def _num(value) -> int | None:
+    v = str(value if value is not None else "")
+    return int(v) if v.isdigit() and int(v) > 0 else None
+
+
+def on_server(snaps) -> dict:
+    """{"movie": {tmdb}, "tv_tmdb": {tmdb}, "tv_tvdb": {tvdb}} from the Jellyfin library lists. A show with a counted 0
+    episodes (Sonarr's empty folder) is not on the server. No snapshot -> empty sets (nothing is searched)."""
+    snap = (snaps or {}).get(JELLYFIN_SNAPSHOT_ID)
+    data = getattr(snap, "data", None) if snap is not None else None
+    data = data if isinstance(data, dict) else {}
+    out: dict = {"movie": set(), "tv_tmdb": set(), "tv_tvdb": set()}
+    for it in data.get("movies") or []:
+        key = str((it or {}).get("item_key") or "")
+        if key.startswith("tmdb:") and _num(key[5:]):
+            out["movie"].add(_num(key[5:]))
+    for it in data.get("shows") or []:
+        if not isinstance(it, dict) or empty_series(it):
+            continue
+        key = str(it.get("item_key") or "")
+        for prefix, bucket in (("tmdb:", "tv_tmdb"), ("tvdb:", "tv_tvdb")):
+            if key.startswith(prefix) and _num(key[len(prefix):]):
+                out[bucket].add(_num(key[len(prefix):]))
+        if _num(it.get("tvdb")):
+            out["tv_tvdb"].add(_num(it.get("tvdb")))
+    return out
+
+
+def _wanted(app: str, base: str, headers: dict, kind: str) -> list[dict]:
+    """Every monitored row of the app's wanted list (missing / cutoff unmet), paged."""
+    rows: list[dict] = []
+    for page in range(1, WANTED_PAGES + 1):
+        params = {"page": page, "pageSize": WANTED_PAGE, "monitored": "true",
+                  **({"includeSeries": "true"} if app == "sonarr" else {})}
+        resp = upstream.session("arr").get(f"{base}/api/v3/{SWEEPS[kind]}", params=params, headers=headers,
+                                           timeout=SWEEP_TIMEOUT)
+        _ok(resp)
+        body = resp.json() or {}
+        recs = [r for r in body.get("records") or [] if isinstance(r, dict)]
+        rows.extend(recs)
+        if not recs or len(rows) >= int(body.get("totalRecords") or 0):
+            break
+    return rows
+
+
+def sweep_plan(app: str, kind: str, base: str, headers: dict, server: dict) -> tuple[list[int], int, int]:
+    """(arr ids to search, titles on Jellyfin, wanted rows skipped as off-server). Radarr ids are movies (matched on
+    tmdb), Sonarr ids episodes of shows on Jellyfin (matched on the series' tvdb, else tmdb)."""
+    ids: set = set()
+    titles: set = set()
+    skipped = 0
+    for r in _wanted(app, base, headers, kind):
+        if app == "radarr":
+            hit, title = _num(r.get("tmdbId")) in server["movie"], r.get("id")
+        else:
+            series = r.get("series") or {}
+            hit = _num(series.get("tvdbId")) in server["tv_tvdb"] or _num(series.get("tmdbId")) in server["tv_tmdb"]
+            title = r.get("seriesId") or series.get("id")
+        if hit and _num(r.get("id")):
+            ids.add(_num(r["id"]))
+            titles.add(title)
+        else:
+            skipped += 1
+    return sorted(ids), len(titles), skipped
+
+
+def _sweep_one(app: str, kind: str, server: dict | None = None) -> str:
+    """'started' | 'empty' (nothing on Jellyfin to search, no command sent) | 'failed'."""
     creds = mr._arr_creds(app)
     if creds is None:
-        return False
+        return "failed"
     try:
-        _command(app, *creds, None, body={"name": SWEEPS[kind][app]}, timeout=SWEEP_TIMEOUT)
-        return True
+        ids, titles, skipped = sweep_plan(app, kind, *creds, server or on_server({}))
+        name, field = SWEEP_COMMAND[app]
+        batches = [ids[i:i + SWEEP_BATCH] for i in range(0, len(ids), SWEEP_BATCH)]
+        log.info("%s %s sweep: %d titles on Jellyfin, %d ids in %d batches, %d off-server skipped",
+                 app, kind, titles, len(ids), len(batches), skipped)
+        for batch in batches:
+            _command(app, *creds, None, body={"name": name, field: batch}, timeout=SWEEP_TIMEOUT)
+        return "started" if ids else "empty"
     except Exception as exc:
         log.warning("%s sweep failed: %s", app, _why(exc))
-        return False
+        return "failed"
+
+
+def sweep_counts(kind: str, server: dict) -> dict | None:
+    """{app: titles on Jellyfin} for the confirm text, or None when an app could not be read."""
+    out = {}
+    for app in sweep_apps():
+        try:
+            out[app] = sweep_plan(app, kind, *mr._arr_creds(app), server)[1]
+        except Exception as exc:
+            log.warning("%s sweep count failed: %s", app, _why(exc))
+            return None
+    return out
+
+
+def ask_text(kind: str, counts: dict | None) -> str:
+    """'Search 4 films and 2 shows on Jellyfin that are missing files?'; the plain words when a count is unknown."""
+    if not counts:
+        return SWEEP_ASK_PLAIN[kind]
+    parts = [f"{counts[app]} {word}{'' if counts[app] == 1 else 's'}"
+             for app, word in (("radarr", "film"), ("sonarr", "show")) if app in counts]
+    one = sum(counts.values()) == 1
+    return SWEEP_ASK[kind].format(what=" and ".join(parts), are="is" if one else "are", its="its" if one else "their")
 
 
 flash_keys("sweep", "ran")
@@ -271,6 +378,8 @@ def sweep_flash(params) -> tuple[str | None, str | None]:
         return f"Search started · {ran[0]} only", None
     if code == "failed":
         return None, "Couldn't start the search"
+    if code == "empty":
+        return "Nothing to search", None
     return None, None
 
 
@@ -283,8 +392,10 @@ def sweep_ctx(request, ask: str | None = None, back: str | None = None) -> dict:
         ask = params.get("sweep_ask")       # the no-JS confirm step, drawn by the page itself
     ask = ask if ask in SWEEPS else None
     good, warn = sweep_flash(params) if ask is None else (None, None)
+    text = (ask_text(ask, sweep_counts(ask, on_server(shell.get_snapshots(request=request) if request is not None
+                                                      else {}))) if ask else None)
     return {"apps": [NAMES[a] for a in sweep_apps()], "ask": ask, "since": sweep_since(ask) if ask else None,
-            "back": page, "flash": good, "flash_warn": warn, "ask_text": SWEEP_ASK.get(ask or ""),
+            "back": page, "flash": good, "flash_warn": warn, "ask_text": text,
             "labels": SWEEP_LABEL}
 
 
@@ -311,13 +422,15 @@ async def sweep_now(request: Request):
     back = safe_back(form.get("back"), SWEEP_BACK)
     apps = sweep_apps()
     # wave-2 rule: off the event loop; one thread per app so a stuck one never holds the other past its own timeout
-    oks = await asyncio.gather(*(run_in_threadpool(_sweep_one, app, kind) for app in apps))
-    ran = [app for app, ok in zip(apps, oks) if ok]
+    server = on_server(shell.get_snapshots(request=request))
+    codes = await asyncio.gather(*(run_in_threadpool(_sweep_one, app, kind, server) for app in apps))
+    ran = [app for app, code in zip(apps, codes) if code == "started"]
+    failed = [app for app, code in zip(apps, codes) if code == "failed"]
     if not ran:
-        q = {"sweep": "failed"}
+        q = {"sweep": "failed" if failed or not apps else "empty"}
     else:
         _started[kind] = _clock()
-        q = {"sweep": "started" if len(ran) == len(apps) else "partial", "ran": ",".join(ran)}
+        q = {"sweep": "partial" if failed else "started", "ran": ",".join(ran)}
     return RedirectResponse(f"{back}?" + urlencode(q), status_code=303)
 
 

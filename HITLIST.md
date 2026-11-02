@@ -330,7 +330,7 @@ Open questions for B. (from the review, not yet answered): Q8 TV shows: "If goin
 | ID | Title | Area | Size | Status | Why | Spec |
 | --- | --- | --- | --- | --- | --- | --- |
 | JY-305 | Overview on desktop: taller hero carousel on load | Media | S | spec | B. 2026-11-02: "Show more of the carousel when loading into the overview page. I want to really see the impact of the image on the screen before having to scross down" Options page: yes. Platforms: desktop, phone, TV | [spec](docs/specs/JY-305-desktop-taller-hero.md) |
-| JY-307 | TV UI overhaul: rework the whole TV experience (look, feel, navigation), options first | TV | L | idea | B. 2026-11-03: "Can you please recompile the full tv experience on the UI front? It looks and feels awful, even with the overview restructure." Umbrella like JY-287: output is an options page (3 directions on the TV shell with real content) then phased specs. Platforms: TV | — |
+| JY-307 | TV UI overhaul: rework the whole TV experience (look, feel, navigation), options first | TV | L | options | B. 2026-11-03: "Can you please recompile the full tv experience on the UI front? It looks and feels awful, even with the overview restructure." Umbrella like JY-287: output is an options page (3 directions on the TV shell with real content) then phased specs. Platforms: TV Options page 2026-11-03 (rec B with A first): https://claude.ai/artifact/LSg1DfpC5fusr2Mm59kXMC | — |
 
 ### Parked features
 

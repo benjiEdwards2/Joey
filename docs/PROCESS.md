@@ -11,7 +11,7 @@ One item = one spec, one branch, one PR, one builder. Each step has an owner.
 
 1. **Idea.** One line in the HITLIST Inbox. Anyone, any time. TODO(JY-004): `HITLIST.md` does not exist yet.
 2. **Spec.** The orchestrator writes `docs/specs/JY-###-slug.md` from `docs/specs/_template.md`. B.'s questions come last in the spec, before its Shipped notes.
-3. **Options.** Anything new on a screen gets 2 to 4 built-out options on a private artifact page. Each option is shown at four sizes, built from the real hub markup and CSS: desktop (1440 px), iPad (1024 px), phone (390 px) and TV (1920 × 1080, TV mode). Tiny changes that follow an existing pattern skip this.
+3. **Options.** Anything new on a screen gets 2 to 4 built-out options on a private artifact page. Each option is shown at four sizes, built from the real hub markup and CSS: desktop (2560 × 1440) and ultrawide (3440 × 1440, to confirm), iPad (1024 px), phone (390 px) and TV (rendered for a 4K panel; 1920 × 1080 frame, TV mode). B. 2026-11-03: "ensure the desktop is fitted around a 2560 x 1440p resolution, Ensure it can also fit with an ultrawide ... Remember the TV is at 3k." Tiny changes that follow an existing pattern skip this.
 4. **B. marks it ready and picks.** The pick and B.'s words go into the spec, with the date. Status becomes `ready`.
 5. **Build.** The orchestrator briefs a builder in its own worktree and opens a draft PR when the builder starts, so the labels have a home. The builder codes, writes tests, and hands back a report.
 6. **Review.** A different agent reads the diff against the spec. Must-fix findings go back to the same builder. Aim for one fix round. The orchestrator also posts the review as a PR comment.

@@ -35,4 +35,13 @@
     {% endfor %}
   </div>
   {% endif %}
+  {# JY-270 P1: TV only, no query - Upcoming films / Upcoming TV in the TV tile kit (a failed or empty shelf is absent) #}
+  {% if tvm and not q and upcoming %}{% from "_tv_tile.html" import request as tv_request %}
+  {% for s in upcoming %}
+  <section class="sec tv-soon" data-shelf="{{ s.id }}">
+    <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2></div>
+    <div class="carousel tvt-row">{% for i in s["items"] %}{{ tv_request(i) }}{% endfor %}</div>
+  </section>
+  {% endfor %}
+  {% endif %}
 </div>

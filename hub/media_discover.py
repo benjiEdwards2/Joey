@@ -321,6 +321,11 @@ def _page(request: Request, template: str, build):
     return shell._maybe_set_cookie(resp, view, from_query)
 
 
+def _tv(request: Request) -> bool:
+    from hub.media_front import tv_mode   # lazy: media_front is a front-level module
+    return tv_mode(request)
+
+
 def _partial(request: Request, name: str, **ctx) -> HTMLResponse:
     return templates.TemplateResponse(request, name, ctx)
 
@@ -329,7 +334,7 @@ def _partial(request: Request, name: str, **ctx) -> HTMLResponse:
 def discover_page(request: Request, q: str = "", t: str = ""):
     q = q.strip()[:100]
     if guest.is_media():   # Joey TV WP-B4: WP-M screen 10 - one poster grid with request chips, a request panel
-        return _page(request, "media_discover_guest.html", lambda: _guest_grid(request, q, t))
+        return _page(request, "media_discover_guest.html", lambda: _guest_grid(request, q, t, _tv(request)))
 
     def build():
         ctx = {"q": q, "shelves": [], "rows": [], "note": None, "wl_keys": set(), "services": []}
@@ -356,7 +361,8 @@ def discover_page(request: Request, q: str = "", t: str = ""):
 @router.get("/media/discover/search", response_class=HTMLResponse)
 def discover_search(request: Request, q: str = "", t: str = ""):
     if guest.is_media():
-        return _partial(request, "_guest_discover_grid.html", **_guest_grid(request, q.strip()[:100], t))
+        return _partial(request, "_guest_discover_grid.html",
+                        **_guest_grid(request, q.strip()[:100], t, _tv(request)))
     rows, note = _search_outcome(q.strip()[:100])
     media_awards_badges.attach(rows)
     return _partial(request, "_discover_results.html", rows=rows, note=note,
@@ -365,6 +371,9 @@ def discover_search(request: Request, q: str = "", t: str = ""):
 
 GUEST_SHELVES = SHELVES[:3]   # trending, popular films, popular TV
 GUEST_MAX = 36
+# JY-270 P1/P7: on the TV front only, the Upcoming films / Upcoming TV shelves (ROW_MAX each, own labels, below the grid)
+# and the streaming-service chips; a failed or empty shelf (or provider list) is dropped, never an error.
+GUEST_UPCOMING = SHELVES[3:]
 # JY-270 P1: what the guest search narrows to (the chips over the grid); "" = everything, people included
 GUEST_TYPES = (("", "All"), ("movie", "Films"), ("tv", "Shows"), ("person", "People"))
 
@@ -401,13 +410,20 @@ def _guest_search(q: str, t: str) -> tuple[list[dict], str | None]:
     return rows, None if rows else "No matches"
 
 
-def _guest_grid(request: Request, q: str, t: str = "") -> dict:
+def _tv_tiles(rows: list[dict]) -> list[dict]:
+    """State rows (with_states) -> the TV tile kit's request() tiles: title page link, poster, "year · Film|TV", state."""
+    return [{"href": r["href"], "poster": r.get("poster"), "title": r["title"], "state": r["req_state"],
+             "sub": " · ".join(x for x in (str(r["year"]) if r.get("year") else "", "TV" if r["kind"] == "tv" else "Film")
+                               if x)} for r in rows]
+
+
+def _guest_grid(request: Request, q: str, t: str = "", tv: bool = False) -> dict:
     """The guest Discover grid (Joey TV WP-B4): search results for `q` (JY-270: narrowed by `t`), else the first three
     shelves de-duplicated - each title row with the signed-in friend's request state and chip
     (hub.media_guest_requests); a person row has no chip."""
     from hub import media_guest_requests as mgr
     t = t if t in dict(GUEST_TYPES) else ""
-    ctx = {"q": q, "t": t, "types": GUEST_TYPES, "rows": [], "note": None}
+    ctx = {"q": q, "t": t, "types": GUEST_TYPES, "rows": [], "note": None, "upcoming": [], "services": None}
     if not _creds():
         return ctx
     if q:
@@ -417,8 +433,13 @@ def _guest_grid(request: Request, q: str, t: str = "") -> dict:
         ctx["rows"] = [r if r["kind"] == "person" else next(it) for r in rows]
         return ctx
     else:
-        with ThreadPoolExecutor(max_workers=len(GUEST_SHELVES)) as pool:
-            got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), GUEST_SHELVES))
+        extra = GUEST_UPCOMING if tv else ()
+        with ThreadPoolExecutor(max_workers=len(GUEST_SHELVES) + len(extra) + 1) as pool:
+            svc = pool.submit(services) if tv else None
+            got = list(pool.map(lambda s: _shelf_rows(s[2], s[3]), GUEST_SHELVES + extra))
+        got, soon = got[:len(GUEST_SHELVES)], got[len(GUEST_SHELVES):]
+        if svc is not None:
+            ctx["services"] = svc.result() or None
         seen, rows = set(), []
         for r in (r for shelf in got for r in shelf or []):
             if (r["kind"], r["tmdb_id"]) not in seen:
@@ -426,7 +447,10 @@ def _guest_grid(request: Request, q: str, t: str = "") -> dict:
                 rows.append(r)
         rows = rows[:GUEST_MAX]
         ctx["note"] = None if rows else "Discover unavailable" if all(g is None for g in got) else "Nothing to show."
-    ctx["rows"] = mgr.with_states(rows, mgr.viewer_mine())
+    mine = mgr.viewer_mine()
+    ctx["rows"] = mgr.with_states(rows, mine)
+    ctx["upcoming"] = [{"id": s[0], "title": s[1], "items": _tv_tiles(mgr.with_states(r[:ROW_MAX], mine))}
+                       for s, r in zip(extra, soon) if r]
     return ctx
 
 
@@ -560,6 +584,12 @@ def service_page(request: Request, provider_id: int):
             ctx["shelves"] = service_shelves(provider_id)
         ctx["wl_keys"] = keys_for(request, [f"tmdb:{r['tmdb_id']}" for s in ctx["shelves"] for r in s["rows"] or []])
         media_awards_badges.attach([r for s in ctx["shelves"] for r in s["rows"] or []])
+        if _tv(request):   # JY-270 P7: the TV front draws the request tiles (state words), never a watchlist button
+            from hub import media_guest_requests as mgr
+            mine = mgr.viewer_mine()
+            ctx["wl_keys"] = None
+            for s in ctx["shelves"]:
+                s["items"] = _tv_tiles(mgr.with_states(s["rows"], mine)) if s["rows"] else []
         return ctx
 
     return _page(request, "media_service.html", build)

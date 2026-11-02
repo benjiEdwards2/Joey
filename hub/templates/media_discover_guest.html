@@ -46,6 +46,13 @@
   </div>
   <noscript><button class="btn btn-secondary" type="submit">Search</button></noscript>
 </form>
+{# JY-270 P7: on the TV, the streaming services as word chips (the P4 library chip row); OK opens that service's
+   shelves, Back comes home to the chip (tv.js Back memory). Dropped when the provider list is down. #}
+{% if tv_mode(request) and services %}
+<nav class="chips tv-libchips tv-svcchips" aria-label="Streaming services">
+  {% for s in services %}<a class="chip" href="{{ s.href }}">{{ s.name }}</a>{% endfor %}
+</nav>
+{% endif %}
 {% include "_guest_discover_grid.html" %}
 <dialog id="req-dialog" class="reqdlg" aria-label="Request"><div id="req-panel"></div></dialog>
 <script>

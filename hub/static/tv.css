@@ -654,3 +654,7 @@ html.tv .tv-seasonchips .chip .tv-chipavg { font-weight: 400; }
 html.tv .title-logo, html.tv .tv-hero-logo { display: block; max-width: 100%; height: auto; aspect-ratio: var(--lw) / var(--lh);
   width: min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem)); }
 html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
+
+/* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
+html.tv .tv-svcchips { margin-top: .75rem; }
+html.tv .tv-svcchips .chip:focus-visible, html.tv .tv-svcchips .chip.tv-focus { background: #f4f4f5; color: #09090b; border-color: transparent; }

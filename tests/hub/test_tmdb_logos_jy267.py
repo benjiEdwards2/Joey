@@ -330,15 +330,15 @@ def test_web_home_hero_draws_the_logo(tmp_path, monkeypatch):
     import hub.main
     importlib.reload(hub.main)
     with TestClient(hub.main.app) as client:
-        plain = main_of(client.get("/a/alpha").text)                           # smoke: no logo, the old h1
-        assert "<h1>Playing Now Title</h1>" in plain
-        ver = put("np")
-        page = client.get("/a/alpha")
+        plain = main_of(client.get("/a/alpha?s=new").text)                     # smoke: no logo, the words
+        assert '<span class="homecar-title">Fresh Film</span>' in plain
+        ver = put("f")
+        page = client.get("/a/alpha?s=new")
     assert page.status_code == 200
     body = main_of(page.text)
-    assert (f'<h1 class="has-logo"><img class="title-logo" src="/img/jfs:np/logo?v={ver}" alt="Playing Now Title"'
-            in body)
-    assert '<span class="title-logo-text">Playing Now Title</span></h1>' in body
+    # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md): the hero is the carousel; its slide draws the stored logo, the words kept for a failed load
+    assert f'<img class="homecar-logo" src="/img/jfs:f/logo?v={ver}"' in body
+    assert '<span class="homecar-title" hidden>Fresh Film</span>' in body
 
 
 # ---- P2: per-surface sizes (CSS), no new colours ----

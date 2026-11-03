@@ -127,7 +127,7 @@ GUEST: tuple = (
 )
 
 PRIVATE: tuple = (
-    *_each("GET", "/", "/server", "/a/{area_id}", "/whoami", "/weather"),   # the guest home is a runtime exception
+    *_each("GET", "/", "/server", "/a/{area_id}", "/a/{area_id}/carousel", "/whoami", "/weather"),   # the guest home is a runtime exception
     *_each("GET", "/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"),
     *_each("GET", "/server/updates/all/run", "/server/updates/{name}/run", "/server/stack/run"),
     *_each("POST", "/server/updates/all/run", "/server/updates/{name}/run", "/server/updates/{name}/ignore",

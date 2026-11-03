@@ -33,8 +33,8 @@ def test_show_page_draws_episodes_then_season_chips(tvc):
     t = tiles(body)
     assert len(t) == 3 and f'href="/media/item/{E1}"' in t[0] and f"/img/jf:{E1}?h=240" in t[0]
     assert 'class="tl-arrow tl-prev"' in body and 'class="tl-arrow tl-next"' in body
-    # straight under the hero: before the part-of banner, the numbers and the old Seasons list
-    assert html.index('class="sec tl-eps"') < html.index('class="sec seasons"')
+    # straight under the hero; JY-290 (B. 2026-11-02): the old bottom Seasons list is gone
+    assert 'class="sec seasons"' not in html
     assert html.index("</header>") < html.index('class="sec tl-eps"')
     assert re.search(r"\.tl-chips \{[^}]*flex-wrap: nowrap;[^}]*overflow-x: auto", CSS)
     assert re.search(r"\.tl-track \{[^}]*overflow-x: auto", CSS)

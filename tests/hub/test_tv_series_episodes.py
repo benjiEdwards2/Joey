@@ -181,7 +181,7 @@ def test_tv_rating_is_a_rate_button_over_the_existing_picker(tvc):
 
 def test_off_the_tv_the_pages_are_unchanged(tvc):
     show = tvc.get(f"/media/item/{SHOW}").text
-    assert '<details class="seasonbox' in show and "tvshelf" not in show and "data-tv-rate" not in show
+    assert 'class="sec tl-eps"' in show and "tvshelf" not in show   # JY-290: the Episodes row, no bottom list and "data-tv-rate" not in show
     epp = tvc.get(f"/media/item/{E2}").text
     assert 'class="crumbs"' in epp and "data-tv-up" not in epp and "tv-epstill" not in epp
     assert "S01E02 · Second Wind" in epp

@@ -57,31 +57,6 @@
 {% if r and r.rating is not none %}<span class="eprow-r"><span class="vh">Rated </span>★ {{ "%.1f"|format(r.rating) }}{% if avg is not none and r.rating != avg %}<small>{{ "above" if r.rating > avg else "below" }} avg</small>{% endif %}</span>{% endif %}
 {%- endmacro %}
 
-{# Seasons compared: one row per season on the shared 6-10 scale (dashed = 8.0), average + "seen of total" at the right,
-   the current season gold; under it the best episode and the season trend. #}
-{% macro compare(ratings) -%}
-{% if ratings and ratings.seasons %}
-<section class="sec" id="compare">
-  <div class="eflow-hd"><h2 class="seclabel">Seasons compared</h2><span class="eflow-sub">{{ ratings.source }} episode ratings · scale 6–10 · dashed = 8.0</span></div>
-  <div class="compare">
-  {% for s in ratings.seasons %}
-  {% set slots = [s.eps|length, 10]|max %}
-  {% set pts = [] %}
-  {% for e in s.eps if e.rating is not none %}{% set _ = pts.append([(6 + (e.number - 1) * 288 / (slots - 1))|round(1), ([[40 - (e.rating - 6) * 9, 2]|max, 42]|min)|round(1)]) %}{% endfor %}
-  <a class="cmprow{{ ' is-on' if s.n == ratings.current }}" href="?season={{ s.n }}#season-{{ s.n }}">
-    <span class="cmplab">S{{ s.n }}{% if s.year %}<small>{{ s.year }}</small>{% endif %}</span>
-    <svg class="cmpsvg" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true" focusable="false"><line class="cmpref" x1="0" y1="22" x2="300" y2="22"/>{% if pts|length > 1 %}<polyline class="cmpline" points="{% for p in pts %}{{ p[0] }},{{ p[1] }}{{ ' ' if not loop.last }}{% endfor %}"/>{% endif %}{% for p in pts %}<path class="cmpdot" d="M{{ p[0] }} {{ p[1] }}h.01"/>{% endfor %}</svg>
-    <span class="cmpavg">{{ "%.1f"|format(s.avg) if s.avg is not none else "–" }}<small>{% if s.avg is not none %}avg · {{ s.seen }} of {{ s.total }} seen{% elif s.aired %}no ratings yet{% else %}not aired{% endif %}</small></span>
-  </a>
-  {% endfor %}
-  </div>
-  {% if ratings.best or ratings.trend %}
-  <p class="cmptrend">{% if ratings.best %}<span>Best episode: <b>S{{ ratings.best.season }}.E{{ ratings.best.number }} {{ ratings.best.name }} · {{ "%.1f"|format(ratings.best.rating) }}</b></span>{% endif %}{% if ratings.trend %}<span>Season trend: <b>{{ ratings.trend }}</b></span>{% endif %}</p>
-  {% endif %}
-</section>
-{% endif %}
-{%- endmacro %}
-
 {# The rating strip of one season (an entry of ratings.seasons): a bar per episode - value on top, E{n} below, a link per
    bar. Classes: is-seen (emerald), is-on (gold, the page's episode), is-unaired (dashed). `mini` = the small one on an
    episode page (no legend). #}

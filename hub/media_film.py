@@ -822,7 +822,7 @@ def collection_banner(raw: dict, kind: str, lib_keys: set, tmdb_id) -> dict | No
 def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict | None:
     """The "part of" banner on an episode or season page (media-ux3): the show's backdrop (when Jellyfin has one) and
     poster, "Show · Season 6 · Episode 4 · 3 of 6 watched", and links to the show page — "This season" opens and
-    scrolls to that season (`?season=N#season-N`), "All seasons" lands on the Seasons section."""
+    opens that season in the Episodes row (`?season=N`), "All seasons" the show page (JY-290: no bottom list)."""
     if not page or not item or item.get("kind") != "series" or page.get("kind") not in ("episode", "season"):
         return None
     n = page.get("season_no")
@@ -833,8 +833,8 @@ def part_of(page: dict | None, item: dict | None, seasons: list[dict]) -> dict |
     show = f"/media/item/{item['id']}"
     return {"title": item["title"], "line": [x for x in line if x], "poster": item["poster"],
             "backdrop": item["backdrop"] if item.get("has_backdrop") else None,
-            "season_href": f"{show}?season={n}#season-{n}" if page["kind"] == "episode" and n is not None else None,
-            "all_href": f"{show}#seasons"}
+            "season_href": f"{show}?season={n}" if page["kind"] == "episode" and n is not None else None,
+            "all_href": show}
 
 
 # ---- TV episode flow: nav, guests, crew_ep (WP-E3, 2026-10-16; EPISODES_CONTRACT section 2) ----
@@ -1296,7 +1296,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                   "languages": _languages(files), "added": added, "releases": [], "seasons": None}
     people = (item or {}).get("people") or []
     f["cast_h"], f["maker_h"] = CAST_H, MAKER_H
-    f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep else []   # a show page's second card row (2026-10-11); not episodes
+    season_page = bool(page_item and page_item["kind"] == "season")
+    # a show page's second card row (2026-10-11); not episodes, and not a season page (JY-289, B. 2026-11-02)
+    f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep and not season_page else []
+    if season_page and page_item.get("own_poster"):   # JY-289: the season's own poster, else the show's
+        f["poster"] = page_item["own_poster"]
     f["trailer"], f["trailer_key"] = _trailer((item or {}).get("trailer"), raw)   # media-ux4: in-page player key
     lib_keys = on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv")
     f["collection"], f["shelves"] = None, []
@@ -1307,8 +1311,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
     f.update(episode_flow(page_item, ep, item, f["seasons"], f.get("cast")))   # TV episode flow (WP-E3, 2026-10-16)
     # JY-192 (U6): the TV title page's Seasons + Episodes shelves (the template draws them in TV mode only)
-    f["tv"] = tv_shelves(f["seasons"], page_item["season_no"] if page_item and page_item["kind"] in ("episode", "season")
-                         else None, ep["id"] if ep else None, f["next_ep"])
+    # JY-290: `?season=N` (the part-of banner's "This season") picks the Episodes row's season now the bottom list is gone
+    f["tv"] = tv_shelves(f["seasons"], page_season, ep["id"] if ep else None, f["next_ep"])
     f["wl_on"] = bool(keys_for(request, [f"tmdb:{tmdb_id}"])) if tmdb_id else False
     f["follow_flash"] = media_follow.flash_text(request)
     f["back"] = request.url.path

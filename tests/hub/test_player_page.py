@@ -216,7 +216,7 @@ def test_flag_on_household_play_links_open_the_player_in_the_same_tab(film, monk
     m = PLAYER_LINK.search(e)
     assert m and m.group(1) == "ep3" and 'hx-boost="false"' in m.group(2)
     assert PLAYER_LINK.search(s).group(1) == "ep4"   # Next to watch
-    rows = re.findall(r'<a class="btn btn-secondary btn-sm" href="(/media/watch/[^"]+)"([^>]*)>', s)
+    rows = re.findall(r'<a class="btn btn-secondary btn-sm[^"]*" href="(/media/watch/[^"]+)"([^>]*)>', s)   # JY-290: the tiles' Play
     assert rows and all('hx-boost="false"' in a and "target=" not in a for _, a in rows)
     assert "/web/#/details" not in s
 

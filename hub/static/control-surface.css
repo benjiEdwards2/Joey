@@ -1336,7 +1336,7 @@ a.awfilm-title:hover { color: var(--text-2); }
   html:not(.tv) .title-logo { width: min(70%, calc(90px * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px)); }
 }
 /* TV episode flow (2026-10-16) */
-/* The show page's "Seasons compared" + rating strip, the season page's head switch + strip + rated rows, and the episode
+/* The season page's head switch + rated rows, and the episode
    page's crumbs / eyebrow / guests / crew / mini strip / previous-next. Tokens only. Gold = the picked season or episode,
    emerald = seen - always beside words. The strip scrolls sideways inside its own box on a phone (the chip row's margin
    trick); from 640 px the bars share the width equally. Phone first (375), 40 px tap targets. */
@@ -1361,24 +1361,6 @@ a.awfilm-title:hover { color: var(--text-2); }
 .histseg { margin: 0 0 16px; width: fit-content; }
 .histseg a[aria-current] { background: var(--pill-on); color: var(--text-1); }
 @media (max-width: 767px) { .histseg a { height: 40px; padding: 0 14px; } }
-/* Seasons compared: one row per season - a 44 px label column, a stretching line, the average at the right. */
-.compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
-.cmprow { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 52px;
-  padding: 6px 8px; border-radius: 10px; color: inherit; text-decoration: none; }
-.cmprow:hover { background: var(--hover); }
-.cmprow.is-on { background: var(--gold-soft); box-shadow: inset 0 0 0 1px var(--gold-line); }
-.cmplab { font-size: 13px; font-weight: 700; color: var(--text-1); }
-.cmplab small { display: block; font-size: 10px; font-weight: 500; color: var(--text-5); }
-.cmpsvg { display: block; width: 100%; height: 44px; }
-.cmpref { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
-.cmpline { fill: none; stroke: var(--text-5); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
-.cmpdot { fill: none; stroke: var(--text-3); stroke-width: 6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.cmprow.is-on .cmpline, .cmprow.is-on .cmpdot { stroke: var(--gold); }
-.cmpavg { min-width: 72px; text-align: right; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-1); }
-.cmprow.is-on .cmpavg { color: var(--gold); }
-.cmpavg small { display: block; font-size: 10px; font-weight: 500; color: var(--text-5); }
-.cmptrend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-4); }
-.cmptrend b { font-weight: 600; color: var(--text-2); }
 /* Rating strip: a bar per episode, the value on top and E{n} below. */
 .ratestrip { margin: 0 -16px; padding: 0 16px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
 .ratestrip::-webkit-scrollbar { display: none; }
@@ -1589,6 +1571,10 @@ html:not(.tv) .tl-epshd .seclabel { margin: 0; flex: none; }
 html:not(.tv) .tl-chips { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 html:not(.tv) .tl-chips::-webkit-scrollbar { display: none; }
 html:not(.tv) .tl-epsub { flex: none; white-space: nowrap; font-size: 14px; }
+/* JY-290 (B.'s pick B, 2026-11-03): the bottom Seasons list's extras beside the chips - the shown season's state word in the
+   "n of m watched" line, "Mark season watched" at the right, Sonarr-only seasons as dimmed chips (no page to open). */
+html:not(.tv) .tl-chipdim { color: var(--text-5); border-style: dashed; cursor: default; }
+html:not(.tv) .tl-seasonacts { flex: none; margin-left: auto; padding: 0; }
 html:not(.tv) .tl-row { position: relative; }
 html:not(.tv) .tl-track { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
   overscroll-behavior-x: contain; padding-bottom: 4px; }
@@ -1607,6 +1593,7 @@ html:not(.tv) .tl-epover { font-size: 14px; line-height: 1.4; color: var(--text-
   -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 html:not(.tv) .tl-eplink:hover .row-title { text-decoration: underline; }
 html:not(.tv) .tl-epplay { align-self: flex-start; }
+html:not(.tv) .tl-epacts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 html:not(.tv) .tl-arrow { position: absolute; top: 0; z-index: 2; width: 40px; height: calc(280px * 9 / 16); border: 0; cursor: pointer;
   font-size: 28px; color: var(--text-1); background: var(--glass-bg); backdrop-filter: blur(8px); opacity: 0; transition: opacity .15s; }
 html:not(.tv) .tl-prev { left: 0; border-radius: 6px 0 0 6px; }
@@ -1619,7 +1606,9 @@ html:not(.tv) .tl-arrow:hover { background: var(--glass-bg-hover); }
 }
 @media (max-width: 639px) {
   html:not(.tv) .tl-epshd { gap: 8px; margin-bottom: 8px; }
+  html:not(.tv) .tl-epshd { flex-wrap: wrap; }
   html:not(.tv) .tl-chips { flex: 1 1 auto; }
+  html:not(.tv) .tl-seasonacts { margin-left: 0; }
   html:not(.tv) .tl-ep { flex-basis: 64vw; }
   html:not(.tv) .tl-eps { margin-top: 0; padding-top: 0; }
 }

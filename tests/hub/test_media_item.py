@@ -87,17 +87,18 @@ def test_episode_page_and_map(env):
         html = r.text
     b = main_of(html)
     assert r.status_code == 200
-    assert 'href="/media/item/ser1#seasons"' in b          # the show: the part-of banner (media-ux4 dropped the "Episode of" line)
+    assert 'href="/media/item/ser1"' in b                  # JY-290: no #seasons anchor; the show: the part-of banner (media-ux4 dropped the "Episode of" line)
     assert "S04E03 · Penny for Your Thoughts" in b and "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Play again ▶" in b and f'href="{deep("ep3")}"' in b
     assert "Quiet Show (2020)" in b and "A quiet show." in b        # the SHOW's page content below
     assert "3 of 6 watched" in b
     # Episode list (2026-10-08, replaced the numbered squares + their legend): one whole-row link per episode with
     # its state in words; the row's class carries the state too.
-    rows = {n: key for key, n in re.findall(r'<div class="row has-form epline ep-(\w+)" id="ep-ep(\d)">', b)}
+    # JY-290: those rows are the Episodes row's tiles now (the bottom Seasons list is gone)
+    rows = {n: key for key, n in re.findall(r'<div class="tl-ep ep-(\w+)" id="tl-ep-ep(\d)">', b)}
     assert rows == {"1": "watched", "2": "watched", "3": "watched", "4": "progress", "5": "todo", "6": "unaired"}
-    assert '<a class="rowlink" href="/media/item/ep6">' in b and ">E6 · Six</div>" in b and ">Not aired</div>" in b
-    assert ">In progress</div>" in b  # EPISODES carry no runtime, so no minutes-left figure
+    assert '<a class="tl-eplink" href="/media/item/ep6"' in b and ">E6 · Six</span>" in b and ">Not aired</span>" in b
+    assert ">In progress</span>" in b  # EPISODES carry no runtime, so no minutes-left figure
     assert "Squares in order" not in b and "watched · in progress · not aired" not in b
     assert current(html, "Media sections") == ["TV shows"]
     paths = [p for p, _ in fake.calls]

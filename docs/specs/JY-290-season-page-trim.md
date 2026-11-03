@@ -52,4 +52,15 @@ Episode page rating line and mini strip (unless Question 3 says so). The JY-269 
 2. TV: remove the chart and comparison there too? A. yes (recommended), B. web and phone only.
 3. Episode page mini rating strip: A. keep (recommended, you did not mention it), B. remove.
 
+## Test changes (2026-11-03)
+Builder, JY-289 + JY-290 PR. Picks applied (orchestrator 2026-11-03): Q1 = B, Q2 = A, Q3 = A.
+- `test_episode_flow_templates.py`: the Seasons compared tests (one row per season, polyline, best/trend, "no ratings yet"), the series strip tests (current season, unaired season), the `.cmprow` CSS test and the `--gold-soft` / `.cmprow.is-on` checks are removed with the feature; replaced by one absence test (show + season, web) and one TV absence test. Rated-row tests now read the Episodes row's tiles. The season-page test now asserts no strip. `compare` dropped from the empty-macro list. New: the episode mini strip is kept.
+- `test_episode_ratings.py`: off-server and friend tests assert the ratings are still built but no compare / strip is drawn (three renamed); the compare-row anchor test now asserts no `#season-` link.
+- `test_media_episodes.py`: the episode-row test reads the tiles (same words, still, Play / Resume); "Overview < Seasons" became "Episodes < Overview < Cast < Where to watch", no Seasons heading; "season open" = the lit chip; banner link has no `#seasons`.
+- `test_media_partof.py`, `test_media_item.py`: banner links lose `#season-N` / `#seasons`; "opened" = the Episodes row's lit chip (`?season=N` now picks it).
+- `test_media_watched.py`: season toggle read beside the chips (`.tl-seasonacts`), episode toggles under each tile (still outside the tile's link; unaired has none).
+- `test_season_state.py`: the state word is read in the Episodes row's "n of m watched" line; Sonarr-only seasons are dimmed chips (`.tl-chipdim`, words in `title`), same order and exclusions.
+- `test_player_page.py`, `test_tv_series_episodes.py`, `test_web_episodes_jy269p2.py`: tile Play buttons carry `tl-epplay`; no bottom list.
+- New `test_season_page_jy289.py` (JY-289): season poster / fallback / no directors on the season page.
+
 ## Shipped notes

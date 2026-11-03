@@ -513,7 +513,7 @@ def test_off_server_render_reads_nothing_it_only_hands_the_job_to_the_background
     assert (imdb, tmdb, seasons, jf_seasons) == (OFF_IMDB, 777, [1, 2], [1, 2])
 
 
-def test_off_server_next_view_draws_seasons_compared_from_stored_rows(env, monkeypatch, tmp_path):
+def test_off_server_next_view_builds_ratings_from_stored_rows_but_draws_no_compare(env, monkeypatch, tmp_path):
     client, fake, seen = wire_off(env, monkeypatch, tmp_path)
     with client:
         client.get("/media/title/tv/777")
@@ -523,16 +523,16 @@ def test_off_server_next_view_draws_seasons_compared_from_stored_rows(env, monke
     assert fake.ep_calls() == []                                                        # warm: stored rows only
     ratings = seen[-1]["ratings"]
     assert ratings["source"] == "IMDb" and [s["n"] for s in ratings["seasons"]] == [1, 2]
-    assert 'id="compare"' in r.text and "Seasons compared" in r.text and "IMDb episode ratings" in r.text
-    assert 'id="rating-strip"' in r.text and r.text.count('class="cmprow') == 2
+    # JY-290 (B. 2026-11-02): the ratings are still built, but "Seasons compared" and the bar chart are gone
+    assert 'id="compare"' not in r.text and "Seasons compared" not in r.text and 'id="rating-strip"' not in r.text
 
 
-def test_off_server_compare_rows_land_on_the_seasons_list(env, monkeypatch, tmp_path):
+def test_off_server_page_links_to_no_season_anchor(env, monkeypatch, tmp_path):
     client, fake, seen = wire_off(env, monkeypatch, tmp_path)
     with client:
         client.get("/media/title/tv/777")
         r = client.get("/media/title/tv/777")
-    assert 'href="?season=2#season-2"' in r.text and 'id="season-2"' in r.text          # the row's #season-N anchor exists
+    assert "#season-" not in r.text and 'id="season-2"' in r.text                       # JY-290: no compare rows, no dead anchors
 
 
 def test_off_server_ratings_carry_no_watch_state_and_no_episode_links(env, monkeypatch, tmp_path):
@@ -554,7 +554,7 @@ def test_off_server_tmdb_fallback_with_no_imdb_id(env, monkeypatch, tmp_path):
         client.get("/media/title/tv/777")
         r = client.get("/media/title/tv/777")
     assert fake.ep_calls() == []                                                        # no IMDb id: OMDb is never asked
-    assert seen[-1]["ratings"]["source"] == "TMDB" and "TMDB episode ratings" in r.text
+    assert seen[-1]["ratings"]["source"] == "TMDB" and r.status_code == 200
 
 
 def test_off_server_without_an_omdb_key_falls_back_to_tmdb(env, monkeypatch, tmp_path):
@@ -634,7 +634,7 @@ def test_a_friend_viewing_an_off_server_show_starts_no_ratings_fill(monkeypatch,
     assert jobs == []                                                                   # OMDb's day cap is the household's
 
 
-def test_a_friend_still_sees_the_stored_ratings(monkeypatch, tmp_path, db):
+def test_a_friend_with_stored_ratings_starts_no_fill_and_sees_no_compare(monkeypatch, tmp_path, db):
     jobs = []
     rows = [{"episode": n, "rating": 8.0 + n / 10, "episode_imdb": None, "title": f"E{n}", "released": "2021-03-01"}
             for n in (1, 2, 3)]
@@ -645,7 +645,7 @@ def test_a_friend_still_sees_the_stored_ratings(monkeypatch, tmp_path, db):
         r = client.get("/media/title/tv/777")
     finally:
         client.__exit__(None, None, None)
-    assert 'id="compare"' in r.text and "Seasons compared" in r.text and jobs == []
+    assert r.status_code == 200 and 'id="compare"' not in r.text and jobs == []        # JY-290: no compare block for anyone
 
 
 def test_a_failed_seerr_season_read_is_not_retried_on_every_view(env, monkeypatch, tmp_path):
@@ -668,7 +668,7 @@ def test_a_failed_seerr_season_read_is_not_retried_on_every_view(env, monkeypatc
     assert seen[-1]["ratings"] is None
 
 
-def test_jellyfin_listing_the_show_with_no_seasons_draws_one_block_and_unique_season_ids(env, monkeypatch, tmp_path):
+def test_jellyfin_listing_the_show_with_no_seasons_draws_no_block_and_unique_season_ids(env, monkeypatch, tmp_path):
     import re
     from tests.hub import helpers
     monkeypatch.setattr(helpers, "EPISODES", [])
@@ -682,7 +682,7 @@ def test_jellyfin_listing_the_show_with_no_seasons_draws_one_block_and_unique_se
         r = client.get("/media/item/ser1")
     assert r.status_code == 200 and seen[-1]["seasons"] == []                           # Jellyfin has the show, no seasons
     assert seen[-1]["ratings"] is not None and seen[-1]["ratings"]["source"] == "IMDb"  # the new branch fired
-    assert r.text.count('id="compare"') == 1 and r.text.count('id="rating-strip"') == 1
+    assert 'id="compare"' not in r.text and 'id="rating-strip"' not in r.text          # JY-290
     ids = re.findall(r'\sid="(season-\d+)"', r.text)
     assert ids and len(ids) == len(set(ids))
 

@@ -245,7 +245,8 @@ def test_show_page_never_calls_sonarr_before_the_render_then_has_the_words(env, 
     nxt = words(3)
     assert status(second) == f"On server · 5 of 8 episodes · 2 left · S4 E4 next · 3 to come · next airs {nxt}"
     body = main_of(second)
-    assert f'<span class="seasoncount">3 of 6 watched</span> · <span class="seasonstate">3 to come · next airs {nxt}</span>' in body
+    # JY-290 (B.'s pick B): the season state word sits in the Episodes row's "n of m watched" line
+    assert f'3 of 6 watched · <span class="seasonstate">3 to come · next airs {nxt}</span>' in body
     assert len(sonarr.calls) == 2                                                 # warm: no further call
 
 
@@ -478,17 +479,15 @@ def test_show_page_lists_sonarr_only_seasons_after_jellyfins(env, sonarr):
     with client:
         r = client.get("/media/item/ser1")
     assert r.status_code == 200
-    seasons = main_of(r.text).split('id="seasons"')[1].split("</section>")[0]
-    s4 = seasons.index('id="season-4"')
-    row5 = ('<div class="row" id="season-5"><div class="row-body"><div class="row-title">Season 5 · '   # main_of drops .sep
-            '<span class="seasoncount">Not on server yet</span> · '
-            f'<span class="seasonstate">Announced · airs {words(47)}</span></div></div></div>')
-    assert row5 in seasons and seasons.index(row5) > s4
-    assert ('<span class="seasoncount">Not on server yet</span> · '
-            '<span class="seasonstate">Waiting for the first episode · date TBA</span>') in seasons
-    assert seasons.index('id="season-5"') < seasons.index('id="season-6"') < seasons.index('id="season-8"')
+    # JY-290 (B.'s pick B): Sonarr-only seasons are dimmed chips after Jellyfin's in the Episodes row (no page to open)
+    seasons = main_of(r.text).split('<nav class="tl-chips"')[1].split("</nav>")[0]
+    s4 = seasons.index(">Season 4</a>")
+    chip5 = f'<span class="chip tl-chipdim" title="Not on server yet · Announced · airs {words(47)}">Season 5</span>'
+    assert chip5 in seasons and seasons.index(chip5) > s4
+    assert 'title="Not on server yet · Waiting for the first episode · date TBA"' in seasons
+    assert seasons.index(">Season 5<") < seasons.index(">Season 6<") < seasons.index(">Season 8<")
     for n in (2, 7, 9):
-        assert f'id="season-{n}"' not in seasons
+        assert f">Season {n}<" not in seasons
     # the rows came from the cached list: the page made no Sonarr call before its render (any after it are the
     # BackgroundTask's episode-list reads, never the series list again)
     assert all(c[0] == "/api/v3/episode" for c in sonarr.calls[calls:])
@@ -499,7 +498,7 @@ def test_show_page_without_sonarr_has_no_sonarr_only_rows(env, sonarr, monkeypat
     client, _ = env()
     with client:
         page = main_of(client.get("/media/item/ser1").text)
-    assert "Not on server yet" not in page and 'id="season-4"' in page
+    assert "Not on server yet" not in page and "tl-chipdim" not in page and ">Season 4</a>" in page   # JY-290
 
 
 # ---- 6. JY-115 (2026-10-24): a series with NO episode count is not an empty series ----

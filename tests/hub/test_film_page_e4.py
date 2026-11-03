@@ -166,19 +166,21 @@ def test_no_more_fold_when_there_is_nothing_to_fold(env):
 # ---- U5: the site pills live in the Scores strip ----
 
 def test_site_pills_sit_in_the_scores_strip_not_the_hero(env):
+    # JY-280 P2 (2026-11-03): a film's site links became its linked scores (test_film_page_r2.py); a show keeps the E4 strip
     client, _ = env()
     with client:
-        b = main_of(whole(client, "/media/title/movie/603"))
+        b = main_of(whole(client, "/media/title/tv/100"))
     assert "sitepill" not in hero(b)
     strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]
     scores = strip.split('<div class="scorepills sitepills">', 1)
-    assert len(scores) == 2 and "sp-tmdb" in scores[0]                     # after the score pills, in the same stat
-    assert re.findall(r'class="scorepill sitepill"[^>]*>.*?</a>', scores[1]) and ">Letterboxd</a>" in scores[1]
+    assert len(scores) == 2 and "sp-you" in scores[0]                     # after the score pills, in the same stat
+    assert re.findall(r'class="scorepill sitepill"[^>]*>.*?</a>', scores[1]) and ">TMDB</a>" in scores[1]
 
 
 def test_site_pills_fall_back_to_a_details_row_without_a_scores_strip():
     from hub.shell import templates
-    film = {"title": "Bare", "year": 2001, "kind": "movie", "tmdb": 9, "pending": set(), "numbers": {}, "facts": {},
+    # JY-280 P2 (2026-11-03): a show (a film draws its logo links among the scores instead)
+    film = {"title": "Bare", "year": 2001, "kind": "tv", "tmdb": 9, "pending": set(), "numbers": {}, "facts": {},
             "logos": {"imdb": "/i.svg", "tmdb": "/t.svg", "lbxd": "/l.svg"}, "rating": None, "watch_count": 0}
     src = templates.env.get_template("media_film.html")
     block = src.blocks["content"]

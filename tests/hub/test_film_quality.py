@@ -217,7 +217,7 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/movie/603").text)
-    panel = b.split('<h2 class="seclabel">File</h2>', 1)[1].split("</section>", 1)[0]
+    panel = b.split("File details</summary>", 1)[1].split("</details>", 1)[0]   # JY-280 P2 (2026-11-03): the owner's drawer
     assert '<b>WEB-DL</b>' in panel and 'class="fmt fmt-source"' in panel
     for label, value in (("Size", "20.0 GB"), ("Bitrate", "4.7 Mb/s"), ("Picture", "1.78 : 1"), ("Added", "1 May 2024")):
         assert f'<div class="microlabel">{label}</div><div class="filestat-value">{value}</div>' in panel, label
@@ -228,7 +228,7 @@ def test_file_panel_renders_grid_rows_and_file_name_only(env, monkeypatch, rankd
     assert '<p class="filename">Harbour.Lights.2019.2160p.WEB-DL.DDP5.1.HEVC-FLUX.mkv</p>' in panel
     assert "secret-share" not in b and "/volume1" not in b                 # never the folders
     # JY-280: a film says its overview once (the hero) and leads the body with the cast tiles
-    assert ">Overview</h2>" not in b and b.index(">Cast</h2>") < b.index(">File</h2>") < b.index(">Crew</h2>")
+    assert ">Overview</h2>" not in b and b.index(">Cast</h2>") < b.index("File details</summary>") < b.index(">Crew</h2>")
 
 
 def test_rank_hidden_under_twenty_films(env, monkeypatch, rankdir):
@@ -274,7 +274,7 @@ def test_stats_card_and_portrait_cast(env):
         b = main_of(whole(client, "/media/title/movie/603"))
     stats = b.split('<div class="stats numbers">', 1)[1].split("\n</div>", 1)[0]
     assert '<a class="scorepill sp-you" href="#rate">' in stats and '<b class="sp-val">Rate</b></a>' in stats  # media-ux4 (2026-10-08, B.): one pill style
-    assert '<span class="sp-name">IMDb</span>' in stats and ">Runtime</div>" in stats
+    assert 'alt="IMDb" width="16" height="16"><b class="sp-val">' in stats and ">Runtime</div>" in stats
     cast = b.split('<div class="castrow">', 1)[1].split("</section>", 1)[0]
     assert f'src="/img/tmdb:/ada.jpg?h={media_film.CAST_H}"' in cast and 'width="180" height="270"' in cast
     assert '<span class="castname">Ada Actor</span><span class="castrole">as Pilot</span>' in cast

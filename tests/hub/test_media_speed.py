@@ -164,7 +164,7 @@ def test_a_network_failure_is_not_remembered(env):
         media_film.drain_extras()                                          # F2: the failed background read is over
         both.fail_seerr = False
         b = whole(client, "/media/title/movie/603")
-    assert '<span class="sp-name">IMDb</span>' in b                       # retried, not a cached miss (media-ux4 pill)
+    assert 'alt="IMDb" width="16" height="16"><b class="sp-val">' in b                       # retried, not a cached miss (media-ux4 pill)
 
 
 # ---- TTL split ----

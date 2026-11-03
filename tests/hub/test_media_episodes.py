@@ -147,8 +147,9 @@ def test_film_page_order_is_unchanged(env):
     assert '<h2 class="seclabel">Seasons</h2>' not in b
     # JY-280: a film's one overview is in the hero; the body leads with the cast
     assert '<h2 class="seclabel">Overview</h2>' not in b
-    c, f, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Cast", "File", "Where to watch"))
-    assert c < f < w
+    # JY-280 P2 (2026-11-03): the where-to-watch logos under the cast; the File drawer in the right column after them
+    c, w, f = (b.index(k) for k in ('<h2 class="seclabel">Cast</h2>', 'id="fp-providers"', "File details</summary>"))
+    assert c < w < f
 
 
 # ---- merged from test_media_ux4_episode.py ----

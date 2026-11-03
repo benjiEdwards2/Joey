@@ -27,6 +27,7 @@ TV: "Similar with the where to watch, etc."
 8. Tests: logo markup present, no provider name as visible text, alt text present, no-logo fallback, TV has no link.
 
 ## Options (page to build)
+2026-11-03: this spec's option A (under the hero buttons) is superseded by B.'s round-2 pick A for JY-280 ("Movies round 2 I like the option A."): on the movie page the logos sit in the left column under the cast (built in JY-280 P2).
 - A. Under the film: a row of small logos directly beneath the button row and facts.
 - B. Beside the cast: a logo strip at the end of (or above) the Cast row.
 

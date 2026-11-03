@@ -1,6 +1,6 @@
 # JY-272 `/img`: friend-access check for stored backdrops `jfs:<id>/1` and `/2`
 
-Status: spec
+Status: shipped (#297, live bf94e98, 2026-11-03)
 Size: S
 Live risk: none
 Area: `hub/img_access.py` (`allowed()`), `hub/images.py` (the denied branch in `image()`, only if Question 1 changes it), `tests/hub/test_img_access.py`, `tests/hub/test_tmdb_logos_jy267.py` (read only unless a test moves)
@@ -46,3 +46,7 @@ The JY-263 tradeoff (an id in the shared snapshot is visible to every friend), n
 1. What does a friend see for a hidden backdrop? A. A 404 with no-store, as `/logo` does (recommended; the page's `onerror` or the browser draws nothing, and one rule covers all `jfs`). B. The SVG title card, as `jf` and `jfb` do.
 
 ## Shipped notes
+
+## Shipped notes (2026-11-03)
+
+Merged #297 on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98.

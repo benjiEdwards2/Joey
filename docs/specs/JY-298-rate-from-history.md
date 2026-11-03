@@ -1,6 +1,6 @@
 # JY-298 Activity: rate from History, drop "To rate"
 
-Status: spec
+Status: shipped (#303, live bf94e98, 2026-11-03)
 Size: M
 Live risk: none
 Area: `hub/media_nav.py` (Activity tabs), `hub/media_pages.py` (`/media/diary`, `/media/history`), `hub/templates/media_diary.html`, `media_history.html`, `_to_rate.html`, `_rate.html`, `hub/media_write.py`, `hub/media_db.py` (only if Question 1 picks a new store), `hub/guest.py` allow-list, `tests/hub/`
@@ -74,3 +74,7 @@ The To rate page and its "Recently watched" list are gone, so tests that asserte
 - `test_media_library_pages.py`, `test_media_list_posters.py`, `test_style_media.py`, `test_media_rows.py`, `test_media_shelves.py`, `test_media_her.py`, `test_media_diary.py`, `test_tv_awards_diary.py`: Recently-watched checks moved to the diary / inbox / Live page.
 
 ## Shipped notes
+
+## Shipped notes (2026-11-03)
+
+Merged #303 on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98.

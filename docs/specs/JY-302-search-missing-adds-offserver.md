@@ -1,6 +1,6 @@
 # JY-302 Bug: Requests "search missing / upgrades" adds off-server titles to Jellyfin
 
-Status: spec
+Status: shipped (#299, live bf94e98, 2026-11-03)
 Size: M
 Live risk: arr write (Radarr / Sonarr search commands; the optional clean-up would also edit arr monitoring)
 Area: `hub/media_arr_search.py`, `hub/templates/_arr_sweep.html`, `tests/hub/test_media_arr_sweep.py` (+ a read of the `arr` snapshot / Jellyfin library ids)
@@ -92,3 +92,7 @@ None needed for the fix. Upgrade flag + button design: JY-275 options page.
    B: hide it now; JY-275 brings upgrades back as per-title buttons.
 
 ## Shipped notes
+
+## Shipped notes (2026-11-03)
+
+Merged #299 on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98.

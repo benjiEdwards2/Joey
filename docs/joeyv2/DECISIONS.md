@@ -56,3 +56,11 @@
 - Overview (JY-277): B. unsure between A and B; JY-306 (fixed preview ports) is pulled forward so A and B run side by side on two ports for him to compare live.
 - New row JY-307: full TV UI overhaul (options page first).
 - Live 861ebd5 (JY-270 final phase); JY-270 shipped.
+
+## 2026-11-03 evening — Sweep 24 (B.: "accept all, except 293 does not need 'everything else")
+- Seven PRs merged on that accept: #297 JY-272, #299 JY-302, #300 JY-282+288, #302 JY-289+290 (merge conflict with #300 in `test_media_episodes.py` resolved on the branch, suite green), #303 JY-298, #301 JY-280 P2+286, #298 JY-293 (after the label fix). One deploy, live bf94e98.
+- JY-293: group labels plain, no "Everything else · " prefix (B.).
+- JY-307 TV UI: option B, streaming-app layout (B.: "Prefer option B. Lets try it with that for a little bit."). Phase 1 = A/B base tokens first, as the options page phasing says. B. also: "TV option still looks odd. the scaling seems odd." — open: which shots he means (the TV shots are 1920×1080 frames with 1rem = 32 px, so text looks large when viewed on a monitor).
+- JY-308 pulled forward (B.: "ensure that the desktop takes up more horizontal room as well").
+- Review pages: every shot opens full size on click (B.: "allow me to go click into photos").
+- B. working rule for tonight: "run as many hitlist items as you can before bedtime" (NAS off ~22:45 tonight; deploy window still ends 21:30).

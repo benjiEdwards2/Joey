@@ -1,6 +1,6 @@
 # JY-293 Person page filmography order
 
-Status: spec
+Status: shipped (#298, live bf94e98, 2026-11-03)
 Size: M
 Live risk: none
 Area: `hub/media_person.py` (`_credits`, `build_person`), `hub/media_discover.py` (`_row`, only if it must carry extra credit fields), `hub/templates/media_person.html`, `tests/hub/test_media_person.py`
@@ -63,3 +63,7 @@ Per-title collection lookups, the TV ordering, the awards block, the biography, 
 5. TV below the films as today (recommended), or A. keep TV out of the new order entirely, B. interleave by tier.
 
 ## Shipped notes
+
+## Shipped notes (2026-11-03)
+
+Merged #298 on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98. Group labels are plain ("Films", "Film series", "Bonus and other", "TV"); the "Everything else" prefix was dropped on B.'s note.

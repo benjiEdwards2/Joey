@@ -1,6 +1,6 @@
 # JY-288 TV series: average the season ratings, highest first, like movies
 
-Status: building
+Status: shipped (#300, live bf94e98, 2026-11-03)
 Size: M
 Live risk: none (reads media.db only; no schema change, no new writes)
 Area: `hub/media_db.py` (`show_averages`), `hub/media_pages.py` (`_library_rows`, TV shows), `hub/media_film.py` (section 5, your rating), `hub/templates/media_film.html` (Scores card, TV hero facts), `hub/templates/_rate.html` (`avg_pill`), `tests/hub/`
@@ -41,3 +41,7 @@ Home shelves' per-row scores, the diary, Wrapped, the "Because you rated" shelf,
 - [ ] My shows lists my highest-rated shows first.
 
 ## Shipped notes
+
+## Shipped notes (2026-11-03)
+
+Merged #300 on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98.

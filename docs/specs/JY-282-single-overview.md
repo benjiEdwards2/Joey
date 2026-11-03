@@ -1,6 +1,6 @@
 # JY-282 Remove the duplicate overview (films and TV)
 
-Status: building
+Status: shipped (#300, live bf94e98, 2026-11-03)
 Size: S
 Live risk: none
 Area: `hub/templates/media_film.html` (hero synopsis block and the `Overview` section), `hub/static/control-surface.css` (`.tl-syn`, `.tv-syn`), `tests/hub/`
@@ -58,3 +58,7 @@ Rewording the synopsis. Episode tile captions (`tl-epover`). Taglines.
 - 2026-11-03: `test_episode_flow_templates.py::test_episode_sections_come_in_the_contract_order` and `test_media_item.py::test_episode_page_and_map` asserted the SHOW's overview on an episode page; per Q2 = A they now assert it is absent and the episode's synopsis leads.
 
 ## Shipped notes
+
+## Shipped notes (2026-11-03)
+
+Merged #300 on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98.

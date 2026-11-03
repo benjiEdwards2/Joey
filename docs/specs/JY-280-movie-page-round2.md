@@ -1,6 +1,6 @@
 # JY-280 Movie page, round 2 (option A: right column)
 
-Status: building (P1 shipped #296 live d73d90a 2026-11-03; P2 in progress) (B. picked A, 2026-11-03: "Movies round 2 I like the option A.")
+Status: shipped (#301 (P2), live bf94e98, 2026-11-03)
 Size: L
 Live risk: none
 Area: `hub/templates/media_film.html`, `_pagehead.html`, `_film_cast.html`, `_film_crew.html`, `_film_scores.html`, `_film_macros.html` (`sp`, `sitepills`, `makercards`), `hub/media_film.py` (`crew_for`, `file_panel`, `_makers`, owner gating near `media_db.owner_of`), `hub/media_person.py` (writer credits), `hub/static/control-surface.css` (`.hero-detail*`, `.castrow` / `.castcard` / `.castpic`, `.scorepill`), `tests/hub/` (`test_media_film.py`, `test_media_film_scores.py`, `test_media_person.py`)
@@ -83,3 +83,7 @@ P2 (2026-11-03) changed existing tests where the spec changes behaviour (rule 4)
 - `tests/hub/test_media_episodes.py`: order is Cast, the providers placeholder (under the cast), File details.
 - `tests/hub/test_media_partof.py`: order Cast, Scores card, File details, banner, More on Joey.
 - `tests/hub/test_media_film.py`, `test_media_item.py`, `test_media_discover.py`, `test_media_fast_pages.py`, `test_media_speed.py`, `test_style_media.py`: score / provider strings in the new markup; a film shows streaming only (no "Apple TV" rent logo).
+
+## Shipped notes (2026-11-03)
+
+Merged #301 (P2) on B.'s accept (B. 2026-11-03: "accept all, except 293 does not need 'everything else"), one deploy, live bf94e98.

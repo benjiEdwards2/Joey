@@ -43,11 +43,23 @@ def test_one_tile_per_show_in_recently_added(env):
 
 def test_library_posters_swaps_only_non_jellyfin_posters():
     jelly = {"shows": [{"title": "Billions", "poster": SHOW}], "movies": [{"title": "Film", "poster": "jf:f"}]}
-    shelves = [{"items": [{"title": "Billions · S07 · 3 episodes", "poster": "sonarr:12"},
-                          {"title": "Film", "poster": None}, {"title": "Film", "poster": "jf:own"},
-                          {"title": "Unknown", "poster": "radarr:9"}]}]
+    shelves = [{"items": [{"title": "Billions · S07 · 3 episodes", "poster": "sonarr:12", "row_kind": "show"},
+                          {"title": "Film", "poster": None, "row_kind": "movie"},
+                          {"title": "Film", "poster": "jf:own", "row_kind": "movie"},
+                          {"title": "Unknown", "poster": "radarr:9", "row_kind": "movie"},
+                          {"title": "Billions", "poster": "radarr:7", "row_kind": "movie"},   # a film named like the show
+                          {"title": "Film", "poster": "x:1"}]}]                                 # unknown kind: never matched
     media_home.library_posters(jelly, shelves)
-    assert [i["poster"] for i in shelves[0]["items"]] == [SHOW, "jf:f", "jf:own", "radarr:9"]
+    assert [i["poster"] for i in shelves[0]["items"]] == [SHOW, "jf:f", "jf:own", "radarr:9", "radarr:7", "x:1"]
+
+
+def test_a_film_and_a_show_with_the_same_title_stay_two_tiles(env):
+    jelly, arr = billions()
+    arr["arrived"].append({"title": "Billions", "kind": "movie", "item_key": "tmdb:999", "poster": "radarr:5",
+                           "when": "today"})
+    added = next(s for s in shelves_for(env(jellyfin=jelly, arr=arr))["shelves"] if s["id"] == "added")
+    tiles = [i for i in added["items"] if media_home.show_name(i["title"]) == "billions"]
+    assert len(tiles) == 2 and {t["poster"] for t in tiles} == {SHOW, "radarr:5"}
 
 
 def test_home_markup_hero_class_and_poster_tile_shelves(env):

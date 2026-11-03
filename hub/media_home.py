@@ -300,7 +300,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     added, seen = [], set()
     for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
                             + [(r, r.get("when", ""), False) for r in arrived]):
-        keys = {r.get("item_key") or r.get("title"), show_name(r.get("title"))} - {None, ""}
+        rk = r.get("type") if from_jf else r.get("kind")
+        keys = {r.get("item_key") or r.get("title")} | ({(title_kind(rk), show_name(r.get("title")))} if title_kind(rk) else set())
         if keys & seen:   # JY-278: one tile per show - a Sonarr season row never repeats the Jellyfin show tile
             continue
         seen |= keys
@@ -310,7 +311,7 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     arr = data_of(ARR_SNAPSHOT_ID)
     # media-ux2 (2026-10-08, B.): "This week" and "Recently watched" left Media home (Activity → Library keeps This week,
     # Diary > To rate keeps Recently watched; the hub page's own Recently watched band is separate).
-    downloading = [item(r, r["caption"], LIBRARY_DETAIL) for r in
+    downloading = [item(r, r["caption"], LIBRARY_DETAIL, row_kind=r.get("kind")) for r in
                    media_downloads.merge_downloading(arr.get("downloading"), data_of(QBIT_SNAPSHOT_ID))][:SHELF_MAX]
 
     ratings = _ratings(view, up_next, added, recent, downloading)  # ONE query for every shelf
@@ -329,10 +330,12 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     add("downloading", "Downloading", LIBRARY_DETAIL, downloading, "", omit_empty=True)
     most_shows, most_films = media_plays_db.most_played_30(media_db.owner_filter(view))
     most = ([item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
-                  f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
+                  f"{e['episodes']} episode{'' if e['episodes'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS,
+                  row_kind="series")
              for e in most_shows]
             + [item({"title": e["title"], "poster": e["poster"], "item_key": e["key"]},
-                    f"{e['plays']} play{'' if e['plays'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS)
+                    f"{e['plays']} play{'' if e['plays'] == 1 else 's'} · {e['hours']} h", item_href(e.get("jf_id"), e["key"]) or HISTORY_PLAYS,
+                    row_kind="movie")
                for e in most_films])
     try:  # Follow (2026-10-07): only once something is followed; behind the Discover tile like /media/following
         followed = media_follow.home_items() if media_discover.DISCOVER_DETAIL in by_detail else None
@@ -366,18 +369,27 @@ def show_name(title) -> str:
     return str(title or "").split(" · ", 1)[0].strip().casefold()
 
 
+def title_kind(kind) -> str | None:
+    """JY-278: "film" / "show" from a row's Jellyfin `type` or arr / download `kind`; None when unknown (never matched)."""
+    k = str(kind or "").lower()
+    return "film" if k in ("movie", "film") else "show" if k in ("series", "season", "episode", "show", "tv") else None
+
+
 def library_posters(jelly: dict, shelves) -> None:
     """JY-277 option A (2026-11-03): a shelf tile whose poster is not a Jellyfin one (a Sonarr / Radarr arrival, a
     download, a most-played row without art) takes its library title's Jellyfin poster - the JY-260 custom poster - when
-    the title is in the (server-wide) library. Snapshot only, no call; rows already on a Jellyfin poster are left alone."""
+    the same kind (film / show) and title is in the (server-wide) library - never by title alone. Snapshot only, no
+    call; rows already on a Jellyfin poster, and rows of unknown kind, are left alone."""
     by_name = {}
-    for r in (jelly.get("shows") or []) + (jelly.get("movies") or []):
-        if isinstance(r, dict) and str(r.get("poster") or "").startswith("jf:"):
-            by_name.setdefault(show_name(r.get("title")), r["poster"])
+    for kind, rows in (("show", jelly.get("shows")), ("film", jelly.get("movies"))):
+        for r in rows or []:
+            if isinstance(r, dict) and str(r.get("poster") or "").startswith("jf:"):
+                by_name.setdefault((kind, show_name(r.get("title"))), r["poster"])
     for sh in shelves:
         for it in sh["items"]:
-            if not str(it.get("poster") or "").startswith("jf:"):
-                it["poster"] = by_name.get(show_name(it.get("title"))) or it.get("poster")
+            k = title_kind(it.get("row_kind"))
+            if k and not str(it.get("poster") or "").startswith("jf:"):
+                it["poster"] = by_name.get((k, show_name(it.get("title")))) or it.get("poster")
 
 
 SHOW_KINDS = {"episode", "season", "series"}   # Jellyfin `type` / arr `kind` words of a show row (lower case)

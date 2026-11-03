@@ -128,7 +128,7 @@ def attach(rows, snaps, kind: str | None, tvdb_of=lambda r: None) -> None:
         r["upgrade"] = hit["note"] if hit else ""
 
 
-SEARCH_WORDS = {"upgrades": "Last upgrade search", "missing": "Last missing search"}
+SEARCH_WORDS = {"upgrades": "Last upgrade search", "missing": "Last missing search", "search": "Last search"}  # JY-302
 _SEARCH_MSG = re.compile(r"search for (\d+) \w+\. (\d+) reports? downloaded", re.I)
 
 

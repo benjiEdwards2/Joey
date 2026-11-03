@@ -308,6 +308,13 @@ button.userchip .xlbl { display: none; }
   display: flex; flex-direction: column; gap: 20px; }
 @media (min-width: 640px) { .page { padding-left: 24px; padding-right: 24px; } }
 @media (min-width: 768px) { .page { padding-top: 32px; padding-bottom: 4rem; } }
+/* JY-308: wide monitors use the width - 2560 gets ~2240 px, ultrawide caps at ~2880 px (prose keeps its own ch caps). */
+@media (min-width: 1920px) { html:not(.tv) .page, html:not(.tv) .topbar-in, html:not(.tv) .pagehead-in { max-width: 140rem; }
+  html:not(.tv) .poster-grid:not(.libgrid) { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  html:not(.tv) .posterpairs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 3000px) { html:not(.tv) .page, html:not(.tv) .topbar-in, html:not(.tv) .pagehead-in { max-width: 180rem; }
+  html:not(.tv) .poster-grid:not(.libgrid) { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  html:not(.tv) .posterpairs { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
 /* Page header (guide §6): full-bleed band tucked under the top bar; a darkened backdrop or a faint indigo glow.
    The inner column lines up with the page frame. */

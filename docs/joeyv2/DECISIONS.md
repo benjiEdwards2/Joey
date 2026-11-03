@@ -73,3 +73,8 @@
 - Open picks (q-d): "Will check. Please show me artifcat for that or accept as default." -> Overview A/B shots page built; person page B, Live A, TV shows episode-first stand as defaults until B. says otherwise.
 - Assumptions (q-e) confirmed: ultrawide 3440x1440, TV 3840x2160, Live and Health hidden from friends.
 - Review pages now save answers to the artifact db (collection `answers`); the first sweep-24 answers (plain textareas) were lost and B. re-entered them.
+
+## 2026-11-04 late morning - Sweep 25 answers (review-page db)
+- JY-301 r2 #309: "Accept"; JY-307 P2b TV 25%% smaller #312: "Accept", "I like the after." Both merged; deploy pending (NAS unreachable from the work network).
+- Overview: B. "Overview B." -> JY-277 option B building on main (JY-276 + JY-278 included).
+- Person page, Live page, TV shows plan: B. "Show me again." -> JY-291, JY-296 pages republished with saved decision boxes; JY-287 plan published as a page with a Plan 1/2/3 box.

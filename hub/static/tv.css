@@ -661,7 +661,7 @@ html.tv .tv-seasonchips .chip .tv-chipavg { font-weight: 400; }
    Kept after the older rules so it wins over the older rules of the same specificity. Text floor stays 1.125rem. */
 html.tv .tv-bd > img { opacity: 1; }
 html.tv .tv-bd::after { background: var(--tv-scrim); }
-html.tv .tv-hero { max-width: 34rem; padding-top: 2.25rem; min-height: 13rem; }
+html.tv .tv-hero { max-width: 34rem; padding-top: 2.25rem; }
 html.tv .tv-hero-eyebrow { font-size: var(--tv-fs-eyebrow); font-weight: 600; letter-spacing: .02em; color: var(--tv-eyebrow); }
 html.tv .tv-hero-title { font-size: var(--tv-fs-title); line-height: 1.02; font-weight: 800; letter-spacing: -.025em; }
 html.tv .tv-hero-facts { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .78); }
@@ -682,8 +682,22 @@ html.tv .hero-detail-btns .btn, html.tv .hero-detail-btns .wlbtn .btn, html.tv .
 html.tv .hero-detail-btns .btn:focus-visible, html.tv .hero-detail-btns .btn.tv-focus,
 html.tv .hero-detail-btns .tv-ratebtn:focus-visible, html.tv .hero-detail-btns .tv-ratebtn.tv-focus {
   background: #fff; color: var(--tv-ink); outline: none; transform: scale(var(--tv-lift)); box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .6); }
+html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: .75rem; }
+html.tv .carousel.tvt-row { gap: 1.25rem; padding-top: .875rem; }
+html.tv .page:has(> .tv-hero) .carousel.tvt-row-land > * { flex: 0 0 12.5rem; width: 12.5rem; }   /* Home rows only */
+html.tv .reqgrid .card-poster.tv-focus, html.tv .reqgrid .card-poster:focus-visible { transform: none; outline: none; }
+html.tv .reqgrid .card-poster.tv-focus .card-pic, html.tv .reqgrid .card-poster:focus-visible .card-pic { outline: none; box-shadow: none; }   /* the state word sits in .card-pic */
+html.tv .reqgrid .card-poster.tv-focus .card-pic > img, html.tv .reqgrid .card-poster:focus-visible .card-pic > img {
+  outline: var(--tv-ring-w) solid var(--tv-ring); outline-offset: .125rem; box-shadow: var(--tv-lift-shadow); transform: scale(1.03); }
+html.tv .poster-grid .card-poster.tv-focus, html.tv .poster-grid .card-poster:focus-visible { transform: scale(1.03); }
+html.tv .reqgrid .card-poster .row-title, html.tv .poster-grid .card-poster .row-title { margin-top: .5rem; }
+html.tv .hero-detail-in { align-items: flex-start; }
+html.tv .hero-detail-text { padding-top: 0; margin-top: 0; }
+html.tv .hero-detail .hero-detail-title { margin-top: 0; line-height: 1; }
+html.tv .hero-detail-btns .btn, html.tv .hero-detail-btns .tv-ratebtn { display: inline-flex; align-items: center; line-height: 1; }
+html.tv .hero-detail-btns > a.btn-white { display: block; line-height: 2.75rem; }
 /* title page: clearer backdrop, title on the scale */
-html.tv .hero-detail-bd { height: 30rem; background-image: linear-gradient(90deg, rgba(9, 9, 11, .92), rgba(9, 9, 11, .6) 45%, rgba(9, 9, 11, .1) 75%),
+html.tv .hero-detail-bd { background-image: linear-gradient(90deg, rgba(9, 9, 11, .92), rgba(9, 9, 11, .6) 45%, rgba(9, 9, 11, .1) 75%),
   linear-gradient(to bottom, transparent 55%, var(--bg)), var(--bd-pick); }
 html.tv .hero-detail .hero-detail-title { font-size: var(--tv-fs-title-page); font-weight: 800; letter-spacing: -.025em; }
 html.tv .hero-detail-poster { border-radius: var(--tv-r); }
@@ -709,4 +723,3 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
-

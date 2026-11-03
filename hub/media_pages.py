@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import random
 from datetime import date, datetime, timezone
+from hub.store import parse_utc
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
@@ -17,6 +18,7 @@ from starlette.background import BackgroundTask
 
 from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
 from hub import (media_awards_badges, media_backup, media_db, media_downloads, media_home, media_item, media_library,
+                 media_plays, media_plays_db,
                  media_quality, media_requests, media_requests_approve, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
@@ -285,21 +287,24 @@ def media_diary_page(request: Request):
     def build(data, view):
         history = data.get("history") or {}
         owner = media_db.owner_of(view)
+        if media_db.friend_key(owner):   # JY-299: a friend's watch history is their own recorded plays (Q4)
+            history = {**history, "recent": [media_plays.diary_row(p, parse_utc(p["last_seen_at"]) or datetime.now(timezone.utc))
+                                             for p in media_plays_db.recent_finished(owner, media_home.TO_RATE_DAYS)]}
         jsnap = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
         stats = _diary_sync_and_stats(history.get("recent"), owner, jsnap.updated_at if jsnap else None)
         # Diary scope (2026-10-13): only owner "you" may list everyone's rows (like Jellyfin's admin); each row then
         # names whose it is in words. Stats, streak and "Log a watch" stay the viewer's own.
         scope = media_db.diary_scope(owner)
         everyone = scope == "everyone"
-        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, None if everyone else owner)
+        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, None if everyone else owner, friends=everyone)
+        names = media_plays_db.owner_names() if everyone else {}
         more = len(rows) > DIARY_PAGE
         rows = rows[:DIARY_PAGE]
         months: list[dict] = []
         lines = media_db.group_diary(rows)
-        her_name = os.environ.get("OWNER_NAME_HER") or "Georgina"
         for row in lines:
-            if everyone:
-                row["who"] = "You" if row.get("owner") == owner else her_name
+            if everyone:   # JY-299: each row names whose it is (You / her-name / the friend's name), owner only
+                row["who"] = media_plays.who_label(row.get("owner") or "", names)
                 row["theirs"] = row.get("owner") != owner   # 2026-10-13: no 1-10 picker / score on her rows
             label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")
             if not months or months[-1]["label"] != label:

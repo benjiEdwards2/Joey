@@ -124,12 +124,15 @@ def _one_owner(owner) -> str | None:
     return media_db.owner_filter(owner)
 
 
+EVERYONE = "*everyone*"   # JY-299: owner 'you' reads every user's plays (only the caller's gate passes it)
+
+
 def _rows(window, owner, now):
     db = _read()
     if db is None:
         return []
     try:
-        mine = _one_owner(owner)
+        mine = None if owner == EVERYONE else _one_owner(owner)
     except ValueError:   # a malformed friend key / no owner on the media front: nothing (Joey TV WP-B2)
         db.close()
         return []
@@ -141,7 +144,7 @@ def _rows(window, owner, now):
     if mine:
         sql += " AND owner = ?"
         args.append(mine)
-    else:
+    elif owner != EVERYONE:
         sql += " AND " + media_db.household_sql()
     try:   # M-52: a query error degrades (no Most played, an empty History) instead of a 500
         with closing(db):
@@ -176,12 +179,16 @@ def watch_count(jf_id: str, owner: str | None = None) -> int:
 def stats(window=30, owner=None, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     rows = _rows(window, owner, now)
-    shows, movies, days = {}, {}, {}
+    shows, movies, days, people = {}, {}, {}, {}
     by_hour = [0] * 24
     total = 0.0
     for r in rows:
         h = _hours(r)
         total += h
+        who = people.setdefault(r["owner"] or "", {"owner": r["owner"] or "", "name": None, "plays": 0, "hours": 0.0})
+        who["plays"] += 1
+        who["hours"] += h
+        who["name"] = r["user_name"] or who["name"]   # JY-299: the latest-read Jellyfin name, shown to the owner only
         start = _parse(r["started_at"])
         if start:
             local = start.astimezone(_tz())
@@ -204,7 +211,44 @@ def stats(window=30, owner=None, now: datetime | None = None) -> dict:
     busiest = max(days.items(), key=lambda kv: (kv[1], kv[0])) if days else None
     return {"plays": len(rows), "hours": round(total, 1), "top_shows": top_shows, "top_movies": top(movies),
             "busiest_day": {"date": busiest[0], "plays": busiest[1]} if busiest else None,
-            "by_hour": by_hour}
+            "by_hour": by_hour,
+            "by_person": [{**p, "hours": round(p["hours"], 1)}
+                          for p in sorted(people.values(), key=lambda p: (-p["plays"], -p["hours"], p["owner"]))]}
+
+
+def recent_finished(owner: str, days: int = 30, now: datetime | None = None) -> list[dict]:
+    """JY-299: one owner's finished plays of the last `days`, newest first - a friend's watch history (the Jellyfin
+    snapshot carries only the household's). Fails closed: only a well-formed friend key is read; [] on any problem."""
+    try:
+        if not media_db.friend_key(owner):
+            return []
+    except ValueError:
+        return []
+    db = _read()
+    if db is None:
+        return []
+    cut = _iso((now or datetime.now(timezone.utc)) - timedelta(days=days))
+    try:
+        with closing(db):
+            return [dict(r) for r in db.execute(
+                "SELECT * FROM play WHERE owner = ? AND finished = 1 AND last_seen_at >= ? "
+                "ORDER BY last_seen_at DESC LIMIT 200", (owner, cut))]
+    except sqlite3.Error as exc:
+        log.warning("recent plays read failed: %s", type(exc).__name__)
+        return []
+
+
+def owner_names() -> dict[str, str]:
+    """JY-299: {friend owner key: latest Jellyfin user name} from the play log - for the owner's views only."""
+    db = _read()
+    if db is None:
+        return {}
+    try:
+        with closing(db):
+            return {r[0]: r[1] for r in db.execute(
+                "SELECT owner, user_name FROM play WHERE owner LIKE 'jf:%' AND user_name IS NOT NULL ORDER BY id")}
+    except sqlite3.Error:
+        return {}
 
 
 def most_played_30(owner=None, now: datetime | None = None) -> tuple[list, list]:

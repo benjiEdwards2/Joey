@@ -350,7 +350,7 @@ def test_the_css_holds_the_spec_sizes_per_surface():
     assert "aspect-ratio: var(--lw) / var(--lh)" in block                      # the box is known before it loads
     assert "html.tv" not in block                                              # the TV rules live in tv.css
     tv = TV_CSS.split("/* JY-267", 1)[1]
-    assert "min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem))" in tv     # TV, <= 1.5x
+    assert "min(30vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem))" in tv     # TV, <= 1.5x
     for css in (block, tv):
         assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", css)              # no new colours
 

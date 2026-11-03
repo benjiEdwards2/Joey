@@ -120,8 +120,10 @@ def test_a_long_name_truncates_in_the_pill(friend):
     assert re.search(r"\.userchip \.uname \{[^}]*overflow: hidden; text-overflow: ellipsis; white-space: nowrap", shared)
     assert re.search(r"button\.userchip \.uname \{ max-width: 12em; \}", shared)
     tv = design_px(friend.get("/static/tv.css").text)
-    assert re.search(r"html\.tv button\.userchip \.uname \{ max-width: 150px;", tv)
-    # the TV section row never shrinks, so only the pill gives way (its name ellipsises) and nothing in the row moves
+    # JY-307 P2 (2026-11-03, option B): on the TV rail the name shows only while the rail is open, ellipsised at 160 px
+    assert re.search(r"html\.tv \.topbar\.tv-rail-on \.userchip \.uname \{ display: inline; overflow: hidden; "
+                     r"text-overflow: ellipsis; max-width: 160px; \}", tv)
+    # the rail's section column never shrinks, so only the name gives way and no stop moves
     assert re.search(r"html\.tv \.toplinks \{[^}]*flex-shrink: 0", tv)
 
 
@@ -131,12 +133,13 @@ def test_the_pop_up_buttons_are_styled_like_the_mockup(friend):
     assert ".btn-signout { background: var(--signout); color: var(--signout-fg); }" in shared
     tv = re.sub(r"/\*.*?\*/", "", design_px(friend.get("/static/tv.css").text), flags=re.S)
     assert ".btn-signout { background: #f97316; color: #1a0a00;" in tv
-    # TV: the focused pill shows the words "Sign out" (tv.js marks D-pad focus with .tv-focus)
-    assert re.search(r"html\.tv button\.userchip:focus-visible \.xlbl, html\.tv button\.userchip\.tv-focus \.xlbl \{ "
-                     r"max-width: 110px", tv)
+    # TV (JY-307 P2, 2026-11-03: the chip is the rail's foot stop): the focused chip shows the words "Sign out"
+    # (tv.js marks D-pad focus with .tv-focus and opens the rail) ...
+    assert re.search(r"html\.tv \.topbar\.tv-rail-on button\.userchip:focus-visible \.xlbl, "
+                     r"html\.tv \.topbar\.tv-rail-on button\.userchip\.tv-focus \.xlbl,", tv)
     # ...and the name folds away for them (no half-cut name beside the avatar initial)
-    assert re.search(r"html\.tv button\.userchip:focus-visible \.uname, html\.tv button\.userchip\.tv-focus \.uname \{ "
-                     r"max-width: 0", tv)
+    assert re.search(r"html\.tv \.topbar\.tv-rail-on button\.userchip:focus-visible \.uname, "
+                     r"html\.tv \.topbar\.tv-rail-on button\.userchip\.tv-focus \.uname \{ display: none; \}", tv)
 
 
 def test_tv_css_styles_the_confirm(friend):

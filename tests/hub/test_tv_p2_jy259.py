@@ -63,17 +63,18 @@ getComputedStyle = function (el) {
 document.startViewTransition = function () {};
 var bar, brand, stop, dlg, sfield, sout, A, B, heroTitle, titleSets = [];
 function header(open) {
-  brand = new El('a', { name: 'brand', cls: ['brand', 'brand-home'], attrs: { href: '/a/media' }, top: 10, left: 50 });
+  /* JY-307 P2 (2026-11-03, option B): the left rail - Search, Home, the sections, the chip at the foot, at x 0 */
+  brand = new El('a', { name: 'brand', cls: ['brand', 'brand-home'], attrs: { href: '/a/media' }, top: 120, left: 0 });
   if (open === 'home') brand.attrs['aria-current'] = 'page';
-  var nav = new El('nav', { cls: ['toplinks'], top: 10, left: 300 });
+  var nav = new El('nav', { cls: ['toplinks'], top: 200, left: 0 });
   [['movies', '/media/movies'], ['tv', '/media/tv'], ['diary', '/media/diary'], ['discover', '/media/discover']]
     .forEach(function (s, i) {
       var attrs = { href: s[1] };
       if (s[0] === open) attrs['aria-current'] = 'page';
-      nav.append(new El('a', { name: 'pill-' + s[0], attrs: attrs, top: 10, left: 300 + i * 150 }));
+      nav.append(new El('a', { name: 'pill-' + s[0], attrs: attrs, top: 200 + i * 80, left: 0 }));
     });
-  stop = new El('button', { name: 'stop', attrs: { type: 'button', 'data-tv-search-open': '' }, top: 10, left: 1000 });
-  var chip = new El('button', { name: 'userchip', cls: ['userchip'], top: 10, left: 1500 });
+  stop = new El('button', { name: 'stop', attrs: { type: 'button', 'data-tv-search-open': '' }, top: 40, left: 0 });
+  var chip = new El('button', { name: 'userchip', cls: ['userchip'], top: 900, left: 0 });
   sfield = new El('input', { name: 'sfield', attrs: { type: 'search', 'data-tv-search': '' }, top: 100, left: 860 });
   sfield.value = ''; sfield.readOnly = true;
   sout = new El('div', { attrs: { id: 'tv-search-out' }, top: 200, kids: [new El('div', { cls: ['reqgrid-wrap'], attrs: { 'data-q': '' }, top: 200 })] });
@@ -213,16 +214,17 @@ def test_the_top_row_fades_while_focus_is_in_the_rows_and_returns_on_up(tmp_path
     out = run(tmp_path, r"""
 load('/a/media', 'home', home);
 out.rows = bar.classList.contains('tv-dim');
-key('ArrowUp'); key('ArrowUp');
-out.at = now(); out.bar = bar.classList.contains('tv-dim');
-key('ArrowDown');
-out.back = bar.classList.contains('tv-dim');
+key('ArrowLeft');
+out.at = now(); out.bar = bar.classList.contains('tv-dim'); out.on = bar.classList.contains('tv-rail-on');
+key('ArrowRight');
+out.back = bar.classList.contains('tv-dim'); out.off = !bar.classList.contains('tv-rail-on');
 """)
     assert out["rows"] is True
-    assert out["at"] == "brand" and out["bar"] is False                                # Home's stop, full opacity
-    assert out["back"] is True
+    # JY-307 P2 (2026-11-03): the rail - Left opens it on Home's stop at full opacity, labels on; Right closes it
+    assert out["at"] == "brand" and out["bar"] is False and out["on"] is True
+    assert out["back"] is True and out["off"] is True
     css = TV_CSS.replace("\n", " ")
-    assert re.search(r"html\.tv \.topbar\.tv-dim \.topbar-in \{ opacity: \.4; \}", css)
+    assert re.search(r"html\.tv \.topbar\.tv-dim \.topbar-in \{ opacity: \.6; \}", css)   # JY-307 P2: .4 -> .6, icons read
 
 
 # ---- Q6 A: the Search stop ----
@@ -236,7 +238,8 @@ out.open = dlg.open; out.at = now(); out.editable = !sfield.readOnly; out.dim = 
 sfield.value = 'dune'; sout.innerHTML = 'results';
 out.closed = window.joeyTV.back();
 out.open_after = dlg.open; out.after = now(); out.value = sfield.value; out.out = sout.innerHTML; out.locked = sfield.readOnly;
-out.again = window.joeyTV.back();
+out.again = window.joeyTV.back(); out.again_at = now();
+out.third = window.joeyTV.back();
 load('/media/discover', 'discover', discover);
 click(stop);
 out.disc_open = dlg.open; out.disc_at = now();
@@ -245,7 +248,9 @@ out.disc_open = dlg.open; out.disc_at = now();
     assert out["dim"] is False
     assert out["closed"] is True and out["open_after"] is False and out["after"] == "stop"
     assert out["value"] == "" and out["out"] == '<div class="reqgrid-wrap" data-q=""></div>' and out["locked"]
-    assert out["again"] is False                                                       # nothing left to close
+    # JY-307 P2 (2026-11-03): the Search stop is in the left rail, so the next Back closes the rail (to the page) ...
+    assert out["again"] is True and out["again_at"] == "t2"   # the remembered tile
+    assert out["third"] is False                                                       # ... then nothing left to close
     assert out["disc_open"] is False and out["disc_at"] == "own"                       # Discover: its own field
 
 

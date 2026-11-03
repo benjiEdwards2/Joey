@@ -21,7 +21,10 @@
      Enter never submits the form: it fires that trigger only when the grid does not already show the query, then goes
      to the first result. Back with a query clears it to the trending grid, the field focused;
    * scroll-into-view: the focused poster is centred in its shelf, clamped at both ends (WP-M call 2 - the browser
-     clamps scrollLeft), and its row is kept inside the 5 % overscan margin; focus in the top bar scrolls to the top;
+     clamps scrollLeft), and its row is kept inside the 5 % overscan margin; focus in the rail never scrolls the page;
+   * JY-307 P2 (B. 2026-11-03, option B): the top bar is a left icon rail (.topbar, fixed). Left at the page's left edge
+     opens it on the current section; Up / Down move in it; Right or Back closes it, back to the
+     control focus came from. The page's moves never land in the rail by geometry. .tv-rail-on shows its labels;
    * focus restore after every htmx swap: when the swap removed or hid the focused element, focus goes back to the first
      focusable (the rule above) - a boosted navigation swaps the whole body, so it always lands on the new page's first;
    * window.joeyTV.back(): the shell's Back key asks this first (tv/ BackPolicy, WP-B7). Closes an open <dialog> (the
@@ -322,7 +325,7 @@
   }
 
   function keepRowInView(el) {
-    if (el.closest('.topbar')) { window.scrollTo(0, 0); return; }
+    if (el.closest('.topbar')) return;   /* JY-307 P2: the rail is fixed; the page stays where it is */
     if (el.closest('.pagehead') && getComputedStyle(el.closest('.pagehead')).position === 'sticky') return;   /* sub-tabs stay put */
     var box = (el.closest('.carousel') || el).getBoundingClientRect();
     var grow = (el.classList.contains('card-poster') ? el.getBoundingClientRect().height * POSTER_GROW : 0) + px(RING);
@@ -489,6 +492,30 @@
     var bar = document.querySelector('.topbar'), main = document.querySelector('main');
     if (!bar) return;
     if (el && main && main.contains(el) && !modal()) bar.classList.add('tv-dim'); else bar.classList.remove('tv-dim');
+    if (el && bar.contains(el)) bar.classList.add('tv-rail-on'); else bar.classList.remove('tv-rail-on');   /* JY-307 P2: labels while the rail has focus */
+  }
+
+  /* JY-307 P2: the rail's stops are the bar's own; railFrom is the page control focus left from (Right / Back return) */
+  var railFrom = null;
+  function inRail(el) { return !!(el && el.closest && el.closest('.topbar')); }
+  function railStop() {
+    var pill = document.querySelector('.toplinks a[aria-current]'), home = document.querySelector('.topbar .brand');
+    if (pill && visible(pill)) return pill;
+    return home && visible(home) ? home : null;   /* JY-248: Home has no section pill; the house stop is Home */
+  }
+  function openRail(from) {
+    var s = railStop();
+    if (!s) return false;
+    railFrom = from;
+    setFocus(s);
+    return true;
+  }
+  function closeRail() {
+    var a = active();
+    if (!inRail(a) || modal()) return false;
+    setFocus(railFrom && visible(railFrom) && !inRail(railFrom) ? railFrom : first());
+    railFrom = null;
+    return true;
   }
 
   /* Q6 A - the Search stop: one OK opens the JY-194 field over the current page (#tv-search-dlg in the bar), editable
@@ -590,9 +617,12 @@
   function move(dir) {
     var a = active();
     if (!a) { setFocus(first()); return; }
+    var free = !modal(), rail = free && inRail(a);   /* a dialog (in the bar's markup) is its own zone */
+    if (rail && dir === 'ArrowRight') { closeRail(); return; }
+    if (rail && dir === 'ArrowLeft') return;
     var r = a.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, best = null, bs = Infinity;
     candidates().forEach(function (c) {
-      if (c === a || c.contains(a) || a.contains(c)) return;
+      if (c === a || c.contains(a) || a.contains(c) || (free && inRail(c) !== rail)) return;   /* JY-307 P2: rail and page apart */
       var q = c.getBoundingClientRect(), dx = q.left + q.width / 2 - cx, dy = q.top + q.height / 2 - cy, score;
       if (dir === 'ArrowRight' || dir === 'ArrowLeft') {
         if (dir === 'ArrowRight' ? dx <= 2 : dx >= -2) return;
@@ -604,16 +634,9 @@
       }
       if (score < bs) { bs = score; best = c; }
     });
-    /* JY-187 (B2/B3): Up from the page into the top bar lands on the open section's pill, not the nearest control (the
-       brand), so another section or the sign-out pill is one Up and a few Rights away */
-    if (best && dir === 'ArrowUp' && best.closest('.topbar') && !a.closest('.topbar')) {
-      var pill = document.querySelector('.toplinks a[aria-current]'), s = searchField();
-      /* JY-194: the Discover search field above the page comes first */
-      if (s && s !== a && s.getBoundingClientRect().bottom <= r.top) best = s;
-      else if (pill && visible(pill)) best = pill;
-      /* JY-248: Home has no section pill (no Overview); the "Joey Media" title is its stop (OK = Home) */
-      else if (!pill) { var home = document.querySelector('.topbar .brand'); if (home && visible(home)) best = home; }
-    }
+    /* JY-187 (B2/B3), JY-307 P2: Left at the page's left edge opens the rail on the open section's stop (Home: the
+       house), so another section or the sign-out pill is a few Downs away (Up at the page's top stays put) */
+    if (!best && free && !rail && dir === 'ArrowLeft') { openRail(a); return; }
     /* JY-194: Down from the search field lands on the grid's first poster */
     if (dir === 'ArrowDown' && isSearch(a)) best = firstIn(grid()) || best;
     /* JY-187 (P5): Down from the title buttons into the rating row lands on its first control (chip 1), not the chip
@@ -829,7 +852,7 @@
     back: function () {
       var d = openDialog();
       /* JY-194: results showing -> the trending grid, field focused */
-      if (!d) return closeYears() || closeRate() || clearSearch() || goUp() || upBack();
+      if (!d) return closeRail() || closeYears() || closeRate() || clearSearch() || goUp() || upBack();   /* JY-307 P2: Back closes the rail */
       var close = d.querySelector('[data-close], .dialog-close, button[value="cancel"]');
       if (close) close.click(); else d.close();
       if (d.open) d.close();

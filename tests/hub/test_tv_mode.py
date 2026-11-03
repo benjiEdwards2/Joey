@@ -102,8 +102,10 @@ def test_tv_css_has_no_hover_rule_and_keeps_the_floor(gc):
     assert "(hover" not in css
     sizes = [float(x) for x in re.findall(r"font-size:\s*([\d.]+)px", css)]
     assert sizes and min(sizes) >= 16, "WP-M spec: nothing under 16 px"
-    # JY-259 P3 (B. 2026-10-29, "the top row ... about 33 percent smaller"): brand text 22 -> 18 px bold, the floor
-    assert re.search(r"\.brand b \{[^}]*font-size: 18px; font-weight: 700", css)        # brand text, 18 px bold
+    # JY-307 P2 (2026-11-03, option B): the brand text is gone from the TV (the rail's Home stop is an icon + label);
+    # the rail's labels are the P1 label size (20 px) and a waiting count keeps the 18 px floor
+    assert re.search(r"html\.tv \.toplinks a, html\.tv \.userchip \{[^}]*font-size: var\(--tv-fs-label\)", css)
+    assert re.search(r"html\.tv \.toplinks \.waitcount \{[^}]*font-size: 18px", css)
     assert "--tv-bar-fill: #f97316" in css                                              # the mockup's progress colour
 
 
@@ -381,8 +383,9 @@ page('movies'); key('Enter');
 fire('htmx:beforeSwap', { detail: { boosted: true, shouldSwap: true } });
 page('title'); brand.focus(); fire('htmx:afterSettle', {});
 out.boosted_early_brand = now();
-/* 3. the user moves up into the top bar, then a partial swap (shelf / request panel): the focus stays there */
-key('ArrowUp');
+/* 3. the user moves into the rail (JY-307 P2: Left from the page's edge), then a partial swap (shelf / request
+   panel): the focus stays there */
+key('ArrowLeft');
 out.moved_up = now();
 fire('htmx:beforeSwap', { detail: { boosted: false, shouldSwap: true } });
 fire('htmx:afterSettle', {}); brand.focus();
@@ -431,15 +434,17 @@ function shell(open) {
   /* JY-248 (2026-10-25): no Overview pill; the "Joey Media" brand is Home (aria-current there) */
   var battrs = { href: '/a/media' };
   if (open === 'overview') battrs['aria-current'] = 'page';
-  brand = new El('a', { name: 'brand', cls: ['brand', 'brand-home'], attrs: battrs, top: 10, left: 50 });
-  var bar = new El('nav', { cls: ['toplinks'], top: 10, left: 300 });
+  /* JY-307 P2 (2026-11-03, option B): the bar is the left rail - Home, the four sections, the sign-out chip at the
+     foot, stacked at x 0; the page's first column starts at x 100 */
+  brand = new El('a', { name: 'brand', cls: ['brand', 'brand-home'], attrs: battrs, top: 120, left: 0 });
+  var bar = new El('nav', { cls: ['toplinks'], top: 200, left: 0 });
   [['movies', '/media/movies'], ['tv', '/media/tv'], ['diary', '/media/diary'],
    ['discover', '/media/discover']].forEach(function (s, i) {
     var attrs = { href: s[1] };
     if (s[0] === open) attrs['aria-current'] = 'page';
-    bar.append(new El('a', { name: 'pill-' + s[0], attrs: attrs, top: 10, left: 300 + i * 150 }));
+    bar.append(new El('a', { name: 'pill-' + s[0], attrs: attrs, top: 200 + i * 80, left: 0 }));
   });
-  var chip = new El('button', { name: 'userchip', cls: ['userchip'], top: 10, left: 1500 });
+  var chip = new El('button', { name: 'userchip', cls: ['userchip'], top: 900, left: 0 });
   body.append(new El('header', { cls: ['topbar'], top: 0, kids: [brand, bar, chip] }));
   var main = new El('main', { cls: ['page'], top: 60 });
   body.append(main);
@@ -569,7 +574,9 @@ out.ov_back = now(); out.ov_back_y = window.scrollY;
 key('ArrowLeft'); brand.focus();
 fire('window:pageshow', { persisted: true });
 out.pageshow = now();
-while (now().indexOf('pill-') !== 0 && now() !== 'brand') { out.last_in_main = document.activeElement.attrs.href; key('ArrowUp'); }
+/* JY-307 P2: Up to the page's top, then Left along the row into the rail */
+for (var i = 0; i < 12; i++) { out.last_in_main = document.activeElement.attrs.href; key('ArrowUp'); }
+for (i = 0; i < 12 && now().indexOf('pill-') !== 0 && now() !== 'brand'; i++) { out.last_in_main = document.activeElement.attrs.href; key('ArrowLeft'); }
 out.top = now();
 var mem = JSON.parse(store['joeyTV.back'] || '{}');   /* JY-192: by name (tv.js keeps a second key, joeyTV.trail) */
 out.mem_overview = mem['/a/media'] && mem['/a/media'].h;
@@ -585,52 +592,58 @@ out.missing = now();
     assert out["ov_back"] == "o14" and abs(out["ov_back_y"] - out["ov_y"]) < 1             # the second link to item 102
     assert out["pageshow"] == "o13"
     assert out["top"] == "brand" and out["last_in_main"].startswith("/media/item/")       # JY-248: Home's stop
-    assert out["mem_overview"] == out["last_in_main"]                                      # the top bar is not remembered
+    assert out["mem_overview"] == out["last_in_main"]                                      # the rail is not remembered
     assert out["missing"] == "p1"
 
 
-def test_up_from_the_page_lands_on_the_current_section_pill_under_node(gc, tmp_path):
-    """B2/B3 (J5, J8): Up from the sub-tabs or a poster went to the nearest top-bar control, the brand logo, so the
-    sign-out pill was 7 presses from an Overview poster. Up into the top bar now lands on `.toplinks a[aria-current]`
-    (the open section); inside the top bar Up / Left / Right are unchanged."""
+def test_left_from_the_page_edge_opens_the_rail_on_the_current_section_under_node(gc, tmp_path):
+    """B2/B3 (J5, J8), JY-307 P2 (B. 2026-11-03, option B: the top bar is a left icon rail): Left from the page's first
+    column opens the rail on `.toplinks a[aria-current]` (the open section); Up / Down move in the rail, Left there does
+    nothing, Right goes back to the control it came from. Up at the page's top stays in the page (no rail by geometry)."""
     out = run_tv_pages(gc, tmp_path, r"""
 load('/media/movies', function () { movies(2); });
 out.stops = [];
-['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowRight'].forEach(function (k) { key(k); out.stops.push(now()); });
+['ArrowUp', 'ArrowUp', 'ArrowLeft', 'ArrowLeft', 'ArrowDown', 'ArrowRight'].forEach(function (k) { key(k); out.stops.push(now()); });
+out.rail_on = document.querySelector('.topbar').classList.contains('tv-rail-on');
 load('/a/media', overview);
 out.signout = [];
-['ArrowUp', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight', 'ArrowRight'].forEach(function (k) {
+['ArrowLeft', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown'].forEach(function (k) {
   key(k); out.signout.push(now());
 });
+out.rail_open = document.querySelector('.topbar').classList.contains('tv-rail-on');
 """)
-    assert out["stops"] == ["tab-myfilms", "pill-movies", "pill-movies", "pill-tv"]
-    # JY-248 (2026-10-25): no Overview pill; from Home, Up lands on the "Joey Media" brand. J8 stays 6 presses.
+    assert out["stops"] == ["tab-myfilms", "tab-myfilms", "pill-movies", "pill-movies", "pill-tv", "tab-myfilms"]
+    assert out["rail_on"] is False                                       # labels only while the rail has focus
+    # JY-248 (2026-10-25): no Overview pill; from Home, Left lands on the Home stop. J8 stays 6 presses.
     assert out["signout"] == ["brand", "pill-movies", "pill-tv", "pill-diary", "pill-discover", "userchip"]
+    assert out["rail_open"] is True
 
 
 def test_joey_media_is_the_home_stop_on_the_tv_under_node(gc, tmp_path):
     """JY-248 (B., 2026-10-25: "use the Joey Media as a way of going back to the home. Expecially on the TV"): on Home
-    (no current pill) Up from any poster row lands on the "Joey Media" brand, not the nearest pill; on a section page
-    Up still lands on that section's pill and Left from it reaches the brand. The brand is never remembered, so Back
-    to Home still restores the poster. J8 (Home poster -> sign-out) = 6 presses."""
+    (no current pill) the rail opens on the Home stop, not the nearest pill; on a section page it opens on that
+    section's pill and Up from it reaches Home (JY-307 P2, 2026-11-03: the rail; Left from a deep poster walks the row
+    first). The Home stop is never remembered, so Back to Home still restores the poster. J8 (Home poster -> sign-out)
+    = 6 presses."""
     out = run_tv_pages(gc, tmp_path, r"""
 load('/a/media', overview);
 ['ArrowDown', 'ArrowRight', 'ArrowRight', 'ArrowRight'].forEach(key);
 out.deep = now();
-key('ArrowUp'); key('ArrowUp'); key('ArrowUp');
+key('ArrowLeft'); key('ArrowLeft'); key('ArrowLeft'); key('ArrowLeft');
 out.from_far_right = now();
+key('ArrowRight'); out.back_to = now();
 load('/media/movies', function () { movies(2); });
-key('ArrowUp'); key('ArrowUp'); out.movies_up = now();
-key('ArrowLeft'); out.left = now();
+key('ArrowLeft'); out.movies_left = now();
+key('ArrowUp'); out.up = now();
 load('/a/media', overview);
 var n = 0;
-key('ArrowUp'); n++;
-while (now() !== 'userchip' && n < 20) { key('ArrowRight'); n++; }
+key('ArrowLeft'); n++;
+while (now() !== 'userchip' && n < 20) { key('ArrowDown'); n++; }
 out.j8 = n;
 """)
     assert out["deep"] == "o8"
-    assert out["from_far_right"] == "brand"
-    assert out["movies_up"] == "pill-movies" and out["left"] == "brand"
+    assert out["from_far_right"] == "brand" and out["back_to"] == "o5"   # Right: back to the poster it left from
+    assert out["movies_left"] == "pill-movies" and out["up"] == "brand"
     assert out["j8"] == 6
 
 
@@ -696,13 +709,13 @@ def test_up_from_the_grid_reaches_the_search_field_and_down_comes_back_under_nod
 load('/media/discover', function () { discover(''); });
 out.first = now();
 key('ArrowUp'); out.up = now(); out.locked = field.readOnly === true;
-key('ArrowUp'); out.up2 = now();
+key('ArrowUp'); out.up2 = now();   /* JY-307 P2: Up at the page's top stays put (the rail is Left) */
 load('/media/discover', function () { discover(''); });
 key('ArrowUp'); key('ArrowDown'); out.down = now();
 key('ArrowRight'); key('ArrowRight'); key('ArrowRight'); key('ArrowUp'); out.up_from_4 = now();
 key('ArrowDown'); out.down_again = now(); out.still_locked = field.readOnly === true;
 """)
-    assert out == {"first": "d1", "up": "field", "locked": True, "up2": "pill-discover", "down": "d1",
+    assert out == {"first": "d1", "up": "field", "locked": True, "up2": "field", "down": "d1",
                    "up_from_4": "field", "down_again": "d1", "still_locked": True}
 
 
@@ -984,12 +997,13 @@ def test_jy188_every_font_size_in_tv_css_is_at_least_18px(gc):
 
 def test_jy188_density_b_with_compact_chrome(gc):
     css = _tv_css(gc)
-    # JY-259 P3 (B. 2026-10-29, "Use C as tighter"): controls 36 -> 24 px, the bar's own top margin 2.5 % (13.5 px), so
-    # the bar is 13.5 + 24 + 1 = 38.5 px (was 27 + 36 + 1 = 64)
-    assert "--tv-bar: 38.5px" in css and "--tv-my-bar: 13.5px" in css
-    assert re.search(r"\.topbar-in \{[^}]*padding: var\(--tv-my-bar\) var\(--tv-mx\) 1px", css)   # 13.5 + 24 + 1
-    assert "html.tv .toplinks { overflow: visible; }" in css      # the section pills' focus ring is not clipped
-    assert re.search(r"\.toplinks a \{ height: 24px;", css) and re.search(r"\.brand-home \{ height: 24px;", css)
+    # JY-307 P2 (B. 2026-11-03, option B): the top bar is a left rail, so nothing sits above the page (--tv-bar 0, was
+    # 38.5 px = 13.5 + 24 + 1 from JY-259 P3); the rail is 80 px (160 at 1080) and the page sits right of it
+    assert "--tv-bar: 0px" in css and "--tv-rail: 80px" in css
+    assert "html.tv body { padding-left: var(--tv-rail); }" in css
+    assert re.search(r"html\.tv \.topbar \{ position: fixed; inset: 0 auto 0 0;[^}]*width: var\(--tv-rail\)", css)
+    assert re.search(r"html\.tv \.toplinks \{[^}]*flex-direction: column;[^}]*overflow: visible; \}", css)   # rings not clipped
+    assert re.search(r"html\.tv \.tv-searchstop, html\.tv \.brand-home, html\.tv \.toplinks a, html\.tv \.userchip \{[^}]*height: 48px;", css)
     assert re.search(r"\.sectabs\.sub a \{[^}]*height: 36px", css)                                                      # 38.5 + 12 + 36 = 86.5 (JY-259 P3, 2026-10-29: the bar 38.5, the sub-tabs 12 px under it)
     # JY-259 (2026-10-28, B.'s point 3): rows 104 -> 92 px cards with 18 px gaps (8 across), grids 9 across, 18 / 16 px gaps
     assert re.search(r"\.carousel > \* \{ flex: 0 0 92px; width: 92px; \}", css)
@@ -1027,3 +1041,23 @@ def test_jy188_404_has_a_tv_layout(gc):
     assert re.search(r"\.sec\.nf \{[^}]*align-items: center", css) and re.search(r"\.sec\.nf \.nf-back \{[^}]*min-height: 56px", css)
     html = gc.get("/nope-not-a-page", headers={"User-Agent": TV_UA}).text
     assert 'class="sec narrow nf"' in html and 'class="nf-back"' in html
+
+
+# ---- JY-307 P2 (B. 2026-11-03, option B): the top bar is a left icon rail on the TV ----
+
+def test_the_tv_bar_is_an_icon_rail_and_the_web_keeps_words(gc):
+    """On the TV each stop is an icon + a label the rail shows only while it has focus: Search, Home (the house), the
+    four sections, then the sign-out chip; the web's bar keeps the words alone (no icons, no rail labels)."""
+    tv = gc.get("/media/movies", headers={"User-Agent": TV_UA}).text
+    bar = re.search(r'<header class="topbar">(.*?)</header>', tv, re.S).group(1)
+    assert re.search(r'<a class="brand brand-home"[^>]*aria-label="Joey Media home"[^>]*><svg class="ic"[^>]*>.*?</svg>'
+                     r'<span class="tv-rail-lbl">Home</span></a>', bar, re.S)
+    nav = re.search(r'<nav class="toplinks"[^>]*>(.*?)</nav>', bar, re.S).group(1)
+    for label in ("Movies", "TV shows", "Diary", "Discover"):
+        assert re.search(r'<a href="[^"]+"[^>]*><svg class="ic"[^>]*>.*?</svg><span class="tv-rail-lbl">' + label + "</span>",
+                         nav, re.S), label
+    assert '<span class="tv-rail-lbl" aria-hidden="true">Search</span>' in bar and 'class="userchip"' in bar
+    web = gc.get("/media/movies").text
+    wbar = re.search(r'<header class="topbar">(.*?)</header>', web, re.S).group(1)
+    assert "tv-rail-lbl" not in wbar and '<b>Joey Media</b>' in wbar
+    assert '<svg class="ic"' not in re.search(r'<nav class="toplinks"[^>]*>(.*?)</nav>', wbar, re.S).group(1)

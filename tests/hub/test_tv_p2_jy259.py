@@ -368,13 +368,13 @@ def test_a_hostile_title_or_synopsis_cannot_leave_the_data_attribute():
 
 # ---- the 18 px floor for the new text, at every panel ----
 
-@pytest.mark.parametrize("w,h", [(960, 540), (1280, 720), (1920, 1080), (3840, 2160)])
-def test_the_new_text_holds_18px_at_every_panel(w, h):
+@pytest.mark.parametrize("w,h,dpr", [(960, 540, 2), (1280, 720, 1), (1920, 1080, 1), (3840, 2160, 1)])
+def test_the_new_text_holds_18px_at_every_panel(w, h, dpr):
     css = re.sub(r"/\*.*?\*/", "", TV_CSS, flags=re.S)
     for sel in (r"html\.tv \.tv-hero-syn ", r"html\.tv \.tv-searchdlg \.reqchip "):
         rule = re.search(sel + r"[^{]*\{([^}]*)\}", css).group(1)
         size = float(re.search(r"font-size: ([\d.]+)rem", rule).group(1))
-        assert size * root_px(css, w, h) >= 18, (sel, w, h)
+        assert size * root_px(css, w, h) * dpr >= 18, (sel, w, h)   # device px (the TCL: dpr 2)
 
 
 # ---- review fixes (2026-10-28) ----

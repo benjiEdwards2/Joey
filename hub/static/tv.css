@@ -28,7 +28,7 @@ html.tv {
    32 at 1920x1080 (a 1080p panel at dpr 1), 64 at 3840x2160 - the same layout on every panel, whatever the WebView's
    devicePixelRatio. The 16 px floor keeps 1.125rem >= the 18 px text minimum on anything smaller. tests/hub/tv_css.py
    reads the sheet back in 960x540 CSS px for the older pins. */
-html.tv { font-size: max(16px, min(calc(100vw / 80), calc(100vh / 45))); }   /* JY-307 P2b (B.): 25 % smaller, was / 60 and / 33.75 (32 px per rem at 1080, now 24) */
+html.tv { font-size: max(12px, min(calc(100vw / 80), calc(100vh / 45))); }   /* JY-307 P2b (B.): 25 % smaller, was / 60 and / 33.75 (32 px per rem at 1080, now 24). Floor 12px, not 16: the TCL is 960x540 CSS px at dpr 2, so 960/80 = 12 px per rem (24 device px) and 1.125rem text is 27 device px, over the 18 px floor */
 html.tv body { font-size: 1.3125rem; line-height: 1.3; }
 html.tv body::before { display: none; }
 

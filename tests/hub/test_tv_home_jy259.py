@@ -195,16 +195,16 @@ def _sheet() -> str:
 def test_the_18px_floor_holds_at_every_panel(w, h, dpr):
     css = _sheet()
     sizes = [float(x) for x in re.findall(r"font-size:\s*([\d.]+)rem", css)]
-    assert sizes and min(sizes) * root_px(css, w, h) >= 18, (w, h, min(sizes))
-    assert not re.search(r"font-size:\s*[\d.]+px", css.replace("max(16px", "")), "every font size is rem"
-    assert root_px(css, w, h) / max(16, min(w / 80, h / 45)) == 1                     # the same layout, scaled
+    assert sizes and min(sizes) * root_px(css, w, h) * dpr >= 18, (w, h, min(sizes))   # device px (the TCL: dpr 2)
+    assert not re.search(r"font-size:\s*[\d.]+px", css.replace("max(12px", "")), "every font size is rem"
+    assert root_px(css, w, h) / min(w / 80, h / 45) == 1                     # the same layout, scaled
 
 
 def test_no_fixed_px_length_is_left_in_the_sheet():
     css = _sheet()
-    rule = "html.tv { font-size: max(16px, min(calc(100vw / 80), calc(100vh / 45))); }"
+    rule = "html.tv { font-size: max(12px, min(calc(100vw / 80), calc(100vh / 45))); }"
     assert rule in css and re.findall(r"\d+px", css.replace(rule, "")) == []
-    assert root_px(css, 960, 540) == 16 and root_px(css, 1920, 1080) == 24 and root_px(css, 3840, 2160) == 48
+    assert root_px(css, 960, 540) == 12 and root_px(css, 1920, 1080) == 24 and root_px(css, 3840, 2160) == 48
 
 
 def test_tile_sizes_spacing_and_the_focus_lift():

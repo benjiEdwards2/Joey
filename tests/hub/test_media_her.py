@@ -111,7 +111,8 @@ def test_history_page_in_her_view_and_to_rate(env):
         html = main_html(client.get("/media/history?owner_view=her").text)
         b = main_html(client.get("/media/history?owner_view=you").text)
     assert "Paper Lanterns" in html and "Harbour Lights" not in html
-    assert "Harbour Lights" in b and "Paper Lanterns" not in b
+    # JY-299 (2026-11-03): the owner sees everyone's History by default, her rows named; her view stays her own
+    assert "Harbour Lights" in b and "Paper Lanterns" in b
 
 
 def test_rating_post_in_her_view_stores_owner_her_and_never_collides(env):

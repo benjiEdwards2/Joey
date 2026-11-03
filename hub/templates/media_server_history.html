@@ -19,6 +19,18 @@
   {% if stats.busiest_day %}<div class="stat"><div class="microlabel">Busiest day</div><div class="stat-word">{{ stats.busiest_day.text }} · {{ stats.busiest_day.plays }} play{{ '' if stats.busiest_day.plays == 1 else 's' }}</div></div>{% endif %}
 </div>
 
+{# JY-299: owner "you" only - everyone's plays, one line per person. Friends and her never get `people`. #}
+{% if people %}
+<section class="sec">
+  <h2 class="seclabel">By person</h2>
+  <div class="listbox">
+  {% for p in people %}
+  <div class="row"><div class="row-body"><div class="row-title">{{ p.who }}</div>{{ meta([p.plays ~ " play" ~ ('' if p.plays == 1 else 's'), p.hours ~ " h"]) }}</div></div>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <section class="sec">
   <h2 class="seclabel">Top shows</h2>
   {% if stats.top_shows %}<div class="listbox">

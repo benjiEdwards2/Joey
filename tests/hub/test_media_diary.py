@@ -259,16 +259,17 @@ def test_poster_sizes_are_pinned_in_css():
 SCOPE_FORM = "/media/settings/diary_scope"
 
 
-def test_diary_scope_defaults_to_mine_and_the_eligible_viewer_sees_the_toggle(env):
+def test_diary_scope_defaults_to_everyone_and_the_eligible_viewer_sees_the_toggle(env):
     build, _ = env
     media_db.add_manual_watch("tmdb:2", "movie", "Ronin", watched_on=date.today().isoformat(), owner="her")
     with build() as client:
         body = main_of(client.get("/media/diary").text)   # not signed in, both view = owner "you" (eligible)
-    assert media_db.diary_scope("you") == "mine"
+    # JY-299 (B., 2026-11-02, Q1 A): the owner sees everyone by default, each row named; Mine still narrows it
+    assert media_db.diary_scope("you") == "everyone"
     assert f'action="{SCOPE_FORM}"' in body and '<span class="microlabel">Show</span>' in body
-    assert 'value="mine" class="chip on" aria-current="true">Mine<' in body
-    assert 'value="everyone" class="chip">Everyone<' in body
-    assert "Ronin" not in body   # her row stays out of the default (mine) scope
+    assert 'value="everyone" class="chip on" aria-current="true">Everyone<' in body
+    assert 'value="mine" class="chip">Mine<' in body
+    assert "Ronin" in body
 
 
 def test_diary_scope_everyone_lists_both_owners_with_words_then_mine_returns(env, monkeypatch):

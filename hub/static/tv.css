@@ -28,7 +28,7 @@ html.tv {
    32 at 1920x1080 (a 1080p panel at dpr 1), 64 at 3840x2160 - the same layout on every panel, whatever the WebView's
    devicePixelRatio. The 16 px floor keeps 1.125rem >= the 18 px text minimum on anything smaller. tests/hub/tv_css.py
    reads the sheet back in 960x540 CSS px for the older pins. */
-html.tv { font-size: max(16px, min(calc(100vw / 60), calc(100vh / 33.75))); }
+html.tv { font-size: max(16px, min(calc(100vw / 80), calc(100vh / 45))); }   /* JY-307 P2b (B.): 25 % smaller, was / 60 and / 33.75 (32 px per rem at 1080, now 24) */
 html.tv body { font-size: 1.3125rem; line-height: 1.3; }
 html.tv body::before { display: none; }
 
@@ -719,7 +719,7 @@ html.tv .reqgrid .reqchip-request { background: none; color: var(--tv-st-request
    with focus by tv.js) and the title page (.title-logo, _pagehead.html title_h1). Spec: max 40% of the screen wide, 160 px
    tall at 1920 (5rem), never past 1.5x (1.5 / 32 rem per logo pixel at 1920). A failed load shows the words. */
 html.tv .title-logo, html.tv .tv-hero-logo { display: block; max-width: 100%; height: auto; aspect-ratio: var(--lw) / var(--lh);
-  width: min(40vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem)); }
+  width: min(30vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem)); }
 html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */

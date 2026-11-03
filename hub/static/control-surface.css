@@ -1675,6 +1675,11 @@ html:not(.tv) .filmcols { display: grid; gap: 20px; min-width: 0; }
 html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
+/* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
+@media (min-width: 1920px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 184px; width: 184px; }
+  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 196px; } }
+@media (min-width: 3000px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 216px; width: 216px; }
+  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 228px; } }
 html:not(.tv) .scorelink { padding: 0 10px 0 6px; }
 html:not(.tv) a.scorelink { color: var(--text-1); text-decoration: none; }
 html:not(.tv) .filedrawer > details.fold > summary.seclabel { display: block; }

@@ -245,12 +245,6 @@ def request_words(row: dict, state: dict | None) -> None:
         row["state_word"] = " · ".join(x for x in (media_season_state.episodes_words(state, ""), state["word"]) if x)
 
 
-def _hours_words(hours) -> str:
-    """JY-101: watch time in the guide's duration words ("18h 42m"; "0m" when none), from the snapshot's decimal hours."""
-    minutes = round(hours * 60) if isinstance(hours, (int, float)) and not isinstance(hours, bool) else 0
-    return media_text.duration(minutes) if minutes > 0 else "0m"
-
-
 @router.get("/media/history")
 def media_history_page(request: Request):
     """JY-298 (B., 2026-11-02): To rate folded into History; old links, bookmarks and the hub card land there."""

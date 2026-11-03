@@ -61,7 +61,7 @@ Q1 A (soft-dismiss: bulk `rating_skip` rows, no schema change); Q2 A (count on t
 - History (`/media/diary`) draws a "To rate" section on its first page when anything waits: "N waiting for your rating", Rate TV by (not on the TV), "Clear all rating requests (N)" (a `<details>` fold asks once: "Yes, clear N"), and the inbox rows folded under "Show the N waiting" (1-10 strip, Skip, Skip show; the diary rows below already carry the picker, so the list does not repeat open). The Skipped group with Unskip follows.
 - `POST /media/rate/clear` rebuilds the viewer's own inbox server-side (never trusts the form) and writes every row with `media_db.skip_many` in one transaction (not forever); 303 to `/media/diary?skip=cleared`.
 - `/media/history` is a 307 to `/media/diary`, query kept (`?owner_view=her`). Write routes' default return is `/media/diary`.
-- `hub/templates/media_history.html` and `media_pages._hours_words` are now unused; left in place for the orchestrator to decide (not deleted).
+- `media_pages._hours_words` deleted (2026-11-03, no references). `hub/templates/media_history.html` stays: `tests/hub/test_first_screens_e3.py` reads it and JY-299 lists it in its area.
 
 ## Test changes (2026-11-03, JY-298)
 The To rate page and its "Recently watched" list are gone, so tests that asserted on them were retargeted, not dropped:

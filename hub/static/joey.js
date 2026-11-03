@@ -65,7 +65,7 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   closeOnPhone();
   document.addEventListener('htmx:load', function (e) { closeOnPhone(e.target); });
 })();
-/* JY-276 / JY-277 option B (2026-11-03): the Home carousel. The side buttons and the arrow keys on the focused track
+/* JY-276 / JY-277 option B: the Home carousel. The side buttons and the arrow keys on the focused track
    move one slide (smooth unless reduced motion); the slide nearest the centre is marked .is-on (full opacity, the focus
    ring). Delegated, so a pill swap (htmx outerHTML) needs no re-binding. */
 (function () {

@@ -305,7 +305,7 @@ def test_home_shelf_only_with_a_follow(env):
         follow_person(client)
         b = main_of(client.get("/a/alpha").text)
         following = main_of(client.get("/media/following").text)
-    # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md): the follow shelf left Home; /media/following keeps the rows
+    # JY-277 option B (docs/specs/JY-277-overview-B.md): the follow shelf left Home; /media/following keeps the rows
     assert "New from people you follow" not in b
     assert "Lead Role" in following
 

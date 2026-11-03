@@ -333,7 +333,7 @@ HOME_PILL_MAX_AGE = 365 * 24 * 3600
 
 @app.get("/a/{area_id}/carousel", response_class=HTMLResponse)
 def area_carousel(request: Request, area_id: str, s: str = "new"):
-    """JY-276 (option B, 2026-11-03): the Home carousel for one pill, swapped in by htmx without a page load; the pill
+    """JY-276 (option B): the Home carousel for one pill, swapped in by htmx without a page load; the pill
     is remembered like `?s=` on the page. Household shelves areas only (not on the media front)."""
     view, _ = shell.resolve_owner_view(request)
     area = next((a for a in shell.registry.areas if a.id == area_id), None)

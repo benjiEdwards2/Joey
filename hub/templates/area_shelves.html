@@ -13,7 +13,7 @@
    removed the Overview pill; "Joey Media" goes Home). #}
 {% if not tv_mode(request) %}{% call pagehead("Home") %}{{ media_tabs() }}{% endcall %}{% endif %}
 {% elif car is defined and car %}
-{# JY-277 option B (2026-11-03): the household Home's head is the plain band with the tabs; the carousel below is the hero. #}
+{# JY-277 option B: the household Home's head is the plain band with the tabs; the carousel below is the hero. #}
 {% call pagehead(area.name) %}{{ media_tabs() }}{% endcall %}
 {% else %}
 {% set h = sh.hero %}

@@ -733,7 +733,7 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 /* Streaming services (media-ux2, 2026-10-08): a carousel of logo tiles on Discover, the name always under the
    logo; a service page opens with its logo beside the name. */
 .carousel.prov-row > * { flex: 0 0 88px; width: 88px; }
-/* JY-276 / JY-277 option B (2026-11-03): the Home carousel - pills, then one wide centred slide whose neighbours bleed
+/* JY-276 / JY-277 option B: the Home carousel - pills, then one wide centred slide whose neighbours bleed
    off the screen's edges. The track spans the viewport (the pagehead's breakout); side padding centres the first and
    last slide. Slide width: most of the screen, capped so its height stays about the top half of the screen. */
 .homecar { position: relative; margin: 0 calc(50% - 50vw) 8px; --slide-w: min(86vw, calc(52vh * 16 / 9), 1800px); }
@@ -777,6 +777,9 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 .homecar-empty { margin: 0 16px; }
 @media (min-width: 768px) { .homecar-empty { margin: 0 calc((100vw - var(--slide-w)) / 2); } }
 @media (prefers-reduced-motion: reduce) { .homecar-slide { transition: none; } }
+/* JY-277 on the JY-308 wide shell: bigger slides at 2560 and 3440 wide; the track still spans the whole viewport. */
+@media (min-width: 1920px) { html:not(.tv) .homecar { --slide-w: min(80vw, calc(58vh * 16 / 9), 2400px); } }
+@media (min-width: 3000px) { html:not(.tv) .homecar { --slide-w: min(76vw, calc(60vh * 16 / 9), 3000px); } }
 
 .prov-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px;
   color: inherit; text-decoration: none; transition: background-color .15s; }

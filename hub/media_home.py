@@ -266,7 +266,7 @@ def _is_show(row: dict) -> bool:
 
 def added_rows(latest, arrived, now) -> list[tuple[dict, str, bool]]:
     """Recently added as (row, sub, from_jellyfin), newest Jellyfin rows first then the arr's arrivals, one per title key
-    and (JY-278, 2026-11-03) one per SHOW: a series and its season / an arrival "Billions · 3 episodes" are one tile, the
+    and (JY-278) one per SHOW: a series and its season / an arrival "Billions · 3 episodes" are one tile, the
     first (Jellyfin's, with the Joey poster) kept."""
     out, seen, shows = [], set(), set()
     for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
@@ -282,7 +282,7 @@ def added_rows(latest, arrived, now) -> list[tuple[dict, str, bool]]:
     return out
 
 
-# JY-276 / JY-277 option B (2026-11-03): the Home carousel's three pills. `?s=` wins and is remembered in a cookie,
+# JY-276 / JY-277 option B: the Home carousel's three pills. `?s=` wins and is remembered in a cookie,
 # else the cookie, else Continue watching when there is something to continue, else New.
 HOME_PILLS = {"new": "New", "continue": "Continue watching", "unwatched": "Not yet watched"}
 HOME_PILL_EMPTY = {"new": "Nothing new yet", "continue": "Nothing in progress", "unwatched": "Nothing left to watch"}
@@ -453,7 +453,7 @@ def build_shelves(area, tiles, snaps, view: str, home_b: bool = False) -> dict:
         shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
                         "items": most, "quiet_text": ""})
     if home_b:
-        # JY-277 option B (2026-11-03): under the carousel sit Continue watching (kept: its cards carry Move on, the
+        # JY-277 option B: under the carousel sit Continue watching (kept: its cards carry Move on, the
         # progress words and Sonarr's season word, which a slide cannot), Recently added, Downloading, Not yet watched and
         # Top rated on Joey. Because you rated, Most played and the follow shelf left Home.
         from hub import media_guest_home   # late: it imports this module

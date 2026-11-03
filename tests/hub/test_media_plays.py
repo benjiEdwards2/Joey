@@ -363,7 +363,7 @@ def test_home_shelf_present_when_data_and_omitted_when_empty(env, tmp_path, monk
         assert "Most played" not in client.get("/a/alpha").text
         seed(tmp_path, monkeypatch)
         body = main_html(client.get("/a/alpha").text)
-        assert "Most played" not in body   # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md): the shelf left the page; the builder below still makes it
+        assert "Most played" not in body   # JY-277 option B (docs/specs/JY-277-overview-B.md): the shelf left the page; the builder below still makes it
         sh = None
         area = next(a for a in env.shell.registry.areas if a.id == "alpha")
         snaps = env.get_snapshots()

@@ -336,7 +336,7 @@ def test_web_home_hero_draws_the_logo(tmp_path, monkeypatch):
         page = client.get("/a/alpha?s=new")
     assert page.status_code == 200
     body = main_of(page.text)
-    # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md): the hero is the carousel; its slide draws the stored logo, the words kept for a failed load
+    # JY-277 option B (docs/specs/JY-277-overview-B.md): the hero is the carousel; its slide draws the stored logo, the words kept for a failed load
     assert f'<img class="homecar-logo" src="/img/jfs:f/logo?v={ver}"' in body
     assert '<span class="homecar-title" hidden>Fresh Film</span>' in body
 

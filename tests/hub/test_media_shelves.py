@@ -108,7 +108,7 @@ def test_route_renders_hero_and_trimmed_shelves(env):
     main = env(jellyfin=JELLY, arr=ARR, jellyseerr=SEERR, media_status={"summary": "x", "apps": APPS})
     with TestClient(main.app) as client:
         html = main_html(client.get("/a/alpha").text)
-    # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md): a plain page head, then the pill carousel; the shelves
+    # JY-277 option B (docs/specs/JY-277-overview-B.md): a plain page head, then the pill carousel; the shelves
     # are sections: continue, added, downloading (+ Not yet watched / Top rated on Joey when the library has rows)
     assert 'class="pagehead-bd' not in html and 'class="homecar"' in html and "<h1>Alpha</h1>" in html
     assert html.count('<section class="sec">') == 3
@@ -124,7 +124,7 @@ def test_route_no_snapshots_is_quiet(env):
         r = client.get("/a/alpha")
     html = main_html(r.text)
     assert r.status_code == 200
-    assert "Nothing new yet" in html and "Nothing up next" in html and "Nothing due this week" not in html   # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md)
+    assert "Nothing new yet" in html and "Nothing up next" in html and "Nothing due this week" not in html   # JY-277 option B (docs/specs/JY-277-overview-B.md)
     assert "Not connected" in html
     assert "hasbackdrop" not in html
 
@@ -187,7 +187,7 @@ def test_item_rows_stay_in_joey_and_the_hero_keeps_the_jellyfin_link(env):
         html = main_html(client.get("/a/alpha").text)
     assert '<a class="card-poster" href="/media/item/resume-id">' in html  # same tab, no target
     assert '<a class="card-poster" href="/media/library">' in html   # media-ux2: was a Recently watched row
-    assert "Open in Jellyfin" not in html   # JY-277 option B (2026-11-03, docs/specs/JY-277-overview-B.md): the hero (and its Jellyfin button) is the carousel now
+    assert "Open in Jellyfin" not in html   # JY-277 option B (docs/specs/JY-277-overview-B.md): the hero (and its Jellyfin button) is the carousel now
 
 
 def test_waiting_counts_and_chips_on_the_area_page_and_hub(env):

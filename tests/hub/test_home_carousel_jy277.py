@@ -1,4 +1,4 @@
-"""JY-276 / JY-277 option B / JY-278 (2026-11-03): the web Home's pill carousel, one tile per show, and the shelves
+"""JY-276 / JY-277 option B / JY-278: the web Home's pill carousel, one tile per show, and the shelves
 that left Home (Because you rated, Most played, the follow shelf). Spec docs/specs/JY-277-overview-B.md."""
 import re
 from datetime import timedelta

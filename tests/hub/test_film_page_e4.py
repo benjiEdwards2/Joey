@@ -166,20 +166,18 @@ def test_no_more_fold_when_there_is_nothing_to_fold(env):
 # ---- U5: the site pills live in the Scores strip ----
 
 def test_site_pills_sit_in_the_scores_strip_not_the_hero(env):
-    # JY-280 P2 (2026-11-03): a film's site links became its linked scores (test_film_page_r2.py); a show keeps the E4 strip
+    # JY-280 P2 (2026-11-03): a film's site links became its linked scores (test_film_page_r2.py); JY-281: a show too
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/tv/100"))
-    assert "sitepill" not in hero(b)
+    assert "sitepill" not in b
     strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]
-    scores = strip.split('<div class="scorepills sitepills">', 1)
-    assert len(scores) == 2 and "sp-you" in scores[0]                     # after the score pills, in the same stat
-    assert re.findall(r'class="scorepill sitepill"[^>]*>.*?</a>', scores[1]) and ">TMDB</a>" in scores[1]
+    assert "sp-you" in strip and '<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/100"' in strip
 
 
 def test_site_pills_fall_back_to_a_details_row_without_a_scores_strip():
     from hub.shell import templates
-    # JY-280 P2 (2026-11-03): a show (a film draws its logo links among the scores instead)
+    # JY-281 (2026-11-03): a show without scores still draws the TMDB logo link in a Scores card, as a film does
     film = {"title": "Bare", "year": 2001, "kind": "tv", "tmdb": 9, "pending": set(), "numbers": {}, "facts": {},
             "logos": {"imdb": "/i.svg", "tmdb": "/t.svg", "lbxd": "/l.svg"}, "rating": None, "watch_count": 0}
     src = templates.env.get_template("media_film.html")
@@ -187,8 +185,8 @@ def test_site_pills_fall_back_to_a_details_row_without_a_scores_strip():
     ctx = src.new_context({"film": film, "request": SimpleNamespace(url=SimpleNamespace(path="/media/title/movie/9")),
                            "img_letters": lambda s: s, "status_of": lambda w: {"cls": ""}})
     html = "".join(block(ctx))
-    assert '<div class="stats numbers">' not in html
-    assert '<div class="kv"><dt>Links</dt><dd class="sitepills">' in html and ">TMDB</a>" in html
+    assert '<div class="stats numbers">' in html and "<dt>Links</dt>" not in html
+    assert '<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/9"' in html
 
 
 # ---- U5: no sub-tab row on item / title pages ----

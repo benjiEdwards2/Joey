@@ -4,7 +4,7 @@
 {% from "_film_macros.html" import sp with context %}
 {% set n = film.numbers %}
 {% if "scores" in film.pending %}<span class="scorepill sp-wait"><span class="sp-name">Loading</span></span>
-{% elif film.kind == "movie" and not film.episode and not tv_mode(request) %}{# JY-280 P2: logo + number, linked #}
+{% elif film.kind in ("movie", "tv") and not film.episode and not tv_mode(request) %}{# JY-280 P2 / JY-281: logo + number, linked #}
     {% from "_title_scores.html" import upstream with context %}{{ upstream(film.tmdb and not guest(request)) }}
 {% else %}
     {% if n.imdb %}{{ sp("imdb", "IMDb", n.imdb) }}{% endif %}

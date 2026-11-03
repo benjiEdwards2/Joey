@@ -557,7 +557,7 @@ def file_owner(owner: str) -> bool:
     return owner == "you" and not guest.is_media()
 
 
-def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict | None:
+def file_panel(files: dict | None, kind: str | None, added: str | None, season: int | None = None) -> dict | None:
     """What the FILE section draws: badges, the stat grid, key / value rows and the file name. A film shows its
     one file; a show degrades to its total size, episode count and languages (no single file name)."""
     if not files:
@@ -589,7 +589,8 @@ def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict 
         for g in grid:
             if g.get("key") in ranks and ranks[g["key"]]:
                 g["sub"] = ranks[g["key"]]
-    return {"badges": badges_for(files), "grid": grid, "rows": rows, "filename": one.get("filename")}
+    eps = [e for e in files.get("by_episode") or [] if season is None or e["season"] == season] if kind == "tv" else []
+    return {"badges": badges_for(files), "grid": grid, "rows": rows, "filename": one.get("filename"), "episodes": eps}
 
 
 def status_line(f: dict) -> str:
@@ -1305,10 +1306,11 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                     "runtime": runtime_text(runtime_min) if runtime_min else None, "ends": ends}
     f["logos"] = logos()
     added = md._date_words(item.get("added"))[0] if item and item.get("added") else None
-    f["file"] = file_panel(files, kind, added)
+    f["file"] = file_panel(files, kind, added,   # JY-281: a season page's drawer lists that season's episodes only
+                           page_item["season_no"] if page_item and page_item["kind"] == "season" else None)
     f["facts"] = {"runtime": runtime_text(runtime_min) if runtime_min else None,
                   "languages": _languages(files), "added": added, "releases": [], "seasons": None}
-    if kind == "movie" and not file_owner(owner):   # JY-280 P2: a film's file facts are B.'s alone - gated here, not in CSS
+    if kind in ("movie", "tv") and not file_owner(owner):   # JY-280 P2 / JY-281: file facts are B.'s alone - gated here, not in CSS
         f["file"], f["facts"]["languages"] = None, None
     people = (item or {}).get("people") or []
     f["cast_h"], f["maker_h"] = CAST_H, MAKER_H

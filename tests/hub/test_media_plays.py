@@ -290,9 +290,11 @@ def test_private_reads_never_count_a_friends_play(tmp_path, monkeypatch):
 
 
 def test_history_page_never_shows_a_friends_play(env, tmp_path, monkeypatch):
+    """JY-299 (2026-11-03): owner "you" now sees everyone's plays (tests/hub/test_jy299_history_per_user.py); the
+    household 'both' view and her view still never show a friend's."""
     seed_with_friend(tmp_path, monkeypatch)
     with TestClient(env.app) as client:
-        for view in ("both", "you", "her"):
+        for view in ("both", "her"):
             body = main_html(client.get(f"/media/server/history?w=all&owner_view={view}").text)
             assert "Friend Show" not in body and "Friend Episode" not in body
         both = main_html(client.get("/media/server/history?w=all&owner_view=both").text)

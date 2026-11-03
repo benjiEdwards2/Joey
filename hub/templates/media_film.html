@@ -260,13 +260,15 @@
    stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
 {# JY-280 (P1): a film off the TV says its overview once, in the hero, and leads the body with the cast tiles (before the Scores card) #}
 {% set filmweb = film.kind == "movie" and not film.episode and not tv_mode(request) %}
+{# JY-281: a show / season page off the TV takes the movie's logo + number scores (no site words, no Letterboxd) #}
+{% set tvweb = film.kind == "tv" and not film.episode and not tv_mode(request) %}
 {% import "_title_file.html" as tf %}
 {% import "_title_scores.html" as ts with context %}
 {% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
 {% set fp = film.file %}
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
-{% set sites_row = sites and not any_score and not filmweb %}
+{% set sites_row = sites and not any_score and not filmweb and not tvweb %}
 {% set detailsec %}
 {% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending %}
 <section class="sec">
@@ -308,15 +310,15 @@
 </aside>
 </div>
 {% endif %}
-{% if (any_score or n.runtime or film.official) and not tv_mode(request) and not filmweb %}
+{% if (any_score or (tvweb and sites) or n.runtime or film.official) and not tv_mode(request) and not filmweb %}
 <div class="stats numbers">
-  {% if any_score %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
+  {% if any_score or (tvweb and sites) %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
     {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
-    {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
+    {% if tvweb %}{{ ts.own(sites) }}{% elif n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
     {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
-  </div>{% if sites %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
+  </div>{% if sites and not tvweb %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
@@ -391,12 +393,8 @@
 </section>
 {% endif %}
 
-{% if fp and not filmweb %}
-<section class="sec">
-  <h2 class="seclabel">File</h2>
-  {{ tf.panel(fp) }}
-</section>
-{% endif %}
+{# JY-281: the show / season / episode File section is the owner's closed drawer too (gated server-side: file_owner) #}
+{% if fp and not filmweb %}{{ tf.drawer(fp) }}{% endif %}
 
 {# Episode flow merge (2026-10-16): an episode page with its own Crew rows (crew_ep) skips the show-level Crew block —
    the same directors would otherwise appear twice. #}

@@ -65,6 +65,57 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   closeOnPhone();
   document.addEventListener('htmx:load', function (e) { closeOnPhone(e.target); });
 })();
+/* JY-276 / JY-277 option B (2026-11-03): the Home carousel. The side buttons and the arrow keys on the focused track
+   move one slide (smooth unless reduced motion); the slide nearest the centre is marked .is-on (full opacity, the focus
+   ring). Delegated, so a pill swap (htmx outerHTML) needs no re-binding. */
+(function () {
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function slides(t) { return Array.prototype.slice.call(t.querySelectorAll('.homecar-slide')); }
+  function current(t) {
+    var mid = t.scrollLeft + t.clientWidth / 2, best = 0, gap = Infinity;
+    slides(t).forEach(function (s, i) {
+      var d = Math.abs(s.offsetLeft + s.offsetWidth / 2 - mid);
+      if (d < gap) { gap = d; best = i; }
+    });
+    return best;
+  }
+  function mark(t) {
+    var i = current(t);
+    slides(t).forEach(function (s, j) { s.classList.toggle('is-on', j === i); });
+  }
+  function go(t, step) {
+    var all = slides(t), i = Math.max(0, Math.min(all.length - 1, current(t) + step)), s = all[i];
+    if (!s) return;
+    t.scrollTo({left: s.offsetLeft + s.offsetWidth / 2 - t.clientWidth / 2, behavior: still ? 'auto' : 'smooth'});
+  }
+  function init(root) {
+    (root.querySelectorAll ? root : document).querySelectorAll('[data-homecar]').forEach(function (t) {
+      if (t.dataset.on) return;
+      t.dataset.on = '1';
+      var raf = 0;
+      t.addEventListener('scroll', function () {
+        if (!raf) raf = requestAnimationFrame(function () { raf = 0; mark(t); });
+      }, {passive: true});
+      mark(t);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-homecar-step]');
+    if (!b) return;
+    var t = b.closest('.homecar').querySelector('[data-homecar]');
+    if (t) go(t, parseInt(b.getAttribute('data-homecar-step'), 10));
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target.closest && e.target.closest('[data-homecar]');
+    if (!t || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    go(t, e.key === 'ArrowLeft' ? -1 : 1);
+    if (e.target !== t) t.focus();
+  });
+  document.addEventListener('htmx:load', function (e) { init(e.target); });
+  if (document.readyState !== 'loading') init(document);
+  else document.addEventListener('DOMContentLoaded', function () { init(document); });
+})();
 /* ---- F2 fast item pages (2026-10-12): warm a film / show page on touch or hover ----
    A finger landing on (or a pointer resting 60 ms over) a link to a film / show page sends that page a GET with
    X-Joey-Prefetch: 1 and throws the answer away (an empty 204): the server reads Jellyfin and starts the Jellyseerr /

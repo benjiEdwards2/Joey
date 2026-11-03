@@ -733,6 +733,51 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 /* Streaming services (media-ux2, 2026-10-08): a carousel of logo tiles on Discover, the name always under the
    logo; a service page opens with its logo beside the name. */
 .carousel.prov-row > * { flex: 0 0 88px; width: 88px; }
+/* JY-276 / JY-277 option B (2026-11-03): the Home carousel - pills, then one wide centred slide whose neighbours bleed
+   off the screen's edges. The track spans the viewport (the pagehead's breakout); side padding centres the first and
+   last slide. Slide width: most of the screen, capped so its height stays about the top half of the screen. */
+.homecar { position: relative; margin: 0 calc(50% - 50vw) 8px; --slide-w: min(86vw, calc(52vh * 16 / 9), 1800px); }
+.homecar-pills { justify-content: center; padding: 0 16px 16px; }
+@media (max-width: 767px) { .homecar-pills .chip { height: 36px; } }
+.homecar-track { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  padding: 0 calc((100vw - var(--slide-w)) / 2) 4px; scroll-padding-inline: calc((100vw - var(--slide-w)) / 2);
+  overscroll-behavior-x: contain; }
+.homecar-track::-webkit-scrollbar { display: none; }
+.homecar-track:focus-visible { outline: none; }
+.homecar-track:focus-visible .homecar-slide.is-on { outline: 2px solid var(--brand); outline-offset: 3px; }
+.homecar-slide { position: relative; flex: 0 0 var(--slide-w); width: var(--slide-w); aspect-ratio: 16 / 9;
+  scroll-snap-align: center; border-radius: 16px; overflow: hidden; isolation: isolate; display: flex;
+  align-items: flex-end; color: var(--text-1); text-decoration: none; background: var(--surface);
+  box-shadow: var(--shadow-hero); opacity: .55; transition: opacity .3s ease; }
+.homecar-slide.is-on, .homecar-slide:hover, .homecar-slide:focus-visible { opacity: 1; }
+.homecar-slide:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.homecar-bd { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: center 25%; }
+.homecar-bd-poster { object-fit: contain; background: var(--stage); }
+.homecar-slide::after { content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(to top, var(--pagehead-fade-0) 0%, var(--pagehead-fade-1) 30%, var(--pagehead-fade-2) 60%, transparent 100%),
+              linear-gradient(to right, var(--pagehead-side-1) 0%, var(--pagehead-side-2) 45%, transparent 70%); }
+.homecar-text { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; max-width: 70%; min-width: 0; }
+@media (min-width: 768px) { .homecar-text { padding: 32px 40px; gap: 12px; } }
+.homecar .eyebrow { border-radius: 6px; background: var(--pill-on); padding: 4px 8px; font-size: 10px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.homecar-title { font-size: clamp(20px, 3.2vw, 48px); font-weight: 700; line-height: 1.1; text-shadow: var(--title-shadow);
+  overflow-wrap: anywhere; }
+.homecar-logo { display: block; height: auto; aspect-ratio: var(--lw) / var(--lh);
+  width: min(100%, calc(clamp(56px, 9vw, 160px) * var(--lw) / var(--lh)), calc(var(--lw) * 1.5px)); }
+.homecar-sub { font-size: 14px; color: var(--text-3); text-shadow: var(--title-shadow); }
+@media (max-width: 767px) { .homecar-sub { font-size: 12px; } .homecar .eyebrow { display: none; } }
+.homecar-step { position: absolute; top: calc(50% + 22px); transform: translateY(-50%); z-index: 1; width: 44px; height: 44px;
+  border-radius: 999px; border: 1px solid var(--glass-line); background: var(--glass-bg); color: var(--text-1);
+  display: grid; place-items: center; cursor: pointer; }
+.homecar-step:hover { background: var(--glass-bg-hover); }
+.homecar-step .ic { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+.homecar-step.prev { left: calc((100vw - var(--slide-w)) / 2 + 12px); }
+.homecar-step.next { right: calc((100vw - var(--slide-w)) / 2 + 12px); }
+@media (hover: none) { .homecar-step { display: none; } }
+.homecar-empty { margin: 0 16px; }
+@media (min-width: 768px) { .homecar-empty { margin: 0 calc((100vw - var(--slide-w)) / 2); } }
+@media (prefers-reduced-motion: reduce) { .homecar-slide { transition: none; } }
+
 .prov-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px;
   color: inherit; text-decoration: none; transition: background-color .15s; }
 .prov-tile:hover { background: var(--soft); }

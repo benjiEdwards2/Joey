@@ -126,9 +126,10 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
                                          "credits": {"cast": [{"name": "Ada Actor", "character": "Lead"}]}}
     with client:
         b = main_of(whole(client, "/media/item/ser1"))
-    # JY-290: the Episodes row (JY-269 P2) leads; the bottom Seasons list is gone
-    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Episodes", "Overview", "Cast", "Where to watch")}
-    assert idx["Episodes"] < idx["Overview"] < idx["Cast"] < idx["Where to watch"]
+    # JY-290 + JY-282 (2026-11-03): Episodes row leads; no Overview section (synopsis once, in the hero); no bottom Seasons list
+    assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("A quiet show.") == 1
+    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Episodes", "Cast", "Where to watch")}
+    assert idx["Episodes"] < idx["Cast"] < idx["Where to watch"]
     assert '<h2 class="seclabel">Seasons</h2>' not in b
 
 
@@ -139,8 +140,10 @@ def test_off_server_tv_title_keeps_seasons_under_overview(env):
                                          "watchProviders": [{"iso_3166_1": "AU", "flatrate": [{"name": "Stan"}]}]}
     with client:
         b = main_of(client.get("/media/title/tv/555").text)
-    o, s, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "Seasons", "Where to watch"))
-    assert o < s < w
+    # JY-282: no Overview section; the synopsis is in the hero, once
+    assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("Far away.") == 1
+    s, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Seasons", "Where to watch"))
+    assert s < w
 
 
 def test_film_page_order_is_unchanged(env):
@@ -150,8 +153,9 @@ def test_film_page_order_is_unchanged(env):
     assert '<h2 class="seclabel">Seasons</h2>' not in b
     # JY-280: a film's one overview is in the hero; the body leads with the cast
     assert '<h2 class="seclabel">Overview</h2>' not in b
-    c, f, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Cast", "File", "Where to watch"))
-    assert c < f < w
+    # JY-280 P2 (2026-11-03): the where-to-watch logos under the cast; the File drawer in the right column after them
+    c, w, f = (b.index(k) for k in ('<h2 class="seclabel">Cast</h2>', 'id="fp-providers"', "File details</summary>"))
+    assert c < w < f
 
 
 # ---- merged from test_media_ux4_episode.py ----

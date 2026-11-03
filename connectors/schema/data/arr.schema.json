@@ -176,7 +176,7 @@
             "required": ["name", "app", "status", "ended", "message"],
             "additionalProperties": false,
             "properties": {
-              "name": {"enum": ["upgrades", "missing"]},
+              "name": {"enum": ["upgrades", "missing", "search"]},
               "app": {"enum": ["radarr", "sonarr"]},
               "status": {"type": "string"},
               "ended": {"type": ["string", "null"]},

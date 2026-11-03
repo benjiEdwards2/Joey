@@ -265,9 +265,10 @@ def test_movies_and_tv_have_exactly_three_tabs():
     assert tabs["tv"] == [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
 
 
-def test_activity_has_seven_tabs_with_history_on_the_diary():
+def test_activity_has_six_tabs_with_history_on_the_diary():
+    # JY-298 (2026-11-03): To rate left Activity (History holds the inbox); /media/history stays a prefix (it redirects)
     server = next(s for s in media_nav.SECTIONS if s["id"] == "server")
-    assert server["tabs"] == [("Live", "/media/playing"), ("History", "/media/diary"), ("To rate", "/media/history"),
+    assert server["tabs"] == [("Live", "/media/playing"), ("History", "/media/diary"),
                               ("Library", "/media/library"), ("Downloads", "/media/downloads"),
                               ("Requests", "/media/requests"), ("Health", "/media/apps")]
     assert {"/media/diary", "/media/history"} <= set(server["prefixes"])
@@ -283,14 +284,15 @@ def test_every_section_and_tab_label_is_sentence_case():
         assert all(w == "TV" or w == w.lower() for w in words[1:]), label
 
 
-def test_to_rate_count_sits_on_activity_and_its_to_rate_tab():
-    req = SimpleNamespace(url=SimpleNamespace(path="/media/history", query=""))
+def test_to_rate_count_sits_on_activity_and_its_history_tab():
+    # JY-298 (2026-11-03): the count moved from the removed To rate tab to History
+    req = SimpleNamespace(url=SimpleNamespace(path="/media/diary", query=""))
     reg = SimpleNamespace(areas=[SimpleNamespace(layout="shelves", id="alpha")])
     ctx = media_nav.nav_context(req, reg, {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
     assert {s["id"]: s["count"] for s in ctx["sections"]} == {"home": 0, "movies": 0, "tv": 0, "server": 3, "discover": 0}
     tabs = {t["href"]: (t["label"], t["on"], t["count"], t["what"]) for t in ctx["tabs"]}
-    assert tabs["/media/history"] == ("To rate", True, 3, "to rate")
-    assert tabs["/media/diary"] == ("History", False, 0, "to get")
+    assert "/media/history" not in tabs
+    assert tabs["/media/diary"] == ("History", True, 3, "to rate")
     movies = media_nav.nav_context(SimpleNamespace(url=SimpleNamespace(path="/media/movies", query="")), reg,
                                    {"to_rate": 3, "to_rate_movie": 2, "to_rate_tv": 1})
     assert [(t["label"], t["count"], t["what"]) for t in movies["tabs"]] == [
@@ -304,7 +306,8 @@ def test_activity_section_shows_the_to_rate_count_on_the_page(env):
     row = nav_html(html, "sectabs sectabs-page")
     assert re.search(r'href="/media/playing"[^>]*>Activity <span class="waitcount">\d+<span class="vh"> to rate</span>', row)
     sub = nav_html(html, "sectabs sub")
-    assert re.search(r'href="/media/history" aria-current="page">To rate <span class="waitcount">\d+', sub)
+    assert re.search(r'href="/media/diary" aria-current="page">History <span class="waitcount">\d+', sub)   # JY-298
+    assert ">To rate" not in sub
     assert "Diary" not in row
 
 

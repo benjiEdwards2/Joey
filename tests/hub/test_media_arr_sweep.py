@@ -1,6 +1,7 @@
 """F3 (2026-10-12): "Search all monitored" on Activity › Requests and › Downloads. Two buttons — Search missing /
-Search upgrades — each a two-step confirm (htmx GET /media/arr/sweep?step=confirm, then a same-origin POST) that sends
-Radarr + Sonarr whole-library commands and 303s back with a flash word. Radarr / Sonarr are faked at requests.post;
+Search upgrades — each a two-step confirm (htmx GET /media/arr/sweep?step=confirm, then a same-origin POST) that 303s
+back with a flash word. JY-302 (2026-11-03): the POST reads each app's wanted list and sends MoviesSearch / EpisodeSearch
+with ids of titles ON JELLYFIN only, never a library-wide command. Radarr / Sonarr are faked at requests.get / .post;
 no network."""
 import html as htmllib
 import importlib
@@ -23,10 +24,39 @@ BAD_ORIGIN = {"Origin": "https://evil.invalid"}
 CMD = {RADARR: f"{RADARR}/api/v3/command", SONARR: f"{SONARR}/api/v3/command"}
 
 
+# JY-302 fixture: on Jellyfin = film tmdb 100, show tmdb 9000 / tvdb 7000; show tvdb 8100 is Sonarr's empty folder
+# (0 episodes, so NOT on the server). Off-server monitored titles: film tmdb 200 (Radarr id 12), show tvdb 8000.
+JELLYFIN = {"summary": "x", "movies": [{"item_key": "tmdb:100", "title": "On Server", "jf_id": "a"}],
+            "shows": [{"item_key": "tmdb:9000", "tvdb": "7000", "episodes": 5, "title": "Show On", "jf_id": "b"},
+                      {"item_key": "tvdb:8100", "episodes": 0, "title": "Empty Folder", "jf_id": "c"}]}
+WANTED = {
+    RADARR: {"missing": [{"id": 11, "tmdbId": 100}, {"id": 12, "tmdbId": 200}],
+             "cutoff": [{"id": 11, "tmdbId": 100}, {"id": 12, "tmdbId": 200}]},
+    SONARR: {"missing": [{"id": 501, "seriesId": 1, "series": {"id": 1, "tvdbId": 7000, "tmdbId": 9000}},
+                         {"id": 502, "seriesId": 1, "series": {"id": 1, "tvdbId": 7000}},
+                         {"id": 503, "seriesId": 2, "series": {"id": 2, "tvdbId": 8000, "tmdbId": 8001}},
+                         {"id": 504, "seriesId": 3, "series": {"id": 3, "tvdbId": 8100}}],
+             "cutoff": [{"id": 502, "seriesId": 1, "series": {"id": 1, "tvdbId": 7000}},
+                        {"id": 503, "seriesId": 2, "series": {"id": 2, "tvdbId": 8000}}]}}
+OFF_SERVER = {"movieIds": {12}, "episodeIds": {503, 504}}
+
+
 class Arr:
     def __init__(self):
         self.posts, self.down = [], set()      # (url, json, headers, timeout); bases that fail
+        self.gets = []                         # (url, params)
         self.status = 201
+        self.wanted = {b: {k: list(v) for k, v in w.items()} for b, w in WANTED.items()}
+
+    def get(self, url, params=None, headers=None, timeout=None, **kw):
+        self.gets.append((url, dict(params or {})))
+        base = RADARR if url.startswith(RADARR) else SONARR
+        if base in self.down:
+            raise requests.ConnectionError(f"Max retries exceeded with url: {url}?apikey={RKEY}{TKEY}")
+        which = url.rsplit("/", 1)[1]
+        rows = self.wanted[base][which]
+        page, size = int(params["page"]), int(params["pageSize"])
+        return R({"records": rows[(page - 1) * size:page * size], "totalRecords": len(rows)}, 200)
 
     def post(self, url, json=None, headers=None, timeout=None, **kw):
         self.posts.append((url, json, headers, timeout))
@@ -55,10 +85,12 @@ def env(tmp_path, monkeypatch):
                 monkeypatch.delenv(f"{name}_API_KEY", raising=False)
         write_envelope(tmp_path / "snaps", "jellyseerr", age_minutes=1, data={"summary": "x", "requests": []})
         write_envelope(tmp_path / "snaps", "qbittorrent", age_minutes=1, data={"summary": "x", "active": []})
+        write_envelope(tmp_path / "snaps", "jellyfin", age_minutes=1, data=JELLYFIN)
         import hub.main
         importlib.reload(hub.main)
         arr = Arr()
         monkeypatch.setattr(requests, "post", arr.post)
+        monkeypatch.setattr(requests, "get", arr.get)
         return TestClient(hub.main.app), arr
     return build
 
@@ -111,7 +143,7 @@ def test_confirm_step_renders_the_card_in_place(env):
     assert 'id="arr-sweep"' in html
     assert 'action="/media/arr/sweep"' in html and 'name="kind" value="upgrades"' in html
     assert 'name="back" value="/media/downloads"' in html
-    assert "below its quality cutoff" in html and ">Search upgrades</button>" in html
+    assert "Search for better copies of 1 film and 1 show on Jellyfin below their quality cutoff?" in html and ">Search upgrades</button>" in html
     assert "Started" not in html                                            # never run: no throttle note
     assert "confirm(" not in html and not arr.posts
 
@@ -129,7 +161,7 @@ def test_confirm_without_htmx_goes_back_to_the_page_which_draws_the_card(env):
         r = client.get("/media/arr/sweep?step=confirm&kind=missing&back=%2Fmedia%2Frequests", follow_redirects=False)
         assert r.status_code == 303 and r.headers["location"] == "/media/requests?sweep_ask=missing"
         body = main_of(client.get(r.headers["location"]).text)
-    assert 'name="kind" value="missing"' in body and "has no file yet" in body
+    assert 'name="kind" value="missing"' in body and "Search 1 film and 1 show on Jellyfin that are missing files?" in body
 
 
 @pytest.mark.parametrize("back", ["https://evil.invalid/x", "//evil.invalid", "/server"])
@@ -143,21 +175,104 @@ def test_back_is_a_local_media_page_only(env, back):
 # ---- running it ----
 
 @pytest.mark.parametrize("kind, radarr, sonarr", [
-    ("missing", "MissingMoviesSearch", "MissingEpisodeSearch"),
-    ("upgrades", "CutoffUnmetMoviesSearch", "CutoffUnmetEpisodeSearch"),
+    ("missing", {"name": "MoviesSearch", "movieIds": [11]}, {"name": "EpisodeSearch", "episodeIds": [501, 502]}),
+    ("upgrades", {"name": "MoviesSearch", "movieIds": [11]}, {"name": "EpisodeSearch", "episodeIds": [502]}),
 ])
-def test_post_sends_exactly_the_two_commands(env, kind, radarr, sonarr):
+def test_post_sends_id_scoped_commands_for_titles_on_jellyfin_only(env, kind, radarr, sonarr):
     client, arr = env()
     with client:
         r = sweep(client, kind)
         assert r.status_code == 303
         assert r.headers["location"] == "/media/downloads?sweep=started&ran=radarr%2Csonarr"
         page = main_of(client.get(r.headers["location"]).text)
-    sent = sorted((u, j) for u, j, _, _ in arr.posts)
-    assert sent == [(CMD[RADARR], {"name": radarr}), (CMD[SONARR], {"name": sonarr})]
+    sent = sorted(((u, j) for u, j, _, _ in arr.posts), key=lambda x: x[0])
+    assert sent == [(CMD[RADARR], radarr), (CMD[SONARR], sonarr)]
     assert {(u, h["X-Api-Key"]) for u, _, h, _ in arr.posts} == {(CMD[RADARR], RKEY), (CMD[SONARR], TKEY)}
     assert all(t == 10 for *_, t in arr.posts)                              # each its own 10 s timeout
+    which = "missing" if kind == "missing" else "cutoff"
+    assert all(u.endswith(f"/api/v3/wanted/{which}") and p["monitored"] == "true" for u, p in arr.gets)
     assert "Search started · Radarr · Sonarr" in page
+
+
+def test_regression_no_library_wide_command_and_no_bare_body(env):
+    """JY-302 AC1: before the fix the POST body was {"name": "MissingMoviesSearch"} with no ids."""
+    client, arr = env()
+    with client:
+        sweep(client, "missing")
+        sweep(client, "upgrades")
+    assert arr.posts
+    for _, body, _, _ in arr.posts:
+        assert body["name"] in ("MoviesSearch", "EpisodeSearch")
+        assert body.get("movieIds") or body.get("episodeIds")
+
+
+@pytest.mark.parametrize("kind", ["missing", "upgrades"])
+def test_off_server_monitored_titles_are_never_searched(env, kind):
+    """AC4: a monitored film / show in the arr but not on Jellyfin (and Sonarr's empty folder) is in no id list."""
+    client, arr = env()
+    with client:
+        sweep(client, kind)
+    for _, body, _, _ in arr.posts:
+        for field, off in OFF_SERVER.items():
+            assert not set(body.get(field) or []) & off
+
+
+def test_no_jellyfin_snapshot_searches_nothing(env, tmp_path):
+    client, arr = env()
+    (tmp_path / "snaps" / "jellyfin.json").unlink()
+    with client:
+        r = sweep(client, "missing")
+        page = main_of(client.get(r.headers["location"]).text)
+    assert r.headers["location"] == "/media/downloads?sweep=empty" and not arr.posts
+    assert "Nothing to search" in page and "Search started" not in page
+
+
+def test_one_app_with_nothing_on_jellyfin_sends_no_command_for_it(env):
+    client, arr = env()
+    arr.wanted[RADARR]["missing"] = [{"id": 12, "tmdbId": 200}]             # only an off-server film is missing
+    with client:
+        r = sweep(client, "missing")
+    assert [u for u, *_ in arr.posts] == [CMD[SONARR]]
+    assert r.headers["location"] == "/media/downloads?sweep=started&ran=sonarr"
+
+
+def test_ids_are_batched_and_logged(env, monkeypatch, caplog):
+    client, arr = env()
+    monkeypatch.setattr(mas, "SWEEP_BATCH", 1)
+    monkeypatch.setattr(mas, "WANTED_PAGE", 1)                              # paging too: one row per page
+    with client, caplog.at_level(logging.INFO, logger="hub.media_arr_search"):
+        sweep(client, "missing")
+    son = [j for u, j, _, _ in arr.posts if u == CMD[SONARR]]
+    assert son == [{"name": "EpisodeSearch", "episodeIds": [501]}, {"name": "EpisodeSearch", "episodeIds": [502]}]
+    assert "sonarr missing sweep: 1 titles on Jellyfin, 2 ids in 2 batches, 2 off-server skipped" in caplog.text
+    assert "radarr missing sweep: 1 titles on Jellyfin, 1 ids in 1 batches, 1 off-server skipped" in caplog.text
+
+
+def test_confirm_counts_only_titles_on_jellyfin(env):
+    client, arr = env()
+    arr.wanted[RADARR]["missing"] = [{"id": 11, "tmdbId": 100}, {"id": 12, "tmdbId": 200}, {"id": 13, "tmdbId": 100}]
+    with client:
+        html = client.get("/media/arr/sweep?step=confirm&kind=missing", headers=HX).text
+    assert "Search 2 films and 1 show on Jellyfin that are missing files?" in html and not arr.posts
+
+
+def test_confirm_falls_back_to_plain_words_when_an_app_is_down(env):
+    client, arr = env()
+    arr.down.add(SONARR)
+    with client:
+        html = client.get("/media/arr/sweep?step=confirm&kind=missing", headers=HX).text
+    assert "Search films and shows on Jellyfin that are missing files?" in html
+
+
+def test_library_wide_command_names_are_gone_from_hub():
+    """AC5: grep hub/ for the library-wide arr commands."""
+    from pathlib import Path
+    hub = Path(mas.__file__).resolve().parent
+    names = ("Missing" + "MoviesSearch", "Missing" + "EpisodeSearch", "CutoffUnmet" + "MoviesSearch",
+             "CutoffUnmet" + "EpisodeSearch")
+    hits = [str(f) for f in hub.rglob("*") if f.is_file() and f.suffix in (".py", ".html", ".md", ".js")
+            and any(n in f.read_text(encoding="utf-8", errors="ignore") for n in names)]
+    assert hits == []
 
 
 def test_one_app_down_still_runs_the_other(env, caplog):
@@ -167,7 +282,7 @@ def test_one_app_down_still_runs_the_other(env, caplog):
         r = sweep(client, "missing", back="/media/requests")
         assert r.headers["location"] == "/media/requests?sweep=partial&ran=sonarr"
         page = main_of(client.get(r.headers["location"]).text)
-    assert len(arr.posts) == 2                                              # Sonarr was still asked
+    assert [u for u, *_ in arr.posts] == [CMD[SONARR]]                     # Radarr failed its read; Sonarr still asked
     assert "Search started · Sonarr only" in page
     assert "radarr sweep failed: ConnectionError" in caplog.text
     assert "secret-host" not in caplog.text and RKEY not in caplog.text and TKEY not in caplog.text
@@ -206,7 +321,7 @@ def test_only_the_configured_app_is_called_and_that_is_a_full_start(env):
     with client:
         r = sweep(client, "upgrades")
     assert r.headers["location"] == "/media/downloads?sweep=started&ran=radarr"
-    assert [(u, j) for u, j, _, _ in arr.posts] == [(CMD[RADARR], {"name": "CutoffUnmetMoviesSearch"})]
+    assert [(u, j) for u, j, _, _ in arr.posts] == [(CMD[RADARR], {"name": "MoviesSearch", "movieIds": [11]})]
 
 
 def test_same_origin_is_enforced(env):
@@ -264,10 +379,10 @@ def test_a_stuck_app_does_not_block_the_hub(env, monkeypatch):
     client, _ = env()
     started, release = threading.Event(), threading.Event()
 
-    def stuck(app, kind):
+    def stuck(app, kind, server=None):
         started.set()
         release.wait(5)
-        return True
+        return "started"
     monkeypatch.setattr(mas, "_sweep_one", stuck)
     out = {}
     with client:

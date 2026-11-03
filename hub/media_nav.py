@@ -26,7 +26,8 @@ SECTIONS: list[dict] = [
     {"id": "server", "label": "Activity", "short": "Activity", "icon": "server", "href": "/media/playing",
      "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps",
                   "/media/diary", "/media/history"],
-     "tabs": [("Live", "/media/playing"), ("History", "/media/diary"), ("To rate", "/media/history"), ("Library", "/media/library"),
+     # JY-298 (B., 2026-11-02): no To rate tab; History holds the inbox (rate + Clear all) and carries its count.
+     "tabs": [("Live", "/media/playing"), ("History", "/media/diary"), ("Library", "/media/library"),
               ("Downloads", "/media/downloads"), ("Requests", "/media/requests"), ("Health", "/media/apps")]},
     {"id": "discover", "label": "Discover", "short": "Discover", "icon": "compass", "href": "/media/discover",
      "prefixes": ["/media/discover", "/media/following", "/media/title", "/media/person"],
@@ -55,7 +56,7 @@ GUEST_TABS = {
 }
 GUEST_DIARY = {"id": "diary", "label": "Diary", "short": "Diary", "icon": "diary", "href": "/media/diary",
                "prefixes": ["/media/diary", "/media/history"],
-               "tabs": [("Diary", "/media/diary"), ("To rate", "/media/history")]}
+               "tabs": [("Diary", "/media/diary")]}   # JY-298: To rate folded into the Diary
 
 
 # JY-248 (B., 2026-10-25: "remove the overview section, use the Joey Media as a way of going back to the home"): the
@@ -134,9 +135,9 @@ def nav_context(request, registry, waiting: dict | None) -> dict:
         top = max(scores, default=0)
         tab_counts = {"/media/movies/to-rate": waiting.get("to_rate_movie", 0),
                       "/media/tv/to-rate": waiting.get("to_rate_tv", 0),
-                      "/media/history": waiting.get("to_rate", 0)}
+                      "/media/diary": waiting.get("to_rate", 0)}   # JY-298: History carries the inbox count
         tabs = [{"label": label, "href": h, "on": bool(top) and sc == top, "count": tab_counts.get(h, 0) or 0,
-                 "what": "to rate" if h.endswith("/to-rate") or h == "/media/history" else "to get"}
+                 "what": "to rate" if h.endswith("/to-rate") or h == "/media/diary" else "to get"}
                 for (label, h), sc in zip(section["tabs"], scores)]
         # E4 (U5, 2026-10-13): an item / title page (a forced section) is no tab's own either, so it shows no sub-tab row
         if (section.get("tabs_only_on") or forced) and not top:

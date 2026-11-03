@@ -75,3 +75,11 @@ P1 (PR 296) changed existing tests where the spec changes behaviour (rule 4):
 - `tests/hub/test_media_partof.py`: renamed to `test_collection_banner_leads_the_film_body_after_cast_and_scores`; exact order Cast, Scores, banner, File, More on Joey.
 - `tests/hub/test_media_follow_shows.py`: a film's director is a chip (still no Follow buttons).
 - `tests/hub/test_media_tv_crew.py`: the film page shows chips, not a Directed by row.
+
+P2 (2026-11-03) changed existing tests where the spec changes behaviour (rule 4): a film's scores are logo + number (no `sp-name` words, RT's alt is "Rotten Tomatoes"), its site-pill row is gone, the File section is the owner's "File details" drawer in the right column, and where-to-watch is streaming logos under the cast (round-2 pick A, superseding JY-286's option A; Q2 default A).
+- `tests/hub/test_media_film_scores.py`: `pills()` reads both shapes; Metacritic pill markup; the site-pill test moved to a show (`/media/title/tv/100`), which keeps the E4 strip.
+- `tests/hub/test_film_page_e4.py`: both site-pill tests now use a show (a film has no site-pill row).
+- `tests/hub/test_film_quality.py`: the panel is read from the drawer; order Cast, File details, Crew; IMDb read from the logo's alt.
+- `tests/hub/test_media_episodes.py`: order is Cast, the providers placeholder (under the cast), File details.
+- `tests/hub/test_media_partof.py`: order Cast, Scores card, File details, banner, More on Joey.
+- `tests/hub/test_media_film.py`, `test_media_item.py`, `test_media_discover.py`, `test_media_fast_pages.py`, `test_media_speed.py`, `test_style_media.py`: score / provider strings in the new markup; a film shows streaming only (no "Apple TV" rent logo).

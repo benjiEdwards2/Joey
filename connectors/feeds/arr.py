@@ -45,7 +45,11 @@ ARR_UPGRADE_ENDPOINTS = {
 # say what the last "Search upgrades" actually found ("1 searched · 0 downloaded").
 ARR_COMMAND_PATH = "/api/v3/command"
 LAST_SEARCH = {"CutoffUnmetMoviesSearch": "upgrades", "CutoffUnmetEpisodeSearch": "upgrades",
-               "MissingMoviesSearch": "missing", "MissingEpisodeSearch": "missing"}
+               "MissingMoviesSearch": "missing", "MissingEpisodeSearch": "missing",
+               # JY-302 (2026-11-03): Joey's sweeps now send id-scoped MoviesSearch / EpisodeSearch (titles on Jellyfin
+               # only). The name no longer says missing vs upgrades (and a title page's Search now is a MoviesSearch
+               # too), so these read as a plain "search". The old names stay for history already in the apps.
+               "MoviesSearch": "search", "EpisodeSearch": "search"}
 # Prowlarr is optional: env unset or the call failing -> `prowlarr: null`, the run stays ok.
 # JY-143 (2026-10-24): `/api/v1/indexerstats` is cumulative unless it gets startDate / endDate (verified live), so the
 # call asks for the last ARR_WINDOW_DAYS: a failed grab ages out and the hub's amber clears.

@@ -109,6 +109,9 @@ def crawl(c, jf_id: str, headers: dict | None = None) -> tuple[list[str], int]:
     problems, rendered = [], 0
     for path in guest_paths(jf_id):
         r = c.get(path, headers=headers or {}, follow_redirects=False)
+        if path == "/media/history" and r.status_code == 307:   # JY-298 (2026-11-03): only a hop to the diary (crawled too)
+            assert r.headers["location"].startswith("/media/diary")
+            continue
         rendered += r.status_code == 200
         problems += problems_of(path, r.status_code, r.text)
     return problems, rendered

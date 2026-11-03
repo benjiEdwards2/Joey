@@ -82,7 +82,7 @@ def test_inbox_lists_unrated_recent_titles_once_each(env):
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")
     with build() as client:
         body = main_of(client.get("/media/history").text)
-    inbox = body.split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
+    inbox = body.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]   # JY-298 (2026-11-03): the To rate section on History
     assert inbox.count('class="ratepick"') == 2           # Heat + the show, once
     assert "Heat" in inbox and "Quiet Show" in inbox and "S01E02" not in inbox
     assert "Already Rated" not in inbox and "Long Ago" not in inbox
@@ -94,7 +94,8 @@ def test_inbox_empty_word_and_no_db_file_needed(env):
     build, db_file = env
     with build(jelly_data([])) as client:
         resp = client.get("/media/history")
-    assert resp.status_code == 200 and "Nothing waiting to be rated" in resp.text
+    # JY-298 (2026-11-03): History draws no To rate section when nothing waits (was the "Nothing waiting" line)
+    assert resp.status_code == 200 and ">To rate</h2>" not in resp.text
     assert not db_file.exists()  # reading never creates it
 
 
@@ -113,7 +114,7 @@ def test_plain_form_post_redirects_to_history(env):
     build, _ = env
     with build() as client:
         resp = client.post("/media/rate", data=rate_form(score=6), follow_redirects=False)
-    assert resp.status_code == 303 and resp.headers["location"] == "/media/history"
+    assert resp.status_code == 303 and resp.headers["location"] == "/media/diary"   # JY-298: History
     assert media_db.get_ratings(["tmdb:1"]) == {"tmdb:1": 6}
 
 
@@ -184,7 +185,7 @@ def test_score_chips_on_history_playing_library_requests(env):
         play = main_of(client.get("/media/playing").text)
         lib = main_of(client.get("/media/library").text)
         req = main_of(client.get("/media/requests").text)
-    recent = hist.split(">Recently watched</h2>", 1)[1]
+    recent = hist   # JY-298 (2026-11-03): History is the diary now; its rows carry the score (Recently watched is gone)
     assert 'row-score score-8" title="Your rating: 8 out of 10">8<' in recent
     assert 'row-score score-9"' in play and "gold-glow" not in play
     assert 'row-score score-5" title="Your rating: 5 out of 10">5<' in lib
@@ -202,7 +203,8 @@ def test_her_view_sees_no_scores_or_inbox(env):
 def test_pages_render_with_no_db_file(env):
     build, db_file = env
     with build() as client:
-        for url in ("/media/history", "/media/playing", "/media/library", "/media/requests", "/a/alpha"):
+        # JY-298 (2026-11-03): /media/history left this list - it redirects to the diary, which syncs into media.db
+        for url in ("/media/playing", "/media/library", "/media/requests", "/a/alpha"):
             assert client.get(url).status_code == 200, url
     assert not db_file.exists()
 
@@ -226,7 +228,7 @@ TV = [
 
 
 def inbox_of(html):
-    return main_of(html).split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
+    return main_of(html).split(">To rate</h2>", 1)[1].split("</section>", 1)[0]   # JY-298 (2026-11-03): the To rate section on History
 
 
 @pytest.mark.parametrize("level, count, titles, key", [
@@ -259,7 +261,7 @@ def test_level_chips_mark_the_active_one_and_post_sets_it(env):
         html = main_of(client.get("/media/history").text)
         assert 'value="show" class="chip on" aria-current="true"' in html
         resp = client.post("/media/settings/rating_level", data={"value": "episode"}, follow_redirects=False)
-        assert resp.status_code == 303 and resp.headers["location"] == "/media/history"
+        assert resp.status_code == 303 and resp.headers["location"] == "/media/diary"   # JY-298
         html = main_of(client.get("/media/history").text)
         assert 'value="episode" class="chip on" aria-current="true"' in html
         assert 'value="show" class="chip"' in html
@@ -297,10 +299,13 @@ def test_show_score_stays_on_shelf_rows_while_episode_score_wins_on_an_episode_r
         ep_level = main_of(client.get("/media/history").text)
 
     def recent(h):
-        return h.split(">Recently watched</h2>", 1)[1].split(">Most played shows</h2>", 1)[0]
+        return h.split('<div id="diary-new"', 1)[1]   # JY-298 (2026-11-03): the diary rows, not Recently watched
     assert recent(show_level).count('title="Your rating: 6 out of 10"') == 3  # each episode row shows the show score
-    r = recent(ep_level)
-    assert r.count('title="Your rating: 9 out of 10"') == 1 and r.count('title="Your rating: 6 out of 10"') == 2
+    # JY-298 (2026-11-03): History's diary folds a day's episodes of a season into one line, so the line keeps the show
+    # score; the episode score shows where episodes are one row each - the To rate inbox drops the rated episode only.
+    assert recent(ep_level).count('title="Your rating: 6 out of 10"') == 3
+    inbox = ep_level.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]
+    assert 'value="jf:cfae8"' not in inbox and 'value="jf:cfae7"' in inbox and 'value="jf:cfae9"' in inbox
 
 
 # ---- 2026-10-06 regression: to-rate titles rendered one character per line ----
@@ -311,7 +316,7 @@ def test_to_rate_rows_wrap_so_the_title_keeps_its_width(env):
     build, db_file = env
     with build() as client:
         body = main_of(client.get("/media/history").text)
-    inbox = body.split(">To rate</h2>", 1)[1].split(">Recently watched</h2>", 1)[0]
+    inbox = body.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]   # JY-298 (2026-11-03): the To rate section on History
     rows = inbox.split('<div class="row has-form">')[1:]
     assert len(rows) == 3
     assert all('class="ratepick"' in r for r in rows)

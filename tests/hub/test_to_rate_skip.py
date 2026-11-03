@@ -136,4 +136,4 @@ def test_bad_skips_are_refused(env):
                         headers={"Origin": "https://evil.example"}, follow_redirects=False)
         assert r.status_code == 403
         r = post(client, "/media/rate/skip", item_key="tmdb:1", kind="movie", title="Heat", back="https://evil.example")
-        assert r.headers["location"] == "/media/history?skip=item"               # back is a fixed list
+        assert r.headers["location"] == "/media/diary?skip=item"                 # back is a fixed list (JY-298: History)

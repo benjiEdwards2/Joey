@@ -449,8 +449,9 @@ seventeenth exception in `docs/connector-contract.md`.
 **Search all monitored (F3, 2026-10-12):** Activity › Requests and › Downloads open with one row (`_arr_sweep.html`, via
 the `arr_sweep(request)` global): "Search missing" and "Search upgrades", each an inline confirm (htmx
 `GET /media/arr/sweep?step=confirm`; without JS the page draws it from `?sweep_ask=`) then a `same_origin` POST that
-sends Radarr `MissingMoviesSearch` + Sonarr `MissingEpisodeSearch`, or `CutoffUnmetMoviesSearch` +
-`CutoffUnmetEpisodeSearch` — one worker thread and a 10 s timeout per app, so one app down never stops the other
+reads each app's wanted list (missing / cutoff unmet) and sends Radarr `MoviesSearch` (movieIds) + Sonarr `EpisodeSearch`
+(episodeIds) for titles on Jellyfin only, batched (JY-302: never a library-wide command; none on Jellyfin → "Nothing to
+search") — one worker thread and a 10 s timeout per app, so one app down never stops the other
 (`?sweep=started|partial|failed`). A second sweep of the same kind inside 10 min is allowed; the card says "Started 4m
 ago · run again?" (in-process timestamp). Neither app configured: "Not connected", no buttons.
 

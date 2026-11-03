@@ -1,6 +1,6 @@
 # JY-282 Remove the duplicate overview (films and TV)
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
 Area: `hub/templates/media_film.html` (hero synopsis block and the `Overview` section), `hub/static/control-surface.css` (`.tl-syn`, `.tv-syn`), `tests/hub/`
@@ -49,5 +49,12 @@ Rewording the synopsis. Episode tile captions (`tl-epover`). Taglines.
    A. Under the title in the hero (recommended; same as the TV).
    B. In the lower section, hero line removed.
 2. On an episode page, keep the episode synopsis only (recommended), or the show's too? A. episode only, B. both.
+
+## Decisions
+- 2026-11-03 (orchestrator, for B.): Q1 = A (synopsis under the title in the hero), Q2 = A (episode synopsis only).
+
+## Test changes
+- 2026-11-03: `test_media_episodes.py` `test_tv_page_order_overview_seasons_then_where_to_watch` and `test_off_server_tv_title_keeps_seasons_under_overview` drop "Overview" from the order (the section is gone, per the pick); both now also assert the synopsis appears exactly once.
+- 2026-11-03: `test_episode_flow_templates.py::test_episode_sections_come_in_the_contract_order` and `test_media_item.py::test_episode_page_and_map` asserted the SHOW's overview on an episode page; per Q2 = A they now assert it is absent and the episode's synopsis leads.
 
 ## Shipped notes

@@ -82,7 +82,8 @@
         {% if tvreq %}
         {{ meta([film.year, "TV" if film.kind == "tv" else "Film"] + (film.genres or []) + ["Not in the library yet"], "facts-line tv-facts") }}
         {% else %}
-        {{ meta([film.year, film.numbers.runtime, film.official] + (film.genres or []), "facts-line tv-facts") }}
+        {{ meta([film.year, film.numbers.runtime, film.official] + (film.genres or [])
+                + (["Yours " ~ rate.num(film.avg_score) ~ " avg"] if film.avg_score else []), "facts-line tv-facts") }}
         {% endif %}
         {% if film.overview %}<p class="tv-syn">{{ film.overview }}</p>{% endif %}
         {% if tvreq %}<p class="tv-reqnote">Not on Joey yet, so there is nothing to play.</p>{% endif %}
@@ -259,14 +260,61 @@
    stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
 {# JY-280 (P1): a film off the TV says its overview once, in the hero, and leads the body with the cast tiles (before the Scores card) #}
 {% set filmweb = film.kind == "movie" and not film.episode and not tv_mode(request) %}
-{% if filmweb %}{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% endif %}
+{% import "_title_file.html" as tf %}
+{% import "_title_scores.html" as ts with context %}
 {% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
-{% if (any_score or n.runtime or film.official) and not tv_mode(request) %}
+{% set fp = film.file %}
+{% set f = film.facts %}
+{% set langs_row = f.languages if not fp else none %}
+{% set sites_row = sites and not any_score and not filmweb %}
+{% set detailsec %}
+{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending %}
+<section class="sec">
+  <h2 class="seclabel">Details</h2>
+  <dl class="kvrows details">
+    {% call wait("dates", film.pending) %}{% include "_film_dates.html" %}{% endcall %}
+    {% if langs_row %}<div class="kv"><dt>On disk</dt><dd>{{ langs_row }}</dd></div>{% endif %}
+    {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>{{ f.added }}</dd></div>{% endif %}
+    {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>{{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
+    {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>{{ film.requested_when }}{% if film.requested_by %} · {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
+    {% if sites_row %}<div class="kv"><dt>Links</dt><dd class="sitepills">{{ sitepills() }}</dd></div>{% endif %}
+  </dl>
+</section>
+{% endif %}
+{% endset %}
+{# JY-280 P2 (B.'s pick A, 2026-11-03): a film off the TV has a two-column body from 1024 px - the cast tiles on the left;
+   on the right Scores (a site's logo + its number, each a link to that site's page for the film), Details, then the
+   owner's closed File drawer (gated server-side: media_film.file_owner). Below 1024 px the column stacks under the cast. #}
+{% if filmweb %}
+<div class="filmcols">
+<div class="filmcol-main">{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
+{# JY-286 placement per B.'s round-2 pick A (2026-11-03): the logos under the cast, in the left column #}
+{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}</div>
+<aside class="filmcol-side" aria-label="Scores and details">
+{% if any_score or sites or n.runtime or film.official %}
+<div class="stats numbers">
+  {% if any_score or sites %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
+    {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
+    {{ ts.own(sites) }}
+    {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
+    {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
+  </div></div>{% endif %}
+  {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
+  {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
+</div>
+{% endif %}
+{{ detailsec }}
+{% if fp %}{{ tf.drawer(fp) }}{% endif %}
+</aside>
+</div>
+{% endif %}
+{% if (any_score or n.runtime or film.official) and not tv_mode(request) and not filmweb %}
 <div class="stats numbers">
   {% if any_score %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
     {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
     {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
+    {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
   </div>{% if sites %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
@@ -313,12 +361,8 @@
 </section>
 {% endif %}
 <div class="filmbody">
-{% if film.overview and not filmweb %}
-<section class="sec">
-  <h2 class="seclabel">Overview</h2>
-  <p class="overview">{{ film.overview }}</p>
-</section>
-{% endif %}
+{# JY-282 (B.'s pick A, 2026-11-03): the synopsis is said once, in the hero under the title (tl-syn on web and phone,
+   tv-syn on the TV); an episode page says the episode's only. No Overview section down here. #}
 
 {# TV episode flow (WP-E2, 2026-10-16): an episode page draws Guests + the episode's Crew. JY-290 (B. 2026-11-02): the
    show page's "Seasons compared" and the show / season rating bar chart are gone, on the TV too. #}
@@ -347,24 +391,10 @@
 </section>
 {% endif %}
 
-{% set fp = film.file %}
-{% if fp %}
+{% if fp and not filmweb %}
 <section class="sec">
   <h2 class="seclabel">File</h2>
-  <div class="panel filepanel">
-    {% with badges = fp.badges %}{% include "_file_strip.html" %}{% endwith %}
-    {% if fp.grid %}
-    <div class="filegrid">
-      {% for g in fp.grid %}<div class="filestat"><div class="microlabel">{{ g.label }}</div><div class="filestat-value">{{ g.value }}</div>{% if g.sub %}<div class="filestat-sub">{{ g.sub }}</div>{% endif %}</div>{% endfor %}
-    </div>
-    {% endif %}
-    {% if fp.rows %}
-    <dl class="kvrows">
-      {% for r in fp.rows %}<div class="kv"><dt>{{ r.label }}</dt><dd>{{ r.value }}</dd></div>{% endfor %}
-    </dl>
-    {% endif %}
-    {% if fp.filename %}<p class="filename">{{ fp.filename }}</p>{% endif %}
-  </div>
+  {{ tf.panel(fp) }}
 </section>
 {% endif %}
 
@@ -372,22 +402,7 @@
    the same directors would otherwise appear twice. #}
 {% if not (film.episode and film.crew_ep) and not tv_mode(request) %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
 
-{% set f = film.facts %}
-{% set langs_row = f.languages if not fp else none %}
-{% set sites_row = sites and not any_score %}
-{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending %}
-<section class="sec">
-  <h2 class="seclabel">Details</h2>
-  <dl class="kvrows details">
-    {% call wait("dates", film.pending) %}{% include "_film_dates.html" %}{% endcall %}
-    {% if langs_row %}<div class="kv"><dt>On disk</dt><dd>{{ langs_row }}</dd></div>{% endif %}
-    {% if f.added and not fp %}<div class="kv"><dt>Added</dt><dd>{{ f.added }}</dd></div>{% endif %}
-    {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>{{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
-    {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>{{ film.requested_when }}{% if film.requested_by %} · {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
-    {% if sites_row %}<div class="kv"><dt>Links</dt><dd class="sitepills">{{ sitepills() }}</dd></div>{% endif %}
-  </dl>
-</section>
-{% endif %}
+{% if not filmweb %}{{ detailsec }}{% endif %}
 
 {% if not filmweb %}{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% endif %}{% if tv_mode(request) %}{% include "_tv_title_extras.html" %}{% endif %}
 {% if not tv_mode(request) %}{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}{% endif %}
@@ -404,7 +419,7 @@
 {% endif %}
 {% if film.episode and epnav %}{{ ef.prevnext(epnav) }}{% endif %}
 
-{% if not tv_mode(request) %}{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}{% endif %}
+{% if not tv_mode(request) and not filmweb %}{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}{% endif %}
 
 </div>
 

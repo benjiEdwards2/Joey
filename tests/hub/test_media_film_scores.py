@@ -207,9 +207,9 @@ def film_page(env, monkeypatch, body, path="/media/title/movie/603", imdb=TT, st
 def test_metacritic_pill_tinted_by_band_with_the_number(env, omdb, monkeypatch, score, band):
     html, fake = film_page(env, monkeypatch, {"Metascore": score})
     b = main_of(html)
-    assert (f'<span class="scorepill sp-mc sp-mc-{band}" title="Metacritic {score}"><img class="sp-logo" '
-            f'src="/static/logos/mc.svg" alt="" width="16" height="16"><span class="sp-name">Metacritic</span>'
-            f'<b class="sp-val">{score}</b></span>') in b
+    assert (f'<span class="scorepill scorelink sp-mc sp-mc-{band}" title="Metacritic {score}"><img class="sp-logo" '
+            f'src="/static/logos/mc.svg" alt="Metacritic" width="16" height="16">'
+            f'<b class="sp-val">{score}</b></span>') in b   # JY-280 P2: logo + number, no site word
     box = b.split('<div class="scorepills">', 1)[1]
     assert box.index("sp-rt") < box.index("sp-mc") < box.index("sp-tmdb")       # IMDb · RT · Metacritic · TMDB · Yours
     assert KEY not in html and fake.calls[0][1]["i"] == TT
@@ -257,8 +257,13 @@ LOGOS = ROOT / "hub" / "static" / "logos"
 
 def pills(b):
     box = b.split('<div class="scorepills">', 1)[1].split("</div>", 1)[0]
-    return re.findall(r'class="scorepill sp-(\w+)[^"]*"[^>]*><img class="sp-logo" src="([^"]+)" alt="" width="16" height="16">'
-                      r'<span class="sp-name">([^<]+)</span><b class="sp-val[^"]*"[^>]*>([^<]+)</b>', box)
+    # JY-280 P2 (2026-11-03): a film's scores are logo + number (`.scorelink`, the site's name is the logo's alt), linked
+    # where the site's id is known; "Yours" keeps its word pill. Both shapes read as (id, logo, name, value).
+    return [(a or c, b_ or d, n1 or n2, v1 or v2) for a, b_, n1, v1, c, d, n2, v2 in re.findall(
+        r'class="scorepill scorelink sp-(\w+)[^"]*"[^>]*><img class="sp-logo" src="([^"]+)" alt="([^"]+)" width="16" height="16">'
+        r'<b class="sp-val[^"]*"[^>]*>([^<]+)</b>'
+        r'|class="scorepill sp-(\w+)[^"]*"[^>]*><img class="sp-logo" src="([^"]+)" alt="" width="16" height="16">'
+        r'<span class="sp-name">([^<]+)</span><b class="sp-val[^"]*"[^>]*>([^<]+)</b>', box)]
 
 
 def test_score_pills_in_one_format_and_order(env):
@@ -266,7 +271,7 @@ def test_score_pills_in_one_format_and_order(env):
     with client:
         b = main_of(whole(client, "/media/title/movie/603"))
     assert pills(b) == [("imdb", "/static/logos/imdb.svg", "IMDb", "7.9"),
-                        ("rt", "/static/logos/rt.svg", "RT", "92%"),
+                        ("rt", "/static/logos/rt.svg", "Rotten Tomatoes", "92%"),
                         ("tmdb", "/static/logos/tmdb.svg", "TMDB", "7.8"),
                         ("you", "/static/logos/you.svg", "Yours", "Rate")]
     assert '<a class="scorepill sp-you" href="#rate">' in b and '<details class="tl-pop tl-rate" id="rate">' in b  # JY-269 P1 (2026-10-30): the picker is the Rate popover
@@ -315,15 +320,16 @@ def test_metacritic_band_tints_are_tokens_and_the_rest_are_neutral():
 
 
 def test_site_links_are_neutral_logo_pills(env):
+    # JY-280 P2 (2026-11-03): a film's separate site-pill row is gone - TMDB and Letterboxd are logo links among the
+    # scores (test_film_page_r2.py); a show keeps the E4 site pills in its Scores strip
     client, _ = env()
     with client:
-        b = main_of(client.get("/media/title/movie/603").text)
+        b = main_of(client.get("/media/title/tv/100").text)
     strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]   # E4: in the Scores strip
     sites = re.findall(r'<a class="scorepill sitepill" href="([^"]+)" target="_blank" rel="noopener"><img class="sp-logo" '
                        r'src="([^"]+)" alt="" width="16" height="16">([^<]+)</a>', strip)
-    assert [(s[1], s[2]) for s in sites] == [("/static/logos/imdb.svg", "IMDb"), ("/static/logos/tmdb.svg", "TMDB"),
-                                             ("/static/logos/lbxd.svg", "Letterboxd")]
-    assert sites[1][0] == "https://www.themoviedb.org/movie/603" and sites[2][0] == "https://letterboxd.com/tmdb/603"
+    assert [(s[1], s[2]) for s in sites] == [("/static/logos/imdb.svg", "IMDb"), ("/static/logos/tmdb.svg", "TMDB")]
+    assert sites[1][0] == "https://www.themoviedb.org/tv/100"
     assert "linkchip" not in b
 
 
@@ -346,4 +352,4 @@ def test_a_logo_dropped_in_the_badges_folder_overrides_the_monogram(env, tmp_pat
     with client:
         b = main_of(whole(client, "/media/title/movie/603"))
     assert ("imdb", "/static/badges/logo-imdb.png", "IMDb", "7.9") in pills(b)
-    assert 'src="/static/badges/logo-imdb.png" alt="" width="16" height="16">IMDb</a>' in b     # the site pill too
+    assert 'src="/static/badges/logo-imdb.png" alt="IMDb" width="16" height="16">' in b     # JY-280 P2: the score link itself

@@ -1,0 +1,22 @@
+{# JY-301 (2026-11-03): a torrent row's owner-only actions (hub/media_download_actions.py). Pause / Resume are one POST;
+   Remove is a fold: "Remove from queue, keep files" (deleteFiles=false), or "Also delete downloaded files", which only
+   draws a second confirm card (no qBittorrent call) before anything is deleted. Rendered only when dlc.on. #}
+{% set paused = r.state_text == "Paused" %}
+<form method="post" action="/media/downloads/{{ 'resume' if paused else 'pause' }}" class="dl-act">
+  <input type="hidden" name="hash" value="{{ r.hash }}">
+  <button type="submit" class="btn btn-secondary btn-sm">{{ "Resume" if paused else "Pause" }}</button>
+</form>
+<details class="confirm-wrap">
+  <summary class="btn btn-ghost btn-sm">Remove</summary>
+  <div class="confirm is-danger">
+    <div>Remove {{ r.name }}?</div>
+    <div class="metaline">Sonarr and Radarr are not told; the request stays.</div>
+    <div class="confirm-btns">
+      <form method="post" action="/media/downloads/remove"><input type="hidden" name="hash" value="{{ r.hash }}">
+        <button type="submit" class="btn btn-primary btn-sm">Remove from queue, keep files</button></form>
+      <form method="post" action="/media/downloads/remove"><input type="hidden" name="hash" value="{{ r.hash }}"><input type="hidden" name="files" value="1">
+        <button type="submit" class="btn btn-danger btn-sm">Also delete downloaded files</button></form>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false">Cancel</button>
+    </div>
+  </div>
+</details>

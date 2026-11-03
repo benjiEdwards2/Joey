@@ -1665,3 +1665,8 @@ html:not(.tv) .provlogos { display: flex; flex-wrap: wrap; align-items: center; 
 html:not(.tv) .provlogos .microlabel { margin-right: 4px; }
 html:not(.tv) .provlogo { display: inline-flex; border-radius: 8px; }
 html:not(.tv) .provlogos .prov-logo { width: 40px; height: 40px; border-radius: 8px; }
+/* JY-301 download controls: Pause / Resume and Remove sit together at the right; on a phone they drop under the title. */
+.row.dlrow { flex-wrap: wrap; }
+.row.dlrow > form.dl-act { margin-left: auto; flex-shrink: 0; }
+.row.dlrow > form.dl-act + details.confirm-wrap { margin-left: 8px; }
+@media (max-width: 639px) { .row.dlrow .row-body { flex: 1 0 100%; } }

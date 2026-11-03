@@ -82,7 +82,8 @@
         {% if tvreq %}
         {{ meta([film.year, "TV" if film.kind == "tv" else "Film"] + (film.genres or []) + ["Not in the library yet"], "facts-line tv-facts") }}
         {% else %}
-        {{ meta([film.year, film.numbers.runtime, film.official] + (film.genres or []), "facts-line tv-facts") }}
+        {{ meta([film.year, film.numbers.runtime, film.official] + (film.genres or [])
+                + (["Yours " ~ rate.num(film.avg_score) ~ " avg"] if film.avg_score else []), "facts-line tv-facts") }}
         {% endif %}
         {% if film.overview %}<p class="tv-syn">{{ film.overview }}</p>{% endif %}
         {% if tvreq %}<p class="tv-reqnote">Not on Joey yet, so there is nothing to play.</p>{% endif %}
@@ -264,6 +265,7 @@
     {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
     {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
+    {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
   </div>{% if sites %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
@@ -310,12 +312,8 @@
 </section>
 {% endif %}
 <div class="filmbody">
-{% if film.overview and not filmweb %}
-<section class="sec">
-  <h2 class="seclabel">Overview</h2>
-  <p class="overview">{{ film.overview }}</p>
-</section>
-{% endif %}
+{# JY-282 (B.'s pick A, 2026-11-03): the synopsis is said once, in the hero under the title (tl-syn on web and phone,
+   tv-syn on the TV); an episode page says the episode's only. No Overview section down here. #}
 
 {# TV episode flow (WP-E2, 2026-10-16). Series: "Seasons compared" + the current season's strip. Season: this season's
    strip (its head carries the S1 / S2 switch). Episode: Guests + the episode's Crew. All absent without the context. #}

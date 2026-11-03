@@ -435,6 +435,16 @@ def _library_rows(data: dict, view: str, kind: str):
     ratings, ago = media_home._ratings(view, items), lambda v: media_home._ago_text(v, now)
     if kind == "movie":
         return items, marks, media_library.film_rows(items, ratings, ago, _lib_href(), marks)
+    if marks:   # JY-288: a show's score where a film has its own. The show page rates `jf:<series id>` while the
+        # library row's key is tmdb/tvdb, so that rating is read too; with neither, the mean of its rated seasons (else episodes)
+        page = media_db.get_ratings((f"jf:{i['jf_id']}" for i in items if i.get("jf_id")), ratings.owner)
+        avgs = media_db.show_averages([(i.get("item_key"), i.get("title")) for i in items], ratings.owner)
+        for i in items:
+            k = i.get("item_key")
+            if k and k not in ratings:
+                got = page.get(f"jf:{i.get('jf_id')}") or avgs.get(k)
+                if got:
+                    ratings[k] = got
     runtimes = media_item.show_runtimes(f"jf:{i.get('jf_id')}" for i in items if i.get("jf_id")) if marks else {}   # JY-104
     return items, marks, media_library.show_rows(items, ratings, ago, _lib_href(), marks, runtimes)   # E5 (M2)
 

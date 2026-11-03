@@ -121,10 +121,10 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
                                          "credits": {"cast": [{"name": "Ada Actor", "character": "Lead"}]}}
     with client:
         b = main_of(whole(client, "/media/item/ser1"))
-    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "Seasons", "Cast", "Where to watch")}
-    assert idx["Overview"] < idx["Seasons"] < idx["Cast"] < idx["Where to watch"]
-    between = b[idx["Overview"]:idx["Seasons"]]
-    assert '<h2 class="seclabel">' not in between.split("</h2>", 1)[1]               # nothing in between
+    # JY-282 (2026-11-03): the Overview section is gone (the synopsis is once, in the hero); Seasons leads the body
+    assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("A quiet show.") == 1
+    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Seasons", "Cast", "Where to watch")}
+    assert idx["Seasons"] < idx["Cast"] < idx["Where to watch"]
 
 
 def test_off_server_tv_title_keeps_seasons_under_overview(env):
@@ -134,8 +134,10 @@ def test_off_server_tv_title_keeps_seasons_under_overview(env):
                                          "watchProviders": [{"iso_3166_1": "AU", "flatrate": [{"name": "Stan"}]}]}
     with client:
         b = main_of(client.get("/media/title/tv/555").text)
-    o, s, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Overview", "Seasons", "Where to watch"))
-    assert o < s < w
+    # JY-282: no Overview section; the synopsis is in the hero, once
+    assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("Far away.") == 1
+    s, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Seasons", "Where to watch"))
+    assert s < w
 
 
 def test_film_page_order_is_unchanged(env):

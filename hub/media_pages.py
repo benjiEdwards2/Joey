@@ -6,6 +6,7 @@ no data. The Watchlist and Awards pages render through it too.
 
 from __future__ import annotations
 
+import logging
 import os
 import random
 from datetime import date, datetime, timezone
@@ -19,6 +20,7 @@ from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-fro
 from hub import (media_awards_badges, media_backup, media_db, media_directors, media_downloads, media_home, media_item, media_library,
                  media_quality, media_requests, media_requests_approve, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
+log = logging.getLogger("hub.media_pages")
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -468,6 +470,15 @@ def _links_with(request: Request, name: str, values, drop=None) -> dict:
                                    if keep or v != drop else "") for v in values}
 
 
+def _run_each(jobs) -> None:
+    """Run each background job on its own, so one failing never skips the next (logs the exception type only)."""
+    for job in jobs:
+        try:
+            job()
+        except Exception as exc:
+            log.warning("library background job failed: %s", type(exc).__name__)
+
+
 def _sort_link(request: Request, sort: str, d: str | None) -> str:
     """JY-279: this page with every other param kept, `sort` set and `dir` set (None = the column's default)."""
     keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("sort", "dir")]
@@ -558,7 +569,7 @@ def _library_page(request: Request, kind: str):
     resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
     jobs = [j for j in (later[0], directors_later[0]) if j is not None]
     if jobs:
-        resp.background = BackgroundTask(lambda: [j() for j in jobs])
+        resp.background = BackgroundTask(_run_each, jobs)
     if view_from_query:
         resp.set_cookie(LIBVIEW_COOKIE, libview, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
     if suggest_from_query:

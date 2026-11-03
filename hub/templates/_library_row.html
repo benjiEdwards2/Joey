@@ -40,7 +40,7 @@
    row stays one link, as before; the title cell keeps the facts line. #}
 {% macro colhead(heads) %}
 <div class="colhead" role="row">
-  {% for h in heads %}<span class="col col-{{ h.key }}{{ '' if h.phone else ' col-opt' }}" role="columnheader"{% if h.aria %} aria-sort="{{ h.aria }}"{% endif %}><a href="{{ h.href }}"{% if h.aria %} class="on"{% endif %}>{{ h.label }}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span><span class="vh">sorted{{ h.word }}</span>{% endif %}</a></span>{% endfor %}
+  {% for h in heads %}<span class="col col-{{ h.key }}{{ '' if h.phone else ' col-opt' }}" role="columnheader"{% if h.aria %} aria-sort="{{ h.aria }}"{% endif %}><a href="{{ h.href }}"{% if h.aria %} class="on"{% endif %}>{% if h.key == "score" %}<span class="lab-long">{{ h.label }}</span><span class="lab-short">Score</span>{% else %}{{ h.label }}{% endif %}{% if h.arrow %} <span aria-hidden="true">{{ h.arrow }}</span><span class="vh">sorted{{ h.word }}</span>{% endif %}</a></span>{% endfor %}
 </div>
 {% endmacro %}
 {% macro colrow(r) %}
@@ -55,7 +55,7 @@
   <div class="col col-year">{{ r.year or "—" }}</div>
   <div class="col col-score">{{ rate.score(r.score) }}</div>
   <div class="col col-rating col-opt" title="TMDB average">{{ "%.1f"|format(r.community) if r.community else "—" }}</div>
-  <div class="col col-upgrade">{% if r.upgrade %}<span class="col-up">Yes</span>{{ upnote(r.upgrade) }}{% else %}—{% endif %}</div>
+  <div class="col col-upgrade">{% if r.upgrade %}<span class="col-up" title="{{ r.upgrade }}">Yes · {{ r.upgrade.split(" · ")[0] }}</span><div class="vh">{{ upnote(r.upgrade) }}</div>{% else %}—{% endif %}</div>
   <div class="col col-director col-opt">{{ r.director or "—" }}</div>
   <div class="col col-added col-opt">{{ r.added_text or "—" }}</div>
 </{{ tag }}>

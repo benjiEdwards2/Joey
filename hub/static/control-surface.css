@@ -627,10 +627,14 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .libcols .col-opt { display: none; }
 .libcols .row .col-title, .libcols .row .row-title { display: block; min-width: 0; }
 .libcols .col-year, .libcols .col-score, .libcols .col-rating { text-align: center; }
-.libcols .col-up { color: var(--upgrade); font-size: 12px; overflow-wrap: anywhere; }
+.libcols .col-up { color: var(--upgrade); font-size: 12px; }
+.libcols .colhead .col { white-space: nowrap; }
+.libcols .colhead .lab-long { display: none; }
 @media (min-width: 640px) {
   .libcols .colhead, .libcols .row { gap: 18px; grid-template-columns: 66px minmax(0, 3fr) 48px 76px 60px minmax(0, 1fr) minmax(0, 1.4fr) 96px; }
   .libcols .colhead { padding: 4px 10px; }
+  .libcols .colhead .lab-long { display: inline; }
+  .libcols .colhead .lab-short { display: none; }
   .libcols .col-opt { display: block; }
 }
 /* Grid view on the Movies / TV Shows lists (media-ux4, 2026-10-08, the default): poster cards at the Media home shelf size

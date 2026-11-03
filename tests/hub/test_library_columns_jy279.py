@@ -19,7 +19,7 @@ CSS = (ROOT / "hub" / "static" / "control-surface.css").read_text(encoding="utf-
 
 def heads(html):
     head = html.split('<div class="colhead" role="row">', 1)[1].split("</div>", 1)[0]
-    return re.findall(r'<span class="col col-(\w+)[^"]*" role="columnheader"( aria-sort="(\w+)")?><a href="([^"]+)"[^>]*>([^<]+)', head)
+    return re.findall(r'<span class="col col-(\w+)[^"]*" role="columnheader"( aria-sort="(\w+)")?><a href="([^"]+)"[^>]*>(?:<span class="lab-long">)?([^<]+)', head)
 
 
 def titles(html):
@@ -84,7 +84,8 @@ def test_5_upgrade_cell_and_sort(site, monkeypatch):
         html = c.get("/media/movies?view=list&sort=upgrade").text
     assert titles(html)[0] == "Alpha Film"
     cells = re.findall(r'<div class="col col-upgrade">(.*?)</div>\s*<div class="col col-director', html, re.S)
-    assert cells[0].startswith('<span class="col-up">Yes</span>') and FILM_NOTE in cells[0] and cells[1] == "—"
+    assert cells[0].startswith(f'<span class="col-up" title="{FILM_NOTE}">Yes · Below cutoff</span>') and cells[1] == "—"
+    assert '<div class="vh"><div class="upnote">' in cells[0]            # the full words stay for screen readers
     rows = [{"title": "B", "upgrade": ""}, {"title": "A", "upgrade": "Below cutoff"}, {"title": "C", "upgrade": "x"}]
     for d in ("asc", "desc"):
         assert [r["title"] for r in media_library.sort_column(rows, "upgrade", d)] == ["A", "C", "B"]
@@ -117,6 +118,8 @@ def test_6_blank_cells_render_a_dash(frame_env, monkeypatch):
 def test_7_phone_hides_the_optional_columns_by_css(frame_env, monkeypatch):
     no_fill(monkeypatch)
     assert ".libcols .col-opt { display: none; }" in CSS
+    assert ".libcols .colhead .col { white-space: nowrap; }" in CSS                # no header wraps on a phone
+    assert ".libcols .colhead .lab-long { display: none; }" in CSS                 # "Score" below 640 px
     assert re.search(r"@media \(min-width: 640px\) \{[^@]*\.libcols \.col-opt \{ display: block; \}", CSS)
     main = frame_env(jellyfin=jelly())
     with TestClient(main.app) as c:
@@ -202,3 +205,10 @@ def test_grid_drops_the_column_only_sorts(frame_env, monkeypatch):
         _, lst = body(c, "/media/movies?view=list&sort=director")
     assert 'value="director"' not in grid and '<option value="score" selected>' in grid
     assert '<option value="director" selected>' in lst
+
+
+def test_background_jobs_run_each_even_when_one_fails():
+    from hub import media_pages
+    ran = []
+    media_pages._run_each([lambda: 1 / 0, lambda: ran.append(1)])
+    assert ran == [1]

@@ -173,13 +173,13 @@ def test_episode_row_state_words_flip_after_marking(wenv, monkeypatch):
     client, fake, _ = wenv()
     with client:
         b = page(client, "/media/item/ser1")
-        row5 = b.split('id="ep-ep5"', 1)[1].split('<div class="row has-form', 1)[0]
+        row5 = b.split('id="tl-ep-ep5"', 1)[1].split('<div class="tl-ep ', 1)[0]   # JY-290: the Episodes row's tile
         assert "Not watched" in row5 and 'action="/media/resume/ep5/watched"' in row5
         import tests.hub.test_media_resume as tmr                                           # Jellyfin now:
         monkeypatch.setattr(tmr, "EPISODES", EPISODES[:4] + [ep(5, "Five", True)] + EPISODES[5:])
         r = post(client, "ep5", "watched", "/media/item/ser1", season="4")
         b = page(client, r.headers["location"])
-    row5 = b.split('id="ep-ep5"', 1)[1].split('<div class="row has-form', 1)[0]
+    row5 = b.split('id="tl-ep-ep5"', 1)[1].split('<div class="tl-ep ', 1)[0]
     assert ">Watched<" in row5 and 'action="/media/resume/ep5/unwatched"' in row5 and ">Mark unwatched</button>" in row5
 
 
@@ -239,18 +239,19 @@ def test_series_page_season_header_and_row_toggles(wenv):
     client, _, _ = wenv()
     with client:
         b = page(client, "/media/item/ser1")
-    season = b.split('<details class="seasonbox epseason"', 1)[1].split("</details>", 1)[0]
-    acts = season.split('<div class="seasonacts">', 1)[1].split("</div>", 1)[0]
+    # JY-290 (B.'s pick B): the season toggle sits beside the Episodes row's chips, the episode toggles under each tile
+    season = b.split('<section class="sec tl-eps"', 1)[1].split("</section>", 1)[0]
+    acts = season.split('<span class="seasonacts tl-seasonacts">', 1)[1].split("</form>", 1)[0]
     assert 'action="/media/resume/sea1/watched"' in acts and ">Mark season watched</button>" in acts
     assert 'name="scope" value="season"' in acts and 'name="show" value="ser1"' in acts
     assert 'name="season" value="4"' in acts and 'name="back" value="/media/item/ser1"' in acts
     for jf, action in (("ep1", "unwatched"), ("ep4", "watched"), ("ep5", "watched")):
-        row = season.split(f'id="ep-{jf}"', 1)[1].split('<div class="row has-form', 1)[0]
+        row = season.split(f'id="tl-ep-{jf}"', 1)[1].split('<div class="tl-ep ', 1)[0]
         link = row.split("</a>", 1)[0]
-        assert "<form" not in link                                            # the row stays one whole link
+        assert "<form" not in link                                            # the tile stays one whole link
         side = row.split("</a>", 1)[1]
         assert f'action="/media/resume/{jf}/{action}"' in side and 'name="season" value="4"' in side
-    row6 = season.split('id="ep-ep6"', 1)[1]
+    row6 = season.split('id="tl-ep-ep6"', 1)[1]
     assert "/media/resume/ep6/" not in row6                                   # not aired: nothing to mark
 
 
@@ -260,7 +261,7 @@ def test_season_header_flips_once_every_aired_episode_is_watched(wenv, monkeypat
     client, _, _ = wenv()
     with client:
         b = page(client, "/media/item/ser1")
-    acts = b.split('<div class="seasonacts">', 1)[1].split("</div>", 1)[0]
+    acts = b.split('<span class="seasonacts tl-seasonacts">', 1)[1].split("</form>", 1)[0]
     assert 'action="/media/resume/sea1/unwatched"' in acts and ">Mark season unwatched</button>" in acts
 
 

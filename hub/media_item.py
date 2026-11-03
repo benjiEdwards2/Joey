@@ -251,7 +251,10 @@ def _build(jf_id: str) -> dict:
         "added": raw.get("DateCreated"), "last_played": ud.get("LastPlayedDate"), "trailer": _trailer(raw),
         "played": played, "in_progress": not played and pos > 0,
         "left_text": f"{max(0, ticks - pos) // TICKS_PER_MINUTE}m left" if ticks and pos > 0 else None,
-        "poster": f"jf:{art}", "backdrop": f"jfb:{art}", "tmdb": str(tmdb) if tmdb else None,
+        "poster": f"jf:{art}", "backdrop": f"jfb:{art}",
+        # JY-289 (2026-11-03): a season's own poster when Jellyfin has one; the season page falls back to the show's
+        "own_poster": f"jf:{raw['Id']}" if kind == "season" and (raw.get("ImageTags") or {}).get("Primary") else None,
+        "tmdb": str(tmdb) if tmdb else None,
         "imdb": str(imdb) if imdb else None,
         # F2 (2026-10-12): the show's TheTVDB id from Jellyfin, so the download badge and Search now need no Jellyseerr read
         "tvdb": (str((raw.get("ProviderIds") or {}).get("Tvdb") or "") or None) if kind == "series" else None,

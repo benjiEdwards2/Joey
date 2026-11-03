@@ -182,8 +182,9 @@
 {% set ws = (film.seasons|selectattr("n", "equalto", shown.n)|first) if shown else none %}
 {% set rs = (ratings.seasons|selectattr("n", "equalto", ws.n)|first) if ratings and ws else none %}
 {% set rbn = {} %}{% if rs %}{% for r in rs.eps %}{% set _ = rbn.update({r.number: r}) %}{% endfor %}{% endif %}
+{% import "_resume_acts.html" as wa %}
 <section class="sec tl-eps" aria-label="Episodes">
-  <div class="tl-epshd"><h2 class="seclabel">Episodes</h2><nav class="tl-chips" aria-label="Seasons">{% for s in film.tv.seasons %}{% if s.href %}<a class="chip{{ ' on' if s is sameas shown }}" href="{{ s.href }}"{% if s is sameas shown %} aria-current="true"{% endif %}>{{ s.title }}</a>{% else %}<span class="chip{{ ' on' if s is sameas shown }}">{{ s.title }}</span>{% endif %}{% endfor %}</nav>{% if shown and shown.sub %}<span class="metaline tl-epsub">{{ shown.sub }}</span>{% endif %}</div>
+  <div class="tl-epshd"><h2 class="seclabel">Episodes</h2><nav class="tl-chips" aria-label="Seasons">{% for s in film.tv.seasons %}{% if s.href %}<a class="chip{{ ' on' if s is sameas shown }}" href="{{ s.href }}"{% if s is sameas shown %} aria-current="true"{% endif %}>{{ s.title }}</a>{% else %}<span class="chip{{ ' on' if s is sameas shown }}">{{ s.title }}</span>{% endif %}{% endfor %}{% for s in film.seasons_sonarr %}<span class="chip tl-chipdim" title="{{ s.count_word }} · {{ s.state_word }}">{{ s.name }}</span>{% endfor %}</nav>{% if shown and shown.sub %}<span class="metaline tl-epsub">{{ shown.sub }}{% if ws and ws.state_word %}<span class="sep"> · </span><span class="seasonstate">{{ ws.state_word }}</span>{% endif %}</span>{% endif %}{% if film.watch_owner and ws and ws.id and ws.episodes %}<span class="seasonacts tl-seasonacts">{{ wa.season_toggle(ws, film.watch_owner, film.show_id, request.url.path) }}</span>{% endif %}</div>
   {% if ws and ws.episodes %}
   <div class="tl-row">
     <button type="button" class="tl-arrow tl-prev" aria-label="Earlier episodes" tabindex="-1">‹</button>
@@ -197,7 +198,9 @@
         <span class="epstate {{ e.state.cls }}">{{ e.state.word }}</span>{% if rs %}{{ ef.rowrate(rbn.get(e.number), rs.avg) }}{% endif %}
         {% if e.overview %}<span class="tl-epover">{{ e.overview }}</span>{% endif %}
       </a>
-      {% if e.play %}<a class="btn btn-secondary btn-sm tl-epplay" href="{{ e.play.href }}"{% if e.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}>{{ e.play.label }}</a>{% endif %}
+      {# JY-290: the bottom list's per-episode Mark watched moved under the tile, beside Play #}
+      {% set wt = film.watch_owner and e.aired %}
+      {% if e.play or wt %}<span class="tl-epacts">{% if e.play %}<a class="btn btn-secondary btn-sm tl-epplay" href="{{ e.play.href }}"{% if e.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}>{{ e.play.label }}</a>{% endif %}{% if wt %}{{ wa.toggle(e.jf_id, e.played, film.watch_owner, request.url.path, ws.n) }}{% endif %}</span>{% endif %}
     </div>
     {% endfor %}
     </div>
@@ -361,64 +364,15 @@
 {# JY-282 (B.'s pick A, 2026-11-03): the synopsis is said once, in the hero under the title (tl-syn on web and phone,
    tv-syn on the TV); an episode page says the episode's only. No Overview section down here. #}
 
-{# TV episode flow (WP-E2, 2026-10-16). Series: "Seasons compared" + the current season's strip. Season: this season's
-   strip (its head carries the S1 / S2 switch). Episode: Guests + the episode's Crew. All absent without the context. #}
-{% if ratings and not film.episode %}
-{% if not epnav %}{{ ef.compare(ratings) }}{% endif %}
-{% set cur = ratings.seasons|selectattr("n", "equalto", ratings.current)|first %}
-{% if cur %}
-<section class="sec" id="rating-strip">
-  <div class="eflow-hd"><h2 class="seclabel">{% if epnav %}Episode ratings{% else %}Season {{ cur.n }}{% endif %}</h2>{% if not epnav %}<a class="chip" href="?season={{ cur.n }}#season-{{ cur.n }}">All episodes ›</a>{% else %}<span class="eflow-sub">{{ ratings.source }} · tap a bar</span>{% endif %}</div>
-  {{ ef.strip(cur) }}
-</section>
-{% endif %}
-{% endif %}
+{# TV episode flow (WP-E2, 2026-10-16): an episode page draws Guests + the episode's Crew. JY-290 (B. 2026-11-02): the
+   show page's "Seasons compared" and the show / season rating bar chart are gone, on the TV too. #}
 {% if film.episode %}{{ ef.guests(film.guests) }}{{ ef.crew(film.crew_ep) }}{% endif %}
 
 {% if not tv_mode(request) %}{% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}{% endif %}
 
-{# Seasons (2026-10-08): directly under Overview on a TV page. Each season is a <details> (the page's / next
-   episode's season open); each episode ONE whole-row link (a.rowlink) with its 16:9 still, "E3 · Name", air date ·
-   runtime and its state in words + colour; the Play / Resume deep link sits beside the row, outside the link. #}
-{% if film.seasons and tv_mode(request) %}{# U6 (JY-192): the TV draws the shelves above instead #}
-{% elif film.seasons %}
-{% import "_resume_acts.html" as wa %}
-<section class="sec seasons" id="seasons">
-  <h2 class="seclabel">Seasons</h2>
-  {% if film.next_air and film.next_air.date %}<p class="metaline">Next episode{% if film.next_air.code %} {{ film.next_air.code }}{% endif %} airs {{ film.next_air.date }}</p>{% endif %}
-  <div class="listbox">
-  {% for s in film.seasons %}
-  {# TV episode flow (2026-10-16): this season's ratings by episode number, for the "★ 8.1 · above avg" on its rows #}
-  {% set rs = (ratings.seasons|selectattr("n", "equalto", s.n)|first) if ratings else none %}
-  {% set rbn = {} %}{% if rs %}{% for r in rs.eps %}{% set _ = rbn.update({r.number: r}) %}{% endfor %}{% endif %}
-  <details class="seasonbox epseason" id="season-{{ s.n }}"{% if s.open %} open{% endif %}>
-    <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.watched_text }}</span>{% if s.state_word %}<span class="sep"> · </span><span class="seasonstate">{{ s.state_word }}</span>{% endif %}</div></div></summary>
-    {% if film.watch_owner and s.id and s.episodes %}<div class="seasonacts">{{ wa.season_toggle(s, film.watch_owner, film.show_id, request.url.path) }}</div>{% endif %}
-    <div class="eplist">
-    {% for e in s.episodes %}
-    <div class="row has-form epline ep-{{ e.state.key }}" id="ep-{{ e.jf_id }}">
-      <a class="rowlink" href="/media/item/{{ e.jf_id }}">
-        <img class="epstill" src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ img_letters(e.name)|urlencode }}" alt="" loading="lazy" decoding="async" width="160" height="90">
-        <div class="row-body">
-          <div class="row-title">E{{ e.number }} · {{ e.name }}</div>
-          {{ meta([e.air_date, e.runtime]) }}
-          <div class="epstate {{ e.state.cls }}">{{ e.state.word }}</div>
-        </div>
-        {% if rs %}{{ ef.rowrate(rbn.get(e.number), rs.avg) }}{% endif %}
-      </a>
-      {% set wt = film.watch_owner and e.aired %}
-      {% if e.play or wt %}<span class="row-side">{% if e.play %}<a class="btn btn-secondary btn-sm" href="{{ e.play.href }}"{% if e.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}>{{ e.play.label }}</a>{% endif %}{% if wt %}{{ wa.toggle(e.jf_id, e.played, film.watch_owner, request.url.path, s.n) }}{% endif %}</span>{% endif %}
-    </div>
-    {% endfor %}
-    </div>
-  </details>
-  {% endfor %}
-  {# JY-113: seasons only Sonarr has - the same row, no <details> (no episodes to open) #}
-  {% for s in film.seasons_sonarr %}
-  <div class="row" id="season-{{ s.n }}"><div class="row-body"><div class="row-title">{{ s.name }}<span class="sep"> · </span><span class="seasoncount">{{ s.count_word }}</span><span class="sep"> · </span><span class="seasonstate">{{ s.state_word }}</span></div></div></div>
-  {% endfor %}
-  </div>
-</section>
+{# JY-290 (B. 2026-11-02): an on-server show's seasons are the Episodes carousel above (the TV: its shelves); the bottom
+   Seasons list is gone. Its season toggle, state word and Sonarr-only seasons moved beside the carousel's chips. #}
+{% if film.seasons %}
 {% elif film.kind == "tv" and film.t and film.t.seasons %}
 <section class="sec seasons">
   <h2 class="seclabel">Seasons</h2>

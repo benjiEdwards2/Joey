@@ -36,26 +36,31 @@ def ep_row(body, n):
     return body.split(f'id="ep-ep{n}">', 1)[1].split('<div class="row has-form epline', 1)[0]
 
 
-def test_each_episode_is_a_big_whole_row_link_with_still_state_and_play(env, monkeypatch):
+def tile(body, n):
+    return body.split(f'id="tl-ep-ep{n}">', 1)[1].split('<div class="tl-ep ', 1)[0]
+
+
+# JY-290 (B. 2026-11-02): the bottom Seasons list is gone; its episode rows are the Episodes row's tiles (JY-269 P2)
+def test_each_episode_is_a_whole_tile_link_with_still_state_and_play(env, monkeypatch):
     timed(monkeypatch)
     client, _ = env()
     with client:
         b = main_of(client.get("/media/item/ser1").text)
-    seasons = section(b, "Seasons")
-    assert "Season 4 · 3 of 6 watched" in re.sub(r"<[^>]+>", "", seasons)
-    four = ep_row(seasons, 4)
-    link = four.split('<a class="rowlink" href="/media/item/ep4">', 1)[1].split("</a>", 1)[0]
-    assert '<img class="epstill" src="/img/jf:ep4?h=240&amp;t=FO"' in link
-    assert ">E4 · Four</div>" in link and "45m" in link
-    assert '<div class="epstate st-progress">In progress · 40m left</div>' in link
-    assert "<a " not in link and "Resume" not in link                     # the deep link is beside the row
+    eps = b.split('<section class="sec tl-eps"', 1)[1].split("</section>", 1)[0]
+    assert "3 of 6 watched" in re.sub(r"<[^>]+>", "", eps)
+    four = tile(eps, 4)
+    link = four.split('<a class="tl-eplink" href="/media/item/ep4"', 1)[1].split("</a>", 1)[0]
+    assert 'src="/img/jf:ep4?h=240&amp;t=FO"' in link
+    assert ">E4 · Four</span>" in link and "45m" in link
+    assert '<span class="epstate st-progress">In progress · 40m left</span>' in link
+    assert "<a " not in link and "Resume" not in link                     # the deep link is under the tile
     after = four.split("</a>", 1)[1]
     assert f'href="{deep("ep4")}" target="_blank" rel="noopener">Resume ▶ · 40m left</a>' in after
-    assert '<div class="epstate st-good">Watched</div>' in ep_row(seasons, 1) and "Play again ▶" in ep_row(seasons, 1)
-    assert '<div class="epstate st-todo">Not watched</div>' in ep_row(seasons, 5) and ">Play ▶</a>" in ep_row(seasons, 5)
-    six = ep_row(seasons, 6)
-    assert '<div class="epstate st-off">Not aired</div>' in six and "▶" not in six   # nothing to play yet
-    assert re.search(r"E1 · One</div>\s*<div class=\"row-meta\">\d{1,2} \w{3} \d{4} · 45m</div>", seasons)
+    assert '<span class="epstate st-good">Watched</span>' in tile(eps, 1) and "Play again ▶" in tile(eps, 1)
+    assert '<span class="epstate st-todo">Not watched</span>' in tile(eps, 5) and ">Play ▶</a>" in tile(eps, 5)
+    six = tile(eps, 6)
+    assert '<span class="epstate st-off">Not aired</span>' in six and "▶" not in six   # nothing to play yet
+    assert 'id="seasons"' not in b and "seasonbox" not in b
 
 
 def test_squares_and_their_legend_are_gone(env):
@@ -70,14 +75,14 @@ def test_the_next_episodes_season_is_open_by_default(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/item/ser1").text)
-    assert '<details class="seasonbox epseason" id="season-4" open>' in b   # media-ux3: each season has an anchor
+    assert '<a class="chip on" href="/media/item/sea1" aria-current="true">' in b   # JY-290: the Episodes row lights it
 
 
 def test_no_anchor_inside_a_row_title(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/item/ser1").text)
-    for title in re.findall(r'<div class="row-title">(.*?)</div>', section(b, "Seasons"), re.S):
+    for title in re.findall(r'<span class="row-title">(.*?)</span>', b.split('<section class="sec tl-eps"', 1)[1].split("</section>", 1)[0], re.S):
         assert "<a" not in title
 
 
@@ -121,10 +126,11 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
                                          "credits": {"cast": [{"name": "Ada Actor", "character": "Lead"}]}}
     with client:
         b = main_of(whole(client, "/media/item/ser1"))
-    # JY-282 (2026-11-03): the Overview section is gone (the synopsis is once, in the hero); Seasons leads the body
+    # JY-290 + JY-282 (2026-11-03): Episodes row leads; no Overview section (synopsis once, in the hero); no bottom Seasons list
     assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("A quiet show.") == 1
-    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Seasons", "Cast", "Where to watch")}
-    assert idx["Seasons"] < idx["Cast"] < idx["Where to watch"]
+    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Episodes", "Cast", "Where to watch")}
+    assert idx["Episodes"] < idx["Cast"] < idx["Where to watch"]
+    assert '<h2 class="seclabel">Seasons</h2>' not in b
 
 
 def test_off_server_tv_title_keeps_seasons_under_overview(env):
@@ -175,7 +181,7 @@ def test_episode_hero_carries_the_crumbs_and_position_and_keeps_the_rest(env):
     assert '<nav class="crumbs"' in h and 'href="/media/item/ser1">' in h and 'href="/media/item/sea1">Season 4</a>' in h
     assert "E3 of 6" in h
     assert "S04E03 · Penny for Your Thoughts" in h and "Coins go missing." in h and "Quiet Show (2020)" in h
-    assert 'href="/media/item/ser1#seasons"' in b                     # the banner still leads to the show
+    assert 'href="/media/item/ser1"' in b and "#seasons" not in b     # the banner still leads to the show (JY-290: no anchor)
 
 
 # ---- item 5b: one Play button on an episode page ----

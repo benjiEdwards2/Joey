@@ -135,10 +135,6 @@ def macro(name, *args, **kw):
     return str(getattr(mod, name)(*args, **kw))
 
 
-def rows(html):
-    return re.findall(r'<a class="cmprow[^"]*".*?</a>', html, re.S)
-
-
 def bars(html):
     return re.findall(r'<(?:a|span) class="(rbar[^"]*)"[^>]*>.*?</(?:a|span)>', html, re.S)
 
@@ -151,94 +147,38 @@ NEW_MARKUP = ("crumbs", "epeyebrow", "eprating", 'id="compare"', "cmprow", "rate
               "epnav", "eprow-r", "seasonseg", 'id="rating-strip"', 'id="season-place"', "eflow-hd")
 
 
-# ---- series: Seasons compared + the current season's strip ----
-def test_series_compare_has_one_row_per_season_with_the_current_one_gold():
-    p = page(series())
-    sec = section(p, "compare")
-    assert "<h2 class=\"seclabel\">Seasons compared</h2>" in sec and "IMDb episode ratings · scale 6–10 · dashed = 8.0" in sec
-    rs = rows(sec)
-    assert [re.search(r'<span class="cmplab">S(\d)', r).group(1) for r in rs] == ["1", "2", "3"]            # in season order
-    assert [("is-on" in r.split(">", 1)[0]) for r in rs] == [False, True, False]                           # S2 = current = gold
-    assert [re.search(r'<small>([^<]*)</small></span>\s*</a>', r).group(1) for r in rs] == \
-        ["avg · 3 of 4 seen", "avg · 1 of 4 seen", "not aired"]
-    assert [re.search(r'class="cmpavg">([^<]+)<', r).group(1) for r in rs] == ["8.0", "8.4", "–"]           # tabular figures, a dash for none
-    assert '<span class="cmplab">S1<small>2024</small></span>' in rs[0]
-    assert 'href="?season=2#season-2"' in rs[1]                                                              # the row opens that season
-    assert p.index('id="compare"') > p.index("A crew, a lawsuit") and p.index('id="compare"') < p.index('id="seasons"')
+# ---- series: JY-290 (B. 2026-11-02) - no "Seasons compared", no rating bar chart, no bottom Seasons list ----
+TV = {"seasons": [{"n": 1, "title": "Season 1", "href": "/media/item/season1"}, {"n": 2, "title": "Season 2", "href": "/media/item/season2"}],
+      "eps": {"label": "Season 2"}}
 
 
-def test_series_compare_draws_a_polyline_and_a_dot_per_rated_episode_on_a_shared_scale():
-    rs = rows(section(page(series()), "compare"))
-    for r in rs:
-        assert 'viewBox="0 0 300 44" preserveAspectRatio="none"' in r and '<line class="cmpref" x1="0" y1="22" x2="300" y2="22"/>' in r
-    assert [r.count('class="cmpdot"') for r in rs] == [4, 3, 0]                        # S2's unrated E3 has no dot, S3 has none
-    assert [r.count("<polyline") for r in rs] == [1, 1, 0]
-    pts = re.search(r'<polyline class="cmpline" points="([^"]+)"', rs[0]).group(1).split()
-    assert len(pts) == 4 and pts[0] == "6.0,21.1"                                      # E1 8.1: x = 6, y = 40 - (8.1 - 6) * 9
-    ys = [float(p.split(",")[1]) for p in pts]
-    assert ys[2] < ys[0] < ys[1]                                                       # 8.6 is highest (smallest y), 7.7 lowest of the three
-    assert "M6.0 21.1h.01" in rs[0]
+def carousel(html):
+    return re.search(r'<section class="sec tl-eps".*?</section>', html, re.S).group(0)
 
 
-def test_series_compare_best_episode_and_trend_line_and_their_absence():
-    sec = section(page(series()), "compare")
-    assert "Best episode: <b>S2.E4 The Finale · 8.9</b>" in sec and "Season trend: <b>S2 up 0.4 on S1</b>" in sec
-    r = copy.deepcopy(RATINGS)
-    r["best"], r["trend"] = None, None
-    bare = section(page(film_dict(ratings=r)), "compare")
-    assert "cmptrend" not in bare                                                      # one season of data: no line at all
-    r["trend"] = "S2 down 0.3 on S1"
-    only_trend = section(page(film_dict(ratings=r)), "compare")
-    assert "Season trend: <b>S2 down 0.3 on S1</b>" in only_trend and "Best episode" not in only_trend
-
-
-def test_series_compare_season_without_ratings_yet_says_so():
-    r = copy.deepcopy(RATINGS)
-    r["seasons"][2].update(aired=2)
-    assert "no ratings yet" in rows(section(page(film_dict(ratings=r)), "compare"))[2]
-
-
-def test_series_strip_is_the_current_season_with_seen_and_unaired_classes_and_a_link_per_bar():
-    p = page(series())
-    sec = section(p, "rating-strip")
-    assert '<h2 class="seclabel">Season 2</h2>' in sec and 'href="?season=2#season-2">All episodes ›</a>' in sec
-    assert p.index('id="compare"') < p.index('id="rating-strip"') < p.index('id="seasons"')
-    assert bars(sec) == ["rbar is-seen", "rbar", "rbar", "rbar"]                       # E1 seen; the series page has no gold bar
-    links = re.findall(r'<a class="rbar[^"]*" href="([^"]+)"', sec)
-    assert links == ["/media/item/s2e1", "/media/item/s2e2", "/media/item/s2e3", "/media/item/s2e4"]
-    vals = re.findall(r'<b aria-hidden="true">([^<]+)</b>', sec)
-    assert vals == ["8.3", "8.0", "–", "8.9"]                                          # a dash for an aired episode with no rating yet
-    assert re.findall(r'<small aria-hidden="true">(E\d)</small>', sec) == ["E1", "E2", "E3", "E4"]
-    assert 'style="height: 58%"' in sec                                                # 8.3 on the 6-10 scale: (8.3 - 6) * 25, rounded
-    assert "Episode 1, rated 8.3, seen" in sec                                         # the words behind the bar
-    assert "this episode" not in sec                                                   # no gold legend when no episode is picked
-    legend = re.search(r'<p class="ratelegend">(.*?)</p>', sec, re.S).group(1)
-    assert [w for w in re.findall(r"</i>([^<]+)</span>", legend)] == ["seen", "not seen", "not aired"]
-
-
-def test_series_strip_for_an_unaired_season_is_dashed_and_has_no_links():
-    r = copy.deepcopy(RATINGS)
-    r["current"] = 3
-    sec = section(page(film_dict(ratings=r)), "rating-strip")
-    assert '<h2 class="seclabel">Season 3</h2>' in sec
-    assert bars(sec) == ["rbar is-unaired", "rbar is-unaired"] and "<a class=\"rbar" not in sec   # no href: a span, not a link
-    assert 'style="height: 20%"' in sec and "not aired" in sec
+def test_series_and_season_pages_have_no_compare_no_bar_chart_and_no_bottom_list():
+    for f in (series(tv=TV), season(tv=TV)):
+        p = page(f)
+        for gone in ('id="compare"', "Seasons compared", "cmprow", 'id="rating-strip"', "ratestrip", "rbar", 'id="seasons"',
+                     "seasonbox", 'id="season-'):
+            assert gone not in p, gone
+        assert "tl-eps" in p and "A crew, a lawsuit" in p
 
 
 def test_series_rows_gain_rating_and_above_or_below_the_season_average():
-    s2 = re.search(r'<details class="seasonbox epseason" id="season-2".*?</details>', page(series()), re.S).group(0)
+    s2 = carousel(page(series(tv=TV)))                                                 # JY-290: the Episodes row's tiles
     rated = re.findall(r'<span class="eprow-r"><span class="vh">Rated </span>★ ([\d.]+)(?:<small>(\w+) avg</small>)?</span>', s2)
     assert rated == [("8.3", "below"), ("8.0", "below"), ("8.9", "above")]            # avg 8.4; E3 has no rating: no mark
     assert s2.count("eprow-r") == 3
-    s1 = re.search(r'<details class="seasonbox epseason" id="season-1".*?</details>', page(series()), re.S).group(0)
+    s1 = carousel(page(series(tv={**TV, "eps": {"label": "Season 1"}})))
     assert re.findall(r'★ ([\d.]+)<small>(\w+) avg', s1) == [("8.1", "above"), ("7.7", "below"), ("8.6", "above"), ("7.6", "below")]
-    assert re.search(r'<span class="eprow-r">.*?</span>\s*</a>', s2, re.S)            # inside the row's link, after its text
+    assert re.search(r'<a class="tl-eplink"[^>]*>(?:(?!</a>).)*class="eprow-r"', s2, re.S)   # inside the tile's link
 
 
 def test_a_rating_equal_to_the_average_says_neither_above_nor_below():
     r = copy.deepcopy(RATINGS)
     r["seasons"][0]["avg"] = 8.1
-    s1 = re.search(r'<details class="seasonbox epseason" id="season-1".*?</details>', page(film_dict(ratings=r)), re.S).group(0)
+    s1 = carousel(page(film_dict(ratings=r, tv={**TV, "eps": {"label": "Season 1"}})))
     assert '<span class="eprow-r"><span class="vh">Rated </span>★ 8.1</span>' in s1
 
 
@@ -300,6 +240,17 @@ def test_season_eyebrow_reuses_the_episode_eyebrow_class_with_no_new_css():
     assert 'class="epeyebrow"' in h
 
 
+def test_tv_show_and_season_pages_have_no_compare_and_no_bar_chart(monkeypatch):
+    monkeypatch.setitem(ENV.globals, "tv_mode", lambda request: True)                     # JY-290 Q2 = A: the TV too
+    for f in (series(tv=TV), season(tv=TV)):
+        p = page(f)
+        assert 'id="compare"' not in p and 'id="rating-strip"' not in p and "ratestrip" not in p and 'id="seasons"' not in p
+
+
+def test_episode_page_keeps_its_mini_strip():
+    assert 'id="season-place"' in page(episode()) and "ratestrip" in page(episode())   # JY-290 Q3 = A: kept
+
+
 def test_season_eyebrow_survives_tv_mode_markup(monkeypatch):
     monkeypatch.setitem(ENV.globals, "tv_mode", lambda request: True)
     h = head(season())
@@ -311,13 +262,10 @@ def test_season_eyebrow_survives_tv_mode_markup(monkeypatch):
     assert rules and not any(re.search(r"display:\s*none|visibility:\s*hidden", b) for b in rules)
 
 
-def test_season_page_has_the_strip_and_rated_rows_but_not_the_compare_block():
-    p = page(season())
-    assert 'id="compare"' not in p and "Seasons compared" not in p
-    sec = section(p, "rating-strip")
-    assert '<h2 class="seclabel">Episode ratings</h2>' in sec and "IMDb · tap a bar" in sec and "All episodes" not in sec
-    assert len(bars(sec)) == 4 and p.index('id="rating-strip"') < p.index('id="seasons"')
-    assert "eprow-r" in p
+def test_season_page_has_rated_tiles_but_no_strip_and_no_compare_block():
+    p = page(season(tv=TV))
+    assert 'id="compare"' not in p and "Seasons compared" not in p and 'id="rating-strip"' not in p   # JY-290
+    assert "eprow-r" in carousel(p)
 
 
 def test_a_single_season_has_no_switch():
@@ -431,7 +379,7 @@ def test_a_series_without_ratings_or_nav_carries_none_of_the_new_markup():
     p = page(film_dict())
     for gone in NEW_MARKUP:
         assert gone not in p, gone
-    assert 'id="seasons"' in p and "A crew, a lawsuit" in p and "Landman" in p       # the page itself is as it was
+    assert 'id="seasons"' not in p and "A crew, a lawsuit" in p and "Landman" in p   # JY-290: no bottom Seasons list
 
 
 def test_a_movie_page_carries_none_of_the_new_markup():
@@ -464,7 +412,7 @@ def test_epnum_reads_the_number_out_of_the_position_text():
 
 
 def test_macros_draw_nothing_for_empty_input():
-    for name, arg in (("crumbs", None), ("eyebrow", None), ("seasonswitch", None), ("compare", None), ("guests", []), ("crew", []),
+    for name, arg in (("crumbs", None), ("eyebrow", None), ("seasonswitch", None), ("guests", []), ("crew", []),
                       ("prevnext", None), ("epscore", None)):
         assert macro(name, arg).strip() == "", name
     assert macro("strip", None).strip() == "" and macro("strip", {"n": 1, "eps": []}).strip() == ""
@@ -475,7 +423,7 @@ def test_episode_flow_css_is_one_dated_block_at_the_tail_with_tokens_only():
     assert CSS.count("/* TV episode flow (2026-10-16) */") == 1
     assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(", TAIL)               # every colour is a token
     assert "select" not in TAIL.lower()                                                # never the word before a brace in a comment
-    assert "var(--good-soft)" in TAIL and "var(--gold)" in TAIL and "var(--gold-soft)" in TAIL
+    assert "var(--good-soft)" in TAIL and "var(--gold)" in TAIL                       # JY-290: --gold-soft left with the compare rows
     for tok in set(re.findall(r"var\((--[a-z0-9-]+)\)", TAIL)):
         assert re.search(rf"(?m)^\s*.*{re.escape(tok)}:", CSS.split(":root {", 1)[1].split("\n}", 1)[0]), tok   # defined in :root
 
@@ -493,15 +441,6 @@ def test_strip_states_use_the_emerald_and_gold_tokens():
     assert re.search(r"\.rbar\.is-seen > i \{[^}]*var\(--good-soft\)[^}]*var\(--good\)", TAIL)
     assert re.search(r"\.rbar\.is-on > i[^{]*\{[^}]*background: var\(--gold\)", TAIL)
     assert re.search(r"\.rbar\.is-unaired > i \{[^}]*border-style: dashed", TAIL)
-    assert re.search(r"\.cmprow\.is-on \{[^}]*var\(--gold-soft\)[^}]*var\(--gold-line\)", TAIL)
-
-
-def test_compare_row_css_label_column_stretching_svg_and_right_aligned_tabular_average():
-    assert "grid-template-columns: 44px minmax(0, 1fr) auto" in re.search(r"\.cmprow \{([^}]*)\}", TAIL).group(1)
-    assert re.search(r"\.cmpsvg \{[^}]*width: 100%", TAIL)
-    assert "vector-effect: non-scaling-stroke" in re.search(r"\.cmpline \{([^}]*)\}", TAIL).group(1)   # the stretch never thickens it
-    avg = re.search(r"\.cmpavg \{([^}]*)\}", TAIL).group(1)
-    assert "text-align: right" in avg and "font-variant-numeric: tabular-nums" in avg and "min-width: 72px" in avg
 
 
 def test_guest_crumb_and_nav_css_are_phone_sized():

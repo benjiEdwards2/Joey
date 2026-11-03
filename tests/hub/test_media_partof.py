@@ -36,8 +36,9 @@ def test_episode_banner_words_and_links(env):
     ban = banner(b)
     line = ban.split('<p class="partof-line">', 1)[1].split("</p>", 1)[0]
     assert words(line) == "Quiet Show · Season 4 · Episode 3 · 3 of 6 watched"
-    assert '<a class="btn btn-glass" href="/media/item/ser1?season=4#season-4">' in ban and "This season</a>" in ban
-    assert '<a class="btn btn-glass" href="/media/item/ser1#seasons">' in ban and "All seasons</a>" in ban
+    # JY-290: no bottom Seasons list, so no #season-N / #seasons anchors; ?season=N picks the Episodes row's season
+    assert '<a class="btn btn-glass" href="/media/item/ser1?season=4">' in ban and "This season</a>" in ban
+    assert '<a class="btn btn-glass" href="/media/item/ser1">' in ban and "All seasons</a>" in ban
     assert 'src="/img/jf:ser1?h=240' in ban                                   # the show's poster
 
 
@@ -46,7 +47,7 @@ def test_episode_banner_sits_directly_under_the_hero(env):
     with client:
         b = main_of(client.get("/media/item/ep3").text)
     hero_end, ban = b.index("</header>"), b.index('<section class="sec partof-sec">')
-    assert hero_end < ban < b.index('<div class="stats numbers">') < b.index('id="seasons"')
+    assert hero_end < ban < b.index('<div class="stats numbers">') and 'id="seasons"' not in b   # JY-290
 
 
 def test_banner_without_a_backdrop_is_a_plain_panel(env):
@@ -73,15 +74,15 @@ def test_season_page_banner_links_to_all_seasons_only(env, monkeypatch):
         b = main_of(client.get("/media/item/sea1").text)
     ban = banner(b)
     assert words(ban.split('<p class="partof-line">', 1)[1].split("</p>", 1)[0]) == "Quiet Show · Season 4 · 3 of 6 watched"
-    assert 'href="/media/item/ser1#seasons"' in ban and "This season" not in ban
-    assert '<details class="seasonbox epseason" id="season-4" open>' in b
+    assert 'href="/media/item/ser1"' in ban and "This season" not in ban
+    assert opened(b) == ["4"]                                                  # JY-290: the Episodes row lights it
 
 
-def test_series_page_has_no_banner_and_anchors_its_seasons(env):
+def test_series_page_has_no_banner_and_no_bottom_seasons_list(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/item/ser1").text)
-    assert "partof-sec" not in b and '<section class="sec seasons" id="seasons">' in b
+    assert "partof-sec" not in b and 'id="seasons"' not in b and "tl-eps" in b   # JY-290
 
 
 def test_film_page_has_no_episode_banner(env):
@@ -104,7 +105,8 @@ def two_seasons(monkeypatch):
 
 
 def opened(b):
-    return re.findall(r'<details class="seasonbox epseason" id="season-(\d+)" open>', b)
+    """JY-290: the lit season chip of the Episodes row (the bottom list's open <details> is gone)."""
+    return re.findall(r'<a class="chip on" href="[^"]*" aria-current="true">Season (\d+)</a>', b)
 
 
 def test_series_page_opens_the_next_episodes_season_by_default(env, two_seasons):
@@ -126,7 +128,7 @@ def test_episode_banner_links_carry_the_episodes_own_season(env, two_seasons, mo
     client, _ = env()
     with client:
         ban = banner(main_of(client.get("/media/item/ep3").text))
-    assert 'href="/media/item/ser1?season=3#season-3"' in ban and "Season 3 · Episode 3" in words(ban)
+    assert 'href="/media/item/ser1?season=3"' in ban and "Season 3 · Episode 3" in words(ban)
 
 
 # ---- film series banner ----

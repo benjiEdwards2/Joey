@@ -308,6 +308,13 @@ button.userchip .xlbl { display: none; }
   display: flex; flex-direction: column; gap: 20px; }
 @media (min-width: 640px) { .page { padding-left: 24px; padding-right: 24px; } }
 @media (min-width: 768px) { .page { padding-top: 32px; padding-bottom: 4rem; } }
+/* JY-308: wide monitors use the width - 2560 gets ~2240 px, ultrawide caps at ~2880 px (prose keeps its own ch caps). */
+@media (min-width: 1920px) { html:not(.tv) .page, html:not(.tv) .topbar-in, html:not(.tv) .pagehead-in { max-width: 140rem; }
+  html:not(.tv) .poster-grid:not(.libgrid) { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  html:not(.tv) .posterpairs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 3000px) { html:not(.tv) .page, html:not(.tv) .topbar-in, html:not(.tv) .pagehead-in { max-width: 180rem; }
+  html:not(.tv) .poster-grid:not(.libgrid) { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  html:not(.tv) .posterpairs { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
 /* Page header (guide §6): full-bleed band tucked under the top bar; a darkened backdrop or a faint indigo glow.
    The inner column lines up with the page frame. */
@@ -1657,6 +1664,11 @@ html:not(.tv) .filmcols { display: grid; gap: 20px; min-width: 0; }
 html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
+/* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
+@media (min-width: 1920px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 184px; width: 184px; }
+  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 196px; } }
+@media (min-width: 3000px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 216px; width: 216px; }
+  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 228px; } }
 html:not(.tv) .scorelink { padding: 0 10px 0 6px; }
 html:not(.tv) a.scorelink { color: var(--text-1); text-decoration: none; }
 html:not(.tv) .filedrawer > details.fold > summary.seclabel { display: block; }

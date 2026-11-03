@@ -61,8 +61,8 @@ def test_cold_item_page_waits_for_no_jellyseerr_or_omdb_call(gated):
         frag = client.get(href).text
     got = parts(frag)
     assert set(got) == set(media_film.PARTS) | {"actions-more"}   # E4: the actions part's second slot (under More, beside Play)
-    assert '<span class="sp-name">IMDb</span><b class="sp-val">7.9</b>' in got["scores"] and "sp-mc-good" in got["scores"]
-    assert "tmdb:/ada.jpg" in got["cast"] and ">Netflix</a>" in got["providers"] and "Similar One" in got["shelves"]
+    assert 'alt="IMDb" width="16" height="16"><b class="sp-val">7.9</b>' in got["scores"] and "sp-mc-good" in got["scores"]
+    assert "tmdb:/ada.jpg" in got["cast"] and 'alt="Netflix"' in got["providers"] and "Similar One" in got["shelves"]
     assert "Harbour Collection" in got["collection"] and "<dt>Cinematography</dt>" in got["crew"]
     assert "<dt>Cinema</dt>" in got["dates"] and omdb_calls and omdb_calls[0]["i"] == TT
 
@@ -128,7 +128,7 @@ def test_a_cached_title_renders_whole_inline_with_no_new_call(env):
     assert len(both.calls) == n                                               # Jellyfin, Jellyseerr: all cached
     assert "fpart" not in page and "aria-busy" not in page and parts_href(page) is None
     b = main_of(page)
-    assert "Come home" in b and "tmdb:/ada.jpg" in b and "Similar One" in b and ">Netflix</a>" in b
+    assert "Come home" in b and "tmdb:/ada.jpg" in b and "Similar One" in b and 'alt="Netflix"' in b
 
 
 def test_whole_page_equals_the_cached_page(env):

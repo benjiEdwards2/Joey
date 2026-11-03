@@ -1,0 +1,22 @@
+{# JY-280 P2 (JY-284, "only I can access"): the File panel - badges, Size · Bitrate · Picture · Added, Audio / Subtitles /
+   Release and the file name. `drawer(fp)`: closed under "File details", for the owner only - the gate is server-side
+   (media_film.file_owner empties film.file), so this is never reached for anyone else. Shared for the TV-show page later. #}
+{% macro panel(fp) -%}
+<div class="panel filepanel">
+    {% with badges = fp.badges %}{% include "_file_strip.html" %}{% endwith %}
+    {% if fp.grid %}
+    <div class="filegrid">
+      {% for g in fp.grid %}<div class="filestat"><div class="microlabel">{{ g.label }}</div><div class="filestat-value">{{ g.value }}</div>{% if g.sub %}<div class="filestat-sub">{{ g.sub }}</div>{% endif %}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if fp.rows %}
+    <dl class="kvrows">
+      {% for r in fp.rows %}<div class="kv"><dt>{{ r.label }}</dt><dd>{{ r.value }}</dd></div>{% endfor %}
+    </dl>
+    {% endif %}
+    {% if fp.filename %}<p class="filename">{{ fp.filename }}</p>{% endif %}
+  </div>
+{%- endmacro %}
+{% macro drawer(fp) -%}
+<section class="sec filedrawer"><details class="fold"><summary class="seclabel">File details</summary>{{ panel(fp) }}</details></section>
+{%- endmacro %}

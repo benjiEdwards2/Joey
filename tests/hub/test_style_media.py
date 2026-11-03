@@ -80,7 +80,8 @@ def test_film_page_renders_the_detail_hero(film_env):
     assert hero.count("btn-white") == 1 and "btn-icon" in hero
     assert '<nav class="sectabs sectabs-page"' in hero  # nav-tidy (2026-10-13): the in-page section row
     # media-ux4 (2026-10-08, B.): one pill style (site links); E4 (2026-10-13): they sit in the Scores strip, not the hero
-    assert 'class="scorepill sitepill"' not in hero and 'class="scorepill sitepill"' in b.split("</header>", 1)[1]
+    # JY-280 P2 (2026-11-03): a film's site links are its scores (`.scorelink`) in the right column; no site-pill row
+    assert 'class="scorepill sc' not in hero and 'class="scorepill scorelink' in b.split("</header>", 1)[1]
     assert '<div class="stats numbers">' in b
 
 

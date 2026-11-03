@@ -1,0 +1,20 @@
+{# JY-280 P2 (B.'s pick A, 2026-11-03; JY-281): a title page's scores as a site's logo + the number - no site words. Each
+   is one link to that site's page for the title when the page knows its id and off-site links are allowed (`sites`:
+   never on the guest front or the TV); a site without an id shows its number unlinked. The logo's alt is the site's
+   name, so the link reads "IMDb 8.0". Shared so the TV-show page can take it later; import `with context` (reads film). #}
+{% macro score(id, name, value, href=none, extra="") -%}
+{% if href %}<a class="scorepill scorelink sp-{{ id }}{{ extra }}" href="{{ href }}" target="_blank" rel="noopener" title="{{ name }}{{ ' ' ~ value if value }}">{% else %}<span class="scorepill scorelink sp-{{ id }}{{ extra }}" title="{{ name }}{{ ' ' ~ value if value }}">{% endif %}<img class="sp-logo" src="{{ film.logos[id] }}" alt="{{ name }}" width="16" height="16">{% if value %}<b class="sp-val">{{ value }}</b>{% endif %}{% if href %}</a>{% else %}</span>{% endif %}
+{%- endmacro %}
+{# The upstream scores (IMDb, RT, Metacritic): the deferred "scores" part #}
+{% macro upstream(sites) -%}
+{% set n = film.numbers %}
+{% if n.imdb %}{{ score("imdb", "IMDb", n.imdb, ("https://www.imdb.com/title/" ~ film.imdb_id ~ "/") if sites and film.imdb_id) }}{% endif %}
+{% if n.rt %}{{ score("rt", "Rotten Tomatoes", n.rt) }}{% endif %}
+{% if n.mc %}{{ score("mc", "Metacritic", n.mc, none, " sp-mc-" ~ n.mc_band) }}{% endif %}
+{%- endmacro %}
+{# TMDB (its number, the page's own) and Letterboxd (a logo link: it has no number for us) #}
+{% macro own(sites) -%}
+{% set n = film.numbers %}
+{% if n.tmdb %}{{ score("tmdb", "TMDB", n.tmdb, ("https://www.themoviedb.org/" ~ film.kind ~ "/" ~ film.tmdb) if sites) }}{% elif sites %}{{ score("tmdb", "TMDB", none, "https://www.themoviedb.org/" ~ film.kind ~ "/" ~ film.tmdb) }}{% endif %}
+{% if sites and film.kind == "movie" %}{{ score("lbxd", "Letterboxd", none, "https://letterboxd.com/tmdb/" ~ film.tmdb) }}{% endif %}
+{%- endmacro %}

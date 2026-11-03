@@ -551,6 +551,12 @@ def show_directors(item: dict | None, seasons: list[dict]) -> list[dict]:
     return [{"name": n, "id": None, "ref": refs.get(n)} for n, _ in ranked][:MAKERS_MAX]
 
 
+def file_owner(owner: str) -> bool:
+    """JY-280 P2 (JY-284, "only I can access"): the File drawer is drawn for the owner "you" on the private front only -
+    never for her, a friend or anyone on the guest front, so their HTML carries no file name, size, bitrate or tracks."""
+    return owner == "you" and not guest.is_media()
+
+
 def file_panel(files: dict | None, kind: str | None, added: str | None) -> dict | None:
     """What the FILE section draws: badges, the stat grid, key / value rows and the file name. A film shows its
     one file; a show degrades to its total size, episode count and languages (no single file name)."""
@@ -768,9 +774,11 @@ def _providers(raw: dict, title: str) -> list[dict]:
     entry = next((p for p in raw.get("watchProviders") or [] if isinstance(p, dict) and p.get("iso_3166_1") == REGION), None)
     out = []
     for label, field in PROVIDER_GROUPS:
-        names = [str(p.get("name")) for p in (entry or {}).get(field) or [] if isinstance(p, dict) and p.get("name")]
-        if names:
-            out.append({"label": label, "names": names[:8], "href": JUSTWATCH + quote(title, safe="")})
+        found = [p for p in (entry or {}).get(field) or [] if isinstance(p, dict) and p.get("name")][:8]
+        if found:   # JY-286: each provider's TMDB logo ref (None -> the letters tile) beside its name
+            out.append({"label": label, "names": [str(p["name"]) for p in found],
+                        "items": [{"name": str(p["name"]), "logo": md._ref(p.get("logoPath"))} for p in found],
+                        "href": JUSTWATCH + quote(title, safe="")})
     return out
 
 
@@ -1031,6 +1039,7 @@ def _sections(f: dict, names, c: dict, ex: dict) -> None:
         ratings = ex["ratings"] or {}
         mc = ex["mc"] if kind in ("movie", "tv") else None   # Metacritic via OMDb (item 2)
         f["numbers"].update(imdb=ratings.get("imdb"), rt=ratings.get("rt"), mc=mc, mc_band=mc_band(mc))
+        f["imdb_id"] = imdb_id(raw, {"imdb": c.get("imdb")})   # JY-280 P2: the IMDb score links to the title's page
     if "collection" in names:
         f["collection"] = collection_banner(raw, kind, c["lib_keys"], tmdb_id) if raw and kind and tmdb_id else None
         if f["collection"]:
@@ -1294,6 +1303,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["file"] = file_panel(files, kind, added)
     f["facts"] = {"runtime": runtime_text(runtime_min) if runtime_min else None,
                   "languages": _languages(files), "added": added, "releases": [], "seasons": None}
+    if kind == "movie" and not file_owner(owner):   # JY-280 P2: a film's file facts are B.'s alone - gated here, not in CSS
+        f["file"], f["facts"]["languages"] = None, None
     people = (item or {}).get("people") or []
     f["cast_h"], f["maker_h"] = CAST_H, MAKER_H
     f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep else []   # a show page's second card row (2026-10-11); not episodes
@@ -1302,7 +1313,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["collection"], f["shelves"] = None, []
     ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": people,
            "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
-           "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending}
+           "lib_keys": lib_keys, "arr": arr, "jf_trailer": (item or {}).get("trailer"), "pending": pending, "imdb": (item or {}).get("imdb")}
     _sections(f, [p for p in PARTS if p not in pending], ctx, ex)
     _sections(f, [p for p in PARTS if p in pending], ctx, dict(BLANK))   # placeholders: the Jellyfin-only fallback
     f.update(episode_flow(page_item, ep, item, f["seasons"], f.get("cast")))   # TV episode flow (WP-E3, 2026-10-16)
@@ -1371,7 +1382,8 @@ def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_i
     ctx = {"kind": kind, "tmdb": tmdb_id, "t": t, "title": title, "people": (item or {}).get("people") or [],
            "crew_people": (ep or {}).get("people") or show_crew(item, seasons), "on_server": on_server,
            "lib_keys": on_server_keys(jelly, "movie") | on_server_keys(jelly, "tv"), "arr": arr,
-           "jf_trailer": (item or {}).get("trailer"), "pending": set(), "late": True}
+           "jf_trailer": (item or {}).get("trailer"), "pending": set(), "late": True,
+           "imdb": (item or {}).get("imdb")}
     _sections(f, names, ctx, ex)
     return guest_controls(f, kind, tmdb_id)
 

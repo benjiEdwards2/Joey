@@ -128,8 +128,8 @@ def test_tv_page_order_overview_seasons_then_where_to_watch(env):
         b = main_of(whole(client, "/media/item/ser1"))
     # JY-290 + JY-282 (2026-11-03): Episodes row leads; no Overview section (synopsis once, in the hero); no bottom Seasons list
     assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("A quiet show.") == 1
-    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Episodes", "Cast", "Where to watch")}
-    assert idx["Episodes"] < idx["Cast"] < idx["Where to watch"]
+    idx = {k: b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Episodes", "Cast")}
+    assert idx["Episodes"] < idx["Cast"] < b.index('aria-label="Where to watch"')   # JY-281: the JY-286 logo row
     assert '<h2 class="seclabel">Seasons</h2>' not in b
 
 
@@ -142,8 +142,7 @@ def test_off_server_tv_title_keeps_seasons_under_overview(env):
         b = main_of(client.get("/media/title/tv/555").text)
     # JY-282: no Overview section; the synopsis is in the hero, once
     assert '<h2 class="seclabel">Overview</h2>' not in b and b.count("Far away.") == 1
-    s, w = (b.index(f'<h2 class="seclabel">{k}</h2>') for k in ("Seasons", "Where to watch"))
-    assert s < w
+    assert b.index('<h2 class="seclabel">Seasons</h2>') < b.index('aria-label="Where to watch"')   # JY-281: logo row
 
 
 def test_film_page_order_is_unchanged(env):

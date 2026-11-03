@@ -1665,3 +1665,6 @@ html:not(.tv) .provlogos { display: flex; flex-wrap: wrap; align-items: center; 
 html:not(.tv) .provlogos .microlabel { margin-right: 4px; }
 html:not(.tv) .provlogo { display: inline-flex; border-radius: 8px; }
 html:not(.tv) .provlogos .prov-logo { width: 40px; height: 40px; border-radius: 8px; }
+
+/* JY-281: a show drawer's By episode rows - the file name on its own line under the facts */
+.fileeps .filename { display: block; margin: 0; }

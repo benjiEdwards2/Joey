@@ -11,10 +11,17 @@
    title page = 170 px poster beside title, facts, synopsis, Play / Trailer / Watchlist and the 1-10 chips; Set up Jellyfin
    = a full-screen card with :8443 in gold; sign-in = the WP-M screen 1 card. */
 html.tv {
-  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-my-bar: .84375rem; --tv-r: .375rem; --tv-r-sm: .25rem; --tv-bar: 2.40625rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
+  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-my-bar: .84375rem; --tv-r: .5rem; --tv-r-sm: .25rem; --tv-r-pill: 10rem; --tv-bar: 2.40625rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
   --tv-surface: rgba(255, 255, 255, .03); --tv-surface-2: rgba(255, 255, 255, .06); --tv-line: rgba(255, 255, 255, .12);
   --tv-border: rgba(255, 255, 255, .07); --tv-t1: #fafafa; --tv-t2: #e4e4e7; --tv-t3: #d4d4d8; --tv-t4: #a1a1aa; --tv-t5: #82828b;
   --tv-primary: #4f46e5; --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
+  /* JY-307 P1 (2026-11-03): the TV type scale and focus tokens (options.md, option A base for B). 1rem = 32 px at 1080. */
+  --tv-fs-eyebrow: 1.125rem; --tv-fs-title: 3.25rem; --tv-fs-title-page: 3rem; --tv-fs-label: 1.25rem; --tv-fs-caption: 1.125rem;
+  --tv-ink: #0b0b0f; --tv-eyebrow: #fbbf24; --tv-lift: 1.06; --tv-ring-w: .1875rem;
+  --tv-lift-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, .75), 0 0 2.5rem rgba(255, 255, 255, .12);
+  --tv-scrim: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .55) 38%, rgba(9, 9, 11, 0) 65%),
+              linear-gradient(to top, #09090b 8%, rgba(9, 9, 11, .6) 42%, rgba(9, 9, 11, 0) 70%);
+  --tv-st-request: #a5b4fc; --tv-st-lib: #34d399; --tv-st-pending: #fbbf24;
 }
 /* JY-259 (P1, 2026-10-28) - the scaling system. B.: "It scales to every TV needed once they load things up." Every
    length in this sheet is rem, and 1rem follows the viewport: 16 CSS px at the TCL's 960x540 (dpr 2), 21.3 at 1280x720,
@@ -648,6 +655,51 @@ html.tv .tv-crewrole { flex: none; width: 7rem; font-size: 1.125rem; color: var(
 html.tv .tv-crewlist .chip { display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r);
   border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-seasonchips .chip .tv-chipavg { font-weight: 400; }
+/* JY-307 P1 (2026-11-03): B.: "Prefer option B." Phase 1 = option A's base tokens, used by B's later phases.
+   Type scale (eyebrow / title / label / caption), backdrop at full strength with the scrim only behind the text,
+   lift focus (thin ring, soft shadow, 1.06), white-on-focus buttons, 8 px corners (--tv-r), Discover state words.
+   Kept after the older rules so it wins over the older rules of the same specificity. Text floor stays 1.125rem. */
+html.tv .tv-bd > img { opacity: 1; }
+html.tv .tv-bd::after { background: var(--tv-scrim); }
+html.tv .tv-hero { max-width: 34rem; padding-top: 2.25rem; min-height: 13rem; }
+html.tv .tv-hero-eyebrow { font-size: var(--tv-fs-eyebrow); font-weight: 600; letter-spacing: .02em; color: var(--tv-eyebrow); }
+html.tv .tv-hero-title { font-size: var(--tv-fs-title); line-height: 1.02; font-weight: 800; letter-spacing: -.025em; }
+html.tv .tv-hero-facts { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .78); }
+html.tv .tv-hero-syn { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: rgba(255, 255, 255, .72); }
+html.tv .seclabel, html.tv h2.seclabel { font-size: var(--tv-fs-label); font-weight: 700; color: rgba(255, 255, 255, .85); }
+html.tv .sec:has(.tv-focus) .seclabel { color: var(--tv-t1); }
+html.tv .card-poster .row-title { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .8); font-weight: 500; }
+/* lift focus: a 3 px ring, a soft shadow and a 1.06 lift; the focused caption goes white and bold */
+html.tv .card-poster:focus-visible, html.tv .card-poster.tv-focus { transform: scale(var(--tv-lift)); }
+html.tv .card-poster.tvt:focus-visible, html.tv .card-poster.tvt.tv-focus { transform: none; }
+html.tv .card-poster.tvt:focus-visible .card-pic, html.tv .card-poster.tvt.tv-focus .card-pic { transform: scale(var(--tv-lift)); }
+html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: var(--tv-ring-w) solid var(--tv-ring); outline-offset: .125rem;
+  border-radius: var(--tv-r); box-shadow: var(--tv-lift-shadow); }
+html.tv .card-poster:focus-visible .row-title, html.tv .card-poster.tv-focus .row-title { color: #fff; font-weight: 700; }
+/* buttons: glass at rest, white with dark text on focus (no indigo, no ring) */
+html.tv .hero-detail-btns .btn, html.tv .hero-detail-btns .wlbtn .btn, html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn {
+  min-height: 2.75rem; padding: 0 1.375rem; border-radius: var(--tv-r); border: 0; background: rgba(255, 255, 255, .12); color: #fff; font-size: 1.125rem; }
+html.tv .hero-detail-btns .btn:focus-visible, html.tv .hero-detail-btns .btn.tv-focus,
+html.tv .hero-detail-btns .tv-ratebtn:focus-visible, html.tv .hero-detail-btns .tv-ratebtn.tv-focus {
+  background: #fff; color: var(--tv-ink); outline: none; transform: scale(var(--tv-lift)); box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .6); }
+/* title page: clearer backdrop, title on the scale */
+html.tv .hero-detail-bd { height: 30rem; background-image: linear-gradient(90deg, rgba(9, 9, 11, .92), rgba(9, 9, 11, .6) 45%, rgba(9, 9, 11, .1) 75%),
+  linear-gradient(to bottom, transparent 55%, var(--bg)), var(--bd-pick); }
+html.tv .hero-detail .hero-detail-title { font-size: var(--tv-fs-title-page); font-weight: 800; letter-spacing: -.025em; }
+html.tv .hero-detail-poster { border-radius: var(--tv-r); }
+html.tv .hero-detail-text .tv-facts { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .75); }
+html.tv .hero-detail-text .tv-syn { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .72); }
+html.tv .tv-seasonchips .chip { min-height: 0; height: 2.25rem; border-radius: var(--tv-r-pill); font-size: 1.125rem; }
+html.tv .tv-seasonchips .chip.on { background: #fff; color: var(--tv-ink); }
+/* Discover: pill search row, states as a coloured word under the art, not a filled block */
+html.tv .discover-search .input, html.tv .tv-searchgo { height: 2.75rem; font-size: 1.125rem; border-radius: var(--tv-r-pill); }
+html.tv .tv-searchgo:focus-visible, html.tv .tv-searchgo.tv-focus { background: #fff; color: var(--tv-ink); }
+html.tv .tv-searchhint { display: none; }
+html.tv .tv-typechips .chip { border-radius: var(--tv-r-pill); }
+html.tv .reqgrid .reqchip { background: none; color: var(--tv-st-request); text-align: left; padding: 0; font-weight: 600; }
+html.tv .reqgrid .reqchip-lib { background: none; color: var(--tv-st-lib); }
+html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: none; color: var(--tv-st-pending); }
+html.tv .reqgrid .reqchip-request { background: none; color: var(--tv-st-request); }
 /* JY-267 (2026-10-29): the title's TMDB logo in place of the hero title words - the TV Home hero (.tv-hero-logo, swapped
    with focus by tv.js) and the title page (.title-logo, _pagehead.html title_h1). Spec: max 40% of the screen wide, 160 px
    tall at 1920 (5rem), never past 1.5x (1.5 / 32 rem per logo pixel at 1920). A failed load shows the words. */
@@ -657,3 +709,4 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
+

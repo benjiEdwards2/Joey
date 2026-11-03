@@ -11,11 +11,12 @@ from hub import media_text
 
 # Library round (2026-10-13, B.): six more sorts; "Most to watch" is offered on the TV page only (sort_labels).
 SORTS = ("score", "title", "year", "added", "rating", "last", "runtime_short", "runtime_long", "oldest", "genre",
-         "shuffle", "to_watch")
+         "shuffle", "to_watch", "upgrade", "director")
 SORT_LABELS = {"score": "Your score", "title": "A-Z", "year": "Newest release",
                "added": "Recently added", "rating": "Community rating", "last": "Last watched",
                "runtime_short": "Shortest first", "runtime_long": "Longest first", "oldest": "Oldest release",
-               "genre": "Genre A-Z", "shuffle": "Shuffle", "to_watch": "Most to watch"}
+               "genre": "Genre A-Z", "shuffle": "Shuffle", "to_watch": "Most to watch",
+               "upgrade": "Upgrade available", "director": "Director A-Z"}
 TV_ONLY_SORTS = ("to_watch",)
 SHORT_MIN = 105
 ARRIVED_DAYS = 7
@@ -40,6 +41,12 @@ def _watched_text(played, last, ago) -> str:
     return f"Watched {ago(last)}".strip() if last else "Watched"
 
 
+def _day(stamp) -> str:
+    """JY-279: the Added cell, "3 Nov 2026"; '' when there is no date."""
+    t = parse_ts(stamp)
+    return f"{t.day} {t:%b %Y}" if t else ""
+
+
 def _library_rows(items, ratings, kind, ago, href_of, marks, runtimes=None) -> list[dict]:
     """`runtimes` (E5, M2): {show_key: average episode minutes} for the progress words' hours (media_plays_db)."""
     rows = []
@@ -62,7 +69,7 @@ def _library_rows(items, ratings, kind, ago, href_of, marks, runtimes=None) -> l
             "runtime_min": it.get("runtime_min"), "runtime": runtime_text(it.get("runtime_min")) if it.get("runtime_min") else "",
             "played": played if marks else None, "last_played_at": last,
             "watched_text": _watched_text(played, last, ago) if marks and kind == "movie" else "",
-            "added_at": it.get("added_at"),
+            "added_at": it.get("added_at"), "added_text": _day(it.get("added_at")),
             "community": float(cr) if isinstance(cr, (int, float)) and cr else None,
             "score": ratings.get(key) if marks and key else None,
             "genres": ", ".join(it.get("genres") or []),
@@ -113,6 +120,67 @@ def film_rows(items, ratings, ago, href_of, marks=True) -> list[dict]:
 
 def show_rows(items, ratings, ago, href_of, marks=True, runtimes=None) -> list[dict]:
     return _library_rows(items, ratings, "tv", ago, href_of, marks, runtimes)
+
+
+# JY-279 (2026-11-03, option B): the list view's columns. (key, label, sort key, default direction, phone).
+# Each header is a sort link (`?sort=&dir=`); the sort key is the toolbar select's, so the two stay in step. A column
+# marked phone=False is hidden below 640 px by CSS (still in the page). "director" is the creator for a show.
+COLUMNS = (("title", "Title", "title", "asc", True), ("year", "Year", "year", "desc", True),
+           ("score", "Your score", "score", "desc", True), ("rating", "Average", "rating", "desc", False),
+           ("upgrade", "Upgrade?", "upgrade", "desc", True), ("director", "Director", "director", "asc", False),
+           ("added", "Added", "added", "desc", False))
+COLUMN_DEFAULT_DIR = {c[2]: c[3] for c in COLUMNS}
+
+
+def column_label(key: str, kind: str) -> str:
+    return "Creator" if key == "director" and kind == "tv" else dict((c[0], c[1]) for c in COLUMNS)[key]
+
+
+def _col_value(r, sort: str):
+    """The cell value a header sort compares; None = blank (always last)."""
+    if sort == "title":
+        return r["title"].lower()
+    if sort == "year":
+        return r.get("year") or None
+    if sort == "score":
+        return r.get("score") or None
+    if sort == "rating":
+        return r.get("community")
+    if sort == "upgrade":
+        return 1 if r.get("upgrade") else None
+    if sort == "director":
+        return (r.get("director") or "").lower() or None
+    if sort == "added":
+        t = parse_ts(r.get("added_at"))
+        return t.timestamp() if t else None
+    return None
+
+
+def sort_dir(sort: str, d: str | None) -> str:
+    """'asc' / 'desc' for a column sort: the asked direction, else the column's default."""
+    return d if d in ("asc", "desc") else COLUMN_DEFAULT_DIR.get(sort, "desc")
+
+
+def sort_column(rows, sort: str, d: str) -> list[dict]:
+    """A header sort: by the column's value in direction `d`, blanks last either way, then title A-Z."""
+    title = lambda r: r["title"].lower()
+    filled = sorted((r for r in rows if _col_value(r, sort) is not None), key=title)
+    filled = sorted(filled, key=lambda r: _col_value(r, sort), reverse=(d == "desc"))
+    return filled + sorted((r for r in rows if _col_value(r, sort) is None), key=title)
+
+
+def column_heads(kind: str, sort: str, d: str, link_of) -> list[dict]:
+    """[{key, label, href, aria, arrow, phone}] for the header row; `link_of(sort, dir_or_None)` builds the href."""
+    out = []
+    for key, _label, s, default, phone in COLUMNS:
+        on = s == sort
+        nxt = ("asc" if d == "desc" else "desc") if on else None
+        out.append({"key": key, "label": column_label(key, kind), "href": link_of(s, nxt), "phone": phone,
+                    "aria": ("ascending" if d == "asc" else "descending") if on else None,
+                    "arrow": ("↑" if d == "asc" else "↓") if on else "",
+                    "word": (", A to Z" if d == "asc" else ", Z to A") if on and s in ("title", "director")
+                    else (", low to high" if d == "asc" else ", high to low") if on else ""})
+    return out
 
 
 def sort_labels(kind: str) -> dict:
@@ -169,11 +237,14 @@ def _in_filter(r, f: str, resume_ids) -> bool:
     return r.get("state") == f if f in FILTERS["tv"] and f != "all" else True
 
 
-def arrange(rows, q: str, sort: str, f: str, kind: str, resume_ids=frozenset(), rng=None) -> list[dict]:
-    """Filter by title substring and the filter chip (`f`, a FILTERS key; anything else = all), then sort."""
+def arrange(rows, q: str, sort: str, f: str, kind: str, resume_ids=frozenset(), rng=None, d=None) -> list[dict]:
+    """Filter by title substring and the filter chip (`f`, a FILTERS key; anything else = all), then sort.
+    JY-279: `d` ('asc' / 'desc', from a header click) sorts by that column instead, blanks last."""
     q = (q or "").strip().lower()
     f = f if f in FILTERS[kind] else "all"
     rows = [r for r in rows if q in r["title"].lower() and (f == "all" or _in_filter(r, f, resume_ids))]
+    if sort in ("upgrade", "director") or (d in ("asc", "desc") and sort in COLUMN_DEFAULT_DIR):
+        return sort_column(rows, sort, sort_dir(sort, d))
     return sort_rows(rows, sort if sort in sort_labels(kind) else "score", rng)
 
 

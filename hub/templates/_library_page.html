@@ -1,5 +1,5 @@
 {% from "_poster.html" import poster %}
-{% from "_library_row.html" import row, card %}
+{% from "_library_row.html" import row, card, colhead, colrow %}
 {% from "_icons.html" import icon %}
 {# Shared body of /media/movies and /media/tv (restyle Phase 3): a Suggestions carousel, the guide's toolbar
    (search with its icon, the filter chips, sort, the Grid / List switch), then every title in one sorted grid —
@@ -81,6 +81,7 @@
 <section class="sec">
   {% if filter != "all" %}<h2 class="seclabel">{{ filters[filter] }} · {{ shown|length }}</h2>{% endif %}
   {% if not shown %}<p class="empty">{{ "Nothing matches that search." if q else "Nothing here yet." }}</p>
+  {% elif libview == "list" and columns %}<div class="libcols" role="table" aria-label="Library">{{ colhead(columns) }}<div class="listbox libposters">{% for r in shown %}{{ colrow(r) }}{% endfor %}</div></div>
   {% elif libview == "list" %}<div class="listbox libposters">{% for r in shown %}{{ row(r) }}{% endfor %}</div>
   {% else %}<div class="poster-grid libgrid">{% for r in shown %}{{ card(r, tv_mode(request)) }}{% endfor %}</div>{% endif %}
 </section>

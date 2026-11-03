@@ -87,7 +87,7 @@ def test_movie_grid_and_list_label_only_the_matching_title(site):
     assert notes(grid) == [FILM_NOTE] and notes(lst) == [FILM_NOTE]
     assert f'<span class="upnote">{FILM_NOTE}</span>' in card_of(grid, "Alpha Film")      # inside the card's link
     assert "upnote" not in card_of(grid, "Bravo Film")
-    row = lst.split("Alpha Film (2020)", 1)[1].split("</a>", 1)[0]
+    row = lst.split(">Alpha Film</span>", 1)[1].split("</a>", 1)[0]   # JY-279: the year has its own column now
     assert f'<div class="upnote">{FILM_NOTE}</div>' in row
     assert "Search for upgrade" not in grid + lst                                          # no button in lists
 

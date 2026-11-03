@@ -1,6 +1,6 @@
 # JY-299 History tied to the connecting user (only the owner sees everything)
 
-Status: spec
+Status: shipped (#307, live pending, 2026-11-04)
 Size: M
 Live risk: none
 Area: `hub/media_pages.py` (`/media/history`), `hub/media_home.py` (`view_jelly`, `_ratings`, `_to_rate`), `hub/media_plays.py` + `hub/media_plays_db.py` (`/media/server/history`), `hub/media_db.py` (owner helpers), `hub/guest.py` (allow-list), `hub/templates/media_history.html`, `media_server_history.html`, the TV history view in `hub/static/tv.js` / TV templates, `tests/hub/`
@@ -52,3 +52,7 @@ Rating UI and the To rate removal (JY-298), the Diary, Wrapped, watchlist, and c
 4. If a friend's watched items are not in the Jellyfin snapshot, is it fine to build their History from the recorded plays (so it starts from when recording began)?
 
 ## Shipped notes
+
+## Shipped notes (2026-11-04)
+
+Merged #307 on B.'s review-page answer (Accept, 2026-11-04 morning), live pending.

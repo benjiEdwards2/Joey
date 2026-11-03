@@ -1,6 +1,6 @@
 # JY-279 Row view: more columns (upgrade, director, my score)
 
-Status: spec
+Status: shipped (#310, live pending, 2026-11-04)
 Size: M
 Live risk: low (read only; one optional background TMDB read, see Data)
 Area: `hub/templates/_library_row.html`, `_library_page.html`, `hub/static/control-surface.css` (`.listbox.libposters`), `hub/media_library.py` (sort keys), `hub/media_pages.py` (`_library_page`), `tests/hub/`
@@ -65,3 +65,7 @@ Grid view, the Suggestions carousel, new filters, editing a score from the row, 
 5. TV: A. leave list view as is (recommended), B. add two columns (score, upgrade).
 
 ## Shipped notes
+
+## Shipped notes (2026-11-04)
+
+Merged #310 on B.'s review-page answer (Accept, 2026-11-04 morning), live pending.

@@ -64,3 +64,12 @@
 - JY-308 pulled forward (B.: "ensure that the desktop takes up more horizontal room as well").
 - Review pages: every shot opens full size on click (B.: "allow me to go click into photos").
 - B. working rule for tonight: "run as many hitlist items as you can before bedtime" (NAS off ~22:45 tonight; deploy window still ends 21:30).
+
+## 2026-11-04 morning - Sweep 24 answers (review-page db, B. 2026-11-03 21:50-21:52 UTC)
+- Accept: JY-308 #305, JY-299 #307, JY-281 #308, JY-307 P1 #306 + P2 #311, JY-279 #310. Merged in that order (310 needed a main merge: import list). Live pending.
+- JY-301 #309: Change - "Ensure pause and play buttons are icons and placed in line with things. Not underneath in their own pill boxes. REduce aspace and row heights by doing this."
+- TV scale (q-b): "Seems too zoomed in. PLease zoom it out and zoom it out by about 25% please." -> html.tv rem 32px -> 24px at 1080p (JY-307 P2b).
+- JY-299 (q-c): "Correct. I should see everyone. They should only see their own."
+- Open picks (q-d): "Will check. Please show me artifcat for that or accept as default." -> Overview A/B shots page built; person page B, Live A, TV shows episode-first stand as defaults until B. says otherwise.
+- Assumptions (q-e) confirmed: ultrawide 3440x1440, TV 3840x2160, Live and Health hidden from friends.
+- Review pages now save answers to the artifact db (collection `answers`); the first sweep-24 answers (plain textareas) were lost and B. re-entered them.

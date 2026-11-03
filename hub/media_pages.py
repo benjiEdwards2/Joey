@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
 from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
-from hub import (media_awards_badges, media_backup, media_db, media_directors, media_downloads, media_home, media_item, media_library,
+from hub import (media_awards_badges, media_backup, media_db, media_directors, media_download_actions, media_downloads, media_home, media_item, media_library,
                  media_plays, media_plays_db,
                  media_quality, media_requests, media_requests_approve, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
@@ -145,6 +145,10 @@ def media_downloads_page(request: Request):
         data = {**data, "active": [{**t, "href": (link([by_hash[h]], need_key=True)[0]["href"]
                                                   if (h := str(t.get("hash") or "").lower()) in by_hash else None)}
                                    for t in data.get("active") or []]}
+        # JY-301: confirmed pause / resume / remove win until a newer snapshot lands; dlc = the owner-only controls
+        qsnap = shell.get_snapshots(request=request).get(QBIT_SNAPSHOT_ID)
+        data = {**data, "active": media_download_actions.overlay(data["active"], qsnap.updated_at if qsnap else None)}
+        dlc = media_download_actions.page(request, data["active"], request.query_params)
         groups = [{"label": label, "rows": [r for r in data.get("active") or [] if r.get("kind") == kind]}
                   for kind, label in (("movie", "Movies"), ("tv", "TV"))]
         groups.append({"label": "Other", "rows": [r for r in data.get("active") or []
@@ -159,7 +163,7 @@ def media_downloads_page(request: Request):
                                 for r in link(upgrades["rows"])]
             # WP-U1: each row's "Why?" (the kept answer only for the row ?why= names - never a call)
             why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"])
-        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades, "why": why,
+        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades, "why": why, "dlc": dlc,
                 "last_search": media_upgrades.last_search(snaps),
                 "app_link": app_link(request, "qbittorrent"),
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"

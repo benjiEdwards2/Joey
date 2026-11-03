@@ -28,6 +28,7 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates, server_uptime, server_visits
 from hub import server_quiet   # P4 quiet mode (2026-10-22)
+from hub import media_download_actions   # JY-301 download controls (2026-11-03)
 from hub import server_digest  # P2 (2026-10-22)
 from hub import player_api   # JY-053: playback-session API, off unless PLAYER_API=on
 from hub import media_watch   # JY-054: the web / phone player page, off unless PLAYER_API=on
@@ -130,6 +131,7 @@ app.include_router(media_quality.router)   # WP-R1: Quality · 1080p / Switch to
 app.include_router(media_upgrade_why.router)   # WP-U1: Why? + Grab anyway on Downloads › Upgrades
 app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
+app.include_router(media_download_actions.router)   # JY-301: pause / resume / remove torrents, owner only
 app.include_router(server_quiet.router)   # P4 (2026-10-22): Downloads Quiet (5 Mbps) / Full speed
 app.include_router(server_space.router)   # P1a free space (2026-10-22): list only
 app.include_router(weather.router)

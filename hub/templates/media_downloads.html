@@ -17,17 +17,42 @@
 <p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
-<p class="metaline">{{ totals_text }}</p>
+{% if not (dlc and dlc.on and dlc.count) %}<p class="metaline">{{ totals_text }}</p>{% endif %}
+{# JY-301: owner-only controls (DOWNLOAD_CONTROLS=1): the flash after a write, Pause all / Resume all (a fold that
+   names the count, then one POST). Friends, the media front and the flag off render none of this. #}
+{% if dlc and dlc.on %}
+{% if dlc.flash %}<p class="metaline {{ 'st-warn' if dlc.flash_bad else 'st-good' }}" role="status">{{ dlc.flash }}</p>{% endif %}
+{% if dlc.count %}<div class="dl-head"><p class="metaline">{{ totals_text }}</p><div class="confirm-btns dl-all">
+  {% for op, label in (("pause", "Pause all"), ("resume", "Resume all")) %}
+  <details class="confirm-wrap">
+    <summary class="btn btn-secondary btn-sm">{{ label }}</summary>
+    <form class="confirm" method="post" action="/media/downloads/{{ op }}-all">
+      <div>{{ label }}: {{ dlc.count }} download{{ "s" if dlc.count != 1 }} in qBittorrent?</div>
+      <div class="confirm-btns"><button type="submit" class="btn btn-primary btn-sm">{{ label }}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false">Cancel</button></div>
+    </form>
+  </details>
+  {% endfor %}
+</div></div>{% endif %}
+{% endif %}
 {% for g in groups %}
 <section class="sec">
   <h2 class="seclabel">{{ g.label }}</h2>
   <div class="listbox">
   {% for r in g.rows %}
-  <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
-    <div class="row-body"><div class="row-title">{{ r.name }}</div>
+  {% set body %}<div class="row-body"><div class="row-title">{{ r.name }}</div>
       {{ meta([r.state_text, r.pct ~ "% done", r.speed_text, (r.eta_text ~ " left") if r.eta_text else none, r.size_text]) }}
-      <span class="bar" aria-hidden="true"><span style="width: {{ r.pct }}%"></span></span></div>
+      <span class="bar" aria-hidden="true"><span style="width: {{ r.pct }}%"></span></span></div>{% endset %}
+  {% if dlc and dlc.on and r.hash %}
+  <div class="row has-form dlrow">
+    <{{ "a" if r.href else "div" }} class="rowlink"{% if r.href %} href="{{ r.href }}"{% endif %}>{{ body }}</{{ "a" if r.href else "div" }}>
+    {% include "_download_actions.html" %}
+  </div>
+  {% else %}
+  <{{ "a" if r.href else "div" }} class="row"{% if r.href %} href="{{ r.href }}"{% endif %}>
+    {{ body }}
   </{{ "a" if r.href else "div" }}>
+  {% endif %}
   {% endfor %}
   </div>
 </section>

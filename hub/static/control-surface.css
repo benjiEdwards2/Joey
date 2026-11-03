@@ -608,6 +608,23 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .row.has-form > details.confirm-wrap { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
 .row.has-form > details.confirm-wrap[open] { flex: 1 0 100%; display: flex; flex-direction: column; align-items: flex-end; }
 .row.has-form > details.confirm-wrap[open] > .confirm { align-self: stretch; margin-top: 8px; }
+/* JY-301 download controls (r2, B. 2026-11-04): Pause / Resume and Remove are small icon buttons on the row's own
+   line, right-aligned, at every width; Remove's confirm opens on a full-width line under the row. */
+.row.dlrow { flex-wrap: wrap; }
+.row.dlrow .row-body { flex: 1 1 0; }
+.row.dlrow > form.dl-act { margin-left: auto; flex-shrink: 0; }
+.row.dlrow > form.dl-act + details.confirm-wrap { margin-left: 4px; }
+.row.dlrow > details.confirm-wrap[open] { display: contents; }
+.row.dlrow > details.confirm-wrap[open] > summary { margin-left: 4px; position: relative; z-index: 1; }
+.row.dlrow > details.confirm-wrap[open] > .confirm { order: 2; margin: 8px 0 0 auto; position: relative; z-index: 1; }
+.row.dlrow > details.confirm-wrap[open]::after { content: ""; order: 1; flex-basis: 100%; }  /* line break before the confirm */
+.dl-ico { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-5); cursor: pointer; list-style: none; }
+.dl-ico::-webkit-details-marker { display: none; }
+.dl-ico:hover, .dl-ico:focus-visible { background: var(--soft); color: inherit; }
+.dl-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.dl-head > .metaline { margin: 0; }
+.dl-head > .dl-all { margin: 0; }
 .reqrow .row-body { flex-basis: 0; }  /* title + meta shrink so the score and Remove stay on the row's line */
 .row .bar { margin-top: 6px; }
 .poster.row-poster { width: 44px; height: auto; border: 0; border-radius: 4px; }

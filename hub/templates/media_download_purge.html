@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Delete files · Joey{% endblock %}
+{% block content %}
+{# JY-301 (2026-11-03): the SECOND confirm before qBittorrent deletes a download's files (deleteFiles=true). Drawn by
+   POST /media/downloads/remove files=1, which called nothing; the one-time token below is the only way to send true. #}
+<section class="sec narrow" id="dl-purge" aria-label="Delete downloaded files">
+  <div class="sechead"><h1 class="seclabel">Delete downloaded files</h1></div>
+  <p class="metaline">{{ name }}{% if size %}<span class="sep"> · </span>{{ size }}{% endif %}</p>
+  <p class="metaline st-warn">This removes the download from qBittorrent and deletes its files from the disk. It cannot be undone.</p>
+  <form method="post" action="/media/downloads/delete-files" class="confirm-btns">
+    <input type="hidden" name="hash" value="{{ hash }}"><input type="hidden" name="token" value="{{ token }}">
+    <button class="btn btn-danger" type="submit">Delete the files</button>
+    <a class="btn btn-ghost" href="/media/downloads">Cancel</a>
+  </form>
+</section>
+{% endblock %}

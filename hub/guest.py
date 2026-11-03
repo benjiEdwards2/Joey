@@ -133,6 +133,9 @@ PRIVATE: tuple = (
     *_each("GET", "/server/updates/all/run", "/server/updates/{name}/run", "/server/stack/run"),
     *_each("POST", "/server/updates/all/run", "/server/updates/{name}/run", "/server/updates/{name}/ignore",
            "/server/updates/{name}/unignore", "/server/stack/run"),
+    # JY-301 (2026-11-03): download controls, owner only; never a GUEST entry
+    *_each("GET POST", *(f"/media/downloads/{op}" for op in ("pause", "resume", "remove", "delete-files", "pause-all",
+                                                           "resume-all"))),
     *_each("GET POST", "/server/downloads/cap"),   # P4 quiet mode (2026-10-22): private only, never a GUEST entry
     *_each("GET", "/media/movies/awards/part/watchlisted", "/media/tv/awards/part/watchlisted"),   # JY-153: friends have no count line
     ("GET", "/server/space"),   # P1a free space (2026-10-22): owner-only, list only

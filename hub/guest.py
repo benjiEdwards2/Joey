@@ -108,7 +108,7 @@ _MOVIES_TV = tuple(f"/media/{s}{tail}" for s in ("movies", "tv")
 
 GUEST: tuple = (
     *_each("GET", *_MOVIES_TV),
-    *_each("GET", "/media/diary", "/media/history"),   # Diary + To rate (Q18); the play log stays PRIVATE
+    *_each("GET", "/media/diary", "/media/history"),   # Diary (+ its To rate, JY-298; /media/history redirects there) (Q18); the play log stays PRIVATE
     *_each("GET", "/media/discover", "/media/discover/search", "/media/discover/service/{provider_id}"),
     *_each("GET", "/media/title/{kind}/{tmdb_id}", "/media/title/{kind}/{tmdb_id}/part/{name}",
            "/media/title/tv/{tmdb_id}/season/{n}"),
@@ -116,7 +116,8 @@ GUEST: tuple = (
            "/media/person/find"),   # JY-118: a name -> the person page (one Seerr search, media data only)
     *_each("GET", "/media/search", "/img/{ref:path}", "/healthz", "/static/{path:path}"),
     ("POST", "/media/rate"), ("DELETE", "/media/rate/{item_key}"), ("POST", "/media/rate/{item_key}/delete"),
-    *_each("POST", "/media/rate/skip", "/media/rate/skip-show", "/media/rate/unskip"),   # the To rate inbox's own buttons
+    *_each("POST", "/media/rate/skip", "/media/rate/skip-show", "/media/rate/unskip",
+           "/media/rate/clear"),   # the To rate inbox's own buttons (+ Clear all, JY-298: the viewer's own inbox only)
     ("POST", "/media/log"), ("POST", "/media/settings/rating_level"),
     *SIGNIN,
     *TV_APP,

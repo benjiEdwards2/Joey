@@ -99,7 +99,9 @@ def test_no_guest_route_leaks_household_data_to_a_friend(client):
     seen = 0
     for path in guest_gets():
         for r in sweep(client, path):
-            assert r.status_code in (200, 404), (path, r.status_code)
+            # JY-298 (2026-11-03): /media/history is a redirect to the diary (itself swept), never a page of its own
+            assert r.status_code in (200, 404) or (path == "/media/history" and r.status_code == 307
+                                                   and r.headers["location"].startswith("/media/diary")), (path, r.status_code)
             assert "SENTINEL_" not in r.text, (path, r.text[r.text.find("SENTINEL_") - 80:][:200])
             seen += r.status_code == 200
     assert seen > 20   # the sweep really rendered pages
@@ -110,7 +112,9 @@ def test_the_control_run_as_bs_outside_user_sees_only_his_own_rows(client):
     bodies = ""
     for path in guest_gets():
         for r in sweep(client, path):
-            assert r.status_code in (200, 404), (path, r.status_code)
+            # JY-298 (2026-11-03): /media/history is a redirect to the diary (itself swept), never a page of its own
+            assert r.status_code in (200, 404) or (path == "/media/history" and r.status_code == 307
+                                                   and r.headers["location"].startswith("/media/diary")), (path, r.status_code)
             bodies += r.text
     assert "SENTINEL_YOU_" in bodies and "_DB" in bodies          # the sweep can see data
     assert "SENTINEL_HER_" not in bodies

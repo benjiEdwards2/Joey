@@ -93,7 +93,10 @@ def test_her_view_ratings_come_from_her_rows_only(env):
         her = main_html(client.get("/media/history?owner_view=her").text)
         you = main_html(client.get("/media/history?owner_view=you").text)
     assert "Your rating: 9 out of 10" in her and "Your rating: 4 out of 10" not in her
-    assert "Your rating: 4 out of 10" in you and "Your rating: 9 out of 10" not in you
+    # JY-298 (2026-11-03): History is the diary, which keeps only tmdb/jf-keyed rows, so B.'s "m2" rating shows as
+    # "Rated One" leaving his To rate (was: its score on the old page's Recently watched)
+    inbox = you.split(">To rate</h2>", 1)[1].split("</section>", 1)[0]
+    assert "Harbour Lights" in inbox and "Rated One" not in inbox and "Your rating: 9 out of 10" not in you
 
 
 def test_playing_page_in_her_view_uses_her_up_next_but_shared_sessions(env):

@@ -63,7 +63,8 @@ def test_nav_sections_and_tabs_on_the_media_front(gc):
     assert [t["label"] for t in nav_at("/media/tv")["tabs"]] == ["My shows", "Watchlist", "Tonight", "To rate", "Awards"]
     assert [t["label"] for t in nav_at("/media/discover")["tabs"]] == ["Discover"]   # Following hidden (Q19)
     diary = nav_at("/media/diary")
-    assert diary["section"]["id"] == "diary" and [t["label"] for t in diary["tabs"]] == ["Diary", "To rate"]
+    # JY-298 (2026-11-03): To rate folded into the Diary (the media front's History)
+    assert diary["section"]["id"] == "diary" and [t["label"] for t in diary["tabs"]] == ["Diary"]
     assert nav_at("/media/history")["section"]["id"] == "diary"
     assert {s["id"]: s["href"] for s in nav["sections"]}["diary"] == "/media/diary"
     for s in nav["sections"]:   # every section and tab the media front draws is a page it serves

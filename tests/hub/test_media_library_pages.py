@@ -383,12 +383,13 @@ def test_every_diary_list_uses_the_movies_list_poster(rate_env):
     assert set(posters(logged)) == {"240"}                                          # the logged row partial too
 
 
-def test_recently_watched_on_history_keeps_the_small_poster(rate_env):
+def test_history_has_no_small_poster_recently_watched_list(rate_env):
+    """JY-298 (2026-11-03): was "Recently watched keeps the small poster"; that list left with the To rate page.
+    History (the diary) and its To rate rows use the list size only."""
     build, _ = rate_env
     with build() as client:
         hist = main_of(client.get("/media/history").text)
-    recent = hist.split(">Recently watched</h2>", 1)[1].split("</section>", 1)[0]
-    assert "libposters" not in recent and set(posters(recent)) == {"120"}
+    assert ">Recently watched</h2>" not in hist and posters(hist) and set(posters(hist)) == {"240"}
 
 
 def test_a_picker_under_a_big_poster_row_lines_up_with_the_title():

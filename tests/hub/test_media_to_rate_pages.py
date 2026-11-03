@@ -84,18 +84,22 @@ def test_back_is_a_fixed_list_never_an_open_redirect(env):
         for back in ("https://evil.example/", "//evil.example", "/media/movies/../x", "/a/alpha", ""):
             r = client.post("/media/rate", data={"item_key": "tmdb:1", "kind": "movie", "title": "Heat",
                                                  "score": "5", "back": back}, follow_redirects=False)
-            assert r.status_code == 303 and r.headers["location"] == "/media/history", back
+            assert r.status_code == 303 and r.headers["location"] == "/media/diary", back   # JY-298: History
         r = client.post("/media/rate", data={"item_key": "tmdb:1", "kind": "movie", "title": "Heat", "score": "5",
                                              "back": "/media/tv"}, headers=HX)
         assert r.status_code == 200 and 'title="Your rating: 5 out of 10">5</span><span class="microlabel">Rated</span>' in r.text   # htmx: in place (E3: the number once)
 
 
-def test_history_inbox_rows_carry_no_back(env):
+def test_history_inbox_rows_return_to_history(env):
+    """JY-298 (2026-11-03): was "carry no back" (the old /media/history was the default); the inbox now sits on the
+    diary, so each row's forms carry back=/media/diary and nothing else."""
     build, _ = env
     media_db.set_rating("tmdb:4", 7, "movie", "Already Rated")
     with build() as client:
         html = client.get("/media/history").text
-    assert 'name="back"' not in html and html.count('class="ratepick"') == 2
+    inbox = main_of(html).split(">To rate</h2>", 1)[1].split("</section>", 1)[0]
+    backs = set(re.findall(r'name="back" value="([^"]*)"', inbox))
+    assert backs == {"/media/diary"} and inbox.count('class="ratepick"') == 2
 
 
 def test_her_view_sees_her_own_waiting_rows(her_env):
@@ -213,9 +217,11 @@ def test_to_rate_tab_label_and_body_copy_are_sentence_case(env):
         films = client.get("/media/movies/to-rate").text
         diary = client.get("/media/history").text
     labels = {s["id"]: [t[0] for t in s["tabs"] if t[0].lower() == "to rate"] for s in media_nav.SECTIONS}
-    assert labels["movies"] == labels["tv"] == labels["server"] == ["To rate"]
-    assert "<title>To rate · Joey</title>" in films and "<title>To rate · Joey</title>" in diary
+    # JY-298 (2026-11-03): Activity has no To rate tab; /media/history lands on History
+    assert labels["movies"] == labels["tv"] == ["To rate"] and labels["server"] == []
+    assert "<title>To rate · Joey</title>" in films and "<title>History · Joey</title>" in diary
     assert ">To Rate" not in films and ">To Rate" not in diary
-    assert [t[0] for t in subtabs(diary) if t[2]] == ["To rate"]
+    assert [t[0] for t in subtabs(diary) if t[2]] == ["History"]
     assert '<p class="empty">Nothing to rate.</p>' in main_of(films)
-    assert '<h2 class="seclabel">To rate</h2>' in main_of(diary)   # E3 (U27): the section label matches the tab (sentence case, nav-tidy)
+    # JY-298 (2026-11-03): with nothing waiting History draws no To rate section (the label stays sentence case when it does)
+    assert '<h2 class="seclabel">To rate</h2>' not in main_of(diary)

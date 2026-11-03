@@ -251,26 +251,19 @@ def _hours_words(hours) -> str:
     return media_text.duration(minutes) if minutes > 0 else "0m"
 
 
-@router.get("/media/history", response_class=HTMLResponse)
+@router.get("/media/history")
 def media_history_page(request: Request):
-    def build(data, view):
-        history = data.get("history") or {}
-        recent = history.get("recent", [])
-        ratings = media_home._ratings(view, recent)
-        return {
-            "history": history,
-            "ratings": ratings,
-            "to_rate": media_home._to_rate(recent, ratings),
-            "skipped": media_db.skips(ratings.owner),   # E5 (M3): the Skipped group, Unskip each
-            "rating_levels": media_db.LEVELS,
-            "rating_level": ratings.level,
-            "numbers": " · ".join([
-                f"{history.get('week_count', 0)} this week",
-                f"{history.get('month_count', 0)} this month",
-                f"{_hours_words(history.get('hours_month'))} this month",
-                f"{_hours_words(history.get('hours_total'))} all time"]),
-        }
-    return _detail_page(request, "media_history.html", JELLYFIN_SNAPSHOT_ID, build, detail=media_home.HISTORY_DETAIL)
+    """JY-298 (B., 2026-11-02): To rate folded into History; old links, bookmarks and the hub card land there."""
+    q = request.url.query   # keeps ?view=her and the TV flag across the hop
+    return RedirectResponse("/media/diary" + (f"?{q}" if q else ""), status_code=307)
+
+
+def _inbox(view: str, recent) -> dict:
+    """JY-298: the viewer's own rating inbox for History (rows, Skipped group, Rate TV by), one ratings read."""
+    ratings = media_home._ratings(view, recent)
+    rows = [{**r, "back": "/media/diary"} for r in media_home._to_rate(recent or [], ratings)]
+    return {"to_rate": rows, "skipped": media_db.skips(ratings.owner), "rating_levels": media_db.LEVELS,
+            "rating_level": ratings.level}
 
 
 def _group_on_this_day(items) -> list[dict]:
@@ -337,6 +330,7 @@ def media_diary_page(request: Request):
             "older": (f"/media/diary?offset={offset + DIARY_PAGE}" + (f"&kind={kind}" if kind else ""))
                      if more else None,
             "ratings": media_home._ratings(view, lines, on_this_day),
+            **(_inbox(view, history.get("recent")) if offset == 0 else {"to_rate": [], "skipped": []}),
         }
     return _detail_page(request, "media_diary.html", JELLYFIN_SNAPSHOT_ID, build,
                         detail=media_home.DIARY_DETAIL, always_build=True)

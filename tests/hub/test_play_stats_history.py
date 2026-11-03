@@ -55,7 +55,7 @@ def test_the_diary_drops_the_old_play_stats_text_link(env):
 def test_other_activity_tabs_light_as_before(env):
     build, _ = env
     with build() as client:
-        for route, tab in (("/media/playing", "Live"), ("/media/history", "To rate"), ("/media/library", "Library")):
+        for route, tab in (("/media/playing", "Live"), ("/media/history", "History"), ("/media/library", "Library")):
             assert sub_tabs_on(client.get(route).text) == [tab], route
 
 

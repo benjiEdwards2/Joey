@@ -54,4 +54,23 @@ JY-299 (History per connecting user, only B. sees everything). This spec uses wh
 3. TV: A. History on the TV gets the same rating control and clear button (recommended), B. phone and desktop only for now.
 4. Should the button also clear titles already skipped, or only the open ones? Recommended: only the open ones.
 
+## Orchestrator decisions (2026-11-03)
+Q1 A (soft-dismiss: bulk `rating_skip` rows, no schema change); Q2 A (count on the History tab); Q3 A (TV gets it too); Q4 open requests only. "Clear all" acts on the acting user's own inbox only; skipped titles can still be rated from History.
+
+## Build notes (2026-11-03)
+- History (`/media/diary`) draws a "To rate" section on its first page when anything waits: "N waiting for your rating", Rate TV by (not on the TV), "Clear all rating requests (N)" (a `<details>` fold asks once: "Yes, clear N"), and the inbox rows folded under "Show the N waiting" (1-10 strip, Skip, Skip show; the diary rows below already carry the picker, so the list does not repeat open). The Skipped group with Unskip follows.
+- `POST /media/rate/clear` rebuilds the viewer's own inbox server-side (never trusts the form) and writes every row with `media_db.skip_many` in one transaction (not forever); 303 to `/media/diary?skip=cleared`.
+- `/media/history` is a 307 to `/media/diary`, query kept (`?owner_view=her`). Write routes' default return is `/media/diary`.
+- `hub/templates/media_history.html` and `media_pages._hours_words` are now unused; left in place for the orchestrator to decide (not deleted).
+
+## Test changes (2026-11-03, JY-298)
+The To rate page and its "Recently watched" list are gone, so tests that asserted on them were retargeted, not dropped:
+- `test_media_history.py`: the old page's tests (numbers line, section order, you chip, empty words, 120 px posters) replaced by JY-298 tests (redirect + query, count + clear button, clear rates nothing and zeroes counts, owner scope + Unskip, rating level, origin guard, `skip_many`).
+- `test_media_rate.py`: inbox split ends at the section's `</section>`; empty inbox = no section (was "Nothing waiting"); redirects to `/media/diary`; `/media/history` left the "no db file" list (the diary sync writes media.db); score checks read the diary rows; the episode-level score check moved to the inbox (the diary folds a day's episodes into one line).
+- `test_media_to_rate_pages.py`, `test_to_rate_skip.py`: default return `/media/diary`; inbox rows carry `back=/media/diary`; Activity has no To rate label.
+- `test_media_nav.py`, `test_media_downloads.py`, `test_media_frame.py`, `test_play_stats_history.py`, `test_first_screens_e3.py`, `test_guest_nav.py`: tab lists without To rate; count on History.
+- `test_guest_no_leak.py`, `test_guest_exposure.py`: `/media/history` may answer 307 to the diary (which is crawled itself).
+- `test_home_shelves.py`: `/media/history`'s TV empty state is the diary's.
+- `test_media_library_pages.py`, `test_media_list_posters.py`, `test_style_media.py`, `test_media_rows.py`, `test_media_shelves.py`, `test_media_her.py`, `test_media_diary.py`, `test_tv_awards_diary.py`: Recently-watched checks moved to the diary / inbox / Live page.
+
 ## Shipped notes

@@ -31,7 +31,7 @@ SEARCH_MAX = 8
 PLACES = ("Cinema", "Netflix", "Friend's", "Other")   # the diary log form's place suggestions (<datalist>)
 # Where a plain-form rating may return (media-ux2): the pages that hold a To rate list. Anything else -> history.
 # media-ux4: the Movies / TV Shows "To rate" tabs (the list pages keep their entries for forms already open).
-RATE_BACK = {p: p for p in ("/media/history", "/media/movies", "/media/tv", "/media/movies/to-rate", "/media/tv/to-rate")}
+RATE_BACK = {p: p for p in ("/media/diary", "/media/history", "/media/movies", "/media/tv", "/media/movies/to-rate", "/media/tv/to-rate")}
 
 
 def same_origin(request: Request) -> None:
@@ -133,7 +133,7 @@ def _set_rating_level(request: Request, f: dict):
     except (sqlite3.Error, OSError) as exc:
         log.warning("setting not saved: %s", type(exc).__name__)
         raise HTTPException(503, "Couldn't save the setting") from None
-    return RedirectResponse("/media/history", status_code=303)
+    return RedirectResponse("/media/diary", status_code=303)   # JY-298: Rate TV by sits on History now
 
 
 @router.post("/media/settings/diary_scope", dependencies=[Depends(same_origin)])
@@ -181,7 +181,7 @@ def _rate(request: Request, f: dict):
         raise HTTPException(503, "Couldn't save the rating") from None
     if is_htmx(request):
         return render(request, "_rated_row.html", r=item, score=score)
-    return RedirectResponse(RATE_BACK.get(f.get("back"), "/media/history"), status_code=303)
+    return RedirectResponse(RATE_BACK.get(f.get("back"), "/media/diary"), status_code=303)
 
 
 def _unrate(item_key: str, owner: str) -> dict | None:
@@ -207,12 +207,13 @@ def unrate(request: Request, item_key: str):
 @router.post("/media/rate/{item_key}/delete", dependencies=[Depends(same_origin)])
 def unrate_form(request: Request, item_key: str):
     _unrate(item_key, owner_for(request))
-    return RedirectResponse("/media/history", status_code=303)
+    return RedirectResponse("/media/diary", status_code=303)
 
 
 # To rate: Skip / Skip show (E5, M3, 2026-10-13). Plain forms (hx-swap "innerHTML show:none": the boosted 303 re-renders
 # the page in place, scroll kept); owner-scoped like ratings; back to the To rate page the form came from.
 SKIP_FLASH = {"item": ("Skipped", None), "show": ("Show skipped", None), "unskip": ("Back in To rate", None),
+              "cleared": ("Rating requests cleared", None),   # JY-298
               "failed": (None, "Couldn't save that")}
 flash_keys("skip")
 
@@ -226,7 +227,7 @@ shell.templates.env.globals["skip_flash"] = skip_flash
 
 
 def _skip_back(f: dict, word: str):
-    return RedirectResponse(f"{RATE_BACK.get(f.get('back'), '/media/history')}?skip={word}", status_code=303)
+    return RedirectResponse(f"{RATE_BACK.get(f.get('back'), '/media/diary')}?skip={word}", status_code=303)
 
 
 @router.post("/media/rate/skip", dependencies=[Depends(same_origin)])
@@ -249,6 +250,28 @@ def _skip(request: Request, f: dict, forever: bool):
         log.warning("skip not saved: %s", type(exc).__name__)
         return _skip_back(f, "failed")
     return _skip_back(f, "show" if forever else "item")
+
+
+@router.post("/media/rate/clear", dependencies=[Depends(same_origin)])
+async def clear_requests(request: Request):
+    return await run_in_threadpool(_clear, request, await form_of(request))
+
+
+def _clear(request: Request, f: dict):
+    """JY-298 (B., 2026-11-02, Q1 A): "Clear all rating requests" = skip every row in the viewer's OWN inbox, rebuilt
+    here from the snapshot (never from the form), in one transaction. Writes no rating; Unskip restores any one."""
+    from hub import media_home   # media_home imports shell templates; kept local like the page modules do
+    from hub.ids import JELLYFIN_SNAPSHOT_ID
+    view = shell.resolve_owner_view(request)[0]
+    snap = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
+    recent = (media_home.view_jelly(snap.data if snap else {}, view).get("history") or {}).get("recent") or []
+    rows = media_home._to_rate(recent, media_home._ratings(view, recent))
+    try:
+        media_db.skip_many(media_db.owner_of(view), rows)
+    except (sqlite3.Error, OSError) as exc:
+        log.warning("clear not saved: %s", type(exc).__name__)
+        return _skip_back(f, "failed")
+    return _skip_back(f, "cleared")
 
 
 @router.post("/media/rate/unskip", dependencies=[Depends(same_origin)])

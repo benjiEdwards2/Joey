@@ -317,6 +317,20 @@ def skip(owner: str, key: str, kind: str, title: str, poster=None, forever: bool
                    (owner, key, norm_kind(kind), 1 if forever else 0, _now().isoformat(), title, poster))
 
 
+def skip_many(owner: str, rows) -> int:
+    """JY-298: skip every inbox row (item_key, kind, title, poster) in ONE transaction; never forever. Returns the count."""
+    rows = [r for r in rows or [] if r.get("item_key")]
+    if not rows:
+        return 0
+    now = _now().isoformat()
+    with closing(connect()) as db, db:
+        db.executemany("INSERT INTO rating_skip(owner, key, kind, forever, created_at, title, poster) VALUES(?,?,?,0,?,?,?) "
+                       "ON CONFLICT(owner, key) DO UPDATE SET kind = excluded.kind, created_at = excluded.created_at, "
+                       "title = excluded.title, poster = excluded.poster",
+                       [(owner, r["item_key"], norm_kind(r.get("kind")), now, r.get("title"), r.get("poster")) for r in rows])
+    return len(rows)
+
+
 def unskip(owner: str, key: str) -> None:
     if not db_path().is_file():
         return

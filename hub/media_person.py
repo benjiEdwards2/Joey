@@ -1,7 +1,7 @@
 """Person pages (F11, 2026-10-06): click a cast or crew name on a film page and see everything that person
 is in. Jellyseerr `person/{id}` + `person/{id}/combined_credits` (server-side, cached 10 min via the film
 page's cache), split into "On server" (matched against the Jellyfin snapshot library lists) and
-"Everything else" (Films / TV). Upstream failure degrades to words, never a 500; no URL or key in the page.
+the Films / Film series / Bonus / TV grids. Upstream failure degrades to words, never a 500; no URL or key in the page.
 """
 
 from __future__ import annotations

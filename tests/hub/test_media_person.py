@@ -59,7 +59,7 @@ def test_on_your_server_shelf_first_with_library_matches_only(env):
     seed(both)
     with client:
         b = main_of(client.get("/media/person/55").text)
-    shelf, rest = b.split("Everything else", 1)
+    shelf, rest = b.split('<h2 class="seclabel">Films</h2>', 1)
     assert "On server" in shelf and 'href="/media/item/mov1"' in shelf and 'href="/media/item/ser1"' in shelf
     assert "Harbour Lights" in shelf and "as Pilot" in shelf and "Quiet Show" in shelf
     assert "Old Film" not in shelf and "Harbour Lights" not in rest and "Quiet Show" not in rest
@@ -71,9 +71,9 @@ def test_grid_groups_newest_first_roles_joined_and_status_words(env):
     seed(both)
     with client:
         b = main_of(client.get("/media/person/55").text)
-    rest = b.split("Everything else", 1)[1]
-    assert rest.index("Films") < rest.index("TV")
-    films, tv = rest.split("TV", 1)
+    rest = b.split('<h2 class="seclabel">On server</h2>', 1)[1]
+    assert rest.index('<h2 class="seclabel">Films</h2>') < rest.index('<h2 class="seclabel">TV</h2>')
+    films, tv = rest.split('<h2 class="seclabel">TV</h2>', 1)
     assert films.index("Both Roles") < films.index("Already There") < films.index("Old Film")  # 2022, 2010, 1999
     assert "as Sarah · Director" in films and films.count("Both Roles") == 1
     assert 'href="/media/title/movie/801"' in films and 'href="/media/title/tv/900"' in tv

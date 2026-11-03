@@ -189,7 +189,7 @@ def actor(friend, monkeypatch):
 
 def test_tv_friend_person_page_shows_the_on_server_shelf_only(actor):
     b = page(actor, "/media/person/55", tv=True)
-    assert "On server" in labels(b) and not [x for x in labels(b) if x.startswith("Everything else")]
+    assert "On server" in labels(b) and "Films" not in labels(b)
     assert "/media/title/movie/803" not in b and "Far Signal" not in b
     on = b.split('<h2 class="seclabel">On server</h2>', 1)[1].split("</section>", 1)[0]
     assert "?h=600&amp;" in on and "Sample Actor" in b
@@ -204,7 +204,7 @@ def test_tv_friend_person_with_nothing_on_server_says_so(actor, monkeypatch):
 
 def test_phone_friend_person_page_is_unchanged(actor):
     b = page(actor, "/media/person/55", tv=False)
-    assert "Everything else · Films" in labels(b) and "Far Signal" in b and "?h=600&amp;" not in b
+    assert "Films" in labels(b) and "Far Signal" in b and "?h=600&amp;" not in b
 
 
 # ---- tv.css: the JY-193 block ----

@@ -1,13 +1,14 @@
 """Person pages (F11, 2026-10-06): click a cast or crew name on a film page and see everything that person
 is in. Jellyseerr `person/{id}` + `person/{id}/combined_credits` (server-side, cached 10 min via the film
 page's cache), split into "On server" (matched against the Jellyfin snapshot library lists) and
-"Everything else" (Films / TV). Upstream failure degrades to words, never a 500; no URL or key in the page.
+the Films / Film series / Bonus / TV grids. Upstream failure degrades to words, never a 500; no URL or key in the page.
 """
 
 from __future__ import annotations
 
 import logging
 import re
+from datetime import date
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 
@@ -65,8 +66,33 @@ def _library(jelly: dict) -> dict[str, str]:
     return out
 
 
+DOC_GENRE, DOC_VOTES, MIN_VOTES = 99, 100, 10   # JY-293: documentary / bonus thresholds (orchestrator Q3/Q4)
+TIERS = ("server", "films", "series", "bonus", "tv")
+
+
+def _lead(title: str) -> tuple[str, ...]:
+    """JY-293 series proxy: the first two words of a title, lower case, punctuation dropped."""
+    return tuple(re.findall(r"[a-z0-9]+", title.lower())[:2])
+
+
+def _tier(r: dict, today: str, leads: dict | None) -> str:
+    """JY-293: on server > released films > film series > bonus and other; TV after all films."""
+    if r["jf_id"]:
+        return "server"
+    if r["kind"] == "tv":
+        return "tv"
+    doc = DOC_GENRE in r["genres"] and r["votes"] < DOC_VOTES
+    if r["video"] or not r["date"] or r["date"] > today or r["votes"] < MIN_VOTES or doc:
+        return "bonus"
+    if leads is None:
+        return "films"
+    lead = _lead(r["title"])
+    return "series" if len(lead) == 2 and leads.get(lead, 0) > 1 else "films"
+
+
 def _credits(body, lib: dict[str, str]) -> list[dict]:
-    """combined_credits -> one row per title (cast + crew roles joined), newest first, capped."""
+    """combined_credits -> one row per title (cast + crew roles joined), ordered by JY-293 tier, then newest
+    first, votes, title, id; capped after ordering. Each row carries its `tier`."""
     if not isinstance(body, dict):
         return []
     merged: dict[tuple, dict] = {}
@@ -79,15 +105,34 @@ def _credits(body, lib: dict[str, str]) -> list[dict]:
                 role = f"as {str(c['character'])[:80]}" if c.get("character") else ""
             else:
                 role = str(c.get("job") or "")[:60]
+            try:
+                votes = int(c.get("voteCount") or 0)
+            except (TypeError, ValueError):
+                votes = 0
             m = merged.setdefault((row["kind"], row["tmdb_id"]), {
-                **row, "date": str(c.get("releaseDate") or c.get("firstAirDate") or "")[:10], "roles": []})
+                **row, "date": str(c.get("releaseDate") or c.get("firstAirDate") or "")[:10], "roles": [],
+                "votes": votes, "video": bool(c.get("video")),
+                "genres": [g for g in c.get("genreIds") or [] if isinstance(g, int)]})
             if role and role not in m["roles"]:
                 m["roles"].append(role)
-    rows = sorted(merged.values(), key=lambda r: r["date"], reverse=True)[:CREDITS_MAX]
+    today = date.today().isoformat()
+    leads: dict[tuple, int] = {}
+    for r in merged.values():
+        r["jf_id"] = lib.get(f"tmdb:{r['tmdb_id']}")
+        # only titles that pass the Films tests count, so a featurette cannot promote a film into Series
+        if r["kind"] == "movie" and _tier({**r, "jf_id": None}, today, None) == "films":
+            leads[_lead(r["title"])] = leads.get(_lead(r["title"]), 0) + 1
+    for r in merged.values():
+        r["tier"] = _tier(r, today, leads)
+    rows = sorted(merged.values(), key=lambda r: (r["title"].lower(), r["tmdb_id"]))
+    rows.sort(key=lambda r: (r["date"], r["votes"]), reverse=True)
+    rows.sort(key=lambda r: TIERS.index(r["tier"]))
+    rows = rows[:CREDITS_MAX]
     for r in rows:
         r["role"] = " · ".join(r.pop("roles"))
-        jf_id = lib.get(f"tmdb:{r['tmdb_id']}")
-        r["jf_id"] = jf_id
+        for k in ("votes", "video", "genres"):
+            r.pop(k)
+        jf_id = r["jf_id"]
         r["on_server"] = bool(jf_id) or r["status_word"] in md.ON_DISK
         r["word"] = ("On server" if r["on_server"] else r["status_word"] if r["status_word"] in ("Requested", "Processing")
                      else "Not on server")
@@ -123,7 +168,9 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
     return {"down": False, "tmdb": tmdb_id, "name": str(person.get("name") or "Unknown")[:120],
             "ref": md._ref(person.get("profilePath")), "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
-            "shelf": shelf, "films": [r for r in rest if r["kind"] == "movie"], "shows": [r for r in rest if r["kind"] == "tv"],
+            "shelf": shelf, "films": [r for r in rest if r["tier"] == "films"],
+            "series": [r for r in rest if r["tier"] == "series"], "bonus": [r for r in rest if r["tier"] == "bonus"],
+            "shows": [r for r in rest if r["tier"] == "tv"],
             "writing": _writing(credits, lib),
             "tv_maker": media_follow.tv_maker(credits),   # F5: Follow covers their new shows too
             "head": f"{len(rows)} title{'s' if len(rows) != 1 else ''} · {len(shelf)} on server"}

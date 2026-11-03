@@ -206,6 +206,26 @@ def test_last_search_running_long_message_and_apps_without_one(raw):
     jsonschema.validate(data, SCHEMA)
 
 
+def test_last_search_recognises_the_id_scoped_sweep_commands(raw):
+    """JY-302: Joey's sweeps are MoviesSearch / EpisodeSearch now; they count as the newest search ("search"), and
+    the old library-wide names already in the apps' history are still read."""
+    raw = copy.deepcopy(raw)
+    raw["raw_radarr_command"] = [
+        {"id": 1, "name": "MissingMoviesSearch", "status": "completed", "queued": "2026-01-01T00:00:00Z"},
+        {"id": 2, "name": "MoviesSearch", "status": "completed", "queued": "2026-01-02T00:00:00Z",
+         "ended": "2026-01-02T00:01:00Z", "message": "Completed search for 3 movies. 1 reports downloaded."}]
+    raw["raw_sonarr_command"] = [
+        {"id": 7, "name": "EpisodeSearch", "status": "queued", "queued": "2026-01-01T00:00:00Z"},
+        {"id": 8, "name": "CutoffUnmetEpisodeSearch", "status": "completed", "queued": "2026-01-03T00:00:00Z",
+         "ended": "2026-01-03T00:00:10Z"}]
+    data = Arr().transform(raw)
+    assert data["upgrades"]["last_search"] == [
+        {"name": "search", "app": "radarr", "status": "completed", "ended": "2026-01-02T00:01:00Z",
+         "message": "Completed search for 3 movies. 1 reports downloaded."},
+        {"name": "upgrades", "app": "sonarr", "status": "completed", "ended": "2026-01-03T00:00:10Z", "message": None}]
+    jsonschema.validate(data, SCHEMA)
+
+
 def test_a_failed_command_call_only_drops_that_apps_last_search(live, monkeypatch, raw):
     failing(monkeypatch, raw, "/api/v3/command", app="radarr")
     envelope = Arr().run()

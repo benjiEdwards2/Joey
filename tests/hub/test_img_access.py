@@ -149,3 +149,53 @@ def test_deciding_makes_no_network_call_and_snapshot_is_read_once(calls, monkeyp
     for _ in range(20):
         assert is_card(get(c, f"jf:{HER_ONLY}"))
     assert len(calls) == before and reads == []   # 20 refusals: no upstream call, snapshot set reused
+
+
+# ---- JY-272: stored backdrops jfs:<id>/1 and /2 follow the same rule as jfs:<id>/logo ----
+
+def is_404(r):
+    return r.status_code == 404 and r.headers["cache-control"] == "no-store"
+
+
+def test_friend_denied_stored_backdrops_of_a_hidden_title_same_as_logo(calls, monkeypatch, tmp_path):
+    stored = tmp_path / "abc123.jpg"
+    stored.write_bytes(b"STORED")
+    monkeypatch.setattr(media_posters, "served_backdrop", lambda jf_id, n: stored)
+    monkeypatch.setattr(media_posters, "served_logo", lambda jf_id: stored)
+    c = client_as(monkeypatch, FRIEND)
+    logo = get(c, f"jfs:{HER_ONLY}/logo", params={"v": "abc123"})
+    assert is_404(logo)
+    for n in (1, 2):
+        r = get(c, f"jfs:{HER_ONLY}/{n}", params={"v": "abc123"})
+        assert is_404(r) and r.content == logo.content and r.content != b"STORED"
+    assert calls == []   # no Jellyfin fallback either
+
+
+def test_friend_gets_stored_backdrops_for_shown_and_snapshot_titles(calls, monkeypatch, tmp_path):
+    stored = tmp_path / "abc123.jpg"
+    stored.write_bytes(b"STORED")
+    monkeypatch.setattr(media_posters, "served_backdrop", lambda jf_id, n: stored)
+    img_access.note(FRIEND.jf_user_id, {"item": {"id": OWN}})
+    c = client_as(monkeypatch, FRIEND)
+    for ident in (OWN, SHARED):   # read as them; shared snapshot
+        for n in (1, 2):
+            assert get(c, f"jfs:{ident}/{n}", params={"v": "abc123"}).content == b"STORED"
+    assert get(c, f"jfs:{SHARED}/1").content == JPEG   # no v: the Jellyfin fallback, as today
+
+
+def test_household_gets_stored_backdrops_of_a_hidden_title(calls, monkeypatch, tmp_path):
+    stored = tmp_path / "abc123.jpg"
+    stored.write_bytes(b"STORED")
+    monkeypatch.setattr(media_posters, "served_backdrop", lambda jf_id, n: stored)
+    c = client_as(monkeypatch, HOUSEHOLD)
+    for n in (1, 2):
+        assert get(c, f"jfs:{HER_ONLY}/{n}", params={"v": "abc123"}).content == b"STORED"
+
+
+def test_stored_backdrop_unknown_viewer_and_hostile_ref(calls, monkeypatch):
+    class Bare:
+        scope = {"state": {}}
+    assert img_access.allowed(Bare(), "jfs", f"{HER_ONLY}/1") is None
+    c = client_as(monkeypatch, FRIEND)
+    assert get(c, f"jfs:{HER_ONLY}/3").status_code in (404, 422)   # REF_RE: only /1, /2, /logo
+    assert get(c, "jfs:../../etc/passwd/1").status_code in (404, 422)

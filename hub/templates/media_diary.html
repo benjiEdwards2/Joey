@@ -64,6 +64,39 @@
 </details>
 {% endif %}
 
+{# JY-298 (B., 2026-11-02): To rate lives here now - the count of the viewer's own unrated titles from the last 30
+   days, the folded list (1-10 strip, Skip / Skip show) and "Clear all" (skips every open request; Unskip brings one back). The clear
+   asks once through a <details> fold (no JS confirm, so the TV remote reaches it). First page only. #}
+{% if to_rate %}
+{% import "_to_rate.html" as torate %}
+<section class="sec torate" id="to-rate">
+  <h2 class="seclabel">To rate</h2>
+  <p class="metaline">{{ to_rate | length }} waiting for your rating</p>
+  {% set sf = skip_flash(request) %}
+  {% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
+  <div class="toolbar">
+    {% if not tv %}<form class="chips" method="post" action="/media/settings/rating_level" aria-label="Rate TV by">
+      <span class="microlabel">Rate TV by</span>
+      {% for lv in rating_levels %}
+      <button type="submit" name="value" value="{{ lv }}" class="chip{{ ' on' if rating_level == lv }}"{% if rating_level == lv %} aria-current="true"{% endif %}>{{ lv|capitalize }}</button>
+      {% endfor %}
+    </form>{% endif %}
+    <details class="clearall">
+      <summary class="btn btn-secondary">Clear all rating requests ({{ to_rate | length }})</summary>
+      <form method="post" action="/media/rate/clear"><input type="hidden" name="back" value="/media/diary">
+        <p class="metaline">Skip all {{ to_rate | length }}? Nothing gets a score; Unskip brings one back.</p>
+        <button class="btn btn-primary" type="submit">Yes, clear {{ to_rate | length }}</button></form>
+    </details>
+  </div>
+  {# the rows fold away: the diary below already rates each watch, so the list only opens for Skip / Skip show #}
+  <details class="torate-list"><summary class="btn btn-ghost">Show the {{ to_rate | length }} waiting</summary>
+  {{ torate.rows(to_rate, tv) }}
+  </details>
+</section>
+{% else %}{% set sf = skip_flash(request) %}{% if sf[0] %}<p class="metaline st-good" role="status">{{ sf[0] }}</p>{% elif sf[1] %}<p class="metaline st-warn" role="status">{{ sf[1] }}</p>{% endif %}
+{% endif %}
+{% if skipped %}{% import "_to_rate.html" as torate2 %}{{ torate2.skipped(skipped, "/media/diary") }}{% endif %}
+
 {% if on_this_day %}
 <section class="sec">
   <h2 class="seclabel">On this day</h2>

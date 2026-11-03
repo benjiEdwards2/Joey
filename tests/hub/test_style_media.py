@@ -47,7 +47,7 @@ def test_media_templates_use_no_retired_class():
 def test_rows_render_the_row_recipe_with_a_graded_or_missing_score(dl_env):
     media_db.set_rating("jf:ser1", 8, "tv", "Quiet Show")
     with dl_env(jellyfin=LINKED) as client:
-        for path in ("/media/history", "/media/playing"):
+        for path in ("/media/playing",):   # JY-298 (2026-11-03): /media/history is the diary now (its own row tests)
             body = main_of(client.get(path).text)
             assert '<div class="listbox">' in body and re.search(r'<(a|div) class="row[ "]', body), path
             assert '<div class="row-title">' in body and '<div class="row-meta">' in body, path
@@ -80,7 +80,8 @@ def test_film_page_renders_the_detail_hero(film_env):
     assert hero.count("btn-white") == 1 and "btn-icon" in hero
     assert '<nav class="sectabs sectabs-page"' in hero  # nav-tidy (2026-10-13): the in-page section row
     # media-ux4 (2026-10-08, B.): one pill style (site links); E4 (2026-10-13): they sit in the Scores strip, not the hero
-    assert 'class="scorepill sitepill"' not in hero and 'class="scorepill sitepill"' in b.split("</header>", 1)[1]
+    # JY-280 P2 (2026-11-03): a film's site links are its scores (`.scorelink`) in the right column; no site-pill row
+    assert 'class="scorepill sc' not in hero and 'class="scorepill scorelink' in b.split("</header>", 1)[1]
     assert '<div class="stats numbers">' in b
 
 

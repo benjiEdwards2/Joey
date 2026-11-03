@@ -56,7 +56,7 @@ def test_movie_page(env):
     assert r.status_code == 200
     b = main_of(html)
     assert "Harbour Lights (2019)" in b and "A ferry pilot returns home." in b
-    assert "Drama · Thriller" in b and "1h 52m" in b and '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and ">M<" in b  # media-ux4 (2026-10-08, B.): one pill style
+    assert "Drama · Thriller" in b and "1h 52m" in b and 'alt="TMDB" width="16" height="16"><b class="sp-val">7.8</b>' in b and ">M<" in b  # media-ux4 (2026-10-08, B.): one pill style
     assert f'href="{deep("mov1")}" target="_blank" rel="noopener"' in b
     assert "Resume ▶ · 32m left" in b                       # 112 - 80 minutes
     assert b.index("Resume ▶") < b.index('href="#rate"')       # Play first, then Rate
@@ -90,7 +90,8 @@ def test_episode_page_and_map(env):
     assert 'href="/media/item/ser1#seasons"' in b          # the show: the part-of banner (media-ux4 dropped the "Episode of" line)
     assert "S04E03 · Penny for Your Thoughts" in b and "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Play again ▶" in b and f'href="{deep("ep3")}"' in b
-    assert "Quiet Show (2020)" in b and "A quiet show." in b        # the SHOW's page content below
+    # the SHOW's page content below; JY-282 (2026-11-03, pick Q2 = A): not the show's synopsis, the episode's only
+    assert "Quiet Show (2020)" in b and "A quiet show." not in b
     assert "3 of 6 watched" in b
     # Episode list (2026-10-08, replaced the numbered squares + their legend): one whole-row link per episode with
     # its state in words; the row's class carries the state too.

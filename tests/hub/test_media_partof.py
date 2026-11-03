@@ -136,8 +136,9 @@ def test_collection_banner_leads_the_film_body_after_cast_and_scores(env):
     with client:
         b = main_of(whole(client, "/media/item/mov1"))
     # JY-280 P1: a film's one overview is in the hero; the body reads Cast, the Scores card, the series banner, File
-    marks = ['<h2 class="seclabel">Cast</h2>', '<div class="stats numbers">', 'id="collection"',
-             '<h2 class="seclabel">File</h2>', '<h2 class="seclabel">More on Joey</h2>']
+    # JY-280 P2 (2026-11-03): the two-column body (cast | Scores, Details, File drawer) comes first, then the banner
+    marks = ['<h2 class="seclabel">Cast</h2>', '<div class="stats numbers">', "File details</summary>", 'id="collection"',
+             '<h2 class="seclabel">More on Joey</h2>']
     at = [b.index(m) for m in marks]
     assert at == sorted(at) and '<h2 class="seclabel">Overview</h2>' not in b
     assert '<h2 class="seclabel">Harbour Collection</h2>' not in b                 # no longer a bottom shelf

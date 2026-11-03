@@ -229,6 +229,10 @@ def test_last_search_words():
     failed = mu.last_search(snaps_with([{"name": "upgrades", "app": "radarr", "status": "failed",
                                          "ended": "2026-10-20T14:00:00Z", "message": "boom"}]))
     assert failed[0]["warn"] == "failed"
+    scoped = mu.last_search(snaps_with([{"name": "search", "app": "radarr", "status": "completed",   # JY-302
+                                         "ended": "2026-10-20T14:00:00Z",
+                                         "message": "Completed search for 3 movies. 2 reports downloaded."}]))
+    assert scoped[0]["parts"][:2] == ["Last search", "Radarr"]
     assert mu.last_search(snaps_with([])) == [] and mu.last_search({}) == []
 
 

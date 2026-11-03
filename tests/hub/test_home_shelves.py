@@ -170,7 +170,8 @@ EMPTY = [("/media/movies/watchlist", "Nothing on your watchlist yet", "Press + W
          ("/media/tv/watchlist", "Nothing on your watchlist yet", "Press + Watchlist on any show"),
          ("/media/movies/to-rate", "Nothing to rate right now", "Films you finish show up here"),
          ("/media/tv/to-rate", "Nothing to rate right now", "Shows you finish show up here"),
-         ("/media/history", "Nothing watched yet", "Finish a film or episode and it shows up here"),
+         # JY-298 (2026-11-03): /media/history redirects to the diary, so its empty state is the diary's
+         ("/media/history", "Your diary is empty", "Films and episodes you finish are logged here"),
          ("/media/diary", "Your diary is empty", "Films and episodes you finish are logged here")]
 
 

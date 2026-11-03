@@ -91,9 +91,9 @@ def test_library_downloading_rows_link_like_the_other_library_rows(env):
 def test_watched_rows_are_whole_row_links_and_rateable_rows_use_the_overlay(env):
     with env(jellyfin=LINKED) as client:
         body = main_of(client.get("/media/history").text)
-    recent = between(body, ">Recently watched<")
-    assert row_of(recent, "Quiet Show").startswith('<a class="row" href="/media/item/e2">')
-    to_rate = between(body, ">To rate<", ">Recently watched<")   # E3; sentence case since nav-tidy (2026-10-13)
+    # JY-298 (2026-11-03): Recently watched left with the To rate page; its whole-row link check moved to the inbox
+    # row's overlay link below, and the To rate section ends at its own </section>
+    to_rate = between(body, ">To rate<", "</section>")   # E3; sentence case since nav-tidy (2026-10-13)
     assert "row has-form" in to_rate  # the inbox row carries the picker form
     assert '<a class="rowlink" href="/media/item/e2">' in to_rate and "<form" in to_rate
     assert not re.search(r'<a class="rowlink"[^>]*>(?:(?!</a>).)*<form', to_rate, re.S)  # form never inside

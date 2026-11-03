@@ -45,6 +45,11 @@
   <button type="submit" class="btn btn-ghost btn-sm undo" hx-delete="/media/rate/{{ r.item_key|urlencode }}" hx-target="closest .rated" hx-swap="outerHTML">Undo</button>
 </form>
 {% endmacro %}
+{# JY-288: a show's "Yours 8.3 avg" pill - the mean of your rated seasons (else episodes), the movie pill's look; the
+   link opens the Rate popover so the whole show can still be rated #}
+{% macro avg_pill(avg, logo) %}
+<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ logo }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val {{ grade(avg) }}" title="Your average: {{ num(avg) }} out of 10">{{ num(avg) }}</b><span class="sp-name">avg</span><span class="vh"> Your seasons average {{ num(avg) }} out of 10</span></a>
+{% endmacro %}
 {% macro rated(r, score) %}
 <form class="rated" method="post" action="/media/rate/{{ r.item_key|urlencode }}/delete">
   {# E3 (U27, 2026-10-13): the number once — "8 · RATED", not "8 RATED 8 OUT OF 10" (the title keeps the full words) #}

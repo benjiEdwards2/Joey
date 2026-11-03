@@ -144,7 +144,7 @@ def test_on_this_day_and_milestones_live_on_the_diary_not_history(env):
         history = main_of(client.get("/media/history").text)
     assert ">On this day</h2>" in diary and "Salt Flats" in diary
     assert "Milestones: " in diary and "First watch of 2025: Heat" in diary
-    assert "On this day" not in history
+    assert ">On this day</h2>" in history   # JY-298 (2026-11-03): /media/history redirects to the diary now
 
 
 def test_diary_renders_with_no_snapshot_and_no_db_file(env):
@@ -283,8 +283,9 @@ def test_diary_scope_everyone_lists_both_owners_with_words_then_mine_returns(env
         body = main_of(client.get("/media/diary").text)
         assert 'value="everyone" class="chip on" aria-current="true">Everyone<' in body
         assert "Heat" in body and "Ronin" in body
-        ronin = body.split("Ronin", 1)[1].split("diaryrow", 1)[0]
-        heat = body.split(">Heat<", 1)[1].split("diaryrow", 1)[0]
+        rows = body.split('<div id="diary-new"', 1)[1]   # JY-298 (2026-11-03): past History's To rate (Heat waits there)
+        ronin = rows.split("Ronin", 1)[1].split("diaryrow", 1)[0]
+        heat = rows.split(">Heat<", 1)[1].split("diaryrow", 1)[0]
         assert 'class="row-meta">Georgina<' in ronin and 'class="row-meta">You<' in heat   # a word, not a colour
         assert client.post(SCOPE_FORM, data={"value": "mine"}, follow_redirects=False).status_code == 303
         mine = main_of(client.get("/media/diary").text)

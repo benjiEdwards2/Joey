@@ -84,8 +84,8 @@ def test_numbers_with_imdb_and_rt(env, monkeypatch):
         media_db.set_rating("tmdb:603", 10, "movie", "Harbour Lights", year=2019)
         b = main_of(whole(client, "/media/title/movie/603"))
     # Restyle Phase 3: the numbers are a stats strip (micro label over a big value).
-    assert '<span class="sp-name">TMDB</span><b class="sp-val">7.8</b>' in b and '<span class="sp-name">IMDb</span><b class="sp-val">7.9</b>' in b  # media-ux4 (2026-10-08, B.): one pill style
-    assert '<span class="sp-name">RT</span><b class="sp-val">92%</b>' in b
+    assert 'alt="TMDB" width="16" height="16"><b class="sp-val">7.8</b>' in b and 'alt="IMDb" width="16" height="16"><b class="sp-val">7.9</b>' in b  # media-ux4 (2026-10-08, B.): one pill style
+    assert 'alt="Rotten Tomatoes" width="16" height="16"><b class="sp-val">92%</b>' in b
     assert "1h 52m" in b and re.search(r"ends \d\d:\d\d if you start now", b) and ">M<" in b
     assert 'score-9" title="Your rating: 10 out of 10">10<' in b and "gold-glow" not in b and "gold-text-glow" not in b
 
@@ -109,7 +109,7 @@ def test_community_falls_back_to_tmdb_vote_when_not_on_server(env):
     client, both = env()
     both.seerr.table["/api/v1/movie/701"] = {**PLAIN, "voteAverage": 6.51}
     with client:
-        assert '<span class="sp-name">TMDB</span><b class="sp-val">6.5</b>' in main_of(client.get("/media/title/movie/701").text)  # media-ux4 (2026-10-08, B.): one pill style
+        assert 'alt="TMDB" width="16" height="16"><b class="sp-val">6.5</b>' in main_of(client.get("/media/title/movie/701").text)  # media-ux4 (2026-10-08, B.): one pill style
 
 
 # ---- button row ----
@@ -201,7 +201,8 @@ def test_cast_portraits_initials_makers_and_providers(env):
     assert 'class="castpic initials" aria-hidden="true">B' in b and ">Bo Bit<" in b and "as Deckhand" in b
     assert 'href="/media/person/find?name=Dee%20Director"' in b
     assert "<dt>Cinematography</dt>" in b and "Cy Camera" in b              # crew grid (film-quality)
-    assert ">Netflix</a>" in b and ">Apple TV</a>" in b and "USOnly" not in b
+    # JY-280 P2 (2026-11-03) + JY-286: a film's where-to-watch is the streaming logos only (alt = the name), under the hero's buttons
+    assert 'alt="Netflix"' in b and ">Netflix<" not in b and "Apple TV" not in b and "USOnly" not in b
     assert 'href="https://www.justwatch.com/au/search?q=Harbour%20Lights"' in b
     assert "A ferry pilot returns home." in b
     # F2: the tagline is drawn inline only - it is there once the title body is cached (the next open, or a prefetch)

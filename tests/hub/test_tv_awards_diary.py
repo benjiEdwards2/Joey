@@ -161,7 +161,9 @@ def test_tv_to_rate_rows_fold_the_strip(friend, monkeypatch):
     monkeypatch.setattr(media_home, "_to_rate", lambda recent, ratings: rows)
     tv = main_of(friend.get("/media/history", headers=TV).text)
     assert "Rate TV by" not in tv and "this week" not in tv
-    assert re.search(r'<h2 class="seclabel">To rate<span class="sep"> · </span>1</h2>', tv)
+    # JY-298 (2026-11-03): the TV's To rate sits on History; the count is its own line under the label
+    assert '<h2 class="seclabel">To rate</h2>' in tv and "1 waiting for your rating" in tv
+    assert 'action="/media/rate/clear"' in tv and "Clear all rating requests (1)" in tv   # JY-298: D-pad reaches it
     fold = re.search(r'<details class="tvrate">\s*<summary[^>]*>OK to rate</summary>(.*?)</details>', tv, re.S)
     assert fold and 'class="ratepick"' in fold.group(1) and "Skip" in fold.group(1)
     desk = main_of(friend.get("/media/history").text)

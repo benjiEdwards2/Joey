@@ -125,7 +125,7 @@ def h1s(html):
 
 @pytest.mark.parametrize("route, title", [
     ("/media/movies", "My films"), ("/media/tv", "My shows"), ("/media/movies/watchlist", "My films"),
-    ("/media/diary", "History"), ("/media/history", "To rate"), ("/media/requests", "Requests"),
+    ("/media/diary", "History"), ("/media/history", "History"), ("/media/requests", "Requests"),
     ("/media/playing", "Live"), ("/media/discover", "Discover"), ("/media/following", "Following"),
     ("/media/movies/awards", "Awards")])
 def test_media_page_head_is_the_active_tab_label(sample_client, route, title):

@@ -15,6 +15,12 @@
     </dl>
     {% endif %}
     {% if fp.filename %}<p class="filename">{{ fp.filename }}</p>{% endif %}
+    {% if fp.episodes %}{# JY-281: a show's (a season page: that season's) episode files, owner only like the rest #}
+    <div class="microlabel">By episode</div>
+    <dl class="kvrows fileeps">
+      {% for e in fp.episodes %}<div class="kv"><dt>{{ e.code }}</dt><dd>{{ [e.size_text, e.audio_text, e.subs_text]|select|join(" · ") }}{% if e.filename %}<span class="filename">{{ e.filename }}</span>{% endif %}</dd></div>{% endfor %}
+    </dl>
+    {% endif %}
   </div>
 {%- endmacro %}
 {% macro drawer(fp) -%}

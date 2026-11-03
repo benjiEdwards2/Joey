@@ -419,12 +419,12 @@ def test_the_top_row_is_variant_c_and_its_focus_rings_are_never_clipped():
     """The bar's own top margin is 2.5 % (13.5 px at 960x540) and its controls 24 px: 13.5 + 24 + 1 = 38.5 px (was 64).
     control-surface.css hides .toplinks overflow from 768 px, which cut the section pills' ring (verifier): TV shows it."""
     css = _sheet()
-    assert "--tv-my-bar: 13.5px" in css and "--tv-bar: 38.5px" in css
-    assert re.search(r"html\.tv \.topbar-in \{[^}]*padding: var\(--tv-my-bar\)", css)
-    assert re.search(r"html\.tv \.toplinks a \{ height: 24px;", css)
-    assert "html.tv .toplinks { overflow: visible; }" in css
-    ring = 4 + 3
-    assert 13.5 - ring >= 0                                                      # the ring above a pill stays on screen
+    # JY-307 P2 (2026-11-03, option B): the bar became the left rail; its stops are 48 px rows inside a 16 px side pad,
+    # filled white on focus (no outline ring to clip); the rail's top pad is the 5 % overscan
+    assert "--tv-bar: 0px" in css
+    assert re.search(r"html\.tv \.topbar-in \{[^}]*padding: var\(--tv-my\) 16px;", css)
+    assert re.search(r"html\.tv \.toplinks a\.tv-focus, html\.tv \.toplinks a:focus-visible \{\s*outline: none; background: #fff;", css)
+    assert re.search(r"html\.tv \.toplinks \{[^}]*overflow: visible; \}", css)
 
 
 # ---- B. 2026-10-29: "center the joey media row ..." and "reduce teh redius on most of the cornering" ----
@@ -440,11 +440,11 @@ def test_the_top_row_sits_centred_over_each_page_start():
     assert "html.tv form.toolbar.discover-search { display: block; margin: 12px 0 0; }" in css
 
 
-def test_every_corner_is_a_small_round_from_two_tokens():
+def test_every_corner_is_a_small_round_from_two_tokens():   # JY-307 P1: 8 px corners, plus a pill token
     css = _sheet()
-    assert "--tv-r: 6px; --tv-r-sm: 4px;" in css
+    assert "--tv-r: 8px; --tv-r-sm: 4px; --tv-r-pill: 160px;" in css
     radii = re.findall(r"border-radius: ([^;}]*)", css)
-    allowed = {"var(--tv-r)", "var(--tv-r-sm)", "50%", "3px", "4px", "0"}
+    allowed = {"var(--tv-r)", "var(--tv-r-sm)", "var(--tv-r-pill)", "50%", "3px", "4px", "0"}
     assert radii and all(set(r.split()) <= allowed for r in radii), sorted(set(radii) - allowed)
     assert re.search(r"html\.tv \.btn \{[^}]*border-radius: var\(--tv-r-sm\)", css)                  # buttons 4 px
     assert re.search(r"html\.tv \.tvt-person \.card-pic, html\.tv \.tvt-person \.card-pic > img \{[^}]*border-radius: 50%", css)   # cast circles stay

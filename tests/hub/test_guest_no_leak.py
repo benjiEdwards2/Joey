@@ -117,7 +117,9 @@ def test_the_control_run_as_bs_outside_user_sees_only_his_own_rows(client):
                                                    and r.headers["location"].startswith("/media/diary")), (path, r.status_code)
             bodies += r.text
     assert "SENTINEL_YOU_" in bodies and "_DB" in bodies          # the sweep can see data
-    assert "SENTINEL_HER_" not in bodies
+    # JY-299 (B., 2026-11-02: "I am the only one that can see everything"): owner "you" - here B.'s outside user - sees
+    # everyone's History rows (her diary row, named), on the TV / media front too; nothing else of hers
+    assert "SENTINEL_HER_" not in bodies.replace("SENTINEL_HER_DIARY_DB", "")
     for word in ("SUMMARY", "UPNEXT", "NOW", "HIST", "USER", "SECONDARY", "MOSTPLAYED", "PLAYED_AT", "REQUESTER", "QBIT",
                  "TORRENT"):
         assert f"SENTINEL_YOU_{word}" not in bodies, word   # the admin's snapshot never reaches the media front

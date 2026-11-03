@@ -153,10 +153,24 @@ def start_recorder():
 
 # ---- History page ----
 
+def who_label(owner: str, names: dict) -> str:
+    """JY-299: whose row it is, in words, for the owner's views only - You, the her-name, else the friend's Jellyfin
+    name from the play log (never stored in the repo), else "Friend"."""
+    if owner == "you":
+        return "You"
+    if owner == "her":
+        return os.environ.get("OWNER_NAME_HER") or "Georgina"
+    return names.get(owner) or "Friend"
+
+
 def history_context(window, view: str) -> dict:
     window = window if window in ("year", "all") else (int(window) if str(window) in ("7", "30", "90") else 30)
-    owner = media_db.owner_filter(view)
-    s = pdb.stats(window, owner)
+    # JY-299 (B., 2026-11-02): only owner "you" sees everyone's plays, each person named; a friend / her their own;
+    # no identity on the media front reads nothing (owner_filter fails closed in pdb._rows).
+    everyone = view == "you"
+    s = pdb.stats(window, pdb.EVERYONE if everyone else view)
+    people = [{**p, "who": who_label(p["owner"], {p["owner"]: p["name"]} if p["name"] else {})} for p in s.pop("by_person")] if everyone else []
+    s.pop("by_person", None)
     day = s["busiest_day"]
     if day:
         d = datetime.fromisoformat(day["date"])
@@ -165,7 +179,7 @@ def history_context(window, view: str) -> dict:
     hours = [{"label": f"{h:02d}", "count": n, "pct": round(100 * n / top)} for h, n in enumerate(s["by_hour"])]
     chips = [{"label": label, "href": f"/media/server/history?w={w}", "on": w == window} for w, label in WINDOW_CHIPS]
     return {"stats": {**s, "busiest_day": day, "hours_text": pdb.hours_text(s["hours"])}, "chips": chips,
-            "by_hour": hours, "empty": s["plays"] == 0,
+            "by_hour": hours, "empty": s["plays"] == 0, "people": people,
             "since": pdb.first_run_date() or datetime.now(timezone.utc).date().isoformat()}
 
 

@@ -6,9 +6,11 @@ no data. The Watchlist and Awards pages render through it too.
 
 from __future__ import annotations
 
+import logging
 import os
 import random
 from datetime import date, datetime, timezone
+from hub.store import parse_utc
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
@@ -16,9 +18,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
 from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-front only
-from hub import (media_awards_badges, media_backup, media_db, media_download_actions, media_downloads, media_home, media_item, media_library,
+from hub import (media_awards_badges, media_backup, media_db, media_directors, media_download_actions, media_downloads, media_home, media_item, media_library,
+                 media_plays, media_plays_db,
                  media_quality, media_requests, media_requests_approve, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
                  server, shell, upcoming)
+log = logging.getLogger("hub.media_pages")
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
 router = APIRouter()
@@ -289,21 +293,24 @@ def media_diary_page(request: Request):
     def build(data, view):
         history = data.get("history") or {}
         owner = media_db.owner_of(view)
+        if media_db.friend_key(owner):   # JY-299: a friend's watch history is their own recorded plays (Q4)
+            history = {**history, "recent": [media_plays.diary_row(p, parse_utc(p["last_seen_at"]) or datetime.now(timezone.utc))
+                                             for p in media_plays_db.recent_finished(owner, media_home.TO_RATE_DAYS)]}
         jsnap = shell.get_snapshots(request=request).get(JELLYFIN_SNAPSHOT_ID)
         stats = _diary_sync_and_stats(history.get("recent"), owner, jsnap.updated_at if jsnap else None)
         # Diary scope (2026-10-13): only owner "you" may list everyone's rows (like Jellyfin's admin); each row then
         # names whose it is in words. Stats, streak and "Log a watch" stay the viewer's own.
         scope = media_db.diary_scope(owner)
         everyone = scope == "everyone"
-        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, None if everyone else owner)
+        rows = media_db.list_diary(DIARY_PAGE + 1, offset, kind, None if everyone else owner, friends=everyone)
+        names = media_plays_db.owner_names() if everyone else {}
         more = len(rows) > DIARY_PAGE
         rows = rows[:DIARY_PAGE]
         months: list[dict] = []
         lines = media_db.group_diary(rows)
-        her_name = os.environ.get("OWNER_NAME_HER") or "Georgina"
         for row in lines:
-            if everyone:
-                row["who"] = "You" if row.get("owner") == owner else her_name
+            if everyone:   # JY-299: each row names whose it is (You / her-name / the friend's name), owner only
+                row["who"] = media_plays.who_label(row.get("owner") or "", names)
                 row["theirs"] = row.get("owner") != owner   # 2026-10-13: no 1-10 picker / score on her rows
             label = date.fromisoformat(row["watched_on"]).strftime("%B %Y")
             if not months or months[-1]["label"] != label:
@@ -472,6 +479,21 @@ def _links_with(request: Request, name: str, values, drop=None) -> dict:
                                    if keep or v != drop else "") for v in values}
 
 
+def _run_each(jobs) -> None:
+    """Run each background job on its own, so one failing never skips the next (logs the exception type only)."""
+    for job in jobs:
+        try:
+            job()
+        except Exception as exc:
+            log.warning("library background job failed: %s", type(exc).__name__)
+
+
+def _sort_link(request: Request, sort: str, d: str | None) -> str:
+    """JY-279: this page with every other param kept, `sort` set and `dir` set (None = the column's default)."""
+    keep = [(k, v) for k, v in request.query_params.multi_items() if k not in ("sort", "dir")]
+    return request.url.path + "?" + urlencode(keep + [("sort", sort)] + ([("dir", d)] if d else []))
+
+
 # Suggestions carousel (2026-10-13, B.): New · Continue watching · Not yet watched; `?s=` wins and is remembered in a
 # cookie scoped to /media like the Grid / List choice, else the cookie, else New.
 SUGGEST_COOKIE = "media_libsugg"
@@ -513,13 +535,24 @@ def _library_page(request: Request, kind: str):
         arrived = media_library.link_arrivals(arrived, items, kind, lambda jf: media_home.item_href(jf))
         q = request.query_params.get("q", "")
         sorts = media_library.sort_labels(kind)
+        from hub.media_front import tv_mode   # lazy: media_front is a front-level module
+        # JY-279 (list view columns, option B): the columns, and the Upgrade / Director sorts, are the web List view's
+        # only; Grid and the TV keep their sorts unchanged. Director / Creator come from media.db; the reads run later.
+        cols = libview == "list" and not tv_mode(request)
+        if not cols:
+            sorts = {k: v for k, v in sorts.items() if k not in ("upgrade", "director")}
         sort = request.query_params.get("sort", "score")
         sort = sort if sort in sorts else "score"
+        d = media_library.sort_dir(sort, request.query_params.get("dir")) if cols and sort in media_library.COLUMN_DEFAULT_DIR else None
+        if cols:
+            have = media_directors.attach(rows or [], kind)
+            directors_later[0] = media_directors.later(rows or [], kind, have)
         # 2026-10-13 (B.): one flat grid narrowed by a filter chip (the Grouped chip is gone; an old `group=` is ignored)
         filters = media_library.FILTERS[kind]
         f = request.query_params.get("f", "all")
         f = f if marks and f in filters else "all"
-        shown = media_library.arrange(rows or [], q, sort, f, kind, resume)
+        shown = media_library.arrange(rows or [], q, sort, f, kind, resume,
+                                      d=request.query_params.get("dir") if cols else None)
         suggested = arrived if suggest == "new" else media_library.suggestions(rows or [], kind, suggest, resume_rows, marks)
         return {
             "kind": kind, "marks": marks, "rows": rows, "q": q, "sort": sort, "sorts": sorts,
@@ -538,11 +571,14 @@ def _library_page(request: Request, kind: str):
                              else media_library.SUGGESTION_EMPTY[suggest],
             "ratings": media_home._ratings(view, arrived),
             "libview": libview, "libview_links": library_view_links(request), "waiting": waiting,
+            "columns": media_library.column_heads(kind, sort, d, lambda s_, d_: _sort_link(request, s_, d_)) if cols else None,
         }
     later = [None]
+    directors_later = [None]
     resp = _detail_page(request, template, JELLYFIN_SNAPSHOT_ID, build)
-    if later[0] is not None:
-        resp.background = BackgroundTask(later[0])
+    jobs = [j for j in (later[0], directors_later[0]) if j is not None]
+    if jobs:
+        resp.background = BackgroundTask(_run_each, jobs)
     if view_from_query:
         resp.set_cookie(LIBVIEW_COOKIE, libview, max_age=LIBVIEW_MAX_AGE, samesite="lax", path="/media")
     if suggest_from_query:

@@ -308,6 +308,13 @@ button.userchip .xlbl { display: none; }
   display: flex; flex-direction: column; gap: 20px; }
 @media (min-width: 640px) { .page { padding-left: 24px; padding-right: 24px; } }
 @media (min-width: 768px) { .page { padding-top: 32px; padding-bottom: 4rem; } }
+/* JY-308: wide monitors use the width - 2560 gets ~2240 px, ultrawide caps at ~2880 px (prose keeps its own ch caps). */
+@media (min-width: 1920px) { html:not(.tv) .page, html:not(.tv) .topbar-in, html:not(.tv) .pagehead-in { max-width: 140rem; }
+  html:not(.tv) .poster-grid:not(.libgrid) { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  html:not(.tv) .posterpairs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 3000px) { html:not(.tv) .page, html:not(.tv) .topbar-in, html:not(.tv) .pagehead-in { max-width: 180rem; }
+  html:not(.tv) .poster-grid:not(.libgrid) { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+  html:not(.tv) .posterpairs { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
 /* Page header (guide §6): full-bleed band tucked under the top bar; a darkened backdrop or a faint indigo glow.
    The inner column lines up with the page frame. */
@@ -601,11 +608,23 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .row.has-form > details.confirm-wrap { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
 .row.has-form > details.confirm-wrap[open] { flex: 1 0 100%; display: flex; flex-direction: column; align-items: flex-end; }
 .row.has-form > details.confirm-wrap[open] > .confirm { align-self: stretch; margin-top: 8px; }
-/* JY-301 download controls: Pause / Resume and Remove sit together at the right; on a phone they drop under the title. */
+/* JY-301 download controls (r2, B. 2026-11-04): Pause / Resume and Remove are small icon buttons on the row's own
+   line, right-aligned, at every width; Remove's confirm opens on a full-width line under the row. */
 .row.dlrow { flex-wrap: wrap; }
+.row.dlrow .row-body { flex: 1 1 0; }
 .row.dlrow > form.dl-act { margin-left: auto; flex-shrink: 0; }
-.row.dlrow > form.dl-act + details.confirm-wrap { margin-left: 8px; }
-@media (max-width: 639px) { .row.dlrow .row-body { flex: 1 0 100%; } }
+.row.dlrow > form.dl-act + details.confirm-wrap { margin-left: 4px; }
+.row.dlrow > details.confirm-wrap[open] { display: contents; }
+.row.dlrow > details.confirm-wrap[open] > summary { margin-left: 4px; position: relative; z-index: 1; }
+.row.dlrow > details.confirm-wrap[open] > .confirm { order: 2; margin: 8px 0 0 auto; position: relative; z-index: 1; }
+.row.dlrow > details.confirm-wrap[open]::after { content: ""; order: 1; flex-basis: 100%; }  /* line break before the confirm */
+.dl-ico { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text-5); cursor: pointer; list-style: none; }
+.dl-ico::-webkit-details-marker { display: none; }
+.dl-ico:hover, .dl-ico:focus-visible { background: var(--soft); color: inherit; }
+.dl-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.dl-head > .metaline { margin: 0; }
+.dl-head > .dl-all { margin: 0; }
 .reqrow .row-body { flex-basis: 0; }  /* title + meta shrink so the score and Remove stay on the row's line */
 .row .bar { margin-top: 6px; }
 .poster.row-poster { width: 44px; height: auto; border: 0; border-radius: 4px; }
@@ -619,6 +638,29 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 69px; }
 .diaryrow .row-body { flex-basis: 0; }  /* a long facts line wraps beside the poster instead of dropping under it */
 @media (min-width: 640px) { .listbox.libposters .row .ratepick, .listbox.libposters .row .rated { padding-left: 84px; } }
+/* JY-279 (list view columns, option B, 2026-11-03): the Movies / TV Shows list view as columns under a header of sort
+   links. A phone (below 640 px) keeps Title, Year, Your score and Upgrade?; the .col-opt cells are hidden, not removed.
+   Tokens only; the rows keep the .listbox.libposters recipe. */
+.libcols .colhead, .libcols .row { display: grid; align-items: center; gap: 10px;
+  grid-template-columns: 55px minmax(0, 1fr) 40px 44px minmax(0, 64px); }
+.libcols .colhead { margin: 0 -8px; padding: 4px 8px; font-size: 12px; color: var(--text-5); }
+.libcols .colhead .col-title { grid-column: 1 / 3; }
+.libcols .colhead a { color: var(--text-4); text-decoration: none; }
+.libcols .colhead a:hover, .libcols .colhead a.on { color: var(--text-1); }
+.libcols .col { min-width: 0; font-size: 13px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; }
+.libcols .col-opt { display: none; }
+.libcols .row .col-title, .libcols .row .row-title { display: block; min-width: 0; }
+.libcols .col-year, .libcols .col-score, .libcols .col-rating { text-align: center; }
+.libcols .col-up { color: var(--upgrade); font-size: 12px; }
+.libcols .colhead .col { white-space: nowrap; }
+.libcols .colhead .lab-long { display: none; }
+@media (min-width: 640px) {
+  .libcols .colhead, .libcols .row { gap: 18px; grid-template-columns: 66px minmax(0, 3fr) 48px 76px 60px minmax(0, 1fr) minmax(0, 1.4fr) 96px; }
+  .libcols .colhead { padding: 4px 10px; }
+  .libcols .colhead .lab-long { display: inline; }
+  .libcols .colhead .lab-short { display: none; }
+  .libcols .col-opt { display: block; }
+}
 /* Grid view on the Movies / TV Shows lists (media-ux4, 2026-10-08, the default): poster cards at the Media home shelf size
    (116 px phone / 144 px from 640 px) in as many columns as fit. .seg is the Grid / List switch in the toolbar (E3,
    2026-10-13: one icon link to the other layout). */
@@ -1662,6 +1704,11 @@ html:not(.tv) .filmcols { display: grid; gap: 20px; min-width: 0; }
 html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
+/* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
+@media (min-width: 1920px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 184px; width: 184px; }
+  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 196px; } }
+@media (min-width: 3000px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 216px; width: 216px; }
+  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 228px; } }
 html:not(.tv) .scorelink { padding: 0 10px 0 6px; }
 html:not(.tv) a.scorelink { color: var(--text-1); text-decoration: none; }
 html:not(.tv) .filedrawer > details.fold > summary.seclabel { display: block; }
@@ -1670,3 +1717,6 @@ html:not(.tv) .provlogos { display: flex; flex-wrap: wrap; align-items: center; 
 html:not(.tv) .provlogos .microlabel { margin-right: 4px; }
 html:not(.tv) .provlogo { display: inline-flex; border-radius: 8px; }
 html:not(.tv) .provlogos .prov-logo { width: 40px; height: 40px; border-radius: 8px; }
+
+/* JY-281: a show drawer's By episode rows - the file name on its own line under the facts */
+html:not(.tv) .fileeps .filename { display: block; margin: 0; }

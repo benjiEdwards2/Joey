@@ -305,7 +305,22 @@ def _summarise(kind: str, items: list) -> dict | None:
             "subtitles": _ordered(w for f in files for w in f.get("slangs") or []),
             "size_text": _size_text(sum(f["size"] for f in files)), "note": note,
             "episodes_on_disk": len(files) if kind == "tv" else None,
-            "episode_keys": _episode_keys(pairs) if kind == "tv" else None}
+            "episode_keys": _episode_keys(pairs) if kind == "tv" else None,
+            "by_episode": _by_episode(pairs) if kind == "tv" else None}
+
+
+def _by_episode(pairs) -> list[dict]:
+    """JY-281: each episode file's own facts (size, audio, subtitles, file name) for the owner's File drawer - from the
+    same /Episodes read (no extra call)."""
+    out = []
+    for i, f in pairs:
+        s, e = i.get("ParentIndexNumber"), i.get("IndexNumber")
+        if not (isinstance(s, int) and isinstance(e, int)):
+            continue
+        d = f["detail"]
+        out.append({"season": s, "number": e, "code": f"S{s} E{e}", "size_text": _size_text(f["size"]),
+                    "audio_text": d.get("audio_text"), "subs_text": d.get("subs_text"), "filename": d.get("filename")})
+    return sorted(out, key=lambda r: (r["season"], r["number"]))
 
 
 def _episode_keys(pairs) -> list[tuple[int, int]]:

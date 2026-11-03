@@ -166,9 +166,9 @@ def test_the_diary_shows_only_the_friends_rows_whatever_the_view(client, fake):
         assert r.status_code == 200
         assert "Friend Logged Film" in r.text and "SENTINEL" not in r.text
         assert not [h for h in r.headers.get_list("set-cookie") if h.startswith("owner_view=")]
-    sign_in(client, fake, ALIAS_ID)
+    sign_in(client, fake, ALIAS_ID)   # JY-299 (2026-11-03): owner "you" sees everyone's rows, on the media front too
     r = client.get("/media/diary")
-    assert "SENTINEL_YOU_DB" in r.text and "SENTINEL_HER_DB" not in r.text and "Friend Logged Film" not in r.text
+    assert all(t in r.text for t in ("SENTINEL_YOU_DB", "SENTINEL_HER_DB", "Friend Logged Film", "SENTINEL_OTHER_DB"))
 
 
 def test_resolve_owner_view_is_the_identity_on_the_media_front(monkeypatch):

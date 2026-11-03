@@ -321,15 +321,14 @@ def test_metacritic_band_tints_are_tokens_and_the_rest_are_neutral():
 
 def test_site_links_are_neutral_logo_pills(env):
     # JY-280 P2 (2026-11-03): a film's separate site-pill row is gone - TMDB and Letterboxd are logo links among the
-    # scores (test_film_page_r2.py); a show keeps the E4 site pills in its Scores strip
+    # scores (test_film_page_r2.py); JY-281: a show's too - logo + number, the site's name only as alt text
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/tv/100").text)
-    strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]   # E4: in the Scores strip
-    sites = re.findall(r'<a class="scorepill sitepill" href="([^"]+)" target="_blank" rel="noopener"><img class="sp-logo" '
-                       r'src="([^"]+)" alt="" width="16" height="16">([^<]+)</a>', strip)
-    assert [(s[1], s[2]) for s in sites] == [("/static/logos/imdb.svg", "IMDb"), ("/static/logos/tmdb.svg", "TMDB")]
-    assert sites[1][0] == "https://www.themoviedb.org/tv/100"
+    strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]
+    assert "sitepill" not in b and 'class="sp-name">IMDb' not in b and 'class="sp-name">TMDB' not in b
+    assert re.search(r'<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/100"[^>]*>'
+                     r'<img class="sp-logo" src="/static/logos/tmdb.svg" alt="TMDB"', strip)
     assert "linkchip" not in b
 
 

@@ -4,10 +4,11 @@
 {% set paused = r.state_text == "Paused" %}
 <form method="post" action="/media/downloads/{{ 'resume' if paused else 'pause' }}" class="dl-act">
   <input type="hidden" name="hash" value="{{ r.hash }}">
-  <button type="submit" class="btn btn-secondary btn-sm">{{ "Resume" if paused else "Pause" }}</button>
+  {% set lbl = "Resume" if paused else "Pause" %}
+  <button type="submit" class="dl-ico" aria-label="{{ lbl }} {{ r.name }}" title="{{ lbl }}">{% if paused %}<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>{% else %}<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor"/></svg>{% endif %}</button>
 </form>
 <details class="confirm-wrap">
-  <summary class="btn btn-ghost btn-sm">Remove</summary>
+  <summary class="dl-ico" aria-label="Remove {{ r.name }}" title="Remove"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></summary>
   <div class="confirm is-danger">
     <div>Remove {{ r.name }}?</div>
     <div class="metaline">Sonarr and Radarr are not told; the request stays.</div>

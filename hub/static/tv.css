@@ -11,10 +11,17 @@
    title page = 170 px poster beside title, facts, synopsis, Play / Trailer / Watchlist and the 1-10 chips; Set up Jellyfin
    = a full-screen card with :8443 in gold; sign-in = the WP-M screen 1 card. */
 html.tv {
-  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-my-bar: .84375rem; --tv-r: .375rem; --tv-r-sm: .25rem; --tv-bar: 2.40625rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
+  --tv-mx: 3rem; --tv-my: 1.6875rem; --tv-r: .5rem; --tv-r-sm: .25rem; --tv-r-pill: 10rem; --tv-bar: 0rem; --tv-ring: #ffffff; scroll-behavior: auto; scrollbar-gutter: auto;
   --tv-surface: rgba(255, 255, 255, .03); --tv-surface-2: rgba(255, 255, 255, .06); --tv-line: rgba(255, 255, 255, .12);
   --tv-border: rgba(255, 255, 255, .07); --tv-t1: #fafafa; --tv-t2: #e4e4e7; --tv-t3: #d4d4d8; --tv-t4: #a1a1aa; --tv-t5: #82828b;
   --tv-primary: #4f46e5; --tv-gold: #f2c14e; --tv-bar-fill: #f97316; --tv-bar-track: rgba(255, 255, 255, .14);
+  /* JY-307 P1 (2026-11-03): the TV type scale and focus tokens (options.md, option A base for B). 1rem = 32 px at 1080. */
+  --tv-fs-eyebrow: 1.125rem; --tv-fs-title: 3.25rem; --tv-fs-title-page: 3rem; --tv-fs-label: 1.25rem; --tv-fs-caption: 1.125rem;
+  --tv-ink: #0b0b0f; --tv-eyebrow: #fbbf24; --tv-lift: 1.06; --tv-ring-w: .1875rem;
+  --tv-lift-shadow: 0 1.25rem 2.5rem rgba(0, 0, 0, .75), 0 0 2.5rem rgba(255, 255, 255, .12);
+  --tv-scrim: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .55) 38%, rgba(9, 9, 11, 0) 65%),
+              linear-gradient(to top, #09090b 8%, rgba(9, 9, 11, .6) 42%, rgba(9, 9, 11, 0) 70%);
+  --tv-st-request: #a5b4fc; --tv-st-lib: #34d399; --tv-st-pending: #fbbf24;
 }
 /* JY-259 (P1, 2026-10-28) - the scaling system. B.: "It scales to every TV needed once they load things up." Every
    length in this sheet is rem, and 1rem follows the viewport: 16 CSS px at the TCL's 960x540 (dpr 2), 21.3 at 1280x720,
@@ -39,37 +46,51 @@ html.tv a[href^="//"] { display: none !important; }
 /* No phone tab bar; the in-page section row is the top bar's. */
 html.tv .tabbar, html.tv .sectabs-page { display: none !important; }
 
-/* Top bar: brand, Media section row, user chip; 38.5 px tall (13.5 + 24 + 1; JY-259, B. 2026-10-29: variant C, the bar's own
-   top margin is 2.5 % of the height, the page keeps the 5 % overscan) - JY-188 compact chrome. */
-html.tv .topbar { position: sticky; top: 0; z-index: 40; border-bottom: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
-html.tv .topbar-in { background: linear-gradient(to bottom, transparent .78125rem, var(--tv-band, var(--bg)) .78125rem); max-width: none; height: var(--tv-bar); margin: 0; padding: var(--tv-my-bar) var(--tv-mx) .0625rem; gap: 1.5rem; }
-/* verifier: control-surface.css gives .toplinks overflow: hidden from 768 px, which cut the section pills' focus ring */
-html.tv .toplinks { overflow: visible; }
-html.tv .brand { gap: .5rem; }
-html.tv .brand b { font-size: 1.125rem; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; }
-html.tv .brand .mark { width: 1.375rem; height: 1.375rem; border-radius: var(--tv-r); }
-html.tv .toplinks { display: flex; gap: .375rem; flex-shrink: 0; }
-html.tv .toplinks a { height: 1.5rem; padding: 0 .5rem; border-radius: var(--tv-r); font-size: 1.125rem; line-height: 1.5rem; color: var(--tv-t4); }
-html.tv .toplinks a[aria-current] { background: rgba(255, 255, 255, .08); color: var(--tv-t1); }
-/* JY-248 nav (2026-10-25): no Overview pill; the "Joey Media" title is the Home stop (Up from Home lands on it, tv.js),
-   a pill like the section row's (24 px since JY-259 P3; the bar is 13.5 + 24 + 1), filled like the current pill on Home. */
-html.tv .brand-home { height: 1.5rem; padding: 0 .5rem 0 .125rem; border-radius: var(--tv-r); }
-html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .08); }
-html.tv .userchip { margin-left: auto; gap: .5rem; height: 1.5rem; padding: 0 .75rem 0 .125rem; border-radius: var(--tv-r); font-size: 1.125rem; color: var(--tv-t3); }
-html.tv .userchip .avatar { width: 1.5rem; height: 1.5rem; font-size: 1.125rem; line-height: 1; background: var(--tv-surface-2); border: .0625rem solid var(--tv-line); color: var(--tv-t2); }
-html.tv .userchip small { display: none; }
+/* JY-307 P2 (B. 2026-11-03, option B: "Prefer option B. Lets try it with that for a little bit."): the top bar is a LEFT
+   ICON RAIL on every TV page - Search, Home, Movies, TV shows, Diary, Discover, and the user chip at the foot (it opens
+   the JY-248 sign-out dialog). 5rem wide (160 px at 1080); the page sits to its right (body padding). The labels show
+   only while the rail has focus (.tv-rail-on, tv.js), when it widens over the page; it never pushes the page. */
+html.tv { --tv-rail: 5rem; --tv-rail-open: 16rem; }
+html.tv body { padding-left: var(--tv-rail); }
+html.tv .topbar { position: fixed; inset: 0 auto 0 0; z-index: 50; width: var(--tv-rail); height: 100vh; border: 0; background: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tv .topbar-in { flex-direction: column; align-items: stretch; justify-content: flex-start; width: var(--tv-rail); height: 100%; max-width: none;
+  margin: 0; padding: var(--tv-my) 1rem; gap: .75rem; overflow: hidden;
+  background: linear-gradient(90deg, rgba(9, 9, 11, .92) 0%, rgba(9, 9, 11, .7) 70%, rgba(9, 9, 11, 0) 100%); transition: width .18s ease-out; }
+html.tv .topbar.tv-rail-on .topbar-in { width: var(--tv-rail-open);
+  background: linear-gradient(90deg, rgba(9, 9, 11, .98) 0%, rgba(9, 9, 11, .98) 85%, rgba(9, 9, 11, 0) 100%); }
+/* one stop: a 3rem row, the icon centred while closed, the label after it while open */
+html.tv .tv-searchstop, html.tv .brand-home, html.tv .toplinks a, html.tv .userchip {
+  position: relative; display: flex; align-items: center; justify-content: flex-start; gap: 1rem; flex: none; width: 100%; height: 3rem;
+  margin: 0; padding: 0 .75rem; border: 0; border-radius: var(--tv-r); background: none; font-size: var(--tv-fs-label); line-height: 1;
+  font-weight: 600; color: var(--tv-t4); white-space: nowrap; }
+html.tv .topbar svg.ic { flex: none; width: 1.5rem; height: 1.5rem; }
+html.tv .tv-rail-lbl { display: none; }
+html.tv .topbar.tv-rail-on .tv-rail-lbl { display: inline; }
+html.tv .tv-searchstop { order: 0; }
+html.tv .brand-home { order: 1; }
+html.tv .toplinks { order: 2; display: flex; flex-direction: column; gap: .75rem; flex-shrink: 0; overflow: visible; }
+html.tv .userchip { order: 3; margin-top: auto; }
+/* the current section: a soft fill + white; the focused stop: white-on-focus (the P1 button token), no ring */
+html.tv .toplinks a[aria-current], html.tv .brand-home[aria-current] { background: rgba(255, 255, 255, .14); color: var(--tv-t1); }
+html.tv .topbar-in > .tv-focus, html.tv .topbar-in > :focus-visible, html.tv .toplinks a.tv-focus, html.tv .toplinks a:focus-visible {
+  outline: none; background: #fff; color: var(--tv-ink); }
+/* a waiting count (Diary's "to rate") rides the icon's corner while closed, beside the label while open */
+html.tv .toplinks .waitcount { position: absolute; top: .125rem; left: 1.75rem; font-size: 1.125rem; line-height: 1; }
+html.tv .topbar.tv-rail-on .toplinks .waitcount { position: static; }
+html.tv .userchip .avatar { flex: none; width: 1.5rem; height: 1.5rem; font-size: 1.125rem; line-height: 1; background: var(--tv-surface-2);
+  border: .0625rem solid var(--tv-line); color: var(--tv-t2); }
+html.tv .userchip small, html.tv .userchip .xlbl, html.tv .userchip .uname, html.tv .userchip svg.ic { display: none; }
+html.tv .topbar.tv-rail-on .userchip .uname { display: inline; overflow: hidden; text-overflow: ellipsis; max-width: 10rem; }
 /* Sign-out (2026-10-22; option D + pop-up P2): the pill is one D-pad stop (Enter opens the confirm); with focus it also
    shows the words "Sign out" before the exit icon. The section row never shrinks (flex-shrink 0 above; its pills are
    10 px a side, not 14, which leaves ~176 px for the pill), so only the pill gives way: its name ellipsises (max 150 px)
    and, on focus, folds away for the words (the avatar initial stays; the aria-label keeps the name); nothing moves. The card matches the request panel; "Stay signed
    in" starts focused, Left reaches Sign out; Back / Esc / "Stay signed in" close it (tv.js back()). */
-html.tv button.userchip { padding: 0 .625rem 0 .125rem; border-color: var(--tv-line); }
-html.tv button.userchip .uname { max-width: 9.375rem; transition: max-width .18s ease-out, margin .18s ease-out; }
-html.tv button.userchip svg.ic { width: 1.125rem; height: 1.125rem; color: var(--tv-t4); }
-html.tv button.userchip .xlbl { display: inline; flex: none; max-width: 0; margin-right: -.5rem; overflow: hidden; white-space: nowrap;
-  font-weight: 600; color: var(--tv-t1); transition: max-width .18s ease-out, margin .18s ease-out; }
-html.tv button.userchip:focus-visible .xlbl, html.tv button.userchip.tv-focus .xlbl { max-width: 6.875rem; margin-right: 0; }
-html.tv button.userchip:focus-visible .uname, html.tv button.userchip.tv-focus .uname { max-width: 0; margin-right: -.5rem; }
+/* JY-307 P2: on the rail the focused chip reads "Sign out" (+ the exit icon) in place of the name; the avatar stays */
+html.tv .topbar.tv-rail-on button.userchip:focus-visible .uname, html.tv .topbar.tv-rail-on button.userchip.tv-focus .uname { display: none; }
+html.tv .topbar.tv-rail-on button.userchip:focus-visible .xlbl, html.tv .topbar.tv-rail-on button.userchip.tv-focus .xlbl,
+html.tv .topbar.tv-rail-on button.userchip:focus-visible svg.ic, html.tv .topbar.tv-rail-on button.userchip.tv-focus svg.ic { display: inline; }
 html.tv .signoutdlg { width: 32.5rem; padding: 1.75rem 2rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: #18181b; box-shadow: 0 1.5625rem 3.125rem -.75rem rgba(0, 0, 0, .7); }
 html.tv .signoutdlg::backdrop { background: rgba(9, 9, 11, .82); }
 html.tv .signout-q { font-size: 1.875rem; line-height: 1.15; }
@@ -494,7 +515,6 @@ html.tv .tv-bd::after {
   background: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .62) 45%, rgba(9, 9, 11, .3) 100%),
               linear-gradient(to bottom, rgba(9, 9, 11, .2) 0%, rgba(9, 9, 11, .5) 40%, rgba(9, 9, 11, .94) 75%);
 }
-html.tv body:has(.tv-bd) .topbar { --tv-band: rgba(9, 9, 11, .8); }
 html.tv body:has(.tv-bd) .page { position: relative; z-index: 1; }
 html.tv .tv-hero { margin: 0; padding: .75rem 0 0; max-width: 36rem; }
 html.tv .tv-hero p { margin: 0; }
@@ -520,12 +540,9 @@ html.tv .tv-bd > img:not([src]), html.tv .tv-bd > img.is-off { opacity: 0; }
 html.tv .tv-hero-syn { margin-top: .375rem !important; font-size: 1.125rem; line-height: 1.5rem; color: var(--tv-t3);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Q2 A: the top row fades to 40 % while focus is in the page (the bar's background stays, so nothing shows through) */
-html.tv .topbar-in { transition: opacity .2s ease-out; }
-html.tv .topbar.tv-dim .topbar-in { opacity: .4; }
+html.tv .topbar-in { transition: width .18s ease-out, opacity .2s ease-out; }
+html.tv .topbar.tv-dim .topbar-in { opacity: .6; }   /* JY-307 P2: the closed rail's icons stay readable (was .4) */
 /* Q6 A: the Search stop (a magnifier pill after the sections) and its dialog over the page */
-html.tv .tv-searchstop { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.5rem; height: 1.5rem;
-  padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--tv-t3); }
-html.tv .tv-searchstop svg.ic { width: 1.125rem; height: 1.125rem; }
 html.tv .tv-searchdlg { width: calc(100vw - 2 * var(--tv-mx)); max-width: none; max-height: calc(100vh - 2 * var(--tv-my)); margin: var(--tv-my) auto 0;
   padding: 1.25rem 1.5rem; border: .0625rem solid var(--tv-line); border-radius: var(--tv-r); background: #18181b; color: var(--tv-t1); overflow: auto; }
 html.tv .tv-searchdlg::backdrop { background: rgba(9, 9, 11, .82); }
@@ -552,7 +569,6 @@ html.tv .pagehead.hero-detail { position: relative; isolation: isolate; }
 html.tv .hero-detail-bd { top: calc(-1 * var(--tv-bar)); bottom: auto; height: 23rem; background-size: cover; background-position: center 25%;
   background-image: linear-gradient(90deg, rgba(9, 9, 11, .9) 0%, rgba(9, 9, 11, .64) 42%, rgba(9, 9, 11, .16) 100%),
                     linear-gradient(to bottom, rgba(9, 9, 11, .3) 0%, rgba(9, 9, 11, 0) 22%, rgba(9, 9, 11, 0) 52%, var(--bg) 100%), var(--bd-pick); }
-html.tv body:has(.hero-detail-bd) .topbar { --tv-band: rgba(9, 9, 11, .72); }
 html.tv .pagehead.hero-detail .pagehead-in { padding: .75rem var(--tv-mx) 0; }
 html.tv .hero-detail-in { align-items: flex-end; gap: 1.75rem; }
 html.tv .hero-detail-poster { width: 7.25rem; }
@@ -621,14 +637,6 @@ html.tv .tv-searchdlg .reqgrid-wrap { margin-top: .75rem; }
 /* review fix: in the grids the focus ring (3 + 4 px below the picture) no longer touches the first caption line */
 html.tv .poster-grid.libgrid .card-poster .row-title { margin-top: .625rem; }
 html.tv .poster-grid.reqgrid .reqchip { margin-top: .625rem; }
-/* B. 2026-10-29 ("The top row is still too large. I would like it about 33 percent smaller at least"; his TV: TCL 55"
-   C7K, a 4K panel; the shell's WebView measures 960x540 CSS px at dpr 2 there): the top row's controls are 24 px, not 36
-   (-33 %), the brand 18 px, its mark 22 px. Then B. 2026-10-29: "Use C as tighter": the bar's top margin is 2.5 %
-   (--tv-my-bar, 13.5 px), so the bar is 13.5 + 24 + 1 = 38.5 px, was 64 (-40 %). The 18 px floor and whole rings stay.
-   Edited in place above: --tv-my-bar, --tv-bar, .topbar-in, .brand, .toplinks a, .brand-home, .userchip, .tv-searchstop. */
-/* JY-259 header fix (B. 2026-10-29, "not in the middle vertically"): the dark band starts at the overscan line (12.5 px at
-   960x540, 2.3 % of the height), not at the screen's top, so the 24 px row has 1 px of band above and below it. The top
-   12.5 px keep the page's own picture (overscan: a TV may crop it). Bar height and the row's place are unchanged. */
 /* ==== end JY-259 phase 3 ==== */
 
 /* JY-270 P5/P6: the title page's facts below the cast row (scores as name + number pills, where to watch, crew links,
@@ -648,6 +656,65 @@ html.tv .tv-crewrole { flex: none; width: 7rem; font-size: 1.125rem; color: var(
 html.tv .tv-crewlist .chip { display: inline-flex; align-items: center; height: 2.25rem; padding: 0 1rem; border-radius: var(--tv-r);
   border: .0625rem solid var(--tv-line); background: var(--tv-surface); font-size: 1.125rem; color: var(--tv-t3); }
 html.tv .tv-seasonchips .chip .tv-chipavg { font-weight: 400; }
+/* JY-307 P1 (2026-11-03): B.: "Prefer option B." Phase 1 = option A's base tokens, used by B's later phases.
+   Type scale (eyebrow / title / label / caption), backdrop at full strength with the scrim only behind the text,
+   lift focus (thin ring, soft shadow, 1.06), white-on-focus buttons, 8 px corners (--tv-r), Discover state words.
+   Kept after the older rules so it wins over the older rules of the same specificity. Text floor stays 1.125rem. */
+html.tv .tv-bd > img { opacity: 1; }
+html.tv .tv-bd::after { background: var(--tv-scrim); }
+html.tv .tv-hero { max-width: 34rem; padding-top: 2.25rem; }
+html.tv .tv-hero-eyebrow { font-size: var(--tv-fs-eyebrow); font-weight: 600; letter-spacing: .02em; color: var(--tv-eyebrow); }
+html.tv .tv-hero-title { font-size: var(--tv-fs-title); line-height: 1.02; font-weight: 800; letter-spacing: -.025em; }
+html.tv .tv-hero-facts { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .78); }
+html.tv .tv-hero-syn { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: rgba(255, 255, 255, .72); }
+html.tv .seclabel, html.tv h2.seclabel { font-size: var(--tv-fs-label); font-weight: 700; color: rgba(255, 255, 255, .85); }
+html.tv .sec:has(.tv-focus) .seclabel { color: var(--tv-t1); }
+html.tv .card-poster .row-title { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .8); font-weight: 500; }
+/* lift focus: a 3 px ring, a soft shadow and a 1.06 lift; the focused caption goes white and bold */
+html.tv .card-poster:focus-visible, html.tv .card-poster.tv-focus { transform: scale(var(--tv-lift)); }
+html.tv .card-poster.tvt:focus-visible, html.tv .card-poster.tvt.tv-focus { transform: none; }
+html.tv .card-poster.tvt:focus-visible .card-pic, html.tv .card-poster.tvt.tv-focus .card-pic { transform: scale(var(--tv-lift)); }
+html.tv .card-poster:focus-visible .card-pic, html.tv .card-poster.tv-focus .card-pic { outline: var(--tv-ring-w) solid var(--tv-ring); outline-offset: .125rem;
+  border-radius: var(--tv-r); box-shadow: var(--tv-lift-shadow); }
+html.tv .card-poster:focus-visible .row-title, html.tv .card-poster.tv-focus .row-title { color: #fff; font-weight: 700; }
+/* buttons: glass at rest, white with dark text on focus (no indigo, no ring) */
+html.tv .hero-detail-btns .btn, html.tv .hero-detail-btns .wlbtn .btn, html.tv .hero-detail-btns .wtoggle .btn, html.tv .hero-detail-btns .tv-ratebtn {
+  min-height: 2.75rem; padding: 0 1.375rem; border-radius: var(--tv-r); border: 0; background: rgba(255, 255, 255, .12); color: #fff; font-size: 1.125rem; }
+html.tv .hero-detail-btns .btn:focus-visible, html.tv .hero-detail-btns .btn.tv-focus,
+html.tv .hero-detail-btns .tv-ratebtn:focus-visible, html.tv .hero-detail-btns .tv-ratebtn.tv-focus {
+  background: #fff; color: var(--tv-ink); outline: none; transform: scale(var(--tv-lift)); box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .6); }
+html.tv .page:has(> .tv-hero) .sec, html.tv main:has(> .tv-hero) .sec { margin-top: .75rem; }
+html.tv .carousel.tvt-row { gap: 1.25rem; padding-top: .875rem; }
+html.tv .page:has(> .tv-hero) .carousel.tvt-row-land > * { flex: 0 0 12.5rem; width: 12.5rem; }   /* Home rows only */
+html.tv .reqgrid .card-poster.tv-focus, html.tv .reqgrid .card-poster:focus-visible { transform: none; outline: none; }
+html.tv .reqgrid .card-poster.tv-focus .card-pic, html.tv .reqgrid .card-poster:focus-visible .card-pic { outline: none; box-shadow: none; }   /* the state word sits in .card-pic */
+html.tv .reqgrid .card-poster.tv-focus .card-pic > img, html.tv .reqgrid .card-poster:focus-visible .card-pic > img {
+  outline: var(--tv-ring-w) solid var(--tv-ring); outline-offset: .125rem; box-shadow: var(--tv-lift-shadow); transform: scale(1.03); }
+html.tv .poster-grid .card-poster.tv-focus, html.tv .poster-grid .card-poster:focus-visible { transform: scale(1.03); }
+html.tv .reqgrid .card-poster .row-title, html.tv .poster-grid .card-poster .row-title { margin-top: .5rem; }
+html.tv .hero-detail-in { align-items: flex-start; }
+html.tv .hero-detail-text { padding-top: 0; margin-top: 0; }
+html.tv .hero-detail .hero-detail-title { margin-top: 0; line-height: 1; }
+html.tv .hero-detail-btns .btn, html.tv .hero-detail-btns .tv-ratebtn { display: inline-flex; align-items: center; line-height: 1; }
+html.tv .hero-detail-btns > a.btn-white { display: block; line-height: 2.75rem; }
+/* title page: clearer backdrop, title on the scale */
+html.tv .hero-detail-bd { background-image: linear-gradient(90deg, rgba(9, 9, 11, .92), rgba(9, 9, 11, .6) 45%, rgba(9, 9, 11, .1) 75%),
+  linear-gradient(to bottom, transparent 55%, var(--bg)), var(--bd-pick); }
+html.tv .hero-detail .hero-detail-title { font-size: var(--tv-fs-title-page); font-weight: 800; letter-spacing: -.025em; }
+html.tv .hero-detail-poster { border-radius: var(--tv-r); }
+html.tv .hero-detail-text .tv-facts { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .75); }
+html.tv .hero-detail-text .tv-syn { font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .72); }
+html.tv .tv-seasonchips .chip { min-height: 0; height: 2.25rem; border-radius: var(--tv-r-pill); font-size: 1.125rem; }
+html.tv .tv-seasonchips .chip.on { background: #fff; color: var(--tv-ink); }
+/* Discover: pill search row, states as a coloured word under the art, not a filled block */
+html.tv .discover-search .input, html.tv .tv-searchgo { height: 2.75rem; font-size: 1.125rem; border-radius: var(--tv-r-pill); }
+html.tv .tv-searchgo:focus-visible, html.tv .tv-searchgo.tv-focus { background: #fff; color: var(--tv-ink); }
+html.tv .tv-searchhint { display: none; }
+html.tv .tv-typechips .chip { border-radius: var(--tv-r-pill); }
+html.tv .reqgrid .reqchip { background: none; color: var(--tv-st-request); text-align: left; padding: 0; font-weight: 600; }
+html.tv .reqgrid .reqchip-lib { background: none; color: var(--tv-st-lib); }
+html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: none; color: var(--tv-st-pending); }
+html.tv .reqgrid .reqchip-request { background: none; color: var(--tv-st-request); }
 /* JY-267 (2026-10-29): the title's TMDB logo in place of the hero title words - the TV Home hero (.tv-hero-logo, swapped
    with focus by tv.js) and the title page (.title-logo, _pagehead.html title_h1). Spec: max 40% of the screen wide, 160 px
    tall at 1920 (5rem), never past 1.5x (1.5 / 32 rem per logo pixel at 1920). A failed load shows the words. */

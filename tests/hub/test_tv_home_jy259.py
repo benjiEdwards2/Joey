@@ -220,7 +220,8 @@ def test_tile_sizes_spacing_and_the_focus_lift():
     assert re.search(r"\.card-poster\.tvt-land\.tv-focus \.card-pic \{ transform: scale\(1\.05\); \}", css)
     assert re.search(r"\.tvt \.card-pic \{[^}]*transform-origin: var\(--tv-ox, center\) bottom", css)
     assert re.search(r"\.tvt-poster \.row-title \{ height: 40px; white-space: normal;[^}]*-webkit-line-clamp: 2", css)
-    assert re.search(r"html\.tv \.userchip \{ margin-left: auto; gap: 8px;", css)   # review: scales, so 4K keeps the gap
+    # review: scales, so 4K keeps the gap (JY-307 P2, 2026-11-03: the rail stops' shared rule, 16 px)
+    assert re.search(r"html\.tv \.userchip \{[^}]*gap: 16px;", css)
     assert re.search(r"\.card-poster \{ transition: transform \.16s ease-out; \}", css)
     assert re.search(r"\.card-poster\.tv-focus \.card-pic \{[^}]*outline: 4px solid var\(--tv-ring\)", css)   # ring kept
     assert re.search(r"\.card-poster\.tv-focus \.card-pic \{ box-shadow: ", css)

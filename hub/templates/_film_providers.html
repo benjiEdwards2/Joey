@@ -4,7 +4,7 @@
   <h2 class="seclabel">Where to watch</h2>
   {% for g in film.providers %}<p class="metaline tv-factline"><span class="microlabel">{{ g.label }}</span> {{ g.names|join(" · ") }}</p>{% endfor %}
 </section>{% endif %}
-{% elif film.kind == "movie" and not film.episode %}{# JY-286 (pick A; Q2 default A: streaming only): logos only under the
+{% elif film.kind in ("movie", "tv") and not film.episode %}{# JY-286 (JY-281: the show page too) (pick A; Q2 default A: streaming only): logos only under the
    cast (left column) - each logo's alt is the service's name, a link to JustWatch as the chip was (none on the guest front) #}
 {% set st = film.providers|selectattr("label", "equalto", "Stream")|first if film.providers else none %}
 {% if st %}<div class="provlogos" role="group" aria-label="Where to watch"><span class="microlabel">Stream on</span>

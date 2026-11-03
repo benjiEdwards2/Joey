@@ -320,11 +320,13 @@ DIARY_SCOPES = ("mine", "everyone")  # the diary's "Show" choice (2026-10-13); o
 
 
 def diary_scope(owner: str) -> str:
-    """The owner's diary scope: 'everyone' only for owner 'you' who set it; 'mine' otherwise (her: always mine). The media
-    front is always 'mine' (Joey TV WP-B2: B.'s private choice never widens the guest diary)."""
-    from hub import guest
-    value = get_setting(owner, "diary_scope", "mine") if owner == "you" and not guest.is_media() else "mine"
-    return value if value in DIARY_SCOPES else "mine"
+    """The owner's diary scope: only owner 'you' may list everyone; everyone else (her, a friend) is always 'mine'.
+    JY-299 (B., 2026-11-02: "I am the only one that can see everything"): 'you' defaults to 'everyone' on both fronts
+    (the TV is the media front); the private front's Mine / Everyone toggle still narrows it."""
+    if owner != "you":
+        return "mine"
+    value = get_setting(owner, "diary_scope", "everyone")
+    return value if value in DIARY_SCOPES else "everyone"
 
 
 def rating_level(owner: str) -> str:
@@ -461,9 +463,9 @@ def add_manual_watch(item_key: str, kind: str, title: str, year=None, poster=Non
 
 
 def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
-               owner: str | None = "you") -> list[dict]:
-    """Newest first. `kind` is 'movie' or 'tv' (anything else = all). `owner` None = every owner's rows (the
-    diary's "Show: Everyone" scope, 2026-10-13); each row keeps its own `owner` column."""
+               owner: str | None = "you", friends: bool = False) -> list[dict]:
+    """Newest first. `kind` is 'movie' or 'tv' (anything else = all). `owner` None = the household's rows; with
+    `friends` (JY-299: owner 'you' in the Everyone scope only) friends' `jf:` rows too. Each row keeps its `owner`."""
     db = _read()
     if db is None:
         return []
@@ -471,7 +473,7 @@ def list_diary(limit: int = 50, offset: int = 0, kind: str | None = None,
     if owner is not None:
         conds.append("d.owner = ?")
         args.append(owner)
-    else:
+    elif not friends:
         conds.append(household_sql("d.owner"))
     if kind in ("movie", "tv"):
         conds.append("d.kind = ?")

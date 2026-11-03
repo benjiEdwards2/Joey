@@ -111,8 +111,9 @@ def allowed(request, kind: str, ident: str) -> bool | None:
     """True: serve. False: a friend asking for an id they were not shown. None: not a signed-in viewer on the media
     front (the caller answers the ordinary 404 page). Kinds other than jf / jfb (arr covers, TMDB) are not checked."""
     from hub import guest, media_jellyfin, player_api
-    logo = kind == "jfs" and ident.endswith("/logo")   # JY-267: a title logo only for a title the friend may see
-    if not guest.is_media() or (kind not in ("jf", "jfb") and not logo):
+    # JY-267 / JY-272: a stored logo or backdrop (jfs:<id>/logo, /1, /2) only for a title the friend may see
+    stored = kind == "jfs" and ident.rpartition("/")[2] in ("logo", "1", "2")
+    if not guest.is_media() or (kind not in ("jf", "jfb") and not stored):
         return True
     who = guest.identity_in_scope(request.scope)
     if who is None:

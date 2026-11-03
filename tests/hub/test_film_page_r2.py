@@ -63,7 +63,7 @@ def test_file_owner_gate():
     assert media_film.file_owner("you") and not media_film.file_owner("her") and not media_film.file_owner("jf:abc")
 
 
-def test_where_to_watch_is_logos_only_under_the_hero_buttons(env, monkeypatch, rankdir):
+def test_where_to_watch_is_logos_only_under_the_cast(env, monkeypatch, rankdir):
     monkeypatch.setitem(FILM["watchProviders"][0], "flatrate", [{"name": "Netflix", "logoPath": "/nflx.jpg"},
                                                                 {"name": "Kayo"}])
     monkeypatch.setitem(ITEMS["mov1"], "MediaSources", film_source())
@@ -71,7 +71,9 @@ def test_where_to_watch_is_logos_only_under_the_hero_buttons(env, monkeypatch, r
     with client:
         html = whole(client, "/media/title/movie/603")
     row = html.split('<div class="provlogos"', 1)[1].split("</div>", 1)[0]
-    assert html.index('class="hero-detail-btns"') < html.index('<div class="provlogos"')
+    main = html.split('<div class="filmcol-main">', 1)[1].split("<aside class=\"filmcol-side\"", 1)[0]   # round-2 pick A: left column
+    assert '<div class="provlogos"' in main and main.index(">Cast</h2>") < main.index('<div class="provlogos"')
+    assert '<div class="provlogos"' not in html.split("</header>", 1)[0]
     assert 'src="/img/tmdb:/nflx.jpg?h=120&amp;t=' in row and 'alt="Netflix"' in row
     assert 'src="/img/none?h=120&amp;t=' in row and 'alt="Kayo"' in row      # no logo: the letters tile
     assert ">Netflix<" not in row and ">Kayo<" not in row and "Apple TV" not in html   # names never visible; streaming only

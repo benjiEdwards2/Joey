@@ -138,8 +138,6 @@
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
         {% if tvm %}{{ moremenu }}{% endif %}
         {% if not filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}{% endif %}
-        {# JY-286 (pick A, 2026-11-03): a film's where-to-watch as logos only, directly beneath the buttons and facts #}
-        {% if filmchips and not film.episode %}{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}{% endif %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
            (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
         {% if film.directors %}
@@ -285,7 +283,9 @@
    owner's closed File drawer (gated server-side: media_film.file_owner). Below 1024 px the column stacks under the cast. #}
 {% if filmweb %}
 <div class="filmcols">
-<div class="filmcol-main">{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}</div>
+<div class="filmcol-main">{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
+{# JY-286 placement per B.'s round-2 pick A (2026-11-03): the logos under the cast, in the left column #}
+{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}</div>
 <aside class="filmcol-side" aria-label="Scores and details">
 {% if any_score or sites or n.runtime or film.official %}
 <div class="stats numbers">

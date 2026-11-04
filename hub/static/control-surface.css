@@ -1050,6 +1050,17 @@ a.castcard:hover .castname { text-decoration: underline; }
 .showmore > summary { cursor: pointer; color: var(--text-3); font-size: 13px; font-weight: 500; padding: 8px 0; }
 .showmore > .poster-grid { margin-top: 8px; }
 @media (min-width: 640px) { .personhead { flex-direction: row; align-items: flex-start; } .personpic { width: 160px; height: 160px; } }
+/* JY-291 (Option A): large 2:3 portrait over a full-width backdrop (the title hero's bd + scrims). Off the TV only.
+   The text column takes min-width: 0 and wraps, so a long bio no longer runs off a 390 px phone. */
+.person-hero { position: relative; isolation: isolate; padding: 24px 0 8px; }
+.person-hero .person-hero-bd { left: 50%; right: auto; width: 100vw; transform: translateX(-50%); }
+.personportrait { width: 50%; max-width: 200px; height: auto; aspect-ratio: 2 / 3; flex: none; object-fit: cover; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-poster); }
+.personportrait.initials { display: inline-flex; align-items: center; justify-content: center; font-size: 48px; font-weight: 700; color: var(--text-4); }
+.person-hero .hero-detail-text { flex: 1 1 auto; min-width: 0; max-width: 100%; }
+.person-hero .overview { overflow-wrap: anywhere; }
+@media (min-width: 640px) { .person-hero { align-items: flex-end; gap: 28px; padding-top: 48px; } .personportrait { width: 220px; max-width: none; } }
+@media (min-width: 1024px) { .person-hero { min-height: min(56vh, 640px); } .personportrait { width: 280px; } }
 
 /* 1-10 picker and the rated line: score chips coloured by grade. */
 .ratepick, .rated { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }

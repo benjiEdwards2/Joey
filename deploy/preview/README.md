@@ -95,6 +95,7 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `JELLYFIN_USER_HER` | in | a display name (owner mapping), no credential |
 | `JELLYFIN_USER_ALIASES` | in | display names (not in .env.example), no credential |
 | `OMDB_API_KEY` | in | Metacritic pill, read-only lookups |
+| `TMDB_API_KEY` | in | JY-291 person backdrop, read-only tagged-image lookups |
 | `QUIET_MBPS` | in | a number on the Quiet mode row; nothing is sent without QBIT_* |
 | `FULL_MBPS` | in | a number on the Full speed confirm; nothing is sent without QBIT_* |
 | `NAS_SLEEP_WINDOW` | in | words on the Quiet mode row |

@@ -112,6 +112,7 @@ ENV_IN = {
     "JELLYFIN_USER_HER": "a display name (owner mapping), no credential",
     "JELLYFIN_USER_ALIASES": "display names (not in .env.example), no credential",
     "OMDB_API_KEY": "Metacritic pill, read-only lookups",
+    "TMDB_API_KEY": "JY-291 person backdrop, read-only tagged-image lookups",
     "QUIET_MBPS": "a number on the Quiet mode row; nothing is sent without QBIT_*",
     "FULL_MBPS": "a number on the Full speed confirm; nothing is sent without QBIT_*",
     "NAS_SLEEP_WINDOW": "words on the Quiet mode row",

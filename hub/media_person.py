@@ -15,7 +15,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from hub import media_discover as md, media_follow, media_item, shell
+from hub import media_discover as md, media_follow, media_item, media_person_photo, shell
 from hub.ids import JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID
 from hub.media_film import _cget
 
@@ -155,10 +155,13 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
     lib = _library((jsrc or {}).get("data") or {})
     # media-speed: the biography is metadata only (long, restart-proof meta cache); the credits carry each
     # title's request / availability state, so they keep the short cache. Both reads run side by side.
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    # JY-291: the tagged-image backdrop read runs beside them; without TMDB_API_KEY it returns at once, no call.
+    with ThreadPoolExecutor(max_workers=3) as pool:
         person_f = pool.submit(md.meta_get, f"/api/v1/person/{tmdb_id}")
+        tagged_f = pool.submit(media_person_photo.tagged_backdrop, tmdb_id)
         credits = _cget(f"/api/v1/person/{tmdb_id}/combined_credits")
         person = person_f.result()
+        tagged = tagged_f.result()
     if not isinstance(person, dict) and not isinstance(credits, dict):
         return {"down": True, "note": DOWN_TEXT, "name": "Person", "tmdb": tmdb_id}
     person = person if isinstance(person, dict) else {}
@@ -166,7 +169,9 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
     shelf = [r for r in rows if r["jf_id"]]
     rest = [r for r in rows if not r["jf_id"]]
     return {"down": False, "tmdb": tmdb_id, "name": str(person.get("name") or "Unknown")[:120],
-            "ref": md._ref(person.get("profilePath")), "dept": str(person.get("knownForDepartment") or "")[:40],
+            "ref": md._ref(person.get("profilePath")),
+            "backdrop": tagged or media_person_photo.credit_backdrop(credits),   # JY-291: tagged image, else best credit
+            "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
             "shelf": shelf, "films": [r for r in rest if r["tier"] == "films"],
             "series": [r for r in rest if r["tier"] == "series"], "bonus": [r for r in rest if r["tier"] == "bonus"],

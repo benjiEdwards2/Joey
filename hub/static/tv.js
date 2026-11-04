@@ -639,6 +639,11 @@
     if (!best && free && !rail && dir === 'ArrowLeft') { openRail(a); return; }
     /* JY-194: Down from the search field lands on the grid's first poster */
     if (dir === 'ArrowDown' && isSearch(a)) best = firstIn(grid()) || best;
+    /* JY-307 P3: Down from the Home hero's Resume / More info lands on the first row's first tile */
+    if (dir === 'ArrowDown' && a.closest('.tv-hero-acts')) {
+      var row1 = document.querySelector('main .tvt-row');
+      best = firstIn(row1) || best;
+    }
     /* JY-187 (P5): Down from the title buttons into the rating row lands on its first control (chip 1), not the chip
        nearest the button */
     if (best && dir === 'ArrowDown' && a.closest('.hero-detail-btns') && best.closest('.tv-rate')) {

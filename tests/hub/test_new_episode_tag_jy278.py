@@ -71,3 +71,10 @@ def test_tv_caption_carries_the_words(env):
     main = env(jellyfin=jelly(SERIES, ep(1, 2), ep(2, 2)), arr={"summary": "x", "arrived": []})
     added = added_html(main)
     assert 'class="row-meta newep-cap">2 new episodes<' in added   # css shows it on the TV, the pill off it
+
+
+def test_friends_tv_home_added_collapses_a_show_and_carries_the_count():
+    from hub import media_guest_home
+    out = media_guest_home._added(jelly(ep(1, 3), SERIES, ep(2, 2), NEW_SHOW))
+    assert [(t["title"], t["new_episodes"]) for t in out] == [("Billions", 2), ("Brand New Show", 0)]
+    assert out[0]["poster"] == "jf:" + "b" * 32

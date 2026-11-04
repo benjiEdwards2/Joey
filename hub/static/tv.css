@@ -715,6 +715,24 @@ html.tv .reqgrid .reqchip { background: none; color: var(--tv-st-request); text-
 html.tv .reqgrid .reqchip-lib { background: none; color: var(--tv-st-lib); }
 html.tv .reqgrid .reqchip-pending, html.tv .reqgrid .reqchip-sent, html.tv .reqgrid .reqchip-approved, html.tv .reqgrid .reqchip-requested { background: none; color: var(--tv-st-pending); }
 html.tv .reqgrid .reqchip-request { background: none; color: var(--tv-st-request); }
+/* JY-307 P3 (2026-11-04, option B; spec docs/specs/JY-307-tv-ui-phase3.md): the full-bleed Home hero and one 16:9 tile.
+   The backdrop (.tv-bd, fixed, full screen) runs under the closed rail: on Home the rail draws no band of its own, the
+   scrim (--tv-scrim, darkest at the left) carries the icons, so there is no hard edge at the rail. The hero adds Resume /
+   More info (glass at rest, white on focus, as the title page). Every Home row is one tile 14.6667rem wide (352 px at
+   1080): a backdrop with the JY-267 logo over it, else a caption under it, else the poster cropped to 16:9 (.tvt-crop). */
+html.tv body:has(.tv-bd) .topbar:not(.tv-rail-on) .topbar-in { background: none; }
+html.tv .tv-hero { max-width: 46rem; padding-top: 3.5rem; }
+html.tv .tv-hero-syn { max-width: 34rem; }
+html.tv .tv-hero-acts { display: flex; align-items: center; gap: .75rem; margin-top: 1rem; }
+html.tv .tv-hero-acts .btn { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 1.375rem; border-radius: var(--tv-r); border: 0;
+  background: rgba(255, 255, 255, .14); color: #fff; font-size: 1.125rem; font-weight: 700; line-height: 1; white-space: nowrap; }
+html.tv .tv-hero-acts .btn:focus-visible, html.tv .tv-hero-acts .btn.tv-focus {
+  background: #fff; color: var(--tv-ink); outline: none; transform: scale(var(--tv-lift)); box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .6); }
+html.tv .page:has(> .tv-hero) .carousel.tvt-row-land > * { flex: 0 0 14.6667rem; width: 14.6667rem; }   /* Home rows only */
+html.tv .tvt-crop .card-pic > img { object-position: center 25%; }
+html.tv .tvt .card-pic > img.tvt-logo { position: absolute; left: .75rem; bottom: .625rem; width: auto; height: auto; max-width: 55%; max-height: 40%;
+  aspect-ratio: var(--lw) / var(--lh); object-fit: contain; object-position: left bottom; border-radius: 0; filter: drop-shadow(0 .125rem .5rem rgba(0, 0, 0, .8)); }
+
 /* JY-267 (2026-10-29): the title's TMDB logo in place of the hero title words - the TV Home hero (.tv-hero-logo, swapped
    with focus by tv.js) and the title page (.title-logo, _pagehead.html title_h1). Spec: max 40% of the screen wide, 160 px
    tall at 1920 (5rem), never past 1.5x (1.5 / 32 rem per logo pixel at 1920). A failed load shows the words. */
@@ -724,3 +742,4 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
+

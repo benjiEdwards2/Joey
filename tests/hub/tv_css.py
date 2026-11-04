@@ -1,6 +1,9 @@
 """JY-259 (P1, 2026-10-28): tv.css is written in rem tied to the viewport (B.: "It scales to every TV needed"), with
 1rem = 16 CSS px at the TCL's 960x540. The older TV tests pin design values in those CSS px; `design_px` reads the sheet
-back in them (1.125rem -> 18px), so each pin keeps its meaning. `root_px` is what 1rem is at a given viewport."""
+back in them (1.125rem -> 18px), so each pin keeps its meaning. `root_px` is what 1rem is at a given viewport.
+JY-307 P2b scaled the root down 25 %: 1rem is now 12 CSS px at 960x540 (24 device px at dpr 2), 24 px at 1920x1080 and
+48 px at 3840x2160, so a design_px pin is a 16 px-per-rem number, not what the TV draws. P3's Home tile, 14.6667rem, reads
+back as 234.6672px here and is 352 px at 1080 (root_px)."""
 import re
 
 REM = re.compile(r"(?<![\w.#-])(-?\d*\.?\d+)rem\b")

@@ -336,7 +336,7 @@ def test_every_home_tile_carries_its_hero_and_the_first_matches_the_drawn_backdr
     body = main(tv_page(fc))
     tiles = re.findall(r'<a class="card-poster tvt[^"]*"[^>]*>', body)
     heroes = _heroes(body)
-    assert tiles and len(heroes) == len(tiles)
+    assert tiles and len(heroes) == len(tiles) + 2   # JY-307 P3: + the hero's Resume and More info
     drawn = htmllib.unescape(re.search(r'<div class="tv-bd" aria-hidden="true"><img src="([^"]+)"', body).group(1))
     assert heroes[0]["bd"] == drawn and heroes[0]["title"] == "Film 01"               # one browser-cache entry
     assert all(h["bd"] is None or h["bd"].startswith("/img/") for h in heroes)

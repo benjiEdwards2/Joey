@@ -346,6 +346,10 @@ SOURCES = [
     ("B. in chat (2026-11-02)", "Preview on fixed ports", "JY-306", "3001/3002 web, 3003 TV"),
     ("B. in chat (2026-11-03)", "TV UI overhaul", "JY-307", "options page first"),
     ("B. in chat (2026-11-03)", "Ultrawide and 2560 fit", "JY-308", "page shell max-width"),
+    ("JY-287 plan page (2026-11-04)", "TV shows 2.1 progress hero", "JY-314", "Plan 2"),
+    ("JY-287 plan page (2026-11-04)", "TV shows 2.2 episode page", "JY-315", "Plan 2, Q8"),
+    ("JY-287 plan page (2026-11-04)", "TV shows 2.3 season page", "JY-316", "Plan 2"),
+    ("JY-287 plan page (2026-11-04)", "TV shows 2.5 movie-style chips/cast/scores", "JY-317", "Plan 2"),
     ("Sonnet review of PR #291 (2026-11-02)", "Backdrop friend access gap", "JY-272", "jfs:<id>/1|2 unchecked"),
 ]
 

@@ -28,8 +28,11 @@
    _request_block.html) and Back; tv.css hides the rest. Off the TV and on the private front nothing changes. #}
 {% set tvreq = tvm and guest(request) and film.t and not film.on_server and not film.episode %}
 {# U6 (JY-192, 2026-10-25): on the TV a season / episode page names its series for Back (tv.js `data-tv-up`, X1). #}
-<header class="pagehead hero-detail{{ ' tv-reqpage' if tvreq }}"{% if tvm and epnav and epnav.show and epnav.show.href %} data-tv-up="{{ epnav.show.href }}"{% endif %}>
-  {% if film.backdrop %}{% set bv = img_v(film.backdrop) %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not film.backdrop.startswith('jfb:') and not film.backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% elif not tvm %}<div class="hero-detail-bd tl-wash" style="--bd: url('/img/{{ film.poster or 'none' }}?h=240')" aria-hidden="true"></div>{% endif %}
+<header class="pagehead hero-detail{{ ' tv-reqpage' if tvreq }}{{ ' tv-bdpage' if tvm and not tvreq }}"{% if tvm and epnav and epnav.show and epnav.show.href %} data-tv-up="{{ epnav.show.href }}"{% endif %}>
+  {# JY-307 P4 (option B): on the TV the backdrop leads the title page (no poster card). An episode's still is its hero,
+     a title with no backdrop takes its poster cropped to the band (.tv-bdcrop, the P3 tile fallback), never a blank band. #}
+  {% set tvstill = film.episode.still if tvm and not tvreq and film.episode and film.episode.still else none %}
+  {% if tvstill %}<div class="hero-detail-bd" style="--bd: url('/img/{{ tvstill }}?h=1280')" aria-hidden="true"></div>{% elif film.backdrop %}{% set bv = img_v(film.backdrop) %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not film.backdrop.startswith('jfb:') and not film.backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% elif not tvm %}<div class="hero-detail-bd tl-wash" style="--bd: url('/img/{{ film.poster or 'none' }}?h=240')" aria-hidden="true"></div>{% elif not tvreq %}<div class="hero-detail-bd tv-bdcrop" style="--bd: url('/img/{{ film.poster or 'none' }}?h=600')" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
     {# U6 (JY-192): the TV rating is ONE Rate button (Gate 1 pick 1B) that opens the existing picker in #tv-rate (tv.js) #}
@@ -40,7 +43,6 @@
       {# U6 (JY-192, X2; tv-v2 shell 01-title screen 3): the TV episode hero leads with the episode - its 16:9 still, "Show ·
          Season 1", the episode name, "E3 of 6 · 43m · aired 28 Sep 2026", the synopsis, then Play · Mark watched (B.'s
          own session only, as off the TV) · Season · Rate. No breadcrumb: Back goes to the series (data-tv-up above). #}
-      <img class="tv-epstill" src="/img/{{ film.episode.still or 'none' }}?h=600&amp;t={{ img_letters(film.episode.title)|urlencode }}" alt="" decoding="async" width="1067" height="600">
       <div class="hero-detail-text">
         {% if epnav and epnav.show and epnav.season %}<p class="epeyebrow tv-eyebrow">{{ epnav.show.title }}<span class="sep"> · </span>Season {{ epnav.season.n }}</p>{% endif %}
         <h1 class="hero-detail-title">{{ film.episode.title }}</h1>
@@ -59,7 +61,7 @@
       {# JY-315 (B.'s pick A, 2026-11-04): off the TV an episode page leads with the episode's 16:9 still (beside the text
          on desktop, above it at iPad width and below), then crumbs, "Show · S2 · E3 of 8", the episode title, its score line, aired
          date · runtime, ONE button row (Play, Next episode, Rate, "…") and the synopsis under the buttons. #}
-      {% if film.episode %}<img class="tl-epstill" src="/img/{{ film.episode.still or 'none' }}?h=600&amp;t={{ img_letters(film.episode.title)|urlencode }}" alt="" decoding="async" width="1067" height="600">{% else %}
+      {% if film.episode %}<img class="tl-epstill" src="/img/{{ film.episode.still or 'none' }}?h=600&amp;t={{ img_letters(film.episode.title)|urlencode }}" alt="" decoding="async" width="1067" height="600">{% elif not tvm or tvreq %}
       {{ poster(film.poster, film.title, 600, "hero-detail-poster tl-movie" if not tvm and film.kind == "movie" else "hero-detail-poster") }}{% endif %}
       <div class="hero-detail-text">
         {% if film.episode %}

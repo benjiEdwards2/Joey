@@ -416,12 +416,12 @@ def test_guest_search_narrows_by_type(friend, t, want, absent):
         assert re.search(r'href="/media/person/901"(?![^>]*data-req-open)', html)   # a person opens the person page
 
 
-def test_discover_page_has_type_chips_and_tv_search_button(friend):
+def test_discover_page_has_type_chips_and_one_tv_search_line(friend):
     web = friend.get("/media/discover").text
     for label in ("All", "Films", "Shows", "People"):
         assert re.search(rf'<input type="radio" name="t" value="[a-z]*"[^>]*>{label}</label>', web)
     assert "tv-searchgo" not in web
     tv = friend.get("/media/discover?q=searchable&t=movie", headers={"User-Agent": TV_UA}).text
-    assert re.search(r'class="btn tv-searchgo"[^>]*data-tv-search-open', tv)
-    assert "Press OK on Search to type" in tv
+    assert "tv-searchgo" not in tv and "Press OK on Search to type" not in tv   # JY-307 P4: OK on the field types
+    assert "data-tv-search" in tv and 'class="tv-typechips"' in tv
     assert re.search(r'value="movie" checked', tv)

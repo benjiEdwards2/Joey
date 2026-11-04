@@ -141,7 +141,7 @@ def test_tv_episode_hero_leads_with_the_episode(tvc):
     hero = html[start:html.index("</header>", start)]
     assert f'data-tv-up="/media/item/{SHOW}"' in hero                       # X1: Back = series
     assert 'class="crumbs"' not in html                                      # no breadcrumb on the TV
-    assert f'src="/img/jf:{E2}?h=600' in hero and "tv-epstill" in hero       # the still leads
+    assert f"--bd: url('/img/jf:{E2}?h=1280')" in hero and "tv-epstill" not in hero   # JY-307 P4: the still is the hero
     assert re.search(r'<p class="epeyebrow tv-eyebrow">Sample Show<span class="sep"> · </span>Season 1</p>', hero)
     assert re.search(r'<h1 class="hero-detail-title">Second Wind</h1>', hero)
     assert "E2 of 3" in text(hero) and "What happens in Second Wind." in hero

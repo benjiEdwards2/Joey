@@ -733,6 +733,44 @@ html.tv .tvt-crop .card-pic > img { object-position: center 25%; }
 html.tv .tvt .card-pic > img.tvt-logo { position: absolute; left: .75rem; bottom: .625rem; width: auto; height: auto; max-width: 55%; max-height: 40%;
   aspect-ratio: var(--lw) / var(--lh); object-fit: contain; object-position: left bottom; border-radius: 0; filter: drop-shadow(0 .125rem .5rem rgba(0, 0, 0, .8)); }
 
+/* JY-307 P4 (2026-11-05, option B; spec docs/specs/JY-307-tv-ui-phase4.md): backdrop-led title pages and the Discover
+   search line. Film / show / season / episode / person (.tv-bdpage): no poster card; the backdrop (an episode: its still;
+   no backdrop: the poster or photo cropped to the band, .tv-bdcrop) fills the top 65 % of the screen (29.25rem of 45 =
+   702 px at 1080) under the rail, the scrim only behind the words (left) and at the band's foot. Eyebrow, the title at
+   3.5rem (84 px at 1080: option B's 112 px at the pre-P2b 32 px rem, the same 3.5rem), facts, two lines of synopsis and
+   ONE button row; the first row (a show's Episodes and season pills) starts on the first screen, under 640 px. */
+html.tv .hero-detail.tv-bdpage { position: relative; isolation: isolate; margin: 0 calc(-1 * var(--tv-mx)); min-height: 0; overflow: visible; }
+html.tv .tv-bdpage > .hero-detail-bd { position: absolute; z-index: -1; left: 0; right: 0; top: calc(-1 * var(--tv-bar)); bottom: auto; height: 29.25rem;
+  background-size: cover; background-position: center 25%;
+  background-image: linear-gradient(90deg, rgba(9, 9, 11, .88) 0%, rgba(9, 9, 11, .62) 30%, rgba(9, 9, 11, 0) 60%),
+                    linear-gradient(to bottom, rgba(9, 9, 11, 0) 50%, var(--bg) 100%), var(--bd-pick); }
+html.tv .tv-bdpage > .hero-detail-bd.tv-bdcrop { background-position: center 30%; }
+html.tv .pagehead.tv-bdpage .pagehead-in { padding: 6.5rem var(--tv-mx) 0; }
+html.tv .tv-bdpage .hero-detail-in { gap: 0; }
+html.tv .tv-bdpage .hero-detail-text { max-width: 46rem; }
+html.tv .tv-bdpage .hero-detail-title { font-size: 3.5rem; line-height: 1.02; }
+html.tv .tv-bdpage .hero-detail-title .title-logo { width: min(30vw, calc(5rem * var(--lw) / var(--lh)), calc(var(--lw) * .046875rem)); }
+html.tv .tv-bdpage .hero-detail-text .tv-syn { max-width: 40rem; }
+html.tv .tv-bdpage + .sec, html.tv .tv-bdpage ~ .tv-eps { margin-top: 1rem; }
+/* the person page: the same hero, the name and facts on the band (padding as the title page: no .pagehead-in here) */
+html.tv .personhead.tv-bdpage { padding: calc(6.5rem - var(--tv-my)) var(--tv-mx) 0; margin-top: 0; flex-direction: column; gap: 0; }
+html.tv .personhead.tv-bdpage > .hero-detail-bd { top: calc(-1 * var(--tv-my) - .75rem); }   /* the page top margin and the (empty) tab band: the picture starts at the screen's top */
+html.tv .page:has(> .personhead.tv-bdpage) > .pagehead:not(.hero-detail) { background: none; }   /* that band draws no strip over it */
+html.tv .personhead.tv-bdpage ~ .sec { position: relative; }   /* the rows paint over the (positioned) hero's band, not under it */
+html.tv .personhead.tv-bdpage .hero-detail-title { font-size: 3.5rem; }
+html.tv .personhead.tv-bdpage .hero-detail-text > .facts-line { display: block; margin-top: .375rem; font-size: var(--tv-fs-caption); color: rgba(255, 255, 255, .75); }
+html.tv .personhead.tv-bdpage .hero-detail-text > .hero-detail-title, html.tv .personhead.tv-bdpage .facts-line { text-shadow: 0 .0625rem .5rem rgba(9, 9, 11, .65); }
+
+/* Discover: the search field (a 2.5rem pill, option B's 80 px at the pre-P2b rem) and the type chips on ONE line; no
+   Search button, no hint (OK on the field types); 8 across stays; the state word sits in a slim foot band on the tile */
+html.tv main form.toolbar.discover-search[action="/media/discover"] { display: flex; align-items: center; gap: .75rem; }   /* the page's own form: not the bar's search dialog, not a library's */
+html.tv main .discover-search[action="/media/discover"] .tv-searchrow { flex: 1 1 auto; min-width: 0; }
+html.tv main .discover-search[action="/media/discover"] .input { height: 2.5rem; }
+html.tv main .discover-search[action="/media/discover"] .tv-typechips { flex: none; flex-wrap: nowrap; margin: 0; }
+html.tv .reqgrid .card-pic { display: block; overflow: hidden; border-radius: var(--tv-r); background: var(--tv-surface-2); }
+html.tv .reqgrid .card-pic > img { border-radius: var(--tv-r) var(--tv-r) 0 0; }
+html.tv .poster-grid.reqgrid .reqchip { display: block; margin: 0; padding: .25rem .625rem; border-radius: 0; background: rgba(9, 9, 11, .85); font-size: 1.125rem; line-height: 1.3; }
+
 /* JY-267 (2026-10-29): the title's TMDB logo in place of the hero title words - the TV Home hero (.tv-hero-logo, swapped
    with focus by tv.js) and the title page (.title-logo, _pagehead.html title_h1). Spec: max 40% of the screen wide, 160 px
    tall at 1920 (5rem), never past 1.5x (1.5 / 32 rem per logo pixel at 1920). A failed load shows the words. */
@@ -742,4 +780,3 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
-

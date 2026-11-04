@@ -18,9 +18,11 @@
 {# JY-291 (Option A, 2026-11-04): off the TV, a large 2:3 portrait (h=600) beside the name over a full-width backdrop
    (TMDB tagged image, else their most popular credit's backdrop). The TV keeps the round crop (JY-193). #}
 {% set tvm = tv_mode(request) %}
-<header class="personhead hero-detail{{ ' person-hero' if not tvm }}">
+<header class="personhead hero-detail{{ ' person-hero' if not tvm else ' tv-bdpage' }}">
   {% if not tvm and person.backdrop %}<div class="hero-detail-bd person-hero-bd" style="--bd: url('/img/{{ person.backdrop }}?h=1280'); --bd-sm: url('/img/{{ person.backdrop }}?h=600')" aria-hidden="true"></div>{% endif %}
-  {% if tvm %}{% if person.ref %}<img class="personpic" src="/img/{{ person.ref }}?h=240" alt="" width="160" height="160">{% else %}<span class="personpic initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+  {# JY-307 P4 (option B): on the TV a backdrop-led hero - the JY-321 backdrop, else their photo cropped to the band
+     (.tv-bdcrop, the P3 fallback); no round photo. Initials only when there is no picture at all. #}
+  {% if tvm %}{% if person.backdrop or person.ref %}<div class="hero-detail-bd{{ ' tv-bdcrop' if not person.backdrop }}" style="--bd: url('/img/{{ person.backdrop or person.ref }}?h={{ 1280 if person.backdrop else 600 }}')" aria-hidden="true"></div>{% else %}<span class="personpic initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
   {% elif person.ref %}<img class="personportrait" src="/img/{{ person.ref }}?h=600" alt="" width="240" height="360">{% else %}<span class="personportrait initials" aria-hidden="true">{% for w in person.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
   <div class="hero-detail-text">
     <h1 class="hero-detail-title">{{ person.name }}</h1>

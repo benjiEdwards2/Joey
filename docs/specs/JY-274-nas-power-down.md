@@ -1,6 +1,6 @@
 # JY-274 Server page: "Power down NAS" button
 
-Status: options (page building 2026-11-05; JY-324 folded in: B. 2026-11-05 "NAS services too", Home Assistant "Goodnight" voice later)
+Status: options (page https://claude.ai/artifact/XLwxwZ1SmTL7GQcPnRVByb 2026-11-05; JY-324 folded in: B. 2026-11-05 "NAS services too", Home Assistant "Goodnight" voice later)
 Size: M
 Live risk: HIGH (the button powers off the host that runs the hub itself)
 Area: `hub/server.py` (new `hub/server_power.py` beside `server_stack.py`), `hub/templates/server.html`, a new `server_power.html` confirm page, a host-side helper (Option A script or Option B sidecar under `stackctl/`-style folder), `tests/hub/`

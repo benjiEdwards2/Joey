@@ -12,6 +12,9 @@
    band is dropped altogether (the top bar already names the section). JY-195 (2026-10-25): the page is "Home" (JY-248
    removed the Overview pill; "Joey Media" goes Home). #}
 {% if not tv_mode(request) %}{% call pagehead("Home") %}{{ media_tabs() }}{% endcall %}{% endif %}
+{% elif car is defined and car %}
+{# JY-277 option B: the household Home's head is the plain band with the tabs; the carousel below is the hero. #}
+{% call pagehead(area.name) %}{{ media_tabs() }}{% endcall %}
 {% else %}
 {% set h = sh.hero %}
 {% if h and h.user %}{% set sub = [h.user, h.play_method, (h.progress_pct ~ "%") if h.progress_pct is not none else none] | select | join(" · ") %}
@@ -53,6 +56,7 @@
 </p>
 {% endif %}
 
+{% if car is defined and car %}{% include "_home_carousel.html" %}{% endif %}
 {% import "_tv_tile.html" as tvt %}
 {% if sh.tv %}{# JY-259 (P1): the friends' TV Home - backdrop, static hero, then the tile-kit rows (hub/tv_home.py) #}
 {{ tvt.backdrop(sh.tv.hero) }}{{ tvt.hero(sh.tv.hero) }}

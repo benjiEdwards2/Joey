@@ -36,7 +36,7 @@ def card(page, title):
 
 
 def section(page, name):
-    return page.split(f">{name}", 1)[1].split("</section>", 1)[0]
+    return page.split(f'class="seclabel">{name}', 1)[1].split("</section>", 1)[0]   # the shelf, not the carousel pill
 
 
 def test_shelf_cards_carry_the_season_state_once_the_list_is_read(frame_env, sonarr):

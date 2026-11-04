@@ -302,12 +302,17 @@ def area_page(request: Request, area_id: str):
             resp.headers.append("set-cookie", media_front.setup_cookie_header())
         return resp
     if area.layout == "shelves":
-        sh = media_home.build_shelves(area, tiles, snaps, view)
+        sh = media_home.build_shelves(area, tiles, snaps, view, home_b=True)   # JY-277 option B
+        pill, pill_from_query = media_home.home_pill(request, bool(
+            media_home.view_jelly(getattr(snaps.get(JELLYFIN_SNAPSHOT_ID), "data", None) or {}, view).get("up_next")))
         resp = shell.render_page(request, "area_shelves.html", {
             "area": area,
             "sh": sh,
+            "car": media_home.home_carousel(snaps, view, pill),
             "backup_warn": media_backup.current_status()["warning"],
         }, active_id=area.id)
+        if pill_from_query:
+            resp.set_cookie(media_home.HOME_PILL_COOKIE, pill, max_age=HOME_PILL_MAX_AGE, samesite="lax", path="/a")
         later = media_season_state.later(sh["season_keys"])   # JY-114: Sonarr's list re-read after the page, when stale
         if later is not None:
             resp.background = BackgroundTask(later)
@@ -321,6 +326,24 @@ def area_page(request: Request, area_id: str):
         "upcoming": upcoming,
     }, active_id=area.id)
     return shell._maybe_set_cookie(resp, view, from_query)
+
+
+HOME_PILL_MAX_AGE = 365 * 24 * 3600
+
+
+@app.get("/a/{area_id}/carousel", response_class=HTMLResponse)
+def area_carousel(request: Request, area_id: str, s: str = "new"):
+    """JY-276 (option B): the Home carousel for one pill, swapped in by htmx without a page load; the pill
+    is remembered like `?s=` on the page. Household shelves areas only (not on the media front)."""
+    view, _ = shell.resolve_owner_view(request)
+    area = next((a for a in shell.registry.areas if a.id == area_id), None)
+    if area is None or area.layout != "shelves" or guest.is_media() or s not in media_home.HOME_PILLS:
+        return shell.not_found_page(request)
+    snaps = shell.get_snapshots(request=request)
+    resp = shell.templates.TemplateResponse(request, "_home_carousel.html", {
+        "area": area, "car": media_home.home_carousel(snaps, view, s)})
+    resp.set_cookie(media_home.HOME_PILL_COOKIE, s, max_age=HOME_PILL_MAX_AGE, samesite="lax", path="/a")
+    return resp
 
 
 @app.get("/healthz")

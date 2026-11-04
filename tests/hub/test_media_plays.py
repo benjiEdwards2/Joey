@@ -363,11 +363,13 @@ def test_home_shelf_present_when_data_and_omitted_when_empty(env, tmp_path, monk
         assert "Most played" not in client.get("/a/alpha").text
         seed(tmp_path, monkeypatch)
         body = main_html(client.get("/a/alpha").text)
-        assert "Most played · 30 days" in body and "2 episodes · 1.0 h" in body and "1 play · 1.5 h" in body
-        assert 'href="/media/server/history"' in body
+        assert "Most played" not in body   # JY-277 option B (docs/specs/JY-277-overview-B.md): the shelf left the page; the builder below still makes it
         sh = None
         area = next(a for a in env.shell.registry.areas if a.id == "alpha")
         snaps = env.get_snapshots()
         tiles = [{"tile": t, "st": env.tile_state(t, snaps)} for t in area.tiles]
         sh = env.build_shelves(area, tiles, snaps, "you")
         assert ids(sh)[-1] == "mostplayed"
+        mp = sh["shelves"][-1]
+        assert mp["see_all_href"] == "/media/server/history"
+        assert {i["sub"] for i in mp["items"]} >= {"2 episodes · 1.0 h", "1 play · 1.5 h"}

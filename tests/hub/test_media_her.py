@@ -62,7 +62,7 @@ def main_html(html):
 def test_her_view_shelves_show_hers_not_b(env):
     with env(now_playing=[]) as client:
         html = main_html(client.get("/a/alpha?owner_view=her").text)
-    assert "Cold Harbour" in html and "Up next" in html
+    assert "Cold Harbour" in html and 'class="homecar"' in html   # JY-277 option B (docs/specs/JY-277-overview-B.md): the carousel, not the Up next hero
     assert "Continue watching" in html and "Recently watched" not in html   # media-ux2: no Recently watched on home
     for title in B_ONLY:
         assert title not in html, title
@@ -80,7 +80,7 @@ def test_her_view_with_null_her_shows_quiet_words(env):
     with env(her=None, now_playing=[]) as client:
         html = main_html(client.get("/a/alpha?owner_view=her").text)
     assert html.count("Her Jellyfin account isn&#39;t set up yet") == 1   # media-ux2: Continue watching only
-    assert "Nothing playing" in html
+    assert 'class="homecar"' in html   # JY-277 option B (docs/specs/JY-277-overview-B.md): the carousel replaced the "Nothing playing" hero
     for title in B_ONLY:
         assert title not in html, title
 

@@ -254,7 +254,119 @@ def media_hero(jelly: dict, link: str | None, allow_newest: bool = True) -> dict
     return None
 
 
-def build_shelves(area, tiles, snaps, view: str) -> dict:
+def show_name(row: dict) -> str:
+    """JY-278: the show a shelf row belongs to, for one tile per show - Jellyfin's `show_title` when the row carries it,
+    else the title before its first " · " (an arr arrival is "Billions · 3 episodes"), lower-cased."""
+    return str(row.get("show_title") or str(row.get("title") or "").split(" · ")[0]).strip().lower()
+
+
+def _is_show(row: dict) -> bool:
+    return str(row.get("type") or row.get("kind") or row.get("row_kind") or "").lower() in SHOW_KINDS | {"tv"}         or bool(row.get("show_key"))
+
+
+def added_rows(latest, arrived, now) -> list[tuple[dict, str, bool]]:
+    """Recently added as (row, sub, from_jellyfin), newest Jellyfin rows first then the arr's arrivals, one per title key
+    and (JY-278) one per SHOW: a series and its season / an arrival "Billions · 3 episodes" are one tile, the
+    first (Jellyfin's, with the Joey poster) kept."""
+    out, seen, shows = [], set(), set()
+    for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
+                            + [(r, r.get("when", ""), False) for r in arrived]):
+        key = r.get("item_key") or r.get("title")
+        show = show_name(r) if _is_show(r) else None
+        if key in seen or (show and show in shows):
+            continue
+        seen.add(key)
+        if show:
+            shows.add(show)
+        out.append((r, sub, from_jf))
+    return out
+
+
+# JY-276 / JY-277 option B: the Home carousel's three pills. `?s=` wins and is remembered in a cookie,
+# else the cookie, else Continue watching when there is something to continue, else New.
+HOME_PILLS = {"new": "New", "continue": "Continue watching", "unwatched": "Not yet watched"}
+HOME_PILL_EMPTY = {"new": "Nothing new yet", "continue": "Nothing in progress", "unwatched": "Nothing left to watch"}
+HOME_PILL_EYEBROW = {"new": "New on Joey", "continue": "Continue watching", "unwatched": "Not yet watched"}
+HOME_PILL_COOKIE = "media_homepill"
+SLIDE_MAX = 12
+
+
+def _backdrop_of(r: dict):
+    """A slide's wide picture: the row's backdrop, else the Jellyfin backdrop of its poster's item (same art id)."""
+    ref = r.get("backdrop")
+    poster = str(r.get("poster") or "")
+    if not ref and poster.startswith("jf:"):
+        ref = "jfb:" + poster[3:]
+    return _home_backdrop(ref) if ref else None
+
+
+def _library_lists(jelly: dict, view: str) -> tuple[list, list]:
+    """(movies, shows) of the view owner's library rows (her view: her own lists, else none)."""
+    src = (jelly.get("her") or {}) if view == "her" else jelly
+    return list(src.get("movies") or []), list(src.get("shows") or [])
+
+
+def not_yet_watched(jelly: dict, view: str) -> list[dict]:
+    """Films not played and not in the resume list, and shows not started (every episode unplayed), most recently
+    added first: the library rows themselves (title, poster, backdrop, jf_id, added_at, kind)."""
+    from hub import media_library
+    movies, shows = _library_lists(jelly, view)
+    resumed = {str(r.get("jf_id")) for r in jelly.get("up_next") or [] if r.get("jf_id")}
+    rows = [{**r, "kind": "movie"} for r in movies
+            if isinstance(r, dict) and not r.get("played") and str(r.get("jf_id")) not in resumed]
+    rows += [{**r, "kind": "tv"} for r in shows
+             if isinstance(r, dict) and not media_library.empty_series(r)
+             and isinstance(r.get("episodes"), int) and r.get("unplayed") == r["episodes"]]
+    rows.sort(key=lambda r: str(r.get("added_at") or ""), reverse=True)
+    return rows
+
+
+def home_pill(request, has_continue: bool) -> tuple[str, bool]:
+    """The pill on load: (pill, from_query)."""
+    q = request.query_params.get("s") if request is not None else None
+    if q in HOME_PILLS:
+        return q, True
+    c = request.cookies.get(HOME_PILL_COOKIE) if request is not None else None
+    if c in HOME_PILLS:
+        return c, False
+    return ("continue" if has_continue else "new"), False
+
+
+def home_carousel(snaps, view: str, which: str) -> dict:
+    """JY-276: the slides behind one pill, one per show (JY-278). Each slide {title, sub, backdrop, poster, href}.
+    Pure over the snapshots (no call)."""
+    jelly = view_jelly((snaps.get(JELLYFIN_SNAPSHOT_ID).data if snaps.get(JELLYFIN_SNAPSHOT_ID) else {}) or {}, view)
+    now = datetime.now(timezone.utc)
+    slides, shows = [], set()
+
+    def slide(r, sub, href):
+        show = show_name(r) if _is_show(r) else None
+        if show and show in shows:
+            return
+        if show:
+            shows.add(show)
+        title = r.get("show_title") or (str(r.get("title") or "").split(" · ")[0] if show else r.get("title"))
+        slides.append({"title": title or "Untitled", "sub": sub, "poster": r.get("poster"),
+                       "backdrop": _backdrop_of(r), "href": href})
+
+    if which == "new":
+        arr = snaps.get(ARR_SNAPSHOT_ID)
+        latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
+        for r, sub, from_jf in added_rows(latest, list(((arr.data if arr else {}) or {}).get("arrived") or []), now):
+            slide(r, ("Added " + sub) if from_jf and sub else sub,
+                  (item_href(r.get("jf_id")) if from_jf else None) or LIBRARY_DETAIL)
+    elif which == "continue":
+        for r in jelly.get("up_next") or []:
+            slide(r, r.get("remaining_text") or "", item_href(r.get("jf_id")) or PLAYING_DETAIL)
+    elif which == "unwatched":
+        for r in not_yet_watched(jelly, view):
+            slide(r, "Film" if r["kind"] == "movie" else "Show",
+                  row_href(r.get("jf_id"), r.get("item_key"), r["kind"]) or LIBRARY_DETAIL)
+    return {"pill": which, "pills": HOME_PILLS, "slides": slides[:SLIDE_MAX], "empty": HOME_PILL_EMPTY.get(which, ""),
+            "eyebrow": HOME_PILL_EYEBROW.get(which, "")}
+
+
+def build_shelves(area, tiles, snaps, view: str, home_b: bool = False) -> dict:
     """Hero + poster shelves for a `layout: shelves` area. Pure over its inputs (plus the
     ratings DB). A shelf renders only when the registry tile it stands for is visible in
     the owner view; snapshots/DB missing just leave quiet words (torate: omitted)."""
@@ -297,13 +409,8 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     recent = ((jelly.get("history") or {}).get("recent") or [])
     arrived = list(data_of(ARR_SNAPSHOT_ID).get("arrived") or [])
     latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
-    added, seen = [], set()
-    for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
-                            + [(r, r.get("when", ""), False) for r in arrived]):
-        key = r.get("item_key") or r.get("title")
-        if key in seen:
-            continue
-        seen.add(key)
+    added = []
+    for r, sub, from_jf in added_rows(latest, arrived, now):
         kind = {"row_kind": r.get("type") if from_jf else r.get("kind")}   # JY-114: which rows are shows
         added.append(jf_item(r, sub, LIBRARY_DETAIL, **kind) if from_jf else item(r, sub, LIBRARY_DETAIL, **kind))
     added = added[:SHELF_MAX]
@@ -345,6 +452,23 @@ def build_shelves(area, tiles, snaps, view: str) -> dict:
     if most:  # F7: not behind a registry tile, so it skips add()'s detail gate
         shelves.append({"id": "mostplayed", "title": "Most played · 30 days", "see_all_href": HISTORY_PLAYS,
                         "items": most, "quiet_text": ""})
+    if home_b:
+        # JY-277 option B: under the carousel sit Continue watching (kept: its cards carry Move on, the
+        # progress words and Sonarr's season word, which a slide cannot), Recently added, Downloading, Not yet watched and
+        # Top rated on Joey. Because you rated, Most played and the follow shelf left Home.
+        from hub import media_guest_home   # late: it imports this module
+        keep = [s for s in shelves if s["id"] in ("continue", "added", "downloading")]
+        unwatched = [item(r, "Film" if r["kind"] == "movie" else "Show",
+                          row_href(r.get("jf_id"), r.get("item_key"), r["kind"]) or LIBRARY_DETAIL)
+                     for r in not_yet_watched(jelly, view)][:SHELF_MAX]
+        if unwatched:
+            keep.append({"id": "unwatched", "title": "Not yet watched", "see_all_href": None, "items": unwatched,
+                         "quiet_text": ""})
+        top = next((s for s in media_guest_home.library_shelves(jelly, now) if s["id"] == "top"), None)
+        if top:
+            keep.append({**top, "items": [dict(i, href=i.get("href") or LIBRARY_DETAIL) for i in top["items"]]})
+        shelves = keep
+        ratings = _ratings(view, up_next, recent, *(s["items"] for s in shelves))   # the new shelves' scores too
     season_keys = shelf_season_state(jelly, view, shelves)   # JY-114: before LEVEL_KEYS are dropped
     for sh in shelves:
         for it in sh["items"]:

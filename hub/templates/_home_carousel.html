@@ -1,0 +1,37 @@
+{# JY-276 / JY-277 option B: the Home carousel. Three pills (New / Continue watching / Not yet watched) swap
+   this whole section through htmx (/a/<id>/carousel?s=, no page load; the plain href still works without script and
+   is pushed so Back and a reload keep the pill). One wide slide sits centred, its neighbours bleed off the screen's
+   left and right edges. Swipe or scroll on touch; arrow keys on the focused track or the side buttons move one slide
+   (joey.js). One slide per show (JY-278). The slide's title is the stored TMDB logo when there is one (JY-267). #}
+<section class="homecar" id="home-car" aria-roledescription="carousel" aria-label="{{ car.pills[car.pill] }}">
+  <nav class="chips homecar-pills" aria-label="Show in the carousel">
+    {%- for k, label in car.pills.items() %}
+    <a class="chip{{ ' on' if k == car.pill }}" href="/a/{{ area.id }}?s={{ k }}"
+       hx-get="/a/{{ area.id }}/carousel?s={{ k }}" hx-target="#home-car" hx-swap="outerHTML" hx-push-url="/a/{{ area.id }}?s={{ k }}"
+       {% if k == car.pill %}aria-current="true"{% endif %} data-pill="{{ k }}">{{ label }}</a>
+    {%- endfor %}
+  </nav>
+  {% if car.slides %}
+  <div class="homecar-track" tabindex="0" role="group" aria-label="{{ car.slides | length }} titles, use the arrow keys" data-homecar>
+    {% for s in car.slides %}
+    {% set lg = title_logo(s.backdrop) if s.backdrop else none %}
+    <a class="homecar-slide" href="{{ s.href }}" aria-roledescription="slide" aria-label="{{ s.title }}{{ ', ' ~ s.sub if s.sub }} ({{ loop.index }} of {{ loop.length }})">
+      {% if s.backdrop %}{% set bv = img_v(s.backdrop) %}<img class="homecar-bd" src="/img/{{ s.backdrop | urlencode }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}" alt="" {% if loop.index > 2 %}loading="lazy" {% endif %}decoding="async">
+      {% else %}<img class="homecar-bd homecar-bd-poster" src="/img/{{ s.poster or 'none' }}?h=600" alt="" loading="lazy" decoding="async">{% endif %}
+      <span class="homecar-text">
+        <span class="eyebrow">{{ car.eyebrow }}</span>
+        {% if lg %}<img class="homecar-logo" src="{{ lg.src }}" alt="" width="{{ lg.w }}" height="{{ lg.h }}" style="--lw: {{ lg.w }}; --lh: {{ lg.h }}" decoding="async" onerror="this.nextElementSibling.hidden=false;this.remove()"><span class="homecar-title" hidden>{{ s.title }}</span>
+        {% else %}<span class="homecar-title">{{ s.title }}</span>{% endif %}
+        {% if s.sub %}<span class="homecar-sub">{{ s.sub }}</span>{% endif %}
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if car.slides | length > 1 %}
+  <button class="homecar-step prev" type="button" aria-label="Previous" data-homecar-step="-1" tabindex="-1"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button class="homecar-step next" type="button" aria-label="Next" data-homecar-step="1" tabindex="-1"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+  {% endif %}
+  {% else %}
+  <p class="empty homecar-empty">{{ car.empty }}</p>
+  {% endif %}
+</section>

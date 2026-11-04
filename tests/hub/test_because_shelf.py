@@ -228,13 +228,14 @@ def test_render_reads_only_the_cache_with_sockets_blocked(home, monkeypatch):
     monkeypatch.setattr(requests, "get", blocked)
     monkeypatch.setattr(requests.Session, "request", blocked)
     html = home.get("/a/alpha?owner_view=you").text
-    sec = section(html)
-    assert sec is not None
-    assert "Paper Moons ★9" in sec
-    assert 'href="/media/item/' + "a" * 32 + '"' in sec and "On server" in sec        # in the library: item page
-    assert 'href="/media/title/movie/202"' in sec and "Request" in sec               # not on the server
-    titles = shelf_titles(html.split("<main", 1)[1])
-    assert titles.index(TITLE) == titles.index("Continue watching") + 1               # directly below it
+    assert home.get("/a/alpha?owner_view=you").status_code == 200
+    # JY-277 option B (docs/specs/JY-277-overview-B.md): the household Home no longer draws the shelf; the
+    # builder still reads only the cache (sockets blocked) and its rows keep their links and words
+    assert section(html) is None and TITLE not in html
+    sec = str(media_because.shelf("you", {**JELLY, "movies": [{"item_key": "tmdb:201", "jf_id": "a" * 32,
+                                                                "title": "Mine To Request"}]}))
+    assert "Paper Moons" in sec
+    assert "/media/title/movie/202" in sec and "Request" in sec                       # not on the server
 
 
 def test_the_shelf_hides_when_the_cache_is_empty(home):
@@ -250,7 +251,9 @@ def test_the_shelf_hides_when_the_cache_is_empty(home):
 
 def test_household_views_see_only_their_own_shelf(home):
     you_her_friend()
-    mine, hers = section(home.get("/a/alpha?owner_view=you").text), section(home.get("/a/alpha?owner_view=her").text)
+    # JY-277 option B (docs/specs/JY-277-overview-B.md): not on the household Home; the builder per view
+    assert TITLE not in home.get("/a/alpha?owner_view=her").text
+    mine, hers = str(media_because.shelf("you", JELLY)), str(media_because.shelf("her", JELLY))
     assert "Mine To Request" in mine and "Hers Only" not in mine and "Friend Only" not in mine
     assert "Hers Only" in hers and "Mine To Request" not in hers and "Friend Only" not in hers
 

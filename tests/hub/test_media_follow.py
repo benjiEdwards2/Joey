@@ -304,9 +304,10 @@ def test_home_shelf_only_with_a_follow(env):
         assert "New from people you follow" not in client.get("/a/alpha").text
         follow_person(client)
         b = main_of(client.get("/a/alpha").text)
-    shelf = b.split("New from people you follow", 1)[1].split("</section>", 1)[0]
-    assert 'href="/media/following"' in shelf and '<a class="card-poster" href="/media/title/movie/1">' in shelf
-    assert "Lead Role" in shelf and "2099 · Ada Actor" in shelf
+        following = main_of(client.get("/media/following").text)
+    # JY-277 option B (docs/specs/JY-277-overview-B.md): the follow shelf left Home; /media/following keeps the rows
+    assert "New from people you follow" not in b
+    assert "Lead Role" in following
 
 
 def test_film_page_follow_series_button(env):

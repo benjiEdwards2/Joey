@@ -36,14 +36,15 @@ def test_live_up_next_and_latest_rows_are_whole_row_links(env):
     with env(jellyfin=jelly) as client:
         body = main_of(client.get("/media/playing").text)
     up = between(body, ">Up next<", ">Latest additions<")
-    row = row_of(up, "Dust and Daylight")
-    assert row.startswith('<a class="row" href="/media/item/resume-id">')
+    # JY-296 (Option A): Up next / Latest are poster tiles on Live (.live-tile), acts beside the link, not in it
+    tile = lambda html, t: html.split(t, 1)[0].rsplit('<div class="live-tile">', 1)[1]
+    assert tile(up, "Dust and Daylight").strip().startswith('<a class="live-tile-link" href="/media/item/resume-id">')
     assert '<div class="row-title">Dust and Daylight</div>' in up and "31 min left" in up
-    assert row_of(up, "Keyless Ep").startswith('<div class="row">')
+    assert tile(up, "Keyless Ep").strip().startswith('<div class="live-tile-link">')
     latest = between(body, ">Latest additions<")
-    assert row_of(latest, "Fresh Film").startswith('<a class="row" href="/media/item/new-id">')
+    assert tile(latest, "Fresh Film").strip().startswith('<a class="live-tile-link" href="/media/item/new-id">')
     assert '<div class="row-title">Fresh Film</div>' in latest
-    assert row_of(latest, "Keyless Film").startswith('<div class="row">')
+    assert tile(latest, "Keyless Film").strip().startswith('<div class="live-tile-link">')
 
 
 def test_server_history_rows_are_whole_row_links(env):

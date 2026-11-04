@@ -1546,6 +1546,35 @@ details.reqdecide.confirm-wrap[open] + details.confirm-wrap { margin-left: auto;
 .reqbreak { display: none; }
 @media (max-width: 639px) { .reqbreak { display: block; flex-basis: 100%; height: 0; } }   /* phone: buttons on a line of their own */
 
+/* JY-296/297 (2026-11-04, Option A): Live = now-playing wall + Health rail on the right; the rail goes on top at
+   <= 1100 px. minmax(0, 1fr) and min-width: 0 on every grid item so no child props the page wider than the screen;
+   the tile rows (Up next, Latest additions) scroll sideways instead. */
+.live { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 32px; align-items: start; min-width: 0; }
+.live > *, .live-now, .live-rail, .live-streams > *, .live-meter { min-width: 0; }
+.live-now { display: flex; flex-direction: column; gap: 32px; }
+.live-streams { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 16px; }
+.live-card { position: relative; display: flex; align-items: flex-end; min-height: 200px; border-radius: 12px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--watch-line); color: var(--text-1); text-decoration: none; }
+.live-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .45; }
+.live-card-body { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 16px; width: 100%; min-width: 0;
+  background: linear-gradient(to top, var(--scrim), transparent); }
+.live-card-body .bar > span { background: var(--watch-bar); }
+.live-tiles { display: flex; gap: 12px; overflow-x: auto; max-width: 100%; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.live-tile { flex: 0 0 120px; width: 120px; min-width: 0; scroll-snap-align: start; display: flex; flex-direction: column; gap: 6px; }
+.live-tile-link { display: flex; flex-direction: column; gap: 6px; color: inherit; text-decoration: none; min-width: 0; }
+.live-tile .poster { width: 120px; height: 180px; border-radius: 8px; object-fit: cover; }
+.live-tile .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-rail { display: flex; flex-direction: column; gap: 16px; padding: 16px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--line); }
+.live-summary { margin: 0; font-weight: 600; color: var(--text-1); }
+.live-meters { display: flex; flex-direction: column; gap: 12px; }
+.live-meter { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; }
+.live-meter > .bar, .live-meter > .metaline { grid-column: 1 / -1; }
+@media (max-width: 1100px) {
+  .live { grid-template-columns: minmax(0, 1fr); }
+  .live-rail { order: -1; }
+}
+
 /* JY-269 P1 (B. 2026-10-29, pick A): the web and phone title pages (film, show, season, episode) take the TV hero
    (JY-259 §8) - backdrop under a calm scrim (darker on the left, fading to the page at its foot), the poster beside the
    title, facts, a short synopsis ("more" opens it) and ONE button row ending in a "…" menu (Request beside Play,

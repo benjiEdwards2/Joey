@@ -1,0 +1,81 @@
+{# JY-296: the Live page's left column - streams, Downloading, Up next + Latest additions. Polled as one fragment
+   (outerHTML) every 30 s; the [!document.hidden] filter skips the poll while the tab is hidden. #}
+{% from "_poster.html" import poster %}
+{% import "_resume_acts.html" as resume %}
+{% from "_rows.html" import meta %}
+{% from "_icons.html" import icon %}
+{% import "_rate.html" as rate %}
+<div class="live-now" id="live-now" hx-get="{{ parts.now }}" hx-trigger="every 30s [!document.hidden]" hx-swap="outerHTML">
+<section class="sec">
+  <h2 class="seclabel">Playing now</h2>
+  {% set np = src.data.get("now_playing") or [] %}
+  {% if np %}<div class="live-streams">
+  {% for p in np %}
+  {% set phref = item_href(p.jf_id) or src.href %}
+  <{{ "a" if phref else "div" }} class="live-card"{% if phref %} href="{{ phref }}"{% if not item_href(p.jf_id) %} target="_blank" rel="noopener"{% endif %}{% endif %}>
+    {% if p.backdrop %}<img class="live-backdrop" src="/img/{{ p.backdrop }}?h=360" alt="" loading="lazy" decoding="async">{% endif %}
+    <div class="live-card-body">
+      <span class="badge badge-watching">{{ icon("eye") }}Watching</span>
+      <div class="row-title">{{ p.title }}</div>{{ meta([p.user, p.play_method, p.progress_pct ~ "%"]) }}
+      <span class="bar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span>
+    </div>
+    {{ rate.score_row(p, ratings) }}
+  </{{ "a" if phref else "div" }}>
+  {% endfor %}
+  </div>{% else %}
+  <p class="empty">Nothing playing</p>
+  {% set lw = last_watched %}
+  {% if lw %}{% set lh = item_href(lw.jf_id) %}<div class="listbox">
+  <{{ "a" if lh else "div" }} class="row live-last"{% if lh %} href="{{ lh }}"{% endif %}>
+    {{ poster(lw.poster, lw.title, 120, "row-poster") }}
+    <div class="row-body"><div class="row-title">{{ lw.title }}</div>{{ meta(["Last watched", lw.when]) }}</div>
+  </{{ "a" if lh else "div" }}>
+  </div>{% endif %}
+  {% endif %}
+</section>
+
+<section class="sec">
+  <h2 class="seclabel">Downloading</h2>
+  {% if downloading %}<div class="listbox">
+  {% for d in downloading %}
+  <div class="row">
+    <div class="row-body"><div class="row-title">{{ d.name }}</div>{{ meta([d.state_text, d.pct ~ "%", d.speed_text or none, d.eta_text or none]) }}
+      <span class="bar" aria-hidden="true"><span style="width: {{ d.pct }}%"></span></span></div>
+  </div>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing downloading.</p>{% endif %}
+</section>
+
+<section class="sec">
+  <h2 class="seclabel">Up next</h2>
+  {% if src.data.get("up_next") %}<div class="live-tiles">
+  {% for n in src.data.get("up_next", []) %}
+  {% set nh = item_href(n.jf_id) %}
+  {% set acts = resume_acts(n, owner) %}
+  <div class="live-tile">
+  <{{ "a" if nh else "div" }} class="live-tile-link"{% if nh %} href="{{ nh }}"{% endif %}>
+    {{ poster(n.poster, n.title, 180) }}
+    <div class="row-title">{{ n.title }}</div>{{ meta([n.remaining_text]) }}{{ rate.score_row(n, ratings) }}
+  </{{ "a" if nh else "div" }}>
+  {% if acts %}<span class="rowacts">{{ resume.forms(acts, "/media/playing") }}</span>{% endif %}
+  </div>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing up next.</p>{% endif %}
+</section>
+
+<section class="sec">
+  <h2 class="seclabel">Latest additions</h2>
+  {% if latest %}<div class="live-tiles">
+  {% for i in latest %}
+  {% set ih = item_href(i.jf_id) %}
+  <div class="live-tile">
+  <{{ "a" if ih else "div" }} class="live-tile-link"{% if ih %} href="{{ ih }}"{% endif %}>
+    {{ poster(i.poster, i.title, 180) }}
+    <div class="row-title">{{ i.title }}</div>{{ meta([i.type, i.added_text]) }}{{ rate.score_row(i, ratings) }}
+  </{{ "a" if ih else "div" }}>
+  </div>
+  {% endfor %}
+  </div>{% else %}<p class="empty">Nothing added recently.</p>{% endif %}
+</section>
+{% if library_text %}<p class="metaline">Library: {{ library_text }}</p>{% endif %}
+</div>

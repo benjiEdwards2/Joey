@@ -42,7 +42,7 @@ def test_other_row_lists_keep_the_small_poster(frame_env):
     # small poster stays on Live (play page rows)
     assert ">Recently watched</h2>" not in hist
     live = c.get("/media/playing").text
-    assert "?h=120&amp;" in live
+    assert "?h=180&amp;" in live   # JY-296: Live's Up next / Latest are 180 px poster tiles
 
 
 def test_css_scales_list_posters_25_and_50_percent_and_keeps_the_guide_size():

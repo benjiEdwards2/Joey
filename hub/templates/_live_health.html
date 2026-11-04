@@ -1,0 +1,31 @@
+{# JY-297: the Health rail - owner only (the Live routes are PRIVATE in hub/guest.py). Up/Down are words. Polled as one
+   fragment every 30 s while the tab is visible; snapshot reads only. #}
+{% from "_rows.html" import meta %}
+{% set h = health %}
+<aside class="live-rail" id="live-health" aria-label="Health" hx-get="{{ parts.health }}" hx-trigger="every 30s [!document.hidden]" hx-swap="outerHTML">
+  <h2 class="seclabel">Health</h2>
+  <p class="live-summary">{{ h.summary }}</p>
+  <div class="live-meters">
+    {% for label, v in (("CPU", h.cpu), ("RAM", h.ram)) %}
+    <div class="live-meter"><span>{{ label }}</span><span>{{ (v|round|int ~ "%") if v is not none else "—" }}</span>
+      <span class="bar" aria-hidden="true"><span style="width: {{ (v or 0)|round|int }}%"></span></span></div>
+    {% endfor %}
+    {% for d in h.disks %}
+    <div class="live-meter"><span>{{ d.name }}</span><span>{{ d.pct_used }}%</span>
+      <span class="bar" aria-hidden="true"><span style="width: {{ d.pct_used }}%"></span></span>
+      <span class="metaline">{{ d.free_text }} free{% if d.forecast %} · {{ d.forecast }}{% endif %}</span></div>
+    {% endfor %}
+  </div>
+  {% if h.apps %}<div class="listbox">
+  {% for a in h.apps %}
+  {% set word %}<span class="{{ 'st-up' if a.up else 'st-down' }}">{{ a.status_text }}</span>{% endset %}
+  <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
+    <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, a.note if not a.up else none]) }}</div>
+  </a>
+  {% endfor %}
+  </div>{% endif %}
+  {% set b = h.backup %}
+  {% if b and b.state != "nodb" %}
+  <p class="metaline live-backup">Backup: {{ {"ok": "Backed up", "stale": "Stale", "none": "None yet", "off": "Off"}[b.state] }}{% if b.state in ("ok", "stale") and b.age_text %} · {{ b.age_text }}{% endif %}</p>
+  {% endif %}
+</aside>

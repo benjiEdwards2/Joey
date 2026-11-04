@@ -1,6 +1,6 @@
 # JY-299 History tied to the connecting user (only the owner sees everything)
 
-Status: shipped (#307, live pending, 2026-11-04)
+Status: shipped (#307, live 91c73ab 2026-11-04)
 Size: M
 Live risk: none
 Area: `hub/media_pages.py` (`/media/history`), `hub/media_home.py` (`view_jelly`, `_ratings`, `_to_rate`), `hub/media_plays.py` + `hub/media_plays_db.py` (`/media/server/history`), `hub/media_db.py` (owner helpers), `hub/guest.py` (allow-list), `hub/templates/media_history.html`, `media_server_history.html`, the TV history view in `hub/static/tv.js` / TV templates, `tests/hub/`

@@ -1,6 +1,6 @@
 # JY-300 Requests + Upgrades merged (A: one page with a filter)
 
-Status: building
+Status: shipped (live 91c73ab 2026-11-04)
 Size: M
 Live risk: none
 Area: hub/media_pages.py, hub/media_upgrade_why.py, hub/templates/media_requests.html, media_downloads.html, _upgrades_list.html, _upgrade_why.html, tests/hub

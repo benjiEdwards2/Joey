@@ -1,6 +1,6 @@
 # JY-319 Remove the separate Health tab
 
-Status: review
+Status: shipped (live 91c73ab 2026-11-04)
 Size: S
 Live risk: low (owner-only pages)
 Area: `hub/media_nav.py`, `hub/media_pages.py` (`/media/apps`), `hub/templates/_live_health.html`, `config/areas.yaml`, tests

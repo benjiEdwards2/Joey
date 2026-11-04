@@ -1,6 +1,6 @@
 # JY-305 Desktop: taller hero carousel on load
 
-Status: building
+Status: shipped (live 91c73ab 2026-11-04)
 Size: S
 Live risk: none
 Area: `hub/static/control-surface.css` (`.pagehead` min-height rules, 768 px and up), `hub/templates/area_shelves.html` (the Home hero `pagehead(...)` call), `hub/templates/_pagehead.html` only if a modifier class is needed, `tests/hub/` (`test_home_shelves.py`, `test_joey_media_home.py`)

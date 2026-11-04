@@ -100,3 +100,7 @@
 - JY-275 + JY-109 #317 merged 2026-11-04 on B.'s standing merge authority (reviewer PASS + two hardening fixes). Live pending. JY-300 A build starts on top.
 - JY-304 + JY-305 #319 merged 2026-11-04 on B.'s standing authority (reviewer PASS round 2). Live pending.
 - JY-300 #320 merged 2026-11-04 on B.'s standing authority (reviewer PASS). Deploy gate (109/275/300) met; one deploy pending.
+
+## 2026-11-04 18:40 AEDT - Deploy
+- deploy.sh bf94e98 -> 91c73ab (log deploy-20261104T073145Z-23559.log), hub/media/connectors healthy, 1832 MB available. Every "live pending" above is now LIVE: #305 #307 #308 #306 #311 #310 #309 #312 #313 #314 #315 #316 #317 #318 #319 #320.
+- JY-322 umbrella closed (275/109/300 live). JY-307 stays building for phase 3.

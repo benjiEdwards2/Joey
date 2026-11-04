@@ -1,6 +1,6 @@
 # JY-304 Carousel scroll cue (Discover first)
 
-Status: building
+Status: shipped (live 91c73ab 2026-11-04)
 Size: S
 Live risk: none
 Area: `hub/static/control-surface.css` (the `.carousel` block under "Posters: carousels", `.carousel.prov-row`), `hub/templates/media_discover.html`, `_shelf.html`, `_film_shelves.html`, `_services.html`, a small shared script only if the pick needs one, `tests/hub/`

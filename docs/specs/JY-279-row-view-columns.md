@@ -1,6 +1,6 @@
 # JY-279 Row view: more columns (upgrade, director, my score)
 
-Status: shipped (#310, live pending, 2026-11-04)
+Status: shipped (#310, live 91c73ab 2026-11-04)
 Size: M
 Live risk: low (read only; one optional background TMDB read, see Data)
 Area: `hub/templates/_library_row.html`, `_library_page.html`, `hub/static/control-surface.css` (`.listbox.libposters`), `hub/media_library.py` (sort keys), `hub/media_pages.py` (`_library_page`), `tests/hub/`

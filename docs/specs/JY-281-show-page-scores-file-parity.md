@@ -1,6 +1,6 @@
 # JY-281 Show page: scores and File drawer parity with the movie page
 
-Status: shipped (#308, live pending, 2026-11-04)
+Status: shipped (#308, live 91c73ab 2026-11-04)
 Size: M
 Live risk: none
 Area: `hub/templates/media_film.html` (show / season branches only), `_title_scores.html`, `_title_file.html`, `_film_providers.html`, `hub/media_film.py` (`file_owner` gate extended to `tv`; per-episode file fold), `hub/static/control-surface.css` (reuse `.scorepill`, `.filedrawer`; no new tokens), `tests/hub/`

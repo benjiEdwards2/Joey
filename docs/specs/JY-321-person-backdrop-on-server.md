@@ -1,6 +1,6 @@
 # JY-321 Person page backdrop prefers an on-server credit
 
-Status: review
+Status: shipped (live 91c73ab 2026-11-04)
 Size: S
 Live risk: none (no new upstream call)
 Area: `hub/media_person.py`, `hub/media_person_photo.py`, `tests/hub/test_person_hero_jy291.py`

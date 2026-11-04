@@ -1,6 +1,6 @@
 # JY-296 / JY-297 Live page, Option A: now-playing wall + Health rail
 
-Status: building
+Status: shipped (live 91c73ab 2026-11-04)
 Size: M
 Live risk: low (owner-only page; snapshot reads only)
 Area: `hub/media_pages.py` (`/media/playing` + two part routes), `hub/templates/media_playing.html`, `hub/templates/_live_now.html`, `hub/templates/_live_health.html`, `hub/static/control-surface.css` (`.live*` rules), `hub/guest.py` (PRIVATE entries), `tests/hub/test_live_jy296.py`

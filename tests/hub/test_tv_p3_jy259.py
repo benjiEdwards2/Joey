@@ -451,4 +451,4 @@ def test_every_corner_is_a_small_round_from_two_tokens():   # JY-307 P1: 8 px co
     m = re.search(r"html\.tv \.tvt-person \.card-pic, html\.tv \.tvt-person \.card-pic > img \{([^}]*)\}", css)   # JY-323: 2:3 tiles, no circles
     assert "aspect-ratio: 2 / 3" in m.group(1) and "50%" not in m.group(1)
     assert "tvt-person" not in "".join(re.findall(r"[^}]*50%[^}]*\}", css))
-    assert re.search(r"\.tvt-row-person > \* \{ flex: 0 0 70px; width: 70px;", css)
+    assert re.search(r"\.tvt-row-person > \* \{ flex: 0 0 80px; width: 80px;", css)

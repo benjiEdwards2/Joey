@@ -499,9 +499,12 @@ html.tv .card-poster.tvt:focus-visible .card-pic, html.tv .card-poster.tvt.tv-fo
 html.tv .card-poster.tvt-land:focus-visible .card-pic, html.tv .card-poster.tvt-land.tv-focus .card-pic { transform: scale(1.05); }
 html.tv .tvt-poster .row-title { height: 2.5rem; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
   -webkit-box-orient: vertical; overflow: hidden; }   /* JY-259 review: two lines, clamped, under row posters */
-/* JY-323: the cast is 2:3 portrait tiles (the poster shape, 0.75 of the 5.75rem poster-row tile = 4.375rem), not circles */
+/* JY-323: the cast is 2:3 portrait tiles (the poster shape, 5rem, wide enough for a surname), not circles */
 html.tv .tvt-person .card-pic, html.tv .tvt-person .card-pic > img { width: 100%; height: auto; aspect-ratio: 2 / 3; margin: 0; border-radius: var(--tv-r); }
 html.tv .tvt-person .row-title, html.tv .tvt-person .row-meta { text-align: left; }
+/* JY-323 review: a cast name takes two lines like a poster title; the role stays one line with an ellipsis, focused too */
+html.tv .tvt-person .row-title { height: 2.5rem; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.tv .card-poster.tvt-person:focus-visible .row-meta, html.tv .card-poster.tvt-person.tv-focus .row-meta { overflow: hidden; text-overflow: ellipsis; }
 html.tv .tvt-band { position: static; display: block; margin-top: .25rem; padding: .125rem .375rem; border-radius: var(--tv-r);
   font-size: 1.125rem; font-weight: 600; line-height: 1.375rem; text-align: center; color: var(--zinc-950); background: var(--tv-primary); }
 html.tv .tvt-band-request { color: #fff; }
@@ -610,7 +613,7 @@ html.tv .tv-eps .tvshelf-hd .tv-seasonsub, html.tv .tv-eps .tvshelf-hd > .seclab
 
 /* Cast circles, "More on Joey" posters (the kit), with room above them */
 html.tv .tv-cast, html.tv .tv-more { margin-top: 1.375rem; }
-html.tv .carousel.tvt-row-person > * { flex: 0 0 4.375rem; width: 4.375rem; }   /* JY-323: 0.75 of the poster tile */
+html.tv .carousel.tvt-row-person > * { flex: 0 0 5rem; width: 5rem; }   /* JY-323: 5rem: names keep a surname */
 html.tv .tv-cast .row-meta { visibility: visible; color: var(--tv-t4); }
 
 /* Loading: a slow shelf is three quiet tile shapes of the final size until its part lands */

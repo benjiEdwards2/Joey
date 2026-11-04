@@ -104,3 +104,7 @@
 ## 2026-11-04 18:40 AEDT - Deploy
 - deploy.sh bf94e98 -> 91c73ab (log deploy-20261104T073145Z-23559.log), hub/media/connectors healthy, 1832 MB available. Every "live pending" above is now LIVE: #305 #307 #308 #306 #311 #310 #309 #312 #313 #314 #315 #316 #317 #318 #319 #320.
 - JY-322 umbrella closed (275/109/300 live). JY-307 stays building for phase 3.
+
+## 2026-11-04 evening - Sweep 27 answers (page db, pasted to chat)
+- B.: JY-275 "Accept", JY-300 "Accept", JY-304 "Accept", JY-321 "Accept". Qs a/b/c unanswered -> defaults stand (25-title cap kept, title-page Search for upgrade kept, Declined/Failed stay under Requested).
+- q-d (JY-320): B. "can you please either use tmdb key or show me how to again and I will create a key.txt file with it. Should I move back to private github for this again." -> nas_scripts/set_tmdb_key.py (project folder, not the repo) reads key.txt or hidden input, sets TMDB_API_KEY on the NAS deploy/.env, recreates hub, checks the key. Repo stays public: the key only ever lives in the NAS .env (gitignored), never in the repo.

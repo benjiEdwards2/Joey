@@ -43,7 +43,7 @@ GRAB_TIMEOUT = 30    # s: the grab (the app hands it to the download client)
 TTL = 86400          # s: a row's answer is kept this long (JY-275, 2026-11-04: was 1 h; in memory, lost on a hub restart)
 CHECK_MAX = 25       # JY-275: rows the "Search upgrades" sweep checks afterwards, one at a time
 TOP = 5              # releases listed
-BACK = "/media/downloads"
+BACK = "/media/requests?f=upgrades"   # JY-300: the Upgrades filter of Requests
 NAMES = {"radarr": "Radarr", "sonarr": "Sonarr"}
 UNKNOWN = {"radarr": "Unknown Movie", "sonarr": "Unknown Series"}
 
@@ -195,7 +195,7 @@ def grab_href(app: str, arr_id) -> str | None:
     pick = next((i for i, c in enumerate(m["res"]["candidates"]) if not c["rejected"]), None) if m else None
     if pick is None:
         return None
-    return f"{BACK}?why={app}:{arr_id}&why_step=grab&pick={pick}#why-{app}-{arr_id}"
+    return f"{BACK}&why={app}:{arr_id}&why_step=grab&pick={pick}#why-{app}-{arr_id}"
 
 
 def episodes(row: dict | None, app: str, arr_id) -> list[dict]:
@@ -407,7 +407,7 @@ def _target(request: Request, app: str, arr_id: int) -> dict:
 
 
 def _page(app: str, arr_id: int, **q) -> str:
-    return f"{BACK}?" + urlencode({"why": f"{app}:{arr_id}", **q}) + f"#why-{app}-{arr_id}"
+    return f"{BACK}&" + urlencode({"why": f"{app}:{arr_id}", **q}) + f"#why-{app}-{arr_id}"
 
 
 @router.get("/media/upgrades/why/{app}/{arr_id}", response_class=HTMLResponse)

@@ -84,7 +84,7 @@ def test_attach_labels_rows_and_needs_a_unique_library_title():
     keep("radarr", 1)
     mu.attach(shows, snaps(SAMPLE), "tv")
     assert [r["upgrade"] for r in shows] == ["Upgrade available", "Upgrade available", "", "", ""]
-    assert shows[0]["upgrade_href"] == "/media/downloads?why=sonarr:1&why_step=grab&pick=0#why-sonarr-1"
+    assert shows[0]["upgrade_href"] == "/media/requests?f=upgrades&why=sonarr:1&why_step=grab&pick=0#why-sonarr-1"
     assert shows[2]["upgrade_href"] is None
     films = [{"item_key": "tmdb:1001", "title": "Harbour Lights"}, {"item_key": "jf:x", "title": "Desert Crossing"}]
     mu.attach(films, snaps(SAMPLE), "movie")
@@ -153,4 +153,4 @@ def test_upgrade_href_is_the_grab_confirm_of_the_accepted_release():
     keep("radarr", 1, viable=False)
     assert mu.upgrade_href({"app": "radarr", "arr_id": 1}) is None
     keep("radarr", 1)
-    assert mu.upgrade_href({"kind": "movie", "arr_id": 1}) == "/media/downloads?why=radarr:1&why_step=grab&pick=0#why-radarr-1"
+    assert mu.upgrade_href({"kind": "movie", "arr_id": 1}) == "/media/requests?f=upgrades&why=radarr:1&why_step=grab&pick=0#why-radarr-1"

@@ -177,8 +177,8 @@ def env(tmp_path, monkeypatch):
 
 def warm(client):
     """The first page view's BackgroundTask reads the profile lists; the next view draws chips and words."""
-    client.get("/media/requests")
-    return main_of(client.get("/media/requests").text)
+    client.get("/media/requests?f=all")
+    return main_of(client.get("/media/requests?f=all").text)
 
 
 def approve(client, rid, **form):
@@ -201,7 +201,7 @@ def test_only_pending_rows_carry_approve_and_decline_with_inline_confirms(env):
         page = warm(client)
     rows = rows_of(page)
     for rid in (13, 15):
-        assert f'action="/media/requests/{rid}/approve"' in rows[rid] and f'action="/media/requests/{rid}/decline"' in rows[rid]
+        assert f'action="/media/requests/{rid}/approve?f=all"' in rows[rid] and f'action="/media/requests/{rid}/decline?f=all"' in rows[rid]
         assert 'class="reqbreak"' in rows[rid]                            # a phone puts the buttons on their own line
     for rid in (14, 12, 11):
         assert "/approve" not in rows[rid] and "/decline" not in rows[rid] and "Remove" in rows[rid]
@@ -234,8 +234,8 @@ def test_pending_rows_say_what_was_asked_for_and_preselect_it(env):
 def test_the_page_draws_without_any_seerr_call_on_the_first_view(env):
     client, fake, _ = env()
     with client:
-        page = main_of(client.get("/media/requests").text)
-    assert 'action="/media/requests/15/approve"' in page and "Asked for Seasons 1–2" in page   # no profile list yet
+        page = main_of(client.get("/media/requests?f=all").text)
+    assert 'action="/media/requests/15/approve?f=all"' in page and "Asked for Seasons 1–2" in page   # no profile list yet
     assert [c for c in fake.calls if c[1].startswith(SEERR) and "/settings/" not in c[1]] == []
 
 
@@ -274,7 +274,7 @@ def test_approve_unchanged_film_sends_no_edit(env):
         warm(client)
         r = approve(client, 13, profile="8")
         assert r.status_code == 303 and r.headers["location"] == "/media/requests?decided=approved&dp=8"
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert [c[0] + " " + c[1][len(SEERR):] for c in fake.calls if c[1].startswith(SEERR + "/api/v1/request")] == [
         "GET /api/v1/request/13", "POST /api/v1/request/13/approve"]
     assert fake.of("PUT") == [] and fake.of("PUT", RADARR) == []             # default profile: no safety net
@@ -289,7 +289,7 @@ def test_approve_in_4k_edits_keeping_stored_fields_then_approves_and_checks_rada
     with client:
         warm(client)
         r = approve(client, 13, profile="9")
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?decided=approved&dp=9"
     puts = fake.of("PUT")
     assert puts == [("PUT", f"{SEERR}/api/v1/request/13", None,
@@ -309,7 +309,7 @@ def test_approve_tv_with_changed_seasons_sends_an_int_array_and_keeps_the_rest(e
         warm(client)
         r = client.post("/media/requests/15/approve", data={"profile": "8", "seasons": ["1", "2", "3"]},
                         follow_redirects=False)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?decided=approved&dp=8&ds=1%2C2%2C3"
     assert fake.of("PUT")[0][3] == {"mediaType": "tv", "serverId": 0, "rootFolder": "/tv", "tags": [3],
                                     "languageProfileId": 1, "profileId": 8, "seasons": [1, 2, 3]}
@@ -365,7 +365,7 @@ def test_decline_posts_decline_and_shows_declined_at_once(env):
     client, fake, _ = env()
     with client:
         r = decline(client, 15)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?decided=declined"
     assert [c[1] for c in fake.of("POST")] == [f"{SEERR}/api/v1/request/15/decline"] and fake.of("PUT") == []
     assert '<p class="metaline st-good" role="status">Declined</p>' in page
@@ -378,12 +378,12 @@ def test_a_newer_snapshot_is_the_truth_again(env):
     client, _, snaps = env()
     with client:
         decline(client, 15)
-        assert "/media/requests/15/approve" not in client.get("/media/requests").text
+        assert "/media/requests/15/approve" not in client.get("/media/requests?f=all").text
         ts = (datetime.now(timezone.utc) + timedelta(seconds=media_hidden.GRACE_S + 5)).isoformat()
         env_json = json.loads((snaps / "jellyseerr.json").read_text(encoding="utf-8"))
         env_json["updated_at"] = env_json["fetched_at"] = ts
         (snaps / "jellyseerr.json").write_text(json.dumps(env_json), encoding="utf-8")
-        assert "/media/requests/15/approve" in client.get("/media/requests").text
+        assert "/media/requests/15/approve" in client.get("/media/requests?f=all").text
 
 
 def test_a_decided_row_cannot_be_decided_again(env):
@@ -411,7 +411,7 @@ def test_seerr_says_no_longer_pending(env):
     fake.requests[13]["status"] = 2                                        # approved in Seerr since the sweep
     with client:
         r = approve(client, 13)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?error=notpending" and fake.of("POST") == []
     assert "That request is no longer pending" in page
 
@@ -428,7 +428,7 @@ def test_edit_202_means_no_seasons_left_and_nothing_is_approved(env):
     fake.status[("PUT", "/api/v1/request/15")] = 202
     with client:
         r = client.post("/media/requests/15/approve", data={"seasons": ["3"]}, follow_redirects=False)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?error=noseasons" and fake.of("POST") == []
     assert "Seerr has no seasons left to request" in page and "/media/requests/15/approve" in page
 
@@ -438,7 +438,7 @@ def test_refusal_shows_the_status_only(env, caplog):
     fake.status[("POST", "/api/v1/request/13/approve")] = 500
     with caplog.at_level(logging.WARNING), client:
         r = approve(client, 13)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?error=refused&code=500"
     assert "Seerr refused (HTTP 500)" in page and "/media/requests/13/approve" in page   # still pending
     assert "seerr request approve refused: HTTP 500" in caplog.text
@@ -450,7 +450,7 @@ def test_unreachable_is_a_word_and_never_leaks(env, caplog, act):
     fake.raise_seerr = requests.ConnectionError
     with caplog.at_level(logging.WARNING), client:
         r = client.post(f"/media/requests/13/{act}", follow_redirects=False)
-        page = client.get(r.headers["location"]).text
+        page = client.get(r.headers["location"] + "&f=all").text
     assert r.headers["location"] == "/media/requests?error=unreachable"
     assert "Couldn&#39;t reach Seerr" in page or "Couldn't reach Seerr" in page
     assert f"seerr request {act} failed: ConnectionError" in caplog.text
@@ -474,13 +474,13 @@ def test_her_can_neither_see_nor_use_approve_or_decline(env, monkeypatch):
     as_her = {IDENTITY_HEADER: "her@example.invalid"}
     client, fake, _ = env()
     with client:
-        page = client.get("/media/requests", headers=as_her).text
+        page = client.get("/media/requests?f=all", headers=as_her).text
         assert "/approve" not in page and "/decline" not in page and "Midnight Harbour" in page
         assert client.post("/media/requests/13/approve", headers=as_her, follow_redirects=False).status_code == 403
         assert client.post("/media/requests/13/decline", headers=as_her, follow_redirects=False).status_code == 403
         assert client.get("/media/requests/15/seasons", headers=as_her).status_code == 403
         as_you = {IDENTITY_HEADER: "you@example.invalid"}
-        assert "/media/requests/13/approve" in client.get("/media/requests", headers=as_you).text
+        assert "/media/requests/13/approve" in client.get("/media/requests?f=all", headers=as_you).text
     assert fake.of("POST") == [] and fake.of("PUT") == [] and not fake.of("GET", SEERR + "/api/v1/request")
 
 
@@ -573,10 +573,10 @@ def test_the_page_draws_from_caches_with_seerr_down(env):
     client, fake, _ = env()
     fake.raise_seerr = requests.ConnectionError
     with client:
-        first = client.get("/media/requests")
-        page = main_of(client.get("/media/requests").text)
+        first = client.get("/media/requests?f=all")
+        page = main_of(client.get("/media/requests?f=all").text)
     assert first.status_code == 200
-    assert 'action="/media/requests/15/approve"' in page and 'action="/media/requests/13/decline"' in page
+    assert 'action="/media/requests/15/approve?f=all"' in page and 'action="/media/requests/13/decline?f=all"' in page
     assert "Asked for" in page
     live = [c[1] for c in fake.calls if c[1].startswith(SEERR) and "/settings/" not in c[1]]
     assert live == []                                                      # no request / title read on any render
@@ -593,8 +593,8 @@ def test_a_restart_forgets_the_decision_and_a_second_click_writes_nothing(env):
         assert fake.requests[15]["status"] == 3
         mra.clear()
         media_hidden.clear()                                               # what a restart does to the overlay
-        page = main_of(client.get("/media/requests").text)
-        assert 'action="/media/requests/15/approve"' in rows_of(page)[15]  # Pending again, from the old snapshot
+        page = main_of(client.get("/media/requests?f=all").text)
+        assert 'action="/media/requests/15/approve?f=all"' in rows_of(page)[15]  # Pending again, from the old snapshot
         writes = len(fake.of("POST")) + len(fake.of("PUT"))
         r = client.post("/media/requests/15/approve", data={"seasons": ["1", "2"]}, follow_redirects=False)
         assert r.headers["location"] == "/media/requests?error=notpending"
@@ -613,7 +613,7 @@ def test_non_ascii_digits_in_the_flash_params_never_500():
 def test_the_page_survives_crafted_flash_params(env):
     client, _, _ = env()
     with client:
-        r = client.get("/media/requests", params={"decided": "approved", "dp": "²", "ds": "²,2"})
+        r = client.get("/media/requests?f=all", params={"decided": "approved", "dp": "²", "ds": "²,2"})
     assert r.status_code == 200 and "Approved · Season 2" in r.text
 
 
@@ -622,7 +622,7 @@ def test_decline_reads_live_and_sends_nothing_once_seerr_has_decided(env):
     fake.requests[15]["status"] = 2                                        # approved in Seerr since the sweep
     with client:
         r = decline(client, 15)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert r.headers["location"] == "/media/requests?error=notpending"
     assert fake.of("GET", SEERR + "/api/v1/request/15") and fake.of("POST") == [] and fake.of("PUT") == []
     assert "That request is no longer pending" in page
@@ -637,7 +637,7 @@ def test_requester_is_you_her_or_the_friends_name_and_never_an_email(env, monkey
                           "requested_by_id": 9})                            # no usable name (the connector's word)
     client, _, _ = env(d)
     with client:
-        page = main_of(client.get("/media/requests").text)
+        page = main_of(client.get("/media/requests?f=all").text)
     rows = rows_of(page)
     assert "· you ·" in rows[13] and "· her ·" in rows[14] and "Sample Friend" in rows[15]
     assert "Sample Person" not in page and "Sample Partner" not in page and "Friend ·" in rows[21]
@@ -662,7 +662,7 @@ def test_a_decided_note_is_pruned_once_the_sweep_shows_it_decided(env):
         d = data()
         d["requests"][1]["status_text"] = "Declined"
         write_envelope(snaps, "jellyseerr", age_minutes=0, data=d)
-        client.get("/media/requests")
+        client.get("/media/requests?f=all")
     assert 15 not in mra._decided
 
 
@@ -672,7 +672,7 @@ def test_a_second_approve_while_the_first_is_sending_is_already_sending(env):
         mra._inflight.add(13)                                              # the first click is still with Seerr
         r = approve(client, 13)
         r2 = decline(client, 13)
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
         mra._inflight.discard(13)
     assert r.headers["location"] == r2.headers["location"] == "/media/requests?error=busy"
     assert not fake.of("GET", SEERR + "/api/v1/request/") and fake.of("POST") == [] and fake.of("PUT") == []
@@ -703,3 +703,18 @@ def test_a_friends_4k_film_pick_shows_on_the_approve_row(env):
     assert "Asked for 4K" in row and "Sample Friend" in row
     assert '<input type="radio" name="profile" value="9" checked>4K' in row
     assert '<input type="radio" name="profile" value="8">1080p · Default' in row
+
+
+def test_jy300_approve_and_decline_return_to_the_filter_they_came_from(env):
+    client, fake, _ = env()
+    with client:
+        page = main_of(client.get("/media/requests?f=requested").text)
+        assert 'action="/media/requests/13/approve?f=requested"' in page
+        r = client.post("/media/requests/13/approve?f=requested", data={"profile": "8"}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/media/requests?decided=approved&dp=8&f=requested"
+        back = main_of(client.get(r.headers["location"]).text)
+        assert "Approved · 1080p" in back and 'class="chip on" href="/media/requests?f=requested"' in back
+        r = client.post("/media/requests/15/decline?f=evil", follow_redirects=False)   # unknown filter: default kept
+        assert "f=" not in r.headers["location"]
+        r = approve(client, 14, profile="8")                                           # no f: unchanged
+        assert "f=" not in r.headers["location"]

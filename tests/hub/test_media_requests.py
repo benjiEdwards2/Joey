@@ -28,7 +28,7 @@ def test_requests_page_lists_rows_with_words_and_links_in_main(app_factory):
     snaps = tmp_path / "snaps"
     write_envelope(snaps, "jellyseerr", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
-        resp = client.get("/media/requests")
+        resp = client.get("/media/requests?f=all")
     assert resp.status_code == 200
     title = resp.text.split("<title>", 1)[1].split("</title>", 1)[0]
     assert title.startswith("Requests") and "<" not in title
@@ -52,7 +52,7 @@ def test_a_row_without_a_year_has_no_empty_brackets(app_factory):
     data["requests"][0].update(title="TMDB #1001", year=None)
     write_envelope(snaps, "jellyseerr", age_minutes=1, data=data)
     with build(snaps) as client:
-        body = main_of(client.get("/media/requests").text)
+        body = main_of(client.get("/media/requests?f=all").text)
     assert ">TMDB #1001</div>" in body and "</span> · Film ·" in body and "()" not in body
 
 
@@ -64,14 +64,14 @@ def test_quiet_state_when_nothing_is_requested(app_factory):
         "counts": {"pending": 0, "approved": 0, "available": 0, "declined": 0, "total": 0},
         "requests": []})
     with build(snaps) as client:
-        body = main_of(client.get("/media/requests").text)
+        body = main_of(client.get("/media/requests?f=all").text)
     assert "No open requests" in body and "reqrow" not in body
 
 
 def test_not_connected_state_without_a_snapshot(app_factory):
     build, tmp_path = app_factory
     with build(tmp_path / "empty") as client:
-        resp = client.get("/media/requests")
+        resp = client.get("/media/requests?f=all")
     assert resp.status_code == 200
     body = main_of(resp.text)
     assert "Not connected" in body and "reqrow" not in body
@@ -85,7 +85,7 @@ def test_404_when_no_tile_reads_the_snapshot(tmp_path, monkeypatch):
     import hub.main
     importlib.reload(hub.main)
     with TestClient(hub.main.app) as client:
-        resp = client.get("/media/requests")
+        resp = client.get("/media/requests?f=all")
     assert resp.status_code == 404 and "No page here" in resp.text
 
 
@@ -94,7 +94,7 @@ def test_request_rows_carry_tmdb_posters_and_null_falls_back(app_factory):
     snaps = tmp_path / "snaps"
     write_envelope(snaps, "jellyseerr", age_minutes=1, data=SAMPLE)
     with build(snaps) as client:
-        body = main_of(client.get("/media/requests").text)
+        body = main_of(client.get("/media/requests?f=all").text)
     assert '<img class="poster row-poster' in body
     assert 'src="/img/tmdb:/fixture1001.jpg?h=120&amp;t=MI"' in body
     assert 'src="/img/none?h=120&amp;t=HA"' in body  # lookup had no posterPath

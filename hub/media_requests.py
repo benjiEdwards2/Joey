@@ -227,8 +227,23 @@ def _to(**params) -> RedirectResponse:
     return RedirectResponse(f"{PAGE}?" + urlencode(params), status_code=303)
 
 
+FILTER_KEYS = ("requested", "missing", "upgrades", "done", "all")
+
+
+def keep_filter(request: Request, resp):
+    """JY-300: a row action posted from ?f=<filter> (the form's action carries it) redirects back to that filter."""
+    f = request.query_params.get("f")
+    if f in FILTER_KEYS and resp.headers.get("location", "").startswith(PAGE + "?"):
+        resp.headers["location"] += "&f=" + f
+    return resp
+
+
 @router.post("/media/requests/{rid}/remove", dependencies=[Depends(same_origin)])
 def remove_request(request: Request, rid: int):
+    return keep_filter(request, _remove(rid))
+
+
+def _remove(rid: int):
     if rid <= 0:
         raise HTTPException(404, "No such request")
     row, _snap = _row(rid)

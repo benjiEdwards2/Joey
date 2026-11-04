@@ -429,8 +429,8 @@ def test_requests_page_says_requested_and_waiting_and_how_much_is_to_come(frame_
                      jellyseerr={"summary": "x", "requests": rows, "counts": {"approved": 3}})
     sonarr.install()
     with TestClient(main.app) as c:
-        cold = main_of(c.get("/media/requests").text)
-        warm = main_of(c.get("/media/requests").text)
+        cold = main_of(c.get("/media/requests?f=all").text)
+        warm = main_of(c.get("/media/requests?f=all").text)
     assert ">Available</span>" in cold and "Waiting for the first episode" not in cold      # cold: Seerr's words only
     assert ">Available</span>" not in warm
     assert f">Requested</span> · Waiting for the first episode · airs {words(47)} · TV" in warm

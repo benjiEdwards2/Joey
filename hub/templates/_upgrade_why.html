@@ -25,11 +25,11 @@
         <div class="metaline">{% if c.rejected %}{{ w.app_name }} will download it even though it rejected it; an '{{ w.unknown_word }}' release may still fail to import.{% else %}{{ w.app_name }} will download it now.{% endif %}</div>
         <div class="confirm-btns">
           <button class="btn btn-primary btn-sm" type="submit">{{ "Grab anyway" if c.rejected else "Grab" }}</button>
-          <a class="btn btn-ghost btn-sm" href="{{ w.back }}?why={{ w.key }}#{{ w.dom }}" hx-get="{{ w.url }}?step=result" {{ hx }}>Cancel</a>
+          <a class="btn btn-ghost btn-sm" href="{{ w.back }}&amp;why={{ w.key }}#{{ w.dom }}" hx-get="{{ w.url }}?step=result" {{ hx }}>Cancel</a>
         </div>
       </form>
       {% else %}
-      <a class="btn btn-secondary btn-sm" href="{{ w.back }}?why={{ w.key }}&amp;why_step=grab&amp;pick={{ loop.index0 }}#{{ w.dom }}" hx-get="{{ w.url }}?step=grab&amp;pick={{ loop.index0 }}" {{ hx }}>{{ "Grab anyway" if c.rejected else "Grab" }}</a>
+      <a class="btn btn-secondary btn-sm" href="{{ w.back }}&amp;why={{ w.key }}&amp;why_step=grab&amp;pick={{ loop.index0 }}#{{ w.dom }}" hx-get="{{ w.url }}?step=grab&amp;pick={{ loop.index0 }}" {{ hx }}>{{ "Grab anyway" if c.rejected else "Grab" }}</a>
       {% endif %}
     </div>
     {% endfor %}
@@ -45,6 +45,6 @@
     </div>
   </form>
 {% else %}
-  <a class="btn btn-ghost btn-sm" href="{{ w.back }}?why={{ w.key }}&amp;why_step=confirm#{{ w.dom }}" hx-get="{{ w.url }}?step=confirm" {{ hx }}>Why?</a>
+  <a class="btn btn-ghost btn-sm" href="{{ w.back }}&amp;why={{ w.key }}&amp;why_step=confirm#{{ w.dom }}" hx-get="{{ w.url }}?step=confirm" {{ hx }}>Why?</a>
 {% endif %}
 </div>

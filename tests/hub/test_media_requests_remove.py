@@ -118,9 +118,9 @@ def remove(client, rid):
 def test_each_row_has_a_remove_button_outside_the_row_link_with_an_inline_confirm(env):
     client, _, _ = env()
     with client:
-        body = main_of(client.get("/media/requests").text)
+        body = main_of(client.get("/media/requests?f=all").text)
     assert body.count('<summary class="btn btn-secondary btn-sm">Remove</summary>') == 4
-    assert 'action="/media/requests/13/remove"' in body and "Remove the request for Midnight Harbour?" in body
+    assert 'action="/media/requests/13/remove?f=all"' in body and "Remove the request for Midnight Harbour?" in body
     assert "confirm(" not in body                                     # guide 6: never a browser dialog
     # the whole row is still the link; the Remove form is never inside it
     for row in body.split('<div class="row has-form reqrow"')[1:]:
@@ -138,7 +138,7 @@ def test_remove_film_deletes_request_unmonitors_radarr_and_drops_the_row(env):
     with client:
         r = remove(client, 13)
         assert r.status_code == 303 and r.headers["location"] == "/media/requests?done=stopped&app=radarr"
-        page = main_of(client.get(r.headers["location"]).text)
+        page = main_of(client.get(r.headers["location"] + "&f=all").text)
     assert fake.of("DELETE") == [("DELETE", f"{SEERR}/api/v1/request/13", None, None)]
     puts = fake.of("PUT")
     assert len(puts) == 1 and puts[0][1] == f"{RADARR}/api/v3/movie/7"
@@ -251,7 +251,7 @@ def test_remove_requires_same_origin(env):
     client, fake, _ = env()
     with client:
         r = client.post("/media/requests/13/remove", headers=ORIGIN_BAD, follow_redirects=False)
-        page = main_of(client.get("/media/requests").text)
+        page = main_of(client.get("/media/requests?f=all").text)
     assert r.status_code == 403 and not_season_state(not_quality(fake.calls)) == []   # WP-T1: the page's background list read only  # WP-R1: + the quality task
     assert "Midnight Harbour" in page
 
@@ -329,13 +329,13 @@ def test_a_newer_snapshot_is_the_truth_again(env):
     client, fake, snaps = env()
     with client:
         remove(client, 13)
-        assert "Midnight Harbour" not in main_of(client.get("/media/requests").text)
+        assert "Midnight Harbour" not in main_of(client.get("/media/requests?f=all").text)
         # the next sweep (taken well after the removal) still lists it: show it again rather than hide forever
         ts = (datetime.now(timezone.utc) + timedelta(seconds=media_hidden.GRACE_S + 5)).isoformat()
         env_json = json.loads((snaps / "jellyseerr.json").read_text(encoding="utf-8"))
         env_json["updated_at"] = env_json["fetched_at"] = ts
         (snaps / "jellyseerr.json").write_text(json.dumps(env_json), encoding="utf-8")
-        assert "Midnight Harbour" in main_of(client.get("/media/requests").text)
+        assert "Midnight Harbour" in main_of(client.get("/media/requests?f=all").text)
 
 
 def test_hidden_unit_rules():

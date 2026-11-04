@@ -154,7 +154,7 @@ def req_row(html, rid):
 
 def test_request_rows_carry_the_line_by_tmdb_or_tvdb(site):
     with site(requests_rows=REQS) as c:
-        b = main_of(c.get("/media/requests").text)
+        b = main_of(c.get("/media/requests?f=all").text)
     assert f'<div class="upnote">{FILM_NOTE}</div>' in req_row(b, 1)
     assert f'<div class="upnote">{ECHO_NOTE}</div>' in req_row(b, 2)           # the request's tvdb_id bridges it
     assert "upnote" not in req_row(b, 3)
@@ -162,7 +162,7 @@ def test_request_rows_carry_the_line_by_tmdb_or_tvdb(site):
 
 def test_request_rows_without_upgrades_render_plain(site):
     with site(upgrades=None, requests_rows=REQS) as c:
-        r = c.get("/media/requests")
+        r = c.get("/media/requests?f=all")
     assert r.status_code == 200 and "upnote" not in main_of(r.text)
 
 
@@ -174,7 +174,7 @@ def upgrades_block(html):
 
 def test_downloads_block_lists_titles_with_totals_and_links(site):
     with site() as c:
-        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+        blk = upgrades_block(main_of(c.get("/media/requests?f=upgrades").text))
     assert '<h2 class="seclabel">Upgrades</h2>' in blk
     assert '<p class="metaline">2 films · 2 shows</p>' in blk
     assert f'<div class="upnote">{FILM_NOTE}</div>' in blk and blk.count(ECHO_NOTE) == 3
@@ -188,16 +188,16 @@ def test_downloads_block_lists_titles_with_totals_and_links(site):
 
 def test_downloads_block_states(site):
     with site(upgrades=None) as c:
-        b = main_of(c.get("/media/downloads").text)
+        b = main_of(c.get("/media/requests?f=upgrades").text)
     assert 'id="upgrades"' not in b                                            # an older arr envelope: no block
     with site(upgrades={"radarr": None, "sonarr": None, "totals": {}}) as c:
-        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+        blk = upgrades_block(main_of(c.get("/media/requests?f=upgrades").text))
     assert '<p class="metaline">Not connected</p>' in blk and "upnote" not in blk
     with site(upgrades={**UP, "sonarr": None}) as c:
-        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+        blk = upgrades_block(main_of(c.get("/media/requests?f=upgrades").text))
     assert '<p class="metaline">2 films · Sonarr not connected</p>' in blk
     with site(upgrades={"radarr": [], "sonarr": [], "totals": {"movies": 0, "episodes": 0, "series": 0}}) as c:
-        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+        blk = upgrades_block(main_of(c.get("/media/requests?f=upgrades").text))
     assert "0 films · 0 shows" in blk and '<p class="empty">Nothing to upgrade.</p>' in blk
 
 
@@ -211,7 +211,7 @@ def test_jy275_unchecked_or_rejected_rows_show_nothing_anywhere(site):
     with site(requests_rows=REQS) as c:
         pages = [main_of(c.get(p).text) for p in ("/media/movies?view=grid", "/media/movies?view=list",
                                                      "/media/tv?view=grid", "/media/tv?view=list", "/media/requests")]
-        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+        blk = upgrades_block(main_of(c.get("/media/requests?f=upgrades").text))
     for page in pages:
         assert "upnote" not in page and "upbtn" not in page and "Below cutoff" not in page
     top = blk.split("<details", 1)[0]
@@ -221,10 +221,10 @@ def test_jy275_unchecked_or_rejected_rows_show_nothing_anywhere(site):
 
 def test_jy275_viable_rows_carry_the_upgrade_button(site):
     with site(requests_rows=REQS) as c:
-        reqs = main_of(c.get("/media/requests").text)
-        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+        reqs = main_of(c.get("/media/requests?f=all").text)
+        blk = upgrades_block(main_of(c.get("/media/requests?f=upgrades").text))
     r1 = reqs.split('id="req-1"', 1)[1].split('id="req-2"', 1)[0]
-    assert 'class="btn btn-secondary btn-sm upbtn" href="/media/downloads?why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade</a>' in r1
+    assert 'class="btn btn-secondary btn-sm upbtn" href="/media/requests?f=upgrades&amp;why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade</a>' in r1
     assert "upbtn" not in reqs.split('id="req-3"', 1)[1]
     top = blk.split("<details", 1)[0]
     assert top.count('upbtn') == 3 and 'why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade' in top
@@ -278,3 +278,34 @@ def test_jy275_a_raising_row_is_skipped_and_the_next_still_runs(monkeypatch, cap
     monkeypatch.setattr(w, "ask", ask)
     assert w.check_rows([("radarr", r) for r in UP["radarr"]]) == 1
     assert asked == [8] and "skipped a row: RuntimeError" in caplog.text
+
+
+# ---- JY-300: Requests + Upgrades on one page, a segmented filter ----
+
+def chips_of(html):
+    nav = html.split('<nav class="chips reqfilter"', 1)[1].split("</nav>", 1)[0]
+    return re.findall(r'<a class="chip( on)?" href="/media/requests\?f=(\w+)"[^>]*>(\w+) <span class="metaline">(\d+)</span>', nav)
+
+
+def test_jy300_filter_chips_with_counts_and_rows_per_filter(site):
+    with site(requests_rows=REQS) as c:
+        default = main_of(c.get("/media/requests").text)
+        missing = main_of(c.get("/media/requests?f=missing").text)
+        done = main_of(c.get("/media/requests?f=done").text)
+        ups = main_of(c.get("/media/requests?f=upgrades").text)
+    assert [(k, lab, n) for _, k, lab, n in chips_of(default)] == [
+        ("requested", "Requested", "1"), ("missing", "Missing", "1"), ("upgrades", "Upgrades", "3"), ("done", "Done", "1")]
+    assert [k for on, k, *_ in chips_of(default) if on] == ["requested"]       # first non-empty filter
+    assert 'id="req-3"' in default and 'id="req-1"' not in default and 'id="req-2"' not in default
+    assert 'id="req-2"' in missing and 'id="req-3"' not in missing
+    assert 'id="req-1"' in done and [k for on, k, *_ in chips_of(done) if on] == ["done"]
+    assert 'id="upgrades"' in ups and "req-" not in ups.split('id="upgrades"', 1)[1]
+    for page in (default, ups):                                                 # both sweeps in the header
+        assert page.index('id="arr-sweep"') < page.index("reqfilter")
+
+
+def test_jy300_downloads_has_no_upgrades_section_but_keeps_the_rest(site):
+    with site() as c:
+        dl = main_of(c.get("/media/downloads").text)
+    assert 'id="upgrades"' not in dl and "Nothing to upgrade" not in dl
+    assert "Finished today" in dl and 'id="arr-sweep"' in dl

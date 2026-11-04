@@ -80,6 +80,7 @@ def test_nav_for_a_middle_episode(show, film_of):
         "seasons": [{"n": 4, "href": "/media/item/sea1", "on": True}, {"n": 5, "href": "/media/item/sea2", "on": False}],
         "prev": {"number": 2, "name": "Two", "href": "/media/item/ep2"},
         "next": {"number": 4, "name": "Four", "href": "/media/item/ep4"},
+        "next_ep": {"number": 4, "name": "Four", "href": "/media/item/ep4", "season": 4, "code": "S4 E4"},   # JY-315
         "position": "E3 of 6"}
 
 
@@ -100,7 +101,7 @@ def test_season_page_switch_marks_its_season(show, film_of):
     assert film["nav"] == {"show": {"title": "Quiet Show", "href": "/media/item/ser1"},
                            "seasons": [{"n": 4, "href": "/media/item/sea1", "on": False},
                                        {"n": 5, "href": "/media/item/sea2", "on": True}],
-                           "season": None, "prev": None, "next": None, "position": None}
+                           "season": None, "prev": None, "next": None, "next_ep": None, "position": None}
     assert "guests" not in film and "crew_ep" not in film          # episode-only keys
 
 

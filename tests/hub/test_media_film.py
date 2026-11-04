@@ -278,7 +278,7 @@ def test_episode_route_shows_episode_header_over_show_page(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/item/ep3"))
-    assert b.index("S04E03 · Penny for Your Thoughts") < b.index("Quiet Show (2020)")
+    assert '<h1 class="hero-detail-title">Penny for Your Thoughts</h1>' in b       # JY-315: the episode title is the h1
     assert "Aired 12 Oct 2026" in b and "Coins go missing." in b
     assert "Episode of" not in b      # media-ux4 (2026-10-08, B.): the line is gone; the part-of banner links the show
     assert "Cass Creator" in b and 'aria-current="page">TV shows' in b

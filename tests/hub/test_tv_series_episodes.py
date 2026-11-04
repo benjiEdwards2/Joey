@@ -184,7 +184,7 @@ def test_off_the_tv_the_pages_are_unchanged(tvc):
     assert 'class="sec tl-eps"' in show and "tvshelf" not in show   # JY-290: the Episodes row, no bottom list and "data-tv-rate" not in show
     epp = tvc.get(f"/media/item/{E2}").text
     assert 'class="crumbs"' in epp and "data-tv-up" not in epp and "tv-epstill" not in epp
-    assert "S01E02 · Second Wind" in epp
+    assert ">Second Wind</h1>" in epp                                   # JY-315: the web episode hero
 
 
 # ---- 10: the CSS block ----

@@ -73,8 +73,9 @@ def test_show_and_episode_heroes_keep_the_same_order(env):
     assert "Created by" in show.split(ROW, 1)[1]
     # an episode: its code / name leads the title; its overview is "the rest", under the row and the makers
     # JY-269 P1 (2026-10-30): on the web the overview is the hero synopsis, above the row
-    assert order(ep, "S04E03 · Penny for Your Thoughts", '<h1 class="hero-detail-title">', "Coins go missing.",
-                 'id="status-line"', ROW, '<div class="makers">')
+    # JY-315 (2026-11-04, pick A): the episode title is the h1 and the synopsis sits under the button row
+    assert order(ep, '<h1 class="hero-detail-title">Penny for Your Thoughts</h1>', 'id="status-line"', ROW,
+                 "Coins go missing.", '<div class="makers">')
 
 
 def test_title_not_on_the_server_has_request_first_then_makers(env):

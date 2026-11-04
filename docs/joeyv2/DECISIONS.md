@@ -90,3 +90,6 @@
 - JY-296 Qs: Health tab "REmove it." -> JY-319. Connector change for time left/device/4K: "Not neccessary yet."
 - JY-314 (progress hero): B. picked A = keep Play as is -> parked. JY-315 (episode page): A + an episode carousel left/right under the hero.
 - JY-319 #316 merged 2026-11-04 on B.'s standing "REmove it." (reviewer PASS). Live pending.
+
+## 2026-11-04 afternoon - Upgrades and search
+- B. 2026-11-04: "Complete all for upgrades adn searches. Recomplete 109. If you have any questions. Ensure you ask me. I don't need to wait for thoes." -> umbrella JY-322; JY-109 re-opened into the JY-275 build; JY-275 built on the spec defaults (A/A/A) while the questions go to B.; JY-300 options page first.

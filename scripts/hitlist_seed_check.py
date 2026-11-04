@@ -353,6 +353,7 @@ SOURCES = [
     ("Sweep 26 answers (2026-11-04)", "Remove Health tab", "JY-319", "Health in Live rail"),
     ("Sweep 26 answers (2026-11-04)", "TMDB key on the NAS", "JY-320", "B.'s hands"),
     ("Sweep 26 answers (2026-11-04)", "Person backdrop prefers on-server credit", "JY-321", ""),
+    ("B. in chat (2026-11-04)", "Upgrades and search umbrella", "JY-322", "275+300+109"),
     ("Sonnet review of PR #291 (2026-11-02)", "Backdrop friend access gap", "JY-272", "jfs:<id>/1|2 unchecked"),
 ]
 

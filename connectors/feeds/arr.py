@@ -448,6 +448,10 @@ class Arr(Connector):
                     "profile": profile.get(series.get("qualityProfileId")),
                     "sample": _episode_code(first.get("seasonNumber"), first.get("episodeNumber")),
                     "episode_id": first.get("id") if isinstance(first.get("id"), int) else None,
+                    # JY-109 (2026-11-04): the below-cutoff episodes for the hub's per-episode fold-out (first 12)
+                    "below": [{"code": _episode_code(e.get("seasonNumber"), e.get("episodeNumber")),
+                               "have": quality(e.get("episodeFile")).get("name")}
+                              for e in sorted(eps, key=lambda e: (e.get("seasonNumber") or 0, e.get("episodeNumber") or 0))[:12]],
                     "poster": _arr_ref("sonarr", {"series": series, "seriesId": sid})})
             sonarr.sort(key=lambda r: (r["title"].casefold(), r["arr_id"] or 0))
         totals = {"movies": cls._total(raw["raw_radarr_cutoff"]) if radarr is not None else 0,

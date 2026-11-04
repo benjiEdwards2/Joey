@@ -1558,6 +1558,9 @@ a.guest:hover .guest-name { text-decoration: underline; }
 #upgrades .row.has-form > .upwhy { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
 #upgrades .row.has-form > .upwhy.is-open { flex: 1 0 100%; margin-left: 0; }
 .upwhy .confirm { margin-top: 8px; }
+/* JY-275 (2026-11-04): a viable row's Upgrade button sits above the row link, beside Why? (D-pad focusable: a link) */
+.row.has-form > .upbtn { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; align-self: center; }
+.row.has-form > .upbtn + .upwhy { margin-left: 8px; }
 .whyres { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; align-items: flex-start; }
 .whyreasons { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-2); }
 .whycand { align-self: stretch; display: flex; flex-direction: column; gap: 4px; align-items: flex-start;

@@ -55,7 +55,7 @@
   <div class="col col-year">{{ r.year or "—" }}</div>
   <div class="col col-score">{{ rate.score(r.score) }}</div>
   <div class="col col-rating col-opt" title="TMDB average">{{ "%.1f"|format(r.community) if r.community else "—" }}</div>
-  <div class="col col-upgrade">{% if r.upgrade %}<span class="col-up" title="{{ r.upgrade }}">Yes · {{ r.upgrade.split(" · ")[0] }}</span><div class="vh">{{ upnote(r.upgrade) }}</div>{% else %}—{% endif %}</div>
+  <div class="col col-upgrade">{% if r.upgrade %}<span class="col-up" title="{{ r.upgrade }}">Upgrade</span><div class="vh">{{ upnote(r.upgrade) }}</div>{% else %}—{% endif %}</div>
   <div class="col col-director col-opt">{{ r.director or "—" }}</div>
   <div class="col col-added col-opt">{{ r.added_text or "—" }}</div>
 </{{ tag }}>

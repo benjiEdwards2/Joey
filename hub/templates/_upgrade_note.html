@@ -2,4 +2,8 @@
    title whose file is below its Radarr / Sonarr quality cutoff — "Below cutoff · WEBDL-720p → wants Bluray-1080p".
    Words, not colour alone.
    Nothing when `text` is empty. `tag` = span inside a link card, div / p elsewhere. #}
+{# JY-275 (2026-11-04): `text` is now only "Upgrade available" (media_upgrades.FLAG), set when a Why? check found an
+   acceptable release; a below-cutoff title with nothing better shows nothing. `upbtn` = the row's Upgrade button, which
+   opens the title page's Upgrade confirm (the one confirmed POST). #}
+{% macro upbtn(href) %}{% if href %}<a class="btn btn-secondary btn-sm upbtn" href="{{ href }}">Upgrade</a>{% endif %}{% endmacro %}
 {% macro upnote(text, tag="div") %}{% if text %}<{{ tag }} class="upnote">{{ text }}</{{ tag }}>{% endif %}{% endmacro %}

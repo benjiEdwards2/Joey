@@ -4,7 +4,7 @@ Built for the live case (Brothers (2026) S01E01, Sonarr episode 362, series 15):
 releases, all rejected, nearly all by the "1080p" profile's minimum custom-format score (1000). The fixture below is that
 answer trimmed and renamed (synthetic titles). Radarr / Sonarr are faked at requests.get / requests.post; no network.
 Covers: the page draws Why? and the last-search line with no arr call; the confirm (htmx + no-JS); the search (params,
-timeout, 1 h cache); the grouped reasons, hint and top 5; Grab anyway (confirm, POST body from the kept answer, flash,
+timeout, 24 h cache since JY-275); the grouped reasons, hint and top 5; Grab anyway (confirm, POST body from the kept answer, flash,
 failures); same-origin 403; unknown rows 404; logs never carry a URL, key or release title."""
 import html as htmllib
 import importlib
@@ -266,7 +266,7 @@ def test_each_upgrades_row_has_why_and_the_page_makes_no_arr_call(site):
     assert 'hx-get="/media/upgrades/why/sonarr/15?step=confirm"' in a
     assert 'href="/media/downloads?why=sonarr:15&why_step=confirm#why-sonarr-15"' in a      # no-JS
     assert 'hx-get="/media/upgrades/why/radarr/7?step=confirm"' in blk
-    assert "Below cutoff · 1 episode · HDTV-1080p → wants WEB/Bluray 1080p" in blk
+    assert "Below cutoff, nothing better found yet (3)" in blk and "upnote" not in blk   # JY-275 (2026-11-04): was the sentence
     assert arr.gets == [] and arr.posts == []
 
 
@@ -318,7 +318,7 @@ def test_why_runs_the_interactive_search_once_and_draws_the_answer(site):
     assert "guid-" not in out                                                        # guids stay server-side
 
 
-def test_the_kept_answer_expires_after_an_hour(site, monkeypatch):
+def test_the_kept_answer_expires_after_its_ttl(site, monkeypatch):
     client, arr = site()
     now = [1000.0]
     monkeypatch.setattr(why, "_clock", lambda: now[0])
@@ -468,3 +468,42 @@ def test_cross_site_writes_are_refused(site):
         assert ask(client, **BAD_ORIGIN).status_code == 403
         assert grab(client, 0, **BAD_ORIGIN).status_code == 403
     assert arr.gets == [] and arr.posts == []
+
+
+# ---- JY-275 / JY-109 (2026-11-04) ----
+
+def test_jy275_a_viable_answer_moves_the_row_up_with_the_flag(site):
+    """An answer with an accepted release flags the row (one rule: media_upgrades.is_viable) and lists it on top."""
+    client, arr = site()
+    with client:
+        assert page(client).split('id="upgrades"', 1)[1].count("upbtn") == 0
+        from tests.hub.upgrade_kept import keep
+        keep("sonarr", 15)
+        blk = page(client).split('id="upgrades"', 1)[1].split("</section>", 1)[0]
+    top = blk.split("<details", 1)[0]
+    assert "Brother Show" in top and '<div class="upnote">Upgrade available</div>' in top and top.count("upbtn") == 1
+    assert "nothing better found yet (2)" in blk
+    assert arr.gets == [] and arr.posts == []
+
+
+def test_jy109_the_answer_folds_out_per_episode(site):
+    """A show's answer lists its below-cutoff episodes (the snapshot's `below`), the sampled one with its result."""
+    below = [{"code": "S01E01", "have": "HDTV-1080p"}, {"code": "S01E02", "have": "HDTV-720p"}]
+    up = {**UP, "sonarr": [{**UP["sonarr"][0], "episodes": 2, "below": below}] + UP["sonarr"][1:]}
+    client, arr = site(upgrades=up)
+    with client:
+        out = htmllib.unescape(ask(client, **HX).text)
+    fold = out.split('<details class="fold upeps">', 1)[1].split("</details>", 1)[0]
+    assert "Episodes below cutoff (2)" in fold
+    assert "<li>S01E01 · HDTV-1080p · rejected · custom-format score below the profile minimum (1000)</li>" in fold
+    assert "<li>S01E02 · HDTV-720p · not checked</li>" in fold
+    assert len(arr.gets) == 1                                                         # still one search per row
+
+
+def test_jy109_episodes_viable_result_and_sample_fallback():
+    from tests.hub.upgrade_kept import keep
+    keep("sonarr", 15, quality="WEBDL-1080p")
+    row = {"sample": "S01E01", "have": "HDTV-1080p"}
+    assert why.episodes(row, "sonarr", 15) == [{"code": "S01E01", "have": "HDTV-1080p", "result": "viable · WEBDL-1080p"}]
+    assert why.episodes(row, "radarr", 15) == [] and why.episodes(None, "sonarr", 15) == []
+    assert why.episodes(row, "sonarr", 99)[0]["result"] == "not checked"

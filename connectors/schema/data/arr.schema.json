@@ -163,6 +163,7 @@
               "profile": {"type": ["string", "null"], "description": "WP-U1 (2026-10-21): the quality profile's own name; absent in older envelopes."},
               "sample": {"type": ["string", "null"], "pattern": "^S[0-9]{2}(E[0-9]{2,})?$"},
               "episode_id": {"type": ["integer", "null"], "description": "WP-U1 (2026-10-21): the Sonarr episode id of `sample` (the hub's Why? searches it); absent in older envelopes."},
+              "below": {"type": "array", "maxItems": 12, "description": "JY-109 (2026-11-04): the first 12 below-cutoff episodes (code + held quality) for the hub's per-episode fold-out; absent in older envelopes.", "items": {"type": "object", "additionalProperties": false, "required": ["code"], "properties": {"code": {"type": ["string", "null"]}, "have": {"type": ["string", "null"]}}}},
               "poster": {"type": ["string", "null"]}
             }
           }

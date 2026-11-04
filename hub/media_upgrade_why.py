@@ -10,7 +10,7 @@ Each row of Activity › Downloads › Upgrades carries "Why?" (`_upgrade_why.ht
 2. POST (same_origin) - the app's interactive search: Radarr `GET /api/v3/release?movieId=<arr_id>`, Sonarr
    `GET /api/v3/release?episodeId=<the row's episode_id>` (the row's `sample` episode - one search, the profile is the
    series'). It hits every indexer and grabs NOTHING; 10-60 s live, so a worker thread with a 90 s timeout. The answer
-   is kept 1 h per row (`_memo`) and drawn as counts, grouped reasons, a hint when the profile's custom-format minimum
+   is kept 24 h per row (`_memo`; JY-275, was 1 h) and drawn as counts, grouped reasons, a hint when the profile's custom-format minimum
    rejects the best release or half of them ("N of M releases"), and the top 5 releases.
 3. "Grab anyway" on a listed release: GET ?step=grab&pick=<n> draws its confirm (no call), the same_origin POST .../grab
    sends `POST /api/v3/release {"guid", "indexerId"}` taken from the kept answer (never from the form) - the app
@@ -40,7 +40,8 @@ router = APIRouter()
 
 WHY_TIMEOUT = 90     # s: the interactive search (every indexer)
 GRAB_TIMEOUT = 30    # s: the grab (the app hands it to the download client)
-TTL = 3600           # s: a row's answer is kept this long
+TTL = 86400          # s: a row's answer is kept this long (JY-275, 2026-11-04: was 1 h; in memory, lost on a hub restart)
+CHECK_MAX = 25       # JY-275: rows the "Search upgrades" sweep checks afterwards, one at a time
 TOP = 5              # releases listed
 BACK = "/media/downloads"
 NAMES = {"radarr": "Radarr", "sonarr": "Sonarr"}
@@ -177,7 +178,64 @@ def summarize(releases, app: str, profile: str | None = None, sample: str | None
                       "facts": [str(f) for f in facts if f], "first": rejs[0][:160] if rejs and i in bad else None,
                       "rejected": i in bad, "unknown": any(t.lower().startswith(UNKNOWN[app].lower()) for t in rejs),
                       "guid": r.get("guid"), "indexer_id": r.get("indexerId")})
-    return {"summary": summary, "reasons": reasons, "hint": hint, "candidates": cands, "app": app}
+    return {"summary": summary, "reasons": reasons, "hint": hint, "candidates": cands, "app": app, "viable": ok > 0}
+
+
+# ---- JY-275 (2026-11-04): "viable" = a kept answer with at least one accepted release - the ONE rule ----
+
+def viable(app: str, arr_id) -> bool:
+    """True when this row's kept answer (under TTL) has an accepted release. Never a call."""
+    m = peek(app, arr_id) if isinstance(arr_id, int) else None
+    return bool(m and m["res"].get("viable"))
+
+
+def episodes(row: dict | None, app: str, arr_id) -> list[dict]:
+    """JY-109 (re-opened, 2026-11-04): a show's below-cutoff episodes for the fold-out - [{code, have, result}] from the
+    snapshot's `below` list (else the `sample` alone). Only the sample episode is searched, so only it carries a
+    result: 'viable · <best release quality>' or 'rejected · <top reason>'; the others read 'not checked'."""
+    if not row or app != "sonarr":
+        return []
+    eps = [e for e in row.get("below") or [] if isinstance(e, dict) and e.get("code")]
+    if not eps and row.get("sample"):
+        eps = [{"code": row["sample"], "have": row.get("have")}]
+    m = peek(app, arr_id) if isinstance(arr_id, int) else None
+    res = m["res"] if m else None
+    out = []
+    for e in eps:
+        result = "not checked"
+        if res and e["code"] == row.get("sample"):
+            if res.get("viable"):
+                best = next((c for c in res["candidates"] if not c["rejected"]), None)
+                result = "viable" + (f" · {best['facts'][0]}" if best and best["facts"] else "")
+            elif res["reasons"]:
+                result = f"rejected · {res['reasons'][0]['text']}"
+            else:
+                result = "no releases found"
+        out.append({"code": e["code"], "have": e.get("have"), "result": result})
+    return out
+
+
+def check_rows(rows) -> int:
+    """After a "Search upgrades" sweep (JY-275): run the Why? search for up to CHECK_MAX snapshot rows, one at a time,
+    so their flags appear without a Why? per row. Returns how many were checked. Runs in a background thread."""
+    n = 0
+    for app, row in rows[:CHECK_MAX]:
+        arr_id = row.get("arr_id")
+        if isinstance(arr_id, int) and not isinstance(arr_id, bool):
+            ask(app, arr_id, row)
+            n += 1
+    return n
+
+
+def check_all(snaps) -> threading.Thread | None:
+    """Start check_rows over the snapshot's cutoff-unmet rows (Radarr first) in a daemon thread; None when empty."""
+    up = media_upgrades.upgrades(snaps) or {}
+    rows = [(app, r) for app in ("radarr", "sonarr") for r in up.get(app) or [] if isinstance(r, dict)]
+    if not rows:
+        return None
+    t = threading.Thread(target=check_rows, args=(rows,), name="upgrade-check", daemon=True)
+    t.start()
+    return t
 
 
 # ---- the calls (explicit actions only) ----
@@ -258,7 +316,7 @@ def _int(v) -> int | None:
     return int(s) if s.isdigit() and len(s) <= 9 else None
 
 
-def ctx(app: str, arr_id: int, step: str = "", pick=None, flash: tuple | None = None) -> dict:
+def ctx(app: str, arr_id: int, step: str = "", pick=None, flash: tuple | None = None, row: dict | None = None) -> dict:
     """What `_upgrade_why.html` draws for one row. step: idle (the Why? link) | confirm (the ask, or the kept answer) |
     result | grab (the kept answer with release `pick`'s confirm). Never a call."""
     m = peek(app, arr_id) if step in ("confirm", "result", "grab") else None
@@ -273,7 +331,7 @@ def ctx(app: str, arr_id: int, step: str = "", pick=None, flash: tuple | None = 
     return {"app": app, "app_name": NAMES[app], "arr_id": arr_id, "key": f"{app}:{arr_id}", "dom": f"why-{app}-{arr_id}",
             "url": f"/media/upgrades/why/{app}/{arr_id}", "back": BACK, "res": res, "ago": ago,
             "ask": step == "confirm" and res is None, "pick": pick, "unknown_word": UNKNOWN[app],
-            "flash": flash or (None, None)}
+            "flash": flash or (None, None), "eps": episodes(row, app, arr_id) if res else []}
 
 
 def ask_flash(app: str, code: str) -> tuple:
@@ -298,7 +356,7 @@ def page_ctx(params, rows) -> dict:
             continue
         key = f"{app}:{arr_id}"
         if key != named:
-            out[key] = ctx(app, arr_id)
+            out[key] = ctx(app, arr_id, row=r)
             continue
         step = params.get("why_step") or "result"
         flash = None
@@ -306,7 +364,7 @@ def page_ctx(params, rows) -> dict:
             flash = ask_flash(app, params["wf"])
         elif params.get("grab") in GRAB:
             flash = grab_flash(app, params["grab"], _int(params.get("gcode")))
-        out[key] = ctx(app, arr_id, step if step in ("confirm", "grab", "result") else "result", params.get("pick"), flash)
+        out[key] = ctx(app, arr_id, step if step in ("confirm", "grab", "result") else "result", params.get("pick"), flash, r)
     return out
 
 
@@ -325,11 +383,11 @@ def _page(app: str, arr_id: int, **q) -> str:
 @router.get("/media/upgrades/why/{app}/{arr_id}", response_class=HTMLResponse)
 def why_step(request: Request, app: str, arr_id: int, step: str = "", pick: str = ""):
     """htmx: one row's Why? area at `step`. Without htmx: the Downloads page, which draws the same from `?why=`."""
-    _target(request, app, arr_id)
+    row = _target(request, app, arr_id)
     if not is_htmx(request):
         return RedirectResponse(_page(app, arr_id, why_step=step or "result", **({"pick": pick} if pick else {})),
                                 status_code=303)
-    return md._partial(request, "_upgrade_why.html", w=ctx(app, arr_id, step, pick))
+    return md._partial(request, "_upgrade_why.html", w=ctx(app, arr_id, step, pick, row=row))
 
 
 @router.post("/media/upgrades/why/{app}/{arr_id}", dependencies=[Depends(same_origin)])
@@ -337,16 +395,16 @@ async def why_now(request: Request, app: str, arr_id: int):
     row = _target(request, app, arr_id)
     code = await run_in_threadpool(ask, app, arr_id, row)   # 10-60 s: off the event loop
     if is_htmx(request):
-        w = ctx(app, arr_id, "result") if code == "ok" else ctx(app, arr_id, flash=ask_flash(app, code))
+        w = ctx(app, arr_id, "result", row=row) if code == "ok" else ctx(app, arr_id, flash=ask_flash(app, code))
         return md._partial(request, "_upgrade_why.html", w=w)
     return RedirectResponse(_page(app, arr_id, **({} if code == "ok" else {"wf": code})), status_code=303)
 
 
 @router.post("/media/upgrades/why/{app}/{arr_id}/grab", dependencies=[Depends(same_origin)])
 async def grab_now(request: Request, app: str, arr_id: int):
-    _target(request, app, arr_id)
+    row = _target(request, app, arr_id)
     form = await form_of(request)
     code, status = await run_in_threadpool(grab, app, arr_id, _int(form.get("pick")))
     if is_htmx(request):
-        return md._partial(request, "_upgrade_why.html", w=ctx(app, arr_id, "result", flash=grab_flash(app, code, status)))
+        return md._partial(request, "_upgrade_why.html", w=ctx(app, arr_id, "result", flash=grab_flash(app, code, status), row=row))
     return RedirectResponse(_page(app, arr_id, grab=code, **({"gcode": status} if status else {})), status_code=303)

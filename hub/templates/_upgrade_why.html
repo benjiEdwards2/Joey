@@ -11,6 +11,7 @@
   <div class="whyres">
     <p class="metaline">{{ w.res.summary }} · {{ w.ago }}</p>
     {% if w.res.reasons %}<ul class="whyreasons">{% for r in w.res.reasons %}<li>{{ r.n }} × {{ r.text }}</li>{% endfor %}</ul>{% endif %}
+    {% if w.eps %}<details class="fold upeps"><summary>Episodes below cutoff ({{ w.eps | length }})</summary><ul class="whyreasons">{% for e in w.eps %}<li>{{ e.code }}{% if e.have %} · {{ e.have }}{% endif %} · {{ e.result }}</li>{% endfor %}</ul></details>{% endif %}
     {% if w.res.hint %}<p class="metaline st-warn">{{ w.res.hint }}</p>{% endif %}
     {% for c in w.res.candidates %}
     <div class="whycand">

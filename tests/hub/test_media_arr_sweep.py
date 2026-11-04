@@ -397,3 +397,17 @@ def test_a_stuck_app_does_not_block_the_hub(env, monkeypatch):
             release.set()
             worker.join(10)
     assert elapsed < 1.5 and out["r"].status_code == 303
+
+
+def test_jy275_an_upgrades_sweep_then_checks_rows_and_missing_does_not(env, monkeypatch):
+    """JY-275 (2026-11-04): after a started "Search upgrades" sweep the hub Why?-checks the cutoff-unmet rows in the
+    background (media_upgrade_why.check_all) so viable ones flag; "Search missing" does not."""
+    from hub import media_upgrade_why
+    seen = []
+    monkeypatch.setattr(media_upgrade_why, "check_all", lambda snaps: seen.append(snaps))
+    client, _ = env()
+    with client:
+        sweep(client, "missing")
+        assert seen == []
+        sweep(client, "upgrades")
+    assert len(seen) == 1

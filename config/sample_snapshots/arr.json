@@ -255,6 +255,12 @@
       "sonarr": [
         {
           "arr_id": 2,
+          "below": [
+            {
+              "code": "S01E01",
+              "have": "WEBDL-720p"
+            }
+          ],
           "episode_id": 3201,
           "episodes": 1,
           "have": "WEBDL-720p",
@@ -267,6 +273,20 @@
         },
         {
           "arr_id": 1,
+          "below": [
+            {
+              "code": "S01E02",
+              "have": "HDTV-720p"
+            },
+            {
+              "code": "S01E03",
+              "have": "SDTV"
+            },
+            {
+              "code": "S02E05",
+              "have": "HDTV-720p"
+            }
+          ],
           "episode_id": 3103,
           "episodes": 3,
           "have": "SDTV",

@@ -1,6 +1,6 @@
 # JY-275 Upgrades: flag only a viable upgrade, with an Upgrade button
 
-Status: spec
+Status: building (2026-11-04, folds in JY-109 re-opened)
 Size: M (the data cannot say "a better release exists" today; see Data)
 Live risk: none
 Area: `hub/templates/_upgrade_note.html`, `_library_row.html`, `media_requests.html`, `media_downloads.html`, `media_film.html`, `_arr_search.html`, `hub/media_upgrades.py`, `hub/media_upgrade_why.py`, `hub/static/control-surface.css` (`.upnote`), `tests/hub/`
@@ -54,5 +54,37 @@ JY-302 (search missing / upgrades adding off-server titles). JY-300 (merging Upg
    C. Treat every below-cutoff title as upgradeable but drop the wording (does not meet "only if there is one").
 2. Where does the button sit? A. on the row and the title page (recommended), B. title page only.
 3. "General and Activity": A. library rows, title page, Requests and Downloads (recommended), B. other pages? Name them.
+
+## Decisions in force (2026-11-04, B.: "Complete all for upgrades and searches. Recomplete 109.")
+The spec's recommended answers; B. may still change them, so the rule lives in one place (`media_upgrades.is_viable`).
+- Q1 = A. "Viable" = the row's kept Why? answer (`media_upgrade_why._memo`) holds at least one accepted release. The memo
+  now lives 24 h (was 1 h), in memory: a hub restart forgets every check, so flags disappear until the next Why? or sweep.
+- The "Search upgrades" sweep on Requests / Downloads (until now out of scope) also records results: after a started
+  sweep the hub runs the Why? search for up to 25 cutoff-unmet rows, one at a time, in a background thread.
+- Q2 = A. Upgrade button on the row and on the title page. Q3 = A. Library rows, title page, Requests, Downloads.
+- A page render never calls Radarr / Sonarr.
+
+## JY-109 scope (re-opened, folded in)
+For a show, the Why? answer folds out "Episodes below cutoff (N)": each episode code, its held quality and the result -
+the sampled episode (the one searched) reads "viable · <quality>" or "rejected · <top reason>", the others "not checked".
+The episode list comes from the arr snapshot: the feed now adds `below` (first 12 episodes, code + held quality) to each
+Sonarr row (schema updated, sample snapshot regenerated). No new upstream call on render; still one search per row.
+
+## Build notes (2026-11-04)
+- Library rows: the flag only ("Upgrade available"; list-view column reads "Upgrade"). The whole row is one link to the
+  title page, so no nested button; the title page carries the Upgrade confirm.
+- Requests and Downloads rows: an Upgrade button that opens the title page's confirm (`?upgrade_ask=1#upgrade`); the POST
+  is the existing `/media/title/{kind}/{tmdb}/upgrade`. A Downloads row with no known title page falls back to its kept
+  Why? answer (Grab on the accepted release).
+- Downloads > Upgrades lists viable rows; the others sit in a fold "Below cutoff, nothing better found yet (N)" with Why?.
+- The lazy Search-now fragment no longer draws "Search for upgrade" (the hero's Upgrade replaces it).
+
+## Test changes (dated 2026-11-04)
+- test_media_upgrades.py (F4b/WP-U1): `note` is now FLAG-or-''; the sentence moved to `detail`; block splits rows / unchecked.
+- test_media_upgrades_pages.py, test_media_upgrades_film.py: an autouse fixture marks the old noted rows viable; the
+  fragment "Search for upgrade" tests are replaced by hero Upgrade tests; new unchecked / rejected / button tests.
+- test_media_upgrade_why.py (WP-U1/JY-108): the Downloads row no longer shows the sentence; TTL test renamed; new
+  viable-flag and JY-109 per-episode tests. test_arr_upgrades.py: Sonarr rows carry `below`.
+- test_media_arr_sweep.py: an upgrades sweep starts the background check, a missing sweep does not.
 
 ## Shipped notes

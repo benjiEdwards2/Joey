@@ -778,7 +778,11 @@ button.chip { font: inherit; font-size: 12px; font-weight: 500; background: none
 @media (min-width: 768px) { .homecar-empty { margin: 0 calc((100vw - var(--slide-w)) / 2); } }
 @media (prefers-reduced-motion: reduce) { .homecar-slide { transition: none; } }
 /* JY-277 on the JY-308 wide shell: bigger slides at 2560 and 3440 wide; the track still spans the whole viewport. */
-@media (min-width: 1920px) { html:not(.tv) .homecar { --slide-w: min(80vw, calc(58vh * 16 / 9), 2400px); } }
+/* JY-305 option B "cinema" (B. 2026-11-04): a taller Home slide, still 16:9 - min(55vh, 600px) high on an iPad,
+   min(75vh, 800px) on a desktop; the phone keeps its size. From 1920 px it is never shorter than before (58vh). */
+@media (min-width: 768px) { html:not(.tv) .homecar { --slide-w: min(86vw, calc(min(55vh, 600px) * 16 / 9)); } }
+@media (min-width: 1100px) { html:not(.tv) .homecar { --slide-w: min(86vw, calc(min(75vh, 800px) * 16 / 9), 1800px); } }
+@media (min-width: 1920px) { html:not(.tv) .homecar { --slide-w: min(80vw, max(calc(min(75vh, 800px) * 16 / 9), calc(58vh * 16 / 9)), 2400px); } }
 @media (min-width: 3000px) { html:not(.tv) .homecar { --slide-w: min(76vw, calc(60vh * 16 / 9), 3000px); } }
 
 .prov-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 12px;
@@ -1793,10 +1797,36 @@ html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-d
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
 /* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
-@media (min-width: 1920px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 184px; width: 184px; }
-  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 196px; } }
-@media (min-width: 3000px) { html:not(.tv) .carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 216px; width: 216px; }
-  html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 228px; } }
+@media (min-width: 1920px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 196px; } }
+@media (min-width: 3000px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 228px; } }
+/* JY-304 option C (B. 2026-11-04, every .carousel shelf off the TV): a scroll cue. (1) Half a card always peeks at the
+   right edge - each width shows N and a half cards (3.5 phone, 5.5 from 640, 7.5 from 1200, 9.5 from 1920, 11.5 from
+   3000; "More on Joey" keeps its own 2.3 on a phone). (2) The edges fade where there is more to scroll: joey.js sets
+   .cue-more / .cue-back from the scroll position. (3) From 768 px round prev / next buttons (the .tl-arrow glass)
+   sit over the ends, hidden at the start / end. The TV rows get none of it (all rules are html:not(.tv), the script skips the TV). Tokens only. */
+html:not(.tv) .carousel:not(.prov-row) > * { flex-basis: calc((100% - 3 * 12px) / 3.5); width: calc((100% - 3 * 12px) / 3.5); }
+@media (max-width: 639px) { html:not(.tv) .moresec .carousel > * { flex-basis: calc((100% - 24px) / 2.3); width: calc((100% - 24px) / 2.3); } }
+@media (min-width: 640px) { html:not(.tv) .carousel:not(.prov-row) > * { flex-basis: calc((100% - 5 * 12px) / 5.5); width: calc((100% - 5 * 12px) / 5.5); } }
+@media (min-width: 1200px) { html:not(.tv) .carousel:not(.prov-row) > * { flex-basis: calc((100% - 7 * 12px) / 7.5); width: calc((100% - 7 * 12px) / 7.5); } }
+@media (min-width: 1920px) { html:not(.tv) .carousel:not(.prov-row) > * { flex-basis: calc((100% - 9 * 12px) / 9.5); width: calc((100% - 9 * 12px) / 9.5); } }
+@media (min-width: 3000px) { html:not(.tv) .carousel:not(.prov-row) > * { flex-basis: calc((100% - 11 * 12px) / 11.5); width: calc((100% - 11 * 12px) / 11.5); } }
+html:not(.tv) .carousel.cue-more { -webkit-mask-image: linear-gradient(to right, var(--bg) calc(100% - 96px), transparent);
+  mask-image: linear-gradient(to right, var(--bg) calc(100% - 96px), transparent); }
+html:not(.tv) .carousel.cue-back.cue-more { -webkit-mask-image: linear-gradient(to right, transparent, var(--bg) 64px, var(--bg) calc(100% - 96px), transparent);
+  mask-image: linear-gradient(to right, transparent, var(--bg) 64px, var(--bg) calc(100% - 96px), transparent); }
+html:not(.tv) .carousel.cue-back:not(.cue-more) { -webkit-mask-image: linear-gradient(to right, transparent, var(--bg) 64px);
+  mask-image: linear-gradient(to right, transparent, var(--bg) 64px); }
+html:not(.tv) .cue-wrap { position: relative; min-width: 0; }
+html:not(.tv) .cue-arrow { position: absolute; top: calc(50% - 22px); transform: translateY(-50%); z-index: 2; width: 44px; height: 44px;
+  border-radius: 50%; border: 1px solid var(--line); background: var(--glass-bg); backdrop-filter: blur(8px);
+  color: var(--text-1); display: grid; place-items: center; cursor: pointer; padding: 0; }
+html:not(.tv) .cue-arrow:hover { background: var(--glass-bg-hover); }
+html:not(.tv) .cue-arrow:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+html:not(.tv) .cue-arrow svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+html:not(.tv) .cue-arrow.prev { left: -8px; }
+html:not(.tv) .cue-arrow.next { right: -8px; }
+html:not(.tv) .cue-arrow[hidden] { display: none; }
+@media (max-width: 767px) { html:not(.tv) .cue-arrow { display: none; } }
 html:not(.tv) .scorelink { padding: 0 10px 0 6px; }
 html:not(.tv) a.scorelink { color: var(--text-1); text-decoration: none; }
 html:not(.tv) .filedrawer > details.fold > summary.seclabel { display: block; }

@@ -116,6 +116,51 @@ document.addEventListener('htmx:beforeHistoryUpdate', function (e) {
   if (document.readyState !== 'loading') init(document);
   else document.addEventListener('DOMContentLoaded', function () { init(document); });
 })();
+/* JY-304 option C (B. 2026-11-04): every .carousel shelf off the TV gets a scroll cue - .cue-more / .cue-back (the
+   CSS edge fades) follow the scroll position, and round prev / next buttons (shown from 768 px, hidden at the ends)
+   scroll 80 % of a view. Wrapped once per shelf; htmx-loaded shelves are picked up too. Never on the TV (html.tv). */
+(function () {
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ARROWS = [['prev', 'Scroll left', 'M15 5l-7 7 7 7', -1], ['next', 'Scroll right', 'M9 5l7 7-7 7', 1]];
+  function cue(c) {
+    if (c.dataset.cue) return;
+    c.dataset.cue = '1';
+    var w = document.createElement('div'), btn = {};
+    w.className = 'cue-wrap';
+    c.parentNode.insertBefore(w, c);
+    w.appendChild(c);
+    ARROWS.forEach(function (a) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cue-arrow ' + a[0];
+      b.setAttribute('aria-label', a[1]);
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + a[2] + '"/></svg>';
+      b.addEventListener('click', function () {
+        c.scrollBy({left: a[3] * c.clientWidth * 0.8, behavior: still ? 'auto' : 'smooth'});
+      });
+      w.appendChild(b);
+      btn[a[0]] = b;
+    });
+    function update() {
+      var more = c.scrollLeft + c.clientWidth < c.scrollWidth - 2, back = c.scrollLeft > 2;
+      c.classList.toggle('cue-more', more);
+      c.classList.toggle('cue-back', back);
+      btn.prev.hidden = !back;
+      btn.next.hidden = !more;
+    }
+    c.addEventListener('scroll', update, {passive: true});
+    window.addEventListener('resize', update);
+    update();
+  }
+  function init(root) {
+    if (document.documentElement.classList.contains('tv')) return;
+    if (root.classList && root.classList.contains('carousel')) cue(root);
+    (root.querySelectorAll ? root : document).querySelectorAll('.carousel').forEach(cue);
+  }
+  document.addEventListener('htmx:load', function (e) { init(e.target); });
+  if (document.readyState !== 'loading') init(document);
+  else document.addEventListener('DOMContentLoaded', function () { init(document); });
+})();
 /* ---- F2 fast item pages (2026-10-12): warm a film / show page on touch or hover ----
    A finger landing on (or a pointer resting 60 ms over) a link to a film / show page sends that page a GET with
    X-Joey-Prefetch: 1 and throws the answer away (an empty 204): the server reads Jellyfin and starts the Jellyseerr /

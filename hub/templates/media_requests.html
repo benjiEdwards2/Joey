@@ -47,7 +47,7 @@
   <span class="reqbreak" aria-hidden="true"></span>{# a phone puts the three buttons on their own line #}
   <details class="confirm-wrap reqdecide"{% if r.kind == "tv" %} hx-get="/media/requests/{{ r.id }}/seasons" hx-trigger="toggle once" hx-target="find .seasonpick" hx-swap="outerHTML"{% endif %}>
     <summary class="btn btn-primary btn-sm">Approve</summary>
-    <form class="confirm" method="post" action="/media/requests/{{ r.id }}/approve">
+    <form class="confirm" method="post" action="/media/requests/{{ r.id }}/approve?f={{ f }}">
       <div>Approve the request for {{ r.title }}?</div>
       {% if r.asked %}<div class="metaline">Asked for {{ r.asked }}</div>{% endif %}
       {% if r.kind == "tv" %}<span class="microlabel">Seasons</span>{% with seasons = r.decide.seasons %}{% include "_request_seasons.html" %}{% endwith %}{% endif %}
@@ -68,7 +68,7 @@
       <div>Decline the request for {{ r.title }}?</div>
       <div class="metaline">Seerr keeps it as Declined. Nothing is downloaded.</div>
       <div class="confirm-btns">
-        <form method="post" action="/media/requests/{{ r.id }}/decline"><button type="submit" class="btn btn-danger btn-sm">Decline request</button></form>
+        <form method="post" action="/media/requests/{{ r.id }}/decline?f={{ f }}"><button type="submit" class="btn btn-danger btn-sm">Decline request</button></form>
         <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false">Cancel</button>
       </div>
     </div>
@@ -80,7 +80,7 @@
       <div>Remove the request for {{ r.title }}?</div>
       <div class="metaline">{{ "Already on disk — the files stay." if r.status_text in ("Available", "Partly available") else ("Sonarr" if r.kind == "tv" else "Radarr") ~ " stops searching. Nothing is deleted." }}</div>
       <div class="confirm-btns">
-        <form method="post" action="/media/requests/{{ r.id }}/remove"><button type="submit" class="btn btn-danger btn-sm">Remove request</button></form>
+        <form method="post" action="/media/requests/{{ r.id }}/remove?f={{ f }}"><button type="submit" class="btn btn-danger btn-sm">Remove request</button></form>
         <button type="button" class="btn btn-ghost btn-sm" onclick="this.closest('details').open = false">Cancel</button>
       </div>
     </div>

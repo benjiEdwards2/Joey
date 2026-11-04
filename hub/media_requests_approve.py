@@ -364,7 +364,7 @@ def _failed(code: str, status: int | None) -> RedirectResponse:
 async def approve_request(request: Request, rid: int):
     _owner_only(request)
     form = _form(await request.body())
-    return await run_in_threadpool(_approve, rid, form)
+    return mr.keep_filter(request, await run_in_threadpool(_approve, rid, form))
 
 
 def _claim(rid: int) -> bool:
@@ -425,6 +425,10 @@ def _approve_one(rid: int, form: dict[str, list[str]]):
 @router.post("/media/requests/{rid}/decline", dependencies=[Depends(same_origin)])
 def decline_request(request: Request, rid: int):
     _owner_only(request)
+    return mr.keep_filter(request, _decline(rid))
+
+
+def _decline(rid: int):
     if not _claim(rid):
         return _to(error="busy")
     try:

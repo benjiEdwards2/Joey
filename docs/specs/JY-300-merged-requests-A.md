@@ -14,6 +14,7 @@ B., 2026-11-02: "Upgrades and requests can be merged. Could you please merge the
 1. Activity › Requests shows a segmented filter: Requested, Missing, Upgrades, Done, each with its count. Plain links (`?f=requested|missing|upgrades|done`), so deep links and no-JS work; no `f` = the first non-empty filter (`?why=` alone opens Upgrades). `?f=all` lists every request row (no chip).
 2. Requested = Pending / Declined / Failed; Missing = approved, processing, partly available; Done = Available (fulfilled requests already in the Seerr data); Upgrades = the arr cutoff-unmet block (viable rows, "Nothing to upgrade", the folded unchecked rows).
 3. One row style; every action stays one click from the row: Approve, Decline, Remove, Upgrade, Why? (Search now inside it), per-episode fold-out (JY-109).
+3a. Approve, Decline and Remove return to the filter they were posted from (`?f=` on the form action; absent or unknown = the default). Why?, Upgrade and Grab return to `?f=upgrades`.
 4. Both sweeps (Search missing, Search upgrades) stay in the page header, above the filter.
 5. The Upgrades section is gone from Activity › Downloads; everything else there stays (qBittorrent groups, controls, purge, Finished today, last-search lines, sweeps).
 6. Why? / Upgrade / Grab links and no-JS redirects point at `/media/requests?f=upgrades&why=…`.

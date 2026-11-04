@@ -120,7 +120,7 @@ def test_each_row_has_a_remove_button_outside_the_row_link_with_an_inline_confir
     with client:
         body = main_of(client.get("/media/requests?f=all").text)
     assert body.count('<summary class="btn btn-secondary btn-sm">Remove</summary>') == 4
-    assert 'action="/media/requests/13/remove"' in body and "Remove the request for Midnight Harbour?" in body
+    assert 'action="/media/requests/13/remove?f=all"' in body and "Remove the request for Midnight Harbour?" in body
     assert "confirm(" not in body                                     # guide 6: never a browser dialog
     # the whole row is still the link; the Remove form is never inside it
     for row in body.split('<div class="row has-form reqrow"')[1:]:

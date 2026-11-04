@@ -201,7 +201,7 @@ def test_only_pending_rows_carry_approve_and_decline_with_inline_confirms(env):
         page = warm(client)
     rows = rows_of(page)
     for rid in (13, 15):
-        assert f'action="/media/requests/{rid}/approve"' in rows[rid] and f'action="/media/requests/{rid}/decline"' in rows[rid]
+        assert f'action="/media/requests/{rid}/approve?f=all"' in rows[rid] and f'action="/media/requests/{rid}/decline?f=all"' in rows[rid]
         assert 'class="reqbreak"' in rows[rid]                            # a phone puts the buttons on their own line
     for rid in (14, 12, 11):
         assert "/approve" not in rows[rid] and "/decline" not in rows[rid] and "Remove" in rows[rid]
@@ -235,7 +235,7 @@ def test_the_page_draws_without_any_seerr_call_on_the_first_view(env):
     client, fake, _ = env()
     with client:
         page = main_of(client.get("/media/requests?f=all").text)
-    assert 'action="/media/requests/15/approve"' in page and "Asked for Seasons 1–2" in page   # no profile list yet
+    assert 'action="/media/requests/15/approve?f=all"' in page and "Asked for Seasons 1–2" in page   # no profile list yet
     assert [c for c in fake.calls if c[1].startswith(SEERR) and "/settings/" not in c[1]] == []
 
 
@@ -576,7 +576,7 @@ def test_the_page_draws_from_caches_with_seerr_down(env):
         first = client.get("/media/requests?f=all")
         page = main_of(client.get("/media/requests?f=all").text)
     assert first.status_code == 200
-    assert 'action="/media/requests/15/approve"' in page and 'action="/media/requests/13/decline"' in page
+    assert 'action="/media/requests/15/approve?f=all"' in page and 'action="/media/requests/13/decline?f=all"' in page
     assert "Asked for" in page
     live = [c[1] for c in fake.calls if c[1].startswith(SEERR) and "/settings/" not in c[1]]
     assert live == []                                                      # no request / title read on any render
@@ -594,7 +594,7 @@ def test_a_restart_forgets_the_decision_and_a_second_click_writes_nothing(env):
         mra.clear()
         media_hidden.clear()                                               # what a restart does to the overlay
         page = main_of(client.get("/media/requests?f=all").text)
-        assert 'action="/media/requests/15/approve"' in rows_of(page)[15]  # Pending again, from the old snapshot
+        assert 'action="/media/requests/15/approve?f=all"' in rows_of(page)[15]  # Pending again, from the old snapshot
         writes = len(fake.of("POST")) + len(fake.of("PUT"))
         r = client.post("/media/requests/15/approve", data={"seasons": ["1", "2"]}, follow_redirects=False)
         assert r.headers["location"] == "/media/requests?error=notpending"
@@ -703,3 +703,18 @@ def test_a_friends_4k_film_pick_shows_on_the_approve_row(env):
     assert "Asked for 4K" in row and "Sample Friend" in row
     assert '<input type="radio" name="profile" value="9" checked>4K' in row
     assert '<input type="radio" name="profile" value="8">1080p · Default' in row
+
+
+def test_jy300_approve_and_decline_return_to_the_filter_they_came_from(env):
+    client, fake, _ = env()
+    with client:
+        page = main_of(client.get("/media/requests?f=requested").text)
+        assert 'action="/media/requests/13/approve?f=requested"' in page
+        r = client.post("/media/requests/13/approve?f=requested", data={"profile": "8"}, follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/media/requests?decided=approved&dp=8&f=requested"
+        back = main_of(client.get(r.headers["location"]).text)
+        assert "Approved · 1080p" in back and 'class="chip on" href="/media/requests?f=requested"' in back
+        r = client.post("/media/requests/15/decline?f=evil", follow_redirects=False)   # unknown filter: default kept
+        assert "f=" not in r.headers["location"]
+        r = approve(client, 14, profile="8")                                           # no f: unchanged
+        assert "f=" not in r.headers["location"]

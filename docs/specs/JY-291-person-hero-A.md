@@ -3,7 +3,7 @@
 Status: building
 Size: S
 Live risk: none (no key on the NAS today; the fallback needs no new call)
-Area: `hub/media_person.py`, `hub/media_person_photo.py` (new), `hub/templates/media_person.html`, `hub/static/control-surface.css` (person block), `deploy/.env.example`, `deploy/media.env.example`, `docs/setup.md`, `hub/README.md`, `tests/hub/test_person_hero_jy291.py`, `tests/hub/test_media_person.py`
+Area: `hub/media_person.py`, `hub/media_person_photo.py` (new), `hub/templates/media_person.html`, `hub/static/control-surface.css` (person block), `deploy/.env.example`, `docs/setup.md`, `scripts/joey_preview.py`, `deploy/preview/README.md`, `hub/README.md`, `tests/hub/test_person_hero_jy291.py`, `tests/hub/test_media_person.py`
 Needs: none
 Options page: `JoeyTV/review/JY-291-person/options.md`; B. picked A on 2026-11-04 (hero only)
 

@@ -39,7 +39,7 @@ def test_header_frame_bio_and_life(env):
     b = main_of(html)
     assert 'href="/media/discover" aria-current="page"' in b          # Discover is the active section
     assert "Ada Actor" in b and "Acting" in b and "Born 12 Mar 1976 · Dublin" in b
-    assert 'src="/img/tmdb:/ada.jpg?h=240"' in b
+    assert 'src="/img/tmdb:/ada.jpg?h=600"' in b   # JY-291: the large portrait
     assert "Ada began on the stage." in b and "<summary>More</summary>" in b
     bio = re.search(r'class="overview">(Ada.*?)</p>', b, re.S).group(1) + re.search(r'<details.*?</details>', b, re.S).group(0)
     assert len(re.sub(r"<[^>]+>|…|More", "", bio)) <= 1210
@@ -51,7 +51,7 @@ def test_died_line_and_initials_fallback(env):
     with client:
         b = main_of(client.get("/media/person/55").text)
     assert "Born 12 Mar 1976 · Dublin · Died 3 Jan 2020" in b
-    assert 'class="personpic initials" aria-hidden="true">AA' in b and "<details" not in b
+    assert 'class="personportrait initials" aria-hidden="true">AA' in b and "<details" not in b
 
 
 def test_on_your_server_shelf_first_with_library_matches_only(env):

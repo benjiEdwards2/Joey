@@ -101,6 +101,11 @@ hub looks up a title's Metascore by IMDb id when its film page opens, at most on
 calls per process per day; unset, the film page simply has no Metacritic pill. It reaches the hub like the other media
 keys, through `deploy/.env` (compose `env_file`).
 
+Person backdrop (JY-291, 2026-11-04): `TMDB_API_KEY` (optional) is a free TMDB key. The person page reads TMDB
+`person/{id}/tagged_images` once per person (cached 7 days, a failure 10 minutes) and shows the highest-voted
+backdrop-shaped image behind the portrait; unset, or with no tagged image, it uses the backdrop of the person's most
+popular credit from Seerr (no extra call). Never logged: the request URL carries the key.
+
 Awards (2026-10-08): `AWARDS_CONTACT` (required for the sync) is the contact the Wikimedia User-Agent policy asks for —
 B.'s email address, set in the NAS `deploy/.env` only (`append_env.sh`), never in the repo; the hub sends it in
 `User-Agent: Joey/awards (+https://joeyhome.net; <contact>)`. Unset, the Awards sync makes no calls and the Awards tabs say

@@ -31,15 +31,13 @@
 <p class="empty">Not connected</p>
 {% else %}
 {# JY-270 P1 (B. 2026-10-29 "Discover does not have the search functions"): the field searches films, shows and people;
-   the type chips (radios, OK toggles them: tv.js WP-RQ2) narrow it; on the TV a "Search" button beside the field is the
-   obvious stop (OK = the field editable, the TV keyboard up: tv.js [data-tv-search-open]) and the hint says so in words. #}
+   the type chips (radios, OK toggles them: tv.js WP-RQ2) narrow it. JY-307 P4 (option B): on the TV the field and the
+   chips share one line, no Search button and no hint - OK on the field types (tv.js searchEnter). #}
 <form class="toolbar discover-search" method="get" action="/media/discover">
   <div class="tv-searchrow">
   <div class="search">{{ icon("search") }}<input class="input" type="search" name="q" value="{{ q }}" placeholder="Search films, shows and people" autocomplete="off" aria-label="Search films, shows and people" data-tv-search
          hx-get="/media/discover/search" hx-include="closest form" hx-trigger="keyup changed delay:400ms, search" hx-target="#discover-grid" hx-swap="outerHTML"></div>
-  {% if tv_mode(request) %}<button class="btn tv-searchgo" type="button" data-tv-search-open aria-label="Search: press OK to type">{{ icon("search") }}<span>Search</span></button>{% endif %}
   </div>
-  {% if tv_mode(request) %}<p class="tv-searchhint">Press OK on Search to type</p>{% endif %}
   <div class="tv-typechips" role="radiogroup" aria-label="Search for"
        hx-get="/media/discover/search" hx-include="closest form" hx-trigger="change" hx-target="#discover-grid" hx-swap="outerHTML">
     {% for v, label in types %}<label class="chip{{ ' on' if t == v }}"><input type="radio" name="t" value="{{ v }}"{{ " checked" if t == v }}>{{ label }}</label>{% endfor %}

@@ -72,20 +72,20 @@ def tv_whole(c, url):
 def test_a_film_title_page_is_a_backdrop_hero(film_friend):
     film = tv_whole(film_friend, "/media/title/movie/603")
     h = header(film)
-    assert 'class="hero-detail-bd"' in h and "hero-detail-poster" in h and h.count('class="hero-detail-btns"') == 1
+    assert 'class="hero-detail-bd"' in h and "hero-detail-poster" not in h and h.count('class="hero-detail-btns"') == 1   # P4: no poster
     assert "tv-eps" not in film
 
 
 def test_title_pages_are_a_backdrop_hero_per_kind(tvc):
     """a show, a season and an episode (the film: the test above; two fake servers cannot share one test)"""
     show = tvc.get(f"/media/item/{SHOW}", headers=TV).text
-    assert "hero-detail-poster" in header(show) and header(show).count('class="hero-detail-btns"') == 1
+    assert "hero-detail-poster" not in header(show) and header(show).count('class="hero-detail-btns"') == 1
     rest = after_header(show)
     assert rest.index('class="sec tvshelf tv-eps"') < rest.index('<div class="filmbody">')   # episodes first, under the hero
     season = tvc.get(f"/media/item/{S1}", headers=TV).text
     assert 'aria-current="page"' in eps(season).split("</nav>", 1)[0]                          # its chip is lit
     episode = tvc.get(f"/media/item/{E2}", headers=TV).text
-    assert 'class="tv-epstill"' in header(episode) and ">This one<" in eps(episode)
+    assert 'class="tv-epstill"' not in header(episode) and "hero-detail-bd" in header(episode) and ">This one<" in eps(episode)
 
 
 def test_the_web_and_phone_title_pages_are_unchanged(tvc):
@@ -314,7 +314,8 @@ def test_a_title_with_no_backdrop_is_still_the_hero(tvc, monkeypatch):
     monkeypatch.setattr(media_backdrop, "title_page", lambda *a, **k: None)          # no Jellyfin, stored or TMDB backdrop
     html = tvc.get(f"/media/item/{SHOW}", headers=TV).text
     h = header(html)
-    assert "hero-detail-bd" not in h and "hero-detail-poster" in h and h.count('class="hero-detail-btns"') == 1
+    # JY-307 P4: the poster cropped to the band (.tv-bdcrop), never a poster card or a blank band
+    assert 'class="hero-detail-bd tv-bdcrop"' in h and "hero-detail-poster" not in h and h.count('class="hero-detail-btns"') == 1
     assert after_header(html).index('class="sec tvshelf tv-eps"') < after_header(html).index('<div class="filmbody">')
     css = _sheet()
     assert "html.tv .pagehead.hero-detail:not(:has(.hero-detail-bd)) { background: radial-gradient(" in css   # a quiet glow

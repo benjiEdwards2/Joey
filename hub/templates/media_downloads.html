@@ -3,8 +3,6 @@
 {% block content %}
 {% from "_rows.html" import meta %}
 {% from "_icons.html" import icon %}
-{% from "_poster.html" import poster %}
-{% from "_upgrade_note.html" import upnote, upbtn %}
 {% include "_arr_sweep.html" %}{# F3 (2026-10-12): Search missing / upgrades, Radarr · Sonarr #}
 {# WP-U1 (2026-10-21): what the last library search found, per app, from the arr snapshot (no call) - "0 downloaded"
    and "failed" are amber words. #}
@@ -71,37 +69,6 @@
   </div>{% else %}<p class="empty">Nothing finished today.</p>{% endif %}
 </section>
 
-{# F4b (2026-10-12): Upgrades - titles whose file is below the Radarr / Sonarr quality cutoff (arr snapshot), each row
-   linked to its page, where "Search for upgrade" asks the app to look. Absent for an older arr envelope.
-   WP-U1 (2026-10-21): "Below cutoff · <have> → wants <want>", and a "Why?" beside each row (_upgrade_why.html) - the
-   row is now .row.has-form (the poster + title an a.rowlink, Why? above it), the answer drops to its own line. #}
-{% if upgrades %}
-<section class="sec" id="upgrades">
-  <h2 class="seclabel">Upgrades</h2>
-  {% if upgrades.state == "off" %}<p class="metaline">Not connected</p>
-  {% else %}
-  <p class="metaline">{{ upgrades.totals_text }}{% for a in upgrades.off %} · {{ a }} not connected{% endfor %}</p>
-  {# JY-275 (2026-11-04): only viable rows (a Why? / sweep check found an acceptable release) are listed, each with the
-     flag and Upgrade; the other cutoff-unmet titles sit folded below with their Why?, no blue text. #}
-  {% macro uprow(r) %}
-  <div class="row has-form">
-  <{{ "a" if r.href else "div" }} class="rowlink"{% if r.href %} href="{{ r.href }}"{% endif %}>
-    {{ poster(r.poster, r.title, 120, "row-poster") }}
-    <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}</div>{{ upnote(r.note) }}</div>
-  </{{ "a" if r.href else "div" }}>
-  {% if r.note %}{{ upbtn(r.up_href) }}{% endif %}
-  {% if why.get(r.why_key) %}{% with w = why[r.why_key] %}{% include "_upgrade_why.html" %}{% endwith %}{% endif %}
-  </div>
-  {% endmacro %}
-  {% if upgrades.rows %}<div class="listbox">
-  {% for r in upgrades.rows %}{{ uprow(r) }}{% endfor %}
-  </div>{% else %}<p class="empty">Nothing to upgrade.</p>{% endif %}
-  {% if upgrades.unchecked %}<details class="fold upfold"{% if request.query_params.get("why") %} open{% endif %}><summary>Below cutoff, nothing better found yet ({{ upgrades.unchecked | length }})</summary><div class="listbox">
-  {% for r in upgrades.unchecked %}{{ uprow(r) }}{% endfor %}
-  </div></details>{% endif %}
-  {% endif %}
-</section>
-{% endif %}
 {% endif %}
 {% include "_detail_foot.html" %}
 {% endblock %}

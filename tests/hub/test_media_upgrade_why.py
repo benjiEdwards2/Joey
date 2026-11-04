@@ -112,7 +112,7 @@ def site(tmp_path, monkeypatch):
     return build
 
 
-def page(client, path="/media/downloads"):
+def page(client, path="/media/requests?f=upgrades"):
     return htmllib.unescape(main_raw(client.get(path).text))
 
 
@@ -239,18 +239,18 @@ def test_last_search_words():
 def test_downloads_shows_the_last_search_line_found_nothing_absent(site):
     client, arr = site()
     with client:
-        body = page(client)
+        body = page(client, "/media/downloads")
     assert ('<p class="metaline lastsearch">Last upgrade search · Sonarr · 21 Oct 00:59 · 1 searched · '
             '<span class="st-warn">0 downloaded</span></p>') in body
     client, arr = site(upgrades={**UP, "last_search": [{"name": "upgrades", "app": "sonarr", "status": "completed",
                                                        "ended": "2026-10-20T14:00:00Z",
                                                        "message": "Completed search for 4 episodes. 1 reports downloaded."}]})
     with client:
-        body = page(client)
+        body = page(client, "/media/downloads")
     assert '<p class="metaline lastsearch">Last upgrade search · Sonarr · 21 Oct 01:00 · 4 searched · 1 downloaded</p>' in body
     client, arr = site(upgrades={k: v for k, v in UP.items() if k != "last_search"})   # older envelope
     with client:
-        body = page(client)
+        body = page(client, "/media/downloads")
     assert "lastsearch" not in body and arr.gets == [] and arr.posts == []
 
 
@@ -264,7 +264,7 @@ def test_each_upgrades_row_has_why_and_the_page_makes_no_arr_call(site):
     assert blk.count(">Why?</a>") == 3 and blk.count('<div class="row has-form">') == 3
     a = area_of(blk)
     assert 'hx-get="/media/upgrades/why/sonarr/15?step=confirm"' in a
-    assert 'href="/media/downloads?why=sonarr:15&why_step=confirm#why-sonarr-15"' in a      # no-JS
+    assert 'href="/media/requests?f=upgrades&why=sonarr:15&why_step=confirm#why-sonarr-15"' in a      # no-JS
     assert 'hx-get="/media/upgrades/why/radarr/7?step=confirm"' in blk
     assert "Below cutoff, nothing better found yet (3)" in blk and "upnote" not in blk   # JY-275 (2026-11-04): was the sentence
     assert arr.gets == [] and arr.posts == []
@@ -280,8 +280,8 @@ def test_confirm_step_htmx_and_no_js_make_no_call(site):
         assert 'hx-post="/media/upgrades/why/sonarr/15"' in card and 'method="post"' in card
         nojs = client.get("/media/upgrades/why/sonarr/15?step=confirm", follow_redirects=False)
         assert nojs.status_code == 303
-        assert nojs.headers["location"] == "/media/downloads?why=sonarr%3A15&why_step=confirm#why-sonarr-15"
-        body = page(client, "/media/downloads?why=sonarr:15&why_step=confirm")
+        assert nojs.headers["location"] == "/media/requests?f=upgrades&why=sonarr%3A15&why_step=confirm#why-sonarr-15"
+        body = page(client, "/media/requests?f=upgrades&why=sonarr:15&why_step=confirm")
     assert "Ask Sonarr to search the indexers now?" in area_of(body)
     assert "Ask Radarr" not in body                                                  # that row only
     assert arr.gets == [] and arr.posts == []
@@ -314,7 +314,7 @@ def test_why_runs_the_interactive_search_once_and_draws_the_answer(site):
     assert out.count('class="whycand"') == 5 and out.count(">Grab anyway</a>") == 5
     assert "Synthetic.Show.S01E01.Release.0" in out and f"Rejected · {CF[0]}" in out
     assert 'hx-get="/media/upgrades/why/sonarr/15?step=grab&pick=2"' in out
-    assert 'href="/media/downloads?why=sonarr:15&why_step=grab&pick=2#why-sonarr-15"' in out
+    assert 'href="/media/requests?f=upgrades&why=sonarr:15&why_step=grab&pick=2#why-sonarr-15"' in out
     assert "guid-" not in out                                                        # guids stay server-side
 
 
@@ -345,8 +345,8 @@ def test_why_without_js_redirects_to_the_page_which_draws_the_kept_answer(site):
     client, arr = site()
     with client:
         r = ask(client)
-        assert r.status_code == 303 and r.headers["location"] == "/media/downloads?why=sonarr%3A15#why-sonarr-15"
-        body = page(client, "/media/downloads?why=sonarr:15")
+        assert r.status_code == 303 and r.headers["location"] == "/media/requests?f=upgrades&why=sonarr%3A15#why-sonarr-15"
+        body = page(client, "/media/requests?f=upgrades&why=sonarr:15")
         plain = page(client)
     assert "30 releases · all rejected" in area_of(body)
     assert "30 releases" not in plain                                                # other views: just Why?
@@ -387,7 +387,7 @@ def test_grab_confirm_names_the_release_and_makes_no_call(site):
     with client:
         ask(client, **HX)
         out = htmllib.unescape(client.get("/media/upgrades/why/sonarr/15?step=grab&pick=4", headers=HX).text)
-        body = page(client, "/media/downloads?why=sonarr:15&why_step=grab&pick=4")
+        body = page(client, "/media/requests?f=upgrades&why=sonarr:15&why_step=grab&pick=4")
     for html in (out, area_of(body)):
         assert "Grab Synthetic.Show.S01E01.Release.4 from Indexer B?" in html
         assert ("Sonarr will download it even though it rejected it; an 'Unknown Series' release may still fail to "
@@ -452,12 +452,12 @@ def test_grab_without_js_redirects_with_the_flash(site):
         ask(client, **HX)
         r = grab(client, 1)
         assert r.status_code == 303
-        assert r.headers["location"] == "/media/downloads?why=sonarr%3A15&grab=sent#why-sonarr-15"
-        body = page(client, "/media/downloads?why=sonarr:15&grab=sent")
+        assert r.headers["location"] == "/media/requests?f=upgrades&why=sonarr%3A15&grab=sent#why-sonarr-15"
+        body = page(client, "/media/requests?f=upgrades&why=sonarr:15&grab=sent")
         arr.post_status = 500
         r = grab(client, 1)
-        assert r.headers["location"] == "/media/downloads?why=sonarr%3A15&grab=refused&gcode=500#why-sonarr-15"
-        bad = page(client, "/media/downloads?why=sonarr:15&grab=refused&gcode=500")
+        assert r.headers["location"] == "/media/requests?f=upgrades&why=sonarr%3A15&grab=refused&gcode=500#why-sonarr-15"
+        bad = page(client, "/media/requests?f=upgrades&why=sonarr:15&grab=refused&gcode=500")
     assert "Grab sent · check Downloads in a minute" in area_of(body) and "30 releases" in area_of(body)
     assert "Sonarr refused the grab (HTTP 500)" in area_of(bad)
 

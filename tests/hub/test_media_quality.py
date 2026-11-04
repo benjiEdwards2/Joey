@@ -526,14 +526,14 @@ def rq(req_env, monkeypatch):
 def test_requests_page_draws_from_caches_and_reads_after_the_response(rq):
     client, fake = rq()
     with client:
-        first = client.get("/media/requests").text            # caches empty: no chip; the reads run after it
+        first = client.get("/media/requests?f=all").text            # caches empty: no chip; the reads run after it
         assert "<span class=\"badge\">4K</span>" not in first
         reads = sorted({(c[1], tuple(sorted((c[2] or {}).items()))) for c in fake.calls})
         assert (f"{trr.RADARR}/api/v3/qualityprofile", ()) in reads
         assert (f"{trr.RADARR}/api/v3/movie", (("tmdbId", 1001),)) in reads
         assert (f"{trr.RADARR}/api/v3/movie", (("tmdbId", 1003),)) in reads
         fake.calls.clear()
-        second = client.get("/media/requests").text
+        second = client.get("/media/requests?f=all").text
     assert '<div class="row-title">Midnight Harbour (2025) <span class="badge">4K</span></div>' in second
     assert re.search(r'<div class="row-title">Night Ferry[^<]*<span class="badge">4K</span></div>', second)   # Sonarr's list
     assert not re.search(r'Desert Crossing[^<]*<span class="badge">', second)    # the default profile: nothing

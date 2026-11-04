@@ -18,7 +18,12 @@
 {% if flash %}<p class="metaline st-good" role="status">{{ flash }}</p>{% endif %}
 {% if flash_warn %}<p class="metaline st-warn" role="status">{{ flash_warn }}</p>{% endif %}
 {% endif %}
-{% if src.st.state != "off" and rows %}
+{# JY-300 (2026-11-04, option A): one page, a segmented filter - Requested, Missing, Upgrades, Done - plain links
+   (?f=), each with its count; the Upgrades filter is the old Downloads "Upgrades" block. #}
+{% if src.st.state != "off" %}<nav class="chips reqfilter" aria-label="Show">{% for x in filters %}<a class="chip{{ ' on' if x.on }}" href="/media/requests?f={{ x.key }}"{% if x.on %} aria-current="true"{% endif %}>{{ x.label }} <span class="metaline">{{ x.n }}</span></a>{% endfor %}</nav>{% endif %}
+{% if src.st.state != "off" and f == "upgrades" %}
+{% include "_upgrades_list.html" %}
+{% elif src.st.state != "off" and shown %}
 {# E3 (U27, 2026-10-13): only the counts that are not zero ("2 approved · 1 available", never "0 pending"). #}
 {% set nz = namespace(parts=[]) %}{% for p in counts_text.split(" · ") if not p.startswith("0 ") %}{% set nz.parts = nz.parts + [p] %}{% endfor %}
 {% if nz.parts %}<p class="metaline">{{ nz.parts | join(" · ") }}</p>{% endif %}
@@ -26,7 +31,7 @@
    right and opens an inline confirm panel (guide 6: never a browser dialog). It deletes the Jellyseerr request and,
    only when nothing is on disk yet, stops the Radarr / Sonarr search — never deletes a file. #}
 <div class="listbox">
-{% for r in rows %}
+{% for r in shown %}
 {% set st %}<span class="{{ status_of(r.status_text).cls }}">{{ r.status_text }}</span>{% endset %}
 <div class="row has-form reqrow" id="req-{{ r.id }}">
   <a class="rowlink" href="{{ r.href }}" target="_blank" rel="noopener">
@@ -84,7 +89,7 @@
 {% endfor %}
 </div>
 {% elif src.st.state != "off" %}
-<p class="empty">No open requests.</p>
+<p class="empty">{{ {"requested": "No open requests.", "missing": "Nothing missing.", "done": "Nothing done yet.", "all": "No open requests."}[f] }}</p>
 {% endif %}
 {% include "_detail_foot.html" %}
 {% endblock %}

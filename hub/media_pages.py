@@ -199,19 +199,8 @@ def media_downloads_page(request: Request):
         groups.append({"label": "Other", "rows": [r for r in data.get("active") or []
                                                   if r.get("kind") not in ("movie", "tv")]})
         totals = data.get("totals") or {}
-        # F4b: the "Upgrades" block - the arr snapshot's cutoff-unmet titles, each row linked like the rows above
         snaps = shell.get_snapshots(request=request)
-        upgrades = media_upgrades.block(snaps)
-        why = {}
-        if upgrades and (upgrades.get("rows") or upgrades.get("unchecked")):
-            for part in ("rows", "unchecked"):   # JY-275: viable rows, then the folded rest
-                upgrades[part] = [{**r, "why_key": ("radarr:" if r.get("kind") == "movie" else "sonarr:") + str(r.get("arr_id"))}
-                                  for r in link(upgrades[part])]
-                for r in upgrades[part]:   # Upgrade = the Grab confirm of the accepted release (B., 2026-11-04)
-                    r["up_href"] = media_upgrades.upgrade_href(r)
-            # WP-U1: each row's "Why?" (the kept answer only for the row ?why= names - never a call)
-            why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"] + upgrades["unchecked"])
-        return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades, "why": why, "dlc": dlc,
+        return {"groups": [g for g in groups if g["rows"]], "dlc": dlc,
                 "last_search": media_upgrades.last_search(snaps),
                 "app_link": app_link(request, "qbittorrent"),
                 "totals_text": f"↓ {totals.get('dl_text', '0 B/s')} · ↑ {totals.get('up_text', '0 B/s')}"
@@ -249,6 +238,36 @@ def media_library_page(request: Request):
     return _detail_page(request, "media_library.html", ARR_SNAPSHOT_ID, build)
 
 
+def _upgrades_ctx(request: Request, view, snaps) -> tuple:
+    """F4b / JY-275 / JY-300: the Requests page's Upgrades filter - the arr snapshot's cutoff-unmet titles (viable rows,
+    then the folded rest), each linked, with its Upgrade href and Why? (the kept answer only for the row ?why= names)."""
+    upgrades = media_upgrades.block(snaps)
+    why = {}
+    if upgrades and (upgrades.get("rows") or upgrades.get("unchecked")):
+        link = _arr_linker(view, request)
+        for part in ("rows", "unchecked"):
+            upgrades[part] = [{**r, "why_key": ("radarr:" if r.get("kind") == "movie" else "sonarr:") + str(r.get("arr_id"))}
+                              for r in link(upgrades[part])]
+            for r in upgrades[part]:   # Upgrade = the Grab confirm of the accepted release (B., 2026-11-04)
+                r["up_href"] = media_upgrades.upgrade_href(r)
+        why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"] + upgrades["unchecked"])
+    return upgrades, why
+
+
+FILTERS = (("requested", "Requested"), ("missing", "Missing"), ("upgrades", "Upgrades"), ("done", "Done"))
+
+
+def request_filter(row: dict) -> str:
+    """JY-300: which filter a request row sits under - Pending / Declined / Failed = Requested, on disk = Done,
+    the rest (approved, processing, partly available) = Missing."""
+    st = row.get("status_text")
+    if st == "Available":
+        return "done"
+    if st in ("Pending", "Declined", "Failed", None, ""):
+        return "requested"
+    return "missing"
+
+
 @router.get("/media/requests", response_class=HTMLResponse)
 def media_requests_page(request: Request):
     def build(data, view):
@@ -274,9 +293,23 @@ def media_requests_page(request: Request):
         good, warn = media_requests.flash_text(request.query_params)
         good = good or media_requests_approve.flash_text(request.query_params)
         warn = warn or media_requests_approve.net_text(request.query_params)
+        # JY-300: one page, a segmented filter (?f=); the Upgrades filter is the old Downloads block
+        snaps = shell.get_snapshots(request=request)
+        up = media_upgrades.block(snaps)
+        n = {k: 0 for k, _ in FILTERS}
+        for r in rows:
+            r["filter"] = request_filter(r)
+            n[r["filter"]] += 1
+        n["upgrades"] = len((up or {}).get("rows") or [])
+        f = request.query_params.get("f")
+        if f not in n and f != "all":   # ?f=all: every request row, no chip (deep link / tests)
+            f = "upgrades" if request.query_params.get("why") else next((k for k, _ in FILTERS if n[k]), "requested")
+        upgrades, why = _upgrades_ctx(request, view, snaps) if f == "upgrades" else (up, {})
         return {"counts_text": " · ".join(f"{c.get(k, 0)} {k}"
                                           for k in ("pending", "approved", "available", "declined")),
-                "rows": rows, "flash": good, "flash_warn": warn, "app_link": app_link(request, "jellyseerr"),
+                "filters": [{"key": k, "label": lab, "n": n[k], "on": k == f} for k, lab in FILTERS], "f": f,
+                "upgrades": upgrades, "why": why,
+                "rows": rows, "shown": [r for r in rows if f in ("all", r["filter"])], "flash": good, "flash_warn": warn, "app_link": app_link(request, "jellyseerr"),
                 "can_decide": decide,
                 "ratings": media_home._ratings(view, rows)}
     later = [None]

@@ -8,6 +8,7 @@ resume_acts) on the shared shell env at import.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
@@ -264,13 +265,61 @@ def _is_show(row: dict) -> bool:
     return str(row.get("type") or row.get("kind") or row.get("row_kind") or "").lower() in SHOW_KINDS | {"tv"}         or bool(row.get("show_key"))
 
 
+def new_episode_words(n) -> str:
+    """JY-278: the tag's words for a show tile standing for n newly added episodes ("" = no tag)."""
+    n = int(n or 0)
+    return "" if n < 1 else ("New episode" if n == 1 else f"{n} new episodes")
+
+
+shell.templates.env.globals["new_episode_words"] = new_episode_words   # JY-278
+
+
+def _new_episode_counts(rows) -> dict[str, int]:
+    """JY-278: per show name, how many NEW EPISODES its rows stand for; absent/0 = a whole new show (no tag).
+    Jellyfin Episode rows count one each (by jf_id); an arr arrival "Billions · 3 episodes" carries its count in the
+    title; the larger of the two wins (they describe the same arrival). A Season row alone counts one; a Series row
+    is the whole show and adds nothing."""
+    jf_eps, arr_n, season, series = {}, {}, set(), set()
+    for r in rows:
+        if not _is_show(r):
+            continue
+        show = show_name(r)
+        kind = str(r.get("type") or r.get("kind") or r.get("row_kind") or "").lower()
+        m = re.search(r"·\s*(\d+)\s+episodes?", str(r.get("title") or ""))
+        if kind == "episode":
+            jf_eps.setdefault(show, set()).add(r.get("jf_id") or r.get("item_key") or r.get("title"))
+        elif m:
+            arr_n[show] = max(arr_n.get(show, 0), int(m.group(1)))
+        elif kind == "season":
+            season.add(show)
+        elif kind in ("series", "tv"):
+            series.add(show)
+    out = {}
+    for show in set(jf_eps) | set(arr_n) | season:
+        n = max(len(jf_eps.get(show, ())), arr_n.get(show, 0))
+        if not n and show in season and show not in series:
+            n = 1
+        if n:
+            out[show] = n
+    return out
+
+
 def added_rows(latest, arrived, now) -> list[tuple[dict, str, bool]]:
     """Recently added as (row, sub, from_jellyfin), newest Jellyfin rows first then the arr's arrivals, one per title key
     and (JY-278) one per SHOW: a series and its season / an arrival "Billions · 3 episodes" are one tile, the
-    first (Jellyfin's, with the Joey poster) kept."""
+    first (Jellyfin's, with the Joey poster) kept. The kept row is a copy carrying `new_episodes` (JY-278: the count
+    of newly added episodes the tile stands for, 0 = a whole new show or a film, no tag)."""
     out, seen, shows = [], set(), set()
-    for r, sub, from_jf in ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
-                            + [(r, r.get("when", ""), False) for r in arrived]):
+    pairs = ([(r, _ago_text(r.get("added_at"), now), True) for r in latest]
+             + [(r, r.get("when", ""), False) for r in arrived])
+    counts = _new_episode_counts([p[0] for p in pairs])
+    series = {}   # JY-278: a show's Jellyfin series row (its poster and caption) stands for the show, even behind its episodes
+    for p in pairs:
+        if p[2] and str(p[0].get("type") or "").lower() == "series" and show_name(p[0]) not in series:
+            series[show_name(p[0])] = p
+    for r, sub, from_jf in pairs:
+        if _is_show(r) and show_name(r) in series and show_name(r) not in shows:
+            r, sub, from_jf = series[show_name(r)]
         key = r.get("item_key") or r.get("title")
         show = show_name(r) if _is_show(r) else None
         if key in seen or (show and show in shows):
@@ -278,7 +327,7 @@ def added_rows(latest, arrived, now) -> list[tuple[dict, str, bool]]:
         seen.add(key)
         if show:
             shows.add(show)
-        out.append((r, sub, from_jf))
+        out.append(({**r, "new_episodes": counts.get(show, 0) if show else 0}, sub, from_jf))
     return out
 
 
@@ -411,7 +460,8 @@ def build_shelves(area, tiles, snaps, view: str, home_b: bool = False) -> dict:
     latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
     added = []
     for r, sub, from_jf in added_rows(latest, arrived, now):
-        kind = {"row_kind": r.get("type") if from_jf else r.get("kind")}   # JY-114: which rows are shows
+        kind = {"row_kind": r.get("type") if from_jf else r.get("kind"),   # JY-114: which rows are shows
+                "new_episodes": r.get("new_episodes") or 0}                # JY-278: the "New episode" tag
         added.append(jf_item(r, sub, LIBRARY_DETAIL, **kind) if from_jf else item(r, sub, LIBRARY_DETAIL, **kind))
     added = added[:SHELF_MAX]
     arr = data_of(ARR_SNAPSHOT_ID)

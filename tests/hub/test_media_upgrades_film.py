@@ -2,7 +2,9 @@
 the hero core from the arr snapshot (no upstream call - F2's fast page stays fast), and the lazy Search-now fragment
 adds "Search for upgrade" (inline confirm, then a same-origin POST sending MoviesSearch / SeriesSearch on the app's
 own id). Jellyfin + Jellyseerr are the film-page fakes; Radarr / Sonarr the Search-now fakes. No network.
-Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>"."""
+Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>".
+Re-pointed JY-275 (2026-11-04): "Upgrade available" + the hero's Upgrade confirm, only for a viable (checked) title;
+the fragment's "Search for upgrade" tests are replaced by test_jy275_*."""
 import html as htmllib
 import logging
 
@@ -18,8 +20,15 @@ UP = {"radarr": [{"item_key": "tmdb:603", "title": "Harbour Lights", "year": 201
       "sonarr": [{"item_key": "tvdb:1100", "title": "Quiet Show", "arr_id": 21, "episodes": 3, "have": "SDTV",
                   "want": "WEB 1080p", "sample": "S04E01", "poster": "sonarr:21"}],
       "totals": {"movies": 1, "episodes": 3, "series": 1}}
-FILM_NOTE = "Below cutoff · WEBDL-720p → wants Bluray-1080p"
-SHOW_NOTE = "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
+FILM_NOTE = SHOW_NOTE = "Upgrade available"   # JY-275 (2026-11-04): was the "Below cutoff · …" sentences
+
+
+@pytest.fixture(autouse=True)
+def viable():
+    """JY-275: both titles count as checked and viable unless a test clears it."""
+    from tests.hub.upgrade_kept import keep
+    keep("radarr", 11)
+    keep("sonarr", 21)
 
 
 def hero(html):
@@ -71,13 +80,17 @@ def test_episode_page_has_no_line(arr_env):
 
 # ---- the button (the lazy Search-now fragment) ----
 
+FILM_DETAIL = "Below cutoff · WEBDL-720p → wants Bluray-1080p"   # JY-275: the fragment keeps the sentence (B., 2026-11-04)
+SHOW_DETAIL = "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
+
+
 def test_fragment_adds_the_upgrade_confirm_for_a_listed_film(arr_env):
     client, _, arr = arr_env(arr={"upgrades": UP})
     with client:
         frag = client.get("/media/title/movie/603/arr?back=/media/item/mov1", headers=HX).text
     assert "Search now</button>" in frag
     up = frag.split('<details class="confirm-wrap" id="arr-upgrade">', 1)[1]
-    assert "Search for upgrade</summary>" in up and "Ask Radarr for a better copy?" in up and FILM_NOTE in up
+    assert "Search for upgrade</summary>" in up and "Ask Radarr for a better copy?" in up and FILM_DETAIL in up
     assert ('<form method="post" action="/media/title/movie/603/upgrade">'
             '<input type="hidden" name="back" value="/media/item/mov1">') in up
     assert ">Search for upgrade</button>" in up and ">Cancel</button>" in up
@@ -101,7 +114,28 @@ def test_show_fragment_matches_on_the_sonarr_id_and_carries_tvdb(arr_env):
         frag = client.get("/media/title/tv/100/arr?tvdb=1100&back=/media/item/ser1", headers=HX).text
     up = frag.split('id="arr-upgrade"', 1)[1]
     assert 'action="/media/title/tv/100/upgrade"' in up and '<input type="hidden" name="tvdb" value="1100">' in up
-    assert "Ask Sonarr for a better copy?" in up and SHOW_NOTE in up
+    assert "Ask Sonarr for a better copy?" in up and SHOW_DETAIL in up
+
+
+def test_jy275_hero_has_the_flag_but_no_upgrade_button(arr_env):
+    """B., 2026-11-04: the Upgrade button sits only on Requests / Downloads; the hero keeps the flag."""
+    client, _, arr = arr_env(arr={"upgrades": UP})
+    with client:
+        h = hero(client.get("/media/item/mov1").text)
+    assert '<p class="upnote">Upgrade available</p>' in h and "upbtn" not in h and 'id="upgrade"' not in h
+    assert arr.calls == []
+
+
+def test_jy275_hero_shows_nothing_for_an_unchecked_or_rejected_title(arr_env):
+    from hub import media_upgrade_why
+    from tests.hub.upgrade_kept import keep
+    media_upgrade_why.clear_cache()
+    keep("radarr", 11, viable=False)
+    client, _, arr = arr_env(arr={"upgrades": UP})
+    with client:
+        for path in ("/media/item/mov1", "/media/item/ser1"):
+            h = hero(client.get(path).text)
+            assert "upnote" not in h and 'id="upgrade"' not in h and "Below cutoff" not in h
 
 
 # ---- the POST ----

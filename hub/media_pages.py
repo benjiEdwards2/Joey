@@ -203,11 +203,14 @@ def media_downloads_page(request: Request):
         snaps = shell.get_snapshots(request=request)
         upgrades = media_upgrades.block(snaps)
         why = {}
-        if upgrades and upgrades.get("rows"):
-            upgrades["rows"] = [{**r, "why_key": ("radarr:" if r.get("kind") == "movie" else "sonarr:") + str(r.get("arr_id"))}
-                                for r in link(upgrades["rows"])]
+        if upgrades and (upgrades.get("rows") or upgrades.get("unchecked")):
+            for part in ("rows", "unchecked"):   # JY-275: viable rows, then the folded rest
+                upgrades[part] = [{**r, "why_key": ("radarr:" if r.get("kind") == "movie" else "sonarr:") + str(r.get("arr_id"))}
+                                  for r in link(upgrades[part])]
+                for r in upgrades[part]:   # Upgrade = the Grab confirm of the accepted release (B., 2026-11-04)
+                    r["up_href"] = media_upgrades.upgrade_href(r)
             # WP-U1: each row's "Why?" (the kept answer only for the row ?why= names - never a call)
-            why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"])
+            why = media_upgrade_why.page_ctx(request.query_params, upgrades["rows"] + upgrades["unchecked"])
         return {"groups": [g for g in groups if g["rows"]], "upgrades": upgrades, "why": why, "dlc": dlc,
                 "last_search": media_upgrades.last_search(snaps),
                 "app_link": app_link(request, "qbittorrent"),

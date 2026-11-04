@@ -608,6 +608,9 @@ main a:not([class]) { color: var(--text-2); text-decoration-color: var(--text-6)
 .row.has-form > details.confirm-wrap { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; }
 .row.has-form > details.confirm-wrap[open] { flex: 1 0 100%; display: flex; flex-direction: column; align-items: flex-end; }
 .row.has-form > details.confirm-wrap[open] > .confirm { align-self: stretch; margin-top: 8px; }
+/* JY-275 (2026-11-04): a viable row's Upgrade button sits above the row link, beside Why? (D-pad focusable: a link) */
+.row.has-form > .upbtn { position: relative; z-index: 1; margin-left: auto; flex-shrink: 0; align-self: center; }
+.row.has-form > .upbtn + .upwhy { margin-left: 8px; }
 /* JY-301 download controls (r2, B. 2026-11-04): Pause / Resume and Remove are small icon buttons on the row's own
    line, right-aligned, at every width; Remove's confirm opens on a full-width line under the row. */
 .row.dlrow { flex-wrap: wrap; }

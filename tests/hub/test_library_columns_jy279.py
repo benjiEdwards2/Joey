@@ -80,11 +80,13 @@ def test_4_header_links_keep_search_and_filter(frame_env, monkeypatch):
 # 5: Upgrade? says Yes plus the note, else a dash; sorting puts Yes first
 def test_5_upgrade_cell_and_sort(site, monkeypatch):
     no_fill(monkeypatch)
+    from tests.hub.upgrade_kept import keep
+    keep("radarr", 7)   # JY-275 (2026-11-04): only a checked, viable row is flagged
     with site() as c:
         html = c.get("/media/movies?view=list&sort=upgrade").text
     assert titles(html)[0] == "Alpha Film"
     cells = re.findall(r'<div class="col col-upgrade">(.*?)</div>\s*<div class="col col-director', html, re.S)
-    assert cells[0].startswith(f'<span class="col-up" title="{FILM_NOTE}">Yes · Below cutoff</span>') and cells[1] == "—"
+    assert cells[0].startswith(f'<span class="col-up" title="{FILM_NOTE}">Upgrade</span>')   # JY-275: was "Yes · Below cutoff" and cells[1] == "—"
     assert '<div class="vh"><div class="upnote">' in cells[0]            # the full words stay for screen readers
     rows = [{"title": "B", "upgrade": ""}, {"title": "A", "upgrade": "Below cutoff"}, {"title": "C", "upgrade": "x"}]
     for d in ("asc", "desc"):

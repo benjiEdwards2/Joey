@@ -55,6 +55,38 @@ def note(row: dict | None) -> str:
     return " · ".join(parts)
 
 
+FLAG = "Upgrade available"   # JY-275 (2026-11-04): the one blue word, only when a check found an acceptable release
+
+
+def is_viable(row: dict | None) -> bool:
+    """JY-275: a cutoff-unmet row is flagged only when its kept Why? answer (media_upgrade_why, 24 h, in memory) found
+    an accepted release. The single rule every surface uses. Never a call."""
+    if not row:
+        return False
+    from hub import media_upgrade_why   # late: it imports this module
+    app = row.get("app") or ("radarr" if row.get("kind") == "movie" else "sonarr")
+    return media_upgrade_why.viable(app, row.get("arr_id"))
+
+
+def flag(row: dict | None) -> str:
+    """FLAG for a viable row, else '' (JY-275: was the 'Below cutoff · …' sentence on every cutoff-unmet title)."""
+    return FLAG if is_viable(row) else ""
+
+
+def upgrade_href(row: dict) -> str | None:
+    """JY-275 (B., 2026-11-04: "If accepted, it should then try grab"): a viable row's Upgrade button = the Grab confirm
+    of the kept answer's first accepted release on Downloads (the existing confirmed grab POST). None when not viable."""
+    from hub import media_upgrade_why   # late: it imports this module
+    app = row.get("app") or ("radarr" if row.get("kind") == "movie" else "sonarr")
+    return media_upgrade_why.grab_href(app, row.get("arr_id"))
+
+
+def tvdb_of(row: dict) -> str | None:
+    """A Sonarr row's TheTVDB id from its `tvdb:` key, else None."""
+    key = str(row.get("item_key") or "")
+    return key[5:] if key.startswith("tvdb:") and key[5:].isdigit() else None
+
+
 def norm_title(text) -> str:
     """Lower-case, no punctuation, no leading article, single spaces (media_library's rule). A parenthesised
     trailing year is dropped first: Sonarr disambiguates "Brothers (2026)" but Jellyfin's row is "Brothers"
@@ -72,7 +104,8 @@ def index(snaps) -> dict:
     for app in ("radarr", "sonarr"):
         for r in up.get(app) or []:
             if isinstance(r, dict) and r.get("item_key"):
-                out[str(r["item_key"])] = {**r, "app": app, "note": note(r)}
+                row = {**r, "app": app}
+                out[str(r["item_key"])] = {**row, "note": flag(row), "detail": note(r)}
     return out
 
 
@@ -126,6 +159,7 @@ def attach(rows, snaps, kind: str | None, tvdb_of=lambda r: None) -> None:
         k = kind or ("tv" if r.get("kind") == "tv" else "movie")
         hit = find(idx, k, r.get("item_key"), tvdb_of(r), r.get("title") if unique else None, titles)
         r["upgrade"] = hit["note"] if hit else ""
+        r["upgrade_href"] = upgrade_href(hit) if r["upgrade"] else None   # JY-275: the Requests row's button
 
 
 SEARCH_WORDS = {"upgrades": "Last upgrade search", "missing": "Last missing search", "search": "Last search"}  # JY-302
@@ -181,7 +215,8 @@ def last_search(snaps) -> list[dict]:
 def block(snaps) -> dict | None:
     """The Activity › Downloads "Upgrades" block: None when the snapshot has no `upgrades` (older envelope — the block
     is absent); {state: 'off'} when both lists are null; else {rows, totals_text, off: [app names whose list is null]}.
-    Rows carry `kind` (movie | tv) for the linker, `note`, `poster`, `title`."""
+    Rows carry `kind` (movie | tv) for the linker, `note` (FLAG or ''), `detail`, `poster`, `title`. JY-275: `rows` holds
+    only viable rows, `unchecked` the others."""
     up = upgrades(snaps)
     if up is None:
         return None
@@ -196,7 +231,10 @@ def block(snaps) -> dict | None:
         pieces.append(f"{films} film{'' if films == 1 else 's'}")
     if sonarr is not None:
         pieces.append(f"{shows} show{'' if shows == 1 else 's'}")
-    rows = ([{**r, "kind": "movie", "note": note(r)} for r in radarr or [] if isinstance(r, dict)]
-            + [{**r, "kind": "tv", "note": note(r)} for r in sonarr or [] if isinstance(r, dict)])
-    return {"state": "ok", "rows": rows, "totals_text": " · ".join(pieces),
+    rows = ([{**r, "kind": "movie", "app": "radarr"} for r in radarr or [] if isinstance(r, dict)]
+            + [{**r, "kind": "tv", "app": "sonarr"} for r in sonarr or [] if isinstance(r, dict)])
+    rows = [{**r, "note": flag(r), "detail": note(r)} for r in rows]
+    # JY-275: `rows` = the viable ones (flag + Upgrade); `unchecked` = the rest, folded away with their Why?
+    return {"state": "ok", "rows": [r for r in rows if r["note"]], "unchecked": [r for r in rows if not r["note"]],
+            "totals_text": " · ".join(pieces),
             "off": [name for name, lst in (("Radarr", radarr), ("Sonarr", sonarr)) if lst is None]}

@@ -2,7 +2,10 @@
 Activity › Downloads "Upgrades" block — from the arr snapshot's `data.upgrades` only (no upstream call), and nothing
 (no 500) for an older envelope without it. The film / show page and its "Search for upgrade" button:
 test_media_upgrades_film.py.
-Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>"."""
+Re-pointed WP-U1 (2026-10-21): the label reads "Below cutoff · <have> → wants <want>".
+Re-pointed JY-275 (2026-11-04): the label is "Upgrade available" and only on a row whose kept Why? answer found an
+accepted release - the module's autouse `viable` keeps one for Alpha Film, Echo Show and Golf Show; the
+test_jy275_* tests cover the unchecked / rejected cases and the Upgrade buttons."""
 import importlib
 import re
 
@@ -21,9 +24,16 @@ UP = {"radarr": [{"item_key": "tmdb:11", "title": "Alpha Film", "year": 2020, "a
                  {"item_key": "tvdb:7023", "title": "Golf Show", "arr_id": 4, "episodes": 1, "have": "HDTV-720p",
                   "want": "Bluray-1080p", "sample": "S02E01", "poster": None}],
       "totals": {"movies": 2, "episodes": 4, "series": 2}}
-FILM_NOTE = "Below cutoff · WEBDL-720p → wants Bluray-1080p"
-ECHO_NOTE = "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
-GOLF_NOTE = "Below cutoff · 1 episode · HDTV-720p → wants Bluray-1080p"
+FILM_NOTE = ECHO_NOTE = GOLF_NOTE = "Upgrade available"   # JY-275 (2026-11-04): was the three "Below cutoff · …" lines
+
+
+@pytest.fixture(autouse=True)
+def viable():
+    """JY-275: the three titles that carried a note before count as checked and viable."""
+    from tests.hub.upgrade_kept import keep
+    keep("radarr", 7)
+    keep("sonarr", 3)
+    keep("sonarr", 4)
 
 
 def movie(title, year, key):
@@ -98,7 +108,7 @@ def test_tv_list_matches_the_tvdb_key_and_the_unique_title(site):
         lst = main_of(c.get("/media/tv?view=list").text)
     for page in (grid, lst):
         assert sorted(notes(page)) == sorted([ECHO_NOTE, GOLF_NOTE])
-    assert ECHO_NOTE in card_of(grid, "Echo Show") and GOLF_NOTE in card_of(grid, "Golf Show")
+    assert ECHO_NOTE in card_of(grid, "Echo Show") and GOLF_NOTE in card_of(grid, "Golf Show")   # JY-275: same word
     assert "upnote" not in card_of(grid, "Foxtrot Show")
 
 
@@ -167,8 +177,8 @@ def test_downloads_block_lists_titles_with_totals_and_links(site):
         blk = upgrades_block(main_of(c.get("/media/downloads").text))
     assert '<h2 class="seclabel">Upgrades</h2>' in blk
     assert '<p class="metaline">2 films · 2 shows</p>' in blk
-    assert f'<div class="upnote">{FILM_NOTE}</div>' in blk and ECHO_NOTE in blk and GOLF_NOTE in blk
-    assert "Below cutoff · DVD" not in blk and "Below cutoff</div>" in blk   # unknown cutoff: no arrow part
+    assert f'<div class="upnote">{FILM_NOTE}</div>' in blk and blk.count(ECHO_NOTE) == 3
+    assert "Below cutoff · DVD" not in blk and "upnote\">Below cutoff" not in blk   # JY-275: no sentence anywhere
     alpha = blk.split("Alpha Film (2020)", 1)[0].rsplit("<a ", 1)[1]
     assert 'href="/media/item/jtmdb-11"' in alpha                              # the Joey item page (library title)
     assert 'href="/media/title/movie/99"' in blk                               # not in the library: the title page
@@ -189,3 +199,82 @@ def test_downloads_block_states(site):
     with site(upgrades={"radarr": [], "sonarr": [], "totals": {"movies": 0, "episodes": 0, "series": 0}}) as c:
         blk = upgrades_block(main_of(c.get("/media/downloads").text))
     assert "0 films · 0 shows" in blk and '<p class="empty">Nothing to upgrade.</p>' in blk
+
+
+# ---- JY-275 (2026-11-04): only a viable row is flagged, with an Upgrade button ----
+
+def test_jy275_unchecked_or_rejected_rows_show_nothing_anywhere(site):
+    from hub import media_upgrade_why
+    from tests.hub.upgrade_kept import keep
+    media_upgrade_why.clear_cache()
+    keep("sonarr", 3, viable=False)                     # checked, every release rejected
+    with site(requests_rows=REQS) as c:
+        pages = [main_of(c.get(p).text) for p in ("/media/movies?view=grid", "/media/movies?view=list",
+                                                     "/media/tv?view=grid", "/media/tv?view=list", "/media/requests")]
+        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+    for page in pages:
+        assert "upnote" not in page and "upbtn" not in page and "Below cutoff" not in page
+    top = blk.split("<details", 1)[0]
+    assert '<p class="empty">Nothing to upgrade.</p>' in top and "upnote" not in blk and "upbtn" not in blk
+    assert "Below cutoff, nothing better found yet (4)" in blk and "Why?" in blk   # the rest folded, Why? kept
+
+
+def test_jy275_viable_rows_carry_the_upgrade_button(site):
+    with site(requests_rows=REQS) as c:
+        reqs = main_of(c.get("/media/requests").text)
+        blk = upgrades_block(main_of(c.get("/media/downloads").text))
+    r1 = reqs.split('id="req-1"', 1)[1].split('id="req-2"', 1)[0]
+    assert 'class="btn btn-secondary btn-sm upbtn" href="/media/downloads?why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade</a>' in r1
+    assert "upbtn" not in reqs.split('id="req-3"', 1)[1]
+    top = blk.split("<details", 1)[0]
+    assert top.count('upbtn') == 3 and 'why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade' in top
+    with site() as c:
+        lib = main_of(c.get("/media/movies?view=list").text) + main_of(c.get("/media/tv?view=grid").text)
+    assert "upbtn" not in lib                                                        # B.: no button on library rows
+    assert "Not In Library" not in top and "Not In Library" in blk                  # unchecked: folded
+
+
+def test_jy275_the_sweep_checks_rows_afterwards(monkeypatch):
+    """The "Search upgrades" sweep then runs the Why? search for the cutoff-unmet rows (capped), in a thread."""
+    from types import SimpleNamespace
+    from hub import media_upgrade_why as w
+    asked = []
+    monkeypatch.setattr(w, "ask", lambda app, arr_id, row: asked.append((app, arr_id)) or "ok")
+    t = w.check_all({"arr": SimpleNamespace(data={"upgrades": UP})})
+    t.join(5)
+    assert asked == [("radarr", 7), ("radarr", 8), ("sonarr", 3), ("sonarr", 4)]
+    assert w.check_all({"arr": SimpleNamespace(data={"upgrades": {"radarr": [], "sonarr": None}})}) is None
+    monkeypatch.setattr(w, "CHECK_MAX", 2)
+    asked.clear()
+    w.check_rows([("radarr", r) for r in UP["radarr"]] + [("sonarr", r) for r in UP["sonarr"]])
+    assert asked == [("radarr", 7), ("radarr", 8)]
+
+
+def test_jy275_a_second_check_is_a_no_op_while_one_runs(monkeypatch):
+    import threading
+    from types import SimpleNamespace
+    from hub import media_upgrade_why as w
+    gate, asked = threading.Event(), []
+    monkeypatch.setattr(w, "ask", lambda app, arr_id, row: asked.append(arr_id) or gate.wait(5) or "ok")
+    snaps = {"arr": SimpleNamespace(data={"upgrades": UP})}
+    t = w.check_all(snaps)
+    assert t is not None and w.check_all(snaps) is None
+    gate.set()
+    t.join(5)
+    assert asked == [7, 8, 3, 4]
+    t2 = w.check_all(snaps)                       # released after the run: a later sweep checks again
+    assert t2 is not None
+    t2.join(5)
+
+
+def test_jy275_a_raising_row_is_skipped_and_the_next_still_runs(monkeypatch, caplog):
+    from hub import media_upgrade_why as w
+    asked = []
+
+    def ask(app, arr_id, row):
+        if arr_id == 7:
+            raise RuntimeError("boom")
+        asked.append(arr_id)
+    monkeypatch.setattr(w, "ask", ask)
+    assert w.check_rows([("radarr", r) for r in UP["radarr"]]) == 1
+    assert asked == [8] and "skipped a row: RuntimeError" in caplog.text

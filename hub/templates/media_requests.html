@@ -4,7 +4,7 @@
 {% from "_poster.html" import poster %}
 {% from "_rows.html" import meta %}
 {% import "_rate.html" as rate %}
-{% from "_upgrade_note.html" import upnote %}
+{% from "_upgrade_note.html" import upnote, upbtn %}
 {% include "_arr_sweep.html" %}{# F3 (2026-10-12): Search missing / upgrades, Radarr · Sonarr #}
 {# Detail behind the requests tile (2026-10-05; restyle Phase 3 row recipe): Jellyseerr's queue. The status is a
    WORD on every row — colour is never the only encoding. #}
@@ -34,6 +34,7 @@
   <div class="row-body"><div class="row-title">{{ r.title }}{% if r.year %} ({{ r.year }}){% endif %}{% if r.quality %} <span class="badge">{{ r.quality }}</span>{% endif %}</div>{{ meta([st, r.state_word, "TV" if r.kind == "tv" else "Film", r.asked, r.requested_by, r.when]) }}{{ upnote(r.upgrade) }}</div>
   {{ rate.score_key(r.item_key, ratings) }}
   </a>
+  {{ upbtn(r.upgrade_href) }}
   {% if r.decide %}
   {# WP-RQ1 (2026-10-22): a pending request, B. only - Approve opens the panel with what was asked for preselected
      (quality chips as the Request confirm; TV: the season ticks, the show's whole list swapped in on open); Decline is

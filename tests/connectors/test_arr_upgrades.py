@@ -61,7 +61,9 @@ def test_sonarr_episodes_group_per_series_with_the_lowest_quality(raw):
     assert [r["title"] for r in rows] == ["Iron Valley", "Quiet Coast"]
     assert rows[1] == {"item_key": "tvdb:2001", "title": "Quiet Coast", "arr_id": 1, "episodes": 3,
                        "have": "SDTV", "want": "WEB 1080p", "profile": "HD-1080p", "sample": "S01E02",
-                       "episode_id": 3103, "poster": "sonarr:1"}
+                       "episode_id": 3103, "poster": "sonarr:1",
+                       "below": [{"code": "S01E02", "have": "HDTV-720p"}, {"code": "S01E03", "have": "SDTV"},
+                                 {"code": "S02E05", "have": "HDTV-720p"}]}   # JY-109 (2026-11-04)
     assert (rows[0]["episodes"], rows[0]["have"], rows[0]["want"]) == (1, "WEBDL-720p", "Bluray-1080p")
 
 

@@ -431,6 +431,9 @@ async def sweep_now(request: Request):
     else:
         _started[kind] = _clock()
         q = {"sweep": "partial" if failed else "started", "ran": ",".join(ran)}
+        if kind == "upgrades":   # JY-275: then Why?-check the cutoff-unmet rows in the background so viable ones flag
+            from hub import media_upgrade_why
+            media_upgrade_why.check_all(shell.get_snapshots(request=request))
     return RedirectResponse(f"{back}?" + urlencode(q), status_code=303)
 
 
@@ -448,7 +451,7 @@ def upgrade_row(request, kind: str, entry: dict) -> dict | None:
     app = app_of(kind)
     for row in media_upgrades.index(shell.get_snapshots(request=request)).values():
         if row["app"] == app and str(row.get("arr_id")) == str(entry.get("id")):
-            return row
+            return {**row, "note": row["detail"]}   # JY-275: the hero button stays as it was (B., 2026-11-04)
     return None
 
 

@@ -661,7 +661,7 @@ def _upgrade(snaps, jelly: dict, kind, tmdb, tvdb, title) -> str | None:
                                 and media_upgrades.norm_title(r.get("title")) == name) <= 1
     row = media_upgrades.find(media_upgrades.index(snaps), kind, f"tmdb:{tmdb}" if tmdb else None, tvdb,
                               title if once else None)
-    return row["note"] if row else None
+    return row if row and row["note"] else None
 
 
 def _requested(snaps, tmdb) -> dict | None:
@@ -1347,7 +1347,8 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
                                               want=media_quality._want(request.query_params.get("quality_profile")))
                           if f["quality_href"] and request.query_params.get("quality_ask") == "1" else None)
     f["quality_flash"] = media_quality.flash_text(request.query_params)
-    f["upgrade"] = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep else None   # F4b: snapshot only
+    up = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep and tmdb_id else None   # F4b: snapshot only
+    f["upgrade"] = up["note"] if up else None   # JY-275: "Upgrade available" only for a viable row
     f["upgrade_flash"] = media_arr_search.upgrade_flash(request.query_params)
     f["status_line"] = status_line(f)
     f["awards"] = film_awards(kind, tmdb_id, jelly, jf_item_id)   # Awards (2026-10-08): media.db only, no call

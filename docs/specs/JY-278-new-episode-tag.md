@@ -1,6 +1,6 @@
 # JY-278 Recently added: the "new episode" tag on show tiles
 
-Status: review (PR open, reviewer PASS 2026-11-05) (B. 2026-11-04 plan page: "Happy with new episode." -> tag by default, no switch; B. 2026-11-05: "continue running on the hitlist")
+Status: shipped (merged d884f0b 2026-11-05 on B. Sweep 29 "JY-278: Accept"; deploy tonight)
 Size: S (one tile per show already shipped in JY-277 option B #313; only the tag remains)
 Live risk: none
 Area: `hub/media_home.py` (`added_rows`, show grouping), the Home / Overview shelf templates that render Recently added tiles (`_poster.html` or the JY-277 shelf partial), `hub/static/control-surface.css`, TV branch of the same tile (`_tv_tile.html` caption), `tests/hub/test_media_home*`

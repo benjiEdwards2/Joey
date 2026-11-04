@@ -1,6 +1,6 @@
 # JY-304 Carousel scroll cue (Discover first)
 
-Status: spec
+Status: building
 Size: S
 Live risk: none
 Area: `hub/static/control-surface.css` (the `.carousel` block under "Posters: carousels", `.carousel.prov-row`), `hub/templates/media_discover.html`, `_shelf.html`, `_film_shelves.html`, `_services.html`, a small shared script only if the pick needs one, `tests/hub/`
@@ -46,6 +46,9 @@ TV rows (unless asked), the Episodes row, scroll or snap behaviour, new row cont
 - [ ] Discover on desktop, iPad and phone: it is obvious which rows scroll.
 - [ ] A short row shows no cue.
 - [ ] A mouse on desktop can move a row without shift-wheel.
+
+## Picked (B., 2026-11-04, options page)
+Option C on "Every carousel.": every `.carousel` shelf off the TV (Home, Discover, title pages, person page, services rows) gets an edge fade that follows the scroll position, a half-card peek on every width (3.5 / 5.5 / 6.5 / 9.5 / 11.5 cards, never smaller than the old 104 / 144 / 184 / 216 px cards; "More on Joey" keeps its 2.3 on a phone), and round prev / next buttons (the `.tl-arrow` glass) from 768 px, hidden at the ends, keyboard focusable, labelled. Built as stylesheet rules plus a small shared block in `hub/static/joey.js`. TV rows (`html.tv`) untouched.
 
 ## Questions for B.
 1. Which cue? A. fade + peek only, B. arrows only, C. both (recommended).

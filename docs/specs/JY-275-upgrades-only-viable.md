@@ -61,7 +61,10 @@ The spec's recommended answers; B. may still change them, so the rule lives in o
   now lives 24 h (was 1 h), in memory: a hub restart forgets every check, so flags disappear until the next Why? or sweep.
 - The "Search upgrades" sweep on Requests / Downloads (until now out of scope) also records results: after a started
   sweep the hub runs the Why? search for up to 25 cutoff-unmet rows, one at a time, in a background thread.
-- Q2 = A. Upgrade button on the row and on the title page. Q3 = A. Library rows, title page, Requests, Downloads.
+- Q2 (B., 2026-11-04): "Upgrade button should only sit in the requests/downloads page." The flag still shows on library
+  rows and the title page; the title page keeps its existing "Search for upgrade" button unchanged.
+- B., 2026-11-04: "If accepted, it should then try grab" - Upgrade opens the existing confirmed Grab of the kept answer's
+  first accepted release (`/media/upgrades/why/{app}/{id}/grab`). Q3 = A: library rows, title page, Requests, Downloads.
 - A page render never calls Radarr / Sonarr.
 
 ## JY-109 scope (re-opened, folded in)
@@ -71,18 +74,17 @@ The episode list comes from the arr snapshot: the feed now adds `below` (first 1
 Sonarr row (schema updated, sample snapshot regenerated). No new upstream call on render; still one search per row.
 
 ## Build notes (2026-11-04)
-- Library rows: the flag only ("Upgrade available"; list-view column reads "Upgrade"). The whole row is one link to the
-  title page, so no nested button; the title page carries the Upgrade confirm.
-- Requests and Downloads rows: an Upgrade button that opens the title page's confirm (`?upgrade_ask=1#upgrade`); the POST
-  is the existing `/media/title/{kind}/{tmdb}/upgrade`. A Downloads row with no known title page falls back to its kept
-  Why? answer (Grab on the accepted release).
+- Library rows and the title page: the flag only ("Upgrade available"; the list-view column reads "Upgrade").
+- Requests and Downloads rows: an Upgrade button linking to Downloads' Grab confirm for the accepted release
+  (`?why=<app>:<id>&why_step=grab&pick=<n>`); confirming sends the existing grab POST.
 - Downloads > Upgrades lists viable rows; the others sit in a fold "Below cutoff, nothing better found yet (N)" with Why?.
-- The lazy Search-now fragment no longer draws "Search for upgrade" (the hero's Upgrade replaces it).
+- The lazy Search-now fragment's "Search for upgrade" is unchanged (it still shows for any below-cutoff title, with the
+  "Below cutoff · …" sentence in its confirm).
 
 ## Test changes (dated 2026-11-04)
 - test_media_upgrades.py (F4b/WP-U1): `note` is now FLAG-or-''; the sentence moved to `detail`; block splits rows / unchecked.
 - test_media_upgrades_pages.py, test_media_upgrades_film.py: an autouse fixture marks the old noted rows viable; the
-  fragment "Search for upgrade" tests are replaced by hero Upgrade tests; new unchecked / rejected / button tests.
+  fragment "Search for upgrade" tests keep their sentence (FILM_DETAIL); new unchecked / rejected / button tests.
 - test_media_upgrade_why.py (WP-U1/JY-108): the Downloads row no longer shows the sentence; TTL test renamed; new
   viable-flag and JY-109 per-episode tests. test_arr_upgrades.py: Sonarr rows carry `below`.
 - test_media_arr_sweep.py: an upgrades sweep starts the background check, a missing sweep does not.

@@ -73,19 +73,12 @@ def flag(row: dict | None) -> str:
     return FLAG if is_viable(row) else ""
 
 
-ASK = "upgrade_ask=1#upgrade"
-
-
 def upgrade_href(row: dict) -> str | None:
-    """JY-275: a row's Upgrade button = the title page with its Upgrade confirm open (the one confirmed POST lives
-    there). A local `href` wins, else /media/title/<kind>/<tmdb> from a `tmdb:` key; None when neither is known."""
-    href = str(row.get("href") or "")
-    if href.startswith("/media/"):
-        return f"{href}{'&' if '?' in href else '?'}{ASK}"
-    key = str(row.get("item_key") or "")
-    if key.startswith("tmdb:") and key[5:].isdigit():
-        return f"/media/title/{'tv' if row.get('kind') == 'tv' else 'movie'}/{key[5:]}?{ASK}"
-    return None
+    """JY-275 (B., 2026-11-04: "If accepted, it should then try grab"): a viable row's Upgrade button = the Grab confirm
+    of the kept answer's first accepted release on Downloads (the existing confirmed grab POST). None when not viable."""
+    from hub import media_upgrade_why   # late: it imports this module
+    app = row.get("app") or ("radarr" if row.get("kind") == "movie" else "sonarr")
+    return media_upgrade_why.grab_href(app, row.get("arr_id"))
 
 
 def tvdb_of(row: dict) -> str | None:
@@ -166,7 +159,7 @@ def attach(rows, snaps, kind: str | None, tvdb_of=lambda r: None) -> None:
         k = kind or ("tv" if r.get("kind") == "tv" else "movie")
         hit = find(idx, k, r.get("item_key"), tvdb_of(r), r.get("title") if unique else None, titles)
         r["upgrade"] = hit["note"] if hit else ""
-        r["upgrade_href"] = upgrade_href({**r, "kind": k}) if r["upgrade"] else None   # JY-275: the row's button
+        r["upgrade_href"] = upgrade_href(hit) if r["upgrade"] else None   # JY-275: the Requests row's button
 
 
 SEARCH_WORDS = {"upgrades": "Last upgrade search", "missing": "Last missing search", "search": "Last search"}  # JY-302

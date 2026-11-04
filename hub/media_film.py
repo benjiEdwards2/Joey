@@ -1349,10 +1349,6 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
     f["quality_flash"] = media_quality.flash_text(request.query_params)
     up = _upgrade(snaps, jelly, kind, tmdb_id, tvdb, title) if not ep and tmdb_id else None   # F4b: snapshot only
     f["upgrade"] = up["note"] if up else None   # JY-275: "Upgrade available" only for a viable row
-    f["upgrade_post"] = ({"action": f"/media/title/{kind}/{tmdb_id}/upgrade", "detail": up["detail"],
-                          "app": "Radarr" if kind == "movie" else "Sonarr",
-                          "tvdb": (tvdb if str(tvdb or "").isdigit() else media_upgrades.tvdb_of(up)) if kind == "tv" else None}
-                         if up else None)
     f["upgrade_flash"] = media_arr_search.upgrade_flash(request.query_params)
     f["status_line"] = status_line(f)
     f["awards"] = film_awards(kind, tmdb_id, jelly, jf_item_id)   # Awards (2026-10-08): media.db only, no call

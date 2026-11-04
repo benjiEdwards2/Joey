@@ -39,7 +39,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
-from hub import media_discover as md, media_requests as mr, media_text, shell, upstream
+from hub import media_discover as md, media_requests as mr, media_text, media_upgrades, shell, upstream
 from hub.ids import JELLYFIN_SNAPSHOT_ID
 from hub.media_library import empty_series
 from hub.media_write import flash_keys, form_of, is_htmx, safe_back, same_origin
@@ -204,7 +204,8 @@ def search_button(request: Request, kind: str, tmdb_id: int, tvdb: str = "", bac
     if entry is None:
         return HTMLResponse("")   # not in the app (or unreachable): no button, the Request flow applies
     return md._partial(request, "_arr_search.html", kind=kind, tmdb_id=tmdb_id, tvdb=_tvdb(tvdb),
-                       back=_back(back, kind, tmdb_id), app=NAMES[app_of(kind)], monitored=bool(entry.get("monitored")))
+                       back=_back(back, kind, tmdb_id), app=NAMES[app_of(kind)], monitored=bool(entry.get("monitored")),
+                       upgrade=upgrade_row(request, kind, entry))
 
 
 @router.post("/media/title/{kind}/{tmdb_id}/search", dependencies=[Depends(same_origin)])
@@ -443,6 +444,15 @@ async def sweep_now(request: Request):
 
 flash_keys("upgrade")
 UPGRADE_FLASH = {"started": ("Upgrade search started", None), "failed": (None, "Couldn't start the search")}
+
+
+def upgrade_row(request, kind: str, entry: dict) -> dict | None:
+    """The snapshot's upgrade row for this app entry (matched on `arr_id`), or None."""
+    app = app_of(kind)
+    for row in media_upgrades.index(shell.get_snapshots(request=request)).values():
+        if row["app"] == app and str(row.get("arr_id")) == str(entry.get("id")):
+            return {**row, "note": row["detail"]}   # JY-275: the hero button stays as it was (B., 2026-11-04)
+    return None
 
 
 def upgrade_flash(params) -> tuple[str | None, str | None]:

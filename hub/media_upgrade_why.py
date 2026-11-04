@@ -189,6 +189,15 @@ def viable(app: str, arr_id) -> bool:
     return bool(m and m["res"].get("viable"))
 
 
+def grab_href(app: str, arr_id) -> str | None:
+    """JY-275: the no-JS link to the Grab confirm of the kept answer's first accepted release, else None."""
+    m = peek(app, arr_id) if isinstance(arr_id, int) else None
+    pick = next((i for i, c in enumerate(m["res"]["candidates"]) if not c["rejected"]), None) if m else None
+    if pick is None:
+        return None
+    return f"{BACK}?why={app}:{arr_id}&why_step=grab&pick={pick}#why-{app}-{arr_id}"
+
+
 def episodes(row: dict | None, app: str, arr_id) -> list[dict]:
     """JY-109 (re-opened, 2026-11-04): a show's below-cutoff episodes for the fold-out - [{code, have, result}] from the
     snapshot's `below` list (else the `sample` alone). Only the sample episode is searched, so only it carries a

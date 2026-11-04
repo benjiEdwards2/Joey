@@ -80,25 +80,50 @@ def test_episode_page_has_no_line(arr_env):
 
 # ---- the button (the lazy Search-now fragment) ----
 
-def test_jy275_the_fragment_no_longer_draws_the_upgrade_confirm(arr_env):
-    """JY-275 (2026-11-04): replaces the WP-U1 fragment tests - the confirm moved to the hero (viable titles only)."""
+FILM_DETAIL = "Below cutoff · WEBDL-720p → wants Bluray-1080p"   # JY-275: the fragment keeps the sentence (B., 2026-11-04)
+SHOW_DETAIL = "Below cutoff · 3 episodes · SDTV → wants WEB 1080p"
+
+
+def test_fragment_adds_the_upgrade_confirm_for_a_listed_film(arr_env):
     client, _, arr = arr_env(arr={"upgrades": UP})
     with client:
         frag = client.get("/media/title/movie/603/arr?back=/media/item/mov1", headers=HX).text
-    assert "Search now</button>" in frag and "arr-upgrade" not in frag and "Search for upgrade" not in frag
+    assert "Search now</button>" in frag
+    up = frag.split('<details class="confirm-wrap" id="arr-upgrade">', 1)[1]
+    assert "Search for upgrade</summary>" in up and "Ask Radarr for a better copy?" in up and FILM_DETAIL in up
+    assert ('<form method="post" action="/media/title/movie/603/upgrade">'
+            '<input type="hidden" name="back" value="/media/item/mov1">') in up
+    assert ">Search for upgrade</button>" in up and ">Cancel</button>" in up
+    assert [c[0] for c in arr.calls] == ["GET"]                              # the lookup only: nothing sent yet
 
 
-def test_jy275_hero_upgrade_confirm_for_a_viable_film_and_show(arr_env):
+def test_fragment_has_no_upgrade_button_when_the_entry_is_not_listed(arr_env):
+    client, _, arr = arr_env(arr={"upgrades": {**UP, "radarr": [{**UP["radarr"][0], "arr_id": 99}]}})
+    with client:
+        frag = client.get("/media/title/movie/603/arr?back=/media/item/mov1", headers=HX).text
+    assert "Search now</button>" in frag and "arr-upgrade" not in frag
+    client, _, arr = arr_env(arr={})
+    with client:
+        frag = client.get("/media/title/movie/603/arr", headers=HX).text
+    assert "Search now</button>" in frag and "arr-upgrade" not in frag
+
+
+def test_show_fragment_matches_on_the_sonarr_id_and_carries_tvdb(arr_env):
+    client, _, arr = arr_env(arr={"upgrades": {**UP, "sonarr": [{**UP["sonarr"][0], "item_key": "tvdb:5"}]}})
+    with client:
+        frag = client.get("/media/title/tv/100/arr?tvdb=1100&back=/media/item/ser1", headers=HX).text
+    up = frag.split('id="arr-upgrade"', 1)[1]
+    assert 'action="/media/title/tv/100/upgrade"' in up and '<input type="hidden" name="tvdb" value="1100">' in up
+    assert "Ask Sonarr for a better copy?" in up and SHOW_DETAIL in up
+
+
+def test_jy275_hero_has_the_flag_but_no_upgrade_button(arr_env):
+    """B., 2026-11-04: the Upgrade button sits only on Requests / Downloads; the hero keeps the flag."""
     client, _, arr = arr_env(arr={"upgrades": UP})
     with client:
-        h = hero(client.get("/media/item/mov1?upgrade_ask=1").text)
-        assert arr.calls == []                                   # the film page never calls Radarr
-        s = hero(client.get("/media/item/ser1").text)
-    up = h.split('<details class="confirm-wrap" id="upgrade" open>', 1)[1].split("</details>", 1)[0]   # the row's button opens it
-    assert "Ask Radarr to download the better copy?" in up and "Below cutoff · WEBDL-720p → wants Bluray-1080p" in up
-    assert '<form method="post" action="/media/title/movie/603/upgrade">' in up and ">Upgrade</button>" in up
-    ups = s.split('id="upgrade"', 1)[1].split("</details>", 1)[0]
-    assert 'action="/media/title/tv/100/upgrade"' in ups and '<input type="hidden" name="tvdb" value="1100">' in ups
+        h = hero(client.get("/media/item/mov1").text)
+    assert '<p class="upnote">Upgrade available</p>' in h and "upbtn" not in h and 'id="upgrade"' not in h
+    assert arr.calls == []
 
 
 def test_jy275_hero_shows_nothing_for_an_unchecked_or_rejected_title(arr_env):

@@ -84,7 +84,8 @@ def test_attach_labels_rows_and_needs_a_unique_library_title():
     keep("radarr", 1)
     mu.attach(shows, snaps(SAMPLE), "tv")
     assert [r["upgrade"] for r in shows] == ["Upgrade available", "Upgrade available", "", "", ""]
-    assert shows[0]["upgrade_href"] == "/media/title/tv/2201?upgrade_ask=1#upgrade" and shows[2]["upgrade_href"] is None
+    assert shows[0]["upgrade_href"] == "/media/downloads?why=sonarr:1&why_step=grab&pick=0#why-sonarr-1"
+    assert shows[2]["upgrade_href"] is None
     films = [{"item_key": "tmdb:1001", "title": "Harbour Lights"}, {"item_key": "jf:x", "title": "Desert Crossing"}]
     mu.attach(films, snaps(SAMPLE), "movie")
     assert films[0]["upgrade"] == "Upgrade available" and films[1]["upgrade"] == ""   # films: key only
@@ -146,7 +147,10 @@ def test_viable_is_one_rule_and_expires_after_a_day(monkeypatch):
     assert mu.is_viable(row) is False
 
 
-def test_upgrade_href_prefers_a_local_href():
-    assert mu.upgrade_href({"href": "/media/item/abc", "item_key": "tvdb:1"}) == "/media/item/abc?upgrade_ask=1#upgrade"
-    assert mu.upgrade_href({"href": "https://seerr/x", "item_key": "tmdb:5", "kind": "movie"}) == "/media/title/movie/5?upgrade_ask=1#upgrade"
-    assert mu.upgrade_href({"item_key": "tvdb:1", "kind": "tv"}) is None
+def test_upgrade_href_is_the_grab_confirm_of_the_accepted_release():
+    """B., 2026-11-04: "If accepted, it should then try grab"."""
+    assert mu.upgrade_href({"app": "radarr", "arr_id": 1}) is None
+    keep("radarr", 1, viable=False)
+    assert mu.upgrade_href({"app": "radarr", "arr_id": 1}) is None
+    keep("radarr", 1)
+    assert mu.upgrade_href({"kind": "movie", "arr_id": 1}) == "/media/downloads?why=radarr:1&why_step=grab&pick=0#why-radarr-1"

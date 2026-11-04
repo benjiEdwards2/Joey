@@ -224,10 +224,13 @@ def test_jy275_viable_rows_carry_the_upgrade_button(site):
         reqs = main_of(c.get("/media/requests").text)
         blk = upgrades_block(main_of(c.get("/media/downloads").text))
     r1 = reqs.split('id="req-1"', 1)[1].split('id="req-2"', 1)[0]
-    assert 'class="btn btn-secondary btn-sm upbtn" href="/media/title/movie/11?upgrade_ask=1#upgrade">Upgrade</a>' in r1
+    assert 'class="btn btn-secondary btn-sm upbtn" href="/media/downloads?why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade</a>' in r1
     assert "upbtn" not in reqs.split('id="req-3"', 1)[1]
     top = blk.split("<details", 1)[0]
-    assert top.count('upbtn') == 3 and 'href="/media/item/jtmdb-11?upgrade_ask=1#upgrade"' in top
+    assert top.count('upbtn') == 3 and 'why=radarr:7&amp;why_step=grab&amp;pick=0#why-radarr-7">Upgrade' in top
+    with site() as c:
+        lib = main_of(c.get("/media/movies?view=list").text) + main_of(c.get("/media/tv?view=grid").text)
+    assert "upbtn" not in lib                                                        # B.: no button on library rows
     assert "Not In Library" not in top and "Not In Library" in blk                  # unchecked: folded
 
 

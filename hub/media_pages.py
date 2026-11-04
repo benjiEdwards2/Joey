@@ -21,7 +21,7 @@ from hub import guest   # Joey TV WP-B3: the diary's owner switch is private-fro
 from hub import (media_awards_badges, media_backup, media_db, media_directors, media_download_actions, media_downloads, media_home, media_item, media_library,
                  media_plays, media_plays_db,
                  media_quality, media_requests, media_requests_approve, media_resume, media_season_state, media_text, media_upgrade_why, media_upgrades, media_wrapped, media_write,
-                 server, shell, upcoming)
+                 server, server_history, shell, upcoming)
 log = logging.getLogger("hub.media_pages")
 from hub.ids import ARR_SNAPSHOT_ID, JELLYFIN_SNAPSHOT_ID, JELLYSEERR_SNAPSHOT_ID, MEDIA_STATUS_SNAPSHOT_ID, QBIT_SNAPSHOT_ID
 
@@ -100,17 +100,66 @@ def media_apps_page(request: Request):
                                                                   for a in data.get("apps", [])]})
 
 
+LIVE_PARTS = {"now": "/media/playing/part/now", "health": "/media/playing/part/health"}   # JY-296: the 30 s polls
+
+
+def _live_now(data: dict, view, request=None) -> dict:
+    """JY-296 (Option A): the left column's words - sessions, Downloading (qbittorrent `active`), Up next, Latest, and
+    for the empty state the newest history row ("last watched"). Snapshot reads only, never a live upstream call."""
+    now = datetime.now(timezone.utc)
+    recent = (data.get("history") or {}).get("recent") or []
+    return {
+        "latest": [{**i, "added_text": media_home._ago_text(i.get("added_at"), now)}
+                   for i in data.get("latest", [])],
+        "library_text": media_home._library_text(data.get("library") or {}),
+        "ratings": media_home._ratings(view, data.get("now_playing"), data.get("up_next"), data.get("latest")),
+        "last_watched": recent[0] if recent else None,
+        "downloading": [r for r in _qb_data(request).get("active") or [] if isinstance(r, dict)],
+    }
+
+
+def _live_health(request) -> dict:
+    """JY-297: the Health rail - services words, CPU, RAM, each disk (the cached forecast on its volume), every app
+    Up/Down in words, the backup line. Reads snapshots and the in-memory forecast only."""
+    snaps = shell.get_snapshots(request=request)
+    system = server._data(snaps, server.SYSTEM_SNAPSHOT_ID)
+    fc = server_history.forecast_peek()
+    gated = shell.registry.gated_hrefs if shell.registry else {}
+    disks = [{**v, "name": server.volume_name(v.get("path")),
+              "forecast": fc["words"] if fc and fc.get("key") == f"forecast:{v.get('path')}" else None}
+             for v in server._volumes(snaps)]
+    return {"health": {
+        "summary": server.services_words(snaps),
+        "cpu": server._num(system.get("cpu_pct")), "ram": server._num(system.get("ram_pct_used")),
+        "disks": disks,
+        "apps": [server.service_card(a, [], gated) for a in server._apps(snaps)],
+        "backup": media_backup.current_status(),
+    }}
+
+
 @router.get("/media/playing", response_class=HTMLResponse)
 def media_playing_page(request: Request):
     def build(data, view):
-        now = datetime.now(timezone.utc)
-        return {
-            "latest": [{**i, "added_text": media_home._ago_text(i.get("added_at"), now)}
-                       for i in data.get("latest", [])],
-            "library_text": media_home._library_text(data.get("library") or {}),
-            "ratings": media_home._ratings(view, data.get("now_playing"), data.get("up_next"), data.get("latest")),
-        }
+        return {**_live_now(data, view, request), **_live_health(request), "parts": LIVE_PARTS}
     return _detail_page(request, "media_playing.html", JELLYFIN_SNAPSHOT_ID, build)
+
+
+@router.get(LIVE_PARTS["now"], response_class=HTMLResponse)
+def media_playing_now_part(request: Request):
+    """JY-296: the left column alone, polled every 30 s while the tab is visible."""
+    view, _ = shell.resolve_owner_view(request)
+    src = shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, shell.get_snapshots(request=request))
+    if src is None:
+        return shell.not_found_page(request)
+    src = {**src, "data": media_home.view_jelly(src["data"], view)}
+    return shell.render_page(request, "_live_now.html", {"src": src, "owner": media_db.owner_of(view),
+                                                         "parts": LIVE_PARTS, **_live_now(src["data"], view, request)})
+
+
+@router.get(LIVE_PARTS["health"], response_class=HTMLResponse)
+def media_playing_health_part(request: Request):
+    """JY-297: the Health rail alone, polled every 30 s while the tab is visible."""
+    return shell.render_page(request, "_live_health.html", {"parts": LIVE_PARTS, **_live_health(request)})
 
 
 def _qb_data(request=None) -> dict:

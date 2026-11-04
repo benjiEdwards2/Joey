@@ -9,66 +9,17 @@
 {% call pagehead(media_nav(request).title or (ma.name if ma else "Media"), backdrop=(np[0].backdrop if np and np[0].backdrop else none)) %}{{ media_tabs() }}{% endcall %}
 {% endblock %}
 {% block content %}
-{% from "_poster.html" import poster %}
-{% import "_resume_acts.html" as resume %}
-{% from "_rows.html" import meta %}
-{% from "_icons.html" import icon %}
-{% import "_rate.html" as rate %}
-{# Detail behind the now-playing tile (2026-10-05; restyle Phase 3): live sessions as Watching rows (orange tint +
-   bar, guide 6), up next, latest additions. #}
-{% set watching %}<span class="badge badge-watching">{{ icon("eye") }}Watching</span>{% endset %}
+{# JY-296/297 (2026-11-04, Option A): the now-playing wall on the left, the Health rail on the right (on top at
+   <= 1100 px). Each half is its own fragment (_live_now.html / _live_health.html), re-fetched every 30 s while the tab
+   is visible; the grid uses minmax(0, 1fr) and min-width: 0 so nothing pushes the page sideways. #}
 {% if src.st.state == "off" %}
 <p class="empty">Not connected</p>
 {% if src.st.note %}<p class="metaline">{{ src.st.note }}</p>{% endif %}
 {% else %}
-<section class="sec">
-  <h2 class="seclabel">Playing now</h2>
-  {% if src.data.get("now_playing") %}<div class="listbox">
-  {% for p in src.data.get("now_playing", []) %}
-  {% set phref = item_href(p.jf_id) or src.href %}
-  <{{ "a" if phref else "div" }} class="row is-watching"{% if phref %} href="{{ phref }}"{% if not item_href(p.jf_id) %} target="_blank" rel="noopener"{% endif %}{% endif %}>
-    {{ poster(p.poster, p.title, 120, "row-poster") }}
-    <div class="row-body"><div class="row-title">{{ p.title }}</div>{{ meta([watching, p.user, p.play_method, p.progress_pct ~ "%"]) }}
-      <span class="bar" aria-hidden="true"><span style="width: {{ p.progress_pct }}%"></span></span></div>
-    {{ rate.score_row(p, ratings) }}
-  </{{ "a" if phref else "div" }}>
-  {% endfor %}
-  </div>{% else %}<p class="empty">Nothing playing.</p>{% endif %}
-</section>
-
-<section class="sec">
-  <h2 class="seclabel">Up next</h2>
-  {% if src.data.get("up_next") %}<div class="listbox">
-  {% for n in src.data.get("up_next", []) %}
-  {% set nh = item_href(n.jf_id) %}
-  {% set acts = resume_acts(n, owner) %}
-  {# Move on (2026-10-08): the row stays one whole link; Mark watched / Reset progress sit beside it, outside it. #}
-  {% if acts %}<div class="rowwrap resumerow">{% endif %}
-  <{{ "a" if nh else "div" }} class="row"{% if nh %} href="{{ nh }}"{% endif %}>
-    {{ poster(n.poster, n.title, 120, "row-poster") }}
-    <div class="row-body"><div class="row-title">{{ n.title }}</div>{{ meta([n.remaining_text]) }}</div>
-    {{ rate.score_row(n, ratings) }}
-  </{{ "a" if nh else "div" }}>
-  {% if acts %}<span class="rowacts">{{ resume.forms(acts, request.url.path) }}</span></div>{% endif %}
-  {% endfor %}
-  </div>{% else %}<p class="empty">Nothing up next.</p>{% endif %}
-</section>
-
-<section class="sec">
-  <h2 class="seclabel">Latest additions</h2>
-  {% if latest %}<div class="listbox">
-  {% for i in latest %}
-  {% set ih = item_href(i.jf_id) %}
-  <{{ "a" if ih else "div" }} class="row"{% if ih %} href="{{ ih }}"{% endif %}>
-    {{ poster(i.poster, i.title, 120, "row-poster") }}
-    <div class="row-body"><div class="row-title">{{ i.title }}</div>{{ meta([i.type, i.added_text]) }}</div>
-    {{ rate.score_row(i, ratings) }}
-  </{{ "a" if ih else "div" }}>
-  {% endfor %}
-  </div>{% else %}<p class="empty">Nothing added recently.</p>{% endif %}
-</section>
-
-{% if library_text %}<p class="metaline">Library: {{ library_text }}</p>{% endif %}
+<div class="live">
+{% include "_live_now.html" %}
+{% include "_live_health.html" %}
+</div>
 {% endif %}
 {% include "_detail_foot.html" %}
 {% endblock %}

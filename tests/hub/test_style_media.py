@@ -49,7 +49,7 @@ def test_rows_render_the_row_recipe_with_a_graded_or_missing_score(dl_env):
     with dl_env(jellyfin=LINKED) as client:
         for path in ("/media/playing",):   # JY-298 (2026-11-03): /media/history is the diary now (its own row tests)
             body = main_of(client.get(path).text)
-            assert '<div class="listbox">' in body and re.search(r'<(a|div) class="row[ "]', body), path
+            assert '<div class="live-tiles">' in body, path   # JY-296: Live's Up next / Latest are tile rows
             assert '<div class="row-title">' in body and '<div class="row-meta">' in body, path
             scores = re.findall(r'class="row-score (score-\d|score-none)', body)
             assert scores, path

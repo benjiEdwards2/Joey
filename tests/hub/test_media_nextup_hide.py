@@ -32,7 +32,8 @@ def test_next_up_rows_offer_hide_and_resume_rows_do_not(env):
     with client:
         body = main_of(client.get("/media/playing").text)
         home = main_of(client.get("/a/alpha").text)
-    rows = body.split('<div class="rowwrap resumerow">')
+    # JY-296 (Option A): Up next / Latest are poster tiles on Live (.live-tile), acts beside the link, not in it
+    rows = body.split('<div class="live-tile">')
     first, second = rows[1], rows[2]
     assert "/media/resume/mov1/hide" not in first                      # a resume row: Mark watched + Reset only
     acts = second.split("</a>", 1)[1]

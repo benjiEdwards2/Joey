@@ -223,9 +223,10 @@ def test_playing_up_next_rows_carry_both_actions_outside_the_row_link(env):
     client, _, _ = env()
     with client:
         body = main_of(client.get("/media/playing").text)
-    rows = body.split('<div class="rowwrap resumerow">')
+    # JY-296 (Option A): Up next / Latest are poster tiles on Live (.live-tile), acts beside the link, not in it
+    rows = body.split('<div class="live-tile">')
     first, second = rows[1], rows[2]
-    link = first.split('<a class="row" href="/media/item/mov1">', 1)[1].split("</a>", 1)[0]
+    link = first.split('<a class="live-tile-link" href="/media/item/mov1">', 1)[1].split("</a>", 1)[0]
     assert "<form" not in link and "Dust and Daylight" in link   # the row is still one whole link
     acts = first.split("</a>", 1)[1]
     assert 'action="/media/resume/mov1/watched"' in acts and 'action="/media/resume/mov1/reset"' in acts

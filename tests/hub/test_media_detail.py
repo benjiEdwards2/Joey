@@ -45,46 +45,7 @@ def app_factory(tmp_path, monkeypatch):
     return app_with(tmp_path, monkeypatch, area), tmp_path
 
 
-def test_apps_page_lists_every_app_with_words_and_links(app_factory):
-    build, tmp_path = app_factory
-    snaps = tmp_path / "snaps"
-    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "1 of 2 up", "apps": APPS})
-    with build(snaps) as client:
-        resp = client.get("/media/apps")
-    assert resp.status_code == 200
-    assert "<title>Media apps" in resp.text
-    body = main_of(resp.text)
-    assert 'aria-current="page">Health' in body                 # restyle Phase 3: the tab names the page
-    assert body.count('<span class="st-up">') + body.count('<span class="st-down">') == 2   # Server › Services' words (M-25)
-    assert '<span class="st-up">Up</span>' in body and '<span class="st-down">Down</span>' in body
-    assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body
-    assert "timeout" in body and "Updated 1m ago" in body
-    assert "--accent" not in body                                   # restyle Phase 3: Media drops the area accent
-
-
-def test_health_rows_carry_the_service_logo_and_the_gated_hostname(app_factory):
-    """WP-H1 (2026-10-19): each Health row has the Server grid's logo (initial tile when the id has none); the gated
-    hostname from areas.yaml wins over the snapshot's LAN address; the row stays one new-tab link."""
-    from hub import shell
-    build, tmp_path = app_factory
-    snaps = tmp_path / "snaps"
-    apps = APPS + [{"id": "mystery", "name": "Mystery", "href": "http://nas.example.invalid:1",
-                    "up": True, "status_text": "Up", "note": None}]
-    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "x", "apps": apps})
-    with build(snaps) as client:
-        shell.registry.gated_hrefs = {"jellyfin": "https://jelly.example.invalid"}
-        body = main_of(client.get("/media/apps").text)
-    import re
-    assert re.search(r'<img class="svc-logo row-logo" src="/static/svc/jellyfin\.svg\?v=[0-9a-f]+" alt="" width="32" height="32">', body)
-    assert "/static/svc/prowlarr.svg" in body
-    assert body.count('class="svc-logo svc-fallback row-logo" aria-hidden="true"><span class="svc-initial">M</span>') == 1
-    assert 'href="https://jelly.example.invalid" target="_blank" rel="noopener"' in body    # gated beats the LAN one
-    assert "http://nas.example.invalid:8096" not in body
-    assert 'href="http://nas.example.invalid:9696" target="_blank" rel="noopener"' in body  # no gated entry: snapshot's
-    assert body.count('<a class="row') == 3                                                  # three whole-row links
-
-
-def test_health_rows_say_lan_for_lan_only_apps(app_factory):
+def test_health_rail_says_lan_for_lan_only_apps(app_factory):
     """JY-140: like the Server card, a Health row whose link is a LAN address says "LAN" after its status word; a
     gated hostname drops it; a Down row keeps its note after it."""
     from hub import shell
@@ -99,27 +60,13 @@ def test_health_rows_say_lan_for_lan_only_apps(app_factory):
     write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "x", "apps": apps})
     with build(snaps) as client:
         shell.registry.gated_hrefs = {"radarr": "https://radarr.example.invalid"}
-        body = main_of(client.get("/media/apps").text)
+        body = client.get("/media/playing/part/health").text
     rows = {n: body.split(f'<div class="row-title">{n}</div>', 1)[1].split("</a>", 1)[0]
             for n in ("Jellyfin", "Prowlarr", "Radarr")}
     sep = '<span class="sep"> · </span>'
     assert f'<span class="st-up">Up</span>{sep}LAN</div>' in rows["Jellyfin"]
     assert f'<span class="st-down">Down</span>{sep}LAN{sep}timeout</div>' in rows["Prowlarr"]
     assert "LAN" not in rows["Radarr"]                                              # gated hostname: no LAN word
-
-
-def test_health_backup_row_is_unchanged_and_has_no_logo(app_factory, monkeypatch):
-    from hub import media_backup
-    monkeypatch.setattr(media_backup, "current_status",
-                        lambda: {"state": "ok", "age_text": "2h ago", "size_text": "1 MB", "note": None})
-    build, tmp_path = app_factory
-    snaps = tmp_path / "snaps"
-    write_envelope(snaps, "media_status", age_minutes=1, data={"summary": "x", "apps": APPS})
-    with build(snaps) as client:
-        body = main_of(client.get("/media/apps").text)
-    row = body.split('backuprow">', 1)[1]
-    assert "Joey media backup" in row and "Backed up" in row and "row-logo" not in row
-    assert '<div class="row backuprow">' in body            # still a plain div row, not a link
 
 
 def test_playing_page_sections_render_in_main(app_factory):
@@ -146,7 +93,7 @@ def test_playing_page_sections_render_in_main(app_factory):
 def test_pages_say_not_connected_without_snapshots(app_factory):
     build, tmp_path = app_factory
     with build(tmp_path / "empty") as client:
-        for path in ("/media/apps", "/media/playing"):
+        for path in ("/media/playing",):
             resp = client.get(path)
             assert resp.status_code == 200
             body = main_of(resp.text)
@@ -159,7 +106,7 @@ def test_pages_404_when_no_tile_reads_the_snapshot(tmp_path, monkeypatch):
     import hub.main
     importlib.reload(hub.main)
     with TestClient(hub.main.app) as client:
-        for path in ("/media/apps", "/media/playing", "/media/library"):
+        for path in ("/media/playing", "/media/library"):
             resp = client.get(path)
             assert resp.status_code == 404 and "No page here" in resp.text
 

@@ -100,11 +100,6 @@ def test_watched_rows_are_whole_row_links_and_rateable_rows_use_the_overlay(env)
     assert not re.search(r'<a class="rowlink"[^>]*>(?:(?!</a>).)*<form', to_rate, re.S)  # form never inside
 
 
-def test_apps_rows_carry_the_row_link_look():
-    src = (TEMPLATES / "media_apps.html").read_text(encoding="utf-8")
-    assert """<a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">""" in src
-
-
 def test_no_inline_anchor_inside_a_row_title():
     """The title is plain text in every Media row: no <a> nested inside the .row-title."""
     files = sorted(TEMPLATES.glob("media_*.html")) + [TEMPLATES / "_library_row.html", TEMPLATES / "_diary_row.html"]

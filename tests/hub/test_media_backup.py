@@ -247,35 +247,33 @@ def test_media_backup_off_starts_no_task(hub_env, monkeypatch):
 # --- surfaces -----------------------------------------------------------------
 
 
-def apps_main(main):
+def health_rail(main):
     with TestClient(main.app) as client:
-        return main_of(client.get("/media/apps").text)
+        return client.get("/media/playing/part/health").text
 
 
-def test_apps_page_backup_row(hub_env):
+def rail_backup(main):
+    html = health_rail(main)
+    return html.split('live-backup">', 1)[1].split("</p>", 1)[0] if "live-backup" in html else ""
+
+
+def test_health_rail_backup_line(hub_env):
     main, (db, dest) = hub_env
-    assert "Joey media backup" not in apps_main(main)                 # nodb: nothing
+    assert rail_backup(main) == ""                                    # nodb: nothing
     make_db(db)
-    body = apps_main(main)
-    assert "Joey media backup" in body and '<span class="st-warn">None yet</span>' in body
+    assert rail_backup(main) == "Backup: None yet"
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(hours=3, minutes=5), size=12 * 1024)
-    body = apps_main(main)
-    row = body.split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
-    assert '<span class="st-good">Backed up</span>' in row and '3h ago<span class="sep"> · </span>12 KB' in row
-    assert "is-down" not in body.split("Joey media backup")[0][-400:] and "<a " not in row
-    assert body.index("Jellyfin") < body.index("Joey media backup")   # the final row
+    assert rail_backup(main) == "Backup: Backed up · 3h ago · 12 KB"
 
 
-def test_apps_page_backup_row_stale_and_off(hub_env, monkeypatch, tmp_path):
+def test_health_rail_backup_line_stale_and_off(hub_env, monkeypatch, tmp_path):
     main, (db, dest) = hub_env
     make_db(db)
     touch_dump(dest, datetime.now(timezone.utc) - timedelta(days=2, hours=2))
-    body = apps_main(main)
-    row = body.split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
-    assert '<span class="st-warn">Stale</span>' in row and "2d ago" in row and 'class="row is-down backuprow"' in body
+    assert rail_backup(main).startswith("Backup: Stale · 2d ago")
     monkeypatch.setenv("MEDIA_BACKUP_DIR", str(tmp_path / "missing"))
-    row = apps_main(main).split('backuprow">', 1)[1].split("</div>\n</div>", 1)[0]
-    assert '<span>Off</span>' in row and "backup folder missing" in row
+    line = rail_backup(main)
+    assert line.startswith("Backup: Off") and "backup folder missing" in line
 
 
 def test_warning_only_when_stale_or_none(hub_env, monkeypatch, tmp_path):

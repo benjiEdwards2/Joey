@@ -24,11 +24,11 @@ SECTIONS: list[dict] = [
     # recent-watch page with the rating inbox; the play recorder (/media/server/history) has no tab of its own: it lights
     # History (TAB_ALIASES, JY-121).
     {"id": "server", "label": "Activity", "short": "Activity", "icon": "server", "href": "/media/playing",
-     "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests", "/media/apps",
+     "prefixes": ["/media/playing", "/media/server", "/media/library", "/media/downloads", "/media/requests",
                   "/media/diary", "/media/history"],
      # JY-298 (B., 2026-11-02): no To rate tab; History holds the inbox (rate + Clear all) and carries its count.
      "tabs": [("Live", "/media/playing"), ("History", "/media/diary"), ("Library", "/media/library"),
-              ("Downloads", "/media/downloads"), ("Requests", "/media/requests"), ("Health", "/media/apps")]},
+              ("Downloads", "/media/downloads"), ("Requests", "/media/requests")]},
     {"id": "discover", "label": "Discover", "short": "Discover", "icon": "compass", "href": "/media/discover",
      "prefixes": ["/media/discover", "/media/following", "/media/title", "/media/person"],
      # Follow (2026-10-07): Discover / Following; a title or person page shows no sub-tab row (none is its own)

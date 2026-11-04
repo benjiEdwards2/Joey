@@ -46,7 +46,6 @@ ROUTES = {
     "/media/playing": ("server", "Live"),
     "/media/library": ("server", "Library"),
     "/media/requests": ("server", "Requests"),
-    "/media/apps": ("server", "Health"),
     "/media/discover": ("discover", "Discover"),   # Follow (2026-10-07): Discover / Following sub-tabs
     "/media/following": ("discover", "Following"),
     "/media/title/movie/1": ("discover", None),
@@ -153,7 +152,7 @@ def test_active_section_unit():
     assert s("/media/tv/tonight") == "tv"
     assert s("/media/history") == "server" and s("/media/diary") == "server"   # nav-tidy (2026-10-13)
     assert s("/media/server/history") == "server"
-    assert s("/media/apps") == "server" and s("/media/requests") == "server"
+    assert s("/media/requests") == "server"
     assert s("/media/title/tv/9") == "discover" and s("/media/discover/search") == "discover"
     assert s("/a/media", home_href="/a/media") == "home"
     assert s("/weather") is None and s("/media/moviesx") is None

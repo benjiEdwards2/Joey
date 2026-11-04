@@ -90,14 +90,10 @@ def app_link(request: Request, app_id: str) -> dict | None:
     return server.service_card(app, [], shell.registry.gated_hrefs if shell.registry else {})
 
 
-@router.get("/media/apps", response_class=HTMLResponse)
+@router.get("/media/apps")
 def media_apps_page(request: Request):
-    # 2026-10-19 (WP-H1): each row takes the Server card's logo / initial and gated hostname (one `service_card`).
-    gated = shell.registry.gated_hrefs if shell.registry else {}
-    return _detail_page(request, "media_apps.html", MEDIA_STATUS_SNAPSHOT_ID, always_build=True,
-                        build=lambda data, view: {"backup": media_backup.current_status(),
-                                                  "health_apps": [server.service_card(a, [], gated)
-                                                                  for a in data.get("apps", [])]})
+    # JY-319 (B., 2026-11-04: "REmove it."): the Health tab is gone; Health lives in the Live rail. Bookmarks land there.
+    return RedirectResponse("/media/playing", status_code=302)
 
 
 LIVE_PARTS = {"now": "/media/playing/part/now", "health": "/media/playing/part/health"}   # JY-296: the 30 s polls

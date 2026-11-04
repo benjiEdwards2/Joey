@@ -77,9 +77,12 @@ def tagged_backdrop(pid: int) -> str | None:
     return md._ref(file)
 
 
-def credit_backdrop(credits) -> str | None:
-    """The backdrop of the person's most popular credit (most votes) in the Seerr combined_credits body."""
-    best, votes = None, -1
+def credit_backdrop(credits, on_server=None) -> str | None:
+    """The backdrop of the person's most popular credit (most votes) in the Seerr combined_credits body.
+    JY-321: `on_server` is a set of (kind, tmdb_id) the person page marks "On server"; a credit in it beats any
+    other, then the most votes decides within each group. Without it, the order is votes alone."""
+    on_server = on_server or set()
+    best, score = None, None
     for field in ("cast", "crew"):
         for c in ((credits or {}).get(field) if isinstance(credits, dict) else None) or []:
             if not isinstance(c, dict) or not c.get("backdropPath"):
@@ -88,6 +91,11 @@ def credit_backdrop(credits) -> str | None:
                 v = int(c.get("voteCount") or 0)
             except (TypeError, ValueError):
                 v = 0
-            if v > votes:
-                best, votes = c.get("backdropPath"), v
+            try:
+                here = (c.get("mediaType"), int(c.get("id"))) in on_server
+            except (TypeError, ValueError):
+                here = False
+            s = (here, v)
+            if score is None or s > score:
+                best, score = c.get("backdropPath"), s
     return md._ref(best)

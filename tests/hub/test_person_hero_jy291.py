@@ -103,3 +103,41 @@ def test_phone_bio_wrap_rule_present():
 def test_tv_person_page_keeps_round_crop(actor):
     b = page(actor, "/media/person/55", tv=True)
     assert "person-hero" not in b and "personportrait" not in b and 'class="personpic' in b
+
+
+# JY-321: the credit-backdrop fallback prefers a title that is on the server
+def _two(big_status, small_status):
+    mk = lambda i, bd, votes, st: {"id": i, "mediaType": "movie", "title": f"T{i}", "releaseDate": "2015-01-01",
+                                   "backdropPath": bd, "voteCount": votes, **({"mediaInfo": {"status": st}} if st else {})}
+    return {"cast": [mk(710, "/big.jpg", 9000, big_status), mk(711, "/small.jpg", 20, small_status)], "crew": []}
+
+
+def test_on_server_credit_beats_more_popular_off_server_one(env, monkeypatch):
+    monkeypatch.delenv("TMDB_API_KEY", raising=False)
+    client, both = env()
+    seed(both, credits=_two(None, 5))
+    with client:
+        b = client.get("/media/person/55").text
+    assert "/img/tmdb:/small.jpg?h=1280" in b and "big.jpg" not in b
+
+
+def test_off_server_backdrop_used_when_none_on_server(env, monkeypatch):
+    monkeypatch.delenv("TMDB_API_KEY", raising=False)
+    client, both = env()
+    seed(both, credits=_two(None, None))
+    with client:
+        b = client.get("/media/person/55").text
+    assert "/img/tmdb:/big.jpg?h=1280" in b
+
+
+def test_on_server_credit_without_backdrop_gives_way(env, monkeypatch):
+    monkeypatch.delenv("TMDB_API_KEY", raising=False)
+    client, both = env()
+    c = _two(None, 5)
+    c["cast"][1]["backdropPath"] = None
+    c["cast"][0]["mediaInfo"] = {"status": 5}
+    c["cast"][0]["backdropPath"] = None
+    seed(both, credits=c)
+    with client:
+        b = client.get("/media/person/55").text
+    assert "person-hero" in b and "person-hero-bd" not in b

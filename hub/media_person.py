@@ -166,11 +166,12 @@ def build_person(tmdb_id: int, snaps=None) -> dict:
         return {"down": True, "note": DOWN_TEXT, "name": "Person", "tmdb": tmdb_id}
     person = person if isinstance(person, dict) else {}
     rows = _credits(credits, lib)
+    here = {(r["kind"], r["tmdb_id"]) for r in rows if r["on_server"]}
     shelf = [r for r in rows if r["jf_id"]]
     rest = [r for r in rows if not r["jf_id"]]
     return {"down": False, "tmdb": tmdb_id, "name": str(person.get("name") or "Unknown")[:120],
             "ref": md._ref(person.get("profilePath")),
-            "backdrop": tagged or media_person_photo.credit_backdrop(credits),   # JY-291: tagged image, else best credit
+            "backdrop": tagged or media_person_photo.credit_backdrop(credits, here),   # JY-291 tagged image, else JY-321 best on-server credit
             "dept": str(person.get("knownForDepartment") or "")[:40],
             "life": _life(person), "bio": _bio(person.get("biography")),
             "shelf": shelf, "films": [r for r in rest if r["tier"] == "films"],

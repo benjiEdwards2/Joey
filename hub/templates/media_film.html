@@ -57,7 +57,7 @@
       </div>
       {% else %}
       {# JY-315 (B.'s pick A, 2026-11-04): off the TV an episode page leads with the episode's 16:9 still (beside the text
-         from 1024 px, above it below that), then crumbs, "Show · S2 · E3 of 8", the episode title, its score line, aired
+         on desktop, above it at iPad width and below), then crumbs, "Show · S2 · E3 of 8", the episode title, its score line, aired
          date · runtime, ONE button row (Play, Next episode, Rate, "…") and the synopsis under the buttons. #}
       {% if film.episode %}<img class="tl-epstill" src="/img/{{ film.episode.still or 'none' }}?h=600&amp;t={{ img_letters(film.episode.title)|urlencode }}" alt="" decoding="async" width="1067" height="600">{% else %}
       {{ poster(film.poster, film.title, 600, "hero-detail-poster tl-movie" if not tvm and film.kind == "movie" else "hero-detail-poster") }}{% endif %}
@@ -208,8 +208,10 @@
 (function () {
   var sec = document.currentScript && document.currentScript.previousElementSibling; if (!sec) return;
   var c = sec.querySelector(".epcar"); if (!c) return;
-  var on = c.querySelector(".is-this");
-  if (on) c.scrollLeft += on.getBoundingClientRect().left - c.getBoundingClientRect().left - (c.clientWidth - on.offsetWidth) / 2;
+  /* centre "This one" once joey.js has wrapped the row for its cue (moving the row resets its scroll) */
+  var centre = function () { var on = c.querySelector(".is-this"); if (on) c.scrollLeft += on.getBoundingClientRect().left - c.getBoundingClientRect().left - (c.clientWidth - on.offsetWidth) / 2; };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { setTimeout(centre, 0); });
+  else setTimeout(centre, 0);
   c.addEventListener("keydown", function (ev) {
     if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
     var a = ev.target.closest && ev.target.closest(".epcard"); if (!a) return;

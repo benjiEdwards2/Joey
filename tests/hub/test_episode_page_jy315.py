@@ -37,9 +37,9 @@ def test_hero_leads_with_the_still_and_one_button_row():
     assert 'class="facts-line"' not in h          # no "TV · genres" line on an episode
 
 
-def test_hero_layout_css_still_beside_from_1024_above_below():
+def test_hero_layout_css_still_beside_on_desktop_above_from_1024_down():
     assert "html:not(.tv) .tl-epstill { display: block; flex: none; width: min(46%, 640px);" in JY315
-    assert "@media (max-width: 1023px) {\n  html:not(.tv) .tl-ephero { flex-direction: column; align-items: stretch; }" in JY315
+    assert "@media (max-width: 1024px) {\n  html:not(.tv) .tl-ephero { flex-direction: column; align-items: stretch; }" in JY315
     assert "html:not(.tv) .tl-ephero .tl-epstill { width: 100%; max-width: 720px; }" in JY315
     # buttons stay on one row from 640 (the JY-269 rule), wrap on a phone
     assert "html:not(.tv) .tl-hero .hero-detail-btns { position: relative; flex-wrap: nowrap;" in CSS
@@ -66,7 +66,7 @@ def test_carousel_marks_this_episode_and_links_every_tile():
 def test_carousel_script_scrolls_to_this_one_and_walks_with_arrow_keys():
     c = page(episode())
     js = c.split('<section class="sec epcar-sec"', 1)[1].split("</script>", 1)[0]
-    assert 'c.querySelector(".is-this")' in js and "c.scrollLeft +=" in js
+    assert 'c.querySelector(".is-this")' in js and "c.scrollLeft +=" in js and "setTimeout(centre, 0)" in js
     assert '"ArrowLeft"' in js and '"ArrowRight"' in js and "to.focus()" in js
 
 

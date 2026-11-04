@@ -885,7 +885,7 @@ def episode_nav(page: dict, show: dict | None, seasons: list[dict]) -> dict:
     nav = {"show": {"title": (show or {}).get("title") or page.get("show_title") or "Show",
                     "href": _item_href(page.get("show_id"))},
            "seasons": [{"n": s["n"], "href": _item_href(s.get("id")), "on": s is season} for s in seasons],
-           "season": None, "prev": None, "next": None, "position": None}
+           "season": None, "prev": None, "next": None, "next_ep": None, "position": None}
     if page["kind"] != "episode" or season is None:
         return nav
     eps = season.get("episodes") or []
@@ -901,6 +901,14 @@ def episode_nav(page: dict, show: dict | None, seasons: list[dict]) -> dict:
         nav["next"] = card(eps[i + 1]) if i + 1 < len(eps) else None
     number = eps[i]["number"] if i is not None else page.get("episode_no")
     nav["position"] = f"E{number} of {len(eps)}" if number is not None else None
+    # JY-315: "Next episode" in the hero - the following episode across the season boundary (Specials left out), only
+    # when it has aired; None on the last aired episode.
+    if i is not None:
+        flat = [(s["n"], e) for s in seasons if s.get("n") or s is season for e in s.get("episodes") or []]
+        k = next((k for k, (_, e) in enumerate(flat) if e is eps[i]), None)
+        if k is not None and k + 1 < len(flat) and flat[k + 1][1].get("aired"):
+            n, e = flat[k + 1]
+            nav["next_ep"] = {**card(e), "season": n, "code": f"S{n} E{e['number']}"}
     return nav
 
 

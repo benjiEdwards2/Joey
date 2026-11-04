@@ -97,3 +97,4 @@
 - B. 2026-11-04: "Happy to deploy once 109, 275, and 300 are ready. Then begin working on other hitlist items please once you are completing it." -> deploy gate = JY-109 + JY-275 + JY-300 merged; next items started: JY-304/305 options, JY-321 build.
 - 2026-11-04 B.: JY-109 "A" (fold-out under the row); JY-304 "C" on "Every carousel."; JY-305 "B" cinema. Process feedback: review pages need a copy-answers-to-chat button and real zoom (memory feedback_artifact_copy_and_zoom).
 - JY-321 #318 merged 2026-11-04 on B.'s standing merge authority (reviewer PASS). Live pending.
+- JY-275 + JY-109 #317 merged 2026-11-04 on B.'s standing merge authority (reviewer PASS + two hardening fixes). Live pending. JY-300 A build starts on top.

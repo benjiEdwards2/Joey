@@ -1,6 +1,6 @@
 # JY-274 Server page: "Power down NAS" button
 
-Status: spec
+Status: options (page building 2026-11-05; JY-324 folded in: B. 2026-11-05 "NAS services too", Home Assistant "Goodnight" voice later)
 Size: M
 Live risk: HIGH (the button powers off the host that runs the hub itself)
 Area: `hub/server.py` (new `hub/server_power.py` beside `server_stack.py`), `hub/templates/server.html`, a new `server_power.html` confirm page, a host-side helper (Option A script or Option B sidecar under `stackctl/`-style folder), `tests/hub/`
@@ -65,5 +65,10 @@ Restart / reboot, power-on from the page (the hub is off), scheduled shutdowns, 
 4. After 21:30 or before 07:00: allow, warn, or block?
 5. Add a "Cancel" during the 60 s delay?
 6. Should the shutdown also stop the media stack cleanly first (slower, safer for downloads)?
+
+## 2026-11-05 additions (from JY-324)
+- B.: "shut down the system with a button press at night" / "NAS services too" / "set up a lot of them later on with home assistant where I can just tell my phone Goodnight and it will turn off the Nas system for now. That is an idea to look at post installation for the NAS system."
+- So the power-down must be ONE action a later Home Assistant automation can call (a token-gated POST on the hub or the helper itself), not only a page button. Option B (sidecar) already gives that endpoint.
+- Note: the host is an Asustor NAS running ADM (docs/PLAN.md), not DSM; read "DSM" above as ADM (Settings, Hardware, Power for the schedule). Wake-on-LAN support on ADM still unknown (Q3).
 
 ## Shipped notes

@@ -78,3 +78,8 @@
 - JY-301 r2 #309: "Accept"; JY-307 P2b TV 25%% smaller #312: "Accept", "I like the after." Both merged; deploy pending (NAS unreachable from the work network).
 - Overview: B. "Overview B." -> JY-277 option B building on main (JY-276 + JY-278 included).
 - Person page, Live page, TV shows plan: B. "Show me again." -> JY-291, JY-296 pages republished with saved decision boxes; JY-287 plan published as a page with a Plan 1/2/3 box.
+
+## 2026-11-04 midday - Option picks (chat + plan-page db)
+- JY-291 person page: B. "Person Page. Prefer A." -> build A.
+- JY-296/297 Live: B. "Live page A. But you need to fix it as it looks to be going off the page to the right." -> build A; the overflow is in the mock-up (1024/390: non-shrinking Up next tiles in a bare 1fr column); real build AC: no horizontal overflow at 1024 and 390.
+- JY-287 TV shows: Plan 2 (episode-first), "Fold in with plan 3 then as well after." Answers: Q8 mock-up first; new-episode tag by default; show-hero Continue lead: mock-up first; scores column + File drawer yes; chips only (no this/all seasons view); TV waits for JY-307. Split into JY-314 (2.1), JY-315 (2.2), JY-316 (2.3), JY-317 (2.5); JY-278 remains = the tag only.

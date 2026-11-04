@@ -47,7 +47,7 @@ Rotating several hero items, changing which item is the hero, the title page her
 - [ ] Phone and TV look as before.
 
 ## Picked (B., 2026-11-04, options page) and re-target
-Overview B (JY-276 / JY-277) landed first, so the Home hero is now the `.homecar` carousel in `hub/templates/_home_carousel.html`; this item now sets that slide's size (CSS `--slide-w`, slides stay 16:9). Option B "cinema": slide height min(55vh, 600px) from 768 px (iPad), min(75vh, 800px) from 1100 px (desktop), phone unchanged. From 1920 px the slide is never shorter than before (the old 58vh rule is kept as a floor via `max()`), 2400 px width cap kept; the 3000 px rule is unchanged.
+Overview B (JY-276 / JY-277) landed first, so the Home hero is now the `.homecar` carousel in `hub/templates/_home_carousel.html`; this item now sets that slide's size (CSS `--slide-w`, slides stay 16:9). Option B "cinema": slide height min(55vh, 600px) from 768 px (iPad), min(75vh, 800px) from 1100 px (desktop), phone unchanged. From 1920 px and from 3000 px (review fix 2026-11-04): up to min(75vh, 1100px) high, 16:9, the 80vw width cap winning, so 1440-high desktops get about 1080 px.
 
 ## Questions for B.
 1. Which page is "the overview page"? A. Joey Home with the backdrop hero (recommended), B. the hub front page (greeting, no image).

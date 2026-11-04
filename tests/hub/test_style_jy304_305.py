@@ -16,7 +16,7 @@ def block(src, start, end):
 
 
 CUE = block(CSS, "/* JY-304 option C", "@media (max-width: 767px) { html:not(.tv) .cue-arrow { display: none; } }")
-HERO = block(CSS, '/* JY-305 option B "cinema"', "2400px); } }")
+HERO = block(CSS, '/* JY-305 option B "cinema"', "1100px) * 16 / 9)); } }")
 CUE_JS = block(JS, "/* JY-304 option C", "})();")
 
 
@@ -26,13 +26,14 @@ def test_fade_rules_follow_the_scroll_classes_off_the_tv():
     assert CUE.count("mask-image") >= 6   # -webkit- and plain, three states
 
 
-def test_half_card_peek_on_every_width():
-    for n, bp in ((3.5, None), (5.5, 640), (7.5, 1200), (9.5, 1920), (11.5, 3000)):
-        rule = f"/ {n}); width:"
+def test_half_card_peek_on_every_width_never_smaller_than_the_old_cards():
+    # (N.5 cards, breakpoint, the old fixed width kept as a floor - JY-308 "never smaller")
+    for n, bp, floor in ((3.5, None, 104), (5.5, 640, 144), (6.5, 1200, 144), (9.5, 1920, 184), (11.5, 3000, 216)):
+        k = int(n - .5)
+        rule = f"html:not(.tv) .carousel:not(.prov-row) > * {{ flex-basis: max({floor}px, calc((100% - {k} * 12px) / {n})); width: max({floor}px, calc((100% - {k} * 12px) / {n})); }}"
         assert rule in CUE, n
         if bp:
-            assert f"@media (min-width: {bp}px) {{ html:not(.tv) .carousel:not(.prov-row) > * {{ flex-basis: calc((100% - {int(n - .5)} * 12px) / {n})" in CUE
-    # the old fixed 184 / 216 px row cards are gone (they would win over the peek on wide screens)
+            assert f"@media (min-width: {bp}px) {{ {rule}" in CUE, n
     assert ".carousel:not(.prov-row) > *, html:not(.tv) .moresec .carousel > * { flex-basis: 184px" not in CSS
 
 
@@ -56,8 +57,11 @@ def test_script_builds_labelled_buttons_on_every_carousel_but_not_on_tv():
 def test_home_carousel_cinema_height():
     assert "@media (min-width: 768px) { html:not(.tv) .homecar { --slide-w: min(86vw, calc(min(55vh, 600px) * 16 / 9)); } }" in HERO
     assert "@media (min-width: 1100px) { html:not(.tv) .homecar { --slide-w: min(86vw, calc(min(75vh, 800px) * 16 / 9), 1800px); } }" in HERO
-    # from 1920 never shorter than the old 58vh slide
-    assert "max(calc(min(75vh, 800px) * 16 / 9), calc(58vh * 16 / 9))" in HERO
+    # from 1920 (and 3000) up to min(75vh, 1100px) high, the 80vw width cap winning: taller than before on 1440-high screens
+    big = "{ html:not(.tv) .homecar { --slide-w: min(80vw, calc(min(75vh, 1100px) * 16 / 9)); } }"
+    assert f"@media (min-width: 1920px) {big}" in HERO
+    assert f"@media (min-width: 3000px) {big}" in CSS
+    assert "calc(58vh * 16 / 9)" not in CSS and "calc(60vh * 16 / 9)" not in CSS
     assert "aspect-ratio: 16 / 9" in CSS   # slides stay 16:9
 
 

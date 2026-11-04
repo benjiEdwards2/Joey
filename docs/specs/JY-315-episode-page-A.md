@@ -1,6 +1,6 @@
 # JY-315 TV shows 2.2: episode page rebuilt (Q8), option A + episode carousel
 
-Status: ready
+Status: shipped (merged #322 2026-11-04, deploy pending)
 Size: M
 Live risk: none (no new upstream call; TMDB episode details already fetched for the episode flow)
 Area: `hub/media_film.py` (episode_flow / episode_guests / episode_nav), `hub/templates/media_film.html` (episode branch), `hub/templates/_episode_flow.html`, hub CSS for the film page, `tests/hub/test_episode_*`

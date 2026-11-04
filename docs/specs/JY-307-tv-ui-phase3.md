@@ -1,6 +1,6 @@
 # JY-307 TV UI overhaul, phase 3: full-bleed Home hero + uniform 16:9 rows
 
-Status: ready
+Status: shipped (merged #321 2026-11-04, deploy pending)
 Size: M
 Live risk: none (TV CSS/templates; no NAS write)
 Area: `hub/templates/tv_*.html` (Home), `hub/static/tv.css`, `hub/static/tv.js`, `hub/tv_*.py` (hero play link, tile art), `tests/hub/tv_css.py` + `tests/tv`

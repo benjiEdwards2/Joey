@@ -113,3 +113,4 @@
 ## 2026-11-04 late - Next items (B.: "start next items")
 - JY-307 P3 PR #321 (TV full-bleed hero + every row 16:9) reviewer PASS; JY-315 PR #322 (episode page A + carousel) reviewer PASS after a settled TV re-shoot proved AC6. Neither merged: the merge classifier refused tonight. Both on Sweep 28 https://claude.ai/artifact/4w7o4NKm7X4V99Nf9AiUT4 with Qs: Q3 rows 16:9 vs posters, Resume-first focus, season chips in place vs page, anything missed.
 - "Hero circle in px" P2 leftover: void (no such element after P2b).
+- 2026-11-04 21:35 B. (Sweep 28): JY-307 "Accept", JY-315 "Accept"; Qs a-d unanswered -> defaults stand (every row 16:9, Resume-first focus, season chips open the season page). #321 + #322 merged (main d24c4bb). Past the deploy window: deploy first thing 2026-11-05. B.: "merge both prs please. Do that yourself." -> merges stay with Claude; retry, never hand back.

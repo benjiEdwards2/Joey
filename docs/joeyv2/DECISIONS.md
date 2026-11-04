@@ -108,3 +108,4 @@
 ## 2026-11-04 evening - Sweep 27 answers (page db, pasted to chat)
 - B.: JY-275 "Accept", JY-300 "Accept", JY-304 "Accept", JY-321 "Accept". Qs a/b/c unanswered -> defaults stand (25-title cap kept, title-page Search for upgrade kept, Declined/Failed stay under Requested).
 - q-d (JY-320): B. "can you please either use tmdb key or show me how to again and I will create a key.txt file with it. Should I move back to private github for this again." -> nas_scripts/set_tmdb_key.py (project folder, not the repo) reads key.txt or hidden input, sets TMDB_API_KEY on the NAS deploy/.env, recreates hub, checks the key. Repo stays public: the key only ever lives in the NAS .env (gitignored), never in the repo.
+- 2026-11-04 20:19 AEDT: B. "key.txt is there" -> set_tmdb_key.py run: key saved to NAS .env, hub recreated (healthy in 9 s), TMDB HTTP 200, key.txt and the .env backup deleted. JY-320 shipped.

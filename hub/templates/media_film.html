@@ -32,11 +32,10 @@
   {% if film.backdrop %}{% set bv = img_v(film.backdrop) %}<div class="hero-detail-bd" style="--bd: url('/img/{{ film.backdrop }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not film.backdrop.startswith('jfb:') and not film.backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ film.backdrop }}?h=600'){% endif %}" aria-hidden="true"></div>{% elif not tvm %}<div class="hero-detail-bd tl-wash" style="--bd: url('/img/{{ film.poster or 'none' }}?h=240')" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
     {{ media_tabs() }}
-    {% if film.episode and not tvm %}{{ ef.crumbs(epnav) }}{% endif %}
     {# U6 (JY-192): the TV rating is ONE Rate button (Gate 1 pick 1B) that opens the existing picker in #tv-rate (tv.js) #}
     {% set ratebtn %}{% if tvm and film.rating %}<button type="button" class="btn btn-glass tv-ratebtn" data-tv-rate aria-controls="tv-rate" aria-expanded="false">{{ icon("star") }}<span class="tv-ratelbl">{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</span></button>{% endif %}{% endset %}
     {% set ratestrip %}{% if tvm and film.rating %}<div class="tv-rate" id="tv-rate" hidden>{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div>{% endif %}{% endset %}
-    <div class="hero-detail-in{{ ' tl-hero' if not tvm }}">
+    <div class="hero-detail-in{{ ' tl-hero' if not tvm }}{{ ' tl-ephero' if film.episode and not tvm }}">
       {% if tvm and film.episode %}
       {# U6 (JY-192, X2; tv-v2 shell 01-title screen 3): the TV episode hero leads with the episode - its 16:9 still, "Show ·
          Season 1", the episode name, "E3 of 6 · 43m · aired 28 Sep 2026", the synopsis, then Play · Mark watched (B.'s
@@ -57,27 +56,33 @@
         {{ ratestrip }}
       </div>
       {% else %}
-      {{ poster(film.poster, film.title, 600, "hero-detail-poster tl-movie" if not tvm and film.kind == "movie" and not film.episode else "hero-detail-poster") }}
+      {# JY-315 (B.'s pick A, 2026-11-04): off the TV an episode page leads with the episode's 16:9 still (beside the text
+         from 1024 px, above it below that), then crumbs, "Show · S2 · E3 of 8", the episode title, its score line, aired
+         date · runtime, ONE button row (Play, Next episode, Rate, "…") and the synopsis under the buttons. #}
+      {% if film.episode %}<img class="tl-epstill" src="/img/{{ film.episode.still or 'none' }}?h=600&amp;t={{ img_letters(film.episode.title)|urlencode }}" alt="" decoding="async" width="1067" height="600">{% else %}
+      {{ poster(film.poster, film.title, 600, "hero-detail-poster tl-movie" if not tvm and film.kind == "movie" else "hero-detail-poster") }}{% endif %}
       <div class="hero-detail-text">
         {% if film.episode %}
+        {{ ef.crumbs(epnav) }}
         {{ ef.eyebrow(epnav) }}
         {# media-ux4 (2026-10-08): no "Episode of <Show>" line — the part-of banner under the hero leads to the show. #}
-        <p class="row-title">{% if film.episode.code %}{{ film.episode.code }} · {% endif %}{{ film.episode.title }}</p>
+        <h1 class="hero-detail-title">{{ film.episode.title }}</h1>
+        {{ ef.epscore(film.ratings) }}
         {{ meta([("Aired " ~ film.episode.air_date) if film.episode.air_date else none, film.episode.runtime], "metaline") }}
-        {% elif epnav %}
-        {{ ef.seasonline(epnav) }}
-        {% endif %}
-        {# JY-267: the title's stored TMDB logo in place of the words (a season / episode page: its show's, via the
-           backdrop, which names the show); the words, year included, are the fallback #}
+        {% else %}
+        {% if epnav %}{{ ef.seasonline(epnav) }}{% endif %}
+        {# JY-267: the title's stored TMDB logo in place of the words (a season page: its show's, via the backdrop, which
+           names the show); the words, year included, are the fallback #}
         {{ title_h1(film.title, film.backdrop, "hero-detail-title", film.title ~ ((" (" ~ film.year ~ ")") if film.year and not tvm else "")) }}
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
-        {% if film.episode %}{{ ef.epscore(film.ratings) }}{% elif epnav %}{{ ef.seasonswitch(epnav) }}{% endif %}
+        {% if epnav %}{{ ef.seasonswitch(epnav) }}{% endif %}
         {# U6 (2026-10-13): runtime and the certificate are said once, in the Numbers strip below, not here and in Details too. #}
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
+        {% endif %}
         {% set filmchips = film.kind == "movie" and not tvm %}{% if filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}{% endif %}
-        {%- set tlsyn = (film.episode.overview if film.episode else film.overview) if not tvm else none %}{% if tlsyn %}<div class="tl-syn"><p class="tl-syntext">{{ tlsyn }}</p><button type="button" class="tl-synmore" onclick="this.parentNode.classList.toggle('open');this.textContent=this.parentNode.classList.contains('open')?'less':'more'">more</button></div>{% endif %}
+        {%- set tlsyn = (film.episode.overview if film.episode else film.overview) if not tvm else none %}{% set synblock %}{% if tlsyn %}<div class="tl-syn"><p class="tl-syntext">{{ tlsyn }}</p><button type="button" class="tl-synmore" onclick="this.parentNode.classList.toggle('open');this.textContent=this.parentNode.classList.contains('open')?'less':'more'">more</button></div>{% endif %}{% endset %}{% if not film.episode %}{{ synblock }}{% endif %}
         {% if tvm %}
         {% if tvreq %}
         {{ meta([film.year, "TV" if film.kind == "tv" else "Film"] + (film.genres or []) + ["Not in the library yet"], "facts-line tv-facts") }}
@@ -119,6 +124,7 @@
         <div class="hero-detail-btns">
           {% if film.episode and film.episode.play.href %}<a class="btn btn-white" href="{{ film.episode.play.href }}"{% if film.episode.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}{% if film.episode.play.jf_id and guest(request) %} data-jf-id="{{ film.episode.play.jf_id }}"{% endif %}>{{ film.episode.play.label }}</a>{% endif %}
           {# media-ux4 (2026-10-08): an episode page plays the EPISODE only; the series-level "Next to watch" / "Play" stays on the series page. #}
+          {% if film.episode and epnav and epnav.next_ep %}<a class="btn btn-glass tl-nextep" href="{{ epnav.next_ep.href }}" title="{{ epnav.next_ep.code }} · {{ epnav.next_ep.name }}">Next episode</a>{% endif %}
           {% if film.play and film.play.href and not film.episode %}<a class="btn btn-white" href="{{ film.play.href }}"{% if film.play.href.startswith('/media/watch/') %} hx-boost="false"{% else %} target="_blank" rel="noopener"{% endif %}{% if film.play.jf_id and guest(request) %} data-jf-id="{{ film.play.jf_id }}"{% endif %}>{{ film.play.label }}</a>{% endif %}
           {% call wait("actions", film.pending) %}{% with slot = "row" %}{% include "_film_actions.html" %}{% endwith %}{% endcall %}
           {# Trailer (media-ux4, 2026-10-08): a plain link to the video (works without JS); with a YouTube key the click opens the
@@ -134,6 +140,7 @@
         {# TV mode: the 1-10 chips (or the rated number + Undo) sit under the buttons, as in the WP-M title page; since U6
            (JY-192, pick 1B) in a strip the Rate button opens (hidden until then). #}
         {{ ratestrip }}
+        {% if film.episode %}{{ synblock }}{% endif %}
         {# E4 (U7): "More" - an inline panel (guide 6: never a browser dialog), the same .confirm panel as the cards' Move on:
            Mark watched / Reset progress, Mark (un)watched, Request beside Play (its own placeholder, fp-actions-more),
            Search now / Search for upgrade (media-ux5: lazy-loaded; with nothing to show the fold hides itself, CSS :has). #}
@@ -177,7 +184,43 @@
    and arrow buttons on desktop, a swipe on touch). Each tile opens the episode page; its word, date, synopsis and
    rating sit in the caption, and Play / Resume (the JY-054 hand-off) under it. From film.tv + film.seasons, the
    viewer's own read. The TV draws its own row above (tv.css), so none of this reaches the TV bytes. #}
-{% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons %}
+{# JY-315 (B.'s pick A + "the carousel of the episodes ... to the left and to the right", 2026-11-04): off the TV an
+   episode page carries its season as ONE .carousel row right under the hero (the JY-304 cue: fades, peek, arrows) -
+   16:9 stills captioned "E3 · Name", this episode ringed gold with a "This one" chip, watched ones with the seen check,
+   scrolled so this episode sits mid-row; Left / Right on a focused tile walk the row. The S1 / S2 switch heads it. The
+   show / season pages keep the Episodes row below; the TV draws neither. #}
+{% if film.episode and not tv_mode(request) and epnav and epnav.season and film.seasons %}
+{% set cs = film.seasons|selectattr("n", "equalto", epnav.season.n)|first %}
+{% if cs and cs.episodes %}
+{% set here = ef.epnum(epnav)|int %}
+<section class="sec epcar-sec" aria-label="Season {{ cs.n }} episodes">
+  <div class="tl-epshd"><h2 class="seclabel">Season {{ cs.n }}</h2>{{ ef.seasonswitch(epnav) }}</div>
+  <div class="carousel epcar">
+    {% for e in cs.episodes %}{% set this = e.number == here %}
+    <a class="epcard{{ ' is-this' if this }}{{ ' is-seen' if e.played }}" href="/media/item/{{ e.jf_id }}"{% if this %} aria-current="page"{% endif %}>
+      <span class="epcard-still"><img src="/img/{{ e.still or 'none' }}?h=240&amp;t={{ img_letters(e.name)|urlencode }}" alt="" loading="lazy" decoding="async" width="320" height="180">{% if this %}<span class="epcard-chip">This one</span>{% endif %}{% if e.played %}<span class="epcard-seen">{{ icon("check") }}<span class="vh">Watched</span></span>{% endif %}</span>
+      <span class="epcard-cap">E{{ e.number }} · {{ e.name }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+<script>
+(function () {
+  var sec = document.currentScript && document.currentScript.previousElementSibling; if (!sec) return;
+  var c = sec.querySelector(".epcar"); if (!c) return;
+  var on = c.querySelector(".is-this");
+  if (on) c.scrollLeft += on.getBoundingClientRect().left - c.getBoundingClientRect().left - (c.clientWidth - on.offsetWidth) / 2;
+  c.addEventListener("keydown", function (ev) {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    var a = ev.target.closest && ev.target.closest(".epcard"); if (!a) return;
+    var to = ev.key === "ArrowLeft" ? a.previousElementSibling : a.nextElementSibling; if (!to) return;
+    ev.preventDefault(); to.focus(); to.scrollIntoView({block: "nearest", inline: "nearest"});
+  });
+})();
+</script>
+{% endif %}
+{% endif %}
+{% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons and not film.episode %}
 {% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
 {% set ws = (film.seasons|selectattr("n", "equalto", shown.n)|first) if shown else none %}
 {% set rs = (ratings.seasons|selectattr("n", "equalto", ws.n)|first) if ratings and ws else none %}
@@ -368,7 +411,7 @@
 
 {# TV episode flow (WP-E2, 2026-10-16): an episode page draws Guests + the episode's Crew. JY-290 (B. 2026-11-02): the
    show page's "Seasons compared" and the show / season rating bar chart are gone, on the TV too. #}
-{% if film.episode %}{{ ef.guests(film.guests) }}{{ ef.crew(film.crew_ep) }}{% endif %}
+{% if film.episode %}{{ ef.guests(film.guests, not tv_mode(request)) }}{{ ef.crew(film.crew_ep) }}{% endif %}
 
 {% if not tv_mode(request) %}{% call wait("collection", film.pending) %}{% include "_film_collection.html" %}{% endcall %}{% endif %}
 

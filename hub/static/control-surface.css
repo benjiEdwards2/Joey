@@ -1843,3 +1843,38 @@ html:not(.tv) .provlogos .prov-logo { width: 40px; height: 40px; border-radius: 
 
 /* JY-281: a show drawer's By episode rows - the file name on its own line under the facts */
 html:not(.tv) .fileeps .filename { display: block; margin: 0; }
+
+/* JY-315 (B.'s pick A + the episode carousel, 2026-11-04): the web and phone episode page. (1) The hero leads with the
+   episode's 16:9 still - beside the text from 1024 px, above it below that. (2) Its season as ONE .carousel row under
+   the hero (the JY-304 cue applies): 16:9 tiles, 1.5 / 2.5 / 3.5 / 4.5 / 5.5 to a view (a half tile always peeks), this
+   episode ringed gold with a "This one" chip, watched ones with the seen check (colour always beside a word). (3) The
+   guest stars use the movie cast tiles; the "All N" fold under them. Off the TV only; tokens only. */
+html:not(.tv) .tl-ephero { align-items: center; }
+html:not(.tv) .tl-epstill { display: block; flex: none; width: min(46%, 640px); height: auto; aspect-ratio: 16 / 9; object-fit: cover;
+  border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-poster); }
+html:not(.tv) .tl-ephero .hero-detail-text { flex: 1 1 0; min-width: 0; }
+@media (max-width: 1023px) {
+  html:not(.tv) .tl-ephero { flex-direction: column; align-items: stretch; }
+  html:not(.tv) .tl-ephero .tl-epstill { width: 100%; max-width: 720px; }
+}
+html:not(.tv) .epcar-sec { margin-top: 8px; }
+html:not(.tv) .carousel.epcar:not(.prov-row) > * { flex-basis: calc((100% - 12px) / 1.5); width: calc((100% - 12px) / 1.5); }
+@media (min-width: 640px) { html:not(.tv) .carousel.epcar:not(.prov-row) > * { flex-basis: calc((100% - 2 * 12px) / 2.5); width: calc((100% - 2 * 12px) / 2.5); } }
+@media (min-width: 1024px) { html:not(.tv) .carousel.epcar:not(.prov-row) > * { flex-basis: calc((100% - 3 * 12px) / 3.5); width: calc((100% - 3 * 12px) / 3.5); } }
+@media (min-width: 1440px) { html:not(.tv) .carousel.epcar:not(.prov-row) > * { flex-basis: calc((100% - 4 * 12px) / 4.5); width: calc((100% - 4 * 12px) / 4.5); } }
+@media (min-width: 1920px) { html:not(.tv) .carousel.epcar:not(.prov-row) > * { flex-basis: calc((100% - 5 * 12px) / 5.5); width: calc((100% - 5 * 12px) / 5.5); } }
+html:not(.tv) .epcard { flex-shrink: 0; display: grid; align-content: start; gap: 6px; min-width: 0; scroll-snap-align: start; color: var(--text-2); text-decoration: none; }
+html:not(.tv) .epcard-still { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--surface); }
+html:not(.tv) .epcard-still img { display: block; width: 100%; height: 100%; object-fit: cover; }
+html:not(.tv) .epcard.is-this .epcard-still { outline: 2px solid var(--gold); outline-offset: -2px; }
+html:not(.tv) .epcard-chip { position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: var(--bg);
+  font-size: 12px; font-weight: 700; }
+html:not(.tv) .epcard-seen { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--bg); color: var(--good); }
+html:not(.tv) .epcard-seen svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; }
+html:not(.tv) .epcard-cap { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+html:not(.tv) .epcard.is-this .epcard-cap, html:not(.tv) .epcard:hover .epcard-cap { color: var(--text-1); }
+html:not(.tv) .epcard:focus-visible { outline: none; }
+html:not(.tv) .epcard:focus-visible .epcard-still { outline: 2px solid var(--brand); outline-offset: -2px; }
+html:not(.tv) .guestfold > summary { font-weight: 600; color: var(--text-1); }
+html:not(.tv) .guestfold > .castrow { margin-top: 8px; }

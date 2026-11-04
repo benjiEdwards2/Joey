@@ -89,3 +89,4 @@
 - JY-291 Qs: TMDB key "Yes." -> JY-320 (B. pastes it on the NAS). No-backdrop case -> JY-321 (prefer an on-server credit, else nothing).
 - JY-296 Qs: Health tab "REmove it." -> JY-319. Connector change for time left/device/4K: "Not neccessary yet."
 - JY-314 (progress hero): B. picked A = keep Play as is -> parked. JY-315 (episode page): A + an episode carousel left/right under the hero.
+- JY-319 #316 merged 2026-11-04 on B.'s standing "REmove it." (reviewer PASS). Live pending.

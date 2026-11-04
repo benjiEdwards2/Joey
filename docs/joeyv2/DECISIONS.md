@@ -83,3 +83,9 @@
 - JY-291 person page: B. "Person Page. Prefer A." -> build A.
 - JY-296/297 Live: B. "Live page A. But you need to fix it as it looks to be going off the page to the right." -> build A; the overflow is in the mock-up (1024/390: non-shrinking Up next tiles in a bare 1fr column); real build AC: no horizontal overflow at 1024 and 390.
 - JY-287 TV shows: Plan 2 (episode-first), "Fold in with plan 3 then as well after." Answers: Q8 mock-up first; new-episode tag by default; show-hero Continue lead: mock-up first; scores column + File drawer yes; chips only (no this/all seasons view); TV waits for JY-307. Split into JY-314 (2.1), JY-315 (2.2), JY-316 (2.3), JY-317 (2.5); JY-278 remains = the tag only.
+
+## 2026-11-04 afternoon - Sweep 26 answers + merges (chat: "Sweep 26 complete. 314 and 315 complete. Overview B please.")
+- Merged #313 (JY-277 Overview B), #314 (JY-291 person A), #315 (JY-296/297 Live A) in that order; main 2364821. Live pending (NAS unreachable from the work network).
+- JY-291 Qs: TMDB key "Yes." -> JY-320 (B. pastes it on the NAS). No-backdrop case -> JY-321 (prefer an on-server credit, else nothing).
+- JY-296 Qs: Health tab "REmove it." -> JY-319. Connector change for time left/device/4K: "Not neccessary yet."
+- JY-314 (progress hero): B. picked A = keep Play as is -> parked. JY-315 (episode page): A + an episode carousel left/right under the hero.

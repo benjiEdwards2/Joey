@@ -350,6 +350,9 @@ SOURCES = [
     ("JY-287 plan page (2026-11-04)", "TV shows 2.2 episode page", "JY-315", "Plan 2, Q8"),
     ("JY-287 plan page (2026-11-04)", "TV shows 2.3 season page", "JY-316", "Plan 2"),
     ("JY-287 plan page (2026-11-04)", "TV shows 2.5 movie-style chips/cast/scores", "JY-317", "Plan 2"),
+    ("Sweep 26 answers (2026-11-04)", "Remove Health tab", "JY-319", "Health in Live rail"),
+    ("Sweep 26 answers (2026-11-04)", "TMDB key on the NAS", "JY-320", "B.'s hands"),
+    ("Sweep 26 answers (2026-11-04)", "Person backdrop prefers on-server credit", "JY-321", ""),
     ("Sonnet review of PR #291 (2026-11-02)", "Backdrop friend access gap", "JY-272", "jfs:<id>/1|2 unchecked"),
 ]
 

@@ -1877,4 +1877,5 @@ html:not(.tv) .epcard.is-this .epcard-cap, html:not(.tv) .epcard:hover .epcard-c
 html:not(.tv) .epcard:focus-visible { outline: none; }
 html:not(.tv) .epcard:focus-visible .epcard-still { outline: 2px solid var(--brand); outline-offset: -2px; }
 html:not(.tv) .guestfold > summary { font-weight: 600; color: var(--text-1); }
+html:not(.tv) .guestfold > summary::before { content: none; }
 html:not(.tv) .guestfold > .castrow { margin-top: 8px; }

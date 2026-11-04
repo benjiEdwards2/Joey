@@ -1,6 +1,6 @@
 # JY-323 TV film page: cast as 2:3 tiles (not circles)
 
-Status: ready (B. 2026-11-05, Sweep 29 JY-307 Accept: "With the film page. can you please ensure the cast underneath the movie also have a similar 2:3 ratio poster instead of teh circular option. It can be smaller if proceeding with the 2:3 option.")
+Status: review (PR #325 open, reviewer running 2026-11-05) (B. 2026-11-05, Sweep 29 JY-307 Accept: "With the film page. can you please ensure the cast underneath the movie also have a similar 2:3 ratio poster instead of teh circular option. It can be smaller if proceeding with the 2:3 option.")
 Size: S
 Live risk: none (TV template/CSS only)
 Area: `hub/templates/_tv_tile.html` (`person` macro), `hub/templates/_film_cast.html` (TV branch), `hub/static/tv.css` (`.tvt-person`, `.tvt-row-person`, skeleton), `tests/hub/tv_css.py` pins, `tests/hub/test_tv_*` that assert the cast row

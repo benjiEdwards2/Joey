@@ -179,7 +179,7 @@ def test_episode_hero_carries_the_crumbs_and_position_and_keeps_the_rest(env):
     assert "Episode of" not in h
     assert '<nav class="crumbs"' in h and 'href="/media/item/ser1">' in h and 'href="/media/item/sea1">Season 4</a>' in h
     assert "E3 of 6" in h
-    assert "S04E03 · Penny for Your Thoughts" in h and "Coins go missing." in h and "Quiet Show (2020)" in h
+    assert ">Penny for Your Thoughts</h1>" in h and "Coins go missing." in h and "Quiet Show" in h   # JY-315: show in the eyebrow
     assert 'href="/media/item/ser1"' in b and "#seasons" not in b     # the banner still leads to the show (JY-290: no anchor)
 
 

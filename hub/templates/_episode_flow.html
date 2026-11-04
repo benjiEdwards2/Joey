@@ -79,9 +79,22 @@
 {% endif %}
 {%- endmacro %}
 
-{# Guests: circle portraits, the role, and "k eps this season". Nothing for an empty list. #}
-{% macro guests(list) -%}
-{% if list %}
+{# JY-315: one guest as a 2:3 cast tile (the movie cast row's .castcard; initials when there is no photo). #}
+{% macro guestcard(g) -%}
+<{{ "a" if g.href else "div" }} class="castcard"{% if g.href %} href="{{ g.href }}"{% endif %}>{% if g.poster %}<img class="castpic" src="/img/{{ g.poster }}?h=270" alt="" loading="lazy" decoding="async" width="180" height="270">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in g.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+  <span class="castname">{{ g.name }}</span>{% if g.role %}<span class="castrole">as {{ g.role }}</span>{% endif %}{% if g.eps_this_season %}<span class="castrole guest-eps">{{ g.eps_this_season }} ep{{ "s" if g.eps_this_season != 1 }} this season</span>{% endif %}</{{ "a" if g.href else "div" }}>
+{%- endmacro %}
+
+{# Guests: circle portraits, the role, and "k eps this season". Nothing for an empty list. JY-315 (`web`, off the TV):
+   "Guest stars" as 2:3 cast tiles like a movie's cast row, the first 12 shown and the rest behind an "All N" fold. #}
+{% macro guests(list, web=false) -%}
+{% if list and web %}
+<section class="sec castsec casttiles" id="guests">
+  <h2 class="seclabel">Guest stars</h2>
+  <div class="castrow">{% for g in list[:12] %}{{ guestcard(g) }}{% endfor %}</div>
+  {% if list|length > 12 %}<details class="fold guestfold"><summary>All {{ list|length }}</summary><div class="castrow">{% for g in list[12:] %}{{ guestcard(g) }}{% endfor %}</div></details>{% endif %}
+</section>
+{% elif list %}
 <section class="sec" id="guests">
   <h2 class="seclabel">Guests</h2>
   <div class="guests">

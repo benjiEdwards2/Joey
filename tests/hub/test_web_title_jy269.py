@@ -34,9 +34,10 @@ def test_web_title_page_is_a_backdrop_hero_per_kind(env, path):
     client, _ = env()
     with client:
         h = hero(main_of(whole(client, path)))
-    assert '<div class="hero-detail-in tl-hero">' in h
+    assert '<div class="hero-detail-in tl-hero' in h
     assert 'class="hero-detail-bd' in h                                   # the backdrop, or the poster wash
-    assert h.index("hero-detail-poster") < h.index('<h1 class="hero-detail-title">') < h.index(ROW)
+    art = "tl-epstill" if path.endswith("ep3") else "hero-detail-poster"  # JY-315: an episode leads with its still
+    assert h.index(art) < h.index('<h1 class="hero-detail-title">') < h.index(ROW)
 
 
 def test_a_title_with_no_backdrop_draws_a_poster_wash_not_a_gap(env, monkeypatch):
@@ -54,7 +55,7 @@ def test_web_hero_has_a_short_synopsis_with_more(env):
         h = hero(main_of(whole(client, "/media/item/ep3")))
     syn = h.split('<div class="tl-syn">', 1)[1]
     assert "Coins go missing." in syn.split("</div>", 1)[0] and 'class="tl-synmore"' in syn
-    assert h.index('class="facts-line"') < h.index('<div class="tl-syn">') < h.index(ROW)
+    assert h.index('class="metaline"') < h.index(ROW) < h.index('<div class="tl-syn">')   # JY-315: under the buttons
     assert "Your rating</h2>" not in h
     assert re.search(r"\.tl-syntext \{[^}]*-webkit-line-clamp: 2", CSS)
     assert re.search(r"@media \(max-width: 639px\) \{.*?\.tl-syntext \{ -webkit-line-clamp: 2", CSS, re.S)

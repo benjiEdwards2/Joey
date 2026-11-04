@@ -295,7 +295,8 @@ def test_a_season_or_episode_page_draws_its_shows_logo(env, monkeypatch):  # noq
         show = hero_of(main_of(whole(client, "/media/item/ser1")))
         ep = hero_of(main_of(whole(client, "/media/item/ep3")))
     assert "/img/jfs:ser1/logo?v=" in show
-    assert "/img/jfs:ser1/logo?v=" in ep and "Penny for Your Thoughts" in ep   # the episode name stays as text
+    # JY-315: an episode page's h1 is the episode title (text); the show is named in the eyebrow, no logo
+    assert "/img/jfs:ser1/logo?v=" not in ep and ">Penny for Your Thoughts</h1>" in ep
 
 
 def test_the_macro_without_a_logo_is_exactly_the_old_markup():

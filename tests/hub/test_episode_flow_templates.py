@@ -281,7 +281,7 @@ def test_episode_crumbs_have_two_links_back_and_the_eyebrow_says_where():
     cr = re.search(r'<nav class="crumbs" aria-label="Back to">(.*?)</nav>', h, re.S).group(1)
     assert re.findall(r'<a href="([^"]+)">([^<]+)</a>', cr) == [("/media/item/show1", "‹ Landman"), ("/media/item/season2", "Season 2")]
     assert '<span class="here" aria-current="page">E2</span>' in cr
-    assert h.index("crumbs") < h.index("hero-detail-in")                               # above the poster / title block
+    assert h.index("tl-epstill") < h.index("crumbs") < h.index("epeyebrow")             # JY-315: in the text column, after the still
     assert re.search(r'<p class="epeyebrow">Landman<span class="sep"> · </span>S2<span class="sep"> · </span>E2 of 4</p>', h)
     assert h.index("epeyebrow") < h.index("hero-detail-title")
     assert "seasonseg" not in h                                                        # the switch is the season page's
@@ -304,7 +304,8 @@ def test_episode_keeps_the_existing_play_and_mark_controls():
     assert "Mark watched" in h                                                         # the item page's own toggle, still there
 
 
-def test_episode_guests_are_circle_portraits_with_role_and_eps_this_season():
+def test_episode_guests_are_circle_portraits_with_role_and_eps_this_season(monkeypatch):
+    monkeypatch.setitem(ENV.globals, "tv_mode", lambda request: True)                   # JY-315: the circles stay the TV's
     sec = section(page(episode()), "guests")
     cards = re.findall(r'<(a|div) class="guest"([^>]*)>(.*?)</\1>', sec, re.S)
     assert len(cards) == 2

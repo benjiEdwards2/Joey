@@ -248,3 +248,33 @@ def test_jy275_the_sweep_checks_rows_afterwards(monkeypatch):
     asked.clear()
     w.check_rows([("radarr", r) for r in UP["radarr"]] + [("sonarr", r) for r in UP["sonarr"]])
     assert asked == [("radarr", 7), ("radarr", 8)]
+
+
+def test_jy275_a_second_check_is_a_no_op_while_one_runs(monkeypatch):
+    import threading
+    from types import SimpleNamespace
+    from hub import media_upgrade_why as w
+    gate, asked = threading.Event(), []
+    monkeypatch.setattr(w, "ask", lambda app, arr_id, row: asked.append(arr_id) or gate.wait(5) or "ok")
+    snaps = {"arr": SimpleNamespace(data={"upgrades": UP})}
+    t = w.check_all(snaps)
+    assert t is not None and w.check_all(snaps) is None
+    gate.set()
+    t.join(5)
+    assert asked == [7, 8, 3, 4]
+    t2 = w.check_all(snaps)                       # released after the run: a later sweep checks again
+    assert t2 is not None
+    t2.join(5)
+
+
+def test_jy275_a_raising_row_is_skipped_and_the_next_still_runs(monkeypatch, caplog):
+    from hub import media_upgrade_why as w
+    asked = []
+
+    def ask(app, arr_id, row):
+        if arr_id == 7:
+            raise RuntimeError("boom")
+        asked.append(arr_id)
+    monkeypatch.setattr(w, "ask", ask)
+    assert w.check_rows([("radarr", r) for r in UP["radarr"]]) == 1
+    assert asked == [8] and "skipped a row: RuntimeError" in caplog.text

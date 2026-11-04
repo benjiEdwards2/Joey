@@ -224,25 +224,46 @@ def episodes(row: dict | None, app: str, arr_id) -> list[dict]:
     return out
 
 
+_checking = threading.Lock()   # JY-275 review: one background check at a time
+
+
 def check_rows(rows) -> int:
     """After a "Search upgrades" sweep (JY-275): run the Why? search for up to CHECK_MAX snapshot rows, one at a time,
-    so their flags appear without a Why? per row. Returns how many were checked. Runs in a background thread."""
+    so their flags appear without a Why? per row. Returns how many were checked. One bad row is logged and skipped."""
     n = 0
     for app, row in rows[:CHECK_MAX]:
-        arr_id = row.get("arr_id")
-        if isinstance(arr_id, int) and not isinstance(arr_id, bool):
-            ask(app, arr_id, row)
-            n += 1
+        try:
+            arr_id = row.get("arr_id")
+            if isinstance(arr_id, int) and not isinstance(arr_id, bool):
+                ask(app, arr_id, row)
+                n += 1
+        except Exception as exc:
+            log.warning("%s upgrade check skipped a row: %s", app, type(exc).__name__)
     return n
 
 
+def _run(rows) -> None:
+    try:
+        check_rows(rows)
+    finally:
+        _checking.release()
+
+
 def check_all(snaps) -> threading.Thread | None:
-    """Start check_rows over the snapshot's cutoff-unmet rows (Radarr first) in a daemon thread; None when empty."""
+    """Start check_rows over the snapshot's cutoff-unmet rows (Radarr first) in a daemon thread; None when empty or
+    when a check is already running (that one carries on). Expired answers are evicted first."""
     up = media_upgrades.upgrades(snaps) or {}
     rows = [(app, r) for app in ("radarr", "sonarr") for r in up.get(app) or [] if isinstance(r, dict)]
     if not rows:
         return None
-    t = threading.Thread(target=check_rows, args=(rows,), name="upgrade-check", daemon=True)
+    if not _checking.acquire(blocking=False):
+        log.info("upgrade check already running; not starting another")
+        return None
+    with _lock:
+        now = _clock()
+        for k in [k for k, m in _memo.items() if now - m["at"] >= TTL]:
+            del _memo[k]
+    t = threading.Thread(target=_run, args=(rows,), name="upgrade-check", daemon=True)
     t.start()
     return t
 

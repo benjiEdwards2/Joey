@@ -18,6 +18,12 @@ with the tile kit (_tv_tile.html). The web and phone Home keep `sh.shelves` exac
 Phase 2 (2026-10-28): the hero follows the focused tile. Every row tile carries `hero` (tile_hero(): the backdrop URL,
 title, facts and a one-line synopsis), worked out here from the same caches, so tv.js swaps the hero from the page
 alone; its only network use is the /img fetch of the next backdrop. Each row names its hero eyebrow (ROW_EYEBROW).
+
+JY-307 phase 3 (option B, 2026-11-04; spec docs/specs/JY-307-tv-ui-phase3.md): the hero carries Resume / Play (the hero
+item's Jellyfin hand-off, `play_of` from the caller; none without a Jellyfin link) and More info (its title page). Every
+row is one 16:9 tile: Continue watching / Next episodes keep their stills; every other row's tile is the title's
+backdrop (the hero's chain, at the warmed HERO_H size: no new image size, so no new upstream fetch) with its JY-267 logo
+over it when stored, else the poster cropped to 16:9 (tile_art) - never a blank tile.
 """
 from __future__ import annotations
 
@@ -26,10 +32,11 @@ from urllib.parse import quote
 from hub import images, media_backdrop, media_home, media_item, media_text
 
 ROW_ORDER = ("continue", "next", "added", "because", "month", "top", "short", "watched")
-LAND_ROWS = frozenset({"continue", "next"})   # 16:9 stills; every other row is 2:3 posters
+LAND_ROWS = frozenset({"continue", "next"})   # their own stills (and "where you are" facts); P3: every row is 16:9
 NEXT_TITLE = "Next episodes"
 HERO_H = media_backdrop.TV_H   # 1280 wide: the backdrop size media_warmup already warms (BACKDROP_H)
 STILL_H = 400            # an episode still: the size the TV episode shelf asks for (media_film.html)
+POSTER_H = 600           # P3: the poster a 16:9 tile falls back to, cropped (the size the poster tiles warmed)
 BLUR_H = 240             # the blurred poster fallback: the list-row poster size (warmed)
 SYNOPSIS_MAX = 240       # one line on the TV (tv.css clamps it); the rest is never sent
 # phase 2: the hero eyebrow while it shows a tile of that row (any other row: its own label)
@@ -201,9 +208,30 @@ def tile_hero(item: dict, jelly: dict, index: dict, land: bool = False) -> dict:
     return out
 
 
-def build(shelves: list[dict], resume, watched, added, jelly: dict) -> dict:
+def tile_art(item: dict, jelly: dict, index: dict) -> dict:
+    """P3: a library row's 16:9 tile picture: {"still", "still_h", "crop", "logo"}. The title's backdrop (the hero's
+    chain) with its stored logo, else its poster cropped to 16:9 (crop=True). Caches only, like tile_hero."""
+    bd = backdrop(item, jelly, index)
+    if bd and not bd["blur"]:
+        row = (_library_row(item, jelly, index) or ({}, "movie"))[0]
+        return {"still": bd["ref"], "still_h": bd["h"], "crop": False, "logo": logo(item, row)}
+    return {"still": item.get("poster"), "still_h": POSTER_H, "crop": True, "logo": None}
+
+
+def hero_play(item: dict, resume: bool, play_of) -> dict | None:
+    """P3: the hero's Resume / Play button: {"href", "label", "jf_id"}, the item the Jellyfin hand-off opens (a Continue
+    watching episode itself, else the film or show). None without a hand-off (no Jellyfin link) or a Jellyfin id."""
+    jf_id = _id(item.get("episode_key")) or _id(item.get("poster"))
+    href = play_of(jf_id) if (play_of and jf_id) else None
+    if not href:
+        return None
+    return {"href": href, "label": "Resume" if resume and item.get("pct") else "Play", "jf_id": jf_id}
+
+
+def build(shelves: list[dict], resume, watched, added, jelly: dict, play_of=None) -> dict:
     """`sh.tv`: {"hero", "rows"} from the guest Home's shelves (already filtered and decorated by build()).
-    Call before media_guest_home.build pops the rating keys (the backdrop chain reads item_key)."""
+    Call before media_guest_home.build pops the rating keys (the backdrop chain reads item_key). `play_of(jf_id)` is
+    the Jellyfin hand-off URL for an item (P3 hero button), or None."""
     by_id = {s.get("id"): s for s in shelves}
     for it in (by_id.get("continue") or {}).get("items") or []:
         it["still"], it["still_h"] = still(it)
@@ -216,7 +244,9 @@ def build(shelves: list[dict], resume, watched, added, jelly: dict) -> dict:
     index = _index(jelly)
     for r in rows:   # phase 2: each tile carries what the hero shows while it has focus (page data only)
         r["eyebrow"] = ROW_EYEBROW.get(r.get("id"), r.get("title"))
-        r["items"] = [{**it, "hero": tile_hero(it, jelly, index, r["land"])} for it in r["items"]]
+        r["items"] = [{**it, "hero": tile_hero(it, jelly, index, r["land"]),
+                       **({} if r["land"] else tile_art(it, jelly, index))} for it in r["items"]]
+        r["wide"] = True   # P3: every Home row draws the 16:9 tile (_tv_tile.html row)
     cont = (by_id.get("continue") or {}).get("items") or []
     first, eyebrow = (cont or [None])[0], "Pick up where you left off"   # JY-259 review: never the row's own label
     if first is None:
@@ -225,5 +255,6 @@ def build(shelves: list[dict], resume, watched, added, jelly: dict) -> dict:
     if first:
         th = tile_hero(first, jelly, index, land=bool(cont))
         hero = {"eyebrow": eyebrow, "title": first.get("title"), "sub": th["facts"], "syn": th["syn"],
-                "backdrop": backdrop(first, jelly, index), "logo": th.get("logo")}
+                "backdrop": backdrop(first, jelly, index), "logo": th.get("logo"), "data": th,
+                "play": hero_play(first, bool(cont), play_of), "info": first.get("href")}
     return {"hero": hero, "rows": rows}

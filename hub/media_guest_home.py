@@ -196,6 +196,15 @@ def _snapshot_view(snap, view: str) -> tuple[dict, list[dict]]:
     return jelly, [{**s, "items": [dict(i) for i in s["items"]]} for s in shelves]
 
 
+def _play_of(request, snaps, jelly: dict):
+    """JY-307 P3: the hero's Play hand-off, as the title page builds it on the media front (media_film): the Jellyfin
+    deep link from the snapshot's link tile and server id (no call), with the TV player mark when the TV shell plays."""
+    from hub import shell   # late: shell imports the page modules
+    link = (shell.find_detail_source(JELLYFIN_SNAPSHOT_ID, snaps) or {}).get("href")
+    deep = lambda jf_id: shell._deep_link(link, jf_id, jelly.get("server_id"))
+    return (lambda jf_id: media_front.tv_play_href(deep(jf_id))) if media_front.tv_player(request) else deep
+
+
 def build(request, snaps, view: str) -> dict:
     """The guest Home's `sh` for area_shelves.html (JY-195 pick 4A): Continue watching, Recently added, the three
     library shelves, Recently watched - each left out when empty; no hero, no freshness line."""
@@ -211,7 +220,8 @@ def build(request, snaps, view: str) -> dict:
                 "items": watched or [], "quiet_text": None}]
     shelves = [s for s in shelves if s["items"]]   # JY-195: an empty shelf is left out (no grey box)
     # JY-259 (P1): the TV Home's hero + rows, from what was read above and the caches (hub/tv_home.py); TV mode only
-    tv = tv_home.build(shelves, resume, watched, added, jelly) if media_front.tv_mode(request) else None
+    tv = (tv_home.build(shelves, resume, watched, added, jelly, _play_of(request, snaps, jelly))
+          if media_front.tv_mode(request) else None)
     ratings = media_home._ratings(view, *(s["items"] for s in shelves))   # ONE query; the viewer's own ratings
     for s in shelves:
         for it in s["items"]:

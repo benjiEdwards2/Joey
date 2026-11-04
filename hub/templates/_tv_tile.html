@@ -34,7 +34,9 @@
 {# phase 3: an episode tile (a show's title page) also carries its JY-192 word chip on the still ("Next", "Watched" ...:
    a 316 px still reads them well, spec §2.1) and, when it plays, the Jellyfin hand-off (data-jf-id, a new tab) #}
 {% macro land(i, lazy=true) -%}
-<a class="card-poster tvt tvt-land" href="{{ i.href }}"{% if i.jf_id %} target="_blank" rel="noopener" data-jf-id="{{ i.jf_id }}"{% endif %}{{ herodata(i) }}><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400, lazy) }}{% if i.chip %}<span class="ep-chip ep-{{ i.chip|lower|replace(' ', '-') }}">{{ i.chip }}</span>{% endif %}{{ bar(i.pct) }}</span>{{ caption(i.title, i.sub) }}</a>
+{# JY-307 P3: a Home library tile is the title's backdrop with its JY-267 logo over it (the logo is the tile's name, so no
+   caption), else the backdrop + caption, else the poster cropped to 16:9 (.tvt-crop; hub/tv_home.py tile_art) #}
+<a class="card-poster tvt tvt-land{% if i.crop %} tvt-crop{% endif %}" href="{{ i.href }}"{% if i.jf_id %} target="_blank" rel="noopener" data-jf-id="{{ i.jf_id }}"{% endif %}{{ herodata(i) }}><span class="card-pic">{{ art(i.still or i.poster, i.title, i.still_h or 400, lazy) }}{% if i.logo %}<img class="tvt-logo" src="{{ i.logo.src }}" alt="{{ i.title }}" style="--lw: {{ i.logo.w }}; --lh: {{ i.logo.h }}"{% if lazy %} loading="lazy"{% endif %} decoding="async">{% endif %}{% if i.chip %}<span class="ep-chip ep-{{ i.chip|lower|replace(' ', '-') }}">{{ i.chip }}</span>{% endif %}{{ bar(i.pct) }}</span>{% if not i.logo %}{{ caption(i.title, i.sub) }}{% endif %}</a>
 {%- endmacro %}
 
 {# phase 3: a person with no Joey page (Jellyfin's own actor list has no TMDB id) is drawn, not a D-pad stop #}
@@ -57,8 +59,9 @@
 {# JY-105: a row marked tv_later (Because you rated ...) never takes first focus (tv.js) #}
 <section class="sec"{% if s.tv_later %} data-tv-later{% endif %}>
   <div class="sechead"><h2 class="seclabel">{{ s.title }}</h2></div>
-  <div class="carousel tvt-row{% if s.land %} tvt-row-land{% endif %}"{% if s.eyebrow %} data-hero-eyebrow="{{ s.eyebrow }}"{% endif %}>
-    {% for i in s["items"] %}{% if s.land %}{{ land(i, not eager) }}{% else %}{{ poster(i, not eager) }}{% endif %}{% endfor %}
+  {# JY-307 P3: `wide` (every Home row, hub/tv_home.py) draws the 16:9 tile #}
+  <div class="carousel tvt-row{% if s.land or s.wide %} tvt-row-land{% endif %}"{% if s.eyebrow %} data-hero-eyebrow="{{ s.eyebrow }}"{% endif %}>
+    {% for i in s["items"] %}{% if s.land or s.wide %}{{ land(i, not eager) }}{% else %}{{ poster(i, not eager) }}{% endif %}{% endfor %}
   </div>
 </section>
 {%- endmacro %}
@@ -81,8 +84,15 @@
 {# the hero area: what the backdrop shows, in words. Phase 2: it follows focus (tv.js swaps the eyebrow, title, facts and
    one-line synopsis from the focused tile's data-hero), so the facts and synopsis lines are always drawn (hidden when
    empty). #}
+{# JY-307 P3: Resume / Play (the hero item's Jellyfin hand-off, hub/tv_home.py hero_play; data-jf-id makes it the page's
+   first focus, tv.js) and More info (its title page). Both carry the hero item's data-hero, so focusing them brings the
+   hero back to that item after the tiles moved it. #}
+{% macro heroacts(h) -%}
+{% if h.play or h.info %}<div class="tv-hero-acts" data-hero-eyebrow="{{ h.eyebrow }}">{% if h.play %}<a class="btn btn-white tv-hero-play" href="{{ h.play.href }}" target="_blank" rel="noopener" data-jf-id="{{ h.play.jf_id }}"{{ herodata({"hero": h.data}) }}>{{ h.play.label }}</a>{% endif %}{% if h.info %}<a class="btn btn-glass tv-hero-info" href="{{ h.info }}"{{ herodata({"hero": h.data}) }}>More info</a>{% endif %}</div>{% endif %}
+{%- endmacro %}
+
 {% macro hero(h) -%}
 {# JY-267: the title's stored TMDB logo stands in for the title words (alt = the title; the words come back if it fails
    to load). The img is always drawn, hidden without a logo, so tv.js can swap a later tile's logo into it. #}
-{% if h %}{% set lg = h.logo %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title"{% if lg %} hidden{% endif %}>{{ h.title }}</p><img class="tv-hero-logo"{% if lg %} src="{{ lg.src }}" alt="{{ h.title }}" width="{{ lg.w }}" height="{{ lg.h }}" style="--lw: {{ lg.w }}; --lh: {{ lg.h }}"{% else %} alt="" hidden{% endif %} decoding="async" onerror="this.setAttribute('hidden','');this.removeAttribute('src');var t=this.previousElementSibling;if(t)t.removeAttribute('hidden')"><p class="tv-hero-facts"{% if not h.sub %} hidden{% endif %}>{{ h.sub or "" }}</p><p class="tv-hero-syn"{% if not h.syn %} hidden{% endif %}>{{ h.syn or "" }}</p></div>{% endif %}
+{% if h %}{% set lg = h.logo %}<div class="tv-hero"><p class="tv-hero-eyebrow">{{ h.eyebrow }}</p><p class="tv-hero-title"{% if lg %} hidden{% endif %}>{{ h.title }}</p><img class="tv-hero-logo"{% if lg %} src="{{ lg.src }}" alt="{{ h.title }}" width="{{ lg.w }}" height="{{ lg.h }}" style="--lw: {{ lg.w }}; --lh: {{ lg.h }}"{% else %} alt="" hidden{% endif %} decoding="async" onerror="this.setAttribute('hidden','');this.removeAttribute('src');var t=this.previousElementSibling;if(t)t.removeAttribute('hidden')"><p class="tv-hero-facts"{% if not h.sub %} hidden{% endif %}>{{ h.sub or "" }}</p><p class="tv-hero-syn"{% if not h.syn %} hidden{% endif %}>{{ h.syn or "" }}</p>{{ heroacts(h) }}</div>{% endif %}
 {%- endmacro %}

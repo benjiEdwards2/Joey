@@ -240,7 +240,8 @@ def test_tv_home_draws_the_backdrop_hero_and_16x9_rows(fc):
     assert shelf_titles(html)[:3] == ["Continue watching", "Next episodes", "Recently added"]
     assert re.search(r'<div class="tv-bd" aria-hidden="true"><img src="/img/jfb:(?:0001){8}\?h=1280', body)
     assert '<p class="tv-hero-eyebrow">Pick up where you left off</p><p class="tv-hero-title">Film 01</p>' in body
-    assert body.count('class="carousel tvt-row tvt-row-land"') == 2
+    rows = body.count('class="carousel tvt-row')   # JY-307 P3: every Home row is the 16:9 tile row
+    assert rows > 2 and body.count('class="carousel tvt-row tvt-row-land"') == rows
     assert f"/img/jf:{EP2}?h=400" in body and " · 2</h2>" not in body             # the next episode's still; no counts
 
 

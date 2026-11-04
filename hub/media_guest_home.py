@@ -123,13 +123,9 @@ def read_shelf(request, shelf: str) -> list[dict] | None:
 def _added(jelly: dict) -> list[dict]:
     now = datetime.now(timezone.utc)
     latest = sorted(jelly.get("latest") or [], key=lambda r: str(r.get("added_at") or ""), reverse=True)
-    out, seen = [], set()
-    for r in latest:
-        key = r.get("item_key") or r.get("title")
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append({"title": r.get("title"), "sub": media_home._ago_text(r.get("added_at"), now),
+    out = []
+    for r, sub, _ in media_home.added_rows(latest, [], now):   # JY-278: one tile per show, the "New episode" count
+        out.append({"title": r.get("title"), "sub": sub, "new_episodes": r.get("new_episodes") or 0,
                     "poster": r.get("poster"), "pct": None,
                     "href": media_home.row_href(r.get("jf_id"), r.get("item_key"),
                                                 "movie" if r.get("type") == "Movie" else None),

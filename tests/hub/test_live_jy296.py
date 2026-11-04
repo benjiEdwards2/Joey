@@ -108,3 +108,14 @@ def test_friends_never_reach_live_or_health(friend):
         assert friend.get(path).status_code == 404, path
     page = friend.get("/media/movies").text
     assert ">Live<" not in page and "/media/playing" not in page and ">Health<" not in page
+
+
+def test_health_tab_is_gone_and_apps_redirects_to_live(snaps):
+    """JY-319: no Health tab; /media/apps sends the owner to Live (302), where the rail carries Health."""
+    from hub import media_nav
+    assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h == "/media/apps"]
+    assert "/media/apps" not in [p for s in media_nav.SECTIONS for p in s["prefixes"]]
+    build, d = snaps
+    with build(d) as client:
+        r = client.get("/media/apps", follow_redirects=False)
+    assert r.status_code == 302 and r.headers["location"] == "/media/playing"

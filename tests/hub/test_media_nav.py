@@ -265,12 +265,12 @@ def test_movies_and_tv_have_exactly_three_tabs():
     assert tabs["tv"] == [("My shows", "/media/tv"), ("To rate", "/media/tv/to-rate"), ("Awards", "/media/tv/awards")]
 
 
-def test_activity_has_six_tabs_with_history_on_the_diary():
+def test_activity_has_five_tabs_with_history_on_the_diary():
     # JY-298 (2026-11-03): To rate left Activity (History holds the inbox); /media/history stays a prefix (it redirects)
     server = next(s for s in media_nav.SECTIONS if s["id"] == "server")
     assert server["tabs"] == [("Live", "/media/playing"), ("History", "/media/diary"),
                               ("Library", "/media/library"), ("Downloads", "/media/downloads"),
-                              ("Requests", "/media/requests"), ("Health", "/media/apps")]
+                              ("Requests", "/media/requests")]
     assert {"/media/diary", "/media/history"} <= set(server["prefixes"])
     assert not [h for s in media_nav.SECTIONS for _, h in s["tabs"] if h == "/media/server/history"]   # play stats: no tab
 

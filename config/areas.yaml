@@ -72,7 +72,7 @@ areas:
         tier: embed
         owner: shared
         snapshot: media_status
-        detail: /media/apps
+        detail: /media/playing
         stale_after_minutes: 10
         setup_note: "Set MEDIA_STATUS_HOST in deploy/.env."
       - id: arrivals

@@ -39,9 +39,9 @@ def test_health_row_says_the_global(tmp_path, monkeypatch):
         {"id": "jellyfin", "name": "Jellyfin", "href": "http://192.168.1.10:8096",
          "up": True, "status_text": "Up", "note": None}]})
     with factory(snaps) as client:
-        before = main_of(client.get("/media/apps").text)
+        before = client.get("/media/playing/part/health").text
         monkeypatch.setitem(shell.templates.env.globals, "lan_word", SWAPPED)
-        after = main_of(client.get("/media/apps").text)
+        after = client.get("/media/playing/part/health").text
     sep = '<span class="sep"> · </span>'
     assert f'<span class="st-up">Up</span>{sep}LAN</div>' in before
     assert f'<span class="st-up">Up</span>{sep}{SWAPPED}</div>' in after and "LAN" not in after

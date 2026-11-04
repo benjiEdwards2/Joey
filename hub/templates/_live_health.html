@@ -20,12 +20,12 @@
   {% for a in h.apps %}
   {% set word %}<span class="{{ 'st-up' if a.up else 'st-down' }}">{{ a.status_text }}</span>{% endset %}
   <a class="row{{ ' is-down' if not a.up }}" href="{{ a.href }}" target="_blank" rel="noopener">
-    <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, a.note if not a.up else none]) }}</div>
+    <div class="row-body"><div class="row-title">{{ a.name }}</div>{{ meta([word, lan_word if a.lan else none, a.note if not a.up else none]) }}</div>
   </a>
   {% endfor %}
   </div>{% endif %}
   {% set b = h.backup %}
   {% if b and b.state != "nodb" %}
-  <p class="metaline live-backup">Backup: {{ {"ok": "Backed up", "stale": "Stale", "none": "None yet", "off": "Off"}[b.state] }}{% if b.state in ("ok", "stale") and b.age_text %} · {{ b.age_text }}{% endif %}</p>
+  <p class="metaline live-backup">Backup: {{ {"ok": "Backed up", "stale": "Stale", "none": "None yet", "off": "Off"}[b.state] }}{% if b.state in ("ok", "stale") %}{% if b.age_text %} · {{ b.age_text }}{% endif %}{% if b.size_text %} · {{ b.size_text }}{% endif %}{% elif b.state == "off" and b.note %} · {{ b.note }}{% endif %}</p>
   {% endif %}
 </aside>

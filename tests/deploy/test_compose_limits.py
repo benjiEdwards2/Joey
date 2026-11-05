@@ -10,7 +10,8 @@ COMPOSE = yaml.safe_load((REPO_ROOT / "deploy" / "docker-compose.yml").read_text
 SERVICES = COMPOSE["services"]
 LIMITS = {"hub": "384m", "connectors": "256m", "cloudflared": "128m", "macromates": "32m",
           "swag": "192m", "ddns": "32m",  # swag + ddns: Joey TV WP-A3 edge (2026-10-18)
-          "joey-media": "384m"}  # Joey TV WP-B1 guest front (2026-10-21): a ceiling; re-cap after measuring (P4)
+          "joey-media": "384m",
+          "powerctl": "64m"}  # JY-274 (2026-11-05): stdlib helper, profile `power`  # Joey TV WP-B1 guest front (2026-10-21): a ceiling; re-cap after measuring (P4)
 
 
 def test_every_service_rotates_its_json_file_log():

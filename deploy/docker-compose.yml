@@ -191,6 +191,35 @@ services:
       - media
     entrypoint: ["sh", "-c", "python -m connectors.run_all; (while true; do python -m connectors.run_all --only jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; sleep 120; done) & while true; do sleep 3600; python -m connectors.run_all --except jellyfin,media_status,qbittorrent,arr,system,uptime_kuma; done"]
 
+  powerctl:
+    # JY-274 (2026-11-05) - the "Power down" helper: on POST /power-down (Bearer token) it stops the media-server
+    # compose project (60 s cap), then powers the NAS off. Install + the supervised live test: powerctl/NAS_INSTALL.md.
+    # DARK until COMPOSE_PROFILES gains `power` in the NAS deploy/.env (after powerctl.env exists; no token = no start).
+    # Root-equivalent ON PURPOSE: pid: host + privileged let it nsenter PID 1 and run the host's own poweroff; the
+    # Docker socket lets it stop the media stack. It exposes ONE endpoint, no published port: the hub reaches it as
+    # http://powerctl:8811 on the compose default network (Home Assistant later: NAS_INSTALL.md "Home Assistant").
+    # Secret: ONLY deploy/powerctl.env (NAS-only, chmod 600, POWERCTL_TOKEN; template deploy/powerctl.env.example).
+    # The hub holds the same value as POWER_TOKEN in hub.env.
+    image: life-powerctl
+    build:
+      context: ../powerctl
+    container_name: joey-powerctl
+    profiles: [power]
+    restart: unless-stopped
+    logging: *logging
+    mem_limit: 64m
+    pid: host
+    privileged: true
+    env_file:
+      - path: powerctl.env
+        required: false
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    expose:
+      - "8811"
+    labels:
+      - wud.watch=false
+
   swag:
     # Joey TV WP-A3 (2026-10-18) — the public edge for Jellyfin: https://jellyfin.joeyhome.net:8443 (router external 8443 -> NAS 443; the Deco drops WAN 443) -> 127.0.0.1:8096.
     # DARK until COMPOSE_PROFILES=edge is set in the NAS deploy/.env (WP-A4); never toggle it off again without

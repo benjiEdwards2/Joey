@@ -139,6 +139,7 @@ PRIVATE: tuple = (
     *_each("GET POST", "/server/downloads/cap"),   # P4 quiet mode (2026-10-22): private only, never a GUEST entry
     *_each("GET", "/media/movies/awards/part/watchlisted", "/media/tv/awards/part/watchlisted"),   # JY-153: friends have no count line
     ("GET", "/server/space"),   # P1a free space (2026-10-22): owner-only, list only
+    *_each("GET POST", "/server/power"),   # JY-274 (2026-11-05): Power down NAS, owner only; never a GUEST entry
     *_each("GET", "/media/playing/part/now", "/media/playing/part/health"),   # JY-296/297: the Live polls, owner only
     *_each("GET", "/media/apps", "/media/playing", "/media/downloads", "/media/library", "/media/requests",
            "/media/server/history", "/media/following"),

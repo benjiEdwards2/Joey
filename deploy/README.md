@@ -105,3 +105,16 @@ Compose file, `.env.example` and `deploy.sh` — the ONLY path to production (ru
   newest backup, allow-listed keys only, every background loop off. Window 07:00-21:30, refused while a deploy holds the
   lock or under 1,400 MB available. Before a `docker compose down` of this stack, run `preview down`. Runbook and the
   env key list: `deploy/preview/README.md`.
+
+## powerctl: Power down NAS (JY-274, 2026-11-05)
+
+The Server page's red **Power down** pill asks `powerctl` (service in `docker-compose.yml`, profile `power`, dark by
+default) to stop the media-server stack (60 s cap) and then run the host's own poweroff:
+`nsenter -t 1 -m -u -i -n -p -- poweroff` (why, and the Home Assistant call: `powerctl/README.md`).
+
+- **Install:** `powerctl/NAS_INSTALL.md` steps 1 to 5: token, `deploy/powerctl.env` (template
+  `deploy/powerctl.env.example`), `power` in `COMPOSE_PROFILES`, `POWER_URL` / `POWER_TOKEN` in `hub.env`, then the
+  checks that power nothing off.
+- **Live test:** `powerctl/NAS_INSTALL.md` steps 6 and 7, once, inside the day window with B. present, after merge and
+  deploy. The NAS comes back with its power button by day, or the 07:00 ADM schedule.
+- Tests never call it: the hub tests fake the helper, and powerctl's own default shutdown command is a dry run.

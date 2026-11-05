@@ -81,4 +81,12 @@ Restart / reboot, power-on from the page (the hub is off), scheduled shutdowns, 
 - Q7 placement: A, the red "Power down" pill in the Server page header row; TV shows the "Last shutdown" line only.
 - Host is Asustor ADM: `shutdown -h now` (or `poweroff`) from the helper with host PID namespace; builder documents the exact command in `deploy/README.md` and the operator proves it on the live test (accept checklist).
 
+## Follow-up b (B. 2026-11-05, Sweep 31 "Change")
+B.: "Change to have less rounded edges. Round to approximately 12 pixels roughly. Show me that otherwise just run it and see how it goes. can you please also provide a "Power Off?" wiht a confirm on teh bottom right side ish?"
+Build (S, same area, after #326 merged):
+1. The header "Power down" pill: border-radius about 12 px (not a full pill). Same for the confirm page's button.
+2. A second entry point: a small fixed "Power Off?" control at the bottom-right of the Server page (owner only, same `configured()` gating, hidden otherwise). Pressing it opens an inline confirm box anchored bottom-right (same text as the confirm page: what happens, how it comes back, the after-21:30 warning, the typed POWER DOWN field, one Confirm button) and posts to the same /server/power route. Escape or a Close link dismisses it. No new routes or helper changes; the existing confirm page stays for the header pill.
+   Assumption (B. did not say): the control is on the Server page only, not every page; phone keeps it above the bottom nav.
+3. Shots: desktop 1440, phone 390 of the pill (12 px), the bottom-right control closed and open; friend view without it. Tests: owner-only + hidden when unset for the new control; existing tests pass.
+
 ## Shipped notes

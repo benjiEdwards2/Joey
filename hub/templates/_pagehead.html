@@ -19,7 +19,8 @@
 {%- else -%}{{ text if text is not none else title }}{%- endif -%}
 </h1>
 {%- endmacro %}
-{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false, logo=none) -%}
+{# JY-274 (2026-11-05): `side` = ready markup at the right of the foot row (the Server page's Power down pill). #}
+{% macro pagehead(title, sub=none, eyebrow=none, backdrop=none, actions=none, drift=false, logo=none, side=none) -%}
 <header class="pagehead">
   {% if backdrop %}{% set bv = img_v(backdrop) %}<div class="pagehead-bd{{ ' hero-drift' if drift }}" style="--bd: url('/img/{{ backdrop | urlencode }}?h=1280{% if bv %}&amp;v={{ bv }}{% endif %}'){% if not backdrop.startswith('jfb:') and not backdrop.startswith('jfs:') %}; --bd-sm: url('/img/{{ backdrop | urlencode }}?h=600'){% endif %}" aria-hidden="true"></div>{% endif %}
   <div class="pagehead-in">
@@ -36,6 +37,7 @@
         {% for a in actions %}<a class="btn btn-glass" href="{{ a.href }}"{% if a.new_tab %} target="_blank" rel="noopener"{% endif %}>{{ a.label }}</a>{% endfor %}
       </div>
       {% endif %}
+      {% if side %}<div class="pagehead-side">{{ side }}</div>{% endif %}
     </div>
     {% endif %}
   </div>

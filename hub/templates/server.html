@@ -3,7 +3,10 @@
 {% block pagehead %}
 {% from "_pagehead.html" import pagehead %}
 {% set sub %}{% if sv.attention %}{{ sv.attention | length }} need{{ "s" if sv.attention | length == 1 else "" }} attention{% else %}All clear{% endif %}{% endset %}
-{{ pagehead(area.name, sub=sub) }}
+{# JY-274 (2026-11-05): the red Power down pill (owner + powerctl configured) and the Last shutdown line (everyone who
+   sees the page, the TV included), read from power.log - no request on load. #}
+{% set side %}{% if power %}{% if power.pill %}<a class="btn power-pill" href="/server/power"><span aria-hidden="true">&#x23FB;</span> Power down</a>{% endif %}<p class="power-last">{{ power.last }}</p>{% endif %}{% endset %}
+{{ pagehead(area.name, sub=sub, side=side) }}
 {% endblock %}
 {% block content %}
 {# Server area (WP-S1, 2026-10-06; restyle Phase 4). Server clean-up (WP-T3, 2026-10-19) — five bands, top to bottom:

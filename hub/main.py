@@ -28,6 +28,7 @@ from hub import media_awards_pages
 from hub import server as server_area
 from hub import server_alerts, server_history, server_stack, server_updates, server_uptime, server_visits
 from hub import server_quiet   # P4 quiet mode (2026-10-22)
+from hub import server_power   # JY-274 (2026-11-05): Power down NAS
 from hub import media_download_actions   # JY-301 download controls (2026-11-03)
 from hub import server_digest  # P2 (2026-10-22)
 from hub import player_api   # JY-053: playback-session API, off unless PLAYER_API=on
@@ -132,6 +133,7 @@ app.include_router(media_upgrade_why.router)   # WP-U1: Why? + Grab anyway on Do
 app.include_router(server_updates.router)
 app.include_router(server_stack.router)   # 2026-10-12: Restart + update media stack
 app.include_router(media_download_actions.router)   # JY-301: pause / resume / remove torrents, owner only
+app.include_router(server_power.router)   # JY-274: Power down NAS (powerctl), owner only
 app.include_router(server_quiet.router)   # P4 (2026-10-22): Downloads Quiet (5 Mbps) / Full speed
 app.include_router(server_space.router)   # P1a free space (2026-10-22): list only
 app.include_router(weather.router)
@@ -265,6 +267,7 @@ def _server_response(request: Request, area, view: str, from_query: bool):
         "flash": server_updates.flash_text(request.query_params) or server_stack.flash_text(request.query_params),
         "stack": server_stack.status(),   # 2026-10-12: stackctl's last run (2 s cap; no env = no call)
         "quiet": server_quiet.page(snaps, request.query_params),   # P4 (2026-10-22): the cap row; no call, the snapshot
+        "power": server_power.header(request),   # JY-274: pill + "Last shutdown" line, power.log only
         "digest": server_digest.last_sent(),   # P2 (2026-10-22): "Digest · sent 07:31" / None without a webhook
     }, active_id=area.id)
     resp.background = after

@@ -113,7 +113,8 @@ def can_press(request: Request) -> bool:
 
 def header(request: Request) -> dict:
     """The Server page's header bit: the pill (owner + configured) and the last-shutdown line. Local reads only."""
-    return {"pill": can_press(request) and configured(), "last": last_shutdown()}
+    return {"pill": can_press(request) and configured(), "last": last_shutdown(), "what": WHAT,
+            "late": LATE if is_late() else None, "back": BACK, "confirm_text": CONFIRM_TEXT}
 
 
 def _who(request: Request) -> str:

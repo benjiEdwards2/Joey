@@ -216,3 +216,27 @@ def test_token_is_in_no_template_or_source():
     for p in [*(root / "hub" / "templates").glob("*.html"), root / "hub" / "server_power.py"]:
         assert TOKEN not in p.read_text(encoding="utf-8")
     assert "POWER_TOKEN" not in (root / "hub" / "templates" / "server_power.html").read_text(encoding="utf-8")
+
+
+def test_corner_control_owner_only_and_hidden_when_unset(env):
+    with env() as client:
+        mine = client.get("/server", headers=YOU).text
+        hers = client.get("/server", headers=HER).text
+    assert 'id="power-corner"' in mine and "Power Off?" in mine and 'name="confirm"' in mine
+    assert "Type POWER DOWN to confirm" in txt(mine) and "07:00 on the ADM power schedule" in mine
+    assert "friends watching now will be cut off" not in mine
+    assert 'id="power-corner"' not in hers and "Power Off?" not in hers
+    assert TOKEN not in mine and "secret-host" not in mine
+
+
+def test_corner_control_late_warning_and_unset(env):
+    env.now = NIGHT
+    with env() as client:
+        late = client.get("/server", headers=YOU).text
+    assert "friends watching now will be cut off" in late
+
+
+def test_corner_control_hidden_when_unset(env):
+    with env(power_env=False) as client:
+        off = client.get("/server", headers=YOU).text
+    assert 'id="power-corner"' not in off and "Power Off?" not in off

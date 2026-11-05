@@ -97,4 +97,9 @@ Supersedes round 1's bottom-right control and the typed text:
 3. Route: drop the typed-text check; a POST still needs owner + same-origin; the log keeps `started` / refusals (no more `wrong_text`). The separate confirm page goes (GET /server/power redirects to /server).
 4. Tests updated; shots: pill closed, dialog open (desktop 1440, phone 390), friend view.
 
+## Live test 1 (2026-11-05, B. present)
+- 17:24:08 wrong text logged; 17:24:17 valid press -> helper 202; 17:25:04 stage "stopping"; 17:26:09 host off. Under 2 min. power.log: who + when, no token. Hub, helper and the Joey containers back by themselves at boot (17:34); helper idle.
+- FAIL on restart: 9 of 12 media containers (jellyfin, radarr, sonarr, jellyseerr, flaresolverr, portainer, uptime-kuma, wud, stackctl) stayed "exited": `docker compose stop` marks them manually stopped and `restart: unless-stopped` honours that. Started by hand (`docker compose -p media-server start`, 12/12). Fix in JY-274b: powerctl writes a marker before the shutdown and runs the project start at its own boot.
+- ADM: no fs warnings on boot; halt-action log empty.
+
 ## Shipped notes

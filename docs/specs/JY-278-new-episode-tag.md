@@ -1,6 +1,6 @@
 # JY-278 Recently added: the "new episode" tag on show tiles
 
-Status: shipped (merged d884f0b 2026-11-05 on B. Sweep 29 "JY-278: Accept"; deploy tonight)
+Status: shipped (merged d884f0b 2026-11-05 on B. Sweep 29 "JY-278: Accept"; LIVE 6956375 2026-11-05)
 Size: S (one tile per show already shipped in JY-277 option B #313; only the tag remains)
 Live risk: none
 Area: `hub/media_home.py` (`added_rows`, show grouping), the Home / Overview shelf templates that render Recently added tiles (`_poster.html` or the JY-277 shelf partial), `hub/static/control-surface.css`, TV branch of the same tile (`_tv_tile.html` caption), `tests/hub/test_media_home*`

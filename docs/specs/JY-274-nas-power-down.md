@@ -1,6 +1,6 @@
 # JY-274 Server page: "Power down NAS" button
 
-Status: merged ddfd75c 2026-11-05 on B. "Accept JY-274"; live test pending (NAS_INSTALL.md steps 1-7 with B., window TBC); B. 2026-11-05 "Take defaults")
+Status: shipped 2026-11-05 (LIVE 285876a; live test 2 PASS: stack back by itself after boot)
 Size: M
 Live risk: HIGH (the button powers off the host that runs the hub itself)
 Area: `hub/server.py` (new `hub/server_power.py` beside `server_stack.py`), `hub/templates/server.html`, a new `server_power.html` confirm page, a host-side helper (Option A script or Option B sidecar under `stackctl/`-style folder), `tests/hub/`
@@ -102,4 +102,14 @@ Supersedes round 1's bottom-right control and the typed text:
 - FAIL on restart: 9 of 12 media containers (jellyfin, radarr, sonarr, jellyseerr, flaresolverr, portainer, uptime-kuma, wud, stackctl) stayed "exited": `docker compose stop` marks them manually stopped and `restart: unless-stopped` honours that. Started by hand (`docker compose -p media-server start`, 12/12). Fix in JY-274b: powerctl writes a marker before the shutdown and runs the project start at its own boot.
 - ADM: no fs warnings on boot; halt-action log empty.
 
+## Live test 2 (2026-11-05, B. present)
+
+- Press at 18:10 AEDT (power.log "started" by Benji) -> media stopped -> NAS off; B. powered it on at about 19:35.
+- Boot: gluetun came back on its own (it was still up when the host cut, so Docker's restart policy restarted it); 8 s later powerctl found the stop marker and ran `docker compose -p media-server start`; the other 11 containers started over the next 30 s. 12/12 up, no hand start. PASS.
+- Helper logged "start exit 1" (compose returns non-zero when one service is already running / reports an error) and its stderr is not logged -> JY-274c logs the last stderr lines. Marker deleted.
+
 ## Shipped notes
+
+- Merged ddfd75c (#326) + fb395fe (#327); LIVE 285876a 2026-11-05 ~19:00 AEDT; helper installed on the NAS by deploy/powerctl_install.sh (profile `power`, token in powerctl.env, never in the repo).
+- Final shape: header pill (12 px corners) -> sign-out-style dialog -> red "Power down" -> stack stop -> poweroff; boot marker restarts the media stack; "Last shutdown" line on /server from power.log.
+- Power on is not possible from the hub (it runs on the NAS). The NAS card has Wake-on-LAN enabled ("Wake-on: g"); phone WoL app / Home Assistant "Goodnight" + "Good morning" = JY-274c.

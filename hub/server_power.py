@@ -1,10 +1,9 @@
 """Server -> "Power down" (JY-274, 2026-11-05): the hub side of powerctl (powerctl/README.md).
 
 Owner "you" only (her view and friends get 403; the media front never serves the route, hub/guest.py PRIVATE).
-GET `/server/power` is the confirm page only: what goes off, the after-21:30 warning, how it comes back (the 07:00 ADM
-power schedule or the NAS power button; no Wake-on-LAN, spec Q3) and a typed `POWER DOWN`. The POST, behind
-`same_origin`, checks owner + the typed text, then calls `POST {POWER_URL}/power-down` with `Bearer POWER_TOKEN` (2 s
-cap): 202 -> "Shutting down in 60 s", 409 -> "already pending", anything else -> an error and the NAS untouched.
+The confirm is a <dialog> on the Server page (header pill, built like the sign-out one); GET `/server/power` just
+redirects to /server. The POST, behind `same_origin`, checks owner, then calls `POST {POWER_URL}/power-down` with
+`Bearer POWER_TOKEN` (2 s cap): 202 -> "Shutting down in 60 s", 409 -> "already pending", anything else -> an error and the NAS untouched.
 Every owner POST is appended to `power.log` (JSON lines beside media.db: time, who, outcome; never the token or URL)
 BEFORE the page is rendered. The Server page's "Last shutdown" line reads that file (no request on page load).
 """
@@ -17,11 +16,10 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import parse_qs
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.concurrency import run_in_threadpool
 
 from hub import guest, ids, media_store, shell
@@ -33,7 +31,6 @@ log = logging.getLogger("hub.server_power")
 router = APIRouter()
 
 TIMEOUT = 2
-CONFIRM_TEXT = "POWER DOWN"
 LATE_FROM, EARLY_UNTIL = (21, 30), (7, 0)
 _lock = threading.Lock()
 
@@ -46,7 +43,7 @@ MESSAGES = {"started": "Shutting down in 60 s. The page will stop answering.",
             "refused": "powerctl refused the request. The NAS is untouched.",
             "unreachable": "powerctl unreachable. The NAS is untouched.",
             "off": "powerctl is not connected on the hub (POWER_URL, POWER_TOKEN). The NAS is untouched.",
-            "wrong_text": f"Type {CONFIRM_TEXT} exactly to confirm. Nothing was done."}
+            }
 
 
 def _creds() -> tuple[str, str] | None:
@@ -114,7 +111,7 @@ def can_press(request: Request) -> bool:
 def header(request: Request) -> dict:
     """The Server page's header bit: the pill (owner + configured) and the last-shutdown line. Local reads only."""
     return {"pill": can_press(request) and configured(), "last": last_shutdown(), "what": WHAT,
-            "late": LATE if is_late() else None, "back": BACK, "confirm_text": CONFIRM_TEXT}
+            "late": LATE if is_late() else None, "back": BACK}
 
 
 def _who(request: Request) -> str:
@@ -154,22 +151,20 @@ def _page(request: Request, outcome: str | None = None):
         return shell.not_found_page(request)
     return shell.render_page(request, "server_power.html", {
         "area": area, "what": WHAT, "late": LATE if is_late() else None, "back": BACK, "last": last_shutdown(),
-        "confirm_text": CONFIRM_TEXT, "configured": configured(), "outcome": outcome,
+        "configured": configured(), "outcome": outcome,
         "message": MESSAGES.get(outcome or "") or (None if configured() else MESSAGES["off"]),
     }, active_id=area.id)
 
 
-@router.get("/server/power", response_class=HTMLResponse)
+@router.get("/server/power")
 def confirm(request: Request):
     _owner_only(request)
-    return _page(request)
+    return RedirectResponse("/server", status_code=303)
 
 
 @router.post("/server/power", response_class=HTMLResponse, dependencies=[Depends(same_origin)])
 async def press(request: Request):
     _owner_only(request)
-    body = (await request.body())[:2048].decode("utf-8", "replace")
-    typed = (parse_qs(body).get("confirm") or [""])[0]
-    outcome = "wrong_text" if typed.strip() != CONFIRM_TEXT else await run_in_threadpool(power_down)
+    outcome = await run_in_threadpool(power_down)
     record(_who(request), outcome)   # the log line first, then the page
     return _page(request, outcome)

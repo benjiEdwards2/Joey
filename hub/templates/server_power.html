@@ -1,32 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Power down NAS · Joey{% endblock %}
 {% block content %}
-{# Server -> Power down NAS (JY-274, 2026-11-05): the confirm step (owner only). Plain form POST behind the same-origin
-   guard, a typed POWER DOWN, no JS. The hub calls powerctl server-side; no token or URL reaches this page. After a
-   started power-down the form is gone and the page says "Shutting down in 60 s". #}
+{# Server -> Power down NAS (JY-274, round 2 2026-11-05): the RESULT page after the Server page's confirm dialog POSTs
+   (owner only). The hub calls powerctl server-side; no token or URL reaches this page. After a started power-down the
+   page says "Shutting down in 60 s". #}
 <section class="sec narrow" id="power-confirm" aria-label="Power down NAS">
   <div class="sechead"><h1 class="seclabel">Power down NAS</h1></div>
   {% if outcome == "started" %}
   <p class="power-count" role="status">{{ message }}</p>
   <p class="metaline">{{ back }}</p>
   {% else %}
-  <p class="metaline">{{ what }}</p>
-  {% if late %}<p class="metaline st-warn power-late">{{ late }}</p>{% endif %}
-  <p class="metaline">{{ back }}</p>
-  <p class="metaline power-last">{{ last }}</p>
   {% if message %}<p class="metaline {{ 'st-down' if outcome in ('refused', 'unreachable', 'off') else 'st-warn' }}" role="status">{{ message }}</p>{% endif %}
-  {% if configured and outcome != "pending" %}
-  <form method="post" action="/server/power" class="power-form">
-    <label class="metaline" for="power-confirm-text">Type {{ confirm_text }} to confirm</label>
-    <input id="power-confirm-text" class="power-input" name="confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
-    <div class="confirm-btns">
-      <button class="btn btn-danger" type="submit">Power down now</button>
-      <a class="btn btn-ghost" href="/server">Cancel</a>
-    </div>
-  </form>
-  {% else %}
   <div class="confirm-btns"><a class="btn btn-secondary" href="/server">Back to Server</a></div>
-  {% endif %}
   {% endif %}
 </section>
 {% endblock %}

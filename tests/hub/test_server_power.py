@@ -81,15 +81,15 @@ def lines(env):
     return [json.loads(x) for x in env.log.read_text(encoding="utf-8").splitlines()] if env.log.exists() else []
 
 
-def press(client, text="POWER DOWN", headers=YOU, **kw):
-    return client.post("/server/power", data={"confirm": text}, headers=headers, **kw)
+def press(client, headers=YOU, **kw):
+    return client.post("/server/power", headers=headers, **kw)
 
 
 def test_owner_sees_the_pill_and_none_yet(env):
     with env() as client:
         r = client.get("/server", headers=YOU)
     head = r.text.split('class="pagehead"', 1)[1].split("</header>", 1)[0]
-    assert 'href="/server/power"' in head and "Power down" in head
+    assert 'aria-controls="power-dlg"' in head and "Power down" in head
     assert "Last shutdown: none yet" in txt(head)
     assert TOKEN not in r.text and "secret-host" not in r.text and env.calls == []
 
@@ -99,7 +99,8 @@ def test_her_view_has_no_pill_and_gets_403(env):
         page = client.get("/server", headers=HER).text
         g = client.get("/server/power", headers=HER)
         p = press(client, headers=HER)
-    assert 'href="/server/power"' not in page and "Last shutdown: none yet" in txt(page)
+    assert 'id="power-dlg"' not in page and 'aria-controls="power-dlg"' not in page
+    assert "Last shutdown: none yet" in txt(page)
     assert g.status_code == 403 and p.status_code == 403
     assert env.calls == [] and lines(env) == []
 
@@ -114,26 +115,27 @@ def test_media_front_never_serves_the_route(env, monkeypatch):
                                                      "state": None, "scope": {}})()) is False
 
 
-def test_unset_hides_the_pill_and_the_form(env):
+def test_unset_hides_the_pill_and_the_dialog(env):
     with env(power_env=False) as client:
         page = client.get("/server", headers=YOU).text
-        g = main_of(client.get("/server/power", headers=YOU).text)
         p = main_of(press(client).text)
-    assert 'href="/server/power"' not in page
-    assert "powerctl is not connected" in g and 'action="/server/power"' not in g
+    assert 'id="power-dlg"' not in page and 'aria-controls="power-dlg"' not in page
     assert "The NAS is untouched" in p and env.calls == []
     assert [x["outcome"] for x in lines(env)] == ["off"]
 
 
-def test_get_is_the_confirm_page_only(env):
+def test_get_redirects_and_the_owner_dialog_is_on_the_server_page(env):
     with env() as client:
-        r = client.get("/server/power", headers=YOU)
-    m = main_of(r.text)
-    assert r.status_code == 200 and env.calls == [] and lines(env) == []
-    assert 'action="/server/power"' in m and 'name="confirm"' in m and "Type POWER DOWN to confirm" in m
-    assert "07:00 on the ADM power schedule" in m and "power button on the NAS" in m
-    assert "friends watching now will be cut off" not in m   # 12:00: no warning
-    assert TOKEN not in r.text and "secret-host" not in r.text
+        r = client.get("/server/power", headers=YOU, follow_redirects=False)
+        page = client.get("/server", headers=YOU).text
+    assert r.status_code == 303 and r.headers["location"] == "/server" and env.calls == [] and lines(env) == []
+    dlg = page.split('<dialog id="power-dlg"', 1)[1].split("</dialog>", 1)[0]
+    assert "Power down the NAS?" in dlg and 'action="/server/power"' in dlg and 'hx-boost="false"' in dlg
+    assert "Cancel" in dlg and 'name="confirm"' not in dlg and "POWER DOWN" not in page
+    assert "07:00 on the ADM power schedule" in dlg and "power button on the NAS" in dlg
+    assert "friends watching now will be cut off" not in dlg   # 12:00: no warning
+    assert 'id="power-corner"' not in page and "Power Off?" not in page
+    assert TOKEN not in page and "secret-host" not in page
 
 
 @pytest.mark.parametrize("now, warned", [(NIGHT, True), (datetime(2026, 11, 5, 6, 59), True),
@@ -141,16 +143,8 @@ def test_get_is_the_confirm_page_only(env):
 def test_late_warning(env, now, warned):
     env.now = now
     with env() as client:
-        m = main_of(client.get("/server/power", headers=YOU).text)
+        m = client.get("/server", headers=YOU).text.split('<dialog id="power-dlg"', 1)[1].split("</dialog>", 1)[0]
     assert ("friends watching now will be cut off until 07:00" in m) is warned
-
-
-@pytest.mark.parametrize("text", ["", "power down", "POWER", "POWERDOWN"])
-def test_wrong_text_does_nothing(env, text):
-    with env() as client:
-        m = main_of(press(client, text).text)
-    assert "Type POWER DOWN exactly" in m and env.calls == []
-    assert [x["outcome"] for x in lines(env)] == ["wrong_text"]
 
 
 def test_other_origin_does_nothing(env):
@@ -164,7 +158,7 @@ def test_valid_press_calls_the_helper_once_and_logs(env, caplog):
         r = press(client)
         page = client.get("/server", headers=YOU).text
     m = main_of(r.text)
-    assert "Shutting down in 60 s" in m and 'action="/server/power"' not in m
+    assert "Shutting down in 60 s" in m and 'action="/server/power"' not in m and len(env.calls) == 1
     assert env.calls == [{"url": f"{URL}/power-down", "headers": {"Authorization": f"Bearer {TOKEN}"}, "timeout": 2}]
     rows = lines(env)
     assert [(x["outcome"], x["who"]) for x in rows] == [("started", "Benji")]
@@ -216,27 +210,3 @@ def test_token_is_in_no_template_or_source():
     for p in [*(root / "hub" / "templates").glob("*.html"), root / "hub" / "server_power.py"]:
         assert TOKEN not in p.read_text(encoding="utf-8")
     assert "POWER_TOKEN" not in (root / "hub" / "templates" / "server_power.html").read_text(encoding="utf-8")
-
-
-def test_corner_control_owner_only_and_hidden_when_unset(env):
-    with env() as client:
-        mine = client.get("/server", headers=YOU).text
-        hers = client.get("/server", headers=HER).text
-    assert 'id="power-corner"' in mine and "Power Off?" in mine and 'name="confirm"' in mine
-    assert "Type POWER DOWN to confirm" in txt(mine) and "07:00 on the ADM power schedule" in mine
-    assert "friends watching now will be cut off" not in mine
-    assert 'id="power-corner"' not in hers and "Power Off?" not in hers
-    assert TOKEN not in mine and "secret-host" not in mine
-
-
-def test_corner_control_late_warning_and_unset(env):
-    env.now = NIGHT
-    with env() as client:
-        late = client.get("/server", headers=YOU).text
-    assert "friends watching now will be cut off" in late
-
-
-def test_corner_control_hidden_when_unset(env):
-    with env(power_env=False) as client:
-        off = client.get("/server", headers=YOU).text
-    assert 'id="power-corner"' not in off and "Power Off?" not in off

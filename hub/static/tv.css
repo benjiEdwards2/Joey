@@ -787,6 +787,3 @@ html.tv .tv-hero-title[hidden], html.tv .tv-hero-logo[hidden] { display: none; }
 
 /* JY-270 P7: the streaming-service chips on Discover reuse the library chip row (.tv-libchips); a little air above */
 html.tv .tv-svcchips { margin-top: .75rem; }
-
-/* JY-274b: the bottom-right "Power Off?" control is not shown on the TV. */
-html.tv .power-corner { display: none; }

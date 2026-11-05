@@ -1,6 +1,6 @@
 # JY-274 Server page: "Power down NAS" button
 
-Status: ready (B. 2026-11-05: "Take defaults" on the options page https://claude.ai/artifact/XLwxwZ1SmTL7GQcPnRVByb; building 2026-11-05)
+Status: review (PR #326 open, two reviewers running 2026-11-05; B. 2026-11-05 "Take defaults")
 Size: M
 Live risk: HIGH (the button powers off the host that runs the hub itself)
 Area: `hub/server.py` (new `hub/server_power.py` beside `server_stack.py`), `hub/templates/server.html`, a new `server_power.html` confirm page, a host-side helper (Option A script or Option B sidecar under `stackctl/`-style folder), `tests/hub/`

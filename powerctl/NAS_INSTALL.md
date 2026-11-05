@@ -60,6 +60,10 @@ docker exec joey-powerctl wget -qO- http://127.0.0.1:8811/status; echo   # no to
   `media-server`: set `STOP_CMD` in `powerctl.env` to the real `-p` name.
 - `/status` with the token: `{"pending": false, ..., "stage": "idle", ...}`.
 
+## One-shot script
+
+`deploy/powerctl_install.sh` runs steps 1-5 as one pass with PASS/FAIL per step (token never printed): `ssh root@<nas> sh -s < deploy/powerctl_install.sh`, then `deploy.sh --force`. First run 2026-11-05: ALL PASS.
+
 ## 6. Before the live test
 
 - Inside the day window, B. present at the NAS (or able to press its power button).

@@ -124,3 +124,4 @@
 - 2026-11-05 B. (Sweep 30): JY-323 "Accept" (Qs a/b blank -> 5 rem, role one line). Merged #325 (03257d3). Main now carries #321 #322 #323 #324 #325, all undeployed until B. says deploy.
 - 2026-11-05 B. (JY-274): "Take defaults" -> sidecar helper (B), B. only, no WoL assumed, allow after 21:30 with warning, no cancel, stop media stack first, header pill (A). Building; ships only after a supervised live power-down with B. present.
 - 2026-11-05: JY-274 PR #326 reviewed (hub + helper reviewers PASS with notes, fixed e6490d7) and verified. On Sweep 31 for B. Accept. Merge/deploy does not power anything off: the helper is behind a compose profile until the NAS install + live test with B.
+- 2026-11-05 B.: "Accept JY-274" -> #326 merged (ddfd75c). Not shipped yet: the powerctl helper stays off until the NAS install + a supervised live shutdown with B. in a day window (pill colour: red as shot, Qs b/c blank).

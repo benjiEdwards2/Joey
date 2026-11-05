@@ -50,3 +50,5 @@ keystore.properties
 /tv/.gradle
 /tv/.kotlin
 /tv/local.properties
+# powerctl stop marker (NAS-side bind mount)
+/deploy/powerctl-data/

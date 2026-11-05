@@ -10,7 +10,8 @@ the token. Home Assistant may later make the SAME call ("Goodnight"): one stable
 
 Every endpoint needs `Authorization: Bearer <POWERCTL_TOKEN>` (constant-time compare). The token is never logged.
 Env: POWERCTL_TOKEN (required - no token, no start), STOP_CMD (default `docker compose -p media-server stop -t 45`),
-SHUTDOWN_CMD (EMPTY = dry run: the shutdown is only logged, never run; the Dockerfile sets the real one), GRACE_S
+START_CMD (default `docker compose -p media-server start`, run at startup when the stop marker exists), MARKER_PATH
+(default /data/stopped-by-powerctl, written after a stop and before the shutdown; EMPTY = no marker), SHUTDOWN_CMD (EMPTY = dry run: the shutdown is only logged, never run; the Dockerfile sets the real one), GRACE_S
 (seconds before the stop starts, default 3, so the hub's answer and log write finish first), PORT (default 8811).
 """
 
@@ -31,6 +32,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 LOG_LINES = 50
 STOP_CAP_S = 60
 DEFAULT_STOP_CMD = "docker compose -p media-server stop -t 45"
+DEFAULT_START_CMD = "docker compose -p media-server start"
+DEFAULT_MARKER = "/data/stopped-by-powerctl"
+START_CAP_S = 120
 DEFAULT_PORT = 8811
 
 
@@ -53,7 +57,8 @@ class Job:
     shutdown clears it so the owner can try again. An empty `shutdown_cmd` is a dry run (tests, a laptop)."""
 
     def __init__(self, stop_cmd: list[str] | None, shutdown_cmd: list[str] | None, grace_s: float = 3,
-                 stop_cap_s: float = STOP_CAP_S, runner=subprocess.run):
+                 stop_cap_s: float = STOP_CAP_S, runner=subprocess.run, marker: str | None = None):
+        self.marker = marker
         self.stop_cmd, self.shutdown_cmd = list(stop_cmd or []), list(shutdown_cmd or [])
         self.grace_s, self.stop_cap_s, self.runner = grace_s, stop_cap_s, runner
         self.lock = threading.Lock()
@@ -84,6 +89,19 @@ class Job:
         with self.lock:
             self.log.append(line.rstrip())
 
+    def _mark(self) -> None:
+        """compose stop marks containers manually stopped, so restart: unless-stopped leaves them down at boot; this
+        marker tells the next powerctl start to run START_CMD."""
+        if not self.marker:
+            return
+        try:
+            os.makedirs(os.path.dirname(self.marker) or ".", exist_ok=True)
+            with open(self.marker, "w", encoding="utf-8") as f:
+                f.write(_now() + chr(10))
+            self._say("stop marker written")
+        except OSError as exc:
+            self._say(f"stop marker failed: {type(exc).__name__}")
+
     def _stage(self, name: str) -> None:
         with self.lock:
             self.stage = name
@@ -97,8 +115,11 @@ class Job:
                 r = self.runner(self.stop_cmd, timeout=self.stop_cap_s, capture_output=True, text=True,
                                 errors="replace")
                 self._say(f"stop exit {r.returncode}")
+                if r.returncode == 0:
+                    self._mark()
             except subprocess.TimeoutExpired:
                 self._say(f"stop still running after {self.stop_cap_s:g} s - shutting down anyway")
+                self._mark()
             except Exception as exc:
                 self._say(f"stop failed: {type(exc).__name__}")
         self._stage("shutting down")
@@ -122,6 +143,28 @@ class Job:
                 self.pending = False
             self.log.append(f"exit {code}")
         self.done.set()
+
+
+def resume(marker: str | None, start_cmd: list[str], runner=subprocess.run, cap_s: float = START_CAP_S) -> bool:
+    """At startup: if the stop marker exists, start the media stack again, log it, delete the marker. True if it ran."""
+    if not marker or not os.path.exists(marker):
+        return False
+    if start_cmd:
+        print("powerctl: stop marker found - " + " ".join(start_cmd), file=sys.stderr)
+        try:
+            r = runner(start_cmd, timeout=cap_s, capture_output=True, text=True, errors="replace")
+            print(f"powerctl: start exit {r.returncode}", file=sys.stderr)
+        except subprocess.TimeoutExpired:
+            print(f"powerctl: start still running after {cap_s:g} s", file=sys.stderr)
+        except Exception as exc:
+            print(f"powerctl: start failed: {type(exc).__name__}", file=sys.stderr)
+    else:
+        print("powerctl: stop marker found, START_CMD empty - nothing started", file=sys.stderr)
+    try:
+        os.remove(marker)
+    except OSError as exc:
+        print(f"powerctl: marker not removed: {type(exc).__name__}", file=sys.stderr)
+    return True
 
 
 def make_handler(job: Job, token: str):
@@ -172,7 +215,9 @@ def main() -> int:
     except ValueError:
         print("powerctl: GRACE_S must be a number and PORT an integer - refusing to start", file=sys.stderr)
         return 2
-    job = Job(stop, shutdown, grace_s=grace_s)
+    marker = os.environ.get("MARKER_PATH", "")
+    resume(marker, shlex.split(os.environ.get("START_CMD", "")))
+    job = Job(stop, shutdown, grace_s=grace_s, marker=marker or None)
     shown = " ".join(shutdown) or "DRY RUN"
     print(f"powerctl: listening on :{port}, stop '{' '.join(stop)}', shutdown '{shown}'", file=sys.stderr)
     ThreadingHTTPServer(("0.0.0.0", port), make_handler(job, token)).serve_forever()

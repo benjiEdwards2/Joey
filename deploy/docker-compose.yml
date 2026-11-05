@@ -215,6 +215,7 @@ services:
         required: false
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./powerctl-data:/data   # the stopped-by-powerctl marker: after boot powerctl starts the media stack again (compose stop = "manually stopped", restart policy leaves it)
     expose:
       - "8811"
     labels:

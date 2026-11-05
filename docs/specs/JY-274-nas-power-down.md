@@ -89,4 +89,12 @@ Build (S, same area, after #326 merged):
    Assumption (B. did not say): the control is on the Server page only, not every page; phone keeps it above the bottom nav.
 3. Shots: desktop 1440, phone 390 of the pill (12 px), the bottom-right control closed and open; friend view without it. Tests: owner-only + hidden when unset for the new control; existing tests pass.
 
+## Follow-up b, round 2 (B. 2026-11-05, Sweep 32 "Change")
+B.: "I hate the typing of POWER down. It should just be a confirmation box similar to the log out feature." and "Only keep the top pill button. Then it should pop up a screen to confirm the power down. Similar to the log out screen."
+Supersedes round 1's bottom-right control and the typed text:
+1. Remove the bottom-right "Power Off?" control and its box.
+2. The header pill (12 px corners) opens a confirm <dialog> built exactly like the sign-out one (base.html `signout-dlg`, `.signoutdlg`, `.confirm-btns`): question "Power down the NAS?", a body line (media apps stop, then the NAS powers off; back at 07:00 by the schedule or the power button; the after-21:30 warning when late), a red "Power down" submit + "Cancel". The submit is a plain full-page POST /server/power (hx-boost off).
+3. Route: drop the typed-text check; a POST still needs owner + same-origin; the log keeps `started` / refusals (no more `wrong_text`). The separate confirm page goes (GET /server/power redirects to /server).
+4. Tests updated; shots: pill closed, dialog open (desktop 1440, phone 390), friend view.
+
 ## Shipped notes

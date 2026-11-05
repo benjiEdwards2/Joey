@@ -251,7 +251,7 @@
       </div>
     </form>
   </div>
-  <a class="btn power-pill power-corner-btn" href="/server/power" data-power-open aria-controls="power-corner-box">Power Off?</a>
+  <a class="btn power-pill power-corner-btn" href="/server/power" hx-boost="false" data-power-open aria-controls="power-corner-box">Power Off?</a>
 </div>
 <script>
 (function () {
@@ -259,10 +259,10 @@
   function box() { return document.getElementById("power-corner-box"); }
   document.addEventListener("click", function (e) {
     var b = box(); if (!b) return;
-    if (e.target.closest("[data-power-open]")) { e.preventDefault(); b.hidden = !b.hidden;
+    if (e.target.closest("[data-power-open]")) { e.preventDefault(); e.stopPropagation(); b.hidden = !b.hidden;
       if (!b.hidden) { var i = document.getElementById("power-corner-text"); if (i) i.focus(); } }
     else if (e.target.closest("[data-power-close]")) { e.preventDefault(); b.hidden = true; }
-  });
+  }, true);
   document.addEventListener("keydown", function (e) { var b = box(); if (e.key === "Escape" && b) b.hidden = true; });
 })();
 </script>

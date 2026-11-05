@@ -852,13 +852,16 @@ html:not(.tv) .newep-cap { display: none; }
 /* JY-274 (2026-11-05): Power down NAS - the red pill at the right of the Server page head, its Last shutdown line, the
    typed-confirm field and the "Shutting down in 60 s" words. */
 .pagehead-side { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
-.power-pill { border-radius: 999px; border-color: var(--danger-line); background: var(--bad-soft); color: var(--bad); }
+.power-pill { border-radius: 12px; border-color: var(--danger-line); background: var(--bad-soft); color: var(--bad); }
 .power-pill:hover { background: var(--danger-line); }
 .power-last { margin: 0; font-size: 13px; color: var(--text-4); }
 .power-form { display: flex; flex-direction: column; gap: 8px; max-width: 360px; margin-top: 8px; }
 .power-input { font: 600 18px/1.2 inherit; letter-spacing: .06em; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
   background: transparent; color: inherit; width: 100%; box-sizing: border-box; }
 .power-count { font-size: 22px; font-weight: 700; color: var(--bad); margin: 14px 0 4px; }
+/* JY-274b round 2: the power-down confirm is the sign-out dialog (.signoutdlg) with a red submit. */
+.btn-power { background: var(--bad); color: var(--zinc-950); }
+.btn-power:hover { background: var(--bad); filter: brightness(1.1); }
 /* Phone (mock A-pill-phone-390): the pill stays at the right of the title row, the line under it; 44 px tap target. */
 @media (max-width: 639px) { .pagehead-foot:has(.pagehead-side) { flex-wrap: nowrap; align-items: flex-start; }
   .pagehead-side { flex-shrink: 0; max-width: 50%; }

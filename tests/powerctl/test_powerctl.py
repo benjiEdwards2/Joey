@@ -126,3 +126,47 @@ def test_http_power_down_202_then_409_and_status(served):
     code, body = served("GET", "/status")
     assert code == 200 and body["pending"] is True and TOKEN not in json.dumps(body)
     assert served("GET", "/nope")[0] == 404
+
+
+def test_marker_written_after_a_successful_stop_before_shutdown(tmp_path):
+    marker = tmp_path / "data" / "stopped-by-powerctl"
+    seen = []
+
+    def runner(argv, **kw):
+        seen.append((argv[0], marker.exists()))
+        return subprocess.CompletedProcess(argv, 0)
+    job = powerctl.Job(["stop"], ["halt-host"], grace_s=0, runner=runner, marker=str(marker))
+    assert job.start() and job.done.wait(5)
+    assert seen == [("stop", False), ("halt-host", True)] and marker.exists()
+
+
+def test_no_marker_when_the_stop_fails_or_marker_unset(tmp_path):
+    marker = tmp_path / "m"
+    bad = lambda argv, **kw: subprocess.CompletedProcess(argv, 1)  # noqa: E731
+    job = powerctl.Job(["stop"], [], grace_s=0, runner=bad, marker=str(marker))
+    job.start(); assert job.done.wait(5) and not marker.exists()
+    job = powerctl.Job(["stop"], [], grace_s=0, runner=Ran(), marker=None)
+    job.start(); assert job.done.wait(5)
+
+
+def test_resume_starts_the_stack_and_deletes_the_marker(tmp_path):
+    marker = tmp_path / "m"
+    marker.write_text("x")
+    ran = Ran()
+    assert powerctl.resume(str(marker), ["start-stack"], runner=ran) is True
+    assert [c[0] for c in ran.calls] == [["start-stack"]] and not marker.exists()
+
+
+def test_resume_without_a_marker_does_nothing(tmp_path):
+    ran = Ran()
+    assert powerctl.resume(str(tmp_path / "none"), ["start-stack"], runner=ran) is False
+    assert powerctl.resume("", ["start-stack"], runner=ran) is False and ran.calls == []
+
+
+def test_resume_deletes_the_marker_even_if_start_fails(tmp_path):
+    marker = tmp_path / "m"
+    marker.write_text("x")
+
+    def boom(argv, **kw):
+        raise subprocess.TimeoutExpired(argv, 1)
+    assert powerctl.resume(str(marker), ["start-stack"], runner=boom) is True and not marker.exists()

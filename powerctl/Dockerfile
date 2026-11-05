@@ -7,7 +7,7 @@ WORKDIR /app
 COPY powerctl.py .
 ENV PYTHONUNBUFFERED=1 \
     STOP_CMD="docker compose -p media-server stop -t 45" \
-    SHUTDOWN_CMD="nsenter -t 1 -m -u -i -n -p -- poweroff" \
+    START_CMD="docker compose -p media-server start"     MARKER_PATH="/data/stopped-by-powerctl"     SHUTDOWN_CMD="nsenter -t 1 -m -u -i -n -p -- poweroff" \
     GRACE_S=3 \
     PORT=8811
 EXPOSE 8811

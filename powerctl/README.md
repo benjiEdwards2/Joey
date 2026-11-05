@@ -16,6 +16,11 @@ built like [`stackctl`](../stackctl/README.md).
 1. Wait `GRACE_S` (3 s): the hub's page and its `power.log` line finish first.
 2. `STOP_CMD` (default `docker compose -p media-server stop -t 45`): every media container stops cleanly. Capped at
    60 s; a stuck or failed stop is logged and the shutdown goes ahead anyway.
+   After a successful (or timed-out) stop it writes the marker `MARKER_PATH` (default `/data/stopped-by-powerctl`,
+   the `./powerctl-data:/data` bind mount in `deploy/docker-compose.yml`). `compose stop` marks containers manually
+   stopped, so `restart: unless-stopped` leaves them down after a boot; at startup powerctl, if the marker exists, runs
+   `START_CMD` (default `docker compose -p media-server start`, 120 s cap), logs it and deletes the marker. Empty
+   `MARKER_PATH` = no marker; empty `START_CMD` = marker deleted, nothing started.
 3. `SHUTDOWN_CMD`: in the image, `nsenter -t 1 -m -u -i -n -p -- poweroff` (below). **Empty = dry run**: the step is
    logged as "dry run" and nothing is powered off. The code's default is empty; only the Dockerfile sets the real one,
    so tests and a laptop run can never power anything off.

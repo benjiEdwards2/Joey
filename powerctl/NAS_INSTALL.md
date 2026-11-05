@@ -72,11 +72,14 @@ docker exec joey-powerctl wget -qO- http://127.0.0.1:8811/status; echo   # no to
 
 ## 7. The live test ("prove it", accept checklist item 4)
 
-1. B. opens `/server`, presses **Power down**, types `POWER DOWN`, presses **Power down now**.
+1. B. opens `/server`, presses **Power down**, confirms in the dialog ("Power down the NAS?").
 2. The page shows "Shutting down in 60 s". Write down the time.
 3. Within ~60 s Jellyfin and the other media apps stop; then the NAS powers off (fans and lights out). Note the minute.
 4. B. presses the NAS power button. When it is up: `/server` shows "Last shutdown: <minutes> ago by Benji"; the media
-   stack comes back by itself (`restart: unless-stopped`); `cat /volume1/Docker/joey/data/sqlite/power.log` has one
+   stack comes back via powerctl's marker, not by restart policy (`compose stop` marks the containers manually
+   stopped, so `unless-stopped` leaves them down: powerctl writes `/data/stopped-by-powerctl` after the stop and, when it
+   boots and finds it, runs `START_CMD` and deletes it; check `docker logs joey-powerctl` for "stop marker found" and
+   `docker ps` for all media containers up); `cat /volume1/Docker/joey/data/sqlite/power.log` has one
    `started` line; nothing in it is a token.
 5. ADM's system log shows a normal shutdown, and no disk check / "improper shutdown" warning on boot.
 

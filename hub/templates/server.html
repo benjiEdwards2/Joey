@@ -5,7 +5,7 @@
 {% set sub %}{% if sv.attention %}{{ sv.attention | length }} need{{ "s" if sv.attention | length == 1 else "" }} attention{% else %}All clear{% endif %}{% endset %}
 {# JY-274 (2026-11-05): the red Power down pill (owner + powerctl configured) and the Last shutdown line (everyone who
    sees the page, the TV included), read from power.log - no request on load. #}
-{% set side %}{% if power %}{% if power.pill %}<a class="btn power-pill" href="/server/power"><span aria-hidden="true">&#x23FB;</span> Power down</a>{% endif %}<p class="power-last">{{ power.last }}</p>{% endif %}{% endset %}
+{% set side %}{% if power %}{% if power.pill %}<button class="btn power-pill" type="button" aria-haspopup="dialog" aria-controls="power-dlg" onclick="var d=document.getElementById('power-dlg');d._opener=this;d.showModal()"><span aria-hidden="true">&#x23FB;</span> Power down</button>{% endif %}<p class="power-last">{{ power.last }}</p>{% endif %}{% endset %}
 {{ pagehead(area.name, sub=sub, side=side) }}
 {% endblock %}
 {% block content %}
@@ -234,4 +234,16 @@
   </div>
   {% endif %}
 </details>
+{# JY-274b round 2 (2026-11-05): the header pill opens this confirm dialog, built like base.html's sign-out one. The
+   submit is a plain full-page POST /server/power (hx-boost off); no typed text. #}
+{% if power and power.pill %}
+<dialog id="power-dlg" class="signoutdlg" aria-labelledby="power-q" aria-describedby="power-body">
+  <p id="power-q" class="signout-q">Power down the NAS?</p>
+  <p id="power-body" class="signout-body">{{ power.what }} {{ power.back }}{% if power.late %} {{ power.late }}{% endif %}</p>
+  <form class="confirm-btns" method="post" action="/server/power" hx-boost="false">
+    <button class="btn btn-signout btn-power" type="submit"><span>Power down</span></button>
+    <button class="btn btn-stay" type="button" data-close data-first autofocus onclick="this.closest('dialog').close()">Cancel</button>
+  </form>
+</dialog>
+{% endif %}
 {% endblock %}

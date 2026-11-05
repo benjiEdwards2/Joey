@@ -1,6 +1,6 @@
 # JY-307 TV UI overhaul, phase 4: backdrop-led title pages + Discover search line
 
-Status: shipped (merged 2b4b290 2026-11-05 on B. Sweep 29 "JY-307: Accept"; cast 2:3 tiles follow-up = JY-323; deploy tonight)
+Status: shipped (merged 2b4b290 2026-11-05 on B. Sweep 29 "JY-307: Accept"; cast 2:3 tiles follow-up = JY-323; LIVE 6956375 2026-11-05)
 Size: M
 Live risk: none (TV templates/CSS/JS; no NAS write)
 Area: TV branches of `hub/templates/media_film.html` (film, show, season, episode), the person page's TV branch, `_tv_title_extras.html`, `media_discover_guest.html` / `_guest_discover_grid.html` (TV), `hub/static/tv.css`, `hub/static/tv.js`, `hub/tv_home.py` (backdrop/logo helpers reused), `tests/hub/tv_css.py`, `tests/hub/test_tv_*`, `tests/tv`

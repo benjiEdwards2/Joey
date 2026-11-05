@@ -122,6 +122,8 @@ Every key in `deploy/.env.example`, plus `JELLYFIN_USER_ALIASES`. Source of trut
 | `WUD_PASS` | out | write: update triggers |
 | `STACKCTL_URL` | out | write: restarts the media stack |
 | `STACKCTL_TOKEN` | out | write: restarts the media stack (root-equivalent) |
+| `POWER_URL` | out | write: powers the NAS off (JY-274) |
+| `POWER_TOKEN` | out | write: powers the NAS off (JY-274) |
 | `PROWLARR_URL` | out | connectors only; admin key |
 | `PROWLARR_API_KEY` | out | connectors only; admin key |
 | `UPTIME_KUMA_URL` | out | connectors only |

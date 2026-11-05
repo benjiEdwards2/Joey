@@ -144,6 +144,8 @@ ENV_OUT = {
     "WUD_PASS": "write: update triggers",
     "STACKCTL_URL": "write: restarts the media stack",
     "STACKCTL_TOKEN": "write: restarts the media stack (root-equivalent)",
+    "POWER_URL": "write: powers the NAS off (JY-274)",
+    "POWER_TOKEN": "write: powers the NAS off (JY-274)",
     "PROWLARR_URL": "connectors only; admin key",
     "PROWLARR_API_KEY": "connectors only; admin key",
     "UPTIME_KUMA_URL": "connectors only",

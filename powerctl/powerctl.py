@@ -109,6 +109,9 @@ class Job:
             self._say("$ " + " ".join(self.shutdown_cmd))
             try:
                 code = self.runner(self.shutdown_cmd, timeout=30).returncode
+            except subprocess.TimeoutExpired:   # poweroff still running: the host is going down, keep pending
+                self._say("shutdown command still running after 30 s - treated as sent")
+                code = 0
             except Exception as exc:
                 self._say(f"shutdown failed: {type(exc).__name__}")
                 code = 1
@@ -163,8 +166,13 @@ def main() -> int:
         return 2
     stop = shlex.split(os.environ.get("STOP_CMD", DEFAULT_STOP_CMD))
     shutdown = shlex.split(os.environ.get("SHUTDOWN_CMD", ""))
-    job = Job(stop, shutdown, grace_s=float(os.environ.get("GRACE_S", "3")))
-    port = int(os.environ.get("PORT", DEFAULT_PORT))
+    try:
+        grace_s = float(os.environ.get("GRACE_S", "3"))
+        port = int(os.environ.get("PORT", DEFAULT_PORT))
+    except ValueError:
+        print("powerctl: GRACE_S must be a number and PORT an integer - refusing to start", file=sys.stderr)
+        return 2
+    job = Job(stop, shutdown, grace_s=grace_s)
     shown = " ".join(shutdown) or "DRY RUN"
     print(f"powerctl: listening on :{port}, stop '{' '.join(stop)}', shutdown '{shown}'", file=sys.stderr)
     ThreadingHTTPServer(("0.0.0.0", port), make_handler(job, token)).serve_forever()

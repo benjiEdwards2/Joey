@@ -52,6 +52,8 @@ docker exec joey-powerctl wget -qO- --header "Authorization: Bearer $TOKEN" http
 docker exec joey-powerctl wget -qO- http://127.0.0.1:8811/status; echo   # no token: must fail (401)
 ```
 
+- A pass here proves only that the binary exists and the namespace entry works, NOT that the shutdown works: only the
+  live test (step 7) proves that. Also check `docker exec joey-powerctl nsenter -t 1 -m -u -i -n -p -- ls -l /sbin/poweroff`.
 - Line 1 must print the host's `poweroff` path and the NAS host name (not the container id). No `poweroff`: stop and
   set `SHUTDOWN_CMD` in `powerctl.env` to what ADM has (e.g. `... -- /sbin/poweroff`), then repeat.
 - Line 2 must list the running media containers (jellyfin, radarr, ...). Empty = the project name is not

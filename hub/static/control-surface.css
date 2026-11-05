@@ -859,7 +859,10 @@ html:not(.tv) .newep-cap { display: none; }
 .power-input { font: 600 18px/1.2 inherit; letter-spacing: .06em; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line);
   background: transparent; color: inherit; width: 100%; box-sizing: border-box; }
 .power-count { font-size: 22px; font-weight: 700; color: var(--bad); margin: 14px 0 4px; }
-@media (max-width: 639px) { .pagehead-side { margin-left: 0; align-items: flex-start; text-align: left; } }
+/* Phone (mock A-pill-phone-390): the pill stays at the right of the title row, the line under it; 44 px tap target. */
+@media (max-width: 639px) { .pagehead-foot:has(.pagehead-side) { flex-wrap: nowrap; align-items: flex-start; }
+  .pagehead-side { flex-shrink: 0; max-width: 50%; }
+  .power-pill { min-height: 44px; } .power-last { font-size: 12px; } }
 details.confirm-wrap > summary { list-style: none; }
 details.confirm-wrap > summary::-webkit-details-marker { display: none; }
 

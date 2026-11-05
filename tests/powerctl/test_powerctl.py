@@ -60,6 +60,25 @@ def test_a_failed_shutdown_clears_pending():
     assert job.status()["pending"] is False and job.status()["stage"] == "failed"
 
 
+def test_a_shutdown_timeout_counts_as_sent_and_stays_pending():
+    def runner(argv, **kw):
+        if argv[0] == "halt-host":
+            raise subprocess.TimeoutExpired(argv, 30)
+        return subprocess.CompletedProcess(argv, 0)
+    job = powerctl.Job(["stop"], ["halt-host"], grace_s=0, runner=runner)
+    job.start()
+    assert job.done.wait(5)
+    st = job.status()
+    assert st["pending"] is True and st["stage"] == "shutdown sent" and not job.start()
+
+
+@pytest.mark.parametrize("key, value", [("GRACE_S", "soon"), ("PORT", "x")])
+def test_bad_env_values_refuse_to_start(monkeypatch, capsys, key, value):
+    monkeypatch.setenv("POWERCTL_TOKEN", TOKEN)
+    monkeypatch.setenv(key, value)
+    assert powerctl.main() == 2 and "refusing to start" in capsys.readouterr().err
+
+
 def test_empty_shutdown_is_a_dry_run():
     ran = Ran()
     job = powerctl.Job(["stop"], [], grace_s=0, runner=ran)

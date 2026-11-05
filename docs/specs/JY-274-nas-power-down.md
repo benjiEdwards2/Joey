@@ -1,6 +1,6 @@
 # JY-274 Server page: "Power down NAS" button
 
-Status: options (page https://claude.ai/artifact/XLwxwZ1SmTL7GQcPnRVByb 2026-11-05; JY-324 folded in: B. 2026-11-05 "NAS services too", Home Assistant "Goodnight" voice later)
+Status: ready (B. 2026-11-05: "Take defaults" on the options page https://claude.ai/artifact/XLwxwZ1SmTL7GQcPnRVByb; building 2026-11-05)
 Size: M
 Live risk: HIGH (the button powers off the host that runs the hub itself)
 Area: `hub/server.py` (new `hub/server_power.py` beside `server_stack.py`), `hub/templates/server.html`, a new `server_power.html` confirm page, a host-side helper (Option A script or Option B sidecar under `stackctl/`-style folder), `tests/hub/`
@@ -70,5 +70,15 @@ Restart / reboot, power-on from the page (the hub is off), scheduled shutdowns, 
 - B.: "shut down the system with a button press at night" / "NAS services too" / "set up a lot of them later on with home assistant where I can just tell my phone Goodnight and it will turn off the Nas system for now. That is an idea to look at post installation for the NAS system."
 - So the power-down must be ONE action a later Home Assistant automation can call (a token-gated POST on the hub or the helper itself), not only a page button. Option B (sidecar) already gives that endpoint.
 - Note: the host is an Asustor NAS running ADM (docs/PLAN.md), not DSM; read "DSM" above as ADM (Settings, Hardware, Power for the schedule). Wake-on-LAN support on ADM still unknown (Q3).
+
+## Decisions (B. 2026-11-05 "Take defaults")
+- Q1 mechanism: B, a sidecar like `stackctl` (bearer token, one endpoint, 202/409, status endpoint). Also the hook Home Assistant calls later.
+- Q2 who: B. only (owner check from `hub/identity.py`).
+- Q3 Wake-on-LAN: assume none; power-on = the 07:00 ADM schedule or the physical button. The confirm page says so.
+- Q4 after 21:30 / before 07:00: allow, with a warning that friends are cut off until 07:00.
+- Q5 cancel during the 60 s: no.
+- Q6 stop the media stack cleanly first: yes (the helper stops the media compose project, waits up to 60 s, then `shutdown -h now`; the hub's own 60 s delay runs in parallel so the page answers first).
+- Q7 placement: A, the red "Power down" pill in the Server page header row; TV shows the "Last shutdown" line only.
+- Host is Asustor ADM: `shutdown -h now` (or `poweroff`) from the helper with host PID namespace; builder documents the exact command in `deploy/README.md` and the operator proves it on the live test (accept checklist).
 
 ## Shipped notes

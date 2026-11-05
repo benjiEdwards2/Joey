@@ -122,3 +122,4 @@
 - 2026-11-05: JY-324 folded into JY-274 (same "Power down NAS" button ask from 2026-11-02); JY-274 gains the Home Assistant hook requirement (one callable action) and the ADM-not-DSM note. Options page for JY-274 building.
 - 2026-11-05: JY-323 PR #325 reviewer PASS after a fix round (5 rem tiles, two-line names). On Sweep 30 for B. Accept. JY-274 options page published; B. to answer or take defaults.
 - 2026-11-05 B. (Sweep 30): JY-323 "Accept" (Qs a/b blank -> 5 rem, role one line). Merged #325 (03257d3). Main now carries #321 #322 #323 #324 #325, all undeployed until B. says deploy.
+- 2026-11-05 B. (JY-274): "Take defaults" -> sidecar helper (B), B. only, no WoL assumed, allow after 21:30 with warning, no cancel, stop media stack first, header pill (A). Building; ships only after a supervised live power-down with B. present.

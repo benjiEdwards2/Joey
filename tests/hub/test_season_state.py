@@ -246,7 +246,8 @@ def test_show_page_never_calls_sonarr_before_the_render_then_has_the_words(env, 
     assert status(second) == f"On server · 5 of 8 episodes · 2 left · S4 E4 next · 3 to come · next airs {nxt}"
     body = main_of(second)
     # JY-290 (B.'s pick B): the season state word sits in the Episodes row's "n of m watched" line
-    assert f'3 of 6 watched · <span class="seasonstate">3 to come · next airs {nxt}</span>' in body
+    # JY-316 a (2026-11-06): the line also names the next unwatched episode, "· next S4 E4", before the state word
+    assert f'3 of 6 watched · next S4 E4 · <span class="seasonstate">3 to come · next airs {nxt}</span>' in body
     assert len(sonarr.calls) == 2                                                 # warm: no further call
 
 

@@ -255,6 +255,22 @@ def test_series_page_season_header_and_row_toggles(wenv):
     assert "/media/resume/ep6/" not in row6                                   # not aired: nothing to mark
 
 
+def test_season_page_has_the_season_toggle_for_you_only_and_flashes_back(wenv, monkeypatch):
+    """JY-316 b (2026-11-06): piece b needed no code - the toggle already sits beside the chips on the season page itself."""
+    monkeypatch.setitem(ITEMS, "sea1", {"Id": "sea1", "Type": "Season", "Name": "Season 4", "SeriesId": "ser1",
+                                        "SeriesName": "Quiet Show", "IndexNumber": 4, "UserData": {}})
+    client, _, _ = wenv()
+    with client:
+        b = page(client, "/media/item/sea1")
+        acts = b.split('<span class="seasonacts tl-seasonacts">', 1)[1].split("</form>", 1)[0]
+        assert 'action="/media/resume/sea1/watched"' in acts and ">Mark season watched</button>" in acts
+        assert 'name="back" value="/media/item/sea1"' in acts and 'name="season" value="4"' in acts
+        r = post(client, "sea1", "watched", "/media/item/sea1", scope="season", show="ser1", season="4")
+        assert r.status_code == 303 and r.headers["location"].startswith("/media/item/sea1?done=")
+        client.cookies.set("owner_view", "her")
+        assert "/media/resume/sea1/" not in client.get("/media/item/sea1").text
+
+
 def test_season_header_flips_once_every_aired_episode_is_watched(wenv, monkeypatch):
     import tests.hub.test_media_resume as tmr
     monkeypatch.setattr(tmr, "EPISODES", [ep(1, "One", True), ep(2, "Two", True), ep(3, "Three", premiere=TOMORROW)])

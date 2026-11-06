@@ -1,6 +1,6 @@
 # JY-316 TV shows 2.3: season page with progress in words, Mark season watched, season cast and scores
 
-Status: spec (B. 2026-11-04 on Plan 2 phase 2.3: "Only the chips. No need for that view.")
+Status: building, round 2 (B. 2026-11-06, Sweep 34; round 1: B. 2026-11-04 on Plan 2 phase 2.3: "Only the chips. No need for that view.")
 Size: M
 Live risk: none (template + page data; one extra small SELECT; no schema change, no new network call)
 Area: `hub/media_film.py` (`tv_shelves`, section 5 your rating, `_sections` cast), `hub/media_db.py` (season mean), `hub/templates/media_film.html` (Episodes row head, Scores card), `hub/templates/_rate.html` (`avg_pill` words), `tests/hub/`
@@ -62,5 +62,20 @@ An all-seasons view or "this / all seasons" pill (B.: chips only); the part-of b
 2. Season cast: A. show cast filtered to actors in this season's episodes, full show cast when under 3 match (default; no new fetch), B. show cast unchanged, C. TMDB season credits (one new cached fetch, later item).
 3. Progress line "· next S2 E5": A. on season and show pages, web and phone (default; same row), B. season page only, C. also on the TV.
 4. Web cast look on the season page: A. circles until JY-317 does show and season together (default), B. 2:3 tiles now on season pages only.
+
+## Round 2 (B. 2026-11-06, Sweep 34)
+B.: "We agreed that the seasons would be along the row of pills. And shows would be under that. Allowing the removal of the all seasons row which is not needed." Also "Please change all headshots of cast members to 2:3. Stop placing them in circles. For shows and movies." (Q4 answered "Okay" = 2:3 now) and "Remember the rating column sitting on the right hand side as a smaller side bar. Can you please implement that. Instead of having it as a row of things." Built together with JY-317 and JY-283 on PR #328 (spec: `docs/specs/JY-317-show-page-movie-parts.md`).
+
+Change (web and phone; the TV is not touched):
+- R2a. The Episodes row's season chips (`.tl-chips`) are the one season selector on show and season pages, the episodes directly under them; "n of m watched · next S2 E5" and Mark season watched stay beside the chips. The season page's second seasons row (the hero's S1 / S2 switch, `ef.seasonswitch`, `.seasonseg`) is removed. The part-of banner's "All seasons" button stays: it is the season page's only link to the show page (no chip leads there). The episode page's carousel head (JY-315, "Season N" + S1 / S2) is not a show / season page and stays.
+- R2b. Cast on film, show and season pages: 2:3 portrait tiles (`.casttiles`), 4 px corners, names on up to two lines, the role on one line; about 3.5 across a 390 phone (the row scrolls sideways), 150 px from 640 (about 8 across the 1440 page).
+- R2c. Scores as a right-hand column: JY-317.
+
+### Round 2 acceptance criteria
+1. Season page (1440, 390): one seasons row (the chips) with the episodes under it; no `.seasonseg` on the page.
+2. Film, show and season cast are 2:3 tiles; no `border-radius: 50%` on any web `.castsec` rule.
+3. TV pages unchanged; `tests/hub/tv_css.py` pins unchanged.
+
+Tests changed (2026-11-06, round 2 R2a / R2b): `test_episode_flow_templates.py` season-head switch tests now assert the switch is gone from the season head; the JY-269 circle-cast CSS pin becomes the 2:3 tile pin.
 
 ## Shipped notes

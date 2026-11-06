@@ -76,7 +76,9 @@ def test_show_and_episode_heroes_keep_the_same_order(env):
     # JY-269 P1 (2026-10-30): on the web the overview is the hero synopsis, above the row
     # JY-315 (2026-11-04, pick A): the episode title is the h1 and the synopsis sits under the button row
     assert order(ep, '<h1 class="hero-detail-title">Penny for Your Thoughts</h1>', 'id="status-line"', ROW,
-                 "Coins go missing.", '<div class="makers">')
+                 "Coins go missing.", '<div class="makerchips">')
+    # JY-316 round 3 (B. 2026-11-06, "Stop placing them in circles"): an episode's Created by is chips too, no circle cards
+    assert "makerpic" not in ep and "makercard" not in ep
 
 
 def test_title_not_on_the_server_has_request_first_then_makers(env):

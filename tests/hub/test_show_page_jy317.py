@@ -104,3 +104,15 @@ def test_cast_tiles_are_2_3_two_line_names_and_3_5_across_a_phone():
     assert re.search(r"\.castsec\.casttiles \.castrole \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;", CSS)
     web_cast = re.findall(r"html:not\(\.tv\) \.castsec[^{]*\{[^}]*\}", CSS)
     assert web_cast and not any("50%" in r for r in web_cast)
+
+
+def test_round3_episode_page_has_no_circle_headshots_off_the_tv(env, monkeypatch):
+    """JY-316 round 3 (B. 2026-11-06: "Stop placing them in circles."): an episode page's Created by is chips and its
+    guests are 2:3 cast tiles - no .makerpic / .guest-pic circles off the TV."""
+    monkeypatch.setitem(ITEMS["ep3"], "People", [{"Name": "Gus Guest", "Type": "GuestStar", "Role": "Visitor"}])
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/item/ep3"))
+    assert "makerpic" not in b and "guest-pic" not in b and "makercard" not in b
+    assert '<span class="makerchip-role">Creator</span>' in b
+    assert "Gus Guest" in b and 'class="sec castsec casttiles" id="guests"' in b

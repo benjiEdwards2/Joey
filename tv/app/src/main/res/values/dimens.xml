@@ -10,15 +10,43 @@
     <dimen name="joey_button_height">64dp</dimen>
     <dimen name="joey_gap">16dp</dimen>
     <dimen name="joey_dialog_width">640dp</dimen>
-    <!-- JY-259 phase 4: the player overlay on the TV tile kit's tokens (tv.css at the 960x540 CSS viewport, dpr 2:
-         1 CSS px = 1 dp). Text and the tile halve the 1920x1080 mock; the 56dp buttons match tv.css's 3.5rem controls at
-         the 960x540 dp render; nothing goes under the 18 px floor. -->
+    <!-- JY-307 phase 5 (option B): the player overlay at the P2b scale. Sizes are px at 1920x1080 / 2 (1 dp = 2 px on
+         the TCL's 960x540 dp): every JY-259 P4 size x 0.75, matching tv.css at 24 px/rem. Text floor 27 px = 13.5sp
+         (1.125rem); nothing under it (tests/tv/test_player_dimens.py). -->
     <dimen name="tv_r">6dp</dimen>
     <dimen name="tv_r_sm">4dp</dimen>
-    <dimen name="tv_floor">18sp</dimen>
-    <dimen name="player_title">32sp</dimen>
-    <dimen name="player_method">18sp</dimen>
-    <dimen name="player_button_height">56dp</dimen>
+    <dimen name="tv_floor">13.5sp</dimen>
+    <!-- margins 72 x 40 px (tv.css tv-mx 3rem, tv-my) -->
+    <dimen name="player_mx">36dp</dimen>
+    <dimen name="player_my">20dp</dimen>
+    <!-- the bottom gradient: ~45 % of the 540 dp height -->
+    <dimen name="player_scrim_h">243dp</dimen>
+    <!-- text: eyebrow 27 px, title 48 px, line / time / chapter 27 px, labels and pop-up rows 30 px (tv-fs-label) -->
+    <dimen name="player_eyebrow">13.5sp</dimen>
+    <dimen name="player_title">24sp</dimen>
+    <dimen name="player_title_max">550dp</dimen>
+    <dimen name="player_method">13.5sp</dimen>
+    <dimen name="player_label">15sp</dimen>
+    <!-- the focus ring, 6 px white -->
+    <dimen name="player_ring">3dp</dimen>
+    <!-- buttons: 84 px round, 40 px icons; the focused one widens into a pill with its label -->
+    <dimen name="player_button_height">42dp</dimen>
+    <dimen name="player_icon">20dp</dimen>
+    <dimen name="player_button_pad">11dp</dimen>
+    <dimen name="player_button_pad_end_on">18dp</dimen>
+    <dimen name="player_button_label_gap">8dp</dimen>
+    <dimen name="player_button_gap">8dp</dimen>
+    <!-- the bar: row 48 px, track 8 px, thumb 16 px, focused thumb 24 px, chapter ticks 2 px -->
+    <dimen name="player_bar_row">24dp</dimen>
+    <dimen name="player_bar_track">4dp</dimen>
+    <dimen name="player_bar_thumb">8dp</dimen>
+    <dimen name="player_bar_thumb_on">12dp</dimen>
+    <dimen name="player_bar_tick">1dp</dimen>
+    <!-- the pop-up: two 540 px columns, 84 px rows (max 6) -->
+    <dimen name="player_popup_col">270dp</dimen>
+    <dimen name="player_row">42dp</dimen>
+    <!-- the up-next card: a 400 x 225 px 16:9 tile, 72 px chips -->
     <dimen name="player_upnext_tile">200dp</dimen>
-    <dimen name="player_upnext_tile_h">113dp</dimen>
+    <dimen name="player_upnext_tile_h">112.5dp</dimen>
+    <dimen name="player_chip_height">36dp</dimen>
 </resources>

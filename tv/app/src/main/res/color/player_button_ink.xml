@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JY-307 P5: a player icon button's icon and label: white, ink on the focused (activated) white pill. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/joey_ink" android:state_activated="true" />
+    <item android:color="@color/joey_text_1" />
+</selector>

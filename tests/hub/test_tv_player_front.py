@@ -5,7 +5,8 @@
   `allows()` keeps denying them (no nav link derives from them). Flag off: unchanged (tests/hub/test_player_api.py).
 * The TV Play mark: `&player=joey` on the Jellyfin deep links only for flag on + media front + a Joey TV user agent at
   versionCode 2026102701 (1.0.3) or later + a household member. Everyone else keeps today's link byte for byte.
-* The start answer's additive `up_next`, from the hub's item cache only.
+* The start answer's additive `up_next` (+ `still`, JY-307 P5) and the title block's `title` / `line` / `year`, from
+  the hub's item cache only.
 Names, ids, tokens and hosts are invented; no live call."""
 import re
 
@@ -100,8 +101,37 @@ def test_the_household_table_names_exactly_the_five_routes():
 def test_start_carries_up_next_from_the_cache_with_no_extra_call(client, jf):
     episode_cache()
     body = start(client, item_id=EP2)
-    assert body["up_next"] == {"item_id": EP3, "label": "S2 · E3 · The Breakwater", "runtime": "48m"}
+    assert body["up_next"] == {"item_id": EP3, "label": "S2 · E3 · The Breakwater", "runtime": "48m",
+                               "still": f"jf:{EP3}"}
     assert [c["path"] for c in jf.calls] == ["/Users/Me", f"/Items/{EP2}/PlaybackInfo"]
+
+
+# ---- JY-307 P5: the title block words (additive, from the cache) ----
+
+def test_start_carries_the_title_block_words_from_the_cache_with_no_extra_call(client, jf):
+    episode_cache()
+    body = start(client, item_id=EP2)
+    assert (body["title"], body["line"], body["year"]) == ("Harbour Lights", "S2 · E2 · Low Tide", None)
+    assert [c["path"] for c in jf.calls] == ["/Users/Me", f"/Items/{EP2}/PlaybackInfo"]
+    seed(ITEM, {"kind": "movie", "id": ITEM, "title": "Library Film", "year": "2019", "runtime": "1h 58m"})
+    film = start(client)
+    assert (film["title"], film["line"], film["year"]) == ("Library Film", None, "2019")
+
+
+def test_title_block_words_are_null_for_a_cold_cache_or_an_untitled_item(client, jf):
+    film = start(client)
+    assert (film["title"], film["line"], film["year"], film["up_next"]) == (None, None, None, None)
+    seed(ITEM, {"kind": "movie", "id": ITEM})
+    assert (start(client)["title"], start(client)["year"]) == (None, None)
+
+
+def test_up_next_still_is_null_when_the_cached_episode_has_none(client, jf):
+    episode_cache()
+    show = media_item.peek("5a" * 16) or {}
+    for s in show.get("seasons") or []:
+        for e in s["episodes"]:
+            e["still"] = None
+    assert start(client, item_id=EP2)["up_next"]["still"] is None
 
 
 def test_up_next_is_null_for_a_film_the_last_aired_episode_and_a_cold_cache(client, jf):
@@ -236,9 +266,10 @@ def test_up_next_on_the_media_front_is_each_viewers_own(client, jf, env):
         a = start(client, headers=None, item_id=shared_ep)["up_next"]
         on_media(env, HER_ON_MEDIA)
         b = start(client, headers=None, item_id=shared_ep)["up_next"]
-        assert a == {"item_id": a_next, "label": "S1 · E2 · Alias Next", "runtime": "41m"}
-        assert b == {"item_id": b_next, "label": "S1 · E2 · Her Next", "runtime": "41m"}
-        assert set(a) == set(b) == {"item_id", "label", "runtime"}   # no watch state or progress travels with it
+        assert a == {"item_id": a_next, "label": "S1 · E2 · Alias Next", "runtime": "41m", "still": None}
+        assert b == {"item_id": b_next, "label": "S1 · E2 · Her Next", "runtime": "41m", "still": None}
+        # no watch state or progress travels with it (JY-307 P5 adds only the cached still ref)
+        assert set(a) == set(b) == {"item_id", "label", "runtime", "still"}
         # a viewer with nothing cached gets nothing, never someone else's entry
         on_media(env, Identity(owner="you", name="Other Device", jf_user_id="c9" * 16, jf_token="tok-c9"))
         assert start(client, headers=None, item_id=shared_ep)["up_next"] is None

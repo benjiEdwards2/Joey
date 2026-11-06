@@ -78,6 +78,15 @@ object PlayerUi {
 
     fun initial(nowMs: Long, hasNext: Boolean) = PlayerUiState(hasNext = hasNext, lastInputMs = nowMs)
 
+    /**
+     * JY-307 P5: a resumed start shows the controls (with the "Resumed from" line) as if a key was just pressed, so the
+     * usual [HIDE_AFTER_MS] keeps them up for at least the line's 4 s. An open pop-up or up-next card is left alone.
+     */
+    fun resumedStart(state: PlayerUiState, nowMs: Long): PlayerUiState = when (state.overlay) {
+        PlayerOverlay.NONE, PlayerOverlay.CONTROLS -> state.copy(overlay = PlayerOverlay.CONTROLS, lastInputMs = nowMs)
+        else -> state
+    }
+
     /** The keys the player consumes; everything else (volume, Home, power) goes to the system. */
     fun handles(keyCode: Int): Boolean = keyCode in HANDLED
 

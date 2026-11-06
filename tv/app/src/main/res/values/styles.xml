@@ -66,34 +66,59 @@
         <item name="android:textColor">@color/joey_text_2</item>
     </style>
 
-    <!-- JY-057 player: a button or a pop-up row. The ring comes from isActivated (PlayerUi), not Android focus. -->
+    <!-- JY-057 player: an up-next chip or a pop-up row. The ring comes from isActivated (PlayerUi), not Android focus.
+         JY-307 P5: 72 px chips, 30 px labels (tv-fs-label). -->
     <style name="JoeyPlayerChip">
         <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">@dimen/player_button_height</item>
-        <item name="android:minWidth">104dp</item>
-        <item name="android:paddingStart">22dp</item>
-        <item name="android:paddingEnd">22dp</item>
+        <item name="android:layout_height">@dimen/player_chip_height</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
         <item name="android:gravity">center</item>
         <item name="android:background">@drawable/player_chip</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:textSize">@dimen/tv_floor</item>
+        <item name="android:textSize">@dimen/player_label</item>
         <item name="android:textColor">@color/joey_text_1</item>
         <item name="android:maxLines">1</item>
         <item name="android:focusable">false</item>
-        <item name="android:layout_marginEnd">@dimen/joey_gap</item>
     </style>
 
+    <!-- JY-307 P5: pop-up rows, 84 px, 30 px text -->
     <style name="JoeyPlayerRow" parent="JoeyPlayerChip">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">56dp</item>
+        <item name="android:layout_height">@dimen/player_row</item>
         <item name="android:gravity">center_vertical|start</item>
-        <item name="android:paddingStart">20dp</item>
-        <item name="android:paddingEnd">20dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
         <item name="android:ellipsize">end</item>
-        <item name="android:layout_marginEnd">0dp</item>
     </style>
 
-    <!-- JY-259 phase 4: the overlay's title block (mock: 64 px / 28 px at 1920) -->
+    <!-- JY-307 P5: an icon-only round button (84 px, 40 px icon); the focused one shows its 30 px label (render code) -->
+    <style name="JoeyPlayerButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">@dimen/player_button_height</item>
+        <item name="android:minWidth">@dimen/player_button_height</item>
+        <item name="android:paddingStart">@dimen/player_button_pad</item>
+        <item name="android:paddingEnd">@dimen/player_button_pad</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/player_button</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">@dimen/player_label</item>
+        <item name="android:textColor">@color/player_button_ink</item>
+        <item name="android:drawableTint">@color/player_button_ink</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:focusable">false</item>
+        <item name="android:layout_marginEnd">@dimen/player_button_gap</item>
+    </style>
+
+    <!-- JY-307 P5: the title block, bottom left: eyebrow 27 px amber caps, title 48 px, line 27 px -->
+    <style name="JoeyPlayerEyebrow">
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">@dimen/player_eyebrow</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:textColor">@color/joey_amber</item>
+    </style>
+
     <style name="JoeyPlayerTitle">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textStyle">bold</item>
@@ -102,6 +127,14 @@
         <item name="android:textColor">@color/joey_text_1</item>
     </style>
 
+    <!-- the line under the title, the time line and the chapter: 27 px -->
+    <style name="JoeyPlayerLine">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">@dimen/player_method</item>
+        <item name="android:textColor">@color/joey_text_2</item>
+    </style>
+
+    <!-- the diagnostic words (method, first frame) and the pop-up / card captions: 27 px muted -->
     <style name="JoeyPlayerMethod">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:textSize">@dimen/player_method</item>

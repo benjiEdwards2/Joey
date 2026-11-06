@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JY-307 P5: Play (40 px), tinted by the button: white, ink when focused. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="@dimen/player_icon"
+    android:height="@dimen/player_icon"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M7,4.5L19.5,12L7,19.5Z" />
+</vector>

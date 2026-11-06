@@ -19,6 +19,41 @@ class PlayApiClient(private val ui: Origin, private val userAgent: String) {
 
     fun post(path: String, json: String?): Answer = request("POST", path, json)
 
+    /**
+     * JY-307 P5: one image from the hub's /img proxy (the up-next still), same cookies and no redirects; the bytes on a
+     * 200 image answer of at most [MAX_IMAGE] bytes, else null. Blocking: call it off the main thread.
+     */
+    fun image(path: String): ByteArray? {
+        val base = ui.toString()
+        var conn: HttpURLConnection? = null
+        return try {
+            conn = (URL(base + path).openConnection() as HttpURLConnection).apply {
+                connectTimeout = CONNECT_MS
+                readTimeout = IMAGE_READ_MS
+                instanceFollowRedirects = false
+                setRequestProperty("User-Agent", userAgent)
+                setRequestProperty("Accept", "image/*")
+                CookieManager.getInstance().getCookie(base)?.takeIf { it.isNotBlank() }?.let { setRequestProperty("Cookie", it) }
+            }
+            if (conn.responseCode != 200 || conn.contentType?.startsWith("image/") != true) return null
+            conn.inputStream.use { input ->
+                val out = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(16 * 1024)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    out.write(buf, 0, n)
+                    if (out.size() > MAX_IMAGE) return null
+                }
+                out.toByteArray()
+            }
+        } catch (e: IOException) {
+            null
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
     private fun request(method: String, path: String, json: String?): Answer {
         val base = ui.toString()
         var conn: HttpURLConnection? = null
@@ -63,5 +98,7 @@ class PlayApiClient(private val ui: Origin, private val userAgent: String) {
         const val CONNECT_MS = 5_000
         const val READ_MS = 15_000     // a start may wait on Jellyfin twice (the resume read, PlaybackInfo): ~10 s worst case
         const val MAX_BODY = 256 * 1024
+        const val IMAGE_READ_MS = 5_000
+        const val MAX_IMAGE = 2 * 1024 * 1024
     }
 }

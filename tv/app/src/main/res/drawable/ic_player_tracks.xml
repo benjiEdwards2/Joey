@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- JY-307 P5: Audio and subtitles, a screen with caption lines (40 px), tinted by the button: white, ink when focused. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="@dimen/player_icon"
+    android:height="@dimen/player_icon"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M2,4h20v16H2Z M4,6v12h16V6Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M6,12h5v2H6Z M12.5,12h5.5v2h-5.5Z M6,15.5h8v2H6Z M15.5,15.5h2.5v2h-2.5Z" />
+</vector>

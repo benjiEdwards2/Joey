@@ -74,13 +74,27 @@ def _up_next(item: dict) -> dict | None:
 
 def up_next(jf_id: str) -> dict | None:
     """JY-057: the playback API's `up_next` (the TV shell player's card) - the same rule as the page's card, from the
-    cache only: {item_id, label, runtime}, or None for a film, the last aired episode or an item not cached."""
+    cache only: {item_id, label, runtime, still}, or None for a film, the last aired episode or an item not cached.
+    `still` (JY-307 P5, additive) is the cached `jf:<id>` ref the shell loads through /img, or None."""
     item = (media_item.peek(jf_id) or {}).get("item")
     nxt = _next_aired(item) if isinstance(item, dict) else None
     if nxt is None:
         return None
     season, e = nxt
-    return {"item_id": _item_id(e["jf_id"]), "label": _label(season, e), "runtime": e.get("runtime")}
+    return {"item_id": _item_id(e["jf_id"]), "label": _label(season, e), "runtime": e.get("runtime"),
+            "still": e.get("still")}
+
+
+def player_words(jf_id: str) -> dict:
+    """JY-307 P5 (additive): the TV player's title block from the cached item read (page_data, no Jellyfin call):
+    {title, line, year}. `line` is page_data's "S2 · E5 · Name" for an episode; `year` is a film's only. All None
+    when nothing is cached, so the shell keeps the page title."""
+    data = page_data(jf_id)
+    item = (media_item.peek(jf_id) or {}).get("item") or {}
+    if data is None or not item.get("title") and not item.get("show_title"):
+        return {"title": None, "line": None, "year": None}
+    year = item.get("year") if item.get("kind") != "episode" else None
+    return {"title": data["title"], "line": data["line"], "year": str(year) if year else None}
 
 
 def page_data(jf_id: str) -> dict | None:

@@ -77,13 +77,18 @@
            names the show); the words, year included, are the fallback #}
         {{ title_h1(film.title, film.backdrop, "hero-detail-title", film.title ~ ((" (" ~ film.year ~ ")") if film.year and not tvm else "")) }}
         {% if film.tagline %}<p class="tagline">{{ film.tagline }}</p>{% endif %}
-        {% if epnav %}{{ ef.seasonswitch(epnav) }}{% endif %}
+        {# JY-316 round 2 (B. 2026-11-06: "the seasons would be along the row of pills. And shows would be under that.
+           Allowing the removal of the all seasons row"): off the TV the Episodes row's chips are the one season
+           selector, so the hero's S1 / S2 switch is drawn on the TV only. #}
+        {% if epnav and tvm %}{{ ef.seasonswitch(epnav) }}{% endif %}
         {# U6 (2026-10-13): runtime and the certificate are said once, in the Numbers strip below, not here and in Details too. #}
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
         {% endif %}
-        {% set filmchips = film.kind == "movie" and not tvm %}{% if filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}{% endif %}
+        {# JY-317 (Plan 2 phase 2.5): a show / season page off the TV takes the film's maker chips too (Creator, Director) #}
+        {% set filmchips = film.kind in ("movie", "tv") and not tvm and not film.episode %}{% if filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
+        {% if film.directors %}<div class="makerchips makers-directors">{% for m in film.directors %}<a class="chip makerchip" href="{{ '/media/person/' ~ m.id if m.id else '/media/person/find?name=' ~ (m.name|urlencode) }}"><span class="makerchip-role">Director</span>{{ m.name }}</a>{% endfor %}</div>{% endif %}{% endif %}
         {%- set tlsyn = (film.episode.overview if film.episode else film.overview) if not tvm else none %}{% set synblock %}{% if tlsyn %}<div class="tl-syn"><p class="tl-syntext">{{ tlsyn }}</p><button type="button" class="tl-synmore" onclick="this.parentNode.classList.toggle('open');this.textContent=this.parentNode.classList.contains('open')?'less':'more'">more</button></div>{% endif %}{% endset %}{% if not film.episode %}{{ synblock }}{% endif %}
         {% if tvm %}
         {% if tvreq %}
@@ -150,7 +155,7 @@
         {% if not filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}{% endif %}
         {# A show's directors (2026-10-11): the same cards as a film's "Directed by", from the episodes on the server
            (most episodes first) — Jellyfin headshots, Discover search links since there is no TMDB person id. #}
-        {% if film.directors %}
+        {% if film.directors and not filmchips %}
         <div class="makers makers-directors">
           <div class="microlabel">Directed by</div>
           <div class="makerrow">
@@ -180,6 +185,10 @@
 {% set n = film.numbers %}
 {# Joey TV WP-B3: no off-site links on the guest front (the exposure crawl allows the Jellyfin edge, YouTube and TMDB images only) #}
 {% set sites = film.tmdb and film.kind in ("movie", "tv") and not guest(request) %}
+{# JY-280 (P1): a film off the TV says its overview once, in the hero, and leads the body with the cast tiles (before the Scores card) #}
+{% set filmweb = film.kind == "movie" and not film.episode and not tv_mode(request) %}
+{# JY-281: a show / season page off the TV takes the movie's logo + number scores (no site words, no Letterboxd) #}
+{% set tvweb = film.kind == "tv" and not film.episode and not tv_mode(request) %}
 {# JY-269 P2 (B.'s pick A, 2026-10-29): on the web and phone a show, season or episode page leads with the TV's Episodes
    row - the head line "Episodes", the seasons as chips (one line that scrolls sideways, the shown season lit and
    scrolled into view), "n of m watched", then the shown season's episodes as 16:9 tiles in a sideways row (wheel, drag
@@ -224,6 +233,11 @@
 </script>
 {% endif %}
 {% endif %}
+{# JY-317 (B. 2026-11-06: "Remember the rating column sitting on the right hand side as a smaller side bar."): a show /
+   season page off the TV has the film's two-column body from 1024 px - the main column (the Episodes row, the part-of
+   banner, cast, crew, where to watch) and a 300 px right-hand column (Scores, Details, the owner's File drawer),
+   closed below. Stacked under the main column on a phone. #}
+{% if tvweb %}<div class="filmcols tlcols"><div class="filmcol-main">{% endif %}
 {% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons and not film.episode %}
 {% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
 {% set ws = (film.seasons|selectattr("n", "equalto", shown.n)|first) if shown else none %}
@@ -305,10 +319,6 @@
 {# One rating style (media-ux4, 2026-10-08): every score is a .scorepill (`sp`, _film_scores.html) - IMDb 8.0 · RT 90% ·
    Metacritic 74 · TMDB 8.1 · Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain
    stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
-{# JY-280 (P1): a film off the TV says its overview once, in the hero, and leads the body with the cast tiles (before the Scores card) #}
-{% set filmweb = film.kind == "movie" and not film.episode and not tv_mode(request) %}
-{# JY-281: a show / season page off the TV takes the movie's logo + number scores (no site words, no Letterboxd) #}
-{% set tvweb = film.kind == "tv" and not film.episode and not tv_mode(request) %}
 {% import "_title_file.html" as tf %}
 {% import "_title_scores.html" as ts with context %}
 {% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
@@ -316,6 +326,25 @@
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
 {% set sites_row = sites and not any_score and not filmweb and not tvweb %}
+{% set offseasons %}{% if film.seasons %}
+{% elif film.kind == "tv" and film.t and film.t.seasons %}
+<section class="sec seasons">
+  <h2 class="seclabel">Seasons</h2>
+  <div class="listbox">
+  {% for s in film.t.seasons %}
+  {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
+  {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
+  {% set st %}<span class="{{ status_of(s.status_word).cls }}">{{ s.status_word }}</span>{% endset %}
+  <details class="seasonbox" id="season-{{ s.number }}" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
+  <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>
+    {{ meta([s.episodes ~ " episode" ~ ("s" if s.episodes != 1 else ""), s.year, st]) }}</div></summary>
+    <div class="episodes listbox"><a class="btn btn-ghost btn-sm" href="{{ ep_href }}">Show episodes</a></div>
+  </details>
+  {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endset %}
 {% set detailsec %}
 {% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending %}
 <section class="sec">
@@ -357,6 +386,14 @@
 </aside>
 </div>
 {% endif %}
+{% if tvweb %}
+{{ offseasons }}
+{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
+{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}
+{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
+</div>
+<aside class="filmcol-side" aria-label="Scores and details">
+{% endif %}
 {% if (any_score or (tvweb and sites) or n.runtime or film.official) and not tv_mode(request) and not filmweb %}
 <div class="stats numbers">
   {% if any_score or (tvweb and sites) %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
@@ -370,6 +407,10 @@
   </div>{% if sites and not tvweb %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
+</div>
+{% endif %}
+{% if tvweb %}{{ detailsec }}{% if fp %}{{ tf.drawer(fp) }}{% endif %}
+</aside>
 </div>
 {% endif %}
 {# JY-269 P1 (2026-10-30): the web's "Your rating" picker moved into the hero's Rate popover (id="rate"); the TV never drew it #}
@@ -423,35 +464,18 @@
 
 {# JY-290 (B. 2026-11-02): an on-server show's seasons are the Episodes carousel above (the TV: its shelves); the bottom
    Seasons list is gone. Its season toggle, state word and Sonarr-only seasons moved beside the carousel's chips. #}
-{% if film.seasons %}
-{% elif film.kind == "tv" and film.t and film.t.seasons %}
-<section class="sec seasons">
-  <h2 class="seclabel">Seasons</h2>
-  <div class="listbox">
-  {% for s in film.t.seasons %}
-  {# Episodes load on first open (htmx `toggle once`) — the page itself makes no extra upstream call. #}
-  {% set ep_href = "/media/title/tv/" ~ film.t.tmdb_id ~ "/season/" ~ s.number %}
-  {% set st %}<span class="{{ status_of(s.status_word).cls }}">{{ s.status_word }}</span>{% endset %}
-  <details class="seasonbox" id="season-{{ s.number }}" hx-get="{{ ep_href }}" hx-trigger="toggle once" hx-target="find .episodes" hx-swap="innerHTML">
-  <summary class="row"><div class="row-body"><div class="row-title">{{ s.name }}</div>
-    {{ meta([s.episodes ~ " episode" ~ ("s" if s.episodes != 1 else ""), s.year, st]) }}</div></summary>
-    <div class="episodes listbox"><a class="btn btn-ghost btn-sm" href="{{ ep_href }}">Show episodes</a></div>
-  </details>
-  {% endfor %}
-  </div>
-</section>
-{% endif %}
+{% if not tvweb %}{{ offseasons }}{% endif %}
 
 {# JY-281: the show / season / episode File section is the owner's closed drawer too (gated server-side: file_owner) #}
-{% if fp and not filmweb %}{{ tf.drawer(fp) }}{% endif %}
+{% if fp and not filmweb and not tvweb %}{{ tf.drawer(fp) }}{% endif %}
 
 {# Episode flow merge (2026-10-16): an episode page with its own Crew rows (crew_ep) skips the show-level Crew block —
    the same directors would otherwise appear twice. #}
-{% if not (film.episode and film.crew_ep) and not tv_mode(request) %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
+{% if not (film.episode and film.crew_ep) and not tv_mode(request) and not tvweb %}{% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}{% endif %}
 
-{% if not filmweb %}{{ detailsec }}{% endif %}
+{% if not filmweb and not tvweb %}{{ detailsec }}{% endif %}
 
-{% if not filmweb %}{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% endif %}{% if tv_mode(request) %}{% include "_tv_title_extras.html" %}{% endif %}
+{% if not filmweb and not tvweb %}{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}{% endif %}{% if tv_mode(request) %}{% include "_tv_title_extras.html" %}{% endif %}
 {% if not tv_mode(request) %}{% call wait("shelves", film.pending) %}{% include "_film_shelves.html" %}{% endcall %}{% endif %}
 
 {# Episode page (2026-10-16): where this episode sits in its season (the page's bar gold), then Previous / Next. #}
@@ -466,7 +490,7 @@
 {% endif %}
 {% if film.episode and epnav %}{{ ef.prevnext(epnav) }}{% endif %}
 
-{% if not tv_mode(request) and not filmweb %}{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}{% endif %}
+{% if not tv_mode(request) and not filmweb and not tvweb %}{% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}{% endif %}
 
 </div>
 

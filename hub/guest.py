@@ -116,6 +116,7 @@ GUEST: tuple = (
     *_each("GET", "/media/item/{jf_id}", "/media/item/{jf_id}/part/{name}", "/media/person/{person_id}",
            "/media/person/find", "/media/person/{person_id}/like"),   # JY-118: a name -> the person page (one Seerr search, media data only)
     *_each("GET", "/media/search", "/img/{ref:path}", "/healthz", "/static/{path:path}"),
+    ("GET", "/media/collections/{col_id}"),   # JY-266: read-only for friends
     ("POST", "/media/rate"), ("DELETE", "/media/rate/{item_key}"), ("POST", "/media/rate/{item_key}/delete"),
     *_each("POST", "/media/rate/skip", "/media/rate/skip-show", "/media/rate/unskip",
            "/media/rate/clear"),   # the To rate inbox's own buttons (+ Clear all, JY-298: the viewer's own inbox only)

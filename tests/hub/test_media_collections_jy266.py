@@ -2,6 +2,8 @@
 
 P1: the `collection` / `collection_member` tables (media.db step 8), the monthly pass over owned films (Seerr movie and
 collection bodies, faked here: no network) and the owned / missing computation."""
+import json
+import re
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
@@ -9,7 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from hub import media_collections as mc, media_discover, media_store
+from hub import guest, media_collections as mc, media_discover, media_store
+from hub.identity import Identity
+from tests.hub.film_page import whole
+from tests.hub.guest_pages import TV_UA
+from tests.hub.helpers import env  # noqa: F401
 
 NOW = datetime(2026, 11, 6, 9, 0, tzinfo=timezone.utc)
 
@@ -206,3 +212,84 @@ def test_migration_upgrades_a_populated_v7_db(tmp_path, monkeypatch):
 
 def test_summaries_on_an_empty_db_is_empty(db):
     assert mc.summaries(owned_keys()) == [] and mc.one(1, set()) is None
+
+
+# ---- P2: the franchise page + the banner link ----
+
+
+FRIEND = Identity(owner="jf:" + "f00d" * 8, name="Sample Friend", jf_user_id="f00d" * 8)
+HARBOUR = [{"id": 604, "title": "Harbour Lights 2", "date": "2022-02-02", "poster": "tmdb:/p604.jpg"},
+           {"id": 603, "title": "Harbour Lights", "date": "2019-05-05", "poster": "tmdb:/p603.jpg"},
+           {"id": 606, "title": "Harbour Lights 4", "date": None, "poster": None},
+           {"id": 605, "title": "Harbour Lights 3", "date": "2024-01-01", "poster": None}]
+PENDING = [{"tmdb_id": 605, "kind": "movie", "status_text": "Pending", "item_key": "tmdb:605"}]
+
+
+def store(col_id, name, parts, poster=None, backdrop=None, at="2026-11-01T00:00:00+00:00"):
+    with closing(media_store.connect()) as conn:
+        conn.execute("INSERT OR REPLACE INTO collection(id, name, poster, backdrop, parts_json, fetched_at) "
+                     "VALUES(?, ?, ?, ?, ?, ?)", (col_id, name, poster, backdrop, json.dumps(parts), at))
+        conn.commit()
+
+
+def cards(html):
+    return re.findall(r'<div class="card-cell( is-missing)?">\s*<a class="card-poster rowlink" href="([^"]+)">', html)
+
+
+@pytest.fixture()
+def site(env):
+    client, both = env(seerr_snap=PENDING)
+    with client:
+        store(9, "Harbour Collection", HARBOUR, backdrop="tmdb:/hb.jpg")
+        yield client, both
+
+
+def test_franchise_page_lists_parts_in_release_order(site):
+    client, both = site
+    both.calls.clear()
+    r = client.get("/media/collections/9")
+    assert r.status_code == 200
+    main = r.text.split("<main", 1)[1]
+    assert cards(main) == [("", "/media/title/movie/603"), ("", "/media/title/movie/604"),
+                           (" is-missing", "/media/title/movie/605"), (" is-missing", "/media/title/movie/606")]
+    assert "Harbour Collection" in main and "4 films · 2019-2024" in main and "2 of 4 on Joey" in main
+    assert '<span class="st-warn">Requested</span>' in main                   # pending: a word, no button
+    reqs = re.findall(r'hx-get="(/media/title/movie/\d+/request\?step=confirm)"', main)
+    assert reqs == ["/media/title/movie/606/request?step=confirm"]            # only the not-requested missing film
+    assert both.calls == []                                                   # no Seerr call on render
+
+
+def test_franchise_page_falls_back_to_seerr_when_not_stored(site):
+    client, _ = site
+    r = client.get("/media/collections/77")
+    assert r.status_code == 404
+    with closing(media_store.connect()) as conn:
+        conn.execute("DELETE FROM collection")
+        conn.commit()
+    r = client.get("/media/collections/9")                                    # helpers' Seerr fake has collection 9
+    assert r.status_code == 200 and len(cards(r.text)) == 3
+
+
+def test_film_banner_links_to_the_franchise_page(site):
+    client, _ = site
+    page = whole(client, "/media/title/movie/603")
+    assert 'href="/media/collections/9">Open collection</a>' in page
+
+
+def test_friend_sees_the_franchise_page(site, monkeypatch):
+    client, _ = site
+    monkeypatch.setenv("JOEY_FRONT", "media")
+    monkeypatch.setattr(guest, "identity_provider", lambda scope: FRIEND)
+    r = client.get("/media/collections/9")
+    assert r.status_code == 200 and "Harbour Collection" in r.text
+    assert client.post("/media/collections/refresh", headers={"Origin": "http://testserver"}).status_code in (403, 404)
+
+
+def test_tv_shows_owned_films_only_read_only(site, monkeypatch):
+    client, _ = site
+    monkeypatch.setenv("JOEY_FRONT", "media")
+    monkeypatch.setattr(guest, "identity_provider", lambda scope: FRIEND)
+    r = client.get("/media/collections/9", headers={"user-agent": TV_UA})
+    assert r.status_code == 200
+    assert [h for _, h in cards(r.text)] == ["/media/title/movie/603", "/media/title/movie/604"]
+    assert "step=confirm" not in r.text

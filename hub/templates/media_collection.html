@@ -1,0 +1,39 @@
+{% extends "media_base.html" %}
+{% block title %}{{ col.name }} · Joey{% endblock %}
+{% block pagehead %}
+{% from "_pagehead.html" import pagehead %}
+{% from "_media_tabs.html" import media_tabs with context %}
+{% call pagehead(col.name, line | join(" · "), eyebrow="Collection", backdrop=col.backdrop) %}{{ media_tabs() }}{% endcall %}
+{% endblock %}
+{% block content %}
+{% from "_poster.html" import poster %}
+{# JY-266 P2: one franchise - its films in release order. Owned in colour (the title page), missing dimmed with Request:
+   the normal confirm step (_request_block.html) drawn under the card; one #request-block at a time, as on Everyone's
+   watchlist. A part already requested reads its word. On the TV (Q4 A) the owned films only, read-only. #}
+{% set tvm = tv_mode(request) %}
+<section class="sec colpage">
+  <h2 class="seclabel">{{ "On Joey" if tvm else "Films" }} · {{ parts | length }}</h2>
+  {% if parts %}
+  <div class="poster-grid colparts">
+    {% for p in parts %}
+    <div class="card-cell{{ ' is-missing' if not p.on }}">
+      <a class="card-poster rowlink" href="{{ p.href }}">
+        <span class="card-pic">{{ poster(p.poster, p.title, 240, "", tvm) }}</span>
+        <span class="row-title">{{ p.title }}</span>
+        <span class="row-meta">{% if p.year %}{{ p.year }}<span class="sep"> · </span>{% endif %}{% if p.on %}<span class="st-available">On Joey</span>{% elif p.word %}<span class="st-warn">{{ p.word }}</span>{% else %}<span class="st-off">Not on Joey</span>{% endif %}</span>
+      </a>
+      {% if p.can_request and guest_allows(p.href ~ "/request", "GET") %}
+      <div class="wlreq colreq">
+        <a class="btn btn-secondary btn-sm wlreq-open" href="{{ p.href }}?step=confirm" hx-get="{{ p.href }}/request?step=confirm" hx-target="next .wlreq-slot" hx-swap="innerHTML"
+           hx-on::before-request="document.querySelectorAll('#request-block').forEach(function(b){if(b.querySelector('form,a.btn'))b.remove();else b.removeAttribute('id')})">Request</a>
+        <div class="wlreq-slot"></div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">None of these films is on Joey yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

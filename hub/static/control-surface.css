@@ -1685,6 +1685,11 @@ details.reqdecide.confirm-wrap[open] + details.confirm-wrap { margin-left: auto;
   .live-rail { order: -1; }
 }
 
+/* JY-266 Collections: the franchise page's missing films dimmed, Request under the card */
+.colparts .card-cell.is-missing .card-pic { opacity: .45; filter: grayscale(.6); }
+.colparts .card-cell.is-missing .row-title { color: var(--text-4); }
+.colreq { margin-top: 6px; }
+
 /* JY-269 P1 (B. 2026-10-29, pick A): the web and phone title pages (film, show, season, episode) take the TV hero
    (JY-259 §8) - backdrop under a calm scrim (darker on the left, fading to the page at its foot), the poster beside the
    title, facts, a short synopsis ("more" opens it) and ONE button row ending in a "…" menu (Request beside Play,

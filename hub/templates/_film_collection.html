@@ -28,6 +28,9 @@
         {% else %}<button class="btn btn-glass" type="submit">{{ icon("plus") }}Follow series</button>{% endif %}
       </form>
       {% endif %}
+      {# JY-266 P2: the franchise page (every film in release order, missing ones with Request) #}
+      {% set colpage = "/media/collections/" ~ c.collection_id %}
+      {% if guest_allows(colpage) %}<p class="partof-btns"><a class="btn btn-glass btn-sm" href="{{ colpage }}">Open collection</a></p>{% endif %}
       {% if film.follow_flash %}<p class="metaline st-good" role="status">{{ film.follow_flash }}</p>{% endif %}
     </div>
   </div>

@@ -114,6 +114,12 @@ false for `web` and `phone` (Q4 A), `AutoOpenLiveStream` false, and the optional
 just read it; `media_watch.up_next`, the rule of JY-054's card), **no Jellyfin call**; `null` for a film, the last aired
 episode or an item not in the cache. The TV shell player draws its up-next card from it.
 
+Added 2026-11-06 by JY-307 phase 5 (additive, every answer, same cache, no Jellyfin call): `up_next.still` (the next
+episode's cached image ref `jf:<id>`, or `null`; the shell loads it once through `/img/<ref>?h=240`), and `title`,
+`line`, `year` for the TV player's title block: `title` is the show (episode) or the film, `line` is
+`media_watch.page_data`'s "S2 · E5 · Name" for an episode (`null` for a film), `year` a film's year (`null` for an
+episode). All three are `null` when the item is not in the cache; the shell then keeps the page title.
+
 `play_method` (JY-050's words): `direct` = Jellyfin `SupportsDirectPlay` (`PlayMethod` DirectPlay); `remux` = a
 `TranscodingUrl` with `SupportsDirectStream` (DirectStream: container changed, codecs copied); `transcode` = a
 `TranscodingUrl` without it (Transcode: audio and/or video re-encoded). No direct play and no `TranscodingUrl`, or a

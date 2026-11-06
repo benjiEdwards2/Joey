@@ -1,6 +1,6 @@
 # JY-317 TV shows 2.5: show pages take the movie hero chips, cast tiles, scores column and File drawer
 
-Status: building (B. 2026-11-04 on Plan 2 phase 2.5: "Yes, I like the scores column for the ratings."; B. 2026-11-06, Sweep 34: run JY-317 now, with JY-316 round 2 and JY-283)
+Status: shipped (merged #328 ce8e6fb 2026-11-06 on B.'s "Merge both", Sweep 35)
 Size: M
 Live risk: none (templates + CSS; no new data, no new call)
 Area: `hub/templates/media_film.html`, `hub/templates/_film_makers.html`, `hub/templates/_film_cast.html`, `hub/static/control-surface.css` (title-page rules, not the tokens), `tests/hub/`

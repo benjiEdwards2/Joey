@@ -1,6 +1,6 @@
 # JY-316 TV shows 2.3: season page with progress in words, Mark season watched, season cast and scores
 
-Status: building, round 2 (B. 2026-11-06, Sweep 34; round 1: B. 2026-11-04 on Plan 2 phase 2.3: "Only the chips. No need for that view.")
+Status: rounds 1-2 shipped (merged #328 ce8e6fb 2026-11-06, B. "Merge both"); round 3 = docs/specs/JY-316r3-scores-in-hero.md
 Size: M
 Live risk: none (template + page data; one extra small SELECT; no schema change, no new network call)
 Area: `hub/media_film.py` (`tv_shelves`, section 5 your rating, `_sections` cast), `hub/media_db.py` (season mean), `hub/templates/media_film.html` (Episodes row head, Scores card), `hub/templates/_rate.html` (`avg_pill` words), `tests/hub/`

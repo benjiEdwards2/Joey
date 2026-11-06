@@ -1,6 +1,6 @@
 # JY-307 TV UI overhaul, phase 5: the player overlay (option B)
 
-Status: spec (draft 2026-11-06)
+Status: shipped (merged #329 71da3a7 2026-11-06; B. Sweep 35 "Accept", q-b "Good as they are.", q-e "Update. That will be fine."); device checks on the TCL to follow
 Size: M
 Live risk: TV release (1.0.4 -> 1.0.5, `tv/` via the release runbook) plus an additive hub field; no NAS write
 Area: `tv/app/src/main/res/layout/activity_player.xml`, `res/values/{dimens,styles,strings,colors}.xml`, `res/drawable/player_*` (+ new icon vectors), `PlayerActivity.kt`, `PlayerBar.kt`, `policy/PlayerUi.kt`, `policy/PlayerSupport.kt` (`PlayerText`), `policy/PlayerApi.kt`; hub: `hub/media_watch.py` (`up_next`), `hub/player_api.py` (start answer); tests below

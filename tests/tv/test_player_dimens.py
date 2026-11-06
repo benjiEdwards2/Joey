@@ -16,6 +16,10 @@ RES = ROOT / "tv" / "app" / "src" / "main" / "res"
 A = "{http://schemas.android.com/apk/res/android}"
 FLOOR_SP = 13.5
 
+# The deploy gate's image carries only tv/VERSION, NOTES.txt and SIGNING_CERT_SHA256 (.dockerignore); CI runs the full tree.
+if not (RES / "values" / "dimens.xml").exists():
+    pytest.skip("tv/app resources not in this tree (deploy gate image)", allow_module_level=True)
+
 
 def _xml(rel):
     return ET.parse(RES / rel).getroot()

@@ -363,10 +363,10 @@
     {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
     {% if tvweb %}{{ ts.own(sites) }}{% elif n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
-    {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you, "Your episodes average" if film.rating.level == "season") }}
+    {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you, "Your episodes average" if film.season_page) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
     {# JY-316 d: a season page adds the IMDb mean of this season's episodes (already loaded, shown on the TV chips) #}
-    {% if tvweb and film.rating and film.rating.level == "season" and ratings %}{% set isn = ratings.seasons|selectattr("n", "equalto", ratings.current)|first %}{% if isn and isn.avg is not none %}{{ ts.score("imdb", "IMDb season", ("%.1f"|format(isn.avg)) ~ " avg") }}{% endif %}{% endif %}
+    {% if tvweb and film.season_page and film.rating and film.rating.level == "season" and ratings %}{% set isn = ratings.seasons|selectattr("n", "equalto", ratings.current)|first %}{% if isn and isn.avg is not none %}{{ ts.score("imdb", "IMDb season", ("%.1f"|format(isn.avg)) ~ " avg") }}{% endif %}{% endif %}
   </div>{% if sites and not tvweb %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}

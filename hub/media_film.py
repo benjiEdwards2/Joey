@@ -741,10 +741,8 @@ def season_names(page_item: dict | None, seasons: list[dict]) -> set[str] | None
     """JY-316 c: the names listed on this season's episodes (the cached season list: no request), for a season page; else None."""
     if not page_item or page_item.get("kind") != "season":
         return None
-    for i, s in enumerate(seasons or []):
-        if (s.get("number") if s.get("number") is not None else i + 1) == page_item.get("season_no"):
-            return {n for e in s.get("episodes") or [] for n in e.get("people_names") or ()}
-    return None
+    hit = _page_season(page_item, seasons or [])   # by the season's id first: a null IndexNumber cannot pick another season
+    return {n for e in hit.get("episodes") or [] for n in e.get("people_names") or ()} if hit else None
 
 
 def season_cast(cast: list[dict], names: set[str] | None) -> list[dict]:
@@ -1346,7 +1344,7 @@ def build_film(kind: str | None = None, tmdb_id: int | None = None, jf_id: str |
         f["file"], f["facts"]["languages"] = None, None
     people = (item or {}).get("people") or []
     f["cast_h"], f["maker_h"] = CAST_H, MAKER_H
-    season_page = bool(page_item and page_item["kind"] == "season")
+    season_page = f["season_page"] = bool(page_item and page_item["kind"] == "season")
     # a show page's second card row (2026-10-11); not episodes, and not a season page (JY-289, B. 2026-11-02)
     f["directors"] = show_directors(item, seasons) if kind == "tv" and not ep and not season_page else []
     if season_page and page_item.get("own_poster"):   # JY-289: the season's own poster, else the show's

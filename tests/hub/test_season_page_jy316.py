@@ -151,3 +151,24 @@ def test_tv_season_page_has_no_progress_words_or_score_pills(tvc):
     html = tv_whole(tvc, f"/media/item/{S1}")
     assert "tl-epsub" not in html and "tl-seasonacts" not in html and "Your episodes average" not in html
     assert "tv-eps" in html                                          # the TV still draws its own Episodes row
+
+
+def test_show_page_with_rate_tv_by_season_has_no_season_pills(env, monkeypatch):
+    """Review fix (2026-11-06): the IMDb season pill and "Your episodes average" are season-PAGE words, not a rating-level word."""
+    media_db.set_setting("you", "rating_level", "season")
+    media_db.set_rating("jf:e1", 8, "tv", "Quiet Show · S04E01 · Ep", owner="you", level="episode")
+    monkeypatch.setattr(media_film.media_episode_ratings, "build_ratings",
+                        lambda *a, **k: ({"seasons": [{"n": 4, "year": 2025, "avg": 8.2, "votes": 9, "seen": 3,
+                                                        "total": 5, "aired": 5, "eps": []}],
+                                          "current": 4, "episode": None}, None))
+    client, _ = env()
+    with client:
+        b = main_of(client.get("/media/item/ser1").text)
+    assert "IMDb season" not in b and "Your episodes average" not in b and "8.2 avg" not in b
+
+
+def test_season_names_use_the_seasons_id_not_its_number():
+    seasons = [{"id": "a", "number": None, "episodes": [{"people_names": ["A"]}]},
+               {"id": "b", "number": 2, "episodes": [{"people_names": ["B"]}]}]
+    item = {"kind": "season", "id": "a", "season_no": 2}
+    assert media_film.season_names(item, seasons) == {"A"}

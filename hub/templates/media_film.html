@@ -14,6 +14,7 @@
 {% from "_rows.html" import meta %}
 {% from "_icons.html" import icon %}
 {% import "_rate.html" as rate %}
+{% import "_title_file.html" as tf %}
 {% from "_film_wait.html" import wait %}
 {% from "_film_macros.html" import makercards with context %}
 {# TV episode flow (WP-E2, 2026-10-16): `film.ratings` / `film.nav` / `film.guests` / `film.crew_ep` (contract section 2).
@@ -140,7 +141,7 @@
           {# F2: an on-server title's watchlist button needs no Jellyseerr body (its poster is the page's own) #}
           {% if film.tmdb and (film.t or film.on_server) %}{% with w = {"tmdb_id": film.tmdb, "kind": film.kind, "title": film.title, "year": film.year, "poster": film.t.poster if film.t else film.poster}, on = film.wl_on, compact = false, style = ("ballot" if tvm else none) %}{% include "_watchlist_btn.html" %}{% endwith %}{% endif %}
           {% if film.jellyseerr_href %}<a class="btn btn-icon" href="{{ film.jellyseerr_href }}" target="_blank" rel="noopener" aria-label="Open in Seerr" title="Open in Seerr">{{ icon("external") }}</a>{% endif %}
-          {{ ratebtn }}{% if not tvm and film.rating %}<details class="tl-pop tl-rate"{% if not film.score %} id="rate"{% endif %}><summary class="btn btn-glass">{{ icon("star") }}{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</summary><div class="tl-popin">{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div></details>{% endif %}{% if not tvm %}{{ moremenu }}{% endif %}
+          {{ ratebtn }}{% if not tvm and film.rating %}<details class="tl-pop tl-rate"{% if not film.score %} id="rate"{% endif %}><summary class="btn btn-glass">{{ icon("star") }}{% if film.score %}Rated {{ film.score }}{% else %}Rate{% endif %}</summary><div class="tl-popin">{% if film.score %}{{ rate.rated(film.rating, film.score) }}{% else %}{{ rate.picker(film.rating, "Your rating") }}{% endif %}</div></details>{% endif %}{% if not tvm and film.file %}{{ tf.chip(film.file) }}{% endif %}{% if not tvm %}{{ moremenu }}{% endif %}
           {# JY-193: Back is a button, not a link - tv.js Back memory keeps links only, so it never takes the focus from the request steps #}
           {% if tvreq %}<button type="button" class="btn btn-glass tv-back" onclick="history.back()">Back</button>{% endif %}
         </div>
@@ -235,7 +236,7 @@
 {% endif %}
 {# JY-317 (B. 2026-11-06: "Remember the rating column sitting on the right hand side as a smaller side bar."): a show /
    season page off the TV has the film's two-column body from 1024 px - the main column (cast, crew, where to watch)
-   and a narrow right-hand column (Scores, Details, the owner's File drawer), stacked under the main column on a phone.
+   and a narrow right-hand column (Scores, Details; JY-284: the File panel is the hero chip), stacked under the main column on a phone.
    JY-316 r4 (B. 2026-11-06, "Just higher and smaller to allow the episodes to sit underneath", then on accepting:
    "Move the cast and score to below the episode sessions"): the Episodes row and the part-of banner (`belowcols`)
    come full width BEFORE that block; elsewhere they draw here as before. #}
@@ -323,7 +324,6 @@
 {# One rating style (media-ux4, 2026-10-08): every score is a .scorepill (`sp`, _film_scores.html) - IMDb 8.0 · RT 90% ·
    Metacritic 74 · TMDB 8.1 · Yours 8 (or "Rate", which jumps to the picker). Runtime and the certificate stay plain
    stats beside them. The upstream pills (IMDb, RT, Metacritic) are a deferred part since F2 (2026-10-12). #}
-{% import "_title_file.html" as tf %}
 {% import "_title_scores.html" as ts with context %}
 {% set any_score = film.rating or n.tmdb or n.imdb or n.rt or n.mc or "scores" in film.pending %}
 {% set fp = film.file %}
@@ -365,8 +365,9 @@
 {% endif %}
 {% endset %}
 {# JY-280 P2 (B.'s pick A, 2026-11-03): a film off the TV has a two-column body from 1024 px - the cast tiles on the left;
-   on the right Scores (a site's logo + its number, each a link to that site's page for the film), Details, then the
-   owner's closed File drawer (gated server-side: media_film.file_owner). Below 1024 px the column stacks under the cast. #}
+   on the right Scores (a site's logo + its number, each a link to that site's page for the film), then Details. JY-284:
+   the owner's File panel moved to the hero's File chip (gated server-side: media_film.file_owner). Below 1024 px the
+   column stacks under the cast. #}
 {% if filmweb %}
 <div class="filmcols">
 <div class="filmcol-main">{% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
@@ -386,7 +387,6 @@
 </div>
 {% endif %}
 {{ detailsec }}
-{% if fp %}{{ tf.drawer(fp) }}{% endif %}
 </aside>
 </div>
 {% endif %}
@@ -413,7 +413,7 @@
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
 {% endif %}
-{% if tvweb %}{{ detailsec }}{% if fp %}{{ tf.drawer(fp) }}{% endif %}
+{% if tvweb %}{{ detailsec }}
 </aside>
 </div>
 {% endif %}
@@ -469,9 +469,6 @@
 {# JY-290 (B. 2026-11-02): an on-server show's seasons are the Episodes carousel above (the TV: its shelves); the bottom
    Seasons list is gone. Its season toggle, state word and Sonarr-only seasons moved beside the carousel's chips. #}
 {% if not tvweb %}{{ offseasons }}{% endif %}
-
-{# JY-281: the show / season / episode File section is the owner's closed drawer too (gated server-side: file_owner) #}
-{% if fp and not filmweb and not tvweb %}{{ tf.drawer(fp) }}{% endif %}
 
 {# Episode flow merge (2026-10-16): an episode page with its own Crew rows (crew_ep) skips the show-level Crew block —
    the same directors would otherwise appear twice. #}

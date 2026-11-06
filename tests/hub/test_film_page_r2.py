@@ -12,7 +12,7 @@ from tests.hub.test_film_quality import film_source, rankdir, write_rank  # noqa
 from tests.hub.test_media_film import ITEMS
 
 FILE_STRINGS = ("Harbour.Lights.2019.2160p", "20.0 GB", "4.7 Mb/s", "English · 2 tracks", "group FLUX", "filepanel",
-                "File details", "Bitrate", "Subtitles")
+                "File details", "Bitrate", "Subtitles", "tl-filepop", 'id="file"')
 
 
 def page(env, monkeypatch, path="/media/title/movie/603"):
@@ -22,16 +22,22 @@ def page(env, monkeypatch, path="/media/title/movie/603"):
         return main_of(whole(client, path))
 
 
-def test_body_is_two_columns_cast_left_scores_details_file_right(env, monkeypatch, rankdir):
+def test_body_is_two_columns_cast_left_scores_details_right_file_chip_in_the_hero(env, monkeypatch, rankdir):
     b = page(env, monkeypatch)
-    cols = b.split('<div class="filmcols">', 1)[1]
+    hero, body = b.split("</header>", 1)
+    cols = body.split('<div class="filmcols">', 1)[1]
     main, side = cols.split('<aside class="filmcol-side"', 1)
     assert ">Cast</h2>" in main and ">Scores<" not in main
-    assert side.index(">Scores<") < side.index(">Details</h2>") < side.index("File details")
-    assert '<section class="sec filedrawer"><details class="fold"><summary class="seclabel">File details</summary>' in side
-    assert "<details class=\"fold\" open" not in side                      # closed by default
-    assert "Harbour.Lights.2019.2160p.WEB-DL.DDP5.1.HEVC-FLUX.mkv" in side and "4.7 Mb/s" in side
-    assert ">File</h2>" not in b and 'class="scorepill sitepill"' not in b   # the drawer replaces the section; no site row
+    assert side.index(">Scores<") < side.index(">Details</h2>")
+    # JY-284 (B. 2026-11-06, pick B): the File panel is the hero's File chip beside Rate, closed; no drawer below
+    assert "filedrawer" not in b and "filepanel" not in body and b.count('id="file"') == 1
+    chip = hero.split('<details class="tl-pop tl-file" id="file">', 1)[1].split("</details>", 1)[0]
+    assert hero.index('class="tl-pop tl-rate"') < hero.index('class="tl-pop tl-file"')     # beside Rate, after it
+    assert chip.startswith('<summary class="btn btn-glass">') and "File</summary>" in chip
+    assert '<div class="tl-popin tl-filepop" role="group" aria-label="File details"><div class="panel filepanel">' in chip
+    assert "Harbour.Lights.2019.2160p.WEB-DL.DDP5.1.HEVC-FLUX.mkv" in chip and "4.7 Mb/s" in chip
+    assert '<details class="tl-pop tl-file" id="file" open' not in hero                  # closed by default
+    assert ">File</h2>" not in b and 'class="scorepill sitepill"' not in b
 
 
 def test_scores_are_logo_and_number_linked_to_each_site(env, monkeypatch, rankdir):

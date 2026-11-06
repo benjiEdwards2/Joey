@@ -1,6 +1,9 @@
 {# JY-280 P2 (JY-284, "only I can access"): the File panel - badges, Size · Bitrate · Picture · Added, Audio / Subtitles /
-   Release and the file name. `drawer(fp)`: closed under "File details", for the owner only - the gate is server-side
-   (media_film.file_owner empties film.file), so this is never reached for anyone else. Shared for the TV-show page later. #}
+   Release and the file name (a show / season: the By episode list). JY-284 (B. 2026-11-06, pick B on the defaults):
+   `chip(fp)` is the hero's "File" chip beside Rate, a popover like Rate's (id="file") holding the panel; the closed
+   drawer under the content is gone. Owner only - the gate is server-side (media_film.file_owner empties film.file), so
+   this is never reached for anyone else. #}
+{% from "_icons.html" import icon %}
 {% macro panel(fp) -%}
 <div class="panel filepanel">
     {% with badges = fp.badges %}{% include "_file_strip.html" %}{% endwith %}
@@ -23,6 +26,6 @@
     {% endif %}
   </div>
 {%- endmacro %}
-{% macro drawer(fp) -%}
-<section class="sec filedrawer"><details class="fold"><summary class="seclabel">File details</summary>{{ panel(fp) }}</details></section>
+{% macro chip(fp) -%}
+<details class="tl-pop tl-file" id="file"><summary class="btn btn-glass">{{ icon("drive") }}File</summary><div class="tl-popin tl-filepop" role="group" aria-label="File details">{{ panel(fp) }}</div></details>
 {%- endmacro %}

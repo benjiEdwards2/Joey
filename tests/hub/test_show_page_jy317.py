@@ -52,7 +52,8 @@ def test_scores_details_and_file_sit_in_the_right_hand_column(env, season, monke
         b = main_of(whole(client, path))
     main, side, after = cols(b)
     assert '<div class="microlabel">Scores</div>' in side and '<div class="microlabel">Scores</div>' not in main
-    assert 'class="sec filedrawer"' in side and b.count('class="sec filedrawer"') == 1
+    assert "filedrawer" not in b and "filepanel" not in main + side + after   # JY-284: the File panel is the hero chip
+    assert b.count('id="file"') == 1 and 'id="file"' in b.split("</header>", 1)[0]
     assert 'class="sec castsec casttiles"' in main and "castsec" not in side
     assert b.count('<h2 class="seclabel">Cast</h2>') == 1 and b.count('<div class="stats numbers">') == 1
     # JY-316 r4 (B.: "Move the cast and score to below the episode sessions"): the Episodes row comes full width

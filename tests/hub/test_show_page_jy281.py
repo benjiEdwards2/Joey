@@ -9,7 +9,8 @@ from tests.hub.film_page import whole
 from tests.hub.helpers import env, EPISODES, ITEMS, SOURCES  # noqa: F401
 
 PATH = "/media/title/tv/100"
-FILE_STRINGS = ("Quiet.Show.S04E01", "20.0 GB", "filepanel", "filedrawer", "File details", "By episode")
+FILE_STRINGS = ("Quiet.Show.S04E01", "20.0 GB", "filepanel", "filedrawer", "File details", "By episode", "tl-filepop",
+                'id="file"')
 
 
 def with_files(monkeypatch):
@@ -41,18 +42,19 @@ def test_show_imdb_score_links_to_the_show_page(env, monkeypatch):
         assert 'href="https://www.imdb.com/title/tt0000100/"' in b
 
 
-def test_owner_sees_a_closed_file_drawer_with_episodes(env, monkeypatch):
-    b = page(env, monkeypatch)
-    assert '<section class="sec filedrawer"><details class="fold"><summary class="seclabel">File details</summary>' in b
-    drawer = b.split('class="sec filedrawer"', 1)[1].split("</section>", 1)[0]
-    assert "<details class=\"fold\" open" not in drawer
-    assert "By episode" in drawer and "S4 E1" in drawer and "Quiet.Show.S04E03.1080p-GRP.mkv" in drawer
-    assert ">File</h2>" not in b
+@pytest.mark.parametrize("path", [PATH, "/media/item/ser1"])   # a season page: test_show_page_jy317
+def test_owner_sees_the_hero_file_chip_with_episodes(env, monkeypatch, path):
+    b = page(env, monkeypatch, path)   # JY-284: show and season pages take the film's File chip, episode list inside
+    hero = b.split("</header>", 1)[0]
+    assert '<details class="tl-pop tl-file" id="file"><summary class="btn btn-glass">' in hero
+    chip = hero.split('class="tl-pop tl-file"', 1)[1].split("</details>", 1)[0]
+    assert "By episode" in chip and "S4 E1" in chip
+    assert "filedrawer" not in b and b.count("filepanel") == 1 and ">File</h2>" not in b
 
 
 def test_episodes_row_precedes_the_sidebar_block(env, monkeypatch):
     b = page(env, monkeypatch)   # JY-316 r4: the Episodes row comes full width first; cast + sidebar block under it
-    assert b.index(">Episodes</h2>") < b.index(">Scores<") < b.index("File details")
+    assert b.index('id="file"') < b.index(">Episodes</h2>") < b.index(">Scores<")
 
 
 @pytest.mark.parametrize("view", ["her"])

@@ -59,7 +59,7 @@ def test_nav_sections_and_tabs_on_the_media_front(gc):
     # JY-248 (2026-10-25): no Overview section - the "Joey Media" title is the way Home
     assert [s["id"] for s in nav["sections"]] == ["movies", "tv", "diary", "discover"]
     assert [s["label"] for s in nav["sections"]] == ["Movies", "TV shows", "Diary", "Discover"]
-    assert [t["label"] for t in nav["tabs"]] == ["My films", "Watchlist", "Tonight", "To rate", "Awards"]
+    assert [t["label"] for t in nav["tabs"]] == ["My films", "Watchlist", "Tonight", "To rate", "Awards", "Collections"]
     assert [t["label"] for t in nav_at("/media/tv")["tabs"]] == ["My shows", "Watchlist", "Tonight", "To rate", "Awards"]
     assert [t["label"] for t in nav_at("/media/discover")["tabs"]] == ["Discover"]   # Following hidden (Q19)
     diary = nav_at("/media/diary")
@@ -85,7 +85,7 @@ def test_the_page_draws_the_guest_section_row_and_tabs(friend):
     assert re.findall(r">([^<]+)</a>", row) == ["Movies", "TV shows", "Diary", "Discover"]   # JY-248: no Overview
     sub = re.search(r'<nav class="sectabs sub"[^>]*>(.*?)</nav>', html, re.S).group(1)
     assert [re.sub(r"<[^>]+>", "", x).strip() for x in re.findall(r"<a [^>]*>(.*?)</a>", sub, re.S)] == \
-        ["My films", "Watchlist", "Tonight", "To rate", "Awards"]
+        ["My films", "Watchlist", "Tonight", "To rate", "Awards", "Collections"]
     phone = re.search(r'<nav class="tabbar"[^>]*>(.*?)</nav>', html, re.S).group(1)
     assert re.findall(r'href="([^"]+)"', phone) == ["/media/movies", "/media/tv", "/media/diary",
                                                      "/media/discover"]   # JY-248: no Overview tab

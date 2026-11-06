@@ -293,3 +293,109 @@ def test_tv_shows_owned_films_only_read_only(site, monkeypatch):
     assert r.status_code == 200
     assert [h for _, h in cards(r.text)] == ["/media/title/movie/603", "/media/title/movie/604"]
     assert "step=confirm" not in r.text
+
+
+# ---- P3: the grid page ----
+
+def grid_names(html):
+    return re.findall(r'class="card-poster colcard[^"]*"[^>]*>.*?<span class="row-title">([^<]+)</span>', html, re.S)
+
+
+@pytest.fixture()
+def grid(env):
+    """Library: 603, 604 (helpers.LIB_MOVIES). Harbour 2 of 4; Zed complete; Solo a single film; The Anchor 1 of 2;
+    Nowhere has no owned film."""
+    client, both = env()
+    with client:
+        store(9, "Harbour Collection", HARBOUR)
+        store(1, "Zed Collection", [{"id": 603, "title": "Z1", "date": "2010-01-01", "poster": None},
+                                    {"id": 604, "title": "Z2", "date": "2012-01-01", "poster": None}])
+        store(2, "Solo Collection", [{"id": 604, "title": "S1", "date": "2030-01-01", "poster": None}])
+        store(3, "The Anchor Collection", [{"id": 603, "title": "A1", "date": "1990-01-01", "poster": None},
+                                           {"id": 700, "title": "A2", "date": "1995-01-01", "poster": None}])
+        store(4, "Nowhere Collection", [{"id": 800, "title": "N1", "date": "2000-01-01", "poster": None},
+                                        {"id": 801, "title": "N2", "date": "2001-01-01", "poster": None}])
+        yield client, both
+
+
+def test_grid_a_to_z_single_films_hidden_no_network(grid):
+    client, both = grid
+    both.calls.clear()
+    r = client.get("/media/collections")
+    assert r.status_code == 200 and both.calls == []
+    main = r.text.split("<main", 1)[1]
+    assert grid_names(main) == ["The Anchor Collection", "Harbour Collection", "Zed Collection"]   # "The" ignored
+    assert "3 collections · 1 complete" in main and "Single films · 1" in main
+    assert re.findall(r'<nav class="azbar".*?</nav>', main, re.S)[0].count("<a ") == 3
+    assert 'id="az-A"' in main and 'href="#az-H"' in main
+    assert "1 of 2 on Joey" in main and "2 of 2 on Joey" in main and "4 films · 2019-2024" in main
+    assert 'aria-current="page">Collections</a>' in r.text                    # Movies > Collections tab lit
+
+
+def test_grid_filters_sorts_and_singles(grid):
+    client, _ = grid
+
+    def page(q):
+        return grid_names(client.get("/media/collections" + q).text)
+
+    assert page("?f=complete") == ["Zed Collection"]
+    assert page("?f=missing") == ["The Anchor Collection", "Harbour Collection"]
+    assert page("?single=1") == ["The Anchor Collection", "Harbour Collection", "Solo Collection", "Zed Collection"]
+    assert page("?s=size") == ["Harbour Collection", "The Anchor Collection", "Zed Collection"]
+    assert page("?s=newest") == ["Harbour Collection", "Zed Collection", "The Anchor Collection"]
+    assert page("?s=complete") == ["Zed Collection", "Harbour Collection", "The Anchor Collection"]
+    assert 'class="azbar"' not in client.get("/media/collections?s=size").text
+    assert page("?f=bogus&s=bogus") == page("")
+
+
+def test_grid_empty_states(env):
+    client, _ = env()
+    with client:
+        main = client.get("/media/collections").text.split("<main", 1)[1]
+        assert "No collections yet." in main and "Check now starts it" in main
+        store(1, "Zed Collection", [{"id": 603, "title": "Z1", "date": "2010-01-01", "poster": None},
+                                    {"id": 604, "title": "Z2", "date": "2012-01-01", "poster": None}])
+        assert "No collection matches this filter." in client.get("/media/collections?f=missing").text
+
+
+def test_check_now_is_owner_only_and_kicks(grid, monkeypatch):
+    client, _ = grid
+    ran = []
+    monkeypatch.setattr(mc, "tick", lambda fn, now=None: ran.append(1))
+    main = client.get("/media/collections").text
+    assert 'action="/media/collections/refresh"' in main
+    r = client.post("/media/collections/refresh", headers={"Origin": "http://testserver"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/media/collections?kicked=1" and ran == [1]
+    with closing(media_store.connect()) as conn:
+        assert conn.execute("SELECT value FROM collection_state WHERE key = 'kick_at'").fetchone()
+    assert "Checking now" in client.get("/media/collections?kicked=1").text
+    assert client.post("/media/collections/refresh", headers={"Origin": "http://evil.invalid"}).status_code == 403
+    her = client.post("/media/collections/refresh?owner_view=her", headers={"Origin": "http://testserver"})
+    assert her.status_code == 404
+
+
+def test_friend_sees_the_grid_read_only(grid, monkeypatch):
+    client, _ = grid
+    monkeypatch.setenv("JOEY_FRONT", "media")
+    monkeypatch.setattr(guest, "identity_provider", lambda scope: FRIEND)
+    r = client.get("/media/collections")
+    assert r.status_code == 200 and "Harbour Collection" in r.text
+    assert "/media/collections/refresh" not in r.text and "Last checked" not in r.text
+    assert ">Collections</a>" in r.text                                         # the tab is on the media front too
+
+
+def test_tv_grid_has_no_az_bar_and_cards_are_links(grid, monkeypatch):
+    client, _ = grid
+    monkeypatch.setenv("JOEY_FRONT", "media")
+    monkeypatch.setattr(guest, "identity_provider", lambda scope: FRIEND)
+    r = client.get("/media/collections", headers={"user-agent": TV_UA})
+    assert r.status_code == 200 and 'class="azbar"' not in r.text
+    assert re.findall(r'<a class="card-poster colcard[^"]*" href="(/media/collections/\d+)"', r.text)
+    assert "Sort: A-Z" in r.text
+
+
+def test_letter_and_href_helpers():
+    from hub import media_collections_pages as cp
+    assert cp.letter("The Matrix Collection") == "M" and cp.letter("2001 Collection") == "#" and cp.letter("The") == "T"
+    assert cp.href() == "/media/collections"
+    assert cp.href("complete", "size", True) == "/media/collections?f=complete&s=size&single=1"

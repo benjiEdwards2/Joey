@@ -148,7 +148,7 @@ def test_tab_row_carries_the_to_rate_count_per_kind(env):
     with build() as client:
         films = subtabs(client.get("/media/movies").text)
         tv = subtabs(client.get("/media/tv").text)
-    assert [t[0] for t in films] == ["My films", "To rate", "Awards"]   # nav-tidy (2026-10-13)
+    assert [t[0] for t in films] == ["My films", "To rate", "Awards", "Collections"]   # nav-tidy (2026-10-13)
     assert films[1] == ("To rate", "/media/movies/to-rate", False, (2, "to rate"))   # Heat + Already Rated
     assert films[0][2] is True                                                       # My films is current
     assert tv[1] == ("To rate", "/media/tv/to-rate", False, (1, "to rate"))           # Quiet Show (show level)

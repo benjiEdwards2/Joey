@@ -189,7 +189,7 @@ object PlayerText {
         }
     }
 
-    private val SEASON_EPISODE = Regex("^(S\d+ · E\d+) · (.+)$")
+    private val SEASON_EPISODE = Regex("""^(S\d+ · E\d+) · (.+)$""")
 
     /**
      * JY-307 P5: the title block from the start answer's cached words. An episode ("S2 · E5 · Name"): eyebrow "S2 · E5",

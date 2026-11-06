@@ -50,8 +50,8 @@ def test_owner_sees_a_closed_file_drawer_with_episodes(env, monkeypatch):
     assert ">File</h2>" not in b
 
 
-def test_episodes_row_still_leads_the_body(env, monkeypatch):
-    b = page(env, monkeypatch)
+def test_episodes_row_precedes_the_sidebar_block(env, monkeypatch):
+    b = page(env, monkeypatch)   # JY-316 r4: the Episodes row comes full width first; cast + sidebar block under it
     assert b.index(">Episodes</h2>") < b.index(">Scores<") < b.index("File details")
 
 

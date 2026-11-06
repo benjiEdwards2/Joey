@@ -234,10 +234,12 @@
 {% endif %}
 {% endif %}
 {# JY-317 (B. 2026-11-06: "Remember the rating column sitting on the right hand side as a smaller side bar."): a show /
-   season page off the TV has the film's two-column body from 1024 px - the main column (the Episodes row, the part-of
-   banner, cast, crew, where to watch) and a 300 px right-hand column (Scores, Details, the owner's File drawer),
-   closed below. Stacked under the main column on a phone. #}
-{% if tvweb %}<div class="filmcols tlcols"><div class="filmcol-main">{% endif %}
+   season page off the TV has the film's two-column body from 1024 px - the main column (cast, crew, where to watch)
+   and a narrow right-hand column (Scores, Details, the owner's File drawer), stacked under the main column on a phone.
+   JY-316 r4 (B. 2026-11-06, "Just higher and smaller to allow the episodes to sit underneath", then on accepting:
+   "Move the cast and score to below the episode sessions"): the Episodes row and the part-of banner (`belowcols`)
+   come full width BEFORE that block; elsewhere they draw here as before. #}
+{% set belowcols %}
 {% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons and not film.episode %}
 {% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
 {% set ws = (film.seasons|selectattr("n", "equalto", shown.n)|first) if shown else none %}
@@ -313,6 +315,8 @@
   </div>
 </section>
 {% endif %}
+{% endset %}
+{% if not tvweb %}{{ belowcols }}{% endif %}
 {# film-quality (2026-10-07): MediaHub-style body — the numbers as ONE card, then uppercase section labels:
    OVERVIEW, FILE (badges, Size · Bitrate · Picture · Added, Audio / Subtitles / Release, the file name), CREW,
    DETAILS (dates, watches, request), CAST (portrait photo cards in a row that scrolls inside itself). #}
@@ -386,7 +390,7 @@
 </aside>
 </div>
 {% endif %}
-{% if tvweb %}
+{% if tvweb %}{{ belowcols }}<div class="filmcols tlcols"><div class="filmcol-main">
 {{ offseasons }}
 {% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
 {% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}

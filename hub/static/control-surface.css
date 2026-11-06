@@ -1826,10 +1826,15 @@ html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-d
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
 /* JY-317 (B. 2026-11-06, "the rating column sitting on the right hand side as a smaller side bar"): a show / season page
-   takes the same columns with a narrower 300 px right-hand column (Scores, Details, File) beside the Episodes row and
-   the cast; the Episodes head wraps in the narrower main column. Stacked below 1024 px. */
-@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 300px; } }
-html:not(.tv) .tlcols .tl-epshd { flex-wrap: wrap; }
+   takes the same columns with a narrower right-hand column (Scores, Details, File) beside the cast. Stacked below
+   1024 px. JY-316 r4 (B. 2026-11-06, "Just higher and smaller to allow the episodes to sit underneath"): 260 px, the
+   Episodes row full width under the block, and its score pills the smaller size (26 px, 14 px logo). */
+@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 260px; } }
+html:not(.tv) .tlcols .filmcol-side .scorepill { height: 26px; gap: 5px; padding: 0 9px 0 5px; font-size: 12px; }
+html:not(.tv) .tlcols .filmcol-side .sp-logo { width: 14px; height: 14px; }
+html:not(.tv) .tlcols .filmcol-side .sp-val { font-size: 13px; }
+/* JY-316 r4 ("Can you make the radius smaller"): the sidebar's score pills on film, show and season pages, 6 px corners */
+html:not(.tv) .filmcol-side .scorepill { border-radius: 6px; }
 /* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
 @media (min-width: 1920px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 104px; } }
 @media (min-width: 3000px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 120px; } }

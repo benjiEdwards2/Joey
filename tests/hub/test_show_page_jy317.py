@@ -36,10 +36,11 @@ def with_files(monkeypatch):
 
 
 def cols(b):
-    """(main column, right-hand column) of the show / season body."""
+    """(main column, right-hand column, everything after the aside) of the show / season body."""
     rest = b.split('<div class="filmcols tlcols"><div class="filmcol-main">', 1)[1]
     main, side = rest.split('<aside class="filmcol-side" aria-label="Scores and details">', 1)
-    return main, side.split("</aside>", 1)[0]
+    side, after = side.split("</aside>", 1)
+    return main, side, after
 
 
 @pytest.mark.parametrize("path", ["/media/item/ser1", "/media/item/sea1", "/media/title/tv/100"])
@@ -49,20 +50,42 @@ def test_scores_details_and_file_sit_in_the_right_hand_column(env, season, monke
     client, _ = env()
     with client:
         b = main_of(whole(client, path))
-    main, side = cols(b)
+    main, side, after = cols(b)
     assert '<div class="microlabel">Scores</div>' in side and '<div class="microlabel">Scores</div>' not in main
     assert 'class="sec filedrawer"' in side and b.count('class="sec filedrawer"') == 1
-    assert ">Episodes</h2>" in main and 'class="sec castsec casttiles"' in main and "castsec" not in side
+    assert 'class="sec castsec casttiles"' in main and "castsec" not in side
     assert b.count('<h2 class="seclabel">Cast</h2>') == 1 and b.count('<div class="stats numbers">') == 1
+    # JY-316 r4 (B.: "Move the cast and score to below the episode sessions"): the Episodes row comes full width
+    # BEFORE the two-column block, never inside it; no r3 hero strip
+    assert ">Episodes</h2>" not in main + side + after
+    assert b.index('class="sec tl-eps"') < b.index('<div class="filmcols tlcols">')
+    assert "hero-scores" not in b
 
 
-def test_season_page_keeps_rate_and_the_banner_in_the_columns(env, season):
+def test_season_page_keeps_rate_and_puts_the_banner_after_the_episodes(env, season):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/item/sea1"))
-    main, side = cols(b)
+    main, side, after = cols(b)
     assert 'class="scorepill sp-you"' in side                         # Rate / Yours stays in the Scores card
-    assert 'class="sec partof-sec"' in main and "All seasons</a>" in main
+    before = b[:b.index('<div class="filmcols tlcols">')]
+    assert 'class="sec partof-sec"' in before and "All seasons</a>" in before   # JY-316 r4: under the Episodes row, above the columns
+    assert before.index(">Episodes</h2>") < before.index('class="sec partof-sec"')
+
+
+def test_sidebar_runtime_keeps_the_ends_time():
+    """JY-316 r3 review, kept in r4: the sidebar's Runtime keeps "ends HH:MM if you start now"."""
+    from types import SimpleNamespace
+    from hub.shell import templates
+    film = {"title": "Bare", "year": 2001, "kind": "tv", "tmdb": 9, "pending": set(), "facts": {},
+            "numbers": {"runtime": "45m", "ends": "21:40"}, "official": "M",
+            "logos": {"imdb": "/i.svg", "tmdb": "/t.svg", "lbxd": "/l.svg"}, "rating": None, "watch_count": 0}
+    src = templates.env.get_template("media_film.html")
+    ctx = src.new_context({"film": film, "request": SimpleNamespace(url=SimpleNamespace(path="/media/title/tv/9")),
+                           "img_letters": lambda s: s, "status_of": lambda w: {"cls": ""}})
+    side = cols("".join(src.blocks["content"](ctx)))[1]
+    assert '<div class="stat-word">45m</div><div class="metaline">ends 21:40 if you start now</div>' in side
+    assert '<div class="stat-word">M</div>' in side
 
 
 def test_show_hero_takes_the_film_chips_not_circle_cards(env):
@@ -88,12 +111,30 @@ def test_tv_show_page_has_no_columns_chips_or_web_tiles(tvc):
     from tests.hub.test_tv_series_episodes import S1
     html = tv_whole(tvc, f"/media/item/{S1}")
     assert "tlcols" not in html and "filmcol-side" not in html and "makerchip" not in html and "casttiles" not in html
+    assert "hero-scores" not in html
 
 
-def test_css_column_is_300px_from_1024_and_web_only():
-    assert "@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 300px; } }" in CSS
-    assert "html:not(.tv) .tlcols .tl-epshd { flex-wrap: wrap; }" in CSS
-    assert not re.search(r"(^|\n)\s*html\.tv[^{]*tlcols", CSS)
+def test_css_column_is_260px_from_1024_small_6px_pills_and_web_only():
+    """JY-316 r4: the show / season sidebar is 260 px (film 360 px), its pills the small size with 6 px corners; the
+    film's sidebar pills take the 6 px corners too. No r3 hero strip rules left."""
+    assert "@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 260px; } }" in CSS
+    assert "@media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }" in CSS
+    assert "html:not(.tv) .tlcols .filmcol-side .scorepill { height: 26px; gap: 5px; padding: 0 9px 0 5px; font-size: 12px; }" in CSS
+    assert "html:not(.tv) .tlcols .filmcol-side .sp-logo { width: 14px; height: 14px; }" in CSS
+    assert "html:not(.tv) .filmcol-side .scorepill { border-radius: 6px; }" in CSS
+    assert "hero-scores" not in CSS and "html:not(.tv) .tlcols .tl-epshd" not in CSS
+    assert not re.search(r"(^|\n)\s*html\.tv[^{]*(tlcols|filmcol)", CSS)
+
+
+def test_episode_page_has_no_aside_and_film_page_keeps_its_column(env):
+    """JY-316 r3 Q1 / r4 change 4: an episode page has no sidebar; the film keeps its JY-280 column."""
+    client, _ = env()
+    with client:
+        ep = main_of(whole(client, "/media/item/ep3"))
+        mov = main_of(whole(client, "/media/title/movie/603"))
+    assert "<aside" not in ep and "filmcol" not in ep and "hero-scores" not in ep
+    assert '<div class="filmcols">' in mov and '<aside class="filmcol-side" aria-label="Scores and details">' in mov
+    assert "hero-scores" not in mov and "tlcols" not in mov
 
 
 def test_cast_tiles_are_2_3_two_line_names_and_3_5_across_a_phone():

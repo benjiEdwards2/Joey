@@ -4,7 +4,4 @@
 {# E4 (2026-10-13): the actions part's second slot, under the hero's More (only drawn beside Play, as the page does) #}
 {% if name == "actions" and (not film or (film.play and film.play.href)) %}<div class="fpart" id="fp-actions-more" hx-swap-oob="true">{% if film %}{% with slot = "more" %}{% include "_film_actions.html" %}{% endwith %}{% endif %}</div>
 {% endif %}
-{# JY-316 r3: the scores part's second slot on a show / season page off the TV - RT / Metacritic in the Details "Links" row #}
-{% if name == "scores" and film and film.kind == "tv" and not film.episode and not film.episode_page and not tv_mode(request) %}<div class="fpart" id="fp-scores-links" hx-swap-oob="true">{% with slot = "links" %}{% include "_film_scores.html" %}{% endwith %}</div>
-{% endif %}
 {% endfor %}

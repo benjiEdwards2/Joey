@@ -10,7 +10,6 @@ from hub import media_db, media_film
 from tests.hub import helpers as tmi
 from tests.hub.conftest import main_of  # noqa: F401
 from tests.hub.fake_jellyfin import FRIEND_ID
-from tests.hub.film_page import whole
 from tests.hub.helpers import env, ITEMS, EPISODES  # noqa: F401
 from tests.hub.test_tv_p3_jy259 import tv_whole
 from tests.hub.test_tv_series_episodes import tvc  # noqa: F401
@@ -127,13 +126,10 @@ def test_unrated_season_shows_the_episode_mean_and_the_imdb_season_mean(env, sea
                                           "current": 4, "episode": None}, None))
     client, _ = env()
     with client:
-        whole(client, "/media/item/sea1")                 # warms the scores read (the show has no IMDb score here)
         b = main_of(client.get("/media/item/sea1").text)
     pill = b.split('class="scorepill sp-you"', 1)[1].split("</a>", 1)[0]
     assert ">8.5<" in pill and ">avg<" in pill and "Your episodes average" in pill
-    # JY-316 r3 Q2: one IMDb pill in the hero's strip - the show's score, else this season's episodes' IMDb mean
-    strip = b.split('class="scorepills hero-scores"', 1)[1].split("</header>", 1)[0]
-    assert "8.2 avg" in strip and "IMDb season" in strip and strip.count("sp-imdb") == 1
+    assert "8.2 avg" in b and "IMDb season" in b
 
 
 def test_season_average_rule(env):

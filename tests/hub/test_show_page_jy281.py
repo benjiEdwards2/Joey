@@ -27,7 +27,7 @@ def page(env, monkeypatch, path=PATH):
 
 def test_show_scores_are_logo_and_number_links_without_site_words(env, monkeypatch):
     b = page(env, monkeypatch)
-    card = b.split('class="scorepills hero-scores"', 1)[1].split("</header>", 1)[0]   # JY-316 r3: the hero's strip
+    card = b.split('<div class="microlabel">Scores</div>', 1)[1].split('<div class="stat', 1)[0]
     assert '<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/100"' in card
     assert 'alt="TMDB"' in card
     assert 'class="sp-name">TMDB' not in b and 'class="sp-name">IMDb' not in b and ">Letterboxd<" not in b
@@ -50,9 +50,9 @@ def test_owner_sees_a_closed_file_drawer_with_episodes(env, monkeypatch):
     assert ">File</h2>" not in b
 
 
-def test_episodes_row_still_leads_the_body(env, monkeypatch):
-    b = page(env, monkeypatch)
-    assert b.index("hero-scores") < b.index(">Episodes</h2>") < b.index(">Details</h2>") < b.index("File details")   # JY-316 r3
+def test_episodes_row_follows_the_sidebar_block(env, monkeypatch):
+    b = page(env, monkeypatch)   # JY-316 r4: the sidebar sits higher; the Episodes row comes full width under it
+    assert b.index(">Scores<") < b.index("File details") < b.index(">Episodes</h2>")
 
 
 @pytest.mark.parametrize("view", ["her"])

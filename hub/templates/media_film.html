@@ -85,18 +85,6 @@
         {{ meta(["TV" if film.kind == "tv" else "Film" if film.kind == "movie" else "Jellyfin",
                  film.facts.seasons if film.kind == "tv" else none]
                 + (film.genres or []), "facts-line") }}
-        {# JY-316 r3 (B. 2026-11-06: "placing the ratings higher up in towards the header ... only 3 ratings in there. IMDB,
-           TMDB and yours."): a show / season page off the TV carries a compact scores strip under the facts line - IMDb
-           (the deferred "scores" part, IMDb only for a show), TMDB, then Yours (rated, else your average, else Rate). #}
-        {% if film.kind == "tv" and not tvm %}{% import "_title_scores.html" as ts with context %}
-        <div class="scorepills hero-scores" aria-label="Scores">
-          {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
-          {{ ts.own(film.tmdb and not guest(request)) }}
-          {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
-          {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you, "Your episodes average" if film.season_page) }}
-          {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
-        </div>
-        {% endif %}
         {% endif %}
         {# JY-317 (Plan 2 phase 2.5): a show / season page off the TV takes the film's maker chips too (Creator, Director) #}
         {% set filmchips = film.kind in ("movie", "tv") and not tvm and not film.episode %}{% if filmchips %}{% call wait("makers", film.pending) %}{% include "_film_makers.html" %}{% endcall %}
@@ -245,9 +233,12 @@
 </script>
 {% endif %}
 {% endif %}
-{# JY-316 r3 (B. 2026-11-06, replacing JY-317's 300 px side column): a show / season page off the TV spans the page - the
-   Episodes row, the part-of banner, cast, crew, where to watch, then Details and the owner's File drawer; the scores
-   sit in the hero's strip. #}
+{# JY-317 (B. 2026-11-06: "Remember the rating column sitting on the right hand side as a smaller side bar."): a show /
+   season page off the TV has the film's two-column body from 1024 px - the main column (cast, crew, where to watch)
+   and a narrow right-hand column (Scores, Details, the owner's File drawer), stacked under the main column on a phone.
+   JY-316 r4 (B. 2026-11-06, "Just higher and smaller to allow the episodes to sit underneath"): the Episodes row and
+   the part-of banner (`belowcols`) come after that block, full width; elsewhere they draw here as before. #}
+{% set belowcols %}
 {% if not tv_mode(request) and film.tv and film.tv.seasons and film.seasons and not film.episode %}
 {% set shown = film.tv.seasons|selectattr("title", "equalto", film.tv.eps.label if film.tv.eps else none)|first %}
 {% set ws = (film.seasons|selectattr("n", "equalto", shown.n)|first) if shown else none %}
@@ -323,6 +314,8 @@
   </div>
 </section>
 {% endif %}
+{% endset %}
+{% if not tvweb %}{{ belowcols }}{% endif %}
 {# film-quality (2026-10-07): MediaHub-style body — the numbers as ONE card, then uppercase section labels:
    OVERVIEW, FILE (badges, Size · Bitrate · Picture · Added, Audio / Subtitles / Release, the file name), CREW,
    DETAILS (dates, watches, request), CAST (portrait photo cards in a row that scrolls inside itself). #}
@@ -336,9 +329,6 @@
 {% set f = film.facts %}
 {% set langs_row = f.languages if not fp else none %}
 {% set sites_row = sites and not any_score and not filmweb and not tvweb %}
-{# JY-316 r3: a show / season page's Details carries Runtime, Rated and RT / Metacritic as links (the hero strip has only
-   IMDb, TMDB and Yours) #}
-{% set tvlinks = tvweb and (n.rt or n.mc or "scores" in film.pending) %}
 {% set offseasons %}{% if film.seasons %}
 {% elif film.kind == "tv" and film.t and film.t.seasons %}
 <section class="sec seasons">
@@ -359,7 +349,7 @@
 {% endif %}
 {% endset %}
 {% set detailsec %}
-{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending or (tvweb and (n.runtime or film.official)) or tvlinks %}
+{% if f.seasons or langs_row or f.releases or (f.added and not fp) or film.watch_count or film.requested_when or sites_row or "dates" in film.pending %}
 <section class="sec">
   <h2 class="seclabel">Details</h2>
   <dl class="kvrows details">
@@ -369,9 +359,6 @@
     {% if film.watch_count %}<div class="kv"><dt>Watched</dt><dd>{{ film.watch_count }} time{{ "s" if film.watch_count != 1 }}{% if film.diary %} · {{ film.diary | join(" · ") }}{% endif %}</dd></div>{% endif %}
     {% if film.requested_when %}<div class="kv"><dt>Requested</dt><dd>{{ film.requested_when }}{% if film.requested_by %} · {{ film.requested_by }}{% endif %}</dd></div>{% endif %}
     {% if sites_row %}<div class="kv"><dt>Links</dt><dd class="sitepills">{{ sitepills() }}</dd></div>{% endif %}
-    {% if tvweb and n.runtime %}<div class="kv"><dt>Runtime</dt><dd>{{ n.runtime }}{% if n.ends %} · ends {{ n.ends }} if you start now{% endif %}</dd></div>{% endif %}
-    {% if tvweb and film.official %}<div class="kv"><dt>Rated</dt><dd>{{ film.official }}</dd></div>{% endif %}
-    {% if tvlinks %}<div class="kv"><dt>Links</dt><dd class="sitepills">{% with slot = "links" %}{% call wait("scores", film.pending, "links") %}{% include "_film_scores.html" %}{% endcall %}{% endwith %}</dd></div>{% endif %}
   </dl>
 </section>
 {% endif %}
@@ -402,25 +389,33 @@
 </aside>
 </div>
 {% endif %}
-{% if tvweb %}
+{% if tvweb %}<div class="filmcols tlcols"><div class="filmcol-main">
 {{ offseasons }}
 {% call wait("cast", film.pending) %}{% include "_film_cast.html" %}{% endcall %}
 {% call wait("crew", film.pending) %}{% include "_film_crew.html" %}{% endcall %}
 {% call wait("providers", film.pending) %}{% include "_film_providers.html" %}{% endcall %}
-{{ detailsec }}{% if fp %}{{ tf.drawer(fp) }}{% endif %}
+</div>
+<aside class="filmcol-side" aria-label="Scores and details">
 {% endif %}
-{% if (any_score or n.runtime or film.official) and not tv_mode(request) and not filmweb and not tvweb %}
+{% if (any_score or (tvweb and sites) or n.runtime or film.official) and not tv_mode(request) and not filmweb %}
 <div class="stats numbers">
-  {% if any_score %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
+  {% if any_score or (tvweb and sites) %}<div class="stat wide scorestat"><div class="microlabel">Scores</div><div class="scorepills">
     {% call wait("scores", film.pending) %}{% include "_film_scores.html" %}{% endcall %}
-    {% if n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
+    {% if tvweb %}{{ ts.own(sites) }}{% elif n.tmdb %}{{ sp("tmdb", "TMDB", n.tmdb) }}{% endif %}
     {% if film.rating and film.score %}{{ rate.rated_pill(film.rating, film.score, film.logos.you) }}
     {% elif film.rating and film.avg_score %}{{ rate.avg_pill(film.avg_score, film.logos.you, "Your episodes average" if film.season_page) }}
     {% elif film.rating %}<a class="scorepill sp-you" href="#rate"><img class="sp-logo" src="{{ film.logos.you }}" alt="" width="16" height="16"><span class="sp-name">Yours</span><b class="sp-val">Rate</b></a>{% endif %}
-  </div>{% if sites %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
+    {# JY-316 d: a season page adds the IMDb mean of this season's episodes (already loaded, shown on the TV chips) #}
+    {% if tvweb and film.season_page and film.rating and film.rating.level == "season" and ratings %}{% set isn = ratings.seasons|selectattr("n", "equalto", ratings.current)|first %}{% if isn and isn.avg is not none %}{{ ts.score("imdb", "IMDb season", ("%.1f"|format(isn.avg)) ~ " avg") }}{% endif %}{% endif %}
+  </div>{% if sites and not tvweb %}<div class="scorepills sitepills">{{ sitepills() }}</div>{% endif %}</div>{% endif %}
   {% if n.runtime %}<div class="stat"><div class="microlabel">Runtime</div><div class="stat-word">{{ n.runtime }}</div>{% if n.ends %}<div class="metaline">ends {{ n.ends }} if you start now</div>{% endif %}</div>{% endif %}
   {% if film.official %}<div class="stat"><div class="microlabel">Rated</div><div class="stat-word">{{ film.official }}</div></div>{% endif %}
 </div>
+{% endif %}
+{% if tvweb %}{{ detailsec }}{% if fp %}{{ tf.drawer(fp) }}{% endif %}
+</aside>
+</div>
+{{ belowcols }}
 {% endif %}
 {# JY-269 P1 (2026-10-30): the web's "Your rating" picker moved into the hero's Rate popover (id="rate"); the TV never drew it #}
 {# Awards (AWARDS_PLAN A5, 2026-10-08; awards-ui item 5, 2026-10-09): one group per ceremony (its mark + "Won 3 of 7

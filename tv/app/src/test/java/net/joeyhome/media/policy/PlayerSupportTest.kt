@@ -192,7 +192,7 @@ class PlayerSupportTest {
         assertEquals("Direct play", PlayerText.method("direct"))
         assertEquals("Remux", PlayerText.method("remux"))
         assertEquals("Transcode", PlayerText.method("transcode"))
-        assertEquals("Resumed from 23:41 · 20m left", PlayerText.resumed(1_421_000, 2_640_000))
+        assertEquals("Resumed from 23:41 · 21m left", PlayerText.resumed(1_421_000, 2_640_000))
         assertEquals("First frame 2.3 s after Play", PlayerText.firstFrame(2_340))
         assertEquals("Next episode in 5 s", PlayerText.countdown(5))
     }

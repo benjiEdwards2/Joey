@@ -25,6 +25,9 @@ Plan 2 phase 2.5 (JY-287): web and phone show pages should match the film page: 
 6. TV (html.tv) unchanged: no TV template or tv.css change, `tests/hub/tv_css.py` pins green.
 7. `tests/hub` and the full tree pass.
 
+## Tests
+New `tests/hub/test_show_page_jy317.py`. Changed 2026-11-06 (the old look was the one B. asked to replace, so each pin now asserts the new one): `test_media_film.py` (show creator cards -> chips, the circle-cast CSS pin -> 2:3 tile pin, the cast-tiles template pin), `test_media_tv_crew.py` (show "Directed by" cards -> Director chips), `test_film_page_e4.py` (show hero order: chips under the facts line), `test_guest_follow_scope.py` and `test_media_follow_shows.py` (the Created by row is found by its chips; Follow buttons unchanged).
+
 ## Data
 None new: `film.makers`, `film.directors`, `film.cast`, `film.numbers`, `film.file`.
 

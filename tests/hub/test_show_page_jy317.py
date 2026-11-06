@@ -99,7 +99,7 @@ def test_css_column_is_300px_from_1024_and_web_only():
 def test_cast_tiles_are_2_3_two_line_names_and_3_5_across_a_phone():
     """JY-283 / JY-317: the TV's JY-323 tile scaled for the web; no circle rule left on any web cast selector."""
     assert "html:not(.tv) .castsec.casttiles .castcard { flex: 0 0 calc((100% - 48px) / 3.5);" in CSS
-    assert "@media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 120px; } }" in CSS
+    assert "@media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 88px; } }" in CSS
     assert re.search(r"\.castsec\.casttiles \.castname \{[^}]*-webkit-line-clamp: 2;", CSS)
     assert re.search(r"\.castsec\.casttiles \.castrole \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;", CSS)
     web_cast = re.findall(r"html:not\(\.tv\) \.castsec[^{]*\{[^}]*\}", CSS)

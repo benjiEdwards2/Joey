@@ -68,7 +68,7 @@ B.: "We agreed that the seasons would be along the row of pills. And shows would
 
 Change (web and phone; the TV is not touched):
 - R2a. The Episodes row's season chips (`.tl-chips`) are the one season selector on show and season pages, the episodes directly under them; "n of m watched · next S2 E5" and Mark season watched stay beside the chips. The season page's second seasons row (the hero's S1 / S2 switch, `ef.seasonswitch`, `.seasonseg`) is removed. The part-of banner's "All seasons" button stays: it is the season page's only link to the show page (no chip leads there). The episode page's carousel head (JY-315, "Season N" + S1 / S2) is not a show / season page and stays.
-- R2b. Cast on film, show and season pages: 2:3 portrait tiles (`.casttiles`), 4 px corners, names on up to two lines, the role on one line; about 3.5 across a 390 phone (the row scrolls sideways), 150 px from 640 (about 8 across the 1440 page).
+- R2b. Cast on film, show and season pages: 2:3 portrait tiles (`.casttiles`), 4 px corners, names on up to two lines, the role on one line; about 3.5 across a 390 phone (the row scrolls sideways), 88 px from 640 (about 8 across the 784 px main column at 1440, beside the scores column; 104 / 120 px on the JY-308 wide monitors).
 - R2c. Scores as a right-hand column: JY-317.
 
 ### Round 2 acceptance criteria

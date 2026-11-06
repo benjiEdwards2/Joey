@@ -279,3 +279,24 @@ out.after = now();
 out.left = document.querySelector('[data-more-first]') ? 'kept' : 'gone';
 """)
     assert out["on"] == "more" and out["after"] == "g9" and out["left"] == "gone"
+
+
+def test_the_provider_and_genre_lists_are_read_side_by_side(paged, monkeypatch):
+    """Review fix (PR #333): a hung Seerr costs one 3 s wait before the pages, not three. The two provider lists and the
+    genre list must all be in flight together: each read waits at a 3-party barrier, which breaks (2 s) if they are
+    issued one after another."""
+    import threading
+    barrier, broken = threading.Barrier(3, timeout=2), []
+    real = paged.paged.get
+
+    def get(url, headers=None, timeout=None, **kw):
+        if "/api/v1/watchproviders/" in url or "/api/v1/genres/" in url:
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                broken.append(url)
+        return real(url, headers=headers, timeout=timeout, **kw)
+    monkeypatch.setattr(md.requests, "get", get)
+    r = paged.get("/media/discover/all?kind=movie&sort=popular")
+    assert r.status_code == 200 and broken == []
+    assert sum(1 for g in paged.paged.gets if g.startswith(("/api/v1/watchproviders/", "/api/v1/genres/"))) == 3

@@ -481,13 +481,18 @@ def norm_provider(name) -> str:
     return "".join(c for c in str(name or "").lower().replace("+", "plus") if c.isalnum())
 
 
+def _provider_list(kind: str):
+    """One AU provider list ("movies" | "tv"): a 24 h restart-proof meta read; E1: 3 s, then the last list kept on disk."""
+    return meta_get(f"/api/v1/watchproviders/{kind}?watchRegion={WATCH_REGION}", ttl=PROVIDER_TTL,
+                    timeout=SHELF_TIMEOUT, stale_on_fail=True)
+
+
 def providers() -> list[dict] | None:
     """The AU watch providers, films' list then TV's, de-duplicated by id: [{id, name, logo}] (logo a tmdb: ref or
     None). None when neither list can be read. Each list is a 24 h restart-proof meta read."""
     out, seen, any_ok = [], set(), False
     for kind in ("movies", "tv"):
-        body = meta_get(f"/api/v1/watchproviders/{kind}?watchRegion={WATCH_REGION}", ttl=PROVIDER_TTL,
-                        timeout=SHELF_TIMEOUT, stale_on_fail=True)   # E1: 3 s, then the last list kept on disk
+        body = _provider_list(kind)
         if not isinstance(body, list):
             continue
         any_ok = True
@@ -757,10 +762,15 @@ def _see_ctx(request: Request, f: dict, first: int, last: int, on_media: bool) -
            "title": see_title(f), "years": list(range(date.today().year + 2, 1949, -1))}
     if not _creds():
         return ctx
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        svc = pool.submit(services)
+    # review fix: the two provider lists and the genre list are read side by side (a hung Seerr costs one 3 s wait
+    # before the pages, not three); services() then finds both lists cached (or their failure remembered, E1)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        lists = [pool.submit(_provider_list, k) for k in ("movies", "tv")]
         gl = pool.submit(genres, f["kind"]) if f["kind"] else None
-        ctx["services"], ctx["genres"] = svc.result(), gl.result() if gl else None
+        for x in lists:
+            x.result()
+        ctx["genres"] = gl.result() if gl else None
+    ctx["services"] = services()
     if f["genre"] and ctx["genres"] is not None and f["genre"] not in {g["id"] for g in ctx["genres"]}:
         f["genre"] = None
     pages = list(range(first, last + 1))

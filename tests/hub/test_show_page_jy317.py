@@ -35,34 +35,63 @@ def with_files(monkeypatch):
         monkeypatch.setitem(e, "MediaSources", [{**SOURCES[0], "Path": f"/tv/Quiet.Show.S04E0{e['IndexNumber']}.mkv"}])
 
 
-def cols(b):
-    """(main column, right-hand column) of the show / season body."""
-    rest = b.split('<div class="filmcols tlcols"><div class="filmcol-main">', 1)[1]
-    main, side = rest.split('<aside class="filmcol-side" aria-label="Scores and details">', 1)
-    return main, side.split("</aside>", 1)[0]
+def hero_and_body(b):
+    """(hero, body) of a show / season page. JY-316 r3 replaced JY-317's right-hand column: no columns at all."""
+    hero, body = b.split("</header>", 1)
+    return hero, body
+
+
+def strip_of(hero):
+    """The hero's compact scores strip (JY-316 r3)."""
+    return hero.split('<div class="scorepills hero-scores" aria-label="Scores">', 1)[1].split("\n        </div>", 1)[0]
 
 
 @pytest.mark.parametrize("path", ["/media/item/ser1", "/media/item/sea1", "/media/title/tv/100"])
-def test_scores_details_and_file_sit_in_the_right_hand_column(env, season, monkeypatch, path):
+def test_round3_scores_in_the_hero_body_spans_details_and_file_under_the_cast(env, season, monkeypatch, path):
     with_files(monkeypatch)
     with_cast(monkeypatch)
     client, _ = env()
     with client:
         b = main_of(whole(client, path))
-    main, side = cols(b)
-    assert '<div class="microlabel">Scores</div>' in side and '<div class="microlabel">Scores</div>' not in main
-    assert 'class="sec filedrawer"' in side and b.count('class="sec filedrawer"') == 1
-    assert ">Episodes</h2>" in main and 'class="sec castsec casttiles"' in main and "castsec" not in side
-    assert b.count('<h2 class="seclabel">Cast</h2>') == 1 and b.count('<div class="stats numbers">') == 1
+    hero, body = hero_and_body(b)
+    assert "filmcol-side" not in b and "tlcols" not in b and "filmcols" not in b and "<aside" not in body
+    assert b.count("hero-scores") == 1 and '<div class="stats numbers">' not in b and ">Scores<" not in b
+    assert body.index(">Episodes</h2>") < body.index('class="sec castsec casttiles"') < body.index(">Details</h2>")
+    assert body.index(">Details</h2>") < body.index('class="sec filedrawer"') and b.count('class="sec filedrawer"') == 1
+    assert b.count('<h2 class="seclabel">Cast</h2>') == 1
 
 
-def test_season_page_keeps_rate_and_the_banner_in_the_columns(env, season):
+@pytest.mark.parametrize("path", ["/media/item/ser1", "/media/item/sea1", "/media/title/tv/100"])
+def test_round3_hero_strip_is_at_most_imdb_tmdb_yours_in_that_order(env, season, monkeypatch, path):
+    monkeypatch.setattr(media_film, "parse_ratings", lambda *a, **k: {"imdb": "8.1", "rt": "93%"})
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, path))
+    strip = strip_of(hero_and_body(b)[0])
+    pills = re.findall(r'class="scorepill(?: scorelink)? sp-(\w+)', strip)
+    assert 1 <= len(pills) <= 3 and set(pills) <= {"imdb", "tmdb", "you"}
+    assert pills == [p for p in ("imdb", "tmdb", "you") if p in pills]          # IMDb, TMDB, Yours - in that order
+    assert "sp-rt" not in strip and "sp-mc" not in strip and "sp-lbxd" not in strip and "sitepill" not in strip
+
+
+def test_round3_rt_moves_to_the_details_links_row(env, monkeypatch):
+    monkeypatch.setattr(media_film, "parse_ratings", lambda *a, **k: {"imdb": "8.1", "rt": "93%"})
+    client, _ = env()
+    with client:
+        b = main_of(whole(client, "/media/title/tv/100"))
+    hero, body = hero_and_body(b)
+    assert "sp-imdb" in strip_of(hero) and "sp-rt" not in hero
+    links = body.split("<dt>Links</dt>", 1)[1].split("</dd>", 1)[0]
+    assert 'class="scorepill scorelink sp-rt"' in links and "93%" in links and "sp-imdb" not in links
+
+
+def test_season_page_keeps_rate_in_the_strip_and_the_banner_in_the_body(env, season):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/item/sea1"))
-    main, side = cols(b)
-    assert 'class="scorepill sp-you"' in side                         # Rate / Yours stays in the Scores card
-    assert 'class="sec partof-sec"' in main and "All seasons</a>" in main
+    hero, body = hero_and_body(b)
+    assert 'class="scorepill sp-you"' in strip_of(hero)              # Rate / Yours is the strip's last pill
+    assert 'class="sec partof-sec"' in body and "All seasons</a>" in body
 
 
 def test_show_hero_takes_the_film_chips_not_circle_cards(env):
@@ -81,19 +110,35 @@ def test_owner_file_drawer_not_for_her_view(env, monkeypatch):
     with client:
         b = main_of(whole(client, "/media/title/tv/100?owner_view=her"))
     assert "filedrawer" not in b and "Quiet.Show.S04E01" not in b
-    assert '<div class="microlabel">Scores</div>' in cols(b)[1]
+    assert "hero-scores" in hero_and_body(b)[0]
 
 
 def test_tv_show_page_has_no_columns_chips_or_web_tiles(tvc):
     from tests.hub.test_tv_series_episodes import S1
     html = tv_whole(tvc, f"/media/item/{S1}")
     assert "tlcols" not in html and "filmcol-side" not in html and "makerchip" not in html and "casttiles" not in html
+    assert "hero-scores" not in html                                  # JY-316 r3: the strip is web-only
 
 
-def test_css_column_is_300px_from_1024_and_web_only():
-    assert "@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 300px; } }" in CSS
-    assert "html:not(.tv) .tlcols .tl-epshd { flex-wrap: wrap; }" in CSS
-    assert not re.search(r"(^|\n)\s*html\.tv[^{]*tlcols", CSS)
+def test_round3_css_strip_is_smaller_web_only_and_the_300px_column_is_gone():
+    assert "tlcols" not in CSS
+    assert "html:not(.tv) .hero-scores .scorepill { height: 26px;" in CSS              # .scorepill is 30 px
+    assert "html:not(.tv) .hero-scores .sp-logo { width: 14px; height: 14px; }" in CSS
+    assert "html:not(.tv) .hero-scores { gap: 6px; margin-top: 2px; justify-content: center; }" in CSS   # phone: centred
+    assert "@media (min-width: 640px) { html:not(.tv) .hero-scores { justify-content: flex-start; } }" in CSS
+    assert not re.search(r"(^|\n)\s*html\.tv[^{]*hero-scores", CSS)
+    assert "html:not(.tv) .details .kv:has(> dd.sitepills):not(:has(.scorepill)) { display: none; }" in CSS   # empty Links row
+
+
+def test_round3_episode_page_has_no_aside_and_film_page_keeps_its_column(env):
+    """JY-316 r3 Q1: the film keeps its JY-280 side column; an episode page has none (its score line is JY-315's)."""
+    client, _ = env()
+    with client:
+        ep = main_of(whole(client, "/media/item/ep3"))
+        mov = main_of(whole(client, "/media/title/movie/603"))
+    assert "<aside" not in ep and "filmcol" not in ep and "hero-scores" not in ep
+    assert '<div class="filmcols">' in mov and '<aside class="filmcol-side" aria-label="Scores and details">' in mov
+    assert "hero-scores" not in mov
 
 
 def test_cast_tiles_are_2_3_two_line_names_and_3_5_across_a_phone():

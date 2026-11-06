@@ -1825,11 +1825,16 @@ html:not(.tv) .filmcols { display: grid; gap: 20px; min-width: 0; }
 html:not(.tv) .filmcol-main, html:not(.tv) .filmcol-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 @media (min-width: 1024px) { html:not(.tv) .filmcols { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; } }
 html:not(.tv) .filmcol-side .stats { display: flex; flex-wrap: wrap; column-gap: 32px; }
-/* JY-317 (B. 2026-11-06, "the rating column sitting on the right hand side as a smaller side bar"): a show / season page
-   takes the same columns with a narrower 300 px right-hand column (Scores, Details, File) beside the Episodes row and
-   the cast; the Episodes head wraps in the narrower main column. Stacked below 1024 px. */
-@media (min-width: 1024px) { html:not(.tv) .filmcols.tlcols { grid-template-columns: minmax(0, 1fr) 300px; } }
-html:not(.tv) .tlcols .tl-epshd { flex-wrap: wrap; }
+/* JY-316 r3 (B. 2026-11-06, "placing the ratings higher up in towards the header ... slightly smaller"): a show / season
+   page's scores (IMDb, TMDB, Yours) as a compact strip in the hero under the facts line - the .scorepill about 15 %
+   smaller (26 px, 14 px logo); centred on a phone like the hero text, left from 640 px. Its body spans the page. */
+html:not(.tv) .hero-scores { gap: 6px; margin-top: 2px; justify-content: center; }
+html:not(.tv) .hero-scores .scorepill { height: 26px; gap: 5px; padding: 0 9px 0 5px; font-size: 12px; }
+html:not(.tv) .hero-scores .sp-logo { width: 14px; height: 14px; }
+html:not(.tv) .hero-scores .sp-val { font-size: 13px; }
+@media (min-width: 640px) { html:not(.tv) .hero-scores { justify-content: flex-start; } }
+/* JY-316 r3: RT / Metacritic sit in Details' Links row; while that part loads, or when the title has neither, the row hides */
+html:not(.tv) .details .kv:has(> dd.sitepills):not(:has(.scorepill)) { display: none; }
 /* JY-308: on wide monitors row cards grow a little (never smaller than at 1440) so rows fill the wider column. */
 @media (min-width: 1920px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 104px; } }
 @media (min-width: 3000px) { html:not(.tv) .castsec .castcard, html:not(.tv) .castsec.casttiles .castcard { flex-basis: 120px; } }

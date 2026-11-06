@@ -174,23 +174,28 @@ def test_site_pills_sit_in_the_scores_strip_not_the_hero(env):
     client, _ = env()
     with client:
         b = main_of(whole(client, "/media/title/tv/100"))
-    assert "sitepill" not in b
-    strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]
+    assert "scorepill sitepill" not in b
+    # JY-316 r3: a show's scores are the hero's compact strip (IMDb, TMDB, Yours), no Scores card
+    strip = b.split("</header>", 1)[0].split('<div class="scorepills hero-scores" aria-label="Scores">', 1)[1]
     assert "sp-you" in strip and '<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/100"' in strip
+    assert '<div class="stats numbers">' not in b
 
 
 def test_site_pills_fall_back_to_a_details_row_without_a_scores_strip():
     from hub.shell import templates
-    # JY-281 (2026-11-03): a show without scores still draws the TMDB logo link in a Scores card, as a film does
+    # JY-281 (2026-11-03): a show without scores still draws the TMDB logo link, as a film does - since JY-316 r3 in
+    # the hero's strip, with no Scores card and no Links row in the body
     film = {"title": "Bare", "year": 2001, "kind": "tv", "tmdb": 9, "pending": set(), "numbers": {}, "facts": {},
             "logos": {"imdb": "/i.svg", "tmdb": "/t.svg", "lbxd": "/l.svg"}, "rating": None, "watch_count": 0}
     src = templates.env.get_template("media_film.html")
-    block = src.blocks["content"]
     ctx = src.new_context({"film": film, "request": SimpleNamespace(url=SimpleNamespace(path="/media/title/movie/9")),
                            "img_letters": lambda s: s, "status_of": lambda w: {"cls": ""}})
-    html = "".join(block(ctx))
-    assert '<div class="stats numbers">' in html and "<dt>Links</dt>" not in html
-    assert '<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/9"' in html
+    html = "".join(src.blocks["content"](ctx))
+    assert '<div class="stats numbers">' not in html and "<dt>Links</dt>" not in html
+    req = SimpleNamespace(url=SimpleNamespace(path="/media/title/tv/9"), state=SimpleNamespace(), cookies={}, headers={}, query_params={})
+    head = "".join(src.blocks["pagehead"](src.new_context({**ctx.get_all(), "request": req})))
+    strip = head.split('<div class="scorepills hero-scores" aria-label="Scores">', 1)[1]
+    assert '<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/9"' in strip
 
 
 # ---- U5: no sub-tab row on item / title pages ----

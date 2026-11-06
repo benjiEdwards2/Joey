@@ -1410,7 +1410,8 @@ def build_parts(names, kind: str | None = None, tmdb_id: int | None = None, jf_i
     f: dict = {"kind": kind, "tmdb": tmdb_id, "pending": set(), "numbers": {}, "facts": {}, "logos": logos(),
                "cast_h": CAST_H, "maker_h": MAKER_H, "req_state": "idle", "req_msg": None, "req_future": None,
                "makers": [], "crew": [], "cast": [], "providers": [], "shelves": [], "collection": None,
-               "show_request": False, "late_trailer": None, "t": None, "play": None, "follow_flash": None, "back": back}
+               "show_request": False, "late_trailer": None, "t": None, "play": None, "follow_flash": None, "back": back,
+               "episode_page": ep is not None}   # JY-316 r3: the scores part tells a show / season page from an episode's
     if not (kind and tmdb_id):
         return f
     ex = settle(extras_for(kind, tmdb_id, (item or {}).get("imdb"), wait=True))

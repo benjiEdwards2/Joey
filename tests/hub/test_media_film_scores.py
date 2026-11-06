@@ -325,8 +325,8 @@ def test_site_links_are_neutral_logo_pills(env):
     client, _ = env()
     with client:
         b = main_of(client.get("/media/title/tv/100").text)
-    strip = b.split('<div class="stats numbers">', 1)[1].split('<div class="filmbody">', 1)[0]
-    assert "sitepill" not in b and 'class="sp-name">IMDb' not in b and 'class="sp-name">TMDB' not in b
+    strip = b.split('class="scorepills hero-scores"', 1)[1].split("</header>", 1)[0]   # JY-316 r3: the hero's strip
+    assert "scorepill sitepill" not in b and 'class="sp-name">IMDb' not in b and 'class="sp-name">TMDB' not in b
     assert re.search(r'<a class="scorepill scorelink sp-tmdb" href="https://www.themoviedb.org/tv/100"[^>]*>'
                      r'<img class="sp-logo" src="/static/logos/tmdb.svg" alt="TMDB"', strip)
     assert "linkchip" not in b

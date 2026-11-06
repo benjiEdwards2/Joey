@@ -3,7 +3,19 @@
    pills are a deferred part since F2 (2026-10-12); waiting, they are one "Loading" pill. #}
 {% from "_film_macros.html" import sp with context %}
 {% set n = film.numbers %}
-{% if "scores" in film.pending %}<span class="scorepill sp-wait"><span class="sp-name">Loading</span></span>
+{# JY-316 r3: a show / season page off the TV draws this twice - IMDb alone in the hero's strip, and RT / Metacritic in
+   the Details "Links" row (slot "links"; the part request fills both) #}
+{% set tvweb = film.kind == "tv" and not film.episode and not film.episode_page and not tv_mode(request) %}
+{% if "scores" in film.pending %}{% if slot != "links" %}<span class="scorepill sp-wait"><span class="sp-name">Loading</span></span>{% endif %}
+{% elif tvweb and slot == "links" %}
+    {% from "_title_scores.html" import score with context %}
+    {% if n.rt %}{{ score("rt", "Rotten Tomatoes", n.rt) }}{% endif %}
+    {% if n.mc %}{{ score("mc", "Metacritic", n.mc, none, " sp-mc-" ~ n.mc_band) }}{% endif %}
+{% elif tvweb %}
+    {% from "_title_scores.html" import score with context %}
+    {% if n.imdb %}{{ score("imdb", "IMDb", n.imdb, ("https://www.imdb.com/title/" ~ film.imdb_id ~ "/") if film.tmdb and not guest(request) and film.imdb_id) }}
+    {# JY-316 d / r3 Q2: a season page without the show's IMDb score shows its episodes' IMDb mean instead #}
+    {% elif film.season_page and film.ratings %}{% set isn = film.ratings.seasons|selectattr("n", "equalto", film.ratings.current)|first %}{% if isn and isn.avg is not none %}{{ score("imdb", "IMDb season", ("%.1f"|format(isn.avg)) ~ " avg") }}{% endif %}{% endif %}
 {% elif film.kind in ("movie", "tv") and not film.episode and not tv_mode(request) %}{# JY-280 P2 / JY-281: logo + number, linked #}
     {% from "_title_scores.html" import upstream with context %}{{ upstream(film.tmdb and not guest(request)) }}
 {% else %}

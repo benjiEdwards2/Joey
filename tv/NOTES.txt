@@ -1,1 +1,1 @@
-Joey Media 1.0.4 - the player looks like the new Joey TV: a cleaner title, smaller corners, slimmer buttons and the up-next episode as a picture tile. Back still takes you to the page you came from, with your progress.
+Joey Media 1.0.5 - the player matches the new Joey TV pages: smaller, with the title, episode and time in one block at the bottom, round icon buttons that show their name when picked, where you resumed from, and the next episode's picture on the up-next card.

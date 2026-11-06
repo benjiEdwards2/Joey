@@ -1819,6 +1819,12 @@ html:not(.tv) .castsec.casttiles .castpic { width: 100%; height: auto; aspect-ra
    (about 8 across the 784 px main column at 1440, beside the scores column); the name on up to two lines, the role on one. */
 html:not(.tv) .castsec.casttiles .castname { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 html:not(.tv) .castsec.casttiles .castrole { display: block; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* JY-292: the person page's "you may like" tiles carry a reason line and the shared titles (two lines), so a little wider */
+html:not(.tv) .personlike.casttiles .castcard { flex-basis: calc((100% - 32px) / 2.5); }
+@media (min-width: 640px) { html:not(.tv) .personlike.casttiles .castcard { flex-basis: 128px; } }
+html:not(.tv) .personlike .likewhy { color: var(--text-3); }
+html:not(.tv) .personlike .liketitles { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2;
+  -webkit-box-orient: vertical; }
 @media (min-width: 640px) { html:not(.tv) .castsec.casttiles .castcard { flex-basis: 88px; } }
 @media (max-width: 1024px) {
   html:not(.tv) .pagehead.hero-detail:has(.tl-movie) { min-height: min(64vh, 720px); }

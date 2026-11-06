@@ -74,6 +74,8 @@
 <p class="empty">Nothing with {{ person.name }} is on Joey yet.</p>
 {% endif %}
 {% if not tvf %}
+{# JY-292: "If you like them you may like" - a deferred part, so the page itself makes no new upstream call #}
+<div class="personlike-wait" hidden hx-get="/media/person/{{ person.tmdb }}/like" hx-trigger="load" hx-target="this" hx-select="unset" hx-swap="outerHTML" hx-push-url="false"></div>
 {# JY-280: their writing credits (writer jobs only), where the film page's Writer chip lands #}
 {% if person.writing %}
 <section class="sec personwriting">

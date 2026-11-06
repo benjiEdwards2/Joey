@@ -1,0 +1,21 @@
+{# JY-292 (option C, B. 2026-11-06; first slice = source A "often cast together"): the person page's "If you like them
+   you may like" shelf, a deferred part (/media/person/{id}/like) so the page itself makes no new upstream call. Each
+   tile says why it is there. Web and phone: the 2:3 cast tiles (.casttiles); the owner on the TV: TV person tiles.
+   Friends on the TV never load it (JY-193). #}
+{% if tv_mode(request) %}
+{% import "_tv_tile.html" as tvt %}
+<section class="sec tv-cast personlike">
+  <h2 class="seclabel">If you like them you may like</h2>
+  <div class="carousel tvt-row tvt-row-person">{% for p in like %}{{ tvt.person({"name": p.name, "role": p.why, "ref": p.ref, "href": p.href}) }}{% endfor %}</div>
+</section>
+{% else %}
+<section class="sec castsec casttiles personlike">
+  <h2 class="seclabel">If you like them you may like</h2>
+  <div class="castrow">
+    {% for p in like %}
+    <a class="castcard" href="{{ p.href }}">{% if p.ref %}<img class="castpic" src="/img/{{ p.ref }}?h=270" alt="" loading="lazy" decoding="async" width="180" height="270">{% else %}<span class="castpic initials" aria-hidden="true">{% for w in p.name.split()[:2] %}{{ w[:1] }}{% endfor %}</span>{% endif %}
+      <span class="castname">{{ p.name }}</span><span class="castrole likewhy">{{ p.why }}</span><span class="castrole liketitles">{{ p.titles }}</span></a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
